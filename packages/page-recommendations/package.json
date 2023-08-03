@@ -22,8 +22,17 @@
     "@polkadot/react-hooks": "^0.132.2-38-x",
     "@polkadot/util": "^12.3.2",
     "@polkadot/vanitygen": "^0.55.3",
+    "@slonigiraf/helpers": "^4.0.0",
+    "@types/qrcode.react": "^1.0.2",
     "detect-browser": "^5.3.0",
-    "file-saver": "^2.0.5"
+    "dexie": "^3.2.2",
+    "dexie-export-import": "^1.0.3",
+    "dexie-react-hooks": "^1.1.1",
+    "file-saver": "^2.0.5",
+    "ipfs-core": "^0.14.2",
+    "ipfs-core-types": "^0.10.1",
+    "qrcode.react": "^2.0.0",
+    "react-qr-reader": "^3.0.0-beta-1"
   },
   "devDependencies": {
     "@polkadot/test-support": "0.132.2-38-x"

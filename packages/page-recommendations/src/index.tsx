@@ -1,9 +1,9 @@
-// Copyright 2017-2023 @polkadot/app-accounts authors & contributors
+// Copyright 2021-2022 @slonigiraf/app-recommendations authors & contributors
 // SPDX-License-Identifier: Apache-2.0
 
 import type { AppProps as Props } from '@polkadot/react-components/types';
 
-import React, { useRef } from 'react';
+import React, { useRef, useEffect, useState } from 'react';
 import { Route, Routes } from 'react-router';
 
 import { Tabs } from '@polkadot/react-components';
@@ -13,7 +13,10 @@ import Accounts from './Accounts/index.js';
 import Vanity from './Vanity/index.js';
 import { useTranslation } from './translate.js';
 import useCounter from './useCounter.js';
-
+import Referee from './Referee';
+import Worker from './Worker';
+import Employer from './Employer';
+import useIpfsFactory from './use-ipfs-factory.js'
 export { useCounter };
 
 const HIDDEN_ACC = ['vanity'];
@@ -22,16 +25,21 @@ function AccountsApp ({ basePath, onStatusChange }: Props): React.ReactElement<P
   const { t } = useTranslation();
   const { hasAccounts } = useAccounts();
   const { isIpfs } = useIpfs();
+  const { ipfs, ipfsInitError } = useIpfsFactory({ commands: ['id'] })
 
   const tabsRef = useRef([
     {
       isRoot: true,
-      name: 'overview',
-      text: t('My accounts')
+      name: 'referee',
+      text: t('Referee')
     },
     {
-      name: 'vanity',
-      text: t('Vanity generator')
+      name: 'worker',
+      text: t('Worker')
+    },
+    {
+      name: 'employer',
+      text: t('Employer')
     }
   ]);
 
@@ -44,15 +52,21 @@ function AccountsApp ({ basePath, onStatusChange }: Props): React.ReactElement<P
       />
       <Routes>
         <Route path={basePath}>
-          <Route
+        <Route
             element={
-              <Vanity onStatusChange={onStatusChange} />
+              <Employer onStatusChange={onStatusChange} ipfs={ipfs} />
             }
-            path='vanity'
+            path='employer'
           />
           <Route
             element={
-              <Accounts onStatusChange={onStatusChange} />
+              <Worker onStatusChange={onStatusChange} ipfs={ipfs} />
+            }
+            path='worker'
+          />
+          <Route
+            element={
+              <Referee onStatusChange={onStatusChange} ipfs={ipfs} />
             }
             index
           />
