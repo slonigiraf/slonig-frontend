@@ -63,6 +63,7 @@ i18next
       'app-js',
       'app-parachains',
       'app-poll',
+      'app-recommendations',
       'app-rpc',
       'app-settings',
       'app-signing',

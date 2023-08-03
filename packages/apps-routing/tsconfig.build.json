@@ -30,6 +30,7 @@
     { "path": "../page-poll/tsconfig.build.json" },
     { "path": "../page-preimages/tsconfig.build.json" },
     { "path": "../page-ranked/tsconfig.build.json" },
+    { "path": "../page-recommendations/tsconfig.build.json" },
     { "path": "../page-referenda/tsconfig.build.json" },
     { "path": "../page-rpc/tsconfig.build.json" },
     { "path": "../page-runtime/tsconfig.build.json" },
