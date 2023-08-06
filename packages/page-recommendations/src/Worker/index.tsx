@@ -65,7 +65,7 @@ function Worker({ className = '', ipfs }: Props): React.ReactElement<Props> {
 
   return (
     <div className={`toolbox--Worker ${className}`}>
-      <h1>{t<string>('My recommendation letters')}</h1>
+      <h1>{t<string>('My diplomas')}</h1>
       <div className='ui--row'>
         <InputAddress
           className='full'

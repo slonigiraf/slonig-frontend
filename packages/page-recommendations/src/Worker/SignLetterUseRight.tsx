@@ -172,10 +172,10 @@ function SignLetterUseRight({ className = '', text, letter }: Props): React.Reac
         <div className='ui--row'>
           <Output
             className='full'
-            help={t<string>('create a recommendation help text')}
+            help={t<string>('create a diploma help text')}
             isHidden={signature.length === 0}
             isMonospace
-            label={t<string>('create a recommendation')}
+            label={t<string>('create a diploma')}
             value={signature}
             withCopy
           />

@@ -181,7 +181,7 @@ function Referee({ className = '', ipfs }: Props): React.ReactElement<Props> {
 
   return (
     <div className={`toolbox--Sign ${className}`}>
-      <h1>{t<string>('Create a recommendation')}</h1>
+      <h1>{t<string>('Create a diploma')}</h1>
       <div className='ui--row'>
         <InputAddress
           className='full'
@@ -237,10 +237,10 @@ function Referee({ className = '', ipfs }: Props): React.ReactElement<Props> {
         <div className='ui--row'>
           <Output
             className='full'
-            help={t<string>('create a recommendation help text')}
+            help={t<string>('create a diploma help text')}
             isHidden={signature.length === 0}
             isMonospace
-            label={t<string>('create a recommendation')}
+            label={t<string>('create a diploma')}
             value={signature}
             withCopy
           />
