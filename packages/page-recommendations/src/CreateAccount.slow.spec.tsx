@@ -10,7 +10,7 @@ import React from 'react';
 import { MemoryRouter } from 'react-router-dom';
 import { ThemeProvider } from 'styled-components';
 
-import AccountsApp from '@polkadot/app-recommendations';
+import AccountsApp from '@slonigiraf/app-recommendations';
 import { ApiCtxRoot } from '@polkadot/react-api';
 import { lightTheme } from '@polkadot/react-components';
 import { MemoryStore } from '@polkadot/test-support/keyring';

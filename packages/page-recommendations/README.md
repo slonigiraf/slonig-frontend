@@ -1,1 +1,1 @@
-# @polkadot/app-recommendations
+# @slonigiraf/app-recommendations

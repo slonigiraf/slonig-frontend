@@ -54,7 +54,7 @@
       "@polkadot/app-preimages/Preimages/Hash": ["page-preimages/src/Preimages/Hash.tsx"],
       "@polkadot/app-ranked": ["page-ranked/src/index.tsx"],
       "@polkadot/app-ranked/*": ["page-ranked/src/*.tsx"],
-      "@polkadot/app-recommendations": ["page-recommendations/src/index.tsx"],
+      "@slonigiraf/app-recommendations": ["page-recommendations/src/index.tsx"],
       "@polkadot/app-referenda": ["page-referenda/src/index.tsx"],
       "@polkadot/app-referenda/Referenda": ["page-referenda/src/Referenda/index.tsx"],
       "@polkadot/app-referenda/useAccountLocks": ["page-referenda/src/useAccountLocks.ts"],

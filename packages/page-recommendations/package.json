@@ -5,7 +5,7 @@
   },
   "homepage": "https://github.com/slonigiraf/apps-slonigiraf/tree/master/packages/page-recommendations#readme",
   "license": "Apache-2.0",
-  "name": "@polkadot/app-recommendations",
+  "name": "@slonigiraf/app-recommendations",
   "private": true,
   "repository": {
     "directory": "packages/page-recommendations",
