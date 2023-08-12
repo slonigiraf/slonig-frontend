@@ -18,6 +18,7 @@ import Unlock from '@polkadot/app-signing/Unlock';
 import { IPFS } from 'ipfs-core';
 import { qrCodeSize } from '../constants';
 import { getLastUnusedLetterNumber, setLastUsedLetterNumber, storeLetter } from '../utils';
+import { statics } from '@polkadot/react-api/statics';
 
 interface Props {
   className?: string;
@@ -104,6 +105,7 @@ function Referee({ className = '', ipfs }: Props): React.ReactElement<Props> {
         return;
       }
       // generate a data to sign
+      const genesisU8 = statics.api.genesisHash;
       const textCID = await getIPFSContentID(ipfs, text);
       const textHash = textCID.toString();
       const referee = currentPair;
@@ -111,9 +113,8 @@ function Referee({ className = '', ipfs }: Props): React.ReactElement<Props> {
       const refereePublicKeyHex = u8aToHex(refereeU8);
       const letterId = await getLastUnusedLetterNumber(refereePublicKeyHex);
       const workerPublicKeyU8 = hexToU8a(workerPublicKeyHex);
-      const paraId = 1;
-      const privateData = getPrivateDataToSignByReferee(textHash, paraId, letterId, blockNumber, refereeU8, workerPublicKeyU8, amount);
-      const receipt = getPublicDataToSignByReferee(paraId, letterId, blockNumber, refereeU8, workerPublicKeyU8, amount);
+      const privateData = getPrivateDataToSignByReferee(textHash, genesisU8, letterId, blockNumber, refereeU8, workerPublicKeyU8, amount);
+      const receipt = getPublicDataToSignByReferee(genesisU8, letterId, blockNumber, refereeU8, workerPublicKeyU8, amount);
 
       let refereeSignOverPrivateData = "";
       let refereeSignOverReceipt = "";
@@ -140,7 +141,7 @@ function Referee({ className = '', ipfs }: Props): React.ReactElement<Props> {
       // create the result text
       let result = [];
       result.push(textHash);
-      result.push(paraId);
+      result.push(genesisU8.toHex());
       result.push(letterId);
       result.push(blockNumber);
       result.push(refereePublicKeyHex);
@@ -152,7 +153,7 @@ function Referee({ className = '', ipfs }: Props): React.ReactElement<Props> {
       const letter = {
         created: new Date(),
         cid: textHash,
-        paraId: paraId,
+        genesis: genesisU8.toHex(),
         letterNumber: letterId,
         block: blockNumber.toString(),
         referee: refereePublicKeyHex,

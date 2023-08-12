@@ -37,7 +37,7 @@ function Employer({ className = '', ipfs }: Props): React.ReactElement<Props> {
 
   const storeToDB = async (data: string[]) => {
     const [textHash,
-      paraId,
+      genesisHex,
       letterId,
       blockNumber,
       refereePublicKeyHex,
@@ -51,7 +51,7 @@ function Employer({ className = '', ipfs }: Props): React.ReactElement<Props> {
     const insurance = {
       created: new Date(),
       cid: textHash,
-      paraId: parseInt(paraId, 10),
+      genesis: genesisHex,
       letterNumber: parseInt(letterId, 10),
       block: blockNumber,
       referee: refereePublicKeyHex,

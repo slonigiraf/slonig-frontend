@@ -97,7 +97,7 @@ function SignLetterUseRight({ className = '', text, letter }: Props): React.Reac
         return;
       }
       // generate a data to sign      
-      const letterInsurance = getDataToSignByWorker(letter.paraId, letter.letterNumber, new BN(letter.block), hexToU8a(letter.referee),
+      const letterInsurance = getDataToSignByWorker(letter.letterNumber, new BN(letter.block), hexToU8a(letter.referee),
       hexToU8a(letter.worker), new BN(letter.amount), hexToU8a(letter.signOverReceipt), hexToU8a(employerPublicKeyHex));
       let workerSignOverInsurance = "";
       // sign
@@ -115,7 +115,7 @@ function SignLetterUseRight({ className = '', text, letter }: Props): React.Reac
       // create the result text
       let result = [];
       result.push(letter.cid);
-      result.push(letter.paraId);
+      result.push(letter.genesis);
       result.push(letter.letterNumber);
       result.push(letter.block);
       result.push(letter.referee);

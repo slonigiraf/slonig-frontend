@@ -49,8 +49,7 @@ function UseInsurance({ className = '', text, insurance }: Props): React.ReactEl
     onSuccess={_onSuccess}
     onFailed={_onFailed}
     params={
-      [insurance.paraId,
-      insurance.letterNumber,
+      [insurance.letterNumber,
       new BN(insurance.block),
       insurance.referee,
       insurance.worker,

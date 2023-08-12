@@ -2,7 +2,7 @@ export interface Letter {
   id?: number;
   created: Date;
   cid: string;
-  paraId: number;
+  genesis: string;
   letterNumber: number;
   block: string;
   referee: string;
