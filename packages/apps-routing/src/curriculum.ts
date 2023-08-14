@@ -3,7 +3,7 @@
 
 import type { Route, TFunction } from './types.js';
 
-import Component from '@slonigiraf/app-recommendations';
+import Component from '@slonigiraf/app-laws';
 
 export default function create (t: TFunction): Route {
   return {

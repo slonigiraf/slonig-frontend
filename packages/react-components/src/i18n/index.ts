@@ -60,6 +60,7 @@ i18next
       'app-explorer',
       'app-extrinsics',
       'app-generic-asset',
+      'app-laws',
       'app-js',
       'app-parachains',
       'app-poll',
