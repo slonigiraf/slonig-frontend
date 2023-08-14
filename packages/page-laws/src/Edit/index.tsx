@@ -9,15 +9,16 @@ import type { Signer } from '@polkadot/api/types';
 import type { KeyringPair } from '@polkadot/keyring/types';
 import React, { useCallback, useEffect, useState } from 'react';
 import { web3FromSource } from '@polkadot/extension-dapp';
-import { Button, Input, InputAddress, InputBalance, Output, Modal } from '@polkadot/react-components';
+import { Button, Input, InputAddress, InputBalance, Output, Modal, TxButton } from '@polkadot/react-components';
 import { useToggle } from '@polkadot/react-hooks';
 import { keyring } from '@polkadot/ui-keyring';
 import { isFunction, u8aToHex, hexToU8a, u8aWrapBytes } from '@polkadot/util';
 import { useTranslation } from '../translate.js';
 import Unlock from '@polkadot/app-signing/Unlock';
 import { IPFS } from 'ipfs-core';
-import { qrCodeSize } from '../constants';
+import { qrCodeSize } from '../constants.js';
 import { statics } from '@polkadot/react-api/statics';
+import { useApi } from '@polkadot/react-hooks';
 
 interface Props {
   className?: string;
@@ -49,6 +50,7 @@ function Referee({ className = '', ipfs }: Props): React.ReactElement<Props> {
   const [workerPublicKeyHex, setWorkerPublicKeyHex] = useState<string>("");
   const [letterInfo, setLetterInfo] = useState('')
   const [modalIsOpen, setModalIsOpen] = useState(false)
+  const { api } = useApi();
 
   useEffect((): void => {
     const meta = (currentPair && currentPair.meta) || {};
@@ -179,15 +181,37 @@ function Referee({ className = '', ipfs }: Props): React.ReactElement<Props> {
     [toggleUnlock]
   );
 
+  const _onSuccess = (_result: any) => {
+    // TODO use
+  }
+  const _onFailed = (_result: any) => {
+  }
+
+  const txButton = isUsable && <TxButton
+    isDisabled={!(isUsable && !isLocked && ipfs != null)}
+    className='createButton'
+    accountId={currentPair.address}
+    icon='key'
+    label={t('Create')}
+    onSuccess={_onSuccess}
+    onFailed={_onFailed}
+    params={
+      [u8aToHex(currentPair.publicKey),
+      new BN(1000),
+      ]
+    }
+    tx={api.tx.laws.create}
+  />
+
   return (
     <div className={`toolbox--Sign ${className}`}>
-      <h1>{t<string>('Create a diploma')}</h1>
+      <h1>{t('Edit')}</h1>
       <div className='ui--row'>
         <InputAddress
           className='full'
-          help={t<string>('select the account you wish to sign data with')}
+          help={t('select the account you wish to sign data with')}
           isInput={false}
-          label={t<string>('account')}
+          label={t('account')}
           onChange={_onChangeAccount}
           type='account'
         />
@@ -196,41 +220,19 @@ function Referee({ className = '', ipfs }: Props): React.ReactElement<Props> {
         <Input
           autoFocus
           className='full'
-          help={t<string>('Recommendation letter text help info TODO')}
-          label={t<string>('recommendation letter text')}
+          help={t('Text')}
+          label={t('text')}
           onChange={_onChangeData}
           value={text}
         />
       </div>
-
-      <div className='ui--row'>
-        <Input
-          autoFocus
-          className='full'
-          help={t<string>('About person help info TODO')}
-          label={t<string>('about person')}
-          onChange={_onChangeWorker}
-          value={workerPublicKeyHex}
-        />
-      </div>
-
       <div className='ui--row'>
         <InputBalance
           autoFocus
-          help={t<string>('Stake reputation help info')}
+          help={t('Spend tokens help info')}
           isZeroable
-          label={t<string>('stake reputation')}
+          label={t('spend tokens')}
           onChange={setAmount}
-        />
-      </div>
-      <div className='ui--row'>
-        <Input
-          autoFocus
-          className='full'
-          help={t<string>('Block number help info TODO')}
-          label={t<string>('block number')}
-          onChange={_onChangeBlockNumber}
-          value={blockNumber.toString()}
         />
       </div>
       <div className='toolbox--Sign-input'>
@@ -285,12 +287,7 @@ function Referee({ className = '', ipfs }: Props): React.ReactElement<Props> {
             pair={currentPair}
           />
         )}
-        <Button
-          icon='key'
-          isDisabled={!(isUsable && !isLocked && ipfs != null)}
-          label={t<string>('Sign the recommendation')}
-          onClick={_onSign}
-        />
+        {txButton}
         {ipfs == null ? <div>{t<string>('Connecting to IPFS...')}</div> : ""}
       </Button.Group>
       {modalIsOpen &&

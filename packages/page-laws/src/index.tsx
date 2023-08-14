@@ -11,7 +11,8 @@ import { useAccounts, useIpfs } from '@polkadot/react-hooks';
 
 import { useTranslation } from './translate.js';
 import useCounter from './useCounter.js';
-import Referee from './Referee';
+import Edit from './Edit';
+import View from './View';
 import useIpfsFactory from './use-ipfs-factory.js'
 export { useCounter };
 
@@ -26,8 +27,12 @@ function AccountsApp ({ basePath, onStatusChange }: Props): React.ReactElement<P
   const tabsRef = useRef([
     {
       isRoot: true,
-      name: 'referee',
-      text: t('Referee')
+      name: 'view',
+      text: t('View')
+    },
+    {
+      name: 'edit',
+      text: t('Edit')
     }
   ]);
 
@@ -42,7 +47,13 @@ function AccountsApp ({ basePath, onStatusChange }: Props): React.ReactElement<P
         <Route path={basePath}>
           <Route
             element={
-              <Referee onStatusChange={onStatusChange} ipfs={ipfs} />
+              <Edit onStatusChange={onStatusChange} ipfs={ipfs} />
+            }
+            path='edit'
+          />
+          <Route
+            element={
+              <View onStatusChange={onStatusChange} ipfs={ipfs} />
             }
             index
           />
