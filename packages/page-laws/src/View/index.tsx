@@ -36,7 +36,7 @@ interface SignerState {
   signer: Signer | null;
 }
 
-function Referee({ className = '', ipfs }: Props): React.ReactElement<Props> {
+function View({ className = '', ipfs }: Props): React.ReactElement<Props> {
   const { t } = useTranslation();
   const [currentPair, setCurrentPair] = useState<KeyringPair | null>(() => keyring.getPairs()[0] || null);
   const [text, setText] = useState<string>("");
@@ -48,9 +48,9 @@ function Referee({ className = '', ipfs }: Props): React.ReactElement<Props> {
   const [amount, setAmount] = useState<BN>(BN_ZERO);
   const [blockNumber, setBlockNumber] = useState<BN>(BN_ZERO);
   const [workerPublicKeyHex, setWorkerPublicKeyHex] = useState<string>("");
-  const [letterInfo, setLetterInfo] = useState('')
-  const [modalIsOpen, setModalIsOpen] = useState(false)
+  const [textHexId, setTextHexId] = useState('0xf55ff16f66f43360266b95db6f8fec01d76031054306ae4a4b380598f6cfd114')
   const { api } = useApi();
+  
 
   useEffect((): void => {
     const meta = (currentPair && currentPair.meta) || {};
@@ -90,88 +90,6 @@ function Referee({ className = '', ipfs }: Props): React.ReactElement<Props> {
     []
   );
 
-  const _onChangeWorker = useCallback(
-    (workerPublicKeyHex: string) => setWorkerPublicKeyHex(workerPublicKeyHex),
-    []
-  );
-
-  const _onChangeBlockNumber = useCallback(
-    (value: string) => setBlockNumber(new BN(value)),
-    []
-  );
-
-  const _onSign = useCallback(
-    async () => {
-      if (isLocked || !isUsable || !currentPair) {
-        return;
-      }
-      // generate a data to sign
-      const genesisU8 = statics.api.genesisHash;
-      const textCID = await getIPFSContentID(ipfs, text);
-      const textHash = textCID.toString();
-      const referee = currentPair;
-      const refereeU8 = referee.publicKey;
-      const refereePublicKeyHex = u8aToHex(refereeU8);
-      // const letterId = await getLastUnusedLetterNumber(refereePublicKeyHex);
-      const workerPublicKeyU8 = hexToU8a(workerPublicKeyHex);
-      const privateData = getPrivateDataToSignByReferee(textHash, genesisU8, "", blockNumber, refereeU8, workerPublicKeyU8, amount);
-      const receipt = getPublicDataToSignByReferee(genesisU8, "", blockNumber, refereeU8, workerPublicKeyU8, amount);
-
-      let refereeSignOverPrivateData = "";
-      let refereeSignOverReceipt = "";
-
-      // sign
-      if (signer && isFunction(signer.signRaw)) {// Use browser extenstion 
-        const u8RefereeSignOverPrivateData = await signer.signRaw({
-          address: currentPair.address,
-          data: u8aToHex(privateData),
-          type: 'bytes'
-        });
-        refereeSignOverPrivateData = u8RefereeSignOverPrivateData.signature;
-        //
-        const u8RefereeSignOverReceipt = await signer.signRaw({
-          address: currentPair.address,
-          data: u8aToHex(receipt),
-          type: 'bytes'
-        });
-        refereeSignOverReceipt = u8RefereeSignOverReceipt.signature;
-      } else {// Use locally stored account to sign
-        refereeSignOverPrivateData = u8aToHex(currentPair.sign(u8aWrapBytes(privateData)));
-        refereeSignOverReceipt = u8aToHex(currentPair.sign(u8aWrapBytes(receipt)));
-      }
-      // create the result text
-      let result = [];
-      result.push(textHash);
-      result.push(genesisU8.toHex());
-      // result.push(letterId);
-      result.push(blockNumber);
-      result.push(refereePublicKeyHex);
-      result.push(workerPublicKeyHex);
-      result.push(amount.toString());
-      result.push(refereeSignOverPrivateData);
-      result.push(refereeSignOverReceipt);
-
-      const letter = {
-        created: new Date(),
-        cid: textHash,
-        genesis: genesisU8.toHex(),
-        // letterNumber: letterId,
-        block: blockNumber.toString(),
-        referee: refereePublicKeyHex,
-        worker: workerPublicKeyHex,
-        amount: amount.toString(),
-        signOverPrivateData: refereeSignOverPrivateData,
-        signOverReceipt: refereeSignOverReceipt
-      };
-      // await storeLetter(letter);
-      // await setLastUsedLetterNumber(refereePublicKeyHex, letterId);
-      const letterInfo = result.join(",");
-      // show QR
-      setLetterInfo(letterInfo);
-      setModalIsOpen(true);
-    },
-    [currentPair, isLocked, isUsable, signer, ipfs, text, workerPublicKeyHex, blockNumber, amount]
-  );
 
   const _onUnlock = useCallback(
     (): void => {
@@ -215,60 +133,11 @@ function Referee({ className = '', ipfs }: Props): React.ReactElement<Props> {
           />
         </div>
       </div>
-      <Button.Group>
-        <div
-          className='unlock-overlay'
-          hidden={!isUsable || !isLocked || isInjected}
-        >
-          {isLocked && (
-            <div className='unlock-overlay-warning'>
-              <div className='unlock-overlay-content'>
-                {t('You need to unlock this account to be able to sign data.')}<br />
-                <Button.Group>
-                  <Button
-                    icon='unlock'
-                    label={t('Unlock account')}
-                    onClick={toggleUnlock}
-                  />
-                </Button.Group>
-              </div>
-            </div>
-          )}
-        </div>
-        <div
-          className='unlock-overlay'
-          hidden={isUsable}
-        >
-          <div className='unlock-overlay-warning'>
-            <div className='unlock-overlay-content'>
-              {isInjected
-                ? t('This injected account cannot be used to sign data since the extension does not support raw signing.')
-                : t('This external account cannot be used to sign data. Only Limited support is currently available for signing from any non-internal accounts.')}
-            </div>
-          </div>
-        </div>
-        {isUnlockVisible && (
-          <Unlock
-            onClose={toggleUnlock}
-            onUnlock={_onUnlock}
-            pair={currentPair}
-          />
-        )}
+      <Button.Group>  
         {ipfs == null ? <div>{t('Connecting to IPFS...')}</div> : ""}
       </Button.Group>
-      {modalIsOpen &&
-        <Modal
-          size={"small"}
-          header={t('Scan this from a worker account')}
-          onClose={() => setModalIsOpen(false)}
-        >
-          <Modal.Content>
-            <QRCode value={letterInfo} size={qrCodeSize} />
-          </Modal.Content>
-        </Modal>
-      }
     </div>
   );
 }
 
-export default React.memo(Referee);
+export default React.memo(View);
