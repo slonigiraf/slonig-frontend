@@ -76,6 +76,10 @@ function Referee({ className = '', ipfs }: Props): React.ReactElement<Props> {
     }
   }, [currentPair]);
 
+  useEffect(() => {
+    _onSign();
+  }, [text]);
+
   const _onChangeAccount = useCallback(
     (accountId: string | null) => accountId && setCurrentPair(keyring.getPair(accountId)),
     []
@@ -89,14 +93,14 @@ function Referee({ className = '', ipfs }: Props): React.ReactElement<Props> {
   const _onSign = useCallback(
     async () => {
       console.log("_onSign");
-      if (isLocked || !isUsable || !currentPair) {
+      if (ipfs == null) {
         return;
       }
       // generate a data to sign
       const textCIDString = await getIPFSContentID(ipfs, text);
       const digest = await digestFromCIDv1(textCIDString);
       setDigestHash(u8aToHex(digest));
-      console.log("digest hash: " + digestHash);
+      console.log("digest hash: " + u8aToHex(digest));
     },
     [currentPair, isLocked, isUsable, signer, ipfs, text]
   );
@@ -165,6 +169,9 @@ function Referee({ className = '', ipfs }: Props): React.ReactElement<Props> {
           onChange={setAmount}
           isDisabled={ipfs==null}
         />
+      </div>
+      <div className='ui--row'>
+        <p>Hash: {digestHash}</p>
       </div>
       <div className='toolbox--Sign-input'>
         <div className='ui--row'>
