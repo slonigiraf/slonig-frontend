@@ -187,35 +187,11 @@ function Referee({ className = '', ipfs }: Props): React.ReactElement<Props> {
   const _onFailed = (_result: any) => {
   }
 
-  const txButton = isUsable && <TxButton
-    isDisabled={!(isUsable && !isLocked && ipfs != null)}
-    className='createButton'
-    accountId={currentPair.address}
-    icon='key'
-    label={t('Create')}
-    onSuccess={_onSuccess}
-    onFailed={_onFailed}
-    params={
-      [u8aToHex(currentPair.publicKey),
-      new BN(1000),
-      ]
-    }
-    tx={api.tx.laws.create}
-  />
+  
 
   return (
     <div className={`toolbox--Sign ${className}`}>
-      <h1>{t('Edit')}</h1>
-      <div className='ui--row'>
-        <InputAddress
-          className='full'
-          help={t('select the account you wish to sign data with')}
-          isInput={false}
-          label={t('account')}
-          onChange={_onChangeAccount}
-          type='account'
-        />
-      </div>
+      <h1>{t('View')}</h1>
       <div className='ui--row'>
         <Input
           autoFocus
@@ -224,15 +200,6 @@ function Referee({ className = '', ipfs }: Props): React.ReactElement<Props> {
           label={t('text')}
           onChange={_onChangeData}
           value={text}
-        />
-      </div>
-      <div className='ui--row'>
-        <InputBalance
-          autoFocus
-          help={t('Spend tokens help info')}
-          isZeroable
-          label={t('spend tokens')}
-          onChange={setAmount}
         />
       </div>
       <div className='toolbox--Sign-input'>
@@ -287,7 +254,6 @@ function Referee({ className = '', ipfs }: Props): React.ReactElement<Props> {
             pair={currentPair}
           />
         )}
-        {txButton}
         {ipfs == null ? <div>{t<string>('Connecting to IPFS...')}</div> : ""}
       </Button.Group>
       {modalIsOpen &&

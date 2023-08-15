@@ -3,23 +3,21 @@
 
 import BN from 'bn.js';
 import QRCode from 'qrcode.react';
-import { getIPFSContentID, getPublicDataToSignByReferee, getPrivateDataToSignByReferee } from '@slonigiraf/helpers';
+import { getIPFSContentID, digestFromCIDv1 } from '@slonigiraf/helpers';
 import { BN_ZERO } from '@polkadot/util';
 import type { Signer } from '@polkadot/api/types';
 import type { KeyringPair } from '@polkadot/keyring/types';
 import React, { useCallback, useEffect, useState } from 'react';
 import { web3FromSource } from '@polkadot/extension-dapp';
-import { Button, Input, InputAddress, InputBalance, Output, Modal, TxButton } from '@polkadot/react-components';
+import { Button, Input, InputAddress, InputBalance, Output, TxButton } from '@polkadot/react-components';
 import { useToggle } from '@polkadot/react-hooks';
 import { keyring } from '@polkadot/ui-keyring';
 import { isFunction, u8aToHex, hexToU8a, u8aWrapBytes } from '@polkadot/util';
 import { useTranslation } from '../translate.js';
 import Unlock from '@polkadot/app-signing/Unlock';
 import { IPFS } from 'ipfs-core';
-import { qrCodeSize } from '../constants.js';
 import { statics } from '@polkadot/react-api/statics';
 import { useApi } from '@polkadot/react-hooks';
-import { CID } from 'multiformats/cid';
 
 interface Props {
   className?: string;
@@ -47,10 +45,7 @@ function Referee({ className = '', ipfs }: Props): React.ReactElement<Props> {
   const [signature, setSignature] = useState('');
   const [isUnlockVisible, toggleUnlock] = useToggle();
   const [amount, setAmount] = useState<BN>(BN_ZERO);
-  const [blockNumber, setBlockNumber] = useState<BN>(BN_ZERO);
-  const [workerPublicKeyHex, setWorkerPublicKeyHex] = useState<string>("");
-  const [letterInfo, setLetterInfo] = useState('')
-  const [modalIsOpen, setModalIsOpen] = useState(false)
+  const [digestHash, setDigestHash] = useState<string>("");
   const { api } = useApi();
 
   useEffect((): void => {
@@ -91,34 +86,18 @@ function Referee({ className = '', ipfs }: Props): React.ReactElement<Props> {
     []
   );
 
-  const _onChangeWorker = useCallback(
-    (workerPublicKeyHex: string) => setWorkerPublicKeyHex(workerPublicKeyHex),
-    []
-  );
-
-  const _onChangeBlockNumber = useCallback(
-    (value: string) => setBlockNumber(new BN(value)),
-    []
-  );
-
   const _onSign = useCallback(
     async () => {
+      console.log(_onSign);
       if (isLocked || !isUsable || !currentPair) {
         return;
       }
       // generate a data to sign
-      const genesisU8 = statics.api.genesisHash;
-      const textCID = await getIPFSContentID(ipfs, text);
-      const textHash = textCID.toString();
-      const workerPublicKeyU8 = hexToU8a(workerPublicKeyHex);
-
-      //---
-      
-      //---
-      setLetterInfo("");
-      setModalIsOpen(true);
+      const textCIDString = await getIPFSContentID(ipfs, text);
+      const digest = await digestFromCIDv1(textCIDString);
+      setDigestHash(u8aToHex(digest));
     },
-    [currentPair, isLocked, isUsable, signer, ipfs, text, workerPublicKeyHex, blockNumber, amount]
+    [currentPair, isLocked, isUsable, signer, ipfs, text, amount]
   );
 
   const _onUnlock = useCallback(
@@ -145,8 +124,8 @@ function Referee({ className = '', ipfs }: Props): React.ReactElement<Props> {
     onFailed={_onFailed}
     onClick={_onSign}
     params={
-      [u8aToHex(currentPair.publicKey),
-      new BN(1000),
+      [digestHash,
+      amount,
       ]
     }
     tx={api.tx.laws.create}
@@ -239,17 +218,6 @@ function Referee({ className = '', ipfs }: Props): React.ReactElement<Props> {
         {txButton}
         {ipfs == null ? <div>{t<string>('Connecting to IPFS...')}</div> : ""}
       </Button.Group>
-      {modalIsOpen &&
-        <Modal
-          size={"small"}
-          header={t<string>('Scan this from a worker account')}
-          onClose={() => setModalIsOpen(false)}
-        >
-          <Modal.Content>
-            <QRCode value={letterInfo} size={qrCodeSize} />
-          </Modal.Content>
-        </Modal>
-      }
     </div>
   );
 }
