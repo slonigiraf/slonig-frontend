@@ -19,6 +19,7 @@ import { IPFS } from 'ipfs-core';
 import { qrCodeSize } from '../constants.js';
 import { statics } from '@polkadot/react-api/statics';
 import { useApi } from '@polkadot/react-hooks';
+import { CID } from 'multiformats/cid';
 
 interface Props {
   className?: string;
@@ -109,65 +110,12 @@ function Referee({ className = '', ipfs }: Props): React.ReactElement<Props> {
       const genesisU8 = statics.api.genesisHash;
       const textCID = await getIPFSContentID(ipfs, text);
       const textHash = textCID.toString();
-      const referee = currentPair;
-      const refereeU8 = referee.publicKey;
-      const refereePublicKeyHex = u8aToHex(refereeU8);
-      // const letterId = await getLastUnusedLetterNumber(refereePublicKeyHex);
       const workerPublicKeyU8 = hexToU8a(workerPublicKeyHex);
-      const privateData = getPrivateDataToSignByReferee(textHash, genesisU8, "", blockNumber, refereeU8, workerPublicKeyU8, amount);
-      const receipt = getPublicDataToSignByReferee(genesisU8, "", blockNumber, refereeU8, workerPublicKeyU8, amount);
 
-      let refereeSignOverPrivateData = "";
-      let refereeSignOverReceipt = "";
-
-      // sign
-      if (signer && isFunction(signer.signRaw)) {// Use browser extenstion 
-        const u8RefereeSignOverPrivateData = await signer.signRaw({
-          address: currentPair.address,
-          data: u8aToHex(privateData),
-          type: 'bytes'
-        });
-        refereeSignOverPrivateData = u8RefereeSignOverPrivateData.signature;
-        //
-        const u8RefereeSignOverReceipt = await signer.signRaw({
-          address: currentPair.address,
-          data: u8aToHex(receipt),
-          type: 'bytes'
-        });
-        refereeSignOverReceipt = u8RefereeSignOverReceipt.signature;
-      } else {// Use locally stored account to sign
-        refereeSignOverPrivateData = u8aToHex(currentPair.sign(u8aWrapBytes(privateData)));
-        refereeSignOverReceipt = u8aToHex(currentPair.sign(u8aWrapBytes(receipt)));
-      }
-      // create the result text
-      let result = [];
-      result.push(textHash);
-      result.push(genesisU8.toHex());
-      // result.push(letterId);
-      result.push(blockNumber);
-      result.push(refereePublicKeyHex);
-      result.push(workerPublicKeyHex);
-      result.push(amount.toString());
-      result.push(refereeSignOverPrivateData);
-      result.push(refereeSignOverReceipt);
-
-      const letter = {
-        created: new Date(),
-        cid: textHash,
-        genesis: genesisU8.toHex(),
-        // letterNumber: letterId,
-        block: blockNumber.toString(),
-        referee: refereePublicKeyHex,
-        worker: workerPublicKeyHex,
-        amount: amount.toString(),
-        signOverPrivateData: refereeSignOverPrivateData,
-        signOverReceipt: refereeSignOverReceipt
-      };
-      // await storeLetter(letter);
-      // await setLastUsedLetterNumber(refereePublicKeyHex, letterId);
-      const letterInfo = result.join(",");
-      // show QR
-      setLetterInfo(letterInfo);
+      //---
+      
+      //---
+      setLetterInfo("");
       setModalIsOpen(true);
     },
     [currentPair, isLocked, isUsable, signer, ipfs, text, workerPublicKeyHex, blockNumber, amount]
@@ -195,6 +143,7 @@ function Referee({ className = '', ipfs }: Props): React.ReactElement<Props> {
     label={t('Create')}
     onSuccess={_onSuccess}
     onFailed={_onFailed}
+    onClick={_onSign}
     params={
       [u8aToHex(currentPair.publicKey),
       new BN(1000),

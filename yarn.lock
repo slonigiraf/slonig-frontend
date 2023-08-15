@@ -3219,7 +3219,7 @@ __metadata:
     "@polkadot/test-support": 0.132.2-38-x
     "@polkadot/util": ^12.3.2
     "@polkadot/vanitygen": ^0.55.3
-    "@slonigiraf/helpers": ^5.1.0
+    "@slonigiraf/helpers": ^5.2.0
     "@types/qrcode.react": ^1.0.2
     detect-browser: ^5.3.0
     file-saver: ^2.0.5
@@ -3245,7 +3245,7 @@ __metadata:
     "@polkadot/test-support": 0.132.2-38-x
     "@polkadot/util": ^12.3.2
     "@polkadot/vanitygen": ^0.55.3
-    "@slonigiraf/helpers": ^5.1.0
+    "@slonigiraf/helpers": ^5.2.0
     "@types/qrcode.react": ^1.0.2
     detect-browser: ^5.3.0
     dexie: ^3.2.2
@@ -3263,14 +3263,15 @@ __metadata:
   languageName: unknown
   linkType: soft
 
-"@slonigiraf/helpers@npm:^5.1.0":
-  version: 5.1.0
-  resolution: "@slonigiraf/helpers@npm:5.1.0"
+"@slonigiraf/helpers@npm:^5.2.0":
+  version: 5.2.0
+  resolution: "@slonigiraf/helpers@npm:5.2.0"
   dependencies:
     "@polkadot/types": ^9.8.1
     "@polkadot/util": ^10.1.12
     ipfs-core: ^0.14.1
-  checksum: a9a4e5681676fc0f5970fc63b95bf67b9927b4691c60b604898f20482c66360c5acd9c1dbdaf4381063e08497baf86622cd9db86f16c24fdb097e65333a01dd2
+    multiformats: ^9.9.0
+  checksum: b92b0c5da585194493084ba538db2b0cb5812fc2fca9b55d5d43b6ff163835b025a7d2d46c0358ab8c110ba4e6963b8f1b02ffd0118749895ec8fd6606edcb36
   languageName: node
   linkType: hard
 
@@ -15223,7 +15224,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"multiformats@npm:^9.0.0, multiformats@npm:^9.0.2, multiformats@npm:^9.0.4, multiformats@npm:^9.1.0, multiformats@npm:^9.1.2, multiformats@npm:^9.4.2, multiformats@npm:^9.4.5, multiformats@npm:^9.4.7, multiformats@npm:^9.5.1, multiformats@npm:^9.5.4":
+"multiformats@npm:^9.0.0, multiformats@npm:^9.0.2, multiformats@npm:^9.0.4, multiformats@npm:^9.1.0, multiformats@npm:^9.1.2, multiformats@npm:^9.4.2, multiformats@npm:^9.4.5, multiformats@npm:^9.4.7, multiformats@npm:^9.5.1, multiformats@npm:^9.5.4, multiformats@npm:^9.9.0":
   version: 9.9.0
   resolution: "multiformats@npm:9.9.0"
   checksum: d3e8c1be400c09a014f557ea02251a2710dbc9fca5aa32cc702ff29f636c5471e17979f30bdcb0a9cbb556f162a8591dc2e1219c24fc21394a56115b820bb84e
