@@ -97,7 +97,7 @@ function Referee({ className = '', ipfs }: Props): React.ReactElement<Props> {
       const digest = await digestFromCIDv1(textCIDString);
       setDigestHash(u8aToHex(digest));
     },
-    [currentPair, isLocked, isUsable, signer, ipfs, text, amount]
+    [currentPair, isLocked, isUsable, signer, ipfs, text]
   );
 
   const _onUnlock = useCallback(
