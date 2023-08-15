@@ -3,7 +3,7 @@
 
 import BN from 'bn.js';
 import QRCode from 'qrcode.react';
-import { getIPFSContentID, getPublicDataToSignByReferee, getPrivateDataToSignByReferee } from '@slonigiraf/helpers';
+import { getIPFSDataFromContentID, getCIDFromBytes } from '@slonigiraf/helpers';
 import { BN_ZERO } from '@polkadot/util';
 import type { Signer } from '@polkadot/api/types';
 import type { KeyringPair } from '@polkadot/keyring/types';
@@ -40,13 +40,17 @@ function View({ className = '', ipfs }: Props): React.ReactElement<Props> {
   const { t } = useTranslation();
   const [currentPair, setCurrentPair] = useState<KeyringPair | null>(() => keyring.getPairs()[0] || null);
   const [text, setText] = useState<string>("");
+  const [cidString, setCidString] = useState<string>("");
   const [{ isInjected }, setAccountState] = useState<AccountState>({ isExternal: false, isHardware: false, isInjected: false });
   const [isLocked, setIsLocked] = useState(false);
   const [{ isUsable, signer }, setSigner] = useState<SignerState>({ isUsable: true, signer: null });
   const [signature, setSignature] = useState('');
-  const [textHexId, setTextHexId] = useState('0xf55ff16f66f43360266b95db6f8fec01d76031054306ae4a4b380598f6cfd114')
+  const [textHexId, setTextHexId] = useState('0xf55ff16f66f43360266b95db6f8fec01d76031054306ae4a4b380598f6cfd114');
+  const [lawHexData, setLawHexData] = useState('');
+  const [amount, setAmount] = useState<BN>(BN_ZERO);
+
   const { api } = useApi();
-  
+
 
   useEffect((): void => {
     const meta = (currentPair && currentPair.meta) || {};
@@ -76,29 +80,47 @@ function View({ className = '', ipfs }: Props): React.ReactElement<Props> {
     }
   }, [currentPair]);
 
-  const _onChangeAccount = useCallback(
-    (accountId: string | null) => accountId && setCurrentPair(keyring.getPair(accountId)),
-    []
-  );
+  useEffect(() => {
+    fetchLaw(textHexId);
+  }, [textHexId]);
 
-  const _onChangeData = useCallback(
-    (data: string) => setText(data),
-    []
-  );
+  useEffect(() => {
+    const fetchIPFSData = async () => {
+      if(ipfs == null){
+        return;
+      }
+      const textValue = await getIPFSDataFromContentID(ipfs, cidString);
+      setText(textValue);
+    };
+
+    fetchIPFSData();
+  }, [cidString, ipfs]);
+
+  async function fetchLaw(key: string) {
+    const law = await api.query.laws.laws(key);
+    const tuple = law.unwrap();
+    const byteArray = tuple[0]; // This should give you the [u8; 32]
+    const bigIntValue = tuple[1]; // This should give you the u128
+    const cid = await getCIDFromBytes(byteArray);
+    setCidString(cid);
+
+    console.log("law: " + law);
+    setLawHexData(u8aToHex(byteArray));
+    setAmount(bigIntValue);
+  }
 
 
   return (
     <div className={`toolbox--Sign ${className}`}>
       <h1>{t('View')}</h1>
       <div className='ui--row'>
-        <Input
-          autoFocus
-          className='full'
-          help={t('Text')}
-          label={t('text')}
-          onChange={_onChangeData}
-          value={text}
-        />
+        <ul>
+          <li>textHexId: {textHexId}</li>
+          <li>lawHexData: {lawHexData}</li>
+          <li>amount: {amount.toString()}</li>
+          <li>cid: {cidString}</li>
+          <li>text: {text}</li>
+        </ul>
       </div>
       <div className='toolbox--Sign-input'>
         <div className='ui--row'>
@@ -113,7 +135,7 @@ function View({ className = '', ipfs }: Props): React.ReactElement<Props> {
           />
         </div>
       </div>
-      <Button.Group>  
+      <Button.Group>
         {ipfs == null ? <div>{t('Connecting to IPFS...')}</div> : ""}
       </Button.Group>
     </div>
