@@ -44,10 +44,6 @@ function View({ className = '', ipfs }: Props): React.ReactElement<Props> {
   const [isLocked, setIsLocked] = useState(false);
   const [{ isUsable, signer }, setSigner] = useState<SignerState>({ isUsable: true, signer: null });
   const [signature, setSignature] = useState('');
-  const [isUnlockVisible, toggleUnlock] = useToggle();
-  const [amount, setAmount] = useState<BN>(BN_ZERO);
-  const [blockNumber, setBlockNumber] = useState<BN>(BN_ZERO);
-  const [workerPublicKeyHex, setWorkerPublicKeyHex] = useState<string>("");
   const [textHexId, setTextHexId] = useState('0xf55ff16f66f43360266b95db6f8fec01d76031054306ae4a4b380598f6cfd114')
   const { api } = useApi();
   
@@ -90,22 +86,6 @@ function View({ className = '', ipfs }: Props): React.ReactElement<Props> {
     []
   );
 
-
-  const _onUnlock = useCallback(
-    (): void => {
-      setIsLocked(false);
-      toggleUnlock();
-    },
-    [toggleUnlock]
-  );
-
-  const _onSuccess = (_result: any) => {
-    // TODO use
-  }
-  const _onFailed = (_result: any) => {
-  }
-
-  
 
   return (
     <div className={`toolbox--Sign ${className}`}>
