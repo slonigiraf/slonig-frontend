@@ -28,7 +28,7 @@ function InsuranceInfo({ className = '', insurance, ipfs }: Props): React.ReactE
           setText(content)
         }
         catch (e) {
-          setText(insurance.cid + " (" + t<string>('loading') + "...)")
+          setText(insurance.cid + " (" + t('loading') + "...)")
           console.log(e)
         }
       }
@@ -44,7 +44,7 @@ function InsuranceInfo({ className = '', insurance, ipfs }: Props): React.ReactE
         onClick={() => setModalIsOpen(true)}
       />
       {modalIsOpen && <Modal
-        header={t<string>('Penalize referee')}
+        header={t('Penalize referee')}
         size={"small"}
         onClose={() => setModalIsOpen(false)}
       >

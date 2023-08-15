@@ -41,7 +41,7 @@ function QrScanner({ onResult, constraints, className = '' }: QrReaderProps): Re
       </div>
       <Button
         icon='repeat'
-        label={t<string>('Change camera')}
+        label={t('Change camera')}
         onClick={changeMode}
       />
     </div>)

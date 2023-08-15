@@ -28,7 +28,7 @@ function LetterInfo({ className = '', letter, ipfs }: Props): React.ReactElement
           setText(content)
         }
         catch (e) {
-          setText(letter.cid + " (" + t<string>('loading') + "...)")
+          setText(letter.cid + " (" + t('loading') + "...)")
           console.log(e)
         }
       }
@@ -44,7 +44,7 @@ function LetterInfo({ className = '', letter, ipfs }: Props): React.ReactElement
         onClick={() => setModalIsOpen(true)}
       />
       {modalIsOpen && <Modal
-        header={t<string>('Sign recommendation letter')}
+        header={t('Sign recommendation letter')}
         size={"small"}
         onClose={() => setModalIsOpen(false)}
       >

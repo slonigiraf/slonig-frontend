@@ -142,7 +142,7 @@ function SignLetterUseRight({ className = '', text, letter }: Props): React.Reac
     [toggleUnlock]
   );
 
-  const qrPart = modalIsOpen ? <div><h2>{t<string>('Scan this from an employer account')}</h2><QRCode value={letterInfo} size={qrCodeSize} /></div>
+  const qrPart = modalIsOpen ? <div><h2>{t('Scan this from an employer account')}</h2><QRCode value={letterInfo} size={qrCodeSize} /></div>
    : ""
 
   return (
@@ -151,9 +151,9 @@ function SignLetterUseRight({ className = '', text, letter }: Props): React.Reac
       <div className='ui--row'>
         <InputAddress
           className='full'
-          help={t<string>('select the account you wish to sign data with')}
+          help={t('select the account you wish to sign data with')}
           isInput={false}
-          label={t<string>('account')}
+          label={t('account')}
           onChange={_onChangeAccount}
           type='account'
         />
@@ -162,8 +162,8 @@ function SignLetterUseRight({ className = '', text, letter }: Props): React.Reac
         <Input
           autoFocus
           className='full'
-          help={t<string>('To employer help info TODO')}
-          label={t<string>('to employer')}
+          help={t('To employer help info TODO')}
+          label={t('to employer')}
           onChange={_onChangeEmployer}
           value={employerPublicKeyHex}
         />
@@ -172,10 +172,10 @@ function SignLetterUseRight({ className = '', text, letter }: Props): React.Reac
         <div className='ui--row'>
           <Output
             className='full'
-            help={t<string>('create a diploma help text')}
+            help={t('create a diploma help text')}
             isHidden={signature.length === 0}
             isMonospace
-            label={t<string>('create a diploma')}
+            label={t('create a diploma')}
             value={signature}
             withCopy
           />
@@ -189,11 +189,11 @@ function SignLetterUseRight({ className = '', text, letter }: Props): React.Reac
           {isLocked && (
             <div className='unlock-overlay-warning'>
               <div className='unlock-overlay-content'>
-                {t<string>('You need to unlock this account to be able to sign data.')}<br />
+                {t('You need to unlock this account to be able to sign data.')}<br />
                 <Button.Group>
                   <Button
                     icon='unlock'
-                    label={t<string>('Unlock account')}
+                    label={t('Unlock account')}
                     onClick={toggleUnlock}
                   />
                 </Button.Group>
@@ -208,8 +208,8 @@ function SignLetterUseRight({ className = '', text, letter }: Props): React.Reac
           <div className='unlock-overlay-warning'>
             <div className='unlock-overlay-content'>
               {isInjected
-                ? t<string>('This injected account cannot be used to sign data since the extension does not support raw signing.')
-                : t<string>('This external account cannot be used to sign data. Only Limited support is currently available for signing from any non-internal accounts.')}
+                ? t('This injected account cannot be used to sign data since the extension does not support raw signing.')
+                : t('This external account cannot be used to sign data. Only Limited support is currently available for signing from any non-internal accounts.')}
             </div>
           </div>
         </div>
@@ -220,12 +220,12 @@ function SignLetterUseRight({ className = '', text, letter }: Props): React.Reac
             pair={currentPair}
           />
         )}
-        <Button
+        {!isLocked && (<Button
           icon='key'
           isDisabled={!(isUsable && !isLocked )}
-          label={t<string>('Sign the recommendation')}
+          label={t('Sign the recommendation')}
           onClick={_onSign}
-        />
+        />)}
       </Button.Group>
       {qrPart}
     </div>

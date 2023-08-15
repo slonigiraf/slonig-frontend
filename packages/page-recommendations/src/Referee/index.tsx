@@ -182,13 +182,13 @@ function Referee({ className = '', ipfs }: Props): React.ReactElement<Props> {
 
   return (
     <div className={`toolbox--Sign ${className}`}>
-      <h1>{t<string>('Create a diploma')}</h1>
+      <h1>{t('Create a diploma')}</h1>
       <div className='ui--row'>
         <InputAddress
           className='full'
-          help={t<string>('select the account you wish to sign data with')}
+          help={t('select the account you wish to sign data with')}
           isInput={false}
-          label={t<string>('account')}
+          label={t('account')}
           onChange={_onChangeAccount}
           type='account'
         />
@@ -197,8 +197,8 @@ function Referee({ className = '', ipfs }: Props): React.ReactElement<Props> {
         <Input
           autoFocus
           className='full'
-          help={t<string>('Recommendation letter text help info TODO')}
-          label={t<string>('recommendation letter text')}
+          help={t('Recommendation letter text help info TODO')}
+          label={t('recommendation letter text')}
           onChange={_onChangeData}
           value={text}
         />
@@ -208,8 +208,8 @@ function Referee({ className = '', ipfs }: Props): React.ReactElement<Props> {
         <Input
           autoFocus
           className='full'
-          help={t<string>('About person help info TODO')}
-          label={t<string>('about person')}
+          help={t('About person help info TODO')}
+          label={t('about person')}
           onChange={_onChangeWorker}
           value={workerPublicKeyHex}
         />
@@ -218,9 +218,9 @@ function Referee({ className = '', ipfs }: Props): React.ReactElement<Props> {
       <div className='ui--row'>
         <InputBalance
           autoFocus
-          help={t<string>('Stake reputation help info')}
+          help={t('Stake reputation help info')}
           isZeroable
-          label={t<string>('stake reputation')}
+          label={t('stake reputation')}
           onChange={setAmount}
         />
       </div>
@@ -228,8 +228,8 @@ function Referee({ className = '', ipfs }: Props): React.ReactElement<Props> {
         <Input
           autoFocus
           className='full'
-          help={t<string>('Block number help info TODO')}
-          label={t<string>('block number')}
+          help={t('Block number help info TODO')}
+          label={t('block number')}
           onChange={_onChangeBlockNumber}
           value={blockNumber.toString()}
         />
@@ -238,10 +238,10 @@ function Referee({ className = '', ipfs }: Props): React.ReactElement<Props> {
         <div className='ui--row'>
           <Output
             className='full'
-            help={t<string>('create a diploma help text')}
+            help={t('create a diploma help text')}
             isHidden={signature.length === 0}
             isMonospace
-            label={t<string>('create a diploma')}
+            label={t('create a diploma')}
             value={signature}
             withCopy
           />
@@ -255,11 +255,11 @@ function Referee({ className = '', ipfs }: Props): React.ReactElement<Props> {
           {isLocked && (
             <div className='unlock-overlay-warning'>
               <div className='unlock-overlay-content'>
-                {t<string>('You need to unlock this account to be able to sign data.')}<br />
+                {t('You need to unlock this account to be able to sign data.')}<br />
                 <Button.Group>
                   <Button
                     icon='unlock'
-                    label={t<string>('Unlock account')}
+                    label={t('Unlock account')}
                     onClick={toggleUnlock}
                   />
                 </Button.Group>
@@ -274,8 +274,8 @@ function Referee({ className = '', ipfs }: Props): React.ReactElement<Props> {
           <div className='unlock-overlay-warning'>
             <div className='unlock-overlay-content'>
               {isInjected
-                ? t<string>('This injected account cannot be used to sign data since the extension does not support raw signing.')
-                : t<string>('This external account cannot be used to sign data. Only Limited support is currently available for signing from any non-internal accounts.')}
+                ? t('This injected account cannot be used to sign data since the extension does not support raw signing.')
+                : t('This external account cannot be used to sign data. Only Limited support is currently available for signing from any non-internal accounts.')}
             </div>
           </div>
         </div>
@@ -286,18 +286,18 @@ function Referee({ className = '', ipfs }: Props): React.ReactElement<Props> {
             pair={currentPair}
           />
         )}
-        <Button
+        {!isLocked && (<Button
           icon='key'
           isDisabled={!(isUsable && !isLocked && ipfs != null)}
-          label={t<string>('Sign the recommendation')}
+          label={t('Sign the recommendation')}
           onClick={_onSign}
-        />
-        {ipfs == null ? <div>{t<string>('Connecting to IPFS...')}</div> : ""}
+        />)}
+        {ipfs == null ? <div>{t('Connecting to IPFS...')}</div> : ""}
       </Button.Group>
       {modalIsOpen &&
         <Modal
           size={"small"}
-          header={t<string>('Scan this from a worker account')}
+          header={t('Scan this from a worker account')}
           onClose={() => setModalIsOpen(false)}
         >
           <Modal.Content>

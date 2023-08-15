@@ -65,13 +65,13 @@ function Worker({ className = '', ipfs }: Props): React.ReactElement<Props> {
 
   return (
     <div className={`toolbox--Worker ${className}`}>
-      <h1>{t<string>('My diplomas')}</h1>
+      <h1>{t('My diplomas')}</h1>
       <div className='ui--row'>
         <InputAddress
           className='full'
-          help={t<string>('select the account you wish to sign data with')}
+          help={t('select the account you wish to sign data with')}
           isInput={false}
-          label={t<string>('account')}
+          label={t('account')}
           type='account'
           onChange={_onChangeAccount}
         />
@@ -79,7 +79,7 @@ function Worker({ className = '', ipfs }: Props): React.ReactElement<Props> {
       <div className='ui--row'>
         <Button
           icon='plus'
-          label={t<string>('Add a letter about me')}
+          label={t('Add a letter about me')}
           onClick={() => setModalIsOpen(true)}
         />
         <DBExport ipfs={ipfs} />
@@ -90,7 +90,7 @@ function Worker({ className = '', ipfs }: Props): React.ReactElement<Props> {
       </div>
       {modalIsOpen && <div className='ui--row'>
         <Modal
-          header={t<string>('Scan a letter QR code')}
+          header={t('Scan a letter QR code')}
           onClose={() => setModalIsOpen(false)}
           size='small'
         >

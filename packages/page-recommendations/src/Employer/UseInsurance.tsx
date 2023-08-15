@@ -45,7 +45,7 @@ function UseInsurance({ className = '', text, insurance }: Props): React.ReactEl
     className='reimburseButton'
     accountId={currentPair.address}
     icon='paper-plane'
-    label={t<string>('Get a reimbirsement')}
+    label={t('Get a reimbirsement')}
     onSuccess={_onSuccess}
     onFailed={_onFailed}
     params={
@@ -69,9 +69,9 @@ function UseInsurance({ className = '', text, insurance }: Props): React.ReactEl
       <div className='ui--row'>
         <InputAddress
           className='full'
-          help={t<string>('select the account you wish to sign data with')}
+          help={t('select the account you wish to sign data with')}
           isInput={false}
-          label={t<string>('account')}
+          label={t('account')}
           onChange={_onChangeAccount}
           type='account'
         />

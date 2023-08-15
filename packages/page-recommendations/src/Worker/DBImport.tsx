@@ -32,7 +32,7 @@ function DBImport({ className = '', ipfs }: Props): React.ReactElement<Props> {
   }
 
   const modal = <Modal
-    header={t<string>('Scan a QR code')}
+    header={t('Scan a QR code')}
     onClose={() => setModalIsOpen(false)}
     size='small'
   >
@@ -53,7 +53,7 @@ function DBImport({ className = '', ipfs }: Props): React.ReactElement<Props> {
 
   const button = <Button
     icon='qrcode'
-    label={t<string>('Sync DB')}
+    label={t('Sync DB')}
     onClick={() => setModalIsOpen(true)}
     isDisabled={ipfs === null}
   />;

@@ -176,11 +176,11 @@ function Create({ className = '', ipfs }: Props): React.ReactElement<Props> {
           {isLocked && (
             <div className='unlock-overlay-warning'>
               <div className='unlock-overlay-content'>
-                {t<string>('You need to unlock this account to be able to sign data.')}<br />
+                {t('You need to unlock this account to be able to sign data.')}<br />
                 <Button.Group>
                   <Button
                     icon='unlock'
-                    label={t<string>('Unlock account')}
+                    label={t('Unlock account')}
                     onClick={toggleUnlock}
                   />
                 </Button.Group>
@@ -195,8 +195,8 @@ function Create({ className = '', ipfs }: Props): React.ReactElement<Props> {
           <div className='unlock-overlay-warning'>
             <div className='unlock-overlay-content'>
               {isInjected
-                ? t<string>('This injected account cannot be used to sign data since the extension does not support raw signing.')
-                : t<string>('This external account cannot be used to sign data. Only Limited support is currently available for signing from any non-internal accounts.')}
+                ? t('This injected account cannot be used to sign data since the extension does not support raw signing.')
+                : t('This external account cannot be used to sign data. Only Limited support is currently available for signing from any non-internal accounts.')}
             </div>
           </div>
         </div>
@@ -207,8 +207,8 @@ function Create({ className = '', ipfs }: Props): React.ReactElement<Props> {
             pair={currentPair}
           />
         )}
-        {txButton}
-        {ipfs == null ? <div>{t<string>('Connecting to IPFS...')}</div> : ""}
+        {!isLocked && txButton}
+        {ipfs == null ? <div>{t('Connecting to IPFS...')}</div> : ""}
       </Button.Group>
     </div>
   );

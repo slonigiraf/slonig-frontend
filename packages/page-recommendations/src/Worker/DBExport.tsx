@@ -47,7 +47,7 @@ function DBExport({ className = '', ipfs }: Props): React.ReactElement<Props> {
 
   const modal = <Modal
     size={"small"}
-    header={t<string>('Scan this to import data')}
+    header={t('Scan this to import data')}
     onClose={() => setModalIsOpen(false)}
   >
     <Modal.Content>
@@ -57,7 +57,7 @@ function DBExport({ className = '', ipfs }: Props): React.ReactElement<Props> {
 
   const button = <Button
     icon='cloud-download'
-    label={t<string>('Backup')}
+    label={t('Backup')}
     onClick={downloadDbJson}
     isDisabled={ipfs === null}
   />;
