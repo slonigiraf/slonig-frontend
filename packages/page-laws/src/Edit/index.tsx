@@ -88,7 +88,7 @@ function Referee({ className = '', ipfs }: Props): React.ReactElement<Props> {
 
   const _onSign = useCallback(
     async () => {
-      console.log(_onSign);
+      console.log("_onSign");
       if (isLocked || !isUsable || !currentPair) {
         return;
       }
@@ -96,6 +96,7 @@ function Referee({ className = '', ipfs }: Props): React.ReactElement<Props> {
       const textCIDString = await getIPFSContentID(ipfs, text);
       const digest = await digestFromCIDv1(textCIDString);
       setDigestHash(u8aToHex(digest));
+      console.log("digest hash: " + digestHash);
     },
     [currentPair, isLocked, isUsable, signer, ipfs, text]
   );
@@ -125,7 +126,7 @@ function Referee({ className = '', ipfs }: Props): React.ReactElement<Props> {
     onClick={_onSign}
     params={
       [digestHash,
-      amount,
+        amount,
       ]
     }
     tx={api.tx.laws.create}
@@ -152,6 +153,7 @@ function Referee({ className = '', ipfs }: Props): React.ReactElement<Props> {
           label={t('text')}
           onChange={_onChangeData}
           value={text}
+          isDisabled={ipfs==null}
         />
       </div>
       <div className='ui--row'>
@@ -161,6 +163,7 @@ function Referee({ className = '', ipfs }: Props): React.ReactElement<Props> {
           isZeroable
           label={t('spend tokens')}
           onChange={setAmount}
+          isDisabled={ipfs==null}
         />
       </div>
       <div className='toolbox--Sign-input'>
