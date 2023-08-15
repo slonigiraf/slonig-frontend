@@ -35,7 +35,7 @@ interface SignerState {
   signer: Signer | null;
 }
 
-function Referee({ className = '', ipfs }: Props): React.ReactElement<Props> {
+function Create({ className = '', ipfs }: Props): React.ReactElement<Props> {
   const { t } = useTranslation();
   const [currentPair, setCurrentPair] = useState<KeyringPair | null>(() => keyring.getPairs()[0] || null);
   const [text, setText] = useState<string>("");
@@ -45,7 +45,7 @@ function Referee({ className = '', ipfs }: Props): React.ReactElement<Props> {
   const [signature, setSignature] = useState('');
   const [isUnlockVisible, toggleUnlock] = useToggle();
   const [amount, setAmount] = useState<BN>(BN_ZERO);
-  const [digestHash, setDigestHash] = useState<string>("");
+  const [digestHex, setDigestHex] = useState<string>("");
   const { api } = useApi();
 
   useEffect((): void => {
@@ -92,15 +92,13 @@ function Referee({ className = '', ipfs }: Props): React.ReactElement<Props> {
 
   const _onSign = useCallback(
     async () => {
-      console.log("_onSign");
       if (ipfs == null) {
         return;
       }
       // generate a data to sign
       const textCIDString = await getIPFSContentID(ipfs, text);
       const digest = await digestFromCIDv1(textCIDString);
-      setDigestHash(u8aToHex(digest));
-      console.log("digest hash: " + u8aToHex(digest));
+      setDigestHex(u8aToHex(digest));
     },
     [currentPair, isLocked, isUsable, signer, ipfs, text]
   );
@@ -129,7 +127,7 @@ function Referee({ className = '', ipfs }: Props): React.ReactElement<Props> {
     onFailed={_onFailed}
     onClick={_onSign}
     params={
-      [digestHash,
+      [digestHex,
         amount,
       ]
     }
@@ -138,7 +136,7 @@ function Referee({ className = '', ipfs }: Props): React.ReactElement<Props> {
 
   return (
     <div className={`toolbox--Sign ${className}`}>
-      <h1>{t('Edit')}</h1>
+      <h1>{t('Create')}</h1>
       <div className='ui--row'>
         <InputAddress
           className='full'
@@ -163,28 +161,12 @@ function Referee({ className = '', ipfs }: Props): React.ReactElement<Props> {
       <div className='ui--row'>
         <InputBalance
           autoFocus
-          help={t('Spend tokens help info')}
+          help={t('Tokens to burn help info')}
           isZeroable
-          label={t('spend tokens')}
+          label={t('Tokens to burn')}
           onChange={setAmount}
           isDisabled={ipfs==null}
         />
-      </div>
-      <div className='ui--row'>
-        <p>Hash: {digestHash}</p>
-      </div>
-      <div className='toolbox--Sign-input'>
-        <div className='ui--row'>
-          <Output
-            className='full'
-            help={t<string>('create a diploma help text')}
-            isHidden={signature.length === 0}
-            isMonospace
-            label={t<string>('create a diploma')}
-            value={signature}
-            withCopy
-          />
-        </div>
       </div>
       <Button.Group>
         <div
@@ -232,4 +214,4 @@ function Referee({ className = '', ipfs }: Props): React.ReactElement<Props> {
   );
 }
 
-export default React.memo(Referee);
+export default React.memo(Create);
