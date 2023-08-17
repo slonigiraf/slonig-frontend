@@ -205,6 +205,7 @@ function Edit({ className = '', ipfs }: Props): React.ReactElement<Props> {
           help={t('Tokens to burn help info')}
           isZeroable
           label={t('Tokens to burn')}
+          value={amount}
           onChange={setAmount}
           isDisabled={ipfs == null}
         />
