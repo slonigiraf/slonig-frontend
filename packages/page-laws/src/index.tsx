@@ -12,7 +12,7 @@ import { useAccounts, useIpfs } from '@polkadot/react-hooks';
 import { useTranslation } from './translate.js';
 import useCounter from './useCounter.js';
 import Create from './Create';
-import View from './View';
+import Edit from './Edit';
 import useIpfsFactory from './use-ipfs-factory.js'
 export { useCounter };
 
@@ -53,7 +53,7 @@ function AccountsApp ({ basePath, onStatusChange }: Props): React.ReactElement<P
           />
           <Route
             element={
-              <View onStatusChange={onStatusChange} ipfs={ipfs} />
+              <Edit onStatusChange={onStatusChange} ipfs={ipfs} />
             }
             index
           />

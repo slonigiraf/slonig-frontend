@@ -2,7 +2,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import BN from 'bn.js';
-import QRCode from 'qrcode.react';
 import { getIPFSDataFromContentID, getCIDFromBytes } from '@slonigiraf/helpers';
 import { BN_ZERO } from '@polkadot/util';
 import type { Signer } from '@polkadot/api/types';
@@ -19,6 +18,7 @@ import { IPFS } from 'ipfs-core';
 import { qrCodeSize } from '../constants.js';
 import { statics } from '@polkadot/react-api/statics';
 import { useApi } from '@polkadot/react-hooks';
+
 
 interface Props {
   className?: string;
