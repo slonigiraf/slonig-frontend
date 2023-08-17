@@ -125,7 +125,7 @@ function Edit({ className = '', ipfs }: Props): React.ReactElement<Props> {
   );
 
   const _onSuccess = (_result: any) => {
-    // TODO use
+    _onClickChangeView();
   }
   const _onFailed = (_result: any) => {
   }
@@ -170,11 +170,9 @@ function Edit({ className = '', ipfs }: Props): React.ReactElement<Props> {
     onFailed={_onFailed}
     onClick={_onSign}
     params={
-      [digestHex,
-        amount,
-      ]
+      [textHexId, digestHex, amount,]
     }
-    tx={api.tx.laws.create}
+    tx={api.tx.laws.edit}
   />
 
   const editView = (
