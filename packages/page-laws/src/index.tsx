@@ -27,8 +27,8 @@ function AccountsApp ({ basePath, onStatusChange }: Props): React.ReactElement<P
   const tabsRef = useRef([
     {
       isRoot: true,
-      name: 'view',
-      text: t('View')
+      name: 'browse',
+      text: t('Browse')
     },
     {
       name: 'create',

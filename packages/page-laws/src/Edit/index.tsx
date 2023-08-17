@@ -160,10 +160,10 @@ function Edit({ className = '', ipfs }: Props): React.ReactElement<Props> {
 
   const txButton = isUsable && <TxButton
     isDisabled={!(isUsable && !isLocked && ipfs != null)}
-    className='createButton'
+    className='signButton'
     accountId={currentPair.address}
     icon='key'
-    label={t('Create')}
+    label={t('Sign')}
     onSuccess={_onSuccess}
     onFailed={_onFailed}
     onClick={_onSign}
@@ -177,7 +177,7 @@ function Edit({ className = '', ipfs }: Props): React.ReactElement<Props> {
 
   const editView = (
     <div className={`toolbox--Sign ${className}`}>
-      <h1>{t('Create')}</h1>
+      <h1>{t('Edit')}</h1>
       <div className='ui--row'>
         <InputAddress
           className='full'
@@ -259,10 +259,6 @@ function Edit({ className = '', ipfs }: Props): React.ReactElement<Props> {
     </div>
   );
 
-
-
-
-
   const viewView = (
     <div className={`toolbox--Sign ${className}`}>
       <h1>{t('View')}</h1>
@@ -274,19 +270,6 @@ function Edit({ className = '', ipfs }: Props): React.ReactElement<Props> {
           <li>cid: {cidString}</li>
           <li>text: {text}</li>
         </ul>
-      </div>
-      <div className='toolbox--Sign-input'>
-        <div className='ui--row'>
-          <Output
-            className='full'
-            help={t('create a diploma help text')}
-            isHidden={signature.length === 0}
-            isMonospace
-            label={t('create a diploma')}
-            value={signature}
-            withCopy
-          />
-        </div>
       </div>
       <Button.Group>
         <Button
