@@ -48,6 +48,7 @@ function Edit({ className = '', ipfs }: Props): React.ReactElement<Props> {
   const [textHexId, setTextHexId] = useState('0xf55ff16f66f43360266b95db6f8fec01d76031054306ae4a4b380598f6cfd114');
   const [lawHexData, setLawHexData] = useState('');
   const [amount, setAmount] = useState<BN>(BN_ZERO);
+  const [previousAmount, setPreviousAmount] = useState<BN>(BN_ZERO);
   const [digestHex, setDigestHex] = useState<string>("");
   const { api } = useApi();
   const [isEditView, setIsEditView] = useToggle();
@@ -155,6 +156,7 @@ function Edit({ className = '', ipfs }: Props): React.ReactElement<Props> {
       setCidString(cid);
       setLawHexData(u8aToHex(byteArray));
       setAmount(bigIntValue);
+      setPreviousAmount(bigIntValue);
     }
   }
 
