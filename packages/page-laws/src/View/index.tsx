@@ -86,7 +86,7 @@ function View({ className = '', ipfs }: Props): React.ReactElement<Props> {
 
   useEffect(() => {
     const fetchIPFSData = async () => {
-      if(ipfs == null){
+      if (ipfs == null || cidString.length < 2) {
         return;
       }
       const textValue = await getIPFSDataFromContentID(ipfs, cidString);
@@ -98,15 +98,15 @@ function View({ className = '', ipfs }: Props): React.ReactElement<Props> {
 
   async function fetchLaw(key: string) {
     const law = await api.query.laws.laws(key);
-    const tuple = law.unwrap();
-    const byteArray = tuple[0]; // This should give you the [u8; 32]
-    const bigIntValue = tuple[1]; // This should give you the u128
-    const cid = await getCIDFromBytes(byteArray);
-    setCidString(cid);
-
-    console.log("law: " + law);
-    setLawHexData(u8aToHex(byteArray));
-    setAmount(bigIntValue);
+    if (law.isSome) {
+      const tuple = law.unwrap();
+      const byteArray = tuple[0]; // This should give you the [u8; 32]
+      const bigIntValue = tuple[1]; // This should give you the u128
+      const cid = await getCIDFromBytes(byteArray);
+      setCidString(cid);
+      setLawHexData(u8aToHex(byteArray));
+      setAmount(bigIntValue);
+    }
   }
 
 
