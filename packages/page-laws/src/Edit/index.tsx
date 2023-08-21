@@ -126,6 +126,7 @@ function Edit({ className = '', ipfs }: Props): React.ReactElement<Props> {
 
   const _onSuccess = (_result: any) => {
     _onClickChangeView();
+    setLawHexData(digestHex);
   }
   const _onFailed = (_result: any) => {
   }
@@ -170,7 +171,7 @@ function Edit({ className = '', ipfs }: Props): React.ReactElement<Props> {
     onFailed={_onFailed}
     onClick={_onSign}
     params={
-      [textHexId, digestHex, amount,]
+      [textHexId, lawHexData, digestHex, amount,]
     }
     tx={api.tx.laws.edit}
   />

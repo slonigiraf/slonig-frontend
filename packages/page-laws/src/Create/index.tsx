@@ -18,6 +18,7 @@ import Unlock from '@polkadot/app-signing/Unlock';
 import { IPFS } from 'ipfs-core';
 import { statics } from '@polkadot/react-api/statics';
 import { useApi } from '@polkadot/react-hooks';
+import { randomAsU8a } from '@polkadot/util-crypto';
 
 interface Props {
   className?: string;
@@ -45,6 +46,7 @@ function Create({ className = '', ipfs }: Props): React.ReactElement<Props> {
   const [signature, setSignature] = useState('');
   const [isUnlockVisible, toggleUnlock] = useToggle();
   const [amount, setAmount] = useState<BN>(BN_ZERO);
+  const [idHex, setIdHex] = useState<string>("");
   const [digestHex, setDigestHex] = useState<string>("");
   const { api } = useApi();
 
@@ -99,6 +101,7 @@ function Create({ className = '', ipfs }: Props): React.ReactElement<Props> {
       const textCIDString = await getIPFSContentID(ipfs, text);
       const digest = await digestFromCIDv1(textCIDString);
       setDigestHex(u8aToHex(digest));
+      setIdHex(u8aToHex(randomAsU8a(32)));
     },
     [currentPair, isLocked, isUsable, signer, ipfs, text]
   );
@@ -127,7 +130,8 @@ function Create({ className = '', ipfs }: Props): React.ReactElement<Props> {
     onFailed={_onFailed}
     onClick={_onSign}
     params={
-      [digestHex,
+      [idHex,
+        digestHex,
         amount,
       ]
     }
