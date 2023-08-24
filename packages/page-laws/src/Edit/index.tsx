@@ -39,6 +39,8 @@ function Edit({ className = '', ipfs }: Props): React.ReactElement<Props> {
   const { t } = useTranslation();
   const [currentPair, setCurrentPair] = useState<KeyringPair | null>(() => keyring.getPairs()[0] || null);
   const [text, setText] = useState<string>("");
+  type JsonType = { [key: string]: any } | null;
+  const [json, setJson] = useState<JsonType>(null);
   const [{ isInjected }, setAccountState] = useState<AccountState>({ isExternal: false, isHardware: false, isInjected: false });
   const [isLocked, setIsLocked] = useState(false);
   const [{ isUsable, signer }, setSigner] = useState<SignerState>({ isUsable: true, signer: null });
@@ -51,7 +53,7 @@ function Edit({ className = '', ipfs }: Props): React.ReactElement<Props> {
   const [previousAmount, setPreviousAmount] = useState<BN>(BN_ZERO);
   const [digestHex, setDigestHex] = useState<string>("");
   const { api } = useApi();
-  const [isEditView, setIsEditView] = useToggle();
+  const [isEditView, setIsEditView] = useToggle(true);
 
   useEffect((): void => {
     const meta = (currentPair && currentPair.meta) || {};
@@ -85,6 +87,10 @@ function Edit({ className = '', ipfs }: Props): React.ReactElement<Props> {
     _onSign();
   }, [text]);
 
+  useEffect(() => {
+    setText(JSON.stringify(json));
+  }, [json]);
+
 
   const _onClickChangeView = useCallback(
     (): void => {
@@ -102,6 +108,23 @@ function Edit({ className = '', ipfs }: Props): React.ReactElement<Props> {
     (data: string) => setText(data),
     []
   );
+  const _onEditJsonH = useCallback(
+    (header: string) => {
+      const copiedJson = { ...json };
+      copiedJson.h = header;
+      setJson(copiedJson);
+    },
+    [json]
+  );
+  const _addListItem = useCallback(
+    (header: string) => {
+      const copiedJson = { ...json };
+      copiedJson.e.push("");
+      setJson(copiedJson);
+    },
+    [json, text]
+  );
+
 
   const _onSign = useCallback(
     async () => {
@@ -142,6 +165,7 @@ function Edit({ className = '', ipfs }: Props): React.ReactElement<Props> {
       }
       const textValue = await getIPFSDataFromContentID(ipfs, cidString);
       setText(textValue);
+      setJson(parseJson(textValue));
     };
 
     fetchIPFSData();
@@ -160,6 +184,36 @@ function Edit({ className = '', ipfs }: Props): React.ReactElement<Props> {
       setPreviousAmount(bigIntValue);
     }
   }
+
+  const parseJson = (input: string): any | null => {
+    try {
+      const result = JSON.parse(input);
+      return result;
+    } catch (e) {
+      console.error("Error parsing JSON: ", e.message);
+      return null;
+    }
+  }
+
+  const dataEditor = (json == null) ? "" : (
+    <>
+      <div className='ui--row'>
+        <Input
+          autoFocus
+          className='full'
+          help={t('Text')}
+          label={t('text')}
+          onChange={_onEditJsonH}
+          value={json.h}
+        />
+      </div>
+      <Button
+        icon='add'
+        label={t('Add list item')}
+        onClick={_addListItem}
+      />
+    </>
+  );
 
   const txButton = isUsable && <TxButton
     isDisabled={!(isUsable && !isLocked && ipfs != null)}
@@ -211,6 +265,7 @@ function Edit({ className = '', ipfs }: Props): React.ReactElement<Props> {
           isDisabled={ipfs == null}
         />
       </div>
+      {dataEditor}
       <Button.Group>
         <div
           className='unlock-overlay'
