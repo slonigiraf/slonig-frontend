@@ -22,6 +22,7 @@ function Editor_0({ className = '', list, item, isAddingItem, onListChange, onIt
   const _onClickAddItem = useCallback(
     (): void => {
       const newItemIdHex = randomIdHex();
+      onItemIdHexChange(newItemIdHex);
       const itemJSONTemplate = `{"i":"${newItemIdHex}","t":"0","h":""}`;
       onItemChange(parseJson(itemJSONTemplate));
       const updatedList = { ...list };

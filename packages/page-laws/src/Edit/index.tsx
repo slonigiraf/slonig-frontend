@@ -55,6 +55,7 @@ function Edit({ className = '', ipfs }: Props): React.ReactElement<Props> {
   const [amountItem, setAmountItem] = useState<BN>(BN_ZERO);
   const [previousAmount, setPreviousAmount] = useState<BN>(BN_ZERO);
   const [digestHex, setDigestHex] = useState<string>("");
+  const [itemDigestHex, setItemDigestHex] = useState<string>("");
   const { api } = useApi();
   const [isEditView, setIsEditView] = useToggle(true);
   const [isAddingItem, setIsAddingElement] = useState<boolean>(false);
@@ -131,10 +132,15 @@ function Edit({ className = '', ipfs }: Props): React.ReactElement<Props> {
       if (ipfs == null) {
         return;
       }
-      // generate a data to sign
+      // generate data about list
       const textCIDString = await getIPFSContentID(ipfs, text);
       const digest = await digestFromCIDv1(textCIDString);
       setDigestHex(u8aToHex(digest));
+
+      // generate data about item
+      const itemCIDString = await getIPFSContentID(ipfs, JSON.stringify(item));
+      const itemDigest = await digestFromCIDv1(itemCIDString);
+      setItemDigestHex(u8aToHex(itemDigest));
     },
     [currentPair, isLocked, isUsable, signer, ipfs, text]
   );
@@ -149,6 +155,10 @@ function Edit({ className = '', ipfs }: Props): React.ReactElement<Props> {
 
   const _onSuccess = (_result: any) => {
     _onClickChangeView();
+    setIsAddingElement(false);
+    setItem(null);
+    setItemDigestHex("");
+    setItemIdHex("");
     setLawHexData(digestHex);
   }
   const _onFailed = (_result: any) => {
@@ -185,7 +195,7 @@ function Edit({ className = '', ipfs }: Props): React.ReactElement<Props> {
     }
   }
 
-  const txButton = isUsable && <TxButton
+  const txButtonEdit = isUsable && <TxButton
     isDisabled={!(isUsable && !isLocked && ipfs != null)}
     className='signButton'
     accountId={currentPair.address}
@@ -199,6 +209,24 @@ function Edit({ className = '', ipfs }: Props): React.ReactElement<Props> {
     }
     tx={api.tx.laws.edit}
   />
+
+  const txButtonCreateAndEdit = isUsable && <TxButton
+    isDisabled={!(isUsable && !isLocked && ipfs != null)}
+    className='signButton'
+    accountId={currentPair.address}
+    icon='key'
+    label={t('Sign')}
+    onSuccess={_onSuccess}
+    onFailed={_onFailed}
+    onClick={_onSign}
+    params={
+      [ itemIdHex, itemDigestHex, amountItem,
+        textHexId, lawHexData, digestHex, amountList,]
+    }
+    tx={api.tx.laws.createAndEdit}
+  />
+
+  const txButton = (item == null)? txButtonEdit : txButtonCreateAndEdit;
 
   const amountItemElement = (item == null ? "" : <div className='ui--row'>
     <InputBalance
