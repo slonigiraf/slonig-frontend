@@ -39,7 +39,7 @@ function Edit({ className = '', ipfs }: Props): React.ReactElement<Props> {
   const { t } = useTranslation();
   const [currentPair, setCurrentPair] = useState<KeyringPair | null>(() => keyring.getPairs()[0] || null);
   const [text, setText] = useState<string>("");
-  
+
   type JsonType = { [key: string]: any } | null;
   const [list, setList] = useState<JsonType>(null);
   const [item, setItem] = useState<JsonType>(null);
@@ -58,6 +58,7 @@ function Edit({ className = '', ipfs }: Props): React.ReactElement<Props> {
   const { api } = useApi();
   const [isEditView, setIsEditView] = useToggle(true);
   const [isAddingItem, setIsAddingElement] = useState<boolean>(false);
+  const [itemIdHex, setItemIdHex] = useState<string>("");
 
   useEffect((): void => {
     const meta = (currentPair && currentPair.meta) || {};
@@ -183,7 +184,7 @@ function Edit({ className = '', ipfs }: Props): React.ReactElement<Props> {
       setPreviousAmount(bigIntValue);
     }
   }
-  
+
   const txButton = isUsable && <TxButton
     isDisabled={!(isUsable && !isLocked && ipfs != null)}
     className='signButton'
@@ -199,22 +200,26 @@ function Edit({ className = '', ipfs }: Props): React.ReactElement<Props> {
     tx={api.tx.laws.edit}
   />
 
-  const amountItemElement = (item == null? "" : <div className='ui--row'>
-  <InputBalance
-    autoFocus
-    help={t('Tokens to burn for item help info')}
-    isZeroable
-    label={t('Tokens to burn for item')}
-    value={amountItem}
-    onChange={setAmountItem}
-    isDisabled={ipfs == null}
-  />
-</div>);
+  const amountItemElement = (item == null ? "" : <div className='ui--row'>
+    <InputBalance
+      autoFocus
+      help={t('Tokens to burn for item help info')}
+      isZeroable
+      label={t('Tokens to burn for item')}
+      value={amountItem}
+      onChange={setAmountItem}
+      isDisabled={ipfs == null}
+    />
+  </div>);
+
+  const editor = (list == null) ? ""
+    :
+    <Editor_0 list={list} item={item} isAddingItem={isAddingItem} onListChange={setList} onItemChange={setItem} onItemIdHexChange={setItemIdHex} onIsAddingItemChange={setIsAddingElement} />;
 
   const editView = (
     <div className={`toolbox--Sign ${className}`}>
       <h1>{t('Edit')}</h1>
-      <Editor_0 list={list} item={item} isAddingItem={isAddingItem} onListChange={setList} onItemChange={setItem} onIsAddingItemChange={setIsAddingElement} />
+      {editor}
       {amountItemElement}
       <div className='ui--row'>
         <InputBalance
@@ -285,10 +290,10 @@ function Edit({ className = '', ipfs }: Props): React.ReactElement<Props> {
         {ipfs == null ? <div>{t('Connecting to IPFS...')}</div> : ""}
       </Button.Group>
       <div className='ui--row'>
-        <p><b>Debug</b><br/>
-          List:<br/>
-        {JSON.stringify(list)}<br/>
-        Item:<br/>{JSON.stringify(item)}
+        <p><b>Debug</b><br />
+          List:<br />
+          {JSON.stringify(list)}<br />
+          Item:<br />{JSON.stringify(item)}
         </p>
       </div>
     </div>

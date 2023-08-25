@@ -3,28 +3,33 @@
 import React, { useCallback } from 'react';
 import { Button, Input } from '@polkadot/react-components';
 import { useTranslation } from '../translate.js';
-import { parseJson } from '../util';
+import { parseJson, randomIdHex } from '../util';
 
 interface Props {
   className?: string;
   list: any;
   item: any;
+  itemIdHex: string;
   isAddingItem: boolean;
   onListChange: (updatedList: any) => void;
   onItemChange: (updatedItem: any) => void;
+  onItemIdHexChange: (updatedItemIdHex: any) => void;
   onIsAddingItemChange: (state: boolean) => void;
 }
 
-function Editor_0({ className = '', list, item, isAddingItem, onListChange, onItemChange, onIsAddingItemChange }: Props): React.ReactElement<Props> {
+function Editor_0({ className = '', list, item, isAddingItem, onListChange, onItemChange, onItemIdHexChange, onIsAddingItemChange }: Props): React.ReactElement<Props> {
   const { t } = useTranslation();
-
-  const itemJSONTemplate = "{\"t\":\"0\",\"h\":\"\"}";
   const _onClickAddItem = useCallback(
     (): void => {
+      const newItemIdHex = randomIdHex();
+      const itemJSONTemplate = `{"i":"${newItemIdHex}","t":"0","h":""}`;
       onItemChange(parseJson(itemJSONTemplate));
+      const updatedList = { ...list };
+      updatedList.e.push(newItemIdHex);
+      onListChange(updatedList);
       onIsAddingItemChange(true);
     },
-    [onIsAddingItemChange]
+    [onItemChange, onIsAddingItemChange]
   );
 
   const _onEditItemTitle = useCallback(
@@ -61,7 +66,7 @@ function Editor_0({ className = '', list, item, isAddingItem, onListChange, onIt
     onClick={_onClickAddItem}
   />;
 
-  const dataEditor = (list == null) ? "" : (
+  const listEditor = (list == null) ? "" : (
     <>
       <div className='ui--row'>
         <Input
@@ -76,11 +81,10 @@ function Editor_0({ className = '', list, item, isAddingItem, onListChange, onIt
       <div className='ui--row'>
         {itemEditor}
       </div>
-      
     </>
   );
 
-  return dataEditor;
+  return listEditor;
 }
 
 export default React.memo(Editor_0);
