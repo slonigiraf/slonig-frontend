@@ -35,12 +35,24 @@ interface SignerState {
   signer: Signer | null;
 }
 
+const parseJson = (input: string): any | null => {
+  try {
+    const result = JSON.parse(input);
+    return result;
+  } catch (e) {
+    console.error("Error parsing JSON: ", e.message);
+    return null;
+  }
+}
+
 function Edit({ className = '', ipfs }: Props): React.ReactElement<Props> {
   const { t } = useTranslation();
   const [currentPair, setCurrentPair] = useState<KeyringPair | null>(() => keyring.getPairs()[0] || null);
   const [text, setText] = useState<string>("");
+  const jsonTemplate = parseJson("{\"t\":\"0\",\"h\":\"some\"}");
   type JsonType = { [key: string]: any } | null;
   const [json, setJson] = useState<JsonType>(null);
+  const [newElement, setNewElement] = useState<JsonType>(null);
   const [{ isInjected }, setAccountState] = useState<AccountState>({ isExternal: false, isHardware: false, isInjected: false });
   const [isLocked, setIsLocked] = useState(false);
   const [{ isUsable, signer }, setSigner] = useState<SignerState>({ isUsable: true, signer: null });
@@ -54,6 +66,7 @@ function Edit({ className = '', ipfs }: Props): React.ReactElement<Props> {
   const [digestHex, setDigestHex] = useState<string>("");
   const { api } = useApi();
   const [isEditView, setIsEditView] = useToggle(true);
+  const [isAddingElement, setIsAddingElement] = useToggle(false);
 
   useEffect((): void => {
     const meta = (currentPair && currentPair.meta) || {};
@@ -99,14 +112,27 @@ function Edit({ className = '', ipfs }: Props): React.ReactElement<Props> {
     [setIsEditView]
   );
 
+  const _onClickAddElement = useCallback(
+    (): void => {
+      setIsAddingElement();
+      const copiedNewElement = { ...jsonTemplate };
+      setNewElement(copiedNewElement);
+    },
+    [setIsAddingElement]
+  );
+
   const _onChangeAccount = useCallback(
     (accountId: string | null) => accountId && setCurrentPair(keyring.getPair(accountId)),
     []
   );
 
-  const _onChangeData = useCallback(
-    (data: string) => setText(data),
-    []
+  const _onEditNewElementHeader = useCallback(
+    (header: string) => {
+      const copiedNewElement = { ...newElement };
+      copiedNewElement.h = header;
+      setNewElement(copiedNewElement);
+    },
+    [json]
   );
   const _onEditJsonH = useCallback(
     (header: string) => {
@@ -116,15 +142,6 @@ function Edit({ className = '', ipfs }: Props): React.ReactElement<Props> {
     },
     [json]
   );
-  const _addListItem = useCallback(
-    (header: string) => {
-      const copiedJson = { ...json };
-      copiedJson.e.push("");
-      setJson(copiedJson);
-    },
-    [json, text]
-  );
-
 
   const _onSign = useCallback(
     async () => {
@@ -185,15 +202,23 @@ function Edit({ className = '', ipfs }: Props): React.ReactElement<Props> {
     }
   }
 
-  const parseJson = (input: string): any | null => {
-    try {
-      const result = JSON.parse(input);
-      return result;
-    } catch (e) {
-      console.error("Error parsing JSON: ", e.message);
-      return null;
-    }
-  }
+  
+
+  const newElementEditor = isAddingElement? 
+    <Input
+      autoFocus
+      className='full'
+      help={t('Title of element')}
+      label={t('title of element')}
+      onChange={_onEditNewElementHeader}
+      value={newElement == null? "" : newElement.h}
+    />
+  : 
+  <Button
+    icon='add'
+    label={t('Add list item')}
+    onClick={_onClickAddElement}
+  />;
 
   const dataEditor = (json == null) ? "" : (
     <>
@@ -201,17 +226,16 @@ function Edit({ className = '', ipfs }: Props): React.ReactElement<Props> {
         <Input
           autoFocus
           className='full'
-          help={t('Text')}
-          label={t('text')}
+          help={t('Title')}
+          label={t('title')}
           onChange={_onEditJsonH}
           value={json.h}
         />
       </div>
-      <Button
-        icon='add'
-        label={t('Add list item')}
-        onClick={_addListItem}
-      />
+      <div className='ui--row'>
+        {newElementEditor}
+      </div>
+      
     </>
   );
 
@@ -233,27 +257,7 @@ function Edit({ className = '', ipfs }: Props): React.ReactElement<Props> {
   const editView = (
     <div className={`toolbox--Sign ${className}`}>
       <h1>{t('Edit')}</h1>
-      <div className='ui--row'>
-        <InputAddress
-          className='full'
-          help={t('select the account you wish to sign data with')}
-          isInput={false}
-          label={t('account')}
-          onChange={_onChangeAccount}
-          type='account'
-        />
-      </div>
-      <div className='ui--row'>
-        <Input
-          autoFocus
-          className='full'
-          help={t('Text')}
-          label={t('text')}
-          onChange={_onChangeData}
-          value={text}
-          isDisabled={ipfs == null}
-        />
-      </div>
+      {dataEditor}
       <div className='ui--row'>
         <InputBalance
           autoFocus
@@ -265,7 +269,22 @@ function Edit({ className = '', ipfs }: Props): React.ReactElement<Props> {
           isDisabled={ipfs == null}
         />
       </div>
-      {dataEditor}
+      <div className='ui--row'>
+        <InputAddress
+          className='full'
+          help={t('select the account you wish to sign data with')}
+          isInput={false}
+          label={t('account')}
+          onChange={_onChangeAccount}
+          type='account'
+        />
+      </div>
+      <div className='ui--row'>
+        <p>{text}</p>
+      </div>
+      <div className='ui--row'>
+        <p>{JSON.stringify(newElement)}</p>
+      </div>
       <Button.Group>
         <div
           className='unlock-overlay'
