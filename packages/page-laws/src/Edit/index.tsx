@@ -39,10 +39,10 @@ function Edit({ className = '', ipfs }: Props): React.ReactElement<Props> {
   const { t } = useTranslation();
   const [currentPair, setCurrentPair] = useState<KeyringPair | null>(() => keyring.getPairs()[0] || null);
   const [text, setText] = useState<string>("");
-  const jsonTemplate = parseJson("{\"t\":\"0\",\"h\":\"some\"}");
+  
   type JsonType = { [key: string]: any } | null;
-  const [json, setJson] = useState<JsonType>(null);
-  const [newElement, setNewElement] = useState<JsonType>(null);
+  const [list, setList] = useState<JsonType>(null);
+  const [item, setItem] = useState<JsonType>(null);
   const [{ isInjected }, setAccountState] = useState<AccountState>({ isExternal: false, isHardware: false, isInjected: false });
   const [isLocked, setIsLocked] = useState(false);
   const [{ isUsable, signer }, setSigner] = useState<SignerState>({ isUsable: true, signer: null });
@@ -51,12 +51,13 @@ function Edit({ className = '', ipfs }: Props): React.ReactElement<Props> {
   const [cidString, setCidString] = useState<string>("");
   const [textHexId, setTextHexId] = useState('0xf55ff16f66f43360266b95db6f8fec01d76031054306ae4a4b380598f6cfd114');
   const [lawHexData, setLawHexData] = useState('');
-  const [amount, setAmount] = useState<BN>(BN_ZERO);
+  const [amountList, setAmountList] = useState<BN>(BN_ZERO);
+  const [amountItem, setAmountItem] = useState<BN>(BN_ZERO);
   const [previousAmount, setPreviousAmount] = useState<BN>(BN_ZERO);
   const [digestHex, setDigestHex] = useState<string>("");
   const { api } = useApi();
   const [isEditView, setIsEditView] = useToggle(true);
-  const [isAddingElement, setIsAddingElement] = useState<boolean>(false);
+  const [isAddingItem, setIsAddingElement] = useState<boolean>(false);
 
   useEffect((): void => {
     const meta = (currentPair && currentPair.meta) || {};
@@ -91,8 +92,8 @@ function Edit({ className = '', ipfs }: Props): React.ReactElement<Props> {
   }, [text]);
 
   useEffect(() => {
-    setText(JSON.stringify(json));
-  }, [json]);
+    setText(JSON.stringify(list));
+  }, [list]);
 
 
   const _onClickChangeView = useCallback(
@@ -109,19 +110,19 @@ function Edit({ className = '', ipfs }: Props): React.ReactElement<Props> {
 
   const _onEditNewElementHeader = useCallback(
     (header: string) => {
-      const copiedNewElement = { ...newElement };
+      const copiedNewElement = { ...item };
       copiedNewElement.h = header;
-      setNewElement(copiedNewElement);
+      setItem(copiedNewElement);
     },
-    [json]
+    [list]
   );
   const _onEditJsonH = useCallback(
     (header: string) => {
-      const copiedJson = { ...json };
+      const copiedJson = { ...list };
       copiedJson.h = header;
-      setJson(copiedJson);
+      setList(copiedJson);
     },
-    [json]
+    [list]
   );
 
   const _onSign = useCallback(
@@ -163,7 +164,7 @@ function Edit({ className = '', ipfs }: Props): React.ReactElement<Props> {
       }
       const textValue = await getIPFSDataFromContentID(ipfs, cidString);
       setText(textValue);
-      setJson(parseJson(textValue));
+      setList(parseJson(textValue));
     };
 
     fetchIPFSData();
@@ -178,7 +179,7 @@ function Edit({ className = '', ipfs }: Props): React.ReactElement<Props> {
       const cid = await getCIDFromBytes(byteArray);
       setCidString(cid);
       setLawHexData(u8aToHex(byteArray));
-      setAmount(bigIntValue);
+      setAmountList(bigIntValue);
       setPreviousAmount(bigIntValue);
     }
   }
@@ -193,23 +194,36 @@ function Edit({ className = '', ipfs }: Props): React.ReactElement<Props> {
     onFailed={_onFailed}
     onClick={_onSign}
     params={
-      [textHexId, lawHexData, digestHex, amount,]
+      [textHexId, lawHexData, digestHex, amountList,]
     }
     tx={api.tx.laws.edit}
   />
 
+  const amountItemElement = (item == null? "" : <div className='ui--row'>
+  <InputBalance
+    autoFocus
+    help={t('Tokens to burn for item help info')}
+    isZeroable
+    label={t('Tokens to burn for item')}
+    value={amountItem}
+    onChange={setAmountItem}
+    isDisabled={ipfs == null}
+  />
+</div>);
+
   const editView = (
     <div className={`toolbox--Sign ${className}`}>
       <h1>{t('Edit')}</h1>
-      <Editor_0 list={json} item={newElement} isAddingItem={isAddingElement} onListChange={setJson} onItemChange={setNewElement} onIsAddingItemChange={setIsAddingElement} />
+      <Editor_0 list={list} item={item} isAddingItem={isAddingItem} onListChange={setList} onItemChange={setItem} onIsAddingItemChange={setIsAddingElement} />
+      {amountItemElement}
       <div className='ui--row'>
         <InputBalance
           autoFocus
           help={t('Tokens to burn help info')}
           isZeroable
           label={t('Tokens to burn')}
-          value={amount}
-          onChange={setAmount}
+          value={amountList}
+          onChange={setAmountList}
           isDisabled={ipfs == null}
         />
       </div>
@@ -222,12 +236,6 @@ function Edit({ className = '', ipfs }: Props): React.ReactElement<Props> {
           onChange={_onChangeAccount}
           type='account'
         />
-      </div>
-      <div className='ui--row'>
-        <p>{text}</p>
-      </div>
-      <div className='ui--row'>
-        <p>{JSON.stringify(newElement)}</p>
       </div>
       <Button.Group>
         <div
@@ -276,6 +284,13 @@ function Edit({ className = '', ipfs }: Props): React.ReactElement<Props> {
         {!isLocked && txButton}
         {ipfs == null ? <div>{t('Connecting to IPFS...')}</div> : ""}
       </Button.Group>
+      <div className='ui--row'>
+        <p><b>Debug</b><br/>
+          List:<br/>
+        {JSON.stringify(list)}<br/>
+        Item:<br/>{JSON.stringify(item)}
+        </p>
+      </div>
     </div>
   );
 
@@ -286,7 +301,7 @@ function Edit({ className = '', ipfs }: Props): React.ReactElement<Props> {
         <ul>
           <li>textHexId: {textHexId}</li>
           <li>lawHexData: {lawHexData}</li>
-          <li>amount: {amount.toString()}</li>
+          <li>amount: {amountList.toString()}</li>
           <li>cid: {cidString}</li>
           <li>text: {text}</li>
         </ul>

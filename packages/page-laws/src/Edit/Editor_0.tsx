@@ -3,6 +3,7 @@
 import React, { useCallback } from 'react';
 import { Button, Input } from '@polkadot/react-components';
 import { useTranslation } from '../translate.js';
+import { parseJson } from '../util';
 
 interface Props {
   className?: string;
@@ -16,9 +17,12 @@ interface Props {
 
 function Editor_0({ className = '', list, item, isAddingItem, onListChange, onItemChange, onIsAddingItemChange }: Props): React.ReactElement<Props> {
   const { t } = useTranslation();
+
+  const jsonTemplate = parseJson("{\"t\":\"0\",\"h\":\"\"}");
   
   const _onClickAddItem = useCallback(
     (): void => {
+      onItemChange(parseJson(jsonTemplate));
       onIsAddingItemChange(true);
     },
     [onIsAddingItemChange]
