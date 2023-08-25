@@ -18,11 +18,10 @@ interface Props {
 function Editor_0({ className = '', list, item, isAddingItem, onListChange, onItemChange, onIsAddingItemChange }: Props): React.ReactElement<Props> {
   const { t } = useTranslation();
 
-  const jsonTemplate = parseJson("{\"t\":\"0\",\"h\":\"\"}");
-  
+  const itemJSONTemplate = "{\"t\":\"0\",\"h\":\"\"}";
   const _onClickAddItem = useCallback(
     (): void => {
-      onItemChange(parseJson(jsonTemplate));
+      onItemChange(parseJson(itemJSONTemplate));
       onIsAddingItemChange(true);
     },
     [onIsAddingItemChange]
