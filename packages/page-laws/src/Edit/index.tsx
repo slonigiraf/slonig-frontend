@@ -2,7 +2,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import BN from 'bn.js';
-import QRCode from 'qrcode.react';
 import { getIPFSContentID, digestFromCIDv1, getCIDFromBytes, getIPFSDataFromContentID } from '@slonigiraf/helpers';
 import { BN_ZERO } from '@polkadot/util';
 import type { Signer } from '@polkadot/api/types';
@@ -16,8 +15,9 @@ import { isFunction, u8aToHex, hexToU8a, u8aWrapBytes } from '@polkadot/util';
 import { useTranslation } from '../translate.js';
 import Unlock from '@polkadot/app-signing/Unlock';
 import { IPFS } from 'ipfs-core';
-import { statics } from '@polkadot/react-api/statics';
 import { useApi } from '@polkadot/react-hooks';
+import { parseJson } from '../util';
+import Editor_0 from './Editor_0';
 
 interface Props {
   className?: string;
@@ -33,16 +33,6 @@ interface AccountState {
 interface SignerState {
   isUsable: boolean;
   signer: Signer | null;
-}
-
-const parseJson = (input: string): any | null => {
-  try {
-    const result = JSON.parse(input);
-    return result;
-  } catch (e) {
-    console.error("Error parsing JSON: ", e.message);
-    return null;
-  }
 }
 
 function Edit({ className = '', ipfs }: Props): React.ReactElement<Props> {
@@ -66,7 +56,7 @@ function Edit({ className = '', ipfs }: Props): React.ReactElement<Props> {
   const [digestHex, setDigestHex] = useState<string>("");
   const { api } = useApi();
   const [isEditView, setIsEditView] = useToggle(true);
-  const [isAddingElement, setIsAddingElement] = useToggle(false);
+  const [isAddingElement, setIsAddingElement] = useState<boolean>(false);
 
   useEffect((): void => {
     const meta = (currentPair && currentPair.meta) || {};
@@ -110,15 +100,6 @@ function Edit({ className = '', ipfs }: Props): React.ReactElement<Props> {
       setIsEditView();
     },
     [setIsEditView]
-  );
-
-  const _onClickAddElement = useCallback(
-    (): void => {
-      setIsAddingElement();
-      const copiedNewElement = { ...jsonTemplate };
-      setNewElement(copiedNewElement);
-    },
-    [setIsAddingElement]
   );
 
   const _onChangeAccount = useCallback(
@@ -201,44 +182,7 @@ function Edit({ className = '', ipfs }: Props): React.ReactElement<Props> {
       setPreviousAmount(bigIntValue);
     }
   }
-
   
-
-  const newElementEditor = isAddingElement? 
-    <Input
-      autoFocus
-      className='full'
-      help={t('Title of element')}
-      label={t('title of element')}
-      onChange={_onEditNewElementHeader}
-      value={newElement == null? "" : newElement.h}
-    />
-  : 
-  <Button
-    icon='add'
-    label={t('Add list item')}
-    onClick={_onClickAddElement}
-  />;
-
-  const dataEditor = (json == null) ? "" : (
-    <>
-      <div className='ui--row'>
-        <Input
-          autoFocus
-          className='full'
-          help={t('Title')}
-          label={t('title')}
-          onChange={_onEditJsonH}
-          value={json.h}
-        />
-      </div>
-      <div className='ui--row'>
-        {newElementEditor}
-      </div>
-      
-    </>
-  );
-
   const txButton = isUsable && <TxButton
     isDisabled={!(isUsable && !isLocked && ipfs != null)}
     className='signButton'
@@ -257,7 +201,7 @@ function Edit({ className = '', ipfs }: Props): React.ReactElement<Props> {
   const editView = (
     <div className={`toolbox--Sign ${className}`}>
       <h1>{t('Edit')}</h1>
-      {dataEditor}
+      <Editor_0 list={json} item={newElement} isAddingItem={isAddingElement} onListChange={setJson} onItemChange={setNewElement} onIsAddingItemChange={setIsAddingElement} />
       <div className='ui--row'>
         <InputBalance
           autoFocus
