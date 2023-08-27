@@ -4,6 +4,7 @@ import React, { useCallback } from 'react';
 import { Button, Input } from '@polkadot/react-components';
 import { useTranslation } from '../translate.js';
 import { parseJson, randomIdHex } from '../util';
+import Reordering from './Reordering';
 
 interface Props {
   className?: string;
@@ -67,6 +68,10 @@ function Editor_0({ className = '', list, item, isAddingItem, onListChange, onIt
     onClick={_onClickAddItem}
   />;
 
+  const reordering = (list == null | list.e == null)? "" : (
+    <Reordering list={list} />
+  );
+
   const listEditor = (list == null) ? "" : (
     <>
       <div className='ui--row'>
@@ -79,9 +84,11 @@ function Editor_0({ className = '', list, item, isAddingItem, onListChange, onIt
           value={list.h}
         />
       </div>
+      {reordering}
       <div className='ui--row'>
         {itemEditor}
       </div>
+      
     </>
   );
 
