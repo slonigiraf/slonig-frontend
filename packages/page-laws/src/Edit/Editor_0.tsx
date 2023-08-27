@@ -5,9 +5,11 @@ import { Button, Input } from '@polkadot/react-components';
 import { useTranslation } from '../translate.js';
 import { parseJson, randomIdHex } from '../util';
 import Reordering from './Reordering';
+import { IPFS } from 'ipfs-core';
 
 interface Props {
   className?: string;
+  ipfs: IPFS;
   list: any;
   item: any;
   itemIdHex: string;
@@ -18,7 +20,7 @@ interface Props {
   onIsAddingItemChange: (state: boolean) => void;
 }
 
-function Editor_0({ className = '', list, item, isAddingItem, onListChange, onItemChange, onItemIdHexChange, onIsAddingItemChange }: Props): React.ReactElement<Props> {
+function Editor_0({ className = '', ipfs, list, item, isAddingItem, onListChange, onItemChange, onItemIdHexChange, onIsAddingItemChange }: Props): React.ReactElement<Props> {
   const { t } = useTranslation();
   const _onClickAddItem = useCallback(
     (): void => {
@@ -69,7 +71,7 @@ function Editor_0({ className = '', list, item, isAddingItem, onListChange, onIt
   />;
 
   const reordering = (list == null | list.e == null)? "" : (
-    <Reordering list={list} onListChange={onListChange}/>
+    <Reordering ipfs={ipfs} list={list} onListChange={onListChange}/>
   );
 
   const listEditor = (list == null) ? "" : (

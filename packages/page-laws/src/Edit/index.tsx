@@ -242,7 +242,7 @@ function Edit({ className = '', ipfs }: Props): React.ReactElement<Props> {
 
   const editor = (list == null) ? ""
     :
-    <Editor_0 list={list} item={item} isAddingItem={isAddingItem} onListChange={setList} onItemChange={setItem} onItemIdHexChange={setItemIdHex} onIsAddingItemChange={setIsAddingElement} />;
+    <Editor_0 ipfs={ipfs} list={list} item={item} isAddingItem={isAddingItem} onListChange={setList} onItemChange={setItem} onItemIdHexChange={setItemIdHex} onIsAddingItemChange={setIsAddingElement} />;
 
   const editView = (
     <div className={`toolbox--Sign ${className}`}>

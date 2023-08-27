@@ -3,16 +3,19 @@
 import React, { useCallback } from 'react';
 import { Button, Label } from '@polkadot/react-components';
 import { useTranslation } from '../translate.js';
+import ItemLabel from './ItemLabel';
+import { IPFS } from 'ipfs-core';
 
 interface Props {
   className?: string;
   list: any;
+  ipfs: IPFS;
   onListChange: (updatedList: any) => void;
 }
 
 // ... [The imports remain the same]
 
-function Reordering({ className = '', list, onListChange }: Props): React.ReactElement<Props> {
+function Reordering({ className = '', list, ipfs, onListChange }: Props): React.ReactElement<Props> {
   const { t } = useTranslation();
 
   const handleMoveUp = useCallback((index: number) => {
@@ -61,7 +64,7 @@ function Reordering({ className = '', list, onListChange }: Props): React.ReactE
             icon='times'  // Assuming 'times' is the icon for delete
             onClick={() => handleDelete(index)}
           />
-          <Label label={item} />
+          <ItemLabel ipfs={ipfs} textHexId={item} />
         </div>
       ))}
     </>
