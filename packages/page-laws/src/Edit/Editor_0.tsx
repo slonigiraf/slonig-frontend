@@ -69,7 +69,7 @@ function Editor_0({ className = '', list, item, isAddingItem, onListChange, onIt
   />;
 
   const reordering = (list == null | list.e == null)? "" : (
-    <Reordering list={list} />
+    <Reordering list={list} onListChange={onListChange}/>
   );
 
   const listEditor = (list == null) ? "" : (

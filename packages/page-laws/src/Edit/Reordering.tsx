@@ -10,22 +10,46 @@ interface Props {
   onListChange: (updatedList: any) => void;
 }
 
+// ... [The imports remain the same]
+
 function Reordering({ className = '', list, onListChange }: Props): React.ReactElement<Props> {
   const { t } = useTranslation();
 
-  return (list == null | list.e == null) ? "" : (
+  const handleMoveUp = useCallback((index: number) => {
+    if (index === 0) return; // Already at the top
+    const newList = [...list.e];
+    const temp = newList[index];
+    newList[index] = newList[index - 1];
+    newList[index - 1] = temp;
+    onListChange({ ...list, e: newList });
+  }, [list, onListChange]);
+
+  const handleMoveDown = useCallback((index: number) => {
+    if (index === list.e.length - 1) return; // Already at the bottom
+    const newList = [...list.e];
+    const temp = newList[index];
+    newList[index] = newList[index + 1];
+    newList[index + 1] = temp;
+    onListChange({ ...list, e: newList });
+  }, [list, onListChange]);
+
+  return (list == null || list.e == null) ? null : (
     <>
       {list.e.map((item, index) => (
-        <div className='ui--row' key={index} 
+        <div className='ui--row' key={index}
         style={{
           alignItems: 'center'
         }}
         >
           <Button
             icon='arrow-up'
+            isDisabled={index === 0}
+            onClick={() => handleMoveUp(index)}
           />
           <Button
             icon='arrow-down'
+            isDisabled={index === list.e.length - 1}
+            onClick={() => handleMoveDown(index)}
           />
           <Label label={item} />
         </div>
