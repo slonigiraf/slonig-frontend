@@ -33,6 +33,12 @@ function Reordering({ className = '', list, onListChange }: Props): React.ReactE
     onListChange({ ...list, e: newList });
   }, [list, onListChange]);
 
+  const handleDelete = useCallback((index: number) => {
+    const newList = [...list.e];
+    newList.splice(index, 1);
+    onListChange({ ...list, e: newList });
+  }, [list, onListChange]);
+
   return (list == null || list.e == null) ? null : (
     <>
       {list.e.map((item, index) => (
@@ -50,6 +56,10 @@ function Reordering({ className = '', list, onListChange }: Props): React.ReactE
             icon='arrow-down'
             isDisabled={index === list.e.length - 1}
             onClick={() => handleMoveDown(index)}
+          />
+          <Button
+            icon='times'  // Assuming 'times' is the icon for delete
+            onClick={() => handleDelete(index)}
           />
           <Label label={item} />
         </div>
