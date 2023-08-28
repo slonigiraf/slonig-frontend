@@ -49,7 +49,7 @@ function Edit({ className = '', ipfs }: Props): React.ReactElement<Props> {
   const [signature, setSignature] = useState('');
   const [isUnlockVisible, toggleUnlock] = useToggle();
   const [cidString, setCidString] = useState<string>("");
-  const [textHexId, setTextHexId] = useState('0xf55ff16f66f43360266b95db6f8fec01d76031054306ae4a4b380598f6cfd114');
+  const [textHexId, setTextHexId] = useState('0x8e2ae4da40b95c2928bc2930120ca3c1f29c3428519b47f5fdbaea99f0f75e73');
   const [lawHexData, setLawHexData] = useState('');
   const [amountList, setAmountList] = useState<BN>(BN_ZERO);
   const [amountItem, setAmountItem] = useState<BN>(BN_ZERO);
@@ -91,7 +91,7 @@ function Edit({ className = '', ipfs }: Props): React.ReactElement<Props> {
 
   useEffect(() => {
     _onSign();
-  }, [text]);
+  }, [list, item]);
 
   useEffect(() => {
     setText(JSON.stringify(list));
@@ -110,30 +110,13 @@ function Edit({ className = '', ipfs }: Props): React.ReactElement<Props> {
     []
   );
 
-  const _onEditNewElementHeader = useCallback(
-    (header: string) => {
-      const copiedNewElement = { ...item };
-      copiedNewElement.h = header;
-      setItem(copiedNewElement);
-    },
-    [list]
-  );
-  const _onEditJsonH = useCallback(
-    (header: string) => {
-      const copiedJson = { ...list };
-      copiedJson.h = header;
-      setList(copiedJson);
-    },
-    [list]
-  );
-
   const _onSign = useCallback(
     async () => {
       if (ipfs == null) {
         return;
       }
       // generate data about list
-      const textCIDString = await getIPFSContentID(ipfs, text);
+      const textCIDString = await getIPFSContentID(ipfs, JSON.stringify(list));
       const digest = await digestFromCIDv1(textCIDString);
       setDigestHex(u8aToHex(digest));
 
@@ -142,7 +125,7 @@ function Edit({ className = '', ipfs }: Props): React.ReactElement<Props> {
       const itemDigest = await digestFromCIDv1(itemCIDString);
       setItemDigestHex(u8aToHex(itemDigest));
     },
-    [currentPair, isLocked, isUsable, signer, ipfs, text]
+    [currentPair, isLocked, isUsable, signer, ipfs, list, item]
   );
 
   const _onUnlock = useCallback(

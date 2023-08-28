@@ -28,19 +28,25 @@ function Editor_0({ className = '', ipfs, list, item, isAddingItem, onListChange
       onItemIdHexChange(newItemIdHex);
       const itemJSONTemplate = `{"i":"${newItemIdHex}","t":"0","h":""}`;
       onItemChange(parseJson(itemJSONTemplate));
+
       const updatedList = { ...list };
+      if (!Array.isArray(updatedList.e)) {
+        updatedList.e = []; // initialize it if it's not an array or doesn't exist
+      }
       updatedList.e.push(newItemIdHex);
+
       onListChange(updatedList);
       onIsAddingItemChange(true);
     },
     [onItemChange, onIsAddingItemChange]
   );
 
+
   const _onEditItemTitle = useCallback(
-    (header: string) => {
-      const copiedNewElement = { ...item };
-      copiedNewElement.h = header;
-      onItemChange(copiedNewElement);
+    (title: string) => {
+      const copiedItem = { ...item };
+      copiedItem.h = title;
+      onItemChange(copiedItem);
     },
     [item, onItemChange]
   );
@@ -51,27 +57,27 @@ function Editor_0({ className = '', ipfs, list, item, isAddingItem, onListChange
       copiedList.h = title;
       onListChange(copiedList);
     },
-    [list]
+    [list, onListChange]
   );
 
-  const itemEditor = isAddingItem? 
+  const itemEditor = isAddingItem ?
     <Input
       autoFocus
       className='full'
       help={t('Title of item')}
       label={t('title of item')}
       onChange={_onEditItemTitle}
-      value={item == null? "" : item.h}
+      value={item == null ? "" : item.h}
     />
-  : 
-  <Button
-    icon='add'
-    label={t('Add list item')}
-    onClick={_onClickAddItem}
-  />;
+    :
+    <Button
+      icon='add'
+      label={t('Add list item')}
+      onClick={_onClickAddItem}
+    />;
 
-  const reordering = (list == null | list.e == null)? "" : (
-    <Reordering ipfs={ipfs} list={list} onListChange={onListChange}/>
+  const reordering = (list == null | list.e == null) ? "" : (
+    <Reordering ipfs={ipfs} list={list} onListChange={onListChange} />
   );
 
   const listEditor = (list == null) ? "" : (
@@ -90,7 +96,7 @@ function Editor_0({ className = '', ipfs, list, item, isAddingItem, onListChange
       <div className='ui--row'>
         {itemEditor}
       </div>
-      
+
     </>
   );
 
