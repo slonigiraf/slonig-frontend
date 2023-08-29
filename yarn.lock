@@ -1207,6 +1207,21 @@ __metadata:
   languageName: node
   linkType: hard
 
+"@multiformats/multiaddr@npm:^12.1.7":
+  version: 12.1.7
+  resolution: "@multiformats/multiaddr@npm:12.1.7"
+  dependencies:
+    "@chainsafe/is-ip": ^2.0.1
+    "@chainsafe/netmask": ^2.0.0
+    "@libp2p/interface": ^0.1.1
+    dns-over-http-resolver: ^2.1.0
+    multiformats: ^12.0.1
+    uint8-varint: ^2.0.1
+    uint8arrays: ^4.0.2
+  checksum: 96b83208b7bd3e9387f2fdac20fc554d962395c02661e9c1da819646d2f3129e1a76e5abc6a0c8d386c7126a7678e58d05b08dc812260b7cad2488533cbe44b0
+  languageName: node
+  linkType: hard
+
 "@multiformats/murmur3@npm:^1.0.3, @multiformats/murmur3@npm:^1.1.1":
   version: 1.1.3
   resolution: "@multiformats/murmur3@npm:1.1.3"
@@ -3212,6 +3227,7 @@ __metadata:
   version: 0.0.0-use.local
   resolution: "@slonigiraf/app-laws@workspace:packages/page-laws"
   dependencies:
+    "@multiformats/multiaddr": ^12.1.7
     "@polkadot/hw-ledger": ^12.3.2
     "@polkadot/phishing": ^0.21.5
     "@polkadot/react-components": ^0.132.2-38-x
@@ -3238,6 +3254,7 @@ __metadata:
   version: 0.0.0-use.local
   resolution: "@slonigiraf/app-recommendations@workspace:packages/page-recommendations"
   dependencies:
+    "@multiformats/multiaddr": ^12.1.7
     "@polkadot/hw-ledger": ^12.3.2
     "@polkadot/phishing": ^0.21.5
     "@polkadot/react-components": ^0.132.2-38-x
@@ -19998,7 +20015,17 @@ __metadata:
   languageName: node
   linkType: hard
 
-"uint8arraylist@npm:^2.4.3":
+"uint8-varint@npm:^2.0.1":
+  version: 2.0.1
+  resolution: "uint8-varint@npm:2.0.1"
+  dependencies:
+    uint8arraylist: ^2.0.0
+    uint8arrays: ^4.0.2
+  checksum: b03431e7fb87224726524b6dcc4ac0ff2c61c122134be0b16394c04bac4a3b59328800f302e3d3df7715bdb676b2e1fd0a17332cf6dbdb148cbb9f81332cedef
+  languageName: node
+  linkType: hard
+
+"uint8arraylist@npm:^2.0.0, uint8arraylist@npm:^2.4.3":
   version: 2.4.3
   resolution: "uint8arraylist@npm:2.4.3"
   dependencies:

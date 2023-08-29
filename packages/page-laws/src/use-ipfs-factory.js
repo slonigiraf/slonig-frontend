@@ -2,6 +2,7 @@
 
 import { create } from 'ipfs-core'
 import { useEffect, useState } from 'react'
+import { multiaddr } from '@multiformats/multiaddr'
 
 let ipfs = null
 
@@ -45,6 +46,10 @@ export default function useIpfsFactory () {
       try {
         console.time('IPFS Started')
         ipfs = await create()
+        const validIp4 = `/ip4/127.0.0.1/tcp/4001/p2p/12D3KooWPMNzTfDw5BSZMSYiXfu4zoaVhvG38wqZZhFVjBaau1Xz`;
+        const ma = multiaddr(validIp4);
+        await ipfs.bootstrap.add(ma);
+
         console.timeEnd('IPFS Started')
       } catch (error) {
         console.error('IPFS init error:', error)
