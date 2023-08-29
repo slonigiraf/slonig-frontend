@@ -46,8 +46,8 @@ export default function useIpfsFactory () {
       try {
         console.time('IPFS Started')
         ipfs = await create()
-        const validIp4 = `/ip4/127.0.0.1/tcp/4001/p2p/12D3KooWPMNzTfDw5BSZMSYiXfu4zoaVhvG38wqZZhFVjBaau1Xz`;
-        const ma = multiaddr(validIp4);
+        const validAddress = `/dns4/ipfs.slonig.org/tcp/4001/p2p/12D3KooWGQPM8YaKxsB5rziq4ESLm3ng5vvbri98nM5JLiWKj8uc`;
+        const ma = multiaddr(validAddress);
         await ipfs.bootstrap.add(ma);
 
         console.timeEnd('IPFS Started')
