@@ -1,0 +1,77 @@
+import React from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
+import { IPFS } from 'ipfs-core';
+import { getIPFSContentID, digestFromCIDv1, getCIDFromBytes, getIPFSDataFromContentID } from '@slonigiraf/helpers';
+import { isFunction, u8aToHex, hexToU8a, u8aWrapBytes } from '@polkadot/util';
+import { useApi } from '@polkadot/react-hooks';
+import { parseJson } from '../util';
+import { BN_ZERO } from '@polkadot/util';
+import ItemLabel from './ItemLabel';
+
+interface Props {
+  className?: string;
+  ipfs: IPFS;
+  id: string;
+}
+
+function ViewList({ className = '', ipfs, id }: Props): React.ReactElement<Props> {
+  type JsonType = { [key: string]: any } | null;
+  const [list, setList] = useState<JsonType>(null);
+  const [text, setText] = useState<string>("");
+  const [cidString, setCidString] = useState<string>("");
+  const [lawHexData, setLawHexData] = useState('');
+  const [amountList, setAmountList] = useState<BN>(BN_ZERO);
+  const [previousAmount, setPreviousAmount] = useState<BN>(BN_ZERO);
+  const { api } = useApi();
+
+  async function fetchLaw(key: string) {
+    const law = await api.query.laws.laws(key);
+    if (law.isSome) {
+      const tuple = law.unwrap();
+      const byteArray = tuple[0]; // This should give you the [u8; 32]
+      const bigIntValue = tuple[1]; // This should give you the u128
+      const cid = await getCIDFromBytes(byteArray);
+      setCidString(cid);
+      setLawHexData(u8aToHex(byteArray));
+      setAmountList(bigIntValue);
+      setPreviousAmount(bigIntValue);
+    }
+  }
+
+  useEffect(() => {
+    fetchLaw(id);
+  }, [id]);
+
+  useEffect(() => {
+    const fetchIPFSData = async () => {
+      if (ipfs == null || id.length < 2) {
+        return;
+      }
+      const textValue = await getIPFSDataFromContentID(ipfs, cidString);
+      setText(textValue);
+      setList(parseJson(textValue));
+    };
+
+    fetchIPFSData();
+  }, [cidString, ipfs]);
+
+  return (
+    list == null ? "" :
+      <>
+        <h1>{list.h}</h1>
+
+        {list.e.map((item, index) => (
+          <div className='ui--row' key={index}
+            style={{
+              alignItems: 'center'
+            }}
+          >
+            <ItemLabel ipfs={ipfs} textHexId={item} />
+          </div>
+        ))}
+
+      </>
+  );
+};
+
+export default React.memo(ViewList);

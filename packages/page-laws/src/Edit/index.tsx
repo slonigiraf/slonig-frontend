@@ -18,6 +18,7 @@ import { IPFS } from 'ipfs-core';
 import { useApi } from '@polkadot/react-hooks';
 import { parseJson } from '../util';
 import Editor_0 from './Editor_0';
+import ViewList from './ViewList';
 
 interface Props {
   className?: string;
@@ -57,7 +58,7 @@ function Edit({ className = '', ipfs }: Props): React.ReactElement<Props> {
   const [digestHex, setDigestHex] = useState<string>("");
   const [itemDigestHex, setItemDigestHex] = useState<string>("");
   const { api } = useApi();
-  const [isEditView, setIsEditView] = useToggle(true);
+  const [isEditView, setIsEditView] = useToggle(false);
   const [isAddingItem, setIsAddingElement] = useState<boolean>(false);
   const [itemIdHex, setItemIdHex] = useState<string>("");
 
@@ -312,16 +313,7 @@ function Edit({ className = '', ipfs }: Props): React.ReactElement<Props> {
 
   const viewView = (
     <div className={`toolbox--Sign ${className}`}>
-      <h1>{t('View')}</h1>
-      <div className='ui--row'>
-        <ul>
-          <li>textHexId: {textHexId}</li>
-          <li>lawHexData: {lawHexData}</li>
-          <li>amount: {amountList.toString()}</li>
-          <li>cid: {cidString}</li>
-          <li>text: {text}</li>
-        </ul>
-      </div>
+      <ViewList ipfs={ipfs} id={textHexId} />
       <Button.Group>
         <Button
           icon='edit'
