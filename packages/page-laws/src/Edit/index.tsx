@@ -19,6 +19,7 @@ import { useApi } from '@polkadot/react-hooks';
 import { parseJson } from '../util';
 import Editor_0 from './Editor_0';
 import ViewList from './ViewList';
+import { useLocation } from 'react-router-dom';
 
 interface Props {
   className?: string;
@@ -37,6 +38,10 @@ interface SignerState {
 }
 
 function Edit({ className = '', ipfs }: Props): React.ReactElement<Props> {
+  const location = useLocation();
+  const queryParams = new URLSearchParams(location.search);
+  const idParam = queryParams.get("id");
+
   const { t } = useTranslation();
   const [currentPair, setCurrentPair] = useState<KeyringPair | null>(() => keyring.getPairs()[0] || null);
   const [text, setText] = useState<string>("");
@@ -50,7 +55,7 @@ function Edit({ className = '', ipfs }: Props): React.ReactElement<Props> {
   const [signature, setSignature] = useState('');
   const [isUnlockVisible, toggleUnlock] = useToggle();
   const [cidString, setCidString] = useState<string>("");
-  const [textHexId, setTextHexId] = useState('0x83c6390be47b75467fd5619fe6c3bfce4a7941819f44a86b73ea84a4df83cf05');
+  const [textHexId, setTextHexId] = useState(idParam !=null? idParam : '0x83c6390be47b75467fd5619fe6c3bfce4a7941819f44a86b73ea84a4df83cf05');
   const [lawHexData, setLawHexData] = useState('');
   const [amountList, setAmountList] = useState<BN>(BN_ZERO);
   const [amountItem, setAmountItem] = useState<BN>(BN_ZERO);
@@ -204,13 +209,13 @@ function Edit({ className = '', ipfs }: Props): React.ReactElement<Props> {
     onFailed={_onFailed}
     onClick={_onSign}
     params={
-      [ itemIdHex, itemDigestHex, amountItem,
+      [itemIdHex, itemDigestHex, amountItem,
         textHexId, lawHexData, digestHex, amountList,]
     }
     tx={api.tx.laws.createAndEdit}
   />
 
-  const txButton = (item == null)? txButtonEdit : txButtonCreateAndEdit;
+  const txButton = (item == null) ? txButtonEdit : txButtonCreateAndEdit;
 
   const amountItemElement = (item == null ? "" : <div className='ui--row'>
     <InputBalance
@@ -313,7 +318,7 @@ function Edit({ className = '', ipfs }: Props): React.ReactElement<Props> {
 
   const viewView = (
     <div className={`toolbox--Sign ${className}`}>
-      <ViewList ipfs={ipfs} id={textHexId} onItemSelected={setTextHexId}/>
+      <ViewList ipfs={ipfs} id={textHexId} onItemSelected={setTextHexId} />
       <Button.Group>
         <Button
           icon='edit'
