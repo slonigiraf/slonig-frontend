@@ -1,7 +1,7 @@
 // Copyright 2021-2022 @slonigiraf/app-laws authors & contributors
 // SPDX-License-Identifier: Apache-2.0
-import React, { useEffect, useState } from 'react';
-import { Label } from '@polkadot/react-components';
+import React, { useEffect, useState, useCallback } from 'react';
+import { IconLink, Label } from '@polkadot/react-components';
 import { useApi } from '@polkadot/react-hooks';
 import { getIPFSContentID, digestFromCIDv1, getCIDFromBytes, getIPFSDataFromContentID } from '@slonigiraf/helpers';
 import { IPFS } from 'ipfs-core';
@@ -12,9 +12,10 @@ interface Props {
   className?: string;
   id: string;
   ipfs: IPFS;
+  onClick: (id: string) => void;
 }
 
-function ItemLabel({ className = '', id, ipfs }: Props): React.ReactElement<Props> {
+function ItemLabel({ className = '', id, ipfs, onClick }: Props): React.ReactElement<Props> {
   const { api } = useApi();
   const [cidString, setCidString] = useState<string>("");
   const [text, setText] = useState<string>(id);
@@ -47,7 +48,15 @@ function ItemLabel({ className = '', id, ipfs }: Props): React.ReactElement<Prop
     }
   }
 
-  return <Label label={text} />;
+  const _onClick = useCallback(
+    (): void => {
+      onClick(id);
+    },
+    [id, onClick]
+  );
+
+  return typeof onClick === 'function' ?
+    <IconLink label={text} onClick={_onClick}/> : <Label label={text} />;
 }
 
 export default React.memo(ItemLabel);

@@ -12,9 +12,10 @@ interface Props {
   className?: string;
   ipfs: IPFS;
   id: string;
+  onItemSelected: (id: string) => void;
 }
 
-function ViewList({ className = '', ipfs, id }: Props): React.ReactElement<Props> {
+function ViewList({ className = '', ipfs, id, onItemSelected }: Props): React.ReactElement<Props> {
   type JsonType = { [key: string]: any } | null;
   const [list, setList] = useState<JsonType>(null);
   const [text, setText] = useState<string>("");
@@ -55,17 +56,24 @@ function ViewList({ className = '', ipfs, id }: Props): React.ReactElement<Props
     fetchIPFSData();
   }, [cidString, ipfs]);
 
+  const _onItemClicked = useCallback(
+    (id): void => {
+      onItemSelected(id);
+    },
+    [id, onItemSelected]
+  );
+
   return (
     list == null ? "" :
       <>
         <h2>{list.h}</h2>
-        {list.e.map((item, index) => (
+        {list.e != null && list.e.map((item, index) => (
           <div className='ui--row' key={index}
             style={{
               alignItems: 'center'
             }}
           >
-            <ItemLabel ipfs={ipfs} id={item} />
+            <ItemLabel ipfs={ipfs} id={item} onClick={_onItemClicked}/>
           </div>
         ))}
 

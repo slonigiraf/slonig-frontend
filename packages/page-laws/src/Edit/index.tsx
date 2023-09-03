@@ -92,7 +92,7 @@ function Edit({ className = '', ipfs }: Props): React.ReactElement<Props> {
 
   useEffect(() => {
     _onSign();
-  }, [list, item]);
+  }, [list, item, textHexId]);
 
   useEffect(() => {
     setText(JSON.stringify(list));
@@ -313,7 +313,7 @@ function Edit({ className = '', ipfs }: Props): React.ReactElement<Props> {
 
   const viewView = (
     <div className={`toolbox--Sign ${className}`}>
-      <ViewList ipfs={ipfs} id={textHexId} />
+      <ViewList ipfs={ipfs} id={textHexId} onItemSelected={setTextHexId}/>
       <Button.Group>
         <Button
           icon='edit'
