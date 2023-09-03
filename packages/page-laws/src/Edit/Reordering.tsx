@@ -64,7 +64,7 @@ function Reordering({ className = '', list, ipfs, onListChange }: Props): React.
             icon='times'  // Assuming 'times' is the icon for delete
             onClick={() => handleDelete(index)}
           />
-          <ItemLabel ipfs={ipfs} textHexId={item} />
+          <ItemLabel ipfs={ipfs} id={item} />
         </div>
       ))}
     </>

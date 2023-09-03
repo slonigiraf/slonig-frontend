@@ -18,7 +18,7 @@ function ViewList({ className = '', ipfs, id }: Props): React.ReactElement<Props
   type JsonType = { [key: string]: any } | null;
   const [list, setList] = useState<JsonType>(null);
   const [text, setText] = useState<string>("");
-  const [cidString, setCidString] = useState<string>("");
+  const [cidString, setCidString] = useState<string>(null);
   const [lawHexData, setLawHexData] = useState('');
   const [amountList, setAmountList] = useState<BN>(BN_ZERO);
   const [previousAmount, setPreviousAmount] = useState<BN>(BN_ZERO);
@@ -44,7 +44,7 @@ function ViewList({ className = '', ipfs, id }: Props): React.ReactElement<Props
 
   useEffect(() => {
     const fetchIPFSData = async () => {
-      if (ipfs == null || id.length < 2) {
+      if (ipfs == null || cidString == null) {
         return;
       }
       const textValue = await getIPFSDataFromContentID(ipfs, cidString);
@@ -58,15 +58,14 @@ function ViewList({ className = '', ipfs, id }: Props): React.ReactElement<Props
   return (
     list == null ? "" :
       <>
-        <h1>{list.h}</h1>
-
+        <h2>{list.h}</h2>
         {list.e.map((item, index) => (
           <div className='ui--row' key={index}
             style={{
               alignItems: 'center'
             }}
           >
-            <ItemLabel ipfs={ipfs} textHexId={item} />
+            <ItemLabel ipfs={ipfs} id={item} />
           </div>
         ))}
 

@@ -10,19 +10,18 @@ import { parseJson } from '../util';
 
 interface Props {
   className?: string;
-  textHexId: string;
+  id: string;
   ipfs: IPFS;
 }
 
-function Reordering({ className = '', textHexId, ipfs }: Props): React.ReactElement<Props> {
-  const { t } = useTranslation();
+function ItemLabel({ className = '', id, ipfs }: Props): React.ReactElement<Props> {
   const { api } = useApi();
   const [cidString, setCidString] = useState<string>("");
-  const [text, setText] = useState<string>(textHexId);
+  const [text, setText] = useState<string>(id);
 
   useEffect(() => {
-    fetchLaw(textHexId);
-  }, [textHexId]);
+    fetchLaw(id);
+  }, [id]);
 
   useEffect(() => {
     const fetchIPFSData = async () => {
@@ -51,4 +50,4 @@ function Reordering({ className = '', textHexId, ipfs }: Props): React.ReactElem
   return <Label label={text} />;
 }
 
-export default React.memo(Reordering);
+export default React.memo(ItemLabel);
