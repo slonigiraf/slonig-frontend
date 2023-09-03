@@ -38,7 +38,7 @@ function Editor_0({ className = '', ipfs, list, item, isAddingItem, onListChange
       onListChange(updatedList);
       onIsAddingItemChange(true);
     },
-    [onItemChange, onIsAddingItemChange]
+    [list, onItemChange, onIsAddingItemChange]
   );
 
 
