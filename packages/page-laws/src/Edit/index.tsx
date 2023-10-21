@@ -19,7 +19,7 @@ import { useApi } from '@polkadot/react-hooks';
 import { parseJson } from '../util';
 import Editor_0 from './Editor_0';
 import ViewList from './ViewList';
-import { useLocation } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 
 interface Props {
   className?: string;
@@ -64,14 +64,15 @@ function Edit({ className = '', ipfs }: Props): React.ReactElement<Props> {
   const [itemIdHex, setItemIdHex] = useState<string>("");
 
   const location = useLocation();
+  const navigate = useNavigate();
   const queryParams = new URLSearchParams(location.search);
   const idParam = queryParams.get("id");
-  if(idParam !=null && idParam != textHexId){
+  if (idParam != null && idParam != textHexId) {
     setTextHexId(idParam);
   }
-  console.log("ID: "+idParam)
-  // console.log("previousTextHexId: "+previousTextHexId)
-  console.log("textHexId: "+textHexId)
+  if(idParam == null && textHexId != defaultTextHexId){
+    setTextHexId(defaultTextHexId);
+  }
 
   useEffect((): void => {
     const meta = (currentPair && currentPair.meta) || {};
@@ -122,11 +123,31 @@ function Edit({ className = '', ipfs }: Props): React.ReactElement<Props> {
     []
   );
 
-  const _onChangeLaw = useCallback(
-    (lawId: string) => {
-      setTextHexId(lawId);
+  
+
+  const setQueryParam = useCallback(
+    (key: string, value: any) => {
+      // Get current search parameters
+      const searchParams = new URLSearchParams(location.search);
+
+      // Set the new query parameter
+      searchParams.set(key, value);
+
+      // Navigate to the new URL
+      navigate({
+        ...location,
+        search: searchParams.toString()
+      });
     },
     []
+  );
+
+  const _onChangeLaw = useCallback(
+    (lawId: string) => {
+      setQueryParam("id", lawId);
+      setTextHexId(lawId);
+    },
+    [location, navigate]
   );
 
   const _onSign = useCallback(
