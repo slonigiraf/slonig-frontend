@@ -38,14 +38,9 @@ interface SignerState {
 }
 
 function Edit({ className = '', ipfs }: Props): React.ReactElement<Props> {
-  const location = useLocation();
-  const queryParams = new URLSearchParams(location.search);
-  const idParam = queryParams.get("id");
-
   const { t } = useTranslation();
   const [currentPair, setCurrentPair] = useState<KeyringPair | null>(() => keyring.getPairs()[0] || null);
   const [text, setText] = useState<string>("");
-
   type JsonType = { [key: string]: any } | null;
   const [list, setList] = useState<JsonType>(null);
   const [item, setItem] = useState<JsonType>(null);
@@ -55,7 +50,8 @@ function Edit({ className = '', ipfs }: Props): React.ReactElement<Props> {
   const [signature, setSignature] = useState('');
   const [isUnlockVisible, toggleUnlock] = useToggle();
   const [cidString, setCidString] = useState<string>("");
-  const [textHexId, setTextHexId] = useState(idParam !=null? idParam : '0x83c6390be47b75467fd5619fe6c3bfce4a7941819f44a86b73ea84a4df83cf05');
+  const defaultTextHexId = '0xacae01340fecde3865c7939ccec7b0a04b4690663f04030f618b65ee5c269145';
+  const [textHexId, setTextHexId] = useState(defaultTextHexId);
   const [lawHexData, setLawHexData] = useState('');
   const [amountList, setAmountList] = useState<BN>(BN_ZERO);
   const [amountItem, setAmountItem] = useState<BN>(BN_ZERO);
@@ -66,6 +62,19 @@ function Edit({ className = '', ipfs }: Props): React.ReactElement<Props> {
   const [isEditView, setIsEditView] = useToggle(false);
   const [isAddingItem, setIsAddingElement] = useState<boolean>(false);
   const [itemIdHex, setItemIdHex] = useState<string>("");
+
+  const location = useLocation();
+  const queryParams = new URLSearchParams(location.search);
+  const idParam = queryParams.get("id");
+  if(idParam !=null && idParam != textHexId){
+    setTextHexId(idParam);
+  }
+  if(textHexId == null){
+    setTextHexId(defaultTextHexId);
+  }
+  console.log("ID: "+idParam)
+  // console.log("previousTextHexId: "+previousTextHexId)
+  console.log("textHexId: "+textHexId)
 
   useEffect((): void => {
     const meta = (currentPair && currentPair.meta) || {};
