@@ -17,7 +17,7 @@ import Unlock from '@polkadot/app-signing/Unlock';
 import { IPFS } from 'ipfs-core';
 import { useApi } from '@polkadot/react-hooks';
 import { parseJson } from '../util';
-import Editor_0 from './Editor_0';
+import Editor from './Editor';
 import ViewList from './ViewList';
 import { useRouting } from './useRouting';
 
@@ -234,7 +234,7 @@ function Edit({ className = '', ipfs }: Props): React.ReactElement<Props> {
 
   const editor = (list == null) ? ""
     :
-    <Editor_0 ipfs={ipfs} list={list} item={item} isAddingItem={isAddingItem} onListChange={setList} onItemChange={setItem} onItemIdHexChange={setItemIdHex} onIsAddingItemChange={setIsAddingElement} />;
+    <Editor ipfs={ipfs} list={list} item={item} isAddingItem={isAddingItem} onListChange={setList} onItemChange={setItem} onItemIdHexChange={setItemIdHex} onIsAddingItemChange={setIsAddingElement} />;
 
   const editView = (
     <div className={`toolbox--Sign ${className}`}>

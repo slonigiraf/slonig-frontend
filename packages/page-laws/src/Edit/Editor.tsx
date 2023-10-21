@@ -20,7 +20,7 @@ interface Props {
   onIsAddingItemChange: (state: boolean) => void;
 }
 
-function Editor_0({ className = '', ipfs, list, item, isAddingItem, onListChange, onItemChange, onItemIdHexChange, onIsAddingItemChange }: Props): React.ReactElement<Props> {
+function Editor({ className = '', ipfs, list, item, isAddingItem, onListChange, onItemChange, onItemIdHexChange, onIsAddingItemChange }: Props): React.ReactElement<Props> {
   const { t } = useTranslation();
   const _onClickAddItem = useCallback(
     (): void => {
@@ -103,4 +103,4 @@ function Editor_0({ className = '', ipfs, list, item, isAddingItem, onListChange
   return listEditor;
 }
 
-export default React.memo(Editor_0);
+export default React.memo(Editor);
