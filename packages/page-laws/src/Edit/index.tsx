@@ -19,7 +19,7 @@ import { useApi } from '@polkadot/react-hooks';
 import { parseJson } from '../util';
 import Editor_0 from './Editor_0';
 import ViewList from './ViewList';
-import { useLocation, useNavigate } from 'react-router-dom';
+import { useRouting } from './useRouting';
 
 interface Props {
   className?: string;
@@ -51,7 +51,7 @@ function Edit({ className = '', ipfs }: Props): React.ReactElement<Props> {
   const [isUnlockVisible, toggleUnlock] = useToggle();
   const [cidString, setCidString] = useState<string>("");
   const defaultTextHexId = '0xacae01340fecde3865c7939ccec7b0a04b4690663f04030f618b65ee5c269145';
-  const [textHexId, setTextHexId] = useState(defaultTextHexId);
+  const { textHexId, setQueryParam } = useRouting(defaultTextHexId);
   const [lawHexData, setLawHexData] = useState('');
   const [amountList, setAmountList] = useState<BN>(BN_ZERO);
   const [amountItem, setAmountItem] = useState<BN>(BN_ZERO);
@@ -62,17 +62,6 @@ function Edit({ className = '', ipfs }: Props): React.ReactElement<Props> {
   const [isEditView, setIsEditView] = useToggle(false);
   const [isAddingItem, setIsAddingElement] = useState<boolean>(false);
   const [itemIdHex, setItemIdHex] = useState<string>("");
-
-  const location = useLocation();
-  const navigate = useNavigate();
-  const queryParams = new URLSearchParams(location.search);
-  const idParam = queryParams.get("id");
-  if (idParam != null && idParam != textHexId) {
-    setTextHexId(idParam);
-  }
-  if(idParam == null && textHexId != defaultTextHexId){
-    setTextHexId(defaultTextHexId);
-  }
 
   useEffect((): void => {
     const meta = (currentPair && currentPair.meta) || {};
@@ -123,31 +112,11 @@ function Edit({ className = '', ipfs }: Props): React.ReactElement<Props> {
     []
   );
 
-  
-
-  const setQueryParam = useCallback(
-    (key: string, value: any) => {
-      // Get current search parameters
-      const searchParams = new URLSearchParams(location.search);
-
-      // Set the new query parameter
-      searchParams.set(key, value);
-
-      // Navigate to the new URL
-      navigate({
-        ...location,
-        search: searchParams.toString()
-      });
-    },
-    []
-  );
-
   const _onChangeLaw = useCallback(
     (lawId: string) => {
       setQueryParam("id", lawId);
-      setTextHexId(lawId);
     },
-    [location, navigate]
+    [setQueryParam]
   );
 
   const _onSign = useCallback(
