@@ -69,9 +69,6 @@ function Edit({ className = '', ipfs }: Props): React.ReactElement<Props> {
   if(idParam !=null && idParam != textHexId){
     setTextHexId(idParam);
   }
-  if(textHexId == null){
-    setTextHexId(defaultTextHexId);
-  }
   console.log("ID: "+idParam)
   // console.log("previousTextHexId: "+previousTextHexId)
   console.log("textHexId: "+textHexId)
@@ -122,6 +119,13 @@ function Edit({ className = '', ipfs }: Props): React.ReactElement<Props> {
 
   const _onChangeAccount = useCallback(
     (accountId: string | null) => accountId && setCurrentPair(keyring.getPair(accountId)),
+    []
+  );
+
+  const _onChangeLaw = useCallback(
+    (lawId: string) => {
+      setTextHexId(lawId);
+    },
     []
   );
 
@@ -327,7 +331,7 @@ function Edit({ className = '', ipfs }: Props): React.ReactElement<Props> {
 
   const viewView = (
     <div className={`toolbox--Sign ${className}`}>
-      <ViewList ipfs={ipfs} id={textHexId} onItemSelected={setTextHexId} />
+      <ViewList ipfs={ipfs} id={textHexId} onItemSelected={_onChangeLaw} />
       <Button.Group>
         <Button
           icon='edit'
