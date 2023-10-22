@@ -59,8 +59,8 @@ function Edit({ className = '', ipfs }: Props): React.ReactElement<Props> {
   const [digestHex, setDigestHex] = useState<string>("");
   const [itemDigestHex, setItemDigestHex] = useState<string>("");
   const { api } = useApi();
-  const [isEditView, setIsEditView] = useToggle(false);
-  const [isAddingItem, setIsAddingElement] = useState<boolean>(false);
+  const [isEditView, setIsEditView] = useToggle(true);
+  const [isAddingItem, setIsAddingElement] = useState<boolean>(true);
   const [itemIdHex, setItemIdHex] = useState<string>("");
 
   useEffect((): void => {

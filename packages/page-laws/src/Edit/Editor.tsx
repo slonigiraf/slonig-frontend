@@ -1,11 +1,13 @@
 // Copyright 2021-2022 @slonigiraf/app-laws authors & contributors
 // SPDX-License-Identifier: Apache-2.0
-import React, { useCallback } from 'react';
-import { Button, Input } from '@polkadot/react-components';
+import React, { useCallback, useState, useRef } from 'react';
+import { Button, Dropdown, Input } from '@polkadot/react-components';
 import { useTranslation } from '../translate.js';
 import { parseJson, randomIdHex } from '../util';
 import Reordering from './Reordering';
 import { IPFS } from 'ipfs-core';
+import type { LawType } from '../types.js';
+
 
 interface Props {
   className?: string;
@@ -22,6 +24,7 @@ interface Props {
 
 function Editor({ className = '', ipfs, list, item, isAddingItem, onListChange, onItemChange, onItemIdHexChange, onIsAddingItemChange }: Props): React.ReactElement<Props> {
   const { t } = useTranslation();
+  const [lawType, setLawType] = useState<LawType>('list');
   const _onClickAddItem = useCallback(
     (): void => {
       const newItemIdHex = randomIdHex();
@@ -60,21 +63,54 @@ function Editor({ className = '', ipfs, list, item, isAddingItem, onListChange, 
     [list, onListChange]
   );
 
+  const lawTypeOpt = useRef((
+    [
+      { text: t('List'), value: 'list' },
+      { text: t('Course'), value: 'course' },
+      { text: t('Theme'), value: 'theme' },
+      { text: t('Skill'), value: 'skill' }
+    ]
+  ));
+
+  const _selectLawType = useCallback(
+    (newLawType: LawType): void => {
+      if (newLawType !== lawType) {
+        console.log("newLawType: "+newLawType)
+        setLawType(newLawType);
+      }
+    },
+    [lawType]
+  );
+
   const itemEditor = isAddingItem ?
-    <Input
-      autoFocus
-      className='full'
-      help={t('Title of item')}
-      label={t('title of item')}
-      onChange={_onEditItemTitle}
-      value={item == null ? "" : item.h}
-    />
+    <>
+      <div className='ui--row'>
+      <Dropdown
+        label={t('type of item')}
+        defaultValue={lawType}
+        onChange={_selectLawType}
+        options={lawTypeOpt.current}
+      />
+      </div>
+      <div className='ui--row'>
+        <Input
+          autoFocus
+          className='full'
+          help={t('Title of item')}
+          label={t('title of item')}
+          onChange={_onEditItemTitle}
+          value={item == null ? "" : item.h}
+        />
+      </div>
+    </>
     :
+  <div className='ui--row'>
     <Button
       icon='add'
       label={t('Add list item')}
       onClick={_onClickAddItem}
-    />;
+    />
+  </div>;
 
   const reordering = (list == null | list.e == null) ? "" : (
     <Reordering ipfs={ipfs} list={list} onListChange={onListChange} />
@@ -93,9 +129,9 @@ function Editor({ className = '', ipfs, list, item, isAddingItem, onListChange, 
         />
       </div>
       {reordering}
-      <div className='ui--row'>
-        {itemEditor}
-      </div>
+
+      {itemEditor}
+
 
     </>
   );
