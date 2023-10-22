@@ -25,7 +25,6 @@ interface Props {
 function Editor({ className = '', ipfs, list, item, isAddingItem, onListChange, onItemChange, onItemIdHexChange, onIsAddingItemChange }: Props): React.ReactElement<Props> {
   console.log("Editor load");
   const { t } = useTranslation();
-  const defaultLawType: LawType = '0';
   
   const _onClickAddItem = useCallback(
     (): void => {
@@ -46,12 +45,25 @@ function Editor({ className = '', ipfs, list, item, isAddingItem, onListChange, 
     [list, onItemChange, onIsAddingItemChange]
   );
 
+  const parentToItemDefaultType: any = {
+    '0': '1',
+    '1': '2',
+    '2': '3',
+    '3': '4',
+  };
+  const getDefaultItemLawType = useCallback(() => {
+    if(list != null){
+      return parentToItemDefaultType[list.t];
+    } else{
+      return '0'
+    }
+  }, [list, onListChange]);
 
   const _onEditItemTitle = useCallback(
     (title: string) => {
       const copiedItem = { ...item };
       copiedItem.h = title;
-      copiedItem.t = item?.t || defaultLawType;
+      copiedItem.t = item?.t || getDefaultItemLawType();
       onItemChange(copiedItem);
     },
     [item, onItemChange]
@@ -59,7 +71,7 @@ function Editor({ className = '', ipfs, list, item, isAddingItem, onListChange, 
 
   const _selectLawType = useCallback(
     (newLawType: LawType): void => {
-      if(item == null && newLawType != defaultLawType
+      if(item == null && newLawType != getDefaultItemLawType()
         || item != null && newLawType !== item.t
         ){
         const copiedItem = { ...item };
@@ -79,15 +91,54 @@ function Editor({ className = '', ipfs, list, item, isAddingItem, onListChange, 
     [list, onListChange]
   );
 
-  const lawTypeOpt = useRef((
-    [
-      { text: t('List'), value: '0' },
-      { text: t('Course'), value: '1' },
-      { text: t('Module'), value: '2' },
-      { text: t('Skill'), value: '3' },
-      { text: t('Exercise'), value: '4' },
-    ]
-  ));
+  
+
+  // const lawTypeOptionsMap: any = {
+  //   '0': [baseOptions['0'], baseOptions['1']],
+  //   '1': [baseOptions['2']],
+  //   '2': [baseOptions['3']],
+  //   '3': [baseOptions['4']]
+  // };
+
+
+  const baseOptions: any = {
+    '0': useRef((
+      [
+        { text: t('List'), value: '0' },
+        { text: t('Course'), value: '1' },
+      ]
+    )),
+    '1': useRef((
+      [
+        { text: t('Module'), value: '2' },
+      ]
+    )),
+    '2': useRef((
+      [
+        { text: t('Skill'), value: '3' },
+      ]
+    )),
+    '3': useRef((
+      [
+        { text: t('Exercise'), value: '4' },
+      ]
+    )),
+  };
+
+  const getLawTypeOpt = useCallback(() => {
+    if(list != null){
+      return baseOptions[list.t];
+    } else{
+      return []
+    }
+  }, [list, onListChange]);
+
+  
+
+  const lawTypeOpt = getLawTypeOpt();
+
+  console.log("lawTypeOpt: "+lawTypeOpt)
+  
 
   if(item != null){
     console.log("item is not null")
@@ -103,7 +154,7 @@ function Editor({ className = '', ipfs, list, item, isAddingItem, onListChange, 
       <div className='ui--row'>
       <Dropdown
         label={t('type of item')}
-        value={item?.t || defaultLawType}
+        value={item?.t || getDefaultItemLawType()}
         onChange={_selectLawType}
         options={lawTypeOpt.current}
       />

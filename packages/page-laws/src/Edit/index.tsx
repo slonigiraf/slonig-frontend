@@ -50,7 +50,7 @@ function Edit({ className = '', ipfs }: Props): React.ReactElement<Props> {
   const [signature, setSignature] = useState('');
   const [isUnlockVisible, toggleUnlock] = useToggle();
   const [cidString, setCidString] = useState<string>("");
-  const defaultTextHexId = '0xacae01340fecde3865c7939ccec7b0a04b4690663f04030f618b65ee5c269145';
+  const defaultTextHexId = '0x43d6b29f81a108a2f8f286dc3cd6f0bb66cb89d2fddbfd8d2dab32b4a515715e';
   const { textHexId, setQueryParam } = useRouting(defaultTextHexId);
   const [lawHexData, setLawHexData] = useState('');
   const [amountList, setAmountList] = useState<BN>(BN_ZERO);
@@ -59,7 +59,7 @@ function Edit({ className = '', ipfs }: Props): React.ReactElement<Props> {
   const [digestHex, setDigestHex] = useState<string>("");
   const [itemDigestHex, setItemDigestHex] = useState<string>("");
   const { api } = useApi();
-  const [isEditView, setIsEditView] = useToggle(false);
+  const [isEditView, setIsEditView] = useToggle(true);
   const [isAddingItem, setIsAddingElement] = useState<boolean>(false);
   const [itemIdHex, setItemIdHex] = useState<string>("");
 
