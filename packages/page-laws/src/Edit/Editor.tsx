@@ -24,7 +24,7 @@ interface Props {
 
 function Editor({ className = '', ipfs, list, item, isAddingItem, onListChange, onItemChange, onItemIdHexChange, onIsAddingItemChange }: Props): React.ReactElement<Props> {
   const { t } = useTranslation();
-  const [lawType, setLawType] = useState<LawType>('list');
+  const [lawType, setLawType] = useState<LawType>(0);
   const _onClickAddItem = useCallback(
     (): void => {
       const newItemIdHex = randomIdHex();
@@ -65,10 +65,11 @@ function Editor({ className = '', ipfs, list, item, isAddingItem, onListChange, 
 
   const lawTypeOpt = useRef((
     [
-      { text: t('List'), value: 'list' },
-      { text: t('Course'), value: 'course' },
-      { text: t('Theme'), value: 'theme' },
-      { text: t('Skill'), value: 'skill' }
+      { text: t('List'), value: 0 },
+      { text: t('Course'), value: 1 },
+      { text: t('Module'), value: 2 },
+      { text: t('Skill'), value: 3 },
+      { text: t('Exercise'), value: 4 },
     ]
   ));
 

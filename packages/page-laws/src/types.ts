@@ -52,7 +52,7 @@ export interface CreateProps extends ModalProps {
   seed?: string;
   type?: PairType;
 }
-export type LawType = 'list' | 'course' | 'theme' | 'skill';
+export type LawType = 0 | 1 | 2 | 3 | 4;
 export type SeedType = 'bip' | 'raw' | 'dev';
 
 export interface AddressState {
