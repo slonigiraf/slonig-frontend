@@ -25,12 +25,12 @@ interface Props {
 function Editor({ className = '', ipfs, list, item, isAddingItem, onListChange, onItemChange, onItemIdHexChange, onIsAddingItemChange }: Props): React.ReactElement<Props> {
   console.log("Editor load");
   const { t } = useTranslation();
-  
+
   const _onClickAddItem = useCallback(
     (): void => {
       const newItemIdHex = randomIdHex();
       onItemIdHexChange(newItemIdHex);
-      const itemJSONTemplate = `{"i":"${newItemIdHex}","t":"0","h":""}`;
+      const itemJSONTemplate = `{"i":"${newItemIdHex}","t":0,"h":""}`;
       onItemChange(parseJson(itemJSONTemplate));
 
       const updatedList = { ...list };
@@ -46,16 +46,16 @@ function Editor({ className = '', ipfs, list, item, isAddingItem, onListChange, 
   );
 
   const parentToItemDefaultType: any = {
-    '0': '1',
-    '1': '2',
-    '2': '3',
-    '3': '4',
+    0: 1,
+    1: 2,
+    2: 3,
+    3: 4,
   };
   const getDefaultItemLawType = useCallback(() => {
-    if(list != null){
+    if (list != null) {
       return parentToItemDefaultType[list.t];
-    } else{
-      return '0'
+    } else {
+      return 0
     }
   }, [list, onListChange]);
 
@@ -71,9 +71,9 @@ function Editor({ className = '', ipfs, list, item, isAddingItem, onListChange, 
 
   const _selectLawType = useCallback(
     (newLawType: LawType): void => {
-      if(item == null && newLawType != getDefaultItemLawType()
+      if (item == null && newLawType != getDefaultItemLawType()
         || item != null && newLawType !== item.t
-        ){
+      ) {
         const copiedItem = { ...item };
         copiedItem.t = newLawType;
         onItemChange(copiedItem);
@@ -91,73 +91,63 @@ function Editor({ className = '', ipfs, list, item, isAddingItem, onListChange, 
     [list, onListChange]
   );
 
-  
-
-  // const lawTypeOptionsMap: any = {
-  //   '0': [baseOptions['0'], baseOptions['1']],
-  //   '1': [baseOptions['2']],
-  //   '2': [baseOptions['3']],
-  //   '3': [baseOptions['4']]
-  // };
-
-
   const baseOptions: any = {
-    '0': useRef((
+    0: useRef((
       [
-        { text: t('List'), value: '0' },
-        { text: t('Course'), value: '1' },
+        { text: t('List'), value: 0 },
+        { text: t('Course'), value: 1 },
       ]
     )),
-    '1': useRef((
+    1: useRef((
       [
-        { text: t('Module'), value: '2' },
+        { text: t('Module'), value: 2 },
       ]
     )),
-    '2': useRef((
+    2: useRef((
       [
-        { text: t('Skill'), value: '3' },
+        { text: t('Skill'), value: 3 },
       ]
     )),
-    '3': useRef((
+    3: useRef((
       [
-        { text: t('Exercise'), value: '4' },
+        { text: t('Exercise'), value: 4 },
       ]
     )),
   };
 
   const getLawTypeOpt = useCallback(() => {
-    if(list != null){
+    if (list != null) {
       return baseOptions[list.t];
-    } else{
+    } else {
       return []
     }
   }, [list, onListChange]);
 
-  
+
 
   const lawTypeOpt = getLawTypeOpt();
 
-  console.log("lawTypeOpt: "+lawTypeOpt)
-  
+  console.log("lawTypeOpt: " + lawTypeOpt)
 
-  if(item != null){
+
+  if (item != null) {
     console.log("item is not null")
-    console.log("item.t: "+item.t)
-    console.log("typeof(item.t): "+typeof(item.t))
-  } else{
+    console.log("item.t: " + item.t)
+    console.log("typeof(item.t): " + typeof (item.t))
+  } else {
     console.log("item is null")
   }
-  
+
 
   const itemEditor = isAddingItem ?
     <>
       <div className='ui--row'>
-      <Dropdown
-        label={t('type of item')}
-        value={item?.t || getDefaultItemLawType()}
-        onChange={_selectLawType}
-        options={lawTypeOpt.current}
-      />
+        <Dropdown
+          label={t('type of item')}
+          value={item?.t || getDefaultItemLawType()}
+          onChange={_selectLawType}
+          options={lawTypeOpt.current}
+        />
       </div>
       <div className='ui--row'>
         <Input
@@ -171,13 +161,18 @@ function Editor({ className = '', ipfs, list, item, isAddingItem, onListChange, 
       </div>
     </>
     :
-  <div className='ui--row'>
-    <Button
-      icon='add'
-      label={t('Add list item')}
-      onClick={_onClickAddItem}
-    />
-  </div>;
+    <>
+      {list != null && list.t != 4 &&
+        <div className='ui--row'>
+          <Button
+            icon='add'
+            label={t('Add list item')}
+            onClick={_onClickAddItem}
+          />
+        </div>
+      }
+    </>;
+
 
   const reordering = (list == null | list.e == null) ? "" : (
     <Reordering ipfs={ipfs} list={list} onListChange={onListChange} />
