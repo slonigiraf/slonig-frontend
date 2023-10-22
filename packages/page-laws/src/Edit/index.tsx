@@ -222,7 +222,6 @@ function Edit({ className = '', ipfs }: Props): React.ReactElement<Props> {
 
   const amountItemElement = (item == null ? "" : <div className='ui--row'>
     <InputBalance
-      autoFocus
       help={t('Tokens to burn for item help info')}
       isZeroable
       label={t('Tokens to burn for item')}

@@ -23,8 +23,10 @@ interface Props {
 }
 
 function Editor({ className = '', ipfs, list, item, isAddingItem, onListChange, onItemChange, onItemIdHexChange, onIsAddingItemChange }: Props): React.ReactElement<Props> {
+  console.log("Editor load");
   const { t } = useTranslation();
-  const [lawType, setLawType] = useState<LawType>(0);
+  const defaultLawType: LawType = 0
+  
   const _onClickAddItem = useCallback(
     (): void => {
       const newItemIdHex = randomIdHex();
@@ -49,7 +51,21 @@ function Editor({ className = '', ipfs, list, item, isAddingItem, onListChange, 
     (title: string) => {
       const copiedItem = { ...item };
       copiedItem.h = title;
+      copiedItem.t = item?.t || defaultLawType;
       onItemChange(copiedItem);
+    },
+    [item, onItemChange]
+  );
+
+  const _selectLawType = useCallback(
+    (newLawType: LawType): void => {
+      if(item == null && newLawType != defaultLawType
+        || item != null && newLawType !== item.t
+        ){
+        const copiedItem = { ...item };
+        copiedItem.t = newLawType;
+        onItemChange(copiedItem);
+      }
     },
     [item, onItemChange]
   );
@@ -73,22 +89,14 @@ function Editor({ className = '', ipfs, list, item, isAddingItem, onListChange, 
     ]
   ));
 
-  const _selectLawType = useCallback(
-    (newLawType: LawType): void => {
-      if (newLawType !== lawType) {
-        console.log("newLawType: "+newLawType)
-        setLawType(newLawType);
-      }
-    },
-    [lawType]
-  );
+  
 
   const itemEditor = isAddingItem ?
     <>
       <div className='ui--row'>
       <Dropdown
         label={t('type of item')}
-        defaultValue={lawType}
+        value={item?.t || defaultLawType}
         onChange={_selectLawType}
         options={lawTypeOpt.current}
       />
@@ -100,7 +108,7 @@ function Editor({ className = '', ipfs, list, item, isAddingItem, onListChange, 
           help={t('Title of item')}
           label={t('title of item')}
           onChange={_onEditItemTitle}
-          value={item == null ? "" : item.h}
+          value={item?.h || ""}
         />
       </div>
     </>
