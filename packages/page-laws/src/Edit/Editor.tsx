@@ -25,7 +25,7 @@ interface Props {
 function Editor({ className = '', ipfs, list, item, isAddingItem, onListChange, onItemChange, onItemIdHexChange, onIsAddingItemChange }: Props): React.ReactElement<Props> {
   console.log("Editor load");
   const { t } = useTranslation();
-  const defaultLawType: LawType = 0
+  const defaultLawType: LawType = '0';
   
   const _onClickAddItem = useCallback(
     (): void => {
@@ -81,14 +81,21 @@ function Editor({ className = '', ipfs, list, item, isAddingItem, onListChange, 
 
   const lawTypeOpt = useRef((
     [
-      { text: t('List'), value: 0 },
-      { text: t('Course'), value: 1 },
-      { text: t('Module'), value: 2 },
-      { text: t('Skill'), value: 3 },
-      { text: t('Exercise'), value: 4 },
+      { text: t('List'), value: '0' },
+      { text: t('Course'), value: '1' },
+      { text: t('Module'), value: '2' },
+      { text: t('Skill'), value: '3' },
+      { text: t('Exercise'), value: '4' },
     ]
   ));
 
+  if(item != null){
+    console.log("item is not null")
+    console.log("item.t: "+item.t)
+    console.log("typeof(item.t): "+typeof(item.t))
+  } else{
+    console.log("item is null")
+  }
   
 
   const itemEditor = isAddingItem ?
