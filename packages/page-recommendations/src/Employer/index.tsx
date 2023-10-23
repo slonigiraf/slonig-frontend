@@ -102,9 +102,6 @@ function Employer({ className = '', ipfs }: Props): React.ReactElement<Props> {
                 if (result != undefined) {
                   storeLetter(result?.getText())
                 }
-                if (!error) {
-                  console.info(error)
-                }
               }}
               constraints={{facingMode: 'environment'}}
             />

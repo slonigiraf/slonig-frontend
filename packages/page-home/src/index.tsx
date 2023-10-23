@@ -10,18 +10,49 @@ import { useToggle } from '@polkadot/react-hooks';
 import { QrScanner } from '@slonigiraf/app-slonig-components';
 export { useCounter };
 
-function SettingsApp (): React.ReactElement<Props> {
+function SettingsApp(): React.ReactElement<Props> {
   const { t } = useTranslation();
   const [isQrOpen, toggleQr] = useToggle();
+
+  const processQr = (data: string) => {
+    try {
+      // Attempt to parse the data as JSON
+      const jsonData = JSON.parse(data);
+
+      // Check if the JSON has the expected properties
+      if (jsonData.hasOwnProperty('q') && jsonData.hasOwnProperty('d')) {
+        // Process based on the 'q' value or other conditions
+        switch (jsonData.q) {
+          case 1:
+            // Handle type 1 QR data
+            console.log("Processing type 1 QR data:", jsonData.d);
+            break;
+          // Add more cases as needed
+          // case 2:
+          //   ...
+          //   break;
+          default:
+            console.warn("Unknown QR type:", jsonData.q);
+            break;
+        }
+      } else {
+        console.error("Invalid QR data structure.");
+      }
+
+    } catch (error) {
+      console.error("Error parsing QR data as JSON:", error);
+    }
+    toggleQr();
+  }
 
   return (
     <main className='settings--App'>
       <div className='ui--row'>
-      <Button
-            icon='qrcode'
-            label={t('Scan Qr')}
-            onClick={toggleQr}
-          />
+        <Button
+          icon='qrcode'
+          label={t('Scan Qr')}
+          onClick={toggleQr}
+        />
       </div>
       {isQrOpen && <div className='ui--row'>
         <Modal
@@ -33,18 +64,15 @@ function SettingsApp (): React.ReactElement<Props> {
             <QrScanner
               onResult={(result, error) => {
                 if (result != undefined) {
-                  // storeLetter(result?.getText())
-                }
-                if (!error) {
-                  console.info(error)
+                  processQr(result?.getText())
                 }
               }}
-              constraints={{facingMode: 'environment'}}
+              constraints={{ facingMode: 'environment' }}
             />
           </Modal.Content>
         </Modal>
       </div>}
-      
+
 
     </main>
   );

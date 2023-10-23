@@ -42,9 +42,6 @@ function DBImport({ className = '', ipfs }: Props): React.ReactElement<Props> {
           if (result != undefined) {
             storeData(result?.getText());
           }
-          if (!error) {
-            console.info(error);
-          }
         }}
         constraints={{ facingMode: 'environment' }}
       />
