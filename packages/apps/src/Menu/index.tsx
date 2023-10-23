@@ -10,7 +10,7 @@ import React, { useMemo, useRef } from 'react';
 import { useLocation } from 'react-router-dom';
 
 import createRoutes from '@polkadot/apps-routing';
-import { styled } from '@polkadot/react-components';
+import { Icon, styled } from '@polkadot/react-components';
 import { useAccounts, useApi, useCall, useTeleport } from '@polkadot/react-hooks';
 
 import { findMissingApis } from '../endpoint.js';
@@ -24,7 +24,7 @@ interface Props {
   className?: string;
 }
 
-function createExternals (t: (key: string, optionsOrText?: string | { replace: Record<string, unknown> }, options?: { ns: string }) => string): ItemRoute[] {
+function createExternals(t: (key: string, optionsOrText?: string | { replace: Record<string, unknown> }, options?: { ns: string }) => string): ItemRoute[] {
   return [
     {
       href: 'https://github.com/polkadot-js/apps',
@@ -41,7 +41,7 @@ function createExternals (t: (key: string, optionsOrText?: string | { replace: R
   ];
 }
 
-function checkVisible ({ api, isApiConnected, isApiReady, isDevelopment: isApiDevelopment }: ApiProps, allowTeleport: boolean, hasAccounts: boolean, hasSudo: boolean, { isDevelopment, isHidden, needsAccounts, needsApi, needsApiCheck, needsApiInstances, needsSudo, needsTeleport }: Route['display']): boolean {
+function checkVisible({ api, isApiConnected, isApiReady, isDevelopment: isApiDevelopment }: ApiProps, allowTeleport: boolean, hasAccounts: boolean, hasSudo: boolean, { isDevelopment, isHidden, needsAccounts, needsApi, needsApiCheck, needsApiInstances, needsSudo, needsTeleport }: Route['display']): boolean {
   if (isHidden) {
     return false;
   } else if (needsAccounts && !hasAccounts) {
@@ -61,7 +61,7 @@ function checkVisible ({ api, isApiConnected, isApiReady, isDevelopment: isApiDe
   return findMissingApis(api, needsApi, needsApiInstances, needsApiCheck).length === 0;
 }
 
-function extractGroups (routing: Routes, groupNames: Record<string, string>, apiProps: ApiProps, allowTeleport: boolean, hasAccounts: boolean, hasSudo: boolean): Group[] {
+function extractGroups(routing: Routes, groupNames: Record<string, string>, apiProps: ApiProps, allowTeleport: boolean, hasAccounts: boolean, hasSudo: boolean): Group[] {
   return Object
     .values(
       routing.reduce((all: Groups, route): Groups => {
@@ -86,7 +86,7 @@ function extractGroups (routing: Routes, groupNames: Record<string, string>, api
     .filter(({ routes }) => routes.length);
 }
 
-function Menu ({ className = '' }: Props): React.ReactElement<Props> {
+function Menu({ className = '' }: Props): React.ReactElement<Props> {
   const { t } = useTranslation();
   const { allAccounts, hasAccounts } = useAccounts();
   const apiProps = useApi();
@@ -98,7 +98,7 @@ function Menu ({ className = '' }: Props): React.ReactElement<Props> {
   const routeRef = useRef(createRoutes(t));
 
   const groupRef = useRef({
-    accounts: t('Accounts'),
+    accounts: t('Slonig'),
     developer: t('Developer'),
     files: t('Files'),
     governance: t('Governance'),
@@ -128,6 +128,9 @@ function Menu ({ className = '' }: Props): React.ReactElement<Props> {
       <div className='menuContainer'>
         <div className='menuSection'>
           <ul className='menuItems'>
+            <li className="homeMenuItem">
+              <a href="/"><Icon icon='home' /></a>
+            </li>
             {visibleGroups.map(({ name, routes }): React.ReactNode => (
               <Grouping
                 isActive={!!activeRoute && activeRoute.group === name.toLowerCase()}
