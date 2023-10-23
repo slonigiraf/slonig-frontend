@@ -10,7 +10,7 @@ import { useToggle } from '@polkadot/react-hooks';
 import { QrScanner } from '@slonigiraf/app-slonig-components';
 export { useCounter };
 
-function SettingsApp(): React.ReactElement<Props> {
+function HomeApp(): React.ReactElement<Props> {
   const { t } = useTranslation();
   const [isQrOpen, toggleQr] = useToggle();
 
@@ -78,4 +78,4 @@ function SettingsApp(): React.ReactElement<Props> {
   );
 }
 
-export default React.memo(SettingsApp);
+export default React.memo(HomeApp);
