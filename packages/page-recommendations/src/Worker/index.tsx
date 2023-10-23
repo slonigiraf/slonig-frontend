@@ -66,7 +66,7 @@ function Worker({ className = '', ipfs }: Props): React.ReactElement<Props> {
   return (
     <div className={`toolbox--Worker ${className}`}>
       <h1>{t('My diplomas')}</h1>
-      <div className='ui--row'>
+      <div className='ui--row' style={{ display: 'none' }}>
         <InputAddress
           className='full'
           help={t('select the account you wish to sign data with')}

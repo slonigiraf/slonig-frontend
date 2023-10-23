@@ -251,7 +251,7 @@ function Edit({ className = '', ipfs }: Props): React.ReactElement<Props> {
           isDisabled={ipfs == null}
         />
       </div>
-      <div className='ui--row'>
+      <div className='ui--row' style={{ display: 'none' }}>
         <InputAddress
           className='full'
           help={t('select the account you wish to sign data with')}

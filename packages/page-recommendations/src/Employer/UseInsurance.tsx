@@ -66,7 +66,7 @@ function UseInsurance({ className = '', text, insurance }: Props): React.ReactEl
   return (
     <div className={`toolbox--Sign ${className}`}>
       <h1>{text}</h1>
-      <div className='ui--row'>
+      <div className='ui--row' style={{ display: 'none' }}>
         <InputAddress
           className='full'
           help={t('select the account you wish to sign data with')}

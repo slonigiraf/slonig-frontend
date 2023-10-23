@@ -2,21 +2,19 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import BN from 'bn.js';
-import QRCode from 'qrcode.react';
 import { getIPFSContentID, digestFromCIDv1 } from '@slonigiraf/helpers';
 import { BN_ZERO } from '@polkadot/util';
 import type { Signer } from '@polkadot/api/types';
 import type { KeyringPair } from '@polkadot/keyring/types';
 import React, { useCallback, useEffect, useState } from 'react';
 import { web3FromSource } from '@polkadot/extension-dapp';
-import { Button, Input, InputAddress, InputBalance, Output, TxButton } from '@polkadot/react-components';
+import { Button, Input, InputAddress, InputBalance, TxButton } from '@polkadot/react-components';
 import { useToggle } from '@polkadot/react-hooks';
 import { keyring } from '@polkadot/ui-keyring';
-import { isFunction, u8aToHex, hexToU8a, u8aWrapBytes } from '@polkadot/util';
+import { isFunction, u8aToHex } from '@polkadot/util';
 import { useTranslation } from '../translate.js';
 import Unlock from '@polkadot/app-signing/Unlock';
 import { IPFS } from 'ipfs-core';
-import { statics } from '@polkadot/react-api/statics';
 import { useApi } from '@polkadot/react-hooks';
 import { randomAsU8a } from '@polkadot/util-crypto';
 
@@ -141,7 +139,7 @@ function Create({ className = '', ipfs }: Props): React.ReactElement<Props> {
   return (
     <div className={`toolbox--Sign ${className}`}>
       <h1>{t('Create')}</h1>
-      <div className='ui--row'>
+      <div className='ui--row' style={{ display: 'none' }}>
         <InputAddress
           className='full'
           help={t('select the account you wish to sign data with')}
