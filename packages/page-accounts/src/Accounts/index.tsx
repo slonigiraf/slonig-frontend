@@ -9,7 +9,7 @@ import type { SortCategory } from '../util.js';
 
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
-import { Button, FilterInput, SortDropdown, styled, SummaryBox, Table } from '@polkadot/react-components';
+import { Button, FilterInput, SortDropdown, styled, SummaryBox, Table, InputAddress } from '@polkadot/react-components';
 import { getAccountCryptoType } from '@polkadot/react-components/util';
 import { useAccounts, useApi, useDelegations, useFavorites, useIpfs, useLedger, useNextTick, useProxies, useToggle } from '@polkadot/react-hooks';
 import { keyring } from '@polkadot/ui-keyring';
@@ -89,6 +89,7 @@ function groupAccounts (accounts: SortedAccount[]): Record<GroupName, string[]> 
 
 function Overview ({ className = '', onStatusChange }: Props): React.ReactElement<Props> {
   const { t } = useTranslation();
+  const [currentPair, setCurrentPair] = useState<KeyringPair | null>(() => keyring.getPairs()[0] || null);
   const { api, isElectron } = useApi();
   const { allAccounts, hasAccounts } = useAccounts();
   const { isIpfs } = useIpfs();
@@ -108,6 +109,11 @@ function Overview ({ className = '', onStatusChange }: Props): React.ReactElemen
   const proxies = useProxies();
   const isNextTick = useNextTick();
 
+  const _onChangeAccount = useCallback(
+    (accountId: string | null) => accountId && setCurrentPair(keyring.getPair(accountId)),
+    []
+  );
+  
   const onSortChange = useCallback(
     (sortBy: SortCategory) => setSortBy(({ sortFromMax }) => ({ sortBy, sortFromMax })),
     []
@@ -272,6 +278,15 @@ function Overview ({ className = '', onStatusChange }: Props): React.ReactElemen
 
   return (
     <StyledDiv className={className}>
+      <div className='ui--row'>
+        <InputAddress
+          className='small'
+          isInput={false}
+          label={t('Default account')}
+          onChange={_onChangeAccount}
+          type='account'
+        />
+      </div>
       {isCreateOpen && (
         <CreateModal
           onClose={toggleCreate}
