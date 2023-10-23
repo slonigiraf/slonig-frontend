@@ -1,9 +1,9 @@
 // Copyright 2021-2022 @slonigiraf/app-recommendations authors & contributors
 // SPDX-License-Identifier: Apache-2.0
 
-import React, { useCallback, useState } from 'react'
-import QrScanner from '../QrScanner'
-import InsurancesList from './InsurancesList'
+import React, { useCallback, useState } from 'react';
+import { QrScanner } from '@slonigiraf/app-slonig-components';
+import InsurancesList from './InsurancesList';
 import { IPFS } from 'ipfs-core';
 import { useTranslation } from '../translate';
 import { Button, InputAddress, Modal } from '@polkadot/react-components';

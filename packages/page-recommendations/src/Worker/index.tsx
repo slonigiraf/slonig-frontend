@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import React, { useCallback, useState } from 'react';
-import QrScanner from '../QrScanner'
+import { QrScanner } from '@slonigiraf/app-slonig-components';
 import LettersList from './LettersList';
 import { IPFS } from 'ipfs-core';
 import { Button, InputAddress, Modal } from '@polkadot/react-components';

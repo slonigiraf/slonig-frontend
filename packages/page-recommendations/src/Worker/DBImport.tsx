@@ -6,7 +6,7 @@ import { IPFS } from 'ipfs-core';
 import { Button, Modal } from '@polkadot/react-components';
 import { useTranslation } from '../translate';
 import "dexie-export-import";
-import QrScanner from '../QrScanner'
+import { QrScanner } from '@slonigiraf/app-slonig-components';
 import { getIPFSDataFromContentID } from '@slonigiraf/helpers';
 import { syncDB } from '../utils';
 

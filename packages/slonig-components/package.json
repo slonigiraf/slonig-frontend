@@ -5,12 +5,12 @@
   },
   "homepage": "https://github.com/slonigiraf/apps-slonigiraf#readme",
   "license": "Apache-2.0",
-  "name": "@slonigiraf/app-home",
+  "name": "@slonigiraf/app-slonig-components",
   "private": true,
   "repository": {
-    "directory": "packages/page-home",
+    "directory": "packages/slonig-components",
     "type": "git",
-    "url": "https://github.com/slonigiraf/apps-slonigiraf.git"
+    "url": "https://github.com/slonigiraf/app-slonigiraf.git"
   },
   "sideEffects": false,
   "type": "module",
@@ -19,8 +19,8 @@
     "@polkadot/apps-config": "^0.132.2-38-x",
     "@polkadot/react-components": "^0.132.2-38-x",
     "@polkadot/react-query": "^0.132.2-38-x",
-    "@slonigiraf/app-slonig-components": "^0.132.2-38-x",
-    "query-string": "^8.1.0"
+    "query-string": "^8.1.0",
+    "react-qr-reader": "^3.0.0-beta-1"
   },
   "peerDependencies": {
     "react": "*",

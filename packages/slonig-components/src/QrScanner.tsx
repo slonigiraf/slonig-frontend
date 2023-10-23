@@ -1,4 +1,4 @@
-// Copyright 2021-2022 @slonigiraf/app-laws authors & contributors
+// Copyright 2021-2022 @slonigiraf/app-recommendations authors & contributors
 // SPDX-License-Identifier: Apache-2.0
 
 import { QrReader, QrReaderProps } from 'react-qr-reader'
