@@ -8,11 +8,15 @@ import useCounter from './useCounter.js';
 import { Button, Modal } from '@polkadot/react-components';
 import { useToggle } from '@polkadot/react-hooks';
 import { QrScanner } from '@slonigiraf/app-slonig-components';
+import { useNavigate } from 'react-router-dom';
+
 export { useCounter };
 
 function HomeApp(): React.ReactElement<Props> {
   const { t } = useTranslation();
   const [isQrOpen, toggleQr] = useToggle();
+
+  const navigate = useNavigate();
 
   const processQr = (data: string) => {
     try {
@@ -23,9 +27,9 @@ function HomeApp(): React.ReactElement<Props> {
       if (jsonData.hasOwnProperty('q') && jsonData.hasOwnProperty('d')) {
         // Process based on the 'q' value or other conditions
         switch (jsonData.q) {
-          case 1:
-            // Handle type 1 QR data
-            console.log("Processing type 1 QR data:", jsonData.d);
+          // 0 - is navigation
+          case 0:
+            navigate(jsonData.d);
             break;
           // Add more cases as needed
           // case 2:
