@@ -1,0 +1,29 @@
+{
+  "bugs": "https://github.com/polkadot-js/apps/issues",
+  "engines": {
+    "node": ">=16"
+  },
+  "homepage": "https://github.com/slonigiraf/apps-slonigiraf#readme",
+  "license": "Apache-2.0",
+  "name": "@slonigiraf/app-home",
+  "private": true,
+  "repository": {
+    "directory": "packages/page-home",
+    "type": "git",
+    "url": "https://github.com/slonigiraf/apps-slonigiraf.git"
+  },
+  "sideEffects": false,
+  "type": "module",
+  "version": "0.132.2-38-x",
+  "dependencies": {
+    "@polkadot/apps-config": "^0.132.2-38-x",
+    "@polkadot/react-components": "^0.132.2-38-x",
+    "@polkadot/react-query": "^0.132.2-38-x",
+    "query-string": "^8.1.0"
+  },
+  "peerDependencies": {
+    "react": "*",
+    "react-dom": "*",
+    "react-is": "*"
+  }
+}

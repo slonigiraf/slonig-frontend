@@ -34,6 +34,7 @@ import rpc from './rpc.js';
 import runtime from './runtime.js';
 import scheduler from './scheduler.js';
 import settings from './settings.js';
+import home from './home.js';
 import signing from './signing.js';
 import society from './society.js';
 import staking from './staking.js';
@@ -95,6 +96,7 @@ export default function create (t: TFunction): Routes {
     files(t),
     js(t),
     utilities(t),
-    settings(t)
+    settings(t),
+    home(t)
   ];
 }

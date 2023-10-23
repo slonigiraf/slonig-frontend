@@ -3223,6 +3223,21 @@ __metadata:
   languageName: node
   linkType: hard
 
+"@slonigiraf/app-home@workspace:packages/page-home":
+  version: 0.0.0-use.local
+  resolution: "@slonigiraf/app-home@workspace:packages/page-home"
+  dependencies:
+    "@polkadot/apps-config": ^0.132.2-38-x
+    "@polkadot/react-components": ^0.132.2-38-x
+    "@polkadot/react-query": ^0.132.2-38-x
+    query-string: ^8.1.0
+  peerDependencies:
+    react: "*"
+    react-dom: "*"
+    react-is: "*"
+  languageName: unknown
+  linkType: soft
+
 "@slonigiraf/app-laws@workspace:packages/page-laws":
   version: 0.0.0-use.local
   resolution: "@slonigiraf/app-laws@workspace:packages/page-laws"

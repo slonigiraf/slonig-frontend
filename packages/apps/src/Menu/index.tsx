@@ -98,6 +98,7 @@ function Menu({ className = '' }: Props): React.ReactElement<Props> {
   const routeRef = useRef(createRoutes(t));
 
   const groupRef = useRef({
+    home: t('Home'),
     accounts: t('Slonig'),
     developer: t('Developer'),
     files: t('Files'),
@@ -123,15 +124,18 @@ function Menu({ className = '' }: Props): React.ReactElement<Props> {
     [location]
   );
 
+  const sortedGroups = visibleGroups.sort((a, b) => {
+    if (a.name.toLowerCase() === "home") return -1;
+    if (b.name.toLowerCase() === "home") return 1;
+    return 0;
+  });
+
   return (
     <StyledDiv className={`${className}${(!apiProps.isApiReady || !apiProps.isApiConnected) ? ' isLoading' : ''} highlight--bg`}>
       <div className='menuContainer'>
         <div className='menuSection'>
           <ul className='menuItems'>
-            <li className="homeMenuItem">
-              <a href="/"><Icon icon='home' /></a>
-            </li>
-            {visibleGroups.map(({ name, routes }): React.ReactNode => (
+            {sortedGroups.map(({ name, routes }): React.ReactNode => (
               <Grouping
                 isActive={!!activeRoute && activeRoute.group === name.toLowerCase()}
                 key={name}

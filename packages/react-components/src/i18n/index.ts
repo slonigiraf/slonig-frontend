@@ -67,6 +67,7 @@ i18next
       'app-recommendations',
       'app-rpc',
       'app-settings',
+      'app-home',
       'app-signing',
       'app-society',
       'app-staking',
