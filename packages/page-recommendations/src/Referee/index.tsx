@@ -19,6 +19,9 @@ import { IPFS } from 'ipfs-core';
 import { qrCodeSize } from '../constants';
 import { getLastUnusedLetterNumber, setLastUsedLetterNumber, storeLetter } from '../utils';
 import { statics } from '@polkadot/react-api/statics';
+import { useLocation } from 'react-router-dom';
+import { getIPFSDataFromContentID } from '@slonigiraf/helpers'
+import { parseJson } from '../util';
 
 interface Props {
   className?: string;
@@ -39,17 +42,40 @@ interface SignerState {
 function Referee({ className = '', ipfs }: Props): React.ReactElement<Props> {
   const { t } = useTranslation();
   const [currentPair, setCurrentPair] = useState<KeyringPair | null>(() => keyring.getPairs()[0] || null);
-  const [text, setText] = useState<string>("");
+  const location = useLocation();
+  const queryParams = new URLSearchParams(location.search);
+  const queryCid = queryParams.get("cid") || "";
+  const queryPerson = queryParams.get("person") || "";
+  const [textHash, setTextHash] = useState<string>(queryCid);
+  const [text, setText] = useState<string>(queryCid);
   const [{ isInjected }, setAccountState] = useState<AccountState>({ isExternal: false, isHardware: false, isInjected: false });
   const [isLocked, setIsLocked] = useState(false);
   const [{ isUsable, signer }, setSigner] = useState<SignerState>({ isUsable: true, signer: null });
   const [signature, setSignature] = useState('');
   const [isUnlockVisible, toggleUnlock] = useToggle();
-  const [amount, setAmount] = useState<BN>(BN_ZERO);
+  const defaultStake: BN = new BN(600);
+  const [amount, setAmount] = useState<BN>(defaultStake);
   const [blockNumber, setBlockNumber] = useState<BN>(BN_ZERO);
-  const [workerPublicKeyHex, setWorkerPublicKeyHex] = useState<string>("");
-  const [letterInfo, setLetterInfo] = useState('')
-  const [modalIsOpen, setModalIsOpen] = useState(false)
+  const [workerPublicKeyHex, setWorkerPublicKeyHex] = useState<string>(queryPerson);
+  const [letterInfo, setLetterInfo] = useState('');
+  const [modalIsOpen, setModalIsOpen] = useState(false);
+
+  useEffect(() => {
+    async function fetchData() {
+      if (ipfs !== null && text === textHash) {
+        try {
+          const content = await getIPFSDataFromContentID(ipfs, textHash);
+          const json = parseJson(content);
+          setText(json.h);
+        }
+        catch (e) {
+          setText(textHash + " (" + t('loading') + "...)");
+          console.log(e);
+        }
+      }
+    }
+    fetchData()
+  }, [ipfs, textHash])
 
   useEffect((): void => {
     const meta = (currentPair && currentPair.meta) || {};
@@ -106,8 +132,6 @@ function Referee({ className = '', ipfs }: Props): React.ReactElement<Props> {
       }
       // generate a data to sign
       const genesisU8 = statics.api.genesisHash;
-      const textCID = await getIPFSContentID(ipfs, text);
-      const textHash = textCID.toString();
       const referee = currentPair;
       const refereeU8 = referee.publicKey;
       const refereePublicKeyHex = u8aToHex(refereeU8);
@@ -194,25 +218,11 @@ function Referee({ className = '', ipfs }: Props): React.ReactElement<Props> {
         />
       </div>
       <div className='ui--row'>
-        <Input
-          autoFocus
-          className='full'
-          help={t('Recommendation letter text help info TODO')}
-          label={t('recommendation letter text')}
-          onChange={_onChangeData}
-          value={text}
-        />
+        <h2>"{text}"</h2>
       </div>
 
       <div className='ui--row'>
-        <Input
-          autoFocus
-          className='full'
-          help={t('About person help info TODO')}
-          label={t('about person')}
-          onChange={_onChangeWorker}
-          value={workerPublicKeyHex}
-        />
+      <h2>Person: {workerPublicKeyHex}</h2>
       </div>
 
       <div className='ui--row'>
