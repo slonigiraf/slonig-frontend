@@ -8,6 +8,7 @@ import { getIPFSDataFromContentID } from '@slonigiraf/helpers'
 import { useTranslation } from '../translate';
 import { IPFS } from 'ipfs-core';
 import { Letter } from '../db/Letter';
+import { parseJson } from '../util';
 
 interface Props {
   className?: string;
@@ -24,8 +25,9 @@ function LetterInfo({ className = '', letter, ipfs }: Props): React.ReactElement
     async function fetchData() {
       if (ipfs !== null && text === letter.cid) {
         try {
-          const content = await getIPFSDataFromContentID(ipfs, letter.cid)
-          setText(content)
+          const content = await getIPFSDataFromContentID(ipfs, letter.cid);
+          const json = parseJson(content);
+          setText(json.h);
         }
         catch (e) {
           setText(letter.cid + " (" + t('loading') + "...)")
