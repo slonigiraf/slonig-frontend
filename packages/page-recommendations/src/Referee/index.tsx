@@ -52,7 +52,7 @@ function Referee({ className = '', ipfs }: Props): React.ReactElement<Props> {
   const [{ isUsable, signer }, setSigner] = useState<SignerState>({ isUsable: true, signer: null });
   const [signature, setSignature] = useState('');
   const [isUnlockVisible, toggleUnlock] = useToggle();
-  const defaultStake: BN = new BN(600);
+  const defaultStake: BN = new BN("572000000000000");
   const [amount, setAmount] = useState<BN>(defaultStake);
   const [blockNumber, setBlockNumber] = useState<BN>(BN_ZERO);
   const [letterInfo, setLetterInfo] = useState('');
@@ -225,6 +225,7 @@ function Referee({ className = '', ipfs }: Props): React.ReactElement<Props> {
           isZeroable
           label={t('stake reputation')}
           onChange={setAmount}
+          defaultValue={amount}
         />
       </div>
       <div className='ui--row'>
