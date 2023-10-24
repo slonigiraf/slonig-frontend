@@ -8,6 +8,7 @@ import { getIPFSDataFromContentID } from '@slonigiraf/helpers'
 import { useTranslation } from '../translate';
 import { IPFS } from 'ipfs-core';
 import { Insurance } from '../db/Insurance';
+import { parseJson } from '@slonigiraf/app-slonig-components';
 
 interface Props {
   className?: string;
@@ -24,8 +25,9 @@ function InsuranceInfo({ className = '', insurance, ipfs }: Props): React.ReactE
     async function fetchData() {
       if (ipfs !== null && text === insurance.cid) {
         try {
-          const content = await getIPFSDataFromContentID(ipfs, insurance.cid)
-          setText(content)
+          const content = await getIPFSDataFromContentID(ipfs, insurance.cid);
+          const json = parseJson(content);
+          setText(json.h);
         }
         catch (e) {
           setText(insurance.cid + " (" + t('loading') + "...)")

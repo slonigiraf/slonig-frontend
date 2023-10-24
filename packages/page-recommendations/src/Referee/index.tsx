@@ -21,7 +21,7 @@ import { getLastUnusedLetterNumber, setLastUsedLetterNumber, storeLetter } from 
 import { statics } from '@polkadot/react-api/statics';
 import { useLocation } from 'react-router-dom';
 import { getIPFSDataFromContentID } from '@slonigiraf/helpers'
-import { parseJson } from '../util';
+import { parseJson } from '@slonigiraf/app-slonig-components';
 
 interface Props {
   className?: string;

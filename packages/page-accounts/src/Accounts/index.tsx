@@ -280,7 +280,7 @@ function Overview ({ className = '', onStatusChange }: Props): React.ReactElemen
     <StyledDiv className={className}>
       <div className='ui--row'>
         <InputAddress
-          className='small'
+          className='full'
           isInput={false}
           label={t('Default account')}
           onChange={_onChangeAccount}

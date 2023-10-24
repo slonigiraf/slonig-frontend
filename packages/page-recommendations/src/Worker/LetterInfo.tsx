@@ -8,7 +8,7 @@ import { getIPFSDataFromContentID } from '@slonigiraf/helpers'
 import { useTranslation } from '../translate';
 import { IPFS } from 'ipfs-core';
 import { Letter } from '../db/Letter';
-import { parseJson } from '../util';
+import { parseJson } from '@slonigiraf/app-slonig-components';
 
 interface Props {
   className?: string;

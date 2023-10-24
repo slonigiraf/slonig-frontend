@@ -4,7 +4,7 @@ import { IPFS } from 'ipfs-core';
 import { getCIDFromBytes, getIPFSDataFromContentID } from '@slonigiraf/helpers';
 import { u8aToHex } from '@polkadot/util';
 import { useApi } from '@polkadot/react-hooks';
-import { parseJson } from '../util';
+import { parseJson } from '@slonigiraf/app-slonig-components';
 import { BN_ZERO } from '@polkadot/util';
 import ItemLabel from './ItemLabel';
 import QRCode from 'qrcode.react';

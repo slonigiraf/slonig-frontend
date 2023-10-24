@@ -6,7 +6,7 @@ import { useApi } from '@polkadot/react-hooks';
 import { getIPFSContentID, digestFromCIDv1, getCIDFromBytes, getIPFSDataFromContentID } from '@slonigiraf/helpers';
 import { IPFS } from 'ipfs-core';
 import { useTranslation } from '../translate.js';
-import { parseJson } from '../util';
+import { parseJson } from '@slonigiraf/app-slonig-components';
 
 interface Props {
   className?: string;
