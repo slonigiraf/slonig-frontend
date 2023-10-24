@@ -235,6 +235,16 @@ function Edit({ className = '', ipfs }: Props): React.ReactElement<Props> {
     :
     <Editor ipfs={ipfs} list={list} item={item} isAddingItem={isAddingItem} onListChange={setList} onItemChange={setItem} onItemIdHexChange={setItemIdHex} onIsAddingItemChange={setIsAddingElement} />;
 
+  const hiddenKeyringInitializer = <div className='ui--row' style={{ display: 'none' }}>
+    <InputAddress
+      className='full'
+      help={t('select the account you wish to sign data with')}
+      isInput={false}
+      label={t('account')}
+      onChange={_onChangeAccount}
+      type='account'
+    />
+  </div>;
   const editView = (
     <div className={`toolbox--Sign ${className}`}>
       <h1>{t('Edit')}</h1>
@@ -249,16 +259,6 @@ function Edit({ className = '', ipfs }: Props): React.ReactElement<Props> {
           value={amountList}
           onChange={setAmountList}
           isDisabled={ipfs == null}
-        />
-      </div>
-      <div className='ui--row' style={{ display: 'none' }}>
-        <InputAddress
-          className='full'
-          help={t('select the account you wish to sign data with')}
-          isInput={false}
-          label={t('account')}
-          onChange={_onChangeAccount}
-          type='account'
         />
       </div>
       <Button.Group>
@@ -332,7 +332,10 @@ function Edit({ className = '', ipfs }: Props): React.ReactElement<Props> {
     </div>
   );
 
-  return isEditView ? editView : viewView;
+  return <>
+    {hiddenKeyringInitializer}
+    {isEditView ? editView : viewView}
+  </>;
 }
 
 export default React.memo(Edit);
