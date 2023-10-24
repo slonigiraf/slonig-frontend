@@ -1,21 +1,26 @@
 import React from 'react';
 import React, { useCallback, useEffect, useState } from 'react';
 import { IPFS } from 'ipfs-core';
-import { getIPFSContentID, digestFromCIDv1, getCIDFromBytes, getIPFSDataFromContentID } from '@slonigiraf/helpers';
-import { isFunction, u8aToHex, hexToU8a, u8aWrapBytes } from '@polkadot/util';
+import { getCIDFromBytes, getIPFSDataFromContentID } from '@slonigiraf/helpers';
+import { u8aToHex } from '@polkadot/util';
 import { useApi } from '@polkadot/react-hooks';
 import { parseJson } from '../util';
 import { BN_ZERO } from '@polkadot/util';
 import ItemLabel from './ItemLabel';
+import QRCode from 'qrcode.react';
+import type { KeyringPair } from '@polkadot/keyring/types';
+import { useTranslation } from '../translate';
 
 interface Props {
   className?: string;
   ipfs: IPFS;
   id: string;
+  currentPair: KeyringPair | null;
   onItemSelected: (id: string) => void;
 }
 
-function ViewList({ className = '', ipfs, id, onItemSelected }: Props): React.ReactElement<Props> {
+function ViewList({ className = '', ipfs, id, currentPair, onItemSelected }: Props): React.ReactElement<Props> {
+  const { t } = useTranslation();
   type JsonType = { [key: string]: any } | null;
   const [list, setList] = useState<JsonType>(null);
   const [text, setText] = useState<string>("");
@@ -63,17 +68,30 @@ function ViewList({ className = '', ipfs, id, onItemSelected }: Props): React.Re
     [id, onItemSelected]
   );
 
+  const publicKeyU8 = currentPair.publicKey;
+  const publicKeyHex = u8aToHex(publicKeyU8);
+  const qrText = `{"q": 0,"d": "recommendations?cid=${cidString}&person=${publicKeyHex}"}`;
+
   return (
     list == null ? "" :
       <>
         <h2>{list.h}</h2>
+        {
+          list.t !== null && list.t === 3 &&
+          <>
+            <h3>{t('Show the Qr to your mentor')}</h3>
+            <QRCode value={qrText} />
+            <h3>{t('Example exercises to train the skill')}</h3>
+          </>
+        }
+
         {list.e != null && list.e.map((item, index) => (
           <div className='ui--row' key={index}
             style={{
               alignItems: 'center'
             }}
           >
-            <ItemLabel ipfs={ipfs} id={item} onClick={_onItemClicked}/>
+            <ItemLabel ipfs={ipfs} id={item} onClick={_onItemClicked} />
           </div>
         ))}
 
