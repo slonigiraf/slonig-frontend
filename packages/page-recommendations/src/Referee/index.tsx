@@ -3,7 +3,7 @@
 
 import BN from 'bn.js';
 import QRCode from 'qrcode.react';
-import { getIPFSContentID, getPublicDataToSignByReferee, getPrivateDataToSignByReferee } from '@slonigiraf/helpers';
+import { getPublicDataToSignByReferee, getPrivateDataToSignByReferee } from '@slonigiraf/helpers';
 import { BN_ZERO } from '@polkadot/util';
 import type { Signer } from '@polkadot/api/types';
 import type { KeyringPair } from '@polkadot/keyring/types';
@@ -44,10 +44,9 @@ function Referee({ className = '', ipfs }: Props): React.ReactElement<Props> {
   const [currentPair, setCurrentPair] = useState<KeyringPair | null>(() => keyring.getPairs()[0] || null);
   const location = useLocation();
   const queryParams = new URLSearchParams(location.search);
-  const queryCid = queryParams.get("cid") || "";
-  const queryPerson = queryParams.get("person") || "";
-  const [textHash, setTextHash] = useState<string>(queryCid);
-  const [text, setText] = useState<string>(queryCid);
+  const textHash = queryParams.get("cid") || "";
+  const workerPublicKeyHex = queryParams.get("person") || "";
+  const [text, setText] = useState<string>(textHash);
   const [{ isInjected }, setAccountState] = useState<AccountState>({ isExternal: false, isHardware: false, isInjected: false });
   const [isLocked, setIsLocked] = useState(false);
   const [{ isUsable, signer }, setSigner] = useState<SignerState>({ isUsable: true, signer: null });
@@ -56,7 +55,6 @@ function Referee({ className = '', ipfs }: Props): React.ReactElement<Props> {
   const defaultStake: BN = new BN(600);
   const [amount, setAmount] = useState<BN>(defaultStake);
   const [blockNumber, setBlockNumber] = useState<BN>(BN_ZERO);
-  const [workerPublicKeyHex, setWorkerPublicKeyHex] = useState<string>(queryPerson);
   const [letterInfo, setLetterInfo] = useState('');
   const [modalIsOpen, setModalIsOpen] = useState(false);
 
@@ -112,11 +110,6 @@ function Referee({ className = '', ipfs }: Props): React.ReactElement<Props> {
 
   const _onChangeData = useCallback(
     (data: string) => setText(data),
-    []
-  );
-
-  const _onChangeWorker = useCallback(
-    (workerPublicKeyHex: string) => setWorkerPublicKeyHex(workerPublicKeyHex),
     []
   );
 
