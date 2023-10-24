@@ -54,7 +54,8 @@ function Referee({ className = '', ipfs }: Props): React.ReactElement<Props> {
   const [isUnlockVisible, toggleUnlock] = useToggle();
   const defaultStake: BN = new BN("572000000000000");
   const [amount, setAmount] = useState<BN>(defaultStake);
-  const [blockNumber, setBlockNumber] = useState<BN>(BN_ZERO);
+  const defaultBlockNumber: BN = new BN("1000000");
+  const [blockNumber, setBlockNumber] = useState<BN>(defaultBlockNumber);
   const [letterInfo, setLetterInfo] = useState('');
   const [modalIsOpen, setModalIsOpen] = useState(false);
 
