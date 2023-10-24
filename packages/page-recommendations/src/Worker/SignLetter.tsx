@@ -3,13 +3,12 @@
 
 import { Button, Modal } from '@polkadot/react-components';
 import React, { useState, useEffect } from 'react'
+import SignLetterUseRight from './SignLetterUseRight'
 import { getIPFSDataFromContentID } from '@slonigiraf/helpers'
 import { useTranslation } from '../translate';
 import { IPFS } from 'ipfs-core';
 import { Letter } from '../db/Letter';
 import { parseJson } from '@slonigiraf/app-slonig-components';
-import LetterDetailsModal from './LetterDetailsModal';
-
 
 interface Props {
   className?: string;
@@ -17,7 +16,7 @@ interface Props {
   ipfs: IPFS;
 }
 
-function LetterInfo({ className = '', letter, ipfs }: Props): React.ReactElement<Props> {
+function SignLetter({ className = '', letter, ipfs }: Props): React.ReactElement<Props> {
   const { t } = useTranslation();
   const [modalIsOpen, setModalIsOpen] = useState(false)
   const [text, setText] = useState(letter.cid)
@@ -47,12 +46,12 @@ function LetterInfo({ className = '', letter, ipfs }: Props): React.ReactElement
         onClick={() => setModalIsOpen(true)}
       />
       {modalIsOpen && <Modal
-        header={t('Diploma')}
+        header={t('Sign recommendation letter')}
         size={"small"}
         onClose={() => setModalIsOpen(false)}
       >
         <Modal.Content>
-          <LetterDetailsModal text={text} letter={letter} />
+          <SignLetterUseRight text={text} letter={letter} />
         </Modal.Content>
       </Modal>
       }
@@ -60,4 +59,4 @@ function LetterInfo({ className = '', letter, ipfs }: Props): React.ReactElement
   )
 }
 
-export default React.memo(LetterInfo);
+export default React.memo(SignLetter);

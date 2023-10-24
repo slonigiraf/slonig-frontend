@@ -13,6 +13,7 @@ import { keyring } from '@polkadot/ui-keyring';
 import { u8aToHex } from '@polkadot/util';
 import DBExport from './DBExport';
 import DBImport from './DBImport';
+import { useToggle } from '@polkadot/react-hooks';
 
 interface Props {
   className?: string;
@@ -23,7 +24,7 @@ function Worker({ className = '', ipfs }: Props): React.ReactElement<Props> {
   const [currentPair, setCurrentPair] = useState<KeyringPair | null>(() => keyring.getPairs()[0] || null);
   const [modalIsOpen, setModalIsOpen] = useState(false)
   const { t } = useTranslation();
-
+  const [isSelecting, toggleSelecting] = useToggle(false);
 
   const _onChangeAccount = useCallback(
     (accountId: string | null) => accountId && setCurrentPair(keyring.getPair(accountId)),
@@ -78,6 +79,11 @@ function Worker({ className = '', ipfs }: Props): React.ReactElement<Props> {
       </div>
       <div className='ui--row'>
         <Button
+          icon={isSelecting ? 'fa-check' : 'fa-square'} 
+          label={t('Sell diplomas')}
+          onClick={toggleSelecting}
+        />
+        <Button
           icon='plus'
           label={t('Add a letter about me')}
           onClick={() => setModalIsOpen(true)}
@@ -86,7 +92,7 @@ function Worker({ className = '', ipfs }: Props): React.ReactElement<Props> {
         <DBImport ipfs={ipfs} />
       </div>
       <div className='ui--row'>
-        <LettersList ipfs={ipfs} worker={u8aToHex(currentPair?.publicKey)} />
+        <LettersList ipfs={ipfs} worker={u8aToHex(currentPair?.publicKey)} isSelecting={isSelecting}/>
       </div>
       {modalIsOpen && <div className='ui--row'>
         <Modal
