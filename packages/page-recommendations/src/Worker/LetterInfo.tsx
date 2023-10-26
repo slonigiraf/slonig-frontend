@@ -10,14 +10,15 @@ import { Letter } from '../db/Letter';
 import { parseJson } from '@slonigiraf/app-slonig-components';
 import LetterDetailsModal from './LetterDetailsModal';
 
-
 interface Props {
   className?: string;
   letter: Letter;
   ipfs: IPFS;
+  isSelected: Boolean;
+  onToggleSelection?: (letter: Letter) => void; // Add this prop
 }
 
-function LetterInfo({ className = '', letter, ipfs }: Props): React.ReactElement<Props> {
+function LetterInfo({ className = '', letter, ipfs, isSelected, onToggleSelection }: Props): React.ReactElement<Props> {
   const { t } = useTranslation();
   const [modalIsOpen, setModalIsOpen] = useState(false)
   const [text, setText] = useState(letter.cid)
@@ -39,24 +40,36 @@ function LetterInfo({ className = '', letter, ipfs }: Props): React.ReactElement
     fetchData()
   }, [ipfs, letter, text])
 
+  const buttonView = <>
+    <Button
+      icon='question'
+      label={""}
+      onClick={() => setModalIsOpen(true)}
+    />
+    {modalIsOpen && <Modal
+      header={t('Diploma')}
+      size={"small"}
+      onClose={() => setModalIsOpen(false)}
+    >
+      <Modal.Content>
+        <LetterDetailsModal text={text} letter={letter} />
+      </Modal.Content>
+    </Modal>
+    }
+  </>;
+
+  const buttonSelect = 
+    <Button
+      icon={isSelected ? 'fa-check' : 'fa-square'} 
+      label={text}
+      onClick={() => onToggleSelection && onToggleSelection(letter)}
+    />
+  ;
+
   return (
     <>
-      <Button
-        icon='eye'
-        label={text}
-        onClick={() => setModalIsOpen(true)}
-      />
-      {modalIsOpen && <Modal
-        header={t('Diploma')}
-        size={"small"}
-        onClose={() => setModalIsOpen(false)}
-      >
-        <Modal.Content>
-          <LetterDetailsModal text={text} letter={letter} />
-        </Modal.Content>
-      </Modal>
-      }
-    </>
+    {buttonSelect}
+    {buttonView}</>
   )
 }
 

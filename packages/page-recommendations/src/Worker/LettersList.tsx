@@ -7,17 +7,20 @@ import { IPFS } from 'ipfs-core';
 import { useLiveQuery } from "dexie-react-hooks";
 import { db } from "../db";
 import { Letter } from "./Letter";
+import { Button } from '@polkadot/react-components';
+import { useTranslation } from '../translate';
 
 interface Props {
   className?: string;
   ipfs: IPFS;
   worker: string;
-  isSelecting: Boolean;
 }
 
-function LettersList({ className = '', ipfs, worker, isSelecting }: Props): React.ReactElement<Props> {
+function LettersList({ className = '', ipfs, worker }: Props): React.ReactElement<Props> {
   const [selectedLetters, setSelectedLetters] = useState<Letter[]>([]);
-  
+  const { t } = useTranslation();
+  console.log("selectedLetters: " + selectedLetters);
+
   const toggleLetterSelection = (letter: Letter) => {
     if (selectedLetters.includes(letter)) {
       setSelectedLetters(prevLetters => prevLetters.filter(item => item !== letter));
@@ -34,25 +37,48 @@ function LettersList({ className = '', ipfs, worker, isSelecting }: Props): Reac
         .sortBy("id"),
     [worker]
   );
-  if (!letters) return <div></div>;
+
+  const _selectAll = useCallback(
+    () => setSelectedLetters(letters),
+    [letters]
+  );
+
+  const _deselectAll = useCallback(
+    () => setSelectedLetters([]),
+    []
+  );
+
+  const selectionButton = <Button
+    icon={'fa-square'}
+    label={t('Select all')}
+    onClick={_selectAll}
+  />;
+
+  const deselectionButton = <Button
+    icon={'fa-check'}
+    label={t('Deselect all')}
+    onClick={_deselectAll}
+  />;
+
+  const selectDeselect = (selectedLetters.length === 0)? selectionButton : deselectionButton;
+
 
   return (
+    !letters ? <div></div> :
     <div>
+      {selectDeselect}
       {letters.map((letter, index) => (
         <div key={index} className='ui--row'>
-          {
-            isSelecting &&
-            <input
-              type="checkbox"
-              checked={selectedLetters.includes(letter)}
-              onChange={() => toggleLetterSelection(letter)}
-            />
-          }
-
-          <LetterInfo letter={letter} ipfs={ipfs} />
+          <LetterInfo
+            letter={letter}
+            ipfs={ipfs}
+            isSelected={selectedLetters.includes(letter)}
+            onToggleSelection={toggleLetterSelection} />
         </div>
       ))}
-    </div>)
+    </div>
+
+  )
 }
 
 export default React.memo(LettersList)

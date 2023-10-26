@@ -5,7 +5,7 @@ import React, { useCallback, useState } from 'react';
 import { QrScanner } from '@slonigiraf/app-slonig-components';
 import LettersList from './LettersList';
 import { IPFS } from 'ipfs-core';
-import { Button, InputAddress, Modal } from '@polkadot/react-components';
+import { Button, InputAddress, Modal, Toggle } from '@polkadot/react-components';
 import { useTranslation } from '../translate';
 import { storeLetter } from '../utils';
 import type { KeyringPair } from '@polkadot/keyring/types';
@@ -24,7 +24,6 @@ function Worker({ className = '', ipfs }: Props): React.ReactElement<Props> {
   const [currentPair, setCurrentPair] = useState<KeyringPair | null>(() => keyring.getPairs()[0] || null);
   const [modalIsOpen, setModalIsOpen] = useState(false)
   const { t } = useTranslation();
-  const [isSelecting, toggleSelecting] = useToggle(false);
 
   const _onChangeAccount = useCallback(
     (accountId: string | null) => accountId && setCurrentPair(keyring.getPair(accountId)),
@@ -79,11 +78,6 @@ function Worker({ className = '', ipfs }: Props): React.ReactElement<Props> {
       </div>
       <div className='ui--row'>
         <Button
-          icon={isSelecting ? 'fa-check' : 'fa-square'} 
-          label={t('Sell diplomas')}
-          onClick={toggleSelecting}
-        />
-        <Button
           icon='plus'
           label={t('Add a letter about me')}
           onClick={() => setModalIsOpen(true)}
@@ -92,7 +86,7 @@ function Worker({ className = '', ipfs }: Props): React.ReactElement<Props> {
         <DBImport ipfs={ipfs} />
       </div>
       <div className='ui--row'>
-        <LettersList ipfs={ipfs} worker={u8aToHex(currentPair?.publicKey)} isSelecting={isSelecting}/>
+        <LettersList ipfs={ipfs} worker={u8aToHex(currentPair?.publicKey)} />
       </div>
       {modalIsOpen && <div className='ui--row'>
         <Modal
