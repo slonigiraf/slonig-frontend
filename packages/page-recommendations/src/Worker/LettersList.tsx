@@ -60,23 +60,31 @@ function LettersList({ className = '', ipfs, worker }: Props): React.ReactElemen
     onClick={_deselectAll}
   />;
 
-  const selectDeselect = (selectedLetters.length === 0)? selectionButton : deselectionButton;
+  const selectDeselect = (selectedLetters.length === 0) ? selectionButton : deselectionButton;
 
+  const sellByQr = <Button
+    icon={'fa-dollar-sign'}
+    label={t('Get bonuses')}
+    onClick={_deselectAll}
+  />;
 
   return (
     !letters ? <div></div> :
-    <div>
-      {selectDeselect}
-      {letters.map((letter, index) => (
-        <div key={index} className='ui--row'>
-          <LetterInfo
-            letter={letter}
-            ipfs={ipfs}
-            isSelected={selectedLetters.includes(letter)}
-            onToggleSelection={toggleLetterSelection} />
+      <div>
+        <div className='ui--row'>
+          {selectDeselect}
+          {sellByQr}
         </div>
-      ))}
-    </div>
+        {letters.map((letter, index) => (
+          <div key={index} className='ui--row'>
+            <LetterInfo
+              letter={letter}
+              ipfs={ipfs}
+              isSelected={selectedLetters.includes(letter)}
+              onToggleSelection={toggleLetterSelection} />
+          </div>
+        ))}
+      </div>
 
   )
 }

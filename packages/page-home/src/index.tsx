@@ -8,12 +8,15 @@ import useCounter from './useCounter.js';
 import { Button, Modal } from '@polkadot/react-components';
 import { useToggle } from '@polkadot/react-hooks';
 import { QrScanner } from '@slonigiraf/app-slonig-components';
+import { DBImport } from '@slonigiraf/app-recommendations';
+import { DBExport } from '@slonigiraf/app-recommendations';
 import { useNavigate } from 'react-router-dom';
-
+import useIpfsFactory from './use-ipfs-factory.js';
 export { useCounter };
 
 function HomeApp(): React.ReactElement<Props> {
   const { t } = useTranslation();
+  const { ipfs, ipfsInitError } = useIpfsFactory({ commands: ['id'] })
   const [isQrOpen, toggleQr] = useToggle();
 
   const navigate = useNavigate();
@@ -57,6 +60,8 @@ function HomeApp(): React.ReactElement<Props> {
           label={t('Scan Qr')}
           onClick={toggleQr}
         />
+        <DBExport ipfs={ipfs} />
+        <DBImport ipfs={ipfs} />
       </div>
       {isQrOpen && <div className='ui--row'>
         <Modal

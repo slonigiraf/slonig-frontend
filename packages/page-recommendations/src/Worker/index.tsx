@@ -11,8 +11,6 @@ import { storeLetter } from '../utils';
 import type { KeyringPair } from '@polkadot/keyring/types';
 import { keyring } from '@polkadot/ui-keyring';
 import { u8aToHex } from '@polkadot/util';
-import DBExport from './DBExport';
-import DBImport from './DBImport';
 import { useToggle } from '@polkadot/react-hooks';
 
 interface Props {
@@ -82,8 +80,6 @@ function Worker({ className = '', ipfs }: Props): React.ReactElement<Props> {
           label={t('Add a letter about me')}
           onClick={() => setModalIsOpen(true)}
         />
-        <DBExport ipfs={ipfs} />
-        <DBImport ipfs={ipfs} />
       </div>
       <div className='ui--row'>
         <LettersList ipfs={ipfs} worker={u8aToHex(currentPair?.publicKey)} />

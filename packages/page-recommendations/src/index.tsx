@@ -14,8 +14,12 @@ import useCounter from './useCounter.js';
 import Referee from './Referee';
 import Worker from './Worker';
 import Employer from './Employer';
-import useIpfsFactory from './use-ipfs-factory.js'
+import useIpfsFactory from './use-ipfs-factory.js';
+import DBImport from './Worker/DBImport';
+import DBExport from './Worker/DBExport';
 export { useCounter };
+export {DBImport};
+export {DBExport};
 
 const HIDDEN_ACC = ['vanity'];
 
