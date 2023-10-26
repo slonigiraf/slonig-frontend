@@ -13,7 +13,7 @@ import { useTranslation } from './translate.js';
 import useCounter from './useCounter.js';
 import Create from './Create';
 import Edit from './Edit';
-import useIpfsFactory from './use-ipfs-factory.js'
+import { useIpfsFactory } from '@slonigiraf/app-slonig-components';
 export { useCounter };
 
 const HIDDEN_ACC = ['vanity'];

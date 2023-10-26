@@ -14,7 +14,7 @@ import useCounter from './useCounter.js';
 import Referee from './Referee';
 import Worker from './Worker';
 import Employer from './Employer';
-import useIpfsFactory from './use-ipfs-factory.js';
+import { useIpfsFactory } from '@slonigiraf/app-slonig-components';
 import DBImport from './Worker/DBImport';
 import DBExport from './Worker/DBExport';
 export { useCounter };

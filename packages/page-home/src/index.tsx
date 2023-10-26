@@ -11,7 +11,7 @@ import { QrScanner } from '@slonigiraf/app-slonig-components';
 import { DBImport } from '@slonigiraf/app-recommendations';
 import { DBExport } from '@slonigiraf/app-recommendations';
 import { useNavigate } from 'react-router-dom';
-import useIpfsFactory from './use-ipfs-factory.js';
+import { useIpfsFactory } from '@slonigiraf/app-slonig-components';
 export { useCounter };
 
 function HomeApp(): React.ReactElement<Props> {
