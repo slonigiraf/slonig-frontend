@@ -1,22 +1,21 @@
 // Copyright 2021-2022 @slonigiraf/app-laws authors & contributors
 // SPDX-License-Identifier: Apache-2.0
 import React, { useCallback } from 'react';
-import { Button, Label } from '@polkadot/react-components';
-import { useTranslation } from '../translate.js';
+import { Button } from '@polkadot/react-components';
 import ItemLabel from './ItemLabel';
-import { IPFS } from 'ipfs-core';
+import { useIpfsContext } from '@slonigiraf/app-slonig-components';
 
 interface Props {
   className?: string;
   list: any;
-  ipfs: IPFS;
   onListChange: (updatedList: any) => void;
 }
 
 // ... [The imports remain the same]
 
-function Reordering({ className = '', list, ipfs, onListChange }: Props): React.ReactElement<Props> {
-  const { t } = useTranslation();
+function Reordering({ className = '', list, onListChange }: Props): React.ReactElement<Props> {
+  const { ipfs, isIpfsReady, ipfsInitError } = useIpfsContext();
+
 
   const handleMoveUp = useCallback((index: number) => {
     if (index === 0) return; // Already at the top
@@ -64,7 +63,7 @@ function Reordering({ className = '', list, ipfs, onListChange }: Props): React.
             icon='times'  // Assuming 'times' is the icon for delete
             onClick={() => handleDelete(index)}
           />
-          <ItemLabel ipfs={ipfs} id={item} />
+          <ItemLabel id={item} />
         </div>
       ))}
     </>

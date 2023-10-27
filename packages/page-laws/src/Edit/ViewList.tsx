@@ -1,6 +1,5 @@
 import React from 'react';
 import React, { useCallback, useEffect, useState } from 'react';
-import { IPFS } from 'ipfs-core';
 import { getCIDFromBytes, getIPFSDataFromContentID } from '@slonigiraf/helpers';
 import { u8aToHex } from '@polkadot/util';
 import { useApi } from '@polkadot/react-hooks';
@@ -10,16 +9,17 @@ import ItemLabel from './ItemLabel';
 import QRCode from 'qrcode.react';
 import type { KeyringPair } from '@polkadot/keyring/types';
 import { useTranslation } from '../translate';
+import { useIpfsContext } from '@slonigiraf/app-slonig-components';
 
 interface Props {
   className?: string;
-  ipfs: IPFS;
   id: string;
   currentPair: KeyringPair | null;
   onItemSelected: (id: string) => void;
 }
 
-function ViewList({ className = '', ipfs, id, currentPair, onItemSelected }: Props): React.ReactElement<Props> {
+function ViewList({ className = '', id, currentPair, onItemSelected }: Props): React.ReactElement<Props> {
+  const { ipfs, isIpfsReady, ipfsInitError } = useIpfsContext();
   const { t } = useTranslation();
   type JsonType = { [key: string]: any } | null;
   const [list, setList] = useState<JsonType>(null);
@@ -91,7 +91,7 @@ function ViewList({ className = '', ipfs, id, currentPair, onItemSelected }: Pro
               alignItems: 'center'
             }}
           >
-            <ItemLabel ipfs={ipfs} id={item} onClick={_onItemClicked} />
+            <ItemLabel id={item} onClick={_onItemClicked} />
           </div>
         ))}
 

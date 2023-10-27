@@ -3,19 +3,19 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import { IconLink, Label } from '@polkadot/react-components';
 import { useApi } from '@polkadot/react-hooks';
-import { getIPFSContentID, digestFromCIDv1, getCIDFromBytes, getIPFSDataFromContentID } from '@slonigiraf/helpers';
-import { IPFS } from 'ipfs-core';
-import { useTranslation } from '../translate.js';
+import { getCIDFromBytes, getIPFSDataFromContentID } from '@slonigiraf/helpers';
+
 import { parseJson } from '@slonigiraf/app-slonig-components';
+import { useIpfsContext } from '@slonigiraf/app-slonig-components';
 
 interface Props {
   className?: string;
   id: string;
-  ipfs: IPFS;
   onClick: (id: string) => void;
 }
 
-function ItemLabel({ className = '', id, ipfs, onClick }: Props): React.ReactElement<Props> {
+function ItemLabel({ className = '', id, onClick }: Props): React.ReactElement<Props> {
+  const { ipfs, isIpfsReady, ipfsInitError } = useIpfsContext();
   const { api } = useApi();
   const [cidString, setCidString] = useState<string>("");
   const [text, setText] = useState<string>(id);

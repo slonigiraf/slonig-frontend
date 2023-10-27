@@ -14,13 +14,12 @@ import { keyring } from '@polkadot/ui-keyring';
 import { isFunction, u8aToHex } from '@polkadot/util';
 import { useTranslation } from '../translate.js';
 import Unlock from '@polkadot/app-signing/Unlock';
-import { IPFS } from 'ipfs-core';
 import { useApi } from '@polkadot/react-hooks';
 import { randomAsU8a } from '@polkadot/util-crypto';
+import { useIpfsContext } from '@slonigiraf/app-slonig-components';
 
 interface Props {
   className?: string;
-  ipfs: IPFS;
 }
 
 interface AccountState {
@@ -34,7 +33,8 @@ interface SignerState {
   signer: Signer | null;
 }
 
-function Create({ className = '', ipfs }: Props): React.ReactElement<Props> {
+function Create({ className = '' }: Props): React.ReactElement<Props> {
+  const { ipfs, isIpfsReady, ipfsInitError } = useIpfsContext();
   const { t } = useTranslation();
   const [currentPair, setCurrentPair] = useState<KeyringPair | null>(() => keyring.getPairs()[0] || null);
   const [text, setText] = useState<string>("");

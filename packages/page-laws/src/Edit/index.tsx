@@ -14,7 +14,7 @@ import { keyring } from '@polkadot/ui-keyring';
 import { isFunction, u8aToHex } from '@polkadot/util';
 import { useTranslation } from '../translate.js';
 import Unlock from '@polkadot/app-signing/Unlock';
-import { IPFS } from 'ipfs-core';
+import { useIpfsContext } from '@slonigiraf/app-slonig-components';
 import { useApi } from '@polkadot/react-hooks';
 import { parseJson } from '@slonigiraf/app-slonig-components';
 import Editor from './Editor';
@@ -23,7 +23,6 @@ import { useRouting } from './useRouting';
 
 interface Props {
   className?: string;
-  ipfs: IPFS;
 }
 
 interface AccountState {
@@ -37,7 +36,8 @@ interface SignerState {
   signer: Signer | null;
 }
 
-function Edit({ className = '', ipfs }: Props): React.ReactElement<Props> {
+function Edit({ className = '' }: Props): React.ReactElement<Props> {
+  const { ipfs, isIpfsReady, ipfsInitError } = useIpfsContext();
   const { t } = useTranslation();
   const [currentPair, setCurrentPair] = useState<KeyringPair | null>(() => keyring.getPairs()[0] || null);
   const [text, setText] = useState<string>("");
@@ -233,7 +233,7 @@ function Edit({ className = '', ipfs }: Props): React.ReactElement<Props> {
 
   const editor = (list == null) ? ""
     :
-    <Editor ipfs={ipfs} list={list} item={item} isAddingItem={isAddingItem} onListChange={setList} onItemChange={setItem} onItemIdHexChange={setItemIdHex} onIsAddingItemChange={setIsAddingElement} />;
+    <Editor list={list} item={item} isAddingItem={isAddingItem} onListChange={setList} onItemChange={setItem} onItemIdHexChange={setItemIdHex} onIsAddingItemChange={setIsAddingElement} />;
 
   const hiddenKeyringInitializer = <div className='ui--row' style={{ display: 'none' }}>
     <InputAddress
@@ -320,7 +320,7 @@ function Edit({ className = '', ipfs }: Props): React.ReactElement<Props> {
 
   const viewView = (
     <div className={`toolbox--Sign ${className}`}>
-      <ViewList ipfs={ipfs} id={textHexId} currentPair={currentPair} onItemSelected={_onChangeLaw} />
+      <ViewList id={textHexId} currentPair={currentPair} onItemSelected={_onChangeLaw} />
       <Button.Group>
         <Button
           icon='edit'

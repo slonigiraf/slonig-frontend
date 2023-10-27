@@ -5,13 +5,11 @@ import { Button, Dropdown, Input } from '@polkadot/react-components';
 import { useTranslation } from '../translate.js';
 import { parseJson, randomIdHex } from '../util';
 import Reordering from './Reordering';
-import { IPFS } from 'ipfs-core';
 import type { LawType } from '../types.js';
-
+import { useIpfsContext } from '@slonigiraf/app-slonig-components';
 
 interface Props {
   className?: string;
-  ipfs: IPFS;
   list: any;
   item: any;
   itemIdHex: string;
@@ -22,8 +20,8 @@ interface Props {
   onIsAddingItemChange: (state: boolean) => void;
 }
 
-function Editor({ className = '', ipfs, list, item, isAddingItem, onListChange, onItemChange, onItemIdHexChange, onIsAddingItemChange }: Props): React.ReactElement<Props> {
-  console.log("Editor load");
+function Editor({ className = '', list, item, isAddingItem, onListChange, onItemChange, onItemIdHexChange, onIsAddingItemChange }: Props): React.ReactElement<Props> {
+  const { ipfs, isIpfsReady, ipfsInitError } = useIpfsContext();
   const { t } = useTranslation();
 
   const _onClickAddItem = useCallback(
@@ -175,7 +173,7 @@ function Editor({ className = '', ipfs, list, item, isAddingItem, onListChange, 
 
 
   const reordering = (list == null | list.e == null) ? "" : (
-    <Reordering ipfs={ipfs} list={list} onListChange={onListChange} />
+    <Reordering list={list} onListChange={onListChange} />
   );
 
   const listEditor = (list == null) ? "" : (

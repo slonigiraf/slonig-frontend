@@ -13,7 +13,6 @@ import { useTranslation } from './translate.js';
 import useCounter from './useCounter.js';
 import Create from './Create';
 import Edit from './Edit';
-import { useIpfsContext } from '@slonigiraf/app-slonig-components';
 export { useCounter };
 
 const HIDDEN_ACC = ['vanity'];
@@ -22,7 +21,6 @@ function AccountsApp ({ basePath, onStatusChange }: Props): React.ReactElement<P
   const { t } = useTranslation();
   const { hasAccounts } = useAccounts();
   const { isIpfs } = useIpfs();
-  const { ipfs, isIpfsReady, ipfsInitError } = useIpfsContext();
 
   const tabsRef = useRef([
     {
@@ -47,13 +45,13 @@ function AccountsApp ({ basePath, onStatusChange }: Props): React.ReactElement<P
         <Route path={basePath}>
           <Route
             element={
-              <Create onStatusChange={onStatusChange} ipfs={ipfs} />
+              <Create onStatusChange={onStatusChange} />
             }
             path='create'
           />
           <Route
             element={
-              <Edit onStatusChange={onStatusChange} ipfs={ipfs} />
+              <Edit onStatusChange={onStatusChange} />
             }
             index
           />
