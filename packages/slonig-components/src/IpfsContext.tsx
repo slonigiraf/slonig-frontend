@@ -1,6 +1,6 @@
 // IpfsContext.tsx
 import React, { useContext } from 'react';
-import useIpfsFactory from './use-ipfs-factory';
+import useIpfsFactory from './useIpfsFactory';
 
 const IpfsContext = React.createContext();
 
