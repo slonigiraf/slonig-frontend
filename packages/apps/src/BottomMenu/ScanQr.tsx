@@ -50,7 +50,7 @@ function ScanQr(): React.ReactElement {
           onClick={toggleQr}
         />
         <br /><span>{t('Scan Qr')}</span>
-    {isQrOpen && <div className='ui--row'>
+    {isQrOpen && <>
         <Modal
           header={t('Scan a QR code')}
           onClose={toggleQr}
@@ -67,7 +67,7 @@ function ScanQr(): React.ReactElement {
             />
           </Modal.Content>
         </Modal>
-      </div>}
+      </>}
     </>
     
   );
