@@ -12,11 +12,15 @@ function ShowCourses(): React.ReactElement {
   }
 
   return (
+    <>
     <Button
           icon='list'
-          label={t('Courses')}
+          label=''
           onClick={_onClick}
         />
+    <br /><span>{t('Courses')}</span>
+    </>
+    
   );
 }
 

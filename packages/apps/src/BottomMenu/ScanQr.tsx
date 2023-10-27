@@ -46,9 +46,10 @@ function ScanQr(): React.ReactElement {
     <>
     <Button
           icon='qrcode'
-          label={t('Scan Qr')}
+          label=''
           onClick={toggleQr}
         />
+        <br /><span>{t('Scan Qr')}</span>
     {isQrOpen && <div className='ui--row'>
         <Modal
           header={t('Scan a QR code')}

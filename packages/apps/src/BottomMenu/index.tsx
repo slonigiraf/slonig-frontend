@@ -21,7 +21,7 @@ const MenuWrapper = styled.div`
   bottom: 0;
   left: 0;
   right: 0;
-  height: 50px;
+  height: 70px;
   background-color: #f7f7f7;
   border-top: 1px solid #d1d1d1;
   z-index: 1000; 
