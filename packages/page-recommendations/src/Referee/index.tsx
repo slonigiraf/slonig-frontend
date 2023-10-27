@@ -293,11 +293,11 @@ function Referee({ className = '' }: Props): React.ReactElement<Props> {
         )}
         {!isLocked && (<Button
           icon='key'
-          isDisabled={!(isUsable && !isLocked && ipfs != null)}
+          isDisabled={!(isUsable && !isLocked && isIpfsReady)}
           label={t('Sign the recommendation')}
           onClick={_onSign}
         />)}
-        {ipfs == null ? <div>{t('Connecting to IPFS...')}</div> : ""}
+        {!isIpfsReady ? <div>{t('Connecting to IPFS...')}</div> : ""}
       </Button.Group>
       {modalIsOpen &&
         <Modal

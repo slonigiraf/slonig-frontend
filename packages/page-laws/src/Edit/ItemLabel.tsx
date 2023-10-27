@@ -26,7 +26,7 @@ function ItemLabel({ className = '', id, onClick }: Props): React.ReactElement<P
 
   useEffect(() => {
     const fetchIPFSData = async () => {
-      if (ipfs == null || cidString.length < 2) {
+      if (!isIpfsReady || cidString.length < 2) {
         return;
       }
       const jsonText = await getIPFSDataFromContentID(ipfs, cidString);

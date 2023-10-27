@@ -92,7 +92,7 @@ function Create({ className = '' }: Props): React.ReactElement<Props> {
 
   const _onSign = useCallback(
     async () => {
-      if (ipfs == null) {
+      if (!isIpfsReady) {
         return;
       }
       // generate a data to sign
@@ -119,7 +119,7 @@ function Create({ className = '' }: Props): React.ReactElement<Props> {
   }
 
   const txButton = isUsable && <TxButton
-    isDisabled={!(isUsable && !isLocked && ipfs != null)}
+    isDisabled={!(isUsable && !isLocked && isIpfsReady)}
     className='createButton'
     accountId={currentPair.address}
     icon='key'
@@ -210,7 +210,7 @@ function Create({ className = '' }: Props): React.ReactElement<Props> {
           />
         )}
         {!isLocked && txButton}
-        {ipfs == null ? <div>{t('Connecting to IPFS...')}</div> : ""}
+        {!isIpfsReady ? <div>{t('Connecting to IPFS...')}</div> : ""}
       </Button.Group>
     </div>
   );

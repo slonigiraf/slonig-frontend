@@ -50,7 +50,7 @@ function ViewList({ className = '', id, currentPair, onItemSelected }: Props): R
 
   useEffect(() => {
     const fetchIPFSData = async () => {
-      if (ipfs == null || cidString == null) {
+      if (!isIpfsReady || cidString == null) {
         return;
       }
       const textValue = await getIPFSDataFromContentID(ipfs, cidString);

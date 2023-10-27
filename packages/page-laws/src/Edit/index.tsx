@@ -121,7 +121,7 @@ function Edit({ className = '' }: Props): React.ReactElement<Props> {
 
   const _onSign = useCallback(
     async () => {
-      if (ipfs == null) {
+      if (!isIpfsReady) {
         return;
       }
       // generate data about list
@@ -162,7 +162,7 @@ function Edit({ className = '' }: Props): React.ReactElement<Props> {
 
   useEffect(() => {
     const fetchIPFSData = async () => {
-      if (ipfs == null || cidString.length < 2) {
+      if (!isIpfsReady || cidString.length < 2) {
         return;
       }
       const textValue = await getIPFSDataFromContentID(ipfs, cidString);
@@ -188,7 +188,7 @@ function Edit({ className = '' }: Props): React.ReactElement<Props> {
   }
 
   const txButtonEdit = isUsable && <TxButton
-    isDisabled={!(isUsable && !isLocked && ipfs != null)}
+    isDisabled={!(isUsable && !isLocked && isIpfsReady)}
     className='signButton'
     accountId={currentPair.address}
     icon='key'
@@ -203,7 +203,7 @@ function Edit({ className = '' }: Props): React.ReactElement<Props> {
   />
 
   const txButtonCreateAndEdit = isUsable && <TxButton
-    isDisabled={!(isUsable && !isLocked && ipfs != null)}
+    isDisabled={!(isUsable && !isLocked && isIpfsReady)}
     className='signButton'
     accountId={currentPair.address}
     icon='key'
@@ -227,7 +227,7 @@ function Edit({ className = '' }: Props): React.ReactElement<Props> {
       label={t('Tokens to burn for item')}
       value={amountItem}
       onChange={setAmountItem}
-      isDisabled={ipfs == null}
+      isDisabled={!isIpfsReady}
     />
   </div>);
 
@@ -258,7 +258,7 @@ function Edit({ className = '' }: Props): React.ReactElement<Props> {
           label={t('Tokens to burn')}
           value={amountList}
           onChange={setAmountList}
-          isDisabled={ipfs == null}
+          isDisabled={!isIpfsReady}
         />
       </div>
       <Button.Group>
@@ -306,7 +306,7 @@ function Edit({ className = '' }: Props): React.ReactElement<Props> {
           onClick={_onClickChangeView}
         />
         {!isLocked && txButton}
-        {ipfs == null ? <div>{t('Connecting to IPFS...')}</div> : ""}
+        {!isIpfsReady ? <div>{t('Connecting to IPFS...')}</div> : ""}
       </Button.Group>
       <div className='ui--row'>
         <p><b>Debug</b><br />
@@ -327,7 +327,7 @@ function Edit({ className = '' }: Props): React.ReactElement<Props> {
           label={t('Edit')}
           onClick={_onClickChangeView}
         />
-        {ipfs == null ? <div>{t('Connecting to IPFS...')}</div> : ""}
+        {!isIpfsReady ? <div>{t('Connecting to IPFS...')}</div> : ""}
       </Button.Group>
     </div>
   );
