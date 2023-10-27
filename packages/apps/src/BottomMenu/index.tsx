@@ -1,11 +1,12 @@
 import React from 'react';
 import styled from 'styled-components';
 import ScanQr from './ScanQr';
+import ShowCourses from './ShowCourses';
 
 function BottomMenu(): React.ReactElement {
   return (
     <MenuWrapper>
-      <MenuItem>Item 1</MenuItem>
+      <MenuItem><ShowCourses /></MenuItem>
       <MenuItem><ScanQr /></MenuItem>
       <MenuItem>Item 3</MenuItem>
     </MenuWrapper>
