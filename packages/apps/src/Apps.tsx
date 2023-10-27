@@ -15,7 +15,7 @@ import Menu from './Menu/index.js';
 import ConnectingOverlay from './overlays/Connecting.js';
 import DotAppsOverlay from './overlays/DotApps.js';
 import WarmUp from './WarmUp.js';
-
+import { IpfsProvider } from '@slonigiraf/app-slonig-components';
 export const PORTAL_ID = 'portals';
 
 function Apps ({ className = '' }: Props): React.ReactElement<Props> {
@@ -28,9 +28,8 @@ function Apps ({ className = '' }: Props): React.ReactElement<Props> {
       : apiEndpoint?.ui.color,
     [apiEndpoint, isDevelopment]
   );
-
   return (
-    <>
+    <IpfsProvider>
       <GlobalStyle uiHighlight={uiHighlight} />
       <StyledDiv className={`${className} apps--Wrapper ${themeClassName}`}>
         <Menu />
@@ -44,7 +43,7 @@ function Apps ({ className = '' }: Props): React.ReactElement<Props> {
         </AccountSidebar>
       </StyledDiv>
       <WarmUp />
-    </>
+    </IpfsProvider>
   );
 }
 

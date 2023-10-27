@@ -14,7 +14,7 @@ import useCounter from './useCounter.js';
 import Referee from './Referee';
 import Worker from './Worker';
 import Employer from './Employer';
-import { useIpfsFactory } from '@slonigiraf/app-slonig-components';
+import { useIpfsContext } from '@slonigiraf/app-slonig-components';
 import DBImport from './Worker/DBImport';
 import DBExport from './Worker/DBExport';
 export { useCounter };
@@ -27,7 +27,7 @@ function AccountsApp ({ basePath, onStatusChange }: Props): React.ReactElement<P
   const { t } = useTranslation();
   const { hasAccounts } = useAccounts();
   const { isIpfs } = useIpfs();
-  const { ipfs, ipfsInitError } = useIpfsFactory({ commands: ['id'] })
+  const { ipfs, isIpfsReady, ipfsInitError } = useIpfsContext();
 
   const tabsRef = useRef([
     {

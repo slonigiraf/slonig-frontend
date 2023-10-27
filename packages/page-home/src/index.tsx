@@ -11,12 +11,12 @@ import { QrScanner } from '@slonigiraf/app-slonig-components';
 import { DBImport } from '@slonigiraf/app-recommendations';
 import { DBExport } from '@slonigiraf/app-recommendations';
 import { useNavigate } from 'react-router-dom';
-import { useIpfsFactory } from '@slonigiraf/app-slonig-components';
+import { useIpfsContext } from '@slonigiraf/app-slonig-components';
 export { useCounter };
 
 function HomeApp(): React.ReactElement<Props> {
   const { t } = useTranslation();
-  const { ipfs, ipfsInitError } = useIpfsFactory({ commands: ['id'] })
+  const { ipfs, isIpfsReady, ipfsInitError } = useIpfsContext();
   const [isQrOpen, toggleQr] = useToggle();
 
   const navigate = useNavigate();
