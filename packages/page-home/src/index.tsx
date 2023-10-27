@@ -11,12 +11,10 @@ import { QrScanner } from '@slonigiraf/app-slonig-components';
 import { DBImport } from '@slonigiraf/app-recommendations';
 import { DBExport } from '@slonigiraf/app-recommendations';
 import { useNavigate } from 'react-router-dom';
-import { useIpfsContext } from '@slonigiraf/app-slonig-components';
 export { useCounter };
 
 function HomeApp(): React.ReactElement<Props> {
   const { t } = useTranslation();
-  const { ipfs, isIpfsReady, ipfsInitError } = useIpfsContext();
   const [isQrOpen, toggleQr] = useToggle();
 
   const navigate = useNavigate();
@@ -60,8 +58,8 @@ function HomeApp(): React.ReactElement<Props> {
           label={t('Scan Qr')}
           onClick={toggleQr}
         />
-        <DBExport ipfs={ipfs} />
-        <DBImport ipfs={ipfs} />
+        <DBExport/>
+        <DBImport/>
       </div>
       {isQrOpen && <div className='ui--row'>
         <Modal

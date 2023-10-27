@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import React, { useState } from 'react';
-import { IPFS } from 'ipfs-core';
+import { useIpfsContext } from '@slonigiraf/app-slonig-components';
 import { Button, Modal } from '@polkadot/react-components';
 import { useTranslation } from '../translate';
 import "dexie-export-import";
@@ -12,10 +12,10 @@ import { syncDB } from '../utils';
 
 interface Props {
   className?: string;
-  ipfs: IPFS;
 }
 
-function DBImport({ className = '', ipfs }: Props): React.ReactElement<Props> {
+function DBImport({ className = '' }: Props): React.ReactElement<Props> {
+  const { ipfs, isIpfsReady, ipfsInitError } = useIpfsContext();
   const { t } = useTranslation();
   const [modalIsOpen, setModalIsOpen] = useState(false);
 

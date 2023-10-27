@@ -14,7 +14,6 @@ import useCounter from './useCounter.js';
 import Referee from './Referee';
 import Worker from './Worker';
 import Employer from './Employer';
-import { useIpfsContext } from '@slonigiraf/app-slonig-components';
 import DBImport from './Worker/DBImport';
 import DBExport from './Worker/DBExport';
 export { useCounter };
@@ -27,7 +26,6 @@ function AccountsApp ({ basePath, onStatusChange }: Props): React.ReactElement<P
   const { t } = useTranslation();
   const { hasAccounts } = useAccounts();
   const { isIpfs } = useIpfs();
-  const { ipfs, isIpfsReady, ipfsInitError } = useIpfsContext();
 
   const tabsRef = useRef([
     {
@@ -56,19 +54,19 @@ function AccountsApp ({ basePath, onStatusChange }: Props): React.ReactElement<P
         <Route path={basePath}>
         <Route
             element={
-              <Employer onStatusChange={onStatusChange} ipfs={ipfs} />
+              <Employer onStatusChange={onStatusChange} />
             }
             path='employer'
           />
           <Route
             element={
-              <Worker onStatusChange={onStatusChange} ipfs={ipfs} />
+              <Worker onStatusChange={onStatusChange} />
             }
             path='worker'
           />
           <Route
             element={
-              <Referee onStatusChange={onStatusChange} ipfs={ipfs} />
+              <Referee onStatusChange={onStatusChange} />
             }
             index
           />

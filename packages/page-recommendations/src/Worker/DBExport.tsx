@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import React, { useCallback, useState } from 'react';
-import { IPFS } from 'ipfs-core';
+import { useIpfsContext } from '@slonigiraf/app-slonig-components';
 import { Button, Modal } from '@polkadot/react-components';
 import { useTranslation } from '../translate';
 import { db } from "../db";
@@ -13,10 +13,10 @@ import { qrCodeSize } from '../constants';
 
 interface Props {
   className?: string;
-  ipfs: IPFS;
 }
 
-function DBExport({ className = '', ipfs }: Props): React.ReactElement<Props> {
+function DBExport({ className = '' }: Props): React.ReactElement<Props> {
+  const { ipfs, isIpfsReady, ipfsInitError } = useIpfsContext();
   const { t } = useTranslation();
   const [text, setText] = useState<string>("");
   const [modalIsOpen, setModalIsOpen] = useState(false);

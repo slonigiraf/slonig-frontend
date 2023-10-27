@@ -3,7 +3,7 @@
 
 import LetterInfo from './LetterInfo'
 import React, { useCallback, useState } from 'react'
-import { IPFS } from 'ipfs-core';
+import { useIpfsContext } from '@slonigiraf/app-slonig-components';
 import { useLiveQuery } from "dexie-react-hooks";
 import { db } from "../db";
 import { Letter } from "./Letter";
@@ -12,11 +12,11 @@ import { useTranslation } from '../translate';
 
 interface Props {
   className?: string;
-  ipfs: IPFS;
   worker: string;
 }
 
-function LettersList({ className = '', ipfs, worker }: Props): React.ReactElement<Props> {
+function LettersList({ className = '', worker }: Props): React.ReactElement<Props> {
+  const { ipfs, isIpfsReady, ipfsInitError } = useIpfsContext();
   const [selectedLetters, setSelectedLetters] = useState<Letter[]>([]);
   const { t } = useTranslation();
   console.log("selectedLetters: " + selectedLetters);

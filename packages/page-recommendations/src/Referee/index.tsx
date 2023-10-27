@@ -15,7 +15,7 @@ import { keyring } from '@polkadot/ui-keyring';
 import { isFunction, u8aToHex, hexToU8a, u8aWrapBytes } from '@polkadot/util';
 import { useTranslation } from '../translate';
 import Unlock from '@polkadot/app-signing/Unlock';
-import { IPFS } from 'ipfs-core';
+import { useIpfsContext } from '@slonigiraf/app-slonig-components';
 import { qrCodeSize } from '../constants';
 import { getLastUnusedLetterNumber, setLastUsedLetterNumber, storeLetter } from '../utils';
 import { statics } from '@polkadot/react-api/statics';
@@ -25,7 +25,6 @@ import { parseJson } from '@slonigiraf/app-slonig-components';
 
 interface Props {
   className?: string;
-  ipfs: IPFS;
 }
 
 interface AccountState {
@@ -39,7 +38,8 @@ interface SignerState {
   signer: Signer | null;
 }
 
-function Referee({ className = '', ipfs }: Props): React.ReactElement<Props> {
+function Referee({ className = '' }: Props): React.ReactElement<Props> {
+  const { ipfs, isIpfsReady, ipfsInitError } = useIpfsContext();
   const { t } = useTranslation();
   const [currentPair, setCurrentPair] = useState<KeyringPair | null>(() => keyring.getPairs()[0] || null);
   const location = useLocation();

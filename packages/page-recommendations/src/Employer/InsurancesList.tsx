@@ -3,17 +3,17 @@
 
 import InsuranceInfo from './InsuranceInfo'
 import React from 'react'
-import { IPFS } from 'ipfs-core';
 import { useLiveQuery } from "dexie-react-hooks";
 import { db } from "../db";
+import { useIpfsContext } from '@slonigiraf/app-slonig-components';
 
 interface Props {
   className?: string;
   employer: string;
-  ipfs: IPFS;
 }
 
-function InsurancesList({ className = '', ipfs, employer }: Props): React.ReactElement<Props> {
+function InsurancesList({ className = '', employer }: Props): React.ReactElement<Props> {
+  const { ipfs, isIpfsReady, ipfsInitError } = useIpfsContext();
   const insurances = useLiveQuery(
     () =>
       db.insurances

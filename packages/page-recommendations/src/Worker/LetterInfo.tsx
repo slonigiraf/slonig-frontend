@@ -5,20 +5,20 @@ import { Button, Modal } from '@polkadot/react-components';
 import React, { useState, useEffect } from 'react'
 import { getIPFSDataFromContentID } from '@slonigiraf/helpers'
 import { useTranslation } from '../translate';
-import { IPFS } from 'ipfs-core';
 import { Letter } from '../db/Letter';
 import { parseJson } from '@slonigiraf/app-slonig-components';
 import LetterDetailsModal from './LetterDetailsModal';
+import { useIpfsContext } from '@slonigiraf/app-slonig-components';
 
 interface Props {
   className?: string;
   letter: Letter;
-  ipfs: IPFS;
   isSelected: Boolean;
   onToggleSelection?: (letter: Letter) => void; // Add this prop
 }
 
-function LetterInfo({ className = '', letter, ipfs, isSelected, onToggleSelection }: Props): React.ReactElement<Props> {
+function LetterInfo({ className = '', letter, isSelected, onToggleSelection }: Props): React.ReactElement<Props> {
+  const { ipfs, isIpfsReady, ipfsInitError } = useIpfsContext();
   const { t } = useTranslation();
   const [modalIsOpen, setModalIsOpen] = useState(false)
   const [text, setText] = useState(letter.cid)
