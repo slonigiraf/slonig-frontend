@@ -15,6 +15,7 @@ import Menu from './Menu/index.js';
 import ConnectingOverlay from './overlays/Connecting.js';
 import DotAppsOverlay from './overlays/DotApps.js';
 import WarmUp from './WarmUp.js';
+import BottomMenu from './BottomMenu/index';
 import { IpfsProvider } from '@slonigiraf/app-slonig-components';
 export const PORTAL_ID = 'portals';
 
@@ -43,6 +44,7 @@ function Apps ({ className = '' }: Props): React.ReactElement<Props> {
         </AccountSidebar>
       </StyledDiv>
       <WarmUp />
+      <BottomMenu />
     </IpfsProvider>
   );
 }
