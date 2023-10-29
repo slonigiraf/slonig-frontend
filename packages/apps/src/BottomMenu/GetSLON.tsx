@@ -1,8 +1,7 @@
 import { useTranslation } from '../translate.js';
-import { Button, Modal, InputAddress } from '@polkadot/react-components';
+import { Button, Modal } from '@polkadot/react-components';
 import { useToggle } from '@polkadot/react-hooks';
-import QRCode from 'qrcode.react';
-import React, { useCallback, useState } from 'react';
+import React from 'react';
 import PayToAccountQr from './PayToAccountQr';
 
 function GetSLON(): React.ReactElement {
@@ -29,7 +28,6 @@ function GetSLON(): React.ReactElement {
         >
           <Modal.Content>
             <PayToAccountQr />
-            {/* <QRCode value={qrText} /> */}
           </Modal.Content>
         </Modal>
       </>}

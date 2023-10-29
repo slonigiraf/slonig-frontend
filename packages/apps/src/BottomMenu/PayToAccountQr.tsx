@@ -2,6 +2,7 @@ import type { KeyringPair } from '@polkadot/keyring/types';
 import { keyring } from '@polkadot/ui-keyring';
 import React, { useState, useCallback } from 'react';
 import { InputAddress } from '@polkadot/react-components';
+import QRCode from 'qrcode.react';
 
 function PayToAccountQr(): React.ReactElement {
   const [currentPair, setCurrentPair] = useState<KeyringPair | null>(() => keyring.getPairs()[0] || null);
@@ -9,6 +10,8 @@ function PayToAccountQr(): React.ReactElement {
     (accountId: string | null) => accountId && setCurrentPair(keyring.getPair(accountId)),
     []
   );
+
+  const qrText = `{"q": 1,"d": "${currentPair.address}"}`;
 
   const hiddenAccountSelector = <div style={{ display: 'none' }}>
     <InputAddress
@@ -24,7 +27,7 @@ function PayToAccountQr(): React.ReactElement {
   return (
     <>
       {hiddenAccountSelector}
-      <h2>Address: {currentPair.address}</h2>
+      <QRCode value={qrText} />
     </>
   );
 }
