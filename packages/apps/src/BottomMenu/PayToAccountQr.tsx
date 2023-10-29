@@ -32,4 +32,4 @@ function PayToAccountQr(): React.ReactElement {
   );
 }
 
-export default PayToAccountQr;
+export default React.memo(PayToAccountQr);
