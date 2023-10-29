@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useCallback } from 'react';
 import { useToggle } from '@polkadot/react-hooks';
 import { QrScanner } from '@slonigiraf/app-slonig-components';
 import { useNavigate } from 'react-router-dom';
@@ -9,40 +9,42 @@ function ScanQr(): React.ReactElement {
   const { t } = useTranslation();
   const [isQrOpen, toggleQr] = useToggle();
   const [isTransferOpen, toggleTransfer] = useToggle();
-  const [recipientId, setRecipientId] = useState('');
+  const [recipientId, setRecipientId] = useState<string>('');
   const navigate = useNavigate();
 
-  const processQr = (data: string) => {
+  // Process the scanned QR data
+  const processQr = useCallback((data: string) => {
     try {
-      // Attempt to parse the data as JSON
       const jsonData = JSON.parse(data);
 
-      // Check if the JSON has the expected properties
+      // Validate JSON properties
       if (jsonData.hasOwnProperty('q') && jsonData.hasOwnProperty('d')) {
-        // Process based on the 'q' value or other conditions
         switch (jsonData.q) {
-          // 0 - is navigation
-          case 0:
+          case 0: // Navigation
             navigate(jsonData.d);
             break;
-          // Add more cases as needed
-          case 1:
+          case 1: // Transfer
             setRecipientId(jsonData.d);
             toggleTransfer();
             break;
           default:
             console.warn("Unknown QR type:", jsonData.q);
-            break;
         }
       } else {
         console.error("Invalid QR data structure.");
       }
-
     } catch (error) {
       console.error("Error parsing QR data as JSON:", error);
     }
     toggleQr();
-  }
+  }, [navigate, toggleQr, toggleTransfer]);
+
+  // Handle the QR Scanner result
+  const handleQrResult = useCallback((result, error) => {
+    if (result != undefined) {
+      processQr(result?.getText());
+    }
+  }, [processQr]);
 
   return (
     <>
@@ -52,7 +54,7 @@ function ScanQr(): React.ReactElement {
         onClick={toggleQr}
       />
       <br /><span>{t('Scan Qr')}</span>
-      {isQrOpen && <>
+      {isQrOpen && (
         <Modal
           header={t('Scan a QR code')}
           onClose={toggleQr}
@@ -60,16 +62,12 @@ function ScanQr(): React.ReactElement {
         >
           <Modal.Content>
             <QrScanner
-              onResult={(result, error) => {
-                if (result != undefined) {
-                  processQr(result?.getText())
-                }
-              }}
+              onResult={handleQrResult}
               constraints={{ facingMode: 'environment' }}
             />
           </Modal.Content>
         </Modal>
-      </>}
+      )}
       {isTransferOpen && (
         <TransferModal
           key='modal-transfer'
@@ -78,8 +76,7 @@ function ScanQr(): React.ReactElement {
         />
       )}
     </>
-
   );
 }
 
-export default ScanQr;
+export default React.memo(ScanQr);
