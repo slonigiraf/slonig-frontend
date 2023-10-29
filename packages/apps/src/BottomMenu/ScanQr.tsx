@@ -1,14 +1,15 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { useToggle } from '@polkadot/react-hooks';
 import { QrScanner } from '@slonigiraf/app-slonig-components';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from '../translate.js';
-import { Button, Modal } from '@polkadot/react-components';
+import { Button, Modal, TransferModal } from '@polkadot/react-components';
 
 function ScanQr(): React.ReactElement {
   const { t } = useTranslation();
   const [isQrOpen, toggleQr] = useToggle();
-
+  const [isTransferOpen, toggleTransfer] = useToggle();
+  const [recipientId, setRecipientId] = useState('');
   const navigate = useNavigate();
 
   const processQr = (data: string) => {
@@ -25,9 +26,10 @@ function ScanQr(): React.ReactElement {
             navigate(jsonData.d);
             break;
           // Add more cases as needed
-          // case 2:
-          //   ...
-          //   break;
+          case 1:
+            setRecipientId(jsonData.d);
+            toggleTransfer();
+            break;
           default:
             console.warn("Unknown QR type:", jsonData.q);
             break;
@@ -44,13 +46,13 @@ function ScanQr(): React.ReactElement {
 
   return (
     <>
-    <Button
-          icon='qrcode'
-          label=''
-          onClick={toggleQr}
-        />
-        <br /><span>{t('Scan Qr')}</span>
-    {isQrOpen && <>
+      <Button
+        icon='qrcode'
+        label=''
+        onClick={toggleQr}
+      />
+      <br /><span>{t('Scan Qr')}</span>
+      {isQrOpen && <>
         <Modal
           header={t('Scan a QR code')}
           onClose={toggleQr}
@@ -68,8 +70,15 @@ function ScanQr(): React.ReactElement {
           </Modal.Content>
         </Modal>
       </>}
+      {isTransferOpen && (
+        <TransferModal
+          key='modal-transfer'
+          onClose={toggleTransfer}
+          recipientId={recipientId}
+        />
+      )}
     </>
-    
+
   );
 }
 
