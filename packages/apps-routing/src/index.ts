@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import type { Routes, TFunction } from './types.js';
-
+import home from './home.js';
 import accounts from './accounts.js';
 import addresses from './addresses.js';
 import alliance from './alliance.js';
@@ -34,7 +34,6 @@ import rpc from './rpc.js';
 import runtime from './runtime.js';
 import scheduler from './scheduler.js';
 import settings from './settings.js';
-import home from './home.js';
 import signing from './signing.js';
 import society from './society.js';
 import staking from './staking.js';
@@ -50,6 +49,7 @@ import whitelist from './whitelist.js';
 
 export default function create (t: TFunction): Routes {
   return [
+    home(t),
     accounts(t),
     addresses(t),
     explorer(t),
@@ -96,7 +96,6 @@ export default function create (t: TFunction): Routes {
     files(t),
     js(t),
     utilities(t),
-    settings(t),
-    home(t)
+    settings(t)
   ];
 }

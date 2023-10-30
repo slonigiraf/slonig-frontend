@@ -9,7 +9,7 @@ export default function create (t: TFunction): Route {
   return {
     Component,
     display: {},
-    group: 'home',
+    group: 'accounts',
     icon: 'house',
     name: 'home',
     text: t('nav.home', 'Home', { ns: 'apps-routing' }),
