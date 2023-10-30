@@ -9,6 +9,8 @@ import '@polkadot/api-augment/substrate';
 
 import React from 'react';
 import { createRoot } from 'react-dom/client';
+import ChainInfo from './Menu/ChainInfo';
+export {ChainInfo};
 
 import Root from './Root.js';
 

@@ -7,6 +7,7 @@ import type { SettingsStruct } from '@polkadot/ui-settings/types';
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 
 import { createLanguages, createSs58 } from '@polkadot/apps-config';
+import { ChainInfo } from '@polkadot/apps';
 import { allNetworks } from '@polkadot/networks';
 import { Button, Dropdown, MarkWarning } from '@polkadot/react-components';
 import { useApi, useIpfs, useLedger } from '@polkadot/react-hooks';
@@ -118,6 +119,7 @@ function General ({ className = '' }: Props): React.ReactElement<Props> {
 
   return (
     <div className={className}>
+      <ChainInfo />
       <h1>{t('UI options')}</h1>
       <div className='ui--row'>
         <Dropdown
