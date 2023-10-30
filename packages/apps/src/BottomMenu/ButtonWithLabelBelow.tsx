@@ -5,7 +5,7 @@ import styled from 'styled-components';
 const IconWrapper = styled.div`
   display: block;
   text-align: center;
-  margin-bottom: 0.5rem;
+  margin-bottom: 0.7rem;
 `;
 
 const StyledLabel = styled.span`
