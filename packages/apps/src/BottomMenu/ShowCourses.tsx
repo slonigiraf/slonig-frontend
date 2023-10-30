@@ -1,7 +1,7 @@
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from '../translate.js';
-import { Button } from '@polkadot/react-components';
+import { ButtonWithLabelBelow } from './ButtonWithLabelBelow';
 
 function ShowCourses(): React.ReactElement {
   const { t } = useTranslation();
@@ -12,15 +12,11 @@ function ShowCourses(): React.ReactElement {
   }
 
   return (
-    <>
-    <Button
-          icon='list'
-          label=''
-          onClick={_onClick}
-        />
-    <br /><span>{t('Courses')}</span>
-    </>
-    
+    <ButtonWithLabelBelow
+      icon='list'
+      label={t('Courses')}
+      onClick={_onClick}
+    />
   );
 }
 

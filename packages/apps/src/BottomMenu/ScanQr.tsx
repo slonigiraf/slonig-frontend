@@ -3,7 +3,8 @@ import { useToggle } from '@polkadot/react-hooks';
 import { QrScanner } from '@slonigiraf/app-slonig-components';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from '../translate.js';
-import { Button, Modal, TransferModal } from '@polkadot/react-components';
+import { Modal, TransferModal } from '@polkadot/react-components';
+import { ButtonWithLabelBelow } from './ButtonWithLabelBelow';
 
 function ScanQr(): React.ReactElement {
   const { t } = useTranslation();
@@ -48,12 +49,11 @@ function ScanQr(): React.ReactElement {
 
   return (
     <>
-      <Button
+      <ButtonWithLabelBelow
         icon='qrcode'
-        label=''
+        label={t('Scan Qr')}
         onClick={toggleQr}
       />
-      <br /><span>{t('Scan Qr')}</span>
       {isQrOpen && (
         <Modal
           header={t('Scan a QR code')}

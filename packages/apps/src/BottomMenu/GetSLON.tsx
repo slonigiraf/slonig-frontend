@@ -3,6 +3,7 @@ import { Button, Modal } from '@polkadot/react-components';
 import { useToggle } from '@polkadot/react-hooks';
 import React from 'react';
 import PayToAccountQr from './PayToAccountQr';
+import { ButtonWithLabelBelow } from './ButtonWithLabelBelow';
 
 function GetSLON(): React.ReactElement {
   const { t } = useTranslation();
@@ -14,12 +15,11 @@ function GetSLON(): React.ReactElement {
 
   return (
     <>
-    <Button
+    <ButtonWithLabelBelow
           icon='dollar'
-          label=''
+          label={t('Get SLON')}
           onClick={_onClick}
         />
-    <br /><span>{t('Get SLON')}</span>
     {isQrOpen && <>
         <Modal
           header={t('Show the Qr to a sender')}
