@@ -119,6 +119,7 @@ function General ({ className = '' }: Props): React.ReactElement<Props> {
 
   return (
     <div className={className}>
+      <h1>{t('Select a network')}</h1>
       <ChainInfo />
       <h1>{t('UI options')}</h1>
       <div className='ui--row'>
