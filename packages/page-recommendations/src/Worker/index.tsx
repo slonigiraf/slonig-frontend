@@ -2,12 +2,10 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import React, { useCallback, useState } from 'react';
-import { QrScanner } from '@slonigiraf/app-slonig-components';
 import LettersList from './LettersList';
 import { IPFS } from 'ipfs-core';
-import { Button, InputAddress, Modal } from '@polkadot/react-components';
+import { InputAddress } from '@polkadot/react-components';
 import { useTranslation } from '../translate';
-import { createAndStoreLetter } from '../utils';
 import type { KeyringPair } from '@polkadot/keyring/types';
 import { keyring } from '@polkadot/ui-keyring';
 import { u8aToHex } from '@polkadot/util';
@@ -19,22 +17,12 @@ interface Props {
 
 function Worker({ className = '', ipfs }: Props): React.ReactElement<Props> {
   const [currentPair, setCurrentPair] = useState<KeyringPair | null>(() => keyring.getPairs()[0] || null);
-  const [modalIsOpen, setModalIsOpen] = useState(false)
   const { t } = useTranslation();
 
   const _onChangeAccount = useCallback(
     (accountId: string | null) => accountId && setCurrentPair(keyring.getPair(accountId)),
     []
   );
-
-  const storeData = (data: string) => {
-    let dataArray = data.split(",")
-    if (dataArray.length === 9) {
-      createAndStoreLetter(dataArray);
-      setModalIsOpen(false)
-    }
-  }
-
 
   return (
     <div className={`toolbox--Worker ${className}`}>
@@ -50,33 +38,8 @@ function Worker({ className = '', ipfs }: Props): React.ReactElement<Props> {
         />
       </div>
       <div className='ui--row'>
-        <Button
-          icon='plus'
-          label={t('Add a letter about me')}
-          onClick={() => setModalIsOpen(true)}
-        />
-      </div>
-      <div className='ui--row'>
         <LettersList ipfs={ipfs} worker={u8aToHex(currentPair?.publicKey)} />
       </div>
-      {modalIsOpen && <div className='ui--row'>
-        <Modal
-          header={t('Scan a letter QR code')}
-          onClose={() => setModalIsOpen(false)}
-          size='small'
-        >
-          <Modal.Content>
-            <QrScanner
-              onResult={(result, error) => {
-                if (result != undefined) {
-                  storeData(result?.getText());
-                }
-              }}
-              constraints={{ facingMode: 'environment' }}
-            />
-          </Modal.Content>
-        </Modal>
-      </div>}
     </div>
   )
 }
