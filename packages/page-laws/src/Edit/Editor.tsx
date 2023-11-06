@@ -22,21 +22,6 @@ function Editor(props: Props): React.ReactElement<Props> {
   const { list, item, isAddingItem, onListChange, onItemChange, onItemIdHexChange, onIsAddingItemChange } = props;
   const { t } = useTranslation();
 
-  const addItem = useCallback(() => {
-    const newItemIdHex = randomIdHex();
-    onItemIdHexChange(newItemIdHex);
-    const itemJSONTemplate = `{"i":"${newItemIdHex}","t":0,"h":""}`;
-    onItemChange(parseJson(itemJSONTemplate));
-
-    const updatedList = {
-      ...list,
-      e: [...(list.e || []), newItemIdHex]
-    };
-
-    onListChange(updatedList);
-    onIsAddingItemChange(true);
-  }, [list, onItemChange, onIsAddingItemChange]);
-
   const parentToItemDefaultType = {
     0: 1,
     1: 2,
@@ -78,6 +63,70 @@ function Editor(props: Props): React.ReactElement<Props> {
   };
 
   const lawTypeOpt = baseOptions[list?.t] || [];
+
+  const addItem = useCallback(() => {
+    console.log("list?.t: " + list?.t);
+    if (list?.t === 3) { // Adding an exercise
+      const itemJSONTemplate = `{"h":"", "a":""}`;
+      const itemJson = parseJson(itemJSONTemplate);
+      const updatedList = {
+        ...list,
+        q: [...(list.q || []), itemJson]
+      };
+      onListChange(updatedList);
+    } else { // Adding a general item
+      const newItemIdHex = randomIdHex();
+      onItemIdHexChange(newItemIdHex);
+      const itemJSONTemplate = `{"i":"${newItemIdHex}","t":0,"h":""}`;
+      onItemChange(parseJson(itemJSONTemplate));
+
+      const updatedList = {
+        ...list,
+        e: [...(list.e || []), newItemIdHex]
+      };
+
+      onListChange(updatedList);
+      onIsAddingItemChange(true);
+    }
+  }, [list, onItemChange, onIsAddingItemChange, lawTypeOpt]);
+
+  const renderExerciseEditor = (exercise: { h: string; a: string }, index: number) => {
+    const onEditHeader = (newHeader: string) => {
+      const updatedExercises = [...(list.q || [])];
+      updatedExercises[index].h = newHeader;
+      onListChange({ ...list, e: updatedExercises });
+    };
+
+    const onEditAnswer = (newAnswer: string) => {
+      const updatedExercises = [...(list.q || [])];
+      updatedExercises[index].a = newAnswer;
+      onListChange({ ...list, e: updatedExercises });
+    };
+
+    return (
+      <div key={index} className="exercise-editor">
+        <Input
+          autoFocus
+          className='full'
+          help={t('Exercise Header')}
+          label={t('Header')}
+          onChange={onEditHeader}
+          value={exercise.h}
+        />
+        <Input
+          className='full'
+          help={t('Exercise Answer')}
+          label={t('Answer')}
+          onChange={onEditAnswer}
+          value={exercise.a}
+        />
+      </div>
+    );
+  };
+
+  const exerciseEditors = list?.t === 3 && list.e
+    ? list.e.map((exercise, index) => renderExerciseEditor(exercise, index))
+    : null;
 
   return (
     <>
@@ -127,6 +176,7 @@ function Editor(props: Props): React.ReactElement<Props> {
           </div>
         </>
       )}
+      {exerciseEditors}
     </>
   );
 }
