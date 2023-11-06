@@ -11,6 +11,7 @@ import { storeInsurance } from '../utils';
 import type { KeyringPair } from '@polkadot/keyring/types';
 import { keyring } from '@polkadot/ui-keyring';
 import { u8aToHex } from '@polkadot/util';
+import QRCode from 'qrcode.react';
 
 interface Props {
   className?: string;
@@ -66,9 +67,13 @@ function Employer({ className = '', ipfs }: Props): React.ReactElement<Props> {
     storeInsurance(insurance);
   }
 
+  const qrToBuyDiplomas = `{"q": 0,"d": "recommendations/worker?employer=${currentPair.address}"}`;
+
   return (
     <div className={`toolbox--Worker ${className}`}>
-      <h1>{t('Workers\' diplomas')}</h1>
+      <h2>{t('Show the Qr to a student to see their results')}</h2>
+      <QRCode value={qrToBuyDiplomas} />
+      <h2>{t('Workers\' diplomas')}</h2>
       <div className='ui--row' style={{ display: 'none' }}>
         <InputAddress
           className='full'
