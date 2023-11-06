@@ -5,6 +5,7 @@ import { useNavigate } from 'react-router-dom';
 import { useTranslation } from '../translate.js';
 import { Modal, TransferModal } from '@polkadot/react-components';
 import { ButtonWithLabelBelow } from './ButtonWithLabelBelow';
+import { createAndStoreLetter } from '@slonigiraf/app-recommendations';
 
 function ScanQr(): React.ReactElement {
   const { t } = useTranslation();
@@ -14,7 +15,7 @@ function ScanQr(): React.ReactElement {
   const navigate = useNavigate();
 
   // Process the scanned QR data
-  const processQr = useCallback((data: string) => {
+  const processQr = useCallback(async (data: string) => {
     try {
       const jsonData = JSON.parse(data);
 
@@ -27,6 +28,11 @@ function ScanQr(): React.ReactElement {
           case 1: // Transfer
             setRecipientId(jsonData.d);
             toggleTransfer();
+            break;
+          case 2: // Add a letter
+            const dataArray = jsonData.d.split(",");
+            await createAndStoreLetter(dataArray);
+            navigate('recommendations/worker');
             break;
           default:
             console.warn("Unknown QR type:", jsonData.q);

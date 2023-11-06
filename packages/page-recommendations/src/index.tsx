@@ -3,13 +3,12 @@
 
 import type { AppProps as Props } from '@polkadot/react-components/types';
 
-import React, { useRef, useEffect, useState } from 'react';
+import React, { useRef } from 'react';
 import { Route, Routes } from 'react-router';
-
 import { Tabs } from '@polkadot/react-components';
 import { useAccounts, useIpfs } from '@polkadot/react-hooks';
-
 import { useTranslation } from './translate.js';
+import { createAndStoreLetter } from './utils';
 import useCounter from './useCounter.js';
 import Referee from './Referee';
 import Worker from './Worker';
@@ -19,6 +18,7 @@ import DBExport from './Worker/DBExport';
 export { useCounter };
 export {DBImport};
 export {DBExport};
+export {createAndStoreLetter};
 
 const HIDDEN_ACC = ['vanity'];
 

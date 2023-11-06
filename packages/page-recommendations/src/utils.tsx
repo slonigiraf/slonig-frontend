@@ -87,3 +87,29 @@ export const storeLetterUsageRight = async (letter: Letter, employer: string, si
         db.usageRights.add(usageRight);
     }
 }
+
+export const createAndStoreLetter = async (data: string[]) => {
+    const [textHash,
+      genesisHex,
+      letterId,
+      blockNumber,
+      refereePublicKeyHex,
+      workerPublicKeyHex,
+      amount,
+      refereeSignOverPrivateData,
+      refereeSignOverReceipt] = data;
+  
+    const letter = {
+      created: new Date(),
+      cid: textHash,
+      genesis: genesisHex,
+      letterNumber: parseInt(letterId, 10),
+      block: blockNumber,
+      referee: refereePublicKeyHex,
+      worker: workerPublicKeyHex,
+      amount: amount,
+      signOverPrivateData: refereeSignOverPrivateData,
+      signOverReceipt: refereeSignOverReceipt
+    };
+    await storeLetter(letter);
+  }

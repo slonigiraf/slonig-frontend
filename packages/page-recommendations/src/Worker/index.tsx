@@ -5,13 +5,12 @@ import React, { useCallback, useState } from 'react';
 import { QrScanner } from '@slonigiraf/app-slonig-components';
 import LettersList from './LettersList';
 import { IPFS } from 'ipfs-core';
-import { Button, InputAddress, Modal, Toggle } from '@polkadot/react-components';
+import { Button, InputAddress, Modal } from '@polkadot/react-components';
 import { useTranslation } from '../translate';
-import { storeLetter } from '../utils';
+import { createAndStoreLetter } from '../utils';
 import type { KeyringPair } from '@polkadot/keyring/types';
 import { keyring } from '@polkadot/ui-keyring';
 import { u8aToHex } from '@polkadot/util';
-import { useToggle } from '@polkadot/react-hooks';
 
 interface Props {
   className?: string;
@@ -31,35 +30,11 @@ function Worker({ className = '', ipfs }: Props): React.ReactElement<Props> {
   const storeData = (data: string) => {
     let dataArray = data.split(",")
     if (dataArray.length === 9) {
-      storeToDB(dataArray);
+      createAndStoreLetter(dataArray);
       setModalIsOpen(false)
     }
   }
-  const storeToDB = async (data: string[]) => {
-    const [textHash,
-      genesisHex,
-      letterId,
-      blockNumber,
-      refereePublicKeyHex,
-      workerPublicKeyHex,
-      amount,
-      refereeSignOverPrivateData,
-      refereeSignOverReceipt] = data;
 
-    const letter = {
-      created: new Date(),
-      cid: textHash,
-      genesis: genesisHex,
-      letterNumber: parseInt(letterId, 10),
-      block: blockNumber,
-      referee: refereePublicKeyHex,
-      worker: workerPublicKeyHex,
-      amount: amount,
-      signOverPrivateData: refereeSignOverPrivateData,
-      signOverReceipt: refereeSignOverReceipt
-    };
-    await storeLetter(letter);
-  }
 
   return (
     <div className={`toolbox--Worker ${className}`}>

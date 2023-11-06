@@ -182,9 +182,9 @@ function Referee({ className = '' }: Props): React.ReactElement<Props> {
       };
       await storeLetter(letter);
       await setLastUsedLetterNumber(refereePublicKeyHex, letterId);
-      const letterInfo = result.join(",");
+      const qrText = `{"q": 2,"d": "${result.join(",")}"}`;
       // show QR
-      setLetterInfo(letterInfo);
+      setLetterInfo(qrText);
       setModalIsOpen(true);
     },
     [currentPair, isLocked, isUsable, signer, ipfs, text, workerPublicKeyHex, blockNumber, amount]
