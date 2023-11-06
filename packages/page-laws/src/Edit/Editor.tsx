@@ -5,6 +5,7 @@ import { parseJson, randomIdHex } from '../util';
 import Reordering from './Reordering';
 import type { LawType } from '../types.js';
 import { useIpfsContext } from '@slonigiraf/app-slonig-components';
+import ExerciseEditor from './ExerciseEditor';
 
 interface Props {
   className?: string;
@@ -88,43 +89,10 @@ function Editor(props: Props): React.ReactElement<Props> {
     }
   }, [list, onItemChange, onIsAddingItemChange, lawTypeOpt]);
 
-  const renderExerciseEditor = (exercise: { h: string; a: string }, index: number) => {
-    const onEditHeader = (newHeader: string) => {
-      const updatedExercises = [...(list.q || [])];
-      updatedExercises[index].h = newHeader;
-      onListChange({ ...list, q: updatedExercises });  // change 'e' to 'q'
-    };
-
-    const onEditAnswer = (newAnswer: string) => {
-      const updatedExercises = [...(list.q || [])];
-      updatedExercises[index].a = newAnswer;
-      onListChange({ ...list, q: updatedExercises });  // change 'e' to 'q'
-    };
-
-    return (
-      <div key={index} className="exercise-editor">
-        <Input
-          autoFocus
-          className='full'
-          help={t('Exercise Header')}
-          label={t('Header')}
-          onChange={onEditHeader}
-          value={exercise.h}
-        />
-        <Input
-          className='full'
-          help={t('Exercise Answer')}
-          label={t('Answer')}
-          onChange={onEditAnswer}
-          value={exercise.a}
-        />
-      </div>
-    );
-  };
-
-
   const exerciseEditors = list?.t === 3 && list.q
-    ? list.q.map((exercise, index) => renderExerciseEditor(exercise, index))
+    ? list.q.map((exercise, index) => 
+        <ExerciseEditor key={index} exercise={exercise} index={index} list={list} onListChange={onListChange} />
+      )
     : null;
 
   return (
@@ -141,9 +109,6 @@ function Editor(props: Props): React.ReactElement<Props> {
               value={list.h}
             />
           </div>
-
-
-
           <Reordering list={list} onListChange={onListChange} />
         </>
       )}
