@@ -55,7 +55,7 @@ function ExerciseEditorList({ className = '', list, onListChange }: Props): Reac
             icon='times'  // Assuming 'times' is the icon for delete
             onClick={() => handleDelete(index)}
           />
-          <ExerciseEditor exercise={exercise} onListChange={onListChange} index={index} />
+          <ExerciseEditor list={list} exercise={exercise} onListChange={onListChange} index={index} />
         </div>
       ))}
     </>
