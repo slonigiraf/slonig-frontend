@@ -2,8 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 import React, { useCallback } from 'react';
 import { Button } from '@polkadot/react-components';
-import ExerciseEditor from './ExerciseEditor';  // Import the ExerciseEditor component
-import { useIpfsContext } from '@slonigiraf/app-slonig-components';
+import ExerciseEditor from './ExerciseEditor';
 
 interface Props {
   className?: string;
@@ -12,8 +11,6 @@ interface Props {
 }
 
 function ExerciseEditorList({ className = '', list, onListChange }: Props): React.ReactElement<Props> {
-  const { ipfs, isIpfsReady, ipfsInitError } = useIpfsContext();
-
   const handleMoveUp = useCallback((index: number) => {
     const updatedExercises = [...list.q];
     const temp = updatedExercises[index];
