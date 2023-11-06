@@ -5,7 +5,7 @@ import { parseJson, randomIdHex } from '../util';
 import Reordering from './Reordering';
 import type { LawType } from '../types.js';
 import { useIpfsContext } from '@slonigiraf/app-slonig-components';
-import ExercisesList from './ExercisesList';
+import ExerciseEditorList from './ExerciseEditorList';
 
 interface Props {
   className?: string;
@@ -130,7 +130,7 @@ function Editor(props: Props): React.ReactElement<Props> {
           </div>
         </>
       )}
-      <ExercisesList list={list} onListChange={onListChange} />
+      <ExerciseEditorList list={list} onListChange={onListChange} />
       <div className='ui--row'>
         <Button
           icon='add'

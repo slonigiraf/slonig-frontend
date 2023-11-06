@@ -11,7 +11,7 @@ interface Props {
   onListChange: (updatedList: any) => void;
 }
 
-function ExercisesList({ className = '', list, onListChange }: Props): React.ReactElement<Props> {
+function ExerciseEditorList({ className = '', list, onListChange }: Props): React.ReactElement<Props> {
   const { ipfs, isIpfsReady, ipfsInitError } = useIpfsContext();
 
   const handleMoveUp = useCallback((index: number) => {
@@ -65,4 +65,4 @@ function ExercisesList({ className = '', list, onListChange }: Props): React.Rea
   );
 }
 
-export default React.memo(ExercisesList);
+export default React.memo(ExerciseEditorList);
