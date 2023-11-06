@@ -8,14 +8,14 @@ function ShowCourses(): React.ReactElement {
   const navigate = useNavigate();
 
   const _onClick = () => {
-    navigate('recommendations/worker');
+    navigate('recommendations');
   }
 
   return (
 
     <ButtonWithLabelBelow
       icon='award'
-      label={t('Get Bonuses')}
+      label={t('Diplomas')}
       onClick={_onClick}
     />
 

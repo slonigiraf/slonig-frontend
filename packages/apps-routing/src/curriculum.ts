@@ -12,8 +12,8 @@ export default function create (t: TFunction): Route {
       needsApi: []
     },
     group: 'accounts',
-    icon: 'graduation-cap',
+    icon: 'list',
     name: 'curriculum',
-    text: t('nav.curriculum', 'Curriculum', { ns: 'apps-routing' })
+    text: t('nav.curriculum', ' ', { ns: 'apps-routing' })
   };
 }

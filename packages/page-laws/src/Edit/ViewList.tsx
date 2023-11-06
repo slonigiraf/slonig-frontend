@@ -71,7 +71,7 @@ function ViewList({ className = '', id, currentPair, onItemSelected }: Props): R
 
   const publicKeyU8 = currentPair.publicKey;
   const publicKeyHex = u8aToHex(publicKeyU8);
-  const qrText = `{"q": 0,"d": "recommendations?cid=${cidString}&person=${publicKeyHex}"}`;
+  const qrText = `{"q": 0,"d": "recommendations/issue?cid=${cidString}&person=${publicKeyHex}"}`;
 
   return (
     list == null ? "" :

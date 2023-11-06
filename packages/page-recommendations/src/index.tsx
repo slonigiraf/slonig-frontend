@@ -30,17 +30,17 @@ function AccountsApp ({ basePath, onStatusChange }: Props): React.ReactElement<P
   const tabsRef = useRef([
     {
       isRoot: true,
-      name: 'referee',
-      text: t('Referee')
+      name: 'my',
+      text: t('My')
     },
     {
-      name: 'worker',
-      text: t('Worker')
+      name: 'validate',
+      text: t('Validate')
     },
     {
-      name: 'employer',
-      text: t('Employer')
-    }
+      name: 'issue',
+      text: t('Issue')
+    },
   ]);
 
   return (
@@ -56,19 +56,19 @@ function AccountsApp ({ basePath, onStatusChange }: Props): React.ReactElement<P
             element={
               <Employer onStatusChange={onStatusChange} />
             }
-            path='employer'
+            path='validate'
           />
           <Route
             element={
               <Worker onStatusChange={onStatusChange} />
             }
-            path='worker'
+            index
           />
           <Route
             element={
               <Referee onStatusChange={onStatusChange} />
             }
-            index
+            path='issue'
           />
         </Route>
       </Routes>
