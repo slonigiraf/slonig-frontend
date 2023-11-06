@@ -94,13 +94,13 @@ function Editor(props: Props): React.ReactElement<Props> {
     const onEditHeader = (newHeader: string) => {
       const updatedExercises = [...(list.q || [])];
       updatedExercises[index].h = newHeader;
-      onListChange({ ...list, e: updatedExercises });
+      onListChange({ ...list, q: updatedExercises });  // change 'e' to 'q'
     };
 
     const onEditAnswer = (newAnswer: string) => {
       const updatedExercises = [...(list.q || [])];
       updatedExercises[index].a = newAnswer;
-      onListChange({ ...list, e: updatedExercises });
+      onListChange({ ...list, q: updatedExercises });  // change 'e' to 'q'
     };
 
     return (
@@ -123,6 +123,7 @@ function Editor(props: Props): React.ReactElement<Props> {
       </div>
     );
   };
+
 
   const exerciseEditors = list?.t === 3 && list.q
     ? list.q.map((exercise, index) => renderExerciseEditor(exercise, index))
