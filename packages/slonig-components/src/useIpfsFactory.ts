@@ -1,8 +1,9 @@
 // From https://github.com/ipfs-examples/js-ipfs-examples/blob/master/examples/browser-create-react-app/src/hooks/use-ipfs-factory.js
 
-import { create } from 'ipfs-core'
+// import { create } from 'ipfs-core'
 import { useEffect, useState } from 'react'
 import { multiaddr } from '@multiformats/multiaddr'
+import { create } from 'kubo-rpc-client'
 
 let ipfs = null
 
@@ -45,11 +46,7 @@ export default function useIpfsFactory () {
     } else {
       try {
         console.time('IPFS Started')
-        ipfs = await create()
-        const validAddress = `/dns4/ipfs.slonig.org/tcp/4001/p2p/12D3KooWGQPM8YaKxsB5rziq4ESLm3ng5vvbri98nM5JLiWKj8uc`;
-        const ma = multiaddr(validAddress);
-        await ipfs.bootstrap.add(ma);
-
+        ipfs = create({ url: 'http://ipfs.slonig.org/api/v0' });
         console.timeEnd('IPFS Started')
       } catch (error) {
         console.error('IPFS init error:', error)
