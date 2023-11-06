@@ -10,6 +10,7 @@ import QRCode from 'qrcode.react';
 import type { KeyringPair } from '@polkadot/keyring/types';
 import { useTranslation } from '../translate';
 import { useIpfsContext } from '@slonigiraf/app-slonig-components';
+import ExerciseList from './ExerciseList';
 
 interface Props {
   className?: string;
@@ -93,23 +94,7 @@ function ViewList({ className = '', id, currentPair, onItemSelected }: Props): R
             <ItemLabel id={item} onClick={_onItemClicked} />
           </div>
         ))}
-        {list.q != null && list.q.map((exercise, index) => (
-          <div className='ui--row' key={index}
-            style={{
-              alignItems: 'center'
-            }}
-          >
-            {/* If you want to display the header and answer of each exercise: */}
-            <div className="exercise-display">
-              <div className="exercise-header">
-                {exercise.h}
-              </div>
-              <div className="exercise-answer">
-                {exercise.a}
-              </div>
-            </div>
-          </div>
-        ))}
+        {list.q != null && <ExerciseList exercises={list.q} />}
       </>
   );
 };
