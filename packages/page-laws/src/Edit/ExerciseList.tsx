@@ -1,34 +1,55 @@
-import React from 'react';
+// ExerciseList.tsx
+
+import React, { useState } from 'react';
+import { Button } from '@polkadot/react-components';
+import { useTranslation } from '../translate.js';
 
 interface ExerciseListProps {
-  exercises: {
-    h: string;
-    a: string;
-  }[];
+    exercises: {
+        h: string;
+        a: string;
+    }[];
 }
 
 const ExerciseList: React.FC<ExerciseListProps> = ({ exercises }) => {
-  return (
-    <>
-      {exercises.map((exercise, index) => (
-        <div className='ui--row' key={index}
-          style={{
-            alignItems: 'center'
-          }}
-        >
-          {/* Display the header and answer of each exercise */}
-          <div className="exercise-display">
-            <div className="exercise-header">
-              {exercise.h}
-            </div>
-            <div className="exercise-answer">
-              {exercise.a}
-            </div>
-          </div>
-        </div>
-      ))}
-    </>
-  );
+    // State to manage which exercises have their answers shown
+    const [shownAnswers, setShownAnswers] = useState<boolean[]>(new Array(exercises.length).fill(false));
+    const { t } = useTranslation();
+
+    const toggleAnswer = (index: number) => {
+        const updatedShownAnswers = [...shownAnswers];
+        updatedShownAnswers[index] = !updatedShownAnswers[index];
+        setShownAnswers(updatedShownAnswers);
+    }
+
+    return (
+        <>
+            {exercises.map((exercise, index) => (
+                <div className='ui--row' key={index}
+                    style={{
+                        alignItems: 'center'
+                    }}
+                >
+                    <div className="exercise-display">
+                        <div className="exercise-header">
+                            <Button 
+                                icon={shownAnswers[index]? 'eye-slash' : 'eye'}
+                                onClick={() => toggleAnswer(index)}
+                                label=''
+                            />
+                            <span>&nbsp;{index+1}. {exercise.h}</span>
+                            
+                        </div>
+                        {shownAnswers[index] && (
+                            <div className="exercise-answer">
+                                <span>{t('Answer')}: {exercise.a}</span>
+                            </div>
+                        )}
+                    </div>
+                </div>
+            ))}
+        </>
+    );
 }
 
 export default ExerciseList;

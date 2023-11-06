@@ -4,7 +4,6 @@ import { useTranslation } from '../translate.js';
 import { parseJson, randomIdHex } from '../util';
 import Reordering from './Reordering';
 import type { LawType } from '../types.js';
-import { useIpfsContext } from '@slonigiraf/app-slonig-components';
 import ExerciseEditorList from './ExerciseEditorList';
 
 interface Props {
