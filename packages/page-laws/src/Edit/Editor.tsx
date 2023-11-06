@@ -5,7 +5,7 @@ import { parseJson, randomIdHex } from '../util';
 import Reordering from './Reordering';
 import type { LawType } from '../types.js';
 import { useIpfsContext } from '@slonigiraf/app-slonig-components';
-import ExerciseEditor from './ExerciseEditor';
+import ExercisesList from './ExercisesList';
 
 interface Props {
   className?: string;
@@ -89,11 +89,7 @@ function Editor(props: Props): React.ReactElement<Props> {
     }
   }, [list, onItemChange, onIsAddingItemChange, lawTypeOpt]);
 
-  const exerciseEditors = list?.t === 3 && list.q
-    ? list.q.map((exercise, index) => 
-        <ExerciseEditor key={index} exercise={exercise} index={index} list={list} onListChange={onListChange} />
-      )
-    : null;
+  
 
   return (
     <>
@@ -134,7 +130,7 @@ function Editor(props: Props): React.ReactElement<Props> {
           </div>
         </>
       )}
-      {exerciseEditors}
+      <ExercisesList list={list} onListChange={onListChange} />
       <div className='ui--row'>
         <Button
           icon='add'
