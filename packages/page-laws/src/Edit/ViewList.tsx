@@ -85,16 +85,24 @@ function ViewList({ className = '', id, currentPair, onItemSelected }: Props): R
           </>
         }
 
-        {list.e != null && list.e.map((item, index) => (
+        {list.q != null && list.q.map((exercise, index) => (
           <div className='ui--row' key={index}
             style={{
               alignItems: 'center'
             }}
           >
-            <ItemLabel id={item} onClick={_onItemClicked} />
+            {/* If you want to display the header and answer of each exercise: */}
+            <div className="exercise-display">
+              <div className="exercise-header">
+                {exercise.h}
+              </div>
+              <div className="exercise-answer">
+                {exercise.a}
+              </div>
+            </div>
           </div>
         ))}
-
+        
       </>
   );
 };
