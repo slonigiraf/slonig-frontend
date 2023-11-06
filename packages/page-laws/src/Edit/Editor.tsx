@@ -26,7 +26,6 @@ function Editor(props: Props): React.ReactElement<Props> {
     0: 1,
     1: 2,
     2: 3,
-    3: 4,
   };
 
   const getDefaultItemLawType = useCallback(() => parentToItemDefaultType[list?.t] || 0, [list]);
@@ -59,7 +58,6 @@ function Editor(props: Props): React.ReactElement<Props> {
     ],
     1: [{ text: t('Module'), value: 2 }],
     2: [{ text: t('Skill'), value: 3 }],
-    3: [{ text: t('Exercise'), value: 4 }],
   };
 
   const lawTypeOpt = baseOptions[list?.t] || [];
@@ -143,15 +141,9 @@ function Editor(props: Props): React.ReactElement<Props> {
               value={list.h}
             />
           </div>
-          {list.t !== 4 && (
-            <div className='ui--row'>
-              <Button
-                icon='add'
-                label={t('Add list item')}
-                onClick={addItem}
-              />
-            </div>
-          )}
+
+
+
           <Reordering list={list} onListChange={onListChange} />
         </>
       )}
@@ -178,6 +170,13 @@ function Editor(props: Props): React.ReactElement<Props> {
         </>
       )}
       {exerciseEditors}
+      <div className='ui--row'>
+        <Button
+          icon='add'
+          label={t('Add list item')}
+          onClick={addItem}
+        />
+      </div>
     </>
   );
 }

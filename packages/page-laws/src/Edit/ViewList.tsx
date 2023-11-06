@@ -84,7 +84,15 @@ function ViewList({ className = '', id, currentPair, onItemSelected }: Props): R
             <h3>{t('Example exercises to train the skill')}</h3>
           </>
         }
-
+        {list.e != null && list.e.map((item, index) => (
+          <div className='ui--row' key={index}
+            style={{
+              alignItems: 'center'
+            }}
+          >
+            <ItemLabel id={item} onClick={_onItemClicked} />
+          </div>
+        ))}
         {list.q != null && list.q.map((exercise, index) => (
           <div className='ui--row' key={index}
             style={{
@@ -102,7 +110,6 @@ function ViewList({ className = '', id, currentPair, onItemSelected }: Props): R
             </div>
           </div>
         ))}
-        
       </>
   );
 };
