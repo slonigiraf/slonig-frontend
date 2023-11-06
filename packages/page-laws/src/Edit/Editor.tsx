@@ -124,8 +124,8 @@ function Editor(props: Props): React.ReactElement<Props> {
     );
   };
 
-  const exerciseEditors = list?.t === 3 && list.e
-    ? list.e.map((exercise, index) => renderExerciseEditor(exercise, index))
+  const exerciseEditors = list?.t === 3 && list.q
+    ? list.q.map((exercise, index) => renderExerciseEditor(exercise, index))
     : null;
 
   return (
