@@ -4,7 +4,7 @@ import React, { useState, useCallback } from 'react';
 import { InputAddress } from '@polkadot/react-components';
 import QRCode from 'qrcode.react';
 
-function PayToAccountQr(): React.ReactElement {
+function PayToAccountQR(): React.ReactElement {
   const [currentPair, setCurrentPair] = useState<KeyringPair | null>(() => keyring.getPairs()[0] || null);
   const _onChangeAccount = useCallback(
     (accountId: string | null) => accountId && setCurrentPair(keyring.getPair(accountId)),
@@ -32,4 +32,4 @@ function PayToAccountQr(): React.ReactElement {
   );
 }
 
-export default React.memo(PayToAccountQr);
+export default React.memo(PayToAccountQR);

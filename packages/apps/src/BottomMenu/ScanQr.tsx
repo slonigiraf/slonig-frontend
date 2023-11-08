@@ -9,13 +9,13 @@ import { createAndStoreLetter } from '@slonigiraf/app-recommendations';
 
 function ScanQR(): React.ReactElement {
   const { t } = useTranslation();
-  const [isQrOpen, toggleQr] = useToggle();
+  const [isQROpen, toggleQR] = useToggle();
   const [isTransferOpen, toggleTransfer] = useToggle();
   const [recipientId, setRecipientId] = useState<string>('');
   const navigate = useNavigate();
 
   // Process the scanned QR data
-  const processQr = useCallback(async (data: string) => {
+  const processQR = useCallback(async (data: string) => {
     try {
       const jsonData = JSON.parse(data);
 
@@ -43,32 +43,32 @@ function ScanQR(): React.ReactElement {
     } catch (error) {
       console.error("Error parsing QR data as JSON:", error);
     }
-    toggleQr();
-  }, [navigate, toggleQr, toggleTransfer]);
+    toggleQR();
+  }, [navigate, toggleQR, toggleTransfer]);
 
   // Handle the QR Scanner result
-  const handleQrResult = useCallback((result, error) => {
+  const handleQRResult = useCallback((result, error) => {
     if (result != undefined) {
-      processQr(result?.getText());
+      processQR(result?.getText());
     }
-  }, [processQr]);
+  }, [processQR]);
 
   return (
     <>
       <ButtonWithLabelBelow
         icon='qrcode'
-        label={t('Scan Qr')}
-        onClick={toggleQr}
+        label={t('Scan QR')}
+        onClick={toggleQR}
       />
-      {isQrOpen && (
+      {isQROpen && (
         <Modal
           header={t('Scan a QR code')}
-          onClose={toggleQr}
+          onClose={toggleQR}
           size='small'
         >
           <Modal.Content>
             <QRScanner
-              onResult={handleQrResult}
+              onResult={handleQRResult}
               constraints={{ facingMode: 'environment' }}
             />
           </Modal.Content>
