@@ -4,7 +4,7 @@ import { QRScanner } from '@slonigiraf/app-slonig-components';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from '../translate.js';
 import { Modal, TransferModal } from '@polkadot/react-components';
-import { ButtonWithLabelBelow } from './ButtonWithLabelBelow.jsx';
+import { ButtonWithLabelBelow } from './ButtonWithLabelBelow';
 import { createAndStoreLetter } from '@slonigiraf/app-recommendations';
 
 function ScanQR(): React.ReactElement {
