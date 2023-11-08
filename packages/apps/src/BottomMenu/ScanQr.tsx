@@ -1,13 +1,13 @@
 import React, { useState, useCallback } from 'react';
 import { useToggle } from '@polkadot/react-hooks';
-import { QrScanner } from '@slonigiraf/app-slonig-components';
+import { QRScanner } from '@slonigiraf/app-slonig-components';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from '../translate.js';
 import { Modal, TransferModal } from '@polkadot/react-components';
-import { ButtonWithLabelBelow } from './ButtonWithLabelBelow';
+import { ButtonWithLabelBelow } from './ButtonWithLabelBelow.jsx';
 import { createAndStoreLetter } from '@slonigiraf/app-recommendations';
 
-function ScanQr(): React.ReactElement {
+function ScanQR(): React.ReactElement {
   const { t } = useTranslation();
   const [isQrOpen, toggleQr] = useToggle();
   const [isTransferOpen, toggleTransfer] = useToggle();
@@ -67,7 +67,7 @@ function ScanQr(): React.ReactElement {
           size='small'
         >
           <Modal.Content>
-            <QrScanner
+            <QRScanner
               onResult={handleQrResult}
               constraints={{ facingMode: 'environment' }}
             />
@@ -85,4 +85,4 @@ function ScanQr(): React.ReactElement {
   );
 }
 
-export default React.memo(ScanQr);
+export default React.memo(ScanQR);

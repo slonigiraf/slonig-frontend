@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import React, { useCallback, useState } from 'react';
-import { QrScanner } from '@slonigiraf/app-slonig-components';
+import { QRScanner } from '@slonigiraf/app-slonig-components';
 import InsurancesList from './InsurancesList';
 import { IPFS } from 'ipfs-core';
 import { useTranslation } from '../translate';
@@ -102,7 +102,7 @@ function Employer({ className = '', ipfs }: Props): React.ReactElement<Props> {
           size='small'
         >
           <Modal.Content>
-            <QrScanner
+            <QRScanner
               onResult={(result, error) => {
                 if (result != undefined) {
                   storeLetter(result?.getText())

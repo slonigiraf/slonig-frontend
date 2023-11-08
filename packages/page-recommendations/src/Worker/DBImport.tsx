@@ -6,7 +6,7 @@ import { useIpfsContext } from '@slonigiraf/app-slonig-components';
 import { Button, Modal } from '@polkadot/react-components';
 import { useTranslation } from '../translate';
 import "dexie-export-import";
-import { QrScanner } from '@slonigiraf/app-slonig-components';
+import { QRScanner } from '@slonigiraf/app-slonig-components';
 import { getIPFSDataFromContentID } from '@slonigiraf/helpers';
 import { syncDB } from '../utils';
 
@@ -37,7 +37,7 @@ function DBImport({ className = '' }: Props): React.ReactElement<Props> {
     size='small'
   >
     <Modal.Content>
-      <QrScanner
+      <QRScanner
         onResult={(result, error) => {
           if (result != undefined) {
             storeData(result?.getText());
