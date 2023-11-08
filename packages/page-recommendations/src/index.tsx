@@ -31,15 +31,15 @@ function AccountsApp ({ basePath, onStatusChange }: Props): React.ReactElement<P
     {
       isRoot: true,
       name: 'my',
-      text: t('My')
+      text: t('Student')
     },
     {
       name: 'validate',
-      text: t('Validate')
+      text: t('Teacher')
     },
     {
       name: 'issue',
-      text: t('Issue')
+      text: t('Mentor')
     },
   ]);
 
