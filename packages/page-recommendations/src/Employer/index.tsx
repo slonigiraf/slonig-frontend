@@ -71,9 +71,9 @@ function Employer({ className = '', ipfs }: Props): React.ReactElement<Props> {
 
   return (
     <div className={`toolbox--Worker ${className}`}>
-      <h2>{t('Show the Qr to a student to see their results')}</h2>
+      <h2>{t('Show the QR to a student to see their results')}</h2>
       <QRCode value={qrToBuyDiplomas} />
-      <h2>{t('Workers\' diplomas')}</h2>
+      <h2>{t('Students\' diplomas')}</h2>
       <div className='ui--row' style={{ display: 'none' }}>
         <InputAddress
           className='full'
@@ -84,13 +84,13 @@ function Employer({ className = '', ipfs }: Props): React.ReactElement<Props> {
           onChange={_onChangeAccount}
         />
       </div>
-      <div className='ui--row'>
+      {/* <div className='ui--row'>
         <Button
           icon='plus'
           label={t('Add worker\'s letter')}
           onClick={() => setModalIsOpen(true)}
         />
-      </div>
+      </div> */}
       <div className='ui--row'>
         <InsurancesList ipfs={ipfs} employer={u8aToHex(currentPair?.publicKey)} />
       </div>

@@ -34,12 +34,12 @@ function AccountsApp ({ basePath, onStatusChange }: Props): React.ReactElement<P
       text: t('Student')
     },
     {
-      name: 'validate',
-      text: t('Teacher')
+      name: 'mentor',
+      text: t('Mentor')
     },
     {
-      name: 'issue',
-      text: t('Mentor')
+      name: 'teacher',
+      text: t('Teacher')
     },
   ]);
 
@@ -56,7 +56,7 @@ function AccountsApp ({ basePath, onStatusChange }: Props): React.ReactElement<P
             element={
               <Employer onStatusChange={onStatusChange} />
             }
-            path='validate'
+            path='teacher'
           />
           <Route
             element={
@@ -68,7 +68,7 @@ function AccountsApp ({ basePath, onStatusChange }: Props): React.ReactElement<P
             element={
               <Referee onStatusChange={onStatusChange} />
             }
-            path='issue'
+            path='mentor'
           />
         </Route>
       </Routes>

@@ -71,7 +71,7 @@ function ViewList({ className = '', id, currentPair, onItemSelected }: Props): R
 
   const publicKeyU8 = currentPair.publicKey;
   const publicKeyHex = u8aToHex(publicKeyU8);
-  const qrText = `{"q": 0,"d": "recommendations/issue?cid=${cidString}&person=${publicKeyHex}"}`;
+  const qrText = `{"q": 0,"d": "recommendations/mentor?cid=${cidString}&person=${publicKeyHex}"}`;
 
   return (
     list == null ? "" :
@@ -80,7 +80,7 @@ function ViewList({ className = '', id, currentPair, onItemSelected }: Props): R
         {
           list.t !== null && list.t === 3 &&
           <>
-            <h3>{t('Show the Qr to your mentor')}</h3>
+            <h3>{t('Show the QR to your mentor')}</h3>
             <QRCode value={qrText} />
             <h3>{t('Example exercises to train the skill')}</h3>
           </>

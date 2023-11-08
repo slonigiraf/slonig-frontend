@@ -200,7 +200,7 @@ function Referee({ className = '' }: Props): React.ReactElement<Props> {
 
   return (
     <div className={`toolbox--Sign ${className}`}>
-      <h1>{t('Create a diploma')}</h1>
+      <h2>{t('Teach and create a diploma')}</h2>
       <div className='ui--row' style={{ display: 'none' }}>
         <InputAddress
           className='full'
