@@ -13,7 +13,7 @@ export default function create (t: TFunction): Route {
     },
     group: 'accounts',
     icon: 'list',
-    name: 'curriculum',
-    text: t('nav.curriculum', ' ', { ns: 'apps-routing' })
+    name: 'knowledge',
+    text: t('nav.knowledge', 'Knowledge', { ns: 'apps-routing' })
   };
 }

@@ -1,17 +1,17 @@
 import React from 'react';
 import styled from 'styled-components';
 import ScanQR from './ScanQR';
-import ShowCourses from './ShowCourses';
+import GoKnowledge from './GoKnowledge';
 import GetSLON from './GetSLON';
-import GetBonuses from './GetBonuses';
+import GoDiplomas from './GoDiplomas';
 
 
 function BottomMenu(): React.ReactElement {
   return (
     <MenuWrapper>
-      <MenuItem><ShowCourses /></MenuItem>
+      <MenuItem><GoKnowledge /></MenuItem>
       <MenuItem><ScanQR /></MenuItem>
-      <MenuItem><GetBonuses /></MenuItem>
+      <MenuItem><GoDiplomas /></MenuItem>
       <MenuItem><GetSLON /></MenuItem>
     </MenuWrapper>
   );

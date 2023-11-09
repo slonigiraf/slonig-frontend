@@ -28,7 +28,7 @@ import poll from './poll.js';
 import preimages from './preimages.js';
 import ranked from './ranked.js';
 import diplomas from './diplomas.js';
-import curriculum from './curriculum.js';
+import knowledge from './knowledge.js';
 import referenda from './referenda.js';
 import rpc from './rpc.js';
 import runtime from './runtime.js';
@@ -57,7 +57,7 @@ export default function create (t: TFunction): Routes {
     poll(t),
     transfer(t),
     teleport(t),
-    curriculum(t),
+    knowledge(t),
     diplomas(t),
     staking(t),
     staking2(t),

@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { useTranslation } from '../translate.js';
 import { ButtonWithLabelBelow } from './ButtonWithLabelBelow';
 
-function ShowCourses(): React.ReactElement {
+function GoDiplomas(): React.ReactElement {
   const { t } = useTranslation();
   const navigate = useNavigate();
 
@@ -22,4 +22,4 @@ function ShowCourses(): React.ReactElement {
   );
 }
 
-export default ShowCourses;
+export default GoDiplomas;

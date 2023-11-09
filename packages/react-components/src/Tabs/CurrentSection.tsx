@@ -40,6 +40,12 @@ const StyledDiv = styled.div`
     max-height: 1rem;
   }
 
+  @media only screen and (max-width: 900px) {
+    &.active-tab span {
+      display: none;
+    }
+  }
+
 `;
 
 export default React.memo(CurrentSection);
