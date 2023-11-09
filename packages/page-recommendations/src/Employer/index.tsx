@@ -6,7 +6,7 @@ import { QRScanner } from '@slonigiraf/app-slonig-components';
 import InsurancesList from './InsurancesList';
 import { IPFS } from 'ipfs-core';
 import { useTranslation } from '../translate';
-import { Button, InputAddress, Modal } from '@polkadot/react-components';
+import { InputAddress, Modal } from '@polkadot/react-components';
 import { storeInsurance } from '../utils';
 import type { KeyringPair } from '@polkadot/keyring/types';
 import { keyring } from '@polkadot/ui-keyring';

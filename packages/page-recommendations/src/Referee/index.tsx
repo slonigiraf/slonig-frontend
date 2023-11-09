@@ -4,7 +4,6 @@
 import BN from 'bn.js';
 import QRCode from 'qrcode.react';
 import { getPublicDataToSignByReferee, getPrivateDataToSignByReferee } from '@slonigiraf/helpers';
-import { BN_ZERO } from '@polkadot/util';
 import type { Signer } from '@polkadot/api/types';
 import type { KeyringPair } from '@polkadot/keyring/types';
 import React, { useCallback, useEffect, useState } from 'react';
@@ -221,7 +220,6 @@ function Referee({ className = '' }: Props): React.ReactElement<Props> {
 
       <div className='ui--row'>
         <InputBalance
-          autoFocus
           help={t('Stake reputation help info')}
           isZeroable
           label={t('stake reputation')}
@@ -231,7 +229,6 @@ function Referee({ className = '' }: Props): React.ReactElement<Props> {
       </div>
       <div className='ui--row'>
         <Input
-          autoFocus
           className='full'
           help={t('Block number help info TODO')}
           label={t('block number')}
