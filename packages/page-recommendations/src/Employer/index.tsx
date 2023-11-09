@@ -67,7 +67,7 @@ function Employer({ className = '', ipfs }: Props): React.ReactElement<Props> {
     storeInsurance(insurance);
   }
 
-  const qrToBuyDiplomas = `{"q": 0,"d": "recommendations?employer=${currentPair.address}"}`;
+  const qrToBuyDiplomas = `{"q": 0,"d": "diplomas?employer=${currentPair.address}"}`;
 
   return (
     <div className={`toolbox--Worker ${className}`}>

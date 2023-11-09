@@ -13,7 +13,7 @@ export default function create (t: TFunction): Route {
     },
     group: 'accounts',
     icon: 'award',
-    name: 'recommendations',
+    name: 'diplomas',
     text: t('nav.diplomas', 'Diplomas', { ns: 'apps-routing' })
   };
 }

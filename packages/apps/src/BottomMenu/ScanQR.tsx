@@ -32,7 +32,7 @@ function ScanQR(): React.ReactElement {
           case 2: // Add a letter
             const dataArray = jsonData.d.split(",");
             await createAndStoreLetter(dataArray);
-            navigate('recommendations');
+            navigate('diplomas');
             break;
           default:
             console.warn("Unknown QR type:", jsonData.q);

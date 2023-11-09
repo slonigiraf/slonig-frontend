@@ -30,7 +30,7 @@ function AccountsApp ({ basePath, onStatusChange }: Props): React.ReactElement<P
   const tabsRef = useRef([
     {
       isRoot: true,
-      name: 'my',
+      name: 'student',
       text: t('Student')
     },
     {

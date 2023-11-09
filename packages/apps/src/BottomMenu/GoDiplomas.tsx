@@ -8,7 +8,7 @@ function GoDiplomas(): React.ReactElement {
   const navigate = useNavigate();
 
   const _onClick = () => {
-    navigate('recommendations');
+    navigate('diplomas');
   }
 
   return (
