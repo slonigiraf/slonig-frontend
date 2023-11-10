@@ -75,12 +75,14 @@ function LettersList({ className = '', worker }: Props): React.ReactElement<Prop
 
   const selectDeselect = (selectedLetters.length === 0) ? selectionButton : deselectionButton;
 
+  
+
   const sellInfo = (
     <div style={{ display: 'flex', alignItems: 'center' }}>
       <h3 style={{ margin: 0, marginRight: '10px' }}>
         {t('Select diplomas and press')}:
       </h3>
-      {letters && letters.length > 0 && <SignLettersUseRight letter={letters[0]} employerPublicKeyHex={employer}/>}
+      <SignLettersUseRight letters={selectedLetters} employerPublicKeyHex={employer}/>
     </div>
   );
 

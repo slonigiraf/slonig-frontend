@@ -19,7 +19,7 @@ import { storeLetterUsageRight } from '../utils';
 
 interface Props {
   className?: string;
-  letter: Letter;
+  letters: Letter[];
   employerPublicKeyHex: string;
 }
 
@@ -34,7 +34,7 @@ interface SignerState {
   signer: Signer | null;
 }
 
-function SignLetterUseRight({ className = '', letter, employerPublicKeyHex }: Props): React.ReactElement<Props> {
+function SignLetterUseRight({ className = '', letters, employerPublicKeyHex }: Props): React.ReactElement<Props> {
   const { t } = useTranslation();
   const [currentPair, setCurrentPair] = useState<KeyringPair | null>(() => keyring.getPairs()[0] || null);
   const [{ isInjected }, setAccountState] = useState<AccountState>({ isExternal: false, isHardware: false, isInjected: false });
@@ -83,42 +83,53 @@ function SignLetterUseRight({ className = '', letter, employerPublicKeyHex }: Pr
       if (isLocked || !isUsable || !currentPair) {
         return;
       }
-      // generate a data to sign      
-      const letterInsurance = getDataToSignByWorker(letter.letterNumber, new BN(letter.block), hexToU8a(letter.referee),
-      hexToU8a(letter.worker), new BN(letter.amount), hexToU8a(letter.signOverReceipt), hexToU8a(employerPublicKeyHex));
-      let workerSignOverInsurance = "";
-      // sign
-      if (signer && isFunction(signer.signRaw)) {// Use browser extenstion 
-        const u8WorkerSignOverInsurance = await signer.signRaw({
-          address: currentPair.address,
-          data: u8aToHex(letterInsurance),
-          type: 'bytes'
-        });
-        workerSignOverInsurance = u8WorkerSignOverInsurance.signature;
+      let signedLettersPromises = letters.map(async letter => {
+        // generate a data to sign      
+        const letterInsurance = getDataToSignByWorker(letter.letterNumber, new BN(letter.block), hexToU8a(letter.referee),
+          hexToU8a(letter.worker), new BN(letter.amount), hexToU8a(letter.signOverReceipt), hexToU8a(employerPublicKeyHex));
+        let workerSignOverInsurance = "";
+        // sign
+        if (signer && isFunction(signer.signRaw)) {// Use browser extenstion 
+          const u8WorkerSignOverInsurance = await signer.signRaw({
+            address: currentPair.address,
+            data: u8aToHex(letterInsurance),
+            type: 'bytes'
+          });
+          workerSignOverInsurance = u8WorkerSignOverInsurance.signature;
 
-      } else {// Use locally stored account to sign
-        workerSignOverInsurance = u8aToHex(currentPair.sign(u8aWrapBytes(letterInsurance)));
-      }
-      // create the result text
-      let result = [];
-      result.push(letter.cid);
-      result.push(letter.genesis);
-      result.push(letter.letterNumber);
-      result.push(letter.block);
-      result.push(letter.referee);
-      result.push(letter.worker);
-      result.push(letter.amount);
-      result.push(letter.signOverPrivateData);
-      result.push(letter.signOverReceipt);
-      result.push(employerPublicKeyHex);
-      result.push(workerSignOverInsurance);
-      const letterInfo = result.join(",");
+        } else {// Use locally stored account to sign
+          workerSignOverInsurance = u8aToHex(currentPair.sign(u8aWrapBytes(letterInsurance)));
+        }
+        storeLetterUsageRight(letter, employerPublicKeyHex, workerSignOverInsurance);
+        // create the result text
+        let result = [];
+        result.push(letter.cid);
+        result.push(letter.genesis);
+        result.push(letter.letterNumber);
+        result.push(letter.block);
+        result.push(letter.referee);
+        result.push(letter.worker);
+        result.push(letter.amount);
+        result.push(letter.signOverPrivateData);
+        result.push(letter.signOverReceipt);
+        result.push(workerSignOverInsurance);
+        return result.join(",");
+      });
+
+      const signedLetters = await Promise.all(signedLettersPromises);
+
+      const qrData = {
+        q: 5,
+        e: employerPublicKeyHex,
+        d: signedLetters
+      };
+      const qrCodeText = JSON.stringify(qrData);
       // show QR
-      storeLetterUsageRight(letter, employerPublicKeyHex, workerSignOverInsurance);
-      setLetterInfo(letterInfo);
+      console.log("qrCodeText: ", qrCodeText)
+      setLetterInfo(qrCodeText);
       toggleQR();
     },
-    [currentPair, isLocked, isUsable, signer, employerPublicKeyHex]
+    [currentPair, isLocked, isUsable, signer, employerPublicKeyHex, letters]
   );
 
   const _onUnlock = useCallback(
@@ -129,7 +140,7 @@ function SignLetterUseRight({ className = '', letter, employerPublicKeyHex }: Pr
     [toggleUnlock]
   );
 
-  
+
   return (
     <div className={`toolbox--Sign ${className}`}>
 
@@ -197,7 +208,7 @@ function SignLetterUseRight({ className = '', letter, employerPublicKeyHex }: Pr
         )}
         {!isLocked && (<Button
           icon='dollar'
-          isDisabled={!(isUsable && !isLocked )}
+          isDisabled={!(isUsable && !isLocked)}
           label={t('Get bonuses')}
           onClick={_onSign}
         />)}
@@ -209,7 +220,7 @@ function SignLetterUseRight({ className = '', letter, employerPublicKeyHex }: Pr
           size='small'
         >
           <Modal.Content>
-          <QRCode value={letterInfo} size={qrCodeSize} />
+            <QRCode value={letterInfo} size={qrCodeSize} />
           </Modal.Content>
         </Modal>
       )}
