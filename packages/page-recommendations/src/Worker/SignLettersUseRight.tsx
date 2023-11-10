@@ -126,7 +126,11 @@ function SignLetterUseRight({ className = '', letters, employerPublicKeyHex }: P
       const qrCodeText = JSON.stringify(qrData);
       // show QR
       console.log("qrCodeText: ", qrCodeText)
-      setLetterInfo(qrCodeText);
+      if(letters.length < 5){
+        setLetterInfo(qrCodeText);
+      } else{
+        setLetterInfo("implement this");
+      }
       toggleQR();
     },
     [currentPair, isLocked, isUsable, signer, employerPublicKeyHex, letters]
