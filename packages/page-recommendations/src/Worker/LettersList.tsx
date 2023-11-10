@@ -23,7 +23,7 @@ function LettersList({ className = '', worker }: Props): React.ReactElement<Prop
   const { t } = useTranslation();
   const location = useLocation();
   const queryParams = new URLSearchParams(location.search);
-  const employer = queryParams.get("employer") || "";
+  const employer = queryParams.get("teacher") || "";
   console.log("selectedLetters: " + selectedLetters);
 
   const toggleLetterSelection = (letter: Letter) => {

@@ -29,11 +29,15 @@ function ScanQR(): React.ReactElement {
             setRecipientId(jsonData.d);
             toggleTransfer();
             break;
-          case 2: // Add a letter
+          case 2: // Add a diploma
             const dataArray = jsonData.d.split(",");
             await createAndStoreLetter(dataArray);
             navigate('diplomas');
             break;
+          case 3: // See a list of student's diplomas
+            // await storeInsurances(jsonData);
+            navigate(`diplomas/teacher?student=${jsonData.s}`);
+            break;  
           default:
             console.warn("Unknown QR type:", jsonData.q);
         }

@@ -117,14 +117,14 @@ function SignLetterUseRight({ className = '', letters, worker, employer }: Props
       });
 
       const signedLetters = await Promise.all(signedLettersPromises);
-      const [_isAddressExtracted,, extractedName] = getAddressName(currentPair.address, null, "");
+      const [_isAddressExtracted,, studentName] = getAddressName(currentPair.address, null, "");
 
 
       const qrData = {
         q: 5,
-        w: worker,
-        n: extractedName,
-        e: employer,
+        s: worker,
+        n: studentName,
+        t: employer,
         d: signedLetters
       };
       const qrCodeText = JSON.stringify(qrData);

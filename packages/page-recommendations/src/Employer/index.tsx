@@ -71,7 +71,7 @@ function Employer({ className = '', ipfs }: Props): React.ReactElement<Props> {
   if(currentPair !== null){
     publicKeyHex = u8aToHex(currentPair.publicKey);
   }
-  const qrToBuyDiplomas = `{"q": 0,"d": "diplomas?employer=${publicKeyHex}"}`;
+  const qrToBuyDiplomas = `{"q": 0,"d": "diplomas?teacher=${publicKeyHex}"}`;
 
   return (
     <div className={`toolbox--Worker ${className}`}>
