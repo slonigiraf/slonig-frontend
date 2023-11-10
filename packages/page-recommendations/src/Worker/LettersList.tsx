@@ -9,6 +9,7 @@ import { db } from "../db";
 import { Letter } from "./Letter";
 import { Button } from '@polkadot/react-components';
 import { useTranslation } from '../translate';
+import { useLocation } from 'react-router-dom';
 
 interface Props {
   className?: string;
@@ -19,6 +20,9 @@ function LettersList({ className = '', worker }: Props): React.ReactElement<Prop
   const { ipfs, isIpfsReady, ipfsInitError } = useIpfsContext();
   const [selectedLetters, setSelectedLetters] = useState<Letter[]>([]);
   const { t } = useTranslation();
+  const location = useLocation();
+  const queryParams = new URLSearchParams(location.search);
+  const employer = queryParams.get("employer") || "";
   console.log("selectedLetters: " + selectedLetters);
 
   const toggleLetterSelection = (letter: Letter) => {
@@ -36,6 +40,11 @@ function LettersList({ className = '', worker }: Props): React.ReactElement<Prop
         .equals(worker)
         .sortBy("id"),
     [worker]
+  );
+
+  const _sell = useCallback(
+    () => { },
+    []
   );
 
   const _selectAll = useCallback(
@@ -62,18 +71,26 @@ function LettersList({ className = '', worker }: Props): React.ReactElement<Prop
 
   const selectDeselect = (selectedLetters.length === 0) ? selectionButton : deselectionButton;
 
-  const sellByQr = <Button
-    icon={'fa-dollar-sign'}
-    label={t('Get bonuses')}
-    onClick={_deselectAll}
-  />;
+  const sellInfo = (
+    <div style={{ display: 'flex', alignItems: 'center' }}>
+      <h3 style={{ margin: 0, marginRight: '10px' }}>
+        {t('Select diplomas and press')}:
+      </h3>
+      <Button
+        icon={'fa-dollar-sign'}
+        label={t('Get Bonuses')}
+        onClick={_deselectAll}
+      />
+    </div>
+  );
 
   return (
     !letters ? <div></div> :
       <div>
+        <h2>{t('My diplomas')}</h2>
+        {employer !== "" && sellInfo}
         <div className='ui--row'>
           {selectDeselect}
-          {sellByQr}
         </div>
         {letters.map((letter, index) => (
           <div key={index} className='ui--row'>
