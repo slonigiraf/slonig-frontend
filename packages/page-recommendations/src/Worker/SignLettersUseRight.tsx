@@ -117,7 +117,7 @@ function SignLetterUseRight({ className = '', letters, worker, employer }: Props
       });
 
       const signedLetters = await Promise.all(signedLettersPromises);
-      const [_isAddressExtracted,, studentName] = getAddressName(currentPair.address, null, "");
+      const [_isAddressExtracted, , studentName] = getAddressName(currentPair.address, null, "");
 
 
       const qrData = {
@@ -130,11 +130,7 @@ function SignLetterUseRight({ className = '', letters, worker, employer }: Props
       const qrCodeText = JSON.stringify(qrData);
       console.log(qrCodeText)
       // show QR
-      if(letters.length < 5){
-        setLetterInfo(qrCodeText);
-      } else{
-        setLetterInfo("implement this");
-      }
+      setLetterInfo(letters.length > 0 && letters.length < 5 ? qrCodeText : "");
       toggleQR();
     },
     [currentPair, isLocked, isUsable, signer, worker, employer, letters]
@@ -148,8 +144,8 @@ function SignLetterUseRight({ className = '', letters, worker, employer }: Props
     [toggleUnlock]
   );
 
-  
-  
+
+
 
   return (
     <div className={`toolbox--Sign ${className}`}>
@@ -224,12 +220,14 @@ function SignLetterUseRight({ className = '', letters, worker, employer }: Props
       </Button.Group>
       {isQROpen && (
         <Modal
-          header={t('Show this QR to your teacher')}
+          header={letterInfo === "" ? t('Warning') : t('Show this QR to your teacher')}
           onClose={toggleQR}
           size='small'
         >
           <Modal.Content>
-            <QRCode value={letterInfo} size={qrCodeSize} />
+            {letterInfo === "" ? <h2>{t('Select at least 1 and no more than 4 diplomas')}</h2> :
+              <QRCode value={letterInfo} size={qrCodeSize} />
+            }
           </Modal.Content>
         </Modal>
       )}
