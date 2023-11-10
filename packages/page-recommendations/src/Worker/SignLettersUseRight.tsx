@@ -7,7 +7,7 @@ import type { Signer } from '@polkadot/api/types';
 import type { KeyringPair } from '@polkadot/keyring/types';
 import React, { useCallback, useEffect, useState } from 'react';
 import { web3FromSource } from '@polkadot/extension-dapp';
-import { Button, Input, InputAddress, Output } from '@polkadot/react-components';
+import { Button, Modal, InputAddress, Output } from '@polkadot/react-components';
 import { useToggle } from '@polkadot/react-hooks';
 import { keyring } from '@polkadot/ui-keyring';
 import { isFunction, u8aToHex, hexToU8a, u8aWrapBytes } from '@polkadot/util';
@@ -43,7 +43,7 @@ function SignLetterUseRight({ className = '', letter, employerPublicKeyHex }: Pr
   const [signature, setSignature] = useState('');
   const [isUnlockVisible, toggleUnlock] = useToggle();
   const [letterInfo, setLetterInfo] = useState('')
-  const [modalIsOpen, setModalIsOpen] = useState(false)
+  const [isQROpen, toggleQR] = useToggle();
 
   // const [textHash, letterId, blockNumber, refereeAddress,
   //   workerAddress, amount, refereeSignOverPrivateData, refereeSignOverReceipt] = letter.split(",");
@@ -128,7 +128,7 @@ function SignLetterUseRight({ className = '', letter, employerPublicKeyHex }: Pr
       // show QR
       storeLetterUsageRight(letter, employerPublicKeyHex, workerSignOverInsurance);
       setLetterInfo(letterInfo);
-      setModalIsOpen(true);
+      toggleQR();
     },
     [currentPair, isLocked, isUsable, signer, employerPublicKeyHex]
   );
@@ -141,9 +141,7 @@ function SignLetterUseRight({ className = '', letter, employerPublicKeyHex }: Pr
     [toggleUnlock]
   );
 
-  const qrPart = modalIsOpen ? <div><h2>{t('Scan this from an employer account')}</h2><QRCode value={letterInfo} size={qrCodeSize} /></div>
-   : ""
-
+  
   return (
     <div className={`toolbox--Sign ${className}`}>
 
@@ -216,7 +214,17 @@ function SignLetterUseRight({ className = '', letter, employerPublicKeyHex }: Pr
           onClick={_onSign}
         />)}
       </Button.Group>
-      {qrPart}
+      {isQROpen && (
+        <Modal
+          header={t('Show this QR to your teacher')}
+          onClose={toggleQR}
+          size='small'
+        >
+          <Modal.Content>
+          <QRCode value={letterInfo} size={qrCodeSize} />
+          </Modal.Content>
+        </Modal>
+      )}
     </div>
   );
 }
