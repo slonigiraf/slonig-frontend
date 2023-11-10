@@ -98,6 +98,7 @@ export { default as Tooltip } from './Tooltip.js';
 export { default as TxButton } from './TxButton.js';
 export { default as VoteAccount } from './VoteAccount.js';
 export { default as VoteValue } from './VoteValue.js';
+export { getAddressName } from './util/index.js';
 
 // star exports
 export * from './modals/index.js';
