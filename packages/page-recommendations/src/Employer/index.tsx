@@ -67,7 +67,11 @@ function Employer({ className = '', ipfs }: Props): React.ReactElement<Props> {
     storeInsurance(insurance);
   }
 
-  const qrToBuyDiplomas = `{"q": 0,"d": "diplomas?employer=${currentPair.address}"}`;
+  let publicKeyHex = "";
+  if(currentPair !== null){
+    publicKeyHex = u8aToHex(currentPair.publicKey);
+  }
+  const qrToBuyDiplomas = `{"q": 0,"d": "diplomas?employer=${publicKeyHex}"}`;
 
   return (
     <div className={`toolbox--Worker ${className}`}>
