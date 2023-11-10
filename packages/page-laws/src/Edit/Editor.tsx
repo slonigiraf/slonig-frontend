@@ -1,7 +1,8 @@
 import React, { useCallback, useState, useRef } from 'react';
 import { Button, Dropdown, Input } from '@polkadot/react-components';
 import { useTranslation } from '../translate.js';
-import { parseJson, randomIdHex } from '../util';
+import { randomIdHex } from '../util';
+import { parseJson } from '@slonigiraf/helpers';
 import Reordering from './Reordering';
 import type { LawType } from '../types.js';
 import ExerciseEditorList from './ExerciseEditorList';

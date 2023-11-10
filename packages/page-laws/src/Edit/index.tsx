@@ -16,7 +16,7 @@ import { useTranslation } from '../translate.js';
 import Unlock from '@polkadot/app-signing/Unlock';
 import { useIpfsContext } from '@slonigiraf/app-slonig-components';
 import { useApi } from '@polkadot/react-hooks';
-import { parseJson } from '@slonigiraf/app-slonig-components';
+import { parseJson } from '@slonigiraf/helpers';
 import Editor from './Editor';
 import ViewList from './ViewList';
 import { useRouting } from './useRouting';

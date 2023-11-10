@@ -3,10 +3,9 @@
 
 import { Button, Modal } from '@polkadot/react-components';
 import React, { useState, useEffect } from 'react'
-import { getIPFSDataFromContentID } from '@slonigiraf/helpers'
+import { getIPFSDataFromContentID, parseJson } from '@slonigiraf/helpers'
 import { useTranslation } from '../translate';
 import { Letter } from '../db/Letter';
-import { parseJson } from '@slonigiraf/app-slonig-components';
 import LetterDetailsModal from './LetterDetailsModal';
 import { useIpfsContext } from '@slonigiraf/app-slonig-components';
 

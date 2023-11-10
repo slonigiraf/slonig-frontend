@@ -1,9 +1,8 @@
 import React from 'react';
 import React, { useCallback, useEffect, useState } from 'react';
-import { getCIDFromBytes, getIPFSDataFromContentID } from '@slonigiraf/helpers';
+import { getCIDFromBytes, getIPFSDataFromContentID, parseJson } from '@slonigiraf/helpers';
 import { u8aToHex } from '@polkadot/util';
 import { useApi } from '@polkadot/react-hooks';
-import { parseJson } from '@slonigiraf/app-slonig-components';
 import { BN_ZERO } from '@polkadot/util';
 import ItemLabel from './ItemLabel';
 import QRCode from 'qrcode.react';

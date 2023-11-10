@@ -19,8 +19,7 @@ import { qrCodeSize } from '../constants';
 import { getLastUnusedLetterNumber, setLastUsedLetterNumber, storeLetter } from '../utils';
 import { statics } from '@polkadot/react-api/statics';
 import { useLocation } from 'react-router-dom';
-import { getIPFSDataFromContentID } from '@slonigiraf/helpers'
-import { parseJson } from '@slonigiraf/app-slonig-components';
+import { getIPFSDataFromContentID, parseJson } from '@slonigiraf/helpers'
 
 interface Props {
   className?: string;

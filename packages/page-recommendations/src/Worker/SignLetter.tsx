@@ -4,11 +4,10 @@
 import { Button, Modal } from '@polkadot/react-components';
 import React, { useState, useEffect } from 'react'
 import SignLetterUseRight from './SignLetterUseRight'
-import { getIPFSDataFromContentID } from '@slonigiraf/helpers'
+import { getIPFSDataFromContentID, parseJson } from '@slonigiraf/helpers'
 import { useTranslation } from '../translate';
 import { IPFS } from 'ipfs-core';
 import { Letter } from '../db/Letter';
-import { parseJson } from '@slonigiraf/app-slonig-components';
 
 interface Props {
   className?: string;
