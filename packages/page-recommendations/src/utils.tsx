@@ -113,3 +113,58 @@ export const createAndStoreLetter = async (data: string[]) => {
     };
     await storeLetter(letter);
   }
+
+  export const storeInsurances = async (jsonData: any) => {
+    // Check if jsonData.d is an array and has elements
+    if (Array.isArray(jsonData.d) && jsonData.d.length > 0) {
+        // Get the worker and employer public key hex values from jsonData
+        const workerPublicKeyHex = jsonData.s;
+        const employerPublicKeyHex = jsonData.t;
+
+        // Process each insurance data string
+        for (const insuranceDataString of jsonData.d) {
+            // Split the insurance data string into an array
+            const insuranceDataArray = insuranceDataString.split(",");
+
+            // Add worker and employer public key hex to the start of the array
+            insuranceDataArray.unshift(workerPublicKeyHex, employerPublicKeyHex);
+
+            // Use createAndStoreInsurance for each insurance
+            await createAndStoreInsurance(insuranceDataArray);
+        }
+    } else {
+        console.error("Invalid or empty insurances data.");
+    }
+};
+
+const createAndStoreInsurance = async (data: string[]) => {
+    const [
+      workerPublicKeyHex,
+      employerPublicKeyHex,
+      textHash,
+      genesisHex,
+      letterId,
+      blockNumber,
+      refereePublicKeyHex,
+      amountValue,
+      refereeSignOverPrivateData,
+      refereeSignOverReceipt,
+      workerSignOverInsurance] = data;
+    
+    const insurance = {
+      created: new Date(),
+      cid: textHash,
+      genesis: genesisHex,
+      letterNumber: parseInt(letterId, 10),
+      block: blockNumber,
+      referee: refereePublicKeyHex,
+      worker: workerPublicKeyHex,
+      amount: amountValue,
+      signOverPrivateData: refereeSignOverPrivateData,
+      signOverReceipt: refereeSignOverReceipt,
+      employer: employerPublicKeyHex,
+      workerSign: workerSignOverInsurance,
+      wasUsed: false
+    };
+    storeInsurance(insurance);
+}

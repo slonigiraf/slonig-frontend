@@ -5,7 +5,7 @@ import { useNavigate } from 'react-router-dom';
 import { useTranslation } from '../translate.js';
 import { Modal, TransferModal } from '@polkadot/react-components';
 import { ButtonWithLabelBelow } from './ButtonWithLabelBelow';
-import { createAndStoreLetter } from '@slonigiraf/app-recommendations';
+import { createAndStoreLetter, storeInsurances } from '@slonigiraf/app-recommendations';
 
 function ScanQR(): React.ReactElement {
   const { t } = useTranslation();
@@ -35,7 +35,7 @@ function ScanQR(): React.ReactElement {
             navigate('diplomas');
             break;
           case 3: // See a list of student's diplomas
-            // await storeInsurances(jsonData);
+            await storeInsurances(jsonData);
             navigate(`diplomas/teacher?student=${jsonData.s}`);
             break;  
           default:

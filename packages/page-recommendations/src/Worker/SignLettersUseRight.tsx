@@ -121,7 +121,7 @@ function SignLetterUseRight({ className = '', letters, worker, employer }: Props
 
 
       const qrData = {
-        q: 5,
+        q: 3,
         s: worker,
         n: studentName,
         t: employer,
