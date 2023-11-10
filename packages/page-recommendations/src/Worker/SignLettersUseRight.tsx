@@ -45,13 +45,6 @@ function SignLetterUseRight({ className = '', letter, employerPublicKeyHex }: Pr
   const [letterInfo, setLetterInfo] = useState('')
   const [isQROpen, toggleQR] = useToggle();
 
-  // const [textHash, letterId, blockNumber, refereeAddress,
-  //   workerAddress, amount, refereeSignOverPrivateData, refereeSignOverReceipt] = letter.split(",");
-
-  // const letterIdValue = parseInt(letterId, 10);
-  // const blockNumberValue = parseInt(blockNumber, 10);
-  // const amountValue = parseInt(amount, 10);
-
   useEffect((): void => {
     const meta = (currentPair && currentPair.meta) || {};
     const isExternal = (meta.isExternal as boolean) || false;
@@ -82,11 +75,6 @@ function SignLetterUseRight({ className = '', letter, employerPublicKeyHex }: Pr
 
   const _onChangeAccount = useCallback(
     (accountId: string | null) => accountId && setCurrentPair(keyring.getPair(accountId)),
-    []
-  );
-
-  const _onChangeEmployer = useCallback(
-    (employerPublicKeyHex: string) => setEmployerPublicKeyHex(employerPublicKeyHex),
     []
   );
 
