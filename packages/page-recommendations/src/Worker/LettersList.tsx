@@ -10,6 +10,7 @@ import { Letter } from "./Letter";
 import { Button } from '@polkadot/react-components';
 import { useTranslation } from '../translate';
 import { useLocation } from 'react-router-dom';
+import SignLettersUseRight from './SignLettersUseRight'
 
 interface Props {
   className?: string;
@@ -79,11 +80,7 @@ function LettersList({ className = '', worker }: Props): React.ReactElement<Prop
       <h3 style={{ margin: 0, marginRight: '10px' }}>
         {t('Select diplomas and press')}:
       </h3>
-      <Button
-        icon={'fa-dollar-sign'}
-        label={t('Get Bonuses')}
-        onClick={_deselectAll}
-      />
+      {letters && letters.length > 0 && <SignLettersUseRight letter={letters[0]} employerPublicKeyHex={employer}/>}
     </div>
   );
 
