@@ -10,6 +10,7 @@ import type { KeyringPair } from '@polkadot/keyring/types';
 import { keyring } from '@polkadot/ui-keyring';
 import { u8aToHex } from '@polkadot/util';
 import QRCode from 'qrcode.react';
+import { useLocation } from 'react-router-dom';
 
 interface Props {
   className?: string;
@@ -19,6 +20,9 @@ interface Props {
 function Employer({ className = '', ipfs }: Props): React.ReactElement<Props> {
   const [currentPair, setCurrentPair] = useState<KeyringPair | null>(() => keyring.getPairs()[0] || null);
   const { t } = useTranslation();
+  const location = useLocation();
+  const queryParams = new URLSearchParams(location.search);
+  const student = queryParams.get("student") || "";
 
   const _onChangeAccount = useCallback(
     (accountId: string | null) => accountId && setCurrentPair(keyring.getPair(accountId)),
@@ -26,16 +30,14 @@ function Employer({ className = '', ipfs }: Props): React.ReactElement<Props> {
   );
 
   let publicKeyHex = "";
-  if(currentPair !== null){
+  if (currentPair !== null) {
     publicKeyHex = u8aToHex(currentPair.publicKey);
   }
   const qrToBuyDiplomas = `{"q": 0,"d": "diplomas?teacher=${publicKeyHex}"}`;
 
   return (
     <div className={`toolbox--Worker ${className}`}>
-      <h2>{t('Show the QR to a student to see their results')}</h2>
-      <QRCode value={qrToBuyDiplomas} />
-      <h2>{t('Students\' diplomas')}</h2>
+      {/* The div below helps initialize account */}
       <div className='ui--row' style={{ display: 'none' }}>
         <InputAddress
           className='full'
@@ -46,9 +48,16 @@ function Employer({ className = '', ipfs }: Props): React.ReactElement<Props> {
           onChange={_onChangeAccount}
         />
       </div>
-      <div className='ui--row'>
-        <InsurancesList ipfs={ipfs} employer={u8aToHex(currentPair?.publicKey)} />
-      </div>
+      {
+        student === "" ? <>
+          <h2>{t('Show the QR to a student to see their results')}</h2>
+          <QRCode value={qrToBuyDiplomas} />
+        </>
+          :
+          <div className='ui--row'>
+            <InsurancesList ipfs={ipfs} teacher={u8aToHex(currentPair?.publicKey)} student={student} />
+          </div>
+      }
     </div>
   )
 }
