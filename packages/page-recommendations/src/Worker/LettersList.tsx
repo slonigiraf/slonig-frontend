@@ -43,8 +43,11 @@ function LettersList({ className = '', worker }: Props): React.ReactElement<Prop
   );
 
   const _sell = useCallback(
-    () => { },
-    []
+    () => { 
+      const data = "";
+      
+    },
+    [selectedLetters]
   );
 
   const _selectAll = useCallback(
