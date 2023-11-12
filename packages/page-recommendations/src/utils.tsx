@@ -5,6 +5,7 @@ import { Letter } from "./db/Letter";
 import { Insurance } from "./db/Insurance";
 import { Signer } from "./db/Signer";
 import { UsageRight } from "./db/UsageRight";
+import { Pseudonym } from "./db/Pseudonym.js";
 
 export const syncDB = async (data: string, password: string) => {
     const json = JSON.parse(data);
@@ -65,6 +66,15 @@ export const storeInsurance = async (insurance: Insurance) => {
         db.insurances.add(insurance);
     } else if(sameInsurance.wasUsed === false && insurance.wasUsed === true){
         db.insurances.where({ id: insurance.id }).modify((f) => f.wasUsed = true);
+    }
+}
+
+export const storePseudonym = async (pseudonym: Pseudonym) => {
+    const samePseudonym = await db.pseudonyms.get({ pseudonym: pseudonym.publicKey });
+    if (samePseudonym === undefined) {
+        db.pseudonyms.add(pseudonym);
+    } else if(samePseudonym.pseudonym !== pseudonym.pseudonym){
+        db.pseudonyms.where({ id: samePseudonym.id }).modify((f) => f.altPseudonym = pseudonym.pseudonym);
     }
 }
 
