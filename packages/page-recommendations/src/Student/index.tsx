@@ -2,10 +2,10 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import React, { useCallback, useState } from 'react';
-import LettersList from './LettersList';
+import LettersList from './LettersList.js';
 import { IPFS } from 'ipfs-core';
 import { InputAddress } from '@polkadot/react-components';
-import { useTranslation } from '../translate';
+import { useTranslation } from '../translate.js';
 import type { KeyringPair } from '@polkadot/keyring/types';
 import { keyring } from '@polkadot/ui-keyring';
 import { u8aToHex } from '@polkadot/util';
@@ -15,7 +15,7 @@ interface Props {
   ipfs: IPFS;
 }
 
-function Worker({ className = '', ipfs }: Props): React.ReactElement<Props> {
+function Student({ className = '', ipfs }: Props): React.ReactElement<Props> {
   const [currentPair, setCurrentPair] = useState<KeyringPair | null>(() => keyring.getPairs()[0] || null);
   const { t } = useTranslation();
 
@@ -25,7 +25,7 @@ function Worker({ className = '', ipfs }: Props): React.ReactElement<Props> {
   );
 
   return (
-    <div className={`toolbox--Worker ${className}`}>
+    <div className={`toolbox--Student ${className}`}>
       
       <div className='ui--row' style={{ display: 'none' }}>
         <InputAddress
@@ -44,4 +44,4 @@ function Worker({ className = '', ipfs }: Props): React.ReactElement<Props> {
   )
 }
 
-export default React.memo(Worker);
+export default React.memo(Student);

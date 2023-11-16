@@ -1,16 +1,16 @@
 // Copyright 2021-2022 @slonigiraf/app-recommendations authors & contributors
 // SPDX-License-Identifier: Apache-2.0
 
-import LetterInfo from './LetterInfo'
+import LetterInfo from './LetterInfo.js'
 import React, { useCallback, useState } from 'react'
 import { useIpfsContext } from '@slonigiraf/app-slonig-components';
 import { useLiveQuery } from "dexie-react-hooks";
-import { db } from "../db";
-import { Letter } from "./Letter";
+import { db } from "../db/index.js";
+import { Letter } from "./Letter.js";
 import { Button } from '@polkadot/react-components';
-import { useTranslation } from '../translate';
+import { useTranslation } from '../translate.js';
 import { useLocation } from 'react-router-dom';
-import SignLettersUseRight from './SignLettersUseRight'
+import SignLettersUseRight from './SignLettersUseRight.js'
 
 interface Props {
   className?: string;

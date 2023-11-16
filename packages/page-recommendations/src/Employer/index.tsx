@@ -36,7 +36,7 @@ function Employer({ className = '', ipfs }: Props): React.ReactElement<Props> {
   const qrToBuyDiplomas = `{"q": 0,"d": "diplomas?teacher=${publicKeyHex}"}`;
 
   return (
-    <div className={`toolbox--Worker ${className}`}>
+    <div className={`toolbox--Student ${className}`}>
       {/* The div below helps initialize account */}
       <div className='ui--row' style={{ display: 'none' }}>
         <InputAddress

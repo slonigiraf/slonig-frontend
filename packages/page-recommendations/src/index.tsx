@@ -11,10 +11,10 @@ import { useTranslation } from './translate.js';
 import { createAndStoreLetter, storeInsurances } from './utils';
 import useCounter from './useCounter.js';
 import Mentor from './Mentor';
-import Worker from './Worker';
+import Student from './Student';
 import Employer from './Employer';
-import DBImport from './Worker/DBImport';
-import DBExport from './Worker/DBExport';
+import DBImport from './Student/DBImport';
+import DBExport from './Student/DBExport';
 export { useCounter };
 export {DBImport};
 export {DBExport};
@@ -62,7 +62,7 @@ function AccountsApp ({ basePath, onStatusChange }: Props): React.ReactElement<P
           />
           <Route
             element={
-              <Worker onStatusChange={onStatusChange} />
+              <Student onStatusChange={onStatusChange} />
             }
             index
           />

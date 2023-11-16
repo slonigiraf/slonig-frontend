@@ -4,12 +4,12 @@
 import React, { useCallback, useState } from 'react';
 import { useIpfsContext } from '@slonigiraf/app-slonig-components';
 import { Button, Modal } from '@polkadot/react-components';
-import { useTranslation } from '../translate';
-import { db } from "../db";
+import { useTranslation } from '../translate.js';
+import { db } from "../db/index.js";
 import "dexie-export-import";
 import { ExportProgress } from 'dexie-export-import/dist/export';
 import QRCode from 'qrcode.react';
-import { qrCodeSize } from '../constants';
+import { qrCodeSize } from '../constants.js';
 
 interface Props {
   className?: string;

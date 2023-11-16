@@ -4,11 +4,11 @@
 import React, { useState } from 'react';
 import { useIpfsContext } from '@slonigiraf/app-slonig-components';
 import { Button, Modal } from '@polkadot/react-components';
-import { useTranslation } from '../translate';
+import { useTranslation } from '../translate.js';
 import "dexie-export-import";
 import { QRScanner } from '@slonigiraf/app-slonig-components';
 import { getIPFSDataFromContentID } from '@slonigiraf/helpers';
-import { syncDB } from '../utils';
+import { syncDB } from '../utils.js';
 
 interface Props {
   className?: string;
