@@ -225,7 +225,7 @@ function Mentor({ className = '' }: Props): React.ReactElement<Props> {
 
       {
         student === "" ? <>
-          <h2>{t('Show the QR to a student')}</h2>
+          <h2>{t('Show the QR code to a student to begin mentoring')}</h2>
           <QRCode value={qrCodeText} />
         </>
           :
