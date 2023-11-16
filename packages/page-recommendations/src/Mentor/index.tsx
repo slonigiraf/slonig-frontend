@@ -43,7 +43,7 @@ function Mentor({ className = '' }: Props): React.ReactElement<Props> {
   const location = useLocation();
   const queryParams = new URLSearchParams(location.search);
   const textHash = queryParams.get("cid") || "";
-  const workerPublicKeyHex = queryParams.get("person") || "";
+  const student = queryParams.get("person") || "";
   const [text, setText] = useState<string>(textHash);
   const [{ isInjected }, setAccountState] = useState<AccountState>({ isExternal: false, isHardware: false, isInjected: false });
   const [isLocked, setIsLocked] = useState(false);
@@ -128,7 +128,7 @@ function Mentor({ className = '' }: Props): React.ReactElement<Props> {
       const refereeU8 = referee.publicKey;
       const refereePublicKeyHex = u8aToHex(refereeU8);
       const letterId = await getLastUnusedLetterNumber(refereePublicKeyHex);
-      const workerPublicKeyU8 = hexToU8a(workerPublicKeyHex);
+      const workerPublicKeyU8 = hexToU8a(student);
       const privateData = getPrivateDataToSignByReferee(textHash, genesisU8, letterId, blockNumber, refereeU8, workerPublicKeyU8, amount);
       const receipt = getPublicDataToSignByReferee(genesisU8, letterId, blockNumber, refereeU8, workerPublicKeyU8, amount);
 
@@ -161,7 +161,7 @@ function Mentor({ className = '' }: Props): React.ReactElement<Props> {
       result.push(letterId);
       result.push(blockNumber);
       result.push(refereePublicKeyHex);
-      result.push(workerPublicKeyHex);
+      result.push(student);
       result.push(amount.toString());
       result.push(refereeSignOverPrivateData);
       result.push(refereeSignOverReceipt);
@@ -173,7 +173,7 @@ function Mentor({ className = '' }: Props): React.ReactElement<Props> {
         letterNumber: letterId,
         block: blockNumber.toString(),
         referee: refereePublicKeyHex,
-        worker: workerPublicKeyHex,
+        worker: student,
         amount: amount.toString(),
         signOverPrivateData: refereeSignOverPrivateData,
         signOverReceipt: refereeSignOverReceipt
@@ -185,7 +185,7 @@ function Mentor({ className = '' }: Props): React.ReactElement<Props> {
       setLetterInfo(qrText);
       setModalIsOpen(true);
     },
-    [currentPair, isLocked, isUsable, signer, ipfs, text, workerPublicKeyHex, blockNumber, amount]
+    [currentPair, isLocked, isUsable, signer, ipfs, text, student, blockNumber, amount]
   );
 
   const _onUnlock = useCallback(
@@ -214,7 +214,7 @@ function Mentor({ className = '' }: Props): React.ReactElement<Props> {
       </div>
 
       <div className='ui--row'>
-      <h2>Person: {workerPublicKeyHex}</h2>
+      <h2>Person: {student}</h2>
       </div>
 
       <div className='ui--row'>
