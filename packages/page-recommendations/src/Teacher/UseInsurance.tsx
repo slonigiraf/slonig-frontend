@@ -7,9 +7,9 @@ import { Button, TxButton, InputAddress } from '@polkadot/react-components';
 import { useApi } from '@polkadot/react-hooks';
 import { keyring } from '@polkadot/ui-keyring';
 import { u8aToHex } from '@polkadot/util';
-import { useTranslation } from '../translate';
-import { Insurance } from '../db/Insurance';
-import { db } from "../db";
+import { useTranslation } from '../translate.js';
+import { Insurance } from '../db/Insurance.js';
+import { db } from "../db/index.js";
 import BN from 'bn.js';
 
 interface Props {

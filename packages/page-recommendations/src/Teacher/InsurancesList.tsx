@@ -1,12 +1,12 @@
 // Copyright 2021-2022 @slonigiraf/app-recommendations authors & contributors
 // SPDX-License-Identifier: Apache-2.0
 
-import InsuranceInfo from './InsuranceInfo'
+import InsuranceInfo from './InsuranceInfo.js'
 import React from 'react'
 import { useLiveQuery } from "dexie-react-hooks";
-import { db } from "../db";
+import { db } from "../db/index.js";
 import { useIpfsContext } from '@slonigiraf/app-slonig-components';
-import { useTranslation } from '../translate';
+import { useTranslation } from '../translate.js';
 
 interface Props {
   className?: string;

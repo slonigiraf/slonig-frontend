@@ -12,7 +12,7 @@ import { createAndStoreLetter, storeInsurances } from './utils';
 import useCounter from './useCounter.js';
 import Mentor from './Mentor';
 import Student from './Student';
-import Employer from './Employer';
+import Teacher from './Teacher';
 import DBImport from './Student/DBImport';
 import DBExport from './Student/DBExport';
 export { useCounter };
@@ -56,7 +56,7 @@ function AccountsApp ({ basePath, onStatusChange }: Props): React.ReactElement<P
         <Route path={basePath}>
         <Route
             element={
-              <Employer onStatusChange={onStatusChange} />
+              <Teacher onStatusChange={onStatusChange} />
             }
             path='teacher'
           />

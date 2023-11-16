@@ -2,9 +2,9 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import React, { useCallback, useState } from 'react';
-import InsurancesList from './InsurancesList';
+import InsurancesList from './InsurancesList.js';
 import { IPFS } from 'ipfs-core';
-import { useTranslation } from '../translate';
+import { useTranslation } from '../translate.js';
 import { InputAddress } from '@polkadot/react-components';
 import type { KeyringPair } from '@polkadot/keyring/types';
 import { keyring } from '@polkadot/ui-keyring';
@@ -17,7 +17,7 @@ interface Props {
   ipfs: IPFS;
 }
 
-function Employer({ className = '', ipfs }: Props): React.ReactElement<Props> {
+function Teacher({ className = '', ipfs }: Props): React.ReactElement<Props> {
   const [currentPair, setCurrentPair] = useState<KeyringPair | null>(() => keyring.getPairs()[0] || null);
   const { t } = useTranslation();
   const location = useLocation();
@@ -62,4 +62,4 @@ function Employer({ className = '', ipfs }: Props): React.ReactElement<Props> {
   )
 }
 
-export default React.memo(Employer);
+export default React.memo(Teacher);

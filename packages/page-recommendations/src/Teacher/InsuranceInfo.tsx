@@ -3,11 +3,11 @@
 
 import { Button, Modal } from '@polkadot/react-components';
 import React, { useState, useEffect } from 'react'
-import UseInsurance from './UseInsurance'
+import UseInsurance from './UseInsurance.js'
 import { getIPFSDataFromContentID, parseJson } from '@slonigiraf/helpers'
-import { useTranslation } from '../translate';
+import { useTranslation } from '../translate.js';
 import { IPFS } from 'ipfs-core';
-import { Insurance } from '../db/Insurance';
+import { Insurance } from '../db/Insurance.js';
 
 interface Props {
   className?: string;
