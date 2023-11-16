@@ -20,6 +20,7 @@ import { getLastUnusedLetterNumber, setLastUsedLetterNumber, storeLetter } from 
 import { statics } from '@polkadot/react-api/statics';
 import { useLocation } from 'react-router-dom';
 import { getIPFSDataFromContentID, parseJson } from '@slonigiraf/helpers'
+import { ShareButton } from '@slonigiraf/app-slonig-components';
 
 interface Props {
   className?: string;
@@ -227,6 +228,7 @@ function Mentor({ className = '' }: Props): React.ReactElement<Props> {
         student === "" ? <>
           <h2>{t('Show the QR code to a student to begin mentoring')}</h2>
           <QRCode value={qrCodeText} />
+          <ShareButton title={"Hi"} text={"Some text"} url={"slonig.com"}/>
         </>
           :
           <>
