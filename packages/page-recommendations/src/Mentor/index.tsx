@@ -8,7 +8,7 @@ import type { Signer } from '@polkadot/api/types';
 import type { KeyringPair } from '@polkadot/keyring/types';
 import React, { useCallback, useEffect, useState } from 'react';
 import { web3FromSource } from '@polkadot/extension-dapp';
-import { Button, Input, InputAddress, InputBalance, Output, Modal } from '@polkadot/react-components';
+import { Button, Input, InputAddress, InputBalance, Output, Modal, getAddressName } from '@polkadot/react-components';
 import { useToggle } from '@polkadot/react-hooks';
 import { keyring } from '@polkadot/ui-keyring';
 import { isFunction, u8aToHex, hexToU8a, u8aWrapBytes } from '@polkadot/util';
@@ -196,9 +196,22 @@ function Mentor({ className = '' }: Props): React.ReactElement<Props> {
     [toggleUnlock]
   );
 
+  let publicKeyHex = "";
+  if (currentPair !== null) {
+    publicKeyHex = u8aToHex(currentPair.publicKey);
+  }
+  const [_isAddressExtracted, , name] = getAddressName(currentPair.address, null, "");
+
+  const qrData = {
+    q: 4,
+    n: name,
+    d: `knowledge?mentor=${publicKeyHex}`,
+  };
+  const qrCodeText = JSON.stringify(qrData);
+
   return (
-    <div className={`toolbox--Sign ${className}`}>
-      <h2>{t('Teach and create a diploma')}</h2>
+    <div className={`toolbox--Mentor ${className}`}>
+      {/* The div below helps initialize account */}
       <div className='ui--row' style={{ display: 'none' }}>
         <InputAddress
           className='full'
@@ -209,102 +222,111 @@ function Mentor({ className = '' }: Props): React.ReactElement<Props> {
           type='account'
         />
       </div>
-      <div className='ui--row'>
-        <h2>"{text}"</h2>
-      </div>
 
-      <div className='ui--row'>
-      <h2>Person: {student}</h2>
-      </div>
-
-      <div className='ui--row'>
-        <InputBalance
-          help={t('Stake reputation help info')}
-          isZeroable
-          label={t('stake reputation')}
-          onChange={setAmount}
-          defaultValue={amount}
-        />
-      </div>
-      <div className='ui--row'>
-        <Input
-          className='full'
-          help={t('Block number help info TODO')}
-          label={t('block number')}
-          onChange={_onChangeBlockNumber}
-          value={blockNumber.toString()}
-        />
-      </div>
-      <div className='toolbox--Sign-input'>
-        <div className='ui--row'>
-          <Output
-            className='full'
-            help={t('create a diploma help text')}
-            isHidden={signature.length === 0}
-            isMonospace
-            label={t('create a diploma')}
-            value={signature}
-            withCopy
-          />
-        </div>
-      </div>
-      <Button.Group>
-        <div
-          className='unlock-overlay'
-          hidden={!isUsable || !isLocked || isInjected}
-        >
-          {isLocked && (
-            <div className='unlock-overlay-warning'>
-              <div className='unlock-overlay-content'>
-                {t('You need to unlock this account to be able to sign data.')}<br />
-                <Button.Group>
-                  <Button
-                    icon='unlock'
-                    label={t('Unlock account')}
-                    onClick={toggleUnlock}
-                  />
-                </Button.Group>
+      {
+        student === "" ? <>
+          <h2>{t('Show the QR to a student')}</h2>
+          <QRCode value={qrCodeText} />
+        </>
+          :
+          <>
+            <h2>{t('Teach and create a diploma')}</h2>
+            <div className='ui--row'>
+              <h2>"{text}"</h2>
+            </div>
+            <div className='ui--row'>
+              <h2>Person: {student}</h2>
+            </div>
+            <div className='ui--row'>
+              <InputBalance
+                help={t('Stake reputation help info')}
+                isZeroable
+                label={t('stake reputation')}
+                onChange={setAmount}
+                defaultValue={amount}
+              />
+            </div>
+            <div className='ui--row'>
+              <Input
+                className='full'
+                help={t('Block number help info TODO')}
+                label={t('block number')}
+                onChange={_onChangeBlockNumber}
+                value={blockNumber.toString()}
+              />
+            </div>
+            <div className='toolbox--Mentor-input'>
+              <div className='ui--row'>
+                <Output
+                  className='full'
+                  help={t('create a diploma help text')}
+                  isHidden={signature.length === 0}
+                  isMonospace
+                  label={t('create a diploma')}
+                  value={signature}
+                  withCopy
+                />
               </div>
             </div>
-          )}
-        </div>
-        <div
-          className='unlock-overlay'
-          hidden={isUsable}
-        >
-          <div className='unlock-overlay-warning'>
-            <div className='unlock-overlay-content'>
-              {isInjected
-                ? t('This injected account cannot be used to sign data since the extension does not support raw signing.')
-                : t('This external account cannot be used to sign data. Only Limited support is currently available for signing from any non-internal accounts.')}
-            </div>
-          </div>
-        </div>
-        {isUnlockVisible && (
-          <Unlock
-            onClose={toggleUnlock}
-            onUnlock={_onUnlock}
-            pair={currentPair}
-          />
-        )}
-        {!isLocked && (<Button
-          icon='key'
-          isDisabled={!(isUsable && !isLocked && isIpfsReady)}
-          label={t('Sign the recommendation')}
-          onClick={_onSign}
-        />)}
-        {!isIpfsReady ? <div>{t('Connecting to IPFS...')}</div> : ""}
-      </Button.Group>
-      {modalIsOpen &&
-        <Modal
-          size={"small"}
-          header={t('Scan this from a worker account')}
-          onClose={() => setModalIsOpen(false)}
-        >
-          <Modal.Content>
-            <QRCode value={letterInfo} size={qrCodeSize} />
-          </Modal.Content>
-        </Modal>
+            <Button.Group>
+              <div
+                className='unlock-overlay'
+                hidden={!isUsable || !isLocked || isInjected}
+              >
+                {isLocked && (
+                  <div className='unlock-overlay-warning'>
+                    <div className='unlock-overlay-content'>
+                      {t('You need to unlock this account to be able to sign data.')}<br />
+                      <Button.Group>
+                        <Button
+                          icon='unlock'
+                          label={t('Unlock account')}
+                          onClick={toggleUnlock}
+                        />
+                      </Button.Group>
+                    </div>
+                  </div>
+                )}
+              </div>
+              <div
+                className='unlock-overlay'
+                hidden={isUsable}
+              >
+                <div className='unlock-overlay-warning'>
+                  <div className='unlock-overlay-content'>
+                    {isInjected
+                      ? t('This injected account cannot be used to sign data since the extension does not support raw signing.')
+                      : t('This external account cannot be used to sign data. Only Limited support is currently available for signing from any non-internal accounts.')}
+                  </div>
+                </div>
+              </div>
+              {isUnlockVisible && (
+                <Unlock
+                  onClose={toggleUnlock}
+                  onUnlock={_onUnlock}
+                  pair={currentPair}
+                />
+              )}
+              {!isLocked && (<Button
+                icon='key'
+                isDisabled={!(isUsable && !isLocked && isIpfsReady)}
+                label={t('Sign the recommendation')}
+                onClick={_onSign}
+              />)}
+              {!isIpfsReady ? <div>{t('Connecting to IPFS...')}</div> : ""}
+            </Button.Group>
+            {modalIsOpen &&
+              <Modal
+                size={"small"}
+                header={t('Scan this from a worker account')}
+                onClose={() => setModalIsOpen(false)}
+              >
+                <Modal.Content>
+                  <QRCode value={letterInfo} size={qrCodeSize} />
+                </Modal.Content>
+              </Modal>
+            }
+          </>
       }
     </div>
   );

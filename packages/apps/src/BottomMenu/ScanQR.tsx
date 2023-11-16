@@ -37,7 +37,11 @@ function ScanQR(): React.ReactElement {
           case 3: // See a list of student's diplomas
             await storeInsurances(jsonData);
             navigate(`diplomas/teacher?student=${jsonData.s}`);
-            break;  
+            break; 
+          case 4: // Show mentor's identity
+            // TODO: Store mentor pseudonym
+            navigate(jsonData.d);
+            break; 
           default:
             console.warn("Unknown QR type:", jsonData.q);
         }
