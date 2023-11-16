@@ -4,17 +4,23 @@ import ScanQR from './ScanQR';
 import GoKnowledge from './GoKnowledge';
 import GetSLON from './GetSLON';
 import GoDiplomas from './GoDiplomas';
-
+import { useApi } from '@polkadot/react-hooks';
 
 function BottomMenu(): React.ReactElement {
-  return (
-    <MenuWrapper>
-      <MenuItem><GoKnowledge /></MenuItem>
-      <MenuItem><ScanQR /></MenuItem>
-      <MenuItem><GoDiplomas /></MenuItem>
-      <MenuItem><GetSLON /></MenuItem>
-    </MenuWrapper>
-  );
+  const { isApiReady, isWaitingInjected } = useApi();
+  if( isApiReady && !isWaitingInjected){
+    return (
+      <MenuWrapper>
+        <MenuItem><GoKnowledge /></MenuItem>
+        <MenuItem><ScanQR /></MenuItem>
+        <MenuItem><GoDiplomas /></MenuItem>
+        <MenuItem><GetSLON /></MenuItem>
+      </MenuWrapper>
+    );
+  } else{
+    return <></>;
+  }
+  
 }
 
 const MenuWrapper = styled.div`

@@ -70,7 +70,6 @@ const StyledDiv = styled.div`
 
   &.isPartial {
     max-width: 42rem;
-    width: 42rem;
 
     .content {
       max-width: 50rem;
