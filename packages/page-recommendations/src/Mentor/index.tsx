@@ -12,11 +12,11 @@ import { Button, Input, InputAddress, InputBalance, Output, Modal } from '@polka
 import { useToggle } from '@polkadot/react-hooks';
 import { keyring } from '@polkadot/ui-keyring';
 import { isFunction, u8aToHex, hexToU8a, u8aWrapBytes } from '@polkadot/util';
-import { useTranslation } from '../translate';
+import { useTranslation } from '../translate.js';
 import Unlock from '@polkadot/app-signing/Unlock';
 import { useIpfsContext } from '@slonigiraf/app-slonig-components';
-import { qrCodeSize } from '../constants';
-import { getLastUnusedLetterNumber, setLastUsedLetterNumber, storeLetter } from '../utils';
+import { qrCodeSize } from '../constants.js';
+import { getLastUnusedLetterNumber, setLastUsedLetterNumber, storeLetter } from '../utils.js';
 import { statics } from '@polkadot/react-api/statics';
 import { useLocation } from 'react-router-dom';
 import { getIPFSDataFromContentID, parseJson } from '@slonigiraf/helpers'
@@ -36,7 +36,7 @@ interface SignerState {
   signer: Signer | null;
 }
 
-function Referee({ className = '' }: Props): React.ReactElement<Props> {
+function Mentor({ className = '' }: Props): React.ReactElement<Props> {
   const { ipfs, isIpfsReady, ipfsInitError } = useIpfsContext();
   const { t } = useTranslation();
   const [currentPair, setCurrentPair] = useState<KeyringPair | null>(() => keyring.getPairs()[0] || null);
@@ -310,4 +310,4 @@ function Referee({ className = '' }: Props): React.ReactElement<Props> {
   );
 }
 
-export default React.memo(Referee);
+export default React.memo(Mentor);

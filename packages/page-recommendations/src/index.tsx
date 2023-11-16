@@ -10,7 +10,7 @@ import { useAccounts, useIpfs } from '@polkadot/react-hooks';
 import { useTranslation } from './translate.js';
 import { createAndStoreLetter, storeInsurances } from './utils';
 import useCounter from './useCounter.js';
-import Referee from './Referee';
+import Mentor from './Mentor';
 import Worker from './Worker';
 import Employer from './Employer';
 import DBImport from './Worker/DBImport';
@@ -68,7 +68,7 @@ function AccountsApp ({ basePath, onStatusChange }: Props): React.ReactElement<P
           />
           <Route
             element={
-              <Referee onStatusChange={onStatusChange} />
+              <Mentor onStatusChange={onStatusChange} />
             }
             path='mentor'
           />
