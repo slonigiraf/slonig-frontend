@@ -206,6 +206,7 @@ function Mentor({ className = '' }: Props): React.ReactElement<Props> {
   const qrData = {
     q: 4,
     n: name,
+    p: publicKeyHex,
     d: `knowledge?mentor=${publicKeyHex}`,
   };
   const qrCodeText = JSON.stringify(qrData);

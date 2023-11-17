@@ -69,12 +69,16 @@ export const storeInsurance = async (insurance: Insurance) => {
     }
 }
 
-export const storePseudonym = async (pseudonym: Pseudonym) => {
-    const samePseudonym = await db.pseudonyms.get({ pseudonym: pseudonym.publicKey });
+export const storePseudonym = async (publicKey: string, pseudonym: string) => {
+    console.log("publicKey: ", publicKey)
+    console.log("pseudonym", pseudonym)
+    
+    const samePseudonym = await db.pseudonyms.get({ publicKey: publicKey });
     if (samePseudonym === undefined) {
-        db.pseudonyms.add(pseudonym);
-    } else if(samePseudonym.pseudonym !== pseudonym.pseudonym){
-        db.pseudonyms.where({ id: samePseudonym.id }).modify((f) => f.altPseudonym = pseudonym.pseudonym);
+        const newPseudonym: Pseudonym = {publicKey, pseudonym, altPseudonym: ""};
+        db.pseudonyms.add(newPseudonym);
+    } else if(samePseudonym.pseudonym !== pseudonym){
+        db.pseudonyms.where({ id: samePseudonym.id }).modify((f) => f.altPseudonym = pseudonym);
     }
 }
 
@@ -128,7 +132,7 @@ export const createAndStoreLetter = async (data: string[]) => {
     // Check if jsonData.d is an array and has elements
     if (Array.isArray(jsonData.d) && jsonData.d.length > 0) {
         // Get the worker and employer public key hex values from jsonData
-        const workerPublicKeyHex = jsonData.s;
+        const workerPublicKeyHex = jsonData.p;
         const employerPublicKeyHex = jsonData.t;
 
         // Process each insurance data string
