@@ -10,7 +10,10 @@ import '@polkadot/api-augment/substrate';
 import React from 'react';
 import { createRoot } from 'react-dom/client';
 import ChainInfo from './Menu/ChainInfo';
+import BaseOverlay from './overlays/Base.js';
+
 export {ChainInfo};
+export {BaseOverlay};
 
 import Root from './Root.js';
 

@@ -5,6 +5,7 @@ import ClipboardCopyButton from './ClipboardCopyButton.js';
 import { styled } from '@polkadot/react-components';
 
 interface QRWithShareAndCopyProps {
+    className?: string;
     dataQR: string;
     titleShare: string;
     textShare: string;
@@ -12,26 +13,30 @@ interface QRWithShareAndCopyProps {
     dataCopy: string;
 }
 
-function QRWithShareAndCopy({ dataQR, titleShare, textShare, urlShare, dataCopy }: QRWithShareAndCopyProps): React.ReactElement<QRWithShareAndCopyProps> {
+function QRWithShareAndCopy({ className, dataQR, titleShare, textShare, urlShare, dataCopy }: QRWithShareAndCopyProps): React.ReactElement<QRWithShareAndCopyProps> {
+
     return (
+
         <StyledDiv>
             <div>
-                <div className='ui--row'>
+                <div className='qr--row'>
                     <QRCode value={dataQR} />
                 </div>
-                <div className='ui--row'>
+                <div className='qr--row'>
                     <ShareButton title={titleShare} text={textShare} url={urlShare} />
                     <ClipboardCopyButton text={dataCopy} />
                 </div>
             </div>
         </StyledDiv>
+
     );
 }
 
 const StyledDiv = styled.div`
   display: flex;
   flex-direction: row;
-  .ui--row {
+  .qr--row {
+    display: flex;
     justify-content: center;
     align-items: center;
   }

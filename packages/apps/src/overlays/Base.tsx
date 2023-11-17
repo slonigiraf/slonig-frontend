@@ -2,9 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import type { IconName } from '@fortawesome/fontawesome-svg-core';
-
 import React from 'react';
-
 import { Button, Icon, styled } from '@polkadot/react-components';
 import { useToggle } from '@polkadot/react-hooks';
 
@@ -15,10 +13,11 @@ interface Props {
   isBottom?: boolean;
   isFull?: boolean;
   type: 'error' | 'info';
+  isEnabled: boolean;
 }
 
-function BaseOverlay ({ children, className = '', icon, isBottom = false, isFull = false, type }: Props): React.ReactElement<Props> | null {
-  const [isHidden, toggleHidden] = useToggle();
+function BaseOverlay({ children, className = '', icon, isBottom = false, isFull = false, type, isEnabled = true }: Props): React.ReactElement<Props> | null {
+  const [isHidden, toggleHidden] = useToggle(!isEnabled);
 
   if (isHidden) {
     return null;
