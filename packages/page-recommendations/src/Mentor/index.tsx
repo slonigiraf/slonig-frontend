@@ -44,7 +44,7 @@ function Mentor({ className = '' }: Props): React.ReactElement<Props> {
   const location = useLocation();
   const queryParams = new URLSearchParams(location.search);
   const textHash = queryParams.get("cid") || "";
-  const student = queryParams.get("person") || "";
+  const student = queryParams.get("student") || "";
   const [text, setText] = useState<string>(textHash);
   const [{ isInjected }, setAccountState] = useState<AccountState>({ isExternal: false, isHardware: false, isInjected: false });
   const [isLocked, setIsLocked] = useState(false);
@@ -212,6 +212,8 @@ function Mentor({ className = '' }: Props): React.ReactElement<Props> {
   const qrCodeText = JSON.stringify(qrData);
 
   const url = getBaseUrl() + `/#/knowledge?mentor=${publicKeyHex}`;
+
+  console.log("student: ", student)
 
   return (
     <div className={`toolbox--Mentor ${className}`}>
