@@ -20,7 +20,7 @@ import { getLastUnusedLetterNumber, setLastUsedLetterNumber, storeLetter } from 
 import { statics } from '@polkadot/react-api/statics';
 import { useLocation } from 'react-router-dom';
 import { getIPFSDataFromContentID, parseJson } from '@slonigiraf/helpers'
-import { ShareButton } from '@slonigiraf/app-slonig-components';
+import { QRWithShareAndCopy } from '@slonigiraf/app-slonig-components';
 
 interface Props {
   className?: string;
@@ -189,6 +189,11 @@ function Mentor({ className = '' }: Props): React.ReactElement<Props> {
     [currentPair, isLocked, isUsable, signer, ipfs, text, student, blockNumber, amount]
   );
 
+  const getBaseUrl = () => {
+    const { protocol, hostname, port } = window.location;
+    return `${protocol}//${hostname}${port ? `:${port}` : ''}`;
+  };
+
   const _onUnlock = useCallback(
     (): void => {
       setIsLocked(false);
@@ -210,6 +215,8 @@ function Mentor({ className = '' }: Props): React.ReactElement<Props> {
   };
   const qrCodeText = JSON.stringify(qrData);
 
+  const url = getBaseUrl() + `/#/knowledge?mentor=${publicKeyHex}`;
+
   return (
     <div className={`toolbox--Mentor ${className}`}>
       {/* The div below helps initialize account */}
@@ -227,8 +234,7 @@ function Mentor({ className = '' }: Props): React.ReactElement<Props> {
       {
         student === "" ? <>
           <h2>{t('Show the QR code to a student to begin mentoring')}</h2>
-          <QRCode value={qrCodeText} />
-          <ShareButton title={"Hi"} text={"Some text"} url={"slonig.com"}/>
+          <QRWithShareAndCopy dataQR={qrCodeText} titleShare={"Hi"} textShare={"Some text"} urlShare={url} dataCopy={url}/>
         </>
           :
           <>

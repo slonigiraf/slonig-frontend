@@ -4,7 +4,11 @@
 import QRScanner from './QRScanner'
 import { IpfsProvider, useIpfsContext } from './IpfsContext';
 import ShareButton from './ShareButton.js';
-export {QRScanner};
-export {IpfsProvider};
-export {useIpfsContext};
-export {ShareButton};
+import ClipboardCopyButton from './ClipboardCopyButton.js';
+import QRWithShareAndCopy from './QRWithShareAndCopy.js';
+export { QRScanner };
+export { IpfsProvider };
+export { useIpfsContext };
+export { ShareButton };
+export { ClipboardCopyButton };
+export { QRWithShareAndCopy };
