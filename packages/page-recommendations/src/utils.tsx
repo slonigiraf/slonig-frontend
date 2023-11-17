@@ -74,20 +74,14 @@ export const storePseudonym = async (publicKey: string, pseudonym: string) => {
     const samePseudonym = await db.pseudonyms.get({ publicKey: publicKey });
     if (samePseudonym === undefined) {
         const newPseudonym: Pseudonym = {publicKey, pseudonym, altPseudonym: ""};
-        db.pseudonyms.add(newPseudonym);
+        db.pseudonyms.put(newPseudonym);
     } else if(samePseudonym.pseudonym !== pseudonym){
-        db.pseudonyms.where({ id: id }).modify((f) => f.altPseudonym = pseudonym);
+        db.pseudonyms.where({ publicKey: publicKey }).modify((f) => f.altPseudonym = pseudonym);
     }
 }
 
 export const storeSetting = async (id: string, value: string) => {
-    const sameEntry = await db.settings.get({ id: id });
-    if (sameEntry === undefined) {
-        const newEntry: Setting = {id, value};
-        db.settings.put(newEntry);
-    } else if(sameEntry.value !== value){
-        db.settings.where({ id: id }).modify((f) => f.value = value);
-    }
+    db.settings.put({id, value});
 }
 
 export const storeUsageRight = async (usageRight: UsageRight) => {
