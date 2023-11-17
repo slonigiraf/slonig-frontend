@@ -4,7 +4,7 @@ import ShareButton from './ShareButton.js';
 import ClipboardCopyButton from './ClipboardCopyButton.js';
 import { styled } from '@polkadot/react-components';
 
-interface QRWithShareAndCopyProps {
+interface Props {
     className?: string;
     dataQR: string;
     titleShare: string;
@@ -13,10 +13,8 @@ interface QRWithShareAndCopyProps {
     dataCopy: string;
 }
 
-function QRWithShareAndCopy({ className, dataQR, titleShare, textShare, urlShare, dataCopy }: QRWithShareAndCopyProps): React.ReactElement<QRWithShareAndCopyProps> {
-
+function QRWithShareAndCopy({ className, dataQR, titleShare, textShare, urlShare, dataCopy }: Props): React.ReactElement<Props> {
     return (
-
         <StyledDiv>
             <div>
                 <div className='qr--row'>
@@ -28,7 +26,6 @@ function QRWithShareAndCopy({ className, dataQR, titleShare, textShare, urlShare
                 </div>
             </div>
         </StyledDiv>
-
     );
 }
 

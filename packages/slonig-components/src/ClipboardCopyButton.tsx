@@ -11,7 +11,7 @@ interface Props {
 
 function ClipboardCopyButton({ className, text }: Props): React.ReactElement<Props> {
     const { t } = useTranslation();
-    const [infoEnabled, toggleInfoEnabled] = useToggle(true);
+    const [infoEnabled, toggleInfoEnabled] = useToggle(false);
 
     const copyToClipboard = () => {
         // Create a temporary textarea element to hold the text to copy

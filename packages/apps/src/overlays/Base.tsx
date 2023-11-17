@@ -2,9 +2,8 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import type { IconName } from '@fortawesome/fontawesome-svg-core';
-import React from 'react';
+import React, {useEffect} from 'react';
 import { Button, Icon, styled } from '@polkadot/react-components';
-import { useToggle } from '@polkadot/react-hooks';
 
 interface Props {
   children: React.ReactNode;
@@ -17,7 +16,12 @@ interface Props {
 }
 
 function BaseOverlay({ children, className = '', icon, isBottom = false, isFull = false, type, isEnabled = true }: Props): React.ReactElement<Props> | null {
-  const [isHidden, toggleHidden] = useToggle(!isEnabled);
+  const [isHidden, setIsHidden] = React.useState(!isEnabled);
+  // Update isHidden whenever isEnabled changes
+  useEffect(() => {
+    setIsHidden(!isEnabled);
+  }, [isEnabled]);
+  const toggleHidden = () => setIsHidden(!isHidden);
 
   if (isHidden) {
     return null;
