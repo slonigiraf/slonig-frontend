@@ -1,6 +1,8 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { Button } from '@polkadot/react-components';
 import { useTranslation } from './translate.js';
+import { useToggle } from '@polkadot/react-hooks';
+import { BaseOverlay } from '@polkadot/apps';
 
 interface ShareButtonProps {
     title: string;
@@ -10,6 +12,18 @@ interface ShareButtonProps {
 
 function ShareButton({ title, text, url }: ShareButtonProps): React.ReactElement<ShareButtonProps> {
     const { t } = useTranslation();
+    const [infoEnabled, toggleInfoEnabled] = useToggle(false);
+    // Set infoEnabled to false after 1 second
+    useEffect(() => {
+        let timer: any;
+        if (infoEnabled) {
+            timer = setTimeout(() => {
+                toggleInfoEnabled();
+            }, 1000);
+        }
+        return () => clearTimeout(timer); // Cleanup the timer
+    }, [infoEnabled, toggleInfoEnabled]);
+
     const handleShare = async () => {
         const shareData = { title, text, url };
         if (navigator.share) {
@@ -20,12 +34,22 @@ function ShareButton({ title, text, url }: ShareButtonProps): React.ReactElement
                 console.error('Error sharing content: ', err);
             }
         } else {
-            window.alert(t('Press Copy Button'));
+            toggleInfoEnabled();
         }
     };
 
     return (
-        <Button icon='paper-plane' label={t('Send')} onClick={handleShare} />
+        <>
+            <Button icon='paper-plane' label={t('Send')} onClick={handleShare} />
+            <BaseOverlay
+                icon='circle-info'
+                type='info'
+                isEnabled={infoEnabled}
+            >
+                <div>{t('Press Copy Button')}</div>
+            </BaseOverlay>
+        </>
+
     );
 }
 
