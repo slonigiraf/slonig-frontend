@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { Button } from '@polkadot/react-components';
 import { useTranslation } from './translate.js';
 import { useToggle } from '@polkadot/react-hooks';
@@ -12,6 +12,17 @@ interface Props {
 function ClipboardCopyButton({ className, text }: Props): React.ReactElement<Props> {
     const { t } = useTranslation();
     const [infoEnabled, toggleInfoEnabled] = useToggle(false);
+
+    // Set infoEnabled to false after 1 second
+    useEffect(() => {
+        let timer: any;
+        if (infoEnabled) {
+            timer = setTimeout(() => {
+                toggleInfoEnabled();
+            }, 1000);
+        }
+        return () => clearTimeout(timer); // Cleanup the timer
+    }, [infoEnabled, toggleInfoEnabled]);
 
     const copyToClipboard = () => {
         // Create a temporary textarea element to hold the text to copy
