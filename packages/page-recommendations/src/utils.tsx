@@ -6,6 +6,7 @@ import { Insurance } from "./db/Insurance";
 import { Signer } from "./db/Signer";
 import { UsageRight } from "./db/UsageRight";
 import { Pseudonym } from "./db/Pseudonym.js";
+import { Setting } from "./db/Setting.js";
 
 export const syncDB = async (data: string, password: string) => {
     const json = JSON.parse(data);
@@ -70,15 +71,22 @@ export const storeInsurance = async (insurance: Insurance) => {
 }
 
 export const storePseudonym = async (publicKey: string, pseudonym: string) => {
-    console.log("publicKey: ", publicKey)
-    console.log("pseudonym", pseudonym)
-    
     const samePseudonym = await db.pseudonyms.get({ publicKey: publicKey });
     if (samePseudonym === undefined) {
         const newPseudonym: Pseudonym = {publicKey, pseudonym, altPseudonym: ""};
         db.pseudonyms.add(newPseudonym);
     } else if(samePseudonym.pseudonym !== pseudonym){
-        db.pseudonyms.where({ id: samePseudonym.id }).modify((f) => f.altPseudonym = pseudonym);
+        db.pseudonyms.where({ id: id }).modify((f) => f.altPseudonym = pseudonym);
+    }
+}
+
+export const storeSetting = async (id: string, value: string) => {
+    const sameEntry = await db.settings.get({ id: id });
+    if (sameEntry === undefined) {
+        const newEntry: Setting = {id, value};
+        db.settings.put(newEntry);
+    } else if(sameEntry.value !== value){
+        db.settings.where({ id: id }).modify((f) => f.value = value);
     }
 }
 

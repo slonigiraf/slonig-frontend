@@ -8,14 +8,14 @@ import { Route, Routes } from 'react-router';
 import { Tabs } from '@polkadot/react-components';
 import { useAccounts, useIpfs } from '@polkadot/react-hooks';
 import { useTranslation } from './translate.js';
-import { createAndStoreLetter, storeInsurances, storePseudonym } from './utils.js';
+import { createAndStoreLetter, storeInsurances, storePseudonym, storeSetting } from './utils.js';
 import useCounter from './useCounter.js';
 import Mentor from './Mentor';
 import Student from './Student';
 import Teacher from './Teacher';
 import DBImport from './Student/DBImport.js';
 import DBExport from './Student/DBExport.js';
-export { useCounter, DBImport, DBExport, createAndStoreLetter, storeInsurances, storePseudonym };
+export { useCounter, DBImport, DBExport, createAndStoreLetter, storeInsurances, storePseudonym, storeSetting };
 
 const HIDDEN_ACC = ['vanity'];
 

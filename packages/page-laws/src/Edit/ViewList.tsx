@@ -9,6 +9,8 @@ import QRCode from 'qrcode.react';
 import type { KeyringPair } from '@polkadot/keyring/types';
 import { useTranslation } from '../translate';
 import { useIpfsContext } from '@slonigiraf/app-slonig-components';
+
+import { storeSetting } from '@slonigiraf/app-recommendations';
 import ExerciseList from './ExerciseList';
 
 interface Props {
@@ -71,6 +73,7 @@ function ViewList({ className = '', id, currentPair, onItemSelected }: Props): R
   const publicKeyU8 = currentPair.publicKey;
   const publicKeyHex = u8aToHex(publicKeyU8);
   const qrText = `{"q": 0,"d": "diplomas/mentor?cid=${cidString}&student=${publicKeyHex}"}`;
+  storeSetting("currentKnowledge", id);
 
   return (
     list == null ? "" :
