@@ -207,13 +207,11 @@ function Mentor({ className = '' }: Props): React.ReactElement<Props> {
     q: 4,
     n: name,
     p: publicKeyHex,
-    d: `knowledge?mentor=${publicKeyHex}`,
+    d: 'knowledge',
   };
   const qrCodeText = JSON.stringify(qrData);
 
   const url = getBaseUrl() + `/#/knowledge?mentor=${publicKeyHex}`;
-
-  console.log("student: ", student)
 
   return (
     <div className={`toolbox--Mentor ${className}`}>
