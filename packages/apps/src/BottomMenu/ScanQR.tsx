@@ -5,7 +5,7 @@ import { useNavigate } from 'react-router-dom';
 import { useTranslation } from '../translate.js';
 import { Modal, TransferModal } from '@polkadot/react-components';
 import { ButtonWithLabelBelow } from './ButtonWithLabelBelow';
-import { createAndStoreLetter, storeInsurances, storePseudonym } from '@slonigiraf/app-recommendations';
+import { createAndStoreLetter, storeInsurances, storePseudonym, storeSetting } from '@slonigiraf/app-recommendations';
 
 function ScanQR(): React.ReactElement {
   const { t } = useTranslation();
@@ -41,6 +41,7 @@ function ScanQR(): React.ReactElement {
           case 4: // Show mentor's identity
             // TODO: Store mentor pseudonym
             storePseudonym(jsonData.p, jsonData.n);
+            storeSetting("currentMentor", jsonData.p);
             navigate(jsonData.d);
             break; 
           default:
