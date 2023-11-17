@@ -229,7 +229,7 @@ function Mentor({ className = '' }: Props): React.ReactElement<Props> {
       {
         student === "" ? <>
           <h2>{t('Show the QR code to a student to begin mentoring')}</h2>
-          <QRWithShareAndCopy dataQR={qrCodeText} titleShare={"Hi"} textShare={"Some text"} urlShare={url} dataCopy={url}/>
+          <QRWithShareAndCopy dataQR={qrCodeText} titleShare={t('QR code')} textShare={t('Press the link to start learning')} urlShare={url} dataCopy={url}/>
         </>
           :
           <>

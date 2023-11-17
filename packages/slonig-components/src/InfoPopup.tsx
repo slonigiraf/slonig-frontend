@@ -5,10 +5,11 @@ import { BaseOverlay } from '@polkadot/apps';
 interface Props {
     isEnabled: boolean;
     message: string;
+    type: 'error' | 'info';
     onTimeout?: () => void;
 }
 
-function InfoPopup({ isEnabled, message, onTimeout }: Props): React.ReactElement<Props> | null {
+function InfoPopup({ isEnabled, message, type = 'info', onTimeout }: Props): React.ReactElement<Props> | null {
     const { t } = useTranslation();
 
     useEffect(() => {
@@ -28,7 +29,7 @@ function InfoPopup({ isEnabled, message, onTimeout }: Props): React.ReactElement
     return (
         <BaseOverlay
             icon='circle-info'
-            type='info'
+            type={type}
             isEnabled={isEnabled}
         >
             <div>{t(message)}</div>
