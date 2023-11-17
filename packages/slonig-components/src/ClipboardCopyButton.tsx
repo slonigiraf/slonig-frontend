@@ -24,4 +24,4 @@ function ClipboardCopyButton({ text }: ClipboardCopyButtonProps): React.ReactEle
     );
 }
 
-export default ClipboardCopyButton;
+export default React.memo(ClipboardCopyButton);

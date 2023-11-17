@@ -20,7 +20,7 @@ import { getLastUnusedLetterNumber, setLastUsedLetterNumber, storeLetter } from 
 import { statics } from '@polkadot/react-api/statics';
 import { useLocation } from 'react-router-dom';
 import { getIPFSDataFromContentID, parseJson } from '@slonigiraf/helpers'
-import { QRWithShareAndCopy } from '@slonigiraf/app-slonig-components';
+import { QRWithShareAndCopy, getBaseUrl } from '@slonigiraf/app-slonig-components';
 
 interface Props {
   className?: string;
@@ -188,11 +188,6 @@ function Mentor({ className = '' }: Props): React.ReactElement<Props> {
     },
     [currentPair, isLocked, isUsable, signer, ipfs, text, student, blockNumber, amount]
   );
-
-  const getBaseUrl = () => {
-    const { protocol, hostname, port } = window.location;
-    return `${protocol}//${hostname}${port ? `:${port}` : ''}`;
-  };
 
   const _onUnlock = useCallback(
     (): void => {

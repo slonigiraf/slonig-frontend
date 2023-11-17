@@ -29,4 +29,4 @@ function ShareButton({ title, text, url }: ShareButtonProps): React.ReactElement
     );
 }
 
-export default ShareButton;
+export default React.memo(ShareButton);
