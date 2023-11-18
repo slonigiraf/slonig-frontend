@@ -43,29 +43,29 @@ export const getLastUnusedLetterNumber = async (publicKey: string) => {
             publicKey: publicKey,
             lastLetterNumber: initialLetterNumber
         }
-        db.signers.add(signer);
+        await db.signers.add(signer);
         return initialLetterNumber;
     }
     return 1 + sameSigner.lastLetterNumber;
 }
 
 export const setLastUsedLetterNumber = async (publicKey: string, lastUsed: number) => {
-    db.signers.where({ publicKey: publicKey }).modify((v) => v.lastLetterNumber = lastUsed);
+    await db.signers.where({ publicKey: publicKey }).modify((v) => v.lastLetterNumber = lastUsed);
 }
 
 export const storeLetter = async (letter: Letter) => {
     const sameLatter = await db.letters.get({ signOverReceipt: letter.signOverReceipt });
     if (sameLatter === undefined) {
-        db.letters.add(letter);
+        await db.letters.add(letter);
     }
 }
 
 export const storeInsurance = async (insurance: Insurance) => {
     const sameInsurance = await db.insurances.get({ workerSign: insurance.workerSign });
     if (sameInsurance === undefined) {
-        db.insurances.add(insurance);
+        await db.insurances.add(insurance);
     } else if(sameInsurance.wasUsed === false && insurance.wasUsed === true){
-        db.insurances.where({ id: insurance.id }).modify((f) => f.wasUsed = true);
+        await db.insurances.where({ id: insurance.id }).modify((f) => f.wasUsed = true);
     }
 }
 
@@ -73,23 +73,23 @@ export const storePseudonym = async (publicKey: string, pseudonym: string) => {
     const samePseudonym = await db.pseudonyms.get({ publicKey: publicKey });
     if (samePseudonym === undefined) {
         const newPseudonym: Pseudonym = {publicKey, pseudonym, altPseudonym: ""};
-        db.pseudonyms.put(newPseudonym);
+        await db.pseudonyms.put(newPseudonym);
     } else if(samePseudonym.pseudonym !== pseudonym){
-        db.pseudonyms.where({ publicKey: publicKey }).modify((f) => f.altPseudonym = pseudonym);
+        await db.pseudonyms.where({ publicKey: publicKey }).modify((f) => f.altPseudonym = pseudonym);
     }
 }
 
 export const storeSetting = async (id: string, value: string) => {
-    db.settings.put({id, value});
+    await db.settings.put({id, value});
 }
 export const deleteSetting = async (id: string) => {
-    db.settings.delete(id);
+    await db.settings.delete(id);
 }
 
 export const storeUsageRight = async (usageRight: UsageRight) => {
     const sameUsageRight = await db.usageRights.get({ sign: usageRight.sign });
     if (sameUsageRight === undefined ) {
-        db.usageRights.add(usageRight);
+        await db.usageRights.add(usageRight);
     }
 }
 
@@ -102,7 +102,7 @@ export const storeLetterUsageRight = async (letter: Letter, employer: string, si
             employer: employer,
             sign: sign
         };
-        db.usageRights.add(usageRight);
+        await db.usageRights.add(usageRight);
     }
 }
 
@@ -184,5 +184,5 @@ const createAndStoreInsurance = async (data: string[]) => {
       workerSign: workerSignOverInsurance,
       wasUsed: false
     };
-    storeInsurance(insurance);
+    await storeInsurance(insurance);
 }
