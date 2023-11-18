@@ -85,6 +85,10 @@ export const storeSetting = async (id: string, value: string) => {
 export const deleteSetting = async (id: string) => {
     await db.settings.delete(id);
 }
+export const getSetting = async (id: string): Promise<string | undefined> => {
+    const setting = await db.settings.get(id);
+    return setting ? setting.value : undefined;
+};
 
 export const storeUsageRight = async (usageRight: UsageRight) => {
     const sameUsageRight = await db.usageRights.get({ sign: usageRight.sign });

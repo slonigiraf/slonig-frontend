@@ -1,31 +1,46 @@
-// Copyright 2021-2022 @slonigiraf/app-laws authors & contributors
-// SPDX-License-Identifier: Apache-2.0
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { useTranslation } from '../translate';
 import { u8aToHex } from '@polkadot/util';
 import { QRWithShareAndCopy, getBaseUrl } from '@slonigiraf/app-slonig-components';
 import { getAddressName } from '@polkadot/react-components';
-
+import { getSetting } from '@slonigiraf/app-recommendations';
+import type { KeyringPair } from '@polkadot/keyring/types';
 
 interface Props {
   className?: string;
   cid: string;
-  currentPair: KeyringPair | null;
+  currentPair: KeyringPair;
 }
 
 function SkillQR({ className = '', cid, currentPair }: Props): React.ReactElement<Props> {
   const { t } = useTranslation();
-  const publicKeyU8 = currentPair.publicKey;
-  const publicKeyHex = u8aToHex(publicKeyU8);
-  const [, , name] = getAddressName(currentPair.address, null, "");
-  const qrData = {
-    q: 5,
-    n: name,
-    p: publicKeyHex,
-    d: `diplomas/mentor?cid=${cid}&student=${publicKeyHex}`,
+  const [mentor, setMentor] = useState<string | undefined>();
+
+  useEffect(() => {
+    const fetchMentorSetting = async () => {
+      const mentorSetting = await getSetting("currentMentor");
+      setMentor(mentorSetting);
+    };
+    fetchMentorSetting();
+  }, []);
+
+  if (mentor === undefined) {
+    return <h3>{t('Scan a QR of your mentor to get a diploma')}</h3>;
+  }
+
+  const generateQRData = () => {
+    const publicKeyHex = u8aToHex(currentPair.publicKey);
+    const [, , name] = getAddressName(currentPair.address, null, "");
+    return JSON.stringify({
+      q: 5,
+      n: name,
+      p: publicKeyHex,
+      d: `diplomas/mentor?cid=${cid}&student=${publicKeyHex}`,
+    });
   };
-  const qrCodeText = JSON.stringify(qrData);
-  const url = getBaseUrl() + `/#/diplomas/mentor?cid=${cid}&student=${publicKeyHex}`;
+
+  const qrCodeText = generateQRData();
+  const url = `${getBaseUrl()}/#/diplomas/mentor?cid=${cid}&student=${u8aToHex(currentPair.publicKey)}`;
 
   return (
     <>

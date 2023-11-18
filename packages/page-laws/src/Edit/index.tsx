@@ -66,7 +66,7 @@ function Edit({ className = '' }: Props): React.ReactElement<Props> {
   const [isUnlockVisible, toggleUnlock] = useToggle();
   const [cidString, setCidString] = useState<string>("");
   const defaultTextHexId = '0xad007e87fa684a4c4acf169450a7fbcd5634f7602c828beb91f2acc68e81b21c';
-  const { textHexId, setQueryParam } = useRouting(defaultTextHexId);
+  const { textHexId, setQueryKnowledgeId } = useRouting(defaultTextHexId);
   const [lawHexData, setLawHexData] = useState('');
   const [amountList, setAmountList] = useState<BN>(BN_ZERO);
   const [amountItem, setAmountItem] = useState<BN>(BN_ZERO);
@@ -129,9 +129,9 @@ function Edit({ className = '' }: Props): React.ReactElement<Props> {
 
   const _onChangeLaw = useCallback(
     (lawId: string) => {
-      setQueryParam("id", lawId);
+      setQueryKnowledgeId(lawId);
     },
-    [setQueryParam]
+    [setQueryKnowledgeId]
   );
 
   const _onSign = useCallback(
