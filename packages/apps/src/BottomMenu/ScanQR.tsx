@@ -43,7 +43,11 @@ function ScanQR(): React.ReactElement {
             storePseudonym(jsonData.p, jsonData.n);
             storeSetting("currentMentor", jsonData.p);
             navigate(jsonData.d);
-            break; 
+            break;
+          case 5: // Show skill QR
+            storePseudonym(jsonData.p, jsonData.n);
+            navigate(jsonData.d);
+            break;
           default:
             console.warn("Unknown QR type:", jsonData.q);
         }
