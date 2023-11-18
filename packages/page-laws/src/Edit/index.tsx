@@ -20,6 +20,8 @@ import { parseJson } from '@slonigiraf/helpers';
 import Editor from './Editor';
 import ViewList from './ViewList';
 import { useRouting } from './useRouting';
+import { useLocation } from 'react-router-dom';
+import { storeSetting } from '@slonigiraf/app-recommendations';
 
 interface Props {
   className?: string;
@@ -39,6 +41,15 @@ interface SignerState {
 function Edit({ className = '' }: Props): React.ReactElement<Props> {
   const { ipfs, isIpfsReady, ipfsInitError } = useIpfsContext();
   const { t } = useTranslation();
+  const location = useLocation();
+  const queryParams = new URLSearchParams(location.search);
+  const mentor = queryParams.get("mentor");
+  useEffect(() => {
+    if (mentor) {
+      storeSetting("currentMentor", mentor);
+    }
+  }, [mentor]);
+
   const [currentPair, setCurrentPair] = useState<KeyringPair | null>(() => keyring.getPairs()[0] || null);
   const [text, setText] = useState<string>("");
   type JsonType = { [key: string]: any } | null;
