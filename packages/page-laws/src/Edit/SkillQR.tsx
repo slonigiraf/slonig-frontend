@@ -17,21 +17,16 @@ interface Props {
 
 function SkillQR({ className = '', cid, currentPair }: Props): React.ReactElement<Props> {
   const { t } = useTranslation();
-  const [selectedMentorKey, setSelectedMentorKey] = useState<string | undefined>();
-
-  // Fetch pseudonyms from the database
+  const [mentor, setMentor] = useState<string | undefined>();
   const mentors = useLiveQuery(() => db.pseudonyms.toArray(), []);
-
   // Fetch currentMentor and set it as the default in the dropdown
   useEffect(() => {
     const fetchMentorSetting = async () => {
-      const currentMentorPseudonym = await getSetting("currentMentor");
-      console.log("currentMentorPseudonym: ", currentMentorPseudonym)
-      if (mentors && currentMentorPseudonym) {
-          setSelectedMentorKey(currentMentorPseudonym);
+      const mentorFromSettings = await getSetting("currentMentor");
+      if (mentors && mentorFromSettings) {
+          setMentor(mentorFromSettings);
       }
     };
-
     fetchMentorSetting();
   }, [mentors]);
 
@@ -42,7 +37,7 @@ function SkillQR({ className = '', cid, currentPair }: Props): React.ReactElemen
   }));
 
   const handleMentorSelect = (selectedKey: string) => {
-    setSelectedMentorKey(selectedKey);
+    setMentor(selectedKey);
   };
 
   const generateQRData = () => {
@@ -59,14 +54,14 @@ function SkillQR({ className = '', cid, currentPair }: Props): React.ReactElemen
   const qrCodeText = generateQRData();
   const url = `${getBaseUrl()}/#/diplomas/mentor?cid=${cid}&student=${u8aToHex(currentPair.publicKey)}`;
 
-  console.log("selectedMentorKey: ", selectedMentorKey)
+  console.log("selectedMentorKey: ", mentor)
 
   return (
     <>
       <h3>{t('Show the QR to your mentor')}</h3>
       <Dropdown
         label={t('Select Mentor')}
-        value={selectedMentorKey}
+        value={mentor}
         onChange={handleMentorSelect}
         options={mentorOptions || []}
       />
