@@ -24,7 +24,7 @@ function SkillQR({ className = '', cid, currentPair }: Props): React.ReactElemen
     const fetchMentorSetting = async () => {
       const mentorFromSettings = await getSetting("currentMentor");
       if (mentors && mentorFromSettings) {
-          setMentor(mentorFromSettings);
+        setMentor(mentorFromSettings);
       }
     };
     fetchMentorSetting();
@@ -36,8 +36,16 @@ function SkillQR({ className = '', cid, currentPair }: Props): React.ReactElemen
     value: mentor.publicKey
   }));
 
-  const handleMentorSelect = (selectedKey: string) => {
+  const handleMentorSelect = async (selectedKey: string) => {
     setMentor(selectedKey);
+    if (selectedKey) {
+      try {
+        await db.settings.put({ id: "currentMentor", value: selectedKey });
+        console.log('Mentor selection saved successfully');
+      } catch (error) {
+        console.error('Error saving mentor selection:', error);
+      }
+    }
   };
 
   const generateQRData = () => {
@@ -53,8 +61,6 @@ function SkillQR({ className = '', cid, currentPair }: Props): React.ReactElemen
 
   const qrCodeText = generateQRData();
   const url = `${getBaseUrl()}/#/diplomas/mentor?cid=${cid}&student=${u8aToHex(currentPair.publicKey)}`;
-
-  console.log("selectedMentorKey: ", mentor)
 
   return (
     <>
