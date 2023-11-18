@@ -6,7 +6,6 @@ import { Insurance } from "./db/Insurance";
 import { Signer } from "./db/Signer";
 import { UsageRight } from "./db/UsageRight";
 import { Pseudonym } from "./db/Pseudonym.js";
-import { Setting } from "./db/Setting.js";
 
 export const syncDB = async (data: string, password: string) => {
     const json = JSON.parse(data);
@@ -82,6 +81,9 @@ export const storePseudonym = async (publicKey: string, pseudonym: string) => {
 
 export const storeSetting = async (id: string, value: string) => {
     db.settings.put({id, value});
+}
+export const deleteSetting = async (id: string) => {
+    db.settings.delete(id);
 }
 
 export const storeUsageRight = async (usageRight: UsageRight) => {
