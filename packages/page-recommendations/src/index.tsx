@@ -15,7 +15,8 @@ import Student from './Student';
 import Teacher from './Teacher';
 import DBImport from './Student/DBImport.js';
 import DBExport from './Student/DBExport.js';
-export { useCounter, DBImport, DBExport, createAndStoreLetter, storeInsurances, storePseudonym, storeSetting, deleteSetting, getSetting };
+import { db } from './db/index.js';
+export { db, useCounter, DBImport, DBExport, createAndStoreLetter, storeInsurances, storePseudonym, storeSetting, deleteSetting, getSetting };
 
 const HIDDEN_ACC = ['vanity'];
 
