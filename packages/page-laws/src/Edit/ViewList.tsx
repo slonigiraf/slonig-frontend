@@ -7,7 +7,6 @@ import SkillQR from './SkillQR.js';
 import type { KeyringPair } from '@polkadot/keyring/types';
 import { useTranslation } from '../translate';
 import { useIpfsContext } from '@slonigiraf/app-slonig-components';
-import { storeSetting } from '@slonigiraf/app-recommendations';
 import ExerciseList from './ExerciseList';
 import { u8aToHex } from '@polkadot/util';
 
@@ -31,7 +30,6 @@ function ViewList({ className = '', id, currentPair, onItemSelected }: Props): R
   const { api } = useApi();
 
   async function fetchLaw(key: string) {
-    await storeSetting("currentKnowledge", key);
     const law = await api.query.laws.laws(key);
     if (law.isSome) {
       const tuple = law.unwrap();

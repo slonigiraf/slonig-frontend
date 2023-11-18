@@ -21,7 +21,7 @@ import Editor from './Editor';
 import ViewList from './ViewList';
 import { useRouting } from './useRouting';
 import { useLocation } from 'react-router-dom';
-import { storeSetting } from '@slonigiraf/app-recommendations';
+import { storeSetting, getSetting } from '@slonigiraf/app-recommendations';
 
 interface Props {
   className?: string;
@@ -43,17 +43,6 @@ function Edit({ className = '' }: Props): React.ReactElement<Props> {
   const { t } = useTranslation();
   const location = useLocation();
   const queryParams = new URLSearchParams(location.search);
-  const mentor = queryParams.get("mentor");
-  useEffect(() => {
-    const updateSetting = async () => {
-      if (mentor) {
-        await storeSetting("currentMentor", mentor);
-      }
-    };
-  
-    updateSetting();
-  }, [mentor]);
-
   const [currentPair, setCurrentPair] = useState<KeyringPair | null>(() => keyring.getPairs()[0] || null);
   const [text, setText] = useState<string>("");
   type JsonType = { [key: string]: any } | null;
@@ -77,6 +66,19 @@ function Edit({ className = '' }: Props): React.ReactElement<Props> {
   const [isEditView, setIsEditView] = useToggle(false);
   const [isAddingItem, setIsAddingElement] = useState<boolean>(false);
   const [itemIdHex, setItemIdHex] = useState<string>("");
+  const mentor = queryParams.get("mentor");
+  console.log("textHexId: ", textHexId)
+  useEffect(() => {
+    const updateSetting = async () => {
+      if (mentor) {
+        await storeSetting("currentMentor", mentor);
+        await setQueryKnowledgeId(await getSetting("currentKnowledge"));
+      } else{
+        await storeSetting("currentKnowledge", textHexId);
+      }
+    };
+    updateSetting();
+  }, [mentor, textHexId]);
 
   useEffect((): void => {
     const meta = (currentPair && currentPair.meta) || {};
