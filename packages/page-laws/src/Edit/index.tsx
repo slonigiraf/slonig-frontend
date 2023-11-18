@@ -19,8 +19,7 @@ import { useApi } from '@polkadot/react-hooks';
 import { parseJson } from '@slonigiraf/helpers';
 import Editor from './Editor';
 import ViewList from './ViewList';
-import { useRouting } from './useRouting';
-import { useLocation } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { storeSetting, getSetting } from '@slonigiraf/app-recommendations';
 
 interface Props {
@@ -41,8 +40,6 @@ interface SignerState {
 function Edit({ className = '' }: Props): React.ReactElement<Props> {
   const { ipfs, isIpfsReady, ipfsInitError } = useIpfsContext();
   const { t } = useTranslation();
-  const location = useLocation();
-  const queryParams = new URLSearchParams(location.search);
   const [currentPair, setCurrentPair] = useState<KeyringPair | null>(() => keyring.getPairs()[0] || null);
   const [text, setText] = useState<string>("");
   type JsonType = { [key: string]: any } | null;
@@ -54,8 +51,6 @@ function Edit({ className = '' }: Props): React.ReactElement<Props> {
   const [signature, setSignature] = useState('');
   const [isUnlockVisible, toggleUnlock] = useToggle();
   const [cidString, setCidString] = useState<string>("");
-  const defaultTextHexId = '0xad007e87fa684a4c4acf169450a7fbcd5634f7602c828beb91f2acc68e81b21c';
-  const { textHexId, setQueryKnowledgeId } = useRouting(defaultTextHexId);
   const [lawHexData, setLawHexData] = useState('');
   const [amountList, setAmountList] = useState<BN>(BN_ZERO);
   const [amountItem, setAmountItem] = useState<BN>(BN_ZERO);
@@ -66,14 +61,26 @@ function Edit({ className = '' }: Props): React.ReactElement<Props> {
   const [isEditView, setIsEditView] = useToggle(false);
   const [isAddingItem, setIsAddingElement] = useState<boolean>(false);
   const [itemIdHex, setItemIdHex] = useState<string>("");
+
+  const location = useLocation();
+  const navigate = useNavigate();
+  const queryParams = new URLSearchParams(location.search);
   const mentor = queryParams.get("mentor");
-  console.log("textHexId: ", textHexId)
+  const defaultTextHexId = '0xad007e87fa684a4c4acf169450a7fbcd5634f7602c828beb91f2acc68e81b21c';
+  const textHexId = queryParams.get("id") || defaultTextHexId;
+
+  const setQueryKnowledgeId = (value: any) => {
+    const newQueryParams = new URLSearchParams();
+    newQueryParams.set("id", value);
+    navigate({ ...location, search: newQueryParams.toString() });
+  };
+
   useEffect(() => {
     const updateSetting = async () => {
       if (mentor) {
         await storeSetting("currentMentor", mentor);
         await setQueryKnowledgeId(await getSetting("currentKnowledge"));
-      } else{
+      } else {
         await storeSetting("currentKnowledge", textHexId);
       }
     };
