@@ -31,6 +31,7 @@ function ViewList({ className = '', id, currentPair, onItemSelected }: Props): R
   const { api } = useApi();
 
   async function fetchLaw(key: string) {
+    await storeSetting("currentKnowledge", key);
     const law = await api.query.laws.laws(key);
     if (law.isSome) {
       const tuple = law.unwrap();
@@ -67,9 +68,6 @@ function ViewList({ className = '', id, currentPair, onItemSelected }: Props): R
     },
     [id, onItemSelected]
   );
-
-  
-  storeSetting("currentKnowledge", id);
 
   return (
     list == null ? "" :

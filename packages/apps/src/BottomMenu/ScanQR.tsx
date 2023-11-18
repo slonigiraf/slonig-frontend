@@ -40,12 +40,12 @@ function ScanQR(): React.ReactElement {
             break; 
           case 4: // Show mentor's identity
             // TODO: Store mentor pseudonym
-            storePseudonym(jsonData.p, jsonData.n);
-            storeSetting("currentMentor", jsonData.p);
+            await storePseudonym(jsonData.p, jsonData.n);
+            await storeSetting("currentMentor", jsonData.p);
             navigate(jsonData.d);
             break;
           case 5: // Show skill QR
-            storePseudonym(jsonData.p, jsonData.n);
+            await storePseudonym(jsonData.p, jsonData.n);
             navigate(jsonData.d);
             break;
           default:

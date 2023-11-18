@@ -45,9 +45,13 @@ function Edit({ className = '' }: Props): React.ReactElement<Props> {
   const queryParams = new URLSearchParams(location.search);
   const mentor = queryParams.get("mentor");
   useEffect(() => {
-    if (mentor) {
-      storeSetting("currentMentor", mentor);
-    }
+    const updateSetting = async () => {
+      if (mentor) {
+        await storeSetting("currentMentor", mentor);
+      }
+    };
+  
+    updateSetting();
   }, [mentor]);
 
   const [currentPair, setCurrentPair] = useState<KeyringPair | null>(() => keyring.getPairs()[0] || null);
