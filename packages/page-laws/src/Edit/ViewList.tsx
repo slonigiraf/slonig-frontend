@@ -1,17 +1,15 @@
-import React from 'react';
 import React, { useCallback, useEffect, useState } from 'react';
 import { getCIDFromBytes, getIPFSDataFromContentID, parseJson } from '@slonigiraf/helpers';
-import { u8aToHex } from '@polkadot/util';
 import { useApi } from '@polkadot/react-hooks';
 import { BN_ZERO } from '@polkadot/util';
-import ItemLabel from './ItemLabel';
-import QRCode from 'qrcode.react';
+import ItemLabel from './ItemLabel.js';
+import SkillQR from './SkillQR.js';
 import type { KeyringPair } from '@polkadot/keyring/types';
 import { useTranslation } from '../translate';
 import { useIpfsContext } from '@slonigiraf/app-slonig-components';
-
 import { storeSetting } from '@slonigiraf/app-recommendations';
 import ExerciseList from './ExerciseList';
+import { u8aToHex } from '@polkadot/util';
 
 interface Props {
   className?: string;
@@ -70,9 +68,7 @@ function ViewList({ className = '', id, currentPair, onItemSelected }: Props): R
     [id, onItemSelected]
   );
 
-  const publicKeyU8 = currentPair.publicKey;
-  const publicKeyHex = u8aToHex(publicKeyU8);
-  const qrText = `{"q": 0,"d": "diplomas/mentor?cid=${cidString}&student=${publicKeyHex}"}`;
+  
   storeSetting("currentKnowledge", id);
 
   return (
@@ -82,8 +78,7 @@ function ViewList({ className = '', id, currentPair, onItemSelected }: Props): R
         {
           list.t !== null && list.t === 3 &&
           <>
-            <h3>{t('Show the QR to your mentor')}</h3>
-            <QRCode value={qrText} />
+            <SkillQR cid={cidString} currentPair={currentPair} />
             <h3>{t('Example exercises to train the skill')}</h3>
           </>
         }
