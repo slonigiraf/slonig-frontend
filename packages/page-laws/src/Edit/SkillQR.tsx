@@ -11,8 +11,12 @@ import { useLocation, useNavigate } from 'react-router-dom';
 import { styled } from '@polkadot/react-components';
 import { keyring } from '@polkadot/ui-keyring';
 import { web3FromSource } from '@polkadot/extension-dapp';
-import { isFunction, u8aToHex } from '@polkadot/util';
+import { isFunction, u8aToHex, hexToU8a, u8aWrapBytes } from '@polkadot/util';
 import { useToggle } from '@polkadot/react-hooks';
+import { storeLetterUsageRight } from '../utils.js';
+import { getDataToSignByWorker } from '@slonigiraf/helpers';
+import type { Signer } from '@polkadot/api/types';
+import BN from 'bn.js';
 
 interface Props {
   className?: string;
@@ -47,6 +51,7 @@ function SkillQR({ className = '', cid }: Props): React.ReactElement<Props> {
   const [mentor, setMentor] = useState<string | null>(mentorFromQuery);
   const mentors = useLiveQuery(() => db.pseudonyms.toArray(), []);
   const [diplomaToReexamine, setDiplomaToReexamine] = useState<Letter | null>(null);
+  const [studentSignatureOverDiplomaToReexamine, setStudentSignatureOverDiplomaToReexamine] = useState<string>("");
 
   const setQueryMentorId = (value: any) => {
     const newQueryParams = new URLSearchParams();
@@ -140,9 +145,14 @@ function SkillQR({ className = '', cid }: Props): React.ReactElement<Props> {
     fetchRandomDiploma();
   }, []);
 
-  const reexamineData = diplomaToReexamine ? `&cidR=${diplomaToReexamine.cid}&genesisR=${diplomaToReexamine.genesis}&nonceR=${diplomaToReexamine.letterNumber}&blockR=${diplomaToReexamine.block}&mentorR=${diplomaToReexamine.referee}&studentR=${diplomaToReexamine.worker}&amountR=${diplomaToReexamine.amount}&mentorSignR=${diplomaToReexamine.signOverPrivateData}&mentorSignR=${diplomaToReexamine.signOverPrivateData}` : '';
+  useEffect(() => {
+    const showQR = async () => {
+      _onSign();
+    };
+    showQR();
+  }, [mentor, diplomaToReexamine]);
 
-  console.log("insuranceData: ", reexamineData)
+  const reexamineData = diplomaToReexamine ? `&cidR=${diplomaToReexamine.cid}&genesisR=${diplomaToReexamine.genesis}&nonceR=${diplomaToReexamine.letterNumber}&blockR=${diplomaToReexamine.block}&mentorR=${diplomaToReexamine.referee}&studentR=${diplomaToReexamine.worker}&amountR=${diplomaToReexamine.amount}&mentorSignR=${diplomaToReexamine.signOverPrivateData}&studentSignR=${studentSignatureOverDiplomaToReexamine}` : '';
   const urlDetails = `diplomas/mentor?cid=${cid}&student=${publicKeyHex}${reexamineData}`;
 
   const generateQRData = () => {
@@ -157,6 +167,35 @@ function SkillQR({ className = '', cid }: Props): React.ReactElement<Props> {
 
   const qrCodeText = generateQRData();
   const url = `${getBaseUrl()}/#/${urlDetails}`;
+
+  const _onSign = useCallback(
+    async () => {
+      if (isLocked || !isUsable || !currentPair || !diplomaToReexamine || !mentor) {
+        return;
+      }
+
+      // generate a data to sign      
+      const letterInsurance = getDataToSignByWorker(diplomaToReexamine.letterNumber, new BN(diplomaToReexamine.block), hexToU8a(diplomaToReexamine.referee),
+        hexToU8a(diplomaToReexamine.worker), new BN(diplomaToReexamine.amount), hexToU8a(diplomaToReexamine.signOverReceipt), hexToU8a(mentor));
+      let workerSignOverInsurance = "";
+      // sign
+      if (signer && isFunction(signer.signRaw)) {// Use browser extenstion 
+        const u8WorkerSignOverInsurance = await signer.signRaw({
+          address: currentPair.address,
+          data: u8aToHex(letterInsurance),
+          type: 'bytes'
+        });
+        workerSignOverInsurance = u8WorkerSignOverInsurance.signature;
+      } else {// Use locally stored account to sign
+        workerSignOverInsurance = u8aToHex(currentPair.sign(u8aWrapBytes(letterInsurance)));
+      }
+      // storeLetterUsageRight(letter, mentor, workerSignOverInsurance);
+      // create the result text
+
+      setStudentSignatureOverDiplomaToReexamine(workerSignOverInsurance);
+    },
+    [currentPair, isLocked, isUsable, signer, mentor, diplomaToReexamine]
+  );
 
   return (
     <>
