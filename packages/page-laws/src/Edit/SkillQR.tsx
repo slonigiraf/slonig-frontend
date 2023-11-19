@@ -72,9 +72,10 @@ function SkillQR({ className = '', cid, currentPair }: Props): React.ReactElemen
     }
   };
 
+  const publicKeyHex = u8aToHex(currentPair.publicKey);
   const urlDetails = `diplomas/mentor?cid=${cid}&student=${publicKeyHex}`;
+  
   const generateQRData = () => {
-    const publicKeyHex = u8aToHex(currentPair.publicKey);
     const [, , name] = getAddressName(currentPair.address, null, "");
     return JSON.stringify({
       q: 5,
