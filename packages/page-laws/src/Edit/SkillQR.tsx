@@ -91,21 +91,24 @@ function SkillQR({ className = '', cid, currentPair }: Props): React.ReactElemen
           onChange={handleMentorSelect}
           options={mentorOptions || []}
         />
+        <QRWithShareAndCopy
+          dataQR={qrCodeText}
+          titleShare={t('QR code')}
+          textShare={t('Press the link to start mentoring')}
+          urlShare={url}
+          dataCopy={url}
+        />
       </StyledDiv>
-      <QRWithShareAndCopy
-        dataQR={qrCodeText}
-        titleShare={t('QR code')}
-        textShare={t('Press the link to start mentoring')}
-        urlShare={url}
-        dataCopy={url}
-      />
+
     </>
   );
 }
 
 const StyledDiv = styled.div`
+  justify-content: center;
+  align-items: center;
   .dropdown {
-    max-width: 300px;
+    max-width: 200px;
   }
 `;
 

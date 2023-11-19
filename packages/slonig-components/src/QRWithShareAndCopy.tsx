@@ -32,6 +32,9 @@ function QRWithShareAndCopy({ className, dataQR, titleShare, textShare, urlShare
 const StyledDiv = styled.div`
   display: flex;
   flex-direction: row;
+  justify-content: center;
+  align-items: center;
+  max-width: 250px;
   .qr--row {
     display: flex;
     justify-content: center;
