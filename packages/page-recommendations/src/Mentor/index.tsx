@@ -80,9 +80,11 @@ function Mentor({ className = '' }: Props): React.ReactElement<Props> {
 
   useEffect(() => {
     async function fetchStudentName() {
-      const name = await db.pseudonyms.get(studentIdentity);
-      if (name) {
-        setStudentName(name.pseudonym);
+      if(studentIdentity){
+        const name = await db.pseudonyms.get(studentIdentity);
+        if (name) {
+          setStudentName(name.pseudonym);
+        }
       }
     }
     fetchStudentName()
