@@ -21,6 +21,7 @@ import { statics } from '@polkadot/react-api/statics';
 import { useLocation } from 'react-router-dom';
 import { getIPFSDataFromContentID, parseJson } from '@slonigiraf/helpers'
 import { QRWithShareAndCopy, getBaseUrl } from '@slonigiraf/app-slonig-components';
+import { db } from '@slonigiraf/app-recommendations';
 
 interface Props {
   className?: string;
@@ -58,6 +59,7 @@ function Mentor({ className = '' }: Props): React.ReactElement<Props> {
   const [blockNumber, setBlockNumber] = useState<BN>(defaultBlockNumber);
   const [letterInfo, setLetterInfo] = useState('');
   const [modalIsOpen, setModalIsOpen] = useState(false);
+  const [studentName, setStudentName] = useState<string | undefined>(undefined);
 
   useEffect(() => {
     async function fetchData() {
@@ -75,6 +77,16 @@ function Mentor({ className = '' }: Props): React.ReactElement<Props> {
     }
     fetchData()
   }, [ipfs, textHash])
+
+  useEffect(() => {
+    async function fetchStudentName() {
+      const name = await db.pseudonyms.get(studentIdentity);
+      if (name) {
+        setStudentName(name.pseudonym);
+      }
+    }
+    fetchStudentName()
+  }, [studentIdentity])
 
   useEffect((): void => {
     const meta = (currentPair && currentPair.meta) || {};
@@ -230,7 +242,7 @@ function Mentor({ className = '' }: Props): React.ReactElement<Props> {
       {
         student === undefined ? <>
           <h2>{t('Show the QR code to a student to begin mentoring')}</h2>
-          <QRWithShareAndCopy dataQR={qrCodeText} titleShare={t('QR code')} textShare={t('Press the link to start learning')} urlShare={url} dataCopy={url}/>
+          <QRWithShareAndCopy dataQR={qrCodeText} titleShare={t('QR code')} textShare={t('Press the link to start learning')} urlShare={url} dataCopy={url} />
         </>
           :
           <>
@@ -239,7 +251,7 @@ function Mentor({ className = '' }: Props): React.ReactElement<Props> {
               <h2>"{text}"</h2>
             </div>
             <div className='ui--row'>
-              <h2>Person: {student}</h2>
+              <h2>Person: {studentName}</h2>
             </div>
             <div className='ui--row'>
               <InputBalance
