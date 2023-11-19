@@ -7,7 +7,7 @@ import { getSetting, storeSetting } from '@slonigiraf/app-recommendations';
 import type { KeyringPair } from '@polkadot/keyring/types';
 import { Dropdown, Label } from '@polkadot/react-components';
 import { useLiveQuery } from "dexie-react-hooks";
-import { db } from '@slonigiraf/app-recommendations';
+import { db, Letter } from '@slonigiraf/app-recommendations';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { styled } from '@polkadot/react-components';
 
@@ -25,6 +25,7 @@ function SkillQR({ className = '', cid, currentPair }: Props): React.ReactElemen
   const mentorFromQuery = queryParams.get("mentor");
   const [mentor, setMentor] = useState<string | null>(mentorFromQuery);
   const mentors = useLiveQuery(() => db.pseudonyms.toArray(), []);
+  const [diploma, setDiploma] = useState<Letter | null>(null);
 
   const setQueryMentorId = (value: any) => {
     const newQueryParams = new URLSearchParams();
@@ -73,8 +74,21 @@ function SkillQR({ className = '', cid, currentPair }: Props): React.ReactElemen
   };
 
   const publicKeyHex = u8aToHex(currentPair.publicKey);
-  const urlDetails = `diplomas/mentor?cid=${cid}&student=${publicKeyHex}`;
-  
+  useEffect(() => {
+    const fetchRandomDiploma = async () => {
+      const allDiplomas = await db.letters.toArray();
+      if (allDiplomas.length > 0) {
+        const randomIndex = Math.floor(Math.random() * allDiplomas.length);
+        setDiploma(allDiplomas[randomIndex]);
+      }
+    };
+    fetchRandomDiploma();
+  }, []);
+
+  const insuranceData = diploma ? `&insuranceId=${diploma.id}` : '';
+  console.log("insuranceData: ", insuranceData)
+  const urlDetails = `diplomas/mentor?cid=${cid}&student=${publicKeyHex}${insuranceData}`;
+
   const generateQRData = () => {
     const [, , name] = getAddressName(currentPair.address, null, "");
     return JSON.stringify({
@@ -101,7 +115,7 @@ function SkillQR({ className = '', cid, currentPair }: Props): React.ReactElemen
             onChange={handleMentorSelect}
             options={mentorOptions || []}
           />
-          <ScanQR label={t('by QR')} type={4}/>
+          <ScanQR label={t('by QR')} type={4} />
         </FlexRow>
         <QRWithShareAndCopy
           dataQR={qrCodeText}
