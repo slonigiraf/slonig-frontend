@@ -83,12 +83,15 @@ function Edit({ className = '' }: Props): React.ReactElement<Props> {
         await storeSetting("currentMentor", mentor);
         const savedId = await getSetting("currentKnowledge");
         setTextHexId(savedId);
-      } else if (textHexId) {
-        await storeSetting("currentKnowledge", textHexId);
+      } else if (idFromQuery) {
+        if (idFromQuery !== defaultTextHexId) {
+          await storeSetting("currentKnowledge", idFromQuery);
+        }
+        setTextHexId(idFromQuery);
       }
     };
     updateSetting();
-  }, [mentor, textHexId]);
+  }, [mentor, idFromQuery]);
 
   useEffect((): void => {
     const meta = (currentPair && currentPair.meta) || {};
