@@ -49,10 +49,16 @@ function SkillQR({ className = '', cid, currentPair }: Props): React.ReactElemen
   }, [mentors, mentorFromQuery]);
 
   // Prepare dropdown options
-  const mentorOptions = mentors?.map(mentor => ({
+  let mentorOptions = mentors?.map(mentor => ({
     text: mentor.pseudonym,
     value: mentor.publicKey
   }));
+
+  // Check if 'mentor' is not null and not in 'mentorOptions'
+  if (mentor && mentorOptions && !mentorOptions.some(option => option.value === mentor)) {
+    // Add 'From web-link' as the first option
+    mentorOptions = [{ text: t('From web-link'), value: mentor }, ...mentorOptions];
+  }
 
   const handleMentorSelect = async (selectedKey: string) => {
     setMentor(selectedKey);
