@@ -1,18 +1,20 @@
 import React from 'react';
 import styled from 'styled-components';
-import ScanQR from './ScanQR';
+import { ScanQR } from '@slonigiraf/app-slonig-components';
 import GoKnowledge from './GoKnowledge';
 import GetSLON from './GetSLON';
 import GoDiplomas from './GoDiplomas';
 import { useApi } from '@polkadot/react-hooks';
+import { useTranslation } from '../translate.js';
 
 function BottomMenu(): React.ReactElement {
   const { isApiReady, isWaitingInjected } = useApi();
+  const { t } = useTranslation();
   if( isApiReady && !isWaitingInjected){
     return (
       <MenuWrapper>
         <MenuItem><GoKnowledge /></MenuItem>
-        <MenuItem><ScanQR /></MenuItem>
+        <MenuItem><ScanQR label={t('Scan QR')}/></MenuItem>
         <MenuItem><GoDiplomas /></MenuItem>
         <MenuItem><GetSLON /></MenuItem>
       </MenuWrapper>

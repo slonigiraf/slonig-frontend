@@ -13,9 +13,8 @@ const StyledLabel = styled.span`
   text-align: center;
 `;
 
-export function ButtonWithLabelBelow(props: any) {
+export default function ButtonWithLabelBelow(props: any) {
   const { icon, label, ...restProps } = props;
-
   return (
     <Button className="icon-button-with-label-below" {...restProps}>
       {icon && <IconWrapper><Icon icon={icon} /></IconWrapper>}

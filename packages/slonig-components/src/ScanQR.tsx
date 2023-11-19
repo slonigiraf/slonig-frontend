@@ -2,12 +2,17 @@ import React, { useState, useCallback } from 'react';
 import { useToggle } from '@polkadot/react-hooks';
 import { QRScanner } from '@slonigiraf/app-slonig-components';
 import { useNavigate } from 'react-router-dom';
-import { useTranslation } from '../translate.js';
+import { useTranslation } from '../../apps/src/translate.js';
 import { Modal, TransferModal } from '@polkadot/react-components';
-import { ButtonWithLabelBelow } from './ButtonWithLabelBelow';
+import { ButtonWithLabelBelow } from '@slonigiraf/app-slonig-components';
 import { createAndStoreLetter, storeInsurances, storePseudonym, storeSetting } from '@slonigiraf/app-recommendations';
 
-function ScanQR(): React.ReactElement {
+interface Props {
+  className?: string;
+  label?: string;
+}
+
+function ScanQR({ className = '', label }: Props): React.ReactElement<Props> {
   const { t } = useTranslation();
   const [isQROpen, toggleQR] = useToggle();
   const [isTransferOpen, toggleTransfer] = useToggle();
@@ -71,7 +76,7 @@ function ScanQR(): React.ReactElement {
     <>
       <ButtonWithLabelBelow
         icon='qrcode'
-        label={t('Scan QR')}
+        label={label}
         onClick={toggleQR}
       />
       {isQROpen && (

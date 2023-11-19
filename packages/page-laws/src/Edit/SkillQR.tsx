@@ -1,11 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import { useTranslation } from '../translate';
 import { u8aToHex } from '@polkadot/util';
-import { QRWithShareAndCopy, getBaseUrl } from '@slonigiraf/app-slonig-components';
+import { QRWithShareAndCopy, ScanQR, getBaseUrl } from '@slonigiraf/app-slonig-components';
 import { getAddressName } from '@polkadot/react-components';
 import { getSetting, storeSetting } from '@slonigiraf/app-recommendations';
 import type { KeyringPair } from '@polkadot/keyring/types';
-import { Dropdown } from '@polkadot/react-components';
+import { Dropdown, Label } from '@polkadot/react-components';
 import { useLiveQuery } from "dexie-react-hooks";
 import { db } from '@slonigiraf/app-recommendations';
 import { useLocation, useNavigate } from 'react-router-dom';
@@ -82,15 +82,19 @@ function SkillQR({ className = '', cid, currentPair }: Props): React.ReactElemen
 
   return (
     <>
-      <h3>{t('Show the QR to your mentor')}</h3>
+
       <StyledDiv>
-        <Dropdown
-          className={`dropdown ${className}`}
-          label={t('Select Mentor')}
-          value={mentor}
-          onChange={handleMentorSelect}
-          options={mentorOptions || []}
-        />
+        <h3>{t('Show the QR to your mentor')}</h3>
+        <FlexRow>
+          <Dropdown
+            className={`dropdown ${className}`}
+            label={t('Select Mentor*')}
+            value={mentor}
+            onChange={handleMentorSelect}
+            options={mentorOptions || []}
+          />
+          <ScanQR label={t('by QR')}/>
+        </FlexRow>
         <QRWithShareAndCopy
           dataQR={qrCodeText}
           titleShare={t('QR code')}
@@ -111,5 +115,15 @@ const StyledDiv = styled.div`
     max-width: 200px;
   }
 `;
+const FlexRow = styled.div`
+  display: flex;
+  justify-content: left;
+  align-items: left;
+  margin-top: 20px; // Adjust as needed
 
+  // Add margin to either the dropdown or ScanQR if needed
+  .dropdown {
+    margin-right: 30px;
+  }
+`;
 export default React.memo(SkillQR);

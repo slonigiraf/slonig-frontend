@@ -3,7 +3,7 @@ import { Button, Modal } from '@polkadot/react-components';
 import { useToggle } from '@polkadot/react-hooks';
 import React from 'react';
 import PayToAccountQR from './PayToAccountQR';
-import { ButtonWithLabelBelow } from './ButtonWithLabelBelow';
+import { ButtonWithLabelBelow } from '@slonigiraf/app-slonig-components';
 
 function GetSLON(): React.ReactElement {
   const { t } = useTranslation();
