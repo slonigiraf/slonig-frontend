@@ -41,7 +41,6 @@ function SkillQR({ className = '', cid, currentPair }: Props): React.ReactElemen
     if (selectedKey) {
       try {
         await db.settings.put({ id: "currentMentor", value: selectedKey });
-        console.log('Mentor selection saved successfully');
       } catch (error) {
         console.error('Error saving mentor selection:', error);
       }

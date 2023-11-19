@@ -30,16 +30,18 @@ function ViewList({ className = '', id, currentPair, onItemSelected }: Props): R
   const { api } = useApi();
 
   async function fetchLaw(key: string) {
-    const law = await api.query.laws.laws(key);
-    if (law.isSome) {
-      const tuple = law.unwrap();
-      const byteArray = tuple[0]; // This should give you the [u8; 32]
-      const bigIntValue = tuple[1]; // This should give you the u128
-      const cid = await getCIDFromBytes(byteArray);
-      setCidString(cid);
-      setLawHexData(u8aToHex(byteArray));
-      setAmountList(bigIntValue);
-      setPreviousAmount(bigIntValue);
+    if (key) {
+      const law = await api.query.laws.laws(key);
+      if (law.isSome) {
+        const tuple = law.unwrap();
+        const byteArray = tuple[0]; // This should give you the [u8; 32]
+        const bigIntValue = tuple[1]; // This should give you the u128
+        const cid = await getCIDFromBytes(byteArray);
+        setCidString(cid);
+        setLawHexData(u8aToHex(byteArray));
+        setAmountList(bigIntValue);
+        setPreviousAmount(bigIntValue);
+      }
     }
   }
 

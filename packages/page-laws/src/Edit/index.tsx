@@ -67,11 +67,13 @@ function Edit({ className = '' }: Props): React.ReactElement<Props> {
   const queryParams = new URLSearchParams(location.search);
   const mentor = queryParams.get("mentor");
   const defaultTextHexId = '0xad007e87fa684a4c4acf169450a7fbcd5634f7602c828beb91f2acc68e81b21c';
-  const textHexId = queryParams.get("id") || defaultTextHexId;
+  const idFromQuery = mentor ? undefined : queryParams.get("id") || defaultTextHexId;
+  const [textHexId, setTextHexId] = useState<string | undefined>(idFromQuery);
 
   const setQueryKnowledgeId = (value: any) => {
     const newQueryParams = new URLSearchParams();
     newQueryParams.set("id", value);
+    setTextHexId(value);
     navigate({ ...location, search: newQueryParams.toString() });
   };
 
@@ -79,8 +81,9 @@ function Edit({ className = '' }: Props): React.ReactElement<Props> {
     const updateSetting = async () => {
       if (mentor) {
         await storeSetting("currentMentor", mentor);
-        await setQueryKnowledgeId(await getSetting("currentKnowledge"));
-      } else {
+        const savedId = await getSetting("currentKnowledge");
+        setTextHexId(savedId);
+      } else if (textHexId) {
         await storeSetting("currentKnowledge", textHexId);
       }
     };
@@ -198,16 +201,18 @@ function Edit({ className = '' }: Props): React.ReactElement<Props> {
   }, [cidString, ipfs]);
 
   async function fetchLaw(key: string) {
-    const law = await api.query.laws.laws(key);
-    if (law.isSome) {
-      const tuple = law.unwrap();
-      const byteArray = tuple[0]; // This should give you the [u8; 32]
-      const bigIntValue = tuple[1]; // This should give you the u128
-      const cid = await getCIDFromBytes(byteArray);
-      setCidString(cid);
-      setLawHexData(u8aToHex(byteArray));
-      setAmountList(bigIntValue);
-      setPreviousAmount(bigIntValue);
+    if (key) {
+      const law = await api.query.laws.laws(key);
+      if (law.isSome) {
+        const tuple = law.unwrap();
+        const byteArray = tuple[0]; // This should give you the [u8; 32]
+        const bigIntValue = tuple[1]; // This should give you the u128
+        const cid = await getCIDFromBytes(byteArray);
+        setCidString(cid);
+        setLawHexData(u8aToHex(byteArray));
+        setAmountList(bigIntValue);
+        setPreviousAmount(bigIntValue);
+      }
     }
   }
 
