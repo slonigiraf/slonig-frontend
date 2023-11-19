@@ -72,6 +72,7 @@ function SkillQR({ className = '', cid, currentPair }: Props): React.ReactElemen
     }
   };
 
+  const urlDetails = `diplomas/mentor?cid=${cid}&student=${publicKeyHex}`;
   const generateQRData = () => {
     const publicKeyHex = u8aToHex(currentPair.publicKey);
     const [, , name] = getAddressName(currentPair.address, null, "");
@@ -79,12 +80,12 @@ function SkillQR({ className = '', cid, currentPair }: Props): React.ReactElemen
       q: 5,
       n: name,
       p: publicKeyHex,
-      d: `diplomas/mentor?cid=${cid}&student=${publicKeyHex}`,
+      d: urlDetails,
     });
   };
 
   const qrCodeText = generateQRData();
-  const url = `${getBaseUrl()}/#/diplomas/mentor?cid=${cid}&student=${u8aToHex(currentPair.publicKey)}`;
+  const url = `${getBaseUrl()}/#/${urlDetails}`;
 
   return (
     <>
