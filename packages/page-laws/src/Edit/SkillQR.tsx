@@ -3,11 +3,12 @@ import { useTranslation } from '../translate';
 import { u8aToHex } from '@polkadot/util';
 import { QRWithShareAndCopy, getBaseUrl } from '@slonigiraf/app-slonig-components';
 import { getAddressName } from '@polkadot/react-components';
-import { getSetting } from '@slonigiraf/app-recommendations';
+import { getSetting, storeSetting } from '@slonigiraf/app-recommendations';
 import type { KeyringPair } from '@polkadot/keyring/types';
 import { Dropdown } from '@polkadot/react-components';
 import { useLiveQuery } from "dexie-react-hooks";
 import { db } from '@slonigiraf/app-recommendations';
+import { useLocation, useNavigate } from 'react-router-dom';
 
 interface Props {
   className?: string;
@@ -17,18 +18,34 @@ interface Props {
 
 function SkillQR({ className = '', cid, currentPair }: Props): React.ReactElement<Props> {
   const { t } = useTranslation();
-  const [mentor, setMentor] = useState<string | undefined>();
+  const location = useLocation();
+  const navigate = useNavigate();
+  const queryParams = new URLSearchParams(location.search);
+  const mentorFromQuery = queryParams.get("mentor");
+  const [mentor, setMentor] = useState<string | null>(mentorFromQuery);
   const mentors = useLiveQuery(() => db.pseudonyms.toArray(), []);
+
+  const setQueryMentorId = (value: any) => {
+    const newQueryParams = new URLSearchParams();
+    newQueryParams.set("mentor", value);
+    navigate({ ...location, search: newQueryParams.toString() });
+  };
+
   // Fetch currentMentor and set it as the default in the dropdown
   useEffect(() => {
     const fetchMentorSetting = async () => {
-      const mentorFromSettings = await getSetting("currentMentor");
-      if (mentors && mentorFromSettings) {
-        setMentor(mentorFromSettings);
+      if(mentorFromQuery){
+        await storeSetting("currentMentor", mentorFromQuery);
+        setMentor(mentorFromQuery);
+      } else{
+        const mentorFromSettings = await getSetting("currentMentor");
+        if (mentors && mentorFromSettings) {
+          setMentor(mentorFromSettings);
+        }
       }
     };
     fetchMentorSetting();
-  }, [mentors]);
+  }, [mentors, mentorFromQuery]);
 
   // Prepare dropdown options
   const mentorOptions = mentors?.map(mentor => ({
@@ -44,6 +61,7 @@ function SkillQR({ className = '', cid, currentPair }: Props): React.ReactElemen
       } catch (error) {
         console.error('Error saving mentor selection:', error);
       }
+      setQueryMentorId(selectedKey);
     }
   };
 
