@@ -152,21 +152,7 @@ function SkillQR({ className = '', cid }: Props): React.ReactElement<Props> {
     showQR();
   }, [mentor, diplomaToReexamine]);
 
-  const reexamineData = diplomaToReexamine ? `&cidR=${diplomaToReexamine.cid}&genesisR=${diplomaToReexamine.genesis}&nonceR=${diplomaToReexamine.letterNumber}&blockR=${diplomaToReexamine.block}&mentorR=${diplomaToReexamine.referee}&studentR=${diplomaToReexamine.worker}&amountR=${diplomaToReexamine.amount}&mentorSignR=${diplomaToReexamine.signOverPrivateData}&studentSignR=${studentSignatureOverDiplomaToReexamine}` : '';
-  const urlDetails = `diplomas/mentor?cid=${cid}&student=${publicKeyHex}${reexamineData}`;
-
-  const generateQRData = () => {
-    const [, , name] = getAddressName(currentPair.address, null, "");
-    return JSON.stringify({
-      q: 5,
-      n: name,
-      p: publicKeyHex,
-      d: urlDetails,
-    });
-  };
-
-  const qrCodeText = generateQRData();
-  const url = `${getBaseUrl()}/#/${urlDetails}`;
+  
 
   const _onSign = useCallback(
     async () => {
@@ -196,6 +182,21 @@ function SkillQR({ className = '', cid }: Props): React.ReactElement<Props> {
     },
     [currentPair, isLocked, isUsable, signer, mentor, diplomaToReexamine]
   );
+
+  const reexamineData = diplomaToReexamine ? `+${diplomaToReexamine.cid}+${diplomaToReexamine.genesis}+${diplomaToReexamine.letterNumber}+${diplomaToReexamine.block}+${diplomaToReexamine.referee}+${diplomaToReexamine.worker}+${diplomaToReexamine.amount}+${diplomaToReexamine.signOverPrivateData}+${studentSignatureOverDiplomaToReexamine}` : '';
+  const urlDetails = `diplomas/mentor?d=${cid}+${publicKeyHex}+${publicKeyHex}${reexamineData}`;
+
+  const generateQRData = () => {
+    const [, , name] = getAddressName(currentPair.address, null, "");
+    return JSON.stringify({
+      q: 5,
+      n: name,
+      d: urlDetails,
+    });
+  };
+
+  const qrCodeText = generateQRData();
+  const url = `${getBaseUrl()}/#/${urlDetails}`;
 
   return (
     <>

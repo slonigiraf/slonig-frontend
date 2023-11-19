@@ -43,8 +43,9 @@ function Mentor({ className = '' }: Props): React.ReactElement<Props> {
   const [currentPair, setCurrentPair] = useState<KeyringPair | null>(() => keyring.getPairs()[0] || null);
   const location = useLocation();
   const queryParams = new URLSearchParams(location.search);
-  const textHash = queryParams.get("cid") || "";
-  const student = queryParams.get("student") || "";
+  const queryData = queryParams.get("d") || "";
+  const [textHash, studentIdentity, student, cidR, genesisR, nonceR, blockR, mentorR, studentR, amountR, mentorSignR, studentSignR] = queryData.split(' ');
+  // const textHash = cid || "";
   const [text, setText] = useState<string>(textHash);
   const [{ isInjected }, setAccountState] = useState<AccountState>({ isExternal: false, isHardware: false, isInjected: false });
   const [isLocked, setIsLocked] = useState(false);
@@ -227,7 +228,7 @@ function Mentor({ className = '' }: Props): React.ReactElement<Props> {
       </div>
 
       {
-        student === "" ? <>
+        student === undefined ? <>
           <h2>{t('Show the QR code to a student to begin mentoring')}</h2>
           <QRWithShareAndCopy dataQR={qrCodeText} titleShare={t('QR code')} textShare={t('Press the link to start learning')} urlShare={url} dataCopy={url}/>
         </>
