@@ -76,7 +76,7 @@ function ViewList({ className = '', id, currentPair, onItemSelected }: Props): R
         {
           list.t !== null && list.t === 3 &&
           <>
-            <SkillQR cid={cidString} currentPair={currentPair} />
+            <SkillQR cid={cidString} />
             <h3>{t('Example exercises to train the skill')}</h3>
           </>
         }

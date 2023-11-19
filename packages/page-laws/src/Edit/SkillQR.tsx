@@ -1,23 +1,44 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useTranslation } from '../translate';
-import { u8aToHex } from '@polkadot/util';
 import { QRWithShareAndCopy, ScanQR, getBaseUrl } from '@slonigiraf/app-slonig-components';
 import { getAddressName } from '@polkadot/react-components';
 import { getSetting, storeSetting } from '@slonigiraf/app-recommendations';
 import type { KeyringPair } from '@polkadot/keyring/types';
-import { Dropdown, Label } from '@polkadot/react-components';
+import { Dropdown, InputAddress } from '@polkadot/react-components';
 import { useLiveQuery } from "dexie-react-hooks";
 import { db, Letter } from '@slonigiraf/app-recommendations';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { styled } from '@polkadot/react-components';
+import { keyring } from '@polkadot/ui-keyring';
+import { web3FromSource } from '@polkadot/extension-dapp';
+import { isFunction, u8aToHex } from '@polkadot/util';
+import { useToggle } from '@polkadot/react-hooks';
 
 interface Props {
   className?: string;
   cid: string;
-  currentPair: KeyringPair;
 }
 
-function SkillQR({ className = '', cid, currentPair }: Props): React.ReactElement<Props> {
+interface AccountState {
+  isExternal: boolean;
+  isHardware: boolean;
+  isInjected: boolean;
+}
+
+interface SignerState {
+  isUsable: boolean;
+  signer: Signer | null;
+}
+
+function SkillQR({ className = '', cid }: Props): React.ReactElement<Props> {
+  // Using key
+  const [currentPair, setCurrentPair] = useState<KeyringPair | null>(() => keyring.getPairs()[0] || null);
+  const [{ isInjected }, setAccountState] = useState<AccountState>({ isExternal: false, isHardware: false, isInjected: false });
+  const [isLocked, setIsLocked] = useState(false);
+  const [{ isUsable, signer }, setSigner] = useState<SignerState>({ isUsable: true, signer: null });
+  const [signature, setSignature] = useState('');
+  const [isUnlockVisible, toggleUnlock] = useToggle();
+  //Rest params
   const { t } = useTranslation();
   const location = useLocation();
   const navigate = useNavigate();
@@ -25,13 +46,47 @@ function SkillQR({ className = '', cid, currentPair }: Props): React.ReactElemen
   const mentorFromQuery = queryParams.get("mentor");
   const [mentor, setMentor] = useState<string | null>(mentorFromQuery);
   const mentors = useLiveQuery(() => db.pseudonyms.toArray(), []);
-  const [diploma, setDiploma] = useState<Letter | null>(null);
+  const [diplomaToReexamine, setDiplomaToReexamine] = useState<Letter | null>(null);
 
   const setQueryMentorId = (value: any) => {
     const newQueryParams = new URLSearchParams();
     newQueryParams.set("mentor", value);
     navigate({ ...location, search: newQueryParams.toString() });
   };
+
+  // Initialize key
+  useEffect((): void => {
+    const meta = (currentPair && currentPair.meta) || {};
+    const isExternal = (meta.isExternal as boolean) || false;
+    const isHardware = (meta.isHardware as boolean) || false;
+    const isInjected = (meta.isInjected as boolean) || false;
+    const isUsable = !(isExternal || isHardware || isInjected);
+
+    setAccountState({ isExternal, isHardware, isInjected });
+    setIsLocked(
+      isInjected
+        ? false
+        : (currentPair && currentPair.isLocked) || false
+    );
+    setSignature('');
+    setSigner({ isUsable, signer: null });
+
+    // for injected, retrieve the signer
+    if (meta.source && isInjected) {
+      web3FromSource(meta.source as string)
+        .catch((): null => null)
+        .then((injected) => setSigner({
+          isUsable: isFunction(injected?.signer?.signRaw),
+          signer: injected?.signer || null
+        }))
+        .catch(console.error);
+    }
+  }, [currentPair]);
+
+  const _onChangeAccount = useCallback(
+    (accountId: string | null) => accountId && setCurrentPair(keyring.getPair(accountId)),
+    []
+  );
 
   // Fetch currentMentor and set it as the default in the dropdown
   useEffect(() => {
@@ -79,15 +134,16 @@ function SkillQR({ className = '', cid, currentPair }: Props): React.ReactElemen
       const allDiplomas = await db.letters.toArray();
       if (allDiplomas.length > 0) {
         const randomIndex = Math.floor(Math.random() * allDiplomas.length);
-        setDiploma(allDiplomas[randomIndex]);
+        setDiplomaToReexamine(allDiplomas[randomIndex]);
       }
     };
     fetchRandomDiploma();
   }, []);
 
-  const insuranceData = diploma ? `&insuranceId=${diploma.id}` : '';
-  console.log("insuranceData: ", insuranceData)
-  const urlDetails = `diplomas/mentor?cid=${cid}&student=${publicKeyHex}${insuranceData}`;
+  const reexamineData = diplomaToReexamine ? `&cidR=${diplomaToReexamine.cid}&genesisR=${diplomaToReexamine.genesis}&nonceR=${diplomaToReexamine.letterNumber}&blockR=${diplomaToReexamine.block}&mentorR=${diplomaToReexamine.referee}&studentR=${diplomaToReexamine.worker}&amountR=${diplomaToReexamine.amount}&mentorSignR=${diplomaToReexamine.signOverPrivateData}&mentorSignR=${diplomaToReexamine.signOverPrivateData}` : '';
+
+  console.log("insuranceData: ", reexamineData)
+  const urlDetails = `diplomas/mentor?cid=${cid}&student=${publicKeyHex}${reexamineData}`;
 
   const generateQRData = () => {
     const [, , name] = getAddressName(currentPair.address, null, "");
@@ -105,6 +161,16 @@ function SkillQR({ className = '', cid, currentPair }: Props): React.ReactElemen
   return (
     <>
 
+      <div className='ui--row' style={{ display: 'none' }}>
+        <InputAddress
+          className='full'
+          help={t('select the account you wish to sign data with')}
+          isInput={false}
+          label={t('account')}
+          onChange={_onChangeAccount}
+          type='account'
+        />
+      </div>
       <StyledDiv>
         <h3>{t('Show the QR to your mentor')}</h3>
         <FlexRow>
