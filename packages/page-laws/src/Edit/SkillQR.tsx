@@ -88,7 +88,7 @@ function SkillQR({ className = '', cid, currentPair }: Props): React.ReactElemen
         <FlexRow>
           <Dropdown
             className={`dropdown ${className}`}
-            label={t('Select Mentor*')}
+            label={t('select mentor')}
             value={mentor}
             onChange={handleMentorSelect}
             options={mentorOptions || []}
