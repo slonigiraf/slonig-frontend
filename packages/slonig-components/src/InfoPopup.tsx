@@ -5,7 +5,7 @@ import { BaseOverlay } from '@polkadot/apps';
 interface Props {
     isEnabled: boolean;
     message: string;
-    type: 'error' | 'info';
+    type?: 'error' | 'info';
     onTimeout?: () => void;
 }
 

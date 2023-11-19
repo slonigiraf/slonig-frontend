@@ -5,19 +5,22 @@ import { useNavigate } from 'react-router-dom';
 import { useTranslation } from '../../apps/src/translate.js';
 import { Modal, TransferModal } from '@polkadot/react-components';
 import { ButtonWithLabelBelow } from '@slonigiraf/app-slonig-components';
+import InfoPopup from './InfoPopup.js';
 import { createAndStoreLetter, storeInsurances, storePseudonym, storeSetting } from '@slonigiraf/app-recommendations';
 
 interface Props {
   className?: string;
   label?: string;
+  type?: number;
 }
 
-function ScanQR({ className = '', label }: Props): React.ReactElement<Props> {
+function ScanQR({ className = '', label, type }: Props): React.ReactElement<Props> {
   const { t } = useTranslation();
   const [isQROpen, toggleQR] = useToggle();
   const [isTransferOpen, toggleTransfer] = useToggle();
   const [recipientId, setRecipientId] = useState<string>('');
   const navigate = useNavigate();
+  const [infoEnabled, toggleInfoEnabled] = useToggle(false);
 
   // Process the scanned QR data
   const processQR = useCallback(async (data: string) => {
@@ -25,36 +28,44 @@ function ScanQR({ className = '', label }: Props): React.ReactElement<Props> {
       const jsonData = JSON.parse(data);
 
       // Validate JSON properties
-      if (jsonData.hasOwnProperty('q') && jsonData.hasOwnProperty('d')) {
-        switch (jsonData.q) {
-          case 0: // Navigation
-            navigate(jsonData.d);
-            break;
-          case 1: // Transfer
-            setRecipientId(jsonData.d);
-            toggleTransfer();
-            break;
-          case 2: // Add a diploma
-            const dataArray = jsonData.d.split(",");
-            await createAndStoreLetter(dataArray);
-            navigate('diplomas');
-            break;
-          case 3: // See a list of student's diplomas
-            await storeInsurances(jsonData);
-            navigate(`diplomas/teacher?student=${jsonData.s}`);
-            break; 
-          case 4: // Show mentor's identity
-            // TODO: Store mentor pseudonym
-            await storePseudonym(jsonData.p, jsonData.n);
-            await storeSetting("currentMentor", jsonData.p);
-            navigate(jsonData.d);
-            break;
-          case 5: // Show skill QR
-            await storePseudonym(jsonData.p, jsonData.n);
-            navigate(jsonData.d);
-            break;
-          default:
-            console.warn("Unknown QR type:", jsonData.q);
+      if (jsonData.hasOwnProperty('q')) {
+        if (!type || (type === jsonData.q)) {
+          switch (jsonData.q) {
+            case 0: // Navigation
+              navigate(jsonData.d);
+              break;
+            case 1: // Transfer
+              setRecipientId(jsonData.d);
+              toggleTransfer();
+              break;
+            case 2: // Add a diploma
+              const dataArray = jsonData.d.split(",");
+              await createAndStoreLetter(dataArray);
+              navigate('diplomas');
+              break;
+            case 3: // See a list of student's diplomas
+              await storeInsurances(jsonData);
+              navigate(`diplomas/teacher?student=${jsonData.s}`);
+              break;
+            case 4: // Show mentor's identity
+              // TODO: Store mentor pseudonym
+              await storePseudonym(jsonData.p, jsonData.n);
+              await storeSetting("currentMentor", jsonData.p);
+              if(type){
+                navigate(`?mentor=${jsonData.p}`);
+              } else{
+                navigate(`knowledge?mentor=${jsonData.p}`);
+              }
+              break;
+            case 5: // Show skill QR
+              await storePseudonym(jsonData.p, jsonData.n);
+              navigate(jsonData.d);
+              break;
+            default:
+              console.warn("Unknown QR type:", jsonData.q);
+          }
+        } else {
+          toggleInfoEnabled();
         }
       } else {
         console.error("Invalid QR data structure.");
@@ -100,6 +111,12 @@ function ScanQR({ className = '', label }: Props): React.ReactElement<Props> {
           recipientId={recipientId}
         />
       )}
+      <InfoPopup
+        type='error'
+        isEnabled={infoEnabled}
+        message={t('Wrong QR type')}
+        onTimeout={toggleInfoEnabled}
+      />
     </>
   );
 }

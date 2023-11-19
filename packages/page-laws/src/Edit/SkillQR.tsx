@@ -93,7 +93,7 @@ function SkillQR({ className = '', cid, currentPair }: Props): React.ReactElemen
             onChange={handleMentorSelect}
             options={mentorOptions || []}
           />
-          <ScanQR label={t('by QR')}/>
+          <ScanQR label={t('by QR')} type={4}/>
         </FlexRow>
         <QRWithShareAndCopy
           dataQR={qrCodeText}
