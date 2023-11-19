@@ -9,6 +9,7 @@ import { Dropdown } from '@polkadot/react-components';
 import { useLiveQuery } from "dexie-react-hooks";
 import { db } from '@slonigiraf/app-recommendations';
 import { useLocation, useNavigate } from 'react-router-dom';
+import { styled } from '@polkadot/react-components';
 
 interface Props {
   className?: string;
@@ -34,10 +35,10 @@ function SkillQR({ className = '', cid, currentPair }: Props): React.ReactElemen
   // Fetch currentMentor and set it as the default in the dropdown
   useEffect(() => {
     const fetchMentorSetting = async () => {
-      if(mentorFromQuery){
+      if (mentorFromQuery) {
         await storeSetting("currentMentor", mentorFromQuery);
         setMentor(mentorFromQuery);
-      } else{
+      } else {
         const mentorFromSettings = await getSetting("currentMentor");
         if (mentors && mentorFromSettings) {
           setMentor(mentorFromSettings);
@@ -82,12 +83,15 @@ function SkillQR({ className = '', cid, currentPair }: Props): React.ReactElemen
   return (
     <>
       <h3>{t('Show the QR to your mentor')}</h3>
-      <Dropdown
-        label={t('Select Mentor')}
-        value={mentor}
-        onChange={handleMentorSelect}
-        options={mentorOptions || []}
-      />
+      <StyledDiv>
+        <Dropdown
+          className={`dropdown ${className}`}
+          label={t('Select Mentor')}
+          value={mentor}
+          onChange={handleMentorSelect}
+          options={mentorOptions || []}
+        />
+      </StyledDiv>
       <QRWithShareAndCopy
         dataQR={qrCodeText}
         titleShare={t('QR code')}
@@ -98,5 +102,11 @@ function SkillQR({ className = '', cid, currentPair }: Props): React.ReactElemen
     </>
   );
 }
+
+const StyledDiv = styled.div`
+  .dropdown {
+    max-width: 300px;
+  }
+`;
 
 export default React.memo(SkillQR);
