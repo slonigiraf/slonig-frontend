@@ -7,21 +7,21 @@ import { AlgorithmStage } from './AlgorithmStage.js';
 import { useTranslation } from '../translate.js';
 import { Button } from '@polkadot/react-components';
 
-
 interface Props {
   className?: string;
+  questions: any[];
 }
 
-function Teach({ className = '' }: Props): React.ReactElement<Props> {
+function Teach({ className = '', questions }: Props): React.ReactElement<Props> {
   const [algorithmStage, setAlgorithmStage] = useState<AlgorithmStage|null>(null);
   const [algorithm, setAlgorithm] = useState<TeachingAlgorithm | null>(null);
   const { t } = useTranslation();
 
   useEffect(() => {
-    const newAlgorithm = new TeachingAlgorithm(t, ['task1', 'task2']);
+    const newAlgorithm = new TeachingAlgorithm(t, questions);
     setAlgorithm(newAlgorithm);
     setAlgorithmStage(newAlgorithm.getBegin());
-  }, []);
+  }, [questions]);
 
   const handleStageChange = (nextStage) => {
     setAlgorithmStage(nextStage);

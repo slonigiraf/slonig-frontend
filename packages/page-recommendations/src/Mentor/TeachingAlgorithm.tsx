@@ -3,9 +3,9 @@ import { AlgorithmStage } from './AlgorithmStage.js';
 class TeachingAlgorithm {
     private begin: AlgorithmStage;
 
-    constructor(t: any, tasks: string[]) {
-        let question1: string = tasks.length > 0 ? tasks[0] : t('SOME TASK FOR SKILL TRAINING (THE MENTOR SHOULD KNOW)');
-        let question2: string = tasks.length > 1 ? tasks[1] : question1;
+    constructor(t: any, questions: any[]) {
+        let question1: string = questions.length > 0 ? questions[0].h : t('SOME TASK FOR SKILL TRAINING (THE MENTOR SHOULD KNOW)');
+        let question2: string = questions.length > 1 ? questions[1].h : question1;
 
         // Initialize all stages
         const giveInsurance = new AlgorithmStage(

@@ -61,6 +61,7 @@ function Mentor({ className = '' }: Props): React.ReactElement<Props> {
   const [letterInfo, setLetterInfo] = useState('');
   const [modalIsOpen, setModalIsOpen] = useState(false);
   const [studentName, setStudentName] = useState<string | undefined>(undefined);
+  const [questions, setQuestions] = useState([]);
 
   useEffect(() => {
     async function fetchData() {
@@ -69,6 +70,7 @@ function Mentor({ className = '' }: Props): React.ReactElement<Props> {
           const content = await getIPFSDataFromContentID(ipfs, textHash);
           const json = parseJson(content);
           setText(json.h);
+          setQuestions(json.q);
         }
         catch (e) {
           setText(textHash + " (" + t('loading') + "...)");
@@ -249,7 +251,7 @@ function Mentor({ className = '' }: Props): React.ReactElement<Props> {
         </>
           :
           <>
-            <Teach />
+            <Teach questions={questions}/>
             <h2>{t('Teach and create a diploma')}</h2>
             <div className='ui--row'>
               <h2>"{text}"</h2>
