@@ -5,6 +5,8 @@ import React, { useState, useEffect } from 'react';
 import { TeachingAlgorithm } from './TeachingAlgorithm.js';
 import { AlgorithmStage } from './AlgorithmStage.js';
 import { useTranslation } from '../translate.js';
+import { Button } from '@polkadot/react-components';
+
 
 interface Props {
   className?: string;
@@ -36,24 +38,28 @@ function Teach({ className = '' }: Props): React.ReactElement<Props> {
           <div>{algorithmStage.getWords()}</div>
           <div>
             {algorithmStage.getPrevious() && (
-              <button onClick={() => handleStageChange(algorithmStage.getPrevious())}>
-                Back
-              </button>
+              <Button onClick={() => handleStageChange(algorithmStage.getPrevious())}
+                icon='arrow-left'
+                label='Back'
+              />
             )}
             {algorithmStage.getNext().map((nextStage, index) => (
-              <button key={index} onClick={() => handleStageChange(nextStage)}>
-                {nextStage.getName()}
-              </button>
+              <Button key={index} onClick={() => handleStageChange(nextStage)}
+                icon='fa-square'
+                label={nextStage.getName()}
+              />
             ))}
             {algorithmStage.getWords() === 'SELL_GUARANTEE_DESCRIPTION' && (
-              <button onClick={() => handleInsuranceIssue(true)}>
-                Sell Diploma
-              </button>
+              <Button onClick={() => handleInsuranceIssue(true)}
+                icon='fa-square'
+                label='Sell Diploma'
+              />
             )}
             {algorithmStage.getWords() === 'REPEAT_TOMORROW_DESCRIPTION' && (
-              <button onClick={() => handleInsuranceIssue(false)}>
-                Repeat Tomorrow
-              </button>
+              <Button onClick={() => handleInsuranceIssue(false)}
+                icon='fa-square'
+                label='Repeat Tomorrow'
+              />
             )}
           </div>
         </div>
