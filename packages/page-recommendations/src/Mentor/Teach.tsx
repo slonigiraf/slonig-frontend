@@ -18,7 +18,7 @@ function Teach({ className = '' }: Props): React.ReactElement<Props> {
   const { t } = useTranslation();
 
   useEffect(() => {
-    const newAlgorithm = new TeachingAlgorithm(t, 'task1', 'task2');
+    const newAlgorithm = new TeachingAlgorithm(t, ['task1', 'task2']);
     setAlgorithm(newAlgorithm);
     setAlgorithmStage(newAlgorithm.getBegin());
   }, []);

@@ -1,77 +1,110 @@
-import { AlgorithmStage } from './AlgorithmStage';
+import { AlgorithmStage } from './AlgorithmStage.js';
 
 class TeachingAlgorithm {
     private begin: AlgorithmStage;
 
-    constructor(t, tasks: string[]) {
+    constructor(t: any, tasks: string[]) {
         let question1: string = tasks.length > 0 ? tasks[0] : t('SOME TASK FOR SKILL TRAINING (THE MENTOR SHOULD KNOW)');
         let question2: string = tasks.length > 1 ? tasks[1] : question1;
 
         // Initialize all stages
         const giveInsurance = new AlgorithmStage(
             t('YES'),
-            t('<b>Say:</b> <em>Buy a skill diploma from me so that you can sell it at a higher price to your employer.</em><br/><b>Sell the student a diploma in exchange for money or Slon tokens.</b>'),
+            <div>
+                <b>{t('Say')}:</b>
+                <em>{t('Buy a skill diploma from me to get a bonus from a teacher.')}</em>
+                <br />
+                <b>{t('Sell the student a diploma in exchange for money or Slon tokens.')}</b>
+            </div>,
             []
         );
         const repeatNextDay = new AlgorithmStage(
             t('NO'),
-            t('<b>Say:</b> <em>Excellent! Let\'s repeat this tomorrow.</em>'),
+            <div>
+                <b>{t('Say')}:</b>
+                &nbsp;<em>{t('Excellent! Let\'s repeat this tomorrow.')}</em>
+            </div>,
             []
         );
 
         const hasStudentRepeatedTheRightAnswer = new AlgorithmStage(
             t('I\'ve said it now'),
-            t('<b>Has the student repeated the right answer?</b>'),
+            <div>
+                <b>{t('Has the student repeated the right answer?')}</b>
+            </div>,
             []
         );
-        
+
         const askStudentToRepeatTheAnswer = new AlgorithmStage(
             t('NO'),
-            `${t('<b>Tell the student:</b> <em>Repeat after me</em>')}. ${t('<b>And then provide the correct answer.</b>')}`,
+            <div>
+                <b>{t('Tell the student')}:</b>
+                &nbsp;<em>{t('Repeat after me.')}</em>&nbsp;
+                <b>{t('And then provide the correct answer.')}</b>
+            </div>,
             [hasStudentRepeatedTheRightAnswer]
         );
-        
+
         const wereTheStudentTasksAndAnswersPerfectToday = new AlgorithmStage(
             t('YES'),
-            t('<b>Were all of the student\'s tasks and answers perfect today?</b>'),
+            <div>
+                <b>{t('Were all of the student\'s tasks and answers perfect today?')}</b>
+            </div>,
             [giveInsurance, repeatNextDay]
         );
-        
+
         const hasStudentCorrectedTheFakeAnswer = new AlgorithmStage(
             t('I\'ve said it now'),
-            t('<b>Has the student corrected the wrong answer?</b>'),
+            <div>
+                <b>{t('Has the student corrected the wrong answer?')}</b>
+            </div>,
             [wereTheStudentTasksAndAnswersPerfectToday, askStudentToRepeatTheAnswer]
         );
-        
+
         const didStudentRepeatedAfterMeTheTask = new AlgorithmStage(
             t('I\'ve said it now'),
-            t('<b>Did the student repeat correctly after me?</b>'),
+            <div>
+                <b>{t('Did the student repeat correctly after me?')}</b>
+            </div>,
             []
         );
-        
+
         const provideFakeAnswer = new AlgorithmStage(
             t('YES'),
-            t('<b>Respond to the student with wrong answer, and ask:</b> <em>Am I right?</em>'),
+            <div>
+                <b>{t('Respond to the student with wrong answer, and ask:')}</b>
+                &nbsp;<em>{t('Am I right?')}</em>
+            </div>,
             [hasStudentCorrectedTheFakeAnswer]
         );
-        
+
         const askToRepeatTaskAfterMeTheTask = new AlgorithmStage(
             t('NO'),
-            `${t('<b>Tell the student:</b> <em>Repeat after me</em>')}: <em>${question2}</em>`, // Assuming question2 is defined
+            <div>
+                <b>{t('Tell the student:')}</b>
+                &nbsp;<em>{t('Repeat after me:')}</em>
+                &nbsp;<em>{question2}</em>
+            </div>,
             [didStudentRepeatedAfterMeTheTask]
         );
-        
+
         const didStudentCreatedASimilarTask = new AlgorithmStage(
             t('I\'ve said it now'),
-            t('<b>Has the student now created a similar task?</b>'),
+            <div>
+                <b>{t('Has the student now created a similar task?')}</b>
+            </div>,
             [provideFakeAnswer, askToRepeatTaskAfterMeTheTask]
-        );        
+        );
 
         // Link stages
         this.begin = new AlgorithmStage(
             t('YES'),
-            `${t('<b>Tell the student:</b> <em>Create a task similar to</em>')}: <em>${question1}</em>`,
-            [didStudentCreatedASimilarTask] // Assuming didStudentCreatedASimilarTask is defined
+            <div>
+                <b>{t('Tell the student')}:</b>
+                <em>&nbsp;{t('Create a task similar to')}:</em>
+                <em>&nbsp;{question1}</em>
+            </div>,
+            [didStudentCreatedASimilarTask]
         );
 
         // Rest of the linking

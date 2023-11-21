@@ -1,10 +1,10 @@
 class AlgorithmStage {
     private name: string;
-    private words: string;
+    private words: React.ReactNode;
     private next: AlgorithmStage[];
     private previous: AlgorithmStage | null;
 
-    constructor(name: string, words: string, next: AlgorithmStage[]) {
+    constructor(name: string, words: React.ReactNode, next: AlgorithmStage[]) {
         this.name = name;
         this.words = words;
         this.next = next;
@@ -23,7 +23,7 @@ class AlgorithmStage {
         return this.name;
     }
 
-    getWords(): string {
+    getWords(): React.ReactNode {
         return this.words;
     }
 
