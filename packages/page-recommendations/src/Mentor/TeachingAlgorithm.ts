@@ -1,11 +1,9 @@
-import { AlgorithmStage } from './AlgorithmStage'; // Update the path as necessary
-import { useTranslation } from '../translate.js';
+import { AlgorithmStage } from './AlgorithmStage';
 
 class TeachingAlgorithm {
     private begin: AlgorithmStage;
 
-    constructor(tasks: string[]) {
-        const { t } = useTranslation();
+    constructor(t, tasks: string[]) {
         let question1: string = tasks.length > 0 ? tasks[0] : t('SOME TASK FOR SKILL TRAINING (THE MENTOR SHOULD KNOW)');
         let question2: string = tasks.length > 1 ? tasks[1] : question1;
 

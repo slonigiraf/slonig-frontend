@@ -22,6 +22,7 @@ import { useLocation } from 'react-router-dom';
 import { getIPFSDataFromContentID, parseJson } from '@slonigiraf/app-slonig-components'
 import { QRWithShareAndCopy, getBaseUrl } from '@slonigiraf/app-slonig-components';
 import { db } from '@slonigiraf/app-recommendations';
+import Teach from './Teach.js';
 
 interface Props {
   className?: string;
@@ -248,6 +249,7 @@ function Mentor({ className = '' }: Props): React.ReactElement<Props> {
         </>
           :
           <>
+            <Teach />
             <h2>{t('Teach and create a diploma')}</h2>
             <div className='ui--row'>
               <h2>"{text}"</h2>

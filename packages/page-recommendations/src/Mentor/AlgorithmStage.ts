@@ -11,6 +11,10 @@ class AlgorithmStage {
         this.previous = null;
     }
 
+    getPrevious(): AlgorithmStage | null {
+        return this.previous;
+    }
+
     setPrevious(previous: AlgorithmStage | null): void {
         this.previous = previous;
     }
@@ -31,3 +35,5 @@ class AlgorithmStage {
         this.next = next;
     }
 }
+
+export { AlgorithmStage };
