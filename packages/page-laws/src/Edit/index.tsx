@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import BN from 'bn.js';
-import { getIPFSContentID, digestFromCIDv1, getCIDFromBytes, getIPFSDataFromContentID } from '@slonigiraf/helpers';
+import { getIPFSContentID, digestFromCIDv1, getCIDFromBytes, getIPFSDataFromContentID } from '@slonigiraf/app-slonig-components';
 import { BN_ZERO } from '@polkadot/util';
 import type { Signer } from '@polkadot/api/types';
 import type { KeyringPair } from '@polkadot/keyring/types';
@@ -16,7 +16,7 @@ import { useTranslation } from '../translate.js';
 import Unlock from '@polkadot/app-signing/Unlock';
 import { useIpfsContext } from '@slonigiraf/app-slonig-components';
 import { useApi } from '@polkadot/react-hooks';
-import { parseJson } from '@slonigiraf/helpers';
+import { parseJson } from '@slonigiraf/app-slonig-components';
 import Editor from './Editor';
 import ViewList from './ViewList';
 import { useLocation, useNavigate } from 'react-router-dom';

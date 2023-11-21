@@ -3,7 +3,7 @@
 
 import { Button, Modal } from '@polkadot/react-components';
 import React, { useState, useEffect } from 'react'
-import { getIPFSDataFromContentID, parseJson } from '@slonigiraf/helpers'
+import { getIPFSDataFromContentID, parseJson } from '@slonigiraf/app-slonig-components'
 import { useTranslation } from '../translate.js';
 import { Letter } from '../db/Letter.js';
 import LetterDetailsModal from './LetterDetailsModal.js';

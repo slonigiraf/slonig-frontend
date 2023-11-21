@@ -4,7 +4,7 @@
 import { Button, Modal } from '@polkadot/react-components';
 import React, { useState, useEffect } from 'react'
 import UseInsurance from './UseInsurance.js'
-import { getIPFSDataFromContentID, parseJson } from '@slonigiraf/helpers'
+import { getIPFSDataFromContentID, parseJson } from '@slonigiraf/app-slonig-components'
 import { useTranslation } from '../translate.js';
 import { IPFS } from 'ipfs-core';
 import { Insurance } from '../db/Insurance.js';

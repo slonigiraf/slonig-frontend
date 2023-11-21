@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useState } from 'react';
-import { getCIDFromBytes, getIPFSDataFromContentID, parseJson } from '@slonigiraf/helpers';
+import { getCIDFromBytes, getIPFSDataFromContentID, parseJson } from '@slonigiraf/app-slonig-components';
 import { useApi } from '@polkadot/react-hooks';
 import { BN_ZERO } from '@polkadot/util';
 import ItemLabel from './ItemLabel.js';

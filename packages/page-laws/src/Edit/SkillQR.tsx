@@ -161,7 +161,7 @@ function SkillQR({ className = '', cid }: Props): React.ReactElement<Props> {
       }
 
       // generate a data to sign      
-      const letterInsurance = getDataToSignByWorker(diplomaToReexamine.letterNumber, new BN(diplomaToReexamine.block), hexToU8a(diplomaToReexamine.referee),
+      const letterInsurance = getDataToSignByWorker(diplomaToReexamine.letterNumber, new BN(diplomaToReexamine.block), new BN(diplomaToReexamine.block), hexToU8a(diplomaToReexamine.referee),
         hexToU8a(diplomaToReexamine.worker), new BN(diplomaToReexamine.amount), hexToU8a(diplomaToReexamine.signOverReceipt), hexToU8a(mentor));
       let workerSignOverInsurance = "";
       // sign

@@ -3401,7 +3401,7 @@ __metadata:
     "@polkadot/util": ^12.3.2
     "@polkadot/vanitygen": ^0.55.3
     "@slonigiraf/app-slonig-components": ^0.132.2-38-x
-    "@slonigiraf/helpers": ^6.0.6
+    "@slonigiraf/helpers": ^7.0.0
     "@types/qrcode.react": ^1.0.2
     detect-browser: ^5.3.0
     file-saver: ^2.0.5
@@ -3428,7 +3428,7 @@ __metadata:
     "@polkadot/util": ^12.3.2
     "@polkadot/vanitygen": ^0.55.3
     "@slonigiraf/app-slonig-components": ^0.132.2-38-x
-    "@slonigiraf/helpers": ^6.0.6
+    "@slonigiraf/helpers": ^7.0.0
     "@types/qrcode.react": ^1.0.2
     detect-browser: ^5.3.0
     dexie: ^3.2.2
@@ -3452,8 +3452,8 @@ __metadata:
     "@polkadot/apps-config": ^0.132.2-38-x
     "@polkadot/react-components": ^0.132.2-38-x
     "@polkadot/react-query": ^0.132.2-38-x
-    "@slonigiraf/helpers": ^6.0.6
-    kubo-rpc-client: ^3.0.0
+    "@slonigiraf/helpers": ^7.0.0
+    kubo-rpc-client: ^3.0.1
     query-string: ^8.1.0
     react-qr-reader: ^3.0.0-beta-1
   peerDependencies:
@@ -3463,14 +3463,13 @@ __metadata:
   languageName: unknown
   linkType: soft
 
-"@slonigiraf/helpers@npm:^6.0.6":
-  version: 6.0.6
-  resolution: "@slonigiraf/helpers@npm:6.0.6"
+"@slonigiraf/helpers@npm:^7.0.0":
+  version: 7.0.0
+  resolution: "@slonigiraf/helpers@npm:7.0.0"
   dependencies:
     "@polkadot/types": ^9.8.1
     "@polkadot/util": ^10.1.12
-    kubo-rpc-client: ^3.0.1
-  checksum: a412122cfba42c6198e03bd49df138635e9def342eaf3caeaa572ecfd2e9c8712f32fd5796657b5cb6ac082351ef49c328adbe78ce909e09fec900739e41635c
+  checksum: 7d16b59aaed603aceda44638889ab2931d8e95ea7f050ec73e987134da911da6209a228dc2ff5087d9b64ff61337000c3c7c2f36659bc7bc0e4976c886acb58d
   languageName: node
   linkType: hard
 
@@ -13819,7 +13818,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"kubo-rpc-client@npm:^3.0.0, kubo-rpc-client@npm:^3.0.1":
+"kubo-rpc-client@npm:^3.0.1":
   version: 3.0.1
   resolution: "kubo-rpc-client@npm:3.0.1"
   dependencies:

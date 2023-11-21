@@ -2,7 +2,7 @@ import React, { useCallback, useState, useRef } from 'react';
 import { Button, Dropdown, Input } from '@polkadot/react-components';
 import { useTranslation } from '../translate.js';
 import { randomIdHex } from '../util';
-import { parseJson } from '@slonigiraf/helpers';
+import { parseJson } from '@slonigiraf/app-slonig-components';
 import Reordering from './Reordering';
 import type { LawType } from '../types.js';
 import ExerciseEditorList from './ExerciseEditorList';

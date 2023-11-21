@@ -19,7 +19,7 @@ import { qrCodeSize } from '../constants.js';
 import { getLastUnusedLetterNumber, setLastUsedLetterNumber, storeLetter } from '../utils.js';
 import { statics } from '@polkadot/react-api/statics';
 import { useLocation } from 'react-router-dom';
-import { getIPFSDataFromContentID, parseJson } from '@slonigiraf/helpers'
+import { getIPFSDataFromContentID, parseJson } from '@slonigiraf/app-slonig-components'
 import { QRWithShareAndCopy, getBaseUrl } from '@slonigiraf/app-slonig-components';
 import { db } from '@slonigiraf/app-recommendations';
 

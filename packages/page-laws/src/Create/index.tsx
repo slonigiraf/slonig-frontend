@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import BN from 'bn.js';
-import { getIPFSContentID, digestFromCIDv1 } from '@slonigiraf/helpers';
+import { getIPFSContentID, digestFromCIDv1 } from '@slonigiraf/app-slonig-components';
 import { BN_ZERO } from '@polkadot/util';
 import type { Signer } from '@polkadot/api/types';
 import type { KeyringPair } from '@polkadot/keyring/types';

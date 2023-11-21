@@ -3,7 +3,7 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import { IconLink, Label } from '@polkadot/react-components';
 import { useApi } from '@polkadot/react-hooks';
-import { getCIDFromBytes, getIPFSDataFromContentID, parseJson } from '@slonigiraf/helpers';
+import { getCIDFromBytes, getIPFSDataFromContentID, parseJson } from '@slonigiraf/app-slonig-components';
 import { useIpfsContext } from '@slonigiraf/app-slonig-components';
 
 interface Props {

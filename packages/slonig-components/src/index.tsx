@@ -7,5 +7,6 @@ import ClipboardCopyButton from './ClipboardCopyButton.js';
 import ButtonWithLabelBelow from './ButtonWithLabelBelow.js';
 import ScanQR from './ScanQR.js';
 import QRWithShareAndCopy from './QRWithShareAndCopy.js';
-import {getBaseUrl} from './utils.js';
-export { ClipboardCopyButton, QRWithShareAndCopy, QRScanner, ButtonWithLabelBelow, ScanQR, IpfsProvider, useIpfsContext, getBaseUrl };
+import { getBaseUrl, CODEC, getIPFSContentID, getIPFSDataFromContentID, digestFromCIDv1, getCIDFromBytes, storeEncryptedTextOnIPFS, retrieveDecryptedDataFromIPFS, parseJson } from './utils.js';
+export { ClipboardCopyButton, QRWithShareAndCopy, QRScanner, ButtonWithLabelBelow, ScanQR, IpfsProvider, useIpfsContext };
+export { getBaseUrl, CODEC, getIPFSContentID, getIPFSDataFromContentID, digestFromCIDv1, getCIDFromBytes, storeEncryptedTextOnIPFS, retrieveDecryptedDataFromIPFS, parseJson }

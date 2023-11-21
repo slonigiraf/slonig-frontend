@@ -7,7 +7,7 @@ import { Button, Modal } from '@polkadot/react-components';
 import { useTranslation } from '../translate.js';
 import "dexie-export-import";
 import { QRScanner } from '@slonigiraf/app-slonig-components';
-import { getIPFSDataFromContentID } from '@slonigiraf/helpers';
+import { getIPFSDataFromContentID } from '@slonigiraf/app-slonig-components';
 import { syncDB } from '../utils.js';
 
 interface Props {
