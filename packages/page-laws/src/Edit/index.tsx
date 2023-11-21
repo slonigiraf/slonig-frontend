@@ -66,7 +66,7 @@ function Edit({ className = '' }: Props): React.ReactElement<Props> {
   const navigate = useNavigate();
   const queryParams = new URLSearchParams(location.search);
   const mentor = queryParams.get("mentor");
-  const defaultTextHexId = '0xad007e87fa684a4c4acf169450a7fbcd5634f7602c828beb91f2acc68e81b21c';
+  const defaultTextHexId = '0x3f7cd308a2a631b8bbcc763a6b70107a38f6bedad2bfac4260931dfc85921162';
   const idFromQuery = mentor ? undefined : queryParams.get("id") || defaultTextHexId;
   const [textHexId, setTextHexId] = useState<string | undefined>(idFromQuery);
 
