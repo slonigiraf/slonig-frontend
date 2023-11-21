@@ -51,6 +51,7 @@ function UseInsurance({ className = '', text, insurance }: Props): React.ReactEl
     params={
       [insurance.letterNumber,
       new BN(insurance.block),
+      new BN(insurance.blockAllowed),
       insurance.referee,
       insurance.worker,
       u8aToHex(currentPair.publicKey),

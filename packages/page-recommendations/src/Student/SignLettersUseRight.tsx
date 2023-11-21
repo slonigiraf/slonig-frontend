@@ -107,7 +107,8 @@ function SignLetterUseRight({ className = '', letters, worker, employer }: Props
         result.push(letter.cid);
         result.push(letter.genesis);
         result.push(letter.letterNumber);
-        result.push(letter.block);
+        result.push(letter.block);//This is for blockNumber
+        result.push(letter.block);//This is for blockAllowed
         result.push(letter.referee);
         result.push(letter.amount);
         result.push(letter.signOverPrivateData);

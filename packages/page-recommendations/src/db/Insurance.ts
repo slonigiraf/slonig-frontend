@@ -5,6 +5,7 @@ export interface Insurance {
   genesis: string;
   letterNumber: number;
   block: string;
+  blockAllowed: string;
   referee: string;
   worker: string;
   amount: string;
