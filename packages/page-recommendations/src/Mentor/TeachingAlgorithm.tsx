@@ -2,13 +2,13 @@ import { AlgorithmStage } from './AlgorithmStage.js';
 
 class TeachingAlgorithm {
     private begin: AlgorithmStage;
-
     constructor(t: any, questions: any[]) {
         let question1: string = questions.length > 0 ? questions[0].h : t('SOME TASK FOR SKILL TRAINING (THE MENTOR SHOULD KNOW)');
         let question2: string = questions.length > 1 ? questions[1].h : question1;
 
         // Initialize all stages
         const giveInsurance = new AlgorithmStage(
+            'success',
             t('YES'),
             <div>
                 <b>{t('Say')}:</b>
@@ -19,6 +19,7 @@ class TeachingAlgorithm {
             []
         );
         const repeatNextDay = new AlgorithmStage(
+            'repeat',
             t('NO'),
             <div>
                 <b>{t('Say')}:</b>
@@ -28,6 +29,7 @@ class TeachingAlgorithm {
         );
 
         const hasStudentRepeatedTheRightAnswer = new AlgorithmStage(
+            'intermediate',
             t('I\'ve said it now'),
             <div>
                 <b>{t('Has the student repeated the right answer?')}</b>
@@ -36,6 +38,7 @@ class TeachingAlgorithm {
         );
 
         const askStudentToRepeatTheAnswer = new AlgorithmStage(
+            'intermediate',
             t('NO'),
             <div>
                 <b>{t('Tell the student')}:</b>
@@ -46,6 +49,7 @@ class TeachingAlgorithm {
         );
 
         const wereTheStudentTasksAndAnswersPerfectToday = new AlgorithmStage(
+            'intermediate',
             t('YES'),
             <div>
                 <b>{t('Were all of the student\'s tasks and answers perfect today?')}</b>
@@ -54,6 +58,7 @@ class TeachingAlgorithm {
         );
 
         const hasStudentCorrectedTheFakeAnswer = new AlgorithmStage(
+            'intermediate',
             t('I\'ve said it now'),
             <div>
                 <b>{t('Has the student corrected the wrong answer?')}</b>
@@ -62,6 +67,7 @@ class TeachingAlgorithm {
         );
 
         const didStudentRepeatedAfterMeTheTask = new AlgorithmStage(
+            'intermediate',
             t('I\'ve said it now'),
             <div>
                 <b>{t('Did the student repeat correctly after me?')}</b>
@@ -70,6 +76,7 @@ class TeachingAlgorithm {
         );
 
         const provideFakeAnswer = new AlgorithmStage(
+            'intermediate',
             t('YES'),
             <div>
                 <b>{t('Respond to the student with wrong answer, and ask:')}</b>
@@ -79,6 +86,7 @@ class TeachingAlgorithm {
         );
 
         const askToRepeatTaskAfterMeTheTask = new AlgorithmStage(
+            'intermediate',
             t('NO'),
             <div>
                 <b>{t('Tell the student:')}</b>
@@ -89,6 +97,7 @@ class TeachingAlgorithm {
         );
 
         const didStudentCreatedASimilarTask = new AlgorithmStage(
+            'intermediate',
             t('I\'ve said it now'),
             <div>
                 <b>{t('Has the student now created a similar task?')}</b>
@@ -98,6 +107,7 @@ class TeachingAlgorithm {
 
         // Link stages
         this.begin = new AlgorithmStage(
+            'begin',
             t('YES'),
             <div>
                 <b>{t('Tell the student')}:</b>

@@ -62,6 +62,7 @@ function Mentor({ className = '' }: Props): React.ReactElement<Props> {
   const [modalIsOpen, setModalIsOpen] = useState(false);
   const [studentName, setStudentName] = useState<string | undefined>(undefined);
   const [questions, setQuestions] = useState([]);
+  const [canIssueDiploma, setCanIssueDiploma] = useState(false);
 
   useEffect(() => {
     async function fetchData() {
@@ -83,7 +84,7 @@ function Mentor({ className = '' }: Props): React.ReactElement<Props> {
 
   useEffect(() => {
     async function fetchStudentName() {
-      if(studentIdentity){
+      if (studentIdentity) {
         const name = await db.pseudonyms.get(studentIdentity);
         if (name) {
           setStudentName(name.pseudonym);
@@ -251,7 +252,6 @@ function Mentor({ className = '' }: Props): React.ReactElement<Props> {
         </>
           :
           <>
-            <Teach questions={questions}/>
             <h2>{t('Teach and create a diploma')}</h2>
             <div className='ui--row'>
               <h2>"{text}"</h2>
@@ -259,95 +259,102 @@ function Mentor({ className = '' }: Props): React.ReactElement<Props> {
             <div className='ui--row'>
               <h2>Person: {studentName}</h2>
             </div>
-            <div className='ui--row'>
-              <InputBalance
-                help={t('Stake reputation help info')}
-                isZeroable
-                label={t('stake reputation')}
-                onChange={setAmount}
-                defaultValue={amount}
-              />
-            </div>
-            <div className='ui--row'>
-              <Input
-                className='full'
-                help={t('Block number help info TODO')}
-                label={t('block number')}
-                onChange={_onChangeBlockNumber}
-                value={blockNumber.toString()}
-              />
-            </div>
-            <div className='toolbox--Mentor-input'>
-              <div className='ui--row'>
-                <Output
-                  className='full'
-                  help={t('create a diploma help text')}
-                  isHidden={signature.length === 0}
-                  isMonospace
-                  label={t('create a diploma')}
-                  value={signature}
-                  withCopy
-                />
-              </div>
-            </div>
-            <Button.Group>
-              <div
-                className='unlock-overlay'
-                hidden={!isUsable || !isLocked || isInjected}
-              >
-                {isLocked && (
-                  <div className='unlock-overlay-warning'>
-                    <div className='unlock-overlay-content'>
-                      {t('You need to unlock this account to be able to sign data.')}<br />
-                      <Button.Group>
-                        <Button
-                          icon='unlock'
-                          label={t('Unlock account')}
-                          onClick={toggleUnlock}
-                        />
-                      </Button.Group>
+            <Teach questions={questions} setCanIssueDiploma={setCanIssueDiploma}/>
+            {
+              canIssueDiploma &&
+                <>
+                  <div className='ui--row'>
+                    <InputBalance
+                      help={t('Stake reputation help info')}
+                      isZeroable
+                      label={t('stake reputation')}
+                      onChange={setAmount}
+                      defaultValue={amount}
+                    />
+                  </div>
+                  <div className='ui--row'>
+                    <Input
+                      className='full'
+                      help={t('Block number help info TODO')}
+                      label={t('block number')}
+                      onChange={_onChangeBlockNumber}
+                      value={blockNumber.toString()}
+                    />
+                  </div>
+                  <div className='toolbox--Mentor-input'>
+                    <div className='ui--row'>
+                      <Output
+                        className='full'
+                        help={t('create a diploma help text')}
+                        isHidden={signature.length === 0}
+                        isMonospace
+                        label={t('create a diploma')}
+                        value={signature}
+                        withCopy
+                      />
                     </div>
                   </div>
-                )}
-              </div>
-              <div
-                className='unlock-overlay'
-                hidden={isUsable}
-              >
-                <div className='unlock-overlay-warning'>
-                  <div className='unlock-overlay-content'>
-                    {isInjected
-                      ? t('This injected account cannot be used to sign data since the extension does not support raw signing.')
-                      : t('This external account cannot be used to sign data. Only Limited support is currently available for signing from any non-internal accounts.')}
-                  </div>
-                </div>
-              </div>
-              {isUnlockVisible && (
-                <Unlock
-                  onClose={toggleUnlock}
-                  onUnlock={_onUnlock}
-                  pair={currentPair}
-                />
-              )}
-              {!isLocked && (<Button
-                icon='key'
-                isDisabled={!(isUsable && !isLocked && isIpfsReady)}
-                label={t('Sign the recommendation')}
-                onClick={_onSign}
-              />)}
-              {!isIpfsReady ? <div>{t('Connecting to IPFS...')}</div> : ""}
-            </Button.Group>
-            {modalIsOpen &&
-              <Modal
-                size={"small"}
-                header={t('Scan this from a worker account')}
-                onClose={() => setModalIsOpen(false)}
-              >
-                <Modal.Content>
-                  <QRCode value={letterInfo} size={qrCodeSize} />
-                </Modal.Content>
-              </Modal>
+                  <Button.Group>
+                    <div
+                      className='unlock-overlay'
+                      hidden={!isUsable || !isLocked || isInjected}
+                    >
+                      {isLocked && (
+                        <div className='unlock-overlay-warning'>
+                          <div className='unlock-overlay-content'>
+                            {t('You need to unlock this account to be able to sign data.')}<br />
+                            <Button.Group>
+                              <Button
+                                icon='unlock'
+                                label={t('Unlock account')}
+                                onClick={toggleUnlock}
+                              />
+                            </Button.Group>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                    <div
+                      className='unlock-overlay'
+                      hidden={isUsable}
+                    >
+                      <div className='unlock-overlay-warning'>
+                        <div className='unlock-overlay-content'>
+                          {isInjected
+                            ? t('This injected account cannot be used to sign data since the extension does not support raw signing.')
+                            : t('This external account cannot be used to sign data. Only Limited support is currently available for signing from any non-internal accounts.')}
+                        </div>
+                      </div>
+                    </div>
+                    {isUnlockVisible && (
+                      <Unlock
+                        onClose={toggleUnlock}
+                        onUnlock={_onUnlock}
+                        pair={currentPair}
+                      />
+                    )}
+                    {!isLocked && (<Button
+                      icon='key'
+                      isDisabled={!(isUsable && !isLocked && isIpfsReady)}
+                      label={t('Sell the diploma')}
+                      onClick={_onSign}
+                    />)}
+                    {!isIpfsReady ? <div>{t('Connecting to IPFS...')}</div> : ""}
+                  </Button.Group>
+                  {modalIsOpen &&
+                    <Modal
+                      size={"small"}
+                      header={t('Show the QR to your student')}
+                      onClose={() => setModalIsOpen(false)}
+                    >
+                      <Modal.Content>
+                        <QRCode value={letterInfo} size={qrCodeSize} />
+                      </Modal.Content>
+                    </Modal>
+                  }
+                </>
             }
+
           </>
       }
     </div>

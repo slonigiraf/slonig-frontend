@@ -10,9 +10,10 @@ import { Button } from '@polkadot/react-components';
 interface Props {
   className?: string;
   questions: any[];
+  setCanIssueDiploma: (value) => void;
 }
 
-function Teach({ className = '', questions }: Props): React.ReactElement<Props> {
+function Teach({ className = '', questions, setCanIssueDiploma }: Props): React.ReactElement<Props> {
   const [algorithmStage, setAlgorithmStage] = useState<AlgorithmStage|null>(null);
   const [algorithm, setAlgorithm] = useState<TeachingAlgorithm | null>(null);
   const { t } = useTranslation();
@@ -25,10 +26,11 @@ function Teach({ className = '', questions }: Props): React.ReactElement<Props> 
 
   const handleStageChange = (nextStage) => {
     setAlgorithmStage(nextStage);
-  };
-
-  const handleInsuranceIssue = (issue) => {
-    // Handle insurance issue logic here
+    if(nextStage.type === 'success'){
+      setCanIssueDiploma(true);
+    } else{
+      setCanIssueDiploma(false);
+    }
   };
 
   return (
@@ -49,18 +51,7 @@ function Teach({ className = '', questions }: Props): React.ReactElement<Props> 
                 label={nextStage.getName()}
               />
             ))}
-            {algorithmStage.getWords() === 'SELL_GUARANTEE_DESCRIPTION' && (
-              <Button onClick={() => handleInsuranceIssue(true)}
-                icon='fa-square'
-                label='Sell Diploma'
-              />
-            )}
-            {algorithmStage.getWords() === 'REPEAT_TOMORROW_DESCRIPTION' && (
-              <Button onClick={() => handleInsuranceIssue(false)}
-                icon='fa-square'
-                label='Repeat Tomorrow'
-              />
-            )}
+            
           </div>
         </div>
       ) : (
