@@ -13,7 +13,7 @@ interface Props {
 }
 
 function Teach({ className = '' }: Props): React.ReactElement<Props> {
-  const [algorithmStage, setAlgorithmStage] = useState(null);
+  const [algorithmStage, setAlgorithmStage] = useState<AlgorithmStage|null>(null);
   const [algorithm, setAlgorithm] = useState<TeachingAlgorithm | null>(null);
   const { t } = useTranslation();
 
