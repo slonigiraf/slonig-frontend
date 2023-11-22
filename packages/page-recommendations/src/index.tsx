@@ -10,7 +10,7 @@ import { useAccounts, useIpfs } from '@polkadot/react-hooks';
 import { useTranslation } from './translate.js';
 import { createAndStoreLetter, storeInsurances, storePseudonym, storeSetting, deleteSetting, getSetting } from './utils.js';
 import useCounter from './useCounter.js';
-import Mentor from './Mentor';
+import Tutor from './Tutor';
 import Student from './Student';
 import Teacher from './Teacher';
 import DBImport from './Student/DBImport.js';
@@ -33,8 +33,8 @@ function AccountsApp ({ basePath, onStatusChange }: Props): React.ReactElement<P
       text: t('Student')
     },
     {
-      name: 'mentor',
-      text: t('Mentor')
+      name: 'tutor',
+      text: t('Tutor')
     },
     {
       name: 'teacher',
@@ -65,9 +65,9 @@ function AccountsApp ({ basePath, onStatusChange }: Props): React.ReactElement<P
           />
           <Route
             element={
-              <Mentor onStatusChange={onStatusChange} />
+              <Tutor onStatusChange={onStatusChange} />
             }
-            path='mentor'
+            path='tutor'
           />
         </Route>
       </Routes>

@@ -47,14 +47,14 @@ function ScanQR({ className = '', label, type }: Props): React.ReactElement<Prop
               await storeInsurances(jsonData);
               navigate(`diplomas/teacher?student=${jsonData.p}`);
               break;
-            case 4: // Show mentor's identity
-              // TODO: Store mentor pseudonym
+            case 4: // Show tutor's identity
+              // TODO: Store tutor pseudonym
               await storePseudonym(jsonData.p, jsonData.n);
-              await storeSetting("currentMentor", jsonData.p);
+              await storeSetting("currentTutor", jsonData.p);
               if(type){
-                navigate(`?mentor=${jsonData.p}`);
+                navigate(`?tutor=${jsonData.p}`);
               } else{
-                navigate(`knowledge?mentor=${jsonData.p}`);
+                navigate(`knowledge?tutor=${jsonData.p}`);
               }
               break;
             case 5: // Show skill QR

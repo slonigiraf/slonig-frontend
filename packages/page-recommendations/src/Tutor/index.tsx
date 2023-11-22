@@ -39,14 +39,14 @@ interface SignerState {
   signer: Signer | null;
 }
 
-function Mentor({ className = '' }: Props): React.ReactElement<Props> {
+function Tutor({ className = '' }: Props): React.ReactElement<Props> {
   const { ipfs, isIpfsReady, ipfsInitError } = useIpfsContext();
   const { t } = useTranslation();
   const [currentPair, setCurrentPair] = useState<KeyringPair | null>(() => keyring.getPairs()[0] || null);
   const location = useLocation();
   const queryParams = new URLSearchParams(location.search);
   const queryData = queryParams.get("d") || "";
-  const [textHash, studentIdentity, student, cidR, genesisR, nonceR, blockR, mentorR, studentR, amountR, mentorSignR, studentSignR] = queryData.split(' ');
+  const [textHash, studentIdentity, student, cidR, genesisR, nonceR, blockR, tutorR, studentR, amountR, tutorSignR, studentSignR] = queryData.split(' ');
   // const textHash = cid || "";
   const [text, setText] = useState<string>(textHash);
   const [{ isInjected }, setAccountState] = useState<AccountState>({ isExternal: false, isHardware: false, isInjected: false });
@@ -229,10 +229,10 @@ function Mentor({ className = '' }: Props): React.ReactElement<Props> {
   };
   const qrCodeText = JSON.stringify(qrData);
 
-  const url = getBaseUrl() + `/#/knowledge?mentor=${publicKeyHex}`;
+  const url = getBaseUrl() + `/#/knowledge?tutor=${publicKeyHex}`;
 
   return (
-    <div className={`toolbox--Mentor ${className}`}>
+    <div className={`toolbox--Tutor ${className}`}>
       {/* The div below helps initialize account */}
       <div className='ui--row' style={{ display: 'none' }}>
         <InputAddress
@@ -247,7 +247,7 @@ function Mentor({ className = '' }: Props): React.ReactElement<Props> {
 
       {
         student === undefined ? <>
-          <h2>{t('Show the QR code to a student to begin mentoring')}</h2>
+          <h2>{t('Show the QR code to a student to begin tutoring')}</h2>
           <QRWithShareAndCopy dataQR={qrCodeText} titleShare={t('QR code')} textShare={t('Press the link to start learning')} urlShare={url} dataCopy={url} />
         </>
           :
@@ -281,7 +281,7 @@ function Mentor({ className = '' }: Props): React.ReactElement<Props> {
                       value={blockNumber.toString()}
                     />
                   </div>
-                  <div className='toolbox--Mentor-input'>
+                  <div className='toolbox--Tutor-input'>
                     <div className='ui--row'>
                       <Output
                         className='full'
@@ -361,4 +361,4 @@ function Mentor({ className = '' }: Props): React.ReactElement<Props> {
   );
 }
 
-export default React.memo(Mentor);
+export default React.memo(Tutor);

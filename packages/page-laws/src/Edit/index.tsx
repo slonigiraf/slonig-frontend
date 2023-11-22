@@ -65,9 +65,9 @@ function Edit({ className = '' }: Props): React.ReactElement<Props> {
   const location = useLocation();
   const navigate = useNavigate();
   const queryParams = new URLSearchParams(location.search);
-  const mentor = queryParams.get("mentor");
+  const tutor = queryParams.get("tutor");
   const defaultTextHexId = '0x3f7cd308a2a631b8bbcc763a6b70107a38f6bedad2bfac4260931dfc85921162';
-  const idFromQuery = mentor ? undefined : queryParams.get("id") || defaultTextHexId;
+  const idFromQuery = tutor ? undefined : queryParams.get("id") || defaultTextHexId;
   const [textHexId, setTextHexId] = useState<string | undefined>(idFromQuery);
 
   const setQueryKnowledgeId = (value: any) => {
@@ -79,8 +79,8 @@ function Edit({ className = '' }: Props): React.ReactElement<Props> {
 
   useEffect(() => {
     const updateSetting = async () => {
-      if (mentor) {
-        await storeSetting("currentMentor", mentor);
+      if (tutor) {
+        await storeSetting("currentTutor", tutor);
         const savedId = await getSetting("currentKnowledge");
         setTextHexId(savedId);
       } else if (idFromQuery) {
@@ -91,7 +91,7 @@ function Edit({ className = '' }: Props): React.ReactElement<Props> {
       }
     };
     updateSetting();
-  }, [mentor, idFromQuery]);
+  }, [tutor, idFromQuery]);
 
   useEffect((): void => {
     const meta = (currentPair && currentPair.meta) || {};

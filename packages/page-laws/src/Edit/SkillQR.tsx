@@ -47,15 +47,15 @@ function SkillQR({ className = '', cid }: Props): React.ReactElement<Props> {
   const location = useLocation();
   const navigate = useNavigate();
   const queryParams = new URLSearchParams(location.search);
-  const mentorFromQuery = queryParams.get("mentor");
-  const [mentor, setMentor] = useState<string | null>(mentorFromQuery);
-  const mentors = useLiveQuery(() => db.pseudonyms.toArray(), []);
+  const tutorFromQuery = queryParams.get("tutor");
+  const [tutor, setTutor] = useState<string | null>(tutorFromQuery);
+  const tutors = useLiveQuery(() => db.pseudonyms.toArray(), []);
   const [diplomaToReexamine, setDiplomaToReexamine] = useState<Letter | null>(null);
   const [studentSignatureOverDiplomaToReexamine, setStudentSignatureOverDiplomaToReexamine] = useState<string>("");
 
-  const setQueryMentorId = (value: any) => {
+  const setQueryTutorId = (value: any) => {
     const newQueryParams = new URLSearchParams();
-    newQueryParams.set("mentor", value);
+    newQueryParams.set("tutor", value);
     navigate({ ...location, search: newQueryParams.toString() });
   };
 
@@ -93,43 +93,43 @@ function SkillQR({ className = '', cid }: Props): React.ReactElement<Props> {
     []
   );
 
-  // Fetch currentMentor and set it as the default in the dropdown
+  // Fetch currentTutor and set it as the default in the dropdown
   useEffect(() => {
-    const fetchMentorSetting = async () => {
-      if (mentorFromQuery) {
-        await storeSetting("currentMentor", mentorFromQuery);
-        setMentor(mentorFromQuery);
+    const fetchTutorSetting = async () => {
+      if (tutorFromQuery) {
+        await storeSetting("currentTutor", tutorFromQuery);
+        setTutor(tutorFromQuery);
       } else {
-        const mentorFromSettings = await getSetting("currentMentor");
-        if (mentors && mentorFromSettings) {
-          setMentor(mentorFromSettings);
+        const tutorFromSettings = await getSetting("currentTutor");
+        if (tutors && tutorFromSettings) {
+          setTutor(tutorFromSettings);
         }
       }
     };
-    fetchMentorSetting();
-  }, [mentors, mentorFromQuery]);
+    fetchTutorSetting();
+  }, [tutors, tutorFromQuery]);
 
   // Prepare dropdown options
-  let mentorOptions = mentors?.map(mentor => ({
-    text: mentor.pseudonym,
-    value: mentor.publicKey
+  let tutorOptions = tutors?.map(tutor => ({
+    text: tutor.pseudonym,
+    value: tutor.publicKey
   }));
 
-  // Check if 'mentor' is not null and not in 'mentorOptions'
-  if (mentor && mentorOptions && !mentorOptions.some(option => option.value === mentor)) {
+  // Check if 'tutor' is not null and not in 'tutorOptions'
+  if (tutor && tutorOptions && !tutorOptions.some(option => option.value === tutor)) {
     // Add 'From web-link' as the first option
-    mentorOptions = [{ text: t('From web-link'), value: mentor }, ...mentorOptions];
+    tutorOptions = [{ text: t('From web-link'), value: tutor }, ...tutorOptions];
   }
 
-  const handleMentorSelect = async (selectedKey: string) => {
-    setMentor(selectedKey);
+  const handleTutorSelect = async (selectedKey: string) => {
+    setTutor(selectedKey);
     if (selectedKey) {
       try {
-        await db.settings.put({ id: "currentMentor", value: selectedKey });
+        await db.settings.put({ id: "currentTutor", value: selectedKey });
       } catch (error) {
-        console.error('Error saving mentor selection:', error);
+        console.error('Error saving tutor selection:', error);
       }
-      setQueryMentorId(selectedKey);
+      setQueryTutorId(selectedKey);
     }
   };
 
@@ -150,19 +150,19 @@ function SkillQR({ className = '', cid }: Props): React.ReactElement<Props> {
       _onSign();
     };
     showQR();
-  }, [mentor, diplomaToReexamine]);
+  }, [tutor, diplomaToReexamine]);
 
   
 
   const _onSign = useCallback(
     async () => {
-      if (isLocked || !isUsable || !currentPair || !diplomaToReexamine || !mentor) {
+      if (isLocked || !isUsable || !currentPair || !diplomaToReexamine || !tutor) {
         return;
       }
 
       // generate a data to sign      
       const letterInsurance = getDataToSignByWorker(diplomaToReexamine.letterNumber, new BN(diplomaToReexamine.block), new BN(diplomaToReexamine.block), hexToU8a(diplomaToReexamine.referee),
-        hexToU8a(diplomaToReexamine.worker), new BN(diplomaToReexamine.amount), hexToU8a(diplomaToReexamine.signOverReceipt), hexToU8a(mentor));
+        hexToU8a(diplomaToReexamine.worker), new BN(diplomaToReexamine.amount), hexToU8a(diplomaToReexamine.signOverReceipt), hexToU8a(tutor));
       let workerSignOverInsurance = "";
       // sign
       if (signer && isFunction(signer.signRaw)) {// Use browser extenstion 
@@ -175,16 +175,16 @@ function SkillQR({ className = '', cid }: Props): React.ReactElement<Props> {
       } else {// Use locally stored account to sign
         workerSignOverInsurance = u8aToHex(currentPair.sign(u8aWrapBytes(letterInsurance)));
       }
-      // storeLetterUsageRight(letter, mentor, workerSignOverInsurance);
+      // storeLetterUsageRight(letter, tutor, workerSignOverInsurance);
       // create the result text
 
       setStudentSignatureOverDiplomaToReexamine(workerSignOverInsurance);
     },
-    [currentPair, isLocked, isUsable, signer, mentor, diplomaToReexamine]
+    [currentPair, isLocked, isUsable, signer, tutor, diplomaToReexamine]
   );
 
   const reexamineData = diplomaToReexamine ? `+${diplomaToReexamine.cid}+${diplomaToReexamine.genesis}+${diplomaToReexamine.letterNumber}+${diplomaToReexamine.block}+${diplomaToReexamine.referee}+${diplomaToReexamine.worker}+${diplomaToReexamine.amount}+${diplomaToReexamine.signOverPrivateData}+${studentSignatureOverDiplomaToReexamine}` : '';
-  const urlDetails = `diplomas/mentor?d=${cid}+${publicKeyHex}+${publicKeyHex}${reexamineData}`;
+  const urlDetails = `diplomas/tutor?d=${cid}+${publicKeyHex}+${publicKeyHex}${reexamineData}`;
 
   const generateQRData = () => {
     const [, , name] = getAddressName(currentPair.address, null, "");
@@ -212,21 +212,21 @@ function SkillQR({ className = '', cid }: Props): React.ReactElement<Props> {
         />
       </div>
       <StyledDiv>
-        <h3>{t('Show the QR to your mentor')}</h3>
+        <h3>{t('Show the QR to your tutor')}</h3>
         <FlexRow>
           <Dropdown
             className={`dropdown ${className}`}
-            label={t('select mentor')}
-            value={mentor}
-            onChange={handleMentorSelect}
-            options={mentorOptions || []}
+            label={t('select tutor')}
+            value={tutor}
+            onChange={handleTutorSelect}
+            options={tutorOptions || []}
           />
           <ScanQR label={t('by QR')} type={4} />
         </FlexRow>
         <QRWithShareAndCopy
           dataQR={qrCodeText}
           titleShare={t('QR code')}
-          textShare={t('Press the link to start mentoring')}
+          textShare={t('Press the link to start tutoring')}
           urlShare={url}
           dataCopy={url}
         />
