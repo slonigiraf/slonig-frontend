@@ -247,9 +247,7 @@ const FlexRow = styled.div`
   display: flex;
   justify-content: left;
   align-items: left;
-  margin-top: 20px; // Adjust as needed
-
-  // Add margin to either the dropdown or ScanQR if needed
+  margin-top: 20px;
   .dropdown {
     margin-right: 30px;
   }
