@@ -52,7 +52,7 @@ function SkillQR({ className = '', cid }: Props): React.ReactElement<Props> {
   //TODO: test how does it work if block number > u32 (BlockNumber seems to be u32)
   const bestNumber = useCall<BlockNumber>(isApiReady && (useFinalizedBlocks ? api.derive.chain.bestNumberFinalized : api.derive.chain.bestNumber));
   const currentBlock = bestNumber?.toString() || "0";
-  const [blockTimeMs, ] = useBlockTime(BN_ONE, api);
+  const [blockTimeMs,] = useBlockTime(BN_ONE, api);
   //Allow only for 30 mins
   const blockAllowed: BN = calculateFutureBlock(currentBlock, blockTimeMs, 1800000);
 
@@ -73,7 +73,7 @@ function SkillQR({ className = '', cid }: Props): React.ReactElement<Props> {
   const [diplomaToReexamine, setDiplomaToReexamine] = useState<Letter | null>(null);
   const [studentSignatureOverDiplomaToReexamine, setStudentSignatureOverDiplomaToReexamine] = useState<string>("");
 
-  
+
 
   const setQueryTutorId = (value: any) => {
     const newQueryParams = new URLSearchParams();
@@ -174,7 +174,7 @@ function SkillQR({ className = '', cid }: Props): React.ReactElement<Props> {
     showQR();
   }, [tutor, diplomaToReexamine]);
 
-  
+
 
   const _onSign = useCallback(
     async () => {
@@ -183,8 +183,8 @@ function SkillQR({ className = '', cid }: Props): React.ReactElement<Props> {
       }
 
       // generate a data to sign    
-      
-        
+
+
       const letterInsurance = getDataToSignByWorker(diplomaToReexamine.letterNumber, new BN(diplomaToReexamine.block), blockAllowed, hexToU8a(diplomaToReexamine.referee),
         hexToU8a(diplomaToReexamine.worker), new BN(diplomaToReexamine.amount), hexToU8a(diplomaToReexamine.signOverReceipt), hexToU8a(tutor));
       let workerSignOverInsurance = "";
@@ -234,26 +234,31 @@ function SkillQR({ className = '', cid }: Props): React.ReactElement<Props> {
           type='account'
         />
       </div>
-      <StyledDiv>
-        <h3>{t('Show the QR to your tutor')}</h3>
-        <FlexRow>
-          <Dropdown
-            className={`dropdown ${className}`}
-            label={t('select tutor')}
-            value={tutor}
-            onChange={handleTutorSelect}
-            options={tutorOptions || []}
+
+      {tutor ?
+        <StyledDiv>
+          <h3>{t('Show the QR to your tutor')}</h3>
+          <FlexRow>
+            <Dropdown
+              className={`dropdown ${className}`}
+              label={t('select tutor')}
+              value={tutor}
+              onChange={handleTutorSelect}
+              options={tutorOptions || []}
+            />
+            <ScanQR label={t('by QR')} type={4} />
+          </FlexRow>
+          <QRWithShareAndCopy
+            dataQR={qrCodeText}
+            titleShare={t('QR code')}
+            textShare={t('Press the link to start tutoring')}
+            urlShare={url}
+            dataCopy={url}
           />
-          <ScanQR label={t('by QR')} type={4} />
-        </FlexRow>
-        <QRWithShareAndCopy
-          dataQR={qrCodeText}
-          titleShare={t('QR code')}
-          textShare={t('Press the link to start tutoring')}
-          urlShare={url}
-          dataCopy={url}
-        />
-      </StyledDiv>
+        </StyledDiv>
+        : <h3>{t('Scan your tutor\'s QR code for help and a diploma.')}</h3>
+      }
+
 
     </>
   );
