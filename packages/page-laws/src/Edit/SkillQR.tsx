@@ -17,6 +17,10 @@ import { storeLetterUsageRight } from '../utils.js';
 import { getDataToSignByWorker } from '@slonigiraf/helpers';
 import type { Signer } from '@polkadot/api/types';
 import BN from 'bn.js';
+import { BN_ONE } from '@polkadot/util';
+import { useApi, useCall } from '@polkadot/react-hooks';
+import type { BlockNumber } from '@polkadot/types/interfaces';
+import { useBlockTime } from '@polkadot/react-hooks';
 
 interface Props {
   className?: string;
@@ -34,8 +38,24 @@ interface SignerState {
   signer: Signer | null;
 }
 
+const calculateFutureBlock = (block: string, blockTimeMs: number, msToAdd: number): BN => {
+  const currentBlock = new BN(block);
+  const blocksToAdd = new BN(msToAdd).div(new BN(blockTimeMs));
+  const blockAllowed = currentBlock.add(blocksToAdd);
+  return blockAllowed;
+}
+
 function SkillQR({ className = '', cid }: Props): React.ReactElement<Props> {
   // Using key
+  const { api, isApiReady } = useApi();
+  const useFinalizedBlocks = false;
+  //TODO: test how does it work if block number > u32 (BlockNumber seems to be u32)
+  const bestNumber = useCall<BlockNumber>(isApiReady && (useFinalizedBlocks ? api.derive.chain.bestNumberFinalized : api.derive.chain.bestNumber));
+  const currentBlock = bestNumber?.toString() || "0";
+  const [blockTimeMs, ] = useBlockTime(BN_ONE, api);
+  //Allow only for 30 mins
+  const blockAllowed: BN = calculateFutureBlock(currentBlock, blockTimeMs, 1800000);
+
   const [currentPair, setCurrentPair] = useState<KeyringPair | null>(() => keyring.getPairs()[0] || null);
   const [{ isInjected }, setAccountState] = useState<AccountState>({ isExternal: false, isHardware: false, isInjected: false });
   const [isLocked, setIsLocked] = useState(false);
@@ -52,6 +72,8 @@ function SkillQR({ className = '', cid }: Props): React.ReactElement<Props> {
   const tutors = useLiveQuery(() => db.pseudonyms.toArray(), []);
   const [diplomaToReexamine, setDiplomaToReexamine] = useState<Letter | null>(null);
   const [studentSignatureOverDiplomaToReexamine, setStudentSignatureOverDiplomaToReexamine] = useState<string>("");
+
+  
 
   const setQueryTutorId = (value: any) => {
     const newQueryParams = new URLSearchParams();
@@ -160,8 +182,10 @@ function SkillQR({ className = '', cid }: Props): React.ReactElement<Props> {
         return;
       }
 
-      // generate a data to sign      
-      const letterInsurance = getDataToSignByWorker(diplomaToReexamine.letterNumber, new BN(diplomaToReexamine.block), new BN(diplomaToReexamine.block), hexToU8a(diplomaToReexamine.referee),
+      // generate a data to sign    
+      
+        
+      const letterInsurance = getDataToSignByWorker(diplomaToReexamine.letterNumber, new BN(diplomaToReexamine.block), blockAllowed, hexToU8a(diplomaToReexamine.referee),
         hexToU8a(diplomaToReexamine.worker), new BN(diplomaToReexamine.amount), hexToU8a(diplomaToReexamine.signOverReceipt), hexToU8a(tutor));
       let workerSignOverInsurance = "";
       // sign
@@ -175,15 +199,15 @@ function SkillQR({ className = '', cid }: Props): React.ReactElement<Props> {
       } else {// Use locally stored account to sign
         workerSignOverInsurance = u8aToHex(currentPair.sign(u8aWrapBytes(letterInsurance)));
       }
-      // storeLetterUsageRight(letter, tutor, workerSignOverInsurance);
+      // TODO: storeLetterUsageRight(letter, tutor, workerSignOverInsurance);
       // create the result text
 
       setStudentSignatureOverDiplomaToReexamine(workerSignOverInsurance);
     },
-    [currentPair, isLocked, isUsable, signer, tutor, diplomaToReexamine]
+    [currentPair, isLocked, isUsable, signer, tutor, diplomaToReexamine, currentBlock]
   );
 
-  const reexamineData = diplomaToReexamine ? `+${diplomaToReexamine.cid}+${diplomaToReexamine.genesis}+${diplomaToReexamine.letterNumber}+${diplomaToReexamine.block}+${diplomaToReexamine.referee}+${diplomaToReexamine.worker}+${diplomaToReexamine.amount}+${diplomaToReexamine.signOverPrivateData}+${studentSignatureOverDiplomaToReexamine}` : '';
+  const reexamineData = diplomaToReexamine ? `+${diplomaToReexamine.cid}+${diplomaToReexamine.genesis}+${diplomaToReexamine.letterNumber}+${diplomaToReexamine.block}+${blockAllowed}+${diplomaToReexamine.referee}+${diplomaToReexamine.worker}+${diplomaToReexamine.amount}+${diplomaToReexamine.signOverPrivateData}+${studentSignatureOverDiplomaToReexamine}` : '';
   const urlDetails = `diplomas/tutor?d=${cid}+${publicKeyHex}+${publicKeyHex}${reexamineData}`;
 
   const generateQRData = () => {
@@ -200,7 +224,6 @@ function SkillQR({ className = '', cid }: Props): React.ReactElement<Props> {
 
   return (
     <>
-
       <div className='ui--row' style={{ display: 'none' }}>
         <InputAddress
           className='full'
