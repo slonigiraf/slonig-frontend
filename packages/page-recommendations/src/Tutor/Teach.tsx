@@ -6,10 +6,11 @@ import { TeachingAlgorithm } from './TeachingAlgorithm.js';
 import { AlgorithmStage } from './AlgorithmStage.js';
 import { useTranslation } from '../translate.js';
 import { Button } from '@polkadot/react-components';
+import type { Question } from '@slonigiraf/app-slonig-components';
 
 interface Props {
   className?: string;
-  questions: any[];
+  questions: Question[];
   setCanIssueDiploma: (value) => void;
 }
 

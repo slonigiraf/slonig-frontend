@@ -23,6 +23,7 @@ import { getIPFSDataFromContentID, parseJson } from '@slonigiraf/app-slonig-comp
 import { QRWithShareAndCopy, getBaseUrl } from '@slonigiraf/app-slonig-components';
 import { db } from '@slonigiraf/app-recommendations';
 import Teach from './Teach.js';
+import type { Skill } from '@slonigiraf/app-slonig-components';
 
 interface Props {
   className?: string;
@@ -61,8 +62,9 @@ function Tutor({ className = '' }: Props): React.ReactElement<Props> {
   const [letterInfo, setLetterInfo] = useState('');
   const [modalIsOpen, setModalIsOpen] = useState(false);
   const [studentName, setStudentName] = useState<string | undefined>(undefined);
-  const [questions, setQuestions] = useState([]);
   const [canIssueDiploma, setCanIssueDiploma] = useState(false);
+  const [skill, setSkill] = useState<Skill|null>(null);
+  const [skillR, setSkillR] = useState<Skill|null>(null);
 
   useEffect(() => {
     async function fetchData() {
@@ -70,8 +72,8 @@ function Tutor({ className = '' }: Props): React.ReactElement<Props> {
         try {
           const content = await getIPFSDataFromContentID(ipfs, textHash);
           const json = parseJson(content);
+          setSkill(json);
           setText(json.h);
-          setQuestions(json.q);
         }
         catch (e) {
           setText(textHash + " (" + t('loading') + "...)");
@@ -259,7 +261,7 @@ function Tutor({ className = '' }: Props): React.ReactElement<Props> {
             <div className='ui--row'>
               <h2>Person: {studentName}</h2>
             </div>
-            <Teach questions={questions} setCanIssueDiploma={setCanIssueDiploma}/>
+            <Teach questions={skill? skill.q : []} setCanIssueDiploma={setCanIssueDiploma}/>
             {
               canIssueDiploma &&
                 <>
