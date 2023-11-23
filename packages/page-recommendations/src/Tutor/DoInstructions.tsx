@@ -8,12 +8,12 @@ import { Button } from '@polkadot/react-components';
 
 interface Props {
   className?: string;
-  algorithm: Algorithm;
+  algorithm: Algorithm | null;
   onResult: (success: boolean) => void;
 }
 
 function DoInstructions({ className = '', algorithm, onResult: onResult }: Props): React.ReactElement<Props> {
-  if(!algorithm){
+  if (algorithm === null) {
     return <></>
   }
   const [algorithmStage, setAlgorithmStage] = useState<AlgorithmStage>(algorithm.getBegin());

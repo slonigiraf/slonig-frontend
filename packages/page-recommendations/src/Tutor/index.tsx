@@ -63,11 +63,11 @@ function Tutor({ className = '' }: Props): React.ReactElement<Props> {
   const [studentName, setStudentName] = useState<string | undefined>(undefined);
   const [canIssueDiploma, setCanIssueDiploma] = useState(false);
   const [reexamined, setReexamined] = useState<Boolean>(false);
-  const [skill, setSkill] = useState<Skill|null>(null);
-  const [skillR, setSkillR] = useState<Skill|null>(null);
-  const [teachingAlgorithm, setTeachingAlgorithm] = useState<TeachingAlgorithm|null>(null);
-  const [validatingAlgorithm, setValidatingAlgorithm] = useState<TeachingAlgorithm|null>(null);
-  
+  const [skill, setSkill] = useState<Skill | null>(null);
+  const [skillR, setSkillR] = useState<Skill | null>(null);
+  const [teachingAlgorithm, setTeachingAlgorithm] = useState<TeachingAlgorithm | null>(null);
+  const [validatingAlgorithm, setValidatingAlgorithm] = useState<TeachingAlgorithm | null>(null);
+
   useEffect(() => {
     async function fetchData() {
       if (ipfs !== null && skillCID) {
@@ -75,12 +75,12 @@ function Tutor({ className = '' }: Props): React.ReactElement<Props> {
           const skillContent = await getIPFSDataFromContentID(ipfs, skillCID);
           const skillJson = parseJson(skillContent);
           setSkill(skillJson);
-          setTeachingAlgorithm(new TeachingAlgorithm(t, skillJson? skillJson.q : []));
+          setTeachingAlgorithm(new TeachingAlgorithm(t, skillJson ? skillJson.q : []));
 
           const skillRContent = await getIPFSDataFromContentID(ipfs, cidR);
           const skillRJson = parseJson(skillRContent);
           setSkillR(skillRJson);
-          setValidatingAlgorithm(new TeachingAlgorithm(t, skillRJson? skillRJson.q : []));
+          setValidatingAlgorithm(new TeachingAlgorithm(t, skillRJson ? skillRJson.q : []));
         }
         catch (e) {
           console.log(e);
@@ -255,108 +255,122 @@ function Tutor({ className = '' }: Props): React.ReactElement<Props> {
         </>
           :
           <>
-            <h2>{t('Teach and create a diploma')}</h2>
+
             <div className='ui--row'>
-              <h2>"{skill? skill.h : ''}"</h2>
+              <h2>{t('Student')}: {studentName}</h2>
             </div>
-            <div className='ui--row'>
-              <h2>Person: {studentName}</h2>
-            </div>
-            <DoInstructions algorithm={validatingAlgorithm} onResult={setReexamined}/>
-            <DoInstructions algorithm={teachingAlgorithm} onResult={setCanIssueDiploma}/>
+            {
+              (!reexamined) ?
+                <>
+                  <h2>{t('Reexamine the skill that student know')}</h2>
+                  <div className='ui--row'>
+                    <h2>"{skillR ? skillR.h : ''}"</h2>
+                  </div>
+                  <DoInstructions algorithm={validatingAlgorithm} onResult={setReexamined} />
+                </>
+                :
+                <>
+                  <h2>{t('Teach and create a diploma')}</h2>
+                  <div className='ui--row'>
+                    <h2>"{skill ? skill.h : ''}"</h2>
+                  </div>
+                  <DoInstructions algorithm={teachingAlgorithm} onResult={setCanIssueDiploma} />
+                </>
+
+            }
             {
               canIssueDiploma &&
-                <>
+              <>
+                <div className='ui--row'>
+                  <InputBalance
+                    help={t('Stake reputation help info')}
+                    isZeroable
+                    label={t('stake reputation')}
+                    onChange={setAmount}
+                    defaultValue={amount}
+                  />
+                </div>
+                <div className='ui--row'>
+                  <Input
+                    className='full'
+                    help={t('Block number help info TODO')}
+                    label={t('block number')}
+                    onChange={_onChangeBlockNumber}
+                    value={blockNumber.toString()}
+                  />
+                </div>
+                <div className='toolbox--Tutor-input'>
                   <div className='ui--row'>
-                    <InputBalance
-                      help={t('Stake reputation help info')}
-                      isZeroable
-                      label={t('stake reputation')}
-                      onChange={setAmount}
-                      defaultValue={amount}
-                    />
-                  </div>
-                  <div className='ui--row'>
-                    <Input
+                    <Output
                       className='full'
-                      help={t('Block number help info TODO')}
-                      label={t('block number')}
-                      onChange={_onChangeBlockNumber}
-                      value={blockNumber.toString()}
+                      help={t('create a diploma help text')}
+                      isHidden={signature.length === 0}
+                      isMonospace
+                      label={t('create a diploma')}
+                      value={signature}
+                      withCopy
                     />
                   </div>
-                  <div className='toolbox--Tutor-input'>
-                    <div className='ui--row'>
-                      <Output
-                        className='full'
-                        help={t('create a diploma help text')}
-                        isHidden={signature.length === 0}
-                        isMonospace
-                        label={t('create a diploma')}
-                        value={signature}
-                        withCopy
-                      />
-                    </div>
-                  </div>
-                  <Button.Group>
-                    <div
-                      className='unlock-overlay'
-                      hidden={!isUsable || !isLocked || isInjected}
-                    >
-                      {isLocked && (
-                        <div className='unlock-overlay-warning'>
-                          <div className='unlock-overlay-content'>
-                            {t('You need to unlock this account to be able to sign data.')}<br />
-                            <Button.Group>
-                              <Button
-                                icon='unlock'
-                                label={t('Unlock account')}
-                                onClick={toggleUnlock}
-                              />
-                            </Button.Group>
-                          </div>
-                        </div>
-                      )}
-                    </div>
-                    <div
-                      className='unlock-overlay'
-                      hidden={isUsable}
-                    >
+                </div>
+                <Button.Group>
+                  <div
+                    className='unlock-overlay'
+                    hidden={!isUsable || !isLocked || isInjected}
+                  >
+                    {isLocked && (
                       <div className='unlock-overlay-warning'>
                         <div className='unlock-overlay-content'>
-                          {isInjected
-                            ? t('This injected account cannot be used to sign data since the extension does not support raw signing.')
-                            : t('This external account cannot be used to sign data. Only Limited support is currently available for signing from any non-internal accounts.')}
+                          {t('You need to unlock this account to be able to sign data.')}<br />
+                          <Button.Group>
+                            <Button
+                              icon='unlock'
+                              label={t('Unlock account')}
+                              onClick={toggleUnlock}
+                            />
+                          </Button.Group>
                         </div>
                       </div>
-                    </div>
-                    {isUnlockVisible && (
-                      <Unlock
-                        onClose={toggleUnlock}
-                        onUnlock={_onUnlock}
-                        pair={currentPair}
-                      />
                     )}
-                    {!isLocked && (<Button
-                      icon='key'
-                      isDisabled={!(isUsable && !isLocked && isIpfsReady)}
-                      label={t('Sell the diploma')}
-                      onClick={_onSign}
-                    />)}
-                    {!isIpfsReady ? <div>{t('Connecting to IPFS...')}</div> : ""}
-                  </Button.Group>
-                  {modalIsOpen &&
-                    <Modal
-                      size={"small"}
-                      header={t('Show the QR to your student')}
-                      onClose={() => setModalIsOpen(false)}
-                    >
-                      <Modal.Content>
-                        <QRCode value={letterInfo} size={qrCodeSize} />
-                      </Modal.Content>
-                    </Modal>
-                  }
-                </>
+                  </div>
+                  <div
+                    className='unlock-overlay'
+                    hidden={isUsable}
+                  >
+                    <div className='unlock-overlay-warning'>
+                      <div className='unlock-overlay-content'>
+                        {isInjected
+                          ? t('This injected account cannot be used to sign data since the extension does not support raw signing.')
+                          : t('This external account cannot be used to sign data. Only Limited support is currently available for signing from any non-internal accounts.')}
+                      </div>
+                    </div>
+                  </div>
+                  {isUnlockVisible && (
+                    <Unlock
+                      onClose={toggleUnlock}
+                      onUnlock={_onUnlock}
+                      pair={currentPair}
+                    />
+                  )}
+                  {!isLocked && (<Button
+                    icon='key'
+                    isDisabled={!(isUsable && !isLocked && isIpfsReady)}
+                    label={t('Sell the diploma')}
+                    onClick={_onSign}
+                  />)}
+                  {!isIpfsReady ? <div>{t('Connecting to IPFS...')}</div> : ""}
+                </Button.Group>
+                {modalIsOpen &&
+                  <Modal
+                    size={"small"}
+                    header={t('Show the QR to your student')}
+                    onClose={() => setModalIsOpen(false)}
+                  >
+                    <Modal.Content>
+                      <QRCode value={letterInfo} size={qrCodeSize} />
+                    </Modal.Content>
+                  </Modal>
+                }
+              </>
             }
 
           </>
