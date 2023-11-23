@@ -18,7 +18,7 @@ function QRWithShareAndCopy({ className, dataQR, titleShare, textShare, urlShare
         <StyledDiv>
             <div>
                 <div className='qr--row'>
-                    <QRCode value={dataQR} />
+                    <QRCode value={dataQR} size={200} />
                 </div>
                 <div className='qr--row'>
                     <ShareButton title={titleShare} text={textShare} url={urlShare} />
@@ -34,7 +34,7 @@ const StyledDiv = styled.div`
   flex-direction: row;
   justify-content: center;
   align-items: center;
-  max-width: 250px;
+  max-width: 300px;
   .qr--row {
     display: flex;
     justify-content: center;
