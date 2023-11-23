@@ -24,6 +24,7 @@ import { QRWithShareAndCopy, getBaseUrl } from '@slonigiraf/app-slonig-component
 import { db } from '@slonigiraf/app-recommendations';
 import DoInstructions from './DoInstructions.js';
 import type { Skill } from '@slonigiraf/app-slonig-components';
+import { TeachingAlgorithm } from './TeachingAlgorithm.js';
 
 interface Props {
   className?: string;
@@ -64,16 +65,22 @@ function Tutor({ className = '' }: Props): React.ReactElement<Props> {
   const [reexamined, setReexamined] = useState<Boolean>(false);
   const [skill, setSkill] = useState<Skill|null>(null);
   const [skillR, setSkillR] = useState<Skill|null>(null);
-
+  const [teachingAlgorithm, setTeachingAlgorithm] = useState<TeachingAlgorithm|null>(null);
+  const [validatingAlgorithm, setValidatingAlgorithm] = useState<TeachingAlgorithm|null>(null);
+  
   useEffect(() => {
     async function fetchData() {
       if (ipfs !== null && skillCID) {
         try {
           const skillContent = await getIPFSDataFromContentID(ipfs, skillCID);
-          setSkill(parseJson(skillContent));
+          const skillJson = parseJson(skillContent);
+          setSkill(skillJson);
+          setTeachingAlgorithm(new TeachingAlgorithm(t, skillJson? skillJson.q : []));
 
           const skillRContent = await getIPFSDataFromContentID(ipfs, cidR);
-          setSkillR(parseJson(skillRContent));
+          const skillRJson = parseJson(skillRContent);
+          setSkillR(skillRJson);
+          setValidatingAlgorithm(new TeachingAlgorithm(t, skillRJson? skillRJson.q : []));
         }
         catch (e) {
           console.log(e);
@@ -255,8 +262,8 @@ function Tutor({ className = '' }: Props): React.ReactElement<Props> {
             <div className='ui--row'>
               <h2>Person: {studentName}</h2>
             </div>
-            <DoInstructions questions={skillR? skillR.q : []} setCanIssueDiploma={setCanIssueDiploma}/>
-            <DoInstructions questions={skill? skill.q : []} setCanIssueDiploma={setCanIssueDiploma}/>
+            <DoInstructions algorithm={validatingAlgorithm} onResult={setReexamined}/>
+            <DoInstructions algorithm={teachingAlgorithm} onResult={setCanIssueDiploma}/>
             {
               canIssueDiploma &&
                 <>

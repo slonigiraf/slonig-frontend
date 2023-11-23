@@ -1,36 +1,29 @@
 // Copyright 2021-2022 @slonigiraf/app-recommendations authors & contributors
 // SPDX-License-Identifier: Apache-2.0
 
-import React, { useState, useEffect } from 'react';
-import { TeachingAlgorithm } from './TeachingAlgorithm.jsx';
+import React, { useState } from 'react';
+import { Algorithm } from './Algorithm.js';
 import { AlgorithmStage } from './AlgorithmStage.js';
-import { useTranslation } from '../translate.js';
 import { Button } from '@polkadot/react-components';
-import type { Question } from '@slonigiraf/app-slonig-components';
 
 interface Props {
   className?: string;
-  questions: Question[];
-  setCanIssueDiploma: (value) => void;
+  algorithm: Algorithm;
+  onResult: (success: boolean) => void;
 }
 
-function DoInstructions({ className = '', questions, setCanIssueDiploma }: Props): React.ReactElement<Props> {
-  const [algorithmStage, setAlgorithmStage] = useState<AlgorithmStage|null>(null);
-  const [algorithm, setAlgorithm] = useState<TeachingAlgorithm | null>(null);
-  const { t } = useTranslation();
-
-  useEffect(() => {
-    const newAlgorithm = new TeachingAlgorithm(t, questions);
-    setAlgorithm(newAlgorithm);
-    setAlgorithmStage(newAlgorithm.getBegin());
-  }, [questions]);
+function DoInstructions({ className = '', algorithm, onResult: onResult }: Props): React.ReactElement<Props> {
+  if(!algorithm){
+    return <></>
+  }
+  const [algorithmStage, setAlgorithmStage] = useState<AlgorithmStage>(algorithm.getBegin());
 
   const handleStageChange = (nextStage) => {
     setAlgorithmStage(nextStage);
-    if(nextStage.type === 'success'){
-      setCanIssueDiploma(true);
-    } else{
-      setCanIssueDiploma(false);
+    if (nextStage.type === 'success') {
+      onResult(true);
+    } else {
+      onResult(false);
     }
   };
 
@@ -52,7 +45,7 @@ function DoInstructions({ className = '', questions, setCanIssueDiploma }: Props
                 label={nextStage.getName()}
               />
             ))}
-            
+
           </div>
         </div>
       ) : (

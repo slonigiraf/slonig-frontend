@@ -1,7 +1,7 @@
 import { AlgorithmStage } from './AlgorithmStage.js';
 import { Algorithm } from './Algorithm.js';
 
-class TeachingAlgorithm extends Algorithm {
+class ValidatingAlgorithm extends Algorithm {
     constructor(t: any, questions: any[]) {
         super();
         let question1: string = questions.length > 0 ? questions[0].h : t('SOME TASK FOR SKILL TRAINING (THE MENTOR SHOULD KNOW)');
@@ -135,4 +135,4 @@ class TeachingAlgorithm extends Algorithm {
     }
 }
 
-export { TeachingAlgorithm };
+export { ValidatingAlgorithm as TeachingAlgorithm };
