@@ -76,7 +76,7 @@ export async function getIPFSContentID(ipfs: IPFSHTTPClient, content: string) {
     return decryptText(encryptedData, password, salt);
   }
   
-  export function parseJson (input: string): any | null {
+  export function parseJson (input: string | null): any | null {
     try {
       const result = JSON.parse(input);
       return result;

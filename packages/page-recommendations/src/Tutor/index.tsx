@@ -22,7 +22,7 @@ import { useLocation } from 'react-router-dom';
 import { getIPFSDataFromContentID, parseJson } from '@slonigiraf/app-slonig-components'
 import { QRWithShareAndCopy, getBaseUrl } from '@slonigiraf/app-slonig-components';
 import { db } from '@slonigiraf/app-recommendations';
-import Teach from './Teach.js';
+import DoInstructions from './DoInstructions.js';
 import type { Skill } from '@slonigiraf/app-slonig-components';
 
 interface Props {
@@ -61,6 +61,7 @@ function Tutor({ className = '' }: Props): React.ReactElement<Props> {
   const [modalIsOpen, setModalIsOpen] = useState(false);
   const [studentName, setStudentName] = useState<string | undefined>(undefined);
   const [canIssueDiploma, setCanIssueDiploma] = useState(false);
+  const [reexamined, setReexamined] = useState<Boolean>(false);
   const [skill, setSkill] = useState<Skill|null>(null);
   const [skillR, setSkillR] = useState<Skill|null>(null);
 
@@ -68,9 +69,11 @@ function Tutor({ className = '' }: Props): React.ReactElement<Props> {
     async function fetchData() {
       if (ipfs !== null && skillCID) {
         try {
-          const content = await getIPFSDataFromContentID(ipfs, skillCID);
-          const json = parseJson(content);
-          setSkill(json);
+          const skillContent = await getIPFSDataFromContentID(ipfs, skillCID);
+          setSkill(parseJson(skillContent));
+
+          const skillRContent = await getIPFSDataFromContentID(ipfs, cidR);
+          setSkillR(parseJson(skillRContent));
         }
         catch (e) {
           console.log(e);
@@ -252,7 +255,8 @@ function Tutor({ className = '' }: Props): React.ReactElement<Props> {
             <div className='ui--row'>
               <h2>Person: {studentName}</h2>
             </div>
-            <Teach questions={skill? skill.q : []} setCanIssueDiploma={setCanIssueDiploma}/>
+            <DoInstructions questions={skillR? skillR.q : []} setCanIssueDiploma={setCanIssueDiploma}/>
+            <DoInstructions questions={skill? skill.q : []} setCanIssueDiploma={setCanIssueDiploma}/>
             {
               canIssueDiploma &&
                 <>

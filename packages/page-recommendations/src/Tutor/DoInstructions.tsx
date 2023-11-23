@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import React, { useState, useEffect } from 'react';
-import { TeachingAlgorithm } from './TeachingAlgorithm.js';
+import { TeachingAlgorithm } from './TeachingAlgorithm.jsx';
 import { AlgorithmStage } from './AlgorithmStage.js';
 import { useTranslation } from '../translate.js';
 import { Button } from '@polkadot/react-components';
@@ -14,7 +14,7 @@ interface Props {
   setCanIssueDiploma: (value) => void;
 }
 
-function Teach({ className = '', questions, setCanIssueDiploma }: Props): React.ReactElement<Props> {
+function DoInstructions({ className = '', questions, setCanIssueDiploma }: Props): React.ReactElement<Props> {
   const [algorithmStage, setAlgorithmStage] = useState<AlgorithmStage|null>(null);
   const [algorithm, setAlgorithm] = useState<TeachingAlgorithm | null>(null);
   const { t } = useTranslation();
@@ -62,4 +62,4 @@ function Teach({ className = '', questions, setCanIssueDiploma }: Props): React.
   );
 }
 
-export default React.memo(Teach)
+export default React.memo(DoInstructions)
