@@ -47,9 +47,7 @@ function Tutor({ className = '' }: Props): React.ReactElement<Props> {
   const location = useLocation();
   const queryParams = new URLSearchParams(location.search);
   const queryData = queryParams.get("d") || "";
-  const [textHash, studentIdentity, student, cidR, genesisR, nonceR, blockR, tutorR, studentR, amountR, tutorSignR, studentSignR] = queryData.split(' ');
-  // const textHash = cid || "";
-  const [text, setText] = useState<string>(textHash);
+  const [skillCID, studentIdentity, student, cidR, genesisR, nonceR, blockR, tutorR, studentR, amountR, tutorSignR, studentSignR] = queryData.split(' ');
   const [{ isInjected }, setAccountState] = useState<AccountState>({ isExternal: false, isHardware: false, isInjected: false });
   const [isLocked, setIsLocked] = useState(false);
   const [{ isUsable, signer }, setSigner] = useState<SignerState>({ isUsable: true, signer: null });
@@ -68,21 +66,19 @@ function Tutor({ className = '' }: Props): React.ReactElement<Props> {
 
   useEffect(() => {
     async function fetchData() {
-      if (ipfs !== null && text === textHash) {
+      if (ipfs !== null && skillCID) {
         try {
-          const content = await getIPFSDataFromContentID(ipfs, textHash);
+          const content = await getIPFSDataFromContentID(ipfs, skillCID);
           const json = parseJson(content);
           setSkill(json);
-          setText(json.h);
         }
         catch (e) {
-          setText(textHash + " (" + t('loading') + "...)");
           console.log(e);
         }
       }
     }
     fetchData()
-  }, [ipfs, textHash])
+  }, [ipfs, skillCID])
 
   useEffect(() => {
     async function fetchStudentName() {
@@ -129,11 +125,6 @@ function Tutor({ className = '' }: Props): React.ReactElement<Props> {
     []
   );
 
-  const _onChangeData = useCallback(
-    (data: string) => setText(data),
-    []
-  );
-
   const _onChangeBlockNumber = useCallback(
     (value: string) => setBlockNumber(new BN(value)),
     []
@@ -151,7 +142,7 @@ function Tutor({ className = '' }: Props): React.ReactElement<Props> {
       const refereePublicKeyHex = u8aToHex(refereeU8);
       const letterId = await getLastUnusedLetterNumber(refereePublicKeyHex);
       const workerPublicKeyU8 = hexToU8a(student);
-      const privateData = getPrivateDataToSignByReferee(textHash, genesisU8, letterId, blockNumber, refereeU8, workerPublicKeyU8, amount);
+      const privateData = getPrivateDataToSignByReferee(skillCID, genesisU8, letterId, blockNumber, refereeU8, workerPublicKeyU8, amount);
       const receipt = getPublicDataToSignByReferee(genesisU8, letterId, blockNumber, refereeU8, workerPublicKeyU8, amount);
 
       let refereeSignOverPrivateData = "";
@@ -178,7 +169,7 @@ function Tutor({ className = '' }: Props): React.ReactElement<Props> {
       }
       // create the result text
       let result = [];
-      result.push(textHash);
+      result.push(skillCID);
       result.push(genesisU8.toHex());
       result.push(letterId);
       result.push(blockNumber);
@@ -190,7 +181,7 @@ function Tutor({ className = '' }: Props): React.ReactElement<Props> {
 
       const letter = {
         created: new Date(),
-        cid: textHash,
+        cid: skillCID,
         genesis: genesisU8.toHex(),
         letterNumber: letterId,
         block: blockNumber.toString(),
@@ -207,7 +198,7 @@ function Tutor({ className = '' }: Props): React.ReactElement<Props> {
       setLetterInfo(qrText);
       setModalIsOpen(true);
     },
-    [currentPair, isLocked, isUsable, signer, ipfs, text, student, blockNumber, amount]
+    [currentPair, isLocked, isUsable, signer, ipfs, skill, student, blockNumber, amount]
   );
 
   const _onUnlock = useCallback(
@@ -256,7 +247,7 @@ function Tutor({ className = '' }: Props): React.ReactElement<Props> {
           <>
             <h2>{t('Teach and create a diploma')}</h2>
             <div className='ui--row'>
-              <h2>"{text}"</h2>
+              <h2>"{skill? skill.h : ''}"</h2>
             </div>
             <div className='ui--row'>
               <h2>Person: {studentName}</h2>

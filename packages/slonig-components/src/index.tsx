@@ -14,5 +14,6 @@ export interface Question {
     a: string;
 }
 export interface Skill {
+    h: string;
     q: Question[];
 }
