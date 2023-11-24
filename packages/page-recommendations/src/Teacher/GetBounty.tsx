@@ -82,7 +82,7 @@ const GetBounty = forwardRef((props: Props, ref) => {
   }));
 
   return (
-    <div className={`toolbox--Sign ${className}`}>
+    <div className={`toolbox--Sign ${className}`} style={{ display: 'none' }}>
       <div className='ui--row' style={{ display: 'none' }}>
         <InputAddress
           className='full'
