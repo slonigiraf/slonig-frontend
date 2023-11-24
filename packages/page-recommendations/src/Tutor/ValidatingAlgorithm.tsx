@@ -18,12 +18,12 @@ class ValidatingAlgorithm extends Algorithm {
             []
         );
         const getReimburse = new AlgorithmStage(
-            'intermediate',
+            'reimburse',
             t('NO'),
             <div>
                 <b>{t('Tell the student')}: </b>
                 <em>{t('You don\'t have such a skill. I will penalize the tutor which issues the diploma for it.')} </em>
-                <b>{`${t('And press')} "${t('Get reimburse')}" ${t('button')}`}</b>
+                <b>{`${t('And press')} "${t('Get bounty')}" ${t('button')}`}</b>
             </div>,
             []
         );

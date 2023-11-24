@@ -9,7 +9,7 @@ import { Button } from '@polkadot/react-components';
 interface Props {
   className?: string;
   algorithm: Algorithm | null;
-  onResult: (success: boolean) => void;
+  onResult: (stage: string) => void;
 }
 
 function DoInstructions({ className = '', algorithm, onResult: onResult }: Props): React.ReactElement<Props> {
@@ -21,11 +21,7 @@ function DoInstructions({ className = '', algorithm, onResult: onResult }: Props
 
   const handleStageChange = (nextStage) => {
     setAlgorithmStage(nextStage);
-    if (nextStage.type === 'success') {
-      onResult(true);
-    } else {
-      onResult(false);
-    }
+    onResult(nextStage.type);
   };
 
   return (

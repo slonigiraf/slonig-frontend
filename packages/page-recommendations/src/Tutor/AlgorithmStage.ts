@@ -1,11 +1,11 @@
 class AlgorithmStage {
-    type: 'begin'|'intermediate'|'success'|'repeat';
+    type: string;
     private name: string;
     private words: React.ReactNode;
     private next: AlgorithmStage[];
     private previous: AlgorithmStage | null;
 
-    constructor(type: 'begin'|'intermediate'|'success'|'repeat', name: string, words: React.ReactNode, next: AlgorithmStage[]) {
+    constructor(type: string, name: string, words: React.ReactNode, next: AlgorithmStage[]) {
         this.type = type;
         this.name = name;
         this.words = words;

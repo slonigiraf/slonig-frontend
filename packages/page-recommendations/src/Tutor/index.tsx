@@ -66,7 +66,7 @@ function Tutor({ className = '' }: Props): React.ReactElement<Props> {
   const [studentName, setStudentName] = useState<string | undefined>(undefined);
   const [canIssueDiploma, setCanIssueDiploma] = useState(false);
   const [reexamined, setReexamined] = useState<boolean>(cidR === undefined);
-  const [useInsuranceVisible, setUseInsuranceVisible] = useState<boolean>(cidR !== undefined);
+  const [useInsuranceVisible, setUseInsuranceVisible] = useState<boolean>(false);
   const [skill, setSkill] = useState<Skill | null>(null);
   const [skillR, setSkillR] = useState<Skill | null>(null);
   const [teachingAlgorithm, setTeachingAlgorithm] = useState<TeachingAlgorithm | null>(null);
@@ -223,6 +223,31 @@ function Tutor({ className = '' }: Props): React.ReactElement<Props> {
     [toggleUnlock]
   );
 
+  const updateValidation = (stage: string): void => {
+    switch(stage) {
+      case 'reimburse':
+          setUseInsuranceVisible(true);
+          setReexamined(false);
+          break;
+      case 'success':
+          setUseInsuranceVisible(false);
+          setReexamined(true);
+          break;    
+      default:
+          setUseInsuranceVisible(false);
+          setReexamined(false);
+          break;  
+    }
+  };
+
+  const updateTutoring = (stage: string): void => {
+    if(stage === 'success'){
+      setCanIssueDiploma(true);
+    } else{
+      setCanIssueDiploma(false);
+    }
+  };
+
   let publicKeyHex = "";
   if (currentPair !== null) {
     publicKeyHex = u8aToHex(currentPair.publicKey);
@@ -255,7 +280,7 @@ function Tutor({ className = '' }: Props): React.ReactElement<Props> {
     wasUsed: false
   };
 
-  const isDedicatedTutor = (tutor === publicKeyHex) || ! tutor;
+  const isDedicatedTutor = (tutor === publicKeyHex) || !tutor;
 
 
   return (
@@ -295,7 +320,7 @@ function Tutor({ className = '' }: Props): React.ReactElement<Props> {
             <div style={!reexamined ? {} : { display: 'none' }}>
               <b>{t('Reexamine the skill that student know')}: </b>
               <b>"{skillR ? skillR.h : ''}"</b>
-              <DoInstructions algorithm={validatingAlgorithm} onResult={setReexamined} />
+              <DoInstructions algorithm={validatingAlgorithm} onResult={updateValidation} />
             </div>
 
             <div style={useInsuranceVisible ? {} : { display: 'none' }}>
@@ -305,7 +330,7 @@ function Tutor({ className = '' }: Props): React.ReactElement<Props> {
             <div style={reexamined ? {} : { display: 'none' }}>
               <b>{t('Teach and create a diploma')}: </b>
               <b>"{skill ? skill.h : ''}"</b>
-              <DoInstructions algorithm={teachingAlgorithm} onResult={setCanIssueDiploma} />
+              <DoInstructions algorithm={teachingAlgorithm} onResult={updateTutoring} />
             </div>
 
 
