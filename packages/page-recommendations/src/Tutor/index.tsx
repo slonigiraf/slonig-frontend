@@ -282,7 +282,6 @@ function Tutor({ className = '' }: Props): React.ReactElement<Props> {
 
   const isDedicatedTutor = (tutor === publicKeyHex) || !tutor;
 
-
   return (
     <div className={`toolbox--Tutor ${className}`}>
       {/* The div below helps initialize account */}
@@ -320,7 +319,7 @@ function Tutor({ className = '' }: Props): React.ReactElement<Props> {
             <div style={!reexamined ? {} : { display: 'none' }}>
               <b>{t('Reexamine the skill that student know')}: </b>
               <b>"{skillR ? skillR.h : ''}"</b>
-              <DoInstructions algorithm={validatingAlgorithm} onResult={updateValidation} />
+              <DoInstructions algorithm={validatingAlgorithm} onResult={updateValidation} insurance={insurance} skillR={skillR}/>
             </div>
 
             <div style={useInsuranceVisible ? {} : { display: 'none' }}>
@@ -330,7 +329,7 @@ function Tutor({ className = '' }: Props): React.ReactElement<Props> {
             <div style={reexamined ? {} : { display: 'none' }}>
               <b>{t('Teach and create a diploma')}: </b>
               <b>"{skill ? skill.h : ''}"</b>
-              <DoInstructions algorithm={teachingAlgorithm} onResult={updateTutoring} />
+              <DoInstructions algorithm={teachingAlgorithm} onResult={updateTutoring}  insurance={insurance} skillR={skillR}/>
             </div>
 
 
