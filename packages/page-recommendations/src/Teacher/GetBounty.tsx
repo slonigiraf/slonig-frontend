@@ -3,7 +3,7 @@
 
 import type { KeyringPair } from '@polkadot/keyring/types';
 import React, { useImperativeHandle, forwardRef, useState, useCallback, useRef } from 'react';
-import { Button, TxButton, InputAddress } from '@polkadot/react-components';
+import { TxButton, InputAddress } from '@polkadot/react-components';
 import { useApi } from '@polkadot/react-hooks';
 import { keyring } from '@polkadot/ui-keyring';
 import { u8aToHex } from '@polkadot/util';
