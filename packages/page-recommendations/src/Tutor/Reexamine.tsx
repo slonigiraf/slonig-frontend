@@ -2,7 +2,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import React, { useState, useEffect } from 'react';
-import { Algorithm } from './Algorithm.jsx';
 import { AlgorithmStage } from './AlgorithmStage.js';
 import { Button } from '@polkadot/react-components';
 import type { Skill } from '@slonigiraf/app-slonig-components';
@@ -16,10 +15,6 @@ interface Props {
 }
 
 function Reexamine({ className = '', skill, onResult }: Props): React.ReactElement<Props> {
-  console.log("skill: ", skill)
-  if (skill === undefined) {
-    return <></>
-  }
   const { t } = useTranslation();
   const [algorithmStage, setAlgorithmStage] = useState<AlgorithmStage>();
 
@@ -34,6 +29,7 @@ function Reexamine({ className = '', skill, onResult }: Props): React.ReactEleme
   };
 
   return (
+    ! skill ? <></> :
     <div>
       {algorithmStage ? (
         <div>
