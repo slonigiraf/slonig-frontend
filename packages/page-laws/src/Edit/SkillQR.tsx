@@ -184,9 +184,13 @@ function SkillQR({ className = '', cid }: Props): React.ReactElement<Props> {
 
       // generate a data to sign    
 
-
-      const letterInsurance = getDataToSignByWorker(diplomaToReexamine.letterNumber, new BN(diplomaToReexamine.block), blockAllowed, hexToU8a(diplomaToReexamine.referee),
-        hexToU8a(diplomaToReexamine.worker), new BN(diplomaToReexamine.amount), hexToU8a(diplomaToReexamine.signOverReceipt), hexToU8a(tutor));
+      const letterInsurance = getDataToSignByWorker(diplomaToReexamine.letterNumber, new BN(diplomaToReexamine.block), new BN(diplomaToReexamine.block), hexToU8a(diplomaToReexamine.referee),
+      hexToU8a(diplomaToReexamine.worker), new BN(diplomaToReexamine.amount), hexToU8a(diplomaToReexamine.signOverReceipt), hexToU8a(tutor));
+    
+      // TODO: fix using blockAllowed
+      // const letterInsurance = getDataToSignByWorker(diplomaToReexamine.letterNumber, new BN(diplomaToReexamine.block), blockAllowed, hexToU8a(diplomaToReexamine.referee),
+      //   hexToU8a(diplomaToReexamine.worker), new BN(diplomaToReexamine.amount), hexToU8a(diplomaToReexamine.signOverReceipt), hexToU8a(tutor));
+      
       let workerSignOverInsurance = "";
       // sign
       if (signer && isFunction(signer.signRaw)) {// Use browser extenstion 
@@ -207,7 +211,7 @@ function SkillQR({ className = '', cid }: Props): React.ReactElement<Props> {
     [currentPair, isLocked, isUsable, signer, tutor, diplomaToReexamine, currentBlock]
   );
 
-  const reexamineData = diplomaToReexamine ? `+${diplomaToReexamine.cid}+${diplomaToReexamine.genesis}+${diplomaToReexamine.letterNumber}+${diplomaToReexamine.block}+${blockAllowed}+${diplomaToReexamine.referee}+${diplomaToReexamine.worker}+${diplomaToReexamine.amount}+${diplomaToReexamine.signOverPrivateData}+${studentSignatureOverDiplomaToReexamine}` : '';
+  const reexamineData = diplomaToReexamine ? `+${diplomaToReexamine.cid}+${diplomaToReexamine.genesis}+${diplomaToReexamine.letterNumber}+${diplomaToReexamine.block}+${diplomaToReexamine.block}+${diplomaToReexamine.referee}+${diplomaToReexamine.worker}+${diplomaToReexamine.amount}+${diplomaToReexamine.signOverPrivateData}+${diplomaToReexamine.signOverReceipt}+${studentSignatureOverDiplomaToReexamine}` : '';
   const urlDetails = `diplomas/tutor?d=${tutor}+${cid}+${publicKeyHex}+${publicKeyHex}${reexamineData}`;
 
   const generateQRData = () => {

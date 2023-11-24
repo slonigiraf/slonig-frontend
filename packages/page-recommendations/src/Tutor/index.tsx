@@ -50,7 +50,7 @@ function Tutor({ className = '' }: Props): React.ReactElement<Props> {
   const location = useLocation();
   const queryParams = new URLSearchParams(location.search);
   const queryData = queryParams.get("d") || "";
-  const [tutor, skillCID, studentIdentity, student, cidR, genesisR, nonceR, blockR, blockAllowedR, tutorR, studentR, amountR, tutorSignR, studentSignR] = queryData.split(' ');
+  const [tutor, skillCID, studentIdentity, student, cidR, genesisR, nonceR, blockR, blockAllowedR, tutorR, studentR, amountR, signOverPrivateDataR, signOverReceiptR, studentSignR] = queryData.split(' ');
 
   const [{ isInjected }, setAccountState] = useState<AccountState>({ isExternal: false, isHardware: false, isInjected: false });
   const [isLocked, setIsLocked] = useState(false);
@@ -71,9 +71,6 @@ function Tutor({ className = '' }: Props): React.ReactElement<Props> {
   const [skillR, setSkillR] = useState<Skill | null>(null);
   const [teachingAlgorithm, setTeachingAlgorithm] = useState<TeachingAlgorithm | null>(null);
   const [validatingAlgorithm, setValidatingAlgorithm] = useState<TeachingAlgorithm | null>(null);
-
-  console.log("reexamined: ", reexamined);
-  console.log("canIssueDiploma: ", canIssueDiploma);
 
   useEffect(() => {
     async function fetchData() {
@@ -251,15 +248,14 @@ function Tutor({ className = '' }: Props): React.ReactElement<Props> {
     referee: tutorR,
     worker: studentR,
     amount: amountR,
-    signOverPrivateData: '',
-    signOverReceipt: tutorSignR,
+    signOverPrivateData: signOverPrivateDataR,
+    signOverReceipt: signOverReceiptR,
     employer: publicKeyHex,
     workerSign: studentSignR,
     wasUsed: false
   };
-  console.log(insurance)
 
-  const isDedicatedTutor = (tutor === publicKeyHex);
+  const isDedicatedTutor = (tutor === publicKeyHex) || ! tutor;
 
 
   return (
