@@ -27,6 +27,7 @@ import type { Skill } from '@slonigiraf/app-slonig-components';
 import { TeachingAlgorithm } from './TeachingAlgorithm.js';
 import { ValidatingAlgorithm } from './ValidatingAlgorithm.js';
 import UseInsurance from '../Teacher/UseInsurance.js';
+import Reexamine from './Reexamine.js';
 
 interface Props {
   className?: string;
@@ -319,7 +320,7 @@ function Tutor({ className = '' }: Props): React.ReactElement<Props> {
             <div style={!reexamined ? {} : { display: 'none' }}>
               <b>{t('Reexamine the skill that student know')}: </b>
               <b>"{skillR ? skillR.h : ''}"</b>
-              <DoInstructions algorithm={validatingAlgorithm} onResult={updateValidation} insurance={insurance} skillR={skillR}/>
+              <Reexamine algorithm={validatingAlgorithm} onResult={updateValidation} />
             </div>
 
             <div style={useInsuranceVisible ? {} : { display: 'none' }}>
