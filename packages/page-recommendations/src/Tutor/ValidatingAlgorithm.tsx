@@ -22,7 +22,7 @@ class ValidatingAlgorithm extends Algorithm {
             t('NO'),
             <div>
                 <b>{t('Tell the student')}: </b>
-                <em>{t('You don\'t have such a skill. I will penalize the tutor which issues the diploma for it.')} </em>
+                <em>{t('You don\'t have such a skill. I will penalize the tutor which issued the diploma for it.')} </em>
                 <b>{`${t('And press')} "${t('Get bounty')}" ${t('button')}`}</b>
             </div>,
             []
