@@ -20,7 +20,6 @@ interface Props {
 
 function UseInsurance({ className = '', text, insurance }: Props): React.ReactElement<Props> {
   const { t } = useTranslation();
-  console.log("UseInsurance: ", insurance)
   const [currentPair, setCurrentPair] = useState<KeyringPair | null>(() => keyring.getPairs()[0] || null);
   const { api } = useApi();
 

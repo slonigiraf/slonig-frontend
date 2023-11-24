@@ -1,23 +1,32 @@
 // Copyright 2021-2022 @slonigiraf/app-recommendations authors & contributors
 // SPDX-License-Identifier: Apache-2.0
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Algorithm } from './Algorithm.jsx';
 import { AlgorithmStage } from './AlgorithmStage.js';
 import { Button } from '@polkadot/react-components';
+import type { Skill } from '@slonigiraf/app-slonig-components';
+import { ValidatingAlgorithm } from './ValidatingAlgorithm.js';
+import { useTranslation } from '../translate.js';
 
 interface Props {
   className?: string;
-  algorithm: Algorithm | null;
+  skill: Skill | null;
   onResult: (stage: string) => void;
 }
 
-function Reexamine({ className = '', algorithm, onResult: onResult }: Props): React.ReactElement<Props> {
-  console.log("DoInstructions, algo: ", algorithm)
-  if (algorithm === null) {
+function Reexamine({ className = '', skill, onResult }: Props): React.ReactElement<Props> {
+  console.log("skill: ", skill)
+  if (skill === undefined) {
     return <></>
   }
-  const [algorithmStage, setAlgorithmStage] = useState<AlgorithmStage>(algorithm.getBegin());
+  const { t } = useTranslation();
+  const [algorithmStage, setAlgorithmStage] = useState<AlgorithmStage>();
+
+  useEffect(() => {
+    const newAlgorithm = new ValidatingAlgorithm(t, skill ? skill.q : []);
+    setAlgorithmStage(newAlgorithm.getBegin());
+  }, [skill]);
 
   const handleStageChange = (nextStage) => {
     setAlgorithmStage(nextStage);

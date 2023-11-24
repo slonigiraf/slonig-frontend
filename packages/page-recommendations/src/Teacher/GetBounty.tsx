@@ -20,9 +20,7 @@ interface Props {
 
 const GetBounty = forwardRef((props: Props, ref) => {
   const { className = '', text, insurance } = props;
-
   const { t } = useTranslation();
-  console.log("UseInsurance: ", insurance)
   const [currentPair, setCurrentPair] = useState<KeyringPair | null>(() => keyring.getPairs()[0] || null);
   const { api } = useApi();
 

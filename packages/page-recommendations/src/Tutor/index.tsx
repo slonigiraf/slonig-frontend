@@ -25,7 +25,6 @@ import { db } from '@slonigiraf/app-recommendations';
 import DoInstructions from './DoInstructions.js';
 import type { Skill } from '@slonigiraf/app-slonig-components';
 import { TeachingAlgorithm } from './TeachingAlgorithm.js';
-import { ValidatingAlgorithm } from './ValidatingAlgorithm.js';
 import UseInsurance from '../Teacher/UseInsurance.js';
 import Reexamine from './Reexamine.js';
 
@@ -71,7 +70,7 @@ function Tutor({ className = '' }: Props): React.ReactElement<Props> {
   const [skill, setSkill] = useState<Skill | null>(null);
   const [skillR, setSkillR] = useState<Skill | null>(null);
   const [teachingAlgorithm, setTeachingAlgorithm] = useState<TeachingAlgorithm | null>(null);
-  const [validatingAlgorithm, setValidatingAlgorithm] = useState<TeachingAlgorithm | null>(null);
+  
 
   useEffect(() => {
     async function fetchData() {
@@ -85,7 +84,6 @@ function Tutor({ className = '' }: Props): React.ReactElement<Props> {
           const skillRContent = await getIPFSDataFromContentID(ipfs, cidR);
           const skillRJson = parseJson(skillRContent);
           setSkillR(skillRJson);
-          setValidatingAlgorithm(new ValidatingAlgorithm(t, skillRJson ? skillRJson.q : []));
         }
         catch (e) {
           console.log(e);
@@ -320,7 +318,7 @@ function Tutor({ className = '' }: Props): React.ReactElement<Props> {
             <div style={!reexamined ? {} : { display: 'none' }}>
               <b>{t('Reexamine the skill that student know')}: </b>
               <b>"{skillR ? skillR.h : ''}"</b>
-              <Reexamine algorithm={validatingAlgorithm} onResult={updateValidation} />
+              <Reexamine skill={skillR} onResult={updateValidation} />
             </div>
 
             <div style={useInsuranceVisible ? {} : { display: 'none' }}>
