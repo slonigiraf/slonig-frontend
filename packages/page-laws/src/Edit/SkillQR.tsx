@@ -184,16 +184,9 @@ function SkillQR({ className = '', cid }: Props): React.ReactElement<Props> {
 
       // generate a data to sign    
 
-      const letterInsurance = getDataToSignByWorker(diplomaToReexamine.letterNumber, new BN(diplomaToReexamine.block), new BN(blockAllowed.toString()), hexToU8a(diplomaToReexamine.referee),
+      const letterInsurance = getDataToSignByWorker(diplomaToReexamine.letterNumber, new BN(diplomaToReexamine.block), blockAllowed, hexToU8a(diplomaToReexamine.referee),
       hexToU8a(diplomaToReexamine.worker), new BN(diplomaToReexamine.amount), hexToU8a(diplomaToReexamine.signOverReceipt), hexToU8a(tutor));
-    
-      // TODO: fix using blockAllowed
-      // const letterInsurance = getDataToSignByWorker(diplomaToReexamine.letterNumber, new BN(diplomaToReexamine.block), blockAllowed, hexToU8a(diplomaToReexamine.referee),
-      //   hexToU8a(diplomaToReexamine.worker), new BN(diplomaToReexamine.amount), hexToU8a(diplomaToReexamine.signOverReceipt), hexToU8a(tutor));
-      
-      console.log("diplomaToReexamine.block: ", diplomaToReexamine.block);
-      console.log("blockAllowed.toString(): ", blockAllowed.toString());
-
+       
       let workerSignOverInsurance = "";
       // sign
       if (signer && isFunction(signer.signRaw)) {// Use browser extenstion 
