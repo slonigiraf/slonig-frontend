@@ -13,6 +13,7 @@ interface Props {
 }
 
 function DoInstructions({ className = '', algorithm, onResult: onResult }: Props): React.ReactElement<Props> {
+  console.log("DoInstructions, algo: ", algorithm)
   if (algorithm === null) {
     return <></>
   }

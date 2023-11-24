@@ -8,33 +8,30 @@ class ValidatingAlgorithm extends Algorithm {
         let question2: string = questions.length > 1 ? questions[1].h : question1;
 
         // Initialize all stages
-        const giveInsurance = new AlgorithmStage(
-            'success',
+        const validateDiploma = new AlgorithmStage(
+            'intermediate',
             t('YES'),
             <div>
-                <b>{t('Say')}:</b>
-                <em>{t('Buy a skill diploma from me to get a bonus from a teacher.')}</em>
-                <br />
-                <b>{t('Sell the student a diploma in exchange for money or Slon tokens.')}</b>
+                <b>{t('Tell the student')}: </b>
+                <em>{t('Great, you remember the skill. Let\'s start learning a new skill.')}</em>
             </div>,
             []
         );
-        const repeatNextDay = new AlgorithmStage(
-            'repeat',
+        const getReimburse = new AlgorithmStage(
+            'intermediate',
             t('NO'),
             <div>
-                <b>{t('Say')}:</b>
-                &nbsp;<em>{t('Excellent! Let\'s repeat this tomorrow.')}</em>
+                <b>{t('Tell the student')}: </b>
+                <em>{t('You don\'t have such a skill. I will penalize the tutor which issues the diploma for it.')} </em>
+                <b>{`${t('And press')} "${t('Get reimburse')}" ${t('button')}`}</b>
             </div>,
             []
         );
 
-        const hasStudentRepeatedTheRightAnswer = new AlgorithmStage(
-            'intermediate',
-            t('I\'ve said it now'),
-            <div>
-                <b>{t('Has the student repeated the right answer?')}</b>
-            </div>,
+        const nextToTeaching = new AlgorithmStage(
+            'success',
+            t('NEXT'),
+            <></>,
             []
         );
 
@@ -42,20 +39,11 @@ class ValidatingAlgorithm extends Algorithm {
             'intermediate',
             t('NO'),
             <div>
-                <b>{t('Tell the student')}:</b>
-                &nbsp;<em>{t('Repeat after me.')}</em>&nbsp;
+                <b>{t('Tell the student')}: </b>
+                <em>{t('Repeat after me.')} </em>;
                 <b>{t('And then provide the correct answer.')}</b>
             </div>,
-            [hasStudentRepeatedTheRightAnswer]
-        );
-
-        const wereTheStudentTasksAndAnswersPerfectToday = new AlgorithmStage(
-            'intermediate',
-            t('YES'),
-            <div>
-                <b>{t('Were all of the student\'s tasks and answers perfect today?')}</b>
-            </div>,
-            [giveInsurance, repeatNextDay]
+            [getReimburse]
         );
 
         const hasStudentCorrectedTheFakeAnswer = new AlgorithmStage(
@@ -64,7 +52,7 @@ class ValidatingAlgorithm extends Algorithm {
             <div>
                 <b>{t('Has the student corrected the wrong answer?')}</b>
             </div>,
-            [wereTheStudentTasksAndAnswersPerfectToday, askStudentToRepeatTheAnswer]
+            [validateDiploma, getReimburse]
         );
 
         const didStudentRepeatedAfterMeTheTask = new AlgorithmStage(
@@ -80,8 +68,8 @@ class ValidatingAlgorithm extends Algorithm {
             'intermediate',
             t('YES'),
             <div>
-                <b>{t('Respond to the student with wrong answer, and ask:')}</b>
-                &nbsp;<em>{t('Am I right?')}</em>
+                <b>{t('Respond to the student with wrong answer, and ask:')} </b>
+                <em>{t('Am I right?')}</em>
             </div>,
             [hasStudentCorrectedTheFakeAnswer]
         );
@@ -90,9 +78,9 @@ class ValidatingAlgorithm extends Algorithm {
             'intermediate',
             t('NO'),
             <div>
-                <b>{t('Tell the student:')}</b>
-                &nbsp;<em>{t('Repeat after me:')}</em>
-                &nbsp;<em>{question2}</em>
+                <b>{t('Tell the student')}: </b>
+                <em>{t('Repeat after me')}: </em>
+                <em>{question2}</em>
             </div>,
             [didStudentRepeatedAfterMeTheTask]
         );
@@ -111,28 +99,31 @@ class ValidatingAlgorithm extends Algorithm {
             'begin',
             t('YES'),
             <div>
-                <b>{t('Tell the student')}:</b>
-                <em>&nbsp;{t('Create a task similar to')}:</em>
-                <em>&nbsp;{question1}</em>
+                <b>{t('Tell the student')}: </b>
+                <em>{t('Create a task similar to')}: </em>
+                <em>{question1}</em>
             </div>,
             [didStudentCreatedASimilarTask]
         );
 
         // Rest of the linking
-        hasStudentRepeatedTheRightAnswer.setNext([this.begin, askStudentToRepeatTheAnswer]);
+        // hasStudentRepeatedTheRightAnswer.setNext([this.begin, askStudentToRepeatTheAnswer]);
         didStudentRepeatedAfterMeTheTask.setNext([this.begin, askToRepeatTaskAfterMeTheTask]);
 
         didStudentCreatedASimilarTask.setPrevious(this.begin);
-        hasStudentRepeatedTheRightAnswer.setPrevious(askStudentToRepeatTheAnswer);
+        // hasStudentRepeatedTheRightAnswer.setPrevious(askStudentToRepeatTheAnswer);
         askToRepeatTaskAfterMeTheTask.setPrevious(didStudentCreatedASimilarTask);
         askStudentToRepeatTheAnswer.setPrevious(hasStudentCorrectedTheFakeAnswer);
         provideFakeAnswer.setPrevious(didStudentCreatedASimilarTask);
         didStudentRepeatedAfterMeTheTask.setPrevious(askToRepeatTaskAfterMeTheTask);
         hasStudentCorrectedTheFakeAnswer.setPrevious(provideFakeAnswer);
-        wereTheStudentTasksAndAnswersPerfectToday.setPrevious(hasStudentCorrectedTheFakeAnswer);
-        giveInsurance.setPrevious(wereTheStudentTasksAndAnswersPerfectToday);
-        repeatNextDay.setPrevious(wereTheStudentTasksAndAnswersPerfectToday);
+        // wereTheStudentTasksAndAnswersPerfectToday.setPrevious(hasStudentCorrectedTheFakeAnswer);
+        // validateDiploma.setPrevious(wereTheStudentTasksAndAnswersPerfectToday);
+        getReimburse.setPrevious(hasStudentCorrectedTheFakeAnswer);
+        getReimburse.setNext([nextToTeaching]);
+        validateDiploma.setNext([nextToTeaching]);
+
     }
 }
 
-export { ValidatingAlgorithm as TeachingAlgorithm };
+export { ValidatingAlgorithm };

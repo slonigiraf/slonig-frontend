@@ -25,6 +25,7 @@ import { db } from '@slonigiraf/app-recommendations';
 import DoInstructions from './DoInstructions.js';
 import type { Skill } from '@slonigiraf/app-slonig-components';
 import { TeachingAlgorithm } from './TeachingAlgorithm.js';
+import { ValidatingAlgorithm } from './ValidatingAlgorithm.js';
 
 interface Props {
   className?: string;
@@ -68,6 +69,9 @@ function Tutor({ className = '' }: Props): React.ReactElement<Props> {
   const [teachingAlgorithm, setTeachingAlgorithm] = useState<TeachingAlgorithm | null>(null);
   const [validatingAlgorithm, setValidatingAlgorithm] = useState<TeachingAlgorithm | null>(null);
 
+  console.log("reexamined: ", reexamined);
+  console.log("canIssueDiploma: ", canIssueDiploma);
+
   useEffect(() => {
     async function fetchData() {
       if (ipfs !== null && skillCID) {
@@ -80,7 +84,7 @@ function Tutor({ className = '' }: Props): React.ReactElement<Props> {
           const skillRContent = await getIPFSDataFromContentID(ipfs, cidR);
           const skillRJson = parseJson(skillRContent);
           setSkillR(skillRJson);
-          setValidatingAlgorithm(new TeachingAlgorithm(t, skillRJson ? skillRJson.q : []));
+          setValidatingAlgorithm(new ValidatingAlgorithm(t, skillRJson ? skillRJson.q : []));
         }
         catch (e) {
           console.log(e);
@@ -234,6 +238,8 @@ function Tutor({ className = '' }: Props): React.ReactElement<Props> {
 
   const url = getBaseUrl() + `/#/knowledge?tutor=${publicKeyHex}`;
 
+
+
   return (
     <div className={`toolbox--Tutor ${className}`}>
       {/* The div below helps initialize account */}
@@ -255,29 +261,20 @@ function Tutor({ className = '' }: Props): React.ReactElement<Props> {
         </>
           :
           <>
-
-            <div className='ui--row'>
+            <div>
               <h2>{t('Student')}: {studentName}</h2>
             </div>
-            {
-              (!reexamined) ?
-                <>
-                  <h2>{t('Reexamine the skill that student know')}</h2>
-                  <div className='ui--row'>
-                    <h2>"{skillR ? skillR.h : ''}"</h2>
-                  </div>
-                  <DoInstructions algorithm={validatingAlgorithm} onResult={setReexamined} />
-                </>
-                :
-                <>
-                  <h2>{t('Teach and create a diploma')}</h2>
-                  <div className='ui--row'>
-                    <h2>"{skill ? skill.h : ''}"</h2>
-                  </div>
-                  <DoInstructions algorithm={teachingAlgorithm} onResult={setCanIssueDiploma} />
-                </>
+            <div style={!reexamined ? {} : { display: 'none' }}>
+              <b>{t('Reexamine the skill that student know')}: </b>
+              <b>"{skillR ? skillR.h : ''}"</b>
+              <DoInstructions algorithm={validatingAlgorithm} onResult={setReexamined} />
+            </div>
+            <div style={reexamined ? {} : { display: 'none' }}>
+              <b>{t('Teach and create a diploma')}: </b>
+              <b>"{skill ? skill.h : ''}"</b>
+              <DoInstructions algorithm={teachingAlgorithm} onResult={setCanIssueDiploma} />
+            </div>
 
-            }
             {
               canIssueDiploma &&
               <>
