@@ -26,6 +26,7 @@ import DoInstructions from './DoInstructions.js';
 import type { Skill } from '@slonigiraf/app-slonig-components';
 import { TeachingAlgorithm } from './TeachingAlgorithm.js';
 import { ValidatingAlgorithm } from './ValidatingAlgorithm.js';
+import UseInsurance from '../Teacher/UseInsurance.js';
 
 interface Props {
   className?: string;
@@ -49,7 +50,8 @@ function Tutor({ className = '' }: Props): React.ReactElement<Props> {
   const location = useLocation();
   const queryParams = new URLSearchParams(location.search);
   const queryData = queryParams.get("d") || "";
-  const [skillCID, studentIdentity, student, cidR, genesisR, nonceR, blockR, tutorR, studentR, amountR, tutorSignR, studentSignR] = queryData.split(' ');
+  const [tutor, skillCID, studentIdentity, student, cidR, genesisR, nonceR, blockR, blockAllowedR, tutorR, studentR, amountR, tutorSignR, studentSignR] = queryData.split(' ');
+
   const [{ isInjected }, setAccountState] = useState<AccountState>({ isExternal: false, isHardware: false, isInjected: false });
   const [isLocked, setIsLocked] = useState(false);
   const [{ isUsable, signer }, setSigner] = useState<SignerState>({ isUsable: true, signer: null });
@@ -63,7 +65,8 @@ function Tutor({ className = '' }: Props): React.ReactElement<Props> {
   const [modalIsOpen, setModalIsOpen] = useState(false);
   const [studentName, setStudentName] = useState<string | undefined>(undefined);
   const [canIssueDiploma, setCanIssueDiploma] = useState(false);
-  const [reexamined, setReexamined] = useState<Boolean>(false);
+  const [reexamined, setReexamined] = useState<boolean>(cidR === undefined);
+  const [useInsuranceVisible, setUseInsuranceVisible] = useState<boolean>(cidR !== undefined);
   const [skill, setSkill] = useState<Skill | null>(null);
   const [skillR, setSkillR] = useState<Skill | null>(null);
   const [teachingAlgorithm, setTeachingAlgorithm] = useState<TeachingAlgorithm | null>(null);
@@ -238,6 +241,25 @@ function Tutor({ className = '' }: Props): React.ReactElement<Props> {
 
   const url = getBaseUrl() + `/#/knowledge?tutor=${publicKeyHex}`;
 
+  const insurance = {
+    created: new Date(),
+    cid: cidR,
+    genesis: genesisR,
+    letterNumber: parseInt(nonceR, 10),
+    block: blockR,
+    blockAllowed: blockAllowedR,
+    referee: tutorR,
+    worker: studentR,
+    amount: amountR,
+    signOverPrivateData: '',
+    signOverReceipt: tutorSignR,
+    employer: publicKeyHex,
+    workerSign: studentSignR,
+    wasUsed: false
+  };
+  console.log(insurance)
+
+  const isDedicatedTutor = (tutor === publicKeyHex);
 
 
   return (
@@ -255,9 +277,19 @@ function Tutor({ className = '' }: Props): React.ReactElement<Props> {
       </div>
 
       {
-        student === undefined ? <>
-          <h2>{t('Show the QR code to a student to begin tutoring')}</h2>
-          <QRWithShareAndCopy dataQR={qrCodeText} titleShare={t('QR code')} textShare={t('Press the link to start learning')} urlShare={url} dataCopy={url} />
+        (student === undefined || !isDedicatedTutor) ? <>
+          {
+            isDedicatedTutor ?
+              <h2>{t('Show the QR code to a student to begin tutoring')}</h2>
+              :
+              <h2>{t('Student has shown you a QR code created for a different tutor. Ask them to scan your QR code.')}</h2>
+          }
+          <QRWithShareAndCopy
+            dataQR={qrCodeText}
+            titleShare={t('QR code')}
+            textShare={t('Press the link to start learning')}
+            urlShare={url}
+            dataCopy={url} />
         </>
           :
           <>
@@ -269,11 +301,18 @@ function Tutor({ className = '' }: Props): React.ReactElement<Props> {
               <b>"{skillR ? skillR.h : ''}"</b>
               <DoInstructions algorithm={validatingAlgorithm} onResult={setReexamined} />
             </div>
+
+            <div style={useInsuranceVisible ? {} : { display: 'none' }}>
+              <UseInsurance text={skillR ? skillR.h : ''} insurance={insurance} />
+            </div>
+
             <div style={reexamined ? {} : { display: 'none' }}>
               <b>{t('Teach and create a diploma')}: </b>
               <b>"{skill ? skill.h : ''}"</b>
               <DoInstructions algorithm={teachingAlgorithm} onResult={setCanIssueDiploma} />
             </div>
+
+
 
             {
               canIssueDiploma &&

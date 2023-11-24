@@ -208,7 +208,7 @@ function SkillQR({ className = '', cid }: Props): React.ReactElement<Props> {
   );
 
   const reexamineData = diplomaToReexamine ? `+${diplomaToReexamine.cid}+${diplomaToReexamine.genesis}+${diplomaToReexamine.letterNumber}+${diplomaToReexamine.block}+${blockAllowed}+${diplomaToReexamine.referee}+${diplomaToReexamine.worker}+${diplomaToReexamine.amount}+${diplomaToReexamine.signOverPrivateData}+${studentSignatureOverDiplomaToReexamine}` : '';
-  const urlDetails = `diplomas/tutor?d=${cid}+${publicKeyHex}+${publicKeyHex}${reexamineData}`;
+  const urlDetails = `diplomas/tutor?d=${tutor}+${cid}+${publicKeyHex}+${publicKeyHex}${reexamineData}`;
 
   const generateQRData = () => {
     const [, , name] = getAddressName(currentPair.address, null, "");

@@ -66,7 +66,6 @@ function UseInsurance({ className = '', text, insurance }: Props): React.ReactEl
 
   return (
     <div className={`toolbox--Sign ${className}`}>
-      <h1>{text}</h1>
       <div className='ui--row' style={{ display: 'none' }}>
         <InputAddress
           className='full'
@@ -77,10 +76,10 @@ function UseInsurance({ className = '', text, insurance }: Props): React.ReactEl
           type='account'
         />
       </div>
-      <Button.Group>
+      <div className='ui--row'>
         {insurance.wasUsed ? usedInfo : txButton}
-      </Button.Group>
-    </div>
+      </div>
+    </div >
   );
 }
 
