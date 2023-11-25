@@ -17,8 +17,8 @@ class ValidatingAlgorithm extends Algorithm {
             </div>,
             []
         );
-        const getReimburse = new AlgorithmStage(
-            'reimburse',
+        const explainReimburse = new AlgorithmStage(
+            'intermediate',
             t('NO'),
             <div>
                 <b>{t('Tell the student')}: </b>
@@ -34,6 +34,12 @@ class ValidatingAlgorithm extends Algorithm {
             <></>,
             []
         );
+        const reimburse = new AlgorithmStage(
+            'reimburse',
+            t('Get bounty'),
+            <></>,
+            []
+        );
 
         const askStudentToRepeatTheAnswer = new AlgorithmStage(
             'intermediate',
@@ -43,7 +49,7 @@ class ValidatingAlgorithm extends Algorithm {
                 <em>{t('Repeat after me.')} </em>;
                 <b>{t('And then provide the correct answer.')}</b>
             </div>,
-            [getReimburse]
+            [explainReimburse]
         );
 
         const hasStudentCorrectedTheFakeAnswer = new AlgorithmStage(
@@ -52,7 +58,7 @@ class ValidatingAlgorithm extends Algorithm {
             <div>
                 <b>{t('Has the student corrected the wrong answer?')}</b>
             </div>,
-            [validateDiploma, getReimburse]
+            [validateDiploma, explainReimburse]
         );
 
         const didStudentRepeatedAfterMeTheTask = new AlgorithmStage(
@@ -119,8 +125,8 @@ class ValidatingAlgorithm extends Algorithm {
         hasStudentCorrectedTheFakeAnswer.setPrevious(provideFakeAnswer);
         // wereTheStudentTasksAndAnswersPerfectToday.setPrevious(hasStudentCorrectedTheFakeAnswer);
         // validateDiploma.setPrevious(wereTheStudentTasksAndAnswersPerfectToday);
-        getReimburse.setPrevious(hasStudentCorrectedTheFakeAnswer);
-        getReimburse.setNext([nextToTeaching]);
+        explainReimburse.setPrevious(hasStudentCorrectedTheFakeAnswer);
+        explainReimburse.setNext([reimburse]);
         validateDiploma.setNext([nextToTeaching]);
 
     }

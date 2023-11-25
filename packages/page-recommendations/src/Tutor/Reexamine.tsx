@@ -55,6 +55,8 @@ function Reexamine({ className = '', currentPair, insurance, onResult }: Props):
     if (nextStage.type === 'reimburse') {
       setNextStage(nextStage);
       getBounty();
+    } else if (nextStage.type === 'success') {
+      onResult();
     } else {
       setAlgorithmStage(nextStage);
     }
