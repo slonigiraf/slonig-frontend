@@ -26,6 +26,11 @@ import DoInstructions from './DoInstructions.js';
 import type { Skill } from '@slonigiraf/app-slonig-components';
 import { TeachingAlgorithm } from './TeachingAlgorithm.js';
 import Reexamine from './Reexamine.js';
+import { useApi, useCall } from '@polkadot/react-hooks';
+import { useBlockTime } from '@polkadot/react-hooks';
+import type { BlockNumber } from '@polkadot/types/interfaces';
+import BN from 'bn.js';
+import { BN_ONE } from '@polkadot/util';
 
 interface Props {
   className?: string;
@@ -42,7 +47,24 @@ interface SignerState {
   signer: Signer | null;
 }
 
+const calculateFutureBlock = (block: string, blockTimeMs: number, sToAdd: number): BN => {
+  const currentBlock = new BN(block);
+  const blockTimeS = blockTimeMs/1000;
+  const blocksToAdd = new BN(sToAdd).div(new BN(blockTimeS));
+  const blockAllowed = currentBlock.add(blocksToAdd);
+  return blockAllowed;
+}
+
 function Tutor({ className = '' }: Props): React.ReactElement<Props> {
+  const { api, isApiReady } = useApi();
+  const useFinalizedBlocks = false;
+  //TODO: test how does it work if block number > u32 (BlockNumber seems to be u32)
+  const bestNumber = useCall<BlockNumber>(isApiReady && (useFinalizedBlocks ? api.derive.chain.bestNumberFinalized : api.derive.chain.bestNumber));
+  const currentBlock = bestNumber?.toString() || "0";
+  const [blockTimeMs,] = useBlockTime(BN_ONE, api);
+  //Allow only for 30 mins
+
+
   const { ipfs, isIpfsReady, ipfsInitError } = useIpfsContext();
   const { t } = useTranslation();
   const [currentPair, setCurrentPair] = useState<KeyringPair | null>(() => keyring.getPairs()[0] || null);
@@ -58,9 +80,13 @@ function Tutor({ className = '' }: Props): React.ReactElement<Props> {
   const [isUnlockVisible, toggleUnlock] = useToggle();
   const defaultStake: BN = new BN("572000000000000");
   const [amount, setAmount] = useState<BN>(defaultStake);
-  const defaultBlockNumber: BN = new BN("1000000");
-  const [blockNumber, setBlockNumber] = useState<BN>(defaultBlockNumber);
-  const [daysValid, setDaysValid] = useState<number>(0);
+  
+  const defaultDaysValid: number = 730;
+  const [daysValid, setDaysValid] = useState<number>(defaultDaysValid);
+  const secondsToAdd = defaultDaysValid * 86400;
+  const blockAllowed: BN = calculateFutureBlock(currentBlock, blockTimeMs, secondsToAdd);
+  const [blockNumber, setBlockNumber] = useState<BN>(blockAllowed);
+
   const [letterInfo, setLetterInfo] = useState('');
   const [modalIsOpen, setModalIsOpen] = useState(false);
   const [studentName, setStudentName] = useState<string | undefined>(undefined);
@@ -69,6 +95,8 @@ function Tutor({ className = '' }: Props): React.ReactElement<Props> {
   const [skill, setSkill] = useState<Skill | null>(null);
   const [skillR, setSkillR] = useState<Skill | null>(null);
   const [teachingAlgorithm, setTeachingAlgorithm] = useState<TeachingAlgorithm | null>(null);
+
+  console.log("blockNumber: ", blockNumber)
 
   useEffect(() => {
     async function fetchData() {
@@ -146,12 +174,17 @@ function Tutor({ className = '' }: Props): React.ReactElement<Props> {
       const numericValue = parseInt(value, 10); // Using base 10 for the conversion
       if (!isNaN(numericValue)) {
         setDaysValid(numericValue);
-      } else{
+        const secondsToAdd = numericValue * 86400; // 86400 - seconds in a day
+        if (Number.isSafeInteger(secondsToAdd)) {
+          const blockAllowed: BN = calculateFutureBlock(currentBlock, blockTimeMs, secondsToAdd);
+          setBlockNumber(blockAllowed);
+        }
+      } else {
         setDaysValid(0);
       }
     },
-    []
-  );
+    [currentBlock]
+  );  
 
   const _onSign = useCallback(
     async () => {
@@ -341,15 +374,6 @@ function Tutor({ className = '' }: Props): React.ReactElement<Props> {
                     label={t('days valid')}
                     onChange={_onChangeDaysValid}
                     value={daysValid.toString()}
-                  />
-                </div>
-                <div className='ui--row'>
-                  <Input
-                    className='full'
-                    help={t('Block number help info TODO')}
-                    label={t('block number')}
-                    onChange={_onChangeBlockNumber}
-                    value={blockNumber.toString()}
                   />
                 </div>
                 <div className='toolbox--Tutor-input'>
