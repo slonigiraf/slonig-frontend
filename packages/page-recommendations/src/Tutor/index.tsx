@@ -66,7 +66,7 @@ function Tutor({ className = '' }: Props): React.ReactElement<Props> {
   const [studentName, setStudentName] = useState<string | undefined>(undefined);
   const [canIssueDiploma, setCanIssueDiploma] = useState(false);
   const [reexamined, setReexamined] = useState<boolean>(cidR === undefined);
-  const [useInsuranceVisible, setUseInsuranceVisible] = useState<boolean>(false);
+    const [useInsuranceVisible, setUseInsuranceVisible] = useState<boolean>(false);
   const [skill, setSkill] = useState<Skill | null>(null);
   const [skillR, setSkillR] = useState<Skill | null>(null);
   const [teachingAlgorithm, setTeachingAlgorithm] = useState<TeachingAlgorithm | null>(null);
@@ -316,7 +316,7 @@ function Tutor({ className = '' }: Props): React.ReactElement<Props> {
             <div style={reexamined ? {} : { display: 'none' }}>
               <b>{t('Teach and create a diploma')}: </b>
               <b>"{skill ? skill.h : ''}"</b>
-              <DoInstructions algorithm={teachingAlgorithm} onResult={updateTutoring}  insurance={insurance} skillR={skillR}/>
+              <DoInstructions algorithm={teachingAlgorithm} onResult={updateTutoring} />
             </div>
 
 
