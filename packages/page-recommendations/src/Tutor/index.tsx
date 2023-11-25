@@ -58,15 +58,8 @@ const calculateFutureBlock = (block: string, blockTimeMs: number, sToAdd: number
 
 function Tutor({ className = '' }: Props): React.ReactElement<Props> {
   const { api, isApiReady } = useApi();
-  const [isExpanded, toggleIsExpanded] = useToggle(false);
-  const useFinalizedBlocks = false;
-  //TODO: test how does it work if block number > u32 (BlockNumber seems to be u32)
-  const bestNumber = useCall<BlockNumber>(isApiReady && (useFinalizedBlocks ? api.derive.chain.bestNumberFinalized : api.derive.chain.bestNumber));
-  const currentBlock = bestNumber?.toString() || "0";
+  const [currentBlock, setCurrentBlock] = useState("0");
   const [blockTimeMs,] = useBlockTime(BN_ONE, api);
-  //Allow only for 30 mins
-
-
   const { ipfs, isIpfsReady, ipfsInitError } = useIpfsContext();
   const { t } = useTranslation();
   const [currentPair, setCurrentPair] = useState<KeyringPair | null>(() => keyring.getPairs()[0] || null);
@@ -74,7 +67,6 @@ function Tutor({ className = '' }: Props): React.ReactElement<Props> {
   const queryParams = new URLSearchParams(location.search);
   const queryData = queryParams.get("d") || "";
   const [tutor, skillCID, studentIdentity, student, cidR, genesisR, nonceR, blockR, blockAllowedR, tutorR, studentR, amountR, signOverPrivateDataR, signOverReceiptR, studentSignR] = queryData.split(' ');
-
   const [{ isInjected }, setAccountState] = useState<AccountState>({ isExternal: false, isHardware: false, isInjected: false });
   const [isLocked, setIsLocked] = useState(false);
   const [{ isUsable, signer }, setSigner] = useState<SignerState>({ isUsable: true, signer: null });
@@ -83,13 +75,10 @@ function Tutor({ className = '' }: Props): React.ReactElement<Props> {
   const [visibleDiplomaDetails, toggleVisibleDiplomaDetails] = useToggle(false);
   const defaultStake: BN = new BN("572000000000000");
   const [amount, setAmount] = useState<BN>(defaultStake);
-
   const defaultDaysValid: number = 730;
   const [daysValid, setDaysValid] = useState<number>(defaultDaysValid);
   const secondsToAdd = defaultDaysValid * 86400;
-  const blockAllowed: BN = calculateFutureBlock(currentBlock, blockTimeMs, secondsToAdd);
-  const [blockNumber, setBlockNumber] = useState<BN>(blockAllowed);
-
+  const [blockNumber, setBlockNumber] = useState<BN>(new BN(0));
   const [letterInfo, setLetterInfo] = useState('');
   const [modalIsOpen, setModalIsOpen] = useState(false);
   const [studentName, setStudentName] = useState<string | undefined>(undefined);
@@ -98,8 +87,6 @@ function Tutor({ className = '' }: Props): React.ReactElement<Props> {
   const [skill, setSkill] = useState<Skill | null>(null);
   const [skillR, setSkillR] = useState<Skill | null>(null);
   const [teachingAlgorithm, setTeachingAlgorithm] = useState<TeachingAlgorithm | null>(null);
-
-  console.log("blockNumber: ", blockNumber)
 
   useEffect(() => {
     async function fetchData() {
@@ -133,6 +120,24 @@ function Tutor({ className = '' }: Props): React.ReactElement<Props> {
     }
     fetchStudentName()
   }, [studentIdentity])
+
+
+  useEffect(() => {
+    async function fetchBlockNumber() {
+      if (isApiReady) {
+        try {
+          const chainHeader = await api.rpc.chain.getHeader();
+          const blockNumber = chainHeader.number;
+          setCurrentBlock(blockNumber.toString());
+          const blockAllowed: BN = calculateFutureBlock(blockNumber.toString(), blockTimeMs, secondsToAdd);
+          setBlockNumber(blockAllowed);
+        } catch (error) {
+          console.error("Error fetching block number: ", error);
+        }
+      }
+    }
+    fetchBlockNumber();
+  }, [api, isApiReady]);
 
   useEffect((): void => {
     const meta = (currentPair && currentPair.meta) || {};
@@ -366,14 +371,16 @@ function Tutor({ className = '' }: Props): React.ReactElement<Props> {
                     <h2>{t('Diploma')}</h2>
                   </div>
                   <table>
-                    <tr>
-                      <td><Icon icon='graduation-cap' /></td>
-                      <td>{skill ? skill.h : ''}</td>
-                    </tr>
-                    <tr>
-                      <td><Icon icon='person' /></td>
-                      <td>{studentName}</td>
-                    </tr>
+                    <tbody>
+                      <tr>
+                        <td><Icon icon='graduation-cap' /></td>
+                        <td>{skill ? skill.h : ''}</td>
+                      </tr>
+                      <tr>
+                        <td><Icon icon='person' /></td>
+                        <td>{studentName}</td>
+                      </tr>
+                    </tbody>
                   </table>
                   <Toggle
                     label={t('details')}
