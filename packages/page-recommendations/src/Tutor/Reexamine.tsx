@@ -29,6 +29,7 @@ function Reexamine({ className = '', currentPair, insurance, onResult }: Props):
   const [skill, setSkill] = useState<Skill>();
   const { t } = useTranslation();
   const [algorithmStage, setAlgorithmStage] = useState<AlgorithmStage>();
+  const [nextStage, setNextStage] = useState<AlgorithmStage>();
 
   useEffect(() => {
     async function fetchData() {
@@ -51,8 +52,12 @@ function Reexamine({ className = '', currentPair, insurance, onResult }: Props):
   
 
   const handleStageChange = (nextStage) => {
-    getBounty();
-    setAlgorithmStage(nextStage);
+    if(nextStage.type === 'reimburse'){
+      setNextStage(nextStage);
+      getBounty();
+    } else{
+      setAlgorithmStage(nextStage);
+    }
     onResult(nextStage.type);
   };
 
@@ -64,9 +69,11 @@ function Reexamine({ className = '', currentPair, insurance, onResult }: Props):
 
   const _onSuccess = (_result: any) => {
     markUsedInsurance();
+    // setAlgorithmStage(nextStage);
   }
 
   const _onFailed = (_result: any) => {
+    // setAlgorithmStage(nextStage);
   }
 
   const _onChangeAccount = useCallback(
