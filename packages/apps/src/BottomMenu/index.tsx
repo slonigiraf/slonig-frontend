@@ -2,7 +2,7 @@ import React from 'react';
 import styled from 'styled-components';
 import { ScanQR } from '@slonigiraf/app-slonig-components';
 import GoKnowledge from './GoKnowledge';
-import GetSLON from './GetSLON';
+import GetSlon from './GetSlon';
 import GoDiplomas from './GoDiplomas';
 import { useApi } from '@polkadot/react-hooks';
 import { useTranslation } from '../translate.js';
@@ -16,7 +16,7 @@ function BottomMenu(): React.ReactElement {
         <MenuItem><GoKnowledge /></MenuItem>
         <MenuItem><ScanQR label={t('Scan QR')}/></MenuItem>
         <MenuItem><GoDiplomas /></MenuItem>
-        <MenuItem><GetSLON /></MenuItem>
+        <MenuItem><GetSlon /></MenuItem>
       </MenuWrapper>
     );
   } else{

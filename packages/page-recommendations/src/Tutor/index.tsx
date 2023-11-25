@@ -60,15 +60,16 @@ function Tutor({ className = '' }: Props): React.ReactElement<Props> {
   const [amount, setAmount] = useState<BN>(defaultStake);
   const defaultBlockNumber: BN = new BN("1000000");
   const [blockNumber, setBlockNumber] = useState<BN>(defaultBlockNumber);
+  const [daysValid, setDaysValid] = useState<number>(0);
   const [letterInfo, setLetterInfo] = useState('');
   const [modalIsOpen, setModalIsOpen] = useState(false);
   const [studentName, setStudentName] = useState<string | undefined>(undefined);
-  const [canIssueDiploma, setCanIssueDiploma] = useState(false);
+  const [canIssueDiploma, setCanIssueDiploma] = useState(true);//TODO: false
   const [reexamined, setReexamined] = useState<boolean>(cidR === undefined);
   const [skill, setSkill] = useState<Skill | null>(null);
   const [skillR, setSkillR] = useState<Skill | null>(null);
   const [teachingAlgorithm, setTeachingAlgorithm] = useState<TeachingAlgorithm | null>(null);
-  
+
   useEffect(() => {
     async function fetchData() {
       if (ipfs !== null && skillCID) {
@@ -137,6 +138,18 @@ function Tutor({ className = '' }: Props): React.ReactElement<Props> {
 
   const _onChangeBlockNumber = useCallback(
     (value: string) => setBlockNumber(new BN(value)),
+    []
+  );
+
+  const _onChangeDaysValid = useCallback(
+    (value: string) => {
+      const numericValue = parseInt(value, 10); // Using base 10 for the conversion
+      if (!isNaN(numericValue)) {
+        setDaysValid(numericValue);
+      } else{
+        setDaysValid(0);
+      }
+    },
     []
   );
 
@@ -224,9 +237,9 @@ function Tutor({ className = '' }: Props): React.ReactElement<Props> {
   };
 
   const updateTutoring = (stage: string): void => {
-    if(stage === 'success'){
+    if (stage === 'success') {
       setCanIssueDiploma(true);
-    } else{
+    } else {
       setCanIssueDiploma(false);
     }
   };
@@ -316,9 +329,18 @@ function Tutor({ className = '' }: Props): React.ReactElement<Props> {
                   <InputBalance
                     help={t('Stake reputation help info')}
                     isZeroable
-                    label={t('stake reputation')}
+                    label={t('stake slon')}
                     onChange={setAmount}
                     defaultValue={amount}
+                  />
+                </div>
+                <div className='ui--row'>
+                  <Input
+                    className='full'
+                    help={t('Days valid info')}
+                    label={t('days valid')}
+                    onChange={_onChangeDaysValid}
+                    value={daysValid.toString()}
                   />
                 </div>
                 <div className='ui--row'>

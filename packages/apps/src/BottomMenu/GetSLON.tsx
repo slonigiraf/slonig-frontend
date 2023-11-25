@@ -1,8 +1,8 @@
 import { useTranslation } from '../translate.js';
-import { Button, Modal } from '@polkadot/react-components';
+import { Modal } from '@polkadot/react-components';
 import { useToggle } from '@polkadot/react-hooks';
 import React from 'react';
-import PayToAccountQR from './PayToAccountQR';
+import PayToAccountQR from './PayToAccountQR.js';
 import { ButtonWithLabelBelow } from '@slonigiraf/app-slonig-components';
 
 function GetSLON(): React.ReactElement {
@@ -17,7 +17,7 @@ function GetSLON(): React.ReactElement {
     <>
     <ButtonWithLabelBelow
           icon='dollar'
-          label={t('Get SLON')}
+          label={t('Get Slon')}
           onClick={_onClick}
         />
     {isQROpen && <>
