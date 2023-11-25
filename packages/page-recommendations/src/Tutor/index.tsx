@@ -8,7 +8,7 @@ import type { Signer } from '@polkadot/api/types';
 import type { KeyringPair } from '@polkadot/keyring/types';
 import React, { useCallback, useEffect, useState } from 'react';
 import { web3FromSource } from '@polkadot/extension-dapp';
-import { Tag, Toggle, Button, Input, InputAddress, InputBalance, Output, Modal, getAddressName, Icon, Card } from '@polkadot/react-components';
+import { Toggle, Button, Input, InputAddress, InputBalance, Output, Modal, getAddressName, Icon, Card } from '@polkadot/react-components';
 import { useToggle } from '@polkadot/react-hooks';
 import { keyring } from '@polkadot/ui-keyring';
 import { isFunction, u8aToHex, hexToU8a, u8aWrapBytes } from '@polkadot/util';
