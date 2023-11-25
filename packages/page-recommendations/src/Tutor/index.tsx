@@ -8,7 +8,7 @@ import type { Signer } from '@polkadot/api/types';
 import type { KeyringPair } from '@polkadot/keyring/types';
 import React, { useCallback, useEffect, useState } from 'react';
 import { web3FromSource } from '@polkadot/extension-dapp';
-import { Button, Input, InputAddress, InputBalance, Output, Modal, getAddressName } from '@polkadot/react-components';
+import { Tag, Toggle, Button, Input, InputAddress, InputBalance, Output, Modal, getAddressName, Icon, Card } from '@polkadot/react-components';
 import { useToggle } from '@polkadot/react-hooks';
 import { keyring } from '@polkadot/ui-keyring';
 import { isFunction, u8aToHex, hexToU8a, u8aWrapBytes } from '@polkadot/util';
@@ -50,7 +50,7 @@ interface SignerState {
 
 const calculateFutureBlock = (block: string, blockTimeMs: number, sToAdd: number): BN => {
   const currentBlock = new BN(block);
-  const blockTimeS = blockTimeMs/1000;
+  const blockTimeS = blockTimeMs / 1000;
   const blocksToAdd = new BN(sToAdd).div(new BN(blockTimeS));
   const blockAllowed = currentBlock.add(blocksToAdd);
   return blockAllowed;
@@ -58,6 +58,7 @@ const calculateFutureBlock = (block: string, blockTimeMs: number, sToAdd: number
 
 function Tutor({ className = '' }: Props): React.ReactElement<Props> {
   const { api, isApiReady } = useApi();
+  const [isExpanded, toggleIsExpanded] = useToggle(false);
   const useFinalizedBlocks = false;
   //TODO: test how does it work if block number > u32 (BlockNumber seems to be u32)
   const bestNumber = useCall<BlockNumber>(isApiReady && (useFinalizedBlocks ? api.derive.chain.bestNumberFinalized : api.derive.chain.bestNumber));
@@ -79,9 +80,10 @@ function Tutor({ className = '' }: Props): React.ReactElement<Props> {
   const [{ isUsable, signer }, setSigner] = useState<SignerState>({ isUsable: true, signer: null });
   const [signature, setSignature] = useState('');
   const [isUnlockVisible, toggleUnlock] = useToggle();
+  const [visibleDiplomaDetails, toggleVisibleDiplomaDetails] = useToggle(false);
   const defaultStake: BN = new BN("572000000000000");
   const [amount, setAmount] = useState<BN>(defaultStake);
-  
+
   const defaultDaysValid: number = 730;
   const [daysValid, setDaysValid] = useState<number>(defaultDaysValid);
   const secondsToAdd = defaultDaysValid * 86400;
@@ -91,7 +93,7 @@ function Tutor({ className = '' }: Props): React.ReactElement<Props> {
   const [letterInfo, setLetterInfo] = useState('');
   const [modalIsOpen, setModalIsOpen] = useState(false);
   const [studentName, setStudentName] = useState<string | undefined>(undefined);
-  const [canIssueDiploma, setCanIssueDiploma] = useState(true);//TODO: false
+  const [canIssueDiploma, setCanIssueDiploma] = useState(false);
   const [reexamined, setReexamined] = useState<boolean>(cidR === undefined);
   const [skill, setSkill] = useState<Skill | null>(null);
   const [skillR, setSkillR] = useState<Skill | null>(null);
@@ -185,7 +187,7 @@ function Tutor({ className = '' }: Props): React.ReactElement<Props> {
       }
     },
     [currentBlock]
-  );  
+  );
 
   const _onSign = useCallback(
     async () => {
@@ -359,24 +361,45 @@ function Tutor({ className = '' }: Props): React.ReactElement<Props> {
             {
               canIssueDiploma &&
               <StyledDiv>
-                <div className='ui--row'>
-                  <InputBalance
-                    help={t('Stake reputation help info')}
-                    isZeroable
-                    label={t('stake slon')}
-                    onChange={setAmount}
-                    defaultValue={amount}
+                <Card>
+                  <div className='ui--row'>
+                    <h2>{t('Diploma')}</h2>
+                  </div>
+                  <table>
+                    <tr>
+                      <td><Icon icon='graduation-cap' /></td>
+                      <td>{skill ? skill.h : ''}</td>
+                    </tr>
+                    <tr>
+                      <td><Icon icon='person' /></td>
+                      <td>{studentName}</td>
+                    </tr>
+                  </table>
+                  <Toggle
+                    label={t('details')}
+                    onChange={toggleVisibleDiplomaDetails}
+                    value={visibleDiplomaDetails}
                   />
-                </div>
-                <div className='ui--row'>
-                  <Input
-                    className='full'
-                    help={t('Days valid info')}
-                    label={t('days valid')}
-                    onChange={_onChangeDaysValid}
-                    value={daysValid.toString()}
-                  />
-                </div>
+                  <div className='ui--row' style={visibleDiplomaDetails ? {} : { display: 'none' }}>
+                    <InputBalance
+                      help={t('Stake reputation help info')}
+                      isZeroable
+                      label={t('stake slon')}
+                      onChange={setAmount}
+                      defaultValue={amount}
+                    />
+                  </div>
+                  <div className='ui--row' style={visibleDiplomaDetails ? {} : { display: 'none' }}>
+                    <Input
+                      className='full'
+                      help={t('Days valid info')}
+                      label={t('days valid')}
+                      onChange={_onChangeDaysValid}
+                      value={daysValid.toString()}
+                    />
+                  </div>
+                </Card>
+
                 <div className='toolbox--Tutor-input'>
                   <div className='ui--row'>
                     <Output
@@ -398,11 +421,10 @@ function Tutor({ className = '' }: Props): React.ReactElement<Props> {
                     {isLocked && (
                       <div className='unlock-overlay-warning'>
                         <div className='unlock-overlay-content'>
-                          {t('You need to unlock this account to be able to sign data.')}<br />
                           <div>
                             <Button
                               icon='unlock'
-                              label={t('Unlock account')}
+                              label={t('Unlock before selling')}
                               onClick={toggleUnlock}
                             />
                           </div>

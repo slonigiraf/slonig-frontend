@@ -29,7 +29,6 @@ function Reexamine({ className = '', currentPair, insurance, onResult }: Props):
   const [skill, setSkill] = useState<Skill>();
   const { t } = useTranslation();
   const [algorithmStage, setAlgorithmStage] = useState<AlgorithmStage>();
-  const [nextStage, setNextStage] = useState<AlgorithmStage>();
 
   useEffect(() => {
     async function fetchData() {
@@ -49,11 +48,8 @@ function Reexamine({ className = '', currentPair, insurance, onResult }: Props):
     fetchData()
   }, [ipfs, insurance])
 
-
-
   const handleStageChange = (nextStage) => {
     if (nextStage.type === 'reimburse') {
-      setNextStage(nextStage);
       getBounty();
     } else if (nextStage.type === 'success') {
       onResult();
