@@ -31,6 +31,7 @@ import { useBlockTime } from '@polkadot/react-hooks';
 import type { BlockNumber } from '@polkadot/types/interfaces';
 import BN from 'bn.js';
 import { BN_ONE } from '@polkadot/util';
+import { styled } from '@polkadot/react-components';
 
 interface Props {
   className?: string;
@@ -357,7 +358,7 @@ function Tutor({ className = '' }: Props): React.ReactElement<Props> {
             </div>
             {
               canIssueDiploma &&
-              <>
+              <StyledDiv>
                 <div className='ui--row'>
                   <InputBalance
                     help={t('Stake reputation help info')}
@@ -389,7 +390,7 @@ function Tutor({ className = '' }: Props): React.ReactElement<Props> {
                     />
                   </div>
                 </div>
-                <Button.Group>
+                <div>
                   <div
                     className='unlock-overlay'
                     hidden={!isUsable || !isLocked || isInjected}
@@ -398,13 +399,13 @@ function Tutor({ className = '' }: Props): React.ReactElement<Props> {
                       <div className='unlock-overlay-warning'>
                         <div className='unlock-overlay-content'>
                           {t('You need to unlock this account to be able to sign data.')}<br />
-                          <Button.Group>
+                          <div>
                             <Button
                               icon='unlock'
                               label={t('Unlock account')}
                               onClick={toggleUnlock}
                             />
-                          </Button.Group>
+                          </div>
                         </div>
                       </div>
                     )}
@@ -429,13 +430,13 @@ function Tutor({ className = '' }: Props): React.ReactElement<Props> {
                     />
                   )}
                   {!isLocked && (<Button
-                    icon='key'
+                    icon='dollar'
                     isDisabled={!(isUsable && !isLocked && isIpfsReady)}
                     label={t('Sell the diploma')}
                     onClick={_onSign}
                   />)}
                   {!isIpfsReady ? <div>{t('Connecting to IPFS...')}</div> : ""}
-                </Button.Group>
+                </div>
                 {modalIsOpen &&
                   <Modal
                     size={"small"}
@@ -447,7 +448,7 @@ function Tutor({ className = '' }: Props): React.ReactElement<Props> {
                     </Modal.Content>
                   </Modal>
                 }
-              </>
+              </StyledDiv>
             }
 
           </>
@@ -455,5 +456,9 @@ function Tutor({ className = '' }: Props): React.ReactElement<Props> {
     </div>
   );
 }
+
+const StyledDiv = styled.div`
+  max-width: 300px;
+`;
 
 export default React.memo(Tutor);
