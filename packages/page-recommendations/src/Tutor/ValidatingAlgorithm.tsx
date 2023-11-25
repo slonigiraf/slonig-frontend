@@ -113,22 +113,17 @@ class ValidatingAlgorithm extends Algorithm {
         );
 
         // Rest of the linking
-        // hasStudentRepeatedTheRightAnswer.setNext([this.begin, askStudentToRepeatTheAnswer]);
         didStudentRepeatedAfterMeTheTask.setNext([this.begin, askToRepeatTaskAfterMeTheTask]);
-
         didStudentCreatedASimilarTask.setPrevious(this.begin);
-        // hasStudentRepeatedTheRightAnswer.setPrevious(askStudentToRepeatTheAnswer);
         askToRepeatTaskAfterMeTheTask.setPrevious(didStudentCreatedASimilarTask);
         askStudentToRepeatTheAnswer.setPrevious(hasStudentCorrectedTheFakeAnswer);
         provideFakeAnswer.setPrevious(didStudentCreatedASimilarTask);
         didStudentRepeatedAfterMeTheTask.setPrevious(askToRepeatTaskAfterMeTheTask);
         hasStudentCorrectedTheFakeAnswer.setPrevious(provideFakeAnswer);
-        // wereTheStudentTasksAndAnswersPerfectToday.setPrevious(hasStudentCorrectedTheFakeAnswer);
-        // validateDiploma.setPrevious(wereTheStudentTasksAndAnswersPerfectToday);
+        validateDiploma.setPrevious(hasStudentCorrectedTheFakeAnswer);
         explainReimburse.setPrevious(hasStudentCorrectedTheFakeAnswer);
         explainReimburse.setNext([reimburse]);
         validateDiploma.setNext([nextToTeaching]);
-
     }
 }
 
