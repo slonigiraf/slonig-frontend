@@ -222,21 +222,9 @@ function Tutor({ className = '' }: Props): React.ReactElement<Props> {
     [toggleUnlock]
   );
 
-  const updateValidation = (stage: string): void => {
-    switch(stage) {
-      case 'reimburse':
-          setUseInsuranceVisible(true);
-          setReexamined(false);
-          break;
-      case 'success':
-          setUseInsuranceVisible(false);
-          setReexamined(true);
-          break;    
-      default:
-          setUseInsuranceVisible(false);
-          setReexamined(false);
-          break;  
-    }
+  const updateValidation = (): void => {
+    setUseInsuranceVisible(false);
+    setReexamined(true);
   };
 
   const updateTutoring = (stage: string): void => {

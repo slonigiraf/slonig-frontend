@@ -20,7 +20,7 @@ interface Props {
   className?: string;
   currentPair: KeyringPair;
   insurance: Insurance | null;
-  onResult: (stage: string) => void;
+  onResult: () => void;
 }
 
 function Reexamine({ className = '', currentPair, insurance, onResult }: Props): React.ReactElement<Props> {
@@ -49,16 +49,15 @@ function Reexamine({ className = '', currentPair, insurance, onResult }: Props):
     fetchData()
   }, [ipfs, insurance])
 
-  
+
 
   const handleStageChange = (nextStage) => {
-    if(nextStage.type === 'reimburse'){
+    if (nextStage.type === 'reimburse') {
       setNextStage(nextStage);
       getBounty();
-    } else{
+    } else {
       setAlgorithmStage(nextStage);
     }
-    onResult(nextStage.type);
   };
 
   const markUsedInsurance = () => {
@@ -69,11 +68,11 @@ function Reexamine({ className = '', currentPair, insurance, onResult }: Props):
 
   const _onSuccess = (_result: any) => {
     markUsedInsurance();
-    // setAlgorithmStage(nextStage);
+    onResult();
   }
 
   const _onFailed = (_result: any) => {
-    // setAlgorithmStage(nextStage);
+    onResult();
   }
 
   const _onChangeAccount = useCallback(
@@ -113,34 +112,34 @@ function Reexamine({ className = '', currentPair, insurance, onResult }: Props):
   }
 
   return (
-    ! skill ? <></> :
-    <div>
-      <div className='ui--row' style={{ display: 'none' }}>
-        {txButton}
-      </div>
-      {algorithmStage ? (
-        <div>
-          <div>{algorithmStage.getWords()}</div>
-          <div>
-            {algorithmStage.getPrevious() && (
-              <Button onClick={() => handleStageChange(algorithmStage.getPrevious())}
-                icon='arrow-left'
-                label='Back'
-              />
-            )}
-            {algorithmStage.getNext().map((nextStage, index) => (
-              <Button key={index} onClick={() => handleStageChange(nextStage)}
-                icon='fa-square'
-                label={nextStage.getName()}
-              />
-            ))}
-
-          </div>
+    !skill ? <></> :
+      <div>
+        <div className='ui--row' style={{ display: 'none' }}>
+          {txButton}
         </div>
-      ) : (
-        <div>Error: Reload the page</div>
-      )}
-    </div>
+        {algorithmStage ? (
+          <div>
+            <div>{algorithmStage.getWords()}</div>
+            <div>
+              {algorithmStage.getPrevious() && (
+                <Button onClick={() => handleStageChange(algorithmStage.getPrevious())}
+                  icon='arrow-left'
+                  label='Back'
+                />
+              )}
+              {algorithmStage.getNext().map((nextStage, index) => (
+                <Button key={index} onClick={() => handleStageChange(nextStage)}
+                  icon='fa-square'
+                  label={nextStage.getName()}
+                />
+              ))}
+
+            </div>
+          </div>
+        ) : (
+          <div>Error: Reload the page</div>
+        )}
+      </div>
   );
 }
 
