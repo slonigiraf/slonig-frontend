@@ -30,7 +30,7 @@ class ValidatingAlgorithm extends Algorithm {
 
         const nextToTeaching = new AlgorithmStage(
             'success',
-            t('NEXT'),
+            t('I\'ve said it now'),
             <></>,
             []
         );
