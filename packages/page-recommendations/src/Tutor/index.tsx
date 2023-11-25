@@ -25,7 +25,6 @@ import { db } from '@slonigiraf/app-recommendations';
 import DoInstructions from './DoInstructions.js';
 import type { Skill } from '@slonigiraf/app-slonig-components';
 import { TeachingAlgorithm } from './TeachingAlgorithm.js';
-import UseInsurance from '../Teacher/UseInsurance.js';
 import Reexamine from './Reexamine.js';
 
 interface Props {
@@ -66,12 +65,10 @@ function Tutor({ className = '' }: Props): React.ReactElement<Props> {
   const [studentName, setStudentName] = useState<string | undefined>(undefined);
   const [canIssueDiploma, setCanIssueDiploma] = useState(false);
   const [reexamined, setReexamined] = useState<boolean>(cidR === undefined);
-    const [useInsuranceVisible, setUseInsuranceVisible] = useState<boolean>(false);
   const [skill, setSkill] = useState<Skill | null>(null);
   const [skillR, setSkillR] = useState<Skill | null>(null);
   const [teachingAlgorithm, setTeachingAlgorithm] = useState<TeachingAlgorithm | null>(null);
   
-
   useEffect(() => {
     async function fetchData() {
       if (ipfs !== null && skillCID) {
@@ -223,7 +220,6 @@ function Tutor({ className = '' }: Props): React.ReactElement<Props> {
   );
 
   const updateValidation = (): void => {
-    setUseInsuranceVisible(false);
     setReexamined(true);
   };
 
@@ -308,19 +304,11 @@ function Tutor({ className = '' }: Props): React.ReactElement<Props> {
               <b>"{skillR ? skillR.h : ''}"</b>
               <Reexamine currentPair={currentPair} insurance={insurance} onResult={updateValidation} />
             </div>
-
-            <div style={useInsuranceVisible ? {} : { display: 'none' }}>
-              <UseInsurance text={skillR ? skillR.h : ''} insurance={insurance} />
-            </div>
-
             <div style={reexamined ? {} : { display: 'none' }}>
               <b>{t('Teach and create a diploma')}: </b>
               <b>"{skill ? skill.h : ''}"</b>
               <DoInstructions algorithm={teachingAlgorithm} onResult={updateTutoring} />
             </div>
-
-
-
             {
               canIssueDiploma &&
               <>
