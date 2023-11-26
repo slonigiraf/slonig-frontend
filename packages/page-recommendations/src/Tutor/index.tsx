@@ -361,8 +361,6 @@ function Tutor({ className = '' }: Props): React.ReactElement<Props> {
               <h2>{t('Student')}: {studentName}</h2>
             </div>
             <div style={!reexamined ? {} : { display: 'none' }}>
-              <b>{t('Reexamine the skill that student know')}: </b>
-              <b>"{skillR ? skillR.h : ''}"</b>
               <Reexamine currentPair={currentPair} insurance={insurance} onResult={updateValidation} />
             </div>
             <div style={reexamined ? {} : { display: 'none' }}>

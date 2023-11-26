@@ -115,6 +115,9 @@ function Reexamine({ className = '', currentPair, insurance, onResult }: Props):
         <div className='ui--row' style={{ display: 'none' }}>
           {txButton}
         </div>
+        <div className='ui--row'>
+            <b>{t('Reexamine the skill that student know')}: "{skill ? skill.h : ''}"</b>
+        </div>
         {algorithmStage ? (
           <div>
             <div>{algorithmStage.getWords()}</div>
