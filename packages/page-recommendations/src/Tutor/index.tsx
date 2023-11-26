@@ -39,9 +39,9 @@ interface SignerState {
   signer: Signer | null;
 }
 
-const calculateFutureBlock = (currentBlock: BN, blockTimeMs: number, sToAdd: number): BN => {
-  const blockTimeS = blockTimeMs / 1000;
-  const blocksToAdd = new BN(sToAdd).div(new BN(blockTimeS));
+const getBlockAllowed = (currentBlock: BN, blockTimeMs: number, secondsToAdd: number): BN => {
+  const secondsToGenerateBlock = blockTimeMs / 1000;
+  const blocksToAdd = new BN(secondsToAdd).div(new BN(secondsToGenerateBlock));
   const blockAllowed = currentBlock.add(blocksToAdd);
   return blockAllowed;
 }
@@ -80,13 +80,12 @@ function Tutor({ className = '' }: Props): React.ReactElement<Props> {
   //   days
   const defaultDaysValid: number = 730;
   const [daysValid, setDaysValid] = useState<number>(defaultDaysValid);
-  const secondsToAdd = defaultDaysValid * 86400;
   //   last block number
-  const [currentBlock, setCurrentBlock] = useState(new BN(0));
-  const [blockTimeMs,] = useBlockTime(BN_ONE, api);
-  const [blockNumber, setBlockNumber] = useState<BN>(new BN(0));
+  const [currentBlockNumber, setCurrentBlockNumber] = useState(new BN(0));
+  const [millisecondsPerBlock,] = useBlockTime(BN_ONE, api);
+  const [diplomaBlockNumber, setDiplomaBlockNumber] = useState<BN>(new BN(0));
   //   raw diploma data
-  const [letterInfo, setLetterInfo] = useState('');
+  const [diplomaText, setDiplomaText] = useState('');
   //   student name
   const [studentName, setStudentName] = useState<string | undefined>(undefined);
   //   show stake and days or hide
@@ -129,10 +128,11 @@ function Tutor({ className = '' }: Props): React.ReactElement<Props> {
       if (isApiReady) {
         try {
           const chainHeader = await api.rpc.chain.getHeader();
-          const blockNumber = new BN(chainHeader.number.toString());
-          setCurrentBlock(blockNumber);
-          const blockAllowed: BN = calculateFutureBlock(blockNumber, blockTimeMs, secondsToAdd);
-          setBlockNumber(blockAllowed);
+          const currentBlockNumber = new BN(chainHeader.number.toString());
+          setCurrentBlockNumber(currentBlockNumber);
+          const defaultSecondsValid = defaultDaysValid * 86400;
+          const blockNumber: BN = getBlockAllowed(currentBlockNumber, millisecondsPerBlock, defaultSecondsValid);
+          setDiplomaBlockNumber(blockNumber);
         } catch (error) {
           console.error("Error fetching block number: ", error);
         }
@@ -175,7 +175,7 @@ function Tutor({ className = '' }: Props): React.ReactElement<Props> {
   );
 
   const _onChangeBlockNumber = useCallback(
-    (value: string) => setBlockNumber(new BN(value)),
+    (value: string) => setDiplomaBlockNumber(new BN(value)),
     []
   );
 
@@ -186,14 +186,14 @@ function Tutor({ className = '' }: Props): React.ReactElement<Props> {
         setDaysValid(numericValue);
         const secondsToAdd = numericValue * 86400; // 86400 - seconds in a day
         if (Number.isSafeInteger(secondsToAdd)) {
-          const blockAllowed: BN = calculateFutureBlock(currentBlock, blockTimeMs, secondsToAdd);
-          setBlockNumber(blockAllowed);
+          const blockAllowed: BN = getBlockAllowed(currentBlockNumber, millisecondsPerBlock, secondsToAdd);
+          setDiplomaBlockNumber(blockAllowed);
         }
       } else {
         setDaysValid(0);
       }
     },
-    [currentBlock]
+    [currentBlockNumber]
   );
 
   const _onSign = useCallback(
@@ -208,8 +208,8 @@ function Tutor({ className = '' }: Props): React.ReactElement<Props> {
       const refereePublicKeyHex = u8aToHex(refereeU8);
       const letterId = await getLastUnusedLetterNumber(refereePublicKeyHex);
       const workerPublicKeyU8 = hexToU8a(student);
-      const privateData = getPrivateDataToSignByReferee(skillCID, genesisU8, letterId, blockNumber, refereeU8, workerPublicKeyU8, amount);
-      const receipt = getPublicDataToSignByReferee(genesisU8, letterId, blockNumber, refereeU8, workerPublicKeyU8, amount);
+      const privateData = getPrivateDataToSignByReferee(skillCID, genesisU8, letterId, diplomaBlockNumber, refereeU8, workerPublicKeyU8, amount);
+      const receipt = getPublicDataToSignByReferee(genesisU8, letterId, diplomaBlockNumber, refereeU8, workerPublicKeyU8, amount);
 
       let refereeSignOverPrivateData = "";
       let refereeSignOverReceipt = "";
@@ -238,7 +238,7 @@ function Tutor({ className = '' }: Props): React.ReactElement<Props> {
       result.push(skillCID);
       result.push(genesisU8.toHex());
       result.push(letterId);
-      result.push(blockNumber);
+      result.push(diplomaBlockNumber);
       result.push(refereePublicKeyHex);
       result.push(student);
       result.push(amount.toString());
@@ -250,7 +250,7 @@ function Tutor({ className = '' }: Props): React.ReactElement<Props> {
         cid: skillCID,
         genesis: genesisU8.toHex(),
         letterNumber: letterId,
-        block: blockNumber.toString(),
+        block: diplomaBlockNumber.toString(),
         referee: refereePublicKeyHex,
         worker: student,
         amount: amount.toString(),
@@ -261,10 +261,10 @@ function Tutor({ className = '' }: Props): React.ReactElement<Props> {
       await setLastUsedLetterNumber(refereePublicKeyHex, letterId);
       const qrText = `{"q": 2,"d": "${result.join(",")}"}`;
       // show QR
-      setLetterInfo(qrText);
+      setDiplomaText(qrText);
       setModalIsOpen(true);
     },
-    [currentPair, isLocked, isUsable, signer, ipfs, skill, student, blockNumber, amount]
+    [currentPair, isLocked, isUsable, signer, ipfs, skill, student, diplomaBlockNumber, amount]
   );
 
   const _onUnlock = useCallback(
@@ -473,7 +473,7 @@ function Tutor({ className = '' }: Props): React.ReactElement<Props> {
                     onClose={() => setModalIsOpen(false)}
                   >
                     <Modal.Content>
-                      <QRCode value={letterInfo} size={qrCodeSize} />
+                      <QRCode value={diplomaText} size={qrCodeSize} />
                     </Modal.Content>
                   </Modal>
                 }
