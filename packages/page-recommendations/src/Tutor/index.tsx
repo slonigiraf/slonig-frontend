@@ -4,17 +4,7 @@ import React, { useCallback, useEffect, useState } from 'react';
 import { useLocation } from 'react-router-dom';
 import BN from 'bn.js';
 import QRCode from 'qrcode.react';
-
-
-
-
-
-
-
 import Unlock from '@polkadot/app-signing';
-
-
-
 import { statics } from '@polkadot/react-api/statics';
 import type { Signer } from '@polkadot/api/types';
 import { styled, Toggle, Button, Input, InputAddress, InputBalance, Output, Modal, getAddressName, Icon, Card } from '@polkadot/react-components';
@@ -23,13 +13,10 @@ import type { KeyringPair } from '@polkadot/keyring/types';
 import { useApi, useBlockTime, useToggle } from '@polkadot/react-hooks';
 import { isFunction, u8aToHex, hexToU8a, u8aWrapBytes, BN_ONE } from '@polkadot/util';
 import { keyring } from '@polkadot/ui-keyring';
-
-
 import type { Skill } from '@slonigiraf/app-slonig-components';
 import { QRWithShareAndCopy, getBaseUrl, getIPFSDataFromContentID, parseJson, useIpfsContext } from '@slonigiraf/app-slonig-components';
 import { db } from '@slonigiraf/app-recommendations';
 import { getPublicDataToSignByReferee, getPrivateDataToSignByReferee } from '@slonigiraf/helpers';
-
 import { getLastUnusedLetterNumber, setLastUsedLetterNumber, storeLetter } from '../utils.js';
 import Reexamine from './Reexamine.js';
 import { TeachingAlgorithm } from './TeachingAlgorithm.js';
