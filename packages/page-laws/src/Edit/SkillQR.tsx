@@ -1,7 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useTranslation } from '../translate';
-import { QRWithShareAndCopy, ScanQR, getBaseUrl } from '@slonigiraf/app-slonig-components';
-import { getAddressName } from '@polkadot/react-components';
+import { QRWithShareAndCopy, ScanQR, getBaseUrl, nameFromKeyringPair } from '@slonigiraf/app-slonig-components';
 import { getSetting, storeSetting } from '@slonigiraf/app-recommendations';
 import type { KeyringPair } from '@polkadot/keyring/types';
 import { Dropdown, InputAddress } from '@polkadot/react-components';
@@ -13,7 +12,6 @@ import { keyring } from '@polkadot/ui-keyring';
 import { web3FromSource } from '@polkadot/extension-dapp';
 import { isFunction, u8aToHex, hexToU8a, u8aWrapBytes } from '@polkadot/util';
 import { useToggle } from '@polkadot/react-hooks';
-import { storeLetterUsageRight } from '../utils.js';
 import { getDataToSignByWorker } from '@slonigiraf/helpers';
 import type { Signer } from '@polkadot/api/types';
 import BN from 'bn.js';
@@ -211,7 +209,7 @@ function SkillQR({ className = '', cid }: Props): React.ReactElement<Props> {
   const urlDetails = `diplomas/tutor?d=${tutor}+${cid}+${publicKeyHex}+${publicKeyHex}${reexamineData}`;
 
   const generateQRData = () => {
-    const [, , name] = getAddressName(currentPair.address, null, "");
+    const name = nameFromKeyringPair(currentPair);
     return JSON.stringify({
       q: 5,
       n: name,

@@ -14,7 +14,7 @@ import { useApi, useBlockTime, useToggle } from '@polkadot/react-hooks';
 import { isFunction, u8aToHex, hexToU8a, u8aWrapBytes, BN_ONE } from '@polkadot/util';
 import { keyring } from '@polkadot/ui-keyring';
 import type { Skill } from '@slonigiraf/app-slonig-components';
-import { QRWithShareAndCopy, getBaseUrl, getIPFSDataFromContentID, parseJson, useIpfsContext } from '@slonigiraf/app-slonig-components';
+import { QRWithShareAndCopy, getBaseUrl, getIPFSDataFromContentID, parseJson, useIpfsContext, nameFromKeyringPair } from '@slonigiraf/app-slonig-components';
 import { db } from '@slonigiraf/app-recommendations';
 import { getPublicDataToSignByReferee, getPrivateDataToSignByReferee } from '@slonigiraf/helpers';
 import { getLastUnusedLetterNumber, setLastUsedLetterNumber, storeLetter } from '../utils.js';
@@ -39,7 +39,7 @@ interface SignerState {
   signer: Signer | null;
 }
 
-const getBlockAllowed = (currentBlock: BN, blockTimeMs: number, secondsToAdd: number): BN => {
+const getDiplomaBlockNumber = (currentBlock: BN, blockTimeMs: number, secondsToAdd: number): BN => {
   const secondsToGenerateBlock = blockTimeMs / 1000;
   const blocksToAdd = new BN(secondsToAdd).div(new BN(secondsToGenerateBlock));
   const blockAllowed = currentBlock.add(blocksToAdd);
@@ -122,7 +122,7 @@ function Tutor({ className = '' }: Props): React.ReactElement<Props> {
     fetchStudentName()
   }, [studentIdentity])
 
-  // Fetch block number
+  // Fetch block number (once)
   useEffect(() => {
     async function fetchBlockNumber() {
       if (isApiReady) {
@@ -131,8 +131,8 @@ function Tutor({ className = '' }: Props): React.ReactElement<Props> {
           const currentBlockNumber = new BN(chainHeader.number.toString());
           setCurrentBlockNumber(currentBlockNumber);
           const defaultSecondsValid = defaultDaysValid * 86400;
-          const blockNumber: BN = getBlockAllowed(currentBlockNumber, millisecondsPerBlock, defaultSecondsValid);
-          setDiplomaBlockNumber(blockNumber);
+          const diplomaBlockNumber: BN = getDiplomaBlockNumber(currentBlockNumber, millisecondsPerBlock, defaultSecondsValid);
+          setDiplomaBlockNumber(diplomaBlockNumber);
         } catch (error) {
           console.error("Error fetching block number: ", error);
         }
@@ -141,6 +141,7 @@ function Tutor({ className = '' }: Props): React.ReactElement<Props> {
     fetchBlockNumber();
   }, [api, isApiReady]);
 
+  // Initialize account state
   useEffect((): void => {
     const meta = (currentPair && currentPair.meta) || {};
     const isExternal = (meta.isExternal as boolean) || false;
@@ -174,20 +175,15 @@ function Tutor({ className = '' }: Props): React.ReactElement<Props> {
     []
   );
 
-  const _onChangeBlockNumber = useCallback(
-    (value: string) => setDiplomaBlockNumber(new BN(value)),
-    []
-  );
-
   const _onChangeDaysValid = useCallback(
     (value: string) => {
-      const numericValue = parseInt(value, 10); // Using base 10 for the conversion
-      if (!isNaN(numericValue)) {
-        setDaysValid(numericValue);
-        const secondsToAdd = numericValue * 86400; // 86400 - seconds in a day
+      const days = parseInt(value, 10); // Using base 10 for the conversion
+      if (!isNaN(days)) {
+        setDaysValid(days);
+        const secondsToAdd = days * 86400; // 86400 - seconds in a day
         if (Number.isSafeInteger(secondsToAdd)) {
-          const blockAllowed: BN = getBlockAllowed(currentBlockNumber, millisecondsPerBlock, secondsToAdd);
-          setDiplomaBlockNumber(blockAllowed);
+          const diplomaBlockNumber: BN = getDiplomaBlockNumber(currentBlockNumber, millisecondsPerBlock, secondsToAdd);
+          setDiplomaBlockNumber(diplomaBlockNumber);
         }
       } else {
         setDaysValid(0);
@@ -196,6 +192,7 @@ function Tutor({ className = '' }: Props): React.ReactElement<Props> {
     [currentBlockNumber]
   );
 
+  // Sign diploma
   const _onSign = useCallback(
     async () => {
       if (isLocked || !isUsable || !currentPair) {
@@ -211,8 +208,8 @@ function Tutor({ className = '' }: Props): React.ReactElement<Props> {
       const privateData = getPrivateDataToSignByReferee(skillCID, genesisU8, letterId, diplomaBlockNumber, refereeU8, workerPublicKeyU8, amount);
       const receipt = getPublicDataToSignByReferee(genesisU8, letterId, diplomaBlockNumber, refereeU8, workerPublicKeyU8, amount);
 
-      let refereeSignOverPrivateData = "";
-      let refereeSignOverReceipt = "";
+      let refereeSignOverPrivateData = '';
+      let refereeSignOverReceipt = '';
 
       // sign
       if (signer && isFunction(signer.signRaw)) {// Use browser extenstion 
@@ -259,14 +256,15 @@ function Tutor({ className = '' }: Props): React.ReactElement<Props> {
       };
       await storeLetter(letter);
       await setLastUsedLetterNumber(refereePublicKeyHex, letterId);
-      const qrText = `{"q": 2,"d": "${result.join(",")}"}`;
+      const diplomaText = `{"q": 2,"d": "${result.join(",")}"}`;
+      setDiplomaText(diplomaText);
       // show QR
-      setDiplomaText(qrText);
       setModalIsOpen(true);
     },
     [currentPair, isLocked, isUsable, signer, ipfs, skill, student, diplomaBlockNumber, amount]
   );
 
+  // If account is unlocked by password
   const _onUnlock = useCallback(
     (): void => {
       setIsLocked(false);
@@ -275,7 +273,7 @@ function Tutor({ className = '' }: Props): React.ReactElement<Props> {
     [toggleUnlock]
   );
 
-  const updateValidation = (): void => {
+  const updateReexamined = (): void => {
     setReexamined(true);
   };
 
@@ -287,11 +285,12 @@ function Tutor({ className = '' }: Props): React.ReactElement<Props> {
     }
   };
 
-  let publicKeyHex = "";
+  let publicKeyHex = '';
   if (currentPair !== null) {
     publicKeyHex = u8aToHex(currentPair.publicKey);
   }
-  const [_isAddressExtracted, , name] = getAddressName(currentPair.address, null, "");
+  
+  const name = nameFromKeyringPair(currentPair);
 
   const qrData = {
     q: 4,
@@ -356,7 +355,7 @@ function Tutor({ className = '' }: Props): React.ReactElement<Props> {
               <h2>{t('Student')}: {studentName}</h2>
             </div>
             <div style={!reexamined ? {} : { display: 'none' }}>
-              <Reexamine currentPair={currentPair} insurance={insurance} onResult={updateValidation} />
+              <Reexamine currentPair={currentPair} insurance={insurance} onResult={updateReexamined} />
             </div>
             <div style={reexamined ? {} : { display: 'none' }}>
               <b>{t('Teach and create a diploma')}: </b>

@@ -7,10 +7,11 @@ import type { Signer } from '@polkadot/api/types';
 import type { KeyringPair } from '@polkadot/keyring/types';
 import React, { useCallback, useEffect, useState } from 'react';
 import { web3FromSource } from '@polkadot/extension-dapp';
-import { Button, Modal, InputAddress, Output, getAddressName } from '@polkadot/react-components';
+import { Button, Modal, InputAddress, Output } from '@polkadot/react-components';
 import { useToggle } from '@polkadot/react-hooks';
 import { keyring } from '@polkadot/ui-keyring';
 import { isFunction, u8aToHex, hexToU8a, u8aWrapBytes } from '@polkadot/util';
+import { nameFromKeyringPair } from '@slonigiraf/app-slonig-components';
 import { useTranslation } from '../translate.js';
 import { qrCodeSize } from '../constants.js';
 import Unlock from '@polkadot/app-signing';
@@ -118,8 +119,7 @@ function SignLetterUseRight({ className = '', letters, worker, employer }: Props
       });
 
       const signedLetters = await Promise.all(signedLettersPromises);
-      const [_isAddressExtracted, , studentName] = getAddressName(currentPair.address, null, "");
-
+      const studentName = nameFromKeyringPair(currentPair);
 
       const qrData = {
         q: 3,
