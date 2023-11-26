@@ -129,7 +129,6 @@ function SignLetterUseRight({ className = '', letters, worker, employer }: Props
         d: signedLetters
       };
       const qrCodeText = JSON.stringify(qrData);
-      console.log(qrCodeText)
       // show QR
       setLetterInfo(letters.length > 0 && letters.length < 5 ? qrCodeText : "");
       toggleQR();

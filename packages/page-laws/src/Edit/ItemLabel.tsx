@@ -36,7 +36,6 @@ function ItemLabel({ className = '', id, onClick }: Props): React.ReactElement<P
 
   async function fetchLaw(key: string) {
     const law = await api.query.laws.laws(key);
-    console.log("Law: ", law);
     if (law.isSome) {
       const tuple = law.unwrap();
       const byteArray = tuple[0]; // This should give you the [u8; 32]
