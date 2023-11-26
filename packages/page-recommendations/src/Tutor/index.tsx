@@ -76,17 +76,23 @@ function Tutor({ className = '' }: Props): React.ReactElement<Props> {
   const [teachingAlgorithm, setTeachingAlgorithm] = useState<TeachingAlgorithm | null>(null);
   
   // Initialize diploma details
-  const [currentBlock, setCurrentBlock] = useState("0");
-  const [blockTimeMs,] = useBlockTime(BN_ONE, api);
-  const [visibleDiplomaDetails, toggleVisibleDiplomaDetails] = useToggle(false);
+  //   stake: 572 Slon, 12 zeroes for numbers after point
   const defaultStake: BN = new BN("572000000000000");
   const [amount, setAmount] = useState<BN>(defaultStake);
+  //   days
   const defaultDaysValid: number = 730;
   const [daysValid, setDaysValid] = useState<number>(defaultDaysValid);
   const secondsToAdd = defaultDaysValid * 86400;
+  //   last block number
+  const [currentBlock, setCurrentBlock] = useState("0");
+  const [blockTimeMs,] = useBlockTime(BN_ONE, api);
   const [blockNumber, setBlockNumber] = useState<BN>(new BN(0));
+  //   raw diploma data
   const [letterInfo, setLetterInfo] = useState('');
+  //   student name
   const [studentName, setStudentName] = useState<string | undefined>(undefined);
+  //   show stake and days or hide
+  const [visibleDiplomaDetails, toggleVisibleDiplomaDetails] = useToggle(false);
   
   
   useEffect(() => {
