@@ -48,21 +48,36 @@ const calculateFutureBlock = (block: string, blockTimeMs: number, sToAdd: number
 }
 
 function Tutor({ className = '' }: Props): React.ReactElement<Props> {
+  // Initialize api, ipfs and translation
+  const { ipfs, isIpfsReady } = useIpfsContext();
   const { api, isApiReady } = useApi();
-  const [currentBlock, setCurrentBlock] = useState("0");
-  const [blockTimeMs,] = useBlockTime(BN_ONE, api);
-  const { ipfs, isIpfsReady, ipfsInitError } = useIpfsContext();
   const { t } = useTranslation();
-  const [currentPair, setCurrentPair] = useState<KeyringPair | null>(() => keyring.getPairs()[0] || null);
+
+  // Process query
   const location = useLocation();
   const queryParams = new URLSearchParams(location.search);
   const queryData = queryParams.get("d") || "";
   const [tutor, skillCID, studentIdentity, student, cidR, genesisR, nonceR, blockR, blockAllowedR, tutorR, studentR, amountR, signOverPrivateDataR, signOverReceiptR, studentSignR] = queryData.split(' ');
+  const [skill, setSkill] = useState<Skill | null>(null);
+  const [skillR, setSkillR] = useState<Skill | null>(null);
+  
+  // Initialize account
+  const [currentPair, setCurrentPair] = useState<KeyringPair | null>(() => keyring.getPairs()[0] || null);
   const [{ isInjected }, setAccountState] = useState<AccountState>({ isExternal: false, isHardware: false, isInjected: false });
   const [isLocked, setIsLocked] = useState(false);
   const [{ isUsable, signer }, setSigner] = useState<SignerState>({ isUsable: true, signer: null });
   const [signature, setSignature] = useState('');
   const [isUnlockVisible, toggleUnlock] = useToggle();
+
+  // Store progress state
+  const [modalIsOpen, setModalIsOpen] = useState(false);
+  const [canIssueDiploma, setCanIssueDiploma] = useState(false);
+  const [reexamined, setReexamined] = useState<boolean>(cidR === undefined);
+  const [teachingAlgorithm, setTeachingAlgorithm] = useState<TeachingAlgorithm | null>(null);
+  
+  // Initialize diploma details
+  const [currentBlock, setCurrentBlock] = useState("0");
+  const [blockTimeMs,] = useBlockTime(BN_ONE, api);
   const [visibleDiplomaDetails, toggleVisibleDiplomaDetails] = useToggle(false);
   const defaultStake: BN = new BN("572000000000000");
   const [amount, setAmount] = useState<BN>(defaultStake);
@@ -71,14 +86,9 @@ function Tutor({ className = '' }: Props): React.ReactElement<Props> {
   const secondsToAdd = defaultDaysValid * 86400;
   const [blockNumber, setBlockNumber] = useState<BN>(new BN(0));
   const [letterInfo, setLetterInfo] = useState('');
-  const [modalIsOpen, setModalIsOpen] = useState(false);
   const [studentName, setStudentName] = useState<string | undefined>(undefined);
-  const [canIssueDiploma, setCanIssueDiploma] = useState(false);
-  const [reexamined, setReexamined] = useState<boolean>(cidR === undefined);
-  const [skill, setSkill] = useState<Skill | null>(null);
-  const [skillR, setSkillR] = useState<Skill | null>(null);
-  const [teachingAlgorithm, setTeachingAlgorithm] = useState<TeachingAlgorithm | null>(null);
-
+  
+  
   useEffect(() => {
     async function fetchData() {
       if (ipfs !== null && skillCID) {
