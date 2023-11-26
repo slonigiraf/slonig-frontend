@@ -59,7 +59,6 @@ function Tutor({ className = '' }: Props): React.ReactElement<Props> {
   const queryData = queryParams.get("d") || "";
   const [tutor, skillCID, studentIdentity, student, cidR, genesisR, nonceR, blockR, blockAllowedR, tutorR, studentR, amountR, signOverPrivateDataR, signOverReceiptR, studentSignR] = queryData.split(' ');
   const [skill, setSkill] = useState<Skill | null>(null);
-  const [skillR, setSkillR] = useState<Skill | null>(null);
   
   // Initialize account
   const [currentPair, setCurrentPair] = useState<KeyringPair | null>(() => keyring.getPairs()[0] || null);
@@ -103,10 +102,6 @@ function Tutor({ className = '' }: Props): React.ReactElement<Props> {
           const skillJson = parseJson(skillContent);
           setSkill(skillJson);
           setTeachingAlgorithm(new TeachingAlgorithm(t, skillJson ? skillJson.q : []));
-
-          const skillRContent = await getIPFSDataFromContentID(ipfs, cidR);
-          const skillRJson = parseJson(skillRContent);
-          setSkillR(skillRJson);
         }
         catch (e) {
           console.log(e);
