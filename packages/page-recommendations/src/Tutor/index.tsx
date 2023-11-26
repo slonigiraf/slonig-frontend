@@ -1,37 +1,41 @@
 // Copyright 2021-2022 @slonigiraf/app-recommendations authors & contributors
 // SPDX-License-Identifier: Apache-2.0
-
+import React, { useCallback, useEffect, useState } from 'react';
+import { useLocation } from 'react-router-dom';
 import BN from 'bn.js';
 import QRCode from 'qrcode.react';
-import { getPublicDataToSignByReferee, getPrivateDataToSignByReferee } from '@slonigiraf/helpers';
-import type { Signer } from '@polkadot/api/types';
-import type { KeyringPair } from '@polkadot/keyring/types';
-import React, { useCallback, useEffect, useState } from 'react';
-import { web3FromSource } from '@polkadot/extension-dapp';
-import { Toggle, Button, Input, InputAddress, InputBalance, Output, Modal, getAddressName, Icon, Card } from '@polkadot/react-components';
-import { useToggle } from '@polkadot/react-hooks';
-import { keyring } from '@polkadot/ui-keyring';
-import { isFunction, u8aToHex, hexToU8a, u8aWrapBytes } from '@polkadot/util';
-import { useTranslation } from '../translate.js';
-import Unlock from '@polkadot/app-signing/Unlock';
-import { useIpfsContext } from '@slonigiraf/app-slonig-components';
-import { qrCodeSize } from '../constants.js';
-import { getLastUnusedLetterNumber, setLastUsedLetterNumber, storeLetter } from '../utils.js';
+
+
+
+
+
+
+
+import Unlock from '@polkadot/app-signing';
+
+
+
 import { statics } from '@polkadot/react-api/statics';
-import { useLocation } from 'react-router-dom';
-import { getIPFSDataFromContentID, parseJson } from '@slonigiraf/app-slonig-components'
-import { QRWithShareAndCopy, getBaseUrl } from '@slonigiraf/app-slonig-components';
-import { db } from '@slonigiraf/app-recommendations';
-import DoInstructions from './DoInstructions.js';
+import type { Signer } from '@polkadot/api/types';
+import { styled, Toggle, Button, Input, InputAddress, InputBalance, Output, Modal, getAddressName, Icon, Card } from '@polkadot/react-components';
+import { web3FromSource } from '@polkadot/extension-dapp';
+import type { KeyringPair } from '@polkadot/keyring/types';
+import { useApi, useBlockTime, useToggle } from '@polkadot/react-hooks';
+import { isFunction, u8aToHex, hexToU8a, u8aWrapBytes, BN_ONE } from '@polkadot/util';
+import { keyring } from '@polkadot/ui-keyring';
+
+
 import type { Skill } from '@slonigiraf/app-slonig-components';
-import { TeachingAlgorithm } from './TeachingAlgorithm.js';
+import { QRWithShareAndCopy, getBaseUrl, getIPFSDataFromContentID, parseJson, useIpfsContext } from '@slonigiraf/app-slonig-components';
+import { db } from '@slonigiraf/app-recommendations';
+import { getPublicDataToSignByReferee, getPrivateDataToSignByReferee } from '@slonigiraf/helpers';
+
+import { getLastUnusedLetterNumber, setLastUsedLetterNumber, storeLetter } from '../utils.js';
 import Reexamine from './Reexamine.js';
-import { useApi, useCall } from '@polkadot/react-hooks';
-import { useBlockTime } from '@polkadot/react-hooks';
-import type { BlockNumber } from '@polkadot/types/interfaces';
-import BN from 'bn.js';
-import { BN_ONE } from '@polkadot/util';
-import { styled } from '@polkadot/react-components';
+import { TeachingAlgorithm } from './TeachingAlgorithm.js';
+import DoInstructions from './DoInstructions.js';
+import { useTranslation } from '../translate.js';
+import { qrCodeSize } from '../constants.js';
 
 interface Props {
   className?: string;

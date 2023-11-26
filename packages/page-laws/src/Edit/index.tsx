@@ -13,7 +13,7 @@ import { useToggle } from '@polkadot/react-hooks';
 import { keyring } from '@polkadot/ui-keyring';
 import { isFunction, u8aToHex } from '@polkadot/util';
 import { useTranslation } from '../translate.js';
-import Unlock from '@polkadot/app-signing/Unlock';
+import Unlock from '@polkadot/app-signing';
 import { useIpfsContext } from '@slonigiraf/app-slonig-components';
 import { useApi } from '@polkadot/react-hooks';
 import { parseJson } from '@slonigiraf/app-slonig-components';
