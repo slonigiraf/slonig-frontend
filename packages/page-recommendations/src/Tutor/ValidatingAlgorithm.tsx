@@ -74,7 +74,7 @@ class ValidatingAlgorithm extends Algorithm {
             'intermediate',
             t('YES'),
             <div>
-                <b>{t('Respond to the student with wrong answer, and ask:')} </b>
+                <b>{t('Respond to the student with a wrong answer, and ask:')} </b>
                 <em>{t('Am I right?')}</em>
             </div>,
             [hasStudentCorrectedTheFakeAnswer]

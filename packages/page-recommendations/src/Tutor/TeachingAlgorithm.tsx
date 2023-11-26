@@ -12,7 +12,7 @@ class TeachingAlgorithm extends Algorithm {
             'success',
             t('YES'),
             <div>
-                <b>{t('Say')}:</b>
+                <b>{t('Say')}: </b>
                 <em>{t('Buy a skill diploma from me to get a bonus from a teacher.')}</em>
                 <br />
                 <b>{t('Sell the student a diploma in exchange for money or Slon tokens.')}</b>
@@ -80,7 +80,7 @@ class TeachingAlgorithm extends Algorithm {
             'intermediate',
             t('YES'),
             <div>
-                <b>{t('Respond to the student with wrong answer, and ask:')}</b>
+                <b>{t('Respond to the student with a wrong answer, and ask:')}</b>
                 &nbsp;<em>{t('Am I right?')}</em>
             </div>,
             [hasStudentCorrectedTheFakeAnswer]

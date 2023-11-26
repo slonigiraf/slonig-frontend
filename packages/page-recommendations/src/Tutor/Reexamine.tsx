@@ -25,14 +25,14 @@ interface Props {
 
 function Reexamine({ className = '', currentPair, insurance, onResult }: Props): React.ReactElement<Props> {
   const { api } = useApi();
-  const { ipfs, isIpfsReady, ipfsInitError } = useIpfsContext();
+  const { ipfs, isIpfsReady } = useIpfsContext();
   const [skill, setSkill] = useState<Skill>();
   const { t } = useTranslation();
   const [algorithmStage, setAlgorithmStage] = useState<AlgorithmStage>();
 
   useEffect(() => {
     async function fetchData() {
-      if (ipfs !== null && insurance) {
+      if (isIpfsReady && insurance && insurance.cid) {
         try {
           const skillContent = await getIPFSDataFromContentID(ipfs, insurance.cid);
           const skillJson = parseJson(skillContent);

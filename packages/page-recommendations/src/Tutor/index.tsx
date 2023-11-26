@@ -94,7 +94,7 @@ function Tutor({ className = '' }: Props): React.ReactElement<Props> {
   // Fetch skill data and set teaching algorithm
   useEffect(() => {
     async function fetchData() {
-      if (ipfs !== null && skillCID) {
+      if (isIpfsReady && skillCID) {
         try {
           const skillContent = await getIPFSDataFromContentID(ipfs, skillCID);
           const skillJson = parseJson(skillContent);
