@@ -39,8 +39,7 @@ interface SignerState {
   signer: Signer | null;
 }
 
-const calculateFutureBlock = (block: string, blockTimeMs: number, sToAdd: number): BN => {
-  const currentBlock = new BN(block);
+const calculateFutureBlock = (currentBlock: BN, blockTimeMs: number, sToAdd: number): BN => {
   const blockTimeS = blockTimeMs / 1000;
   const blocksToAdd = new BN(sToAdd).div(new BN(blockTimeS));
   const blockAllowed = currentBlock.add(blocksToAdd);
@@ -83,7 +82,7 @@ function Tutor({ className = '' }: Props): React.ReactElement<Props> {
   const [daysValid, setDaysValid] = useState<number>(defaultDaysValid);
   const secondsToAdd = defaultDaysValid * 86400;
   //   last block number
-  const [currentBlock, setCurrentBlock] = useState("0");
+  const [currentBlock, setCurrentBlock] = useState(new BN(0));
   const [blockTimeMs,] = useBlockTime(BN_ONE, api);
   const [blockNumber, setBlockNumber] = useState<BN>(new BN(0));
   //   raw diploma data
@@ -93,7 +92,7 @@ function Tutor({ className = '' }: Props): React.ReactElement<Props> {
   //   show stake and days or hide
   const [visibleDiplomaDetails, toggleVisibleDiplomaDetails] = useToggle(false);
   
-  
+  // Fetch skill data and set teaching algorithm
   useEffect(() => {
     async function fetchData() {
       if (ipfs !== null && skillCID) {
@@ -111,6 +110,7 @@ function Tutor({ className = '' }: Props): React.ReactElement<Props> {
     fetchData()
   }, [ipfs, skillCID])
 
+  // Fetch student name
   useEffect(() => {
     async function fetchStudentName() {
       if (studentIdentity) {
@@ -123,15 +123,15 @@ function Tutor({ className = '' }: Props): React.ReactElement<Props> {
     fetchStudentName()
   }, [studentIdentity])
 
-
+  // Fetch block number
   useEffect(() => {
     async function fetchBlockNumber() {
       if (isApiReady) {
         try {
           const chainHeader = await api.rpc.chain.getHeader();
-          const blockNumber = chainHeader.number;
-          setCurrentBlock(blockNumber.toString());
-          const blockAllowed: BN = calculateFutureBlock(blockNumber.toString(), blockTimeMs, secondsToAdd);
+          const blockNumber = new BN(chainHeader.number.toString());
+          setCurrentBlock(blockNumber);
+          const blockAllowed: BN = calculateFutureBlock(blockNumber, blockTimeMs, secondsToAdd);
           setBlockNumber(blockAllowed);
         } catch (error) {
           console.error("Error fetching block number: ", error);
