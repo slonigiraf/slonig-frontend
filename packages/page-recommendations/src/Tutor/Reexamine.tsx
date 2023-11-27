@@ -49,13 +49,15 @@ function Reexamine({ className = '', currentPair, insurance, onResult }: Props):
   }, [ipfs, insurance])
 
   const handleStageChange = (nextStage) => {
-    if (nextStage.type === 'reimburse') {
-      getBounty();
-    } else if (nextStage.type === 'success') {
-      onResult();
-    } else {
-      setAlgorithmStage(nextStage);
-    }
+    //TODO: remove comments
+    getBounty();
+    // if (nextStage.type === 'reimburse') {
+    //   getBounty();
+    // } else if (nextStage.type === 'success') {
+    //   onResult();
+    // } else {
+    //   setAlgorithmStage(nextStage);
+    // }
   };
 
   const markUsedInsurance = () => {
@@ -73,24 +75,20 @@ function Reexamine({ className = '', currentPair, insurance, onResult }: Props):
     onResult();
   }
 
-  const _onChangeAccount = useCallback(
-    (accountId: string | null) => accountId && setCurrentPair(keyring.getPair(accountId)),
-    []
-  );
+  const getBounty = () => {
+    signAndSendTransaction().catch(console.error);
+  }
 
-  const isUsable = currentPair != null;
+  const signAndSendTransaction = useCallback(async () => {
+    // Ensure insurance and currentPair are available
+    if (!insurance || !currentPair) {
+      console.error('Required parameters are missing');
+      return;
+    }
 
-  const onSendRef = useRef(null);
-  const txButton = insurance && isUsable && <TxButton
-    onSendRef={onSendRef}
-    className='reimburseButton'
-    accountId={currentPair.address}
-    icon='dollar'
-    label={t('Get bounty')}
-    onSuccess={_onSuccess}
-    onFailed={_onFailed}
-    params={
-      [insurance.letterNumber,
+    // Create the transaction
+    const transfer = api.tx.letters.reimburse(
+      insurance.letterNumber,
       new BN(insurance.block),
       new BN(insurance.blockAllowed),
       insurance.referee,
@@ -98,25 +96,48 @@ function Reexamine({ className = '', currentPair, insurance, onResult }: Props):
       u8aToHex(currentPair.publicKey),
       new BN(insurance.amount),
       insurance.signOverReceipt,
-      insurance.workerSign]
-    }
-    tx={api.tx.letters.reimburse}
-  />
+      insurance.workerSign
+    );
 
-  const getBounty = () => {
-    if (onSendRef.current) {
-      onSendRef.current();
+    // Sign and send the transaction
+    try {
+      await transfer.signAndSend(currentPair, ({ status, events }) => {
+        // Handle transaction status and events
+        console.log(`Transaction status: ${status}`);
+        if (status.isInBlock || status.isFinalized) {
+          //TODO: use _onFailed and _onSuccess
+          onResult();
+
+          events.forEach(({ event }) => {
+            console.log(`Event: ${event.section}.${event.method}`);
+
+            if (api.events.system.ExtrinsicFailed.is(event)) {
+              const [error] = event.data;
+              if (error.isModule) {
+                // for module errors, we have the section indexed, lookup
+                const decoded = api.registry.findMetaError(error.asModule);
+                const { docs, method, section } = decoded;
+                console.error(`${section}.${method}: ${docs.join(' ')}`);
+              } else {
+                // Other, CannotLookup, BadOrigin, no extra info
+                console.error(error.toString());
+              }
+            }
+          });
+        }
+      });
+    } catch (error) {
+      console.error('Error signing and sending transaction:', error);
     }
-  }
+  }, [insurance, currentPair, api]);
+
+
 
   return (
     !skill ? <></> :
       <div>
-        <div className='ui--row' style={{ display: 'none' }}>
-          {txButton}
-        </div>
         <div className='ui--row'>
-            <b>{t('Reexamine the skill that student know')}: "{skill ? skill.h : ''}"</b>
+          <b>{t('Reexamine the skill that student know')}: "{skill ? skill.h : ''}"</b>
         </div>
         {algorithmStage ? (
           <div>
