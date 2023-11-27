@@ -75,7 +75,11 @@ function Reexamine({ className = '', currentPair, insurance, onResult }: Props):
     onResult();
   }
 
-  const errorMessages = {
+  type ErrorKey = 'InvalidRefereeSign' | 'InvalidWorkerSign' | 'InvalidLetterAmount' | 
+                'RefereeBalanceIsNotEnough' | 'LetterWasMarkedAsFraudBefore' | 
+                'Expired' | 'NotAllowedBlock' | 'WrongParaId';
+
+  const errorMessages : Record<ErrorKey, string> = {
     InvalidRefereeSign: 'Invalid signature of previous tutor',
     InvalidWorkerSign: 'Invalid signature of student',
     InvalidLetterAmount: 'Invalid stake amount',
@@ -87,7 +91,7 @@ function Reexamine({ className = '', currentPair, insurance, onResult }: Props):
   };
 
   const _onFailed = (error: string) => {
-    const errorMessage = errorMessages[error] || `${error}`;
+    const errorMessage = errorMessages[error as ErrorKey] || `${error}`;
     showInfo(t(`Didn't get bounty: ${errorMessage}`), 'error', 3);
     onResult();
   };
