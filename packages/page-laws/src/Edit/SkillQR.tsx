@@ -16,8 +16,7 @@ import { getDataToSignByWorker } from '@slonigiraf/helpers';
 import type { Signer } from '@polkadot/api/types';
 import BN from 'bn.js';
 import { BN_ONE } from '@polkadot/util';
-import { useApi, useCall } from '@polkadot/react-hooks';
-import type { BlockNumber } from '@polkadot/types/interfaces';
+import { useApi } from '@polkadot/react-hooks';
 import { useBlockTime } from '@polkadot/react-hooks';
 
 interface Props {
@@ -36,9 +35,9 @@ interface SignerState {
   signer: Signer | null;
 }
 
-const calculateFutureBlock = (block: string, blockTimeMs: number, msToAdd: number): BN => {
-  const currentBlock = new BN(block);
-  const blocksToAdd = new BN(msToAdd).div(new BN(blockTimeMs));
+const getBlockAllowed = (currentBlock: BN, blockTimeMs: number, secondsToAdd: number): BN => {
+  const secondsToGenerateBlock = blockTimeMs / 1000;
+  const blocksToAdd = new BN(secondsToAdd).div(new BN(secondsToGenerateBlock));
   const blockAllowed = currentBlock.add(blocksToAdd);
   return blockAllowed;
 }
@@ -46,21 +45,17 @@ const calculateFutureBlock = (block: string, blockTimeMs: number, msToAdd: numbe
 function SkillQR({ className = '', cid }: Props): React.ReactElement<Props> {
   // Using key
   const { api, isApiReady } = useApi();
-  const useFinalizedBlocks = false;
-  //TODO: test how does it work if block number > u32 (BlockNumber seems to be u32)
-  const bestNumber = useCall<BlockNumber>(isApiReady && (useFinalizedBlocks ? api.derive.chain.bestNumberFinalized : api.derive.chain.bestNumber));
-  const currentBlock = bestNumber?.toString() || "0";
-  const [blockTimeMs,] = useBlockTime(BN_ONE, api);
-  //Allow only for 30 mins
-  const blockAllowed: BN = calculateFutureBlock(currentBlock, blockTimeMs, 1800000);
-
+  // Last block number
+  const [millisecondsPerBlock,] = useBlockTime(BN_ONE, api);
+  const [blockAllowed, setBlockAllowed] = useState<BN>(new BN(0));
+  // Key management
   const [currentPair, setCurrentPair] = useState<KeyringPair | null>(() => keyring.getPairs()[0] || null);
   const [{ isInjected }, setAccountState] = useState<AccountState>({ isExternal: false, isHardware: false, isInjected: false });
   const [isLocked, setIsLocked] = useState(false);
   const [{ isUsable, signer }, setSigner] = useState<SignerState>({ isUsable: true, signer: null });
   const [signature, setSignature] = useState('');
   const [isUnlockVisible, toggleUnlock] = useToggle();
-  //Rest params
+  // Rest params
   const { t } = useTranslation();
   const location = useLocation();
   const navigate = useNavigate();
@@ -71,13 +66,30 @@ function SkillQR({ className = '', cid }: Props): React.ReactElement<Props> {
   const [diplomaToReexamine, setDiplomaToReexamine] = useState<Letter | null>(null);
   const [studentSignatureOverDiplomaToReexamine, setStudentSignatureOverDiplomaToReexamine] = useState<string>("");
 
-
-
   const setQueryTutorId = (value: any) => {
     const newQueryParams = new URLSearchParams();
     newQueryParams.set("tutor", value);
     navigate({ ...location, search: newQueryParams.toString() });
   };
+
+  // Fetch block number (once)
+  useEffect(() => {
+    async function fetchBlockNumber() {
+      if (isApiReady) {
+        try {
+          const chainHeader = await api.rpc.chain.getHeader();
+          const currentBlockNumber = new BN(chainHeader.number.toString());
+          //allow to reexamine within following time
+          const secondsValid = 1800;
+          const blockAllowed: BN = getBlockAllowed(currentBlockNumber, millisecondsPerBlock, secondsValid);
+          setBlockAllowed(blockAllowed);
+        } catch (error) {
+          console.error("Error fetching block number: ", error);
+        }
+      }
+    }
+    fetchBlockNumber();
+  }, [api, isApiReady]);
 
   // Initialize key
   useEffect((): void => {
@@ -202,7 +214,7 @@ function SkillQR({ className = '', cid }: Props): React.ReactElement<Props> {
 
       setStudentSignatureOverDiplomaToReexamine(workerSignOverInsurance);
     },
-    [currentPair, isLocked, isUsable, signer, tutor, diplomaToReexamine, currentBlock]
+    [currentPair, isLocked, isUsable, signer, tutor, diplomaToReexamine, blockAllowed]
   );
 
   const reexamineData = diplomaToReexamine ? `+${diplomaToReexamine.cid}+${diplomaToReexamine.genesis}+${diplomaToReexamine.letterNumber}+${diplomaToReexamine.block}+${blockAllowed.toString()}+${diplomaToReexamine.referee}+${diplomaToReexamine.worker}+${diplomaToReexamine.amount}+${diplomaToReexamine.signOverPrivateData}+${diplomaToReexamine.signOverReceipt}+${studentSignatureOverDiplomaToReexamine}` : '';
