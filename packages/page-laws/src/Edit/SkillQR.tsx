@@ -3,7 +3,7 @@ import { useTranslation } from '../translate';
 import { QRWithShareAndCopy, ScanQR, getBaseUrl, nameFromKeyringPair } from '@slonigiraf/app-slonig-components';
 import { getSetting, storeSetting } from '@slonigiraf/app-recommendations';
 import type { KeyringPair } from '@polkadot/keyring/types';
-import { Dropdown, InputAddress } from '@polkadot/react-components';
+import { Button, Dropdown, InputAddress } from '@polkadot/react-components';
 import { useLiveQuery } from "dexie-react-hooks";
 import { db, Letter } from '@slonigiraf/app-recommendations';
 import { useLocation, useNavigate } from 'react-router-dom';
@@ -18,6 +18,7 @@ import BN from 'bn.js';
 import { BN_ONE } from '@polkadot/util';
 import { useApi } from '@polkadot/react-hooks';
 import { useBlockTime } from '@polkadot/react-hooks';
+import Unlock from '@polkadot/app-signing/Unlock';
 
 interface Props {
   className?: string;
@@ -49,11 +50,10 @@ function SkillQR({ className = '', cid }: Props): React.ReactElement<Props> {
   const [millisecondsPerBlock,] = useBlockTime(BN_ONE, api);
   const [blockAllowed, setBlockAllowed] = useState<BN>(new BN(0));
   // Key management
-  const [currentPair, setCurrentPair] = useState<KeyringPair | null>(() => keyring.getPairs()[0] || null);
+  const [currentPair, setCurrentPair] = useState<KeyringPair | null>(null);
   const [{ isInjected }, setAccountState] = useState<AccountState>({ isExternal: false, isHardware: false, isInjected: false });
   const [isLocked, setIsLocked] = useState(false);
   const [{ isUsable, signer }, setSigner] = useState<SignerState>({ isUsable: true, signer: null });
-  const [signature, setSignature] = useState('');
   const [isUnlockVisible, toggleUnlock] = useToggle();
   // Rest params
   const { t } = useTranslation();
@@ -71,6 +71,15 @@ function SkillQR({ className = '', cid }: Props): React.ReactElement<Props> {
     newQueryParams.set("tutor", value);
     navigate({ ...location, search: newQueryParams.toString() });
   };
+
+  // If account is unlocked by password
+  const _onUnlock = useCallback(
+    (): void => {
+      setIsLocked(false);
+      toggleUnlock();
+    },
+    [toggleUnlock]
+  );
 
   // Fetch block number (once)
   useEffect(() => {
@@ -93,30 +102,31 @@ function SkillQR({ className = '', cid }: Props): React.ReactElement<Props> {
 
   // Initialize key
   useEffect((): void => {
-    const meta = (currentPair && currentPair.meta) || {};
-    const isExternal = (meta.isExternal as boolean) || false;
-    const isHardware = (meta.isHardware as boolean) || false;
-    const isInjected = (meta.isInjected as boolean) || false;
-    const isUsable = !(isExternal || isHardware || isInjected);
-
-    setAccountState({ isExternal, isHardware, isInjected });
-    setIsLocked(
-      isInjected
-        ? false
-        : (currentPair && currentPair.isLocked) || false
-    );
-    setSignature('');
-    setSigner({ isUsable, signer: null });
-
-    // for injected, retrieve the signer
-    if (meta.source && isInjected) {
-      web3FromSource(meta.source as string)
-        .catch((): null => null)
-        .then((injected) => setSigner({
-          isUsable: isFunction(injected?.signer?.signRaw),
-          signer: injected?.signer || null
-        }))
-        .catch(console.error);
+    if(currentPair){
+      const meta = (currentPair && currentPair.meta) || {};
+      const isExternal = (meta.isExternal as boolean) || false;
+      const isHardware = (meta.isHardware as boolean) || false;
+      const isInjected = (meta.isInjected as boolean) || false;
+      const isUsable = !(isExternal || isHardware || isInjected);
+  
+      setAccountState({ isExternal, isHardware, isInjected });
+      setIsLocked(
+        isInjected
+          ? false
+          : (currentPair && currentPair.isLocked) || false
+      );
+      setSigner({ isUsable, signer: null });
+  
+      // for injected, retrieve the signer
+      if (meta.source && isInjected) {
+        web3FromSource(meta.source as string)
+          .catch((): null => null)
+          .then((injected) => setSigner({
+            isUsable: isFunction(injected?.signer?.signRaw),
+            signer: injected?.signer || null
+          }))
+          .catch(console.error);
+      }
     }
   }, [currentPair]);
 
@@ -165,7 +175,7 @@ function SkillQR({ className = '', cid }: Props): React.ReactElement<Props> {
     }
   };
 
-  const publicKeyHex = u8aToHex(currentPair.publicKey);
+  const publicKeyHex = u8aToHex(currentPair?.publicKey);
   useEffect(() => {
     const fetchRandomDiploma = async () => {
       const allDiplomas = await db.letters.toArray();
@@ -195,8 +205,8 @@ function SkillQR({ className = '', cid }: Props): React.ReactElement<Props> {
       // generate a data to sign    
 
       const letterInsurance = getDataToSignByWorker(diplomaToReexamine.letterNumber, new BN(diplomaToReexamine.block), blockAllowed, hexToU8a(diplomaToReexamine.referee),
-      hexToU8a(diplomaToReexamine.worker), new BN(diplomaToReexamine.amount), hexToU8a(diplomaToReexamine.signOverReceipt), hexToU8a(tutor));
-       
+        hexToU8a(diplomaToReexamine.worker), new BN(diplomaToReexamine.amount), hexToU8a(diplomaToReexamine.signOverReceipt), hexToU8a(tutor));
+
       let workerSignOverInsurance = "";
       // sign
       if (signer && isFunction(signer.signRaw)) {// Use browser extenstion 
@@ -232,6 +242,74 @@ function SkillQR({ className = '', cid }: Props): React.ReactElement<Props> {
   const qrCodeText = generateQRData();
   const url = `${getBaseUrl()}/#/${urlDetails}`;
 
+  const unlock = <>
+    <div
+      className='unlock-overlay'
+      hidden={!isUsable || !isLocked || isInjected}
+    >
+      {isLocked && (
+        <div className='unlock-overlay-warning'>
+          <div className='unlock-overlay-content'>
+            <div>
+              <Button
+                icon='unlock'
+                label={t('Unlock your account before learning')}
+                onClick={toggleUnlock}
+              />
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+    <div
+      className='unlock-overlay'
+      hidden={isUsable}
+    >
+      <div className='unlock-overlay-warning'>
+        <div className='unlock-overlay-content'>
+          {isInjected
+            ? t('This injected account cannot be used to sign data since the extension does not support raw signing.')
+            : t('This external account cannot be used to sign data. Only Limited support is currently available for signing from any non-internal accounts.')}
+        </div>
+      </div>
+    </div>
+    {isUnlockVisible && (
+      <Unlock
+        onClose={toggleUnlock}
+        onUnlock={_onUnlock}
+        pair={currentPair}
+      />
+    )}
+  </>;
+
+  const showToTutor = <>
+    {tutor ?
+      <StyledDiv>
+        <h3>{t('Show the QR to your tutor')}</h3>
+        <FlexRow>
+          <Dropdown
+            className={`dropdown ${className}`}
+            label={t('select tutor')}
+            value={tutor}
+            onChange={handleTutorSelect}
+            options={tutorOptions || []}
+          />
+          <ScanQR label={t('by QR')} type={4} />
+        </FlexRow>
+        <QRWithShareAndCopy
+          dataQR={qrCodeText}
+          titleShare={t('QR code')}
+          textShare={t('Press the link to start tutoring')}
+          urlShare={url}
+          dataCopy={url}
+        />
+      </StyledDiv>
+      : <h3>{t('Scan your tutor\'s QR code for help and a diploma.')}</h3>
+    }
+  </>;
+
+  const toLearn = <>{isLocked ? unlock : showToTutor}</>;
+
   return (
     <>
       <div className='ui--row' style={{ display: 'none' }}>
@@ -244,32 +322,7 @@ function SkillQR({ className = '', cid }: Props): React.ReactElement<Props> {
           type='account'
         />
       </div>
-
-      {tutor ?
-        <StyledDiv>
-          <h3>{t('Show the QR to your tutor')}</h3>
-          <FlexRow>
-            <Dropdown
-              className={`dropdown ${className}`}
-              label={t('select tutor')}
-              value={tutor}
-              onChange={handleTutorSelect}
-              options={tutorOptions || []}
-            />
-            <ScanQR label={t('by QR')} type={4} />
-          </FlexRow>
-          <QRWithShareAndCopy
-            dataQR={qrCodeText}
-            titleShare={t('QR code')}
-            textShare={t('Press the link to start tutoring')}
-            urlShare={url}
-            dataCopy={url}
-          />
-        </StyledDiv>
-        : <h3>{t('Scan your tutor\'s QR code for help and a diploma.')}</h3>
-      }
-
-
+      {currentPair !== null && toLearn}
     </>
   );
 }
