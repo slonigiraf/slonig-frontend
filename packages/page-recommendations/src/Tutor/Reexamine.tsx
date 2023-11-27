@@ -75,13 +75,26 @@ function Reexamine({ className = '', currentPair, insurance, onResult }: Props):
     onResult();
   }
 
-  const _onFailed = () => {
-    showInfo(t('Didn\'t get bounty'), 'error');
+  const errorMessages = {
+    InvalidRefereeSign: 'Invalid signature of previous tutor',
+    InvalidWorkerSign: 'Invalid signature of student',
+    InvalidLetterAmount: 'Invalid stake amount',
+    RefereeBalanceIsNotEnough: 'Previous tutor balance is insufficient',
+    LetterWasMarkedAsFraudBefore: 'Diploma was marked as fraud previously',
+    Expired: 'Diploma has expired',
+    NotAllowedBlock: 'Reexamining time has ended',
+    WrongParaId: 'Incorrect parachain used',
+  };
+
+  const _onFailed = (error: string) => {
+    const errorMessage = errorMessages[error] || `${error}`;
+    showInfo(t(`Didn't get bounty: ${errorMessage}`), 'error', 3);
     onResult();
-  }
+  };
+
 
   const getBounty = () => {
-    showInfo(t('Processing'), 'info', 6);
+    showInfo(t('Processing'), 'info', 12);
     signAndSendTransaction().catch(console.error);
   }
 
@@ -110,13 +123,10 @@ function Reexamine({ className = '', currentPair, insurance, onResult }: Props):
     try {
       await transfer.signAndSend(currentPair, ({ status, events }) => {
         // Handle transaction status and events
-        console.log(`Transaction status: ${status}`);
-        if (status.isInBlock || status.isFinalized) {
+        if (status.isInBlock) {
           let isError = false;
-
+          let errorInfo = '';
           events.forEach(({ event }) => {
-            console.log(`Event: ${event.section}.${event.method}`);
-
             if (api.events.system.ExtrinsicFailed.is(event)) {
               isError = true;
               const [error] = event.data;
@@ -124,24 +134,22 @@ function Reexamine({ className = '', currentPair, insurance, onResult }: Props):
                 // for module errors, we have the section indexed, lookup
                 const decoded = api.registry.findMetaError(error.asModule);
                 const { docs, method, section } = decoded;
-                console.error(`${section}.${method}: ${docs.join(' ')}`);
+                errorInfo = `${method}`;
               } else {
                 // Other, CannotLookup, BadOrigin, no extra info
-                console.error(error.toString());
+                errorInfo = error.toString();
               }
             }
           });
-
           if (isError) {
-            _onFailed(); // Call on failure
+            _onFailed(errorInfo); // Call on failure
           } else {
             _onSuccess(); // Call on success
           }
         }
       });
     } catch (error) {
-      console.error('Error signing and sending transaction:', error);
-      _onFailed(); // Call on failure if exception occurs
+      _onFailed(t('Error signing and sending transaction'));
     }
 
   }, [insurance, currentPair, api]);
