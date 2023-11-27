@@ -30,6 +30,8 @@ function Reexamine({ className = '', currentPair, insurance, onResult }: Props):
   const { t } = useTranslation();
   const [algorithmStage, setAlgorithmStage] = useState<AlgorithmStage>();
   const { showInfo } = useInfo();
+  const [isButtonClicked, setIsButtonClicked] = useState(false);
+
 
   useEffect(() => {
     async function fetchData() {
@@ -50,12 +52,14 @@ function Reexamine({ className = '', currentPair, insurance, onResult }: Props):
   }, [ipfs, insurance])
 
   const handleStageChange = (nextStage) => {
+    setIsButtonClicked(true);
     if (nextStage.type === 'reimburse') {
       getBounty();
     } else if (nextStage.type === 'success') {
       onResult();
     } else {
       setAlgorithmStage(nextStage);
+      setIsButtonClicked(false);
     }
   };
 
@@ -156,12 +160,14 @@ function Reexamine({ className = '', currentPair, insurance, onResult }: Props):
                 <Button onClick={() => handleStageChange(algorithmStage.getPrevious())}
                   icon='arrow-left'
                   label='Back'
+                  isDisabled={isButtonClicked}
                 />
               )}
               {algorithmStage.getNext().map((nextStage, index) => (
                 <Button key={index} onClick={() => handleStageChange(nextStage)}
                   icon='fa-square'
                   label={nextStage.getName()}
+                  isDisabled={isButtonClicked}
                 />
               ))}
 
