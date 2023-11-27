@@ -81,7 +81,7 @@ function Reexamine({ className = '', currentPair, insurance, onResult }: Props):
   }
 
   const getBounty = () => {
-    showInfo(t('Processing'));
+    showInfo(t('Processing'), 6);
     signAndSendTransaction().catch(console.error);
   }
 

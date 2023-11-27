@@ -11,8 +11,8 @@ interface InfoContextType {
 const defaultInfoContext: InfoContextType = {
     isInfoVisible: false,
     infoMessage: '',
-    showInfo: () => {},
-    hideInfo: () => {}
+    showInfo: () => { },
+    hideInfo: () => { }
 };
 
 const InfoContext = createContext<InfoContextType>(defaultInfoContext);
@@ -25,12 +25,12 @@ export const InfoProvider: React.FC<InfoProviderProps> = ({ children }) => {
     const [isInfoVisible, setInfoVisible] = useState(false);
     const [infoMessage, setInfoMessage] = useState('');
 
-    const showInfo = (message: string) => {
+    const showInfo = (message: string, timeoutSec: number = 2) => {
         setInfoMessage(message);
         setInfoVisible(true);
         setTimeout(() => {
             hideInfo();
-        }, 2000); // Hide the info after 1 second
+        }, 1000 * timeoutSec); // Hide the info after 1 second
     };
 
     const hideInfo = () => {
@@ -41,7 +41,7 @@ export const InfoProvider: React.FC<InfoProviderProps> = ({ children }) => {
     return (
         <InfoContext.Provider value={{ isInfoVisible, infoMessage, showInfo, hideInfo }}>
             {children}
-            <InfoPopup message={infoMessage} isEnabled={isInfoVisible}/>
+            <InfoPopup message={infoMessage} isEnabled={isInfoVisible} />
         </InfoContext.Provider>
     );
 };
