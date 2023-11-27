@@ -14,7 +14,7 @@ import { isFunction, u8aToHex, hexToU8a, u8aWrapBytes } from '@polkadot/util';
 import { nameFromKeyringPair } from '@slonigiraf/app-slonig-components';
 import { useTranslation } from '../translate.js';
 import { qrCodeSize } from '../constants.js';
-import Unlock from '@polkadot/app-signing';
+import Unlock from '@polkadot/app-signing/Unlock';
 import { Letter } from '../db/Letter.js';
 import { storeLetterUsageRight } from '../utils.js';
 

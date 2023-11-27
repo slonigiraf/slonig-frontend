@@ -12,9 +12,6 @@ import Sign from './Sign.js';
 import { useTranslation } from './translate.js';
 import Verify from './Verify.js';
 
-import Unlock from './Unlock.js';
-export { Unlock };
-
 function SigningApp ({ basePath }: Props): React.ReactElement<Props> {
   const { t } = useTranslation();
 

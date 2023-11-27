@@ -4,7 +4,7 @@ import React, { useCallback, useEffect, useState } from 'react';
 import { useLocation } from 'react-router-dom';
 import BN from 'bn.js';
 import QRCode from 'qrcode.react';
-import Unlock from '@polkadot/app-signing';
+import Unlock from '@polkadot/app-signing/Unlock';
 import { statics } from '@polkadot/react-api/statics';
 import type { Signer } from '@polkadot/api/types';
 import { styled, Toggle, Button, Input, InputAddress, InputBalance, Output, Modal, getAddressName, Icon, Card } from '@polkadot/react-components';

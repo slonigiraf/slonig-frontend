@@ -49,15 +49,13 @@ function Reexamine({ className = '', currentPair, insurance, onResult }: Props):
   }, [ipfs, insurance])
 
   const handleStageChange = (nextStage) => {
-    //TODO: remove comments
-    getBounty();
-    // if (nextStage.type === 'reimburse') {
-    //   getBounty();
-    // } else if (nextStage.type === 'success') {
-    //   onResult();
-    // } else {
-    //   setAlgorithmStage(nextStage);
-    // }
+    if (nextStage.type === 'reimburse') {
+      getBounty();
+    } else if (nextStage.type === 'success') {
+      onResult();
+    } else {
+      setAlgorithmStage(nextStage);
+    }
   };
 
   const markUsedInsurance = () => {
