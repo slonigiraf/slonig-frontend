@@ -76,12 +76,12 @@ function Reexamine({ className = '', currentPair, insurance, onResult }: Props):
   }
 
   const _onFailed = () => {
-    showInfo(t('Didn\'t get bounty'));
+    showInfo(t('Didn\'t get bounty'), 'error');
     onResult();
   }
 
   const getBounty = () => {
-    showInfo(t('Processing'), 6);
+    showInfo(t('Processing'), 'info', 6);
     signAndSendTransaction().catch(console.error);
   }
 

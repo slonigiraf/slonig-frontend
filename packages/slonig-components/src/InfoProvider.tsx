@@ -4,7 +4,7 @@ import InfoPopup from './InfoPopup.js';
 interface InfoContextType {
     isInfoVisible: boolean;
     infoMessage: string;
-    showInfo: (message: string) => void;
+    showInfo: (message: string, type?: 'error' | 'info', timeoutSec?: number) => void;
     hideInfo: () => void;
 }
 
@@ -24,9 +24,11 @@ interface InfoProviderProps {
 export const InfoProvider: React.FC<InfoProviderProps> = ({ children }) => {
     const [isInfoVisible, setInfoVisible] = useState(false);
     const [infoMessage, setInfoMessage] = useState('');
+    const [type, setType] = useState<'error' | 'info'>('info');
 
-    const showInfo = (message: string, timeoutSec: number = 2) => {
+    const showInfo = (message: string, type: 'error' | 'info' = 'info', timeoutSec: number = 2) => {
         setInfoMessage(message);
+        setType(type);
         setInfoVisible(true);
         setTimeout(() => {
             hideInfo();
@@ -41,7 +43,7 @@ export const InfoProvider: React.FC<InfoProviderProps> = ({ children }) => {
     return (
         <InfoContext.Provider value={{ isInfoVisible, infoMessage, showInfo, hideInfo }}>
             {children}
-            <InfoPopup message={infoMessage} isEnabled={isInfoVisible} />
+            <InfoPopup message={infoMessage} isEnabled={isInfoVisible} type={type} />
         </InfoContext.Provider>
     );
 };
