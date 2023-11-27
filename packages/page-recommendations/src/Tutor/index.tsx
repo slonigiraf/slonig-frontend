@@ -58,7 +58,7 @@ function Tutor({ className = '' }: Props): React.ReactElement<Props> {
   const queryData = queryParams.get("d") || "";
   const [tutor, skillCID, studentIdentity, student, cidR, genesisR, nonceR, blockR, blockAllowedR, tutorR, studentR, amountR, signOverPrivateDataR, signOverReceiptR, studentSignR] = queryData.split(' ');
   const [skill, setSkill] = useState<Skill | null>(null);
-  
+
   // Initialize account
   const [currentPair, setCurrentPair] = useState<KeyringPair | null>(() => keyring.getPairs()[0] || null);
   const [{ isInjected }, setAccountState] = useState<AccountState>({ isExternal: false, isHardware: false, isInjected: false });
@@ -72,7 +72,7 @@ function Tutor({ className = '' }: Props): React.ReactElement<Props> {
   const [canIssueDiploma, setCanIssueDiploma] = useState(false);
   const [reexamined, setReexamined] = useState<boolean>(cidR === undefined);
   const [teachingAlgorithm, setTeachingAlgorithm] = useState<TeachingAlgorithm | null>(null);
-  
+
   // Initialize diploma details
   //   stake: 572 Slon, 12 zeroes for numbers after point
   const defaultStake: BN = new BN("572000000000000");
@@ -90,7 +90,7 @@ function Tutor({ className = '' }: Props): React.ReactElement<Props> {
   const [studentName, setStudentName] = useState<string | undefined>(undefined);
   //   show stake and days or hide
   const [visibleDiplomaDetails, toggleVisibleDiplomaDetails] = useToggle(false);
-  
+
   // Fetch skill data and set teaching algorithm
   useEffect(() => {
     async function fetchData() {
@@ -289,7 +289,7 @@ function Tutor({ className = '' }: Props): React.ReactElement<Props> {
   if (currentPair !== null) {
     publicKeyHex = u8aToHex(currentPair.publicKey);
   }
-  
+
   const name = nameFromKeyringPair(currentPair);
 
   const qrData = {
@@ -319,6 +319,46 @@ function Tutor({ className = '' }: Props): React.ReactElement<Props> {
   };
 
   const isDedicatedTutor = (tutor === publicKeyHex) || !tutor;
+
+  const unlock = <>
+    <div
+      className='unlock-overlay'
+      hidden={!isUsable || !isLocked || isInjected}
+    >
+      {isLocked && (
+        <div className='unlock-overlay-warning'>
+          <div className='unlock-overlay-content'>
+            <div>
+              <Button
+                icon='unlock'
+                label={t('Unlock your account before tutoring')}
+                onClick={toggleUnlock}
+              />
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+    <div
+      className='unlock-overlay'
+      hidden={isUsable}
+    >
+      <div className='unlock-overlay-warning'>
+        <div className='unlock-overlay-content'>
+          {isInjected
+            ? t('This injected account cannot be used to sign data since the extension does not support raw signing.')
+            : t('This external account cannot be used to sign data. Only Limited support is currently available for signing from any non-internal accounts.')}
+        </div>
+      </div>
+    </div>
+    {isUnlockVisible && (
+      <Unlock
+        onClose={toggleUnlock}
+        onUnlock={_onUnlock}
+        pair={currentPair}
+      />
+    )}
+  </>;
 
   return (
     <div className={`toolbox--Tutor ${className}`}>
@@ -350,135 +390,101 @@ function Tutor({ className = '' }: Props): React.ReactElement<Props> {
             dataCopy={url} />
         </>
           :
-          <>
-            <div>
-              <h2>{t('Student')}: {studentName}</h2>
-            </div>
-            <div style={!reexamined ? {} : { display: 'none' }}>
-              <Reexamine currentPair={currentPair} insurance={insurance} onResult={updateReexamined} />
-            </div>
-            <div style={reexamined ? {} : { display: 'none' }}>
-              <b>{t('Teach and create a diploma')}: </b>
-              <b>"{skill ? skill.h : ''}"</b>
-              <DoInstructions algorithm={teachingAlgorithm} onResult={updateTutoring} />
-            </div>
-            {
-              canIssueDiploma &&
-              <StyledDiv>
-                <Card>
-                  <div className='ui--row'>
-                    <h2>{t('Diploma')}</h2>
-                  </div>
-                  <table>
-                    <tbody>
-                      <tr>
-                        <td><Icon icon='graduation-cap' /></td>
-                        <td>{skill ? skill.h : ''}</td>
-                      </tr>
-                      <tr>
-                        <td><Icon icon='person' /></td>
-                        <td>{studentName}</td>
-                      </tr>
-                    </tbody>
-                  </table>
-                  <Toggle
-                    label={t('details')}
-                    onChange={toggleVisibleDiplomaDetails}
-                    value={visibleDiplomaDetails}
-                  />
-                  <div className='ui--row' style={visibleDiplomaDetails ? {} : { display: 'none' }}>
-                    <InputBalance
-                      help={t('Stake reputation help info')}
-                      isZeroable
-                      label={t('stake slon')}
-                      onChange={setAmount}
-                      defaultValue={amount}
+          <> {isLocked ? unlock :
+            <>
+              <div>
+                <h2>{t('Student')}: {studentName}</h2>
+              </div>
+              <div style={!reexamined ? {} : { display: 'none' }}>
+                <Reexamine currentPair={currentPair} insurance={insurance} onResult={updateReexamined} />
+              </div>
+              <div style={reexamined ? {} : { display: 'none' }}>
+                <b>{t('Teach and create a diploma')}: </b>
+                <b>"{skill ? skill.h : ''}"</b>
+                <DoInstructions algorithm={teachingAlgorithm} onResult={updateTutoring} />
+              </div>
+              {
+                canIssueDiploma &&
+                <StyledDiv>
+                  <Card>
+                    <div className='ui--row'>
+                      <h2>{t('Diploma')}</h2>
+                    </div>
+                    <table>
+                      <tbody>
+                        <tr>
+                          <td><Icon icon='graduation-cap' /></td>
+                          <td>{skill ? skill.h : ''}</td>
+                        </tr>
+                        <tr>
+                          <td><Icon icon='person' /></td>
+                          <td>{studentName}</td>
+                        </tr>
+                      </tbody>
+                    </table>
+                    <Toggle
+                      label={t('details')}
+                      onChange={toggleVisibleDiplomaDetails}
+                      value={visibleDiplomaDetails}
                     />
-                  </div>
-                  <div className='ui--row' style={visibleDiplomaDetails ? {} : { display: 'none' }}>
-                    <Input
-                      className='full'
-                      help={t('Days valid info')}
-                      label={t('days valid')}
-                      onChange={_onChangeDaysValid}
-                      value={daysValid.toString()}
-                    />
-                  </div>
-                </Card>
+                    <div className='ui--row' style={visibleDiplomaDetails ? {} : { display: 'none' }}>
+                      <InputBalance
+                        help={t('Stake reputation help info')}
+                        isZeroable
+                        label={t('stake slon')}
+                        onChange={setAmount}
+                        defaultValue={amount}
+                      />
+                    </div>
+                    <div className='ui--row' style={visibleDiplomaDetails ? {} : { display: 'none' }}>
+                      <Input
+                        className='full'
+                        help={t('Days valid info')}
+                        label={t('days valid')}
+                        onChange={_onChangeDaysValid}
+                        value={daysValid.toString()}
+                      />
+                    </div>
+                  </Card>
 
-                <div className='toolbox--Tutor-input'>
-                  <div className='ui--row'>
-                    <Output
-                      className='full'
-                      help={t('create a diploma help text')}
-                      isHidden={signature.length === 0}
-                      isMonospace
-                      label={t('create a diploma')}
-                      value={signature}
-                      withCopy
-                    />
-                  </div>
-                </div>
-                <div>
-                  <div
-                    className='unlock-overlay'
-                    hidden={!isUsable || !isLocked || isInjected}
-                  >
-                    {isLocked && (
-                      <div className='unlock-overlay-warning'>
-                        <div className='unlock-overlay-content'>
-                          <div>
-                            <Button
-                              icon='unlock'
-                              label={t('Unlock before selling')}
-                              onClick={toggleUnlock}
-                            />
-                          </div>
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                  <div
-                    className='unlock-overlay'
-                    hidden={isUsable}
-                  >
-                    <div className='unlock-overlay-warning'>
-                      <div className='unlock-overlay-content'>
-                        {isInjected
-                          ? t('This injected account cannot be used to sign data since the extension does not support raw signing.')
-                          : t('This external account cannot be used to sign data. Only Limited support is currently available for signing from any non-internal accounts.')}
-                      </div>
+                  <div className='toolbox--Tutor-input'>
+                    <div className='ui--row'>
+                      <Output
+                        className='full'
+                        help={t('create a diploma help text')}
+                        isHidden={signature.length === 0}
+                        isMonospace
+                        label={t('create a diploma')}
+                        value={signature}
+                        withCopy
+                      />
                     </div>
                   </div>
-                  {isUnlockVisible && (
-                    <Unlock
-                      onClose={toggleUnlock}
-                      onUnlock={_onUnlock}
-                      pair={currentPair}
-                    />
-                  )}
-                  {!isLocked && (<Button
-                    icon='dollar'
-                    isDisabled={!(isUsable && !isLocked && isIpfsReady)}
-                    label={t('Sell the diploma')}
-                    onClick={_onSign}
-                  />)}
-                  {!isIpfsReady ? <div>{t('Connecting to IPFS...')}</div> : ""}
-                </div>
-                {modalIsOpen &&
-                  <Modal
-                    size={"small"}
-                    header={t('Show the QR to your student')}
-                    onClose={() => setModalIsOpen(false)}
-                  >
-                    <Modal.Content>
-                      <QRCode value={diplomaText} size={qrCodeSize} />
-                    </Modal.Content>
-                  </Modal>
-                }
-              </StyledDiv>
-            }
-
+                  <div>
+                    {unlock}
+                    {!isLocked && (<Button
+                      icon='dollar'
+                      isDisabled={!(isUsable && !isLocked && isIpfsReady)}
+                      label={t('Sell the diploma')}
+                      onClick={_onSign}
+                    />)}
+                    {!isIpfsReady ? <div>{t('Connecting to IPFS...')}</div> : ""}
+                  </div>
+                  {modalIsOpen &&
+                    <Modal
+                      size={"small"}
+                      header={t('Show the QR to your student')}
+                      onClose={() => setModalIsOpen(false)}
+                    >
+                      <Modal.Content>
+                        <QRCode value={diplomaText} size={qrCodeSize} />
+                      </Modal.Content>
+                    </Modal>
+                  }
+                </StyledDiv>
+              }
+            </>
+          }
           </>
       }
     </div>
