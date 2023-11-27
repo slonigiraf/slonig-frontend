@@ -40,7 +40,7 @@ function Reexamine({ className = '', currentPair, insurance, onResult }: Props):
           const skillContent = await getIPFSDataFromContentID(ipfs, insurance.cid);
           const skillJson = parseJson(skillContent);
           setSkill(skillJson);
-          const newAlgorithm = new ValidatingAlgorithm(t, skillJson ? skillJson.q : []);
+          const newAlgorithm = new ValidatingAlgorithm(t, skillJson, insurance);
           setAlgorithmStage(newAlgorithm.getBegin());
         }
         catch (e) {

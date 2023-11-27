@@ -1,9 +1,13 @@
 import { AlgorithmStage } from './AlgorithmStage.js';
 import { Algorithm } from './Algorithm.js';
+import type { Skill } from '@slonigiraf/app-slonig-components';
+import { Insurance } from '../db/Insurance.js';
+import BN from 'bn.js';
 
 class ValidatingAlgorithm extends Algorithm {
-    constructor(t: any, questions: any[]) {
+    constructor(t: any, skill: Skill, insurance: Insurance) {
         super();
+        const questions = skill ? skill.q : [];
         let question1: string = questions.length > 0 ? questions[0].h : t('SOME TASK FOR SKILL TRAINING (THE MENTOR SHOULD KNOW)');
         let question2: string = questions.length > 1 ? questions[1].h : question1;
 
@@ -17,13 +21,17 @@ class ValidatingAlgorithm extends Algorithm {
             </div>,
             []
         );
+
+
+        const amount = new BN(insurance?.amount).div(new BN("1000000000000"));
+
         const explainReimburse = new AlgorithmStage(
             'intermediate',
             t('NO'),
             <div>
                 <b>{t('Tell the student')}: </b>
                 <em>{t('You don\'t have such a skill. I will penalize the tutor which issued the diploma for it.')} </em>
-                <b>{`${t('And press')} "${t('Get bounty')}" ${t('button')}`}</b>
+                <b>{`${t('And press')} "${t('Get bounty')}" ${t('button')} ${t('to receive')} ${amount?.toString()} Slon.`}</b>
             </div>,
             []
         );
