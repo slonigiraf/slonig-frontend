@@ -17,9 +17,10 @@ import DotAppsOverlay from './overlays/DotApps.js';
 import WarmUp from './WarmUp.js';
 import BottomMenu from './BottomMenu/index';
 import { IpfsProvider } from '@slonigiraf/app-slonig-components';
+import { InfoProvider } from '@slonigiraf/app-slonig-components';
 export const PORTAL_ID = 'portals';
 
-function Apps ({ className = '' }: Props): React.ReactElement<Props> {
+function Apps({ className = '' }: Props): React.ReactElement<Props> {
   const { themeClassName } = useTheme();
   const { apiEndpoint, isDevelopment } = useApi();
 
@@ -30,22 +31,24 @@ function Apps ({ className = '' }: Props): React.ReactElement<Props> {
     [apiEndpoint, isDevelopment]
   );
   return (
-    <IpfsProvider>
-      <GlobalStyle uiHighlight={uiHighlight} />
-      <StyledDiv className={`${className} apps--Wrapper ${themeClassName}`}>
-        <Menu />
-        <AccountSidebar>
-          <Signer>
-            <Content />
-          </Signer>
-          <ConnectingOverlay />
-          <DotAppsOverlay />
-          <div id={PORTAL_ID} />
-        </AccountSidebar>
-      </StyledDiv>
-      <WarmUp />
-      <BottomMenu />
-    </IpfsProvider>
+    <InfoProvider>
+      <IpfsProvider>
+        <GlobalStyle uiHighlight={uiHighlight} />
+        <StyledDiv className={`${className} apps--Wrapper ${themeClassName}`}>
+          <Menu />
+          <AccountSidebar>
+            <Signer>
+              <Content />
+            </Signer>
+            <ConnectingOverlay />
+            <DotAppsOverlay />
+            <div id={PORTAL_ID} />
+          </AccountSidebar>
+        </StyledDiv>
+        <WarmUp />
+        <BottomMenu />
+      </IpfsProvider>
+    </InfoProvider>
   );
 }
 

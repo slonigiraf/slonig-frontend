@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react';
+import React from 'react';
 import { useTranslation } from './translate.js';
 import { BaseOverlay } from '@polkadot/apps';
 
@@ -6,22 +6,10 @@ interface Props {
     isEnabled: boolean;
     message: string;
     type?: 'error' | 'info';
-    onTimeout?: () => void;
 }
 
-function InfoPopup({ isEnabled, message, type = 'info', onTimeout }: Props): React.ReactElement<Props> | null {
+function InfoPopup({ isEnabled, message, type = 'info' }: Props): React.ReactElement<Props> | null {
     const { t } = useTranslation();
-
-    useEffect(() => {
-        let timer: any;
-        if (isEnabled && onTimeout) {
-            timer = setTimeout(() => {
-                onTimeout();
-            }, 1000);
-        }
-        return () => clearTimeout(timer);
-    }, [isEnabled, onTimeout]);
-
     if (!isEnabled) {
         return null;
     }

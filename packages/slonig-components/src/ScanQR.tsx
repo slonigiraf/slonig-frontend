@@ -4,8 +4,7 @@ import { QRScanner } from '@slonigiraf/app-slonig-components';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from '../../apps/src/translate.js';
 import { Modal, TransferModal } from '@polkadot/react-components';
-import { ButtonWithLabelBelow } from '@slonigiraf/app-slonig-components';
-import InfoPopup from './InfoPopup.js';
+import { ButtonWithLabelBelow, useInfo } from '@slonigiraf/app-slonig-components';
 import { createAndStoreLetter, storeInsurances, storePseudonym, storeSetting } from '@slonigiraf/app-recommendations';
 
 interface Props {
@@ -20,7 +19,7 @@ function ScanQR({ className = '', label, type }: Props): React.ReactElement<Prop
   const [isTransferOpen, toggleTransfer] = useToggle();
   const [recipientId, setRecipientId] = useState<string>('');
   const navigate = useNavigate();
-  const [infoEnabled, toggleInfoEnabled] = useToggle(false);
+  const { showInfo } = useInfo();
 
   // Process the scanned QR data
   const processQR = useCallback(async (data: string) => {
@@ -69,7 +68,7 @@ function ScanQR({ className = '', label, type }: Props): React.ReactElement<Prop
               console.warn("Unknown QR type:", jsonData.q);
           }
         } else {
-          toggleInfoEnabled();
+          showInfo(t('Wrong QR type'))
         }
       } else {
         console.error("Invalid QR data structure.");
@@ -115,12 +114,6 @@ function ScanQR({ className = '', label, type }: Props): React.ReactElement<Prop
           recipientId={recipientId}
         />
       )}
-      <InfoPopup
-        type='error'
-        isEnabled={infoEnabled}
-        message={t('Wrong QR type')}
-        onTimeout={toggleInfoEnabled}
-      />
     </>
   );
 }

@@ -2,12 +2,13 @@
 // SPDX-License-Identifier: Apache-2.0
 import QRScanner from './QRScanner.js'
 import { IpfsProvider, useIpfsContext } from './IpfsContext.js';
+import { InfoProvider, useInfo } from './InfoProvider.js';
 import ClipboardCopyButton from './ClipboardCopyButton.js';
 import ButtonWithLabelBelow from './ButtonWithLabelBelow.js';
 import ScanQR from './ScanQR.js';
 import QRWithShareAndCopy from './QRWithShareAndCopy.js';
 import { nameFromKeyringPair, getBaseUrl, CODEC, getIPFSContentID, getIPFSDataFromContentID, digestFromCIDv1, getCIDFromBytes, storeEncryptedTextOnIPFS, retrieveDecryptedDataFromIPFS, parseJson } from './utils.js';
-export { ClipboardCopyButton, QRWithShareAndCopy, QRScanner, ButtonWithLabelBelow, ScanQR, IpfsProvider, useIpfsContext };
+export { ClipboardCopyButton, QRWithShareAndCopy, QRScanner, ButtonWithLabelBelow, ScanQR, IpfsProvider, useIpfsContext, InfoProvider, useInfo };
 export { nameFromKeyringPair, getBaseUrl, CODEC, getIPFSContentID, getIPFSDataFromContentID, digestFromCIDv1, getCIDFromBytes, storeEncryptedTextOnIPFS, retrieveDecryptedDataFromIPFS, parseJson }
 export interface Question {
     h: string;

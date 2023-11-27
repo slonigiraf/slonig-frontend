@@ -9,7 +9,7 @@ import { ValidatingAlgorithm } from './ValidatingAlgorithm.js';
 import { useTranslation } from '../translate.js';
 import { useIpfsContext } from '@slonigiraf/app-slonig-components';
 import { Insurance } from '../db/Insurance.js';
-import { getIPFSDataFromContentID, parseJson } from '@slonigiraf/app-slonig-components'
+import { getIPFSDataFromContentID, parseJson, useInfo } from '@slonigiraf/app-slonig-components'
 import type { KeyringPair } from '@polkadot/keyring/types';
 import { useApi } from '@polkadot/react-hooks';
 import { db } from "../db/index.js";
@@ -29,6 +29,7 @@ function Reexamine({ className = '', currentPair, insurance, onResult }: Props):
   const [skill, setSkill] = useState<Skill>();
   const { t } = useTranslation();
   const [algorithmStage, setAlgorithmStage] = useState<AlgorithmStage>();
+  const { showInfo } = useInfo();
 
   useEffect(() => {
     async function fetchData() {
@@ -64,16 +65,19 @@ function Reexamine({ className = '', currentPair, insurance, onResult }: Props):
     }
   }
 
-  const _onSuccess = (_result: any) => {
+  const _onSuccess = () => {
     markUsedInsurance();
+    showInfo(t('Got bounty'));
     onResult();
   }
 
-  const _onFailed = (_result: any) => {
+  const _onFailed = () => {
+    showInfo(t('Didn\'t get bounty'));
     onResult();
   }
 
   const getBounty = () => {
+    showInfo(t('Processing'));
     signAndSendTransaction().catch(console.error);
   }
 
@@ -98,18 +102,19 @@ function Reexamine({ className = '', currentPair, insurance, onResult }: Props):
     );
 
     // Sign and send the transaction
+    // Sign and send the transaction
     try {
       await transfer.signAndSend(currentPair, ({ status, events }) => {
         // Handle transaction status and events
         console.log(`Transaction status: ${status}`);
         if (status.isInBlock || status.isFinalized) {
-          //TODO: use _onFailed and _onSuccess
-          onResult();
+          let isError = false;
 
           events.forEach(({ event }) => {
             console.log(`Event: ${event.section}.${event.method}`);
 
             if (api.events.system.ExtrinsicFailed.is(event)) {
+              isError = true;
               const [error] = event.data;
               if (error.isModule) {
                 // for module errors, we have the section indexed, lookup
@@ -122,14 +127,20 @@ function Reexamine({ className = '', currentPair, insurance, onResult }: Props):
               }
             }
           });
+
+          if (isError) {
+            _onFailed(); // Call on failure
+          } else {
+            _onSuccess(); // Call on success
+          }
         }
       });
     } catch (error) {
       console.error('Error signing and sending transaction:', error);
+      _onFailed(); // Call on failure if exception occurs
     }
+
   }, [insurance, currentPair, api]);
-
-
 
   return (
     !skill ? <></> :

@@ -1,8 +1,7 @@
 import React from 'react';
 import { Button } from '@polkadot/react-components';
 import { useTranslation } from './translate.js';
-import { useToggle } from '@polkadot/react-hooks';
-import InfoPopup from './InfoPopup.js';
+import { useInfo } from '@slonigiraf/app-slonig-components';
 
 interface Props {
     className?: string;
@@ -11,7 +10,7 @@ interface Props {
 
 function ClipboardCopyButton({ className, text }: Props): React.ReactElement<Props> {
     const { t } = useTranslation();
-    const [infoEnabled, toggleInfoEnabled] = useToggle(false);
+    const { showInfo } = useInfo();
 
     const copyToClipboard = () => {
         // Create a temporary textarea element to hold the text to copy
@@ -21,17 +20,12 @@ function ClipboardCopyButton({ className, text }: Props): React.ReactElement<Pro
         tempElem.select();
         document.execCommand('copy');
         document.body.removeChild(tempElem);
-        toggleInfoEnabled();
+        showInfo(t('Copied'));
     }
 
     return (
         <>
             <Button icon='copy' label={t('Copy')} onClick={copyToClipboard} />
-            <InfoPopup
-                isEnabled={infoEnabled}
-                message='Copied'
-                onTimeout={toggleInfoEnabled}
-            />
         </>
     );
 }
