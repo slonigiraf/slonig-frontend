@@ -1,9 +1,9 @@
 import React from 'react';
 import styled from 'styled-components';
 import { ScanQR } from '@slonigiraf/app-slonig-components';
-import GoKnowledge from './GoKnowledge';
-import GetSlon from './GetSlon';
-import GoDiplomas from './GoDiplomas';
+import GoKnowledge from './GoKnowledge.js';
+import GetSlon from './GetSlon.js';
+import GoDiplomas from './GoDiplomas.js';
 import { useApi } from '@polkadot/react-hooks';
 import { useTranslation } from '../translate.js';
 

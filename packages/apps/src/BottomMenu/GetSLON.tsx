@@ -5,7 +5,7 @@ import React from 'react';
 import PayToAccountQR from './PayToAccountQR.js';
 import { ButtonWithLabelBelow } from '@slonigiraf/app-slonig-components';
 
-function GetSLON(): React.ReactElement {
+function GetSlon(): React.ReactElement {
   const { t } = useTranslation();
   const [isQROpen, toggleQR] = useToggle();
 
@@ -36,4 +36,4 @@ function GetSLON(): React.ReactElement {
   );
 }
 
-export default GetSLON;
+export default GetSlon;
