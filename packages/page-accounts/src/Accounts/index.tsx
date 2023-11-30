@@ -149,10 +149,7 @@ function Overview ({ className = '', onStatusChange }: Props): React.ReactElemen
     []
   );
 
-  const canStoreAccounts = useMemo(
-    () => isElectron || (!isIpfs && settings.get().storage === 'on'),
-    [isElectron, isIpfs]
-  );
+  const canStoreAccounts = true;
 
   // We use favorites only to check if it includes some element,
   // so Object is better than array for that because hashmap access is O(1).

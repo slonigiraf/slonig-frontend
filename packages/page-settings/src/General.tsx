@@ -146,8 +146,8 @@ function General ({ className = '' }: Props): React.ReactElement<Props> {
           options={translateLanguages}
         />
       </div>
-      <h1>{t('account options')}</h1>
-      <div className='ui--row'>
+      
+      {/* <div className='ui--row'>
         <Dropdown
           defaultValue={state.prefix}
           label={t('address prefix')}
@@ -171,9 +171,10 @@ function General ({ className = '' }: Props): React.ReactElement<Props> {
             </div>
           )}
         </>
-      )}
+      )} */}
       {hasLedgerChain && (
         <>
+        <h1>{t('account options')}</h1>
           <div className='ui--row'>
             <Dropdown
               defaultValue={
