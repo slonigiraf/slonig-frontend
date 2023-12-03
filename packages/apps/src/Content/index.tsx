@@ -15,6 +15,8 @@ import { findMissingApis } from '../endpoint.js';
 import { useTranslation } from '../translate.js';
 import NotFound from './NotFound.js';
 import Status from './Status.js';
+import CreateModal from '@polkadot/app-accounts/modals/Create';
+import { useToggle, useAccounts } from '@polkadot/react-hooks';
 
 interface Props {
   className?: string;
@@ -30,11 +32,13 @@ const NOT_FOUND: Route = {
   text: 'Unknown'
 };
 
-function Content ({ className }: Props): React.ReactElement<Props> {
+function Content({ className }: Props): React.ReactElement<Props> {
   const location = useLocation();
   const { t } = useTranslation();
   const { api, isApiConnected, isApiReady, isDevelopment } = useApi();
   const { queueAction } = useQueue();
+  const { hasAccounts } = useAccounts();
+  const [isCreateOpen, toggleCreate] = useToggle(!hasAccounts);
 
   const { Component, display: { needsApi, needsApiCheck, needsApiInstances }, icon, name, text } = useMemo(
     (): Route => {
@@ -81,11 +85,19 @@ function Content ({ className }: Props): React.ReactElement<Props> {
                       />
                     )
                     : (
-                      <Component
-                        basePath={`/${name}`}
-                        location={location}
-                        onStatusChange={queueAction}
-                      />
+                      <>
+                        <Component
+                          basePath={`/${name}`}
+                          location={location}
+                          onStatusChange={queueAction}
+                        />
+                        {isCreateOpen && (
+                          <CreateModal
+                            onClose={toggleCreate}
+                            onStatusChange={() => { }}
+                          />
+                        )}
+                      </>
                     )
                   }
                 </TabsCtx.Provider>
