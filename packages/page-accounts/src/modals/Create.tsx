@@ -4,26 +4,21 @@
 import type { ActionStatus } from '@polkadot/react-components/Status/types';
 import type { AddressState, CreateOptions, CreateProps, DeriveValidationOutput, PairType, SeedType } from '../types.js';
 
-import React, { useCallback, useRef, useState } from 'react';
+import React, { useCallback, useState } from 'react';
 
 import { DEV_PHRASE } from '@polkadot/keyring/defaults';
-import { AddressRow, Button, Checkbox, CopyButton, Dropdown, Expander, Input, MarkError, MarkWarning, Modal, styled, TextArea } from '@polkadot/react-components';
-import { useApi, useLedger, useStepper } from '@polkadot/react-hooks';
+import { Button, Modal, styled } from '@polkadot/react-components';
+import { useApi } from '@polkadot/react-hooks';
 import { keyring } from '@polkadot/ui-keyring';
-import { settings } from '@polkadot/ui-settings';
 import { isHex, nextTick, u8aToHex } from '@polkadot/util';
 import { hdLedger, hdValidatePath, keyExtractSuri, mnemonicGenerate, mnemonicValidate, randomAsU8a } from '@polkadot/util-crypto';
 
 import { useTranslation } from '../translate.js';
 import { tryCreateAccount } from '../util.js';
 import CreateAccountInputs from './CreateAccountInputs.js';
-import CreateConfirmation from './CreateConfirmation.js';
-import CreateEthDerivationPath, { ETH_DEFAULT_PATH } from './CreateEthDerivationPath.js';
-import CreateSuriLedger from './CreateSuriLedger.js';
-import ExternalWarning from './ExternalWarning.js';
+import { ETH_DEFAULT_PATH } from './CreateEthDerivationPath.js';
 
 const DEFAULT_PAIR_TYPE = 'sr25519';
-const STEPS_COUNT = 2;
 
 function getSuri(seed: string, derivePath: string, pairType: PairType): string {
   return pairType === 'ed25519-ledger'
@@ -153,7 +148,6 @@ function createAccount(seed: string, derivePath: string, pairType: PairType, { g
 function Create({ className = '', onClose, onStatusChange, seed: propsSeed, type: propsType }: CreateProps): React.ReactElement<CreateProps> {
   const { t } = useTranslation();
   const { api, isDevelopment, isEthereum } = useApi();
-  const { isLedgerEnabled } = useLedger();
   const [{ address, derivePath, deriveValidation, isSeedValid, pairType, seed, seedType }, setAddress] = useState<AddressState>(() => generateSeed(
     propsSeed,
     isEthereum ? ETH_DEFAULT_PATH : '',
@@ -161,7 +155,6 @@ function Create({ className = '', onClose, onStatusChange, seed: propsSeed, type
     isEthereum ? 'ethereum' : propsType
   ));
   const [isMnemonicSaved, setIsMnemonicSaved] = useState<boolean>(true);
-  const [step, nextStep, prevStep] = useStepper();
   const [isBusy, setIsBusy] = useState(false);
   const [{ isNameValid, name }, setName] = useState(() => ({ isNameValid: false, name: '' }));
   const [{ isPasswordValid, password }, setPassword] = useState(() => ({ isPasswordValid: false, password: '' }));
@@ -169,58 +162,7 @@ function Create({ className = '', onClose, onStatusChange, seed: propsSeed, type
   const isSecondStepValid = isNameValid && isPasswordValid;
   const isValid = isFirstStepValid && isSecondStepValid;
 
-  const errorIndex = useRef<Record<string, string>>({
-    INVALID_DERIVATION_PATH: t('This is an invalid derivation path.'),
-    PASSWORD_IGNORED: t('Password are ignored for hex seed'),
-    SOFT_NOT_ALLOWED: t('Soft derivation paths are not allowed on ed25519'),
-    WARNING_SLASH_PASSWORD: t('Your password contains at least one "/" character. Disregard this warning if it is intended.')
-  });
-
-  const seedOpt = useRef((
-    isDevelopment
-      ? [{ text: t('Development'), value: 'dev' }]
-      : []
-  ).concat(
-    { text: t('Mnemonic'), value: 'bip' },
-    isEthereum
-      ? { text: t('Private Key'), value: 'raw' }
-      : { text: t('Raw seed'), value: 'raw' }
-  ));
-
-  const _onChangePath = useCallback(
-    (newDerivePath: string) => setAddress(
-      updateAddress(seed, newDerivePath, seedType, pairType)
-    ),
-    [pairType, seed, seedType]
-  );
-
-  const _onChangeSeed = useCallback(
-    (newSeed: string) => setAddress(
-      updateAddress(newSeed, derivePath, seedType, pairType)
-    ),
-    [derivePath, pairType, seedType]
-  );
-
-  const _onChangePairType = useCallback(
-    (newPairType: PairType) => setAddress(
-      updateAddress(seed, isEthereum ? ETH_DEFAULT_PATH : '', seedType, newPairType)
-    ),
-    [seed, seedType, isEthereum]
-  );
-
-  const _selectSeedType = useCallback(
-    (newSeedType: SeedType): void => {
-      if (newSeedType !== seedType) {
-        setAddress(generateSeed(null, derivePath, newSeedType, pairType));
-      }
-    },
-    [derivePath, pairType, seedType]
-  );
-
-  const _toggleMnemonicSaved = useCallback(
-    () => setIsMnemonicSaved(!isMnemonicSaved),
-    [isMnemonicSaved]
-  );
+  
 
   const _onCommit = useCallback(
     (): void => {
@@ -250,16 +192,12 @@ function Create({ className = '', onClose, onStatusChange, seed: propsSeed, type
       size='small'
     >
       <Modal.Content>
-        
-        {step === 1 && <>
-          <CreateAccountInputs
-            name={{ isNameValid, name }}
-            onCommit={_onCommit}
-            setName={setName}
-            setPassword={setPassword}
-          />
-        </>}
-
+        <CreateAccountInputs
+          name={{ isNameValid, name }}
+          onCommit={_onCommit}
+          setName={setName}
+          setPassword={setPassword}
+        />
       </Modal.Content>
       <Modal.Actions>
         <Button
