@@ -45,7 +45,7 @@ function Content({ className }: Props): React.ReactElement<Props> {
     // Replace this with your actual account checking logic
     const timer = setTimeout(() => {
       setIsInitialized(true);
-    }, 1000); // Adjust the time based on your needs
+    }, 2000); // Adjust the time based on your needs
 
     return () => clearTimeout(timer);
   }, []);
