@@ -40,7 +40,6 @@ const CreateAccountInputs = ({ name: { isNameValid, name }, onCommit, setName, s
 
   return (
     <>
-      <Modal.Columns hint={t('The name for this account and how it will appear under your addresses. With an on-chain identity, it can be made available to others.')}>
         <Input
           className='full'
           isError={!isNameValid}
@@ -50,7 +49,6 @@ const CreateAccountInputs = ({ name: { isNameValid, name }, onCommit, setName, s
           placeholder={t('e.g., John Doe')}
           value={name}
         />
-      </Modal.Columns>
       <PasswordInput
         onChange={_onChangePass}
         onEnter={onCommit}

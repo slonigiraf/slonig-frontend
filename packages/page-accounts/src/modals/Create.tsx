@@ -367,26 +367,17 @@ function Create({ className = '', onClose, onStatusChange, seed: propsSeed, type
             setPassword={setPassword}
           />
         </>}
-        
+
       </Modal.Content>
       <Modal.Actions>
-        
-        {step === 1 && (
-          <>
-
-            <Button
-              activeOnEnter
-              icon='plus'
-              isDisabled={!isSecondStepValid}
-              isBusy={isBusy}
-              label={t('Sign up')}
-              onClick={_onCommit}
-            />
-
-            
-          </>
-        )}
-        
+        <Button
+          activeOnEnter
+          icon='fa-user-plus'
+          isDisabled={!isSecondStepValid}
+          isBusy={isBusy}
+          label={t('Sign Up')}
+          onClick={_onCommit}
+        />
       </Modal.Actions>
     </StyledModal>
   );

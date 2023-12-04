@@ -46,14 +46,7 @@ export default function PasswordInput ({ onChange, onEnter }: Props): React.Reac
   );
 
   return (
-    <Modal.Columns
-      hint={
-        <>
-          <p>{t('The password and password confirmation for this account. This is required to authenticate any transactions made and to encrypt the keypair.')}</p>
-          <p>{t('Ensure you are using a strong password for proper account protection.')}</p>
-        </>
-      }
-    >
+    <>
       <Password
         className='full'
         isError={!isPass1Valid}
@@ -71,6 +64,6 @@ export default function PasswordInput ({ onChange, onEnter }: Props): React.Reac
         value={password2}
       />
       <PasswordStrength value={password1} />
-    </Modal.Columns>
+    </>
   );
 }
