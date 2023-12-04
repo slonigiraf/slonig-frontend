@@ -23,9 +23,9 @@ import CreateSuriLedger from './CreateSuriLedger.js';
 import ExternalWarning from './ExternalWarning.js';
 
 const DEFAULT_PAIR_TYPE = 'sr25519';
-const STEPS_COUNT = 3;
+const STEPS_COUNT = 2;
 
-function getSuri (seed: string, derivePath: string, pairType: PairType): string {
+function getSuri(seed: string, derivePath: string, pairType: PairType): string {
   return pairType === 'ed25519-ledger'
     ? u8aToHex(hdLedger(seed, derivePath).secretKey.slice(0, 32))
     : pairType === 'ethereum'
@@ -33,7 +33,7 @@ function getSuri (seed: string, derivePath: string, pairType: PairType): string 
       : `${seed}${derivePath}`;
 }
 
-function deriveValidate (seed: string, seedType: SeedType, derivePath: string, pairType: PairType): DeriveValidationOutput {
+function deriveValidate(seed: string, seedType: SeedType, derivePath: string, pairType: PairType): DeriveValidationOutput {
   try {
     const { password, path } = keyExtractSuri(pairType === 'ethereum' ? `${seed}/${derivePath}` : `${seed}${derivePath}`);
     let result: DeriveValidationOutput = {};
@@ -63,21 +63,21 @@ function deriveValidate (seed: string, seedType: SeedType, derivePath: string, p
   }
 }
 
-function isHexSeed (seed: string): boolean {
+function isHexSeed(seed: string): boolean {
   return isHex(seed) && seed.length === 66;
 }
 
-function rawValidate (seed: string): boolean {
+function rawValidate(seed: string): boolean {
   return ((seed.length > 0) && (seed.length <= 32)) || isHexSeed(seed);
 }
 
-function addressFromSeed (seed: string, derivePath: string, pairType: PairType): string {
+function addressFromSeed(seed: string, derivePath: string, pairType: PairType): string {
   return keyring
     .createFromUri(getSuri(seed, derivePath, pairType), {}, pairType === 'ed25519-ledger' ? 'ed25519' : pairType)
     .address;
 }
 
-function newSeed (seed: string | undefined | null, seedType: SeedType): string {
+function newSeed(seed: string | undefined | null, seedType: SeedType): string {
   switch (seedType) {
     case 'bip':
       return mnemonicGenerate();
@@ -88,7 +88,7 @@ function newSeed (seed: string | undefined | null, seedType: SeedType): string {
   }
 }
 
-function generateSeed (_seed: string | undefined | null, derivePath: string, seedType: SeedType, pairType: PairType = DEFAULT_PAIR_TYPE): AddressState {
+function generateSeed(_seed: string | undefined | null, derivePath: string, seedType: SeedType, pairType: PairType = DEFAULT_PAIR_TYPE): AddressState {
   const seed = newSeed(_seed, seedType);
   const address = addressFromSeed(seed, derivePath, pairType);
 
@@ -103,7 +103,7 @@ function generateSeed (_seed: string | undefined | null, derivePath: string, see
   };
 }
 
-function updateAddress (seed: string, derivePath: string, seedType: SeedType, pairType: PairType): AddressState {
+function updateAddress(seed: string, derivePath: string, seedType: SeedType, pairType: PairType): AddressState {
   let address: string | null = null;
   let deriveValidation: DeriveValidationOutput = deriveValidate(seed, seedType, derivePath, pairType);
   let isSeedValid = false;
@@ -143,14 +143,14 @@ function updateAddress (seed: string, derivePath: string, seedType: SeedType, pa
   };
 }
 
-function createAccount (seed: string, derivePath: string, pairType: PairType, { genesisHash, name, tags = [] }: CreateOptions, password: string, success: string): ActionStatus {
+function createAccount(seed: string, derivePath: string, pairType: PairType, { genesisHash, name, tags = [] }: CreateOptions, password: string, success: string): ActionStatus {
   const commitAccount = () =>
     keyring.addUri(getSuri(seed, derivePath, pairType), password, { genesisHash, isHardware: false, name, tags }, pairType === 'ed25519-ledger' ? 'ed25519' : pairType);
 
   return tryCreateAccount(commitAccount, success);
 }
 
-function Create ({ className = '', onClose, onStatusChange, seed: propsSeed, type: propsType }: CreateProps): React.ReactElement<CreateProps> {
+function Create({ className = '', onClose, onStatusChange, seed: propsSeed, type: propsType }: CreateProps): React.ReactElement<CreateProps> {
   const { t } = useTranslation();
   const { api, isDevelopment, isEthereum } = useApi();
   const { isLedgerEnabled } = useLedger();
@@ -160,7 +160,7 @@ function Create ({ className = '', onClose, onStatusChange, seed: propsSeed, typ
     propsSeed ? 'raw' : 'bip',
     isEthereum ? 'ethereum' : propsType
   ));
-  const [isMnemonicSaved, setIsMnemonicSaved] = useState<boolean>(false);
+  const [isMnemonicSaved, setIsMnemonicSaved] = useState<boolean>(true);
   const [step, nextStep, prevStep] = useStepper();
   const [isBusy, setIsBusy] = useState(false);
   const [{ isNameValid, name }, setName] = useState(() => ({ isNameValid: false, name: '' }));
@@ -224,10 +224,11 @@ function Create ({ className = '', onClose, onStatusChange, seed: propsSeed, typ
 
   const _onCommit = useCallback(
     (): void => {
+
       if (!isValid) {
         return;
       }
-
+      console.log("_onCommit")
       setIsBusy(true);
       nextTick((): void => {
         const options = { genesisHash: isDevelopment ? undefined : api.genesisHash.toHex(), isHardware: false, name: name.trim() };
@@ -244,21 +245,12 @@ function Create ({ className = '', onClose, onStatusChange, seed: propsSeed, typ
   return (
     <StyledModal
       className={className}
-      header={t('Add an account via seed {{step}}/{{STEPS_COUNT}}', { replace: { STEPS_COUNT, step } })}
+      header={t('Sign up {{step}}/{{STEPS_COUNT}}', { replace: { STEPS_COUNT, step } })}
       onClose={onClose}
       size='large'
     >
       <Modal.Content>
-        <Modal.Columns>
-          <AddressRow
-            defaultName={name}
-            fullLength
-            isEditableName={false}
-            noDefaultNameOpacity
-            value={(isSeedValid && address) || null}
-          />
-        </Modal.Columns>
-        {step === 1 && <>
+        {step === 0 && <>
           <Modal.Columns hint={t('The secret seed value for this account. Ensure that you keep this in a safe place, with access to the seed you can re-create the account.')}>
             <TextArea
               isError={!isSeedValid}
@@ -367,18 +359,15 @@ function Create ({ className = '', onClose, onStatusChange, seed: propsSeed, typ
             </div>
           </Modal.Columns>
         </>}
-        {step === 2 && <>
+        {step === 1 && <>
           <CreateAccountInputs
             name={{ isNameValid, name }}
             onCommit={_onCommit}
             setName={setName}
             setPassword={setPassword}
-          />;
-          <Modal.Columns>
-            <ExternalWarning />
-          </Modal.Columns>
+          />
         </>}
-        {step === 3 && address && (
+        {step === 2 && address && (
           <CreateConfirmation
             derivePath={derivePath}
             isBusy={isBusy}
@@ -392,7 +381,7 @@ function Create ({ className = '', onClose, onStatusChange, seed: propsSeed, typ
         )}
       </Modal.Content>
       <Modal.Actions>
-        {step === 1 &&
+        {step === 0 &&
           <Button
             activeOnEnter
             icon='step-forward'
@@ -401,23 +390,22 @@ function Create ({ className = '', onClose, onStatusChange, seed: propsSeed, typ
             onClick={nextStep}
           />
         }
-        {step === 2 && (
+        {step === 1 && (
           <>
-            <Button
-              icon='step-backward'
-              label={t('Prev')}
-              onClick={prevStep}
-            />
+
             <Button
               activeOnEnter
-              icon='step-forward'
+              icon='plus'
               isDisabled={!isSecondStepValid}
-              label={t('Next')}
-              onClick={nextStep}
+              isBusy={isBusy}
+              label={t('Save')}
+              onClick={_onCommit}
             />
+
+            
           </>
         )}
-        {step === 3 && (
+        {step === 2 && (
           <>
             <Button
               icon='step-backward'

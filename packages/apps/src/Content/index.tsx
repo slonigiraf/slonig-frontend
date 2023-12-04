@@ -15,7 +15,7 @@ import { findMissingApis } from '../endpoint.js';
 import { useTranslation } from '../translate.js';
 import NotFound from './NotFound.js';
 import Status from './Status.js';
-import Login from '@polkadot/app-accounts/modals/Login';
+import CreateModal from '@polkadot/app-accounts/modals/Create';
 import { useToggle, useAccounts } from '@polkadot/react-hooks';
 
 interface Props {
@@ -92,7 +92,7 @@ function Content({ className }: Props): React.ReactElement<Props> {
                           onStatusChange={queueAction}
                         />
                         {isCreateOpen && (
-                          <Login
+                          <CreateModal
                             onClose={() => {}}
                             onStatusChange={toggleLogin}
                           />

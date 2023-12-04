@@ -44,10 +44,10 @@ const CreateAccountInputs = ({ name: { isNameValid, name }, onCommit, setName, s
         <Input
           className='full'
           isError={!isNameValid}
-          label={t('name')}
+          label={t('full name')}
           onChange={_onChangeName}
           onEnter={onCommit}
-          placeholder={t('new account')}
+          placeholder={t('e.g., John Doe')}
           value={name}
         />
       </Modal.Columns>
