@@ -245,9 +245,9 @@ function Create({ className = '', onClose, onStatusChange, seed: propsSeed, type
   return (
     <StyledModal
       className={className}
-      header={t('Sign up {{step}}/{{STEPS_COUNT}}', { replace: { STEPS_COUNT, step } })}
+      header={t('Sign Up for Slonig')}
       onClose={onClose}
-      size='large'
+      size='small'
     >
       <Modal.Content>
         {step === 0 && <>
