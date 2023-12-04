@@ -170,7 +170,6 @@ function Create({ className = '', onClose, onStatusChange, seed: propsSeed, type
       if (!isValid) {
         return;
       }
-      console.log("_onCommit")
       setIsBusy(true);
       nextTick((): void => {
         const options = { genesisHash: isDevelopment ? undefined : api.genesisHash.toHex(), isHardware: false, name: name.trim() };
