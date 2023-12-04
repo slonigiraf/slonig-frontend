@@ -38,10 +38,17 @@ function Content({ className }: Props): React.ReactElement<Props> {
   const { api, isApiConnected, isApiReady, isDevelopment } = useApi();
   const { queueAction } = useQueue();
   const { hasAccounts } = useAccounts();
-  const [loginIsOpen, setLoginIsOpen] = useState(false);
+  const [isInitialized, setIsInitialized] = useState(false);
+
   useEffect(() => {
-    setLoginIsOpen(!hasAccounts);
-  }, [hasAccounts]);
+    // Simulate an initialization process
+    // Replace this with your actual account checking logic
+    const timer = setTimeout(() => {
+      setIsInitialized(true);
+    }, 1000); // Adjust the time based on your needs
+
+    return () => clearTimeout(timer);
+  }, []);
 
   const { Component, display: { needsApi, needsApiCheck, needsApiInstances }, icon, name, text } = useMemo(
     (): Route => {
@@ -94,10 +101,10 @@ function Content({ className }: Props): React.ReactElement<Props> {
                           location={location}
                           onStatusChange={queueAction}
                         />
-                        {loginIsOpen && (
+                        {!hasAccounts && isInitialized && (
                           <CreateModal
-                            onClose={() => {}}
-                            onStatusChange={setLoginIsOpen}
+                            onClose={() => {/* handle modal close */ }}
+                            onStatusChange={() => {/* handle status change */ }}
                           />
                         )}
                       </>
