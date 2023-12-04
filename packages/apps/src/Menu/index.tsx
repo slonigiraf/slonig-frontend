@@ -97,7 +97,6 @@ function Menu({ className = '' }: Props): React.ReactElement<Props> {
   const routeRef = useRef(createRoutes(t));
 
   const groupRef = useRef({
-    home: t('Home'),
     accounts: t('Slonig'),
     developer: t('Developer'),
     files: t('Files'),
@@ -124,8 +123,6 @@ function Menu({ className = '' }: Props): React.ReactElement<Props> {
   );
 
   const sortedGroups = visibleGroups.sort((a, b) => {
-    if (a.name.toLowerCase() === "home") return -1;
-    if (b.name.toLowerCase() === "home") return 1;
     return 0;
   });
 

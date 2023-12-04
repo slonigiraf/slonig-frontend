@@ -2,7 +2,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import type { Routes, TFunction } from './types.js';
-import home from './home.js';
 import accounts from './accounts.js';
 import addresses from './addresses.js';
 import alliance from './alliance.js';
@@ -49,7 +48,6 @@ import whitelist from './whitelist.js';
 
 export default function create (t: TFunction): Routes {
   return [
-    home(t),
     accounts(t),
     addresses(t),
     explorer(t),

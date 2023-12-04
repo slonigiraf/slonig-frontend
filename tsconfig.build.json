@@ -51,7 +51,6 @@
     { "path": "./packages/page-runtime/tsconfig.build.json" },
     { "path": "./packages/page-scheduler/tsconfig.build.json" },
     { "path": "./packages/page-settings/tsconfig.build.json" },
-    { "path": "./packages/page-home/tsconfig.build.json" },
     { "path": "./packages/slonig-components/tsconfig.build.json" },
     { "path": "./packages/page-signing/tsconfig.build.json" },
     { "path": "./packages/page-society/tsconfig.build.json" },
