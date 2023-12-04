@@ -16,7 +16,7 @@ import { useTranslation } from '../translate.js';
 import NotFound from './NotFound.js';
 import Status from './Status.js';
 import CreateModal from '@polkadot/app-accounts/modals/Create';
-import { useToggle, useAccounts } from '@polkadot/react-hooks';
+import { useAccounts } from '@polkadot/react-hooks';
 
 interface Props {
   className?: string;
@@ -41,12 +41,10 @@ function Content({ className }: Props): React.ReactElement<Props> {
   const [isInitialized, setIsInitialized] = useState(false);
 
   useEffect(() => {
-    // Simulate an initialization process
-    // Replace this with your actual account checking logic
+    // To make CreateModal not blink
     const timer = setTimeout(() => {
       setIsInitialized(true);
-    }, 2000); // Adjust the time based on your needs
-
+    }, 2000);
     return () => clearTimeout(timer);
   }, []);
 
