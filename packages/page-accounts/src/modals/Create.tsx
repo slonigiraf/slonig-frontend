@@ -367,29 +367,10 @@ function Create({ className = '', onClose, onStatusChange, seed: propsSeed, type
             setPassword={setPassword}
           />
         </>}
-        {step === 2 && address && (
-          <CreateConfirmation
-            derivePath={derivePath}
-            isBusy={isBusy}
-            pairType={
-              pairType === 'ed25519-ledger'
-                ? 'ed25519'
-                : pairType
-            }
-            seed={seed}
-          />
-        )}
+        
       </Modal.Content>
       <Modal.Actions>
-        {step === 0 &&
-          <Button
-            activeOnEnter
-            icon='step-forward'
-            isDisabled={!isFirstStepValid}
-            label={t('Next')}
-            onClick={nextStep}
-          />
-        }
+        
         {step === 1 && (
           <>
 
@@ -398,29 +379,14 @@ function Create({ className = '', onClose, onStatusChange, seed: propsSeed, type
               icon='plus'
               isDisabled={!isSecondStepValid}
               isBusy={isBusy}
-              label={t('Save')}
+              label={t('Sign up')}
               onClick={_onCommit}
             />
 
             
           </>
         )}
-        {step === 2 && (
-          <>
-            <Button
-              icon='step-backward'
-              label={t('Prev')}
-              onClick={prevStep}
-            />
-            <Button
-              activeOnEnter
-              icon='plus'
-              isBusy={isBusy}
-              label={t('Save')}
-              onClick={_onCommit}
-            />
-          </>
-        )}
+        
       </Modal.Actions>
     </StyledModal>
   );
