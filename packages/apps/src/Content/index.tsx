@@ -15,7 +15,7 @@ import { findMissingApis } from '../endpoint.js';
 import { useTranslation } from '../translate.js';
 import NotFound from './NotFound.js';
 import Status from './Status.js';
-import CreateModal from '@polkadot/app-accounts/modals/Create';
+import Login from '@polkadot/app-accounts/modals/Login';
 import { useToggle, useAccounts } from '@polkadot/react-hooks';
 
 interface Props {
@@ -38,7 +38,7 @@ function Content({ className }: Props): React.ReactElement<Props> {
   const { api, isApiConnected, isApiReady, isDevelopment } = useApi();
   const { queueAction } = useQueue();
   const { hasAccounts } = useAccounts();
-  const [isCreateOpen, toggleCreate] = useToggle(!hasAccounts);
+  const [isCreateOpen, toggleLogin] = useToggle(!hasAccounts);
 
   const { Component, display: { needsApi, needsApiCheck, needsApiInstances }, icon, name, text } = useMemo(
     (): Route => {
@@ -92,9 +92,9 @@ function Content({ className }: Props): React.ReactElement<Props> {
                           onStatusChange={queueAction}
                         />
                         {isCreateOpen && (
-                          <CreateModal
+                          <Login
                             onClose={() => {}}
-                            onStatusChange={toggleCreate}
+                            onStatusChange={toggleLogin}
                           />
                         )}
                       </>
