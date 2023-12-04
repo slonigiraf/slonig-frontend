@@ -93,8 +93,8 @@ function Content({ className }: Props): React.ReactElement<Props> {
                         />
                         {isCreateOpen && (
                           <CreateModal
-                            onClose={toggleCreate}
-                            onStatusChange={() => { }}
+                            onClose={() => {}}
+                            onStatusChange={toggleCreate}
                           />
                         )}
                       </>
