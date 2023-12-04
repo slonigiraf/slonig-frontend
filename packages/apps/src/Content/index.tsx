@@ -3,7 +3,7 @@
 
 import type { Route } from '@polkadot/apps-routing/types';
 
-import React, { Suspense, useMemo } from 'react';
+import React, { Suspense, useEffect, useMemo, useState } from 'react';
 import { useLocation } from 'react-router-dom';
 
 import createRoutes from '@polkadot/apps-routing';
@@ -38,7 +38,10 @@ function Content({ className }: Props): React.ReactElement<Props> {
   const { api, isApiConnected, isApiReady, isDevelopment } = useApi();
   const { queueAction } = useQueue();
   const { hasAccounts } = useAccounts();
-  const [isCreateOpen, toggleLogin] = useToggle(!hasAccounts);
+  const [loginIsOpen, setLoginIsOpen] = useState(false);
+  useEffect(() => {
+    setLoginIsOpen(!hasAccounts);
+  }, [hasAccounts]);
 
   const { Component, display: { needsApi, needsApiCheck, needsApiInstances }, icon, name, text } = useMemo(
     (): Route => {
@@ -91,10 +94,10 @@ function Content({ className }: Props): React.ReactElement<Props> {
                           location={location}
                           onStatusChange={queueAction}
                         />
-                        {isCreateOpen && (
+                        {loginIsOpen && (
                           <CreateModal
                             onClose={() => {}}
-                            onStatusChange={toggleLogin}
+                            onStatusChange={setLoginIsOpen}
                           />
                         )}
                       </>
