@@ -59,8 +59,7 @@ function ScanQR({ className = '', label, type }: Props): React.ReactElement<Prop
             case 5: // Show skill QR
               const parts = jsonData.d.split('+');
               if (parts.length > 1) {
-                console.log("parts[1]:", parts[1])
-                await storePseudonym(parts[1], jsonData.n);
+                await storePseudonym(parts[2], jsonData.n);
               }
               navigate(jsonData.d);
               break;
