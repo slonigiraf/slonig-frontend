@@ -17,10 +17,10 @@ export const syncDB = async (data: string, password: string) => {
     insurances.map((v: Insurance) => storeInsurance(v));
     //signers
     const signers = getDBObjectsFromJson(json, "signers");
-    signers.map(async (v: Signer) => { 
+    signers.map(async (v: Signer) => {
         const inLocal = await getLastUnusedLetterNumber(v.publicKey);
         const inParsed = v.lastLetterNumber;
-        if(inParsed > inLocal){
+        if (inParsed > inLocal) {
             setLastUsedLetterNumber(v.publicKey, inParsed);
         }
     });
@@ -64,7 +64,7 @@ export const storeInsurance = async (insurance: Insurance) => {
     const sameInsurance = await db.insurances.get({ workerSign: insurance.workerSign });
     if (sameInsurance === undefined) {
         await db.insurances.add(insurance);
-    } else if(sameInsurance.wasUsed === false && insurance.wasUsed === true){
+    } else if (sameInsurance.wasUsed === false && insurance.wasUsed === true) {
         await db.insurances.where({ id: insurance.id }).modify((f) => f.wasUsed = true);
     }
 }
@@ -72,15 +72,15 @@ export const storeInsurance = async (insurance: Insurance) => {
 export const storePseudonym = async (publicKey: string, pseudonym: string) => {
     const samePseudonym = await db.pseudonyms.get({ publicKey: publicKey });
     if (samePseudonym === undefined) {
-        const newPseudonym: Pseudonym = {publicKey, pseudonym, altPseudonym: ""};
+        const newPseudonym: Pseudonym = { publicKey, pseudonym, altPseudonym: "" };
         await db.pseudonyms.put(newPseudonym);
-    } else if(samePseudonym.pseudonym !== pseudonym){
+    } else if (samePseudonym.pseudonym !== pseudonym) {
         await db.pseudonyms.where({ publicKey: publicKey }).modify((f) => f.altPseudonym = pseudonym);
     }
 }
 
 export const storeSetting = async (id: string, value: string) => {
-    await db.settings.put({id, value});
+    await db.settings.put({ id, value });
 }
 export const deleteSetting = async (id: string) => {
     await db.settings.delete(id);
@@ -92,7 +92,7 @@ export const getSetting = async (id: string): Promise<string | undefined> => {
 
 export const storeUsageRight = async (usageRight: UsageRight) => {
     const sameUsageRight = await db.usageRights.get({ sign: usageRight.sign });
-    if (sameUsageRight === undefined ) {
+    if (sameUsageRight === undefined) {
         await db.usageRights.add(usageRight);
     }
 }
@@ -112,31 +112,34 @@ export const storeLetterUsageRight = async (letter: Letter, employer: string, si
 
 export const createAndStoreLetter = async (data: string[]) => {
     const [textHash,
-      genesisHex,
-      letterId,
-      blockNumber,
-      refereePublicKeyHex,
-      workerPublicKeyHex,
-      amount,
-      refereeSignOverPrivateData,
-      refereeSignOverReceipt] = data;
-  
-    const letter = {
-      created: new Date(),
-      cid: textHash,
-      genesis: genesisHex,
-      letterNumber: parseInt(letterId, 10),
-      block: blockNumber,
-      referee: refereePublicKeyHex,
-      worker: workerPublicKeyHex,
-      amount: amount,
-      signOverPrivateData: refereeSignOverPrivateData,
-      signOverReceipt: refereeSignOverReceipt
-    };
-    await storeLetter(letter);
-  }
+        workerId,
+        genesisHex,
+        letterId,
+        blockNumber,
+        refereePublicKeyHex,
+        workerPublicKeyHex,
+        amount,
+        refereeSignOverPrivateData,
+        refereeSignOverReceipt] = data;
 
-  export const storeInsurances = async (jsonData: any) => {
+    const letter = {
+        created: new Date(),
+        cid: textHash,
+        workerId: workerId,
+        genesis: genesisHex,
+        letterNumber: parseInt(letterId, 10),
+        block: blockNumber,
+        referee: refereePublicKeyHex,
+        worker: workerPublicKeyHex,
+        amount: amount,
+        signOverPrivateData: refereeSignOverPrivateData,
+        signOverReceipt: refereeSignOverReceipt
+    };
+    console.log("letter: ", letter)
+    await storeLetter(letter);
+}
+
+export const storeInsurances = async (jsonData: any) => {
     // Check if jsonData.d is an array and has elements
     if (Array.isArray(jsonData.d) && jsonData.d.length > 0) {
         // Get the worker and employer public key hex values from jsonData
@@ -161,34 +164,34 @@ export const createAndStoreLetter = async (data: string[]) => {
 
 const createAndStoreInsurance = async (data: string[]) => {
     const [
-      workerPublicKeyHex,
-      employerPublicKeyHex,
-      textHash,
-      genesisHex,
-      letterId,
-      blockNumber,
-      blockAllowed,
-      refereePublicKeyHex,
-      amountValue,
-      refereeSignOverPrivateData,
-      refereeSignOverReceipt,
-      workerSignOverInsurance] = data;
-    
+        workerPublicKeyHex,
+        employerPublicKeyHex,
+        textHash,
+        genesisHex,
+        letterId,
+        blockNumber,
+        blockAllowed,
+        refereePublicKeyHex,
+        amountValue,
+        refereeSignOverPrivateData,
+        refereeSignOverReceipt,
+        workerSignOverInsurance] = data;
+
     const insurance = {
-      created: new Date(),
-      cid: textHash,
-      genesis: genesisHex,
-      letterNumber: parseInt(letterId, 10),
-      block: blockNumber,
-      blockAllowed: blockAllowed,
-      referee: refereePublicKeyHex,
-      worker: workerPublicKeyHex,
-      amount: amountValue,
-      signOverPrivateData: refereeSignOverPrivateData,
-      signOverReceipt: refereeSignOverReceipt,
-      employer: employerPublicKeyHex,
-      workerSign: workerSignOverInsurance,
-      wasUsed: false
+        created: new Date(),
+        cid: textHash,
+        genesis: genesisHex,
+        letterNumber: parseInt(letterId, 10),
+        block: blockNumber,
+        blockAllowed: blockAllowed,
+        referee: refereePublicKeyHex,
+        worker: workerPublicKeyHex,
+        amount: amountValue,
+        signOverPrivateData: refereeSignOverPrivateData,
+        signOverReceipt: refereeSignOverReceipt,
+        employer: employerPublicKeyHex,
+        workerSign: workerSignOverInsurance,
+        wasUsed: false
     };
     await storeInsurance(insurance);
 }

@@ -233,6 +233,7 @@ function Tutor({ className = '' }: Props): React.ReactElement<Props> {
       // create the result text
       let result = [];
       result.push(skillCID);
+      result.push(studentIdentity);
       result.push(genesisU8.toHex());
       result.push(letterId);
       result.push(diplomaBlockNumber);
@@ -245,6 +246,7 @@ function Tutor({ className = '' }: Props): React.ReactElement<Props> {
       const letter = {
         created: new Date(),
         cid: skillCID,
+        workerId: studentIdentity,
         genesis: genesisU8.toHex(),
         letterNumber: letterId,
         block: diplomaBlockNumber.toString(),

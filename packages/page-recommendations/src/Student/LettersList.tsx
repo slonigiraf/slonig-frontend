@@ -36,7 +36,7 @@ function LettersList({ className = '', worker }: Props): React.ReactElement<Prop
   const letters = useLiveQuery(
     () =>
       db.letters
-        .where("worker")
+        .where("workerId")
         .equals(worker)
         .sortBy("id"),
     [worker]

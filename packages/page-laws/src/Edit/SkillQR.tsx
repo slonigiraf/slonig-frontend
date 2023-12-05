@@ -183,14 +183,14 @@ function SkillQR({ className = '', cid }: Props): React.ReactElement<Props> {
 
   useEffect(() => {
     const fetchRandomDiploma = async () => {
-      const allDiplomas = await db.letters.toArray();
+      const allDiplomas = await db.letters.where('workerId').equals(studentIdentity).toArray();
       if (allDiplomas.length > 0) {
         const randomIndex = Math.floor(Math.random() * allDiplomas.length);
         setDiplomaToReexamine(allDiplomas[randomIndex]);
       }
     };
     fetchRandomDiploma();
-  }, []);
+  }, [studentIdentity]);
 
   useEffect(() => {
     const showQR = async () => {

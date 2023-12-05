@@ -1,6 +1,7 @@
 export interface Insurance {
   id?: number;
   created: Date;
+  workerId: string;
   cid: string;
   genesis: string;
   letterNumber: number;
