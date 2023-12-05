@@ -53,11 +53,11 @@ export function tryCreateAccount (commitAccount: () => CreateResult, success: st
 
     status.account = address;
 
-    if (getEnvironment() === 'web') {
-      downloadAccount(result);
-    }
-
-    downloadAccount(result);
+    //Don't auto download account file
+    // if (getEnvironment() === 'web') {
+    //   downloadAccount(result);
+    // }
+    // downloadAccount(result);
     InputAddress.setLastValue('account', address);
   } catch (error) {
     status.status = 'error';
