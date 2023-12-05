@@ -13,7 +13,6 @@ import { Button, FilterInput, SortDropdown, styled, SummaryBox, Table, InputAddr
 import { getAccountCryptoType } from '@polkadot/react-components/util';
 import { useAccounts, useApi, useDelegations, useFavorites, useIpfs, useLedger, useNextTick, useProxies, useToggle } from '@polkadot/react-hooks';
 import { keyring } from '@polkadot/ui-keyring';
-import { settings } from '@polkadot/ui-settings';
 import { BN_ZERO, isFunction } from '@polkadot/util';
 
 import CreateModal from '../modals/Create.js';
@@ -26,7 +25,6 @@ import { useTranslation } from '../translate.js';
 import { SORT_CATEGORY, sortAccounts } from '../util.js';
 import Account from './Account.js';
 import BannerClaims from './BannerClaims.js';
-import BannerExtension from './BannerExtension.js';
 import Summary from './Summary.js';
 
 interface Balances {
@@ -317,7 +315,6 @@ function Overview ({ className = '', onStatusChange }: Props): React.ReactElemen
           onStatusChange={onStatusChange}
         />
       )}
-      <BannerExtension />
       <BannerClaims />
       <Summary balance={balances.summary} />
       <SummaryBox className='header-box'>
