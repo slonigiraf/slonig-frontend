@@ -4,40 +4,22 @@
 import type { Route, Routes } from '@polkadot/apps-routing/types';
 import type { ApiProps } from '@polkadot/react-api/types';
 import type { AccountId } from '@polkadot/types/interfaces';
-import type { Group, Groups, ItemRoute } from './types.js';
+import type { Group, Groups } from './types.js';
 
 import React, { useMemo, useRef } from 'react';
 import { useLocation } from 'react-router-dom';
 
 import createRoutes from '@polkadot/apps-routing';
-import { Icon, styled } from '@polkadot/react-components';
+import { styled } from '@polkadot/react-components';
 import { useAccounts, useApi, useCall, useTeleport } from '@polkadot/react-hooks';
 
 import { findMissingApis } from '../endpoint.js';
 import { useTranslation } from '../translate.js';
 import Grouping from './Grouping.js';
-import Item from './Item.js';
 import NodeInfo from './NodeInfo.js';
 
 interface Props {
   className?: string;
-}
-
-function createExternals(t: (key: string, optionsOrText?: string | { replace: Record<string, unknown> }, options?: { ns: string }) => string): ItemRoute[] {
-  return [
-    {
-      href: 'https://github.com/polkadot-js/apps',
-      icon: 'code-branch',
-      name: 'github',
-      text: t('nav.github', 'GitHub', { ns: 'apps-routing' })
-    },
-    {
-      href: 'https://wiki.polkadot.network',
-      icon: 'book',
-      name: 'wiki',
-      text: t('nav.wiki', 'Wiki', { ns: 'apps-routing' })
-    }
-  ];
 }
 
 function checkVisible({ api, isApiConnected, isApiReady, isDevelopment: isApiDevelopment }: ApiProps, allowTeleport: boolean, hasAccounts: boolean, hasSudo: boolean, { isDevelopment, isHidden, needsAccounts, needsApi, needsApiCheck, needsApiInstances, needsSudo, needsTeleport }: Route['display']): boolean {
@@ -92,8 +74,6 @@ function Menu({ className = '' }: Props): React.ReactElement<Props> {
   const { allowTeleport } = useTeleport();
   const sudoKey = useCall<AccountId>(apiProps.isApiReady && apiProps.api.query.sudo?.key);
   const location = useLocation();
-
-  const externalRef = useRef(createExternals(t));
   const routeRef = useRef(createRoutes(t));
 
   const groupRef = useRef({
@@ -137,18 +117,6 @@ function Menu({ className = '' }: Props): React.ReactElement<Props> {
                 key={name}
                 name={name}
                 routes={routes}
-              />
-            ))}
-          </ul>
-        </div>
-        <div className='menuSection media--1200'>
-          <ul className='menuItems'>
-            {externalRef.current.map((route): React.ReactNode => (
-              <Item
-                isLink
-                isToplevel
-                key={route.name}
-                route={route}
               />
             ))}
           </ul>
