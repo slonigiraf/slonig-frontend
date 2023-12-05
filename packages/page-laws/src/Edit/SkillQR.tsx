@@ -51,7 +51,7 @@ function SkillQR({ className = '', cid }: Props): React.ReactElement<Props> {
   const { api, isApiReady } = useApi();
   // Last block number
   const [millisecondsPerBlock,] = useBlockTime(BN_ONE, api);
-  const [blockAllowed, setBlockAllowed] = useState<BN>(new BN(0));
+  const [blockAllowed, setBlockAllowed] = useState<BN>(new BN(1));
   // Key management
   const [currentPair, setCurrentPair] = useState<KeyringPair | null>(null);
   const [diplomaPublicKeyHex, setDiplomaPublicKeyHex] = useState<>("");
@@ -197,33 +197,19 @@ function SkillQR({ className = '', cid }: Props): React.ReactElement<Props> {
       _onSign();
     };
     showQR();
-  }, [tutor, diplomaToReexamine]);
-
-
+  }, [tutor, diplomaToReexamine, blockAllowed]);
 
   const _onSign = useCallback(
     async () => {
       if (isLocked || !isUsable || !currentPair || !diplomaToReexamine || !tutor) {
         return;
       }
-
       // generate a data to sign    
-
       const letterInsurance = getDataToSignByWorker(diplomaToReexamine.letterNumber, new BN(diplomaToReexamine.block), blockAllowed, hexToU8a(diplomaToReexamine.referee),
         hexToU8a(diplomaToReexamine.worker), new BN(diplomaToReexamine.amount), hexToU8a(diplomaToReexamine.signOverReceipt), hexToU8a(tutor));
 
-      let workerSignOverInsurance = "";
-      // sign
-      if (signer && isFunction(signer.signRaw)) {// Use browser extenstion 
-        const u8WorkerSignOverInsurance = await signer.signRaw({
-          address: currentPair.address,
-          data: u8aToHex(letterInsurance),
-          type: 'bytes'
-        });
-        workerSignOverInsurance = u8WorkerSignOverInsurance.signature;
-      } else {// Use locally stored account to sign
-        workerSignOverInsurance = u8aToHex(currentPair.sign(u8aWrapBytes(letterInsurance)));
-      }
+      const diplomaKey = keyForCid(currentPair, diplomaToReexamine.cid);
+      const workerSignOverInsurance = u8aToHex(diplomaKey.sign(u8aWrapBytes(letterInsurance)));
       // TODO: storeLetterUsageRight(letter, tutor, workerSignOverInsurance);
       // create the result text
 
