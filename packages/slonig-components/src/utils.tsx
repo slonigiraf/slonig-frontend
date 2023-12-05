@@ -2,6 +2,7 @@ import { IPFSHTTPClient, CID } from 'kubo-rpc-client'
 import crypto from 'crypto';
 import { getAddressName } from '@polkadot/react-components';
 import type { KeyringPair } from '@polkadot/keyring/types';
+import { keyExtractPath } from '@polkadot/util-crypto';
 
 export const getBaseUrl = () => {
   const { protocol, hostname, port } = window.location;
@@ -94,4 +95,9 @@ export function nameFromKeyringPair(keyringPair: KeyringPair | null): string {
   }
   const [, , name] = getAddressName(keyringPair.address, null, "");
   return name;
+}
+
+export function keyForCid(keyPair: KeyringPair, cid: string): KeyringPair {
+  const derivedPair = keyPair.derive('//'+cid);
+  return derivedPair;
 }

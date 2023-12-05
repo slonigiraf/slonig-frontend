@@ -6,6 +6,7 @@ import type { KeyringPair } from '@polkadot/keyring/types';
 import { Button, Dropdown, InputAddress } from '@polkadot/react-components';
 import { useLiveQuery } from "dexie-react-hooks";
 import { db, Letter } from '@slonigiraf/app-recommendations';
+import { keyForCid } from '@slonigiraf/app-slonig-components';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { styled } from '@polkadot/react-components';
 import { keyring } from '@polkadot/ui-keyring';
@@ -43,6 +44,8 @@ const getBlockAllowed = (currentBlock: BN, blockTimeMs: number, secondsToAdd: nu
   return blockAllowed;
 }
 
+
+
 function SkillQR({ className = '', cid }: Props): React.ReactElement<Props> {
   // Using key
   const { api, isApiReady } = useApi();
@@ -51,6 +54,7 @@ function SkillQR({ className = '', cid }: Props): React.ReactElement<Props> {
   const [blockAllowed, setBlockAllowed] = useState<BN>(new BN(0));
   // Key management
   const [currentPair, setCurrentPair] = useState<KeyringPair | null>(null);
+  const [diplomaPublicKeyHex, setDiplomaPublicKeyHex] = useState<>("");
   const [{ isInjected }, setAccountState] = useState<AccountState>({ isExternal: false, isHardware: false, isInjected: false });
   const [isLocked, setIsLocked] = useState(false);
   const [{ isUsable, signer }, setSigner] = useState<SignerState>({ isUsable: true, signer: null });
@@ -110,11 +114,11 @@ function SkillQR({ className = '', cid }: Props): React.ReactElement<Props> {
       const isUsable = !(isExternal || isHardware || isInjected);
   
       setAccountState({ isExternal, isHardware, isInjected });
-      setIsLocked(
-        isInjected
-          ? false
-          : (currentPair && currentPair.isLocked) || false
-      );
+      const isLocked = isInjected ? false : (currentPair && currentPair.isLocked) || false;
+      setIsLocked(isLocked);
+      const diplomaKey = (!isLocked)? keyForCid(currentPair, cid) : null;
+      const diplomaPublicKeyHex = u8aToHex(diplomaKey?.publicKey);
+      setDiplomaPublicKeyHex(diplomaPublicKeyHex);
       setSigner({ isUsable, signer: null });
   
       // for injected, retrieve the signer
@@ -128,7 +132,7 @@ function SkillQR({ className = '', cid }: Props): React.ReactElement<Props> {
           .catch(console.error);
       }
     }
-  }, [currentPair]);
+  }, [currentPair, isLocked]);
 
   const _onChangeAccount = useCallback(
     (accountId: string | null) => accountId && setCurrentPair(keyring.getPair(accountId)),
@@ -175,7 +179,8 @@ function SkillQR({ className = '', cid }: Props): React.ReactElement<Props> {
     }
   };
 
-  const publicKeyHex = u8aToHex(currentPair?.publicKey);
+  const studentIdentity = u8aToHex(currentPair?.publicKey);
+
   useEffect(() => {
     const fetchRandomDiploma = async () => {
       const allDiplomas = await db.letters.toArray();
@@ -228,7 +233,7 @@ function SkillQR({ className = '', cid }: Props): React.ReactElement<Props> {
   );
 
   const reexamineData = diplomaToReexamine ? `+${diplomaToReexamine.cid}+${diplomaToReexamine.genesis}+${diplomaToReexamine.letterNumber}+${diplomaToReexamine.block}+${blockAllowed.toString()}+${diplomaToReexamine.referee}+${diplomaToReexamine.worker}+${diplomaToReexamine.amount}+${diplomaToReexamine.signOverPrivateData}+${diplomaToReexamine.signOverReceipt}+${studentSignatureOverDiplomaToReexamine}` : '';
-  const urlDetails = `diplomas/tutor?d=${tutor}+${cid}+${publicKeyHex}+${publicKeyHex}${reexamineData}`;
+  const urlDetails = `diplomas/tutor?d=${tutor}+${cid}+${studentIdentity}+${diplomaPublicKeyHex}${reexamineData}`;
 
   const generateQRData = () => {
     const name = nameFromKeyringPair(currentPair);
