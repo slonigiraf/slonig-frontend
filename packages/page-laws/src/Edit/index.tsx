@@ -66,7 +66,7 @@ function Edit({ className = '' }: Props): React.ReactElement<Props> {
   const navigate = useNavigate();
   const queryParams = new URLSearchParams(location.search);
   const tutor = queryParams.get("tutor");
-  const defaultTextHexId = '0x3f7cd308a2a631b8bbcc763a6b70107a38f6bedad2bfac4260931dfc85921162';
+  const defaultTextHexId = '0x333a6ac2dfbfd22fa96896f98bedb232157417ff9631f7186d8a0d50c1ec4d1c';
   const idFromQuery = tutor ? undefined : queryParams.get("id") || defaultTextHexId;
   const [textHexId, setTextHexId] = useState<string | undefined>(idFromQuery);
 
@@ -340,13 +340,6 @@ function Edit({ className = '' }: Props): React.ReactElement<Props> {
         {!isLocked && txButton}
         {!isIpfsReady ? <div>{t('Connecting to IPFS...')}</div> : ""}
       </Button.Group>
-      <div className='ui--row'>
-        <p><b>Debug</b><br />
-          List:<br />
-          {JSON.stringify(list)}<br />
-          Item:<br />{JSON.stringify(item)}
-        </p>
-      </div>
     </div>
   );
 
