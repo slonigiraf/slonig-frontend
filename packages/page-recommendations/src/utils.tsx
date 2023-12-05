@@ -135,7 +135,6 @@ export const createAndStoreLetter = async (data: string[]) => {
         signOverPrivateData: refereeSignOverPrivateData,
         signOverReceipt: refereeSignOverReceipt
     };
-    console.log("letter: ", letter)
     await storeLetter(letter);
 }
 
