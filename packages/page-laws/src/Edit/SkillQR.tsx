@@ -14,7 +14,6 @@ import { web3FromSource } from '@polkadot/extension-dapp';
 import { isFunction, u8aToHex, hexToU8a, u8aWrapBytes } from '@polkadot/util';
 import { useToggle } from '@polkadot/react-hooks';
 import { getDataToSignByWorker } from '@slonigiraf/helpers';
-import type { Signer } from '@polkadot/api/types';
 import BN from 'bn.js';
 import { BN_ONE } from '@polkadot/util';
 import { useApi } from '@polkadot/react-hooks';
