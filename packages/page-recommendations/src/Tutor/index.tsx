@@ -369,7 +369,7 @@ function Tutor({ className = '' }: Props): React.ReactElement<Props> {
         (student === undefined || !isDedicatedTutor) ? <>
           {
             isDedicatedTutor ?
-              <h2>{t('Show the QR code to a student to begin tutoring')}</h2>
+              <h2>{t('Show to a student to begin tutoring')}</h2>
               :
               <h2>{t('Student has shown you a QR code created for a different tutor. Ask them to scan your QR code.')}</h2>
           }
