@@ -3,7 +3,6 @@
 import BN from 'bn.js';
 import QRCode from 'qrcode.react';
 import { getDataToSignByWorker } from '@slonigiraf/helpers';
-import type { Signer } from '@polkadot/api/types';
 import type { KeyringPair } from '@polkadot/keyring/types';
 import React, { useCallback, useEffect, useState } from 'react';
 import { web3FromSource } from '@polkadot/extension-dapp';
@@ -19,11 +18,6 @@ import { Letter } from '../db/Letter.js';
 import { storeLetterUsageRight } from '../utils.js';
 import { keyForCid } from '@slonigiraf/app-slonig-components';
 import type { AccountState, SignerState } from '@slonigiraf/app-slonig-components';
-
-interface SignerState {
-  isUsable: boolean;
-  signer: Signer | null;
-}
 
 function SignLetterUseRight({ className = '', letters, worker, employer }: Props): React.ReactElement<Props> {
   const { t } = useTranslation();
