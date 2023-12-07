@@ -11,13 +11,15 @@ import { Button } from '@polkadot/react-components';
 import { useTranslation } from '../translate.js';
 import { useLocation } from 'react-router-dom';
 import SignLettersUseRight from './SignLettersUseRight.js'
+import type { KeyringPair } from '@polkadot/keyring/types';
 
 interface Props {
   className?: string;
   worker: string;
+  currentPair: KeyringPair;
 }
 
-function LettersList({ className = '', worker }: Props): React.ReactElement<Props> {
+function LettersList({ className = '', worker, currentPair }: Props): React.ReactElement<Props> {
   const { ipfs, isIpfsReady, ipfsInitError } = useIpfsContext();
   const [selectedLetters, setSelectedLetters] = useState<Letter[]>([]);
   const { t } = useTranslation();
@@ -81,7 +83,7 @@ function LettersList({ className = '', worker }: Props): React.ReactElement<Prop
       <h3 style={{ margin: 0, marginRight: '10px' }}>
         {t('Select diplomas and press')}:
       </h3>
-      <SignLettersUseRight letters={selectedLetters} worker={worker} employer={employer}/>
+      <SignLettersUseRight letters={selectedLetters} worker={worker} employer={employer} currentPair={currentPair}/>
     </div>
   );
 
