@@ -18,19 +18,7 @@ import Unlock from '@polkadot/app-signing/Unlock';
 import { Letter } from '../db/Letter.js';
 import { storeLetterUsageRight } from '../utils.js';
 import { keyForCid } from '@slonigiraf/app-slonig-components';
-
-interface Props {
-  className?: string;
-  letters: Letter[];
-  worker: string;
-  employer: string;
-}
-
-interface AccountState {
-  isExternal: boolean;
-  isHardware: boolean;
-  isInjected: boolean;
-}
+import type { AccountState, SignerState } from '@slonigiraf/app-slonig-components';
 
 interface SignerState {
   isUsable: boolean;

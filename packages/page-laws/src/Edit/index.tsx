@@ -21,20 +21,9 @@ import Editor from './Editor';
 import ViewList from './ViewList';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { storeSetting, getSetting } from '@slonigiraf/app-recommendations';
-
+import type { AccountState, SignerState } from '@slonigiraf/app-slonig-components';
 interface Props {
   className?: string;
-}
-
-interface AccountState {
-  isExternal: boolean;
-  isHardware: boolean;
-  isInjected: boolean;
-}
-
-interface SignerState {
-  isUsable: boolean;
-  signer: Signer | null;
 }
 
 function Edit({ className = '' }: Props): React.ReactElement<Props> {

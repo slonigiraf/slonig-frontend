@@ -1,5 +1,6 @@
 // Copyright 2017-2023 @polkadot/app-settings authors & contributors
 // SPDX-License-Identifier: Apache-2.0
+import type { Signer } from '@polkadot/api/types';
 import QRScanner from './QRScanner.js'
 import { IpfsProvider, useIpfsContext } from './IpfsContext.js';
 import { InfoProvider, useInfo } from './InfoProvider.js';
@@ -17,4 +18,15 @@ export interface Question {
 export interface Skill {
     h: string;
     q: Question[];
+}
+
+export interface AccountState {
+    isExternal: boolean;
+    isHardware: boolean;
+    isInjected: boolean;
+}
+
+export interface SignerState {
+    isUsable: boolean;
+    signer: Signer | null;
 }

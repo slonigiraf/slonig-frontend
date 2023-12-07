@@ -20,21 +20,11 @@ import { BN_ONE } from '@polkadot/util';
 import { useApi } from '@polkadot/react-hooks';
 import { useBlockTime } from '@polkadot/react-hooks';
 import Unlock from '@polkadot/app-signing/Unlock';
+import type { AccountState, SignerState } from '@slonigiraf/app-slonig-components';
 
 interface Props {
   className?: string;
   cid: string;
-}
-
-interface AccountState {
-  isExternal: boolean;
-  isHardware: boolean;
-  isInjected: boolean;
-}
-
-interface SignerState {
-  isUsable: boolean;
-  signer: Signer | null;
 }
 
 const getBlockAllowed = (currentBlock: BN, blockTimeMs: number, secondsToAdd: number): BN => {

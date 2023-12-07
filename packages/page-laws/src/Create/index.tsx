@@ -17,20 +17,10 @@ import Unlock from '@polkadot/app-signing/Unlock';
 import { useApi } from '@polkadot/react-hooks';
 import { randomAsU8a } from '@polkadot/util-crypto';
 import { useIpfsContext } from '@slonigiraf/app-slonig-components';
+import type { AccountState, SignerState } from '@slonigiraf/app-slonig-components';
 
 interface Props {
   className?: string;
-}
-
-interface AccountState {
-  isExternal: boolean;
-  isHardware: boolean;
-  isInjected: boolean;
-}
-
-interface SignerState {
-  isUsable: boolean;
-  signer: Signer | null;
 }
 
 function Create({ className = '' }: Props): React.ReactElement<Props> {

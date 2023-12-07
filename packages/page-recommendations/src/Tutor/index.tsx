@@ -23,20 +23,10 @@ import { TeachingAlgorithm } from './TeachingAlgorithm.js';
 import DoInstructions from './DoInstructions.js';
 import { useTranslation } from '../translate.js';
 import { qrCodeSize } from '../constants.js';
+import type { AccountState, SignerState } from '@slonigiraf/app-slonig-components';
 
 interface Props {
   className?: string;
-}
-
-interface AccountState {
-  isExternal: boolean;
-  isHardware: boolean;
-  isInjected: boolean;
-}
-
-interface SignerState {
-  isUsable: boolean;
-  signer: Signer | null;
 }
 
 const getDiplomaBlockNumber = (currentBlock: BN, blockTimeMs: number, secondsToAdd: number): BN => {
