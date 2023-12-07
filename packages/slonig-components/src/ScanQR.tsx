@@ -4,7 +4,7 @@ import { QRScanner } from '@slonigiraf/app-slonig-components';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from '../../apps/src/translate.js';
 import { Modal, TransferModal } from '@polkadot/react-components';
-import { ButtonWithLabelBelow, useInfo } from '@slonigiraf/app-slonig-components';
+import { ButtonWithLabelBelow, useInfo, QRAction } from '@slonigiraf/app-slonig-components';
 import { createAndStoreLetter, storeInsurances, storePseudonym, storeSetting } from '@slonigiraf/app-recommendations';
 
 interface Props {
@@ -30,24 +30,23 @@ function ScanQR({ className = '', label, type }: Props): React.ReactElement<Prop
       if (jsonData.hasOwnProperty('q')) {
         if (!type || (type === jsonData.q)) {
           switch (jsonData.q) {
-            case 0: // Navigation
+            case QRAction.NAVIGATION:
               navigate(jsonData.d);
               break;
-            case 1: // Transfer
+            case QRAction.TRANSFER:
               setRecipientId(jsonData.d);
               toggleTransfer();
               break;
-            case 2: // Add a diploma
+            case QRAction.ADD_DIPLOMA:
               const dataArray = jsonData.d.split(",");
               await createAndStoreLetter(dataArray);
               navigate('diplomas');
               break;
-            case 3: // See a list of student's diplomas
+            case QRAction.LIST_DIPLOMAS:
               await storeInsurances(jsonData);
               navigate(`diplomas/teacher?student=${jsonData.p}`);
               break;
-            case 4: // Show tutor's identity
-              // TODO: Store tutor pseudonym
+            case QRAction.SHOW_TUTOR_IDENTITY:
               await storePseudonym(jsonData.p, jsonData.n);
               await storeSetting("currentTutor", jsonData.p);
               if(type){
@@ -56,13 +55,22 @@ function ScanQR({ className = '', label, type }: Props): React.ReactElement<Prop
                 navigate(`knowledge?tutor=${jsonData.p}`);
               }
               break;
-            case 5: // Show skill QR
+            case QRAction.SHOW_SKILL_QR:
               const parts = jsonData.d.split('+');
               if (parts.length > 1) {
                 await storePseudonym(parts[2], jsonData.n);
               }
               navigate(jsonData.d);
               break;
+            case QRAction.SHOW_TEACHER_IDENTITY:
+              await storePseudonym(jsonData.p, jsonData.n);
+              await storeSetting("currentTeacher", jsonData.p);
+              if(type){
+                navigate(`?teacher=${jsonData.p}`);
+              } else{
+                navigate(`diplomas?teacher=${jsonData.p}`);
+              }
+              break;  
             default:
               console.warn("Unknown QR type:", jsonData.q);
           }

@@ -9,9 +9,8 @@ import { InputAddress } from '@polkadot/react-components';
 import type { KeyringPair } from '@polkadot/keyring/types';
 import { keyring } from '@polkadot/ui-keyring';
 import { u8aToHex } from '@polkadot/util';
-import QRCode from 'qrcode.react';
 import { useLocation } from 'react-router-dom';
-import { QRWithShareAndCopy, nameFromKeyringPair, getBaseUrl } from '@slonigiraf/app-slonig-components';
+import { QRWithShareAndCopy, nameFromKeyringPair, getBaseUrl, QRAction } from '@slonigiraf/app-slonig-components';
 
 interface Props {
   className?: string;
@@ -30,11 +29,14 @@ function Teacher({ className = '', ipfs }: Props): React.ReactElement<Props> {
     []
   );
 
-  let publicKeyHex = "";
-  if (currentPair !== null) {
-    publicKeyHex = u8aToHex(currentPair.publicKey);
-  }
-  const qrToBuyDiplomas = `{"q": 0,"d": "diplomas?teacher=${publicKeyHex}"}`;
+  const publicKeyHex = currentPair ? u8aToHex(currentPair.publicKey) : "";
+  const name = nameFromKeyringPair(currentPair);
+  const qrData = {
+    q: QRAction.SHOW_TEACHER_IDENTITY,
+    n: name,
+    p: publicKeyHex,
+  };
+  const qrCodeText = JSON.stringify(qrData);
   const url = getBaseUrl() + `/#/diplomas?teacher=${publicKeyHex}`;
 
   return (
@@ -53,7 +55,7 @@ function Teacher({ className = '', ipfs }: Props): React.ReactElement<Props> {
         student === "" ? <>
           <h2>{t('Show to a student to see their results')}</h2>
           <QRWithShareAndCopy
-            dataQR={qrToBuyDiplomas}
+            dataQR={qrCodeText}
             titleShare={t('QR code')}
             textShare={t('Press the link to show diplomas')}
             urlShare={url}

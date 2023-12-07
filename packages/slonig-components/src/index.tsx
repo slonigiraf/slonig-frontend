@@ -30,3 +30,13 @@ export interface SignerState {
     isUsable: boolean;
     signer: Signer | null;
 }
+
+export const QRAction = {
+    NAVIGATION: 0,
+    TRANSFER: 1,
+    ADD_DIPLOMA: 2,
+    LIST_DIPLOMAS: 3,
+    SHOW_TUTOR_IDENTITY: 4,
+    SHOW_SKILL_QR: 5,
+    SHOW_TEACHER_IDENTITY: 6
+};

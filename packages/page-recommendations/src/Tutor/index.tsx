@@ -6,14 +6,14 @@ import BN from 'bn.js';
 import QRCode from 'qrcode.react';
 import Unlock from '@polkadot/app-signing/Unlock';
 import { statics } from '@polkadot/react-api/statics';
-import { styled, Toggle, Button, Input, InputAddress, InputBalance, Output, Modal, getAddressName, Icon, Card } from '@polkadot/react-components';
+import { styled, Toggle, Button, Input, InputAddress, InputBalance, Output, Modal, Icon, Card } from '@polkadot/react-components';
 import { web3FromSource } from '@polkadot/extension-dapp';
 import type { KeyringPair } from '@polkadot/keyring/types';
 import { useApi, useBlockTime, useToggle } from '@polkadot/react-hooks';
 import { isFunction, u8aToHex, hexToU8a, u8aWrapBytes, BN_ONE } from '@polkadot/util';
 import { keyring } from '@polkadot/ui-keyring';
 import type { Skill } from '@slonigiraf/app-slonig-components';
-import { QRWithShareAndCopy, getBaseUrl, getIPFSDataFromContentID, parseJson, useIpfsContext, nameFromKeyringPair } from '@slonigiraf/app-slonig-components';
+import { QRWithShareAndCopy, getBaseUrl, getIPFSDataFromContentID, parseJson, useIpfsContext, nameFromKeyringPair, QRAction } from '@slonigiraf/app-slonig-components';
 import { db } from '@slonigiraf/app-recommendations';
 import { getPublicDataToSignByReferee, getPrivateDataToSignByReferee } from '@slonigiraf/helpers';
 import { getLastUnusedLetterNumber, setLastUsedLetterNumber, storeLetter } from '../utils.js';
@@ -276,15 +276,10 @@ function Tutor({ className = '' }: Props): React.ReactElement<Props> {
     }
   };
 
-  let publicKeyHex = '';
-  if (currentPair !== null) {
-    publicKeyHex = u8aToHex(currentPair.publicKey);
-  }
-
+  const publicKeyHex = currentPair ? u8aToHex(currentPair.publicKey) : "";
   const name = nameFromKeyringPair(currentPair);
-
   const qrData = {
-    q: 4,
+    q: QRAction.SHOW_TUTOR_IDENTITY,
     n: name,
     p: publicKeyHex,
   };
