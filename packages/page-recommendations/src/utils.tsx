@@ -142,7 +142,7 @@ export const storeInsurances = async (jsonData: any) => {
     // Check if jsonData.d is an array and has elements
     if (Array.isArray(jsonData.d) && jsonData.d.length > 0) {
         // Get the worker and employer public key hex values from jsonData
-        const workerPublicKeyHex = jsonData.p;
+        const workerId = jsonData.p;
         const employerPublicKeyHex = jsonData.t;
 
         // Process each insurance data string
@@ -151,7 +151,7 @@ export const storeInsurances = async (jsonData: any) => {
             const insuranceDataArray = insuranceDataString.split(",");
 
             // Add worker and employer public key hex to the start of the array
-            insuranceDataArray.unshift(workerPublicKeyHex, employerPublicKeyHex);
+            insuranceDataArray.unshift(workerId, employerPublicKeyHex);
 
             // Use createAndStoreInsurance for each insurance
             await createAndStoreInsurance(insuranceDataArray);
@@ -163,8 +163,9 @@ export const storeInsurances = async (jsonData: any) => {
 
 const createAndStoreInsurance = async (data: string[]) => {
     const [
-        workerPublicKeyHex,
+        workerId,
         employerPublicKeyHex,
+        worker,
         textHash,
         genesisHex,
         letterId,
@@ -178,13 +179,14 @@ const createAndStoreInsurance = async (data: string[]) => {
 
     const insurance = {
         created: new Date(),
+        workerId: workerId,
         cid: textHash,
         genesis: genesisHex,
         letterNumber: parseInt(letterId, 10),
         block: blockNumber,
         blockAllowed: blockAllowed,
         referee: refereePublicKeyHex,
-        worker: workerPublicKeyHex,
+        worker: worker,
         amount: amountValue,
         signOverPrivateData: refereeSignOverPrivateData,
         signOverReceipt: refereeSignOverReceipt,

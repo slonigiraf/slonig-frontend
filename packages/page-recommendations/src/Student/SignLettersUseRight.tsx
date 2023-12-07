@@ -17,6 +17,7 @@ import { qrCodeSize } from '../constants.js';
 import Unlock from '@polkadot/app-signing/Unlock';
 import { Letter } from '../db/Letter.js';
 import { storeLetterUsageRight } from '../utils.js';
+import { keyForCid } from '@slonigiraf/app-slonig-components';
 
 interface Props {
   className?: string;
@@ -89,22 +90,14 @@ function SignLetterUseRight({ className = '', letters, worker, employer }: Props
         // generate a data to sign      
         const letterInsurance = getDataToSignByWorker(letter.letterNumber, new BN(letter.block), new BN(letter.block), hexToU8a(letter.referee),
           hexToU8a(letter.worker), new BN(letter.amount), hexToU8a(letter.signOverReceipt), hexToU8a(employer));
-        let workerSignOverInsurance = "";
-        // sign
-        if (signer && isFunction(signer.signRaw)) {// Use browser extenstion 
-          const u8WorkerSignOverInsurance = await signer.signRaw({
-            address: currentPair.address,
-            data: u8aToHex(letterInsurance),
-            type: 'bytes'
-          });
-          workerSignOverInsurance = u8WorkerSignOverInsurance.signature;
+        
+        const diplomaKey = keyForCid(currentPair, letter.cid);
+        const workerSignOverInsurance = u8aToHex(diplomaKey.sign(u8aWrapBytes(letterInsurance)));
 
-        } else {// Use locally stored account to sign
-          workerSignOverInsurance = u8aToHex(currentPair.sign(u8aWrapBytes(letterInsurance)));
-        }
         storeLetterUsageRight(letter, employer, workerSignOverInsurance);
         // create the result text
         let result = [];
+        result.push(letter.worker);
         result.push(letter.cid);
         result.push(letter.genesis);
         result.push(letter.letterNumber);

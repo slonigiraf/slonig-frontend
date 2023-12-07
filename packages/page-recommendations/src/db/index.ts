@@ -16,12 +16,12 @@ class SlonigirafDB extends Dexie {
 
   constructor() {
     super("slonigiraf");
-    this.version(17).stores({
+    this.version(18).stores({
       letters: "++id,created,workerId,cid,genesis,letterNumber,block,referee,worker,amount,signOverPrivateData,signOverReceipt",
       pseudonyms: "&publicKey,pseudonym,altPseudonym",
       signers: "++id,publicKey",
       usageRights: "++id,created,signOverReceipt,employer,sign",
-      insurances: "++id,created,workerId,cid,genesis,letterNumber,block,referee,worker,amount,signOverPrivateData,signOverReceipt,employer,workerSign,wasUsed,[employer+worker]",
+      insurances: "++id,created,workerId,cid,genesis,letterNumber,block,referee,worker,amount,signOverPrivateData,signOverReceipt,employer,workerSign,wasUsed,[employer+workerId]",
       settings: "&id",
     });
   }

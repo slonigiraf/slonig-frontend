@@ -21,7 +21,7 @@ function InsurancesList({ className = '', teacher, student }: Props): React.Reac
   const insurances = useLiveQuery(
     () =>
       db.insurances
-      .where("[employer+worker]")
+      .where("[employer+workerId]")
       .equals([teacher, student])
       .sortBy("id"),
     [teacher, student]
