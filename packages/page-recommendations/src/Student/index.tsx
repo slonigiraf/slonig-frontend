@@ -13,6 +13,8 @@ import { useToggle } from '@polkadot/react-hooks';
 import { web3FromSource } from '@polkadot/extension-dapp';
 import { isFunction, u8aToHex } from '@polkadot/util';
 import Unlock from '@polkadot/app-signing/Unlock';
+import { useLocation } from 'react-router-dom';
+import { createAndStoreLetter } from '@slonigiraf/app-recommendations';
 
 interface Props {
   className?: string;
@@ -20,16 +22,28 @@ interface Props {
 }
 
 function Student({ className = '', ipfs }: Props): React.ReactElement<Props> {
+  // Process query
+  const location = useLocation();
+  const queryParams = new URLSearchParams(location.search);
+  const queryData = queryParams.get("d") || "";
+  const [textHash,
+    workerId,
+    genesisHex,
+    letterId,
+    blockNumber,
+    refereePublicKeyHex,
+    workerPublicKeyHex,
+    amount,
+    refereeSignOverPrivateData,
+    refereeSignOverReceipt] = queryData.split(' ');
+  // Set translation
   const { t } = useTranslation();
   // Account initialization
   const [currentPair, setCurrentPair] = useState<KeyringPair | null>(null);
   const [{ isInjected }, setAccountState] = useState<AccountState>({ isExternal: false, isHardware: false, isInjected: false });
   const [isLocked, setIsLocked] = useState(false);
-  const [{ isUsable, signer }, setSigner] = useState<SignerState>({ isUsable: true, signer: null });
-  const [signature, setSignature] = useState('');
+  const [{ isUsable }, setSigner] = useState<SignerState>({ isUsable: true, signer: null });
   const [isUnlockVisible, toggleUnlock] = useToggle();
-  const [letterInfo, setLetterInfo] = useState('')
-  const [isQROpen, toggleQR] = useToggle();
 
   useEffect((): void => {
     const meta = (currentPair && currentPair.meta) || {};
@@ -44,7 +58,6 @@ function Student({ className = '', ipfs }: Props): React.ReactElement<Props> {
         ? false
         : (currentPair && currentPair.isLocked) || false
     );
-    setSignature('');
     setSigner({ isUsable, signer: null });
 
     // for injected, retrieve the signer
@@ -72,6 +85,25 @@ function Student({ className = '', ipfs }: Props): React.ReactElement<Props> {
     },
     [toggleUnlock]
   );
+
+  // Save diploma from url
+  useEffect(() => {
+    if (refereeSignOverPrivateData) {
+      async function saveDiploma() {
+        await createAndStoreLetter([textHash,
+          workerId,
+          genesisHex,
+          letterId,
+          blockNumber,
+          refereePublicKeyHex,
+          workerPublicKeyHex,
+          amount,
+          refereeSignOverPrivateData,
+          refereeSignOverReceipt]);
+      }
+      saveDiploma()
+    }
+  }, [refereeSignOverPrivateData])
 
   const unlock = <>
     <div

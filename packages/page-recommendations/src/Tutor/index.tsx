@@ -3,7 +3,6 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { useLocation } from 'react-router-dom';
 import BN from 'bn.js';
-import QRCode from 'qrcode.react';
 import Unlock from '@polkadot/app-signing/Unlock';
 import { statics } from '@polkadot/react-api/statics';
 import { styled, Toggle, Button, Input, InputAddress, InputBalance, Output, Modal, Icon, Card } from '@polkadot/react-components';
@@ -21,7 +20,6 @@ import Reexamine from './Reexamine.js';
 import { TeachingAlgorithm } from './TeachingAlgorithm.js';
 import DoInstructions from './DoInstructions.js';
 import { useTranslation } from '../translate.js';
-import { qrCodeSize } from '../constants.js';
 import type { AccountState, SignerState } from '@slonigiraf/app-slonig-components';
 
 interface Props {
@@ -75,6 +73,7 @@ function Tutor({ className = '' }: Props): React.ReactElement<Props> {
   const [diplomaBlockNumber, setDiplomaBlockNumber] = useState<BN>(new BN(0));
   //   raw diploma data
   const [diplomaText, setDiplomaText] = useState('');
+  const [diplomaAddUrl, setDiplomaAddUrl] = useState('');
   //   student name
   const [studentName, setStudentName] = useState<string | undefined>(undefined);
   //   show stake and days or hide
@@ -247,8 +246,14 @@ function Tutor({ className = '' }: Props): React.ReactElement<Props> {
       };
       await storeLetter(letter);
       await setLastUsedLetterNumber(refereePublicKeyHex, letterId);
-      const diplomaText = `{"q": 2,"d": "${result.join(",")}"}`;
-      setDiplomaText(diplomaText);
+      const qrData = {
+        q: QRAction.ADD_DIPLOMA,
+        d: result.join(",")
+      };
+      const qrCodeText = JSON.stringify(qrData);
+      const url = getBaseUrl() + `/#/diplomas?d=${result.join("+")}`;
+      setDiplomaText(qrCodeText);
+      setDiplomaAddUrl(url);
       // show QR
       setModalIsOpen(true);
     },
@@ -463,7 +468,12 @@ function Tutor({ className = '' }: Props): React.ReactElement<Props> {
                       onClose={() => setModalIsOpen(false)}
                     >
                       <Modal.Content>
-                        <QRCode value={diplomaText} size={qrCodeSize} />
+                        <QRWithShareAndCopy
+                          dataQR={diplomaText}
+                          titleShare={t('QR code')}
+                          textShare={t('Press the link to add the diploma')}
+                          urlShare={diplomaAddUrl}
+                          dataCopy={diplomaAddUrl} />
                       </Modal.Content>
                     </Modal>
                   }
