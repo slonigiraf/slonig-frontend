@@ -13,7 +13,7 @@ import { isFunction, u8aToHex, hexToU8a, u8aWrapBytes, BN_ONE } from '@polkadot/
 import { keyring } from '@polkadot/ui-keyring';
 import type { Skill } from '@slonigiraf/app-slonig-components';
 import { QRWithShareAndCopy, getBaseUrl, getIPFSDataFromContentID, parseJson, useIpfsContext, nameFromKeyringPair, QRAction } from '@slonigiraf/app-slonig-components';
-import { db } from '@slonigiraf/app-recommendations';
+import { db, Letter } from '@slonigiraf/app-recommendations';
 import { getPublicDataToSignByReferee, getPrivateDataToSignByReferee } from '@slonigiraf/helpers';
 import { getLastUnusedLetterNumber, setLastUsedLetterNumber, storeLetter } from '../utils.js';
 import Reexamine from './Reexamine.js';
@@ -32,6 +32,22 @@ const getDiplomaBlockNumber = (currentBlock: BN, blockTimeMs: number, secondsToA
   const blockAllowed = currentBlock.add(blocksToAdd);
   return blockAllowed;
 }
+
+function letterAsArray(letter: Letter) {
+  let result = [];
+  result.push(letter.cid);                      // Skill CID
+  result.push(letter.workerId);                 // Student Identity
+  result.push(letter.genesis);                  // Genesis U8 Hex
+  result.push(letter.letterNumber);             // Letter ID
+  result.push(letter.block);                    // Diploma Block Number
+  result.push(letter.referee);                  // Referee Public Key Hex
+  result.push(letter.worker);                   // Student
+  result.push(letter.amount);                   // Amount
+  result.push(letter.signOverPrivateData);      // Referee Sign Over Private Data
+  result.push(letter.signOverReceipt);          // Referee Sign Over Receipt
+  return result;
+}
+
 
 function Tutor({ className = '' }: Props): React.ReactElement<Props> {
   // Initialize api, ipfs and translation
@@ -55,7 +71,6 @@ function Tutor({ className = '' }: Props): React.ReactElement<Props> {
   const [isUnlockVisible, toggleUnlock] = useToggle();
 
   // Store progress state
-  const [modalIsOpen, setModalIsOpen] = useState(false);
   const [canIssueDiploma, setCanIssueDiploma] = useState(false);
   const [reexamined, setReexamined] = useState<boolean>(cidR === undefined);
   const [teachingAlgorithm, setTeachingAlgorithm] = useState<TeachingAlgorithm | null>(null);
@@ -78,6 +93,26 @@ function Tutor({ className = '' }: Props): React.ReactElement<Props> {
   const [studentName, setStudentName] = useState<string | undefined>(undefined);
   //   show stake and days or hide
   const [visibleDiplomaDetails, toggleVisibleDiplomaDetails] = useToggle(false);
+  //   issued diploma
+  const [diploma, setDiploma] = useState<Letter | null>(null);
+
+  // Fetch diploma from db if it was already issued
+  useEffect(() => {
+    if (student) {
+      async function fetchDiploma() {
+        const issuedDiploma = await db.letters.get({ worker: student });
+        console.log("student", student)
+        console.log("diploma", diploma)
+        if (issuedDiploma) {
+          setDiploma(issuedDiploma);
+          createDiplomaQR(issuedDiploma);
+        } else {
+          setDiploma(null);
+        }
+      }
+      fetchDiploma()
+    }
+  }, [student])
 
   // Fetch skill data and set teaching algorithm
   useEffect(() => {
@@ -158,6 +193,18 @@ function Tutor({ className = '' }: Props): React.ReactElement<Props> {
     }
   }, [currentPair]);
 
+  const createDiplomaQR = useCallback((letter: Letter) => {
+    const letterArray = letterAsArray(letter);
+    const qrData = {
+      q: QRAction.ADD_DIPLOMA,
+      d: letterArray.join(",")
+    };
+    const qrCodeText = JSON.stringify(qrData);
+    const url = getBaseUrl() + `/#/diplomas?d=${letterArray.join("+")}`;
+    setDiplomaText(qrCodeText);
+    setDiplomaAddUrl(url);
+  }, [setDiplomaText, setDiplomaAddUrl]);
+
   const _onChangeAccount = useCallback(
     (accountId: string | null) => accountId && setCurrentPair(keyring.getPair(accountId)),
     []
@@ -218,18 +265,6 @@ function Tutor({ className = '' }: Props): React.ReactElement<Props> {
         refereeSignOverPrivateData = u8aToHex(currentPair.sign(u8aWrapBytes(privateData)));
         refereeSignOverReceipt = u8aToHex(currentPair.sign(u8aWrapBytes(receipt)));
       }
-      // create the result text
-      let result = [];
-      result.push(skillCID);
-      result.push(studentIdentity);
-      result.push(genesisU8.toHex());
-      result.push(letterId);
-      result.push(diplomaBlockNumber);
-      result.push(refereePublicKeyHex);
-      result.push(student);
-      result.push(amount.toString());
-      result.push(refereeSignOverPrivateData);
-      result.push(refereeSignOverReceipt);
 
       const letter = {
         created: new Date(),
@@ -246,16 +281,8 @@ function Tutor({ className = '' }: Props): React.ReactElement<Props> {
       };
       await storeLetter(letter);
       await setLastUsedLetterNumber(refereePublicKeyHex, letterId);
-      const qrData = {
-        q: QRAction.ADD_DIPLOMA,
-        d: result.join(",")
-      };
-      const qrCodeText = JSON.stringify(qrData);
-      const url = getBaseUrl() + `/#/diplomas?d=${result.join("+")}`;
-      setDiplomaText(qrCodeText);
-      setDiplomaAddUrl(url);
-      // show QR
-      setModalIsOpen(true);
+      createDiplomaQR(letter);
+      setDiploma(letter);
     },
     [currentPair, isLocked, isUsable, signer, ipfs, skill, student, diplomaBlockNumber, amount]
   );
@@ -289,8 +316,7 @@ function Tutor({ className = '' }: Props): React.ReactElement<Props> {
     p: publicKeyHex,
   };
   const qrCodeText = JSON.stringify(qrData);
-
-  const url = getBaseUrl() + `/#/knowledge?tutor=${publicKeyHex}`;
+  const url: string = getBaseUrl() + `/#/knowledge?tutor=${publicKeyHex}`;
 
   const insurance = {
     created: new Date(),
@@ -351,6 +377,105 @@ function Tutor({ className = '' }: Props): React.ReactElement<Props> {
     )}
   </>;
 
+  const showDiplomaFromDb = <>
+    <div>
+      <h2>{t('Student')}: {studentName}</h2>
+    </div>
+    <div>
+      <h2>{t('Show the QR to your student to sell the diploma')}: "{skill ? skill.h : ''}"</h2>
+    </div>
+    <br />
+    <QRWithShareAndCopy
+      dataQR={diplomaText}
+      titleShare={t('QR code')}
+      textShare={t('Press the link to add the diploma')}
+      urlShare={diplomaAddUrl}
+      dataCopy={diplomaAddUrl} />
+  </>;
+
+  const reexamAndDiplomaIssuing = <>
+    <div>
+      <h2>{t('Student')}: {studentName}</h2>
+    </div>
+    <div style={!reexamined ? {} : { display: 'none' }}>
+      <Reexamine currentPair={currentPair} insurance={insurance} onResult={updateReexamined} />
+    </div>
+    <div style={reexamined ? {} : { display: 'none' }}>
+      <b>{t('Teach and create a diploma')}: </b>
+      <b>"{skill ? skill.h : ''}"</b>
+      <DoInstructions algorithm={teachingAlgorithm} onResult={updateTutoring} />
+    </div>
+    {
+      canIssueDiploma &&
+      <StyledDiv>
+        <Card>
+          <div className='ui--row'>
+            <h2>{t('Diploma')}</h2>
+          </div>
+          <table>
+            <tbody>
+              <tr>
+                <td><Icon icon='graduation-cap' /></td>
+                <td>{skill ? skill.h : ''}</td>
+              </tr>
+              <tr>
+                <td><Icon icon='person' /></td>
+                <td>{studentName}</td>
+              </tr>
+            </tbody>
+          </table>
+          <Toggle
+            label={t('details')}
+            onChange={toggleVisibleDiplomaDetails}
+            value={visibleDiplomaDetails}
+          />
+          <div className='ui--row' style={visibleDiplomaDetails ? {} : { display: 'none' }}>
+            <InputBalance
+              help={t('Stake reputation help info')}
+              isZeroable
+              label={t('stake slon')}
+              onChange={setAmount}
+              defaultValue={amount}
+            />
+          </div>
+          <div className='ui--row' style={visibleDiplomaDetails ? {} : { display: 'none' }}>
+            <Input
+              className='full'
+              help={t('Days valid info')}
+              label={t('days valid')}
+              onChange={_onChangeDaysValid}
+              value={daysValid.toString()}
+            />
+          </div>
+        </Card>
+
+        <div className='toolbox--Tutor-input'>
+          <div className='ui--row'>
+            <Output
+              className='full'
+              help={t('create a diploma help text')}
+              isHidden={signature.length === 0}
+              isMonospace
+              label={t('create a diploma')}
+              value={signature}
+              withCopy
+            />
+          </div>
+        </div>
+        <div>
+          {unlock}
+          {!isLocked && (<Button
+            icon='dollar'
+            isDisabled={!(isUsable && !isLocked && isIpfsReady)}
+            label={t('Sell the diploma')}
+            onClick={_onSign}
+          />)}
+          {!isIpfsReady ? <div>{t('Connecting to IPFS...')}</div> : ""}
+        </div>
+      </StyledDiv>
+    }
+  </>;
+
   return (
     <div className={`toolbox--Tutor ${className}`}>
       {/* The div below helps initialize account */}
@@ -381,107 +506,10 @@ function Tutor({ className = '' }: Props): React.ReactElement<Props> {
             dataCopy={url} />
         </>
           :
-          <> {isLocked ? unlock :
-            <>
-              <div>
-                <h2>{t('Student')}: {studentName}</h2>
-              </div>
-              <div style={!reexamined ? {} : { display: 'none' }}>
-                <Reexamine currentPair={currentPair} insurance={insurance} onResult={updateReexamined} />
-              </div>
-              <div style={reexamined ? {} : { display: 'none' }}>
-                <b>{t('Teach and create a diploma')}: </b>
-                <b>"{skill ? skill.h : ''}"</b>
-                <DoInstructions algorithm={teachingAlgorithm} onResult={updateTutoring} />
-              </div>
-              {
-                canIssueDiploma &&
-                <StyledDiv>
-                  <Card>
-                    <div className='ui--row'>
-                      <h2>{t('Diploma')}</h2>
-                    </div>
-                    <table>
-                      <tbody>
-                        <tr>
-                          <td><Icon icon='graduation-cap' /></td>
-                          <td>{skill ? skill.h : ''}</td>
-                        </tr>
-                        <tr>
-                          <td><Icon icon='person' /></td>
-                          <td>{studentName}</td>
-                        </tr>
-                      </tbody>
-                    </table>
-                    <Toggle
-                      label={t('details')}
-                      onChange={toggleVisibleDiplomaDetails}
-                      value={visibleDiplomaDetails}
-                    />
-                    <div className='ui--row' style={visibleDiplomaDetails ? {} : { display: 'none' }}>
-                      <InputBalance
-                        help={t('Stake reputation help info')}
-                        isZeroable
-                        label={t('stake slon')}
-                        onChange={setAmount}
-                        defaultValue={amount}
-                      />
-                    </div>
-                    <div className='ui--row' style={visibleDiplomaDetails ? {} : { display: 'none' }}>
-                      <Input
-                        className='full'
-                        help={t('Days valid info')}
-                        label={t('days valid')}
-                        onChange={_onChangeDaysValid}
-                        value={daysValid.toString()}
-                      />
-                    </div>
-                  </Card>
-
-                  <div className='toolbox--Tutor-input'>
-                    <div className='ui--row'>
-                      <Output
-                        className='full'
-                        help={t('create a diploma help text')}
-                        isHidden={signature.length === 0}
-                        isMonospace
-                        label={t('create a diploma')}
-                        value={signature}
-                        withCopy
-                      />
-                    </div>
-                  </div>
-                  <div>
-                    {unlock}
-                    {!isLocked && (<Button
-                      icon='dollar'
-                      isDisabled={!(isUsable && !isLocked && isIpfsReady)}
-                      label={t('Sell the diploma')}
-                      onClick={_onSign}
-                    />)}
-                    {!isIpfsReady ? <div>{t('Connecting to IPFS...')}</div> : ""}
-                  </div>
-                  {modalIsOpen &&
-                    <Modal
-                      size={"small"}
-                      header={t('Show the QR to your student')}
-                      onClose={() => setModalIsOpen(false)}
-                    >
-                      <Modal.Content>
-                        <QRWithShareAndCopy
-                          dataQR={diplomaText}
-                          titleShare={t('QR code')}
-                          textShare={t('Press the link to add the diploma')}
-                          urlShare={diplomaAddUrl}
-                          dataCopy={diplomaAddUrl} />
-                      </Modal.Content>
-                    </Modal>
-                  }
-                </StyledDiv>
-              }
-            </>
-          }
-          </>
+          <> {isLocked ?
+            unlock :
+            <> {diploma ? showDiplomaFromDb : reexamAndDiplomaIssuing}</>
+          }</>
       }
     </div>
   );
