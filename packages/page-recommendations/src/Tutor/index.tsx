@@ -96,26 +96,6 @@ function Tutor({ className = '' }: Props): React.ReactElement<Props> {
   //   issued diploma
   const [diploma, setDiploma] = useState<Letter | null>(null);
 
-  // Fetch diploma from db if it was already issued
-  useEffect(() => {
-    if (student) {
-      async function fetchDiploma() {
-        const issuedDiploma = await db.letters.get({ worker: student });
-        console.log("student", student)
-        console.log("diploma", diploma)
-        if (issuedDiploma) {
-          setDaysValid(defaultDaysValid);
-          setAmount(defaultStake);
-          setDiploma(issuedDiploma);
-          createDiplomaQR(issuedDiploma);
-        } else {
-          setDiploma(null);
-        }
-      }
-      fetchDiploma()
-    }
-  }, [student])
-
   // Fetch skill data and set teaching algorithm
   useEffect(() => {
     async function fetchData() {
@@ -386,37 +366,34 @@ function Tutor({ className = '' }: Props): React.ReactElement<Props> {
       <h2>{t('Show the QR to your student')}</h2>
     </div>
     <br />
-    <Card>
-      <div className='ui--row'>
-        <h2>{t('Diploma')}</h2>
-      </div>
-      <table>
-        <tbody>
-          <tr>
-            <td><Icon icon='graduation-cap' /></td>
-            <td>{skill ? skill.h : ''}</td>
-          </tr>
-          <tr>
-            <td><Icon icon='user' /></td>
-            <td>{studentName}</td>
-          </tr>
-          <tr>
-            <td><Icon icon='shield' /></td>
-            <td>{diplomaSlon.toString()} Slon {t('warranty')}</td>
-          </tr>
-          <tr>
-            <td><Icon icon='clock-rotate-left' /></td>
-            <td>{daysValid.toString()} {t('days valid')}</td>
-          </tr>
-        </tbody>
-      </table>
-      <QRWithShareAndCopy
-        dataQR={diplomaText}
-        titleShare={t('QR code')}
-        textShare={t('Press the link to add the diploma')}
-        urlShare={diplomaAddUrl}
-        dataCopy={diplomaAddUrl} />
-    </Card>
+    <DiplomaDiv>
+      <Card>
+        <div className="table">
+          <div className="row">
+            <div className="cell"><Icon icon='graduation-cap' /></div>
+            <div className="cell">{skill ? skill.h : ''}</div>
+          </div>
+          <div className="row">
+            <div className="cell"><Icon icon='user' /></div>
+            <div className="cell">{studentName}</div>
+          </div>
+          <div className="row">
+            <div className="cell"><Icon icon='shield' /></div>
+            <div className="cell">{diplomaSlon.toString()} Slon {t('warranty')}</div>
+          </div>
+          <div className="row">
+            <div className="cell"><Icon icon='clock-rotate-left' /></div>
+            <div className="cell">{daysValid.toString()} {t('days valid')}</div>
+          </div>
+        </div>
+        <QRWithShareAndCopy
+          dataQR={diplomaText}
+          titleShare={t('QR code')}
+          textShare={t('Press the link to add the diploma')}
+          urlShare={diplomaAddUrl}
+          dataCopy={diplomaAddUrl} />
+      </Card>
+    </DiplomaDiv>
 
   </>;
 
@@ -544,6 +521,51 @@ function Tutor({ className = '' }: Props): React.ReactElement<Props> {
 
 const StyledDiv = styled.div`
   max-width: 300px;
+`;
+
+const DiplomaDiv = styled.div`
+  display: flex;
+  flex-direction: row;
+  justify-content: center;
+  align-items: center;
+  max-width: 300px;
+  .qr--row {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+  }
+  Card {
+    width: 100%; // Adjust this as needed
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+  }
+  .table {
+    display: flex;
+    flex-direction: column;
+    width: 100%;
+  }
+
+  .row {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+  }
+
+  .cell {
+    padding: 5px; // Add padding for spacing
+    // Add any additional styling you need for cells
+  }
+
+  .row .cell:first-child {
+    flex: 0 1 auto; // Allow shrinking but no growth, auto basis
+    white-space: nowrap; // Prevents text from wrapping
+    min-width: 30px;
+  }
+
+  .row .cell:nth-child(2) {
+    flex: 1; // Take up the remaining space
+  }
 `;
 
 export default React.memo(Tutor);
