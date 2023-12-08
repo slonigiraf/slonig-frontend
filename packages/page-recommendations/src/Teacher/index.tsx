@@ -37,7 +37,7 @@ function Teacher({ className = '', ipfs }: Props): React.ReactElement<Props> {
     p: publicKeyHex,
   };
   const qrCodeText = JSON.stringify(qrData);
-  const url = getBaseUrl() + `/#/diplomas?teacher=${publicKeyHex}`;
+  const url = getBaseUrl() + `/#/diplomas?teacher=${publicKeyHex}&name=${encodeURIComponent(name)}`;
 
   return (
     <div className={`toolbox--Student ${className}`}>
