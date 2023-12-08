@@ -298,7 +298,7 @@ function Tutor({ className = '' }: Props): React.ReactElement<Props> {
     p: publicKeyHex,
   };
   const qrCodeText = JSON.stringify(qrData);
-  const url: string = getBaseUrl() + `/#/knowledge?tutor=${publicKeyHex}`;
+  const url: string = getBaseUrl() + `/#/knowledge?tutor=${publicKeyHex}&name=${encodeURIComponent(name)}`;
 
   const insurance = {
     created: new Date(),
