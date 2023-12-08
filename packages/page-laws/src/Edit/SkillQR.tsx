@@ -207,11 +207,11 @@ function SkillQR({ className = '', cid }: Props): React.ReactElement<Props> {
     [currentPair, isLocked, isUsable, signer, tutor, diplomaToReexamine, blockAllowed]
   );
 
+  const name = nameFromKeyringPair(currentPair);
   const reexamineData = diplomaToReexamine ? `+${diplomaToReexamine.cid}+${diplomaToReexamine.genesis}+${diplomaToReexamine.letterNumber}+${diplomaToReexamine.block}+${blockAllowed.toString()}+${diplomaToReexamine.referee}+${diplomaToReexamine.worker}+${diplomaToReexamine.amount}+${diplomaToReexamine.signOverPrivateData}+${diplomaToReexamine.signOverReceipt}+${studentSignatureOverDiplomaToReexamine}` : '';
-  const urlDetails = `diplomas/tutor?d=${tutor}+${cid}+${studentIdentity}+${diplomaPublicKeyHex}${reexamineData}`;
+  const urlDetails = `diplomas/tutor?name=${encodeURIComponent(name)}&d=${tutor}+${cid}+${studentIdentity}+${diplomaPublicKeyHex}${reexamineData}`;
 
   const generateQRData = () => {
-    const name = nameFromKeyringPair(currentPair);
     return JSON.stringify({
       q: 5,
       n: name,
