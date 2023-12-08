@@ -104,6 +104,8 @@ function Tutor({ className = '' }: Props): React.ReactElement<Props> {
         console.log("student", student)
         console.log("diploma", diploma)
         if (issuedDiploma) {
+          setDaysValid(defaultDaysValid);
+          setAmount(defaultStake);
           setDiploma(issuedDiploma);
           createDiplomaQR(issuedDiploma);
         } else {
@@ -377,20 +379,45 @@ function Tutor({ className = '' }: Props): React.ReactElement<Props> {
     )}
   </>;
 
-  const showDiplomaFromDb = <>
+  const diplomaSlon = new BN(amount).div(new BN("1000000000000"));
+
+  const diplomaView = <>
     <div>
-      <h2>{t('Student')}: {studentName}</h2>
-    </div>
-    <div>
-      <h2>{t('Show the QR to your student to sell the diploma')}: "{skill ? skill.h : ''}"</h2>
+      <h2>{t('Show the QR to your student')}</h2>
     </div>
     <br />
-    <QRWithShareAndCopy
-      dataQR={diplomaText}
-      titleShare={t('QR code')}
-      textShare={t('Press the link to add the diploma')}
-      urlShare={diplomaAddUrl}
-      dataCopy={diplomaAddUrl} />
+    <Card>
+      <div className='ui--row'>
+        <h2>{t('Diploma')}</h2>
+      </div>
+      <table>
+        <tbody>
+          <tr>
+            <td><Icon icon='graduation-cap' /></td>
+            <td>{skill ? skill.h : ''}</td>
+          </tr>
+          <tr>
+            <td><Icon icon='user' /></td>
+            <td>{studentName}</td>
+          </tr>
+          <tr>
+            <td><Icon icon='shield' /></td>
+            <td>{diplomaSlon.toString()} Slon {t('warranty')}</td>
+          </tr>
+          <tr>
+            <td><Icon icon='clock-rotate-left' /></td>
+            <td>{daysValid.toString()} {t('days valid')}</td>
+          </tr>
+        </tbody>
+      </table>
+      <QRWithShareAndCopy
+        dataQR={diplomaText}
+        titleShare={t('QR code')}
+        textShare={t('Press the link to add the diploma')}
+        urlShare={diplomaAddUrl}
+        dataCopy={diplomaAddUrl} />
+    </Card>
+
   </>;
 
   const reexamAndDiplomaIssuing = <>
@@ -508,7 +535,7 @@ function Tutor({ className = '' }: Props): React.ReactElement<Props> {
           :
           <> {isLocked ?
             unlock :
-            <> {diploma ? showDiplomaFromDb : reexamAndDiplomaIssuing}</>
+            <> {diploma ? diplomaView : reexamAndDiplomaIssuing}</>
           }</>
       }
     </div>
