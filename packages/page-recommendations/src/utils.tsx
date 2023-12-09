@@ -6,6 +6,10 @@ import { Insurance } from "./db/Insurance";
 import { Signer } from "./db/Signer";
 import { UsageRight } from "./db/UsageRight";
 import { Pseudonym } from "./db/Pseudonym.js";
+import DOMPurify from 'dompurify';
+import { u8aToHex } from '@polkadot/util';
+import { decodeAddress, encodeAddress } from '@polkadot/keyring';
+import { isHex } from '@polkadot/util';
 
 export const syncDB = async (data: string, password: string) => {
     const json = JSON.parse(data);
@@ -69,24 +73,50 @@ export const storeInsurance = async (insurance: Insurance) => {
     }
 }
 
+function isValidPublicKey(publicKey: string) {
+    try {
+        // Check if the public key is a valid hex string
+        if (!isHex(publicKey)) {
+            return false;
+        }
+
+        // Decode the public key to check if it's valid
+        const decoded = decodeAddress(publicKey);
+
+        // Optionally, re-encode and compare to the original
+        const encoded = encodeAddress(decoded);
+        return u8aToHex(decoded) === publicKey || encoded === publicKey;
+    } catch (error) {
+        // If an error occurs (like an invalid public key), return false
+        return false;
+    }
+}
+
 export const storePseudonym = async (publicKey: string, pseudonym: string) => {
-    const samePseudonym = await db.pseudonyms.get({ publicKey: publicKey });
-    if (samePseudonym === undefined) {
-        const newPseudonym: Pseudonym = { publicKey, pseudonym, altPseudonym: "" };
-        await db.pseudonyms.put(newPseudonym);
-    } else if (samePseudonym.pseudonym !== pseudonym) {
-        await db.pseudonyms.where({ publicKey: publicKey }).modify((f) => f.altPseudonym = pseudonym);
+    if (isValidPublicKey(publicKey)) {
+        const cleanPseudonym = DOMPurify.sanitize(pseudonym);
+        const samePseudonym = await db.pseudonyms.get({ publicKey: publicKey });
+        if (samePseudonym === undefined) {
+            const newPseudonym: Pseudonym = { publicKey: publicKey, pseudonym: cleanPseudonym, altPseudonym: "" };
+            await db.pseudonyms.put(newPseudonym);
+        } else if (samePseudonym.pseudonym !== cleanPseudonym) {
+            await db.pseudonyms.where({ publicKey: publicKey }).modify((f) => f.altPseudonym = cleanPseudonym);
+        }
     }
 }
 
 export const storeSetting = async (id: string, value: string) => {
-    await db.settings.put({ id, value });
+    const cleanId = DOMPurify.sanitize(id);
+    const cleanValue = DOMPurify.sanitize(value);
+    await db.settings.put({ cleanId, cleanValue });
 }
 export const deleteSetting = async (id: string) => {
-    await db.settings.delete(id);
+    const cleanId = DOMPurify.sanitize(id);
+    await db.settings.delete(cleanId);
 }
 export const getSetting = async (id: string): Promise<string | undefined> => {
-    const setting = await db.settings.get(id);
+    const cleanId = DOMPurify.sanitize(id);
+    const setting = await db.settings.get(cleanId);
     return setting ? setting.value : undefined;
 };
 

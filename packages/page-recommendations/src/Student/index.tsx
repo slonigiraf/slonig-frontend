@@ -15,6 +15,7 @@ import { isFunction, u8aToHex } from '@polkadot/util';
 import Unlock from '@polkadot/app-signing/Unlock';
 import { useLocation } from 'react-router-dom';
 import { createAndStoreLetter } from '@slonigiraf/app-recommendations';
+import { storePseudonym, storeSetting } from '@slonigiraf/app-recommendations';
 
 interface Props {
   className?: string;
@@ -25,7 +26,9 @@ function Student({ className = '', ipfs }: Props): React.ReactElement<Props> {
   // Process query
   const location = useLocation();
   const queryParams = new URLSearchParams(location.search);
-  const queryData = queryParams.get("d") || "";
+  const teacherName = queryParams.get("name");
+  const teacherPublicKey = queryParams.get("teacher");
+  const addDiplomaData = queryParams.get("d") || "";
   const [textHash,
     workerId,
     genesisHex,
@@ -35,7 +38,7 @@ function Student({ className = '', ipfs }: Props): React.ReactElement<Props> {
     workerPublicKeyHex,
     amount,
     refereeSignOverPrivateData,
-    refereeSignOverReceipt] = queryData.split(' ');
+    refereeSignOverReceipt] = addDiplomaData.split(' ');
   // Set translation
   const { t } = useTranslation();
   // Account initialization
@@ -85,6 +88,23 @@ function Student({ className = '', ipfs }: Props): React.ReactElement<Props> {
     },
     [toggleUnlock]
   );
+
+  // Save teacher pseudonym from url
+  useEffect(() => {
+    if (teacherPublicKey && teacherName) {
+      async function saveTeacherPseudonym() {
+        try {
+          // Ensure that both teacherPublicKey and teacherName are strings
+          if (typeof teacherPublicKey === 'string' && typeof teacherName === 'string') {
+            await storePseudonym(teacherPublicKey, teacherName);
+          }
+        } catch (error) {
+          console.error("Failed to save teacher pseudonym:", error);
+        }
+      }
+      saveTeacherPseudonym();
+    }
+  }, [teacherPublicKey, teacherName]);
 
   // Save diploma from url
   useEffect(() => {

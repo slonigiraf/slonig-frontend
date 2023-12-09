@@ -3372,22 +3372,6 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@slonigiraf/app-home@workspace:packages/page-home":
-  version: 0.0.0-use.local
-  resolution: "@slonigiraf/app-home@workspace:packages/page-home"
-  dependencies:
-    "@polkadot/apps-config": ^0.132.2-38-x
-    "@polkadot/react-components": ^0.132.2-38-x
-    "@polkadot/react-query": ^0.132.2-38-x
-    "@slonigiraf/app-slonig-components": ^0.132.2-38-x
-    query-string: ^8.1.0
-  peerDependencies:
-    react: "*"
-    react-dom: "*"
-    react-is: "*"
-  languageName: unknown
-  linkType: soft
-
 "@slonigiraf/app-laws@workspace:packages/page-laws":
   version: 0.0.0-use.local
   resolution: "@slonigiraf/app-laws@workspace:packages/page-laws"
@@ -3434,6 +3418,7 @@ __metadata:
     dexie: ^3.2.2
     dexie-export-import: ^1.0.3
     dexie-react-hooks: ^1.1.1
+    dompurify: ^3.0.6
     file-saver: ^2.0.5
     ipfs-core: ^0.14.2
     ipfs-core-types: ^0.10.1
@@ -8630,6 +8615,13 @@ __metadata:
   dependencies:
     domelementtype: ^2.2.0
   checksum: 4c665ceed016e1911bf7d1dadc09dc888090b64dee7851cccd2fcf5442747ec39c647bb1cb8c8919f8bbdd0f0c625a6bafeeed4b2d656bbecdbae893f43ffaaa
+  languageName: node
+  linkType: hard
+
+"dompurify@npm:^3.0.6":
+  version: 3.0.6
+  resolution: "dompurify@npm:3.0.6"
+  checksum: e5c6cdc5fe972a9d0859d939f1d86320de275be00bbef7bd5591c80b1e538935f6ce236624459a1b0c84ecd7c6a1e248684aa4637512659fccc0ce7c353828a6
   languageName: node
   linkType: hard
 
