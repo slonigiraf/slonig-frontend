@@ -108,7 +108,7 @@ export const storePseudonym = async (publicKey: string, pseudonym: string) => {
 export const storeSetting = async (id: string, value: string) => {
     const cleanId = DOMPurify.sanitize(id);
     const cleanValue = DOMPurify.sanitize(value);
-    await db.settings.put({ cleanId, cleanValue });
+    await db.settings.put({ id: cleanId, value: cleanValue });
 }
 export const deleteSetting = async (id: string) => {
     const cleanId = DOMPurify.sanitize(id);

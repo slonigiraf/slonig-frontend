@@ -65,11 +65,11 @@ function ScanQR({ className = '', label, type }: Props): React.ReactElement<Prop
             case QRAction.SHOW_TEACHER_IDENTITY:
               await storePseudonym(jsonData.p, jsonData.n);
               await storeSetting("currentTeacher", jsonData.p);
-              if(type){
-                navigate(`?teacher=${jsonData.p}`);
-              } else{
-                navigate(`diplomas?teacher=${jsonData.p}`);
-              }
+              // if(type){
+              //   navigate(`?teacher=${jsonData.p}`);
+              // } else{
+              //   navigate(`diplomas?teacher=${jsonData.p}`);
+              // }
               break;  
             default:
               console.warn("Unknown QR type:", jsonData.q);
