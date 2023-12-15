@@ -15,7 +15,7 @@ import type { Skill } from '@slonigiraf/app-slonig-components';
 import { QRWithShareAndCopy, getBaseUrl, getIPFSDataFromContentID, parseJson, useIpfsContext, nameFromKeyringPair, QRAction } from '@slonigiraf/app-slonig-components';
 import { db, Letter } from '@slonigiraf/app-recommendations';
 import { getPublicDataToSignByReferee, getPrivateDataToSignByReferee } from '@slonigiraf/helpers';
-import { getLastUnusedLetterNumber, setLastUsedLetterNumber, storeLetter } from '../utils.js';
+import { getLastUnusedLetterNumber, setLastUsedLetterNumber, storeLetter, storePseudonym } from '../utils.js';
 import Reexamine from './Reexamine.js';
 import { TeachingAlgorithm } from './TeachingAlgorithm.js';
 import DoInstructions from './DoInstructions.js';
@@ -58,6 +58,7 @@ function Tutor({ className = '' }: Props): React.ReactElement<Props> {
   // Process query
   const location = useLocation();
   const queryParams = new URLSearchParams(location.search);
+  const studentNameFromUrl = queryParams.get("name");
   const queryData = queryParams.get("d") || "";
   const [tutor, skillCID, studentIdentity, student, cidR, genesisR, nonceR, blockR, blockAllowedR, tutorR, studentR, amountR, signOverPrivateDataR, signOverReceiptR, studentSignR] = queryData.split(' ');
   const [skill, setSkill] = useState<Skill | null>(null);
@@ -95,6 +96,24 @@ function Tutor({ className = '' }: Props): React.ReactElement<Props> {
   const [visibleDiplomaDetails, toggleVisibleDiplomaDetails] = useToggle(false);
   //   issued diploma
   const [diploma, setDiploma] = useState<Letter | null>(null);
+
+  // Save teacher pseudonym from url
+  useEffect(() => {
+    if (studentIdentity && studentNameFromUrl) {
+      async function savePseudonym() {
+        try {
+          // Ensure that both teacherPublicKey and teacherName are strings
+          if (typeof studentIdentity === 'string' && typeof studentNameFromUrl === 'string') {
+            await storePseudonym(studentIdentity, studentNameFromUrl);
+            await setStudentName(studentNameFromUrl)
+          }
+        } catch (error) {
+          console.error("Failed to save student pseudonym:", error);
+        }
+      }
+      savePseudonym();
+    }
+  }, [studentIdentity, studentNameFromUrl]);
 
   // Fetch skill data and set teaching algorithm
   useEffect(() => {

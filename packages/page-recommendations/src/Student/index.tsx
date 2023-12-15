@@ -92,7 +92,7 @@ function Student({ className = '', ipfs }: Props): React.ReactElement<Props> {
   // Save teacher pseudonym from url
   useEffect(() => {
     if (teacherPublicKey && teacherName) {
-      async function saveTeacherPseudonym() {
+      async function savePseudonym() {
         try {
           // Ensure that both teacherPublicKey and teacherName are strings
           if (typeof teacherPublicKey === 'string' && typeof teacherName === 'string') {
@@ -102,7 +102,7 @@ function Student({ className = '', ipfs }: Props): React.ReactElement<Props> {
           console.error("Failed to save teacher pseudonym:", error);
         }
       }
-      saveTeacherPseudonym();
+      savePseudonym();
     }
   }, [teacherPublicKey, teacherName]);
 
