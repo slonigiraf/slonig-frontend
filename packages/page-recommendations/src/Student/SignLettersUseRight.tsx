@@ -4,20 +4,16 @@ import BN from 'bn.js';
 import QRCode from 'qrcode.react';
 import { getDataToSignByWorker } from '@slonigiraf/helpers';
 import type { KeyringPair } from '@polkadot/keyring/types';
-import React, { useCallback, useEffect, useState } from 'react';
-import { web3FromSource } from '@polkadot/extension-dapp';
-import { Button, Modal, InputAddress, Output } from '@polkadot/react-components';
+import React, { useCallback, useState } from 'react';
+import { Button, Modal } from '@polkadot/react-components';
 import { useToggle } from '@polkadot/react-hooks';
-import { keyring } from '@polkadot/ui-keyring';
-import { isFunction, u8aToHex, hexToU8a, u8aWrapBytes } from '@polkadot/util';
+import { u8aToHex, hexToU8a, u8aWrapBytes } from '@polkadot/util';
 import { nameFromKeyringPair } from '@slonigiraf/app-slonig-components';
 import { useTranslation } from '../translate.js';
 import { qrCodeSize } from '../constants.js';
 import { storeLetterUsageRight } from '../utils.js';
 import { keyForCid } from '@slonigiraf/app-slonig-components';
-import type { AccountState, SignerState } from '@slonigiraf/app-slonig-components';
 import { Letter } from "./Letter.js";
-import type { KeyringPair } from '@polkadot/keyring/types';
 
 interface Props {
   className?: string;
