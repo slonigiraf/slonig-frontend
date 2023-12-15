@@ -20,7 +20,7 @@ import { parseJson } from '@slonigiraf/app-slonig-components';
 import Editor from './Editor';
 import ViewList from './ViewList';
 import { useLocation, useNavigate } from 'react-router-dom';
-import { storeSetting, getSetting } from '@slonigiraf/app-recommendations';
+import { storeSetting, getSetting, storePseudonym } from '@slonigiraf/app-recommendations';
 import type { AccountState, SignerState } from '@slonigiraf/app-slonig-components';
 interface Props {
   className?: string;
@@ -55,6 +55,7 @@ function Edit({ className = '' }: Props): React.ReactElement<Props> {
   const navigate = useNavigate();
   const queryParams = new URLSearchParams(location.search);
   const tutor = queryParams.get("tutor");
+  const tutorName = queryParams.get("name");
   const defaultTextHexId = '0x333a6ac2dfbfd22fa96896f98bedb232157417ff9631f7186d8a0d50c1ec4d1c';
   const idFromQuery = tutor ? undefined : queryParams.get("id") || defaultTextHexId;
   const [textHexId, setTextHexId] = useState<string | undefined>(idFromQuery);
@@ -70,6 +71,15 @@ function Edit({ className = '' }: Props): React.ReactElement<Props> {
     const updateSetting = async () => {
       if (tutor) {
         await storeSetting("currentTutor", tutor);
+        if(tutorName){
+          try {
+            if (typeof tutor === 'string' && typeof tutorName === 'string') {
+              await storePseudonym(tutor, tutorName);
+            }
+          } catch (error) {
+            console.error("Failed to save tutor pseudonym:", error);
+          }
+        }
         const savedId = await getSetting("currentKnowledge");
         setTextHexId(savedId);
       } else if (idFromQuery) {
