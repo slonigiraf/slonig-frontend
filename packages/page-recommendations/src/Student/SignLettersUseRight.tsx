@@ -8,7 +8,7 @@ import React, { useCallback, useState } from 'react';
 import { Button, Modal } from '@polkadot/react-components';
 import { useToggle } from '@polkadot/react-hooks';
 import { u8aToHex, hexToU8a, u8aWrapBytes } from '@polkadot/util';
-import { nameFromKeyringPair } from '@slonigiraf/app-slonig-components';
+import { QRWithShareAndCopy, getBaseUrl, nameFromKeyringPair } from '@slonigiraf/app-slonig-components';
 import { useTranslation } from '../translate.js';
 import { qrCodeSize } from '../constants.js';
 import { storeLetterUsageRight } from '../utils.js';
@@ -25,6 +25,7 @@ interface Props {
 function SignLetterUseRight({ className = '', letters, worker, employer, currentPair }: Props): React.ReactElement<Props> {
   const { t } = useTranslation();
   const [letterInfo, setLetterInfo] = useState('')
+  const [url, setUrl] = useState('')
   const [isQROpen, toggleQR] = useToggle();
 
   const _onSign = useCallback(
@@ -68,6 +69,8 @@ function SignLetterUseRight({ className = '', letters, worker, employer, current
         d: signedLetters
       };
       const qrCodeText = JSON.stringify(qrData);
+      const urlToSend: string = getBaseUrl() + `/#/diplomas/teacher?student=${worker}&name=${encodeURIComponent(studentName)}&t=${employer}&d=${signedLetters}`;
+      setUrl(urlToSend);
       // show QR
       setLetterInfo(letters.length > 0 && letters.length < 5 ? qrCodeText : "");
       toggleQR();
@@ -90,7 +93,12 @@ function SignLetterUseRight({ className = '', letters, worker, employer, current
         >
           <Modal.Content>
             {letterInfo === "" ? <h2>{t('Select at least 1 and no more than 4 diplomas')}</h2> :
-              <QRCode value={letterInfo} size={qrCodeSize} />
+              <QRWithShareAndCopy
+                dataQR={letterInfo}
+                titleShare={t('QR code')}
+                textShare={t('Press the link to see diplomas of the student')}
+                urlShare={url}
+                dataCopy={url} />
             }
           </Modal.Content>
         </Modal>
