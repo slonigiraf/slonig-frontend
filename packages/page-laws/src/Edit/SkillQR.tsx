@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useTranslation } from '../translate';
-import { QRWithShareAndCopy, ScanQR, getBaseUrl, nameFromKeyringPair } from '@slonigiraf/app-slonig-components';
+import { QRAction, QRWithShareAndCopy, ScanQR, getBaseUrl, nameFromKeyringPair } from '@slonigiraf/app-slonig-components';
 import { getSetting, storeSetting } from '@slonigiraf/app-recommendations';
 import type { KeyringPair } from '@polkadot/keyring/types';
 import { Button, Dropdown, InputAddress } from '@polkadot/react-components';
@@ -213,7 +213,7 @@ function SkillQR({ className = '', cid }: Props): React.ReactElement<Props> {
 
   const generateQRData = () => {
     return JSON.stringify({
-      q: 5,
+      q: QRAction.SHOW_SKILL_QR,
       n: name,
       d: urlDetails,
     });
