@@ -1,7 +1,7 @@
 // Copyright 2021-2022 @slonigiraf/app-recommendations authors & contributors
 // SPDX-License-Identifier: Apache-2.0
 
-import React, { useCallback, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import InsurancesList from './InsurancesList.js';
 import { IPFS } from 'ipfs-core';
 import { useTranslation } from '../translate.js';
@@ -11,6 +11,7 @@ import { keyring } from '@polkadot/ui-keyring';
 import { u8aToHex } from '@polkadot/util';
 import { useLocation } from 'react-router-dom';
 import { QRWithShareAndCopy, nameFromKeyringPair, getBaseUrl, QRAction } from '@slonigiraf/app-slonig-components';
+import { storePseudonym } from '../utils.js';
 
 interface Props {
   className?: string;
@@ -23,6 +24,7 @@ function Teacher({ className = '', ipfs }: Props): React.ReactElement<Props> {
   const location = useLocation();
   const queryParams = new URLSearchParams(location.search);
   const student = queryParams.get("student") || "";
+  const studentName = queryParams.get("name");
 
   const _onChangeAccount = useCallback(
     (accountId: string | null) => accountId && setCurrentPair(keyring.getPair(accountId)),
@@ -38,6 +40,23 @@ function Teacher({ className = '', ipfs }: Props): React.ReactElement<Props> {
   };
   const qrCodeText = JSON.stringify(qrData);
   const url = getBaseUrl() + `/#/diplomas?teacher=${publicKeyHex}&name=${encodeURIComponent(name)}`;
+
+  // Save student pseudonym from url
+  useEffect(() => {
+    if (student && studentName) {
+      async function savePseudonym() {
+        try {
+          // Ensure that both teacherPublicKey and teacherName are strings
+          if (typeof student === 'string' && typeof studentName === 'string') {
+            await storePseudonym(student, studentName);
+          }
+        } catch (error) {
+          console.error("Failed to save teacher pseudonym:", error);
+        }
+      }
+      savePseudonym();
+    }
+  }, [student, studentName]);
 
   return (
     <div className={`toolbox--Student ${className}`}>
