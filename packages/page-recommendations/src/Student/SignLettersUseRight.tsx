@@ -8,7 +8,7 @@ import React, { useCallback, useState } from 'react';
 import { Button, Modal } from '@polkadot/react-components';
 import { useToggle } from '@polkadot/react-hooks';
 import { u8aToHex, hexToU8a, u8aWrapBytes } from '@polkadot/util';
-import { QRWithShareAndCopy, getBaseUrl, nameFromKeyringPair } from '@slonigiraf/app-slonig-components';
+import { QRAction, QRWithShareAndCopy, getBaseUrl, nameFromKeyringPair } from '@slonigiraf/app-slonig-components';
 import { useTranslation } from '../translate.js';
 import { qrCodeSize } from '../constants.js';
 import { storeLetterUsageRight } from '../utils.js';
@@ -62,7 +62,7 @@ function SignLetterUseRight({ className = '', letters, worker, employer, current
       const studentName = nameFromKeyringPair(currentPair);
 
       const qrData = {
-        q: 3,
+        q: QRAction.LIST_DIPLOMAS,
         p: worker,
         n: studentName,
         t: employer,

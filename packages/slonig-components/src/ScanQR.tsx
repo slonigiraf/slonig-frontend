@@ -44,7 +44,7 @@ function ScanQR({ className = '', label, type }: Props): React.ReactElement<Prop
             case QRAction.LIST_DIPLOMAS:
               await storePseudonym(jsonData.p, jsonData.n);
               await storeInsurances(jsonData);
-              navigate(`diplomas/teacher?student=${jsonData.p}`);
+              navigate(`diplomas/teacher?t=${jsonData.t}&student=${jsonData.p}`);
               break;
             case QRAction.SHOW_TUTOR_IDENTITY:
               await storePseudonym(jsonData.p, jsonData.n);

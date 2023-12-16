@@ -23,8 +23,10 @@ function Teacher({ className = '', ipfs }: Props): React.ReactElement<Props> {
   const { t } = useTranslation();
   const location = useLocation();
   const queryParams = new URLSearchParams(location.search);
-  const student = queryParams.get("student") || "";
+  const student = queryParams.get("student");
+  console.log("student", student)
   const studentName = queryParams.get("name");
+  const teacherFromUrl = queryParams.get("t");
 
   const _onChangeAccount = useCallback(
     (accountId: string | null) => accountId && setCurrentPair(keyring.getPair(accountId)),
@@ -32,6 +34,7 @@ function Teacher({ className = '', ipfs }: Props): React.ReactElement<Props> {
   );
 
   const publicKeyHex = currentPair ? u8aToHex(currentPair.publicKey) : "";
+  const isDedicatedTeacher = (teacherFromUrl === publicKeyHex) || !teacherFromUrl;
   const name = nameFromKeyringPair(currentPair);
   const qrData = {
     q: QRAction.SHOW_TEACHER_IDENTITY,
@@ -71,8 +74,13 @@ function Teacher({ className = '', ipfs }: Props): React.ReactElement<Props> {
         />
       </div>
       {
-        student === "" ? <>
-          <h2>{t('Show to a student to see their results')}</h2>
+        (!student || !isDedicatedTeacher) ? <>
+          {
+            isDedicatedTeacher ?
+              <h2>{t('Show to a student to see their results')}</h2>
+              :
+              <h2>{t('Student has shown you a QR code created for a different teacher. Ask them to scan your QR code.')}</h2>
+          }
           <QRWithShareAndCopy
             dataQR={qrCodeText}
             titleShare={t('QR code')}
