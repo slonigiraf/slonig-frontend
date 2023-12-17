@@ -312,7 +312,7 @@ function Tutor({ className = '' }: Props): React.ReactElement<Props> {
   const publicKeyHex = currentPair ? u8aToHex(currentPair.publicKey) : "";
   const name = nameFromKeyringPair(currentPair);
   const qrData = {
-    q: QRAction.SHOW_TUTOR_IDENTITY,
+    q: QRAction.TUTOR_IDENTITY,
     n: name,
     p: publicKeyHex,
   };

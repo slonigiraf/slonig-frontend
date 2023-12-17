@@ -37,7 +37,7 @@ function Teacher({ className = '', ipfs }: Props): React.ReactElement<Props> {
   const isDedicatedTeacher = (teacherFromUrl === publicKeyHex) || !teacherFromUrl;
   const name = nameFromKeyringPair(currentPair);
   const qrData = {
-    q: QRAction.SHOW_TEACHER_IDENTITY,
+    q: QRAction.TEACHER_IDENTITY,
     n: name,
     p: publicKeyHex,
   };

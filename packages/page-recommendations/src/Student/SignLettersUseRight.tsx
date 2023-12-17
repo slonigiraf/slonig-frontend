@@ -62,7 +62,7 @@ function SignLetterUseRight({ className = '', letters, worker, employer, current
       const studentName = nameFromKeyringPair(currentPair);
 
       const qrData = {
-        q: QRAction.LIST_DIPLOMAS,
+        q: QRAction.SELL_DIPLOMAS,
         p: worker,
         n: studentName,
         t: employer,

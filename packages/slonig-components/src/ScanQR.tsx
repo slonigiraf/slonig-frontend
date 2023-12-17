@@ -41,12 +41,12 @@ function ScanQR({ className = '', label, type }: Props): React.ReactElement<Prop
               await createAndStoreLetter(dataArray);
               navigate('diplomas');
               break;
-            case QRAction.LIST_DIPLOMAS:
+            case QRAction.SELL_DIPLOMAS:
               await storePseudonym(jsonData.p, jsonData.n);
               await storeInsurances(jsonData);
               navigate(`diplomas/teacher?t=${jsonData.t}&student=${jsonData.p}`);
               break;
-            case QRAction.SHOW_TUTOR_IDENTITY:
+            case QRAction.TUTOR_IDENTITY:
               await storePseudonym(jsonData.p, jsonData.n);
               await storeSetting("currentTutor", jsonData.p);
               if(type){
@@ -55,14 +55,14 @@ function ScanQR({ className = '', label, type }: Props): React.ReactElement<Prop
                 navigate(`knowledge?tutor=${jsonData.p}`);
               }
               break;
-            case QRAction.SHOW_SKILL_QR:
+            case QRAction.SKILL:
               const parts = jsonData.d.split('+');
               if (parts.length > 1) {
                 await storePseudonym(parts[2], jsonData.n);
               }
               navigate(jsonData.d);
               break;
-            case QRAction.SHOW_TEACHER_IDENTITY:
+            case QRAction.TEACHER_IDENTITY:
               await storePseudonym(jsonData.p, jsonData.n);
               await storeSetting("currentTeacher", jsonData.p);
               if(type){

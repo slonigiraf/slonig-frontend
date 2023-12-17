@@ -213,7 +213,7 @@ function SkillQR({ className = '', cid }: Props): React.ReactElement<Props> {
 
   const generateQRData = () => {
     return JSON.stringify({
-      q: QRAction.SHOW_SKILL_QR,
+      q: QRAction.SKILL,
       n: name,
       d: urlDetails,
     });
