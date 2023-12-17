@@ -69,7 +69,8 @@ function SignLetterUseRight({ className = '', letters, worker, employer, current
         d: signedLetters
       };
       const qrCodeText = JSON.stringify(qrData);
-      const urlToSend: string = getBaseUrl() + `/#/diplomas/teacher?student=${worker}&name=${encodeURIComponent(studentName)}&t=${employer}&d=${signedLetters}`;
+      const signedLettersToUrl = JSON.stringify(signedLetters);
+      const urlToSend: string = getBaseUrl() + `/#/diplomas/teacher?student=${worker}&name=${encodeURIComponent(studentName)}&t=${employer}&d=${signedLettersToUrl}`;
       setUrl(urlToSend);
       // show QR
       setLetterInfo(letters.length > 0 && letters.length < 5 ? qrCodeText : "");

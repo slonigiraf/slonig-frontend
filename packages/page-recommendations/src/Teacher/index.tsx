@@ -10,8 +10,8 @@ import type { KeyringPair } from '@polkadot/keyring/types';
 import { keyring } from '@polkadot/ui-keyring';
 import { u8aToHex } from '@polkadot/util';
 import { useLocation } from 'react-router-dom';
-import { QRWithShareAndCopy, nameFromKeyringPair, getBaseUrl, QRAction } from '@slonigiraf/app-slonig-components';
-import { storePseudonym } from '../utils.js';
+import { QRWithShareAndCopy, nameFromKeyringPair, getBaseUrl, QRAction, parseJson } from '@slonigiraf/app-slonig-components';
+import { storeInsurances, storePseudonym } from '../utils.js';
 
 interface Props {
   className?: string;
@@ -24,9 +24,9 @@ function Teacher({ className = '', ipfs }: Props): React.ReactElement<Props> {
   const location = useLocation();
   const queryParams = new URLSearchParams(location.search);
   const student = queryParams.get("student");
-  console.log("student", student)
   const studentName = queryParams.get("name");
   const teacherFromUrl = queryParams.get("t");
+  const diplomasFromUrl = queryParams.get("d");
 
   const _onChangeAccount = useCallback(
     (accountId: string | null) => accountId && setCurrentPair(keyring.getPair(accountId)),
@@ -60,6 +60,28 @@ function Teacher({ className = '', ipfs }: Props): React.ReactElement<Props> {
       savePseudonym();
     }
   }, [student, studentName]);
+
+  // Save insurances from url
+  useEffect(() => {
+    if (diplomasFromUrl && isDedicatedTeacher) {
+      async function saveDiplomas() {
+        const dimplomasJson = parseJson(diplomasFromUrl);
+        try {
+          const dimplomasJsonWithMeta = {
+            q: QRAction.SELL_DIPLOMAS,
+            p: student,
+            n: studentName,
+            t: publicKeyHex,
+            d: dimplomasJson
+          };
+          await storeInsurances(dimplomasJsonWithMeta);
+        } catch (error) {
+          console.error("Failed to save diplomas:", error);
+        }
+      }
+      saveDiplomas();
+    }
+  }, [diplomasFromUrl, isDedicatedTeacher]);
 
   return (
     <div className={`toolbox--Student ${className}`}>
