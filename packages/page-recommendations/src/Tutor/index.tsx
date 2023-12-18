@@ -13,7 +13,7 @@ import { isFunction, u8aToHex, hexToU8a, u8aWrapBytes, BN_ONE } from '@polkadot/
 import { keyring } from '@polkadot/ui-keyring';
 import type { Skill } from '@slonigiraf/app-slonig-components';
 import { QRWithShareAndCopy, getBaseUrl, getIPFSDataFromContentID, parseJson, useIpfsContext, nameFromKeyringPair, QRAction } from '@slonigiraf/app-slonig-components';
-import { db, Letter } from '@slonigiraf/app-recommendations';
+import { Letter } from '@slonigiraf/app-recommendations';
 import { getPublicDataToSignByReferee, getPrivateDataToSignByReferee } from '@slonigiraf/helpers';
 import { getLastUnusedLetterNumber, setLastUsedLetterNumber, storeLetter, storePseudonym } from '../utils.js';
 import Reexamine from './Reexamine.js';

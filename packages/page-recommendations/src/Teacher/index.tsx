@@ -147,7 +147,7 @@ function Teacher({ className = '', ipfs }: Props): React.ReactElement<Props> {
             <div>
               <Button
                 icon='unlock'
-                label={t('Unlock your account before tutoring')}
+                label={t('Unlock your account to see diplomas')}
                 onClick={toggleUnlock}
               />
             </div>

@@ -13,7 +13,9 @@ import { useTranslation } from './translate.js';
 import useCounter from './useCounter.js';
 import Create from './Create';
 import Edit from './Edit';
-export { useCounter };
+import ItemLabel from './Edit/ItemLabel.js';
+import ExerciseList from './Edit/ExerciseList.js';
+export { useCounter, ItemLabel, ExerciseList };
 
 const HIDDEN_ACC = ['vanity'];
 

@@ -5,7 +5,6 @@ import InsuranceInfo from './InsuranceInfo.js'
 import React, {useEffect, useState} from 'react'
 import { useLiveQuery } from "dexie-react-hooks";
 import { db } from "../db/index.js";
-import { useIpfsContext } from '@slonigiraf/app-slonig-components';
 import { useTranslation } from '../translate.js';
 import { getPseudonym } from '../utils.js';
 
@@ -16,7 +15,6 @@ interface Props {
 }
 
 function InsurancesList({ className = '', teacher, student }: Props): React.ReactElement<Props> {
-  const { ipfs, isIpfsReady, ipfsInitError } = useIpfsContext();
   const { t } = useTranslation();
   const [studentName, setStudentName] = useState<string | undefined>(undefined);
   // Fetch student name
@@ -46,7 +44,7 @@ function InsurancesList({ className = '', teacher, student }: Props): React.Reac
     <div>
       <h2>{t(studentName + '\'s diplomas')}</h2>
     {insurances.map((insurance, index) => (
-        <InsuranceInfo key={index} insurance={insurance} ipfs={ipfs} />
+        <InsuranceInfo key={index} insurance={insurance} />
     ))}
     </div>)
 }

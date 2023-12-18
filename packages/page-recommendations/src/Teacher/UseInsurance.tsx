@@ -41,7 +41,7 @@ function UseInsurance({ className = '', insurance }: Props): React.ReactElement<
     }
   };
 
-  const txButton = isUsable && <Button onClick={() => processBounty()}
+  const penalizeTutor = isUsable && <Button onClick={() => processBounty()}
     icon='dollar'
     label={t('Get bounty')}
     isDisabled={isButtonClicked}
@@ -62,7 +62,7 @@ function UseInsurance({ className = '', insurance }: Props): React.ReactElement<
         />
       </div>
       <div className='ui--row'>
-        {insurance.wasUsed ? usedInfo : txButton}
+        {insurance.wasUsed ? usedInfo : penalizeTutor}
       </div>
     </div >
   );
