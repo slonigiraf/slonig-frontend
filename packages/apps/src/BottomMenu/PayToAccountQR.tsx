@@ -20,10 +20,9 @@ function PayToAccountQR(): React.ReactElement {
     q: QRAction.TRANSFER,
     n: name,
     p: publicKeyHex,
-    a: currentPair?.address,
   };
   const qrCodeText = JSON.stringify(qrData);
-  const url = getBaseUrl() + `/#/accounts?name=${encodeURIComponent(name)}&recipientHex=${publicKeyHex}&recipientAddress=${currentPair?.address}`;
+  const url = getBaseUrl() + `/#/accounts?name=${encodeURIComponent(name)}&recipientHex=${publicKeyHex}`;
 
   const hiddenAccountSelector = <div style={{ display: 'none' }}>
     <InputAddress

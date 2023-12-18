@@ -6,6 +6,8 @@ import { useTranslation } from './translate.js';
 import { Modal, TransferModal } from '@polkadot/react-components';
 import { ButtonWithLabelBelow, useInfo, QRAction } from '@slonigiraf/app-slonig-components';
 import { createAndStoreLetter, storeInsurances, storePseudonym, storeSetting } from '@slonigiraf/app-recommendations';
+import { encodeAddress } from '@polkadot/keyring';
+import { hexToU8a } from '@polkadot/util';
 
 interface Props {
   className?: string;
@@ -35,7 +37,8 @@ function ScanQR({ className = '', label, type }: Props): React.ReactElement<Prop
               break;
             case QRAction.TRANSFER:
               await storePseudonym(jsonData.p, jsonData.n);
-              setRecipientId(jsonData.a);
+              const recipientAddress = jsonData.p? encodeAddress(hexToU8a(jsonData.p)) : "";
+              setRecipientId(recipientAddress);
               toggleTransfer();
               break;
             case QRAction.ADD_DIPLOMA:

@@ -18,7 +18,8 @@ import { AddressInfo, AddressSmall, Badge, Button, ChainLock, Columar, CryptoTyp
 import { useAccountInfo, useApi, useBalancesAll, useBestNumber, useCall, useLedger, useQueue, useStakingInfo, useToggle } from '@polkadot/react-hooks';
 import { keyring } from '@polkadot/ui-keyring';
 import { BN, BN_ZERO, formatBalance, formatNumber, isFunction } from '@polkadot/util';
-
+import { encodeAddress } from '@polkadot/keyring';
+import { hexToU8a } from '@polkadot/util';
 import Backup from '../modals/Backup.js';
 import ChangePass from '../modals/ChangePass.js';
 import DelegateModal from '../modals/Delegate.js';
@@ -183,7 +184,7 @@ function Account({ account: { address, meta }, className = '', delegation, filte
   const queryParams = new URLSearchParams(location.search);
   const recipientHex = queryParams.get("recipientHex");
   const recipientNameFromUrl = queryParams.get("name");
-  const recipientAddress = queryParams.get("recipientAddress");
+  const recipientAddress = recipientHex? encodeAddress(hexToU8a(recipientHex)) : null;
   const navigate = useNavigate();
 
   useEffect((): void => {
