@@ -21,6 +21,7 @@ import { TeachingAlgorithm } from './TeachingAlgorithm.js';
 import DoInstructions from './DoInstructions.js';
 import { useTranslation } from '../translate.js';
 import type { AccountState, SignerState } from '@slonigiraf/app-slonig-components';
+import { getPseudonym } from '../utils.js';
 
 interface Props {
   className?: string;
@@ -137,9 +138,9 @@ function Tutor({ className = '' }: Props): React.ReactElement<Props> {
   useEffect(() => {
     async function fetchStudentName() {
       if (studentIdentity) {
-        const name = await db.pseudonyms.get(studentIdentity);
+        const pseudonym = await getPseudonym(studentIdentity);
         if (name) {
-          setStudentName(name.pseudonym);
+          setStudentName(pseudonym);
         }
       }
     }

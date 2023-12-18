@@ -226,3 +226,9 @@ const createAndStoreInsurance = async (data: string[]) => {
     };
     await storeInsurance(insurance);
 }
+
+export const getPseudonym = async (publicKey: string): Promise<string> => {
+    const name = await db.pseudonyms.get(publicKey);
+    const pseudonym = name.pseudonym;
+    return DOMPurify.sanitize(pseudonym);
+};

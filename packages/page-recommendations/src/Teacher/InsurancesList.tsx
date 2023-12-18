@@ -2,11 +2,12 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import InsuranceInfo from './InsuranceInfo.js'
-import React from 'react'
+import React, {useEffect, useState} from 'react'
 import { useLiveQuery } from "dexie-react-hooks";
 import { db } from "../db/index.js";
 import { useIpfsContext } from '@slonigiraf/app-slonig-components';
 import { useTranslation } from '../translate.js';
+import { getPseudonym } from '../utils.js';
 
 interface Props {
   className?: string;
@@ -17,6 +18,19 @@ interface Props {
 function InsurancesList({ className = '', teacher, student }: Props): React.ReactElement<Props> {
   const { ipfs, isIpfsReady, ipfsInitError } = useIpfsContext();
   const { t } = useTranslation();
+  const [studentName, setStudentName] = useState<string | undefined>(undefined);
+  // Fetch student name
+  useEffect(() => {
+    async function fetchStudentName() {
+      if (student) {
+        const pseudonym = await getPseudonym(student);
+        if (pseudonym) {
+          setStudentName(pseudonym);
+        }
+      }
+    }
+    fetchStudentName()
+  }, [student])
 
   const insurances = useLiveQuery(
     () =>
@@ -30,7 +44,7 @@ function InsurancesList({ className = '', teacher, student }: Props): React.Reac
 
   return (
     <div>
-      <h2>{t('Students\' diplomas')}</h2>
+      <h2>{t(studentName + '\'s diplomas')}</h2>
     {insurances.map((insurance, index) => (
         <InsuranceInfo key={index} insurance={insurance} ipfs={ipfs} />
     ))}

@@ -13,6 +13,7 @@ import { useLocation } from 'react-router-dom';
 import { QRWithShareAndCopy, nameFromKeyringPair, getBaseUrl, QRAction, parseJson } from '@slonigiraf/app-slonig-components';
 import { storeInsurances, storePseudonym } from '../utils.js';
 
+
 interface Props {
   className?: string;
   ipfs: IPFS;
@@ -21,10 +22,11 @@ interface Props {
 function Teacher({ className = '', ipfs }: Props): React.ReactElement<Props> {
   const [currentPair, setCurrentPair] = useState<KeyringPair | null>(() => keyring.getPairs()[0] || null);
   const { t } = useTranslation();
+  
   const location = useLocation();
   const queryParams = new URLSearchParams(location.search);
   const student = queryParams.get("student");
-  const studentName = queryParams.get("name");
+  const studentNameFromUrl = queryParams.get("name");
   const teacherFromUrl = queryParams.get("t");
   const diplomasFromUrl = queryParams.get("d");
 
@@ -46,12 +48,13 @@ function Teacher({ className = '', ipfs }: Props): React.ReactElement<Props> {
 
   // Save student pseudonym from url
   useEffect(() => {
-    if (student && studentName) {
+    if (student && studentNameFromUrl) {
       async function savePseudonym() {
         try {
           // Ensure that both teacherPublicKey and teacherName are strings
-          if (typeof student === 'string' && typeof studentName === 'string') {
-            await storePseudonym(student, studentName);
+          if (typeof student === 'string' && typeof studentNameFromUrl === 'string') {
+            await storePseudonym(student, studentNameFromUrl);
+            // setStudentName(studentNameFromUrl);
           }
         } catch (error) {
           console.error("Failed to save teacher pseudonym:", error);
@@ -59,7 +62,9 @@ function Teacher({ className = '', ipfs }: Props): React.ReactElement<Props> {
       }
       savePseudonym();
     }
-  }, [student, studentName]);
+  }, [student, studentNameFromUrl]);
+
+  
 
   // Save insurances from url
   useEffect(() => {
@@ -70,7 +75,7 @@ function Teacher({ className = '', ipfs }: Props): React.ReactElement<Props> {
           const dimplomasJsonWithMeta = {
             q: QRAction.SELL_DIPLOMAS,
             p: student,
-            n: studentName,
+            n: studentNameFromUrl,
             t: publicKeyHex,
             d: dimplomasJson
           };
