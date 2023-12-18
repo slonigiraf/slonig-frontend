@@ -10,9 +10,9 @@ import type { Option } from '@polkadot/types';
 import type { ProxyDefinition, RecoveryConfig } from '@polkadot/types/interfaces';
 import type { KeyringAddress, KeyringJson$Meta } from '@polkadot/ui-keyring/types';
 import type { AccountBalance, Delegation } from '../types.js';
-
+import { useLocation } from 'react-router-dom';
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-
+import { useNavigate } from 'react-router-dom';
 import useAccountLocks from '@polkadot/app-referenda/useAccountLocks';
 import { AddressInfo, AddressSmall, Badge, Button, ChainLock, Columar, CryptoType, Forget, LinkExternal, Menu, Popup, styled, Table, Tags, TransferModal } from '@polkadot/react-components';
 import { useAccountInfo, useApi, useBalancesAll, useBestNumber, useCall, useLedger, useQueue, useStakingInfo, useToggle } from '@polkadot/react-hooks';
@@ -34,6 +34,7 @@ import { useTranslation } from '../translate.js';
 import { createMenuGroup } from '../util.js';
 import useMultisigApprovals from './useMultisigApprovals.js';
 import useProxies from './useProxies.js';
+import { storePseudonym } from '@slonigiraf/app-recommendations';
 
 interface Props {
   account: KeyringAddress;
@@ -79,7 +80,7 @@ const BAL_OPTS_EXPANDED = {
   vested: true
 };
 
-function calcVisible (filter: string, name: string, tags: string[]): boolean {
+function calcVisible(filter: string, name: string, tags: string[]): boolean {
   if (filter.length === 0) {
     return true;
   }
@@ -91,7 +92,7 @@ function calcVisible (filter: string, name: string, tags: string[]): boolean {
   }, name.toLowerCase().includes(_filter));
 }
 
-function calcUnbonding (stakingInfo?: DeriveStakingAccount) {
+function calcUnbonding(stakingInfo?: DeriveStakingAccount) {
   if (!stakingInfo?.unlocking) {
     return BN_ZERO;
   }
@@ -104,7 +105,7 @@ function calcUnbonding (stakingInfo?: DeriveStakingAccount) {
   return total;
 }
 
-function createClearDemocracyTx (api: ApiPromise, address: string, ids: BN[]): SubmittableExtrinsic<'promise'> | null {
+function createClearDemocracyTx(api: ApiPromise, address: string, ids: BN[]): SubmittableExtrinsic<'promise'> | null {
   return api.tx.utility && ids.length
     ? api.tx.utility.batch(
       ids
@@ -114,7 +115,7 @@ function createClearDemocracyTx (api: ApiPromise, address: string, ids: BN[]): S
     : null;
 }
 
-function createClearReferendaTx (api: ApiPromise, address: string, ids: [BN, BN][], palletReferenda = 'convictionVoting'): SubmittableExtrinsic<'promise'> | null {
+function createClearReferendaTx(api: ApiPromise, address: string, ids: [BN, BN][], palletReferenda = 'convictionVoting'): SubmittableExtrinsic<'promise'> | null {
   if (!api.tx.utility || !ids.length) {
     return null;
   }
@@ -136,7 +137,7 @@ function createClearReferendaTx (api: ApiPromise, address: string, ids: [BN, BN]
   return api.tx.utility.batch(inner);
 }
 
-async function showLedgerAddress (getLedger: () => Ledger, meta: KeyringJson$Meta): Promise<void> {
+async function showLedgerAddress(getLedger: () => Ledger, meta: KeyringJson$Meta): Promise<void> {
   const ledger = getLedger();
 
   await ledger.getAddress(true, meta.accountOffset as number || 0, meta.addressOffset as number || 0);
@@ -146,7 +147,7 @@ const transformRecovery = {
   transform: (opt: Option<RecoveryConfig>) => opt.unwrapOr(null)
 };
 
-function Account ({ account: { address, meta }, className = '', delegation, filter, isFavorite, proxy, setBalance, toggleFavorite }: Props): React.ReactElement<Props> | null {
+function Account({ account: { address, meta }, className = '', delegation, filter, isFavorite, proxy, setBalance, toggleFavorite }: Props): React.ReactElement<Props> | null {
   const { t } = useTranslation();
   const [isExpanded, toggleIsExpanded] = useToggle(false);
   const { queueExtrinsic } = useQueue();
@@ -177,6 +178,25 @@ function Account ({ account: { address, meta }, className = '', delegation, filt
   const [isTransferOpen, toggleTransfer] = useToggle();
   const [isDelegateOpen, toggleDelegate] = useToggle();
   const [isUndelegateOpen, toggleUndelegate] = useToggle();
+
+  const location = useLocation();
+  const queryParams = new URLSearchParams(location.search);
+  const recipientHex = queryParams.get("recipientHex");
+  const recipientNameFromUrl = queryParams.get("name");
+  const recipientAddress = queryParams.get("recipientAddress");
+  const navigate = useNavigate();
+
+  useEffect((): void => {
+    const savePseudonym = async () => {
+      if (recipientHex && recipientNameFromUrl) {
+        await storePseudonym(recipientHex, recipientNameFromUrl);
+      }
+    }
+    if (recipientAddress) {
+      toggleTransfer();
+    }
+    savePseudonym();
+  }, [recipientAddress]);
 
   useEffect((): void => {
     if (balancesAll) {
@@ -262,6 +282,16 @@ function Account ({ account: { address, meta }, className = '', delegation, filt
       }
     },
     [address, t]
+  );
+
+  const _closeTransfer = useCallback(
+    (): void => {
+      if (isTransferOpen) {
+        navigate(``);
+        toggleTransfer();
+      }
+    },
+    [isTransferOpen]
   );
 
   const _clearDemocracyLocks = useCallback(
@@ -421,7 +451,7 @@ function Account ({ account: { address, meta }, className = '', delegation, filt
       <Menu.Item
         icon='user-minus'
         key='undelegate'
-        label= {t('Undelegate')}
+        label={t('Undelegate')}
         onClick={toggleUndelegate}
       />
     ], t('Undelegate')),
@@ -455,7 +485,7 @@ function Account ({ account: { address, meta }, className = '', delegation, filt
       />
     ])
   ].filter((i) => i),
-  [_clearDemocracyLocks, _clearReferendaLocks, _showOnHardware, _vestingVest, api, delegation, democracyUnlockTx, genesisHash, identity, isDevelopment, isEditable, isEthereum, isExternal, isHardware, isInjected, isMultisig, multiInfos, onSetGenesisHash, proxy, referendaUnlockTx, recoveryInfo, t, toggleBackup, toggleDelegate, toggleDerive, toggleForget, toggleIdentityMain, toggleIdentitySub, toggleMultisig, togglePassword, toggleProxyOverview, toggleRecoverAccount, toggleRecoverSetup, toggleUndelegate, vestingVestTx]);
+    [_clearDemocracyLocks, _clearReferendaLocks, _showOnHardware, _vestingVest, api, delegation, democracyUnlockTx, genesisHash, identity, isDevelopment, isEditable, isEthereum, isExternal, isHardware, isInjected, isMultisig, multiInfos, onSetGenesisHash, proxy, referendaUnlockTx, recoveryInfo, t, toggleBackup, toggleDelegate, toggleDerive, toggleForget, toggleIdentityMain, toggleIdentitySub, toggleMultisig, togglePassword, toggleProxyOverview, toggleRecoverAccount, toggleRecoverSetup, toggleUndelegate, vestingVestTx]);
 
   if (!isVisible) {
     return null;
@@ -528,11 +558,11 @@ function Account ({ account: { address, meta }, className = '', delegation, filt
               onClose={togglePassword}
             />
           )}
-          {isTransferOpen && (
+          {isTransferOpen && recipientAddress && (
             <TransferModal
               key='modal-transfer'
-              onClose={toggleTransfer}
-              senderId={address}
+              onClose={_closeTransfer}
+              recipientId={recipientAddress}
             />
           )}
           {isProxyOverviewOpen && (

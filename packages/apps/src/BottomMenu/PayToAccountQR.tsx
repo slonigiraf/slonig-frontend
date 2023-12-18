@@ -2,16 +2,28 @@ import type { KeyringPair } from '@polkadot/keyring/types';
 import { keyring } from '@polkadot/ui-keyring';
 import React, { useState, useCallback } from 'react';
 import { InputAddress } from '@polkadot/react-components';
-import QRCode from 'qrcode.react';
+import { useTranslation } from '../translate.js';
+import { u8aToHex } from '@polkadot/util';
+import { QRWithShareAndCopy, getBaseUrl, nameFromKeyringPair, QRAction } from '@slonigiraf/app-slonig-components';
 
 function PayToAccountQR(): React.ReactElement {
+  const { t } = useTranslation();
   const [currentPair, setCurrentPair] = useState<KeyringPair | null>(() => keyring.getPairs()[0] || null);
   const _onChangeAccount = useCallback(
     (accountId: string | null) => accountId && setCurrentPair(keyring.getPair(accountId)),
     []
   );
 
-  const qrText = `{"q": 1,"d": "${currentPair.address}"}`;
+  const publicKeyHex = currentPair ? u8aToHex(currentPair.publicKey) : "";
+  const name = nameFromKeyringPair(currentPair);
+  const qrData = {
+    q: QRAction.TRANSFER,
+    n: name,
+    p: publicKeyHex,
+    a: currentPair?.address,
+  };
+  const qrCodeText = JSON.stringify(qrData);
+  const url = getBaseUrl() + `/#/accounts?name=${encodeURIComponent(name)}&recipientHex=${publicKeyHex}&recipientAddress=${currentPair?.address}`;
 
   const hiddenAccountSelector = <div style={{ display: 'none' }}>
     <InputAddress
@@ -27,7 +39,12 @@ function PayToAccountQR(): React.ReactElement {
   return (
     <>
       {hiddenAccountSelector}
-      <QRCode value={qrText} />
+      <QRWithShareAndCopy
+        dataQR={qrCodeText}
+        titleShare={t('QR code')}
+        textShare={t('Press the link to send Slon')}
+        urlShare={url}
+        dataCopy={url} />
     </>
   );
 }

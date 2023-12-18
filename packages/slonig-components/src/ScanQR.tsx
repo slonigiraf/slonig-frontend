@@ -2,7 +2,7 @@ import React, { useState, useCallback } from 'react';
 import { useToggle } from '@polkadot/react-hooks';
 import { QRScanner } from '@slonigiraf/app-slonig-components';
 import { useNavigate } from 'react-router-dom';
-import { useTranslation } from '../../apps/src/translate.js';
+import { useTranslation } from './translate.js';
 import { Modal, TransferModal } from '@polkadot/react-components';
 import { ButtonWithLabelBelow, useInfo, QRAction } from '@slonigiraf/app-slonig-components';
 import { createAndStoreLetter, storeInsurances, storePseudonym, storeSetting } from '@slonigiraf/app-recommendations';
@@ -30,10 +30,12 @@ function ScanQR({ className = '', label, type }: Props): React.ReactElement<Prop
         if (!type || (type === jsonData.q)) {
           switch (jsonData.q) {
             case QRAction.NAVIGATION:
+              await storePseudonym(jsonData.p, jsonData.n);
               navigate(jsonData.d);
               break;
             case QRAction.TRANSFER:
-              setRecipientId(jsonData.d);
+              await storePseudonym(jsonData.p, jsonData.n);
+              setRecipientId(jsonData.a);
               toggleTransfer();
               break;
             case QRAction.ADD_DIPLOMA:
