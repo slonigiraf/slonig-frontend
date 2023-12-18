@@ -12,10 +12,7 @@ import { Insurance } from '../db/Insurance.js';
 import { getIPFSDataFromContentID, parseJson, useInfo } from '@slonigiraf/app-slonig-components';
 import type { KeyringPair } from '@polkadot/keyring/types';
 import { useApi } from '@polkadot/react-hooks';
-import { db } from "../db/index.js";
 import { getBounty } from "../getBounty.js";
-import BN from 'bn.js';
-import { u8aToHex } from '@polkadot/util';
 
 interface Props {
   className?: string;
@@ -63,96 +60,6 @@ function Reexamine({ className = '', currentPair, insurance, onResult }: Props):
       setIsButtonClicked(false);
     }
   };
-
-  const markUsedInsurance = () => {
-    if (insurance.id) {
-      db.insurances.where({ id: insurance.id }).modify((f) => f.wasUsed = true);
-    }
-  }
-
-  const _onSuccess = () => {
-    markUsedInsurance();
-    showInfo(t('Got bounty'));
-    onResult();
-  }
-
-  type ErrorKey = 'InvalidRefereeSign' | 'InvalidWorkerSign' | 'InvalidLetterAmount' | 
-                'RefereeBalanceIsNotEnough' | 'LetterWasMarkedAsFraudBefore' | 
-                'Expired' | 'NotAllowedBlock' | 'WrongParaId';
-
-  const errorMessages : Record<ErrorKey, string> = {
-    InvalidRefereeSign: 'Invalid signature of previous tutor',
-    InvalidWorkerSign: 'Invalid signature of student',
-    InvalidLetterAmount: 'Invalid stake amount',
-    RefereeBalanceIsNotEnough: 'Previous tutor balance is insufficient',
-    LetterWasMarkedAsFraudBefore: 'Diploma was marked as fraud previously',
-    Expired: 'Diploma has expired',
-    NotAllowedBlock: 'Reexamining time has ended',
-    WrongParaId: 'Incorrect parachain used',
-  };
-
-  const _onFailed = (error: string) => {
-    const errorMessage = errorMessages[error as ErrorKey] || `${error}`;
-    showInfo(t(`Didn't get bounty: ${errorMessage}`), 'error', 3);
-    onResult();
-  };
-
-
-  const signAndSendTransaction = useCallback(async () => {
-    // Ensure insurance and currentPair are available
-    if (!insurance || !currentPair) {
-      console.error('Required parameters are missing');
-      return;
-    }
-
-    // Create the transaction
-    const transfer = api.tx.letters.reimburse(
-      insurance.letterNumber,
-      new BN(insurance.block),
-      new BN(insurance.blockAllowed),
-      insurance.referee,
-      insurance.worker,
-      u8aToHex(currentPair.publicKey),
-      new BN(insurance.amount),
-      insurance.signOverReceipt,
-      insurance.workerSign
-    );
-
-    // Sign and send the transaction
-    // Sign and send the transaction
-    try {
-      await transfer.signAndSend(currentPair, ({ status, events }) => {
-        // Handle transaction status and events
-        if (status.isInBlock) {
-          let isError = false;
-          let errorInfo = '';
-          events.forEach(({ event }) => {
-            if (api.events.system.ExtrinsicFailed.is(event)) {
-              isError = true;
-              const [error] = event.data;
-              if (error.isModule) {
-                // for module errors, we have the section indexed, lookup
-                const decoded = api.registry.findMetaError(error.asModule);
-                const { docs, method, section } = decoded;
-                errorInfo = `${method}`;
-              } else {
-                // Other, CannotLookup, BadOrigin, no extra info
-                errorInfo = error.toString();
-              }
-            }
-          });
-          if (isError) {
-            _onFailed(errorInfo); // Call on failure
-          } else {
-            _onSuccess(); // Call on success
-          }
-        }
-      });
-    } catch (error) {
-      _onFailed(t('Error signing and sending transaction'));
-    }
-
-  }, [insurance, currentPair, api]);
 
   return (
     !skill ? <></> :
