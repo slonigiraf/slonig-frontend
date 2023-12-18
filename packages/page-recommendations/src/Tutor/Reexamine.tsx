@@ -9,10 +9,11 @@ import { ValidatingAlgorithm } from './ValidatingAlgorithm.js';
 import { useTranslation } from '../translate.js';
 import { useIpfsContext } from '@slonigiraf/app-slonig-components';
 import { Insurance } from '../db/Insurance.js';
-import { getIPFSDataFromContentID, parseJson, useInfo } from '@slonigiraf/app-slonig-components'
+import { getIPFSDataFromContentID, parseJson, useInfo } from '@slonigiraf/app-slonig-components';
 import type { KeyringPair } from '@polkadot/keyring/types';
 import { useApi } from '@polkadot/react-hooks';
 import { db } from "../db/index.js";
+import { getBounty } from "../getBounty.js";
 import BN from 'bn.js';
 import { u8aToHex } from '@polkadot/util';
 
@@ -54,7 +55,7 @@ function Reexamine({ className = '', currentPair, insurance, onResult }: Props):
   const handleStageChange = (nextStage) => {
     setIsButtonClicked(true);
     if (nextStage.type === 'reimburse') {
-      getBounty();
+      getBounty(insurance, currentPair, api, t, onResult, showInfo);
     } else if (nextStage.type === 'success') {
       onResult();
     } else {
@@ -96,11 +97,6 @@ function Reexamine({ className = '', currentPair, insurance, onResult }: Props):
     onResult();
   };
 
-
-  const getBounty = () => {
-    showInfo(t('Processing'), 'info', 12);
-    signAndSendTransaction().catch(console.error);
-  }
 
   const signAndSendTransaction = useCallback(async () => {
     // Ensure insurance and currentPair are available

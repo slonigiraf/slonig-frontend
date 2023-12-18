@@ -43,17 +43,6 @@ function UseInsurance({ className = '', text, insurance }: Props): React.ReactEl
 
   const isUsable = currentPair != null;
 
-  console.log("-----------")
-  console.log("insurance.letterNumber:", insurance.letterNumber)
-  console.log("insurance.block:", insurance.block)
-  console.log("insurance.blockAllowed:", insurance.blockAllowed)
-  console.log("insurance.referee:", insurance.referee)
-  console.log("insurance.worker:", insurance.worker)
-  console.log("currentPair.publicKey_hex:", u8aToHex(currentPair?.publicKey))
-  console.log("insurance.amount:", insurance.amount)
-  console.log("insurance.signOverReceipt:", insurance.signOverReceipt)
-  console.log("insurance.workerSign:", insurance.workerSign)
-
   const txButton = isUsable && <TxButton
     className='reimburseButton'
     accountId={currentPair.address}
@@ -92,6 +81,7 @@ function UseInsurance({ className = '', text, insurance }: Props): React.ReactEl
       <div className='ui--row'>
         {insurance.wasUsed ? usedInfo : txButton}
       </div>
+      <div>Hi</div>
     </div >
   );
 }
