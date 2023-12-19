@@ -22,11 +22,15 @@ import ViewList from './ViewList';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { storeSetting, getSetting, storePseudonym } from '@slonigiraf/app-recommendations';
 import type { AccountState, SignerState } from '@slonigiraf/app-slonig-components';
+import { sendCreateAndEditTransaction, sendEditTransaction } from './sendTransaction.js';
+import { useInfo } from '@slonigiraf/app-slonig-components';
+
 interface Props {
   className?: string;
 }
 
 function Edit({ className = '' }: Props): React.ReactElement<Props> {
+  const { showInfo } = useInfo();
   const { ipfs, isIpfsReady, ipfsInitError } = useIpfsContext();
   const { t } = useTranslation();
   const [currentPair, setCurrentPair] = useState<KeyringPair | null>(() => keyring.getPairs()[0] || null);
@@ -50,6 +54,7 @@ function Edit({ className = '' }: Props): React.ReactElement<Props> {
   const [isEditView, toggleEditView] = useToggle(false);
   const [isAddingItem, setIsAddingElement] = useState<boolean>(false);
   const [itemIdHex, setItemIdHex] = useState<string>("");
+  const [isProcessing, toggleProcessing] = useToggle(false);
 
   const location = useLocation();
   const navigate = useNavigate();
@@ -138,7 +143,7 @@ function Edit({ className = '' }: Props): React.ReactElement<Props> {
 
   const _onClickEdit = useCallback(
     (): void => {
-      if (isLocked) {  
+      if (isLocked) {
         toggleUnlock();
       } else {
         _onClickChangeView();
@@ -186,15 +191,17 @@ function Edit({ className = '' }: Props): React.ReactElement<Props> {
     [toggleUnlock]
   );
 
-  const _onSuccess = (_result: any) => {
+  const _onSuccess = () => {
     _onClickChangeView();
     setIsAddingElement(false);
     setItem(null);
     setItemDigestHex("");
     setItemIdHex("");
     setLawHexData(digestHex);
+    toggleProcessing();
   }
-  const _onFailed = (_result: any) => {
+  const _onFailed = () => {
+    toggleProcessing();
   }
 
   useEffect(() => {
@@ -230,38 +237,27 @@ function Edit({ className = '' }: Props): React.ReactElement<Props> {
     }
   }
 
-  const txButtonEdit = isUsable && <TxButton
-    isDisabled={!(isUsable && !isLocked && isIpfsReady)}
-    className='signButton'
-    accountId={currentPair?.address}
-    icon='save'
-    label={t('Save')}
-    onSuccess={_onSuccess}
-    onFailed={_onFailed}
-    onClick={_onSign}
-    params={
-      [textHexId, lawHexData, digestHex, amountList,]
+  const _onSave = (): void => {
+    if (item == null) {
+      if (!(textHexId && lawHexData && digestHex && amountList && currentPair)) {
+        console.error('Required parameters are missing');
+        return;
+      }
+      toggleProcessing();
+      sendEditTransaction(textHexId, lawHexData, digestHex, amountList,
+        currentPair, api, t, showInfo, _onSuccess, _onFailed);
+    } else {
+      if (!(itemIdHex && itemDigestHex && amountItem &&
+        textHexId && lawHexData && digestHex && amountList && currentPair)) {
+        console.error('Required parameters are missing');
+        return;
+      }
+      toggleProcessing();
+      sendCreateAndEditTransaction(itemIdHex, itemDigestHex, amountItem,
+        textHexId, lawHexData, digestHex, amountList,
+        currentPair, api, t, showInfo, _onSuccess, _onFailed);
     }
-    tx={api.tx.laws.edit}
-  />
-
-  const txButtonCreateAndEdit = isUsable && <TxButton
-    isDisabled={!(isUsable && !isLocked && isIpfsReady)}
-    className='signButton'
-    accountId={currentPair?.address}
-    icon='key'
-    label={t('Sign')}
-    onSuccess={_onSuccess}
-    onFailed={_onFailed}
-    onClick={_onSign}
-    params={
-      [itemIdHex, itemDigestHex, amountItem,
-        textHexId, lawHexData, digestHex, amountList,]
-    }
-    tx={api.tx.laws.createAndEdit}
-  />
-
-  const txButton = (item == null) ? txButtonEdit : txButtonCreateAndEdit;
+  };
 
   const amountItemElement = (item == null ? "" : <div className='ui--row'>
     <InputBalance
@@ -310,7 +306,12 @@ function Edit({ className = '' }: Props): React.ReactElement<Props> {
           label={t('Cancel')}
           onClick={_onClickChangeView}
         />
-        {!isLocked && txButton}
+        <Button
+          icon='save'
+          label={t('Save')}
+          onClick={_onSave}
+          isDisabled={isProcessing}
+        />
         {!isIpfsReady ? <div>{t('Connecting to IPFS...')}</div> : ""}
       </Button.Group>
     </div>
