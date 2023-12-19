@@ -40,8 +40,8 @@ function Editor(props: Props): React.ReactElement<Props> {
   }, [item, onItemChange]);
 
   const selectLawType = useCallback((newLawType: LawType) => {
-    if (!item || newLawType !== item.t) {
-      onItemChange({
+        if (!item || newLawType !== item.t) {
+            onItemChange({
         ...item,
         t: newLawType
       });
@@ -88,7 +88,7 @@ function Editor(props: Props): React.ReactElement<Props> {
     }
   }, [list, onItemChange, onIsAddingItemChange, lawTypeOpt]);
 
-  
+  const itemType = (item !== null) ? item.t : getDefaultItemLawType();
 
   return (
     <>
@@ -112,7 +112,7 @@ function Editor(props: Props): React.ReactElement<Props> {
           <div className='ui--row'>
             <Dropdown
               label={t('type of item')}
-              value={item?.t || getDefaultItemLawType()}
+              value={itemType}
               onChange={selectLawType}
               options={lawTypeOpt}
             />
