@@ -24,7 +24,7 @@ function Editor(props: Props): React.ReactElement<Props> {
   const { t } = useTranslation();
 
   const parentToItemDefaultType = {
-    0: 1,
+    0: 0,
     1: 2,
     2: 3,
   };
@@ -75,7 +75,8 @@ function Editor(props: Props): React.ReactElement<Props> {
     } else { // Adding a general item
       const newItemIdHex = randomIdHex();
       onItemIdHexChange(newItemIdHex);
-      const itemJSONTemplate = `{"i":"${newItemIdHex}","t":0,"h":""}`;
+      const itemType = getDefaultItemLawType();
+      const itemJSONTemplate = `{"i":"${newItemIdHex}","t":${itemType},"h":""}`;
       onItemChange(parseJson(itemJSONTemplate));
 
       const updatedList = {
@@ -88,8 +89,8 @@ function Editor(props: Props): React.ReactElement<Props> {
     }
   }, [list, onItemChange, onIsAddingItemChange, lawTypeOpt]);
 
-  const itemType = (item !== null) ? item.t : getDefaultItemLawType();
-
+    const itemType = (item !== null) ? item.t : getDefaultItemLawType();
+  
   return (
     <>
       {list && (
