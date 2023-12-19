@@ -47,7 +47,7 @@ function Edit({ className = '' }: Props): React.ReactElement<Props> {
   const [digestHex, setDigestHex] = useState<string>("");
   const [itemDigestHex, setItemDigestHex] = useState<string>("");
   const { api } = useApi();
-  const [isEditView, setIsEditView] = useToggle(false);
+  const [isEditView, toggleEditView] = useToggle(false);
   const [isAddingItem, setIsAddingElement] = useState<boolean>(false);
   const [itemIdHex, setItemIdHex] = useState<string>("");
 
@@ -71,7 +71,7 @@ function Edit({ className = '' }: Props): React.ReactElement<Props> {
     const updateSetting = async () => {
       if (tutor) {
         await storeSetting("currentTutor", tutor);
-        if(tutorName){
+        if (tutorName) {
           try {
             if (typeof tutor === 'string' && typeof tutorName === 'string') {
               await storePseudonym(tutor, tutorName);
@@ -131,9 +131,20 @@ function Edit({ className = '' }: Props): React.ReactElement<Props> {
 
   const _onClickChangeView = useCallback(
     (): void => {
-      setIsEditView();
+      toggleEditView();
     },
-    [setIsEditView]
+    [toggleEditView]
+  );
+
+  const _onClickEdit = useCallback(
+    (): void => {
+      if (isLocked) {  
+        toggleUnlock();
+      } else {
+        _onClickChangeView();
+      }
+    },
+    [isLocked, _onClickChangeView]
   );
 
   const _onChangeAccount = useCallback(
@@ -170,6 +181,7 @@ function Edit({ className = '' }: Props): React.ReactElement<Props> {
     (): void => {
       setIsLocked(false);
       toggleUnlock();
+      _onClickChangeView();
     },
     [toggleUnlock]
   );
@@ -293,44 +305,6 @@ function Edit({ className = '' }: Props): React.ReactElement<Props> {
         />
       </div>
       <Button.Group>
-        <div
-          className='unlock-overlay'
-          hidden={!isUsable || !isLocked || isInjected}
-        >
-          {isLocked && (
-            <div className='unlock-overlay-warning'>
-              <div className='unlock-overlay-content'>
-                {t('You need to unlock this account to be able to sign data.')}<br />
-                <Button.Group>
-                  <Button
-                    icon='unlock'
-                    label={t('Unlock account')}
-                    onClick={toggleUnlock}
-                  />
-                </Button.Group>
-              </div>
-            </div>
-          )}
-        </div>
-        <div
-          className='unlock-overlay'
-          hidden={isUsable}
-        >
-          <div className='unlock-overlay-warning'>
-            <div className='unlock-overlay-content'>
-              {isInjected
-                ? t('This injected account cannot be used to sign data since the extension does not support raw signing.')
-                : t('This external account cannot be used to sign data. Only Limited support is currently available for signing from any non-internal accounts.')}
-            </div>
-          </div>
-        </div>
-        {isUnlockVisible && (
-          <Unlock
-            onClose={toggleUnlock}
-            onUnlock={_onUnlock}
-            pair={currentPair}
-          />
-        )}
         <Button
           icon='cancel'
           label={t('Cancel')}
@@ -346,11 +320,30 @@ function Edit({ className = '' }: Props): React.ReactElement<Props> {
     <div className={`toolbox--Sign ${className}`}>
       <ViewList id={textHexId} currentPair={currentPair} onItemSelected={_onChangeLaw} />
       <Button.Group>
+        <div
+          className='unlock-overlay'
+          hidden={isUsable}
+        >
+          <div className='unlock-overlay-warning'>
+            <div className='unlock-overlay-content'>
+              {isInjected
+                ? t('This injected account cannot be used to sign data since the extension does not support raw signing.')
+                : t('This external account cannot be used to sign data. Only Limited support is currently available for signing from any non-internal accounts.')}
+            </div>
+          </div>
+        </div>
         <Button
           icon='edit'
           label={t('Edit')}
-          onClick={_onClickChangeView}
+          onClick={_onClickEdit}
         />
+        {isUnlockVisible && (
+          <Unlock
+            onClose={toggleUnlock}
+            onUnlock={_onUnlock}
+            pair={currentPair}
+          />
+        )}
         {!isIpfsReady ? <div>{t('Connecting to IPFS...')}</div> : ""}
       </Button.Group>
     </div>
