@@ -134,7 +134,7 @@ function Editor(props: Props): React.ReactElement<Props> {
       <div className='ui--row'>
         <Button
           icon='add'
-          label={t('Add list item')}
+          label={t('Add item')}
           onClick={addItem}
         />
       </div>
