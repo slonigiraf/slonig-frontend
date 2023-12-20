@@ -61,7 +61,7 @@ function Edit({ className = '' }: Props): React.ReactElement<Props> {
   const queryParams = new URLSearchParams(location.search);
   const tutor = queryParams.get("tutor");
   const tutorName = queryParams.get("name");
-  const defaultTextHexId = '0x333a6ac2dfbfd22fa96896f98bedb232157417ff9631f7186d8a0d50c1ec4d1c';
+  const defaultTextHexId = '0xdf005f390fe635bd4e00718acbae5eb00faf3d2bb528b278f028daeb16fafd15';
   const idFromQuery = tutor ? undefined : queryParams.get("id") || defaultTextHexId;
   const [textHexId, setTextHexId] = useState<string | undefined>(idFromQuery);
 
