@@ -17,6 +17,7 @@ import { useTranslation } from '../translate.js';
 import { tryCreateAccount } from '../util.js';
 import CreateAccountInputs from './CreateAccountInputs.js';
 import { ETH_DEFAULT_PATH } from './CreateEthDerivationPath.js';
+import { storeSetting } from '@slonigiraf/app-recommendations';
 
 const DEFAULT_PAIR_TYPE = 'sr25519';
 
@@ -165,16 +166,19 @@ function Create({ className = '', onClose, onStatusChange, seed: propsSeed, type
   
 
   const _onCommit = useCallback(
-    (): void => {
-
+    async () => {
       if (!isValid) {
         return;
       }
       setIsBusy(true);
-      nextTick((): void => {
+      nextTick(async () => {
         const options = { genesisHash: isDevelopment ? undefined : api.genesisHash.toHex(), isHardware: false, name: name.trim() };
         const status = createAccount(seed, derivePath, pairType, options, password, t('created account'));
-
+        if(status.status === 'success' && status.account){
+          // We store password intentionally. Using web accounts is not safe thus this doesn't add much risk.
+          await storeSetting("password", password);
+          await storeSetting("account", status.account?.toString());
+        }
         onStatusChange(status);
         setIsBusy(false);
         onClose();

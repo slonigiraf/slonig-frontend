@@ -9,6 +9,7 @@ import { Button, InputAddress, Modal, Password } from '@polkadot/react-component
 import { nextTick } from '@polkadot/util';
 
 import { useTranslation } from './translate.js';
+import { storeSetting } from '@slonigiraf/app-recommendations';
 
 interface Props {
   onClose: () => void;
@@ -31,22 +32,21 @@ function Unlock ({ onClose, onUnlock, pair }: Props): React.ReactElement<Props> 
     setUnlockError(null);
   }, [password]);
 
-  const _onUnlock = useCallback(
-    (): void => {
+  const _onUnlock = useCallback(async () => {
       if (!pair || !pair.isLocked) {
         return;
       }
-
       setIsBusy(true);
-      nextTick((): void => {
+      nextTick(async () => {
         try {
+          // We store password intentionally. Using web accounts is not safe thus this doesn't add much risk.
+          await storeSetting("password", password);
+          await storeSetting("account", pair.address);
           pair.decodePkcs8(password);
         } catch (error) {
           setIsBusy(false);
-
           return setUnlockError((error as Error).message);
         }
-
         setIsBusy(false);
         onUnlock();
       });
