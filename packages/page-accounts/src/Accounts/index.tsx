@@ -26,6 +26,8 @@ import { SORT_CATEGORY, sortAccounts } from '../util.js';
 import Account from './Account.js';
 import BannerClaims from './BannerClaims.js';
 import Summary from './Summary.js';
+import { getSetting } from '@slonigiraf/app-recommendations';
+import Unlock from '@polkadot/app-signing/Unlock';
 
 interface Balances {
   accounts: Record<string, AccountBalance>;
@@ -50,7 +52,7 @@ const STORE_FAVS = 'accounts:favorites';
 
 const GROUP_ORDER: GroupName[] = ['accounts', 'injected', 'qr', 'hardware', 'proxied', 'multisig', 'testing'];
 
-function groupAccounts (accounts: SortedAccount[]): Record<GroupName, string[]> {
+function groupAccounts(accounts: SortedAccount[]): Record<GroupName, string[]> {
   const ret: Record<GroupName, string[]> = {
     accounts: [],
     hardware: [],
@@ -85,13 +87,14 @@ function groupAccounts (accounts: SortedAccount[]): Record<GroupName, string[]> 
   return ret;
 }
 
-function Overview ({ className = '', onStatusChange }: Props): React.ReactElement<Props> {
+function Overview({ className = '', onStatusChange }: Props): React.ReactElement<Props> {
   const { t } = useTranslation();
-  const [currentPair, setCurrentPair] = useState<KeyringPair | null>(() => keyring.getPairs()[0] || null);
+  const [currentPair, setCurrentPair] = useState<KeyringPair | null>(null);
   const { api, isElectron } = useApi();
   const { allAccounts, hasAccounts } = useAccounts();
   const { isIpfs } = useIpfs();
   const { isLedgerEnabled } = useLedger();
+  const [isUnlockOpen, toggleUnlock] = useToggle();
   const [isCreateOpen, toggleCreate] = useToggle();
   const [isImportOpen, toggleImport] = useToggle();
   const [isLedgerOpen, toggleLedger] = useToggle();
@@ -113,7 +116,7 @@ function Overview ({ className = '', onStatusChange }: Props): React.ReactElemen
     (accountId: string | null) => accountId && setCurrentPair(keyring.getPair(accountId)),
     []
   );
-  
+
   const onSortChange = useCallback(
     (sortBy: SortCategory) => setSortBy(({ sortFromMax }) => ({ sortBy, sortFromMax })),
     []
@@ -273,8 +276,35 @@ function Overview ({ className = '', onStatusChange }: Props): React.ReactElemen
       sortAccounts(sortedAccounts, accountsMap, balances.accounts, sortBy, sortFromMax));
   }, [accountsMap, balances, sortBy, sortFromMax]);
 
+  const _onUnlock = useCallback(
+    (): void => {
+      toggleUnlock();
+    },
+    [toggleUnlock]
+  );
+
+  useEffect(() => {
+    const login = async () => {
+      // Check if currentPair exists and is locked
+      if (currentPair && currentPair.isLocked) {
+        const account: string | undefined = await getSetting('account');
+        if (currentPair.address === account) {
+          const password: string | undefined = await getSetting('password');
+          try {
+            currentPair.decodePkcs8(password);
+          } catch {
+            toggleUnlock();
+          }
+        } else {
+          toggleUnlock();
+        }
+      }
+    };
+    login();
+  }, [currentPair]);
+
   const callOnStatusChange = useCallback((status: ActionStatus) => {
-    if(onStatusChange) {
+    if (onStatusChange) {
       onStatusChange(status);
     }
     setInputKey(prev => prev + 1);
@@ -292,6 +322,13 @@ function Overview ({ className = '', onStatusChange }: Props): React.ReactElemen
           type='account'
         />
       </div>
+      {isUnlockOpen && (
+        <Unlock
+          onClose={toggleUnlock}
+          onUnlock={_onUnlock}
+          pair={currentPair}
+        />
+      )}
       {isCreateOpen && (
         <CreateModal
           onClose={toggleCreate}
