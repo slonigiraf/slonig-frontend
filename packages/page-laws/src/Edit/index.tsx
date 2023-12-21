@@ -75,7 +75,7 @@ function Edit({ className = '' }: Props): React.ReactElement<Props> {
   useEffect(() => {
     const updateSetting = async () => {
       if (tutor) {
-        await storeSetting("currentTutor", tutor);
+        await storeSetting("tutor", tutor);
         if (tutorName) {
           try {
             if (typeof tutor === 'string' && typeof tutorName === 'string') {
@@ -85,11 +85,11 @@ function Edit({ className = '' }: Props): React.ReactElement<Props> {
             console.error("Failed to save tutor pseudonym:", error);
           }
         }
-        const savedId = await getSetting("currentKnowledge");
+        const savedId = await getSetting("knowledge");
         setTextHexId(savedId);
       } else if (idFromQuery) {
         if (idFromQuery !== defaultTextHexId) {
-          await storeSetting("currentKnowledge", idFromQuery);
+          await storeSetting("knowledge", idFromQuery);
         }
         setTextHexId(idFromQuery);
       }

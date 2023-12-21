@@ -128,14 +128,14 @@ function SkillQR({ className = '', cid }: Props): React.ReactElement<Props> {
     []
   );
 
-  // Fetch currentTutor and set it as the default in the dropdown
+  // Fetch tutor and set it as the default in the dropdown
   useEffect(() => {
     const fetchTutorSetting = async () => {
       if (tutorFromQuery) {
-        await storeSetting("currentTutor", tutorFromQuery);
+        await storeSetting("tutor", tutorFromQuery);
         setTutor(tutorFromQuery);
       } else {
-        const tutorFromSettings = await getSetting("currentTutor");
+        const tutorFromSettings = await getSetting("tutor");
         if (tutors && tutorFromSettings) {
           setTutor(tutorFromSettings);
         }
@@ -160,7 +160,7 @@ function SkillQR({ className = '', cid }: Props): React.ReactElement<Props> {
     setTutor(selectedKey);
     if (selectedKey) {
       try {
-        await db.settings.put({ id: "currentTutor", value: selectedKey });
+        await db.settings.put({ id: "tutor", value: selectedKey });
       } catch (error) {
         console.error('Error saving tutor selection:', error);
       }

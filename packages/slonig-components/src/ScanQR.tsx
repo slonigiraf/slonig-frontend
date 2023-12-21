@@ -53,7 +53,7 @@ function ScanQR({ className = '', label, type }: Props): React.ReactElement<Prop
               break;
             case QRAction.TUTOR_IDENTITY:
               await storePseudonym(jsonData.p, jsonData.n);
-              await storeSetting("currentTutor", jsonData.p);
+              await storeSetting("tutor", jsonData.p);
               if(type){
                 navigate(`?tutor=${jsonData.p}`);
               } else{
@@ -69,7 +69,7 @@ function ScanQR({ className = '', label, type }: Props): React.ReactElement<Prop
               break;
             case QRAction.TEACHER_IDENTITY:
               await storePseudonym(jsonData.p, jsonData.n);
-              await storeSetting("currentTeacher", jsonData.p);
+              await storeSetting("teacher", jsonData.p);
               if(type){
                 navigate(`?teacher=${jsonData.p}`);
               } else{
