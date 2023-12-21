@@ -106,6 +106,8 @@ function Overview ({ className = '', onStatusChange }: Props): React.ReactElemen
   const delegations = useDelegations();
   const proxies = useProxies();
   const isNextTick = useNextTick();
+  const [inputKey, setInputKey] = useState(0);
+
 
   const _onChangeAccount = useCallback(
     (accountId: string | null) => accountId && setCurrentPair(keyring.getPair(accountId)),
@@ -271,10 +273,18 @@ function Overview ({ className = '', onStatusChange }: Props): React.ReactElemen
       sortAccounts(sortedAccounts, accountsMap, balances.accounts, sortBy, sortFromMax));
   }, [accountsMap, balances, sortBy, sortFromMax]);
 
+  const callOnStatusChange = useCallback((status: ActionStatus) => {
+    if(onStatusChange) {
+      onStatusChange(status);
+    }
+    setInputKey(prev => prev + 1);
+  }, [onStatusChange]);
+
   return (
     <StyledDiv className={className}>
       <div className='ui--row'>
         <InputAddress
+          key={inputKey}
           className='full'
           isInput={false}
           label={t('Default account')}
@@ -285,13 +295,13 @@ function Overview ({ className = '', onStatusChange }: Props): React.ReactElemen
       {isCreateOpen && (
         <CreateModal
           onClose={toggleCreate}
-          onStatusChange={onStatusChange}
+          onStatusChange={callOnStatusChange}
         />
       )}
       {isImportOpen && (
         <ImportModal
           onClose={toggleImport}
-          onStatusChange={onStatusChange}
+          onStatusChange={callOnStatusChange}
         />
       )}
       {isLedgerOpen && (
@@ -300,19 +310,19 @@ function Overview ({ className = '', onStatusChange }: Props): React.ReactElemen
       {isMultisigOpen && (
         <Multisig
           onClose={toggleMultisig}
-          onStatusChange={onStatusChange}
+          onStatusChange={callOnStatusChange}
         />
       )}
       {isProxyOpen && (
         <Proxy
           onClose={toggleProxy}
-          onStatusChange={onStatusChange}
+          onStatusChange={callOnStatusChange}
         />
       )}
       {isQrOpen && (
         <Qr
           onClose={toggleQr}
-          onStatusChange={onStatusChange}
+          onStatusChange={callOnStatusChange}
         />
       )}
       <BannerClaims />
