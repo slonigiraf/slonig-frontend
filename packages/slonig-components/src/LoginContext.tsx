@@ -33,7 +33,6 @@ export const LoginProvider: React.FC<LoginProviderProps> = ({ children }) => {
 
   return (
     <LoginContext.Provider value={{ currentPair, accountState, isUnlockOpen, _onChangeAccount }}>
-      {/* BEGIN: Login actions */}
       {isUnlockOpen && (
         <Unlock
           onClose={setUnlockOpen(false)}
@@ -41,7 +40,6 @@ export const LoginProvider: React.FC<LoginProviderProps> = ({ children }) => {
           pair={currentPair}
         />
       )}
-      {/* END: Login actions */}
       {children}
     </LoginContext.Provider>
   );
