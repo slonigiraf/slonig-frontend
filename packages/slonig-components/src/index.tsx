@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 import type { Signer } from '@polkadot/api/types';
 import QRScanner from './QRScanner.js'
+import { useLogin } from './useLogin.js';
 import { IpfsProvider, useIpfsContext } from './IpfsContext.js';
 import { InfoProvider, useInfo } from './InfoProvider.js';
 import ClipboardCopyButton from './ClipboardCopyButton.js';
@@ -10,7 +11,7 @@ import ScanQR from './ScanQR.js';
 import QRWithShareAndCopy from './QRWithShareAndCopy.js';
 import { keyForCid, nameFromKeyringPair, getBaseUrl, CODEC, getIPFSContentID, getIPFSDataFromContentID, digestFromCIDv1, getCIDFromBytes, storeEncryptedTextOnIPFS, retrieveDecryptedDataFromIPFS, parseJson } from './utils.js';
 export { ClipboardCopyButton, QRWithShareAndCopy, QRScanner, ButtonWithLabelBelow, ScanQR, IpfsProvider, useIpfsContext, InfoProvider, useInfo };
-export { keyForCid, nameFromKeyringPair, getBaseUrl, CODEC, getIPFSContentID, getIPFSDataFromContentID, digestFromCIDv1, getCIDFromBytes, storeEncryptedTextOnIPFS, retrieveDecryptedDataFromIPFS, parseJson }
+export { useLogin, keyForCid, nameFromKeyringPair, getBaseUrl, CODEC, getIPFSContentID, getIPFSDataFromContentID, digestFromCIDv1, getCIDFromBytes, storeEncryptedTextOnIPFS, retrieveDecryptedDataFromIPFS, parseJson }
 export interface Question {
     h: string;
     a: string;

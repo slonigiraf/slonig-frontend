@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import BN from 'bn.js';
-import { getIPFSContentID, digestFromCIDv1, getCIDFromBytes, getIPFSDataFromContentID } from '@slonigiraf/app-slonig-components';
+import { getIPFSContentID, digestFromCIDv1, getCIDFromBytes, getIPFSDataFromContentID, useLogin } from '@slonigiraf/app-slonig-components';
 import { BN_ZERO } from '@polkadot/util';
 import type { KeyringPair } from '@polkadot/keyring/types';
 import React, { useCallback, useEffect, useState } from 'react';
@@ -32,16 +32,22 @@ function Edit({ className = '' }: Props): React.ReactElement<Props> {
   const { showInfo } = useInfo();
   const { ipfs, isIpfsReady, ipfsInitError } = useIpfsContext();
   const { t } = useTranslation();
-  const [currentPair, setCurrentPair] = useState<KeyringPair | null>(() => keyring.getPairs()[0] || null);
   const [text, setText] = useState<string>("");
   type JsonType = { [key: string]: any } | null;
   const [list, setList] = useState<JsonType>(null);
   const [item, setItem] = useState<JsonType>(null);
-  const [{ isInjected }, setAccountState] = useState<AccountState>({ isExternal: false, isHardware: false, isInjected: false });
-  const [isLocked, setIsLocked] = useState(false);
+
+  const {
+    currentPair,
+    accountState,
+    isUnlockOpen,
+    _onChangeAccount,
+    _onUnlock,
+    toggleUnlock
+  } = useLogin();
+
   const [{ isUsable, signer }, setSigner] = useState<SignerState>({ isUsable: true, signer: null });
   const [signature, setSignature] = useState('');
-  const [isUnlockVisible, toggleUnlock] = useToggle();
   const [cidString, setCidString] = useState<string>("");
   const [lawHexData, setLawHexData] = useState('');
   const [amountList, setAmountList] = useState<BN>(BN_ZERO);
@@ -96,34 +102,6 @@ function Edit({ className = '' }: Props): React.ReactElement<Props> {
     updateSetting();
   }, [tutor, idFromQuery]);
 
-  useEffect((): void => {
-    const meta = (currentPair && currentPair.meta) || {};
-    const isExternal = (meta.isExternal as boolean) || false;
-    const isHardware = (meta.isHardware as boolean) || false;
-    const isInjected = (meta.isInjected as boolean) || false;
-    const isUsable = !(isExternal || isHardware || isInjected);
-
-    setAccountState({ isExternal, isHardware, isInjected });
-    setIsLocked(
-      isInjected
-        ? false
-        : (currentPair && currentPair.isLocked) || false
-    );
-    setSignature('');
-    setSigner({ isUsable, signer: null });
-
-    // for injected, retrieve the signer
-    if (meta.source && isInjected) {
-      web3FromSource(meta.source as string)
-        .catch((): null => null)
-        .then((injected) => setSigner({
-          isUsable: isFunction(injected?.signer?.signRaw),
-          signer: injected?.signer || null
-        }))
-        .catch(console.error);
-    }
-  }, [currentPair]);
-
   useEffect(() => {
     _onSign();
   }, [list, item, textHexId]);
@@ -142,18 +120,9 @@ function Edit({ className = '' }: Props): React.ReactElement<Props> {
 
   const _onClickEdit = useCallback(
     (): void => {
-      if (isLocked) {
-        toggleUnlock();
-      } else {
-        _onClickChangeView();
-      }
+      _onClickChangeView();
     },
-    [isLocked, _onClickChangeView]
-  );
-
-  const _onChangeAccount = useCallback(
-    (accountId: string | null) => accountId && setCurrentPair(keyring.getPair(accountId)),
-    []
+    [_onClickChangeView]
   );
 
   const _onChangeLaw = useCallback(
@@ -178,17 +147,10 @@ function Edit({ className = '' }: Props): React.ReactElement<Props> {
       const itemDigest = await digestFromCIDv1(itemCIDString);
       setItemDigestHex(u8aToHex(itemDigest));
     },
-    [currentPair, isLocked, isUsable, signer, ipfs, list, item]
+    [currentPair, isUsable, signer, ipfs, list, item]
   );
 
-  const _onUnlock = useCallback(
-    (): void => {
-      setIsLocked(false);
-      toggleUnlock();
-      _onClickChangeView();
-    },
-    [toggleUnlock]
-  );
+
 
   const _onSuccess = () => {
     _onClickChangeView();
@@ -320,30 +282,11 @@ function Edit({ className = '' }: Props): React.ReactElement<Props> {
     <div className={`toolbox--Sign ${className}`}>
       <ViewList id={textHexId} currentPair={currentPair} onItemSelected={_onChangeLaw} />
       <Button.Group>
-        <div
-          className='unlock-overlay'
-          hidden={isUsable}
-        >
-          <div className='unlock-overlay-warning'>
-            <div className='unlock-overlay-content'>
-              {isInjected
-                ? t('This injected account cannot be used to sign data since the extension does not support raw signing.')
-                : t('This external account cannot be used to sign data. Only Limited support is currently available for signing from any non-internal accounts.')}
-            </div>
-          </div>
-        </div>
         <Button
           icon='edit'
           label={t('Edit')}
           onClick={_onClickEdit}
         />
-        {isUnlockVisible && (
-          <Unlock
-            onClose={toggleUnlock}
-            onUnlock={_onUnlock}
-            pair={currentPair}
-          />
-        )}
         {!isIpfsReady ? <div>{t('Connecting to IPFS...')}</div> : ""}
       </Button.Group>
     </div>
