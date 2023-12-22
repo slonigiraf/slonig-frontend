@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import BN from 'bn.js';
-import { getIPFSContentID, digestFromCIDv1 } from '@slonigiraf/app-slonig-components';
+import { getIPFSContentID, digestFromCIDv1, useLogin } from '@slonigiraf/app-slonig-components';
 import { BN_ZERO } from '@polkadot/util';
 import type { Signer } from '@polkadot/api/types';
 import type { KeyringPair } from '@polkadot/keyring/types';
@@ -26,54 +26,24 @@ interface Props {
 function Create({ className = '' }: Props): React.ReactElement<Props> {
   const { ipfs, isIpfsReady, ipfsInitError } = useIpfsContext();
   const { t } = useTranslation();
-  const [currentPair, setCurrentPair] = useState<KeyringPair | null>(() => keyring.getPairs()[0] || null);
+  
   const [text, setText] = useState<string>("");
-  const [{ isInjected }, setAccountState] = useState<AccountState>({ isExternal: false, isHardware: false, isInjected: false });
-  const [isLocked, setIsLocked] = useState(false);
-  const [{ isUsable, signer }, setSigner] = useState<SignerState>({ isUsable: true, signer: null });
-  const [signature, setSignature] = useState('');
-  const [isUnlockVisible, toggleUnlock] = useToggle();
+  const {
+    currentPair,
+    accountState,
+    isUnlockOpen,
+    _onChangeAccount,
+    _onUnlock,
+    toggleUnlock
+  } = useLogin();
   const [amount, setAmount] = useState<BN>(BN_ZERO);
   const [idHex, setIdHex] = useState<string>("");
   const [digestHex, setDigestHex] = useState<string>("");
   const { api } = useApi();
 
-  useEffect((): void => {
-    const meta = (currentPair && currentPair.meta) || {};
-    const isExternal = (meta.isExternal as boolean) || false;
-    const isHardware = (meta.isHardware as boolean) || false;
-    const isInjected = (meta.isInjected as boolean) || false;
-    const isUsable = !(isExternal || isHardware || isInjected);
-
-    setAccountState({ isExternal, isHardware, isInjected });
-    setIsLocked(
-      isInjected
-        ? false
-        : (currentPair && currentPair.isLocked) || false
-    );
-    setSignature('');
-    setSigner({ isUsable, signer: null });
-
-    // for injected, retrieve the signer
-    if (meta.source && isInjected) {
-      web3FromSource(meta.source as string)
-        .catch((): null => null)
-        .then((injected) => setSigner({
-          isUsable: isFunction(injected?.signer?.signRaw),
-          signer: injected?.signer || null
-        }))
-        .catch(console.error);
-    }
-  }, [currentPair]);
-
   useEffect(() => {
     _onSign();
   }, [text]);
-
-  const _onChangeAccount = useCallback(
-    (accountId: string | null) => accountId && setCurrentPair(keyring.getPair(accountId)),
-    []
-  );
 
   const _onChangeData = useCallback(
     (data: string) => setText(data),
@@ -91,15 +61,7 @@ function Create({ className = '' }: Props): React.ReactElement<Props> {
       setDigestHex(u8aToHex(digest));
       setIdHex(u8aToHex(randomAsU8a(32)));
     },
-    [currentPair, isLocked, isUsable, signer, ipfs, text]
-  );
-
-  const _onUnlock = useCallback(
-    (): void => {
-      setIsLocked(false);
-      toggleUnlock();
-    },
-    [toggleUnlock]
+    [currentPair, isUnlockOpen, ipfs, text]
   );
 
   const _onSuccess = (_result: any) => {
@@ -108,10 +70,10 @@ function Create({ className = '' }: Props): React.ReactElement<Props> {
   const _onFailed = (_result: any) => {
   }
 
-  const txButton = isUsable && <TxButton
-    isDisabled={!(isUsable && !isLocked && isIpfsReady)}
+  const txButton = (!isUnlockOpen) && <TxButton
+    isDisabled={!(!isUnlockOpen && isIpfsReady)}
     className='createButton'
-    accountId={currentPair.address}
+    accountId={currentPair?.address}
     icon='key'
     label={t('Create')}
     onSuccess={_onSuccess}
@@ -161,45 +123,7 @@ function Create({ className = '' }: Props): React.ReactElement<Props> {
         />
       </div>
       <Button.Group>
-        <div
-          className='unlock-overlay'
-          hidden={!isUsable || !isLocked || isInjected}
-        >
-          {isLocked && (
-            <div className='unlock-overlay-warning'>
-              <div className='unlock-overlay-content'>
-                {t('You need to unlock this account to be able to sign data.')}<br />
-                <Button.Group>
-                  <Button
-                    icon='unlock'
-                    label={t('Unlock account')}
-                    onClick={toggleUnlock}
-                  />
-                </Button.Group>
-              </div>
-            </div>
-          )}
-        </div>
-        <div
-          className='unlock-overlay'
-          hidden={isUsable}
-        >
-          <div className='unlock-overlay-warning'>
-            <div className='unlock-overlay-content'>
-              {isInjected
-                ? t('This injected account cannot be used to sign data since the extension does not support raw signing.')
-                : t('This external account cannot be used to sign data. Only Limited support is currently available for signing from any non-internal accounts.')}
-            </div>
-          </div>
-        </div>
-        {isUnlockVisible && (
-          <Unlock
-            onClose={toggleUnlock}
-            onUnlock={_onUnlock}
-            pair={currentPair}
-          />
-        )}
-        {!isLocked && txButton}
+        {!isUnlockOpen && txButton}
         {!isIpfsReady ? <div>{t('Connecting to IPFS...')}</div> : ""}
       </Button.Group>
     </div>
