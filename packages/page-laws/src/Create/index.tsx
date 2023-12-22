@@ -30,11 +30,7 @@ function Create({ className = '' }: Props): React.ReactElement<Props> {
   const [text, setText] = useState<string>("");
   const {
     currentPair,
-    accountState,
-    isUnlockOpen,
-    _onChangeAccount,
-    _onUnlock,
-    toggleUnlock
+    isUnlockOpen
   } = useLogin();
   const [amount, setAmount] = useState<BN>(BN_ZERO);
   const [idHex, setIdHex] = useState<string>("");

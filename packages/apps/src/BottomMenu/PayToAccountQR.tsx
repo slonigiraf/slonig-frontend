@@ -10,11 +10,6 @@ function PayToAccountQR(): React.ReactElement {
   const { t } = useTranslation();
   const {
     currentPair,
-    accountState,
-    isUnlockOpen,
-    _onChangeAccount,
-    _onUnlock,
-    toggleUnlock
   } = useLogin();
 
   const publicKeyHex = currentPair ? u8aToHex(currentPair.publicKey) : "";

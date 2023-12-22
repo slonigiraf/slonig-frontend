@@ -40,11 +40,9 @@ function Student({ className = '', ipfs }: Props): React.ReactElement<Props> {
   // Account initialization
   const {
     currentPair,
-    accountState,
     isUnlockOpen,
     _onChangeAccount,
     _onUnlock,
-    toggleUnlock
   } = useLogin();
 
   // Save teacher pseudonym from url

@@ -44,7 +44,7 @@ function Root({ isElectron, store }: Props): React.ReactElement<Props> {
     isUnlockOpen,
     _onChangeAccount,
     _onUnlock,
-    toggleUnlock
+    setUnlockOpen
   } = useLogin();
 
   // END: Login system
@@ -73,7 +73,7 @@ function Root({ isElectron, store }: Props): React.ReactElement<Props> {
                         {/* BEGIN: Login actions */}
                         {isUnlockOpen && (
                           <Unlock
-                            onClose={toggleUnlock}
+                            onClose={setUnlockOpen(false)}
                             onUnlock={_onUnlock}
                             pair={currentPair}
                           />

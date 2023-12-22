@@ -39,11 +39,7 @@ function Edit({ className = '' }: Props): React.ReactElement<Props> {
 
   const {
     currentPair,
-    accountState,
-    isUnlockOpen,
-    _onChangeAccount,
-    _onUnlock,
-    toggleUnlock
+    _onChangeAccount
   } = useLogin();
 
   const [{ isUsable, signer }, setSigner] = useState<SignerState>({ isUsable: true, signer: null });

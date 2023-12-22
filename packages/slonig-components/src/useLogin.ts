@@ -9,12 +9,10 @@ import type { AccountState } from '@slonigiraf/app-slonig-components';
 export function useLogin() {
     const [currentPair, setCurrentPair] = useState<KeyringPair | null>(null);
     const [accountState, setAccountState] = useState<AccountState | null>(null);
-    const [isUnlockOpen, toggleUnlock] = useToggle();
-    console.log("useLoging, currentPair", currentPair?.address)
+    const [isUnlockOpen, setUnlockOpen] = useState(false);
 
     const _onChangeAccount = useCallback(
         async (accountId: string | null) => {
-            console.log("useLoging, 1");
             if (accountId) {
                 const accountInDB = await getSetting('account');
                 try {
@@ -36,11 +34,10 @@ export function useLogin() {
     );
 
     const _onUnlock = useCallback((): void => {
-        toggleUnlock();
-    }, [toggleUnlock]);
+        setUnlockOpen(false);
+    }, []);
 
     useEffect((): void => {
-        console.log("useLoging, 2");
         if (currentPair && currentPair.meta) {
             const meta = (currentPair && currentPair.meta) || {};
             const isExternal = (meta.isExternal as boolean) || false;
@@ -51,28 +48,52 @@ export function useLogin() {
     }, [currentPair]);
 
     useEffect(() => {
-        console.log("useLoging, 3");
-        const login = async () => {
-            const account: string | undefined = await getSetting('account');
-            if (currentPair && currentPair.isLocked && accountState) {
-                if (!accountState.isInjected) {
-                    if (currentPair.address === account) {
-                        const password: string | undefined = await getSetting('password');
-                        try {
-                            currentPair.decodePkcs8(password);
-                        } catch {
-                            toggleUnlock();
-                        }
-                    } else {
-                        toggleUnlock();
-                    }
+        const attemptUnlock = async (pair: KeyringPair) => {
+            const password = await getSetting('password');
+            if (password) {
+                try {
+                    pair.decodePkcs8(password);
+                } catch {
+                    setUnlockOpen(true);
                 }
             } else {
-                account && _onChangeAccount(account);
+                setUnlockOpen(true);
             }
         };
+
+        const initializeAccount = async () => {
+            let account = await getSetting('account');
+            console.log("account", account)
+            try {
+                if (!account && keyring.getPairs().length > 0) {
+                    const defaultPair = keyring.getPairs()[0];
+                    account = defaultPair.address;
+                    await storeSetting('account', account);
+                    setCurrentPair(defaultPair);
+                }
+            }
+            catch (e) {
+                const error = (e as Error).message;
+                console.error(error)
+            }
+            return account;
+        };
+
+        const login = async () => {
+            const account = await initializeAccount();
+
+            if (account) {
+                _onChangeAccount(account);
+
+                if (currentPair && currentPair.isLocked && !accountState?.isInjected && currentPair.address === account) {
+                    await attemptUnlock(currentPair);
+                }
+            }
+        };
+
         login();
     }, [currentPair, accountState]);
 
-    return { currentPair, accountState, isUnlockOpen, _onChangeAccount, _onUnlock, toggleUnlock };
+
+    return { currentPair, accountState, isUnlockOpen, _onChangeAccount, _onUnlock, setUnlockOpen };
 }

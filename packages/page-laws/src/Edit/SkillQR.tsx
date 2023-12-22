@@ -45,11 +45,7 @@ function SkillQR({ className = '', cid }: Props): React.ReactElement<Props> {
   const [diplomaPublicKeyHex, setDiplomaPublicKeyHex] = useState<>("");
   const {
     currentPair,
-    accountState,
-    isUnlockOpen,
-    _onChangeAccount,
-    _onUnlock,
-    toggleUnlock
+    isUnlockOpen
   } = useLogin();
   // Rest params
   const { t } = useTranslation();
