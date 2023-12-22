@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useTranslation } from '../translate';
-import { QRAction, QRWithShareAndCopy, ScanQR, getBaseUrl, nameFromKeyringPair } from '@slonigiraf/app-slonig-components';
+import { QRAction, QRWithShareAndCopy, ScanQR, getBaseUrl, nameFromKeyringPair, useLogin } from '@slonigiraf/app-slonig-components';
 import { getSetting, storeSetting } from '@slonigiraf/app-recommendations';
 import type { KeyringPair } from '@polkadot/keyring/types';
 import { Button, Dropdown, InputAddress } from '@polkadot/react-components';
@@ -42,12 +42,15 @@ function SkillQR({ className = '', cid }: Props): React.ReactElement<Props> {
   const [millisecondsPerBlock,] = useBlockTime(BN_ONE, api);
   const [blockAllowed, setBlockAllowed] = useState<BN>(new BN(1));
   // Key management
-  const [currentPair, setCurrentPair] = useState<KeyringPair | null>(null);
   const [diplomaPublicKeyHex, setDiplomaPublicKeyHex] = useState<>("");
-  const [{ isInjected }, setAccountState] = useState<AccountState>({ isExternal: false, isHardware: false, isInjected: false });
-  const [isLocked, setIsLocked] = useState(false);
-  const [{ isUsable, signer }, setSigner] = useState<SignerState>({ isUsable: true, signer: null });
-  const [isUnlockVisible, toggleUnlock] = useToggle();
+  const {
+    currentPair,
+    accountState,
+    isUnlockOpen,
+    _onChangeAccount,
+    _onUnlock,
+    toggleUnlock
+  } = useLogin();
   // Rest params
   const { t } = useTranslation();
   const location = useLocation();
@@ -64,15 +67,6 @@ function SkillQR({ className = '', cid }: Props): React.ReactElement<Props> {
     newQueryParams.set("tutor", value);
     navigate({ ...location, search: newQueryParams.toString() });
   };
-
-  // If account is unlocked by password
-  const _onUnlock = useCallback(
-    (): void => {
-      setIsLocked(false);
-      toggleUnlock();
-    },
-    [toggleUnlock]
-  );
 
   // Fetch block number (once)
   useEffect(() => {
@@ -96,37 +90,11 @@ function SkillQR({ className = '', cid }: Props): React.ReactElement<Props> {
   // Initialize key
   useEffect((): void => {
     if(currentPair){
-      const meta = (currentPair && currentPair.meta) || {};
-      const isExternal = (meta.isExternal as boolean) || false;
-      const isHardware = (meta.isHardware as boolean) || false;
-      const isInjected = (meta.isInjected as boolean) || false;
-      const isUsable = !(isExternal || isHardware || isInjected);
-  
-      setAccountState({ isExternal, isHardware, isInjected });
-      const isLocked = isInjected ? false : (currentPair && currentPair.isLocked) || false;
-      setIsLocked(isLocked);
-      const diplomaKey = (!isLocked)? keyForCid(currentPair, cid) : null;
+      const diplomaKey = (!isUnlockOpen)? keyForCid(currentPair, cid) : null;
       const diplomaPublicKeyHex = u8aToHex(diplomaKey?.publicKey);
       setDiplomaPublicKeyHex(diplomaPublicKeyHex);
-      setSigner({ isUsable, signer: null });
-  
-      // for injected, retrieve the signer
-      if (meta.source && isInjected) {
-        web3FromSource(meta.source as string)
-          .catch((): null => null)
-          .then((injected) => setSigner({
-            isUsable: isFunction(injected?.signer?.signRaw),
-            signer: injected?.signer || null
-          }))
-          .catch(console.error);
-      }
     }
-  }, [currentPair, isLocked]);
-
-  const _onChangeAccount = useCallback(
-    (accountId: string | null) => accountId && setCurrentPair(keyring.getPair(accountId)),
-    []
-  );
+  }, [currentPair]);
 
   // Fetch tutor and set it as the default in the dropdown
   useEffect(() => {
@@ -190,7 +158,7 @@ function SkillQR({ className = '', cid }: Props): React.ReactElement<Props> {
 
   const _onSign = useCallback(
     async () => {
-      if (isLocked || !isUsable || !currentPair || !diplomaToReexamine || !tutor) {
+      if (isUnlockOpen || !currentPair || !diplomaToReexamine || !tutor) {
         return;
       }
       // generate a data to sign    
@@ -204,7 +172,7 @@ function SkillQR({ className = '', cid }: Props): React.ReactElement<Props> {
 
       setStudentSignatureOverDiplomaToReexamine(workerSignOverInsurance);
     },
-    [currentPair, isLocked, isUsable, signer, tutor, diplomaToReexamine, blockAllowed]
+    [currentPair, isUnlockOpen, tutor, diplomaToReexamine, blockAllowed]
   );
 
   const name = nameFromKeyringPair(currentPair);
@@ -221,46 +189,6 @@ function SkillQR({ className = '', cid }: Props): React.ReactElement<Props> {
 
   const qrCodeText = generateQRData();
   const url = `${getBaseUrl()}/#/${urlDetails}`;
-
-  const unlock = <>
-    <div
-      className='unlock-overlay'
-      hidden={!isUsable || !isLocked || isInjected}
-    >
-      {isLocked && (
-        <div className='unlock-overlay-warning'>
-          <div className='unlock-overlay-content'>
-            <div>
-              <Button
-                icon='unlock'
-                label={t('Unlock your account before learning')}
-                onClick={toggleUnlock}
-              />
-            </div>
-          </div>
-        </div>
-      )}
-    </div>
-    <div
-      className='unlock-overlay'
-      hidden={isUsable}
-    >
-      <div className='unlock-overlay-warning'>
-        <div className='unlock-overlay-content'>
-          {isInjected
-            ? t('This injected account cannot be used to sign data since the extension does not support raw signing.')
-            : t('This external account cannot be used to sign data. Only Limited support is currently available for signing from any non-internal accounts.')}
-        </div>
-      </div>
-    </div>
-    {isUnlockVisible && (
-      <Unlock
-        onClose={toggleUnlock}
-        onUnlock={_onUnlock}
-        pair={currentPair}
-      />
-    )}
-  </>;
 
   const showToTutor = <>
     {tutor ?
@@ -288,20 +216,10 @@ function SkillQR({ className = '', cid }: Props): React.ReactElement<Props> {
     }
   </>;
 
-  const toLearn = <>{isLocked ? unlock : showToTutor}</>;
+  const toLearn = <>{isUnlockOpen ? null : showToTutor}</>;
 
   return (
     <>
-      <div className='ui--row' style={{ display: 'none' }}>
-        <InputAddress
-          className='full'
-          help={t('select the account you wish to sign data with')}
-          isInput={false}
-          label={t('account')}
-          onChange={_onChangeAccount}
-          type='account'
-        />
-      </div>
       {currentPair !== null && toLearn}
     </>
   );
