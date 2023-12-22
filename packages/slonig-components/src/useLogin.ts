@@ -10,6 +10,25 @@ export function useLogin() {
     const [currentPair, setCurrentPair] = useState<KeyringPair | null>(null);
     const [accountState, setAccountState] = useState<AccountState | null>(null);
     const [isUnlockOpen, setUnlockOpen] = useState(false);
+    console.log("useLogin, isUnlockOpen", isUnlockOpen);
+
+    const attemptUnlock = async (pair: KeyringPair) => {
+        
+        const password = await getSetting('password');
+        if (password) {
+            try {
+                pair.decodePkcs8(password);
+            } catch {
+                setUnlockOpen(true);
+            }
+        } else {
+            setUnlockOpen(true);
+        }
+        console.log("attemptUnlock");
+        console.log("pair", pair?.address);
+        console.log("password", password);
+        console.log("isUnlockOpen", isUnlockOpen);
+    };
 
     const _onChangeAccount = useCallback(
         async (accountId: string | null) => {
@@ -21,6 +40,9 @@ export function useLogin() {
                         newPair.lock();
                         storeSetting('account', newPair.address);
                         storeSetting('password', '');
+                    }
+                    if (newPair && newPair.isLocked && !accountState?.isInjected && newPair.address === accountId) {
+                        await attemptUnlock(newPair);
                     }
                     setCurrentPair(newPair);
                     setAccountState(null);
@@ -48,22 +70,8 @@ export function useLogin() {
     }, [currentPair]);
 
     useEffect(() => {
-        const attemptUnlock = async (pair: KeyringPair) => {
-            const password = await getSetting('password');
-            if (password) {
-                try {
-                    pair.decodePkcs8(password);
-                } catch {
-                    setUnlockOpen(true);
-                }
-            } else {
-                setUnlockOpen(true);
-            }
-        };
-
         const initializeAccount = async () => {
             let account = await getSetting('account');
-            console.log("account", account)
             try {
                 if (!account && keyring.getPairs().length > 0) {
                     const defaultPair = keyring.getPairs()[0];
@@ -81,13 +89,8 @@ export function useLogin() {
 
         const login = async () => {
             const account = await initializeAccount();
-
             if (account) {
                 _onChangeAccount(account);
-
-                if (currentPair && currentPair.isLocked && !accountState?.isInjected && currentPair.address === account) {
-                    await attemptUnlock(currentPair);
-                }
             }
         };
 

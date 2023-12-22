@@ -46,6 +46,7 @@ function Root({ isElectron, store }: Props): React.ReactElement<Props> {
     _onUnlock,
     setUnlockOpen
   } = useLogin();
+  console.log("Root/isUnlockOpen", isUnlockOpen)
 
   // END: Login system
 
