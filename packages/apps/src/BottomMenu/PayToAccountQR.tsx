@@ -4,7 +4,7 @@ import React, { useState, useCallback } from 'react';
 import { InputAddress } from '@polkadot/react-components';
 import { useTranslation } from '../translate.js';
 import { u8aToHex } from '@polkadot/util';
-import { QRWithShareAndCopy, getBaseUrl, nameFromKeyringPair, QRAction, useLogin, useLoginContext } from '@slonigiraf/app-slonig-components';
+import { QRWithShareAndCopy, getBaseUrl, nameFromKeyringPair, QRAction, useLoginContext } from '@slonigiraf/app-slonig-components';
 
 function PayToAccountQR(): React.ReactElement {
   const { t } = useTranslation();
