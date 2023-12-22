@@ -36,7 +36,6 @@ function Create({ className = '' }: Props): React.ReactElement<Props> {
     _onUnlock,
     toggleUnlock
   } = useLogin();
-  console.log("Create/index, currentPair", currentPair)
   const [amount, setAmount] = useState<BN>(BN_ZERO);
   const [idHex, setIdHex] = useState<string>("");
   const [digestHex, setDigestHex] = useState<string>("");
@@ -71,7 +70,7 @@ function Create({ className = '' }: Props): React.ReactElement<Props> {
   const _onFailed = (_result: any) => {
   }
 
-  const txButton = (!isUnlockOpen) && <TxButton
+  const txButton = <TxButton
     isDisabled={!(!isUnlockOpen && isIpfsReady)}
     className='createButton'
     accountId={currentPair?.address}
@@ -114,7 +113,7 @@ function Create({ className = '' }: Props): React.ReactElement<Props> {
         />
       </div>
       <Button.Group>
-        {!isUnlockOpen && txButton}
+        {txButton}
         {!isIpfsReady ? <div>{t('Connecting to IPFS...')}</div> : ""}
       </Button.Group>
     </div>

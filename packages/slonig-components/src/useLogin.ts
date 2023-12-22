@@ -14,6 +14,7 @@ export function useLogin() {
 
     const _onChangeAccount = useCallback(
         async (accountId: string | null) => {
+            console.log("useLoging, 1");
             if (accountId) {
                 const accountInDB = await getSetting('account');
                 try {
@@ -39,6 +40,7 @@ export function useLogin() {
     }, [toggleUnlock]);
 
     useEffect((): void => {
+        console.log("useLoging, 2");
         if (currentPair && currentPair.meta) {
             const meta = (currentPair && currentPair.meta) || {};
             const isExternal = (meta.isExternal as boolean) || false;
@@ -49,6 +51,7 @@ export function useLogin() {
     }, [currentPair]);
 
     useEffect(() => {
+        console.log("useLoging, 3");
         const login = async () => {
             const account: string | undefined = await getSetting('account');
             if (currentPair && currentPair.isLocked && accountState) {
