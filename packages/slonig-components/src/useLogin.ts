@@ -12,21 +12,22 @@ export function useLogin() {
     console.log("useLogin, isUnlockOpen", isUnlockOpen);
 
     const attemptUnlock = async (pair: KeyringPair) => {
-        
+        console.log("------attemptUnlock");
         const password = await getSetting('password');
         if (password) {
             try {
                 pair.decodePkcs8(password);
             } catch {
+                console.log("setUnlockOpen(true)");
                 setUnlockOpen(true);
             }
         } else {
+            console.log("setUnlockOpen(true)");
             setUnlockOpen(true);
         }
-        console.log("attemptUnlock");
         console.log("pair", pair?.address);
         console.log("password", password);
-        console.log("isUnlockOpen", isUnlockOpen);
+        
     };
 
     const _onChangeAccount = useCallback(

@@ -11,8 +11,6 @@ import { ApiStatsCtxRoot, BlockAuthorsCtxRoot, BlockEventsCtxRoot, KeyringCtxRoo
 import { settings } from '@polkadot/ui-settings';
 import Apps from './Apps.js';
 
-import { LoginProvider } from '@slonigiraf/app-slonig-components';
-
 interface Props {
   isElectron: boolean;
   store?: KeyringStore;
@@ -54,9 +52,7 @@ function Root({ isElectron, store }: Props): React.ReactElement<Props> {
                   <BlockEventsCtxRoot>
                     <HashRouter>
                       <WindowSizeCtxRoot>
-                        <LoginProvider>
                           <Apps />
-                        </LoginProvider>
                       </WindowSizeCtxRoot>
                     </HashRouter>
                   </BlockEventsCtxRoot>

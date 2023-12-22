@@ -18,6 +18,7 @@ import WarmUp from './WarmUp.js';
 import BottomMenu from './BottomMenu/index';
 import { IpfsProvider } from '@slonigiraf/app-slonig-components';
 import { InfoProvider } from '@slonigiraf/app-slonig-components';
+import { LoginProvider } from '@slonigiraf/app-slonig-components';
 export const PORTAL_ID = 'portals';
 
 function Apps({ className = '' }: Props): React.ReactElement<Props> {
@@ -38,7 +39,9 @@ function Apps({ className = '' }: Props): React.ReactElement<Props> {
           <Menu />
           <AccountSidebar>
             <Signer>
-              <Content />
+              <LoginProvider>
+                <Content />
+              </LoginProvider>
             </Signer>
             <ConnectingOverlay />
             <DotAppsOverlay />
