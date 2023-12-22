@@ -47,8 +47,6 @@ function Root({ isElectron, store }: Props): React.ReactElement<Props> {
     toggleUnlock
   } = useLogin();
 
-
-
   const hiddenKeyringInitializer = <div className='ui--row' style={{ display: 'none' }}>
     <InputAddress
       className='full'
