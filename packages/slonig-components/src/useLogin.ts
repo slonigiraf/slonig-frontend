@@ -10,6 +10,7 @@ export function useLogin() {
   const [currentPair, setCurrentPair] = useState<KeyringPair | null>(null);
   const [accountState, setAccountState] = useState<AccountState | null>(null);
   const [isUnlockOpen, toggleUnlock] = useToggle();
+  console.log("useLoging, currentPair", currentPair?.address)
 
   const _onChangeAccount = useCallback(
     async (accountId: string | null) => {
@@ -25,7 +26,7 @@ export function useLogin() {
         setAccountState(null);
       }
     },
-    []//setCurrentPair, setAccountState
+    []
   );
 
   const _onUnlock = useCallback((): void => {
@@ -44,10 +45,9 @@ export function useLogin() {
 
   useEffect(() => {
     const login = async () => {
-      // Check if currentPair exists and is locked
+      const account: string | undefined = await getSetting('account');
       if (currentPair && currentPair.isLocked && accountState) {
         if (!accountState.isInjected) {
-          const account: string | undefined = await getSetting('account');
           if (currentPair.address === account) {
             const password: string | undefined = await getSetting('password');
             try {
@@ -59,6 +59,8 @@ export function useLogin() {
             toggleUnlock();
           }
         }
+      } else{
+        account && _onChangeAccount(account);
       }
     };
     login();

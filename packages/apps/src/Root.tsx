@@ -47,15 +47,6 @@ function Root({ isElectron, store }: Props): React.ReactElement<Props> {
     toggleUnlock
   } = useLogin();
 
-  const hiddenKeyringInitializer = <div className='ui--row' style={{ display: 'none' }}>
-    <InputAddress
-      className='full'
-      isInput={false}
-      label={'account'}
-      onChange={_onChangeAccount}
-      type='account'
-    />
-  </div>;
   // END: Login system
 
   useEffect((): void => {
@@ -80,7 +71,6 @@ function Root({ isElectron, store }: Props): React.ReactElement<Props> {
                     <HashRouter>
                       <WindowSizeCtxRoot>
                         {/* BEGIN: Login actions */}
-                        {hiddenKeyringInitializer}
                         {isUnlockOpen && (
                           <Unlock
                             onClose={toggleUnlock}

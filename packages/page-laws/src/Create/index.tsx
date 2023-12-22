@@ -36,6 +36,7 @@ function Create({ className = '' }: Props): React.ReactElement<Props> {
     _onUnlock,
     toggleUnlock
   } = useLogin();
+  console.log("Create/index, currentPair", currentPair)
   const [amount, setAmount] = useState<BN>(BN_ZERO);
   const [idHex, setIdHex] = useState<string>("");
   const [digestHex, setDigestHex] = useState<string>("");
@@ -91,16 +92,6 @@ function Create({ className = '' }: Props): React.ReactElement<Props> {
   return (
     <div className={`toolbox--Sign ${className}`}>
       <h1>{t('Create')}</h1>
-      <div className='ui--row' style={{ display: 'none' }}>
-        <InputAddress
-          className='full'
-          help={t('select the account you wish to sign data with')}
-          isInput={false}
-          label={t('account')}
-          onChange={_onChangeAccount}
-          type='account'
-        />
-      </div>
       <div className='ui--row'>
         <Input
           autoFocus
