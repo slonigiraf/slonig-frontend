@@ -40,7 +40,7 @@ function Edit({ className = '' }: Props): React.ReactElement<Props> {
   const {
     currentPair,
     _onChangeAccount
-  } = useLogin();
+  } = useLoginContext();
 
   const [{ isUsable, signer }, setSigner] = useState<SignerState>({ isUsable: true, signer: null });
   const [signature, setSignature] = useState('');

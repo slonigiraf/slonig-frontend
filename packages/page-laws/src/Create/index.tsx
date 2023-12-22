@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import BN from 'bn.js';
-import { getIPFSContentID, digestFromCIDv1, useLogin } from '@slonigiraf/app-slonig-components';
+import { getIPFSContentID, digestFromCIDv1, useLogin, useLoginContext } from '@slonigiraf/app-slonig-components';
 import { BN_ZERO } from '@polkadot/util';
 import type { Signer } from '@polkadot/api/types';
 import type { KeyringPair } from '@polkadot/keyring/types';
@@ -31,7 +31,7 @@ function Create({ className = '' }: Props): React.ReactElement<Props> {
   const {
     currentPair,
     isUnlockOpen
-  } = useLogin();
+  } = useLoginContext();
   const [amount, setAmount] = useState<BN>(BN_ZERO);
   const [idHex, setIdHex] = useState<string>("");
   const [digestHex, setDigestHex] = useState<string>("");

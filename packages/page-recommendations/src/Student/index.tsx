@@ -43,7 +43,7 @@ function Student({ className = '', ipfs }: Props): React.ReactElement<Props> {
     isUnlockOpen,
     _onChangeAccount,
     _onUnlock,
-  } = useLogin();
+  } = useLoginContext();
 
   // Save teacher pseudonym from url
   useEffect(() => {

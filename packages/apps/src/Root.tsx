@@ -3,22 +3,15 @@
 
 import type { ThemeDef } from '@polkadot/react-components/types';
 import type { KeyringStore } from '@polkadot/ui-keyring/types';
-
-import React, { Suspense, useEffect, useState, useCallback } from 'react';
+import React, { Suspense, useEffect, useState } from 'react';
 import { HashRouter } from 'react-router-dom';
 import { ThemeProvider } from 'styled-components';
-import { useToggle } from '@polkadot/react-hooks';
-
 import { ApiCtxRoot } from '@polkadot/react-api';
 import { ApiStatsCtxRoot, BlockAuthorsCtxRoot, BlockEventsCtxRoot, KeyringCtxRoot, QueueCtxRoot, WindowSizeCtxRoot } from '@polkadot/react-hooks';
 import { settings } from '@polkadot/ui-settings';
-import { InputAddress } from '@polkadot/react-components';
 import Apps from './Apps.js';
-import type { KeyringPair } from '@polkadot/keyring/types';
-import { keyring } from '@polkadot/ui-keyring';
-import { useLogin, type AccountState } from '@slonigiraf/app-slonig-components';
-import { getSetting, storeSetting } from '@slonigiraf/app-recommendations';
-import Unlock from '@polkadot/app-signing/Unlock';
+
+import { LoginProvider } from '@slonigiraf/app-slonig-components';
 
 interface Props {
   isElectron: boolean;
@@ -37,16 +30,6 @@ function createTheme({ uiTheme }: { uiTheme: string }): ThemeDef {
 
 function Root({ isElectron, store }: Props): React.ReactElement<Props> {
   const [theme, setTheme] = useState(() => createTheme(settings));
-
-  const {
-    currentPair,
-    accountState,
-    isUnlockOpen,
-    _onChangeAccount,
-    _onUnlock,
-    setUnlockOpen
-  } = useLogin();
-  console.log("Root/isUnlockOpen", isUnlockOpen)
 
   // END: Login system
 
@@ -71,16 +54,9 @@ function Root({ isElectron, store }: Props): React.ReactElement<Props> {
                   <BlockEventsCtxRoot>
                     <HashRouter>
                       <WindowSizeCtxRoot>
-                        {/* BEGIN: Login actions */}
-                        {isUnlockOpen && (
-                          <Unlock
-                            onClose={setUnlockOpen(false)}
-                            onUnlock={_onUnlock}
-                            pair={currentPair}
-                          />
-                        )}
-                        {/* END: Login actions */}
-                        <Apps />
+                        <LoginProvider>
+                          <Apps />
+                        </LoginProvider>
                       </WindowSizeCtxRoot>
                     </HashRouter>
                   </BlockEventsCtxRoot>

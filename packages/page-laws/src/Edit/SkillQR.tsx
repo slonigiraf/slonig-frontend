@@ -46,7 +46,7 @@ function SkillQR({ className = '', cid }: Props): React.ReactElement<Props> {
   const {
     currentPair,
     isUnlockOpen
-  } = useLogin();
+  } = useLoginContext();
   // Rest params
   const { t } = useTranslation();
   const location = useLocation();
