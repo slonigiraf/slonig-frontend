@@ -279,17 +279,19 @@ function Overview({ className = '', onStatusChange }: Props): React.ReactElement
       <div className='ui--row'>
         <InputAddress
           key={inputKey}
-          className='small'
+          className='full'
           isInput={false}
           label={t('Default account')}
           onChange={_onChangeAccount}
           type='account'
         />
-        <Button
-          icon='right-from-bracket'
-          label={t('Log out')}
-          onClick={logOut}
-        />
+        <Button.Group>
+          <Button
+            icon='right-from-bracket'
+            label={t('Log out')}
+            onClick={logOut}
+          />
+        </Button.Group>
       </div>
       {isCreateOpen && (
         <CreateModal
