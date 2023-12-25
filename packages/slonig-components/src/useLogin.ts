@@ -66,9 +66,22 @@ export function useLogin() {
     [keyring]
   );
 
+  const logOut = useCallback(
+    async () => {
+      if(currentPair){
+        const newPair = currentPair;
+        newPair.lock();
+        setCurrentPair(newPair);
+        storeSetting('password', '');
+        setLoginIsRequired(true);
+      }
+    },
+    [currentPair]
+  );
+
   const _onUnlock = useCallback((): void => {
     setLoginIsRequired(false);
   }, []);
 
-  return { isReady, currentPair, accountState, isLoginRequired, _onChangeAccount, _onUnlock };
+  return { isReady, currentPair, accountState, isLoginRequired, _onChangeAccount, _onUnlock, logOut };
 }

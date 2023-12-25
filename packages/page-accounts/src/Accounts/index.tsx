@@ -88,7 +88,7 @@ function groupAccounts(accounts: SortedAccount[]): Record<GroupName, string[]> {
 
 function Overview({ className = '', onStatusChange }: Props): React.ReactElement<Props> {
   const { t } = useTranslation();
-  const { _onChangeAccount } = useLoginContext();
+  const { currentPair, _onChangeAccount, logOut } = useLoginContext();
   const { api, isElectron } = useApi();
   const { allAccounts, hasAccounts } = useAccounts();
   const { isLedgerEnabled } = useLedger();
@@ -279,11 +279,16 @@ function Overview({ className = '', onStatusChange }: Props): React.ReactElement
       <div className='ui--row'>
         <InputAddress
           key={inputKey}
-          className='full'
+          className='small'
           isInput={false}
           label={t('Default account')}
           onChange={_onChangeAccount}
           type='account'
+        />
+        <Button
+          icon='right-from-bracket'
+          label={t('Log out')}
+          onClick={logOut}
         />
       </div>
       {isCreateOpen && (
