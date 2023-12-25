@@ -3,7 +3,7 @@ import { keyring } from '@polkadot/ui-keyring';
 import { getSetting, storeSetting } from '@slonigiraf/app-recommendations';
 import type { KeyringPair } from '@polkadot/keyring/types';
 import type { AccountState } from '@slonigiraf/app-slonig-components';
-import { arrayBufferToBase64, base64ToArrayBuffer, decryptData, getKey } from '@slonigiraf/app-slonig-components';
+import { decryptData, getKey } from '@slonigiraf/app-slonig-components';
 
 export function useLogin() {
   const [currentPair, setCurrentPair] = useState<KeyringPair | null>(null);

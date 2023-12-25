@@ -10,7 +10,7 @@ import { nextTick } from '@polkadot/util';
 
 import { useTranslation } from './translate.js';
 import { storeSetting } from '@slonigiraf/app-recommendations';
-import { encryptData, getKey } from '@slonigiraf/app-slonig-components';
+import { encryptData, getKey, useLoginContext } from '@slonigiraf/app-slonig-components';
 
 interface Props {
   onClose: () => void;
@@ -24,6 +24,8 @@ function SignIn({ onClose, onUnlock, pair }: Props): React.ReactElement<Props> |
   const [address, setAddress] = useState('');
   const [password, setPassword] = useState('');
   const [unlockError, setUnlockError] = useState<string | null>(null);
+
+  const { _onChangeAccount } = useLoginContext();
 
   useEffect((): void => {
     setAddress(pair?.address || '');
@@ -65,16 +67,18 @@ function SignIn({ onClose, onUnlock, pair }: Props): React.ReactElement<Props> |
   return (
     <Modal
       className='toolbox--Unlock'
-      header={t('Unlock account')}
+      header={t('Sign In')}
       onClose={onClose}
       size='large'
     >
       <Modal.Content>
         <Modal.Columns hint={t('This account that will perform the message signing.')}>
           <InputAddress
-            isDisabled
+            className='full'
+            isInput={false}
             label={t('account')}
-            value={address}
+            onChange={_onChangeAccount}
+            type='account'
           />
         </Modal.Columns>
         <Modal.Columns hint={t('Unlock the account for signing. Once active the signature will be generated based on the content provided.')}>
@@ -92,7 +96,7 @@ function SignIn({ onClose, onUnlock, pair }: Props): React.ReactElement<Props> |
         <Button
           icon='unlock'
           isBusy={isBusy}
-          label={t('Unlock')}
+          label={t('Log in')}
           onClick={_onUnlock}
         />
       </Modal.Actions>
