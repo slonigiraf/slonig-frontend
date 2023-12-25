@@ -2,17 +2,13 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import BN from 'bn.js';
-import { getIPFSContentID, digestFromCIDv1, getCIDFromBytes, getIPFSDataFromContentID, useLogin } from '@slonigiraf/app-slonig-components';
+import { getIPFSContentID, digestFromCIDv1, getCIDFromBytes, getIPFSDataFromContentID } from '@slonigiraf/app-slonig-components';
 import { BN_ZERO } from '@polkadot/util';
-import type { KeyringPair } from '@polkadot/keyring/types';
 import React, { useCallback, useEffect, useState } from 'react';
-import { web3FromSource } from '@polkadot/extension-dapp';
-import { Button, InputAddress, InputBalance, TxButton } from '@polkadot/react-components';
+import { Button, InputBalance } from '@polkadot/react-components';
 import { useToggle } from '@polkadot/react-hooks';
-import { keyring } from '@polkadot/ui-keyring';
-import { isFunction, u8aToHex } from '@polkadot/util';
+import { u8aToHex } from '@polkadot/util';
 import { useTranslation } from '../translate.js';
-import Unlock from '@polkadot/app-signing/Unlock';
 import { useIpfsContext } from '@slonigiraf/app-slonig-components';
 import { useApi } from '@polkadot/react-hooks';
 import { parseJson } from '@slonigiraf/app-slonig-components';
