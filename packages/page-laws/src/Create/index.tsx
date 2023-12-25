@@ -11,6 +11,9 @@ import { useTranslation } from '../translate.js';
 import { useApi } from '@polkadot/react-hooks';
 import { randomAsU8a } from '@polkadot/util-crypto';
 import { useIpfsContext } from '@slonigiraf/app-slonig-components';
+import { useInfo } from '@slonigiraf/app-slonig-components';
+import { useToggle } from '@polkadot/react-hooks';
+import { sendCreateTransaction } from '../Edit/sendTransaction.js';
 
 interface Props {
   className?: string;
@@ -19,7 +22,8 @@ interface Props {
 function Create({ className = '' }: Props): React.ReactElement<Props> {
   const { ipfs, isIpfsReady } = useIpfsContext();
   const { t } = useTranslation();
-  
+  const { showInfo } = useInfo();
+  const [isProcessing, toggleProcessing] = useToggle(false);
   const [text, setText] = useState<string>("");
   const {
     currentPair,
@@ -56,29 +60,33 @@ function Create({ className = '' }: Props): React.ReactElement<Props> {
     [currentPair, isLoginRequired, ipfs, text]
   );
 
-  const _onSuccess = (_result: any) => {
-    // TODO use
-  }
-  const _onFailed = (_result: any) => {
+  const _onResult = () => {
+    toggleProcessing();
   }
 
-  const txButton = <TxButton
-    isDisabled={!(!isLoginRequired && isIpfsReady)}
-    className='createButton'
-    accountId={currentPair?.address}
-    icon='key'
-    label={t('Create')}
-    onSuccess={_onSuccess}
-    onFailed={_onFailed}
-    onClick={_onSign}
-    params={
-      [idHex,
-        digestHex,
-        amount,
-      ]
+  const _onSuccess = () => {
+    _onResult();
+  }
+  const _onFailed = () => {
+    _onResult();
+  }
+
+  const _onSave = (): void => {
+    if (!(idHex && digestHex && amount && currentPair)) {
+      console.error('Required parameters are missing');
+      return;
     }
-    tx={api.tx.laws.create}
-  />
+    toggleProcessing();
+    sendCreateTransaction(idHex, digestHex, amount,
+      currentPair, api, t, showInfo, _onSuccess, _onFailed);
+  };
+
+  const txButton = <Button
+    icon='save'
+    label={t('Save')}
+    onClick={_onSave}
+    isDisabled={isProcessing || !isIpfsReady || !currentPair || isLoginRequired}
+  />;
 
   return (
     <div className={`toolbox--Sign ${className}`}>
@@ -91,7 +99,7 @@ function Create({ className = '' }: Props): React.ReactElement<Props> {
           label={t('text')}
           onChange={_onChangeData}
           value={text}
-          isDisabled={ipfs==null}
+          isDisabled={ipfs == null}
         />
       </div>
       <div className='ui--row'>
@@ -101,7 +109,7 @@ function Create({ className = '' }: Props): React.ReactElement<Props> {
           isZeroable
           label={t('Tokens to burn')}
           onChange={setAmount}
-          isDisabled={ipfs==null}
+          isDisabled={ipfs == null}
         />
       </div>
       <Button.Group>

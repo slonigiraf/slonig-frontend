@@ -29,6 +29,53 @@ const _onFailed = (error: string, t: (key: string, options?: { replace: Record<s
     showInfo(t(`Didn't save: ${errorMessage}`), 'error', 3);
 };
 
+export const sendCreateTransaction = async (idHex: string, digestHex: string, amount: BN,
+    currentPair: KeyringPair, api: ApiPromise,
+    t: (key: string, options?: { replace: Record<string, unknown>; } | undefined) => string,
+    showInfo: (message: string, type?: "error" | "info" | undefined, timeoutSec?: number | undefined) => void,
+    onSuccess: () => void, onFailed: () => void) => {
+
+    showInfo(t('Processing'), 'info', 12);
+    // Create the transaction
+    const transaction = api.tx.laws.create(idHex, digestHex, amount);
+
+    // Sign and send the transaction
+    // Sign and send the transaction
+    try {
+        await transaction.signAndSend(currentPair, ({ status, events }) => {
+            // Handle transaction status and events
+            if (status.isInBlock) {
+                let isError = false;
+                let errorInfo = '';
+                events.forEach(({ event }) => {
+                    if (api.events.system.ExtrinsicFailed.is(event)) {
+                        isError = true;
+                        const [error] = event.data;
+                        if (error.isModule) {
+                            // for module errors, we have the section indexed, lookup
+                            const decoded = api.registry.findMetaError(error.asModule);
+                            const { docs, method, section } = decoded;
+                            errorInfo = `${method}`;
+                        } else {
+                            // Other, CannotLookup, BadOrigin, no extra info
+                            errorInfo = error.toString();
+                        }
+                    }
+                });
+                if (isError) {
+                    _onFailed(errorInfo, t, showInfo); // Call on failure
+                    onFailed();
+                } else {
+                    _onSuccess(t, showInfo); // Call on success
+                    onSuccess();
+                }
+            }
+        });
+    } catch (error) {
+        _onFailed(t('Error signing and sending transaction'), t, showInfo);
+    }
+};
+
 export const sendEditTransaction = async (textHexId: string, lawHexData: string, digestHex: string, amountList: BN,
     currentPair: KeyringPair, api: ApiPromise,
     t: (key: string, options?: { replace: Record<string, unknown>; } | undefined) => string,
