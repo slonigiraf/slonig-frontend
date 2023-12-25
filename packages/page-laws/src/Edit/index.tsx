@@ -33,16 +33,12 @@ function Edit({ className = '' }: Props): React.ReactElement<Props> {
   const [list, setList] = useState<JsonType>(null);
   const [item, setItem] = useState<JsonType>(null);
 
-  const {
-    currentPair,
-    _onChangeAccount
-  } = useLoginContext();
+  const { currentPair } = useLoginContext();
 
   console.log("Edit, currentPair", currentPair?.address)
   console.log("Edit, currentPair.isLocked", currentPair?.isLocked)
 
   const [{ isUsable, signer }, setSigner] = useState<SignerState>({ isUsable: true, signer: null });
-  const [signature, setSignature] = useState('');
   const [cidString, setCidString] = useState<string>("");
   const [lawHexData, setLawHexData] = useState('');
   const [amountList, setAmountList] = useState<BN>(BN_ZERO);
