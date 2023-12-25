@@ -23,6 +23,7 @@ interface Props extends ModalProps {
   className?: string;
   onClose: () => void;
   onStatusChange: (status: ActionStatus) => void;
+  toggleImport: () => void;
 }
 
 interface PassState {
@@ -51,7 +52,7 @@ function parseFile(file: Uint8Array, setError: Dispatch<SetStateAction<string | 
   return null;
 }
 
-function Import({ className = '', onClose, onStatusChange }: Props): React.ReactElement<Props> {
+function Import({ className = '', onClose, onStatusChange, toggleImport }: Props): React.ReactElement<Props> {
   const { t } = useTranslation();
   const { api, isDevelopment, isEthereum } = useApi();
   const [isBusy, setIsBusy] = useState(false);
@@ -161,6 +162,10 @@ function Import({ className = '', onClose, onStatusChange }: Props): React.React
         </Modal.Columns>
       </Modal.Content>
       <Modal.Actions>
+      <Button
+          label={t(`Or select from list`)}
+          onClick={toggleImport}
+        />
         <Button
           icon='sync'
           isBusy={isBusy}

@@ -1,5 +1,5 @@
 // IpfsContext.tsx
-import React, { useContext, createContext, ReactNode } from 'react';
+import React, { useContext, createContext, ReactNode, useEffect } from 'react';
 import { useLogin } from './useLogin.js';
 import type { KeyringPair } from '@polkadot/keyring/types';
 import type { AccountState } from '@slonigiraf/app-slonig-components';
@@ -10,6 +10,7 @@ import { useToggle } from '@polkadot/react-hooks';
 import CreateModal from '@polkadot/app-accounts/modals/Create';
 import ImportModal from '@polkadot/app-accounts/modals/Import';
 import { useAccounts } from '@polkadot/react-hooks';
+import type { ActionStatus } from '@polkadot/react-components/Status/types';
 
 // Define an interface for your context state.
 interface ILoginContext {
@@ -31,7 +32,9 @@ interface LoginProviderProps {
 export const LoginProvider: React.FC<LoginProviderProps> = ({ children }) => {
   const { hasAccounts } = useAccounts();
   const { t } = useTranslation();
-  const [isSignIn, toggleSignIn] = useToggle();
+  const [isSignInOrUp, toggleSignInUp] = useToggle(true);
+  const [isImport, toggleImport] = useToggle();
+
   const {
     isReady,
     currentPair,
@@ -42,15 +45,30 @@ export const LoginProvider: React.FC<LoginProviderProps> = ({ children }) => {
     logOut
   } = useLogin();
 
-  const signIn = (hasAccounts ? <SignIn
-    onClose={() => { }}
-    onUnlock={_onUnlock}
-    pair={currentPair}
-    toggle={toggleSignIn}
-  /> : <ImportModal
-    onClose={() => { }}
-    onStatusChange={_onUnlock}
-  />);
+  const signIn = (
+    <>
+      {hasAccounts &&
+        <SignIn
+          onClose={() => { }}
+          onUnlock={_onUnlock}
+          pair={currentPair}
+          toggle={toggleSignInUp}
+          toggleImport={toggleImport}
+        />}
+      {(!hasAccounts || isImport) &&
+        <ImportModal
+          onClose={() => { }}
+          onStatusChange={_onUnlock}
+          toggleImport={toggleImport}
+        />}
+    </>
+  );
+
+  const onCreateAccount = (status: ActionStatus) => {
+    if (status.status === 'success' && status.account) {
+      _onUnlock();
+    }
+  }
 
   return (
     <LoginContext.Provider value={{ currentPair, accountState, isLoginRequired, _onChangeAccount, logOut }}>
@@ -72,13 +90,13 @@ export const LoginProvider: React.FC<LoginProviderProps> = ({ children }) => {
       }
       {isReady && isLoginRequired && (
         <>
-          {isSignIn ?
+          {isSignInOrUp ?
             signIn
             :
             <CreateModal
               onClose={() => {/* handle modal close */ }}
-              onStatusChange={() => {/* handle status change */ }}
-              toggle={toggleSignIn}
+              onStatusChange={onCreateAccount}
+              toggle={toggleSignInUp}
             />
           }</>
       )}
