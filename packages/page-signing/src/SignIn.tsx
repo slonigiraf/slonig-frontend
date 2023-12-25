@@ -69,32 +69,28 @@ function SignIn({ onClose, onUnlock, pair }: Props): React.ReactElement<Props> |
       className='toolbox--Unlock'
       header={t('Sign In')}
       onClose={onClose}
-      size='large'
+      size='small'
     >
       <Modal.Content>
-        <Modal.Columns hint={t('This account that will perform the message signing.')}>
-          <InputAddress
-            className='full'
-            isInput={false}
-            label={t('account')}
-            onChange={_onChangeAccount}
-            type='account'
-          />
-        </Modal.Columns>
-        <Modal.Columns hint={t('Unlock the account for signing. Once active the signature will be generated based on the content provided.')}>
-          <Password
-            autoFocus
-            isError={!!unlockError}
-            label={t('password')}
-            onChange={setPassword}
-            onEnter={_onUnlock}
-            value={password}
-          />
-        </Modal.Columns>
+        <InputAddress
+          className='full'
+          isInput={false}
+          label={t('account')}
+          onChange={_onChangeAccount}
+          type='account'
+        />
+        <Password
+          autoFocus
+          isError={!!unlockError}
+          label={t('password')}
+          onChange={setPassword}
+          onEnter={_onUnlock}
+          value={password}
+        />
       </Modal.Content>
       <Modal.Actions>
         <Button
-          icon='unlock'
+          icon='right-to-bracket'
           isBusy={isBusy}
           label={t('Log in')}
           onClick={_onUnlock}
