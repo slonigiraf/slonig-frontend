@@ -1,9 +1,10 @@
 // IpfsContext.tsx
-import React, { useContext, createContext, ReactNode } from 'react';
+import React, { useContext, createContext, ReactNode, useState, useEffect } from 'react';
 import { useLogin } from './useLogin.js';
 import type { KeyringPair } from '@polkadot/keyring/types';
 import type { AccountState } from '@slonigiraf/app-slonig-components';
 import Unlock from '@polkadot/app-signing/Unlock';
+import { InputAddress } from '@polkadot/react-components';
 
 // Define an interface for your context state.
 interface ILoginContext {
@@ -11,7 +12,7 @@ interface ILoginContext {
   accountState: AccountState | null;
   isUnlockOpen: boolean;
   _onChangeAccount: (accountId: string | null) => void;
-}
+  }
 
 // Initialize the context with a default value.
 const LoginContext = createContext<ILoginContext | null>(null);
@@ -33,6 +34,15 @@ export const LoginProvider: React.FC<LoginProviderProps> = ({ children }) => {
 
   return (
     <LoginContext.Provider value={{ currentPair, accountState, isUnlockOpen, _onChangeAccount }}>
+      <div className='ui--row' style={{ display: 'none' }}>
+        <InputAddress
+          className='full'
+          isInput={false}
+          label={'account'}
+          type='account'
+          onChange={_onChangeAccount}
+        />
+      </div>
       {isUnlockOpen && (
         <Unlock
           onClose={setUnlockOpen(false)}

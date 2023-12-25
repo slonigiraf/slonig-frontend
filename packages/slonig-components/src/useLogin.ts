@@ -9,94 +9,68 @@ export function useLogin() {
     const [currentPair, setCurrentPair] = useState<KeyringPair | null>(null);
     const [accountState, setAccountState] = useState<AccountState | null>(null);
     const [isUnlockOpen, setUnlockOpen] = useState(false);
-    console.log("useLogin, isUnlockOpen", isUnlockOpen);
+
+    console.log("---- useLogin run ----");
+    console.log("useLogin, isUnlockOpen:", isUnlockOpen);
 
     const attemptUnlock = async (pair: KeyringPair) => {
-        console.log("------attemptUnlock");
+        console.log("attemptUnlock");
         const password = await getSetting('password');
+        console.log("attemptUnlock, password:", password);
         if (password) {
             try {
                 pair.decodePkcs8(password);
             } catch {
-                console.log("setUnlockOpen(true)");
                 setUnlockOpen(true);
             }
         } else {
-            console.log("setUnlockOpen(true)");
             setUnlockOpen(true);
         }
-        console.log("pair", pair?.address);
-        console.log("password", password);
-        
     };
 
     const _onChangeAccount = useCallback(
         async (accountId: string | null) => {
-            if (accountId) {
+            console.log("_onChangeAccount, accountId", accountId);
+            if (accountId && accountId !== currentPair?.address) {
                 const accountInDB = await getSetting('account');
                 try {
+                    console.log("_onChangeAccount, try block enter");
                     const newPair = keyring.getPair(accountId);
+                    console.log("_onChangeAccount, newPair", newPair);
                     if (accountId !== accountInDB) {
+                        console.log("_onChangeAccount, start locking");
                         newPair.lock();
+                        console.log("_onChangeAccount, locked");
                         storeSetting('account', newPair.address);
                         storeSetting('password', '');
-                    }
-                    if (newPair && newPair.isLocked && !accountState?.isInjected && newPair.address === accountId) {
-                        await attemptUnlock(newPair);
+                        console.log("_onChangeAccount, db with new account and empty pass updated");
                     }
                     setCurrentPair(newPair);
-                    setAccountState(null);
+                    //----
+                    if (newPair && newPair.meta) {
+                        const meta = (newPair && newPair.meta) || {};
+                        const isExternal = (meta.isExternal as boolean) || false;
+                        const isHardware = (meta.isHardware as boolean) || false;
+                        const isInjected = (meta.isInjected as boolean) || false;
+                        if (newPair.isLocked && !isInjected) {
+                            await attemptUnlock(newPair);
+                        }
+                        setAccountState({ isExternal, isHardware, isInjected });
+                    } else{
+                        setAccountState(null);
+                    }
                 } catch (e) {
                     const error = (e as Error).message;
                     console.error(error)
                 }
             }
         },
-        []
+        [keyring]
     );
 
     const _onUnlock = useCallback((): void => {
         setUnlockOpen(false);
     }, []);
-
-    useEffect((): void => {
-        if (currentPair && currentPair.meta) {
-            const meta = (currentPair && currentPair.meta) || {};
-            const isExternal = (meta.isExternal as boolean) || false;
-            const isHardware = (meta.isHardware as boolean) || false;
-            const isInjected = (meta.isInjected as boolean) || false;
-            setAccountState({ isExternal, isHardware, isInjected });
-        }
-    }, [currentPair]);
-
-    useEffect(() => {
-        const initializeAccount = async () => {
-            let account = await getSetting('account');
-            try {
-                if (!account && keyring.getPairs().length > 0) {
-                    const defaultPair = keyring.getPairs()[0];
-                    account = defaultPair.address;
-                    await storeSetting('account', account);
-                    setCurrentPair(defaultPair);
-                }
-            }
-            catch (e) {
-                const error = (e as Error).message;
-                console.error(error)
-            }
-            return account;
-        };
-
-        const login = async () => {
-            const account = await initializeAccount();
-            if (account) {
-                _onChangeAccount(account);
-            }
-        };
-
-        login();
-    }, [currentPair, accountState]);
-
 
     return { currentPair, accountState, isUnlockOpen, _onChangeAccount, _onUnlock, setUnlockOpen };
 }

@@ -20,7 +20,7 @@ import Editor from './Editor';
 import ViewList from './ViewList';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { storeSetting, getSetting, storePseudonym } from '@slonigiraf/app-recommendations';
-import type { AccountState, SignerState } from '@slonigiraf/app-slonig-components';
+import type { useLoginContext, SignerState } from '@slonigiraf/app-slonig-components';
 import { sendCreateAndEditTransaction, sendEditTransaction } from './sendTransaction.js';
 import { useInfo } from '@slonigiraf/app-slonig-components';
 

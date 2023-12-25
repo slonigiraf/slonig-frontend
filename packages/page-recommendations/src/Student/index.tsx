@@ -6,7 +6,7 @@ import LettersList from './LettersList.js';
 import { IPFS } from 'ipfs-core';
 import { InputAddress } from '@polkadot/react-components';
 import { useTranslation } from '../translate.js';
-import { useLogin } from '@slonigiraf/app-slonig-components';
+import { useLoginContext } from '@slonigiraf/app-slonig-components';
 import { u8aToHex } from '@polkadot/util';
 import Unlock from '@polkadot/app-signing/Unlock';
 import { useLocation } from 'react-router-dom';
@@ -93,17 +93,6 @@ function Student({ className = '', ipfs }: Props): React.ReactElement<Props> {
 
   return (
     <div className={`toolbox--Student ${className}`}>
-
-      <div className='ui--row' style={{ display: 'none' }}>
-        <InputAddress
-          className='full'
-          help={t('select the account you wish to sign data with')}
-          isInput={false}
-          label={t('account')}
-          type='account'
-          onChange={_onChangeAccount}
-        />
-      </div>
       <div className='ui--row'>
         {isUnlockOpen ?
           unlock :
