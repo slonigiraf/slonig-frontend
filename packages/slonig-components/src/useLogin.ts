@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import { keyring } from '@polkadot/ui-keyring';
 import { getSetting, storeSetting } from '@slonigiraf/app-recommendations';
 import type { KeyringPair } from '@polkadot/keyring/types';
@@ -11,9 +11,12 @@ export function useLogin() {
   const [isLoginRequired, setLoginIsRequired] = useState<boolean>(true);
   const [isReady, setIsReady] = useState<boolean>(false);
 
-  console.log("useLogin, currentPair", currentPair?.address)
-  console.log("useLogin, isLoginRequired", isLoginRequired)
-  console.log("useLogin, isReady", isReady)
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setIsReady(true);
+    }, 2000);
+    return () => clearTimeout(timer);
+  }, []);
 
   const attemptUnlock = async (pair: KeyringPair) => {
     const encryptedPasswordB64 = await getSetting('password');
@@ -39,7 +42,6 @@ export function useLogin() {
 
   const _onChangeAccount = useCallback(
     async (accountId: string | null) => {
-      console.log('_onChangeAccount')
       if (accountId && accountId !== currentPair?.address) {
         const accountInDB = await getSetting('account');
         try {
