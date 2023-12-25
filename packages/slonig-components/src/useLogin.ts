@@ -7,7 +7,7 @@ import type { AccountState } from '@slonigiraf/app-slonig-components';
 export function useLogin() {
     const [currentPair, setCurrentPair] = useState<KeyringPair | null>(null);
     const [accountState, setAccountState] = useState<AccountState | null>(null);
-    const [isUnlockOpen, setUnlockOpen] = useState<boolean>(false);
+    const [isLoginRequired, setUnlockOpen] = useState<boolean>(false);
     
     const attemptUnlock = async (pair: KeyringPair) => {
         const password = await getSetting('password');
@@ -59,5 +59,5 @@ export function useLogin() {
         setUnlockOpen(false);
     }, []);
 
-    return { currentPair, accountState, isUnlockOpen, _onChangeAccount, _onUnlock, setUnlockOpen };
+    return { currentPair, accountState, isLoginRequired, _onChangeAccount, _onUnlock };
 }

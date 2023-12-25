@@ -10,7 +10,7 @@ import { InputAddress } from '@polkadot/react-components';
 interface ILoginContext {
   currentPair: KeyringPair | null;
   accountState: AccountState | null;
-  isUnlockOpen: boolean;
+  isLoginRequired: boolean;
   _onChangeAccount: (accountId: string | null) => void;
   }
 
@@ -26,14 +26,13 @@ export const LoginProvider: React.FC<LoginProviderProps> = ({ children }) => {
   const {
     currentPair,
     accountState,
-    isUnlockOpen,
+    isLoginRequired,
     _onChangeAccount,
-    _onUnlock,
-    setUnlockOpen
+    _onUnlock
   } = useLogin();
 
   return (
-    <LoginContext.Provider value={{ currentPair, accountState, isUnlockOpen, _onChangeAccount }}>
+    <LoginContext.Provider value={{ currentPair, accountState, isLoginRequired, _onChangeAccount }}>
       <div className='ui--row' style={{ display: 'none' }}>
         <InputAddress
           className='full'
@@ -43,7 +42,7 @@ export const LoginProvider: React.FC<LoginProviderProps> = ({ children }) => {
           onChange={_onChangeAccount}
         />
       </div>
-      {isUnlockOpen && (
+      {isLoginRequired && (
         <Unlock
           onClose={() => {}}
           onUnlock={_onUnlock}
