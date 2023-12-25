@@ -15,7 +15,6 @@ import { findMissingApis } from '../endpoint.js';
 import { useTranslation } from '../translate.js';
 import NotFound from './NotFound.js';
 import Status from './Status.js';
-import { useAccounts } from '@polkadot/react-hooks';
 
 interface Props {
   className?: string;
@@ -36,16 +35,6 @@ function Content({ className }: Props): React.ReactElement<Props> {
   const { t } = useTranslation();
   const { api, isApiConnected, isApiReady, isDevelopment } = useApi();
   const { queueAction } = useQueue();
-  const { hasAccounts } = useAccounts();
-  const [isInitialized, setIsInitialized] = useState(false);
-
-  useEffect(() => {
-    // To make CreateModal not blink
-    const timer = setTimeout(() => {
-      setIsInitialized(true);
-    }, 2000);
-    return () => clearTimeout(timer);
-  }, []);
 
   const { Component, display: { needsApi, needsApiCheck, needsApiInstances }, icon, name, text } = useMemo(
     (): Route => {

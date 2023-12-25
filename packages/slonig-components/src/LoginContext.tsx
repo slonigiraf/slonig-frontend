@@ -8,6 +8,8 @@ import { InputAddress, Spinner, styled } from '@polkadot/react-components';
 import { useTranslation } from './translate.js';
 import { useToggle } from '@polkadot/react-hooks';
 import CreateModal from '@polkadot/app-accounts/modals/Create';
+import ImportModal from '@polkadot/app-accounts/modals/Import';
+import { useAccounts } from '@polkadot/react-hooks';
 
 // Define an interface for your context state.
 interface ILoginContext {
@@ -27,8 +29,9 @@ interface LoginProviderProps {
 }
 
 export const LoginProvider: React.FC<LoginProviderProps> = ({ children }) => {
+  const { hasAccounts } = useAccounts();
   const { t } = useTranslation();
-  const [isSignIn, toggleSignIn] = useToggle();
+  const [isSignIn, toggleSignIn] = useToggle(true);
   const {
     isReady,
     currentPair,
@@ -38,6 +41,16 @@ export const LoginProvider: React.FC<LoginProviderProps> = ({ children }) => {
     _onUnlock,
     logOut
   } = useLogin();
+
+  const signIn = (hasAccounts ? <SignIn
+    onClose={() => { }}
+    onUnlock={_onUnlock}
+    pair={currentPair}
+    toggle={toggleSignIn}
+  /> : <ImportModal
+    onClose={() => { }}
+    onStatusChange={_onUnlock}
+  />);
 
   return (
     <LoginContext.Provider value={{ currentPair, accountState, isLoginRequired, _onChangeAccount, logOut }}>
@@ -60,12 +73,7 @@ export const LoginProvider: React.FC<LoginProviderProps> = ({ children }) => {
       {isReady && isLoginRequired && (
         <>
           {isSignIn ?
-            <SignIn
-              onClose={() => { }}
-              onUnlock={_onUnlock}
-              pair={currentPair}
-              toggle={toggleSignIn}
-            />
+            signIn
             :
             <CreateModal
               onClose={() => {/* handle modal close */ }}
