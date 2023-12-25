@@ -1,4 +1,4 @@
-import React, { useCallback, useState, useRef } from 'react';
+import React, { useCallback } from 'react';
 import { Button, Dropdown, Input } from '@polkadot/react-components';
 import { useTranslation } from '../translate.js';
 import { randomIdHex } from '../util';
@@ -99,7 +99,6 @@ function Editor(props: Props): React.ReactElement<Props> {
             <Input
               autoFocus
               className='full'
-              help={t('Title')}
               label={t('title')}
               onChange={editListTitle}
               value={list.h}
@@ -122,7 +121,6 @@ function Editor(props: Props): React.ReactElement<Props> {
             <Input
               autoFocus
               className='full'
-              help={t('Title of item')}
               label={t('title of item')}
               onChange={editItemTitle}
               value={item?.h || ""}

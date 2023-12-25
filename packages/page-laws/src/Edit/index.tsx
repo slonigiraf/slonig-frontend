@@ -20,7 +20,7 @@ import Editor from './Editor';
 import ViewList from './ViewList';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { storeSetting, getSetting, storePseudonym } from '@slonigiraf/app-recommendations';
-import type { useLoginContext, SignerState } from '@slonigiraf/app-slonig-components';
+import { useLoginContext, SignerState } from '@slonigiraf/app-slonig-components';
 import { sendCreateAndEditTransaction, sendEditTransaction } from './sendTransaction.js';
 import { useInfo } from '@slonigiraf/app-slonig-components';
 
@@ -30,7 +30,7 @@ interface Props {
 
 function Edit({ className = '' }: Props): React.ReactElement<Props> {
   const { showInfo } = useInfo();
-  const { ipfs, isIpfsReady, ipfsInitError } = useIpfsContext();
+  const { ipfs, isIpfsReady } = useIpfsContext();
   const { t } = useTranslation();
   const [text, setText] = useState<string>("");
   type JsonType = { [key: string]: any } | null;
@@ -41,6 +41,9 @@ function Edit({ className = '' }: Props): React.ReactElement<Props> {
     currentPair,
     _onChangeAccount
   } = useLoginContext();
+
+  console.log("Edit, currentPair", currentPair?.address)
+  console.log("Edit, currentPair.isLocked", currentPair?.isLocked)
 
   const [{ isUsable, signer }, setSigner] = useState<SignerState>({ isUsable: true, signer: null });
   const [signature, setSignature] = useState('');
@@ -231,16 +234,6 @@ function Edit({ className = '' }: Props): React.ReactElement<Props> {
     :
     <Editor list={list} item={item} isAddingItem={isAddingItem} onListChange={setList} onItemChange={setItem} onItemIdHexChange={setItemIdHex} onIsAddingItemChange={setIsAddingElement} />;
 
-  const hiddenKeyringInitializer = <div className='ui--row' style={{ display: 'none' }}>
-    <InputAddress
-      className='full'
-      help={t('select the account you wish to sign data with')}
-      isInput={false}
-      label={t('account')}
-      onChange={_onChangeAccount}
-      type='account'
-    />
-  </div>;
   const editView = (
     <div className={`toolbox--Sign ${className}`}>
       <h1>{t('Edit')}</h1>
@@ -289,7 +282,6 @@ function Edit({ className = '' }: Props): React.ReactElement<Props> {
   );
 
   return <>
-    {hiddenKeyringInitializer}
     {isEditView ? editView : viewView}
   </>;
 }

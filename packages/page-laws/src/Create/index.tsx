@@ -17,14 +17,17 @@ interface Props {
 }
 
 function Create({ className = '' }: Props): React.ReactElement<Props> {
-  const { ipfs, isIpfsReady, ipfsInitError } = useIpfsContext();
+  const { ipfs, isIpfsReady } = useIpfsContext();
   const { t } = useTranslation();
   
   const [text, setText] = useState<string>("");
   const {
     currentPair,
-    isUnlockOpen
+    isLoginRequired
   } = useLoginContext();
+  console.log("Create, currentPair", currentPair?.address)
+  console.log("Create, currentPair.isLocked", currentPair?.isLocked)
+
   const [amount, setAmount] = useState<BN>(BN_ZERO);
   const [idHex, setIdHex] = useState<string>("");
   const [digestHex, setDigestHex] = useState<string>("");
@@ -50,7 +53,7 @@ function Create({ className = '' }: Props): React.ReactElement<Props> {
       setDigestHex(u8aToHex(digest));
       setIdHex(u8aToHex(randomAsU8a(32)));
     },
-    [currentPair, isUnlockOpen, ipfs, text]
+    [currentPair, isLoginRequired, ipfs, text]
   );
 
   const _onSuccess = (_result: any) => {
@@ -60,7 +63,7 @@ function Create({ className = '' }: Props): React.ReactElement<Props> {
   }
 
   const txButton = <TxButton
-    isDisabled={!(!isUnlockOpen && isIpfsReady)}
+    isDisabled={!(!isLoginRequired && isIpfsReady)}
     className='createButton'
     accountId={currentPair?.address}
     icon='key'
