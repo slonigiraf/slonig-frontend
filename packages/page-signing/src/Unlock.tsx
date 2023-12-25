@@ -40,8 +40,8 @@ function Unlock ({ onClose, onUnlock, pair }: Props): React.ReactElement<Props> 
       nextTick(async () => {
         try {
           // We store password intentionally. Using web accounts is not safe thus this doesn't add much risk.
-          await storeSetting("password", password);
-          await storeSetting("account", pair.address);
+          await storeSetting('password', password);
+          await storeSetting('account', pair.address);
           pair.decodePkcs8(password);
         } catch (error) {
           setIsBusy(false);

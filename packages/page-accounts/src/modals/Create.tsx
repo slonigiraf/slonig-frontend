@@ -176,8 +176,8 @@ function Create({ className = '', onClose, onStatusChange, seed: propsSeed, type
         const status = createAccount(seed, derivePath, pairType, options, password, t('created account'));
         if(status.status === 'success' && status.account){
           // We store password intentionally. Using web accounts is not safe thus this doesn't add much risk.
-          await storeSetting("password", password);
-          await storeSetting("account", status.account?.toString());
+          await storeSetting('password', password);
+          await storeSetting('account', status.account?.toString());
         }
         onStatusChange(status);
         setIsBusy(false);
