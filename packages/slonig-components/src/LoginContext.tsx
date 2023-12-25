@@ -5,6 +5,7 @@ import type { KeyringPair } from '@polkadot/keyring/types';
 import type { AccountState } from '@slonigiraf/app-slonig-components';
 import Unlock from '@polkadot/app-signing/Unlock';
 import { InputAddress, Spinner, styled } from '@polkadot/react-components';
+import { useTranslation } from './translate.js';
 
 // Define an interface for your context state.
 interface ILoginContext {
@@ -23,6 +24,7 @@ interface LoginProviderProps {
 }
 
 export const LoginProvider: React.FC<LoginProviderProps> = ({ children }) => {
+  const { t } = useTranslation();
   const {
     isReady,
     currentPair,
@@ -43,11 +45,10 @@ export const LoginProvider: React.FC<LoginProviderProps> = ({ children }) => {
           onChange={_onChangeAccount}
         />
       </div>
-
       {!isReady &&
         <StyledDiv>
           <div className='connecting'>
-            <Spinner label={'Loading account'} />
+            <Spinner label={t('Loading')} />
           </div>
         </StyledDiv>
       }
@@ -73,7 +74,12 @@ export function useLoginContext() {
 
 const StyledDiv = styled.div`
   width: 100%;
+  height: 100vh;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  
   .connecting {
-    padding: 3.5rem 0;
+    padding: 1rem;
   }
 `;
