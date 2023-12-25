@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useTranslation } from '../translate';
-import { QRAction, QRWithShareAndCopy, ScanQR, getBaseUrl, nameFromKeyringPair, useLogin } from '@slonigiraf/app-slonig-components';
+import { QRAction, QRWithShareAndCopy, ScanQR, getBaseUrl, nameFromKeyringPair, useLogin, useLoginContext } from '@slonigiraf/app-slonig-components';
 import { getSetting, storeSetting } from '@slonigiraf/app-recommendations';
 import type { KeyringPair } from '@polkadot/keyring/types';
 import { Button, Dropdown, InputAddress } from '@polkadot/react-components';
@@ -45,7 +45,7 @@ function SkillQR({ className = '', cid }: Props): React.ReactElement<Props> {
   const [diplomaPublicKeyHex, setDiplomaPublicKeyHex] = useState<>("");
   const {
     currentPair,
-    isUnlockOpen
+    isLoginRequired
   } = useLoginContext();
   // Rest params
   const { t } = useTranslation();
@@ -86,7 +86,7 @@ function SkillQR({ className = '', cid }: Props): React.ReactElement<Props> {
   // Initialize key
   useEffect((): void => {
     if(currentPair){
-      const diplomaKey = (!isUnlockOpen)? keyForCid(currentPair, cid) : null;
+      const diplomaKey = (!isLoginRequired)? keyForCid(currentPair, cid) : null;
       const diplomaPublicKeyHex = u8aToHex(diplomaKey?.publicKey);
       setDiplomaPublicKeyHex(diplomaPublicKeyHex);
     }
@@ -154,7 +154,7 @@ function SkillQR({ className = '', cid }: Props): React.ReactElement<Props> {
 
   const _onSign = useCallback(
     async () => {
-      if (isUnlockOpen || !currentPair || !diplomaToReexamine || !tutor) {
+      if (isLoginRequired || !currentPair || !diplomaToReexamine || !tutor) {
         return;
       }
       // generate a data to sign    
@@ -168,7 +168,7 @@ function SkillQR({ className = '', cid }: Props): React.ReactElement<Props> {
 
       setStudentSignatureOverDiplomaToReexamine(workerSignOverInsurance);
     },
-    [currentPair, isUnlockOpen, tutor, diplomaToReexamine, blockAllowed]
+    [currentPair, isLoginRequired, tutor, diplomaToReexamine, blockAllowed]
   );
 
   const name = nameFromKeyringPair(currentPair);
@@ -212,7 +212,7 @@ function SkillQR({ className = '', cid }: Props): React.ReactElement<Props> {
     }
   </>;
 
-  const toLearn = <>{isUnlockOpen ? null : showToTutor}</>;
+  const toLearn = <>{isLoginRequired ? null : showToTutor}</>;
 
   return (
     <>
