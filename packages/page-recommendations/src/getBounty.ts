@@ -96,7 +96,7 @@ export const getBounty = async (insurance: Insurance, currentPair: KeyringPair, 
             }
         });
     } catch (error) {
-        _onBountyFailed(t('Error signing and sending transaction'), t, onResult, showInfo);
+        _onBountyFailed(t(error.toString()), t, onResult, showInfo);
     }
 
 };

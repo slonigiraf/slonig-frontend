@@ -17,14 +17,17 @@ import DBImport from './Student/DBImport.js';
 import DBExport from './Student/DBExport.js';
 import type { Letter } from './db/Letter.js';
 import { db } from './db/index.js';
+import { useLoginContext } from '@slonigiraf/app-slonig-components';
 export { db, Letter, useCounter, DBImport, DBExport, createAndStoreLetter, storeInsurances, storePseudonym, storeSetting, deleteSetting, getSetting };
 
 const HIDDEN_ACC = ['vanity'];
 
-function AccountsApp ({ basePath, onStatusChange }: Props): React.ReactElement<Props> {
+function DiplomasApp({ basePath, onStatusChange }: Props): React.ReactElement<Props> {
   const { t } = useTranslation();
   const { hasAccounts } = useAccounts();
   const { isIpfs } = useIpfs();
+  const { isLoginRequired } = useLoginContext();
+  console.log("Recomm: isLoginRequired", isLoginRequired)
 
   const tabsRef = useRef([
     {
@@ -43,36 +46,42 @@ function AccountsApp ({ basePath, onStatusChange }: Props): React.ReactElement<P
   ]);
 
   return (
-    <main className='accounts--App'>
-      <Tabs
-        basePath={basePath}
-        hidden={(hasAccounts && !isIpfs) ? undefined : HIDDEN_ACC}
-        items={tabsRef.current}
-      />
-      <Routes>
-        <Route path={basePath}>
-        <Route
-            element={
-              <Teacher onStatusChange={onStatusChange} />
-            }
-            path='teacher'
-          />
-          <Route
-            element={
-              <Student onStatusChange={onStatusChange} />
-            }
-            index
-          />
-          <Route
-            element={
-              <Tutor onStatusChange={onStatusChange} />
-            }
-            path='tutor'
-          />
-        </Route>
-      </Routes>
-    </main>
+    <>
+      {
+        isLoginRequired ? null :
+          <main className='accounts--App'>
+            <Tabs
+              basePath={basePath}
+              hidden={(hasAccounts && !isIpfs) ? undefined : HIDDEN_ACC}
+              items={tabsRef.current}
+            />
+            <Routes>
+              <Route path={basePath}>
+                <Route
+                  element={
+                    <Teacher onStatusChange={onStatusChange} />
+                  }
+                  path='teacher'
+                />
+                <Route
+                  element={
+                    <Student onStatusChange={onStatusChange} />
+                  }
+                  index
+                />
+                <Route
+                  element={
+                    <Tutor onStatusChange={onStatusChange} />
+                  }
+                  path='tutor'
+                />
+              </Route>
+            </Routes>
+          </main>
+      }
+    </>
+
   );
 }
 
-export default React.memo(AccountsApp);
+export default React.memo(DiplomasApp);

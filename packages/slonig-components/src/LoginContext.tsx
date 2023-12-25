@@ -4,7 +4,7 @@ import { useLogin } from './useLogin.js';
 import type { KeyringPair } from '@polkadot/keyring/types';
 import type { AccountState } from '@slonigiraf/app-slonig-components';
 import Unlock from '@polkadot/app-signing/Unlock';
-import { InputAddress } from '@polkadot/react-components';
+import { InputAddress, Spinner, styled } from '@polkadot/react-components';
 
 // Define an interface for your context state.
 interface ILoginContext {
@@ -12,7 +12,7 @@ interface ILoginContext {
   accountState: AccountState | null;
   isLoginRequired: boolean;
   _onChangeAccount: (accountId: string | null) => void;
-  }
+}
 
 // Initialize the context with a default value.
 const LoginContext = createContext<ILoginContext | null>(null);
@@ -24,6 +24,7 @@ interface LoginProviderProps {
 
 export const LoginProvider: React.FC<LoginProviderProps> = ({ children }) => {
   const {
+    isReady,
     currentPair,
     accountState,
     isLoginRequired,
@@ -42,14 +43,22 @@ export const LoginProvider: React.FC<LoginProviderProps> = ({ children }) => {
           onChange={_onChangeAccount}
         />
       </div>
-      {isLoginRequired && (
+
+      {!isReady &&
+        <StyledDiv>
+          <div className='connecting'>
+            <Spinner label={'Loading account'} />
+          </div>
+        </StyledDiv>
+      }
+      {isReady && isLoginRequired && (
         <Unlock
-          onClose={() => {}}
+          onClose={() => { }}
           onUnlock={_onUnlock}
           pair={currentPair}
         />
       )}
-      {children}
+      {isReady && !isLoginRequired && children}
     </LoginContext.Provider>
   );
 };
@@ -61,3 +70,10 @@ export function useLoginContext() {
   }
   return context;
 }
+
+const StyledDiv = styled.div`
+  width: 100%;
+  .connecting {
+    padding: 3.5rem 0;
+  }
+`;

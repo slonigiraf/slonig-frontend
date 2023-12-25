@@ -55,7 +55,7 @@ async function handleTransaction(
             }
         });
     } catch (error) {
-        _onFailed(t('Error signing and sending transaction'), t, showInfo);
+        _onFailed(t(error.toString()), t, showInfo);
     }
 }
 
