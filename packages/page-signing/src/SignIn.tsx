@@ -16,9 +16,10 @@ interface Props {
   onClose: () => void;
   onUnlock: () => void;
   pair: KeyringPair | null;
+  toggle: () => void;
 }
 
-function SignIn({ onClose, onUnlock, pair }: Props): React.ReactElement<Props> | null {
+function SignIn({ onClose, onUnlock, pair, toggle }: Props): React.ReactElement<Props> | null {
   const { t } = useTranslation();
   const [isBusy, setIsBusy] = useState(false);
   const [address, setAddress] = useState('');
@@ -90,11 +91,16 @@ function SignIn({ onClose, onUnlock, pair }: Props): React.ReactElement<Props> |
       </Modal.Content>
       <Modal.Actions>
         <Button
+          label={t(`Don't have an account? Register`)}
+          onClick={toggle}
+        />
+        <Button
           icon='right-to-bracket'
           isBusy={isBusy}
           label={t('Log in')}
           onClick={_onUnlock}
         />
+
       </Modal.Actions>
     </Modal>
   );

@@ -6,6 +6,8 @@ import type { AccountState } from '@slonigiraf/app-slonig-components';
 import SignIn from '@polkadot/app-signing/SignIn';
 import { InputAddress, Spinner, styled } from '@polkadot/react-components';
 import { useTranslation } from './translate.js';
+import { useToggle } from '@polkadot/react-hooks';
+import CreateModal from '@polkadot/app-accounts/modals/Create';
 
 // Define an interface for your context state.
 interface ILoginContext {
@@ -26,6 +28,7 @@ interface LoginProviderProps {
 
 export const LoginProvider: React.FC<LoginProviderProps> = ({ children }) => {
   const { t } = useTranslation();
+  const [isSignIn, toggleSignIn] = useToggle();
   const {
     isReady,
     currentPair,
@@ -55,11 +58,21 @@ export const LoginProvider: React.FC<LoginProviderProps> = ({ children }) => {
         </StyledDiv>
       }
       {isReady && isLoginRequired && (
-        <SignIn
-          onClose={() => { }}
-          onUnlock={_onUnlock}
-          pair={currentPair}
-        />
+        <>
+          {isSignIn ?
+            <SignIn
+              onClose={() => { }}
+              onUnlock={_onUnlock}
+              pair={currentPair}
+              toggle={toggleSignIn}
+            />
+            :
+            <CreateModal
+              onClose={() => {/* handle modal close */ }}
+              onStatusChange={() => {/* handle status change */ }}
+              toggle={toggleSignIn}
+            />
+          }</>
       )}
       {isReady && !isLoginRequired && children}
     </LoginContext.Provider>

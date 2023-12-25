@@ -11,6 +11,10 @@ export function useLogin() {
   const [isLoginRequired, setLoginIsRequired] = useState<boolean>(true);
   const [isReady, setIsReady] = useState<boolean>(false);
 
+  console.log("useLogin, currentPair", currentPair?.address)
+  console.log("useLogin, isLoginRequired", isLoginRequired)
+  console.log("useLogin, isReady", isReady)
+
   const attemptUnlock = async (pair: KeyringPair) => {
     const encryptedPasswordB64 = await getSetting('password');
     const ivB64 = await getSetting('iv');
@@ -35,6 +39,7 @@ export function useLogin() {
 
   const _onChangeAccount = useCallback(
     async (accountId: string | null) => {
+      console.log('_onChangeAccount')
       if (accountId && accountId !== currentPair?.address) {
         const accountInDB = await getSetting('account');
         try {

@@ -15,7 +15,6 @@ import { findMissingApis } from '../endpoint.js';
 import { useTranslation } from '../translate.js';
 import NotFound from './NotFound.js';
 import Status from './Status.js';
-import CreateModal from '@polkadot/app-accounts/modals/Create';
 import { useAccounts } from '@polkadot/react-hooks';
 
 interface Props {
@@ -99,12 +98,6 @@ function Content({ className }: Props): React.ReactElement<Props> {
                           location={location}
                           onStatusChange={queueAction}
                         />
-                        {!hasAccounts && isInitialized && (
-                          <CreateModal
-                            onClose={() => {/* handle modal close */ }}
-                            onStatusChange={() => {/* handle status change */ }}
-                          />
-                        )}
                       </>
                     )
                   }

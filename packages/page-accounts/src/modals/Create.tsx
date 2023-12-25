@@ -147,7 +147,7 @@ function createAccount(seed: string, derivePath: string, pairType: PairType, { g
   return tryCreateAccount(commitAccount, success);
 }
 
-function Create({ className = '', onClose, onStatusChange, seed: propsSeed, type: propsType }: CreateProps): React.ReactElement<CreateProps> {
+function Create({ className = '', onClose, onStatusChange, seed: propsSeed, type: propsType, toggle }: CreateProps): React.ReactElement<CreateProps> {
   const { t } = useTranslation();
   const { api, isDevelopment, isEthereum } = useApi();
   const [{ address, derivePath, deriveValidation, isSeedValid, pairType, seed, seedType }, setAddress] = useState<AddressState>(() => generateSeed(
@@ -163,8 +163,6 @@ function Create({ className = '', onClose, onStatusChange, seed: propsSeed, type
   const isFirstStepValid = !!address && isMnemonicSaved && !deriveValidation?.error && isSeedValid;
   const isSecondStepValid = isNameValid && isPasswordValid;
   const isValid = isFirstStepValid && isSecondStepValid;
-
-
 
   const _onCommit = useCallback(
     async () => {
@@ -207,6 +205,10 @@ function Create({ className = '', onClose, onStatusChange, seed: propsSeed, type
         />
       </Modal.Content>
       <Modal.Actions>
+        <Button
+          label={t(`Already have an account? Sign in`)}
+          onClick={toggle}
+        />
         <Button
           activeOnEnter
           icon='fa-user-plus'
