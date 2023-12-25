@@ -45,7 +45,7 @@ export const LoginProvider: React.FC<LoginProviderProps> = ({ children }) => {
       </div>
       {isUnlockOpen && (
         <Unlock
-          onClose={setUnlockOpen(false)}
+          onClose={() => {}}
           onUnlock={_onUnlock}
           pair={currentPair}
         />
