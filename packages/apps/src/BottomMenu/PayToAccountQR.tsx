@@ -1,7 +1,4 @@
-import type { KeyringPair } from '@polkadot/keyring/types';
-import { keyring } from '@polkadot/ui-keyring';
-import React, { useState, useCallback } from 'react';
-import { InputAddress } from '@polkadot/react-components';
+import React from 'react';
 import { useTranslation } from '../translate.js';
 import { u8aToHex } from '@polkadot/util';
 import { QRWithShareAndCopy, getBaseUrl, nameFromKeyringPair, QRAction, useLoginContext } from '@slonigiraf/app-slonig-components';

@@ -1,5 +1,5 @@
 // IpfsContext.tsx
-import React, { useContext, createContext, ReactNode, useState, useEffect } from 'react';
+import React, { useContext, createContext, ReactNode } from 'react';
 import { useLogin } from './useLogin.js';
 import type { KeyringPair } from '@polkadot/keyring/types';
 import type { AccountState } from '@slonigiraf/app-slonig-components';

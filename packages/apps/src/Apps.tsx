@@ -15,7 +15,7 @@ import Menu from './Menu/index.js';
 import ConnectingOverlay from './overlays/Connecting.js';
 import DotAppsOverlay from './overlays/DotApps.js';
 import WarmUp from './WarmUp.js';
-import BottomMenu from './BottomMenu/index';
+import BottomMenu from './BottomMenu/index.js';
 import { IpfsProvider } from '@slonigiraf/app-slonig-components';
 import { InfoProvider } from '@slonigiraf/app-slonig-components';
 import { LoginProvider } from '@slonigiraf/app-slonig-components';
@@ -41,6 +41,7 @@ function Apps({ className = '' }: Props): React.ReactElement<Props> {
             <Signer>
               <LoginProvider>
                 <Content />
+                <BottomMenu />
               </LoginProvider>
             </Signer>
             <ConnectingOverlay />
@@ -49,7 +50,6 @@ function Apps({ className = '' }: Props): React.ReactElement<Props> {
           </AccountSidebar>
         </StyledDiv>
         <WarmUp />
-        <BottomMenu />
       </IpfsProvider>
     </InfoProvider>
   );
