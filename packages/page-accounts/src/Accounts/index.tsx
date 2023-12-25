@@ -26,9 +26,7 @@ import { SORT_CATEGORY, sortAccounts } from '../util.js';
 import Account from './Account.js';
 import BannerClaims from './BannerClaims.js';
 import Summary from './Summary.js';
-import { getSetting, storeSetting } from '@slonigiraf/app-recommendations';
-import Unlock from '@polkadot/app-signing/Unlock';
-import type { AccountState } from '@slonigiraf/app-slonig-components';
+import { useLoginContext } from '@slonigiraf/app-slonig-components';
 
 interface Balances {
   accounts: Record<string, AccountBalance>;
@@ -90,13 +88,10 @@ function groupAccounts(accounts: SortedAccount[]): Record<GroupName, string[]> {
 
 function Overview({ className = '', onStatusChange }: Props): React.ReactElement<Props> {
   const { t } = useTranslation();
-  const [currentPair, setCurrentPair] = useState<KeyringPair | null>(null);
-  const [accountState, setAccountState] = useState<AccountState | null>();
+  const { _onChangeAccount } = useLoginContext();
   const { api, isElectron } = useApi();
   const { allAccounts, hasAccounts } = useAccounts();
-  const { isIpfs } = useIpfs();
   const { isLedgerEnabled } = useLedger();
-  const [isUnlockOpen, toggleUnlock] = useToggle();
   const [isCreateOpen, toggleCreate] = useToggle();
   const [isImportOpen, toggleImport] = useToggle();
   const [isLedgerOpen, toggleLedger] = useToggle();
@@ -112,24 +107,6 @@ function Overview({ className = '', onStatusChange }: Props): React.ReactElement
   const proxies = useProxies();
   const isNextTick = useNextTick();
   const [inputKey, setInputKey] = useState(0);
-
-
-  const _onChangeAccount = useCallback(
-    async (accountId: string | null) => {
-      if(accountId){
-        const accountInDB = await getSetting('account');
-        const newPair = keyring.getPair(accountId);
-        if(accountId !== accountInDB){
-          newPair.lock();
-          storeSetting('account', newPair.address);
-          storeSetting('password', '');
-        }
-        setCurrentPair(newPair);
-        setAccountState(null);
-      }
-    },
-    []
-  );
 
   const onSortChange = useCallback(
     (sortBy: SortCategory) => setSortBy(({ sortFromMax }) => ({ sortBy, sortFromMax })),
@@ -290,45 +267,6 @@ function Overview({ className = '', onStatusChange }: Props): React.ReactElement
       sortAccounts(sortedAccounts, accountsMap, balances.accounts, sortBy, sortFromMax));
   }, [accountsMap, balances, sortBy, sortFromMax]);
 
-  const _onUnlock = useCallback(
-    (): void => {
-      toggleUnlock();
-    },
-    [toggleUnlock]
-  );
-
-  useEffect((): void => {
-    if (currentPair && currentPair.meta) {
-      const meta = (currentPair && currentPair.meta) || {};
-      const isExternal = (meta.isExternal as boolean) || false;
-      const isHardware = (meta.isHardware as boolean) || false;
-      const isInjected = (meta.isInjected as boolean) || false;
-      setAccountState({ isExternal, isHardware, isInjected });
-    }
-  }, [currentPair]);
-
-  useEffect(() => {
-    const login = async () => {
-      // Check if currentPair exists and is locked
-      if (currentPair && currentPair.isLocked && accountState) {
-        if (!accountState.isInjected) {
-          const account: string | undefined = await getSetting('account');
-          if (currentPair.address === account) {
-            const password: string | undefined = await getSetting('password');
-            try {
-              currentPair.decodePkcs8(password);
-            } catch {
-              toggleUnlock();
-            }
-          } else {
-            toggleUnlock();
-          }
-        }
-      }
-    };
-    login();
-  }, [currentPair, accountState]);
-
   const callOnStatusChange = useCallback((status: ActionStatus) => {
     if (onStatusChange) {
       onStatusChange(status);
@@ -348,13 +286,6 @@ function Overview({ className = '', onStatusChange }: Props): React.ReactElement
           type='account'
         />
       </div>
-      {isUnlockOpen && (
-        <Unlock
-          onClose={toggleUnlock}
-          onUnlock={_onUnlock}
-          pair={currentPair}
-        />
-      )}
       {isCreateOpen && (
         <CreateModal
           onClose={toggleCreate}
