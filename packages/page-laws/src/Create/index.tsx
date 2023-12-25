@@ -25,12 +25,7 @@ function Create({ className = '' }: Props): React.ReactElement<Props> {
   const { showInfo } = useInfo();
   const [isProcessing, toggleProcessing] = useToggle(false);
   const [text, setText] = useState<string>("");
-  const {
-    currentPair,
-    isLoginRequired
-  } = useLoginContext();
-  console.log("Create, currentPair", currentPair?.address)
-  console.log("Create, currentPair.isLocked", currentPair?.isLocked)
+  const { currentPair, isLoginRequired } = useLoginContext();
 
   const [amount, setAmount] = useState<BN>(BN_ZERO);
   const [idHex, setIdHex] = useState<string>("");

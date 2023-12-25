@@ -32,13 +32,7 @@ function Edit({ className = '' }: Props): React.ReactElement<Props> {
   type JsonType = { [key: string]: any } | null;
   const [list, setList] = useState<JsonType>(null);
   const [item, setItem] = useState<JsonType>(null);
-
   const { currentPair } = useLoginContext();
-
-  console.log("Edit, currentPair", currentPair?.address)
-  console.log("Edit, currentPair.isLocked", currentPair?.isLocked)
-
-  const [{ isUsable, signer }, setSigner] = useState<SignerState>({ isUsable: true, signer: null });
   const [cidString, setCidString] = useState<string>("");
   const [lawHexData, setLawHexData] = useState('');
   const [amountList, setAmountList] = useState<BN>(BN_ZERO);
@@ -138,7 +132,7 @@ function Edit({ className = '' }: Props): React.ReactElement<Props> {
       const itemDigest = await digestFromCIDv1(itemCIDString);
       setItemDigestHex(u8aToHex(itemDigest));
     },
-    [currentPair, isUsable, signer, ipfs, list, item]
+    [currentPair, ipfs, list, item]
   );
 
 
