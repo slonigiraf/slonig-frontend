@@ -18,7 +18,7 @@ import BN from 'bn.js';
 import { BN_ONE } from '@polkadot/util';
 import { useApi } from '@polkadot/react-hooks';
 import { useBlockTime } from '@polkadot/react-hooks';
-import Unlock from '@polkadot/app-signing/Unlock';
+import Unlock from '@polkadot/app-signing/SignIn';
 import type { AccountState, SignerState } from '@slonigiraf/app-slonig-components';
 
 interface Props {

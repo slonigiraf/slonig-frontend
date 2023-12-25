@@ -3,7 +3,6 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { useLocation } from 'react-router-dom';
 import BN from 'bn.js';
-import Unlock from '@polkadot/app-signing/Unlock';
 import { statics } from '@polkadot/react-api/statics';
 import { styled, Toggle, Button, Input, InputAddress, InputBalance, Output, Modal, Icon, Card } from '@polkadot/react-components';
 import { web3FromSource } from '@polkadot/extension-dapp';
@@ -12,7 +11,7 @@ import { useApi, useBlockTime, useToggle } from '@polkadot/react-hooks';
 import { isFunction, u8aToHex, hexToU8a, u8aWrapBytes, BN_ONE } from '@polkadot/util';
 import { keyring } from '@polkadot/ui-keyring';
 import type { Skill } from '@slonigiraf/app-slonig-components';
-import { QRWithShareAndCopy, getBaseUrl, getIPFSDataFromContentID, parseJson, useIpfsContext, nameFromKeyringPair, QRAction } from '@slonigiraf/app-slonig-components';
+import { QRWithShareAndCopy, getBaseUrl, getIPFSDataFromContentID, parseJson, useIpfsContext, nameFromKeyringPair, QRAction, useLoginContext } from '@slonigiraf/app-slonig-components';
 import { Letter } from '@slonigiraf/app-recommendations';
 import { getPublicDataToSignByReferee, getPrivateDataToSignByReferee } from '@slonigiraf/helpers';
 import { getLastUnusedLetterNumber, setLastUsedLetterNumber, storeLetter, storePseudonym } from '../utils.js';
@@ -65,12 +64,7 @@ function Tutor({ className = '' }: Props): React.ReactElement<Props> {
   const [skill, setSkill] = useState<Skill | null>(null);
 
   // Initialize account
-  const [currentPair, setCurrentPair] = useState<KeyringPair | null>(() => keyring.getPairs()[0] || null);
-  const [{ isInjected }, setAccountState] = useState<AccountState>({ isExternal: false, isHardware: false, isInjected: false });
-  const [isLocked, setIsLocked] = useState(false);
-  const [{ isUsable, signer }, setSigner] = useState<SignerState>({ isUsable: true, signer: null });
-  const [signature, setSignature] = useState('');
-  const [isUnlockVisible, toggleUnlock] = useToggle();
+  const { currentPair } = useLoginContext();
 
   // Store progress state
   const [canIssueDiploma, setCanIssueDiploma] = useState(false);
@@ -166,35 +160,6 @@ function Tutor({ className = '' }: Props): React.ReactElement<Props> {
     fetchBlockNumber();
   }, [api, isApiReady]);
 
-  // Initialize account state
-  useEffect((): void => {
-    const meta = (currentPair && currentPair.meta) || {};
-    const isExternal = (meta.isExternal as boolean) || false;
-    const isHardware = (meta.isHardware as boolean) || false;
-    const isInjected = (meta.isInjected as boolean) || false;
-    const isUsable = !(isExternal || isHardware || isInjected);
-
-    setAccountState({ isExternal, isHardware, isInjected });
-    setIsLocked(
-      isInjected
-        ? false
-        : (currentPair && currentPair.isLocked) || false
-    );
-    setSignature('');
-    setSigner({ isUsable, signer: null });
-
-    // for injected, retrieve the signer
-    if (meta.source && isInjected) {
-      web3FromSource(meta.source as string)
-        .catch((): null => null)
-        .then((injected) => setSigner({
-          isUsable: isFunction(injected?.signer?.signRaw),
-          signer: injected?.signer || null
-        }))
-        .catch(console.error);
-    }
-  }, [currentPair]);
-
   const createDiplomaQR = useCallback((letter: Letter) => {
     const letterArray = letterAsArray(letter);
     const qrData = {
@@ -206,11 +171,6 @@ function Tutor({ className = '' }: Props): React.ReactElement<Props> {
     setDiplomaText(qrCodeText);
     setDiplomaAddUrl(url);
   }, [setDiplomaText, setDiplomaAddUrl]);
-
-  const _onChangeAccount = useCallback(
-    (accountId: string | null) => accountId && setCurrentPair(keyring.getPair(accountId)),
-    []
-  );
 
   const _onChangeDaysValid = useCallback(
     (value: string) => {
@@ -232,7 +192,7 @@ function Tutor({ className = '' }: Props): React.ReactElement<Props> {
   // Sign diploma
   const _onSign = useCallback(
     async () => {
-      if (isLocked || !isUsable || !currentPair) {
+      if (!currentPair) {
         return;
       }
       // generate a data to sign
@@ -244,29 +204,9 @@ function Tutor({ className = '' }: Props): React.ReactElement<Props> {
       const workerPublicKeyU8 = hexToU8a(student);
       const privateData = getPrivateDataToSignByReferee(skillCID, genesisU8, letterId, diplomaBlockNumber, refereeU8, workerPublicKeyU8, amount);
       const receipt = getPublicDataToSignByReferee(genesisU8, letterId, diplomaBlockNumber, refereeU8, workerPublicKeyU8, amount);
+      const refereeSignOverPrivateData = u8aToHex(currentPair.sign(u8aWrapBytes(privateData)));
+      const refereeSignOverReceipt = u8aToHex(currentPair.sign(u8aWrapBytes(receipt)));
 
-      let refereeSignOverPrivateData = '';
-      let refereeSignOverReceipt = '';
-
-      // sign
-      if (signer && isFunction(signer.signRaw)) {// Use browser extenstion 
-        const u8RefereeSignOverPrivateData = await signer.signRaw({
-          address: currentPair.address,
-          data: u8aToHex(privateData),
-          type: 'bytes'
-        });
-        refereeSignOverPrivateData = u8RefereeSignOverPrivateData.signature;
-        //
-        const u8RefereeSignOverReceipt = await signer.signRaw({
-          address: currentPair.address,
-          data: u8aToHex(receipt),
-          type: 'bytes'
-        });
-        refereeSignOverReceipt = u8RefereeSignOverReceipt.signature;
-      } else {// Use locally stored account to sign
-        refereeSignOverPrivateData = u8aToHex(currentPair.sign(u8aWrapBytes(privateData)));
-        refereeSignOverReceipt = u8aToHex(currentPair.sign(u8aWrapBytes(receipt)));
-      }
 
       const letter = {
         created: new Date(),
@@ -286,16 +226,7 @@ function Tutor({ className = '' }: Props): React.ReactElement<Props> {
       createDiplomaQR(letter);
       setDiploma(letter);
     },
-    [currentPair, isLocked, isUsable, signer, ipfs, skill, student, diplomaBlockNumber, amount]
-  );
-
-  // If account is unlocked by password
-  const _onUnlock = useCallback(
-    (): void => {
-      setIsLocked(false);
-      toggleUnlock();
-    },
-    [toggleUnlock]
+    [currentPair, ipfs, skill, student, diplomaBlockNumber, amount]
   );
 
   const updateReexamined = (): void => {
@@ -338,46 +269,6 @@ function Tutor({ className = '' }: Props): React.ReactElement<Props> {
   };
 
   const isDedicatedTutor = (tutor === publicKeyHex) || !tutor;
-
-  const unlock = <>
-    <div
-      className='unlock-overlay'
-      hidden={!isUsable || !isLocked || isInjected}
-    >
-      {isLocked && (
-        <div className='unlock-overlay-warning'>
-          <div className='unlock-overlay-content'>
-            <div>
-              <Button
-                icon='unlock'
-                label={t('Unlock your account before tutoring')}
-                onClick={toggleUnlock}
-              />
-            </div>
-          </div>
-        </div>
-      )}
-    </div>
-    <div
-      className='unlock-overlay'
-      hidden={isUsable}
-    >
-      <div className='unlock-overlay-warning'>
-        <div className='unlock-overlay-content'>
-          {isInjected
-            ? t('This injected account cannot be used to sign data since the extension does not support raw signing.')
-            : t('This external account cannot be used to sign data. Only Limited support is currently available for signing from any non-internal accounts.')}
-        </div>
-      </div>
-    </div>
-    {isUnlockVisible && (
-      <Unlock
-        onClose={toggleUnlock}
-        onUnlock={_onUnlock}
-        pair={currentPair}
-      />
-    )}
-  </>;
 
   const diplomaSlon = new BN(amount).div(new BN("1000000000000"));
 
@@ -472,28 +363,13 @@ function Tutor({ className = '' }: Props): React.ReactElement<Props> {
             />
           </div>
         </Card>
-
-        <div className='toolbox--Tutor-input'>
-          <div className='ui--row'>
-            <Output
-              className='full'
-              help={t('create a diploma help text')}
-              isHidden={signature.length === 0}
-              isMonospace
-              label={t('create a diploma')}
-              value={signature}
-              withCopy
-            />
-          </div>
-        </div>
         <div>
-          {unlock}
-          {!isLocked && (<Button
+          <Button
             icon='dollar'
-            isDisabled={!(isUsable && !isLocked && isIpfsReady)}
+            isDisabled={!isIpfsReady}
             label={t('Sell the diploma')}
             onClick={_onSign}
-          />)}
+          />
           {!isIpfsReady ? <div>{t('Connecting to IPFS...')}</div> : ""}
         </div>
       </StyledDiv>
@@ -502,18 +378,6 @@ function Tutor({ className = '' }: Props): React.ReactElement<Props> {
 
   return (
     <div className={`toolbox--Tutor ${className}`}>
-      {/* The div below helps initialize account */}
-      <div className='ui--row' style={{ display: 'none' }}>
-        <InputAddress
-          className='full'
-          help={t('select the account you wish to sign data with')}
-          isInput={false}
-          label={t('account')}
-          onChange={_onChangeAccount}
-          type='account'
-        />
-      </div>
-
       {
         (student === undefined || !isDedicatedTutor) ? <>
           {
@@ -530,10 +394,7 @@ function Tutor({ className = '' }: Props): React.ReactElement<Props> {
             dataCopy={url} />
         </>
           :
-          <> {isLocked ?
-            unlock :
-            <> {diploma ? diplomaView : reexamAndDiplomaIssuing}</>
-          }</>
+          <> {diploma ? diplomaView : reexamAndDiplomaIssuing}</>
       }
     </div>
   );

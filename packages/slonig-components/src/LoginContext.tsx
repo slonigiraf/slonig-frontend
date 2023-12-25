@@ -3,7 +3,7 @@ import React, { useContext, createContext, ReactNode } from 'react';
 import { useLogin } from './useLogin.js';
 import type { KeyringPair } from '@polkadot/keyring/types';
 import type { AccountState } from '@slonigiraf/app-slonig-components';
-import Unlock from '@polkadot/app-signing/Unlock';
+import SignIn from '@polkadot/app-signing/SignIn';
 import { InputAddress, Spinner, styled } from '@polkadot/react-components';
 import { useTranslation } from './translate.js';
 
@@ -53,7 +53,7 @@ export const LoginProvider: React.FC<LoginProviderProps> = ({ children }) => {
         </StyledDiv>
       }
       {isReady && isLoginRequired && (
-        <Unlock
+        <SignIn
           onClose={() => { }}
           onUnlock={_onUnlock}
           pair={currentPair}
