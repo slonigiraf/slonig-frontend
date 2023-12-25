@@ -3,6 +3,7 @@ import crypto from 'crypto';
 import { getAddressName } from '@polkadot/react-components';
 import type { KeyringPair } from '@polkadot/keyring/types';
 import { keyExtractPath } from '@polkadot/util-crypto';
+import { getSetting, storeSetting } from '@slonigiraf/app-recommendations';
 
 export const getBaseUrl = () => {
   const { protocol, hostname, port } = window.location;
@@ -100,4 +101,69 @@ export function nameFromKeyringPair(keyringPair: KeyringPair | null): string {
 export function keyForCid(keyPair: KeyringPair, cid: string): KeyringPair {
   const derivedPair = keyPair.derive('//'+cid);
   return derivedPair;
+}
+
+// Utility functions for converting between Base64 and ArrayBuffer
+export function base64ToArrayBuffer(base64: string): ArrayBuffer {
+  const binary_string = window.atob(base64);
+  const len = binary_string.length;
+  const bytes = new Uint8Array(len);
+  for (let i = 0; i < len; i++) {
+      bytes[i] = binary_string.charCodeAt(i);
+  }
+  return bytes.buffer;
+}
+
+export function arrayBufferToBase64(buffer: ArrayBuffer): string {
+  let binary = '';
+  const bytes = new Uint8Array(buffer);
+  const len = bytes.byteLength;
+  for (let i = 0; i < len; i++) {
+      binary += String.fromCharCode(bytes[i]);
+  }
+  return window.btoa(binary);
+}
+
+export async function encryptData(key: CryptoKey, data: string) {
+  const encoded = new TextEncoder().encode(data);
+  const iv = window.crypto.getRandomValues(new Uint8Array(12));
+  const encrypted = await window.crypto.subtle.encrypt(
+    { name: "AES-GCM", iv },
+    key,
+    encoded
+  );
+  return { encrypted: arrayBufferToBase64(encrypted), iv: arrayBufferToBase64(iv.buffer) };
+}
+
+export async function decryptData(key: CryptoKey, encrypted: string, iv: string) {
+  const decrypted = await window.crypto.subtle.decrypt(
+    { name: "AES-GCM", iv: new Uint8Array(base64ToArrayBuffer(iv)) },
+    key,
+    base64ToArrayBuffer(encrypted)
+  );
+  return new TextDecoder().decode(decrypted);
+}
+
+export async function getKey() {
+  let keyB64 = await getSetting('encryptionKey');
+  if (!keyB64) {
+    const cryptoKey = await window.crypto.subtle.generateKey(
+      { name: "AES-GCM", length: 256 },
+      true,
+      ["encrypt", "decrypt"]
+    );
+    const exportedKey = await window.crypto.subtle.exportKey("raw", cryptoKey);
+    keyB64 = arrayBufferToBase64(exportedKey);
+    await storeSetting('encryptionKey', keyB64);
+    return cryptoKey;
+  } else {
+    const keyBytes = base64ToArrayBuffer(keyB64);
+    return window.crypto.subtle.importKey(
+      "raw",
+      keyBytes,
+      "AES-GCM",
+      true,
+      ["encrypt", "decrypt"]
+    );
+  }
 }

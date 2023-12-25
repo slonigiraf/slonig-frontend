@@ -10,6 +10,7 @@ import { nextTick } from '@polkadot/util';
 
 import { useTranslation } from './translate.js';
 import { storeSetting } from '@slonigiraf/app-recommendations';
+import { encryptData, getKey } from '@slonigiraf/app-slonig-components';
 
 interface Props {
   onClose: () => void;
@@ -17,7 +18,7 @@ interface Props {
   pair: KeyringPair | null;
 }
 
-function Unlock ({ onClose, onUnlock, pair }: Props): React.ReactElement<Props> | null {
+function Unlock({ onClose, onUnlock, pair }: Props): React.ReactElement<Props> | null {
   const { t } = useTranslation();
   const [isBusy, setIsBusy] = useState(false);
   const [address, setAddress] = useState('');
@@ -33,24 +34,27 @@ function Unlock ({ onClose, onUnlock, pair }: Props): React.ReactElement<Props> 
   }, [password]);
 
   const _onUnlock = useCallback(async () => {
-      if (!pair || !pair.isLocked) {
-        return;
-      }
-      setIsBusy(true);
-      nextTick(async () => {
-        try {
-          // We store password intentionally. Using web accounts is not safe thus this doesn't add much risk.
-          await storeSetting('password', password);
-          await storeSetting('account', pair.address);
-          pair.decodePkcs8(password);
-        } catch (error) {
-          setIsBusy(false);
-          return setUnlockError((error as Error).message);
-        }
+    if (!pair || !pair.isLocked) {
+      return;
+    }
+    setIsBusy(true);
+    nextTick(async () => {
+      try {
+        // We store password intentionally. Using web accounts is not safe thus this doesn't add much risk.
+        const key = await getKey();
+        const { encrypted, iv } = await encryptData(key, password);
+        await storeSetting('account', pair.address);
+        await storeSetting('password', encrypted);
+        await storeSetting('iv', iv);
+        pair.decodePkcs8(password);
+      } catch (error) {
         setIsBusy(false);
-        onUnlock();
-      });
-    },
+        return setUnlockError((error as Error).message);
+      }
+      setIsBusy(false);
+      onUnlock();
+    });
+  },
     [onUnlock, pair, password]
   );
 

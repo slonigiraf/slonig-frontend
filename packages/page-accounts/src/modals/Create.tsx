@@ -18,6 +18,7 @@ import { tryCreateAccount } from '../util.js';
 import CreateAccountInputs from './CreateAccountInputs.js';
 import { ETH_DEFAULT_PATH } from './CreateEthDerivationPath.js';
 import { storeSetting } from '@slonigiraf/app-recommendations';
+import { encryptData, getKey } from '@slonigiraf/app-slonig-components';
 
 const DEFAULT_PAIR_TYPE = 'sr25519';
 
@@ -163,7 +164,7 @@ function Create({ className = '', onClose, onStatusChange, seed: propsSeed, type
   const isSecondStepValid = isNameValid && isPasswordValid;
   const isValid = isFirstStepValid && isSecondStepValid;
 
-  
+
 
   const _onCommit = useCallback(
     async () => {
@@ -174,9 +175,12 @@ function Create({ className = '', onClose, onStatusChange, seed: propsSeed, type
       nextTick(async () => {
         const options = { genesisHash: isDevelopment ? undefined : api.genesisHash.toHex(), isHardware: false, name: name.trim() };
         const status = createAccount(seed, derivePath, pairType, options, password, t('created account'));
-        if(status.status === 'success' && status.account){
+        if (status.status === 'success' && status.account) {
           // We store password intentionally. Using web accounts is not safe thus this doesn't add much risk.
-          await storeSetting('password', password);
+          const key = await getKey();
+          const { encrypted, iv } = await encryptData(key, password);
+          await storeSetting('password', encrypted);
+          await storeSetting('iv', iv);
           await storeSetting('account', status.account?.toString());
         }
         onStatusChange(status);
