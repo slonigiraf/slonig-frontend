@@ -16,6 +16,8 @@ import { assert, nextTick, u8aToString } from '@polkadot/util';
 
 import { useTranslation } from '../translate.js';
 import ExternalWarning from './ExternalWarning.js';
+import { storeSetting } from '@slonigiraf/app-recommendations';
+import { encryptData, getKey } from '@slonigiraf/app-slonig-components';
 
 interface Props extends ModalProps {
   className?: string;
@@ -30,7 +32,7 @@ interface PassState {
 
 const acceptedFormats = ['application/json', 'text/plain'];
 
-function parseFile (file: Uint8Array, setError: Dispatch<SetStateAction<string | null>>, isEthereum: boolean, genesisHash?: HexString | null): KeyringPair | null {
+function parseFile(file: Uint8Array, setError: Dispatch<SetStateAction<string | null>>, isEthereum: boolean, genesisHash?: HexString | null): KeyringPair | null {
   try {
     const pair = keyring.createFromJson(JSON.parse(u8aToString(file)) as KeyringPair$Json, { genesisHash });
 
@@ -49,7 +51,7 @@ function parseFile (file: Uint8Array, setError: Dispatch<SetStateAction<string |
   return null;
 }
 
-function Import ({ className = '', onClose, onStatusChange }: Props): React.ReactElement<Props> {
+function Import({ className = '', onClose, onStatusChange }: Props): React.ReactElement<Props> {
   const { t } = useTranslation();
   const { api, isDevelopment, isEthereum } = useApi();
   const [isBusy, setIsBusy] = useState(false);
@@ -70,13 +72,13 @@ function Import ({ className = '', onClose, onStatusChange }: Props): React.Reac
   );
 
   const _onSave = useCallback(
-    (): void => {
+    async () => {
       if (!pair) {
         return;
       }
 
       setIsBusy(true);
-      nextTick((): void => {
+      nextTick(async () => {
         const status: Partial<ActionStatus> = { action: 'restore' };
 
         try {
@@ -86,6 +88,12 @@ function Import ({ className = '', onClose, onStatusChange }: Props): React.Reac
           status.account = pair.address;
           status.message = t('account restored');
 
+          const key = await getKey();
+          const { encrypted, iv } = await encryptData(key, password);
+          await storeSetting('account', pair.address);
+          await storeSetting('password', encrypted);
+          await storeSetting('iv', iv);
+          pair.decodePkcs8(password);
           InputAddress.setLastValue('account', pair.address);
         } catch (error) {
           setPass((state: PassState) => ({ ...state, isPassValid: false }));

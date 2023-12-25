@@ -31,7 +31,7 @@ interface LoginProviderProps {
 export const LoginProvider: React.FC<LoginProviderProps> = ({ children }) => {
   const { hasAccounts } = useAccounts();
   const { t } = useTranslation();
-  const [isSignIn, toggleSignIn] = useToggle(true);
+  const [isSignIn, toggleSignIn] = useToggle();
   const {
     isReady,
     currentPair,
