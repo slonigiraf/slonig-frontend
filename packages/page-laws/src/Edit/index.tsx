@@ -16,7 +16,7 @@ import Editor from './Editor';
 import ViewList from './ViewList';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { storeSetting, getSetting, storePseudonym } from '@slonigiraf/app-recommendations';
-import { useLoginContext, SignerState } from '@slonigiraf/app-slonig-components';
+import { useLoginContext } from '@slonigiraf/app-slonig-components';
 import { sendCreateAndEditTransaction, sendEditTransaction } from './sendTransaction.js';
 import { useInfo } from '@slonigiraf/app-slonig-components';
 

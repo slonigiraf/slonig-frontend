@@ -33,7 +33,7 @@ function Student({ className = '', ipfs }: Props): React.ReactElement<Props> {
     refereeSignOverPrivateData,
     refereeSignOverReceipt] = addDiplomaData.split(' ');
   // Account initialization
-  const { currentPair, isLoginRequired } = useLoginContext();
+  const { currentPair } = useLoginContext();
 
   // Save teacher pseudonym from url
   useEffect(() => {
@@ -72,16 +72,11 @@ function Student({ className = '', ipfs }: Props): React.ReactElement<Props> {
   }, [refereeSignOverPrivateData])
 
   return (
-    <>
-      {
-        isLoginRequired ? null :
-          <div className={`toolbox--Student ${className}`}>
-            <div className='ui--row'>
-              <LettersList ipfs={ipfs} worker={u8aToHex(currentPair?.publicKey)} currentPair={currentPair} />
-            </div>
-          </div>
-      }
-    </>
+    <div className={`toolbox--Student ${className}`}>
+      <div className='ui--row'>
+        <LettersList ipfs={ipfs} worker={u8aToHex(currentPair?.publicKey)} currentPair={currentPair} />
+      </div>
+    </div>
   )
 }
 

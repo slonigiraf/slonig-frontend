@@ -25,7 +25,7 @@ function Create({ className = '' }: Props): React.ReactElement<Props> {
   const { showInfo } = useInfo();
   const [isProcessing, toggleProcessing] = useToggle(false);
   const [text, setText] = useState<string>("");
-  const { currentPair, isLoginRequired } = useLoginContext();
+  const { currentPair } = useLoginContext();
 
   const [amount, setAmount] = useState<BN>(BN_ZERO);
   const [idHex, setIdHex] = useState<string>("");
@@ -52,7 +52,7 @@ function Create({ className = '' }: Props): React.ReactElement<Props> {
       setDigestHex(u8aToHex(digest));
       setIdHex(u8aToHex(randomAsU8a(32)));
     },
-    [currentPair, isLoginRequired, ipfs, text]
+    [currentPair, ipfs, text]
   );
 
   const _onResult = () => {
@@ -80,7 +80,7 @@ function Create({ className = '' }: Props): React.ReactElement<Props> {
     icon='save'
     label={t('Save')}
     onClick={_onSave}
-    isDisabled={isProcessing || !isIpfsReady || !currentPair || isLoginRequired}
+    isDisabled={isProcessing || !isIpfsReady }
   />;
 
   return (

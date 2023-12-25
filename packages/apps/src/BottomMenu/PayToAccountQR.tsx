@@ -5,9 +5,7 @@ import { QRWithShareAndCopy, getBaseUrl, nameFromKeyringPair, QRAction, useLogin
 
 function PayToAccountQR(): React.ReactElement {
   const { t } = useTranslation();
-  const {
-    currentPair,
-  } = useLoginContext();
+  const { currentPair } = useLoginContext();
 
   const publicKeyHex = currentPair ? u8aToHex(currentPair.publicKey) : "";
   const name = nameFromKeyringPair(currentPair);

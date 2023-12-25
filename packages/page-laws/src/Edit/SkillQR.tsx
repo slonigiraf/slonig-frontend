@@ -43,10 +43,7 @@ function SkillQR({ className = '', cid }: Props): React.ReactElement<Props> {
   const [blockAllowed, setBlockAllowed] = useState<BN>(new BN(1));
   // Key management
   const [diplomaPublicKeyHex, setDiplomaPublicKeyHex] = useState<>("");
-  const {
-    currentPair,
-    isLoginRequired
-  } = useLoginContext();
+  const { currentPair } = useLoginContext();
   // Rest params
   const { t } = useTranslation();
   const location = useLocation();
@@ -85,8 +82,8 @@ function SkillQR({ className = '', cid }: Props): React.ReactElement<Props> {
 
   // Initialize key
   useEffect((): void => {
-    if(currentPair){
-      const diplomaKey = (!isLoginRequired)? keyForCid(currentPair, cid) : null;
+    if (currentPair) {
+      const diplomaKey = keyForCid(currentPair, cid);
       const diplomaPublicKeyHex = u8aToHex(diplomaKey?.publicKey);
       setDiplomaPublicKeyHex(diplomaPublicKeyHex);
     }
@@ -154,7 +151,7 @@ function SkillQR({ className = '', cid }: Props): React.ReactElement<Props> {
 
   const _onSign = useCallback(
     async () => {
-      if (isLoginRequired || !currentPair || !diplomaToReexamine || !tutor) {
+      if (!currentPair || !diplomaToReexamine || !tutor) {
         return;
       }
       // generate a data to sign    
@@ -168,7 +165,7 @@ function SkillQR({ className = '', cid }: Props): React.ReactElement<Props> {
 
       setStudentSignatureOverDiplomaToReexamine(workerSignOverInsurance);
     },
-    [currentPair, isLoginRequired, tutor, diplomaToReexamine, blockAllowed]
+    [currentPair, tutor, diplomaToReexamine, blockAllowed]
   );
 
   const name = nameFromKeyringPair(currentPair);
@@ -186,7 +183,7 @@ function SkillQR({ className = '', cid }: Props): React.ReactElement<Props> {
   const qrCodeText = generateQRData();
   const url = `${getBaseUrl()}/#/${urlDetails}`;
 
-  const showToTutor = <>
+  return (<>
     {tutor ?
       <StyledDiv>
         <h3>{t('Show the QR to your tutor')}</h3>
@@ -210,15 +207,7 @@ function SkillQR({ className = '', cid }: Props): React.ReactElement<Props> {
       </StyledDiv>
       : <h3>{t('Scan your tutor\'s QR code for help and a diploma.')}</h3>
     }
-  </>;
-
-  const toLearn = <>{isLoginRequired ? null : showToTutor}</>;
-
-  return (
-    <>
-      {currentPair !== null && toLearn}
-    </>
-  );
+  </>);
 }
 
 const StyledDiv = styled.div`
