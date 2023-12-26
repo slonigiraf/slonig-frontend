@@ -27,7 +27,7 @@ export function useLogin() {
 
   useEffect(() => {
     if(isApiConnected){
-      setTimeout(testKeyringState, 100);
+      setTimeout(testKeyringState, 1000);
     }
   }, [isApiConnected]);
 
