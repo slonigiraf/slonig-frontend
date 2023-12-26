@@ -16,11 +16,11 @@ interface Props {
   onClose: () => void;
   onUnlock: () => void;
   pair: KeyringPair | null;
-  toggle: () => void;
+  toggleSignIn: () => void;
   toggleImport: () => void;
 }
 
-function SignIn({ onClose, onUnlock, pair, toggle, toggleImport }: Props): React.ReactElement<Props> | null {
+function SignIn({ onClose, onUnlock, pair, toggleSignIn, toggleImport }: Props): React.ReactElement<Props> | null {
   const { t } = useTranslation();
   const [isBusy, setIsBusy] = useState(false);
   const [address, setAddress] = useState('');
@@ -96,7 +96,7 @@ function SignIn({ onClose, onUnlock, pair, toggle, toggleImport }: Props): React
         
       <Button
             label={t(`Sign up`)}
-            onClick={toggle}
+            onClick={toggleSignIn}
           />
           <Button
             label={t(`Restore`)}

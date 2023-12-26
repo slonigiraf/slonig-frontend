@@ -53,7 +53,7 @@ export const LoginProvider: React.FC<LoginProviderProps> = ({ children }) => {
   }, [hasAccounts, isImport]);
 
 
-  const toggleSignInUp = useCallback((): void => {
+  const toggleSignIn = useCallback((): void => {
     setIsSignIn(!isSignIn);
   }, [isSignIn]);
 
@@ -64,7 +64,7 @@ export const LoginProvider: React.FC<LoginProviderProps> = ({ children }) => {
           onClose={() => { }}
           onUnlock={_onUnlock}
           pair={currentPair}
-          toggle={toggleSignInUp}
+          toggleSignIn={toggleSignIn}
           toggleImport={toggleImport}
         />}
       {(!hasAccounts || isImport) &&
@@ -108,7 +108,7 @@ export const LoginProvider: React.FC<LoginProviderProps> = ({ children }) => {
             <CreateModal
               onClose={() => {/* handle modal close */ }}
               onStatusChange={onCreateAccount}
-              toggle={toggleSignInUp}
+              toggle={toggleSignIn}
             />
           }</>
       )}
