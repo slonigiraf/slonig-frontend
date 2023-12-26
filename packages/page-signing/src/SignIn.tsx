@@ -5,7 +5,7 @@ import type { KeyringPair } from '@polkadot/keyring/types';
 
 import React, { useCallback, useEffect, useState } from 'react';
 
-import { Button, InputAddress, Modal, Password } from '@polkadot/react-components';
+import { Button, InputAddress, Modal, Password, styled } from '@polkadot/react-components';
 import { nextTick } from '@polkadot/util';
 
 import { useTranslation } from './translate.js';
@@ -67,7 +67,7 @@ function SignIn({ onClose, onUnlock, pair, toggle, toggleImport }: Props): React
   }
 
   return (
-    <Modal
+    <StyledModal
       className='toolbox--Unlock'
       header={t('Sign In')}
       onClose={onClose}
@@ -89,16 +89,20 @@ function SignIn({ onClose, onUnlock, pair, toggle, toggleImport }: Props): React
           onEnter={_onUnlock}
           value={password}
         />
+
+         
       </Modal.Content>
       <Modal.Actions>
-        <Button
-          label={t(`Don't have an account? Register`)}
-          onClick={toggle}
-        />
-        <Button
-          label={t(`Or import from file`)}
-          onClick={toggleImport}
-        />
+        
+      <Button
+            label={t(`Sign up`)}
+            onClick={toggle}
+          />
+          <Button
+            label={t(`Restore`)}
+            onClick={toggleImport}
+          />
+
         <Button
           icon='right-to-bracket'
           isBusy={isBusy}
@@ -107,8 +111,13 @@ function SignIn({ onClose, onUnlock, pair, toggle, toggleImport }: Props): React
         />
 
       </Modal.Actions>
-    </Modal>
+    </StyledModal>
   );
 }
+const StyledModal = styled(Modal)`
+  button[data-testid="close-modal"] {
+    display: none;
+  }
+`;
 
 export default React.memo(SignIn);

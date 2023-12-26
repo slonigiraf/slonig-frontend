@@ -9,13 +9,12 @@ import type { ModalProps } from '../types.js';
 
 import React, { useCallback, useMemo, useState } from 'react';
 
-import { AddressRow, Button, InputAddress, InputFile, MarkError, MarkWarning, Modal, Password } from '@polkadot/react-components';
+import { AddressRow, Button, InputAddress, InputFile, MarkError, MarkWarning, Modal, Password, styled } from '@polkadot/react-components';
 import { useApi } from '@polkadot/react-hooks';
 import { keyring } from '@polkadot/ui-keyring';
 import { assert, nextTick, u8aToString } from '@polkadot/util';
 
 import { useTranslation } from '../translate.js';
-import ExternalWarning from './ExternalWarning.js';
 import { storeSetting } from '@slonigiraf/app-recommendations';
 import { encryptData, getKey } from '@slonigiraf/app-slonig-components';
 
@@ -116,20 +115,13 @@ function Import({ className = '', onClose, onStatusChange, toggleImport }: Props
   );
 
   return (
-    <Modal
+    <StyledModal
       className={className}
-      header={t('Add via backup file')}
+      header={t('Restore from backup')}
       onClose={onClose}
       size='large'
     >
       <Modal.Content>
-        <Modal.Columns>
-          <AddressRow
-            defaultName={(pair?.meta.name as string) || null}
-            noDefaultNameOpacity
-            value={pair?.address || null}
-          />
-        </Modal.Columns>
         <Modal.Columns hint={t('Supply a backed-up JSON file, encrypted with your account-specific password.')}>
           <InputFile
             accept={acceptedFormats}
@@ -158,12 +150,11 @@ function Import({ className = '', onClose, onStatusChange, toggleImport }: Props
           {differentGenesis && (
             <MarkWarning content={t('The network from which this account was originally generated is different than the network you are currently connected to. Once imported ensure you toggle the "allow on any network" option for the account to keep it visible on the current network.')} />
           )}
-          <ExternalWarning />
         </Modal.Columns>
       </Modal.Content>
       <Modal.Actions>
       <Button
-          label={t(`Or select from list`)}
+          label={t(`Cancel`)}
           onClick={toggleImport}
         />
         <Button
@@ -174,8 +165,12 @@ function Import({ className = '', onClose, onStatusChange, toggleImport }: Props
           onClick={_onSave}
         />
       </Modal.Actions>
-    </Modal>
+    </StyledModal>
   );
 }
-
+const StyledModal = styled(Modal)`
+  button[data-testid="close-modal"] {
+    display: none;
+  }
+`;
 export default React.memo(Import);

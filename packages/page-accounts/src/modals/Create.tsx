@@ -223,6 +223,9 @@ function Create({ className = '', onClose, onStatusChange, seed: propsSeed, type
 }
 
 const StyledModal = styled(Modal)`
+  button[data-testid="close-modal"] {
+    display: none;
+  }
   .accounts--Creator-advanced {
     margin-top: 1rem;
     overflow: visible;
@@ -255,5 +258,4 @@ const StyledModal = styled(Modal)`
     }
   }
 `;
-
 export default React.memo(Create);
