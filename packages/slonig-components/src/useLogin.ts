@@ -18,6 +18,7 @@ export function useLogin() {
     try {
       await keyring.getPairs();
       setHasError(false);
+      setTimeout(() => setIsReady(true), 1000);// In case no local account exist
     } catch (error) {
       setHasError(true);
       setTimeout(testKeyringState, 100);
