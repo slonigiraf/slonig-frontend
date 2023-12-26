@@ -4,19 +4,32 @@ import { getSetting, storeSetting } from '@slonigiraf/app-recommendations';
 import type { KeyringPair } from '@polkadot/keyring/types';
 import type { AccountState } from '@slonigiraf/app-slonig-components';
 import { decryptData, getKey } from '@slonigiraf/app-slonig-components';
+import { useApi } from '@polkadot/react-hooks';
 
 export function useLogin() {
   const [currentPair, setCurrentPair] = useState<KeyringPair | null>(null);
   const [accountState, setAccountState] = useState<AccountState | null>(null);
   const [isLoginRequired, setLoginIsRequired] = useState<boolean>(true);
   const [isReady, setIsReady] = useState<boolean>(false);
+  const [hasError, setHasError] = useState(true);
+  const { isApiConnected } = useApi();
+
+  const testKeyringState = async () => {
+    try {
+      await keyring.getPairs();
+      setHasError(false);
+      setIsReady(true);
+    } catch (error) {
+      setHasError(true);
+      setTimeout(testKeyringState, 100);
+    }
+  };
 
   useEffect(() => {
-    const timer = setTimeout(() => {
-      setIsReady(true);
-    }, 2000);
-    return () => clearTimeout(timer);
-  }, []);
+    if(isApiConnected){
+      setTimeout(testKeyringState, 100);
+    }
+  }, [isApiConnected]);
 
   const attemptUnlock = async (pair: KeyringPair) => {
     const encryptedPasswordB64 = await getSetting('password');

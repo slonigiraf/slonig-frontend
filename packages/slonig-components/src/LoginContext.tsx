@@ -1,12 +1,11 @@
 // IpfsContext.tsx
-import React, { useContext, createContext, ReactNode, useState, useCallback } from 'react';
+import React, { useContext, createContext, ReactNode, useState, useCallback, useEffect } from 'react';
 import { useLogin } from './useLogin.js';
 import type { KeyringPair } from '@polkadot/keyring/types';
 import type { AccountState } from '@slonigiraf/app-slonig-components';
 import SignIn from '@polkadot/app-signing/SignIn';
 import { InputAddress, Spinner, styled } from '@polkadot/react-components';
 import { useTranslation } from './translate.js';
-import { useToggle } from '@polkadot/react-hooks';
 import CreateModal from '@polkadot/app-accounts/modals/Create';
 import ImportModal from '@polkadot/app-accounts/modals/Import';
 import { useAccounts } from '@polkadot/react-hooks';
@@ -44,6 +43,12 @@ export const LoginProvider: React.FC<LoginProviderProps> = ({ children }) => {
     _onUnlock,
     logOut
   } = useLogin();
+
+  useEffect(() => {
+    if (hasAccounts) {
+      setIsSignIn(true);
+    }
+  }, [hasAccounts]);
 
   const toggleImport = useCallback((): void => {
     setIsImport(!isImport);
