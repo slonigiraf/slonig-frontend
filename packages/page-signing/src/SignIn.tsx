@@ -69,7 +69,7 @@ function SignIn({ onClose, onUnlock, pair, toggleSignIn, toggleImport }: Props):
   return (
     <StyledModal
       className='toolbox--Unlock'
-      header={t('Sign In')}
+      header={t('Sign in To Slonig')}
       onClose={onClose}
       size='small'
     >

@@ -117,7 +117,7 @@ function Import({ className = '', onClose, onStatusChange, toggleImport }: Props
   return (
     <StyledModal
       className={className}
-      header={t('Restore from backup')}
+      header={t('Restore Slonig Account')}
       onClose={onClose}
       size='large'
     >
