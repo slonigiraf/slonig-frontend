@@ -18,7 +18,6 @@ export function useLogin() {
     try {
       await keyring.getPairs();
       setHasError(false);
-      setIsReady(true);
     } catch (error) {
       setHasError(true);
       setTimeout(testKeyringState, 100);
@@ -27,7 +26,7 @@ export function useLogin() {
 
   useEffect(() => {
     if(isApiConnected){
-      setTimeout(testKeyringState, 1000);
+      setTimeout(testKeyringState, 100);
     }
   }, [isApiConnected]);
 
