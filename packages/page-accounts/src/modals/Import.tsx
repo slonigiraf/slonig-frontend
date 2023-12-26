@@ -119,41 +119,35 @@ function Import({ className = '', onClose, onStatusChange, toggleImport }: Props
       className={className}
       header={t('Restore Slonig Account')}
       onClose={onClose}
-      size='large'
+      size='small'
     >
       <Modal.Content>
-        <Modal.Columns hint={t('Supply a backed-up JSON file, encrypted with your account-specific password.')}>
-          <InputFile
-            accept={acceptedFormats}
-            className='full'
-            isError={!pair}
-            label={t('backup file')}
-            onChange={_onChangeFile}
-            withLabel
-          />
-        </Modal.Columns>
-        <Modal.Columns hint={t('The password previously used to encrypt this account.')}>
-          <Password
-            autoFocus
-            className='full'
-            isError={!isPassValid}
-            label={t('password')}
-            onChange={_onChangePass}
-            onEnter={_onSave}
-            value={password}
-          />
-        </Modal.Columns>
-        <Modal.Columns>
-          {error && (
-            <MarkError content={error} />
-          )}
-          {differentGenesis && (
-            <MarkWarning content={t('The network from which this account was originally generated is different than the network you are currently connected to. Once imported ensure you toggle the "allow on any network" option for the account to keep it visible on the current network.')} />
-          )}
-        </Modal.Columns>
+        <InputFile
+          accept={acceptedFormats}
+          className='full'
+          isError={!pair}
+          label={t('backup file')}
+          onChange={_onChangeFile}
+          withLabel
+        />
+        <Password
+          autoFocus
+          className='full'
+          isError={!isPassValid}
+          label={t('password')}
+          onChange={_onChangePass}
+          onEnter={_onSave}
+          value={password}
+        />
+        {error && (
+          <MarkError content={error} />
+        )}
+        {differentGenesis && (
+          <MarkWarning content={t('The network from which this account was originally generated is different than the network you are currently connected to. Once imported ensure you toggle the "allow on any network" option for the account to keep it visible on the current network.')} />
+        )}
       </Modal.Content>
       <Modal.Actions>
-      <Button
+        <Button
           label={t(`Cancel`)}
           onClick={toggleImport}
         />
