@@ -1,5 +1,5 @@
 // IpfsContext.tsx
-import React, { useContext, createContext, ReactNode, useEffect } from 'react';
+import React, { useContext, createContext, ReactNode, useState, useCallback } from 'react';
 import { useLogin } from './useLogin.js';
 import type { KeyringPair } from '@polkadot/keyring/types';
 import type { AccountState } from '@slonigiraf/app-slonig-components';
@@ -32,8 +32,8 @@ interface LoginProviderProps {
 export const LoginProvider: React.FC<LoginProviderProps> = ({ children }) => {
   const { hasAccounts } = useAccounts();
   const { t } = useTranslation();
-  const [isSignInOrUp, toggleSignInUp] = useToggle(true);
-  const [isImport, toggleImport] = useToggle();
+  const [isSignIn, setIsSignIn] = useState(false);
+  const [isImport, setIsImport] = useState(false);
 
   const {
     isReady,
@@ -44,6 +44,18 @@ export const LoginProvider: React.FC<LoginProviderProps> = ({ children }) => {
     _onUnlock,
     logOut
   } = useLogin();
+
+  const toggleImport = useCallback((): void => {
+    setIsImport(!isImport);
+    if (!hasAccounts) {
+      setIsSignIn(false);
+    }
+  }, [hasAccounts, isImport]);
+
+
+  const toggleSignInUp = useCallback((): void => {
+    setIsSignIn(!isSignIn);
+  }, [isSignIn]);
 
   const signIn = (
     <>
@@ -90,7 +102,7 @@ export const LoginProvider: React.FC<LoginProviderProps> = ({ children }) => {
       }
       {isReady && isLoginRequired && (
         <>
-          {isSignInOrUp ?
+          {isSignIn ?
             signIn
             :
             <CreateModal
