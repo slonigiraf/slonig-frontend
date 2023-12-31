@@ -4,12 +4,9 @@ import React, { useCallback, useEffect, useState } from 'react';
 import { useLocation } from 'react-router-dom';
 import BN from 'bn.js';
 import { statics } from '@polkadot/react-api/statics';
-import { styled, Toggle, Button, Input, InputAddress, InputBalance, Output, Modal, Icon, Card } from '@polkadot/react-components';
-import { web3FromSource } from '@polkadot/extension-dapp';
-import type { KeyringPair } from '@polkadot/keyring/types';
+import { styled, Toggle, Button, Input, InputBalance, Icon, Card } from '@polkadot/react-components';
 import { useApi, useBlockTime, useToggle } from '@polkadot/react-hooks';
-import { isFunction, u8aToHex, hexToU8a, u8aWrapBytes, BN_ONE } from '@polkadot/util';
-import { keyring } from '@polkadot/ui-keyring';
+import { u8aToHex, hexToU8a, u8aWrapBytes, BN_ONE } from '@polkadot/util';
 import type { Skill } from '@slonigiraf/app-slonig-components';
 import { QRWithShareAndCopy, getBaseUrl, getIPFSDataFromContentID, parseJson, useIpfsContext, nameFromKeyringPair, QRAction, useLoginContext } from '@slonigiraf/app-slonig-components';
 import { Letter } from '@slonigiraf/app-recommendations';
@@ -19,7 +16,6 @@ import Reexamine from './Reexamine.js';
 import { TeachingAlgorithm } from './TeachingAlgorithm.js';
 import DoInstructions from './DoInstructions.js';
 import { useTranslation } from '../translate.js';
-import type { AccountState, SignerState } from '@slonigiraf/app-slonig-components';
 import { getPseudonym } from '../utils.js';
 
 interface Props {
