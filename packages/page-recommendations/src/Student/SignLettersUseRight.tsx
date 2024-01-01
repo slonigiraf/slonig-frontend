@@ -21,9 +21,8 @@ interface Props {
 function SignLetterUseRight({ className = '', letters, worker, employer, currentPair }: Props): React.ReactElement<Props> {
   const { t } = useTranslation();
   const [url, setUrl] = useState('');
-  const MAX_DIPLOMAS = 93;
 
-  const _onSign = 
+  const _onSign =
     async () => {
       if (!currentPair) {
         return;
@@ -68,12 +67,12 @@ function SignLetterUseRight({ className = '', letters, worker, employer, current
     }, [currentPair, worker, employer, letters]
   );
 
-  const lettersCountOk = letters.length > 0 && letters.length <= MAX_DIPLOMAS;
+  const thereAreDiplomas = letters.length > 0;
 
   return (
     <div className={`toolbox--Sign ${className}`}>
-      <ShareButton title={t('QR code')} text={t('Press the link to see diplomas of the student')} url={url} isDisabled={!lettersCountOk} />
-      <ClipboardCopyButton text={url} isDisabled={!lettersCountOk} />
+      <ShareButton title={t('QR code')} text={t('Press the link to see diplomas of the student')} url={url} isDisabled={!thereAreDiplomas} />
+      <ClipboardCopyButton text={url} isDisabled={!thereAreDiplomas} />
     </div>
   );
 
