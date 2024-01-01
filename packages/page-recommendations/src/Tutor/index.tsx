@@ -98,6 +98,7 @@ function Tutor({ className = '' }: Props): React.ReactElement<Props> {
     const hasAnySkillToReexamine = (cidR !== undefined);
     setReexamined(!hasAnySkillToReexamine);
     setCanIssueDiploma(false);
+    setDiploma(null);
     setCountOfUrlReloads(prevKey => prevKey + 1);
   }, [tutor, skillCID, studentIdentity, student, cidR]);
 
