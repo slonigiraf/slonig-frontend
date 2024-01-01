@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import InsuranceInfo from './InsuranceInfo.js'
-import React, {useEffect, useState} from 'react'
+import React, { useEffect, useState } from 'react'
 import { useLiveQuery } from "dexie-react-hooks";
 import { db } from "../db/index.js";
 import { useTranslation } from '../translate.js';
@@ -33,20 +33,22 @@ function InsurancesList({ className = '', teacher, student }: Props): React.Reac
   const insurances = useLiveQuery(
     () =>
       db.insurances
-      .where("[employer+workerId]")
-      .equals([teacher, student])
-      .sortBy('id')
-      .then(insurances => insurances.reverse()),
+        .where("[employer+workerId]")
+        .equals([teacher, student])
+        .sortBy('id')
+        .then(insurances => insurances.reverse()),
     [teacher, student]
   );
   if (!insurances) return <div></div>;
 
+  console.log("insurances", insurances)
+
   return (
     <div>
       <h2>{t(studentName + '\'s diplomas')}</h2>
-    {insurances.map((insurance, index) => (
-        <InsuranceInfo key={index} insurance={insurance} />
-    ))}
+      {insurances.map((insurance) => (
+        <InsuranceInfo key={insurance.id} insurance={insurance} />
+      ))}
     </div>)
 }
 export default React.memo(InsurancesList)
