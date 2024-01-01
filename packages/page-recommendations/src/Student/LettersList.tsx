@@ -48,7 +48,7 @@ function LettersList({ className = '', worker, currentPair }: Props): React.Reac
             .where("workerId")
             .equals(worker)
             .sortBy('id')
-            .then(letters => letters.reverse()), // reverse for descending order
+            .then(letters => letters.reverse()),
     [worker]
   );
 

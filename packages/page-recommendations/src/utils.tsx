@@ -175,8 +175,10 @@ export const storeInsurances = async (jsonData: any) => {
         const workerId = jsonData.p;
         const employerPublicKeyHex = jsonData.t;
 
-        // Process each insurance data string
-        for (const insuranceDataString of jsonData.d) {
+        // Process each insurance data string in reverse order
+        // To match an order how insurances are displayed at student's account
+        for (let i = jsonData.d.length - 1; i >= 0; i--) {
+            const insuranceDataString = jsonData.d[i];
             // Split the insurance data string into an array
             const insuranceDataArray = insuranceDataString.split(",");
 

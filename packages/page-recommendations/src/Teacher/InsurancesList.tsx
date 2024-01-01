@@ -35,7 +35,8 @@ function InsurancesList({ className = '', teacher, student }: Props): React.Reac
       db.insurances
       .where("[employer+workerId]")
       .equals([teacher, student])
-      .sortBy("id"),
+      .sortBy('id')
+      .then(insurances => insurances.reverse()),
     [teacher, student]
   );
   if (!insurances) return <div></div>;
