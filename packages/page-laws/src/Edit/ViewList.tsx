@@ -9,6 +9,7 @@ import { useTranslation } from '../translate';
 import { useIpfsContext } from '@slonigiraf/app-slonig-components';
 import ExerciseList from './ExerciseList';
 import { u8aToHex } from '@polkadot/util';
+import LearnWithAI from './LearnWithAI.js';
 
 interface Props {
   className?: string;
@@ -70,12 +71,13 @@ function ViewList({ className = '', id, currentPair, onItemSelected }: Props): R
   );
 
   return (
-    list == null ? "" :
+    list == null ? <></> :
       <>
         <h2>{list.h}</h2>
         {
           list.t !== null && list.t === 3 &&
           <>
+            <LearnWithAI skillName={list.h} exercises={list.q} />
             <SkillQR cid={cidString} />
             <h3>{t('Example exercises to train the skill')}</h3>
           </>
