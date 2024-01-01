@@ -3,7 +3,7 @@
 import BN from 'bn.js';
 import { getDataToSignByWorker } from '@slonigiraf/helpers';
 import type { KeyringPair } from '@polkadot/keyring/types';
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { u8aToHex, hexToU8a, u8aWrapBytes } from '@polkadot/util';
 import { ShareButton, getBaseUrl, nameFromKeyringPair, ClipboardCopyButton } from '@slonigiraf/app-slonig-components';
 import { useTranslation } from '../translate.js';
