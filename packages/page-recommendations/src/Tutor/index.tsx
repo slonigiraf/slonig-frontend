@@ -17,6 +17,7 @@ import { TeachingAlgorithm } from './TeachingAlgorithm.js';
 import DoInstructions from './DoInstructions.js';
 import { useTranslation } from '../translate.js';
 import { getPseudonym } from '../utils.js';
+import { Insurance } from '../db/Insurance.js';
 
 interface Props {
   className?: string;
@@ -84,9 +85,20 @@ function Tutor({ className = '' }: Props): React.ReactElement<Props> {
   //   student name
   const [studentName, setStudentName] = useState<string | undefined>(undefined);
   //   show stake and days or hide
-  const [visibleDiplomaDetails, toggleVisibleDiplomaDetails] = useToggle(false);
+  const [visibleDiplomaDetails, toggleVisibleDiplomaDetails, setVisibleDiplomaDetails] = useToggle(false);
   //   issued diploma
   const [diploma, setDiploma] = useState<Letter | null>(null);
+
+  const [countOfUrlReloads, setCountOfUrlReloads] = useState(0);
+
+
+  // Reinitialize issuing stage when url parameters change
+  useEffect(() => {
+    setVisibleDiplomaDetails(false);
+    setReexamined(false);
+    setCanIssueDiploma(false);
+    setCountOfUrlReloads(prevKey => prevKey + 1);
+  }, [tutor, skillCID, studentIdentity, student, cidR]);
 
   // Save teacher pseudonym from url
   useEffect(() => {
@@ -203,7 +215,6 @@ function Tutor({ className = '' }: Props): React.ReactElement<Props> {
       const refereeSignOverPrivateData = u8aToHex(currentPair.sign(u8aWrapBytes(privateData)));
       const refereeSignOverReceipt = u8aToHex(currentPair.sign(u8aWrapBytes(receipt)));
 
-
       const letter = {
         created: new Date(),
         cid: skillCID,
@@ -247,7 +258,7 @@ function Tutor({ className = '' }: Props): React.ReactElement<Props> {
   const qrCodeText = JSON.stringify(qrData);
   const url: string = getBaseUrl() + `/#/knowledge?tutor=${publicKeyHex}&name=${encodeURIComponent(name)}`;
 
-  const insurance = {
+  const insurance: Insurance = {
     created: new Date(),
     cid: cidR,
     genesis: genesisR,
@@ -255,6 +266,7 @@ function Tutor({ className = '' }: Props): React.ReactElement<Props> {
     block: blockR,
     blockAllowed: blockAllowedR,
     referee: tutorR,
+    workerId: studentIdentity,
     worker: studentR,
     amount: amountR,
     signOverPrivateData: signOverPrivateDataR,
@@ -309,12 +321,12 @@ function Tutor({ className = '' }: Props): React.ReactElement<Props> {
       <h2>{t('Student')}: {studentName}</h2>
     </div>
     <div style={!reexamined ? {} : { display: 'none' }}>
-      <Reexamine currentPair={currentPair} insurance={insurance} onResult={updateReexamined} />
+      {currentPair && <Reexamine currentPair={currentPair} insurance={insurance} onResult={updateReexamined} key={countOfUrlReloads} />}
     </div>
     <div style={reexamined ? {} : { display: 'none' }}>
       <b>{t('Teach and create a diploma')}: </b>
       <b>"{skill ? skill.h : ''}"</b>
-      <DoInstructions algorithm={teachingAlgorithm} onResult={updateTutoring} />
+      <DoInstructions algorithm={teachingAlgorithm} onResult={updateTutoring} key={countOfUrlReloads} />
     </div>
     {
       canIssueDiploma &&

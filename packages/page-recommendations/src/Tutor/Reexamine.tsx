@@ -1,9 +1,9 @@
 // Copyright 2021-2022 @slonigiraf/app-recommendations authors & contributors
 // SPDX-License-Identifier: Apache-2.0
 
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+import React, { useState, useEffect } from 'react';
 import { AlgorithmStage } from './AlgorithmStage.js';
-import { Button, TxButton } from '@polkadot/react-components';
+import { Button } from '@polkadot/react-components';
 import type { Skill } from '@slonigiraf/app-slonig-components';
 import { ValidatingAlgorithm } from './ValidatingAlgorithm.js';
 import { useTranslation } from '../translate.js';
@@ -49,15 +49,17 @@ function Reexamine({ className = '', currentPair, insurance, onResult }: Props):
     fetchData()
   }, [ipfs, insurance])
 
-  const handleStageChange = (nextStage) => {
-    setIsButtonClicked(true);
-    if (nextStage.type === 'reimburse') {
-      getBounty(insurance, currentPair, api, t, onResult, showInfo);
-    } else if (nextStage.type === 'success') {
-      onResult();
-    } else {
-      setAlgorithmStage(nextStage);
-      setIsButtonClicked(false);
+  const handleStageChange = (nextStage: AlgorithmStage | null) => {
+    if (nextStage !== null) {
+      setIsButtonClicked(true);
+      if (nextStage.type === 'reimburse') {
+        getBounty(insurance, currentPair, api, t, onResult, showInfo);
+      } else if (nextStage.type === 'success') {
+        onResult();
+      } else {
+        setAlgorithmStage(nextStage);
+        setIsButtonClicked(false);
+      }
     }
   };
 
@@ -80,7 +82,7 @@ function Reexamine({ className = '', currentPair, insurance, onResult }: Props):
               )}
               {algorithmStage.getNext().map((nextStage, index) => (
                 <Button key={index} onClick={() => handleStageChange(nextStage)}
-                  icon='fa-square'
+                  icon='square'
                   label={nextStage.getName()}
                   isDisabled={isButtonClicked}
                 />
