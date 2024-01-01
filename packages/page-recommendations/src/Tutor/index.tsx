@@ -95,7 +95,8 @@ function Tutor({ className = '' }: Props): React.ReactElement<Props> {
   // Reinitialize issuing stage when url parameters change
   useEffect(() => {
     setVisibleDiplomaDetails(false);
-    setReexamined(false);
+    const hasAnySkillToReexamine = (cidR !== undefined);
+    setReexamined(!hasAnySkillToReexamine);
     setCanIssueDiploma(false);
     setCountOfUrlReloads(prevKey => prevKey + 1);
   }, [tutor, skillCID, studentIdentity, student, cidR]);
