@@ -6,9 +6,10 @@ import { useInfo } from '@slonigiraf/app-slonig-components';
 interface Props {
     className?: string;
     text: string;
+    isDisabled?: boolean;
 }
 
-function ClipboardCopyButton({ className, text }: Props): React.ReactElement<Props> {
+function ClipboardCopyButton({ className, text, isDisabled = false }: Props): React.ReactElement<Props> {
     const { t } = useTranslation();
     const { showInfo } = useInfo();
 
@@ -25,7 +26,7 @@ function ClipboardCopyButton({ className, text }: Props): React.ReactElement<Pro
 
     return (
         <>
-            <Button icon='copy' label={t('Copy')} onClick={copyToClipboard} />
+            <Button icon='copy' label={t('Copy')} onClick={copyToClipboard} isDisabled={isDisabled} />
         </>
     );
 }

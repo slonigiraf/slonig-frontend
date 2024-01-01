@@ -3,11 +3,9 @@
 import BN from 'bn.js';
 import { getDataToSignByWorker } from '@slonigiraf/helpers';
 import type { KeyringPair } from '@polkadot/keyring/types';
-import React, { useCallback, useState } from 'react';
-import { Button, Modal } from '@polkadot/react-components';
-import { useToggle } from '@polkadot/react-hooks';
+import React, { useCallback, useEffect, useState } from 'react';
 import { u8aToHex, hexToU8a, u8aWrapBytes } from '@polkadot/util';
-import { QRAction, DataWithShareAndCopy, getBaseUrl, nameFromKeyringPair } from '@slonigiraf/app-slonig-components';
+import { ShareButton, getBaseUrl, nameFromKeyringPair, ClipboardCopyButton } from '@slonigiraf/app-slonig-components';
 import { useTranslation } from '../translate.js';
 import { storeLetterUsageRight } from '../utils.js';
 import { keyForCid } from '@slonigiraf/app-slonig-components';
@@ -22,12 +20,10 @@ interface Props {
 }
 function SignLetterUseRight({ className = '', letters, worker, employer, currentPair }: Props): React.ReactElement<Props> {
   const { t } = useTranslation();
-  const [letterInfo, setLetterInfo] = useState('')
-  const [url, setUrl] = useState('')
-  const [isQROpen, toggleQR] = useToggle();
+  const [url, setUrl] = useState('');
   const MAX_DIPLOMAS = 93;
 
-  const _onSign = useCallback(
+  const _onSign = 
     async () => {
       if (!currentPair) {
         return;
@@ -60,51 +56,27 @@ function SignLetterUseRight({ className = '', letters, worker, employer, current
       const signedLetters = await Promise.all(signedLettersPromises);
       const studentName = nameFromKeyringPair(currentPair);
 
-      const qrData = {
-        q: QRAction.SELL_DIPLOMAS,
-        p: worker,
-        n: studentName,
-        t: employer,
-        d: signedLetters
-      };
-      const qrCodeText = JSON.stringify(qrData);
+
       const signedLettersToUrl = JSON.stringify(signedLetters);
       const urlToSend: string = getBaseUrl() + `/#/diplomas/teacher?student=${worker}&name=${encodeURIComponent(studentName)}&t=${employer}&d=${signedLettersToUrl}`;
       setUrl(urlToSend);
-      // show QR
-      setLetterInfo(letters.length > 0 && letters.length <= MAX_DIPLOMAS ? qrCodeText : "");
-      toggleQR();
-    },
-    [currentPair, worker, employer, letters]
+    };
+
+  useEffect(
+    () => {
+      _onSign();
+    }, [currentPair, worker, employer, letters]
   );
+
+  const lettersCountOk = letters.length > 0 && letters.length <= MAX_DIPLOMAS;
 
   return (
     <div className={`toolbox--Sign ${className}`}>
-      <Button
-        icon='dollar'
-        label={t('Get bonuses')}
-        onClick={_onSign}
-      />
-      {isQROpen && (
-        <Modal
-          header={letterInfo === "" ? t('Warning') : t('Show this QR to your teacher')}
-          onClose={toggleQR}
-          size='small'
-        >
-          <Modal.Content>
-            {letterInfo === "" ? <h2>{t('Select at least 1 diploma')}</h2> :
-              <DataWithShareAndCopy
-                dataQR={letterInfo}
-                titleShare={t('QR code')}
-                textShare={t('Press the link to see diplomas of the student')}
-                urlShare={url}
-                dataCopy={url} />
-            }
-          </Modal.Content>
-        </Modal>
-      )}
+      <ShareButton title={t('QR code')} text={t('Press the link to see diplomas of the student')} url={url} isDisabled={!lettersCountOk} />
+      <ClipboardCopyButton text={url} isDisabled={!lettersCountOk} />
     </div>
   );
+
 }
 
 export default React.memo(SignLetterUseRight);

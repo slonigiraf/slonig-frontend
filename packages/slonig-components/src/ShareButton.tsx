@@ -6,9 +6,10 @@ interface ShareButtonProps {
     title: string;
     text: string;
     url: string;
+    isDisabled?: boolean;
 }
 
-function ShareButton({ title, text, url }: ShareButtonProps): React.ReactElement<ShareButtonProps> {
+function ShareButton({ title, text, url, isDisabled = false }: ShareButtonProps): React.ReactElement<ShareButtonProps> {
     const { t } = useTranslation();
 
     const handleShare = async () => {
@@ -26,7 +27,7 @@ function ShareButton({ title, text, url }: ShareButtonProps): React.ReactElement
             icon='paper-plane'
             label={t('Send')}
             onClick={handleShare}
-            isDisabled={!navigator.share}
+            isDisabled={!navigator.share || isDisabled}
         />
     );
 }

@@ -81,7 +81,7 @@ function LettersList({ className = '', worker, currentPair }: Props): React.Reac
   const sellInfo = (
     <div style={{ display: 'flex', alignItems: 'center' }}>
       <h3 style={{ margin: 0, marginRight: '10px' }}>
-        {t('Select diplomas and press')}:
+        {t('Select diplomas and send them')}:
       </h3>
       <SignLettersUseRight letters={selectedLetters} worker={worker} employer={employer} currentPair={currentPair}/>
     </div>
