@@ -6,7 +6,7 @@ import React, { useCallback, useState } from 'react'
 import { useIpfsContext } from '@slonigiraf/app-slonig-components';
 import { useLiveQuery } from "dexie-react-hooks";
 import { db } from "../db/index.js";
-import { Letter } from "./Letter.js";
+import { Letter } from "../db/Letter.js";
 import { Button } from '@polkadot/react-components';
 import { useTranslation } from '../translate.js';
 import { useLocation } from 'react-router-dom';
@@ -44,11 +44,11 @@ function LettersList({ className = '', worker, currentPair }: Props): React.Reac
 
 
   const letters = useLiveQuery(
-    () =>
-      db.letters
-        .where("workerId")
-        .equals(worker)
-        .sortBy("id"),
+    () => db.letters
+            .where("workerId")
+            .equals(worker)
+            .sortBy('created')
+            .then(letters => letters.reverse()), // reverse for descending order
     [worker]
   );
 
