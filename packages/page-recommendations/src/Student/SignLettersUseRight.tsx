@@ -1,19 +1,17 @@
 // Copyright 2021-2022 @slonigiraf/app-recommendations authors & contributors
 // SPDX-License-Identifier: Apache-2.0
 import BN from 'bn.js';
-import QRCode from 'qrcode.react';
 import { getDataToSignByWorker } from '@slonigiraf/helpers';
 import type { KeyringPair } from '@polkadot/keyring/types';
 import React, { useCallback, useState } from 'react';
 import { Button, Modal } from '@polkadot/react-components';
 import { useToggle } from '@polkadot/react-hooks';
 import { u8aToHex, hexToU8a, u8aWrapBytes } from '@polkadot/util';
-import { QRAction, QRWithShareAndCopy, getBaseUrl, nameFromKeyringPair } from '@slonigiraf/app-slonig-components';
+import { QRAction, DataWithShareAndCopy, getBaseUrl, nameFromKeyringPair } from '@slonigiraf/app-slonig-components';
 import { useTranslation } from '../translate.js';
-import { qrCodeSize } from '../constants.js';
 import { storeLetterUsageRight } from '../utils.js';
 import { keyForCid } from '@slonigiraf/app-slonig-components';
-import { Letter } from "./Letter.js";
+import { Letter } from "../db/Letter.js";
 
 interface Props {
   className?: string;
@@ -27,6 +25,7 @@ function SignLetterUseRight({ className = '', letters, worker, employer, current
   const [letterInfo, setLetterInfo] = useState('')
   const [url, setUrl] = useState('')
   const [isQROpen, toggleQR] = useToggle();
+  const MAX_DIPLOMAS = 93;
 
   const _onSign = useCallback(
     async () => {
@@ -73,7 +72,7 @@ function SignLetterUseRight({ className = '', letters, worker, employer, current
       const urlToSend: string = getBaseUrl() + `/#/diplomas/teacher?student=${worker}&name=${encodeURIComponent(studentName)}&t=${employer}&d=${signedLettersToUrl}`;
       setUrl(urlToSend);
       // show QR
-      setLetterInfo(letters.length > 0 && letters.length < 5 ? qrCodeText : "");
+      setLetterInfo(letters.length > 0 && letters.length <= MAX_DIPLOMAS ? qrCodeText : "");
       toggleQR();
     },
     [currentPair, worker, employer, letters]
@@ -93,8 +92,8 @@ function SignLetterUseRight({ className = '', letters, worker, employer, current
           size='small'
         >
           <Modal.Content>
-            {letterInfo === "" ? <h2>{t('Select at least 1 and no more than 4 diplomas')}</h2> :
-              <QRWithShareAndCopy
+            {letterInfo === "" ? <h2>{t('Select at least 1 diploma')}</h2> :
+              <DataWithShareAndCopy
                 dataQR={letterInfo}
                 titleShare={t('QR code')}
                 textShare={t('Press the link to see diplomas of the student')}

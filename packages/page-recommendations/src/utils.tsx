@@ -65,7 +65,7 @@ export const storeLetter = async (letter: Letter) => {
 }
 
 export const storeInsurance = async (insurance: Insurance) => {
-    const sameInsurance = await db.insurances.get({ workerSign: insurance.workerSign });
+    const sameInsurance = await db.insurances.get({ signOverReceipt: insurance.signOverReceipt });
     if (sameInsurance === undefined) {
         await db.insurances.add(insurance);
     } else if (sameInsurance.wasUsed === false && insurance.wasUsed === true) {
