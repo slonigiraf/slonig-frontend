@@ -17,6 +17,7 @@ function ItemLabel({ className = '', id, onClick }: Props): React.ReactElement<P
   const { api } = useApi();
   const [cidString, setCidString] = useState<string>("");
   const [text, setText] = useState<string>(id);
+  const [isFetched, setIsFetched] = useState(false);
 
   useEffect(() => {
     fetchLaw(id);
@@ -30,6 +31,7 @@ function ItemLabel({ className = '', id, onClick }: Props): React.ReactElement<P
       const jsonText = await getIPFSDataFromContentID(ipfs, cidString);
       const json = parseJson(jsonText);
       setText(json.h);
+      setIsFetched(true);
     };
     fetchIPFSData();
   }, [cidString, ipfs]);
@@ -52,8 +54,10 @@ function ItemLabel({ className = '', id, onClick }: Props): React.ReactElement<P
     [id, onClick]
   );
 
+  const textToDisplay = isFetched ? text : '...';
+
   return typeof onClick === 'function' ?
-    <IconLink label={text} onClick={_onClick}/> : <span>{text}</span>;
+    <IconLink label={textToDisplay} onClick={_onClick} /> : <span>{textToDisplay}</span>;
 }
 
 export default React.memo(ItemLabel);
