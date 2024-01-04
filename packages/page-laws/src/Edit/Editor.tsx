@@ -40,8 +40,8 @@ function Editor(props: Props): React.ReactElement<Props> {
   }, [item, onItemChange]);
 
   const selectLawType = useCallback((newLawType: LawType) => {
-        if (!item || newLawType !== item.t) {
-            onItemChange({
+    if (!item || newLawType !== item.t) {
+      onItemChange({
         ...item,
         t: newLawType
       });
@@ -75,26 +75,36 @@ function Editor(props: Props): React.ReactElement<Props> {
         q: [...(list.q || []), itemJson]
       };
       onListChange(updatedList);
+    } else if (list?.t === 2) { // Adding a skill
+      const newItemIdHex = randomIdHex();
+      onItemIdHexChange(newItemIdHex);
+      const itemType = getDefaultItemLawType();
+      const itemJSONTemplate = `{"i":"${newItemIdHex}","t":${itemType},"h":"","q":[{"h":"", "a":""},{"h":"", "a":""}]}`;
+      onItemChange(parseJson(itemJSONTemplate));
+      const updatedList = {
+        ...list,
+        e: [...(list.e || []), newItemIdHex]
+      };
+      onListChange(updatedList);
+      onIsAddingItemChange(true);
     } else { // Adding a general item
       const newItemIdHex = randomIdHex();
       onItemIdHexChange(newItemIdHex);
       const itemType = getDefaultItemLawType();
       const itemJSONTemplate = `{"i":"${newItemIdHex}","t":${itemType},"h":""}`;
       onItemChange(parseJson(itemJSONTemplate));
-
       const updatedList = {
         ...list,
         e: [...(list.e || []), newItemIdHex]
       };
-
       onListChange(updatedList);
       onIsAddingItemChange(true);
     }
   }, [list, onItemChange, onIsAddingItemChange, lawTypeOpt]);
 
-    const itemType = (item !== null) ? item.t : getDefaultItemLawType();
-  
-  return (
+  const itemType = (item !== null) ? item.t : getDefaultItemLawType();
+
+    return (
     <>
       {list && (
         <>
@@ -131,6 +141,7 @@ function Editor(props: Props): React.ReactElement<Props> {
           </div>
         </>
       )}
+      <ExerciseEditorList list={item} onListChange={onItemChange} />
       <ExerciseEditorList list={list} onListChange={onListChange} />
       <div className='ui--row'>
         <Button
