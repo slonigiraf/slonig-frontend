@@ -1,11 +1,11 @@
 import React, { useCallback } from 'react';
 import { Button, Dropdown, Input } from '@polkadot/react-components';
 import { useTranslation } from '../translate.js';
-import { randomIdHex } from '../util';
+import { randomIdHex } from '../util.js';
 import { parseJson } from '@slonigiraf/app-slonig-components';
-import Reordering from './Reordering';
+import Reordering from './Reordering.js';
 import type { LawType } from '../types.js';
-import ExerciseEditorList from './ExerciseEditorList';
+import ExerciseEditorList from './ExerciseEditorList.js';
 
 interface Props {
   className?: string;

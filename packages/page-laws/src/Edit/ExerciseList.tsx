@@ -42,7 +42,7 @@ const ExerciseList: React.FC<ExerciseListProps> = ({ exercises }) => {
                         </div>
                         {shownAnswers[index] && (
                             <div className="exercise-answer">
-                                <span>{t('Answer')}: {exercise.a}</span>
+                                <span>{t('Solution')}: {exercise.a}</span>
                             </div>
                         )}
                     </div>

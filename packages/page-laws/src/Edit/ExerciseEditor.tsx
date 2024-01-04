@@ -31,15 +31,13 @@ const ExerciseEditor: React.FC<ExerciseEditorProps> = ({ exercise, index, list, 
       <Input
         autoFocus
         className='full'
-        help={t('Exercise Header')}
-        label={t('Header')}
+        label={t('Exercise')}
         onChange={onEditHeader}
         value={exercise.h}
       />
       <Input
         className='full'
-        help={t('Exercise Answer')}
-        label={t('Answer')}
+        label={t('Solution')}
         onChange={onEditAnswer}
         value={exercise.a}
       />

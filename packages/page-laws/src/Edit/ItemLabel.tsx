@@ -53,7 +53,7 @@ function ItemLabel({ className = '', id, onClick }: Props): React.ReactElement<P
   );
 
   return typeof onClick === 'function' ?
-    <IconLink label={text} onClick={_onClick}/> : <Label label={text} />;
+    <IconLink label={text} onClick={_onClick}/> : <span>{text}</span>;
 }
 
 export default React.memo(ItemLabel);

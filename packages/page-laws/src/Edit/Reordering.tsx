@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 import React, { useCallback } from 'react';
 import { Button } from '@polkadot/react-components';
-import ItemLabel from './ItemLabel';
+import ItemLabel from './ItemLabel.js';
 import { useIpfsContext } from '@slonigiraf/app-slonig-components';
 
 interface Props {
