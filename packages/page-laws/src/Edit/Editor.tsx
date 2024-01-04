@@ -64,6 +64,9 @@ function Editor(props: Props): React.ReactElement<Props> {
   const lawTypeOpt = baseOptions[list?.t] || [];
 
   const addItem = useCallback(() => {
+    if (isAddingItem) {
+      return;
+    }
     if (list?.t === 3) { // Adding an exercise
       const itemJSONTemplate = `{"h":"", "a":""}`;
       const itemJson = parseJson(itemJSONTemplate);
