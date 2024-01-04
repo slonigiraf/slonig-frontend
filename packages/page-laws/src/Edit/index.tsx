@@ -32,6 +32,7 @@ function Edit({ className = '' }: Props): React.ReactElement<Props> {
   type JsonType = { [key: string]: any } | null;
   const [list, setList] = useState<JsonType>(null);
   const [item, setItem] = useState<JsonType>(null);
+  const [cachedList, setCachedList] = useState<JsonType>(null);
   const { currentPair } = useLoginContext();
   const [cidString, setCidString] = useState<string>("");
   const [lawHexData, setLawHexData] = useState('');
@@ -54,7 +55,7 @@ function Edit({ className = '' }: Props): React.ReactElement<Props> {
   const defaultTextHexId = '0xdf005f390fe635bd4e00718acbae5eb00faf3d2bb528b278f028daeb16fafd15';
   const idFromQuery = tutor ? undefined : queryParams.get("id") || defaultTextHexId;
   const [textHexId, setTextHexId] = useState<string | undefined>(idFromQuery);
-
+  
   const setQueryKnowledgeId = (value: any) => {
     const newQueryParams = new URLSearchParams();
     newQueryParams.set("id", value);
@@ -161,7 +162,9 @@ function Edit({ className = '' }: Props): React.ReactElement<Props> {
       }
       const textValue = await getIPFSDataFromContentID(ipfs, cidString);
       setText(textValue);
-      setList(parseJson(textValue));
+      const fetchedList = parseJson(textValue);
+      setList(fetchedList);
+      setCachedList(fetchedList);
     };
 
     fetchIPFSData();
@@ -182,6 +185,15 @@ function Edit({ className = '' }: Props): React.ReactElement<Props> {
       }
     }
   }
+
+  const _onCancel = (): void => {
+    _onClickChangeView();
+    setIsAddingElement(false);
+    setItem(null);
+    setItemDigestHex("");
+    setItemIdHex("");
+    setList(cachedList);
+  };
 
   const _onSave = (): void => {
     if (item == null) {
@@ -240,7 +252,7 @@ function Edit({ className = '' }: Props): React.ReactElement<Props> {
         <Button
           icon='cancel'
           label={t('Cancel')}
-          onClick={_onClickChangeView}
+          onClick={_onCancel}
         />
         <Button
           icon='save'

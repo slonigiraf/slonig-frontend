@@ -143,13 +143,13 @@ function Editor(props: Props): React.ReactElement<Props> {
       )}
       <ExerciseEditorList list={item} onListChange={onItemChange} />
       <ExerciseEditorList list={list} onListChange={onListChange} />
-      <div className='ui--row'>
+      {!isAddingItem && (<div className='ui--row'>
         <Button
           icon='add'
           label={t('Add item')}
           onClick={addItem}
         />
-      </div>
+      </div>)}
     </>
   );
 }
