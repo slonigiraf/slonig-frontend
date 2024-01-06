@@ -1,17 +1,22 @@
 import { useTranslation } from '../translate.js';
 import { Modal } from '@polkadot/react-components';
 import { useToggle } from '@polkadot/react-hooks';
-import React from 'react';
+import React, { useCallback } from 'react';
 import PayToAccountQR from './PayToAccountQR.js';
-import { ButtonWithLabelBelow } from '@slonigiraf/app-slonig-components';
+import { ButtonWithLabelBelow, useLoginContext } from '@slonigiraf/app-slonig-components';
 
 function GetSlon(): React.ReactElement {
   const { t } = useTranslation();
   const [isQROpen, toggleQR] = useToggle();
+  const { isLoggedIn, setLoginIsRequired } = useLoginContext();
 
-  const _onClick = () => {
-    toggleQR();
-  }
+  const _onClick = useCallback(() => {
+    if (isLoggedIn) {
+      toggleQR();
+    } else {
+      setLoginIsRequired(true);
+    }
+  }, [isLoggedIn, toggleQR, setLoginIsRequired]);
 
   return (
     <>
