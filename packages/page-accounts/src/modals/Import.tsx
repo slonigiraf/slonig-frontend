@@ -163,8 +163,5 @@ function Import({ className = '', onClose, onStatusChange, toggleImport }: Props
   );
 }
 const StyledModal = styled(Modal)`
-  button[data-testid="close-modal"] {
-    display: none;
-  }
 `;
 export default React.memo(Import);

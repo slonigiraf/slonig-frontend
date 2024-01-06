@@ -115,9 +115,6 @@ function SignIn({ onClose, onUnlock, pair, toggleSignIn, toggleImport }: Props):
   );
 }
 const StyledModal = styled(Modal)`
-  button[data-testid="close-modal"] {
-    display: none;
-  }
 `;
 
 export default React.memo(SignIn);

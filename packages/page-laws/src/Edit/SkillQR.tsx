@@ -1,25 +1,19 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useTranslation } from '../translate';
-import { QRAction, QRWithShareAndCopy, ScanQR, getBaseUrl, nameFromKeyringPair, useLogin, useLoginContext } from '@slonigiraf/app-slonig-components';
+import { QRAction, QRWithShareAndCopy, ScanQR, getBaseUrl, nameFromKeyringPair, useLoginContext } from '@slonigiraf/app-slonig-components';
 import { getSetting, storeSetting } from '@slonigiraf/app-recommendations';
-import type { KeyringPair } from '@polkadot/keyring/types';
-import { Button, Dropdown, InputAddress } from '@polkadot/react-components';
+import { Button, Dropdown } from '@polkadot/react-components';
 import { useLiveQuery } from "dexie-react-hooks";
 import { db, Letter } from '@slonigiraf/app-recommendations';
 import { keyForCid } from '@slonigiraf/app-slonig-components';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { styled } from '@polkadot/react-components';
-import { keyring } from '@polkadot/ui-keyring';
-import { web3FromSource } from '@polkadot/extension-dapp';
-import { isFunction, u8aToHex, hexToU8a, u8aWrapBytes } from '@polkadot/util';
-import { useToggle } from '@polkadot/react-hooks';
+import { u8aToHex, hexToU8a, u8aWrapBytes } from '@polkadot/util';
 import { getDataToSignByWorker } from '@slonigiraf/helpers';
 import BN from 'bn.js';
 import { BN_ONE } from '@polkadot/util';
 import { useApi } from '@polkadot/react-hooks';
 import { useBlockTime } from '@polkadot/react-hooks';
-import Unlock from '@polkadot/app-signing/SignIn';
-import type { AccountState, SignerState } from '@slonigiraf/app-slonig-components';
 
 interface Props {
   className?: string;
@@ -43,7 +37,7 @@ function SkillQR({ className = '', cid }: Props): React.ReactElement<Props> {
   const [blockAllowed, setBlockAllowed] = useState<BN>(new BN(1));
   // Key management
   const [diplomaPublicKeyHex, setDiplomaPublicKeyHex] = useState<>("");
-  const { currentPair } = useLoginContext();
+  const { currentPair, isLoggedIn, setLoginIsRequired } = useLoginContext();
   // Rest params
   const { t } = useTranslation();
   const location = useLocation();
@@ -82,7 +76,7 @@ function SkillQR({ className = '', cid }: Props): React.ReactElement<Props> {
 
   // Initialize key
   useEffect((): void => {
-    if (currentPair) {
+    if (currentPair && isLoggedIn) {
       const diplomaKey = keyForCid(currentPair, cid);
       const diplomaPublicKeyHex = u8aToHex(diplomaKey?.publicKey);
       setDiplomaPublicKeyHex(diplomaPublicKeyHex);
@@ -183,31 +177,42 @@ function SkillQR({ className = '', cid }: Props): React.ReactElement<Props> {
   const qrCodeText = generateQRData();
   const url = `${getBaseUrl()}/#/${urlDetails}`;
 
-  return (<>
-    {tutor ?
-      <StyledDiv>
-        <h3>{t('Show the QR to your tutor')}</h3>
-        <FlexRow>
-          <Dropdown
-            className={`dropdown ${className}`}
-            label={t('select tutor')}
-            value={tutor}
-            onChange={handleTutorSelect}
-            options={tutorOptions || []}
+  const _login = useCallback(() => { setLoginIsRequired(true) }, [setLoginIsRequired]);
+
+  return (
+    isLoggedIn ? <>
+      {tutor ?
+        <StyledDiv>
+          <h3>{t('Show the QR to your tutor')}</h3>
+          <FlexRow>
+            <Dropdown
+              className={`dropdown ${className}`}
+              label={t('select tutor')}
+              value={tutor}
+              onChange={handleTutorSelect}
+              options={tutorOptions || []}
+            />
+            <ScanQR label={t('by QR')} type={4} />
+          </FlexRow>
+          <QRWithShareAndCopy
+            dataQR={qrCodeText}
+            titleShare={t('QR code')}
+            textShare={t('Press the link to start tutoring')}
+            urlShare={url}
+            dataCopy={url}
           />
-          <ScanQR label={t('by QR')} type={4} />
-        </FlexRow>
-        <QRWithShareAndCopy
-          dataQR={qrCodeText}
-          titleShare={t('QR code')}
-          textShare={t('Press the link to start tutoring')}
-          urlShare={url}
-          dataCopy={url}
+        </StyledDiv>
+        : <h3>{t('Scan your tutor\'s QR code for help and a diploma.')}</h3>
+      }
+    </>
+      : <>
+        <Button
+          icon='right-to-bracket'
+          label={t('Log in to practice in pairs')}
+          onClick={_login}
         />
-      </StyledDiv>
-      : <h3>{t('Scan your tutor\'s QR code for help and a diploma.')}</h3>
-    }
-  </>);
+      </>
+  );
 }
 
 const StyledDiv = styled.div`

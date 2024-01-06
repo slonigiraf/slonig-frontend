@@ -33,7 +33,7 @@ function Edit({ className = '' }: Props): React.ReactElement<Props> {
   const [list, setList] = useState<JsonType>(null);
   const [item, setItem] = useState<JsonType>(null);
   const [cachedList, setCachedList] = useState<JsonType>(null);
-  const { currentPair } = useLoginContext();
+  const { currentPair, isLoggedIn, setLoginIsRequired } = useLoginContext();
   const [cidString, setCidString] = useState<string>("");
   const [lawHexData, setLawHexData] = useState('');
   const [amountList, setAmountList] = useState<BN>(BN_ZERO);
@@ -55,7 +55,7 @@ function Edit({ className = '' }: Props): React.ReactElement<Props> {
   const defaultTextHexId = '0xdf005f390fe635bd4e00718acbae5eb00faf3d2bb528b278f028daeb16fafd15';
   const idFromQuery = tutor ? undefined : queryParams.get("id") || defaultTextHexId;
   const [textHexId, setTextHexId] = useState<string | undefined>(idFromQuery);
-  
+
   const setQueryKnowledgeId = (value: any) => {
     const newQueryParams = new URLSearchParams();
     newQueryParams.set("id", value);
@@ -106,7 +106,11 @@ function Edit({ className = '' }: Props): React.ReactElement<Props> {
 
   const _onClickEdit = useCallback(
     (): void => {
-      _onClickChangeView();
+      if (isLoggedIn) {
+        _onClickChangeView();
+      } else {
+        setLoginIsRequired(true);
+      }
     },
     [_onClickChangeView]
   );

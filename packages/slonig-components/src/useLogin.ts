@@ -9,8 +9,9 @@ import { useApi } from '@polkadot/react-hooks';
 export function useLogin() {
   const [currentPair, setCurrentPair] = useState<KeyringPair | null>(null);
   const [accountState, setAccountState] = useState<AccountState | null>(null);
-  const [isLoginRequired, setLoginIsRequired] = useState<boolean>(true);
+  const [isLoginRequired, setLoginIsRequired] = useState<boolean>(false);
   const [isReady, setIsReady] = useState<boolean>(false);
+  const [isLoggedIn, setIsLoggedIn] = useState<boolean>(false);
   const [hasError, setHasError] = useState(true);
   const { isApiConnected } = useApi();
 
@@ -41,14 +42,15 @@ export function useLogin() {
         pair.decodePkcs8(password);
         if (!pair.isLocked) {
           setLoginIsRequired(false);
+          setIsLoggedIn(true);
           setIsReady(true);
         }
       } catch {
-        setLoginIsRequired(true);
+        // setLoginIsRequired(true);
         setIsReady(true);
       }
     } else {
-      setLoginIsRequired(true);
+      // setLoginIsRequired(true);
       setIsReady(true);
     }
   };
@@ -61,6 +63,7 @@ export function useLogin() {
           const newPair = keyring.getPair(accountId);
           if (accountId !== accountInDB) {
             newPair.lock();
+            setIsLoggedIn(false);
             storeSetting('account', newPair.address);
             storeSetting('password', '');
           }
@@ -93,7 +96,8 @@ export function useLogin() {
         newPair.lock();
         setCurrentPair(newPair);
         storeSetting('password', '');
-        setLoginIsRequired(true);
+        setIsLoggedIn(false);
+        // setLoginIsRequired(true);
       }
     },
     [currentPair]
@@ -101,7 +105,8 @@ export function useLogin() {
 
   const _onUnlock = useCallback((): void => {
     setLoginIsRequired(false);
+    setIsLoggedIn(true);
   }, []);
 
-  return { isReady, currentPair, accountState, isLoginRequired, _onChangeAccount, _onUnlock, logOut };
+  return { isReady, currentPair, accountState, isLoggedIn, isLoginRequired, setIsLoggedIn, setLoginIsRequired, _onChangeAccount, _onUnlock, logOut };
 }

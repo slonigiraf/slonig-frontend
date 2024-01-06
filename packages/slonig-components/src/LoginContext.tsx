@@ -15,7 +15,10 @@ import type { ActionStatus } from '@polkadot/react-components/Status/types';
 interface ILoginContext {
   currentPair: KeyringPair | null;
   accountState: AccountState | null;
+  isLoggedIn: boolean;
+  setIsLoggedIn: (v: boolean) => void;
   isLoginRequired: boolean;
+  setLoginIsRequired: (v: boolean) => void;
   _onChangeAccount: (accountId: string | null) => void;
   logOut: () => void;
 }
@@ -38,7 +41,10 @@ export const LoginProvider: React.FC<LoginProviderProps> = ({ children }) => {
     isReady,
     currentPair,
     accountState,
+    isLoggedIn,
+    setIsLoggedIn,
     isLoginRequired,
+    setLoginIsRequired,
     _onChangeAccount,
     _onUnlock,
     logOut
@@ -62,11 +68,15 @@ export const LoginProvider: React.FC<LoginProviderProps> = ({ children }) => {
     setIsSignIn(!isSignIn);
   }, [isSignIn]);
 
+  const cancelAuthorization = () => {
+    setLoginIsRequired(false);
+  }
+
   const signIn = (
     <>
       {hasAccounts &&
         <SignIn
-          onClose={() => { }}
+          onClose={cancelAuthorization}
           onUnlock={_onUnlock}
           pair={currentPair}
           toggleSignIn={toggleSignIn}
@@ -74,7 +84,7 @@ export const LoginProvider: React.FC<LoginProviderProps> = ({ children }) => {
         />}
       {(!hasAccounts || isImport) &&
         <ImportModal
-          onClose={() => { }}
+          onClose={cancelAuthorization}
           onStatusChange={_onUnlock}
           toggleImport={toggleImport}
         />}
@@ -88,7 +98,8 @@ export const LoginProvider: React.FC<LoginProviderProps> = ({ children }) => {
   }
 
   return (
-    <LoginContext.Provider value={{ currentPair, accountState, isLoginRequired, _onChangeAccount, logOut }}>
+    <LoginContext.Provider value={{ currentPair, accountState,  isLoggedIn,
+      setIsLoggedIn,isLoginRequired, setLoginIsRequired, _onChangeAccount, logOut }}>
       <div className='ui--row' style={{ display: 'none' }}>
         <InputAddress
           className='full'
@@ -111,7 +122,7 @@ export const LoginProvider: React.FC<LoginProviderProps> = ({ children }) => {
             signIn
             :
             <CreateModal
-              onClose={() => {/* handle modal close */ }}
+              onClose={cancelAuthorization}
               onStatusChange={onCreateAccount}
               toggle={toggleSignIn}
             />

@@ -26,7 +26,7 @@ import { SORT_CATEGORY, sortAccounts } from '../util.js';
 import Account from './Account.js';
 import BannerClaims from './BannerClaims.js';
 import Summary from './Summary.js';
-import { useLoginContext } from '@slonigiraf/app-slonig-components';
+import { useInfo, useLoginContext } from '@slonigiraf/app-slonig-components';
 
 interface Balances {
   accounts: Record<string, AccountBalance>;
@@ -88,7 +88,7 @@ function groupAccounts(accounts: SortedAccount[]): Record<GroupName, string[]> {
 
 function Overview({ className = '', onStatusChange }: Props): React.ReactElement<Props> {
   const { t } = useTranslation();
-  const { currentPair, _onChangeAccount, logOut } = useLoginContext();
+  const { _onChangeAccount, isLoggedIn, logOut } = useLoginContext();
   const { api, isElectron } = useApi();
   const { allAccounts, hasAccounts } = useAccounts();
   const { isLedgerEnabled } = useLedger();
@@ -107,7 +107,8 @@ function Overview({ className = '', onStatusChange }: Props): React.ReactElement
   const proxies = useProxies();
   const isNextTick = useNextTick();
   const [inputKey, setInputKey] = useState(0);
-
+  const { showInfo } = useInfo();
+  
   const onSortChange = useCallback(
     (sortBy: SortCategory) => setSortBy(({ sortFromMax }) => ({ sortBy, sortFromMax })),
     []
@@ -274,6 +275,11 @@ function Overview({ className = '', onStatusChange }: Props): React.ReactElement
     setInputKey(prev => prev + 1);
   }, [onStatusChange]);
 
+  const _logOut = useCallback(() => {
+    showInfo(t('Logged Out'));
+    logOut();
+  }, [logOut]);
+
   return (
     <StyledDiv className={className}>
       <div className='ui--row'>
@@ -286,11 +292,11 @@ function Overview({ className = '', onStatusChange }: Props): React.ReactElement
           type='account'
         />
         <Button.Group>
-          <Button
+          {isLoggedIn && <Button
             icon='right-from-bracket'
             label={t('Log out')}
-            onClick={logOut}
-          />
+            onClick={_logOut}
+          />}
         </Button.Group>
       </div>
       {isCreateOpen && (
