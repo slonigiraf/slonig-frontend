@@ -252,7 +252,6 @@ function Edit({ className = '' }: Props): React.ReactElement<Props> {
           isDisabled={!isIpfsReady}
         />
       </div>
-      <Button.Group>
         <Button
           icon='cancel'
           label={t('Cancel')}
@@ -265,21 +264,18 @@ function Edit({ className = '' }: Props): React.ReactElement<Props> {
           isDisabled={isProcessing}
         />
         {!isIpfsReady ? <div>{t('Connecting to IPFS...')}</div> : ""}
-      </Button.Group>
     </div>
   );
 
   const viewView = (
     <div className={`toolbox--Sign ${className}`}>
       <ViewList id={textHexId} currentPair={currentPair} onItemSelected={_onChangeLaw} />
-      <Button.Group>
         <Button
           icon='edit'
           label={t('Edit')}
           onClick={_onClickEdit}
         />
         {!isIpfsReady ? <div>{t('Connecting to IPFS...')}</div> : ""}
-      </Button.Group>
     </div>
   );
 
