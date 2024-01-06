@@ -1,8 +1,8 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { useTranslation } from '../translate';
-import { QRAction, QRWithShareAndCopy, ScanQR, getBaseUrl, nameFromKeyringPair, useLoginContext } from '@slonigiraf/app-slonig-components';
+import { useTranslation } from '../translate.js';
+import { LoginButton, QRAction, QRWithShareAndCopy, ScanQR, getBaseUrl, nameFromKeyringPair, useLoginContext } from '@slonigiraf/app-slonig-components';
 import { getSetting, storeSetting } from '@slonigiraf/app-recommendations';
-import { Button, Dropdown } from '@polkadot/react-components';
+import { Dropdown } from '@polkadot/react-components';
 import { useLiveQuery } from "dexie-react-hooks";
 import { db, Letter } from '@slonigiraf/app-recommendations';
 import { keyForCid } from '@slonigiraf/app-slonig-components';
@@ -37,7 +37,7 @@ function SkillQR({ className = '', cid }: Props): React.ReactElement<Props> {
   const [blockAllowed, setBlockAllowed] = useState<BN>(new BN(1));
   // Key management
   const [diplomaPublicKeyHex, setDiplomaPublicKeyHex] = useState<>("");
-  const { currentPair, isLoggedIn, setLoginIsRequired } = useLoginContext();
+  const { currentPair, isLoggedIn } = useLoginContext();
   // Rest params
   const { t } = useTranslation();
   const location = useLocation();
@@ -177,10 +177,8 @@ function SkillQR({ className = '', cid }: Props): React.ReactElement<Props> {
   const qrCodeText = generateQRData();
   const url = `${getBaseUrl()}/#/${urlDetails}`;
 
-  const _login = useCallback(() => { setLoginIsRequired(true) }, [setLoginIsRequired]);
-
-  return (
-    isLoggedIn ? <>
+  return (<>
+    {isLoggedIn && <>
       {tutor ?
         <StyledDiv>
           <h3>{t('Show the QR to your tutor')}</h3>
@@ -204,14 +202,11 @@ function SkillQR({ className = '', cid }: Props): React.ReactElement<Props> {
         </StyledDiv>
         : <h3>{t('Scan your tutor\'s QR code for help and a diploma.')}</h3>
       }
-    </>
-      : <>
-        <Button
-          icon='right-to-bracket'
-          label={t('Log in to practice in pairs')}
-          onClick={_login}
-        />
-      </>
+    </>}
+    <LoginButton
+      label={t('Log in to practice in pairs')}
+    />
+  </>
   );
 }
 
