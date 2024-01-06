@@ -4,11 +4,12 @@
 import React, { useEffect } from 'react';
 import LettersList from './LettersList.js';
 import { IPFS } from 'ipfs-core';
-import { useLoginContext } from '@slonigiraf/app-slonig-components';
+import { LoginButton, useLoginContext } from '@slonigiraf/app-slonig-components';
 import { u8aToHex } from '@polkadot/util';
 import { useLocation } from 'react-router-dom';
 import { createAndStoreLetter } from '@slonigiraf/app-recommendations';
 import { storePseudonym } from '@slonigiraf/app-recommendations';
+import { useTranslation } from '../translate.js';
 
 interface Props {
   className?: string;
@@ -16,6 +17,7 @@ interface Props {
 }
 
 function Student({ className = '', ipfs }: Props): React.ReactElement<Props> {
+  const { t } = useTranslation();
   // Process query
   const location = useLocation();
   const queryParams = new URLSearchParams(location.search);
@@ -33,7 +35,7 @@ function Student({ className = '', ipfs }: Props): React.ReactElement<Props> {
     refereeSignOverPrivateData,
     refereeSignOverReceipt] = addDiplomaData.split(' ');
   // Account initialization
-  const { currentPair } = useLoginContext();
+  const { currentPair, isLoggedIn } = useLoginContext();
 
   // Save teacher pseudonym from url
   useEffect(() => {
@@ -74,7 +76,8 @@ function Student({ className = '', ipfs }: Props): React.ReactElement<Props> {
   return (
     <div className={`toolbox--Student ${className}`}>
       <div className='ui--row'>
-        <LettersList ipfs={ipfs} worker={u8aToHex(currentPair?.publicKey)} currentPair={currentPair} />
+        {isLoggedIn && <LettersList ipfs={ipfs} worker={u8aToHex(currentPair?.publicKey)} currentPair={currentPair} />}
+        <LoginButton label={t('Log in to see your diplomas')}/>
       </div>
     </div>
   )

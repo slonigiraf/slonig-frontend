@@ -7,7 +7,7 @@ import { IPFS } from 'ipfs-core';
 import { useTranslation } from '../translate.js';
 import { u8aToHex } from '@polkadot/util';
 import { useLocation } from 'react-router-dom';
-import { QRWithShareAndCopy, nameFromKeyringPair, getBaseUrl, QRAction, parseJson, useLoginContext } from '@slonigiraf/app-slonig-components';
+import { QRWithShareAndCopy, nameFromKeyringPair, getBaseUrl, QRAction, parseJson, useLoginContext, LoginButton } from '@slonigiraf/app-slonig-components';
 import { storeInsurances, storePseudonym } from '../utils.js';
 
 interface Props {
@@ -19,7 +19,7 @@ function Teacher({ className = '', ipfs }: Props): React.ReactElement<Props> {
   const { t } = useTranslation();
 
   // Initialize account
-  const { currentPair } = useLoginContext();
+  const { currentPair, isLoggedIn } = useLoginContext();
   const location = useLocation();
   const queryParams = new URLSearchParams(location.search);
   const student = queryParams.get("student");
@@ -83,31 +83,36 @@ function Teacher({ className = '', ipfs }: Props): React.ReactElement<Props> {
   return (
     <div className={`toolbox--Student ${className}`}>
       {
-        (!student || !isDedicatedTeacher) ? (
-          isDedicatedTeacher ? (
-            <h2>{t('Show to a student to see their results')}</h2>
-          ) : (
-            <h2>{t('Student has shown you a QR code created for a different teacher. Ask them to scan your QR code.')}</h2>
-          )
-        ) : null
+        isLoggedIn && <>
+          {
+            (!student || !isDedicatedTeacher) ? (
+              isDedicatedTeacher ? (
+                <h2>{t('Show to a student to see their results')}</h2>
+              ) : (
+                <h2>{t('Student has shown you a QR code created for a different teacher. Ask them to scan your QR code.')}</h2>
+              )
+            ) : null
+          }
+          {
+            (!student || !isDedicatedTeacher) && (
+              <QRWithShareAndCopy
+                dataQR={qrCodeText}
+                titleShare={t('QR code')}
+                textShare={t('Press the link to show diplomas')}
+                urlShare={url}
+                dataCopy={url} />
+            )
+          }
+          {
+            student && isDedicatedTeacher && (
+              <div className='ui--row'>
+                <InsurancesList ipfs={ipfs} teacher={u8aToHex(currentPair?.publicKey)} student={student} />
+              </div>
+            )
+          }
+        </>
       }
-      {
-        (!student || !isDedicatedTeacher) && (
-          <QRWithShareAndCopy
-            dataQR={qrCodeText}
-            titleShare={t('QR code')}
-            textShare={t('Press the link to show diplomas')}
-            urlShare={url}
-            dataCopy={url} />
-        )
-      }
-      {
-        student && isDedicatedTeacher && (
-          <div className='ui--row'>
-            <InsurancesList ipfs={ipfs} teacher={u8aToHex(currentPair?.publicKey)} student={student} />
-          </div>
-        )
-      }
+      <LoginButton label={t('Log in to view student results')} />
     </div>
   );
 

@@ -8,7 +8,7 @@ import { styled, Toggle, Button, Input, InputBalance, Icon, Card } from '@polkad
 import { useApi, useBlockTime, useToggle } from '@polkadot/react-hooks';
 import { u8aToHex, hexToU8a, u8aWrapBytes, BN_ONE } from '@polkadot/util';
 import type { Skill } from '@slonigiraf/app-slonig-components';
-import { QRWithShareAndCopy, getBaseUrl, getIPFSDataFromContentID, parseJson, useIpfsContext, nameFromKeyringPair, QRAction, useLoginContext } from '@slonigiraf/app-slonig-components';
+import { QRWithShareAndCopy, getBaseUrl, getIPFSDataFromContentID, parseJson, useIpfsContext, nameFromKeyringPair, QRAction, useLoginContext, LoginButton } from '@slonigiraf/app-slonig-components';
 import { Letter } from '@slonigiraf/app-recommendations';
 import { getPublicDataToSignByReferee, getPrivateDataToSignByReferee } from '@slonigiraf/helpers';
 import { getLastUnusedLetterNumber, setLastUsedLetterNumber, storeLetter, storePseudonym } from '../utils.js';
@@ -61,7 +61,7 @@ function Tutor({ className = '' }: Props): React.ReactElement<Props> {
   const [skill, setSkill] = useState<Skill | null>(null);
 
   // Initialize account
-  const { currentPair } = useLoginContext();
+  const { currentPair, isLoggedIn } = useLoginContext();
 
   // Store progress state
   const [canIssueDiploma, setCanIssueDiploma] = useState(false);
@@ -388,7 +388,7 @@ function Tutor({ className = '' }: Props): React.ReactElement<Props> {
 
   return (
     <div className={`toolbox--Tutor ${className}`}>
-      {
+      {isLoggedIn && (
         (student === undefined || !isDedicatedTutor) ? <>
           {
             isDedicatedTutor ?
@@ -405,7 +405,8 @@ function Tutor({ className = '' }: Props): React.ReactElement<Props> {
         </>
           :
           <> {diploma ? diplomaView : reexamAndDiplomaIssuing}</>
-      }
+      )}
+      <LoginButton label={t('Log in to start tutoring')} />
     </div>
   );
 }
