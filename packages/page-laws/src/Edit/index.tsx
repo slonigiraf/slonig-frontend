@@ -48,7 +48,6 @@ function Edit({ className = '' }: Props): React.ReactElement<Props> {
   const [isProcessing, toggleProcessing] = useToggle(false);
 
   const location = useLocation();
-  const navigate = useNavigate();
   const queryParams = new URLSearchParams(location.search);
   const tutor = queryParams.get("tutor");
   const tutorName = queryParams.get("name");
