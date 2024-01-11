@@ -49,11 +49,6 @@ function SkillQR({ className = '', cid }: Props): React.ReactElement<Props> {
   const [diplomaToReexamine, setDiplomaToReexamine] = useState<Letter | null>(null);
   const [studentSignatureOverDiplomaToReexamine, setStudentSignatureOverDiplomaToReexamine] = useState<string>("");
 
-  const setQueryTutorId = (value: any) => {
-    const newQueryParams = new URLSearchParams();
-    newQueryParams.set("tutor", value);
-    navigate({ ...location, search: newQueryParams.toString() });
-  };
 
   // Fetch block number (once)
   useEffect(() => {
@@ -115,11 +110,10 @@ function SkillQR({ className = '', cid }: Props): React.ReactElement<Props> {
     setTutor(selectedKey);
     if (selectedKey) {
       try {
-        await db.settings.put({ id: "tutor", value: selectedKey });
+        await storeSetting("tutor", selectedKey);
       } catch (error) {
         console.error('Error saving tutor selection:', error);
       }
-      setQueryTutorId(selectedKey);
     }
   };
 
