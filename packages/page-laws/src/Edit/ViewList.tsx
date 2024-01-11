@@ -15,10 +15,9 @@ interface Props {
   className?: string;
   id: string;
   currentPair: KeyringPair | null;
-  onItemSelected: (id: string) => void;
 }
 
-function ViewList({ className = '', id, currentPair, onItemSelected }: Props): React.ReactElement<Props> {
+function ViewList({ className = '', id, currentPair }: Props): React.ReactElement<Props> {
   const { ipfs, isIpfsReady, ipfsInitError } = useIpfsContext();
   const { t } = useTranslation();
   type JsonType = { [key: string]: any } | null;
@@ -63,13 +62,6 @@ function ViewList({ className = '', id, currentPair, onItemSelected }: Props): R
     fetchIPFSData();
   }, [cidString, ipfs]);
 
-  const _onItemClicked = useCallback(
-    (id): void => {
-      onItemSelected(id);
-    },
-    [id, onItemSelected]
-  );
-
   return (
     list == null ? <></> :
       <>
@@ -88,7 +80,7 @@ function ViewList({ className = '', id, currentPair, onItemSelected }: Props): R
               alignItems: 'center'
             }}
           >
-            <ItemLabel id={item} onClick={_onItemClicked} />
+            <ItemLabel id={item} />
           </div>
         ))}
         {list.q != null && <ExerciseList exercises={list.q} />}

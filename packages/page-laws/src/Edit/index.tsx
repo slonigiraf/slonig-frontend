@@ -56,13 +56,6 @@ function Edit({ className = '' }: Props): React.ReactElement<Props> {
   const idFromQuery = tutor ? undefined : queryParams.get("id") || defaultTextHexId;
   const [textHexId, setTextHexId] = useState<string | undefined>(idFromQuery);
 
-  const setQueryKnowledgeId = (value: any) => {
-    const newQueryParams = new URLSearchParams();
-    newQueryParams.set("id", value);
-    setTextHexId(value);
-    navigate({ ...location, search: newQueryParams.toString() });
-  };
-
   useEffect(() => {
     const updateSetting = async () => {
       if (tutor) {
@@ -113,13 +106,6 @@ function Edit({ className = '' }: Props): React.ReactElement<Props> {
       }
     },
     [_onClickChangeView]
-  );
-
-  const _onChangeLaw = useCallback(
-    (lawId: string) => {
-      setQueryKnowledgeId(lawId);
-    },
-    [setQueryKnowledgeId]
   );
 
   const _onSign = useCallback(
@@ -269,7 +255,7 @@ function Edit({ className = '' }: Props): React.ReactElement<Props> {
 
   const viewView = (
     <div className={`toolbox--Sign ${className}`}>
-      <ViewList id={textHexId} currentPair={currentPair} onItemSelected={_onChangeLaw} />
+      <ViewList id={textHexId} currentPair={currentPair} />
         <Button
           icon='edit'
           label={t('Edit')}

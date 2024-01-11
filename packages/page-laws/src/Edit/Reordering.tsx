@@ -63,7 +63,7 @@ function Reordering({ className = '', list, onListChange }: Props): React.ReactE
             icon='times'  // Assuming 'times' is the icon for delete
             onClick={() => handleDelete(index)}
           />
-          <ItemLabel id={item} />
+          <ItemLabel id={item} isText={true}/>
         </div>
       ))}
     </>

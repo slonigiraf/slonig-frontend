@@ -1,7 +1,6 @@
 // Copyright 2021-2022 @slonigiraf/app-laws authors & contributors
 // SPDX-License-Identifier: Apache-2.0
-import React, { useEffect, useState, useCallback } from 'react';
-import { IconLink, Label } from '@polkadot/react-components';
+import React, { useEffect, useState } from 'react';
 import { useApi } from '@polkadot/react-hooks';
 import { getCIDFromBytes, getIPFSDataFromContentID, parseJson } from '@slonigiraf/app-slonig-components';
 import { useIpfsContext } from '@slonigiraf/app-slonig-components';
@@ -9,10 +8,10 @@ import { useIpfsContext } from '@slonigiraf/app-slonig-components';
 interface Props {
   className?: string;
   id: string;
-  onClick: (id: string) => void;
+  isText: boolean;
 }
 
-function ItemLabel({ className = '', id, onClick }: Props): React.ReactElement<Props> {
+function ItemLabel({ className = '', id, isText = false }: Props): React.ReactElement<Props> {
   const { ipfs, isIpfsReady, ipfsInitError } = useIpfsContext();
   const { api } = useApi();
   const [cidString, setCidString] = useState<string>("");
@@ -47,17 +46,9 @@ function ItemLabel({ className = '', id, onClick }: Props): React.ReactElement<P
     }
   }
 
-  const _onClick = useCallback(
-    (): void => {
-      onClick(id);
-    },
-    [id, onClick]
-  );
-
   const textToDisplay = isFetched ? text : '...';
 
-  return typeof onClick === 'function' ?
-    <IconLink label={textToDisplay} onClick={_onClick} /> : <span>{textToDisplay}</span>;
+  return isText? <span>{textToDisplay}</span> : <a href={`/#/knowledge?id=${id}`}>{textToDisplay}</a> ;
 }
 
 export default React.memo(ItemLabel);

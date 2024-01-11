@@ -76,7 +76,7 @@ function InsuranceInfo({ className = '', insurance }: Props): React.ReactElement
                             alignItems: 'center'
                           }}
                         >
-                          <ItemLabel id={item} onClick={() => { }} />
+                          <ItemLabel id={item} />
                         </div>
                       ))}
                       {data.q != null && <ExerciseList exercises={data.q} />}
