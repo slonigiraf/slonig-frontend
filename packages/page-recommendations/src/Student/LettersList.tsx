@@ -113,7 +113,6 @@ function LettersList({ className = '', worker, currentPair }: Props): React.Reac
               id="start_date_id"
               isOutsideRange={() => false}
               numberOfMonths={1}
-            // Other props as needed
             />
             <StyledIcon icon='arrow-right'/>
             <StyledSingleDatePicker
@@ -124,10 +123,8 @@ function LettersList({ className = '', worker, currentPair }: Props): React.Reac
               id="end_date_id"
               isOutsideRange={() => false}
               numberOfMonths={1}
-            // Other props as needed
             />
           </div>
-
         </div>
         {employer !== "" && sellInfo}
         <div className='ui--row'>
