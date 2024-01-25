@@ -34,10 +34,10 @@ function LettersList({ className = '', worker, currentPair }: Props): React.Reac
     if (selectedLetters.includes(letter)) {
       // This will remove the letter if it's already selected
       setSelectedLetters(prevLetters => prevLetters.filter(item => item !== letter));
-    } else if (selectedLetters.length < 3) {
-      // This will add a new letter only if fewer than 3 are already selected
+    } else if (selectedLetters.length < MAX_SELECTED_DIPLOMAS) {
+      // This will add a new letter only if fewer than MAX_SELECTED_DIPLOMAS are already selected
       setSelectedLetters(prevLetters => [...prevLetters, letter]);
-    } else if (selectedLetters.length >= 3) {
+    } else if (selectedLetters.length >= MAX_SELECTED_DIPLOMAS) {
       showInfo(t('Maximum number of selected diplomas is:') + ' ' + MAX_SELECTED_DIPLOMAS);
     }
   };

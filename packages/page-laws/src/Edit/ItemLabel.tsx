@@ -8,7 +8,7 @@ import { useIpfsContext } from '@slonigiraf/app-slonig-components';
 interface Props {
   className?: string;
   id: string;
-  isText: boolean;
+  isText?: boolean;
 }
 
 function ItemLabel({ className = '', id, isText = false }: Props): React.ReactElement<Props> {
