@@ -7,12 +7,16 @@ import { useIpfsContext } from '@slonigiraf/app-slonig-components';
 import { useLiveQuery } from "dexie-react-hooks";
 import { db } from "../db/index.js";
 import { Letter } from "../db/Letter.js";
-import { Button } from '@polkadot/react-components';
+import { Button, styled } from '@polkadot/react-components';
 import { useTranslation } from '../translate.js';
 import { useLocation } from 'react-router-dom';
 import SignLettersUseRight from './SignLettersUseRight.js'
 import type { KeyringPair } from '@polkadot/keyring/types';
 import { useInfo } from '@slonigiraf/app-slonig-components';
+import 'react-dates/initialize';
+import { SingleDatePicker } from 'react-dates';
+import 'react-dates/lib/css/_datepicker.css';
+import moment from 'moment';
 
 interface Props {
   className?: string;
@@ -29,6 +33,12 @@ function LettersList({ className = '', worker, currentPair }: Props): React.Reac
   const queryParams = new URLSearchParams(location.search);
   const employer = queryParams.get("teacher") || "";
   const { showInfo } = useInfo();
+  const [startDate, setStartDate] = useState(null);
+  const [endDate, setEndDate] = useState(null);
+  const [startFocused, setStartFocused] = useState(false);
+  const [endFocused, setEndFocused] = useState(false);
+
+
 
   const toggleLetterSelection = (letter: Letter) => {
     if (selectedLetters.includes(letter)) {
@@ -44,13 +54,15 @@ function LettersList({ className = '', worker, currentPair }: Props): React.Reac
 
 
   const letters = useLiveQuery(
-    () => db.letters
-            .where("workerId")
-            .equals(worker)
-            .sortBy('id')
-            .then(letters => letters.reverse()),
-    [worker]
+    () => {
+      let query = db.letters.where("workerId").equals(worker);
+      if (startDate) query = query.filter(letter => new Date(letter.created) >= startDate.toDate());
+      if (endDate) query = query.filter(letter => new Date(letter.created) <= endDate.toDate());
+      return query.sortBy('id').then(letters => letters.reverse());
+    },
+    [worker, startDate, endDate]
   );
+
 
   const _selectAll = useCallback(
     () => setSelectedLetters(letters),
@@ -91,6 +103,31 @@ function LettersList({ className = '', worker, currentPair }: Props): React.Reac
     !letters ? <div></div> :
       <div>
         <h2>{t('My diplomas')}</h2>
+        <div className='ui--row'>
+          <div>
+            <StyledSingleDatePicker
+              date={startDate}
+              onDateChange={date => setStartDate(date)}
+              focused={startFocused}
+              onFocusChange={({ focused }) => setStartFocused(focused)}
+              id="start_date_id"
+              isOutsideRange={() => false}
+              numberOfMonths={1}
+            // Other props as needed
+            />
+
+            <StyledSingleDatePicker
+              date={endDate}
+              onDateChange={date => setEndDate(date)}
+              focused={endFocused}
+              onFocusChange={({ focused }) => setEndFocused(focused)}
+              id="end_date_id"
+              isOutsideRange={() => false}
+              numberOfMonths={1}
+            // Other props as needed
+            />
+          </div>
+        </div>
         {employer !== "" && sellInfo}
         <div className='ui--row'>
           {selectDeselect}
@@ -108,5 +145,6 @@ function LettersList({ className = '', worker, currentPair }: Props): React.Reac
 
   )
 }
-
+const StyledSingleDatePicker = styled(SingleDatePicker)`
+`;
 export default React.memo(LettersList)
