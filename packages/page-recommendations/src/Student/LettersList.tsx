@@ -7,7 +7,7 @@ import { useIpfsContext } from '@slonigiraf/app-slonig-components';
 import { useLiveQuery } from "dexie-react-hooks";
 import { db } from "../db/index.js";
 import { Letter } from "../db/Letter.js";
-import { Button, styled } from '@polkadot/react-components';
+import { Button, styled, Icon } from '@polkadot/react-components';
 import { useTranslation } from '../translate.js';
 import { useLocation } from 'react-router-dom';
 import SignLettersUseRight from './SignLettersUseRight.js'
@@ -115,7 +115,7 @@ function LettersList({ className = '', worker, currentPair }: Props): React.Reac
               numberOfMonths={1}
             // Other props as needed
             />
-
+            <StyledIcon icon='arrow-right'/>
             <StyledSingleDatePicker
               date={endDate}
               onDateChange={(date: Moment | null) => setEndDate(date)}
@@ -147,5 +147,8 @@ function LettersList({ className = '', worker, currentPair }: Props): React.Reac
   )
 }
 const StyledSingleDatePicker = styled(SingleDatePicker)`
+`;
+const StyledIcon = styled(Icon)`
+  margin: 0 10px; // For the icon
 `;
 export default React.memo(LettersList)
