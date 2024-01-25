@@ -16,7 +16,7 @@ import { useInfo } from '@slonigiraf/app-slonig-components';
 import 'react-dates/initialize';
 import { SingleDatePicker } from 'react-dates';
 import 'react-dates/lib/css/_datepicker.css';
-import moment from 'moment';
+import moment, { Moment } from 'moment';
 
 interface Props {
   className?: string;
@@ -33,10 +33,10 @@ function LettersList({ className = '', worker, currentPair }: Props): React.Reac
   const queryParams = new URLSearchParams(location.search);
   const employer = queryParams.get("teacher") || "";
   const { showInfo } = useInfo();
-  const [startDate, setStartDate] = useState(moment().startOf('day'));
-  const [endDate, setEndDate] = useState(moment().endOf('day'));
-  const [startFocused, setStartFocused] = useState(false);
-  const [endFocused, setEndFocused] = useState(false);
+  const [startDate, setStartDate] = useState<Moment | null>(moment().startOf('day'));
+  const [endDate, setEndDate] = useState<Moment | null>(moment().endOf('day'));
+  const [startFocused, setStartFocused] = useState<boolean>(false);
+  const [endFocused, setEndFocused] = useState<boolean>(false);
 
 
 
@@ -107,9 +107,9 @@ function LettersList({ className = '', worker, currentPair }: Props): React.Reac
           <div>
             <StyledSingleDatePicker
               date={startDate}
-              onDateChange={date => setStartDate(date)}
+              onDateChange={(date: Moment | null) => setStartDate(date)}
               focused={startFocused}
-              onFocusChange={({ focused }) => setStartFocused(focused)}
+              onFocusChange={({ focused }: { focused: boolean }) => setStartFocused(focused)}
               id="start_date_id"
               isOutsideRange={() => false}
               numberOfMonths={1}
@@ -118,15 +118,16 @@ function LettersList({ className = '', worker, currentPair }: Props): React.Reac
 
             <StyledSingleDatePicker
               date={endDate}
-              onDateChange={date => setEndDate(date)}
+              onDateChange={(date: Moment | null) => setEndDate(date)}
               focused={endFocused}
-              onFocusChange={({ focused }) => setEndFocused(focused)}
+              onFocusChange={({ focused }: { focused: boolean }) => setEndFocused(focused)}
               id="end_date_id"
               isOutsideRange={() => false}
               numberOfMonths={1}
             // Other props as needed
             />
           </div>
+
         </div>
         {employer !== "" && sellInfo}
         <div className='ui--row'>
