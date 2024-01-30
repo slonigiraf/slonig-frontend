@@ -1554,5 +1554,6 @@
   "Sign Up": "Зарегистрироваться",
   "Restore Slonig Account": "Восстановить аккаунт в Slonig",
   "weak": "слабый",
-  "strong": "сильный"
+  "strong": "сильный",
+  "Show the QR to a sender": "Покажи QR-код отправителю"
 }
