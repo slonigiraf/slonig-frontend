@@ -80,7 +80,7 @@ class ValidatingAlgorithm extends Algorithm {
 
         const provideFakeAnswer = new AlgorithmStage(
             'intermediate',
-            t('YES'),
+            t('Yes'),
             <div>
                 <b>{t('Respond to the student with a wrong answer, and ask:')} </b>
                 <em>{t('Am I right?')}</em>
@@ -90,7 +90,7 @@ class ValidatingAlgorithm extends Algorithm {
 
         const askToRepeatTaskAfterMeTheTask = new AlgorithmStage(
             'intermediate',
-            t('NO'),
+            t('No'),
             <div>
                 <b>{t('Tell the student')}: </b>
                 <em>{t('Repeat after me')}: </em>
@@ -111,7 +111,7 @@ class ValidatingAlgorithm extends Algorithm {
         // Link stages
         this.begin = new AlgorithmStage(
             'begin',
-            t('YES'),
+            t('Yes'),
             <div>
                 <b>{t('Tell the student')}: </b>
                 <em>{t('Create an exercise similar to')}: </em>
