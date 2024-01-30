@@ -54,7 +54,7 @@ function InsurancesList({ className = '', teacher, student }: Props): React.Reac
 
   return (
     <div>
-      <h2>{t(studentName + '\'s diplomas')}</h2>
+      <h2>{studentName + ', ' + t('diplomas')}:</h2>
       <div className='ui--row'>
           <div>
             <StyledSingleDatePicker

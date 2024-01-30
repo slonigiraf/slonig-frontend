@@ -31,7 +31,7 @@ class ValidatingAlgorithm extends Algorithm {
             <div>
                 <b>{t('Tell the student')}: </b>
                 <em>{t('You don\'t have such a skill. I will penalize the tutor which issued the diploma for it.')} </em>
-                <b>{`${t('And press')} "${t('Get bounty')}" ${t('button')} ${t('to receive')} ${amount?.toString()} Slon.`}</b>
+                <b>{`${t('Press \'Get bounty\' to receive')} ${amount?.toString()} Slon.`}</b>
             </div>,
             []
         );
@@ -54,7 +54,7 @@ class ValidatingAlgorithm extends Algorithm {
             t('No'),
             <div>
                 <b>{t('Tell the student')}: </b>
-                <em>{t('Repeat after me.')} </em>;
+                <em>{t('Repeat after me')}. </em>;
                 <b>{t('And then provide the correct answer.')}</b>
             </div>,
             [explainReimburse]

@@ -43,7 +43,7 @@ class TeachingAlgorithm extends Algorithm {
             t('No'),
             <div>
                 <b>{t('Tell the student')}:</b>
-                &nbsp;<em>{t('Repeat after me.')}</em>&nbsp;
+                &nbsp;<em>{t('Repeat after me')}.</em>&nbsp;
                 <b>{t('And then provide the correct answer.')}</b>
             </div>,
             [hasStudentRepeatedTheRightAnswer]
