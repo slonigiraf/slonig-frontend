@@ -69,8 +69,8 @@ function Tutor({ className = '' }: Props): React.ReactElement<Props> {
   const [teachingAlgorithm, setTeachingAlgorithm] = useState<TeachingAlgorithm | null>(null);
 
   // Initialize diploma details
-  //   stake: 572 Slon, 12 zeroes for numbers after point
-  const defaultStake: BN = new BN("572000000000000");
+  //   stake: 604 Slon, 12 zeroes for numbers after point
+  const defaultStake: BN = new BN("604000000000000");
   const [amount, setAmount] = useState<BN>(defaultStake);
   //   days
   const defaultDaysValid: number = 730;
