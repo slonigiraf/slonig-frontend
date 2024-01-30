@@ -358,7 +358,7 @@ function Tutor({ className = '' }: Props): React.ReactElement<Props> {
             <InputBalance
               help={t('Stake reputation help info')}
               isZeroable
-              label={t('stake slon')}
+              label={t('stake Slon')}
               onChange={setAmount}
               defaultValue={amount}
             />
