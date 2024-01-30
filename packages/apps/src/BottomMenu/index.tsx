@@ -14,7 +14,7 @@ function BottomMenu(): React.ReactElement {
     return (
       <MenuWrapper>
         <MenuItem><GoKnowledge /></MenuItem>
-        <MenuItem><ScanQR label={t('Scan QR')}/></MenuItem>
+        <MenuItem><ScanQR label={t('QR')}/></MenuItem>
         <MenuItem><GoDiplomas /></MenuItem>
         <MenuItem><GetSlon /></MenuItem>
       </MenuWrapper>

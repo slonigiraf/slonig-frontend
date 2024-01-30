@@ -22,7 +22,7 @@ function GetSlon(): React.ReactElement {
     <>
     <ButtonWithLabelBelow
           icon='dollar'
-          label={t('Get Slon')}
+          label={t('Slon')}
           onClick={_onClick}
         />
     {isQROpen && <>
