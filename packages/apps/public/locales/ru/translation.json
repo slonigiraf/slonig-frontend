@@ -1552,5 +1552,7 @@
   "full name": "имя фамилия",
   "Already have an account? Sign in": "Уже есть аккаунт? Войти",
   "Sign Up": "Зарегистрироваться",
-  "Restore Slonig Account": "Восстановить аккаунт в Slonig"
+  "Restore Slonig Account": "Восстановить аккаунт в Slonig",
+  "weak": "слабый",
+  "strong": "сильный"
 }
