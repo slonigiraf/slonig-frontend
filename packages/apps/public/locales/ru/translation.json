@@ -1555,5 +1555,6 @@
   "Restore Slonig Account": "Восстановить аккаунт в Slonig",
   "weak": "слабый",
   "strong": "сильный",
-  "Show the QR to a sender": "Покажи QR-код отправителю"
+  "Show the QR to a sender": "Покажи QR-код отправителю",
+  "e.g., John Doe": "Напр. Александр Сидоров"
 }
