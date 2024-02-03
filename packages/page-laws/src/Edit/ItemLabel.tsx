@@ -4,6 +4,7 @@ import React, { useEffect, useState } from 'react';
 import { useApi } from '@polkadot/react-hooks';
 import { getCIDFromBytes, getIPFSDataFromContentID, parseJson } from '@slonigiraf/app-slonig-components';
 import { useIpfsContext } from '@slonigiraf/app-slonig-components';
+import { styled } from '@polkadot/react-components';
 
 interface Props {
   className?: string;
@@ -48,7 +49,13 @@ function ItemLabel({ className = '', id, isText = false }: Props): React.ReactEl
 
   const textToDisplay = isFetched ? text : '...';
 
-  return isText? <span>{textToDisplay}</span> : <a href={`/#/knowledge?id=${id}`}>{textToDisplay}</a> ;
+  return isText? <span>{textToDisplay}</span> : <StyledA href={`/#/knowledge?id=${id}`}>{textToDisplay}</StyledA> ;
 }
+
+const StyledA = styled.a`
+   font-size: 16px;
+   margin-bottom: 10px;
+`;
+
 
 export default React.memo(ItemLabel);

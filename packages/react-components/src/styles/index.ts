@@ -496,7 +496,6 @@ export default createGlobalStyle<Props & ThemeProps>(({ theme, uiHighlight }: Pr
 
   h1 {
     font-size: var(--font-size-h1);
-    text-transform: lowercase;
 
     em {
       font-style: normal;

@@ -65,7 +65,7 @@ function ViewList({ className = '', id, currentPair }: Props): React.ReactElemen
   return (
     list == null ? <></> :
       <>
-        <h2>{list.h}</h2>
+        <h1>{list.h}</h1>
         {
           list.t !== null && list.t === 3 &&
           <>
