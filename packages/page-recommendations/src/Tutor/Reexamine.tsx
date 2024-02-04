@@ -32,22 +32,34 @@ function Reexamine({ className = '', currentPair, insurance, onResult }: Props):
 
 
   useEffect(() => {
+    let isComponentMounted = true;
+  
     async function fetchData() {
       if (isIpfsReady && insurance && insurance.cid) {
         try {
           const skillContent = await getIPFSDataFromContentID(ipfs, insurance.cid);
           const skillJson = parseJson(skillContent);
-          setSkill(skillJson);
-          const newAlgorithm = new ValidatingAlgorithm(t, skillJson, insurance);
-          setAlgorithmStage(newAlgorithm.getBegin());
-        }
-        catch (e) {
+  
+          if (isComponentMounted) {
+            setSkill(skillJson);
+            const newAlgorithm = new ValidatingAlgorithm(t, skillJson, insurance);
+            setAlgorithmStage(newAlgorithm.getBegin());
+          }
+        } catch (e) {
           console.log(e);
+          if (isComponentMounted) {
+            setAlgorithmStage(undefined);
+          }
         }
       }
     }
-    fetchData()
-  }, [ipfs, insurance])
+  
+    fetchData();
+  
+    return () => {
+      isComponentMounted = false;
+    };
+  }, [ipfs, insurance]);
 
   const handleStageChange = (nextStage: AlgorithmStage | null) => {
     if (nextStage !== null) {
