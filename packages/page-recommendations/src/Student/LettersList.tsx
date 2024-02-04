@@ -104,9 +104,25 @@ function LettersList({ className = '', worker, currentPair }: Props): React.Reac
     </div>
   );
 
-  const deleteDiplomas = (): void | Promise<void> => {
-    throw new Error('Function not implemented.');
-  }
+  const deleteDiplomas = async () => {
+    // Extract IDs of the selected letters
+    const idsToDelete = selectedLetters.map(letter => letter.id);
+    try {
+      for (const id of idsToDelete) {
+        if(id){
+          await db.letters.delete(id);
+        }
+      }
+      showInfo(t('Diplomas deleted'));
+    } catch (error) {
+      // Handle any errors that occur during the deletion process
+      console.error('Error deleting selected diplomas:', error);
+      // Optionally, show an error message to the user
+      showInfo(t('Deletion failed'));
+    } finally {
+      toggleDeleteConfirm();
+    }
+  };
 
   return (
     !letters ? <div></div> :
