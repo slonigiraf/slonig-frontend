@@ -1,5 +1,6 @@
 import { AlgorithmStage } from './AlgorithmStage.js';
 import { Algorithm } from './Algorithm.js';
+import { ExerciseList } from '@slonigiraf/app-laws';
 
 class TeachingAlgorithm extends Algorithm {
     constructor(t: any, questions: any[]) {
@@ -44,7 +45,8 @@ class TeachingAlgorithm extends Algorithm {
             <div>
                 <b>{t('Tell the student')}:</b>
                 &nbsp;<em>{t('Repeat after me')}.</em>&nbsp;
-                <b>{t('And then provide the correct answer.')}</b>
+                <b>{t('And then give the correct solution and answer to the exercise invented by the student. The tutor can peek at solution examples here:')}</b>
+                {questions != null && <ExerciseList exercises={questions} areShownInitially={true}/>}
             </div>,
             [hasStudentRepeatedTheRightAnswer]
         );

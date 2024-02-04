@@ -9,11 +9,12 @@ interface ExerciseListProps {
         h: string;
         a: string;
     }[];
+    areShownInitially?: boolean;
 }
 
-const ExerciseList: React.FC<ExerciseListProps> = ({ exercises }) => {
+const ExerciseList: React.FC<ExerciseListProps> = ({ exercises, areShownInitially = false }) => {
     // State to manage which exercises have their answers shown
-    const [shownAnswers, setShownAnswers] = useState<boolean[]>(new Array(exercises.length).fill(false));
+    const [shownAnswers, setShownAnswers] = useState<boolean[]>(new Array(exercises.length).fill(areShownInitially));
     const { t } = useTranslation();
 
     const toggleAnswer = (index: number) => {
@@ -32,13 +33,13 @@ const ExerciseList: React.FC<ExerciseListProps> = ({ exercises }) => {
                 >
                     <div className="exercise-display">
                         <div className="exercise-header">
-                            <Button 
-                                icon={shownAnswers[index]? 'eye-slash' : 'eye'}
+                            <Button
+                                icon={shownAnswers[index] ? 'eye-slash' : 'eye'}
                                 onClick={() => toggleAnswer(index)}
                                 label=''
                             />
-                            <span>&nbsp;{index+1}. {exercise.h}</span>
-                            
+                            <span>&nbsp;{index + 1}. {exercise.h}</span>
+
                         </div>
                         {shownAnswers[index] && (
                             <div className="exercise-answer">

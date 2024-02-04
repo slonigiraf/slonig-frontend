@@ -55,7 +55,7 @@ class ValidatingAlgorithm extends Algorithm {
             <div>
                 <b>{t('Tell the student')}: </b>
                 <em>{t('Repeat after me')}. </em>;
-                <b>{t('And then provide the correct answer.')}</b>
+                <b>{t('And then give the correct solution and answer to the exercise invented by the student. The tutor can peek at solution examples here:')}</b>
             </div>,
             [explainReimburse]
         );
