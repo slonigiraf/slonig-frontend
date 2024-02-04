@@ -1,8 +1,7 @@
-import { IPFSHTTPClient, CID } from 'kubo-rpc-client'
+import { IPFSHTTPClient, CID, DAGGetResult } from 'kubo-rpc-client'
 import crypto from 'crypto';
 import { getAddressName } from '@polkadot/react-components';
 import type { KeyringPair } from '@polkadot/keyring/types';
-import { keyExtractPath } from '@polkadot/util-crypto';
 import { getSetting, storeSetting } from '@slonigiraf/app-recommendations';
 
 export const getBaseUrl = () => {
@@ -18,16 +17,38 @@ const prefix = new Uint8Array([1, 113, 18, 32]);
 // A helper wrapper to get IPFS CID from a text
 export async function getIPFSContentID(ipfs: IPFSHTTPClient, content: string) {
   const cid = await ipfs.dag.put(content, { storeCodec: 'dag-cbor', hashAlg: 'sha2-256' });
+  // await ipfs.pin.add(cid);
   return cid.toString();
 }
-// A helper wrapper to get a text from IPFS CID
+// Define a generic function to add timeout capability
+function timeout<T>(ms: number, promise: Promise<T>): Promise<T> {
+  return new Promise((resolve, reject) => {
+    const timeoutId = setTimeout(() => {
+      reject(new Error(`Timeout after ${ms} ms`));
+    }, ms);
+    promise.then(
+      (res) => {
+        clearTimeout(timeoutId);
+        resolve(res);
+      },
+      (err) => {
+        clearTimeout(timeoutId);
+        reject(err);
+      }
+    );
+  });
+}
+
 export async function getIPFSDataFromContentID(ipfs: IPFSHTTPClient, cidStr: string): Promise<string | null> {
   const cid = CID.parse(cidStr);
-  await ipfs.pin.add(cid);
-  const result = await ipfs.dag.get(cid);
-  // Check if result.value is a string and return it, else return null
+  const result = await timeout<DAGGetResult>(1000, ipfs.dag.get(cid));
+  await timeout<DAGGetResult>(1000, ipfs.pin.add(cid)); // TODO: add this somewhere else
+  // Use type assertion if necessary
   if (typeof result.value === 'string') {
     return result.value;
+  } else if (result.value && typeof (result.value as any).toString === 'function') {
+    // Handle cases where result.value might be an object with a toString method
+    return (result.value as any).toString();
   }
   return null;
 }
@@ -100,7 +121,7 @@ export function nameFromKeyringPair(keyringPair: KeyringPair | null): string {
 }
 
 export function keyForCid(keyPair: KeyringPair, cid: string): KeyringPair {
-  const derivedPair = keyPair.derive('//'+cid);
+  const derivedPair = keyPair.derive('//' + cid);
   return derivedPair;
 }
 
@@ -110,7 +131,7 @@ export function base64ToArrayBuffer(base64: string): ArrayBuffer {
   const len = binary_string.length;
   const bytes = new Uint8Array(len);
   for (let i = 0; i < len; i++) {
-      bytes[i] = binary_string.charCodeAt(i);
+    bytes[i] = binary_string.charCodeAt(i);
   }
   return bytes.buffer;
 }
@@ -120,7 +141,7 @@ export function arrayBufferToBase64(buffer: ArrayBuffer): string {
   const bytes = new Uint8Array(buffer);
   const len = bytes.byteLength;
   for (let i = 0; i < len; i++) {
-      binary += String.fromCharCode(bytes[i]);
+    binary += String.fromCharCode(bytes[i]);
   }
   return window.btoa(binary);
 }

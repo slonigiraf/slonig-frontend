@@ -46,9 +46,9 @@ function Reexamine({ className = '', currentPair, insurance, onResult }: Props):
             setAlgorithmStage(newAlgorithm.getBegin());
           }
         } catch (e) {
-          console.log(e);
           if (isComponentMounted) {
             setAlgorithmStage(undefined);
+            onResult();
           }
         }
       }
