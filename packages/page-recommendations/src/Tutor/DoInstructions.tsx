@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Algorithm } from './Algorithm.js';
 import { AlgorithmStage } from './AlgorithmStage.js';
 import { Button } from '@polkadot/react-components';
+import { useTranslation } from '../translate.js';
 
 interface Props {
   className?: string;
@@ -11,6 +12,7 @@ interface Props {
 
 function DoInstructions({ className = '', algorithm, onResult }: Props): React.ReactElement<Props> {
   const [algorithmStage, setAlgorithmStage] = useState<AlgorithmStage | null>(null);
+  const { t } = useTranslation();
 
   // Effect to initialize or update the algorithmStage based on the algorithm prop
   useEffect(() => {
@@ -42,7 +44,7 @@ function DoInstructions({ className = '', algorithm, onResult }: Props): React.R
             {algorithmStage.getPrevious() && (
               <Button onClick={() => handleStageChange(algorithmStage.getPrevious())}
                       icon='arrow-left'
-                      label='Back' />
+                      label={t('Back')} />
             )}
             {algorithmStage.getNext().map((nextStage, index) => (
               <Button key={index} onClick={() => handleStageChange(nextStage)}

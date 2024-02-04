@@ -128,7 +128,7 @@ function Tutor({ className = '' }: Props): React.ReactElement<Props> {
           const skillContent = await getIPFSDataFromContentID(ipfs, skillCID);
           const skillJson = parseJson(skillContent);
           setSkill(skillJson);
-          setTeachingAlgorithm(new TeachingAlgorithm(t, skillJson ? skillJson.q : []));
+          setTeachingAlgorithm(new TeachingAlgorithm(t, studentName, skillJson));
         }
         catch (e) {
           console.log(e);
@@ -136,7 +136,7 @@ function Tutor({ className = '' }: Props): React.ReactElement<Props> {
       }
     }
     fetchData()
-  }, [ipfs, skillCID])
+  }, [ipfs, skillCID, studentName])
 
   // Fetch student name
   useEffect(() => {
@@ -319,15 +319,10 @@ function Tutor({ className = '' }: Props): React.ReactElement<Props> {
   </>;
 
   const reexamAndDiplomaIssuing = <>
-    <div>
-      <h2>{t('Student')}: {studentName}</h2>
-    </div>
     <div style={!reexamined ? {} : { display: 'none' }}>
       {currentPair && <Reexamine currentPair={currentPair} insurance={insurance} onResult={updateReexamined} key={countOfUrlReloads} />}
     </div>
     <div style={reexamined ? {} : { display: 'none' }}>
-      <b>{t('Teach and create a diploma')}: </b>
-      <b>"{skill ? skill.h : ''}"</b>
       <DoInstructions algorithm={teachingAlgorithm} onResult={updateTutoring} key={countOfUrlReloads} />
     </div>
     {

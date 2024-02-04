@@ -1519,7 +1519,7 @@
   "warranty": "гарантия",
   "days valid": "дней действительно",
   "Press the link to add the diploma": "Нажми на ссылку, чтобы добавить диплом",
-  "Teach and create a diploma": "Научи и создай диплом",
+  "Teach me the skill": "Научи меня навыку",
   "Stake Slon help info": "Справочная информация по поручительству в Slon",
   "stake Slon": "поручиться Slon",
   "Days valid info": "Информация о количестве действительных дней",
@@ -1560,5 +1560,6 @@
   "e.g., John Doe": "Напр. Александр Сидоров",
   "Are you sure you want to delete the selected diplomas forever?": "Вы уверены, что хотите навсегда удалить выбранные дипломы?",
   "Diplomas deleted": "Дипломы удалены",
-  "Deletion failed": "Удаление не удалось"
+  "Deletion failed": "Удаление не удалось",
+  "Back": "Назад"
 }

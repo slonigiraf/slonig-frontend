@@ -1,10 +1,12 @@
 import { AlgorithmStage } from './AlgorithmStage.js';
 import { Algorithm } from './Algorithm.js';
 import { ExerciseList } from '@slonigiraf/app-laws';
+import WhatsAppChat from './WhatsAppChat.js';
 
 class TeachingAlgorithm extends Algorithm {
-    constructor(t: any, questions: any[]) {
+    constructor(t: any, studentName: string, skillJson: any) {
         super();
+        const questions = skillJson ? skillJson.q : [];
         let question1: string = questions.length > 0 ? questions[0].h : t('SOME TASK FOR SKILL TRAINING (THE TUTOR SHOULD KNOW)');
         let question2: string = questions.length > 1 ? questions[1].h : question1;
 
@@ -46,7 +48,7 @@ class TeachingAlgorithm extends Algorithm {
                 <b>{t('Tell the student')}:</b>
                 &nbsp;<em>{t('Repeat after me')}.</em>&nbsp;
                 <b>{t('And then give the correct solution and answer to the exercise invented by the student. The tutor can peek at solution examples here:')}</b>
-                {questions != null && <ExerciseList exercises={questions} areShownInitially={true}/>}
+                {questions != null && <ExerciseList exercises={questions} areShownInitially={true} />}
             </div>,
             [hasStudentRepeatedTheRightAnswer]
         );
@@ -108,14 +110,17 @@ class TeachingAlgorithm extends Algorithm {
             [provideFakeAnswer, askToRepeatTaskAfterMeTheTask]
         );
 
+
+
         // Link stages
         this.begin = new AlgorithmStage(
             'begin',
             t('Yes'),
             <div>
-                <b>{t('Tell the student')}:</b>
-                <em>&nbsp;{t('Come up with an exercise similar to what I am going to say now. For example')}:</em>
-                <em>&nbsp;{question1}</em>
+                <WhatsAppChat messages={[
+            { id: 1, text: t('Teach me the skill')+(skillJson && ": \"" + skillJson.h + "\""), sender: 'them', senderName: studentName },
+            { id: 2, text: t('Come up with an exercise similar to what I am going to say now. For example')+" \""+question1+"\"", sender: 'you', senderName: 'You' },
+          ]} />
             </div>,
             [didStudentCreatedASimilarTask]
         );

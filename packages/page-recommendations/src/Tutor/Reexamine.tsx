@@ -88,7 +88,7 @@ function Reexamine({ className = '', currentPair, insurance, onResult }: Props):
               {algorithmStage.getPrevious() && (
                 <Button onClick={() => handleStageChange(algorithmStage.getPrevious())}
                   icon='arrow-left'
-                  label='Back'
+                  label={t('Back')}
                   isDisabled={isButtonClicked}
                 />
               )}
