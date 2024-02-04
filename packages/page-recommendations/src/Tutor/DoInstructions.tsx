@@ -1,7 +1,4 @@
-// Copyright 2021-2022 @slonigiraf/app-recommendations authors & contributors
-// SPDX-License-Identifier: Apache-2.0
-
-import React, { useState, useRef } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Algorithm } from './Algorithm.js';
 import { AlgorithmStage } from './AlgorithmStage.js';
 import { Button } from '@polkadot/react-components';
@@ -12,37 +9,46 @@ interface Props {
   onResult: (stage: string) => void;
 }
 
-function DoInstructions({ className = '', algorithm, onResult: onResult }: Props): React.ReactElement<Props> {
-  if (algorithm === null) {
-    return <></>
-  }
-  const [algorithmStage, setAlgorithmStage] = useState<AlgorithmStage>(algorithm.getBegin());
+function DoInstructions({ className = '', algorithm, onResult }: Props): React.ReactElement<Props> {
+  const [algorithmStage, setAlgorithmStage] = useState<AlgorithmStage | null>(null);
 
-  const handleStageChange = (nextStage) => {
-    setAlgorithmStage(nextStage);
-    onResult(nextStage.type);
+  // Effect to initialize or update the algorithmStage based on the algorithm prop
+  useEffect(() => {
+    if (algorithm) {
+      setAlgorithmStage(algorithm.getBegin());
+    } else {
+      setAlgorithmStage(null); // Ensure we reset to null if algorithm is not available
+    }
+  }, [algorithm]);
+
+  // Handles stage changes, ensuring we always work with the latest state and non-null values
+  const handleStageChange = (nextStage: AlgorithmStage | null) => {
+    if (nextStage) { // Check for non-null value before proceeding
+      setAlgorithmStage(nextStage);
+      onResult(nextStage.type);
+    }
   };
 
-  
+  if (!algorithm) {
+    return <></>;
+  }
+
   return (
-    <div>
+    <div className={className}>
       {algorithmStage ? (
         <div>
           <div>{algorithmStage.getWords()}</div>
           <div>
             {algorithmStage.getPrevious() && (
               <Button onClick={() => handleStageChange(algorithmStage.getPrevious())}
-                icon='arrow-left'
-                label='Back'
-              />
+                      icon='arrow-left'
+                      label='Back' />
             )}
             {algorithmStage.getNext().map((nextStage, index) => (
               <Button key={index} onClick={() => handleStageChange(nextStage)}
-                icon='fa-square'
-                label={nextStage.getName()}
-              />
+                      icon='square'
+                      label={nextStage.getName()} />
             ))}
-
           </div>
         </div>
       ) : (
@@ -52,4 +58,4 @@ function DoInstructions({ className = '', algorithm, onResult: onResult }: Props
   );
 }
 
-export default React.memo(DoInstructions)
+export default React.memo(DoInstructions);
