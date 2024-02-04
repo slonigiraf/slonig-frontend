@@ -114,7 +114,7 @@ class ValidatingAlgorithm extends Algorithm {
             t('Yes'),
             <div>
                 <b>{t('Tell the student')}: </b>
-                <em>{t('Create an exercise similar to')}: </em>
+                <em>{t('Come up with an exercise similar to what I am going to say now. For example')}: </em>
                 <em>{question1}</em>
             </div>,
             [didStudentCreatedASimilarTask]

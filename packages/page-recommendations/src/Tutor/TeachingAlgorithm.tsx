@@ -112,7 +112,7 @@ class TeachingAlgorithm extends Algorithm {
             t('Yes'),
             <div>
                 <b>{t('Tell the student')}:</b>
-                <em>&nbsp;{t('Create an exercise similar to')}:</em>
+                <em>&nbsp;{t('Come up with an exercise similar to what I am going to say now. For example')}:</em>
                 <em>&nbsp;{question1}</em>
             </div>,
             [didStudentCreatedASimilarTask]
