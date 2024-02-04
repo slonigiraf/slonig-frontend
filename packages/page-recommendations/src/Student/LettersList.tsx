@@ -17,6 +17,8 @@ import 'react-dates/initialize';
 import { SingleDatePicker } from 'react-dates';
 import 'react-dates/lib/css/_datepicker.css';
 import moment, { Moment } from 'moment';
+import { useToggle } from '@polkadot/react-hooks';
+import { Modal } from '@polkadot/react-components';
 
 interface Props {
   className?: string;
@@ -37,8 +39,7 @@ function LettersList({ className = '', worker, currentPair }: Props): React.Reac
   const [endDate, setEndDate] = useState<Moment | null>(moment().endOf('day'));
   const [startFocused, setStartFocused] = useState<boolean>(false);
   const [endFocused, setEndFocused] = useState<boolean>(false);
-
-
+  const [isDeleteConfirmOpen, toggleDeleteConfirm] = useToggle();
 
   const toggleLetterSelection = (letter: Letter) => {
     if (selectedLetters.includes(letter)) {
@@ -75,20 +76,24 @@ function LettersList({ className = '', worker, currentPair }: Props): React.Reac
   );
 
   const selectionButton = <Button
-    icon={'fa-square'}
+    icon={'square'}
     label={t('Select all')}
     onClick={_selectAll}
   />;
 
   const deselectionButton = <Button
-    icon={'fa-check'}
+    icon={'check'}
     label={t('Deselect all')}
     onClick={_deselectAll}
   />;
 
+  const deleteSelectedButton = <Button
+    icon={'trash'}
+    label={t('Delete')}
+    onClick={toggleDeleteConfirm}
+  />;
+
   const selectDeselect = (selectedLetters.length === 0) ? selectionButton : deselectionButton;
-
-
 
   const sellInfo = (
     <div style={{ display: 'flex', alignItems: 'center' }}>
@@ -98,6 +103,10 @@ function LettersList({ className = '', worker, currentPair }: Props): React.Reac
       <SignLettersUseRight letters={selectedLetters} worker={worker} employer={employer} currentPair={currentPair} />
     </div>
   );
+
+  const deleteDiplomas = (): void | Promise<void> => {
+    throw new Error('Function not implemented.');
+  }
 
   return (
     !letters ? <div></div> :
@@ -114,7 +123,7 @@ function LettersList({ className = '', worker, currentPair }: Props): React.Reac
               isOutsideRange={() => false}
               numberOfMonths={1}
             />
-            <StyledIcon icon='arrow-right'/>
+            <StyledIcon icon='arrow-right' />
             <StyledSingleDatePicker
               date={endDate}
               onDateChange={(date: Moment | null) => setEndDate(date)}
@@ -129,6 +138,7 @@ function LettersList({ className = '', worker, currentPair }: Props): React.Reac
         {employer !== "" && sellInfo}
         <div className='ui--row'>
           {selectDeselect}
+          {employer == "" && (selectedLetters.length > 0) && deleteSelectedButton}
         </div>
         {letters.map((letter, index) => (
           <div key={index} className='ui--row'>
@@ -139,13 +149,54 @@ function LettersList({ className = '', worker, currentPair }: Props): React.Reac
               onToggleSelection={toggleLetterSelection} />
           </div>
         ))}
-      </div>
+        {isDeleteConfirmOpen && <>
+          <StyledModal
+            header={t('Are you sure you want to delete the selected diplomas forever?')}
+            onClose={toggleDeleteConfirm}
+            size='small'
+          >
+            <Modal.Content>
+              <StyledDiv>
+                <Button
+                  icon={'check'}
+                  label={t('Yes')}
+                  onClick={deleteDiplomas}
+                />
+                <Button
+                  icon={'close'}
+                  label={t('No')}
+                  onClick={toggleDeleteConfirm}
+                />
+              </StyledDiv>
 
+            </Modal.Content>
+          </StyledModal>
+        </>}
+      </div>
   )
 }
 const StyledSingleDatePicker = styled(SingleDatePicker)`
 `;
 const StyledIcon = styled(Icon)`
   margin: 0 10px; // For the icon
+`;
+const StyledDiv = styled.div`
+  width: 100%;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  column-gap: 40px;
+`;
+const StyledModal = styled(Modal)`
+button[data-testid="close-modal"] {
+  opacity: 0;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+}
+
+button[data-testid="close-modal"]:focus {
+  outline: none;
+}
 `;
 export default React.memo(LettersList)

@@ -1473,6 +1473,7 @@
   "Teacher": "Учитель",
   "My diplomas": "Мои дипломы",
   "Select all": "Выбрать все",
+  "Delete": "Удалить",
   "Show to a student to begin tutoring": "Покажи ученику, чтобы начать его учить",
   "Show to a student to see their results": "Покажи ученику, чтобы увидеть его результаты",
   "Text": "Текст",
@@ -1507,7 +1508,7 @@
   "loading": "загрузка",
   "Diploma": "Диплом",
   "Maximum number of selected diplomas is:": "Максимальное количество выбираемых дипломов:",
-  "Deselect all": "Убрать выделение со всего",
+  "Deselect all": "Отменить выбор",
   "Select diplomas and send them": "Выбери дипломы и отправь их",
   "Press the link to see diplomas of the student": "Нажми на ссылку, чтобы увидеть дипломы студента",
   "Get bounty": "Получить бонус",
@@ -1556,5 +1557,6 @@
   "weak": "слабый",
   "strong": "сильный",
   "Show the QR to a sender": "Покажи QR-код отправителю",
-  "e.g., John Doe": "Напр. Александр Сидоров"
+  "e.g., John Doe": "Напр. Александр Сидоров",
+  "Are you sure you want to delete the selected diplomas forever?": "Вы уверены, что хотите навсегда удалить выбранные дипломы?"
 }
