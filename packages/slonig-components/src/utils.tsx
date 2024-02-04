@@ -23,6 +23,7 @@ export async function getIPFSContentID(ipfs: IPFSHTTPClient, content: string) {
 // A helper wrapper to get a text from IPFS CID
 export async function getIPFSDataFromContentID(ipfs: IPFSHTTPClient, cidStr: string): Promise<string | null> {
   const cid = CID.parse(cidStr);
+  await ipfs.pin.add(cid);
   const result = await ipfs.dag.get(cid);
   // Check if result.value is a string and return it, else return null
   if (typeof result.value === 'string') {
