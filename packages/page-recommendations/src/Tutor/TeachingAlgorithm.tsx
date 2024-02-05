@@ -66,6 +66,10 @@ class TeachingAlgorithm extends Algorithm {
             'intermediate',
             t('I\'ve said it now'),
             <div>
+                <ChatSimulation messages={[
+                    { id: 1, text: t('Am I right?'), sender: 'you', senderName: 'You' },
+                    { id: 2, text: t('...'), sender: 'them', senderName: studentName },
+                ]} />
                 <b>{t('Has the student corrected the wrong answer?')}</b>
             </div>,
             [wereTheStudentTasksAndAnswersPerfectToday, askStudentToRepeatTheAnswer]
@@ -85,9 +89,9 @@ class TeachingAlgorithm extends Algorithm {
             t('Yes'),
             <div>
                 <ChatSimulation messages={[
-                    { id: 1, text: t('...'), sender: 'them', senderName: studentName },
-                    { id: 2, text: t('Respond to the student with a wrong answer'), sender: 'you', senderName: 'You' },
-                    { id: 2, text: t('Am I right?'), sender: 'you', senderName: 'You' },
+                    { id: 1, text: t('...'), sender: 'them', senderName: studentName, comment: t('An exercise created by a student.') },
+                    { id: 2, text: t('...'), sender: 'you', senderName: 'You', comment: t('Do the exercise invented by the student incorrectly and ask:') },
+                    { id: 3, text: t('Am I right?'), sender: 'you', senderName: 'You' },
                 ]} />
             </div>,
             [hasStudentCorrectedTheFakeAnswer]
@@ -98,7 +102,7 @@ class TeachingAlgorithm extends Algorithm {
             t('No'),
             <div>
                 <ChatSimulation messages={[
-                    { id: 1, text: "...", sender: 'them', senderName: studentName },
+                    { id: 1, text: '...', sender: 'them', senderName: studentName },
                     { id: 2, text: t('Repeat after me') + ": \"" + question2 + "\"", sender: 'you', senderName: 'You' },
                 ]} />
             </div>,
@@ -111,7 +115,7 @@ class TeachingAlgorithm extends Algorithm {
             <div>
                 <ChatSimulation messages={[
                     { id: 1, text: t('Come up with an exercise similar to what I am going to say now. For example') + " \"" + question1 + "\"", sender: 'you', senderName: 'You' },
-                    { id: 2, text: "...", sender: 'them', senderName: studentName },
+                    { id: 2, text: '...', sender: 'them', senderName: studentName },
                 ]} />
                 <b>{t('Has the student now created a similar exercise?')}</b>
             </div>,
@@ -127,7 +131,7 @@ class TeachingAlgorithm extends Algorithm {
             <div>
                 <ChatSimulation messages={[
                     { id: 1, text: t('Teach me the skill') + (skillJson && ": \"" + skillJson.h + "\""), sender: 'them', senderName: studentName },
-                    { id: 2, text: t('Come up with an exercise similar to what I am going to say now. For example') + " \"" + question1 + "\"", sender: 'you', senderName: 'You' },
+                    { id: 2, text: t('Come up with an exercise similar to what I am going to say now. For example') + " \"" + question1 + "\"", sender: 'you', senderName: 'You', comment: t('Say it in your own words, the exercise can be changed a little.') },
                 ]} />
             </div>,
             [didStudentCreatedASimilarTask]

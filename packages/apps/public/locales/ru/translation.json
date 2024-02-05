@@ -1541,7 +1541,7 @@
   "Were all of the student's exercises and answers perfect today?": "Все ли упражнения и ответы ученика сегодня были идеальными?",
   "Has the student corrected the wrong answer?": "Исправил ли ученик неправильный ответ?",
   "Did the student repeat correctly after me?": "Правильно ли ученик повторил за мной?",
-  "Respond to the student with a wrong answer": "Ответь ученику специально неправильно и спроси:",
+  "Do the exercise invented by the student incorrectly and ask:": "Неверно выполни упражнение, придуманное учеником и спроси:",
   "Am I right?": "Я прав(а)?",
   "Tell the student:": "Скажи ученику:",
   "Has the student now created a similar exercise?": "Придумал ли ученик сейчас похожее упражнение?",
@@ -1561,5 +1561,7 @@
   "Are you sure you want to delete the selected diplomas forever?": "Вы уверены, что хотите навсегда удалить выбранные дипломы?",
   "Diplomas deleted": "Дипломы удалены",
   "Deletion failed": "Удаление не удалось",
-  "Back": "Назад"
+  "Back": "Назад",
+  "Say it in your own words, the exercise can be changed a little.": "Скажите это своими словами, упражнение можно чуть-чуть менять.",
+  "An exercise created by a student.": "Упражнение, которое придумал ученик."
 }
