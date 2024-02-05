@@ -323,7 +323,7 @@ function Tutor({ className = '' }: Props): React.ReactElement<Props> {
 
   const reexamAndDiplomaIssuing = <>
     <div style={!reexamined ? {} : { display: 'none' }}>
-      {currentPair && <Reexamine currentPair={currentPair} insurance={insurance} onResult={updateReexamined} key={countOfUrlReloads} />}
+      {currentPair && <Reexamine currentPair={currentPair} insurance={insurance} onResult={updateReexamined} key={countOfUrlReloads} studentName={studentNameFromUrl}/>}
     </div>
     <div style={reexamined ? {} : { display: 'none' }}>
       <DoInstructions algorithm={teachingAlgorithm} onResult={updateTutoring} key={countOfUrlReloads} />

@@ -13,15 +13,17 @@ import { getIPFSDataFromContentID, parseJson, useInfo } from '@slonigiraf/app-sl
 import type { KeyringPair } from '@polkadot/keyring/types';
 import { useApi } from '@polkadot/react-hooks';
 import { getBounty } from "../getBounty.js";
+import { styled } from '@polkadot/react-components';
 
 interface Props {
   className?: string;
   currentPair: KeyringPair;
   insurance: Insurance | null;
   onResult: () => void;
+  studentName: string|null;
 }
 
-function Reexamine({ className = '', currentPair, insurance, onResult }: Props): React.ReactElement<Props> {
+function Reexamine({ className = '', currentPair, insurance, onResult, studentName }: Props): React.ReactElement<Props> {
   const { api } = useApi();
   const { ipfs, isIpfsReady } = useIpfsContext();
   const [skill, setSkill] = useState<Skill>();
@@ -33,16 +35,16 @@ function Reexamine({ className = '', currentPair, insurance, onResult }: Props):
 
   useEffect(() => {
     let isComponentMounted = true;
-  
+
     async function fetchData() {
       if (isIpfsReady && insurance && insurance.cid) {
         try {
           const skillContent = await getIPFSDataFromContentID(ipfs, insurance.cid);
           const skillJson = parseJson(skillContent);
-  
+
           if (isComponentMounted) {
             setSkill(skillJson);
-            const newAlgorithm = new ValidatingAlgorithm(t, skillJson, insurance);
+            const newAlgorithm = new ValidatingAlgorithm(t, studentName, skillJson, insurance);
             setAlgorithmStage(newAlgorithm.getBegin());
           }
         } catch (e) {
@@ -53,9 +55,9 @@ function Reexamine({ className = '', currentPair, insurance, onResult }: Props):
         }
       }
     }
-  
+
     fetchData();
-  
+
     return () => {
       isComponentMounted = false;
     };
@@ -75,16 +77,17 @@ function Reexamine({ className = '', currentPair, insurance, onResult }: Props):
     }
   };
 
+  if (!skill) {
+    return <></>;
+  }
+
   return (
-    !skill ? <></> :
-      <div>
-        <div className='ui--row'>
-          <b>{t('Reexamine the skill that student know')}: "{skill ? skill.h : ''}"</b>
-        </div>
-        {algorithmStage ? (
-          <div>
-            <div>{algorithmStage.getWords()}</div>
-            <div>
+    <div className={className}>
+      {algorithmStage ? (
+        <InstructionsContainer>
+          <DialogExample>{algorithmStage.getWords()}</DialogExample>
+          <ButtonsContainer>
+            <ButtonsGroup>
               {algorithmStage.getPrevious() && (
                 <Button onClick={() => handleStageChange(algorithmStage.getPrevious())}
                   icon='arrow-left'
@@ -99,14 +102,41 @@ function Reexamine({ className = '', currentPair, insurance, onResult }: Props):
                   isDisabled={isButtonClicked}
                 />
               ))}
-
-            </div>
-          </div>
-        ) : (
-          <div>Error: Reload the page</div>
-        )}
-      </div>
+            </ButtonsGroup>
+          </ButtonsContainer>
+        </InstructionsContainer>
+      ) : (
+        <div>Error: Reload the page</div>
+      )}
+    </div>
   );
 }
+
+// Styled components
+const InstructionsContainer = styled.div`
+  width: 100%;
+`;
+
+const ButtonsContainer = styled.div`
+  display: flex;
+  align-items: center;
+  width: 100%;
+  margin: 0 auto;
+`;
+const ButtonsGroup = styled.div`
+  display: flex;
+  align-items: center;
+  max-width: 400px;
+  margin: 0 auto;
+`;
+const DialogExample = styled.div`
+  display: flex;
+  align-items: center;
+  width: 100%;
+  margin: 0 auto;
+  @media (min-width: 768px) {
+    width: 900px;
+  }
+`;
 
 export default React.memo(Reexamine)

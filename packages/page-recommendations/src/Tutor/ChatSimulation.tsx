@@ -5,7 +5,7 @@ interface IMessage {
     id: number;
     text: string;
     sender: 'you' | 'them';
-    senderName: string;
+    senderName: string|null;
     comment?: string; // Optional comment property
 }
 
@@ -54,12 +54,15 @@ const SenderName = styled.div`
   text-overflow: ellipsis;
 `;
 
-const Comment = styled.div`
+const Comment = styled.div<{ sender: 'you' | 'them' }>`
   font-size: 12px; // Smaller font size for the comment
   color: #707070; // Dim color for the comment
   padding: 4px 20px; // Consistent padding with the message bubble
   text-align: ${props => props.sender === 'you' ? 'right' : 'left'};
   max-width: 80%;
+`;
+const Red = styled.span`
+  color: red;
 `;
 
 const ChatSimulation: React.FC<WhatsAppChatProps> = ({ messages }) => {
@@ -70,9 +73,9 @@ const ChatSimulation: React.FC<WhatsAppChatProps> = ({ messages }) => {
             <Bubble sender={message.sender}>
               {message.sender !== 'you' && <SenderName>{message.senderName}</SenderName>}
               {message.text}
-              {message.comment && ' *'}
+              {message.comment && <Red>&nbsp;*</Red>}
             </Bubble>
-            {message.comment && <Comment sender={message.sender}>*&nbsp;{message.comment}</Comment>}
+            {message.comment && <Comment sender={message.sender}><Red>*&nbsp;</Red>{message.comment}</Comment>}
           </MessageContainer>
         ))}
       </ChatContainer>
