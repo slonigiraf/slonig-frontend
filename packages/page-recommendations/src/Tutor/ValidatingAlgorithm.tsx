@@ -149,8 +149,21 @@ class ValidatingAlgorithm extends Algorithm {
             [didStudentCreatedASimilarTask]
         );
 
+        const repeatFromTheBeginning = new AlgorithmStage(
+            'begin',
+            t('Yes'),
+            <StyledDiv>
+                <ChatSimulation messages={[
+                    { id: 1, text: t('...'), sender: 'them', senderName: studentName, comment: t('The student has repeated correctly after me.') },
+                    { id: 2, text: t('Come up with an exercise similar to what I am going to say now.'), sender: 'you', senderName: 'You' },
+                    { id: 3, text: question1, sender: 'you', senderName: 'You', comment: t('I say this in my own words. I can change the exercise a little.') },
+                ]} />
+            </StyledDiv>,
+            [didStudentCreatedASimilarTask]
+        );
+
         // Rest of the linking
-        didStudentRepeatedAfterMeTheTask.setNext([this.begin, askToRepeatTaskAfterMeTheTask]);
+        didStudentRepeatedAfterMeTheTask.setNext([repeatFromTheBeginning, askToRepeatTaskAfterMeTheTask]);
         didStudentCreatedASimilarTask.setPrevious(this.begin);
         askToRepeatTaskAfterMeTheTask.setPrevious(didStudentCreatedASimilarTask);
         askStudentToRepeatTheAnswer.setPrevious(hasStudentCorrectedTheFakeAnswer);
