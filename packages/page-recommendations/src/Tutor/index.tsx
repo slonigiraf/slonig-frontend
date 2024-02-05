@@ -128,7 +128,7 @@ function Tutor({ className = '' }: Props): React.ReactElement<Props> {
           const skillContent = await getIPFSDataFromContentID(ipfs, skillCID);
           const skillJson = parseJson(skillContent);
           setSkill(skillJson);
-          setTeachingAlgorithm(new TeachingAlgorithm(t, studentName, skillJson));
+          setTeachingAlgorithm(new TeachingAlgorithm(t, studentNameFromUrl, skillJson));
         }
         catch (e) {
           console.log(e);
@@ -136,7 +136,7 @@ function Tutor({ className = '' }: Props): React.ReactElement<Props> {
       }
     }
     fetchData()
-  }, [ipfs, skillCID, studentName])
+  }, [ipfs, skillCID, studentNameFromUrl])
 
   // Fetch student name
   useEffect(() => {

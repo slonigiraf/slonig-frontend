@@ -4,7 +4,7 @@ import { ExerciseList } from '@slonigiraf/app-laws';
 import ChatSimulation from './ChatSimulation.js';
 
 class TeachingAlgorithm extends Algorithm {
-    constructor(t: any, studentName: string, skillJson: any) {
+    constructor(t: any, studentName: string|null, skillJson: any) {
         super();
         const questions = skillJson ? skillJson.q : [];
         let question1: string = questions.length > 0 ? questions[0].h : t('SOME TASK FOR SKILL TRAINING (THE TUTOR SHOULD KNOW)');
