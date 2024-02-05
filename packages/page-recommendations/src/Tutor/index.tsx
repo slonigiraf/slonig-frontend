@@ -282,41 +282,44 @@ function Tutor({ className = '' }: Props): React.ReactElement<Props> {
 
   const diplomaSlon = new BN(amount).div(new BN("1000000000000"));
 
-  const diplomaView = <>
-    <div>
-      <h2>{t('Show the QR to your student')}</h2>
-    </div>
-    <br />
-    <DiplomaDiv>
-      <Card>
-        <div className="table">
-          <div className="row">
-            <div className="cell"><Icon icon='graduation-cap' /></div>
-            <div className="cell">{skill ? skill.h : ''}</div>
+  const diplomaView = <FullWidthContainer>
+    <CenterItemsContainer>
+      <div>
+        <h2>{t('Show the QR to your student')}</h2>
+      </div>
+      <br />
+      <DiplomaDiv>
+        <Card>
+          <div className="table">
+            <div className="row">
+              <div className="cell"><Icon icon='graduation-cap' /></div>
+              <div className="cell">{skill ? skill.h : ''}</div>
+            </div>
+            <div className="row">
+              <div className="cell"><Icon icon='user' /></div>
+              <div className="cell">{studentName}</div>
+            </div>
+            <div className="row">
+              <div className="cell"><Icon icon='shield' /></div>
+              <div className="cell">{diplomaSlon.toString()} Slon {t('warranty')}</div>
+            </div>
+            <div className="row">
+              <div className="cell"><Icon icon='clock-rotate-left' /></div>
+              <div className="cell">{daysValid.toString()} {t('days valid')}</div>
+            </div>
           </div>
-          <div className="row">
-            <div className="cell"><Icon icon='user' /></div>
-            <div className="cell">{studentName}</div>
-          </div>
-          <div className="row">
-            <div className="cell"><Icon icon='shield' /></div>
-            <div className="cell">{diplomaSlon.toString()} Slon {t('warranty')}</div>
-          </div>
-          <div className="row">
-            <div className="cell"><Icon icon='clock-rotate-left' /></div>
-            <div className="cell">{daysValid.toString()} {t('days valid')}</div>
-          </div>
-        </div>
-        <QRWithShareAndCopy
-          dataQR={diplomaText}
-          titleShare={t('QR code')}
-          textShare={t('Press the link to add the diploma')}
-          urlShare={diplomaAddUrl}
-          dataCopy={diplomaAddUrl} />
-      </Card>
-    </DiplomaDiv>
-
-  </>;
+          <CenterQRContainer>
+            <QRWithShareAndCopy
+              dataQR={diplomaText}
+              titleShare={t('QR code')}
+              textShare={t('Press the link to add the diploma')}
+              urlShare={diplomaAddUrl}
+              dataCopy={diplomaAddUrl} />
+          </CenterQRContainer>
+        </Card>
+      </DiplomaDiv>
+    </CenterItemsContainer>
+  </FullWidthContainer>;
 
   const reexamAndDiplomaIssuing = <>
     <div style={!reexamined ? {} : { display: 'none' }}>
@@ -327,57 +330,59 @@ function Tutor({ className = '' }: Props): React.ReactElement<Props> {
     </div>
     {
       canIssueDiploma &&
-      <StyledDiv>
-        <Card>
-          <div className='ui--row'>
-            <h2>{t('Diploma')}</h2>
-          </div>
-          <table>
-            <tbody>
-              <tr>
-                <td><Icon icon='graduation-cap' /></td>
-                <td>{skill ? skill.h : ''}</td>
-              </tr>
-              <tr>
-                <td><Icon icon='person' /></td>
-                <td>{studentName}</td>
-              </tr>
-            </tbody>
-          </table>
-          <Toggle
-            label={t('details')}
-            onChange={toggleVisibleDiplomaDetails}
-            value={visibleDiplomaDetails}
-          />
-          <div className='ui--row' style={visibleDiplomaDetails ? {} : { display: 'none' }}>
-            <InputBalance
-              help={t('Stake reputation help info')}
-              isZeroable
-              label={t('stake Slon')}
-              onChange={setAmount}
-              defaultValue={amount}
+      <FullWidthContainer>
+        <CenterItemsContainer>
+          <Card>
+            <div className='ui--row'>
+              <h2>{t('Diploma')}</h2>
+            </div>
+            <table>
+              <tbody>
+                <tr>
+                  <td><Icon icon='graduation-cap' /></td>
+                  <td>{skill ? skill.h : ''}</td>
+                </tr>
+                <tr>
+                  <td><Icon icon='person' /></td>
+                  <td>{studentName}</td>
+                </tr>
+              </tbody>
+            </table>
+            <Toggle
+              label={t('details')}
+              onChange={toggleVisibleDiplomaDetails}
+              value={visibleDiplomaDetails}
             />
-          </div>
-          <div className='ui--row' style={visibleDiplomaDetails ? {} : { display: 'none' }}>
-            <Input
-              className='full'
-              help={t('Days valid info')}
-              label={t('days valid')}
-              onChange={_onChangeDaysValid}
-              value={daysValid.toString()}
+            <div className='ui--row' style={visibleDiplomaDetails ? {} : { display: 'none' }}>
+              <InputBalance
+                help={t('Stake reputation help info')}
+                isZeroable
+                label={t('stake Slon')}
+                onChange={setAmount}
+                defaultValue={amount}
+              />
+            </div>
+            <div className='ui--row' style={visibleDiplomaDetails ? {} : { display: 'none' }}>
+              <Input
+                className='full'
+                help={t('Days valid info')}
+                label={t('days valid')}
+                onChange={_onChangeDaysValid}
+                value={daysValid.toString()}
+              />
+            </div>
+          </Card>
+          <div>
+            <Button
+              icon='dollar'
+              isDisabled={!isIpfsReady}
+              label={t('Sell the diploma')}
+              onClick={_onSign}
             />
+            {!isIpfsReady ? <div>{t('Connecting to IPFS...')}</div> : ""}
           </div>
-        </Card>
-        <div>
-          <Button
-            icon='dollar'
-            isDisabled={!isIpfsReady}
-            label={t('Sell the diploma')}
-            onClick={_onSign}
-          />
-          {!isIpfsReady ? <div>{t('Connecting to IPFS...')}</div> : ""}
-        </div>
-      </StyledDiv>
+        </CenterItemsContainer>
+      </FullWidthContainer>
     }
   </>;
 
@@ -406,16 +411,11 @@ function Tutor({ className = '' }: Props): React.ReactElement<Props> {
   );
 }
 
-const StyledDiv = styled.div`
-  max-width: 300px;
-`;
-
 const DiplomaDiv = styled.div`
   display: flex;
   flex-direction: row;
   justify-content: center;
   align-items: center;
-  max-width: 300px;
   .qr--row {
     display: flex;
     justify-content: center;
@@ -452,6 +452,31 @@ const DiplomaDiv = styled.div`
 
   .row .cell:nth-child(2) {
     flex: 1; // Take up the remaining space
+  }
+`;
+
+// Styled components
+const FullWidthContainer = styled.div`
+  width: 100%;
+`;
+const CenterItemsContainer = styled.div`
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  width: 100%;
+  margin: 0 auto;
+  @media (min-width: 768px) {
+    width: 500px;
+  }
+`;
+const CenterQRContainer = styled.div`
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  width: 100%;
+  margin: 0 auto;
+  @media (min-width: 768px) {
+    width: 400px;
   }
 `;
 

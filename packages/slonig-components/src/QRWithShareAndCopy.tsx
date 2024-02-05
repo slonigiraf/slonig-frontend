@@ -34,11 +34,14 @@ const StyledDiv = styled.div`
   flex-direction: row;
   justify-content: center;
   align-items: center;
-  max-width: 300px;
+  width: 100%;
   .qr--row {
     display: flex;
     justify-content: center;
     align-items: center;
+  }
+  @media (min-width: 768px) {
+    width: 400px;
   }
 `;
 

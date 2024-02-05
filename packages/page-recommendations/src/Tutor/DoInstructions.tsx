@@ -3,6 +3,7 @@ import { Algorithm } from './Algorithm.js';
 import { AlgorithmStage } from './AlgorithmStage.js';
 import { Button } from '@polkadot/react-components';
 import { useTranslation } from '../translate.js';
+import { styled } from '@polkadot/react-components';
 
 interface Props {
   className?: string;
@@ -38,26 +39,55 @@ function DoInstructions({ className = '', algorithm, onResult }: Props): React.R
   return (
     <div className={className}>
       {algorithmStage ? (
-        <div>
-          <div>{algorithmStage.getWords()}</div>
-          <div>
-            {algorithmStage.getPrevious() && (
-              <Button onClick={() => handleStageChange(algorithmStage.getPrevious())}
-                      icon='arrow-left'
-                      label={t('Back')} />
-            )}
-            {algorithmStage.getNext().map((nextStage, index) => (
-              <Button key={index} onClick={() => handleStageChange(nextStage)}
-                      icon='square'
-                      label={nextStage.getName()} />
-            ))}
-          </div>
-        </div>
+        <InstructionsContainer>
+          <DialogExample>{algorithmStage.getWords()}</DialogExample>
+          <ButtonsContainer>
+            <ButtonsGroup>
+              {algorithmStage.getPrevious() && (
+                <Button onClick={() => handleStageChange(algorithmStage.getPrevious())}
+                  icon='arrow-left'
+                  label={t('Back')} />
+              )}
+              {algorithmStage.getNext().map((nextStage, index) => (
+                <Button key={index} onClick={() => handleStageChange(nextStage)}
+                  icon='square'
+                  label={nextStage.getName()} />
+              ))}
+            </ButtonsGroup>
+          </ButtonsContainer>
+        </InstructionsContainer>
       ) : (
         <div>Error: Reload the page</div>
       )}
     </div>
   );
 }
+
+// Styled components
+const InstructionsContainer = styled.div`
+  width: 100%;
+`;
+
+const ButtonsContainer = styled.div`
+  display: flex;
+  align-items: center;
+  width: 100%;
+  margin: 0 auto;
+`;
+const ButtonsGroup = styled.div`
+  display: flex;
+  align-items: center;
+  max-width: 400px;
+  margin: 0 auto;
+`;
+const DialogExample = styled.div`
+  display: flex;
+  align-items: center;
+  width: 100%;
+  margin: 0 auto;
+  @media (min-width: 768px) {
+    width: 900px;
+  }
+`;
 
 export default React.memo(DoInstructions);

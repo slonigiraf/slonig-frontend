@@ -18,6 +18,7 @@ const ChatContainer = styled.div`
   padding: 5px;
   font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
   font-size: 18px;
+  width: 100%;
 `;
 
 const MessageContainer = styled.div<{ sender: 'you' | 'them' }>`
@@ -25,6 +26,8 @@ const MessageContainer = styled.div<{ sender: 'you' | 'them' }>`
   flex-direction: column; // Adjusted for comment alignment
   align-items: ${props => props.sender === 'you' ? 'flex-end' : 'flex-start'};
   padding: 5px;
+  width: 100%;
+  margin: 0 auto;
 `;
 
 const Bubble = styled.div<{ sender: 'you' | 'them' }>`
