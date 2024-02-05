@@ -15,10 +15,9 @@ class TeachingAlgorithm extends Algorithm {
             'success',
             t('Yes'),
             <div>
-                <b>{t('Say')}: </b>
-                <em>{t('Buy a skill diploma from me to get a bonus from a teacher.')}</em>
-                <br />
-                <b>{t('Sell the student a diploma in exchange for money or Slon tokens.')}</b>
+                <ChatSimulation messages={[
+                    { id: 1, text: t('Buy a skill diploma from me to get a bonus from a teacher.'), sender: 'you', senderName: 'You', comment: t('I sell the student a diploma in exchange for money or Slon tokens.') }, 
+                ]} />
             </div>,
             []
         );
@@ -26,8 +25,9 @@ class TeachingAlgorithm extends Algorithm {
             'repeat',
             t('No'),
             <div>
-                <b>{t('Say')}:</b>
-                &nbsp;<em>{t('Excellent! Let\'s repeat this tomorrow.')}</em>
+                <ChatSimulation messages={[
+                    { id: 1, text: t('Excellent! Let\'s repeat this tomorrow.'), sender: 'you', senderName: 'You' }, 
+                ]} />
             </div>,
             []
         );
@@ -36,7 +36,12 @@ class TeachingAlgorithm extends Algorithm {
             'intermediate',
             t('I\'ve said it now'),
             <div>
-                <b>{t('Has the student repeated the right answer?')}</b>
+                <ChatSimulation messages={[
+                    { id: 1, text: t('Repeat after me:'), sender: 'you', senderName: 'You' },
+                    { id: 2, text: t('...'), sender: 'you', senderName: 'You', comment: t('The student corrected me and gave me the correct solution.') },
+                    { id: 3, text: t('...'), sender: 'them', senderName: studentName },
+                ]} />
+                <b>{t('Has the student repeated the correct solution and answer?')}</b>
             </div>,
             []
         );
@@ -45,9 +50,11 @@ class TeachingAlgorithm extends Algorithm {
             'intermediate',
             t('No'),
             <div>
-                <b>{t('Tell the student')}:</b>
-                &nbsp;<em>{t('Repeat after me')}.</em>&nbsp;
-                <b>{t('And then give the correct solution and answer to the exercise invented by the student. The tutor can peek at solution examples here:')}</b>
+                <ChatSimulation messages={[
+                    { id: 1, text: t('...'), sender: 'them', senderName: studentName, comment: t('The student did not correct me.') },
+                    { id: 2, text: t('Repeat after me:'), sender: 'you', senderName: 'You' },
+                    { id: 3, text: t('...'), sender: 'you', senderName: 'You', comment: t('I give the correct solution and answer to the exercise invented by the student. I can peek at solution examples here:') },
+                ]} />
                 {questions != null && <ExerciseList exercises={questions} areShownInitially={true} />}
             </div>,
             [hasStudentRepeatedTheRightAnswer]
@@ -57,6 +64,9 @@ class TeachingAlgorithm extends Algorithm {
             'intermediate',
             t('Yes'),
             <div>
+                <ChatSimulation messages={[
+                    { id: 1, text: t('...'), sender: 'them', senderName: studentName, comment: t('The student corrected me and gave me the correct solution.') },
+                ]} />
                 <b>{t('Were all of the student\'s exercises and answers perfect today?')}</b>
             </div>,
             [giveInsurance, repeatNextDay]
@@ -67,8 +77,9 @@ class TeachingAlgorithm extends Algorithm {
             t('I\'ve said it now'),
             <div>
                 <ChatSimulation messages={[
-                    { id: 1, text: t('Am I right?'), sender: 'you', senderName: 'You' },
-                    { id: 2, text: t('...'), sender: 'them', senderName: studentName },
+                    { id: 1, text: t('...'), sender: 'you', senderName: 'You', comment: t('I deliberately perform the exercise invented by the student incorrectly and ask:') },
+                    { id: 2, text: t('Am I right?'), sender: 'you', senderName: 'You' },
+                    { id: 3, text: t('...'), sender: 'them', senderName: studentName },
                 ]} />
                 <b>{t('Has the student corrected the wrong answer?')}</b>
             </div>,
@@ -79,6 +90,11 @@ class TeachingAlgorithm extends Algorithm {
             'intermediate',
             t('I\'ve said it now'),
             <div>
+                <ChatSimulation messages={[
+                    { id: 1, text: t('Repeat after me:'), sender: 'you', senderName: 'You' },
+                    { id: 2, text: question2, sender: 'you', senderName: 'You' },
+                    { id: 3, text: '...', sender: 'them', senderName: studentName },
+                ]} />
                 <b>{t('Did the student repeat correctly after me?')}</b>
             </div>,
             []
@@ -90,7 +106,7 @@ class TeachingAlgorithm extends Algorithm {
             <div>
                 <ChatSimulation messages={[
                     { id: 1, text: t('...'), sender: 'them', senderName: studentName, comment: t('An exercise created by a student.') },
-                    { id: 2, text: t('...'), sender: 'you', senderName: 'You', comment: t('Do the exercise invented by the student incorrectly and ask:') },
+                    { id: 2, text: t('...'), sender: 'you', senderName: 'You', comment: t('I deliberately perform the exercise invented by the student incorrectly and ask:') },
                     { id: 3, text: t('Am I right?'), sender: 'you', senderName: 'You' },
                 ]} />
             </div>,
@@ -102,8 +118,9 @@ class TeachingAlgorithm extends Algorithm {
             t('No'),
             <div>
                 <ChatSimulation messages={[
-                    { id: 1, text: '...', sender: 'them', senderName: studentName },
-                    { id: 2, text: t('Repeat after me') + ": \"" + question2 + "\"", sender: 'you', senderName: 'You' },
+                    { id: 1, text: '...', sender: 'them', senderName: studentName, comment: t('The student did not come up with the type of exercise needed.') },
+                    { id: 2, text: t('Repeat after me:'), sender: 'you', senderName: 'You' },
+                    { id: 3, text: question2, sender: 'you', senderName: 'You', comment: t('I say this in my own words. I can change the exercise a little.') },
                 ]} />
             </div>,
             [didStudentRepeatedAfterMeTheTask]
@@ -114,8 +131,9 @@ class TeachingAlgorithm extends Algorithm {
             t('I\'ve said it now'),
             <div>
                 <ChatSimulation messages={[
-                    { id: 1, text: t('Come up with an exercise similar to what I am going to say now. For example') + " \"" + question1 + "\"", sender: 'you', senderName: 'You' },
-                    { id: 2, text: '...', sender: 'them', senderName: studentName },
+                    { id: 1, text: t('Come up with an exercise similar to what I am going to say now.'), sender: 'you', senderName: 'You' },
+                    { id: 2, text: question1, sender: 'you', senderName: 'You' },
+                    { id: 3, text: '...', sender: 'them', senderName: studentName },
                 ]} />
                 <b>{t('Has the student now created a similar exercise?')}</b>
             </div>,
@@ -131,7 +149,8 @@ class TeachingAlgorithm extends Algorithm {
             <div>
                 <ChatSimulation messages={[
                     { id: 1, text: t('Teach me the skill') + (skillJson && ": \"" + skillJson.h + "\""), sender: 'them', senderName: studentName },
-                    { id: 2, text: t('Come up with an exercise similar to what I am going to say now. For example') + " \"" + question1 + "\"", sender: 'you', senderName: 'You', comment: t('Say it in your own words, the exercise can be changed a little.') },
+                    { id: 2, text: t('Come up with an exercise similar to what I am going to say now.'), sender: 'you', senderName: 'You' },
+                    { id: 3, text: question1, sender: 'you', senderName: 'You', comment: t('I say this in my own words. I can change the exercise a little.') },
                 ]} />
             </div>,
             [didStudentCreatedASimilarTask]
