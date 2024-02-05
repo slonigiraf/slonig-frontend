@@ -26,7 +26,8 @@ const WhatsAppChat: React.FC<WhatsAppChatProps> = ({ messages }) => {
               borderRadius: '7.5px',
               boxShadow: '0 1px 0.5px rgba(0, 0, 0, 0.13)',
               maxWidth: '80%',
-              padding: '10px',
+              minWidth: '80%',
+              padding: '20px',
               margin: '1px 0',
               wordWrap: 'break-word',
               position: 'relative', // Added for positioning the name inside the bubble
@@ -34,10 +35,10 @@ const WhatsAppChat: React.FC<WhatsAppChatProps> = ({ messages }) => {
               {/* Sender's name inside the bubble */}
               <div style={{
                 position: 'absolute',
-                top: '-1.5em', // Position the name above the text inside the bubble
-                left: '10px', // Maintain consistent padding
-                right: '10px', // Maintain consistent padding
-                fontSize: '12px', // Smaller font size for the name
+                top: '0.6em', // Position the name above the text inside the bubble
+                left: '20px', // Maintain consistent padding
+                right: '12px', // Maintain consistent padding
+                fontSize: '10px', // Smaller font size for the name
                 color: '#6a6a6a', // Dim color for the name
                 overflow: 'hidden', // Ensure long names do not break the layout
                 whiteSpace: 'nowrap', // Keep the name in a single line

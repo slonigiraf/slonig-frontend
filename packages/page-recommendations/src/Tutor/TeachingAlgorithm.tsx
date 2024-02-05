@@ -84,8 +84,11 @@ class TeachingAlgorithm extends Algorithm {
             'intermediate',
             t('Yes'),
             <div>
-                <b>{t('Respond to the student with a wrong answer, and ask:')}</b>
-                &nbsp;<em>{t('Am I right?')}</em>
+                <WhatsAppChat messages={[
+                    { id: 1, text: t('...'), sender: 'them', senderName: studentName },
+                    { id: 2, text: t('Respond to the student with a wrong answer'), sender: 'you', senderName: 'You' },
+                    { id: 2, text: t('Am I right?'), sender: 'you', senderName: 'You' },
+                ]} />
             </div>,
             [hasStudentCorrectedTheFakeAnswer]
         );
@@ -94,9 +97,10 @@ class TeachingAlgorithm extends Algorithm {
             'intermediate',
             t('No'),
             <div>
-                <b>{t('Tell the student:')}</b>
-                &nbsp;<em>{t('Repeat after me')}:</em>
-                &nbsp;<em>{question2}</em>
+                <WhatsAppChat messages={[
+                    { id: 1, text: "...", sender: 'them', senderName: studentName },
+                    { id: 2, text: t('Repeat after me') + ": \"" + question2 + "\"", sender: 'you', senderName: 'You' },
+                ]} />
             </div>,
             [didStudentRepeatedAfterMeTheTask]
         );
@@ -105,6 +109,10 @@ class TeachingAlgorithm extends Algorithm {
             'intermediate',
             t('I\'ve said it now'),
             <div>
+                <WhatsAppChat messages={[
+                    { id: 1, text: t('Come up with an exercise similar to what I am going to say now. For example') + " \"" + question1 + "\"", sender: 'you', senderName: 'You' },
+                    { id: 2, text: "...", sender: 'them', senderName: studentName },
+                ]} />
                 <b>{t('Has the student now created a similar exercise?')}</b>
             </div>,
             [provideFakeAnswer, askToRepeatTaskAfterMeTheTask]
@@ -118,9 +126,9 @@ class TeachingAlgorithm extends Algorithm {
             t('Yes'),
             <div>
                 <WhatsAppChat messages={[
-            { id: 1, text: t('Teach me the skill')+(skillJson && ": \"" + skillJson.h + "\""), sender: 'them', senderName: studentName },
-            { id: 2, text: t('Come up with an exercise similar to what I am going to say now. For example')+" \""+question1+"\"", sender: 'you', senderName: 'You' },
-          ]} />
+                    { id: 1, text: t('Teach me the skill') + (skillJson && ": \"" + skillJson.h + "\""), sender: 'them', senderName: studentName },
+                    { id: 2, text: t('Come up with an exercise similar to what I am going to say now. For example') + " \"" + question1 + "\"", sender: 'you', senderName: 'You' },
+                ]} />
             </div>,
             [didStudentCreatedASimilarTask]
         );
