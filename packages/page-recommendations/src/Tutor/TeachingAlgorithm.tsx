@@ -1,7 +1,7 @@
 import { AlgorithmStage } from './AlgorithmStage.js';
 import { Algorithm } from './Algorithm.js';
 import { ExerciseList } from '@slonigiraf/app-laws';
-import WhatsAppChat from './WhatsAppChat.js';
+import ChatSimulation from './ChatSimulation.js';
 
 class TeachingAlgorithm extends Algorithm {
     constructor(t: any, studentName: string, skillJson: any) {
@@ -84,7 +84,7 @@ class TeachingAlgorithm extends Algorithm {
             'intermediate',
             t('Yes'),
             <div>
-                <WhatsAppChat messages={[
+                <ChatSimulation messages={[
                     { id: 1, text: t('...'), sender: 'them', senderName: studentName },
                     { id: 2, text: t('Respond to the student with a wrong answer'), sender: 'you', senderName: 'You' },
                     { id: 2, text: t('Am I right?'), sender: 'you', senderName: 'You' },
@@ -97,7 +97,7 @@ class TeachingAlgorithm extends Algorithm {
             'intermediate',
             t('No'),
             <div>
-                <WhatsAppChat messages={[
+                <ChatSimulation messages={[
                     { id: 1, text: "...", sender: 'them', senderName: studentName },
                     { id: 2, text: t('Repeat after me') + ": \"" + question2 + "\"", sender: 'you', senderName: 'You' },
                 ]} />
@@ -109,7 +109,7 @@ class TeachingAlgorithm extends Algorithm {
             'intermediate',
             t('I\'ve said it now'),
             <div>
-                <WhatsAppChat messages={[
+                <ChatSimulation messages={[
                     { id: 1, text: t('Come up with an exercise similar to what I am going to say now. For example') + " \"" + question1 + "\"", sender: 'you', senderName: 'You' },
                     { id: 2, text: "...", sender: 'them', senderName: studentName },
                 ]} />
@@ -125,7 +125,7 @@ class TeachingAlgorithm extends Algorithm {
             'begin',
             t('Yes'),
             <div>
-                <WhatsAppChat messages={[
+                <ChatSimulation messages={[
                     { id: 1, text: t('Teach me the skill') + (skillJson && ": \"" + skillJson.h + "\""), sender: 'them', senderName: studentName },
                     { id: 2, text: t('Come up with an exercise similar to what I am going to say now. For example') + " \"" + question1 + "\"", sender: 'you', senderName: 'You' },
                 ]} />

@@ -12,7 +12,7 @@ interface WhatsAppChatProps {
     messages: IMessage[];
 }
 
-const WhatsAppChat: React.FC<WhatsAppChatProps> = ({ messages }) => {
+const ChatSimulation: React.FC<WhatsAppChatProps> = ({ messages }) => {
     return (
       <div style={{ padding: '5px', fontFamily: "'Helvetica Neue', Helvetica, Arial, sans-serif", fontSize: '18px' }}>
         {messages.map((message) => (
@@ -56,4 +56,4 @@ const WhatsAppChat: React.FC<WhatsAppChatProps> = ({ messages }) => {
   };
   
 
-export default React.memo(WhatsAppChat);
+export default React.memo(ChatSimulation);
