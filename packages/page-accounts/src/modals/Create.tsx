@@ -206,7 +206,7 @@ function Create({ className = '', onClose, onStatusChange, seed: propsSeed, type
       </Modal.Content>
       <Modal.Actions>
         <Button
-          label={t(`Already have an account? Sign in`)}
+          label={t(`Already have an account?`)}
           onClick={toggle}
         />
         <Button
