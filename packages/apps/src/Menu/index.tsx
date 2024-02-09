@@ -151,8 +151,8 @@ const StyledDiv = styled.div`
     flex-direction: row;
     align-items: center;
     display: flex;
-    justify-content: space-between;
-    padding: 0 1.5rem;
+    justify-content: flex-end; /* Aligns items to the right */
+    padding: 0 1rem;
     width: 100%;
     max-width: var(--width-full);
     margin: 0 auto;
