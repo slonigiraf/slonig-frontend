@@ -340,77 +340,7 @@ function Overview({ className = '', onStatusChange }: Props): React.ReactElement
       )}
       <BannerClaims />
       <Summary balance={balances.summary} />
-      <SummaryBox className='header-box'>
-        <section
-          className='dropdown-section media--1300'
-          data-testid='sort-by-section'
-        >
-          <SortDropdown
-            className='media--1500'
-            defaultValue={sortBy}
-            label={t('sort by')}
-            onChange={onSortChange}
-            onClick={onSortDirectionChange}
-            options={sortOptions.current}
-            sortDirection={
-              sortFromMax
-                ? 'ascending'
-                : 'descending'
-            }
-          />
-          <FilterInput
-            filterOn={filterOn}
-            label={t('filter by name or tags')}
-            setFilter={setFilter}
-          />
-        </section>
-        <Button.Group>
-          {canStoreAccounts && (
-            <>
-              <Button
-                icon='plus'
-                label={t('Account')}
-                onClick={toggleCreate}
-              />
-              <Button
-                icon='sync'
-                label={t('From JSON')}
-                onClick={toggleImport}
-              />
-            </>
-          )}
-          <Button
-            icon='qrcode'
-            label={t('From Qr')}
-            onClick={toggleQr}
-          />
-          {isLedgerEnabled && (
-            <Button
-              icon='project-diagram'
-              label={t('From Ledger')}
-              onClick={toggleLedger}
-            />
-          )}
-          {hasAccounts && (
-            <>
-              {hasPalletMultisig && (
-                <Button
-                  icon='plus'
-                  label={t('Multisig')}
-                  onClick={toggleMultisig}
-                />
-              )}
-              {hasPalletProxy && (
-                <Button
-                  icon='plus'
-                  label={t('Proxied')}
-                  onClick={toggleProxy}
-                />
-              )}
-            </>
-          )}
-        </Button.Group>
-      </SummaryBox>
+      
       {!isNextTick || !sortedAccounts.length
         ? (
           <Table
