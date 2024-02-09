@@ -157,7 +157,6 @@ function Transfer ({ className = '', onClose, recipientId: propRecipientId, send
               label={t('send from account')}
               labelExtra={
                 <Available
-                  label={t('transferrable')}
                   params={propSenderId || senderId}
                 />
               }
@@ -172,7 +171,6 @@ function Transfer ({ className = '', onClose, recipientId: propRecipientId, send
               label={t('send to address')}
               labelExtra={
                 <Available
-                  label={t('transferrable')}
                   params={propRecipientId || recipientId}
                 />
               }
@@ -204,42 +202,9 @@ function Transfer ({ className = '', onClose, recipientId: propRecipientId, send
                     maxValue={maxTransfer}
                     onChange={setAmount}
                   />
-                  <InputBalance
-                    defaultValue={api.consts.balances?.existentialDeposit}
-                    isDisabled
-                    label={t('existential deposit')}
-                  />
                 </>
               )
             }
-          </Modal.Columns>
-          <Modal.Columns hint={t('With the keep-alive option set, the account is protected against removal due to low balances.')}>
-            {isFunction(api.tx.balances?.transferKeepAlive) && (
-              <Toggle
-                className='typeToggle'
-                label={
-                  isProtected
-                    ? t('Transfer with account keep-alive checks')
-                    : t('Normal transfer without keep-alive checks')
-                }
-                onChange={setIsProtected}
-                value={isProtected}
-              />
-            )}
-            {canToggleAll && (
-              <Toggle
-                className='typeToggle'
-                label={t('Transfer the full account balance, reap the sender')}
-                onChange={setIsAll}
-                value={isAll}
-              />
-            )}
-            {!isProtected && !noReference && (
-              <MarkWarning content={t('There is an existing reference count on the sender account. As such the account cannot be reaped from the state.')} />
-            )}
-            {noFees && (
-              <MarkWarning content={t('The transaction, after application of the transfer fees, will drop the available balance below the existential deposit. As such the transfer will fail. The account needs more free funds to cover the transaction fees.')} />
-            )}
           </Modal.Columns>
         </div>
       </Modal.Content>
@@ -251,34 +216,9 @@ function Transfer ({ className = '', onClose, recipientId: propRecipientId, send
             !!recipientPhish
           }
           icon='paper-plane'
-          label={t('Make Transfer!')}
+          label={t('Make Transfer')}
           onClick={submitTransfer}
           />
-        {/* <TxButton
-          accountId={propSenderId || senderId}
-          icon='paper-plane'
-          isDisabled={
-            (!isAll && (!hasAvailable || !amount)) ||
-            !(propRecipientId || recipientId) ||
-            !!recipientPhish
-          }
-          label={t('Make Transfer')}
-          onStart={onClose}
-          params={
-            canToggleAll && isAll
-              ? isFunction(api.tx.balances?.transferAll)
-                ? [propRecipientId || recipientId, false]
-                : [propRecipientId || recipientId, maxTransfer]
-              : [propRecipientId || recipientId, amount]
-          }
-          tx={
-            canToggleAll && isAll && isFunction(api.tx.balances?.transferAll)
-              ? api.tx.balances?.transferAll
-              : isProtected
-                ? api.tx.balances?.transferKeepAlive
-                : api.tx.balances?.transferAllowDeath || api.tx.balances?.transfer
-          }
-        /> */}
       </Modal.Actions>
     </StyledModal>
   );
