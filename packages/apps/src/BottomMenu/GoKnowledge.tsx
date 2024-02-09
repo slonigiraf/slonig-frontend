@@ -14,7 +14,7 @@ function GoKnowledge(): React.ReactElement {
   return (
     <ButtonWithLabelBelow
       icon='list'
-      label={t('Knowledge')}
+      label={t('Skills')}
       onClick={_onClick}
     />
   );
