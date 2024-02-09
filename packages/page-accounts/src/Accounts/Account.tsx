@@ -400,14 +400,6 @@ function Account({ account: { address, meta }, className = '', delegation, filte
           onClick={toggleBackup}
         />
       ),
-      !(isExternal || isHardware || isInjected || isMultisig || isDevelopment) && (
-        <Menu.Item
-          icon='edit'
-          key='changePassword'
-          label={t("Change this account's password")}
-          onClick={togglePassword}
-        />
-      ),
       !(isInjected || isDevelopment) && (
         <Menu.Item
           icon='trash-alt'
