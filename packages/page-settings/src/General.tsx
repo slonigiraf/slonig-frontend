@@ -132,6 +132,7 @@ function General({ className = '' }: Props): React.ReactElement<Props> {
     async (value: boolean) => {
       await storeSetting("developer", value ? "true" : "false");
       setDeveloper(value);
+      setChanged(true);
     },
     []
   );
@@ -167,7 +168,7 @@ function General({ className = '' }: Props): React.ReactElement<Props> {
       </div>
       <div className='ui--row'>
         <Toggle
-          label={t('developer mode')}
+          label={t('Developer mode')}
           onChange={saveDeveloper}
           value={isDeveloper}
         />

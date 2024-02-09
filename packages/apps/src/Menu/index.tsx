@@ -18,6 +18,7 @@ import { useTranslation } from '../translate.js';
 import Grouping from './Grouping.js';
 import NodeInfo from './NodeInfo.js';
 import { getSetting } from '@slonigiraf/app-recommendations';
+import SlonigLogo from './SlonigLogo.js';
 
 interface Props {
   className?: string;
@@ -77,7 +78,7 @@ function Menu({ className = '' }: Props): React.ReactElement<Props> {
   const location = useLocation();
   const routeRef = useRef(createRoutes(t));
   const [isDeveloper, setDeveloper] = useState<boolean>(false);
-  
+
   useEffect((): void => {
     const loadDev = async () => {
       const isDev = await getSetting('developer');
@@ -101,9 +102,14 @@ function Menu({ className = '' }: Props): React.ReactElement<Props> {
   );
 
   const visibleGroups = useMemo(
-    () => extractGroups(routeRef.current, groupRef.current, apiProps, allowTeleport, hasAccounts, hasSudo),
-    [allowTeleport, apiProps, hasAccounts, hasSudo]
+    () => {
+      const allGroups = extractGroups(routeRef.current, groupRef.current, apiProps, allowTeleport, hasAccounts, hasSudo);
+      // Filter out all groups except "Settings" if not a developer
+      return isDeveloper ? allGroups : allGroups.filter(({ name }) => name === groupRef.current.settings);
+    },
+    [allowTeleport, apiProps, hasAccounts, hasSudo, isDeveloper] // Add isDeveloper as a dependency
   );
+
 
   const activeRoute = useMemo(
     () => routeRef.current.find(({ name }) =>
@@ -119,6 +125,11 @@ function Menu({ className = '' }: Props): React.ReactElement<Props> {
   return (
     <StyledDiv className={`${className}${(!apiProps.isApiReady || !apiProps.isApiConnected) ? ' isLoading' : ''} highlight--bg`}>
       <div className='menuContainer'>
+        {!isDeveloper && (
+          <div className="logoWrapper">
+            <SlonigLogo />
+          </div>
+        )}
         <div className='menuSection'>
           <ul className='menuItems'>
             {sortedGroups.map(({ name, routes }): React.ReactNode => (
@@ -131,18 +142,23 @@ function Menu({ className = '' }: Props): React.ReactElement<Props> {
             ))}
           </ul>
         </div>
-        <NodeInfo className='media--1400' />
+        {(isDeveloper && <NodeInfo className='media--1400' />)}
       </div>
+
     </StyledDiv>
   );
 }
 
 const StyledDiv = styled.div`
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-start;
+  align-items: center;
   width: 100%;
   padding: 0;
   z-index: 220;
   position: relative;
-
+  
   .smallShow {
     display: none;
   }
@@ -156,6 +172,17 @@ const StyledDiv = styled.div`
     width: 100%;
     max-width: var(--width-full);
     margin: 0 auto;
+    height: 6vh;
+  }
+
+  .logoWrapper {
+    flex-grow: 1;
+    display: flex;
+    justify-content: center;
+  }
+
+  .leftSpace, .rightSpace {
+    flex-grow: 1;
   }
 
   &.isLoading {
@@ -175,6 +202,8 @@ const StyledDiv = styled.div`
   }
 
   .menuSection {
+    position: absolute;
+    right: 0;
     align-items: center;
     display: flex;
   }
