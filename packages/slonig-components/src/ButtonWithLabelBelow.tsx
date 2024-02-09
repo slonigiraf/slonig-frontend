@@ -1,11 +1,11 @@
 import React from 'react';
-import { Button, Icon } from '@polkadot/react-components';
-import styled from 'styled-components';
+import { Button, Icon, styled } from '@polkadot/react-components';
 
 const IconWrapper = styled.div`
   display: block;
   text-align: center;
   margin-bottom: 0.7rem;
+  min-width: 65px;
 `;
 
 const StyledLabel = styled.span`
