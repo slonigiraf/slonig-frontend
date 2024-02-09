@@ -194,7 +194,12 @@ function SkillQR({ className = '', cid }: Props): React.ReactElement<Props> {
             dataCopy={url}
           />
         </StyledDiv>
-        : <h3>{t('Scan your tutor\'s QR code for help and a diploma.')}</h3>
+        : 
+        <StyledDiv>
+          <FlexRow>
+          <ScanQR label={t('Scan your tutor\'s QR code for help and a diploma.')} type={4} />
+          </FlexRow>
+        </StyledDiv>
       }
     </>}
     <LoginButton
