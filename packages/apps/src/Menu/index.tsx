@@ -142,7 +142,6 @@ function Menu({ className = '' }: Props): React.ReactElement<Props> {
             ))}
           </ul>
         </div>
-        {(isDeveloper && <NodeInfo className='media--1400' />)}
       </div>
 
     </StyledDiv>
