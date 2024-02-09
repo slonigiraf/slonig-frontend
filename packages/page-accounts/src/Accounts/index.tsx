@@ -6,7 +6,6 @@ import type { KeyringAddress } from '@polkadot/ui-keyring/types';
 import type { BN } from '@polkadot/util';
 import type { AccountBalance, Delegation, SortedAccount } from '../types.js';
 import type { SortCategory } from '../util.js';
-import type { KeyringPair } from '@polkadot/keyring/types';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { Button, FilterInput, SortDropdown, styled, SummaryBox, Table, InputAddress } from '@polkadot/react-components';
@@ -27,6 +26,7 @@ import Account from './Account.js';
 import BannerClaims from './BannerClaims.js';
 import Summary from './Summary.js';
 import { useInfo, useLoginContext } from '@slonigiraf/app-slonig-components';
+import PayToAccountQR from './PayToAccountQR.js';
 
 interface Balances {
   accounts: Record<string, AccountBalance>;
@@ -108,7 +108,7 @@ function Overview({ className = '', onStatusChange }: Props): React.ReactElement
   const isNextTick = useNextTick();
   const [inputKey, setInputKey] = useState(0);
   const { showInfo } = useInfo();
-  
+
   const onSortChange = useCallback(
     (sortBy: SortCategory) => setSortBy(({ sortFromMax }) => ({ sortBy, sortFromMax })),
     []
@@ -282,6 +282,11 @@ function Overview({ className = '', onStatusChange }: Props): React.ReactElement
 
   return (
     <StyledDiv className={className}>
+      <h3>{t('Show the QR to a sender to get Slon tokens')}</h3>
+      <div className='ui--row'>
+        <PayToAccountQR />
+      </div>
+
       <div className='ui--row'>
         <InputAddress
           key={inputKey}
@@ -299,6 +304,7 @@ function Overview({ className = '', onStatusChange }: Props): React.ReactElement
           />}
         </Button.Group>
       </div>
+      
       {isCreateOpen && (
         <CreateModal
           onClose={toggleCreate}

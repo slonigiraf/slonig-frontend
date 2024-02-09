@@ -1,43 +1,22 @@
 import { useTranslation } from '../translate.js';
-import { Modal } from '@polkadot/react-components';
-import { useToggle } from '@polkadot/react-hooks';
-import React, { useCallback } from 'react';
-import PayToAccountQR from './PayToAccountQR.js';
-import { ButtonWithLabelBelow, useLoginContext } from '@slonigiraf/app-slonig-components';
+import React from 'react';
+import { useNavigate } from 'react-router-dom';
+import { ButtonWithLabelBelow } from '@slonigiraf/app-slonig-components';
 
 function GetSlon(): React.ReactElement {
   const { t } = useTranslation();
-  const [isQROpen, toggleQR] = useToggle();
-  const { isLoggedIn, setLoginIsRequired } = useLoginContext();
+  const navigate = useNavigate();
 
-  const _onClick = useCallback(() => {
-    if (isLoggedIn) {
-      toggleQR();
-    } else {
-      setLoginIsRequired(true);
-    }
-  }, [isLoggedIn, toggleQR, setLoginIsRequired]);
+  const _onClick = () => {
+    navigate('accounts');
+  }
 
   return (
-    <>
     <ButtonWithLabelBelow
           icon='dollar'
           label={t('Slon')}
           onClick={_onClick}
         />
-    {isQROpen && <>
-        <Modal
-          header={t('Show the QR to a sender')}
-          onClose={toggleQR}
-          size='small'
-        >
-          <Modal.Content>
-            <PayToAccountQR />
-          </Modal.Content>
-        </Modal>
-      </>}
-    </>
-    
   );
 }
 
