@@ -882,7 +882,7 @@
   "You are about to remove this code's ABI. Once completed, should you need to access it again, you will have to manually re-upload it.": "您将删除此代码的ABI。一旦完成，如果你需要再次访问它，你将不得不手动重新上传它。",
   "You are about to remove this contract from your list of available contracts. Once completed, should you need to access it again, you will have to manually add the contract's address in the Instantiate tab.": "您将从可用合约列表中删除此合约。一旦完成，如果您需要再次访问它，您将不得不手动在Instantiate选项卡中添加合约的地址。",
   "You are connecting from a secure location to an insecure WebSocket ({{wsUrl}}). Due to browser mixed-content security policies this connection type is not allowed. Change the RPC service to a secure 'wss' endpoint.": "你正在从一个安全的连接访问不安全的 WebSocket ({{wsUrl}}). 由于浏览器最大安全策略这个连接将不被允许访问. 更改RPC服务到一个安全的 'wss' 终端.",
-  "You are not connected to a node. Ensure that your node is running and that the Websocket endpoint is reachable.": "没有连接任何节点. 确保你的节点正在运行并且保证websocket终端可访问.",
+  "Connecting to a node.": "没有连接任何节点. 确保你的节点正在运行并且保证websocket终端可访问.",
   "You are using an ABI with an outdated format. Please generate a new one.": "你正在使用的ABI格式已过期. 请生成一个新的.",
   "You are voting with this collective's prime account. The vote will be the default outcome in case of any abstentions.": "您使用这个集合的主要帐户进行投票。如果有人弃权，投票将成为默认结果",
   "You can indicate your vote for any combination of the options laid out below.": "您可以对下面列出的任何选项组合投票您的意向。",

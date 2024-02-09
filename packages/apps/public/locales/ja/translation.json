@@ -339,7 +339,7 @@
   "You are about to remove this code from your list of available code hashes. Once completed, should you need to access it again, you will have to manually add the code hash again.": "利用可能なコードハッシュのリストからこのコードを削除しようとしています。完了したら、再度アクセスする必要がある場合は、手動でコードハッシュを再度追加する必要があります。",
   "You are about to remove this code's ABI. Once completed, should you need to access it again, you will have to manually re-upload it.": "このコードのABIを削除します。削除が完了したら、再度アクセスする必要がある場合は、手動で再アップロードする必要があります。",
   "You are connecting from a secure location to an insecure WebSocket ({{wsUrl}}). Due to browser mixed-content security policies this connection type is not allowed. Change the RPC service to a secure 'wss' endpoint.": "安全なロケーションから安全ではないWebSocket ({{wsUrl}})に接続しようとしています。ブラウザーのセキュリティー・ポリシーによりこの接続タイプは許可されていません。RPCサーバーを安全な'wss' エンドポイントに変更してください。",
-  "You are not connected to a node. Ensure that your node is running and that the Websocket endpoint is reachable.": "ノードに接続していません。ノードが起動していてWebsocketのエンドポイントが接続できることを確認してください。",
+  "Connecting to a node.": "ノードに接続していません。ノードが起動していてWebsocketのエンドポイントが接続できることを確認してください。",
   "You are using an ABI with an outdated format. Please generate a new one.": "古いフォーマットのABIを使用しています。新しいものを生成してください。",
   "You can set a custom derivation path for this account using the following syntax \"/<soft-key>//<hard-key>///<password>\". The \"/<soft-key>\" and \"//<hard-key>\" may be repeated and mixed`. The \"///password\" is optional and should only occur once.": "以下の構文\"/<soft-key>//<hard-key>///<password>\"を使用して、このアカウントのカスタム派生パスを設定することができます。\"/<soft-key>\" と \"//<hard-key>\" は繰り返しても混合しても構いません`。\"///password \"は任意であり、一度だけ出現させるべきです。",
   "You do not have access to the current sudo key": "現在のsudoキーへのアクセスがありません。",
