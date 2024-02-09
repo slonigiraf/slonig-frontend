@@ -20,7 +20,8 @@ import Modal from '../Modal/index.js';
 import { styled } from '../styled.js';
 import Toggle from '../Toggle.js';
 import { useTranslation } from '../translate.js';
-import TxButton from '../TxButton.js';
+import { Button } from '@polkadot/react-components';
+import { useInfo, useLoginContext } from '@slonigiraf/app-slonig-components';
 
 interface Props {
   className?: string;
@@ -59,6 +60,8 @@ function Transfer ({ className = '', onClose, recipientId: propRecipientId, send
   const [[, recipientPhish], setPhishing] = useState<[string | null, string | null]>([null, null]);
   const balances = useCall<DeriveBalancesAll>(api.derive.balances?.all, [propSenderId || senderId]);
   const accountInfo = useCall<AccountInfoWithProviders | AccountInfoWithRefCount>(api.query.system.account, [propSenderId || senderId]);
+  const { showInfo } = useInfo();
+  const { currentPair } = useLoginContext();
 
   useEffect((): void => {
     const fromId = propSenderId || senderId as string;
@@ -98,6 +101,40 @@ function Transfer ({ className = '', onClose, recipientId: propRecipientId, send
       : accountInfo.consumers.isZero()
     : true;
   const canToggleAll = !isProtected && balances && balances.accountId?.eq(propSenderId || senderId) && maxTransfer && noReference;
+
+  const submitTransfer = async () => {
+    if (!senderId || !recipientId || !amount) {
+      showInfo(t('Missing required information for transfer'), 'error');
+      return;
+    }
+
+    const transferExtrinsic = isProtected
+      ? api.tx.balances.transferKeepAlive(recipientId, amount)
+      : api.tx.balances.transfer(recipientId, amount);
+
+    try {
+      await transferExtrinsic.signAndSend(currentPair, ({ status, events }) => {
+        if (status.isInBlock) {
+          let isError = false;
+          events.forEach(({ event }) => {
+            if (api.events.system.ExtrinsicFailed.is(event)) {
+              isError = true;
+              // Error handling similar to getBounty.ts
+            }
+          });
+
+          if (isError) {
+            showInfo(t('Transfer failed'), 'error');
+          } else {
+            showInfo(t('Transfer successful'), 'info');
+            onClose(); // Close the modal on success
+          }
+        }
+      });
+    } catch (error) {
+      showInfo(`${t('Transfer failed:')} ${error.toString()}`, 'error');
+    }
+  };
 
   return (
     <StyledModal
@@ -202,7 +239,16 @@ function Transfer ({ className = '', onClose, recipientId: propRecipientId, send
         </div>
       </Modal.Content>
       <Modal.Actions>
-        <TxButton
+      <Button isDisabled={
+            (!isAll && (!hasAvailable || !amount)) ||
+            !(propRecipientId || recipientId) ||
+            !!recipientPhish
+          }
+          icon='paper-plane'
+          label={t('Make Transfer!')}
+          onClick={submitTransfer}
+          />
+        {/* <TxButton
           accountId={propSenderId || senderId}
           icon='paper-plane'
           isDisabled={
@@ -226,7 +272,7 @@ function Transfer ({ className = '', onClose, recipientId: propRecipientId, send
                 ? api.tx.balances?.transferKeepAlive
                 : api.tx.balances?.transferAllowDeath || api.tx.balances?.transfer
           }
-        />
+        /> */}
       </Modal.Actions>
     </StyledModal>
   );
