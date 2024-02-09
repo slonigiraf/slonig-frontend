@@ -11,6 +11,7 @@ import ClipboardCopyButton from './ClipboardCopyButton.js';
 import ButtonWithLabelBelow from './ButtonWithLabelBelow.js';
 import ScanQR from './ScanQR.js';
 import QRWithShareAndCopy from './QRWithShareAndCopy.js';
+import { styled } from '@polkadot/react-components';
 
 import { getKey, arrayBufferToBase64, base64ToArrayBuffer, decryptData, encryptData, keyForCid, nameFromKeyringPair, getBaseUrl, CODEC, getIPFSContentID, getIPFSDataFromContentID, digestFromCIDv1, getCIDFromBytes, storeEncryptedTextOnIPFS, retrieveDecryptedDataFromIPFS, parseJson } from './utils.js';
 export { LoginButton, ShareButton, ClipboardCopyButton, QRWithShareAndCopy, QRScanner, ButtonWithLabelBelow, ScanQR, IpfsProvider, useIpfsContext, InfoProvider, useInfo };
@@ -44,3 +45,28 @@ export const QRAction = {
     SKILL: 5,
     TEACHER_IDENTITY: 6
 };
+
+// Styled components
+export const FullWidthContainer = styled.div`
+  width: 100%;
+`;
+export const CenterItemsContainer = styled.div`
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  width: 100%;
+  margin: 0 auto;
+  @media (min-width: 768px) {
+    width: 500px;
+  }
+`;
+export const CenterQRContainer = styled.div`
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  width: 100%;
+  margin: 0 auto;
+  @media (min-width: 768px) {
+    width: 400px;
+  }
+`;

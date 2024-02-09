@@ -13,9 +13,6 @@ import { getAccountCryptoType } from '@polkadot/react-components/util';
 import { useAccounts, useApi, useDelegations, useFavorites, useIpfs, useLedger, useNextTick, useProxies, useToggle } from '@polkadot/react-hooks';
 import { keyring } from '@polkadot/ui-keyring';
 import { BN_ZERO, isFunction } from '@polkadot/util';
-
-import CreateModal from '../modals/Create.js';
-import ImportModal from '../modals/Import.js';
 import Ledger from '../modals/Ledger.js';
 import Multisig from '../modals/MultisigCreate.js';
 import Proxy from '../modals/ProxiedAdd.js';
@@ -25,7 +22,7 @@ import { SORT_CATEGORY, sortAccounts } from '../util.js';
 import Account from './Account.js';
 import BannerClaims from './BannerClaims.js';
 import Summary from './Summary.js';
-import { useInfo, useLoginContext } from '@slonigiraf/app-slonig-components';
+import { CenterItemsContainer, FullWidthContainer, useInfo, useLoginContext } from '@slonigiraf/app-slonig-components';
 import PayToAccountQR from './PayToAccountQR.js';
 
 interface Balances {
@@ -282,41 +279,35 @@ function Overview({ className = '', onStatusChange }: Props): React.ReactElement
 
   return (
     <StyledDiv className={className}>
-      <h3>{t('Show the QR to a sender to get Slon tokens')}</h3>
-      <div className='ui--row'>
-        <PayToAccountQR />
-      </div>
+      <FullWidthContainer>
+        <CenterItemsContainer>
+          <h2>{t('Show the QR to a sender to get Slon tokens')}</h2>
+          <div className='ui--row'>
+            <PayToAccountQR />
+          </div>
 
-      <div className='ui--row'>
-        <InputAddress
-          key={inputKey}
-          className='full'
-          isInput={false}
-          label={t('Default account')}
-          onChange={_onChangeAccount}
-          type='account'
-        />
-        <Button.Group>
-          {isLoggedIn && <Button
-            icon='right-from-bracket'
-            label={t('Log out')}
-            onClick={_logOut}
-          />}
-        </Button.Group>
-      </div>
+          <div className='ui--row'>
+            <InputAddress
+              key={inputKey}
+              className='full'
+              isInput={false}
+              label={t('Default account')}
+              onChange={_onChangeAccount}
+              type='account'
+            />
+            <Button.Group>
+              {isLoggedIn && <Button
+                icon='right-from-bracket'
+                label={t('Log out')}
+                onClick={_logOut}
+              />}
+            </Button.Group>
+          </div>
+          <Summary balance={balances.summary} />
+
+        </CenterItemsContainer>
+      </FullWidthContainer>
       
-      {isCreateOpen && (
-        <CreateModal
-          onClose={toggleCreate}
-          onStatusChange={callOnStatusChange}
-        />
-      )}
-      {isImportOpen && (
-        <ImportModal
-          onClose={toggleImport}
-          onStatusChange={callOnStatusChange}
-        />
-      )}
       {isLedgerOpen && (
         <Ledger onClose={toggleLedger} />
       )}
@@ -339,8 +330,8 @@ function Overview({ className = '', onStatusChange }: Props): React.ReactElement
         />
       )}
       <BannerClaims />
-      <Summary balance={balances.summary} />
       
+
       {!isNextTick || !sortedAccounts.length
         ? (
           <Table

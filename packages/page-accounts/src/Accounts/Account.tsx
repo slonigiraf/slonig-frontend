@@ -559,11 +559,11 @@ function Account({ account: { address, meta }, className = '', delegation, filte
               onClose={togglePassword}
             />
           )}
-          {isTransferOpen && recipientAddress && (
+          {isTransferOpen  && (
             <TransferModal
               key='modal-transfer'
               onClose={_closeTransfer}
-              recipientId={recipientAddress}
+              recipientId={recipientAddress? recipientAddress : undefined}
             />
           )}
           {isProxyOverviewOpen && (
