@@ -8,7 +8,7 @@ import type { BN } from '@polkadot/util';
 import React, { useEffect, useState } from 'react';
 
 import { checkAddress } from '@polkadot/phishing';
-import { useApi, useCall } from '@polkadot/react-hooks';
+import { useApi, useCall, useToggle } from '@polkadot/react-hooks';
 import { Available } from '@polkadot/react-query';
 import { BN_HUNDRED, BN_ZERO, isFunction, nextTick } from '@polkadot/util';
 
@@ -62,6 +62,7 @@ function Transfer ({ className = '', onClose, recipientId: propRecipientId, send
   const accountInfo = useCall<AccountInfoWithProviders | AccountInfoWithRefCount>(api.query.system.account, [propSenderId || senderId]);
   const { showInfo } = useInfo();
   const { currentPair } = useLoginContext();
+  const [isProcessing, toggleProcessing] = useToggle();
 
   useEffect((): void => {
     const fromId = propSenderId || senderId as string;
@@ -103,8 +104,10 @@ function Transfer ({ className = '', onClose, recipientId: propRecipientId, send
   const canToggleAll = !isProtected && balances && balances.accountId?.eq(propSenderId || senderId) && maxTransfer && noReference;
 
   const submitTransfer = async () => {
-    if (!senderId || !recipientId || !amount) {
+    toggleProcessing();
+    if (!senderId || !recipientId || !amount || currentPair === null) {
       showInfo(t('Missing required information for transfer'), 'error');
+      toggleProcessing();
       return;
     }
 
@@ -129,10 +132,12 @@ function Transfer ({ className = '', onClose, recipientId: propRecipientId, send
             showInfo(t('Transfer successful'), 'info');
             onClose(); // Close the modal on success
           }
+          toggleProcessing();
         }
       });
     } catch (error) {
       showInfo(`${t('Transfer failed:')} ${error.toString()}`, 'error');
+      toggleProcessing();
     }
   };
 
@@ -240,6 +245,7 @@ function Transfer ({ className = '', onClose, recipientId: propRecipientId, send
       </Modal.Content>
       <Modal.Actions>
       <Button isDisabled={
+        isProcessing ||
             (!isAll && (!hasAvailable || !amount)) ||
             !(propRecipientId || recipientId) ||
             !!recipientPhish
