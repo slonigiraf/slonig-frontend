@@ -9,12 +9,13 @@ import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { createLanguages, createSs58 } from '@polkadot/apps-config';
 import { ChainInfo } from '@polkadot/apps';
 import { allNetworks } from '@polkadot/networks';
-import { Button, Dropdown, MarkWarning } from '@polkadot/react-components';
+import { Button, Dropdown, MarkWarning, Toggle } from '@polkadot/react-components';
 import { useApi, useIpfs, useLedger } from '@polkadot/react-hooks';
 import { settings } from '@polkadot/ui-settings';
 
 import { useTranslation } from './translate.js';
 import { createIdenticon, createOption, save, saveAndReload } from './util.js';
+import { getSetting, storeSetting } from '@slonigiraf/app-recommendations';
 
 interface Props {
   className?: string;
@@ -22,10 +23,10 @@ interface Props {
 
 const _ledgerConnOptions = settings.availableLedgerConn;
 
-function General ({ className = '' }: Props): React.ReactElement<Props> {
+function General({ className = '' }: Props): React.ReactElement<Props> {
   const { t } = useTranslation();
   const { chainSS58, isApiReady, isElectron } = useApi();
-  const { isIpfs } = useIpfs();
+  const [isDeveloper, setDeveloper] = useState<boolean>(false);
   const { hasLedgerChain, hasWebUsb } = useLedger();
   // tri-state: null = nothing changed, false = no reload, true = reload required
   const [changed, setChanged] = useState<boolean | null>(null);
@@ -34,6 +35,8 @@ function General ({ className = '' }: Props): React.ReactElement<Props> {
 
     return { ...values, uiTheme: values.uiTheme === 'dark' ? 'dark' : 'light' };
   });
+
+
 
   const ledgerConnOptions = useMemo(
     () => _ledgerConnOptions.filter(({ value }) => !isElectron || value !== 'webusb'),
@@ -87,6 +90,14 @@ function General ({ className = '' }: Props): React.ReactElement<Props> {
   );
 
   useEffect((): void => {
+    const loadDev = async () => {
+      const isDev = await getSetting('developer');
+      setDeveloper(isDev === 'true' ? true : false);
+    };
+    loadDev();
+  }, []);
+
+  useEffect((): void => {
     const prev = settings.get() as unknown as Record<string, unknown>;
     const hasChanges = Object.entries(state).some(([key, value]) => prev[key] !== value);
     const needsReload = prev.apiUrl !== state.apiUrl || prev.prefix !== state.prefix;
@@ -115,6 +126,14 @@ function General ({ className = '' }: Props): React.ReactElement<Props> {
       setChanged(null);
     },
     [state]
+  );
+
+  const saveDeveloper = useCallback(
+    async (value: boolean) => {
+      await storeSetting("developer", value ? "true" : "false");
+      setDeveloper(value);
+    },
+    []
   );
 
   return (
@@ -146,7 +165,15 @@ function General ({ className = '' }: Props): React.ReactElement<Props> {
           options={translateLanguages}
         />
       </div>
-      
+      <div className='ui--row'>
+        <Toggle
+          label={t('developer mode')}
+          onChange={saveDeveloper}
+          value={isDeveloper}
+        />
+      </div>
+
+
       {/* <div className='ui--row'>
         <Dropdown
           defaultValue={state.prefix}
@@ -174,7 +201,7 @@ function General ({ className = '' }: Props): React.ReactElement<Props> {
       )} */}
       {hasLedgerChain && (
         <>
-        <h1>{t('account options')}</h1>
+          <h1>{t('account options')}</h1>
           <div className='ui--row'>
             <Dropdown
               defaultValue={
