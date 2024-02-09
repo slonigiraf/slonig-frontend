@@ -248,7 +248,7 @@ const StyledDiv = styled.div`
 
       &.address {
         max-width: 0;
-        min-width: 15rem;
+       
         overflow-x: hidden;
       }
 
