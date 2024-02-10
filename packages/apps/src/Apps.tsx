@@ -16,7 +16,7 @@ import ConnectingOverlay from './overlays/Connecting.js';
 import DotAppsOverlay from './overlays/DotApps.js';
 import WarmUp from './WarmUp.js';
 import BottomMenu from './BottomMenu/index.js';
-import { IpfsProvider, VerticalCenterItemsContainer } from '@slonigiraf/app-slonig-components';
+import { IpfsProvider, AppContainer } from '@slonigiraf/app-slonig-components';
 import { InfoProvider } from '@slonigiraf/app-slonig-components';
 import { LoginProvider } from '@slonigiraf/app-slonig-components';
 export const PORTAL_ID = 'portals';
@@ -36,7 +36,7 @@ function Apps({ className = '' }: Props): React.ReactElement<Props> {
       <IpfsProvider>
         <GlobalStyle uiHighlight={uiHighlight} />
         <StyledDiv className={`${className} apps--Wrapper ${themeClassName}`}>
-          <VerticalCenterItemsContainer>
+          <AppContainer>
             <Menu />
             <AccountSidebar>
               <Signer>
@@ -51,7 +51,7 @@ function Apps({ className = '' }: Props): React.ReactElement<Props> {
               <DotAppsOverlay />
               <div id={PORTAL_ID} />
             </AccountSidebar>
-          </VerticalCenterItemsContainer>
+          </AppContainer>
         </StyledDiv>
         <WarmUp />
       </IpfsProvider>

@@ -4,7 +4,7 @@
 import React, { useEffect } from 'react';
 import LettersList from './LettersList.js';
 import { IPFS } from 'ipfs-core';
-import { LoginButton, VerticalCenterItemsContainer, useLoginContext } from '@slonigiraf/app-slonig-components';
+import { LoginButton, AppContainer, useLoginContext } from '@slonigiraf/app-slonig-components';
 import { u8aToHex } from '@polkadot/util';
 import { useLocation } from 'react-router-dom';
 import { createAndStoreLetter } from '@slonigiraf/app-recommendations';

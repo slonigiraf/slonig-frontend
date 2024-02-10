@@ -62,8 +62,10 @@ const CenterItemsContainer = styled.div`
     width: 800px;
   }
 `;
-export const VerticalCenterItemsContainer = styled(CenterItemsContainer)`
+export const AppContainer = styled(CenterItemsContainer)`
   min-height: 500px;
+`;
+export const VerticalCenterItemsContainer = styled(CenterItemsContainer)`
 `;
 export const HorizontalCenterItemsContainer = styled(CenterItemsContainer)`
   flex-direction: row;

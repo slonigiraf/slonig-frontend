@@ -22,7 +22,7 @@ import { SORT_CATEGORY, sortAccounts } from '../util.js';
 import Account from './Account.js';
 import BannerClaims from './BannerClaims.js';
 import Summary from './Summary.js';
-import { VerticalCenterItemsContainer, FullWidthContainer, useInfo, useLoginContext } from '@slonigiraf/app-slonig-components';
+import { AppContainer, FullWidthContainer, useInfo, useLoginContext } from '@slonigiraf/app-slonig-components';
 import PayToAccountQR from './PayToAccountQR.js';
 
 interface Balances {
@@ -280,7 +280,7 @@ function Overview({ className = '', onStatusChange }: Props): React.ReactElement
   return (
     <StyledDiv className={className}>
       <FullWidthContainer>
-        <VerticalCenterItemsContainer>
+        <AppContainer>
           <h2>{t('Show the QR to a sender to get Slon tokens')}</h2>
           <div className='ui--row'>
             <PayToAccountQR />
@@ -305,7 +305,7 @@ function Overview({ className = '', onStatusChange }: Props): React.ReactElement
           </div>
           <Summary balance={balances.summary} />
 
-        </VerticalCenterItemsContainer>
+        </AppContainer>
       </FullWidthContainer>
       
       {isLedgerOpen && (

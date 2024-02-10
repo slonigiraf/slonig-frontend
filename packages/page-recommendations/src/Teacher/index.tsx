@@ -7,7 +7,7 @@ import { IPFS } from 'ipfs-core';
 import { useTranslation } from '../translate.js';
 import { u8aToHex } from '@polkadot/util';
 import { useLocation } from 'react-router-dom';
-import { QRWithShareAndCopy, nameFromKeyringPair, getBaseUrl, QRAction, parseJson, useLoginContext, LoginButton, VerticalCenterItemsContainer, CenterQRContainer } from '@slonigiraf/app-slonig-components';
+import { QRWithShareAndCopy, nameFromKeyringPair, getBaseUrl, QRAction, parseJson, useLoginContext, LoginButton, AppContainer, CenterQRContainer } from '@slonigiraf/app-slonig-components';
 import { storeInsurances, storePseudonym } from '../utils.js';
 
 interface Props {
@@ -86,7 +86,7 @@ function Teacher({ className = '', ipfs }: Props): React.ReactElement<Props> {
       {
         isLoggedIn && <>
           {(!student || !isDedicatedTeacher) &&
-            <VerticalCenterItemsContainer>
+            <AppContainer>
               <CenterQRContainer>
                 {
                   isDedicatedTeacher ? (
@@ -102,7 +102,7 @@ function Teacher({ className = '', ipfs }: Props): React.ReactElement<Props> {
                   urlShare={url}
                   dataCopy={url} />
               </CenterQRContainer>
-            </VerticalCenterItemsContainer>
+            </AppContainer>
           }
           {
             student && isDedicatedTeacher && (
