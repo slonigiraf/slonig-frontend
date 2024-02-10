@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Algorithm } from './Algorithm.js';
 import { AlgorithmStage } from './AlgorithmStage.js';
-import { Button } from '@polkadot/react-components';
+import { Button, Spinner } from '@polkadot/react-components';
 import { useTranslation } from '../translate.js';
 import { styled } from '@polkadot/react-components';
 
@@ -33,7 +33,7 @@ function DoInstructions({ className = '', algorithm, onResult }: Props): React.R
   };
 
   if (!algorithm) {
-    return <></>;
+    return <Spinner label={t('Loading')}/>;
   }
 
   return (

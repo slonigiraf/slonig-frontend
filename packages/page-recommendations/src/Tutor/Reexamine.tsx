@@ -3,7 +3,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { AlgorithmStage } from './AlgorithmStage.js';
-import { Button } from '@polkadot/react-components';
+import { Button, Spinner, Spinner } from '@polkadot/react-components';
 import type { Skill } from '@slonigiraf/app-slonig-components';
 import { ValidatingAlgorithm } from './ValidatingAlgorithm.js';
 import { useTranslation } from '../translate.js';
@@ -78,7 +78,7 @@ function Reexamine({ className = '', currentPair, insurance, onResult, studentNa
   };
 
   if (!skill) {
-    return <></>;
+    return <Spinner label={t('Loading')}/>;
   }
 
   return (

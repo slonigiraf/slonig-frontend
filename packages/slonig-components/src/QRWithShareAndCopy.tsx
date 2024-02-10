@@ -18,6 +18,7 @@ function QRWithShareAndCopy({ className, dataQR, titleShare, textShare, urlShare
         <StyledDiv>
             <div>
                 <div className='qr--row'>
+                    {/* This size of QR code was set to allow accounts page show Slon balance without scroll on Redmi 9C NFC */}
                     <QRCode value={dataQR} size={260} />
                 </div>
                 <div className='qr--row'>
