@@ -46,18 +46,16 @@ function InsuranceInfo({ className = '', insurance }: Props): React.ReactElement
     <>
       {
         !areDetailsOpen ? <div className='ui--row' >
-          <Button
+          <StyledDiv><Button
             icon='eye'
-            label={skillName}
             onClick={toggleDetailsOpen}
-          />
+          /><span>{skillName}</span></StyledDiv>
         </div> :
           <>
-            <Button
-              icon='fa-chevron-up'
-              label={skillName}
+            <StyledDiv><Button
+              icon='chevron-up'
               onClick={toggleDetailsOpen}
-            />
+            /><span>{skillName}</span></StyledDiv>
             <DiplomaDiv >
               <Card>
 
@@ -139,5 +137,15 @@ const DiplomaDiv = styled.div`
     flex: 1; // Take up the remaining space
   }
 `;
-
+const StyledDiv = styled.div`
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  justify-content: start;
+  padding: 10px;
+  > span {
+    margin-right: 10px;
+    margin-left: 10px;
+  }
+`;
 export default React.memo(InsuranceInfo);
