@@ -50,16 +50,23 @@ export const QRAction = {
 export const FullWidthContainer = styled.div`
   width: 100%;
 `;
-export const CenterItemsContainer = styled.div`
+const CenterItemsContainer = styled.div`
   display: flex;
   flex-direction: column;
   align-items: center;
   width: 100%;
   margin: 0 auto;
+  justify-content: center;
   @media (min-width: 768px) {
-    width: 500px;
+    width: 800px;
   }
 `;
+export const VerticalCenterItemsContainer = styled(CenterItemsContainer)`
+`;
+export const HorizontalCenterItemsContainer = styled(CenterItemsContainer)`
+  flex-direction: row;
+`;
+
 export const CenterQRContainer = styled.div`
   display: flex;
   flex-direction: column;

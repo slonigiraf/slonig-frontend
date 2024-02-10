@@ -1,5 +1,5 @@
 import React from 'react';
-import { ScanQR } from '@slonigiraf/app-slonig-components';
+import { HorizontalCenterItemsContainer, ScanQR } from '@slonigiraf/app-slonig-components';
 import GoKnowledge from './GoKnowledge.js';
 import GetSlon from './GetSlon.js';
 import GoDiplomas from './GoDiplomas.js';
@@ -13,12 +13,12 @@ function BottomMenu(): React.ReactElement {
   if (isApiReady && !isWaitingInjected) {
     return (
       <MenuWrapper>
-        <CenteredItemsContainer>
+        <HorizontalCenterItemsContainer>
           <MenuItem><GoKnowledge /></MenuItem>
           <MenuItem><ScanQR label={t('QR')} /></MenuItem>
           <MenuItem><GoDiplomas /></MenuItem>
           <MenuItem><GetSlon /></MenuItem>
-        </CenteredItemsContainer>
+        </HorizontalCenterItemsContainer>
       </MenuWrapper>
     );
   } else {
@@ -41,12 +41,15 @@ const MenuWrapper = styled.div`
   z-index: 1000;  
 `;
 
-const CenteredItemsContainer = styled.div`
-  display: flex;
-  justify-content: space-around;
-  align-items: center;
-  width: 500px;
-`;
+// const CenteredItemsContainer = styled.div`
+//   display: flex;
+//   justify-content: space-around;
+//   align-items: center;
+//   width: 100%;
+//   @media (min-width: 768px) {
+//     width: 500px;
+//   }
+// `;
 
 const MenuItem = styled.div`
   font-size: 12px;

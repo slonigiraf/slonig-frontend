@@ -8,7 +8,7 @@ import { styled, Toggle, Button, Input, InputBalance, Icon, Card } from '@polkad
 import { useApi, useBlockTime, useToggle } from '@polkadot/react-hooks';
 import { u8aToHex, hexToU8a, u8aWrapBytes, BN_ONE } from '@polkadot/util';
 import type { Skill } from '@slonigiraf/app-slonig-components';
-import { QRWithShareAndCopy, getBaseUrl, getIPFSDataFromContentID, parseJson, useIpfsContext, nameFromKeyringPair, QRAction, useLoginContext, LoginButton, FullWidthContainer, CenterItemsContainer, CenterQRContainer } from '@slonigiraf/app-slonig-components';
+import { QRWithShareAndCopy, getBaseUrl, getIPFSDataFromContentID, parseJson, useIpfsContext, nameFromKeyringPair, QRAction, useLoginContext, LoginButton, FullWidthContainer, VerticalCenterItemsContainer, CenterQRContainer } from '@slonigiraf/app-slonig-components';
 import { Letter } from '@slonigiraf/app-recommendations';
 import { getPublicDataToSignByReferee, getPrivateDataToSignByReferee } from '@slonigiraf/helpers';
 import { getLastUnusedLetterNumber, setLastUsedLetterNumber, storeLetter, storePseudonym } from '../utils.js';
@@ -283,7 +283,7 @@ function Tutor({ className = '' }: Props): React.ReactElement<Props> {
   const diplomaSlon = new BN(amount).div(new BN("1000000000000"));
 
   const diplomaView = <FullWidthContainer>
-    <CenterItemsContainer>
+    <VerticalCenterItemsContainer>
       <div>
         <h2>{t('Show the QR to your student')}</h2>
       </div>
@@ -318,7 +318,7 @@ function Tutor({ className = '' }: Props): React.ReactElement<Props> {
           </CenterQRContainer>
         </Card>
       </DiplomaDiv>
-    </CenterItemsContainer>
+    </VerticalCenterItemsContainer>
   </FullWidthContainer>;
 
   const reexamAndDiplomaIssuing = <>
@@ -331,7 +331,7 @@ function Tutor({ className = '' }: Props): React.ReactElement<Props> {
     {
       canIssueDiploma &&
       <FullWidthContainer>
-        <CenterItemsContainer>
+        <VerticalCenterItemsContainer>
           <Card>
             <div className='ui--row'>
               <h2>{t('Diploma')}</h2>
@@ -381,7 +381,7 @@ function Tutor({ className = '' }: Props): React.ReactElement<Props> {
             />
             {!isIpfsReady ? <div>{t('Connecting to IPFS...')}</div> : ""}
           </div>
-        </CenterItemsContainer>
+        </VerticalCenterItemsContainer>
       </FullWidthContainer>
     }
   </>;
