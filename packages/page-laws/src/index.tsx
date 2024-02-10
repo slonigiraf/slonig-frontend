@@ -15,42 +15,72 @@ import Create from './Create';
 import Edit from './Edit';
 import ItemLabel from './Edit/ItemLabel.js';
 import ExerciseList from './Edit/ExerciseList.js';
+import { getSetting } from '@slonigiraf/app-recommendations';
 export { useCounter, ItemLabel, ExerciseList };
 
 const HIDDEN_ACC = ['vanity'];
 
-function AccountsApp ({ basePath, onStatusChange }: Props): React.ReactElement<Props> {
-  const { t } = useTranslation();
-  const { hasAccounts } = useAccounts();
-  const { isIpfs } = useIpfs();
+interface Tab {
+  isRoot?: boolean;
+  name: string;
+  text: string;
+}
 
-  const tabsRef = useRef([
+function useDeveloperSetting(): boolean {
+  const [isDeveloper, setDeveloper] = useState<boolean>(false);
+
+  useEffect((): void => {
+    const loadDev = async () => {
+      const isDev = await getSetting('developer');
+      setDeveloper(isDev === 'true' ? true : false);
+    };
+    loadDev();
+  }, []);
+
+  return isDeveloper;
+}
+
+function TabsConfiguration(isDeveloper: boolean, t: (key: string) => string): Tab[] {
+  const tabs: Tab[] = [
     {
       isRoot: true,
       name: 'browse',
       text: t('Browse')
-    },
-    {
+    }
+  ];
+
+  if (isDeveloper) {
+    tabs.push({
       name: 'create',
       text: t('Create')
-    }
-  ]);
+    });
+  }
+
+  return tabs;
+}
+
+function AccountsApp({ basePath, onStatusChange }: Props): React.ReactElement<Props> {
+  const { t } = useTranslation();
+  const { hasAccounts } = useAccounts();
+  const { isIpfs } = useIpfs();
+  const isDeveloper = useDeveloperSetting();
+  const tabs = TabsConfiguration(isDeveloper, t);
 
   return (
     <main className='accounts--App'>
       <Tabs
         basePath={basePath}
         hidden={(hasAccounts && !isIpfs) ? undefined : HIDDEN_ACC}
-        items={tabsRef.current}
+        items={tabs}
       />
       <Routes>
         <Route path={basePath}>
-          <Route
-            element={
-              <Create onStatusChange={onStatusChange} />
-            }
-            path='create'
-          />
+          {isDeveloper && (
+            <Route
+              element={<Create onStatusChange={onStatusChange} />}
+              path='create'
+            />
+          )}
           <Route
             element={
               <Edit onStatusChange={onStatusChange} />
