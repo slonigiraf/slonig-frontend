@@ -18,7 +18,7 @@ function QRWithShareAndCopy({ className, dataQR, titleShare, textShare, urlShare
         <StyledDiv>
             <div>
                 <div className='qr--row'>
-                    <QRCode value={dataQR} size={350} />
+                    <QRCode value={dataQR} size={310} />
                 </div>
                 <div className='qr--row'>
                     <ShareButton title={titleShare} text={textShare} url={urlShare} />
