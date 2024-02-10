@@ -1,7 +1,7 @@
 // Copyright 2021-2022 @slonigiraf/app-recommendations authors & contributors
 // SPDX-License-Identifier: Apache-2.0
 
-import { Button, Modal } from '@polkadot/react-components';
+import { Button, Modal, styled } from '@polkadot/react-components';
 import React, { useState, useEffect } from 'react'
 import { getIPFSDataFromContentID, parseJson } from '@slonigiraf/app-slonig-components'
 import { useTranslation } from '../translate.js';
@@ -57,19 +57,29 @@ function LetterInfo({ className = '', letter, isSelected, onToggleSelection }: P
     }
   </>;
 
-  const buttonSelect = 
+  const buttonSelect =
     <Button
-      icon={isSelected ? 'fa-check' : 'fa-square'} 
-      label={text}
+      icon={isSelected ? 'check' : 'square'}
       onClick={() => onToggleSelection && onToggleSelection(letter)}
     />
-  ;
+    ;
 
   return (
-    <>
-    {buttonSelect}
-    {buttonView}</>
+    <StyledDiv>
+      {buttonSelect}
+      <span>{text}</span>
+      {buttonView}
+    </StyledDiv>
   )
 }
-
+const StyledDiv = styled.div`
+  display: flex;
+  align-items: center;
+  justify-content: start;
+  padding: 10px;
+  > span {
+    margin-right: 10px;
+    margin-left: 10px;
+  }
+`;
 export default React.memo(LetterInfo);
