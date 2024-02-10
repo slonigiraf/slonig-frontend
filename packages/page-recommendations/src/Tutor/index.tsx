@@ -283,7 +283,7 @@ function Tutor({ className = '' }: Props): React.ReactElement<Props> {
   const diplomaSlon = new BN(amount).div(new BN("1000000000000"));
 
   const diplomaView = <FullWidthContainer>
-    <AppContainer>
+    <VerticalCenterItemsContainer>
       <div>
         <h2>{t('Show the QR to your student')}</h2>
       </div>
@@ -317,8 +317,8 @@ function Tutor({ className = '' }: Props): React.ReactElement<Props> {
               dataCopy={diplomaAddUrl} />
           </CenterQRContainer>
         </Card>
-      </DiplomaDiv>
-    </AppContainer>
+    </DiplomaDiv>
+    </VerticalCenterItemsContainer>
   </FullWidthContainer>;
 
   const reexamAndDiplomaIssuing = <>
@@ -329,7 +329,7 @@ function Tutor({ className = '' }: Props): React.ReactElement<Props> {
       <DoInstructions algorithm={teachingAlgorithm} onResult={updateTutoring} key={countOfUrlReloads} />
     </div>
     {
-      !canIssueDiploma &&//TODO revert
+      canIssueDiploma &&
       <FullWidthContainer>
         <VerticalCenterItemsContainer>
           <Card>
