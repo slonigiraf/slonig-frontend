@@ -15,13 +15,15 @@ import Developer from './Developer.js';
 import General from './General.js';
 import { useTranslation } from './translate.js';
 import useCounter from './useCounter.js';
+import { useDeveloperSetting } from '@slonigiraf/app-slonig-components';
 
 export { useCounter };
 
-function SettingsApp ({ basePath, onStatusChange }: Props): React.ReactElement<Props> {
+function SettingsApp({ basePath, onStatusChange }: Props): React.ReactElement<Props> {
   const { t } = useTranslation();
   const { api, isApiConnected, isApiReady, isDevelopment } = useApi();
   const numExtensions = useCounter();
+  const isDeveloper = useDeveloperSetting();
 
   const items = useMemo(() => [
     {
@@ -45,13 +47,14 @@ function SettingsApp ({ basePath, onStatusChange }: Props): React.ReactElement<P
   ], [numExtensions, t]);
 
   const hidden = useMemo(
-    () => (isApiConnected && isApiReady)
-      ? isDevelopment || (api.runtimeMetadata.version <= 13)
-        ? []
-        : ['developer']
-      : ['metadata', 'i18n'],
-    [api, isApiConnected, isApiReady, isDevelopment]
+    () => isDeveloper
+      ? []
+      : ['developer', 'metadata', 'i18n'],
+    [isDeveloper]
   );
+
+  console.log("isDeveloper", isDeveloper)
+  console.log("hidden", hidden)
 
   return (
     <main className='settings--App'>
