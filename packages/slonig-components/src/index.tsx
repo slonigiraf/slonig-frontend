@@ -56,12 +56,12 @@ const CenterItemsContainer = styled.div`
   align-items: center;
   width: 100%;
   margin: 0 auto;
-  justify-content: center;
   @media (min-width: 768px) {
     width: 800px;
   }
 `;
 export const VerticalCenterItemsContainer = styled(CenterItemsContainer)`
+  min-height: 500px;
 `;
 export const HorizontalCenterItemsContainer = styled(CenterItemsContainer)`
   flex-direction: row;

@@ -7,7 +7,7 @@ import { IPFS } from 'ipfs-core';
 import { useTranslation } from '../translate.js';
 import { u8aToHex } from '@polkadot/util';
 import { useLocation } from 'react-router-dom';
-import { QRWithShareAndCopy, nameFromKeyringPair, getBaseUrl, QRAction, parseJson, useLoginContext, LoginButton } from '@slonigiraf/app-slonig-components';
+import { QRWithShareAndCopy, nameFromKeyringPair, getBaseUrl, QRAction, parseJson, useLoginContext, LoginButton, VerticalCenterItemsContainer, CenterQRContainer } from '@slonigiraf/app-slonig-components';
 import { storeInsurances, storePseudonym } from '../utils.js';
 
 interface Props {
@@ -81,27 +81,28 @@ function Teacher({ className = '', ipfs }: Props): React.ReactElement<Props> {
   }, [diplomasFromUrl, isDedicatedTeacher]);
 
   return (
+
     <div className={`toolbox--Student ${className}`}>
       {
         isLoggedIn && <>
-          {
-            (!student || !isDedicatedTeacher) ? (
-              isDedicatedTeacher ? (
-                <h2>{t('Show to a student to see their results')}</h2>
-              ) : (
-                <h2>{t('Student has shown you a QR code created for a different teacher. Ask them to scan your QR code.')}</h2>
-              )
-            ) : null
-          }
-          {
-            (!student || !isDedicatedTeacher) && (
-              <QRWithShareAndCopy
-                dataQR={qrCodeText}
-                titleShare={t('QR code')}
-                textShare={t('Press the link to show diplomas')}
-                urlShare={url}
-                dataCopy={url} />
-            )
+          {(!student || !isDedicatedTeacher) &&
+            <VerticalCenterItemsContainer>
+              <CenterQRContainer>
+                {
+                  isDedicatedTeacher ? (
+                    <h2>{t('Show to a student to see their results')}</h2>
+                  ) : (
+                    <h2>{t('Student has shown you a QR code created for a different teacher. Ask them to scan your QR code.')}</h2>
+                  )
+                }
+                <QRWithShareAndCopy
+                  dataQR={qrCodeText}
+                  titleShare={t('QR code')}
+                  textShare={t('Press the link to show diplomas')}
+                  urlShare={url}
+                  dataCopy={url} />
+              </CenterQRContainer>
+            </VerticalCenterItemsContainer>
           }
           {
             student && isDedicatedTeacher && (
@@ -110,6 +111,7 @@ function Teacher({ className = '', ipfs }: Props): React.ReactElement<Props> {
               </div>
             )
           }
+
         </>
       }
       <LoginButton label={t('Log in to view student results')} />

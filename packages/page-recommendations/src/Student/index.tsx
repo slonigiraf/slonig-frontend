@@ -4,7 +4,7 @@
 import React, { useEffect } from 'react';
 import LettersList from './LettersList.js';
 import { IPFS } from 'ipfs-core';
-import { LoginButton, useLoginContext } from '@slonigiraf/app-slonig-components';
+import { LoginButton, VerticalCenterItemsContainer, useLoginContext } from '@slonigiraf/app-slonig-components';
 import { u8aToHex } from '@polkadot/util';
 import { useLocation } from 'react-router-dom';
 import { createAndStoreLetter } from '@slonigiraf/app-recommendations';
@@ -74,12 +74,12 @@ function Student({ className = '', ipfs }: Props): React.ReactElement<Props> {
   }, [refereeSignOverPrivateData])
 
   return (
-    <div className={`toolbox--Student ${className}`}>
-      <div className='ui--row'>
-        {isLoggedIn && <LettersList ipfs={ipfs} worker={u8aToHex(currentPair?.publicKey)} currentPair={currentPair} />}
-        <LoginButton label={t('Log in to see your diplomas')}/>
+      <div className={`toolbox--Student ${className}`}>
+        <div className='ui--row'>
+          {isLoggedIn && <LettersList ipfs={ipfs} worker={u8aToHex(currentPair?.publicKey)} currentPair={currentPair} />}
+          <LoginButton label={t('Log in to see your diplomas')} />
+        </div>
       </div>
-    </div>
   )
 }
 

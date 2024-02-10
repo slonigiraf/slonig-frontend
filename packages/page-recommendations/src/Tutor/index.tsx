@@ -323,7 +323,7 @@ function Tutor({ className = '' }: Props): React.ReactElement<Props> {
 
   const reexamAndDiplomaIssuing = <>
     <div style={!reexamined ? {} : { display: 'none' }}>
-      {currentPair && <Reexamine currentPair={currentPair} insurance={insurance} onResult={updateReexamined} key={countOfUrlReloads} studentName={studentNameFromUrl}/>}
+      {currentPair && <Reexamine currentPair={currentPair} insurance={insurance} onResult={updateReexamined} key={countOfUrlReloads} studentName={studentNameFromUrl} />}
     </div>
     <div style={reexamined ? {} : { display: 'none' }}>
       <DoInstructions algorithm={teachingAlgorithm} onResult={updateTutoring} key={countOfUrlReloads} />
@@ -387,27 +387,29 @@ function Tutor({ className = '' }: Props): React.ReactElement<Props> {
   </>;
 
   return (
-    <div className={`toolbox--Tutor ${className}`}>
-      {isLoggedIn && (
-        (student === undefined || !isDedicatedTutor) ? <>
-          {
-            isDedicatedTutor ?
-              <h2>{t('Show to a student to begin tutoring')}</h2>
-              :
-              <h2>{t('Student has shown you a QR code created for a different tutor. Ask them to scan your QR code.')}</h2>
-          }
-          <QRWithShareAndCopy
-            dataQR={qrCodeText}
-            titleShare={t('QR code')}
-            textShare={t('Press the link to start learning')}
-            urlShare={url}
-            dataCopy={url} />
-        </>
-          :
-          <> {diploma ? diplomaView : reexamAndDiplomaIssuing}</>
-      )}
-      <LoginButton label={t('Log in to start tutoring')} />
-    </div>
+    <VerticalCenterItemsContainer>
+      <div className={`toolbox--Tutor ${className}`}>
+        {isLoggedIn && (
+          (student === undefined || !isDedicatedTutor) ? <>
+            {
+              isDedicatedTutor ?
+                <h2>{t('Show to a student to begin tutoring')}</h2>
+                :
+                <h2>{t('Student has shown you a QR code created for a different tutor. Ask them to scan your QR code.')}</h2>
+            }
+            <QRWithShareAndCopy
+              dataQR={qrCodeText}
+              titleShare={t('QR code')}
+              textShare={t('Press the link to start learning')}
+              urlShare={url}
+              dataCopy={url} />
+          </>
+            :
+            <> {diploma ? diplomaView : reexamAndDiplomaIssuing}</>
+        )}
+        <LoginButton label={t('Log in to start tutoring')} />
+      </div>
+    </VerticalCenterItemsContainer>
   );
 }
 
