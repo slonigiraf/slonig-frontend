@@ -18,7 +18,7 @@ function QRWithShareAndCopy({ className, dataQR, titleShare, textShare, urlShare
         <StyledDiv>
             <div>
                 <div className='qr--row'>
-                    <QRCode value={dataQR} size={200} />
+                    <QRCode value={dataQR} size={350} />
                 </div>
                 <div className='qr--row'>
                     <ShareButton title={titleShare} text={textShare} url={urlShare} />
@@ -42,7 +42,7 @@ const StyledDiv = styled.div`
   }
   @media (min-width: 768px) {
     width: 400px;
-  }
+      }
 `;
 
 export default React.memo(QRWithShareAndCopy);
