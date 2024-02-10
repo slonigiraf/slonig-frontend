@@ -8,14 +8,13 @@ import { Route, Routes } from 'react-router';
 
 import { Tabs } from '@polkadot/react-components';
 import { useAccounts, useIpfs } from '@polkadot/react-hooks';
-
+import { useDeveloperSetting } from '@slonigiraf/app-slonig-components';
 import { useTranslation } from './translate.js';
 import useCounter from './useCounter.js';
 import Create from './Create';
 import Edit from './Edit';
 import ItemLabel from './Edit/ItemLabel.js';
 import ExerciseList from './Edit/ExerciseList.js';
-import { getSetting } from '@slonigiraf/app-recommendations';
 export { useCounter, ItemLabel, ExerciseList };
 
 const HIDDEN_ACC = ['vanity'];
@@ -24,20 +23,6 @@ interface Tab {
   isRoot?: boolean;
   name: string;
   text: string;
-}
-
-function useDeveloperSetting(): boolean {
-  const [isDeveloper, setDeveloper] = useState<boolean>(false);
-
-  useEffect((): void => {
-    const loadDev = async () => {
-      const isDev = await getSetting('developer');
-      setDeveloper(isDev === 'true' ? true : false);
-    };
-    loadDev();
-  }, []);
-
-  return isDeveloper;
 }
 
 function TabsConfiguration(isDeveloper: boolean, t: (key: string) => string): Tab[] {

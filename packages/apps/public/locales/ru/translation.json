@@ -225,7 +225,7 @@
   "From JSON": "Из JSON",
   "From Qr": "С QR",
   "Full Legal Name": "Полное имя",
-  "General": "Общий",
+  "General": "Общие",
   "Generate {{lng}}/translation.json": "Создать {{lng}}/translation.json",
   "Genesis Hash": "Хэш Генезиса",
   "Genesis Hash refers to initial state of the chain, it cannot be changed once the chain is launched": "Хэш Генезиса - исходное состояние сети, после запуска его невозможно изменить",

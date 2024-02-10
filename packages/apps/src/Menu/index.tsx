@@ -6,7 +6,7 @@ import type { ApiProps } from '@polkadot/react-api/types';
 import type { AccountId } from '@polkadot/types/interfaces';
 import type { Group, Groups } from './types.js';
 
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+import React, { useMemo, useRef } from 'react';
 import { useLocation } from 'react-router-dom';
 
 import createRoutes from '@polkadot/apps-routing';
@@ -16,7 +16,7 @@ import { useAccounts, useApi, useCall, useTeleport } from '@polkadot/react-hooks
 import { findMissingApis } from '../endpoint.js';
 import { useTranslation } from '../translate.js';
 import Grouping from './Grouping.js';
-import { getSetting } from '@slonigiraf/app-recommendations';
+import { useDeveloperSetting } from '@slonigiraf/app-slonig-components';
 import SlonigLogo from './SlonigLogo.js';
 
 interface Props {
@@ -76,15 +76,7 @@ function Menu({ className = '' }: Props): React.ReactElement<Props> {
   const sudoKey = useCall<AccountId>(apiProps.isApiReady && apiProps.api.query.sudo?.key);
   const location = useLocation();
   const routeRef = useRef(createRoutes(t));
-  const [isDeveloper, setDeveloper] = useState<boolean>(false);
-
-  useEffect((): void => {
-    const loadDev = async () => {
-      const isDev = await getSetting('developer');
-      setDeveloper(isDev === 'true' ? true : false);
-    };
-    loadDev();
-  }, []);
+  const isDeveloper = useDeveloperSetting();
 
   const groupRef = useRef({
     accounts: t('Slonig'),
