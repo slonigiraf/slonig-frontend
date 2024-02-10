@@ -43,7 +43,7 @@ function DiplomasApp({ basePath, onStatusChange }: Props): React.ReactElement<Pr
   ]);
 
   return (
-    <main className='accounts--App'>
+    <main className='diplomas--App'>
       <Tabs
         basePath={basePath}
         hidden={(hasAccounts && !isIpfs) ? undefined : HIDDEN_ACC}

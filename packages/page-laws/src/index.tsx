@@ -39,7 +39,7 @@ function LawsApp({ basePath, onStatusChange }: Props): React.ReactElement<Props>
   );
 
   return (
-    <main className='accounts--App'>
+    <main className='laws--App'>
       <Tabs
         basePath={basePath}
         hidden={hidden}
