@@ -57,7 +57,7 @@ function SignLetterUseRight({ className = '', letters, worker, employer, current
 
 
       const signedLettersToUrl = JSON.stringify(signedLetters);
-      const urlToSend: string = getBaseUrl() + `/#/diplomas/teacher?student=${worker}&name=${encodeURIComponent(studentName)}&t=${employer}&d=${signedLettersToUrl}`;
+      const urlToSend: string = getBaseUrl() + `/#/diplomas/teacher?student=${worker}&name=${encodeURIComponent(studentName)}&t=${employer}&d=${encodeURIComponent(signedLettersToUrl)}`;
       setUrl(urlToSend);
     };
 
