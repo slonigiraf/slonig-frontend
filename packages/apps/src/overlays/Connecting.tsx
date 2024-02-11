@@ -63,7 +63,7 @@ function Connecting ({ className }: Props): React.ReactElement<Props> | null {
       <BaseOverlay
         className={className}
         icon='globe'
-        type='error'
+        type='info'
       >
         <div>{t('Connecting to a node.')}</div>
         {
