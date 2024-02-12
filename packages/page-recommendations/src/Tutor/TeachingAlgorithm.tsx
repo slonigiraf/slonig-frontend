@@ -35,7 +35,7 @@ class TeachingAlgorithm extends Algorithm {
 
         const hasStudentRepeatedTheRightAnswer = new AlgorithmStage(
             'intermediate',
-            t('I\'ve said it now'),
+            t('Next'),
             <StyledDiv>
                 <ChatSimulation messages={[
                     { id: 1, text: t('Repeat after me:'), sender: 'you', senderName: 'You' },
@@ -75,7 +75,7 @@ class TeachingAlgorithm extends Algorithm {
 
         const hasStudentCorrectedTheFakeAnswer = new AlgorithmStage(
             'intermediate',
-            t('I\'ve said it now'),
+            t('Next'),
             <StyledDiv>
                 <ChatSimulation messages={[
                     { id: 1, text: t('...'), sender: 'you', senderName: 'You', comment: t('I deliberately perform the exercise invented by the student incorrectly and ask:') },
@@ -89,7 +89,7 @@ class TeachingAlgorithm extends Algorithm {
 
         const didStudentRepeatedAfterMeTheTask = new AlgorithmStage(
             'intermediate',
-            t('I\'ve said it now'),
+            t('Next'),
             <StyledDiv>
                 <ChatSimulation messages={[
                     { id: 1, text: t('Repeat after me:'), sender: 'you', senderName: 'You' },
@@ -129,7 +129,7 @@ class TeachingAlgorithm extends Algorithm {
 
         const didStudentCreatedASimilarTask = new AlgorithmStage(
             'intermediate',
-            t('I\'ve said it now'),
+            t('Next'),
             <StyledDiv>
                 <ChatSimulation messages={[
                     { id: 1, text: t('Come up with an exercise similar to what I am going to say now.'), sender: 'you', senderName: 'You' },

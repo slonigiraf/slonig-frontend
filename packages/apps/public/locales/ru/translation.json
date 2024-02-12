@@ -307,7 +307,7 @@
   "Network": "Сеть",
   "Network Name": "Название Сети",
   "New stake": "Новый стейк",
-  "Next": "Следующий",
+  "Next": "Далее",
   "No": "Нет",
   "No accounts": "Нет Аккаунтов",
   "No accounts with balances found for the asset": "Аккаунты со средствами этого типа не найдены",
@@ -1533,7 +1533,6 @@
   "Buy a skill diploma from me to get a bonus from a teacher.": "Купи у меня диплом на навык, чтобы получить бонус от учителя.",
   "I sell the student a diploma in exchange for money or Slon tokens.": "Продаю ученику диплом в обмен на деньги или жетоны Slon.",
   "Excellent! Let's repeat this tomorrow.": "Отлично! Давай повторим это завтра.",
-  "I've said it now": "Я сказал это сейчас",
   "Has the student repeated the correct solution and answer?": "Повторил ли ученик правильное решение и ответ?",
   "Tell the student": "Скажи ученику",
   "Repeat after me:": "Повтори за мной:",
@@ -1572,5 +1571,9 @@
   "Missing required information for transfer": "Отсутствует необходимая информация для перевода",
   "Transfer failed": "Перевод не прошел",
   "Transfer successful": "Успешный перевод",
-  "Developer mode": "Режим разработчика"
+  "Developer mode": "Режим разработчика",
+  "Select a network": "Выбрать сеть",
+  "UI options": "Внешний вид",
+  "default interface theme": "Тема интерфейса",
+  "Metadata": "Метаданные"
 }
