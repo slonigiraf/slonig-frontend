@@ -6,7 +6,7 @@ import { Dropdown } from '@polkadot/react-components';
 import { useLiveQuery } from "dexie-react-hooks";
 import { db, Letter } from '@slonigiraf/app-recommendations';
 import { keyForCid } from '@slonigiraf/app-slonig-components';
-import { useLocation, useNavigate } from 'react-router-dom';
+import { useLocation } from 'react-router-dom';
 import { styled } from '@polkadot/react-components';
 import { u8aToHex, hexToU8a, u8aWrapBytes } from '@polkadot/util';
 import { getDataToSignByWorker } from '@slonigiraf/helpers';
@@ -41,7 +41,6 @@ function SkillQR({ className = '', cid }: Props): React.ReactElement<Props> {
   // Rest params
   const { t } = useTranslation();
   const location = useLocation();
-  const navigate = useNavigate();
   const queryParams = new URLSearchParams(location.search);
   const tutorFromQuery = queryParams.get("tutor");
   const [tutor, setTutor] = useState<string | null>(tutorFromQuery);
@@ -139,7 +138,7 @@ function SkillQR({ className = '', cid }: Props): React.ReactElement<Props> {
 
   const _onSign = useCallback(
     async () => {
-      if (!currentPair || !diplomaToReexamine || !tutor) {
+      if (!isLoggedIn || !currentPair || !diplomaToReexamine || !tutor) {
         return;
       }
       // generate a data to sign    
