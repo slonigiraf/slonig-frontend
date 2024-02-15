@@ -5,11 +5,11 @@ class AlgorithmStage {
     private next: AlgorithmStage[];
     private previous: AlgorithmStage | null;
 
-    constructor(type: string, name: string, words: React.ReactNode, next: AlgorithmStage[]) {
+    constructor(type: string, name: string, words: React.ReactNode) {
         this.type = type;
         this.name = name;
         this.words = words;
-        this.next = next;
+        this.next = [];
         this.previous = null;
     }
 

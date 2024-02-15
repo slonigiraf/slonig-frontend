@@ -128,7 +128,8 @@ function Tutor({ className = '' }: Props): React.ReactElement<Props> {
           const skillContent = await getIPFSDataFromContentID(ipfs, skillCID);
           const skillJson = parseJson(skillContent);
           setSkill(skillJson);
-          setTeachingAlgorithm(new TeachingAlgorithm(t, studentNameFromUrl, skillJson));
+          const studentUsesSlonigFirstTime = cidR === undefined;
+          setTeachingAlgorithm(new TeachingAlgorithm(t, studentNameFromUrl, skillJson, studentUsesSlonigFirstTime));
         }
         catch (e) {
           console.log(e);

@@ -22,8 +22,7 @@ class ValidatingAlgorithm extends Algorithm {
                 <ChatSimulation messages={[
                     { id: 1, text: t('Great, you remember the skill. Let\'s start learning a new skill.'), sender: 'you', senderName: 'You' },
                 ]} />
-            </StyledDiv>,
-            []
+            </StyledDiv>
         );
 
 
@@ -36,38 +35,21 @@ class ValidatingAlgorithm extends Algorithm {
                 <ChatSimulation messages={[
                     { id: 1, text: t('You don\'t have such a skill. I will penalize the tutor which issued the diploma for it.'), sender: 'you', senderName: 'You', comment: `${t('Press \'Get bounty\' to receive')} ${amount?.toString()} Slon.` },
                 ]} />
-            </StyledDiv>,
-            []
+            </StyledDiv>
         );
 
         const nextToTeaching = new AlgorithmStage(
             'success',
             t('Next'),
-            <></>,
-            []
+            <></>
         );
         const reimburse = new AlgorithmStage(
             'reimburse',
             t('Get bounty'),
-            <></>,
-            []
+            <></>
         );
 
-        const askStudentToRepeatTheAnswer = new AlgorithmStage(
-            'intermediate',
-            t('No'),
-            <StyledDiv>
-                <ChatSimulation messages={[
-                    { id: 1, text: t('...'), sender: 'them', senderName: studentName, comment: t('The student did not correct me.') },
-                    { id: 2, text: t('Repeat after me:'), sender: 'you', senderName: 'You' },
-                    { id: 3, text: t('...'), sender: 'you', senderName: 'You', comment: t('I give the correct solution and answer to the exercise invented by the student. I can peek at solution examples here:') },
-                ]} />
-                {questions != null && <ExerciseList exercises={questions} areShownInitially={true} />}
-            </StyledDiv>,
-            [explainReimburse]
-        );
-
-        const hasStudentCorrectedTheFakeAnswer = new AlgorithmStage(
+        const hasStudentCorrectedTheFakeSolution = new AlgorithmStage(
             'intermediate',
             t('Next'),
             <StyledDiv>
@@ -76,12 +58,12 @@ class ValidatingAlgorithm extends Algorithm {
                     { id: 2, text: t('Am I right?'), sender: 'you', senderName: 'You' },
                     { id: 3, text: t('...'), sender: 'them', senderName: studentName },
                 ]} />
-                <b>{t('Has the student corrected the wrong answer?')}</b>
-            </StyledDiv>,
-            [validateDiploma, explainReimburse]
+                <b>{t('Has the student corrected the wrong solution?')}</b>
+            </StyledDiv>
         );
+        
 
-        const didStudentRepeatedAfterMeTheTask = new AlgorithmStage(
+        const hasStudentRepeatedAfterMeTheExercise = new AlgorithmStage(
             'intermediate',
             t('Next'),
             <StyledDiv>
@@ -90,50 +72,49 @@ class ValidatingAlgorithm extends Algorithm {
                     { id: 2, text: question2, sender: 'you', senderName: 'You' },
                     { id: 3, text: '...', sender: 'them', senderName: studentName },
                 ]} />
-                <b>{t('Did the student repeat correctly after me?')}</b>
-            </StyledDiv>,
-            []
+                <b>{t('Has the student repeated correctly after me?')}</b>
+            </StyledDiv>
         );
 
-        const provideFakeAnswer = new AlgorithmStage(
+        const provideFakeSolution = new AlgorithmStage(
             'intermediate',
             t('Yes'),
             <StyledDiv>
                 <ChatSimulation messages={[
-                    { id: 1, text: t('...'), sender: 'them', senderName: studentName, comment: t('An exercise created by a student.') },
+                    { id: 1, text: t('...'), sender: 'them', senderName: studentName, comment: t('An exercise invented by a student.') },
                     { id: 2, text: t('...'), sender: 'you', senderName: 'You', comment: t('I deliberately perform the exercise invented by the student incorrectly and ask:') },
                     { id: 3, text: t('Am I right?'), sender: 'you', senderName: 'You' },
                 ]} />
-            </StyledDiv>,
-            [hasStudentCorrectedTheFakeAnswer]
+            </StyledDiv>
         );
+        
 
-        const askToRepeatTaskAfterMeTheTask = new AlgorithmStage(
+        const askToRepeatTheExerciseAfterMe = new AlgorithmStage(
             'intermediate',
             t('No'),
             <StyledDiv>
                 <ChatSimulation messages={[
-                    { id: 1, text: '...', sender: 'them', senderName: studentName, comment: t('The student did not come up with the type of exercise needed.') },
+                    { id: 1, text: '...', sender: 'them', senderName: studentName, comment: t('The student has not come up with the type of exercise needed.') },
                     { id: 2, text: t('Repeat after me:'), sender: 'you', senderName: 'You' },
-                    { id: 3, text: question2, sender: 'you', senderName: 'You', comment: t('I say this in my own words. I can change the exercise a little.') },
+                    { id: 3, text: question2, sender: 'you', senderName: 'You', comment: t('I can change the exercise a little.') },
                 ]} />
-            </StyledDiv>,
-            [didStudentRepeatedAfterMeTheTask]
+            </StyledDiv>
         );
+        
 
-        const didStudentCreatedASimilarTask = new AlgorithmStage(
+        const hasStudentCreatedASimilarExercise = new AlgorithmStage(
             'intermediate',
             t('Next'),
             <StyledDiv>
                 <ChatSimulation messages={[
-                    { id: 1, text: t('Come up with an exercise similar to what I am going to say now.'), sender: 'you', senderName: 'You' },
+                    { id: 1, text: t('Come up with an exercise similar to this:'), sender: 'you', senderName: 'You' },
                     { id: 2, text: question1, sender: 'you', senderName: 'You' },
                     { id: 3, text: '...', sender: 'them', senderName: studentName },
                 ]} />
-                <b>{t('Has the student now created a similar exercise?')}</b>
-            </StyledDiv>,
-            [provideFakeAnswer, askToRepeatTaskAfterMeTheTask]
+                <b>{t('Has the student now invented a similar exercise?')}</b>
+            </StyledDiv>
         );
+        
 
         // Link stages
         this.begin = new AlgorithmStage(
@@ -142,12 +123,12 @@ class ValidatingAlgorithm extends Algorithm {
             <StyledDiv>
                 <ChatSimulation messages={[
                     { id: 1, text: t('Before teaching me, try to earn a bonus by testing my previous skill:') + (skill && " \"" + skill.h + "\""), sender: 'them', senderName: studentName },
-                    { id: 2, text: t('Come up with an exercise similar to what I am going to say now.'), sender: 'you', senderName: 'You' },
-                    { id: 3, text: question1, sender: 'you', senderName: 'You', comment: t('I say this in my own words. I can change the exercise a little.') },
+                    { id: 2, text: t('Come up with an exercise similar to this:'), sender: 'you', senderName: 'You' },
+                    { id: 3, text: question1, sender: 'you', senderName: 'You', comment: t('I can change the exercise a little.') },
                 ]} />
-            </StyledDiv>,
-            [didStudentCreatedASimilarTask]
+            </StyledDiv>
         );
+        
 
         const repeatFromTheBeginning = new AlgorithmStage(
             'begin',
@@ -155,25 +136,42 @@ class ValidatingAlgorithm extends Algorithm {
             <StyledDiv>
                 <ChatSimulation messages={[
                     { id: 1, text: t('...'), sender: 'them', senderName: studentName, comment: t('The student has repeated correctly after me.') },
-                    { id: 2, text: t('Come up with an exercise similar to what I am going to say now.'), sender: 'you', senderName: 'You' },
-                    { id: 3, text: question1, sender: 'you', senderName: 'You', comment: t('I say this in my own words. I can change the exercise a little.') },
+                    { id: 2, text: t('Come up with an exercise similar to this:'), sender: 'you', senderName: 'You' },
+                    { id: 3, text: question1, sender: 'you', senderName: 'You', comment: t('I can change the exercise a little.') },
                 ]} />
-            </StyledDiv>,
-            [didStudentCreatedASimilarTask]
+            </StyledDiv>
         );
+        
 
-        // Rest of the linking
-        didStudentRepeatedAfterMeTheTask.setNext([repeatFromTheBeginning, askToRepeatTaskAfterMeTheTask]);
-        didStudentCreatedASimilarTask.setPrevious(this.begin);
-        askToRepeatTaskAfterMeTheTask.setPrevious(didStudentCreatedASimilarTask);
-        askStudentToRepeatTheAnswer.setPrevious(hasStudentCorrectedTheFakeAnswer);
-        provideFakeAnswer.setPrevious(didStudentCreatedASimilarTask);
-        didStudentRepeatedAfterMeTheTask.setPrevious(askToRepeatTaskAfterMeTheTask);
-        hasStudentCorrectedTheFakeAnswer.setPrevious(provideFakeAnswer);
-        validateDiploma.setPrevious(hasStudentCorrectedTheFakeAnswer);
-        explainReimburse.setPrevious(hasStudentCorrectedTheFakeAnswer);
-        explainReimburse.setNext([reimburse]);
-        validateDiploma.setNext([nextToTeaching]);
+        // Algo linking:
+        this.begin.setNext([hasStudentCreatedASimilarExercise]);
+        hasStudentCreatedASimilarExercise.setPrevious(this.begin);
+        hasStudentCreatedASimilarExercise.setNext([provideFakeSolution, askToRepeatTheExerciseAfterMe]);// Fork #1
+        provideFakeSolution.setPrevious(hasStudentCreatedASimilarExercise);
+        askToRepeatTheExerciseAfterMe.setPrevious(hasStudentCreatedASimilarExercise);
+
+        // Fork #1: 'Yes'
+        provideFakeSolution.setNext([hasStudentCorrectedTheFakeSolution]);
+        hasStudentCorrectedTheFakeSolution.setPrevious(provideFakeSolution);
+        hasStudentCorrectedTheFakeSolution.setNext([validateDiploma, explainReimburse]);// Fork #2
+        validateDiploma.setPrevious(hasStudentCorrectedTheFakeSolution);
+        explainReimburse.setPrevious(hasStudentCorrectedTheFakeSolution);
+
+        // Fork #1: 'Yes' -> Fork #2: 'Yes'
+        validateDiploma.setNext([nextToTeaching]); // Algo end (no bonus)
+
+        // Fork #1: 'Yes' -> Fork #2: 'No'
+        explainReimburse.setNext([reimburse]); // Algo end (bonus)
+
+        // Fork #1: 'No' (and Fork #3: 'No')
+        askToRepeatTheExerciseAfterMe.setNext([hasStudentRepeatedAfterMeTheExercise]);
+        hasStudentRepeatedAfterMeTheExercise.setPrevious(askToRepeatTheExerciseAfterMe);
+        hasStudentRepeatedAfterMeTheExercise.setNext([repeatFromTheBeginning, askToRepeatTheExerciseAfterMe]); // Fork #3
+        repeatFromTheBeginning.setPrevious(hasStudentRepeatedAfterMeTheExercise);
+
+        // Fork #1: 'No' -> Fork #3: 'Yes'
+        repeatFromTheBeginning.setNext([hasStudentCreatedASimilarExercise]);
+
     }
 }
 const StyledDiv = styled.div`
