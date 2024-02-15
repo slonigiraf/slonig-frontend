@@ -1533,7 +1533,7 @@
   "Buy a skill diploma from me to get a bonus from a teacher.": "Купи у меня диплом на навык, чтобы получить бонус от учителя.",
   "I sell the student a diploma in exchange for money or Slon tokens.": "Продаю ученику диплом в обмен на деньги или жетоны Slon.",
   "Excellent! Let's repeat this tomorrow.": "Отлично! Давай повторим это завтра.",
-  "Has the student repeated the correct solution?": "Повторил ли ученик правильное решение и ответ?",
+  "Has the student repeated correctly?": "Повторил ли ученик правильно?",
   "Tell the student": "Скажи ученику",
   "Repeat after me:": "Повтори за мной:",
   "I provide the student with the correct execution of the exercise invented by the student. I can peek at examples here:": "Я показываю студенту, как выполнить упражнение, придуманное им. Я могу посмотреть примеры здесь:",
@@ -1548,7 +1548,7 @@
   "Come up with an exercise similar to this:": "Придумай упражнение, похожее на такое:",
   "Great, you remember the skill. Let's start learning a new skill.": "Отлично, ты помнишь этот навык. Давай начнем изучать новый.",
   "You don't have such a skill. I will penalize the tutor which issued the diploma for it.": "У тебя нет такого навыка. Я оштрафую репетитора, выдавшего за этот диплом.",
-  "Press 'Get bounty' to receive": "Нажми 'Получить бонус', чтобы получить",
+  "Press \"Get bounty\" to receive": "Нажми \"Получить бонус\", чтобы получить",
   "Sign Up for Slonig": "Зарегистрироваться в Slonig",
   "full name": "имя фамилия",
   "Already have an account?": "Уже есть аккаунт?",
@@ -1581,5 +1581,6 @@
   "Has the student now executed the exercise correctly?": "Правильно ли ученик выполнил упражнение?",
   "The student has not executed the exercise correctly.": "Ученик не выполнил упражнение.",
   "Correct execution of the exercise invented by the student.": "Правильное решение и ответ к упражнению, придуманному учеником.",
-  "Correct execution of the exercise": "Правильное выполнение упражнения."
+  "Correct execution of the exercise": "Правильное выполнение упражнения.",
+  "Before teaching you, I will test your previous skill:": "Перед обучением, я проверю твой предыдущий навык:"
 }

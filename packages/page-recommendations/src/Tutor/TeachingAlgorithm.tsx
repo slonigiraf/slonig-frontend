@@ -40,7 +40,7 @@ class TeachingAlgorithm extends Algorithm {
                     { id: 2, text: t('...'), sender: 'you', senderName: 'You', comment: t('Correct execution of the exercise invented by the student.') },
                     { id: 3, text: t('...'), sender: 'them', senderName: studentName },
                 ]} />
-                <b>{t('Has the student repeated the correct solution?')}</b>
+                <b>{t('Has the student repeated correctly?')}</b>
             </StyledDiv>
         );
 
@@ -53,7 +53,7 @@ class TeachingAlgorithm extends Algorithm {
                     { id: 2, text: t('...'), sender: 'you', senderName: 'You', comment: t('Correct execution of the exercise') },
                     { id: 3, text: t('...'), sender: 'them', senderName: studentName },
                 ]} />
-                <b>{t('Has the student repeated the correct solution?')}</b>
+                <b>{t('Has the student repeated correctly?')}</b>
             </StyledDiv>
         );
 
@@ -282,6 +282,7 @@ class TeachingAlgorithm extends Algorithm {
         // Fork #0: studentUsesSlonigFirstTime === true -> Fork #1: 'No'
         askStudentToRepeatTheSolutionOfExerciseOfTutor.setNext([hasStudentRepeatedTheRightSolutionOfExerciseOfTutor]);
         hasStudentRepeatedTheRightSolutionOfExerciseOfTutor.setPrevious(askStudentToRepeatTheSolutionOfExerciseOfTutor);
+        hasStudentRepeatedTheRightSolutionOfExerciseOfTutor.setNext([repeatFromTheBeginning, askStudentToRepeatTheSolutionOfExerciseOfTutor]);
 
         // Fork #0: studentUsesSlonigFirstTime === false
         askStudentToCreateASimilarExercise.setNext([hasStudentCreatedASimilarTask]);

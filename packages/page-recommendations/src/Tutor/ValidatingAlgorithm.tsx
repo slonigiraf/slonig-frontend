@@ -33,7 +33,7 @@ class ValidatingAlgorithm extends Algorithm {
             t('No'),
             <StyledDiv>
                 <ChatSimulation messages={[
-                    { id: 1, text: t('You don\'t have such a skill. I will penalize the tutor which issued the diploma for it.'), sender: 'you', senderName: 'You', comment: `${t('Press \'Get bounty\' to receive')} ${amount?.toString()} Slon.` },
+                    { id: 1, text: t('You don\'t have such a skill. I will penalize the tutor which issued the diploma for it.'), sender: 'you', senderName: 'You', comment: `${t('Press \"Get bounty\" to receive')} ${amount?.toString()} Slon.` },
                 ]} />
             </StyledDiv>
         );
@@ -122,9 +122,10 @@ class ValidatingAlgorithm extends Algorithm {
             t('Yes'),
             <StyledDiv>
                 <ChatSimulation messages={[
-                    { id: 1, text: t('Before teaching me, try to earn a bonus by testing my previous skill:') + (skill && " \"" + skill.h + "\""), sender: 'them', senderName: studentName },
-                    { id: 2, text: t('Come up with an exercise similar to this:'), sender: 'you', senderName: 'You' },
-                    { id: 3, text: question1, sender: 'you', senderName: 'You', comment: t('I can change the exercise a little.') },
+                    { id: 1, text: t('Before teaching me, try to earn a bonus by testing my previous skill:') + (skill && " \"" + skill.h + "\"."), sender: 'them', senderName: studentName },
+                    { id: 2, text: t('Before teaching you, I will test your previous skill:') + (skill && " \"" + skill.h + "\"."), sender: 'you', senderName: 'You' },
+                    { id: 3, text: t('Come up with an exercise similar to this:'), sender: 'you', senderName: 'You' },
+                    { id: 4, text: question1, sender: 'you', senderName: 'You', comment: t('I can change the exercise a little.') },
                 ]} />
             </StyledDiv>
         );
