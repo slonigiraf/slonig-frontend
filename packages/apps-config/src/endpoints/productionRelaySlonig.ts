@@ -26,7 +26,7 @@ export const prodParasSlonigCommon: EndpointOption[] = [
     text: 'Giraf',
     ui: {
       color: '#86e62a',
-      logo: nodesAssetHubSVG
+      logo: 'fa;graduation-cap'
     }
   },
   {
@@ -37,7 +37,7 @@ export const prodParasSlonigCommon: EndpointOption[] = [
     },
     text: 'Slon-1',
     ui: {
-      logo: nodesBridgeHubSVG
+      logo: 'fa;dollar-sign'
     }
   },
   {
@@ -50,7 +50,7 @@ export const prodParasSlonigCommon: EndpointOption[] = [
     text: 'Slon-2',
     ui: {
       color: '#e6777a',
-      logo: 'fa;people-group'
+      logo: 'fa;dollar-sign'
     }
   }
 ];

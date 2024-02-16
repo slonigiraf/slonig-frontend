@@ -1219,7 +1219,7 @@
   "rpc.header.dev": "Разработка",
   "rpc.header.kusama.relay": "Kusama & связанные сети",
   "rpc.header.live": "Рабочие сети",
-  "rpc.header.polkadot.relay": "Polkadot & связанные сети",
+  "rpc.header.polkadot.relay": "Slonig & связанные сети",
   "rpc.header.rococo.relay": "Test Rococo & связанные сети",
   "rpc.header.test": "Тестовые сети",
   "rpc.header.westend.relay": "Test Westend & связанные сети",
