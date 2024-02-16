@@ -21,7 +21,7 @@ interface Props {
   forceIconType?: 'ethereum' | 'substrate';
   prefix?: IdentityProps['prefix'];
   size?: number;
-  theme?: IdentityProps['theme'] | 'robohash';
+  theme?: IdentityProps['theme'];
   value?: AccountId | AccountIndex | Address | string | Uint8Array | null;
 }
 

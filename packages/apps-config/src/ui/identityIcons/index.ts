@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 // overrides based on the actual software node type, valid values are one of -
-// polkadot, substrate, beachball, robohash
+// polkadot, substrate, beachball
 
 export const identityNodes: Record<string, string> = [
   ['centrifuge chain', 'polkadot'],
