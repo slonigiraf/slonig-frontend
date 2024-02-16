@@ -69,7 +69,7 @@ export const prodRelaySlonig: EndpointOption = {
   teleport: getTeleports(prodParasSlonigCommon),
   text: 'Slonig',
   ui: {
-    color: '#e6007a',
+    color: '#F39200',
     identityIcon: 'polkadot',
     logo: chainsSlonigSVG
   }
