@@ -100,6 +100,7 @@ for (const dir of ['extensions', 'external', 'chains', 'nodes']) {
     if (notfound.length) {
       console.log('\n', notfound.length.toString().padStart(3), 'not referenced in', dir, '::\n\n\t', notfound.join(', '), '\n');
     }
+    console.log("IMGCONVERt")
 
     fs.writeFileSync(path.join(sub, 'index.ts'), `${HEADER}${
       Object
@@ -108,6 +109,8 @@ for (const dir of ['extensions', 'external', 'chains', 'nodes']) {
         .map((k) => `export { ${k} } from './${result[k]}.js';`)
         .join('\n')
     }\n`);
+  } else{
+    fs.writeFileSync(path.join(sub, 'index.ts'), `${HEADER}`);
   }
 }
 
