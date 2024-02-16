@@ -6,6 +6,7 @@
 export { chains3dpassSVG } from './generated/3dpassSVG.js';
 export { chainsAbandPNG } from './generated/abandPNG.js';
 export { chainsAcalaSVG } from './generated/acalaSVG.js';
+export { chainsSlonigSVG } from './generated/slonigSVG.js';
 export { chainsAcurastPNG } from './generated/acurastPNG.js';
 export { chainsAlephSVG } from './generated/alephSVG.js';
 export { chainsAltairSVG } from './generated/altairSVG.js';
