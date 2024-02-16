@@ -15,7 +15,6 @@ import { settings } from '@polkadot/ui-settings';
 
 import { styled } from '../styled.js';
 import { useTranslation } from '../translate.js';
-import RoboHash from './RoboHash/index.js';
 
 interface Props {
   className?: string;
@@ -46,9 +45,7 @@ function IdentityIcon ({ className = '', forceIconType, prefix, size = 24, theme
   const { queueAction } = useQueue();
   const thisTheme = theme || getIdentityTheme(apiEndpoint, systemName, specName);
 
-  const Custom = thisTheme === 'robohash'
-    ? RoboHash
-    : undefined;
+  const Custom = undefined;
 
   const onCopy = useCallback(
     (account: string) => queueAction({
