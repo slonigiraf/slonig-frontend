@@ -41470,6 +41470,9 @@ export const typesBundle = {
         }
       }
     },
+    "slonig": {
+      "types": []
+    },
     "ajuna": {
       "types": [
         {
