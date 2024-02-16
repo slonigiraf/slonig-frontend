@@ -3,7 +3,6 @@
 
 import type { OverrideBundleDefinition } from '@polkadot/types/types';
 
-import acala from './acala.js';
 import slonig from './slonig.js';
 import ajuna from './ajuna.js';
 import altair from './altair.js';
@@ -149,7 +148,6 @@ const spec: Record<string, OverrideBundleDefinition> = {
   Pangoro: pangoro,
   VLN: vln,
   'VLN-PC': vlnrococo,
-  ...acala,
   slonig,
   ajuna,
   altair,
