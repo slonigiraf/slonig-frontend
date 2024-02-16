@@ -48,7 +48,7 @@ function getApiUrl (): string {
   }
 
   const stored = store.get('settings') as Record<string, unknown> || {};
-  const fallbackUrl = { value : 'ws://ws-parachain-1.slonigiraf.org'};
+  const fallbackUrl = { value : 'wss://ws-parachain-1.slonigiraf.org'};
 
   // via settings, or the default chain
   return [stored.apiUrl, process.env.WS_URL].includes(settings.apiUrl)
