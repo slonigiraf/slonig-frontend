@@ -25,7 +25,7 @@ export const prodParasSlonigCommon: EndpointOption[] = [
     teleport: [-1],
     text: 'Giraf',
     ui: {
-      color: '#86e62a',
+      color: '#F39200',
       logo: 'fa;graduation-cap'
     }
   },
@@ -37,6 +37,7 @@ export const prodParasSlonigCommon: EndpointOption[] = [
     },
     text: 'Slon-1',
     ui: {
+      color: '#F39200',
       logo: 'fa;dollar-sign'
     }
   },
@@ -49,7 +50,7 @@ export const prodParasSlonigCommon: EndpointOption[] = [
     teleport: [-1],
     text: 'Slon-2',
     ui: {
-      color: '#e6777a',
+      color: '#F39200',
       logo: 'fa;dollar-sign'
     }
   }
