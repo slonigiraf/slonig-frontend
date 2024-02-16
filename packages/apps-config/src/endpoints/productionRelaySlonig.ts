@@ -64,8 +64,7 @@ export const prodRelaySlonig: EndpointOption = {
     ...prodParasSlonigCommon
   ],
   providers: {
-    Slonig: 'wss://ws-parachain-1.slonigiraf.org',
-    'light client': 'light://substrate-connect/polkadot'
+    Slonig: 'wss://ws-parachain-1.slonigiraf.org'
   },
   teleport: getTeleports(prodParasSlonigCommon),
   text: 'Slonig',
