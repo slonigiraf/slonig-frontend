@@ -21,7 +21,6 @@
       "@polkadot/apps-routing": ["apps-routing/src/index.ts"],
       "@polkadot/apps-routing/*": ["apps-routing/src/*.ts"],
       "@polkadot/app-accounts": ["page-accounts/src/index.tsx"],
-      "@polkadot/app-alliance": ["page-alliance/src/index.tsx"],
       "@polkadot/app-contracts": ["page-contracts/src/index.tsx"],
       "@polkadot/app-extrinsics": ["page-extrinsics/src/index.tsx"],
       "@polkadot/app-explorer": ["page-explorer/src/index.tsx"],
