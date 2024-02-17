@@ -6,7 +6,6 @@ import accounts from './accounts.js';
 import addresses from './addresses.js';
 import alliance from './alliance.js';
 import assets from './assets.js';
-import bounties from './bounties.js';
 import calendar from './calendar.js';
 import claims from './claims.js';
 import collator from './collator.js';
@@ -70,7 +69,6 @@ export default function create (t: TFunction): Routes {
     techcomm(t),
     // other governance-related
     treasury(t),
-    bounties(t),
     // others
     parachains(t),
     assets(t),
