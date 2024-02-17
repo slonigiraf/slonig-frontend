@@ -1674,32 +1674,6 @@ __metadata:
   languageName: unknown
   linkType: soft
 
-"@polkadot/app-council@workspace:packages/page-council":
-  version: 0.0.0-use.local
-  resolution: "@polkadot/app-council@workspace:packages/page-council"
-  dependencies:
-    "@polkadot/react-components": ^0.132.2-38-x
-    "@polkadot/react-query": ^0.132.2-38-x
-  peerDependencies:
-    react: "*"
-    react-dom: "*"
-    react-is: "*"
-  languageName: unknown
-  linkType: soft
-
-"@polkadot/app-democracy@workspace:packages/page-democracy":
-  version: 0.0.0-use.local
-  resolution: "@polkadot/app-democracy@workspace:packages/page-democracy"
-  dependencies:
-    "@polkadot/react-components": ^0.132.2-38-x
-    "@polkadot/react-query": ^0.132.2-38-x
-  peerDependencies:
-    react: "*"
-    react-dom: "*"
-    react-is: "*"
-  languageName: unknown
-  linkType: soft
-
 "@polkadot/app-explorer@workspace:packages/page-explorer":
   version: 0.0.0-use.local
   resolution: "@polkadot/app-explorer@workspace:packages/page-explorer"
@@ -1719,16 +1693,6 @@ __metadata:
     "@polkadot/react-components": ^0.132.2-38-x
     "@polkadot/react-params": ^0.132.2-38-x
     "@polkadot/react-signer": ^0.132.2-38-x
-  peerDependencies:
-    react: "*"
-    react-dom: "*"
-    react-is: "*"
-  languageName: unknown
-  linkType: soft
-
-"@polkadot/app-fellowship@workspace:packages/page-fellowship":
-  version: 0.0.0-use.local
-  resolution: "@polkadot/app-fellowship@workspace:packages/page-fellowship"
   peerDependencies:
     react: "*"
     react-dom: "*"
@@ -1766,19 +1730,6 @@ __metadata:
   resolution: "@polkadot/app-js@workspace:packages/page-js"
   dependencies:
     "@polkadot/react-components": ^0.132.2-38-x
-  peerDependencies:
-    react: "*"
-    react-dom: "*"
-    react-is: "*"
-  languageName: unknown
-  linkType: soft
-
-"@polkadot/app-membership@workspace:packages/page-membership":
-  version: 0.0.0-use.local
-  resolution: "@polkadot/app-membership@workspace:packages/page-membership"
-  dependencies:
-    "@polkadot/react-components": ^0.132.2-38-x
-    "@polkadot/react-query": ^0.132.2-38-x
   peerDependencies:
     react: "*"
     react-dom: "*"
@@ -1891,16 +1842,6 @@ __metadata:
   languageName: unknown
   linkType: soft
 
-"@polkadot/app-scheduler@workspace:packages/page-scheduler":
-  version: 0.0.0-use.local
-  resolution: "@polkadot/app-scheduler@workspace:packages/page-scheduler"
-  peerDependencies:
-    react: "*"
-    react-dom: "*"
-    react-is: "*"
-  languageName: unknown
-  linkType: soft
-
 "@polkadot/app-settings@workspace:packages/page-settings":
   version: 0.0.0-use.local
   resolution: "@polkadot/app-settings@workspace:packages/page-settings"
@@ -1958,19 +1899,6 @@ __metadata:
   resolution: "@polkadot/app-sudo@workspace:packages/page-sudo"
   dependencies:
     "@polkadot/react-components": ^0.132.2-38-x
-  peerDependencies:
-    react: "*"
-    react-dom: "*"
-    react-is: "*"
-  languageName: unknown
-  linkType: soft
-
-"@polkadot/app-tech-comm@workspace:packages/page-tech-comm":
-  version: 0.0.0-use.local
-  resolution: "@polkadot/app-tech-comm@workspace:packages/page-tech-comm"
-  dependencies:
-    "@polkadot/react-components": ^0.132.2-38-x
-    "@polkadot/react-query": ^0.132.2-38-x
   peerDependencies:
     react: "*"
     react-dom: "*"
