@@ -26,7 +26,6 @@ import storage from './storage.js';
 import sudo from './sudo.js';
 import teleport from './teleport.js';
 import transfer from './transfer.js';
-import treasury from './treasury.js';
 import utilities from './utilities.js';
 
 export default function create (t: TFunction): Routes {
@@ -40,8 +39,6 @@ export default function create (t: TFunction): Routes {
     diplomas(t),
     // governance v2
     referenda(t),
-    // other governance-related
-    treasury(t),
     // others
     parachains(t),
     assets(t),

@@ -1626,34 +1626,12 @@ __metadata:
   languageName: unknown
   linkType: soft
 
-"@polkadot/app-calendar@workspace:packages/page-calendar":
-  version: 0.0.0-use.local
-  resolution: "@polkadot/app-calendar@workspace:packages/page-calendar"
-  dependencies:
-    "@polkadot/react-components": ^0.132.2-38-x
-  peerDependencies:
-    react: "*"
-    react-dom: "*"
-    react-is: "*"
-  languageName: unknown
-  linkType: soft
-
 "@polkadot/app-claims@workspace:packages/page-claims":
   version: 0.0.0-use.local
   resolution: "@polkadot/app-claims@workspace:packages/page-claims"
   dependencies:
     "@polkadot/react-components": ^0.132.2-38-x
     secp256k1: ^3.8.0
-  peerDependencies:
-    react: "*"
-    react-dom: "*"
-    react-is: "*"
-  languageName: unknown
-  linkType: soft
-
-"@polkadot/app-collator@workspace:packages/page-collator":
-  version: 0.0.0-use.local
-  resolution: "@polkadot/app-collator@workspace:packages/page-collator"
   peerDependencies:
     react: "*"
     react-dom: "*"
@@ -1774,31 +1752,9 @@ __metadata:
   languageName: unknown
   linkType: soft
 
-"@polkadot/app-poll@workspace:packages/page-poll":
-  version: 0.0.0-use.local
-  resolution: "@polkadot/app-poll@workspace:packages/page-poll"
-  dependencies:
-    "@polkadot/react-components": ^0.132.2-38-x
-  peerDependencies:
-    react: "*"
-    react-dom: "*"
-    react-is: "*"
-  languageName: unknown
-  linkType: soft
-
 "@polkadot/app-preimages@workspace:packages/page-preimages":
   version: 0.0.0-use.local
   resolution: "@polkadot/app-preimages@workspace:packages/page-preimages"
-  peerDependencies:
-    react: "*"
-    react-dom: "*"
-    react-is: "*"
-  languageName: unknown
-  linkType: soft
-
-"@polkadot/app-ranked@workspace:packages/page-ranked":
-  version: 0.0.0-use.local
-  resolution: "@polkadot/app-ranked@workspace:packages/page-ranked"
   peerDependencies:
     react: "*"
     react-dom: "*"
@@ -1924,16 +1880,6 @@ __metadata:
   resolution: "@polkadot/app-utilities@workspace:packages/page-utilities"
   dependencies:
     "@polkadot/react-components": ^0.132.2-38-x
-  peerDependencies:
-    react: "*"
-    react-dom: "*"
-    react-is: "*"
-  languageName: unknown
-  linkType: soft
-
-"@polkadot/app-whitelist@workspace:packages/page-whitelist":
-  version: 0.0.0-use.local
-  resolution: "@polkadot/app-whitelist@workspace:packages/page-whitelist"
   peerDependencies:
     react: "*"
     react-dom: "*"
