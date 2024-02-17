@@ -3,7 +3,6 @@
 
 import type { Routes, TFunction } from './types.js';
 import accounts from './accounts.js';
-import addresses from './addresses.js';
 import contracts from './contracts.js';
 import explorer from './explorer.js';
 import extrinsics from './extrinsics.js';
@@ -25,7 +24,6 @@ import utilities from './utilities.js';
 export default function create (t: TFunction): Routes {
   return [
     accounts(t),
-    addresses(t),
     explorer(t),
     transfer(t),
     teleport(t),
