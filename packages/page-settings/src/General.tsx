@@ -151,14 +151,6 @@ function General({ className = '' }: Props): React.ReactElement<Props> {
       </div>
       <div className='ui--row'>
         <Dropdown
-          defaultValue={state.uiTheme}
-          label={t('default interface theme')}
-          onChange={_handleChange('uiTheme')}
-          options={themeOptions}
-        />
-      </div>
-      <div className='ui--row'>
-        <Dropdown
           defaultValue={state.i18nLang}
           label={t('default interface language')}
           onChange={_handleChange('i18nLang')}
