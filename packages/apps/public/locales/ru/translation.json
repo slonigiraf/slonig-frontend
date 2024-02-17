@@ -432,5 +432,11 @@
   "password": "пароль",
   "password (repeat)": "пароль (еще раз)",
   "Log in" : "Войти",
-  "Sign up": "Зарегистрироваться"
+  "Sign up": "Зарегистрироваться",
+  "click to select or drag and drop the file here": "нажмите, чтобы выбрать файл",
+  "Default account": "Аккаунт по умолчанию",
+  "total balance": "общий баланс",
+  "total locked": "всего заблокировано",
+  "all locally stored accounts": "все аккаунты из браузера",
+  "You don't have any accounts. Some features are currently hidden and will only become available once you have accounts.": "У вас нет аккаунтов. Некоторые функции в настоящее время скрыты и станут доступны только после того, как у вас появится аккаунт."
 }
