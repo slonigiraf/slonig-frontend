@@ -35,7 +35,6 @@
       "@polkadot/app-js": ["page-js/src/index.tsx"],
       "@slonigiraf/app-laws": ["page-laws/src/index.tsx"],
       "@slonigiraf/app-slonig-components": ["slonig-components/src/index.tsx"],
-      "@polkadot/app-nfts": ["page-nfts/src/index.tsx"],
       "@polkadot/app-nis": ["page-nis/src/index.tsx"],
       "@polkadot/app-parachains": ["page-parachains/src/index.tsx"],
       "@polkadot/app-parachains/Teleport": ["page-parachains/src/Teleport.tsx"],
