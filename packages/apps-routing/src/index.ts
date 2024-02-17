@@ -10,7 +10,6 @@ import extrinsics from './extrinsics.js';
 import files from './files.js';
 import gilt from './gilt.js';
 import js from './js.js';
-import nis from './nis.js';
 import parachains from './parachains.js';
 import diplomas from './diplomas.js';
 import knowledge from './knowledge.js';
@@ -38,7 +37,6 @@ export default function create (t: TFunction): Routes {
     referenda(t),
     // others
     parachains(t),
-    nis(t),
     gilt(t),
     contracts(t),
     storage(t),
