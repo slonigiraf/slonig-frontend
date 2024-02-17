@@ -7,7 +7,6 @@ import addresses from './addresses.js';
 import contracts from './contracts.js';
 import explorer from './explorer.js';
 import extrinsics from './extrinsics.js';
-import files from './files.js';
 import js from './js.js';
 import parachains from './parachains.js';
 import diplomas from './diplomas.js';
@@ -43,7 +42,6 @@ export default function create (t: TFunction): Routes {
     runtime(t),
     signing(t),
     sudo(t),
-    files(t),
     js(t),
     utilities(t),
     settings(t)

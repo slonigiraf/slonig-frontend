@@ -29,7 +29,6 @@
       "@polkadot/app-extrinsics": ["page-extrinsics/src/index.tsx"],
       "@polkadot/app-explorer": ["page-explorer/src/index.tsx"],
       "@polkadot/app-explorer/*": ["page-explorer/src/*.tsx"],
-      "@polkadot/app-files": ["page-files/src/index.tsx"],
       "@polkadot/app-i18n": ["page-i18n/src/index.tsx"],
       "@polkadot/app-js": ["page-js/src/index.tsx"],
       "@slonigiraf/app-laws": ["page-laws/src/index.tsx"],
