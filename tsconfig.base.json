@@ -26,7 +26,6 @@
       "@polkadot/app-assets": ["page-assets/src/index.tsx"],
       "@polkadot/app-claims": ["page-claims/src/index.tsx"],
       "@polkadot/app-claims/useCounter": ["page-claims/src/useCounter.ts"],
-      "@polkadot/app-collator": ["page-collator/src/index.tsx"],
       "@polkadot/app-contracts": ["page-contracts/src/index.tsx"],
       "@polkadot/app-extrinsics": ["page-extrinsics/src/index.tsx"],
       "@polkadot/app-explorer": ["page-explorer/src/index.tsx"],

@@ -5,7 +5,6 @@ import type { Routes, TFunction } from './types.js';
 import accounts from './accounts.js';
 import addresses from './addresses.js';
 import assets from './assets.js';
-import collator from './collator.js';
 import contracts from './contracts.js';
 import explorer from './explorer.js';
 import extrinsics from './extrinsics.js';
@@ -41,7 +40,6 @@ export default function create (t: TFunction): Routes {
     teleport(t),
     knowledge(t),
     diplomas(t),
-    collator(t),
     // governance v2
     referenda(t),
     ranked(t),
