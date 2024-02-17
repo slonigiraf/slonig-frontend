@@ -1589,36 +1589,9 @@ __metadata:
   languageName: unknown
   linkType: soft
 
-"@polkadot/app-addresses@workspace:packages/page-addresses":
-  version: 0.0.0-use.local
-  resolution: "@polkadot/app-addresses@workspace:packages/page-addresses"
-  dependencies:
-    "@polkadot/react-components": ^0.132.2-38-x
-    "@testing-library/react": ^14.0.0
-    file-saver: ^2.0.5
-    testcontainers: ^9.9.1
-  peerDependencies:
-    react: "*"
-    react-dom: "*"
-    react-is: "*"
-  languageName: unknown
-  linkType: soft
-
 "@polkadot/app-alliance@workspace:packages/page-alliance":
   version: 0.0.0-use.local
   resolution: "@polkadot/app-alliance@workspace:packages/page-alliance"
-  peerDependencies:
-    react: "*"
-    react-dom: "*"
-    react-is: "*"
-  languageName: unknown
-  linkType: soft
-
-"@polkadot/app-assets@workspace:packages/page-assets":
-  version: 0.0.0-use.local
-  resolution: "@polkadot/app-assets@workspace:packages/page-assets"
-  dependencies:
-    "@polkadot/react-components": ^0.132.2-38-x
   peerDependencies:
     react: "*"
     react-dom: "*"
@@ -1678,58 +1651,9 @@ __metadata:
   languageName: unknown
   linkType: soft
 
-"@polkadot/app-files@workspace:packages/page-files":
-  version: 0.0.0-use.local
-  resolution: "@polkadot/app-files@workspace:packages/page-files"
-  dependencies:
-    "@polkadot/react-components": ^0.132.2-38-x
-    axios: ^1.4.0
-  peerDependencies:
-    react: "*"
-    react-dom: "*"
-    react-is: "*"
-  languageName: unknown
-  linkType: soft
-
-"@polkadot/app-gilt@workspace:packages/page-gilt":
-  version: 0.0.0-use.local
-  resolution: "@polkadot/app-gilt@workspace:packages/page-gilt"
-  dependencies:
-    "@polkadot/react-components": ^0.132.2-38-x
-  peerDependencies:
-    react: "*"
-    react-dom: "*"
-    react-is: "*"
-  languageName: unknown
-  linkType: soft
-
 "@polkadot/app-js@workspace:packages/page-js":
   version: 0.0.0-use.local
   resolution: "@polkadot/app-js@workspace:packages/page-js"
-  dependencies:
-    "@polkadot/react-components": ^0.132.2-38-x
-  peerDependencies:
-    react: "*"
-    react-dom: "*"
-    react-is: "*"
-  languageName: unknown
-  linkType: soft
-
-"@polkadot/app-nfts@workspace:packages/page-nfts":
-  version: 0.0.0-use.local
-  resolution: "@polkadot/app-nfts@workspace:packages/page-nfts"
-  dependencies:
-    "@polkadot/react-components": ^0.132.2-38-x
-  peerDependencies:
-    react: "*"
-    react-dom: "*"
-    react-is: "*"
-  languageName: unknown
-  linkType: soft
-
-"@polkadot/app-nis@workspace:packages/page-nis":
-  version: 0.0.0-use.local
-  resolution: "@polkadot/app-nis@workspace:packages/page-nis"
   dependencies:
     "@polkadot/react-components": ^0.132.2-38-x
   peerDependencies:
@@ -1816,18 +1740,6 @@ __metadata:
 "@polkadot/app-signing@workspace:packages/page-signing":
   version: 0.0.0-use.local
   resolution: "@polkadot/app-signing@workspace:packages/page-signing"
-  dependencies:
-    "@polkadot/react-components": ^0.132.2-38-x
-  peerDependencies:
-    react: "*"
-    react-dom: "*"
-    react-is: "*"
-  languageName: unknown
-  linkType: soft
-
-"@polkadot/app-society@workspace:packages/page-society":
-  version: 0.0.0-use.local
-  resolution: "@polkadot/app-society@workspace:packages/page-society"
   dependencies:
     "@polkadot/react-components": ^0.132.2-38-x
   peerDependencies:
@@ -5440,17 +5352,6 @@ __metadata:
   dependencies:
     follow-redirects: ^1.14.0
   checksum: 44245f24ac971e7458f3120c92f9d66d1fc695e8b97019139de5b0cc65d9b8104647db01e5f46917728edfc0cfd88eb30fc4c55e6053eef4ace76768ce95ff3c
-  languageName: node
-  linkType: hard
-
-"axios@npm:^1.4.0":
-  version: 1.4.0
-  resolution: "axios@npm:1.4.0"
-  dependencies:
-    follow-redirects: ^1.15.0
-    form-data: ^4.0.0
-    proxy-from-env: ^1.1.0
-  checksum: 7fb6a4313bae7f45e89d62c70a800913c303df653f19eafec88e56cea2e3821066b8409bc68be1930ecca80e861c52aa787659df0ffec6ad4d451c7816b9386b
   languageName: node
   linkType: hard
 
@@ -9949,7 +9850,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"follow-redirects@npm:^1.0.0, follow-redirects@npm:^1.14.0, follow-redirects@npm:^1.15.0":
+"follow-redirects@npm:^1.0.0, follow-redirects@npm:^1.14.0":
   version: 1.15.2
   resolution: "follow-redirects@npm:1.15.2"
   peerDependenciesMeta:
@@ -17010,13 +16911,6 @@ __metadata:
     forwarded: 0.2.0
     ipaddr.js: 1.9.1
   checksum: 29c6990ce9364648255454842f06f8c46fcd124d3e6d7c5066df44662de63cdc0bad032e9bf5a3d653ff72141cc7b6019873d685708ac8210c30458ad99f2b74
-  languageName: node
-  linkType: hard
-
-"proxy-from-env@npm:^1.1.0":
-  version: 1.1.0
-  resolution: "proxy-from-env@npm:1.1.0"
-  checksum: ed7fcc2ba0a33404958e34d95d18638249a68c430e30fcb6c478497d72739ba64ce9810a24f53a7d921d0c065e5b78e3822759800698167256b04659366ca4d4
   languageName: node
   linkType: hard
 

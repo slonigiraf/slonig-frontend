@@ -20,7 +20,6 @@ import Qr from '../modals/Qr.js';
 import { useTranslation } from '../translate.js';
 import { SORT_CATEGORY, sortAccounts } from '../util.js';
 import Account from './Account.js';
-import BannerClaims from './BannerClaims.js';
 import Summary from './Summary.js';
 import { AppContainer, FullWidthContainer, useInfo, useLoginContext } from '@slonigiraf/app-slonig-components';
 import PayToAccountQR from './PayToAccountQR.js';
@@ -329,7 +328,6 @@ function Overview({ className = '', onStatusChange }: Props): React.ReactElement
           onStatusChange={callOnStatusChange}
         />
       )}
-      <BannerClaims />
       
 
       {!isNextTick || !sortedAccounts.length
