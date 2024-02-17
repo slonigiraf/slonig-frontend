@@ -5,7 +5,6 @@ import type { Routes, TFunction } from './types.js';
 import accounts from './accounts.js';
 import addresses from './addresses.js';
 import assets from './assets.js';
-import calendar from './calendar.js';
 import collator from './collator.js';
 import contracts from './contracts.js';
 import explorer from './explorer.js';
@@ -58,7 +57,6 @@ export default function create (t: TFunction): Routes {
     society(t),
     nis(t),
     gilt(t),
-    calendar(t),
     contracts(t),
     storage(t),
     extrinsics(t),
