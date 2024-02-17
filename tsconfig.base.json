@@ -54,7 +54,6 @@
       "@polkadot/app-settings/useCounter": ["page-settings/src/useCounter.ts"],
       "@polkadot/app-settings/util": ["page-settings/src/util.tsx"],
       "@polkadot/app-signing": ["page-signing/src/index.tsx"],
-      "@polkadot/app-society": ["page-society/src/index.tsx"],
       "@polkadot/app-storage": ["page-storage/src/index.tsx"],
       "@polkadot/app-sudo": ["page-sudo/src/index.tsx"],
       "@polkadot/app-treasury": ["page-treasury/src/index.tsx"],

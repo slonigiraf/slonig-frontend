@@ -19,7 +19,6 @@ import rpc from './rpc.js';
 import runtime from './runtime.js';
 import settings from './settings.js';
 import signing from './signing.js';
-import society from './society.js';
 import storage from './storage.js';
 import sudo from './sudo.js';
 import teleport from './teleport.js';
@@ -39,7 +38,6 @@ export default function create (t: TFunction): Routes {
     referenda(t),
     // others
     parachains(t),
-    society(t),
     nis(t),
     gilt(t),
     contracts(t),
