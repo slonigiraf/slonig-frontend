@@ -14,7 +14,6 @@ import js from './js.js';
 import nfts from './nfts.js';
 import nis from './nis.js';
 import parachains from './parachains.js';
-import ranked from './ranked.js';
 import diplomas from './diplomas.js';
 import knowledge from './knowledge.js';
 import referenda from './referenda.js';
@@ -42,7 +41,6 @@ export default function create (t: TFunction): Routes {
     diplomas(t),
     // governance v2
     referenda(t),
-    ranked(t),
     whitelist(t),
     // other governance-related
     treasury(t),
