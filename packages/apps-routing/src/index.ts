@@ -28,7 +28,6 @@ import teleport from './teleport.js';
 import transfer from './transfer.js';
 import treasury from './treasury.js';
 import utilities from './utilities.js';
-import whitelist from './whitelist.js';
 
 export default function create (t: TFunction): Routes {
   return [
@@ -41,7 +40,6 @@ export default function create (t: TFunction): Routes {
     diplomas(t),
     // governance v2
     referenda(t),
-    whitelist(t),
     // other governance-related
     treasury(t),
     // others

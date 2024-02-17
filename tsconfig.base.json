@@ -61,7 +61,6 @@
       "@polkadot/app-sudo": ["page-sudo/src/index.tsx"],
       "@polkadot/app-treasury": ["page-treasury/src/index.tsx"],
       "@polkadot/app-utilities": ["page-utilities/src/index.tsx"],
-      "@polkadot/app-whitelist": ["page-whitelist/src/index.tsx"],
       "@polkadot/react-api": ["react-api/src/index.ts"],
       "@polkadot/react-api/hoc": ["react-api/src/hoc/index.ts"],
       "@polkadot/react-api/util": ["react-api/src/util/index.ts"],
