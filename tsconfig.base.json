@@ -46,7 +46,6 @@
       "@polkadot/app-signing": ["page-signing/src/index.tsx"],
       "@polkadot/app-storage": ["page-storage/src/index.tsx"],
       "@polkadot/app-sudo": ["page-sudo/src/index.tsx"],
-      "@polkadot/app-treasury": ["page-treasury/src/index.tsx"],
       "@polkadot/app-utilities": ["page-utilities/src/index.tsx"],
       "@polkadot/react-api": ["react-api/src/index.ts"],
       "@polkadot/react-api/hoc": ["react-api/src/hoc/index.ts"],
