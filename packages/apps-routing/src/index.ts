@@ -15,7 +15,6 @@ import js from './js.js';
 import nfts from './nfts.js';
 import nis from './nis.js';
 import parachains from './parachains.js';
-import poll from './poll.js';
 import ranked from './ranked.js';
 import diplomas from './diplomas.js';
 import knowledge from './knowledge.js';
@@ -38,7 +37,6 @@ export default function create (t: TFunction): Routes {
     accounts(t),
     addresses(t),
     explorer(t),
-    poll(t),
     transfer(t),
     teleport(t),
     knowledge(t),

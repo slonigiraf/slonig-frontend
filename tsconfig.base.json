@@ -42,7 +42,6 @@
       "@polkadot/app-parachains": ["page-parachains/src/index.tsx"],
       "@polkadot/app-parachains/Teleport": ["page-parachains/src/Teleport.tsx"],
       "@polkadot/app-parachains/useLeaseRanges": ["page-parachains/src/useLeaseRanges.ts"],
-      "@polkadot/app-poll": ["page-poll/src/index.tsx"],
       "@polkadot/app-preimages": ["page-preimages/src/index.tsx"],
       "@polkadot/app-preimages/Preimages/Add": ["page-preimages/src/Preimages/Add/index.tsx"],
       "@polkadot/app-preimages/Preimages/Call": ["page-preimages/src/Preimages/Call.tsx"],
