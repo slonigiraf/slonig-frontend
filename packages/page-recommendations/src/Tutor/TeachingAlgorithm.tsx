@@ -9,6 +9,7 @@ class TeachingAlgorithm extends Algorithm {
         super();
         const questions = skillJson ? skillJson.q : [];
         let question1: string = questions.length > 0 ? questions[0].h : t('SOME TASK FOR SKILL TRAINING (THE TUTOR SHOULD KNOW)');
+        let answer1: string = questions.length > 0 ? questions[0].a : '';
         let question2: string = questions.length > 1 ? questions[1].h : question1;
 
         // Initialize all stages
@@ -50,7 +51,7 @@ class TeachingAlgorithm extends Algorithm {
             <StyledDiv>
                 <ChatSimulation messages={[
                     { id: 1, text: t('Repeat after me:'), sender: 'you', senderName: 'You' },
-                    { id: 2, text: t('...'), sender: 'you', senderName: 'You', comment: t('Correct execution of the exercise') },
+                    { id: 2, text: answer1 === '' ? t('...') : answer1, sender: 'you', senderName: 'You', comment: answer1 === '' ? t('Correct execution of the exercise') : '' },
                     { id: 3, text: t('...'), sender: 'them', senderName: studentName },
                 ]} />
                 <b>{t('Has the student repeated correctly?')}</b>
@@ -70,7 +71,6 @@ class TeachingAlgorithm extends Algorithm {
             </StyledDiv>
         );
 
-
         const askStudentToRepeatTheSolutionOfExerciseOfTutor = new AlgorithmStage(
             'intermediate',
             t('No'),
@@ -78,9 +78,9 @@ class TeachingAlgorithm extends Algorithm {
                 <ChatSimulation messages={[
                     { id: 1, text: t('...'), sender: 'them', senderName: studentName, comment: t('The student has not executed the exercise correctly.') },
                     { id: 2, text: t('Repeat after me:'), sender: 'you', senderName: 'You' },
-                    { id: 3, text: t('...'), sender: 'you', senderName: 'You', comment: t('I provide the student with the correct execution of the exercise. I can peek at examples here:') },
+                    { id: 3, text: answer1 === '' ? t('...') : answer1, sender: 'you', senderName: 'You', comment: answer1 === '' ? t('I provide the student with the correct execution of the exercise. I can peek at examples here:') : '' },
                 ]} />
-                {questions != null && <ExerciseList exercises={questions} areShownInitially={true} />}
+                {answer1 === '' && questions != null && <ExerciseList exercises={questions} areShownInitially={true} />}
             </StyledDiv>
         );
 
