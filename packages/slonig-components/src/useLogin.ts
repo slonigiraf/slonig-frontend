@@ -27,7 +27,7 @@ export function useLogin() {
   };
 
   useEffect(() => {
-    if(isApiConnected){
+    if (isApiConnected) {
       setTimeout(testKeyringState, 100);
     }
   }, [isApiConnected]);
@@ -91,7 +91,7 @@ export function useLogin() {
 
   const logOut = useCallback(
     async () => {
-      if(currentPair){
+      if (currentPair) {
         const newPair = currentPair;
         newPair.lock();
         setCurrentPair(newPair);
@@ -103,10 +103,33 @@ export function useLogin() {
     [currentPair]
   );
 
-  const _onUnlock = useCallback((): void => {
-    setLoginIsRequired(false);
-    setIsLoggedIn(true);
-  }, []);
+  const _onUnlock = useCallback(
+    async () => {
+      const accountInDB = await getSetting('account');
+      try {
+        if(accountInDB){
+          const newPair = keyring.getPair(accountInDB);
+          setCurrentPair(newPair);
+          if (newPair && newPair.meta) {
+            const meta = (newPair && newPair.meta) || {};
+            const isExternal = (meta.isExternal as boolean) || false;
+            const isHardware = (meta.isHardware as boolean) || false;
+            const isInjected = (meta.isInjected as boolean) || false;
+            if (newPair.isLocked && !isInjected) {
+              await attemptUnlock(newPair);
+            }
+            setAccountState({ isExternal, isHardware, isInjected });
+          } else {
+            setAccountState(null);
+          }
+        }
+      } catch (e) {
+        const error = (e as Error).message;
+        console.error(error);
+      }
+    },
+    [keyring]
+  );
 
   return { isReady, currentPair, accountState, isLoggedIn, isLoginRequired, setIsLoggedIn, setLoginIsRequired, _onChangeAccount, _onUnlock, logOut };
 }
