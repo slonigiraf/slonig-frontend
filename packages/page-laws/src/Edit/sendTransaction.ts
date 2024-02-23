@@ -34,7 +34,8 @@ async function handleTransaction(
     api: ApiPromise,
     showInfo: (message: string, type?: "error" | "info", timeoutSec?: number) => void,
     t: (key: string, options?: { replace: Record<string, unknown>; }) => string,
-    onSuccess: () => void,
+    onSuccess: (digestHex: string) => void,
+    digestHex: string,
     onFailed: () => void
 ) {
     showInfo(t('Processing'), 'info', 12);
@@ -51,7 +52,7 @@ async function handleTransaction(
                     })
                     .join(', ');
                 errorInfo ? _onFailed(errorInfo, t, showInfo) : _onSuccess(t, showInfo);
-                errorInfo ? onFailed() : onSuccess();
+                errorInfo ? onFailed() : onSuccess(digestHex);
             }
         });
     } catch (error) {
@@ -65,16 +66,16 @@ export const sendCreateTransaction = async (idHex: string, digestHex: string, am
     showInfo: (message: string, type?: "error" | "info" | undefined, timeoutSec?: number | undefined) => void,
     onSuccess: () => void, onFailed: () => void) => {
     const transaction = api.tx.laws.create(idHex, digestHex, amount);
-    await handleTransaction(transaction, currentPair, api, showInfo, t, onSuccess, onFailed);
+    await handleTransaction(transaction, currentPair, api, showInfo, t, onSuccess, digestHex, onFailed);
 };
 
 export const sendEditTransaction = async (textHexId: string, lawHexData: string, digestHex: string, amountList: BN,
     currentPair: KeyringPair, api: ApiPromise,
     t: (key: string, options?: { replace: Record<string, unknown>; } | undefined) => string,
     showInfo: (message: string, type?: "error" | "info" | undefined, timeoutSec?: number | undefined) => void,
-    onSuccess: () => void, onFailed: () => void) => {
+    onSuccess: (digestHex: string) => void, onFailed: () => void) => {
     const transaction = api.tx.laws.edit(textHexId, lawHexData, digestHex, amountList);
-    await handleTransaction(transaction, currentPair, api, showInfo, t, onSuccess, onFailed);
+    await handleTransaction(transaction, currentPair, api, showInfo, t, onSuccess, digestHex, onFailed);
 };
 
 export const sendCreateAndEditTransaction = async (
@@ -83,11 +84,11 @@ export const sendCreateAndEditTransaction = async (
     currentPair: KeyringPair, api: ApiPromise,
     t: (key: string, options?: { replace: Record<string, unknown>; } | undefined) => string,
     showInfo: (message: string, type?: "error" | "info" | undefined, timeoutSec?: number | undefined) => void,
-    onSuccess: () => void, onFailed: () => void) => {
+    onSuccess: (digestHex: string) => void, onFailed: () => void) => {
 
     const transaction = api.tx.laws.createAndEdit(
         itemIdHex, itemDigestHex, amountItem,
         textHexId, lawHexData, digestHex, amountList
     );
-    await handleTransaction(transaction, currentPair, api, showInfo, t, onSuccess, onFailed);
+    await handleTransaction(transaction, currentPair, api, showInfo, t, onSuccess, digestHex, onFailed);
 };

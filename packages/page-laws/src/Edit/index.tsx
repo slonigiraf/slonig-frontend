@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import BN from 'bn.js';
-import { getIPFSContentID, digestFromCIDv1, getCIDFromBytes, getIPFSDataFromContentID } from '@slonigiraf/app-slonig-components';
+import { getIPFSContentIDAndPinIt, digestFromCIDv1, getCIDFromBytes, getIPFSDataFromContentID } from '@slonigiraf/app-slonig-components';
 import { BN_ZERO } from '@polkadot/util';
 import React, { useCallback, useEffect, useState } from 'react';
 import { Button, InputBalance } from '@polkadot/react-components';
@@ -14,7 +14,7 @@ import { useApi } from '@polkadot/react-hooks';
 import { parseJson } from '@slonigiraf/app-slonig-components';
 import Editor from './Editor';
 import ViewList from './ViewList';
-import { useLocation, useNavigate } from 'react-router-dom';
+import { useLocation } from 'react-router-dom';
 import { storeSetting, getSetting, storePseudonym } from '@slonigiraf/app-recommendations';
 import { useLoginContext } from '@slonigiraf/app-slonig-components';
 import { sendCreateAndEditTransaction, sendEditTransaction } from './sendTransaction.js';
@@ -39,8 +39,6 @@ function Edit({ className = '' }: Props): React.ReactElement<Props> {
   const [amountList, setAmountList] = useState<BN>(BN_ZERO);
   const [amountItem, setAmountItem] = useState<BN>(BN_ZERO);
   const [previousAmount, setPreviousAmount] = useState<BN>(BN_ZERO);
-  const [digestHex, setDigestHex] = useState<string>("");
-  const [itemDigestHex, setItemDigestHex] = useState<string>("");
   const { api } = useApi();
   const [isEditView, toggleEditView] = useToggle(false);
   const [isAddingItem, setIsAddingElement] = useState<boolean>(false);
@@ -81,10 +79,6 @@ function Edit({ className = '' }: Props): React.ReactElement<Props> {
   }, [tutor, idFromQuery]);
 
   useEffect(() => {
-    _onSign();
-  }, [list, item, textHexId]);
-
-  useEffect(() => {
     setText(JSON.stringify(list));
   }, [list]);
 
@@ -107,31 +101,10 @@ function Edit({ className = '' }: Props): React.ReactElement<Props> {
     [_onClickChangeView]
   );
 
-  const _onSign = useCallback(
-    async () => {
-      if (!isIpfsReady) {
-        return;
-      }
-      // generate data about list
-      const textCIDString = await getIPFSContentID(ipfs, JSON.stringify(list));
-      const digest = await digestFromCIDv1(textCIDString);
-      setDigestHex(u8aToHex(digest));
-
-      // generate data about item
-      const itemCIDString = await getIPFSContentID(ipfs, JSON.stringify(item));
-      const itemDigest = await digestFromCIDv1(itemCIDString);
-      setItemDigestHex(u8aToHex(itemDigest));
-    },
-    [currentPair, ipfs, list, item]
-  );
-
-
-
-  const _onSuccess = () => {
+  const _onSuccess = (digestHex: string) => {
     _onClickChangeView();
     setIsAddingElement(false);
     setItem(null);
-    setItemDigestHex("");
     setItemIdHex("");
     setLawHexData(digestHex);
     toggleProcessing();
@@ -179,12 +152,24 @@ function Edit({ className = '' }: Props): React.ReactElement<Props> {
     _onClickChangeView();
     setIsAddingElement(false);
     setItem(null);
-    setItemDigestHex("");
     setItemIdHex("");
     setList(cachedList);
   };
 
-  const _onSave = (): void => {
+  const _onSave = async (): Promise<void> => {
+    if (!isIpfsReady) {
+      return;
+    }
+    // generate data about list
+    const textCIDString = await getIPFSContentIDAndPinIt(ipfs, JSON.stringify(list));
+    const digest = await digestFromCIDv1(textCIDString);
+    const digestHex = u8aToHex(digest);
+
+    // generate data about item
+    const itemCIDString = await getIPFSContentIDAndPinIt(ipfs, JSON.stringify(item));
+    const itemDigest = await digestFromCIDv1(itemCIDString);
+    const itemDigestHex = u8aToHex(itemDigest);
+
     if (item == null) {
       if (!(textHexId && lawHexData && digestHex && amountList && currentPair)) {
         console.error('Required parameters are missing');

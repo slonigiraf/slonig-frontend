@@ -2,10 +2,10 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import BN from 'bn.js';
-import { getIPFSContentID, digestFromCIDv1, useLoginContext } from '@slonigiraf/app-slonig-components';
+import { getIPFSContentIDAndPinIt, digestFromCIDv1, useLoginContext } from '@slonigiraf/app-slonig-components';
 import { BN_ZERO } from '@polkadot/util';
-import React, { useCallback, useEffect, useState } from 'react';
-import { Button, Input, InputBalance, TxButton } from '@polkadot/react-components';
+import React, { useCallback, useState } from 'react';
+import { Button, Input, InputBalance } from '@polkadot/react-components';
 import { u8aToHex } from '@polkadot/util';
 import { useTranslation } from '../translate.js';
 import { useApi } from '@polkadot/react-hooks';
@@ -26,33 +26,12 @@ function Create({ className = '' }: Props): React.ReactElement<Props> {
   const [isProcessing, toggleProcessing] = useToggle(false);
   const [text, setText] = useState<string>("");
   const { currentPair } = useLoginContext();
-
   const [amount, setAmount] = useState<BN>(BN_ZERO);
-  const [idHex, setIdHex] = useState<string>("");
-  const [digestHex, setDigestHex] = useState<string>("");
   const { api } = useApi();
-
-  useEffect(() => {
-    _onSign();
-  }, [text]);
 
   const _onChangeData = useCallback(
     (data: string) => setText(data),
     []
-  );
-
-  const _onSign = useCallback(
-    async () => {
-      if (!isIpfsReady) {
-        return;
-      }
-      // generate a data to sign
-      const textCIDString = await getIPFSContentID(ipfs, text);
-      const digest = await digestFromCIDv1(textCIDString);
-      setDigestHex(u8aToHex(digest));
-      setIdHex(u8aToHex(randomAsU8a(32)));
-    },
-    [currentPair, ipfs, text]
   );
 
   const _onResult = () => {
@@ -66,7 +45,16 @@ function Create({ className = '' }: Props): React.ReactElement<Props> {
     _onResult();
   }
 
-  const _onSave = (): void => {
+  const _onSave = async (): Promise<void> => {
+    if (!isIpfsReady) {
+      return;
+    }
+    // generate a data to sign
+    const textCIDString = await getIPFSContentIDAndPinIt(ipfs, text);
+    const digest = await digestFromCIDv1(textCIDString);
+    const digestHex = u8aToHex(digest);
+    const idHex = u8aToHex(randomAsU8a(32));
+
     if (!(idHex && digestHex && amount && currentPair)) {
       console.error('Required parameters are missing');
       return;

@@ -17,9 +17,14 @@ const prefix = new Uint8Array([1, 113, 18, 32]);
 // A helper wrapper to get IPFS CID from a text
 export async function getIPFSContentID(ipfs: IPFSHTTPClient, content: string) {
   const cid = await ipfs.dag.put(content, { storeCodec: 'dag-cbor', hashAlg: 'sha2-256' });
-  // await ipfs.pin.add(cid);
   return cid.toString();
 }
+export async function getIPFSContentIDAndPinIt(ipfs: IPFSHTTPClient, content: string) {
+  const cid = await ipfs.dag.put(content, { storeCodec: 'dag-cbor', hashAlg: 'sha2-256' });
+  await ipfs.pin.add(cid);
+  return cid.toString();
+}
+
 // Define a generic function to add timeout capability
 function timeout<T>(ms: number, promise: Promise<T>): Promise<T> {
   return new Promise((resolve, reject) => {
