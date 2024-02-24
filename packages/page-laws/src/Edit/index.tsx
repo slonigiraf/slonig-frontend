@@ -34,7 +34,7 @@ function Edit({ className = '' }: Props): React.ReactElement<Props> {
   const [item, setItem] = useState<JsonType>(null);
   const [cachedList, setCachedList] = useState<JsonType>(null);
   const { currentPair, isLoggedIn, setLoginIsRequired } = useLoginContext();
-  const [cidString, setCidString] = useState<string>("");
+    const [cidString, setCidString] = useState<string>("");
   const [lawHexData, setLawHexData] = useState('');
   const [amountList, setAmountList] = useState<BN>(BN_ZERO);
   const [amountItem, setAmountItem] = useState<BN>(BN_ZERO);
@@ -98,7 +98,7 @@ function Edit({ className = '' }: Props): React.ReactElement<Props> {
         setLoginIsRequired(true);
       }
     },
-    [_onClickChangeView]
+    [_onClickChangeView, isLoggedIn]
   );
 
   const _onSuccess = (digestHex: string) => {

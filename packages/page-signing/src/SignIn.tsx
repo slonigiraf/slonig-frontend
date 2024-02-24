@@ -50,13 +50,12 @@ function SignIn({ onClose, onUnlock, pair, toggleSignIn, toggleImport }: Props):
         await storeSetting('account', pair.address);
         await storeSetting('password', encrypted);
         await storeSetting('iv', iv);
-        pair.decodePkcs8(password);
+        onUnlock();
       } catch (error) {
         setIsBusy(false);
         return setUnlockError((error as Error).message);
       }
       setIsBusy(false);
-      onUnlock();
     });
   },
     [onUnlock, pair, password]

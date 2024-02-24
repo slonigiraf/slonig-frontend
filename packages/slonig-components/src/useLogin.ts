@@ -33,15 +33,15 @@ export function useLogin() {
   }, [isApiConnected]);
 
   const attemptUnlock = async (pair: KeyringPair) => {
-    const encryptedPasswordB64 = await getSetting('password');
+        const encryptedPasswordB64 = await getSetting('password');
     const ivB64 = await getSetting('iv');
     if (encryptedPasswordB64 && ivB64) {
-      const key = await getKey();
+            const key = await getKey();
       try {
         const password = await decryptData(key, encryptedPasswordB64, ivB64);
-        pair.decodePkcs8(password);
-        if (!pair.isLocked) {
-          setLoginIsRequired(false);
+                pair.decodePkcs8(password);
+                if (!pair.isLocked) {
+                    setLoginIsRequired(false);
           setIsLoggedIn(true);
           setIsReady(true);
         }
@@ -105,27 +105,22 @@ export function useLogin() {
 
   const _onUnlock = useCallback(
     async () => {
-      const accountInDB = await getSetting('account');
-      try {
-        if(accountInDB){
-          const newPair = keyring.getPair(accountInDB);
-          setCurrentPair(newPair);
-          if (newPair && newPair.meta) {
-            const meta = (newPair && newPair.meta) || {};
-            const isExternal = (meta.isExternal as boolean) || false;
-            const isHardware = (meta.isHardware as boolean) || false;
-            const isInjected = (meta.isInjected as boolean) || false;
-            if (newPair.isLocked && !isInjected) {
-              await attemptUnlock(newPair);
-            }
-            setAccountState({ isExternal, isHardware, isInjected });
-          } else {
-            setAccountState(null);
+            const accountInDB = await getSetting('account');
+      if (accountInDB) {
+        const newPair = keyring.getPair(accountInDB);
+        setCurrentPair(newPair);
+        if (newPair && newPair.meta) {
+          const meta = (newPair && newPair.meta) || {};
+          const isExternal = (meta.isExternal as boolean) || false;
+          const isHardware = (meta.isHardware as boolean) || false;
+          const isInjected = (meta.isInjected as boolean) || false;
+          if (newPair.isLocked && !isInjected) {
+            await attemptUnlock(newPair);
           }
+          setAccountState({ isExternal, isHardware, isInjected });
+        } else {
+          setAccountState(null);
         }
-      } catch (e) {
-        const error = (e as Error).message;
-        console.error(error);
       }
     },
     [keyring]
