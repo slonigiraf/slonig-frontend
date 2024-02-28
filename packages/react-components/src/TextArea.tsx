@@ -1,7 +1,7 @@
 // Copyright 2017-2023 @polkadot/react-components authors & contributors
 // SPDX-License-Identifier: Apache-2.0
 
-import React, { useCallback } from 'react';
+import React, { useCallback, useRef, useEffect } from 'react';
 
 import Labelled from './Labelled.js';
 import { styled } from './styled.js';
@@ -18,12 +18,25 @@ interface Props {
 }
 
 function TextArea ({ children, className, isError, isReadOnly, label, onChange, seed, withLabel }: Props): React.ReactElement<Props> {
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const adjustHeight = () => {
+    const textarea = textareaRef.current;
+    if (textarea) {
+      textarea.style.height = 'auto'; // Reset height to recalculate
+      textarea.style.height = `${textarea.scrollHeight}px`; // Set to scroll height
+    }
+  };
+
   const _onChange = useCallback(
     ({ target: { value } }: React.ChangeEvent<HTMLTextAreaElement>): void => {
       onChange && onChange(value);
+      adjustHeight();
     },
     [onChange]
   );
+  useEffect(() => {
+    adjustHeight();
+  }, [seed]);
 
   return (
     <StyledLabelled
@@ -42,6 +55,8 @@ function TextArea ({ children, className, isError, isReadOnly, label, onChange, 
           rows={2}
           spellCheck={false}
           value={seed}
+          ref={textareaRef}
+          style={{overflow: 'hidden'}}
         />
         {children}
       </div>
@@ -61,7 +76,7 @@ const StyledLabelled = styled(Labelled)`
       color: var(--color-text);
       display: block;
       outline: none;
-      padding: 1.75rem 3rem 0.75rem 1.5rem;
+      padding: 2rem 3rem 0.75rem 1.5rem;
       resize: none;
       width: 100%;
 

@@ -1,8 +1,6 @@
-// ExerciseEditor.tsx
-
 import React from 'react';
-import { Input } from '@polkadot/react-components';  // Assuming the correct import path
-import { useTranslation } from '../translate.js';    // Adjust path if necessary
+import { TextArea } from '@polkadot/react-components';
+import { useTranslation } from '../translate.js';
 
 interface ExerciseEditorProps {
   exercise: { h: string; a: string };
@@ -28,18 +26,17 @@ const ExerciseEditor: React.FC<ExerciseEditorProps> = ({ exercise, index, list, 
 
   return (
     <div key={index} className="exercise-editor">
-      <Input
-        autoFocus
+      <TextArea
         className='full'
         label={t('Exercise')}
         onChange={onEditHeader}
-        value={exercise.h}
+        seed={exercise.h}
       />
-      <Input
+      <TextArea
         className='full'
         label={t('Solution')}
         onChange={onEditAnswer}
-        value={exercise.a}
+        seed={exercise.a}
       />
     </div>
   );
