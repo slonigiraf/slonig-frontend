@@ -5,7 +5,6 @@ import { Insurance } from '../db/Insurance.js';
 import BN from 'bn.js';
 import { styled } from '@polkadot/react-components';
 import ChatSimulation from './ChatSimulation.js';
-import { ExerciseList } from '@slonigiraf/app-laws';
 
 class ValidatingAlgorithm extends Algorithm {
     constructor(t: any, studentName: string | null, skill: Skill, insurance: Insurance) {
@@ -38,6 +37,11 @@ class ValidatingAlgorithm extends Algorithm {
             </StyledDiv>
         );
 
+        const skip = new AlgorithmStage(
+            'success',
+            t('Skip'),
+            <></>
+        );
         const nextToTeaching = new AlgorithmStage(
             'success',
             t('Next'),
@@ -145,7 +149,7 @@ class ValidatingAlgorithm extends Algorithm {
         
 
         // Algo linking:
-        this.begin.setNext([hasStudentCreatedASimilarExercise]);
+        this.begin.setNext([skip, hasStudentCreatedASimilarExercise]);
         hasStudentCreatedASimilarExercise.setPrevious(this.begin);
         hasStudentCreatedASimilarExercise.setNext([provideFakeSolution, askToRepeatTheExerciseAfterMe]);// Fork #1
         provideFakeSolution.setPrevious(hasStudentCreatedASimilarExercise);
