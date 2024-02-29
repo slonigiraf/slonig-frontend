@@ -47,7 +47,6 @@ function timeout<T>(ms: number, promise: Promise<T>): Promise<T> {
 export async function getIPFSDataFromContentID(ipfs: IPFSHTTPClient, cidStr: string): Promise<string | null> {
   const cid = CID.parse(cidStr);
   const result = await timeout<DAGGetResult>(3000, ipfs.dag.get(cid));
-  await timeout<DAGGetResult>(3000, ipfs.pin.add(cid)); // TODO: add this somewhere else
   // Use type assertion if necessary
   if (typeof result.value === 'string') {
     return result.value;
