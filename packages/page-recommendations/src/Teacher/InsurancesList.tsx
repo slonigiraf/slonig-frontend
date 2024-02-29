@@ -6,23 +6,23 @@ import React, { useEffect, useState } from 'react'
 import { styled, Icon } from '@polkadot/react-components';
 import { useLiveQuery } from "dexie-react-hooks";
 import { db } from "../db/index.js";
-import { Insurance } from "../db/Insurance.js";
 import { useTranslation } from '../translate.js';
 import { getPseudonym } from '../utils.js';
 import 'react-dates/initialize';
 import { SingleDatePicker } from 'react-dates';
 import 'react-dates/lib/css/_datepicker.css';
-import moment, { Moment } from 'moment';
+import { Moment } from 'moment';
 
 interface Props {
   className?: string;
   teacher: string;
   student: string;
+  studentNameFromUrl: string;
 }
 
-function InsurancesList({ className = '', teacher, student }: Props): React.ReactElement<Props> {
+function InsurancesList({ className = '', teacher, student, studentNameFromUrl }: Props): React.ReactElement<Props> {
   const { t } = useTranslation();
-  const [studentName, setStudentName] = useState<string | undefined>(undefined);
+  const [studentName, setStudentName] = useState<string | undefined>(studentNameFromUrl);
   const [startDate, setStartDate] = useState<Moment | null>(null);
   const [endDate, setEndDate] = useState<Moment | null>(null);
   const [startFocused, setStartFocused] = useState<boolean>(false);
@@ -31,7 +31,7 @@ function InsurancesList({ className = '', teacher, student }: Props): React.Reac
   // Fetch student name
   useEffect(() => {
     async function fetchStudentName() {
-      if (student) {
+      if (student && !studentNameFromUrl) {
         const pseudonym = await getPseudonym(student);
         if (pseudonym) {
           setStudentName(pseudonym);
@@ -39,7 +39,7 @@ function InsurancesList({ className = '', teacher, student }: Props): React.Reac
       }
     }
     fetchStudentName()
-  }, [student])
+  }, [student, studentNameFromUrl])
 
   const insurances = useLiveQuery(
     () =>{

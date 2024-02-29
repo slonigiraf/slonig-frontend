@@ -107,7 +107,7 @@ function Teacher({ className = '', ipfs }: Props): React.ReactElement<Props> {
           {
             student && isDedicatedTeacher && (
               <div className='ui--row'>
-                <InsurancesList ipfs={ipfs} teacher={u8aToHex(currentPair?.publicKey)} student={student} />
+                <InsurancesList ipfs={ipfs} teacher={u8aToHex(currentPair?.publicKey)} student={student} studentNameFromUrl={studentNameFromUrl}/>
               </div>
             )
           }
