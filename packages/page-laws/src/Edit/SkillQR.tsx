@@ -175,16 +175,13 @@ function SkillQR({ className = '', cid }: Props): React.ReactElement<Props> {
       {tutor ?
         <StyledDiv>
           <h3>{t('Show the QR to your tutor')}</h3>
-          <FlexRow>
-            <Dropdown
-              className={`dropdown ${className}`}
-              label={t('select tutor')}
-              value={tutor}
-              onChange={handleTutorSelect}
-              options={tutorOptions || []}
-            />
-            <ScanQR label={t('by QR')} type={4} />
-          </FlexRow>
+          <Dropdown
+            className={`dropdown ${className}`}
+            label={t('select tutor')}
+            value={tutor}
+            onChange={handleTutorSelect}
+            options={tutorOptions || []}
+          />
           <QRWithShareAndCopy
             dataQR={qrCodeText}
             titleShare={t('QR code')}
@@ -193,16 +190,16 @@ function SkillQR({ className = '', cid }: Props): React.ReactElement<Props> {
             dataCopy={url}
           />
         </StyledDiv>
-        : 
+        :
         <StyledDiv>
           <FlexRow>
-          <ScanQR label={t('Scan your tutor\'s QR code for help and a diploma.')} type={4} />
+            <h3>{t('Scan your tutor\'s QR code for help and a diploma.')}</h3>
           </FlexRow>
         </StyledDiv>
       }
     </>}
     <LoginButton
-      label={t('Log in to practice in pairs')}
+      label={t('Log in')}
     />
   </>
   );
@@ -212,7 +209,8 @@ const StyledDiv = styled.div`
   justify-content: center;
   align-items: center;
   .dropdown {
-    max-width: 200px;
+    width: 290px;
+    margin-left: 40px;
   }
 `;
 const FlexRow = styled.div`
@@ -220,8 +218,5 @@ const FlexRow = styled.div`
   justify-content: left;
   align-items: left;
   margin-top: 20px;
-  .dropdown {
-    margin-right: 30px;
-  }
 `;
 export default React.memo(SkillQR);

@@ -43,7 +43,7 @@ const StyledDiv = styled.div`
   }
   @media (min-width: 768px) {
     width: 400px;
-      }
+  }
 `;
 
 export default React.memo(QRWithShareAndCopy);
