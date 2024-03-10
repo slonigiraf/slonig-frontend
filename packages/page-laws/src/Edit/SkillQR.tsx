@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useTranslation } from '../translate.js';
-import { LoginButton, QRAction, QRWithShareAndCopy, ScanQR, getBaseUrl, nameFromKeyringPair, useLoginContext } from '@slonigiraf/app-slonig-components';
+import { CenterQRContainer, LoginButton, QRAction, QRWithShareAndCopy, ScanQR, getBaseUrl, nameFromKeyringPair, useLoginContext } from '@slonigiraf/app-slonig-components';
 import { getSetting, storeSetting } from '@slonigiraf/app-recommendations';
 import { Dropdown } from '@polkadot/react-components';
 import { useLiveQuery } from "dexie-react-hooks";
@@ -174,6 +174,7 @@ function SkillQR({ className = '', cid }: Props): React.ReactElement<Props> {
     {isLoggedIn && <>
       {tutor ?
         <StyledDiv>
+          <CenterQRContainer>
           <h3>{t('Show the QR to your tutor')}</h3>
           <Dropdown
             className={`dropdown ${className}`}
@@ -189,6 +190,7 @@ function SkillQR({ className = '', cid }: Props): React.ReactElement<Props> {
             urlShare={url}
             dataCopy={url}
           />
+          </CenterQRContainer>
         </StyledDiv>
         :
         <StyledDiv>
@@ -210,7 +212,7 @@ const StyledDiv = styled.div`
   align-items: center;
   .dropdown {
     width: 290px;
-    margin-left: 40px;
+    margin-right: 30px;
   }
 `;
 const FlexRow = styled.div`
