@@ -18,7 +18,7 @@ class TeachingAlgorithm extends Algorithm {
             t('Yes'),
             <StyledDiv>
                 <ChatSimulation messages={[
-                    { id: 1, text: t('Buy a skill diploma from me to get a bonus from a teacher.'), sender: 'you', senderName: 'You', comment: t('I sell the student a diploma in exchange for money or Slon tokens.') },
+                    { id: 1, text: t('Buy a skill diploma from me to get a bonus from a teacher and a parent.'), sender: 'you', senderName: 'You', comment: t('I sell the student a diploma in exchange for money or Slon tokens.') },
                 ]} />
             </StyledDiv>
         );
