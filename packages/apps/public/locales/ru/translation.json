@@ -400,6 +400,7 @@
   "Show the QR to a sender to get Slon tokens": "Покажи QR-код отправителю, чтобы получить монеты Slon",
   "e.g., John Doe": "Напр. Александр Сидоров",
   "Are you sure you want to delete the selected diplomas forever?": "Вы уверены, что хотите навсегда удалить выбранные дипломы?",
+  "Are you sure you want to delete the selected diploma forever?": "Вы уверены, что хотите навсегда удалить выбранный диплом?",
   "Diplomas deleted": "Дипломы удалены",
   "Deletion failed": "Удаление не удалось",
   "Back": "Назад",

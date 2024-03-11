@@ -1,7 +1,7 @@
 // Copyright 2021-2022 @slonigiraf/app-recommendations authors & contributors
 // SPDX-License-Identifier: Apache-2.0
 
-import { Button, Card, Spinner, styled } from '@polkadot/react-components';
+import { Modal, Button, Card, Spinner, styled } from '@polkadot/react-components';
 import React, { useState, useEffect } from 'react'
 import UseInsurance from './UseInsurance.js'
 import { useTranslation } from '../translate.js';
@@ -10,6 +10,8 @@ import { useToggle } from '@polkadot/react-hooks';
 import { getIPFSDataFromContentID, parseJson } from '@slonigiraf/app-slonig-components';
 import { useIpfsContext } from '@slonigiraf/app-slonig-components';
 import { ItemLabel, ExerciseList } from '@slonigiraf/app-laws';
+import { db } from "../db/index.js";
+import { useInfo } from '@slonigiraf/app-slonig-components';
 
 interface Props {
   className?: string;
@@ -24,6 +26,8 @@ function InsuranceInfo({ className = '', insurance }: Props): React.ReactElement
   const [areDetailsOpen, toggleDetailsOpen] = useToggle(false);
   const [skillName, setSkillName] = useState(insurance.cid);
   const [loaded, setLoaded] = useState(false);
+  const [isDeleteConfirmOpen, toggleDeleteConfirm] = useToggle();
+  const { showInfo } = useInfo();
 
   useEffect(() => {
     async function fetchData() {
@@ -45,6 +49,28 @@ function InsuranceInfo({ className = '', insurance }: Props): React.ReactElement
   }, [ipfs, insurance])
 
   const skillNameToShow = loaded ? <span>{skillName}</span> : <Spinner noLabel />;
+
+  const deleteButton = <Button
+    icon={'trash'}
+    label={t('')}
+    onClick={toggleDeleteConfirm}
+  />;
+
+  const deleteDiplomas = async () => {
+    try {
+      if(insurance && insurance.id){
+        await db.insurances.delete(insurance.id);
+        showInfo(t('Diplomas deleted'));
+      }
+    } catch (error) {
+      // Handle any errors that occur during the deletion process
+      console.error('Error deleting diploma:', error);
+      // Optionally, show an error message to the user
+      showInfo(t('Deletion failed'));
+    } finally {
+      toggleDeleteConfirm();
+    }
+  };
 
   return (
     <>
@@ -90,11 +116,35 @@ function InsuranceInfo({ className = '', insurance }: Props): React.ReactElement
                   <UseInsurance
                     insurance={insurance}
                   />
+                  {deleteButton}
                 </div>
+                
               </Card>
             </DiplomaDiv>
           </>
       }
+      {isDeleteConfirmOpen && <>
+          <StyledModal
+            header={t('Are you sure you want to delete the selected diploma forever?')}
+            onClose={toggleDeleteConfirm}
+            size='small'
+          >
+            <Modal.Content>
+            <StyledModalContent>
+                <Button
+                  icon={'check'}
+                  label={t('Yes')}
+                  onClick={deleteDiplomas}
+                />
+                <Button
+                  icon={'close'}
+                  label={t('No')}
+                  onClick={toggleDeleteConfirm}
+                />
+            </StyledModalContent>
+            </Modal.Content>
+          </StyledModal>
+        </>}
     </>
   )
 }
@@ -158,5 +208,22 @@ const StyledDiv = styled.div`
     margin-left: 25px;
     margin-right: 25px;
   }
+`;
+const StyledModal = styled(Modal)`
+button[data-testid="close-modal"] {
+  opacity: 0;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+}
+
+button[data-testid="close-modal"]:focus {
+  outline: none;
+}
+`;
+const StyledModalContent = styled.div`
+  display: flex;
+  justify-content: center;
+  align-items: center;
 `;
 export default React.memo(InsuranceInfo);
