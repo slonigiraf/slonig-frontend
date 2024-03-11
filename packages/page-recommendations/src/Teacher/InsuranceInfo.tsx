@@ -1,7 +1,7 @@
 // Copyright 2021-2022 @slonigiraf/app-recommendations authors & contributors
 // SPDX-License-Identifier: Apache-2.0
 
-import { Button, Card, styled } from '@polkadot/react-components';
+import { Button, Card, Spinner, styled } from '@polkadot/react-components';
 import React, { useState, useEffect } from 'react'
 import UseInsurance from './UseInsurance.js'
 import { useTranslation } from '../translate.js';
@@ -23,6 +23,7 @@ function InsuranceInfo({ className = '', insurance }: Props): React.ReactElement
   const { t } = useTranslation();
   const [areDetailsOpen, toggleDetailsOpen] = useToggle(false);
   const [skillName, setSkillName] = useState(insurance.cid);
+  const [loaded, setLoaded] = useState(false);
 
   useEffect(() => {
     async function fetchData() {
@@ -32,6 +33,7 @@ function InsuranceInfo({ className = '', insurance }: Props): React.ReactElement
           const json = parseJson(content);
           setSkillName(json.h);
           setData(json);
+          setLoaded(true);
         }
         catch (e) {
           setSkillName(insurance.cid + " (" + t('loading') + "...)")
@@ -42,6 +44,8 @@ function InsuranceInfo({ className = '', insurance }: Props): React.ReactElement
     fetchData()
   }, [ipfs, insurance])
 
+  const skillNameToShow = loaded ? <span>{skillName}</span> : <Spinner noLabel />;
+
   return (
     <>
       {
@@ -49,13 +53,15 @@ function InsuranceInfo({ className = '', insurance }: Props): React.ReactElement
           <StyledDiv><Button
             icon='eye'
             onClick={toggleDetailsOpen}
-          /><span>{skillName}</span></StyledDiv>
+          />
+            {skillNameToShow}
+          </StyledDiv>
         </div> :
           <>
             <StyledDiv><Button
               icon='chevron-up'
               onClick={toggleDetailsOpen}
-            /><span>{skillName}</span></StyledDiv>
+            />{skillNameToShow}</StyledDiv>
             <DiplomaDiv >
               <Card>
 
@@ -69,7 +75,7 @@ function InsuranceInfo({ className = '', insurance }: Props): React.ReactElement
                         </>
                       }
                       {data.e != null && data.e.map((item, index) => (
-                        <div className='ui--row' key={index}
+                        <div className='ui--row' key={item}
                           style={{
                             alignItems: 'center'
                           }}
@@ -146,6 +152,11 @@ const StyledDiv = styled.div`
   > span {
     margin-right: 10px;
     margin-left: 10px;
+  }
+  .ui--Spinner{
+    width: 50px;
+    margin-left: 25px;
+    margin-right: 25px;
   }
 `;
 export default React.memo(InsuranceInfo);
