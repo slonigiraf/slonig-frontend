@@ -4,7 +4,7 @@ import React, { useEffect, useState } from 'react';
 import { useApi } from '@polkadot/react-hooks';
 import { getCIDFromBytes, getIPFSDataFromContentID, parseJson } from '@slonigiraf/app-slonig-components';
 import { useIpfsContext } from '@slonigiraf/app-slonig-components';
-import { styled } from '@polkadot/react-components';
+import { Spinner, styled } from '@polkadot/react-components';
 
 interface Props {
   className?: string;
@@ -28,7 +28,7 @@ function ItemLabel({ className = '', id, isText = false }: Props): React.ReactEl
       if (!isIpfsReady || cidString.length < 2) {
         return;
       }
-  
+
       try {
         const jsonText = await getIPFSDataFromContentID(ipfs, cidString);
         const json = parseJson(jsonText);
@@ -38,9 +38,9 @@ function ItemLabel({ className = '', id, isText = false }: Props): React.ReactEl
         console.error(error.message);
       }
     };
-  
+
     fetchIPFSData();
-  }, [cidString, ipfs]);  
+  }, [cidString, ipfs]);
 
 
   async function fetchLaw(key: string) {
@@ -56,12 +56,25 @@ function ItemLabel({ className = '', id, isText = false }: Props): React.ReactEl
 
   const textToDisplay = isFetched ? text : '...';
 
-  return isText ? <span>{textToDisplay}</span> : <StyledA href={`/#/knowledge?id=${id}`}>{textToDisplay}</StyledA>;
+  return isText ?
+    <span>{textToDisplay}</span>
+    :
+    isFetched ?
+      <StyledA href={`/#/knowledge?id=${id}`}>{textToDisplay}</StyledA>
+      :
+      <StyledSpinner><Spinner noLabel /></StyledSpinner>;
 }
 
 const StyledA = styled.a`
    font-size: 16px;
-   margin-bottom: 10px;
+   margin-bottom: 14px;
+`;
+const StyledSpinner = styled.div`
+  .ui--Spinner{
+    width: 50px;
+    margin-left: 0px;
+    margin-right: 25px;
+  }
 `;
 
 
