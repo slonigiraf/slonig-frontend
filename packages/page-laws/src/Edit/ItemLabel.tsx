@@ -28,36 +28,19 @@ function ItemLabel({ className = '', id, isText = false }: Props): React.ReactEl
       if (!isIpfsReady || cidString.length < 2) {
         return;
       }
-
-      // Try up to 3 additional times with a delay of 20 seconds between each attempt
-      const maxAttempts = 3;
-      let attempts = 0;
-      let success = false;
-
-      while (!success && attempts < maxAttempts) {
-        try {
-          const jsonText = await getIPFSDataFromContentID(ipfs, cidString);
-          const json = parseJson(jsonText);
-          setText(json.h);
-          setIsFetched(true);
-          success = true; // If the request is successful, set success to true to exit the loop
-        } catch (error) {
-          attempts++;
-          console.error(`CID: ${cidString} - attempt ${attempts} failed: ${error.message}`);
-          if (attempts < maxAttempts) {
-            // Wait for 20 seconds before trying again
-            await new Promise(resolve => setTimeout(resolve, 20000));
-          }
-        }
-      }
-
-      if (!success) {
-        console.error("Failed to fetch IPFS data after multiple attempts.");
+  
+      try {
+        const jsonText = await getIPFSDataFromContentID(ipfs, cidString);
+        const json = parseJson(jsonText);
+        setText(json.h);
+        setIsFetched(true);
+      } catch (error) {
+        console.error(error.message);
       }
     };
-
+  
     fetchIPFSData();
-  }, [cidString, ipfs]);
+  }, [cidString, ipfs]);  
 
 
   async function fetchLaw(key: string) {

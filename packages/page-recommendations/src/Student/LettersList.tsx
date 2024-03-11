@@ -160,7 +160,6 @@ function LettersList({ className = '', worker, currentPair }: Props): React.Reac
           <div key={index} className='ui--row'>
             <LetterInfo
               letter={letter}
-              ipfs={ipfs}
               isSelected={selectedLetters.includes(letter)}
               onToggleSelection={toggleLetterSelection} />
           </div>

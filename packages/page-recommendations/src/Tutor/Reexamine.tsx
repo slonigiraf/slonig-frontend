@@ -39,7 +39,7 @@ function Reexamine({ className = '', currentPair, insurance, onResult, studentNa
     async function fetchData() {
       if (isIpfsReady && insurance && insurance.cid) {
         try {
-          const skillContent = await getIPFSDataFromContentID(ipfs, insurance.cid);
+          const skillContent = await getIPFSDataFromContentID(ipfs, insurance.cid, 1);
           const skillJson = parseJson(skillContent);
 
           if (isComponentMounted) {

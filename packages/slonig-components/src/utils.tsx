@@ -44,7 +44,7 @@ function timeout<T>(ms: number, promise: Promise<T>): Promise<T> {
   });
 }
 
-export async function getIPFSDataFromContentID(ipfs: IPFSHTTPClient, cidStr: string): Promise<string | null> {
+async function tryToGetIPFSDataFromContentID(ipfs: IPFSHTTPClient, cidStr: string): Promise<string | null> {
   const cid = CID.parse(cidStr);
   const result = await timeout<DAGGetResult>(3000, ipfs.dag.get(cid));
   // Use type assertion if necessary
@@ -56,6 +56,26 @@ export async function getIPFSDataFromContentID(ipfs: IPFSHTTPClient, cidStr: str
   }
   return null;
 }
+
+export const getIPFSDataFromContentID = async (ipfs: IPFSHTTPClient, cidString: string, maxAttempts = 60, delay = 1000) => {
+  let attempts = 0;
+  while (attempts < maxAttempts) {
+    try {
+      const jsonText = await tryToGetIPFSDataFromContentID(ipfs, cidString);
+      if (jsonText) {
+        return jsonText;
+      }
+    } catch (error) {
+      attempts++;
+      console.error(`CID: ${cidString} - attempt ${attempts} failed: ${error.message}`);
+      if (attempts < maxAttempts) {
+        // Wait for specified delay before trying again
+        await new Promise(resolve => setTimeout(resolve, delay));
+      }
+    }
+  }
+  throw new Error("Failed to fetch IPFS data after multiple attempts.");
+};
 
 export async function digestFromCIDv1(cidStr: string) {
   const cid = CID.parse(cidStr);
