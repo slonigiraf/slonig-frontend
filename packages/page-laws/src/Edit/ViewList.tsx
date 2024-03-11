@@ -75,7 +75,7 @@ function ViewList({ className = '', id, currentPair }: Props): React.ReactElemen
           </>
         }
         {list.e != null && list.e.map((item, index) => (
-          <div className='ui--row' key={index}
+          <div className='ui--row' key={item}
             style={{
               alignItems: 'center'
             }}
