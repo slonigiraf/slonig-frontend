@@ -1,7 +1,7 @@
 // Copyright 2021-2022 @slonigiraf/app-recommendations authors & contributors
 // SPDX-License-Identifier: Apache-2.0
 
-import { Button, Modal, styled } from '@polkadot/react-components';
+import { Button, Modal, Spinner, styled } from '@polkadot/react-components';
 import React, { useState, useEffect } from 'react'
 import { getIPFSDataFromContentID, parseJson } from '@slonigiraf/app-slonig-components'
 import { useTranslation } from '../translate.js';
@@ -19,8 +19,9 @@ interface Props {
 function LetterInfo({ className = '', letter, isSelected, onToggleSelection }: Props): React.ReactElement<Props> {
   const { ipfs, isIpfsReady, ipfsInitError } = useIpfsContext();
   const { t } = useTranslation();
-  const [modalIsOpen, setModalIsOpen] = useState(false)
-  const [text, setText] = useState(letter.cid)
+  const [modalIsOpen, setModalIsOpen] = useState(false);
+  const [text, setText] = useState(letter.cid);
+  const [loaded, setLoaded] = useState(false);
 
   useEffect(() => {
     async function fetchData() {
@@ -29,6 +30,7 @@ function LetterInfo({ className = '', letter, isSelected, onToggleSelection }: P
           const content = await getIPFSDataFromContentID(ipfs, letter.cid);
           const json = parseJson(content);
           setText(json.h);
+          setLoaded(true);
         }
         catch (e) {
           setText(letter.cid + " (" + t('loading') + "...)")
@@ -51,7 +53,7 @@ function LetterInfo({ className = '', letter, isSelected, onToggleSelection }: P
       onClose={() => setModalIsOpen(false)}
     >
       <Modal.Content>
-        <LetterDetailsModal text={text} letter={letter} />
+        {loaded ? <LetterDetailsModal text={text} letter={letter} /> : <Spinner noLabel />}
       </Modal.Content>
     </Modal>
     }
@@ -67,7 +69,7 @@ function LetterInfo({ className = '', letter, isSelected, onToggleSelection }: P
   return (
     <StyledDiv>
       {buttonSelect}
-      <span>{text}</span>
+      {loaded ? <span>{text}</span> : <Spinner noLabel />}
       {buttonView}
     </StyledDiv>
   )
@@ -80,6 +82,11 @@ const StyledDiv = styled.div`
   > span {
     margin-right: 10px;
     margin-left: 10px;
+  }
+  .ui--Spinner{
+    width: 50px;
+    margin-left: 25px;
+    margin-right: 25px;
   }
 `;
 export default React.memo(LetterInfo);
