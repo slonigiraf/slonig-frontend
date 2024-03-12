@@ -81,41 +81,42 @@ function Teacher({ className = '', ipfs }: Props): React.ReactElement<Props> {
   }, [diplomasFromUrl, isDedicatedTeacher]);
 
   return (
+    <AppContainer>
+      <div className={`toolbox--Student ${className}`}>
+        {
+          isLoggedIn && <>
+            {(!student || !isDedicatedTeacher) &&
+              <AppContainer>
+                <CenterQRContainer>
+                  {
+                    isDedicatedTeacher ? (
+                      <h2>{t('Show to a student to see their results')}</h2>
+                    ) : (
+                      <h2>{t('Student has shown you a QR code created for a different teacher. Ask them to scan your QR code.')}</h2>
+                    )
+                  }
+                  <QRWithShareAndCopy
+                    dataQR={qrCodeText}
+                    titleShare={t('QR code')}
+                    textShare={t('Press the link to show diplomas')}
+                    urlShare={url}
+                    dataCopy={url} />
+                </CenterQRContainer>
+              </AppContainer>
+            }
+            {
+              student && isDedicatedTeacher && (
+                <div className='ui--row'>
+                  <InsurancesList ipfs={ipfs} teacher={u8aToHex(currentPair?.publicKey)} student={student} studentNameFromUrl={studentNameFromUrl} />
+                </div>
+              )
+            }
 
-    <div className={`toolbox--Student ${className}`}>
-      {
-        isLoggedIn && <>
-          {(!student || !isDedicatedTeacher) &&
-            <AppContainer>
-              <CenterQRContainer>
-                {
-                  isDedicatedTeacher ? (
-                    <h2>{t('Show to a student to see their results')}</h2>
-                  ) : (
-                    <h2>{t('Student has shown you a QR code created for a different teacher. Ask them to scan your QR code.')}</h2>
-                  )
-                }
-                <QRWithShareAndCopy
-                  dataQR={qrCodeText}
-                  titleShare={t('QR code')}
-                  textShare={t('Press the link to show diplomas')}
-                  urlShare={url}
-                  dataCopy={url} />
-              </CenterQRContainer>
-            </AppContainer>
-          }
-          {
-            student && isDedicatedTeacher && (
-              <div className='ui--row'>
-                <InsurancesList ipfs={ipfs} teacher={u8aToHex(currentPair?.publicKey)} student={student} studentNameFromUrl={studentNameFromUrl}/>
-              </div>
-            )
-          }
-
-        </>
-      }
-      <LoginButton label={t('Log in to view student results')} />
-    </div>
+          </>
+        }
+        <LoginButton label={t('Log in')} />
+      </div>
+    </AppContainer>
   );
 
 }

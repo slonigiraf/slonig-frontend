@@ -408,7 +408,7 @@ function Tutor({ className = '' }: Props): React.ReactElement<Props> {
             :
             <> {diploma ? diplomaView : reexamAndDiplomaIssuing}</>
         )}
-        <LoginButton label={t('Log in to start tutoring')} />
+        <LoginButton label={t('Log in')} />
       </div>
     </AppContainer>
   );

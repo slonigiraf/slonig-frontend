@@ -21,7 +21,7 @@ import { useTranslation } from '../translate.js';
 import { SORT_CATEGORY, sortAccounts } from '../util.js';
 import Account from './Account.js';
 import Summary from './Summary.js';
-import { AppContainer, FullWidthContainer, useInfo, useLoginContext } from '@slonigiraf/app-slonig-components';
+import { AppContainer, FullWidthContainer, LoginButton, useInfo, useLoginContext } from '@slonigiraf/app-slonig-components';
 import PayToAccountQR from './PayToAccountQR.js';
 
 interface Balances {
@@ -277,9 +277,9 @@ function Overview({ className = '', onStatusChange }: Props): React.ReactElement
   }, [logOut]);
 
   return (
-    <StyledDiv className={className}>
-      <FullWidthContainer>
-        <AppContainer>
+    <AppContainer>
+      <StyledDiv className={className}>
+        {isLoggedIn && <>
           <h2>{t('Show the QR to a sender to get Slon tokens')}</h2>
           <div className='ui--row'>
             <PayToAccountQR />
@@ -303,54 +303,52 @@ function Overview({ className = '', onStatusChange }: Props): React.ReactElement
             </Button.Group>
           </div>
           <Summary balance={balances.summary} />
-
-        </AppContainer>
-      </FullWidthContainer>
-      
-      {isLedgerOpen && (
-        <Ledger onClose={toggleLedger} />
-      )}
-      {isMultisigOpen && (
-        <Multisig
-          onClose={toggleMultisig}
-          onStatusChange={callOnStatusChange}
-        />
-      )}
-      {isProxyOpen && (
-        <Proxy
-          onClose={toggleProxy}
-          onStatusChange={callOnStatusChange}
-        />
-      )}
-      {isQrOpen && (
-        <Qr
-          onClose={toggleQr}
-          onStatusChange={callOnStatusChange}
-        />
-      )}
-      
-
-      {!isNextTick || !sortedAccounts.length
-        ? (
-          <Table
-            empty={isNextTick && sortedAccounts && t("You don't have any accounts. Some features are currently hidden and will only become available once you have accounts.")}
-            header={header.accounts}
-          />
-        )
-        : GROUP_ORDER.map((group) =>
-          groups[group] && (
-            <Table
-              empty={t('No accounts')}
-              header={header[group]}
-              isSplit
-              key={group}
-            >
-              {groups[group]}
-            </Table>
-          )
-        )
-      }
-    </StyledDiv>
+          {isLedgerOpen && (
+            <Ledger onClose={toggleLedger} />
+          )}
+          {isMultisigOpen && (
+            <Multisig
+              onClose={toggleMultisig}
+              onStatusChange={callOnStatusChange}
+            />
+          )}
+          {isProxyOpen && (
+            <Proxy
+              onClose={toggleProxy}
+              onStatusChange={callOnStatusChange}
+            />
+          )}
+          {isQrOpen && (
+            <Qr
+              onClose={toggleQr}
+              onStatusChange={callOnStatusChange}
+            />
+          )}
+          {!isNextTick || !sortedAccounts.length
+            ? (
+              <Table
+                empty={isNextTick && sortedAccounts && t("You don't have any accounts. Some features are currently hidden and will only become available once you have accounts.")}
+                header={header.accounts}
+              />
+            )
+            : GROUP_ORDER.map((group) =>
+              groups[group] && (
+                <Table
+                  empty={t('No accounts')}
+                  header={header[group]}
+                  isSplit
+                  key={group}
+                >
+                  {groups[group]}
+                </Table>
+              )
+            )
+          }
+        </>
+        }
+        <LoginButton label={t('Log in')} />
+      </StyledDiv>
+    </AppContainer>
   );
 }
 

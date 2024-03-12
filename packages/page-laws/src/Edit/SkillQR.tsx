@@ -200,9 +200,7 @@ function SkillQR({ className = '', cid }: Props): React.ReactElement<Props> {
         </StyledDiv>
       }
     </>}
-    <LoginButton
-      label={t('Log in')}
-    />
+    <LoginButton label={t('Log in')} />
   </>
   );
 }

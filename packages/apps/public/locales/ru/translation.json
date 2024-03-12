@@ -343,7 +343,6 @@
   "Scan your tutor's QR code for help and a diploma.": "Отсканируй QR-код своего репетитора, чтобы получить помощь и диплом.",
   "Example exercises to train the skill": "Примеры упражнений для тренировки навыка",
   "Got bounty": "Получен бонус",
-  "Log in to see your diplomas": "Войдите, чтобы увидеть свои дипломы",
   "loading": "загрузка",
   "Diploma": "Диплом",
   "Maximum number of selected diplomas is:": "Максимальное количество выбираемых дипломов:",
@@ -353,7 +352,6 @@
   "Get bounty": "Получить бонус",
   "Student has shown you a QR code created for a different teacher. Ask them to scan your QR code.": "Ученик показал вам QR-код, созданный для другого учителя. Попроси ученика отсканировать ваш QR-код.",
   "Press the link to show diplomas": "Нажми на ссылку, чтобы показать дипломы",
-  "Log in to view student results": "Войди, чтобы просмотреть результаты учеников",
   "Show the QR to your student": "Покажи QR своему ученику",
   "warranty": "гарантия",
   "days valid": "дней действительно",
@@ -365,7 +363,6 @@
   "Sell the diploma": "Продать диплом",
   "Student has shown you a QR code created for a different tutor. Ask them to scan your QR code.": "Ученик показал вам QR-код, созданный для другого репетитора. Попроси его отсканировать ваш QR-код.",
   "Press the link to start learning": "Нажми на ссылку, чтобы начать учиться",
-  "Log in to start tutoring": "Войдите, чтобы стать репетитором",
   "Reexamine the skill that student know": "Перепроверь навык, которым владеет ученик",
   "SOME EXERCISE FOR SKILL TRAINING (THE TUTOR SHOULD KNOW)": "НЕКОТОРОЕ УПРАЖНЕНИЕ ДЛЯ ОБУЧЕНИЯ НАВЫКУ (РЕПЕТИТОР ДОЛЖЕН ЗНАТЬ)",
   "Say": "Скажи",
@@ -439,5 +436,6 @@
   "Skip": "Пропустить",
   "Deleted": "Удалено",
   "Error": "Ошибка",
-  "Log out": "Выйти"
+  "Log out": "Выйти",
+  "total transferrable": "всего свободно"
 }

@@ -74,12 +74,14 @@ function Student({ className = '', ipfs }: Props): React.ReactElement<Props> {
   }, [refereeSignOverPrivateData])
 
   return (
+    <AppContainer>
       <div className={`toolbox--Student ${className}`}>
         <div className='ui--row'>
           {isLoggedIn && <LettersList ipfs={ipfs} worker={u8aToHex(currentPair?.publicKey)} currentPair={currentPair} />}
-          <LoginButton label={t('Log in to see your diplomas')} />
+          <LoginButton label={t('Log in')} />
         </div>
       </div>
+    </AppContainer>
   )
 }
 
