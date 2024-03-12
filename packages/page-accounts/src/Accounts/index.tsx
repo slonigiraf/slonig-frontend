@@ -290,7 +290,7 @@ function Overview({ className = '', onStatusChange }: Props): React.ReactElement
               key={inputKey}
               className='full'
               isInput={false}
-              label={t('Default account')}
+              label={t('Account')}
               onChange={_onChangeAccount}
               type='account'
             />
