@@ -439,5 +439,7 @@
   "total locked": "всего заблокировано",
   "all locally stored accounts": "все аккаунты из браузера",
   "You don't have any accounts. Some features are currently hidden and will only become available once you have accounts.": "У вас нет аккаунтов. Некоторые функции в настоящее время скрыты и станут доступны только после того, как у вас появится аккаунт.",
-  "Skip": "Пропустить"
+  "Skip": "Пропустить",
+  "Deleted": "Удалено",
+  "Error": "Ошибка"
 }

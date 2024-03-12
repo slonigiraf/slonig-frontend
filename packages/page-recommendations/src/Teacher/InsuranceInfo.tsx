@@ -60,11 +60,11 @@ function InsuranceInfo({ className = '', insurance }: Props): React.ReactElement
     try {
       if(insurance && insurance.id){
         await db.insurances.delete(insurance.id);
-        showInfo(t('Diplomas deleted'));
+        showInfo(t('Deleted'));
       }
     } catch (error) {
       // Handle any errors that occur during the deletion process
-      console.error('Error deleting diploma:', error);
+      console.error('Error', error);
       // Optionally, show an error message to the user
       showInfo(t('Deletion failed'));
     } finally {
