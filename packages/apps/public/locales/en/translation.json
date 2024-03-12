@@ -1040,8 +1040,6 @@
   "Waiting for authorization from the extension. Please open the installed extension and approve or reject access.": "",
   "Waiting for implementer to claim": "",
   "Waiting nominations ({{count}})": "",
-  "Metadata retrieval.": "",
-  "Establishing a connection.": "",
   "Warning: we did not find any attest statement for {{chain}}": "",
   "We found a pre-claim with this Polkadot address. However, attesting requires signing with this account. To continue with attesting, please add this account as an owned account first.": "",
   "We will provide you with a generated backup file after your account is created. As long as you have access to your account you can always download this file later by clicking on \"Backup\" button from the Accounts section.": "",

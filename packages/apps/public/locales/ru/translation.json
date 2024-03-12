@@ -300,8 +300,6 @@
   "rpc.sora-substrate-staging": "SORA-staging (SORA-staging Testnet, hosted by Soramitsu)",
   "rpc.turbulence": "Turbulence (Laminar Testnet, hosted by Laminar)",
   "rpc.westend": "Westend (Polkadot Testnet, hosted by Parity)",
-  "Metadata retrieval.": "Загрузка метаданных.",
-  "Establishing a connection.": "Соединение.",
   "Skills": "Навыки",
   "nav.knowledge": "Навыки",
   "Diplomas": "Дипломы",

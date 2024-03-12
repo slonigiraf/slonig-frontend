@@ -10,8 +10,6 @@
   "Settings": "Settings",
   "Switch": "Switch",
   "Waiting for authorization from the extension. Please open the installed extension and approve or reject access.": "Waiting for authorization from the extension. Please open the installed extension and approve or reject access.",
-  "Metadata retrieval.": "Metadata retrieval.",
-  "Establishing a connection.": "Establishing a connection.",
   "You are connected to the development instance of the UI. For a fully decentralized experience, you are encouraged to use the IPFS deployed version as the canonical URL: ": "You are connected to the development instance of the UI. For a fully decentralized experience, you are encouraged to use the IPFS deployed version as the canonical URL: ",
   "You are connecting from a secure location to an insecure WebSocket ({{wsUrl}}). Due to browser mixed-content security policies this connection type is not allowed. Change the RPC service to a secure 'wss' endpoint.": "You are connecting from a secure location to an insecure WebSocket ({{wsUrl}}). Due to browser mixed-content security policies this connection type is not allowed. Change the RPC service to a secure 'wss' endpoint.",
   "Connecting to a node.": "Connecting to a node.",

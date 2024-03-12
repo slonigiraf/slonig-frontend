@@ -34,19 +34,7 @@ function Connecting ({ className }: Props): React.ReactElement<Props> | null {
     );
   } else if (!isApiReady) {
     return (
-      <BaseOverlay
-        className={className}
-        icon='globe'
-        type='info'
-      >
-        <div>
-          {
-            isApiConnected
-              ? t('Metadata retrieval.')
-              : t('Establishing a connection.')
-          }
-        </div>
-      </BaseOverlay>
+      <></>
     );
   } else if (isWaitingInjected) {
     return (
