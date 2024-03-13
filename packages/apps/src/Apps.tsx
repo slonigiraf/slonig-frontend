@@ -41,9 +41,7 @@ function Apps({ className = '' }: Props): React.ReactElement<Props> {
             <AccountSidebar>
               <Signer>
                 <LoginProvider>
-
                   <Content />
-
                   <BottomMenu />
                 </LoginProvider>
               </Signer>

@@ -388,7 +388,6 @@ function Tutor({ className = '' }: Props): React.ReactElement<Props> {
   </>;
 
   return (
-    <AppContainer>
       <div className={`toolbox--Tutor ${className}`}>
         {isLoggedIn && (
           (student === undefined || !isDedicatedTutor) ? <>
@@ -410,7 +409,6 @@ function Tutor({ className = '' }: Props): React.ReactElement<Props> {
         )}
         <LoginButton label={t('Log in')} />
       </div>
-    </AppContainer>
   );
 }
 

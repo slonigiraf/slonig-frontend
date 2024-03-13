@@ -277,7 +277,6 @@ function Overview({ className = '', onStatusChange }: Props): React.ReactElement
   }, [logOut]);
 
   return (
-    <AppContainer>
       <StyledDiv className={className}>
         {isLoggedIn && <>
           <h2>{t('Show the QR to a sender to get Slon tokens')}</h2>
@@ -348,7 +347,6 @@ function Overview({ className = '', onStatusChange }: Props): React.ReactElement
         }
         <LoginButton label={t('Log in')} />
       </StyledDiv>
-    </AppContainer>
   );
 }
 

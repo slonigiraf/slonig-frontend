@@ -81,12 +81,10 @@ function Teacher({ className = '', ipfs }: Props): React.ReactElement<Props> {
   }, [diplomasFromUrl, isDedicatedTeacher]);
 
   return (
-    <AppContainer>
       <div className={`toolbox--Student ${className}`}>
         {
           isLoggedIn && <>
             {(!student || !isDedicatedTeacher) &&
-              <AppContainer>
                 <CenterQRContainer>
                   {
                     isDedicatedTeacher ? (
@@ -102,7 +100,6 @@ function Teacher({ className = '', ipfs }: Props): React.ReactElement<Props> {
                     urlShare={url}
                     dataCopy={url} />
                 </CenterQRContainer>
-              </AppContainer>
             }
             {
               student && isDedicatedTeacher && (
@@ -116,7 +113,6 @@ function Teacher({ className = '', ipfs }: Props): React.ReactElement<Props> {
         }
         <LoginButton label={t('Log in')} />
       </div>
-    </AppContainer>
   );
 
 }
