@@ -48,18 +48,7 @@ function Connecting ({ className }: Props): React.ReactElement<Props> | null {
     );
   } else if (!isApiConnected) {
     return (
-      <BaseOverlay
-        className={className}
-        icon='globe'
-        type='info'
-      >
-        <div>{t('Connecting to a node.')}</div>
-        {
-          isWs && !isWsLocal && isHttps
-            ? <div>{t('You are connecting from a secure location to an insecure WebSocket ({{wsUrl}}). Due to browser mixed-content security policies this connection type is not allowed. Change the RPC service to a secure \'wss\' endpoint.', { replace: { wsUrl } })}</div>
-            : undefined
-        }
-      </BaseOverlay>
+      <></>
     );
   }
 

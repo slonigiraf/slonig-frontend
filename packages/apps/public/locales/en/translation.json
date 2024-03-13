@@ -1062,7 +1062,6 @@
   "You are connected to the development instance of the UI. For a fully decentralized experience, you are encouraged to use the IPFS deployed version as the canonical URL: ": "",
   "You are connecting from a secure location to an insecure WebSocket ({{wsUrl}}). Due to browser mixed-content security policies this connection type is not allowed. Change the RPC service to a secure 'wss' endpoint.": "",
   "You are giving up your curator role, the bounty will return to the Funded state. You will get your deposit back.": "",
-  "Connecting to a node.": "",
   "You are voting with this collective's prime account. The vote will be the default outcome in case of any abstentions.": "",
   "You can either bond a specific amount from your free balance, or all of the accumulated rewards.": "",
   "You do not have access to the current sudo key": "",
