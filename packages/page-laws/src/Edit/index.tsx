@@ -20,20 +20,23 @@ import { useLoginContext } from '@slonigiraf/app-slonig-components';
 import { sendCreateAndEditTransaction, sendEditTransaction } from './sendTransaction.js';
 import { useInfo } from '@slonigiraf/app-slonig-components';
 
-const saveToSessionStorage = (key: string, value: any) => {
+const sessionStorageKey = (prefix: string, name: string) => {
+  return prefix + ':' + name;
+}
+const saveToSessionStorage = (prefix: string, name: string, value: any) => {
   if (typeof window === "undefined") return;
   try {
     const serializedValue = JSON.stringify(value);
-    sessionStorage.setItem(key, serializedValue);
+    sessionStorage.setItem(sessionStorageKey(prefix, name), serializedValue);
   } catch (error) {
     console.error("Error saving to session storage", error);
   }
 };
 
-const loadFromSessionStorage = (key: string) => {
+const loadFromSessionStorage = (prefix: string, name: string) => {
   if (typeof window === "undefined") return undefined;
   try {
-    const serializedValue = sessionStorage.getItem(key);
+    const serializedValue = sessionStorage.getItem(sessionStorageKey(prefix, name));
     return serializedValue === null ? null : JSON.parse(serializedValue);
   } catch (error) {
     console.error("Error loading from session storage", error);
@@ -64,33 +67,35 @@ function Edit({ className = '' }: Props): React.ReactElement<Props> {
   const [textHexId, setTextHexId] = useState<string | undefined>(idFromQuery);
 
   // Initializing states with values from session storage or default values
-  const [list, setList] = useState<JsonType>(loadFromSessionStorage('list'));
-  const [item, setItem] = useState<JsonType>(loadFromSessionStorage('item'));
-  const [cachedList, setCachedList] = useState<JsonType>(loadFromSessionStorage('cachedList'));
-  const [cidString, setCidString] = useState<string>(loadFromSessionStorage('cidString') || "");
-  const [lawHexData, setLawHexData] = useState<string>(loadFromSessionStorage('lawHexData') || "");
-  const [amountList, setAmountList] = useState<BN>(new BN(loadFromSessionStorage('amountList') || BN_ZERO));
-  const [amountItem, setAmountItem] = useState<BN>(new BN(loadFromSessionStorage('amountItem') || BN_ZERO));
-  const [previousAmount, setPreviousAmount] = useState<BN>(new BN(loadFromSessionStorage('previousAmount') || BN_ZERO));
-  const [isEditView, setIsEditView] = useState<boolean>(loadFromSessionStorage('isEditView') || false);
-  const [isAddingItem, setIsAddingElement] = useState<boolean>(loadFromSessionStorage('isAddingItem') || false);
-  const [itemIdHex, setItemIdHex] = useState<string>(loadFromSessionStorage('itemIdHex') || "");
+  const sessionPrefix = 'knowledge';
+
+  const [list, setList] = useState<JsonType>(loadFromSessionStorage(sessionPrefix, 'list'));
+  const [item, setItem] = useState<JsonType>(loadFromSessionStorage(sessionPrefix, 'item'));
+  const [cachedList, setCachedList] = useState<JsonType>(loadFromSessionStorage(sessionPrefix, 'cachedList'));
+  const [cidString, setCidString] = useState<string>(loadFromSessionStorage(sessionPrefix, 'cidString') || "");
+  const [lawHexData, setLawHexData] = useState<string>(loadFromSessionStorage(sessionPrefix, 'lawHexData') || "");
+  const [amountList, setAmountList] = useState<BN>(new BN(loadFromSessionStorage(sessionPrefix, 'amountList') || BN_ZERO));
+  const [amountItem, setAmountItem] = useState<BN>(new BN(loadFromSessionStorage(sessionPrefix, 'amountItem') || BN_ZERO));
+  const [previousAmount, setPreviousAmount] = useState<BN>(new BN(loadFromSessionStorage(sessionPrefix, 'previousAmount') || BN_ZERO));
+  const [isEditView, setIsEditView] = useState<boolean>(loadFromSessionStorage(sessionPrefix, 'isEditView') || false);
+  const [isAddingItem, setIsAddingElement] = useState<boolean>(loadFromSessionStorage(sessionPrefix, 'isAddingItem') || false);
+  const [itemIdHex, setItemIdHex] = useState<string>(loadFromSessionStorage(sessionPrefix, 'itemIdHex') || "");
   const toggleEditView = () => setIsEditView(!isEditView);
 
   // Save state changes to session storage
   useEffect(() => {
-    saveToSessionStorage('list', list);
-    saveToSessionStorage('item', item);
-    saveToSessionStorage('cachedList', cachedList);
-    saveToSessionStorage('cidString', cidString);
-    saveToSessionStorage('lawHexData', lawHexData);
+    saveToSessionStorage(sessionPrefix, 'list', list);
+    saveToSessionStorage(sessionPrefix, 'item', item);
+    saveToSessionStorage(sessionPrefix, 'cachedList', cachedList);
+    saveToSessionStorage(sessionPrefix, 'cidString', cidString);
+    saveToSessionStorage(sessionPrefix, 'lawHexData', lawHexData);
     // For BN values, convert to string for storage
-    saveToSessionStorage('amountList', amountList.toString());
-    saveToSessionStorage('amountItem', amountItem.toString());
-    saveToSessionStorage('previousAmount', previousAmount.toString());
-    saveToSessionStorage('isEditView', isEditView);
-    saveToSessionStorage('isAddingItem', isAddingItem);
-    saveToSessionStorage('itemIdHex', itemIdHex);
+    saveToSessionStorage(sessionPrefix, 'amountList', amountList.toString());
+    saveToSessionStorage(sessionPrefix, 'amountItem', amountItem.toString());
+    saveToSessionStorage(sessionPrefix, 'previousAmount', previousAmount.toString());
+    saveToSessionStorage(sessionPrefix, 'isEditView', isEditView);
+    saveToSessionStorage(sessionPrefix, 'isAddingItem', isAddingItem);
+    saveToSessionStorage(sessionPrefix, 'itemIdHex', itemIdHex);
   }, [list, item, cachedList, cidString, lawHexData, amountList, amountItem, previousAmount, isEditView, isAddingItem, itemIdHex]);
 
 
@@ -257,30 +262,30 @@ function Edit({ className = '' }: Props): React.ReactElement<Props> {
           isDisabled={!isIpfsReady}
         />
       </div>
-        <Button
-          icon='cancel'
-          label={t('Cancel')}
-          onClick={_onCancel}
-        />
-        <Button
-          icon='save'
-          label={t('Save')}
-          onClick={_onSave}
-          isDisabled={isProcessing}
-        />
-        {!isIpfsReady ? <div>{t('Connecting to IPFS...')}</div> : ""}
+      <Button
+        icon='cancel'
+        label={t('Cancel')}
+        onClick={_onCancel}
+      />
+      <Button
+        icon='save'
+        label={t('Save')}
+        onClick={_onSave}
+        isDisabled={isProcessing}
+      />
+      {!isIpfsReady ? <div>{t('Connecting to IPFS...')}</div> : ""}
     </div>
   );
 
   const viewView = (
     <div className={`toolbox--Sign ${className}`}>
       <ViewList id={textHexId} currentPair={currentPair} />
-        <Button
-          icon='edit'
-          label={t('Edit')}
-          onClick={_onClickEdit}
-        />
-        {!isIpfsReady ? <div>{t('Connecting to IPFS...')}</div> : ""}
+      <Button
+        icon='edit'
+        label={t('Edit')}
+        onClick={_onClickEdit}
+      />
+      {!isIpfsReady ? <div>{t('Connecting to IPFS...')}</div> : ""}
     </div>
   );
 
