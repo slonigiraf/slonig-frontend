@@ -8,9 +8,9 @@ import type { AccountBalance, Delegation, SortedAccount } from '../types.js';
 import type { SortCategory } from '../util.js';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
-import { Button, FilterInput, SortDropdown, styled, SummaryBox, Table, InputAddress } from '@polkadot/react-components';
+import { Button, styled, Table, InputAddress, TransferModal } from '@polkadot/react-components';
 import { getAccountCryptoType } from '@polkadot/react-components/util';
-import { useAccounts, useApi, useDelegations, useFavorites, useIpfs, useLedger, useNextTick, useProxies, useToggle } from '@polkadot/react-hooks';
+import { useAccounts, useApi, useDelegations, useFavorites, useLedger, useNextTick, useProxies, useToggle } from '@polkadot/react-hooks';
 import { keyring } from '@polkadot/ui-keyring';
 import { BN_ZERO, isFunction } from '@polkadot/util';
 import Ledger from '../modals/Ledger.js';
@@ -21,8 +21,13 @@ import { useTranslation } from '../translate.js';
 import { SORT_CATEGORY, sortAccounts } from '../util.js';
 import Account from './Account.js';
 import Summary from './Summary.js';
-import { AppContainer, CenterQRContainer, FullWidthContainer, LoginButton, useInfo, useLoginContext } from '@slonigiraf/app-slonig-components';
+import { CenterQRContainer, LoginButton, useInfo, useLoginContext } from '@slonigiraf/app-slonig-components';
 import PayToAccountQR from './PayToAccountQR.js';
+import { useLocation } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
+import { encodeAddress } from '@polkadot/keyring';
+import { hexToU8a } from '@polkadot/util';
+import { storePseudonym } from '@slonigiraf/app-recommendations';
 
 interface Balances {
   accounts: Record<string, AccountBalance>;
@@ -104,6 +109,36 @@ function Overview({ className = '', onStatusChange }: Props): React.ReactElement
   const isNextTick = useNextTick();
   const [inputKey, setInputKey] = useState(0);
   const { showInfo } = useInfo();
+
+  const location = useLocation();
+  const queryParams = new URLSearchParams(location.search);
+  const recipientHex = queryParams.get("recipientHex");
+  const recipientNameFromUrl = queryParams.get("name");
+  const recipientAddress = recipientHex ? encodeAddress(hexToU8a(recipientHex)) : null;
+  const navigate = useNavigate();
+  const [isTransferOpen, toggleTransfer] = useToggle();
+
+  const _closeTransfer = useCallback(
+    (): void => {
+      if (isTransferOpen) {
+        navigate(``);
+        toggleTransfer();
+      }
+    },
+    [isTransferOpen]
+  );
+
+  useEffect((): void => {
+    const savePseudonym = async () => {
+      if (recipientHex && recipientNameFromUrl) {
+        await storePseudonym(recipientHex, recipientNameFromUrl);
+      }
+    }
+    if (recipientAddress) {
+      toggleTransfer();
+    }
+    savePseudonym();
+  }, [recipientAddress]);
 
   const onSortChange = useCallback(
     (sortBy: SortCategory) => setSortBy(({ sortFromMax }) => ({ sortBy, sortFromMax })),
@@ -283,6 +318,13 @@ function Overview({ className = '', onStatusChange }: Props): React.ReactElement
           <h2>{t('Show the QR to a sender to get Slon tokens')}</h2>
           <PayToAccountQR />
         </CenterQRContainer>
+        {isTransferOpen && (
+          <TransferModal
+            key='modal-transfer'
+            onClose={_closeTransfer}
+            recipientId={recipientAddress ? recipientAddress : undefined}
+          />
+        )}
 
         <div className='ui--row'>
           <InputAddress

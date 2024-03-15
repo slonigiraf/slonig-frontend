@@ -10,16 +10,12 @@ import type { Option } from '@polkadot/types';
 import type { ProxyDefinition, RecoveryConfig } from '@polkadot/types/interfaces';
 import type { KeyringAddress, KeyringJson$Meta } from '@polkadot/ui-keyring/types';
 import type { AccountBalance, Delegation } from '../types.js';
-import { useLocation } from 'react-router-dom';
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
 import useAccountLocks from '@polkadot/app-referenda/useAccountLocks';
 import { AddressInfo, AddressSmall, Badge, Button, ChainLock, Columar, CryptoType, Forget, LinkExternal, Menu, Popup, styled, Table, Tags, TransferModal } from '@polkadot/react-components';
 import { useAccountInfo, useApi, useBalancesAll, useBestNumber, useCall, useLedger, useQueue, useStakingInfo, useToggle } from '@polkadot/react-hooks';
 import { keyring } from '@polkadot/ui-keyring';
 import { BN, BN_ZERO, formatBalance, formatNumber, isFunction } from '@polkadot/util';
-import { encodeAddress } from '@polkadot/keyring';
-import { hexToU8a } from '@polkadot/util';
 import Backup from '../modals/Backup.js';
 import ChangePass from '../modals/ChangePass.js';
 import DelegateModal from '../modals/Delegate.js';
@@ -35,7 +31,6 @@ import { useTranslation } from '../translate.js';
 import { createMenuGroup } from '../util.js';
 import useMultisigApprovals from './useMultisigApprovals.js';
 import useProxies from './useProxies.js';
-import { storePseudonym } from '@slonigiraf/app-recommendations';
 
 interface Props {
   account: KeyringAddress;
@@ -180,25 +175,6 @@ function Account({ account: { address, meta }, className = '', delegation, filte
   const [isDelegateOpen, toggleDelegate] = useToggle();
   const [isUndelegateOpen, toggleUndelegate] = useToggle();
 
-  const location = useLocation();
-  const queryParams = new URLSearchParams(location.search);
-  const recipientHex = queryParams.get("recipientHex");
-  const recipientNameFromUrl = queryParams.get("name");
-  const recipientAddress = recipientHex? encodeAddress(hexToU8a(recipientHex)) : null;
-  const navigate = useNavigate();
-
-  useEffect((): void => {
-    const savePseudonym = async () => {
-      if (recipientHex && recipientNameFromUrl) {
-        await storePseudonym(recipientHex, recipientNameFromUrl);
-      }
-    }
-    if (recipientAddress) {
-      toggleTransfer();
-    }
-    savePseudonym();
-  }, [recipientAddress]);
-
   useEffect((): void => {
     if (balancesAll) {
       setBalance(address, {
@@ -283,16 +259,6 @@ function Account({ account: { address, meta }, className = '', delegation, filte
       }
     },
     [address, t]
-  );
-
-  const _closeTransfer = useCallback(
-    (): void => {
-      if (isTransferOpen) {
-        navigate(``);
-        toggleTransfer();
-      }
-    },
-    [isTransferOpen]
   );
 
   const _clearDemocracyLocks = useCallback(
@@ -554,8 +520,7 @@ function Account({ account: { address, meta }, className = '', delegation, filte
           {isTransferOpen  && (
             <TransferModal
               key='modal-transfer'
-              onClose={_closeTransfer}
-              recipientId={recipientAddress? recipientAddress : undefined}
+              onClose={toggleTransfer}
             />
           )}
           {isProxyOverviewOpen && (
