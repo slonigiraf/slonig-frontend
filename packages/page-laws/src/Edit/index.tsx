@@ -34,7 +34,7 @@ const loadFromSessionStorage = (key: string) => {
   if (typeof window === "undefined") return undefined;
   try {
     const serializedValue = sessionStorage.getItem(key);
-    return serializedValue === null ? undefined : JSON.parse(serializedValue);
+    return serializedValue === null ? null : JSON.parse(serializedValue);
   } catch (error) {
     console.error("Error loading from session storage", error);
     return undefined;
@@ -63,17 +63,36 @@ function Edit({ className = '' }: Props): React.ReactElement<Props> {
   const idFromQuery = tutor ? undefined : queryParams.get("id") || defaultTextHexId;
   const [textHexId, setTextHexId] = useState<string | undefined>(idFromQuery);
 
-  const [list, setList] = useState<JsonType>(null);
-  const [item, setItem] = useState<JsonType>(null);
-  const [cachedList, setCachedList] = useState<JsonType>(null);
-  const [cidString, setCidString] = useState<string>("");
-  const [lawHexData, setLawHexData] = useState('');
-  const [amountList, setAmountList] = useState<BN>(BN_ZERO);
-  const [amountItem, setAmountItem] = useState<BN>(BN_ZERO);
-  const [previousAmount, setPreviousAmount] = useState<BN>(BN_ZERO);
-  const [isEditView, toggleEditView] = useToggle(false);
-  const [isAddingItem, setIsAddingElement] = useState<boolean>(false);
-  const [itemIdHex, setItemIdHex] = useState<string>("");
+  // Initializing states with values from session storage or default values
+  const [list, setList] = useState<JsonType>(loadFromSessionStorage('list'));
+  const [item, setItem] = useState<JsonType>(loadFromSessionStorage('item'));
+  const [cachedList, setCachedList] = useState<JsonType>(loadFromSessionStorage('cachedList'));
+  const [cidString, setCidString] = useState<string>(loadFromSessionStorage('cidString') || "");
+  const [lawHexData, setLawHexData] = useState<string>(loadFromSessionStorage('lawHexData') || "");
+  const [amountList, setAmountList] = useState<BN>(new BN(loadFromSessionStorage('amountList') || BN_ZERO));
+  const [amountItem, setAmountItem] = useState<BN>(new BN(loadFromSessionStorage('amountItem') || BN_ZERO));
+  const [previousAmount, setPreviousAmount] = useState<BN>(new BN(loadFromSessionStorage('previousAmount') || BN_ZERO));
+  const [isEditView, setIsEditView] = useState<boolean>(loadFromSessionStorage('isEditView') || false);
+  const [isAddingItem, setIsAddingElement] = useState<boolean>(loadFromSessionStorage('isAddingItem') || false);
+  const [itemIdHex, setItemIdHex] = useState<string>(loadFromSessionStorage('itemIdHex') || "");
+  const toggleEditView = () => setIsEditView(!isEditView);
+
+  // Save state changes to session storage
+  useEffect(() => {
+    saveToSessionStorage('list', list);
+    saveToSessionStorage('item', item);
+    saveToSessionStorage('cachedList', cachedList);
+    saveToSessionStorage('cidString', cidString);
+    saveToSessionStorage('lawHexData', lawHexData);
+    // For BN values, convert to string for storage
+    saveToSessionStorage('amountList', amountList.toString());
+    saveToSessionStorage('amountItem', amountItem.toString());
+    saveToSessionStorage('previousAmount', previousAmount.toString());
+    saveToSessionStorage('isEditView', isEditView);
+    saveToSessionStorage('isAddingItem', isAddingItem);
+    saveToSessionStorage('itemIdHex', itemIdHex);
+  }, [list, item, cachedList, cidString, lawHexData, amountList, amountItem, previousAmount, isEditView, isAddingItem, itemIdHex]);
+
 
   useEffect(() => {
     const updateSetting = async () => {
