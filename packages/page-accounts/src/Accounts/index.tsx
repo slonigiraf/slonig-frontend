@@ -21,7 +21,7 @@ import { useTranslation } from '../translate.js';
 import { SORT_CATEGORY, sortAccounts } from '../util.js';
 import Account from './Account.js';
 import Summary from './Summary.js';
-import { AppContainer, FullWidthContainer, LoginButton, useInfo, useLoginContext } from '@slonigiraf/app-slonig-components';
+import { AppContainer, CenterQRContainer, FullWidthContainer, LoginButton, useInfo, useLoginContext } from '@slonigiraf/app-slonig-components';
 import PayToAccountQR from './PayToAccountQR.js';
 
 interface Balances {
@@ -277,76 +277,76 @@ function Overview({ className = '', onStatusChange }: Props): React.ReactElement
   }, [logOut]);
 
   return (
-      <StyledDiv className={className}>
-        {isLoggedIn && <>
+    <StyledDiv className={className}>
+      {isLoggedIn && <>
+        <CenterQRContainer>
           <h2>{t('Show the QR to a sender to get Slon tokens')}</h2>
-          <div className='ui--row'>
-            <PayToAccountQR />
-          </div>
+          <PayToAccountQR />
+        </CenterQRContainer>
 
-          <div className='ui--row'>
-            <InputAddress
-              key={inputKey}
-              className='full'
-              isInput={false}
-              label={t('Account')}
-              onChange={_onChangeAccount}
-              type='account'
+        <div className='ui--row'>
+          <InputAddress
+            key={inputKey}
+            className='full'
+            isInput={false}
+            label={t('Account')}
+            onChange={_onChangeAccount}
+            type='account'
+          />
+          <Button.Group>
+            {isLoggedIn && <Button
+              icon='right-from-bracket'
+              label={t('Log out')}
+              onClick={_logOut}
+            />}
+          </Button.Group>
+        </div>
+        <Summary balance={balances.summary} />
+        {isLedgerOpen && (
+          <Ledger onClose={toggleLedger} />
+        )}
+        {isMultisigOpen && (
+          <Multisig
+            onClose={toggleMultisig}
+            onStatusChange={callOnStatusChange}
+          />
+        )}
+        {isProxyOpen && (
+          <Proxy
+            onClose={toggleProxy}
+            onStatusChange={callOnStatusChange}
+          />
+        )}
+        {isQrOpen && (
+          <Qr
+            onClose={toggleQr}
+            onStatusChange={callOnStatusChange}
+          />
+        )}
+        {!isNextTick || !sortedAccounts.length
+          ? (
+            <Table
+              empty={isNextTick && sortedAccounts && t("You don't have any accounts. Some features are currently hidden and will only become available once you have accounts.")}
+              header={header.accounts}
             />
-            <Button.Group>
-              {isLoggedIn && <Button
-                icon='right-from-bracket'
-                label={t('Log out')}
-                onClick={_logOut}
-              />}
-            </Button.Group>
-          </div>
-          <Summary balance={balances.summary} />
-          {isLedgerOpen && (
-            <Ledger onClose={toggleLedger} />
-          )}
-          {isMultisigOpen && (
-            <Multisig
-              onClose={toggleMultisig}
-              onStatusChange={callOnStatusChange}
-            />
-          )}
-          {isProxyOpen && (
-            <Proxy
-              onClose={toggleProxy}
-              onStatusChange={callOnStatusChange}
-            />
-          )}
-          {isQrOpen && (
-            <Qr
-              onClose={toggleQr}
-              onStatusChange={callOnStatusChange}
-            />
-          )}
-          {!isNextTick || !sortedAccounts.length
-            ? (
+          )
+          : GROUP_ORDER.map((group) =>
+            groups[group] && (
               <Table
-                empty={isNextTick && sortedAccounts && t("You don't have any accounts. Some features are currently hidden and will only become available once you have accounts.")}
-                header={header.accounts}
-              />
+                empty={t('No accounts')}
+                header={header[group]}
+                isSplit
+                key={group}
+              >
+                {groups[group]}
+              </Table>
             )
-            : GROUP_ORDER.map((group) =>
-              groups[group] && (
-                <Table
-                  empty={t('No accounts')}
-                  header={header[group]}
-                  isSplit
-                  key={group}
-                >
-                  {groups[group]}
-                </Table>
-              )
-            )
-          }
-        </>
+          )
         }
-        <LoginButton label={t('Log in')} />
-      </StyledDiv>
+      </>
+      }
+      <LoginButton label={t('Log in')} />
+    </StyledDiv>
   );
 }
 
