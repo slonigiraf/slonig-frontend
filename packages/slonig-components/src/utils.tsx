@@ -213,3 +213,27 @@ export async function getKey() {
     );
   }
 }
+
+const sessionStorageKey = (prefix: string, name: string) => {
+  return prefix + ':' + name;
+}
+export const saveToSessionStorage = (prefix: string, name: string, value: any) => {
+  if (typeof window === "undefined") return;
+  try {
+    const serializedValue = JSON.stringify(value);
+    sessionStorage.setItem(sessionStorageKey(prefix, name), serializedValue);
+  } catch (error) {
+    console.error("Error saving to session storage", error);
+  }
+};
+
+export const loadFromSessionStorage = (prefix: string, name: string) => {
+  if (typeof window === "undefined") return undefined;
+  try {
+    const serializedValue = sessionStorage.getItem(sessionStorageKey(prefix, name));
+    return serializedValue === null ? null : JSON.parse(serializedValue);
+  } catch (error) {
+    console.error("Error loading from session storage", error);
+    return undefined;
+  }
+};

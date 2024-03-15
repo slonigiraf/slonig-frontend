@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import BN from 'bn.js';
-import { getIPFSContentIDAndPinIt, digestFromCIDv1, getCIDFromBytes, getIPFSDataFromContentID } from '@slonigiraf/app-slonig-components';
+import { getIPFSContentIDAndPinIt, digestFromCIDv1, getCIDFromBytes, getIPFSDataFromContentID, loadFromSessionStorage, saveToSessionStorage } from '@slonigiraf/app-slonig-components';
 import { BN_ZERO } from '@polkadot/util';
 import React, { useCallback, useEffect, useState } from 'react';
 import { Button, InputBalance } from '@polkadot/react-components';
@@ -19,31 +19,6 @@ import { storeSetting, getSetting, storePseudonym } from '@slonigiraf/app-recomm
 import { useLoginContext } from '@slonigiraf/app-slonig-components';
 import { sendCreateAndEditTransaction, sendEditTransaction } from './sendTransaction.js';
 import { useInfo } from '@slonigiraf/app-slonig-components';
-
-const sessionStorageKey = (prefix: string, name: string) => {
-  return prefix + ':' + name;
-}
-const saveToSessionStorage = (prefix: string, name: string, value: any) => {
-  if (typeof window === "undefined") return;
-  try {
-    const serializedValue = JSON.stringify(value);
-    sessionStorage.setItem(sessionStorageKey(prefix, name), serializedValue);
-  } catch (error) {
-    console.error("Error saving to session storage", error);
-  }
-};
-
-const loadFromSessionStorage = (prefix: string, name: string) => {
-  if (typeof window === "undefined") return undefined;
-  try {
-    const serializedValue = sessionStorage.getItem(sessionStorageKey(prefix, name));
-    return serializedValue === null ? null : JSON.parse(serializedValue);
-  } catch (error) {
-    console.error("Error loading from session storage", error);
-    return undefined;
-  }
-};
-
 
 interface Props {
   className?: string;
@@ -66,9 +41,8 @@ function Edit({ className = '' }: Props): React.ReactElement<Props> {
   const idFromQuery = tutor ? undefined : queryParams.get("id") || defaultTextHexId;
   const [textHexId, setTextHexId] = useState<string | undefined>(idFromQuery);
 
-  // Initializing states with values from session storage or default values
+  // Load state changes to session storage
   const sessionPrefix = 'knowledge';
-
   const [list, setList] = useState<JsonType>(loadFromSessionStorage(sessionPrefix, 'list'));
   const [item, setItem] = useState<JsonType>(loadFromSessionStorage(sessionPrefix, 'item'));
   const [cachedList, setCachedList] = useState<JsonType>(loadFromSessionStorage(sessionPrefix, 'cachedList'));
@@ -89,7 +63,6 @@ function Edit({ className = '' }: Props): React.ReactElement<Props> {
     saveToSessionStorage(sessionPrefix, 'cachedList', cachedList);
     saveToSessionStorage(sessionPrefix, 'cidString', cidString);
     saveToSessionStorage(sessionPrefix, 'lawHexData', lawHexData);
-    // For BN values, convert to string for storage
     saveToSessionStorage(sessionPrefix, 'amountList', amountList.toString());
     saveToSessionStorage(sessionPrefix, 'amountItem', amountItem.toString());
     saveToSessionStorage(sessionPrefix, 'previousAmount', previousAmount.toString());
@@ -98,6 +71,9 @@ function Edit({ className = '' }: Props): React.ReactElement<Props> {
     saveToSessionStorage(sessionPrefix, 'itemIdHex', itemIdHex);
   }, [list, item, cachedList, cidString, lawHexData, amountList, amountItem, previousAmount, isEditView, isAddingItem, itemIdHex]);
 
+  const needsIUpdate = () => {
+    return list?.i != textHexId && textHexId;
+  }
 
   useEffect(() => {
     const updateSetting = async () => {
@@ -156,7 +132,9 @@ function Edit({ className = '' }: Props): React.ReactElement<Props> {
   }
 
   useEffect(() => {
-    fetchLaw(textHexId);
+    if(needsIUpdate() && textHexId){
+      fetchLaw(textHexId);
+    }
   }, [textHexId]);
 
   useEffect(() => {
@@ -169,7 +147,9 @@ function Edit({ className = '' }: Props): React.ReactElement<Props> {
       setList(fetchedList);
       setCachedList(fetchedList);
     };
-    fetchIPFSData();
+    if(needsIUpdate()){
+      fetchIPFSData();
+    }
   }, [cidString, ipfs]);
 
   async function fetchLaw(key: string) {
