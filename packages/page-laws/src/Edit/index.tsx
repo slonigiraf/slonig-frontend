@@ -46,10 +46,10 @@ function Edit({ className = '' }: Props): React.ReactElement<Props> {
   const [list, setList] = useState<JsonType>(loadFromSessionStorage(sessionPrefix, 'list'));
   const [item, setItem] = useState<JsonType>(loadFromSessionStorage(sessionPrefix, 'item'));
   const [cachedList, setCachedList] = useState<JsonType>(loadFromSessionStorage(sessionPrefix, 'cachedList'));
-  const [cidString, setCidString] = useState<string>(loadFromSessionStorage(sessionPrefix, 'cidString') || "");
+    const [cidString, setCidString] = useState<string>(loadFromSessionStorage(sessionPrefix, 'cidString') || "");
   const [lawHexData, setLawHexData] = useState<string>(loadFromSessionStorage(sessionPrefix, 'lawHexData') || "");
-  const [amountList, setAmountList] = useState<BN>(new BN(loadFromSessionStorage(sessionPrefix, 'amountList') || BN_ZERO));
-  const [amountItem, setAmountItem] = useState<BN>(new BN(loadFromSessionStorage(sessionPrefix, 'amountItem') || BN_ZERO));
+  const [amountList, setAmountList] = useState<BN | undefined>(new BN(loadFromSessionStorage(sessionPrefix, 'amountList') || BN_ZERO));
+  const [amountItem, setAmountItem] = useState<BN | undefined>(new BN(loadFromSessionStorage(sessionPrefix, 'amountItem') || BN_ZERO));
   const [previousAmount, setPreviousAmount] = useState<BN>(new BN(loadFromSessionStorage(sessionPrefix, 'previousAmount') || BN_ZERO));
   const [isEditView, setIsEditView] = useState<boolean>(loadFromSessionStorage(sessionPrefix, 'isEditView') || false);
   const [isAddingItem, setIsAddingElement] = useState<boolean>(loadFromSessionStorage(sessionPrefix, 'isAddingItem') || false);
@@ -63,8 +63,8 @@ function Edit({ className = '' }: Props): React.ReactElement<Props> {
     saveToSessionStorage(sessionPrefix, 'cachedList', cachedList);
     saveToSessionStorage(sessionPrefix, 'cidString', cidString);
     saveToSessionStorage(sessionPrefix, 'lawHexData', lawHexData);
-    saveToSessionStorage(sessionPrefix, 'amountList', amountList.toString());
-    saveToSessionStorage(sessionPrefix, 'amountItem', amountItem.toString());
+    saveToSessionStorage(sessionPrefix, 'amountList', amountList?.toString());
+    saveToSessionStorage(sessionPrefix, 'amountItem', amountItem?.toString());
     saveToSessionStorage(sessionPrefix, 'previousAmount', previousAmount.toString());
     saveToSessionStorage(sessionPrefix, 'isEditView', isEditView);
     saveToSessionStorage(sessionPrefix, 'isAddingItem', isAddingItem);
@@ -132,7 +132,7 @@ function Edit({ className = '' }: Props): React.ReactElement<Props> {
   }
 
   useEffect(() => {
-    if(needsIUpdate() && textHexId){
+    if (textHexId) {
       fetchLaw(textHexId);
     }
   }, [textHexId]);
@@ -144,12 +144,12 @@ function Edit({ className = '' }: Props): React.ReactElement<Props> {
       }
       const textValue = await getIPFSDataFromContentID(ipfs, cidString);
       const fetchedList = parseJson(textValue);
-      setList(fetchedList);
-      setCachedList(fetchedList);
+      if(JSON.stringify(fetchedList) != JSON.stringify(cachedList)){
+        setList(fetchedList);
+        setCachedList(fetchedList);
+      }
     };
-    if(needsIUpdate()){
-      fetchIPFSData();
-    }
+    fetchIPFSData();
   }, [cidString, ipfs]);
 
   async function fetchLaw(key: string) {
@@ -160,10 +160,12 @@ function Edit({ className = '' }: Props): React.ReactElement<Props> {
         const byteArray = tuple[0]; // This should give you the [u8; 32]
         const bigIntValue = tuple[1]; // This should give you the u128
         const cid = await getCIDFromBytes(byteArray);
-        setCidString(cid);
-        setLawHexData(u8aToHex(byteArray));
-        setAmountList(bigIntValue);
-        setPreviousAmount(bigIntValue);
+        if(cid != cidString){
+          setCidString(cid);
+          setLawHexData(u8aToHex(byteArray));
+          setAmountList(bigIntValue);
+          setPreviousAmount(bigIntValue);
+        }
       }
     }
   }
@@ -213,7 +215,7 @@ function Edit({ className = '' }: Props): React.ReactElement<Props> {
 
   const amountItemElement = (item == null ? "" : <div className='ui--row'>
     <InputBalance
-      help={t('Tokens to burn for item help info')}
+      key={amountItem ? amountItem.toString() : 'ai'}
       isZeroable
       label={t('Tokens to burn for item')}
       value={amountItem}
@@ -233,15 +235,15 @@ function Edit({ className = '' }: Props): React.ReactElement<Props> {
       {amountItemElement}
       <div className='ui--row'>
         <InputBalance
+          key={amountList ? amountList.toString() : 'aL'}
           autoFocus
-          help={t('Tokens to burn help info')}
           isZeroable
           label={t('Tokens to burn')}
           value={amountList}
           onChange={setAmountList}
           isDisabled={!isIpfsReady}
         />
-      </div>
+              </div>
       <Button
         icon='cancel'
         label={t('Cancel')}
