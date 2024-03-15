@@ -3,6 +3,7 @@ import QRCode from 'qrcode.react';
 import ShareButton from './ShareButton.js';
 import ClipboardCopyButton from './ClipboardCopyButton.js';
 import { styled } from '@polkadot/react-components';
+import { qrWidthPx } from './index.js';
 
 interface Props {
     className?: string;
@@ -19,7 +20,7 @@ function QRWithShareAndCopy({ className, dataQR, titleShare, textShare, urlShare
             <div>
                 <div className='qr--row'>
                     {/* This size of QR code was set to allow accounts page show Slon balance without scroll on Redmi 9C NFC */}
-                    <QRCode value={dataQR} size={260} />
+                    <QRCode value={dataQR} size={qrWidthPx} />
                 </div>
                 <div className='qr--row'>
                     <ShareButton title={titleShare} text={textShare} url={urlShare} />

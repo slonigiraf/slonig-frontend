@@ -18,6 +18,8 @@ import { useEffect, useState } from 'react';
 import { getSetting } from '@slonigiraf/app-recommendations';
 export { LoginButton, ShareButton, ClipboardCopyButton, QRWithShareAndCopy, QRScanner, ButtonWithLabelBelow, ScanQR, IpfsProvider, useIpfsContext, InfoProvider, useInfo };
 export { getIPFSContentIDAndPinIt, getKey, arrayBufferToBase64, base64ToArrayBuffer, decryptData, encryptData, LoginProvider, useLoginContext, keyForCid, nameFromKeyringPair, getBaseUrl, CODEC, getIPFSContentID, getIPFSDataFromContentID, digestFromCIDv1, getCIDFromBytes, storeEncryptedTextOnIPFS, retrieveDecryptedDataFromIPFS, parseJson }
+
+export const qrWidthPx = 260;
 export interface Question {
     h: string;
     a: string;
@@ -75,7 +77,7 @@ export const CenterQRContainer = styled.div`
   display: flex;
   flex-direction: column;
   align-items: center;
-  width: 270px;
+  width: ${qrWidthPx+10}px;
   margin: 0 auto;
 `;
 
