@@ -34,24 +34,24 @@ function Apps({ className = '' }: Props): React.ReactElement<Props> {
   return (
     <InfoProvider>
       <IpfsProvider>
-        <GlobalStyle uiHighlight={uiHighlight} />
-        <StyledDiv className={`${className} apps--Wrapper ${themeClassName}`}>
-          <AppContainer>
-            <Menu />
-            <AccountSidebar>
-              <Signer>
-                <LoginProvider>
+        <LoginProvider>
+          <GlobalStyle uiHighlight={uiHighlight} />
+          <StyledDiv className={`${className} apps--Wrapper ${themeClassName}`}>
+            <AppContainer>
+              <Menu />
+              <AccountSidebar>
+                <Signer>
                   <Content />
                   <BottomMenu />
-                </LoginProvider>
-              </Signer>
-              <ConnectingOverlay />
-              <DotAppsOverlay />
-              <div id={PORTAL_ID} />
-            </AccountSidebar>
-          </AppContainer>
-        </StyledDiv>
-        <WarmUp />
+                </Signer>
+                <ConnectingOverlay />
+                <DotAppsOverlay />
+                <div id={PORTAL_ID} />
+              </AccountSidebar>
+            </AppContainer>
+          </StyledDiv>
+          <WarmUp />
+        </LoginProvider>
       </IpfsProvider>
     </InfoProvider>
   );
