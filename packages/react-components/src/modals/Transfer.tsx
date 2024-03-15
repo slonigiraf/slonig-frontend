@@ -15,12 +15,10 @@ import { BN_HUNDRED, BN_ZERO, isFunction, nextTick } from '@polkadot/util';
 import InputAddress from '../InputAddress/index.js';
 import InputBalance from '../InputBalance.js';
 import MarkError from '../MarkError.js';
-import MarkWarning from '../MarkWarning.js';
 import Modal from '../Modal/index.js';
 import { styled } from '../styled.js';
-import Toggle from '../Toggle.js';
 import { useTranslation } from '../translate.js';
-import { Button } from '@polkadot/react-components';
+import { Button, Spinner } from '@polkadot/react-components';
 import { useInfo, useLoginContext } from '@slonigiraf/app-slonig-components';
 
 interface Props {
@@ -30,11 +28,11 @@ interface Props {
   senderId?: string;
 }
 
-function isRefcount (accountInfo: AccountInfoWithProviders | AccountInfoWithRefCount): accountInfo is AccountInfoWithRefCount {
+function isRefcount(accountInfo: AccountInfoWithProviders | AccountInfoWithRefCount): accountInfo is AccountInfoWithRefCount {
   return !!(accountInfo as AccountInfoWithRefCount).refcount;
 }
 
-async function checkPhishing (_senderId: string | null, recipientId: string | null): Promise<[string | null, string | null]> {
+async function checkPhishing(_senderId: string | null, recipientId: string | null): Promise<[string | null, string | null]> {
   return [
     // not being checked atm
     // senderId
@@ -47,7 +45,7 @@ async function checkPhishing (_senderId: string | null, recipientId: string | nu
   ];
 }
 
-function Transfer ({ className = '', onClose, recipientId: propRecipientId, senderId: propSenderId }: Props): React.ReactElement<Props> {
+function Transfer({ className = '', onClose, recipientId: propRecipientId, senderId: propSenderId }: Props): React.ReactElement<Props> {
   const { t } = useTranslation();
   const { api } = useApi();
   const [amount, setAmount] = useState<BN | undefined>(BN_ZERO);
@@ -209,16 +207,18 @@ function Transfer ({ className = '', onClose, recipientId: propRecipientId, send
         </div>
       </Modal.Content>
       <Modal.Actions>
-      <Button isDisabled={
-        isProcessing ||
-            (!isAll && (!hasAvailable || !amount)) ||
-            !(propRecipientId || recipientId) ||
-            !!recipientPhish
-          }
+        {isProcessing ? <Spinner noLabel variant='mini'/> :
+        <Button isDisabled={
+          isProcessing ||
+          (!isAll && (!hasAvailable || !amount)) ||
+          !(propRecipientId || recipientId) ||
+          !!recipientPhish
+        }
           icon='paper-plane'
           label={t('Make Transfer')}
           onClick={submitTransfer}
-          />
+        />
+        }
       </Modal.Actions>
     </StyledModal>
   );
