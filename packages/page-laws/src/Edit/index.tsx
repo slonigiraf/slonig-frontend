@@ -20,29 +20,39 @@ import { useLoginContext } from '@slonigiraf/app-slonig-components';
 import { sendCreateAndEditTransaction, sendEditTransaction } from './sendTransaction.js';
 import { useInfo } from '@slonigiraf/app-slonig-components';
 
+const saveToSessionStorage = (key: string, value: any) => {
+  if (typeof window === "undefined") return;
+  try {
+    const serializedValue = JSON.stringify(value);
+    sessionStorage.setItem(key, serializedValue);
+  } catch (error) {
+    console.error("Error saving to session storage", error);
+  }
+};
+
+const loadFromSessionStorage = (key: string) => {
+  if (typeof window === "undefined") return undefined;
+  try {
+    const serializedValue = sessionStorage.getItem(key);
+    return serializedValue === null ? undefined : JSON.parse(serializedValue);
+  } catch (error) {
+    console.error("Error loading from session storage", error);
+    return undefined;
+  }
+};
+
+
 interface Props {
   className?: string;
 }
 
 function Edit({ className = '' }: Props): React.ReactElement<Props> {
+  type JsonType = { [key: string]: any } | null;
   const { showInfo } = useInfo();
   const { ipfs, isIpfsReady } = useIpfsContext();
   const { t } = useTranslation();
-  const [text, setText] = useState<string>("");
-  type JsonType = { [key: string]: any } | null;
-  const [list, setList] = useState<JsonType>(null);
-  const [item, setItem] = useState<JsonType>(null);
-  const [cachedList, setCachedList] = useState<JsonType>(null);
   const { currentPair, isLoggedIn, setLoginIsRequired } = useLoginContext();
-    const [cidString, setCidString] = useState<string>("");
-  const [lawHexData, setLawHexData] = useState('');
-  const [amountList, setAmountList] = useState<BN>(BN_ZERO);
-  const [amountItem, setAmountItem] = useState<BN>(BN_ZERO);
-  const [previousAmount, setPreviousAmount] = useState<BN>(BN_ZERO);
   const { api } = useApi();
-  const [isEditView, toggleEditView] = useToggle(false);
-  const [isAddingItem, setIsAddingElement] = useState<boolean>(false);
-  const [itemIdHex, setItemIdHex] = useState<string>("");
   const [isProcessing, toggleProcessing] = useToggle(false);
 
   const location = useLocation();
@@ -52,6 +62,18 @@ function Edit({ className = '' }: Props): React.ReactElement<Props> {
   const defaultTextHexId = '0xfed8e6f01c6c746876d69f7f10f933cdcd849068f6dc2fa26769fc92584492e7';
   const idFromQuery = tutor ? undefined : queryParams.get("id") || defaultTextHexId;
   const [textHexId, setTextHexId] = useState<string | undefined>(idFromQuery);
+
+  const [list, setList] = useState<JsonType>(null);
+  const [item, setItem] = useState<JsonType>(null);
+  const [cachedList, setCachedList] = useState<JsonType>(null);
+  const [cidString, setCidString] = useState<string>("");
+  const [lawHexData, setLawHexData] = useState('');
+  const [amountList, setAmountList] = useState<BN>(BN_ZERO);
+  const [amountItem, setAmountItem] = useState<BN>(BN_ZERO);
+  const [previousAmount, setPreviousAmount] = useState<BN>(BN_ZERO);
+  const [isEditView, toggleEditView] = useToggle(false);
+  const [isAddingItem, setIsAddingElement] = useState<boolean>(false);
+  const [itemIdHex, setItemIdHex] = useState<string>("");
 
   useEffect(() => {
     const updateSetting = async () => {
@@ -77,10 +99,6 @@ function Edit({ className = '' }: Props): React.ReactElement<Props> {
     };
     updateSetting();
   }, [tutor, idFromQuery]);
-
-  useEffect(() => {
-    setText(JSON.stringify(list));
-  }, [list]);
 
 
   const _onClickChangeView = useCallback(
@@ -123,12 +141,10 @@ function Edit({ className = '' }: Props): React.ReactElement<Props> {
         return;
       }
       const textValue = await getIPFSDataFromContentID(ipfs, cidString);
-      setText(textValue);
       const fetchedList = parseJson(textValue);
       setList(fetchedList);
       setCachedList(fetchedList);
     };
-
     fetchIPFSData();
   }, [cidString, ipfs]);
 

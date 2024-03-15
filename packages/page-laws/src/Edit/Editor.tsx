@@ -11,7 +11,6 @@ interface Props {
   className?: string;
   list: any;
   item: any;
-  itemIdHex: string;
   isAddingItem: boolean;
   onListChange: (updatedList: any) => void;
   onItemChange: (updatedItem: any) => void;
