@@ -34,11 +34,12 @@ function Apps({ className = '' }: Props): React.ReactElement<Props> {
   return (
     <InfoProvider>
       <IpfsProvider>
-        <LoginProvider>
+        
           <GlobalStyle uiHighlight={uiHighlight} />
           <StyledDiv className={`${className} apps--Wrapper ${themeClassName}`}>
             <AppContainer>
               <Menu />
+              <LoginProvider>
               <AccountSidebar>
                 <Signer>
                   <Content />
@@ -48,10 +49,11 @@ function Apps({ className = '' }: Props): React.ReactElement<Props> {
                 <DotAppsOverlay />
                 <div id={PORTAL_ID} />
               </AccountSidebar>
+              </LoginProvider>
             </AppContainer>
           </StyledDiv>
           <WarmUp />
-        </LoginProvider>
+        
       </IpfsProvider>
     </InfoProvider>
   );
