@@ -75,11 +75,8 @@ export const CenterQRContainer = styled.div`
   display: flex;
   flex-direction: column;
   align-items: center;
-  width: 100%;
+  width: 270px;
   margin: 0 auto;
-  @media (min-width: 768px) {
-    width: 400px;
-  }
 `;
 
 export function useDeveloperSetting(): boolean {

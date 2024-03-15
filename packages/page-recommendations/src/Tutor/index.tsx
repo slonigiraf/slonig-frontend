@@ -318,7 +318,7 @@ function Tutor({ className = '' }: Props): React.ReactElement<Props> {
               dataCopy={diplomaAddUrl} />
           </CenterQRContainer>
         </Card>
-    </DiplomaDiv>
+      </DiplomaDiv>
     </VerticalCenterItemsContainer>
   </FullWidthContainer>;
 
@@ -388,27 +388,30 @@ function Tutor({ className = '' }: Props): React.ReactElement<Props> {
   </>;
 
   return (
-      <div className={`toolbox--Tutor ${className}`}>
-        {isLoggedIn && (
-          (student === undefined || !isDedicatedTutor) ? <>
-            {
-              isDedicatedTutor ?
-                <h2>{t('Show to a student to begin tutoring')}</h2>
-                :
-                <h2>{t('Student has shown you a QR code created for a different tutor. Ask them to scan your QR code.')}</h2>
-            }
-            <QRWithShareAndCopy
-              dataQR={qrCodeText}
-              titleShare={t('QR code')}
-              textShare={t('Press the link to start learning')}
-              urlShare={url}
-              dataCopy={url} />
-          </>
+    <div className={`toolbox--Tutor ${className}`}>
+      {
+        isLoggedIn && (
+          (student === undefined || !isDedicatedTutor) ?
+            <CenterQRContainer>
+              {
+                isDedicatedTutor ?
+                  <h2>{t('Show to a student to begin tutoring')}</h2>
+                  :
+                  <h2>{t('Student has shown you a QR code created for a different tutor. Ask them to scan your QR code.')}</h2>
+              }
+              <QRWithShareAndCopy
+                dataQR={qrCodeText}
+                titleShare={t('QR code')}
+                textShare={t('Press the link to start learning')}
+                urlShare={url}
+                dataCopy={url} />
+            </CenterQRContainer>
             :
             <> {diploma ? diplomaView : reexamAndDiplomaIssuing}</>
-        )}
-        <LoginButton label={t('Log in')} />
-      </div>
+        )
+      }
+      <LoginButton label={t('Log in')} />
+    </div>
   );
 }
 
