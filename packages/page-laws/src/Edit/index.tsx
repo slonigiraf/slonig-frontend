@@ -71,10 +71,6 @@ function Edit({ className = '' }: Props): React.ReactElement<Props> {
     saveToSessionStorage(sessionPrefix, 'itemIdHex', itemIdHex);
   }, [list, item, cachedList, cidString, lawHexData, amountList, amountItem, previousAmount, isEditView, isAddingItem, itemIdHex]);
 
-  const needsIUpdate = () => {
-    return list?.i != textHexId && textHexId;
-  }
-
   useEffect(() => {
     const updateSetting = async () => {
       if (tutor) {
