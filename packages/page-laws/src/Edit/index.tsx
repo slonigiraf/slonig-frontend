@@ -216,6 +216,7 @@ function Edit({ className = '' }: Props): React.ReactElement<Props> {
   const amountItemElement = (item == null ? "" : <div className='ui--row'>
     <InputBalance
       key={amountItem ? amountItem.toString() : 'ai'}
+      autoFocus
       isZeroable
       label={t('Tokens to burn for item')}
       value={amountItem}
