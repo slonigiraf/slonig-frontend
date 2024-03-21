@@ -103,6 +103,8 @@ function Editor(props: Props): React.ReactElement<Props> {
 
   const itemType = (item !== null) ? item.t : getDefaultItemLawType();
 
+  const itemText = (item && item.h) ? item.h : '...';
+
     return (
     <>
       {list && (
@@ -116,7 +118,7 @@ function Editor(props: Props): React.ReactElement<Props> {
               value={list.h}
             />
           </div>
-          <Reordering list={list} onListChange={onListChange} />
+          <Reordering list={list} onListChange={onListChange} itemText={itemText}/>
         </>
       )}
       {isAddingItem && (

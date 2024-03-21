@@ -10,9 +10,10 @@ interface Props {
   className?: string;
   id: string;
   isText?: boolean;
+  defaultValue?: string;
 }
 
-function ItemLabel({ className = '', id, isText = false }: Props): React.ReactElement<Props> {
+function ItemLabel({ className = '', id, isText = false, defaultValue = '...' }: Props): React.ReactElement<Props> {
   const { ipfs, isIpfsReady, ipfsInitError } = useIpfsContext();
   const { api } = useApi();
   const [cidString, setCidString] = useState<string>("");
@@ -54,7 +55,7 @@ function ItemLabel({ className = '', id, isText = false }: Props): React.ReactEl
     }
   }
 
-  const textToDisplay = isFetched ? text : '...';
+  const textToDisplay = isFetched ? text : defaultValue;
 
   return isText ?
     <span>{textToDisplay}</span>

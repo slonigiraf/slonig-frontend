@@ -9,11 +9,12 @@ interface Props {
   className?: string;
   list: any;
   onListChange: (updatedList: any) => void;
+  itemText: string;
 }
 
 // ... [The imports remain the same]
 
-function Reordering({ className = '', list, onListChange }: Props): React.ReactElement<Props> {
+function Reordering({ className = '', list, onListChange, itemText }: Props): React.ReactElement<Props> {
   const { ipfs, isIpfsReady, ipfsInitError } = useIpfsContext();
 
 
@@ -63,7 +64,7 @@ function Reordering({ className = '', list, onListChange }: Props): React.ReactE
             icon='times'  // Assuming 'times' is the icon for delete
             onClick={() => handleDelete(index)}
           />
-          <ItemLabel key={item} id={item} isText={true}/>
+          <ItemLabel key={item} id={item} isText={true} defaultValue={itemText}/>
         </div>
       ))}
     </>
