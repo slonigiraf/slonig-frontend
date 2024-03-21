@@ -45,8 +45,7 @@ function Edit({ className = '' }: Props): React.ReactElement<Props> {
   const sessionPrefix = 'knowledge';
   const [list, setList] = useState<JsonType>(loadFromSessionStorage(sessionPrefix, 'list'));
   const [item, setItem] = useState<JsonType>(loadFromSessionStorage(sessionPrefix, 'item'));
-  const [cachedList, setCachedList] = useState<JsonType>(loadFromSessionStorage(sessionPrefix, 'cachedList'));
-    const [cidString, setCidString] = useState<string>(loadFromSessionStorage(sessionPrefix, 'cidString') || "");
+  const [cidString, setCidString] = useState<string>(loadFromSessionStorage(sessionPrefix, 'cidString') || "");
   const [lawHexData, setLawHexData] = useState<string>(loadFromSessionStorage(sessionPrefix, 'lawHexData') || "");
   const [amountList, setAmountList] = useState<BN | undefined>(new BN(loadFromSessionStorage(sessionPrefix, 'amountList') || BN_ZERO));
   const [amountItem, setAmountItem] = useState<BN | undefined>(new BN(loadFromSessionStorage(sessionPrefix, 'amountItem') || BN_ZERO));
@@ -54,13 +53,19 @@ function Edit({ className = '' }: Props): React.ReactElement<Props> {
   const [isEditView, setIsEditView] = useState<boolean>(loadFromSessionStorage(sessionPrefix, 'isEditView') || false);
   const [isAddingItem, setIsAddingElement] = useState<boolean>(loadFromSessionStorage(sessionPrefix, 'isAddingItem') || false);
   const [itemIdHex, setItemIdHex] = useState<string>(loadFromSessionStorage(sessionPrefix, 'itemIdHex') || "");
+  
+  // For storing original values
+  const [originalList, setOriginalList] = useState<JsonType>(loadFromSessionStorage(sessionPrefix, 'originalList'));
+  const [originalCidString, setOriginalCidString] = useState<string>(loadFromSessionStorage(sessionPrefix, 'originalCidString') || "");
+  const [originalLawHexData, setOriginalLawHexData] = useState<string>(loadFromSessionStorage(sessionPrefix, 'originalLawHexData') || "");
+  const [originalAmountList, setOriginalAmountList] = useState<BN | undefined>(new BN(loadFromSessionStorage(sessionPrefix, 'originalAmountList') || BN_ZERO));
+  
   const toggleEditView = () => setIsEditView(!isEditView);
 
   // Save state changes to session storage
   useEffect(() => {
     saveToSessionStorage(sessionPrefix, 'list', list);
     saveToSessionStorage(sessionPrefix, 'item', item);
-    saveToSessionStorage(sessionPrefix, 'cachedList', cachedList);
     saveToSessionStorage(sessionPrefix, 'cidString', cidString);
     saveToSessionStorage(sessionPrefix, 'lawHexData', lawHexData);
     saveToSessionStorage(sessionPrefix, 'amountList', amountList?.toString());
@@ -69,7 +74,14 @@ function Edit({ className = '' }: Props): React.ReactElement<Props> {
     saveToSessionStorage(sessionPrefix, 'isEditView', isEditView);
     saveToSessionStorage(sessionPrefix, 'isAddingItem', isAddingItem);
     saveToSessionStorage(sessionPrefix, 'itemIdHex', itemIdHex);
-  }, [list, item, cachedList, cidString, lawHexData, amountList, amountItem, previousAmount, isEditView, isAddingItem, itemIdHex]);
+    //
+    saveToSessionStorage(sessionPrefix, 'originalList', originalList);
+    saveToSessionStorage(sessionPrefix, 'originalCidString', originalCidString);
+    saveToSessionStorage(sessionPrefix, 'originalLawHexData', originalLawHexData);
+    saveToSessionStorage(sessionPrefix, 'originalAmountList', originalAmountList?.toString());
+
+  }, [list, item, cidString, lawHexData, amountList, amountItem, previousAmount, isEditView, isAddingItem, itemIdHex, 
+    originalList, originalCidString, originalLawHexData, originalAmountList]);
 
   useEffect(() => {
     const updateSetting = async () => {
@@ -135,14 +147,14 @@ function Edit({ className = '' }: Props): React.ReactElement<Props> {
 
   useEffect(() => {
     const fetchIPFSData = async () => {
-      if (!isIpfsReady || cidString.length < 2) {
+      if (!isIpfsReady || !cidString || cidString.length < 2) {
         return;
       }
       const textValue = await getIPFSDataFromContentID(ipfs, cidString);
       const fetchedList = parseJson(textValue);
-      if(JSON.stringify(fetchedList) != JSON.stringify(cachedList)){
+      if(JSON.stringify(fetchedList) != JSON.stringify(originalList)){
         setList(fetchedList);
-        setCachedList(fetchedList);
+        setOriginalList(fetchedList);
       }
     };
     fetchIPFSData();
@@ -161,6 +173,10 @@ function Edit({ className = '' }: Props): React.ReactElement<Props> {
           setLawHexData(u8aToHex(byteArray));
           setAmountList(bigIntValue);
           setPreviousAmount(bigIntValue);
+          // Set inital values
+          setOriginalCidString(cid);
+          setOriginalLawHexData(u8aToHex(byteArray));
+          setOriginalAmountList(bigIntValue);
         }
       }
     }
@@ -171,7 +187,13 @@ function Edit({ className = '' }: Props): React.ReactElement<Props> {
     setIsAddingElement(false);
     setItem(null);
     setItemIdHex("");
-    setList(cachedList);
+    setAmountItem(BN_ZERO);
+    setList(originalList);
+    setCidString(originalCidString);
+    setLawHexData(originalLawHexData);
+    if(originalAmountList){
+      setAmountList(originalAmountList);
+    }
   };
 
   const _onSave = async (): Promise<void> => {
