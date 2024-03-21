@@ -215,7 +215,7 @@ function Edit({ className = '' }: Props): React.ReactElement<Props> {
 
   const amountItemElement = (item == null ? "" : <div className='ui--row'>
     <InputBalance
-      key={amountItem ? amountItem.toString() : 'ai'}
+      key={amountItem ? 'ai' + amountItem.toString() : 'ai'}
       autoFocus
       isZeroable
       label={t('Tokens to burn for item')}
@@ -236,7 +236,7 @@ function Edit({ className = '' }: Props): React.ReactElement<Props> {
       {amountItemElement}
       <div className='ui--row'>
         <InputBalance
-          key={amountList ? amountList.toString() : 'aL'}
+          key={amountList ? 'aL' + amountList.toString() : 'aL'}
           autoFocus
           isZeroable
           label={t('Tokens to burn')}
