@@ -33,7 +33,7 @@ function ExerciseEditorList({ className = '', list, onListChange }: Props): Reac
     onListChange({ ...list, q: updatedExercises });
   }, [list, onListChange]);
 
-  return (list == null || list.q == null) ? null : (
+  return (list == null || list.q == null) ? <></> : (
     <>
       {list.q.map((exercise, index) => (
         <div className='ui--row' key={index}
