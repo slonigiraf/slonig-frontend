@@ -105,7 +105,7 @@ function Editor(props: Props): React.ReactElement<Props> {
 
   const itemText = (item && item.h) ? item.h : '...';
 
-    return (
+  return (
     <>
       {list && (
         <>
@@ -118,7 +118,7 @@ function Editor(props: Props): React.ReactElement<Props> {
               value={list.h}
             />
           </div>
-          <Reordering list={list} onListChange={onListChange} itemText={itemText}/>
+          <Reordering list={list} onListChange={onListChange} itemText={itemText} />
         </>
       )}
       {isAddingItem && (
@@ -142,7 +142,9 @@ function Editor(props: Props): React.ReactElement<Props> {
           </div>
         </>
       )}
+      {/* For adding new exercises at skill view */}
       <ExerciseEditorList list={item} onListChange={onItemChange} />
+      {/* For adding new skills at module view */}
       <ExerciseEditorList list={list} onListChange={onListChange} />
       {!isAddingItem && (<div className='ui--row'>
         <Button
