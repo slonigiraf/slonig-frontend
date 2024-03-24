@@ -21,35 +21,40 @@ export { saveToSessionStorage, loadFromSessionStorage, getIPFSContentIDAndPinIt,
 
 export const qrWidthPx = 260;
 export interface Exercise {
-    h: string;
-    a: string;
-    p: string;
-    i: string;
+  /** The exercise text. */
+  h: string;
+  /** The solution text to the exercise. */
+  a: string;
+  /** The base64 encoded string for the exercise's primary image. */
+  p: string;
+  /** The base64 encoded string for the exercise's solution image. */
+  i: string;
 }
 export interface Skill {
-    h: string;
-    q: Exercise[];
+  /** The skill name. */
+  h: string;
+  q: Exercise[];
 }
 
 export interface AccountState {
-    isExternal: boolean;
-    isHardware: boolean;
-    isInjected: boolean;
+  isExternal: boolean;
+  isHardware: boolean;
+  isInjected: boolean;
 }
 
 export interface SignerState {
-    isUsable: boolean;
-    signer: Signer | null;
+  isUsable: boolean;
+  signer: Signer | null;
 }
 
 export const QRAction = {
-    NAVIGATION: 0,
-    TRANSFER: 1,
-    ADD_DIPLOMA: 2,
-    SELL_DIPLOMAS: 3,
-    TUTOR_IDENTITY: 4,
-    SKILL: 5,
-    TEACHER_IDENTITY: 6
+  NAVIGATION: 0,
+  TRANSFER: 1,
+  ADD_DIPLOMA: 2,
+  SELL_DIPLOMAS: 3,
+  TUTOR_IDENTITY: 4,
+  SKILL: 5,
+  TEACHER_IDENTITY: 6
 };
 
 // Styled components
@@ -79,7 +84,7 @@ export const CenterQRContainer = styled.div`
   display: flex;
   flex-direction: column;
   align-items: center;
-  width: ${qrWidthPx+10}px;
+  width: ${qrWidthPx + 10}px;
   margin: 0 auto;
 `;
 

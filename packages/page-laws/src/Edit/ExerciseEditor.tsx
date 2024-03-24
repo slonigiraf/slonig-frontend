@@ -8,10 +8,10 @@ interface Props {
   exercise: Exercise;
   index: number;
   skill: Skill;
-  onListChange: (updatedList: { q?: Exercise[] }) => void;
+  onSkillChange: (updatedList: { q?: Exercise[] }) => void;
 }
 
-const ExerciseEditor: FC<Props> = ({ className = '', exercise, index, skill, onListChange }) => {
+const ExerciseEditor: FC<Props> = ({ className = '', exercise, index, skill, onSkillChange }) => {
   const { t } = useTranslation();
   const [exerciseImage, setExerciseImage] = useState<string>(exercise.p || '');
   const [solutionImage, setSolutionImage] = useState<string>(exercise.i || '');
@@ -24,6 +24,13 @@ const ExerciseEditor: FC<Props> = ({ className = '', exercise, index, skill, onL
       }
     };
     reader.readAsDataURL(file);
+  };
+
+
+  const updateExercise = (updatedExercise: Exercise) => {
+    const updatedExercises = [...(skill.q || [])];
+    updatedExercises[index] = updatedExercise;
+    onSkillChange({ ...skill, q: updatedExercises });
   };
 
   const handleImageChange = (e: ChangeEvent<HTMLInputElement>, type: 'exercise' | 'solution') => {
@@ -41,22 +48,12 @@ const ExerciseEditor: FC<Props> = ({ className = '', exercise, index, skill, onL
     }
   };
 
-  const onEditHeader = (newHeader: string) => {
-    const updatedExercises = [...(skill.q || [])];
-    updatedExercises[index].h = newHeader;
-    onListChange({ ...skill, q: updatedExercises });
+  const onEditExerciseText = (text: string) => {
+    updateExercise({ ...exercise, h: text });
   };
 
-  const onEditAnswer = (newAnswer: string) => {
-    const updatedExercises = [...(skill.q || [])];
-    updatedExercises[index].a = newAnswer;
-    onListChange({ ...skill, q: updatedExercises });
-  };
-
-  const updateExercise = (updatedExercise: Exercise) => {
-    const updatedExercises = [...(skill.q || [])];
-    updatedExercises[index] = updatedExercise;
-    onListChange({ ...skill, q: updatedExercises });
+  const onEditSolutionText = (text: string) => {
+    updateExercise({ ...exercise, a: text });
   };
 
   return (
@@ -64,7 +61,7 @@ const ExerciseEditor: FC<Props> = ({ className = '', exercise, index, skill, onL
       <TextArea
         label={t('Exercise')}
         seed={exercise.h}
-        onChange={onEditHeader}
+        onChange={onEditExerciseText}
       />
       <ImageUploadContainer>
         {exerciseImage && <StyledImage src={exerciseImage} alt="Exercise" />}
@@ -78,7 +75,7 @@ const ExerciseEditor: FC<Props> = ({ className = '', exercise, index, skill, onL
       <TextArea
         label={t('Solution')}
         seed={exercise.a}
-        onChange={onEditAnswer}
+        onChange={onEditSolutionText}
       />
       <ImageUploadContainer>
         {solutionImage && <StyledImage src={solutionImage} alt="Solution" />}
