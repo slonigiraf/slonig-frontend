@@ -12,6 +12,8 @@ class ValidatingAlgorithm extends Algorithm {
         const questions = skill ? skill.q : [];
         let question1: string = questions.length > 0 ? questions[0].h : t('SOME EXERCISE FOR SKILL TRAINING (THE TUTOR SHOULD KNOW)');
         let question2: string = questions.length > 1 ? questions[1].h : question1;
+        let exerciseImage1: string|undefined = questions.length > 0 ? questions[0].p : undefined;
+        let exerciseImage2: string|undefined = questions.length > 0 ? questions[1].p : undefined;
 
         // Initialize all stages
         const validateDiploma = new AlgorithmStage(
@@ -73,7 +75,7 @@ class ValidatingAlgorithm extends Algorithm {
             <StyledDiv>
                 <ChatSimulation messages={[
                     { id: 1, text: t('Repeat after me:'), sender: 'you', senderName: 'You' },
-                    { id: 2, text: question2, sender: 'you', senderName: 'You' },
+                    { id: 2, text: question2, image: exerciseImage2, sender: 'you', senderName: 'You' },
                     { id: 3, text: '...', sender: 'them', senderName: studentName },
                 ]} />
                 <b>{t('Has the student repeated correctly after me?')}</b>
@@ -100,7 +102,7 @@ class ValidatingAlgorithm extends Algorithm {
                 <ChatSimulation messages={[
                     { id: 1, text: '...', sender: 'them', senderName: studentName, comment: t('The student has not come up with the type of exercise needed.') },
                     { id: 2, text: t('Repeat after me:'), sender: 'you', senderName: 'You' },
-                    { id: 3, text: question2, sender: 'you', senderName: 'You', comment: t('I can change the exercise a little.') },
+                    { id: 3, text: question2, image: exerciseImage2, sender: 'you', senderName: 'You', comment: t('I can change the exercise a little.') },
                 ]} />
             </StyledDiv>
         );
@@ -112,7 +114,7 @@ class ValidatingAlgorithm extends Algorithm {
             <StyledDiv>
                 <ChatSimulation messages={[
                     { id: 1, text: t('Come up with an exercise similar to this:'), sender: 'you', senderName: 'You' },
-                    { id: 2, text: question1, sender: 'you', senderName: 'You' },
+                    { id: 2, text: question1, image: exerciseImage1, sender: 'you', senderName: 'You' },
                     { id: 3, text: '...', sender: 'them', senderName: studentName },
                 ]} />
                 <b>{t('Has the student now invented a similar exercise?')}</b>
@@ -129,7 +131,7 @@ class ValidatingAlgorithm extends Algorithm {
                     { id: 1, text: t('Before teaching me, try to earn a bonus by testing my previous skill:') + (skill && " \"" + skill.h + "\"."), sender: 'them', senderName: studentName },
                     { id: 2, text: t('Before teaching you, I will test your previous skill:') + (skill && " \"" + skill.h + "\"."), sender: 'you', senderName: 'You' },
                     { id: 3, text: t('Come up with an exercise similar to this:'), sender: 'you', senderName: 'You' },
-                    { id: 4, text: question1, sender: 'you', senderName: 'You', comment: t('I can change the exercise a little.') },
+                    { id: 4, text: question1, image: exerciseImage1, sender: 'you', senderName: 'You', comment: t('I can change the exercise a little.') },
                 ]} />
             </StyledDiv>
         );
@@ -142,7 +144,7 @@ class ValidatingAlgorithm extends Algorithm {
                 <ChatSimulation messages={[
                     { id: 1, text: t('...'), sender: 'them', senderName: studentName, comment: t('The student has repeated correctly after me.') },
                     { id: 2, text: t('Come up with an exercise similar to this:'), sender: 'you', senderName: 'You' },
-                    { id: 3, text: question1, sender: 'you', senderName: 'You', comment: t('I can change the exercise a little.') },
+                    { id: 3, text: question1, image: exerciseImage1, sender: 'you', senderName: 'You', comment: t('I can change the exercise a little.') },
                 ]} />
             </StyledDiv>
         );

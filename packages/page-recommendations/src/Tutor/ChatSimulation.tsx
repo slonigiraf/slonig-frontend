@@ -6,7 +6,8 @@ interface IMessage {
     text: string;
     sender: 'you' | 'them';
     senderName: string|null;
-    comment?: string; // Optional comment property
+    comment?: string;
+    image?: string;
 }
 
 interface WhatsAppChatProps {
@@ -74,6 +75,7 @@ const ChatSimulation: React.FC<WhatsAppChatProps> = ({ messages }) => {
               {message.sender !== 'you' && <SenderName>{message.senderName}</SenderName>}
               {message.text}
               {message.comment && <Red>&nbsp;*</Red>}
+              {message.image && <><br/><StyledImage src={message.image} alt="Image" /></>}
             </Bubble>
             {message.comment && <Comment sender={message.sender}><Red>*&nbsp;</Red>{message.comment}</Comment>}
           </MessageContainer>
@@ -81,5 +83,11 @@ const ChatSimulation: React.FC<WhatsAppChatProps> = ({ messages }) => {
       </ChatContainer>
     );
 };
-
+const StyledImage = styled.img`
+  padding-top: 5px;
+  width: 100%;
+  @media (min-width: 768px) {
+    width: 400px;
+  }
+`;
 export default React.memo(ChatSimulation);

@@ -11,6 +11,9 @@ class TeachingAlgorithm extends Algorithm {
         let question1: string = questions.length > 0 ? questions[0].h : t('SOME TASK FOR SKILL TRAINING (THE TUTOR SHOULD KNOW)');
         let answer1: string = questions.length > 0 ? questions[0].a : '';
         let question2: string = questions.length > 1 ? questions[1].h : question1;
+        let exerciseImage1: string|undefined = questions.length > 0 ? questions[0].p : undefined;
+        let answerImage1: string|undefined = questions.length > 0 ? questions[0].i : undefined;
+        let exerciseImage2: string|undefined = questions.length > 0 ? questions[1].p : undefined;
 
         // Initialize all stages
         const giveInsurance = new AlgorithmStage(
@@ -51,7 +54,7 @@ class TeachingAlgorithm extends Algorithm {
             <StyledDiv>
                 <ChatSimulation messages={[
                     { id: 1, text: t('Repeat after me:'), sender: 'you', senderName: 'You' },
-                    { id: 2, text: answer1 === '' ? t('...') : answer1, sender: 'you', senderName: 'You', comment: answer1 === '' ? t('Correct execution of the exercise') : '' },
+                    { id: 2, text: answer1 === '' ? t('...') : answer1, image: answerImage1,sender: 'you', senderName: 'You', comment: answer1 === '' ? t('Correct execution of the exercise') : '' },
                     { id: 3, text: t('...'), sender: 'them', senderName: studentName },
                 ]} />
                 <b>{t('Has the student repeated correctly?')}</b>
@@ -78,7 +81,7 @@ class TeachingAlgorithm extends Algorithm {
                 <ChatSimulation messages={[
                     { id: 1, text: t('...'), sender: 'them', senderName: studentName, comment: t('The student has not executed the exercise correctly.') },
                     { id: 2, text: t('Repeat after me:'), sender: 'you', senderName: 'You' },
-                    { id: 3, text: answer1 === '' ? t('...') : answer1, sender: 'you', senderName: 'You', comment: answer1 === '' ? t('I provide the student with the correct execution of the exercise. I can peek at examples here:') : '' },
+                    { id: 3, text: answer1 === '' ? t('...') : answer1, image: answerImage1, sender: 'you', senderName: 'You', comment: answer1 === '' ? t('I provide the student with the correct execution of the exercise. I can peek at examples here:') : '' },
                 ]} />
                 {answer1 === '' && questions != null && <ExerciseList exercises={questions} areShownInitially={true} />}
             </StyledDiv>
@@ -117,7 +120,7 @@ class TeachingAlgorithm extends Algorithm {
             <StyledDiv>
                 <ChatSimulation messages={[
                     { id: 1, text: t('Repeat after me:'), sender: 'you', senderName: 'You' },
-                    { id: 2, text: question2, sender: 'you', senderName: 'You' },
+                    { id: 2, text: question2, image: exerciseImage2,sender: 'you', senderName: 'You' },
                     { id: 3, text: '...', sender: 'them', senderName: studentName },
                 ]} />
                 <b>{t('Has the student repeated correctly after me?')}</b>
@@ -144,7 +147,7 @@ class TeachingAlgorithm extends Algorithm {
                 <ChatSimulation messages={[
                     { id: 1, text: '...', sender: 'them', senderName: studentName, comment: t('The student has not come up with the type of exercise needed.') },
                     { id: 2, text: t('Repeat after me:'), sender: 'you', senderName: 'You' },
-                    { id: 3, text: question2, sender: 'you', senderName: 'You', comment: t('I can change the exercise a little.') },
+                    { id: 3, text: question2, image: exerciseImage2, sender: 'you', senderName: 'You', comment: t('I can change the exercise a little.') },
                 ]} />
             </StyledDiv>
         );
@@ -156,7 +159,7 @@ class TeachingAlgorithm extends Algorithm {
             <StyledDiv>
                 <ChatSimulation messages={[
                     { id: 1, text: t('Come up with an exercise similar to this:'), sender: 'you', senderName: 'You' },
-                    { id: 2, text: question1, sender: 'you', senderName: 'You' },
+                    { id: 2, text: question1, image: exerciseImage1, sender: 'you', senderName: 'You' },
                     { id: 3, text: '...', sender: 'them', senderName: studentName },
                 ]} />
                 <b>{t('Has the student now invented a similar exercise?')}</b>
@@ -172,7 +175,7 @@ class TeachingAlgorithm extends Algorithm {
                 <ChatSimulation messages={[
                     { id: 1, text: t('Teach me the skill') + (skillJson && ": \"" + skillJson.h + "\""), sender: 'them', senderName: studentName },
                     { id: 2, text: t('Come up with an exercise similar to this:'), sender: 'you', senderName: 'You' },
-                    { id: 3, text: question1, sender: 'you', senderName: 'You', comment: t('I can change the exercise a little.') },
+                    { id: 3, text: question1, image: exerciseImage1, sender: 'you', senderName: 'You', comment: t('I can change the exercise a little.') },
                 ]} />
             </StyledDiv>
         );
@@ -186,7 +189,7 @@ class TeachingAlgorithm extends Algorithm {
                 <ChatSimulation messages={[
                     { id: 1, text: t('...'), sender: 'them', senderName: studentName, comment: t('The student has executed the exercise correctly.') },
                     { id: 2, text: t('Come up with an exercise similar to this:'), sender: 'you', senderName: 'You' },
-                    { id: 3, text: question1, sender: 'you', senderName: 'You', comment: t('I can change the exercise a little.') },
+                    { id: 3, text: question1, image: exerciseImage1, sender: 'you', senderName: 'You', comment: t('I can change the exercise a little.') },
                 ]} />
             </StyledDiv>
         );
@@ -197,7 +200,7 @@ class TeachingAlgorithm extends Algorithm {
             t('Next'),
             <StyledDiv>
                 <ChatSimulation messages={[
-                    { id: 1, text: question1, sender: 'you', senderName: 'You' },
+                    { id: 1, text: question1, image: exerciseImage1, sender: 'you', senderName: 'You' },
                     { id: 2, text: t('...'), sender: 'them', senderName: studentName },
                 ]} />
                 <b>{t('Has the student now executed the exercise correctly?')}</b>
@@ -211,7 +214,7 @@ class TeachingAlgorithm extends Algorithm {
             <StyledDiv>
                 <ChatSimulation messages={[
                     { id: 1, text: t('Teach me the skill') + (skillJson && ": \"" + skillJson.h + "\""), sender: 'them', senderName: studentName },
-                    { id: 2, text: question1, sender: 'you', senderName: 'You' },
+                    { id: 2, text: question1, image: exerciseImage1, sender: 'you', senderName: 'You' },
                 ]} />
             </StyledDiv>
         );
@@ -226,7 +229,7 @@ class TeachingAlgorithm extends Algorithm {
                 <ChatSimulation messages={[
                     { id: 1, text: t('...'), sender: 'them', senderName: studentName, comment: t('The student has repeated correctly after me.') },
                     { id: 2, text: t('Come up with an exercise similar to this:'), sender: 'you', senderName: 'You' },
-                    { id: 3, text: question1, sender: 'you', senderName: 'You', comment: t('I can change the exercise a little.') },
+                    { id: 3, text: question1, image: exerciseImage1, sender: 'you', senderName: 'You', comment: t('I can change the exercise a little.') },
                 ]} />
             </StyledDiv>
         );
