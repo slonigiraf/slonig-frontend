@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useTranslation } from '../translate.js';
-import { CenterQRContainer, LoginButton, QRAction, QRWithShareAndCopy, ScanQR, getBaseUrl, nameFromKeyringPair, useLoginContext } from '@slonigiraf/app-slonig-components';
+import { CenterQRContainer, LoginButton, QRAction, QRWithShareAndCopy, getBaseUrl, nameFromKeyringPair, useLoginContext } from '@slonigiraf/app-slonig-components';
 import { getSetting, storeSetting } from '@slonigiraf/app-recommendations';
 import { Dropdown } from '@polkadot/react-components';
 import { useLiveQuery } from "dexie-react-hooks";
