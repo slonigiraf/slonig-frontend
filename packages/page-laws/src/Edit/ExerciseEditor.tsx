@@ -1,8 +1,17 @@
 import React, { useState } from 'react';
 import { TextArea, styled } from '@polkadot/react-components';
 import { useTranslation } from '../translate.js';
+import { Question } from '@slonigiraf/app-slonig-components';
 
-const ExerciseEditor = ({ exercise, index, list, onListChange }) => {
+interface Props {
+  className?: string;
+  exercise: Question;
+  index: any;
+  list: any;
+  onListChange: (updatedList: any) => void;
+}
+
+const ExerciseEditor = ({ className = '', exercise, index, list, onListChange }: Props) => {
   const { t } = useTranslation();
   const [exerciseImage, setExerciseImage] = useState(exercise.p || '');
   const [solutionImage, setSolutionImage] = useState(exercise.i || '');

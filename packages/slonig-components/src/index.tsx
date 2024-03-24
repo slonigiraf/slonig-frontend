@@ -23,6 +23,8 @@ export const qrWidthPx = 260;
 export interface Question {
     h: string;
     a: string;
+    p: string;
+    i: string;
 }
 export interface Skill {
     h: string;
