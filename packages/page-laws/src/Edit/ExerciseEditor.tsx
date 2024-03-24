@@ -1,5 +1,5 @@
 import React, { useState, ChangeEvent, FC } from 'react';
-import { TextArea, styled } from '@polkadot/react-components';
+import { Button, TextArea, styled } from '@polkadot/react-components';
 import { useTranslation } from '../translate.js';
 import { Exercise, Skill } from '@slonigiraf/app-slonig-components';
 
@@ -56,6 +56,16 @@ const ExerciseEditor: FC<Props> = ({ className = '', exercise, index, skill, onS
     updateExercise({ ...exercise, a: text });
   };
 
+  const handleDeleteImage = (type: 'exercise' | 'solution') => {
+    if (type === 'exercise') {
+      setExerciseImage('');
+      updateExercise({ ...exercise, p: undefined }); // Remove or set to a default value.
+    } else {
+      setSolutionImage('');
+      updateExercise({ ...exercise, i: undefined }); // Remove or set to a default value.
+    }
+  };
+
   return (
     <div className={className}>
       <TextArea
@@ -64,7 +74,14 @@ const ExerciseEditor: FC<Props> = ({ className = '', exercise, index, skill, onS
         onChange={onEditExerciseText}
       />
       <ImageUploadContainer>
-        {exerciseImage && <StyledImage src={exerciseImage} alt="Exercise" />}
+        {
+          exerciseImage &&
+          <ImageContainer>
+            <StyledImage src={exerciseImage} alt="Exercise" />
+            <StyledDeleteButton label='' icon='trash' onClick={() => handleDeleteImage('exercise')} />
+          </ImageContainer>
+        }
+
         <input
           type="file"
           onChange={(e) => handleImageChange(e, 'exercise')}
@@ -78,7 +95,13 @@ const ExerciseEditor: FC<Props> = ({ className = '', exercise, index, skill, onS
         onChange={onEditSolutionText}
       />
       <ImageUploadContainer>
-        {solutionImage && <StyledImage src={solutionImage} alt="Solution" />}
+        {
+          solutionImage &&
+          <ImageContainer>
+            <StyledImage src={solutionImage} alt="Solution" />
+            <StyledDeleteButton label='' icon='trash' onClick={() => handleDeleteImage('solution')} />
+          </ImageContainer>
+        }
         <input
           type="file"
           onChange={(e) => handleImageChange(e, 'solution')}
@@ -89,6 +112,19 @@ const ExerciseEditor: FC<Props> = ({ className = '', exercise, index, skill, onS
   );
 };
 
+const ImageContainer = styled.div`
+  position: relative;
+  display: inline-block;
+  margin-right: 10px;
+  width: 100%;
+`;
+
+const StyledDeleteButton = styled(Button)`
+  position: absolute;
+  top: 0;
+  right: 0;
+`;
+
 const ImageUploadContainer = styled.div`
   display: flex;
   flex-direction: column;
@@ -98,7 +134,7 @@ const ImageUploadContainer = styled.div`
 `;
 
 const StyledImage = styled.img`
-  width: 200px;
+  width: 100%;
   margin-bottom: 10px;
 `;
 
