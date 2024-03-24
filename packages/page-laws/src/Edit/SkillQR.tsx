@@ -175,10 +175,9 @@ function SkillQR({ className = '', cid }: Props): React.ReactElement<Props> {
       {tutor ?
         <StyledDiv>
           <CenterQRContainer>
-          <h3>{t('Show the QR to your tutor')}</h3>
           <Dropdown
             className={`dropdown ${className}`}
-            label={t('select tutor')}
+            label={t('Show the QR to your tutor')}
             value={tutor}
             onChange={handleTutorSelect}
             options={tutorOptions || []}

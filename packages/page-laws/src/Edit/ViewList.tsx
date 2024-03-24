@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { getCIDFromBytes, getIPFSDataFromContentID, parseJson } from '@slonigiraf/app-slonig-components';
 import { useApi } from '@polkadot/react-hooks';
 import { BN_ZERO } from '@polkadot/util';
@@ -69,8 +69,8 @@ function ViewList({ className = '', id, currentPair }: Props): React.ReactElemen
         {
           list.t !== null && list.t === 3 &&
           <>
-            <LearnWithAI skillName={list.h} exercises={list.q} />
             <SkillQR cid={cidString} />
+            <LearnWithAI skillName={list.h} exercises={list.q} />
             <h3>{t('Example exercises to train the skill')}</h3>
           </>
         }
