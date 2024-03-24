@@ -50,7 +50,10 @@ const ExerciseList: React.FC<ExerciseListProps> = ({ exercises, areShownInitiall
     );
 }
 const StyledImage = styled.img`
-  width: 200px;
+  width: 100%;
+  @media (min-width: 768px) {
+    width: 400px;
+  }
 `;
 const ExerciseDetails = styled.div`
   display: flex;
