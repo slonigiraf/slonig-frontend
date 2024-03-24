@@ -117,6 +117,9 @@ const ImageContainer = styled.div`
   display: inline-block;
   margin-right: 10px;
   width: 100%;
+  @media (min-width: 768px) {
+    width: 400px;
+  }
 `;
 
 const StyledDeleteButton = styled(Button)`
@@ -136,6 +139,9 @@ const ImageUploadContainer = styled.div`
 const StyledImage = styled.img`
   width: 100%;
   margin-bottom: 10px;
+  @media (min-width: 768px) {
+    width: 400px;
+  }
 `;
 
 export default React.memo(ExerciseEditor);
