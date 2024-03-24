@@ -16,6 +16,13 @@ const ResizableImage: React.FC<Props> = ({ src, alt }) => {
   const [scale, setScale] = useState(1); // State to handle image scale
   const lastPinchDistance = useRef(0); // Ref to store the last pinch distance
 
+  const handleToggleSize = () => {
+    if (isBig) {
+      setScale(1);
+    }
+    toggleSize();
+  };
+
   const handleTouchMove = (event: React.TouchEvent<HTMLDivElement>) => {
     if (event.touches.length === 2) {
       // Calculate the distance between the two fingers
@@ -44,7 +51,7 @@ const ResizableImage: React.FC<Props> = ({ src, alt }) => {
     <>
       <NormalImage src={src} alt={alt ? alt : t('Image')} onClick={toggleSize} />
       {isBig && (
-        <Modal header=" " onClose={toggleSize} size="large">
+        <Modal header=" " onClose={handleToggleSize} size="large">
           <Modal.Content>
             <FullWidthContainer onTouchStart={handleTouchStart} onTouchMove={handleTouchMove}>
               <BigImage src={src} alt={alt ? alt : t('Image')} style={{ transform: `scale(${scale})` }} />
