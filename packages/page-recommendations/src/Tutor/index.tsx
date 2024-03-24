@@ -291,6 +291,14 @@ function Tutor({ className = '' }: Props): React.ReactElement<Props> {
       <br />
       <DiplomaDiv>
         <Card>
+          <CenterQRContainer>
+            <QRWithShareAndCopy
+              dataQR={diplomaText}
+              titleShare={t('QR code')}
+              textShare={t('Press the link to add the diploma')}
+              urlShare={diplomaAddUrl}
+              dataCopy={diplomaAddUrl} />
+          </CenterQRContainer>
           <div className="table">
             <div className="row">
               <div className="cell"><Icon icon='graduation-cap' /></div>
@@ -309,14 +317,6 @@ function Tutor({ className = '' }: Props): React.ReactElement<Props> {
               <div className="cell">{daysValid.toString()} {t('days valid')}</div>
             </div>
           </div>
-          <CenterQRContainer>
-            <QRWithShareAndCopy
-              dataQR={diplomaText}
-              titleShare={t('QR code')}
-              textShare={t('Press the link to add the diploma')}
-              urlShare={diplomaAddUrl}
-              dataCopy={diplomaAddUrl} />
-          </CenterQRContainer>
         </Card>
       </DiplomaDiv>
     </VerticalCenterItemsContainer>
