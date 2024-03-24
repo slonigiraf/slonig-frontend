@@ -1,6 +1,6 @@
 import React from 'react';
 import { styled } from '@polkadot/react-components';
-
+import { Image } from '@slonigiraf/app-slonig-components';
 interface IMessage {
     id: number;
     text: string;
@@ -14,7 +14,6 @@ interface WhatsAppChatProps {
     messages: IMessage[];
 }
 
-// Styled components
 const ChatContainer = styled.div`
   padding: 5px;
   font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
@@ -24,7 +23,7 @@ const ChatContainer = styled.div`
 
 const MessageContainer = styled.div<{ sender: 'you' | 'them' }>`
   display: flex;
-  flex-direction: column; // Adjusted for comment alignment
+  flex-direction: column;
   align-items: ${props => props.sender === 'you' ? 'flex-end' : 'flex-start'};
   padding: 5px;
   width: 100%;
@@ -56,9 +55,9 @@ const SenderName = styled.div`
 `;
 
 const Comment = styled.div<{ sender: 'you' | 'them' }>`
-  font-size: 12px; // Smaller font size for the comment
-  color: #707070; // Dim color for the comment
-  padding: 4px 20px; // Consistent padding with the message bubble
+  font-size: 12px;
+  color: #707070;
+  padding: 4px 20px;
   text-align: ${props => props.sender === 'you' ? 'right' : 'left'};
   max-width: 80%;
 `;
@@ -75,7 +74,7 @@ const ChatSimulation: React.FC<WhatsAppChatProps> = ({ messages }) => {
               {message.sender !== 'you' && <SenderName>{message.senderName}</SenderName>}
               {message.text}
               {message.comment && <Red>&nbsp;*</Red>}
-              {message.image && <><br/><StyledImage src={message.image} alt="Image" /></>}
+              {message.image && <><br/><Image src={message.image} /></>}
             </Bubble>
             {message.comment && <Comment sender={message.sender}><Red>*&nbsp;</Red>{message.comment}</Comment>}
           </MessageContainer>
@@ -83,11 +82,5 @@ const ChatSimulation: React.FC<WhatsAppChatProps> = ({ messages }) => {
       </ChatContainer>
     );
 };
-const StyledImage = styled.img`
-  padding-top: 5px;
-  width: 100%;
-  @media (min-width: 768px) {
-    width: 400px;
-  }
-`;
+
 export default React.memo(ChatSimulation);
