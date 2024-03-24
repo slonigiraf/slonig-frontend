@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useTranslation } from '../translate.js';
-import { CenterQRContainer, LoginButton, QRAction, QRWithShareAndCopy, getBaseUrl, nameFromKeyringPair, useLoginContext } from '@slonigiraf/app-slonig-components';
+import { CenterQRContainer, LoginButton, QRAction, QRWithShareAndCopy, getBaseUrl, nameFromKeyringPair, qrWidthPx, useLoginContext } from '@slonigiraf/app-slonig-components';
 import { getSetting, storeSetting } from '@slonigiraf/app-recommendations';
 import { Dropdown } from '@polkadot/react-components';
 import { useLiveQuery } from "dexie-react-hooks";
@@ -208,9 +208,12 @@ function SkillQR({ className = '', cid }: Props): React.ReactElement<Props> {
 const StyledDiv = styled.div`
   justify-content: center;
   align-items: center;
-  .dropdown {
-    width: 290px;
-    margin-right: 30px;
+  .ui--Dropdown {
+    width: ${qrWidthPx}px;
+    padding-left: 0px !important;
+  }
+  label {
+    left: 20px !important;
   }
 `;
 const FlexRow = styled.div`
