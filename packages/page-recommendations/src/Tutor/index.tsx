@@ -284,10 +284,11 @@ function Tutor({ className = '' }: Props): React.ReactElement<Props> {
   const diplomaSlon = new BN(amount).div(new BN("1000000000000"));
 
   const diplomaView = <FullWidthContainer>
+    <VerticalCenterItemsContainer>
       <DiplomaDiv>
         <Card>
           <CenterQRContainer>
-          <h2>{t('Show the diploma to your student')}</h2>
+            <h2>{t('Show the diploma to your student')}</h2>
             <QRWithShareAndCopy
               dataQR={diplomaText}
               titleShare={t('QR code')}
@@ -315,6 +316,7 @@ function Tutor({ className = '' }: Props): React.ReactElement<Props> {
           </div>
         </Card>
       </DiplomaDiv>
+    </VerticalCenterItemsContainer>
   </FullWidthContainer>;
 
   const reexamAndDiplomaIssuing = <>
