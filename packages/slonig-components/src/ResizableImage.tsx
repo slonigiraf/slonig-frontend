@@ -6,14 +6,15 @@ import { useTranslation } from './translate.js';
 
 interface Props {
   src: string;
+  alt?: string;
 }
 
-const ResizableImage: React.FC<Props> = ({ src }) => {
+const ResizableImage: React.FC<Props> = ({ src, alt}) => {
   const { t } = useTranslation();
   const [isBig, toggleSize] = useToggle();
   return (
     <>
-      <NormalImage src={src} alt="Image" onClick={toggleSize} />
+      <NormalImage src={src} alt={alt? alt : t('Image')} onClick={toggleSize} />
       {isBig && (
         <Modal
           header=' '
@@ -21,7 +22,7 @@ const ResizableImage: React.FC<Props> = ({ src }) => {
           size='large'
         >
           <Modal.Content>
-            <BigImage src={src} alt="Image" />
+            <BigImage src={src} alt={alt? alt : t('Image')} />
           </Modal.Content>
         </Modal>
       )}
