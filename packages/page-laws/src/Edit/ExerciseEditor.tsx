@@ -82,8 +82,9 @@ const ExerciseEditor = ({ exercise, index, list, onListChange }) => {
 const ImageUploadContainer = styled.div`
   display: flex;
   flex-direction: column;
-  align-items: center;
+  align-items: left;
   margin-bottom: 15px;
+  padding-left: 2rem;
 `;
 
 const StyledImage = styled.img`
