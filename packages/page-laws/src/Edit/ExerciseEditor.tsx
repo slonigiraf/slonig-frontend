@@ -1,29 +1,33 @@
-import React, { useState } from 'react';
+import React, { useState, ChangeEvent, FC } from 'react';
 import { TextArea, styled } from '@polkadot/react-components';
 import { useTranslation } from '../translate.js';
-import { Question } from '@slonigiraf/app-slonig-components';
+import { Exercise, Skill } from '@slonigiraf/app-slonig-components';
 
 interface Props {
   className?: string;
-  exercise: Question;
-  index: any;
-  list: any;
-  onListChange: (updatedList: any) => void;
+  exercise: Exercise;
+  index: number;
+  skill: Skill;
+  onListChange: (updatedList: { q?: Exercise[] }) => void;
 }
 
-const ExerciseEditor = ({ className = '', exercise, index, list, onListChange }: Props) => {
+const ExerciseEditor: FC<Props> = ({ className = '', exercise, index, skill, onListChange }) => {
   const { t } = useTranslation();
-  const [exerciseImage, setExerciseImage] = useState(exercise.p || '');
-  const [solutionImage, setSolutionImage] = useState(exercise.i || '');
+  const [exerciseImage, setExerciseImage] = useState<string>(exercise.p || '');
+  const [solutionImage, setSolutionImage] = useState<string>(exercise.i || '');
 
-  const convertToBase64 = (file, callback) => {
+  const convertToBase64 = (file: File, callback: (base64Image: string) => void) => {
     const reader = new FileReader();
-    reader.onload = (e) => callback(e.target.result);
+    reader.onload = (e: ProgressEvent<FileReader>) => {
+      if (e.target?.result) {
+        callback(e.target.result as string);
+      }
+    };
     reader.readAsDataURL(file);
   };
 
-  const handleImageChange = (e, type) => {
-    const file = e.target.files[0];
+  const handleImageChange = (e: ChangeEvent<HTMLInputElement>, type: 'exercise' | 'solution') => {
+    const file = e.target.files ? e.target.files[0] : null;
     if (file) {
       convertToBase64(file, (base64Image) => {
         if (type === 'exercise') {
@@ -38,25 +42,25 @@ const ExerciseEditor = ({ className = '', exercise, index, list, onListChange }:
   };
 
   const onEditHeader = (newHeader: string) => {
-    const updatedExercises = [...(list.q || [])];
+    const updatedExercises = [...(skill.q || [])];
     updatedExercises[index].h = newHeader;
-    onListChange({ ...list, q: updatedExercises });
+    onListChange({ ...skill, q: updatedExercises });
   };
 
   const onEditAnswer = (newAnswer: string) => {
-    const updatedExercises = [...(list.q || [])];
+    const updatedExercises = [...(skill.q || [])];
     updatedExercises[index].a = newAnswer;
-    onListChange({ ...list, q: updatedExercises });
+    onListChange({ ...skill, q: updatedExercises });
   };
 
-  const updateExercise = (updatedExercise) => {
-    const updatedExercises = [...(list.q || [])];
+  const updateExercise = (updatedExercise: Exercise) => {
+    const updatedExercises = [...(skill.q || [])];
     updatedExercises[index] = updatedExercise;
-    onListChange({ ...list, q: updatedExercises });
+    onListChange({ ...skill, q: updatedExercises });
   };
 
   return (
-    <div className="exercise-editor">
+    <div className={className}>
       <TextArea
         label={t('Exercise')}
         seed={exercise.h}
@@ -100,4 +104,5 @@ const StyledImage = styled.img`
   width: 200px;
   margin-bottom: 10px;
 `;
+
 export default React.memo(ExerciseEditor);

@@ -3,6 +3,7 @@
 import React, { useCallback } from 'react';
 import { Button } from '@polkadot/react-components';
 import ExerciseEditor from './ExerciseEditor.js';
+import { Exercise } from '@slonigiraf/app-slonig-components';
 
 interface Props {
   className?: string;
@@ -35,7 +36,7 @@ function ExerciseEditorList({ className = '', list, onListChange }: Props): Reac
 
   return (list == null || list.q == null) ? <></> : (
     <>
-      {list.q.map((exercise, index) => (
+      {list.q.map((exercise: Exercise, index: number) => (
         <div className='ui--row' key={index}
         style={{
           alignItems: 'center'
@@ -55,7 +56,7 @@ function ExerciseEditorList({ className = '', list, onListChange }: Props): Reac
             icon='times'  // Assuming 'times' is the icon for delete
             onClick={() => handleDelete(index)}
           />
-          <ExerciseEditor list={list} exercise={exercise} onListChange={onListChange} index={index} />
+          <ExerciseEditor skill={list} exercise={exercise} onListChange={onListChange} index={index} />
         </div>
       ))}
     </>

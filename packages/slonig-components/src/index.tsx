@@ -20,7 +20,7 @@ export { LoginButton, ShareButton, ClipboardCopyButton, QRWithShareAndCopy, QRSc
 export { saveToSessionStorage, loadFromSessionStorage, getIPFSContentIDAndPinIt, getKey, arrayBufferToBase64, base64ToArrayBuffer, decryptData, encryptData, LoginProvider, useLoginContext, keyForCid, nameFromKeyringPair, getBaseUrl, CODEC, getIPFSContentID, getIPFSDataFromContentID, digestFromCIDv1, getCIDFromBytes, storeEncryptedTextOnIPFS, retrieveDecryptedDataFromIPFS, parseJson }
 
 export const qrWidthPx = 260;
-export interface Question {
+export interface Exercise {
     h: string;
     a: string;
     p: string;
@@ -28,7 +28,7 @@ export interface Question {
 }
 export interface Skill {
     h: string;
-    q: Question[];
+    q: Exercise[];
 }
 
 export interface AccountState {

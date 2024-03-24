@@ -143,9 +143,9 @@ function Editor(props: Props): React.ReactElement<Props> {
         </>
       )}
       {/* For adding new exercises at skill view */}
-      <ExerciseEditorList list={item} onListChange={onItemChange} />
+      <ExerciseEditorList list={item} onListChange={onItemChange} className='exercise-editor'/>
       {/* For adding new skills at module view */}
-      <ExerciseEditorList list={list} onListChange={onListChange} />
+      <ExerciseEditorList list={list} onListChange={onListChange} className='exercise-editor'/>
       {!isAddingItem && (<div className='ui--row'>
         <Button
           icon='add'
