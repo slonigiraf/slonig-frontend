@@ -5,9 +5,9 @@ import { BN_ZERO } from '@polkadot/util';
 import ItemLabel from './ItemLabel.js';
 import SkillQR from './SkillQR.js';
 import type { KeyringPair } from '@polkadot/keyring/types';
-import { useTranslation } from '../translate';
+import { useTranslation } from '../translate.js';
 import { useIpfsContext } from '@slonigiraf/app-slonig-components';
-import ExerciseList from './ExerciseList';
+import ExerciseList from './ExerciseList.js';
 import { u8aToHex } from '@polkadot/util';
 import LearnWithAI from './LearnWithAI.js';
 
