@@ -74,7 +74,7 @@ function ViewList({ className = '', id, currentPair }: Props): React.ReactElemen
             <h3>{t('Example exercises to train the skill')}</h3>
           </>
         }
-        {list.e != null && list.e.map((item, index) => (
+        {list.e != null && list.e.map((item: string) => (
           <div className='ui--row' key={item}
             style={{
               alignItems: 'center'
