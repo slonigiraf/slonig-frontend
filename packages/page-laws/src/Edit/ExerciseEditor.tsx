@@ -1,7 +1,7 @@
 import React, { useState, ChangeEvent, FC } from 'react';
 import { Button, TextArea, styled } from '@polkadot/react-components';
 import { useTranslation } from '../translate.js';
-import { Exercise, Skill } from '@slonigiraf/app-slonig-components';
+import { Exercise, ResizableImage, Skill } from '@slonigiraf/app-slonig-components';
 
 interface Props {
   className?: string;
@@ -77,7 +77,7 @@ const ExerciseEditor: FC<Props> = ({ className = '', exercise, index, skill, onS
         {
           exerciseImage &&
           <ImageContainer>
-            <StyledImage src={exerciseImage} alt="Exercise" />
+            <ResizableImage src={exerciseImage} />
             <StyledDeleteButton label='' icon='trash' onClick={() => handleDeleteImage('exercise')} />
           </ImageContainer>
         }
@@ -98,7 +98,7 @@ const ExerciseEditor: FC<Props> = ({ className = '', exercise, index, skill, onS
         {
           solutionImage &&
           <ImageContainer>
-            <StyledImage src={solutionImage} alt="Solution" />
+            <ResizableImage src={solutionImage} alt="Solution" />
             <StyledDeleteButton label='' icon='trash' onClick={() => handleDeleteImage('solution')} />
           </ImageContainer>
         }
@@ -134,14 +134,6 @@ const ImageUploadContainer = styled.div`
   align-items: left;
   margin-bottom: 15px;
   padding-left: 2rem;
-`;
-
-const StyledImage = styled.img`
-  width: 100%;
-  margin-bottom: 10px;
-  @media (min-width: 768px) {
-    width: 400px;
-  }
 `;
 
 export default React.memo(ExerciseEditor);

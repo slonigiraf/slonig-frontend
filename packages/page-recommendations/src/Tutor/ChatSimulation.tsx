@@ -1,6 +1,6 @@
 import React from 'react';
 import { styled } from '@polkadot/react-components';
-import { Image } from '@slonigiraf/app-slonig-components';
+import { ResizableImage } from '@slonigiraf/app-slonig-components';
 interface IMessage {
     id: number;
     text: string;
@@ -74,7 +74,7 @@ const ChatSimulation: React.FC<WhatsAppChatProps> = ({ messages }) => {
               {message.sender !== 'you' && <SenderName>{message.senderName}</SenderName>}
               {message.text}
               {message.comment && <Red>&nbsp;*</Red>}
-              {message.image && <><br/><Image src={message.image} /></>}
+              {message.image && <><br/><ResizableImage src={message.image} /></>}
             </Bubble>
             {message.comment && <Comment sender={message.sender}><Red>*&nbsp;</Red>{message.comment}</Comment>}
           </MessageContainer>

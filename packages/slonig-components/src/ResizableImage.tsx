@@ -8,7 +8,7 @@ interface Props {
   src: string;
 }
 
-const Image: React.FC<Props> = ({ src }) => {
+const ResizableImage: React.FC<Props> = ({ src }) => {
   const { t } = useTranslation();
   const [isBig, toggleSize] = useToggle();
   return (
@@ -39,4 +39,4 @@ const BigImage = styled.img`
   padding-top: 5px;
   width: 100%;
 `;
-export default React.memo(Image);
+export default React.memo(ResizableImage);

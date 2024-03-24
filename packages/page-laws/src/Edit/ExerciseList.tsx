@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { Button, styled } from '@polkadot/react-components';
 import { useTranslation } from '../translate.js';
-import { Exercise } from '@slonigiraf/app-slonig-components';
+import { Exercise, ResizableImage } from '@slonigiraf/app-slonig-components';
 
 interface ExerciseListProps {
     exercises: Exercise[];
@@ -34,13 +34,13 @@ const ExerciseList: React.FC<ExerciseListProps> = ({ exercises, areShownInitiall
                                 label=''
                             />
                             <span>&nbsp;{index + 1}. {exercise.h}</span>
-                            {exercise.p && <ExerciseDetails><StyledImage src={exercise.p} alt={t('Exercise')} /></ExerciseDetails>}
+                            {exercise.p && <ExerciseDetails><ResizableImage src={exercise.p} /></ExerciseDetails>}
 
                         </div>
                         {shownAnswers[index] && (
                             <Answer>
                                 <span><i>{t('Solution')}:</i> {exercise.a}</span>
-                                {exercise.i && <><StyledImage src={exercise.i} alt={t('Solution')} /></>}
+                                {exercise.i && <><ResizableImage src={exercise.i} /></>}
                             </Answer>
                         )}
                     </div>
@@ -49,12 +49,7 @@ const ExerciseList: React.FC<ExerciseListProps> = ({ exercises, areShownInitiall
         </>
     );
 }
-const StyledImage = styled.img`
-  width: 100%;
-  @media (min-width: 768px) {
-    width: 400px;
-  }
-`;
+
 const ExerciseDetails = styled.div`
   display: flex;
   flex-direction: column;
