@@ -60,8 +60,8 @@ class ValidatingAlgorithm extends Algorithm {
             t('Next'),
             <StyledDiv>
                 <ChatSimulation messages={[
-                    { id: 1, text: t('...'), sender: 'you', senderName: 'You', comment: t('I deliberately incorrectly perform the exercise invented by the student and ask:') },
-                    { id: 2, text: t('Am I right?'), sender: 'you', senderName: 'You' },
+                    { id: 1, text: t('...'), sender: 'you', senderName: 'You', comment: t('I deliberately incorrectly perform the exercise invented by the student and say:') },
+                    { id: 2, text: t('Correct me.'), sender: 'you', senderName: 'You' },
                     { id: 3, text: t('...'), sender: 'them', senderName: studentName },
                 ]} />
                 <b>{t('Has the student corrected the wrong solution?')}</b>
@@ -88,8 +88,8 @@ class ValidatingAlgorithm extends Algorithm {
             <StyledDiv>
                 <ChatSimulation messages={[
                     { id: 1, text: t('...'), sender: 'them', senderName: studentName, comment: t('An exercise invented by a student.') },
-                    { id: 2, text: t('...'), sender: 'you', senderName: 'You', comment: t('I deliberately incorrectly perform the exercise invented by the student and ask:') },
-                    { id: 3, text: t('Am I right?'), sender: 'you', senderName: 'You' },
+                    { id: 2, text: t('...'), sender: 'you', senderName: 'You', comment: t('I deliberately incorrectly perform the exercise invented by the student and say:') },
+                    { id: 3, text: t('Correct me.'), sender: 'you', senderName: 'You' },
                 ]} />
             </StyledDiv>
         );
