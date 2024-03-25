@@ -437,5 +437,7 @@
   "Error": "Ошибка",
   "Log out": "Выйти",
   "total transferrable": "всего свободно",
-  "Image": "Изображение"
+  "Image": "Изображение",
+  "You can use the KaTeX language to add formulas:": "Вы можете использовать язык KaTeX для добавления формул:",
+  "is": "это"
 }
