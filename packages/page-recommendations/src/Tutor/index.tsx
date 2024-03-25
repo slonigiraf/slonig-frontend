@@ -8,7 +8,7 @@ import { styled, Toggle, Button, Input, InputBalance, Icon, Card } from '@polkad
 import { useApi, useBlockTime, useToggle } from '@polkadot/react-hooks';
 import { u8aToHex, hexToU8a, u8aWrapBytes, BN_ONE } from '@polkadot/util';
 import type { Skill } from '@slonigiraf/app-slonig-components';
-import { QRWithShareAndCopy, getBaseUrl, getIPFSDataFromContentID, parseJson, useIpfsContext, nameFromKeyringPair, QRAction, useLoginContext, LoginButton, FullWidthContainer, AppContainer, VerticalCenterItemsContainer, CenterQRContainer } from '@slonigiraf/app-slonig-components';
+import { QRWithShareAndCopy, getBaseUrl, getIPFSDataFromContentID, parseJson, useIpfsContext, nameFromKeyringPair, QRAction, useLoginContext, LoginButton, FullWidthContainer, AppContainer, VerticalCenterItemsContainer, CenterQRContainer, KatexSpan } from '@slonigiraf/app-slonig-components';
 import { Letter } from '@slonigiraf/app-recommendations';
 import { getPublicDataToSignByReferee, getPrivateDataToSignByReferee } from '@slonigiraf/helpers';
 import { getLastUnusedLetterNumber, setLastUsedLetterNumber, storeLetter, storePseudonym } from '../utils.js';
@@ -299,7 +299,7 @@ function Tutor({ className = '' }: Props): React.ReactElement<Props> {
           <div className="table">
             <div className="row">
               <div className="cell"><Icon icon='graduation-cap' /></div>
-              <div className="cell">{skill ? skill.h : ''}</div>
+              <div className="cell">{skill ? <KatexSpan content={skill.h}/> : ''}</div>
             </div>
             <div className="row">
               <div className="cell"><Icon icon='user' /></div>
@@ -338,7 +338,7 @@ function Tutor({ className = '' }: Props): React.ReactElement<Props> {
               <tbody>
                 <tr>
                   <td><Icon icon='graduation-cap' /></td>
-                  <td>{skill ? skill.h : ''}</td>
+                  <td>{skill ? <KatexSpan content={skill.h}/> : ''}</td>
                 </tr>
                 <tr>
                   <td><Icon icon='person' /></td>

@@ -3,6 +3,7 @@
 import React from 'react';
 import { useTranslation } from '../translate.js';
 import { Letter } from '../db/Letter.js';
+import { KatexSpan } from '@slonigiraf/app-slonig-components';
 
 interface Props {
   className?: string;
@@ -15,7 +16,7 @@ function LetterDetailsModal({ className = '', text, letter }: Props): React.Reac
 
   return (
     <div className='ui--row'>
-      <h1>{text}</h1>
+      <h1><KatexSpan content={text}/></h1>
     </div>
   );
 }

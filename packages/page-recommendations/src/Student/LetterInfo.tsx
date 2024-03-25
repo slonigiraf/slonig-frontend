@@ -3,7 +3,7 @@
 
 import { Button, Modal, Spinner, styled } from '@polkadot/react-components';
 import React, { useState, useEffect } from 'react'
-import { getIPFSDataFromContentID, parseJson } from '@slonigiraf/app-slonig-components'
+import { KatexSpan, getIPFSDataFromContentID, parseJson } from '@slonigiraf/app-slonig-components'
 import { useTranslation } from '../translate.js';
 import { Letter } from '../db/Letter.js';
 import LetterDetailsModal from './LetterDetailsModal.js';
@@ -69,7 +69,7 @@ function LetterInfo({ className = '', letter, isSelected, onToggleSelection }: P
   return (
     <StyledDiv>
       {buttonSelect}
-      {loaded ? <span>{text}</span> : <Spinner noLabel />}
+      {loaded ? <KatexSpan content={text} /> : <Spinner noLabel />}
       {buttonView}
     </StyledDiv>
   )

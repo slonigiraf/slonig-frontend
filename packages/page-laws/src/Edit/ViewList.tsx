@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { getCIDFromBytes, getIPFSDataFromContentID, parseJson } from '@slonigiraf/app-slonig-components';
+import { KatexSpan, getCIDFromBytes, getIPFSDataFromContentID, parseJson } from '@slonigiraf/app-slonig-components';
 import { useApi } from '@polkadot/react-hooks';
 import { BN_ZERO } from '@polkadot/util';
 import ItemLabel from './ItemLabel.js';
@@ -65,7 +65,7 @@ function ViewList({ className = '', id, currentPair }: Props): React.ReactElemen
   return (
     list == null ? <></> :
       <>
-        <h1>{list.h}</h1>
+        <h1><KatexSpan content={list.h}/></h1>
         {
           list.t !== null && list.t === 3 &&
           <>

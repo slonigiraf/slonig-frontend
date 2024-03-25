@@ -125,7 +125,9 @@
     "typescript": "^5.1.6"
   },
   "dependencies": {
+    "katex": "^0.16.10",
     "moment": "^2.30.1",
-    "react-dates": "^21.8.0"
+    "react-dates": "^21.8.0",
+    "react-katex": "^3.0.1"
   }
 }

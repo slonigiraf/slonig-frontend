@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { Button, styled } from '@polkadot/react-components';
 import { useTranslation } from '../translate.js';
-import { Exercise, ResizableImage } from '@slonigiraf/app-slonig-components';
+import { Exercise, ResizableImage, KatexSpan } from '@slonigiraf/app-slonig-components';
 
 interface ExerciseListProps {
     exercises: Exercise[];
@@ -33,13 +33,13 @@ const ExerciseList: React.FC<ExerciseListProps> = ({ exercises, areShownInitiall
                                 onClick={() => toggleAnswer(index)}
                                 label=''
                             />
-                            <span>&nbsp;{index + 1}. {exercise.h}</span>
+                            <span><KatexSpan content={` ${index + 1}. ` + exercise.h} /></span>
                             {exercise.p && <ExerciseDetails><ResizableImage src={exercise.p} /></ExerciseDetails>}
 
                         </div>
                         {shownAnswers[index] && (
                             <Answer>
-                                <span><i>{t('Solution')}:</i> {exercise.a}</span>
+                                <span><i>{t('Solution')}:</i> <KatexSpan content={exercise.a} /></span>
                                 {exercise.i && <><ResizableImage src={exercise.i} /></>}
                             </Answer>
                         )}

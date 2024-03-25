@@ -13317,6 +13317,17 @@ __metadata:
   languageName: node
   linkType: hard
 
+"katex@npm:^0.16.0, katex@npm:^0.16.10":
+  version: 0.16.10
+  resolution: "katex@npm:0.16.10"
+  dependencies:
+    commander: ^8.3.0
+  bin:
+    katex: cli.js
+  checksum: 108e9d810e17840c43eef8d46171096f4cc97852bfd1e2dd1890d9b3435846816e3e98678a31d38bd064eb97eea83b18ff224cb65d5f9511b54ce7ff4359b591
+  languageName: node
+  linkType: hard
+
 "keccak@npm:^3.0.0":
   version: 3.0.3
   resolution: "keccak@npm:3.0.3"
@@ -16429,11 +16440,13 @@ __metadata:
     electron-builder-notarize: ^1.5.1
     extensionless: ^1.4.5
     i18next-scanner: ^4.2.0
+    katex: ^0.16.10
     moment: ^2.30.1
     react: ^18.2.0
     react-dates: ^21.8.0
     react-dom: ^18.2.0
     react-is: ^18.2.0
+    react-katex: ^3.0.1
     source-map-explorer: ^2.5.3
     styled-components: ^5.3.11
   languageName: unknown
@@ -17263,6 +17276,18 @@ __metadata:
   version: 18.2.0
   resolution: "react-is@npm:18.2.0"
   checksum: e72d0ba81b5922759e4aff17e0252bd29988f9642ed817f56b25a3e217e13eea8a7f2322af99a06edb779da12d5d636e9fda473d620df9a3da0df2a74141d53e
+  languageName: node
+  linkType: hard
+
+"react-katex@npm:^3.0.1":
+  version: 3.0.1
+  resolution: "react-katex@npm:3.0.1"
+  dependencies:
+    katex: ^0.16.0
+  peerDependencies:
+    prop-types: ^15.8.1
+    react: ">=15.3.2 <=18"
+  checksum: 85055cf3b4ced1ebc86d274d4f1241f49cf0503b54e8d92015abfb822615d997b013a358c58b06f13ded4092458b032bbc7510141a8ab80877383337d369e6a8
   languageName: node
   linkType: hard
 

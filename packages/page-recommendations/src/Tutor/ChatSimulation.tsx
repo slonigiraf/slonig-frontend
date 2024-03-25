@@ -1,6 +1,6 @@
 import React from 'react';
 import { styled } from '@polkadot/react-components';
-import { ResizableImage } from '@slonigiraf/app-slonig-components';
+import { KatexSpan, ResizableImage } from '@slonigiraf/app-slonig-components';
 interface IMessage {
     id: number;
     text: string;
@@ -72,7 +72,7 @@ const ChatSimulation: React.FC<WhatsAppChatProps> = ({ messages }) => {
           <MessageContainer key={message.id} sender={message.sender}>
             <Bubble sender={message.sender}>
               {message.sender !== 'you' && <SenderName>{message.senderName}</SenderName>}
-              {message.text}
+              <KatexSpan content={message.text} />
               {message.comment && <Red>&nbsp;*</Red>}
               {message.image && <><br/><ResizableImage src={message.image} /></>}
             </Bubble>

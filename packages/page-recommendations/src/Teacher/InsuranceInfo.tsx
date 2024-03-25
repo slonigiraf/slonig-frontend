@@ -7,7 +7,7 @@ import UseInsurance from './UseInsurance.js'
 import { useTranslation } from '../translate.js';
 import { Insurance } from '../db/Insurance.js';
 import { useToggle } from '@polkadot/react-hooks';
-import { getIPFSDataFromContentID, parseJson } from '@slonigiraf/app-slonig-components';
+import { KatexSpan, getIPFSDataFromContentID, parseJson } from '@slonigiraf/app-slonig-components';
 import { useIpfsContext } from '@slonigiraf/app-slonig-components';
 import { ItemLabel, ExerciseList } from '@slonigiraf/app-laws';
 import { db } from "../db/index.js";
@@ -48,7 +48,7 @@ function InsuranceInfo({ className = '', insurance }: Props): React.ReactElement
     fetchData()
   }, [ipfs, insurance])
 
-  const skillNameToShow = loaded ? <span>{skillName}</span> : <Spinner noLabel />;
+  const skillNameToShow = loaded ? <KatexSpan content={skillName} /> : <Spinner noLabel />;
 
   const deleteButton = <Button
     icon={'trash'}

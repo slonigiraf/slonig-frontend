@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 import React, { useEffect, useState } from 'react';
 import { useApi } from '@polkadot/react-hooks';
-import { getCIDFromBytes, getIPFSDataFromContentID, parseJson } from '@slonigiraf/app-slonig-components';
+import { KatexSpan, getCIDFromBytes, getIPFSDataFromContentID, parseJson } from '@slonigiraf/app-slonig-components';
 import { useIpfsContext } from '@slonigiraf/app-slonig-components';
 import { Spinner, styled } from '@polkadot/react-components';
 
@@ -58,10 +58,10 @@ function ItemLabel({ className = '', id, isText = false, defaultValue = '...' }:
   const textToDisplay = isFetched ? text : defaultValue;
 
   return isText ?
-    <span>{textToDisplay}</span>
+    <KatexSpan content={textToDisplay} />
     :
     isFetched ?
-      <StyledA href={`/#/knowledge?id=${id}`}>{textToDisplay}</StyledA>
+      <StyledA href={`/#/knowledge?id=${id}`}><KatexSpan content={textToDisplay} /></StyledA>
       :
       <StyledSpinner><Spinner noLabel /></StyledSpinner>;
 }
