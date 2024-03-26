@@ -3,7 +3,7 @@
 import React, { useCallback } from 'react';
 import { Button, styled } from '@polkadot/react-components';
 import ExerciseEditor from './ExerciseEditor.js';
-import { Exercise } from '@slonigiraf/app-slonig-components';
+import { Exercise, HorizontalCenterItemsContainer } from '@slonigiraf/app-slonig-components';
 
 interface Props {
   className?: string;
@@ -37,7 +37,8 @@ function ExerciseEditorList({ className = '', list, onListChange }: Props): Reac
   return (list == null || list.q == null) ? <></> : (
     <>
       {list.q.map((exercise: Exercise, index: number) => (
-        <div className='ui--row' key={index} >
+        <div className='ui--row' key={index} style={{ border: '2px solid #FFF', padding: '5px', marginBottom: '5px' }}>
+      
           <ButtonsAsAColumn>
             <Button
               icon='arrow-up'
@@ -55,6 +56,7 @@ function ExerciseEditorList({ className = '', list, onListChange }: Props): Reac
             />
           </ButtonsAsAColumn>
           <ExerciseEditor skill={list} exercise={exercise} onSkillChange={onListChange} index={index} />
+       
         </div>
       ))}
     </>
