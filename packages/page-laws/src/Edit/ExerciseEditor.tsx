@@ -1,7 +1,7 @@
 import React, { useState, ChangeEvent, FC } from 'react';
-import { Button, TextArea, styled } from '@polkadot/react-components';
+import { Button, styled } from '@polkadot/react-components';
 import { useTranslation } from '../translate.js';
-import { Exercise, ResizableImage, Skill } from '@slonigiraf/app-slonig-components';
+import { Exercise, ResizableImage, Skill, TextAreaWithPreview } from '@slonigiraf/app-slonig-components';
 
 interface Props {
   className?: string;
@@ -68,7 +68,7 @@ const ExerciseEditor: FC<Props> = ({ className = '', exercise, index, skill, onS
 
   return (
     <div className={className}>
-      <TextArea
+      <TextAreaWithPreview
         label={t('Exercise')}
         seed={exercise.h}
         onChange={onEditExerciseText}
@@ -89,7 +89,7 @@ const ExerciseEditor: FC<Props> = ({ className = '', exercise, index, skill, onS
         />
       </ImageUploadContainer>
 
-      <TextArea
+      <TextAreaWithPreview
         label={t('Solution')}
         seed={exercise.a}
         onChange={onEditSolutionText}
@@ -133,7 +133,6 @@ const ImageUploadContainer = styled.div`
   flex-direction: column;
   align-items: left;
   margin-bottom: 15px;
-  padding-left: 2rem;
 `;
 
 export default React.memo(ExerciseEditor);

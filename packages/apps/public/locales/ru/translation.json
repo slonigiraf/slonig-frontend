@@ -439,5 +439,6 @@
   "total transferrable": "всего свободно",
   "Image": "Изображение",
   "You can use the KaTeX language to add formulas:": "Вы можете использовать язык KaTeX для добавления формул:",
-  "is": "это"
+  "is": "это",
+  "preview": "предпросмотр"
 }

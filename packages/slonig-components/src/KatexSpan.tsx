@@ -3,7 +3,7 @@ import { InlineMath } from 'react-katex';
 import 'katex/dist/katex.min.css';
 
 interface Props {
-  content: string; // Renamed to 'content' to clarify it may include both LaTeX and plain text
+  content: string;
 }
 
 const KatexSpan: React.FC<Props> = ({ content }) => {

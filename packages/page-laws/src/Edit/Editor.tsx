@@ -1,5 +1,5 @@
 import React, { useCallback } from 'react';
-import { Button, Dropdown, Input } from '@polkadot/react-components';
+import { Button, Dropdown, Input, styled } from '@polkadot/react-components';
 import { useTranslation } from '../translate.js';
 import { randomIdHex } from '../util.js';
 import { parseJson } from '@slonigiraf/app-slonig-components';
@@ -110,13 +110,15 @@ function Editor(props: Props): React.ReactElement<Props> {
       {list && (
         <>
           <div className='ui--row'>
-            <Input
-              autoFocus
-              className='full'
-              label={t('title')}
-              onChange={editListTitle}
-              value={list.h}
-            />
+            <TitleContainer>
+              <Input
+                autoFocus
+                className='full'
+                label={t('title')}
+                onChange={editListTitle}
+                value={list.h}
+              />
+            </TitleContainer>
           </div>
           <Reordering list={list} onListChange={onListChange} itemText={itemText} />
         </>
@@ -143,9 +145,9 @@ function Editor(props: Props): React.ReactElement<Props> {
         </>
       )}
       {/* For adding new exercises at skill view */}
-      <ExerciseEditorList list={item} onListChange={onItemChange} className='exercise-editor'/>
+      <ExerciseEditorList list={item} onListChange={onItemChange} className='exercise-editor' />
       {/* For adding new skills at module view */}
-      <ExerciseEditorList list={list} onListChange={onListChange} className='exercise-editor'/>
+      <ExerciseEditorList list={list} onListChange={onListChange} className='exercise-editor' />
       {!isAddingItem && (<div className='ui--row'>
         <Button
           icon='add'
@@ -156,5 +158,13 @@ function Editor(props: Props): React.ReactElement<Props> {
     </>
   );
 }
-
+const TitleContainer = styled.div`
+  width: 100%;
+  .ui--Labelled {
+    padding-left: 0px !important;
+  }
+  label {
+    left: 20px !important;
+  }
+`;
 export default React.memo(Editor);
