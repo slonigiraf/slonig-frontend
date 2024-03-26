@@ -29,7 +29,7 @@ const TextAreaWithPreview: React.FC<Props> = ({ children, className, isError, is
     <StyledDiv>
       {
         preview ?
-          <FullWidthContainer><KatexSpan content={content} /></FullWidthContainer> :
+          <FullWidthContainer><KatexSpan content={content} /><br/></FullWidthContainer> :
           <TextArea children={children} className={className} isError={isError} isReadOnly={isReadOnly} label={label} onChange={_onChange} seed={seed} withLabel={withLabel} />
       }
       <Toggle
