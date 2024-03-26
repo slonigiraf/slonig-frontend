@@ -29,7 +29,7 @@ const TextAreaWithPreview: React.FC<Props> = ({ children, className, isError, is
     <StyledDiv>
       {
         preview ?
-          <FullWidthContainer><KatexSpan content={content} /><br/></FullWidthContainer> :
+          <FullWidthContainer><KatexSpan content={content} /></FullWidthContainer> :
           <TextArea children={children} className={className} isError={isError} isReadOnly={isReadOnly} label={label} onChange={_onChange} seed={seed} withLabel={withLabel} />
       }
       <Toggle
@@ -49,6 +49,9 @@ export const StyledDiv = styled.div`
   }
   label {
     left: 20px !important;
+  }
+  .ui--Toggle {
+    padding-top: 5px;
   }
 `;
 export default React.memo(TextAreaWithPreview);
