@@ -5,6 +5,7 @@ import { useApi } from '@polkadot/react-hooks';
 import { KatexSpan, getCIDFromBytes, getIPFSDataFromContentID, parseJson } from '@slonigiraf/app-slonig-components';
 import { useIpfsContext } from '@slonigiraf/app-slonig-components';
 import { Spinner, styled } from '@polkadot/react-components';
+import DiplomaCheck from './DiplomaCheck.js';
 
 interface Props {
   className?: string;
@@ -19,6 +20,7 @@ function ItemLabel({ className = '', id, isText = false, defaultValue = '...' }:
   const [cidString, setCidString] = useState<string>("");
   const [text, setText] = useState<string>(id);
   const [isFetched, setIsFetched] = useState(false);
+  const [isSkillItem, setIsSkillItem] = useState(false);
 
   useEffect(() => {
     fetchLaw(id);
@@ -35,6 +37,7 @@ function ItemLabel({ className = '', id, isText = false, defaultValue = '...' }:
         const json = parseJson(jsonText);
         setText(json.h);
         setIsFetched(true);
+        setIsSkillItem(json.t === 3);
       } catch (error) {
         console.error(error.message);
       }
@@ -61,7 +64,7 @@ function ItemLabel({ className = '', id, isText = false, defaultValue = '...' }:
     <KatexSpan content={textToDisplay} />
     :
     isFetched ?
-      <StyledA href={`/#/knowledge?id=${id}`}><KatexSpan content={textToDisplay} /></StyledA>
+      <StyledA href={`/#/knowledge?id=${id}`}>{isSkillItem && <DiplomaCheck cid={cidString}/>}<KatexSpan content={textToDisplay} /></StyledA>
       :
       <StyledSpinner><Spinner noLabel /></StyledSpinner>;
 }

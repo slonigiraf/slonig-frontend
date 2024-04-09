@@ -14,6 +14,7 @@ import BN from 'bn.js';
 import { BN_ONE } from '@polkadot/util';
 import { useApi } from '@polkadot/react-hooks';
 import { useBlockTime } from '@polkadot/react-hooks';
+import DiplomaCheck from './DiplomaCheck.js';
 
 interface Props {
   className?: string;
@@ -26,8 +27,6 @@ const getBlockAllowed = (currentBlock: BN, blockTimeMs: number, secondsToAdd: nu
   const blockAllowed = currentBlock.add(blocksToAdd);
   return blockAllowed;
 }
-
-
 
 function SkillQR({ className = '', cid }: Props): React.ReactElement<Props> {
   // Using key
@@ -47,7 +46,7 @@ function SkillQR({ className = '', cid }: Props): React.ReactElement<Props> {
   const tutors = useLiveQuery(() => db.pseudonyms.toArray(), []);
   const [diplomaToReexamine, setDiplomaToReexamine] = useState<Letter | null>(null);
   const [studentSignatureOverDiplomaToReexamine, setStudentSignatureOverDiplomaToReexamine] = useState<string>("");
-  const [studentHasValidDiplomaForThisSkill, setStudentHasValidDiplomaForThisSkill] = useState<boolean>(false);
+  const [validDiplomas, setValidDiplomas] = useState<Letter[]>();
   const [loading, setLoading] = useState<boolean>(true);
 
 
@@ -132,17 +131,6 @@ function SkillQR({ className = '', cid }: Props): React.ReactElement<Props> {
   }, [studentIdentity]);
 
   useEffect(() => {
-    const fetchDiplomaForTheSkill = async () => {
-      const allDiplomas = await getValidLetters(studentIdentity, cid);
-      if (allDiplomas.length > 0) {
-        setStudentHasValidDiplomaForThisSkill(true);
-      }
-      setLoading(false);
-    };
-    fetchDiplomaForTheSkill();
-  }, [studentIdentity, cid]);
-
-  useEffect(() => {
     const showQR = async () => {
       _onSign();
     };
@@ -183,37 +171,45 @@ function SkillQR({ className = '', cid }: Props): React.ReactElement<Props> {
   const qrCodeText = generateQRData();
   const url = `${getBaseUrl()}/#/${urlDetails}`;
 
+  const diplomaCheck = <div><DiplomaCheck cid={cid} caption={t('I have a diploma')} setValidDiplomas={setValidDiplomas} onLoad={() => setLoading(false)} /></div>;
+  const hasValidDiploma = validDiplomas && validDiplomas.length > 0;
+
   return (<>
-    {isLoggedIn && loading ? <Spinner /> : studentHasValidDiplomaForThisSkill ? 
-    <div><Icon icon={'check'}/>&nbsp;{t('I have a diploma')}</div> 
-    : <>
-      {tutor ?
-        <StyledDiv>
-          <CenterQRContainer>
-          <Dropdown
-            className={`dropdown ${className}`}
-            label={t('Show the QR to your tutor')}
-            value={tutor}
-            onChange={handleTutorSelect}
-            options={tutorOptions || []}
-          />
-          <QRWithShareAndCopy
-            dataQR={qrCodeText}
-            titleShare={t('QR code')}
-            textShare={t('Press the link to start tutoring')}
-            urlShare={url}
-            dataCopy={url}
-          />
-          </CenterQRContainer>
-        </StyledDiv>
-        :
-        <StyledDiv>
-          <FlexRow>
-            <h3>{t('Scan your tutor\'s QR code for help and a diploma.')}</h3>
-          </FlexRow>
-        </StyledDiv>
-      }
-    </>}
+    {isLoggedIn
+      && <>
+        {diplomaCheck}
+        {loading ? <Spinner /> :
+          !hasValidDiploma && <>
+            {tutor ?
+              <StyledDiv>
+                <CenterQRContainer>
+                  <Dropdown
+                    className={`dropdown ${className}`}
+                    label={t('Show the QR to your tutor')}
+                    value={tutor}
+                    onChange={handleTutorSelect}
+                    options={tutorOptions || []}
+                  />
+                  <QRWithShareAndCopy
+                    dataQR={qrCodeText}
+                    titleShare={t('QR code')}
+                    textShare={t('Press the link to start tutoring')}
+                    urlShare={url}
+                    dataCopy={url}
+                  />
+                </CenterQRContainer>
+              </StyledDiv>
+              :
+              <StyledDiv>
+                <FlexRow>
+                  <h3>{t('Scan your tutor\'s QR code for help and a diploma.')}</h3>
+                </FlexRow>
+              </StyledDiv>
+            }
+          </>
+        }
+      </>
+    }
     <LoginButton label={t('Log in')} />
   </>
   );
