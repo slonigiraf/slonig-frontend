@@ -64,7 +64,7 @@ function ItemLabel({ className = '', id, isText = false, defaultValue = '...' }:
     <KatexSpan content={textToDisplay} />
     :
     isFetched ?
-      <StyledA href={`/#/knowledge?id=${id}`}>{isSkillItem && <DiplomaCheck cid={cidString}/>}<KatexSpan content={textToDisplay} /></StyledA>
+      <StyledA href={`/#/knowledge?id=${id}`}>{isSkillItem && <DiplomaCheck id={id} cid={cidString}/>}<KatexSpan content={textToDisplay} /></StyledA>
       :
       <StyledSpinner><Spinner noLabel /></StyledSpinner>;
 }

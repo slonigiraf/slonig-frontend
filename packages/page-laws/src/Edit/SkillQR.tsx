@@ -18,6 +18,7 @@ import DiplomaCheck from './DiplomaCheck.js';
 
 interface Props {
   className?: string;
+  id: string;
   cid: string;
 }
 
@@ -28,14 +29,14 @@ const getBlockAllowed = (currentBlock: BN, blockTimeMs: number, secondsToAdd: nu
   return blockAllowed;
 }
 
-function SkillQR({ className = '', cid }: Props): React.ReactElement<Props> {
+function SkillQR({ className = '', id, cid }: Props): React.ReactElement<Props> {
   // Using key
   const { api, isApiReady } = useApi();
   // Last block number
   const [millisecondsPerBlock,] = useBlockTime(BN_ONE, api);
   const [blockAllowed, setBlockAllowed] = useState<BN>(new BN(1));
   // Key management
-  const [diplomaPublicKeyHex, setDiplomaPublicKeyHex] = useState<>("");
+  const [diplomaPublicKeyHex, setDiplomaPublicKeyHex] = useState("");
   const { currentPair, isLoggedIn } = useLoginContext();
   // Rest params
   const { t } = useTranslation();
@@ -171,7 +172,7 @@ function SkillQR({ className = '', cid }: Props): React.ReactElement<Props> {
   const qrCodeText = generateQRData();
   const url = `${getBaseUrl()}/#/${urlDetails}`;
 
-  const diplomaCheck = <div><DiplomaCheck cid={cid} caption={t('I have a diploma')} setValidDiplomas={setValidDiplomas} onLoad={() => setLoading(false)} /></div>;
+  const diplomaCheck = <div><DiplomaCheck id={id} cid={cid} caption={t('I have a diploma')} setValidDiplomas={setValidDiplomas} onLoad={() => setLoading(false)} /></div>;
   const hasValidDiploma = validDiplomas && validDiplomas.length > 0;
 
   return (<>

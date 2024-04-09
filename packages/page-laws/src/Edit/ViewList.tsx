@@ -69,7 +69,7 @@ function ViewList({ className = '', id, currentPair }: Props): React.ReactElemen
         {
           list.t !== null && list.t === 3 &&
           <>
-            <SkillQR cid={cidString} />
+            <SkillQR id={id} cid={cidString} />
             <LearnWithAI skillName={list.h} exercises={list.q} />
             <h3>{t('Example exercises to train the skill')}</h3>
           </>
