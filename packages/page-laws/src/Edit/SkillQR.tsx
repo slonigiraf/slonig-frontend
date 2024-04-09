@@ -1,8 +1,8 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useTranslation } from '../translate.js';
 import { CenterQRContainer, LoginButton, QRAction, QRWithShareAndCopy, getBaseUrl, nameFromKeyringPair, qrWidthPx, useLoginContext } from '@slonigiraf/app-slonig-components';
-import { getSetting, storeSetting } from '@slonigiraf/app-recommendations';
-import { Dropdown } from '@polkadot/react-components';
+import { getSetting, getValidLetters, storeSetting } from '@slonigiraf/app-recommendations';
+import { Dropdown, Icon, Spinner } from '@polkadot/react-components';
 import { useLiveQuery } from "dexie-react-hooks";
 import { db, Letter } from '@slonigiraf/app-recommendations';
 import { keyForCid } from '@slonigiraf/app-slonig-components';
@@ -47,6 +47,8 @@ function SkillQR({ className = '', cid }: Props): React.ReactElement<Props> {
   const tutors = useLiveQuery(() => db.pseudonyms.toArray(), []);
   const [diplomaToReexamine, setDiplomaToReexamine] = useState<Letter | null>(null);
   const [studentSignatureOverDiplomaToReexamine, setStudentSignatureOverDiplomaToReexamine] = useState<string>("");
+  const [studentHasValidDiplomaForThisSkill, setStudentHasValidDiplomaForThisSkill] = useState<boolean>(false);
+  const [loading, setLoading] = useState<boolean>(true);
 
 
   // Fetch block number (once)
@@ -130,6 +132,17 @@ function SkillQR({ className = '', cid }: Props): React.ReactElement<Props> {
   }, [studentIdentity]);
 
   useEffect(() => {
+    const fetchDiplomaForTheSkill = async () => {
+      const allDiplomas = await getValidLetters(studentIdentity, cid);
+      if (allDiplomas.length > 0) {
+        setStudentHasValidDiplomaForThisSkill(true);
+      }
+      setLoading(false);
+    };
+    fetchDiplomaForTheSkill();
+  }, [studentIdentity, cid]);
+
+  useEffect(() => {
     const showQR = async () => {
       _onSign();
     };
@@ -171,7 +184,9 @@ function SkillQR({ className = '', cid }: Props): React.ReactElement<Props> {
   const url = `${getBaseUrl()}/#/${urlDetails}`;
 
   return (<>
-    {isLoggedIn && <>
+    {isLoggedIn && loading ? <Spinner /> : studentHasValidDiplomaForThisSkill ? 
+    <div><Icon icon={'check'}/>&nbsp;{t('I have a diploma')}</div> 
+    : <>
       {tutor ?
         <StyledDiv>
           <CenterQRContainer>

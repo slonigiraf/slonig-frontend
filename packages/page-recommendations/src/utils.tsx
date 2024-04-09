@@ -64,6 +64,13 @@ export const storeLetter = async (letter: Letter) => {
     }
 }
 
+export const getValidLetters = async (workerId: string, cid: string): Promise<Letter[]> => {
+    return await db.letters
+      .where('workerId').equals(workerId)
+      .filter((letter: Letter) => letter.cid === cid)
+      .toArray();
+}
+
 export const storeInsurance = async (insurance: Insurance) => {
     const sameInsurance = await db.insurances.get({ signOverReceipt: insurance.signOverReceipt });
     if (sameInsurance === undefined) {
