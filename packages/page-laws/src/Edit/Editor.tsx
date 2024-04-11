@@ -6,6 +6,7 @@ import { parseJson, useInfo } from '@slonigiraf/app-slonig-components';
 import Reordering from './Reordering.js';
 import type { LawType } from '../types.js';
 import ExerciseEditorList from './ExerciseEditorList.js';
+import { useApi } from '@polkadot/react-hooks';
 
 interface Props {
   className?: string;
@@ -24,6 +25,7 @@ function Editor(props: Props): React.ReactElement<Props> {
   const { list, item, isAddingLink, isAddingItem, onListChange, onItemChange, onItemIdHexChange, onIsAddingItemChange, onIsAddingLinkChange } = props;
   const { t } = useTranslation();
   const { showInfo } = useInfo();
+  const { api } = useApi();
 
   const parentToItemDefaultType = {
     0: 0,
@@ -45,21 +47,31 @@ function Editor(props: Props): React.ReactElement<Props> {
     const namePattern = /[?&]id=([^&#]*)/;
     const match = url.match(namePattern);
     const idFromUrl = match ? match[1] : null;
-    if (idFromUrl && idFromUrl.length == 66) {
-      const existingIds = list.e || [];
-      if (!existingIds.includes(idFromUrl)) {
-        const updatedList = {
-          ...list,
-          e: [...existingIds, idFromUrl]
-        };
-        showInfo(t('Added'));
-        onListChange(updatedList);
+    
+    const checkAndUpdateList = async () => {
+      if (idFromUrl && idFromUrl.length == 66) {
+        const existingIds = list.e || [];
+        if (!existingIds.includes(idFromUrl)) {
+          const law = await api.query.laws.laws(idFromUrl);
+          if (law.isSome) {
+            const updatedList = {
+              ...list,
+              e: [...existingIds, idFromUrl]
+            };
+            showInfo(t('Added'));
+            onListChange(updatedList);
+          } else {
+            showInfo(t('The link misses a known ID'), 'error');
+          }
+        } else {
+          showInfo(t('Duplicate'), 'error');
+        }
       } else {
-        showInfo(t('Duplicate'), 'error');
+        showInfo(t('The link misses a known ID'), 'error');
       }
-    } else {
-      showInfo(t('The link misses a known ID'), 'error');
-    }
+    };
+  
+    checkAndUpdateList();
   }, [list, onListChange]);
 
   const selectLawType = useCallback((newLawType: LawType) => {
