@@ -44,17 +44,12 @@ function Editor(props: Props): React.ReactElement<Props> {
     const namePattern = /[?&]id=([^&#]*)/;
     const match = url.match(namePattern);
     const idFromUrl = match ? match[1] : null;
-  
-    // Proceed only if idFromUrl is not null
     if (idFromUrl) {
-      // Initialize list.e if it does not exist
       const existingIds = list.e || [];
-      
-      // Check if idFromUrl already exists in list.e
       if (!existingIds.includes(idFromUrl)) {
         const updatedList = {
           ...list,
-          e: [...existingIds, idFromUrl] // Add idFromUrl only if it's not already included
+          e: [...existingIds, idFromUrl]
         };
         onListChange(updatedList);
       }
