@@ -445,5 +445,8 @@
   "I have a diploma": "У меня есть диплом",
   "Add new": "Добавить новое",
   "Add existing": "Добавить существующее",
-  "link to the item": "ссылка на пункт"
+  "link to the item": "ссылка на пункт",
+  "The link misses a known ID": "В ссылке нет известного ID",
+  "Duplicate": "Дубль",
+  "Added": "Добавлено"
 }

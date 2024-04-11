@@ -2,7 +2,7 @@ import React, { useCallback } from 'react';
 import { Button, Dropdown, Input, styled } from '@polkadot/react-components';
 import { useTranslation } from '../translate.js';
 import { randomIdHex } from '../util.js';
-import { parseJson } from '@slonigiraf/app-slonig-components';
+import { parseJson, useInfo } from '@slonigiraf/app-slonig-components';
 import Reordering from './Reordering.js';
 import type { LawType } from '../types.js';
 import ExerciseEditorList from './ExerciseEditorList.js';
@@ -23,6 +23,7 @@ interface Props {
 function Editor(props: Props): React.ReactElement<Props> {
   const { list, item, isAddingLink, isAddingItem, onListChange, onItemChange, onItemIdHexChange, onIsAddingItemChange, onIsAddingLinkChange } = props;
   const { t } = useTranslation();
+  const { showInfo } = useInfo();
 
   const parentToItemDefaultType = {
     0: 0,
@@ -51,8 +52,13 @@ function Editor(props: Props): React.ReactElement<Props> {
           ...list,
           e: [...existingIds, idFromUrl]
         };
+        showInfo(t('Added'));
         onListChange(updatedList);
+      } else {
+        showInfo(t('Duplicate'), 'error');
       }
+    } else {
+      showInfo(t('The link misses a known ID'), 'error');
     }
   }, [list, onListChange]);
 
