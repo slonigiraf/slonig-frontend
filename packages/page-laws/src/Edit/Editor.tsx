@@ -45,7 +45,7 @@ function Editor(props: Props): React.ReactElement<Props> {
     const namePattern = /[?&]id=([^&#]*)/;
     const match = url.match(namePattern);
     const idFromUrl = match ? match[1] : null;
-    if (idFromUrl) {
+    if (idFromUrl && idFromUrl.length == 66) {
       const existingIds = list.e || [];
       if (!existingIds.includes(idFromUrl)) {
         const updatedList = {
