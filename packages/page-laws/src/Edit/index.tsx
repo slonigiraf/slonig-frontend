@@ -51,6 +51,7 @@ function Edit({ className = '' }: Props): React.ReactElement<Props> {
   const [amountItem, setAmountItem] = useState<BN | undefined>(new BN(loadFromSessionStorage(sessionPrefix, 'amountItem') || BN_ZERO));
   const [previousAmount, setPreviousAmount] = useState<BN>(new BN(loadFromSessionStorage(sessionPrefix, 'previousAmount') || BN_ZERO));
   const [isEditView, setIsEditView] = useState<boolean>(loadFromSessionStorage(sessionPrefix, 'isEditView') || false);
+  const [isAddingLink, setIsAddingLink] = useState<boolean>(loadFromSessionStorage(sessionPrefix, 'isAddingLink') || false);
   const [isAddingItem, setIsAddingElement] = useState<boolean>(loadFromSessionStorage(sessionPrefix, 'isAddingItem') || false);
   const [itemIdHex, setItemIdHex] = useState<string>(loadFromSessionStorage(sessionPrefix, 'itemIdHex') || "");
   
@@ -72,6 +73,7 @@ function Edit({ className = '' }: Props): React.ReactElement<Props> {
     saveToSessionStorage(sessionPrefix, 'amountItem', amountItem?.toString());
     saveToSessionStorage(sessionPrefix, 'previousAmount', previousAmount.toString());
     saveToSessionStorage(sessionPrefix, 'isEditView', isEditView);
+    saveToSessionStorage(sessionPrefix, 'isAddingLink', isAddingLink);
     saveToSessionStorage(sessionPrefix, 'isAddingItem', isAddingItem);
     saveToSessionStorage(sessionPrefix, 'itemIdHex', itemIdHex);
     //
@@ -80,7 +82,7 @@ function Edit({ className = '' }: Props): React.ReactElement<Props> {
     saveToSessionStorage(sessionPrefix, 'originalLawHexData', originalLawHexData);
     saveToSessionStorage(sessionPrefix, 'originalAmountList', originalAmountList?.toString());
 
-  }, [list, item, cidString, lawHexData, amountList, amountItem, previousAmount, isEditView, isAddingItem, itemIdHex, 
+  }, [list, item, cidString, lawHexData, amountList, amountItem, previousAmount, isEditView, isAddingLink, isAddingItem, itemIdHex, 
     originalList, originalCidString, originalLawHexData, originalAmountList]);
 
   useEffect(() => {
@@ -130,6 +132,7 @@ function Edit({ className = '' }: Props): React.ReactElement<Props> {
   const _onSuccess = (digestHex: string) => {
     _onClickChangeView();
     setIsAddingElement(false);
+    setIsAddingLink(false);
     setItem(null);
     setItemIdHex("");
     setLawHexData(digestHex);
@@ -185,6 +188,7 @@ function Edit({ className = '' }: Props): React.ReactElement<Props> {
   const _onCancel = (): void => {
     _onClickChangeView();
     setIsAddingElement(false);
+    setIsAddingLink(false);
     setItem(null);
     setItemIdHex("");
     setAmountItem(BN_ZERO);
@@ -245,7 +249,7 @@ function Edit({ className = '' }: Props): React.ReactElement<Props> {
 
   const editor = (list == null) ? ""
     :
-    <Editor list={list} item={item} isAddingItem={isAddingItem} onListChange={setList} onItemChange={setItem} onItemIdHexChange={setItemIdHex} onIsAddingItemChange={setIsAddingElement} />;
+    <Editor list={list} item={item} isAddingLink={isAddingLink} isAddingItem={isAddingItem} onListChange={setList} onItemChange={setItem} onItemIdHexChange={setItemIdHex} onIsAddingItemChange={setIsAddingElement} onIsAddingLinkChange={setIsAddingLink}/>;
 
   const exampleKatex = '<kx>\\int</kx>';
   const editView = (

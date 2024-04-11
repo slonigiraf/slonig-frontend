@@ -11,15 +11,17 @@ interface Props {
   className?: string;
   list: any;
   item: any;
+  isAddingLink: boolean;
   isAddingItem: boolean;
   onListChange: (updatedList: any) => void;
   onItemChange: (updatedItem: any) => void;
   onItemIdHexChange: (updatedItemIdHex: any) => void;
   onIsAddingItemChange: (state: boolean) => void;
+  onIsAddingLinkChange: (state: boolean) => void;
 }
 
 function Editor(props: Props): React.ReactElement<Props> {
-  const { list, item, isAddingItem, onListChange, onItemChange, onItemIdHexChange, onIsAddingItemChange } = props;
+  const { list, item, isAddingLink, isAddingItem, onListChange, onItemChange, onItemIdHexChange, onIsAddingItemChange, onIsAddingLinkChange } = props;
   const { t } = useTranslation();
 
   const parentToItemDefaultType = {
@@ -37,6 +39,27 @@ function Editor(props: Props): React.ReactElement<Props> {
       t: item?.t || getDefaultItemLawType()
     });
   }, [item, onItemChange]);
+
+  const editItemLink = useCallback((url: string) => {
+    const namePattern = /[?&]id=([^&#]*)/;
+    const match = url.match(namePattern);
+    const idFromUrl = match ? match[1] : null;
+  
+    // Proceed only if idFromUrl is not null
+    if (idFromUrl) {
+      // Initialize list.e if it does not exist
+      const existingIds = list.e || [];
+      
+      // Check if idFromUrl already exists in list.e
+      if (!existingIds.includes(idFromUrl)) {
+        const updatedList = {
+          ...list,
+          e: [...existingIds, idFromUrl] // Add idFromUrl only if it's not already included
+        };
+        onListChange(updatedList);
+      }
+    }
+  }, [list, onListChange]);
 
   const selectLawType = useCallback((newLawType: LawType) => {
     if (!item || newLawType !== item.t) {
@@ -63,7 +86,7 @@ function Editor(props: Props): React.ReactElement<Props> {
   const lawTypeOpt = baseOptions[list?.t] || [];
 
   const addItem = useCallback(() => {
-    if (isAddingItem) {
+    if (isAddingItem || isAddingLink) {
       return;
     }
     if (list?.t === 3) { // Adding an exercise
@@ -101,6 +124,13 @@ function Editor(props: Props): React.ReactElement<Props> {
     }
   }, [list, onItemChange, onIsAddingItemChange, lawTypeOpt]);
 
+  const linkItem = useCallback(() => {
+    if (isAddingItem || isAddingLink) {
+      return;
+    }
+    onIsAddingLinkChange(true);
+  }, [onIsAddingLinkChange]);
+
   const itemType = (item !== null) ? item.t : getDefaultItemLawType();
 
   const itemText = (item && item.h) ? item.h : '...';
@@ -121,6 +151,19 @@ function Editor(props: Props): React.ReactElement<Props> {
             </TitleContainer>
           </div>
           <Reordering list={list} onListChange={onListChange} itemText={itemText} />
+        </>
+      )}
+      {isAddingLink && (
+        <>
+          <div className='ui--row'>
+            <Input
+              autoFocus
+              className='full'
+              label={t('link to the item')}
+              onChange={editItemLink}
+              value={item?.i || ""}
+            />
+          </div>
         </>
       )}
       {isAddingItem && (
@@ -148,11 +191,16 @@ function Editor(props: Props): React.ReactElement<Props> {
       <ExerciseEditorList list={item} onListChange={onItemChange} className='exercise-editor' />
       {/* For adding new skills at module view */}
       <ExerciseEditorList list={list} onListChange={onListChange} className='exercise-editor' />
-      {!isAddingItem && (<div className='ui--row'>
+      {!isAddingItem && !isAddingLink && (<div className='ui--row'>
         <Button
           icon='add'
-          label={t('Add item')}
+          label={t('Add new')}
           onClick={addItem}
+        />
+        <Button
+          icon='link'
+          label={t('Add existing')}
+          onClick={linkItem}
         />
       </div>)}
     </>
