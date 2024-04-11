@@ -7,6 +7,7 @@ import Reordering from './Reordering.js';
 import type { LawType } from '../types.js';
 import ExerciseEditorList from './ExerciseEditorList.js';
 import { useApi } from '@polkadot/react-hooks';
+import { useIpfsContext, getCIDFromBytes, getIPFSDataFromContentID, parseJson } from '@slonigiraf/app-slonig-components';
 
 interface Props {
   className?: string;
@@ -26,6 +27,7 @@ function Editor(props: Props): React.ReactElement<Props> {
   const { t } = useTranslation();
   const { showInfo } = useInfo();
   const { api } = useApi();
+  const { ipfs, isIpfsReady, ipfsInitError } = useIpfsContext();
 
   const parentToItemDefaultType = {
     0: 0,
@@ -43,36 +45,7 @@ function Editor(props: Props): React.ReactElement<Props> {
     });
   }, [item, onItemChange]);
 
-  const editItemLink = useCallback((url: string) => {
-    const namePattern = /[?&]id=([^&#]*)/;
-    const match = url.match(namePattern);
-    const idFromUrl = match ? match[1] : null;
-    
-    const checkAndUpdateList = async () => {
-      if (idFromUrl && idFromUrl.length == 66) {
-        const existingIds = list.e || [];
-        if (!existingIds.includes(idFromUrl)) {
-          const law = await api.query.laws.laws(idFromUrl);
-          if (law.isSome) {
-            const updatedList = {
-              ...list,
-              e: [...existingIds, idFromUrl]
-            };
-            showInfo(t('Added'));
-            onListChange(updatedList);
-          } else {
-            showInfo(t('The link misses a known ID'), 'error');
-          }
-        } else {
-          showInfo(t('Duplicate'), 'error');
-        }
-      } else {
-        showInfo(t('The link misses a known ID'), 'error');
-      }
-    };
-  
-    checkAndUpdateList();
-  }, [list, onListChange]);
+
 
   const selectLawType = useCallback((newLawType: LawType) => {
     if (!item || newLawType !== item.t) {
@@ -97,6 +70,60 @@ function Editor(props: Props): React.ReactElement<Props> {
   };
 
   const lawTypeOpt = baseOptions[list?.t] || [];
+
+  const editItemLink = useCallback((url: string) => {
+    const namePattern = /[?&]id=([^&#]*)/;
+    const match = url.match(namePattern);
+    const idFromUrl = match ? match[1] : null;
+
+    const checkAndUpdateList = async () => {
+      if (idFromUrl && idFromUrl.length == 66) {
+        const existingIds = list.e || [];
+        if (!existingIds.includes(idFromUrl)) {
+          const law = await api.query.laws.laws(idFromUrl);
+          if (law.isSome) {
+            const tuple = law.unwrap();
+            const byteArray = tuple[0]; // This should give you the [u8; 32]
+            const bigIntValue = tuple[1]; // This should give you the u128
+            const cid = await getCIDFromBytes(byteArray);
+
+            if (isIpfsReady && cid.length > 2) {
+              try {
+                const jsonText = await getIPFSDataFromContentID(ipfs, cid);
+                const json = parseJson(jsonText);
+                // Transform lawTypeOpt to an array of acceptable values
+                const acceptableTypes = lawTypeOpt.map((option: { value: any; }) => option.value);
+                // Check if json.t is an acceptable type
+                const isOfRightType = acceptableTypes.includes(json.t);
+                if (isOfRightType) {
+                  const updatedList = {
+                    ...list,
+                    e: [...existingIds, idFromUrl]
+                  };
+                  showInfo(t('Added'));
+                  onListChange(updatedList);
+                } else {
+                  showInfo(t('Cannot be its child'), 'error');
+                }
+              } catch (error) {
+                showInfo(t('Wrong JSON format'), 'error');
+              }
+            } else {
+              showInfo(t('Problem with getting IPFS data'), 'error');
+            }
+          } else {
+            showInfo(t('The link misses a known ID'), 'error');
+          }
+        } else {
+          showInfo(t('Duplicate'), 'error');
+        }
+      } else {
+        showInfo(t('The link misses a known ID'), 'error');
+      }
+    };
+
+    checkAndUpdateList();
+  }, [list, onListChange]);
 
   const addItem = useCallback(() => {
     if (isAddingItem || isAddingLink) {
@@ -172,7 +199,7 @@ function Editor(props: Props): React.ReactElement<Props> {
             <Input
               autoFocus
               className='full'
-              label={t('link')+' (app.slonig.org/#/knowledge?id=...)'}
+              label={t('link') + ' (app.slonig.org/#/knowledge?id=...)'}
               onChange={editItemLink}
               value={item?.i || ""}
             />

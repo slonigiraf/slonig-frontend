@@ -448,5 +448,8 @@
   "link": "ссылка",
   "The link misses a known ID": "В ссылке нет известного ID",
   "Duplicate": "Дубль",
-  "Added": "Добавлено"
+  "Added": "Добавлено",
+  "Problem with getting IPFS data": "Проблема с получением данныз из IPFS",
+  "Wrong JSON format": "Неправильный формат JSON",
+  "Cannot be its child": "Не может быть его дочерним элементом"
 }
