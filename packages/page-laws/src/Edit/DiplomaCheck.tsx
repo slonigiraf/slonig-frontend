@@ -32,9 +32,11 @@ function DiplomaCheck({ className = '', id, cid, caption, setValidDiplomas, onLo
     fetchDiplomaForTheSkill();
   }, [studentIdentity, cid]);
 
+  const icon = studentHasValidDiplomaForThisSkill ? 'check' : 'lightbulb';
+
   return (
     <span>
-      {studentHasValidDiplomaForThisSkill ? <><Icon icon={'check'} />&nbsp;{caption}</> : null}
+      {<><Icon icon={icon} color='gray'/>&nbsp;{caption}</>}
     </span>
   );
 }

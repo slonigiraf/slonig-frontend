@@ -4,7 +4,7 @@ import React, { useEffect, useState } from 'react';
 import { useApi } from '@polkadot/react-hooks';
 import { KatexSpan, getCIDFromBytes, getIPFSDataFromContentID, parseJson } from '@slonigiraf/app-slonig-components';
 import { useIpfsContext } from '@slonigiraf/app-slonig-components';
-import { Spinner, styled } from '@polkadot/react-components';
+import { Icon, Label, Spinner, styled } from '@polkadot/react-components';
 import DiplomaCheck from './DiplomaCheck.js';
 
 interface Props {
@@ -21,6 +21,7 @@ function ItemLabel({ className = '', id, isText = false, defaultValue = '...' }:
   const [text, setText] = useState<string>(id);
   const [isFetched, setIsFetched] = useState(false);
   const [isSkillItem, setIsSkillItem] = useState(false);
+  const [type, setType] = useState(-1);
 
   useEffect(() => {
     fetchLaw(id);
@@ -38,6 +39,7 @@ function ItemLabel({ className = '', id, isText = false, defaultValue = '...' }:
         setText(json.h);
         setIsFetched(true);
         setIsSkillItem(json.t === 3);
+        setType(json.t);
       } catch (error) {
         console.error(error.message);
       }
@@ -60,11 +62,24 @@ function ItemLabel({ className = '', id, isText = false, defaultValue = '...' }:
 
   const textToDisplay = isFetched ? text : defaultValue;
 
+  const getIconName = () => {
+    switch(type) {
+      case 0: return 'list';
+      case 1: return 'graduation-cap';
+      case 2: return 'book-open';
+      default: return 'question';
+    }
+  };
+
+  const iconToDisplay = <Icon icon={getIconName()} color='gray'/>;
+
+  const icon = <span>{iconToDisplay}&nbsp;</span>;
+
   return isText ?
     <KatexSpan content={textToDisplay} />
     :
     isFetched ?
-      <StyledA href={`/#/knowledge?id=${id}`}>{isSkillItem && <DiplomaCheck id={id} cid={cidString}/>}<KatexSpan content={textToDisplay} /></StyledA>
+      <StyledA href={`/#/knowledge?id=${id}`}>{!isSkillItem && icon}{isSkillItem && <DiplomaCheck id={id} cid={cidString}/>}<KatexSpan content={textToDisplay} /></StyledA>
       :
       <StyledSpinner><Spinner noLabel /></StyledSpinner>;
 }
