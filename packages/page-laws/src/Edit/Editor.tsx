@@ -75,34 +75,34 @@ function Editor(props: Props): React.ReactElement<Props> {
     const namePattern = /[?&]id=([^&#]*)/;
     const match = url.match(namePattern);
     const idFromUrl = match ? match[1] : null;
-  
+
     const checkAndUpdateList = async () => {
       if (!idFromUrl || idFromUrl.length !== 66) {
         showInfo(t('The link misses a known ID'), 'error');
         return;
       }
-  
+
       const existingIds = list.e || [];
       if (existingIds.includes(idFromUrl)) {
         showInfo(t('Duplicate'), 'error');
         return;
       }
-  
+
       const law = await api.query.laws.laws(idFromUrl);
       if (!law.isSome) {
         showInfo(t('The link misses a known ID'), 'error');
         return;
       }
-  
+
       const tuple = law.unwrap();
       const byteArray = tuple[0];
       const cid = await getCIDFromBytes(byteArray);
-  
+
       if (!isIpfsReady || cid.length <= 2) {
         showInfo(t('Problem with getting IPFS data'), 'error');
         return;
       }
-  
+
       try {
         const jsonText = await getIPFSDataFromContentID(ipfs, cid);
         const json = parseJson(jsonText);
@@ -111,7 +111,7 @@ function Editor(props: Props): React.ReactElement<Props> {
           showInfo(t('Cannot be its child'), 'error');
           return;
         }
-  
+
         const updatedList = {
           ...list,
           e: [...existingIds, idFromUrl]
@@ -122,9 +122,9 @@ function Editor(props: Props): React.ReactElement<Props> {
         showInfo(t('Wrong JSON format'), 'error');
       }
     };
-  
+
     checkAndUpdateList();
-  }, [list, onListChange, api, ipfs, isIpfsReady, lawTypeOpt, showInfo, t]); 
+  }, [list, onListChange, api, ipfs, isIpfsReady, lawTypeOpt, showInfo, t]);
 
   const addItem = useCallback(() => {
     if (isAddingItem || isAddingLink) {
@@ -234,14 +234,14 @@ function Editor(props: Props): React.ReactElement<Props> {
       <ExerciseEditorList list={list} onListChange={onListChange} className='exercise-editor' />
       {!isAddingItem && !isAddingLink && (<div className='ui--row'>
         <Button
-          icon='add'
-          label={t('New')}
-          onClick={addItem}
-        />
-        <Button
           icon='link'
           label={t('Existing')}
           onClick={linkItem}
+        />
+        <Button
+          icon='add'
+          label={t('New')}
+          onClick={addItem}
         />
       </div>)}
     </>
