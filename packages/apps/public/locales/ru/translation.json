@@ -443,9 +443,9 @@
   "preview": "предпросмотр",
   "See more about KaTeX": "Подробнее о KaTeX",
   "I have a diploma": "У меня есть диплом",
-  "Add new": "Добавить новое",
-  "Add existing": "Добавить существующее",
-  "link to the item": "ссылка на пункт",
+  "New": "Новое",
+  "Existing": "Существующее",
+  "link": "ссылка",
   "The link misses a known ID": "В ссылке нет известного ID",
   "Duplicate": "Дубль",
   "Added": "Добавлено"

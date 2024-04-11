@@ -172,7 +172,7 @@ function Editor(props: Props): React.ReactElement<Props> {
             <Input
               autoFocus
               className='full'
-              label={t('link to the item')}
+              label={t('link')+' (app.slonig.org/#/knowledge?id=...)'}
               onChange={editItemLink}
               value={item?.i || ""}
             />
@@ -207,12 +207,12 @@ function Editor(props: Props): React.ReactElement<Props> {
       {!isAddingItem && !isAddingLink && (<div className='ui--row'>
         <Button
           icon='add'
-          label={t('Add new')}
+          label={t('New')}
           onClick={addItem}
         />
         <Button
           icon='link'
-          label={t('Add existing')}
+          label={t('Existing')}
           onClick={linkItem}
         />
       </div>)}
