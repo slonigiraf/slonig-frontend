@@ -36,7 +36,7 @@ function DiplomaCheck({ className = '', id, cid, caption, setValidDiplomas, onLo
 
   return (
     <span>
-      {<><Icon icon={icon} color='gray'/>&nbsp;{caption}</>}
+      {studentHasValidDiplomaForThisSkill && <><Icon icon={icon} color='gray'/>&nbsp;{caption}</>}
     </span>
   );
 }
