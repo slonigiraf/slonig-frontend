@@ -9,7 +9,7 @@ interface Props {
 const KatexSpan: React.FC<Props> = ({ content }) => {
   // Function to split the content into KaTeX and non-KaTeX parts
   const parseContent = (content: string): React.ReactNode[] => {
-    const regex = /<kx>(.*?)<\/kx>/g;
+    const regex = /<kx>([\s\S]*?)<\/kx>/g;
     let result: React.ReactNode[] = [];
     let lastIndex = 0;
 
