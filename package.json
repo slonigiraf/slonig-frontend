@@ -127,7 +127,9 @@
   "dependencies": {
     "katex": "^0.16.10",
     "moment": "^2.30.1",
+    "peerjs": "^1.5.4",
     "react-dates": "^21.8.0",
-    "react-katex": "^3.0.1"
+    "react-katex": "^3.0.1",
+    "wrtc": "^0.4.7"
   }
 }

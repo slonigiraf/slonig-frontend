@@ -12,6 +12,7 @@ import ButtonWithLabelBelow from './ButtonWithLabelBelow.js';
 import ScanQR from './ScanQR.js';
 import ResizableImage from './ResizableImage.js';
 import QRWithShareAndCopy from './QRWithShareAndCopy.js';
+import SenderComponent from './SenderComponent.js';
 import KatexSpan from './KatexSpan.js';
 import TextAreaWithPreview from './TextAreaWithPreview.js';
 import { styled } from '@polkadot/react-components';
@@ -19,7 +20,7 @@ import { styled } from '@polkadot/react-components';
 import { getQrWidth, saveToSessionStorage, loadFromSessionStorage, getKey, arrayBufferToBase64, base64ToArrayBuffer, decryptData, encryptData, keyForCid, nameFromKeyringPair, getBaseUrl, CODEC, getIPFSContentID, getIPFSContentIDAndPinIt, getIPFSDataFromContentID, digestFromCIDv1, getCIDFromBytes, storeEncryptedTextOnIPFS, retrieveDecryptedDataFromIPFS, parseJson, qrPadding } from './utils.js';
 import { useEffect, useState } from 'react';
 import { getSetting } from '@slonigiraf/app-recommendations';
-export { TextAreaWithPreview, KatexSpan, ResizableImage, LoginButton, ShareButton, ClipboardCopyButton, QRWithShareAndCopy, QRScanner, ButtonWithLabelBelow, ScanQR, IpfsProvider, useIpfsContext, InfoProvider, useInfo };
+export { SenderComponent, TextAreaWithPreview, KatexSpan, ResizableImage, LoginButton, ShareButton, ClipboardCopyButton, QRWithShareAndCopy, QRScanner, ButtonWithLabelBelow, ScanQR, IpfsProvider, useIpfsContext, InfoProvider, useInfo };
 export { getQrWidth, saveToSessionStorage, loadFromSessionStorage, getIPFSContentIDAndPinIt, getKey, arrayBufferToBase64, base64ToArrayBuffer, decryptData, encryptData, LoginProvider, useLoginContext, keyForCid, nameFromKeyringPair, getBaseUrl, CODEC, getIPFSContentID, getIPFSDataFromContentID, digestFromCIDv1, getCIDFromBytes, storeEncryptedTextOnIPFS, retrieveDecryptedDataFromIPFS, parseJson }
 
 export const qrWidthPx = getQrWidth();
@@ -57,7 +58,8 @@ export const QRAction = {
   SELL_DIPLOMAS: 3,
   TUTOR_IDENTITY: 4,
   SKILL: 5,
-  TEACHER_IDENTITY: 6
+  TEACHER_IDENTITY: 6,
+  ADD_INSURANCES: 7
 };
 
 // Styled components

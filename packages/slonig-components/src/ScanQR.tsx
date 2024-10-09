@@ -5,7 +5,7 @@ import { useNavigate } from 'react-router-dom';
 import { useTranslation } from './translate.js';
 import { Modal, TransferModal } from '@polkadot/react-components';
 import { ButtonWithLabelBelow, useInfo, QRAction } from '@slonigiraf/app-slonig-components';
-import { createAndStoreLetter, storeInsurances, storePseudonym, storeSetting } from '@slonigiraf/app-recommendations';
+import { createAndStoreLetter, storeInsurances, storeInsurancesFromQR, storePseudonym, storeSetting } from '@slonigiraf/app-recommendations';
 import { encodeAddress } from '@polkadot/keyring';
 import { hexToU8a } from '@polkadot/util';
 
@@ -37,7 +37,7 @@ function ScanQR({ className = '', label, type }: Props): React.ReactElement<Prop
               break;
             case QRAction.TRANSFER:
               await storePseudonym(jsonData.p, jsonData.n);
-              const recipientAddress = jsonData.p? encodeAddress(hexToU8a(jsonData.p)) : "";
+              const recipientAddress = jsonData.p ? encodeAddress(hexToU8a(jsonData.p)) : "";
               setRecipientId(recipientAddress);
               toggleTransfer();
               break;
@@ -45,6 +45,9 @@ function ScanQR({ className = '', label, type }: Props): React.ReactElement<Prop
               const dataArray = jsonData.d.split(",");
               await createAndStoreLetter(dataArray);
               navigate('diplomas');
+              break;
+            case QRAction.ADD_INSURANCES:
+              await storeInsurancesFromQR(jsonData.c);
               break;
             case QRAction.SELL_DIPLOMAS:
               await storePseudonym(jsonData.p, jsonData.n);
@@ -54,9 +57,9 @@ function ScanQR({ className = '', label, type }: Props): React.ReactElement<Prop
             case QRAction.TUTOR_IDENTITY:
               await storePseudonym(jsonData.p, jsonData.n);
               await storeSetting("tutor", jsonData.p);
-              if(type){
+              if (type) {
                 navigate(`?tutor=${jsonData.p}`);
-              } else{
+              } else {
                 navigate(`knowledge?tutor=${jsonData.p}`);
               }
               break;
@@ -70,12 +73,12 @@ function ScanQR({ className = '', label, type }: Props): React.ReactElement<Prop
             case QRAction.TEACHER_IDENTITY:
               await storePseudonym(jsonData.p, jsonData.n);
               await storeSetting("teacher", jsonData.p);
-              if(type){
+              if (type) {
                 navigate(`?teacher=${jsonData.p}`);
-              } else{
+              } else {
                 navigate(`diplomas?teacher=${jsonData.p}`);
               }
-              break;  
+              break;
             default:
               console.warn("Unknown QR type:", jsonData.q);
           }
