@@ -10,6 +10,7 @@ interface SenderComponentProps {
 
 const SenderComponent: React.FC<SenderComponentProps> = ({ data, url, action }) => {
     const [qrCodeText, setQrCodeText] = useState<string>('');
+    const [urlWithConnectionInfo, setUrlWithConnectionInfo] = useState<string>(url);
     const [dataConnection, setDataConnection] = useState<any>(null);
 
     useEffect(() => {
@@ -28,6 +29,7 @@ const SenderComponent: React.FC<SenderComponentProps> = ({ data, url, action }) 
             };
             const qrCodeData = JSON.stringify(offerWithC);
             setQrCodeText(qrCodeData);
+            setUrlWithConnectionInfo(url + "&c=" + id);
         });
 
         // Wait for a connection from a remote peer
@@ -64,8 +66,8 @@ const SenderComponent: React.FC<SenderComponentProps> = ({ data, url, action }) 
                     dataQR={qrCodeText}
                     titleShare="QR Code"
                     textShare="Press the link to show diplomas"
-                    urlShare={url}
-                    dataCopy={url}
+                    urlShare={urlWithConnectionInfo}
+                    dataCopy={urlWithConnectionInfo}
                 />
             )}
         </div>

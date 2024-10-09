@@ -96,7 +96,7 @@ function LettersList({ className = '', worker, currentPair }: Props): React.Reac
   const selectDeselect = (selectedLetters.length === 0) ? selectionButton : deselectionButton;
 
   const sellInfo = (
-    <div style={{ display: 'flex', alignItems: 'center' }}>
+    <div>
       <h3 style={{ margin: 0, marginRight: '10px' }}>
         {t('Select diplomas and send them')}:
       </h3>
