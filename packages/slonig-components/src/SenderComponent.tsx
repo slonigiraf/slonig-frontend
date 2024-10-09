@@ -6,9 +6,11 @@ interface SenderComponentProps {
     data: string;    // The data to send over the WebRTC data channel
     route: string;     // A route that will be use to create a clickable link and used in the QR code share
     action: any;     // The QRAction passed as a prop (e.g., QRAction.ADD_LETTER)
+    textShare:  string;
+    isDisabled?: boolean;
 }
 
-const SenderComponent: React.FC<SenderComponentProps> = ({ data, route, action }) => {
+const SenderComponent: React.FC<SenderComponentProps> = ({ data, route, action, textShare, isDisabled = false }) => {
     const [qrCodeText, setQrCodeText] = useState<string>('');
     const [url, setUrl] = useState<string>('');
 
@@ -47,9 +49,10 @@ const SenderComponent: React.FC<SenderComponentProps> = ({ data, route, action }
                 <QRWithShareAndCopy
                     dataQR={qrCodeText}
                     titleShare="QR Code"
-                    textShare="Press the link to show diplomas"
+                    textShare={textShare}
                     urlShare={url}
                     dataCopy={url}
+                    isDisabled={isDisabled}
                 />
             )}
         </div>

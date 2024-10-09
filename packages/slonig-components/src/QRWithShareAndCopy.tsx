@@ -12,19 +12,24 @@ interface Props {
     textShare: string;
     urlShare: string;
     dataCopy: string;
+    isDisabled?: boolean;
 }
 
-function QRWithShareAndCopy({ className, dataQR, titleShare, textShare, urlShare, dataCopy }: Props): React.ReactElement<Props> {
+function QRWithShareAndCopy({ className, dataQR, titleShare, textShare, urlShare, dataCopy, isDisabled = false }: Props): React.ReactElement<Props> {
     return (
         <StyledDiv>
             <div>
-                <div className='qr--row'>
+                <div
+                    className='qr--row'
+                    style={{ display: isDisabled ? 'none' : 'block' }}
+                >
                     {/* This size of QR code was set to allow accounts page show Slon balance without scroll on Redmi 9C NFC */}
                     <QRCode value={dataQR} size={qrWidthPx} />
                 </div>
+
                 <div className='qr--row'>
-                    <ShareButton title={titleShare} text={textShare} url={urlShare} />
-                    <ClipboardCopyButton text={dataCopy} />
+                    <ShareButton title={titleShare} text={textShare} url={urlShare} isDisabled={isDisabled} />
+                    <ClipboardCopyButton text={dataCopy} isDisabled={isDisabled} />
                 </div>
             </div>
         </StyledDiv>

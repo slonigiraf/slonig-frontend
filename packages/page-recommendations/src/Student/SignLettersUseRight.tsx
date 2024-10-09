@@ -5,7 +5,7 @@ import { getDataToSignByWorker } from '@slonigiraf/helpers';
 import type { KeyringPair } from '@polkadot/keyring/types';
 import React, { useEffect, useState } from 'react';
 import { u8aToHex, hexToU8a, u8aWrapBytes } from '@polkadot/util';
-import { ShareButton, getBaseUrl, nameFromKeyringPair, ClipboardCopyButton, SenderComponent, QRAction } from '@slonigiraf/app-slonig-components';
+import { ShareButton, getBaseUrl, nameFromKeyringPair, ClipboardCopyButton, SenderComponent, QRAction, CenterQRContainer } from '@slonigiraf/app-slonig-components';
 import { useTranslation } from '../translate.js';
 import { storeLetterUsageRight } from '../utils.js';
 import { keyForCid } from '@slonigiraf/app-slonig-components';
@@ -70,12 +70,12 @@ function SignLetterUseRight({ className = '', letters, worker, employer, current
   const thereAreDiplomas = letters.length > 0;
 
   return (
-    <div className={`toolbox--Sign ${className}`}>
-      {/* <WebRTCTextTransfer /> */}
-      <SenderComponent data={data} route={route} action={QRAction.NAVIGATION}/>
-      {/* <ShareButton title={t('QR code')} text={t('Press the link to see diplomas of the student')} url={url} isDisabled={!thereAreDiplomas} />
-      <ClipboardCopyButton text={url} isDisabled={!thereAreDiplomas} /> */}
-    </div>
+    <CenterQRContainer>
+      <h3>
+        {t('Select diplomas and send them')}:
+      </h3>
+      <SenderComponent data={data} route={route} action={QRAction.NAVIGATION} textShare={t('Press the link to see diplomas of the student')} isDisabled={!thereAreDiplomas} />
+    </CenterQRContainer>
   );
 
 }
