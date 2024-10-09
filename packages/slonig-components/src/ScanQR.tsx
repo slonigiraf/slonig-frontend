@@ -46,9 +46,6 @@ function ScanQR({ className = '', label, type }: Props): React.ReactElement<Prop
               await createAndStoreLetter(dataArray);
               navigate('diplomas');
               break;
-            case QRAction.ADD_INSURANCES:
-              await storeInsurancesFromQR(jsonData.c);
-              break;
             case QRAction.SELL_DIPLOMAS:
               await storePseudonym(jsonData.p, jsonData.n);
               await storeInsurances(jsonData);

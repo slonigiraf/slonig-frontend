@@ -5,7 +5,7 @@ import { getBaseUrl, QRWithShareAndCopy } from '@slonigiraf/app-slonig-component
 interface SenderComponentProps {
     data: string;    // The data to send over the WebRTC data channel
     route: string;     // A route that will be use to create a clickable link and used in the QR code share
-    action: any;     // The QRAction passed as a prop (e.g., QRAction.ADD_INSURANCES)
+    action: any;     // The QRAction passed as a prop (e.g., QRAction.ADD_LETTER)
 }
 
 const SenderComponent: React.FC<SenderComponentProps> = ({ data, route, action }) => {
