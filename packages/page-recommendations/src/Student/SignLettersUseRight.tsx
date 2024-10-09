@@ -20,7 +20,7 @@ interface Props {
 }
 function SignLetterUseRight({ className = '', letters, worker, employer, currentPair }: Props): React.ReactElement<Props> {
   const { t } = useTranslation();
-  const [url, setUrl] = useState('');
+  const [route, setRoute] = useState('');
   const [data, setData] = useState('');
 
   const _onSign =
@@ -56,11 +56,9 @@ function SignLetterUseRight({ className = '', letters, worker, employer, current
       const signedLetters = await Promise.all(signedLettersPromises);
       const studentName = nameFromKeyringPair(currentPair);
 
-
-      const signedLettersToUrl = JSON.stringify(signedLetters);
-      const urlToSend: string = getBaseUrl() + `/#/diplomas/teacher?student=${worker}&name=${encodeURIComponent(studentName)}&t=${employer}`;
-      setUrl(urlToSend);
-      setData(signedLettersToUrl);
+      const jsonLetters = JSON.stringify(signedLetters);
+      setRoute(`diplomas/teacher?student=${worker}&name=${encodeURIComponent(studentName)}&t=${employer}`);
+      setData(jsonLetters);
     };
 
   useEffect(
@@ -74,9 +72,9 @@ function SignLetterUseRight({ className = '', letters, worker, employer, current
   return (
     <div className={`toolbox--Sign ${className}`}>
       {/* <WebRTCTextTransfer /> */}
-      <SenderComponent data={data} url={url} action={QRAction.ADD_INSURANCES}/>
-      <ShareButton title={t('QR code')} text={t('Press the link to see diplomas of the student')} url={url} isDisabled={!thereAreDiplomas} />
-      <ClipboardCopyButton text={url} isDisabled={!thereAreDiplomas} />
+      <SenderComponent data={data} route={route} action={QRAction.NAVIGATION}/>
+      {/* <ShareButton title={t('QR code')} text={t('Press the link to see diplomas of the student')} url={url} isDisabled={!thereAreDiplomas} />
+      <ClipboardCopyButton text={url} isDisabled={!thereAreDiplomas} /> */}
     </div>
   );
 

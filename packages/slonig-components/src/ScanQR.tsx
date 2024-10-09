@@ -32,7 +32,7 @@ function ScanQR({ className = '', label, type }: Props): React.ReactElement<Prop
         if (!type || (type === jsonData.q)) {
           switch (jsonData.q) {
             case QRAction.NAVIGATION:
-              await storePseudonym(jsonData.p, jsonData.n);
+              console.log(jsonData)
               navigate(jsonData.d);
               break;
             case QRAction.TRANSFER:

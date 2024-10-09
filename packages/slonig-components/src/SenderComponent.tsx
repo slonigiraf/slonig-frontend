@@ -1,16 +1,16 @@
 import React, { useEffect, useState } from 'react';
 import Peer from 'peerjs';
-import { QRWithShareAndCopy } from '@slonigiraf/app-slonig-components';
+import { getBaseUrl, QRWithShareAndCopy } from '@slonigiraf/app-slonig-components';
 
 interface SenderComponentProps {
     data: string;    // The data to send over the WebRTC data channel
-    url: string;     // A URL that will be displayed as a clickable link and used in the QR code share
+    route: string;     // A URL that will be displayed as a clickable link and used in the QR code share
     action: any;     // The QRAction passed as a prop (e.g., QRAction.ADD_INSURANCES)
 }
 
-const SenderComponent: React.FC<SenderComponentProps> = ({ data, url, action }) => {
+const SenderComponent: React.FC<SenderComponentProps> = ({ data, route, action }) => {
     const [qrCodeText, setQrCodeText] = useState<string>('');
-    const [urlWithConnectionInfo, setUrlWithConnectionInfo] = useState<string>(url);
+    const [url, setUrl] = useState<string>('');
     const [dataConnection, setDataConnection] = useState<any>(null);
 
     useEffect(() => {
@@ -21,15 +21,14 @@ const SenderComponent: React.FC<SenderComponentProps> = ({ data, url, action }) 
         peer.on('open', (id) => {
             // Log the PeerJS ID for debugging purposes
             console.log('PeerJS ID:', id);
-
-            // Prepare the QR code data containing the Peer ID as "c"
-            const offerWithC = {
-                c: id,    // The Peer ID is assigned to "c" in the QR code
-                q: action // Use the action parameter passed into the component
-            };
-            const qrCodeData = JSON.stringify(offerWithC);
+            const routeWithConnectionId = route + "&c=" + id;
+            setUrl(getBaseUrl() + '/#/' + routeWithConnectionId);
+            const qrCodeData = JSON.stringify({
+                d: routeWithConnectionId,
+                q: action
+            });
             setQrCodeText(qrCodeData);
-            setUrlWithConnectionInfo(url + "&c=" + id);
+            console.log("qrCodeData: "+qrCodeData)
         });
 
         // Wait for a connection from a remote peer
@@ -66,8 +65,8 @@ const SenderComponent: React.FC<SenderComponentProps> = ({ data, url, action }) 
                     dataQR={qrCodeText}
                     titleShare="QR Code"
                     textShare="Press the link to show diplomas"
-                    urlShare={urlWithConnectionInfo}
-                    dataCopy={urlWithConnectionInfo}
+                    urlShare={url}
+                    dataCopy={url}
                 />
             )}
         </div>
