@@ -15,7 +15,12 @@ const SenderComponent: React.FC<SenderComponentProps> = ({ data, route, action, 
     const [url, setUrl] = useState<string>('');
 
     useEffect(() => {
-        const peer = new Peer();
+        const peer = new Peer({
+            host: 'peerjs.slonig.org',
+            port: 443,
+            secure: true,
+            path: '/'
+        });
         peer.on('open', (id) => {
             const routeWithConnectionId = route + "&c=" + id;
             setUrl(getBaseUrl() + '/#/' + routeWithConnectionId);
@@ -27,10 +32,8 @@ const SenderComponent: React.FC<SenderComponentProps> = ({ data, route, action, 
         });
         peer.on('connection', (conn) => {
             conn.on('open', () => {
-                console.log('Data connection opened.');
                 if (conn.open) {
                     conn.send(data);
-                    console.log('Data sent:', data);
                 }
             });
             conn.on('close', () => {
@@ -59,4 +62,4 @@ const SenderComponent: React.FC<SenderComponentProps> = ({ data, route, action, 
     );
 };
 
-export default SenderComponent;
+export default React.memo(SenderComponent);
