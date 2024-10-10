@@ -22,7 +22,8 @@ const SenderComponent: React.FC<SenderComponentProps> = ({ data, route, action, 
             path: '/',
             config: {
                 'iceServers': [
-                    { url: 'stun:stun.l.google.com:19302' }
+                    { urls: 'stun:coturn.slonig.org:3478' },
+                    { urls: 'turn:coturn.slonig.org:3478', username: 'user', credential: 'S4xEgicLEBaJML9g88UUypHQy1YZ' }
                 ]
             }
         });
