@@ -19,10 +19,16 @@ const SenderComponent: React.FC<SenderComponentProps> = ({ data, route, action, 
             host: 'peerjs.slonig.org',
             port: 443,
             secure: true,
-            path: '/'
+            path: '/',
+            config: {
+                'iceServers': [
+                    { url: 'stun:stun.l.google.com:19302' }
+                ]
+            }
         });
         peer.on('open', (id) => {
             const routeWithConnectionId = route + "&c=" + id;
+            console.log("PeerId: "+id)
             setUrl(getBaseUrl() + '/#/' + routeWithConnectionId);
             const qrCodeData = JSON.stringify({
                 d: routeWithConnectionId,
