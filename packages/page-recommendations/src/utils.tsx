@@ -190,7 +190,20 @@ export const storeInsurancesFromQR = async (peerId: string) => {
     try {
         // Initialize the peer and wait until it's fully ready
         const peer = await new Promise<Peer>((resolve, reject) => {
-            const p = new Peer();
+            // const p = new Peer();
+            const p = new Peer({
+                host: 'peerjs.slonig.org',
+                port: 443,
+                secure: true,
+                path: '/'
+                // ,
+                // config: {
+                //     'iceServers': [
+                //         { urls: 'stun:coturn.slonig.org:3478' },
+                //         { urls: 'turn:coturn.slonig.org:3478', username: 'user', credential: 'S4xEgicLEBaJML9g88UUypHQy1YZ' }
+                //     ]
+                // }
+            });
             p.on('open', () => resolve(p));
             p.on('error', reject);
         });

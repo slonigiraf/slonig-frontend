@@ -15,17 +15,19 @@ const SenderComponent: React.FC<SenderComponentProps> = ({ data, route, action, 
     const [url, setUrl] = useState<string>('');
 
     useEffect(() => {
+        // const peer = new Peer();
         const peer = new Peer({
             host: 'peerjs.slonig.org',
             port: 443,
             secure: true,
-            path: '/',
-            config: {
-                'iceServers': [
-                    { urls: 'stun:coturn.slonig.org:3478' },
-                    { urls: 'turn:coturn.slonig.org:3478', username: 'user', credential: 'S4xEgicLEBaJML9g88UUypHQy1YZ' }
-                ]
-            }
+            path: '/'
+            // ,
+            // config: {
+            //     'iceServers': [
+            //         { urls: 'stun:coturn.slonig.org:3478' },
+            //         { urls: 'turn:coturn.slonig.org:3478', username: 'user', credential: 'S4xEgicLEBaJML9g88UUypHQy1YZ' }
+            //     ]
+            // }
         });
         peer.on('open', (id) => {
             const routeWithConnectionId = route + "&c=" + id;
