@@ -118,13 +118,9 @@ function Edit({ className = '' }: Props): React.ReactElement<Props> {
   //TODO: remove
   useEffect(() => {
     if (connectionFromUrl) {
-      console.log('first')
       async function getData() {
-        console.log('second')
         if (connectionFromUrl) {
-          console.log('third')
           const webRTCData = await receiveWebRTCData(connectionFromUrl);
-          console.log('fourth')
           window.alert(webRTCData);
         }
       }
