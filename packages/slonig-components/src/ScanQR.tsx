@@ -32,7 +32,6 @@ function ScanQR({ className = '', label, type }: Props): React.ReactElement<Prop
         if (!type || (type === jsonData.q)) {
           switch (jsonData.q) {
             case QRAction.PEER:
-              window.alert('wow')
               navigate(jsonData.d);
               break;
             case QRAction.NAVIGATION:
