@@ -255,13 +255,14 @@ export const createPeer = () => {
     host: 'peerjs.slonig.org',
     port: 443,
     secure: true,
-    path: '/',
-    config: {
-        'iceServers': [
-            { urls: 'stun:coturn.slonig.org:3478' },
-            { urls: 'turn:coturn.slonig.org:3478', username: 'user', credential: 'S4xEgicLEBaJML9g88UUypHQy1YZ' }
-        ]
-    }
+    path: '/'
+    // ,
+    // config: {
+    //     'iceServers': [
+    //         { urls: 'stun:coturn.slonig.org:3478' },
+    //         { urls: 'turn:coturn.slonig.org:3478', username: 'user', credential: 'S4xEgicLEBaJML9g88UUypHQy1YZ' }
+    //     ]
+    // }
   });
 }
 export const receiveWebRTCData = async (peerId: string) => {
