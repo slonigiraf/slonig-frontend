@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import BN from 'bn.js';
-import { getIPFSContentIDAndPinIt, digestFromCIDv1, getCIDFromBytes, getIPFSDataFromContentID, loadFromSessionStorage, saveToSessionStorage, KatexSpan, SenderComponent, QRAction } from '@slonigiraf/app-slonig-components';
+import { getIPFSContentIDAndPinIt, digestFromCIDv1, getCIDFromBytes, getIPFSDataFromContentID, loadFromSessionStorage, saveToSessionStorage, KatexSpan, SenderComponent, QRAction, receiveWebRTCData } from '@slonigiraf/app-slonig-components';
 import { BN_ZERO } from '@polkadot/util';
 import React, { useCallback, useEffect, useState } from 'react';
 import { Button, InputBalance } from '@polkadot/react-components';
@@ -15,7 +15,7 @@ import { parseJson } from '@slonigiraf/app-slonig-components';
 import Editor from './Editor.js';
 import ViewList from './ViewList.js';
 import { useLocation } from 'react-router-dom';
-import { storeSetting, getSetting, storePseudonym, receiveWebRTCData } from '@slonigiraf/app-recommendations';
+import { storeSetting, getSetting, storePseudonym } from '@slonigiraf/app-recommendations';
 import { useLoginContext } from '@slonigiraf/app-slonig-components';
 import { sendCreateAndEditTransaction, sendEditTransaction } from './sendTransaction.js';
 import { useInfo } from '@slonigiraf/app-slonig-components';

@@ -10,7 +10,6 @@ import DOMPurify from 'dompurify';
 import { u8aToHex } from '@polkadot/util';
 import { decodeAddress, encodeAddress } from '@polkadot/keyring';
 import { isHex } from '@polkadot/util';
-import Peer from 'peerjs';
 
 export const syncDB = async (data: string, password: string) => {
     const json = JSON.parse(data);
@@ -185,52 +184,6 @@ export const createAndStoreLetter = async (data: string[]) => {
     };
     await storeLetter(letter);
 }
-
-export const receiveWebRTCData = async (peerId: string) => {
-    try {
-        // Initialize the peer and wait until it's fully ready
-        const peer = await new Promise<Peer>((resolve, reject) => {
-            // const p = new Peer();
-            const p = new Peer({
-                host: 'peerjs.slonig.org',
-                port: 443,
-                secure: true,
-                path: '/'
-                // ,
-                // config: {
-                //     'iceServers': [
-                //         { urls: 'stun:coturn.slonig.org:3478' },
-                //         { urls: 'turn:coturn.slonig.org:3478', username: 'user', credential: 'S4xEgicLEBaJML9g88UUypHQy1YZ' }
-                //     ]
-                // }
-            });
-            p.on('open', () => resolve(p));
-            p.on('error', reject);
-        });
-
-        // Establish connection to the remote peer
-        const connection = await new Promise<any>((resolve, reject) => {
-            const conn = peer.connect(peerId);
-            conn.on('open', () => resolve(conn));
-            conn.on('error', reject);
-        });
-
-        // Wait for data from the connected peer
-        const data = await new Promise<any>((resolve, reject) => {
-            connection.on('data', (data) => resolve(data));
-            connection.on('close', () => {
-                console.log('Connection closed with peer:', peerId);
-            });
-            connection.on('error', reject);
-        });
-
-        console.log('Data received from peer:', data);
-        return data;
-    } catch (err) {
-        console.error('Error:', err);
-        throw err;
-    }
-};
 
 export const storeInsurances = async (jsonData: any) => {
     // Check if jsonData.d is an array and has elements

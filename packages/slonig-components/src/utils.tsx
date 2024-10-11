@@ -3,6 +3,7 @@ import crypto from 'crypto';
 import { getAddressName } from '@polkadot/react-components';
 import type { KeyringPair } from '@polkadot/keyring/types';
 import { getSetting, storeSetting } from '@slonigiraf/app-recommendations';
+import Peer from 'peerjs';
 
 export const getBaseUrl = () => {
   const { protocol, hostname, port } = window.location;
@@ -248,3 +249,49 @@ export const getQrWidth = () => {
   // For mobile devices, use the device's maximum width; otherwise, use maxWidth
   return isMobile ? (deviceMaxWidth - 4*qrPadding) : maxWidth;
 }
+
+export const receiveWebRTCData = async (peerId: string) => {
+  try {
+      // Initialize the peer and wait until it's fully ready
+      const peer = await new Promise<Peer>((resolve, reject) => {
+          // const p = new Peer();
+          const p = new Peer({
+              host: 'peerjs.slonig.org',
+              port: 443,
+              secure: true,
+              path: '/'
+              // ,
+              // config: {
+              //     'iceServers': [
+              //         { urls: 'stun:coturn.slonig.org:3478' },
+              //         { urls: 'turn:coturn.slonig.org:3478', username: 'user', credential: 'S4xEgicLEBaJML9g88UUypHQy1YZ' }
+              //     ]
+              // }
+          });
+          p.on('open', () => resolve(p));
+          p.on('error', reject);
+      });
+
+      // Establish connection to the remote peer
+      const connection = await new Promise<any>((resolve, reject) => {
+          const conn = peer.connect(peerId);
+          conn.on('open', () => resolve(conn));
+          conn.on('error', reject);
+      });
+
+      // Wait for data from the connected peer
+      const data = await new Promise<any>((resolve, reject) => {
+          connection.on('data', (data) => resolve(data));
+          connection.on('close', () => {
+              console.log('Connection closed with peer:', peerId);
+          });
+          connection.on('error', reject);
+      });
+
+      console.log('Data received from peer:', data);
+      return data;
+  } catch (err) {
+      console.error('Error:', err);
+      throw err;
+  }
+};
