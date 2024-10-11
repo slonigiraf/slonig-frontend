@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import Peer from 'peerjs';
-import { getBaseUrl, QRWithShareAndCopy } from '@slonigiraf/app-slonig-components';
+import { createPeer, getBaseUrl, QRWithShareAndCopy } from '@slonigiraf/app-slonig-components';
 
 interface SenderComponentProps {
     data: string;    // The data to send over the WebRTC data channel
@@ -15,20 +15,7 @@ const SenderComponent: React.FC<SenderComponentProps> = ({ data, route, action, 
     const [url, setUrl] = useState<string>('');
 
     useEffect(() => {
-        // const peer = new Peer();
-        const peer = new Peer({
-            host: 'peerjs.slonig.org',
-            port: 443,
-            secure: true,
-            path: '/'
-            // ,
-            // config: {
-            //     'iceServers': [
-            //         { urls: 'stun:coturn.slonig.org:3478' },
-            //         { urls: 'turn:coturn.slonig.org:3478', username: 'user', credential: 'S4xEgicLEBaJML9g88UUypHQy1YZ' }
-            //     ]
-            // }
-        });
+        const peer = createPeer();
         peer.on('open', (id) => {
             const routeWithConnectionId = route.includes('?')
                 ? route + "&c=" + id
