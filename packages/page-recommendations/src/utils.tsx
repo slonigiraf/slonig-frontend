@@ -186,7 +186,7 @@ export const createAndStoreLetter = async (data: string[]) => {
     await storeLetter(letter);
 }
 
-export const storeInsurancesFromQR = async (peerId: string) => {
+export const receiveWebRTCData = async (peerId: string) => {
     try {
         // Initialize the peer and wait until it's fully ready
         const peer = await new Promise<Peer>((resolve, reject) => {

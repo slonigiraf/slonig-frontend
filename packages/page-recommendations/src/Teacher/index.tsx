@@ -8,7 +8,7 @@ import { useTranslation } from '../translate.js';
 import { u8aToHex } from '@polkadot/util';
 import { useLocation } from 'react-router-dom';
 import { QRWithShareAndCopy, nameFromKeyringPair, getBaseUrl, QRAction, parseJson, useLoginContext, LoginButton, AppContainer, CenterQRContainer } from '@slonigiraf/app-slonig-components';
-import { storeInsurances, storeInsurancesFromQR as receiveWebRTCData, storePseudonym } from '../utils.js';
+import { storeInsurances, receiveWebRTCData, storePseudonym } from '../utils.js';
 
 interface Props {
   className?: string;

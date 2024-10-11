@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import BN from 'bn.js';
-import { getIPFSContentIDAndPinIt, digestFromCIDv1, getCIDFromBytes, getIPFSDataFromContentID, loadFromSessionStorage, saveToSessionStorage, KatexSpan } from '@slonigiraf/app-slonig-components';
+import { getIPFSContentIDAndPinIt, digestFromCIDv1, getCIDFromBytes, getIPFSDataFromContentID, loadFromSessionStorage, saveToSessionStorage, KatexSpan, SenderComponent, QRAction } from '@slonigiraf/app-slonig-components';
 import { BN_ZERO } from '@polkadot/util';
 import React, { useCallback, useEffect, useState } from 'react';
 import { Button, InputBalance } from '@polkadot/react-components';
@@ -15,7 +15,7 @@ import { parseJson } from '@slonigiraf/app-slonig-components';
 import Editor from './Editor.js';
 import ViewList from './ViewList.js';
 import { useLocation } from 'react-router-dom';
-import { storeSetting, getSetting, storePseudonym } from '@slonigiraf/app-recommendations';
+import { storeSetting, getSetting, storePseudonym, receiveWebRTCData } from '@slonigiraf/app-recommendations';
 import { useLoginContext } from '@slonigiraf/app-slonig-components';
 import { sendCreateAndEditTransaction, sendEditTransaction } from './sendTransaction.js';
 import { useInfo } from '@slonigiraf/app-slonig-components';
@@ -54,14 +54,19 @@ function Edit({ className = '' }: Props): React.ReactElement<Props> {
   const [isAddingLink, setIsAddingLink] = useState<boolean>(loadFromSessionStorage(sessionPrefix, 'isAddingLink') || false);
   const [isAddingItem, setIsAddingElement] = useState<boolean>(loadFromSessionStorage(sessionPrefix, 'isAddingItem') || false);
   const [itemIdHex, setItemIdHex] = useState<string>(loadFromSessionStorage(sessionPrefix, 'itemIdHex') || "");
-  
+
   // For storing original values
   const [originalList, setOriginalList] = useState<JsonType>(loadFromSessionStorage(sessionPrefix, 'originalList'));
   const [originalCidString, setOriginalCidString] = useState<string>(loadFromSessionStorage(sessionPrefix, 'originalCidString') || "");
   const [originalLawHexData, setOriginalLawHexData] = useState<string>(loadFromSessionStorage(sessionPrefix, 'originalLawHexData') || "");
   const [originalAmountList, setOriginalAmountList] = useState<BN | undefined>(new BN(loadFromSessionStorage(sessionPrefix, 'originalAmountList') || BN_ZERO));
-  
+
   const toggleEditView = () => setIsEditView(!isEditView);
+
+  //TODO: remove
+  const connectionFromUrl = queryParams.get("c");
+  console.log("connectionFromUrl: "+connectionFromUrl)
+  //TODO: remove
 
   // Save state changes to session storage
   useEffect(() => {
@@ -82,7 +87,7 @@ function Edit({ className = '' }: Props): React.ReactElement<Props> {
     saveToSessionStorage(sessionPrefix, 'originalLawHexData', originalLawHexData);
     saveToSessionStorage(sessionPrefix, 'originalAmountList', originalAmountList?.toString());
 
-  }, [list, item, cidString, lawHexData, amountList, amountItem, previousAmount, isEditView, isAddingLink, isAddingItem, itemIdHex, 
+  }, [list, item, cidString, lawHexData, amountList, amountItem, previousAmount, isEditView, isAddingLink, isAddingItem, itemIdHex,
     originalList, originalCidString, originalLawHexData, originalAmountList]);
 
   useEffect(() => {
@@ -110,6 +115,23 @@ function Edit({ className = '' }: Props): React.ReactElement<Props> {
     updateSetting();
   }, [tutor, idFromQuery]);
 
+  //TODO: remove
+  useEffect(() => {
+    if (connectionFromUrl) {
+      console.log('first')
+      async function getData() {
+        console.log('second')
+        if (connectionFromUrl) {
+          console.log('third')
+          const webRTCData = await receiveWebRTCData(connectionFromUrl);
+          console.log('fourth')
+          window.alert(webRTCData);
+        }
+      }
+      getData();
+    }
+  }, [connectionFromUrl]);
+  //TODO: remove
 
   const _onClickChangeView = useCallback(
     (): void => {
@@ -155,7 +177,7 @@ function Edit({ className = '' }: Props): React.ReactElement<Props> {
       }
       const textValue = await getIPFSDataFromContentID(ipfs, cidString);
       const fetchedList = parseJson(textValue);
-      if(JSON.stringify(fetchedList) != JSON.stringify(originalList)){
+      if (JSON.stringify(fetchedList) != JSON.stringify(originalList)) {
         setList(fetchedList);
         setOriginalList(fetchedList);
       }
@@ -171,7 +193,7 @@ function Edit({ className = '' }: Props): React.ReactElement<Props> {
         const byteArray = tuple[0]; // This should give you the [u8; 32]
         const bigIntValue = tuple[1]; // This should give you the u128
         const cid = await getCIDFromBytes(byteArray);
-        if(cid != cidString){
+        if (cid != cidString) {
           setCidString(cid);
           setLawHexData(u8aToHex(byteArray));
           setAmountList(bigIntValue);
@@ -195,7 +217,7 @@ function Edit({ className = '' }: Props): React.ReactElement<Props> {
     setList(originalList);
     setCidString(originalCidString);
     setLawHexData(originalLawHexData);
-    if(originalAmountList){
+    if (originalAmountList) {
       setAmountList(originalAmountList);
     }
   };
@@ -249,14 +271,14 @@ function Edit({ className = '' }: Props): React.ReactElement<Props> {
 
   const editor = (list == null) ? ""
     :
-    <Editor list={list} item={item} isAddingLink={isAddingLink} isAddingItem={isAddingItem} onListChange={setList} onItemChange={setItem} onItemIdHexChange={setItemIdHex} onIsAddingItemChange={setIsAddingElement} onIsAddingLinkChange={setIsAddingLink}/>;
+    <Editor list={list} item={item} isAddingLink={isAddingLink} isAddingItem={isAddingItem} onListChange={setList} onItemChange={setItem} onItemIdHexChange={setItemIdHex} onIsAddingItemChange={setIsAddingElement} onIsAddingLinkChange={setIsAddingLink} />;
 
   const exampleKatex = '<kx>\\int</kx>';
   const editView = (
     <div className={`toolbox--Sign ${className}`}>
       <h1>{t('Edit')}</h1>
       <span>{t('You can use the KaTeX language to add formulas:')}</span>&nbsp;
-      <span><em>&lt;kx&gt;\int&lt;/kx&gt;</em> {t('is')} <KatexSpan content={exampleKatex}/>.</span>&nbsp;
+      <span><em>&lt;kx&gt;\int&lt;/kx&gt;</em> {t('is')} <KatexSpan content={exampleKatex} />.</span>&nbsp;
       <span><a href='https://katex.org/docs/supported'>{t('See more about KaTeX')}</a></span>
       {editor}
       {amountItemElement}
@@ -270,7 +292,7 @@ function Edit({ className = '' }: Props): React.ReactElement<Props> {
           onChange={setAmountList}
           isDisabled={!isIpfsReady}
         />
-              </div>
+      </div>
       <Button
         icon='cancel'
         label={t('Cancel')}
@@ -285,9 +307,13 @@ function Edit({ className = '' }: Props): React.ReactElement<Props> {
       {!isIpfsReady ? <div>{t('Connecting to IPFS...')}</div> : ""}
     </div>
   );
+  
 
   const viewView = (
     <div className={`toolbox--Sign ${className}`}>
+      {/* //TODO: remove */}
+      <SenderComponent data={'Hi'} route={`knowledge`} action={QRAction.PEER} textShare={t('')} />
+      {/* //TODO: remove */}
       <ViewList id={textHexId} currentPair={currentPair} />
       <Button
         icon='edit'

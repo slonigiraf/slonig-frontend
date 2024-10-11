@@ -6,7 +6,7 @@ interface SenderComponentProps {
     data: string;    // The data to send over the WebRTC data channel
     route: string;     // A route that will be use to create a clickable link and used in the QR code share
     action: any;     // The QRAction passed as a prop (e.g., QRAction.ADD_LETTER)
-    textShare:  string;
+    textShare: string;
     isDisabled?: boolean;
 }
 
@@ -30,8 +30,11 @@ const SenderComponent: React.FC<SenderComponentProps> = ({ data, route, action, 
             // }
         });
         peer.on('open', (id) => {
-            const routeWithConnectionId = route + "&c=" + id;
-            console.log("PeerId: "+id)
+            const routeWithConnectionId = route.includes('?')
+                ? route + "&c=" + id
+                : route + "?c=" + id;
+
+            console.log("PeerId: " + id)
             setUrl(getBaseUrl() + '/#/' + routeWithConnectionId);
             const qrCodeData = JSON.stringify({
                 d: routeWithConnectionId,

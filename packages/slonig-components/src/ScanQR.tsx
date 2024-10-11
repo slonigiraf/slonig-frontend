@@ -5,7 +5,7 @@ import { useNavigate } from 'react-router-dom';
 import { useTranslation } from './translate.js';
 import { Modal, TransferModal } from '@polkadot/react-components';
 import { ButtonWithLabelBelow, useInfo, QRAction } from '@slonigiraf/app-slonig-components';
-import { createAndStoreLetter, storeInsurances, storeInsurancesFromQR, storePseudonym, storeSetting } from '@slonigiraf/app-recommendations';
+import { createAndStoreLetter, storeInsurances, storePseudonym, storeSetting } from '@slonigiraf/app-recommendations';
 import { encodeAddress } from '@polkadot/keyring';
 import { hexToU8a } from '@polkadot/util';
 
@@ -31,6 +31,10 @@ function ScanQR({ className = '', label, type }: Props): React.ReactElement<Prop
       if (jsonData.hasOwnProperty('q')) {
         if (!type || (type === jsonData.q)) {
           switch (jsonData.q) {
+            case QRAction.PEER:
+              window.alert('wow')
+              navigate(jsonData.d);
+              break;
             case QRAction.NAVIGATION:
               console.log(jsonData)
               navigate(jsonData.d);
