@@ -7,7 +7,7 @@ import { IPFS } from 'ipfs-core';
 import { useTranslation } from '../translate.js';
 import { u8aToHex } from '@polkadot/util';
 import { useLocation } from 'react-router-dom';
-import { QRWithShareAndCopy, nameFromKeyringPair, getBaseUrl, QRAction, parseJson, useLoginContext, LoginButton, AppContainer, CenterQRContainer, receiveWebRTCData } from '@slonigiraf/app-slonig-components';
+import { QRWithShareAndCopy, nameFromKeyringPair, getBaseUrl, QRAction, parseJson, useLoginContext, LoginButton, AppContainer, CenterQRContainer, receiveWebRTCData, useInfo } from '@slonigiraf/app-slonig-components';
 import { storeInsurances, storePseudonym } from '../utils.js';
 
 interface Props {
@@ -17,7 +17,7 @@ interface Props {
 
 function Teacher({ className = '', ipfs }: Props): React.ReactElement<Props> {
   const { t } = useTranslation();
-
+  const { showInfo, hideInfo } = useInfo();
   // Initialize account
   const { currentPair, isLoggedIn } = useLoginContext();
   const location = useLocation();
@@ -64,7 +64,9 @@ function Teacher({ className = '', ipfs }: Props): React.ReactElement<Props> {
     if (connectionFromUrl && isDedicatedTeacher) {
       async function saveDiplomas() {
         if (connectionFromUrl) {
+          showInfo(t('Loading'), 'info', 60)
           const diplomasFromUrl = await receiveWebRTCData(connectionFromUrl);
+          hideInfo();
           const dimplomasJson = parseJson(diplomasFromUrl);
           try {
             const dimplomasJsonWithMeta = {
