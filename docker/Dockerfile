@@ -21,6 +21,10 @@ FROM nginx:stable-alpine
 
 # The following is mainly for doc purpose to show which ENV is supported
 ENV WS_URL=
+ENV IPFS_SERVER=
+ENV COTURN_SERVER=
+ENV COTURN_USER=
+ENV COTURN_PASSWORD=
 
 WORKDIR /usr/share/nginx/html
 
