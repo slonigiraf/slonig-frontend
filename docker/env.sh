@@ -13,6 +13,10 @@ echo -n > $TARGET
 declare -a vars=(
   "WS_URL"
   "SAMPLE"
+  "IPFS_SERVER"
+  "COTURN_SERVER"
+  "COTURN_USER"
+  "COTURN_PASSWORD"
 )
 
 echo "window.process_env = {" >> $TARGET
