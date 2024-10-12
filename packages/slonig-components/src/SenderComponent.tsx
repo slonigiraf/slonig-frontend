@@ -5,7 +5,7 @@ import { createPeer, getBaseUrl, QRWithShareAndCopy } from '@slonigiraf/app-slon
 interface SenderComponentProps {
     data: string;    // The data to send over the WebRTC data channel
     route: string;     // A route that will be use to create a clickable link and used in the QR code share
-    action: any;     // The QRAction passed as a prop (e.g., QRAction.ADD_LETTER)
+    action: object;
     textShare: string;
     isDisabled?: boolean;
 }
@@ -24,8 +24,8 @@ const SenderComponent: React.FC<SenderComponentProps> = ({ data, route, action, 
             console.log("PeerId: " + id)
             setUrl(getBaseUrl() + '/#/' + routeWithConnectionId);
             const qrCodeData = JSON.stringify({
-                d: routeWithConnectionId,
-                q: action
+                c: id,
+                ...action
             });
             setQrCodeText(qrCodeData);
         });

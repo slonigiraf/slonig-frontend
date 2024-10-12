@@ -68,13 +68,15 @@ function SignLetterUseRight({ className = '', letters, worker, employer, current
   );
 
   const thereAreDiplomas = letters.length > 0;
+  
+  const action = {p: worker, n: nameFromKeyringPair(currentPair), q : QRAction.BUY_DIPLOMAS, t : employer};
 
   return (
     <CenterQRContainer>
       <h3>
         {t('Select diplomas and send them')}:
       </h3>
-      <SenderComponent data={data} route={route} action={QRAction.NAVIGATION} textShare={t('Press the link to see diplomas of the student')} isDisabled={!thereAreDiplomas} />
+      <SenderComponent data={data} route={route} action={action} textShare={t('Press the link to see diplomas of the student')} isDisabled={!thereAreDiplomas} />
     </CenterQRContainer>
   );
 

@@ -288,8 +288,6 @@ export const receiveWebRTCData = async (peerId: string) => {
       });
       connection.on('error', reject);
     });
-
-    console.log('Data received from peer:', data);
     return data;
   } catch (err) {
     console.error('Error:', err);

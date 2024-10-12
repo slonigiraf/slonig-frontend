@@ -1,6 +1,6 @@
 import React, { useState, useCallback } from 'react';
 import { useToggle } from '@polkadot/react-hooks';
-import { QRScanner } from '@slonigiraf/app-slonig-components';
+import { parseJson, QRScanner, receiveWebRTCData } from '@slonigiraf/app-slonig-components';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from './translate.js';
 import { Modal, TransferModal } from '@polkadot/react-components';
@@ -17,14 +17,15 @@ interface Props {
 
 function ScanQR({ className = '', label, type }: Props): React.ReactElement<Props> {
   const { t } = useTranslation();
+  const { showInfo, hideInfo } = useInfo();
   const [isQROpen, toggleQR] = useToggle();
   const [isTransferOpen, toggleTransfer] = useToggle();
   const [recipientId, setRecipientId] = useState<string>('');
   const navigate = useNavigate();
-  const { showInfo } = useInfo();
 
   // Process the scanned QR data
   const processQR = useCallback(async (data: string) => {
+    toggleQR();
     try {
       const jsonData = JSON.parse(data);
       // Validate JSON properties
@@ -46,9 +47,24 @@ function ScanQR({ className = '', label, type }: Props): React.ReactElement<Prop
               await createAndStoreLetter(dataArray);
               navigate('diplomas');
               break;
-            case QRAction.SELL_DIPLOMAS:
+            case QRAction.BUY_DIPLOMAS:
               await storePseudonym(jsonData.p, jsonData.n);
-              await storeInsurances(jsonData);
+              showInfo(t('Loading'), 'info', 60)
+              const diplomasFromUrl = await receiveWebRTCData(jsonData.c);
+              hideInfo();
+              const dimplomasJson = parseJson(diplomasFromUrl);
+              try {
+                const dimplomasJsonWithMeta = {
+                  q: QRAction.BUY_DIPLOMAS,
+                  p: jsonData.p,
+                  n: jsonData.n,
+                  t: jsonData.t,
+                  d: dimplomasJson
+                };
+                await storeInsurances(dimplomasJsonWithMeta);
+              } catch (error) {
+                console.error("Failed to save diplomas:", error);
+              }
               navigate(`diplomas/teacher?t=${jsonData.t}&student=${jsonData.p}`);
               break;
             case QRAction.TUTOR_IDENTITY:
@@ -88,7 +104,6 @@ function ScanQR({ className = '', label, type }: Props): React.ReactElement<Prop
     } catch (error) {
       console.error("Error parsing QR data as JSON:", error);
     }
-    toggleQR();
   }, [navigate, toggleQR, toggleTransfer]);
 
   // Handle the QR Scanner result

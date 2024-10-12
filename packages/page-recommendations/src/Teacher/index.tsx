@@ -70,7 +70,7 @@ function Teacher({ className = '', ipfs }: Props): React.ReactElement<Props> {
           const dimplomasJson = parseJson(diplomasFromUrl);
           try {
             const dimplomasJsonWithMeta = {
-              q: QRAction.SELL_DIPLOMAS,
+              q: QRAction.BUY_DIPLOMAS,
               p: student,
               n: studentNameFromUrl,
               t: publicKeyHex,
