@@ -2,7 +2,6 @@
 git pull origin slonig && \
 export $(cat .env | xargs) && \
 docker build -t dev-app-slonig-org -f docker/Dockerfile \
-  --build-arg WS_URL=$WS_URL \
   --build-arg IPFS_SERVER=$IPFS_SERVER \
   --build-arg COTURN_SERVER=$COTURN_SERVER \
   --build-arg COTURN_USER=$COTURN_USER \
