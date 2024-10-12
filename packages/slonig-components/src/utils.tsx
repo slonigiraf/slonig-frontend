@@ -251,6 +251,10 @@ export const getQrWidth = () => {
 }
 
 export const createPeer = () => {
+  console.log("IPFS_SERVER: "+process.env.IPFS_SERVER)
+  console.log("COTURN_SERVER: "+process.env.COTURN_SERVER)
+  console.log("COTURN_USER: "+process.env.COTURN_USER)
+  console.log("COTURN_PASSWORD: "+process.env.COTURN_PASSWORD)
   return new Peer({
     host: 'peerjs.slonig.org',
     port: 443,
