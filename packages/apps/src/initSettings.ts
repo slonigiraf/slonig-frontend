@@ -14,6 +14,12 @@ function networkOrUrl (apiUrl: string): void {
     console.log('Light endpoint=', apiUrl.replace('light://', ''));
   } else {
     console.log('WS endpoint=', apiUrl);
+    //TODO remove
+    console.log("IPFS_SERVER: "+process.env.IPFS_SERVER)
+    console.log("COTURN_SERVER: "+process.env.COTURN_SERVER)
+    console.log("COTURN_USER: "+process.env.COTURN_USER)
+    console.log("COTURN_PASSWORD: "+process.env.COTURN_PASSWORD)
+    //TODO remove
   }
 }
 
