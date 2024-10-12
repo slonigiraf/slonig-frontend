@@ -63,11 +63,6 @@ function Edit({ className = '' }: Props): React.ReactElement<Props> {
 
   const toggleEditView = () => setIsEditView(!isEditView);
 
-  //TODO: remove
-  // const connectionFromUrl = queryParams.get("c");
-  // console.log("connectionFromUrl: "+connectionFromUrl)
-  //TODO: remove
-
   // Save state changes to session storage
   useEffect(() => {
     saveToSessionStorage(sessionPrefix, 'list', list);
@@ -114,20 +109,6 @@ function Edit({ className = '' }: Props): React.ReactElement<Props> {
     };
     updateSetting();
   }, [tutor, idFromQuery]);
-
-  //TODO: remove
-  // useEffect(() => {
-  //   if (connectionFromUrl) {
-  //     async function getData() {
-  //       if (connectionFromUrl) {
-  //         const webRTCData = await receiveWebRTCData(connectionFromUrl);
-  //         window.alert(webRTCData);
-  //       }
-  //     }
-  //     getData();
-  //   }
-  // }, [connectionFromUrl]);
-  //TODO: remove
 
   const _onClickChangeView = useCallback(
     (): void => {
@@ -307,9 +288,6 @@ function Edit({ className = '' }: Props): React.ReactElement<Props> {
 
   const viewView = (
     <div className={`toolbox--Sign ${className}`}>
-      {/* //TODO: remove */}
-      {/* <SenderComponent data={'Hi'} route={`knowledge`} action={QRAction.PEER} textShare={t('')} /> */}
-      {/* //TODO: remove */}
       <ViewList id={textHexId} currentPair={currentPair} />
       <Button
         icon='edit'
