@@ -31,9 +31,6 @@ function ScanQR({ className = '', label, type }: Props): React.ReactElement<Prop
       if (jsonData.hasOwnProperty('q')) {
         if (!type || (type === jsonData.q)) {
           switch (jsonData.q) {
-            case QRAction.PEER:
-              navigate(jsonData.d);
-              break;
             case QRAction.NAVIGATION:
               console.log(jsonData)
               navigate(jsonData.d);
