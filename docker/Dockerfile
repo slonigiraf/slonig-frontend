@@ -14,17 +14,23 @@ RUN npm install yarn -g
 WORKDIR /apps
 COPY . .
 
-RUN yarn && NODE_ENV=production yarn build:www
+# Define build-time arguments for environment variables
+ARG WS_URL
+ARG IPFS_SERVER
+ARG COTURN_SERVER
+ARG COTURN_USER
+ARG COTURN_PASSWORD
+
+RUN yarn && \
+  NODE_ENV=production WS_URL=${WS_URL} IPFS_SERVER=${IPFS_SERVER} \
+  COTURN_SERVER=${COTURN_SERVER} COTURN_USER=${COTURN_USER} \
+  COTURN_PASSWORD=${COTURN_PASSWORD} yarn build:www
 
 # ===========================================================
 FROM nginx:stable-alpine
 
 # The following is mainly for doc purpose to show which ENV is supported
 ENV WS_URL=
-ENV IPFS_SERVER=
-ENV COTURN_SERVER=
-ENV COTURN_USER=
-ENV COTURN_PASSWORD=
 
 WORKDIR /usr/share/nginx/html
 
