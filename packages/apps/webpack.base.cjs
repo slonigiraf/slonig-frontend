@@ -135,7 +135,11 @@ function createWebpack (context, mode = 'production') {
       new webpack.DefinePlugin({
         'process.env': {
           NODE_ENV: JSON.stringify(mode),
-          WS_URL: JSON.stringify(process.env.WS_URL)
+          WS_URL: JSON.stringify(process.env.WS_URL),
+          IPFS_SERVER: JSON.stringify(process.env.IPFS_SERVER),
+          COTURN_SERVER: JSON.stringify(process.env.COTURN_SERVER),
+          COTURN_USER: JSON.stringify(process.env.COTURN_USER),
+          COTURN_PASSWORD: JSON.stringify(process.env.COTURN_PASSWORD)
         }
       }),
       new webpack.optimize.SplitChunksPlugin(),

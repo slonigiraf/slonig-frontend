@@ -46,7 +46,7 @@ export default function useIpfsFactory () {
     } else {
       try {
         console.time('IPFS Started')
-        ipfs = create({ url: 'https://ipfs.slonig.org/api/v0' });
+        ipfs = create({ url: `https://${process.env.IPFS_SERVER}/api/v0` });
         console.timeEnd('IPFS Started')
       } catch (error) {
         console.error('IPFS init error:', error)

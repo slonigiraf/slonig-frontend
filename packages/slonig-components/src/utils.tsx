@@ -258,8 +258,8 @@ export const createPeer = () => {
     path: '/',
     config: {
         'iceServers': [
-            { urls: 'stun:coturn.slonig.org:3478' },
-            { urls: 'turn:coturn.slonig.org:3478', username: 'dsljhsdjgf', credential: 'vTxhSWskriRw1QTSiFrgvswzHk1W' }
+            { urls: `stun:${process.env.COTURN_SERVER}` },
+            { urls: `turn:${process.env.COTURN_SERVER}`, username: process.env.COTURN_USER, credential: process.env.COTURN_PASSWORD }
         ]
     }
   });
