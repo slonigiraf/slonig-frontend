@@ -59,8 +59,9 @@ export const QRAction = {
   TUTOR_IDENTITY: 4,
   SKILL: 5,
   TEACHER_IDENTITY: 6,
-  ADD_INSURANCES: 7,
-  PEER: 8//TODO: remove
+  ADD_INSURANCES: 7
+  // ,
+  // PEER: 8//TODO: remove
 };
 
 // Styled components
