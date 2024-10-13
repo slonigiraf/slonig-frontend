@@ -137,6 +137,7 @@ function createWebpack (context, mode = 'production') {
           NODE_ENV: JSON.stringify(mode),
           WS_URL: JSON.stringify(process.env.WS_URL),
           IPFS_SERVER: JSON.stringify(process.env.IPFS_SERVER),
+          PEERJS_SERVER: JSON.stringify(process.env.PEERJS_SERVER),
           COTURN_SERVER: JSON.stringify(process.env.COTURN_SERVER),
           COTURN_USER: JSON.stringify(process.env.COTURN_USER),
           COTURN_PASSWORD: JSON.stringify(process.env.COTURN_PASSWORD)

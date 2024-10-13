@@ -252,7 +252,7 @@ export const getQrWidth = () => {
 
 export const createPeer = () => {
   return new Peer({
-    host: 'peerjs.slonig.org',
+    host: process.env.PEERJS_SERVER,
     port: 443,
     secure: true,
     path: '/',
