@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { KatexSpan, getCIDFromBytes, getIPFSDataFromContentID, parseJson } from '@slonigiraf/app-slonig-components';
+import { KatexSpan, LawType, getCIDFromBytes, getIPFSDataFromContentID, parseJson } from '@slonigiraf/app-slonig-components';
 import { useApi } from '@polkadot/react-hooks';
 import { BN_ZERO } from '@polkadot/util';
 import ItemLabel from './ItemLabel.js';
@@ -10,6 +10,7 @@ import { useIpfsContext } from '@slonigiraf/app-slonig-components';
 import ExerciseList from './ExerciseList.js';
 import { u8aToHex } from '@polkadot/util';
 import LearnWithAI from './LearnWithAI.js';
+import FindTutor from './FindTutor.js';
 
 interface Props {
   className?: string;
@@ -67,9 +68,15 @@ function ViewList({ className = '', id, currentPair }: Props): React.ReactElemen
       <>
         <h1><KatexSpan content={list.h}/></h1>
         {
-          list.t !== null && list.t === 3 &&
+          list.t !== null && list.t === LawType.MODULE &&
           <>
-            <SkillQR id={id} cid={cidString} />
+            <FindTutor id={id} cid={cidString} />
+          </>
+        }
+        {
+          list.t !== null && list.t === LawType.SKILL &&
+          <>
+            <SkillQR id={id} cid={cidString} type={LawType.SKILL}/>
             <LearnWithAI skillName={list.h} exercises={list.q} />
             <h3>{t('Example exercises to train the skill')}</h3>
           </>

@@ -62,6 +62,14 @@ export const QRAction = {
   ADD_INSURANCES: 7
 };
 
+export const LawType = {
+  LIST: 0,
+  COURSE: 1,
+  MODULE: 2,
+  SKILL: 3,
+  EXERCISE: 4
+};
+
 // Styled components
 export const FullWidthContainer = styled.div`
   width: 100%;

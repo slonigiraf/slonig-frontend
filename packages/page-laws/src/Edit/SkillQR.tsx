@@ -15,11 +15,13 @@ import { BN_ONE } from '@polkadot/util';
 import { useApi } from '@polkadot/react-hooks';
 import { useBlockTime } from '@polkadot/react-hooks';
 import DiplomaCheck from './DiplomaCheck.js';
+import { LawType } from '../types.js';
 
 interface Props {
   className?: string;
   id: string;
   cid: string;
+  type: LawType;
 }
 
 const getBlockAllowed = (currentBlock: BN, blockTimeMs: number, secondsToAdd: number): BN => {
@@ -29,7 +31,7 @@ const getBlockAllowed = (currentBlock: BN, blockTimeMs: number, secondsToAdd: nu
   return blockAllowed;
 }
 
-function SkillQR({ className = '', id, cid }: Props): React.ReactElement<Props> {
+function SkillQR({ className = '', id, cid, type }: Props): React.ReactElement<Props> {
   // Using key
   const { api, isApiReady } = useApi();
   // Last block number
