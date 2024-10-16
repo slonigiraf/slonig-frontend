@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import { KatexSpan, LawType, getCIDFromBytes, getIPFSDataFromContentID, parseJson } from '@slonigiraf/app-slonig-components';
 import { useApi } from '@polkadot/react-hooks';
 import { BN_ZERO } from '@polkadot/util';
@@ -10,7 +10,7 @@ import { useIpfsContext } from '@slonigiraf/app-slonig-components';
 import ExerciseList from './ExerciseList.js';
 import { u8aToHex } from '@polkadot/util';
 import LearnWithAI from './LearnWithAI.js';
-import FindTutor from './FindTutor.js';
+import { Toggle } from '@polkadot/react-components';
 
 interface Props {
   className?: string;
@@ -29,6 +29,8 @@ function ViewList({ className = '', id, currentPair }: Props): React.ReactElemen
   const [amountList, setAmountList] = useState<BN>(BN_ZERO);
   const [previousAmount, setPreviousAmount] = useState<BN>(BN_ZERO);
   const { api } = useApi();
+  const [isLearningRequested, setLearningRequested] = useState(false);
+  const [isReexaminingRequested, setReexaminingRequested] = useState(false);
 
   async function fetchLaw(key: string) {
     if (key) {
@@ -63,20 +65,48 @@ function ViewList({ className = '', id, currentPair }: Props): React.ReactElemen
     fetchIPFSData();
   }, [cidString, ipfs]);
 
+  const handleLearningToggle = useCallback((checked: boolean): void => {
+    setLearningRequested(checked);
+    if (checked) {
+      setReexaminingRequested(false);
+    }
+  }, []);
+
+  const handleReexaminingToggle = useCallback((checked: boolean): void => {
+    setReexaminingRequested(checked);
+    if (checked) {
+      setLearningRequested(false);
+    }
+  }, []);
+
+  const isModuleQRVisible = (isLearningRequested || isReexaminingRequested);
+
   return (
     list == null ? <></> :
       <>
-        <h1><KatexSpan content={list.h}/></h1>
+        <h1><KatexSpan content={list.h} /></h1>
         {
           list.t !== null && list.t === LawType.MODULE &&
           <>
-            <FindTutor id={id} cid={cidString} />
+            <Toggle
+              label={t('Learn with a tutor')}
+              onChange={handleLearningToggle}
+              value={isLearningRequested}
+            />
+            <Toggle
+              label={t('Reexamine my diplomas')}
+              onChange={handleReexaminingToggle}
+              value={isReexaminingRequested}
+            />
+            <div className='ui--row' style={isModuleQRVisible ? {} : { display: 'none' }}>
+              <SkillQR id={id} cid={cidString} type={LawType.MODULE} />
+            </div>
           </>
         }
         {
           list.t !== null && list.t === LawType.SKILL &&
           <>
-            <SkillQR id={id} cid={cidString} type={LawType.SKILL}/>
+            <SkillQR id={id} cid={cidString} type={LawType.SKILL} />
             <LearnWithAI skillName={list.h} exercises={list.q} />
             <h3>{t('Example exercises to train the skill')}</h3>
           </>
