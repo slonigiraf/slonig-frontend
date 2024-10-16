@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useTranslation } from '../translate.js';
-import { CenterQRContainer, LoginButton, QRAction, QRWithShareAndCopy, getBaseUrl, nameFromKeyringPair, qrWidthPx, useLoginContext } from '@slonigiraf/app-slonig-components';
+import { CenterQRContainer, LawType, LoginButton, QRAction, QRWithShareAndCopy, SenderComponent, getBaseUrl, nameFromKeyringPair, qrWidthPx, useLoginContext } from '@slonigiraf/app-slonig-components';
 import { getSetting, getValidLetters, storeSetting } from '@slonigiraf/app-recommendations';
 import { Dropdown, Icon, Spinner } from '@polkadot/react-components';
 import { useLiveQuery } from "dexie-react-hooks";
@@ -15,13 +15,12 @@ import { BN_ONE } from '@polkadot/util';
 import { useApi } from '@polkadot/react-hooks';
 import { useBlockTime } from '@polkadot/react-hooks';
 import DiplomaCheck from './DiplomaCheck.js';
-import { LawType } from '../types.js';
 
 interface Props {
   className?: string;
   id: string;
   cid: string;
-  type: LawType;
+  type: number;
 }
 
 const getBlockAllowed = (currentBlock: BN, blockTimeMs: number, secondsToAdd: number): BN => {
@@ -51,6 +50,7 @@ function SkillQR({ className = '', id, cid, type }: Props): React.ReactElement<P
   const [studentSignatureOverDiplomaToReexamine, setStudentSignatureOverDiplomaToReexamine] = useState<string>("");
   const [validDiplomas, setValidDiplomas] = useState<Letter[]>();
   const [loading, setLoading] = useState<boolean>(true);
+  const [currentDate, setCurrentDate] = useState<Date | null>(null);
 
 
   // Fetch block number (once)
@@ -96,6 +96,12 @@ function SkillQR({ className = '', id, cid, type }: Props): React.ReactElement<P
     };
     fetchTutorSetting();
   }, [tutors, tutorFromQuery]);
+
+  // Fetch date
+  useEffect(() => {
+    const date = new Date();
+    setCurrentDate(date);
+  }, []);
 
   // Prepare dropdown options
   let tutorOptions = tutors?.map(tutor => ({
@@ -173,6 +179,8 @@ function SkillQR({ className = '', id, cid, type }: Props): React.ReactElement<P
 
   const qrCodeText = generateQRData();
   const url = `${getBaseUrl()}/#/${urlDetails}`;
+  const route = `#/${urlDetails}`;
+  const action = {q: QRAction.SKILL, n: name, p : studentIdentity, t: currentDate};
 
   const diplomaCheck = <DiplomaCheck id={id} cid={cid} caption={t('I have a diploma')} setValidDiplomas={setValidDiplomas} onLoad={() => setLoading(false)} />;
   const hasValidDiploma = validDiplomas && validDiplomas.length > 0;
@@ -193,13 +201,17 @@ function SkillQR({ className = '', id, cid, type }: Props): React.ReactElement<P
                     onChange={handleTutorSelect}
                     options={tutorOptions || []}
                   />
-                  <QRWithShareAndCopy
+                  {type == LawType.MODULE && <SenderComponent
+                    data={urlDetails} route={route} action={action}
+                    textShare={t('Press the link to start tutoring')}
+                  />}
+                  {type == LawType.SKILL && <QRWithShareAndCopy
                     dataQR={qrCodeText}
                     titleShare={t('QR code')}
                     textShare={t('Press the link to start tutoring')}
                     urlShare={url}
                     dataCopy={url}
-                  />
+                  />}
                 </CenterQRContainer>
               </StyledDiv>
               :
