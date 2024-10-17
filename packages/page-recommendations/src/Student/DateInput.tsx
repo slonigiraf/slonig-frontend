@@ -13,6 +13,7 @@ interface DateInputProps {
 }
 
 const StyledDayPicker = styled(DayPicker)`
+  --rdp-accent-color: #F39200;
 `;
 
 function DateInput({ date, onDateChange, id, label }: DateInputProps) {
