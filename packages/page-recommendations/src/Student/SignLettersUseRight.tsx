@@ -18,7 +18,7 @@ interface Props {
   employer: string;
   currentPair: KeyringPair;
 }
-function SignLetterUseRight({ className = '', letters, worker, employer, currentPair }: Props): React.ReactElement<Props> {
+function SignLettersUseRight({ className = '', letters, worker, employer, currentPair }: Props): React.ReactElement<Props> {
   const { t } = useTranslation();
   const [route, setRoute] = useState('');
   const [data, setData] = useState('');
@@ -79,4 +79,4 @@ function SignLetterUseRight({ className = '', letters, worker, employer, current
 
 }
 
-export default React.memo(SignLetterUseRight);
+export default React.memo(SignLettersUseRight);

@@ -1,5 +1,4 @@
 import React, { useEffect, useState } from 'react';
-import Peer from 'peerjs';
 import { createPeer, getBaseUrl, QRWithShareAndCopy } from '@slonigiraf/app-slonig-components';
 
 interface SenderComponentProps {

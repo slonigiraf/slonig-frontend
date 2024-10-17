@@ -83,6 +83,16 @@ function LettersList({ className = '', worker, currentPair }: Props): React.Reac
   ) : (
     <div>
       <h2>{employer === '' ? t('My diplomas') : t('Select diplomas and send them')}</h2>
+      {employer !== '' && (
+        <div>
+          <SignLettersUseRight
+            letters={selectedLetters}
+            worker={worker}
+            employer={employer}
+            currentPair={currentPair}
+          />
+        </div>
+      )}
       <div className="ui--row">
         <div>
           <DateInput
@@ -98,16 +108,6 @@ function LettersList({ className = '', worker, currentPair }: Props): React.Reac
           />
         </div>
       </div>
-      {employer !== '' && (
-        <div>
-          <SignLettersUseRight
-            letters={selectedLetters}
-            worker={worker}
-            employer={employer}
-            currentPair={currentPair}
-          />
-        </div>
-      )}
       <SelectableList<Letter>
         items={letters}
         renderItem={(letter, isSelected, onToggleSelection) => (
