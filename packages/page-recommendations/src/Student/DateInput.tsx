@@ -36,7 +36,6 @@ function DateInput({ date, onDateChange, id, label }: DateInputProps) {
     setShowCalendar(true);
   };
 
-  // Use Intl.DateTimeFormat to format the date according to the user's locale
   const formattedDate = date ? new Intl.DateTimeFormat(userLocale).format(date) : '';
 
   return (
