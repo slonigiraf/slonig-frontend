@@ -4,14 +4,11 @@
 import InsuranceInfo from './InsuranceInfo.js'
 import React, { useEffect, useState } from 'react'
 import { styled, Icon } from '@polkadot/react-components';
-import { useLiveQuery } from "dexie-react-hooks";
-import { db } from "../db/index.js";
+import { useLiveQuery } from 'dexie-react-hooks';
+import { db } from '../db/index.js';
 import { useTranslation } from '../translate.js';
 import { getPseudonym } from '../utils.js';
-import 'react-dates/initialize';
-import { SingleDatePicker } from 'react-dates';
-import 'react-dates/lib/css/_datepicker.css';
-import { Moment } from 'moment';
+import { DateInput } from '@slonigiraf/app-slonig-components';
 
 interface Props {
   className?: string;
@@ -23,10 +20,10 @@ interface Props {
 function InsurancesList({ className = '', teacher, student, studentNameFromUrl }: Props): React.ReactElement<Props> {
   const { t } = useTranslation();
   const [studentName, setStudentName] = useState<string | undefined>(studentNameFromUrl);
-  const [startDate, setStartDate] = useState<Moment | null>(null);
-  const [endDate, setEndDate] = useState<Moment | null>(null);
-  const [startFocused, setStartFocused] = useState<boolean>(false);
-  const [endFocused, setEndFocused] = useState<boolean>(false);
+
+  // Initialize startDate and endDate as Date objects
+  const [startDate, setStartDate] = useState<Date | null>(new Date(new Date().setHours(0, 0, 0, 0)));
+  const [endDate, setEndDate] = useState<Date | null>(new Date(new Date().setHours(23, 59, 59, 999)));
 
   // Fetch student name
   useEffect(() => {
@@ -38,52 +35,51 @@ function InsurancesList({ className = '', teacher, student, studentNameFromUrl }
         }
       }
     }
-    fetchStudentName()
-  }, [student, studentNameFromUrl])
+    fetchStudentName();
+  }, [student, studentNameFromUrl]);
 
   const insurances = useLiveQuery(
-    () =>{
-      let query = db.insurances.where("[employer+workerId]").equals([teacher, student]);
-      if (startDate) query = query.filter(insurance => new Date(insurance.created) >= startDate.toDate());
-      if (endDate) query = query.filter(insurance => new Date(insurance.created) <= endDate.toDate());
-      return query.sortBy('id').then(insurances => insurances.reverse());
+    () => {
+      let query = db.insurances.where('[employer+workerId]').equals([teacher, student]);
+      if (startDate) query = query.filter((insurance) => new Date(insurance.created) >= startDate);
+      if (endDate) query = query.filter((insurance) => new Date(insurance.created) <= endDate);
+      return query.sortBy('id').then((insurances) => insurances.reverse());
     },
     [teacher, student, startDate, endDate]
   );
+
   if (!insurances) return <div></div>;
 
   return (
     <div>
-      <h2>{studentName + ', ' + t('diplomas')}:</h2>
-      <div className='ui--row'>
-          <div>
-            <SingleDatePicker
-              date={startDate}
-              onDateChange={(date: Moment | null) => setStartDate(date)}
-              focused={startFocused}
-              onFocusChange={({ focused }: { focused: boolean }) => setStartFocused(focused)}
-              id="start_date_id"
-              isOutsideRange={() => false}
-              numberOfMonths={1}
-            />
-            <StyledIcon icon='arrow-right'/>
-            <SingleDatePicker
-              date={endDate}
-              onDateChange={(date: Moment | null) => setEndDate(date)}
-              focused={endFocused}
-              onFocusChange={({ focused }: { focused: boolean }) => setEndFocused(focused)}
-              id="end_date_id"
-              isOutsideRange={() => false}
-              numberOfMonths={1}
-            />
-          </div>
+      <h2>
+        {studentName + ', ' + t('diplomas')}:
+      </h2>
+      <div className="ui--row">
+        <div>
+          <DateInput
+            date={startDate}
+            onDateChange={setStartDate}
+            id="start_date_id"
+            label={t('Dates of receipt')}
+          />
+          <StyledIcon icon="arrow-right" />
+          <DateInput
+            date={endDate}
+            onDateChange={setEndDate}
+            id="end_date_id"
+          />
         </div>
+      </div>
       {insurances.map((insurance) => (
         <InsuranceInfo key={insurance.id} insurance={insurance} />
       ))}
-    </div>)
+    </div>
+  );
 }
+
 const StyledIcon = styled(Icon)`
-  margin: 0 10px; // For the icon
+  margin: 0 10px;
 `;
-export default React.memo(InsurancesList)
+
+export default React.memo(InsurancesList);
