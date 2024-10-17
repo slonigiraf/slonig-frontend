@@ -1,5 +1,3 @@
-// SelectableList.tsx
-
 import React, { useState, useCallback, useEffect } from 'react';
 import { Button } from '@polkadot/react-components';
 import { useTranslation } from './translate.js';
@@ -16,6 +14,7 @@ interface SelectableListProps<T> {
   selectionButtons?: boolean;
   className?: string;
   additionalControls?: React.ReactNode;
+  keyExtractor: (item: T, index: number) => string | number;
 }
 
 function SelectableList<T>({
@@ -26,6 +25,7 @@ function SelectableList<T>({
   selectionButtons = true,
   className = '',
   additionalControls,
+  keyExtractor,
 }: SelectableListProps<T>): React.ReactElement {
   const { t } = useTranslation();
   const [selectedItems, setSelectedItems] = useState<T[]>([]);
@@ -74,7 +74,7 @@ function SelectableList<T>({
         </div>
       )}
       {items.map((item, index) => (
-        <div key={index} className="ui--row">
+        <div key={keyExtractor(item, index)} className="ui--row">
           {renderItem(item, selectedItems.includes(item), toggleItemSelection)}
         </div>
       ))}
