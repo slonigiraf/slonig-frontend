@@ -116,7 +116,7 @@ const StyledDiv = styled.div`
   }
   
   &.tinySize .ui--Modal__body {
-    max-width: 325px;
+    max-width: 324px;
   }   
 
   &.largeSize .ui--Modal__body {
