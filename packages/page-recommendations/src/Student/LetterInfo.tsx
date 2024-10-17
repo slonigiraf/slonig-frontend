@@ -11,14 +11,13 @@ import { useIpfsContext } from '@slonigiraf/app-slonig-components';
 import { saveLetterKnowledgeId } from '../utils.js';
 
 interface Props {
-  className?: string;
   letter: Letter;
-  isSelected: Boolean;
-  onToggleSelection?: (letter: Letter) => void; // Add this prop
+  isSelected: boolean;
+  onToggleSelection: (letter: Letter) => void;
 }
 
-function LetterInfo({ className = '', letter, isSelected, onToggleSelection }: Props): React.ReactElement<Props> {
-  const { ipfs, isIpfsReady, ipfsInitError } = useIpfsContext();
+function LetterInfo({ letter, isSelected, onToggleSelection }: Props): React.ReactElement<Props> {
+  const { ipfs } = useIpfsContext();
   const { t } = useTranslation();
   const [modalIsOpen, setModalIsOpen] = useState(false);
   const [text, setText] = useState(letter.cid);
@@ -31,53 +30,50 @@ function LetterInfo({ className = '', letter, isSelected, onToggleSelection }: P
           const content = await getIPFSDataFromContentID(ipfs, letter.cid);
           const json = parseJson(content);
           setText(json.h);
-          if(letter.id && !letter.knowledgeId){
+          if (letter.id && !letter.knowledgeId) {
             saveLetterKnowledgeId(letter.id, json.i);
           }
           setLoaded(true);
-        }
-        catch (e) {
-          setText(letter.cid + " (" + t('loading') + "...)")
-          console.log(e)
+        } catch (e) {
+          setText(`${letter.cid} (${t('loading')}...)`);
+          console.log(e);
         }
       }
     }
-    fetchData()
-  }, [ipfs, letter, text])
-
-  const buttonView = <>
-    <Button
-      icon='question'
-      label={""}
-      onClick={() => setModalIsOpen(true)}
-    />
-    {modalIsOpen && <Modal
-      header={t('Diploma')}
-      size={"small"}
-      onClose={() => setModalIsOpen(false)}
-    >
-      <Modal.Content>
-        {loaded ? <LetterDetailsModal text={text} letter={letter} /> : <Spinner noLabel />}
-      </Modal.Content>
-    </Modal>
-    }
-  </>;
-
-  const buttonSelect =
-    <Button
-      icon={isSelected ? 'check' : 'square'}
-      onClick={() => onToggleSelection && onToggleSelection(letter)}
-    />
-    ;
+    fetchData();
+  }, [ipfs, letter, text, t]);
 
   return (
-    <StyledDiv>
-      {buttonSelect}
+    <StyledDiv >
+      <Button
+        icon={isSelected ? 'check' : 'square'}
+        onClick={() => onToggleSelection(letter)}
+      />
       {loaded ? <KatexSpan content={text} /> : <Spinner noLabel />}
-      {buttonView}
+      <Button
+        icon="question"
+        label=""
+        onClick={() => setModalIsOpen(true)}
+      />
+      {modalIsOpen && (
+        <Modal
+          header={t('Diploma')}
+          size="small"
+          onClose={() => setModalIsOpen(false)}
+        >
+          <Modal.Content>
+            {loaded ? (
+              <LetterDetailsModal text={text} letter={letter} />
+            ) : (
+              <Spinner noLabel />
+            )}
+          </Modal.Content>
+        </Modal>
+      )}
     </StyledDiv>
-  )
+  );
 }
+
 const StyledDiv = styled.div`
   display: flex;
   align-items: center;
@@ -87,10 +83,11 @@ const StyledDiv = styled.div`
     margin-right: 10px;
     margin-left: 10px;
   }
-  .ui--Spinner{
+  .ui--Spinner {
     width: 50px;
     margin-left: 25px;
     margin-right: 25px;
   }
 `;
+
 export default React.memo(LetterInfo);
