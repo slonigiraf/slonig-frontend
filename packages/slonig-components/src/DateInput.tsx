@@ -3,7 +3,7 @@ import { DayPicker } from 'react-day-picker';
 import { Modal } from '@polkadot/react-components';
 import { styled } from '@polkadot/react-components';
 import 'react-day-picker/dist/style.css';
-import { useTranslation } from '../translate.js';
+import { useTranslation } from './translate.js';
 
 interface DateInputProps {
   date: Date | null;
@@ -14,6 +14,9 @@ interface DateInputProps {
 
 const StyledDayPicker = styled(DayPicker)`
   --rdp-accent-color: #F39200;
+  .start_date_id {
+    border: none;
+  }
 `;
 
 function DateInput({ date, onDateChange, id, label }: DateInputProps) {
@@ -53,6 +56,7 @@ function DateInput({ date, onDateChange, id, label }: DateInputProps) {
             height: '2.5em',
             textAlign: 'center',
             width: '120px',
+            borderWidth: '0.5px',
           }}
       />
       {showCalendar && (

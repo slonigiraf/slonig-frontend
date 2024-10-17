@@ -9,9 +9,8 @@ import { Button, styled, Icon, Modal } from '@polkadot/react-components';
 import { useTranslation } from '../translate.js';
 import { useLocation } from 'react-router-dom';
 import SignLettersUseRight from './SignLettersUseRight.js';
-import DateInput from './DateInput.js';
 import type { KeyringPair } from '@polkadot/keyring/types';
-import { SelectableList, useInfo } from '@slonigiraf/app-slonig-components';
+import { DateInput, SelectableList, useInfo } from '@slonigiraf/app-slonig-components';
 import { useToggle } from '@polkadot/react-hooks';
 
 interface Props {
@@ -99,6 +98,7 @@ function LettersList({ className = '', worker, currentPair }: Props): React.Reac
             date={startDate}
             onDateChange={setStartDate}
             id="start_date_id"
+            label={t('Dates of receipt')}
           />
           <StyledIcon icon="arrow-right" />
           <DateInput
