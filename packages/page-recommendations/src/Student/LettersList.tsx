@@ -82,7 +82,7 @@ function LettersList({ className = '', worker, currentPair }: Props): React.Reac
     <div></div>
   ) : (
     <div>
-      <h2>{t('My diplomas')}</h2>
+      <h2>{employer === '' ? t('My diplomas') : t('Select diplomas and send them')}</h2>
       <div className="ui--row">
         <div>
           <DateInput
