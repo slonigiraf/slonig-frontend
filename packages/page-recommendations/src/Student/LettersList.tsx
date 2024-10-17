@@ -1,4 +1,4 @@
-// LettersList component with updated DateInput
+// LettersList component with JavaScript Date objects
 
 import LetterInfo from './LetterInfo.js';
 import React, { useState } from 'react';
@@ -12,10 +12,7 @@ import SignLettersUseRight from './SignLettersUseRight.js';
 import DateInput from './DateInput.js';
 import type { KeyringPair } from '@polkadot/keyring/types';
 import { SelectableList, useInfo } from '@slonigiraf/app-slonig-components';
-import moment from 'moment';
 import { useToggle } from '@polkadot/react-hooks';
-import { DayPicker } from 'react-day-picker';
-import 'react-day-picker/dist/style.css';
 
 interface Props {
   className?: string;
@@ -30,15 +27,19 @@ function LettersList({ className = '', worker, currentPair }: Props): React.Reac
   const queryParams = new URLSearchParams(location.search);
   const employer = queryParams.get('teacher') || '';
   const { showInfo } = useInfo();
-  const [startDate, setStartDate] = useState<moment.Moment | null>(moment().startOf('day'));
-  const [endDate, setEndDate] = useState<moment.Moment | null>(moment().endOf('day'));
+
+  // Initialize startDate and endDate as Date objects
+  const [startDate, setStartDate] = useState<Date | null>(new Date(new Date().setHours(0, 0, 0, 0)));
+  const [endDate, setEndDate] = useState<Date | null>(new Date(new Date().setHours(23, 59, 59, 999)));
   const [isDeleteConfirmOpen, toggleDeleteConfirm] = useToggle();
 
   const letters = useLiveQuery<Letter[]>(
     () => {
       let query = db.letters.where('workerId').equals(worker);
-      if (startDate) query = query.filter((letter) => new Date(letter.created) >= startDate.toDate());
-      if (endDate) query = query.filter((letter) => new Date(letter.created) <= endDate.toDate());
+      if (startDate)
+        query = query.filter((letter) => new Date(letter.created) >= startDate);
+      if (endDate)
+        query = query.filter((letter) => new Date(letter.created) <= endDate);
       return query.sortBy('id').then((letters) => letters.reverse());
     },
     [worker, startDate, endDate]
@@ -88,14 +89,12 @@ function LettersList({ className = '', worker, currentPair }: Props): React.Reac
             date={startDate}
             onDateChange={setStartDate}
             id="start_date_id"
-            label={t('Start Date')}
           />
           <StyledIcon icon="arrow-right" />
           <DateInput
             date={endDate}
             onDateChange={setEndDate}
             id="end_date_id"
-            label={t('End Date')}
           />
         </div>
       </div>

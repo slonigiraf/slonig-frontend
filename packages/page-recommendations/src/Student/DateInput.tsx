@@ -50,6 +50,7 @@ function DateInput({ date, onDateChange, id, label }: DateInputProps) {
             cursor: 'pointer',
             height: '2.5em',
             textAlign: 'center',
+            width: '120px',
           }}
       />
       {showCalendar && (
