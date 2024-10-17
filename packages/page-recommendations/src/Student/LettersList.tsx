@@ -89,7 +89,7 @@ function LettersList({ className = '', worker, currentPair }: Props): React.Reac
       <h2>{t('My diplomas')}</h2>
       <div className="ui--row">
         <div>
-          <StyledSingleDatePicker
+          <SingleDatePicker
             date={startDate}
             onDateChange={(date: Moment | null) => setStartDate(date)}
             focused={startFocused}
@@ -99,7 +99,7 @@ function LettersList({ className = '', worker, currentPair }: Props): React.Reac
             numberOfMonths={1}
           />
           <StyledIcon icon="arrow-right" />
-          <StyledSingleDatePicker
+          <SingleDatePicker
             date={endDate}
             onDateChange={(date: Moment | null) => setEndDate(date)}
             focused={endFocused}
@@ -152,9 +152,6 @@ function LettersList({ className = '', worker, currentPair }: Props): React.Reac
   );
 }
 
-const StyledSingleDatePicker = styled(SingleDatePicker)`
-  /* Add your styles here */
-`;
 const StyledIcon = styled(Icon)`
   margin: 0 10px;
 `;

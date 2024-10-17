@@ -57,7 +57,7 @@ function InsurancesList({ className = '', teacher, student, studentNameFromUrl }
       <h2>{studentName + ', ' + t('diplomas')}:</h2>
       <div className='ui--row'>
           <div>
-            <StyledSingleDatePicker
+            <SingleDatePicker
               date={startDate}
               onDateChange={(date: Moment | null) => setStartDate(date)}
               focused={startFocused}
@@ -67,7 +67,7 @@ function InsurancesList({ className = '', teacher, student, studentNameFromUrl }
               numberOfMonths={1}
             />
             <StyledIcon icon='arrow-right'/>
-            <StyledSingleDatePicker
+            <SingleDatePicker
               date={endDate}
               onDateChange={(date: Moment | null) => setEndDate(date)}
               focused={endFocused}
@@ -83,8 +83,6 @@ function InsurancesList({ className = '', teacher, student, studentNameFromUrl }
       ))}
     </div>)
 }
-const StyledSingleDatePicker = styled(SingleDatePicker)`
-`;
 const StyledIcon = styled(Icon)`
   margin: 0 10px; // For the icon
 `;
