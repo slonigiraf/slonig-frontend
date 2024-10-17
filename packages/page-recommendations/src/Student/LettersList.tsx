@@ -1,23 +1,21 @@
-// Copyright 2021-2022 @slonigiraf/app-recommendations authors & contributors
-// SPDX-License-Identifier: Apache-2.0
+// LettersList component with updated DateInput
 
-import LetterInfo from './LetterInfo.js'
-import React, { useState } from 'react'
-import { useLiveQuery } from "dexie-react-hooks";
-import { db } from "../db/index.js";
-import { Letter } from "../db/Letter.js";
-import { Button, styled, Icon } from '@polkadot/react-components';
+import LetterInfo from './LetterInfo.js';
+import React, { useState } from 'react';
+import { useLiveQuery } from 'dexie-react-hooks';
+import { db } from '../db/index.js';
+import { Letter } from '../db/Letter.js';
+import { Button, styled, Icon, Modal } from '@polkadot/react-components';
 import { useTranslation } from '../translate.js';
 import { useLocation } from 'react-router-dom';
-import SignLettersUseRight from './SignLettersUseRight.js'
+import SignLettersUseRight from './SignLettersUseRight.js';
+import DateInput from './DateInput.js';
 import type { KeyringPair } from '@polkadot/keyring/types';
 import { SelectableList, useInfo } from '@slonigiraf/app-slonig-components';
-import 'react-dates/initialize';
-import { SingleDatePicker } from 'react-dates';
-import 'react-dates/lib/css/_datepicker.css';
-import moment, { Moment } from 'moment';
+import moment from 'moment';
 import { useToggle } from '@polkadot/react-hooks';
-import { Modal } from '@polkadot/react-components';
+import { DayPicker } from 'react-day-picker';
+import 'react-day-picker/dist/style.css';
 
 interface Props {
   className?: string;
@@ -32,10 +30,8 @@ function LettersList({ className = '', worker, currentPair }: Props): React.Reac
   const queryParams = new URLSearchParams(location.search);
   const employer = queryParams.get('teacher') || '';
   const { showInfo } = useInfo();
-  const [startDate, setStartDate] = useState<Moment | null>(moment().startOf('day'));
-  const [endDate, setEndDate] = useState<Moment | null>(moment().endOf('day'));
-  const [startFocused, setStartFocused] = useState<boolean>(false);
-  const [endFocused, setEndFocused] = useState<boolean>(false);
+  const [startDate, setStartDate] = useState<moment.Moment | null>(moment().startOf('day'));
+  const [endDate, setEndDate] = useState<moment.Moment | null>(moment().endOf('day'));
   const [isDeleteConfirmOpen, toggleDeleteConfirm] = useToggle();
 
   const letters = useLiveQuery<Letter[]>(
@@ -52,7 +48,7 @@ function LettersList({ className = '', worker, currentPair }: Props): React.Reac
 
   const handleSelectionChange = (newSelectedLetters: Letter[]) => {
     if (newSelectedLetters.length > MAX_SELECTED_DIPLOMAS) {
-      showInfo(t('Maximum number of selected diplomas is:') + ' ' + MAX_SELECTED_DIPLOMAS);
+      showInfo(`${t('Maximum number of selected diplomas is:')} ${MAX_SELECTED_DIPLOMAS}`);
       return;
     }
     setSelectedLetters(newSelectedLetters);
@@ -76,7 +72,6 @@ function LettersList({ className = '', worker, currentPair }: Props): React.Reac
     }
   };
 
-  // Define the Delete button
   const deleteSelectedButton =
     employer === '' && selectedLetters.length > 0 && (
       <Button icon="trash" label={t('Delete')} onClick={toggleDeleteConfirm} />
@@ -89,24 +84,18 @@ function LettersList({ className = '', worker, currentPair }: Props): React.Reac
       <h2>{t('My diplomas')}</h2>
       <div className="ui--row">
         <div>
-          <SingleDatePicker
+          <DateInput
             date={startDate}
-            onDateChange={(date: Moment | null) => setStartDate(date)}
-            focused={startFocused}
-            onFocusChange={({ focused }: { focused: boolean }) => setStartFocused(focused)}
+            onDateChange={setStartDate}
             id="start_date_id"
-            isOutsideRange={() => false}
-            numberOfMonths={1}
+            label={t('Start Date')}
           />
           <StyledIcon icon="arrow-right" />
-          <SingleDatePicker
+          <DateInput
             date={endDate}
-            onDateChange={(date: Moment | null) => setEndDate(date)}
-            focused={endFocused}
-            onFocusChange={({ focused }: { focused: boolean }) => setEndFocused(focused)}
+            onDateChange={setEndDate}
             id="end_date_id"
-            isOutsideRange={() => false}
-            numberOfMonths={1}
+            label={t('End Date')}
           />
         </div>
       </div>
@@ -132,7 +121,7 @@ function LettersList({ className = '', worker, currentPair }: Props): React.Reac
         onSelectionChange={handleSelectionChange}
         maxSelectableItems={MAX_SELECTED_DIPLOMAS}
         additionalControls={deleteSelectedButton}
-        keyExtractor={(letter, index) => letter.signOverReceipt ?? index}
+        keyExtractor={(letter, index) => letter.signOverReceipt ?? index.toString()}
       />
       {isDeleteConfirmOpen && (
         <StyledModal
@@ -155,6 +144,7 @@ function LettersList({ className = '', worker, currentPair }: Props): React.Reac
 const StyledIcon = styled(Icon)`
   margin: 0 10px;
 `;
+
 const StyledDiv = styled.div`
   width: 100%;
   display: flex;
@@ -162,6 +152,7 @@ const StyledDiv = styled.div`
   align-items: center;
   column-gap: 40px;
 `;
+
 const StyledModal = styled(Modal)`
   button[data-testid='close-modal'] {
     opacity: 0;

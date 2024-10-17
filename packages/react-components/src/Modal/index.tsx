@@ -15,7 +15,7 @@ import Content from './Content.js';
 import Header from './Header.js';
 
 interface Props {
-  size?: 'large' | 'medium' | 'small';
+  size?: 'large' | 'medium' | 'small' | 'tiny';
   children: React.ReactNode;
   className?: string;
   header?: React.ReactNode;
@@ -114,6 +114,10 @@ const StyledDiv = styled.div`
   &.smallSize .ui--Modal__body {
     max-width: 720px;
   }
+  
+  &.tinySize .ui--Modal__body {
+    max-width: 350px;
+  }   
 
   &.largeSize .ui--Modal__body {
     max-width: 1080px;
