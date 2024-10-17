@@ -73,6 +73,7 @@
     "@types/file-saver": "^2.0.5",
     "@types/react-beautiful-dnd": "^13.1.4",
     "@types/react-copy-to-clipboard": "^5.0.4",
+    "@types/react-dates": "^21.8.6",
     "@types/react-dom": "^18.2.5",
     "@types/react-router-dom": "^5.3.3",
     "@types/store": "^2.0.2",
