@@ -106,7 +106,7 @@ function ViewList({ className = '', id, currentPair }: Props): React.ReactElemen
             value={isReexaminingRequested}
           />
           <div className='ui--row' style={isModuleQRVisible ? {} : { display: 'none' }}>
-            <SkillQR id={id} cid={cidString} type={LawType.MODULE} />
+            <SkillQR id={id} cid={cidString} type={LawType.MODULE} selectedItems={selectedItems}/>
           </div>
         </>
       )}

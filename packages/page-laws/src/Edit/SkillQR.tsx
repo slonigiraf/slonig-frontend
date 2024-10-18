@@ -15,12 +15,15 @@ import { BN_ONE } from '@polkadot/util';
 import { useApi } from '@polkadot/react-hooks';
 import { useBlockTime } from '@polkadot/react-hooks';
 import DiplomaCheck from './DiplomaCheck.js';
+import { ItemWithCID } from '../types.js';
+import { blake2AsHex } from '@polkadot/util-crypto';
 
 interface Props {
   className?: string;
   id: string;
   cid: string;
   type: number;
+  selectedItems?: ItemWithCID[];
 }
 
 const getBlockAllowed = (currentBlock: BN, blockTimeMs: number, secondsToAdd: number): BN => {
@@ -30,7 +33,7 @@ const getBlockAllowed = (currentBlock: BN, blockTimeMs: number, secondsToAdd: nu
   return blockAllowed;
 }
 
-function SkillQR({ className = '', id, cid, type }: Props): React.ReactElement<Props> {
+function SkillQR({ className = '', id, cid, type, selectedItems }: Props): React.ReactElement<Props> {
   // Using key
   const { api, isApiReady } = useApi();
   // Last block number
@@ -51,6 +54,7 @@ function SkillQR({ className = '', id, cid, type }: Props): React.ReactElement<P
   const [validDiplomas, setValidDiplomas] = useState<Letter[]>();
   const [loading, setLoading] = useState<boolean>(true);
   const [currentDate, setCurrentDate] = useState<Date | null>(null);
+  const [tutoringRequestId, setTutoringRequestId] = useState<string>('');
 
 
   // Fetch block number (once)
@@ -102,6 +106,23 @@ function SkillQR({ className = '', id, cid, type }: Props): React.ReactElement<P
     const date = new Date();
     setCurrentDate(date);
   }, []);
+
+  useEffect(() => {
+    const generateTutoringRequestId = () => {
+      if(selectedItems !== undefined){
+        const date = new Date().toISOString().split('T')[0]; // Get the current date in YYYY-MM-DD format
+        const selectedItemIds = selectedItems.map(item => item.id).join('-'); // Join selected item IDs
+        const dataToHash = `${date}-${selectedItemIds}`;
+        const hash = blake2AsHex(dataToHash);
+        setTutoringRequestId(hash);
+      }
+    };
+    if (selectedItems !== undefined && selectedItems.length > 0) {
+      generateTutoringRequestId();
+    } else {
+      setTutoringRequestId('');
+    }
+  }, [selectedItems]);
 
   // Prepare dropdown options
   let tutorOptions = tutors?.map(tutor => ({
@@ -180,7 +201,7 @@ function SkillQR({ className = '', id, cid, type }: Props): React.ReactElement<P
   const qrCodeText = generateQRData();
   const url = `${getBaseUrl()}/#/${urlDetails}`;
   const route = `#/${urlDetails}`;
-  const action = {q: QRAction.SKILL, n: name, p : studentIdentity, t: currentDate};
+  const action = { i: tutoringRequestId, q: QRAction.LEARN_MODULE, n: name, p : studentIdentity, t: tutor};
 
   const diplomaCheck = <DiplomaCheck id={id} cid={cid} caption={t('I have a diploma')} setValidDiplomas={setValidDiplomas} onLoad={() => setLoading(false)} />;
   const hasValidDiploma = validDiplomas && validDiplomas.length > 0;

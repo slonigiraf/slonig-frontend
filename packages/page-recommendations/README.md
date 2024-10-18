@@ -9,7 +9,7 @@
 | n | Student's name |
 | p | Student's identity (hex) |
 | t | Tutors's identity (hex) |
-| d | Data JSON |
+| c | PeerJS peer id |
 ### Data JSON format
 | Key  | What is it for |
 | - | - |
