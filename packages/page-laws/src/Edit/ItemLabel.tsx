@@ -7,6 +7,7 @@ import { useIpfsContext } from '@slonigiraf/app-slonig-components';
 import { Button, Icon, Label, Spinner, styled } from '@polkadot/react-components';
 import DiplomaCheck from './DiplomaCheck.js';
 import { Letter } from '@slonigiraf/app-recommendations';
+import { ItemWithCID } from '../types.js';
 
 interface Props {
   className?: string;
@@ -16,7 +17,7 @@ interface Props {
   isSelected?: boolean;
   isSelectable?: boolean;
   isReexaminingRequested?: boolean;
-  onToggleSelection?: (id: string) => void;
+  onToggleSelection?: (item: ItemWithCID) => void;
 }
 
 function ItemLabel({ className = '', id, isText = false, defaultValue = '...', isSelected = false, isSelectable = false, isReexaminingRequested=false, onToggleSelection }: Props): React.ReactElement<Props> {
@@ -34,9 +35,9 @@ function ItemLabel({ className = '', id, isText = false, defaultValue = '...', i
   useEffect(() => {
     const allowSelection = isReexaminingRequested? validDiplomas.length > 0 : validDiplomas.length === 0;
     if (!allowSelection && isSelected && onToggleSelection) {
-      onToggleSelection(id); // Deselect if no valid diplomas
+      onToggleSelection({'id': id, 'cid': cidString}); // Deselect if no valid diplomas
     }
-  }, [validDiplomas, isSelected, onToggleSelection, id]);
+  }, [validDiplomas, isSelected, onToggleSelection, id, cidString]);
 
   useEffect(() => {
     fetchLaw(id);
@@ -104,7 +105,7 @@ function ItemLabel({ className = '', id, isText = false, defaultValue = '...', i
   return <StyledDiv isSelectable={isSelectable}>{
     (onToggleSelection !== undefined && isSelectable && <Button
       icon={isSelected ? 'check' : 'square'}
-      onClick={() => onToggleSelection(id)}
+      onClick={() => onToggleSelection({'id': id, 'cid': cidString})}
       isDisabled={!allowSelection}
     />)}
     {content}</StyledDiv>;

@@ -14,6 +14,11 @@ export interface BareProps {
   className?: string;
 }
 
+export interface ItemWithCID {
+  id: string;
+  cid: string;
+}
+
 export interface I18nProps extends BareProps, WithTranslation {}
 
 export interface ModalProps {

@@ -14,7 +14,7 @@ interface SelectableListProps<T> {
   selectionButtons?: boolean;
   className?: string;
   additionalControls?: React.ReactNode;
-  keyExtractor: (item: T, index: number) => string | number;
+  keyExtractor: (item: T) => string;
 }
 
 function SelectableList<T>({
@@ -36,11 +36,11 @@ function SelectableList<T>({
 
   const toggleItemSelection = (item: T) => {
     setSelectedItems((prevSelected) => {
-      const isSelected = prevSelected.includes(item);
+      const isSelected = prevSelected.some((i) => keyExtractor(i) === keyExtractor(item));
       let newSelected;
 
       if (isSelected) {
-        newSelected = prevSelected.filter((i) => i !== item);
+        newSelected = prevSelected.filter((i) => keyExtractor(i) !== keyExtractor(item));
       } else if (prevSelected.length < maxSelectableItems) {
         newSelected = [...prevSelected, item];
       } else {
@@ -74,9 +74,14 @@ function SelectableList<T>({
         </div>
       )}
       {items.map((item, index) => (
-        <div key={keyExtractor(item, index)} className="ui--row">
-          {renderItem(item, selectedItems.includes(item), toggleItemSelection)}
+        <div key={keyExtractor(item)} className="ui--row">
+          {renderItem(
+            item,
+            selectedItems.some((selectedItem) => keyExtractor(selectedItem) === keyExtractor(item)),
+            toggleItemSelection
+          )}
         </div>
+
       ))}
     </div>
   );

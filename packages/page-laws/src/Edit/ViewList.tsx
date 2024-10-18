@@ -11,6 +11,7 @@ import ExerciseList from './ExerciseList.js';
 import { u8aToHex } from '@polkadot/util';
 import LearnWithAI from './LearnWithAI.js';
 import { Toggle } from '@polkadot/react-components';
+import { ItemWithCID } from '../types.js';
 
 interface Props {
   className?: string;
@@ -31,7 +32,7 @@ function ViewList({ className = '', id, currentPair }: Props): React.ReactElemen
   const { api } = useApi();
   const [isLearningRequested, setLearningRequested] = useState(false);
   const [isReexaminingRequested, setReexaminingRequested] = useState(false);
-  const [selectedItems, setSelectedItems] = useState<string[]>([]);
+  const [selectedItems, setSelectedItems] = useState<ItemWithCID[]>([]);
 
   async function fetchLaw(key: string) {
     if (key) {
@@ -85,7 +86,7 @@ function ViewList({ className = '', id, currentPair }: Props): React.ReactElemen
 
   const isModuleQRVisible = isLearningRequested || isReexaminingRequested;
 
-  const handleSelectionChange = (newSelectedItems: string[]) => {
+  const handleSelectionChange = (newSelectedItems: ItemWithCID[]) => {
     setSelectedItems(newSelectedItems);
   };
 
@@ -118,11 +119,14 @@ function ViewList({ className = '', id, currentPair }: Props): React.ReactElemen
       )}
 
       {list.e != null && (
-        <SelectableList<string>
-          items={list.e}
+        <SelectableList<ItemWithCID>
+          items={list.e.map((id: string) => ({
+            id: id,
+            cid: ''
+          }))}
           renderItem={(item, isSelected, onToggleSelection) => (
             <ItemLabel
-              id={item}
+              id={item.id}
               isSelected={isSelected}
               isReexaminingRequested={isReexaminingRequested}
               onToggleSelection={onToggleSelection}
@@ -131,7 +135,7 @@ function ViewList({ className = '', id, currentPair }: Props): React.ReactElemen
           )}
           onSelectionChange={handleSelectionChange}
           selectionButtons={isModuleQRVisible}
-          keyExtractor={(item) => item}
+          keyExtractor={(item) => item.id}
         />
       )}
 
