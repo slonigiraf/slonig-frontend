@@ -4,7 +4,7 @@ import React, { useEffect, useState } from 'react';
 import { useApi } from '@polkadot/react-hooks';
 import { KatexSpan, getCIDFromBytes, getIPFSDataFromContentID, parseJson } from '@slonigiraf/app-slonig-components';
 import { useIpfsContext } from '@slonigiraf/app-slonig-components';
-import { Icon, Label, Spinner, styled } from '@polkadot/react-components';
+import { Button, Icon, Label, Spinner, styled } from '@polkadot/react-components';
 import DiplomaCheck from './DiplomaCheck.js';
 
 interface Props {
@@ -12,9 +12,12 @@ interface Props {
   id: string;
   isText?: boolean;
   defaultValue?: string;
+  isSelected?: boolean;
+  isSelectable?: boolean;
+  onToggleSelection?: (id: string) => void;
 }
 
-function ItemLabel({ className = '', id, isText = false, defaultValue = '...' }: Props): React.ReactElement<Props> {
+function ItemLabel({ className = '', id, isText = false, defaultValue = '...', isSelected = false, isSelectable = false, onToggleSelection }: Props): React.ReactElement<Props> {
   const { ipfs, isIpfsReady, ipfsInitError } = useIpfsContext();
   const { api } = useApi();
   const [cidString, setCidString] = useState<string>("");
@@ -63,7 +66,7 @@ function ItemLabel({ className = '', id, isText = false, defaultValue = '...' }:
   const textToDisplay = isFetched ? text : defaultValue;
 
   const getIconName = () => {
-    switch(type) {
+    switch (type) {
       case 0: return 'list';
       case 1: return 'graduation-cap';
       case 2: return 'book-open';
@@ -71,17 +74,26 @@ function ItemLabel({ className = '', id, isText = false, defaultValue = '...' }:
     }
   };
 
-  const iconToDisplay = <Icon icon={getIconName()} color='gray'/>;
+  const iconToDisplay = <Icon icon={getIconName()} color='gray' />;
 
   const icon = <span>{iconToDisplay}&nbsp;</span>;
 
-  return isText ?
+  const content = isText ?
     <KatexSpan content={textToDisplay} />
     :
     isFetched ?
-      <StyledA href={`/#/knowledge?id=${id}`}>{!isSkillItem && icon}{isSkillItem && <DiplomaCheck id={id} cid={cidString}/>}<KatexSpan content={textToDisplay} /></StyledA>
+      <StyledA href={`/#/knowledge?id=${id}`}>{!isSkillItem && icon}{isSkillItem && <DiplomaCheck id={id} cid={cidString} />}<KatexSpan content={textToDisplay} /></StyledA>
       :
       <StyledSpinner><Spinner noLabel /></StyledSpinner>;
+
+
+
+  return <>{
+    (onToggleSelection !== undefined && isSelectable && <Button
+      icon={isSelected ? 'check' : 'square'}
+      onClick={() => onToggleSelection(id)}
+    />)}
+    {content}</>;
 }
 
 const StyledA = styled.a`

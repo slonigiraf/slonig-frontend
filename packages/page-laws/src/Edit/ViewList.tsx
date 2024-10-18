@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useState } from 'react';
-import { KatexSpan, LawType, getCIDFromBytes, getIPFSDataFromContentID, parseJson } from '@slonigiraf/app-slonig-components';
+import { KatexSpan, LawType, getCIDFromBytes, getIPFSDataFromContentID, parseJson, SelectableList } from '@slonigiraf/app-slonig-components';
 import { useApi } from '@polkadot/react-hooks';
 import { BN_ZERO } from '@polkadot/util';
 import ItemLabel from './ItemLabel.js';
@@ -31,6 +31,7 @@ function ViewList({ className = '', id, currentPair }: Props): React.ReactElemen
   const { api } = useApi();
   const [isLearningRequested, setLearningRequested] = useState(false);
   const [isReexaminingRequested, setReexaminingRequested] = useState(false);
+  const [selectedItems, setSelectedItems] = useState<string[]>([]);
 
   async function fetchLaw(key: string) {
     if (key) {
@@ -79,50 +80,60 @@ function ViewList({ className = '', id, currentPair }: Props): React.ReactElemen
     }
   }, []);
 
-  const isModuleQRVisible = (isLearningRequested || isReexaminingRequested);
+  const isModuleQRVisible = isLearningRequested || isReexaminingRequested;
 
-  return (
-    list == null ? <></> :
-      <>
-        <h1><KatexSpan content={list.h} /></h1>
-        {
-          list.t !== null && list.t === LawType.MODULE &&
-          <>
-            <Toggle
-              label={t('Learn with a tutor')}
-              onChange={handleLearningToggle}
-              value={isLearningRequested}
-            />
-            <Toggle
-              label={t('Reexamine my diplomas')}
-              onChange={handleReexaminingToggle}
-              value={isReexaminingRequested}
-            />
-            <div className='ui--row' style={isModuleQRVisible ? {} : { display: 'none' }}>
-              <SkillQR id={id} cid={cidString} type={LawType.MODULE} />
-            </div>
-          </>
-        }
-        {
-          list.t !== null && list.t === LawType.SKILL &&
-          <>
-            <SkillQR id={id} cid={cidString} type={LawType.SKILL} />
-            <LearnWithAI skillName={list.h} exercises={list.q} />
-            <h3>{t('Example exercises to train the skill')}</h3>
-          </>
-        }
-        {list.e != null && list.e.map((item: string) => (
-          <div className='ui--row' key={item}
-            style={{
-              alignItems: 'center'
-            }}
-          >
-            <ItemLabel id={item} />
+  const handleSelectionChange = (newSelectedItems: string[]) => {
+    setSelectedItems(newSelectedItems);
+  };
+
+  return list == null ? <></> : (
+    <>
+      <h1><KatexSpan content={list.h} /></h1>
+      {list.t !== null && list.t === LawType.MODULE && (
+        <>
+          <Toggle
+            label={t('Learn with a tutor')}
+            onChange={handleLearningToggle}
+            value={isLearningRequested}
+          />
+          <Toggle
+            label={t('Reexamine my diplomas')}
+            onChange={handleReexaminingToggle}
+            value={isReexaminingRequested}
+          />
+          <div className='ui--row' style={isModuleQRVisible ? {} : { display: 'none' }}>
+            <SkillQR id={id} cid={cidString} type={LawType.MODULE} />
           </div>
-        ))}
-        {list.q != null && <ExerciseList exercises={list.q} />}
-      </>
+        </>
+      )}
+      {list.t !== null && list.t === LawType.SKILL && (
+        <>
+          <SkillQR id={id} cid={cidString} type={LawType.SKILL} />
+          <LearnWithAI skillName={list.h} exercises={list.q} />
+          <h3>{t('Example exercises to train the skill')}</h3>
+        </>
+      )}
+
+      {list.e != null && (
+        <SelectableList<string>
+          items={list.e}
+          renderItem={(item, isSelected, onToggleSelection) => (
+            <ItemLabel
+              id={item}
+              isSelected={isSelected}
+              onToggleSelection={onToggleSelection}
+              isSelectable={isModuleQRVisible}
+            />
+          )}
+          onSelectionChange={handleSelectionChange}
+          selectionButtons={isModuleQRVisible}
+          keyExtractor={(item) => item}
+        />
+      )}
+
+      {list.q != null && <ExerciseList exercises={list.q} />}
+    </>
   );
-};
+}
 
 export default React.memo(ViewList);
