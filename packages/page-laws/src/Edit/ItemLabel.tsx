@@ -15,10 +15,11 @@ interface Props {
   defaultValue?: string;
   isSelected?: boolean;
   isSelectable?: boolean;
+  isReexaminingRequested?: boolean;
   onToggleSelection?: (id: string) => void;
 }
 
-function ItemLabel({ className = '', id, isText = false, defaultValue = '...', isSelected = false, isSelectable = false, onToggleSelection }: Props): React.ReactElement<Props> {
+function ItemLabel({ className = '', id, isText = false, defaultValue = '...', isSelected = false, isSelectable = false, isReexaminingRequested=false, onToggleSelection }: Props): React.ReactElement<Props> {
   const { ipfs, isIpfsReady, ipfsInitError } = useIpfsContext();
   const { api } = useApi();
   const [cidString, setCidString] = useState<string>("");

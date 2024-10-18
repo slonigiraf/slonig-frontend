@@ -121,6 +121,7 @@ function ViewList({ className = '', id, currentPair }: Props): React.ReactElemen
             <ItemLabel
               id={item}
               isSelected={isSelected}
+              isReexaminingRequested={isReexaminingRequested}
               onToggleSelection={onToggleSelection}
               isSelectable={isModuleQRVisible}
             />
