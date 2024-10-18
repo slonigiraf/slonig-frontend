@@ -67,6 +67,20 @@ function ScanQR({ className = '', label, type }: Props): React.ReactElement<Prop
               }
               navigate(`diplomas/teacher?t=${jsonData.t}&student=${jsonData.p}`);
               break;
+            case QRAction.LEARN_MODULE:
+                await storePseudonym(jsonData.p, jsonData.n);
+                showInfo(t('Loading'), 'info', 60)
+                const data = await receiveWebRTCData(jsonData.c);
+                hideInfo();
+                const json = parseJson(data);
+                try {
+                  console.log("Data received: " + JSON.stringify(json, null, 2));
+                  // await storeInsurances(dimplomasJsonWithMeta);
+                } catch (error) {
+                  console.error("Failed to save diplomas:", error);
+                }
+                // navigate(`diplomas/teacher?t=${jsonData.t}&student=${jsonData.p}`);
+                break;  
             case QRAction.TUTOR_IDENTITY:
               await storePseudonym(jsonData.p, jsonData.n);
               await storeSetting("tutor", jsonData.p);

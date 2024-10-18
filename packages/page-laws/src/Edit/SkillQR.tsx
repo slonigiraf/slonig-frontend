@@ -55,6 +55,8 @@ function SkillQR({ className = '', id, cid, type, selectedItems }: Props): React
   const [loading, setLoading] = useState<boolean>(true);
   const [currentDate, setCurrentDate] = useState<Date | null>(null);
   const [tutoringRequestId, setTutoringRequestId] = useState<string>('');
+  const [learn, setDiplomasMeta] = useState<string[]>([]);
+  const [exam, setExam] = useState<string[]>([]);
 
 
   // Fetch block number (once)
@@ -82,8 +84,21 @@ function SkillQR({ className = '', id, cid, type, selectedItems }: Props): React
       const diplomaKey = keyForCid(currentPair, cid);
       const diplomaPublicKeyHex = u8aToHex(diplomaKey?.publicKey);
       setDiplomaPublicKeyHex(diplomaPublicKeyHex);
+      if (selectedItems !== undefined && selectedItems.length > 0) {
+        const meta: string[] = selectedItems.reduce((acc, item) => {
+          acc.push(item.id, item.cid);
+          return acc;
+        }, [] as string[]);
+        setDiplomasMeta(meta);
+      }
+      if(diplomaToReexamine){
+        setExam([diplomaToReexamine.cid, diplomaToReexamine.genesis, diplomaToReexamine.letterNumber.toString(), 
+          diplomaToReexamine.block, blockAllowed.toString(), diplomaToReexamine.referee, diplomaToReexamine.worker, 
+          diplomaToReexamine.amount, diplomaToReexamine.signOverPrivateData, diplomaToReexamine.signOverReceipt, 
+          studentSignatureOverDiplomaToReexamine]);
+      }
     }
-  }, [currentPair]);
+  }, [currentPair, diplomaToReexamine, selectedItems]);
 
   // Fetch tutor and set it as the default in the dropdown
   useEffect(() => {
@@ -206,6 +221,8 @@ function SkillQR({ className = '', id, cid, type, selectedItems }: Props): React
   const diplomaCheck = <DiplomaCheck id={id} cid={cid} caption={t('I have a diploma')} setValidDiplomas={setValidDiplomas} onLoad={() => setLoading(false)} />;
   const hasValidDiploma = validDiplomas && validDiplomas.length > 0;
 
+  const data = JSON.stringify({'learn': learn, 'exam': exam});
+
   return (<>
     {isLoggedIn
       && <>
@@ -223,7 +240,7 @@ function SkillQR({ className = '', id, cid, type, selectedItems }: Props): React
                     options={tutorOptions || []}
                   />
                   {type == LawType.MODULE && <SenderComponent
-                    data={urlDetails} route={route} action={action}
+                    data={data} route={route} action={action}
                     textShare={t('Press the link to start tutoring')}
                   />}
                   {type == LawType.SKILL && <QRWithShareAndCopy
