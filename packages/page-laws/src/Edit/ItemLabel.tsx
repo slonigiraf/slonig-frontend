@@ -101,13 +101,13 @@ function ItemLabel({ className = '', id, isText = false, defaultValue = '...', i
 
   const allowSelection = isReexaminingRequested? validDiplomas.length > 0 : validDiplomas.length === 0;
 
-  return <>{
+  return <StyledDiv style={isSelectable ? { padding: '10px' } : {}}>{
     (onToggleSelection !== undefined && isSelectable && <Button
       icon={isSelected ? 'check' : 'square'}
       onClick={() => onToggleSelection(id)}
       isDisabled={!allowSelection}
     />)}
-    {content}</>;
+    {content}</StyledDiv>;
 }
 
 const StyledA = styled.a`
@@ -122,5 +122,11 @@ const StyledSpinner = styled.div`
   }
 `;
 
+const StyledDiv = styled.div`
+  display: flex;
+  align-items: center;
+  justify-content: start;
+  padding-left: 6px;
+`;
 
 export default React.memo(ItemLabel);

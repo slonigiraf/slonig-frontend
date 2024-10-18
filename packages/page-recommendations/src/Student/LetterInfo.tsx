@@ -79,6 +79,7 @@ const StyledDiv = styled.div`
   align-items: center;
   justify-content: start;
   padding: 10px;
+  padding-left: 6px;
   > span {
     margin-right: 10px;
     margin-left: 10px;
