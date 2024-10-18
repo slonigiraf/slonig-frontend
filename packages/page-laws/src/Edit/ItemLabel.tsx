@@ -101,7 +101,7 @@ function ItemLabel({ className = '', id, isText = false, defaultValue = '...', i
 
   const allowSelection = isReexaminingRequested? validDiplomas.length > 0 : validDiplomas.length === 0;
 
-  return <StyledDiv style={isSelectable ? { padding: '10px' } : {}}>{
+  return <StyledDiv isSelectable={isSelectable}>{
     (onToggleSelection !== undefined && isSelectable && <Button
       icon={isSelected ? 'check' : 'square'}
       onClick={() => onToggleSelection(id)}
@@ -122,10 +122,11 @@ const StyledSpinner = styled.div`
   }
 `;
 
-const StyledDiv = styled.div`
+const StyledDiv = styled.div<{ isSelectable: boolean }>`
   display: flex;
   align-items: center;
   justify-content: start;
+  ${({ isSelectable }) => isSelectable && 'padding: 10px;'}
   padding-left: 6px;
 `;
 
