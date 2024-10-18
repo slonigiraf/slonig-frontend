@@ -6,6 +6,7 @@ import { KatexSpan, getCIDFromBytes, getIPFSDataFromContentID, parseJson } from 
 import { useIpfsContext } from '@slonigiraf/app-slonig-components';
 import { Button, Icon, Label, Spinner, styled } from '@polkadot/react-components';
 import DiplomaCheck from './DiplomaCheck.js';
+import { Letter } from '@slonigiraf/app-recommendations';
 
 interface Props {
   className?: string;
@@ -25,6 +26,8 @@ function ItemLabel({ className = '', id, isText = false, defaultValue = '...', i
   const [isFetched, setIsFetched] = useState(false);
   const [isSkillItem, setIsSkillItem] = useState(false);
   const [type, setType] = useState(-1);
+  const [loading, setLoading] = useState<boolean>(true);
+  const [validDiplomas, setValidDiplomas] = useState<Letter[]>();
 
   useEffect(() => {
     fetchLaw(id);
@@ -82,7 +85,7 @@ function ItemLabel({ className = '', id, isText = false, defaultValue = '...', i
     <KatexSpan content={textToDisplay} />
     :
     isFetched ?
-      <StyledA href={`/#/knowledge?id=${id}`}>{!isSkillItem && icon}{isSkillItem && <DiplomaCheck id={id} cid={cidString} />}<KatexSpan content={textToDisplay} /></StyledA>
+      <StyledA href={`/#/knowledge?id=${id}`}>{!isSkillItem && icon}{isSkillItem && <DiplomaCheck id={id} cid={cidString} setValidDiplomas={setValidDiplomas} onLoad={() => setLoading(false)}/>}<KatexSpan content={textToDisplay} /></StyledA>
       :
       <StyledSpinner><Spinner noLabel /></StyledSpinner>;
 
