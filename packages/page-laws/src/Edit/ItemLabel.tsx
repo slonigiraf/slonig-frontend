@@ -28,7 +28,15 @@ function ItemLabel({ className = '', id, isText = false, defaultValue = '...', i
   const [isSkillItem, setIsSkillItem] = useState(false);
   const [type, setType] = useState(-1);
   const [loading, setLoading] = useState<boolean>(true);
-  const [validDiplomas, setValidDiplomas] = useState<Letter[]>();
+  const [validDiplomas, setValidDiplomas] = useState<Letter[]>([]);
+
+  // Disable button based on validDiplomas size and toggle selection if necessary
+  useEffect(() => {
+    const allowSelection = isReexaminingRequested? validDiplomas.length > 0 : validDiplomas.length === 0;
+    if (!allowSelection && isSelected && onToggleSelection) {
+      onToggleSelection(id); // Deselect if no valid diplomas
+    }
+  }, [validDiplomas, isSelected, onToggleSelection, id]);
 
   useEffect(() => {
     fetchLaw(id);
@@ -91,11 +99,13 @@ function ItemLabel({ className = '', id, isText = false, defaultValue = '...', i
       <StyledSpinner><Spinner noLabel /></StyledSpinner>;
 
 
+  const allowSelection = isReexaminingRequested? validDiplomas.length > 0 : validDiplomas.length === 0;
 
   return <>{
     (onToggleSelection !== undefined && isSelectable && <Button
       icon={isSelected ? 'check' : 'square'}
       onClick={() => onToggleSelection(id)}
+      isDisabled={!allowSelection}
     />)}
     {content}</>;
 }
