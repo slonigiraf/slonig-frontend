@@ -45,6 +45,9 @@ function ViewList({ className = '', id, currentPair }: Props): React.ReactElemen
         setLawHexData(u8aToHex(byteArray));
         setAmountList(bigIntValue);
         setPreviousAmount(bigIntValue);
+        setLearningRequested(false);
+        setReexaminingRequested(false);
+        setSelectedItems([]);
       }
     }
   }

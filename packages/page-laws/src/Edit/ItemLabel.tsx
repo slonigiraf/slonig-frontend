@@ -112,7 +112,7 @@ function ItemLabel({ className = '', id, isText = false, defaultValue = '...', i
 
 const StyledA = styled.a`
    font-size: 16px;
-   margin-bottom: 14px;
+   margin: 7px;
 `;
 const StyledSpinner = styled.div`
   .ui--Spinner{
