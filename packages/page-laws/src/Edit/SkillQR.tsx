@@ -54,7 +54,7 @@ function SkillQR({ className = '', id, cid, type, selectedItems, isLearningReque
   const [loading, setLoading] = useState<boolean>(true);
   const [currentDate, setCurrentDate] = useState<Date | null>(null);
   const [tutoringRequestId, setTutoringRequestId] = useState<string>('');
-  const [learn, setLearn] = useState<string[]>([]);
+  const [learn, setLearn] = useState<string[][]>([]);
   const [exam, setExam] = useState<string[][]>([]);
 
 
@@ -78,21 +78,18 @@ function SkillQR({ className = '', id, cid, type, selectedItems, isLearningReque
   }, [api, isApiReady]);
 
   // Initialize learn request
-  useEffect((): void => {
-    if (currentPair && isLoggedIn && selectedItems && selectedItems.length > 0) {
-      const diplomaKey = keyForCid(currentPair, selectedItems[0].cid);
-      const diplomaPublicKeyHex = u8aToHex(diplomaKey?.publicKey);
-      if (selectedItems.length > 0) {
-        const meta: string[] = selectedItems.reduce((acc, item) => {
-          acc.push(item.id, item.cid, diplomaPublicKeyHex);
-          return acc;
-        }, [] as string[]);
-        if (isLearningRequested) {
-          setLearn(meta);
-        }
+  useEffect(() => {
+    if (currentPair && isLoggedIn) {
+      const newLearnData = selectedItems.map(item => {
+        const diplomaKey = item.cid ? keyForCid(currentPair, item.cid) : null;
+        const diplomaPublicKeyHex = diplomaKey?.publicKey ? u8aToHex(diplomaKey.publicKey) : '';
+        return [item.id, item.cid, diplomaPublicKeyHex];
+      });
+      if (isLearningRequested) {
+        setLearn(newLearnData);
       }
     }
-  }, [currentPair, diplomasToReexamine, selectedItems]);
+  }, [currentPair, diplomasToReexamine, selectedItems]);  
 
   // Fetch tutor and set it as the default in the dropdown
   useEffect(() => {
