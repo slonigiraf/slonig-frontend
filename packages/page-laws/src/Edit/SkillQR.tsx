@@ -170,7 +170,9 @@ function SkillQR({ className = '', id, cid, type, selectedItems, isLearningReque
     if (isLearningRequested && !isReexaminingRequested) {
       fetchRandomDiploma();
     } else if (isReexaminingRequested && selectedItems) {
-      const validDiplomasArray = selectedItems.map(item => item.validDiplomas[0]);
+      const validDiplomasArray = selectedItems
+        .map(item => item.validDiplomas && item.validDiplomas.length > 0 ? item.validDiplomas[0] : null)
+        .filter((diploma): diploma is Letter => diploma !== null);
       setDiplomasToReexamine(validDiplomasArray);
     }
   }, [studentIdentity, isLearningRequested, isReexaminingRequested, selectedItems]);
