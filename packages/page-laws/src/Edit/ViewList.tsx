@@ -32,6 +32,7 @@ function ViewList({ className = '', id, currentPair }: Props): React.ReactElemen
   const { api } = useApi();
   const [isLearningRequested, setLearningRequested] = useState(false);
   const [isReexaminingRequested, setReexaminingRequested] = useState(false);
+  const [isThereAnythingToReexamine, setIsThereAnythingToReexamine] = useState(false);
   const [selectedItems, setSelectedItems] = useState<ItemWithCID[]>([]);
 
   async function fetchLaw(key: string) {
@@ -90,6 +91,19 @@ function ViewList({ className = '', id, currentPair }: Props): React.ReactElemen
     setSelectedItems(newSelectedItems);
   };
 
+  const handleItemsUpdate = useCallback((items: ItemWithCID[]): void => {
+    if (items.length > 0) {
+      // Check if none of the selectedItems have valid diplomas
+      const noValidDiplomas = items.every(item => !item.validDiplomas || item.validDiplomas.length === 0);
+      if (noValidDiplomas) {
+        setIsThereAnythingToReexamine(false);
+        setReexaminingRequested(false);
+      } else {
+        setIsThereAnythingToReexamine(true);
+      }
+    }
+  }, [setIsThereAnythingToReexamine, setReexaminingRequested, setIsThereAnythingToReexamine]);
+
   return list == null ? <></> : (
     <>
       <h1><KatexSpan content={list.h} /></h1>
@@ -100,11 +114,11 @@ function ViewList({ className = '', id, currentPair }: Props): React.ReactElemen
             onChange={handleLearningToggle}
             value={isLearningRequested}
           />
-          <Toggle
+          {isThereAnythingToReexamine && <Toggle
             label={t('Reexamine my diplomas')}
             onChange={handleReexaminingToggle}
             value={isReexaminingRequested}
-          />
+          />}
           <div className='ui--row' style={isModuleQRVisible ? {} : { display: 'none' }}>
             <SkillQR id={id} cid={cidString} type={LawType.MODULE} selectedItems={selectedItems} isLearningRequested={isLearningRequested} isReexaminingRequested={isReexaminingRequested} />
           </div>
@@ -112,7 +126,7 @@ function ViewList({ className = '', id, currentPair }: Props): React.ReactElemen
       )}
       {list.t !== null && list.t === LawType.SKILL && (
         <>
-          <SkillQR id={id} cid={cidString} type={LawType.SKILL} selectedItems={[{'id': id, 'cid': cidString, 'validDiplomas': []}]} isLearningRequested={true}/>
+          <SkillQR id={id} cid={cidString} type={LawType.SKILL} selectedItems={[{ 'id': id, 'cid': cidString, 'validDiplomas': [] }]} isLearningRequested={true} />
           <LearnWithAI skillName={list.h} exercises={list.q} />
           <h3>{t('Example exercises to train the skill')}</h3>
         </>
@@ -135,6 +149,7 @@ function ViewList({ className = '', id, currentPair }: Props): React.ReactElemen
             />
           )}
           onSelectionChange={handleSelectionChange}
+          onItemsUpdate={handleItemsUpdate}
           selectionButtons={isModuleQRVisible}
           keyExtractor={(item) => item.id}
         />

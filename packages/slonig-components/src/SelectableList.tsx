@@ -11,6 +11,7 @@ interface SelectableListProps<T> {
     handleItemUpdate?: (item: T) => void
   ) => React.ReactNode;
   onSelectionChange: (selectedItems: T[]) => void;
+  onItemsUpdate?: (selectedItems: T[]) => void;
   maxSelectableItems?: number;
   selectionButtons?: boolean;
   className?: string;
@@ -22,6 +23,7 @@ function SelectableList<T>({
   items,
   renderItem,
   onSelectionChange,
+  onItemsUpdate,
   maxSelectableItems = Infinity,
   selectionButtons = true,
   className = '',
@@ -29,16 +31,37 @@ function SelectableList<T>({
   keyExtractor,
 }: SelectableListProps<T>): React.ReactElement {
   const { t } = useTranslation();
-  const [updatedItems, setUpdatedItems] = useState(items); // Hold updated items
+  const [updatedItems, setUpdatedItems] = useState(items);
   const [selectedItems, setSelectedItems] = useState<T[]>([]);
 
-  useEffect(() => {
-    setUpdatedItems(items);
-  }, [items]);
+  console.log("updatedItems: "+JSON.stringify(updatedItems, null, 2))
 
   useEffect(() => {
-    onSelectionChange(selectedItems);
-  }, [selectedItems, onSelectionChange]);
+    const shouldUpdateItems = 
+      items.length !== updatedItems.length || 
+      items.some((item, index) => {
+        // Ensure both item and updatedItems[index] are defined
+        if (!item || !updatedItems[index]) return true;
+        return keyExtractor(item) !== keyExtractor(updatedItems[index]);
+      });
+  
+    if (shouldUpdateItems) {
+      // Update only the items that differ by their keys
+      const newUpdatedItems = items.map((item, index) => {
+        // Ensure item and updatedItems[index] are defined before accessing their keys
+        if (!item || !updatedItems[index]) return item; 
+        return keyExtractor(item) === keyExtractor(updatedItems[index])
+          ? updatedItems[index]
+          : item;
+      });
+  
+      setUpdatedItems(newUpdatedItems);
+    }
+  }, [items, updatedItems]);
+
+  useEffect(() => {
+    onItemsUpdate && onItemsUpdate(updatedItems);
+  }, [updatedItems, onItemsUpdate]);
 
   const handleItemUpdate = useCallback((updatedItem: T) => {
     setUpdatedItems((prevItems) =>
