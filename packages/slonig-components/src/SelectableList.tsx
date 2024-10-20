@@ -28,11 +28,13 @@ function SelectableList<T>({
   additionalControls,
   keyExtractor,
 }: SelectableListProps<T>): React.ReactElement {
-  console.log("Rendering of SelectableList")
   const { t } = useTranslation();
-  
   const [updatedItems, setUpdatedItems] = useState(items); // Hold updated items
   const [selectedItems, setSelectedItems] = useState<T[]>([]);
+
+  useEffect(() => {
+    setUpdatedItems(items);
+  }, [items]);
 
   useEffect(() => {
     onSelectionChange(selectedItems);
