@@ -19,7 +19,7 @@ interface SelectableListProps<T> {
 }
 
 function SelectableList<T>({
-  items: initialItems,
+  items,
   renderItem,
   onSelectionChange,
   maxSelectableItems = Infinity,
@@ -28,9 +28,10 @@ function SelectableList<T>({
   additionalControls,
   keyExtractor,
 }: SelectableListProps<T>): React.ReactElement {
+  console.log("Rendering of SelectableList")
   const { t } = useTranslation();
   
-  const [updatedItems, setUpdatedItems] = useState(initialItems); // Hold updated items
+  const [updatedItems, setUpdatedItems] = useState(items); // Hold updated items
   const [selectedItems, setSelectedItems] = useState<T[]>([]);
 
   useEffect(() => {
