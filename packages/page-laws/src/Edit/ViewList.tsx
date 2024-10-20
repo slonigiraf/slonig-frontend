@@ -124,13 +124,14 @@ function ViewList({ className = '', id, currentPair }: Props): React.ReactElemen
             id: id,
             cid: ''
           }))}
-          renderItem={(item, isSelected, onToggleSelection) => (
+          renderItem={(item, isSelected, onToggleSelection, handleItemUpdate) => (
             <ItemLabel
               id={item.id}
               isSelected={isSelected}
               isReexaminingRequested={isReexaminingRequested}
               onToggleSelection={onToggleSelection}
               isSelectable={isModuleQRVisible}
+              onItemUpdate={handleItemUpdate}
             />
           )}
           onSelectionChange={handleSelectionChange}

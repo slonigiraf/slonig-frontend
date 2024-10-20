@@ -18,9 +18,10 @@ interface Props {
   isSelectable?: boolean;
   isReexaminingRequested?: boolean;
   onToggleSelection?: (item: ItemWithCID) => void;
+  onItemUpdate?: (item: ItemWithCID) => void;
 }
 
-function ItemLabel({ className = '', id, isText = false, defaultValue = '...', isSelected = false, isSelectable = false, isReexaminingRequested=false, onToggleSelection }: Props): React.ReactElement<Props> {
+function ItemLabel({ className = '', id, isText = false, defaultValue = '...', isSelected = false, isSelectable = false, isReexaminingRequested=false, onToggleSelection, onItemUpdate, }: Props): React.ReactElement<Props> {
   const { ipfs, isIpfsReady, ipfsInitError } = useIpfsContext();
   const { api } = useApi();
   const [cidString, setCidString] = useState<string>("");
@@ -63,6 +64,14 @@ function ItemLabel({ className = '', id, isText = false, defaultValue = '...', i
 
     fetchIPFSData();
   }, [cidString, ipfs]);
+
+  // Call the item update function when data is available
+  useEffect(() => {
+    if (isFetched && onItemUpdate) {
+      const updatedItem = { id, cid: cidString, validDiplomas };
+      onItemUpdate(updatedItem);
+    }
+  }, [isFetched, cidString, validDiplomas, onItemUpdate, id]);
 
 
   async function fetchLaw(key: string) {

@@ -7,7 +7,8 @@ interface SelectableListProps<T> {
   renderItem: (
     item: T,
     isSelected: boolean,
-    onToggleSelection: (item: T) => void
+    onToggleSelection: (item: T) => void,
+    handleItemUpdate?: (item: T) => void
   ) => React.ReactNode;
   onSelectionChange: (selectedItems: T[]) => void;
   maxSelectableItems?: number;
@@ -18,7 +19,7 @@ interface SelectableListProps<T> {
 }
 
 function SelectableList<T>({
-  items,
+  items: initialItems,
   renderItem,
   onSelectionChange,
   maxSelectableItems = Infinity,
@@ -28,11 +29,24 @@ function SelectableList<T>({
   keyExtractor,
 }: SelectableListProps<T>): React.ReactElement {
   const { t } = useTranslation();
+  
+  const [updatedItems, setUpdatedItems] = useState(initialItems); // Hold updated items
   const [selectedItems, setSelectedItems] = useState<T[]>([]);
+  
+  console.log("selectedItems items: ", JSON.stringify(selectedItems, null, 2));
+
 
   useEffect(() => {
     onSelectionChange(selectedItems);
   }, [selectedItems, onSelectionChange]);
+
+  const handleItemUpdate = useCallback((updatedItem: T) => {
+    setUpdatedItems((prevItems) =>
+      prevItems.map((item) =>
+        keyExtractor(item) === keyExtractor(updatedItem) ? updatedItem : item
+      )
+    );
+  }, [keyExtractor]);
 
   const toggleItemSelection = (item: T) => {
     setSelectedItems((prevSelected) => {
@@ -44,7 +58,6 @@ function SelectableList<T>({
       } else if (prevSelected.length < maxSelectableItems) {
         newSelected = [...prevSelected, item];
       } else {
-        // Optionally show info or warning if needed
         return prevSelected;
       }
 
@@ -53,9 +66,9 @@ function SelectableList<T>({
   };
 
   const selectAll = useCallback(() => {
-    const allSelectable = items.slice(0, maxSelectableItems);
+    const allSelectable = updatedItems.slice(0, maxSelectableItems);
     setSelectedItems(allSelectable);
-  }, [items, maxSelectableItems]);
+  }, [updatedItems, maxSelectableItems]);
 
   const deselectAll = useCallback(() => {
     setSelectedItems([]);
@@ -73,19 +86,20 @@ function SelectableList<T>({
           {additionalControls}
         </div>
       )}
-      {items.map((item, index) => (
+      {updatedItems.map((item) => (
         <div key={keyExtractor(item)} className="ui--row">
           {renderItem(
             item,
             selectedItems.some((selectedItem) => keyExtractor(selectedItem) === keyExtractor(item)),
-            toggleItemSelection
+            toggleItemSelection,
+            handleItemUpdate
           )}
         </div>
-
       ))}
     </div>
   );
 }
+
 
 // Wrap with React.memo and preserve the generic type parameter
 const MemoizedSelectableList = React.memo(
