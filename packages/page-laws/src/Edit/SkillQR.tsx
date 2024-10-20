@@ -36,6 +36,9 @@ const getBlockAllowed = (currentBlock: BN, blockTimeMs: number, secondsToAdd: nu
 }
 
 function SkillQR({ className = '', id, cid, type, selectedItems, isLearningRequested, isReexaminingRequested }: Props): React.ReactElement<Props> {
+  if (!selectedItems || selectedItems.length === 0) {
+    return null;
+  }
   // Using key
   const { api, isApiReady } = useApi();
   // Last block number
@@ -89,7 +92,7 @@ function SkillQR({ className = '', id, cid, type, selectedItems, isLearningReque
         setLearn(newLearnData);
       }
     }
-  }, [currentPair, diplomasToReexamine, selectedItems]);  
+  }, [currentPair, diplomasToReexamine, selectedItems]);
 
   // Fetch tutor and set it as the default in the dropdown
   useEffect(() => {
@@ -196,10 +199,10 @@ function SkillQR({ className = '', id, cid, type, selectedItems, isLearningReque
         hexToU8a(diploma.signOverReceipt),
         hexToU8a(tutor)
       );
-  
+
       const diplomaKey = keyForCid(currentPair, diploma.cid);
       const signature = u8aToHex(diplomaKey.sign(u8aWrapBytes(letterInsurance)));
-  
+
       return [
         diploma.cid,
         diploma.genesis,
@@ -214,16 +217,16 @@ function SkillQR({ className = '', id, cid, type, selectedItems, isLearningReque
         signature
       ];
     });
-  
+
     setExam(examData);
-  }, [currentPair, tutor, diplomasToReexamine, blockAllowed, isLoggedIn]);  
+  }, [currentPair, tutor, diplomasToReexamine, blockAllowed, isLoggedIn]);
 
 
   const name = nameFromKeyringPair(currentPair);
-  const reexamineData = 
-  diplomasToReexamine?.[0] && exam?.[0]
-    ? `+${diplomasToReexamine[0].cid}+${diplomasToReexamine[0].genesis}+${diplomasToReexamine[0].letterNumber}+${diplomasToReexamine[0].block}+${blockAllowed.toString()}+${diplomasToReexamine[0].referee}+${diplomasToReexamine[0].worker}+${diplomasToReexamine[0].amount}+${diplomasToReexamine[0].signOverPrivateData}+${diplomasToReexamine[0].signOverReceipt}+${exam[0][10]}`
-    : '';
+  const reexamineData =
+    diplomasToReexamine?.[0] && exam?.[0]
+      ? `+${diplomasToReexamine[0].cid}+${diplomasToReexamine[0].genesis}+${diplomasToReexamine[0].letterNumber}+${diplomasToReexamine[0].block}+${blockAllowed.toString()}+${diplomasToReexamine[0].referee}+${diplomasToReexamine[0].worker}+${diplomasToReexamine[0].amount}+${diplomasToReexamine[0].signOverPrivateData}+${diplomasToReexamine[0].signOverReceipt}+${exam[0][10]}`
+      : '';
 
   const diplomaPublicKeyHex = learn?.[0]?.[2] ?? '';
   const urlDetails = `diplomas/tutor?name=${encodeURIComponent(name)}&d=${tutor}+${cid}+${studentIdentity}+${diplomaPublicKeyHex}${reexamineData}`;
@@ -250,47 +253,47 @@ function SkillQR({ className = '', id, cid, type, selectedItems, isLearningReque
   console.log("Data: " + JSON.stringify({ 'learn': learn, 'exam': exam }, null, 2));
 
   return (<>
-    {isLoggedIn
-      && <>
-        {diplomaCheck}
-        {loading ? <Spinner /> :
-          !hasValidDiploma && <>
-            {tutor ?
-              <StyledDiv>
-                <CenterQRContainer>
-                  <Dropdown
-                    className={`dropdown ${className}`}
-                    label={t('Show the QR to your tutor')}
-                    value={tutor}
-                    onChange={handleTutorSelect}
-                    options={tutorOptions || []}
-                  />
-                  {type == LawType.MODULE && <SenderComponent
-                    data={data} route={route} action={action}
-                    textShare={t('Press the link to start tutoring')}
-                  />}
-                  {type == LawType.SKILL && <QRWithShareAndCopy
-                    dataQR={qrCodeText}
-                    titleShare={t('QR code')}
-                    textShare={t('Press the link to start tutoring')}
-                    urlShare={url}
-                    dataCopy={url}
-                  />}
-                </CenterQRContainer>
-              </StyledDiv>
-              :
-              <StyledDiv>
-                <FlexRow>
-                  <h3>{t('Scan your tutor\'s QR code for help and a diploma.')}</h3>
-                </FlexRow>
-              </StyledDiv>
+        {isLoggedIn
+          && <>
+            {diplomaCheck}
+            {loading ? <Spinner /> :
+              !hasValidDiploma && <>
+                {tutor ?
+                  <StyledDiv>
+                    <CenterQRContainer>
+                      <Dropdown
+                        className={`dropdown ${className}`}
+                        label={t('Show the QR to your tutor')}
+                        value={tutor}
+                        onChange={handleTutorSelect}
+                        options={tutorOptions || []}
+                      />
+                      {type == LawType.MODULE && <SenderComponent
+                        data={data} route={route} action={action}
+                        textShare={t('Press the link to start tutoring')}
+                      />}
+                      {type == LawType.SKILL && <QRWithShareAndCopy
+                        dataQR={qrCodeText}
+                        titleShare={t('QR code')}
+                        textShare={t('Press the link to start tutoring')}
+                        urlShare={url}
+                        dataCopy={url}
+                      />}
+                    </CenterQRContainer>
+                  </StyledDiv>
+                  :
+                  <StyledDiv>
+                    <FlexRow>
+                      <h3>{t('Scan your tutor\'s QR code for help and a diploma.')}</h3>
+                    </FlexRow>
+                  </StyledDiv>
+                }
+              </>
             }
           </>
         }
+        <LoginButton label={t('Log in')} />
       </>
-    }
-    <LoginButton label={t('Log in')} />
-  </>
   );
 }
 
