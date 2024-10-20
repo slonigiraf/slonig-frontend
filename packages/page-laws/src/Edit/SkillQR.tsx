@@ -1,8 +1,8 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useTranslation } from '../translate.js';
 import { CenterQRContainer, LawType, LoginButton, QRAction, QRWithShareAndCopy, SenderComponent, getBaseUrl, nameFromKeyringPair, qrWidthPx, useLoginContext } from '@slonigiraf/app-slonig-components';
-import { getSetting, getValidLetters, storeSetting } from '@slonigiraf/app-recommendations';
-import { Dropdown, Icon, Spinner } from '@polkadot/react-components';
+import { getSetting, storeSetting } from '@slonigiraf/app-recommendations';
+import { Dropdown, Spinner } from '@polkadot/react-components';
 import { useLiveQuery } from "dexie-react-hooks";
 import { db, Letter } from '@slonigiraf/app-recommendations';
 import { keyForCid } from '@slonigiraf/app-slonig-components';
