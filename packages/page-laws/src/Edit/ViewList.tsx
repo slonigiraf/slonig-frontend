@@ -33,6 +33,7 @@ function ViewList({ className = '', id, currentPair }: Props): React.ReactElemen
   const [isLearningRequested, setLearningRequested] = useState(false);
   const [isReexaminingRequested, setReexaminingRequested] = useState(false);
   const [isThereAnythingToReexamine, setIsThereAnythingToReexamine] = useState(false);
+  const [isThereAnythingToLearn, setIsThereAnythingToLearn] = useState(false);
   const [selectedItems, setSelectedItems] = useState<ItemWithCID[]>([]);
 
   async function fetchLaw(key: string) {
@@ -93,6 +94,14 @@ function ViewList({ className = '', id, currentPair }: Props): React.ReactElemen
 
   const handleItemsUpdate = useCallback((items: ItemWithCID[]): void => {
     if (items.length > 0) {
+      // Check if all of the selectedItems have valid diplomas
+      const allHaveValidDiplomas = items.every(item => item.validDiplomas && item.validDiplomas.length > 0);
+      if (allHaveValidDiplomas) {
+        setIsThereAnythingToLearn(false);
+      } else {
+        // Optionally handle cases where not all items have valid diplomas
+        setIsThereAnythingToLearn(true);
+      }
       // Check if none of the selectedItems have valid diplomas
       const noValidDiplomas = items.every(item => !item.validDiplomas || item.validDiplomas.length === 0);
       if (noValidDiplomas) {
@@ -109,11 +118,11 @@ function ViewList({ className = '', id, currentPair }: Props): React.ReactElemen
       <h1><KatexSpan content={list.h} /></h1>
       {list.t !== null && list.t === LawType.MODULE && (
         <>
-          <Toggle
+          {isThereAnythingToLearn && <Toggle
             label={t('Learn with a tutor')}
             onChange={handleLearningToggle}
             value={isLearningRequested}
-          />
+          />}
           {isThereAnythingToReexamine && <Toggle
             label={t('Reexamine my diplomas')}
             onChange={handleReexaminingToggle}
