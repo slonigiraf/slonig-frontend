@@ -106,13 +106,13 @@ function ViewList({ className = '', id, currentPair }: Props): React.ReactElemen
             value={isReexaminingRequested}
           />
           <div className='ui--row' style={isModuleQRVisible ? {} : { display: 'none' }}>
-            <SkillQR id={id} cid={cidString} type={LawType.MODULE} selectedItems={selectedItems}/>
+            <SkillQR id={id} cid={cidString} type={LawType.MODULE} selectedItems={selectedItems} isLearningRequested={isLearningRequested} isReexaminingRequested={isReexaminingRequested} />
           </div>
         </>
       )}
       {list.t !== null && list.t === LawType.SKILL && (
         <>
-          <SkillQR id={id} cid={cidString} type={LawType.SKILL} />
+          <SkillQR id={id} cid={cidString} type={LawType.SKILL} selectedItems={[{'id': id, 'cid': cidString, 'validDiplomas': []}]} isLearningRequested={true}/>
           <LearnWithAI skillName={list.h} exercises={list.q} />
           <h3>{t('Example exercises to train the skill')}</h3>
         </>

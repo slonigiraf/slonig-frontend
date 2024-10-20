@@ -23,7 +23,9 @@ interface Props {
   id: string;
   cid: string;
   type: number;
-  selectedItems?: ItemWithCID[];
+  selectedItems: ItemWithCID[];
+  isLearningRequested: boolean;
+  isReexaminingRequested?: boolean;
 }
 
 const getBlockAllowed = (currentBlock: BN, blockTimeMs: number, secondsToAdd: number): BN => {
@@ -33,14 +35,12 @@ const getBlockAllowed = (currentBlock: BN, blockTimeMs: number, secondsToAdd: nu
   return blockAllowed;
 }
 
-function SkillQR({ className = '', id, cid, type, selectedItems }: Props): React.ReactElement<Props> {
+function SkillQR({ className = '', id, cid, type, selectedItems, isLearningRequested, isReexaminingRequested }: Props): React.ReactElement<Props> {
   // Using key
   const { api, isApiReady } = useApi();
   // Last block number
   const [millisecondsPerBlock,] = useBlockTime(BN_ONE, api);
   const [blockAllowed, setBlockAllowed] = useState<BN>(new BN(1));
-  // Key management
-  const [diplomaPublicKeyHex, setDiplomaPublicKeyHex] = useState("");
   const { currentPair, isLoggedIn } = useLoginContext();
   // Rest params
   const { t } = useTranslation();
@@ -49,14 +49,13 @@ function SkillQR({ className = '', id, cid, type, selectedItems }: Props): React
   const tutorFromQuery = queryParams.get("tutor");
   const [tutor, setTutor] = useState<string | null>(tutorFromQuery);
   const tutors = useLiveQuery(() => db.pseudonyms.toArray(), []);
-  const [diplomaToReexamine, setDiplomaToReexamine] = useState<Letter | null>(null);
-  const [studentSignatureOverDiplomaToReexamine, setStudentSignatureOverDiplomaToReexamine] = useState<string>("");
+  const [diplomasToReexamine, setDiplomasToReexamine] = useState<Letter[]>();
   const [validDiplomas, setValidDiplomas] = useState<Letter[]>();
   const [loading, setLoading] = useState<boolean>(true);
   const [currentDate, setCurrentDate] = useState<Date | null>(null);
   const [tutoringRequestId, setTutoringRequestId] = useState<string>('');
-  const [learn, setDiplomasMeta] = useState<string[]>([]);
-  const [exam, setExam] = useState<string[]>([]);
+  const [learn, setLearn] = useState<string[]>([]);
+  const [exam, setExam] = useState<string[][]>([]);
 
 
   // Fetch block number (once)
@@ -78,27 +77,22 @@ function SkillQR({ className = '', id, cid, type, selectedItems }: Props): React
     fetchBlockNumber();
   }, [api, isApiReady]);
 
-  // Initialize key
+  // Initialize learn request
   useEffect((): void => {
-    if (currentPair && isLoggedIn) {
-      const diplomaKey = keyForCid(currentPair, cid);
+    if (currentPair && isLoggedIn && selectedItems && selectedItems.length > 0) {
+      const diplomaKey = keyForCid(currentPair, selectedItems[0].cid);
       const diplomaPublicKeyHex = u8aToHex(diplomaKey?.publicKey);
-      setDiplomaPublicKeyHex(diplomaPublicKeyHex);
-      if (selectedItems !== undefined && selectedItems.length > 0) {
+      if (selectedItems.length > 0) {
         const meta: string[] = selectedItems.reduce((acc, item) => {
-          acc.push(item.id, item.cid);
+          acc.push(item.id, item.cid, diplomaPublicKeyHex);
           return acc;
         }, [] as string[]);
-        setDiplomasMeta(meta);
-      }
-      if(diplomaToReexamine){
-        setExam([diplomaToReexamine.cid, diplomaToReexamine.genesis, diplomaToReexamine.letterNumber.toString(), 
-          diplomaToReexamine.block, blockAllowed.toString(), diplomaToReexamine.referee, diplomaToReexamine.worker, 
-          diplomaToReexamine.amount, diplomaToReexamine.signOverPrivateData, diplomaToReexamine.signOverReceipt, 
-          studentSignatureOverDiplomaToReexamine]);
+        if (isLearningRequested) {
+          setLearn(meta);
+        }
       }
     }
-  }, [currentPair, diplomaToReexamine, selectedItems]);
+  }, [currentPair, diplomasToReexamine, selectedItems]);
 
   // Fetch tutor and set it as the default in the dropdown
   useEffect(() => {
@@ -124,7 +118,7 @@ function SkillQR({ className = '', id, cid, type, selectedItems }: Props): React
 
   useEffect(() => {
     const generateTutoringRequestId = () => {
-      if(selectedItems !== undefined){
+      if (selectedItems !== undefined) {
         const date = new Date().toISOString().split('T')[0]; // Get the current date in YYYY-MM-DD format
         const selectedItemIds = selectedItems.map(item => item.id).join('-'); // Join selected item IDs
         const dataToHash = `${date}-${selectedItemIds}`;
@@ -164,45 +158,77 @@ function SkillQR({ className = '', id, cid, type, selectedItems }: Props): React
 
   const studentIdentity = u8aToHex(currentPair?.publicKey);
 
+  // Which diplomas should be reexamined?
   useEffect(() => {
     const fetchRandomDiploma = async () => {
       const allDiplomas = await db.letters.where('workerId').equals(studentIdentity).toArray();
       if (allDiplomas.length > 0) {
         const randomIndex = Math.floor(Math.random() * allDiplomas.length);
-        setDiplomaToReexamine(allDiplomas[randomIndex]);
+        setDiplomasToReexamine([allDiplomas[randomIndex]]);
       }
     };
-    fetchRandomDiploma();
-  }, [studentIdentity]);
+    if (isLearningRequested && !isReexaminingRequested) {
+      fetchRandomDiploma();
+    } else if (isReexaminingRequested && selectedItems) {
+      const validDiplomasArray = selectedItems.map(item => item.validDiplomas[0]);
+      setDiplomasToReexamine(validDiplomasArray);
+    }
+  }, [studentIdentity, isLearningRequested, isReexaminingRequested, selectedItems]);
 
   useEffect(() => {
     const showQR = async () => {
       _onSign();
     };
     showQR();
-  }, [tutor, diplomaToReexamine, blockAllowed]);
+  }, [tutor, diplomasToReexamine, blockAllowed]);
 
-  const _onSign = useCallback(
-    async () => {
-      if (!isLoggedIn || !currentPair || !diplomaToReexamine || !tutor) {
-        return;
-      }
-      // generate a data to sign    
-      const letterInsurance = getDataToSignByWorker(diplomaToReexamine.letterNumber, new BN(diplomaToReexamine.block), blockAllowed, hexToU8a(diplomaToReexamine.referee),
-        hexToU8a(diplomaToReexamine.worker), new BN(diplomaToReexamine.amount), hexToU8a(diplomaToReexamine.signOverReceipt), hexToU8a(tutor));
+  // Generate signatures for each diploma to be reexamined
+  const _onSign = useCallback(async () => {
+    if (!isLoggedIn || !currentPair || !diplomasToReexamine?.length || !tutor) {
+      return;
+    }
 
-      const diplomaKey = keyForCid(currentPair, diplomaToReexamine.cid);
-      const workerSignOverInsurance = u8aToHex(diplomaKey.sign(u8aWrapBytes(letterInsurance)));
-      // TODO: storeLetterUsageRight(letter, tutor, workerSignOverInsurance);
-      // create the result text
+    const examData = diplomasToReexamine.map((diploma) => {
+      const letterInsurance = getDataToSignByWorker(
+        diploma.letterNumber,
+        new BN(diploma.block),
+        blockAllowed,
+        hexToU8a(diploma.referee),
+        hexToU8a(diploma.worker),
+        new BN(diploma.amount),
+        hexToU8a(diploma.signOverReceipt),
+        hexToU8a(tutor)
+      );
+  
+      const diplomaKey = keyForCid(currentPair, diploma.cid);
+      const signature = u8aToHex(diplomaKey.sign(u8aWrapBytes(letterInsurance)));
+  
+      return [
+        diploma.cid,
+        diploma.genesis,
+        diploma.letterNumber.toString(),
+        diploma.block,
+        blockAllowed.toString(),
+        diploma.referee,
+        diploma.worker,
+        diploma.amount,
+        diploma.signOverPrivateData,
+        diploma.signOverReceipt,
+        signature
+      ];
+    });
+  
+    setExam(examData);
+  }, [currentPair, tutor, diplomasToReexamine, blockAllowed, isLoggedIn]);  
 
-      setStudentSignatureOverDiplomaToReexamine(workerSignOverInsurance);
-    },
-    [currentPair, tutor, diplomaToReexamine, blockAllowed]
-  );
 
   const name = nameFromKeyringPair(currentPair);
-  const reexamineData = diplomaToReexamine ? `+${diplomaToReexamine.cid}+${diplomaToReexamine.genesis}+${diplomaToReexamine.letterNumber}+${diplomaToReexamine.block}+${blockAllowed.toString()}+${diplomaToReexamine.referee}+${diplomaToReexamine.worker}+${diplomaToReexamine.amount}+${diplomaToReexamine.signOverPrivateData}+${diplomaToReexamine.signOverReceipt}+${studentSignatureOverDiplomaToReexamine}` : '';
+  const reexamineData = 
+  diplomasToReexamine?.[0] && exam?.[0]
+    ? `+${diplomasToReexamine[0].cid}+${diplomasToReexamine[0].genesis}+${diplomasToReexamine[0].letterNumber}+${diplomasToReexamine[0].block}+${blockAllowed.toString()}+${diplomasToReexamine[0].referee}+${diplomasToReexamine[0].worker}+${diplomasToReexamine[0].amount}+${diplomasToReexamine[0].signOverPrivateData}+${diplomasToReexamine[0].signOverReceipt}+${exam[0][10]}`
+    : '';
+
+  const diplomaPublicKeyHex = learn?.[0]?.[2] ?? '';
   const urlDetails = `diplomas/tutor?name=${encodeURIComponent(name)}&d=${tutor}+${cid}+${studentIdentity}+${diplomaPublicKeyHex}${reexamineData}`;
 
   const generateQRData = () => {
@@ -216,12 +242,15 @@ function SkillQR({ className = '', id, cid, type, selectedItems }: Props): React
   const qrCodeText = generateQRData();
   const url = `${getBaseUrl()}/#/${urlDetails}`;
   const route = `#/${urlDetails}`;
-  const action = { i: tutoringRequestId, q: QRAction.LEARN_MODULE, n: name, p : studentIdentity, t: tutor};
+  const action = { i: tutoringRequestId, q: QRAction.LEARN_MODULE, n: name, p: studentIdentity, t: tutor };
 
   const diplomaCheck = <DiplomaCheck id={id} cid={cid} caption={t('I have a diploma')} setValidDiplomas={setValidDiplomas} onLoad={() => setLoading(false)} />;
   const hasValidDiploma = validDiplomas && validDiplomas.length > 0;
 
-  const data = JSON.stringify({'learn': learn, 'exam': exam});
+  const data = JSON.stringify({ 'learn': learn, 'exam': exam });
+
+  console.log("diplomasToReexamine: ", JSON.stringify(diplomasToReexamine, null, 2));
+  console.log("Data: " + JSON.stringify({ 'learn': learn, 'exam': exam }, null, 2));
 
   return (<>
     {isLoggedIn
