@@ -251,8 +251,6 @@ function SkillQR({ className = '', id, cid, type, selectedItems, isLearningReque
 
   const data = JSON.stringify({ 'learn': learn, 'exam': exam });
 
-  console.log("Data: " + JSON.stringify({ 'learn': learn, 'exam': exam }, null, 2));
-
   return (<>
     {isLoggedIn
       && <>

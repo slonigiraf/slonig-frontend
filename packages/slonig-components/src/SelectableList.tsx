@@ -32,9 +32,6 @@ function SelectableList<T>({
   
   const [updatedItems, setUpdatedItems] = useState(initialItems); // Hold updated items
   const [selectedItems, setSelectedItems] = useState<T[]>([]);
-  
-  console.log("selectedItems items: ", JSON.stringify(selectedItems, null, 2));
-
 
   useEffect(() => {
     onSelectionChange(selectedItems);
