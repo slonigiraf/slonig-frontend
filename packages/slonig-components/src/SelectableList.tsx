@@ -34,8 +34,6 @@ function SelectableList<T>({
   const [updatedItems, setUpdatedItems] = useState(items);
   const [selectedItems, setSelectedItems] = useState<T[]>([]);
 
-  console.log("updatedItems: "+JSON.stringify(updatedItems, null, 2))
-
   useEffect(() => {
     const shouldUpdateItems = 
       items.length !== updatedItems.length || 

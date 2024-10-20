@@ -71,7 +71,7 @@ export const getValidLetters = async (workerId: string, cid: string): Promise<Le
         .toArray();
 }
 
-export const getSimmilarValidLetters = async (workerId: string, knowledgeId: string): Promise<Letter[]> => {
+export const getValidLettersForKnowledgeId = async (workerId: string, knowledgeId: string): Promise<Letter[]> => {
     return await db.letters
         .where('workerId').equals(workerId)
         .filter((letter: Letter) => letter.knowledgeId === knowledgeId)
