@@ -56,7 +56,7 @@ function SkillQR({ className = '', id, cid, type, selectedItems, isLearningReque
   const [validDiplomas, setValidDiplomas] = useState<Letter[]>();
   const [loading, setLoading] = useState<boolean>(true);
   const [currentDate, setCurrentDate] = useState<Date | null>(null);
-  const [session, setTutoringRequestId] = useState<string>('');
+  const [lessonId, setLessonId] = useState<string>('');
   const [learn, setLearn] = useState<string[][]>([]);
   const [exam, setExam] = useState<string[][]>([]);
 
@@ -123,13 +123,13 @@ function SkillQR({ className = '', id, cid, type, selectedItems, isLearningReque
         const selectedItemIds = selectedItems.map(item => item.id).join('-'); // Join selected item IDs
         const dataToHash = `${date}-${selectedItemIds}`;
         const hash = blake2AsHex(dataToHash);
-        setTutoringRequestId(hash);
+        setLessonId(hash);
       }
     };
     if (selectedItems !== undefined && selectedItems.length > 0) {
       generateTutoringRequestId();
     } else {
-      setTutoringRequestId('');
+      setLessonId('');
     }
   }, [selectedItems]);
 
@@ -246,7 +246,7 @@ function SkillQR({ className = '', id, cid, type, selectedItems, isLearningReque
   const qrCodeText = generateQRData();
   const url = `${getBaseUrl()}/#/${urlDetails}`;
   const route = `#/${urlDetails}`;
-  const action = { s: session, q: QRAction.LEARN_MODULE, n: name, p: studentIdentity, t: tutor };
+  const action = { h: lessonId, q: QRAction.LEARN_MODULE, n: name, p: studentIdentity, t: tutor };
 
   const diplomaCheck = <DiplomaCheck id={id} cid={cid} caption={t('I have a diploma')} setValidDiplomas={setValidDiplomas} onLoad={() => setLoading(false)} />;
   const hasValidDiploma = validDiplomas && validDiplomas.length > 0;
