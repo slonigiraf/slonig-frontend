@@ -69,6 +69,10 @@ function SelectableList<T>({
     );
   }, [keyExtractor]);
 
+  useEffect(() => {
+    onSelectionChange(selectedItems);
+  }, [selectedItems, onSelectionChange]);
+
   const toggleItemSelection = (item: T) => {
     setSelectedItems((prevSelected) => {
       const isSelected = prevSelected.some((i) => keyExtractor(i) === keyExtractor(item));
