@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { db } from '../db/index.js';
 import { Lesson } from '../db/Lesson.js';
-import { styled, Icon } from '@polkadot/react-components';
+import { styled, Icon, Table } from '@polkadot/react-components';
 import { useTranslation } from '../translate.js';
 import { DateInput } from '@slonigiraf/app-slonig-components';
 
@@ -52,26 +52,22 @@ function LessonsList({ className = '', tutor }: Props): React.ReactElement<Props
         </div>
       </div>
       <div className="ui--row">
-        <table>
-          <thead>
-            <tr>
-              <th>ID</th>
-              <th>CID</th>
-              <th>Created</th>
-              {/* Add more headers if needed */}
+        <Table
+          empty={t('No lessons available')}
+          header={[
+            [t('ID'), 'start'],
+            [t('CID'), 'start'],
+            [t('Created'), 'start']
+          ]}
+        >
+          {lessons.map((lesson) => (
+            <tr key={lesson.id}>
+              <td>{lesson.id}</td>
+              <td>{lesson.cid}</td>
+              <td>{new Date(lesson.created).toLocaleString()}</td>
             </tr>
-          </thead>
-          <tbody>
-            {lessons.map((lesson) => (
-              <tr key={lesson.id}>
-                <td>{lesson.id}</td>
-                <td>{lesson.cid}</td>
-                <td>{new Date(lesson.created).toLocaleString()}</td>
-                {/* Add more fields if needed */}
-              </tr>
-            ))}
-          </tbody>
-        </table>
+          ))}
+        </Table>
       </div>
     </div>
   );
