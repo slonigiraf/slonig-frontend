@@ -36,10 +36,6 @@ const getBlockAllowed = (currentBlock: BN, blockTimeMs: number, secondsToAdd: nu
 }
 
 function SkillQR({ className = '', id, cid, type, selectedItems, isLearningRequested, isReexaminingRequested }: Props): React.ReactElement<Props> | null {
-  console.log("selectedItems: "+selectedItems)
-  console.log("selectedItems.length: "+selectedItems.length)
-  console.log("isLearningRequested: "+isLearningRequested)
-  console.log("isReexaminingRequested: "+isReexaminingRequested)
   if (!selectedItems || selectedItems.length === 0 || !(isLearningRequested || isReexaminingRequested)) {
     return null;
   }
