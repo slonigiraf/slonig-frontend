@@ -1,14 +1,13 @@
 import React, { useState, useCallback } from 'react';
 import { useToggle } from '@polkadot/react-hooks';
-import { parseJson, QRScanner, receiveWebRTCData } from '@slonigiraf/app-slonig-components';
+import { parseJson, QRScanner, receiveWebRTCData, useLoginContext } from '@slonigiraf/app-slonig-components';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from './translate.js';
 import { Modal, TransferModal } from '@polkadot/react-components';
 import { ButtonWithLabelBelow, useInfo, QRAction } from '@slonigiraf/app-slonig-components';
 import { storeLesson, createAndStoreLetter, storeInsurances, storePseudonym, storeSetting, Session as Lesson } from '@slonigiraf/app-recommendations';
 import { encodeAddress } from '@polkadot/keyring';
-import { hexToU8a } from '@polkadot/util';
-
+import { hexToU8a, u8aToHex } from '@polkadot/util';
 interface Props {
   className?: string;
   label?: string;
@@ -22,6 +21,7 @@ function ScanQR({ className = '', label, type }: Props): React.ReactElement<Prop
   const [isTransferOpen, toggleTransfer] = useToggle();
   const [recipientId, setRecipientId] = useState<string>('');
   const navigate = useNavigate();
+  const { currentPair, isLoggedIn } = useLoginContext();
 
   // Process the scanned QR data
   const processQR = useCallback(async (data: string) => {
@@ -49,8 +49,9 @@ function ScanQR({ className = '', label, type }: Props): React.ReactElement<Prop
               break;
             case QRAction.BUY_DIPLOMAS:
               await storePseudonym(qrJSON.p, qrJSON.n);
-              showInfo(t('Loading'), 'info', 60)
-              const diplomasFromUrl = await receiveWebRTCData(qrJSON.c);
+              const maxLoadingSec = 60;
+              showInfo(t('Loading'), 'info', maxLoadingSec)
+              const diplomasFromUrl = await receiveWebRTCData(qrJSON.c, maxLoadingSec * 1000);
               hideInfo();
               const dimplomasJson = parseJson(diplomasFromUrl);
               try {
@@ -68,21 +69,30 @@ function ScanQR({ className = '', label, type }: Props): React.ReactElement<Prop
               navigate(`diplomas/teacher?t=${qrJSON.t}&student=${qrJSON.p}`);
               break;
             case QRAction.LEARN_MODULE:
+              if (!isLoggedIn) {
+                showInfo(t('Please log in first'), 'error');
+              } else {
                 await storePseudonym(qrJSON.p, qrJSON.n);
-                showInfo(t('Loading'), 'info', 60)
-                const webRTCData = await receiveWebRTCData(qrJSON.c);
-                hideInfo();
-                const webRTCJSON = parseJson(webRTCData);
+                const maxLoadingSec = 60;
+                showInfo(t('Loading'), 'info', maxLoadingSec);
                 try {
+                  const webRTCData = await receiveWebRTCData(qrJSON.c, maxLoadingSec * 1000);
+                  console.log("webRTCData: " + webRTCData)
+                  hideInfo();
+                  const webRTCJSON = parseJson(webRTCData);
+
                   console.log("Data received: " + JSON.stringify(webRTCJSON, null, 2));
-                  const lesson: Lesson = {hash : qrJSON.h, created: new Date(), cid: webRTCJSON.cid, student: qrJSON.p };
+                  const tutorPublicKeyHex = u8aToHex(currentPair?.publicKey);
+                  const lesson: Lesson = { hash: qrJSON.h, created: new Date(), cid: webRTCJSON.cid, tutor: tutorPublicKeyHex, student: qrJSON.p };
                   console.log("Lesson: ", JSON.stringify(lesson, null, 2))
                   await storeLesson(lesson);
                 } catch (error) {
+                  showInfo(t('Ask to regenerate the QR'), 'error');
                   console.error("Failed to save lesson:", error);
                 }
                 navigate(`diplomas/tutor?s=${qrJSON.s}`);
-                break;  
+              }
+              break;
             case QRAction.TUTOR_IDENTITY:
               await storePseudonym(qrJSON.p, qrJSON.n);
               await storeSetting("tutor", qrJSON.p);

@@ -18,6 +18,7 @@ import DoInstructions from './DoInstructions.js';
 import { useTranslation } from '../translate.js';
 import { getPseudonym } from '../utils.js';
 import { Insurance } from '../db/Insurance.js';
+import LessonsList from './LessonsList.js';
 
 interface Props {
   className?: string;
@@ -299,7 +300,7 @@ function Tutor({ className = '' }: Props): React.ReactElement<Props> {
           <div className="table">
             <div className="row">
               <div className="cell"><Icon icon='graduation-cap' /></div>
-              <div className="cell">{skill ? <KatexSpan content={skill.h}/> : ''}</div>
+              <div className="cell">{skill ? <KatexSpan content={skill.h} /> : ''}</div>
             </div>
             <div className="row">
               <div className="cell"><Icon icon='user' /></div>
@@ -338,7 +339,7 @@ function Tutor({ className = '' }: Props): React.ReactElement<Props> {
               <tbody>
                 <tr>
                   <td><Icon icon='graduation-cap' /></td>
-                  <td>{skill ? <KatexSpan content={skill.h}/> : ''}</td>
+                  <td>{skill ? <KatexSpan content={skill.h} /> : ''}</td>
                 </tr>
                 <tr>
                   <td><Icon icon='person' /></td>
@@ -389,7 +390,7 @@ function Tutor({ className = '' }: Props): React.ReactElement<Props> {
       {
         isLoggedIn && (
           (student === undefined || !isDedicatedTutor) ?
-            <CenterQRContainer>
+            <><CenterQRContainer>
               {
                 isDedicatedTutor ?
                   <h2>{t('Show to a student to begin tutoring')}</h2>
@@ -403,6 +404,8 @@ function Tutor({ className = '' }: Props): React.ReactElement<Props> {
                 urlShare={url}
                 dataCopy={url} />
             </CenterQRContainer>
+              <LessonsList tutor={publicKeyHex}/>
+            </>
             :
             <> {diploma ? diplomaView : reexamAndDiplomaIssuing}</>
         )

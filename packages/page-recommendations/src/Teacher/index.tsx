@@ -65,10 +65,11 @@ function Teacher({ className = '', ipfs }: Props): React.ReactElement<Props> {
       async function saveDiplomas() {
         if (connectionFromUrl) {
           showInfo(t('Loading'), 'info', 60)
-          const diplomasFromUrl = await receiveWebRTCData(connectionFromUrl);
-          hideInfo();
-          const dimplomasJson = parseJson(diplomasFromUrl);
           try {
+            const maxLoadingSec = 60;
+            const diplomasFromUrl = await receiveWebRTCData(connectionFromUrl, maxLoadingSec);
+            hideInfo();
+            const dimplomasJson = parseJson(diplomasFromUrl);
             const dimplomasJsonWithMeta = {
               q: QRAction.BUY_DIPLOMAS,
               p: student,
@@ -78,6 +79,7 @@ function Teacher({ className = '', ipfs }: Props): React.ReactElement<Props> {
             };
             await storeInsurances(dimplomasJsonWithMeta);
           } catch (error) {
+            showInfo(t('Ask to regenerate the QR'), 'error');
             console.error("Failed to save diplomas:", error);
           }
         }

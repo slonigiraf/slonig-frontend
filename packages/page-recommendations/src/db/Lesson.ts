@@ -3,5 +3,6 @@ export interface Lesson {
   hash: string;
   created: Date;
   cid: string;
+  tutor: string;
   student: string;
 }

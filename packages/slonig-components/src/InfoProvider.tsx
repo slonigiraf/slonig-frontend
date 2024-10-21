@@ -26,13 +26,13 @@ export const InfoProvider: React.FC<InfoProviderProps> = ({ children }) => {
     const [infoMessage, setInfoMessage] = useState('');
     const [type, setType] = useState<'error' | 'info'>('info');
 
-    const showInfo = (message: string, type: 'error' | 'info' = 'info', timeoutSec: number = 2) => {
+    const showInfo = (message: string, type: 'error' | 'info' = 'info', timeoutSec: number = 3) => {
         setInfoMessage(message);
         setType(type);
         setInfoVisible(true);
         setTimeout(() => {
             hideInfo();
-        }, 1000 * timeoutSec); // Hide the info after 1 second
+        }, 1000 * timeoutSec);
     };
 
     const hideInfo = () => {

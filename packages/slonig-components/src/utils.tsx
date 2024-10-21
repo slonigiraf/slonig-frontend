@@ -257,40 +257,133 @@ export const createPeer = () => {
     secure: true,
     path: '/',
     config: {
-        'iceServers': [
-            { urls: `stun:${process.env.COTURN_SERVER}` },
-            { urls: `turn:${process.env.COTURN_SERVER}`, username: process.env.COTURN_USER, credential: process.env.COTURN_PASSWORD }
-        ]
+      'iceServers': [
+        { urls: `stun:${process.env.COTURN_SERVER}` },
+        { urls: `turn:${process.env.COTURN_SERVER}`, username: process.env.COTURN_USER, credential: process.env.COTURN_PASSWORD }
+      ]
     }
   });
 }
-export const receiveWebRTCData = async (peerId: string) => {
-  try {
-    // Initialize the peer and wait until it's fully ready
-    const peer = await new Promise<Peer>((resolve, reject) => {
-      const p = createPeer();
-      p.on('open', () => resolve(p));
-      p.on('error', reject);
-    });
 
-    // Establish connection to the remote peer
-    const connection = await new Promise<any>((resolve, reject) => {
-      const conn = peer.connect(peerId);
-      conn.on('open', () => resolve(conn));
-      conn.on('error', reject);
-    });
+export const receiveWebRTCData = async (
+  peerId: string,
+  timeoutMsec: number
+): Promise<any> => {
+  const startTime = Date.now();
 
-    // Wait for data from the connected peer
-    const data = await new Promise<any>((resolve, reject) => {
-      connection.on('data', (data) => resolve(data));
-      connection.on('close', () => {
-        console.log('Connection closed with peer:', peerId);
-      });
-      connection.on('error', reject);
+  // Function to calculate remaining time
+  const getRemainingTime = (): number => {
+    const elapsed = Date.now() - startTime;
+    return timeoutMsec - elapsed;
+  };
+
+  // Step 1: Initialize the peer with a dynamic timeout
+  let peer: Peer;
+  const peerInitPromise = new Promise<Peer>((resolve, reject) => {
+    const p = createPeer();
+    p.on('open', () => resolve(p));
+    p.on('error', (err) => {
+      reject(new Error(`Peer initialization error: ${err.message}`));
     });
-    return data;
-  } catch (err) {
-    console.error('Error:', err);
-    throw err;
+  });
+
+  const peerInitTimeout = getRemainingTime();
+  if (peerInitTimeout <= 0) {
+    throw new Error('Operation timed out before peer initialization could start');
   }
+
+  peer = await Promise.race([
+    peerInitPromise,
+    new Promise<Peer>((_, reject) =>
+      setTimeout(
+        () =>
+          reject(
+            new Error(
+              `Peer initialization not completed within ${peerInitTimeout} ms`
+            )
+          ),
+        peerInitTimeout
+      )
+    )
+  ]);
+
+  // Step 2: Establish connection to the remote peer with a dynamic timeout
+  const connectionPromise = new Promise<any>((resolve, reject) => {
+    const conn = peer.connect(peerId);
+    conn.on('open', () => resolve(conn));
+    conn.on('error', (err) => {
+      reject(new Error(`Connection error: ${err.message}`));
+    });
+  });
+
+  const connectionTimeout = getRemainingTime();
+  if (connectionTimeout <= 0) {
+    throw new Error('Operation timed out before connection establishment could start');
+  }
+
+  const connection = await Promise.race([
+    connectionPromise,
+    new Promise<any>((_, reject) =>
+      setTimeout(
+        () =>
+          reject(
+            new Error(
+              `Connection not established within ${connectionTimeout} ms`
+            )
+          ),
+        connectionTimeout
+      )
+    )
+  ]);
+
+  // Step 3: Wait for data from the connected peer with a dynamic timeout
+  const dataPromise = new Promise<any>((resolve, reject) => {
+    const onData = (receivedData: any) => {
+      cleanup();
+      resolve(receivedData);
+    };
+
+    const onClose = () => {
+      cleanup();
+      reject(new Error('Connection closed before data was received'));
+    };
+
+    const onError = (err: { message: any }) => {
+      cleanup();
+      reject(new Error(`Connection error during data transfer: ${err.message}`));
+    };
+
+    const cleanup = () => {
+      clearTimeout(timeoutId);
+      connection.off('data', onData);
+      connection.off('close', onClose);
+      connection.off('error', onError);
+    };
+
+    connection.on('data', onData);
+    connection.on('close', onClose);
+    connection.on('error', onError);
+
+    const timeoutId = setTimeout(() => {
+      cleanup();
+      reject(new Error(`No data received within the remaining timeout`));
+    }, getRemainingTime());
+  });
+
+  const dataTimeout = getRemainingTime();
+  if (dataTimeout <= 0) {
+    throw new Error('Operation timed out before data reception could start');
+  }
+
+  const data = await Promise.race([
+    dataPromise,
+    new Promise<any>((_, reject) =>
+      setTimeout(
+        () => reject(new Error(`No data received within ${dataTimeout} ms`)),
+        dataTimeout
+      )
+    )
+  ]);
+
+  return data;
 };
