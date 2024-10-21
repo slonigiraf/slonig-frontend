@@ -5,7 +5,7 @@ import { useNavigate } from 'react-router-dom';
 import { useTranslation } from './translate.js';
 import { Modal, TransferModal } from '@polkadot/react-components';
 import { ButtonWithLabelBelow, useInfo, QRAction } from '@slonigiraf/app-slonig-components';
-import { storeSession, createAndStoreLetter, storeInsurances, storePseudonym, storeSetting, Session } from '@slonigiraf/app-recommendations';
+import { storeLesson, createAndStoreLetter, storeInsurances, storePseudonym, storeSetting, Session as Lesson } from '@slonigiraf/app-recommendations';
 import { encodeAddress } from '@polkadot/keyring';
 import { hexToU8a } from '@polkadot/util';
 
@@ -75,10 +75,11 @@ function ScanQR({ className = '', label, type }: Props): React.ReactElement<Prop
                 const webRTCJSON = parseJson(webRTCData);
                 try {
                   console.log("Data received: " + JSON.stringify(webRTCJSON, null, 2));
-                  const session: Session = {session : qrJSON.s, created: new Date(), cid: webRTCJSON.cid, student: qrJSON.p };
-                  await storeSession(session);
+                  const lesson: Lesson = {hash : qrJSON.h, created: new Date(), cid: webRTCJSON.cid, student: qrJSON.p };
+                  console.log("Lesson: ", JSON.stringify(lesson, null, 2))
+                  await storeLesson(lesson);
                 } catch (error) {
-                  console.error("Failed to save session:", error);
+                  console.error("Failed to save lesson:", error);
                 }
                 navigate(`diplomas/tutor?s=${qrJSON.s}`);
                 break;  

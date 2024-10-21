@@ -10,7 +10,7 @@ import DOMPurify from 'dompurify';
 import { u8aToHex } from '@polkadot/util';
 import { decodeAddress, encodeAddress } from '@polkadot/keyring';
 import { isHex } from '@polkadot/util';
-import { Session } from "./db/Session.js";
+import { Lesson } from "./db/Lesson.js";
 
 export const syncDB = async (data: string, password: string) => {
     const json = JSON.parse(data);
@@ -79,10 +79,10 @@ export const getValidLettersForKnowledgeId = async (workerId: string, knowledgeI
         .toArray();
 }
 
-export const storeSession = async (session: Session) => {
-    const sameSession = await db.session.get({ key: session.key });
-    if (sameSession === undefined) {
-        await db.session.add(session);
+export const storeLesson = async (lesson: Lesson) => {
+    const same = await db.lessons.get({ hash: lesson.hash });
+    if (same === undefined) {
+        await db.lessons.add(lesson);
     }
 }
 

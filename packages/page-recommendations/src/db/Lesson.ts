@@ -1,6 +1,6 @@
-export interface Session {
+export interface Lesson {
   id?: number;
-  session: string;
+  hash: string;
   created: Date;
   cid: string;
   student: string;
