@@ -1,5 +1,5 @@
 #!/bin/sh
-git pull origin slonig && \
+git pull origin dev-slonig && \
 export $(cat .env | xargs) && \
 docker build -t dev-app-slonig-org -f docker/Dockerfile \
   --build-arg IPFS_SERVER=$IPFS_SERVER \
