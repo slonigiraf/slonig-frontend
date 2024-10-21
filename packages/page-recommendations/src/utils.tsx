@@ -10,6 +10,7 @@ import DOMPurify from 'dompurify';
 import { u8aToHex } from '@polkadot/util';
 import { decodeAddress, encodeAddress } from '@polkadot/keyring';
 import { isHex } from '@polkadot/util';
+import { Session } from "./db/Session.js";
 
 export const syncDB = async (data: string, password: string) => {
     const json = JSON.parse(data);
@@ -76,6 +77,13 @@ export const getValidLettersForKnowledgeId = async (workerId: string, knowledgeI
         .where('workerId').equals(workerId)
         .filter((letter: Letter) => letter.knowledgeId === knowledgeId)
         .toArray();
+}
+
+export const storeSession = async (session: Session) => {
+    const sameSession = await db.session.get({ key: session.key });
+    if (sameSession === undefined) {
+        await db.session.add(session);
+    }
 }
 
 export const storeInsurance = async (insurance: Insurance) => {

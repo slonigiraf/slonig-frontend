@@ -56,7 +56,7 @@ function SkillQR({ className = '', id, cid, type, selectedItems, isLearningReque
   const [validDiplomas, setValidDiplomas] = useState<Letter[]>();
   const [loading, setLoading] = useState<boolean>(true);
   const [currentDate, setCurrentDate] = useState<Date | null>(null);
-  const [tutoringRequestId, setTutoringRequestId] = useState<string>('');
+  const [session, setTutoringRequestId] = useState<string>('');
   const [learn, setLearn] = useState<string[][]>([]);
   const [exam, setExam] = useState<string[][]>([]);
 
@@ -246,12 +246,12 @@ function SkillQR({ className = '', id, cid, type, selectedItems, isLearningReque
   const qrCodeText = generateQRData();
   const url = `${getBaseUrl()}/#/${urlDetails}`;
   const route = `#/${urlDetails}`;
-  const action = { i: tutoringRequestId, q: QRAction.LEARN_MODULE, n: name, p: studentIdentity, t: tutor };
+  const action = { s: session, q: QRAction.LEARN_MODULE, n: name, p: studentIdentity, t: tutor };
 
   const diplomaCheck = <DiplomaCheck id={id} cid={cid} caption={t('I have a diploma')} setValidDiplomas={setValidDiplomas} onLoad={() => setLoading(false)} />;
   const hasValidDiploma = validDiplomas && validDiplomas.length > 0;
 
-  const data = JSON.stringify({ 'learn': learn, 'exam': exam });
+  const data = JSON.stringify({ 'cid': cid, 'learn': learn, 'exam': exam });
 
   return (<>
     {isLoggedIn

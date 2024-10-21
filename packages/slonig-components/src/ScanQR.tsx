@@ -5,7 +5,7 @@ import { useNavigate } from 'react-router-dom';
 import { useTranslation } from './translate.js';
 import { Modal, TransferModal } from '@polkadot/react-components';
 import { ButtonWithLabelBelow, useInfo, QRAction } from '@slonigiraf/app-slonig-components';
-import { createAndStoreLetter, storeInsurances, storePseudonym, storeSetting } from '@slonigiraf/app-recommendations';
+import { storeSession, createAndStoreLetter, storeInsurances, storePseudonym, storeSetting, Session } from '@slonigiraf/app-recommendations';
 import { encodeAddress } from '@polkadot/keyring';
 import { hexToU8a } from '@polkadot/util';
 
@@ -27,87 +27,88 @@ function ScanQR({ className = '', label, type }: Props): React.ReactElement<Prop
   const processQR = useCallback(async (data: string) => {
     toggleQR();
     try {
-      const jsonData = JSON.parse(data);
+      const qrJSON = JSON.parse(data);
       // Validate JSON properties
-      if (jsonData.hasOwnProperty('q')) {
-        if (!type || (type === jsonData.q)) {
-          switch (jsonData.q) {
+      if (qrJSON.hasOwnProperty('q')) {
+        if (!type || (type === qrJSON.q)) {
+          switch (qrJSON.q) {
             case QRAction.NAVIGATION:
-              console.log(jsonData)
-              navigate(jsonData.d);
+              console.log(qrJSON)
+              navigate(qrJSON.d);
               break;
             case QRAction.TRANSFER:
-              await storePseudonym(jsonData.p, jsonData.n);
-              const recipientAddress = jsonData.p ? encodeAddress(hexToU8a(jsonData.p)) : "";
+              await storePseudonym(qrJSON.p, qrJSON.n);
+              const recipientAddress = qrJSON.p ? encodeAddress(hexToU8a(qrJSON.p)) : "";
               setRecipientId(recipientAddress);
               toggleTransfer();
               break;
             case QRAction.ADD_DIPLOMA:
-              const dataArray = jsonData.d.split(",");
+              const dataArray = qrJSON.d.split(",");
               await createAndStoreLetter(dataArray);
               navigate('diplomas');
               break;
             case QRAction.BUY_DIPLOMAS:
-              await storePseudonym(jsonData.p, jsonData.n);
+              await storePseudonym(qrJSON.p, qrJSON.n);
               showInfo(t('Loading'), 'info', 60)
-              const diplomasFromUrl = await receiveWebRTCData(jsonData.c);
+              const diplomasFromUrl = await receiveWebRTCData(qrJSON.c);
               hideInfo();
               const dimplomasJson = parseJson(diplomasFromUrl);
               try {
                 const dimplomasJsonWithMeta = {
                   q: QRAction.BUY_DIPLOMAS,
-                  p: jsonData.p,
-                  n: jsonData.n,
-                  t: jsonData.t,
+                  p: qrJSON.p,
+                  n: qrJSON.n,
+                  t: qrJSON.t,
                   d: dimplomasJson
                 };
                 await storeInsurances(dimplomasJsonWithMeta);
               } catch (error) {
                 console.error("Failed to save diplomas:", error);
               }
-              navigate(`diplomas/teacher?t=${jsonData.t}&student=${jsonData.p}`);
+              navigate(`diplomas/teacher?t=${qrJSON.t}&student=${qrJSON.p}`);
               break;
             case QRAction.LEARN_MODULE:
-                await storePseudonym(jsonData.p, jsonData.n);
+                await storePseudonym(qrJSON.p, qrJSON.n);
                 showInfo(t('Loading'), 'info', 60)
-                const data = await receiveWebRTCData(jsonData.c);
+                const webRTCData = await receiveWebRTCData(qrJSON.c);
                 hideInfo();
-                const json = parseJson(data);
+                const webRTCJSON = parseJson(webRTCData);
                 try {
-                  console.log("Data received: " + JSON.stringify(json, null, 2));
-                  // await storeInsurances(dimplomasJsonWithMeta);
+                  console.log("Data received: " + JSON.stringify(webRTCJSON, null, 2));
+                  const session: Session = {session : qrJSON.s, created: new Date(), cid: webRTCJSON.cid, student: qrJSON.p };
+                  await storeSession(session);
                 } catch (error) {
-                  console.error("Failed to save diplomas:", error);
+                  console.error("Failed to save session:", error);
                 }
-                // navigate(`diplomas/teacher?t=${jsonData.t}&student=${jsonData.p}`);
+                navigate(`diplomas/tutor?s=${qrJSON.s}`);
                 break;  
             case QRAction.TUTOR_IDENTITY:
-              await storePseudonym(jsonData.p, jsonData.n);
-              await storeSetting("tutor", jsonData.p);
+              await storePseudonym(qrJSON.p, qrJSON.n);
+              await storeSetting("tutor", qrJSON.p);
               if (type) {
-                navigate(`?tutor=${jsonData.p}`);
+                navigate(`?tutor=${qrJSON.p}`);
               } else {
-                navigate(`knowledge?tutor=${jsonData.p}`);
+                navigate(`knowledge?tutor=${qrJSON.p}`);
               }
               break;
             case QRAction.SKILL:
-              const parts = jsonData.d.split('+');
+              const parts = qrJSON.d.split('+');
               if (parts.length > 1) {
-                await storePseudonym(parts[2], jsonData.n);
+                await storePseudonym(parts[2], qrJSON.n);
               }
-              navigate(jsonData.d);
+              navigate(qrJSON.d);
               break;
             case QRAction.TEACHER_IDENTITY:
-              await storePseudonym(jsonData.p, jsonData.n);
-              await storeSetting("teacher", jsonData.p);
+              await storePseudonym(qrJSON.p, qrJSON.n);
+              await storeSetting("teacher", qrJSON.p);
               if (type) {
-                navigate(`?teacher=${jsonData.p}`);
+                navigate(`?teacher=${qrJSON.p}`);
               } else {
-                navigate(`diplomas?teacher=${jsonData.p}`);
+                navigate(`diplomas?teacher=${qrJSON.p}`);
               }
               break;
             default:
-              console.warn("Unknown QR type:", jsonData.q);
+              console.warn("Unknown QR type:", qrJSON.q);
           }
         } else {
           showInfo(t('Wrong QR type'))
