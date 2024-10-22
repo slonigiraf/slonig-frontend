@@ -60,7 +60,8 @@ export const setLastUsedLetterNumber = async (publicKey: string, lastUsed: numbe
 }
 
 export const storeLetter = async (letter: Letter) => {
-    const sameLatter = await db.letters.get({ lesson: letter.lesson, signOverReceipt: letter.signOverReceipt });
+    const lessonKey = letter.lesson ?? '';
+    const sameLatter = await db.letters.get({ lesson: lessonKey, signOverReceipt: letter.signOverReceipt });
     if (sameLatter === undefined) {
         await db.letters.add(letter);
     }
@@ -137,7 +138,8 @@ export const storeLesson = async (tutorPublicKeyHex: string, qrJSON: any, webRTC
 }
 
 export const storeInsurance = async (insurance: Insurance) => {
-    const sameInsurance = await db.insurances.get({ lesson: insurance.lesson, signOverReceipt: insurance.signOverReceipt });
+    const lessonKey = insurance.lesson ?? '';
+    const sameInsurance = await db.insurances.get({ lesson: lessonKey, signOverReceipt: insurance.signOverReceipt });
     if (sameInsurance === undefined) {
         await db.insurances.add(insurance);
     } else if (sameInsurance.wasUsed === false && insurance.wasUsed === true) {
@@ -230,6 +232,9 @@ export const createAndStoreLetter = async (data: string[]) => {
     const letter = {
         created: new Date(),
         cid: textHash,
+        lesson: '',
+        wasDiscussed: false,
+        wasSkipped: false,
         workerId: workerId,
         genesis: genesisHex,
         letterNumber: parseInt(letterId, 10),
@@ -284,9 +289,16 @@ const createAndStoreInsurance = async (data: string[]) => {
         refereeSignOverReceipt,
         workerSignOverInsurance] = data;
 
+    const now = new Date();
     const insurance = {
-        created: new Date(),
+        created: now,
         workerId: workerId,
+        lastReexamined: now,
+        reexamCount: 0,
+        lesson: '',
+        forReexamining: false,
+        wasDiscussed: false,
+        wasSkipped: false,
         cid: textHash,
         genesis: genesisHex,
         letterNumber: parseInt(letterId, 10),

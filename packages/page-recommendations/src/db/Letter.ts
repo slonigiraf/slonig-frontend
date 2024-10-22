@@ -1,11 +1,10 @@
 export interface Letter {
   id?: number;
   created: Date;
-  lesson?: string;
-  wasDiscussed?: boolean;
-  wasSkipped?: boolean;
+  lesson: string;
+  wasDiscussed: boolean;
+  wasSkipped: boolean;
   workerId: string;
-  knowledgeId: string;
   cid: string;
   genesis: string;
   letterNumber: number;

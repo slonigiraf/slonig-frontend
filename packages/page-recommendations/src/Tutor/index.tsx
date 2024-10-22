@@ -219,9 +219,10 @@ function Tutor({ className = '' }: Props): React.ReactElement<Props> {
       const refereeSignOverPrivateData = u8aToHex(currentPair.sign(u8aWrapBytes(privateData)));
       const refereeSignOverReceipt = u8aToHex(currentPair.sign(u8aWrapBytes(receipt)));
 
-      const letter = {
+      const letter: Letter = {
         created: new Date(),
         cid: skillCID,
+        lesson: '',
         workerId: studentIdentity,
         genesis: genesisU8.toHex(),
         letterNumber: letterId,

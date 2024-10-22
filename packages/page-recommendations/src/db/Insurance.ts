@@ -1,12 +1,12 @@
 export interface Insurance {
   id?: number;
   created: Date;
-  lastReexamined?: Date;
-  reexamCount?: number;
-  lesson?: string;
-  forReexamining?: boolean;
-  wasDiscussed?: boolean;
-  wasSkipped?: boolean;
+  lastReexamined: Date;
+  reexamCount: number;
+  lesson: string;
+  forReexamining: boolean;
+  wasDiscussed: boolean;
+  wasSkipped: boolean;
   workerId: string;
   cid: string;
   genesis: string;
