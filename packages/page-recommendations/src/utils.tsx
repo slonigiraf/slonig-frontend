@@ -67,17 +67,11 @@ export const storeLetter = async (letter: Letter) => {
     }
 }
 
-export const getValidLetters = async (workerId: string, cid: string): Promise<Letter[]> => {
-    return await db.letters
-        .where('workerId').equals(workerId)
-        .filter((letter: Letter) => letter.cid === cid)
-        .toArray();
-}
-
 export const getValidLettersForKnowledgeId = async (workerId: string, knowledgeId: string): Promise<Letter[]> => {
     return await db.letters
-        .where('workerId').equals(workerId)
-        .filter((letter: Letter) => letter.knowledgeId === knowledgeId)
+        .where('[workerId+knowledgeId]')
+        .equals([workerId, knowledgeId])
+        .filter((letter: Letter) => letter.valid === true)
         .toArray();
 }
 
@@ -93,6 +87,7 @@ export const storeLesson = async (tutorPublicKeyHex: string, qrJSON: any, webRTC
     await Promise.all(webRTCJSON.learn.map(async (item: string[]) => {
         const letter: Letter = {
             created: new Date(),
+            valid: false,
             lesson: lesson.id,
             wasDiscussed: false,
             wasSkipped: false,
@@ -107,10 +102,10 @@ export const storeLesson = async (tutorPublicKeyHex: string, qrJSON: any, webRTC
             amount: '',
             signOverPrivateData: '',
             signOverReceipt: '',
-          };
+        };
         return await storeLetter(letter);
-      }));
-    
+    }));
+
     await Promise.all(webRTCJSON.reexam.map(async (item: string[]) => {
         const insurance: Insurance = {
             created: new Date(),
@@ -132,9 +127,9 @@ export const storeLesson = async (tutorPublicKeyHex: string, qrJSON: any, webRTC
             employer: lesson.tutor,
             workerSign: item[10],
             wasUsed: false,
-          };
+        };
         return await storeInsurance(insurance);
-      }));
+    }));
 }
 
 export const storeInsurance = async (insurance: Insurance) => {
@@ -231,6 +226,7 @@ export const createAndStoreLetter = async (data: string[]) => {
 
     const letter = {
         created: new Date(),
+        valid: true,
         cid: textHash,
         lesson: '',
         wasDiscussed: false,

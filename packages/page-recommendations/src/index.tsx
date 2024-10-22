@@ -8,7 +8,7 @@ import { Route, Routes } from 'react-router';
 import { Tabs } from '@polkadot/react-components';
 import { useAccounts, useIpfs } from '@polkadot/react-hooks';
 import { useTranslation } from './translate.js';
-import { storeLesson, saveLetterKnowledgeId, getValidLettersForKnowledgeId, getValidLetters,createAndStoreLetter, storeInsurances, storePseudonym, storeSetting, deleteSetting, getSetting } from './utils.js';
+import { storeLesson, saveLetterKnowledgeId, getValidLettersForKnowledgeId, createAndStoreLetter, storeInsurances, storePseudonym, storeSetting, deleteSetting, getSetting } from './utils.js';
 import useCounter from './useCounter.js';
 import Tutor from './Tutor';
 import Student from './Student';
@@ -18,7 +18,7 @@ import DBExport from './Student/DBExport.js';
 import type { Letter } from './db/Letter.js';
 import type { Lesson } from './db/Lesson.js';
 import { db } from './db/index.js';
-export { storeLesson, db, Letter, Lesson as Session, useCounter, DBImport, DBExport, saveLetterKnowledgeId, getValidLettersForKnowledgeId, getValidLetters, createAndStoreLetter, storeInsurances, storePseudonym, storeSetting, deleteSetting, getSetting };
+export { storeLesson, db, Letter, Lesson as Session, useCounter, DBImport, DBExport, saveLetterKnowledgeId, getValidLettersForKnowledgeId, createAndStoreLetter, storeInsurances, storePseudonym, storeSetting, deleteSetting, getSetting };
 
 const HIDDEN_ACC = ['vanity'];
 
