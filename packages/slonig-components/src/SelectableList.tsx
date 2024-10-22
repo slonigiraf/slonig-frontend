@@ -17,6 +17,7 @@ interface SelectableListProps<T> {
   className?: string;
   additionalControls?: React.ReactNode;
   keyExtractor: (item: T) => string;
+  key: string | number;
 }
 
 function SelectableList<T>({
@@ -29,6 +30,7 @@ function SelectableList<T>({
   className = '',
   additionalControls,
   keyExtractor,
+  key,
 }: SelectableListProps<T>): React.ReactElement {
   const { t } = useTranslation();
   const [updatedItems, setUpdatedItems] = useState(items);
@@ -100,7 +102,7 @@ function SelectableList<T>({
   }, []);
 
   return (
-    <div className={className}>
+    <div className={className} key={key}>
       {selectionButtons && (
         <div className="ui--row">
           {selectedItems.length === 0 ? (
