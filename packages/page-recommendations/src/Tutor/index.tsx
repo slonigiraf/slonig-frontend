@@ -263,8 +263,16 @@ function Tutor({ className = '' }: Props): React.ReactElement<Props> {
   const qrCodeText = JSON.stringify(qrData);
   const url: string = getBaseUrl() + `/#/knowledge?tutor=${publicKeyHex}&name=${encodeURIComponent(name)}`;
 
+  const now = new Date();
+
   const insurance: Insurance = {
-    created: new Date(),
+    created: now,
+    lastReexamined: now,
+    reexamCount: 0,
+    lesson: '',
+    forReexamining: false,
+    wasDiscussed: false,
+    wasSkipped: false,
     cid: cidR,
     genesis: genesisR,
     letterNumber: parseInt(nonceR, 10),
@@ -405,7 +413,7 @@ function Tutor({ className = '' }: Props): React.ReactElement<Props> {
                 urlShare={url}
                 dataCopy={url} />
             </CenterQRContainer>
-              <LessonsList tutor={publicKeyHex}/>
+              <LessonsList tutor={publicKeyHex} />
             </>
             :
             <> {diploma ? diplomaView : reexamAndDiplomaIssuing}</>

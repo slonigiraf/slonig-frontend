@@ -111,7 +111,7 @@ export const storeLesson = async (tutorPublicKeyHex: string, qrJSON: any, webRTC
         const insurance: Insurance = {
             created: new Date(),
             lastReexamined: now,
-            reexamCount: 1,
+            reexamCount: 0,
             lesson: lesson.id,
             forReexamining: false,
             wasDiscussed: false,
@@ -137,7 +137,9 @@ export const storeLesson = async (tutorPublicKeyHex: string, qrJSON: any, webRTC
 
 export const storeInsurance = async (insurance: Insurance) => {
     const lessonKey = insurance.lesson ?? '';
+    console.log("Insurance to store: ", JSON.stringify(insurance, null, 2));
     const sameInsurance = await db.insurances.get({ lesson: lessonKey, signOverReceipt: insurance.signOverReceipt });
+    console.log("sameInsurance: ", JSON.stringify(sameInsurance, null, 2));
     if (sameInsurance === undefined) {
         await db.insurances.add(insurance);
     } else if (sameInsurance.wasUsed === false && insurance.wasUsed === true) {
