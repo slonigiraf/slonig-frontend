@@ -112,6 +112,7 @@ function ViewList({ className = '', id, currentPair }: Props): React.ReactElemen
       }
     }
   }, [setIsThereAnythingToReexamine, setReexaminingRequested, setIsThereAnythingToReexamine]);
+  const isSelectionAllowed = true;
 
   return list == null ? <></> : (
     <>
@@ -147,7 +148,7 @@ function ViewList({ className = '', id, currentPair }: Props): React.ReactElemen
             id: id,
             cid: ''
           }))}
-          renderItem={(item, isSelected, onToggleSelection, handleItemUpdate) => (
+          renderItem={(item, isSelected, isSelectionAllowed, onToggleSelection, handleItemUpdate) => (
             <ItemLabel
               id={item.id}
               isSelected={isSelected}
@@ -159,7 +160,7 @@ function ViewList({ className = '', id, currentPair }: Props): React.ReactElemen
           )}
           onSelectionChange={handleSelectionChange}
           onItemsUpdate={handleItemsUpdate}
-          selectionButtons={isModuleQRVisible}
+          isSelectionAllowed={isModuleQRVisible}
           keyExtractor={(item) => item.id}
           key={id}
         />

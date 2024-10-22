@@ -1,11 +1,11 @@
 // LessonsList component with JavaScript Date objects
 
 import LessonInfo from './LessonInfo.js';
-import React, { useState } from 'react';
+import React, { useCallback, useState } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { db } from '../db/index.js';
 import { Lesson } from '../db/Lesson.js';
-import { Button, styled, Icon, Modal } from '@polkadot/react-components';
+import { Button, styled, Icon, Modal, Toggle } from '@polkadot/react-components';
 import { useTranslation } from '../translate.js';
 import { DateInput, SelectableList, useInfo } from '@slonigiraf/app-slonig-components';
 import { useToggle } from '@polkadot/react-hooks';
@@ -19,6 +19,7 @@ function LessonsList({ className = '', tutor }: Props): React.ReactElement<Props
   const MAX_SELECTED = 93;
   const { t } = useTranslation();
   const { showInfo } = useInfo();
+  const [isSelectionAllowed, setSelectionAllowed] = useState(false);
 
   // Initialize startDate and endDate as Date objects
   const [startDate, setStartDate] = useState<Date | null>(new Date(new Date().setHours(0, 0, 0, 0)));
@@ -41,7 +42,7 @@ function LessonsList({ className = '', tutor }: Props): React.ReactElement<Props
     },
     [tutor, startDate, endDate]
   );
-  
+
 
   const [selectedItems, setSelectedLessons] = useState<Lesson[]>([]);
 
@@ -52,6 +53,10 @@ function LessonsList({ className = '', tutor }: Props): React.ReactElement<Props
     }
     setSelectedLessons(newSelectedLessons);
   };
+
+  const handleSelectionToggle = useCallback((checked: boolean): void => {
+    setSelectionAllowed(checked);
+  }, []);
 
   const onResumeTutoring = (lesson: Lesson) => {
     setActiveLesson(lesson);
@@ -101,21 +106,28 @@ function LessonsList({ className = '', tutor }: Props): React.ReactElement<Props
           />
         </div>
       </div>
+      <Toggle
+            label={t('Allow selection')}
+            onChange={handleSelectionToggle}
+            value={isSelectionAllowed}
+          />
       <SelectableList<Lesson>
         items={lessons}
-        renderItem={(lesson, isSelected, onToggleSelection) => (
+        renderItem={(lesson, isSelected, isSelectionAllowed, onToggleSelection) => (
           <LessonInfo
             lesson={lesson}
             isSelected={isSelected}
             onToggleSelection={onToggleSelection}
             onResumeTutoring={onResumeTutoring}
+            isSelectionAllowed={isSelectionAllowed}
           />
         )}
         onSelectionChange={handleSelectionChange}
         maxSelectableItems={MAX_SELECTED}
         additionalControls={deleteSelectedButton}
-        keyExtractor={(lesson) => lesson.id }
+        keyExtractor={(lesson) => lesson.id}
         key={tutor}
+        isSelectionAllowed={isSelectionAllowed}
       />
       {isDeleteConfirmOpen && (
         <StyledModal

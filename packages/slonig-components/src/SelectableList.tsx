@@ -7,13 +7,14 @@ interface SelectableListProps<T> {
   renderItem: (
     item: T,
     isSelected: boolean,
+    isSelectionAllowed: boolean,
     onToggleSelection: (item: T) => void,
-    handleItemUpdate?: (item: T) => void
+    handleItemUpdate?: (item: T) => void,
   ) => React.ReactNode;
   onSelectionChange: (selectedItems: T[]) => void;
   onItemsUpdate?: (selectedItems: T[]) => void;
   maxSelectableItems?: number;
-  selectionButtons?: boolean;
+  isSelectionAllowed?: boolean;
   className?: string;
   additionalControls?: React.ReactNode;
   keyExtractor: (item: T) => string;
@@ -27,7 +28,7 @@ function SelectableList<T>({
   onSelectionChange,
   onItemsUpdate,
   maxSelectableItems = Infinity,
-  selectionButtons = true,
+  isSelectionAllowed = true,
   className = '',
   additionalControls,
   keyExtractor,
@@ -105,7 +106,7 @@ function SelectableList<T>({
 
   return (
     <div className={className} key={key}>
-      {selectionButtons && (
+      {isSelectionAllowed && (
         <div className="ui--row">
           {selectedItems.length === 0 ? (
             <Button icon="square" label={t('Select all')} onClick={selectAll} />
@@ -125,6 +126,7 @@ function SelectableList<T>({
               {renderItem(
                 item,
                 selectedItems.some((selectedItem) => keyExtractor(selectedItem) === keyExtractor(item)),
+                isSelectionAllowed,
                 toggleItemSelection,
                 handleItemUpdate
               )}

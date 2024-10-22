@@ -83,6 +83,8 @@ function LettersList({ className = '', worker, currentPair }: Props): React.Reac
       <Button icon="trash" label={t('Delete')} onClick={toggleDeleteConfirm} />
     );
 
+  const isSelectionAllowed = true;
+
   return !letters ? (
     <div></div>
   ) : (
@@ -116,7 +118,7 @@ function LettersList({ className = '', worker, currentPair }: Props): React.Reac
       </div>
       <SelectableList<Letter>
         items={letters}
-        renderItem={(letter, isSelected, onToggleSelection) => (
+        renderItem={(letter, isSelected, isSelectionAllowed, onToggleSelection) => (
           <LetterInfo
             letter={letter}
             isSelected={isSelected}

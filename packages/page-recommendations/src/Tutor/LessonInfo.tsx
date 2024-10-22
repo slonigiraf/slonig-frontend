@@ -14,9 +14,10 @@ interface Props {
   isSelected: boolean;
   onToggleSelection: (lesson: Lesson) => void;
   onResumeTutoring: (lesson: Lesson) => void;
+  isSelectionAllowed: boolean;
 }
 
-function LessonInfo({ lesson, isSelected, onToggleSelection, onResumeTutoring }: Props): React.ReactElement<Props> {
+function LessonInfo({ lesson, isSelected, onToggleSelection, onResumeTutoring, isSelectionAllowed }: Props): React.ReactElement<Props> {
   const { ipfs } = useIpfsContext();
   const { t } = useTranslation();
   const [text, setText] = useState(lesson.cid);
@@ -53,18 +54,23 @@ function LessonInfo({ lesson, isSelected, onToggleSelection, onResumeTutoring }:
 
   return (
     <StyledDiv >
-      <Button
+      {isSelectionAllowed && <Button
         icon={isSelected ? 'check' : 'square'}
         onClick={() => onToggleSelection(lesson)}
       />
+      }
+      <Button
+        icon={'dollar'}
+        onClick={() => onResumeTutoring(lesson)}
+      />
       <div>
-        <span>{studentName}</span>
+        <div style={{ paddingLeft: '20px' }}>{studentName}</div> {/* Move student name here */}
         <Button
           icon={'play'}
           onClick={() => onResumeTutoring(lesson)}
           label={loaded ? <KatexSpan content={text} /> : <Spinner noLabel />}
-        /></div>
-
+        />
+      </div>
     </StyledDiv>
   );
 }
