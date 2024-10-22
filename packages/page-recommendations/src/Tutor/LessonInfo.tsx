@@ -23,6 +23,12 @@ function LessonInfo({ lesson, isSelected, onToggleSelection, onResumeTutoring, i
   const [text, setText] = useState(lesson.cid);
   const [loaded, setLoaded] = useState(false);
   const [studentName, setStudentName] = useState<string>('');
+  const [userLocale, setUserLocale] = useState('en-US');
+
+  useEffect(() => {
+    const locale = navigator.language || 'en-US';
+    setUserLocale(locale);
+  }, []);
 
   useEffect(() => {
     async function fetchData() {
@@ -52,6 +58,8 @@ function LessonInfo({ lesson, isSelected, onToggleSelection, onResumeTutoring, i
     fetchStudentName();
   }, [lesson]);
 
+  const formattedDate = lesson.created ? new Intl.DateTimeFormat(userLocale).format(lesson.created) : '';
+
   return (
     <StyledDiv >
       {isSelectionAllowed && <Button
@@ -64,7 +72,7 @@ function LessonInfo({ lesson, isSelected, onToggleSelection, onResumeTutoring, i
         onClick={() => onResumeTutoring(lesson)}
       />
       <div>
-        <div style={{ paddingLeft: '20px' }}>{studentName}</div> {/* Move student name here */}
+        <div style={{ paddingLeft: '15px' }}><b>{formattedDate}, {studentName}</b></div>
         <Button
           icon={'play'}
           onClick={() => onResumeTutoring(lesson)}
