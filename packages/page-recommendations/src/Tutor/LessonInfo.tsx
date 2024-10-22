@@ -7,18 +7,21 @@ import { KatexSpan, getIPFSDataFromContentID, parseJson } from '@slonigiraf/app-
 import { useTranslation } from '../translate.js';
 import { useIpfsContext } from '@slonigiraf/app-slonig-components';
 import { Lesson } from '../db/Lesson.js';
+import { getPseudonym } from '../utils.js';
 
 interface Props {
   lesson: Lesson;
   isSelected: boolean;
   onToggleSelection: (lesson: Lesson) => void;
+  onResumeTutoring: (lesson: Lesson) => void;
 }
 
-function LessonInfo({ lesson, isSelected, onToggleSelection }: Props): React.ReactElement<Props> {
+function LessonInfo({ lesson, isSelected, onToggleSelection, onResumeTutoring }: Props): React.ReactElement<Props> {
   const { ipfs } = useIpfsContext();
   const { t } = useTranslation();
   const [text, setText] = useState(lesson.cid);
   const [loaded, setLoaded] = useState(false);
+  const [studentName, setStudentName] = useState<string>('');
 
   useEffect(() => {
     async function fetchData() {
@@ -37,13 +40,31 @@ function LessonInfo({ lesson, isSelected, onToggleSelection }: Props): React.Rea
     fetchData();
   }, [ipfs, lesson, text, t]);
 
+  // Fetch student name
+  useEffect(() => {
+    async function fetchStudentName() {
+      const pseudonym = await getPseudonym(lesson.student);
+      if (pseudonym) {
+        setStudentName(pseudonym);
+      }
+    }
+    fetchStudentName();
+  }, [lesson]);
+
   return (
     <StyledDiv >
       <Button
         icon={isSelected ? 'check' : 'square'}
         onClick={() => onToggleSelection(lesson)}
       />
-      {loaded ? <KatexSpan content={text} /> : <Spinner noLabel />}
+      <div>
+        <span>{studentName}</span>
+        <Button
+          icon={'play'}
+          onClick={() => onResumeTutoring(lesson)}
+          label={loaded ? <KatexSpan content={text} /> : <Spinner noLabel />}
+        /></div>
+
     </StyledDiv>
   );
 }
@@ -52,12 +73,6 @@ const StyledDiv = styled.div`
   display: flex;
   align-items: center;
   justify-content: start;
-  padding: 10px;
-  padding-left: 6px;
-  > span {
-    margin-right: 10px;
-    margin-left: 10px;
-  }
   .ui--Spinner {
     width: 50px;
     margin-left: 25px;

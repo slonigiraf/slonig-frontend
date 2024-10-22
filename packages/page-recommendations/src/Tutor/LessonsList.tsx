@@ -24,6 +24,7 @@ function LessonsList({ className = '', tutor }: Props): React.ReactElement<Props
   const [startDate, setStartDate] = useState<Date | null>(new Date(new Date().setHours(0, 0, 0, 0)));
   const [endDate, setEndDate] = useState<Date | null>(new Date(new Date().setHours(23, 59, 59, 999)));
   const [isDeleteConfirmOpen, toggleDeleteConfirm] = useToggle();
+  const [activeLesson, setActiveLesson] = useState<Lesson | null>(null);
 
   const lessons = useLiveQuery<Lesson[]>(
     () => {
@@ -50,6 +51,10 @@ function LessonsList({ className = '', tutor }: Props): React.ReactElement<Props
       return;
     }
     setSelectedLessons(newSelectedLessons);
+  };
+
+  const onResumeTutoring = (lesson: Lesson) => {
+    setActiveLesson(lesson);
   };
 
   const deleteItems = async () => {
@@ -103,6 +108,7 @@ function LessonsList({ className = '', tutor }: Props): React.ReactElement<Props
             lesson={lesson}
             isSelected={isSelected}
             onToggleSelection={onToggleSelection}
+            onResumeTutoring={onResumeTutoring}
           />
         )}
         onSelectionChange={handleSelectionChange}
