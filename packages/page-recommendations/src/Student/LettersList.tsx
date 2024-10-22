@@ -35,14 +35,20 @@ function LettersList({ className = '', worker, currentPair }: Props): React.Reac
   const letters = useLiveQuery<Letter[]>(
     () => {
       let query = db.letters.where('workerId').equals(worker);
-      if (startDate)
-        query = query.filter((letter) => new Date(letter.created) >= startDate);
-      if (endDate)
-        query = query.filter((letter) => new Date(letter.created) <= endDate);
-      return query.sortBy('id').then((letters) => letters.reverse());
+      if (startDate || endDate) {
+        query = query.filter((letter) => {
+          if (!letter.valid) return false;
+          const createdDate = new Date(letter.created);
+          if (startDate && createdDate < startDate) return false;
+          if (endDate && createdDate > endDate) return false;
+          return true;
+        });
+      }
+      return query.reverse().sortBy('id');
     },
     [worker, startDate, endDate]
   );
+  
 
   const [selectedLetters, setSelectedLetters] = useState<Letter[]>([]);
 
