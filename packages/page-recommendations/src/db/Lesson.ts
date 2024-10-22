@@ -1,6 +1,5 @@
 export interface Lesson {
-  id?: number;
-  hash: string;
+  id: string;
   created: Date;
   cid: string;
   tutor: string;

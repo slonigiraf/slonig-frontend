@@ -25,7 +25,7 @@ function LessonsList({ className = '', tutor }: Props): React.ReactElement<Props
         query = query.filter((lesson) => new Date(lesson.created) >= startDate);
       if (endDate)
         query = query.filter((lesson) => new Date(lesson.created) <= endDate);
-      return query.sortBy('id').then((lessons) => lessons.reverse());
+      return query.sortBy('created').then((lessons) => lessons.reverse());
     },
     [tutor, startDate, endDate]
   );

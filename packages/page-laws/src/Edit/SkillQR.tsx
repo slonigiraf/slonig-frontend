@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useTranslation } from '../translate.js';
-import { CenterQRContainer, LawType, LoginButton, QRAction, QRWithShareAndCopy, SenderComponent, getBaseUrl, nameFromKeyringPair, qrWidthPx, useLoginContext } from '@slonigiraf/app-slonig-components';
+import { CenterQRContainer, LawType, LoginButton, QRAction, QRField, QRWithShareAndCopy, SenderComponent, getBaseUrl, nameFromKeyringPair, qrWidthPx, useLoginContext } from '@slonigiraf/app-slonig-components';
 import { getSetting, storeSetting } from '@slonigiraf/app-recommendations';
 import { Dropdown, Spinner } from '@polkadot/react-components';
 import { useLiveQuery } from "dexie-react-hooks";
@@ -246,7 +246,10 @@ function SkillQR({ className = '', id, cid, type, selectedItems, isLearningReque
   const qrCodeText = generateQRData();
   const url = `${getBaseUrl()}/#/${urlDetails}`;
   const route = `#/${urlDetails}`;
-  const action = { h: lessonId, q: QRAction.LEARN_MODULE, n: name, p: studentIdentity, t: tutor };
+  const action = {
+    [QRField.ID]: lessonId, [QRField.QR_ACTION]: QRAction.LEARN_MODULE,
+    [QRField.PERSON_NAME]: name, [QRField.PERSON_IDENTITY]: studentIdentity, [QRField.TUTOR]: tutor
+  };
 
   const diplomaCheck = <DiplomaCheck id={id} cid={cid} caption={t('I have a diploma')} setValidDiplomas={setValidDiplomas} onLoad={() => setLoading(false)} />;
   const hasValidDiploma = validDiplomas && validDiplomas.length > 0;

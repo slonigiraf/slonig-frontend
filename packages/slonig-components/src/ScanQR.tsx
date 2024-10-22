@@ -1,6 +1,6 @@
 import React, { useState, useCallback } from 'react';
 import { useToggle } from '@polkadot/react-hooks';
-import { parseJson, QRScanner, receiveWebRTCData, useLoginContext } from '@slonigiraf/app-slonig-components';
+import { parseJson, QRField, QRScanner, receiveWebRTCData, useLoginContext } from '@slonigiraf/app-slonig-components';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from './translate.js';
 import { Modal, TransferModal } from '@polkadot/react-components';
@@ -72,7 +72,7 @@ function ScanQR({ className = '', label, type }: Props): React.ReactElement<Prop
               if (!isLoggedIn) {
                 showInfo(t('Please log in first'), 'error');
               } else {
-                await storePseudonym(qrJSON.p, qrJSON.n);
+                await storePseudonym(qrJSON[QRField.PERSON_IDENTITY], qrJSON[QRField.PERSON_NAME]);
                 const maxLoadingSec = 60;
                 showInfo(t('Loading'), 'info', maxLoadingSec);
                 try {
@@ -83,7 +83,7 @@ function ScanQR({ className = '', label, type }: Props): React.ReactElement<Prop
 
                   console.log("Data received: " + JSON.stringify(webRTCJSON, null, 2));
                   const tutorPublicKeyHex = u8aToHex(currentPair?.publicKey);
-                  const lesson: Lesson = { hash: qrJSON.h, created: new Date(), cid: webRTCJSON.cid, tutor: tutorPublicKeyHex, student: qrJSON.p };
+                  const lesson: Lesson = { id: qrJSON[QRField.ID], created: new Date(), cid: webRTCJSON.cid, tutor: tutorPublicKeyHex, student: qrJSON[QRField.PERSON_IDENTITY] };
                   console.log("Lesson: ", JSON.stringify(lesson, null, 2))
                   await storeLesson(lesson);
                 } catch (error) {

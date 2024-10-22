@@ -65,6 +65,14 @@ export const QRAction = {
   LEARN_MODULE: 8
 };
 
+export const QRField = {
+  ID: 'i', 
+  QR_ACTION: 'q',
+  PERSON_NAME: 'n',
+  PERSON_IDENTITY: 'p',
+  TUTOR: 't',
+};
+
 export const LawType = {
   LIST: 0,
   COURSE: 1,
