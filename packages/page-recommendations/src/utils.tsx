@@ -11,6 +11,7 @@ import { u8aToHex } from '@polkadot/util';
 import { decodeAddress, encodeAddress } from '@polkadot/keyring';
 import { isHex } from '@polkadot/util';
 import { Lesson } from "./db/Lesson.js";
+import { QRField } from "@slonigiraf/app-slonig-components";
 
 export const syncDB = async (data: string, password: string) => {
     const json = JSON.parse(data);
@@ -59,7 +60,7 @@ export const setLastUsedLetterNumber = async (publicKey: string, lastUsed: numbe
 }
 
 export const storeLetter = async (letter: Letter) => {
-    const sameLatter = await db.letters.get({ signOverReceipt: letter.signOverReceipt });
+    const sameLatter = await db.letters.get({ lesson: letter.lesson, signOverReceipt: letter.signOverReceipt });
     if (sameLatter === undefined) {
         await db.letters.add(letter);
     }
@@ -79,15 +80,64 @@ export const getValidLettersForKnowledgeId = async (workerId: string, knowledgeI
         .toArray();
 }
 
-export const storeLesson = async (lesson: Lesson) => {
-    const same = await db.lessons.get({ id: lesson.id });
-    if (same === undefined) {
+export const storeLesson = async (tutorPublicKeyHex: string, qrJSON: any, webRTCJSON: any) => {
+    const lesson: Lesson = {
+        id: qrJSON[QRField.ID], created: new Date(), cid: webRTCJSON.cid,
+        tutor: tutorPublicKeyHex, student: qrJSON[QRField.PERSON_IDENTITY]
+    };
+    const sameLesson = await db.lessons.get({ id: lesson.id });
+    if (sameLesson === undefined) {
         await db.lessons.add(lesson);
     }
+    await Promise.all(webRTCJSON.learn.map(async (item: string[]) => {
+        const letter: Letter = {
+            created: new Date(),
+            lesson: lesson.id,
+            wasDiscussed: false,
+            wasSkipped: false,
+            workerId: lesson.student,
+            knowledgeId: item[0],
+            cid: item[1],
+            genesis: '',
+            letterNumber: -1,
+            block: '',
+            referee: lesson.tutor,
+            worker: item[2],
+            amount: '',
+            signOverPrivateData: '',
+            signOverReceipt: '',
+          };
+        return await storeLetter(letter);
+      }));
+    
+    await Promise.all(webRTCJSON.reexam.map(async (item: string[]) => {
+        const insurance: Insurance = {
+            created: new Date(),
+            lesson: lesson.id,
+            forReexamining: false,
+            wasDiscussed: false,
+            wasSkipped: false,
+            workerId: lesson.student,
+            cid: item[0],
+            genesis: item[1],
+            letterNumber: item[2],
+            block: item[3],
+            blockAllowed: item[4],
+            referee: item[5],
+            worker: item[6],
+            amount: item[7],
+            signOverPrivateData: item[8],
+            signOverReceipt: item[9],
+            employer: lesson.tutor,
+            workerSign: item[10],
+            wasUsed: false,
+          };
+        return await storeInsurance(insurance);
+      }));
 }
 
 export const storeInsurance = async (insurance: Insurance) => {
-    const sameInsurance = await db.insurances.get({ signOverReceipt: insurance.signOverReceipt });
+    const sameInsurance = await db.insurances.get({ lesson: insurance.lesson, signOverReceipt: insurance.signOverReceipt });
     if (sameInsurance === undefined) {
         await db.insurances.add(insurance);
     } else if (sameInsurance.wasUsed === false && insurance.wasUsed === true) {

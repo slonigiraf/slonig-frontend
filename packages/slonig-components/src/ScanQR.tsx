@@ -77,15 +77,11 @@ function ScanQR({ className = '', label, type }: Props): React.ReactElement<Prop
                 showInfo(t('Loading'), 'info', maxLoadingSec);
                 try {
                   const webRTCData = await receiveWebRTCData(qrJSON.c, maxLoadingSec * 1000);
-                  console.log("webRTCData: " + webRTCData)
                   hideInfo();
                   const webRTCJSON = parseJson(webRTCData);
-
                   console.log("Data received: " + JSON.stringify(webRTCJSON, null, 2));
                   const tutorPublicKeyHex = u8aToHex(currentPair?.publicKey);
-                  const lesson: Lesson = { id: qrJSON[QRField.ID], created: new Date(), cid: webRTCJSON.cid, tutor: tutorPublicKeyHex, student: qrJSON[QRField.PERSON_IDENTITY] };
-                  console.log("Lesson: ", JSON.stringify(lesson, null, 2))
-                  await storeLesson(lesson);
+                  await storeLesson(tutorPublicKeyHex, qrJSON, webRTCJSON);
                 } catch (error) {
                   showInfo(t('Ask to regenerate the QR'), 'error');
                   console.error("Failed to save lesson:", error);
