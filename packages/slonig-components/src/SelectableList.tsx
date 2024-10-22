@@ -121,7 +121,7 @@ function SelectableList<T>({
         header={header}
       >
         {updatedItems.map((item) => (
-          <tr key={keyExtractor(item)}>
+          <tr key={keyExtractor(item)+isSelectionAllowed}>
             <td>
               {renderItem(
                 item,
