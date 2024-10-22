@@ -1,5 +1,5 @@
 import React, { useState, useCallback, useEffect } from 'react';
-import { Button } from '@polkadot/react-components';
+import { Button, Table } from '@polkadot/react-components';
 import { useTranslation } from './translate.js';
 
 interface SelectableListProps<T> {
@@ -18,6 +18,7 @@ interface SelectableListProps<T> {
   additionalControls?: React.ReactNode;
   keyExtractor: (item: T) => string;
   key: string | number;
+  header?: ([React.ReactNode?, string?, number?, (() => void)?] | false | null | undefined)[];
 }
 
 function SelectableList<T>({
@@ -31,6 +32,7 @@ function SelectableList<T>({
   additionalControls,
   keyExtractor,
   key,
+  header,
 }: SelectableListProps<T>): React.ReactElement {
   const { t } = useTranslation();
   const [updatedItems, setUpdatedItems] = useState(items);
@@ -113,20 +115,26 @@ function SelectableList<T>({
           {additionalControls}
         </div>
       )}
-      {updatedItems.map((item) => (
-        <div key={keyExtractor(item)} className="ui--row">
-          {renderItem(
-            item,
-            selectedItems.some((selectedItem) => keyExtractor(selectedItem) === keyExtractor(item)),
-            toggleItemSelection,
-            handleItemUpdate
-          )}
-        </div>
-      ))}
+      <Table
+        empty={t('No items available')}
+        header={header}
+      >
+        {updatedItems.map((item) => (
+          <tr key={keyExtractor(item)}>
+            <td>
+              {renderItem(
+                item,
+                selectedItems.some((selectedItem) => keyExtractor(selectedItem) === keyExtractor(item)),
+                toggleItemSelection,
+                handleItemUpdate
+              )}
+            </td>
+          </tr>
+        ))}
+      </Table>
     </div>
   );
 }
-
 
 // Wrap with React.memo and preserve the generic type parameter
 const MemoizedSelectableList = React.memo(
