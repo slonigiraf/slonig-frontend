@@ -106,9 +106,12 @@ export const storeLesson = async (tutorPublicKeyHex: string, qrJSON: any, webRTC
         return await storeLetter(letter);
     }));
 
+    const now = new Date();
     await Promise.all(webRTCJSON.reexam.map(async (item: string[]) => {
         const insurance: Insurance = {
             created: new Date(),
+            lastReexamined: now,
+            reexamCount: 1,
             lesson: lesson.id,
             forReexamining: false,
             wasDiscussed: false,

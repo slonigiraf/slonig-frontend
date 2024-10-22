@@ -161,7 +161,9 @@ function SkillQR({ className = '', id, cid, type, selectedItems, isLearningReque
   // Which diplomas should be reexamined?
   useEffect(() => {
     const fetchRandomDiploma = async () => {
-      const allDiplomas = await db.letters.where('workerId').equals(studentIdentity).toArray();
+      const allDiplomas = await db.letters
+      .where('[workerId+lesson]')
+      .equals([studentIdentity, '']).toArray();
       if (allDiplomas.length > 0) {
         const randomIndex = Math.floor(Math.random() * allDiplomas.length);
         setDiplomasToReexamine([allDiplomas[randomIndex]]);
