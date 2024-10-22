@@ -5,6 +5,7 @@ export interface Letter {
   wasDiscussed: boolean;
   wasSkipped: boolean;
   workerId: string;
+  knowledgeId: string;
   cid: string;
   genesis: string;
   letterNumber: number;
