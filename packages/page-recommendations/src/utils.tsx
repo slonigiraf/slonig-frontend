@@ -80,7 +80,7 @@ export const getValidLettersForKnowledgeId = async (workerId: string, knowledgeI
 }
 
 export const storeLesson = async (lesson: Lesson) => {
-    const same = await db.lessons.get({ hash: lesson.hash });
+    const same = await db.lessons.get({ id: lesson.id });
     if (same === undefined) {
         await db.lessons.add(lesson);
     }
