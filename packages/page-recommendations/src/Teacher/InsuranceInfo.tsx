@@ -125,7 +125,7 @@ function InsuranceInfo({ className = '', insurance }: Props): React.ReactElement
       }
       {isDeleteConfirmOpen && <>
           <StyledModal
-            header={t('Are you sure you want to delete the selected diploma forever?')}
+            header={t('Are you sure you want to delete it?')}
             onClose={toggleDeleteConfirm}
             size='small'
           >

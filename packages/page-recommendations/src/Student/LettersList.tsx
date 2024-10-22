@@ -20,7 +20,7 @@ interface Props {
 }
 
 function LettersList({ className = '', worker, currentPair }: Props): React.ReactElement<Props> {
-  const MAX_SELECTED_DIPLOMAS = 93;
+  const MAX_SELECTED = 93;
   const { t } = useTranslation();
   const location = useLocation();
   const queryParams = new URLSearchParams(location.search);
@@ -53,8 +53,8 @@ function LettersList({ className = '', worker, currentPair }: Props): React.Reac
   const [selectedLetters, setSelectedLetters] = useState<Letter[]>([]);
 
   const handleSelectionChange = (newSelectedLetters: Letter[]) => {
-    if (newSelectedLetters.length > MAX_SELECTED_DIPLOMAS) {
-      showInfo(`${t('Maximum number of selected diplomas is:')} ${MAX_SELECTED_DIPLOMAS}`);
+    if (newSelectedLetters.length > MAX_SELECTED) {
+      showInfo(`${t('You can select no more than:')} ${MAX_SELECTED}`);
       return;
     }
     setSelectedLetters(newSelectedLetters);
@@ -68,7 +68,7 @@ function LettersList({ className = '', worker, currentPair }: Props): React.Reac
           await db.letters.delete(id);
         }
       }
-      showInfo(t('Diplomas deleted'));
+      showInfo(t('Deleted'));
       setSelectedLetters([]);
     } catch (error) {
       console.error('Error deleting selected diplomas:', error);
@@ -124,14 +124,14 @@ function LettersList({ className = '', worker, currentPair }: Props): React.Reac
           />
         )}
         onSelectionChange={handleSelectionChange}
-        maxSelectableItems={MAX_SELECTED_DIPLOMAS}
+        maxSelectableItems={MAX_SELECTED}
         additionalControls={deleteSelectedButton}
         keyExtractor={(letter) => letter.signOverReceipt }
         key={worker}
       />
       {isDeleteConfirmOpen && (
         <StyledModal
-          header={t('Are you sure you want to delete the selected diplomas forever?')}
+          header={t('Are you sure you want to delete it?')}
           onClose={toggleDeleteConfirm}
           size="small"
         >
