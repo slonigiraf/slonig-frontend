@@ -53,23 +53,73 @@ function Tutor({ className = '' }: Props): React.ReactElement<Props> {
   const { ipfs, isIpfsReady } = useIpfsContext();
   const { api, isApiReady } = useApi();
   const { t } = useTranslation();
+  const [lesson, setLesson] = useState<Lesson | null>(null);
+  // Initialize account
+  const { currentPair, isLoggedIn } = useLoginContext();
 
   // Process query
   const location = useLocation();
   const queryParams = new URLSearchParams(location.search);
   const studentNameFromUrl = queryParams.get("name");
   const queryData = queryParams.get("d") || "";
-  const [tutor, skillCID, studentIdentityFromUrl, student, cidR, genesisR, nonceR, blockR, blockAllowedR, tutorR, studentR, amountR, signOverPrivateDataR, signOverReceiptR, studentSignR] = queryData.split(' ');
+  const [tutorFromUrl, skillCIDFromUrl, studentIdentityFromUrl, studentFromUrl, cidRFromUrl, 
+    genesisRFromUrl, nonceRFromUrl, blockRFromUrl, blockAllowedRFromUrl, tutorRFromUrl, 
+    studentRFromUrl, amountRFromUrl, signOverPrivateDataRFromUrl, signOverReceiptRFromUrl, studentSignRFromUrl] = queryData.split(' ');
+  const [tutor, setTutor] = useState(tutorFromUrl);
+  const [skillCID, setSkillCID] = useState(skillCIDFromUrl);
+  const [studentIdentity, setStudentIdentity] = useState(studentIdentityFromUrl);
+  const [student, setStudent] = useState(studentFromUrl);
+  // const [cidR, setCidR] = useState(cidRFromUrl);
+  // const [genesisR, setGenesisR] = useState(genesisRFromUrl);
+  // const [nonceR, setNonceR] = useState(nonceRFromUrl);
+  // const [blockR, setBlockR] = useState(blockRFromUrl);
+  // const [blockAllowedR, setBlockAllowedR] = useState(blockAllowedRFromUrl);
+  // const [tutorR, setTutorR] = useState(tutorRFromUrl);
+  // const [studentR, setStudentR] = useState(studentRFromUrl);
+  // const [amountR, setAmountR] = useState(amountRFromUrl);
+  // const [signOverPrivateDataR, setSignOverPrivateDataR] = useState(signOverPrivateDataRFromUrl);
+  // const [signOverReceiptR, setSignOverReceiptR] = useState(signOverReceiptRFromUrl);
+  // const [studentSignR, setStudentSignR] = useState(studentSignRFromUrl);
+  const now = new Date();
+  const insuranceFromUrl: Insurance | null = (tutorFromUrl && skillCIDFromUrl && 
+    studentIdentityFromUrl && studentFromUrl && cidRFromUrl &&
+    genesisRFromUrl && nonceRFromUrl && blockRFromUrl && 
+    blockAllowedRFromUrl && tutorRFromUrl &&
+    studentRFromUrl && amountRFromUrl && 
+    signOverPrivateDataRFromUrl && signOverReceiptRFromUrl && studentSignRFromUrl)? {
+      created: now,
+      lastReexamined: now,
+      lesson: lesson? lesson.id : '',
+      forReexamining: true,
+      wasDiscussed: false,
+      wasSkipped: false,
+      workerId: studentIdentity,
+      cid: cidRFromUrl,
+      genesis: genesisRFromUrl,
+      letterNumber: parseInt(nonceRFromUrl, 10),
+      block: blockRFromUrl,
+      blockAllowed: blockAllowedRFromUrl,
+      referee: tutorRFromUrl,
+      worker: studentRFromUrl,
+      amount: amountRFromUrl,
+      signOverPrivateData: signOverPrivateDataRFromUrl,
+      signOverReceipt: signOverReceiptRFromUrl,
+      employer: currentPair? u8aToHex(currentPair?.publicKey) : '',
+      workerSign: studentSignRFromUrl,
+      wasUsed: false,
+    } : null;
+  const [insuranceToReexamine, setInsuranceToReexamine] = useState(insuranceFromUrl);
+
   const [skill, setSkill] = useState<Skill | null>(null);
 
-  // Initialize account
-  const { currentPair, isLoggedIn } = useLoginContext();
+  
 
   // Store progress state
   const [canIssueDiploma, setCanIssueDiploma] = useState(false);
-  const [reexamined, setReexamined] = useState<boolean>(cidR === undefined);
+  const [reexamined, setReexamined] = useState<boolean>(insuranceToReexamine?.cid === undefined);
   const [teachingAlgorithm, setTeachingAlgorithm] = useState<TeachingAlgorithm | null>(null);
-  const [studentIdentity, setStudentIdentity] = useState(studentIdentityFromUrl);
+
+
 
   // Initialize diploma details
   //   stake: 105 Slon, 12 zeroes for numbers after point
@@ -93,18 +143,21 @@ function Tutor({ className = '' }: Props): React.ReactElement<Props> {
   const [diploma, setDiploma] = useState<Letter | null>(null);
 
   const [countOfUrlReloads, setCountOfUrlReloads] = useState(0);
-  const [lesson, setLesson] = useState<Lesson | null>(null);
+  
+
+  console.log("lesson: " + lesson)
+  console.log("reexamined: " + reexamined)
 
 
   // Reinitialize issuing stage when url parameters change
   useEffect(() => {
     setVisibleDiplomaDetails(false);
-    const hasAnySkillToReexamine = (cidR !== undefined);
+    const hasAnySkillToReexamine = (insuranceToReexamine?.cid !== undefined);
     setReexamined(!hasAnySkillToReexamine);
     setCanIssueDiploma(false);
     setDiploma(null);
     setCountOfUrlReloads(prevKey => prevKey + 1);
-  }, [tutor, skillCID, studentIdentity, student, cidR]);
+  }, [tutor, skillCID, studentIdentity, student, insuranceToReexamine]);
 
   // Save pseudonym from url
   useEffect(() => {
@@ -132,7 +185,7 @@ function Tutor({ className = '' }: Props): React.ReactElement<Props> {
           const skillContent = await getIPFSDataFromContentID(ipfs, skillCID);
           const skillJson = parseJson(skillContent);
           setSkill(skillJson);
-          const studentUsesSlonigFirstTime = cidR === undefined;
+          const studentUsesSlonigFirstTime = insuranceToReexamine?.cid === undefined;
           setTeachingAlgorithm(new TeachingAlgorithm(t, studentNameFromUrl, skillJson, studentUsesSlonigFirstTime));
         }
         catch (e) {
@@ -159,10 +212,10 @@ function Tutor({ className = '' }: Props): React.ReactElement<Props> {
   useEffect(() => {
     async function fetchLesson() {
       const lessonId = await getSetting('lesson');
-      if(lessonId !== undefined){
+      if (lessonId !== undefined) {
         const activeLesson: Lesson = await db.lessons.get(lessonId);
         setLesson(activeLesson);
-        if(activeLesson !== undefined){
+        if (activeLesson !== undefined) {
           setStudentIdentity(activeLesson.student);
         }
       }
@@ -238,7 +291,8 @@ function Tutor({ className = '' }: Props): React.ReactElement<Props> {
 
       const letter: Letter = {
         created: new Date(),
-        knowledgeId: skill? skill.i : '',
+        knowledgeId: skill ? skill.i : '',
+        reexamCount: 0,
         cid: skillCID,
         lesson: '',
         workerId: studentIdentity,
@@ -279,6 +333,20 @@ function Tutor({ className = '' }: Props): React.ReactElement<Props> {
     setLesson(lesson);
   }
 
+  useEffect(() => {
+    async function onLessonUpdate() {
+      if (lesson) {
+        const studentUsesSlonigFirstTime = lesson.toReexamineCount === 0;
+        const name = studentName? studentName : '';
+        if(lesson.reexamineStep < lesson.toReexamineCount){
+          setReexamined(false);
+        }
+        setTeachingAlgorithm(new TeachingAlgorithm(t, name, skill, studentUsesSlonigFirstTime));
+      }
+    }
+    onLessonUpdate()
+  }, [lesson])
+
   const publicKeyHex = currentPair ? u8aToHex(currentPair.publicKey) : "";
   const name = nameFromKeyringPair(currentPair);
   const qrData = {
@@ -288,32 +356,6 @@ function Tutor({ className = '' }: Props): React.ReactElement<Props> {
   };
   const qrCodeText = JSON.stringify(qrData);
   const url: string = getBaseUrl() + `/#/knowledge?tutor=${publicKeyHex}&name=${encodeURIComponent(name)}`;
-
-  const now = new Date();
-
-  const insurance: Insurance = {
-    created: now,
-    lastReexamined: now,
-    reexamCount: 0,
-    lesson: '',
-    forReexamining: false,
-    wasDiscussed: false,
-    wasSkipped: false,
-    cid: cidR,
-    genesis: genesisR,
-    letterNumber: parseInt(nonceR, 10),
-    block: blockR,
-    blockAllowed: blockAllowedR,
-    referee: tutorR,
-    workerId: studentIdentity,
-    worker: studentR,
-    amount: amountR,
-    signOverPrivateData: signOverPrivateDataR,
-    signOverReceipt: signOverReceiptR,
-    employer: publicKeyHex,
-    workerSign: studentSignR,
-    wasUsed: false
-  };
 
   const isDedicatedTutor = (tutor === publicKeyHex) || !tutor;
 
@@ -357,7 +399,7 @@ function Tutor({ className = '' }: Props): React.ReactElement<Props> {
 
   const reexamAndDiplomaIssuing = <>
     <div style={!reexamined ? {} : { display: 'none' }}>
-      {currentPair && <Reexamine currentPair={currentPair} insurance={insurance} onResult={updateReexamined} key={countOfUrlReloads} studentName={studentNameFromUrl} />}
+      {currentPair && <Reexamine currentPair={currentPair} insurance={insuranceToReexamine} onResult={updateReexamined} key={countOfUrlReloads} studentName={studentNameFromUrl} />}
     </div>
     <div style={reexamined ? {} : { display: 'none' }}>
       <DoInstructions algorithm={teachingAlgorithm} onResult={updateTutoring} key={countOfUrlReloads} />
@@ -438,7 +480,7 @@ function Tutor({ className = '' }: Props): React.ReactElement<Props> {
                 urlShare={url}
                 dataCopy={url} />
             </CenterQRContainer>
-              <LessonsList tutor={publicKeyHex} onResumeTutoring={onResumeTutoring}/>
+              <LessonsList tutor={publicKeyHex} onResumeTutoring={onResumeTutoring} />
             </>
             :
             <> {diploma ? diplomaView : reexamAndDiplomaIssuing}</>

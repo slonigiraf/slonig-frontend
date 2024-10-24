@@ -2,7 +2,6 @@ export interface Insurance {
   id?: number;
   created: Date;
   lastReexamined: Date;
-  reexamCount: number;
   lesson: string;
   forReexamining: boolean;
   wasDiscussed: boolean;

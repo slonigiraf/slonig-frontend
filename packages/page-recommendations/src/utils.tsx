@@ -90,6 +90,7 @@ export const storeLesson = async (tutorPublicKeyHex: string, qrJSON: any, webRTC
             const letter: Letter = {
                 created: now,
                 valid: false,
+                reexamCount: 0,
                 lesson: lesson.id,
                 wasDiscussed: false,
                 wasSkipped: false,
