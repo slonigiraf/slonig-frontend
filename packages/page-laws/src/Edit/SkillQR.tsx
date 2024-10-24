@@ -58,7 +58,7 @@ function SkillQR({ className = '', id, cid, type, selectedItems, isLearningReque
   const [currentDate, setCurrentDate] = useState<Date | null>(null);
   const [lessonId, setLessonId] = useState<string>('');
   const [learn, setLearn] = useState<string[][]>([]);
-  const [reexam, setReexam] = useState<string[][]>([]);
+  const [reexamine, setReexamine] = useState<string[][]>([]);
 
 
   // Fetch block number (once)
@@ -224,14 +224,14 @@ function SkillQR({ className = '', id, cid, type, selectedItems, isLearningReque
         ];
       });
 
-    setReexam(examData);
+    setReexamine(examData);
   }, [currentPair, tutor, diplomasToReexamine, blockAllowed, isLoggedIn]);
 
 
   const name = nameFromKeyringPair(currentPair);
   const reexamineData =
-    diplomasToReexamine?.[0] && reexam?.[0]
-      ? `+${diplomasToReexamine[0].cid}+${diplomasToReexamine[0].genesis}+${diplomasToReexamine[0].letterNumber}+${diplomasToReexamine[0].block}+${blockAllowed.toString()}+${diplomasToReexamine[0].referee}+${diplomasToReexamine[0].worker}+${diplomasToReexamine[0].amount}+${diplomasToReexamine[0].signOverPrivateData}+${diplomasToReexamine[0].signOverReceipt}+${reexam[0][10]}`
+    diplomasToReexamine?.[0] && reexamine?.[0]
+      ? `+${diplomasToReexamine[0].cid}+${diplomasToReexamine[0].genesis}+${diplomasToReexamine[0].letterNumber}+${diplomasToReexamine[0].block}+${blockAllowed.toString()}+${diplomasToReexamine[0].referee}+${diplomasToReexamine[0].worker}+${diplomasToReexamine[0].amount}+${diplomasToReexamine[0].signOverPrivateData}+${diplomasToReexamine[0].signOverReceipt}+${reexamine[0][10]}`
       : '';
 
   const diplomaPublicKeyHex = learn?.[0]?.[2] ?? '';
@@ -256,7 +256,7 @@ function SkillQR({ className = '', id, cid, type, selectedItems, isLearningReque
   const diplomaCheck = <DiplomaCheck id={id} cid={cid} caption={t('I have a diploma')} setValidDiplomas={setValidDiplomas} onLoad={() => setLoading(false)} />;
   const hasValidDiploma = validDiplomas && validDiplomas.length > 0;
 
-  const data = JSON.stringify({ 'cid': cid, 'learn': learn, 'reexam': reexam });
+  const data = JSON.stringify({ 'cid': cid, 'learn': learn, 'reexamine': reexamine });
 
   return (<>
     {isLoggedIn

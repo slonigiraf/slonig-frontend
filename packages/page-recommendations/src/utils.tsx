@@ -79,7 +79,9 @@ export const storeLesson = async (tutorPublicKeyHex: string, qrJSON: any, webRTC
     const now = new Date();
     const lesson: Lesson = {
         id: qrJSON[QRField.ID], created: now, cid: webRTCJSON.cid,
-        tutor: tutorPublicKeyHex, student: qrJSON[QRField.PERSON_IDENTITY]
+        tutor: tutorPublicKeyHex, student: qrJSON[QRField.PERSON_IDENTITY],
+        toLearnCount: webRTCJSON.learn.length, learnStep: 0,
+        toReexamineCount: webRTCJSON.reexamine.length, reexamineStep: 0
     };
     const sameLesson = await db.lessons.get({ id: lesson.id });
     if (sameLesson === undefined) {
@@ -106,7 +108,7 @@ export const storeLesson = async (tutorPublicKeyHex: string, qrJSON: any, webRTC
             return await storeLetter(letter);
         }));
     
-        await Promise.all(webRTCJSON.reexam.map(async (item: string[]) => {
+        await Promise.all(webRTCJSON.reexamine.map(async (item: string[]) => {
             const insurance: Insurance = {
                 created: now,
                 lastReexamined: now,

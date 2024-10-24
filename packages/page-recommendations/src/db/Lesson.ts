@@ -4,4 +4,8 @@ export interface Lesson {
   cid: string;
   tutor: string;
   student: string;
+  toLearnCount: number;
+  learnStep: number;
+  toReexamineCount: number;
+  reexamineStep: number;
 }
