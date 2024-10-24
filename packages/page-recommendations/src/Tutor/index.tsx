@@ -193,17 +193,18 @@ function Tutor({ className = '' }: Props): React.ReactElement<Props> {
     fetchStudentName()
   }, [studentIdentity])
 
-  useEffect(() => {
-    async function fetchLesson() {
-      const lessonId = await getSetting('lesson');
-      if (lessonId !== undefined) {
-        const activeLesson: Lesson = await db.lessons.get(lessonId);
-        setLesson(activeLesson);
-        if (activeLesson !== undefined) {
-          setStudentIdentity(activeLesson.student);
-        }
+  async function fetchLesson(id?: string) {
+    const lessonId = id? id : await getSetting('lesson');
+    if (lessonId !== undefined) {
+      const activeLesson: Lesson = await db.lessons.get(lessonId);
+      setLesson(activeLesson);
+      if (activeLesson !== undefined) {
+        setStudentIdentity(activeLesson.student);
       }
     }
+  }
+
+  useEffect(() => {
     fetchLesson()
   }, [])
 
@@ -352,7 +353,8 @@ function Tutor({ className = '' }: Props): React.ReactElement<Props> {
           if (typeof studentIdentityFromUrl === 'string' && typeof studentNameFromUrl === 'string' && skill != null) {
             await storePseudonym(studentIdentityFromUrl, studentNameFromUrl);
             await setStudentName(studentNameFromUrl);
-            const qrJSON: any = { [QRField.ID]: getLessonId([skill.i]), [QRField.PERSON_IDENTITY]: studentIdentityFromUrl };
+            const lessonId = getLessonId([skill.i]);
+            const qrJSON: any = { [QRField.ID]: lessonId, [QRField.PERSON_IDENTITY]: studentIdentityFromUrl };
             const webRTCJSON: any = {
               'learn': [[skill.i, skillCIDFromUrl, studentFromUrl]],
               'reexamine': [
@@ -362,6 +364,8 @@ function Tutor({ className = '' }: Props): React.ReactElement<Props> {
               ]
             };
             storeLesson(tutorFromUrl, qrJSON, webRTCJSON);
+            storeSetting('lesson', lessonId);
+            fetchLesson(lessonId);
           }
         } catch (error) {
           console.error("Failed to save url data:", error);
