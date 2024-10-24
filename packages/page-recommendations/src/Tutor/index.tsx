@@ -69,9 +69,9 @@ function Tutor({ className = '' }: Props): React.ReactElement<Props> {
 
   const [skillCID, setSkillCID] = useState(skillCIDFromUrl);
   const [studentIdentity, setStudentIdentity] = useState(studentIdentityFromUrl);
-  const [student, setStudent] = useState(studentFromUrl);
   const now = new Date();
   const [insuranceToReexamine, setInsuranceToReexamine] = useState<Insurance | null>(null);
+  const [letterToIssue, setLetterToIssue] = useState<Letter | null>(null);
 
   const [skill, setSkill] = useState<Skill | null>(null);
 
@@ -131,7 +131,7 @@ function Tutor({ className = '' }: Props): React.ReactElement<Props> {
     setCanIssueDiploma(false);
     setDiploma(null);
     setCountOfUrlReloads(prevKey => prevKey + 1);
-  }, [skillCID, studentIdentity, student, insuranceToReexamine]);
+  }, [skillCID, studentIdentity, letterToIssue, insuranceToReexamine]);
 
 
 
@@ -232,7 +232,7 @@ function Tutor({ className = '' }: Props): React.ReactElement<Props> {
   // Sign diploma
   const _onSign = useCallback(
     async () => {
-      if (!currentPair) {
+      if (!currentPair || !letterToIssue) {
         return;
       }
       // generate a data to sign
@@ -241,7 +241,7 @@ function Tutor({ className = '' }: Props): React.ReactElement<Props> {
       const refereeU8 = referee.publicKey;
       const refereePublicKeyHex = u8aToHex(refereeU8);
       const letterId = await getLastUnusedLetterNumber(refereePublicKeyHex);
-      const workerPublicKeyU8 = hexToU8a(student);
+      const workerPublicKeyU8 = hexToU8a(letterToIssue.worker);
       const privateData = getPrivateDataToSignByReferee(skillCID, genesisU8, letterId, diplomaBlockNumber, refereeU8, workerPublicKeyU8, amount);
       const receipt = getPublicDataToSignByReferee(genesisU8, letterId, diplomaBlockNumber, refereeU8, workerPublicKeyU8, amount);
       const refereeSignOverPrivateData = u8aToHex(currentPair.sign(u8aWrapBytes(privateData)));
@@ -258,7 +258,7 @@ function Tutor({ className = '' }: Props): React.ReactElement<Props> {
         letterNumber: letterId,
         block: diplomaBlockNumber.toString(),
         referee: refereePublicKeyHex,
-        worker: student,
+        worker: letterToIssue.worker,
         amount: amount.toString(),
         signOverPrivateData: refereeSignOverPrivateData,
         signOverReceipt: refereeSignOverReceipt,
@@ -271,7 +271,7 @@ function Tutor({ className = '' }: Props): React.ReactElement<Props> {
       createDiplomaQR(letter);
       setDiploma(letter);
     },
-    [currentPair, ipfs, skill, student, diplomaBlockNumber, amount]
+    [currentPair, ipfs, skill, letterToIssue, diplomaBlockNumber, amount]
   );
 
   const updateReexamined = (): void => {
@@ -328,12 +328,13 @@ function Tutor({ className = '' }: Props): React.ReactElement<Props> {
       async function storeUrlData() {
         try {
           // Ensure that both publicKey and name are strings
-          if (typeof studentIdentityFromUrl === 'string' && typeof studentNameFromUrl === 'string' && skill != null) {
+          if (typeof studentIdentityFromUrl === 'string' && typeof studentNameFromUrl === 'string' && skill != null && skillCID) {
             await storePseudonym(studentIdentityFromUrl, studentNameFromUrl);
             await setStudentName(studentNameFromUrl);
             const lessonId = getLessonId([skill.i]);
             const qrJSON: any = { [QRField.ID]: lessonId, [QRField.PERSON_IDENTITY]: studentIdentityFromUrl };
             const webRTCJSON: any = {
+              'cid': skillCID,
               'learn': [[skill.i, skillCIDFromUrl, studentFromUrl]],
               'reexamine': [
                 [cidRFromUrl, genesisRFromUrl, nonceRFromUrl, blockRFromUrl, blockAllowedRFromUrl,
@@ -353,7 +354,7 @@ function Tutor({ className = '' }: Props): React.ReactElement<Props> {
         storeUrlData();
       }
     }
-  }, [skill, isDedicatedTutor, studentNameFromUrl, tutorFromUrl, skillCIDFromUrl, studentIdentityFromUrl, studentFromUrl, cidRFromUrl,
+  }, [skillCID, skill, isDedicatedTutor, studentNameFromUrl, tutorFromUrl, skillCIDFromUrl, studentIdentityFromUrl, studentFromUrl, cidRFromUrl,
     genesisRFromUrl, nonceRFromUrl, blockRFromUrl, blockAllowedRFromUrl, tutorRFromUrl,
     studentRFromUrl, amountRFromUrl, signOverPrivateDataRFromUrl, signOverReceiptRFromUrl, studentSignRFromUrl]);
 
@@ -463,7 +464,7 @@ function Tutor({ className = '' }: Props): React.ReactElement<Props> {
     <div className={`toolbox--Tutor ${className}`}>
       {
         isLoggedIn && (
-          (student === undefined || !isDedicatedTutor) ?
+          (lesson === null || !isDedicatedTutor) ?
             <><CenterQRContainer>
               {
                 isDedicatedTutor ?
