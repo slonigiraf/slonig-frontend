@@ -11,7 +11,7 @@ import type { Skill } from '@slonigiraf/app-slonig-components';
 import { QRWithShareAndCopy, getBaseUrl, getIPFSDataFromContentID, parseJson, useIpfsContext, nameFromKeyringPair, QRAction, useLoginContext, LoginButton, FullWidthContainer, AppContainer, VerticalCenterItemsContainer, CenterQRContainer, KatexSpan } from '@slonigiraf/app-slonig-components';
 import { Letter } from '@slonigiraf/app-recommendations';
 import { getPublicDataToSignByReferee, getPrivateDataToSignByReferee } from '@slonigiraf/helpers';
-import { getLastUnusedLetterNumber, setLastUsedLetterNumber, storeLetter, storePseudonym } from '../utils.js';
+import { getLastUnusedLetterNumber, getSetting, setLastUsedLetterNumber, storeLetter, storePseudonym, storeSetting } from '../utils.js';
 import Reexamine from './Reexamine.js';
 import { TeachingAlgorithm } from './TeachingAlgorithm.js';
 import DoInstructions from './DoInstructions.js';
@@ -19,7 +19,8 @@ import { useTranslation } from '../translate.js';
 import { getPseudonym } from '../utils.js';
 import { Insurance } from '../db/Insurance.js';
 import LessonsList from './LessonsList.js';
-
+import { Lesson } from '../db/Lesson.js';
+import { db } from "../db/index.js";
 interface Props {
   className?: string;
 }
@@ -91,6 +92,7 @@ function Tutor({ className = '' }: Props): React.ReactElement<Props> {
   const [diploma, setDiploma] = useState<Letter | null>(null);
 
   const [countOfUrlReloads, setCountOfUrlReloads] = useState(0);
+  const [lesson, setLesson] = useState<Lesson | null>(null);
 
 
   // Reinitialize issuing stage when url parameters change
@@ -152,6 +154,17 @@ function Tutor({ className = '' }: Props): React.ReactElement<Props> {
     }
     fetchStudentName()
   }, [studentIdentity])
+
+  useEffect(() => {
+    async function fetchLesson() {
+      const lessonId = await getSetting('lesson');
+      if(lessonId !== undefined){
+        const activeLesson = await db.lessons.get(lessonId);
+        setLesson(activeLesson);
+      }
+    }
+    fetchLesson()
+  }, [])
 
   // Fetch block number (once)
   useEffect(() => {
@@ -252,6 +265,11 @@ function Tutor({ className = '' }: Props): React.ReactElement<Props> {
       setCanIssueDiploma(false);
     }
   };
+
+  const onResumeTutoring = (lesson: Lesson): void => {
+    storeSetting('lesson', lesson.id);
+    setLesson(lesson);
+  }
 
   const publicKeyHex = currentPair ? u8aToHex(currentPair.publicKey) : "";
   const name = nameFromKeyringPair(currentPair);
@@ -413,7 +431,7 @@ function Tutor({ className = '' }: Props): React.ReactElement<Props> {
                 urlShare={url}
                 dataCopy={url} />
             </CenterQRContainer>
-              <LessonsList tutor={publicKeyHex} />
+              <LessonsList tutor={publicKeyHex} onResumeTutoring={onResumeTutoring}/>
             </>
             :
             <> {diploma ? diplomaView : reexamAndDiplomaIssuing}</>

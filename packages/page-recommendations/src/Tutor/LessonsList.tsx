@@ -13,9 +13,10 @@ import { useToggle } from '@polkadot/react-hooks';
 interface Props {
   className?: string;
   tutor: string;
+  onResumeTutoring: (lesson: Lesson) => void;
 }
 
-function LessonsList({ className = '', tutor }: Props): React.ReactElement<Props> {
+function LessonsList({ className = '', tutor, onResumeTutoring }: Props): React.ReactElement<Props> {
   const MAX_SELECTED = 93;
   const { t } = useTranslation();
   const { showInfo } = useInfo();
@@ -25,7 +26,6 @@ function LessonsList({ className = '', tutor }: Props): React.ReactElement<Props
   const [startDate, setStartDate] = useState<Date | null>(new Date(new Date().setHours(0, 0, 0, 0)));
   const [endDate, setEndDate] = useState<Date | null>(new Date(new Date().setHours(23, 59, 59, 999)));
   const [isDeleteConfirmOpen, toggleDeleteConfirm] = useToggle();
-  const [activeLesson, setActiveLesson] = useState<Lesson | null>(null);
 
   const lessons = useLiveQuery<Lesson[]>(
     () => {
@@ -57,10 +57,6 @@ function LessonsList({ className = '', tutor }: Props): React.ReactElement<Props
   const handleSelectionToggle = useCallback((checked: boolean): void => {
     setSelectionAllowed(checked);
   }, []);
-
-  const onResumeTutoring = (lesson: Lesson) => {
-    setActiveLesson(lesson);
-  };
 
   const deleteItems = async () => {
     const idsToDelete = selectedItems.map((lesson) => lesson.id);
