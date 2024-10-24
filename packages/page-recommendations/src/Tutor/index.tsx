@@ -54,7 +54,7 @@ function Tutor({ className = '' }: Props): React.ReactElement<Props> {
   const { ipfs, isIpfsReady } = useIpfsContext();
   const { api, isApiReady } = useApi();
   const { t } = useTranslation();
-  const [lessonId, setLessonId] = useState<string|null>(null);
+  const [lessonId, setLessonId] = useState<string | null>(null);
   // Initialize account
   const { currentPair, isLoggedIn } = useLoginContext();
 
@@ -153,7 +153,7 @@ function Tutor({ className = '' }: Props): React.ReactElement<Props> {
   const letters = useLiveQuery(
     () => lesson ? db.letters.where({ lesson: lesson.id }).sortBy('id') : [],
     [lesson]
-  ); 
+  );
 
 
   console.log("lesson: " + lesson)
@@ -181,8 +181,9 @@ function Tutor({ className = '' }: Props): React.ReactElement<Props> {
           const skillContent = await getIPFSDataFromContentID(ipfs, skillCID);
           const skillJson = parseJson(skillContent);
           setSkill(skillJson);
-          const studentUsesSlonigFirstTime = insuranceToReexamine?.cid === undefined;
-          setTeachingAlgorithm(new TeachingAlgorithm(t, studentNameFromUrl, skillJson, studentUsesSlonigFirstTime));
+          const studentUsedSlonig = insurances && insurances?.length > 0;
+          const name = studentName ? studentName : null;
+          setTeachingAlgorithm(new TeachingAlgorithm(t, name, skillJson, !studentUsedSlonig));
         }
         catch (e) {
           console.log(e);
@@ -190,7 +191,7 @@ function Tutor({ className = '' }: Props): React.ReactElement<Props> {
       }
     }
     fetchData()
-  }, [ipfs, skillCID, studentNameFromUrl])
+  }, [ipfs, skillCID, studentName])
 
   // Fetch student name
   useEffect(() => {
@@ -207,9 +208,9 @@ function Tutor({ className = '' }: Props): React.ReactElement<Props> {
 
   async function fetchLesson() {
     const lessonId = await getSetting('lesson');
-    if(lessonId !== undefined){
+    if (lessonId !== undefined) {
       setLessonId(lessonId);
-    } else{ 
+    } else {
       setLessonId(null);
     }
   }
@@ -331,16 +332,21 @@ function Tutor({ className = '' }: Props): React.ReactElement<Props> {
   useEffect(() => {
     async function onLessonUpdate() {
       if (lesson) {
-        const studentUsesSlonigFirstTime = lesson.toReexamineCount === 0;
-        const name = studentName ? studentName : '';
         if (lesson.reexamineStep < lesson.toReexamineCount) {
           setReexamined(false);
+        } else {
+          setReexamined(true);
         }
-        setTeachingAlgorithm(new TeachingAlgorithm(t, name, skill, studentUsesSlonigFirstTime));
+        if(letters !== undefined && lesson.learnStep < letters.length){
+          setSkillCID(letters[lesson.learnStep].cid);
+        } 
+        if(insurances !== undefined && lesson.reexamineStep < insurances.length){
+          setInsuranceToReexamine(insurances[lesson.reexamineStep]);
+        }
       }
     }
     onLessonUpdate()
-  }, [lesson])
+  }, [lesson, studentName])
 
   const publicKeyHex = currentPair ? u8aToHex(currentPair.publicKey) : "";
   const name = nameFromKeyringPair(currentPair);
