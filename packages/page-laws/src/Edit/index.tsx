@@ -288,7 +288,7 @@ function Edit({ className = '' }: Props): React.ReactElement<Props> {
 
   const viewView = (
     <div className={`toolbox--Sign ${className}`}>
-      <ViewList id={textHexId} currentPair={currentPair} />
+      <ViewList key={textHexId} id={textHexId} currentPair={currentPair} />
       <Button
         icon='edit'
         label={t('Edit')}
