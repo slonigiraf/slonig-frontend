@@ -96,7 +96,7 @@ function LessonsList({ className = '', tutor }: Props): React.ReactElement<Props
             date={startDate}
             onDateChange={setStartDate}
             id="start_date_id"
-            label={t('Dates of receipt')}
+            label={t('Lesson dates')}
           />
           <StyledIcon icon="arrow-right" />
           <DateInput

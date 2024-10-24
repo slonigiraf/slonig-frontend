@@ -1,9 +1,9 @@
 // Copyright 2021-2022 @slonigiraf/app-recommendations authors & contributors
 // SPDX-License-Identifier: Apache-2.0
 
-import { Button, Spinner, styled } from '@polkadot/react-components';
-import React, { useState, useEffect } from 'react'
-import { KatexSpan, getIPFSDataFromContentID, parseJson } from '@slonigiraf/app-slonig-components'
+import { Button, Progress, Spinner, styled } from '@polkadot/react-components';
+import React, { useState, useEffect } from 'react';
+import { KatexSpan, getIPFSDataFromContentID, parseJson } from '@slonigiraf/app-slonig-components';
 import { useTranslation } from '../translate.js';
 import { useIpfsContext } from '@slonigiraf/app-slonig-components';
 import { Lesson } from '../db/Lesson.js';
@@ -61,22 +61,39 @@ function LessonInfo({ lesson, isSelected, onToggleSelection, onResumeTutoring, i
   const formattedDate = lesson.created ? new Intl.DateTimeFormat(userLocale).format(lesson.created) : '';
 
   return (
-    <StyledDiv >
-      {isSelectionAllowed && <Button
-        icon={isSelected ? 'check' : 'square'}
-        onClick={() => onToggleSelection(lesson)}
-      />
-      }
-      <Button
-        icon={'dollar'}
-        onClick={() => onResumeTutoring(lesson)}
-      />
-      <div>
-        <div style={{ paddingLeft: '15px' }}><b>{formattedDate}, {studentName}</b></div>
+    <StyledDiv>
+      {isSelectionAllowed && (
         <Button
-          icon={'play'}
+          icon={isSelected ? 'check' : 'square'}
+          onClick={() => onToggleSelection(lesson)}
+        />
+      )}
+      
+      <div>
+        <Button
+          icon="play"
           onClick={() => onResumeTutoring(lesson)}
-          label={loaded ? <KatexSpan content={text} /> : <Spinner noLabel />}
+          isDisabled={isSelectionAllowed}
+        />
+      </div>
+      <div style={{ width: '100%' }}>
+        <div>
+          <div><b>{formattedDate}, {studentName}</b></div>
+          <div>{loaded ? <KatexSpan content={text} /> : <Spinner noLabel />}</div>
+        </div>
+      </div>
+      
+      <div>
+        <Progress
+          value={lesson.learnStep + lesson.reexamineStep}
+          total={lesson.toLearnCount + lesson.toReexamineCount}
+        />
+      </div>
+      <div>
+        <Button
+          icon="dollar"
+          onClick={() => onResumeTutoring(lesson)}
+          isDisabled={isSelectionAllowed}
         />
       </div>
     </StyledDiv>
@@ -86,7 +103,7 @@ function LessonInfo({ lesson, isSelected, onToggleSelection, onResumeTutoring, i
 const StyledDiv = styled.div`
   display: flex;
   align-items: center;
-  justify-content: start;
+  justify-content: space-between;
   .ui--Spinner {
     width: 50px;
     margin-left: 25px;
