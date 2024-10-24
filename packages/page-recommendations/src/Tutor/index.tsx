@@ -82,40 +82,13 @@ function Tutor({ className = '' }: Props): React.ReactElement<Props> {
   // const [signOverReceiptR, setSignOverReceiptR] = useState(signOverReceiptRFromUrl);
   // const [studentSignR, setStudentSignR] = useState(studentSignRFromUrl);
   const now = new Date();
-  const insuranceFromUrl: Insurance | null = (tutorFromUrl && skillCIDFromUrl &&
-    studentIdentityFromUrl && studentFromUrl && cidRFromUrl &&
-    genesisRFromUrl && nonceRFromUrl && blockRFromUrl &&
-    blockAllowedRFromUrl && tutorRFromUrl &&
-    studentRFromUrl && amountRFromUrl &&
-    signOverPrivateDataRFromUrl && signOverReceiptRFromUrl && studentSignRFromUrl) ? {
-    created: now,
-    lastReexamined: now,
-    lesson: lessonId ? lessonId : '',
-    forReexamining: true,
-    wasDiscussed: false,
-    wasSkipped: false,
-    workerId: studentIdentity,
-    cid: cidRFromUrl,
-    genesis: genesisRFromUrl,
-    letterNumber: parseInt(nonceRFromUrl, 10),
-    block: blockRFromUrl,
-    blockAllowed: blockAllowedRFromUrl,
-    referee: tutorRFromUrl,
-    worker: studentRFromUrl,
-    amount: amountRFromUrl,
-    signOverPrivateData: signOverPrivateDataRFromUrl,
-    signOverReceipt: signOverReceiptRFromUrl,
-    employer: currentPair ? u8aToHex(currentPair?.publicKey) : '',
-    workerSign: studentSignRFromUrl,
-    wasUsed: false,
-  } : null;
-  const [insuranceToReexamine, setInsuranceToReexamine] = useState(insuranceFromUrl);
+  const [insuranceToReexamine, setInsuranceToReexamine] = useState<Insurance | null>(null);
 
   const [skill, setSkill] = useState<Skill | null>(null);
 
   // Store progress state
   const [canIssueDiploma, setCanIssueDiploma] = useState(false);
-  const [reexamined, setReexamined] = useState<boolean>(insuranceToReexamine?.cid === undefined);
+  const [reexamined, setReexamined] = useState<boolean>(false);
   const [teachingAlgorithm, setTeachingAlgorithm] = useState<TeachingAlgorithm | null>(null);
 
   // Initialize diploma details
@@ -164,7 +137,7 @@ function Tutor({ className = '' }: Props): React.ReactElement<Props> {
   // Reinitialize issuing stage when url parameters change
   useEffect(() => {
     setVisibleDiplomaDetails(false);
-    const hasAnySkillToReexamine = (insuranceToReexamine?.cid !== undefined);
+    const hasAnySkillToReexamine = (insuranceToReexamine !== null);
     setReexamined(!hasAnySkillToReexamine);
     setCanIssueDiploma(false);
     setDiploma(null);
@@ -337,16 +310,16 @@ function Tutor({ className = '' }: Props): React.ReactElement<Props> {
         } else {
           setReexamined(true);
         }
-        if(letters !== undefined && lesson.learnStep < letters.length){
+        if (letters !== undefined && lesson.learnStep < letters.length) {
           setSkillCID(letters[lesson.learnStep].cid);
-        } 
-        if(insurances !== undefined && lesson.reexamineStep < insurances.length){
+        }
+        if (insurances !== undefined && lesson.reexamineStep < insurances.length) {
           setInsuranceToReexamine(insurances[lesson.reexamineStep]);
         }
       }
     }
     onLessonUpdate()
-  }, [lesson, studentName])
+  }, [lesson, letters, insurances, studentName])
 
   const publicKeyHex = currentPair ? u8aToHex(currentPair.publicKey) : "";
   const name = nameFromKeyringPair(currentPair);
@@ -435,7 +408,7 @@ function Tutor({ className = '' }: Props): React.ReactElement<Props> {
 
   const reexamAndDiplomaIssuing = <>
     <div style={!reexamined ? {} : { display: 'none' }}>
-      {currentPair && <Reexamine currentPair={currentPair} insurance={insuranceToReexamine} onResult={updateReexamined} key={countOfUrlReloads} studentName={studentNameFromUrl} />}
+      {currentPair && <Reexamine currentPair={currentPair} insurance={insuranceToReexamine} onResult={updateReexamined} key={insuranceToReexamine ? insuranceToReexamine.signOverPrivateData : ''} studentName={studentNameFromUrl} />}
     </div>
     <div style={reexamined ? {} : { display: 'none' }}>
       <DoInstructions algorithm={teachingAlgorithm} onResult={updateTutoring} key={countOfUrlReloads} />
