@@ -11,7 +11,7 @@ import type { Skill } from '@slonigiraf/app-slonig-components';
 import { QRWithShareAndCopy, getBaseUrl, getIPFSDataFromContentID, parseJson, useIpfsContext, nameFromKeyringPair, QRAction, useLoginContext, LoginButton, FullWidthContainer, AppContainer, VerticalCenterItemsContainer, CenterQRContainer, KatexSpan, QRField } from '@slonigiraf/app-slonig-components';
 import { Letter } from '@slonigiraf/app-recommendations';
 import { getPublicDataToSignByReferee, getPrivateDataToSignByReferee } from '@slonigiraf/helpers';
-import { deleteSetting, getLastUnusedLetterNumber, getLessonId, getSetting, setLastUsedLetterNumber, storeLesson, storeLetter, storePseudonym, storeSetting } from '../utils.js';
+import { deleteSetting, getLastUnusedLetterNumber, getLessonId, getSetting, setLastUsedLetterNumber, storeLesson, storeLetter, storePseudonym, storeSetting, updateLesson } from '../utils.js';
 import Reexamine from './Reexamine.js';
 import { TeachingAlgorithm } from './TeachingAlgorithm.js';
 import DoInstructions from './DoInstructions.js';
@@ -275,8 +275,19 @@ function Tutor({ className = '' }: Props): React.ReactElement<Props> {
   );
 
   const updateReexamined = (): void => {
-    setReexamined(true);
+    if (insurances && lesson) {
+      if (lesson.reexamineStep + 1 < insurances.length) {
+        setInsuranceToReexamine(insurances[lesson.reexamineStep + 1]);
+      } else {
+        setReexamined(true);
+      }
+      const updatedLesson = { ...lesson, reexamineStep: lesson.reexamineStep + 1 };
+      updateLesson(updatedLesson);
+    } else {
+      setReexamined(true);
+    }
   };
+
 
   const updateTutoring = (stage: string): void => {
     if (stage === 'success') {
@@ -405,10 +416,10 @@ function Tutor({ className = '' }: Props): React.ReactElement<Props> {
 
   const reexamAndDiplomaIssuing = <>
     <div style={!reexamined ? {} : { display: 'none' }}>
-      {currentPair && <Reexamine currentPair={currentPair} insurance={insuranceToReexamine} onResult={updateReexamined} key={insuranceToReexamine ? insuranceToReexamine.signOverPrivateData : ''} studentName={studentNameFromUrl} onClose={onClose}/>}
+      {currentPair && <Reexamine currentPair={currentPair} insurance={insuranceToReexamine} onResult={updateReexamined} key={insuranceToReexamine ? insuranceToReexamine.signOverPrivateData : ''} studentName={studentNameFromUrl} onClose={onClose} />}
     </div>
     <div style={reexamined ? {} : { display: 'none' }}>
-      <DoInstructions algorithm={teachingAlgorithm} onResult={updateTutoring} key={countOfUrlReloads} onClose={onClose}/>
+      <DoInstructions algorithm={teachingAlgorithm} onResult={updateTutoring} key={countOfUrlReloads} onClose={onClose} />
     </div>
     {
       canIssueDiploma &&

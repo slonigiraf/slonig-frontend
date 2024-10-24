@@ -146,6 +146,13 @@ export const storeLesson = async (tutorPublicKeyHex: string, qrJSON: any, webRTC
     }
 }
 
+export const updateLesson = async (lesson: Lesson) => {
+    const sameLesson = await db.lessons.get({ id: lesson.id });
+    if (sameLesson !== undefined) {
+      await db.lessons.update(lesson.id, lesson);
+    }
+}
+
 export const storeInsurance = async (insurance: Insurance) => {
     const lessonKey = insurance.lesson ?? '';
     console.log("Insurance to store: ", JSON.stringify(insurance, null, 2));
