@@ -66,21 +66,10 @@ function Tutor({ className = '' }: Props): React.ReactElement<Props> {
   const [tutorFromUrl, skillCIDFromUrl, studentIdentityFromUrl, studentFromUrl, cidRFromUrl,
     genesisRFromUrl, nonceRFromUrl, blockRFromUrl, blockAllowedRFromUrl, tutorRFromUrl,
     studentRFromUrl, amountRFromUrl, signOverPrivateDataRFromUrl, signOverReceiptRFromUrl, studentSignRFromUrl] = queryData.split(' ');
-  const [tutor, setTutor] = useState(tutorFromUrl);
+
   const [skillCID, setSkillCID] = useState(skillCIDFromUrl);
   const [studentIdentity, setStudentIdentity] = useState(studentIdentityFromUrl);
   const [student, setStudent] = useState(studentFromUrl);
-  // const [cidR, setCidR] = useState(cidRFromUrl);
-  // const [genesisR, setGenesisR] = useState(genesisRFromUrl);
-  // const [nonceR, setNonceR] = useState(nonceRFromUrl);
-  // const [blockR, setBlockR] = useState(blockRFromUrl);
-  // const [blockAllowedR, setBlockAllowedR] = useState(blockAllowedRFromUrl);
-  // const [tutorR, setTutorR] = useState(tutorRFromUrl);
-  // const [studentR, setStudentR] = useState(studentRFromUrl);
-  // const [amountR, setAmountR] = useState(amountRFromUrl);
-  // const [signOverPrivateDataR, setSignOverPrivateDataR] = useState(signOverPrivateDataRFromUrl);
-  // const [signOverReceiptR, setSignOverReceiptR] = useState(signOverReceiptRFromUrl);
-  // const [studentSignR, setStudentSignR] = useState(studentSignRFromUrl);
   const now = new Date();
   const [insuranceToReexamine, setInsuranceToReexamine] = useState<Insurance | null>(null);
 
@@ -142,7 +131,7 @@ function Tutor({ className = '' }: Props): React.ReactElement<Props> {
     setCanIssueDiploma(false);
     setDiploma(null);
     setCountOfUrlReloads(prevKey => prevKey + 1);
-  }, [tutor, skillCID, studentIdentity, student, insuranceToReexamine]);
+  }, [skillCID, studentIdentity, student, insuranceToReexamine]);
 
 
 
@@ -331,7 +320,7 @@ function Tutor({ className = '' }: Props): React.ReactElement<Props> {
   const qrCodeText = JSON.stringify(qrData);
   const url: string = getBaseUrl() + `/#/knowledge?tutor=${publicKeyHex}&name=${encodeURIComponent(name)}`;
 
-  const isDedicatedTutor = (tutor === publicKeyHex) || !tutor;
+  const isDedicatedTutor = tutorFromUrl && publicKeyHex && (tutorFromUrl === publicKeyHex);
 
   // Process url data
   useEffect(() => {
