@@ -143,6 +143,7 @@ export const storeLesson = async (tutorPublicKeyHex: string, qrJSON: any, webRTC
             };
             return await storeInsurance(insurance);
         }));
+        await storeSetting('lesson', qrJSON[QRField.ID]);
     }
 }
 

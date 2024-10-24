@@ -21,7 +21,7 @@ class ValidatingAlgorithm extends Algorithm {
             t('Yes'),
             <StyledDiv>
                 <ChatSimulation messages={[
-                    { id: 1, text: t('Great, you remember the skill. Let\'s start learning a new skill.'), sender: 'you', senderName: 'You' },
+                    { id: 1, text: t('Great, you remember the skill.'), sender: 'you', senderName: 'You' },
                 ]} />
             </StyledDiv>
         );
@@ -128,8 +128,8 @@ class ValidatingAlgorithm extends Algorithm {
             t('Yes'),
             <StyledDiv>
                 <ChatSimulation messages={[
-                    { id: 1, text: t('Before teaching me, try to earn a bonus by testing my previous skill:') + (skill && " \"" + skill.h + "\"."), sender: 'them', senderName: studentName },
-                    { id: 2, text: t('Before teaching you, I will test your previous skill:') + (skill && " \"" + skill.h + "\"."), sender: 'you', senderName: 'You' },
+                    { id: 1, text: t('Try to earn a bonus by testing my previous skill:') + (skill && " \"" + skill.h + "\"."), sender: 'them', senderName: studentName },
+                    { id: 2, text: t('I will test your previous skill:') + (skill && " \"" + skill.h + "\"."), sender: 'you', senderName: 'You' },
                     { id: 3, text: t('Come up with an exercise similar to this:'), sender: 'you', senderName: 'You' },
                     { id: 4, text: question1, image: exerciseImage1, sender: 'you', senderName: 'You', comment: t('I can change the exercise a little.') },
                 ]} />

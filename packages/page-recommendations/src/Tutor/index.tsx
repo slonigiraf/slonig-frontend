@@ -117,12 +117,6 @@ function Tutor({ className = '' }: Props): React.ReactElement<Props> {
     [lesson]
   );
 
-
-  console.log("lesson: " + lesson)
-  console.log("reexamined: " + reexamined)
-  console.log("insurances.length: " + insurances?.length)
-  console.log("letters.length: " + letters?.length)
-
   // Reinitialize issuing stage when url parameters change
   useEffect(() => {
     setVisibleDiplomaDetails(false);
@@ -316,6 +310,9 @@ function Tutor({ className = '' }: Props): React.ReactElement<Props> {
         if (insurances !== undefined && lesson.reexamineStep < insurances.length) {
           setInsuranceToReexamine(insurances[lesson.reexamineStep]);
         }
+        if(lesson.learnStep === lesson.toLearnCount && lesson.reexamineStep === lesson.toReexamineCount){
+          askForMoney(lesson);
+        }
       }
     }
     onLessonUpdate()
@@ -324,6 +321,11 @@ function Tutor({ className = '' }: Props): React.ReactElement<Props> {
   const onClose = useCallback(() => {
     deleteSetting('lesson');
     setLessonId(null);
+  }, []);
+
+  const askForMoney = useCallback((lesson: Lesson) => {
+    //TODO: show qr to get money and send diplomas
+    onClose();
   }, []);
 
   const publicKeyHex = currentPair ? u8aToHex(currentPair.publicKey) : "";
