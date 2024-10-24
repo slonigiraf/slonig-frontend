@@ -4,7 +4,7 @@ import { CenterQRContainer, LawType, LoginButton, QRAction, QRField, QRWithShare
 import { getSetting, storeSetting } from '@slonigiraf/app-recommendations';
 import { Dropdown, Spinner } from '@polkadot/react-components';
 import { useLiveQuery } from "dexie-react-hooks";
-import { db, Letter } from '@slonigiraf/app-recommendations';
+import { db, Letter, getLessonId } from '@slonigiraf/app-recommendations';
 import { keyForCid } from '@slonigiraf/app-slonig-components';
 import { useLocation } from 'react-router-dom';
 import { styled } from '@polkadot/react-components';
@@ -16,7 +16,6 @@ import { useApi } from '@polkadot/react-hooks';
 import { useBlockTime } from '@polkadot/react-hooks';
 import DiplomaCheck from './DiplomaCheck.js';
 import { ItemWithCID } from '../types.js';
-import { blake2AsHex } from '@polkadot/util-crypto';
 
 interface Props {
   className?: string;
@@ -119,11 +118,7 @@ function SkillQR({ className = '', id, cid, type, selectedItems, isLearningReque
   useEffect(() => {
     const generateTutoringRequestId = () => {
       if (selectedItems !== undefined) {
-        const date = new Date().toISOString().split('T')[0]; // Get the current date in YYYY-MM-DD format
-        const selectedItemIds = selectedItems.map(item => item.id).join('-'); // Join selected item IDs
-        const dataToHash = `${date}-${selectedItemIds}`;
-        const hash = blake2AsHex(dataToHash);
-        setLessonId(hash);
+        setLessonId(getLessonId(selectedItems.map(item => item.id)));
       }
     };
     if (selectedItems !== undefined && selectedItems.length > 0) {

@@ -12,6 +12,7 @@ import { decodeAddress, encodeAddress } from '@polkadot/keyring';
 import { isHex } from '@polkadot/util';
 import { Lesson } from "./db/Lesson.js";
 import { QRField } from "@slonigiraf/app-slonig-components";
+import { blake2AsHex } from '@polkadot/util-crypto';
 
 export const syncDB = async (data: string, password: string) => {
     const json = JSON.parse(data);
@@ -74,6 +75,13 @@ export const getValidLettersForKnowledgeId = async (workerId: string, knowledgeI
         .filter((letter: Letter) => letter.valid === true)
         .toArray();
 }
+
+export const getLessonId = (ids: any[]): string => {
+    const date = new Date().toISOString().split('T')[0]; // Get the current date in YYYY-MM-DD format
+    const dataToHash = `${date}-${ids.join('-')}`;
+    const hash = blake2AsHex(dataToHash);
+    return hash;
+};
 
 export const storeLesson = async (tutorPublicKeyHex: string, qrJSON: any, webRTCJSON: any) => {
     const now = new Date();

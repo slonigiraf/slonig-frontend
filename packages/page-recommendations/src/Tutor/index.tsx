@@ -8,10 +8,10 @@ import { styled, Toggle, Button, Input, InputBalance, Icon, Card } from '@polkad
 import { useApi, useBlockTime, useToggle } from '@polkadot/react-hooks';
 import { u8aToHex, hexToU8a, u8aWrapBytes, BN_ONE } from '@polkadot/util';
 import type { Skill } from '@slonigiraf/app-slonig-components';
-import { QRWithShareAndCopy, getBaseUrl, getIPFSDataFromContentID, parseJson, useIpfsContext, nameFromKeyringPair, QRAction, useLoginContext, LoginButton, FullWidthContainer, AppContainer, VerticalCenterItemsContainer, CenterQRContainer, KatexSpan } from '@slonigiraf/app-slonig-components';
+import { QRWithShareAndCopy, getBaseUrl, getIPFSDataFromContentID, parseJson, useIpfsContext, nameFromKeyringPair, QRAction, useLoginContext, LoginButton, FullWidthContainer, AppContainer, VerticalCenterItemsContainer, CenterQRContainer, KatexSpan, QRField } from '@slonigiraf/app-slonig-components';
 import { Letter } from '@slonigiraf/app-recommendations';
 import { getPublicDataToSignByReferee, getPrivateDataToSignByReferee } from '@slonigiraf/helpers';
-import { getLastUnusedLetterNumber, getSetting, setLastUsedLetterNumber, storeLetter, storePseudonym, storeSetting } from '../utils.js';
+import { getLastUnusedLetterNumber, getLessonId, getSetting, setLastUsedLetterNumber, storeLesson, storeLetter, storePseudonym, storeSetting } from '../utils.js';
 import Reexamine from './Reexamine.js';
 import { TeachingAlgorithm } from './TeachingAlgorithm.js';
 import DoInstructions from './DoInstructions.js';
@@ -62,8 +62,8 @@ function Tutor({ className = '' }: Props): React.ReactElement<Props> {
   const queryParams = new URLSearchParams(location.search);
   const studentNameFromUrl = queryParams.get("name");
   const queryData = queryParams.get("d") || "";
-  const [tutorFromUrl, skillCIDFromUrl, studentIdentityFromUrl, studentFromUrl, cidRFromUrl, 
-    genesisRFromUrl, nonceRFromUrl, blockRFromUrl, blockAllowedRFromUrl, tutorRFromUrl, 
+  const [tutorFromUrl, skillCIDFromUrl, studentIdentityFromUrl, studentFromUrl, cidRFromUrl,
+    genesisRFromUrl, nonceRFromUrl, blockRFromUrl, blockAllowedRFromUrl, tutorRFromUrl,
     studentRFromUrl, amountRFromUrl, signOverPrivateDataRFromUrl, signOverReceiptRFromUrl, studentSignRFromUrl] = queryData.split(' ');
   const [tutor, setTutor] = useState(tutorFromUrl);
   const [skillCID, setSkillCID] = useState(skillCIDFromUrl);
@@ -81,38 +81,38 @@ function Tutor({ className = '' }: Props): React.ReactElement<Props> {
   // const [signOverReceiptR, setSignOverReceiptR] = useState(signOverReceiptRFromUrl);
   // const [studentSignR, setStudentSignR] = useState(studentSignRFromUrl);
   const now = new Date();
-  const insuranceFromUrl: Insurance | null = (tutorFromUrl && skillCIDFromUrl && 
+  const insuranceFromUrl: Insurance | null = (tutorFromUrl && skillCIDFromUrl &&
     studentIdentityFromUrl && studentFromUrl && cidRFromUrl &&
-    genesisRFromUrl && nonceRFromUrl && blockRFromUrl && 
+    genesisRFromUrl && nonceRFromUrl && blockRFromUrl &&
     blockAllowedRFromUrl && tutorRFromUrl &&
-    studentRFromUrl && amountRFromUrl && 
-    signOverPrivateDataRFromUrl && signOverReceiptRFromUrl && studentSignRFromUrl)? {
-      created: now,
-      lastReexamined: now,
-      lesson: lesson? lesson.id : '',
-      forReexamining: true,
-      wasDiscussed: false,
-      wasSkipped: false,
-      workerId: studentIdentity,
-      cid: cidRFromUrl,
-      genesis: genesisRFromUrl,
-      letterNumber: parseInt(nonceRFromUrl, 10),
-      block: blockRFromUrl,
-      blockAllowed: blockAllowedRFromUrl,
-      referee: tutorRFromUrl,
-      worker: studentRFromUrl,
-      amount: amountRFromUrl,
-      signOverPrivateData: signOverPrivateDataRFromUrl,
-      signOverReceipt: signOverReceiptRFromUrl,
-      employer: currentPair? u8aToHex(currentPair?.publicKey) : '',
-      workerSign: studentSignRFromUrl,
-      wasUsed: false,
-    } : null;
+    studentRFromUrl && amountRFromUrl &&
+    signOverPrivateDataRFromUrl && signOverReceiptRFromUrl && studentSignRFromUrl) ? {
+    created: now,
+    lastReexamined: now,
+    lesson: lesson ? lesson.id : '',
+    forReexamining: true,
+    wasDiscussed: false,
+    wasSkipped: false,
+    workerId: studentIdentity,
+    cid: cidRFromUrl,
+    genesis: genesisRFromUrl,
+    letterNumber: parseInt(nonceRFromUrl, 10),
+    block: blockRFromUrl,
+    blockAllowed: blockAllowedRFromUrl,
+    referee: tutorRFromUrl,
+    worker: studentRFromUrl,
+    amount: amountRFromUrl,
+    signOverPrivateData: signOverPrivateDataRFromUrl,
+    signOverReceipt: signOverReceiptRFromUrl,
+    employer: currentPair ? u8aToHex(currentPair?.publicKey) : '',
+    workerSign: studentSignRFromUrl,
+    wasUsed: false,
+  } : null;
   const [insuranceToReexamine, setInsuranceToReexamine] = useState(insuranceFromUrl);
 
   const [skill, setSkill] = useState<Skill | null>(null);
 
-  
+
 
   // Store progress state
   const [canIssueDiploma, setCanIssueDiploma] = useState(false);
@@ -143,7 +143,7 @@ function Tutor({ className = '' }: Props): React.ReactElement<Props> {
   const [diploma, setDiploma] = useState<Letter | null>(null);
 
   const [countOfUrlReloads, setCountOfUrlReloads] = useState(0);
-  
+
 
   console.log("lesson: " + lesson)
   console.log("reexamined: " + reexamined)
@@ -159,23 +159,7 @@ function Tutor({ className = '' }: Props): React.ReactElement<Props> {
     setCountOfUrlReloads(prevKey => prevKey + 1);
   }, [tutor, skillCID, studentIdentity, student, insuranceToReexamine]);
 
-  // Save pseudonym from url
-  useEffect(() => {
-    if (studentIdentityFromUrl && studentNameFromUrl) {
-      async function savePseudonym() {
-        try {
-          // Ensure that both publicKey and name are strings
-          if (typeof studentIdentityFromUrl === 'string' && typeof studentNameFromUrl === 'string') {
-            await storePseudonym(studentIdentityFromUrl, studentNameFromUrl);
-            await setStudentName(studentNameFromUrl)
-          }
-        } catch (error) {
-          console.error("Failed to save student pseudonym:", error);
-        }
-      }
-      savePseudonym();
-    }
-  }, [studentIdentityFromUrl, studentNameFromUrl]);
+
 
   // Fetch skill data and set teaching algorithm
   useEffect(() => {
@@ -337,8 +321,8 @@ function Tutor({ className = '' }: Props): React.ReactElement<Props> {
     async function onLessonUpdate() {
       if (lesson) {
         const studentUsesSlonigFirstTime = lesson.toReexamineCount === 0;
-        const name = studentName? studentName : '';
-        if(lesson.reexamineStep < lesson.toReexamineCount){
+        const name = studentName ? studentName : '';
+        if (lesson.reexamineStep < lesson.toReexamineCount) {
           setReexamined(false);
         }
         setTeachingAlgorithm(new TeachingAlgorithm(t, name, skill, studentUsesSlonigFirstTime));
@@ -358,6 +342,38 @@ function Tutor({ className = '' }: Props): React.ReactElement<Props> {
   const url: string = getBaseUrl() + `/#/knowledge?tutor=${publicKeyHex}&name=${encodeURIComponent(name)}`;
 
   const isDedicatedTutor = (tutor === publicKeyHex) || !tutor;
+
+  // Process url data
+  useEffect(() => {
+    if (studentIdentityFromUrl && studentNameFromUrl) {
+      async function storeUrlData() {
+        try {
+          // Ensure that both publicKey and name are strings
+          if (typeof studentIdentityFromUrl === 'string' && typeof studentNameFromUrl === 'string' && skill != null) {
+            await storePseudonym(studentIdentityFromUrl, studentNameFromUrl);
+            await setStudentName(studentNameFromUrl);
+            const qrJSON: any = { [QRField.ID]: getLessonId([skill.i]), [QRField.PERSON_IDENTITY]: studentIdentityFromUrl };
+            const webRTCJSON: any = {
+              'learn': [[skill.i, skillCIDFromUrl, studentFromUrl]],
+              'reexamine': [
+                [cidRFromUrl, genesisRFromUrl, nonceRFromUrl, blockRFromUrl, blockAllowedRFromUrl,
+                  tutorRFromUrl, studentRFromUrl, amountRFromUrl, signOverPrivateDataRFromUrl,
+                  signOverReceiptRFromUrl, studentSignRFromUrl]
+              ]
+            };
+            storeLesson(tutorFromUrl, qrJSON, webRTCJSON);
+          }
+        } catch (error) {
+          console.error("Failed to save url data:", error);
+        }
+      }
+      if (isDedicatedTutor && skill && skill.i) {
+        storeUrlData();
+      }
+    }
+  }, [skill, isDedicatedTutor, studentNameFromUrl, tutorFromUrl, skillCIDFromUrl, studentIdentityFromUrl, studentFromUrl, cidRFromUrl,
+    genesisRFromUrl, nonceRFromUrl, blockRFromUrl, blockAllowedRFromUrl, tutorRFromUrl,
+    studentRFromUrl, amountRFromUrl, signOverPrivateDataRFromUrl, signOverReceiptRFromUrl, studentSignRFromUrl]);
 
   const diplomaSlon = new BN(amount).div(new BN("1000000000000"));
 
