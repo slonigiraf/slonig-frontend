@@ -408,7 +408,7 @@ function Tutor({ className = '' }: Props): React.ReactElement<Props> {
       {currentPair && <Reexamine currentPair={currentPair} insurance={insuranceToReexamine} onResult={updateReexamined} key={insuranceToReexamine ? insuranceToReexamine.signOverPrivateData : ''} studentName={studentNameFromUrl} onClose={onClose}/>}
     </div>
     <div style={reexamined ? {} : { display: 'none' }}>
-      <DoInstructions algorithm={teachingAlgorithm} onResult={updateTutoring} key={countOfUrlReloads} />
+      <DoInstructions algorithm={teachingAlgorithm} onResult={updateTutoring} key={countOfUrlReloads} onClose={onClose}/>
     </div>
     {
       canIssueDiploma &&

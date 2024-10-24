@@ -86,13 +86,11 @@ function Reexamine({ className = '', currentPair, insurance, onResult, studentNa
     <div className={className}>
       {algorithmStage ? (
         <InstructionsContainer>
+          <StyledCloseButton onClick={onClose}
+            icon='close'
+          />
           {algorithmStage.getWords()}
           <ButtonsContainer>
-            <ButtonsGroup>
-              <Button onClick={onClose}
-                icon='close'
-              />
-            </ButtonsGroup>
             <ButtonsGroup>
               {algorithmStage.getPrevious() && (
                 <Button onClick={() => handleStageChange(algorithmStage.getPrevious())}
@@ -134,6 +132,13 @@ const ButtonsGroup = styled.div`
   align-items: center;
   max-width: 400px;
   margin: 0 auto;
+`;
+
+const StyledCloseButton = styled(Button)`
+  position: absolute;
+  top: 55px;
+  right: 20px;
+  z-index: 1;
 `;
 
 export default React.memo(Reexamine)

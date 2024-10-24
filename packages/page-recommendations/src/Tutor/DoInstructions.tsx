@@ -9,9 +9,10 @@ interface Props {
   className?: string;
   algorithm: Algorithm | null;
   onResult: (stage: string) => void;
+  onClose: () => void;
 }
 
-function DoInstructions({ className = '', algorithm, onResult }: Props): React.ReactElement<Props> {
+function DoInstructions({ className = '', algorithm, onResult, onClose }: Props): React.ReactElement<Props> {
   const [algorithmStage, setAlgorithmStage] = useState<AlgorithmStage | null>(null);
   const { t } = useTranslation();
 
@@ -33,13 +34,16 @@ function DoInstructions({ className = '', algorithm, onResult }: Props): React.R
   };
 
   if (!algorithm) {
-    return <Spinner label={t('Loading')}/>;
+    return <Spinner label={t('Loading')} />;
   }
 
   return (
     <div className={className}>
       {algorithmStage ? (
         <InstructionsContainer>
+          <StyledCloseButton onClick={onClose}
+            icon='close'
+          />
           {algorithmStage.getWords()}
           <ButtonsContainer>
             <ButtonsGroup>
@@ -80,5 +84,10 @@ const ButtonsGroup = styled.div`
   max-width: 400px;
   margin: 0 auto;
 `;
-
+const StyledCloseButton = styled(Button)`
+  position: absolute;
+  top: 55px;
+  right: 20px;
+  z-index: 1;
+`;
 export default React.memo(DoInstructions);
