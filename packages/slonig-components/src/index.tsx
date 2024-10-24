@@ -37,7 +37,7 @@ export interface Exercise {
   i: string;
 }
 export interface Skill {
-  /** The skill name. */
+  i: string;
   h: string;
   q: Exercise[];
 }

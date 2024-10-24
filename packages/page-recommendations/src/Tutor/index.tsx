@@ -59,7 +59,7 @@ function Tutor({ className = '' }: Props): React.ReactElement<Props> {
   const queryParams = new URLSearchParams(location.search);
   const studentNameFromUrl = queryParams.get("name");
   const queryData = queryParams.get("d") || "";
-  const [tutor, skillCID, studentIdentity, student, cidR, genesisR, nonceR, blockR, blockAllowedR, tutorR, studentR, amountR, signOverPrivateDataR, signOverReceiptR, studentSignR] = queryData.split(' ');
+  const [tutor, skillCID, studentIdentityFromUrl, student, cidR, genesisR, nonceR, blockR, blockAllowedR, tutorR, studentR, amountR, signOverPrivateDataR, signOverReceiptR, studentSignR] = queryData.split(' ');
   const [skill, setSkill] = useState<Skill | null>(null);
 
   // Initialize account
@@ -69,6 +69,7 @@ function Tutor({ className = '' }: Props): React.ReactElement<Props> {
   const [canIssueDiploma, setCanIssueDiploma] = useState(false);
   const [reexamined, setReexamined] = useState<boolean>(cidR === undefined);
   const [teachingAlgorithm, setTeachingAlgorithm] = useState<TeachingAlgorithm | null>(null);
+  const [studentIdentity, setStudentIdentity] = useState(studentIdentityFromUrl);
 
   // Initialize diploma details
   //   stake: 105 Slon, 12 zeroes for numbers after point
@@ -105,14 +106,14 @@ function Tutor({ className = '' }: Props): React.ReactElement<Props> {
     setCountOfUrlReloads(prevKey => prevKey + 1);
   }, [tutor, skillCID, studentIdentity, student, cidR]);
 
-  // Save teacher pseudonym from url
+  // Save pseudonym from url
   useEffect(() => {
-    if (studentIdentity && studentNameFromUrl) {
+    if (studentIdentityFromUrl && studentNameFromUrl) {
       async function savePseudonym() {
         try {
-          // Ensure that both teacherPublicKey and teacherName are strings
-          if (typeof studentIdentity === 'string' && typeof studentNameFromUrl === 'string') {
-            await storePseudonym(studentIdentity, studentNameFromUrl);
+          // Ensure that both publicKey and name are strings
+          if (typeof studentIdentityFromUrl === 'string' && typeof studentNameFromUrl === 'string') {
+            await storePseudonym(studentIdentityFromUrl, studentNameFromUrl);
             await setStudentName(studentNameFromUrl)
           }
         } catch (error) {
@@ -121,7 +122,7 @@ function Tutor({ className = '' }: Props): React.ReactElement<Props> {
       }
       savePseudonym();
     }
-  }, [studentIdentity, studentNameFromUrl]);
+  }, [studentIdentityFromUrl, studentNameFromUrl]);
 
   // Fetch skill data and set teaching algorithm
   useEffect(() => {
@@ -159,8 +160,11 @@ function Tutor({ className = '' }: Props): React.ReactElement<Props> {
     async function fetchLesson() {
       const lessonId = await getSetting('lesson');
       if(lessonId !== undefined){
-        const activeLesson = await db.lessons.get(lessonId);
+        const activeLesson: Lesson = await db.lessons.get(lessonId);
         setLesson(activeLesson);
+        if(activeLesson !== undefined){
+          setStudentIdentity(activeLesson.student);
+        }
       }
     }
     fetchLesson()
@@ -234,6 +238,7 @@ function Tutor({ className = '' }: Props): React.ReactElement<Props> {
 
       const letter: Letter = {
         created: new Date(),
+        knowledgeId: skill? skill.i : '',
         cid: skillCID,
         lesson: '',
         workerId: studentIdentity,
@@ -244,7 +249,10 @@ function Tutor({ className = '' }: Props): React.ReactElement<Props> {
         worker: student,
         amount: amount.toString(),
         signOverPrivateData: refereeSignOverPrivateData,
-        signOverReceipt: refereeSignOverReceipt
+        signOverReceipt: refereeSignOverReceipt,
+        valid: true,
+        wasDiscussed: true,
+        wasSkipped: false,
       };
       await storeLetter(letter);
       await setLastUsedLetterNumber(refereePublicKeyHex, letterId);
@@ -391,7 +399,6 @@ function Tutor({ className = '' }: Props): React.ReactElement<Props> {
             <div className='ui--row' style={visibleDiplomaDetails ? {} : { display: 'none' }}>
               <Input
                 className='full'
-                help={t('Days valid info')}
                 label={t('days valid')}
                 onChange={_onChangeDaysValid}
                 value={daysValid.toString()}
