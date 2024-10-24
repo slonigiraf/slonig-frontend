@@ -21,6 +21,7 @@ import { Insurance } from '../db/Insurance.js';
 import LessonsList from './LessonsList.js';
 import { Lesson } from '../db/Lesson.js';
 import { db } from "../db/index.js";
+import { useLiveQuery } from 'dexie-react-hooks';
 interface Props {
   className?: string;
 }
@@ -53,7 +54,7 @@ function Tutor({ className = '' }: Props): React.ReactElement<Props> {
   const { ipfs, isIpfsReady } = useIpfsContext();
   const { api, isApiReady } = useApi();
   const { t } = useTranslation();
-  const [lesson, setLesson] = useState<Lesson | null>(null);
+  const [lessonId, setLessonId] = useState<string|null>(null);
   // Initialize account
   const { currentPair, isLoggedIn } = useLoginContext();
 
@@ -89,7 +90,7 @@ function Tutor({ className = '' }: Props): React.ReactElement<Props> {
     signOverPrivateDataRFromUrl && signOverReceiptRFromUrl && studentSignRFromUrl) ? {
     created: now,
     lastReexamined: now,
-    lesson: lesson ? lesson.id : '',
+    lesson: lessonId ? lessonId : '',
     forReexamining: true,
     wasDiscussed: false,
     wasSkipped: false,
@@ -112,14 +113,10 @@ function Tutor({ className = '' }: Props): React.ReactElement<Props> {
 
   const [skill, setSkill] = useState<Skill | null>(null);
 
-
-
   // Store progress state
   const [canIssueDiploma, setCanIssueDiploma] = useState(false);
   const [reexamined, setReexamined] = useState<boolean>(insuranceToReexamine?.cid === undefined);
   const [teachingAlgorithm, setTeachingAlgorithm] = useState<TeachingAlgorithm | null>(null);
-
-
 
   // Initialize diploma details
   //   stake: 105 Slon, 12 zeroes for numbers after point
@@ -144,10 +141,25 @@ function Tutor({ className = '' }: Props): React.ReactElement<Props> {
 
   const [countOfUrlReloads, setCountOfUrlReloads] = useState(0);
 
+  const lesson = useLiveQuery(
+    () => lessonId ? db.lessons.get(lessonId) : null,
+    [lessonId]
+  );
+
+  const insurances = useLiveQuery(
+    () => lesson ? db.insurances.where({ lesson: lesson.id }).sortBy('id') : [],
+    [lesson]
+  );
+  const letters = useLiveQuery(
+    () => lesson ? db.letters.where({ lesson: lesson.id }).sortBy('id') : [],
+    [lesson]
+  ); 
+
 
   console.log("lesson: " + lesson)
   console.log("reexamined: " + reexamined)
-
+  console.log("insurances.length: " + insurances?.length)
+  console.log("letters.length: " + letters?.length)
 
   // Reinitialize issuing stage when url parameters change
   useEffect(() => {
@@ -193,14 +205,12 @@ function Tutor({ className = '' }: Props): React.ReactElement<Props> {
     fetchStudentName()
   }, [studentIdentity])
 
-  async function fetchLesson(id?: string) {
-    const lessonId = id? id : await getSetting('lesson');
-    if (lessonId !== undefined) {
-      const activeLesson: Lesson = await db.lessons.get(lessonId);
-      setLesson(activeLesson);
-      if (activeLesson !== undefined) {
-        setStudentIdentity(activeLesson.student);
-      }
+  async function fetchLesson() {
+    const lessonId = await getSetting('lesson');
+    if(lessonId !== undefined){
+      setLessonId(lessonId);
+    } else{ 
+      setLessonId(null);
     }
   }
 
@@ -315,7 +325,7 @@ function Tutor({ className = '' }: Props): React.ReactElement<Props> {
 
   const onResumeTutoring = (lesson: Lesson): void => {
     storeSetting('lesson', lesson.id);
-    setLesson(lesson);
+    setLessonId(lesson.id);
   }
 
   useEffect(() => {
@@ -365,7 +375,7 @@ function Tutor({ className = '' }: Props): React.ReactElement<Props> {
             };
             storeLesson(tutorFromUrl, qrJSON, webRTCJSON);
             storeSetting('lesson', lessonId);
-            fetchLesson(lessonId);
+            fetchLesson();
           }
         } catch (error) {
           console.error("Failed to save url data:", error);
