@@ -20,10 +20,11 @@ interface Props {
   currentPair: KeyringPair;
   insurance: Insurance | null;
   onResult: () => void;
-  studentName: string|null;
+  studentName: string | null;
+  onClose: () => void;
 }
 
-function Reexamine({ className = '', currentPair, insurance, onResult, studentName }: Props): React.ReactElement<Props> {
+function Reexamine({ className = '', currentPair, insurance, onResult, studentName, onClose }: Props): React.ReactElement<Props> {
   const { api } = useApi();
   const { ipfs, isIpfsReady } = useIpfsContext();
   const [skill, setSkill] = useState<Skill>();
@@ -78,7 +79,7 @@ function Reexamine({ className = '', currentPair, insurance, onResult, studentNa
   };
 
   if (!skill) {
-    return <Spinner label={t('Loading')}/>;
+    return <Spinner label={t('Loading')} />;
   }
 
   return (
@@ -87,6 +88,11 @@ function Reexamine({ className = '', currentPair, insurance, onResult, studentNa
         <InstructionsContainer>
           {algorithmStage.getWords()}
           <ButtonsContainer>
+            <ButtonsGroup>
+              <Button onClick={onClose}
+                icon='close'
+              />
+            </ButtonsGroup>
             <ButtonsGroup>
               {algorithmStage.getPrevious() && (
                 <Button onClick={() => handleStageChange(algorithmStage.getPrevious())}
