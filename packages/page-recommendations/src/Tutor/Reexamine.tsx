@@ -136,8 +136,8 @@ const ButtonsGroup = styled.div`
 
 const StyledCloseButton = styled(Button)`
   position: absolute;
-  top: 55px;
-  right: 20px;
+  top: 45px;
+  right: 10px;
   z-index: 1;
 `;
 
