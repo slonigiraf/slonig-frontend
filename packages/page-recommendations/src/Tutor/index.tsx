@@ -8,7 +8,7 @@ import { styled, Toggle, Button, Input, InputBalance, Icon, Card } from '@polkad
 import { useApi, useBlockTime, useToggle } from '@polkadot/react-hooks';
 import { u8aToHex, hexToU8a, u8aWrapBytes, BN_ONE } from '@polkadot/util';
 import type { Skill } from '@slonigiraf/app-slonig-components';
-import { QRWithShareAndCopy, getBaseUrl, getIPFSDataFromContentID, parseJson, useIpfsContext, nameFromKeyringPair, QRAction, useLoginContext, LoginButton, FullWidthContainer, AppContainer, VerticalCenterItemsContainer, CenterQRContainer, KatexSpan, QRField } from '@slonigiraf/app-slonig-components';
+import { QRWithShareAndCopy, getBaseUrl, getIPFSDataFromContentID, parseJson, useIpfsContext, nameFromKeyringPair, QRAction, useLoginContext, LoginButton, FullWidthContainer, AppContainer, VerticalCenterItemsContainer, CenterQRContainer, KatexSpan, QRField, useInfo } from '@slonigiraf/app-slonig-components';
 import { Letter } from '@slonigiraf/app-recommendations';
 import { getPublicDataToSignByReferee, getPrivateDataToSignByReferee } from '@slonigiraf/helpers';
 import { deleteSetting, getLastUnusedLetterNumber, getLessonId, getSetting, setLastUsedLetterNumber, storeLesson, storeLetter, storePseudonym, storeSetting, updateLesson } from '../utils.js';
@@ -53,6 +53,7 @@ function Tutor({ className = '' }: Props): React.ReactElement<Props> {
   // Initialize api, ipfs and translation
   const { ipfs, isIpfsReady } = useIpfsContext();
   const { api, isApiReady } = useApi();
+  const { showInfo } = useInfo();
   const { t } = useTranslation();
   const [lessonId, setLessonId] = useState<string | null>(null);
   // Initialize account
@@ -310,7 +311,7 @@ function Tutor({ className = '' }: Props): React.ReactElement<Props> {
         if (insurances !== undefined && lesson.reexamineStep < insurances.length) {
           setInsuranceToReexamine(insurances[lesson.reexamineStep]);
         }
-        if(lesson.learnStep === lesson.toLearnCount && lesson.reexamineStep === lesson.toReexamineCount){
+        if (lesson.learnStep === lesson.toLearnCount && lesson.reexamineStep === lesson.toReexamineCount) {
           askForMoney(lesson);
         }
       }
@@ -480,25 +481,25 @@ function Tutor({ className = '' }: Props): React.ReactElement<Props> {
     }
   </>;
 
+  if (!isDedicatedTutor && tutorFromUrl) {
+    showInfo('Student has shown you a QR code created for a different tutor. Ask them to scan your QR code.', 'error');
+  }
+
   return (
     <div className={`toolbox--Tutor ${className}`}>
       {
         isLoggedIn && (
-          (lesson === null || !isDedicatedTutor) ?
-            <><CenterQRContainer>
-              {
-                isDedicatedTutor ?
-                  <h2>{t('Show to a student to begin tutoring')}</h2>
-                  :
-                  <h2>{t('Student has shown you a QR code created for a different tutor. Ask them to scan your QR code.')}</h2>
-              }
-              <QRWithShareAndCopy
-                dataQR={qrCodeText}
-                titleShare={t('QR code')}
-                textShare={t('Press the link to start learning')}
-                urlShare={url}
-                dataCopy={url} />
-            </CenterQRContainer>
+          (!lesson) ?
+            <>
+              <CenterQRContainer>
+                <h2>{t('Show to a student to begin tutoring')}</h2>
+                <QRWithShareAndCopy
+                  dataQR={qrCodeText}
+                  titleShare={t('QR code')}
+                  textShare={t('Press the link to start learning')}
+                  urlShare={url}
+                  dataCopy={url} />
+              </CenterQRContainer>
               <LessonsList tutor={publicKeyHex} onResumeTutoring={onResumeTutoring} />
             </>
             :
