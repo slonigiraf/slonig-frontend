@@ -259,7 +259,6 @@ function Tutor({ className = '' }: Props): React.ReactElement<Props> {
         signOverPrivateData: refereeSignOverPrivateData,
         signOverReceipt: refereeSignOverReceipt,
         valid: true,
-        wasDiscussed: true,
         wasSkipped: false,
       };
       await storeLetter(letter);

@@ -40,7 +40,7 @@ class ValidatingAlgorithm extends Algorithm {
         );
 
         const skip = new AlgorithmStage(
-            'success',
+            'skip',
             t('Skip'),
             <></>
         );

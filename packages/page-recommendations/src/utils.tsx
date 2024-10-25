@@ -101,7 +101,6 @@ export const storeLesson = async (tutorPublicKeyHex: string, qrJSON: any, webRTC
                 reexamCount: 0,
                 lastReexamined: now,
                 lesson: lesson.id,
-                wasDiscussed: false,
                 wasSkipped: false,
                 workerId: lesson.student,
                 knowledgeId: item[0],
@@ -123,7 +122,6 @@ export const storeLesson = async (tutorPublicKeyHex: string, qrJSON: any, webRTC
                 created: now,
                 valid: true,
                 lesson: lesson.id,
-                wasDiscussed: false,
                 wasSkipped: false,
                 workerId: lesson.student,
                 cid: item[0],
@@ -154,10 +152,13 @@ export const updateLesson = async (lesson: Lesson) => {
 }
 
 export const updateInsurance = async (insurance: Insurance) => {
+    console.log("updateInsurance")
     const sameItem = await db.insurances.get({ id: insurance.id });
+    console.log("sameItem: "+sameItem.id)
     if (sameItem !== undefined) {
       await db.insurances.update(insurance.id, insurance);
     }
+    console.log("after update")
 }
 
 export const storeInsurance = async (insurance: Insurance) => {
@@ -255,7 +256,6 @@ export const createAndStoreLetter = async (data: string[]) => {
         reexamCount: 0,
         lastReexamined: now,
         lesson: '',
-        wasDiscussed: false,
         wasSkipped: false,
         workerId: workerId,
         knowledgeId: knowledgeId,
@@ -319,7 +319,6 @@ const createAndStoreInsurance = async (data: string[]) => {
         created: now,
         valid: true,
         lesson: '',
-        wasDiscussed: false,
         wasSkipped: false,
         workerId: workerId,
         cid: textHash,

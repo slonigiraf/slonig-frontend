@@ -3,7 +3,6 @@ export interface Insurance {
   created: Date;
   valid: boolean;
   lesson: string;
-  wasDiscussed: boolean;
   wasSkipped: boolean;
   workerId: string;
   cid: string;

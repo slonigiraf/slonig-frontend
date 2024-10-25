@@ -3,7 +3,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { AlgorithmStage } from './AlgorithmStage.js';
-import { Button, Spinner, Spinner } from '@polkadot/react-components';
+import { Button, Spinner } from '@polkadot/react-components';
 import type { Skill } from '@slonigiraf/app-slonig-components';
 import { ValidatingAlgorithm } from './ValidatingAlgorithm.js';
 import { useTranslation } from '../translate.js';
@@ -14,6 +14,7 @@ import type { KeyringPair } from '@polkadot/keyring/types';
 import { useApi } from '@polkadot/react-hooks';
 import { getBounty } from "../getBounty.js";
 import { styled } from '@polkadot/react-components';
+import { updateInsurance } from '../utils.js';
 
 interface Props {
   className?: string;
@@ -64,11 +65,16 @@ function Reexamine({ className = '', currentPair, insurance, onResult, studentNa
     };
   }, [ipfs, insurance]);
 
-  const handleStageChange = (nextStage: AlgorithmStage | null) => {
+  const handleStageChange = async (nextStage: AlgorithmStage | null) => {
     if (nextStage !== null) {
       setIsButtonClicked(true);
-      if (nextStage.type === 'reimburse') {
+      if (nextStage.type === 'reimburse' && insurance != null) {
         getBounty(insurance, currentPair, api, t, onResult, showInfo);
+      } else if (nextStage.type === 'skip' && insurance != null) {
+        console.log("nextStage.type === 'skip'")
+        insurance.wasSkipped = true;
+        await updateInsurance(insurance);
+        onResult();
       } else if (nextStage.type === 'success') {
         onResult();
       } else {

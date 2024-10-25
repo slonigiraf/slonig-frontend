@@ -5,7 +5,6 @@ export interface Letter {
   reexamCount: number,
   lastReexamined: Date;
   lesson: string;
-  wasDiscussed: boolean;
   wasSkipped: boolean;
   workerId: string;
   knowledgeId: string;
