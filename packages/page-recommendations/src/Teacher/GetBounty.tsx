@@ -9,8 +9,8 @@ import { keyring } from '@polkadot/ui-keyring';
 import { u8aToHex } from '@polkadot/util';
 import { useTranslation } from '../translate.js';
 import { Insurance } from '../db/Insurance.js';
-import { db } from "../db/index.js";
 import BN from 'bn.js';
+import { markUsedInsurance } from '../utils.js';
 
 interface Props {
   className?: string;
@@ -24,14 +24,8 @@ const GetBounty = forwardRef((props: Props, ref) => {
   const [currentPair, setCurrentPair] = useState<KeyringPair | null>(() => keyring.getPairs()[0] || null);
   const { api } = useApi();
 
-  const markUsedInsurance = () => {
-    if (insurance.id) {
-      db.insurances.where({ id: insurance.id }).modify((f) => f.wasUsed = true);
-    }
-  }
-
-  const _onSuccess = (_result: any) => {
-    markUsedInsurance();
+  const _onSuccess = async (_result: any) => {
+    await markUsedInsurance(insurance);
   }
 
   const _onFailed = (_result: any) => {

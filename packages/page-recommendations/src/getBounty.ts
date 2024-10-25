@@ -1,17 +1,11 @@
 // Copyright 2021-2022 @slonigiraf/app-recommendations authors & contributors
 // SPDX-License-Identifier: Apache-2.0
-import { db } from "./db";
-import { Insurance } from "./db/Insurance";
 import { u8aToHex } from '@polkadot/util';
 import BN from 'bn.js';
 import type { KeyringPair } from '@polkadot/keyring/types';
 import type { ApiPromise } from '@polkadot/api';
-
-const markUsedInsurance = (insurance: Insurance) => {
-    if (insurance.id) {
-        db.insurances.where({ id: insurance.id }).modify((f) => f.wasUsed = true);
-    }
-}
+import { markUsedInsurance } from './utils.js';
+import { Insurance } from './db/Insurance.js';
 
 type ErrorKey = 'InvalidRefereeSign' | 'InvalidWorkerSign' | 'InvalidLetterAmount' |
     'RefereeBalanceIsNotEnough' | 'LetterWasMarkedAsFraudBefore' |
@@ -28,9 +22,9 @@ const errorMessages: Record<ErrorKey, string> = {
     WrongParaId: 'Incorrect parachain used',
 };
 
-const _onBountySuccess = (insurance: Insurance, t: (key: string, options?: { replace: Record<string, unknown>; } | undefined) => string, onResult: () => void,
+const _onBountySuccess = async (insurance: Insurance, t: (key: string, options?: { replace: Record<string, unknown>; } | undefined) => string, onResult: () => void,
     showInfo: (message: string, type?: "error" | "info" | undefined, timeoutSec?: number | undefined) => void) => {
-    markUsedInsurance(insurance);
+    await markUsedInsurance(insurance);
     showInfo(t('Got bounty'));
     onResult();
 }

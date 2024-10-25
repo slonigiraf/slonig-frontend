@@ -1,6 +1,7 @@
 export interface Insurance {
   id?: number;
   created: Date;
+  valid: boolean;
   lastReexamined: Date;
   lesson: string;
   forReexamining: boolean;

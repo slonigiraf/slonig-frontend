@@ -120,6 +120,7 @@ export const storeLesson = async (tutorPublicKeyHex: string, qrJSON: any, webRTC
         await Promise.all(webRTCJSON.reexamine.map(async (item: string[]) => {
             const insurance: Insurance = {
                 created: now,
+                valid: true,
                 lastReexamined: now,
                 reexamCount: 0,
                 lesson: lesson.id,
@@ -154,15 +155,20 @@ export const updateLesson = async (lesson: Lesson) => {
     }
 }
 
+export const markUsedInsurance = async (insurance: Insurance) => {
+    if (insurance.id) {
+        await db.insurances.where({ id: insurance.id }).modify((item: Insurance) => {
+            item.wasUsed = true;
+            item.valid = false;
+        });
+    }
+}
+
 export const storeInsurance = async (insurance: Insurance) => {
     const lessonKey = insurance.lesson ?? '';
-    console.log("Insurance to store: ", JSON.stringify(insurance, null, 2));
     const sameInsurance = await db.insurances.get({ lesson: lessonKey, signOverReceipt: insurance.signOverReceipt });
-    console.log("sameInsurance: ", JSON.stringify(sameInsurance, null, 2));
     if (sameInsurance === undefined) {
         await db.insurances.add(insurance);
-    } else if (sameInsurance.wasUsed === false && insurance.wasUsed === true) {
-        await db.insurances.where({ id: insurance.id }).modify((f) => f.wasUsed = true);
     }
 }
 
