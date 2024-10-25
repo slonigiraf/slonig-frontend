@@ -4,7 +4,7 @@ import { u8aToHex } from '@polkadot/util';
 import BN from 'bn.js';
 import type { KeyringPair } from '@polkadot/keyring/types';
 import type { ApiPromise } from '@polkadot/api';
-import { markUsedInsurance } from './utils.js';
+import { updateInsurance } from './utils.js';
 import { Insurance } from './db/Insurance.js';
 
 type ErrorKey = 'InvalidRefereeSign' | 'InvalidWorkerSign' | 'InvalidLetterAmount' |
@@ -24,14 +24,18 @@ const errorMessages: Record<ErrorKey, string> = {
 
 const _onBountySuccess = async (insurance: Insurance, t: (key: string, options?: { replace: Record<string, unknown>; } | undefined) => string, onResult: () => void,
     showInfo: (message: string, type?: "error" | "info" | undefined, timeoutSec?: number | undefined) => void) => {
-    await markUsedInsurance(insurance);
+    insurance.wasUsed = true;
+    insurance.valid = false;
+    await updateInsurance(insurance);
     showInfo(t('Got bounty'));
     onResult();
 }
 
-const _onBountyFailed = (error: string, t: (key: string, options?: { replace: Record<string, unknown>; } | undefined) => string, onResult: () => void,
+const _onBountyFailed = async (insurance: Insurance, error: string, t: (key: string, options?: { replace: Record<string, unknown>; } | undefined) => string, onResult: () => void,
     showInfo: (message: string, type?: "error" | "info" | undefined, timeoutSec?: number | undefined) => void) => {
     const errorMessage = errorMessages[error as ErrorKey] || `${error}`;
+    insurance.valid = false;
+    await updateInsurance(insurance);
     showInfo(t(`Didn't get bounty: ${errorMessage}`), 'error', 3);
     onResult();
 };
@@ -83,14 +87,14 @@ export const getBounty = async (insurance: Insurance, currentPair: KeyringPair, 
                     }
                 });
                 if (isError) {
-                    _onBountyFailed(errorInfo, t, onResult, showInfo); // Call on failure
+                    _onBountyFailed(insurance, errorInfo, t, onResult, showInfo); // Call on failure
                 } else {
                     _onBountySuccess(insurance, t, onResult, showInfo); // Call on success
                 }
             }
         });
     } catch (error) {
-        _onBountyFailed(t(error.toString()), t, onResult, showInfo);
+        _onBountyFailed(insurance, t(error.toString()), t, onResult, showInfo);
     }
 
 };

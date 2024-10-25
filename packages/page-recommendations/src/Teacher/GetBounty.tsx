@@ -10,7 +10,7 @@ import { u8aToHex } from '@polkadot/util';
 import { useTranslation } from '../translate.js';
 import { Insurance } from '../db/Insurance.js';
 import BN from 'bn.js';
-import { markUsedInsurance } from '../utils.js';
+import { updateInsurance } from '../utils.js';
 
 interface Props {
   className?: string;
@@ -25,10 +25,14 @@ const GetBounty = forwardRef((props: Props, ref) => {
   const { api } = useApi();
 
   const _onSuccess = async (_result: any) => {
-    await markUsedInsurance(insurance);
+    insurance.wasUsed = true;
+    insurance.valid = false;
+    await updateInsurance(insurance);
   }
 
-  const _onFailed = (_result: any) => {
+  const _onFailed = async (_result: any) => {
+    insurance.valid = false;
+    await updateInsurance(insurance);
   }
 
   const _onChangeAccount = useCallback(
@@ -78,7 +82,6 @@ const GetBounty = forwardRef((props: Props, ref) => {
       <div className='ui--row' style={{ display: 'none' }}>
         <InputAddress
           className='full'
-          help={t('select the account you wish to sign data with')}
           isInput={false}
           label={t('account')}
           onChange={_onChangeAccount}

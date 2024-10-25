@@ -153,12 +153,10 @@ export const updateLesson = async (lesson: Lesson) => {
     }
 }
 
-export const markUsedInsurance = async (insurance: Insurance) => {
-    if (insurance.id) {
-        await db.insurances.where({ id: insurance.id }).modify((item: Insurance) => {
-            item.wasUsed = true;
-            item.valid = false;
-        });
+export const updateInsurance = async (insurance: Insurance) => {
+    const sameItem = await db.insurances.get({ id: insurance.id });
+    if (sameItem !== undefined) {
+      await db.insurances.update(insurance.id, insurance);
     }
 }
 

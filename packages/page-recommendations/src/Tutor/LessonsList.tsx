@@ -38,11 +38,10 @@ function LessonsList({ className = '', tutor, onResumeTutoring }: Props): React.
           return true;
         });
       }
-      return query.reverse().sortBy('id');
+      return query.reverse().sortBy('created');
     },
     [tutor, startDate, endDate]
   );
-
 
   const [selectedItems, setSelectedLessons] = useState<Lesson[]>([]);
 
