@@ -1,6 +1,6 @@
 import React, { useState, useCallback } from 'react';
 import { useToggle } from '@polkadot/react-hooks';
-import { parseJson, QRField, QRScanner, receiveWebRTCData, useLoginContext } from '@slonigiraf/app-slonig-components';
+import { getIPFSDataFromContentID, parseJson, QRField, QRScanner, receiveWebRTCData, useIpfsContext, useLoginContext } from '@slonigiraf/app-slonig-components';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from './translate.js';
 import { Modal, TransferModal } from '@polkadot/react-components';
@@ -22,6 +22,7 @@ function ScanQR({ className = '', label, type }: Props): React.ReactElement<Prop
   const [recipientId, setRecipientId] = useState<string>('');
   const navigate = useNavigate();
   const { currentPair, isLoggedIn } = useLoginContext();
+  const { ipfs, isIpfsReady } = useIpfsContext();
 
   // Process the scanned QR data
   const processQR = useCallback(async (data: string) => {
@@ -44,8 +45,15 @@ function ScanQR({ className = '', label, type }: Props): React.ReactElement<Prop
               break;
             case QRAction.ADD_DIPLOMA:
               const dataArray = qrJSON.d.split(",");
-              await createAndStoreLetter(dataArray);
-              navigate('diplomas');
+              try {
+                const content = await getIPFSDataFromContentID(ipfs, dataArray[0]);
+                const json = parseJson(content);
+                const knowledgeId: string = json.i;
+                await createAndStoreLetter([...dataArray,knowledgeId]);
+                navigate('diplomas');
+              } catch (e) {
+                console.log(e);
+              }
               break;
             case QRAction.BUY_DIPLOMAS:
               await storePseudonym(qrJSON.p, qrJSON.n);
@@ -141,6 +149,7 @@ function ScanQR({ className = '', label, type }: Props): React.ReactElement<Prop
         icon='qrcode'
         label={label}
         onClick={toggleQR}
+        isDisabled={!isIpfsReady}
       />
       {isQROpen && (
         <Modal

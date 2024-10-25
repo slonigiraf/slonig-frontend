@@ -8,7 +8,6 @@ import { useTranslation } from '../translate.js';
 import { Letter } from '../db/Letter.js';
 import LetterDetailsModal from './LetterDetailsModal.js';
 import { useIpfsContext } from '@slonigiraf/app-slonig-components';
-import { saveLetterKnowledgeId } from '../utils.js';
 
 interface Props {
   letter: Letter;
@@ -30,9 +29,6 @@ function LetterInfo({ letter, isSelected, onToggleSelection }: Props): React.Rea
           const content = await getIPFSDataFromContentID(ipfs, letter.cid);
           const json = parseJson(content);
           setText(json.h);
-          if (letter.id && !letter.knowledgeId) {
-            saveLetterKnowledgeId(letter.id, json.i);
-          }
           setLoaded(true);
         } catch (e) {
           setText(`${letter.cid} (${t('loading')}...)`);

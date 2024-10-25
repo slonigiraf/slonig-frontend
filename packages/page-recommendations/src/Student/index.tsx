@@ -4,7 +4,7 @@
 import React, { useEffect } from 'react';
 import LettersList from './LettersList.js';
 import { IPFS } from 'ipfs-core';
-import { LoginButton, AppContainer, useLoginContext } from '@slonigiraf/app-slonig-components';
+import { LoginButton, AppContainer, useLoginContext, getIPFSDataFromContentID, parseJson } from '@slonigiraf/app-slonig-components';
 import { u8aToHex } from '@polkadot/util';
 import { useLocation } from 'react-router-dom';
 import { createAndStoreLetter } from '@slonigiraf/app-recommendations';
@@ -58,16 +58,26 @@ function Student({ className = '', ipfs }: Props): React.ReactElement<Props> {
   useEffect(() => {
     if (refereeSignOverPrivateData) {
       async function saveDiploma() {
-        await createAndStoreLetter([textHash,
-          workerId,
-          genesisHex,
-          letterId,
-          blockNumber,
-          refereePublicKeyHex,
-          workerPublicKeyHex,
-          amount,
-          refereeSignOverPrivateData,
-          refereeSignOverReceipt]);
+        if (ipfs !== null) {
+          try {
+            const content = await getIPFSDataFromContentID(ipfs, textHash);
+            const json = parseJson(content);
+            const knowledgeId = json.i;
+            await createAndStoreLetter([textHash,
+              workerId,
+              genesisHex,
+              letterId,
+              blockNumber,
+              refereePublicKeyHex,
+              workerPublicKeyHex,
+              amount,
+              refereeSignOverPrivateData,
+              refereeSignOverReceipt,
+              knowledgeId]);
+          } catch (e) {
+            console.log(e);
+          }
+        }
       }
       saveDiploma()
     }

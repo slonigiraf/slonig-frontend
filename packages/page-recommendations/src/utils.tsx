@@ -201,10 +201,7 @@ export const storePseudonym = async (publicKey: string, pseudonym: string) => {
         }
     }
 }
-export const saveLetterKnowledgeId = async (id: number, knowledgeId: string) => {
-    const cleanKnowledgeId = DOMPurify.sanitize(knowledgeId);
-    await db.letters.where({ id: id }).modify((f) => f.knowledgeId = cleanKnowledgeId);
-}
+
 export const storeSetting = async (id: string, value: string) => {
     const cleanId = DOMPurify.sanitize(id);
     const cleanValue = DOMPurify.sanitize(value);
@@ -250,7 +247,8 @@ export const createAndStoreLetter = async (data: string[]) => {
         workerPublicKeyHex,
         amount,
         refereeSignOverPrivateData,
-        refereeSignOverReceipt] = data;
+        refereeSignOverReceipt,
+        knowledgeId] = data;
     
     const now = new Date();
     const letter: Letter = {
@@ -262,7 +260,7 @@ export const createAndStoreLetter = async (data: string[]) => {
         wasDiscussed: false,
         wasSkipped: false,
         workerId: workerId,
-        // knowledgeId: string, TODO IMPLEMENT!!!!
+        knowledgeId: knowledgeId,
         cid: textHash,
         genesis: genesisHex,
         letterNumber: parseInt(letterId, 10),
