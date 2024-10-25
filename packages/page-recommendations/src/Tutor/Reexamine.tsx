@@ -3,11 +3,11 @@
 
 import React, { useState, useEffect } from 'react';
 import { AlgorithmStage } from './AlgorithmStage.js';
-import { Button, Spinner } from '@polkadot/react-components';
+import { Button, Progress, Spinner } from '@polkadot/react-components';
 import type { Skill } from '@slonigiraf/app-slonig-components';
 import { ValidatingAlgorithm } from './ValidatingAlgorithm.js';
 import { useTranslation } from '../translate.js';
-import { useIpfsContext } from '@slonigiraf/app-slonig-components';
+import { InstructionsButtonsContainer, InstructionsButtonsGroup, InstructionsContainer, StyledCloseButton, useIpfsContext } from '@slonigiraf/app-slonig-components';
 import { Insurance } from '../db/Insurance.js';
 import { getIPFSDataFromContentID, parseJson, useInfo } from '@slonigiraf/app-slonig-components';
 import type { KeyringPair } from '@polkadot/keyring/types';
@@ -15,17 +15,19 @@ import { useApi } from '@polkadot/react-hooks';
 import { getBounty } from "../getBounty.js";
 import { styled } from '@polkadot/react-components';
 import { updateInsurance } from '../utils.js';
+import { Lesson } from '../db/Lesson.js';
 
 interface Props {
   className?: string;
   currentPair: KeyringPair;
+  lesson: Lesson | null;
   insurance: Insurance | null;
   onResult: () => void;
   studentName: string | null;
   onClose: () => void;
 }
 
-function Reexamine({ className = '', currentPair, insurance, onResult, studentName, onClose }: Props): React.ReactElement<Props> {
+function Reexamine({ className = '', currentPair, lesson, insurance, onResult, studentName, onClose }: Props): React.ReactElement<Props> {
   const { api } = useApi();
   const { ipfs, isIpfsReady } = useIpfsContext();
   const [skill, setSkill] = useState<Skill>();
@@ -71,7 +73,7 @@ function Reexamine({ className = '', currentPair, insurance, onResult, studentNa
       if (nextStage.type === 'reimburse' && insurance != null) {
         getBounty(insurance, currentPair, api, t, onResult, showInfo);
       } else if (nextStage.type === 'skip' && insurance != null) {
-        const skippedInsurance: Insurance = {...insurance, wasSkipped: true};
+        const skippedInsurance: Insurance = { ...insurance, wasSkipped: true };
         await updateInsurance(skippedInsurance);
         onResult();
       } else if (nextStage.type === 'success') {
@@ -91,12 +93,16 @@ function Reexamine({ className = '', currentPair, insurance, onResult, studentNa
     <div className={className}>
       {algorithmStage ? (
         <InstructionsContainer>
+          {lesson && <StyledProgress
+            value={lesson.learnStep + lesson.reexamineStep}
+            total={lesson.toLearnCount + lesson.toReexamineCount}
+          />}
           <StyledCloseButton onClick={onClose}
             icon='close'
           />
           {algorithmStage.getWords()}
-          <ButtonsContainer>
-            <ButtonsGroup>
+          <InstructionsButtonsContainer>
+            <InstructionsButtonsGroup>
               {algorithmStage.getPrevious() && (
                 <Button onClick={() => handleStageChange(algorithmStage.getPrevious())}
                   icon='arrow-left'
@@ -111,8 +117,8 @@ function Reexamine({ className = '', currentPair, insurance, onResult, studentNa
                   isDisabled={isButtonClicked}
                 />
               ))}
-            </ButtonsGroup>
-          </ButtonsContainer>
+            </InstructionsButtonsGroup>
+          </InstructionsButtonsContainer>
         </InstructionsContainer>
       ) : (
         <div>Error: Reload the page</div>
@@ -121,29 +127,15 @@ function Reexamine({ className = '', currentPair, insurance, onResult, studentNa
   );
 }
 
-// Styled components
-const InstructionsContainer = styled.div`
-  width: 100%;
-`;
-
-const ButtonsContainer = styled.div`
-  display: flex;
-  align-items: center;
-  width: 100%;
-  margin: 0 auto;
-`;
-const ButtonsGroup = styled.div`
-  display: flex;
-  align-items: center;
-  max-width: 400px;
-  margin: 0 auto;
-`;
-
-const StyledCloseButton = styled(Button)`
-  position: absolute;
-  top: 45px;
-  right: 10px;
+const StyledProgress = styled(Progress)`
+  position: fixed;
+  bottom: 80px;
+  left: 20px;
   z-index: 1;
+  @media (min-width: 768px) {
+    left: 50%;
+    transform: translateX(-50%) translateX(-350px);
+  }
 `;
 
 export default React.memo(Reexamine)

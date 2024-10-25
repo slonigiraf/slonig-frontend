@@ -1,18 +1,21 @@
 import React, { useState, useEffect } from 'react';
 import { Algorithm } from './Algorithm.js';
 import { AlgorithmStage } from './AlgorithmStage.js';
-import { Button, Spinner } from '@polkadot/react-components';
+import { Button, Progress, Spinner } from '@polkadot/react-components';
 import { useTranslation } from '../translate.js';
 import { styled } from '@polkadot/react-components';
+import { Lesson } from '../db/Lesson.js';
+import { InstructionsButtonsContainer, InstructionsButtonsGroup, InstructionsContainer, StyledCloseButton } from '@slonigiraf/app-slonig-components';
 
 interface Props {
   className?: string;
   algorithm: Algorithm | null;
+  lesson: Lesson | null;
   onResult: (stage: string) => void;
   onClose: () => void;
 }
 
-function DoInstructions({ className = '', algorithm, onResult, onClose }: Props): React.ReactElement<Props> {
+function DoInstructions({ className = '', algorithm, lesson, onResult, onClose }: Props): React.ReactElement<Props> {
   const [algorithmStage, setAlgorithmStage] = useState<AlgorithmStage | null>(null);
   const { t } = useTranslation();
 
@@ -41,12 +44,16 @@ function DoInstructions({ className = '', algorithm, onResult, onClose }: Props)
     <div className={className}>
       {algorithmStage ? (
         <InstructionsContainer>
+          {lesson && <StyledProgress
+            value={lesson.learnStep + lesson.reexamineStep}
+            total={lesson.toLearnCount + lesson.toReexamineCount}
+          />}
           <StyledCloseButton onClick={onClose}
             icon='close'
           />
           {algorithmStage.getWords()}
-          <ButtonsContainer>
-            <ButtonsGroup>
+          <InstructionsButtonsContainer>
+            <InstructionsButtonsGroup>
               {algorithmStage.getPrevious() && (
                 <Button onClick={() => handleStageChange(algorithmStage.getPrevious())}
                   icon='arrow-left'
@@ -57,8 +64,8 @@ function DoInstructions({ className = '', algorithm, onResult, onClose }: Props)
                   icon='square'
                   label={nextStage.getName()} />
               ))}
-            </ButtonsGroup>
-          </ButtonsContainer>
+            </InstructionsButtonsGroup>
+          </InstructionsButtonsContainer>
         </InstructionsContainer>
       ) : (
         <div>Error: Reload the page</div>
@@ -67,27 +74,16 @@ function DoInstructions({ className = '', algorithm, onResult, onClose }: Props)
   );
 }
 
-// Styled components
-const InstructionsContainer = styled.div`
-  width: 100%;
+
+const StyledProgress = styled(Progress)`
+  position: fixed;
+  bottom: 80px;
+  left: 20px;
+  z-index: 1;
+  @media (min-width: 768px) {
+    left: 50%;
+    transform: translateX(-50%) translateX(-350px);
+  }
 `;
 
-const ButtonsContainer = styled.div`
-  display: flex;
-  align-items: center;
-  width: 100%;
-  margin: 0 auto;
-`;
-const ButtonsGroup = styled.div`
-  display: flex;
-  align-items: center;
-  max-width: 400px;
-  margin: 0 auto;
-`;
-const StyledCloseButton = styled(Button)`
-  position: absolute;
-  top: 45px;
-  right: 10px;
-  z-index: 1;
-`;
 export default React.memo(DoInstructions);
