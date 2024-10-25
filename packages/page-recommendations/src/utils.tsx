@@ -152,13 +152,10 @@ export const updateLesson = async (lesson: Lesson) => {
 }
 
 export const updateInsurance = async (insurance: Insurance) => {
-    console.log("updateInsurance")
     const sameItem = await db.insurances.get({ id: insurance.id });
-    console.log("sameItem: "+sameItem.id)
     if (sameItem !== undefined) {
       await db.insurances.update(insurance.id, insurance);
     }
-    console.log("after update")
 }
 
 export const storeInsurance = async (insurance: Insurance) => {

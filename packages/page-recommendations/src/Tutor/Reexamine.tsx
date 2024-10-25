@@ -71,9 +71,8 @@ function Reexamine({ className = '', currentPair, insurance, onResult, studentNa
       if (nextStage.type === 'reimburse' && insurance != null) {
         getBounty(insurance, currentPair, api, t, onResult, showInfo);
       } else if (nextStage.type === 'skip' && insurance != null) {
-        console.log("nextStage.type === 'skip'")
-        insurance.wasSkipped = true;
-        await updateInsurance(insurance);
+        const skippedInsurance: Insurance = {...insurance, wasSkipped: true};
+        await updateInsurance(skippedInsurance);
         onResult();
       } else if (nextStage.type === 'success') {
         onResult();
