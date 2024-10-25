@@ -99,6 +99,7 @@ export const storeLesson = async (tutorPublicKeyHex: string, qrJSON: any, webRTC
                 created: now,
                 valid: false,
                 reexamCount: 0,
+                lastReexamined: now,
                 lesson: lesson.id,
                 wasDiscussed: false,
                 wasSkipped: false,
@@ -121,10 +122,7 @@ export const storeLesson = async (tutorPublicKeyHex: string, qrJSON: any, webRTC
             const insurance: Insurance = {
                 created: now,
                 valid: true,
-                lastReexamined: now,
-                reexamCount: 0,
                 lesson: lesson.id,
-                forReexamining: false,
                 wasDiscussed: false,
                 wasSkipped: false,
                 workerId: lesson.student,
@@ -253,15 +251,19 @@ export const createAndStoreLetter = async (data: string[]) => {
         amount,
         refereeSignOverPrivateData,
         refereeSignOverReceipt] = data;
-
-    const letter = {
-        created: new Date(),
+    
+    const now = new Date();
+    const letter: Letter = {
+        created: now,
         valid: true,
-        cid: textHash,
+        reexamCount: 0,
+        lastReexamined: now,
         lesson: '',
         wasDiscussed: false,
         wasSkipped: false,
         workerId: workerId,
+        // knowledgeId: string, TODO IMPLEMENT!!!!
+        cid: textHash,
         genesis: genesisHex,
         letterNumber: parseInt(letterId, 10),
         block: blockNumber,
@@ -316,15 +318,14 @@ const createAndStoreInsurance = async (data: string[]) => {
         workerSignOverInsurance] = data;
 
     const now = new Date();
+
     const insurance = {
         created: now,
-        workerId: workerId,
-        lastReexamined: now,
-        reexamCount: 0,
+        valid: true,
         lesson: '',
-        forReexamining: false,
         wasDiscussed: false,
         wasSkipped: false,
+        workerId: workerId,
         cid: textHash,
         genesis: genesisHex,
         letterNumber: parseInt(letterId, 10),

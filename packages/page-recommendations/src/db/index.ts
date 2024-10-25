@@ -18,12 +18,12 @@ class SlonigirafDB extends Dexie {
 
   constructor() {
     super("slonigiraf");
-    this.version(30).stores({
-      letters: "++id,created,valid,lesson,wasDiscussed,wasSkipped,workerId,knowledgeId,cid,genesis,letterNumber,block,referee,worker,amount,signOverPrivateData,signOverReceipt,[lesson+signOverReceipt],[workerId+knowledgeId],[workerId+lesson]",
+    this.version(31).stores({
+      letters: "++id,created,valid,reexamCount,lastReexamined,lesson,wasDiscussed,wasSkipped,workerId,knowledgeId,cid,genesis,letterNumber,block,referee,worker,amount,signOverPrivateData,signOverReceipt,[lesson+signOverReceipt],[workerId+knowledgeId],[workerId+lesson]",
       pseudonyms: "&publicKey,pseudonym,altPseudonym",
       signers: "++id,publicKey",
       usageRights: "++id,created,signOverReceipt,employer,sign",
-      insurances: "++id,created,valid,lastReexamined,reexamCount,lesson,forReexamining,wasDiscussed,wasSkipped,workerId,cid,genesis,letterNumber,block,referee,worker,amount,signOverPrivateData,signOverReceipt,employer,workerSign,wasUsed,[employer+workerId],[lesson+signOverReceipt]",
+      insurances: "++id,created,valid,lesson,wasDiscussed,wasSkipped,workerId,cid,genesis,letterNumber,block,referee,worker,amount,signOverPrivateData,signOverReceipt,employer,workerSign,wasUsed,[employer+workerId],[lesson+signOverReceipt]",
       settings: "&id",
       lessons: "&id,created,cid,tutor,student",
     });

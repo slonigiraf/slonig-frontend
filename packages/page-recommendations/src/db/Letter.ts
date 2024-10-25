@@ -3,6 +3,7 @@ export interface Letter {
   created: Date;
   valid: boolean,
   reexamCount: number,
+  lastReexamined: Date;
   lesson: string;
   wasDiscussed: boolean;
   wasSkipped: boolean;

@@ -243,8 +243,9 @@ function Tutor({ className = '' }: Props): React.ReactElement<Props> {
       const refereeSignOverReceipt = u8aToHex(currentPair.sign(u8aWrapBytes(receipt)));
 
       const letter: Letter = {
-        created: new Date(),
+        created: now,
         knowledgeId: skill ? skill.i : '',
+        lastReexamined: now,
         reexamCount: 0,
         cid: skillCID,
         lesson: '',
