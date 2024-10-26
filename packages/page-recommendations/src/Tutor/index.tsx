@@ -4,7 +4,7 @@ import React, { useCallback, useEffect, useState } from 'react';
 import { useLocation } from 'react-router-dom';
 import BN from 'bn.js';
 import { statics } from '@polkadot/react-api/statics';
-import { styled, Toggle, Button, Input, InputBalance, Icon, Card } from '@polkadot/react-components';
+import { styled, Toggle, Button, Input, InputBalance, Icon, Card, Progress } from '@polkadot/react-components';
 import { useApi, useBlockTime, useToggle } from '@polkadot/react-hooks';
 import { u8aToHex, hexToU8a, u8aWrapBytes, BN_ONE } from '@polkadot/util';
 import type { Skill } from '@slonigiraf/app-slonig-components';
@@ -22,6 +22,7 @@ import LessonsList from './LessonsList.js';
 import { Lesson } from '../db/Lesson.js';
 import { db } from "../db/index.js";
 import { useLiveQuery } from 'dexie-react-hooks';
+
 interface Props {
   className?: string;
 }
@@ -419,11 +420,18 @@ function Tutor({ className = '' }: Props): React.ReactElement<Props> {
   </FullWidthContainer>;
 
   const reexamAndDiplomaIssuing = <>
+    {lesson && <StyledProgress
+      value={lesson.learnStep + lesson.reexamineStep}
+      total={lesson.toLearnCount + lesson.toReexamineCount}
+    />}
+    <StyledCloseButton onClick={onClose}
+      icon='close'
+    />
     <div style={!reexamined ? {} : { display: 'none' }}>
-      {currentPair && <Reexamine currentPair={currentPair} lesson={lesson} insurance={insuranceToReexamine} onResult={updateReexamined} key={insuranceToReexamine ? insuranceToReexamine.signOverPrivateData : ''} studentName={studentName} onClose={onClose} />}
+      {currentPair && <Reexamine currentPair={currentPair} insurance={insuranceToReexamine} onResult={updateReexamined} key={insuranceToReexamine ? insuranceToReexamine.signOverPrivateData : ''} studentName={studentName} />}
     </div>
     <div style={reexamined ? {} : { display: 'none' }}>
-      <DoInstructions algorithm={teachingAlgorithm} lesson={lesson} onResult={updateTutoring} key={countOfUrlReloads} onClose={onClose} />
+      <DoInstructions algorithm={teachingAlgorithm} onResult={updateTutoring} key={countOfUrlReloads} />
     </div>
     {
       canIssueDiploma &&
@@ -555,5 +563,25 @@ const DiplomaDiv = styled.div`
     flex: 1; // Take up the remaining space
   }
 `;
-
+const StyledProgress = styled(Progress)`
+  position: fixed;
+  bottom: 80px;
+  left: 20px;
+  z-index: 1;
+  @media (min-width: 768px) {
+    left: 50%;
+    transform: translateX(-50%) translateX(-350px);
+  }
+`;
+export const StyledCloseButton = styled(Button)`
+  position: fixed;
+  width: 40px;
+  top: 95px;
+  right: 10px;
+  z-index: 1;
+  @media (min-width: 768px) {
+    left: 50%;
+    transform: translateX(-50%) translateX(375px);
+  }
+`;
 export default React.memo(Tutor);

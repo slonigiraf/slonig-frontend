@@ -17,7 +17,7 @@ import DateInput from './DateInput.js';
 import KatexSpan from './KatexSpan.js';
 import TextAreaWithPreview from './TextAreaWithPreview.js';
 import SelectableList from './SelectableList.js';
-import { Button, Progress, styled } from '@polkadot/react-components';
+import { styled } from '@polkadot/react-components';
 
 import { createPeer, receiveWebRTCData, getQrWidth, saveToSessionStorage, loadFromSessionStorage, getKey, arrayBufferToBase64, base64ToArrayBuffer, decryptData, encryptData, keyForCid, nameFromKeyringPair, getBaseUrl, CODEC, getIPFSContentID, getIPFSContentIDAndPinIt, getIPFSDataFromContentID, digestFromCIDv1, getCIDFromBytes, storeEncryptedTextOnIPFS, retrieveDecryptedDataFromIPFS, parseJson, qrPadding } from './utils.js';
 import { useEffect, useState } from 'react';
@@ -127,17 +127,6 @@ export const InstructionsButtonsGroup = styled.div`
   align-items: center;
   max-width: 400px;
   margin: 0 auto;
-`;
-export const StyledCloseButton = styled(Button)`
-  position: fixed;
-  width: 40px;
-  top: 95px;
-  right: 10px;
-  z-index: 1;
-  @media (min-width: 768px) {
-    left: 50%;
-    transform: translateX(-50%) translateX(375px);
-  }
 `;
 
 export function useDeveloperSetting(): boolean {

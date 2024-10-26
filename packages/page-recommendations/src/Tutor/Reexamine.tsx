@@ -3,7 +3,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { AlgorithmStage } from './AlgorithmStage.js';
-import { Button, Progress, Spinner } from '@polkadot/react-components';
+import { Button, Spinner } from '@polkadot/react-components';
 import type { Skill } from '@slonigiraf/app-slonig-components';
 import { ValidatingAlgorithm } from './ValidatingAlgorithm.js';
 import { useTranslation } from '../translate.js';
@@ -13,21 +13,17 @@ import { getIPFSDataFromContentID, parseJson, useInfo } from '@slonigiraf/app-sl
 import type { KeyringPair } from '@polkadot/keyring/types';
 import { useApi } from '@polkadot/react-hooks';
 import { getBounty } from "../getBounty.js";
-import { styled } from '@polkadot/react-components';
 import { updateInsurance } from '../utils.js';
-import { Lesson } from '../db/Lesson.js';
 
 interface Props {
   className?: string;
   currentPair: KeyringPair;
-  lesson: Lesson | null;
   insurance: Insurance | null;
   onResult: () => void;
   studentName: string | null;
-  onClose: () => void;
 }
 
-function Reexamine({ className = '', currentPair, lesson, insurance, onResult, studentName, onClose }: Props): React.ReactElement<Props> {
+function Reexamine({ className = '', currentPair, insurance, onResult, studentName }: Props): React.ReactElement<Props> {
   const { api } = useApi();
   const { ipfs, isIpfsReady } = useIpfsContext();
   const [skill, setSkill] = useState<Skill>();
@@ -93,13 +89,6 @@ function Reexamine({ className = '', currentPair, lesson, insurance, onResult, s
     <div className={className}>
       {algorithmStage ? (
         <InstructionsContainer>
-          {lesson && <StyledProgress
-            value={lesson.learnStep + lesson.reexamineStep}
-            total={lesson.toLearnCount + lesson.toReexamineCount}
-          />}
-          <StyledCloseButton onClick={onClose}
-            icon='close'
-          />
           {algorithmStage.getWords()}
           <InstructionsButtonsContainer>
             <InstructionsButtonsGroup>
@@ -126,16 +115,5 @@ function Reexamine({ className = '', currentPair, lesson, insurance, onResult, s
     </div>
   );
 }
-
-const StyledProgress = styled(Progress)`
-  position: fixed;
-  bottom: 80px;
-  left: 20px;
-  z-index: 1;
-  @media (min-width: 768px) {
-    left: 50%;
-    transform: translateX(-50%) translateX(-350px);
-  }
-`;
 
 export default React.memo(Reexamine)
