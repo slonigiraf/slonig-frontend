@@ -111,22 +111,32 @@ function Tutor({ className = '' }: Props): React.ReactElement<Props> {
     [lessonId]
   );
 
-  const insurances = useLiveQuery(
-    () => lesson ? db.insurances.where({ lesson: lesson.id }).sortBy('id') : [],
-    [lesson]
-  );
   const [letterIds, setLetterIds] = useState<number[]>([]);
+  const [insuranceIds, setInsuranceIds] = useState<number[]>([]);
 
   useEffect(() => {
     if (lessonId) {
       const fetchLetterIds = async () => {
         const fetchedLetters = await db.letters.where({ lesson: lessonId }).sortBy('id');
-        if(fetchedLetters){
+        if (fetchedLetters) {
           const ids = fetchedLetters.map(letter => letter.id).filter(id => id !== undefined);
           setLetterIds(ids);
         }
       };
       fetchLetterIds();
+    }
+  }, [lessonId]);
+
+  useEffect(() => {
+    if (lessonId) {
+      const fetchInsuranceIds = async () => {
+        const fetchedInsurances = await db.insurances.where({ lesson: lessonId }).sortBy('id');
+        if (fetchedInsurances) {
+          const ids = fetchedInsurances.map(insurance => insurance.id).filter(id => id !== undefined);
+          setInsuranceIds(ids);
+        }
+      };
+      fetchInsuranceIds();
     }
   }, [lessonId]);
 
@@ -150,7 +160,7 @@ function Tutor({ className = '' }: Props): React.ReactElement<Props> {
           const skillContent = await getIPFSDataFromContentID(ipfs, skillCID);
           const skillJson = parseJson(skillContent);
           setSkill(skillJson);
-          const studentUsedSlonig = insurances && insurances?.length > 0;
+          const studentUsedSlonig = insuranceIds?.length > 0;
           const name = studentName ? studentName : null;
           console.log("---------")
           console.log("name: " + name)
@@ -286,11 +296,15 @@ function Tutor({ className = '' }: Props): React.ReactElement<Props> {
     [currentPair, ipfs, skill, letterToIssue, diplomaBlockNumber, amount]
   );
 
-  const updateReexamined = (): void => {
-    if (insurances && lesson) {
+  const updateReexamined = async () => {
+    if (lesson) {
       const nextStep = lesson.reexamineStep + 1;
-      if (nextStep < insurances.length) {
-        setInsuranceToReexamine(insurances[nextStep]);
+      if (nextStep < insuranceIds.length) {
+        const nextInsuranceId = insuranceIds[nextStep];
+        const nextInsurance: Insurance | undefined = await db.insurances.get(nextInsuranceId);
+        if (nextInsurance) {
+          setInsuranceToReexamine(nextInsurance);
+        }
       } else {
         setReexamined(true);
       }
@@ -307,7 +321,7 @@ function Tutor({ className = '' }: Props): React.ReactElement<Props> {
       if (nextStep < letterIds.length) {
         const nextLetterId = letterIds[nextStep];
         const nextLetter: Letter | undefined = await db.letters.get(nextLetterId);
-        if(nextLetter){
+        if (nextLetter) {
           setLetterToIssue(nextLetter);
         }
       }
@@ -353,8 +367,12 @@ function Tutor({ className = '' }: Props): React.ReactElement<Props> {
             setSkillCID(nextLetter.cid);
           }
         }
-        if (insurances !== undefined && lesson.reexamineStep < insurances.length) {
-          setInsuranceToReexamine(insurances[lesson.reexamineStep]);
+        if (lesson.reexamineStep < insuranceIds.length) {
+          const nextInsuranceId = insuranceIds[lesson.reexamineStep];
+          const nextInsurance: Insurance | undefined = await db.insurances.get(nextInsuranceId);
+          if (nextInsurance) {
+            setInsuranceToReexamine(nextInsurance);
+          }
         }
         if (lesson.learnStep === lesson.toLearnCount && lesson.reexamineStep === lesson.toReexamineCount) {
           askForMoney(lesson);
@@ -362,7 +380,7 @@ function Tutor({ className = '' }: Props): React.ReactElement<Props> {
       }
     }
     onLessonUpdate()
-  }, [lesson, letterIds, insurances, studentName])
+  }, [lesson, letterIds, insuranceIds, studentName])
 
   const onClose = useCallback(() => {
     deleteSetting('lesson');
