@@ -301,16 +301,10 @@ function Tutor({ className = '' }: Props): React.ReactElement<Props> {
     [currentPair, ipfs, skill, letterToIssue, diplomaBlockNumber, amount]
   );
 
-  const updateReexamined = async () => {
+  const updateReexamined = useCallback(async () => {
     if (lesson) {
       const nextStep = lesson.reexamineStep + 1;
-      if (nextStep < insuranceIds.length) {
-        const nextInsuranceId = insuranceIds[nextStep];
-        const nextInsurance: Insurance | undefined = await db.insurances.get(nextInsuranceId);
-        if (nextInsurance) {
-          setInsuranceToReexamine(nextInsurance);
-        }
-      } else {
+      if (nextStep >= insuranceIds.length) {
         setReexamined(true);
       }
       const updatedLesson = { ...lesson, reexamineStep: nextStep };
@@ -318,7 +312,7 @@ function Tutor({ className = '' }: Props): React.ReactElement<Props> {
     } else {
       setReexamined(true);
     }
-  };
+  }, [lesson, insuranceIds, updateAndStoreLesson]);
 
   const updateLearned = useCallback(async (): Promise<void> => {
     if (letterIds.length > 0 && lesson) {
