@@ -38,6 +38,7 @@ function LettersList({ className = '', worker, currentPair }: Props): React.Reac
       if (startDate || endDate) {
         query = query.filter((letter) => {
           if (!letter.valid) return false;
+          if (letter.letterNumber < 0) return false;
           const createdDate = new Date(letter.created);
           if (startDate && createdDate < startDate) return false;
           if (endDate && createdDate > endDate) return false;

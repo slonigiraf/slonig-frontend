@@ -72,7 +72,7 @@ export const getValidLettersForKnowledgeId = async (workerId: string, knowledgeI
     return await db.letters
         .where('[workerId+knowledgeId]')
         .equals([workerId, knowledgeId])
-        .filter((letter: Letter) => letter.valid === true)
+        .filter((letter: Letter) => (letter.valid === true && letter.letterNumber >= 0))
         .toArray();
 }
 

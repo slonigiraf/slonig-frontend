@@ -384,24 +384,22 @@ function Tutor({ className = '' }: Props): React.ReactElement<Props> {
           }
         }
         if (lesson.learnStep === lesson.toLearnCount && lesson.reexamineStep === lesson.toReexamineCount) {
-          askForMoney(lesson);
+          onShowResults(lesson);
         }
       }
     }
     onLessonUpdate()
   }, [lesson, letterIds, insuranceIds, studentName])
 
-  const onClose = useCallback(() => {
+  const onCloseTutoring = useCallback(() => {
     deleteSetting(SettingKey.LESSON);
     setLessonId(null);
     setLesson(null);
-    deleteSetting(SettingKey.RESULTS_FOR_LESSON);
-    setResultsForLessonId(null);
   }, []);
 
-  const askForMoney = useCallback((lesson: Lesson) => {
-    //TODO: show qr to get money and send diplomas
-    onClose();
+  const onCloseResults = useCallback(() => {
+    deleteSetting(SettingKey.RESULTS_FOR_LESSON);
+    setResultsForLessonId(null);
   }, []);
 
   const publicKeyHex = currentPair ? u8aToHex(currentPair.publicKey) : "";
@@ -457,10 +455,11 @@ function Tutor({ className = '' }: Props): React.ReactElement<Props> {
   const diplomaSlon = new BN(amount).div(new BN("1000000000000"));
 
   const diplomaView = <FullWidthContainer>
-    <VerticalCenterItemsContainer>
-      <StyledCloseButton onClick={onClose}
+    <StyledResultsCloseButton onClick={onCloseResults}
         icon='close'
       />
+    <VerticalCenterItemsContainer>
+      
       <DiplomaDiv>
         <Card>
           <CenterQRContainer>
@@ -500,7 +499,7 @@ function Tutor({ className = '' }: Props): React.ReactElement<Props> {
       value={lesson.learnStep + lesson.reexamineStep}
       total={lesson.toLearnCount + lesson.toReexamineCount}
     />}
-    <StyledCloseButton onClick={onClose}
+    <StyledTutoringCloseButton onClick={onCloseTutoring}
       icon='close'
     />
     <div style={!reexamined ? {} : { display: 'none' }}>
@@ -649,7 +648,7 @@ const StyledProgress = styled(Progress)`
     transform: translateX(-50%) translateX(-350px);
   }
 `;
-export const StyledCloseButton = styled(Button)`
+export const StyledTutoringCloseButton = styled(Button)`
   position: fixed;
   width: 40px;
   top: 95px;
@@ -659,5 +658,12 @@ export const StyledCloseButton = styled(Button)`
     left: 50%;
     transform: translateX(-50%) translateX(375px);
   }
+`;
+export const StyledResultsCloseButton = styled(Button)`
+  position: absolute;
+  width: 40px;
+  top: 50px;
+  right: 10px;
+  z-index: 1;
 `;
 export default React.memo(Tutor);
