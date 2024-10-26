@@ -63,6 +63,7 @@ function Tutor({ className = '' }: Props): React.ReactElement<Props> {
   const location = useLocation();
   const queryParams = new URLSearchParams(location.search);
   const studentNameFromUrl = queryParams.get("name");
+  const lessonIdFromUrl = queryParams.get("lesson");
   const queryData = queryParams.get("d") || "";
   const [tutorFromUrl, skillCIDFromUrl, studentIdentityFromUrl, studentFromUrl, cidRFromUrl,
     genesisRFromUrl, nonceRFromUrl, blockRFromUrl, blockAllowedRFromUrl, tutorRFromUrl,
@@ -174,7 +175,7 @@ function Tutor({ className = '' }: Props): React.ReactElement<Props> {
 
   useEffect(() => {
     fetchLesson()
-  }, [])
+  }, [lessonIdFromUrl])
 
   // Fetch block number (once)
   useEffect(() => {

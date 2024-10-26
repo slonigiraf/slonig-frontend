@@ -93,7 +93,7 @@ function ScanQR({ className = '', label, type }: Props): React.ReactElement<Prop
                   showInfo(t('Ask to regenerate the QR'), 'error');
                   console.error("Failed to save lesson:", error);
                 }
-                navigate(`diplomas/tutor?s=${qrJSON.s}`);
+                navigate(`diplomas/tutor?lesson=${qrJSON[QRField.ID]}`);
               }
               break;
             case QRAction.TUTOR_IDENTITY:
