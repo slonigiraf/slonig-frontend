@@ -269,36 +269,29 @@ function Tutor({ className = '' }: Props): React.ReactElement<Props> {
       const refereePublicKeyHex = u8aToHex(refereeU8);
       const letterId = await getLastUnusedLetterNumber(refereePublicKeyHex);
       const workerPublicKeyU8 = hexToU8a(letterToIssue.worker);
-      const privateData = getPrivateDataToSignByReferee(skillCID, genesisU8, letterId, diplomaBlockNumber, refereeU8, workerPublicKeyU8, amount);
+      const privateData = getPrivateDataToSignByReferee(letterToIssue.cid, genesisU8, letterId, diplomaBlockNumber, refereeU8, workerPublicKeyU8, amount);
       const receipt = getPublicDataToSignByReferee(genesisU8, letterId, diplomaBlockNumber, refereeU8, workerPublicKeyU8, amount);
       const refereeSignOverPrivateData = u8aToHex(currentPair.sign(u8aWrapBytes(privateData)));
       const refereeSignOverReceipt = u8aToHex(currentPair.sign(u8aWrapBytes(receipt)));
 
-      const letter: Letter = {
+      const letter: Letter = {...letterToIssue,
         created: now,
-        knowledgeId: skill ? skill.i : '',
         lastReexamined: now,
         reexamCount: 0,
-        cid: skillCID,
-        lesson: '',
-        workerId: studentIdentity,
         genesis: genesisU8.toHex(),
         letterNumber: letterId,
         block: diplomaBlockNumber.toString(),
         referee: refereePublicKeyHex,
-        worker: letterToIssue.worker,
         amount: amount.toString(),
         signOverPrivateData: refereeSignOverPrivateData,
         signOverReceipt: refereeSignOverReceipt,
-        valid: true,
-        wasSkipped: false,
       };
-      await storeLetter(letter);
+      await updateLetter(letter);
       await setLastUsedLetterNumber(refereePublicKeyHex, letterId);
       createDiplomaQR(letter);
       setDiploma(letter);
     },
-    [currentPair, ipfs, skill, letterToIssue, diplomaBlockNumber, amount]
+    [currentPair, letterToIssue, diplomaBlockNumber, amount]
   );
 
   const updateReexamined = useCallback(async () => {
@@ -323,15 +316,16 @@ function Tutor({ className = '' }: Props): React.ReactElement<Props> {
 
   const updateTutoring = useCallback(
     async (stage: string) => {
-      if (stage === 'success') {
-        setCanIssueDiploma(true);
-        updateLearned();
-      } else if (stage === 'skip' && letterToIssue) {
-        const skippedLetter: Letter = { ...letterToIssue, wasSkipped: true };
-        await updateLetter(skippedLetter);
-        updateLearned();
-      } else {
-        setCanIssueDiploma(false);
+      if(letterToIssue){
+        if (stage === 'success') {
+          const preparedLetter: Letter = { ...letterToIssue, valid: true };
+          await updateLetter(preparedLetter);
+          updateLearned();
+        } else if (stage === 'skip') {
+          const skippedLetter: Letter = { ...letterToIssue, wasSkipped: true };
+          await updateLetter(skippedLetter);
+          updateLearned();
+        }
       }
     },
     [
