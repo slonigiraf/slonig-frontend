@@ -15,23 +15,16 @@ function DoInstructions({ className = '', algorithm, onResult }: Props): React.R
   const [algorithmStage, setAlgorithmStage] = useState<AlgorithmStage | null>(null);
   const { t } = useTranslation();
 
-  // Effect to initialize or update the algorithmStage based on the algorithm prop
   useEffect(() => {
-    console.log("New algo: "+algorithm)
     if (algorithm) {
       setAlgorithmStage(algorithm.getBegin());
     } else {
-      setAlgorithmStage(null); // Ensure we reset to null if algorithm is not available
+      setAlgorithmStage(null);
     }
   }, [algorithm]);
 
-  useEffect(() => {
-    console.log("New onResult: ")
-  }, [onResult]);
-
-  // Handles stage changes, ensuring we always work with the latest state and non-null values
   const handleStageChange = (nextStage: AlgorithmStage | null) => {
-    if (nextStage) { // Check for non-null value before proceeding
+    if (nextStage) {
       setAlgorithmStage(nextStage);
       onResult(nextStage.type);
     }
@@ -40,8 +33,6 @@ function DoInstructions({ className = '', algorithm, onResult }: Props): React.R
   if (!algorithm) {
     return <Spinner label={t('Loading')} />;
   }
-
-  console.log("DoInstructions")
 
   return (
     <div className={className}>

@@ -21,7 +21,6 @@ import { Insurance } from '../db/Insurance.js';
 import LessonsList from './LessonsList.js';
 import { Lesson } from '../db/Lesson.js';
 import { db } from "../db/index.js";
-import { useLiveQuery } from 'dexie-react-hooks';
 
 interface Props {
   className?: string;
@@ -163,11 +162,6 @@ function Tutor({ className = '' }: Props): React.ReactElement<Props> {
           setSkill(skillJson);
           const studentUsedSlonig = insuranceIds?.length > 0;
           const name = studentName ? studentName : null;
-          console.log("---------")
-          console.log("name: " + name)
-          console.log("skillJson: " + skillJson.i)
-          console.log("studentUsedSlonig: " + studentUsedSlonig)
-          console.log("---------")
           setTeachingAlgorithm(new TeachingAlgorithm(t, name, skillJson, !studentUsedSlonig));
         }
         catch (e) {
@@ -328,18 +322,10 @@ function Tutor({ className = '' }: Props): React.ReactElement<Props> {
 
   const updateLearned = useCallback(async (): Promise<void> => {
     if (letterIds.length > 0 && lesson) {
-      const nextStep = lesson.learnStep + 1;
-      if (nextStep < letterIds.length) {
-        const nextLetterId = letterIds[nextStep];
-        const nextLetter: Letter | undefined = await db.letters.get(nextLetterId);
-        if (nextLetter) {
-          setLetterToIssue(nextLetter);
-        }
-      }
-      const updatedLesson = { ...lesson, learnStep: nextStep };
+      const updatedLesson = { ...lesson, learnStep: lesson.learnStep + 1 };
       updateAndStoreLesson(updatedLesson);
     }
-  }, [letterIds, lesson, setLetterToIssue, updateAndStoreLesson]);
+  }, [letterIds, lesson, updateAndStoreLesson]);
 
   const updateTutoring = useCallback(
     async (stage: string) => {
@@ -354,10 +340,10 @@ function Tutor({ className = '' }: Props): React.ReactElement<Props> {
         setCanIssueDiploma(false);
       }
     },
-    [setCanIssueDiploma, updateLearned, letterToIssue, updateLetter]
+    [
+      setCanIssueDiploma, updateLearned, letterToIssue, updateLetter
+    ]
   );
-
-  
 
   const onResumeTutoring = (lesson: Lesson): void => {
     storeSetting('lesson', lesson.id);
