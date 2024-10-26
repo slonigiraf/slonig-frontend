@@ -166,6 +166,12 @@ class TeachingAlgorithm extends Algorithm {
             </StyledDiv>
         );
 
+        const skip = new AlgorithmStage(
+            'skip',
+            t('Skip'),
+            <></>
+        );
+
 
         // Link stages
         const askStudentToCreateASimilarExercise = new AlgorithmStage(
@@ -237,7 +243,7 @@ class TeachingAlgorithm extends Algorithm {
         // Algo linking
         this.begin = studentUsesSlonigFirstTime ? askStudentToSolveAnExercise : askStudentToCreateASimilarExercise;
         // Fork #0: studentUsesSlonigFirstTime === true
-        askStudentToSolveAnExercise.setNext([hasStudentCompletedExerciseCorrectly]);
+        askStudentToSolveAnExercise.setNext([skip, hasStudentCompletedExerciseCorrectly]);
         hasStudentCompletedExerciseCorrectly.setPrevious(askStudentToSolveAnExercise);
         hasStudentCompletedExerciseCorrectly.setNext([askToCreateAnExerciseAfterCompletionOfExerciseOfTutor, askStudentToRepeatTheSolutionOfExerciseOfTutor]);// Fork #1
         askToCreateAnExerciseAfterCompletionOfExerciseOfTutor.setPrevious(hasStudentCompletedExerciseCorrectly);
@@ -288,7 +294,7 @@ class TeachingAlgorithm extends Algorithm {
         hasStudentRepeatedTheRightSolutionOfExerciseOfTutor.setNext([repeatFromTheBeginning, askStudentToRepeatTheSolutionOfExerciseOfTutor]);
 
         // Fork #0: studentUsesSlonigFirstTime === false
-        askStudentToCreateASimilarExercise.setNext([hasStudentCreatedASimilarTask]);
+        askStudentToCreateASimilarExercise.setNext([skip, hasStudentCreatedASimilarTask]);
         if (!studentUsesSlonigFirstTime) {
             hasStudentCreatedASimilarTask.setPrevious(askStudentToCreateASimilarExercise);
         }

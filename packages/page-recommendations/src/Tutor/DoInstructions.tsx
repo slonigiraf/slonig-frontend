@@ -17,12 +17,17 @@ function DoInstructions({ className = '', algorithm, onResult }: Props): React.R
 
   // Effect to initialize or update the algorithmStage based on the algorithm prop
   useEffect(() => {
+    console.log("New algo: "+algorithm)
     if (algorithm) {
       setAlgorithmStage(algorithm.getBegin());
     } else {
       setAlgorithmStage(null); // Ensure we reset to null if algorithm is not available
     }
   }, [algorithm]);
+
+  useEffect(() => {
+    console.log("New onResult: ")
+  }, [onResult]);
 
   // Handles stage changes, ensuring we always work with the latest state and non-null values
   const handleStageChange = (nextStage: AlgorithmStage | null) => {
@@ -35,6 +40,8 @@ function DoInstructions({ className = '', algorithm, onResult }: Props): React.R
   if (!algorithm) {
     return <Spinner label={t('Loading')} />;
   }
+
+  console.log("DoInstructions")
 
   return (
     <div className={className}>

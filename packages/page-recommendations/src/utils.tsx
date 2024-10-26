@@ -158,6 +158,13 @@ export const updateInsurance = async (insurance: Insurance) => {
     }
 }
 
+export const updateLetter = async (letter: Letter) => {
+    const sameItem = await db.letters.get({ id: letter.id });
+    if (sameItem !== undefined) {
+      await db.letters.update(letter.id, letter);
+    }
+}
+
 export const storeInsurance = async (insurance: Insurance) => {
     const lessonKey = insurance.lesson ?? '';
     const sameInsurance = await db.insurances.get({ lesson: lessonKey, signOverReceipt: insurance.signOverReceipt });

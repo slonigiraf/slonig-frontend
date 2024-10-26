@@ -11,7 +11,7 @@ import type { Skill } from '@slonigiraf/app-slonig-components';
 import { QRWithShareAndCopy, getBaseUrl, getIPFSDataFromContentID, parseJson, useIpfsContext, nameFromKeyringPair, QRAction, useLoginContext, LoginButton, FullWidthContainer, AppContainer, VerticalCenterItemsContainer, CenterQRContainer, KatexSpan, QRField, useInfo } from '@slonigiraf/app-slonig-components';
 import { Letter } from '@slonigiraf/app-recommendations';
 import { getPublicDataToSignByReferee, getPrivateDataToSignByReferee } from '@slonigiraf/helpers';
-import { deleteSetting, getLastUnusedLetterNumber, getLessonId, getSetting, setLastUsedLetterNumber, storeLesson, storeLetter, storePseudonym, storeSetting, updateLesson } from '../utils.js';
+import { deleteSetting, getLastUnusedLetterNumber, getLessonId, getSetting, setLastUsedLetterNumber, storeLesson, storeLetter, storePseudonym, storeSetting, updateLesson, updateLetter } from '../utils.js';
 import Reexamine from './Reexamine.js';
 import { TeachingAlgorithm } from './TeachingAlgorithm.js';
 import DoInstructions from './DoInstructions.js';
@@ -106,7 +106,7 @@ function Tutor({ className = '' }: Props): React.ReactElement<Props> {
 
   const [countOfUrlReloads, setCountOfUrlReloads] = useState(0);
 
-  const lesson = useLiveQuery(
+  const lesson: Lesson | null = useLiveQuery(
     () => lessonId ? db.lessons.get(lessonId) : null,
     [lessonId]
   );
@@ -142,6 +142,11 @@ function Tutor({ className = '' }: Props): React.ReactElement<Props> {
           setSkill(skillJson);
           const studentUsedSlonig = insurances && insurances?.length > 0;
           const name = studentName ? studentName : null;
+          console.log("---------")
+          console.log("name: "+name)
+          console.log("skillJson: "+skillJson.i)
+          console.log("studentUsedSlonig: "+studentUsedSlonig)
+          console.log("---------")
           setTeachingAlgorithm(new TeachingAlgorithm(t, name, skillJson, !studentUsedSlonig));
         }
         catch (e) {
@@ -273,26 +278,45 @@ function Tutor({ className = '' }: Props): React.ReactElement<Props> {
 
   const updateReexamined = (): void => {
     if (insurances && lesson) {
-      if (lesson.reexamineStep + 1 < insurances.length) {
-        setInsuranceToReexamine(insurances[lesson.reexamineStep + 1]);
+      const nextStep = lesson.reexamineStep + 1;
+      if (nextStep < insurances.length) {
+        setInsuranceToReexamine(insurances[nextStep]);
       } else {
         setReexamined(true);
       }
-      const updatedLesson = { ...lesson, reexamineStep: lesson.reexamineStep + 1 };
+      const updatedLesson = { ...lesson, reexamineStep: nextStep };
       updateLesson(updatedLesson);
     } else {
       setReexamined(true);
     }
   };
 
-
-  const updateTutoring = (stage: string): void => {
-    if (stage === 'success') {
-      setCanIssueDiploma(true);
-    } else {
-      setCanIssueDiploma(false);
+  const updateLearned = useCallback((): void => {
+    if (letters && lesson) {
+      const nextStep = lesson.learnStep + 1;
+      if (nextStep < letters.length) {
+        setLetterToIssue(letters[nextStep]);
+      }
+      const updatedLesson = { ...lesson, learnStep: nextStep };
+      updateLesson(updatedLesson);
     }
-  };
+  }, [letters, lesson, setLetterToIssue, updateLesson]);
+
+  const updateTutoring = useCallback(
+    async (stage: string) => {
+      if (stage === 'success') {
+        setCanIssueDiploma(true);
+        updateLearned();
+      } else if (stage === 'skip' && letterToIssue) {
+        const skippedLetter: Letter = { ...letterToIssue, wasSkipped: true };
+        await updateLetter(skippedLetter);
+        updateLearned();
+      } else {
+        setCanIssueDiploma(false);
+      }
+    },
+    [setCanIssueDiploma, updateLearned, letterToIssue, updateLetter]
+  );
 
   const onResumeTutoring = (lesson: Lesson): void => {
     storeSetting('lesson', lesson.id);
@@ -308,6 +332,7 @@ function Tutor({ className = '' }: Props): React.ReactElement<Props> {
           setReexamined(true);
         }
         if (letters !== undefined && lesson.learnStep < letters.length) {
+          setLetterToIssue(letters[lesson.learnStep]);
           setSkillCID(letters[lesson.learnStep].cid);
         }
         if (insurances !== undefined && lesson.reexamineStep < insurances.length) {
@@ -431,7 +456,7 @@ function Tutor({ className = '' }: Props): React.ReactElement<Props> {
       {currentPair && <Reexamine currentPair={currentPair} insurance={insuranceToReexamine} onResult={updateReexamined} key={insuranceToReexamine ? insuranceToReexamine.signOverPrivateData : ''} studentName={studentName} />}
     </div>
     <div style={reexamined ? {} : { display: 'none' }}>
-      <DoInstructions algorithm={teachingAlgorithm} onResult={updateTutoring} key={countOfUrlReloads} />
+      {teachingAlgorithm && <DoInstructions algorithm={teachingAlgorithm} onResult={updateTutoring} />}
     </div>
     {
       canIssueDiploma &&
