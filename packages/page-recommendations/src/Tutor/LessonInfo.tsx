@@ -59,6 +59,8 @@ function LessonInfo({ lesson, isSelected, onToggleSelection, onResumeTutoring, i
   }, [lesson]);
 
   const formattedDate = lesson.created ? new Intl.DateTimeFormat(userLocale).format(lesson.created) : '';
+  const isFinished = (lesson.learnStep + lesson.reexamineStep) ===
+    (lesson.toLearnCount + lesson.toReexamineCount)
 
   return (
     <StyledDiv>
@@ -68,12 +70,12 @@ function LessonInfo({ lesson, isSelected, onToggleSelection, onResumeTutoring, i
           onClick={() => onToggleSelection(lesson)}
         />
       )}
-      
+
       <div>
         <Button
           icon="play"
           onClick={() => onResumeTutoring(lesson)}
-          isDisabled={isSelectionAllowed}
+          isDisabled={isSelectionAllowed || isFinished}
         />
       </div>
       <div style={{ width: '100%' }}>
@@ -82,7 +84,7 @@ function LessonInfo({ lesson, isSelected, onToggleSelection, onResumeTutoring, i
           <div>{loaded ? <KatexSpan content={text} /> : <Spinner noLabel />}</div>
         </div>
       </div>
-      
+
       <div>
         <Progress
           value={lesson.learnStep + lesson.reexamineStep}
