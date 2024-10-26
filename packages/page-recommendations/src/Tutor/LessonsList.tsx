@@ -79,6 +79,8 @@ function LessonsList({ className = '', tutor, onResumeTutoring }: Props): React.
     selectedItems.length > 0 && (
       <Button icon="trash" label={t('Delete')} onClick={toggleDeleteConfirm} />
     );
+  const startDateId = 'lessons:start';
+  const endDateId = 'lessons:end';
 
   return !lessons ? (
     <div></div>
@@ -90,14 +92,15 @@ function LessonsList({ className = '', tutor, onResumeTutoring }: Props): React.
           <DateInput
             date={startDate}
             onDateChange={setStartDate}
-            id="start_date_id"
+            id={startDateId}
+            sessionStorageId={startDateId}
             label={t('Lesson dates')}
           />
           <StyledIcon icon="arrow-right" />
           <DateInput
             date={endDate}
             onDateChange={setEndDate}
-            id="end_date_id"
+            id={endDateId}
           />
         </div>
       </div>

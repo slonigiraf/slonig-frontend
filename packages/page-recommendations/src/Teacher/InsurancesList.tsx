@@ -47,6 +47,8 @@ function InsurancesList({ className = '', teacher, student, studentNameFromUrl }
     },
     [teacher, student, startDate, endDate]
   );
+  const startDateId = 'insurances:start';
+  const endDateId = 'insurances:end';
 
   if (!insurances) return <div></div>;
 
@@ -60,14 +62,15 @@ function InsurancesList({ className = '', teacher, student, studentNameFromUrl }
           <DateInput
             date={startDate}
             onDateChange={setStartDate}
-            id="start_date_id"
+            id={startDateId}
+            sessionStorageId={startDateId}
             label={t('Dates of receipt')}
           />
           <StyledIcon icon="arrow-right" />
           <DateInput
             date={endDate}
             onDateChange={setEndDate}
-            id="end_date_id"
+            id={endDateId}
           />
         </div>
       </div>

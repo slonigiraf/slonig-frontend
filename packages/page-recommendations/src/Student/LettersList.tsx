@@ -84,6 +84,8 @@ function LettersList({ className = '', worker, currentPair }: Props): React.Reac
     );
 
   const isSelectionAllowed = true;
+  const startDateId = 'letters:start';
+  const endDateId = 'letters:end';
 
   return !letters ? (
     <div></div>
@@ -105,14 +107,15 @@ function LettersList({ className = '', worker, currentPair }: Props): React.Reac
           <DateInput
             date={startDate}
             onDateChange={setStartDate}
-            id="start_date_id"
+            id={startDateId}
+            sessionStorageId={startDateId}
             label={t('Dates of receipt')}
           />
           <StyledIcon icon="arrow-right" />
           <DateInput
             date={endDate}
             onDateChange={setEndDate}
-            id="end_date_id"
+            id={endDateId}
           />
         </div>
       </div>
