@@ -94,24 +94,13 @@ function ViewList({ className = '', id, currentPair }: Props): React.ReactElemen
 
   const handleItemsUpdate = useCallback((items: ItemWithCID[]): void => {
     if (items.length > 0) {
-      // Check if all of the selectedItems have valid diplomas
       const allHaveValidDiplomas = items.every(item => item.validDiplomas && item.validDiplomas.length > 0);
-      if (allHaveValidDiplomas) {
-        setIsThereAnythingToLearn(false);
-      } else {
-        // Optionally handle cases where not all items have valid diplomas
-        setIsThereAnythingToLearn(true);
-      }
-      // Check if none of the selectedItems have valid diplomas
-      const noValidDiplomas = items.every(item => !item.validDiplomas || item.validDiplomas.length === 0);
-      if (noValidDiplomas) {
-        setIsThereAnythingToReexamine(false);
-        setReexaminingRequested(false);
-      } else {
-        setIsThereAnythingToReexamine(true);
-      }
+      setIsThereAnythingToLearn(!allHaveValidDiplomas);
+      const someHaveValidDiplomas = items.some(item => item.validDiplomas && item.validDiplomas.length > 0);
+      setIsThereAnythingToReexamine(someHaveValidDiplomas);
     }
-  }, [setIsThereAnythingToReexamine, setReexaminingRequested, setIsThereAnythingToReexamine]);
+  }, [setIsThereAnythingToLearn, setIsThereAnythingToReexamine]);
+  
   const isSelectionAllowed = true;
 
   return list == null ? <></> : (
