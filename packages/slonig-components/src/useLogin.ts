@@ -3,7 +3,7 @@ import { keyring } from '@polkadot/ui-keyring';
 import { getSetting, storeSetting } from '@slonigiraf/app-recommendations';
 import type { KeyringPair } from '@polkadot/keyring/types';
 import type { AccountState } from '@slonigiraf/app-slonig-components';
-import { decryptData, getKey } from '@slonigiraf/app-slonig-components';
+import { decryptData, getKey, SettingKey } from '@slonigiraf/app-slonig-components';
 import { useApi } from '@polkadot/react-hooks';
 
 export function useLogin() {
@@ -33,8 +33,8 @@ export function useLogin() {
   }, [isApiConnected]);
 
   const attemptUnlock = async (pair: KeyringPair) => {
-        const encryptedPasswordB64 = await getSetting('password');
-    const ivB64 = await getSetting('iv');
+        const encryptedPasswordB64 = await getSetting(SettingKey.PASSWORD);
+    const ivB64 = await getSetting(SettingKey.IV);
     if (encryptedPasswordB64 && ivB64) {
             const key = await getKey();
       try {
@@ -58,14 +58,14 @@ export function useLogin() {
   const _onChangeAccount = useCallback(
     async (accountId: string | null) => {
       if (accountId && accountId !== currentPair?.address) {
-        const accountInDB = await getSetting('account');
+        const accountInDB = await getSetting(SettingKey.ACCOUNT);
         try {
           const newPair = keyring.getPair(accountId);
           if (accountId !== accountInDB) {
             newPair.lock();
             setIsLoggedIn(false);
-            storeSetting('account', newPair.address);
-            storeSetting('password', '');
+            storeSetting(SettingKey.ACCOUNT, newPair.address);
+            storeSetting(SettingKey.PASSWORD, '');
           }
           setCurrentPair(newPair);
           if (newPair && newPair.meta) {
@@ -95,7 +95,7 @@ export function useLogin() {
         const newPair = currentPair;
         newPair.lock();
         setCurrentPair(newPair);
-        storeSetting('password', '');
+        storeSetting(SettingKey.PASSWORD, '');
         setIsLoggedIn(false);
         // setLoginIsRequired(true);
       }
@@ -105,7 +105,7 @@ export function useLogin() {
 
   const _onUnlock = useCallback(
     async () => {
-            const accountInDB = await getSetting('account');
+            const accountInDB = await getSetting(SettingKey.ACCOUNT);
       if (accountInDB) {
         const newPair = keyring.getPair(accountInDB);
         setCurrentPair(newPair);

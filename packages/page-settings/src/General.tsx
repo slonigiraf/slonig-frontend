@@ -10,12 +10,13 @@ import { createLanguages, createSs58 } from '@polkadot/apps-config';
 import { ChainInfo } from '@polkadot/apps';
 import { allNetworks } from '@polkadot/networks';
 import { Button, Dropdown, MarkWarning, Toggle } from '@polkadot/react-components';
-import { useApi, useIpfs, useLedger } from '@polkadot/react-hooks';
+import { useApi, useLedger } from '@polkadot/react-hooks';
 import { settings } from '@polkadot/ui-settings';
 
 import { useTranslation } from './translate.js';
 import { createIdenticon, createOption, save, saveAndReload } from './util.js';
 import { getSetting, storeSetting } from '@slonigiraf/app-recommendations';
+import { SettingKey } from '@slonigiraf/app-slonig-components';
 
 interface Props {
   className?: string;
@@ -90,7 +91,7 @@ function General({ className = '' }: Props): React.ReactElement<Props> {
 
   useEffect((): void => {
     const loadDev = async () => {
-      const isDev = await getSetting('developer');
+      const isDev = await getSetting(SettingKey.DEVELOPER);
       setDeveloper(isDev === 'true' ? true : false);
     };
     loadDev();
@@ -129,7 +130,7 @@ function General({ className = '' }: Props): React.ReactElement<Props> {
 
   const saveDeveloper = useCallback(
     async (value: boolean) => {
-      await storeSetting("developer", value ? "true" : "false");
+      await storeSetting(SettingKey.DEVELOPER, value ? "true" : "false");
       setDeveloper(value);
       setChanged(true);
     },

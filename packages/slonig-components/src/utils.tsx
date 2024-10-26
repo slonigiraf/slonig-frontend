@@ -4,6 +4,7 @@ import { getAddressName } from '@polkadot/react-components';
 import type { KeyringPair } from '@polkadot/keyring/types';
 import { getSetting, storeSetting } from '@slonigiraf/app-recommendations';
 import Peer from 'peerjs';
+import { SettingKey } from './index.js';
 
 export const getBaseUrl = () => {
   const { protocol, hostname, port } = window.location;
@@ -192,7 +193,7 @@ export async function decryptData(key: CryptoKey, encrypted: string, iv: string)
 }
 
 export async function getKey() {
-  let keyB64 = await getSetting('encryptionKey');
+  let keyB64 = await getSetting(SettingKey.ENCRYPTION_KEY);
   if (!keyB64) {
     const cryptoKey = await window.crypto.subtle.generateKey(
       { name: "AES-GCM", length: 256 },
@@ -201,7 +202,7 @@ export async function getKey() {
     );
     const exportedKey = await window.crypto.subtle.exportKey("raw", cryptoKey);
     keyB64 = arrayBufferToBase64(exportedKey);
-    await storeSetting('encryptionKey', keyB64);
+    await storeSetting(SettingKey.ENCRYPTION_KEY, keyB64);
     return cryptoKey;
   } else {
     const keyBytes = base64ToArrayBuffer(keyB64);

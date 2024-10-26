@@ -8,7 +8,7 @@ import { styled, Toggle, Button, Input, InputBalance, Icon, Card, Progress } fro
 import { useApi, useBlockTime, useToggle } from '@polkadot/react-hooks';
 import { u8aToHex, hexToU8a, u8aWrapBytes, BN_ONE } from '@polkadot/util';
 import type { Skill } from '@slonigiraf/app-slonig-components';
-import { QRWithShareAndCopy, getBaseUrl, getIPFSDataFromContentID, parseJson, useIpfsContext, nameFromKeyringPair, QRAction, useLoginContext, LoginButton, FullWidthContainer, AppContainer, VerticalCenterItemsContainer, CenterQRContainer, KatexSpan, QRField, useInfo } from '@slonigiraf/app-slonig-components';
+import { QRWithShareAndCopy, getBaseUrl, getIPFSDataFromContentID, parseJson, useIpfsContext, nameFromKeyringPair, QRAction, useLoginContext, LoginButton, FullWidthContainer, VerticalCenterItemsContainer, CenterQRContainer, KatexSpan, QRField, useInfo, SettingKey } from '@slonigiraf/app-slonig-components';
 import { Letter } from '@slonigiraf/app-recommendations';
 import { getPublicDataToSignByReferee, getPrivateDataToSignByReferee } from '@slonigiraf/helpers';
 import { deleteSetting, getLastUnusedLetterNumber, getLessonId, getSetting, setLastUsedLetterNumber, storeLesson, storeLetter, storePseudonym, storeSetting, updateLesson, updateLetter } from '../utils.js';
@@ -56,6 +56,8 @@ function Tutor({ className = '' }: Props): React.ReactElement<Props> {
   const { showInfo } = useInfo();
   const { t } = useTranslation();
   const [lessonId, setLessonId] = useState<string | null>(null);
+  const [resultsForLessonId, setResultsForLessonId] = useState<string | null>(null);
+  
   // Initialize account
   const { currentPair, isLoggedIn } = useLoginContext();
 
@@ -106,7 +108,7 @@ function Tutor({ className = '' }: Props): React.ReactElement<Props> {
   const [lesson, setLesson] = useState<Lesson | null>(null);
   const [letterIds, setLetterIds] = useState<number[]>([]);
   const [insuranceIds, setInsuranceIds] = useState<number[]>([]);
-
+  
   useEffect(() => {
     async function fetchLesson() {
       if (lessonId) {
@@ -185,8 +187,8 @@ function Tutor({ className = '' }: Props): React.ReactElement<Props> {
     fetchStudentName()
   }, [lesson])
 
-  async function fetchLesson() {
-    const lessonId = await getSetting('lesson');
+  async function fetchLessonId() {
+    const lessonId = await getSetting(SettingKey.LESSON);
     if (lessonId !== undefined) {
       setLessonId(lessonId);
     } else {
@@ -195,7 +197,20 @@ function Tutor({ className = '' }: Props): React.ReactElement<Props> {
   }
 
   useEffect(() => {
-    fetchLesson()
+    fetchLessonId();
+  }, [lessonIdFromUrl])
+
+  async function fetchResultsForLessonId() {
+    const lessonId = await getSetting(SettingKey.RESULTS_FOR_LESSON);
+    if (lessonId !== undefined) {
+      setResultsForLessonId(lessonId);
+    } else {
+      setResultsForLessonId(null);
+    }
+  }
+
+  useEffect(() => {
+    fetchResultsForLessonId();
   }, [lessonIdFromUrl])
 
   // Fetch block number (once)
@@ -334,8 +349,14 @@ function Tutor({ className = '' }: Props): React.ReactElement<Props> {
   );
 
   const onResumeTutoring = (lesson: Lesson): void => {
-    storeSetting('lesson', lesson.id);
+    storeSetting(SettingKey.LESSON, lesson.id);
     setLessonId(lesson.id);
+  }
+  const onShowResults = (lesson: Lesson): void => {
+    deleteSetting(SettingKey.LESSON);
+    storeSetting(SettingKey.RESULTS_FOR_LESSON, lesson.id);
+    setResultsForLessonId(lesson.id);
+    setLesson(null);
   }
 
   useEffect(() => {
@@ -370,7 +391,7 @@ function Tutor({ className = '' }: Props): React.ReactElement<Props> {
   }, [lesson, letterIds, insuranceIds, studentName])
 
   const onClose = useCallback(() => {
-    deleteSetting('lesson');
+    deleteSetting(SettingKey.LESSON);
     setLessonId(null);
     setLesson(null);
   }, []);
@@ -415,8 +436,8 @@ function Tutor({ className = '' }: Props): React.ReactElement<Props> {
               ]
             };
             storeLesson(tutorFromUrl, qrJSON, webRTCJSON);
-            storeSetting('lesson', lessonId);
-            fetchLesson();
+            storeSetting(SettingKey.LESSON, lessonId);
+            fetchLessonId();
           }
         } catch (error) {
           console.error("Failed to save url data:", error);

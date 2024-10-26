@@ -9,14 +9,14 @@ import type { ModalProps } from '../types.js';
 
 import React, { useCallback, useMemo, useState } from 'react';
 
-import { AddressRow, Button, InputAddress, InputFile, MarkError, MarkWarning, Modal, Password, styled } from '@polkadot/react-components';
+import { Button, InputAddress, InputFile, MarkError, MarkWarning, Modal, Password, styled } from '@polkadot/react-components';
 import { useApi } from '@polkadot/react-hooks';
 import { keyring } from '@polkadot/ui-keyring';
 import { assert, nextTick, u8aToString } from '@polkadot/util';
 
 import { useTranslation } from '../translate.js';
 import { storeSetting } from '@slonigiraf/app-recommendations';
-import { encryptData, getKey } from '@slonigiraf/app-slonig-components';
+import { encryptData, getKey, SettingKey } from '@slonigiraf/app-slonig-components';
 
 interface Props extends ModalProps {
   className?: string;
@@ -90,9 +90,9 @@ function Import({ className = '', onClose, onStatusChange, toggleImport }: Props
 
           const key = await getKey();
           const { encrypted, iv } = await encryptData(key, password);
-          await storeSetting('account', pair.address);
-          await storeSetting('password', encrypted);
-          await storeSetting('iv', iv);
+          await storeSetting(SettingKey.ACCOUNT, pair.address);
+          await storeSetting(SettingKey.PASSWORD, encrypted);
+          await storeSetting(SettingKey.IV, iv);
           pair.decodePkcs8(password);
           InputAddress.setLastValue('account', pair.address);
         } catch (error) {

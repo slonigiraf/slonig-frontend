@@ -10,7 +10,7 @@ import { nextTick } from '@polkadot/util';
 
 import { useTranslation } from './translate.js';
 import { storeSetting } from '@slonigiraf/app-recommendations';
-import { encryptData, getKey, useLoginContext } from '@slonigiraf/app-slonig-components';
+import { encryptData, getKey, SettingKey, useLoginContext } from '@slonigiraf/app-slonig-components';
 
 interface Props {
   onClose: () => void;
@@ -47,9 +47,9 @@ function SignIn({ onClose, onUnlock, pair, toggleSignIn, toggleImport }: Props):
         // We store password intentionally. Using web accounts is not safe thus this doesn't add much risk.
         const key = await getKey();
         const { encrypted, iv } = await encryptData(key, password);
-        await storeSetting('account', pair.address);
-        await storeSetting('password', encrypted);
-        await storeSetting('iv', iv);
+        await storeSetting(SettingKey.ACCOUNT, pair.address);
+        await storeSetting(SettingKey.PASSWORD, encrypted);
+        await storeSetting(SettingKey.IV, iv);
         onUnlock();
       } catch (error) {
         setIsBusy(false);

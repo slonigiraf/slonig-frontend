@@ -1,6 +1,6 @@
 import React, { useState, useCallback } from 'react';
 import { useToggle } from '@polkadot/react-hooks';
-import { getIPFSDataFromContentID, parseJson, QRField, QRScanner, receiveWebRTCData, useIpfsContext, useLoginContext } from '@slonigiraf/app-slonig-components';
+import { getIPFSDataFromContentID, parseJson, QRField, QRScanner, receiveWebRTCData, SettingKey, useIpfsContext, useLoginContext } from '@slonigiraf/app-slonig-components';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from './translate.js';
 import { Modal, TransferModal } from '@polkadot/react-components';
@@ -98,7 +98,7 @@ function ScanQR({ className = '', label, type }: Props): React.ReactElement<Prop
               break;
             case QRAction.TUTOR_IDENTITY:
               await storePseudonym(qrJSON.p, qrJSON.n);
-              await storeSetting("tutor", qrJSON.p);
+              await storeSetting(SettingKey.TUTOR, qrJSON.p);
               if (type) {
                 navigate(`?tutor=${qrJSON.p}`);
               } else {
@@ -114,7 +114,7 @@ function ScanQR({ className = '', label, type }: Props): React.ReactElement<Prop
               break;
             case QRAction.TEACHER_IDENTITY:
               await storePseudonym(qrJSON.p, qrJSON.n);
-              await storeSetting("teacher", qrJSON.p);
+              await storeSetting(SettingKey.TEACHER, qrJSON.p);
               if (type) {
                 navigate(`?teacher=${qrJSON.p}`);
               } else {

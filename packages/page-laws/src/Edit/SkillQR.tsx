@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useTranslation } from '../translate.js';
-import { CenterQRContainer, LawType, LoginButton, QRAction, QRField, QRWithShareAndCopy, SenderComponent, getBaseUrl, nameFromKeyringPair, qrWidthPx, useLoginContext } from '@slonigiraf/app-slonig-components';
+import { CenterQRContainer, LawType, LoginButton, QRAction, QRField, QRWithShareAndCopy, SenderComponent, SettingKey, getBaseUrl, nameFromKeyringPair, qrWidthPx, useLoginContext } from '@slonigiraf/app-slonig-components';
 import { getSetting, storeSetting } from '@slonigiraf/app-recommendations';
 import { Dropdown, Spinner } from '@polkadot/react-components';
 import { useLiveQuery } from "dexie-react-hooks";
@@ -97,10 +97,10 @@ function SkillQR({ className = '', id, cid, type, selectedItems, isLearningReque
   useEffect(() => {
     const fetchTutorSetting = async () => {
       if (tutorFromQuery) {
-        await storeSetting("tutor", tutorFromQuery);
+        await storeSetting(SettingKey.TUTOR, tutorFromQuery);
         setTutor(tutorFromQuery);
       } else {
-        const tutorFromSettings = await getSetting("tutor");
+        const tutorFromSettings = await getSetting(SettingKey.TUTOR);
         if (tutors && tutorFromSettings) {
           setTutor(tutorFromSettings);
         }
@@ -144,7 +144,7 @@ function SkillQR({ className = '', id, cid, type, selectedItems, isLearningReque
     setTutor(selectedKey);
     if (selectedKey) {
       try {
-        await storeSetting("tutor", selectedKey);
+        await storeSetting(SettingKey.TUTOR, selectedKey);
       } catch (error) {
         console.error('Error saving tutor selection:', error);
       }

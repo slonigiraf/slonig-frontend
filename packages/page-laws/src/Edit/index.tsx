@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import BN from 'bn.js';
-import { getIPFSContentIDAndPinIt, digestFromCIDv1, getCIDFromBytes, getIPFSDataFromContentID, loadFromSessionStorage, saveToSessionStorage, KatexSpan } from '@slonigiraf/app-slonig-components';
+import { getIPFSContentIDAndPinIt, digestFromCIDv1, getCIDFromBytes, getIPFSDataFromContentID, loadFromSessionStorage, saveToSessionStorage, KatexSpan, SettingKey } from '@slonigiraf/app-slonig-components';
 import { BN_ZERO } from '@polkadot/util';
 import React, { useCallback, useEffect, useState } from 'react';
 import { Button, InputBalance } from '@polkadot/react-components';
@@ -88,7 +88,7 @@ function Edit({ className = '' }: Props): React.ReactElement<Props> {
   useEffect(() => {
     const updateSetting = async () => {
       if (tutor) {
-        await storeSetting("tutor", tutor);
+        await storeSetting(SettingKey.TUTOR, tutor);
         if (tutorName) {
           try {
             if (typeof tutor === 'string' && typeof tutorName === 'string') {
@@ -98,11 +98,11 @@ function Edit({ className = '' }: Props): React.ReactElement<Props> {
             console.error("Failed to save tutor pseudonym:", error);
           }
         }
-        const savedId = await getSetting("knowledge");
+        const savedId = await getSetting(SettingKey.KNOWLEDGE);
         setTextHexId(savedId);
       } else if (idFromQuery) {
         if (idFromQuery !== defaultTextHexId) {
-          await storeSetting("knowledge", idFromQuery);
+          await storeSetting(SettingKey.KNOWLEDGE, idFromQuery);
         }
         setTextHexId(idFromQuery);
       }

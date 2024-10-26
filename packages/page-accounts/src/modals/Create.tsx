@@ -18,7 +18,7 @@ import { tryCreateAccount } from '../util.js';
 import CreateAccountInputs from './CreateAccountInputs.js';
 import { ETH_DEFAULT_PATH } from './CreateEthDerivationPath.js';
 import { storeSetting } from '@slonigiraf/app-recommendations';
-import { encryptData, getKey } from '@slonigiraf/app-slonig-components';
+import { encryptData, getKey, SettingKey } from '@slonigiraf/app-slonig-components';
 
 const DEFAULT_PAIR_TYPE = 'sr25519';
 
@@ -177,9 +177,9 @@ function Create({ className = '', onClose, onStatusChange, seed: propsSeed, type
           // We store password intentionally. Using web accounts is not safe thus this doesn't add much risk.
           const key = await getKey();
           const { encrypted, iv } = await encryptData(key, password);
-          await storeSetting('password', encrypted);
-          await storeSetting('iv', iv);
-          await storeSetting('account', status.account?.toString());
+          await storeSetting(SettingKey.PASSWORD, encrypted);
+          await storeSetting(SettingKey.IV, iv);
+          await storeSetting(SettingKey.ACCOUNT, status.account?.toString());
         }
         onStatusChange(status);
         setIsBusy(false);

@@ -53,6 +53,19 @@ export interface SignerState {
   signer: Signer | null;
 }
 
+export const SettingKey = {
+  ACCOUNT: 'account',
+  ENCRYPTION_KEY: 'encryptionKey',
+  IV: 'iv',
+  KNOWLEDGE: 'knowledge',
+  PASSWORD: 'password',
+  TUTOR: 'tutor',
+  LESSON: 'lesson',
+  RESULTS_FOR_LESSON: 'resultsForLesson',
+  DEVELOPER: 'developer',
+  TEACHER: 'teacher',
+};
+
 export const QRAction = {
   NAVIGATION: 0,
   TRANSFER: 1,
@@ -134,7 +147,7 @@ export function useDeveloperSetting(): boolean {
 
   useEffect((): void => {
     const loadDev = async () => {
-      const isDev = await getSetting('developer');
+      const isDev = await getSetting(SettingKey.DEVELOPER);
       setDeveloper(isDev === 'true' ? true : false);
     };
     loadDev();

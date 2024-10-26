@@ -11,7 +11,7 @@ import { u8aToHex } from '@polkadot/util';
 import { decodeAddress, encodeAddress } from '@polkadot/keyring';
 import { isHex } from '@polkadot/util';
 import { Lesson } from "./db/Lesson.js";
-import { QRField } from "@slonigiraf/app-slonig-components";
+import { QRField, SettingKey } from "@slonigiraf/app-slonig-components";
 import { blake2AsHex } from '@polkadot/util-crypto';
 
 export const syncDB = async (data: string, password: string) => {
@@ -140,7 +140,7 @@ export const storeLesson = async (tutorPublicKeyHex: string, qrJSON: any, webRTC
             };
             return await storeInsurance(insurance);
         }));
-        await storeSetting('lesson', qrJSON[QRField.ID]);
+        await storeSetting(SettingKey.LESSON, qrJSON[QRField.ID]);
     }
 }
 
