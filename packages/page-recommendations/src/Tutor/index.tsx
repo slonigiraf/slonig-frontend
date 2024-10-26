@@ -115,10 +115,20 @@ function Tutor({ className = '' }: Props): React.ReactElement<Props> {
     () => lesson ? db.insurances.where({ lesson: lesson.id }).sortBy('id') : [],
     [lesson]
   );
-  const letters = useLiveQuery(
-    () => lesson ? db.letters.where({ lesson: lesson.id }).sortBy('id') : [],
-    [lesson]
-  );
+  const [letterIds, setLetterIds] = useState<number[]>([]);
+
+  useEffect(() => {
+    if (lessonId) {
+      const fetchLetterIds = async () => {
+        const fetchedLetters = await db.letters.where({ lesson: lessonId }).sortBy('id');
+        if(fetchedLetters){
+          const ids = fetchedLetters.map(letter => letter.id).filter(id => id !== undefined);
+          setLetterIds(ids);
+        }
+      };
+      fetchLetterIds();
+    }
+  }, [lessonId]);
 
   // Reinitialize issuing stage when url parameters change
   useEffect(() => {
@@ -143,9 +153,9 @@ function Tutor({ className = '' }: Props): React.ReactElement<Props> {
           const studentUsedSlonig = insurances && insurances?.length > 0;
           const name = studentName ? studentName : null;
           console.log("---------")
-          console.log("name: "+name)
-          console.log("skillJson: "+skillJson.i)
-          console.log("studentUsedSlonig: "+studentUsedSlonig)
+          console.log("name: " + name)
+          console.log("skillJson: " + skillJson.i)
+          console.log("studentUsedSlonig: " + studentUsedSlonig)
           console.log("---------")
           setTeachingAlgorithm(new TeachingAlgorithm(t, name, skillJson, !studentUsedSlonig));
         }
@@ -291,16 +301,20 @@ function Tutor({ className = '' }: Props): React.ReactElement<Props> {
     }
   };
 
-  const updateLearned = useCallback((): void => {
-    if (letters && lesson) {
+  const updateLearned = useCallback(async (): Promise<void> => {
+    if (letterIds.length > 0 && lesson) {
       const nextStep = lesson.learnStep + 1;
-      if (nextStep < letters.length) {
-        setLetterToIssue(letters[nextStep]);
+      if (nextStep < letterIds.length) {
+        const nextLetterId = letterIds[nextStep];
+        const nextLetter: Letter | undefined = await db.letters.get(nextLetterId);
+        if(nextLetter){
+          setLetterToIssue(nextLetter);
+        }
       }
       const updatedLesson = { ...lesson, learnStep: nextStep };
       updateLesson(updatedLesson);
     }
-  }, [letters, lesson, setLetterToIssue, updateLesson]);
+  }, [letterIds, lesson, setLetterToIssue, updateLesson]);
 
   const updateTutoring = useCallback(
     async (stage: string) => {
@@ -331,9 +345,13 @@ function Tutor({ className = '' }: Props): React.ReactElement<Props> {
         } else {
           setReexamined(true);
         }
-        if (letters !== undefined && lesson.learnStep < letters.length) {
-          setLetterToIssue(letters[lesson.learnStep]);
-          setSkillCID(letters[lesson.learnStep].cid);
+        if (lesson.learnStep < letterIds.length) {
+          const nextLetterId = letterIds[lesson.learnStep];
+          const nextLetter: Letter | undefined = await db.letters.get(nextLetterId);
+          if (nextLetter) {
+            setLetterToIssue(nextLetter);
+            setSkillCID(nextLetter.cid);
+          }
         }
         if (insurances !== undefined && lesson.reexamineStep < insurances.length) {
           setInsuranceToReexamine(insurances[lesson.reexamineStep]);
@@ -344,7 +362,7 @@ function Tutor({ className = '' }: Props): React.ReactElement<Props> {
       }
     }
     onLessonUpdate()
-  }, [lesson, letters, insurances, studentName])
+  }, [lesson, letterIds, insurances, studentName])
 
   const onClose = useCallback(() => {
     deleteSetting('lesson');
