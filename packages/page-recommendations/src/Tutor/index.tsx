@@ -96,7 +96,7 @@ function Tutor({ className = '' }: Props): React.ReactElement<Props> {
   const [diplomaText, setDiplomaText] = useState('');
   const [diplomaAddUrl, setDiplomaAddUrl] = useState('');
   //   student name
-  const [studentName, setStudentName] = useState<string | undefined>(undefined);
+  const [studentName, setStudentName] = useState<string | null>(null);
   //   show stake and days or hide
   const [visibleDiplomaDetails, toggleVisibleDiplomaDetails, setVisibleDiplomaDetails] = useToggle(false);
   //   issued diploma
@@ -153,15 +153,15 @@ function Tutor({ className = '' }: Props): React.ReactElement<Props> {
   // Fetch student name
   useEffect(() => {
     async function fetchStudentName() {
-      if (studentIdentity) {
-        const pseudonym = await getPseudonym(studentIdentity);
-        if (name) {
+      if (lesson?.student) {
+        const pseudonym = await getPseudonym(lesson.student);
+        if (pseudonym) {
           setStudentName(pseudonym);
         }
       }
     }
     fetchStudentName()
-  }, [studentIdentity])
+  }, [lesson])
 
   async function fetchLesson() {
     const lessonId = await getSetting('lesson');
@@ -419,7 +419,7 @@ function Tutor({ className = '' }: Props): React.ReactElement<Props> {
 
   const reexamAndDiplomaIssuing = <>
     <div style={!reexamined ? {} : { display: 'none' }}>
-      {currentPair && <Reexamine currentPair={currentPair} lesson={lesson} insurance={insuranceToReexamine} onResult={updateReexamined} key={insuranceToReexamine ? insuranceToReexamine.signOverPrivateData : ''} studentName={studentNameFromUrl} onClose={onClose} />}
+      {currentPair && <Reexamine currentPair={currentPair} lesson={lesson} insurance={insuranceToReexamine} onResult={updateReexamined} key={insuranceToReexamine ? insuranceToReexamine.signOverPrivateData : ''} studentName={studentName} onClose={onClose} />}
     </div>
     <div style={reexamined ? {} : { display: 'none' }}>
       <DoInstructions algorithm={teachingAlgorithm} lesson={lesson} onResult={updateTutoring} key={countOfUrlReloads} onClose={onClose} />

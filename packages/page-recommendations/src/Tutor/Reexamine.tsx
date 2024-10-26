@@ -65,7 +65,7 @@ function Reexamine({ className = '', currentPair, lesson, insurance, onResult, s
     return () => {
       isComponentMounted = false;
     };
-  }, [ipfs, insurance]);
+  }, [ipfs, insurance, studentName]);
 
   const handleStageChange = async (nextStage: AlgorithmStage | null) => {
     if (nextStage !== null) {
