@@ -57,7 +57,7 @@ function Tutor({ className = '' }: Props): React.ReactElement<Props> {
   const { t } = useTranslation();
   const [lessonId, setLessonId] = useState<string | null>(null);
   const [resultsForLessonId, setResultsForLessonId] = useState<string | null>(null);
-  
+
   // Initialize account
   const { currentPair, isLoggedIn } = useLoginContext();
 
@@ -108,7 +108,7 @@ function Tutor({ className = '' }: Props): React.ReactElement<Props> {
   const [lesson, setLesson] = useState<Lesson | null>(null);
   const [letterIds, setLetterIds] = useState<number[]>([]);
   const [insuranceIds, setInsuranceIds] = useState<number[]>([]);
-  
+
   useEffect(() => {
     async function fetchLesson() {
       if (lessonId) {
@@ -289,7 +289,8 @@ function Tutor({ className = '' }: Props): React.ReactElement<Props> {
       const refereeSignOverPrivateData = u8aToHex(currentPair.sign(u8aWrapBytes(privateData)));
       const refereeSignOverReceipt = u8aToHex(currentPair.sign(u8aWrapBytes(receipt)));
 
-      const letter: Letter = {...letterToIssue,
+      const letter: Letter = {
+        ...letterToIssue,
         created: now,
         lastReexamined: now,
         reexamCount: 0,
@@ -331,7 +332,7 @@ function Tutor({ className = '' }: Props): React.ReactElement<Props> {
 
   const updateTutoring = useCallback(
     async (stage: string) => {
-      if(letterToIssue){
+      if (letterToIssue) {
         if (stage === 'success') {
           const preparedLetter: Letter = { ...letterToIssue, valid: true };
           await updateLetter(preparedLetter);
@@ -394,6 +395,8 @@ function Tutor({ className = '' }: Props): React.ReactElement<Props> {
     deleteSetting(SettingKey.LESSON);
     setLessonId(null);
     setLesson(null);
+    deleteSetting(SettingKey.RESULTS_FOR_LESSON);
+    setResultsForLessonId(null);
   }, []);
 
   const askForMoney = useCallback((lesson: Lesson) => {
@@ -455,6 +458,9 @@ function Tutor({ className = '' }: Props): React.ReactElement<Props> {
 
   const diplomaView = <FullWidthContainer>
     <VerticalCenterItemsContainer>
+      <StyledCloseButton onClick={onClose}
+        icon='close'
+      />
       <DiplomaDiv>
         <Card>
           <CenterQRContainer>
@@ -568,7 +574,7 @@ function Tutor({ className = '' }: Props): React.ReactElement<Props> {
     <div className={`toolbox--Tutor ${className}`}>
       {
         isLoggedIn && (
-          (!lesson) ?
+          (lesson == null && resultsForLessonId == null) ?
             <>
               <CenterQRContainer>
                 <h2>{t('Show to a student to begin tutoring')}</h2>
@@ -579,10 +585,10 @@ function Tutor({ className = '' }: Props): React.ReactElement<Props> {
                   urlShare={url}
                   dataCopy={url} />
               </CenterQRContainer>
-              <LessonsList tutor={publicKeyHex} onResumeTutoring={onResumeTutoring} />
+              <LessonsList tutor={publicKeyHex} onResumeTutoring={onResumeTutoring} onShowResults={onShowResults} />
             </>
             :
-            <> {diploma ? diplomaView : reexamAndDiplomaIssuing}</>
+            <> {resultsForLessonId != null ? diplomaView : reexamAndDiplomaIssuing}</>
         )
       }
       <LoginButton label={t('Log in')} />

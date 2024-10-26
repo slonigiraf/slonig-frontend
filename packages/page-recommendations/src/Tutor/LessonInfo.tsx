@@ -14,10 +14,11 @@ interface Props {
   isSelected: boolean;
   onToggleSelection: (lesson: Lesson) => void;
   onResumeTutoring: (lesson: Lesson) => void;
+  onShowResults: (lesson: Lesson) => void;
   isSelectionAllowed: boolean;
 }
 
-function LessonInfo({ lesson, isSelected, onToggleSelection, onResumeTutoring, isSelectionAllowed }: Props): React.ReactElement<Props> {
+function LessonInfo({ lesson, isSelected, onToggleSelection, onResumeTutoring, onShowResults, isSelectionAllowed }: Props): React.ReactElement<Props> {
   const { ipfs } = useIpfsContext();
   const { t } = useTranslation();
   const [text, setText] = useState(lesson.cid);
@@ -94,7 +95,7 @@ function LessonInfo({ lesson, isSelected, onToggleSelection, onResumeTutoring, i
       <div>
         <Button
           icon="dollar"
-          onClick={() => onResumeTutoring(lesson)}
+          onClick={() => onShowResults(lesson)}
           isDisabled={isSelectionAllowed}
         />
       </div>

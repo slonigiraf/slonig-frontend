@@ -14,9 +14,10 @@ interface Props {
   className?: string;
   tutor: string;
   onResumeTutoring: (lesson: Lesson) => void;
+  onShowResults: (lesson: Lesson) => void;
 }
 
-function LessonsList({ className = '', tutor, onResumeTutoring }: Props): React.ReactElement<Props> {
+function LessonsList({ className = '', tutor, onResumeTutoring, onShowResults }: Props): React.ReactElement<Props> {
   const MAX_SELECTED = 93;
   const { t } = useTranslation();
   const { showInfo } = useInfo();
@@ -117,6 +118,7 @@ function LessonsList({ className = '', tutor, onResumeTutoring }: Props): React.
             isSelected={isSelected}
             onToggleSelection={onToggleSelection}
             onResumeTutoring={onResumeTutoring}
+            onShowResults={onShowResults}
             isSelectionAllowed={isSelectionAllowed}
           />
         )}
