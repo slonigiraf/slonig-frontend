@@ -104,15 +104,19 @@ function Tutor({ className = '' }: Props): React.ReactElement<Props> {
   //   issued diploma
   const [diploma, setDiploma] = useState<Letter | null>(null);
 
-  const [countOfUrlReloads, setCountOfUrlReloads] = useState(0);
-
-  const lesson: Lesson | null = useLiveQuery(
-    () => lessonId ? db.lessons.get(lessonId) : null,
-    [lessonId]
-  );
-
+  const [lesson, setLesson] = useState<Lesson | null>(null);
   const [letterIds, setLetterIds] = useState<number[]>([]);
   const [insuranceIds, setInsuranceIds] = useState<number[]>([]);
+
+  useEffect(() => {
+    async function fetchLesson() {
+      if (lessonId) {
+        const fetchedLesson = await db.lessons.get(lessonId);
+        setLesson(fetchedLesson || null); // Set lesson or null if not found
+      }
+    }
+    fetchLesson();
+  }, [lessonId]);
 
   useEffect(() => {
     if (lessonId) {
@@ -147,10 +151,7 @@ function Tutor({ className = '' }: Props): React.ReactElement<Props> {
     setReexamined(!hasAnySkillToReexamine);
     setCanIssueDiploma(false);
     setDiploma(null);
-    setCountOfUrlReloads(prevKey => prevKey + 1);
   }, [skillCID, studentIdentity, letterToIssue, insuranceToReexamine]);
-
-
 
   // Fetch skill data and set teaching algorithm
   useEffect(() => {
@@ -221,6 +222,16 @@ function Tutor({ className = '' }: Props): React.ReactElement<Props> {
     }
     fetchBlockNumber();
   }, [api, isApiReady]);
+
+  const updateAndStoreLesson = useCallback(
+    async (updatedLesson: Lesson | null) => {
+      if (updatedLesson) {
+        await updateLesson(updatedLesson);
+      }
+      setLesson(updatedLesson);
+    },
+    [setLesson, updateLesson]
+  );
 
   const createDiplomaQR = useCallback((letter: Letter) => {
     const letterArray = letterAsArray(letter);
@@ -309,7 +320,7 @@ function Tutor({ className = '' }: Props): React.ReactElement<Props> {
         setReexamined(true);
       }
       const updatedLesson = { ...lesson, reexamineStep: nextStep };
-      updateLesson(updatedLesson);
+      updateAndStoreLesson(updatedLesson);
     } else {
       setReexamined(true);
     }
@@ -326,9 +337,9 @@ function Tutor({ className = '' }: Props): React.ReactElement<Props> {
         }
       }
       const updatedLesson = { ...lesson, learnStep: nextStep };
-      updateLesson(updatedLesson);
+      updateAndStoreLesson(updatedLesson);
     }
-  }, [letterIds, lesson, setLetterToIssue, updateLesson]);
+  }, [letterIds, lesson, setLetterToIssue, updateAndStoreLesson]);
 
   const updateTutoring = useCallback(
     async (stage: string) => {
@@ -345,6 +356,8 @@ function Tutor({ className = '' }: Props): React.ReactElement<Props> {
     },
     [setCanIssueDiploma, updateLearned, letterToIssue, updateLetter]
   );
+
+  
 
   const onResumeTutoring = (lesson: Lesson): void => {
     storeSetting('lesson', lesson.id);

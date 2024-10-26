@@ -132,7 +132,7 @@ function LettersList({ className = '', worker, currentPair }: Props): React.Reac
         maxSelectableItems={MAX_SELECTED}
         additionalControls={deleteSelectedButton}
         keyExtractor={(letter) => letter.signOverReceipt }
-        key={worker}
+        uniqueKey={worker}
       />
       {isDeleteConfirmOpen && (
         <StyledModal

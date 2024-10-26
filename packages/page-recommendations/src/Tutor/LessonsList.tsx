@@ -124,7 +124,7 @@ function LessonsList({ className = '', tutor, onResumeTutoring }: Props): React.
         maxSelectableItems={MAX_SELECTED}
         additionalControls={deleteSelectedButton}
         keyExtractor={(lesson) => lesson.id}
-        key={tutor}
+        uniqueKey={tutor}
         isSelectionAllowed={isSelectionAllowed}
       />
       {isDeleteConfirmOpen && (

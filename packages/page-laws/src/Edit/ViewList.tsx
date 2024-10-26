@@ -151,7 +151,7 @@ function ViewList({ className = '', id, currentPair }: Props): React.ReactElemen
           onItemsUpdate={handleItemsUpdate}
           isSelectionAllowed={isModuleQRVisible}
           keyExtractor={(item) => item.id}
-          key={id}
+          uniqueKey={id}
         />
       )}
 

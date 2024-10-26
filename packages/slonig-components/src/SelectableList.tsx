@@ -18,7 +18,7 @@ interface SelectableListProps<T> {
   className?: string;
   additionalControls?: React.ReactNode;
   keyExtractor: (item: T) => string;
-  key: string | number;
+  uniqueKey: string | number;
   header?: ([React.ReactNode?, string?, number?, (() => void)?] | false | null | undefined)[];
 }
 
@@ -32,7 +32,7 @@ function SelectableList<T>({
   className = '',
   additionalControls,
   keyExtractor,
-  key,
+  uniqueKey,
   header,
 }: SelectableListProps<T>): React.ReactElement {
   const { t } = useTranslation();
@@ -105,7 +105,7 @@ function SelectableList<T>({
   }, []);
 
   return (
-    <div className={className} key={key}>
+    <div className={className} key={uniqueKey}>
       {isSelectionAllowed && (
         <div className="ui--row">
           {selectedItems.length === 0 ? (
