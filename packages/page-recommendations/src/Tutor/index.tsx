@@ -384,6 +384,7 @@ function Tutor({ className = '' }: Props): React.ReactElement<Props> {
   const onClose = useCallback(() => {
     deleteSetting('lesson');
     setLessonId(null);
+    setLesson(null);
   }, []);
 
   const askForMoney = useCallback((lesson: Lesson) => {
