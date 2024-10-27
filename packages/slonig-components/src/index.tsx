@@ -64,6 +64,9 @@ export const SettingKey = {
   RESULTS_FOR_LESSON: 'resultsForLesson',
   DEVELOPER: 'developer',
   TEACHER: 'teacher',
+  DIPLOMA_PRICE: 'diploma_price',
+  DIPLOMA_WARRANTY: 'diploma_warranty',
+  DIPLOMA_VALIDITY: 'diploma_validity',
 };
 
 export const QRAction = {

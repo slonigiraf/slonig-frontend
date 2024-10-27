@@ -62,8 +62,11 @@ export const setLastUsedLetterNumber = async (publicKey: string, lastUsed: numbe
 
 export const storeLetter = async (letter: Letter) => {
     const lessonKey = letter.lesson ?? '';
-    const sameLatter = await db.letters.get({ lesson: lessonKey, signOverReceipt: letter.signOverReceipt });
-    if (sameLatter === undefined) {
+    const sameLetter = await db.letters
+        .where('[lesson+signOverReceipt]')
+        .equals([lessonKey, letter.signOverReceipt])
+        .first();
+    if (sameLetter === undefined) {
         await db.letters.add(letter);
     }
 }
@@ -85,12 +88,26 @@ export const getLessonId = (ids: any[]): string => {
 
 export const storeLesson = async (tutorPublicKeyHex: string, qrJSON: any, webRTCJSON: any) => {
     const now = new Date();
+    const default_warranty = "105000000000000";//105 Slon
+    const default_validity = 730;//Days valid
+    const default_diploma_price = "80000000000000";//80 Slon
+
+    const stored_warranty = await getSetting(SettingKey.DIPLOMA_WARRANTY);
+    const stored_validity = await getSetting(SettingKey.DIPLOMA_VALIDITY);
+    const stored_diploma_price = await getSetting(SettingKey.DIPLOMA_PRICE);
+
+    const warranty = stored_warranty? stored_warranty : default_warranty;
+    const validity: number = stored_validity? parseInt(stored_validity, 10) : default_validity;
+    const diploma_price = stored_diploma_price? stored_diploma_price : default_diploma_price;
+
     const lesson: Lesson = {
         id: qrJSON[QRField.ID], created: now, cid: webRTCJSON.cid,
         tutor: tutorPublicKeyHex, student: qrJSON[QRField.PERSON_IDENTITY],
         toLearnCount: webRTCJSON.learn.length, learnStep: 0,
-        toReexamineCount: webRTCJSON.reexamine.length, reexamineStep: 0
+        toReexamineCount: webRTCJSON.reexamine.length, reexamineStep: 0,
+        dPrice: diploma_price, dWarranty: warranty, dValidity: validity,
     };
+
     const sameLesson = await db.lessons.get({ id: lesson.id });
     if (sameLesson === undefined) {
         await db.lessons.add(lesson);
@@ -167,7 +184,10 @@ export const updateLetter = async (letter: Letter) => {
 
 export const storeInsurance = async (insurance: Insurance) => {
     const lessonKey = insurance.lesson ?? '';
-    const sameInsurance = await db.insurances.get({ lesson: lessonKey, signOverReceipt: insurance.signOverReceipt });
+    const sameInsurance = await db.insurances
+        .where('[lesson+signOverReceipt]')
+        .equals([lessonKey, insurance.signOverReceipt])
+        .first();
     if (sameInsurance === undefined) {
         await db.insurances.add(insurance);
     }

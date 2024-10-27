@@ -8,4 +8,7 @@ export interface Lesson {
   learnStep: number;
   toReexamineCount: number;
   reexamineStep: number;
+  dPrice: string;
+  dWarranty: string;
+  dValidity: number;
 }
