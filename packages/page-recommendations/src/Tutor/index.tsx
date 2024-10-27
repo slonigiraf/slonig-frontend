@@ -48,7 +48,6 @@ function letterAsArray(letter: Letter) {
   return result;
 }
 
-// This version was tested to create valid letters. Results QR is not implemented.
 function Tutor({ className = '' }: Props): React.ReactElement<Props> {
   // Initialize api, ipfs and translation
   const { ipfs, isIpfsReady } = useIpfsContext();
@@ -93,6 +92,7 @@ function Tutor({ className = '' }: Props): React.ReactElement<Props> {
   const [letterIds, setLetterIds] = useState<number[]>([]);
   const [insuranceIds, setInsuranceIds] = useState<number[]>([]);
   const [areResultsShown, setResultsShown] = useState(false);
+  const [daysInputValue, setDaysInputValue] = useState<string>(lesson ? lesson.dValidity.toString() : "0"); //To allow empty strings
 
   // Helper functions
   const updateAndStoreLesson = useCallback(
@@ -200,6 +200,16 @@ function Tutor({ className = '' }: Props): React.ReactElement<Props> {
     fetchStudentName()
   }, [lesson])
 
+  // Fetch days valid
+  useEffect(() => {
+    async function fetchStudentName() {
+      if (lesson && lesson.dValidity.toString() !== daysInputValue) {
+        setDaysInputValue(lesson.dValidity.toString());
+      }
+    }
+    fetchStudentName()
+  }, [lesson])
+
   // Update lesson properties in case edited
   const setAmount = useCallback((value?: BN | undefined): void => {
     if (lesson && value && lesson.dWarranty !== value.toString()) {
@@ -219,22 +229,19 @@ function Tutor({ className = '' }: Props): React.ReactElement<Props> {
 
   const setDaysValid = useCallback(
     (value: string) => {
-      console.log("value: " + value);
-      const days = parseInt(value, 10); // Using base 10 for the conversion
-      let result = 0;
-      if (!isNaN(days)) {
-        const secondsToAdd = days * 86400; // 86400 - seconds in a day
-        if (Number.isSafeInteger(secondsToAdd)) {
-          result = days;
-        }
-      }
-      if (lesson && result > 0 && lesson.dValidity !== result) {
-        const updatedLesson = { ...lesson, dValidity: result };
+      setDaysInputValue(value); // Update the input field's temporary value
+  
+      // If the input is empty, don’t store it in lesson; only store valid numbers
+      if (value === "") return;
+  
+      const days = parseInt(value, 10);
+      if (!isNaN(days) && days >= 0 && lesson) {
+        const updatedLesson: Lesson = { ...lesson, dValidity: days };
         updateAndStoreLesson(updatedLesson);
-        storeSetting(SettingKey.DIPLOMA_VALIDITY, value.toString());
+        storeSetting(SettingKey.DIPLOMA_VALIDITY, days.toString());
       }
     },
-    [lesson]
+    [lesson, updateAndStoreLesson]
   );
 
   // Sign diploma
@@ -503,6 +510,7 @@ function Tutor({ className = '' }: Props): React.ReactElement<Props> {
         label={t('stake for each diploma')}
         onChange={setAmount}
         defaultValue={lesson ? new BN(lesson.dWarranty) : BN_ZERO}
+        isError={false}
       />
     </div>
     <div className='ui--row' style={visibleDiplomaDetails ? {} : { display: 'none' }}>
@@ -510,7 +518,9 @@ function Tutor({ className = '' }: Props): React.ReactElement<Props> {
         className='full'
         label={t('days valid')}
         onChange={setDaysValid}
-        value={lesson ? lesson.dValidity.toString() : "0"}
+        value={daysInputValue}
+        placeholder={t('Positive number')}
+        isError={!daysInputValue}
       />
     </div>
   </FullWidthContainer>;
