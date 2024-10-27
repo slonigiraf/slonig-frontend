@@ -99,7 +99,7 @@ function Edit({ className = '' }: Props): React.ReactElement<Props> {
           }
         }
         const savedId = await getSetting(SettingKey.KNOWLEDGE);
-        setTextHexId(savedId);
+        setTextHexId(savedId? savedId : defaultTextHexId);
       } else if (idFromQuery) {
         if (idFromQuery !== defaultTextHexId) {
           await storeSetting(SettingKey.KNOWLEDGE, idFromQuery);

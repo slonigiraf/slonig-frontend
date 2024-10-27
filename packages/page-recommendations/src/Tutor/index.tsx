@@ -145,15 +145,6 @@ function Tutor({ className = '' }: Props): React.ReactElement<Props> {
     }
   }, [lessonId]);
 
-  // Reinitialize issuing stage when url parameters change
-  useEffect(() => {
-    setVisibleDiplomaDetails(false);
-    const hasAnySkillToReexamine = (insuranceToReexamine !== null);
-    setReexamined(!hasAnySkillToReexamine);
-    setCanIssueDiploma(false);
-    setDiploma(null);
-  }, [skillCID, studentIdentity, letterToIssue, insuranceToReexamine]);
-
   // Fetch skill data and set teaching algorithm
   useEffect(() => {
     async function fetchData() {
@@ -313,15 +304,12 @@ function Tutor({ className = '' }: Props): React.ReactElement<Props> {
   const updateReexamined = useCallback(async () => {
     if (lesson) {
       const nextStep = lesson.reexamineStep + 1;
-      if (nextStep >= insuranceIds.length) {
-        setReexamined(true);
+      if (nextStep <= lesson.toReexamineCount) {
+        const updatedLesson = { ...lesson, reexamineStep: nextStep };
+        updateAndStoreLesson(updatedLesson);
       }
-      const updatedLesson = { ...lesson, reexamineStep: nextStep };
-      updateAndStoreLesson(updatedLesson);
-    } else {
-      setReexamined(true);
     }
-  }, [lesson, insuranceIds, updateAndStoreLesson]);
+  }, [lesson, updateAndStoreLesson]);
 
   const updateLearned = useCallback(async (): Promise<void> => {
     if (letterIds.length > 0 && lesson) {
@@ -494,6 +482,8 @@ function Tutor({ className = '' }: Props): React.ReactElement<Props> {
     </VerticalCenterItemsContainer>
   </FullWidthContainer>;
 
+  const lessonReactKey = lesson? (lesson.learnStep + lesson.reexamineStep) : 'loading';
+
   const reexamAndDiplomaIssuing = <>
     {lesson && <StyledProgress
       value={lesson.learnStep + lesson.reexamineStep}
@@ -503,10 +493,10 @@ function Tutor({ className = '' }: Props): React.ReactElement<Props> {
       icon='close'
     />
     <div style={!reexamined ? {} : { display: 'none' }}>
-      {currentPair && <Reexamine currentPair={currentPair} insurance={insuranceToReexamine} onResult={updateReexamined} key={insuranceToReexamine ? insuranceToReexamine.signOverPrivateData : ''} studentName={studentName} />}
+      {currentPair && <Reexamine currentPair={currentPair} insurance={insuranceToReexamine} onResult={updateReexamined} studentName={studentName}  key={'reexaminine'+lessonReactKey}/>}
     </div>
     <div style={reexamined ? {} : { display: 'none' }}>
-      {teachingAlgorithm && <DoInstructions algorithm={teachingAlgorithm} onResult={updateTutoring} />}
+      {teachingAlgorithm && <DoInstructions algorithm={teachingAlgorithm} onResult={updateTutoring} key={'learn'+lessonReactKey}/>}
     </div>
     {
       canIssueDiploma &&
