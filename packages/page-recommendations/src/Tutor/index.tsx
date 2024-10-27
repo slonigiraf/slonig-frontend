@@ -491,7 +491,7 @@ function Tutor({ className = '' }: Props): React.ReactElement<Props> {
     />
     <VerticalCenterItemsContainer>
       <CenterQRContainer>
-        <h2>{t('Show the diploma to your student')}</h2>
+        <h2>{t('Show to the student to send the results')}</h2>
         <QRWithShareAndCopy
           dataQR={diplomaText}
           titleShare={t('QR code')}
