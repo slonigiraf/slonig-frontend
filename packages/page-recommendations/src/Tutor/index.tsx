@@ -264,39 +264,47 @@ function Tutor({ className = '' }: Props): React.ReactElement<Props> {
 
   // Sign diploma
   const _onSign = useCallback(
-    async () => {
-      if (!currentPair || !letterToIssue) {
+    async (lesson: Lesson) => {
+      if (!currentPair || !letterToIssue || !lesson) {
         return;
       }
-      // generate a data to sign
+      const letters: Letter[] = await db.letters.where({ lesson: lessonId }).filter(letter => letter.valid).toArray();
       const genesisU8 = statics.api.genesisHash;
       const referee = currentPair;
       const refereeU8 = referee.publicKey;
       const refereePublicKeyHex = u8aToHex(refereeU8);
-      const letterId = await getLastUnusedLetterNumber(refereePublicKeyHex);
-      const workerPublicKeyU8 = hexToU8a(letterToIssue.worker);
-      const privateData = getPrivateDataToSignByReferee(letterToIssue.cid, genesisU8, letterId, diplomaBlockNumber, refereeU8, workerPublicKeyU8, amount);
-      const receipt = getPublicDataToSignByReferee(genesisU8, letterId, diplomaBlockNumber, refereeU8, workerPublicKeyU8, amount);
-      const refereeSignOverPrivateData = u8aToHex(currentPair.sign(u8aWrapBytes(privateData)));
-      const refereeSignOverReceipt = u8aToHex(currentPair.sign(u8aWrapBytes(receipt)));
 
-      const letter: Letter = {
-        ...letterToIssue,
-        created: now,
-        lastReexamined: now,
-        reexamCount: 0,
-        genesis: genesisU8.toHex(),
-        letterNumber: letterId,
-        block: diplomaBlockNumber.toString(),
-        referee: refereePublicKeyHex,
-        amount: amount.toString(),
-        signOverPrivateData: refereeSignOverPrivateData,
-        signOverReceipt: refereeSignOverReceipt,
-      };
-      await updateLetter(letter);
-      await setLastUsedLetterNumber(refereePublicKeyHex, letterId);
-      createDiplomaQR(letter);
-      setDiploma(letter);
+      letters.forEach(async letterToIssue => {
+        // generate a data to sign
+
+        const letterId = letterToIssue.letterNumber >= 0? letterToIssue.letterNumber : await getLastUnusedLetterNumber(refereePublicKeyHex);
+        const workerPublicKeyU8 = hexToU8a(letterToIssue.worker);
+        const privateData = getPrivateDataToSignByReferee(letterToIssue.cid, genesisU8, letterId, diplomaBlockNumber, refereeU8, workerPublicKeyU8, amount);
+        const receipt = getPublicDataToSignByReferee(genesisU8, letterId, diplomaBlockNumber, refereeU8, workerPublicKeyU8, amount);
+        const refereeSignOverPrivateData = u8aToHex(currentPair.sign(u8aWrapBytes(privateData)));
+        const refereeSignOverReceipt = u8aToHex(currentPair.sign(u8aWrapBytes(receipt)));
+
+        const letter: Letter = {
+          ...letterToIssue,
+          created: now,
+          lastReexamined: now,
+          reexamCount: 0,
+          genesis: genesisU8.toHex(),
+          letterNumber: letterId,
+          block: diplomaBlockNumber.toString(),
+          referee: refereePublicKeyHex,
+          amount: amount.toString(),
+          signOverPrivateData: refereeSignOverPrivateData,
+          signOverReceipt: refereeSignOverReceipt,
+        };
+        await updateLetter(letter);
+        await setLastUsedLetterNumber(refereePublicKeyHex, letterId);
+      });
+
+
+
+      // createDiplomaQR(letter);
+      // setDiploma(letter);
     },
     [currentPair, letterToIssue, diplomaBlockNumber, amount]
   );
@@ -341,9 +349,10 @@ function Tutor({ className = '' }: Props): React.ReactElement<Props> {
     storeSetting(SettingKey.LESSON, lesson.id);
     setLessonId(lesson.id);
   }
-  const onShowResults = (lesson: Lesson): void => {
-    deleteSetting(SettingKey.LESSON);
-    storeSetting(SettingKey.RESULTS_FOR_LESSON, lesson.id);
+  const onShowResults = async (lesson: Lesson) => {
+    await _onSign(lesson);
+    await deleteSetting(SettingKey.LESSON);
+    await storeSetting(SettingKey.RESULTS_FOR_LESSON, lesson.id);
     setResultsForLessonId(lesson.id);
     setLesson(null);
   }
@@ -351,6 +360,10 @@ function Tutor({ className = '' }: Props): React.ReactElement<Props> {
   useEffect(() => {
     async function onLessonUpdate() {
       if (lesson) {
+        if(lesson.dPrice != amount.toString()){
+          const defaultLessonStake: BN = new BN(lesson.dPrice);
+          setAmount(defaultLessonStake);
+        }
         if (lesson.reexamineStep < lesson.toReexamineCount) {
           setReexamined(false);
         } else {
@@ -444,10 +457,10 @@ function Tutor({ className = '' }: Props): React.ReactElement<Props> {
 
   const diplomaView = <FullWidthContainer>
     <StyledResultsCloseButton onClick={onCloseResults}
-        icon='close'
-      />
+      icon='close'
+    />
     <VerticalCenterItemsContainer>
-      
+
       <DiplomaDiv>
         <Card>
           <CenterQRContainer>
@@ -482,7 +495,7 @@ function Tutor({ className = '' }: Props): React.ReactElement<Props> {
     </VerticalCenterItemsContainer>
   </FullWidthContainer>;
 
-  const lessonReactKey = lesson? (lesson.learnStep + lesson.reexamineStep) : 'loading';
+  const lessonReactKey = lesson ? (lesson.learnStep + lesson.reexamineStep) : 'loading';
 
   const reexamAndDiplomaIssuing = <>
     {lesson && <StyledProgress
@@ -493,10 +506,10 @@ function Tutor({ className = '' }: Props): React.ReactElement<Props> {
       icon='close'
     />
     <div style={!reexamined ? {} : { display: 'none' }}>
-      {currentPair && <Reexamine currentPair={currentPair} insurance={insuranceToReexamine} onResult={updateReexamined} studentName={studentName}  key={'reexaminine'+lessonReactKey}/>}
+      {currentPair && <Reexamine currentPair={currentPair} insurance={insuranceToReexamine} onResult={updateReexamined} studentName={studentName} key={'reexaminine' + lessonReactKey} />}
     </div>
     <div style={reexamined ? {} : { display: 'none' }}>
-      {teachingAlgorithm && <DoInstructions algorithm={teachingAlgorithm} onResult={updateTutoring} key={'learn'+lessonReactKey}/>}
+      {teachingAlgorithm && <DoInstructions algorithm={teachingAlgorithm} onResult={updateTutoring} key={'learn' + lessonReactKey} />}
     </div>
     {
       canIssueDiploma &&
@@ -546,7 +559,7 @@ function Tutor({ className = '' }: Props): React.ReactElement<Props> {
               icon='dollar'
               isDisabled={!isIpfsReady}
               label={t('Sell the diploma')}
-              onClick={_onSign}
+            // onClick={_onSign}
             />
             {!isIpfsReady ? <div>{t('Connecting to IPFS...')}</div> : ""}
           </div>
