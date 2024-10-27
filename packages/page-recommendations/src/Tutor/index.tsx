@@ -239,19 +239,21 @@ function Tutor({ className = '' }: Props): React.ReactElement<Props> {
   // Sign diploma
   const _onSign = useCallback(
     async () => {
-      if (!isApiReady || !currentPair || !lesson || lesson.dWarranty === '0') {
+      if (!isApiReady || !currentPair || !lesson || lesson.dWarranty === '0' || lesson.dValidity === 0) {
         return;
       }
 
       try {
+        // Calculate block number
         const chainHeader = await api.rpc.chain.getHeader();
         const currentBlockNumber = new BN(chainHeader.number.toString());
         const secondsValid = lesson.dValidity * 86400;
         const diplomaBlockNumber: BN = getDiplomaBlockNumber(currentBlockNumber, millisecondsPerBlock, secondsValid);
-        console.log("lesson.dValidity: "+lesson.dValidity)
-        console.log("diplomaBlockNumber: "+diplomaBlockNumber)
-
+       
+        // Get diplomas to sign
         const letters: Letter[] = await db.letters.where({ lesson: lessonId }).filter(letter => letter.valid).toArray();
+
+        // Get diplomas additional meta
         const genesisU8 = statics.api.genesisHash;
         const referee = currentPair;
         const refereeU8 = referee.publicKey;
@@ -259,9 +261,13 @@ function Tutor({ className = '' }: Props): React.ReactElement<Props> {
         const amount = new BN(lesson.dWarranty);
 
         letters.forEach(async letterFromDB => {
-          // generate a data to sign
-
-          const letterId = letterFromDB.letterNumber >= 0 ? letterFromDB.letterNumber : await getLastUnusedLetterNumber(refereePublicKeyHex);
+          // calculate letter number (nonce)
+          let letterId: number = letterFromDB.letterNumber;
+          if(letterFromDB.letterNumber < 0){
+            letterId = await getLastUnusedLetterNumber(refereePublicKeyHex);
+            await setLastUsedLetterNumber(refereePublicKeyHex, letterId);
+          }
+          
           const workerPublicKeyU8 = hexToU8a(letterFromDB.worker);
           const privateData = getPrivateDataToSignByReferee(letterFromDB.cid, genesisU8, 1, diplomaBlockNumber, refereeU8, workerPublicKeyU8, amount);
           const receipt = getPublicDataToSignByReferee(genesisU8, 1, diplomaBlockNumber, refereeU8, workerPublicKeyU8, amount);
@@ -282,7 +288,7 @@ function Tutor({ className = '' }: Props): React.ReactElement<Props> {
             signOverReceipt: refereeSignOverReceipt,
           };
           await updateLetter(updatedLetter);
-          await setLastUsedLetterNumber(refereePublicKeyHex, letterId);
+          
         });
 
       } catch (error) {
