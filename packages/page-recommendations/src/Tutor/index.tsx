@@ -70,21 +70,17 @@ function Tutor({ className = '' }: Props): React.ReactElement<Props> {
     genesisRFromUrl, nonceRFromUrl, blockRFromUrl, blockAllowedRFromUrl, tutorRFromUrl,
     studentRFromUrl, amountRFromUrl, signOverPrivateDataRFromUrl, signOverReceiptRFromUrl, studentSignRFromUrl] = queryData.split(' ');
 
-  const [studentIdentity, setStudentIdentity] = useState(studentIdentityFromUrl);
   const now = new Date();
   const [insuranceToReexamine, setInsuranceToReexamine] = useState<Insurance | null>(null);
   const [letterToIssue, setLetterToIssue] = useState<Letter | null>(null);
 
-  const [skill, setSkill] = useState<Skill | null>(null);
-
+  const [skill, setSkill] = useState<Skill | null>(null); //Use in case of url data transfer
+  const [millisecondsPerBlock,] = useBlockTime(BN_ONE, api);
   // Store progress state
   const [canIssueDiploma, setCanIssueDiploma] = useState(true);
   const [reexamined, setReexamined] = useState<boolean>(false);
   const [teachingAlgorithm, setTeachingAlgorithm] = useState<TeachingAlgorithm | null>(null);
 
-  // Initialize diploma details
-  //   last block number
-  const [millisecondsPerBlock,] = useBlockTime(BN_ONE, api);
   //   raw diploma data
   const [diplomaText, setDiplomaText] = useState('');
   const [diplomaAddUrl, setDiplomaAddUrl] = useState('');
@@ -97,6 +93,43 @@ function Tutor({ className = '' }: Props): React.ReactElement<Props> {
   const [letterIds, setLetterIds] = useState<number[]>([]);
   const [insuranceIds, setInsuranceIds] = useState<number[]>([]);
   const [areResultsShown, setResultsShown] = useState(false);
+
+  // Helper functions
+  const updateAndStoreLesson = useCallback(
+    async (updatedLesson: Lesson | null) => {
+      if (updatedLesson) {
+        await updateLesson(updatedLesson);
+      }
+      setLesson(updatedLesson);
+    },
+    [setLesson, updateLesson]
+  );
+
+  const createDiplomaQR = useCallback((letter: Letter) => {
+    const letterArray = letterAsArray(letter);
+    const qrData = {
+      q: QRAction.ADD_DIPLOMA,
+      d: letterArray.join(",")
+    };
+    const qrCodeText = JSON.stringify(qrData);
+    const url = getBaseUrl() + `/#/diplomas?d=${letterArray.join("+")}`;
+    setDiplomaText(qrCodeText);
+    setDiplomaAddUrl(url);
+  }, [setDiplomaText, setDiplomaAddUrl]);
+
+  // Fetch required info from DB about current lesson, letters to issue and insurances to reexamine
+  async function fetchLessonId() {
+    const lessonId = await getSetting(SettingKey.LESSON);
+    if (lessonId !== undefined) {
+      setLessonId(lessonId);
+    } else {
+      setLessonId(null);
+    }
+  }
+
+  useEffect(() => {
+    fetchLessonId();
+  }, [lessonIdFromUrl])
 
   useEffect(() => {
     async function fetchLesson() {
@@ -120,7 +153,7 @@ function Tutor({ className = '' }: Props): React.ReactElement<Props> {
       fetchLetterIds();
     }
   }, [lessonId]);
-
+  
   useEffect(() => {
     if (lessonId) {
       const fetchInsuranceIds = async () => {
@@ -137,9 +170,9 @@ function Tutor({ className = '' }: Props): React.ReactElement<Props> {
   // Fetch skill data and set teaching algorithm
   useEffect(() => {
     async function fetchData() {
-      if (isIpfsReady && skillCIDFromUrl) {
+      if (isIpfsReady && letterToIssue) {
         try {
-          const skillContent = await getIPFSDataFromContentID(ipfs, skillCIDFromUrl);
+          const skillContent = await getIPFSDataFromContentID(ipfs, letterToIssue.cid);
           const skillJson = parseJson(skillContent);
           setSkill(skillJson);
           const studentUsedSlonig = insuranceIds?.length > 0;
@@ -152,7 +185,7 @@ function Tutor({ className = '' }: Props): React.ReactElement<Props> {
       }
     }
     fetchData()
-  }, [ipfs, skillCIDFromUrl, studentName])
+  }, [ipfs, letterToIssue, studentName])
 
   // Fetch student name
   useEffect(() => {
@@ -167,29 +200,7 @@ function Tutor({ className = '' }: Props): React.ReactElement<Props> {
     fetchStudentName()
   }, [lesson])
 
-  async function fetchLessonId() {
-    const lessonId = await getSetting(SettingKey.LESSON);
-    if (lessonId !== undefined) {
-      setLessonId(lessonId);
-    } else {
-      setLessonId(null);
-    }
-  }
-
-  useEffect(() => {
-    fetchLessonId();
-  }, [lessonIdFromUrl])
-
-  const updateAndStoreLesson = useCallback(
-    async (updatedLesson: Lesson | null) => {
-      if (updatedLesson) {
-        await updateLesson(updatedLesson);
-      }
-      setLesson(updatedLesson);
-    },
-    [setLesson, updateLesson]
-  );
-
+  // Update lesson properties in case edited
   const setAmount = useCallback((value?: BN | undefined): void => {
     if (lesson && value && lesson.dWarranty !== value.toString()) {
       const updatedLesson = { ...lesson, dWarranty: value.toString() };
@@ -204,19 +215,7 @@ function Tutor({ className = '' }: Props): React.ReactElement<Props> {
     }
   }, [lesson, updateAndStoreLesson]);
 
-  const createDiplomaQR = useCallback((letter: Letter) => {
-    const letterArray = letterAsArray(letter);
-    const qrData = {
-      q: QRAction.ADD_DIPLOMA,
-      d: letterArray.join(",")
-    };
-    const qrCodeText = JSON.stringify(qrData);
-    const url = getBaseUrl() + `/#/diplomas?d=${letterArray.join("+")}`;
-    setDiplomaText(qrCodeText);
-    setDiplomaAddUrl(url);
-  }, [setDiplomaText, setDiplomaAddUrl]);
-
-  const _onChangeDaysValid = useCallback(
+  const setDaysValid = useCallback(
     (value: string) => {
       console.log("value: " + value);
       const days = parseInt(value, 10); // Using base 10 for the conversion
@@ -236,7 +235,7 @@ function Tutor({ className = '' }: Props): React.ReactElement<Props> {
   );
 
   // Sign diploma
-  const _onSign = useCallback(
+  const signLetters = useCallback(
     async () => {
       if (!isApiReady || !currentPair || !lesson || lesson.dWarranty === '0' || lesson.dValidity === 0) {
         return;
@@ -247,6 +246,7 @@ function Tutor({ className = '' }: Props): React.ReactElement<Props> {
         const chainHeader = await api.rpc.chain.getHeader();
         const currentBlockNumber = new BN(chainHeader.number.toString());
         const secondsValid = lesson.dValidity * 86400;
+        
         const diplomaBlockNumber: BN = getDiplomaBlockNumber(currentBlockNumber, millisecondsPerBlock, secondsValid);
        
         // Get diplomas to sign
@@ -360,7 +360,6 @@ function Tutor({ className = '' }: Props): React.ReactElement<Props> {
           const nextLetter: Letter | undefined = await db.letters.get(nextLetterId);
           if (nextLetter) {
             setLetterToIssue(nextLetter);
-            setSkillCID(nextLetter.cid);
           }
         }
         if (lesson.reexamineStep < insuranceIds.length) {
@@ -374,7 +373,7 @@ function Tutor({ className = '' }: Props): React.ReactElement<Props> {
           onShowResults(lesson);
         }
         if (areResultsShown) {
-          await _onSign();
+          await signLetters();
         }
       }
     }
@@ -513,7 +512,7 @@ function Tutor({ className = '' }: Props): React.ReactElement<Props> {
       <Input
         className='full'
         label={t('days valid')}
-        onChange={_onChangeDaysValid}
+        onChange={setDaysValid}
         value={lesson ? lesson.dValidity.toString() : "0"}
       />
     </div>
