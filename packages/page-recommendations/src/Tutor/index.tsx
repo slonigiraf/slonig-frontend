@@ -492,7 +492,7 @@ function Tutor({ className = '' }: Props): React.ReactElement<Props> {
     <div className='ui--row' style={visibleDiplomaDetails ? {} : { display: 'none' }}>
       <InputBalance
         isZeroable
-        label={t('stake Slon')}
+        label={t('stake Slon for each diploma')}
         onChange={setAmount}
         defaultValue={lesson? new BN(lesson.dWarranty) : BN_ZERO}
       />
