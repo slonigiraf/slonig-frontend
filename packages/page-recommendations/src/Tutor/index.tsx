@@ -153,7 +153,7 @@ function Tutor({ className = '' }: Props): React.ReactElement<Props> {
       fetchLetterIds();
     }
   }, [lessonId]);
-  
+
   useEffect(() => {
     if (lessonId) {
       const fetchInsuranceIds = async () => {
@@ -230,10 +230,10 @@ function Tutor({ className = '' }: Props): React.ReactElement<Props> {
   const setDaysValid = useCallback(
     (value: string) => {
       setDaysInputValue(value); // Update the input field's temporary value
-  
+
       // If the input is empty, don’t store it in lesson; only store valid numbers
       if (value === "") return;
-  
+
       const days = parseInt(value, 10);
       if (!isNaN(days) && days >= 0 && lesson) {
         const updatedLesson: Lesson = { ...lesson, dValidity: days };
@@ -247,28 +247,28 @@ function Tutor({ className = '' }: Props): React.ReactElement<Props> {
   // Sign diploma
   useEffect(() => {
     const signLetters = async () => {
-      if (!areResultsShown || !isApiReady || !currentPair || !lesson || lesson.dWarranty === '0' || lesson.dValidity === 0) {
+      if (!areResultsShown || !isApiReady || !currentPair || !lesson) {
         return;
       }
-  
+
       try {
         // Calculate block number
         const chainHeader = await api.rpc.chain.getHeader();
         const currentBlockNumber = new BN(chainHeader.number.toString());
         const secondsValid = lesson.dValidity * 86400;
-        
+
         const diplomaBlockNumber: BN = getDiplomaBlockNumber(currentBlockNumber, millisecondsPerBlock, secondsValid);
-       
+
         // // Get diplomas to sign
         const letters: Letter[] = await db.letters.where({ lesson: lesson.id }).filter(letter => letter.valid).toArray();
-  
+
         // // Get diplomas additional meta
         const genesisU8 = statics.api.genesisHash;
         const referee = currentPair;
         const refereeU8 = referee.publicKey;
         const refereePublicKeyHex = u8aToHex(refereeU8);
         const amount = new BN(lesson.dWarranty);
-  
+
         for (const letterFromDB of letters) {
           // calculate letter number (nonce)
           let letterId = letterFromDB.letterNumber;
@@ -276,13 +276,15 @@ function Tutor({ className = '' }: Props): React.ReactElement<Props> {
             letterId = await getLastUnusedLetterNumber(refereePublicKeyHex);
             await setLastUsedLetterNumber(refereePublicKeyHex, letterId);
           }
-          
+
           const workerPublicKeyU8 = hexToU8a(letterFromDB.worker);
-          const privateData = getPrivateDataToSignByReferee(letterFromDB.cid, genesisU8, letterId, diplomaBlockNumber, refereeU8, workerPublicKeyU8, amount);
-          const receipt = getPublicDataToSignByReferee(genesisU8, letterId, diplomaBlockNumber, refereeU8, workerPublicKeyU8, amount);
-          const refereeSignOverPrivateData = u8aToHex(currentPair.sign(u8aWrapBytes(privateData)));
-          const refereeSignOverReceipt = u8aToHex(currentPair.sign(u8aWrapBytes(receipt)));
-  
+
+          const dontSign = (lesson.dWarranty === '0' || lesson.dValidity === 0);
+          const privateData = dontSign ? "" : getPrivateDataToSignByReferee(letterFromDB.cid, genesisU8, letterId, diplomaBlockNumber, refereeU8, workerPublicKeyU8, amount);
+          const receipt = dontSign ? "" : getPublicDataToSignByReferee(genesisU8, letterId, diplomaBlockNumber, refereeU8, workerPublicKeyU8, amount);
+          const refereeSignOverPrivateData = dontSign ? "" : u8aToHex(currentPair.sign(u8aWrapBytes(privateData)));
+          const refereeSignOverReceipt = dontSign ? "" : u8aToHex(currentPair.sign(u8aWrapBytes(receipt)));
+
           const updatedLetter: Letter = {
             ...letterFromDB,
             created: now,
@@ -302,11 +304,11 @@ function Tutor({ className = '' }: Props): React.ReactElement<Props> {
         console.error(error);
       }
     };
-  
+
     signLetters();
-  
+
   }, [areResultsShown, api, isApiReady, currentPair, lesson]);
-  
+
 
   const updateReexamined = useCallback(async () => {
     if (lesson) {
@@ -510,7 +512,7 @@ function Tutor({ className = '' }: Props): React.ReactElement<Props> {
         label={t('stake for each diploma')}
         onChange={setAmount}
         defaultValue={lesson ? new BN(lesson.dWarranty) : BN_ZERO}
-        isError={false}
+        isError={!lesson || new BN(lesson.dWarranty).eq(BN_ZERO)}
       />
     </div>
     <div className='ui--row' style={visibleDiplomaDetails ? {} : { display: 'none' }}>
@@ -520,7 +522,7 @@ function Tutor({ className = '' }: Props): React.ReactElement<Props> {
         onChange={setDaysValid}
         value={daysInputValue}
         placeholder={t('Positive number')}
-        isError={!daysInputValue}
+        isError={!daysInputValue || daysInputValue==="0"}
       />
     </div>
   </FullWidthContainer>;
