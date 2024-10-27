@@ -97,12 +97,12 @@ function Tutor({ className = '' }: Props): React.ReactElement<Props> {
   //   student name
   const [studentName, setStudentName] = useState<string | null>(null);
   //   show stake and days or hide
-  const [visibleDiplomaDetails, toggleVisibleDiplomaDetails, setVisibleDiplomaDetails] = useToggle(true);
+  const [visibleDiplomaDetails, toggleVisibleDiplomaDetails] = useToggle(false);
 
   const [lesson, setLesson] = useState<Lesson | null>(null);
   const [letterIds, setLetterIds] = useState<number[]>([]);
   const [insuranceIds, setInsuranceIds] = useState<number[]>([]);
-  const [areResultsShown, setResultsShown] = useState(true);
+  const [areResultsShown, setResultsShown] = useState(false);
 
   useEffect(() => {
     async function fetchLesson() {
@@ -273,8 +273,8 @@ function Tutor({ className = '' }: Props): React.ReactElement<Props> {
 
   // Sign diploma
   const _onSign = useCallback(
-    async (lesson: Lesson) => {
-      if (!currentPair || !letterToIssue || !lesson) {
+    async () => {
+      if (!currentPair || !lesson || lesson.dWarranty === '0') {
         return;
       }
       const letters: Letter[] = await db.letters.where({ lesson: lessonId }).filter(letter => letter.valid).toArray();
@@ -310,8 +310,6 @@ function Tutor({ className = '' }: Props): React.ReactElement<Props> {
         await updateLetter(updatedLetter);
         await setLastUsedLetterNumber(refereePublicKeyHex, letterId);
       });
-
-
 
       // createDiplomaQR(letter);
       // setDiploma(letter);
@@ -361,7 +359,7 @@ function Tutor({ className = '' }: Props): React.ReactElement<Props> {
   }
   const onShowResults = async (lesson: Lesson) => {
     storeSetting(SettingKey.LESSON, lesson.id);
-    await _onSign(lesson);
+    await _onSign();
     setLesson(lesson);
     setResultsShown(true);
   }
@@ -369,7 +367,6 @@ function Tutor({ className = '' }: Props): React.ReactElement<Props> {
   useEffect(() => {
     async function onLessonUpdate() {
       if (lesson) {
-
         if (lesson.reexamineStep < lesson.toReexamineCount) {
           setReexamined(false);
         } else {
@@ -393,6 +390,7 @@ function Tutor({ className = '' }: Props): React.ReactElement<Props> {
         if (lesson.learnStep === lesson.toLearnCount && lesson.reexamineStep === lesson.toReexamineCount) {
           onShowResults(lesson);
         }
+        _onSign();
       }
     }
     onLessonUpdate()
@@ -405,6 +403,7 @@ function Tutor({ className = '' }: Props): React.ReactElement<Props> {
   }, []);
 
   const onCloseResults = useCallback(() => {
+    onCloseTutoring();
     setResultsShown(false)
   }, []);
 
