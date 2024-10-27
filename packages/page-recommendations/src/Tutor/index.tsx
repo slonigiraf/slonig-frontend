@@ -56,7 +56,6 @@ function Tutor({ className = '' }: Props): React.ReactElement<Props> {
   const { showInfo } = useInfo();
   const { t } = useTranslation();
   const [lessonId, setLessonId] = useState<string | null>(null);
-  const [resultsForLessonId, setResultsForLessonId] = useState<string | null>(null);
 
   // Initialize account
   const { currentPair, isLoggedIn } = useLoginContext();
@@ -98,13 +97,12 @@ function Tutor({ className = '' }: Props): React.ReactElement<Props> {
   //   student name
   const [studentName, setStudentName] = useState<string | null>(null);
   //   show stake and days or hide
-  const [visibleDiplomaDetails, toggleVisibleDiplomaDetails, setVisibleDiplomaDetails] = useToggle(false);
-  //   issued diploma
-  const [diploma, setDiploma] = useState<Letter | null>(null);
+  const [visibleDiplomaDetails, toggleVisibleDiplomaDetails, setVisibleDiplomaDetails] = useToggle(true);
 
   const [lesson, setLesson] = useState<Lesson | null>(null);
   const [letterIds, setLetterIds] = useState<number[]>([]);
   const [insuranceIds, setInsuranceIds] = useState<number[]>([]);
+  const [areResultsShown, setResultsShown] = useState(true);
 
   useEffect(() => {
     async function fetchLesson() {
@@ -188,25 +186,12 @@ function Tutor({ className = '' }: Props): React.ReactElement<Props> {
     fetchLessonId();
   }, [lessonIdFromUrl])
 
-  async function fetchResultsForLessonId() {
-    const lessonId = await getSetting(SettingKey.RESULTS_FOR_LESSON);
-    if (lessonId !== undefined) {
-      setResultsForLessonId(lessonId);
-    } else {
-      setResultsForLessonId(null);
-    }
-  }
-
   const setAmount = (value?: BN | undefined): void => {
-    if (lesson && value && lesson.dPrice !== value.toString()) {
-      const updatedLesson = { ...lesson, dPrice: value.toString() };
+    if (lesson && value && lesson.dWarranty !== value.toString()) {
+      const updatedLesson = { ...lesson, dWarranty: value.toString() };
       updateAndStoreLesson(updatedLesson);
     }
   }
-
-  useEffect(() => {
-    fetchResultsForLessonId();
-  }, [lessonIdFromUrl])
 
   // Fetch block number (once)
   useEffect(() => {
@@ -355,11 +340,10 @@ function Tutor({ className = '' }: Props): React.ReactElement<Props> {
     setLessonId(lesson.id);
   }
   const onShowResults = async (lesson: Lesson) => {
+    storeSetting(SettingKey.LESSON, lesson.id);
     await _onSign(lesson);
-    await deleteSetting(SettingKey.LESSON);
-    await storeSetting(SettingKey.RESULTS_FOR_LESSON, lesson.id);
-    setResultsForLessonId(lesson.id);
-    setLesson(null);
+    setLesson(lesson);
+    setResultsShown(true);
   }
 
   useEffect(() => {
@@ -401,8 +385,7 @@ function Tutor({ className = '' }: Props): React.ReactElement<Props> {
   }, []);
 
   const onCloseResults = useCallback(() => {
-    deleteSetting(SettingKey.RESULTS_FOR_LESSON);
-    setResultsForLessonId(null);
+    setResultsShown(false)
   }, []);
 
   const publicKeyHex = currentPair ? u8aToHex(currentPair.publicKey) : "";
@@ -511,7 +494,7 @@ function Tutor({ className = '' }: Props): React.ReactElement<Props> {
         isZeroable
         label={t('stake Slon')}
         onChange={setAmount}
-        defaultValue={lesson?.dWarranty}
+        defaultValue={lesson? new BN(lesson.dWarranty) : BN_ZERO}
       />
     </div>
     <div className='ui--row' style={visibleDiplomaDetails ? {} : { display: 'none' }}>
@@ -550,7 +533,7 @@ function Tutor({ className = '' }: Props): React.ReactElement<Props> {
     <div className={`toolbox--Tutor ${className}`}>
       {
         isLoggedIn && (
-          (lesson == null && resultsForLessonId == null) ?
+          (lesson == null) ?
             <>
               <CenterQRContainer>
                 <h2>{t('Show to a student to begin tutoring')}</h2>
@@ -564,7 +547,7 @@ function Tutor({ className = '' }: Props): React.ReactElement<Props> {
               <LessonsList tutor={publicKeyHex} onResumeTutoring={onResumeTutoring} onShowResults={onShowResults} />
             </>
             :
-            <> {resultsForLessonId != null ? diplomaView : reexamAndDiplomaIssuing}</>
+            <> {areResultsShown ? diplomaView : reexamAndDiplomaIssuing}</>
         )
       }
       <LoginButton label={t('Log in')} />
