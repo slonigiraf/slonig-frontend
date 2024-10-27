@@ -70,7 +70,6 @@ function Tutor({ className = '' }: Props): React.ReactElement<Props> {
     genesisRFromUrl, nonceRFromUrl, blockRFromUrl, blockAllowedRFromUrl, tutorRFromUrl,
     studentRFromUrl, amountRFromUrl, signOverPrivateDataRFromUrl, signOverReceiptRFromUrl, studentSignRFromUrl] = queryData.split(' ');
 
-  const [skillCID, setSkillCID] = useState(skillCIDFromUrl);
   const [studentIdentity, setStudentIdentity] = useState(studentIdentityFromUrl);
   const now = new Date();
   const [insuranceToReexamine, setInsuranceToReexamine] = useState<Insurance | null>(null);
@@ -138,9 +137,9 @@ function Tutor({ className = '' }: Props): React.ReactElement<Props> {
   // Fetch skill data and set teaching algorithm
   useEffect(() => {
     async function fetchData() {
-      if (isIpfsReady && skillCID) {
+      if (isIpfsReady && skillCIDFromUrl) {
         try {
-          const skillContent = await getIPFSDataFromContentID(ipfs, skillCID);
+          const skillContent = await getIPFSDataFromContentID(ipfs, skillCIDFromUrl);
           const skillJson = parseJson(skillContent);
           setSkill(skillJson);
           const studentUsedSlonig = insuranceIds?.length > 0;
@@ -153,7 +152,7 @@ function Tutor({ className = '' }: Props): React.ReactElement<Props> {
       }
     }
     fetchData()
-  }, [ipfs, skillCID, studentName])
+  }, [ipfs, skillCIDFromUrl, studentName])
 
   // Fetch student name
   useEffect(() => {
@@ -413,13 +412,13 @@ function Tutor({ className = '' }: Props): React.ReactElement<Props> {
       async function storeUrlData() {
         try {
           // Ensure that both publicKey and name are strings
-          if (typeof studentIdentityFromUrl === 'string' && typeof studentNameFromUrl === 'string' && skill != null && skillCID) {
+          if (typeof studentIdentityFromUrl === 'string' && typeof studentNameFromUrl === 'string' && skill != null && skillCIDFromUrl) {
             await storePseudonym(studentIdentityFromUrl, studentNameFromUrl);
             await setStudentName(studentNameFromUrl);
             const lessonId = getLessonId([skill.i]);
             const qrJSON: any = { [QRField.ID]: lessonId, [QRField.PERSON_IDENTITY]: studentIdentityFromUrl };
             const webRTCJSON: any = {
-              'cid': skillCID,
+              'cid': skillCIDFromUrl,
               'learn': [[skill.i, skillCIDFromUrl, studentFromUrl]],
               'reexamine': [
                 [cidRFromUrl, genesisRFromUrl, nonceRFromUrl, blockRFromUrl, blockAllowedRFromUrl,
@@ -439,7 +438,7 @@ function Tutor({ className = '' }: Props): React.ReactElement<Props> {
         storeUrlData();
       }
     }
-  }, [skillCID, skill, isDedicatedTutor, studentNameFromUrl, tutorFromUrl, skillCIDFromUrl, studentIdentityFromUrl, studentFromUrl, cidRFromUrl,
+  }, [skill, isDedicatedTutor, studentNameFromUrl, tutorFromUrl, skillCIDFromUrl, studentIdentityFromUrl, studentFromUrl, cidRFromUrl,
     genesisRFromUrl, nonceRFromUrl, blockRFromUrl, blockAllowedRFromUrl, tutorRFromUrl,
     studentRFromUrl, amountRFromUrl, signOverPrivateDataRFromUrl, signOverReceiptRFromUrl, studentSignRFromUrl]);
 
