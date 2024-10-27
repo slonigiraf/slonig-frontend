@@ -251,11 +251,11 @@ function Tutor({ className = '' }: Props): React.ReactElement<Props> {
   useEffect(() => {
     if (lesson && areResultsShown) {
       const updateInsurancesStat = async () => {
-        const fetchedInsurances = await db.insurances.where({ lesson: lessonId }).sortBy('id');
+        const fetchedInsurances = await db.insurances.where({ lesson: lesson.id }).sortBy('id');
         if (fetchedInsurances) {
           const usedInsurances = fetchedInsurances.filter(insurance => insurance.wasUsed);
           const calculatedDiscussedInsurances = lesson.reexamineStep - fetchedInsurances.filter(insurance => insurance.wasSkipped).length;
-          
+
           const countOfBonuses = usedInsurances.length;
           const amountOfBonuses = usedInsurances.reduce(
             (sum, insurance) => sum.add(new BN(insurance.amount)),
@@ -287,7 +287,7 @@ function Tutor({ className = '' }: Props): React.ReactElement<Props> {
 
         // // Get diplomas to sign
         const letters: Letter[] = await db.letters.where({ lesson: lesson.id }).filter(letter => letter.valid).toArray();
-        setCountOfValidLetters(dontSign? 0 : letters.length);
+        setCountOfValidLetters(dontSign ? 0 : letters.length);
 
         // // Get diplomas additional meta
         const genesisU8 = statics.api.genesisHash;
@@ -306,7 +306,7 @@ function Tutor({ className = '' }: Props): React.ReactElement<Props> {
 
           const workerPublicKeyU8 = hexToU8a(letterFromDB.worker);
 
-          
+
           const privateData = dontSign ? "" : getPrivateDataToSignByReferee(letterFromDB.cid, genesisU8, letterId, diplomaBlockNumber, refereeU8, workerPublicKeyU8, amount);
           const receipt = dontSign ? "" : getPublicDataToSignByReferee(genesisU8, letterId, diplomaBlockNumber, refereeU8, workerPublicKeyU8, amount);
           const refereeSignOverPrivateData = dontSign ? "" : u8aToHex(currentPair.sign(u8aWrapBytes(privateData)));
@@ -479,10 +479,10 @@ function Tutor({ className = '' }: Props): React.ReactElement<Props> {
   const totalProfitForLetters = new BN(countOfValidLetters).mul(diplomaPriceInSlon);
 
   ///
-  console.log("countOfValidLetters: "+countOfValidLetters)
-  console.log("countOfDiscussedInsurances: "+countOfDiscussedInsurances)
-  console.log("countOfReceivingBonuses: "+countOfReceivingBonuses)
-  console.log("valueOfBonuses: "+valueOfBonuses)
+  console.log("countOfValidLetters: " + countOfValidLetters)
+  console.log("countOfDiscussedInsurances: " + countOfDiscussedInsurances)
+  console.log("countOfReceivingBonuses: " + countOfReceivingBonuses)
+  console.log("valueOfBonuses: " + valueOfBonuses)
   ///
 
   const diplomaView = <FullWidthContainer>
@@ -512,12 +512,19 @@ function Tutor({ className = '' }: Props): React.ReactElement<Props> {
               <div className="cell">{studentName}</div>
             </div>
             <div className="row">
+              <div className="cell"><Icon icon='dollar' /></div>
+              <div className="cell">{totalProfitForLetters.toString()} Slon - {t('lesson price')}</div>
+            </div>
+            <div className="row">
               <div className="cell"><Icon icon='shield' /></div>
-              <div className="cell">{diplomaWarrantyInSlon.toString()} Slon {t('warranty')}</div>
+              <div className="cell">{diplomaWarrantyInSlon.toString()} Slon - {t('warranty')}</div>
             </div>
             <div className="row">
               <div className="cell"><Icon icon='clock-rotate-left' /></div>
               <div className="cell">{lesson ? lesson.dValidity : '0'} {t('days valid')}</div>
+            </div>
+            <div className="row">
+              <div className="cell"><Button icon='edit' onClick={toggleVisibleDiplomaDetails} /></div>
             </div>
           </div>
         </Card>
@@ -526,17 +533,10 @@ function Tutor({ className = '' }: Props): React.ReactElement<Props> {
       </DiplomaDiv>
 
     </VerticalCenterItemsContainer>
-    <div className='ui--row'>
-      <Toggle
-        label={t('details')}
-        onChange={toggleVisibleDiplomaDetails}
-        value={visibleDiplomaDetails}
-      />
-    </div>
 
     {visibleDiplomaDetails && <StyledModal
       className={className}
-      header={t('Lesson price:') + ' ' + totalProfitForLetters.toString() + ' Slon'}
+      header={totalProfitForLetters.toString() + ' Slon - ' + t('lesson price')}
       onClose={toggleVisibleDiplomaDetails}
       size='small'
     >
