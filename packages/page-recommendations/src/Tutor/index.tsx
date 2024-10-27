@@ -48,7 +48,7 @@ function letterAsArray(letter: Letter) {
   return result;
 }
 
-
+// This version was tested to create valid letters. Results QR is not implemented.
 function Tutor({ className = '' }: Props): React.ReactElement<Props> {
   // Initialize api, ipfs and translation
   const { ipfs, isIpfsReady } = useIpfsContext();
