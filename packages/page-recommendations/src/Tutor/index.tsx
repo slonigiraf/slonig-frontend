@@ -205,6 +205,7 @@ function Tutor({ className = '' }: Props): React.ReactElement<Props> {
     if (lesson && value && lesson.dWarranty !== value.toString()) {
       const updatedLesson = { ...lesson, dWarranty: value.toString() };
       updateAndStoreLesson(updatedLesson);
+      storeSetting(SettingKey.DIPLOMA_WARRANTY, value.toString());
     }
   }, [lesson, updateAndStoreLesson]);
 
@@ -212,6 +213,7 @@ function Tutor({ className = '' }: Props): React.ReactElement<Props> {
     if (lesson && value && lesson.dPrice !== value.toString()) {
       const updatedLesson = { ...lesson, dPrice: value.toString() };
       updateAndStoreLesson(updatedLesson);
+      storeSetting(SettingKey.DIPLOMA_PRICE, value.toString());
     }
   }, [lesson, updateAndStoreLesson]);
 
@@ -229,18 +231,19 @@ function Tutor({ className = '' }: Props): React.ReactElement<Props> {
       if (lesson && result > 0 && lesson.dValidity !== result) {
         const updatedLesson = { ...lesson, dValidity: result };
         updateAndStoreLesson(updatedLesson);
+        storeSetting(SettingKey.DIPLOMA_VALIDITY, value.toString());
       }
     },
     [lesson]
   );
 
   // Sign diploma
-  const signLetters = useCallback(
-    async () => {
-      if (!isApiReady || !currentPair || !lesson || lesson.dWarranty === '0' || lesson.dValidity === 0) {
+  useEffect(() => {
+    const signLetters = async () => {
+      if (!areResultsShown || !isApiReady || !currentPair || !lesson || lesson.dWarranty === '0' || lesson.dValidity === 0) {
         return;
       }
-
+  
       try {
         // Calculate block number
         const chainHeader = await api.rpc.chain.getHeader();
@@ -249,30 +252,30 @@ function Tutor({ className = '' }: Props): React.ReactElement<Props> {
         
         const diplomaBlockNumber: BN = getDiplomaBlockNumber(currentBlockNumber, millisecondsPerBlock, secondsValid);
        
-        // Get diplomas to sign
-        const letters: Letter[] = await db.letters.where({ lesson: lessonId }).filter(letter => letter.valid).toArray();
-
-        // Get diplomas additional meta
+        // // Get diplomas to sign
+        const letters: Letter[] = await db.letters.where({ lesson: lesson.id }).filter(letter => letter.valid).toArray();
+  
+        // // Get diplomas additional meta
         const genesisU8 = statics.api.genesisHash;
         const referee = currentPair;
         const refereeU8 = referee.publicKey;
         const refereePublicKeyHex = u8aToHex(refereeU8);
         const amount = new BN(lesson.dWarranty);
-
-        letters.forEach(async letterFromDB => {
+  
+        for (const letterFromDB of letters) {
           // calculate letter number (nonce)
-          let letterId: number = letterFromDB.letterNumber;
-          if(letterFromDB.letterNumber < 0){
+          let letterId = letterFromDB.letterNumber;
+          if (letterFromDB.letterNumber < 0) {
             letterId = await getLastUnusedLetterNumber(refereePublicKeyHex);
             await setLastUsedLetterNumber(refereePublicKeyHex, letterId);
           }
           
           const workerPublicKeyU8 = hexToU8a(letterFromDB.worker);
-          const privateData = getPrivateDataToSignByReferee(letterFromDB.cid, genesisU8, 1, diplomaBlockNumber, refereeU8, workerPublicKeyU8, amount);
-          const receipt = getPublicDataToSignByReferee(genesisU8, 1, diplomaBlockNumber, refereeU8, workerPublicKeyU8, amount);
+          const privateData = getPrivateDataToSignByReferee(letterFromDB.cid, genesisU8, letterId, diplomaBlockNumber, refereeU8, workerPublicKeyU8, amount);
+          const receipt = getPublicDataToSignByReferee(genesisU8, letterId, diplomaBlockNumber, refereeU8, workerPublicKeyU8, amount);
           const refereeSignOverPrivateData = u8aToHex(currentPair.sign(u8aWrapBytes(privateData)));
           const refereeSignOverReceipt = u8aToHex(currentPair.sign(u8aWrapBytes(receipt)));
-
+  
           const updatedLetter: Letter = {
             ...letterFromDB,
             created: now,
@@ -287,19 +290,16 @@ function Tutor({ className = '' }: Props): React.ReactElement<Props> {
             signOverReceipt: refereeSignOverReceipt,
           };
           await updateLetter(updatedLetter);
-          
-        });
-
+        }
       } catch (error) {
-        console.error("Error fetching block number: ", error);
+        console.error(error);
       }
-
-
-      // createDiplomaQR(letter);
-      // setDiploma(letter);
-    },
-    [api, isApiReady, currentPair, lesson]
-  );
+    };
+  
+    signLetters();
+  
+  }, [areResultsShown, api, isApiReady, currentPair, lesson]);
+  
 
   const updateReexamined = useCallback(async () => {
     if (lesson) {
@@ -371,9 +371,6 @@ function Tutor({ className = '' }: Props): React.ReactElement<Props> {
         }
         if (lesson.learnStep === lesson.toLearnCount && lesson.reexamineStep === lesson.toReexamineCount) {
           onShowResults(lesson);
-        }
-        if (areResultsShown) {
-          await signLetters();
         }
       }
     }
