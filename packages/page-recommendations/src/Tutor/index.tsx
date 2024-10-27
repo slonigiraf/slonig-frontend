@@ -490,18 +490,17 @@ function Tutor({ className = '' }: Props): React.ReactElement<Props> {
       icon='close'
     />
     <VerticalCenterItemsContainer>
-
+      <CenterQRContainer>
+        <h2>{t('Show the diploma to your student')}</h2>
+        <QRWithShareAndCopy
+          dataQR={diplomaText}
+          titleShare={t('QR code')}
+          textShare={t('Press the link to add the diploma')}
+          urlShare={diplomaAddUrl}
+          dataCopy={diplomaAddUrl} />
+      </CenterQRContainer>
       <DiplomaDiv>
         <Card>
-          <CenterQRContainer>
-            <h2>{t('Show the diploma to your student')}</h2>
-            <QRWithShareAndCopy
-              dataQR={diplomaText}
-              titleShare={t('QR code')}
-              textShare={t('Press the link to add the diploma')}
-              urlShare={diplomaAddUrl}
-              dataCopy={diplomaAddUrl} />
-          </CenterQRContainer>
           <div className="table">
             <div className="row">
               <div className="cell"><Icon icon='graduation-cap' /></div>
@@ -628,6 +627,11 @@ const DiplomaDiv = styled.div`
   flex-direction: row;
   justify-content: center;
   align-items: center;
+  width: 100%;
+  margin: 0 auto;
+  @media (min-width: 360px) {
+    width: 360px;
+  }
   .qr--row {
     display: flex;
     justify-content: center;
