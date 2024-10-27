@@ -186,18 +186,29 @@ function Tutor({ className = '' }: Props): React.ReactElement<Props> {
     fetchLessonId();
   }, [lessonIdFromUrl])
 
-  const setAmount = (value?: BN | undefined): void => {
+  const updateAndStoreLesson = useCallback(
+    async (updatedLesson: Lesson | null) => {
+      if (updatedLesson) {
+        await updateLesson(updatedLesson);
+      }
+      setLesson(updatedLesson);
+    },
+    [setLesson, updateLesson]
+  );
+
+  const setAmount = useCallback((value?: BN | undefined): void => {
     if (lesson && value && lesson.dWarranty !== value.toString()) {
       const updatedLesson = { ...lesson, dWarranty: value.toString() };
       updateAndStoreLesson(updatedLesson);
     }
-  }
-  const setDiplomaPrice = (value?: BN | undefined): void => {
+  }, [lesson, updateAndStoreLesson]);
+  
+  const setDiplomaPrice = useCallback((value?: BN | undefined): void => {
     if (lesson && value && lesson.dPrice !== value.toString()) {
       const updatedLesson = { ...lesson, dPrice: value.toString() };
       updateAndStoreLesson(updatedLesson);
     }
-  }
+  }, [lesson, updateAndStoreLesson]);
 
   // Fetch block number (once)
   useEffect(() => {
@@ -218,15 +229,7 @@ function Tutor({ className = '' }: Props): React.ReactElement<Props> {
     fetchBlockNumber();
   }, [api, isApiReady]);
 
-  const updateAndStoreLesson = useCallback(
-    async (updatedLesson: Lesson | null) => {
-      if (updatedLesson) {
-        await updateLesson(updatedLesson);
-      }
-      setLesson(updatedLesson);
-    },
-    [setLesson, updateLesson]
-  );
+
 
   const createDiplomaQR = useCallback((letter: Letter) => {
     const letterArray = letterAsArray(letter);
@@ -242,19 +245,30 @@ function Tutor({ className = '' }: Props): React.ReactElement<Props> {
 
   const _onChangeDaysValid = useCallback(
     (value: string) => {
+      console.log("value: "+value);
       const days = parseInt(value, 10); // Using base 10 for the conversion
+      let result = days;
+      
       if (!isNaN(days)) {
         setDaysValid(days);
+        if (lesson && value && lesson.dValidity !== days) {
+          const updatedLesson = { ...lesson, dValidity: days };
+          updateAndStoreLesson(updatedLesson);
+        }
         const secondsToAdd = days * 86400; // 86400 - seconds in a day
         if (Number.isSafeInteger(secondsToAdd)) {
           const diplomaBlockNumber: BN = getDiplomaBlockNumber(currentBlockNumber, millisecondsPerBlock, secondsToAdd);
           setDiplomaBlockNumber(diplomaBlockNumber);
         }
       } else {
-        setDaysValid(0);
+        result = 0;
+      }
+      if (lesson && lesson.dValidity !== result) {
+        const updatedLesson = { ...lesson, dValidity: result };
+        updateAndStoreLesson(updatedLesson);
       }
     },
-    [currentBlockNumber]
+    [currentBlockNumber, lesson]
   );
 
   // Sign diploma
@@ -516,7 +530,7 @@ function Tutor({ className = '' }: Props): React.ReactElement<Props> {
         className='full'
         label={t('days valid')}
         onChange={_onChangeDaysValid}
-        value={daysValid.toString()}
+        value={lesson? lesson.dValidity.toString() : "0"}
       />
     </div>
   </FullWidthContainer>;
