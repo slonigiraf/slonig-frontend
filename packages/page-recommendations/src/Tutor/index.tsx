@@ -4,7 +4,7 @@ import React, { useCallback, useEffect, useState } from 'react';
 import { useLocation } from 'react-router-dom';
 import BN from 'bn.js';
 import { statics } from '@polkadot/react-api/statics';
-import { styled, Toggle, Button, Input, InputBalance, Icon, Card, Progress } from '@polkadot/react-components';
+import { styled, Toggle, Button, Input, InputBalance, Icon, Card, Progress, Modal } from '@polkadot/react-components';
 import { useApi, useBlockTime, useToggle } from '@polkadot/react-hooks';
 import { u8aToHex, hexToU8a, u8aWrapBytes, BN_ONE, BN_ZERO } from '@polkadot/util';
 import type { Skill } from '@slonigiraf/app-slonig-components';
@@ -93,6 +93,10 @@ function Tutor({ className = '' }: Props): React.ReactElement<Props> {
   const [insuranceIds, setInsuranceIds] = useState<number[]>([]);
   const [areResultsShown, setResultsShown] = useState(false);
   const [daysInputValue, setDaysInputValue] = useState<string>(lesson ? lesson.dValidity.toString() : "0"); //To allow empty strings
+  const [countOfValidLetters, setCountOfValidLetters] = useState(0);
+  const [countOfDiscussedInsurances, setCountOfDiscussedInsurances] = useState(0);
+  const [countOfReceivingBonuses, setCountOfReceivingBonuses] = useState(0);
+  const [valueOfBonuses, setValueOfBonuses] = useState<BN>(BN_ZERO);
 
   // Helper functions
   const updateAndStoreLesson = useCallback(
@@ -244,13 +248,35 @@ function Tutor({ className = '' }: Props): React.ReactElement<Props> {
     [lesson, updateAndStoreLesson]
   );
 
+  useEffect(() => {
+    if (lesson && areResultsShown) {
+      const updateInsurancesStat = async () => {
+        const fetchedInsurances = await db.insurances.where({ lesson: lessonId }).sortBy('id');
+        if (fetchedInsurances) {
+          const usedInsurances = fetchedInsurances.filter(insurance => insurance.wasUsed);
+          const calculatedDiscussedInsurances = lesson.reexamineStep - fetchedInsurances.filter(insurance => insurance.wasSkipped).length;
+          
+          const countOfBonuses = usedInsurances.length;
+          const amountOfBonuses = usedInsurances.reduce(
+            (sum, insurance) => sum.add(new BN(insurance.amount)),
+            new BN(0)
+          );
+          setCountOfReceivingBonuses(countOfBonuses);
+          setValueOfBonuses(amountOfBonuses);
+          setCountOfDiscussedInsurances(calculatedDiscussedInsurances);
+        }
+      };
+      updateInsurancesStat();
+    }
+  }, [lesson]);
+
   // Sign diploma
   useEffect(() => {
     const signLetters = async () => {
       if (!areResultsShown || !isApiReady || !currentPair || !lesson) {
         return;
       }
-
+      const dontSign = (lesson.dWarranty === '0' || lesson.dValidity === 0);
       try {
         // Calculate block number
         const chainHeader = await api.rpc.chain.getHeader();
@@ -261,6 +287,7 @@ function Tutor({ className = '' }: Props): React.ReactElement<Props> {
 
         // // Get diplomas to sign
         const letters: Letter[] = await db.letters.where({ lesson: lesson.id }).filter(letter => letter.valid).toArray();
+        setCountOfValidLetters(dontSign? 0 : letters.length);
 
         // // Get diplomas additional meta
         const genesisU8 = statics.api.genesisHash;
@@ -279,7 +306,7 @@ function Tutor({ className = '' }: Props): React.ReactElement<Props> {
 
           const workerPublicKeyU8 = hexToU8a(letterFromDB.worker);
 
-          const dontSign = (lesson.dWarranty === '0' || lesson.dValidity === 0);
+          
           const privateData = dontSign ? "" : getPrivateDataToSignByReferee(letterFromDB.cid, genesisU8, letterId, diplomaBlockNumber, refereeU8, workerPublicKeyU8, amount);
           const receipt = dontSign ? "" : getPublicDataToSignByReferee(genesisU8, letterId, diplomaBlockNumber, refereeU8, workerPublicKeyU8, amount);
           const refereeSignOverPrivateData = dontSign ? "" : u8aToHex(currentPair.sign(u8aWrapBytes(privateData)));
@@ -447,7 +474,16 @@ function Tutor({ className = '' }: Props): React.ReactElement<Props> {
     genesisRFromUrl, nonceRFromUrl, blockRFromUrl, blockAllowedRFromUrl, tutorRFromUrl,
     studentRFromUrl, amountRFromUrl, signOverPrivateDataRFromUrl, signOverReceiptRFromUrl, studentSignRFromUrl]);
 
-  const diplomaSlon = lesson ? new BN(lesson.dWarranty).div(new BN("1000000000000")) : BN_ZERO;
+  const diplomaWarrantyInSlon = lesson ? new BN(lesson.dWarranty).div(new BN("1000000000000")) : BN_ZERO;
+  const diplomaPriceInSlon = lesson ? new BN(lesson.dPrice).div(new BN("1000000000000")) : BN_ZERO;
+  const totalProfitForLetters = new BN(countOfValidLetters).mul(diplomaPriceInSlon);
+
+  ///
+  console.log("countOfValidLetters: "+countOfValidLetters)
+  console.log("countOfDiscussedInsurances: "+countOfDiscussedInsurances)
+  console.log("countOfReceivingBonuses: "+countOfReceivingBonuses)
+  console.log("valueOfBonuses: "+valueOfBonuses)
+  ///
 
   const diplomaView = <FullWidthContainer>
     <StyledResultsCloseButton onClick={onCloseResults}
@@ -477,7 +513,7 @@ function Tutor({ className = '' }: Props): React.ReactElement<Props> {
             </div>
             <div className="row">
               <div className="cell"><Icon icon='shield' /></div>
-              <div className="cell">{diplomaSlon.toString()} Slon {t('warranty')}</div>
+              <div className="cell">{diplomaWarrantyInSlon.toString()} Slon {t('warranty')}</div>
             </div>
             <div className="row">
               <div className="cell"><Icon icon='clock-rotate-left' /></div>
@@ -498,33 +534,45 @@ function Tutor({ className = '' }: Props): React.ReactElement<Props> {
       />
     </div>
 
-    <div className='ui--row' style={visibleDiplomaDetails ? {} : { display: 'none' }}>
-      <InputBalance
-        isZeroable
-        label={t('receive payment for each diploma')}
-        onChange={setDiplomaPrice}
-        defaultValue={lesson ? new BN(lesson.dPrice) : BN_ZERO}
-      />
-    </div>
-    <div className='ui--row' style={visibleDiplomaDetails ? {} : { display: 'none' }}>
-      <InputBalance
-        isZeroable
-        label={t('stake for each diploma')}
-        onChange={setAmount}
-        defaultValue={lesson ? new BN(lesson.dWarranty) : BN_ZERO}
-        isError={!lesson || new BN(lesson.dWarranty).eq(BN_ZERO)}
-      />
-    </div>
-    <div className='ui--row' style={visibleDiplomaDetails ? {} : { display: 'none' }}>
-      <Input
-        className='full'
-        label={t('days valid')}
-        onChange={setDaysValid}
-        value={daysInputValue}
-        placeholder={t('Positive number')}
-        isError={!daysInputValue || daysInputValue==="0"}
-      />
-    </div>
+    {visibleDiplomaDetails && <StyledModal
+      className={className}
+      header={t('Lesson price:') + ' ' + totalProfitForLetters.toString() + ' Slon'}
+      onClose={toggleVisibleDiplomaDetails}
+      size='small'
+    >
+      <Modal.Content>
+        <div className='ui--row'>
+          <InputBalance
+            isZeroable
+            label={t('receive payment for each diploma')}
+            onChange={setDiplomaPrice}
+            defaultValue={lesson ? new BN(lesson.dPrice) : BN_ZERO}
+          />
+        </div>
+        <div className='ui--row'>
+          <InputBalance
+            isZeroable
+            label={t('stake for each diploma')}
+            onChange={setAmount}
+            defaultValue={lesson ? new BN(lesson.dWarranty) : BN_ZERO}
+            isError={!lesson || new BN(lesson.dWarranty).eq(BN_ZERO)}
+          />
+        </div>
+        <div className='ui--row'>
+          <Input
+            className='full'
+            label={t('days valid')}
+            onChange={setDaysValid}
+            value={daysInputValue}
+            placeholder={t('Positive number')}
+            isError={!daysInputValue || daysInputValue === "0"}
+          />
+        </div>
+      </Modal.Content>
+
+    </StyledModal>}
+
+
   </FullWidthContainer>;
 
   const lessonReactKey = lesson ? (lesson.learnStep + lesson.reexamineStep) : 'loading';
@@ -645,6 +693,8 @@ export const StyledResultsCloseButton = styled(Button)`
   top: 50px;
   right: 10px;
   z-index: 1;
+`;
+const StyledModal = styled(Modal)`
 `;
 export default React.memo(Tutor);
 
