@@ -84,13 +84,8 @@ function Tutor({ className = '' }: Props): React.ReactElement<Props> {
   const [teachingAlgorithm, setTeachingAlgorithm] = useState<TeachingAlgorithm | null>(null);
 
   // Initialize diploma details
-  //   days
-  const defaultDaysValid: number = 730;
-  const [daysValid, setDaysValid] = useState<number>(defaultDaysValid);
   //   last block number
-  const [currentBlockNumber, setCurrentBlockNumber] = useState(new BN(0));
   const [millisecondsPerBlock,] = useBlockTime(BN_ONE, api);
-  const [diplomaBlockNumber, setDiplomaBlockNumber] = useState<BN>(new BN(0));
   //   raw diploma data
   const [diplomaText, setDiplomaText] = useState('');
   const [diplomaAddUrl, setDiplomaAddUrl] = useState('');
@@ -202,34 +197,13 @@ function Tutor({ className = '' }: Props): React.ReactElement<Props> {
       updateAndStoreLesson(updatedLesson);
     }
   }, [lesson, updateAndStoreLesson]);
-  
+
   const setDiplomaPrice = useCallback((value?: BN | undefined): void => {
     if (lesson && value && lesson.dPrice !== value.toString()) {
       const updatedLesson = { ...lesson, dPrice: value.toString() };
       updateAndStoreLesson(updatedLesson);
     }
   }, [lesson, updateAndStoreLesson]);
-
-  // Fetch block number (once)
-  useEffect(() => {
-    async function fetchBlockNumber() {
-      if (isApiReady) {
-        try {
-          const chainHeader = await api.rpc.chain.getHeader();
-          const currentBlockNumber = new BN(chainHeader.number.toString());
-          setCurrentBlockNumber(currentBlockNumber);
-          const defaultSecondsValid = defaultDaysValid * 86400;
-          const diplomaBlockNumber: BN = getDiplomaBlockNumber(currentBlockNumber, millisecondsPerBlock, defaultSecondsValid);
-          setDiplomaBlockNumber(diplomaBlockNumber);
-        } catch (error) {
-          console.error("Error fetching block number: ", error);
-        }
-      }
-    }
-    fetchBlockNumber();
-  }, [api, isApiReady]);
-
-
 
   const createDiplomaQR = useCallback((letter: Letter) => {
     const letterArray = letterAsArray(letter);
@@ -245,76 +219,81 @@ function Tutor({ className = '' }: Props): React.ReactElement<Props> {
 
   const _onChangeDaysValid = useCallback(
     (value: string) => {
-      console.log("value: "+value);
+      console.log("value: " + value);
       const days = parseInt(value, 10); // Using base 10 for the conversion
-      let result = days;
-      
+      let result = 0;
       if (!isNaN(days)) {
-        setDaysValid(days);
-        if (lesson && value && lesson.dValidity !== days) {
-          const updatedLesson = { ...lesson, dValidity: days };
-          updateAndStoreLesson(updatedLesson);
-        }
         const secondsToAdd = days * 86400; // 86400 - seconds in a day
         if (Number.isSafeInteger(secondsToAdd)) {
-          const diplomaBlockNumber: BN = getDiplomaBlockNumber(currentBlockNumber, millisecondsPerBlock, secondsToAdd);
-          setDiplomaBlockNumber(diplomaBlockNumber);
+          result = days;
         }
-      } else {
-        result = 0;
       }
-      if (lesson && lesson.dValidity !== result) {
+      if (lesson && result > 0 && lesson.dValidity !== result) {
         const updatedLesson = { ...lesson, dValidity: result };
         updateAndStoreLesson(updatedLesson);
       }
     },
-    [currentBlockNumber, lesson]
+    [lesson]
   );
 
   // Sign diploma
   const _onSign = useCallback(
     async () => {
-      if (!currentPair || !lesson || lesson.dWarranty === '0') {
+      if (!isApiReady || !currentPair || !lesson || lesson.dWarranty === '0') {
         return;
       }
-      const letters: Letter[] = await db.letters.where({ lesson: lessonId }).filter(letter => letter.valid).toArray();
-      const genesisU8 = statics.api.genesisHash;
-      const referee = currentPair;
-      const refereeU8 = referee.publicKey;
-      const refereePublicKeyHex = u8aToHex(refereeU8);
-      const amount = new BN(lesson.dWarranty);
 
-      letters.forEach(async letterFromDB => {
-        // generate a data to sign
+      try {
+        const chainHeader = await api.rpc.chain.getHeader();
+        const currentBlockNumber = new BN(chainHeader.number.toString());
+        const secondsValid = lesson.dValidity * 86400;
+        const diplomaBlockNumber: BN = getDiplomaBlockNumber(currentBlockNumber, millisecondsPerBlock, secondsValid);
+        console.log("lesson.dValidity: "+lesson.dValidity)
+        console.log("diplomaBlockNumber: "+diplomaBlockNumber)
 
-        const letterId = letterFromDB.letterNumber >= 0 ? letterFromDB.letterNumber : await getLastUnusedLetterNumber(refereePublicKeyHex);
-        const workerPublicKeyU8 = hexToU8a(letterFromDB.worker);
-        const privateData = getPrivateDataToSignByReferee(letterFromDB.cid, genesisU8, letterId, diplomaBlockNumber, refereeU8, workerPublicKeyU8, amount);
-        const receipt = getPublicDataToSignByReferee(genesisU8, letterId, diplomaBlockNumber, refereeU8, workerPublicKeyU8, amount);
-        const refereeSignOverPrivateData = u8aToHex(currentPair.sign(u8aWrapBytes(privateData)));
-        const refereeSignOverReceipt = u8aToHex(currentPair.sign(u8aWrapBytes(receipt)));
+        const letters: Letter[] = await db.letters.where({ lesson: lessonId }).filter(letter => letter.valid).toArray();
+        const genesisU8 = statics.api.genesisHash;
+        const referee = currentPair;
+        const refereeU8 = referee.publicKey;
+        const refereePublicKeyHex = u8aToHex(refereeU8);
+        const amount = new BN(lesson.dWarranty);
 
-        const updatedLetter: Letter = {
-          ...letterFromDB,
-          created: now,
-          lastReexamined: now,
-          reexamCount: 0,
-          genesis: genesisU8.toHex(),
-          letterNumber: letterId,
-          block: diplomaBlockNumber.toString(),
-          referee: refereePublicKeyHex,
-          amount: amount.toString(),
-          signOverPrivateData: refereeSignOverPrivateData,
-          signOverReceipt: refereeSignOverReceipt,
-        };
-        await updateLetter(updatedLetter);
-        await setLastUsedLetterNumber(refereePublicKeyHex, letterId);
-      });
+        letters.forEach(async letterFromDB => {
+          // generate a data to sign
+
+          const letterId = letterFromDB.letterNumber >= 0 ? letterFromDB.letterNumber : await getLastUnusedLetterNumber(refereePublicKeyHex);
+          const workerPublicKeyU8 = hexToU8a(letterFromDB.worker);
+          const privateData = getPrivateDataToSignByReferee(letterFromDB.cid, genesisU8, 1, diplomaBlockNumber, refereeU8, workerPublicKeyU8, amount);
+          const receipt = getPublicDataToSignByReferee(genesisU8, 1, diplomaBlockNumber, refereeU8, workerPublicKeyU8, amount);
+          const refereeSignOverPrivateData = u8aToHex(currentPair.sign(u8aWrapBytes(privateData)));
+          const refereeSignOverReceipt = u8aToHex(currentPair.sign(u8aWrapBytes(receipt)));
+
+          const updatedLetter: Letter = {
+            ...letterFromDB,
+            created: now,
+            lastReexamined: now,
+            reexamCount: 0,
+            genesis: genesisU8.toHex(),
+            letterNumber: letterId,
+            block: diplomaBlockNumber.toString(),
+            referee: refereePublicKeyHex,
+            amount: amount.toString(),
+            signOverPrivateData: refereeSignOverPrivateData,
+            signOverReceipt: refereeSignOverReceipt,
+          };
+          await updateLetter(updatedLetter);
+          await setLastUsedLetterNumber(refereePublicKeyHex, letterId);
+        });
+
+      } catch (error) {
+        console.error("Error fetching block number: ", error);
+      }
+
 
       // createDiplomaQR(letter);
       // setDiploma(letter);
     },
-    [currentPair, diplomaBlockNumber, lesson]
+    [api, isApiReady, currentPair, lesson]
   );
 
   const updateReexamined = useCallback(async () => {
@@ -359,7 +338,6 @@ function Tutor({ className = '' }: Props): React.ReactElement<Props> {
   }
   const onShowResults = async (lesson: Lesson) => {
     storeSetting(SettingKey.LESSON, lesson.id);
-    await _onSign();
     setLesson(lesson);
     setResultsShown(true);
   }
@@ -390,11 +368,13 @@ function Tutor({ className = '' }: Props): React.ReactElement<Props> {
         if (lesson.learnStep === lesson.toLearnCount && lesson.reexamineStep === lesson.toReexamineCount) {
           onShowResults(lesson);
         }
-        _onSign();
+        if (areResultsShown) {
+          await _onSign();
+        }
       }
     }
     onLessonUpdate()
-  }, [lesson, letterIds, insuranceIds, studentName])
+  }, [lesson, letterIds, insuranceIds, studentName, areResultsShown])
 
   const onCloseTutoring = useCallback(() => {
     deleteSetting(SettingKey.LESSON);
@@ -491,7 +471,7 @@ function Tutor({ className = '' }: Props): React.ReactElement<Props> {
             </div>
             <div className="row">
               <div className="cell"><Icon icon='clock-rotate-left' /></div>
-              <div className="cell">{daysValid.toString()} {t('days valid')}</div>
+              <div className="cell">{lesson ? lesson.dValidity : '0'} {t('days valid')}</div>
             </div>
           </div>
         </Card>
@@ -513,7 +493,7 @@ function Tutor({ className = '' }: Props): React.ReactElement<Props> {
         isZeroable
         label={t('receive payment for each diploma')}
         onChange={setDiplomaPrice}
-        defaultValue={lesson? new BN(lesson.dPrice) : BN_ZERO}
+        defaultValue={lesson ? new BN(lesson.dPrice) : BN_ZERO}
       />
     </div>
     <div className='ui--row' style={visibleDiplomaDetails ? {} : { display: 'none' }}>
@@ -521,7 +501,7 @@ function Tutor({ className = '' }: Props): React.ReactElement<Props> {
         isZeroable
         label={t('stake for each diploma')}
         onChange={setAmount}
-        defaultValue={lesson? new BN(lesson.dWarranty) : BN_ZERO}
+        defaultValue={lesson ? new BN(lesson.dWarranty) : BN_ZERO}
       />
     </div>
     <div className='ui--row' style={visibleDiplomaDetails ? {} : { display: 'none' }}>
@@ -529,7 +509,7 @@ function Tutor({ className = '' }: Props): React.ReactElement<Props> {
         className='full'
         label={t('days valid')}
         onChange={_onChangeDaysValid}
-        value={lesson? lesson.dValidity.toString() : "0"}
+        value={lesson ? lesson.dValidity.toString() : "0"}
       />
     </div>
   </FullWidthContainer>;
