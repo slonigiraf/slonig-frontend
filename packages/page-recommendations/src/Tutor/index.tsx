@@ -192,6 +192,12 @@ function Tutor({ className = '' }: Props): React.ReactElement<Props> {
       updateAndStoreLesson(updatedLesson);
     }
   }
+  const setDiplomaPrice = (value?: BN | undefined): void => {
+    if (lesson && value && lesson.dPrice !== value.toString()) {
+      const updatedLesson = { ...lesson, dPrice: value.toString() };
+      updateAndStoreLesson(updatedLesson);
+    }
+  }
 
   // Fetch block number (once)
   useEffect(() => {
@@ -492,7 +498,15 @@ function Tutor({ className = '' }: Props): React.ReactElement<Props> {
     <div className='ui--row' style={visibleDiplomaDetails ? {} : { display: 'none' }}>
       <InputBalance
         isZeroable
-        label={t('stake Slon for each diploma')}
+        label={t('receive payment for each diploma')}
+        onChange={setDiplomaPrice}
+        defaultValue={lesson? new BN(lesson.dPrice) : BN_ZERO}
+      />
+    </div>
+    <div className='ui--row' style={visibleDiplomaDetails ? {} : { display: 'none' }}>
+      <InputBalance
+        isZeroable
+        label={t('stake for each diploma')}
         onChange={setAmount}
         defaultValue={lesson? new BN(lesson.dWarranty) : BN_ZERO}
       />
