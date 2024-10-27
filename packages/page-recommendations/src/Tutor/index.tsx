@@ -6,7 +6,7 @@ import BN from 'bn.js';
 import { statics } from '@polkadot/react-api/statics';
 import { styled, Toggle, Button, Input, InputBalance, Icon, Card, Progress } from '@polkadot/react-components';
 import { useApi, useBlockTime, useToggle } from '@polkadot/react-hooks';
-import { u8aToHex, hexToU8a, u8aWrapBytes, BN_ONE } from '@polkadot/util';
+import { u8aToHex, hexToU8a, u8aWrapBytes, BN_ONE, BN_ZERO } from '@polkadot/util';
 import type { Skill } from '@slonigiraf/app-slonig-components';
 import { QRWithShareAndCopy, getBaseUrl, getIPFSDataFromContentID, parseJson, useIpfsContext, nameFromKeyringPair, QRAction, useLoginContext, LoginButton, FullWidthContainer, VerticalCenterItemsContainer, CenterQRContainer, KatexSpan, QRField, useInfo, SettingKey } from '@slonigiraf/app-slonig-components';
 import { Letter } from '@slonigiraf/app-recommendations';
@@ -80,14 +80,11 @@ function Tutor({ className = '' }: Props): React.ReactElement<Props> {
   const [skill, setSkill] = useState<Skill | null>(null);
 
   // Store progress state
-  const [canIssueDiploma, setCanIssueDiploma] = useState(false);
+  const [canIssueDiploma, setCanIssueDiploma] = useState(true);
   const [reexamined, setReexamined] = useState<boolean>(false);
   const [teachingAlgorithm, setTeachingAlgorithm] = useState<TeachingAlgorithm | null>(null);
 
   // Initialize diploma details
-  //   stake: 105 Slon, 12 zeroes for numbers after point
-  const defaultStake: BN = new BN("105000000000000");
-  const [amount, setAmount] = useState<BN>(defaultStake);
   //   days
   const defaultDaysValid: number = 730;
   const [daysValid, setDaysValid] = useState<number>(defaultDaysValid);
@@ -200,6 +197,13 @@ function Tutor({ className = '' }: Props): React.ReactElement<Props> {
     }
   }
 
+  const setAmount = (value?: BN | undefined): void => {
+    if (lesson && value && lesson.dPrice !== value.toString()) {
+      const updatedLesson = { ...lesson, dPrice: value.toString() };
+      updateAndStoreLesson(updatedLesson);
+    }
+  }
+
   useEffect(() => {
     fetchResultsForLessonId();
   }, [lessonIdFromUrl])
@@ -273,19 +277,20 @@ function Tutor({ className = '' }: Props): React.ReactElement<Props> {
       const referee = currentPair;
       const refereeU8 = referee.publicKey;
       const refereePublicKeyHex = u8aToHex(refereeU8);
+      const amount = new BN(lesson.dWarranty);
 
-      letters.forEach(async letterToIssue => {
+      letters.forEach(async letterFromDB => {
         // generate a data to sign
 
-        const letterId = letterToIssue.letterNumber >= 0? letterToIssue.letterNumber : await getLastUnusedLetterNumber(refereePublicKeyHex);
-        const workerPublicKeyU8 = hexToU8a(letterToIssue.worker);
-        const privateData = getPrivateDataToSignByReferee(letterToIssue.cid, genesisU8, letterId, diplomaBlockNumber, refereeU8, workerPublicKeyU8, amount);
+        const letterId = letterFromDB.letterNumber >= 0 ? letterFromDB.letterNumber : await getLastUnusedLetterNumber(refereePublicKeyHex);
+        const workerPublicKeyU8 = hexToU8a(letterFromDB.worker);
+        const privateData = getPrivateDataToSignByReferee(letterFromDB.cid, genesisU8, letterId, diplomaBlockNumber, refereeU8, workerPublicKeyU8, amount);
         const receipt = getPublicDataToSignByReferee(genesisU8, letterId, diplomaBlockNumber, refereeU8, workerPublicKeyU8, amount);
         const refereeSignOverPrivateData = u8aToHex(currentPair.sign(u8aWrapBytes(privateData)));
         const refereeSignOverReceipt = u8aToHex(currentPair.sign(u8aWrapBytes(receipt)));
 
-        const letter: Letter = {
-          ...letterToIssue,
+        const updatedLetter: Letter = {
+          ...letterFromDB,
           created: now,
           lastReexamined: now,
           reexamCount: 0,
@@ -297,7 +302,7 @@ function Tutor({ className = '' }: Props): React.ReactElement<Props> {
           signOverPrivateData: refereeSignOverPrivateData,
           signOverReceipt: refereeSignOverReceipt,
         };
-        await updateLetter(letter);
+        await updateLetter(updatedLetter);
         await setLastUsedLetterNumber(refereePublicKeyHex, letterId);
       });
 
@@ -306,7 +311,7 @@ function Tutor({ className = '' }: Props): React.ReactElement<Props> {
       // createDiplomaQR(letter);
       // setDiploma(letter);
     },
-    [currentPair, letterToIssue, diplomaBlockNumber, amount]
+    [currentPair, diplomaBlockNumber, lesson]
   );
 
   const updateReexamined = useCallback(async () => {
@@ -360,10 +365,7 @@ function Tutor({ className = '' }: Props): React.ReactElement<Props> {
   useEffect(() => {
     async function onLessonUpdate() {
       if (lesson) {
-        if(lesson.dPrice != amount.toString()){
-          const defaultLessonStake: BN = new BN(lesson.dPrice);
-          setAmount(defaultLessonStake);
-        }
+
         if (lesson.reexamineStep < lesson.toReexamineCount) {
           setReexamined(false);
         } else {
@@ -453,7 +455,7 @@ function Tutor({ className = '' }: Props): React.ReactElement<Props> {
     genesisRFromUrl, nonceRFromUrl, blockRFromUrl, blockAllowedRFromUrl, tutorRFromUrl,
     studentRFromUrl, amountRFromUrl, signOverPrivateDataRFromUrl, signOverReceiptRFromUrl, studentSignRFromUrl]);
 
-  const diplomaSlon = new BN(amount).div(new BN("1000000000000"));
+  const diplomaSlon = lesson ? new BN(lesson.dWarranty).div(new BN("1000000000000")) : BN_ZERO;
 
   const diplomaView = <FullWidthContainer>
     <StyledResultsCloseButton onClick={onCloseResults}
@@ -491,8 +493,35 @@ function Tutor({ className = '' }: Props): React.ReactElement<Props> {
             </div>
           </div>
         </Card>
+
+
       </DiplomaDiv>
+
     </VerticalCenterItemsContainer>
+    <div className='ui--row'>
+      <Toggle
+        label={t('details')}
+        onChange={toggleVisibleDiplomaDetails}
+        value={visibleDiplomaDetails}
+      />
+    </div>
+
+    <div className='ui--row' style={visibleDiplomaDetails ? {} : { display: 'none' }}>
+      <InputBalance
+        isZeroable
+        label={t('stake Slon')}
+        onChange={setAmount}
+        defaultValue={lesson?.dWarranty}
+      />
+    </div>
+    <div className='ui--row' style={visibleDiplomaDetails ? {} : { display: 'none' }}>
+      <Input
+        className='full'
+        label={t('days valid')}
+        onChange={_onChangeDaysValid}
+        value={daysValid.toString()}
+      />
+    </div>
   </FullWidthContainer>;
 
   const lessonReactKey = lesson ? (lesson.learnStep + lesson.reexamineStep) : 'loading';
@@ -511,61 +540,6 @@ function Tutor({ className = '' }: Props): React.ReactElement<Props> {
     <div style={reexamined ? {} : { display: 'none' }}>
       {teachingAlgorithm && <DoInstructions algorithm={teachingAlgorithm} onResult={updateTutoring} key={'learn' + lessonReactKey} />}
     </div>
-    {
-      canIssueDiploma &&
-      <FullWidthContainer>
-        <VerticalCenterItemsContainer>
-          <Card>
-            <div className='ui--row'>
-              <h2>{t('Diploma')}</h2>
-            </div>
-            <table>
-              <tbody>
-                <tr>
-                  <td><Icon icon='graduation-cap' /></td>
-                  <td>{skill ? <KatexSpan content={skill.h} /> : ''}</td>
-                </tr>
-                <tr>
-                  <td><Icon icon='person' /></td>
-                  <td>{studentName}</td>
-                </tr>
-              </tbody>
-            </table>
-            <Toggle
-              label={t('details')}
-              onChange={toggleVisibleDiplomaDetails}
-              value={visibleDiplomaDetails}
-            />
-            <div className='ui--row' style={visibleDiplomaDetails ? {} : { display: 'none' }}>
-              <InputBalance
-                help={t('Stake reputation help info')}
-                isZeroable
-                label={t('stake Slon')}
-                onChange={setAmount}
-                defaultValue={amount}
-              />
-            </div>
-            <div className='ui--row' style={visibleDiplomaDetails ? {} : { display: 'none' }}>
-              <Input
-                className='full'
-                label={t('days valid')}
-                onChange={_onChangeDaysValid}
-                value={daysValid.toString()}
-              />
-            </div>
-          </Card>
-          <div>
-            <Button
-              icon='dollar'
-              isDisabled={!isIpfsReady}
-              label={t('Sell the diploma')}
-            // onClick={_onSign}
-            />
-            {!isIpfsReady ? <div>{t('Connecting to IPFS...')}</div> : ""}
-          </div>
-        </VerticalCenterItemsContainer>
-      </FullWidthContainer>
-    }
   </>;
 
   if (!isDedicatedTutor && tutorFromUrl) {
@@ -670,3 +644,4 @@ export const StyledResultsCloseButton = styled(Button)`
   z-index: 1;
 `;
 export default React.memo(Tutor);
+
