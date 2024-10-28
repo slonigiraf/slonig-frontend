@@ -69,7 +69,7 @@ function Tutor({ className = '' }: Props): React.ReactElement<Props> {
     genesisRFromUrl, nonceRFromUrl, blockRFromUrl, blockAllowedRFromUrl, tutorRFromUrl,
     studentRFromUrl, amountRFromUrl, signOverPrivateDataRFromUrl, signOverReceiptRFromUrl, studentSignRFromUrl] = queryData.split(' ');
 
-  const now = new Date();
+  const now = (new Date()).getTime();
   const [insuranceToReexamine, setInsuranceToReexamine] = useState<Insurance | null>(null);
   const [letterToIssue, setLetterToIssue] = useState<Letter | null>(null);
 
@@ -477,13 +477,6 @@ function Tutor({ className = '' }: Props): React.ReactElement<Props> {
   const diplomaWarrantyInSlon = lesson ? new BN(lesson.dWarranty).div(new BN("1000000000000")) : BN_ZERO;
   const diplomaPriceInSlon = lesson ? new BN(lesson.dPrice).div(new BN("1000000000000")) : BN_ZERO;
   const totalProfitForLetters = new BN(countOfValidLetters).mul(diplomaPriceInSlon);
-
-  ///
-  console.log("countOfValidLetters: " + countOfValidLetters)
-  console.log("countOfDiscussedInsurances: " + countOfDiscussedInsurances)
-  console.log("countOfReceivingBonuses: " + countOfReceivingBonuses)
-  console.log("valueOfBonuses: " + valueOfBonuses)
-  ///
 
   const diplomaView = <FullWidthContainer>
     <StyledResultsCloseButton onClick={onCloseResults}

@@ -91,7 +91,7 @@ const DEFAULT_VALIDITY = 730;//Days valid
 const DEFAULT_DIPLOMA_PRICE = "80000000000000";//80 Slon
 
 export const storeLesson = async (tutorPublicKeyHex: string, qrJSON: any, webRTCJSON: any) => {
-    const now = new Date();
+    const now = (new Date()).getTime();
 
     const stored_warranty = await getSetting(SettingKey.DIPLOMA_WARRANTY);
     const stored_validity = await getSetting(SettingKey.DIPLOMA_VALIDITY);
@@ -274,7 +274,7 @@ export const createAndStoreLetter = async (data: string[]) => {
         refereeSignOverReceipt,
         knowledgeId] = data;
     
-    const now = new Date();
+    const now = (new Date()).getTime();
     const letter: Letter = {
         created: now,
         valid: true,
@@ -338,9 +338,9 @@ const createAndStoreInsurance = async (data: string[]) => {
         refereeSignOverReceipt,
         workerSignOverInsurance] = data;
 
-    const now = new Date();
+    const now = (new Date()).getTime();
 
-    const insurance = {
+    const insurance: Insurance = {
         created: now,
         valid: true,
         lesson: '',
