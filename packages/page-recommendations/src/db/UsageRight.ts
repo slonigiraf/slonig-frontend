@@ -1,6 +1,6 @@
 export interface UsageRight {
   id?: number;
-  created: Date;
+  created: number; // timestamp
   signOverReceipt: string;
   employer: string;
   sign: string;

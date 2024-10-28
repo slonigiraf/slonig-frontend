@@ -1,5 +1,3 @@
-// LettersList component with JavaScript Date objects
-
 import LetterInfo from './LetterInfo.js';
 import React, { useState } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
@@ -27,9 +25,9 @@ function LettersList({ className = '', worker, currentPair }: Props): React.Reac
   const employer = queryParams.get('teacher') || '';
   const { showInfo } = useInfo();
 
-  // Initialize startDate and endDate as Date objects
-  const [startDate, setStartDate] = useState<Date | null>(new Date(new Date().setHours(0, 0, 0, 0)));
-  const [endDate, setEndDate] = useState<Date | null>(new Date(new Date().setHours(23, 59, 59, 999)));
+  // Initialize startDate and endDate as timestamps
+  const [startDate, setStartDate] = useState<number | null>(new Date(new Date().setHours(0, 0, 0, 0)).getTime());
+  const [endDate, setEndDate] = useState<number | null>(new Date(new Date().setHours(23, 59, 59, 999)).getTime());
   const [isDeleteConfirmOpen, toggleDeleteConfirm] = useToggle();
 
   const letters = useLiveQuery<Letter[]>(
@@ -39,9 +37,8 @@ function LettersList({ className = '', worker, currentPair }: Props): React.Reac
         query = query.filter((letter) => {
           if (!letter.valid) return false;
           if (letter.letterNumber < 0) return false;
-          const createdDate = new Date(letter.created);
-          if (startDate && createdDate < startDate) return false;
-          if (endDate && createdDate > endDate) return false;
+          if (startDate && letter.created < startDate) return false;
+          if (endDate && letter.created > endDate) return false;
           return true;
         });
       }
@@ -49,7 +46,6 @@ function LettersList({ className = '', worker, currentPair }: Props): React.Reac
     },
     [worker, startDate, endDate]
   );
-  
 
   const [selectedLetters, setSelectedLetters] = useState<Letter[]>([]);
 
@@ -106,16 +102,16 @@ function LettersList({ className = '', worker, currentPair }: Props): React.Reac
       <div className="ui--row">
         <div>
           <DateInput
-            date={startDate}
-            onDateChange={setStartDate}
+            date={startDate ? new Date(startDate) : null}
+            onDateChange={(date) => setStartDate(date ? date.getTime() : null)}
             id={startDateId}
             sessionStorageId={startDateId}
             label={t('Dates of receipt')}
           />
           <StyledIcon icon="arrow-right" />
           <DateInput
-            date={endDate}
-            onDateChange={setEndDate}
+            date={endDate ? new Date(endDate) : null}
+            onDateChange={(date) => setEndDate(date ? date.getTime() : null)}
             id={endDateId}
           />
         </div>

@@ -252,7 +252,7 @@ export const storeLetterUsageRight = async (letter: Letter, employer: string, si
     const sameUsageRight = await db.usageRights.get({ sign: sign });
     if (sameUsageRight === undefined && letter.signOverReceipt !== undefined) {
         const usageRight = {
-            created: new Date(),
+            created: (new Date()).getTime(),
             signOverReceipt: letter.signOverReceipt,
             employer: employer,
             sign: sign

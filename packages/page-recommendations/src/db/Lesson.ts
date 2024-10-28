@@ -1,6 +1,6 @@
 export interface Lesson {
   id: string;
-  created: Date;
+  created: number; // timestamp
   cid: string;
   tutor: string;
   student: string;

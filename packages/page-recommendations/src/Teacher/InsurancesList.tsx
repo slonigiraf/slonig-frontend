@@ -21,9 +21,9 @@ function InsurancesList({ className = '', teacher, student, studentNameFromUrl }
   const { t } = useTranslation();
   const [studentName, setStudentName] = useState<string | undefined>(studentNameFromUrl);
 
-  // Initialize startDate and endDate as Date objects
-  const [startDate, setStartDate] = useState<Date | null>(new Date(new Date().setHours(0, 0, 0, 0)));
-  const [endDate, setEndDate] = useState<Date | null>(new Date(new Date().setHours(23, 59, 59, 999)));
+  // Initialize startDate and endDate as timestamps
+  const [startDate, setStartDate] = useState<number | null>(new Date(new Date().setHours(0, 0, 0, 0)).getTime());
+  const [endDate, setEndDate] = useState<number | null>(new Date(new Date().setHours(23, 59, 59, 999)).getTime());
 
   // Fetch student name
   useEffect(() => {
@@ -41,12 +41,16 @@ function InsurancesList({ className = '', teacher, student, studentNameFromUrl }
   const insurances = useLiveQuery(
     () => {
       let query = db.insurances.where('[employer+workerId]').equals([teacher, student]);
-      if (startDate) query = query.filter((insurance) => new Date(insurance.created) >= startDate);
-      if (endDate) query = query.filter((insurance) => new Date(insurance.created) <= endDate);
+      query = query.filter((insurance) => {
+        if (startDate && insurance.created < startDate) return false;
+        if (endDate && insurance.created > endDate) return false;
+        return true;
+      });
       return query.sortBy('id').then((insurances) => insurances.reverse());
     },
     [teacher, student, startDate, endDate]
   );
+
   const startDateId = 'insurances:start';
   const endDateId = 'insurances:end';
 
@@ -60,16 +64,16 @@ function InsurancesList({ className = '', teacher, student, studentNameFromUrl }
       <div className="ui--row">
         <div>
           <DateInput
-            date={startDate}
-            onDateChange={setStartDate}
+            date={startDate ? new Date(startDate) : null}
+            onDateChange={(date) => setStartDate(date ? date.getTime() : null)}
             id={startDateId}
             sessionStorageId={startDateId}
             label={t('Dates of receipt')}
           />
           <StyledIcon icon="arrow-right" />
           <DateInput
-            date={endDate}
-            onDateChange={setEndDate}
+            date={endDate ? new Date(endDate) : null}
+            onDateChange={(date) => setEndDate(date ? date.getTime() : null)}
             id={endDateId}
           />
         </div>

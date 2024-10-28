@@ -1,5 +1,3 @@
-// LessonsList component with JavaScript Date objects
-
 import LessonInfo from './LessonInfo.js';
 import React, { useCallback, useState } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
@@ -23,9 +21,9 @@ function LessonsList({ className = '', tutor, onResumeTutoring, onShowResults }:
   const { showInfo } = useInfo();
   const [isSelectionAllowed, setSelectionAllowed] = useState(false);
 
-  // Initialize startDate and endDate as Date objects
-  const [startDate, setStartDate] = useState<Date | null>(new Date(new Date().setHours(0, 0, 0, 0)));
-  const [endDate, setEndDate] = useState<Date | null>(new Date(new Date().setHours(23, 59, 59, 999)));
+  // Initialize startDate and endDate as timestamps (numbers)
+  const [startDate, setStartDate] = useState<number | null>(new Date(new Date().setHours(0, 0, 0, 0)).getTime());
+  const [endDate, setEndDate] = useState<number | null>(new Date(new Date().setHours(23, 59, 59, 999)).getTime());
   const [isDeleteConfirmOpen, toggleDeleteConfirm] = useToggle();
 
   const lessons = useLiveQuery<Lesson[]>(
@@ -33,9 +31,8 @@ function LessonsList({ className = '', tutor, onResumeTutoring, onShowResults }:
       let query = db.lessons.where('tutor').equals(tutor);
       if (startDate || endDate) {
         query = query.filter((lesson) => {
-          const createdDate = new Date(lesson.created);
-          if (startDate && createdDate < startDate) return false;
-          if (endDate && createdDate > endDate) return false;
+          if (startDate && lesson.created < startDate) return false;
+          if (endDate && lesson.created > endDate) return false;
           return true;
         });
       }
@@ -91,16 +88,16 @@ function LessonsList({ className = '', tutor, onResumeTutoring, onShowResults }:
       <div className="ui--row">
         <div>
           <DateInput
-            date={startDate}
-            onDateChange={setStartDate}
+            date={startDate ? new Date(startDate) : null}
+            onDateChange={(date) => setStartDate(date ? date.getTime() : null)}
             id={startDateId}
             sessionStorageId={startDateId}
             label={t('Lesson dates')}
           />
           <StyledIcon icon="arrow-right" />
           <DateInput
-            date={endDate}
-            onDateChange={setEndDate}
+            date={endDate ? new Date(endDate) : null}
+            onDateChange={(date) => setEndDate(date ? date.getTime() : null)}
             id={endDateId}
           />
         </div>

@@ -1,9 +1,9 @@
 export interface Letter {
   id?: number;
-  created: Date;
+  created: number; // timestamp
   valid: boolean,
   reexamCount: number,
-  lastReexamined: Date;
+  lastReexamined: number; // timestamp
   lesson: string;
   wasSkipped: boolean;
   workerId: string;

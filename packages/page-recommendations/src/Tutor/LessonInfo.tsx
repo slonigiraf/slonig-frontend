@@ -59,7 +59,7 @@ function LessonInfo({ lesson, isSelected, onToggleSelection, onResumeTutoring, o
     fetchStudentName();
   }, [lesson]);
 
-  const formattedDate = lesson.created ? new Intl.DateTimeFormat(userLocale).format(lesson.created) : '';
+  const formattedDate = lesson.created ? new Intl.DateTimeFormat(userLocale).format(new Date(lesson.created)) : '';
   const isFinished = (lesson.learnStep + lesson.reexamineStep) ===
     (lesson.toLearnCount + lesson.toReexamineCount)
 
