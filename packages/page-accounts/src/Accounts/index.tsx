@@ -335,7 +335,7 @@ function Overview({ className = '', onStatusChange }: Props): React.ReactElement
           <Button.Group>
             {isLoggedIn && <Button
               icon='plus'
-              label={t('Add')}
+              label={t('Add account')}
               onClick={() => setIsAddingAccount(true)}
             />}
           </Button.Group>
