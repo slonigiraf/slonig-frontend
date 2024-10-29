@@ -2,10 +2,8 @@
 // SPDX-License-Identifier: Apache-2.0
 import React, { useCallback, useEffect, useState } from 'react';
 import { useLocation } from 'react-router-dom';
-import BN from 'bn.js';
-import { styled, Button, Progress, Modal } from '@polkadot/react-components';
-import { useApi, useBlockTime, useToggle } from '@polkadot/react-hooks';
-import { u8aToHex, BN_ONE, BN_ZERO } from '@polkadot/util';
+import { styled, Button, Progress } from '@polkadot/react-components';
+import { u8aToHex } from '@polkadot/util';
 import type { Skill } from '@slonigiraf/app-slonig-components';
 import { QRWithShareAndCopy, getBaseUrl, getIPFSDataFromContentID, parseJson, useIpfsContext, nameFromKeyringPair, QRAction, useLoginContext, LoginButton, CenterQRContainer, QRField, useInfo, SettingKey } from '@slonigiraf/app-slonig-components';
 import { Letter } from '@slonigiraf/app-recommendations';
@@ -28,7 +26,6 @@ interface Props {
 function Tutor({ className = '' }: Props): React.ReactElement<Props> {
   // Initialize api, ipfs and translation
   const { ipfs, isIpfsReady } = useIpfsContext();
-  const { api } = useApi();
   const { showInfo } = useInfo();
   const { t } = useTranslation();
   const [lessonId, setLessonId] = useState<string | null>(null);
@@ -63,9 +60,6 @@ function Tutor({ className = '' }: Props): React.ReactElement<Props> {
   const [letterIds, setLetterIds] = useState<number[]>([]);
   const [insuranceIds, setInsuranceIds] = useState<number[]>([]);
   const [areResultsShown, setResultsShown] = useState(false);
-  const [daysInputValue, setDaysInputValue] = useState<string>(lesson ? lesson.dValidity.toString() : "0"); //To allow empty strings
-  const [countOfValidLetters, setCountOfValidLetters] = useState(0);
-  
 
   // Helper functions
   const updateAndStoreLesson = useCallback(
@@ -162,14 +156,6 @@ function Tutor({ className = '' }: Props): React.ReactElement<Props> {
   }, [lesson])
 
   // Fetch days valid
-  useEffect(() => {
-    async function fetchStudentName() {
-      if (lesson && lesson.dValidity.toString() !== daysInputValue) {
-        setDaysInputValue(lesson.dValidity.toString());
-      }
-    }
-    fetchStudentName()
-  }, [lesson])
 
   const updateReexamined = useCallback(async () => {
     if (lesson) {
