@@ -89,7 +89,7 @@ function groupAccounts(accounts: SortedAccount[]): Record<GroupName, string[]> {
 
 function Overview({ className = '', onStatusChange }: Props): React.ReactElement<Props> {
   const { t } = useTranslation();
-  const { _onChangeAccount, isLoggedIn, setIsAddingAccount } = useLoginContext();
+  const { _onChangeAccount, isLoggedIn, setIsAddingAccount, currentPair } = useLoginContext();
   const { api, isElectron } = useApi();
   const { allAccounts, hasAccounts } = useAccounts();
   const { isLedgerEnabled } = useLedger();
@@ -107,7 +107,6 @@ function Overview({ className = '', onStatusChange }: Props): React.ReactElement
   const delegations = useDelegations();
   const proxies = useProxies();
   const isNextTick = useNextTick();
-  const [inputKey, setInputKey] = useState(0);
   const { showInfo } = useInfo();
 
   const location = useLocation();
@@ -323,10 +322,10 @@ function Overview({ className = '', onStatusChange }: Props): React.ReactElement
         <Summary balance={balances.summary} />
         <div className='ui--row'>
           <InputAddress
-            key={inputKey}
+            key={currentPair?.address}
             className='full'
             isInput={false}
-            label={t('Account')}
+            label={t('Current account')}
             onChange={_onChangeAccount}
             type='account'
           />

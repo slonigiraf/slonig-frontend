@@ -3,7 +3,6 @@ import React, { useContext, createContext, ReactNode, useState, useCallback, use
 import { useLogin } from './useLogin.js';
 import type { KeyringPair } from '@polkadot/keyring/types';
 import type { AccountState } from '@slonigiraf/app-slonig-components';
-import SignIn from '@polkadot/app-signing/SignIn';
 import { InputAddress, Spinner, styled } from '@polkadot/react-components';
 import { useTranslation } from './translate.js';
 import CreateModal from '@polkadot/app-accounts/modals/Create';
@@ -58,13 +57,6 @@ export const LoginProvider: React.FC<LoginProviderProps> = ({ children }) => {
       setIsSignIn(true);
     }
   }, [hasAccounts]);
-
-  const toggleImport = useCallback((): void => {
-    setIsImport(!isImport);
-    if (!hasAccounts) {
-      setIsSignIn(false);
-    }
-  }, [hasAccounts, isImport]);
 
 
   const toggleSignIn = useCallback((): void => {
