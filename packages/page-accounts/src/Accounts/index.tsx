@@ -320,7 +320,7 @@ function Overview({ className = '', onStatusChange }: Props): React.ReactElement
             recipientId={recipientAddress ? recipientAddress : undefined}
           />
         )}
-
+        <Summary balance={balances.summary} />
         <div className='ui--row'>
           <InputAddress
             key={inputKey}
@@ -340,7 +340,7 @@ function Overview({ className = '', onStatusChange }: Props): React.ReactElement
             />}
           </Button.Group>
         </div>
-        <Summary balance={balances.summary} />
+
         {isLedgerOpen && (
           <Ledger onClose={toggleLedger} />
         )}
