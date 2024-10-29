@@ -135,14 +135,14 @@ function LessonResults({ className = '', lesson, updateAndStoreLesson, onClose }
   }, [lesson?.dWarranty])
 
   useEffect(() => {
-    async function updateWarrantyInSlon() {
+    async function updateDiplomaAndLessonPriceInSlon() {
       if (lesson) {
         setDiplomaPriceInSlon(lesson ? new BN(lesson.dPrice).div(new BN("1000000000000")) : BN_ZERO);
         setTotalProfitForLetters(new BN(countOfValidLetters).mul(diplomaPriceInSlon));
       }
     }
-    updateWarrantyInSlon()
-  }, [lesson?.dPrice])
+    updateDiplomaAndLessonPriceInSlon()
+  }, [lesson?.dPrice, countOfValidLetters])
 
 
   // Update lesson properties in case edited
