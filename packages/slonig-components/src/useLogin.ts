@@ -3,7 +3,7 @@ import { keyring } from '@polkadot/ui-keyring';
 import { getSetting, storeSetting } from '@slonigiraf/app-recommendations';
 import type { KeyringPair } from '@polkadot/keyring/types';
 import type { AccountState } from '@slonigiraf/app-slonig-components';
-import { decryptData, getKey, SettingKey } from '@slonigiraf/app-slonig-components';
+import { SettingKey } from '@slonigiraf/app-slonig-components';
 import { useApi } from '@polkadot/react-hooks';
 
 export function useLogin() {
@@ -12,6 +12,7 @@ export function useLogin() {
   const [isLoginRequired, setLoginIsRequired] = useState<boolean>(false);
   const [isReady, setIsReady] = useState<boolean>(false);
   const [isLoggedIn, setIsLoggedIn] = useState<boolean>(false);
+  const [isAddingAccount, setIsAddingAccount] = useState<boolean>(false);
   const [hasError, setHasError] = useState(true);
   const { isApiConnected } = useApi();
 
@@ -103,5 +104,5 @@ export function useLogin() {
     [keyring]
   );
 
-  return { isReady, currentPair, accountState, isLoggedIn, isLoginRequired, setIsLoggedIn, setLoginIsRequired, _onChangeAccount, _onUnlock };
+  return { isReady, currentPair, accountState, isLoggedIn, isLoginRequired, isAddingAccount, setIsLoggedIn, setLoginIsRequired, setIsAddingAccount, _onChangeAccount, _onUnlock };
 }

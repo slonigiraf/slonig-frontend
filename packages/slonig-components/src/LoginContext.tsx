@@ -16,10 +16,13 @@ interface ILoginContext {
   currentPair: KeyringPair | null;
   accountState: AccountState | null;
   isLoggedIn: boolean;
+  isAddingAccount: boolean;
   setIsLoggedIn: (v: boolean) => void;
+  setIsAddingAccount: (v: boolean) => void;
   isLoginRequired: boolean;
   setLoginIsRequired: (v: boolean) => void;
   _onChangeAccount: (accountId: string | null) => void;
+  logOut: () => void;
 }
 
 // Initialize the context with a default value.
@@ -41,11 +44,13 @@ export const LoginProvider: React.FC<LoginProviderProps> = ({ children }) => {
     currentPair,
     accountState,
     isLoggedIn,
+    isAddingAccount,
     setIsLoggedIn,
     isLoginRequired,
     setLoginIsRequired,
+    setIsAddingAccount,
     _onChangeAccount,
-    _onUnlock,
+    _onUnlock
   } = useLogin();
 
   useEffect(() => {
@@ -68,36 +73,27 @@ export const LoginProvider: React.FC<LoginProviderProps> = ({ children }) => {
 
   const cancelAuthorization = () => {
     setLoginIsRequired(false);
+    setIsAddingAccount(false);
   }
 
-  const signIn = (
-    <>
-      {hasAccounts &&
-        <SignIn
-          onClose={cancelAuthorization}
-          onUnlock={_onUnlock}
-          pair={currentPair}
-          toggleSignIn={toggleSignIn}
-          toggleImport={toggleImport}
-        />}
-      {(!hasAccounts || isImport) &&
-        <ImportModal
-          onClose={cancelAuthorization}
-          onStatusChange={_onUnlock}
-          toggleImport={toggleImport}
-        />}
-    </>
-  );
+  const importAccount = <ImportModal
+    onClose={cancelAuthorization}
+    onStatusChange={_onUnlock}
+    toggleImport={toggleSignIn}
+  />;
 
   const onCreateAccount = (status: ActionStatus) => {
     if (status.status === 'success' && status.account) {
       _onUnlock();
     }
+    setIsAddingAccount(false);
   }
 
   return (
-    <LoginContext.Provider value={{ currentPair, accountState,  isLoggedIn,
-      setIsLoggedIn,isLoginRequired, setLoginIsRequired, _onChangeAccount }}>
+    <LoginContext.Provider value={{
+      currentPair, accountState, isAddingAccount, isLoggedIn,
+      setIsLoggedIn, isLoginRequired, setLoginIsRequired, _onChangeAccount, setIsAddingAccount
+    }}>
       <div className='ui--row' style={{ display: 'none' }}>
         <InputAddress
           className='full'
@@ -117,7 +113,19 @@ export const LoginProvider: React.FC<LoginProviderProps> = ({ children }) => {
       {isReady && isLoginRequired && (
         <>
           {isSignIn ?
-            signIn
+            importAccount
+            :
+            <CreateModal
+              onClose={cancelAuthorization}
+              onStatusChange={onCreateAccount}
+              toggle={toggleSignIn}
+            />
+          }</>
+      )}
+      {isReady && isAddingAccount && (
+        <>
+          {!isSignIn ?
+            importAccount
             :
             <CreateModal
               onClose={cancelAuthorization}
