@@ -5,9 +5,9 @@ import BN from 'bn.js';
 import { statics } from '@polkadot/react-api/statics';
 import { styled, Button, Input, InputBalance, Icon, Card, Modal } from '@polkadot/react-components';
 import { useApi, useBlockTime, useToggle } from '@polkadot/react-hooks';
-import { u8aToHex, hexToU8a, u8aWrapBytes, BN_ONE, BN_ZERO } from '@polkadot/util';
+import { u8aToHex, hexToU8a, u8aWrapBytes, BN_ONE, BN_ZERO, formatBalance } from '@polkadot/util';
 import type { Skill } from '@slonigiraf/app-slonig-components';
-import { QRWithShareAndCopy, getBaseUrl, getIPFSDataFromContentID, parseJson, useIpfsContext, nameFromKeyringPair, QRAction, useLoginContext, FullWidthContainer, VerticalCenterItemsContainer, CenterQRContainer, KatexSpan, useInfo, SettingKey } from '@slonigiraf/app-slonig-components';
+import { QRWithShareAndCopy, getBaseUrl, getIPFSDataFromContentID, parseJson, useIpfsContext, QRAction, useLoginContext, FullWidthContainer, VerticalCenterItemsContainer, CenterQRContainer, KatexSpan, useInfo, SettingKey, balanceToSlonString } from '@slonigiraf/app-slonig-components';
 import { Letter } from '@slonigiraf/app-recommendations';
 import { getPublicDataToSignByReferee, getPrivateDataToSignByReferee } from '@slonigiraf/helpers';
 import { getLastUnusedLetterNumber, setLastUsedLetterNumber, storeSetting, updateLetter } from '../utils.js';
@@ -53,7 +53,7 @@ function LessonResults({ className = '', lesson, updateAndStoreLesson, onClose }
   const { t } = useTranslation();
   const { currentPair, isLoggedIn } = useLoginContext();
   const now = (new Date()).getTime();
-
+  const tokenSymbol = formatBalance.findSi('-').text;
 
   const [lessonName, setLessonName] = useState<string>('');
   const [millisecondsPerBlock,] = useBlockTime(BN_ONE, api);
@@ -66,11 +66,12 @@ function LessonResults({ className = '', lesson, updateAndStoreLesson, onClose }
   const [countOfValidLetters, setCountOfValidLetters] = useState(0);
   const [countOfDiscussedInsurances, setCountOfDiscussedInsurances] = useState(0);
   const [countOfReceivingBonuses, setCountOfReceivingBonuses] = useState(0);
-  const [valueOfBonuses, setValueOfBonuses] = useState<BN>(BN_ZERO);
+  const [countOfInvalidInsurances, setCountOfInvalidInsurances] = useState(0);
+  
+  const [valueOfBonusesReport, setValueOfBonusesReport] = useState<string>('0.00');
+  const [diplomaWarrantyReport, setDiplomaWarrantyReport] = useState<string>('0.00');
+  const [totalProfitForLettersReport, setTotalProfitForLettersReport] = useState<string>('0.00');
 
-  const [diplomaWarrantyInSlon, setDiplomaWarrantyInSlon] = useState<BN>(BN_ZERO);
-  const [diplomaPriceInSlon, setDiplomaPriceInSlon] = useState<BN>(BN_ZERO);
-  const [totalProfitForLetters, setTotalProfitForLetters] = useState<BN>(BN_ZERO);
   const [visibleDiplomaDetails, toggleVisibleDiplomaDetails] = useToggle(false);
  
   // Helper functions
@@ -128,7 +129,7 @@ function LessonResults({ className = '', lesson, updateAndStoreLesson, onClose }
   useEffect(() => {
     async function updateWarrantyInSlon() {
       if (lesson) {
-        setDiplomaWarrantyInSlon(lesson ? new BN(lesson.dWarranty).div(new BN("1000000000000")) : BN_ZERO);
+        setDiplomaWarrantyReport(balanceToSlonString(lesson ? new BN(lesson.dWarranty) : BN_ZERO));
       }
     }
     updateWarrantyInSlon()
@@ -137,8 +138,8 @@ function LessonResults({ className = '', lesson, updateAndStoreLesson, onClose }
   useEffect(() => {
     async function updateDiplomaAndLessonPriceInSlon() {
       if (lesson) {
-        setDiplomaPriceInSlon(lesson ? new BN(lesson.dPrice).div(new BN("1000000000000")) : BN_ZERO);
-        setTotalProfitForLetters(new BN(countOfValidLetters).mul(diplomaPriceInSlon));
+        const priceBN = lesson ? new BN(lesson.dPrice) : BN_ZERO;
+        setTotalProfitForLettersReport(balanceToSlonString(new BN(countOfValidLetters).mul(priceBN)));
       }
     }
     updateDiplomaAndLessonPriceInSlon()
@@ -186,6 +187,7 @@ function LessonResults({ className = '', lesson, updateAndStoreLesson, onClose }
           const fetchedInsurances = await db.insurances.where({ lesson: lesson.id }).sortBy('id');
           if (fetchedInsurances) {
             const usedInsurances = fetchedInsurances.filter(insurance => insurance.wasUsed);
+            const invalidInsurances = fetchedInsurances.filter(insurance => !insurance.valid);
             const calculatedDiscussedInsurances = lesson.reexamineStep - fetchedInsurances.filter(insurance => insurance.wasSkipped).length;
 
             const countOfBonuses = usedInsurances.length;
@@ -193,8 +195,9 @@ function LessonResults({ className = '', lesson, updateAndStoreLesson, onClose }
               (sum, insurance) => sum.add(new BN(insurance.amount)),
               new BN(0)
             );
+            setCountOfInvalidInsurances(invalidInsurances.length);
             setCountOfReceivingBonuses(countOfBonuses);
-            setValueOfBonuses(amountOfBonuses);
+            setValueOfBonusesReport(balanceToSlonString(amountOfBonuses));
             setCountOfDiscussedInsurances(calculatedDiscussedInsurances);
           }
         }
@@ -299,18 +302,30 @@ function LessonResults({ className = '', lesson, updateAndStoreLesson, onClose }
               </div>
               <div className="row">
                 <div className="cell"><Icon icon='dollar' /></div>
-                <div className="cell">{totalProfitForLetters.toString()} Slon - {t('lesson price')}</div>
+                <div className="cell">{totalProfitForLettersReport.toString()} {tokenSymbol} - {t('lesson price')}</div>
+              </div>
+              <div className="row">
+                <div className="cell"><Icon icon='trophy' /></div>
+                <div className="cell">{countOfValidLetters} {t('diplomas prepared')}</div>
               </div>
               <div className="row">
                 <div className="cell"><Icon icon='shield' /></div>
-                <div className="cell">{diplomaWarrantyInSlon.toString()} Slon - {t('warranty')}</div>
+                <div className="cell">{diplomaWarrantyReport.toString()} {tokenSymbol} - {t('warranty')}</div>
               </div>
               <div className="row">
                 <div className="cell"><Icon icon='clock-rotate-left' /></div>
                 <div className="cell">{lesson ? lesson.dValidity : '0'} {t('days valid')}</div>
               </div>
               <div className="row">
-                <div className="cell"><Button icon='edit' onClick={toggleVisibleDiplomaDetails} /></div>
+                <div className="cell"><Icon icon='ban' /></div>
+                <div className="cell">{countOfInvalidInsurances} {t('of')} {countOfDiscussedInsurances} {t('diplomas invalidated')}</div>
+              </div>
+              <div className="row">
+                <div className="cell"><Icon icon='money-bill-trend-up' /></div>
+                <div className="cell">{valueOfBonusesReport} {tokenSymbol} - {t('bonuses received')}</div>
+              </div>
+              <div className="row">
+                <div className="cell"><Button icon='edit' label={t('Edit')} onClick={toggleVisibleDiplomaDetails} /></div>
               </div>
             </div>
           </Card>
@@ -319,7 +334,7 @@ function LessonResults({ className = '', lesson, updateAndStoreLesson, onClose }
 
       {visibleDiplomaDetails && <StyledModal
         className={className}
-        header={totalProfitForLetters.toString() + ' Slon - ' + t('lesson price')}
+        header={`${totalProfitForLettersReport.toString()} ${tokenSymbol} - ${t('lesson price')}`}
         onClose={toggleVisibleDiplomaDetails}
         size='small'
       >

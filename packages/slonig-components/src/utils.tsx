@@ -5,11 +5,21 @@ import type { KeyringPair } from '@polkadot/keyring/types';
 import { getSetting, storeSetting } from '@slonigiraf/app-recommendations';
 import Peer from 'peerjs';
 import { SettingKey } from './index.js';
+import { formatBalance } from '@polkadot/util';
+import BN from 'bn.js';
+
+// export const tokenSymbol = formatBalance(balance, { withUnit: false });
 
 export const getBaseUrl = () => {
   const { protocol, hostname, port } = window.location;
   return `${protocol}//${hostname}${port ? `:${port}` : ''}`;
 };
+
+export const balanceToSlonString = (balance: BN): string => {
+  const numberWith4Decimals = formatBalance(balance, { withUnit: false });
+  const number = parseFloat(numberWith4Decimals);
+  return number.toFixed(0);
+}
 
 // ------
 export const CODEC = 0x71;
