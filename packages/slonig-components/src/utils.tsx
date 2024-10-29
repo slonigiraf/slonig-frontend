@@ -202,6 +202,7 @@ export async function decryptData(key: CryptoKey, encrypted: string, iv: string)
   return new TextDecoder().decode(decrypted);
 }
 
+// Use to encrypt archives
 export async function getKey() {
   let keyB64 = await getSetting(SettingKey.ENCRYPTION_KEY);
   if (!keyB64) {

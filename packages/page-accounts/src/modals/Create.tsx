@@ -18,7 +18,7 @@ import { tryCreateAccount } from '../util.js';
 import CreateAccountInputs from './CreateAccountInputs.js';
 import { ETH_DEFAULT_PATH } from './CreateEthDerivationPath.js';
 import { storeSetting } from '@slonigiraf/app-recommendations';
-import { encryptData, getKey, SettingKey } from '@slonigiraf/app-slonig-components';
+import { SettingKey } from '@slonigiraf/app-slonig-components';
 
 const DEFAULT_PAIR_TYPE = 'sr25519';
 
@@ -159,7 +159,9 @@ function Create({ className = '', onClose, onStatusChange, seed: propsSeed, type
   const [isMnemonicSaved, setIsMnemonicSaved] = useState<boolean>(true);
   const [isBusy, setIsBusy] = useState(false);
   const [{ isNameValid, name }, setName] = useState(() => ({ isNameValid: false, name: '' }));
-  const [{ isPasswordValid, password }, setPassword] = useState(() => ({ isPasswordValid: false, password: '' }));
+  // Intentially don't use passwords
+  const isPasswordValid = true;
+  const password = '';
   const isFirstStepValid = !!address && isMnemonicSaved && !deriveValidation?.error && isSeedValid;
   const isSecondStepValid = isNameValid && isPasswordValid;
   const isValid = isFirstStepValid && isSecondStepValid;
@@ -174,11 +176,6 @@ function Create({ className = '', onClose, onStatusChange, seed: propsSeed, type
         const options = { genesisHash: isDevelopment ? undefined : api.genesisHash.toHex(), isHardware: false, name: name.trim() };
         const status = createAccount(seed, derivePath, pairType, options, password, t('created account'));
         if (status.status === 'success' && status.account) {
-          // We store password intentionally. Using web accounts is not safe thus this doesn't add much risk.
-          const key = await getKey();
-          const { encrypted, iv } = await encryptData(key, password);
-          await storeSetting(SettingKey.PASSWORD, encrypted);
-          await storeSetting(SettingKey.IV, iv);
           await storeSetting(SettingKey.ACCOUNT, status.account?.toString());
         }
         onStatusChange(status);
@@ -201,7 +198,7 @@ function Create({ className = '', onClose, onStatusChange, seed: propsSeed, type
           name={{ isNameValid, name }}
           onCommit={_onCommit}
           setName={setName}
-          setPassword={setPassword}
+          setPassword={() => {}} // Intentionally don't use passwords
         />
       </Modal.Content>
       <Modal.Actions>
@@ -211,7 +208,7 @@ function Create({ className = '', onClose, onStatusChange, seed: propsSeed, type
         />
         <Button
           activeOnEnter
-          icon='fa-user-plus'
+          icon='user-plus'
           isDisabled={!isSecondStepValid}
           isBusy={isBusy}
           label={t('Sign Up')}

@@ -89,7 +89,7 @@ function groupAccounts(accounts: SortedAccount[]): Record<GroupName, string[]> {
 
 function Overview({ className = '', onStatusChange }: Props): React.ReactElement<Props> {
   const { t } = useTranslation();
-  const { _onChangeAccount, isLoggedIn, logOut } = useLoginContext();
+  const { _onChangeAccount, isLoggedIn } = useLoginContext();
   const { api, isElectron } = useApi();
   const { allAccounts, hasAccounts } = useAccounts();
   const { isLedgerEnabled } = useLedger();
@@ -306,11 +306,6 @@ function Overview({ className = '', onStatusChange }: Props): React.ReactElement
     setInputKey(prev => prev + 1);
   }, [onStatusChange]);
 
-  const _logOut = useCallback(() => {
-    showInfo(t('Logged Out'));
-    logOut();
-  }, [logOut]);
-
   return (
     <StyledDiv className={className}>
       {isLoggedIn && <>
@@ -335,13 +330,6 @@ function Overview({ className = '', onStatusChange }: Props): React.ReactElement
             onChange={_onChangeAccount}
             type='account'
           />
-          <Button.Group>
-            {isLoggedIn && <Button
-              icon='right-from-bracket'
-              label={t('Log out')}
-              onClick={_logOut}
-            />}
-          </Button.Group>
         </div>
         <Summary balance={balances.summary} />
         {isLedgerOpen && (

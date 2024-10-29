@@ -10,7 +10,7 @@ import { nextTick } from '@polkadot/util';
 
 import { useTranslation } from './translate.js';
 import { storeSetting } from '@slonigiraf/app-recommendations';
-import { encryptData, getKey, SettingKey, useLoginContext } from '@slonigiraf/app-slonig-components';
+import { SettingKey, useLoginContext } from '@slonigiraf/app-slonig-components';
 
 interface Props {
   onClose: () => void;
@@ -24,7 +24,8 @@ function SignIn({ onClose, onUnlock, pair, toggleSignIn, toggleImport }: Props):
   const { t } = useTranslation();
   const [isBusy, setIsBusy] = useState(false);
   const [address, setAddress] = useState('');
-  const [password, setPassword] = useState('');
+  // Intentionally don't use passwords
+  const password = '';
   const [unlockError, setUnlockError] = useState<string | null>(null);
 
   const { _onChangeAccount } = useLoginContext();
@@ -44,12 +45,7 @@ function SignIn({ onClose, onUnlock, pair, toggleSignIn, toggleImport }: Props):
     setIsBusy(true);
     nextTick(async () => {
       try {
-        // We store password intentionally. Using web accounts is not safe thus this doesn't add much risk.
-        const key = await getKey();
-        const { encrypted, iv } = await encryptData(key, password);
         await storeSetting(SettingKey.ACCOUNT, pair.address);
-        await storeSetting(SettingKey.PASSWORD, encrypted);
-        await storeSetting(SettingKey.IV, iv);
         onUnlock();
       } catch (error) {
         setIsBusy(false);
@@ -79,17 +75,7 @@ function SignIn({ onClose, onUnlock, pair, toggleSignIn, toggleImport }: Props):
           label={t('account')}
           onChange={_onChangeAccount}
           type='account'
-        />
-        <Password
-          autoFocus
-          isError={!!unlockError}
-          label={t('password')}
-          onChange={setPassword}
-          onEnter={_onUnlock}
-          value={password}
-        />
-
-         
+        />   
       </Modal.Content>
       <Modal.Actions>
         

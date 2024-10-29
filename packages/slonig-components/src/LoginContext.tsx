@@ -20,7 +20,6 @@ interface ILoginContext {
   isLoginRequired: boolean;
   setLoginIsRequired: (v: boolean) => void;
   _onChangeAccount: (accountId: string | null) => void;
-  logOut: () => void;
 }
 
 // Initialize the context with a default value.
@@ -47,7 +46,6 @@ export const LoginProvider: React.FC<LoginProviderProps> = ({ children }) => {
     setLoginIsRequired,
     _onChangeAccount,
     _onUnlock,
-    logOut
   } = useLogin();
 
   useEffect(() => {
@@ -99,7 +97,7 @@ export const LoginProvider: React.FC<LoginProviderProps> = ({ children }) => {
 
   return (
     <LoginContext.Provider value={{ currentPair, accountState,  isLoggedIn,
-      setIsLoggedIn,isLoginRequired, setLoginIsRequired, _onChangeAccount, logOut }}>
+      setIsLoggedIn,isLoginRequired, setLoginIsRequired, _onChangeAccount }}>
       <div className='ui--row' style={{ display: 'none' }}>
         <InputAddress
           className='full'

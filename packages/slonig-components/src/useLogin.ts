@@ -33,24 +33,16 @@ export function useLogin() {
   }, [isApiConnected]);
 
   const attemptUnlock = async (pair: KeyringPair) => {
-        const encryptedPasswordB64 = await getSetting(SettingKey.PASSWORD);
-    const ivB64 = await getSetting(SettingKey.IV);
-    if (encryptedPasswordB64 && ivB64) {
-            const key = await getKey();
-      try {
-        const password = await decryptData(key, encryptedPasswordB64, ivB64);
-                pair.decodePkcs8(password);
-                if (!pair.isLocked) {
-                    setLoginIsRequired(false);
-          setIsLoggedIn(true);
-          setIsReady(true);
-        }
-      } catch {
-        // setLoginIsRequired(true);
+    try {
+      // Intentionally dont use passwords
+      const password = '';
+      pair.decodePkcs8(password);
+      if (!pair.isLocked) {
+        setLoginIsRequired(false);
+        setIsLoggedIn(true);
         setIsReady(true);
       }
-    } else {
-      // setLoginIsRequired(true);
+    } catch {
       setIsReady(true);
     }
   };
@@ -65,7 +57,6 @@ export function useLogin() {
             newPair.lock();
             setIsLoggedIn(false);
             storeSetting(SettingKey.ACCOUNT, newPair.address);
-            storeSetting(SettingKey.PASSWORD, '');
           }
           setCurrentPair(newPair);
           if (newPair && newPair.meta) {
@@ -89,23 +80,9 @@ export function useLogin() {
     [keyring]
   );
 
-  const logOut = useCallback(
-    async () => {
-      if (currentPair) {
-        const newPair = currentPair;
-        newPair.lock();
-        setCurrentPair(newPair);
-        storeSetting(SettingKey.PASSWORD, '');
-        setIsLoggedIn(false);
-        // setLoginIsRequired(true);
-      }
-    },
-    [currentPair]
-  );
-
   const _onUnlock = useCallback(
     async () => {
-            const accountInDB = await getSetting(SettingKey.ACCOUNT);
+      const accountInDB = await getSetting(SettingKey.ACCOUNT);
       if (accountInDB) {
         const newPair = keyring.getPair(accountInDB);
         setCurrentPair(newPair);
@@ -126,5 +103,5 @@ export function useLogin() {
     [keyring]
   );
 
-  return { isReady, currentPair, accountState, isLoggedIn, isLoginRequired, setIsLoggedIn, setLoginIsRequired, _onChangeAccount, _onUnlock, logOut };
+  return { isReady, currentPair, accountState, isLoggedIn, isLoginRequired, setIsLoggedIn, setLoginIsRequired, _onChangeAccount, _onUnlock };
 }
