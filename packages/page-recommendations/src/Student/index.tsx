@@ -1,13 +1,13 @@
 // Copyright 2021-2022 @slonigiraf/app-recommendations authors & contributors
 // SPDX-License-Identifier: Apache-2.0
 
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import LettersList from './LettersList.js';
 import { IPFS } from 'ipfs-core';
-import { LoginButton, AppContainer, useLoginContext, getIPFSDataFromContentID, parseJson } from '@slonigiraf/app-slonig-components';
+import { LoginButton, useLoginContext, getIPFSDataFromContentID, parseJson, QRField } from '@slonigiraf/app-slonig-components';
 import { u8aToHex } from '@polkadot/util';
 import { useLocation } from 'react-router-dom';
-import { createAndStoreLetter } from '@slonigiraf/app-recommendations';
+import { createAndStoreLetter, getLetterByLessonIdAndSignOverReceipt } from '@slonigiraf/app-recommendations';
 import { storePseudonym } from '@slonigiraf/app-recommendations';
 import { useTranslation } from '../translate.js';
 
@@ -24,6 +24,11 @@ function Student({ className = '', ipfs }: Props): React.ReactElement<Props> {
   const teacherName = queryParams.get("name");
   const teacherPublicKey = queryParams.get("teacher");
   const addDiplomaData = queryParams.get("d") || "";
+  //TODO: get diplomas by url that contains peer id
+  const lessonPrice = queryParams.get(QRField.PRICE) || "";
+  const [isLessonPaid, setIsLessonPaid] = useState(false);
+  const [wasLessonResultSored, setWasLessonResultSored] = useState(true);
+
   const [textHash,
     workerId,
     genesisHex,
@@ -56,24 +61,30 @@ function Student({ className = '', ipfs }: Props): React.ReactElement<Props> {
 
   // Save diploma from url
   useEffect(() => {
-    if (refereeSignOverPrivateData) {
+    if (lessonPrice && refereeSignOverPrivateData) {
       async function saveDiploma() {
         if (ipfs !== null) {
           try {
-            const content = await getIPFSDataFromContentID(ipfs, textHash);
-            const json = parseJson(content);
-            const knowledgeId = json.i;
-            await createAndStoreLetter([textHash,
-              workerId,
-              genesisHex,
-              letterId,
-              blockNumber,
-              refereePublicKeyHex,
-              workerPublicKeyHex,
-              amount,
-              refereeSignOverPrivateData,
-              refereeSignOverReceipt,
-              knowledgeId]);
+            const sameLetter = getLetterByLessonIdAndSignOverReceipt('', refereeSignOverReceipt);
+            if (!sameLetter) {
+              if (isLessonPaid) {
+                const content = await getIPFSDataFromContentID(ipfs, textHash);
+                const json = parseJson(content);
+                const knowledgeId = json.i;
+                await createAndStoreLetter([textHash,
+                  workerId,
+                  genesisHex,
+                  letterId,
+                  blockNumber,
+                  refereePublicKeyHex,
+                  workerPublicKeyHex,
+                  amount,
+                  refereeSignOverPrivateData,
+                  refereeSignOverReceipt,
+                  knowledgeId]);
+              }
+            }
+
           } catch (e) {
             console.log(e);
           }
@@ -81,15 +92,27 @@ function Student({ className = '', ipfs }: Props): React.ReactElement<Props> {
       }
       saveDiploma()
     }
-  }, [refereeSignOverPrivateData])
+  }, [lessonPrice, isLessonPaid, refereeSignOverPrivateData])
+
+  useEffect(() => {
+    if (refereeSignOverPrivateData) {
+      async function seeIfSameLetterWasStored() {
+        const sameLetter = await getLetterByLessonIdAndSignOverReceipt('', refereeSignOverReceipt);
+        if(!sameLetter){
+          setWasLessonResultSored(false);
+        }
+      }
+      seeIfSameLetterWasStored();
+    }
+  }, [refereeSignOverReceipt])
 
   return (
-      <div className={`toolbox--Student ${className}`}>
-        <div className='ui--row'>
-          {isLoggedIn && <LettersList ipfs={ipfs} worker={u8aToHex(currentPair?.publicKey)} currentPair={currentPair} />}
-          <LoginButton label={t('Log in')} />
-        </div>
+    <div className={`toolbox--Student ${className}`}>
+      <div className='ui--row'>
+        {isLoggedIn && <LettersList ipfs={ipfs} worker={u8aToHex(currentPair?.publicKey)} currentPair={currentPair} />}
+        <LoginButton label={t('Log in')} />
       </div>
+    </div>
   )
 }
 

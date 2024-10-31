@@ -7,7 +7,7 @@ import { styled, Button, Input, InputBalance, Icon, Card, Modal } from '@polkado
 import { useApi, useBlockTime, useToggle } from '@polkadot/react-hooks';
 import { u8aToHex, hexToU8a, u8aWrapBytes, BN_ONE, BN_ZERO, formatBalance } from '@polkadot/util';
 import type { Skill } from '@slonigiraf/app-slonig-components';
-import { QRWithShareAndCopy, getBaseUrl, getIPFSDataFromContentID, parseJson, useIpfsContext, QRAction, useLoginContext, FullWidthContainer, VerticalCenterItemsContainer, CenterQRContainer, KatexSpan, useInfo, SettingKey, balanceToSlonString } from '@slonigiraf/app-slonig-components';
+import { QRWithShareAndCopy, getBaseUrl, getIPFSDataFromContentID, parseJson, useIpfsContext, QRAction, useLoginContext, FullWidthContainer, VerticalCenterItemsContainer, CenterQRContainer, KatexSpan, useInfo, SettingKey, balanceToSlonString, QRField } from '@slonigiraf/app-slonig-components';
 import { Letter } from '@slonigiraf/app-recommendations';
 import { getPublicDataToSignByReferee, getPrivateDataToSignByReferee } from '@slonigiraf/helpers';
 import { getLastUnusedLetterNumber, setLastUsedLetterNumber, storeSetting, updateLetter } from '../utils.js';
@@ -15,6 +15,7 @@ import { useTranslation } from '../translate.js';
 import { getPseudonym } from '../utils.js';
 import { Lesson } from '../db/Lesson.js';
 import { db } from "../db/index.js";
+import { Insurance } from '../db/Insurance.js';
 
 const getDiplomaBlockNumber = (currentBlock: BN, blockTimeMs: number, secondsToAdd: number): BN => {
   const secondsToGenerateBlock = blockTimeMs / 1000;
@@ -23,7 +24,7 @@ const getDiplomaBlockNumber = (currentBlock: BN, blockTimeMs: number, secondsToA
   return blockAllowed;
 }
 
-function letterAsArray(letter: Letter) {
+function letterAsArray(letter: Letter, insurance: Insurance | null) {
   let result = [];
   result.push(letter.cid);                      // Skill CID
   result.push(letter.workerId);                 // Student Identity
@@ -35,6 +36,10 @@ function letterAsArray(letter: Letter) {
   result.push(letter.amount);                   // Amount
   result.push(letter.signOverPrivateData);      // Referee Sign Over Private Data
   result.push(letter.signOverReceipt);          // Referee Sign Over Receipt
+  if(insurance){
+    result.push(insurance.signOverReceipt);
+    result.push(insurance.wasUsed? 0 : 1);
+  }
   return result;
 }
 
@@ -54,7 +59,7 @@ function LessonResults({ className = '', lesson, updateAndStoreLesson, onClose }
   const { currentPair, isLoggedIn } = useLoginContext();
   const now = (new Date()).getTime();
   const tokenSymbol = formatBalance.findSi('-').text;
-
+  const dontSign = lesson ? (lesson.dWarranty === '0' || lesson.dValidity === 0) : true;
   const [lessonName, setLessonName] = useState<string>('');
   const [millisecondsPerBlock,] = useBlockTime(BN_ONE, api);
   const [canIssueDiploma, setCanIssueDiploma] = useState(true); // TODO defaults to false
@@ -67,26 +72,40 @@ function LessonResults({ className = '', lesson, updateAndStoreLesson, onClose }
   const [countOfDiscussedInsurances, setCountOfDiscussedInsurances] = useState(0);
   const [countOfReceivingBonuses, setCountOfReceivingBonuses] = useState(0);
   const [countOfInvalidInsurances, setCountOfInvalidInsurances] = useState(0);
-  
   const [valueOfBonusesReport, setValueOfBonusesReport] = useState<string>('0.00');
   const [diplomaWarrantyReport, setDiplomaWarrantyReport] = useState<string>('0.00');
   const [totalProfitForLettersReport, setTotalProfitForLettersReport] = useState<string>('0.00');
-
   const [visibleDiplomaDetails, toggleVisibleDiplomaDetails] = useToggle(false);
- 
+  const [isWebRTCQR, setIsWebRTCQR] = useState(true);
+
   // Helper functions
 
-  const createDiplomaQR = useCallback((letter: Letter) => {
-    const letterArray = letterAsArray(letter);
+  const createOfflineQR = useCallback((letter: Letter, insurance: Insurance | null) => {
+    const letterArray = letterAsArray(letter, insurance);
     const qrData = {
-      q: QRAction.ADD_DIPLOMA,
-      d: letterArray.join(",")
+      [QRField.QR_ACTION]: QRAction.ADD_DIPLOMA,
+      [QRField.PRICE]: totalProfitForLettersReport,
+      [QRField.DATA]: letterArray.join(",")
     };
     const qrCodeText = JSON.stringify(qrData);
-    const url = getBaseUrl() + `/#/diplomas?d=${letterArray.join("+")}`;
+    const url = getBaseUrl() + `/#/diplomas?${QRField.PRICE}=${totalProfitForLettersReport}&d=${letterArray.join("+")}`;
     setDiplomaText(qrCodeText);
     setDiplomaAddUrl(url);
   }, [setDiplomaText, setDiplomaAddUrl]);
+
+  const createWebRTCQR = useCallback((letters: Letter[], insurances: Insurance[]) => {
+    
+  }, []);
+
+  const createResultsQR = useCallback((letters: Letter[], insurances: Insurance[]) => {
+    if(letters.length === 1){
+      createOfflineQR(letters[0], insurances.length === 1? insurances[0] : null);
+      setIsWebRTCQR(false);
+    } else{
+      createWebRTCQR(letters, insurances);
+      setIsWebRTCQR(true);
+    }
+  }, [createOfflineQR, createWebRTCQR, setIsWebRTCQR]);
 
   // Fetch required info from DB about current lesson
   useEffect(() => {
@@ -180,40 +199,30 @@ function LessonResults({ className = '', lesson, updateAndStoreLesson, onClose }
     [lesson, updateAndStoreLesson]
   );
 
-  useEffect(() => {
-    if (lesson) {
-      const updateInsurancesStat = async () => {
-        if (lesson?.reexamineStep > 0) {
-          const fetchedInsurances = await db.insurances.where({ lesson: lesson.id }).sortBy('id');
-          if (fetchedInsurances) {
-            const usedInsurances = fetchedInsurances.filter(insurance => insurance.wasUsed);
-            const invalidInsurances = fetchedInsurances.filter(insurance => !insurance.valid);
-            const calculatedDiscussedInsurances = lesson.reexamineStep - fetchedInsurances.filter(insurance => insurance.wasSkipped).length;
-
-            const countOfBonuses = usedInsurances.length;
-            const amountOfBonuses = usedInsurances.reduce(
-              (sum, insurance) => sum.add(new BN(insurance.amount)),
-              new BN(0)
-            );
-            setCountOfInvalidInsurances(invalidInsurances.length);
-            setCountOfReceivingBonuses(countOfBonuses);
-            setValueOfBonusesReport(balanceToSlonString(amountOfBonuses));
-            setCountOfDiscussedInsurances(calculatedDiscussedInsurances);
-          }
-        }
-      };
-      updateInsurancesStat();
-    }
-  }, [lesson?.reexamineStep]);
-
   // Sign diploma
   useEffect(() => {
-    const signLetters = async () => {
+    const signAndUpdateStatistics = async () => {
       if (!isApiReady || !currentPair || !lesson) {
         return;
       }
-      const dontSign = (lesson.dWarranty === '0' || lesson.dValidity === 0);
       try {
+        // Update insurances statistics
+        const insurances = await db.insurances.where({ lesson: lesson.id }).sortBy('id');
+        if (insurances) {
+          const usedInsurances = insurances.filter(insurance => insurance.wasUsed);
+          const invalidInsurances = insurances.filter(insurance => !insurance.valid);
+          const calculatedDiscussedInsurances = lesson.reexamineStep - insurances.filter(insurance => insurance.wasSkipped).length;
+
+          const countOfBonuses = usedInsurances.length;
+          const amountOfBonuses = usedInsurances.reduce(
+            (sum, insurance) => sum.add(new BN(insurance.amount)),
+            new BN(0)
+          );
+          setCountOfInvalidInsurances(invalidInsurances.length);
+          setCountOfReceivingBonuses(countOfBonuses);
+          setValueOfBonusesReport(balanceToSlonString(amountOfBonuses));
+          setCountOfDiscussedInsurances(calculatedDiscussedInsurances);
+        }
         // Calculate block number
         const chainHeader = await api.rpc.chain.getHeader();
         const currentBlockNumber = new BN(chainHeader.number.toString());
@@ -221,11 +230,11 @@ function LessonResults({ className = '', lesson, updateAndStoreLesson, onClose }
 
         const diplomaBlockNumber: BN = getDiplomaBlockNumber(currentBlockNumber, millisecondsPerBlock, secondsValid);
 
-        // // Get diplomas to sign
+        // Get diplomas to sign
         const letters: Letter[] = await db.letters.where({ lesson: lesson.id }).filter(letter => letter.valid).toArray();
         setCountOfValidLetters(dontSign ? 0 : letters.length);
 
-        // // Get diplomas additional meta
+        // Get diplomas additional meta
         const genesisU8 = statics.api.genesisHash;
         const referee = currentPair;
         const refereeU8 = referee.publicKey;
@@ -263,16 +272,17 @@ function LessonResults({ className = '', lesson, updateAndStoreLesson, onClose }
           };
           await updateLetter(updatedLetter);
         }
+
+        createResultsQR(letters, insurances);
+
       } catch (error) {
         console.error(error);
       }
     };
 
-    signLetters();
+    signAndUpdateStatistics();
 
   }, [api, isApiReady, currentPair, lesson]);
-
-  
 
   return (
     <FullWidthContainer>
@@ -282,12 +292,12 @@ function LessonResults({ className = '', lesson, updateAndStoreLesson, onClose }
       <VerticalCenterItemsContainer>
         <CenterQRContainer>
           <h2>{t('Show to the student to send the results')}</h2>
-          <QRWithShareAndCopy
+          {!isWebRTCQR && <QRWithShareAndCopy
             dataQR={diplomaText}
             titleShare={t('QR code')}
             textShare={t('Press the link to add the diploma')}
             urlShare={diplomaAddUrl}
-            dataCopy={diplomaAddUrl} />
+            dataCopy={diplomaAddUrl} />}
         </CenterQRContainer>
         <DiplomaDiv>
           <Card>

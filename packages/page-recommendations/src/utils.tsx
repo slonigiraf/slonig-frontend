@@ -62,13 +62,17 @@ export const setLastUsedLetterNumber = async (publicKey: string, lastUsed: numbe
 
 export const storeLetter = async (letter: Letter) => {
     const lessonKey = letter.lesson ?? '';
-    const sameLetter = await db.letters
-        .where('[lesson+signOverReceipt]')
-        .equals([lessonKey, letter.signOverReceipt])
-        .first();
+    const sameLetter = await getLetterByLessonIdAndSignOverReceipt(lessonKey, letter.signOverReceipt);
     if (sameLetter === undefined) {
         await db.letters.add(letter);
     }
+}
+
+export const getLetterByLessonIdAndSignOverReceipt = async (lessonKey: string, signOverReceipt: string) => {
+    return await db.letters
+        .where('[lesson+signOverReceipt]')
+        .equals([lessonKey, signOverReceipt])
+        .first();
 }
 
 export const getValidLettersForKnowledgeId = async (workerId: string, knowledgeId: string): Promise<Letter[]> => {

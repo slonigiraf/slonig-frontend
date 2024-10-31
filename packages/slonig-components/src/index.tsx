@@ -86,6 +86,8 @@ export const QRField = {
   PERSON_NAME: 'n',
   PERSON_IDENTITY: 'p',
   TUTOR: 't',
+  DATA: 'd',
+  PRICE: 'm',
 };
 
 export const LawType = {

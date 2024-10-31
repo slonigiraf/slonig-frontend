@@ -44,16 +44,7 @@ function ScanQR({ className = '', label, type }: Props): React.ReactElement<Prop
               toggleTransfer();
               break;
             case QRAction.ADD_DIPLOMA:
-              const dataArray = qrJSON.d.split(",");
-              try {
-                const content = await getIPFSDataFromContentID(ipfs, dataArray[0]);
-                const json = parseJson(content);
-                const knowledgeId: string = json.i;
-                await createAndStoreLetter([...dataArray,knowledgeId]);
-                navigate('diplomas');
-              } catch (e) {
-                console.log(e);
-              }
+              navigate(`diplomas?${QRField.PRICE}=${qrJSON[QRField.PRICE]}&d=${qrJSON[QRField.DATA]}`);
               break;
             case QRAction.BUY_DIPLOMAS:
               await storePseudonym(qrJSON.p, qrJSON.n);

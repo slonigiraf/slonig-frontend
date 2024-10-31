@@ -50,7 +50,6 @@ function Tutor({ className = '' }: Props): React.ReactElement<Props> {
   const [skill, setSkill] = useState<Skill | null>(null); //Use in case of url data transfer
 
   // Store progress state
-  const [canIssueDiploma, setCanIssueDiploma] = useState(true);
   const [reexamined, setReexamined] = useState<boolean>(false);
   const [teachingAlgorithm, setTeachingAlgorithm] = useState<TeachingAlgorithm | null>(null);
 
@@ -207,7 +206,7 @@ function Tutor({ className = '' }: Props): React.ReactElement<Props> {
       }
     },
     [
-      setCanIssueDiploma, updateLearned, letterToIssue, updateLetter
+      updateLearned, letterToIssue, updateLetter
     ]
   );
 
