@@ -1,7 +1,7 @@
 // Copyright 2021-2022 @slonigiraf/app-recommendations authors & contributors
 // SPDX-License-Identifier: Apache-2.0
 import React, { useCallback, useEffect, useState } from 'react';
-import { useLocation } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { styled, Button, Progress } from '@polkadot/react-components';
 import { u8aToHex } from '@polkadot/util';
 import type { Skill } from '@slonigiraf/app-slonig-components';
@@ -28,6 +28,7 @@ function Tutor({ className = '' }: Props): React.ReactElement<Props> {
   const { ipfs, isIpfsReady } = useIpfsContext();
   const { showInfo } = useInfo();
   const { t } = useTranslation();
+  const navigate = useNavigate();
   const [lessonId, setLessonId] = useState<string | null>(null);
 
   // Initialize account
@@ -47,7 +48,7 @@ function Tutor({ className = '' }: Props): React.ReactElement<Props> {
   const [letterToIssue, setLetterToIssue] = useState<Letter | null>(null);
 
   const [skill, setSkill] = useState<Skill | null>(null); //Use in case of url data transfer
-  
+
   // Store progress state
   const [canIssueDiploma, setCanIssueDiploma] = useState(true);
   const [reexamined, setReexamined] = useState<boolean>(false);
@@ -141,6 +142,23 @@ function Tutor({ className = '' }: Props): React.ReactElement<Props> {
     }
     fetchData()
   }, [ipfs, letterToIssue, studentName])
+
+  // Fetch skill data when starting simple one skill lesson
+  useEffect(() => {
+    async function fetchData() {
+      if (isIpfsReady && skillCIDFromUrl) {
+        try {
+          const skillContent = await getIPFSDataFromContentID(ipfs, skillCIDFromUrl);
+          const skillJson = parseJson(skillContent);
+          setSkill(skillJson);
+        }
+        catch (e) {
+          console.log(e);
+        }
+      }
+    }
+    fetchData()
+  }, [ipfs, skillCIDFromUrl])
 
   // Fetch student name
   useEffect(() => {
@@ -260,35 +278,34 @@ function Tutor({ className = '' }: Props): React.ReactElement<Props> {
 
   // Process url data
   useEffect(() => {
-    if (studentIdentityFromUrl && studentNameFromUrl) {
-      async function storeUrlData() {
-        try {
-          // Ensure that both publicKey and name are strings
-          if (typeof studentIdentityFromUrl === 'string' && typeof studentNameFromUrl === 'string' && skill != null && skillCIDFromUrl) {
-            await storePseudonym(studentIdentityFromUrl, studentNameFromUrl);
-            await setStudentName(studentNameFromUrl);
-            const lessonId = getLessonId([skill.i]);
-            const qrJSON: any = { [QRField.ID]: lessonId, [QRField.PERSON_IDENTITY]: studentIdentityFromUrl };
-            const webRTCJSON: any = {
-              'cid': skillCIDFromUrl,
-              'learn': [[skill.i, skillCIDFromUrl, studentFromUrl]],
-              'reexamine': [
-                [cidRFromUrl, genesisRFromUrl, nonceRFromUrl, blockRFromUrl, blockAllowedRFromUrl,
-                  tutorRFromUrl, studentRFromUrl, amountRFromUrl, signOverPrivateDataRFromUrl,
-                  signOverReceiptRFromUrl, studentSignRFromUrl]
-              ]
-            };
-            storeLesson(tutorFromUrl, qrJSON, webRTCJSON);
-            storeSetting(SettingKey.LESSON, lessonId);
-            fetchLessonId();
-          }
-        } catch (error) {
-          console.error("Failed to save url data:", error);
+    async function storeUrlData() {
+      try {
+        // Ensure that both publicKey and name are strings
+        if (typeof studentIdentityFromUrl === 'string' && typeof studentNameFromUrl === 'string' && skill != null && skillCIDFromUrl) {
+          await storePseudonym(studentIdentityFromUrl, studentNameFromUrl);
+          await setStudentName(studentNameFromUrl);
+          const lessonId = getLessonId([skill.i]);
+          const qrJSON: any = { [QRField.ID]: lessonId, [QRField.PERSON_IDENTITY]: studentIdentityFromUrl };
+          const webRTCJSON: any = {
+            'cid': skillCIDFromUrl,
+            'learn': [[skill.i, skillCIDFromUrl, studentFromUrl]],
+            'reexamine': [
+              [cidRFromUrl, genesisRFromUrl, nonceRFromUrl, blockRFromUrl, blockAllowedRFromUrl,
+                tutorRFromUrl, studentRFromUrl, amountRFromUrl, signOverPrivateDataRFromUrl,
+                signOverReceiptRFromUrl, studentSignRFromUrl]
+            ]
+          };
+          await storeLesson(tutorFromUrl, qrJSON, webRTCJSON);
+          await storeSetting(SettingKey.LESSON, lessonId);
+          await fetchLessonId();
+          navigate(``);
         }
+      } catch (error) {
+        console.error("Failed to save url data:", error);
       }
-      if (isDedicatedTutor && skill && skill.i) {
-        storeUrlData();
-      }
+    }
+    if (isDedicatedTutor && skill && skill.i && studentIdentityFromUrl && studentNameFromUrl) {
+      storeUrlData();
     }
   }, [skill, isDedicatedTutor, studentNameFromUrl, tutorFromUrl, skillCIDFromUrl, studentIdentityFromUrl, studentFromUrl, cidRFromUrl,
     genesisRFromUrl, nonceRFromUrl, blockRFromUrl, blockAllowedRFromUrl, tutorRFromUrl,
@@ -334,7 +351,7 @@ function Tutor({ className = '' }: Props): React.ReactElement<Props> {
               <LessonsList tutor={publicKeyHex} onResumeTutoring={onResumeTutoring} onShowResults={onShowResults} />
             </>
             :
-            <> {areResultsShown ? <LessonResults lesson={lesson} updateAndStoreLesson={updateAndStoreLesson} onClose={onCloseResults}/> : reexamAndDiplomaIssuing}</>
+            <> {areResultsShown ? <LessonResults lesson={lesson} updateAndStoreLesson={updateAndStoreLesson} onClose={onCloseResults} /> : reexamAndDiplomaIssuing}</>
         )
       }
       <LoginButton label={t('Log in')} />
