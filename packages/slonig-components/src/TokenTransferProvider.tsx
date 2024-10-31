@@ -7,13 +7,15 @@ interface TokenTransferContextType {
     recipientId: string;
     setRecipientId: (recepientId: string) => void;
     toggleTransfer: () => void;
+    setIsTransferOpen: (isOpen: boolean) => void;
 }
 
 const defaultTokenTransferContext: TokenTransferContextType = {
     isTransferOpen: false,
     recipientId: '',
-    setRecipientId: (_s) => {},
+    setRecipientId: (_) => {},
     toggleTransfer: () => {},
+    setIsTransferOpen: (_) => {},
 };
 
 const TokenTransferContext = createContext<TokenTransferContextType>(defaultTokenTransferContext);
@@ -23,11 +25,11 @@ interface TokenTransferProviderProps {
 }
 
 export const TokenTransferProvider: React.FC<TokenTransferProviderProps> = ({ children }) => {
-    const [isTransferOpen, toggleTransfer] = useToggle();
+    const [isTransferOpen, toggleTransfer, setIsTransferOpen] = useToggle();
     const [recipientId, setRecipientId] = useState<string>('');
 
     return (
-        <TokenTransferContext.Provider value={{ isTransferOpen, recipientId, toggleTransfer, setRecipientId }}>
+        <TokenTransferContext.Provider value={{ isTransferOpen, recipientId, toggleTransfer, setIsTransferOpen, setRecipientId }}>
             {children}
             {isTransferOpen && (
                 <TransferModal

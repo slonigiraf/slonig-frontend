@@ -4,12 +4,13 @@
 import React, { useEffect, useState } from 'react';
 import LettersList from './LettersList.js';
 import { IPFS } from 'ipfs-core';
-import { LoginButton, useLoginContext, getIPFSDataFromContentID, parseJson, QRField } from '@slonigiraf/app-slonig-components';
-import { u8aToHex } from '@polkadot/util';
+import { LoginButton, useLoginContext, getIPFSDataFromContentID, parseJson, QRField, useTokenTransfer } from '@slonigiraf/app-slonig-components';
+import { hexToU8a, u8aToHex } from '@polkadot/util';
 import { useLocation } from 'react-router-dom';
 import { createAndStoreLetter, getLetterByLessonIdAndSignOverReceipt } from '@slonigiraf/app-recommendations';
 import { storePseudonym } from '@slonigiraf/app-recommendations';
 import { useTranslation } from '../translate.js';
+import { encodeAddress } from '@polkadot/keyring';
 
 interface Props {
   className?: string;
@@ -27,7 +28,8 @@ function Student({ className = '', ipfs }: Props): React.ReactElement<Props> {
   //TODO: get diplomas by url that contains peer id
   const lessonPrice = queryParams.get(QRField.PRICE) || "";
   const [isLessonPaid, setIsLessonPaid] = useState(false);
-  const [wasLessonResultSored, setWasLessonResultSored] = useState(true);
+  const [wasLessonResultStored, setWasLessonResultStored] = useState(true);
+  const {isTransferOpen, setIsTransferOpen, setRecipientId} = useTokenTransfer();
 
   const [textHash,
     workerId,
@@ -99,12 +101,32 @@ function Student({ className = '', ipfs }: Props): React.ReactElement<Props> {
       async function seeIfSameLetterWasStored() {
         const sameLetter = await getLetterByLessonIdAndSignOverReceipt('', refereeSignOverReceipt);
         if(!sameLetter){
-          setWasLessonResultSored(false);
+          setWasLessonResultStored(false);
         }
       }
       seeIfSameLetterWasStored();
     }
-  }, [refereeSignOverReceipt])
+  }, [refereeSignOverReceipt, setWasLessonResultStored])
+
+  useEffect(() => {
+    if (refereeSignOverPrivateData) {
+      setIsLessonPaid(wasLessonResultStored);
+    }
+  }, [wasLessonResultStored, refereeSignOverPrivateData, setIsLessonPaid])
+
+  useEffect(() => {
+    if (refereeSignOverPrivateData) {
+      setIsLessonPaid(wasLessonResultStored);
+    }
+  }, [wasLessonResultStored, refereeSignOverPrivateData, setIsLessonPaid])
+
+  useEffect(() => {
+    if(refereeSignOverReceipt){
+      const recipientAddress = teacherPublicKey ? encodeAddress(hexToU8a(teacherPublicKey)) : "";
+      // setRecipientId(recipientAddress);
+      setIsTransferOpen(!isLessonPaid);
+    }
+  }, [refereeSignOverReceipt, isLessonPaid, isTransferOpen, setIsTransferOpen])
 
   return (
     <div className={`toolbox--Student ${className}`}>

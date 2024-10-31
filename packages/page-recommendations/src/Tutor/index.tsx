@@ -285,14 +285,15 @@ function Tutor({ className = '' }: Props): React.ReactElement<Props> {
           await setStudentName(studentNameFromUrl);
           const lessonId = getLessonId([skill.i]);
           const qrJSON: any = { [QRField.ID]: lessonId, [QRField.PERSON_IDENTITY]: studentIdentityFromUrl };
+          const toReexam = cidRFromUrl? [
+            [cidRFromUrl, genesisRFromUrl, nonceRFromUrl, blockRFromUrl, blockAllowedRFromUrl,
+              tutorRFromUrl, studentRFromUrl, amountRFromUrl, signOverPrivateDataRFromUrl,
+              signOverReceiptRFromUrl, studentSignRFromUrl]
+          ] : [];
           const webRTCJSON: any = {
             'cid': skillCIDFromUrl,
             'learn': [[skill.i, skillCIDFromUrl, studentFromUrl]],
-            'reexamine': [
-              [cidRFromUrl, genesisRFromUrl, nonceRFromUrl, blockRFromUrl, blockAllowedRFromUrl,
-                tutorRFromUrl, studentRFromUrl, amountRFromUrl, signOverPrivateDataRFromUrl,
-                signOverReceiptRFromUrl, studentSignRFromUrl]
-            ]
+            'reexamine': toReexam
           };
           await storeLesson(tutorFromUrl, qrJSON, webRTCJSON);
           await storeSetting(SettingKey.LESSON, lessonId);
