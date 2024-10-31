@@ -16,7 +16,7 @@ import ConnectingOverlay from './overlays/Connecting.js';
 import DotAppsOverlay from './overlays/DotApps.js';
 import WarmUp from './WarmUp.js';
 import BottomMenu from './BottomMenu/index.js';
-import { IpfsProvider, AppContainer } from '@slonigiraf/app-slonig-components';
+import { IpfsProvider, AppContainer, TokenTransferProvider } from '@slonigiraf/app-slonig-components';
 import { InfoProvider } from '@slonigiraf/app-slonig-components';
 import { LoginProvider } from '@slonigiraf/app-slonig-components';
 export const PORTAL_ID = 'portals';
@@ -34,26 +34,28 @@ function Apps({ className = '' }: Props): React.ReactElement<Props> {
   return (
     <InfoProvider>
       <IpfsProvider>
-        
-          <GlobalStyle uiHighlight={uiHighlight} />
-          <StyledDiv className={`${className} apps--Wrapper ${themeClassName}`}>
-            <AppContainer>
-              <Menu />
-              <LoginProvider>
-              <AccountSidebar>
-                <Signer>
-                  <Content />
-                  <BottomMenu />
-                </Signer>
-                <ConnectingOverlay />
-                <DotAppsOverlay />
-                <div id={PORTAL_ID} />
-              </AccountSidebar>
-              </LoginProvider>
-            </AppContainer>
-          </StyledDiv>
-          <WarmUp />
-        
+
+        <GlobalStyle uiHighlight={uiHighlight} />
+        <StyledDiv className={`${className} apps--Wrapper ${themeClassName}`}>
+          <AppContainer>
+            <LoginProvider>
+              <TokenTransferProvider>
+                <Menu />
+                <AccountSidebar>
+                  <Signer>
+                    <Content />
+                    <BottomMenu />
+                  </Signer>
+                  <ConnectingOverlay />
+                  <DotAppsOverlay />
+                  <div id={PORTAL_ID} />
+                </AccountSidebar>
+              </TokenTransferProvider>
+            </LoginProvider>
+          </AppContainer>
+        </StyledDiv>
+        <WarmUp />
+
       </IpfsProvider>
     </InfoProvider>
   );

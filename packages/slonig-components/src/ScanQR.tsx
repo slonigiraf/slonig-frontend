@@ -1,6 +1,6 @@
 import React, { useState, useCallback } from 'react';
 import { useToggle } from '@polkadot/react-hooks';
-import { getIPFSDataFromContentID, parseJson, QRField, QRScanner, receiveWebRTCData, SettingKey, useIpfsContext, useLoginContext } from '@slonigiraf/app-slonig-components';
+import { getIPFSDataFromContentID, parseJson, QRField, QRScanner, receiveWebRTCData, SettingKey, useIpfsContext, useLoginContext, useTokenTransfer } from '@slonigiraf/app-slonig-components';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from './translate.js';
 import { Modal, TransferModal } from '@polkadot/react-components';
@@ -18,11 +18,10 @@ function ScanQR({ className = '', label, type }: Props): React.ReactElement<Prop
   const { t } = useTranslation();
   const { showInfo, hideInfo } = useInfo();
   const [isQROpen, toggleQR] = useToggle();
-  const [isTransferOpen, toggleTransfer] = useToggle();
-  const [recipientId, setRecipientId] = useState<string>('');
+  const {toggleTransfer, setRecipientId} = useTokenTransfer();
   const navigate = useNavigate();
   const { currentPair, isLoggedIn } = useLoginContext();
-  const { ipfs, isIpfsReady } = useIpfsContext();
+  const { isIpfsReady } = useIpfsContext();
 
   // Process the scanned QR data
   const processQR = useCallback(async (data: string) => {
@@ -154,13 +153,6 @@ function ScanQR({ className = '', label, type }: Props): React.ReactElement<Prop
             />
           </Modal.Content>
         </Modal>
-      )}
-      {isTransferOpen && (
-        <TransferModal
-          key='modal-transfer'
-          onClose={toggleTransfer}
-          recipientId={recipientId}
-        />
       )}
     </>
   );
