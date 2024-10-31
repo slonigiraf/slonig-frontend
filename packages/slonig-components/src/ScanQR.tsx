@@ -1,13 +1,16 @@
-import React, { useState, useCallback } from 'react';
+import React, { useCallback } from 'react';
 import { useToggle } from '@polkadot/react-hooks';
-import { getIPFSDataFromContentID, parseJson, QRField, QRScanner, receiveWebRTCData, SettingKey, useIpfsContext, useLoginContext, useTokenTransfer } from '@slonigiraf/app-slonig-components';
+import { parseJson, QRField, QRScanner, receiveWebRTCData, SettingKey, useIpfsContext, useLoginContext, useTokenTransfer } from '@slonigiraf/app-slonig-components';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from './translate.js';
-import { Modal, TransferModal } from '@polkadot/react-components';
+import { Modal } from '@polkadot/react-components';
 import { ButtonWithLabelBelow, useInfo, QRAction } from '@slonigiraf/app-slonig-components';
-import { storeLesson, createAndStoreLetter, storeInsurances, storePseudonym, storeSetting, Session as Lesson } from '@slonigiraf/app-recommendations';
+import { storeLesson, storeInsurances, storePseudonym, storeSetting } from '@slonigiraf/app-recommendations';
 import { encodeAddress } from '@polkadot/keyring';
 import { hexToU8a, u8aToHex } from '@polkadot/util';
+interface QRCodeResult {
+  getText: () => string;
+}
 interface Props {
   className?: string;
   label?: string;
@@ -126,7 +129,7 @@ function ScanQR({ className = '', label, type }: Props): React.ReactElement<Prop
   }, [navigate, toggleQR, toggleTransfer]);
 
   // Handle the QR Scanner result
-  const handleQRResult = useCallback((result, error) => {
+  const handleQRResult = useCallback((result: QRCodeResult | undefined, _e: Error | undefined) => {
     if (result != undefined) {
       processQR(result?.getText());
     }
