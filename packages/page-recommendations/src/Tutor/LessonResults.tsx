@@ -79,30 +79,29 @@ function LessonResults({ className = '', lesson, updateAndStoreLesson, onClose }
   const [isWebRTCQR, setIsWebRTCQR] = useState(true);
 
   // Helper functions
-
-  const createOfflineQR = useCallback((letter: Letter, insurance: Insurance | null) => {
+  const createOfflineQR = useCallback((letter: Letter, insurance: Insurance | null, lessonPrice: string) => {
     const letterArray = letterAsArray(letter, insurance);
     const qrData = {
       [QRField.QR_ACTION]: QRAction.ADD_DIPLOMA,
-      [QRField.PRICE]: totalProfitForLettersReport,
+      [QRField.PRICE]: lessonPrice,
       [QRField.DATA]: letterArray.join(",")
     };
     const qrCodeText = JSON.stringify(qrData);
-    const url = getBaseUrl() + `/#/diplomas?${QRField.PRICE}=${totalProfitForLettersReport}&d=${letterArray.join("+")}`;
+    const url = getBaseUrl() + `/#/diplomas?${QRField.PRICE}=${lessonPrice}&d=${letterArray.join("+")}`;
     setDiplomaText(qrCodeText);
     setDiplomaAddUrl(url);
   }, [setDiplomaText, setDiplomaAddUrl]);
 
-  const createWebRTCQR = useCallback((letters: Letter[], insurances: Insurance[]) => {
+  const createWebRTCQR = useCallback((letters: Letter[], insurances: Insurance[], lessonPrice: string) => {
     
   }, []);
 
-  const createResultsQR = useCallback((letters: Letter[], insurances: Insurance[]) => {
+  const createResultsQR = useCallback((letters: Letter[], insurances: Insurance[], lessonPrice: string) => {
     if(letters.length === 1){
-      createOfflineQR(letters[0], insurances.length === 1? insurances[0] : null);
+      createOfflineQR(letters[0], insurances.length === 1? insurances[0] : null, lessonPrice);
       setIsWebRTCQR(false);
     } else{
-      createWebRTCQR(letters, insurances);
+      createWebRTCQR(letters, insurances, lessonPrice);
       setIsWebRTCQR(true);
     }
   }, [createOfflineQR, createWebRTCQR, setIsWebRTCQR]);
@@ -153,16 +152,6 @@ function LessonResults({ className = '', lesson, updateAndStoreLesson, onClose }
     }
     updateWarrantyInSlon()
   }, [lesson?.dWarranty])
-
-  useEffect(() => {
-    async function updateDiplomaAndLessonPriceInSlon() {
-      if (lesson) {
-        const priceBN = lesson ? new BN(lesson.dPrice) : BN_ZERO;
-        setTotalProfitForLettersReport(balanceToSlonString(new BN(countOfValidLetters).mul(priceBN)));
-      }
-    }
-    updateDiplomaAndLessonPriceInSlon()
-  }, [lesson?.dPrice, countOfValidLetters])
 
 
   // Update lesson properties in case edited
@@ -232,7 +221,11 @@ function LessonResults({ className = '', lesson, updateAndStoreLesson, onClose }
 
         // Get diplomas to sign
         const letters: Letter[] = await db.letters.where({ lesson: lesson.id }).filter(letter => letter.valid).toArray();
-        setCountOfValidLetters(dontSign ? 0 : letters.length);
+        const numberOfValidLetters = dontSign ? 0 : letters.length;
+        const priceBN = lesson ? new BN(lesson.dPrice) : BN_ZERO;
+        const lessonPrice = balanceToSlonString(new BN(numberOfValidLetters).mul(priceBN));
+        setCountOfValidLetters(numberOfValidLetters);
+        setTotalProfitForLettersReport(lessonPrice);
 
         // Get diplomas additional meta
         const genesisU8 = statics.api.genesisHash;
@@ -273,7 +266,7 @@ function LessonResults({ className = '', lesson, updateAndStoreLesson, onClose }
           await updateLetter(updatedLetter);
         }
 
-        createResultsQR(letters, insurances);
+        createResultsQR(letters, insurances, lessonPrice);
 
       } catch (error) {
         console.error(error);
