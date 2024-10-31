@@ -63,6 +63,9 @@ function LessonInfo({ lesson, isSelected, onToggleSelection, onResumeTutoring, o
   const isFinished = (lesson.learnStep + lesson.reexamineStep) ===
     (lesson.toLearnCount + lesson.toReexamineCount)
 
+  const progressValue = lesson.learnStep + lesson.reexamineStep;
+  const progressTotal = lesson.toLearnCount + lesson.toReexamineCount;
+
   return (
     <StyledDiv>
       {isSelectionAllowed && (
@@ -88,15 +91,15 @@ function LessonInfo({ lesson, isSelected, onToggleSelection, onResumeTutoring, o
 
       <div>
         <Progress
-          value={lesson.learnStep + lesson.reexamineStep}
-          total={lesson.toLearnCount + lesson.toReexamineCount}
+          value={progressValue}
+          total={progressTotal}
         />
       </div>
       <div>
         <Button
           icon="dollar"
           onClick={() => onShowResults(lesson)}
-          isDisabled={isSelectionAllowed}
+          isDisabled={isSelectionAllowed || !progressValue}
         />
       </div>
     </StyledDiv>
