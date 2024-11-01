@@ -1,7 +1,7 @@
 import { AlgorithmStage } from './AlgorithmStage.js';
 import { Algorithm } from './Algorithm.js';
 import type { Skill } from '@slonigiraf/app-slonig-components';
-import { Insurance } from '../db/Insurance.js';
+import { Insurance } from '@slonigiraf/db';
 import BN from 'bn.js';
 import { styled } from '@polkadot/react-components';
 import ChatSimulation from './ChatSimulation.js';

@@ -8,9 +8,8 @@ import { useApi } from '@polkadot/react-hooks';
 import { keyring } from '@polkadot/ui-keyring';
 import { u8aToHex } from '@polkadot/util';
 import { useTranslation } from '../translate.js';
-import { Insurance } from '../db/Insurance.js';
+import { Insurance, updateInsurance } from '@slonigiraf/db';
 import BN from 'bn.js';
-import { updateInsurance } from '../utils.js';
 
 interface Props {
   className?: string;

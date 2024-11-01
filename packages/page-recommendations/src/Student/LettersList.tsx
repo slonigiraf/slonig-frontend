@@ -1,8 +1,7 @@
 import LetterInfo from './LetterInfo.js';
 import React, { useState } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
-import { db } from '../db/index.js';
-import { Letter } from '../db/Letter.js';
+import { deleteLetter, getValidLetters, Letter } from '@slonigiraf/db';
 import { Button, styled, Icon, Modal } from '@polkadot/react-components';
 import { useTranslation } from '../translate.js';
 import { useLocation } from 'react-router-dom';
@@ -31,19 +30,7 @@ function LettersList({ className = '', worker, currentPair }: Props): React.Reac
   const [isDeleteConfirmOpen, toggleDeleteConfirm] = useToggle();
 
   const letters = useLiveQuery<Letter[]>(
-    () => {
-      let query = db.letters.where('workerId').equals(worker);
-      if (startDate || endDate) {
-        query = query.filter((letter) => {
-          if (!letter.valid) return false;
-          if (letter.letterNumber < 0) return false;
-          if (startDate && letter.created < startDate) return false;
-          if (endDate && letter.created > endDate) return false;
-          return true;
-        });
-      }
-      return query.reverse().sortBy('id');
-    },
+    () => getValidLetters(worker, startDate, endDate),
     [worker, startDate, endDate]
   );
 
@@ -62,7 +49,7 @@ function LettersList({ className = '', worker, currentPair }: Props): React.Reac
     try {
       for (const id of idsToDelete) {
         if (id) {
-          await db.letters.delete(id);
+          await deleteLetter(id);
         }
       }
       showInfo(t('Deleted'));

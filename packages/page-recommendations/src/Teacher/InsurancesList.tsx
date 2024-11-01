@@ -5,9 +5,8 @@ import InsuranceInfo from './InsuranceInfo.js'
 import React, { useEffect, useState } from 'react'
 import { styled, Icon } from '@polkadot/react-components';
 import { useLiveQuery } from 'dexie-react-hooks';
-import { db } from '../db/index.js';
 import { useTranslation } from '../translate.js';
-import { getPseudonym } from '../utils.js';
+import { getInsurances, getPseudonym } from '@slonigiraf/db';
 import { DateInput } from '@slonigiraf/app-slonig-components';
 
 interface Props {
@@ -39,15 +38,7 @@ function InsurancesList({ className = '', teacher, student, studentNameFromUrl }
   }, [student, studentNameFromUrl]);
 
   const insurances = useLiveQuery(
-    () => {
-      let query = db.insurances.where('[employer+workerId]').equals([teacher, student]);
-      query = query.filter((insurance) => {
-        if (startDate && insurance.created < startDate) return false;
-        if (endDate && insurance.created > endDate) return false;
-        return true;
-      });
-      return query.sortBy('id').then((insurances) => insurances.reverse());
-    },
+    () => getInsurances(teacher, student, startDate, endDate),
     [teacher, student, startDate, endDate]
   );
 

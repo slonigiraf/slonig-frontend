@@ -1,10 +1,9 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useTranslation } from '../translate.js';
 import { CenterQRContainer, LawType, LoginButton, QRAction, QRField, QRWithShareAndCopy, SenderComponent, SettingKey, getBaseUrl, nameFromKeyringPair, qrWidthPx, useLoginContext } from '@slonigiraf/app-slonig-components';
-import { getSetting, storeSetting } from '@slonigiraf/app-recommendations';
+import { Letter, getLessonId, getLettersByWorkerIdWithEmptyLesson, getSetting, storeSetting } from '@slonigiraf/db';
 import { Dropdown, Spinner } from '@polkadot/react-components';
 import { useLiveQuery } from "dexie-react-hooks";
-import { db, Letter, getLessonId } from '@slonigiraf/app-recommendations';
 import { keyForCid } from '@slonigiraf/app-slonig-components';
 import { useLocation } from 'react-router-dom';
 import { styled } from '@polkadot/react-components';
@@ -16,6 +15,7 @@ import { useApi } from '@polkadot/react-hooks';
 import { useBlockTime } from '@polkadot/react-hooks';
 import DiplomaCheck from './DiplomaCheck.js';
 import { ItemWithCID } from '../types.js';
+import { getAllPseudonyms } from '@slonigiraf/db';
 
 interface Props {
   className?: string;
@@ -50,7 +50,7 @@ function SkillQR({ className = '', id, cid, type, selectedItems, isLearningReque
   const queryParams = new URLSearchParams(location.search);
   const tutorFromQuery = queryParams.get("tutor");
   const [tutor, setTutor] = useState<string | null>(tutorFromQuery);
-  const tutors = useLiveQuery(() => db.pseudonyms.toArray(), []);
+  const tutors = useLiveQuery(() => getAllPseudonyms(), []);
   const [diplomasToReexamine, setDiplomasToReexamine] = useState<Letter[]>();
   const [validDiplomas, setValidDiplomas] = useState<Letter[]>();
   const [loading, setLoading] = useState<boolean>(true);
@@ -156,9 +156,7 @@ function SkillQR({ className = '', id, cid, type, selectedItems, isLearningReque
   // Which diplomas should be reexamined?
   useEffect(() => {
     const fetchRandomDiploma = async () => {
-      const allDiplomas = await db.letters
-      .where('[workerId+lesson]')
-      .equals([studentIdentity, '']).toArray();
+      const allDiplomas = await getLettersByWorkerIdWithEmptyLesson(studentIdentity);
       if (allDiplomas.length > 0) {
         const randomIndex = Math.floor(Math.random() * allDiplomas.length);
         setDiplomasToReexamine([allDiplomas[randomIndex]]);

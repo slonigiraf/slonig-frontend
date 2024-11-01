@@ -1,18 +1,88 @@
-// Copyright 2021-2022 @slonigiraf/app-recommendations authors & contributors
+// Copyright 2021-2022 @slonigiraf/db authors & contributors
 // SPDX-License-Identifier: Apache-2.0
-import { db } from "./db";
-import { Letter } from "./db/Letter";
-import { Insurance } from "./db/Insurance";
-import { Signer } from "./db/Signer";
-import { UsageRight } from "./db/UsageRight";
-import { Pseudonym } from "./db/Pseudonym.js";
+import { db } from "./db/index.js";
+import type { Letter } from "./db/Letter.js";
+import type { Insurance } from "./db/Insurance.js";
+import type { Signer } from "./db/Signer.js";
+import type { UsageRight } from "./db/UsageRight.js";
+import type { Pseudonym } from "./db/Pseudonym.js";
+import type { Setting } from "./db/Setting.js";
+import type { Lesson } from "./db/Lesson.js";
 import DOMPurify from 'dompurify';
 import { u8aToHex } from '@polkadot/util';
 import { decodeAddress, encodeAddress } from '@polkadot/keyring';
 import { isHex } from '@polkadot/util';
-import { Lesson } from "./db/Lesson.js";
 import { QRField, SettingKey } from "@slonigiraf/app-slonig-components";
 import { blake2AsHex } from '@polkadot/util-crypto';
+import "dexie-export-import";
+
+export type { Letter, Insurance, Lesson, Pseudonym, Setting, Signer, UsageRight };
+  
+const progressCallback = ({ totalRows, completedRows }: any) => {
+    console.log(`Progress: ${completedRows} of ${totalRows} rows completed`);
+    return true;
+}
+export const exportDB = async () => {
+    db.export({ prettyJson: true, progressCallback });
+}
+
+export const getLesson = async (id: string) => {
+    return db.lessons.get(id);
+}
+export const getLessons = async (tutor: string, startDate: number | null, endDate: number | null) => {
+    let query = db.lessons.where('tutor').equals(tutor);
+    if (startDate || endDate) {
+        query = query.filter((lesson) => {
+            if (startDate && lesson.created < startDate) return false;
+            if (endDate && lesson.created > endDate) return false;
+            return true;
+        });
+    }
+    return query.reverse().sortBy('created');
+}
+export const getLetter = async (id: number) => {
+    return db.letters.get(id);
+}
+export const getInsurance = async (id: number) => {
+    return db.insurances.get(id);
+}
+export const getLettersByLessonId = async (lessonId: string) => {
+    return db.letters.where({ lesson: lessonId }).sortBy('id');
+}
+export const getValidLettersByLessonId = async (lessonId: string) => {
+    return db.letters.where({ lesson: lessonId }).filter(letter => letter.valid).toArray();
+}
+export const getInsurancesByLessonId = async (lessonId: string) => {
+    return db.insurances.where({ lesson: lessonId }).sortBy('id');
+}
+
+export const getAllPseudonyms = async () => {
+    return db.pseudonyms.toArray();
+}
+
+export const getValidLetters = async (worker: string, startDate: number | null, endDate: number | null) => {
+    let query = db.letters.where('workerId').equals(worker);
+    if (startDate || endDate) {
+        query = query.filter((letter: Letter) => {
+            if (!letter.valid) return false;
+            if (letter.letterNumber < 0) return false;
+            if (startDate && letter.created < startDate) return false;
+            if (endDate && letter.created > endDate) return false;
+            return true;
+        });
+    }
+    return query.reverse().sortBy('id');
+}
+
+export const getInsurances = async (employer: string, worker: string, startDate: number | null, endDate: number | null) => {
+    let query = db.insurances.where('[employer+workerId]').equals([employer, worker]);
+    query = query.filter((insurance: Insurance) => {
+        if (startDate && insurance.created < startDate) return false;
+        if (endDate && insurance.created > endDate) return false;
+        return true;
+    });
+    return query.sortBy('id').then((insurances) => insurances.reverse());
+}
 
 export const syncDB = async (data: string, password: string) => {
     const json = JSON.parse(data);
@@ -57,7 +127,7 @@ export const getLastUnusedLetterNumber = async (publicKey: string) => {
 }
 
 export const setLastUsedLetterNumber = async (publicKey: string, lastUsed: number) => {
-    await db.signers.where({ publicKey: publicKey }).modify((v) => v.lastLetterNumber = lastUsed);
+    await db.signers.where({ publicKey: publicKey }).modify((v: Signer) => v.lastLetterNumber = lastUsed);
 }
 
 export const storeLetter = async (letter: Letter) => {
@@ -90,6 +160,10 @@ export const getLessonId = (ids: any[]): string => {
     return hash;
 };
 
+export const getLettersByWorkerIdWithEmptyLesson = async (workerId: string) => {
+    return db.letters.where('[workerId+lesson]').equals([workerId, '']).toArray();
+};
+
 const DEFAULT_WARRANTY = "105000000000000";//105 Slon
 const DEFAULT_VALIDITY = 730;//Days valid
 const DEFAULT_DIPLOMA_PRICE = "80000000000000";//80 Slon
@@ -101,9 +175,9 @@ export const storeLesson = async (tutorPublicKeyHex: string, qrJSON: any, webRTC
     const stored_validity = await getSetting(SettingKey.DIPLOMA_VALIDITY);
     const stored_diploma_price = await getSetting(SettingKey.DIPLOMA_PRICE);
 
-    const warranty = stored_warranty? stored_warranty : DEFAULT_WARRANTY;
-    const validity: number = stored_validity? parseInt(stored_validity, 10) : DEFAULT_VALIDITY;
-    const diploma_price = stored_diploma_price? stored_diploma_price : DEFAULT_DIPLOMA_PRICE;
+    const warranty = stored_warranty ? stored_warranty : DEFAULT_WARRANTY;
+    const validity: number = stored_validity ? parseInt(stored_validity, 10) : DEFAULT_VALIDITY;
+    const diploma_price = stored_diploma_price ? stored_diploma_price : DEFAULT_DIPLOMA_PRICE;
 
     const lesson: Lesson = {
         id: qrJSON[QRField.ID], created: now, cid: webRTCJSON.cid,
@@ -138,7 +212,7 @@ export const storeLesson = async (tutorPublicKeyHex: string, qrJSON: any, webRTC
             };
             return await storeLetter(letter);
         }));
-    
+
         await Promise.all(webRTCJSON.reexamine.map(async (item: string[]) => {
             const insurance: Insurance = {
                 created: now,
@@ -148,7 +222,7 @@ export const storeLesson = async (tutorPublicKeyHex: string, qrJSON: any, webRTC
                 workerId: lesson.student,
                 cid: item[0],
                 genesis: item[1],
-                letterNumber: item[2],
+                letterNumber: parseInt(item[2], 10),
                 block: item[3],
                 blockAllowed: item[4],
                 referee: item[5],
@@ -169,21 +243,21 @@ export const storeLesson = async (tutorPublicKeyHex: string, qrJSON: any, webRTC
 export const updateLesson = async (lesson: Lesson) => {
     const sameLesson = await db.lessons.get({ id: lesson.id });
     if (sameLesson !== undefined) {
-      await db.lessons.update(lesson.id, lesson);
+        await db.lessons.update(lesson.id, lesson);
     }
 }
 
 export const updateInsurance = async (insurance: Insurance) => {
     const sameItem = await db.insurances.get({ id: insurance.id });
-    if (sameItem !== undefined) {
-      await db.insurances.update(insurance.id, insurance);
+    if (sameItem !== undefined && insurance.id) {
+        await db.insurances.update(insurance.id, insurance);
     }
 }
 
 export const updateLetter = async (letter: Letter) => {
     const sameItem = await db.letters.get({ id: letter.id });
-    if (sameItem !== undefined) {
-      await db.letters.update(letter.id, letter);
+    if (sameItem !== undefined && letter.id) {
+        await db.letters.update(letter.id, letter);
     }
 }
 
@@ -225,7 +299,7 @@ export const storePseudonym = async (publicKey: string, pseudonym: string) => {
             const newPseudonym: Pseudonym = { publicKey: publicKey, pseudonym: cleanPseudonym, altPseudonym: "" };
             await db.pseudonyms.put(newPseudonym);
         } else if (samePseudonym.pseudonym !== cleanPseudonym) {
-            await db.pseudonyms.where({ publicKey: publicKey }).modify((f) => f.altPseudonym = cleanPseudonym);
+            await db.pseudonyms.where({ publicKey: publicKey }).modify((f: Pseudonym) => f.altPseudonym = cleanPseudonym);
         }
     }
 }
@@ -237,7 +311,16 @@ export const storeSetting = async (id: string, value: string) => {
 }
 export const deleteSetting = async (id: string) => {
     const cleanId = DOMPurify.sanitize(id);
-    await db.settings.delete(cleanId);
+    db.settings.delete(cleanId);
+}
+export const deleteLetter = async (id: number) => {
+    db.letters.delete(id);
+}
+export const deleteInsurance = async (id: number) => {
+    db.insurances.delete(id);
+}
+export const deleteLesson = async (id: string) => {
+    db.lessons.delete(id);
 }
 export const getSetting = async (id: string): Promise<string | undefined> => {
     const cleanId = DOMPurify.sanitize(id);
@@ -277,7 +360,7 @@ export const createAndStoreLetter = async (data: string[]) => {
         refereeSignOverPrivateData,
         refereeSignOverReceipt,
         knowledgeId] = data;
-    
+
     const now = (new Date()).getTime();
     const letter: Letter = {
         created: now,

@@ -15,7 +15,7 @@ import { parseJson } from '@slonigiraf/app-slonig-components';
 import Editor from './Editor.js';
 import ViewList from './ViewList.js';
 import { useLocation } from 'react-router-dom';
-import { storeSetting, getSetting, storePseudonym } from '@slonigiraf/app-recommendations';
+import { storeSetting, getSetting, storePseudonym } from '@slonigiraf/db';
 import { useLoginContext } from '@slonigiraf/app-slonig-components';
 import { sendCreateAndEditTransaction, sendEditTransaction } from './sendTransaction.js';
 import { useInfo } from '@slonigiraf/app-slonig-components';

@@ -1,12 +1,11 @@
 import LessonInfo from './LessonInfo.js';
 import React, { useCallback, useState } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
-import { db } from '../db/index.js';
-import { Lesson } from '../db/Lesson.js';
 import { Button, styled, Icon, Modal, Toggle } from '@polkadot/react-components';
 import { useTranslation } from '../translate.js';
 import { DateInput, SelectableList, useInfo } from '@slonigiraf/app-slonig-components';
 import { useToggle } from '@polkadot/react-hooks';
+import { deleteLesson, getLessons, Lesson } from '@slonigiraf/db';
 
 interface Props {
   className?: string;
@@ -27,17 +26,7 @@ function LessonsList({ className = '', tutor, onResumeTutoring, onShowResults }:
   const [isDeleteConfirmOpen, toggleDeleteConfirm] = useToggle();
 
   const lessons = useLiveQuery<Lesson[]>(
-    () => {
-      let query = db.lessons.where('tutor').equals(tutor);
-      if (startDate || endDate) {
-        query = query.filter((lesson) => {
-          if (startDate && lesson.created < startDate) return false;
-          if (endDate && lesson.created > endDate) return false;
-          return true;
-        });
-      }
-      return query.reverse().sortBy('created');
-    },
+    () => getLessons(tutor, startDate, endDate),
     [tutor, startDate, endDate]
   );
 
@@ -60,7 +49,7 @@ function LessonsList({ className = '', tutor, onResumeTutoring, onShowResults }:
     try {
       for (const id of idsToDelete) {
         if (id) {
-          await db.lessons.delete(id);
+          await deleteLesson(id);
         }
       }
       showInfo(t('Deleted'));

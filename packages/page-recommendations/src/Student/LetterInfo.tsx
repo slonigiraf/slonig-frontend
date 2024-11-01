@@ -5,7 +5,7 @@ import { Button, Modal, Spinner, styled } from '@polkadot/react-components';
 import React, { useState, useEffect } from 'react'
 import { KatexSpan, getIPFSDataFromContentID, parseJson } from '@slonigiraf/app-slonig-components'
 import { useTranslation } from '../translate.js';
-import { Letter } from '../db/Letter.js';
+import { Letter } from '@slonigiraf/db';
 import LetterDetailsModal from './LetterDetailsModal.js';
 import { useIpfsContext } from '@slonigiraf/app-slonig-components';
 

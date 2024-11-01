@@ -8,14 +8,9 @@ import { useApi, useBlockTime, useToggle } from '@polkadot/react-hooks';
 import { u8aToHex, hexToU8a, u8aWrapBytes, BN_ONE, BN_ZERO, formatBalance } from '@polkadot/util';
 import type { Skill } from '@slonigiraf/app-slonig-components';
 import { QRWithShareAndCopy, getBaseUrl, getIPFSDataFromContentID, parseJson, useIpfsContext, QRAction, useLoginContext, FullWidthContainer, VerticalCenterItemsContainer, CenterQRContainer, KatexSpan, useInfo, SettingKey, balanceToSlonString, QRField } from '@slonigiraf/app-slonig-components';
-import { Letter } from '@slonigiraf/app-recommendations';
+import { Insurance, getPseudonym, Lesson, Letter, getLastUnusedLetterNumber, setLastUsedLetterNumber, storeSetting, updateLetter, getInsurancesByLessonId, getValidLettersByLessonId } from '@slonigiraf/db';
 import { getPublicDataToSignByReferee, getPrivateDataToSignByReferee } from '@slonigiraf/helpers';
-import { getLastUnusedLetterNumber, setLastUsedLetterNumber, storeSetting, updateLetter } from '../utils.js';
 import { useTranslation } from '../translate.js';
-import { getPseudonym } from '../utils.js';
-import { Lesson } from '../db/Lesson.js';
-import { db } from "../db/index.js";
-import { Insurance } from '../db/Insurance.js';
 
 const getDiplomaBlockNumber = (currentBlock: BN, blockTimeMs: number, secondsToAdd: number): BN => {
   const secondsToGenerateBlock = blockTimeMs / 1000;
@@ -196,7 +191,7 @@ function LessonResults({ className = '', lesson, updateAndStoreLesson, onClose }
       }
       try {
         // Update insurances statistics
-        const insurances = await db.insurances.where({ lesson: lesson.id }).sortBy('id');
+        const insurances = await getInsurancesByLessonId(lesson.id);
         if (insurances) {
           const usedInsurances = insurances.filter(insurance => insurance.wasUsed);
           const invalidInsurances = insurances.filter(insurance => !insurance.valid);
@@ -220,7 +215,7 @@ function LessonResults({ className = '', lesson, updateAndStoreLesson, onClose }
         const diplomaBlockNumber: BN = getDiplomaBlockNumber(currentBlockNumber, millisecondsPerBlock, secondsValid);
 
         // Get diplomas to sign
-        const letters: Letter[] = await db.letters.where({ lesson: lesson.id }).filter(letter => letter.valid).toArray();
+        const letters: Letter[] = await getValidLettersByLessonId(lesson.id);
         const numberOfValidLetters = dontSign ? 0 : letters.length;
         const priceBN = lesson ? new BN(lesson.dPrice) : BN_ZERO;
         const lessonPrice = balanceToSlonString(new BN(numberOfValidLetters).mul(priceBN));

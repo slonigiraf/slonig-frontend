@@ -9,14 +9,14 @@ import type { ModalProps } from '../types.js';
 
 import React, { useCallback, useMemo, useState } from 'react';
 
-import { Button, InputAddress, InputFile, MarkError, MarkWarning, Modal, Password, styled } from '@polkadot/react-components';
+import { Button, InputAddress, InputFile, MarkError, MarkWarning, Modal, styled } from '@polkadot/react-components';
 import { useApi } from '@polkadot/react-hooks';
 import { keyring } from '@polkadot/ui-keyring';
 import { assert, nextTick, u8aToString } from '@polkadot/util';
 
 import { useTranslation } from '../translate.js';
-import { storeSetting } from '@slonigiraf/app-recommendations';
-import { encryptData, getKey, SettingKey } from '@slonigiraf/app-slonig-components';
+import { storeSetting } from '@slonigiraf/db';
+import { SettingKey } from '@slonigiraf/app-slonig-components';
 
 interface Props extends ModalProps {
   className?: string;

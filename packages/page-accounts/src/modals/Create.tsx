@@ -17,7 +17,7 @@ import { useTranslation } from '../translate.js';
 import { tryCreateAccount } from '../util.js';
 import CreateAccountInputs from './CreateAccountInputs.js';
 import { ETH_DEFAULT_PATH } from './CreateEthDerivationPath.js';
-import { storeSetting } from '@slonigiraf/app-recommendations';
+import { storeSetting } from '@slonigiraf/db';
 import { SettingKey } from '@slonigiraf/app-slonig-components';
 
 const DEFAULT_PAIR_TYPE = 'sr25519';

@@ -5,10 +5,9 @@ import React, { useState } from 'react';
 import { useIpfsContext } from '@slonigiraf/app-slonig-components';
 import { Button, Modal } from '@polkadot/react-components';
 import { useTranslation } from '../translate.js';
-import "dexie-export-import";
 import { QRScanner } from '@slonigiraf/app-slonig-components';
 import { getIPFSDataFromContentID } from '@slonigiraf/app-slonig-components';
-import { syncDB } from '../utils.js';
+import { syncDB } from '@slonigiraf/db';
 
 interface Props {
   className?: string;

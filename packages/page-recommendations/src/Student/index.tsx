@@ -7,8 +7,7 @@ import { IPFS } from 'ipfs-core';
 import { LoginButton, useLoginContext, getIPFSDataFromContentID, parseJson, QRField, useTokenTransfer } from '@slonigiraf/app-slonig-components';
 import { BN, BN_ZERO, hexToU8a, u8aToHex } from '@polkadot/util';
 import { useLocation } from 'react-router-dom';
-import { createAndStoreLetter, getLetterByLessonIdAndSignOverReceipt } from '@slonigiraf/app-recommendations';
-import { storePseudonym } from '@slonigiraf/app-recommendations';
+import { createAndStoreLetter, getLetterByLessonIdAndSignOverReceipt, storePseudonym } from '@slonigiraf/db';
 import { useTranslation } from '../translate.js';
 import { encodeAddress } from '@polkadot/keyring';
 

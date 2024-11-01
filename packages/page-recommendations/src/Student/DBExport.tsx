@@ -5,11 +5,9 @@ import React, { useCallback, useState } from 'react';
 import { useIpfsContext } from '@slonigiraf/app-slonig-components';
 import { Button, Modal } from '@polkadot/react-components';
 import { useTranslation } from '../translate.js';
-import { db } from "../db/index.js";
-import "dexie-export-import";
-import { ExportProgress } from 'dexie-export-import/dist/export';
 import QRCode from 'qrcode.react';
 import { qrCodeSize } from '../constants.js';
+import { exportDB } from '@slonigiraf/db';
 
 interface Props {
   className?: string;
@@ -21,15 +19,10 @@ function DBExport({ className = '' }: Props): React.ReactElement<Props> {
   const [text, setText] = useState<string>("");
   const [modalIsOpen, setModalIsOpen] = useState(false);
 
-  const progressCallback = ({ totalRows, completedRows }: ExportProgress) => {
-    console.log(`Progress: ${completedRows} of ${totalRows} rows completed`);
-    return true;
-  }
-
   const downloadDbJson = useCallback(
     async () => {
       try {
-        const blob = await db.export({ prettyJson: true, progressCallback });
+        const blob = await exportDB();
         const addingResult = await ipfs.add(blob);
         // create the result text
         let result = [];

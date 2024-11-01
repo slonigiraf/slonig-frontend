@@ -7,13 +7,12 @@ import { Button, Spinner } from '@polkadot/react-components';
 import type { Skill } from '@slonigiraf/app-slonig-components';
 import { ValidatingAlgorithm } from './ValidatingAlgorithm.js';
 import { useTranslation } from '../translate.js';
-import { InstructionsButtonsContainer, InstructionsButtonsGroup, InstructionsContainer, StyledCloseButton, useIpfsContext } from '@slonigiraf/app-slonig-components';
-import { Insurance } from '../db/Insurance.js';
+import { InstructionsButtonsContainer, InstructionsButtonsGroup, InstructionsContainer, useIpfsContext } from '@slonigiraf/app-slonig-components';
+import { Insurance, updateInsurance } from '@slonigiraf/db';
 import { getIPFSDataFromContentID, parseJson, useInfo } from '@slonigiraf/app-slonig-components';
 import type { KeyringPair } from '@polkadot/keyring/types';
 import { useApi } from '@polkadot/react-hooks';
 import { getBounty } from "../getBounty.js";
-import { updateInsurance } from '../utils.js';
 
 interface Props {
   className?: string;

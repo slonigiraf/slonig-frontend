@@ -6,17 +6,12 @@ import { styled, Button, Progress } from '@polkadot/react-components';
 import { u8aToHex } from '@polkadot/util';
 import type { Skill } from '@slonigiraf/app-slonig-components';
 import { QRWithShareAndCopy, getBaseUrl, getIPFSDataFromContentID, parseJson, useIpfsContext, nameFromKeyringPair, QRAction, useLoginContext, LoginButton, CenterQRContainer, QRField, useInfo, SettingKey } from '@slonigiraf/app-slonig-components';
-import { Letter } from '@slonigiraf/app-recommendations';
-import { deleteSetting, getLessonId, getSetting, storeLesson, storePseudonym, storeSetting, updateLesson, updateLetter } from '../utils.js';
+import { Letter, Lesson, Insurance, getPseudonym, getLesson, getLettersByLessonId, getInsurancesByLessonId, deleteSetting, getLessonId, getSetting, storeLesson, storePseudonym, storeSetting, updateLesson, updateLetter, getLetter, getInsurance } from '@slonigiraf/db';
 import Reexamine from './Reexamine.js';
 import { TeachingAlgorithm } from './TeachingAlgorithm.js';
 import DoInstructions from './DoInstructions.js';
 import { useTranslation } from '../translate.js';
-import { getPseudonym } from '../utils.js';
-import { Insurance } from '../db/Insurance.js';
 import LessonsList from './LessonsList.js';
-import { Lesson } from '../db/Lesson.js';
-import { db } from "../db/index.js";
 import LessonResults from './LessonResults.js';
 
 interface Props {
@@ -89,7 +84,7 @@ function Tutor({ className = '' }: Props): React.ReactElement<Props> {
   useEffect(() => {
     async function fetchLesson() {
       if (lessonId) {
-        const fetchedLesson = await db.lessons.get(lessonId);
+        const fetchedLesson = await getLesson(lessonId);
         setLesson(fetchedLesson || null); // Set lesson or null if not found
       }
     }
@@ -99,7 +94,7 @@ function Tutor({ className = '' }: Props): React.ReactElement<Props> {
   useEffect(() => {
     if (lessonId) {
       const fetchLetterIds = async () => {
-        const fetchedLetters = await db.letters.where({ lesson: lessonId }).sortBy('id');
+        const fetchedLetters = await getLettersByLessonId(lessonId);
         if (fetchedLetters) {
           const ids = fetchedLetters.map(letter => letter.id).filter(id => id !== undefined);
           setLetterIds(ids);
@@ -112,7 +107,7 @@ function Tutor({ className = '' }: Props): React.ReactElement<Props> {
   useEffect(() => {
     if (lessonId) {
       const fetchInsuranceIds = async () => {
-        const fetchedInsurances = await db.insurances.where({ lesson: lessonId }).sortBy('id');
+        const fetchedInsurances = await getInsurancesByLessonId(lessonId);
         if (fetchedInsurances) {
           const ids = fetchedInsurances.map(insurance => insurance.id).filter(id => id !== undefined);
           setInsuranceIds(ids);
@@ -230,14 +225,14 @@ function Tutor({ className = '' }: Props): React.ReactElement<Props> {
         }
         if (lesson.learnStep < letterIds.length) {
           const nextLetterId = letterIds[lesson.learnStep];
-          const nextLetter: Letter | undefined = await db.letters.get(nextLetterId);
+          const nextLetter: Letter | undefined = await getLetter(nextLetterId);
           if (nextLetter) {
             setLetterToIssue(nextLetter);
           }
         }
         if (lesson.reexamineStep < insuranceIds.length) {
           const nextInsuranceId = insuranceIds[lesson.reexamineStep];
-          const nextInsurance: Insurance | undefined = await db.insurances.get(nextInsuranceId);
+          const nextInsurance: Insurance | undefined = await getInsurance(nextInsuranceId);
           if (nextInsurance) {
             setInsuranceToReexamine(nextInsurance);
           }
@@ -250,8 +245,8 @@ function Tutor({ className = '' }: Props): React.ReactElement<Props> {
     onLessonUpdate()
   }, [lesson, letterIds, insuranceIds, studentName, areResultsShown])
 
-  const onCloseTutoring = useCallback(() => {
-    deleteSetting(SettingKey.LESSON);
+  const onCloseTutoring = useCallback(async () => {
+    await deleteSetting(SettingKey.LESSON);
     setLessonId(null);
     setLesson(null);
   }, []);

@@ -5,7 +5,7 @@ import { useNavigate } from 'react-router-dom';
 import { useTranslation } from './translate.js';
 import { Modal } from '@polkadot/react-components';
 import { ButtonWithLabelBelow, useInfo, QRAction } from '@slonigiraf/app-slonig-components';
-import { storeLesson, storeInsurances, storePseudonym, storeSetting } from '@slonigiraf/app-recommendations';
+import { storeLesson, storeInsurances, storePseudonym, storeSetting } from '@slonigiraf/db';
 import { encodeAddress } from '@polkadot/keyring';
 import { hexToU8a, u8aToHex } from '@polkadot/util';
 interface QRCodeResult {

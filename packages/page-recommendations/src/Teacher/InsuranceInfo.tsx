@@ -5,12 +5,11 @@ import { Modal, Button, Card, Spinner, styled } from '@polkadot/react-components
 import React, { useState, useEffect } from 'react'
 import UseInsurance from './UseInsurance.js'
 import { useTranslation } from '../translate.js';
-import { Insurance } from '../db/Insurance.js';
+import { deleteInsurance, Insurance } from '@slonigiraf/db';
 import { useToggle } from '@polkadot/react-hooks';
 import { KatexSpan, getIPFSDataFromContentID, parseJson } from '@slonigiraf/app-slonig-components';
 import { useIpfsContext } from '@slonigiraf/app-slonig-components';
 import { ItemLabel, ExerciseList } from '@slonigiraf/app-laws';
-import { db } from "../db/index.js";
 import { useInfo } from '@slonigiraf/app-slonig-components';
 
 interface Props {
@@ -59,7 +58,7 @@ function InsuranceInfo({ className = '', insurance }: Props): React.ReactElement
   const deleteDiplomas = async () => {
     try {
       if(insurance && insurance.id){
-        await db.insurances.delete(insurance.id);
+        await deleteInsurance(insurance.id);
         showInfo(t('Deleted'));
       }
     } catch (error) {

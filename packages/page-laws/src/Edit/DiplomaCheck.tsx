@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useLoginContext } from '@slonigiraf/app-slonig-components';
-import { Letter, getValidLettersForKnowledgeId } from '@slonigiraf/app-recommendations';
+import { Letter, getValidLettersForKnowledgeId } from '@slonigiraf/db';
 import { Icon } from '@polkadot/react-components';
 import { u8aToHex } from '@polkadot/util';
 

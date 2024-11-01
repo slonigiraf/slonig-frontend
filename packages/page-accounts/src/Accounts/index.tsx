@@ -27,7 +27,7 @@ import { useLocation } from 'react-router-dom';
 import { useNavigate } from 'react-router-dom';
 import { encodeAddress } from '@polkadot/keyring';
 import { hexToU8a } from '@polkadot/util';
-import { storePseudonym } from '@slonigiraf/app-recommendations';
+import { storePseudonym } from '@slonigiraf/db';
 
 interface Balances {
   accounts: Record<string, AccountBalance>;

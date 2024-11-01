@@ -5,12 +5,12 @@ import type { KeyringPair } from '@polkadot/keyring/types';
 
 import React, { useCallback, useEffect, useState } from 'react';
 
-import { Button, InputAddress, Modal, Password } from '@polkadot/react-components';
+import { Button, InputAddress, Modal } from '@polkadot/react-components';
 import { nextTick } from '@polkadot/util';
 
 import { useTranslation } from './translate.js';
-import { storeSetting } from '@slonigiraf/app-recommendations';
-import { encryptData, getKey, SettingKey } from '@slonigiraf/app-slonig-components';
+import { storeSetting } from '@slonigiraf/db';
+import { SettingKey } from '@slonigiraf/app-slonig-components';
 
 interface Props {
   onClose: () => void;

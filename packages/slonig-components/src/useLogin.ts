@@ -1,6 +1,6 @@
 import { useState, useCallback, useEffect } from 'react';
 import { keyring } from '@polkadot/ui-keyring';
-import { getSetting, storeSetting } from '@slonigiraf/app-recommendations';
+import { getSetting, storeSetting } from '@slonigiraf/db';
 import type { KeyringPair } from '@polkadot/keyring/types';
 import type { AccountState } from '@slonigiraf/app-slonig-components';
 import { SettingKey } from '@slonigiraf/app-slonig-components';

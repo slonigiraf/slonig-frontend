@@ -7,7 +7,7 @@ import { Button, InputAddress } from '@polkadot/react-components';
 import { useApi } from '@polkadot/react-hooks';
 import { keyring } from '@polkadot/ui-keyring';
 import { useTranslation } from '../translate.js';
-import { Insurance } from '../db/Insurance.js';
+import { Insurance } from '@slonigiraf/db';
 import { useInfo } from '@slonigiraf/app-slonig-components';
 import { getBounty } from "../getBounty.js";
 
@@ -54,7 +54,6 @@ function UseInsurance({ className = '', insurance }: Props): React.ReactElement<
       <div className='ui--row' style={{ display: 'none' }}>
         <InputAddress
           className='full'
-          help={t('select the account you wish to sign data with')}
           isInput={false}
           label={t('account')}
           onChange={_onChangeAccount}

@@ -15,7 +15,7 @@ import { settings } from '@polkadot/ui-settings';
 
 import { useTranslation } from './translate.js';
 import { createIdenticon, createOption, save, saveAndReload } from './util.js';
-import { getSetting, storeSetting } from '@slonigiraf/app-recommendations';
+import { getSetting, storeSetting } from '@slonigiraf/db';
 import { SettingKey } from '@slonigiraf/app-slonig-components';
 
 interface Props {

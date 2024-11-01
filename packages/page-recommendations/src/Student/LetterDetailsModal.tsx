@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 import React from 'react';
 import { useTranslation } from '../translate.js';
-import { Letter } from '../db/Letter.js';
+import { Letter } from '@slonigiraf/db';
 import { KatexSpan } from '@slonigiraf/app-slonig-components';
 
 interface Props {

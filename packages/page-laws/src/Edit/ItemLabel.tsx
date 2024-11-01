@@ -4,9 +4,9 @@ import React, { useEffect, useState } from 'react';
 import { useApi } from '@polkadot/react-hooks';
 import { KatexSpan, getCIDFromBytes, getIPFSDataFromContentID, parseJson } from '@slonigiraf/app-slonig-components';
 import { useIpfsContext } from '@slonigiraf/app-slonig-components';
-import { Button, Icon, Label, Spinner, styled } from '@polkadot/react-components';
+import { Button, Icon, Spinner, styled } from '@polkadot/react-components';
 import DiplomaCheck from './DiplomaCheck.js';
-import { Letter } from '@slonigiraf/app-recommendations';
+import { Letter } from '@slonigiraf/db';
 import { ItemWithCID } from '../types.js';
 
 interface Props {

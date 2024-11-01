@@ -3058,6 +3058,37 @@ __metadata:
   languageName: unknown
   linkType: soft
 
+"@slonigiraf/db@workspace:packages/db":
+  version: 0.0.0-use.local
+  resolution: "@slonigiraf/db@workspace:packages/db"
+  dependencies:
+    "@multiformats/multiaddr": ^12.1.7
+    "@polkadot/hw-ledger": ^12.3.2
+    "@polkadot/phishing": ^0.21.5
+    "@polkadot/react-components": ^0.132.2-38-x
+    "@polkadot/react-hooks": ^0.132.2-38-x
+    "@polkadot/test-support": 0.132.2-38-x
+    "@polkadot/util": ^12.3.2
+    "@polkadot/vanitygen": ^0.55.3
+    "@slonigiraf/app-slonig-components": ^0.132.2-38-x
+    "@slonigiraf/helpers": ^7.0.0
+    "@types/qrcode.react": ^1.0.2
+    detect-browser: ^5.3.0
+    dexie: ^3.2.2
+    dexie-export-import: ^1.0.3
+    dexie-react-hooks: ^1.1.1
+    dompurify: ^3.0.6
+    file-saver: ^2.0.5
+    ipfs-core: ^0.14.2
+    ipfs-core-types: ^0.10.1
+    qrcode.react: ^2.0.0
+  peerDependencies:
+    react: "*"
+    react-dom: "*"
+    react-is: "*"
+  languageName: unknown
+  linkType: soft
+
 "@slonigiraf/helpers@npm:^7.0.0":
   version: 7.0.0
   resolution: "@slonigiraf/helpers@npm:7.0.0"
@@ -3491,6 +3522,15 @@ __metadata:
     "@types/docker-modem": "*"
     "@types/node": "*"
   checksum: 96d6cd3811a778d12382432413c3b0a935912c175ca939c77aaa0db2630c205daf14d5fa52e458a6fd44355c444f4fa1bd821e0364d4d0b6388061b5fe889431
+  languageName: node
+  linkType: hard
+
+"@types/dompurify@npm:^3.0.5":
+  version: 3.0.5
+  resolution: "@types/dompurify@npm:3.0.5"
+  dependencies:
+    "@types/trusted-types": "*"
+  checksum: ffc34eca6a4536e1c8c16a47cce2623c5a118a9785492e71230052d92933ff096d14326ff449031e8dfaac509413222372d8f2b28786a13159de6241df716185
   languageName: node
   linkType: hard
 
@@ -4118,6 +4158,13 @@ __metadata:
   dependencies:
     "@types/jest": "*"
   checksum: d364494fc2545316292e88861146146af1e3818792ca63b62a63758b2f737669b687f4aaddfcfbcb7d0e1ed7890a9bd05de23ff97f277d5e68de574497a9ee72
+  languageName: node
+  linkType: hard
+
+"@types/trusted-types@npm:*":
+  version: 2.0.7
+  resolution: "@types/trusted-types@npm:2.0.7"
+  checksum: 8e4202766a65877efcf5d5a41b7dd458480b36195e580a3b1085ad21e948bc417d55d6f8af1fd2a7ad008015d4117d5fdfe432731157da3c68678487174e4ba3
   languageName: node
   linkType: hard
 
@@ -16815,6 +16862,7 @@ __metadata:
     "@pinata/sdk": ^1.2.1
     "@polkadot/dev": ^0.75.26
     "@types/chart.js": ^2.9.37
+    "@types/dompurify": ^3.0.5
     "@types/file-saver": ^2.0.5
     "@types/react-beautiful-dnd": ^13.1.4
     "@types/react-copy-to-clipboard": ^5.0.4

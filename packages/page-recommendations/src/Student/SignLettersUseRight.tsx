@@ -5,11 +5,10 @@ import { getDataToSignByWorker } from '@slonigiraf/helpers';
 import type { KeyringPair } from '@polkadot/keyring/types';
 import React, { useEffect, useState } from 'react';
 import { u8aToHex, hexToU8a, u8aWrapBytes } from '@polkadot/util';
-import { ShareButton, getBaseUrl, nameFromKeyringPair, ClipboardCopyButton, SenderComponent, QRAction, CenterQRContainer } from '@slonigiraf/app-slonig-components';
+import { nameFromKeyringPair, SenderComponent, QRAction, CenterQRContainer } from '@slonigiraf/app-slonig-components';
 import { useTranslation } from '../translate.js';
-import { storeLetterUsageRight } from '../utils.js';
+import { storeLetterUsageRight, Letter } from '@slonigiraf/db';
 import { keyForCid } from '@slonigiraf/app-slonig-components';
-import { Letter } from "../db/Letter.js";
 
 interface Props {
   className?: string;

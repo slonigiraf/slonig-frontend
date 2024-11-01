@@ -4,8 +4,7 @@ import { u8aToHex } from '@polkadot/util';
 import BN from 'bn.js';
 import type { KeyringPair } from '@polkadot/keyring/types';
 import type { ApiPromise } from '@polkadot/api';
-import { updateInsurance } from './utils.js';
-import { Insurance } from './db/Insurance.js';
+import { Insurance, updateInsurance } from '@slonigiraf/db';
 
 type ErrorKey = 'InvalidRefereeSign' | 'InvalidWorkerSign' | 'InvalidLetterAmount' |
     'RefereeBalanceIsNotEnough' | 'LetterWasMarkedAsFraudBefore' |
