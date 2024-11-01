@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useTranslation } from '../translate.js';
-import { CenterQRContainer, LawType, LoginButton, QRAction, QRField, QRWithShareAndCopy, SenderComponent, SettingKey, getBaseUrl, nameFromKeyringPair, qrWidthPx, useLoginContext } from '@slonigiraf/app-slonig-components';
-import { Letter, getLessonId, getLettersByWorkerIdWithEmptyLesson, getSetting, storeSetting } from '@slonigiraf/db';
+import { CenterQRContainer, LoginButton, QRWithShareAndCopy, SenderComponent, getBaseUrl, nameFromKeyringPair, qrWidthPx, useLoginContext } from '@slonigiraf/app-slonig-components';
+import { Letter, getLessonId, getLettersByWorkerIdWithEmptyLesson, getSetting, storeSetting, LawType, QRAction, QRField, SettingKey } from '@slonigiraf/db';
 import { Dropdown, Spinner } from '@polkadot/react-components';
 import { useLiveQuery } from "dexie-react-hooks";
 import { keyForCid } from '@slonigiraf/app-slonig-components';

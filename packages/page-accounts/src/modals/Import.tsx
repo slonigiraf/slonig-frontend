@@ -15,8 +15,7 @@ import { keyring } from '@polkadot/ui-keyring';
 import { assert, nextTick, u8aToString } from '@polkadot/util';
 
 import { useTranslation } from '../translate.js';
-import { storeSetting } from '@slonigiraf/db';
-import { SettingKey } from '@slonigiraf/app-slonig-components';
+import { storeSetting, SettingKey } from '@slonigiraf/db';
 
 interface Props extends ModalProps {
   className?: string;

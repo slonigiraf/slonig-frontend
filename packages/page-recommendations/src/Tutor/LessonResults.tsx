@@ -7,8 +7,8 @@ import { styled, Button, Input, InputBalance, Icon, Card, Modal } from '@polkado
 import { useApi, useBlockTime, useToggle } from '@polkadot/react-hooks';
 import { u8aToHex, hexToU8a, u8aWrapBytes, BN_ONE, BN_ZERO, formatBalance } from '@polkadot/util';
 import type { Skill } from '@slonigiraf/app-slonig-components';
-import { QRWithShareAndCopy, getBaseUrl, getIPFSDataFromContentID, parseJson, useIpfsContext, QRAction, useLoginContext, FullWidthContainer, VerticalCenterItemsContainer, CenterQRContainer, KatexSpan, useInfo, SettingKey, balanceToSlonString, QRField } from '@slonigiraf/app-slonig-components';
-import { Insurance, getPseudonym, Lesson, Letter, getLastUnusedLetterNumber, setLastUsedLetterNumber, storeSetting, updateLetter, getInsurancesByLessonId, getValidLettersByLessonId } from '@slonigiraf/db';
+import { QRWithShareAndCopy, getBaseUrl, getIPFSDataFromContentID, parseJson, useIpfsContext, useLoginContext, FullWidthContainer, VerticalCenterItemsContainer, CenterQRContainer, KatexSpan, useInfo, balanceToSlonString } from '@slonigiraf/app-slonig-components';
+import { Insurance, getPseudonym, Lesson, Letter, getLastUnusedLetterNumber, setLastUsedLetterNumber, storeSetting, updateLetter, getInsurancesByLessonId, getValidLettersByLessonId, QRAction, SettingKey, QRField } from '@slonigiraf/db';
 import { getPublicDataToSignByReferee, getPrivateDataToSignByReferee } from '@slonigiraf/helpers';
 import { useTranslation } from '../translate.js';
 

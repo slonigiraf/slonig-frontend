@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useState } from 'react';
-import { KatexSpan, LawType, getCIDFromBytes, getIPFSDataFromContentID, parseJson, SelectableList } from '@slonigiraf/app-slonig-components';
+import { KatexSpan, getCIDFromBytes, getIPFSDataFromContentID, parseJson, SelectableList } from '@slonigiraf/app-slonig-components';
 import { useApi } from '@polkadot/react-hooks';
 import { BN_ZERO } from '@polkadot/util';
 import ItemLabel from './ItemLabel.js';
@@ -12,6 +12,7 @@ import { u8aToHex } from '@polkadot/util';
 import LearnWithAI from './LearnWithAI.js';
 import { Toggle } from '@polkadot/react-components';
 import { ItemWithCID } from '../types.js';
+import { LawType } from '@slonigiraf/db';
 
 interface Props {
   className?: string;
@@ -100,7 +101,7 @@ function ViewList({ className = '', id, currentPair }: Props): React.ReactElemen
       setIsThereAnythingToReexamine(someHaveValidDiplomas);
     }
   }, [setIsThereAnythingToLearn, setIsThereAnythingToReexamine]);
-  
+
   const isSelectionAllowed = true;
 
   return list == null ? <></> : (

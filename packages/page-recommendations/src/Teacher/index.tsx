@@ -7,8 +7,8 @@ import { IPFS } from 'ipfs-core';
 import { useTranslation } from '../translate.js';
 import { u8aToHex } from '@polkadot/util';
 import { useLocation } from 'react-router-dom';
-import { QRWithShareAndCopy, nameFromKeyringPair, getBaseUrl, QRAction, parseJson, useLoginContext, LoginButton, AppContainer, CenterQRContainer, receiveWebRTCData, useInfo } from '@slonigiraf/app-slonig-components';
-import { storeInsurances, storePseudonym } from '@slonigiraf/db';
+import { QRWithShareAndCopy, nameFromKeyringPair, getBaseUrl, parseJson, useLoginContext, LoginButton, AppContainer, CenterQRContainer, receiveWebRTCData, useInfo } from '@slonigiraf/app-slonig-components';
+import { QRAction, storeInsurances, storePseudonym } from '@slonigiraf/db';
 
 interface Props {
   className?: string;

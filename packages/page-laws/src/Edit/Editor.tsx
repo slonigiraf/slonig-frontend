@@ -2,12 +2,11 @@ import React, { useCallback } from 'react';
 import { Button, Dropdown, Input, styled } from '@polkadot/react-components';
 import { useTranslation } from '../translate.js';
 import { randomIdHex } from '../util.js';
-import { parseJson, useInfo } from '@slonigiraf/app-slonig-components';
 import Reordering from './Reordering.js';
 import type { LawType } from '../types.js';
 import ExerciseEditorList from './ExerciseEditorList.js';
 import { useApi } from '@polkadot/react-hooks';
-import { useIpfsContext, getCIDFromBytes, getIPFSDataFromContentID, parseJson } from '@slonigiraf/app-slonig-components';
+import { useInfo, useIpfsContext, getCIDFromBytes, getIPFSDataFromContentID, parseJson } from '@slonigiraf/app-slonig-components';
 
 interface Props {
   className?: string;

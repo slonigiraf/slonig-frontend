@@ -10,11 +10,13 @@ import React, { useCallback, useContext, useEffect, useState } from 'react';
 import { statics } from '@polkadot/react-api/statics';
 import { useDeriveAccountInfo, useSystemApi } from '@polkadot/react-hooks';
 import { AccountSidebarCtx } from '@polkadot/react-hooks/ctx/AccountSidebar';
-import { formatNumber, isCodec, isFunction, stringToU8a, u8aEmpty, u8aEq, u8aToBn } from '@polkadot/util';
+import { formatNumber, isCodec, isFunction, stringToU8a, u8aEmpty, u8aEq, u8aToBn, u8aToHex } from '@polkadot/util';
 
 import { getAddressName } from './util/index.js';
 import Badge from './Badge.js';
 import { styled } from './styled.js';
+import { decodeAddress } from '@polkadot/keyring';
+import { getPseudonym } from '@slonigiraf/db';
 
 interface Props {
   children?: React.ReactNode;
@@ -194,17 +196,32 @@ function AccountName ({ children, className = '', defaultName, label, onClick, o
       parentCache.set(cacheAddr, identity.parent.toString());
     }
 
-    if (api && isFunction(api.query.identity?.identityOf)) {
-      setName(() =>
-        identity?.display
-          ? extractIdentity(cacheAddr, identity)
-          : extractName(cacheAddr, accountIndex)
-      );
-    } else if (nickname) {
-      setName(nickname);
-    } else {
-      setName(defaultOrAddrNode(defaultName, cacheAddr, accountIndex));
-    }
+    const setNameWithPseudonym = async () => {
+      let pseudonym;
+      try {
+        const publicKeyU8a = decodeAddress(cacheAddr);
+        const publicKeyHex = u8aToHex(publicKeyU8a);
+        pseudonym = await getPseudonym(publicKeyHex);
+      } catch (error) {
+        console.error('Error converting address to public key:', error);
+      }
+
+      if (pseudonym) {
+        setName(pseudonym);
+      } else if (api && isFunction(api.query.identity?.identityOf)) {
+        setName(() =>
+          identity?.display
+            ? extractIdentity(cacheAddr, identity)
+            : extractName(cacheAddr, accountIndex)
+        );
+      } else if (nickname) {
+        setName(nickname);
+      } else {
+        setName(defaultOrAddrNode(defaultName, cacheAddr, accountIndex));
+      }
+    };
+
+    setNameWithPseudonym();
   }, [api, defaultName, info, toggle, value]);
 
   const _onNameEdit = useCallback(

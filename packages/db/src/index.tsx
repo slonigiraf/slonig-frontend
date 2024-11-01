@@ -9,15 +9,58 @@ import type { Pseudonym } from "./db/Pseudonym.js";
 import type { Setting } from "./db/Setting.js";
 import type { Lesson } from "./db/Lesson.js";
 import DOMPurify from 'dompurify';
-import { u8aToHex } from '@polkadot/util';
 import { decodeAddress, encodeAddress } from '@polkadot/keyring';
-import { isHex } from '@polkadot/util';
-import { QRField, SettingKey } from "@slonigiraf/app-slonig-components";
+import { isHex, u8aToHex } from '@polkadot/util';
 import { blake2AsHex } from '@polkadot/util-crypto';
 import "dexie-export-import";
 
 export type { Letter, Insurance, Lesson, Pseudonym, Setting, Signer, UsageRight };
-  
+
+export const SettingKey = {
+    ACCOUNT: 'account',
+    ENCRYPTION_KEY: 'encryptionKey',
+    IV: 'iv',
+    KNOWLEDGE: 'knowledge',
+    TUTOR: 'tutor',
+    LESSON: 'lesson',
+    RESULTS_FOR_LESSON: 'resultsForLesson',
+    DEVELOPER: 'developer',
+    TEACHER: 'teacher',
+    DIPLOMA_PRICE: 'diploma_price',
+    DIPLOMA_WARRANTY: 'diploma_warranty',
+    DIPLOMA_VALIDITY: 'diploma_validity',
+};
+
+export const QRAction = {
+    NAVIGATION: 0,
+    TRANSFER: 1,
+    ADD_DIPLOMA: 2,
+    BUY_DIPLOMAS: 3,
+    TUTOR_IDENTITY: 4,
+    SKILL: 5,
+    TEACHER_IDENTITY: 6,
+    ADD_INSURANCES: 7,
+    LEARN_MODULE: 8
+};
+
+export const QRField = {
+    ID: 'i',
+    QR_ACTION: 'q',
+    PERSON_NAME: 'n',
+    PERSON_IDENTITY: 'p',
+    TUTOR: 't',
+    DATA: 'd',
+    PRICE: 'm',
+};
+
+export const LawType = {
+    LIST: 0,
+    COURSE: 1,
+    MODULE: 2,
+    SKILL: 3,
+    EXERCISE: 4
+};
+
 const progressCallback = ({ totalRows, completedRows }: any) => {
     console.log(`Progress: ${completedRows} of ${totalRows} rows completed`);
     return true;

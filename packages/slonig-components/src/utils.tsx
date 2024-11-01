@@ -2,9 +2,8 @@ import { IPFSHTTPClient, CID, DAGGetResult } from 'kubo-rpc-client'
 import crypto from 'crypto';
 import { getAddressName } from '@polkadot/react-components';
 import type { KeyringPair } from '@polkadot/keyring/types';
-import { getSetting, storeSetting } from '@slonigiraf/db';
+import { getSetting, storeSetting, SettingKey } from '@slonigiraf/db';
 import Peer from 'peerjs';
-import { SettingKey } from './index.js';
 import { formatBalance } from '@polkadot/util';
 import BN from 'bn.js';
 

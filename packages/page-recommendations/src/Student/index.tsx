@@ -4,12 +4,13 @@
 import React, { useEffect, useState } from 'react';
 import LettersList from './LettersList.js';
 import { IPFS } from 'ipfs-core';
-import { LoginButton, useLoginContext, getIPFSDataFromContentID, parseJson, QRField, useTokenTransfer } from '@slonigiraf/app-slonig-components';
+import { LoginButton, useLoginContext, getIPFSDataFromContentID, parseJson, useTokenTransfer } from '@slonigiraf/app-slonig-components';
 import { BN, BN_ZERO, hexToU8a, u8aToHex } from '@polkadot/util';
 import { useLocation } from 'react-router-dom';
 import { createAndStoreLetter, getLetterByLessonIdAndSignOverReceipt, storePseudonym } from '@slonigiraf/db';
 import { useTranslation } from '../translate.js';
 import { encodeAddress } from '@polkadot/keyring';
+import { QRField } from '@slonigiraf/db';
 
 interface Props {
   className?: string;
@@ -26,11 +27,11 @@ function Student({ className = '', ipfs }: Props): React.ReactElement<Props> {
   const addDiplomaData = queryParams.get("d") || "";
   //TODO: get diplomas by url that contains peer id
   const priceString = queryParams.get(QRField.PRICE);
-  const lessonPrice = priceString? new BN(priceString) : BN_ZERO;
+  const lessonPrice = priceString ? new BN(priceString) : BN_ZERO;
 
   const [isLessonPaid, setIsLessonPaid] = useState(false);
   const [wasLessonResultStored, setWasLessonResultStored] = useState(true);
-  const {isTransferOpen, setIsTransferOpen, setRecipientId, setAmount, setCaption} = useTokenTransfer();
+  const { isTransferOpen, setIsTransferOpen, setRecipientId, setAmount, setCaption } = useTokenTransfer();
 
   const [textHash,
     workerId,
@@ -101,7 +102,7 @@ function Student({ className = '', ipfs }: Props): React.ReactElement<Props> {
     if (refereeSignOverPrivateData) {
       async function seeIfSameLetterWasStored() {
         const sameLetter = await getLetterByLessonIdAndSignOverReceipt('', refereeSignOverReceipt);
-        if(!sameLetter){
+        if (!sameLetter) {
           setWasLessonResultStored(false);
         }
       }
@@ -122,7 +123,7 @@ function Student({ className = '', ipfs }: Props): React.ReactElement<Props> {
   }, [wasLessonResultStored, refereeSignOverPrivateData, setIsLessonPaid])
 
   useEffect(() => {
-    if(refereeSignOverReceipt){
+    if (refereeSignOverReceipt) {
       const recipientAddress = refereePublicKeyHex ? encodeAddress(hexToU8a(refereePublicKeyHex)) : "";
       setRecipientId(recipientAddress);
       setAmount(lessonPrice);

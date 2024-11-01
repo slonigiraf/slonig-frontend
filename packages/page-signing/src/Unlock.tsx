@@ -9,8 +9,7 @@ import { Button, InputAddress, Modal } from '@polkadot/react-components';
 import { nextTick } from '@polkadot/util';
 
 import { useTranslation } from './translate.js';
-import { storeSetting } from '@slonigiraf/db';
-import { SettingKey } from '@slonigiraf/app-slonig-components';
+import { storeSetting, SettingKey } from '@slonigiraf/db';
 
 interface Props {
   onClose: () => void;

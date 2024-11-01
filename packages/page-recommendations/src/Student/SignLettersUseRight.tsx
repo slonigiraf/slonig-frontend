@@ -5,9 +5,9 @@ import { getDataToSignByWorker } from '@slonigiraf/helpers';
 import type { KeyringPair } from '@polkadot/keyring/types';
 import React, { useEffect, useState } from 'react';
 import { u8aToHex, hexToU8a, u8aWrapBytes } from '@polkadot/util';
-import { nameFromKeyringPair, SenderComponent, QRAction, CenterQRContainer } from '@slonigiraf/app-slonig-components';
+import { nameFromKeyringPair, SenderComponent, CenterQRContainer } from '@slonigiraf/app-slonig-components';
 import { useTranslation } from '../translate.js';
-import { storeLetterUsageRight, Letter } from '@slonigiraf/db';
+import { QRAction, storeLetterUsageRight, Letter } from '@slonigiraf/db';
 import { keyForCid } from '@slonigiraf/app-slonig-components';
 
 interface Props {
