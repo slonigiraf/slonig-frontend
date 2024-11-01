@@ -26,6 +26,8 @@ interface Props {
   onClose: () => void;
   recipientId?: string;
   senderId?: string;
+  amount?: BN;
+  caption?: string;
 }
 
 function isRefcount(accountInfo: AccountInfoWithProviders | AccountInfoWithRefCount): accountInfo is AccountInfoWithRefCount {
@@ -45,10 +47,10 @@ async function checkPhishing(_senderId: string | null, recipientId: string | nul
   ];
 }
 
-function Transfer({ className = '', onClose, recipientId: propRecipientId, senderId: propSenderId }: Props): React.ReactElement<Props> {
+function Transfer({ className = '', onClose, recipientId: propRecipientId, senderId: propSenderId, amount: propAmount, caption }: Props): React.ReactElement<Props> {
   const { t } = useTranslation();
   const { api } = useApi();
-  const [amount, setAmount] = useState<BN | undefined>(BN_ZERO);
+  const [amount, setAmount] = useState<BN | undefined>(propAmount? propAmount : BN_ZERO);
   const [hasAvailable] = useState(true);
   const [isProtected, setIsProtected] = useState(true);
   const [isAll, setIsAll] = useState(false);
@@ -142,7 +144,7 @@ function Transfer({ className = '', onClose, recipientId: propRecipientId, sende
   return (
     <StyledModal
       className='app--accounts-Modal'
-      header={t('Send funds')}
+      header={caption? caption : t('Send funds')}
       onClose={onClose}
       size='large'
     >
@@ -197,6 +199,7 @@ function Transfer({ className = '', onClose, recipientId: propRecipientId, sende
                     isError={!hasAvailable}
                     isZeroable
                     label={t('amount')}
+                    defaultValue={amount}
                     maxValue={maxTransfer}
                     onChange={setAmount}
                   />
@@ -212,7 +215,8 @@ function Transfer({ className = '', onClose, recipientId: propRecipientId, sende
           isProcessing ||
           (!isAll && (!hasAvailable || !amount)) ||
           !(propRecipientId || recipientId) ||
-          !!recipientPhish
+          !!recipientPhish ||
+          (propAmount && maxTransfer !== null && propAmount.gt(maxTransfer))
         }
           icon='paper-plane'
           label={t('Make Transfer')}

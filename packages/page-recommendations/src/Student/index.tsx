@@ -5,7 +5,7 @@ import React, { useEffect, useState } from 'react';
 import LettersList from './LettersList.js';
 import { IPFS } from 'ipfs-core';
 import { LoginButton, useLoginContext, getIPFSDataFromContentID, parseJson, QRField, useTokenTransfer } from '@slonigiraf/app-slonig-components';
-import { hexToU8a, u8aToHex } from '@polkadot/util';
+import { BN, BN_ZERO, hexToU8a, u8aToHex } from '@polkadot/util';
 import { useLocation } from 'react-router-dom';
 import { createAndStoreLetter, getLetterByLessonIdAndSignOverReceipt } from '@slonigiraf/app-recommendations';
 import { storePseudonym } from '@slonigiraf/app-recommendations';
@@ -26,10 +26,12 @@ function Student({ className = '', ipfs }: Props): React.ReactElement<Props> {
   const teacherPublicKey = queryParams.get("teacher");
   const addDiplomaData = queryParams.get("d") || "";
   //TODO: get diplomas by url that contains peer id
-  const lessonPrice = queryParams.get(QRField.PRICE) || "";
+  const priceString = queryParams.get(QRField.PRICE);
+  const lessonPrice = priceString? new BN(priceString) : BN_ZERO;
+
   const [isLessonPaid, setIsLessonPaid] = useState(false);
   const [wasLessonResultStored, setWasLessonResultStored] = useState(true);
-  const {isTransferOpen, setIsTransferOpen, setRecipientId} = useTokenTransfer();
+  const {isTransferOpen, setIsTransferOpen, setRecipientId, setAmount, setCaption} = useTokenTransfer();
 
   const [textHash,
     workerId,
@@ -122,16 +124,18 @@ function Student({ className = '', ipfs }: Props): React.ReactElement<Props> {
 
   useEffect(() => {
     if(refereeSignOverReceipt){
-      const recipientAddress = teacherPublicKey ? encodeAddress(hexToU8a(teacherPublicKey)) : "";
-      // setRecipientId(recipientAddress);
+      const recipientAddress = refereePublicKeyHex ? encodeAddress(hexToU8a(refereePublicKeyHex)) : "";
+      setRecipientId(recipientAddress);
+      setAmount(lessonPrice);
+      setCaption(t('Pay for the lesson'))
       setIsTransferOpen(!isLessonPaid);
     }
-  }, [refereeSignOverReceipt, isLessonPaid, isTransferOpen, setIsTransferOpen])
+  }, [refereePublicKeyHex, refereeSignOverReceipt, isLessonPaid, isTransferOpen, setIsTransferOpen])
 
   return (
     <div className={`toolbox--Student ${className}`}>
       <div className='ui--row'>
-        {isLoggedIn && <LettersList ipfs={ipfs} worker={u8aToHex(currentPair?.publicKey)} currentPair={currentPair} />}
+        {isLoggedIn && currentPair && <LettersList worker={u8aToHex(currentPair?.publicKey)} currentPair={currentPair} />}
         <LoginButton label={t('Log in')} />
       </div>
     </div>
