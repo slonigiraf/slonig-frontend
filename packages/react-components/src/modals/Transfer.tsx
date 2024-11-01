@@ -63,6 +63,7 @@ function Transfer({ className = '', onClose, recipientId: propRecipientId, sende
   const { showInfo } = useInfo();
   const { currentPair } = useLoginContext();
   const [isProcessing, toggleProcessing] = useToggle();
+  const [amountIsLessThanMax, setAmountIsLessThanMax] = useState(false);
 
   useEffect((): void => {
     const fromId = propSenderId || senderId as string;
@@ -89,6 +90,14 @@ function Transfer({ className = '', onClose, recipientId: propRecipientId, sende
       setMaxTransfer([null, false]);
     }
   }, [api, balances, propRecipientId, propSenderId, recipientId, senderId]);
+
+  useEffect((): void => {
+    if(maxTransfer !== null && amount){
+      setAmountIsLessThanMax(amount.lt(maxTransfer))
+    } else{
+      setAmountIsLessThanMax(false)
+    }
+  }, [maxTransfer, amount]);
 
   useEffect((): void => {
     checkPhishing(propSenderId || senderId, propRecipientId || recipientId)
@@ -216,7 +225,7 @@ function Transfer({ className = '', onClose, recipientId: propRecipientId, sende
           (!isAll && (!hasAvailable || !amount)) ||
           !(propRecipientId || recipientId) ||
           !!recipientPhish ||
-          (propAmount && maxTransfer !== null && propAmount.gt(maxTransfer))
+          !amountIsLessThanMax
         }
           icon='paper-plane'
           label={t('Make Transfer')}
