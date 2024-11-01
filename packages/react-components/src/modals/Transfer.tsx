@@ -178,10 +178,10 @@ function Transfer({ className = '', onClose, recipientId: propRecipientId, sende
               defaultValue={propRecipientId}
               isDisabled={!!propRecipientId}
               label={t('send to address')}
-              labelExtra={
+              labelExtra={ !propRecipientId?
                 <Available
                   params={propRecipientId || recipientId}
-                />
+                /> : ''
               }
               onChange={setRecipientId}
               type='allPlus'
