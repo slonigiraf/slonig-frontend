@@ -31,7 +31,7 @@ function Student({ className = '', ipfs }: Props): React.ReactElement<Props> {
 
   const [isLessonPaid, setIsLessonPaid] = useState(false);
   const [wasLessonResultStored, setWasLessonResultStored] = useState(true);
-  const { isTransferOpen, setIsTransferOpen, setRecipientId, setAmount, setCaption } = useTokenTransfer();
+  const { isTransferOpen, setIsTransferOpen, setRecipientId, setAmount, setModalCaption, setButtonCaption } = useTokenTransfer();
 
   const [textHash,
     workerId,
@@ -127,7 +127,8 @@ function Student({ className = '', ipfs }: Props): React.ReactElement<Props> {
       const recipientAddress = refereePublicKeyHex ? encodeAddress(hexToU8a(refereePublicKeyHex)) : "";
       setRecipientId(recipientAddress);
       setAmount(lessonPrice);
-      setCaption(t('Pay for the lesson'))
+      setModalCaption(t('Pay for the lesson'));
+      setButtonCaption(t('Pay'));
       setIsTransferOpen(!isLessonPaid);
     }
   }, [refereePublicKeyHex, refereeSignOverReceipt, isLessonPaid, isTransferOpen, setIsTransferOpen])

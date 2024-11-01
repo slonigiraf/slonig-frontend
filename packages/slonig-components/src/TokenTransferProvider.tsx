@@ -6,24 +6,24 @@ interface TokenTransferContextType {
     isTransferOpen: boolean;
     recipientId: string;
     amount: BN | undefined;
-    caption: string;
     setRecipientId: (recepientId: string) => void;
     toggleTransfer: () => void;
     setIsTransferOpen: (isOpen: boolean) => void;
     setAmount: (amount: BN) => void;
-    setCaption: (caption: string) => void;
+    setModalCaption: (caption: string) => void;
+    setButtonCaption: (caption: string) => void;
 }
 
 const defaultTokenTransferContext: TokenTransferContextType = {
     isTransferOpen: false,
     recipientId: '',
     amount: BN_ZERO,
-    caption: '',
     setRecipientId: (_) => {},
     toggleTransfer: () => {},
     setIsTransferOpen: (_) => {},
     setAmount: (_) => {},
-    setCaption: (_) => {},
+    setModalCaption: (_) => {},
+    setButtonCaption: (_) => {},
 };
 
 const TokenTransferContext = createContext<TokenTransferContextType>(defaultTokenTransferContext);
@@ -36,9 +36,10 @@ export const TokenTransferProvider: React.FC<TokenTransferProviderProps> = ({ ch
     const [isTransferOpen, toggleTransfer, setIsTransferOpen] = useToggle();
     const [recipientId, setRecipientId] = useState<string>('');
     const [amount, setAmount] = useState<BN | undefined>(BN_ZERO);
-    const [caption, setCaption] = useState<string>('');
+    const [modalCaption, setModalCaption] = useState<string>('');
+    const [buttonCaption, setButtonCaption] = useState<string>('');
     return (
-        <TokenTransferContext.Provider value={{ isTransferOpen, recipientId, amount, caption, toggleTransfer, setIsTransferOpen, setRecipientId, setAmount, setCaption }}>
+        <TokenTransferContext.Provider value={{ isTransferOpen, recipientId, amount, toggleTransfer, setIsTransferOpen, setRecipientId, setAmount, setModalCaption, setButtonCaption }}>
             {children}
             {isTransferOpen && (
                 <TransferModal
@@ -46,7 +47,8 @@ export const TokenTransferProvider: React.FC<TokenTransferProviderProps> = ({ ch
                     onClose={toggleTransfer}
                     recipientId={recipientId}
                     amount={amount}
-                    caption={caption}
+                    modalCaption={modalCaption}
+                    buttonCaption={buttonCaption}
                 />
             )}
         </TokenTransferContext.Provider>

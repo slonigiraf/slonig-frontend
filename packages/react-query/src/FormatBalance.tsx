@@ -122,9 +122,9 @@ const StyledSpan = styled.span`
 
   .ui--FormatBalance-unit {
     font-size: var(--font-percent-tiny);
-    text-transform: uppercase;
+    text-transform: capitalize;
   }
-
+    
   .ui--FormatBalance-value {
     text-align: right;
 

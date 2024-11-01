@@ -27,7 +27,8 @@ interface Props {
   recipientId?: string;
   senderId?: string;
   amount?: BN;
-  caption?: string;
+  modalCaption?: string;
+  buttonCaption?: string;
 }
 
 function isRefcount(accountInfo: AccountInfoWithProviders | AccountInfoWithRefCount): accountInfo is AccountInfoWithRefCount {
@@ -47,7 +48,7 @@ async function checkPhishing(_senderId: string | null, recipientId: string | nul
   ];
 }
 
-function Transfer({ className = '', onClose, recipientId: propRecipientId, senderId: propSenderId, amount: propAmount, caption }: Props): React.ReactElement<Props> {
+function Transfer({ className = '', onClose, recipientId: propRecipientId, senderId: propSenderId, amount: propAmount, modalCaption, buttonCaption }: Props): React.ReactElement<Props> {
   const { t } = useTranslation();
   const { api } = useApi();
   const [amount, setAmount] = useState<BN | undefined>(propAmount? propAmount : BN_ZERO);
@@ -153,7 +154,7 @@ function Transfer({ className = '', onClose, recipientId: propRecipientId, sende
   return (
     <StyledModal
       className='app--accounts-Modal'
-      header={caption? caption : t('Send funds')}
+      header={modalCaption? modalCaption : t('Send funds')}
       onClose={onClose}
       size='large'
     >
@@ -163,7 +164,7 @@ function Transfer({ className = '', onClose, recipientId: propRecipientId, sende
             <InputAddress
               defaultValue={propSenderId}
               isDisabled={!!propSenderId}
-              label={t('send from account')}
+              label={t('sender')}
               labelExtra={
                 <Available
                   params={propSenderId || senderId}
@@ -177,7 +178,7 @@ function Transfer({ className = '', onClose, recipientId: propRecipientId, sende
             <InputAddress
               defaultValue={propRecipientId}
               isDisabled={!!propRecipientId}
-              label={t('send to address')}
+              label={t('recipient')}
               labelExtra={ !propRecipientId?
                 <Available
                   params={propRecipientId || recipientId}
@@ -228,7 +229,7 @@ function Transfer({ className = '', onClose, recipientId: propRecipientId, sende
           !amountIsLessThanMax
         }
           icon='paper-plane'
-          label={t('Make Transfer')}
+          label={buttonCaption? buttonCaption : t('Make Transfer')}
           onClick={submitTransfer}
         />
         }

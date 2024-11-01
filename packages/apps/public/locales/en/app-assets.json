@@ -51,7 +51,7 @@
   "owner": "owner",
   "send": "send",
   "send from": "send from",
-  "send to address": "send to address",
+  "recipient": "recipient",
   "sufficient": "sufficient",
   "supply": "supply",
   "the asset to query for balances": "the asset to query for balances",
