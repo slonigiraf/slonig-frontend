@@ -1,9 +1,10 @@
-import React, { createContext, useContext, useState, ReactNode } from 'react';
+import React, { createContext, useContext, useState, ReactNode, useEffect } from 'react';
 import { TransferModal } from '@polkadot/react-components';
 import { useToggle } from '@polkadot/react-hooks';
 import { BN, BN_ZERO } from '@polkadot/util';
 
 interface TokenTransferContextType {
+    isTransferReady: boolean;
     isTransferOpen: boolean;
     recipientId: string;
     amount: BN | undefined;
@@ -17,6 +18,7 @@ interface TokenTransferContextType {
 }
 
 const defaultTokenTransferContext: TokenTransferContextType = {
+    isTransferReady: false,
     isTransferOpen: false,
     recipientId: '',
     amount: BN_ZERO,
@@ -42,10 +44,12 @@ export const TokenTransferProvider: React.FC<TokenTransferProviderProps> = ({ ch
     const [modalCaption, setModalCaption] = useState<string>('');
     const [buttonCaption, setButtonCaption] = useState<string>('');
     const [transferSuccess, setTransferSuccess] = useState<boolean>(false);
-
-    // setTransferSuccess(true);
-
-    // This function will be called when the transfer is successful
+    const [isTransferReady, setIsTransferReady] = useState<boolean>(false);
+   
+    useEffect(() => {
+        setIsTransferReady(true);
+      }, [])
+      
     const handleSuccess = () => {
         setTransferSuccess(true);
         toggleTransfer(); // Optionally close the modal after success
@@ -54,6 +58,7 @@ export const TokenTransferProvider: React.FC<TokenTransferProviderProps> = ({ ch
     return (
         <TokenTransferContext.Provider
             value={{
+                isTransferReady,
                 isTransferOpen,
                 recipientId,
                 amount,

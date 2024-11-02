@@ -30,8 +30,8 @@ function Student({ className = '', ipfs }: Props): React.ReactElement<Props> {
   const lessonPrice = priceString ? new BN(priceString) : BN_ZERO;
 
   const [isLessonPaid, setIsLessonPaid] = useState(false);
-  const [wasLessonResultStored, setWasLessonResultStored] = useState(true);
-  const { isTransferOpen, setIsTransferOpen, setRecipientId, setAmount, setModalCaption, setButtonCaption } = useTokenTransfer();
+  const [wasLessonResultStored, setWasLessonResultStored] = useState(false);
+  const { isTransferOpen, setIsTransferOpen, setRecipientId, setAmount, setModalCaption, setButtonCaption, isTransferReady } = useTokenTransfer();
 
   const [textHash,
     workerId,
@@ -123,7 +123,7 @@ function Student({ className = '', ipfs }: Props): React.ReactElement<Props> {
   }, [wasLessonResultStored, refereeSignOverPrivateData, setIsLessonPaid])
 
   useEffect(() => {
-    if (refereeSignOverReceipt) {
+    if (refereeSignOverReceipt && isTransferReady) {
       const recipientAddress = refereePublicKeyHex ? encodeAddress(hexToU8a(refereePublicKeyHex)) : "";
       setRecipientId(recipientAddress);
       setAmount(lessonPrice);
@@ -131,7 +131,8 @@ function Student({ className = '', ipfs }: Props): React.ReactElement<Props> {
       setButtonCaption(t('Pay'));
       setIsTransferOpen(!isLessonPaid);
     }
-  }, [refereePublicKeyHex, refereeSignOverReceipt, isLessonPaid, isTransferOpen, setIsTransferOpen])
+  }, [refereePublicKeyHex, refereeSignOverReceipt, isLessonPaid, isTransferOpen, isTransferReady,
+    setRecipientId, setAmount, setModalCaption, setButtonCaption, setIsTransferOpen, ])
 
   return (
     <div className={`toolbox--Student ${className}`}>
