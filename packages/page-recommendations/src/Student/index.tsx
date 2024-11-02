@@ -3,7 +3,6 @@
 
 import React, { useEffect, useState } from 'react';
 import LettersList from './LettersList.js';
-import { IPFS } from 'ipfs-core';
 import { LoginButton, useLoginContext, getIPFSDataFromContentID, parseJson, useTokenTransfer, useIpfsContext } from '@slonigiraf/app-slonig-components';
 import { BN, BN_ZERO, hexToU8a, u8aToHex } from '@polkadot/util';
 import { useLocation, useNavigate } from 'react-router-dom';
@@ -21,7 +20,6 @@ function Student({ className = '' }: Props): React.ReactElement<Props> {
   const { ipfs, isIpfsReady } = useIpfsContext();
   // Process query
   const location = useLocation();
-  const navigate = useNavigate();
   const queryParams = new URLSearchParams(location.search);
   const teacherName = queryParams.get("name");
   const teacherPublicKey = queryParams.get("teacher");
@@ -102,7 +100,6 @@ function Student({ className = '' }: Props): React.ReactElement<Props> {
             refereeSignOverReceipt,
             knowledgeId]);
           setWasLessonResultStored(true);
-          navigate('');
         } catch (e) {
           console.log(e);
         }
