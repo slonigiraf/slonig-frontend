@@ -23,12 +23,12 @@ const defaultTokenTransferContext: TokenTransferContextType = {
     recipientId: '',
     amount: BN_ZERO,
     transferSuccess: false,
-    setRecipientId: (_) => {},
-    toggleTransfer: () => {},
-    setIsTransferOpen: (_) => {},
-    setAmount: (_) => {},
-    setModalCaption: (_) => {},
-    setButtonCaption: (_) => {},
+    setRecipientId: (_) => { },
+    toggleTransfer: () => { },
+    setIsTransferOpen: (_) => { },
+    setAmount: (_) => { },
+    setModalCaption: (_) => { },
+    setButtonCaption: (_) => { },
 };
 
 const TokenTransferContext = createContext<TokenTransferContextType>(defaultTokenTransferContext);
@@ -45,14 +45,20 @@ export const TokenTransferProvider: React.FC<TokenTransferProviderProps> = ({ ch
     const [buttonCaption, setButtonCaption] = useState<string>('');
     const [transferSuccess, setTransferSuccess] = useState<boolean>(false);
     const [isTransferReady, setIsTransferReady] = useState<boolean>(false);
-   
+
     useEffect(() => {
         setIsTransferReady(true);
-      }, [])
-      
+    }, [])
+
+    useEffect(() => {
+        if (isTransferOpen) {
+            setTransferSuccess(false);
+        }
+    }, [isTransferOpen])
+
     const handleSuccess = () => {
         setTransferSuccess(true);
-        toggleTransfer(); // Optionally close the modal after success
+        toggleTransfer();
     };
 
     return (

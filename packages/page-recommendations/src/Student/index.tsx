@@ -4,9 +4,9 @@
 import React, { useEffect, useState } from 'react';
 import LettersList from './LettersList.js';
 import { IPFS } from 'ipfs-core';
-import { LoginButton, useLoginContext, getIPFSDataFromContentID, parseJson, useTokenTransfer } from '@slonigiraf/app-slonig-components';
+import { LoginButton, useLoginContext, getIPFSDataFromContentID, parseJson, useTokenTransfer, useIpfsContext } from '@slonigiraf/app-slonig-components';
 import { BN, BN_ZERO, hexToU8a, u8aToHex } from '@polkadot/util';
-import { useLocation } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { createAndStoreLetter, getLetterByLessonIdAndSignOverReceipt, storePseudonym } from '@slonigiraf/db';
 import { useTranslation } from '../translate.js';
 import { encodeAddress } from '@polkadot/keyring';
@@ -14,13 +14,14 @@ import { QRField } from '@slonigiraf/db';
 
 interface Props {
   className?: string;
-  ipfs: IPFS;
 }
 
-function Student({ className = '', ipfs }: Props): React.ReactElement<Props> {
+function Student({ className = '' }: Props): React.ReactElement<Props> {
   const { t } = useTranslation();
+  const { ipfs, isIpfsReady } = useIpfsContext();
   // Process query
   const location = useLocation();
+  const navigate = useNavigate();
   const queryParams = new URLSearchParams(location.search);
   const teacherName = queryParams.get("name");
   const teacherPublicKey = queryParams.get("teacher");
@@ -31,7 +32,8 @@ function Student({ className = '', ipfs }: Props): React.ReactElement<Props> {
 
   const [isLessonPaid, setIsLessonPaid] = useState(false);
   const [wasLessonResultStored, setWasLessonResultStored] = useState(false);
-  const { isTransferOpen, setIsTransferOpen, setRecipientId, setAmount, setModalCaption, setButtonCaption, isTransferReady } = useTokenTransfer();
+  const { isTransferOpen, setIsTransferOpen, setRecipientId, setAmount,
+    setModalCaption, setButtonCaption, isTransferReady, transferSuccess } = useTokenTransfer();
 
   const [textHash,
     workerId,
@@ -63,40 +65,51 @@ function Student({ className = '', ipfs }: Props): React.ReactElement<Props> {
     }
   }, [teacherPublicKey, teacherName]);
 
-  // Save diploma from url
-  useEffect(() => {
-    if (lessonPrice && refereeSignOverPrivateData) {
-      async function saveDiploma() {
-        if (ipfs !== null) {
-          try {
-            const sameLetter = getLetterByLessonIdAndSignOverReceipt('', refereeSignOverReceipt);
-            if (!sameLetter) {
-              if (isLessonPaid) {
-                const content = await getIPFSDataFromContentID(ipfs, textHash);
-                const json = parseJson(content);
-                const knowledgeId = json.i;
-                await createAndStoreLetter([textHash,
-                  workerId,
-                  genesisHex,
-                  letterId,
-                  blockNumber,
-                  refereePublicKeyHex,
-                  workerPublicKeyHex,
-                  amount,
-                  refereeSignOverPrivateData,
-                  refereeSignOverReceipt,
-                  knowledgeId]);
-              }
-            }
 
-          } catch (e) {
-            console.log(e);
+  useEffect(() => {
+    if (refereeSignOverReceipt && isIpfsReady && !wasLessonResultStored) {
+      async function run() {
+        try {
+          const sameLetter = await getLetterByLessonIdAndSignOverReceipt('', refereeSignOverReceipt);
+          if (sameLetter !== undefined) {
+            setWasLessonResultStored(true);
           }
+        } catch (e) {
+          console.log(e);
         }
       }
-      saveDiploma()
+      run();
     }
-  }, [lessonPrice, isLessonPaid, refereeSignOverPrivateData])
+  }, [refereeSignOverReceipt, isIpfsReady])
+
+  // Save diploma from url
+  useEffect(() => {
+    if (refereeSignOverReceipt && isLessonPaid && isIpfsReady && !wasLessonResultStored) {
+      async function run() {
+        try {
+          const content = await getIPFSDataFromContentID(ipfs, textHash);
+          const json = parseJson(content);
+          const knowledgeId = json.i;
+          await createAndStoreLetter([textHash,
+            workerId,
+            genesisHex,
+            letterId,
+            blockNumber,
+            refereePublicKeyHex,
+            workerPublicKeyHex,
+            amount,
+            refereeSignOverPrivateData,
+            refereeSignOverReceipt,
+            knowledgeId]);
+          setWasLessonResultStored(true);
+          navigate('');
+        } catch (e) {
+          console.log(e);
+        }
+      }
+      run();
+    }
+  }, [refereeSignOverReceipt, isLessonPaid, isIpfsReady, wasLessonResultStored])
 
   useEffect(() => {
     if (refereeSignOverPrivateData) {
@@ -112,9 +125,13 @@ function Student({ className = '', ipfs }: Props): React.ReactElement<Props> {
 
   useEffect(() => {
     if (refereeSignOverPrivateData) {
+      if (transferSuccess) {
+        setIsLessonPaid(true);
+      } else {
         setIsLessonPaid(wasLessonResultStored);
       }
-  }, [wasLessonResultStored, refereeSignOverPrivateData, setIsLessonPaid])
+    }
+  }, [wasLessonResultStored, refereeSignOverPrivateData, transferSuccess])
 
   useEffect(() => {
     if (refereeSignOverPrivateData) {
@@ -132,7 +149,7 @@ function Student({ className = '', ipfs }: Props): React.ReactElement<Props> {
       setIsTransferOpen(!isLessonPaid);
     }
   }, [refereePublicKeyHex, refereeSignOverReceipt, isLessonPaid, isTransferOpen, isTransferReady,
-    setRecipientId, setAmount, setModalCaption, setButtonCaption, setIsTransferOpen, ])
+    setRecipientId, setAmount, setModalCaption, setButtonCaption, setIsTransferOpen,])
 
   return (
     <div className={`toolbox--Student ${className}`}>

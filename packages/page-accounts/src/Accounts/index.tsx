@@ -120,7 +120,7 @@ function Overview({ className = '', onStatusChange }: Props): React.ReactElement
   const _closeTransfer = useCallback(
     (): void => {
       if (isTransferOpen) {
-        navigate(``);
+        navigate('');
         toggleTransfer();
       }
     },

@@ -293,7 +293,7 @@ function Tutor({ className = '' }: Props): React.ReactElement<Props> {
           await storeLesson(tutorFromUrl, qrJSON, webRTCJSON);
           await storeSetting(SettingKey.LESSON, lessonId);
           await fetchLessonId();
-          navigate(``);
+          navigate('');
         }
       } catch (error) {
         console.error("Failed to save url data:", error);
