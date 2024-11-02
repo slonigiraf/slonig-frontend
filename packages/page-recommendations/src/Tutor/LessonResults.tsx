@@ -7,7 +7,7 @@ import { styled, Button, Input, InputBalance, Icon, Card, Modal } from '@polkado
 import { useApi, useBlockTime, useToggle } from '@polkadot/react-hooks';
 import { u8aToHex, hexToU8a, u8aWrapBytes, BN_ONE, BN_ZERO, formatBalance } from '@polkadot/util';
 import type { Skill } from '@slonigiraf/app-slonig-components';
-import { QRWithShareAndCopy, getBaseUrl, getIPFSDataFromContentID, parseJson, useIpfsContext, useLoginContext, FullWidthContainer, VerticalCenterItemsContainer, CenterQRContainer, KatexSpan, useInfo, balanceToSlonString, signStringArray, verifySignature } from '@slonigiraf/app-slonig-components';
+import { QRWithShareAndCopy, getBaseUrl, getIPFSDataFromContentID, parseJson, useIpfsContext, useLoginContext, FullWidthContainer, VerticalCenterItemsContainer, CenterQRContainer, KatexSpan, useInfo, balanceToSlonString, signStringArray, verifySignature, SenderComponent } from '@slonigiraf/app-slonig-components';
 import { Insurance, getPseudonym, Lesson, Letter, getLastUnusedLetterNumber, setLastUsedLetterNumber, storeSetting, updateLetter, getInsurancesByLessonId, getValidLettersByLessonId, QRAction, SettingKey, QRField, getDataShortKey } from '@slonigiraf/db';
 import { getPublicDataToSignByReferee, getPrivateDataToSignByReferee } from '@slonigiraf/helpers';
 import { useTranslation } from '../translate.js';
@@ -51,14 +51,12 @@ function LessonResults({ className = '', lesson, updateAndStoreLesson, onClose }
   const { ipfs, isIpfsReady } = useIpfsContext();
   const { api, isApiReady } = useApi();
   const { t } = useTranslation();
-  const { currentPair, isLoggedIn } = useLoginContext();
+  const { currentPair } = useLoginContext();
   const now = (new Date()).getTime();
   const tokenSymbol = formatBalance.findSi('-').text;
   const dontSign = lesson ? (lesson.dWarranty === '0' || lesson.dValidity === 0) : true;
   const [lessonName, setLessonName] = useState<string>('');
   const [millisecondsPerBlock,] = useBlockTime(BN_ONE, api);
-  const [diplomaText, setDiplomaText] = useState('');
-  const [diplomaAddUrl, setDiplomaAddUrl] = useState('');
   //   student name
   const [studentName, setStudentName] = useState<string | null>(null);
   const [daysInputValue, setDaysInputValue] = useState<string>(lesson ? lesson.dValidity.toString() : "0"); //To allow empty strings
@@ -70,40 +68,14 @@ function LessonResults({ className = '', lesson, updateAndStoreLesson, onClose }
   const [diplomaWarrantyAmount, setDiplomaWarrantyAmount] = useState<BN>(BN_ZERO);
   const [totalIncomeForLetters, setTotalIncomeForLetters] = useState<BN>(BN_ZERO);
   const [visibleDiplomaDetails, toggleVisibleDiplomaDetails] = useToggle(false);
-  const [isWebRTCQR, setIsWebRTCQR] = useState(true);
 
-  // Helper functions
-  const createOfflineQR = useCallback((letter: Letter, insurance: Insurance | null, lessonPrice: BN, keyPair: KeyringPair) => {
-    const letterArray = letterAsArray(letter, insurance);
-    // TODO: try to use
-    // const dataToSign: string[] = [lessonPrice.toString(), ...letterArray];
-    // const dataSignature = signStringArray(dataToSign, keyPair);
+  const [route, setRoute] = useState('');
+  const [data, setData] = useState('');
 
-    const qrData = {
-      [QRField.QR_ACTION]: QRAction.ADD_DIPLOMA,
-      // [QRField.QR_SIGNATURE]: dataSignature, // TODO: try to use
-      [QRField.DATA]: letterArray.join(","),
-      [QRField.PRICE]: lessonPrice.toString(),
-    };
-    const qrCodeText = JSON.stringify(qrData);
-    const url = getBaseUrl() + `/#/diplomas?${QRField.PRICE}=${lessonPrice.toString()}&d=${letterArray.join("+")}`;
-    setDiplomaText(qrCodeText);
-    setDiplomaAddUrl(url);
-  }, [setDiplomaText, setDiplomaAddUrl]);
-
-  const createWebRTCQR = useCallback((letters: Letter[], insurances: Insurance[], lessonPrice: BN, keyPair: KeyringPair) => {
-    
-  }, []);
 
   const createResultsQR = useCallback((letters: Letter[], insurances: Insurance[], lessonPrice: BN, keyPair: KeyringPair) => {
-    if(letters.length === 1){
-      createOfflineQR(letters[0], insurances.length === 1? insurances[0] : null, lessonPrice, keyPair);
-      setIsWebRTCQR(false);
-    } else{
-      createWebRTCQR(letters, insurances, lessonPrice, keyPair);
-      setIsWebRTCQR(true);
-    }
-  }, [createOfflineQR, createWebRTCQR, setIsWebRTCQR]);
+    
+  }, []);
 
   // Fetch required info from DB about current lesson
   useEffect(() => {
@@ -240,10 +212,7 @@ function LessonResults({ className = '', lesson, updateAndStoreLesson, onClose }
             letterId = await getLastUnusedLetterNumber(refereePublicKeyHex);
             await setLastUsedLetterNumber(refereePublicKeyHex, letterId);
           }
-
           const workerPublicKeyU8 = hexToU8a(letterFromDB.worker);
-
-
           const privateData = dontSign ? "" : getPrivateDataToSignByReferee(letterFromDB.cid, genesisU8, letterId, diplomaBlockNumber, refereeU8, workerPublicKeyU8, amount);
           const receipt = dontSign ? "" : getPublicDataToSignByReferee(genesisU8, letterId, diplomaBlockNumber, refereeU8, workerPublicKeyU8, amount);
           const refereeSignOverPrivateData = dontSign ? "" : u8aToHex(currentPair.sign(u8aWrapBytes(privateData)));
@@ -264,6 +233,7 @@ function LessonResults({ className = '', lesson, updateAndStoreLesson, onClose }
           };
           await updateLetter(updatedLetter);
         }
+        // TODO create 
 
         createResultsQR(letters, insurances, lessonPrice, currentPair);
 
@@ -284,12 +254,8 @@ function LessonResults({ className = '', lesson, updateAndStoreLesson, onClose }
       <VerticalCenterItemsContainer>
         <CenterQRContainer>
           <h2>{t('Show to the student to send the results')}</h2>
-          {!isWebRTCQR && <QRWithShareAndCopy
-            dataQR={diplomaText}
-            titleShare={t('QR code')}
-            textShare={t('Press the link to add the diploma')}
-            urlShare={diplomaAddUrl}
-            dataCopy={diplomaAddUrl} />}
+          <SenderComponent data={data} route={route} action={{[QRField.QR_ACTION] : QRAction.ADD_DIPLOMA}} 
+          textShare={t('Press the link to add the diploma')} />
         </CenterQRContainer>
         <DiplomaDiv>
           <Card>

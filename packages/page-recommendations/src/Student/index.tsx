@@ -5,7 +5,7 @@ import React, { useEffect, useState } from 'react';
 import LettersList from './LettersList.js';
 import { LoginButton, useLoginContext, getIPFSDataFromContentID, parseJson, useTokenTransfer, useIpfsContext } from '@slonigiraf/app-slonig-components';
 import { BN, BN_ZERO, hexToU8a, u8aToHex } from '@polkadot/util';
-import { useLocation, useNavigate } from 'react-router-dom';
+import { useLocation } from 'react-router-dom';
 import { createAndStoreLetter, getLetterByLessonIdAndSignOverReceipt, storePseudonym } from '@slonigiraf/db';
 import { useTranslation } from '../translate.js';
 import { encodeAddress } from '@polkadot/keyring';
