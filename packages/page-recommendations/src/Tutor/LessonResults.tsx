@@ -7,10 +7,11 @@ import { styled, Button, Input, InputBalance, Icon, Card, Modal } from '@polkado
 import { useApi, useBlockTime, useToggle } from '@polkadot/react-hooks';
 import { u8aToHex, hexToU8a, u8aWrapBytes, BN_ONE, BN_ZERO, formatBalance } from '@polkadot/util';
 import type { Skill } from '@slonigiraf/app-slonig-components';
-import { QRWithShareAndCopy, getBaseUrl, getIPFSDataFromContentID, parseJson, useIpfsContext, useLoginContext, FullWidthContainer, VerticalCenterItemsContainer, CenterQRContainer, KatexSpan, useInfo, balanceToSlonString } from '@slonigiraf/app-slonig-components';
-import { Insurance, getPseudonym, Lesson, Letter, getLastUnusedLetterNumber, setLastUsedLetterNumber, storeSetting, updateLetter, getInsurancesByLessonId, getValidLettersByLessonId, QRAction, SettingKey, QRField } from '@slonigiraf/db';
+import { QRWithShareAndCopy, getBaseUrl, getIPFSDataFromContentID, parseJson, useIpfsContext, useLoginContext, FullWidthContainer, VerticalCenterItemsContainer, CenterQRContainer, KatexSpan, useInfo, balanceToSlonString, signStringArray, verifySignature } from '@slonigiraf/app-slonig-components';
+import { Insurance, getPseudonym, Lesson, Letter, getLastUnusedLetterNumber, setLastUsedLetterNumber, storeSetting, updateLetter, getInsurancesByLessonId, getValidLettersByLessonId, QRAction, SettingKey, QRField, getDataShortKey } from '@slonigiraf/db';
 import { getPublicDataToSignByReferee, getPrivateDataToSignByReferee } from '@slonigiraf/helpers';
 import { useTranslation } from '../translate.js';
+import type { KeyringPair } from '@polkadot/keyring/types';
 
 const getDiplomaBlockNumber = (currentBlock: BN, blockTimeMs: number, secondsToAdd: number): BN => {
   const secondsToGenerateBlock = blockTimeMs / 1000;
@@ -20,11 +21,11 @@ const getDiplomaBlockNumber = (currentBlock: BN, blockTimeMs: number, secondsToA
 }
 
 function letterAsArray(letter: Letter, insurance: Insurance | null) {
-  let result = [];
+  let result: string[] = [];
   result.push(letter.cid);                      // Skill CID
   result.push(letter.workerId);                 // Student Identity
   result.push(letter.genesis);                  // Genesis U8 Hex
-  result.push(letter.letterNumber);             // Letter ID
+  result.push(letter.letterNumber.toString());             // Letter ID
   result.push(letter.block);                    // Diploma Block Number
   result.push(letter.referee);                  // Referee Public Key Hex
   result.push(letter.worker);                   // Student
@@ -33,7 +34,7 @@ function letterAsArray(letter: Letter, insurance: Insurance | null) {
   result.push(letter.signOverReceipt);          // Referee Sign Over Receipt
   if(insurance){
     result.push(insurance.signOverReceipt);
-    result.push(insurance.wasUsed? 0 : 1);
+    result.push(insurance.wasUsed? '0' : '1');
   }
   return result;
 }
@@ -49,7 +50,6 @@ function LessonResults({ className = '', lesson, updateAndStoreLesson, onClose }
   // Initialize api, ipfs and translation
   const { ipfs, isIpfsReady } = useIpfsContext();
   const { api, isApiReady } = useApi();
-  const { showInfo } = useInfo();
   const { t } = useTranslation();
   const { currentPair, isLoggedIn } = useLoginContext();
   const now = (new Date()).getTime();
@@ -57,7 +57,6 @@ function LessonResults({ className = '', lesson, updateAndStoreLesson, onClose }
   const dontSign = lesson ? (lesson.dWarranty === '0' || lesson.dValidity === 0) : true;
   const [lessonName, setLessonName] = useState<string>('');
   const [millisecondsPerBlock,] = useBlockTime(BN_ONE, api);
-  const [canIssueDiploma, setCanIssueDiploma] = useState(true); // TODO defaults to false
   const [diplomaText, setDiplomaText] = useState('');
   const [diplomaAddUrl, setDiplomaAddUrl] = useState('');
   //   student name
@@ -67,36 +66,41 @@ function LessonResults({ className = '', lesson, updateAndStoreLesson, onClose }
   const [countOfDiscussedInsurances, setCountOfDiscussedInsurances] = useState(0);
   const [countOfReceivingBonuses, setCountOfReceivingBonuses] = useState(0);
   const [countOfInvalidInsurances, setCountOfInvalidInsurances] = useState(0);
-  const [valueOfBonusesReport, setValueOfBonusesReport] = useState<string>('0.00');
-  const [diplomaWarrantyReport, setDiplomaWarrantyReport] = useState<string>('0.00');
-  const [totalProfitForLettersReport, setTotalProfitForLettersReport] = useState<string>('0.00');
+  const [totalIncomeForBonuses, setTotalIncomeForBonuses] = useState<BN>(BN_ZERO);
+  const [diplomaWarrantyAmount, setDiplomaWarrantyAmount] = useState<BN>(BN_ZERO);
+  const [totalIncomeForLetters, setTotalIncomeForLetters] = useState<BN>(BN_ZERO);
   const [visibleDiplomaDetails, toggleVisibleDiplomaDetails] = useToggle(false);
   const [isWebRTCQR, setIsWebRTCQR] = useState(true);
 
   // Helper functions
-  const createOfflineQR = useCallback((letter: Letter, insurance: Insurance | null, lessonPrice: string) => {
+  const createOfflineQR = useCallback((letter: Letter, insurance: Insurance | null, lessonPrice: BN, keyPair: KeyringPair) => {
     const letterArray = letterAsArray(letter, insurance);
+    // TODO: try to use
+    // const dataToSign: string[] = [lessonPrice.toString(), ...letterArray];
+    // const dataSignature = signStringArray(dataToSign, keyPair);
+
     const qrData = {
       [QRField.QR_ACTION]: QRAction.ADD_DIPLOMA,
-      [QRField.PRICE]: lessonPrice,
-      [QRField.DATA]: letterArray.join(",")
+      // [QRField.QR_SIGNATURE]: dataSignature, // TODO: try to use
+      [QRField.DATA]: letterArray.join(","),
+      [QRField.PRICE]: lessonPrice.toString(),
     };
     const qrCodeText = JSON.stringify(qrData);
-    const url = getBaseUrl() + `/#/diplomas?${QRField.PRICE}=${lessonPrice}&d=${letterArray.join("+")}`;
+    const url = getBaseUrl() + `/#/diplomas?${QRField.PRICE}=${lessonPrice.toString()}&d=${letterArray.join("+")}`;
     setDiplomaText(qrCodeText);
     setDiplomaAddUrl(url);
   }, [setDiplomaText, setDiplomaAddUrl]);
 
-  const createWebRTCQR = useCallback((letters: Letter[], insurances: Insurance[], lessonPrice: string) => {
+  const createWebRTCQR = useCallback((letters: Letter[], insurances: Insurance[], lessonPrice: BN, keyPair: KeyringPair) => {
     
   }, []);
 
-  const createResultsQR = useCallback((letters: Letter[], insurances: Insurance[], lessonPrice: string) => {
+  const createResultsQR = useCallback((letters: Letter[], insurances: Insurance[], lessonPrice: BN, keyPair: KeyringPair) => {
     if(letters.length === 1){
-      createOfflineQR(letters[0], insurances.length === 1? insurances[0] : null, lessonPrice);
+      createOfflineQR(letters[0], insurances.length === 1? insurances[0] : null, lessonPrice, keyPair);
       setIsWebRTCQR(false);
     } else{
-      createWebRTCQR(letters, insurances, lessonPrice);
+      createWebRTCQR(letters, insurances, lessonPrice, keyPair);
       setIsWebRTCQR(true);
     }
   }, [createOfflineQR, createWebRTCQR, setIsWebRTCQR]);
@@ -142,7 +146,7 @@ function LessonResults({ className = '', lesson, updateAndStoreLesson, onClose }
   useEffect(() => {
     async function updateWarrantyInSlon() {
       if (lesson) {
-        setDiplomaWarrantyReport(balanceToSlonString(lesson ? new BN(lesson.dWarranty) : BN_ZERO));
+        setDiplomaWarrantyAmount(lesson ? new BN(lesson.dWarranty) : BN_ZERO);
       }
     }
     updateWarrantyInSlon()
@@ -204,7 +208,7 @@ function LessonResults({ className = '', lesson, updateAndStoreLesson, onClose }
           );
           setCountOfInvalidInsurances(invalidInsurances.length);
           setCountOfReceivingBonuses(countOfBonuses);
-          setValueOfBonusesReport(balanceToSlonString(amountOfBonuses));
+          setTotalIncomeForBonuses(amountOfBonuses);
           setCountOfDiscussedInsurances(calculatedDiscussedInsurances);
         }
         // Calculate block number
@@ -218,9 +222,9 @@ function LessonResults({ className = '', lesson, updateAndStoreLesson, onClose }
         const letters: Letter[] = await getValidLettersByLessonId(lesson.id);
         const numberOfValidLetters = dontSign ? 0 : letters.length;
         const priceBN = lesson ? new BN(lesson.dPrice) : BN_ZERO;
-        const lessonPrice = balanceToSlonString(new BN(numberOfValidLetters).mul(priceBN));
+        const lessonPrice = new BN(numberOfValidLetters).mul(priceBN);
         setCountOfValidLetters(numberOfValidLetters);
-        setTotalProfitForLettersReport(lessonPrice);
+        setTotalIncomeForLetters(lessonPrice);
 
         // Get diplomas additional meta
         const genesisU8 = statics.api.genesisHash;
@@ -261,7 +265,7 @@ function LessonResults({ className = '', lesson, updateAndStoreLesson, onClose }
           await updateLetter(updatedLetter);
         }
 
-        createResultsQR(letters, insurances, lessonPrice);
+        createResultsQR(letters, insurances, lessonPrice, currentPair);
 
       } catch (error) {
         console.error(error);
@@ -300,7 +304,7 @@ function LessonResults({ className = '', lesson, updateAndStoreLesson, onClose }
               </div>
               <div className="row">
                 <div className="cell"><Icon icon='dollar' /></div>
-                <div className="cell">{totalProfitForLettersReport.toString()} {tokenSymbol} - {t('lesson price')}</div>
+                <div className="cell">{balanceToSlonString(totalIncomeForLetters)} {tokenSymbol} - {t('lesson price')}</div>
               </div>
               <div className="row">
                 <div className="cell"><Icon icon='trophy' /></div>
@@ -308,7 +312,7 @@ function LessonResults({ className = '', lesson, updateAndStoreLesson, onClose }
               </div>
               <div className="row">
                 <div className="cell"><Icon icon='shield' /></div>
-                <div className="cell">{diplomaWarrantyReport.toString()} {tokenSymbol} - {t('warranty')}</div>
+                <div className="cell">{balanceToSlonString(diplomaWarrantyAmount)} {tokenSymbol} - {t('warranty')}</div>
               </div>
               <div className="row">
                 <div className="cell"><Icon icon='clock-rotate-left' /></div>
@@ -320,7 +324,7 @@ function LessonResults({ className = '', lesson, updateAndStoreLesson, onClose }
               </div>
               <div className="row">
                 <div className="cell"><Icon icon='money-bill-trend-up' /></div>
-                <div className="cell">{valueOfBonusesReport} {tokenSymbol} - {t('bonuses received')}</div>
+                <div className="cell">{balanceToSlonString(totalIncomeForBonuses)} {tokenSymbol} - {t('bonuses received')}</div>
               </div>
               <div className="row">
                 <div className="cell"><Button icon='edit' label={t('Edit')} onClick={toggleVisibleDiplomaDetails} /></div>
@@ -332,7 +336,7 @@ function LessonResults({ className = '', lesson, updateAndStoreLesson, onClose }
 
       {visibleDiplomaDetails && <StyledModal
         className={className}
-        header={`${totalProfitForLettersReport.toString()} ${tokenSymbol} - ${t('lesson price')}`}
+        header={`${balanceToSlonString(totalIncomeForLetters)} ${tokenSymbol} - ${t('lesson price')}`}
         onClose={toggleVisibleDiplomaDetails}
         size='small'
       >
@@ -429,3 +433,4 @@ export const StyledCloseButton = styled(Button)`
 const StyledModal = styled(Modal)`
 `;
 export default React.memo(LessonResults);
+

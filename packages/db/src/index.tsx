@@ -46,6 +46,7 @@ export const QRAction = {
 export const QRField = {
     ID: 'i',
     QR_ACTION: 'q',
+    QR_SIGNATURE: 's',
     PERSON_NAME: 'n',
     PERSON_IDENTITY: 'p',
     TUTOR: 't',
@@ -200,6 +201,11 @@ export const getLessonId = (ids: any[]): string => {
     const date = new Date().toISOString().split('T')[0]; // Get the current date in YYYY-MM-DD format
     const dataToHash = `${date}-${ids.join('-')}`;
     const hash = blake2AsHex(dataToHash);
+    return hash;
+};
+
+export const getDataShortKey = (data: string): string => {
+    const hash = blake2AsHex(data);
     return hash;
 };
 

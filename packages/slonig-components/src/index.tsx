@@ -115,3 +115,43 @@ export function useDeveloperSetting(): boolean {
 
   return isDeveloper;
 }
+
+import { KeyringPair } from '@polkadot/keyring/types';
+import { u8aToHex, stringToU8a, u8aConcat } from '@polkadot/util';
+import { signatureVerify } from '@polkadot/util-crypto';
+
+/**
+ * Signs an array of strings with a keyPair.
+ *
+ * @param messages - Array of strings to sign.
+ * @param keyPair - The key pair used to sign the messages.
+ * @returns The signature as a hex string.
+ */
+export function signStringArray(messages: string[], keyPair: KeyringPair): string {
+  // Convert each string to a Uint8Array and concatenate them
+  const messageU8a = u8aConcat(...messages.map((msg) => stringToU8a(msg)));
+
+  // Sign the concatenated message
+  const signature = keyPair.sign(messageU8a);
+
+  // Return the signature as a hex string
+  return u8aToHex(signature);
+}
+
+/**
+ * Validates that the signature is correct using the array of strings and public key of the signer.
+ *
+ * @param messages - Array of strings that were signed.
+ * @param signatureHex - The signature as a hex string.
+ * @param publicKeyHex - The public key of the signer as a hex string.
+ * @returns True if the signature is valid, false otherwise.
+ */
+export function verifySignature(messages: string[], signatureHex: string, publicKeyHex: string): boolean {
+  // Convert each string to a Uint8Array and concatenate them
+  const messageU8a = u8aConcat(...messages.map((msg) => stringToU8a(msg)));
+
+  // Verify the signature
+  const { isValid } = signatureVerify(messageU8a, signatureHex, publicKeyHex);
+
+  return isValid;
+}
