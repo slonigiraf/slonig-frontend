@@ -247,7 +247,10 @@ function LessonResults({ className = '', lesson, updateAndStoreLesson, onClose }
 
           letterData.push(serializeLetter(updatedLetter));
         }
-        const preparedData = {
+
+        const bill = blake2AsHex(JSON.stringify(lesson));
+        const qrData = {
+          bill: bill, 
           workerId: lesson.student,
           genesis: genesisU8.toHex(),
           referee: refereePublicKeyHex,
@@ -255,8 +258,6 @@ function LessonResults({ className = '', lesson, updateAndStoreLesson, onClose }
           letters: letterData,
           insurances: insuranceData,
         };
-        const bill = blake2AsHex(JSON.stringify(preparedData));
-        const qrData = {bill: bill, ...preparedData};
         setData(JSON.stringify(qrData));
         setRoute('diplomas');
       } catch (error) {
