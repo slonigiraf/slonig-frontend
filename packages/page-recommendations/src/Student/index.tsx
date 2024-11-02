@@ -28,8 +28,8 @@ function Student({ className = '' }: Props): React.ReactElement<Props> {
   const priceString = queryParams.get(QRField.PRICE);
   const lessonPrice = priceString ? new BN(priceString) : BN_ZERO;
 
-  const [isLessonPaid, setIsLessonPaid] = useState(false);
-  const [wasLessonResultStored, setWasLessonResultStored] = useState(false);
+  const [isLessonPaid, setIsLessonPaid] = useState<boolean | null>(null);
+  const [wasLessonResultStored, setWasLessonResultStored] = useState<boolean | null>(null);
   const { isTransferOpen, setIsTransferOpen, setRecipientId, setAmount,
     setModalCaption, setButtonCaption, isTransferReady, transferSuccess } = useTokenTransfer();
 
@@ -69,9 +69,7 @@ function Student({ className = '' }: Props): React.ReactElement<Props> {
       async function run() {
         try {
           const sameLetter = await getLetterByLessonIdAndSignOverReceipt('', refereeSignOverReceipt);
-          if (sameLetter !== undefined) {
-            setWasLessonResultStored(true);
-          }
+          setWasLessonResultStored(sameLetter !== undefined);
         } catch (e) {
           console.log(e);
         }
@@ -82,31 +80,46 @@ function Student({ className = '' }: Props): React.ReactElement<Props> {
 
   // Save diploma from url
   useEffect(() => {
-    if (refereeSignOverReceipt && isLessonPaid && isIpfsReady && !wasLessonResultStored) {
-      async function run() {
-        try {
-          const content = await getIPFSDataFromContentID(ipfs, textHash);
-          const json = parseJson(content);
-          const knowledgeId = json.i;
-          await createAndStoreLetter([textHash,
-            workerId,
-            genesisHex,
-            letterId,
-            blockNumber,
-            refereePublicKeyHex,
-            workerPublicKeyHex,
-            amount,
-            refereeSignOverPrivateData,
-            refereeSignOverReceipt,
-            knowledgeId]);
-          setWasLessonResultStored(true);
-        } catch (e) {
-          console.log(e);
+    async function run() {
+      if (refereeSignOverReceipt && wasLessonResultStored === false){
+        if(isLessonPaid === false){
+          if (isTransferReady) {
+            const recipientAddress = refereePublicKeyHex ? encodeAddress(hexToU8a(refereePublicKeyHex)) : "";
+            setRecipientId(recipientAddress);
+            setAmount(lessonPrice);
+            setModalCaption(t('Pay for the lesson'));
+            setButtonCaption(t('Pay'));
+            setIsTransferOpen(true);
+          }
+        } else{
+          if (isIpfsReady) {
+            try {
+              const content = await getIPFSDataFromContentID(ipfs, textHash);
+              const json = parseJson(content);
+              const knowledgeId = json.i;
+              await createAndStoreLetter([textHash,
+                workerId,
+                genesisHex,
+                letterId,
+                blockNumber,
+                refereePublicKeyHex,
+                workerPublicKeyHex,
+                amount,
+                refereeSignOverPrivateData,
+                refereeSignOverReceipt,
+                knowledgeId]);
+              setWasLessonResultStored(true);
+            } catch (e) {
+              console.log(e);
+            }
+          }
         }
       }
-      run();
     }
-  }, [refereeSignOverReceipt, isLessonPaid, isIpfsReady, wasLessonResultStored])
+    run();
+  }, [refereeSignOverReceipt, isLessonPaid, isIpfsReady, wasLessonResultStored,
+    refereePublicKeyHex, isTransferOpen, isTransferReady,
+    setRecipientId, setAmount, setModalCaption, setButtonCaption, setIsTransferOpen,])
 
   useEffect(() => {
     if (refereeSignOverPrivateData) {
@@ -136,17 +149,7 @@ function Student({ className = '' }: Props): React.ReactElement<Props> {
     }
   }, [wasLessonResultStored, refereeSignOverPrivateData, setIsLessonPaid])
 
-  useEffect(() => {
-    if (refereeSignOverReceipt && isTransferReady) {
-      const recipientAddress = refereePublicKeyHex ? encodeAddress(hexToU8a(refereePublicKeyHex)) : "";
-      setRecipientId(recipientAddress);
-      setAmount(lessonPrice);
-      setModalCaption(t('Pay for the lesson'));
-      setButtonCaption(t('Pay'));
-      setIsTransferOpen(!isLessonPaid);
-    }
-  }, [refereePublicKeyHex, refereeSignOverReceipt, isLessonPaid, isTransferOpen, isTransferReady,
-    setRecipientId, setAmount, setModalCaption, setButtonCaption, setIsTransferOpen,])
+
 
   return (
     <div className={`toolbox--Student ${className}`}>

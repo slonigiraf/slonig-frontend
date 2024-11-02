@@ -1,6 +1,5 @@
 import React, { createContext, useContext, useState, ReactNode, useEffect } from 'react';
 import { TransferModal } from '@polkadot/react-components';
-import { useToggle } from '@polkadot/react-hooks';
 import { BN, BN_ZERO } from '@polkadot/util';
 
 interface TokenTransferContextType {
@@ -10,7 +9,6 @@ interface TokenTransferContextType {
     amount: BN | undefined;
     transferSuccess: boolean;
     setRecipientId: (recipientId: string) => void;
-    toggleTransfer: () => void;
     setIsTransferOpen: (isOpen: boolean) => void;
     setAmount: (amount: BN) => void;
     setModalCaption: (caption: string) => void;
@@ -24,7 +22,6 @@ const defaultTokenTransferContext: TokenTransferContextType = {
     amount: BN_ZERO,
     transferSuccess: false,
     setRecipientId: (_) => { },
-    toggleTransfer: () => { },
     setIsTransferOpen: (_) => { },
     setAmount: (_) => { },
     setModalCaption: (_) => { },
@@ -38,7 +35,7 @@ interface TokenTransferProviderProps {
 }
 
 export const TokenTransferProvider: React.FC<TokenTransferProviderProps> = ({ children }) => {
-    const [isTransferOpen, toggleTransfer, setIsTransferOpen] = useToggle();
+    const [isTransferOpen, setIsTransferOpen] = useState<boolean>(false);
     const [recipientId, setRecipientId] = useState<string>('');
     const [amount, setAmount] = useState<BN | undefined>(BN_ZERO);
     const [modalCaption, setModalCaption] = useState<string>('');
@@ -58,7 +55,7 @@ export const TokenTransferProvider: React.FC<TokenTransferProviderProps> = ({ ch
 
     const handleSuccess = () => {
         setTransferSuccess(true);
-        toggleTransfer();
+        setIsTransferOpen(false);
     };
 
     return (
@@ -70,7 +67,6 @@ export const TokenTransferProvider: React.FC<TokenTransferProviderProps> = ({ ch
                 amount,
                 transferSuccess,
                 setRecipientId,
-                toggleTransfer,
                 setIsTransferOpen,
                 setAmount,
                 setModalCaption,
@@ -81,7 +77,7 @@ export const TokenTransferProvider: React.FC<TokenTransferProviderProps> = ({ ch
             {isTransferOpen && (
                 <TransferModal
                     key='modal-transfer'
-                    onClose={toggleTransfer}
+                    onClose={() => setIsTransferOpen(false)}
                     onSuccess={handleSuccess}
                     recipientId={recipientId}
                     amount={amount}

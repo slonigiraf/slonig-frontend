@@ -21,7 +21,7 @@ function ScanQR({ className = '', label, type }: Props): React.ReactElement<Prop
   const { t } = useTranslation();
   const { showInfo, hideInfo } = useInfo();
   const [isQROpen, toggleQR] = useToggle();
-  const {toggleTransfer, setRecipientId} = useTokenTransfer();
+  const {setIsTransferOpen, setRecipientId} = useTokenTransfer();
   const navigate = useNavigate();
   const { currentPair, isLoggedIn } = useLoginContext();
   const { isIpfsReady } = useIpfsContext();
@@ -43,7 +43,7 @@ function ScanQR({ className = '', label, type }: Props): React.ReactElement<Prop
               await storePseudonym(qrJSON.p, qrJSON.n);
               const recipientAddress = qrJSON.p ? encodeAddress(hexToU8a(qrJSON.p)) : "";
               setRecipientId(recipientAddress);
-              toggleTransfer();
+              setIsTransferOpen(true);
               break;
             case QRAction.ADD_DIPLOMA:
               navigate(`diplomas?${QRField.PRICE}=${qrJSON[QRField.PRICE]}&d=${qrJSON[QRField.DATA]}`);
@@ -126,7 +126,7 @@ function ScanQR({ className = '', label, type }: Props): React.ReactElement<Prop
     } catch (error) {
       console.error("Error parsing QR data as JSON:", error);
     }
-  }, [navigate, toggleQR, toggleTransfer]);
+  }, [navigate, toggleQR, setIsTransferOpen]);
 
   // Handle the QR Scanner result
   const handleQRResult = useCallback((result: QRCodeResult | undefined, _e: Error | undefined) => {
