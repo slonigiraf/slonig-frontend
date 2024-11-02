@@ -8,7 +8,7 @@ import { useApi, useBlockTime, useToggle } from '@polkadot/react-hooks';
 import { u8aToHex, hexToU8a, u8aWrapBytes, BN_ONE, BN_ZERO, formatBalance } from '@polkadot/util';
 import type { Skill } from '@slonigiraf/app-slonig-components';
 import { QRWithShareAndCopy, getBaseUrl, getIPFSDataFromContentID, parseJson, useIpfsContext, useLoginContext, FullWidthContainer, VerticalCenterItemsContainer, CenterQRContainer, KatexSpan, useInfo, balanceToSlonString, signStringArray, verifySignature, SenderComponent } from '@slonigiraf/app-slonig-components';
-import { Insurance, getPseudonym, Lesson, Letter, getLastUnusedLetterNumber, setLastUsedLetterNumber, storeSetting, updateLetter, getInsurancesByLessonId, getValidLettersByLessonId, QRAction, SettingKey, QRField, getDataShortKey } from '@slonigiraf/db';
+import { Insurance, getPseudonym, Lesson, Letter, getLastUnusedLetterNumber, setLastUsedLetterNumber, storeSetting, updateLetter, getInsurancesByLessonId, getValidLettersByLessonId, QRAction, SettingKey, QRField, getDataShortKey, serializeLetter } from '@slonigiraf/db';
 import { getPublicDataToSignByReferee, getPrivateDataToSignByReferee } from '@slonigiraf/helpers';
 import { useTranslation } from '../translate.js';
 import type { KeyringPair } from '@polkadot/keyring/types';
@@ -32,9 +32,9 @@ function letterAsArray(letter: Letter, insurance: Insurance | null) {
   result.push(letter.amount);                   // Amount
   result.push(letter.signOverPrivateData);      // Referee Sign Over Private Data
   result.push(letter.signOverReceipt);          // Referee Sign Over Receipt
-  if(insurance){
+  if (insurance) {
     result.push(insurance.signOverReceipt);
-    result.push(insurance.wasUsed? '0' : '1');
+    result.push(insurance.wasUsed ? '0' : '1');
   }
   return result;
 }
@@ -71,11 +71,6 @@ function LessonResults({ className = '', lesson, updateAndStoreLesson, onClose }
 
   const [route, setRoute] = useState('');
   const [data, setData] = useState('');
-
-
-  const createResultsQR = useCallback((letters: Letter[], insurances: Insurance[], lessonPrice: BN, keyPair: KeyringPair) => {
-    
-  }, []);
 
   // Fetch required info from DB about current lesson
   useEffect(() => {
@@ -165,24 +160,41 @@ function LessonResults({ className = '', lesson, updateAndStoreLesson, onClose }
       if (!isApiReady || !currentPair || !lesson) {
         return;
       }
+      let letterData: string[] = [];
+      let insuranceData: string[] = [];
       try {
         // Update insurances statistics
         const insurances = await getInsurancesByLessonId(lesson.id);
         if (insurances) {
-          const usedInsurances = insurances.filter(insurance => insurance.wasUsed);
-          const invalidInsurances = insurances.filter(insurance => !insurance.valid);
-          const calculatedDiscussedInsurances = lesson.reexamineStep - insurances.filter(insurance => insurance.wasSkipped).length;
+          let usedInsurancesCount = 0;
+          let invalidInsurancesCount = 0;
+          let skippedInsurancesCount = 0;
+          let totalBonusAmount = new BN(0);
 
-          const countOfBonuses = usedInsurances.length;
-          const amountOfBonuses = usedInsurances.reduce(
-            (sum, insurance) => sum.add(new BN(insurance.amount)),
-            new BN(0)
-          );
-          setCountOfInvalidInsurances(invalidInsurances.length);
-          setCountOfReceivingBonuses(countOfBonuses);
-          setTotalIncomeForBonuses(amountOfBonuses);
+          // Single loop to calculate all statistics
+          insurances.forEach(insurance => {
+            if (insurance.wasUsed) {
+              usedInsurancesCount++;
+              totalBonusAmount = totalBonusAmount.add(new BN(insurance.amount));
+            }
+            if (!insurance.valid) {
+              invalidInsurancesCount++;
+            }
+            if (insurance.wasSkipped) {
+              skippedInsurancesCount++;
+            } else {
+              insuranceData.push(`${insurance.signOverReceipt},${insurance.valid ? '1' : '0'}`);
+            }
+          });
+
+          const calculatedDiscussedInsurances = lesson.reexamineStep - skippedInsurancesCount;
+
+          setCountOfInvalidInsurances(invalidInsurancesCount);
+          setCountOfReceivingBonuses(usedInsurancesCount);
+          setTotalIncomeForBonuses(totalBonusAmount);
           setCountOfDiscussedInsurances(calculatedDiscussedInsurances);
         }
+
         // Calculate block number
         const chainHeader = await api.rpc.chain.getHeader();
         const currentBlockNumber = new BN(chainHeader.number.toString());
@@ -232,11 +244,19 @@ function LessonResults({ className = '', lesson, updateAndStoreLesson, onClose }
             signOverReceipt: refereeSignOverReceipt,
           };
           await updateLetter(updatedLetter);
+
+          letterData.push(serializeLetter(updatedLetter));
         }
-        // TODO create 
-
-        createResultsQR(letters, insurances, lessonPrice, currentPair);
-
+        const qrData = {
+          workerId: lesson.student,
+          genesis: genesisU8.toHex(),
+          referee: refereePublicKeyHex,
+          amount: amount.toString(),
+          letters: letterData,
+          insurances: insuranceData,
+        };
+        setData(JSON.stringify(qrData));
+        setRoute('diplomas');
       } catch (error) {
         console.error(error);
       }
@@ -254,8 +274,8 @@ function LessonResults({ className = '', lesson, updateAndStoreLesson, onClose }
       <VerticalCenterItemsContainer>
         <CenterQRContainer>
           <h2>{t('Show to the student to send the results')}</h2>
-          <SenderComponent data={data} route={route} action={{[QRField.QR_ACTION] : QRAction.ADD_DIPLOMA}} 
-          textShare={t('Press the link to add the diploma')} />
+          <SenderComponent data={data} route={route} action={{ [QRField.QR_ACTION]: QRAction.ADD_DIPLOMA }}
+            textShare={t('Press the link to add the diploma')} />
         </CenterQRContainer>
         <DiplomaDiv>
           <Card>

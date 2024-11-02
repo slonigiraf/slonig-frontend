@@ -511,3 +511,109 @@ export const getPseudonym = async (publicKey: string): Promise<string | undefine
     }
     return undefined;
 };
+
+
+/**
+ * Serializes a Letter object to a JSON string, including only the specified fields.
+ * @param letter - The Letter object to serialize.
+ * @returns The JSON string representation of the Letter.
+ */
+export function serializeLetter(letter: Letter): string {
+    // Create an array with values in a specific order
+    const serializedArray = [
+        letter.created,
+        letter.knowledgeId,
+        letter.cid,
+        letter.letterNumber.toString(),
+        letter.block,
+        letter.referee,
+        letter.worker,
+        letter.signOverPrivateData,
+        letter.signOverReceipt
+    ];
+    return serializedArray.join(",");
+}
+
+/**
+* Deserializes a JSON string to a Letter object, including only the specified fields.
+* Extra fields in the JSON are ignored.
+* @param jsonString - The JSON string to deserialize.
+* @returns The Letter object parsed from the JSON string.
+* @throws Will throw an error if the JSON is invalid or missing required fields.
+*/
+export function deserializeLetter(jsonString: string, workerId: string, genesis: string): Letter {
+    let parsed: any;
+
+    try {
+        parsed = JSON.parse(jsonString);
+    } catch (error) {
+        throw new Error('Invalid JSON string provided.');
+    }
+
+    // Extract only the required fields
+    const {
+        created,
+        knowledgeId,
+        cid,
+        letterNumber,
+        block,
+        referee,
+        worker,
+        amount,
+        signOverPrivateData,
+        signOverReceipt,
+    } = parsed;
+
+    // Validate each field
+    if (typeof created !== 'number') {
+        throw new Error('Invalid or missing "created" field.');
+    }
+    if (typeof knowledgeId !== 'string') {
+        throw new Error('Invalid or missing "knowledgeId" field.');
+    }
+    if (typeof cid !== 'string') {
+        throw new Error('Invalid or missing "cid" field.');
+    }
+    if (typeof letterNumber !== 'number') {
+        throw new Error('Invalid or missing "letterNumber" field.');
+    }
+    if (typeof block !== 'string') {
+        throw new Error('Invalid or missing "block" field.');
+    }
+    if (typeof referee !== 'string') {
+        throw new Error('Invalid or missing "referee" field.');
+    }
+    if (typeof worker !== 'string') {
+        throw new Error('Invalid or missing "worker" field.');
+    }
+    if (typeof amount !== 'string') {
+        throw new Error('Invalid or missing "amount" field.');
+    }
+    if (typeof signOverPrivateData !== 'string') {
+        throw new Error('Invalid or missing "signOverPrivateData" field.');
+    }
+    if (typeof signOverReceipt !== 'string') {
+        throw new Error('Invalid or missing "signOverReceipt" field.');
+    }
+
+    const result: Letter = {
+        created: created,
+        valid: true,
+        reexamCount: 0,
+        lastReexamined: created,
+        lesson: '',
+        wasSkipped: false,
+        workerId,
+        knowledgeId,
+        cid,
+        genesis,
+        letterNumber,
+        block,
+        referee,
+        worker,
+        amount,
+        signOverPrivateData,
+        signOverReceipt
+    };
+    return result;
+}  
