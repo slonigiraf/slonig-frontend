@@ -112,8 +112,8 @@ function Student({ className = '', ipfs }: Props): React.ReactElement<Props> {
 
   useEffect(() => {
     if (refereeSignOverPrivateData) {
-      setIsLessonPaid(wasLessonResultStored);
-    }
+        setIsLessonPaid(wasLessonResultStored);
+      }
   }, [wasLessonResultStored, refereeSignOverPrivateData, setIsLessonPaid])
 
   useEffect(() => {

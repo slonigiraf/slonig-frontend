@@ -24,6 +24,7 @@ import { useInfo, useLoginContext } from '@slonigiraf/app-slonig-components';
 interface Props {
   className?: string;
   onClose: () => void;
+  onSuccess: () => void;
   recipientId?: string;
   senderId?: string;
   amount?: BN;
@@ -48,7 +49,7 @@ async function checkPhishing(_senderId: string | null, recipientId: string | nul
   ];
 }
 
-function Transfer({ className = '', onClose, recipientId: propRecipientId, senderId: propSenderId, amount: propAmount, modalCaption, buttonCaption }: Props): React.ReactElement<Props> {
+function Transfer({ className = '', onClose, onSuccess, recipientId: propRecipientId, senderId: propSenderId, amount: propAmount, modalCaption, buttonCaption }: Props): React.ReactElement<Props> {
   const { t } = useTranslation();
   const { api } = useApi();
   const [amount, setAmount] = useState<BN | undefined>(propAmount? propAmount : BN_ZERO);
@@ -140,6 +141,7 @@ function Transfer({ className = '', onClose, recipientId: propRecipientId, sende
             showInfo(t('Transfer failed'), 'error');
           } else {
             showInfo(t('Transfer successful'), 'info');
+            onSuccess();
             onClose(); // Close the modal on success
           }
           toggleProcessing();

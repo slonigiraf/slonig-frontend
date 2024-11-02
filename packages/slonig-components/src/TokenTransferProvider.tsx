@@ -2,11 +2,13 @@ import React, { createContext, useContext, useState, ReactNode } from 'react';
 import { TransferModal } from '@polkadot/react-components';
 import { useToggle } from '@polkadot/react-hooks';
 import { BN, BN_ZERO } from '@polkadot/util';
+
 interface TokenTransferContextType {
     isTransferOpen: boolean;
     recipientId: string;
     amount: BN | undefined;
-    setRecipientId: (recepientId: string) => void;
+    transferSuccess: boolean;
+    setRecipientId: (recipientId: string) => void;
     toggleTransfer: () => void;
     setIsTransferOpen: (isOpen: boolean) => void;
     setAmount: (amount: BN) => void;
@@ -18,6 +20,7 @@ const defaultTokenTransferContext: TokenTransferContextType = {
     isTransferOpen: false,
     recipientId: '',
     amount: BN_ZERO,
+    transferSuccess: false,
     setRecipientId: (_) => {},
     toggleTransfer: () => {},
     setIsTransferOpen: (_) => {},
@@ -29,7 +32,7 @@ const defaultTokenTransferContext: TokenTransferContextType = {
 const TokenTransferContext = createContext<TokenTransferContextType>(defaultTokenTransferContext);
 
 interface TokenTransferProviderProps {
-    children: ReactNode; // Define the type for 'children' here
+    children: ReactNode;
 }
 
 export const TokenTransferProvider: React.FC<TokenTransferProviderProps> = ({ children }) => {
@@ -38,13 +41,37 @@ export const TokenTransferProvider: React.FC<TokenTransferProviderProps> = ({ ch
     const [amount, setAmount] = useState<BN | undefined>(BN_ZERO);
     const [modalCaption, setModalCaption] = useState<string>('');
     const [buttonCaption, setButtonCaption] = useState<string>('');
+    const [transferSuccess, setTransferSuccess] = useState<boolean>(false);
+
+    // setTransferSuccess(true);
+
+    // This function will be called when the transfer is successful
+    const handleSuccess = () => {
+        setTransferSuccess(true);
+        toggleTransfer(); // Optionally close the modal after success
+    };
+
     return (
-        <TokenTransferContext.Provider value={{ isTransferOpen, recipientId, amount, toggleTransfer, setIsTransferOpen, setRecipientId, setAmount, setModalCaption, setButtonCaption }}>
+        <TokenTransferContext.Provider
+            value={{
+                isTransferOpen,
+                recipientId,
+                amount,
+                transferSuccess,
+                setRecipientId,
+                toggleTransfer,
+                setIsTransferOpen,
+                setAmount,
+                setModalCaption,
+                setButtonCaption,
+            }}
+        >
             {children}
             {isTransferOpen && (
                 <TransferModal
                     key='modal-transfer'
                     onClose={toggleTransfer}
+                    onSuccess={handleSuccess}
                     recipientId={recipientId}
                     amount={amount}
                     modalCaption={modalCaption}
