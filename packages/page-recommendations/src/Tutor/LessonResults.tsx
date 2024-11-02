@@ -7,11 +7,11 @@ import { styled, Button, Input, InputBalance, Icon, Card, Modal } from '@polkado
 import { useApi, useBlockTime, useToggle } from '@polkadot/react-hooks';
 import { u8aToHex, hexToU8a, u8aWrapBytes, BN_ONE, BN_ZERO, formatBalance } from '@polkadot/util';
 import type { Skill } from '@slonigiraf/app-slonig-components';
-import { QRWithShareAndCopy, getBaseUrl, getIPFSDataFromContentID, parseJson, useIpfsContext, useLoginContext, FullWidthContainer, VerticalCenterItemsContainer, CenterQRContainer, KatexSpan, useInfo, balanceToSlonString, signStringArray, verifySignature, SenderComponent } from '@slonigiraf/app-slonig-components';
+import { getIPFSDataFromContentID, parseJson, useIpfsContext, useLoginContext, FullWidthContainer, VerticalCenterItemsContainer, CenterQRContainer, KatexSpan, useInfo, balanceToSlonString, signStringArray, verifySignature, SenderComponent } from '@slonigiraf/app-slonig-components';
 import { Insurance, getPseudonym, Lesson, Letter, getLastUnusedLetterNumber, setLastUsedLetterNumber, storeSetting, updateLetter, getInsurancesByLessonId, getValidLettersByLessonId, QRAction, SettingKey, QRField, getDataShortKey, serializeLetter } from '@slonigiraf/db';
 import { getPublicDataToSignByReferee, getPrivateDataToSignByReferee } from '@slonigiraf/helpers';
 import { useTranslation } from '../translate.js';
-import type { KeyringPair } from '@polkadot/keyring/types';
+import { blake2AsHex } from '@polkadot/util-crypto';
 
 const getDiplomaBlockNumber = (currentBlock: BN, blockTimeMs: number, secondsToAdd: number): BN => {
   const secondsToGenerateBlock = blockTimeMs / 1000;
@@ -247,7 +247,7 @@ function LessonResults({ className = '', lesson, updateAndStoreLesson, onClose }
 
           letterData.push(serializeLetter(updatedLetter));
         }
-        const qrData = {
+        const preparedData = {
           workerId: lesson.student,
           genesis: genesisU8.toHex(),
           referee: refereePublicKeyHex,
@@ -255,6 +255,8 @@ function LessonResults({ className = '', lesson, updateAndStoreLesson, onClose }
           letters: letterData,
           insurances: insuranceData,
         };
+        const bill = blake2AsHex(JSON.stringify(preparedData));
+        const qrData = {bill: bill, ...preparedData};
         setData(JSON.stringify(qrData));
         setRoute('diplomas');
       } catch (error) {
