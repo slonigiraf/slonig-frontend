@@ -556,7 +556,7 @@ export function serializeLetter(letter: Letter): string {
 * @returns The Letter object parsed from the JSON string.
 * @throws Will throw an error if the JSON is invalid or missing required fields.
 */
-export function deserializeLetter(data: string, workerId: string, genesis: string): Letter {
+export function deserializeLetter(data: string, workerId: string, genesis: string, amount: string): Letter {
     const [
         created,
         knowledgeId,
@@ -565,7 +565,6 @@ export function deserializeLetter(data: string, workerId: string, genesis: strin
         block,
         referee,
         worker,
-        amount,
         signOverPrivateData,
         signOverReceipt,
     ] = data.split(',');

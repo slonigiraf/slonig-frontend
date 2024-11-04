@@ -18,7 +18,7 @@ function LessonResultReceiver({ className = '' }: Props): React.ReactElement<Pro
   const location = useLocation();
   const queryParams = new URLSearchParams(location.search);
   const webRTCPeerId = queryParams.get(QRField.WEBRTC_PEER_ID);
-  
+
   if (!webRTCPeerId) return <></>;
 
   const { t } = useTranslation();
@@ -26,10 +26,10 @@ function LessonResultReceiver({ className = '' }: Props): React.ReactElement<Pro
     setModalCaption, setButtonCaption, isTransferReady, transferSuccess } = useTokenTransfer();
   const { currentPair } = useLoginContext();
   const workerPublicKeyHex = u8aToHex(currentPair?.publicKey);
-  console.log("workerPublicKeyHex: "+workerPublicKeyHex)
   const { showInfo, hideInfo } = useInfo();
   const [lessonResultJson, setLessonResultJson] = useState<LessonResultJSON | null>(null);
   const [agreement, setAgreement] = useState<Agreement | null>(null);
+  const [triedToFetchData, setTriedToFetchData] = useState(false);
   const navigate = useNavigate();
 
   const updateAgreement = useCallback(async (updatedAgreement: Agreement) => {
@@ -38,12 +38,28 @@ function LessonResultReceiver({ className = '' }: Props): React.ReactElement<Pro
   }, [setAgreement, putAgreement]);
 
   useEffect(() => {
+    setTriedToFetchData(false);
+    setLessonResultJson(null);
+    setAgreement(null);
+  }, [webRTCPeerId, setTriedToFetchData, setLessonResultJson, setAgreement]);
+
+  useEffect(() => {
     const fetchLesson = async () => {
       const maxLoadingSec = 60;
       showInfo(t('Loading'), 'info', maxLoadingSec);
       const webRTCData = await receiveWebRTCData(webRTCPeerId, maxLoadingSec * 1000);
       hideInfo();
       setLessonResultJson(parseJson(webRTCData));
+    };
+    if (webRTCPeerId && !triedToFetchData) {
+      setTriedToFetchData(true);
+      fetchLesson();
+    }
+  }, [webRTCPeerId, triedToFetchData, t, setAgreement, showInfo, hideInfo,
+    setLessonResultJson, parseJson, receiveWebRTCData, getAgreement]);
+
+  useEffect(() => {
+    const fetchAgreement = async () => {
       if (lessonResultJson) {
         const savedAgreement = await getAgreement(lessonResultJson.agreement);
         if (savedAgreement) {
@@ -59,11 +75,10 @@ function LessonResultReceiver({ className = '' }: Props): React.ReactElement<Pro
         }
       }
     };
-    if (webRTCPeerId && agreement === null) {
-      fetchLesson();
+    if (lessonResultJson && !agreement) {
+      fetchAgreement();
     }
-  }, [webRTCPeerId, agreement, t, setAgreement, showInfo, hideInfo,
-    setLessonResultJson, parseJson, receiveWebRTCData, getAgreement]);
+  }, [lessonResultJson, setAgreement, getAgreement]);
 
   useEffect(() => {
     async function payOrSaveResults() {
@@ -78,18 +93,18 @@ function LessonResultReceiver({ className = '' }: Props): React.ReactElement<Pro
       } else if (agreement.completed === false) {
         //store
         try {
-          if(lessonResultJson?.letters){
+          if (lessonResultJson?.letters) {
             lessonResultJson.letters.forEach(async (serializedLetter) => {
-              const letter = deserializeLetter(serializedLetter, lessonResultJson.workerId, lessonResultJson.genesis);
+              const letter = deserializeLetter(serializedLetter, lessonResultJson.workerId, lessonResultJson.genesis, lessonResultJson.amount);
               await putLetter(letter);
             });
           }
-          if(lessonResultJson?.insurances){
+          if (lessonResultJson?.insurances) {
             lessonResultJson.insurances.forEach(async (insuranceMeta) => {
               const [signOverReceipt, lastReexamined, valid] = insuranceMeta.split(',');
-              if(signOverReceipt && lastReexamined && valid){
+              if (signOverReceipt && lastReexamined && valid) {
                 const time = parseInt(lastReexamined, 10);
-                if(valid === '1'){
+                if (valid === '1') {
                   await updateLetterReexaminingCount(signOverReceipt, time);
                 } else {
                   await cancelLetter(signOverReceipt, time);
@@ -97,19 +112,19 @@ function LessonResultReceiver({ className = '' }: Props): React.ReactElement<Pro
               }
             });
           }
-         const updatedAgreement: Agreement = {...agreement, completed: true};
-         updateAgreement(updatedAgreement);
-         showInfo(t('Saved'));
-         navigate('', { replace: true });
+          const updatedAgreement: Agreement = { ...agreement, completed: true };
+          updateAgreement(updatedAgreement);
+          showInfo(t('Saved'));
+          navigate('', { replace: true });
         } catch (e) {
           console.log(e);
         }
       }
     }
     if (lessonResultJson && agreement) {
-      if(workerPublicKeyHex !== lessonResultJson.workerId){
+      if (workerPublicKeyHex !== lessonResultJson.workerId) {
         showInfo(t('The tutor has shown you a QR code created for a different student. Ask the tutor to find the correct lesson.'), 'error')
-      } else{
+      } else {
         payOrSaveResults();
       }
     }
@@ -118,7 +133,7 @@ function LessonResultReceiver({ className = '' }: Props): React.ReactElement<Pro
 
   useEffect(() => {
     if (transferSuccess) {
-      const updatedAgreement: Agreement = {...agreement, paid: true};
+      const updatedAgreement: Agreement = { ...agreement, paid: true };
       updateAgreement(updatedAgreement);
     }
   }, [transferSuccess, agreement, updateAgreement])

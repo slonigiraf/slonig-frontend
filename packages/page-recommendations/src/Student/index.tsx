@@ -8,7 +8,7 @@ import { u8aToHex } from '@polkadot/util';
 import { useLocation } from 'react-router-dom';
 import { storePseudonym } from '@slonigiraf/db';
 import { useTranslation } from '../translate.js';
-import LessonResultReceiver from './LessonResultReceiver.jsx';
+import LessonResultReceiver from './LessonResultReceiver.js';
 
 interface Props {
   className?: string;
