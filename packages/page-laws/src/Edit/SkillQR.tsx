@@ -35,16 +35,11 @@ const getBlockAllowed = (currentBlock: BN, blockTimeMs: number, secondsToAdd: nu
 }
 
 function SkillQR({ className = '', id, cid, type, selectedItems, isLearningRequested, isReexaminingRequested }: Props): React.ReactElement<Props> | null {
-  if (!selectedItems || selectedItems.length === 0 || !(isLearningRequested || isReexaminingRequested)) {
-    return null;
-  }
-  // Using key
+  // Always call hooks unconditionally
   const { api, isApiReady } = useApi();
-  // Last block number
   const [millisecondsPerBlock,] = useBlockTime(BN_ONE, api);
   const [blockAllowed, setBlockAllowed] = useState<BN>(new BN(1));
   const { currentPair, isLoggedIn } = useLoginContext();
-  // Rest params
   const { t } = useTranslation();
   const location = useLocation();
   const queryParams = new URLSearchParams(location.search);
@@ -58,8 +53,12 @@ function SkillQR({ className = '', id, cid, type, selectedItems, isLearningReque
   const [lessonId, setLessonId] = useState<string>('');
   const [learn, setLearn] = useState<string[][]>([]);
   const [reexamine, setReexamine] = useState<string[][]>([]);
-  const [data, setData] = useState<string|null>(null);
+  const [data, setData] = useState<string | null>(null);
 
+  // Conditional Rendering Logic
+  const shouldRender = selectedItems && selectedItems.length > 0 && (isLearningRequested || isReexaminingRequested);
+
+  // Early return replaced with conditional rendering below
 
   // Fetch block number (once)
   useEffect(() => {
@@ -68,7 +67,7 @@ function SkillQR({ className = '', id, cid, type, selectedItems, isLearningReque
         try {
           const chainHeader = await api.rpc.chain.getHeader();
           const currentBlockNumber = new BN(chainHeader.number.toString());
-          //allow to reexamine within following time
+          // Allow to reexamine within the following time
           const secondsValid = 1800;
           const blockAllowed: BN = getBlockAllowed(currentBlockNumber, millisecondsPerBlock, secondsValid);
           setBlockAllowed(blockAllowed);
@@ -78,7 +77,7 @@ function SkillQR({ className = '', id, cid, type, selectedItems, isLearningReque
       }
     }
     fetchBlockNumber();
-  }, [api, isApiReady]);
+  }, [api, isApiReady, millisecondsPerBlock]);
 
   // Initialize learn request
   useEffect(() => {
@@ -92,7 +91,7 @@ function SkillQR({ className = '', id, cid, type, selectedItems, isLearningReque
         setLearn(newLearnData);
       }
     }
-  }, [currentPair, diplomasToReexamine, selectedItems]);
+  }, [currentPair, isLoggedIn, selectedItems, isLearningRequested]);
 
   // Fetch tutor and set it as the default in the dropdown
   useEffect(() => {
@@ -116,17 +115,16 @@ function SkillQR({ className = '', id, cid, type, selectedItems, isLearningReque
     setCurrentDate(date);
   }, []);
 
+  // Generate tutoring request ID
   useEffect(() => {
     const generateTutoringRequestId = () => {
-      if (selectedItems !== undefined) {
+      if (selectedItems && selectedItems.length > 0) {
         setLessonId(getLessonId(selectedItems.map(item => item.id)));
+      } else {
+        setLessonId('');
       }
     };
-    if (selectedItems !== undefined && selectedItems.length > 0) {
-      generateTutoringRequestId();
-    } else {
-      setLessonId('');
-    }
+    generateTutoringRequestId();
   }, [selectedItems]);
 
   // Prepare dropdown options
@@ -173,13 +171,6 @@ function SkillQR({ className = '', id, cid, type, selectedItems, isLearningReque
     }
   }, [studentIdentity, isLearningRequested, isReexaminingRequested, selectedItems]);
 
-  useEffect(() => {
-    const showQR = async () => {
-      _onSign();
-    };
-    showQR();
-  }, [tutor, diplomasToReexamine, blockAllowed]);
-
   // Generate signatures for each diploma to be reexamined
   const _onSign = useCallback(async () => {
     if (!isLoggedIn || !currentPair || !diplomasToReexamine?.length || !tutor) {
@@ -221,18 +212,24 @@ function SkillQR({ className = '', id, cid, type, selectedItems, isLearningReque
     setReexamine(examData);
   }, [currentPair, tutor, diplomasToReexamine, blockAllowed, isLoggedIn]);
 
+  // Trigger _onSign when dependencies change
+  useEffect(() => {
+    if (shouldRender) { // Ensure we only attempt to sign when rendering
+      _onSign();
+    }
+  }, [tutor, diplomasToReexamine, blockAllowed, shouldRender, _onSign]);
 
   const name = nameFromKeyringPair(currentPair);
   const route = 'tutor';
-  const [action] = useState({[QRField.QR_ACTION]: QRAction.LEARN_MODULE});
- 
+  const [action] = useState({ [QRField.QR_ACTION]: QRAction.LEARN_MODULE });
+
   const diplomaCheck = <DiplomaCheck id={id} cid={cid} caption={t('I have a diploma')} setValidDiplomas={setValidDiplomas} onLoad={() => setLoading(false)} />;
   const hasValidDiploma = validDiplomas && validDiplomas.length > 0;
 
   // Initialize learn request
   useEffect(() => {
     const dataIsNotEmpty = (learn.length + reexamine.length) > 0;
-    if(dataIsNotEmpty && tutor){
+    if (dataIsNotEmpty && tutor) {
       const lessonRequest: LessonRequest = {
         cid: cid,
         learn: learn,
@@ -243,46 +240,54 @@ function SkillQR({ className = '', id, cid, type, selectedItems, isLearningReque
         identity: studentIdentity,
       };
       setData(JSON.stringify(lessonRequest));
-    } else{
+    } else {
       setData(null);
     }
   }, [learn, reexamine, cid, lessonId, tutor, name, studentIdentity]);
 
-  return (<>
-    {isLoggedIn
-      && <>
-        {diplomaCheck}
-        {loading ? <Spinner /> :
-          !hasValidDiploma && <>
-            {tutor ?
-              (type == LawType.MODULE && data && <StyledDiv>
-                <CenterQRContainer>
-                  <Dropdown
-                    className={`dropdown ${className}`}
-                    label={t('Show the QR to your tutor')}
-                    value={tutor}
-                    onChange={handleTutorSelect}
-                    options={tutorOptions || []}
-                  />
-                  <SenderComponent
-                    data={data} route={route} action={action}
-                    textShare={t('Press the link to start tutoring')}
-                  />
-                </CenterQRContainer>
-              </StyledDiv>)
-              :
-              <StyledDiv>
-                <FlexRow>
-                  <h3>{t('Scan your tutor\'s QR code for help and a diploma.')}</h3>
-                </FlexRow>
-              </StyledDiv>
-            }
-          </>
-        }
-      </>
-    }
-    <LoginButton label={t('Log in')} />
-  </>
+  return (
+    <>
+      {isLoggedIn && shouldRender && (
+        <>
+          {diplomaCheck}
+          {loading ? <Spinner /> :
+            !hasValidDiploma && (
+              <>
+                {tutor ?
+                  (type === LawType.MODULE && data && (
+                    <StyledDiv>
+                      <CenterQRContainer>
+                        <Dropdown
+                          className={`dropdown ${className}`}
+                          label={t('Show the QR to your tutor')}
+                          value={tutor}
+                          onChange={handleTutorSelect}
+                          options={tutorOptions || []}
+                        />
+                        <SenderComponent
+                          data={data}
+                          route={route}
+                          action={action}
+                          textShare={t('Press the link to start tutoring')}
+                        />
+                      </CenterQRContainer>
+                    </StyledDiv>
+                  )) :
+                  (
+                    <StyledDiv>
+                      <FlexRow>
+                        <h3>{t('Scan your tutor\'s QR code for help and a diploma.')}</h3>
+                      </FlexRow>
+                    </StyledDiv>
+                  )
+                }
+              </>
+            )
+          }
+        </>
+      )}
+      {isLoggedIn && !shouldRender && <LoginButton label={t('Log in')} />}
+    </>
   );
 }
 
@@ -297,10 +302,12 @@ const StyledDiv = styled.div`
     left: 20px !important;
   }
 `;
+
 const FlexRow = styled.div`
   display: flex;
   justify-content: left;
   align-items: left;
   margin-top: 20px;
 `;
+
 export default React.memo(SkillQR);
