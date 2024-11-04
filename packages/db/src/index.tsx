@@ -232,7 +232,6 @@ const DEFAULT_VALIDITY = 730;//Days valid
 const DEFAULT_DIPLOMA_PRICE = "80000000000000";//80 Slon
 
 export const storeLesson = async (lessonRequest: LessonRequest) => {
-    console.log("storeLesson: ", JSON.stringify(lessonRequest, null, 2))
     const now = (new Date()).getTime();
 
     const stored_warranty = await getSetting(SettingKey.DIPLOMA_WARRANTY);

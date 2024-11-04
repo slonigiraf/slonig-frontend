@@ -16,9 +16,6 @@ function LessonRequestReceiver({ className = '' }: Props): React.ReactElement<Pr
     const location = useLocation();
     const queryParams = new URLSearchParams(location.search);
     const webRTCPeerId = queryParams.get(QRField.WEBRTC_PEER_ID);
-
-    if (!webRTCPeerId) return <></>;
-
     const { t } = useTranslation();
     const { currentPair } = useLoginContext();
     const tutorPublicKeyHex = u8aToHex(currentPair?.publicKey);
@@ -34,17 +31,18 @@ function LessonRequestReceiver({ className = '' }: Props): React.ReactElement<Pr
 
     useEffect(() => {
         const fetchLessonRequest = async () => {
-            const maxLoadingSec = 60;
-            showInfo(t('Loading'), 'info', maxLoadingSec);
-            const webRTCData = await receiveWebRTCData(webRTCPeerId, maxLoadingSec * 1000);
-            hideInfo();
-            const receivedRequest: LessonRequest = parseJson(webRTCData);
-            if(receivedRequest.tutor === tutorPublicKeyHex){
-                setLessonRequest(receivedRequest);
-            } else {
-                showInfo('Student has shown you a QR code created for a different tutor. Ask them to scan your QR code.', 'error');
+            if(webRTCPeerId){
+                const maxLoadingSec = 60;
+                showInfo(t('Loading'), 'info', maxLoadingSec);
+                const webRTCData = await receiveWebRTCData(webRTCPeerId, maxLoadingSec * 1000);
+                hideInfo();
+                const receivedRequest: LessonRequest = parseJson(webRTCData);
+                if(receivedRequest.tutor === tutorPublicKeyHex){
+                    setLessonRequest(receivedRequest);
+                } else {
+                    showInfo('Student has shown you a QR code created for a different tutor. Ask them to scan your QR code.', 'error');
+                }
             }
-            
         };
         if (webRTCPeerId && !triedToFetchData) {
             setTriedToFetchData(true);
