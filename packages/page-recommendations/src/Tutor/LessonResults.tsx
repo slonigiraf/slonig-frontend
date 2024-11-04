@@ -3,12 +3,12 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import BN from 'bn.js';
 import { statics } from '@polkadot/react-api/statics';
-import { styled, Button, Input, InputBalance, Icon, Card, Modal } from '@polkadot/react-components';
+import { styled, Button, Input, InputBalance, Icon, Card, Modal, Spinner } from '@polkadot/react-components';
 import { useApi, useBlockTime, useToggle } from '@polkadot/react-hooks';
 import { u8aToHex, hexToU8a, u8aWrapBytes, BN_ONE, BN_ZERO, formatBalance } from '@polkadot/util';
 import type { LessonResult, Skill } from '@slonigiraf/app-slonig-components';
 import { getIPFSDataFromContentID, parseJson, useIpfsContext, useLoginContext, FullWidthContainer, VerticalCenterItemsContainer, CenterQRContainer, KatexSpan, balanceToSlonString, SenderComponent } from '@slonigiraf/app-slonig-components';
-import { Insurance, getPseudonym, Lesson, Letter, getLastUnusedLetterNumber, setLastUsedLetterNumber, storeSetting, putLetter, getInsurancesByLessonId, getValidLettersByLessonId, QRAction, SettingKey, QRField, serializeLetter } from '@slonigiraf/db';
+import { Insurance, getPseudonym, Lesson, Letter, getLastUnusedLetterNumber, setLastUsedLetterNumber, storeSetting, putLetter, getInsurancesByLessonId, getValidLettersByLessonId, QRAction, SettingKey, QRField, serializeLetter, deleteSetting } from '@slonigiraf/db';
 import { getPublicDataToSignByReferee, getPrivateDataToSignByReferee } from '@slonigiraf/helpers';
 import { useTranslation } from '../translate.js';
 import { blake2AsHex } from '@polkadot/util-crypto';
@@ -60,17 +60,31 @@ function LessonResults({ className = '', lesson, updateAndStoreLesson, onClose }
   //   student name
   const [studentName, setStudentName] = useState<string | null>(null);
   const [daysInputValue, setDaysInputValue] = useState<string>(lesson ? lesson.dValidity.toString() : "0"); //To allow empty strings
-  const [countOfValidLetters, setCountOfValidLetters] = useState(0);
-  const [countOfDiscussedInsurances, setCountOfDiscussedInsurances] = useState(0);
-  const [countOfReceivingBonuses, setCountOfReceivingBonuses] = useState(0);
-  const [countOfInvalidInsurances, setCountOfInvalidInsurances] = useState(0);
+  const [countOfValidLetters, setCountOfValidLetters] = useState<number|null>(null);
+  const [countOfDiscussedInsurances, setCountOfDiscussedInsurances] = useState<number|null>(null);
+  const [countOfReceivingBonuses, setCountOfReceivingBonuses] = useState<number|null>(null);
+  const [countOfInvalidInsurances, setCountOfInvalidInsurances] = useState<number|null>(null);
   const [totalIncomeForBonuses, setTotalIncomeForBonuses] = useState<BN>(BN_ZERO);
   const [diplomaWarrantyAmount, setDiplomaWarrantyAmount] = useState<BN>(BN_ZERO);
   const [totalIncomeForLetters, setTotalIncomeForLetters] = useState<BN>(BN_ZERO);
   const [visibleDiplomaDetails, toggleVisibleDiplomaDetails] = useToggle(false);
 
-  const [route, setRoute] = useState('');
   const [data, setData] = useState('');
+  const [processing, setProcessing] = useState(false);
+
+  useEffect(() => {
+    console.log("countOfValidLetters: "+countOfValidLetters);
+    console.log("countOfDiscussedInsurances: "+countOfDiscussedInsurances);
+
+    if(countOfValidLetters !== null && countOfDiscussedInsurances !== null){
+      setProcessing(false);
+      if(countOfValidLetters + countOfDiscussedInsurances === 0 ){
+          // onClose(); THIS causes infinite rerender
+      }
+    } else{ 
+      setProcessing(true);
+    }
+  }, [countOfValidLetters, countOfDiscussedInsurances]);
 
   // Fetch required info from DB about current lesson
   useEffect(() => {
@@ -247,7 +261,7 @@ function LessonResults({ className = '', lesson, updateAndStoreLesson, onClose }
         }
 
         const agreement = blake2AsHex(JSON.stringify(lesson));
-        const qrData: LessonResult = {
+        const lessonResult: LessonResult = {
           agreement: agreement, 
           price: lessonPrice.toString(),
           workerId: lesson.student,
@@ -257,8 +271,7 @@ function LessonResults({ className = '', lesson, updateAndStoreLesson, onClose }
           letters: letterData,
           insurances: insuranceData,
         };
-        setData(JSON.stringify(qrData));
-        setRoute('diplomas');
+        setData(JSON.stringify(lessonResult));
       } catch (error) {
         console.error(error);
       }
@@ -268,7 +281,10 @@ function LessonResults({ className = '', lesson, updateAndStoreLesson, onClose }
 
   }, [api, isApiReady, currentPair, lesson]);
 
+  const [action] = useState({ [QRField.QR_ACTION]: QRAction.ADD_DIPLOMA });
+
   return (
+    processing ? <Spinner /> :
     <FullWidthContainer>
       <StyledCloseButton onClick={onClose}
         icon='close'
@@ -276,7 +292,7 @@ function LessonResults({ className = '', lesson, updateAndStoreLesson, onClose }
       <VerticalCenterItemsContainer>
         <CenterQRContainer>
           <h2>{t('Show to the student to send the results')}</h2>
-          <SenderComponent data={data} route={route} action={{ [QRField.QR_ACTION]: QRAction.ADD_DIPLOMA }}
+          <SenderComponent data={data} route={'diplomas'} action={action}
             textShare={t('Press the link to add the diploma')} />
         </CenterQRContainer>
         <DiplomaDiv>

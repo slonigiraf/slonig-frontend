@@ -118,14 +118,14 @@ function SkillQR({ className = '', id, cid, type, selectedItems, isLearningReque
   // Generate tutoring request ID
   useEffect(() => {
     const generateTutoringRequestId = () => {
-      if (selectedItems && selectedItems.length > 0) {
-        setLessonId(getLessonId(selectedItems.map(item => item.id)));
+      if (tutor && selectedItems && selectedItems.length > 0) {
+        setLessonId(getLessonId(tutor, selectedItems.map(item => item.id)));
       } else {
         setLessonId('');
       }
     };
     generateTutoringRequestId();
-  }, [selectedItems]);
+  }, [tutor, selectedItems]);
 
   // Prepare dropdown options
   let tutorOptions = tutors?.map(tutor => ({

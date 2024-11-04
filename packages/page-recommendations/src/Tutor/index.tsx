@@ -219,8 +219,8 @@ function Tutor({ className = '' }: Props): React.ReactElement<Props> {
   }, []);
 
   const onCloseResults = useCallback(() => {
+    setResultsShown(false);
     onCloseTutoring();
-    setResultsShown(false)
   }, []);
 
   const publicKeyHex = currentPair ? u8aToHex(currentPair.publicKey) : "";
