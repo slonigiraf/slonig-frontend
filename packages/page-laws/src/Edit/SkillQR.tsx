@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useTranslation } from '../translate.js';
-import { CenterQRContainer, LoginButton, QRWithShareAndCopy, SenderComponent, getBaseUrl, nameFromKeyringPair, qrWidthPx, useLoginContext } from '@slonigiraf/app-slonig-components';
+import { CenterQRContainer, LoginButton, SenderComponent, getBaseUrl, nameFromKeyringPair, qrWidthPx, useLoginContext } from '@slonigiraf/app-slonig-components';
 import { Letter, getLessonId, getLettersByWorkerIdWithEmptyLesson, getSetting, storeSetting, LawType, QRAction, QRField, SettingKey } from '@slonigiraf/db';
 import { Dropdown, Spinner } from '@polkadot/react-components';
 import { useLiveQuery } from "dexie-react-hooks";
@@ -250,6 +250,7 @@ function SkillQR({ className = '', id, cid, type, selectedItems, isLearningReque
   const hasValidDiploma = validDiplomas && validDiplomas.length > 0;
 
   const data = JSON.stringify({ 'cid': cid, 'learn': learn, 'reexamine': reexamine });
+  const dataIsNotEmpty = (learn.length + reexamine.length) > 0;
 
   return (<>
     {isLoggedIn
@@ -258,7 +259,7 @@ function SkillQR({ className = '', id, cid, type, selectedItems, isLearningReque
         {loading ? <Spinner /> :
           !hasValidDiploma && <>
             {tutor ?
-              <StyledDiv>
+              (type == LawType.MODULE && dataIsNotEmpty && <StyledDiv>
                 <CenterQRContainer>
                   <Dropdown
                     className={`dropdown ${className}`}
@@ -267,19 +268,12 @@ function SkillQR({ className = '', id, cid, type, selectedItems, isLearningReque
                     onChange={handleTutorSelect}
                     options={tutorOptions || []}
                   />
-                  {type == LawType.MODULE && <SenderComponent
+                  <SenderComponent
                     data={data} route={route} action={action}
                     textShare={t('Press the link to start tutoring')}
-                  />}
-                  {type == LawType.SKILL && <QRWithShareAndCopy
-                    dataQR={qrCodeText}
-                    titleShare={t('QR code')}
-                    textShare={t('Press the link to start tutoring')}
-                    urlShare={url}
-                    dataCopy={url}
-                  />}
+                  />
                 </CenterQRContainer>
-              </StyledDiv>
+              </StyledDiv>)
               :
               <StyledDiv>
                 <FlexRow>
