@@ -307,8 +307,8 @@ export const storeLesson = async (lessonRequest: LessonRequest) => {
             };
             return await storeInsurance(insurance);
         }));
-        await storeSetting(SettingKey.LESSON, lessonRequest.lesson);
     }
+    await storeSetting(SettingKey.LESSON, lessonRequest.lesson);
 }
 
 export const updateLesson = async (lesson: Lesson) => {
