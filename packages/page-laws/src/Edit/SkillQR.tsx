@@ -239,18 +239,6 @@ function SkillQR({ className = '', id, cid, type, selectedItems, isLearningReque
   const diplomaCheck = <DiplomaCheck id={id} cid={cid} caption={t('I have a diploma')} setValidDiplomas={setValidDiplomas} onLoad={() => setLoading(false)} />;
   const hasValidDiploma = validDiplomas && validDiplomas.length > 0;
 
-  const lessonRequest: LessonRequest = {
-    cid: cid,
-    learn: learn,
-    reexamine: reexamine,
-    lesson: lessonId,
-    tutor: tutor? tutor : '',
-    name: name,
-    identity: studentIdentity,
-  };
-
-  
-
   // Initialize learn request
   useEffect(() => {
     const dataIsNotEmpty = (learn.length + reexamine.length) > 0;
