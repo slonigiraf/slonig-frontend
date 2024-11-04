@@ -156,7 +156,7 @@ export function verifySignature(messages: string[], signatureHex: string, public
   return isValid;
 }
 
-export interface LessonResultJSON {
+export interface LessonResult {
   agreement: string;
   price: string; // BN.toString()
   workerId: string;
@@ -165,4 +165,14 @@ export interface LessonResultJSON {
   amount: string;
   letters: string[];
   insurances: string[];
+}
+
+export interface LessonRequest {
+  cid: string;
+  learn: string[][];
+  reexamine: string[][];
+  lesson: string;
+  name: string;
+  identity: string;
+  tutor: string;
 }

@@ -6,7 +6,7 @@ import { statics } from '@polkadot/react-api/statics';
 import { styled, Button, Input, InputBalance, Icon, Card, Modal } from '@polkadot/react-components';
 import { useApi, useBlockTime, useToggle } from '@polkadot/react-hooks';
 import { u8aToHex, hexToU8a, u8aWrapBytes, BN_ONE, BN_ZERO, formatBalance } from '@polkadot/util';
-import type { LessonResultJSON, Skill } from '@slonigiraf/app-slonig-components';
+import type { LessonResult, Skill } from '@slonigiraf/app-slonig-components';
 import { getIPFSDataFromContentID, parseJson, useIpfsContext, useLoginContext, FullWidthContainer, VerticalCenterItemsContainer, CenterQRContainer, KatexSpan, balanceToSlonString, SenderComponent } from '@slonigiraf/app-slonig-components';
 import { Insurance, getPseudonym, Lesson, Letter, getLastUnusedLetterNumber, setLastUsedLetterNumber, storeSetting, putLetter, getInsurancesByLessonId, getValidLettersByLessonId, QRAction, SettingKey, QRField, serializeLetter } from '@slonigiraf/db';
 import { getPublicDataToSignByReferee, getPrivateDataToSignByReferee } from '@slonigiraf/helpers';
@@ -247,7 +247,7 @@ function LessonResults({ className = '', lesson, updateAndStoreLesson, onClose }
         }
 
         const agreement = blake2AsHex(JSON.stringify(lesson));
-        const qrData: LessonResultJSON = {
+        const qrData: LessonResult = {
           agreement: agreement, 
           price: lessonPrice.toString(),
           workerId: lesson.student,

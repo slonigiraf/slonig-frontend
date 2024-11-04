@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useTranslation } from '../translate.js';
-import { CenterQRContainer, LoginButton, SenderComponent, getBaseUrl, nameFromKeyringPair, qrWidthPx, useLoginContext } from '@slonigiraf/app-slonig-components';
+import { CenterQRContainer, LessonRequest, LoginButton, SenderComponent, getBaseUrl, nameFromKeyringPair, qrWidthPx, useLoginContext } from '@slonigiraf/app-slonig-components';
 import { Letter, getLessonId, getLettersByWorkerIdWithEmptyLesson, getSetting, storeSetting, LawType, QRAction, QRField, SettingKey } from '@slonigiraf/db';
 import { Dropdown, Spinner } from '@polkadot/react-components';
 import { useLiveQuery } from "dexie-react-hooks";
@@ -58,6 +58,7 @@ function SkillQR({ className = '', id, cid, type, selectedItems, isLearningReque
   const [lessonId, setLessonId] = useState<string>('');
   const [learn, setLearn] = useState<string[][]>([]);
   const [reexamine, setReexamine] = useState<string[][]>([]);
+  const [data, setData] = useState<string|null>(null);
 
 
   // Fetch block number (once)
@@ -228,19 +229,8 @@ function SkillQR({ className = '', id, cid, type, selectedItems, isLearningReque
       : '';
 
   const diplomaPublicKeyHex = learn?.[0]?.[2] ?? '';
-  const urlDetails = `diplomas/tutor?name=${encodeURIComponent(name)}&d=${tutor}+${cid}+${studentIdentity}+${diplomaPublicKeyHex}${reexamineData}`;
 
-  const generateQRData = () => {
-    return JSON.stringify({
-      q: QRAction.SKILL,
-      n: name,
-      d: urlDetails,
-    });
-  };
-
-  const qrCodeText = generateQRData();
-  const url = `${getBaseUrl()}/#/${urlDetails}`;
-  const route = `#/${urlDetails}`;
+  const route = 'tutor';
   const action = {
     [QRField.ID]: lessonId, [QRField.QR_ACTION]: QRAction.LEARN_MODULE,
     [QRField.PERSON_NAME]: name, [QRField.PERSON_IDENTITY]: studentIdentity, [QRField.TUTOR]: tutor
@@ -249,8 +239,36 @@ function SkillQR({ className = '', id, cid, type, selectedItems, isLearningReque
   const diplomaCheck = <DiplomaCheck id={id} cid={cid} caption={t('I have a diploma')} setValidDiplomas={setValidDiplomas} onLoad={() => setLoading(false)} />;
   const hasValidDiploma = validDiplomas && validDiplomas.length > 0;
 
-  const data = JSON.stringify({ 'cid': cid, 'learn': learn, 'reexamine': reexamine });
-  const dataIsNotEmpty = (learn.length + reexamine.length) > 0;
+  const lessonRequest: LessonRequest = {
+    cid: cid,
+    learn: learn,
+    reexamine: reexamine,
+    lesson: lessonId,
+    tutor: tutor? tutor : '',
+    name: name,
+    identity: studentIdentity,
+  };
+
+  
+
+  // Initialize learn request
+  useEffect(() => {
+    const dataIsNotEmpty = (learn.length + reexamine.length) > 0;
+    if(dataIsNotEmpty && tutor){
+      const lessonRequest: LessonRequest = {
+        cid: cid,
+        learn: learn,
+        reexamine: reexamine,
+        lesson: lessonId,
+        tutor: tutor,
+        name: name,
+        identity: studentIdentity,
+      };
+      setData(JSON.stringify(lessonRequest));
+    } else{
+      setData(null);
+    }
+  }, [learn, reexamine, cid, lessonId, tutor, name, studentIdentity]);
 
   return (<>
     {isLoggedIn
@@ -259,7 +277,7 @@ function SkillQR({ className = '', id, cid, type, selectedItems, isLearningReque
         {loading ? <Spinner /> :
           !hasValidDiploma && <>
             {tutor ?
-              (type == LawType.MODULE && dataIsNotEmpty && <StyledDiv>
+              (type == LawType.MODULE && data && <StyledDiv>
                 <CenterQRContainer>
                   <Dropdown
                     className={`dropdown ${className}`}

@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import React, { useCallback, useEffect, useState } from 'react';
-import { useLoginContext, parseJson, useTokenTransfer, receiveWebRTCData, useInfo, LessonResultJSON } from '@slonigiraf/app-slonig-components';
+import { useLoginContext, parseJson, useTokenTransfer, receiveWebRTCData, useInfo, LessonResult } from '@slonigiraf/app-slonig-components';
 import { hexToU8a, u8aToHex } from '@polkadot/util';
 import { cancelLetter, deserializeLetter, getAgreement, putAgreement, putLetter, QRField, updateLetterReexaminingCount } from '@slonigiraf/db';
 import { useTranslation } from '../translate.js';
@@ -27,7 +27,7 @@ function LessonResultReceiver({ className = '' }: Props): React.ReactElement<Pro
   const { currentPair } = useLoginContext();
   const workerPublicKeyHex = u8aToHex(currentPair?.publicKey);
   const { showInfo, hideInfo } = useInfo();
-  const [lessonResultJson, setLessonResultJson] = useState<LessonResultJSON | null>(null);
+  const [lessonResultJson, setLessonResultJson] = useState<LessonResult | null>(null);
   const [agreement, setAgreement] = useState<Agreement | null>(null);
   const [triedToFetchData, setTriedToFetchData] = useState(false);
   const navigate = useNavigate();
