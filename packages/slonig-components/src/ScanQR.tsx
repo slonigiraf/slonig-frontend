@@ -47,7 +47,11 @@ function ScanQR({ className = '', label, type }: Props): React.ReactElement<Prop
               setIsTransferOpen(true);
               break;
             case QRAction.ADD_DIPLOMA:
-              navigate(`diplomas?${QRField.WEBRTC_PEER_ID}=${qrJSON[QRField.WEBRTC_PEER_ID]}`);
+              if (!isLoggedIn) {
+                showInfo(t('Please log in first'), 'error');
+              } else {
+                navigate(`diplomas?${QRField.WEBRTC_PEER_ID}=${qrJSON[QRField.WEBRTC_PEER_ID]}`);
+              }
               break;
             case QRAction.BUY_DIPLOMAS:
               await storePseudonym(qrJSON.p, qrJSON.n);
@@ -73,21 +77,7 @@ function ScanQR({ className = '', label, type }: Props): React.ReactElement<Prop
               if (!isLoggedIn) {
                 showInfo(t('Please log in first'), 'error');
               } else {
-                await storePseudonym(qrJSON[QRField.PERSON_IDENTITY], qrJSON[QRField.PERSON_NAME]);
-                const maxLoadingSec = 60;
-                showInfo(t('Loading'), 'info', maxLoadingSec);
-                try {
-                  const webRTCData = await receiveWebRTCData(qrJSON.c, maxLoadingSec * 1000);
-                  console.log("webRTCData: "+webRTCData)
-                  hideInfo();
-                  const webRTCJSON = parseJson(webRTCData);
-                  const tutorPublicKeyHex = u8aToHex(currentPair?.publicKey);
-                  await storeLesson(tutorPublicKeyHex, qrJSON, webRTCJSON);
-                } catch (error) {
-                  showInfo(t('Ask to regenerate the QR'), 'error');
-                  console.error("Failed to save lesson:", error);
-                }
-                navigate(`diplomas/tutor?lesson=${qrJSON[QRField.ID]}`);
+                navigate(`diplomas/tutor?${QRField.WEBRTC_PEER_ID}=${qrJSON[QRField.WEBRTC_PEER_ID]}`);
               }
               break;
             case QRAction.TUTOR_IDENTITY:

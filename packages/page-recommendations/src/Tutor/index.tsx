@@ -1,18 +1,17 @@
 // Copyright 2021-2022 @slonigiraf/app-recommendations authors & contributors
 // SPDX-License-Identifier: Apache-2.0
 import React, { useCallback, useEffect, useState } from 'react';
-import { useLocation, useNavigate } from 'react-router-dom';
 import { styled, Button, Progress } from '@polkadot/react-components';
 import { u8aToHex } from '@polkadot/util';
-import type { Skill } from '@slonigiraf/app-slonig-components';
-import { QRWithShareAndCopy, getBaseUrl, getIPFSDataFromContentID, parseJson, useIpfsContext, nameFromKeyringPair, useLoginContext, LoginButton, CenterQRContainer, useInfo } from '@slonigiraf/app-slonig-components';
-import { Letter, Lesson, Insurance, getPseudonym, getLesson, getLettersByLessonId, getInsurancesByLessonId, deleteSetting, getLessonId, getSetting, storeLesson, storePseudonym, storeSetting, updateLesson, putLetter, getLetter, getInsurance, QRAction, QRField, SettingKey } from '@slonigiraf/db';
+import { QRWithShareAndCopy, getBaseUrl, getIPFSDataFromContentID, parseJson, useIpfsContext, nameFromKeyringPair, useLoginContext, LoginButton, CenterQRContainer } from '@slonigiraf/app-slonig-components';
+import { Letter, Lesson, Insurance, getPseudonym, getLesson, getLettersByLessonId, getInsurancesByLessonId, deleteSetting, getSetting, storeSetting, updateLesson, putLetter, getLetter, getInsurance, QRAction, SettingKey } from '@slonigiraf/db';
 import Reexamine from './Reexamine.js';
 import { TeachingAlgorithm } from './TeachingAlgorithm.js';
 import DoInstructions from './DoInstructions.js';
 import { useTranslation } from '../translate.js';
 import LessonsList from './LessonsList.js';
 import LessonResults from './LessonResults.js';
+import LessonRequestReceiver from './LessonRequestReceiver.js';
 
 interface Props {
   className?: string;
@@ -21,28 +20,14 @@ interface Props {
 function Tutor({ className = '' }: Props): React.ReactElement<Props> {
   // Initialize api, ipfs and translation
   const { ipfs, isIpfsReady } = useIpfsContext();
-  const { showInfo } = useInfo();
   const { t } = useTranslation();
-  const navigate = useNavigate();
   const [lessonId, setLessonId] = useState<string | null>(null);
 
   // Initialize account
   const { currentPair, isLoggedIn } = useLoginContext();
 
-  // Process query
-  const location = useLocation();
-  const queryParams = new URLSearchParams(location.search);
-  const studentNameFromUrl = queryParams.get("name");
-  const lessonIdFromUrl = queryParams.get("lesson");
-  const queryData = queryParams.get("d") || "";
-  const [tutorFromUrl, skillCIDFromUrl, studentIdentityFromUrl, studentFromUrl, cidRFromUrl,
-    genesisRFromUrl, nonceRFromUrl, blockRFromUrl, blockAllowedRFromUrl, tutorRFromUrl,
-    studentRFromUrl, amountRFromUrl, signOverPrivateDataRFromUrl, signOverReceiptRFromUrl, studentSignRFromUrl] = queryData.split(' ');
-
   const [insuranceToReexamine, setInsuranceToReexamine] = useState<Insurance | null>(null);
   const [letterToIssue, setLetterToIssue] = useState<Letter | null>(null);
-
-  const [skill, setSkill] = useState<Skill | null>(null); //Use in case of url data transfer
 
   // Store progress state
   const [reexamined, setReexamined] = useState<boolean>(false);
@@ -68,18 +53,17 @@ function Tutor({ className = '' }: Props): React.ReactElement<Props> {
   );
 
   // Fetch required info from DB about current lesson, letters to issue and insurances to reexamine
-  async function fetchLessonId() {
-    const lessonId = await getSetting(SettingKey.LESSON);
-    if (lessonId !== undefined) {
-      setLessonId(lessonId);
-    } else {
-      setLessonId(null);
-    }
-  }
-
   useEffect(() => {
+    async function fetchLessonId() {
+      const lessonId = await getSetting(SettingKey.LESSON);
+      if (lessonId !== undefined) {
+        setLessonId(lessonId);
+      } else {
+        setLessonId(null);
+      }
+    }
     fetchLessonId();
-  }, [lessonIdFromUrl])
+  }, [])
 
   useEffect(() => {
     async function fetchLesson() {
@@ -124,7 +108,6 @@ function Tutor({ className = '' }: Props): React.ReactElement<Props> {
         try {
           const skillContent = await getIPFSDataFromContentID(ipfs, letterToIssue.cid);
           const skillJson = parseJson(skillContent);
-          setSkill(skillJson);
           const studentUsedSlonig = insuranceIds?.length > 0;
           const name = studentName ? studentName : null;
           setTeachingAlgorithm(new TeachingAlgorithm(t, name, skillJson, !studentUsedSlonig));
@@ -136,23 +119,6 @@ function Tutor({ className = '' }: Props): React.ReactElement<Props> {
     }
     fetchData()
   }, [ipfs, letterToIssue, studentName])
-
-  // Fetch skill data when starting simple one skill lesson
-  useEffect(() => {
-    async function fetchData() {
-      if (isIpfsReady && skillCIDFromUrl) {
-        try {
-          const skillContent = await getIPFSDataFromContentID(ipfs, skillCIDFromUrl);
-          const skillJson = parseJson(skillContent);
-          setSkill(skillJson);
-        }
-        catch (e) {
-          console.log(e);
-        }
-      }
-    }
-    fetchData()
-  }, [ipfs, skillCIDFromUrl])
 
   // Fetch student name
   useEffect(() => {
@@ -267,46 +233,6 @@ function Tutor({ className = '' }: Props): React.ReactElement<Props> {
   const qrCodeText = JSON.stringify(qrData);
   const url: string = getBaseUrl() + `/#/knowledge?tutor=${publicKeyHex}&name=${encodeURIComponent(name)}`;
 
-  const tutorIdsMath = tutorFromUrl && publicKeyHex && (tutorFromUrl === publicKeyHex);
-  const isDedicatedTutor = tutorIdsMath || lesson != null;
-
-
-  // Process url data
-  useEffect(() => {
-    async function storeUrlData() {
-      try {
-        // Ensure that both publicKey and name are strings
-        if (typeof studentIdentityFromUrl === 'string' && typeof studentNameFromUrl === 'string' && skill != null && skillCIDFromUrl) {
-          await storePseudonym(studentIdentityFromUrl, studentNameFromUrl);
-          await setStudentName(studentNameFromUrl);
-          const lessonId = getLessonId([skill.i]);
-          const qrJSON: any = { [QRField.ID]: lessonId, [QRField.PERSON_IDENTITY]: studentIdentityFromUrl };
-          const toReexam = cidRFromUrl? [
-            [cidRFromUrl, genesisRFromUrl, nonceRFromUrl, blockRFromUrl, blockAllowedRFromUrl,
-              tutorRFromUrl, studentRFromUrl, amountRFromUrl, signOverPrivateDataRFromUrl,
-              signOverReceiptRFromUrl, studentSignRFromUrl]
-          ] : [];
-          const webRTCJSON: any = {
-            'cid': skillCIDFromUrl,
-            'learn': [[skill.i, skillCIDFromUrl, studentFromUrl]],
-            'reexamine': toReexam
-          };
-          await storeLesson(tutorFromUrl, qrJSON, webRTCJSON);
-          await storeSetting(SettingKey.LESSON, lessonId);
-          await fetchLessonId();
-          navigate('');
-        }
-      } catch (error) {
-        console.error("Failed to save url data:", error);
-      }
-    }
-    if (isDedicatedTutor && skill && skill.i && studentIdentityFromUrl && studentNameFromUrl) {
-      storeUrlData();
-    }
-  }, [skill, isDedicatedTutor, studentNameFromUrl, tutorFromUrl, skillCIDFromUrl, studentIdentityFromUrl, studentFromUrl, cidRFromUrl,
-    genesisRFromUrl, nonceRFromUrl, blockRFromUrl, blockAllowedRFromUrl, tutorRFromUrl,
-    studentRFromUrl, amountRFromUrl, signOverPrivateDataRFromUrl, signOverReceiptRFromUrl, studentSignRFromUrl]);
-
   const lessonReactKey = lesson ? (lesson.learnStep + lesson.reexamineStep) : 'loading';
 
   const reexamAndDiplomaIssuing = <>
@@ -325,15 +251,13 @@ function Tutor({ className = '' }: Props): React.ReactElement<Props> {
     </div>
   </>;
 
-  if (!isDedicatedTutor && tutorFromUrl) {
-    showInfo('Student has shown you a QR code created for a different tutor. Ask them to scan your QR code.', 'error');
-  }
-
   return (
     <div className={`toolbox--Tutor ${className}`}>
       {
-        isLoggedIn && (
-          (lesson == null) ?
+        isLoggedIn &&
+        <>
+          <LessonRequestReceiver />
+          {lesson == null ?
             <>
               <CenterQRContainer>
                 <h2>{t('Show to a student to begin tutoring')}</h2>
@@ -348,7 +272,8 @@ function Tutor({ className = '' }: Props): React.ReactElement<Props> {
             </>
             :
             <> {areResultsShown ? <LessonResults lesson={lesson} updateAndStoreLesson={updateAndStoreLesson} onClose={onCloseResults} /> : reexamAndDiplomaIssuing}</>
-        )
+          }
+        </>
       }
       <LoginButton label={t('Log in')} />
     </div>

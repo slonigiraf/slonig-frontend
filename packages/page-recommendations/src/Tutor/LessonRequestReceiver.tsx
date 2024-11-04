@@ -1,12 +1,12 @@
 // Copyright 2021-2022 @slonigiraf/app-recommendations authors & contributors
 // SPDX-License-Identifier: Apache-2.0
 
-import { QRField } from '@slonigiraf/db';
-import React, { useCallback, useEffect, useState } from 'react';
-import { useLocation } from 'react-router-dom';
+import { QRField, storeLesson, storePseudonym } from '@slonigiraf/db';
+import React, { useEffect, useState } from 'react';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { useTranslation } from '../translate.js';
-import { useInfo, useLoginContext } from '@slonigiraf/app-slonig-components';
-import { hexToU8a, u8aToHex } from '@polkadot/util';
+import { LessonRequest, parseJson, receiveWebRTCData, useInfo, useLoginContext } from '@slonigiraf/app-slonig-components';
+import { u8aToHex } from '@polkadot/util';
 
 interface Props {
     className?: string;
@@ -23,27 +23,47 @@ function LessonRequestReceiver({ className = '' }: Props): React.ReactElement<Pr
     const { currentPair } = useLoginContext();
     const tutorPublicKeyHex = u8aToHex(currentPair?.publicKey);
     const { showInfo, hideInfo } = useInfo();
-    const [lessonRequestJson, setLessonRequestJson] = useState<LessonResult | null>(null);
-    const [agreement, setAgreement] = useState<Agreement | null>(null);
+    const [lessonRequest, setLessonRequest] = useState<LessonRequest | null>(null);
     const [triedToFetchData, setTriedToFetchData] = useState(false);
     const navigate = useNavigate();
 
+    useEffect(() => {
+        setTriedToFetchData(false);
+        setLessonRequest(null);
+    }, [webRTCPeerId, setTriedToFetchData, setLessonRequest]);
+
+    useEffect(() => {
+        const fetchLessonRequest = async () => {
+            const maxLoadingSec = 60;
+            showInfo(t('Loading'), 'info', maxLoadingSec);
+            const webRTCData = await receiveWebRTCData(webRTCPeerId, maxLoadingSec * 1000);
+            hideInfo();
+            const receivedRequest: LessonRequest = parseJson(webRTCData);
+            if(receivedRequest.tutor === tutorPublicKeyHex){
+                setLessonRequest(receivedRequest);
+            } else {
+                showInfo('Student has shown you a QR code created for a different tutor. Ask them to scan your QR code.', 'error');
+            }
+            
+        };
+        if (webRTCPeerId && !triedToFetchData) {
+            setTriedToFetchData(true);
+            fetchLessonRequest();
+        }
+    }, [showInfo, webRTCPeerId, hideInfo, setLessonRequest, parseJson, setTriedToFetchData]);
 
 
-    await storePseudonym(qrJSON[QRField.PERSON_IDENTITY], qrJSON[QRField.PERSON_NAME]);
-    const maxLoadingSec = 60;
-    showInfo(t('Loading'), 'info', maxLoadingSec);
-    try {
-        const webRTCData = await receiveWebRTCData(qrJSON.c, maxLoadingSec * 1000);
-        hideInfo();
-        const webRTCJSON = parseJson(webRTCData);
-        const tutorPublicKeyHex = u8aToHex(currentPair?.publicKey);
-        await storeLesson(tutorPublicKeyHex, qrJSON, webRTCJSON);
-    } catch (error) {
-        showInfo(t('Ask to regenerate the QR'), 'error');
-        console.error("Failed to save lesson:", error);
-    }
-    navigate(`diplomas/tutor?lesson=${qrJSON[QRField.ID]}`);
+    useEffect(() => {
+        const saveLesson = async () => {
+            if (lessonRequest) {
+                await storePseudonym(lessonRequest.identity, lessonRequest.name);
+                await storeLesson(lessonRequest);
+                showInfo(t('Saved'));
+                navigate('', { replace: true });
+            }
+        };
+        saveLesson();
+    }, [lessonRequest, storePseudonym, storeLesson]);
 
     return <></>;
 }

@@ -14,6 +14,7 @@ import { decodeAddress, encodeAddress } from '@polkadot/keyring';
 import { isHex, u8aToHex } from '@polkadot/util';
 import { blake2AsHex } from '@polkadot/util-crypto';
 import "dexie-export-import";
+import { LessonRequest } from "@slonigiraf/app-slonig-components";
 
 export type { Letter, Insurance, Lesson, Pseudonym, Setting, Signer, UsageRight, Agreement };
 
@@ -230,7 +231,8 @@ const DEFAULT_WARRANTY = "105000000000000";//105 Slon
 const DEFAULT_VALIDITY = 730;//Days valid
 const DEFAULT_DIPLOMA_PRICE = "80000000000000";//80 Slon
 
-export const storeLesson = async (tutorPublicKeyHex: string, qrJSON: any, webRTCJSON: any) => {
+export const storeLesson = async (lessonRequest: LessonRequest) => {
+    console.log("storeLesson: ", JSON.stringify(lessonRequest, null, 2))
     const now = (new Date()).getTime();
 
     const stored_warranty = await getSetting(SettingKey.DIPLOMA_WARRANTY);
@@ -242,17 +244,24 @@ export const storeLesson = async (tutorPublicKeyHex: string, qrJSON: any, webRTC
     const diploma_price = stored_diploma_price ? stored_diploma_price : DEFAULT_DIPLOMA_PRICE;
 
     const lesson: Lesson = {
-        id: qrJSON[QRField.ID], created: now, cid: webRTCJSON.cid,
-        tutor: tutorPublicKeyHex, student: qrJSON[QRField.PERSON_IDENTITY],
-        toLearnCount: webRTCJSON.learn.length, learnStep: 0,
-        toReexamineCount: webRTCJSON.reexamine.length, reexamineStep: 0,
-        dPrice: diploma_price, dWarranty: warranty, dValidity: validity,
+        id: lessonRequest.lesson, 
+        created: now, 
+        cid: lessonRequest.cid,
+        tutor: lessonRequest.tutor, 
+        student: lessonRequest.identity,
+        toLearnCount: lessonRequest.learn.length, 
+        learnStep: 0,
+        toReexamineCount: lessonRequest.reexamine.length, 
+        reexamineStep: 0,
+        dPrice: diploma_price, 
+        dWarranty: warranty, 
+        dValidity: validity,
     };
 
     const sameLesson = await db.lessons.get({ id: lesson.id });
     if (sameLesson === undefined) {
         await db.lessons.add(lesson);
-        await Promise.all(webRTCJSON.learn.map(async (item: string[]) => {
+        await Promise.all(lessonRequest.learn.map(async (item: string[]) => {
             const letter: Letter = {
                 created: now,
                 valid: false,
@@ -275,7 +284,7 @@ export const storeLesson = async (tutorPublicKeyHex: string, qrJSON: any, webRTC
             return await putLetter(letter);
         }));
 
-        await Promise.all(webRTCJSON.reexamine.map(async (item: string[]) => {
+        await Promise.all(lessonRequest.reexamine.map(async (item: string[]) => {
             const insurance: Insurance = {
                 created: now,
                 lastReexamined: now,
@@ -299,7 +308,7 @@ export const storeLesson = async (tutorPublicKeyHex: string, qrJSON: any, webRTC
             };
             return await storeInsurance(insurance);
         }));
-        await storeSetting(SettingKey.LESSON, qrJSON[QRField.ID]);
+        await storeSetting(SettingKey.LESSON, lessonRequest.lesson);
     }
 }
 
