@@ -78,6 +78,7 @@ function ScanQR({ className = '', label, type }: Props): React.ReactElement<Prop
                 showInfo(t('Loading'), 'info', maxLoadingSec);
                 try {
                   const webRTCData = await receiveWebRTCData(qrJSON.c, maxLoadingSec * 1000);
+                  console.log("webRTCData: "+webRTCData)
                   hideInfo();
                   const webRTCJSON = parseJson(webRTCData);
                   const tutorPublicKeyHex = u8aToHex(currentPair?.publicKey);

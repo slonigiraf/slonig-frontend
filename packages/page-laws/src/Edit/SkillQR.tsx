@@ -223,19 +223,9 @@ function SkillQR({ className = '', id, cid, type, selectedItems, isLearningReque
 
 
   const name = nameFromKeyringPair(currentPair);
-  const reexamineData =
-    diplomasToReexamine?.[0] && reexamine?.[0]
-      ? `+${diplomasToReexamine[0].cid}+${diplomasToReexamine[0].genesis}+${diplomasToReexamine[0].letterNumber}+${diplomasToReexamine[0].block}+${blockAllowed.toString()}+${diplomasToReexamine[0].referee}+${diplomasToReexamine[0].worker}+${diplomasToReexamine[0].amount}+${diplomasToReexamine[0].signOverPrivateData}+${diplomasToReexamine[0].signOverReceipt}+${reexamine[0][10]}`
-      : '';
-
-  const diplomaPublicKeyHex = learn?.[0]?.[2] ?? '';
-
   const route = 'tutor';
-  const action = {
-    [QRField.ID]: lessonId, [QRField.QR_ACTION]: QRAction.LEARN_MODULE,
-    [QRField.PERSON_NAME]: name, [QRField.PERSON_IDENTITY]: studentIdentity, [QRField.TUTOR]: tutor
-  };
-
+  const [action] = useState({[QRField.QR_ACTION]: QRAction.LEARN_MODULE});
+ 
   const diplomaCheck = <DiplomaCheck id={id} cid={cid} caption={t('I have a diploma')} setValidDiplomas={setValidDiplomas} onLoad={() => setLoading(false)} />;
   const hasValidDiploma = validDiplomas && validDiplomas.length > 0;
 
