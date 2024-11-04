@@ -501,6 +501,7 @@ const createAndStoreInsurance = async (data: string[]) => {
 
     const insurance: Insurance = {
         created: now,
+        lastReexamined: now,
         valid: true,
         lesson: '',
         wasSkipped: false,

@@ -256,7 +256,7 @@ function Tutor({ className = '' }: Props): React.ReactElement<Props> {
       {
         isLoggedIn &&
         <>
-          <LessonRequestReceiver />
+          <LessonRequestReceiver setCurrentLessonId={setLessonId} />
           {lesson == null ?
             <>
               <CenterQRContainer>

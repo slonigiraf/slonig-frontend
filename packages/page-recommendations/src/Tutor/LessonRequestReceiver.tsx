@@ -10,9 +10,10 @@ import { u8aToHex } from '@polkadot/util';
 
 interface Props {
     className?: string;
+    setCurrentLessonId: (id: string) => void;
 }
 
-function LessonRequestReceiver({ className = '' }: Props): React.ReactElement<Props> {
+function LessonRequestReceiver({ className = '', setCurrentLessonId }: Props): React.ReactElement<Props> {
     const location = useLocation();
     const queryParams = new URLSearchParams(location.search);
     const webRTCPeerId = queryParams.get(QRField.WEBRTC_PEER_ID);
@@ -56,7 +57,7 @@ function LessonRequestReceiver({ className = '' }: Props): React.ReactElement<Pr
             if (lessonRequest) {
                 await storePseudonym(lessonRequest.identity, lessonRequest.name);
                 await storeLesson(lessonRequest);
-                showInfo(t('Saved'));
+                setCurrentLessonId(lessonRequest.lesson);
                 navigate('', { replace: true });
             }
         };
