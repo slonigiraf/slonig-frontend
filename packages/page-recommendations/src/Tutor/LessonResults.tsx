@@ -6,9 +6,9 @@ import { statics } from '@polkadot/react-api/statics';
 import { styled, Button, Input, InputBalance, Icon, Card, Modal } from '@polkadot/react-components';
 import { useApi, useBlockTime, useToggle } from '@polkadot/react-hooks';
 import { u8aToHex, hexToU8a, u8aWrapBytes, BN_ONE, BN_ZERO, formatBalance } from '@polkadot/util';
-import type { Skill } from '@slonigiraf/app-slonig-components';
+import type { LessonResultJSON, Skill } from '@slonigiraf/app-slonig-components';
 import { getIPFSDataFromContentID, parseJson, useIpfsContext, useLoginContext, FullWidthContainer, VerticalCenterItemsContainer, CenterQRContainer, KatexSpan, useInfo, balanceToSlonString, signStringArray, verifySignature, SenderComponent } from '@slonigiraf/app-slonig-components';
-import { Insurance, getPseudonym, Lesson, Letter, getLastUnusedLetterNumber, setLastUsedLetterNumber, storeSetting, updateLetter, getInsurancesByLessonId, getValidLettersByLessonId, QRAction, SettingKey, QRField, getDataShortKey, serializeLetter } from '@slonigiraf/db';
+import { Insurance, getPseudonym, Lesson, Letter, getLastUnusedLetterNumber, setLastUsedLetterNumber, storeSetting, putLetter, getInsurancesByLessonId, getValidLettersByLessonId, QRAction, SettingKey, QRField, getDataShortKey, serializeLetter } from '@slonigiraf/db';
 import { getPublicDataToSignByReferee, getPrivateDataToSignByReferee } from '@slonigiraf/helpers';
 import { useTranslation } from '../translate.js';
 import { blake2AsHex } from '@polkadot/util-crypto';
@@ -183,7 +183,7 @@ function LessonResults({ className = '', lesson, updateAndStoreLesson, onClose }
             if (insurance.wasSkipped) {
               skippedInsurancesCount++;
             } else {
-              insuranceData.push(`${insurance.signOverReceipt},${insurance.valid ? '1' : '0'}`);
+              insuranceData.push(`${insurance.signOverReceipt},${insurance.lastReexamined},${insurance.valid ? '1' : '0'}`);
             }
           });
 
@@ -232,8 +232,6 @@ function LessonResults({ className = '', lesson, updateAndStoreLesson, onClose }
 
           const updatedLetter: Letter = {
             ...letterFromDB,
-            created: now,
-            lastReexamined: now,
             reexamCount: 0,
             genesis: genesisU8.toHex(),
             letterNumber: letterId,
@@ -243,14 +241,15 @@ function LessonResults({ className = '', lesson, updateAndStoreLesson, onClose }
             signOverPrivateData: refereeSignOverPrivateData,
             signOverReceipt: refereeSignOverReceipt,
           };
-          await updateLetter(updatedLetter);
+          await putLetter(updatedLetter);
 
           letterData.push(serializeLetter(updatedLetter));
         }
 
-        const bill = blake2AsHex(JSON.stringify(lesson));
-        const qrData = {
-          bill: bill, 
+        const agreement = blake2AsHex(JSON.stringify(lesson));
+        const qrData: LessonResultJSON = {
+          agreement: agreement, 
+          price: lessonPrice.toString(),
           workerId: lesson.student,
           genesis: genesisU8.toHex(),
           referee: refereePublicKeyHex,
@@ -258,6 +257,7 @@ function LessonResults({ className = '', lesson, updateAndStoreLesson, onClose }
           letters: letterData,
           insurances: insuranceData,
         };
+        console.log("data: "+JSON.stringify(qrData))
         setData(JSON.stringify(qrData));
         setRoute('diplomas');
       } catch (error) {

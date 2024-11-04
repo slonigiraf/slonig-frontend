@@ -155,3 +155,14 @@ export function verifySignature(messages: string[], signatureHex: string, public
 
   return isValid;
 }
+
+export interface LessonResultJSON {
+  agreement: string;
+  price: string; // BN.toString()
+  workerId: string;
+  genesis: string;
+  referee: string;
+  amount: string;
+  letters: string[];
+  insurances: string[];
+}

@@ -1,6 +1,7 @@
 export interface Insurance {
   id?: number;
   created: number; // timestamp
+  lastReexamined: number; // timestamp
   valid: boolean;
   lesson: string;
   wasSkipped: boolean;

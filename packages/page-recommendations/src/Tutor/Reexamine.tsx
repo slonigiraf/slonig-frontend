@@ -71,7 +71,9 @@ function Reexamine({ className = '', currentPair, insurance, onResult, studentNa
         const skippedInsurance: Insurance = { ...insurance, wasSkipped: true };
         await updateInsurance(skippedInsurance);
         onResult();
-      } else if (nextStage.type === 'success') {
+      } else if (nextStage.type === 'success' && insurance != null) {
+        const validInsurance: Insurance = { ...insurance, lastReexamined: (new Date).getTime() };
+        await updateInsurance(validInsurance);
         onResult();
       } else {
         setAlgorithmStage(nextStage);

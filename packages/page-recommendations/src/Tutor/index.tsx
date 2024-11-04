@@ -6,7 +6,7 @@ import { styled, Button, Progress } from '@polkadot/react-components';
 import { u8aToHex } from '@polkadot/util';
 import type { Skill } from '@slonigiraf/app-slonig-components';
 import { QRWithShareAndCopy, getBaseUrl, getIPFSDataFromContentID, parseJson, useIpfsContext, nameFromKeyringPair, useLoginContext, LoginButton, CenterQRContainer, useInfo } from '@slonigiraf/app-slonig-components';
-import { Letter, Lesson, Insurance, getPseudonym, getLesson, getLettersByLessonId, getInsurancesByLessonId, deleteSetting, getLessonId, getSetting, storeLesson, storePseudonym, storeSetting, updateLesson, updateLetter, getLetter, getInsurance, QRAction, QRField, SettingKey } from '@slonigiraf/db';
+import { Letter, Lesson, Insurance, getPseudonym, getLesson, getLettersByLessonId, getInsurancesByLessonId, deleteSetting, getLessonId, getSetting, storeLesson, storePseudonym, storeSetting, updateLesson, putLetter, getLetter, getInsurance, QRAction, QRField, SettingKey } from '@slonigiraf/db';
 import Reexamine from './Reexamine.js';
 import { TeachingAlgorithm } from './TeachingAlgorithm.js';
 import DoInstructions from './DoInstructions.js';
@@ -189,19 +189,20 @@ function Tutor({ className = '' }: Props): React.ReactElement<Props> {
   const updateTutoring = useCallback(
     async (stage: string) => {
       if (letterToIssue) {
+        const now = (new Date).getTime();
         if (stage === 'success') {
-          const preparedLetter: Letter = { ...letterToIssue, valid: true };
-          await updateLetter(preparedLetter);
+          const preparedLetter: Letter = { ...letterToIssue, valid: true, created: now, lastReexamined: now };
+          await putLetter(preparedLetter);
           updateLearned();
         } else if (stage === 'skip') {
           const skippedLetter: Letter = { ...letterToIssue, wasSkipped: true };
-          await updateLetter(skippedLetter);
+          await putLetter(skippedLetter);
           updateLearned();
         }
       }
     },
     [
-      updateLearned, letterToIssue, updateLetter
+      updateLearned, letterToIssue, putLetter
     ]
   );
 

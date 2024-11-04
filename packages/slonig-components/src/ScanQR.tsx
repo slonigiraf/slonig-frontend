@@ -1,4 +1,4 @@
-import React, { useCallback } from 'react';
+import React, { useCallback, useState } from 'react';
 import { useToggle } from '@polkadot/react-hooks';
 import { parseJson, QRScanner, receiveWebRTCData, useIpfsContext, useLoginContext, useTokenTransfer } from '@slonigiraf/app-slonig-components';
 import { useNavigate } from 'react-router-dom';
@@ -34,6 +34,7 @@ function ScanQR({ className = '', label, type }: Props): React.ReactElement<Prop
       // Validate JSON properties
       if (qrJSON.hasOwnProperty('q')) {
         if (!type || (type === qrJSON.q)) {
+          const maxLoadingSec = 60;
           switch (qrJSON.q) {
             case QRAction.NAVIGATION:
               console.log(qrJSON)
@@ -46,13 +47,12 @@ function ScanQR({ className = '', label, type }: Props): React.ReactElement<Prop
               setIsTransferOpen(true);
               break;
             case QRAction.ADD_DIPLOMA:
-              navigate(`diplomas?${QRField.PRICE}=${qrJSON[QRField.PRICE]}&d=${qrJSON[QRField.DATA]}`);
+              navigate(`diplomas?${QRField.WEBRTC_PEER_ID}=${qrJSON[QRField.WEBRTC_PEER_ID]}`);
               break;
             case QRAction.BUY_DIPLOMAS:
               await storePseudonym(qrJSON.p, qrJSON.n);
-              const maxLoadingSec = 60;
               showInfo(t('Loading'), 'info', maxLoadingSec)
-              const diplomasFromUrl = await receiveWebRTCData(qrJSON.c, maxLoadingSec * 1000);
+              const diplomasFromUrl = await receiveWebRTCData(qrJSON[QRField.WEBRTC_PEER_ID], maxLoadingSec * 1000);
               hideInfo();
               const dimplomasJson = parseJson(diplomasFromUrl);
               try {
@@ -67,7 +67,7 @@ function ScanQR({ className = '', label, type }: Props): React.ReactElement<Prop
               } catch (error) {
                 console.error("Failed to save diplomas:", error);
               }
-              navigate(`diplomas/teacher?t=${qrJSON.t}&student=${qrJSON.p}`);
+              navigate(`diplomas/teacher?t=${qrJSON.t}&student=${qrJSON.p}`);//TODO remove 't=${qrJSON.t}&'
               break;
             case QRAction.LEARN_MODULE:
               if (!isLoggedIn) {

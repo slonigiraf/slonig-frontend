@@ -1,6 +1,7 @@
 // Copyright 2021-2022 @slonigiraf/db authors & contributors
 // SPDX-License-Identifier: Apache-2.0
 import { db } from "./db/index.js";
+import type { Agreement } from "./db/Contract.js";
 import type { Letter } from "./db/Letter.js";
 import type { Insurance } from "./db/Insurance.js";
 import type { Signer } from "./db/Signer.js";
@@ -14,7 +15,7 @@ import { isHex, u8aToHex } from '@polkadot/util';
 import { blake2AsHex } from '@polkadot/util-crypto';
 import "dexie-export-import";
 
-export type { Letter, Insurance, Lesson, Pseudonym, Setting, Signer, UsageRight };
+export type { Letter, Insurance, Lesson, Pseudonym, Setting, Signer, UsageRight, Agreement };
 
 export const SettingKey = {
     ACCOUNT: 'account',
@@ -44,6 +45,7 @@ export const QRAction = {
 };
 
 export const QRField = {
+    WEBRTC_PEER_ID: 'c',
     ID: 'i',
     QR_ACTION: 'q',
     QR_SIGNATURE: 's',
@@ -87,6 +89,10 @@ export const getLessons = async (tutor: string, startDate: number | null, endDat
 export const getLetter = async (id: number) => {
     return db.letters.get(id);
 }
+export const getAgreement = async (id: string) => {
+    return db.agreements.get(id);
+}
+
 export const getInsurance = async (id: number) => {
     return db.insurances.get(id);
 }
@@ -132,7 +138,7 @@ export const syncDB = async (data: string, password: string) => {
     const json = JSON.parse(data);
     //letters
     const letters = getDBObjectsFromJson(json, "letters");
-    letters.map((v: Letter) => storeLetter(v));
+    letters.map((v: Letter) => putLetter(v));
     //insurances
     const insurances = getDBObjectsFromJson(json, "insurances");
     insurances.map((v: Insurance) => storeInsurance(v));
@@ -174,11 +180,18 @@ export const setLastUsedLetterNumber = async (publicKey: string, lastUsed: numbe
     await db.signers.where({ publicKey: publicKey }).modify((v: Signer) => v.lastLetterNumber = lastUsed);
 }
 
-export const storeLetter = async (letter: Letter) => {
-    const lessonKey = letter.lesson ?? '';
-    const sameLetter = await getLetterByLessonIdAndSignOverReceipt(lessonKey, letter.signOverReceipt);
-    if (sameLetter === undefined) {
-        await db.letters.add(letter);
+export const updateLetterReexaminingCount = async (signOverReceipt: string, time: number) => {
+    const letter: Letter | undefined = await getLetterByLessonIdAndSignOverReceipt('', signOverReceipt);
+    if(letter){
+        const updatedLetter: Letter = {...letter, lastReexamined: time};
+        putLetter(updatedLetter);
+    }
+}
+export const cancelLetter = async (signOverReceipt: string, time: number) => {
+    const letter: Letter | undefined = await getLetterByLessonIdAndSignOverReceipt('', signOverReceipt);
+    if(letter){
+        const updatedLetter: Letter = {...letter, lastReexamined: time, valid: false};
+        putLetter(updatedLetter);
     }
 }
 
@@ -259,12 +272,13 @@ export const storeLesson = async (tutorPublicKeyHex: string, qrJSON: any, webRTC
                 signOverPrivateData: '',
                 signOverReceipt: '',
             };
-            return await storeLetter(letter);
+            return await putLetter(letter);
         }));
 
         await Promise.all(webRTCJSON.reexamine.map(async (item: string[]) => {
             const insurance: Insurance = {
                 created: now,
+                lastReexamined: now,
                 valid: true,
                 lesson: lesson.id,
                 wasSkipped: false,
@@ -296,17 +310,18 @@ export const updateLesson = async (lesson: Lesson) => {
     }
 }
 
+export const putAgreement = async (agreement: Agreement) => {
+    await db.agreements.put(agreement);
+}
+
+export const putLetter = async (letter: Letter) => {
+    await db.letters.put(letter);
+}
+
 export const updateInsurance = async (insurance: Insurance) => {
     const sameItem = await db.insurances.get({ id: insurance.id });
     if (sameItem !== undefined && insurance.id) {
         await db.insurances.update(insurance.id, insurance);
-    }
-}
-
-export const updateLetter = async (letter: Letter) => {
-    const sameItem = await db.letters.get({ id: letter.id });
-    if (sameItem !== undefined && letter.id) {
-        await db.letters.update(letter.id, letter);
     }
 }
 
@@ -430,7 +445,7 @@ export const createAndStoreLetter = async (data: string[]) => {
         signOverPrivateData: refereeSignOverPrivateData,
         signOverReceipt: refereeSignOverReceipt
     };
-    await storeLetter(letter);
+    await putLetter(letter);
 }
 
 export const storeInsurances = async (jsonData: any) => {
@@ -541,17 +556,8 @@ export function serializeLetter(letter: Letter): string {
 * @returns The Letter object parsed from the JSON string.
 * @throws Will throw an error if the JSON is invalid or missing required fields.
 */
-export function deserializeLetter(jsonString: string, workerId: string, genesis: string): Letter {
-    let parsed: any;
-
-    try {
-        parsed = JSON.parse(jsonString);
-    } catch (error) {
-        throw new Error('Invalid JSON string provided.');
-    }
-
-    // Extract only the required fields
-    const {
+export function deserializeLetter(data: string, workerId: string, genesis: string): Letter {
+    const [
         created,
         knowledgeId,
         cid,
@@ -562,52 +568,22 @@ export function deserializeLetter(jsonString: string, workerId: string, genesis:
         amount,
         signOverPrivateData,
         signOverReceipt,
-    } = parsed;
+    ] = data.split(',');
 
-    // Validate each field
-    if (typeof created !== 'number') {
-        throw new Error('Invalid or missing "created" field.');
-    }
-    if (typeof knowledgeId !== 'string') {
-        throw new Error('Invalid or missing "knowledgeId" field.');
-    }
-    if (typeof cid !== 'string') {
-        throw new Error('Invalid or missing "cid" field.');
-    }
-    if (typeof letterNumber !== 'number') {
-        throw new Error('Invalid or missing "letterNumber" field.');
-    }
-    if (typeof block !== 'string') {
-        throw new Error('Invalid or missing "block" field.');
-    }
-    if (typeof referee !== 'string') {
-        throw new Error('Invalid or missing "referee" field.');
-    }
-    if (typeof worker !== 'string') {
-        throw new Error('Invalid or missing "worker" field.');
-    }
-    if (typeof amount !== 'string') {
-        throw new Error('Invalid or missing "amount" field.');
-    }
-    if (typeof signOverPrivateData !== 'string') {
-        throw new Error('Invalid or missing "signOverPrivateData" field.');
-    }
-    if (typeof signOverReceipt !== 'string') {
-        throw new Error('Invalid or missing "signOverReceipt" field.');
-    }
+    const timeStamp = parseInt(created,10);
 
     const result: Letter = {
-        created: created,
+        created: timeStamp,
         valid: true,
         reexamCount: 0,
-        lastReexamined: created,
+        lastReexamined: timeStamp,
         lesson: '',
         wasSkipped: false,
         workerId,
         knowledgeId,
         cid,
         genesis,
-        letterNumber,
+        letterNumber: parseInt(letterNumber,10),
         block,
         referee,
         worker,
