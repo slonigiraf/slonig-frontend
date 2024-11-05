@@ -79,7 +79,7 @@ function LessonResults({ className = '', lesson, updateAndStoreLesson, onClose }
     if(countOfValidLetters !== null && countOfDiscussedInsurances !== null){
       setProcessing(false);
       if(countOfValidLetters + countOfDiscussedInsurances === 0 ){
-          // onClose(); //THIS causes infinite rerender
+          onClose();
       }
     } else{ 
       setProcessing(true);

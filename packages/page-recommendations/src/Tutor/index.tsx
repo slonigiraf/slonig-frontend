@@ -192,7 +192,7 @@ function Tutor({ className = '' }: Props): React.ReactElement<Props> {
           }
         }
         if (lesson.learnStep === lesson.toLearnCount && lesson.reexamineStep === lesson.toReexamineCount) {
-          onShowResults(lesson);
+          setResultsShown(true);
         }
       }
     }
@@ -206,6 +206,7 @@ function Tutor({ className = '' }: Props): React.ReactElement<Props> {
     setLesson(null);
   }, [deleteSetting, setLesson]);
 
+  console.error("areResultsShown: " + areResultsShown)
   const onCloseResults = useCallback(() => {
     setResultsShown(false);
     onCloseTutoring();
