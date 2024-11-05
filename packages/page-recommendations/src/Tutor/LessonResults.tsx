@@ -73,9 +73,6 @@ function LessonResults({ className = '', lesson, updateAndStoreLesson, onClose }
   const [processing, setProcessing] = useState(false);
 
   useEffect(() => {
-    console.log("countOfValidLetters: "+countOfValidLetters);
-    console.log("countOfDiscussedInsurances: "+countOfDiscussedInsurances);
-
     if(countOfValidLetters !== null && countOfDiscussedInsurances !== null){
       setProcessing(false);
       if(countOfValidLetters + countOfDiscussedInsurances === 0 ){
