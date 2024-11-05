@@ -159,15 +159,16 @@ function Tutor({ className = '' }: Props): React.ReactElement<Props> {
     [updateLearned, letterToIssue, putLetter]
   );
 
-  const onResumeTutoring = (lesson: Lesson): void => {
+  const onResumeTutoring = useCallback((lesson: Lesson): void => {
     storeSetting(SettingKey.LESSON, lesson.id);
     setLesson(lesson);
-  }
-  const onShowResults = async (lesson: Lesson) => {
+  }, [storeSetting, setLesson]);
+
+  const onShowResults = useCallback(async (lesson: Lesson) => {
     storeSetting(SettingKey.LESSON, lesson.id);
     setLesson(lesson);
     setResultsShown(true);
-  }
+  },[storeSetting, setLesson, setResultsShown]);
 
   useEffect(() => {
     async function onLessonUpdate() {
@@ -206,7 +207,6 @@ function Tutor({ className = '' }: Props): React.ReactElement<Props> {
     setLesson(null);
   }, [deleteSetting, setLesson]);
 
-  console.error("areResultsShown: " + areResultsShown)
   const onCloseResults = useCallback(() => {
     setResultsShown(false);
     onCloseTutoring();
