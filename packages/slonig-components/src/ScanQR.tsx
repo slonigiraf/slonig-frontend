@@ -23,13 +23,13 @@ function ScanQR({ className = '', label, type }: Props): React.ReactElement<Prop
   const [isQROpen, toggleQR] = useToggle();
   const { setIsTransferOpen, setRecipientId } = useTokenTransfer();
   const navigate = useNavigate();
-  const { isLoggedIn } = useLoginContext();
+  const { isLoggedIn, setLoginIsRequired } = useLoginContext();
 
   const scan = useCallback(() => {
     if (isLoggedIn) {
       toggleQR();
     } else {
-      showInfo(t('Please log in first'), 'error');
+      setLoginIsRequired(true);
     }
   }, [isLoggedIn, toggleQR]);
 
