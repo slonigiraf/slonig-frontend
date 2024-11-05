@@ -61,7 +61,7 @@ function Tutor({ className = '' }: Props): React.ReactElement<Props> {
       }
     }
     fetchLesson();
-  }, [])
+  }, [getSetting, getLesson, setLesson])
 
   useEffect(() => {
     if (lesson?.id) {
@@ -74,7 +74,7 @@ function Tutor({ className = '' }: Props): React.ReactElement<Props> {
       };
       fetchLetterIds();
     }
-  }, [lesson?.id]);
+  }, [lesson?.id, getLettersByLessonId, setLetterIds]);
 
   useEffect(() => {
     if (lesson?.id) {
@@ -87,7 +87,7 @@ function Tutor({ className = '' }: Props): React.ReactElement<Props> {
       };
       fetchInsuranceIds();
     }
-  }, [lesson?.id]);
+  }, [lesson?.id, getInsurancesByLessonId, setInsuranceIds]);
 
   // Fetch skill data and set teaching algorithm
   useEffect(() => {
@@ -105,8 +105,9 @@ function Tutor({ className = '' }: Props): React.ReactElement<Props> {
         }
       }
     }
-    fetchData()
-  }, [ipfs, letterToIssue, studentName])
+    fetchData();
+  }, [ipfs, isIpfsReady, letterToIssue, studentName, 
+    getIPFSDataFromContentID, parseJson, setTeachingAlgorithm])
 
   // Fetch student name
   useEffect(() => {
@@ -118,8 +119,8 @@ function Tutor({ className = '' }: Props): React.ReactElement<Props> {
         }
       }
     }
-    fetchStudentName()
-  }, [lesson])
+    fetchStudentName();
+  }, [lesson?.student, getPseudonym, setStudentName])
 
   // Fetch days valid
 
@@ -134,11 +135,11 @@ function Tutor({ className = '' }: Props): React.ReactElement<Props> {
   }, [lesson, updateAndStoreLesson]);
 
   const updateLearned = useCallback(async (): Promise<void> => {
-    if (letterIds.length > 0 && lesson) {
+    if (lesson && lesson.toLearnCount > lesson.learnStep) {
       const updatedLesson = { ...lesson, learnStep: lesson.learnStep + 1 };
       updateAndStoreLesson(updatedLesson);
     }
-  }, [letterIds, lesson, updateAndStoreLesson]);
+  }, [lesson, updateAndStoreLesson]);
 
   const updateTutoring = useCallback(
     async (stage: string) => {
@@ -155,9 +156,7 @@ function Tutor({ className = '' }: Props): React.ReactElement<Props> {
         }
       }
     },
-    [
-      updateLearned, letterToIssue, putLetter
-    ]
+    [updateLearned, letterToIssue, putLetter]
   );
 
   const onResumeTutoring = (lesson: Lesson): void => {
@@ -197,18 +196,20 @@ function Tutor({ className = '' }: Props): React.ReactElement<Props> {
         }
       }
     }
-    onLessonUpdate()
-  }, [lesson, letterIds, insuranceIds, studentName, areResultsShown])
+    onLessonUpdate();
+  }, [lesson, letterIds, insuranceIds, studentName, areResultsShown, 
+    setReexamined, getLetter, setLetterToIssue, getInsurance,
+    setInsuranceToReexamine,onShowResults])
 
   const onCloseTutoring = useCallback(async () => {
     await deleteSetting(SettingKey.LESSON);
     setLesson(null);
-  }, []);
+  }, [deleteSetting, setLesson]);
 
   const onCloseResults = useCallback(() => {
     setResultsShown(false);
     onCloseTutoring();
-  }, []);
+  }, [setResultsShown, onCloseTutoring]);
 
   const publicKeyHex = currentPair ? u8aToHex(currentPair.publicKey) : "";
   const name = nameFromKeyringPair(currentPair);
