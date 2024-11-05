@@ -286,7 +286,7 @@ function SkillQR({ className = '', id, cid, type, selectedItems, isLearningReque
           }
         </>
       )}
-      {isLoggedIn && !shouldRender && <LoginButton label={t('Log in')} />}
+      {isLoggedIn && !shouldRender && <LoginButton />}
     </>
   );
 }

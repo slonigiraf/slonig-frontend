@@ -383,7 +383,7 @@ function Overview({ className = '', onStatusChange }: Props): React.ReactElement
         }
       </>
       }
-      <LoginButton label={t('Log in')} />
+      <LoginButton />
     </StyledDiv>
   );
 }

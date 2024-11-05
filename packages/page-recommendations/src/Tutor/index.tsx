@@ -264,7 +264,7 @@ function Tutor({ className = '' }: Props): React.ReactElement<Props> {
           }
         </>
       }
-      <LoginButton label={t('Log in')} />
+      <LoginButton />
     </div>
   );
 }

@@ -1,26 +1,34 @@
 import React, { useCallback, useEffect } from 'react';
 import { Button } from '@polkadot/react-components';
 import { useLoginContext } from './LoginContext.js';
+import { styled } from '@polkadot/react-components';
+import { useTranslation } from './translate.js';
 
-interface Props {
-    label: string;
-}
-
-function LoginButton({ label }: Props): React.ReactElement<Props> {
+function LoginButton(): React.ReactElement {
     const { isLoggedIn, setLoginIsRequired } = useLoginContext();
+    const { t } = useTranslation();
     const login = useCallback(() => { setLoginIsRequired(true) }, [setLoginIsRequired]);
     useEffect(() => {
-        if(!isLoggedIn){
+        if (!isLoggedIn) {
             setLoginIsRequired(true);
         }
     }, [isLoggedIn, setLoginIsRequired]);
     return (
-        isLoggedIn ? <></> : <Button
-            icon='right-to-bracket'
-            label={label}
-            onClick={login}
-        />
+        isLoggedIn ? <></> :
+            <StyledDiv>
+                <Button
+                    icon='right-to-bracket'
+                    label={t('Sign Up for Slonig')}
+                    onClick={login}
+                />
+            </StyledDiv>
     );
 }
-
+const StyledDiv = styled.div`
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  width: 100%;
+  margin-top: '1rem'
+`;
 export default React.memo(LoginButton);

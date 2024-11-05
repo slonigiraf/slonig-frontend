@@ -47,7 +47,7 @@ function Student({ className = '' }: Props): React.ReactElement<Props> {
           <LessonResultReceiver />
           <LettersList worker={u8aToHex(currentPair?.publicKey)} currentPair={currentPair} />
         </>}
-        <LoginButton label={t('Log in')} />
+        <LoginButton />
       </div>
     </div>
   )
