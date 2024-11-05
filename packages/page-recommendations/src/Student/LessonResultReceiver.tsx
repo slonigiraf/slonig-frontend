@@ -10,17 +10,10 @@ import { encodeAddress } from '@polkadot/keyring';
 import { Agreement } from '@slonigiraf/db';
 import { useLocation, useNavigate } from 'react-router-dom';
 
-interface Props {
-  className?: string;
-}
-
-function LessonResultReceiver({ className = '' }: Props): React.ReactElement<Props> {
+function LessonResultReceiver(): React.ReactElement {
   const location = useLocation();
   const queryParams = new URLSearchParams(location.search);
   const webRTCPeerId = queryParams.get(QRField.WEBRTC_PEER_ID);
-
-  if (!webRTCPeerId) return <></>;
-
   const { t } = useTranslation();
   const { isTransferOpen, setIsTransferOpen, setRecipientId, setAmount,
     setModalCaption, setButtonCaption, isTransferReady, transferSuccess } = useTokenTransfer();
@@ -45,11 +38,13 @@ function LessonResultReceiver({ className = '' }: Props): React.ReactElement<Pro
 
   useEffect(() => {
     const fetchLesson = async () => {
-      const maxLoadingSec = 60;
-      showInfo(t('Loading'), 'info', maxLoadingSec);
-      const webRTCData = await receiveWebRTCData(webRTCPeerId, maxLoadingSec * 1000);
-      hideInfo();
-      setLessonResultJson(parseJson(webRTCData));
+      if(webRTCPeerId){
+        const maxLoadingSec = 60;
+        showInfo(t('Loading'), 'info', maxLoadingSec);
+        const webRTCData = await receiveWebRTCData(webRTCPeerId, maxLoadingSec * 1000);
+        hideInfo();
+        setLessonResultJson(parseJson(webRTCData));
+      }
     };
     if (webRTCPeerId && !triedToFetchData) {
       setTriedToFetchData(true);

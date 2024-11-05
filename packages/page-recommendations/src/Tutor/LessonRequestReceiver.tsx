@@ -9,11 +9,10 @@ import { LessonRequest, parseJson, receiveWebRTCData, useInfo, useLoginContext }
 import { u8aToHex } from '@polkadot/util';
 
 interface Props {
-    className?: string;
     setCurrentLesson: (lesson: Lesson) => void;
 }
 
-function LessonRequestReceiver({ className = '', setCurrentLesson }: Props): React.ReactElement<Props> {
+function LessonRequestReceiver({ setCurrentLesson }: Props): React.ReactElement<Props> {
     const location = useLocation();
     const queryParams = new URLSearchParams(location.search);
     const webRTCPeerId = queryParams.get(QRField.WEBRTC_PEER_ID);

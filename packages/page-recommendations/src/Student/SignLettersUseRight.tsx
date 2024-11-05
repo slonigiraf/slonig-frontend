@@ -4,10 +4,10 @@ import BN from 'bn.js';
 import { getDataToSignByWorker } from '@slonigiraf/helpers';
 import type { KeyringPair } from '@polkadot/keyring/types';
 import React, { useEffect, useState } from 'react';
-import { u8aToHex, hexToU8a, u8aWrapBytes } from '@polkadot/util';
-import { nameFromKeyringPair, SenderComponent, CenterQRContainer } from '@slonigiraf/app-slonig-components';
+import { u8aToHex, hexToU8a, u8aWrapBytes, identity } from '@polkadot/util';
+import { nameFromKeyringPair, SenderComponent, CenterQRContainer, InsurancesTransfer } from '@slonigiraf/app-slonig-components';
 import { useTranslation } from '../translate.js';
-import { QRAction, storeLetterUsageRight, Letter } from '@slonigiraf/db';
+import { QRAction, storeLetterUsageRight, Letter, QRField } from '@slonigiraf/db';
 import { keyForCid } from '@slonigiraf/app-slonig-components';
 
 interface Props {
@@ -19,7 +19,6 @@ interface Props {
 }
 function SignLettersUseRight({ className = '', letters, worker, employer, currentPair }: Props): React.ReactElement<Props> {
   const { t } = useTranslation();
-  const [route, setRoute] = useState('');
   const [data, setData] = useState('');
 
   const _onSign =
@@ -55,9 +54,13 @@ function SignLettersUseRight({ className = '', letters, worker, employer, curren
       const signedLetters = await Promise.all(signedLettersPromises);
       const studentName = nameFromKeyringPair(currentPair);
 
-      const jsonLetters = JSON.stringify(signedLetters);
-      setRoute(`diplomas/teacher?student=${worker}&name=${encodeURIComponent(studentName)}&t=${employer}`);
-      setData(jsonLetters);
+      const preparedData: InsurancesTransfer = {
+        identity: worker,
+        name: studentName,
+        insurances: signedLetters,
+        employer: employer,
+      };
+      setData(JSON.stringify(preparedData));
     };
 
   useEffect(
@@ -68,11 +71,11 @@ function SignLettersUseRight({ className = '', letters, worker, employer, curren
 
   const thereAreDiplomas = letters.length > 0;
   
-  const action = {p: worker, n: nameFromKeyringPair(currentPair), q : QRAction.BUY_DIPLOMAS, t : employer};
+  const [action] = useState({[QRField.QR_ACTION] : QRAction.BUY_DIPLOMAS});
 
   return (
     <CenterQRContainer>
-      <SenderComponent data={data} route={route} action={action} textShare={t('Press the link to see diplomas of the student')} isDisabled={!thereAreDiplomas} />
+      <SenderComponent data={data} route={'diplomas/teacher'} action={action} textShare={t('Press the link to see diplomas of the student')} isDisabled={!thereAreDiplomas} />
     </CenterQRContainer>
   );
 

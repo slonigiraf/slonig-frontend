@@ -176,3 +176,15 @@ export interface LessonRequest {
   identity: string;
   tutor: string;
 }
+
+export interface InsurancesTransfer {
+  identity: string,
+  name: string,
+  insurances: string[],
+  employer: string,
+}
+
+export interface Person {
+  identity: string,
+  name: string,
+}

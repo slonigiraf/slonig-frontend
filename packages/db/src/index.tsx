@@ -14,7 +14,7 @@ import { decodeAddress, encodeAddress } from '@polkadot/keyring';
 import { isHex, u8aToHex } from '@polkadot/util';
 import { blake2AsHex } from '@polkadot/util-crypto';
 import "dexie-export-import";
-import { LessonRequest } from "@slonigiraf/app-slonig-components";
+import { InsurancesTransfer, LessonRequest } from "@slonigiraf/app-slonig-components";
 
 export type { Letter, Insurance, Lesson, Pseudonym, Setting, Signer, UsageRight, Agreement };
 
@@ -456,24 +456,12 @@ export const createAndStoreLetter = async (data: string[]) => {
     await putLetter(letter);
 }
 
-export const storeInsurances = async (jsonData: any) => {
-    // Check if jsonData.d is an array and has elements
-    if (Array.isArray(jsonData.d) && jsonData.d.length > 0) {
-        // Get the worker and employer public key hex values from jsonData
-        const workerId = jsonData.p;
-        const employerPublicKeyHex = jsonData.t;
-
-        // Process each insurance data string in reverse order
-        // To match an order how insurances are displayed at student's account
-        for (let i = jsonData.d.length - 1; i >= 0; i--) {
-            const insuranceDataString = jsonData.d[i];
-            // Split the insurance data string into an array
+export const storeInsurances = async (insurancesTransfer: InsurancesTransfer) => {
+    if (Array.isArray(insurancesTransfer.insurances) && insurancesTransfer.insurances.length > 0) {
+        for (let i = insurancesTransfer.insurances.length - 1; i >= 0; i--) {
+            const insuranceDataString = insurancesTransfer.insurances[i];
             const insuranceDataArray = insuranceDataString.split(",");
-
-            // Add worker and employer public key hex to the start of the array
-            insuranceDataArray.unshift(workerId, employerPublicKeyHex);
-
-            // Use createAndStoreInsurance for each insurance
+            insuranceDataArray.unshift(insurancesTransfer.identity, insurancesTransfer.employer);
             await createAndStoreInsurance(insuranceDataArray);
         }
     } else {
