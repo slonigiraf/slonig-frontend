@@ -7,7 +7,7 @@ import { useTranslation } from '../translate.js';
 import { u8aToHex } from '@polkadot/util';
 import { QRWithShareAndCopy, nameFromKeyringPair, getBaseUrl, useLoginContext, LoginButton, CenterQRContainer, Person } from '@slonigiraf/app-slonig-components';
 import { QRAction } from '@slonigiraf/db';
-import InsurancesReceiver from './InsurancesReceiver.jsx';
+import InsurancesReceiver from './InsurancesReceiver.js';
 
 interface Props {
   className?: string;

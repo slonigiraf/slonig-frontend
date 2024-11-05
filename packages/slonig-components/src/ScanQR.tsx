@@ -19,80 +19,76 @@ interface Props {
 
 function ScanQR({ className = '', label, type }: Props): React.ReactElement<Props> {
   const { t } = useTranslation();
-  const { showInfo, hideInfo } = useInfo();
+  const { showInfo } = useInfo();
   const [isQROpen, toggleQR] = useToggle();
   const { setIsTransferOpen, setRecipientId } = useTokenTransfer();
   const navigate = useNavigate();
-  const { currentPair, isLoggedIn } = useLoginContext();
-  const { isIpfsReady } = useIpfsContext();
+  const { isLoggedIn } = useLoginContext();
+
+  const scan = useCallback(() => {
+    if (isLoggedIn) {
+      toggleQR();
+    } else {
+      showInfo(t('Please log in first'), 'error');
+    }
+  }, [isLoggedIn, toggleQR]);
 
   // Process the scanned QR data
   const processQR = useCallback(async (data: string) => {
     toggleQR();
-    if (!isLoggedIn) {
-      showInfo(t('Please log in first'), 'error');
-    } else {
-      try {
-        const qrJSON = JSON.parse(data);
-        // Validate JSON properties
-        if (qrJSON.hasOwnProperty(QRField.QR_ACTION)) {
-          if (!type || (type === qrJSON[QRField.QR_ACTION])) {
-            switch (qrJSON[QRField.QR_ACTION]) {
-              case QRAction.NAVIGATION:
-                navigate(qrJSON[QRField.DATA]);
-                break;
-              case QRAction.TRANSFER:
-                await storePseudonym(qrJSON.p, qrJSON.n);
-                const recipientAddress = qrJSON.p ? encodeAddress(hexToU8a(qrJSON.p)) : "";
-                setRecipientId(recipientAddress);
-                setIsTransferOpen(true);
-                break;
-              case QRAction.ADD_DIPLOMA:
-                navigate(`diplomas?${QRField.WEBRTC_PEER_ID}=${qrJSON[QRField.WEBRTC_PEER_ID]}`);
-                break;
-              case QRAction.BUY_DIPLOMAS:
-                navigate(`diplomas/teacher?${QRField.WEBRTC_PEER_ID}=${qrJSON[QRField.WEBRTC_PEER_ID]}`);
-                break;
-              case QRAction.LEARN_MODULE:
-                navigate(`diplomas/tutor?${QRField.WEBRTC_PEER_ID}=${qrJSON[QRField.WEBRTC_PEER_ID]}`);
-                break;
-              case QRAction.TUTOR_IDENTITY:
-                await storePseudonym(qrJSON.p, qrJSON.n);
-                await storeSetting(SettingKey.TUTOR, qrJSON.p);
-                if (type) {
-                  navigate(`?tutor=${qrJSON.p}`);
-                } else {
-                  navigate(`knowledge?tutor=${qrJSON.p}`);
-                }
-                break;
-              case QRAction.SKILL:
-                const parts = qrJSON.d.split('+');
-                if (parts.length > 1) {
-                  await storePseudonym(parts[2], qrJSON.n);
-                }
-                navigate(qrJSON.d);
-                break;
-              case QRAction.TEACHER_IDENTITY:
-                await storePseudonym(qrJSON.p, qrJSON.n);
-                await storeSetting(SettingKey.TEACHER, qrJSON.p);
-                if (type) {
-                  navigate(`?teacher=${qrJSON.p}`);
-                } else {
-                  navigate(`diplomas?teacher=${qrJSON.p}`);
-                }
-                break;
-              default:
-                console.warn("Unknown QR type:", qrJSON.q);
-            }
-          } else {
-            showInfo(t('Wrong QR type'))
+    try {
+      const qrJSON = JSON.parse(data);
+      // Validate JSON properties
+      if (qrJSON.hasOwnProperty(QRField.QR_ACTION)) {
+        if (!type || (type === qrJSON[QRField.QR_ACTION])) {
+          switch (qrJSON[QRField.QR_ACTION]) {
+            case QRAction.NAVIGATION:
+              navigate(qrJSON[QRField.DATA]);
+              break;
+            case QRAction.TRANSFER:
+              await storePseudonym(qrJSON.p, qrJSON.n);
+              const recipientAddress = qrJSON.p ? encodeAddress(hexToU8a(qrJSON.p)) : "";
+              setRecipientId(recipientAddress);
+              setIsTransferOpen(true);
+              break;
+            case QRAction.ADD_DIPLOMA:
+              navigate(`diplomas?${QRField.WEBRTC_PEER_ID}=${qrJSON[QRField.WEBRTC_PEER_ID]}`);
+              break;
+            case QRAction.BUY_DIPLOMAS:
+              navigate(`diplomas/teacher?${QRField.WEBRTC_PEER_ID}=${qrJSON[QRField.WEBRTC_PEER_ID]}`);
+              break;
+            case QRAction.LEARN_MODULE:
+              navigate(`diplomas/tutor?${QRField.WEBRTC_PEER_ID}=${qrJSON[QRField.WEBRTC_PEER_ID]}`);
+              break;
+            case QRAction.TUTOR_IDENTITY:
+              await storePseudonym(qrJSON.p, qrJSON.n);
+              await storeSetting(SettingKey.TUTOR, qrJSON.p);
+              if (type) {
+                navigate(`?tutor=${qrJSON.p}`);
+              } else {
+                navigate(`knowledge?tutor=${qrJSON.p}`);
+              }
+              break;
+            case QRAction.TEACHER_IDENTITY:
+              await storePseudonym(qrJSON.p, qrJSON.n);
+              await storeSetting(SettingKey.TEACHER, qrJSON.p);
+              if (type) {
+                navigate(`?teacher=${qrJSON.p}`);
+              } else {
+                navigate(`diplomas?teacher=${qrJSON.p}`);
+              }
+              break;
+            default:
+              console.warn("Unknown QR type:", qrJSON.q);
           }
         } else {
-          console.error("Invalid QR data structure.");
+          showInfo(t('Wrong QR type'))
         }
-      } catch (error) {
-        console.error("Error parsing QR data as JSON:", error);
+      } else {
+        console.error("Invalid QR data structure.");
       }
+    } catch (error) {
+      console.error("Error parsing QR data as JSON:", error);
     }
   }, [navigate, toggleQR, setIsTransferOpen]);
 
@@ -108,8 +104,7 @@ function ScanQR({ className = '', label, type }: Props): React.ReactElement<Prop
       <ButtonWithLabelBelow
         icon='qrcode'
         label={label}
-        onClick={toggleQR}
-        isDisabled={!isIpfsReady}
+        onClick={scan}
       />
       {isQROpen && (
         <Modal
