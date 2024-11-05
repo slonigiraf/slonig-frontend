@@ -31,7 +31,7 @@ function ScanQR({ className = '', label, type }: Props): React.ReactElement<Prop
     } else {
       setLoginIsRequired(true);
     }
-  }, [isLoggedIn, toggleQR]);
+  }, [isLoggedIn, setLoginIsRequired, toggleQR]);
 
   // Process the scanned QR data
   const processQR = useCallback(async (data: string) => {

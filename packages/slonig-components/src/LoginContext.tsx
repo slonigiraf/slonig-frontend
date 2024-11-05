@@ -126,7 +126,7 @@ export const LoginProvider: React.FC<LoginProviderProps> = ({ children }) => {
             />
           }</>
       )}
-      {isReady && !isLoginRequired && children}
+      {children}
     </LoginContext.Provider>
   );
 };

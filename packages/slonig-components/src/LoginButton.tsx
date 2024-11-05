@@ -1,4 +1,4 @@
-import React, { useCallback } from 'react';
+import React, { useCallback, useEffect } from 'react';
 import { Button } from '@polkadot/react-components';
 import { useLoginContext } from './LoginContext.js';
 
@@ -8,12 +8,17 @@ interface Props {
 
 function LoginButton({ label }: Props): React.ReactElement<Props> {
     const { isLoggedIn, setLoginIsRequired } = useLoginContext();
-    const _login = useCallback(() => { setLoginIsRequired(true) }, [setLoginIsRequired]);
+    const login = useCallback(() => { setLoginIsRequired(true) }, [setLoginIsRequired]);
+    useEffect(() => {
+        if(!isLoggedIn){
+            setLoginIsRequired(true);
+        }
+    }, [isLoggedIn, setLoginIsRequired]);
     return (
         isLoggedIn ? <></> : <Button
             icon='right-to-bracket'
             label={label}
-            onClick={_login}
+            onClick={login}
         />
     );
 }
