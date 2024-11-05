@@ -21,9 +21,6 @@ function Tutor({ className = '' }: Props): React.ReactElement<Props> {
   // Initialize api, ipfs and translation
   const { ipfs, isIpfsReady } = useIpfsContext();
   const { t } = useTranslation();
-  const [lessonId, setLessonId] = useState<string | null>(null);
-
-  // Initialize account
   const { currentPair, isLoggedIn } = useLoginContext();
 
   const [insuranceToReexamine, setInsuranceToReexamine] = useState<Insurance | null>(null);
@@ -54,31 +51,22 @@ function Tutor({ className = '' }: Props): React.ReactElement<Props> {
 
   // Fetch required info from DB about current lesson, letters to issue and insurances to reexamine
   useEffect(() => {
-    async function fetchLessonId() {
-      const lessonId = await getSetting(SettingKey.LESSON);
-      if (lessonId !== undefined) {
-        setLessonId(lessonId);
-      } else {
-        setLessonId(null);
-      }
-    }
-    fetchLessonId();
-  }, [])
-
-  useEffect(() => {
     async function fetchLesson() {
+      const lessonId = await getSetting(SettingKey.LESSON);
       if (lessonId) {
         const fetchedLesson = await getLesson(lessonId);
-        setLesson(fetchedLesson || null); // Set lesson or null if not found
+        setLesson(fetchedLesson || null);
+      } else {
+        setLesson(null);
       }
     }
     fetchLesson();
-  }, [lessonId]);
+  }, [])
 
   useEffect(() => {
-    if (lessonId) {
+    if (lesson?.id) {
       const fetchLetterIds = async () => {
-        const fetchedLetters = await getLettersByLessonId(lessonId);
+        const fetchedLetters = await getLettersByLessonId(lesson.id);
         if (fetchedLetters) {
           const ids = fetchedLetters.map(letter => letter.id).filter(id => id !== undefined);
           setLetterIds(ids);
@@ -86,12 +74,12 @@ function Tutor({ className = '' }: Props): React.ReactElement<Props> {
       };
       fetchLetterIds();
     }
-  }, [lessonId]);
+  }, [lesson?.id]);
 
   useEffect(() => {
-    if (lessonId) {
+    if (lesson?.id) {
       const fetchInsuranceIds = async () => {
-        const fetchedInsurances = await getInsurancesByLessonId(lessonId);
+        const fetchedInsurances = await getInsurancesByLessonId(lesson?.id);
         if (fetchedInsurances) {
           const ids = fetchedInsurances.map(insurance => insurance.id).filter(id => id !== undefined);
           setInsuranceIds(ids);
@@ -99,7 +87,7 @@ function Tutor({ className = '' }: Props): React.ReactElement<Props> {
       };
       fetchInsuranceIds();
     }
-  }, [lessonId]);
+  }, [lesson?.id]);
 
   // Fetch skill data and set teaching algorithm
   useEffect(() => {
@@ -174,7 +162,7 @@ function Tutor({ className = '' }: Props): React.ReactElement<Props> {
 
   const onResumeTutoring = (lesson: Lesson): void => {
     storeSetting(SettingKey.LESSON, lesson.id);
-    setLessonId(lesson.id);
+    setLesson(lesson);
   }
   const onShowResults = async (lesson: Lesson) => {
     storeSetting(SettingKey.LESSON, lesson.id);
@@ -214,7 +202,6 @@ function Tutor({ className = '' }: Props): React.ReactElement<Props> {
 
   const onCloseTutoring = useCallback(async () => {
     await deleteSetting(SettingKey.LESSON);
-    setLessonId(null);
     setLesson(null);
   }, []);
 
@@ -256,7 +243,7 @@ function Tutor({ className = '' }: Props): React.ReactElement<Props> {
       {
         isLoggedIn &&
         <>
-          <LessonRequestReceiver setCurrentLessonId={setLessonId} />
+          <LessonRequestReceiver setCurrentLesson={setLesson} />
           {lesson == null ?
             <>
               <CenterQRContainer>

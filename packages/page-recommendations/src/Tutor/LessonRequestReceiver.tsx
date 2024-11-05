@@ -1,7 +1,7 @@
 // Copyright 2021-2022 @slonigiraf/app-recommendations authors & contributors
 // SPDX-License-Identifier: Apache-2.0
 
-import { QRField, storeLesson, storePseudonym } from '@slonigiraf/db';
+import { getLesson, Lesson, QRField, storeLesson, storePseudonym } from '@slonigiraf/db';
 import React, { useEffect, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { useTranslation } from '../translate.js';
@@ -10,10 +10,10 @@ import { u8aToHex } from '@polkadot/util';
 
 interface Props {
     className?: string;
-    setCurrentLessonId: (id: string) => void;
+    setCurrentLesson: (lesson: Lesson) => void;
 }
 
-function LessonRequestReceiver({ className = '', setCurrentLessonId }: Props): React.ReactElement<Props> {
+function LessonRequestReceiver({ className = '', setCurrentLesson }: Props): React.ReactElement<Props> {
     const location = useLocation();
     const queryParams = new URLSearchParams(location.search);
     const webRTCPeerId = queryParams.get(QRField.WEBRTC_PEER_ID);
@@ -57,8 +57,11 @@ function LessonRequestReceiver({ className = '', setCurrentLessonId }: Props): R
             if (lessonRequest) {
                 await storePseudonym(lessonRequest.identity, lessonRequest.name);
                 await storeLesson(lessonRequest);
-                setCurrentLessonId(lessonRequest.lesson);
                 navigate('', { replace: true });
+                const lesson = await getLesson(lessonRequest.lesson);
+                if(lesson){
+                    setCurrentLesson(lesson);
+                }
             }
         };
         saveLesson();
