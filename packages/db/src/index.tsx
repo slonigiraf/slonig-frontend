@@ -264,7 +264,7 @@ export const storeLesson = async (lessonRequest: LessonRequest) => {
             const letter: Letter = {
                 created: now,
                 valid: false,
-                reexamCount: 0,
+                examCount: 0,
                 lastExamined: now,
                 lesson: lesson.id,
                 workerId: lesson.student,
@@ -435,7 +435,7 @@ export const createAndStoreLetter = async (data: string[]) => {
     const letter: Letter = {
         created: now,
         valid: true,
-        reexamCount: 0,
+        examCount: 1,
         lastExamined: now,
         lesson: '',
         workerId: workerId,
@@ -567,7 +567,7 @@ export function deserializeLetter(data: string, workerId: string, genesis: strin
     const result: Letter = {
         created: timeStamp,
         valid: true,
-        reexamCount: 0,
+        examCount: 1,
         lastExamined: timeStamp,
         lesson: '',
         workerId,
