@@ -4,7 +4,7 @@ import { ExerciseList } from '@slonigiraf/app-laws';
 import ChatSimulation from './ChatSimulation.js';
 import { styled } from '@polkadot/react-components';
 
-class TeachingAlgorithm extends Algorithm {
+class TutoringAlgorithm extends Algorithm {
     constructor(t: any, studentName: string | null, skillJson: any, studentUsesSlonigFirstTime: boolean) {
         super();
         const questions = skillJson ? skillJson.q : [];
@@ -311,4 +311,4 @@ const StyledDiv = styled.div`
   width: 100%;
   align-items: center;
 `;
-export { TeachingAlgorithm };
+export { TutoringAlgorithm };

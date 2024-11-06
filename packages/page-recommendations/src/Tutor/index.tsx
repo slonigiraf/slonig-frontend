@@ -6,7 +6,7 @@ import { u8aToHex } from '@polkadot/util';
 import { QRWithShareAndCopy, getBaseUrl, getIPFSDataFromContentID, parseJson, useIpfsContext, nameFromKeyringPair, useLoginContext, LoginButton, CenterQRContainer } from '@slonigiraf/app-slonig-components';
 import { Letter, Lesson, Insurance, getPseudonym, getLesson, getLettersByLessonId, getInsurancesByLessonId, deleteSetting, getSetting, storeSetting, updateLesson, putLetter, getLetter, getInsurance, QRAction, SettingKey } from '@slonigiraf/db';
 import Reexamine from './Reexamine.js';
-import { TeachingAlgorithm } from './TeachingAlgorithm.js';
+import { TutoringAlgorithm } from './TutoringAlgorithm.js';
 import DoInstructions from './DoInstructions.js';
 import { useTranslation } from '../translate.js';
 import LessonsList from './LessonsList.js';
@@ -28,7 +28,7 @@ function Tutor({ className = '' }: Props): React.ReactElement<Props> {
 
   // Store progress state
   const [reexamined, setReexamined] = useState<boolean>(false);
-  const [teachingAlgorithm, setTeachingAlgorithm] = useState<TeachingAlgorithm | null>(null);
+  const [tutoringAlgorithm, setTutoringAlgorithm] = useState<TutoringAlgorithm | null>(null);
 
   //   student name
   const [studentName, setStudentName] = useState<string | null>(null);
@@ -98,7 +98,7 @@ function Tutor({ className = '' }: Props): React.ReactElement<Props> {
           const skillJson = parseJson(skillContent);
           const studentUsedSlonig = insuranceIds?.length > 0;
           const name = studentName ? studentName : null;
-          setTeachingAlgorithm(new TeachingAlgorithm(t, name, skillJson, !studentUsedSlonig));
+          setTutoringAlgorithm(new TutoringAlgorithm(t, name, skillJson, !studentUsedSlonig));
         }
         catch (e) {
           console.log(e);
@@ -107,7 +107,7 @@ function Tutor({ className = '' }: Props): React.ReactElement<Props> {
     }
     fetchData();
   }, [ipfs, isIpfsReady, letterToIssue, studentName,
-    getIPFSDataFromContentID, parseJson, setTeachingAlgorithm])
+    getIPFSDataFromContentID, parseJson, setTutoringAlgorithm])
 
   // Fetch student name
   useEffect(() => {
@@ -238,7 +238,7 @@ function Tutor({ className = '' }: Props): React.ReactElement<Props> {
       {currentPair && <Reexamine currentPair={currentPair} insurance={insuranceToReexamine} onResult={updateReexamined} studentName={studentName} key={'reexaminine' + lessonReactKey} />}
     </div>
     <div style={reexamined ? {} : { display: 'none' }}>
-      {teachingAlgorithm && <DoInstructions algorithm={teachingAlgorithm} onResult={updateTutoring} key={'learn' + lessonReactKey} />}
+      {tutoringAlgorithm && <DoInstructions algorithm={tutoringAlgorithm} onResult={updateTutoring} key={'learn' + lessonReactKey} />}
     </div>
   </>;
 
