@@ -145,7 +145,7 @@ function Tutor({ className = '' }: Props): React.ReactElement<Props> {
     async (stage: string) => {
       if (letterToIssue) {
         if (stage === 'success' || stage === 'next_skill') {
-          const preparedLetter: Letter = { ...letterToIssue, valid: stage === 'success', lastReexamined: (new Date()).getTime() };
+          const preparedLetter: Letter = { ...letterToIssue, valid: stage === 'success', lastExamined: (new Date()).getTime() };
           await putLetter(preparedLetter);
           updateLearned();
         } else if (stage === 'skip') {

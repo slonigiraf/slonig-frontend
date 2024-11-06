@@ -20,8 +20,8 @@ class SlonigirafDB extends Dexie {
 
   constructor() {
     super("slonigiraf");
-    this.version(36).stores({
-      letters: "++id,created,lastReexamined,lesson,workerId,knowledgeId,cid,referee,signOverReceipt,[lesson+signOverReceipt],[workerId+knowledgeId],[workerId+lesson]",
+    this.version(37).stores({
+      letters: "++id,created,lastExamined,lesson,workerId,knowledgeId,cid,referee,signOverReceipt,[lesson+signOverReceipt],[workerId+knowledgeId],[workerId+lesson]",
       pseudonyms: "&publicKey",
       signers: "&publicKey",
       usageRights: "++id,sign",

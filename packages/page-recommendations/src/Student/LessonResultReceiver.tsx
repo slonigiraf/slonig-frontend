@@ -96,9 +96,9 @@ function LessonResultReceiver(): React.ReactElement {
           }
           if (lessonResultJson?.insurances) {
             lessonResultJson.insurances.forEach(async (insuranceMeta) => {
-              const [signOverReceipt, lastReexamined, valid] = insuranceMeta.split(',');
-              if (signOverReceipt && lastReexamined && valid) {
-                const time = parseInt(lastReexamined, 10);
+              const [signOverReceipt, lastExamined, valid] = insuranceMeta.split(',');
+              if (signOverReceipt && lastExamined && valid) {
+                const time = parseInt(lastExamined, 10);
                 if (valid === '1') {
                   await updateLetterReexaminingCount(signOverReceipt, time);
                 } else {

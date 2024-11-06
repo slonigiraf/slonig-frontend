@@ -70,7 +70,7 @@ function Reexamine({ className = '', currentPair, insurance, onResult, studentNa
       } else if (nextStage.type === 'skip') {
         onResult();
       } else if (nextStage.type === 'success' && insurance != null) {
-        const validInsurance: Insurance = { ...insurance, lastReexamined: (new Date).getTime() };
+        const validInsurance: Insurance = { ...insurance, lastExamined: (new Date).getTime() };
         await updateInsurance(validInsurance);
         onResult();
       } else {

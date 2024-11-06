@@ -184,14 +184,14 @@ export const setLastUsedLetterNumber = async (publicKey: string, lastUsed: numbe
 export const updateLetterReexaminingCount = async (signOverReceipt: string, time: number) => {
     const letter: Letter | undefined = await getLetterByLessonIdAndSignOverReceipt('', signOverReceipt);
     if(letter){
-        const updatedLetter: Letter = {...letter, lastReexamined: time};
+        const updatedLetter: Letter = {...letter, lastExamined: time};
         putLetter(updatedLetter);
     }
 }
 export const cancelLetter = async (signOverReceipt: string, time: number) => {
     const letter: Letter | undefined = await getLetterByLessonIdAndSignOverReceipt('', signOverReceipt);
     if(letter){
-        const updatedLetter: Letter = {...letter, lastReexamined: time, valid: false};
+        const updatedLetter: Letter = {...letter, lastExamined: time, valid: false};
         putLetter(updatedLetter);
     }
 }
@@ -265,7 +265,7 @@ export const storeLesson = async (lessonRequest: LessonRequest) => {
                 created: now,
                 valid: false,
                 reexamCount: 0,
-                lastReexamined: now,
+                lastExamined: now,
                 lesson: lesson.id,
                 workerId: lesson.student,
                 knowledgeId: item[0],
@@ -285,7 +285,7 @@ export const storeLesson = async (lessonRequest: LessonRequest) => {
         await Promise.all(lessonRequest.reexamine.map(async (item: string[]) => {
             const insurance: Insurance = {
                 created: now,
-                lastReexamined: now,
+                lastExamined: now,
                 valid: true,
                 lesson: lesson.id,
                 workerId: lesson.student,
@@ -436,7 +436,7 @@ export const createAndStoreLetter = async (data: string[]) => {
         created: now,
         valid: true,
         reexamCount: 0,
-        lastReexamined: now,
+        lastExamined: now,
         lesson: '',
         workerId: workerId,
         knowledgeId: knowledgeId,
@@ -486,7 +486,7 @@ const createAndStoreInsurance = async (data: string[]) => {
 
     const insurance: Insurance = {
         created: now,
-        lastReexamined: now,
+        lastExamined: now,
         valid: true,
         lesson: '',
         workerId: workerId,
@@ -529,7 +529,7 @@ export const getPseudonym = async (publicKey: string): Promise<string | undefine
 export function serializeLetter(letter: Letter): string {
     // Create an array with values in a specific order
     const serializedArray = [
-        letter.lastReexamined, // It's intentionally done, that first element here is not match the first element in deserializeLetter
+        letter.lastExamined, // It's intentionally done, that first element here is not match the first element in deserializeLetter
         letter.knowledgeId,
         letter.cid,
         letter.letterNumber.toString(),
@@ -568,7 +568,7 @@ export function deserializeLetter(data: string, workerId: string, genesis: strin
         created: timeStamp,
         valid: true,
         reexamCount: 0,
-        lastReexamined: timeStamp,
+        lastExamined: timeStamp,
         lesson: '',
         workerId,
         knowledgeId,

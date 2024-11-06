@@ -191,10 +191,10 @@ function LessonResults({ className = '', lesson, updateAndStoreLesson, onClose }
             if (!insurance.valid) {
               invalidInsurancesCount++;
             }
-            if (insurance.created === insurance.lastReexamined) {
+            if (insurance.created === insurance.lastExamined) {
               skippedInsurancesCount++;
             } else {
-              insuranceData.push(`${insurance.signOverReceipt},${insurance.lastReexamined},${insurance.valid ? '1' : '0'}`);
+              insuranceData.push(`${insurance.signOverReceipt},${insurance.lastExamined},${insurance.valid ? '1' : '0'}`);
             }
           });
 

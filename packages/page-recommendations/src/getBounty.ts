@@ -23,7 +23,7 @@ const errorMessages: Record<ErrorKey, string> = {
 
 const _onBountySuccess = async (insurance: Insurance, t: (key: string, options?: { replace: Record<string, unknown>; } | undefined) => string, onResult: () => void,
     showInfo: (message: string, type?: "error" | "info" | undefined, timeoutSec?: number | undefined) => void) => {
-    const updatedInsurance: Insurance = {...insurance, wasUsed: true, valid: false, lastReexamined: (new Date).getTime()};
+    const updatedInsurance: Insurance = {...insurance, wasUsed: true, valid: false, lastExamined: (new Date).getTime()};
     await updateInsurance(updatedInsurance);
     showInfo(t('Got bounty'));
     onResult();
@@ -32,7 +32,7 @@ const _onBountySuccess = async (insurance: Insurance, t: (key: string, options?:
 const _onBountyFailed = async (insurance: Insurance, error: string, t: (key: string, options?: { replace: Record<string, unknown>; } | undefined) => string, onResult: () => void,
     showInfo: (message: string, type?: "error" | "info" | undefined, timeoutSec?: number | undefined) => void) => {
     const errorMessage = errorMessages[error as ErrorKey] || `${error}`;
-    const updatedInsurance: Insurance = {...insurance, valid: false, lastReexamined: (new Date).getTime()};
+    const updatedInsurance: Insurance = {...insurance, valid: false, lastExamined: (new Date).getTime()};
     await updateInsurance(updatedInsurance);
     showInfo(t(`Didn't get bounty: ${errorMessage}`), 'error', 3);
     onResult();

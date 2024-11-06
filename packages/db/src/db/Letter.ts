@@ -3,7 +3,7 @@ export interface Letter {
   created: number; // timestamp
   valid: boolean,
   reexamCount: number,
-  lastReexamined: number; // timestamp
+  lastExamined: number; // timestamp
   lesson: string;
   workerId: string;
   knowledgeId: string;
