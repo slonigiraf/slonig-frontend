@@ -243,7 +243,6 @@ function LessonResults({ className = '', lesson, updateAndStoreLesson, onClose }
 
           const updatedLetter: Letter = {
             ...letterFromDB,
-            examCount: 1,
             genesis: genesisU8.toHex(),
             letterNumber: letterId,
             block: diplomaBlockNumber.toString(),

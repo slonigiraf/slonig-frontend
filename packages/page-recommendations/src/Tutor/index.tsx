@@ -106,7 +106,7 @@ function Tutor({ className = '' }: Props): React.ReactElement<Props> {
       }
     }
     fetchData();
-  }, [ipfs, isIpfsReady, letterToIssue, studentName, 
+  }, [ipfs, isIpfsReady, letterToIssue, studentName,
     getIPFSDataFromContentID, parseJson, setTeachingAlgorithm])
 
   // Fetch student name
@@ -145,7 +145,12 @@ function Tutor({ className = '' }: Props): React.ReactElement<Props> {
     async (stage: string) => {
       if (letterToIssue) {
         if (stage === 'success' || stage === 'next_skill') {
-          const preparedLetter: Letter = { ...letterToIssue, valid: stage === 'success', lastExamined: (new Date()).getTime() };
+          const preparedLetter: Letter = {
+            ...letterToIssue,
+            valid: stage === 'success',
+            lastExamined: (new Date()).getTime(),
+            examCount: letterToIssue.examCount + 1
+          };
           await putLetter(preparedLetter);
           updateLearned();
         } else if (stage === 'skip') {
@@ -165,7 +170,7 @@ function Tutor({ className = '' }: Props): React.ReactElement<Props> {
     storeSetting(SettingKey.LESSON, lesson.id);
     setLesson(lesson);
     setResultsShown(true);
-  },[storeSetting, setLesson, setResultsShown]);
+  }, [storeSetting, setLesson, setResultsShown]);
 
   useEffect(() => {
     async function onLessonUpdate() {
@@ -195,9 +200,9 @@ function Tutor({ className = '' }: Props): React.ReactElement<Props> {
       }
     }
     onLessonUpdate();
-  }, [lesson, letterIds, insuranceIds, studentName, areResultsShown, 
+  }, [lesson, letterIds, insuranceIds, studentName, areResultsShown,
     setReexamined, getLetter, setLetterToIssue, getInsurance,
-    setInsuranceToReexamine,onShowResults])
+    setInsuranceToReexamine, onShowResults])
 
   const onCloseTutoring = useCallback(async () => {
     await deleteSetting(SettingKey.LESSON);
