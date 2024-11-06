@@ -60,10 +60,10 @@ function LessonResults({ className = '', lesson, updateAndStoreLesson, onClose }
   //   student name
   const [studentName, setStudentName] = useState<string | null>(null);
   const [daysInputValue, setDaysInputValue] = useState<string>(lesson ? lesson.dValidity.toString() : "0"); //To allow empty strings
-  const [countOfValidLetters, setCountOfValidLetters] = useState<number|null>(null);
-  const [countOfDiscussedInsurances, setCountOfDiscussedInsurances] = useState<number|null>(null);
-  const [countOfReceivingBonuses, setCountOfReceivingBonuses] = useState<number|null>(null);
-  const [countOfInvalidInsurances, setCountOfInvalidInsurances] = useState<number|null>(null);
+  const [countOfValidLetters, setCountOfValidLetters] = useState<number | null>(null);
+  const [countOfDiscussedInsurances, setCountOfDiscussedInsurances] = useState<number | null>(null);
+  const [countOfReceivingBonuses, setCountOfReceivingBonuses] = useState<number | null>(null);
+  const [countOfInvalidInsurances, setCountOfInvalidInsurances] = useState<number | null>(null);
   const [totalIncomeForBonuses, setTotalIncomeForBonuses] = useState<BN>(BN_ZERO);
   const [diplomaWarrantyAmount, setDiplomaWarrantyAmount] = useState<BN>(BN_ZERO);
   const [totalIncomeForLetters, setTotalIncomeForLetters] = useState<BN>(BN_ZERO);
@@ -73,12 +73,12 @@ function LessonResults({ className = '', lesson, updateAndStoreLesson, onClose }
   const [processing, setProcessing] = useState(false);
 
   useEffect(() => {
-    if(countOfValidLetters !== null && countOfDiscussedInsurances !== null){
+    if (countOfValidLetters !== null && countOfDiscussedInsurances !== null) {
       setProcessing(false);
-      if(countOfValidLetters + countOfDiscussedInsurances === 0 ){
-          onClose();
+      if (countOfValidLetters + countOfDiscussedInsurances === 0) {
+        onClose();
       }
-    } else{ 
+    } else {
       setProcessing(true);
     }
   }, [countOfValidLetters, countOfDiscussedInsurances]);
@@ -258,7 +258,7 @@ function LessonResults({ className = '', lesson, updateAndStoreLesson, onClose }
 
         const agreement = blake2AsHex(JSON.stringify(lesson));
         const lessonResult: LessonResult = {
-          agreement: agreement, 
+          agreement: agreement,
           price: lessonPrice.toString(),
           workerId: lesson.student,
           genesis: genesisU8.toHex(),
@@ -281,96 +281,102 @@ function LessonResults({ className = '', lesson, updateAndStoreLesson, onClose }
 
   return (
     processing ? <Spinner /> :
-    <FullWidthContainer>
-      <StyledCloseButton onClick={onClose}
-        icon='close'
-      />
-      <VerticalCenterItemsContainer>
-        <CenterQRContainer>
-          <h2>{t('Show to the student to send the results')}</h2>
-          <SenderComponent data={data} route={'diplomas'} action={action}
-            textShare={t('Press the link to add the diploma')} onDataSent={onClose}/>
-        </CenterQRContainer>
-        <DiplomaDiv>
-          <Card>
-            <div className="table">
-              <div className="row">
-                <div className="cell"><Icon icon='graduation-cap' /></div>
-                <div className="cell">{lessonName ? <KatexSpan content={lessonName} /> : ''}</div>
+      <StyledModal className={className}
+        header={t('Show to the student to send the results')}
+        onClose={onClose}
+        size='small'>
+        <VerticalCenterItemsContainer>
+          <CenterQRContainer>
+            <SenderComponent data={data} route={'diplomas'} action={action}
+              textShare={t('Press the link to add the diploma')} onDataSent={onClose} />
+          </CenterQRContainer>
+          <DiplomaDiv>
+            <Card>
+              <div className="table">
+                <div className="row">
+                  <div className="cell"><Icon icon='graduation-cap' /></div>
+                  <div className="cell">{lessonName ? <KatexSpan content={lessonName} /> : ''}</div>
+                </div>
+                <div className="row">
+                  <div className="cell"><Icon icon='user' /></div>
+                  <div className="cell">{studentName}</div>
+                </div>
+                <div className="row">
+                  <div className="cell"><Icon icon='dollar' /></div>
+                  <div className="cell">{balanceToSlonString(totalIncomeForLetters)} {tokenSymbol} - {t('lesson price')}</div>
+                </div>
+                <div className="row">
+                  <div className="cell"><Icon icon='trophy' /></div>
+                  <div className="cell">{countOfValidLetters} {t('diplomas prepared')}</div>
+                </div>
+                <div className="row">
+                  <div className="cell"><Icon icon='shield' /></div>
+                  <div className="cell">{balanceToSlonString(diplomaWarrantyAmount)} {tokenSymbol} - {t('warranty')}</div>
+                </div>
+                <div className="row">
+                  <div className="cell"><Icon icon='clock-rotate-left' /></div>
+                  <div className="cell">{lesson ? lesson.dValidity : '0'} {t('days valid')}</div>
+                </div>
+                <div className="row">
+                  <div className="cell"><Icon icon='ban' /></div>
+                  <div className="cell">{countOfInvalidInsurances} {t('of')} {countOfDiscussedInsurances} {t('diplomas invalidated')}</div>
+                </div>
+                <div className="row">
+                  <div className="cell"><Icon icon='money-bill-trend-up' /></div>
+                  <div className="cell">{balanceToSlonString(totalIncomeForBonuses)} {tokenSymbol} - {t('bonuses received')}</div>
+                </div>
+                <div className="row">
+                  <div className="cell"><Button icon='edit' label={t('Edit')} onClick={toggleVisibleDiplomaDetails} /></div>
+                </div>
               </div>
-              <div className="row">
-                <div className="cell"><Icon icon='user' /></div>
-                <div className="cell">{studentName}</div>
-              </div>
-              <div className="row">
-                <div className="cell"><Icon icon='dollar' /></div>
-                <div className="cell">{balanceToSlonString(totalIncomeForLetters)} {tokenSymbol} - {t('lesson price')}</div>
-              </div>
-              <div className="row">
-                <div className="cell"><Icon icon='trophy' /></div>
-                <div className="cell">{countOfValidLetters} {t('diplomas prepared')}</div>
-              </div>
-              <div className="row">
-                <div className="cell"><Icon icon='shield' /></div>
-                <div className="cell">{balanceToSlonString(diplomaWarrantyAmount)} {tokenSymbol} - {t('warranty')}</div>
-              </div>
-              <div className="row">
-                <div className="cell"><Icon icon='clock-rotate-left' /></div>
-                <div className="cell">{lesson ? lesson.dValidity : '0'} {t('days valid')}</div>
-              </div>
-              <div className="row">
-                <div className="cell"><Icon icon='ban' /></div>
-                <div className="cell">{countOfInvalidInsurances} {t('of')} {countOfDiscussedInsurances} {t('diplomas invalidated')}</div>
-              </div>
-              <div className="row">
-                <div className="cell"><Icon icon='money-bill-trend-up' /></div>
-                <div className="cell">{balanceToSlonString(totalIncomeForBonuses)} {tokenSymbol} - {t('bonuses received')}</div>
-              </div>
-              <div className="row">
-                <div className="cell"><Button icon='edit' label={t('Edit')} onClick={toggleVisibleDiplomaDetails} /></div>
-              </div>
-            </div>
-          </Card>
-        </DiplomaDiv>
-      </VerticalCenterItemsContainer>
+            </Card>
+          </DiplomaDiv>
+        </VerticalCenterItemsContainer>
 
-      {visibleDiplomaDetails && <StyledModal
-        className={className}
-        header={`${balanceToSlonString(totalIncomeForLetters)} ${tokenSymbol} - ${t('lesson price')}`}
-        onClose={toggleVisibleDiplomaDetails}
-        size='small'
-      >
-        <Modal.Content>
-          <div className='ui--row'>
-            <InputBalance
-              isZeroable
-              label={t('receive payment for each diploma')}
-              onChange={setDiplomaPrice}
-              defaultValue={lesson ? new BN(lesson.dPrice) : BN_ZERO}
+        {visibleDiplomaDetails && <DetailsModal
+          className={className}
+          header={`${balanceToSlonString(totalIncomeForLetters)} ${tokenSymbol} - ${t('lesson price')}`}
+          onClose={toggleVisibleDiplomaDetails}
+          size='small'
+        >
+          <Modal.Content>
+            <div className='ui--row'>
+              <InputBalance
+                isZeroable
+                label={t('receive payment for each diploma')}
+                onChange={setDiplomaPrice}
+                defaultValue={lesson ? new BN(lesson.dPrice) : BN_ZERO}
+              />
+            </div>
+            <div className='ui--row'>
+              <InputBalance
+                isZeroable
+                label={t('stake for each diploma')}
+                onChange={setAmount}
+                defaultValue={lesson ? new BN(lesson.dWarranty) : BN_ZERO}
+                isError={!lesson || new BN(lesson.dWarranty).eq(BN_ZERO)}
+              />
+            </div>
+            <div className='ui--row'>
+              <Input
+                className='full'
+                label={t('days valid')}
+                onChange={setDaysValid}
+                value={daysInputValue}
+                placeholder={t('Positive number')}
+                isError={!daysInputValue || daysInputValue === "0"}
+              />
+            </div>
+          </Modal.Content>
+          <Modal.Actions>
+            <Button
+              icon='save'
+              label={t('Save and close')}
+              onClick={toggleVisibleDiplomaDetails}
             />
-          </div>
-          <div className='ui--row'>
-            <InputBalance
-              isZeroable
-              label={t('stake for each diploma')}
-              onChange={setAmount}
-              defaultValue={lesson ? new BN(lesson.dWarranty) : BN_ZERO}
-              isError={!lesson || new BN(lesson.dWarranty).eq(BN_ZERO)}
-            />
-          </div>
-          <div className='ui--row'>
-            <Input
-              className='full'
-              label={t('days valid')}
-              onChange={setDaysValid}
-              value={daysInputValue}
-              placeholder={t('Positive number')}
-              isError={!daysInputValue || daysInputValue === "0"}
-            />
-          </div>
-        </Modal.Content>
-      </StyledModal>}
-    </FullWidthContainer>
+          </Modal.Actions>
+        </DetailsModal>}
+      </StyledModal>
   );
 }
 
@@ -431,6 +437,17 @@ export const StyledCloseButton = styled(Button)`
   z-index: 1;
 `;
 const StyledModal = styled(Modal)`
+`;
+const DetailsModal = styled(Modal)`
+  button[data-testid='close-modal'] {
+    opacity: 0;
+    background: transparent;
+    border: none;
+    cursor: pointer;
+  }
+  button[data-testid='close-modal']:focus {
+    outline: none;
+  }
 `;
 export default React.memo(LessonResults);
 

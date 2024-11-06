@@ -250,7 +250,7 @@ export const loadFromSessionStorage = (prefix: string, name: string) => {
   }
 };
 
-export const qrPadding = 5;
+export const qrPadding = 10;
 export const getQrWidth = () => {
   const deviceMaxWidth = window.innerWidth || document.documentElement.clientWidth || document.body.clientWidth;
   const maxWidth = 260;
