@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, ReactNode, useEffect } from 'react';
+import React, { createContext, useContext, useState, ReactNode, useEffect, useCallback } from 'react';
 import { TransferModal } from '@polkadot/react-components';
 import { BN, BN_ZERO } from '@polkadot/util';
 
@@ -37,21 +37,34 @@ interface TokenTransferProviderProps {
 export const TokenTransferProvider: React.FC<TokenTransferProviderProps> = ({ children }) => {
     const [isTransferOpen, setIsTransferOpen] = useState<boolean>(false);
     const [recipientId, setRecipientId] = useState<string>('');
-    const [amount, setAmount] = useState<BN | undefined>(BN_ZERO);
+    const [amount, _setAmount] = useState<BN | undefined>(BN_ZERO);
+    const [isAmountEditable, setIsAmountEditable] = useState(true);
     const [modalCaption, setModalCaption] = useState<string>('');
     const [buttonCaption, setButtonCaption] = useState<string>('');
     const [transferSuccess, setTransferSuccess] = useState<boolean>(false);
     const [isTransferReady, setIsTransferReady] = useState<boolean>(false);
 
+    const setAmount = useCallback((value: BN | undefined) => {
+        setIsAmountEditable(false);
+        _setAmount(value);
+    }, [setIsAmountEditable, _setAmount]);
+
     useEffect(() => {
         setIsTransferReady(true);
-    }, [])
+    }, [setIsTransferReady])
 
+    // Initialize state after use
     useEffect(() => {
         if (isTransferOpen) {
             setTransferSuccess(false);
+        } else {
+            _setAmount(BN_ZERO);
+            setIsAmountEditable(true);
+            setRecipientId('');
+            setModalCaption('');
+            setButtonCaption('');
         }
-    }, [isTransferOpen])
+    }, [isTransferOpen, _setAmount, setIsAmountEditable])
 
     const handleSuccess = () => {
         setTransferSuccess(true);
@@ -81,6 +94,7 @@ export const TokenTransferProvider: React.FC<TokenTransferProviderProps> = ({ ch
                     onSuccess={handleSuccess}
                     recipientId={recipientId}
                     amount={amount}
+                    isAmountEditable={isAmountEditable}
                     modalCaption={modalCaption}
                     buttonCaption={buttonCaption}
                 />

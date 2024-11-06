@@ -30,6 +30,7 @@ interface Props {
   amount?: BN;
   modalCaption?: string;
   buttonCaption?: string;
+  isAmountEditable: boolean;
 }
 
 function isRefcount(accountInfo: AccountInfoWithProviders | AccountInfoWithRefCount): accountInfo is AccountInfoWithRefCount {
@@ -49,7 +50,7 @@ async function checkPhishing(_senderId: string | null, recipientId: string | nul
   ];
 }
 
-function Transfer({ className = '', onClose, onSuccess, recipientId: propRecipientId, senderId: propSenderId, amount: propAmount, modalCaption, buttonCaption }: Props): React.ReactElement<Props> {
+function Transfer({ className = '', onClose, onSuccess, recipientId: propRecipientId, senderId: propSenderId, amount: propAmount, modalCaption, buttonCaption, isAmountEditable=true }: Props): React.ReactElement<Props> {
   const { t } = useTranslation();
   const { api } = useApi();
   const [amount, setAmount] = useState<BN | undefined>(propAmount? propAmount : BN_ZERO);
@@ -156,7 +157,7 @@ function Transfer({ className = '', onClose, onSuccess, recipientId: propRecipie
   return (
     <StyledModal
       className='app--accounts-Modal'
-      header={modalCaption? modalCaption : t('Send funds')}
+      header={modalCaption? modalCaption : t('Send tokens')}
       onClose={onClose}
       size='large'
     >
@@ -214,6 +215,7 @@ function Transfer({ className = '', onClose, onSuccess, recipientId: propRecipie
                     defaultValue={amount}
                     maxValue={maxTransfer}
                     onChange={setAmount}
+                    isDisabled={!isAmountEditable}
                   />
                 </>
               )
@@ -231,7 +233,7 @@ function Transfer({ className = '', onClose, onSuccess, recipientId: propRecipie
           !amountIsLessThanMax
         }
           icon='paper-plane'
-          label={buttonCaption? buttonCaption : t('Make Transfer')}
+          label={buttonCaption? buttonCaption : t('Send tokens')}
           onClick={submitTransfer}
         />
         }

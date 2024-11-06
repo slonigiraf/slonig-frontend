@@ -289,7 +289,7 @@ function LessonResults({ className = '', lesson, updateAndStoreLesson, onClose }
         <CenterQRContainer>
           <h2>{t('Show to the student to send the results')}</h2>
           <SenderComponent data={data} route={'diplomas'} action={action}
-            textShare={t('Press the link to add the diploma')} />
+            textShare={t('Press the link to add the diploma')} onDataSent={onClose}/>
         </CenterQRContainer>
         <DiplomaDiv>
           <Card>

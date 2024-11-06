@@ -13,7 +13,7 @@ import { useLocation, useNavigate } from 'react-router-dom';
 function LessonResultReceiver(): React.ReactElement {
   const location = useLocation();
   const queryParams = new URLSearchParams(location.search);
-  const webRTCPeerId = queryParams.get(QRField.WEBRTC_PEER_ID);
+  const [webRTCPeerId, setWebRTCPeerId] = useState<string|null>(queryParams.get(QRField.WEBRTC_PEER_ID)) ;
   const { t } = useTranslation();
   const { isTransferOpen, setIsTransferOpen, setRecipientId, setAmount,
     setModalCaption, setButtonCaption, isTransferReady, transferSuccess } = useTokenTransfer();
@@ -76,6 +76,14 @@ function LessonResultReceiver(): React.ReactElement {
   }, [lessonResultJson, setAgreement, getAgreement]);
 
   useEffect(() => {
+    if(webRTCPeerId && isTransferReady && !isTransferOpen){
+      setWebRTCPeerId(null);
+      setAgreement(null);
+      navigate(''); // helps to close transfer modal
+    }
+  }, [isTransferReady, isTransferOpen]);
+
+  useEffect(() => {
     async function payOrSaveResults() {
       if (agreement.paid === false && isTransferReady) {
         //pay
@@ -123,7 +131,7 @@ function LessonResultReceiver(): React.ReactElement {
         payOrSaveResults();
       }
     }
-  }, [workerPublicKeyHex, lessonResultJson, agreement, isTransferOpen, isTransferReady,
+  }, [workerPublicKeyHex, lessonResultJson, agreement, isTransferReady,
     setRecipientId, setAmount, setModalCaption, setButtonCaption, setIsTransferOpen,])
 
   useEffect(() => {

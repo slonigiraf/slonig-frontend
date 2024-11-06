@@ -7,9 +7,10 @@ interface SenderComponentProps {
     action: object;
     textShare: string;
     isDisabled?: boolean;
+    onDataSent?: () => void;
 }
 
-const SenderComponent: React.FC<SenderComponentProps> = ({ data, route, action, textShare, isDisabled = false }) => {
+const SenderComponent: React.FC<SenderComponentProps> = ({ data, route, action, textShare, isDisabled = false, onDataSent }) => {
     const [qrCodeText, setQrCodeText] = useState<string>('');
     const [url, setUrl] = useState<string>('');
     const peerRef = useRef<any>(null); // Replace `any` with the appropriate type if available
@@ -45,9 +46,12 @@ const SenderComponent: React.FC<SenderComponentProps> = ({ data, route, action, 
         const handleConnection = (conn: any) => { // Replace `any` with the appropriate type
             connectionRef.current = conn;
 
-            conn.on('open', () => {
+            conn.on('open', async () => {
                 if (conn.open) {
-                    conn.send(dataRef.current);
+                    await conn.send(dataRef.current);
+                    if (typeof onDataSent === 'function') {
+                        onDataSent();
+                    }
                 }
             });
 
