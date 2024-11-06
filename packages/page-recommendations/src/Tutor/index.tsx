@@ -144,14 +144,11 @@ function Tutor({ className = '' }: Props): React.ReactElement<Props> {
   const updateTutoring = useCallback(
     async (stage: string) => {
       if (letterToIssue) {
-        const now = (new Date).getTime();
-        if (stage === 'success') {
-          const preparedLetter: Letter = { ...letterToIssue, valid: true, created: now, lastReexamined: now };
+        if (stage === 'success' || stage === 'next_skill') {
+          const preparedLetter: Letter = { ...letterToIssue, valid: stage === 'success', lastReexamined: (new Date()).getTime() };
           await putLetter(preparedLetter);
           updateLearned();
         } else if (stage === 'skip') {
-          const skippedLetter: Letter = { ...letterToIssue, wasSkipped: true };
-          await putLetter(skippedLetter);
           updateLearned();
         }
       }

@@ -225,9 +225,6 @@ class TeachingAlgorithm extends Algorithm {
             </StyledDiv>
         );
 
-
-
-
         const repeatFromTheBeginning = new AlgorithmStage(
             'begin',
             t('Yes'),
@@ -238,6 +235,12 @@ class TeachingAlgorithm extends Algorithm {
                     { id: 3, text: question1, image: exerciseImage1, sender: 'you', senderName: 'You', comment: t('I can change the exercise a little.') },
                 ]} />
             </StyledDiv>
+        );
+
+        const toNextSkill = new AlgorithmStage(
+            'next_skill',
+            t('Next'),
+            <></>
         );
 
         // Algo linking
@@ -269,6 +272,7 @@ class TeachingAlgorithm extends Algorithm {
         wereTheStudentTasksAndAnswersPerfectToday.setNext([giveInsurance, repeatNextDay]);// End of the algo
         giveInsurance.setPrevious(wereTheStudentTasksAndAnswersPerfectToday);
         repeatNextDay.setPrevious(wereTheStudentTasksAndAnswersPerfectToday);
+        repeatNextDay.setNext([toNextSkill]);
 
         // Fork #0: studentUsesSlonigFirstTime === true -> Fork #1: 'Yes' -> Fork #2: 'Yes' -> Fork #3: 'No'
         askStudentToRepeatTheAnswer.setNext([hasStudentRepeatedTheRightAnswerToExerciseCreatedThemselves]);

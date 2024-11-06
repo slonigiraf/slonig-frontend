@@ -191,7 +191,7 @@ function LessonResults({ className = '', lesson, updateAndStoreLesson, onClose }
             if (!insurance.valid) {
               invalidInsurancesCount++;
             }
-            if (insurance.wasSkipped) {
+            if (insurance.created === insurance.lastReexamined) {
               skippedInsurancesCount++;
             } else {
               insuranceData.push(`${insurance.signOverReceipt},${insurance.lastReexamined},${insurance.valid ? '1' : '0'}`);

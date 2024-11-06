@@ -4,7 +4,6 @@ export interface Insurance {
   lastReexamined: number; // timestamp
   valid: boolean;
   lesson: string;
-  wasSkipped: boolean;
   workerId: string;
   cid: string;
   genesis: string;

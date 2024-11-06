@@ -67,9 +67,7 @@ function Reexamine({ className = '', currentPair, insurance, onResult, studentNa
       setIsButtonClicked(true);
       if (nextStage.type === 'reimburse' && insurance != null) {
         getBounty(insurance, currentPair, api, t, onResult, showInfo);
-      } else if (nextStage.type === 'skip' && insurance != null) {
-        const skippedInsurance: Insurance = { ...insurance, wasSkipped: true };
-        await updateInsurance(skippedInsurance);
+      } else if (nextStage.type === 'skip') {
         onResult();
       } else if (nextStage.type === 'success' && insurance != null) {
         const validInsurance: Insurance = { ...insurance, lastReexamined: (new Date).getTime() };

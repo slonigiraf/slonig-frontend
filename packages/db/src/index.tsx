@@ -267,7 +267,6 @@ export const storeLesson = async (lessonRequest: LessonRequest) => {
                 reexamCount: 0,
                 lastReexamined: now,
                 lesson: lesson.id,
-                wasSkipped: false,
                 workerId: lesson.student,
                 knowledgeId: item[0],
                 cid: item[1],
@@ -289,7 +288,6 @@ export const storeLesson = async (lessonRequest: LessonRequest) => {
                 lastReexamined: now,
                 valid: true,
                 lesson: lesson.id,
-                wasSkipped: false,
                 workerId: lesson.student,
                 cid: item[0],
                 genesis: item[1],
@@ -440,7 +438,6 @@ export const createAndStoreLetter = async (data: string[]) => {
         reexamCount: 0,
         lastReexamined: now,
         lesson: '',
-        wasSkipped: false,
         workerId: workerId,
         knowledgeId: knowledgeId,
         cid: textHash,
@@ -492,7 +489,6 @@ const createAndStoreInsurance = async (data: string[]) => {
         lastReexamined: now,
         valid: true,
         lesson: '',
-        wasSkipped: false,
         workerId: workerId,
         cid: textHash,
         genesis: genesisHex,
@@ -533,7 +529,7 @@ export const getPseudonym = async (publicKey: string): Promise<string | undefine
 export function serializeLetter(letter: Letter): string {
     // Create an array with values in a specific order
     const serializedArray = [
-        letter.created,
+        letter.lastReexamined, // It's intentionally done, that first element here is not match the first element in deserializeLetter
         letter.knowledgeId,
         letter.cid,
         letter.letterNumber.toString(),
@@ -574,7 +570,6 @@ export function deserializeLetter(data: string, workerId: string, genesis: strin
         reexamCount: 0,
         lastReexamined: timeStamp,
         lesson: '',
-        wasSkipped: false,
         workerId,
         knowledgeId,
         cid,
