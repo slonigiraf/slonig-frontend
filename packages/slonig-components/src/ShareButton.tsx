@@ -25,7 +25,7 @@ function ShareButton({ title, text, url, isDisabled = false }: ShareButtonProps)
     return (
         <Button
             icon='paper-plane'
-            label={t('Send')}
+            label={t('Send QR')}
             onClick={handleShare}
             isDisabled={!navigator.share || isDisabled}
         />
