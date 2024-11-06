@@ -14,7 +14,7 @@ import { useApi } from '@polkadot/react-hooks';
 import { parseJson } from '@slonigiraf/app-slonig-components';
 import Editor from './Editor.js';
 import ViewList from './ViewList.js';
-import { useLocation } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { storeSetting, getSetting, storePseudonym, SettingKey } from '@slonigiraf/db';
 import { useLoginContext } from '@slonigiraf/app-slonig-components';
 import { sendCreateAndEditTransaction, sendEditTransaction } from './sendTransaction.js';
@@ -35,17 +35,18 @@ function Edit({ className = '' }: Props): React.ReactElement<Props> {
 
   const location = useLocation();
   const queryParams = new URLSearchParams(location.search);
-  const tutor = queryParams.get("tutor");
-  const tutorName = queryParams.get("name");
+  const tutor = queryParams.get('tutor');
+  const tutorName = queryParams.get('name');
   const defaultTextHexId = '0xfed8e6f01c6c746876d69f7f10f933cdcd849068f6dc2fa26769fc92584492e7';
-  const idFromQuery = tutor ? undefined : queryParams.get("id") || defaultTextHexId;
+  const idFromQuery = tutor ? undefined : queryParams.get('id') || defaultTextHexId;
   const [textHexId, setTextHexId] = useState<string | undefined>(idFromQuery);
+  const navigate = useNavigate();
 
   // Load state changes to session storage
   const sessionPrefix = 'knowledge';
   const [list, setList] = useState<JsonType>(loadFromSessionStorage(sessionPrefix, 'list'));
   const [item, setItem] = useState<JsonType>(loadFromSessionStorage(sessionPrefix, 'item'));
-  const [cidString, setCidString] = useState<string>(loadFromSessionStorage(sessionPrefix, 'cidString') || "");
+  const [cidString, setCidString] = useState<string>(loadFromSessionStorage(sessionPrefix, 'cidString') || '');
   const [lawHexData, setLawHexData] = useState<string>(loadFromSessionStorage(sessionPrefix, 'lawHexData') || "");
   const [amountList, setAmountList] = useState<BN | undefined>(new BN(loadFromSessionStorage(sessionPrefix, 'amountList') || BN_ZERO));
   const [amountItem, setAmountItem] = useState<BN | undefined>(new BN(loadFromSessionStorage(sessionPrefix, 'amountItem') || BN_ZERO));
@@ -53,7 +54,7 @@ function Edit({ className = '' }: Props): React.ReactElement<Props> {
   const [isEditView, setIsEditView] = useState<boolean>(loadFromSessionStorage(sessionPrefix, 'isEditView') || false);
   const [isAddingLink, setIsAddingLink] = useState<boolean>(loadFromSessionStorage(sessionPrefix, 'isAddingLink') || false);
   const [isAddingItem, setIsAddingElement] = useState<boolean>(loadFromSessionStorage(sessionPrefix, 'isAddingItem') || false);
-  const [itemIdHex, setItemIdHex] = useState<string>(loadFromSessionStorage(sessionPrefix, 'itemIdHex') || "");
+  const [itemIdHex, setItemIdHex] = useState<string>(loadFromSessionStorage(sessionPrefix, 'itemIdHex') || '');
 
   // For storing original values
   const [originalList, setOriginalList] = useState<JsonType>(loadFromSessionStorage(sessionPrefix, 'originalList'));
@@ -99,7 +100,7 @@ function Edit({ className = '' }: Props): React.ReactElement<Props> {
           }
         }
         const savedId = await getSetting(SettingKey.KNOWLEDGE);
-        setTextHexId(savedId? savedId : defaultTextHexId);
+        navigate('?id='+(savedId? savedId : defaultTextHexId), { replace: true }); //to remove tutor traces from url
       } else if (idFromQuery) {
         if (idFromQuery !== defaultTextHexId) {
           await storeSetting(SettingKey.KNOWLEDGE, idFromQuery);
