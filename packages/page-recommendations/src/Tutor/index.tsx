@@ -96,7 +96,7 @@ function Tutor({ className = '' }: Props): React.ReactElement<Props> {
         try {
           const skillContent = await getIPFSDataFromContentID(ipfs, letterToIssue.cid);
           const skillJson = parseJson(skillContent);
-          const studentUsedSlonig = insuranceIds?.length > 0;
+          const studentUsedSlonig = insuranceIds?.length > 0 || lesson?.learnStep;
           const name = studentName ? studentName : null;
           setTutoringAlgorithm(new TutoringAlgorithm(t, name, skillJson, !studentUsedSlonig));
         }
@@ -107,7 +107,7 @@ function Tutor({ className = '' }: Props): React.ReactElement<Props> {
     }
     fetchData();
   }, [ipfs, isIpfsReady, letterToIssue, studentName,
-    getIPFSDataFromContentID, parseJson, setTutoringAlgorithm])
+    getIPFSDataFromContentID, parseJson, setTutoringAlgorithm, lesson?.learnStep])
 
   // Fetch student name
   useEffect(() => {
