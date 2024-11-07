@@ -101,6 +101,13 @@ export const InstructionsButtonsGroup = styled.div`
   max-width: 400px;
   margin: 0 auto;
 `;
+export const StyledSpinnerContainer = styled.div`
+  .ui--Spinner{
+    width: 50px;
+    margin-left: 0px;
+    margin-right: 25px;
+  }
+`;
 
 export function useDeveloperSetting(): boolean {
   const [isDeveloper, setDeveloper] = useState<boolean>(false);

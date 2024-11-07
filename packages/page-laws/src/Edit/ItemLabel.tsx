@@ -2,9 +2,9 @@
 // SPDX-License-Identifier: Apache-2.0
 import React, { useEffect, useState } from 'react';
 import { useApi } from '@polkadot/react-hooks';
-import { KatexSpan, getCIDFromBytes, getIPFSDataFromContentID, parseJson } from '@slonigiraf/app-slonig-components';
+import { KatexSpan, StyledSpinnerContainer, getCIDFromBytes, getIPFSDataFromContentID, parseJson } from '@slonigiraf/app-slonig-components';
 import { useIpfsContext } from '@slonigiraf/app-slonig-components';
-import { Button, Icon, Spinner, styled } from '@polkadot/react-components';
+import { Button, Icon, styled, Spinner } from '@polkadot/react-components';
 import DiplomaCheck from './DiplomaCheck.js';
 import { Letter } from '@slonigiraf/db';
 import { ItemWithCID } from '../types.js';
@@ -106,7 +106,7 @@ function ItemLabel({ className = '', id, isText = false, defaultValue = '...', i
     isFetched ?
       <StyledA href={`/#/knowledge?id=${id}`}>{!isSkillItem && icon}{isSkillItem && <DiplomaCheck id={id} cid={cidString} setValidDiplomas={setValidDiplomas} onLoad={() => setLoading(false)}/>}<KatexSpan content={textToDisplay} /></StyledA>
       :
-      <StyledSpinner><Spinner noLabel /></StyledSpinner>;
+      <StyledSpinnerContainer><Spinner noLabel /></StyledSpinnerContainer>;
 
 
   const allowSelection = isReexaminingRequested? validDiplomas.length > 0 : validDiplomas.length === 0;
@@ -123,13 +123,6 @@ function ItemLabel({ className = '', id, isText = false, defaultValue = '...', i
 const StyledA = styled.a`
    font-size: 16px;
    margin: 7px;
-`;
-const StyledSpinner = styled.div`
-  .ui--Spinner{
-    width: 50px;
-    margin-left: 0px;
-    margin-right: 25px;
-  }
 `;
 
 const StyledDiv = styled.div<{ isSelectable: boolean }>`

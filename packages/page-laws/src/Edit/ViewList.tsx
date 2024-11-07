@@ -1,11 +1,11 @@
 import React, { useCallback, useState } from 'react';
-import { KatexSpan, SelectableList } from '@slonigiraf/app-slonig-components';
+import { KatexSpan, SelectableList, StyledSpinnerContainer } from '@slonigiraf/app-slonig-components';
 import ItemLabel from './ItemLabel.js';
 import SkillQR from './SkillQR.js';
 import { useTranslation } from '../translate.js';
 import ExerciseList from './ExerciseList.js';
 import LearnWithAI from './LearnWithAI.js';
-import { Toggle } from '@polkadot/react-components';
+import { Toggle, Spinner } from '@polkadot/react-components';
 import { ItemWithCID } from '../types.js';
 import { LawType } from '@slonigiraf/db';
 
@@ -55,8 +55,7 @@ function ViewList({ className = '', id, cidString, list }: Props): React.ReactEl
   }, [setIsThereAnythingToLearn, setIsThereAnythingToReexamine]);
 
   const isSelectionAllowed = true;
-
-  return list == null ? <></> : (
+  return list == null ? <StyledSpinnerContainer><Spinner noLabel /></StyledSpinnerContainer> : (
     <>
       <h1><KatexSpan content={list.h} /></h1>
       {list.t !== null && list.t === LawType.MODULE && (
