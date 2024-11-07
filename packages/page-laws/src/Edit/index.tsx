@@ -105,11 +105,12 @@ function Edit({ className = '' }: Props): React.ReactElement<Props> {
         if (idFromQuery !== defaultTextHexId) {
           await storeSetting(SettingKey.KNOWLEDGE, idFromQuery);
         }
+        setList(null);
         setTextHexId(idFromQuery);
       }
     };
     updateSetting();
-  }, [tutor, idFromQuery]);
+  }, [tutor, idFromQuery, setList]);
 
   const _onClickChangeView = useCallback(
     (): void => {
