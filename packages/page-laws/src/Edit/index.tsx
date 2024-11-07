@@ -289,12 +289,12 @@ function Edit({ className = '' }: Props): React.ReactElement<Props> {
 
   const viewView = (
     <div className={`toolbox--Sign ${className}`}>
-      <ViewList key={textHexId} id={textHexId} currentPair={currentPair} />
-      <Button
+      {textHexId && <ViewList key={textHexId} id={textHexId} cidString={cidString} list={list}/>}
+      {textHexId && <Button
         icon='edit'
         label={t('Edit')}
         onClick={_onClickEdit}
-      />
+      />}
       {!isIpfsReady ? <div>{t('Connecting to IPFS...')}</div> : ""}
     </div>
   );

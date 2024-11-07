@@ -1,77 +1,29 @@
-import React, { useCallback, useEffect, useState } from 'react';
-import { KatexSpan, getCIDFromBytes, getIPFSDataFromContentID, parseJson, SelectableList } from '@slonigiraf/app-slonig-components';
-import { useApi } from '@polkadot/react-hooks';
-import { BN_ZERO } from '@polkadot/util';
+import React, { useCallback, useState } from 'react';
+import { KatexSpan, SelectableList } from '@slonigiraf/app-slonig-components';
 import ItemLabel from './ItemLabel.js';
 import SkillQR from './SkillQR.js';
-import type { KeyringPair } from '@polkadot/keyring/types';
 import { useTranslation } from '../translate.js';
-import { useIpfsContext } from '@slonigiraf/app-slonig-components';
 import ExerciseList from './ExerciseList.js';
-import { u8aToHex } from '@polkadot/util';
 import LearnWithAI from './LearnWithAI.js';
 import { Toggle } from '@polkadot/react-components';
 import { ItemWithCID } from '../types.js';
 import { LawType } from '@slonigiraf/db';
 
+type JsonType = { [key: string]: any } | null;
 interface Props {
   className?: string;
   id: string;
-  currentPair: KeyringPair | null;
+  cidString: string;
+  list: JsonType;
 }
 
-function ViewList({ className = '', id, currentPair }: Props): React.ReactElement<Props> {
-  const { ipfs, isIpfsReady, ipfsInitError } = useIpfsContext();
+function ViewList({ className = '', id, cidString, list }: Props): React.ReactElement<Props> {
   const { t } = useTranslation();
-  type JsonType = { [key: string]: any } | null;
-  const [list, setList] = useState<JsonType>(null);
-  const [text, setText] = useState<string>("");
-  const [cidString, setCidString] = useState<string>(null);
-  const [lawHexData, setLawHexData] = useState('');
-  const [amountList, setAmountList] = useState<BN>(BN_ZERO);
-  const [previousAmount, setPreviousAmount] = useState<BN>(BN_ZERO);
-  const { api } = useApi();
   const [isLearningRequested, setLearningRequested] = useState(false);
   const [isReexaminingRequested, setReexaminingRequested] = useState(false);
   const [isThereAnythingToReexamine, setIsThereAnythingToReexamine] = useState(false);
   const [isThereAnythingToLearn, setIsThereAnythingToLearn] = useState(false);
   const [selectedItems, setSelectedItems] = useState<ItemWithCID[]>([]);
-
-  async function fetchLaw(key: string) {
-    if (key) {
-      const law = await api.query.laws.laws(key);
-      if (law.isSome) {
-        const tuple = law.unwrap();
-        const byteArray = tuple[0]; // This should give you the [u8; 32]
-        const bigIntValue = tuple[1]; // This should give you the u128
-        const cid = await getCIDFromBytes(byteArray);
-        setCidString(cid);
-        setLawHexData(u8aToHex(byteArray));
-        setAmountList(bigIntValue);
-        setPreviousAmount(bigIntValue);
-        setLearningRequested(false);
-        setReexaminingRequested(false);
-        setSelectedItems([]);
-      }
-    }
-  }
-
-  useEffect(() => {
-    fetchLaw(id);
-  }, [id]);
-
-  useEffect(() => {
-    const fetchIPFSData = async () => {
-      if (!isIpfsReady || cidString == null) {
-        return;
-      }
-      const textValue = await getIPFSDataFromContentID(ipfs, cidString);
-      setText(textValue);
-      setList(parseJson(textValue));
-    };
-
-    fetchIPFSData();
-  }, [cidString, ipfs]);
 
   const handleLearningToggle = useCallback((checked: boolean): void => {
     setLearningRequested(checked);

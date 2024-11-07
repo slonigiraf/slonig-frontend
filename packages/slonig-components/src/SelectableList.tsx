@@ -139,8 +139,8 @@ function SelectableList<T>({
 }
 
 // Wrap with React.memo and preserve the generic type parameter
-const MemoizedSelectableList = React.memo(
+const MemorizedSelectableList = React.memo(
   SelectableList
 ) as <T>(props: SelectableListProps<T>) => React.ReactElement;
 
-export default MemoizedSelectableList;
+export default MemorizedSelectableList;
