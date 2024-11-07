@@ -37,7 +37,7 @@ export default function useIpfsFactory() {
     return () => {
       if (ipfs && ipfs.stop) {
         console.log('Stopping IPFS');
-        ipfs.stop().catch(err => console.error(err));
+        ipfs.stop().catch((err: unknown) => console.error(err));
         setIpfs(null);
         setIpfsReady(false);
       }
