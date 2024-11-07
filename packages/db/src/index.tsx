@@ -90,6 +90,9 @@ export const getLessons = async (tutor: string, startDate: number | null, endDat
 export const getLetter = async (id: number) => {
     return db.letters.get(id);
 }
+export const getCIDCache = async (cid: string) => {
+    return db.cidCache.get(cid);
+}
 export const getAgreement = async (id: string) => {
     return db.agreements.get(id);
 }
@@ -322,6 +325,10 @@ export const putAgreement = async (agreement: Agreement) => {
 
 export const putLetter = async (letter: Letter) => {
     await db.letters.put(letter);
+}
+
+export const putCIDCache = async (cid: string, data: string) => {
+    await db.cidCache.put({cid, data});
 }
 
 export const updateInsurance = async (insurance: Insurance) => {

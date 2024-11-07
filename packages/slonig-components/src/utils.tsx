@@ -2,10 +2,11 @@ import { IPFSHTTPClient, CID, DAGGetResult } from 'kubo-rpc-client'
 import crypto from 'crypto';
 import { getAddressName } from '@polkadot/react-components';
 import type { KeyringPair } from '@polkadot/keyring/types';
-import { getSetting, storeSetting, SettingKey } from '@slonigiraf/db';
+import { getSetting, storeSetting, SettingKey, getCIDCache, putCIDCache } from '@slonigiraf/db';
 import Peer from 'peerjs';
 import { formatBalance } from '@polkadot/util';
 import BN from 'bn.js';
+import { CIDCache } from 'db/src/db/CIDCache.js';
 
 // export const tokenSymbol = formatBalance(balance, { withUnit: false });
 
@@ -69,23 +70,29 @@ async function tryToGetIPFSDataFromContentID(ipfs: IPFSHTTPClient, cidStr: strin
 }
 
 export const getIPFSDataFromContentID = async (ipfs: IPFSHTTPClient, cidString: string, maxAttempts = 60, delay = 1000) => {
-  let attempts = 0;
-  while (attempts < maxAttempts) {
-    try {
-      const jsonText = await tryToGetIPFSDataFromContentID(ipfs, cidString);
-      if (jsonText) {
-        return jsonText;
-      }
-    } catch (error) {
-      attempts++;
-      console.error(`CID: ${cidString} - attempt ${attempts} failed: ${error.message}`);
-      if (attempts < maxAttempts) {
-        // Wait for specified delay before trying again
-        await new Promise(resolve => setTimeout(resolve, delay));
+  const cached: CIDCache | undefined = await getCIDCache(cidString);
+  if(cached){
+    return cached.data;
+  } else{
+    let attempts = 0;
+    while (attempts < maxAttempts) {
+      try {
+        const jsonText = await tryToGetIPFSDataFromContentID(ipfs, cidString);
+        if (jsonText) {
+          await putCIDCache(cidString, jsonText);
+          return jsonText;
+        }
+      } catch (error) {
+        attempts++;
+        console.error(`CID: ${cidString} - attempt ${attempts} failed: ${error.message}`);
+        if (attempts < maxAttempts) {
+          // Wait for specified delay before trying again
+          await new Promise(resolve => setTimeout(resolve, delay));
+        }
       }
     }
+    throw new Error("Failed to fetch IPFS data after multiple attempts.");
   }
-  throw new Error("Failed to fetch IPFS data after multiple attempts.");
 };
 
 export async function digestFromCIDv1(cidStr: string) {
