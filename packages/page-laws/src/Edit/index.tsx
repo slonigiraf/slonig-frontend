@@ -105,8 +105,10 @@ function Edit({ className = '' }: Props): React.ReactElement<Props> {
         if (idFromQuery !== defaultTextHexId) {
           await storeSetting(SettingKey.KNOWLEDGE, idFromQuery);
         }
-        setList(null);
-        setTextHexId(idFromQuery);
+        if(idFromQuery !== textHexId){
+          setList(null);
+          setTextHexId(idFromQuery);
+        }        
       }
     };
     updateSetting();
