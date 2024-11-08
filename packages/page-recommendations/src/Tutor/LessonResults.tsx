@@ -7,7 +7,7 @@ import { styled, Button, Input, InputBalance, Icon, Card, Modal, Spinner } from 
 import { useApi, useBlockTime, useToggle } from '@polkadot/react-hooks';
 import { u8aToHex, hexToU8a, u8aWrapBytes, BN_ONE, BN_ZERO, formatBalance } from '@polkadot/util';
 import type { LessonResult, Skill } from '@slonigiraf/app-slonig-components';
-import { getIPFSDataFromContentID, parseJson, useIpfsContext, useLoginContext, FullWidthContainer, VerticalCenterItemsContainer, CenterQRContainer, KatexSpan, balanceToSlonString, SenderComponent } from '@slonigiraf/app-slonig-components';
+import { getIPFSDataFromContentID, parseJson, useIpfsContext, useLoginContext, VerticalCenterItemsContainer, CenterQRContainer, KatexSpan, balanceToSlonString, SenderComponent, useInfo } from '@slonigiraf/app-slonig-components';
 import { Insurance, getPseudonym, Lesson, Letter, getLastUnusedLetterNumber, setLastUsedLetterNumber, storeSetting, putLetter, getInsurancesByLessonId, getValidLettersByLessonId, QRAction, SettingKey, QRField, serializeLetter, deleteSetting } from '@slonigiraf/db';
 import { getPublicDataToSignByReferee, getPrivateDataToSignByReferee } from '@slonigiraf/helpers';
 import { useTranslation } from '../translate.js';
@@ -68,18 +68,17 @@ function LessonResults({ className = '', lesson, updateAndStoreLesson, onClose }
   const [diplomaWarrantyAmount, setDiplomaWarrantyAmount] = useState<BN>(BN_ZERO);
   const [totalIncomeForLetters, setTotalIncomeForLetters] = useState<BN>(BN_ZERO);
   const [visibleDiplomaDetails, toggleVisibleDiplomaDetails] = useToggle(false);
-
   const [data, setData] = useState('');
-  const [processing, setProcessing] = useState(false);
+  const [processing, setProcessing] = useState(true);
+  const { showInfo } = useInfo();
 
   useEffect(() => {
     if (countOfValidLetters !== null && countOfDiscussedInsurances !== null) {
       setProcessing(false);
       if (countOfValidLetters + countOfDiscussedInsurances === 0) {
+        showInfo(t('You did not issue or reexamine any diplomas during this lesson.'));
         onClose();
       }
-    } else {
-      setProcessing(true);
     }
   }, [countOfValidLetters, countOfDiscussedInsurances]);
 
