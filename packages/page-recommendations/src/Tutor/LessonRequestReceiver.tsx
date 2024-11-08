@@ -45,7 +45,7 @@ function LessonRequestReceiver({ setCurrentLesson }: Props): React.ReactElement<
                         navigate('', { replace: true });
                     }
                 } catch(e){
-                    showInfo(t('Ask the sender to keep the QR page open while sending data.'), 'error');
+                    showInfo(t('Ask the sender to refresh the QR page and keep it open while sending data.'), 'error');
                     navigate('', { replace: true });
                 }
             }
