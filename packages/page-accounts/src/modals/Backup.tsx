@@ -15,7 +15,7 @@ interface Props {
   address: string;
 }
 
-function Backup ({ address, onClose }: Props): React.ReactElement<Props> {
+function Backup({ address, onClose }: Props): React.ReactElement<Props> {
   const { t } = useTranslation();
   const [isBusy, setIsBusy] = useState(false);
   const [{ isPassTouched, password }, setPassword] = useState({ isPassTouched: false, password: '' });
@@ -66,21 +66,24 @@ function Backup ({ address, onClose }: Props): React.ReactElement<Props> {
         <AddressRow
           isInline
           value={address}
-        >
+        />
+        <div>
           <p>{t('An encrypted backup file will be created once you have pressed the "Download" button. This can be used to re-import your account on any other machine.')}</p>
           <p>{t('Save this backup file in a secure location. Additionally, the password associated with this account is needed together with this backup file in order to restore your account.')}</p>
-          <div>
-            <Password
-              autoFocus
-              isError={isPassTouched && !isPassValid}
-              label={t('password')}
-              onChange={_onChangePass}
-              onEnter={_doBackup}
-              tabIndex={0}
-              value={password}
-            />
-          </div>
-        </AddressRow>
+          <p></p>
+        </div>
+
+        <div>
+          <Password
+            autoFocus
+            isError={isPassTouched && !isPassValid}
+            label={t('password')}
+            onChange={_onChangePass}
+            onEnter={_doBackup}
+            tabIndex={0}
+            value={password}
+          />
+        </div>
       </Modal.Content>
       <Modal.Actions>
         <Button
