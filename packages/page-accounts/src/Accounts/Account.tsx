@@ -31,6 +31,7 @@ import { createMenuGroup } from '../util.js';
 import useMultisigApprovals from './useMultisigApprovals.js';
 import useProxies from './useProxies.js';
 import { useTokenTransfer } from '@slonigiraf/app-slonig-components';
+import EditAccount from '../modals/EditAccount.js';
 interface Props {
   account: KeyringAddress;
   className?: string;
@@ -161,6 +162,7 @@ function Account({ account: { address, meta }, className = '', delegation, filte
   const [{ referendaUnlockTx }, setReferandaUnlock] = useState<ReferendaUnlockable>({ ids: [], referendaUnlockTx: null });
   const [vestingVestTx, setVestingTx] = useState<SubmittableExtrinsic<'promise'> | null>(null);
   const [isBackupOpen, toggleBackup] = useToggle();
+  const [isEditOpen, toggleEdit] = useToggle();
   const [isForgetOpen, toggleForget] = useToggle();
   const [isIdentityMainOpen, toggleIdentityMain] = useToggle();
   const [isIdentitySubOpen, toggleIdentitySub] = useToggle();
@@ -338,6 +340,14 @@ function Account({ account: { address, meta }, className = '', delegation, filte
       )
     ], t('Identity')),
     createMenuGroup('backupGroup', [
+      !(isInjected || isDevelopment) && (
+        <Menu.Item
+          icon='edit'
+          key='editAccount'
+          label={t('Edit')}
+          onClick={toggleEdit}
+        />
+      ),
       !(isExternal || isHardware || isInjected || isMultisig || isDevelopment) && (
         <Menu.Item
           icon='database'
@@ -449,6 +459,13 @@ function Account({ account: { address, meta }, className = '', delegation, filte
               address={address}
               key='modal-backup-account'
               onClose={toggleBackup}
+            />
+          )}
+          {isEditOpen && (
+            <EditAccount
+              address={address}
+              key='modal-edit-account'
+              onClose={toggleEdit}
             />
           )}
           {isDelegateOpen && (
