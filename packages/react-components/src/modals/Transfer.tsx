@@ -202,7 +202,7 @@ function Transfer({ className = '', onClose, onSuccess, recipientId: propRecipie
                   defaultValue={maxTransfer}
                   isDisabled
                   key={maxTransfer?.toString()}
-                  label={t('transferrable minus fees')}
+                  label={t('transferable minus fees')}
                 />
               )
               : (

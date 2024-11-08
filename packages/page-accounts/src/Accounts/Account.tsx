@@ -19,7 +19,6 @@ import { BN, BN_ZERO, formatBalance, formatNumber, isFunction } from '@polkadot/
 import Backup from '../modals/Backup.js';
 import ChangePass from '../modals/ChangePass.js';
 import DelegateModal from '../modals/Delegate.js';
-import Derive from '../modals/Derive.js';
 import IdentityMain from '../modals/IdentityMain.js';
 import IdentitySub from '../modals/IdentitySub.js';
 import MultisigApprove from '../modals/MultisigApprove.js';
@@ -162,7 +161,6 @@ function Account({ account: { address, meta }, className = '', delegation, filte
   const [{ referendaUnlockTx }, setReferandaUnlock] = useState<ReferendaUnlockable>({ ids: [], referendaUnlockTx: null });
   const [vestingVestTx, setVestingTx] = useState<SubmittableExtrinsic<'promise'> | null>(null);
   const [isBackupOpen, toggleBackup] = useToggle();
-  const [isDeriveOpen, toggleDerive] = useToggle();
   const [isForgetOpen, toggleForget] = useToggle();
   const [isIdentityMainOpen, toggleIdentityMain] = useToggle();
   const [isIdentitySubOpen, toggleIdentitySub] = useToggle();
@@ -183,7 +181,7 @@ function Account({ account: { address, meta }, className = '', delegation, filte
         locked: balancesAll.lockedBalance,
         redeemable: stakingInfo?.redeemable || BN_ZERO,
         total: balancesAll.freeBalance.add(balancesAll.reservedBalance),
-        transferrable: balancesAll.availableBalance,
+        transferable: balancesAll.availableBalance,
         unbonding: calcUnbonding(stakingInfo)
       });
 
@@ -339,24 +337,6 @@ function Account({ account: { address, meta }, className = '', delegation, filte
         />
       )
     ], t('Identity')),
-    createMenuGroup('deriveGroup', [
-      !(isEthereum || isExternal || isHardware || isInjected || isMultisig || api.isEthereum) && (
-        <Menu.Item
-          icon='download'
-          key='deriveAccount'
-          label={t('Derive account via derivation path')}
-          onClick={toggleDerive}
-        />
-      ),
-      isHardware && (
-        <Menu.Item
-          icon='eye'
-          key='showHwAddress'
-          label={t('Show address on hardware device')}
-          onClick={_showOnHardware}
-        />
-      )
-    ], t('Derive')),
     createMenuGroup('backupGroup', [
       !(isExternal || isHardware || isInjected || isMultisig || isDevelopment) && (
         <Menu.Item
@@ -370,11 +350,11 @@ function Account({ account: { address, meta }, className = '', delegation, filte
         <Menu.Item
           icon='trash-alt'
           key='forgetAccount'
-          label={t('Forget this account')}
+          label={t('Delete this account')}
           onClick={toggleForget}
         />
       )
-    ], t('Backup')),
+    ], ''),
     isFunction(api.api.tx.recovery?.createRecovery) && createMenuGroup('reoveryGroup', [
       !recoveryInfo && (
         <Menu.Item
@@ -444,7 +424,7 @@ function Account({ account: { address, meta }, className = '', delegation, filte
       />
     ])
   ].filter((i) => i),
-    [_clearDemocracyLocks, _clearReferendaLocks, _showOnHardware, _vestingVest, api, delegation, democracyUnlockTx, genesisHash, identity, isDevelopment, isEditable, isEthereum, isExternal, isHardware, isInjected, isMultisig, multiInfos, onSetGenesisHash, proxy, referendaUnlockTx, recoveryInfo, t, toggleBackup, toggleDelegate, toggleDerive, toggleForget, toggleIdentityMain, toggleIdentitySub, toggleMultisig, togglePassword, toggleProxyOverview, toggleRecoverAccount, toggleRecoverSetup, toggleUndelegate, vestingVestTx]);
+    [_clearDemocracyLocks, _clearReferendaLocks, _showOnHardware, _vestingVest, api, delegation, democracyUnlockTx, genesisHash, identity, isDevelopment, isEditable, isEthereum, isExternal, isHardware, isInjected, isMultisig, multiInfos, onSetGenesisHash, proxy, referendaUnlockTx, recoveryInfo, t, toggleBackup, toggleDelegate, toggleForget, toggleIdentityMain, toggleIdentitySub, toggleMultisig, togglePassword, toggleProxyOverview, toggleRecoverAccount, toggleRecoverSetup, toggleUndelegate, vestingVestTx]);
 
   if (!isVisible) {
     return null;
@@ -479,13 +459,6 @@ function Account({ account: { address, meta }, className = '', delegation, filte
               previousConviction={delegation?.conviction}
               previousDelegatedAccount={delegation?.accountDelegated}
               previousDelegatingAccount={address}
-            />
-          )}
-          {isDeriveOpen && (
-            <Derive
-              from={address}
-              key='modal-derive-account'
-              onClose={toggleDerive}
             />
           )}
           {isForgetOpen && (
@@ -712,29 +685,6 @@ function Account({ account: { address, meta }, className = '', delegation, filte
             convictionLocks={convictionLocks}
             withBalance={BAL_OPTS_EXPANDED}
           />
-          <Columar size='tiny'>
-            <Columar.Column>
-              <div data-testid='tags'>
-                <Tags
-                  value={tags}
-                  withTitle
-                />
-              </div>
-            </Columar.Column>
-            <Columar.Column>
-              <h5>{t('account type')}</h5>
-              <CryptoType accountId={address} />
-            </Columar.Column>
-          </Columar>
-          <Columar is100>
-            <Columar.Column>
-              <LinkExternal
-                data={address}
-                type='address'
-                withTitle
-              />
-            </Columar.Column>
-          </Columar>
         </td>
         <td />
       </StyledTr>
