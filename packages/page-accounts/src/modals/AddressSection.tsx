@@ -50,31 +50,6 @@ function AddressSection ({ accountIndex, defaultValue, editingName, flags, onCha
           value={value}
           withSidebar={false}
         />
-        <div className='ui--AddressMenu-addr'>
-          {value}
-        </div>
-        {accountIndex && (
-          <div className='ui--AddressMenu-index'>
-            <label>{t('index')}:</label> {accountIndex}
-          </div>
-        )}
-      </div>
-      <div className='ui--AddressSection__CopyColumn'>
-        <div className='ui--AddressMenu-copyaddr'>
-          <CopyToClipboard
-            text={value}
-          >
-            <span>
-              <Button.Group>
-                <Button
-                  icon={isCopyShown ? 'check' : 'copy'}
-                  onClick={isCopyShown ? NOOP : toggleIsCopyShown }
-                  onMouseLeave={isCopyShown ? toggleIsCopyShown : NOOP }
-                />
-              </Button.Group>
-            </span>
-          </CopyToClipboard>
-        </div>
       </div>
     </div>
   );

@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import type { AddressFlags } from '@polkadot/react-hooks/types';
-import React, { useCallback } from 'react';
+import React, { useCallback, useEffect } from 'react';
 import { useApi, useToggle } from '@polkadot/react-hooks';
 import { isFunction } from '@polkadot/util';
 import { Button, styled } from '@polkadot/react-components';

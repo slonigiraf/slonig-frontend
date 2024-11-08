@@ -1,7 +1,7 @@
 // Copyright 2017-2023 @polkadot/app-accounts authors & contributors
 // SPDX-License-Identifier: Apache-2.0
 
-import React, { useCallback, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 
 import { Modal, styled } from '@polkadot/react-components';
 
@@ -20,6 +20,10 @@ function Backup({ address, onClose }: Props): React.ReactElement<Props> {
   const { t } = useTranslation();
   const { flags, isEditing, isEditingName, isEditingTags, name, onForgetAddress, onSaveName, onSaveTags, setIsEditingName, setIsEditingTags, setName, setTags, tags, toggleIsEditingName, toggleIsEditingTags } = useAccountInfo(address);
 
+  useEffect(() => {
+    toggleIsEditingName();
+  },[]);
+
   const onCancel = useCallback(
     (): void => {
       if (isEditing()) {
@@ -35,6 +39,11 @@ function Backup({ address, onClose }: Props): React.ReactElement<Props> {
         }
       }
     }, [isEditing, setName, setTags, setIsEditingName, setIsEditingTags, address]);
+
+  const onSave = useCallback(() => {
+    onSaveName();
+    onClose();
+  }, [onSaveName, onClose]);
 
   return (
     <StyledModal
@@ -55,9 +64,9 @@ function Backup({ address, onClose }: Props): React.ReactElement<Props> {
           flags={flags}
           isEditing={isEditing()}
           isEditingName={isEditingName}
-          onCancel={onCancel}
+          onCancel={onClose}
           onForgetAddress={onForgetAddress}
-          onSaveName={onSaveName}
+          onSaveName={onSave}
           onSaveTags={onSaveTags}
           onUpdateName={() => {}}
           recipientId={address}
