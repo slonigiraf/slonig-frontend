@@ -6,9 +6,9 @@ import React, { useCallback, useState } from 'react';
 import { Modal, styled } from '@polkadot/react-components';
 
 import { useTranslation } from '../translate.js';
-import AddressSection from '@polkadot/react-components/AccountSidebar/AddressSection';
+import AddressSection from './AddressSection.js';
 import { useAccountInfo } from '@polkadot/react-hooks';
-import AccountMenuButtons from '@polkadot/react-components/AccountSidebar/AccountMenuButtons';
+import AccountMenuButtons from './AccountMenuButtons.js';
 import { keyring } from '@polkadot/ui-keyring';
 
 interface Props {

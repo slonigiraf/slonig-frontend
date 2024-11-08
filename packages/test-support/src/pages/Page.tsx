@@ -220,9 +220,7 @@ export abstract class Page {
             <MemoryRouter>
               <ThemeProvider theme={lightTheme}>
                 <ApiCtx.Provider value={mockApi}>
-                  <AccountSidebar>
                     {React.cloneElement(this.overview, { onStatusChange: noop }) }
-                  </AccountSidebar>
                 </ApiCtx.Provider>
               </ThemeProvider>
             </MemoryRouter>

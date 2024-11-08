@@ -41,15 +41,13 @@ function Apps({ className = '' }: Props): React.ReactElement<Props> {
             <LoginProvider>
               <TokenTransferProvider>
                 <Menu />
-                <AccountSidebar>
-                  <Signer>
-                    <Content />
-                    <BottomMenu />
-                  </Signer>
-                  <ConnectingOverlay />
-                  <DotAppsOverlay />
-                  <div id={PORTAL_ID} />
-                </AccountSidebar>
+                <Signer>
+                  <Content />
+                  <BottomMenu />
+                </Signer>
+                <ConnectingOverlay />
+                <DotAppsOverlay />
+                <div id={PORTAL_ID} />
               </TokenTransferProvider>
             </LoginProvider>
           </AppContainer>
