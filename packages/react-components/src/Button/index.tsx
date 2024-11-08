@@ -151,7 +151,7 @@ const StyledButton = styled.button`
   }
 
   .ui--Icon {
-    border-radius: 50%;
+    border-radius: 20%;
     box-sizing: content-box;
     height: 1rem;
     margin: -${ICON_PADDING}rem 0;
