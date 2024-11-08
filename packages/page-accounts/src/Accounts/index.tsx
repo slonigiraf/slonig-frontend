@@ -13,10 +13,6 @@ import { getAccountCryptoType } from '@polkadot/react-components/util';
 import { useAccounts, useDelegations, useFavorites, useNextTick, useProxies, useToggle } from '@polkadot/react-hooks';
 import { keyring } from '@polkadot/ui-keyring';
 import { BN_ZERO } from '@polkadot/util';
-import Ledger from '../modals/Ledger.js';
-import Multisig from '../modals/MultisigCreate.js';
-import Proxy from '../modals/ProxiedAdd.js';
-import Qr from '../modals/Qr.js';
 import { useTranslation } from '../translate.js';
 import { sortAccounts } from '../util.js';
 import Account from './Account.js';
@@ -86,14 +82,10 @@ function groupAccounts(accounts: SortedAccount[]): Record<GroupName, string[]> {
 function Overview({ className = '', onStatusChange }: Props): React.ReactElement<Props> {
   const { t } = useTranslation();
   const { _onChangeAccount, isLoggedIn, setIsAddingAccount, currentPair } = useLoginContext();
-  const { allAccounts, hasAccounts } = useAccounts();
-  const [isLedgerOpen, toggleLedger] = useToggle();
-  const [isMultisigOpen, toggleMultisig] = useToggle();
-  const [isProxyOpen, toggleProxy] = useToggle();
-  const [isQrOpen, toggleQr] = useToggle();
+  const { allAccounts } = useAccounts();
   const [favorites, toggleFavorite] = useFavorites(STORE_FAVS);
   const [balances, setBalances] = useState<Balances>({ accounts: {} });
-  const [filterOn, setFilter] = useState<string>('');
+  const [filterOn] = useState<string>('');
   const [sortedAccounts, setSorted] = useState<SortedAccount[]>([]);
   const [{ sortBy, sortFromMax }, setSortBy] = useState<SortControls>(DEFAULT_SORT_CONTROLS);
   const delegations = useDelegations();
@@ -268,27 +260,6 @@ function Overview({ className = '', onStatusChange }: Props): React.ReactElement
           </Button.Group>
         </div>
 
-        {isLedgerOpen && (
-          <Ledger onClose={toggleLedger} />
-        )}
-        {isMultisigOpen && (
-          <Multisig
-            onClose={toggleMultisig}
-            onStatusChange={callOnStatusChange}
-          />
-        )}
-        {isProxyOpen && (
-          <Proxy
-            onClose={toggleProxy}
-            onStatusChange={callOnStatusChange}
-          />
-        )}
-        {isQrOpen && (
-          <Qr
-            onClose={toggleQr}
-            onStatusChange={callOnStatusChange}
-          />
-        )}
         {!isNextTick || !sortedAccounts.length
           ? (
             <Table
