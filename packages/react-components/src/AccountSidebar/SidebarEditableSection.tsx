@@ -6,7 +6,6 @@ import React, { useCallback, useEffect, useMemo } from 'react';
 import { useAccountInfo, useOutsideClick } from '@polkadot/react-hooks';
 import { keyring } from '@polkadot/ui-keyring';
 
-import Tags from '../Tags.js';
 import AccountMenuButtons from './AccountMenuButtons.js';
 import AddressSection from './AddressSection.js';
 import Flags from './Flags.js';
@@ -59,19 +58,6 @@ function SidebarEditableSection ({ accountIndex, address, isBeingEdited, onUpdat
         onChange={setName}
         value={address}
       />
-      <div
-        className='ui--AddressMenu-tags'
-        data-testid='sidebar-tags'
-      >
-        <Tags
-          isEditable
-          isEditing={isEditingTags}
-          onChange={setTags}
-          value={tags}
-          withEditButton={false}
-          withTitle
-        />
-      </div>
       <Flags flags={flags} />
       <AccountMenuButtons
         flags={flags}

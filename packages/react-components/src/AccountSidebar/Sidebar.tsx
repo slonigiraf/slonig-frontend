@@ -76,7 +76,7 @@ const StyledSidebar = styled(Sidebar)`
   max-width: 30.42rem;
   min-width: 30.42rem;
   overflow-y: hidden;
-  padding: 0 0 3.286rem;
+  padding: 0.5rem;
 
   input {
     width: auto !important;
@@ -262,7 +262,6 @@ const StyledSidebar = styled(Sidebar)`
     }
   }
 
-  .ui--AddressMenu-tags,
   .ui--AddressMenu-flags {
     margin: 0.75rem 0 0;
     width: 100%;
