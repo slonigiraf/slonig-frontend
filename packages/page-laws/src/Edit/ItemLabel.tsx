@@ -21,7 +21,7 @@ interface Props {
   onItemUpdate?: (item: ItemWithCID) => void;
 }
 
-function ItemLabel({ className = '', id, isText = false, defaultValue = '...', isSelected = false, isSelectable = false, isReexaminingRequested=false, onToggleSelection, onItemUpdate, }: Props): React.ReactElement<Props> {
+function ItemLabel({ className = '', id, isText = false, defaultValue = '...', isSelected = false, isSelectable = false, isReexaminingRequested = false, onToggleSelection, onItemUpdate, }: Props): React.ReactElement<Props> {
   const { ipfs, isIpfsReady, ipfsInitError } = useIpfsContext();
   const { api } = useApi();
   const [cidString, setCidString] = useState<string>("");
@@ -34,9 +34,9 @@ function ItemLabel({ className = '', id, isText = false, defaultValue = '...', i
 
   // Disable button based on validDiplomas size and toggle selection if necessary
   useEffect(() => {
-    const allowSelection = isReexaminingRequested? validDiplomas.length > 0 : validDiplomas.length === 0;
+    const allowSelection = isReexaminingRequested ? validDiplomas.length > 0 : validDiplomas.length === 0;
     if (!allowSelection && isSelected && onToggleSelection) {
-      onToggleSelection({'id': id, 'cid': cidString, 'validDiplomas': validDiplomas}); // Deselect if no valid diplomas
+      onToggleSelection({ 'id': id, 'cid': cidString, 'validDiplomas': validDiplomas }); // Deselect if no valid diplomas
     }
   }, [validDiplomas, isSelected, onToggleSelection, id, cidString]);
 
@@ -104,12 +104,22 @@ function ItemLabel({ className = '', id, isText = false, defaultValue = '...', i
     <KatexSpan content={textToDisplay} />
     :
     isFetched ?
-      <StyledA href={`/#/knowledge?id=${id}`}>{!isSkillItem && icon}{isSkillItem && <DiplomaCheck id={id} cid={cidString} setValidDiplomas={setValidDiplomas} onLoad={() => setLoading(false)}/>}<KatexSpan content={textToDisplay} /></StyledA>
+      <StyledA href={`/#/knowledge?id=${id}`}
+        style={{ pointerEvents: isSelectable ? "none" : "auto" }}
+        >
+        {!isSkillItem && icon}
+        {isSkillItem && <DiplomaCheck
+          id={id}
+          cid={cidString}
+          setValidDiplomas={setValidDiplomas}
+          onLoad={() => setLoading(false)} />}
+        <KatexSpan content={textToDisplay} />
+      </StyledA>
       :
       <StyledSpinnerContainer><Spinner noLabel /></StyledSpinnerContainer>;
 
 
-  const allowSelection = isReexaminingRequested? validDiplomas.length > 0 : validDiplomas.length === 0;
+  const allowSelection = isReexaminingRequested ? validDiplomas.length > 0 : validDiplomas.length === 0;
 
   return <StyledDiv isSelectable={isSelectable}>{
     (onToggleSelection !== undefined && isSelectable && <Button
