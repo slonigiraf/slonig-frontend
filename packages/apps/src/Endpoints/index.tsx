@@ -10,7 +10,7 @@ import React, { useCallback, useMemo, useRef, useState } from 'react';
 import store from 'store';
 
 import { createWsEndpoints, CUSTOM_ENDPOINT_KEY } from '@polkadot/apps-config';
-import { Button, Input, Sidebar, styled } from '@polkadot/react-components';
+import { Button, Input, Modal, styled } from '@polkadot/react-components';
 import { settings } from '@polkadot/ui-settings';
 import { isAscii } from '@polkadot/util';
 
@@ -250,7 +250,7 @@ function Endpoints ({ className = '', offset, onClose }: Props): React.ReactElem
   );
 
   return (
-    <StyledSidebar
+    <StyledModal
       button={
         <Button
           icon='sync'
@@ -307,11 +307,11 @@ function Endpoints ({ className = '', offset, onClose }: Props): React.ReactElem
           )}
         </GroupDisplay>
       ))}
-    </StyledSidebar>
+    </StyledModal>
   );
 }
 
-const StyledSidebar = styled(Sidebar)`
+const StyledModal = styled(Modal)`
   color: var(--color-text);
   padding-top: 3.5rem;
 

@@ -9,7 +9,6 @@ import React, { useCallback, useContext, useEffect, useState } from 'react';
 
 import { statics } from '@polkadot/react-api/statics';
 import { useDeriveAccountInfo, useSystemApi } from '@polkadot/react-hooks';
-import { AccountSidebarCtx } from '@polkadot/react-hooks/ctx/AccountSidebar';
 import { formatNumber, isCodec, isFunction, stringToU8a, u8aEmpty, u8aEq, u8aToBn, u8aToHex } from '@polkadot/util';
 
 import { getAddressName } from './util/index.js';
@@ -33,7 +32,7 @@ interface Props {
 
 type AddrMatcher = (addr: unknown) => string | null;
 
-function createAllMatcher (prefix: string, name: string): AddrMatcher {
+function createAllMatcher(prefix: string, name: string): AddrMatcher {
   const test = statics.registry.createType('AccountId', stringToU8a(prefix.padEnd(32, '\0')));
 
   return (addr: unknown) =>
@@ -42,7 +41,7 @@ function createAllMatcher (prefix: string, name: string): AddrMatcher {
       : null;
 }
 
-function createNumMatcher (prefix: string, name: string, add?: string): AddrMatcher {
+function createNumMatcher(prefix: string, name: string, add?: string): AddrMatcher {
   const test = stringToU8a(prefix);
 
   // 4 bytes for u32 (more should not hurt, LE)
@@ -78,11 +77,11 @@ const displayCache = new Map<string, React.ReactNode>();
 const indexCache = new Map<string, string>();
 const parentCache = new Map<string, string>();
 
-export function getParentAccount (value: string): string | undefined {
+export function getParentAccount(value: string): string | undefined {
   return parentCache.get(value);
 }
 
-function defaultOrAddr (defaultName = '', _address: AccountId | AccountIndex | Address | string | Uint8Array, _accountIndex?: AccountIndex | null): [displayName: React.ReactNode, isLocal: boolean, isAddress: boolean, isSpecial: boolean] {
+function defaultOrAddr(defaultName = '', _address: AccountId | AccountIndex | Address | string | Uint8Array, _accountIndex?: AccountIndex | null): [displayName: React.ReactNode, isLocal: boolean, isAddress: boolean, isSpecial: boolean] {
   let known: string | null = null;
 
   for (let i = 0; known === null && i < MATCHERS.length; i++) {
@@ -99,7 +98,7 @@ function defaultOrAddr (defaultName = '', _address: AccountId | AccountIndex | A
     return [defaultName, false, false, false];
   }
 
-  const [isAddressExtracted,, extracted] = getAddressName(accountId, null, defaultName);
+  const [isAddressExtracted, , extracted] = getAddressName(accountId, null, defaultName);
   const accountIndex = (_accountIndex || '').toString() || indexCache.get(accountId);
 
   if (isAddressExtracted && accountIndex) {
@@ -111,15 +110,15 @@ function defaultOrAddr (defaultName = '', _address: AccountId | AccountIndex | A
   return [extracted, !isAddressExtracted, isAddressExtracted, false];
 }
 
-function defaultOrAddrNode (defaultName = '', address: AccountId | AccountIndex | Address | string | Uint8Array, accountIndex?: AccountIndex | null): React.ReactNode {
-  const [node,, isAddress] = defaultOrAddr(defaultName, address, accountIndex);
+function defaultOrAddrNode(defaultName = '', address: AccountId | AccountIndex | Address | string | Uint8Array, accountIndex?: AccountIndex | null): React.ReactNode {
+  const [node, , isAddress] = defaultOrAddr(defaultName, address, accountIndex);
 
   return isAddress
     ? <span className='isAddress'>{node}</span>
     : node;
 }
 
-function extractName (address: string, accountIndex?: AccountIndex, defaultName?: string): React.ReactNode {
+function extractName(address: string, accountIndex?: AccountIndex, defaultName?: string): React.ReactNode {
   const displayCached = displayCache.get(address);
 
   if (displayCached) {
@@ -142,7 +141,7 @@ function extractName (address: string, accountIndex?: AccountIndex, defaultName?
   );
 }
 
-function createIdElem (nameElem: React.ReactNode, color: 'green' | 'red' | 'gray', icon: IconName): React.ReactNode {
+function createIdElem(nameElem: React.ReactNode, color: 'green' | 'red' | 'gray', icon: IconName): React.ReactNode {
   return (
     <span className='via-identity'>
       <Badge
@@ -155,7 +154,7 @@ function createIdElem (nameElem: React.ReactNode, color: 'green' | 'red' | 'gray
   );
 }
 
-function extractIdentity (address: string, identity: DeriveAccountRegistration): React.ReactNode {
+function extractIdentity(address: string, identity: DeriveAccountRegistration): React.ReactNode {
   const judgements = identity.judgements.filter(([, judgement]) => !judgement.isFeePaid);
   const isGood = judgements.some(([, judgement]) => judgement.isKnownGood || judgement.isReasonable);
   const isBad = judgements.some(([, judgement]) => judgement.isErroneous || judgement.isLowQuality);
@@ -181,11 +180,10 @@ function extractIdentity (address: string, identity: DeriveAccountRegistration):
   return elem;
 }
 
-function AccountName ({ children, className = '', defaultName, label, onClick, override, toggle, value, withSidebar }: Props): React.ReactElement<Props> {
+function AccountName({ children, className = '', defaultName, label, onClick, override, toggle, value, withSidebar }: Props): React.ReactElement<Props> {
   const api = useSystemApi();
   const info = useDeriveAccountInfo(value);
   const [name, setName] = useState<React.ReactNode>(() => extractName((value || '').toString(), undefined, defaultName));
-  const toggleSidebar = useContext(AccountSidebarCtx);
 
   // set the actual nickname, local name, accountIndex, accountId
   useEffect((): void => {
@@ -229,20 +227,11 @@ function AccountName ({ children, className = '', defaultName, label, onClick, o
     [defaultName, value]
   );
 
-  const _onToggleSidebar = useCallback(
-    () => toggleSidebar && value && toggleSidebar([value.toString(), _onNameEdit]),
-    [_onNameEdit, toggleSidebar, value]
-  );
-
   return (
     <StyledSpan
       className={`${className}  ui--AccountName ${withSidebar ? 'withSidebar' : ''}`}
       data-testid='account-name'
-      onClick={
-        withSidebar
-          ? _onToggleSidebar
-          : onClick
-      }
+      onClick={onClick}
     >
       {label || ''}{override || name}{children}
     </StyledSpan>
