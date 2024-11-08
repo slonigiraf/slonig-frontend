@@ -22,15 +22,19 @@ interface Props {
 }
 
 function ItemLabel({ className = '', id, isText = false, defaultValue = '...', isSelected = false, isSelectable = false, isReexaminingRequested = false, onToggleSelection, onItemUpdate, }: Props): React.ReactElement<Props> {
-  const { ipfs, isIpfsReady, ipfsInitError } = useIpfsContext();
+  const { ipfs, isIpfsReady } = useIpfsContext();
   const { api } = useApi();
   const [cidString, setCidString] = useState<string>("");
   const [text, setText] = useState<string>(id);
   const [isFetched, setIsFetched] = useState(false);
   const [isSkillItem, setIsSkillItem] = useState(false);
   const [type, setType] = useState(-1);
-  const [loading, setLoading] = useState<boolean>(true);
   const [validDiplomas, setValidDiplomas] = useState<Letter[]>([]);
+  const [wasSelected, setWasSelected] = useState(isSelected);
+
+  useEffect(() => {
+    setWasSelected(isSelected);
+  }, [isSelected]);
 
   // Disable button based on validDiplomas size and toggle selection if necessary
   useEffect(() => {
@@ -39,6 +43,13 @@ function ItemLabel({ className = '', id, isText = false, defaultValue = '...', i
       onToggleSelection({ 'id': id, 'cid': cidString, 'validDiplomas': validDiplomas }); // Deselect if no valid diplomas
     }
   }, [validDiplomas, isSelected, onToggleSelection, id, cidString]);
+
+  const handleToggleSelection = () => {
+    if (onToggleSelection) {
+      setWasSelected(true);
+      onToggleSelection({ id, cid: cidString, validDiplomas });
+    }
+  };
 
   useEffect(() => {
     fetchLaw(id);
@@ -105,14 +116,19 @@ function ItemLabel({ className = '', id, isText = false, defaultValue = '...', i
     :
     isFetched ?
       <StyledA href={`/#/knowledge?id=${id}`}
-        style={{ pointerEvents: isSelectable ? "none" : "auto" }}
-        >
+        onClick={(e) => {
+          if (isSelectable) {
+            e.preventDefault();
+            handleToggleSelection();
+          }
+        }}
+      >
         {!isSkillItem && icon}
         {isSkillItem && <DiplomaCheck
           id={id}
           cid={cidString}
           setValidDiplomas={setValidDiplomas}
-          onLoad={() => setLoading(false)} />}
+        />}
         <KatexSpan content={textToDisplay} />
       </StyledA>
       :
@@ -123,8 +139,8 @@ function ItemLabel({ className = '', id, isText = false, defaultValue = '...', i
 
   return <StyledDiv isSelectable={isSelectable}>{
     (onToggleSelection !== undefined && isSelectable && <Button
-      icon={isSelected ? 'check' : 'square'}
-      onClick={() => onToggleSelection({'id': id, 'cid': cidString, 'validDiplomas': validDiplomas})}
+      icon={wasSelected ? 'check' : 'square'}
+      onClick={handleToggleSelection}
       isDisabled={!allowSelection}
     />)}
     {content}</StyledDiv>;
