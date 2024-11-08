@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useState, ReactNode, useEffect, useCallback } from 'react';
 import { TransferModal } from '@polkadot/react-components';
 import { BN, BN_ZERO } from '@polkadot/util';
+import { useApi } from '@polkadot/react-hooks';
 
 interface TokenTransferContextType {
     isTransferReady: boolean;
@@ -43,6 +44,7 @@ export const TokenTransferProvider: React.FC<TokenTransferProviderProps> = ({ ch
     const [buttonCaption, setButtonCaption] = useState<string>('');
     const [transferSuccess, setTransferSuccess] = useState<boolean>(false);
     const [isTransferReady, setIsTransferReady] = useState<boolean>(false);
+    const { isApiConnected } = useApi();
 
     const setAmount = useCallback((value: BN | undefined) => {
         setIsAmountEditable(false);
@@ -70,6 +72,12 @@ export const TokenTransferProvider: React.FC<TokenTransferProviderProps> = ({ ch
         setTransferSuccess(true);
         setIsTransferOpen(false);
     };
+
+    useEffect(() => {
+        if (!isApiConnected && isTransferOpen) {
+            setIsTransferOpen(false);
+        }
+    }, [isApiConnected]);
 
     return (
         <TokenTransferContext.Provider
