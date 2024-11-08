@@ -31,16 +31,22 @@ function LessonRequestReceiver({ setCurrentLesson }: Props): React.ReactElement<
 
     useEffect(() => {
         const fetchLessonRequest = async () => {
-            if(webRTCPeerId){
-                const maxLoadingSec = 60;
+            if (webRTCPeerId) {
+                const maxLoadingSec = 30;
                 showInfo(t('Loading'), 'info', maxLoadingSec);
-                const webRTCData = await receiveWebRTCData(webRTCPeerId, maxLoadingSec * 1000);
-                hideInfo();
-                const receivedRequest: LessonRequest = parseJson(webRTCData);
-                if(receivedRequest.tutor === tutorPublicKeyHex){
-                    setLessonRequest(receivedRequest);
-                } else {
-                    showInfo('Student has shown you a QR code created for a different tutor. Ask them to scan your QR code.', 'error');
+                try {
+                    const webRTCData = await receiveWebRTCData(webRTCPeerId, maxLoadingSec * 1000);
+                    hideInfo();
+                    const receivedRequest: LessonRequest = parseJson(webRTCData);
+                    if (receivedRequest.tutor === tutorPublicKeyHex) {
+                        setLessonRequest(receivedRequest);
+                    } else {
+                        showInfo(t('Student has shown you a QR code created for a different tutor. Ask them to scan your QR code.'), 'error');
+                        navigate('', { replace: true });
+                    }
+                } catch(e){
+                    showInfo(t('Ask the sender to keep the QR page open while sending data.'), 'error');
+                    navigate('', { replace: true });
                 }
             }
         };
@@ -58,7 +64,7 @@ function LessonRequestReceiver({ setCurrentLesson }: Props): React.ReactElement<
                 await storeLesson(lessonRequest);
                 navigate('', { replace: true });
                 const lesson = await getLesson(lessonRequest.lesson);
-                if(lesson){
+                if (lesson) {
                     setCurrentLesson(lesson);
                 }
             }

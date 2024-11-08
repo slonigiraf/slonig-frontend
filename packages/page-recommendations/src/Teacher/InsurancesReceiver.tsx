@@ -12,7 +12,7 @@ interface Props {
   setWorker: (person: Person) => void;
 }
 
-function InsurancesReceiver({setWorker} : Props): React.ReactElement<Props> {
+function InsurancesReceiver({ setWorker }: Props): React.ReactElement<Props> {
   const location = useLocation();
   const queryParams = new URLSearchParams(location.search);
   const webRTCPeerId = queryParams.get(QRField.WEBRTC_PEER_ID);
@@ -32,15 +32,21 @@ function InsurancesReceiver({setWorker} : Props): React.ReactElement<Props> {
   useEffect(() => {
     const fetchInsurancesTransfer = async () => {
       if (webRTCPeerId) {
-        const maxLoadingSec = 60;
+        const maxLoadingSec = 30;
         showInfo(t('Loading'), 'info', maxLoadingSec);
-        const webRTCData = await receiveWebRTCData(webRTCPeerId, maxLoadingSec * 1000);
-        hideInfo();
-        const receivedInsurancesTransfer: InsurancesTransfer = parseJson(webRTCData);
-        if (receivedInsurancesTransfer.employer === teacherPublicKeyHex) {
-          setInsurancesTransfer(receivedInsurancesTransfer);
-        } else {
-          showInfo('Student has shown you a QR code created for a different teacher. Ask them to scan your QR code.', 'error');
+        try {
+          const webRTCData = await receiveWebRTCData(webRTCPeerId, maxLoadingSec * 1000);
+          hideInfo();
+          const receivedInsurancesTransfer: InsurancesTransfer = parseJson(webRTCData);
+          if (receivedInsurancesTransfer.employer === teacherPublicKeyHex) {
+            setInsurancesTransfer(receivedInsurancesTransfer);
+          } else {
+            showInfo(t('Student has shown you a QR code created for a different teacher. Ask them to scan your QR code.'), 'error');
+            navigate('', { replace: true });
+          }
+        } catch (e) {
+          showInfo(t('Ask the sender to keep the QR page open while sending data.'), 'error');
+          navigate('', { replace: true });
         }
       }
     };
@@ -56,7 +62,7 @@ function InsurancesReceiver({setWorker} : Props): React.ReactElement<Props> {
         await storePseudonym(insurancesTransfer.identity, insurancesTransfer.name);
         await storeInsurances(insurancesTransfer);
         navigate('', { replace: true });
-        const worker: Person = {identity: insurancesTransfer.identity, name: insurancesTransfer.name}
+        const worker: Person = { identity: insurancesTransfer.identity, name: insurancesTransfer.name }
         setWorker(worker);
       }
     };

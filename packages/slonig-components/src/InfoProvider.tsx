@@ -26,7 +26,7 @@ export const InfoProvider: React.FC<InfoProviderProps> = ({ children }) => {
     const [infoMessage, setInfoMessage] = useState('');
     const [type, setType] = useState<'error' | 'info'>('info');
 
-    const showInfo = (message: string, type: 'error' | 'info' = 'info', timeoutSec: number = 3) => {
+    const showInfo = (message: string, type: 'error' | 'info' = 'info', timeoutSec: number = 4) => {
         setInfoMessage(message);
         setType(type);
         setInfoVisible(true);

@@ -13,7 +13,7 @@ import { useLocation, useNavigate } from 'react-router-dom';
 function LessonResultReceiver(): React.ReactElement {
   const location = useLocation();
   const queryParams = new URLSearchParams(location.search);
-  const [webRTCPeerId, setWebRTCPeerId] = useState<string|null>(queryParams.get(QRField.WEBRTC_PEER_ID)) ;
+  const [webRTCPeerId, setWebRTCPeerId] = useState<string | null>(queryParams.get(QRField.WEBRTC_PEER_ID));
   const { t } = useTranslation();
   const { isTransferOpen, setIsTransferOpen, setRecipientId, setAmount,
     setModalCaption, setButtonCaption, isTransferReady, transferSuccess } = useTokenTransfer();
@@ -38,12 +38,23 @@ function LessonResultReceiver(): React.ReactElement {
 
   useEffect(() => {
     const fetchLesson = async () => {
-      if(webRTCPeerId){
-        const maxLoadingSec = 60;
+      if (webRTCPeerId) {
+        const maxLoadingSec = 30;
         showInfo(t('Loading'), 'info', maxLoadingSec);
-        const webRTCData = await receiveWebRTCData(webRTCPeerId, maxLoadingSec * 1000);
-        hideInfo();
-        setLessonResultJson(parseJson(webRTCData));
+        try {
+          const webRTCData = await receiveWebRTCData(webRTCPeerId, maxLoadingSec * 1000);
+          hideInfo();
+          const receivedResult: LessonResult = parseJson(webRTCData);
+          if (receivedResult.workerId === workerPublicKeyHex) {
+            setLessonResultJson(receivedResult);
+          } else {
+            showInfo(t('The tutor has shown you a QR code created for a different student. Ask the tutor to find the correct lesson.'), 'error');
+            navigate('', { replace: true });
+          }
+        } catch (e) {
+          showInfo(t('Ask the sender to keep the QR page open while sending data.'), 'error');
+          navigate('', { replace: true });
+        }
       }
     };
     if (webRTCPeerId && !triedToFetchData) {
@@ -76,7 +87,7 @@ function LessonResultReceiver(): React.ReactElement {
   }, [lessonResultJson, setAgreement, getAgreement]);
 
   useEffect(() => {
-    if(webRTCPeerId && isTransferReady && !isTransferOpen){
+    if (webRTCPeerId && isTransferReady && !isTransferOpen) {
       setWebRTCPeerId(null);
       setAgreement(null);
       navigate(''); // helps to close transfer modal
@@ -125,11 +136,7 @@ function LessonResultReceiver(): React.ReactElement {
       }
     }
     if (lessonResultJson && agreement) {
-      if (workerPublicKeyHex !== lessonResultJson.workerId) {
-        showInfo(t('The tutor has shown you a QR code created for a different student. Ask the tutor to find the correct lesson.'), 'error')
-      } else {
-        payOrSaveResults();
-      }
+      payOrSaveResults();
     }
   }, [workerPublicKeyHex, lessonResultJson, agreement, isTransferReady,
     setRecipientId, setAmount, setModalCaption, setButtonCaption, setIsTransferOpen,])
