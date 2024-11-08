@@ -31,7 +31,7 @@ import { useTranslation } from '../translate.js';
 import { createMenuGroup } from '../util.js';
 import useMultisigApprovals from './useMultisigApprovals.js';
 import useProxies from './useProxies.js';
-
+import { useTokenTransfer } from '@slonigiraf/app-slonig-components';
 interface Props {
   account: KeyringAddress;
   className?: string;
@@ -171,7 +171,7 @@ function Account({ account: { address, meta }, className = '', delegation, filte
   const [isPasswordOpen, togglePassword] = useToggle();
   const [isRecoverAccountOpen, toggleRecoverAccount] = useToggle();
   const [isRecoverSetupOpen, toggleRecoverSetup] = useToggle();
-  const [isTransferOpen, toggleTransfer] = useToggle();
+  const { setIsTransferOpen } = useTokenTransfer();
   const [isDelegateOpen, toggleDelegate] = useToggle();
   const [isUndelegateOpen, toggleUndelegate] = useToggle();
 
@@ -517,12 +517,6 @@ function Account({ account: { address, meta }, className = '', delegation, filte
               onClose={togglePassword}
             />
           )}
-          {isTransferOpen  && (
-            <TransferModal
-              key='modal-transfer'
-              onClose={toggleTransfer}
-            />
-          )}
           {isProxyOverviewOpen && (
             <ProxyOverview
               key='modal-proxy-overview'
@@ -670,7 +664,11 @@ function Account({ account: { address, meta }, className = '', delegation, filte
                 className='send-button'
                 icon='paper-plane'
                 label={t('send')}
-                onClick={toggleTransfer}
+                onClick={
+                  () => {
+                    setIsTransferOpen(true)
+                  }
+                }
               />
             )}
             <Popup
