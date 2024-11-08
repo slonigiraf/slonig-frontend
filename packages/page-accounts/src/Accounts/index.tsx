@@ -6,28 +6,24 @@ import type { KeyringAddress } from '@polkadot/ui-keyring/types';
 import type { BN } from '@polkadot/util';
 import type { AccountBalance, Delegation, SortedAccount } from '../types.js';
 import type { SortCategory } from '../util.js';
-import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 
-import { Button, styled, Table, InputAddress, TransferModal } from '@polkadot/react-components';
+import { Button, styled, Table, InputAddress } from '@polkadot/react-components';
 import { getAccountCryptoType } from '@polkadot/react-components/util';
-import { useAccounts, useApi, useDelegations, useFavorites, useLedger, useNextTick, useProxies, useToggle } from '@polkadot/react-hooks';
+import { useAccounts, useDelegations, useFavorites, useNextTick, useProxies, useToggle } from '@polkadot/react-hooks';
 import { keyring } from '@polkadot/ui-keyring';
-import { BN_ZERO, isFunction } from '@polkadot/util';
+import { BN_ZERO } from '@polkadot/util';
 import Ledger from '../modals/Ledger.js';
 import Multisig from '../modals/MultisigCreate.js';
 import Proxy from '../modals/ProxiedAdd.js';
 import Qr from '../modals/Qr.js';
 import { useTranslation } from '../translate.js';
-import { SORT_CATEGORY, sortAccounts } from '../util.js';
+import { sortAccounts } from '../util.js';
 import Account from './Account.js';
 import Summary from './Summary.js';
-import { CenterQRContainer, LoginButton, useInfo, useLoginContext } from '@slonigiraf/app-slonig-components';
+import { CenterQRContainer, LoginButton, useLoginContext } from '@slonigiraf/app-slonig-components';
 import PayToAccountQR from './PayToAccountQR.js';
-import { useLocation } from 'react-router-dom';
-import { useNavigate } from 'react-router-dom';
-import { encodeAddress } from '@polkadot/keyring';
-import { hexToU8a } from '@polkadot/util';
-import { storePseudonym } from '@slonigiraf/db';
+import TransferParser from './TransferParser.js';
 
 interface Balances {
   accounts: Record<string, AccountBalance>;
@@ -90,11 +86,7 @@ function groupAccounts(accounts: SortedAccount[]): Record<GroupName, string[]> {
 function Overview({ className = '', onStatusChange }: Props): React.ReactElement<Props> {
   const { t } = useTranslation();
   const { _onChangeAccount, isLoggedIn, setIsAddingAccount, currentPair } = useLoginContext();
-  const { api, isElectron } = useApi();
   const { allAccounts, hasAccounts } = useAccounts();
-  const { isLedgerEnabled } = useLedger();
-  const [isCreateOpen, toggleCreate] = useToggle();
-  const [isImportOpen, toggleImport] = useToggle();
   const [isLedgerOpen, toggleLedger] = useToggle();
   const [isMultisigOpen, toggleMultisig] = useToggle();
   const [isProxyOpen, toggleProxy] = useToggle();
@@ -107,49 +99,6 @@ function Overview({ className = '', onStatusChange }: Props): React.ReactElement
   const delegations = useDelegations();
   const proxies = useProxies();
   const isNextTick = useNextTick();
-  const { showInfo } = useInfo();
-
-  const location = useLocation();
-  const queryParams = new URLSearchParams(location.search);
-  const recipientHex = queryParams.get("recipientHex");
-  const recipientNameFromUrl = queryParams.get("name");
-  const recipientAddress = recipientHex ? encodeAddress(hexToU8a(recipientHex)) : null;
-  const navigate = useNavigate();
-  const [isTransferOpen, toggleTransfer] = useToggle();
-
-  const _closeTransfer = useCallback(
-    (): void => {
-      if (isTransferOpen) {
-        navigate('');
-        toggleTransfer();
-      }
-    },
-    [isTransferOpen]
-  );
-
-  useEffect((): void => {
-    const savePseudonym = async () => {
-      if (recipientHex && recipientNameFromUrl) {
-        await storePseudonym(recipientHex, recipientNameFromUrl);
-      }
-    }
-    if (recipientAddress) {
-      toggleTransfer();
-    }
-    savePseudonym();
-  }, [recipientAddress]);
-
-  const onSortChange = useCallback(
-    (sortBy: SortCategory) => setSortBy(({ sortFromMax }) => ({ sortBy, sortFromMax })),
-    []
-  );
-
-  const onSortDirectionChange = useCallback(
-    () => setSortBy(({ sortBy, sortFromMax }) => ({ sortBy, sortFromMax: !sortFromMax })),
-    []
-  );
-
-  const sortOptions = useRef(SORT_CATEGORY.map((text) => ({ text, value: text })));
 
   const setBalance = useCallback(
     (account: string, balance: AccountBalance) =>
@@ -174,25 +123,11 @@ function Overview({ className = '', onStatusChange }: Props): React.ReactElement
     []
   );
 
-  const canStoreAccounts = true;
-
   // We use favorites only to check if it includes some element,
   // so Object is better than array for that because hashmap access is O(1).
   const favoritesMap = useMemo(
     () => Object.fromEntries(favorites.map((x) => [x, true])),
     [favorites]
-  );
-
-  // detect multisigs
-  const hasPalletMultisig = useMemo(
-    () => isFunction((api.tx.multisig || api.tx.utility)?.approveAsMulti),
-    [api]
-  );
-
-  // proxy support
-  const hasPalletProxy = useMemo(
-    () => isFunction(api.tx.proxy?.addProxy),
-    [api]
   );
 
   const accountsMap = useMemo(
@@ -302,23 +237,16 @@ function Overview({ className = '', onStatusChange }: Props): React.ReactElement
     if (onStatusChange) {
       onStatusChange(status);
     }
-    setInputKey(prev => prev + 1);
   }, [onStatusChange]);
 
   return (
     <StyledDiv className={className}>
+      <TransferParser/>
       {isLoggedIn && <>
         <CenterQRContainer>
           <h2>{t('Show the QR to a sender to get Slon tokens')}</h2>
           <PayToAccountQR />
         </CenterQRContainer>
-        {isTransferOpen && (
-          <TransferModal
-            key='modal-transfer'
-            onClose={_closeTransfer}
-            recipientId={recipientAddress ? recipientAddress : undefined}
-          />
-        )}
         <Summary balance={balances.summary} />
         <div className='ui--row'>
           <InputAddress
