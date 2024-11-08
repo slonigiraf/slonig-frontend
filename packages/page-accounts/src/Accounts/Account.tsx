@@ -458,7 +458,7 @@ function Account({ account: { address, meta }, className = '', delegation, filte
           isFavorite={isFavorite}
           toggle={toggleFavorite}
         />
-        <td className='address all relative'>
+        <td>
           <AddressSmall
             parentAddress={meta.parentAddress as string}
             value={address}
