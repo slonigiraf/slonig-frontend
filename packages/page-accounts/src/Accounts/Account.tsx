@@ -13,7 +13,7 @@ import type { AccountBalance, Delegation } from '../types.js';
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import useAccountLocks from '@polkadot/app-referenda/useAccountLocks';
 import { AddressInfo, AddressSmall, Badge, Button, ChainLock, Columar, CryptoType, Forget, LinkExternal, Menu, Popup, styled, Table, Tags, TransferModal } from '@polkadot/react-components';
-import { useAccountInfo, useApi, useBalancesAll, useBestNumber, useCall, useLedger, useQueue, useStakingInfo, useToggle } from '@polkadot/react-hooks';
+import { useAccountInfo, useApi, useBalancesAll, useBestNumber, useCall, useIncrement, useLedger, useQueue, useStakingInfo, useToggle } from '@polkadot/react-hooks';
 import { keyring } from '@polkadot/ui-keyring';
 import { BN, BN_ZERO, formatBalance, formatNumber, isFunction } from '@polkadot/util';
 import Backup from '../modals/Backup.js';
@@ -174,6 +174,7 @@ function Account({ account: { address, meta }, className = '', delegation, filte
   const { setIsTransferOpen } = useTokenTransfer();
   const [isDelegateOpen, toggleDelegate] = useToggle();
   const [isUndelegateOpen, toggleUndelegate] = useToggle();
+  const [trigger, incTrigger] = useIncrement(1);
 
   useEffect((): void => {
     if (balancesAll) {
@@ -442,7 +443,7 @@ function Account({ account: { address, meta }, className = '', delegation, filte
 
   return (
     <>
-      <StyledTr className={`${className} isExpanded isFirst packedBottom`}>
+      <StyledTr className={`${className} isExpanded isFirst packedBottom`} key={'account-tr-'+trigger}>
         <Table.Column.Favorite
           address={address}
           isFavorite={isFavorite}
@@ -465,6 +466,7 @@ function Account({ account: { address, meta }, className = '', delegation, filte
             <EditAccount
               address={address}
               key='modal-edit-account'
+              onUpdate={incTrigger}
               onClose={toggleEdit}
             />
           )}

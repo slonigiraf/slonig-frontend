@@ -8,12 +8,13 @@ import { useAccountInfo } from '@polkadot/react-hooks';
 
 interface Props {
   onClose: () => void;
+  onUpdate: () => void;
   address: string;
 }
 
-function EditAccount({ address, onClose }: Props): React.ReactElement<Props> {
+function EditAccount({ address, onUpdate, onClose }: Props): React.ReactElement<Props> {
   const { t } = useTranslation();
-  const { flags, isEditingName, name, onSaveName, setName, toggleIsEditingName } = useAccountInfo(address);
+  const { isEditingName, name, onSaveName, setName, toggleIsEditingName } = useAccountInfo(address);
 
   useEffect(() => {
     toggleIsEditingName();
@@ -21,12 +22,12 @@ function EditAccount({ address, onClose }: Props): React.ReactElement<Props> {
 
   const onSave = useCallback(() => {
     onSaveName();
+    onUpdate();
     onClose();
   }, [onSaveName, onClose]);
 
   return (
     <StyledModal
-      className='app--accounts-Modal'
       header={t('Edit account')}
       onClose={onClose}
     >
@@ -61,7 +62,6 @@ function EditAccount({ address, onClose }: Props): React.ReactElement<Props> {
   );
 }
 const StyledModal = styled(Modal)`
- 
 `;
 const StyledDiv = styled.div`
   display: flex;
