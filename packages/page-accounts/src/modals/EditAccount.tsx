@@ -3,10 +3,9 @@
 
 import React, { useCallback, useEffect, useState } from 'react';
 
-import { Modal, styled } from '@polkadot/react-components';
+import { AccountName, Input, Modal, styled } from '@polkadot/react-components';
 
 import { useTranslation } from '../translate.js';
-import AddressSection from './AddressSection.js';
 import { useAccountInfo } from '@polkadot/react-hooks';
 import AccountMenuButtons from './AccountMenuButtons.js';
 import { keyring } from '@polkadot/ui-keyring';
@@ -22,7 +21,7 @@ function Backup({ address, onClose }: Props): React.ReactElement<Props> {
 
   useEffect(() => {
     toggleIsEditingName();
-  },[]);
+  }, []);
 
   const onCancel = useCallback(
     (): void => {
@@ -52,14 +51,27 @@ function Backup({ address, onClose }: Props): React.ReactElement<Props> {
       onClose={onClose}
     >
       <Modal.Content>
-        <AddressSection
-          accountIndex={address}
-          defaultValue={name}
-          editingName={isEditingName}
-          flags={flags}
-          onChange={setName}
-          value={address}
-        />
+        <StyledDiv>
+          <AccountName
+            override={
+              isEditingName
+                ? (
+                  <Input
+                    className='name--input'
+                    defaultValue={name}
+                    label='name-input'
+                    onChange={setName}
+                    withLabel={false}
+                  />
+                )
+                : flags.isEditable
+                  ? (name.toUpperCase() || t('<unknown>'))
+                  : undefined
+            }
+            value={address}
+            withSidebar={false}
+          />
+        </StyledDiv>
         <AccountMenuButtons
           flags={flags}
           isEditing={isEditing()}
@@ -68,7 +80,7 @@ function Backup({ address, onClose }: Props): React.ReactElement<Props> {
           onForgetAddress={onForgetAddress}
           onSaveName={onSave}
           onSaveTags={onSaveTags}
-          onUpdateName={() => {}}
+          onUpdateName={() => { }}
           recipientId={address}
           toggleIsEditingName={toggleIsEditingName}
           toggleIsEditingTags={toggleIsEditingTags}
@@ -80,5 +92,13 @@ function Backup({ address, onClose }: Props): React.ReactElement<Props> {
 }
 const StyledModal = styled(Modal)`
  
+`;
+const StyledDiv = styled.div`
+  display: flex;
+  flex-direction: row;
+  align-items: left;
+  .ui--AccountName {
+    width: 100%;
+  }
 `;
 export default React.memo(Backup);
