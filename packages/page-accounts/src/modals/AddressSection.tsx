@@ -4,10 +4,9 @@
 import type { AddressFlags } from '@polkadot/react-hooks/types';
 
 import React from 'react';
-import CopyToClipboard from 'react-copy-to-clipboard';
 
 import { useToggle } from '@polkadot/react-hooks';
-import { Button, AccountName, IdentityIcon, Input } from '@polkadot/react-components';
+import { styled, AccountName, IdentityIcon, Input } from '@polkadot/react-components';
 import { useTranslation } from '../translate.js';
 
 interface Props {
@@ -19,40 +18,39 @@ interface Props {
   accountIndex: string | undefined,
 }
 
-function AddressSection ({ accountIndex, defaultValue, editingName, flags, onChange, value }: Props): React.ReactElement<Props> {
+function AddressSection({ accountIndex, defaultValue, editingName, flags, onChange, value }: Props): React.ReactElement<Props> {
   const { t } = useTranslation();
-  const [isCopyShown, toggleIsCopyShown] = useToggle();
-  const NOOP = () => undefined;
 
   return (
-    <div className='ui--AddressSection'>
-      <IdentityIcon
-        size={80}
+    <StyledDiv>
+      <AccountName
+        override={
+          editingName
+            ? (
+              <Input
+                className='name--input'
+                defaultValue={defaultValue}
+                label='name-input'
+                onChange={onChange}
+                withLabel={false}
+              />
+            )
+            : flags.isEditable
+              ? (defaultValue.toUpperCase() || t('<unknown>'))
+              : undefined
+        }
         value={value}
+        withSidebar={false}
       />
-      <div className='ui--AddressSection__AddressColumn'>
-        <AccountName
-          override={
-            editingName
-              ? (
-                <Input
-                  className='name--input'
-                  defaultValue={defaultValue}
-                  label='name-input'
-                  onChange={onChange}
-                  withLabel={false}
-                />
-              )
-              : flags.isEditable
-                ? (defaultValue.toUpperCase() || t('<unknown>'))
-                : undefined
-          }
-          value={value}
-          withSidebar={false}
-        />
-      </div>
-    </div>
+    </StyledDiv>
   );
 }
-
+const StyledDiv = styled.div`
+  display: flex;
+  flex-direction: row;
+  align-items: left;
+  .ui--AccountName {
+    width: 100%;
+  }
+`;
 export default React.memo(AddressSection);
