@@ -35,18 +35,15 @@ function EditAccount({ address, onClose }: Props): React.ReactElement<Props> {
           <AccountName
             override={
               isEditingName
-                ? (
-                  <Input
-                    className='name--input'
-                    defaultValue={name}
-                    label='name-input'
-                    onChange={setName}
-                    withLabel={false}
-                  />
-                )
-                : flags.isEditable
-                  ? (name.toUpperCase() || t('<unknown>'))
-                  : undefined
+              && (
+                <Input
+                  className='name--input'
+                  defaultValue={name}
+                  label='name-input'
+                  onChange={setName}
+                  withLabel={false}
+                />
+              )
             }
             value={address}
             withSidebar={false}
