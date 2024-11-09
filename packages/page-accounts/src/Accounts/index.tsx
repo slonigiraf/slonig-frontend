@@ -10,7 +10,7 @@ import React, { useCallback, useEffect, useMemo, useState } from 'react';
 
 import { Button, styled, Table, InputAddress } from '@polkadot/react-components';
 import { getAccountCryptoType } from '@polkadot/react-components/util';
-import { useAccounts, useDelegations, useFavorites, useNextTick, useProxies, useToggle } from '@polkadot/react-hooks';
+import { useAccounts, useDelegations, useFavorites, useIncrement, useNextTick, useProxies } from '@polkadot/react-hooks';
 import { keyring } from '@polkadot/ui-keyring';
 import { BN_ZERO } from '@polkadot/util';
 import { useTranslation } from '../translate.js';
@@ -87,10 +87,11 @@ function Overview({ className = '', onStatusChange }: Props): React.ReactElement
   const [balances, setBalances] = useState<Balances>({ accounts: {} });
   const [filterOn] = useState<string>('');
   const [sortedAccounts, setSorted] = useState<SortedAccount[]>([]);
-  const [{ sortBy, sortFromMax }, setSortBy] = useState<SortControls>(DEFAULT_SORT_CONTROLS);
+  const [{ sortBy, sortFromMax }] = useState<SortControls>(DEFAULT_SORT_CONTROLS);
   const delegations = useDelegations();
   const proxies = useProxies();
   const isNextTick = useNextTick();
+  const [trigger, incTrigger] = useIncrement(1);
 
   const setBalance = useCallback(
     (account: string, balance: AccountBalance) =>
@@ -187,6 +188,7 @@ function Overview({ className = '', onStatusChange }: Props): React.ReactElement
           proxy={proxies?.[index]}
           setBalance={setBalance}
           toggleFavorite={toggleFavorite}
+          onNameChange={incTrigger}
         />
       );
 
@@ -225,12 +227,6 @@ function Overview({ className = '', onStatusChange }: Props): React.ReactElement
       sortAccounts(sortedAccounts, accountsMap, balances.accounts, sortBy, sortFromMax));
   }, [accountsMap, balances, sortBy, sortFromMax]);
 
-  const callOnStatusChange = useCallback((status: ActionStatus) => {
-    if (onStatusChange) {
-      onStatusChange(status);
-    }
-  }, [onStatusChange]);
-
   return (
     <StyledDiv className={className}>
       <TransferParser/>
@@ -242,7 +238,7 @@ function Overview({ className = '', onStatusChange }: Props): React.ReactElement
         <Summary balance={balances.summary} />
         <div className='ui--row'>
           <InputAddress
-            key={currentPair?.address}
+            key={currentPair?.address + "-"+trigger}
             className='full'
             isInput={false}
             label={t('Current account')}

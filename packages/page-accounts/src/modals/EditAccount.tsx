@@ -28,7 +28,7 @@ function EditAccount({ address, onUpdate, onClose }: Props): React.ReactElement<
 
   return (
     <StyledModal
-      header={t('Edit account')}
+      header={t('Edit')}
       onClose={onClose}
     >
       <Modal.Content>

@@ -41,6 +41,7 @@ interface Props {
   proxy?: [ProxyDefinition[], BN];
   setBalance: (address: string, value: AccountBalance) => void;
   toggleFavorite: (address: string) => void;
+  onNameChange: () => void;
 }
 
 interface DemocracyUnlockable {
@@ -143,7 +144,7 @@ const transformRecovery = {
   transform: (opt: Option<RecoveryConfig>) => opt.unwrapOr(null)
 };
 
-function Account({ account: { address, meta }, className = '', delegation, filter, isFavorite, proxy, setBalance, toggleFavorite }: Props): React.ReactElement<Props> | null {
+function Account({ account: { address, meta }, className = '', delegation, filter, isFavorite, proxy, setBalance, toggleFavorite, onNameChange }: Props): React.ReactElement<Props> | null {
   const { t } = useTranslation();
   const [isExpanded, toggleIsExpanded] = useToggle(false);
   const { queueExtrinsic } = useQueue();
@@ -296,6 +297,11 @@ function Account({ account: { address, meta }, className = '', delegation, filte
     },
     [getLedger, meta]
   );
+
+  const _onUpdate = useCallback(() => {
+    incTrigger();
+    onNameChange();
+  }, [incTrigger, onNameChange]);
 
   const menuItems = useMemo(() => [
     createMenuGroup('identityGroup', [
@@ -466,7 +472,7 @@ function Account({ account: { address, meta }, className = '', delegation, filte
             <EditAccount
               address={address}
               key='modal-edit-account'
-              onUpdate={incTrigger}
+              onUpdate={_onUpdate}
               onClose={toggleEdit}
             />
           )}
