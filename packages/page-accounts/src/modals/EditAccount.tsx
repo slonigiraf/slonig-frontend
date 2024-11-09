@@ -1,43 +1,23 @@
 // Copyright 2017-2023 @polkadot/app-accounts authors & contributors
 // SPDX-License-Identifier: Apache-2.0
 
-import React, { useCallback, useEffect, useState } from 'react';
-
-import { AccountName, Input, Modal, styled } from '@polkadot/react-components';
-
+import React, { useCallback, useEffect } from 'react';
+import { AccountName, Button, Input, Modal, styled } from '@polkadot/react-components';
 import { useTranslation } from '../translate.js';
 import { useAccountInfo } from '@polkadot/react-hooks';
-import AccountMenuButtons from './AccountMenuButtons.js';
-import { keyring } from '@polkadot/ui-keyring';
 
 interface Props {
   onClose: () => void;
   address: string;
 }
 
-function Backup({ address, onClose }: Props): React.ReactElement<Props> {
+function EditAccount({ address, onClose }: Props): React.ReactElement<Props> {
   const { t } = useTranslation();
-  const { flags, isEditing, isEditingName, isEditingTags, name, onForgetAddress, onSaveName, onSaveTags, setIsEditingName, setIsEditingTags, setName, setTags, tags, toggleIsEditingName, toggleIsEditingTags } = useAccountInfo(address);
+  const { flags, isEditingName, name, onSaveName, setName, toggleIsEditingName } = useAccountInfo(address);
 
   useEffect(() => {
     toggleIsEditingName();
   }, []);
-
-  const onCancel = useCallback(
-    (): void => {
-      if (isEditing()) {
-        try {
-          const accountOrAddress = keyring.getAccount(address) || keyring.getAddress(address);
-
-          setName(accountOrAddress?.meta.name || '');
-          setTags(accountOrAddress?.meta.tags ? (accountOrAddress.meta.tags).sort() : []);
-          setIsEditingName(false);
-          setIsEditingTags(false);
-        } catch {
-          // ignore
-        }
-      }
-    }, [isEditing, setName, setTags, setIsEditingName, setIsEditingTags, address]);
 
   const onSave = useCallback(() => {
     onSaveName();
@@ -72,21 +52,14 @@ function Backup({ address, onClose }: Props): React.ReactElement<Props> {
             withSidebar={false}
           />
         </StyledDiv>
-        <AccountMenuButtons
-          flags={flags}
-          isEditing={isEditing()}
-          isEditingName={isEditingName}
-          onCancel={onClose}
-          onForgetAddress={onForgetAddress}
-          onSaveName={onSave}
-          onSaveTags={onSaveTags}
-          onUpdateName={() => { }}
-          recipientId={address}
-          toggleIsEditingName={toggleIsEditingName}
-          toggleIsEditingTags={toggleIsEditingTags}
-        />
       </Modal.Content>
-
+      <Modal.Actions>
+        <Button
+          icon='save'
+          label={t('Save')}
+          onClick={onSave}
+        />
+      </Modal.Actions>
     </StyledModal>
   );
 }
@@ -101,4 +74,4 @@ const StyledDiv = styled.div`
     width: 100%;
   }
 `;
-export default React.memo(Backup);
+export default React.memo(EditAccount);
