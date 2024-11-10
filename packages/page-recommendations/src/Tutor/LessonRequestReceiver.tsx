@@ -38,12 +38,7 @@ function LessonRequestReceiver({ setCurrentLesson }: Props): React.ReactElement<
                     const webRTCData = await receiveWebRTCData(webRTCPeerId, maxLoadingSec * 1000);
                     hideInfo();
                     const receivedRequest: LessonRequest = parseJson(webRTCData);
-                    if (receivedRequest.tutor === tutorPublicKeyHex) {
-                        setLessonRequest(receivedRequest);
-                    } else {
-                        showInfo(t('Student has shown you a QR code created for a different tutor. Ask them to scan your QR code.'), 'error');
-                        navigate('', { replace: true });
-                    }
+                    setLessonRequest(receivedRequest);
                 } catch(e){
                     showInfo(t('Ask the sender to refresh the QR page and keep it open while sending data.'), 'error');
                     navigate('', { replace: true });

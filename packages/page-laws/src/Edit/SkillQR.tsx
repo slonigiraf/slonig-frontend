@@ -1,21 +1,17 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useTranslation } from '../translate.js';
 import { CenterQRContainer, LessonRequest, LoginButton, SenderComponent, nameFromKeyringPair, qrWidthPx, useLoginContext } from '@slonigiraf/app-slonig-components';
-import { Letter, getLessonId, getLettersByWorkerIdWithEmptyLesson, getSetting, storeSetting, LawType, QRAction, QRField, SettingKey } from '@slonigiraf/db';
-import { Dropdown, Spinner } from '@polkadot/react-components';
-import { useLiveQuery } from "dexie-react-hooks";
+import { Letter, getLessonId, getLettersByWorkerIdWithEmptyLesson, LawType, QRAction, QRField } from '@slonigiraf/db';
+import { Spinner } from '@polkadot/react-components';
 import { keyForCid } from '@slonigiraf/app-slonig-components';
-import { useLocation } from 'react-router-dom';
 import { styled } from '@polkadot/react-components';
-import { u8aToHex, hexToU8a, u8aWrapBytes } from '@polkadot/util';
-import { getDataToSignByWorker } from '@slonigiraf/helpers';
+import { u8aToHex } from '@polkadot/util';
 import BN from 'bn.js';
 import { BN_ONE } from '@polkadot/util';
 import { useApi } from '@polkadot/react-hooks';
 import { useBlockTime } from '@polkadot/react-hooks';
 import DiplomaCheck from './DiplomaCheck.js';
 import { ItemWithCID } from '../types.js';
-import { getAllPseudonyms } from '@slonigiraf/db';
 
 interface Props {
   className?: string;
@@ -41,26 +37,15 @@ function SkillQR({ className = '', id, cid, type, selectedItems, isLearningReque
   const [blockAllowed, setBlockAllowed] = useState<BN>(new BN(1));
   const { currentPair, isLoggedIn } = useLoginContext();
   const { t } = useTranslation();
-  const location = useLocation();
-  const queryParams = new URLSearchParams(location.search);
-  const tutorFromQuery = queryParams.get("tutor");
-  const [tutor, setTutor] = useState<string | null>(tutorFromQuery);
-  const tutors = useLiveQuery(() => getAllPseudonyms(), []);
   const [diplomasToReexamine, setDiplomasToReexamine] = useState<Letter[]>();
   const [validDiplomas, setValidDiplomas] = useState<Letter[]>();
   const [loading, setLoading] = useState<boolean>(true);
-  const [currentDate, setCurrentDate] = useState<Date | null>(null);
   const [lessonId, setLessonId] = useState<string>('');
   const [learn, setLearn] = useState<string[][]>([]);
   const [reexamine, setReexamine] = useState<string[][]>([]);
   const [data, setData] = useState<string | null>(null);
 
-  // Conditional Rendering Logic
   const shouldRender = selectedItems && selectedItems.length > 0 && (isLearningRequested || isReexaminingRequested);
-
-  // Early return replaced with conditional rendering below
-
-  // Fetch block number (once)
   useEffect(() => {
     async function fetchBlockNumber() {
       if (isApiReady) {
@@ -93,62 +78,17 @@ function SkillQR({ className = '', id, cid, type, selectedItems, isLearningReque
     }
   }, [currentPair, isLoggedIn, selectedItems, isLearningRequested]);
 
-  // Fetch tutor and set it as the default in the dropdown
-  useEffect(() => {
-    const fetchTutorSetting = async () => {
-      if (tutorFromQuery) {
-        await storeSetting(SettingKey.TUTOR, tutorFromQuery);
-        setTutor(tutorFromQuery);
-      } else {
-        const tutorFromSettings = await getSetting(SettingKey.TUTOR);
-        if (tutors && tutorFromSettings) {
-          setTutor(tutorFromSettings);
-        }
-      }
-    };
-    fetchTutorSetting();
-  }, [tutors, tutorFromQuery]);
-
-  // Fetch date
-  useEffect(() => {
-    const date = new Date();
-    setCurrentDate(date);
-  }, []);
-
   // Generate tutoring request ID
   useEffect(() => {
     const generateTutoringRequestId = () => {
-      if (tutor && selectedItems && selectedItems.length > 0) {
-        setLessonId(getLessonId(tutor, selectedItems.map(item => item.id)));
+      if (selectedItems && selectedItems.length > 0) {
+        setLessonId(getLessonId(selectedItems.map(item => item.id)));
       } else {
         setLessonId('');
       }
     };
     generateTutoringRequestId();
-  }, [tutor, selectedItems]);
-
-  // Prepare dropdown options
-  let tutorOptions = tutors?.map(tutor => ({
-    text: tutor.pseudonym,
-    value: tutor.publicKey
-  }));
-
-  // Check if 'tutor' is not null and not in 'tutorOptions'
-  if (tutor && tutorOptions && !tutorOptions.some(option => option.value === tutor)) {
-    // Add 'From web-link' as the first option
-    tutorOptions = [{ text: t('From web-link'), value: tutor }, ...tutorOptions];
-  }
-
-  const handleTutorSelect = async (selectedKey: string) => {
-    setTutor(selectedKey);
-    if (selectedKey) {
-      try {
-        await storeSetting(SettingKey.TUTOR, selectedKey);
-      } catch (error) {
-        console.error('Error saving tutor selection:', error);
-      }
-    }
-  };
+  }, [selectedItems]);
 
   const studentIdentity = u8aToHex(currentPair?.publicKey);
 
@@ -171,71 +111,44 @@ function SkillQR({ className = '', id, cid, type, selectedItems, isLearningReque
     }
   }, [studentIdentity, isLearningRequested, isReexaminingRequested, selectedItems]);
 
-  // Generate signatures for each diploma to be reexamined
-  const _onSign = useCallback(async () => {
-    if (!isLoggedIn || !currentPair || !diplomasToReexamine?.length || !tutor) {
-      return;
-    }
-
-    const examData = diplomasToReexamine
-      .filter(diploma => diploma !== null && diploma !== undefined)
-      .map((diploma) => {
-        const letterInsurance = getDataToSignByWorker(
-          diploma.letterNumber,
-          new BN(diploma.block),
-          blockAllowed,
-          hexToU8a(diploma.referee),
-          hexToU8a(diploma.worker),
-          new BN(diploma.amount),
-          hexToU8a(diploma.signOverReceipt),
-          hexToU8a(tutor)
-        );
-
-        const diplomaKey = keyForCid(currentPair, diploma.cid);
-        const signature = u8aToHex(diplomaKey.sign(u8aWrapBytes(letterInsurance)));
-
-        return [
-          diploma.cid,
-          diploma.genesis,
-          diploma.letterNumber.toString(),
-          diploma.block,
-          blockAllowed.toString(),
-          diploma.referee,
-          diploma.worker,
-          diploma.amount,
-          diploma.signOverPrivateData,
-          diploma.signOverReceipt,
-          signature
-        ];
-      });
-
-    setReexamine(examData);
-  }, [currentPair, tutor, diplomasToReexamine, blockAllowed, isLoggedIn]);
-
-  // Trigger _onSign when dependencies change
   useEffect(() => {
-    if (shouldRender) { // Ensure we only attempt to sign when rendering
-      _onSign();
+    if (shouldRender && diplomasToReexamine?.length) {
+      const examData = diplomasToReexamine
+        .filter(diploma => diploma !== null && diploma !== undefined)
+        .map((diploma) => {
+          return [
+            diploma.cid,
+            diploma.genesis,
+            diploma.letterNumber.toString(),
+            diploma.block,
+            blockAllowed.toString(),
+            diploma.referee,
+            diploma.worker,
+            diploma.amount,
+            diploma.signOverPrivateData,
+            diploma.signOverReceipt,
+            ''
+          ];
+        });
+      setReexamine(examData);
     }
-  }, [tutor, diplomasToReexamine, blockAllowed, shouldRender, _onSign]);
+  }, [diplomasToReexamine, shouldRender]);
 
   const name = nameFromKeyringPair(currentPair);
   const route = 'diplomas/tutor';
   const [action] = useState({ [QRField.QR_ACTION]: QRAction.LEARN_MODULE });
-
   const diplomaCheck = <DiplomaCheck id={id} cid={cid} caption={t('I have a diploma')} setValidDiplomas={setValidDiplomas} onLoad={() => setLoading(false)} />;
   const hasValidDiploma = validDiplomas && validDiplomas.length > 0;
 
   // Initialize learn request
   useEffect(() => {
     const dataIsNotEmpty = (learn.length + reexamine.length) > 0;
-    if (dataIsNotEmpty && tutor) {
+    if (dataIsNotEmpty) {
       const lessonRequest: LessonRequest = {
         cid: cid,
         learn: learn,
         reexamine: reexamine,
         lesson: lessonId,
-        tutor: tutor,
         name: name,
         identity: studentIdentity,
       };
@@ -243,7 +156,7 @@ function SkillQR({ className = '', id, cid, type, selectedItems, isLearningReque
     } else {
       setData(null);
     }
-  }, [learn, reexamine, cid, lessonId, tutor, name, studentIdentity]);
+  }, [learn, reexamine, cid, lessonId, name, studentIdentity]);
 
   return (
     <>
@@ -253,17 +166,10 @@ function SkillQR({ className = '', id, cid, type, selectedItems, isLearningReque
           {loading ? <Spinner /> :
             !hasValidDiploma && (
               <>
-                {tutor ?
+                {
                   (type === LawType.MODULE && data && (
                     <StyledDiv>
                       <CenterQRContainer>
-                        <Dropdown
-                          className={`dropdown ${className}`}
-                          label={t('Show the QR to your tutor')}
-                          value={tutor}
-                          onChange={handleTutorSelect}
-                          options={tutorOptions || []}
-                        />
                         <SenderComponent
                           data={data}
                           route={route}
@@ -272,14 +178,7 @@ function SkillQR({ className = '', id, cid, type, selectedItems, isLearningReque
                         />
                       </CenterQRContainer>
                     </StyledDiv>
-                  )) :
-                  (
-                    <StyledDiv>
-                      <FlexRow>
-                        <h3>{t('Scan your tutor\'s QR code for help and a diploma.')}</h3>
-                      </FlexRow>
-                    </StyledDiv>
-                  )
+                  ))
                 }
               </>
             )
@@ -301,13 +200,6 @@ const StyledDiv = styled.div`
   label {
     left: 20px !important;
   }
-`;
-
-const FlexRow = styled.div`
-  display: flex;
-  justify-content: left;
-  align-items: left;
-  margin-top: 20px;
 `;
 
 export default React.memo(SkillQR);

@@ -214,9 +214,9 @@ export const getValidLettersForKnowledgeId = async (workerId: string, knowledgeI
         .toArray();
 }
 
-export const getLessonId = (tutor: string, ids: any[]): string => {
+export const getLessonId = (ids: any[]): string => {
     const date = new Date().toISOString().split('T')[0]; // Get the current date in YYYY-MM-DD format
-    const dataToHash = `${date}-${tutor}-${ids.join('-')}`;
+    const dataToHash = `${date}-${ids.join('-')}`;
     const hash = blake2AsHex(dataToHash);
     return hash;
 };

@@ -181,7 +181,6 @@ export interface LessonRequest {
   lesson: string;
   name: string;
   identity: string;
-  tutor: string;
 }
 
 export interface InsurancesTransfer {
