@@ -56,7 +56,7 @@ function LessonRequestReceiver({ setCurrentLesson }: Props): React.ReactElement<
         const saveLesson = async () => {
             if (lessonRequest) {
                 await storePseudonym(lessonRequest.identity, lessonRequest.name);
-                await storeLesson(lessonRequest);
+                await storeLesson(lessonRequest, tutorPublicKeyHex);
                 navigate('', { replace: true });
                 const lesson = await getLesson(lessonRequest.lesson);
                 if (lesson) {

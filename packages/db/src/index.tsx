@@ -234,7 +234,7 @@ const DEFAULT_WARRANTY = "105000000000000";//105 Slon
 const DEFAULT_VALIDITY = 730;//Days valid
 const DEFAULT_DIPLOMA_PRICE = "80000000000000";//80 Slon
 
-export const storeLesson = async (lessonRequest: LessonRequest) => {
+export const storeLesson = async (lessonRequest: LessonRequest, tutor: string) => {
     const now = (new Date()).getTime();
 
     const stored_warranty = await getSetting(SettingKey.DIPLOMA_WARRANTY);
@@ -249,7 +249,7 @@ export const storeLesson = async (lessonRequest: LessonRequest) => {
         id: lessonRequest.lesson, 
         created: now, 
         cid: lessonRequest.cid,
-        tutor: lessonRequest.tutor, 
+        tutor: tutor, 
         student: lessonRequest.identity,
         toLearnCount: lessonRequest.learn.length, 
         learnStep: 0,
@@ -293,17 +293,17 @@ export const storeLesson = async (lessonRequest: LessonRequest) => {
                 lesson: lesson.id,
                 workerId: lesson.student,
                 cid: item[0],
-                genesis: item[1],
-                letterNumber: parseInt(item[2], 10),
-                block: item[3],
-                blockAllowed: item[4],
-                referee: item[5],
-                worker: item[6],
-                amount: item[7],
-                signOverPrivateData: item[8],
-                signOverReceipt: item[9],
-                employer: lesson.tutor,
-                workerSign: item[10],
+                genesis: '',
+                letterNumber: -1,
+                block: '',
+                blockAllowed: '',
+                referee: '',
+                worker: '',
+                amount: item[1],
+                signOverPrivateData: '',
+                signOverReceipt: item[2],
+                employer: '',
+                workerSign: '',
                 wasUsed: false,
             };
             return await storeInsurance(insurance);
