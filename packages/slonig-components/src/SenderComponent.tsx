@@ -8,9 +8,10 @@ interface SenderComponentProps {
     textShare: string;
     isDisabled?: boolean;
     onDataSent?: () => void;
+    onReady?: () => void;
 }
 
-const SenderComponent: React.FC<SenderComponentProps> = ({ data, route, action, textShare, isDisabled = false, onDataSent }) => {
+const SenderComponent: React.FC<SenderComponentProps> = ({ data, route, action, textShare, isDisabled = false, onDataSent, onReady }) => {
     const [qrCodeText, setQrCodeText] = useState<string>('');
     const [url, setUrl] = useState<string>('');
     const peerRef = useRef<any>(null); // Replace `any` with the appropriate type if available
@@ -21,6 +22,12 @@ const SenderComponent: React.FC<SenderComponentProps> = ({ data, route, action, 
     useEffect(() => {
         dataRef.current = data;
     }, [data]);
+
+    useEffect(() => {
+        if (qrCodeText && typeof onReady === 'function') {
+            onReady();
+        }
+    }, [qrCodeText, onReady]);
 
     useEffect(() => {
         // Initialize the peer only once
@@ -74,20 +81,15 @@ const SenderComponent: React.FC<SenderComponentProps> = ({ data, route, action, 
         };
     }, [route, action]); // Initialize peer when `route` or `action` changes
 
-    return (
-        <div>
-            {qrCodeText && (
-                <QRWithShareAndCopy
-                    dataQR={qrCodeText}
-                    titleShare="QR Code"
-                    textShare={textShare}
-                    urlShare={url}
-                    dataCopy={url}
-                    isDisabled={isDisabled}
-                />
-            )}
-        </div>
-    );
+    return qrCodeText ?
+        <QRWithShareAndCopy
+            dataQR={qrCodeText}
+            titleShare="QR Code"
+            textShare={textShare}
+            urlShare={url}
+            dataCopy={url}
+            isDisabled={isDisabled}
+        /> : <></>;
 };
 
 export default React.memo(SenderComponent);

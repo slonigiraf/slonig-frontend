@@ -50,12 +50,13 @@ function LessonResults({ className = '', lesson, updateAndStoreLesson, onClose }
   const [totalIncomeForLetters, setTotalIncomeForLetters] = useState<BN>(BN_ZERO);
   const [visibleDiplomaDetails, toggleVisibleDiplomaDetails] = useToggle(false);
   const [data, setData] = useState('');
-  const [processing, setProcessing] = useState(true);
+  const [processingStatistics, setProcessingStatistics] = useState(true);
+  const [processingQR, setProcessingQR] = useState(true);
   const { showInfo } = useInfo();
 
   useEffect(() => {
     if (countOfValidLetters !== null && countOfDiscussedInsurances !== null) {
-      setProcessing(false);
+      setProcessingStatistics(false);
       if (countOfValidLetters + countOfDiscussedInsurances === 0) {
         showInfo(t('You did not issue or reexamine any diplomas during this lesson.'));
         onClose();
@@ -261,17 +262,20 @@ function LessonResults({ className = '', lesson, updateAndStoreLesson, onClose }
 
   const [action] = useState({ [QRField.QR_ACTION]: QRAction.ADD_DIPLOMA });
 
+  const constContentIsVisible = !(processingStatistics || processingQR);
+
   return (
-    processing ? <Spinner /> :
-      <StyledModal className={className}
-        header={t('Show to the student to send the results')}
-        onClose={onClose}
-        size='small'>
-        <VerticalCenterItemsContainer>
-          <CenterQRContainer>
-            <SenderComponent data={data} route={'diplomas'} action={action}
-              textShare={t('Press the link to add the diploma')} onDataSent={onClose} />
-          </CenterQRContainer>
+    <StyledModal className={className}
+      header={t('Show to the student to send the results')}
+      onClose={onClose}
+      size='small'>
+      <VerticalCenterItemsContainer>
+        {!constContentIsVisible && <Spinner />}
+        <CenterQRContainer>
+          <SenderComponent data={data} route={'diplomas'} action={action}
+            textShare={t('Press the link to add the diploma')} onDataSent={onClose} onReady={() => setProcessingQR(false)} />
+        </CenterQRContainer>
+        {constContentIsVisible &&
           <DiplomaDiv>
             <Card>
               <div className="table">
@@ -313,52 +317,53 @@ function LessonResults({ className = '', lesson, updateAndStoreLesson, onClose }
               </div>
             </Card>
           </DiplomaDiv>
-        </VerticalCenterItemsContainer>
+        }
+      </VerticalCenterItemsContainer>
 
-        {visibleDiplomaDetails && <DetailsModal
-          className={className}
-          header={`${balanceToSlonString(totalIncomeForLetters)} ${tokenSymbol} - ${t('lesson price')}`}
-          onClose={toggleVisibleDiplomaDetails}
-          size='small'
-        >
-          <Modal.Content>
-            <div className='ui--row'>
-              <InputBalance
-                isZeroable
-                label={t('receive payment for each diploma')}
-                onChange={setDiplomaPrice}
-                defaultValue={lesson ? new BN(lesson.dPrice) : BN_ZERO}
-              />
-            </div>
-            <div className='ui--row'>
-              <InputBalance
-                isZeroable
-                label={t('stake for each diploma')}
-                onChange={setAmount}
-                defaultValue={lesson ? new BN(lesson.dWarranty) : BN_ZERO}
-                isError={!lesson || new BN(lesson.dWarranty).eq(BN_ZERO)}
-              />
-            </div>
-            <div className='ui--row'>
-              <Input
-                className='full'
-                label={t('days valid')}
-                onChange={setDaysValid}
-                value={daysInputValue}
-                placeholder={t('Positive number')}
-                isError={!daysInputValue || daysInputValue === "0"}
-              />
-            </div>
-          </Modal.Content>
-          <Modal.Actions>
-            <Button
-              icon='save'
-              label={t('Save and close')}
-              onClick={toggleVisibleDiplomaDetails}
+      {visibleDiplomaDetails && <DetailsModal
+        className={className}
+        header={`${balanceToSlonString(totalIncomeForLetters)} ${tokenSymbol} - ${t('lesson price')}`}
+        onClose={toggleVisibleDiplomaDetails}
+        size='small'
+      >
+        <Modal.Content>
+          <div className='ui--row'>
+            <InputBalance
+              isZeroable
+              label={t('receive payment for each diploma')}
+              onChange={setDiplomaPrice}
+              defaultValue={lesson ? new BN(lesson.dPrice) : BN_ZERO}
             />
-          </Modal.Actions>
-        </DetailsModal>}
-      </StyledModal>
+          </div>
+          <div className='ui--row'>
+            <InputBalance
+              isZeroable
+              label={t('stake for each diploma')}
+              onChange={setAmount}
+              defaultValue={lesson ? new BN(lesson.dWarranty) : BN_ZERO}
+              isError={!lesson || new BN(lesson.dWarranty).eq(BN_ZERO)}
+            />
+          </div>
+          <div className='ui--row'>
+            <Input
+              className='full'
+              label={t('days valid')}
+              onChange={setDaysValid}
+              value={daysInputValue}
+              placeholder={t('Positive number')}
+              isError={!daysInputValue || daysInputValue === "0"}
+            />
+          </div>
+        </Modal.Content>
+        <Modal.Actions>
+          <Button
+            icon='save'
+            label={t('Save and close')}
+            onClick={toggleVisibleDiplomaDetails}
+          />
+        </Modal.Actions>
+      </DetailsModal>}
+    </StyledModal>
   );
 }
 

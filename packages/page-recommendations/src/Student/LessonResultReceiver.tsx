@@ -95,58 +95,61 @@ function LessonResultReceiver(): React.ReactElement {
   }, [isTransferReady, isTransferOpen]);
 
   useEffect(() => {
-    async function payOrSaveResults() {
-      if (agreement.paid === false && isTransferReady) {
-        //pay
-        const recipientAddress = lessonResultJson?.referee ? encodeAddress(hexToU8a(lessonResultJson?.referee)) : "";
-        setRecipientId(recipientAddress);
-        setAmount(agreement.price);
-        setModalCaption(t('Pay for the lesson'));
-        setButtonCaption(t('Pay'));
-        setIsTransferOpen(true);
-      } else if (agreement.completed === false) {
-        //store
-        try {
-          if (lessonResultJson?.letters) {
-            lessonResultJson.letters.forEach(async (serializedLetter) => {
-              const letter = deserializeLetter(serializedLetter, lessonResultJson.workerId, lessonResultJson.genesis, lessonResultJson.amount);
-              await putLetter(letter);
-            });
-          }
-          if (lessonResultJson?.insurances) {
-            lessonResultJson.insurances.forEach(async (insuranceMeta) => {
-              const [signOverReceipt, lastExamined, valid] = insuranceMeta.split(',');
-              if (signOverReceipt && lastExamined && valid) {
-                const time = parseInt(lastExamined, 10);
-                if (valid === '1') {
-                  await updateLetterReexaminingCount(signOverReceipt, time);
-                } else {
-                  await cancelLetter(signOverReceipt, time);
-                }
-              }
-            });
-          }
-          const updatedAgreement: Agreement = { ...agreement, completed: true };
-          updateAgreement(updatedAgreement);
-          showInfo(t('Saved'));
-          navigate('', { replace: true });
-        } catch (e) {
-          console.log(e);
+    async function pay() {
+      const recipientAddress = lessonResultJson?.referee ? encodeAddress(hexToU8a(lessonResultJson?.referee)) : "";
+      setRecipientId(recipientAddress);
+      setAmount(agreement.price);
+      setModalCaption(t('Pay for the lesson'));
+      setButtonCaption(t('Pay'));
+      setIsTransferOpen(true);
+    }
+    if (lessonResultJson && agreement && agreement.paid === false && isTransferReady) {
+      pay();
+    }
+  }, [lessonResultJson, agreement, isTransferReady,
+    setRecipientId, setAmount, setModalCaption, setButtonCaption, setIsTransferOpen])
+
+  useEffect(() => {
+    async function saveResults() {
+      try {
+        if (lessonResultJson?.letters) {
+          lessonResultJson.letters.forEach(async (serializedLetter) => {
+            const letter = deserializeLetter(serializedLetter, lessonResultJson.workerId, lessonResultJson.genesis, lessonResultJson.amount);
+            await putLetter(letter);
+          });
         }
+        if (lessonResultJson?.insurances) {
+          lessonResultJson.insurances.forEach(async (insuranceMeta) => {
+            const [signOverReceipt, lastExamined, valid] = insuranceMeta.split(',');
+            if (signOverReceipt && lastExamined && valid) {
+              const time = parseInt(lastExamined, 10);
+              if (valid === '1') {
+                await updateLetterReexaminingCount(signOverReceipt, time);
+              } else {
+                await cancelLetter(signOverReceipt, time);
+              }
+            }
+          });
+        }
+        const updatedAgreement: Agreement = { ...agreement, completed: true };
+        updateAgreement(updatedAgreement);
+        showInfo(t('Saved'));
+        navigate('', { replace: true });
+      } catch (e) {
+        console.log(e);
       }
     }
-    if (lessonResultJson && agreement) {
-      payOrSaveResults();
+    if (lessonResultJson && agreement?.paid === true && agreement?.completed === false) {
+      saveResults();
     }
-  }, [workerPublicKeyHex, lessonResultJson, agreement, isTransferReady,
-    setRecipientId, setAmount, setModalCaption, setButtonCaption, setIsTransferOpen,])
+  }, [lessonResultJson, agreement?.paid, agreement?.completed])
 
   useEffect(() => {
     if (transferSuccess) {
       const updatedAgreement: Agreement = { ...agreement, paid: true };
       updateAgreement(updatedAgreement);
     }
-  }, [transferSuccess, agreement, updateAgreement])
+  }, [transferSuccess, agreement?.completed, updateAgreement])
 
   return <></>;
 }
