@@ -7,7 +7,7 @@ import { styled, Button, Input, InputBalance, Icon, Card, Modal, Spinner } from 
 import { useApi, useBlockTime, useToggle } from '@polkadot/react-hooks';
 import { u8aToHex, hexToU8a, u8aWrapBytes, BN_ONE, BN_ZERO, formatBalance } from '@polkadot/util';
 import type { LessonResult, Skill } from '@slonigiraf/app-slonig-components';
-import { getIPFSDataFromContentID, parseJson, useIpfsContext, useLoginContext, VerticalCenterItemsContainer, CenterQRContainer, KatexSpan, balanceToSlonString, SenderComponent, useInfo } from '@slonigiraf/app-slonig-components';
+import { getIPFSDataFromContentID, parseJson, useIpfsContext, useLoginContext, VerticalCenterItemsContainer, CenterQRContainer, KatexSpan, balanceToSlonString, SenderComponent, useInfo, nameFromKeyringPair } from '@slonigiraf/app-slonig-components';
 import { Insurance, getPseudonym, Lesson, Letter, getLastUnusedLetterNumber, setLastUsedLetterNumber, storeSetting, putLetter, getInsurancesByLessonId, getValidLettersByLessonId, QRAction, SettingKey, QRField, serializeLetter, deleteSetting } from '@slonigiraf/db';
 import { getPublicDataToSignByReferee, getPrivateDataToSignByReferee } from '@slonigiraf/helpers';
 import { useTranslation } from '../translate.js';
@@ -18,25 +18,6 @@ const getDiplomaBlockNumber = (currentBlock: BN, blockTimeMs: number, secondsToA
   const blocksToAdd = new BN(secondsToAdd).div(new BN(secondsToGenerateBlock));
   const blockAllowed = currentBlock.add(blocksToAdd);
   return blockAllowed;
-}
-
-function letterAsArray(letter: Letter, insurance: Insurance | null) {
-  let result: string[] = [];
-  result.push(letter.cid);                      // Skill CID
-  result.push(letter.workerId);                 // Student Identity
-  result.push(letter.genesis);                  // Genesis U8 Hex
-  result.push(letter.letterNumber.toString());             // Letter ID
-  result.push(letter.block);                    // Diploma Block Number
-  result.push(letter.referee);                  // Referee Public Key Hex
-  result.push(letter.worker);                   // Student
-  result.push(letter.amount);                   // Amount
-  result.push(letter.signOverPrivateData);      // Referee Sign Over Private Data
-  result.push(letter.signOverReceipt);          // Referee Sign Over Receipt
-  if (insurance) {
-    result.push(insurance.signOverReceipt);
-    result.push(insurance.wasUsed ? '0' : '1');
-  }
-  return result;
 }
 
 interface Props {
@@ -256,12 +237,14 @@ function LessonResults({ className = '', lesson, updateAndStoreLesson, onClose }
         }
 
         const agreement = blake2AsHex(JSON.stringify(lesson));
+        const refereeName = nameFromKeyringPair(currentPair);
         const lessonResult: LessonResult = {
           agreement: agreement,
           price: lessonPrice.toString(),
           workerId: lesson.student,
           genesis: genesisU8.toHex(),
           referee: refereePublicKeyHex,
+          refereeName: refereeName,
           amount: amount.toString(),
           letters: letterData,
           insurances: insuranceData,

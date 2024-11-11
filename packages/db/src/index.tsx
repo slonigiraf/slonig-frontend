@@ -324,7 +324,10 @@ export const putAgreement = async (agreement: Agreement) => {
 }
 
 export const putLetter = async (letter: Letter) => {
-    await db.letters.put(letter);
+    const sameItem = await db.letters.get({ signOverReceipt: letter.signOverReceipt });
+    if (sameItem === undefined) {
+        await db.letters.put(letter);
+    }
 }
 
 export const putCIDCache = async (cid: string, data: string) => {

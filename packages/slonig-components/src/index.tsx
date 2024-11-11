@@ -169,6 +169,7 @@ export interface LessonResult {
   workerId: string;
   genesis: string;
   referee: string;
+  refereeName: string;
   amount: string;
   letters: string[];
   insurances: string[];
