@@ -327,6 +327,13 @@ export const putLetter = async (letter: Letter) => {
     await db.letters.put(letter);
 }
 
+export const addLetter = async (letter: Letter) => {
+    const sameItem = await db.letters.get({ signOverReceipt: letter.signOverReceipt });
+    if (sameItem === undefined) {
+        await db.letters.add(letter);
+    }
+}
+
 export const putCIDCache = async (cid: string, data: string) => {
     await db.cidCache.put({cid, data});
 }

@@ -4,11 +4,12 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { useLoginContext, parseJson, useTokenTransfer, receiveWebRTCData, useInfo, LessonResult } from '@slonigiraf/app-slonig-components';
 import { hexToU8a, u8aToHex } from '@polkadot/util';
-import { cancelLetter, deserializeLetter, getAgreement, putAgreement, putLetter, QRField, updateLetterReexaminingCount } from '@slonigiraf/db';
+import { addLetter, cancelLetter, deserializeLetter, getAgreement, putAgreement, putLetter, QRField, updateLetterReexaminingCount } from '@slonigiraf/db';
 import { useTranslation } from '../translate.js';
 import { encodeAddress } from '@polkadot/keyring';
 import { Agreement } from '@slonigiraf/db';
 import { useLocation, useNavigate } from 'react-router-dom';
+import { useLiveQuery } from "dexie-react-hooks";
 
 function LessonResultReceiver(): React.ReactElement {
   const location = useLocation();
@@ -21,23 +22,43 @@ function LessonResultReceiver(): React.ReactElement {
   const workerPublicKeyHex = u8aToHex(currentPair?.publicKey);
   const { showInfo, hideInfo } = useInfo();
   const [lessonResultJson, setLessonResultJson] = useState<LessonResult | null>(null);
-  const [agreement, setAgreement] = useState<Agreement | null>(null);
   const [triedToFetchData, setTriedToFetchData] = useState(false);
   const navigate = useNavigate();
 
+  const agreement = useLiveQuery(async () => {
+    if (!lessonResultJson) return null; // Wait until lessonResultJson is available
+  
+    // Try to fetch the existing agreement from Dexie
+    let savedAgreement = await getAgreement(lessonResultJson.agreement);
+  
+    // If no agreement exists, create a new one
+    if (!savedAgreement) {
+      savedAgreement = {
+        id: lessonResultJson.agreement,
+        price: lessonResultJson.price,
+        paid: false,
+        completed: false,
+      };
+      await putAgreement(savedAgreement); // Save the new agreement in Dexie
+    }
+  
+    return savedAgreement;
+  }, [lessonResultJson]);
+
   const updateAgreement = useCallback(async (updatedAgreement: Agreement) => {
     await putAgreement(updatedAgreement);
-    setAgreement(updatedAgreement);
-  }, [setAgreement, putAgreement]);
+  }, []);
 
   useEffect(() => {
-    setTriedToFetchData(false);
-    setLessonResultJson(null);
-    setAgreement(null);
-  }, [webRTCPeerId, setTriedToFetchData, setLessonResultJson, setAgreement]);
+    if (!webRTCPeerId) {
+      setTriedToFetchData(false);
+      setLessonResultJson(null);
+    }
+  }, [webRTCPeerId]);
 
   useEffect(() => {
     const fetchLesson = async () => {
+      showInfo(t('Ask the sender to refresh the QR page and keep it open while sending data.'), 'error');
       if (webRTCPeerId) {
         const maxLoadingSec = 30;
         showInfo(t('Loading'), 'info', maxLoadingSec);
@@ -61,38 +82,14 @@ function LessonResultReceiver(): React.ReactElement {
       setTriedToFetchData(true);
       fetchLesson();
     }
-  }, [webRTCPeerId, triedToFetchData, t, setAgreement, showInfo, hideInfo,
-    setLessonResultJson, parseJson, receiveWebRTCData, getAgreement]);
+  }, [webRTCPeerId, t, showInfo, hideInfo]);
 
-  useEffect(() => {
-    const fetchAgreement = async () => {
-      if (lessonResultJson) {
-        const savedAgreement = await getAgreement(lessonResultJson.agreement);
-        if (savedAgreement) {
-          setAgreement(savedAgreement);
-        } else {
-          const newAgreement: Agreement = {
-            id: lessonResultJson.agreement,
-            price: lessonResultJson.price,
-            paid: false,
-            completed: false,
-          };
-          updateAgreement(newAgreement);
-        }
-      }
-    };
-    if (lessonResultJson && !agreement) {
-      fetchAgreement();
-    }
-  }, [lessonResultJson, setAgreement, getAgreement]);
-
-  useEffect(() => {
-    if (webRTCPeerId && isTransferReady && !isTransferOpen) {
-      setWebRTCPeerId(null);
-      setAgreement(null);
-      navigate(''); // helps to close transfer modal
-    }
-  }, [isTransferReady, isTransferOpen]);
+  // useEffect(() => { // TODO understand this
+  //   if (webRTCPeerId && isTransferReady && !isTransferOpen) {
+  //     setWebRTCPeerId(null);
+  //     navigate(''); // helps to close transfer modal
+  //   }
+  // }, [isTransferReady, isTransferOpen]);
 
   useEffect(() => {
     async function pay() {
@@ -115,7 +112,7 @@ function LessonResultReceiver(): React.ReactElement {
         if (lessonResultJson?.letters) {
           lessonResultJson.letters.forEach(async (serializedLetter) => {
             const letter = deserializeLetter(serializedLetter, lessonResultJson.workerId, lessonResultJson.genesis, lessonResultJson.amount);
-            await putLetter(letter);
+            await addLetter(letter);
           });
         }
         if (lessonResultJson?.insurances) {
@@ -145,11 +142,11 @@ function LessonResultReceiver(): React.ReactElement {
   }, [lessonResultJson, agreement?.paid, agreement?.completed])
 
   useEffect(() => {
-    if (transferSuccess) {
+    if (transferSuccess && agreement.paid === false) {
       const updatedAgreement: Agreement = { ...agreement, paid: true };
       updateAgreement(updatedAgreement);
     }
-  }, [transferSuccess, agreement?.completed, updateAgreement])
+  }, [transferSuccess, agreement])
 
   return <></>;
 }

@@ -3025,9 +3025,9 @@ __metadata:
     "@slonigiraf/helpers": ^7.0.0
     "@types/qrcode.react": ^1.0.2
     detect-browser: ^5.3.0
-    dexie: ^3.2.2
+    dexie: ^4.0.9
     dexie-export-import: ^1.0.3
-    dexie-react-hooks: ^1.1.1
+    dexie-react-hooks: ^1.1.7
     dompurify: ^3.0.6
     file-saver: ^2.0.5
     ipfs-core: ^0.14.2
@@ -3065,8 +3065,9 @@ __metadata:
   dependencies:
     "@polkadot/test-support": 0.132.2-38-x
     "@polkadot/util": ^12.3.2
-    dexie: ^3.2.2
-    dexie-export-import: ^1.0.3
+    dexie: ^4.0.9
+    dexie-export-import: ^4.1.3
+    dexie-react-hooks: ^1.1.7
     dompurify: ^3.0.6
   peerDependencies:
     react: "*"
@@ -8086,21 +8087,30 @@ __metadata:
   languageName: node
   linkType: hard
 
-"dexie-react-hooks@npm:^1.1.1":
-  version: 1.1.6
-  resolution: "dexie-react-hooks@npm:1.1.6"
+"dexie-export-import@npm:^4.1.3":
+  version: 4.1.3
+  resolution: "dexie-export-import@npm:4.1.3"
+  peerDependencies:
+    dexie: ^2.0.4 || ^3.0.0 || ^4.0.1
+  checksum: cd36cf2cdd6cb30fff20773d09443b66afb07fea2d9e9478bf83ea32b15c312c18cc6f554f75ccf4e55a43d6a37471c31500f100f51cafa131cf5a138dc4188e
+  languageName: node
+  linkType: hard
+
+"dexie-react-hooks@npm:^1.1.7":
+  version: 1.1.7
+  resolution: "dexie-react-hooks@npm:1.1.7"
   peerDependencies:
     "@types/react": ">=16"
     dexie: ^3.2 || ^4.0.1-alpha
     react: ">=16"
-  checksum: 64beabf2929327b14963b92002a395237be081dfa2c1cf1d1884d196950fbee00457960ec3ec866de814433a7729000722d1355352810fb9b5f863a04236a8e3
+  checksum: d1133546ab8d345a8e10d38d272eaa1efa3a34e7bdefacd2acc2419f30e52ea02ab29b19d8911755fbda5882e59d132ba5c3cb840dd4430d3cbca15ef5ea610e
   languageName: node
   linkType: hard
 
-"dexie@npm:^3.2.2":
-  version: 3.2.4
-  resolution: "dexie@npm:3.2.4"
-  checksum: 4e5294a954118b6862c864b8c3970904a1733daebcd919488624520696411e2e81ed1bceeac3634c5c15a21e37ce4b8502ed41c4edfbc5ba3f5925c34d56497b
+"dexie@npm:^4.0.9":
+  version: 4.0.9
+  resolution: "dexie@npm:4.0.9"
+  checksum: d323e7868c32c8dab7581ab4ab9bdfa271feda9896d19d1d86458038d0cb6c3dbaaf66d738a658cd900b9c8f642d42c54ec78529b07ef55894f5dfbf5e7e1739
   languageName: node
   linkType: hard
 
@@ -16861,6 +16871,8 @@ __metadata:
     concurrently: ^8.2.0
     depcheck: ^1.4.7
     devtron: ^1.4.0
+    dexie: ^4.0.9
+    dexie-react-hooks: ^1.1.7
     dnslink-cloudflare: ^3.0.0
     electron: 25.0.1
     electron-builder: 23.6.0
