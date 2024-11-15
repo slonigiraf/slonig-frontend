@@ -4,61 +4,34 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { useLoginContext, parseJson, useTokenTransfer, receiveWebRTCData, useInfo, LessonResult } from '@slonigiraf/app-slonig-components';
 import { hexToU8a, u8aToHex } from '@polkadot/util';
-import { addLetter, cancelLetter, deserializeLetter, getAgreement, putAgreement, putLetter, QRField, updateLetterReexaminingCount } from '@slonigiraf/db';
+import { addLetter, cancelLetter, deserializeLetter, getAgreement, putAgreement, storePseudonym, updateLetterReexaminingCount } from '@slonigiraf/db';
 import { useTranslation } from '../translate.js';
 import { encodeAddress } from '@polkadot/keyring';
 import { Agreement } from '@slonigiraf/db';
-import { useLocation, useNavigate } from 'react-router-dom';
-import { useLiveQuery } from "dexie-react-hooks";
+import { useNavigate } from 'react-router-dom';
+interface Props {
+  webRTCPeerId: string | null;
+}
 
-function LessonResultReceiver(): React.ReactElement {
-  const location = useLocation();
-  const queryParams = new URLSearchParams(location.search);
-  const [webRTCPeerId, setWebRTCPeerId] = useState<string | null>(queryParams.get(QRField.WEBRTC_PEER_ID));
+function LessonResultReceiver({ webRTCPeerId }: Props): React.ReactElement {
   const { t } = useTranslation();
-  const { isTransferOpen, setIsTransferOpen, setRecipientId, setAmount,
+  const { setIsTransferOpen, setRecipientId, setAmount,
     setModalCaption, setButtonCaption, isTransferReady, transferSuccess } = useTokenTransfer();
   const { currentPair } = useLoginContext();
   const workerPublicKeyHex = u8aToHex(currentPair?.publicKey);
   const { showInfo, hideInfo } = useInfo();
   const [lessonResultJson, setLessonResultJson] = useState<LessonResult | null>(null);
   const [triedToFetchData, setTriedToFetchData] = useState(false);
+  const [agreement, setAgreement] = useState<Agreement | null>(null);
   const navigate = useNavigate();
 
-  const agreement = useLiveQuery(async () => {
-    if (!lessonResultJson) return null; // Wait until lessonResultJson is available
-  
-    // Try to fetch the existing agreement from Dexie
-    let savedAgreement = await getAgreement(lessonResultJson.agreement);
-  
-    // If no agreement exists, create a new one
-    if (!savedAgreement) {
-      savedAgreement = {
-        id: lessonResultJson.agreement,
-        price: lessonResultJson.price,
-        paid: false,
-        completed: false,
-      };
-      await putAgreement(savedAgreement); // Save the new agreement in Dexie
-    }
-  
-    return savedAgreement;
-  }, [lessonResultJson]);
-
   const updateAgreement = useCallback(async (updatedAgreement: Agreement) => {
+    setAgreement(updatedAgreement);
     await putAgreement(updatedAgreement);
   }, []);
 
   useEffect(() => {
-    if (!webRTCPeerId) {
-      setTriedToFetchData(false);
-      setLessonResultJson(null);
-    }
-  }, [webRTCPeerId]);
-
-  useEffect(() => {
     const fetchLesson = async () => {
-      showInfo(t('Ask the sender to refresh the QR page and keep it open while sending data.'), 'error');
       if (webRTCPeerId) {
         const maxLoadingSec = 30;
         showInfo(t('Loading'), 'info', maxLoadingSec);
@@ -67,7 +40,25 @@ function LessonResultReceiver(): React.ReactElement {
           hideInfo();
           const receivedResult: LessonResult = parseJson(webRTCData);
           if (receivedResult.workerId === workerPublicKeyHex) {
+            storePseudonym(receivedResult.referee, receivedResult.refereeName);
             setLessonResultJson(receivedResult);
+            const dbAgreement = await getAgreement(receivedResult.agreement);
+            if (dbAgreement) {
+              if (dbAgreement.completed === true) {
+                navigate('', { replace: true });
+              } else{
+                setAgreement(dbAgreement);
+              }
+            } else {
+              const newAgreement = {
+                id: receivedResult.agreement,
+                price: receivedResult.price,
+                paid: false,
+                completed: false,
+              };
+              setAgreement(newAgreement);
+              await putAgreement(newAgreement);
+            }
           } else {
             showInfo(t('The tutor has shown you a QR code created for a different student. Ask the tutor to find the correct lesson.'), 'error');
             navigate('', { replace: true });
@@ -83,13 +74,6 @@ function LessonResultReceiver(): React.ReactElement {
       fetchLesson();
     }
   }, [webRTCPeerId, t, showInfo, hideInfo]);
-
-  // useEffect(() => { // TODO understand this
-  //   if (webRTCPeerId && isTransferReady && !isTransferOpen) {
-  //     setWebRTCPeerId(null);
-  //     navigate(''); // helps to close transfer modal
-  //   }
-  // }, [isTransferReady, isTransferOpen]);
 
   useEffect(() => {
     async function pay() {
@@ -139,7 +123,7 @@ function LessonResultReceiver(): React.ReactElement {
     if (lessonResultJson && agreement?.paid === true && agreement?.completed === false) {
       saveResults();
     }
-  }, [lessonResultJson, agreement?.paid, agreement?.completed])
+  }, [lessonResultJson, agreement])
 
   useEffect(() => {
     if (transferSuccess && agreement.paid === false) {
