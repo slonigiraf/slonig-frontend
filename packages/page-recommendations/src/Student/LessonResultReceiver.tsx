@@ -84,7 +84,7 @@ function LessonResultReceiver({ webRTCPeerId }: Props): React.ReactElement {
       setButtonCaption(t('Pay'));
       setIsTransferOpen(true);
     }
-    if (lessonResultJson && agreement && agreement.paid === false && isTransferReady) {
+    if (lessonResultJson && agreement && agreement.paid === false && agreement.price !== "0" && isTransferReady) {
       pay();
     }
   }, [lessonResultJson, agreement, isTransferReady,
@@ -126,7 +126,7 @@ function LessonResultReceiver({ webRTCPeerId }: Props): React.ReactElement {
   }, [lessonResultJson, agreement])
 
   useEffect(() => {
-    if (transferSuccess && agreement.paid === false) {
+    if (agreement && agreement.paid === false && (transferSuccess || agreement.price === "0")) {
       const updatedAgreement: Agreement = { ...agreement, paid: true };
       updateAgreement(updatedAgreement);
     }
