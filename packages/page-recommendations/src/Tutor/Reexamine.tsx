@@ -12,7 +12,6 @@ import { Insurance, updateInsurance } from '@slonigiraf/db';
 import { getIPFSDataFromContentID, parseJson, useInfo } from '@slonigiraf/app-slonig-components';
 import type { KeyringPair } from '@polkadot/keyring/types';
 import { useApi } from '@polkadot/react-hooks';
-import { getBounty } from "../getBounty.js";
 
 interface Props {
   className?: string;
@@ -66,7 +65,10 @@ function Reexamine({ className = '', currentPair, insurance, onResult, studentNa
     if (nextStage !== null) {
       setIsButtonClicked(true);
       if (nextStage.type === 'reimburse' && insurance != null) {
-        getBounty(insurance, currentPair, api, t, onResult, showInfo);
+        showInfo(t('Bounty will be collected after the lesson ends.'));
+        const invalidInsurance: Insurance = { ...insurance, lastExamined: (new Date).getTime(), valid: false, wasUsed: true };
+        await updateInsurance(invalidInsurance);
+        onResult();
       } else if (nextStage.type === 'skip') {
         onResult();
       } else if (nextStage.type === 'success' && insurance != null) {

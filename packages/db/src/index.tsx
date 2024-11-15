@@ -199,6 +199,10 @@ export const cancelLetter = async (signOverReceipt: string, time: number) => {
     }
 }
 
+export const getLetterBySignOverReceipt = async (signOverReceipt: string) => {
+    return getLetterByLessonIdAndSignOverReceipt('', signOverReceipt);
+}
+
 export const getLetterByLessonIdAndSignOverReceipt = async (lessonKey: string, signOverReceipt: string) => {
     return await db.letters
         .where('[lesson+signOverReceipt]')
@@ -291,7 +295,7 @@ export const storeLesson = async (lessonRequest: LessonRequest, tutor: string) =
                 lastExamined: now,
                 valid: true,
                 lesson: lesson.id,
-                workerId: lesson.student,
+                workerId: "",
                 cid: item[0],
                 genesis: '',
                 letterNumber: -1,

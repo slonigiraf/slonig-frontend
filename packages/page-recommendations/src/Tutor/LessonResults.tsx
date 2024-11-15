@@ -309,7 +309,7 @@ function LessonResults({ className = '', lesson, updateAndStoreLesson, onClose }
                 </div>
                 <div className="row">
                   <div className="cell"><Icon icon='money-bill-trend-up' /></div>
-                  <div className="cell">{balanceToSlonString(totalIncomeForBonuses)} {tokenSymbol} - {t('bonuses received')}</div>
+                  <div className="cell">{balanceToSlonString(totalIncomeForBonuses)} {tokenSymbol} - {t('bonuses will be received')}</div>
                 </div>
                 <div className="row">
                   <div className="cell">
