@@ -3,7 +3,7 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { styled, Button, Progress } from '@polkadot/react-components';
 import { u8aToHex } from '@polkadot/util';
-import { QRWithShareAndCopy, getBaseUrl, getIPFSDataFromContentID, parseJson, useIpfsContext, nameFromKeyringPair, useLoginContext, LoginButton, CenterQRContainer } from '@slonigiraf/app-slonig-components';
+import { QRWithShareAndCopy, getBaseUrl, getIPFSDataFromContentID, parseJson, useIpfsContext, nameFromKeyringPair, useLoginContext, LoginButton, CenterQRContainer, StyledContentCloseButton } from '@slonigiraf/app-slonig-components';
 import { Letter, Lesson, Insurance, getPseudonym, getLesson, getLettersByLessonId, getInsurancesByLessonId, deleteSetting, getSetting, storeSetting, updateLesson, putLetter, getLetter, getInsurance, QRAction, SettingKey } from '@slonigiraf/db';
 import Reexamine from './Reexamine.js';
 import { TutoringAlgorithm } from './TutoringAlgorithm.js';
@@ -231,7 +231,7 @@ function Tutor({ className = '' }: Props): React.ReactElement<Props> {
       value={lesson.learnStep + lesson.reexamineStep}
       total={lesson.toLearnCount + lesson.toReexamineCount}
     />}
-    <StyledTutoringCloseButton onClick={onCloseTutoring}
+    <StyledContentCloseButton onClick={onCloseTutoring}
       icon='close'
     />
     <div style={!reexamined ? {} : { display: 'none' }}>
@@ -267,18 +267,6 @@ const StyledProgress = styled(Progress)`
   @media (min-width: 768px) {
     left: 50%;
     transform: translateX(-50%) translateX(-350px);
-  }
-`;
-
-export const StyledTutoringCloseButton = styled(Button)`
-  position: fixed;
-  width: 40px;
-  top: 95px;
-  right: 10px;
-  z-index: 1;
-  @media (min-width: 768px) {
-    left: 50%;
-    transform: translateX(-50%) translateX(375px);
   }
 `;
 

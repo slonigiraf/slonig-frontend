@@ -18,7 +18,7 @@ import DateInput from './DateInput.js';
 import KatexSpan from './KatexSpan.js';
 import TextAreaWithPreview from './TextAreaWithPreview.js';
 import SelectableList from './SelectableList.js';
-import { styled } from '@polkadot/react-components';
+import { Button, styled } from '@polkadot/react-components';
 
 import { balanceToSlonString, createPeer, receiveWebRTCData, getQrWidth, saveToSessionStorage, loadFromSessionStorage, getKey, arrayBufferToBase64, base64ToArrayBuffer, decryptData, encryptData, keyForCid, nameFromKeyringPair, getBaseUrl, CODEC, getIPFSContentID, getIPFSContentIDAndPinIt, getIPFSDataFromContentID, digestFromCIDv1, getCIDFromBytes, storeEncryptedTextOnIPFS, retrieveDecryptedDataFromIPFS, parseJson, qrPadding } from './utils.js';
 import { useEffect, useState } from 'react';
@@ -107,6 +107,14 @@ export const StyledSpinnerContainer = styled.div`
     margin-left: 0px;
     margin-right: 25px;
   }
+`;
+
+export const StyledContentCloseButton = styled(Button)`
+  position: absolute;
+  width: 40px;
+  top: 50px;
+  right: 2px;
+  z-index: 1;
 `;
 
 export function useDeveloperSetting(): boolean {

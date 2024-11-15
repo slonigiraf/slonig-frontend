@@ -7,8 +7,8 @@ import { styled, Button, Input, InputBalance, Icon, Card, Modal, Spinner } from 
 import { useApi, useBlockTime, useToggle } from '@polkadot/react-hooks';
 import { u8aToHex, hexToU8a, u8aWrapBytes, BN_ONE, BN_ZERO, formatBalance } from '@polkadot/util';
 import type { LessonResult, Skill } from '@slonigiraf/app-slonig-components';
-import { getIPFSDataFromContentID, parseJson, useIpfsContext, useLoginContext, VerticalCenterItemsContainer, CenterQRContainer, KatexSpan, balanceToSlonString, SenderComponent, useInfo, nameFromKeyringPair } from '@slonigiraf/app-slonig-components';
-import { Insurance, getPseudonym, Lesson, Letter, getLastUnusedLetterNumber, setLastUsedLetterNumber, storeSetting, putLetter, getInsurancesByLessonId, getValidLettersByLessonId, QRAction, SettingKey, QRField, serializeLetter, deleteSetting } from '@slonigiraf/db';
+import { getIPFSDataFromContentID, parseJson, useIpfsContext, useLoginContext, VerticalCenterItemsContainer, CenterQRContainer, KatexSpan, balanceToSlonString, SenderComponent, useInfo, nameFromKeyringPair, StyledContentCloseButton } from '@slonigiraf/app-slonig-components';
+import { getPseudonym, Lesson, Letter, getLastUnusedLetterNumber, setLastUsedLetterNumber, storeSetting, putLetter, getInsurancesByLessonId, getValidLettersByLessonId, QRAction, SettingKey, QRField, serializeLetter, deleteSetting } from '@slonigiraf/db';
 import { getPublicDataToSignByReferee, getPrivateDataToSignByReferee } from '@slonigiraf/helpers';
 import { useTranslation } from '../translate.js';
 import { blake2AsHex } from '@polkadot/util-crypto';
@@ -33,7 +33,6 @@ function LessonResults({ className = '', lesson, updateAndStoreLesson, onClose }
   const { api, isApiReady } = useApi();
   const { t } = useTranslation();
   const { currentPair } = useLoginContext();
-  const now = (new Date()).getTime();
   const tokenSymbol = formatBalance.findSi('-').text;
   const dontSign = lesson ? (lesson.dWarranty === '0' || lesson.dValidity === 0) : true;
   const [lessonName, setLessonName] = useState<string>('');
@@ -265,13 +264,14 @@ function LessonResults({ className = '', lesson, updateAndStoreLesson, onClose }
   const constContentIsVisible = !(processingStatistics || processingQR);
 
   return (
-    <StyledModal className={className}
-      header={t('Show to the student to send the results')}
-      onClose={onClose}
-      size='small'>
+    <>
+      <StyledContentCloseButton onClick={onClose}
+        icon='close'
+      />
       <VerticalCenterItemsContainer>
         {!constContentIsVisible && <Spinner />}
         <CenterQRContainer>
+          {constContentIsVisible && <h2>{t('Show to the student')}</h2>}
           <SenderComponent data={data} route={'diplomas'} action={action}
             textShare={t('Press the link to add the diploma')} onDataSent={onClose} onReady={() => setProcessingQR(false)} />
         </CenterQRContainer>
@@ -312,7 +312,10 @@ function LessonResults({ className = '', lesson, updateAndStoreLesson, onClose }
                   <div className="cell">{balanceToSlonString(totalIncomeForBonuses)} {tokenSymbol} - {t('bonuses received')}</div>
                 </div>
                 <div className="row">
-                  <div className="cell"><Button icon='edit' label={t('Edit')} onClick={toggleVisibleDiplomaDetails} /></div>
+                  <div className="cell">
+                    <Button icon='edit' label={t('Edit')} onClick={toggleVisibleDiplomaDetails} />
+                    <Button icon='close' label={t('Close')} onClick={onClose} />
+                  </div>
                 </div>
               </div>
             </Card>
@@ -363,7 +366,7 @@ function LessonResults({ className = '', lesson, updateAndStoreLesson, onClose }
           />
         </Modal.Actions>
       </DetailsModal>}
-    </StyledModal>
+    </>
   );
 }
 
@@ -423,8 +426,7 @@ export const StyledCloseButton = styled(Button)`
   right: 10px;
   z-index: 1;
 `;
-const StyledModal = styled(Modal)`
-`;
+
 const DetailsModal = styled(Modal)`
   button[data-testid='close-modal'] {
     opacity: 0;
