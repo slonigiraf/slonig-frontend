@@ -248,19 +248,7 @@ function Tutor({ className = '' }: Props): React.ReactElement<Props> {
         isLoggedIn &&
         <>
           <LessonRequestReceiver setCurrentLesson={setLesson} />
-          {lesson == null ?
-            <>
-              <CenterQRContainer>
-                <h2>{t('Show to a student to begin tutoring')}</h2>
-                <QRWithShareAndCopy
-                  dataQR={qrCodeText}
-                  titleShare={t('QR code')}
-                  textShare={t('Press the link to start learning')}
-                  urlShare={url}
-                  dataCopy={url} />
-              </CenterQRContainer>
-              <LessonsList tutor={publicKeyHex} onResumeTutoring={onResumeTutoring} onShowResults={onShowResults} />
-            </>
+          {lesson == null ? <LessonsList tutor={publicKeyHex} onResumeTutoring={onResumeTutoring} onShowResults={onShowResults} />
             :
             <> {areResultsShown ? <LessonResults lesson={lesson} updateAndStoreLesson={updateAndStoreLesson} onClose={onCloseResults} /> : reexamAndDiplomaIssuing}</>
           }
