@@ -12,7 +12,6 @@ import { useNavigate } from 'react-router-dom';
 import BN from 'bn.js';
 import { getDataToSignByWorker } from '@slonigiraf/helpers';
 import { useApi } from '@polkadot/react-hooks';
-import { sendFunds } from '../sendFunds.js';
 interface Props {
   webRTCPeerId: string | null;
 }
@@ -186,7 +185,7 @@ function LessonResultReceiver({ webRTCPeerId }: Props): React.ReactElement {
 
           const recipientAddress = lessonResultJson?.referee ? encodeAddress(hexToU8a(lessonResultJson?.referee)) : '';
           if(!penaltyAmount.current.eq(BN_ZERO) && recipientAddress !== ''){
-            await sendFunds(recipientAddress, penaltyAmount.current, currentPair, api, () => {});
+            // await sendFunds(recipientAddress, penaltyAmount.current, currentPair, api, () => {});
           }
         }
         const updatedAgreement: Agreement = { ...agreement, penaltySent: true };
