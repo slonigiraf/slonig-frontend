@@ -28,15 +28,6 @@ function LessonResultReceiver({ webRTCPeerId }: Props): React.ReactElement {
   const [triedToFetchData, setTriedToFetchData] = useState(false);
   const [agreement, setAgreement] = useState<Agreement | null>(null);
   const navigate = useNavigate();
-  const penaltyAmount = useRef(BN_ZERO);
-  const queue = useRef(Promise.resolve());
-
-  const enqueuePenaltyIncrease = async (increment: BN) => {
-    queue.current = queue.current.then(async () => {
-      penaltyAmount.current = penaltyAmount.current.add(increment);
-    });
-    await queue.current;
-  };
 
   const updateAgreement = useCallback(async (updatedAgreement: Agreement) => {
     setAgreement(updatedAgreement);
@@ -146,7 +137,7 @@ function LessonResultReceiver({ webRTCPeerId }: Props): React.ReactElement {
       try {
         if (currentPair && lessonResultJson?.insurances) {
 
-          lessonResultJson.insurances.forEach(async insuranceMeta => {
+          let signedTransactionsPromises = lessonResultJson.insurances.map(async insuranceMeta => {
             const [signOverReceipt, _lastExamined, valid] = insuranceMeta.split(',');
             if (signOverReceipt && valid === '0') {
               const letter = await getLetterBySignOverReceipt(signOverReceipt);
@@ -158,34 +149,32 @@ function LessonResultReceiver({ webRTCPeerId }: Props): React.ReactElement {
                 const diplomaKey = keyForCid(currentPair, letter.cid);
                 const workerSignOverInsurance = u8aToHex(diplomaKey.sign(u8aWrapBytes(letterInsurance)));
 
-                const insuranceToPenalize: Insurance = {
-                  created: letter.created,
-                  lastExamined: letter.created,
-                  valid: true,
-                  lesson: '',
-                  workerId: letter.workerId,
-                  cid: letter.cid,
-                  genesis: letter.genesis,
-                  letterNumber: letter.letterNumber,
-                  block: letter.block,
-                  blockAllowed: letter.block,
-                  referee: letter.referee,
-                  worker: letter.worker,
-                  amount: letter.amount,
-                  signOverPrivateData: letter.signOverPrivateData,
-                  signOverReceipt: letter.signOverReceipt,
-                  employer: letter.worker,
-                  workerSign: workerSignOverInsurance,
-                  wasUsed: false
-                };
-                // get bounty
+                return api.tx.letters.reimburse(
+                  letter.letterNumber,
+                  new BN(letter.block),
+                  new BN(letter.block),
+                  letter.referee,
+                  letter.worker,
+                  lessonResultJson?.referee,
+                  new BN(letter.amount),
+                  letter.signOverReceipt,
+                  workerSignOverInsurance
+                );
               }
             }
+            return undefined;
           });
 
-          const recipientAddress = lessonResultJson?.referee ? encodeAddress(hexToU8a(lessonResultJson?.referee)) : '';
-          if(!penaltyAmount.current.eq(BN_ZERO) && recipientAddress !== ''){
-            // await sendFunds(recipientAddress, penaltyAmount.current, currentPair, api, () => {});
+          const txs = (await Promise.all(signedTransactionsPromises)).filter(tx => tx !== undefined);
+
+          if (txs && txs.length > 0) {
+            api.tx.utility
+              .batch(txs)
+              .signAndSend(currentPair, ({ status }) => {
+                if (status.isInBlock) {
+                  console.log(`included in ${status.asInBlock}`);
+                }
+              });
           }
         }
         const updatedAgreement: Agreement = { ...agreement, penaltySent: true };
