@@ -105,7 +105,7 @@
   "Sudo key": "Ключ администратора",
   "Supply a JSON file with the list of signatories.": "Прикрепите JSON файл со списком всех подписантов.",
   "Supply a backed-up JSON file, encrypted with your account-specific password.": "Предоставьте резервный файл JSON, зашифрованный с помощью пароля вашей учетной записи.",
-  "Switch": "Переключатель",
+  "Switch": "Переключить",
   "Test account": "Тестовый аккаунт",
   "Tip": "чаевые",
   "Tip (optional)": "Чаевые (необязательно)",

@@ -169,7 +169,7 @@ function LessonResultReceiver({ webRTCPeerId }: Props): React.ReactElement {
 
           if (txs && txs.length > 0) {
             api.tx.utility
-              .batch(txs)
+              .forceBatch(txs)
               .signAndSend(currentPair, ({ status }) => {
                 if (status.isInBlock) {
                   console.log(`included in ${status.asInBlock}`);
