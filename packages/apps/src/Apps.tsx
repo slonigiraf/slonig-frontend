@@ -16,7 +16,7 @@ import ConnectingOverlay from './overlays/Connecting.js';
 import DotAppsOverlay from './overlays/DotApps.js';
 import WarmUp from './WarmUp.js';
 import BottomMenu from './BottomMenu/index.js';
-import { IpfsProvider, AppContainer, TokenTransferProvider } from '@slonigiraf/app-slonig-components';
+import { IpfsProvider, AppContainer, TokenTransferProvider, ReimbursementProvider } from '@slonigiraf/app-slonig-components';
 import { InfoProvider } from '@slonigiraf/app-slonig-components';
 import { LoginProvider } from '@slonigiraf/app-slonig-components';
 export const PORTAL_ID = 'portals';
@@ -42,8 +42,10 @@ function Apps({ className = '' }: Props): React.ReactElement<Props> {
               <TokenTransferProvider>
                 <Menu />
                 <Signer>
-                  <Content />
-                  <BottomMenu />
+                  <ReimbursementProvider>
+                    <Content />
+                    <BottomMenu />
+                  </ReimbursementProvider>
                 </Signer>
                 <ConnectingOverlay />
                 <DotAppsOverlay />

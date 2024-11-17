@@ -186,15 +186,15 @@ export const setLastUsedLetterNumber = async (publicKey: string, lastUsed: numbe
 
 export const updateLetterReexaminingCount = async (signOverReceipt: string, time: number) => {
     const letter: Letter | undefined = await getLetterByLessonIdAndSignOverReceipt('', signOverReceipt);
-    if(letter){
-        const updatedLetter: Letter = {...letter, lastExamined: time};
+    if (letter) {
+        const updatedLetter: Letter = { ...letter, lastExamined: time };
         putLetter(updatedLetter);
     }
 }
 export const cancelLetter = async (signOverReceipt: string, time: number) => {
     const letter: Letter | undefined = await getLetterByLessonIdAndSignOverReceipt('', signOverReceipt);
-    if(letter){
-        const updatedLetter: Letter = {...letter, lastExamined: time, valid: false};
+    if (letter) {
+        const updatedLetter: Letter = { ...letter, lastExamined: time, valid: false };
         putLetter(updatedLetter);
     }
 }
@@ -250,17 +250,17 @@ export const storeLesson = async (lessonRequest: LessonRequest, tutor: string) =
     const diploma_price = stored_diploma_price ? stored_diploma_price : DEFAULT_DIPLOMA_PRICE;
 
     const lesson: Lesson = {
-        id: lessonRequest.lesson, 
-        created: now, 
+        id: lessonRequest.lesson,
+        created: now,
         cid: lessonRequest.cid,
-        tutor: tutor, 
+        tutor: tutor,
         student: lessonRequest.identity,
-        toLearnCount: lessonRequest.learn.length, 
+        toLearnCount: lessonRequest.learn.length,
         learnStep: 0,
-        toReexamineCount: lessonRequest.reexamine.length, 
+        toReexamineCount: lessonRequest.reexamine.length,
         reexamineStep: 0,
-        dPrice: diploma_price, 
-        dWarranty: warranty, 
+        dPrice: diploma_price,
+        dWarranty: warranty,
         dValidity: validity,
     };
 
@@ -339,7 +339,7 @@ export const addLetter = async (letter: Letter) => {
 }
 
 export const putCIDCache = async (cid: string, data: string) => {
-    await db.cidCache.put({cid, data});
+    await db.cidCache.put({ cid, data });
 }
 
 export const updateInsurance = async (insurance: Insurance) => {
@@ -347,6 +347,31 @@ export const updateInsurance = async (insurance: Insurance) => {
     if (sameItem !== undefined && insurance.id) {
         await db.insurances.update(insurance.id, insurance);
     }
+}
+
+export const letterToInsurance = (letter: Letter, employer: string, workerSign: string, wasUsed: boolean, blockAllowed?: string) => {
+    const timestamp = (new Date).getTime();
+    const insurance: Insurance = {
+        created: timestamp,
+        lastExamined: timestamp,
+        valid: letter.valid,
+        lesson: letter.lesson,
+        workerId: letter.workerId,
+        cid: letter.cid,
+        genesis: letter.genesis,
+        letterNumber: letter.letterNumber,
+        block: letter.block,
+        blockAllowed: blockAllowed? blockAllowed : letter.block,
+        referee: letter.referee,
+        worker: letter.worker,
+        amount: letter.amount,
+        signOverPrivateData: letter.signOverPrivateData,
+        signOverReceipt: letter.signOverReceipt,
+        employer: employer,
+        workerSign: workerSign,
+        wasUsed: wasUsed,
+    }
+    return insurance;
 }
 
 export const storeInsurance = async (insurance: Insurance) => {
@@ -580,7 +605,7 @@ export function deserializeLetter(data: string, workerId: string, genesis: strin
         signOverReceipt,
     ] = data.split(',');
 
-    const timeStamp = parseInt(created,10);
+    const timeStamp = parseInt(created, 10);
 
     const result: Letter = {
         created: timeStamp,
@@ -592,7 +617,7 @@ export function deserializeLetter(data: string, workerId: string, genesis: strin
         knowledgeId,
         cid,
         genesis,
-        letterNumber: parseInt(letterNumber,10),
+        letterNumber: parseInt(letterNumber, 10),
         block,
         referee,
         worker,

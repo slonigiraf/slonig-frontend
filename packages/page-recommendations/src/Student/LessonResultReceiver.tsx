@@ -1,10 +1,10 @@
 // Copyright 2021-2022 @slonigiraf/app-recommendations authors & contributors
 // SPDX-License-Identifier: Apache-2.0
 
-import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { useLoginContext, parseJson, useTokenTransfer, receiveWebRTCData, useInfo, LessonResult, keyForCid } from '@slonigiraf/app-slonig-components';
-import { BN_ZERO, hexToU8a, u8aToHex, u8aWrapBytes } from '@polkadot/util';
-import { addLetter, cancelLetter, deserializeLetter, getAgreement, getLetter, getLetterByLessonIdAndSignOverReceipt, getLetterBySignOverReceipt, Insurance, putAgreement, storePseudonym, updateLetterReexaminingCount } from '@slonigiraf/db';
+import React, { useCallback, useEffect, useState } from 'react';
+import { useLoginContext, parseJson, useTokenTransfer, receiveWebRTCData, useInfo, LessonResult, keyForCid, useReimbursement } from '@slonigiraf/app-slonig-components';
+import { hexToU8a, u8aToHex, u8aWrapBytes } from '@polkadot/util';
+import { addLetter, cancelLetter, deserializeLetter, getAgreement, getLetterBySignOverReceipt, letterToInsurance, putAgreement, storePseudonym, updateLetterReexaminingCount } from '@slonigiraf/db';
 import { useTranslation } from '../translate.js';
 import { encodeAddress } from '@polkadot/keyring';
 import { Agreement } from '@slonigiraf/db';
@@ -28,6 +28,7 @@ function LessonResultReceiver({ webRTCPeerId }: Props): React.ReactElement {
   const [triedToFetchData, setTriedToFetchData] = useState(false);
   const [agreement, setAgreement] = useState<Agreement | null>(null);
   const navigate = useNavigate();
+  const { reimburse } = useReimbursement();
 
   const updateAgreement = useCallback(async (updatedAgreement: Agreement) => {
     setAgreement(updatedAgreement);
@@ -136,47 +137,22 @@ function LessonResultReceiver({ webRTCPeerId }: Props): React.ReactElement {
     async function sendPenalties() {
       try {
         if (currentPair && lessonResultJson?.insurances) {
-
-          let signedTransactionsPromises = lessonResultJson.insurances.map(async insuranceMeta => {
+          let insurancePromises = lessonResultJson.insurances.map(async insuranceMeta => {
             const [signOverReceipt, _lastExamined, valid] = insuranceMeta.split(',');
             if (signOverReceipt && valid === '0') {
               const letter = await getLetterBySignOverReceipt(signOverReceipt);
-              if (letter) {
-                // generate a data to sign      
+              if (letter) {  
                 const letterInsurance = getDataToSignByWorker(letter.letterNumber, new BN(letter.block), new BN(letter.block), hexToU8a(letter.referee),
                   hexToU8a(letter.worker), new BN(letter.amount), hexToU8a(letter.signOverReceipt), hexToU8a(lessonResultJson?.referee));
-
                 const diplomaKey = keyForCid(currentPair, letter.cid);
-                const workerSignOverInsurance = u8aToHex(diplomaKey.sign(u8aWrapBytes(letterInsurance)));
-
-                return api.tx.letters.reimburse(
-                  letter.letterNumber,
-                  new BN(letter.block),
-                  new BN(letter.block),
-                  letter.referee,
-                  letter.worker,
-                  lessonResultJson?.referee,
-                  new BN(letter.amount),
-                  letter.signOverReceipt,
-                  workerSignOverInsurance
-                );
+                const workerSign = u8aToHex(diplomaKey.sign(u8aWrapBytes(letterInsurance)));
+                return letterToInsurance(letter, lessonResultJson?.referee, workerSign, false, letter.block);
               }
             }
             return undefined;
           });
-
-          const txs = (await Promise.all(signedTransactionsPromises)).filter(tx => tx !== undefined);
-
-          if (txs && txs.length > 0) {
-            api.tx.utility
-              .forceBatch(txs)
-              .signAndSend(currentPair, ({ status }) => {
-                if (status.isInBlock) {
-                  // TODO listen events
-                  console.log(`included in ${status.asInBlock}`);
-                }
-              });
-          }
+          const insurances = (await Promise.all(insurancePromises)).filter(insurance => insurance !== undefined);
+          await reimburse(insurances);
         }
         const updatedAgreement: Agreement = { ...agreement, penaltySent: true };
         updateAgreement(updatedAgreement);
