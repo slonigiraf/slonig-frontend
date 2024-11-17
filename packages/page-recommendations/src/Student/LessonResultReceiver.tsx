@@ -106,19 +106,6 @@ function LessonResultReceiver({ webRTCPeerId }: Props): React.ReactElement {
             await addLetter(letter);
           });
         }
-        if (lessonResultJson?.insurances) {
-          lessonResultJson.insurances.forEach(async (insuranceMeta) => {
-            const [signOverReceipt, lastExamined, valid] = insuranceMeta.split(',');
-            if (signOverReceipt && lastExamined && valid) {
-              const time = parseInt(lastExamined, 10);
-              if (valid === '1') {
-                await updateLetterReexaminingCount(signOverReceipt, time);
-              } else {
-                await cancelLetter(signOverReceipt, time);
-              }
-            }
-          });
-        }
         const updatedAgreement: Agreement = { ...agreement, completed: true };
         updateAgreement(updatedAgreement);
         showInfo(t('Saved'));
@@ -138,16 +125,20 @@ function LessonResultReceiver({ webRTCPeerId }: Props): React.ReactElement {
       try {
         if (currentPair && lessonResultJson?.insurances) {
           let insurancePromises = lessonResultJson.insurances.map(async insuranceMeta => {
-            const [signOverReceipt, _lastExamined, valid] = insuranceMeta.split(',');
+            const [signOverReceipt, lastExamined, valid] = insuranceMeta.split(',');
+            const time = parseInt(lastExamined, 10);
             if (signOverReceipt && valid === '0') {
               const letter = await getLetterBySignOverReceipt(signOverReceipt);
-              if (letter) {  
+              if (letter) {
+                await cancelLetter(signOverReceipt, time);
                 const letterInsurance = getDataToSignByWorker(letter.letterNumber, new BN(letter.block), new BN(letter.block), hexToU8a(letter.referee),
                   hexToU8a(letter.worker), new BN(letter.amount), hexToU8a(letter.signOverReceipt), hexToU8a(lessonResultJson?.referee));
                 const diplomaKey = keyForCid(currentPair, letter.cid);
                 const workerSign = u8aToHex(diplomaKey.sign(u8aWrapBytes(letterInsurance)));
                 return letterToInsurance(letter, lessonResultJson?.referee, workerSign, false, letter.block);
               }
+            } else {
+              await updateLetterReexaminingCount(signOverReceipt, time);
             }
             return undefined;
           });
