@@ -308,7 +308,6 @@ export const storeLesson = async (lessonRequest: LessonRequest, tutor: string) =
                 signOverReceipt: item[2],
                 employer: '',
                 workerSign: '',
-                wasUsed: false,
             };
             return await storeInsurance(insurance);
         }));
@@ -349,7 +348,7 @@ export const updateInsurance = async (insurance: Insurance) => {
     }
 }
 
-export const letterToInsurance = (letter: Letter, employer: string, workerSign: string, wasUsed: boolean, blockAllowed?: string) => {
+export const letterToInsurance = (letter: Letter, employer: string, workerSign: string, blockAllowed?: string) => {
     const timestamp = (new Date).getTime();
     const insurance: Insurance = {
         created: timestamp,
@@ -369,7 +368,6 @@ export const letterToInsurance = (letter: Letter, employer: string, workerSign: 
         signOverReceipt: letter.signOverReceipt,
         employer: employer,
         workerSign: workerSign,
-        wasUsed: wasUsed,
     }
     return insurance;
 }
@@ -545,7 +543,6 @@ const createAndStoreInsurance = async (data: string[]) => {
         signOverReceipt: refereeSignOverReceipt,
         employer: employerPublicKeyHex,
         workerSign: workerSignOverInsurance,
-        wasUsed: false
     };
     await storeInsurance(insurance);
 }

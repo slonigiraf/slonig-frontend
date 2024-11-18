@@ -61,7 +61,7 @@ function UseInsurance({ className = '', insurance }: Props): React.ReactElement<
         />
       </div>
       <div className='ui--row'>
-        {insurance.wasUsed ? usedInfo : penalizeTutor}
+        {penalizeTutor}
       </div>
     </div >
   );

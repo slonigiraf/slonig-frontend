@@ -17,5 +17,4 @@ export interface Insurance {
   signOverReceipt: string;
   employer: string;
   workerSign: string;
-  wasUsed: boolean;
 }

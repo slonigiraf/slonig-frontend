@@ -42,7 +42,6 @@ function LessonResults({ className = '', lesson, updateAndStoreLesson, onClose }
   const [daysInputValue, setDaysInputValue] = useState<string>(lesson ? lesson.dValidity.toString() : "0"); //To allow empty strings
   const [countOfValidLetters, setCountOfValidLetters] = useState<number | null>(null);
   const [countOfDiscussedInsurances, setCountOfDiscussedInsurances] = useState<number | null>(null);
-  const [countOfReceivingBonuses, setCountOfReceivingBonuses] = useState<number | null>(null);
   const [countOfInvalidInsurances, setCountOfInvalidInsurances] = useState<number | null>(null);
   const [totalIncomeForBonuses, setTotalIncomeForBonuses] = useState<BN>(BN_ZERO);
   const [diplomaWarrantyAmount, setDiplomaWarrantyAmount] = useState<BN>(BN_ZERO);
@@ -157,19 +156,15 @@ function LessonResults({ className = '', lesson, updateAndStoreLesson, onClose }
         // Update insurances statistics
         const insurances = await getInsurancesByLessonId(lesson.id);
         if (insurances) {
-          let usedInsurancesCount = 0;
           let invalidInsurancesCount = 0;
           let skippedInsurancesCount = 0;
           let totalBonusAmount = new BN(0);
 
           // Single loop to calculate all statistics
           insurances.forEach(insurance => {
-            if (insurance.wasUsed) {
-              usedInsurancesCount++;
-              totalBonusAmount = totalBonusAmount.add(new BN(insurance.amount));
-            }
             if (!insurance.valid) {
               invalidInsurancesCount++;
+              totalBonusAmount = totalBonusAmount.add(new BN(insurance.amount));
             }
             if (insurance.created === insurance.lastExamined) {
               skippedInsurancesCount++;
@@ -181,7 +176,6 @@ function LessonResults({ className = '', lesson, updateAndStoreLesson, onClose }
           const calculatedDiscussedInsurances = lesson.reexamineStep - skippedInsurancesCount;
 
           setCountOfInvalidInsurances(invalidInsurancesCount);
-          setCountOfReceivingBonuses(usedInsurancesCount);
           setTotalIncomeForBonuses(totalBonusAmount);
           setCountOfDiscussedInsurances(calculatedDiscussedInsurances);
         }

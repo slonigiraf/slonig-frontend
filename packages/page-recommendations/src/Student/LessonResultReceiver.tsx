@@ -135,7 +135,7 @@ function LessonResultReceiver({ webRTCPeerId }: Props): React.ReactElement {
                   hexToU8a(letter.worker), new BN(letter.amount), hexToU8a(letter.signOverReceipt), hexToU8a(lessonResultJson?.referee));
                 const diplomaKey = keyForCid(currentPair, letter.cid);
                 const workerSign = u8aToHex(diplomaKey.sign(u8aWrapBytes(letterInsurance)));
-                const insurance = letterToInsurance(letter, lessonResultJson?.referee, workerSign, false, letter.block);
+                const insurance = letterToInsurance(letter, lessonResultJson?.referee, workerSign, letter.block);
                 await storeInsurance(insurance);
                 return insurance;
               }
