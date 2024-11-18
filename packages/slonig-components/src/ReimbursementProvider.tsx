@@ -1,5 +1,5 @@
-import { Insurance, storeInsurance } from '@slonigiraf/db';
-import React, { createContext, useContext, useState, ReactNode } from 'react';
+import { Insurance } from '@slonigiraf/db';
+import React, { createContext, useContext, useState, ReactNode, useEffect } from 'react';
 import { useApi } from '@polkadot/react-hooks';
 import { useLoginContext } from './LoginContext.js';
 import BN from 'bn.js';
@@ -22,10 +22,22 @@ export const ReimbursementProvider: React.FC<ReimbursementProviderProps> = ({ ch
     const { api, isApiReady } = useApi();
     const { currentPair, isLoggedIn } = useLoginContext();
 
+    useEffect(() => {
+        if(api && isApiReady && currentPair){
+            // Subscribe to referees balances
+            // For example:
+            // api.query.system.account(currentPair?.address, ({ data: { free } }) => {
+            //     console.log(`Free balance: ${free}`);
+            //   });
+        }
+      }, [api, isApiReady, currentPair]);
+
     const reimburse = async (insurances: Insurance[]) => {
         if(!currentPair || !api || !isApiReady || !isLoggedIn) {
             return;
         }
+        // How to submit only insurances that have enough referee balance?
+        // What to do if there are to many insurances?
 
         let signedTransactionsPromises = insurances.map(async insurance => {
             return api.tx.letters.reimburse(
