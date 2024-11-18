@@ -124,7 +124,6 @@ export const getLetters = async (worker: string, startDate: number | null, endDa
     let query = db.letters.where('workerId').equals(worker);
     if (startDate || endDate) {
         query = query.filter((letter: Letter) => {
-            if (letter.letterNumber < 0) return false;
             if (startDate && letter.created < startDate) return false;
             if (endDate && letter.created > endDate) return false;
             return true;
@@ -338,13 +337,6 @@ export const putCanceledLetter = async (canceledLetter: CanceledLetter) => {
     await db.canceledLetters.put(canceledLetter);
 }
 
-export const addLetter = async (letter: Letter) => {
-    const sameItem = await db.letters.get({ signOverReceipt: letter.signOverReceipt });
-    if (sameItem === undefined) {
-        await db.letters.add(letter);
-    }
-}
-
 export const putCIDCache = async (cid: string, data: string) => {
     await db.cidCache.put({ cid, data });
 }
@@ -451,7 +443,7 @@ export const storeUsageRight = async (usageRight: UsageRight) => {
 }
 
 export const storeLetterUsageRight = async (letter: Letter, employer: string, sign: string) => {
-    const sameUsageRight = await db.usageRights.get({ sign: sign });
+    const sameUsageRight = await db.usageRights.get(sign);
     if (sameUsageRight === undefined && letter.signOverReceipt !== undefined) {
         const usageRight = {
             created: (new Date()).getTime(),
@@ -564,8 +556,8 @@ export const getPseudonym = async (publicKey: string): Promise<string | undefine
 
 
 /**
- * Serializes a Letter object to a JSON string, including only the specified fields.
- * @param letterTemplate - The Letter object to serialize.
+ * Serializes a LetterTemplate object to a JSON string, including only the specified fields.
+ * @param letterTemplate - The LetterTemplate object to serialize.
  * @returns The JSON string representation of the Letter.
  */
 export function serializeAsLetter(letterTemplate: LetterTemplate): string {
