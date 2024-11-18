@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useLoginContext } from '@slonigiraf/app-slonig-components';
-import { Letter, getValidLettersForKnowledgeId } from '@slonigiraf/db';
+import { Letter, getLettersForKnowledgeId } from '@slonigiraf/db';
 import { Icon } from '@polkadot/react-components';
 import { u8aToHex } from '@polkadot/util';
 
@@ -20,7 +20,7 @@ function DiplomaCheck({ className = '', id, cid, caption, setValidDiplomas, onLo
 
   useEffect(() => {
     const fetchDiplomaForTheSkill = async () => {
-      const validDiplomas = await getValidLettersForKnowledgeId(studentIdentity, id);
+      const validDiplomas = await getLettersForKnowledgeId(studentIdentity, id);
       if (validDiplomas.length > 0) {
         setStudentHasValidDiplomaForThisSkill(true);
       }

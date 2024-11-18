@@ -1,5 +1,7 @@
 import Dexie, { Table } from 'dexie';
+import { LetterTemplate } from './LetterTemplate.js';
 import { Letter } from './Letter.js';
+import { CanceledLetter } from './CanceledLetter.js';
 import { Pseudonym } from './Pseudonym.js';
 import { Signer } from './Signer.js';
 import { UsageRight } from './UsageRight.js';
@@ -12,6 +14,8 @@ import { CIDCache } from './CIDCache.js';
 
 class SlonigirafDB extends Dexie {
   letters!: Table<Letter>;
+  letterTemplates!: Table<LetterTemplate>;
+  canceledLetters!: Table<CanceledLetter>;
   pseudonyms!: Table<Pseudonym>;
   signers!: Table<Signer>;
   usageRights!: Table<UsageRight>;
@@ -24,8 +28,10 @@ class SlonigirafDB extends Dexie {
 
   constructor() {
     super('slonigiraf');
-    this.version(40).stores({
-      letters: '++id,created,lastExamined,lesson,workerId,knowledgeId,cid,referee,signOverReceipt,[lesson+signOverReceipt],[workerId+knowledgeId],[workerId+lesson]',
+    this.version(41).stores({
+      letters: '&signOverReceipt,created,lastExamined,workerId,knowledgeId,cid,referee,[workerId+knowledgeId]',
+      canceledLetters: '&[knowledgeId+created]',
+      letterTemplates: '++id,lesson',
       pseudonyms: '&publicKey',
       signers: '&publicKey',
       usageRights: '++id,sign',

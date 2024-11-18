@@ -8,7 +8,7 @@ import { useApi, useBlockTime, useToggle } from '@polkadot/react-hooks';
 import { u8aToHex, hexToU8a, u8aWrapBytes, BN_ONE, BN_ZERO, formatBalance } from '@polkadot/util';
 import type { LessonResult, Skill } from '@slonigiraf/app-slonig-components';
 import { getIPFSDataFromContentID, parseJson, useIpfsContext, useLoginContext, VerticalCenterItemsContainer, CenterQRContainer, KatexSpan, balanceToSlonString, SenderComponent, useInfo, nameFromKeyringPair, StyledContentCloseButton } from '@slonigiraf/app-slonig-components';
-import { getPseudonym, Lesson, Letter, getLastUnusedLetterNumber, setLastUsedLetterNumber, storeSetting, putLetter, getInsurancesByLessonId, getValidLettersByLessonId, QRAction, SettingKey, QRField, serializeLetter, deleteSetting } from '@slonigiraf/db';
+import { getPseudonym, Lesson, getLastUnusedLetterNumber, setLastUsedLetterNumber, storeSetting, putLetter, getInsurancesByLessonId, getValidLetterTemplatesByLessonId, QRAction, SettingKey, QRField, serializeAsLetter, deleteSetting, LetterTemplate, putLetterTemplate } from '@slonigiraf/db';
 import { getPublicDataToSignByReferee, getPrivateDataToSignByReferee } from '@slonigiraf/helpers';
 import { useTranslation } from '../translate.js';
 import { blake2AsHex } from '@polkadot/util-crypto';
@@ -182,14 +182,14 @@ function LessonResults({ className = '', lesson, updateAndStoreLesson, onClose }
 
         // Calculate block number
         const chainHeader = await api.rpc.chain.getHeader();
-        const currentBlockNumber = new BN(chainHeader.number.toString());
+        const currentBlockNumber = new BN((chainHeader as { number: BN }).number.toString());
         const secondsValid = lesson.dValidity * 86400;
 
         const diplomaBlockNumber: BN = getDiplomaBlockNumber(currentBlockNumber, millisecondsPerBlock, secondsValid);
 
         // Get diplomas to sign
-        const letters: Letter[] = await getValidLettersByLessonId(lesson.id);
-        const numberOfValidLetters = dontSign ? 0 : letters.length;
+        const letterTemplates: LetterTemplate[] = await getValidLetterTemplatesByLessonId(lesson.id);
+        const numberOfValidLetters = dontSign ? 0 : letterTemplates.length;
         const priceBN = lesson ? new BN(lesson.dPrice) : BN_ZERO;
         const lessonPrice = new BN(numberOfValidLetters).mul(priceBN);
         setCountOfValidLetters(numberOfValidLetters);
@@ -202,21 +202,21 @@ function LessonResults({ className = '', lesson, updateAndStoreLesson, onClose }
         const refereePublicKeyHex = u8aToHex(refereeU8);
         const amount = new BN(lesson.dWarranty);
 
-        for (const letterFromDB of letters) {
+        for (const letterTemlateFromDB of letterTemplates) {
           // calculate letter number (nonce)
-          let letterId = letterFromDB.letterNumber;
-          if (letterFromDB.letterNumber < 0) {
+          let letterId = letterTemlateFromDB.letterNumber;
+          if (letterTemlateFromDB.letterNumber < 0) {
             letterId = await getLastUnusedLetterNumber(refereePublicKeyHex);
             await setLastUsedLetterNumber(refereePublicKeyHex, letterId);
           }
-          const workerPublicKeyU8 = hexToU8a(letterFromDB.worker);
-          const privateData = dontSign ? "" : getPrivateDataToSignByReferee(letterFromDB.cid, genesisU8, letterId, diplomaBlockNumber, refereeU8, workerPublicKeyU8, amount);
+          const workerPublicKeyU8 = hexToU8a(letterTemlateFromDB.worker);
+          const privateData = dontSign ? "" : getPrivateDataToSignByReferee(letterTemlateFromDB.cid, genesisU8, letterId, diplomaBlockNumber, refereeU8, workerPublicKeyU8, amount);
           const receipt = dontSign ? "" : getPublicDataToSignByReferee(genesisU8, letterId, diplomaBlockNumber, refereeU8, workerPublicKeyU8, amount);
           const refereeSignOverPrivateData = dontSign ? "" : u8aToHex(currentPair.sign(u8aWrapBytes(privateData)));
           const refereeSignOverReceipt = dontSign ? "" : u8aToHex(currentPair.sign(u8aWrapBytes(receipt)));
 
-          const updatedLetter: Letter = {
-            ...letterFromDB,
+          const updatedLetterTemplate: LetterTemplate = {
+            ...letterTemlateFromDB,
             genesis: genesisU8.toHex(),
             letterNumber: letterId,
             block: diplomaBlockNumber.toString(),
@@ -225,9 +225,9 @@ function LessonResults({ className = '', lesson, updateAndStoreLesson, onClose }
             signOverPrivateData: refereeSignOverPrivateData,
             signOverReceipt: refereeSignOverReceipt,
           };
-          await putLetter(updatedLetter);
+          await putLetterTemplate(updatedLetterTemplate);
 
-          letterData.push(serializeLetter(updatedLetter));
+          letterData.push(serializeAsLetter(updatedLetterTemplate));
         }
 
         const agreement = blake2AsHex(JSON.stringify(lesson));

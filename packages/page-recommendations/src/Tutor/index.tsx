@@ -1,10 +1,10 @@
 // Copyright 2021-2022 @slonigiraf/app-recommendations authors & contributors
 // SPDX-License-Identifier: Apache-2.0
 import React, { useCallback, useEffect, useState } from 'react';
-import { styled, Button, Progress } from '@polkadot/react-components';
+import { styled, Progress } from '@polkadot/react-components';
 import { u8aToHex } from '@polkadot/util';
-import { QRWithShareAndCopy, getBaseUrl, getIPFSDataFromContentID, parseJson, useIpfsContext, nameFromKeyringPair, useLoginContext, LoginButton, CenterQRContainer, StyledContentCloseButton } from '@slonigiraf/app-slonig-components';
-import { Letter, Lesson, Insurance, getPseudonym, getLesson, getLettersByLessonId, getInsurancesByLessonId, deleteSetting, getSetting, storeSetting, updateLesson, putLetter, getLetter, getInsurance, QRAction, SettingKey } from '@slonigiraf/db';
+import { getBaseUrl, getIPFSDataFromContentID, parseJson, useIpfsContext, nameFromKeyringPair, useLoginContext, LoginButton, StyledContentCloseButton } from '@slonigiraf/app-slonig-components';
+import { LetterTemplate, Lesson, Insurance, getPseudonym, getLesson, getLetterTemplatesByLessonId, getInsurancesByLessonId, deleteSetting, getSetting, storeSetting, updateLesson, putLetter, getLetter, getInsurance, QRAction, SettingKey, putLetterTemplate, getLetterTemplate } from '@slonigiraf/db';
 import Reexamine from './Reexamine.js';
 import { TutoringAlgorithm } from './TutoringAlgorithm.js';
 import DoInstructions from './DoInstructions.js';
@@ -24,7 +24,7 @@ function Tutor({ className = '' }: Props): React.ReactElement<Props> {
   const { currentPair, isLoggedIn } = useLoginContext();
 
   const [insuranceToReexamine, setInsuranceToReexamine] = useState<Insurance | null>(null);
-  const [letterToIssue, setLetterToIssue] = useState<Letter | null>(null);
+  const [letterTemplateToIssue, setLetterTemplateToIssue] = useState<LetterTemplate | null>(null);
 
   // Store progress state
   const [reexamined, setReexamined] = useState<boolean>(false);
@@ -34,7 +34,7 @@ function Tutor({ className = '' }: Props): React.ReactElement<Props> {
   const [studentName, setStudentName] = useState<string | null>(null);
   //   show stake and days or hide
   const [lesson, setLesson] = useState<Lesson | null>(null);
-  const [letterIds, setLetterIds] = useState<number[]>([]);
+  const [letterTemplateIds, setLetterTemplateIds] = useState<number[]>([]);
   const [insuranceIds, setInsuranceIds] = useState<number[]>([]);
   const [areResultsShown, setResultsShown] = useState(false);
 
@@ -66,15 +66,15 @@ function Tutor({ className = '' }: Props): React.ReactElement<Props> {
   useEffect(() => {
     if (lesson?.id) {
       const fetchLetterIds = async () => {
-        const fetchedLetters = await getLettersByLessonId(lesson.id);
+        const fetchedLetters = await getLetterTemplatesByLessonId(lesson.id);
         if (fetchedLetters) {
           const ids = fetchedLetters.map(letter => letter.id).filter(id => id !== undefined);
-          setLetterIds(ids);
+          setLetterTemplateIds(ids);
         }
       };
       fetchLetterIds();
     }
-  }, [lesson?.id, getLettersByLessonId, setLetterIds]);
+  }, [lesson?.id, getLetterTemplatesByLessonId, setLetterTemplateIds]);
 
   useEffect(() => {
     if (lesson?.id) {
@@ -92,9 +92,9 @@ function Tutor({ className = '' }: Props): React.ReactElement<Props> {
   // Fetch skill data and set teaching algorithm
   useEffect(() => {
     async function fetchData() {
-      if (isIpfsReady && letterToIssue) {
+      if (isIpfsReady && letterTemplateToIssue) {
         try {
-          const skillContent = await getIPFSDataFromContentID(ipfs, letterToIssue.cid);
+          const skillContent = await getIPFSDataFromContentID(ipfs, letterTemplateToIssue.cid);
           const skillJson = parseJson(skillContent);
           const studentUsedSlonig = insuranceIds?.length > 0 || lesson?.learnStep;
           const name = studentName ? studentName : null;
@@ -106,7 +106,7 @@ function Tutor({ className = '' }: Props): React.ReactElement<Props> {
       }
     }
     fetchData();
-  }, [ipfs, isIpfsReady, letterToIssue, studentName,
+  }, [ipfs, isIpfsReady, letterTemplateToIssue, studentName,
     getIPFSDataFromContentID, parseJson, setTutoringAlgorithm, lesson?.learnStep])
 
   // Fetch student name
@@ -143,22 +143,21 @@ function Tutor({ className = '' }: Props): React.ReactElement<Props> {
 
   const updateTutoring = useCallback(
     async (stage: string) => {
-      if (letterToIssue) {
+      if (letterTemplateToIssue) {
         if (stage === 'success' || stage === 'next_skill') {
-          const preparedLetter: Letter = {
-            ...letterToIssue,
+          const preparedLetterTemplate: LetterTemplate = {
+            ...letterTemplateToIssue,
             valid: stage === 'success',
             lastExamined: (new Date()).getTime(),
-            examCount: letterToIssue.examCount + 1
           };
-          await putLetter(preparedLetter);
+          await putLetterTemplate(preparedLetterTemplate);
           updateLearned();
         } else if (stage === 'skip') {
           updateLearned();
         }
       }
     },
-    [updateLearned, letterToIssue, putLetter]
+    [updateLearned, letterTemplateToIssue, putLetter]
   );
 
   const onResumeTutoring = useCallback((lesson: Lesson): void => {
@@ -180,11 +179,11 @@ function Tutor({ className = '' }: Props): React.ReactElement<Props> {
         } else {
           setReexamined(true);
         }
-        if (lesson.learnStep < letterIds.length) {
-          const nextLetterId = letterIds[lesson.learnStep];
-          const nextLetter: Letter | undefined = await getLetter(nextLetterId);
+        if (lesson.learnStep < letterTemplateIds.length) {
+          const nextLetterId = letterTemplateIds[lesson.learnStep];
+          const nextLetter: LetterTemplate | undefined = await getLetterTemplate(nextLetterId);
           if (nextLetter) {
-            setLetterToIssue(nextLetter);
+            setLetterTemplateToIssue(nextLetter);
           }
         }
         if (lesson.reexamineStep < insuranceIds.length) {
@@ -200,8 +199,8 @@ function Tutor({ className = '' }: Props): React.ReactElement<Props> {
       }
     }
     onLessonUpdate();
-  }, [lesson, letterIds, insuranceIds, studentName, areResultsShown,
-    setReexamined, getLetter, setLetterToIssue, getInsurance,
+  }, [lesson, letterTemplateIds, insuranceIds, studentName, areResultsShown,
+    setReexamined, getLetter, setLetterTemplateToIssue, getInsurance,
     setInsuranceToReexamine, onShowResults])
 
   const onCloseTutoring = useCallback(async () => {

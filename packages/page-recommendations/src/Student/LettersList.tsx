@@ -1,7 +1,7 @@
 import LetterInfo from './LetterInfo.js';
 import React, { useState } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
-import { deleteLetter, getValidLetters, Letter } from '@slonigiraf/db';
+import { deleteLetter, getLetters, Letter } from '@slonigiraf/db';
 import { Button, styled, Icon, Modal } from '@polkadot/react-components';
 import { useTranslation } from '../translate.js';
 import { useLocation } from 'react-router-dom';
@@ -30,7 +30,7 @@ function LettersList({ className = '', worker, currentPair }: Props): React.Reac
   const [isDeleteConfirmOpen, toggleDeleteConfirm] = useToggle();
 
   const letters = useLiveQuery<Letter[]>(
-    () => getValidLetters(worker, startDate, endDate),
+    () => getLetters(worker, startDate, endDate),
     [worker, startDate, endDate]
   );
 
@@ -45,7 +45,7 @@ function LettersList({ className = '', worker, currentPair }: Props): React.Reac
   };
 
   const deleteDiplomas = async () => {
-    const idsToDelete = selectedLetters.map((letter) => letter.id);
+    const idsToDelete = selectedLetters.map((letter) => letter.signOverReceipt);
     try {
       for (const id of idsToDelete) {
         if (id) {

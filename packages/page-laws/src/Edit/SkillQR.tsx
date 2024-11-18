@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useTranslation } from '../translate.js';
 import { CenterQRContainer, LessonRequest, LoginButton, SenderComponent, nameFromKeyringPair, qrWidthPx, useLoginContext } from '@slonigiraf/app-slonig-components';
-import { Letter, getLessonId, getLettersByWorkerIdWithEmptyLesson, LawType, QRAction, QRField } from '@slonigiraf/db';
+import { Letter, getLessonId, getLettersByWorkerId, LawType, QRAction, QRField } from '@slonigiraf/db';
 import { Spinner } from '@polkadot/react-components';
 import { keyForCid } from '@slonigiraf/app-slonig-components';
 import { styled } from '@polkadot/react-components';
@@ -51,7 +51,7 @@ function SkillQR({ className = '', id, cid, type, selectedItems, isLearningReque
       if (isApiReady) {
         try {
           const chainHeader = await api.rpc.chain.getHeader();
-          const currentBlockNumber = new BN(chainHeader.number.toString());
+          const currentBlockNumber = new BN((chainHeader as { number: BN }).number.toString());
           // Allow to reexamine within the following time
           const secondsValid = 1800;
           const blockAllowed: BN = getBlockAllowed(currentBlockNumber, millisecondsPerBlock, secondsValid);
@@ -95,7 +95,7 @@ function SkillQR({ className = '', id, cid, type, selectedItems, isLearningReque
   // Which diplomas should be reexamined?
   useEffect(() => {
     const fetchRandomDiploma = async () => {
-      const allDiplomas = await getLettersByWorkerIdWithEmptyLesson(studentIdentity);
+      const allDiplomas = await getLettersByWorkerId(studentIdentity);
       if (allDiplomas.length > 0) {
         const randomIndex = Math.floor(Math.random() * allDiplomas.length);
         setDiplomasToReexamine([allDiplomas[randomIndex]]);

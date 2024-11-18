@@ -2,7 +2,9 @@
 // SPDX-License-Identifier: Apache-2.0
 import { db } from "./db/index.js";
 import type { Agreement } from "./db/Agreement.js";
+import { LetterTemplate } from "./db/LetterTemplate.js";
 import type { Letter } from "./db/Letter.js";
+import { CanceledLetter } from './db/CanceledLetter.js';
 import type { Insurance } from "./db/Insurance.js";
 import { Reimbursement } from "./db/Reimbursement.js";
 import type { Signer } from "./db/Signer.js";
@@ -17,7 +19,7 @@ import { blake2AsHex } from '@polkadot/util-crypto';
 import "dexie-export-import";
 import { InsurancesTransfer, LessonRequest } from "@slonigiraf/app-slonig-components";
 
-export type { Reimbursement, Letter, Insurance, Lesson, Pseudonym, Setting, Signer, UsageRight, Agreement };
+export type { LetterTemplate, CanceledLetter, Reimbursement, Letter, Insurance, Lesson, Pseudonym, Setting, Signer, UsageRight, Agreement };
 
 export const SettingKey = {
     ACCOUNT: 'account',
@@ -88,8 +90,11 @@ export const getLessons = async (tutor: string, startDate: number | null, endDat
     }
     return query.reverse().sortBy('created');
 }
-export const getLetter = async (id: number) => {
-    return db.letters.get(id);
+export const getLetter = async (signOverReceipt: string) => {
+    return db.letters.get(signOverReceipt);
+}
+export const getLetterTemplate = async (id: number) => {
+    return db.letterTemplates.get(id);
 }
 export const getCIDCache = async (cid: string) => {
     return db.cidCache.get(cid);
@@ -101,11 +106,11 @@ export const getAgreement = async (id: string) => {
 export const getInsurance = async (id: number) => {
     return db.insurances.get(id);
 }
-export const getLettersByLessonId = async (lessonId: string) => {
-    return db.letters.where({ lesson: lessonId }).sortBy('id');
+export const getLetterTemplatesByLessonId = async (lessonId: string) => {
+    return db.letterTemplates.where({ lesson: lessonId }).sortBy('id');
 }
-export const getValidLettersByLessonId = async (lessonId: string) => {
-    return db.letters.where({ lesson: lessonId }).filter(letter => letter.valid).toArray();
+export const getValidLetterTemplatesByLessonId = async (lessonId: string): Promise<LetterTemplate[]> => {
+    return db.letterTemplates.where({ lesson: lessonId }).filter(letter => letter.valid).toArray();
 }
 export const getInsurancesByLessonId = async (lessonId: string) => {
     return db.insurances.where({ lesson: lessonId }).sortBy('id');
@@ -115,11 +120,10 @@ export const getAllPseudonyms = async () => {
     return db.pseudonyms.toArray();
 }
 
-export const getValidLetters = async (worker: string, startDate: number | null, endDate: number | null) => {
+export const getLetters = async (worker: string, startDate: number | null, endDate: number | null) => {
     let query = db.letters.where('workerId').equals(worker);
     if (startDate || endDate) {
         query = query.filter((letter: Letter) => {
-            if (!letter.valid) return false;
             if (letter.letterNumber < 0) return false;
             if (startDate && letter.created < startDate) return false;
             if (endDate && letter.created > endDate) return false;
@@ -186,36 +190,35 @@ export const setLastUsedLetterNumber = async (publicKey: string, lastUsed: numbe
 }
 
 export const updateLetterReexaminingCount = async (signOverReceipt: string, time: number) => {
-    const letter: Letter | undefined = await getLetterByLessonIdAndSignOverReceipt('', signOverReceipt);
+    const letter = await db.letters.get(signOverReceipt);
     if (letter) {
-        const updatedLetter: Letter = { ...letter, lastExamined: time };
-        putLetter(updatedLetter);
+        const newExamCount = letter.examCount + 1;
+        return db.letters.update(signOverReceipt, { examCount: newExamCount, lastExamined: time });
     }
+    return undefined;
 }
+
 export const cancelLetter = async (signOverReceipt: string, time: number) => {
-    const letter: Letter | undefined = await getLetterByLessonIdAndSignOverReceipt('', signOverReceipt);
+    const letter: Letter | undefined = await getLetter(signOverReceipt);
     if (letter) {
-        const updatedLetter: Letter = { ...letter, lastExamined: time, valid: false };
-        putLetter(updatedLetter);
+        const canceledLetter: CanceledLetter = {
+            created: letter.created,
+            examCount: letter.examCount,
+            lastExamined: time,
+            workerId: letter.workerId,
+            knowledgeId: letter.knowledgeId,
+            cid: letter.cid,
+            referee: letter.referee,
+        };
+        await putCanceledLetter(canceledLetter);
+        await deleteLetter(letter.signOverReceipt);
     }
 }
 
-export const getLetterBySignOverReceipt = async (signOverReceipt: string) => {
-    return getLetterByLessonIdAndSignOverReceipt('', signOverReceipt);
-}
-
-export const getLetterByLessonIdAndSignOverReceipt = async (lessonKey: string, signOverReceipt: string) => {
-    return await db.letters
-        .where('[lesson+signOverReceipt]')
-        .equals([lessonKey, signOverReceipt])
-        .first();
-}
-
-export const getValidLettersForKnowledgeId = async (workerId: string, knowledgeId: string): Promise<Letter[]> => {
+export const getLettersForKnowledgeId = async (workerId: string, knowledgeId: string): Promise<Letter[]> => {
     return await db.letters
         .where('[workerId+knowledgeId]')
         .equals([workerId, knowledgeId])
-        .filter((letter: Letter) => (letter.valid === true && letter.letterNumber >= 0))
         .toArray();
 }
 
@@ -231,8 +234,8 @@ export const getDataShortKey = (data: string): string => {
     return hash;
 };
 
-export const getLettersByWorkerIdWithEmptyLesson = async (workerId: string) => {
-    return db.letters.where('[workerId+lesson]').equals([workerId, '']).toArray();
+export const getLettersByWorkerId = async (workerId: string) => {
+    return db.letters.where({ workerId: workerId }).toArray();
 };
 
 const DEFAULT_WARRANTY = "105000000000000";//105 Slon
@@ -269,10 +272,8 @@ export const storeLesson = async (lessonRequest: LessonRequest, tutor: string) =
     if (sameLesson === undefined) {
         await db.lessons.add(lesson);
         await Promise.all(lessonRequest.learn.map(async (item: string[]) => {
-            const letter: Letter = {
-                created: now,
+            const letterTemplate: LetterTemplate = {
                 valid: false,
-                examCount: 0,
                 lastExamined: now,
                 lesson: lesson.id,
                 workerId: lesson.student,
@@ -287,7 +288,7 @@ export const storeLesson = async (lessonRequest: LessonRequest, tutor: string) =
                 signOverPrivateData: '',
                 signOverReceipt: '',
             };
-            return await putLetter(letter);
+            return await putLetterTemplate(letterTemplate);
         }));
 
         await Promise.all(lessonRequest.reexamine.map(async (item: string[]) => {
@@ -329,6 +330,12 @@ export const putAgreement = async (agreement: Agreement) => {
 
 export const putLetter = async (letter: Letter) => {
     await db.letters.put(letter);
+}
+export const putLetterTemplate = async (letterTemplate: LetterTemplate) => {
+    await db.letterTemplates.put(letterTemplate);
+}
+export const putCanceledLetter = async (canceledLetter: CanceledLetter) => {
+    await db.canceledLetters.put(canceledLetter);
 }
 
 export const addLetter = async (letter: Letter) => {
@@ -421,8 +428,8 @@ export const deleteSetting = async (id: string) => {
     const cleanId = DOMPurify.sanitize(id);
     db.settings.delete(cleanId);
 }
-export const deleteLetter = async (id: number) => {
-    db.letters.delete(id);
+export const deleteLetter = async (signOverReceipt: string) => {
+    db.letters.delete(signOverReceipt);
 }
 export const deleteInsurance = async (id: number) => {
     db.insurances.delete(id);
@@ -472,10 +479,8 @@ export const createAndStoreLetter = async (data: string[]) => {
     const now = (new Date()).getTime();
     const letter: Letter = {
         created: now,
-        valid: true,
         examCount: 1,
         lastExamined: now,
-        lesson: '',
         workerId: workerId,
         knowledgeId: knowledgeId,
         cid: textHash,
@@ -560,21 +565,21 @@ export const getPseudonym = async (publicKey: string): Promise<string | undefine
 
 /**
  * Serializes a Letter object to a JSON string, including only the specified fields.
- * @param letter - The Letter object to serialize.
+ * @param letterTemplate - The Letter object to serialize.
  * @returns The JSON string representation of the Letter.
  */
-export function serializeLetter(letter: Letter): string {
+export function serializeAsLetter(letterTemplate: LetterTemplate): string {
     // Create an array with values in a specific order
     const serializedArray = [
-        letter.lastExamined, // It's intentionally done, that first element here is not match the first element in deserializeLetter
-        letter.knowledgeId,
-        letter.cid,
-        letter.letterNumber.toString(),
-        letter.block,
-        letter.referee,
-        letter.worker,
-        letter.signOverPrivateData,
-        letter.signOverReceipt
+        letterTemplate.lastExamined,
+        letterTemplate.knowledgeId,
+        letterTemplate.cid,
+        letterTemplate.letterNumber.toString(),
+        letterTemplate.block,
+        letterTemplate.referee,
+        letterTemplate.worker,
+        letterTemplate.signOverPrivateData,
+        letterTemplate.signOverReceipt
     ];
     return serializedArray.join(",");
 }
@@ -603,10 +608,8 @@ export function deserializeLetter(data: string, workerId: string, genesis: strin
 
     const result: Letter = {
         created: timeStamp,
-        valid: true,
         examCount: 1,
         lastExamined: timeStamp,
-        lesson: '',
         workerId,
         knowledgeId,
         cid,

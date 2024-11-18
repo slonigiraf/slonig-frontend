@@ -4,7 +4,7 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { useLoginContext, parseJson, useTokenTransfer, receiveWebRTCData, useInfo, LessonResult, keyForCid, useReimbursement } from '@slonigiraf/app-slonig-components';
 import { hexToU8a, u8aToHex, u8aWrapBytes } from '@polkadot/util';
-import { addLetter, addReimbursement, cancelLetter, deserializeLetter, getAgreement, getLetterBySignOverReceipt, letterToReimbursement, putAgreement, storePseudonym, updateLetterReexaminingCount } from '@slonigiraf/db';
+import { addLetter, addReimbursement, cancelLetter, deserializeLetter, getAgreement, getLetter, letterToReimbursement, putAgreement, storePseudonym, updateLetterReexaminingCount } from '@slonigiraf/db';
 import { useTranslation } from '../translate.js';
 import { encodeAddress } from '@polkadot/keyring';
 import { Agreement } from '@slonigiraf/db';
@@ -135,7 +135,7 @@ function LessonResultReceiver({ webRTCPeerId }: Props): React.ReactElement {
               const [signOverReceipt, lastExamined, valid] = insuranceMeta.split(',');
               const time = parseInt(lastExamined, 10);
               if (signOverReceipt && valid === '0') {
-                const letter = await getLetterBySignOverReceipt(signOverReceipt);
+                const letter = await getLetter(signOverReceipt);
                 if (letter) {
                   await cancelLetter(signOverReceipt, time);
                   const letterInsurance = getDataToSignByWorker(letter.letterNumber, new BN(letter.block), new BN(letter.block), hexToU8a(letter.referee),

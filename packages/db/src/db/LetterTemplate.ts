@@ -1,7 +1,8 @@
-export interface Letter {
-  created: number; // timestamp
-  examCount: number,
+export interface LetterTemplate {
+  id?: number;
+  valid: boolean,
   lastExamined: number; // timestamp
+  lesson: string;
   workerId: string;
   knowledgeId: string;
   cid: string;
