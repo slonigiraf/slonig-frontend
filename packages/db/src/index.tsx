@@ -1,9 +1,10 @@
 // Copyright 2021-2022 @slonigiraf/db authors & contributors
 // SPDX-License-Identifier: Apache-2.0
 import { db } from "./db/index.js";
-import type { Agreement } from "./db/Contract.js";
+import type { Agreement } from "./db/Agreement.js";
 import type { Letter } from "./db/Letter.js";
 import type { Insurance } from "./db/Insurance.js";
+import { Reimbursement } from "./db/Reimbursement.js";
 import type { Signer } from "./db/Signer.js";
 import type { UsageRight } from "./db/UsageRight.js";
 import type { Pseudonym } from "./db/Pseudonym.js";
@@ -16,7 +17,7 @@ import { blake2AsHex } from '@polkadot/util-crypto';
 import "dexie-export-import";
 import { InsurancesTransfer, LessonRequest } from "@slonigiraf/app-slonig-components";
 
-export type { Letter, Insurance, Lesson, Pseudonym, Setting, Signer, UsageRight, Agreement };
+export type { Reimbursement, Letter, Insurance, Lesson, Pseudonym, Setting, Signer, UsageRight, Agreement };
 
 export const SettingKey = {
     ACCOUNT: 'account',
@@ -181,7 +182,7 @@ export const getLastUnusedLetterNumber = async (publicKey: string) => {
 }
 
 export const setLastUsedLetterNumber = async (publicKey: string, lastUsed: number) => {
-    await db.signers.where({ publicKey: publicKey }).modify((v: Signer) => v.lastLetterNumber = lastUsed);
+    await db.signers.update(publicKey, { lastLetterNumber: lastUsed });
 }
 
 export const updateLetterReexaminingCount = async (signOverReceipt: string, time: number) => {
@@ -348,28 +349,20 @@ export const updateInsurance = async (insurance: Insurance) => {
     }
 }
 
-export const letterToInsurance = (letter: Letter, employer: string, workerSign: string, blockAllowed?: string) => {
-    const timestamp = (new Date).getTime();
-    const insurance: Insurance = {
-        created: timestamp,
-        lastExamined: timestamp,
-        valid: letter.valid,
-        lesson: letter.lesson,
-        workerId: letter.workerId,
-        cid: letter.cid,
+export const letterToReimbursement = (letter: Letter, employer: string, workerSign: string, blockAllowed?: string): Reimbursement => {
+    const reimbursement: Reimbursement = {
         genesis: letter.genesis,
         letterNumber: letter.letterNumber,
         block: letter.block,
-        blockAllowed: blockAllowed? blockAllowed : letter.block,
+        blockAllowed: blockAllowed ? blockAllowed : letter.block,
         referee: letter.referee,
         worker: letter.worker,
         amount: letter.amount,
-        signOverPrivateData: letter.signOverPrivateData,
         signOverReceipt: letter.signOverReceipt,
         employer: employer,
         workerSign: workerSign,
     }
-    return insurance;
+    return reimbursement;
 }
 
 export const storeInsurance = async (insurance: Insurance) => {
@@ -381,6 +374,10 @@ export const storeInsurance = async (insurance: Insurance) => {
     if (sameInsurance === undefined) {
         await db.insurances.add(insurance);
     }
+}
+
+export const addReimbursement = async (reimbursement: Reimbursement) => {
+    db.reimbursements.add(reimbursement);
 }
 
 function isValidPublicKey(publicKey: string) {
@@ -410,7 +407,7 @@ export const storePseudonym = async (publicKey: string, pseudonym: string) => {
             const newPseudonym: Pseudonym = { publicKey: publicKey, pseudonym: cleanPseudonym, altPseudonym: "" };
             await db.pseudonyms.put(newPseudonym);
         } else if (samePseudonym.pseudonym !== cleanPseudonym) {
-            await db.pseudonyms.where({ publicKey: publicKey }).modify((f: Pseudonym) => f.altPseudonym = cleanPseudonym);
+            await db.pseudonyms.update(publicKey, { altPseudonym: cleanPseudonym });
         }
     }
 }

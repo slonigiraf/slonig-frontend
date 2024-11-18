@@ -1,15 +1,15 @@
-import { Insurance } from '@slonigiraf/db';
-import React, { createContext, useContext, useState, ReactNode, useEffect } from 'react';
+import { Reimbursement } from '@slonigiraf/db';
+import React, { createContext, useContext, ReactNode, useEffect } from 'react';
 import { useApi } from '@polkadot/react-hooks';
 import { useLoginContext } from './LoginContext.js';
 import BN from 'bn.js';
 
 interface ReimbursementContextType {
-    reimburse: (insurances: Insurance[]) => Promise<void>;
+    reimburse: (reimbursements: Reimbursement[]) => Promise<void>;
 }
 
 const defaultContext: ReimbursementContextType = {
-    reimburse: async (_insurances: Insurance[]) => { },
+    reimburse: async (_: Reimbursement[]) => { },
 };
 
 const ReimbursementContext = createContext<ReimbursementContextType>(defaultContext);
@@ -32,24 +32,24 @@ export const ReimbursementProvider: React.FC<ReimbursementProviderProps> = ({ ch
         }
       }, [api, isApiReady, currentPair]);
 
-    const reimburse = async (insurances: Insurance[]) => {
+    const reimburse = async (reimbursements: Reimbursement[]) => {
         if(!currentPair || !api || !isApiReady || !isLoggedIn) {
             return;
         }
         // How to submit only insurances that have enough referee balance?
         // What to do if there are to many insurances?
 
-        let signedTransactionsPromises = insurances.map(async insurance => {
+        let signedTransactionsPromises = reimbursements.map(async reimbursement => {
             return api.tx.letters.reimburse(
-                insurance.letterNumber,
-                new BN(insurance.block),
-                new BN(insurance.blockAllowed),
-                insurance.referee,
-                insurance.worker,
-                insurance.employer,
-                new BN(insurance.amount),
-                insurance.signOverReceipt,
-                insurance.workerSign
+                reimbursement.letterNumber,
+                new BN(reimbursement.block),
+                new BN(reimbursement.blockAllowed),
+                reimbursement.referee,
+                reimbursement.worker,
+                reimbursement.employer,
+                new BN(reimbursement.amount),
+                reimbursement.signOverReceipt,
+                reimbursement.workerSign
             );
         });
 

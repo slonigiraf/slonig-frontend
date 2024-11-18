@@ -4,7 +4,7 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { useLoginContext, parseJson, useTokenTransfer, receiveWebRTCData, useInfo, LessonResult, keyForCid, useReimbursement } from '@slonigiraf/app-slonig-components';
 import { hexToU8a, u8aToHex, u8aWrapBytes } from '@polkadot/util';
-import { addLetter, cancelLetter, deserializeLetter, getAgreement, getLetterBySignOverReceipt, letterToInsurance, putAgreement, storeInsurance, storePseudonym, updateLetterReexaminingCount } from '@slonigiraf/db';
+import { addLetter, addReimbursement, cancelLetter, deserializeLetter, getAgreement, getLetterBySignOverReceipt, letterToReimbursement, putAgreement, storePseudonym, updateLetterReexaminingCount } from '@slonigiraf/db';
 import { useTranslation } from '../translate.js';
 import { encodeAddress } from '@polkadot/keyring';
 import { Agreement } from '@slonigiraf/db';
@@ -83,12 +83,14 @@ function LessonResultReceiver({ webRTCPeerId }: Props): React.ReactElement {
 
   useEffect(() => {
     async function pay() {
-      const recipientAddress = lessonResultJson?.referee ? encodeAddress(hexToU8a(lessonResultJson?.referee)) : "";
-      setRecipientId(recipientAddress);
-      setAmount(agreement.price);
-      setModalCaption(t('Pay for the lesson'));
-      setButtonCaption(t('Pay'));
-      setIsTransferOpen(true);
+      if (agreement) {
+        const recipientAddress = lessonResultJson?.referee ? encodeAddress(hexToU8a(lessonResultJson?.referee)) : "";
+        setRecipientId(recipientAddress);
+        setAmount(new BN(agreement.price));
+        setModalCaption(t('Pay for the lesson'));
+        setButtonCaption(t('Pay'));
+        setIsTransferOpen(true);
+      }
     }
     if (lessonResultJson && agreement && agreement.penaltySent === true &&
       agreement.paid === false && agreement.price !== "0" && isTransferReady) {
@@ -99,19 +101,21 @@ function LessonResultReceiver({ webRTCPeerId }: Props): React.ReactElement {
 
   useEffect(() => {
     async function saveResults() {
-      try {
-        if (lessonResultJson?.letters) {
-          lessonResultJson.letters.forEach(async (serializedLetter) => {
-            const letter = deserializeLetter(serializedLetter, lessonResultJson.workerId, lessonResultJson.genesis, lessonResultJson.amount);
-            await addLetter(letter);
-          });
+      if (agreement) {
+        try {
+          if (lessonResultJson?.letters) {
+            lessonResultJson.letters.forEach(async (serializedLetter) => {
+              const letter = deserializeLetter(serializedLetter, lessonResultJson.workerId, lessonResultJson.genesis, lessonResultJson.amount);
+              await addLetter(letter);
+            });
+          }
+          const updatedAgreement: Agreement = { ...agreement, completed: true };
+          updateAgreement(updatedAgreement);
+          showInfo(t('Saved'));
+          navigate('', { replace: true });
+        } catch (e) {
+          console.log(e);
         }
-        const updatedAgreement: Agreement = { ...agreement, completed: true };
-        updateAgreement(updatedAgreement);
-        showInfo(t('Saved'));
-        navigate('', { replace: true });
-      } catch (e) {
-        console.log(e);
       }
     }
     if (lessonResultJson && agreement && agreement.penaltySent === true &&
@@ -122,35 +126,39 @@ function LessonResultReceiver({ webRTCPeerId }: Props): React.ReactElement {
 
   useEffect(() => {
     async function sendPenalties() {
-      try {
-        if (currentPair && lessonResultJson?.insurances) {
-          let insurancePromises = lessonResultJson.insurances.map(async insuranceMeta => {
-            const [signOverReceipt, lastExamined, valid] = insuranceMeta.split(',');
-            const time = parseInt(lastExamined, 10);
-            if (signOverReceipt && valid === '0') {
-              const letter = await getLetterBySignOverReceipt(signOverReceipt);
-              if (letter) {
-                await cancelLetter(signOverReceipt, time);
-                const letterInsurance = getDataToSignByWorker(letter.letterNumber, new BN(letter.block), new BN(letter.block), hexToU8a(letter.referee),
-                  hexToU8a(letter.worker), new BN(letter.amount), hexToU8a(letter.signOverReceipt), hexToU8a(lessonResultJson?.referee));
-                const diplomaKey = keyForCid(currentPair, letter.cid);
-                const workerSign = u8aToHex(diplomaKey.sign(u8aWrapBytes(letterInsurance)));
-                const insurance = letterToInsurance(letter, lessonResultJson?.referee, workerSign, letter.block);
-                await storeInsurance(insurance);
-                return insurance;
+      if (agreement) {
+
+
+        try {
+          if (currentPair && lessonResultJson?.insurances && agreement?.id) {
+            let reimbursementPromises = lessonResultJson.insurances.map(async insuranceMeta => {
+              const [signOverReceipt, lastExamined, valid] = insuranceMeta.split(',');
+              const time = parseInt(lastExamined, 10);
+              if (signOverReceipt && valid === '0') {
+                const letter = await getLetterBySignOverReceipt(signOverReceipt);
+                if (letter) {
+                  await cancelLetter(signOverReceipt, time);
+                  const letterInsurance = getDataToSignByWorker(letter.letterNumber, new BN(letter.block), new BN(letter.block), hexToU8a(letter.referee),
+                    hexToU8a(letter.worker), new BN(letter.amount), hexToU8a(letter.signOverReceipt), hexToU8a(lessonResultJson?.referee));
+                  const diplomaKey = keyForCid(currentPair, letter.cid);
+                  const workerSign = u8aToHex(diplomaKey.sign(u8aWrapBytes(letterInsurance)));
+                  const reimbursement = letterToReimbursement(letter, lessonResultJson?.referee, workerSign, letter.block);
+                  await addReimbursement(reimbursement);
+                  return reimbursement;
+                }
+              } else {
+                await updateLetterReexaminingCount(signOverReceipt, time);
               }
-            } else {
-              await updateLetterReexaminingCount(signOverReceipt, time);
-            }
-            return undefined;
-          });
-          const insurances = (await Promise.all(insurancePromises)).filter(insurance => insurance !== undefined);
-          await reimburse(insurances);
+              return undefined;
+            });
+            const reimbursements = (await Promise.all(reimbursementPromises)).filter(insurance => insurance !== undefined);
+            await reimburse(reimbursements);
+          }
+          const updatedAgreement: Agreement = { ...agreement, penaltySent: true };
+          updateAgreement(updatedAgreement);
+        } catch (e) {
+          console.log(e);
         }
-        const updatedAgreement: Agreement = { ...agreement, penaltySent: true };
-        updateAgreement(updatedAgreement);
-      } catch (e) {
-        console.log(e);
       }
     }
     if (isApiReady && api && currentPair && lessonResultJson && agreement && agreement.penaltySent === false) {
