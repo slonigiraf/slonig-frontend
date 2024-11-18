@@ -17,6 +17,11 @@ interface Props {
   className?: string;
 }
 
+interface LetterTemplateId {
+  lesson: string;
+  cid: string;
+}
+
 function Tutor({ className = '' }: Props): React.ReactElement<Props> {
   // Initialize api, ipfs and translation
   const { ipfs, isIpfsReady } = useIpfsContext();
@@ -34,7 +39,7 @@ function Tutor({ className = '' }: Props): React.ReactElement<Props> {
   const [studentName, setStudentName] = useState<string | null>(null);
   //   show stake and days or hide
   const [lesson, setLesson] = useState<Lesson | null>(null);
-  const [letterTemplateIds, setLetterTemplateIds] = useState<number[]>([]);
+  const [letterTemplateIds, setLetterTemplateIds] = useState<LetterTemplateId[]>([]);
   const [insuranceIds, setInsuranceIds] = useState<number[]>([]);
   const [areResultsShown, setResultsShown] = useState(false);
 
@@ -68,7 +73,7 @@ function Tutor({ className = '' }: Props): React.ReactElement<Props> {
       const fetchLetterIds = async () => {
         const fetchedLetters = await getLetterTemplatesByLessonId(lesson.id);
         if (fetchedLetters) {
-          const ids = fetchedLetters.map(letter => letter.id).filter(id => id !== undefined);
+          const ids = fetchedLetters.map(({ lesson, cid }) => ({ lesson, cid }));
           setLetterTemplateIds(ids);
         }
       };
@@ -180,10 +185,10 @@ function Tutor({ className = '' }: Props): React.ReactElement<Props> {
           setReexamined(true);
         }
         if (lesson.learnStep < letterTemplateIds.length) {
-          const nextLetterId = letterTemplateIds[lesson.learnStep];
-          const nextLetter: LetterTemplate | undefined = await getLetterTemplate(nextLetterId);
-          if (nextLetter) {
-            setLetterTemplateToIssue(nextLetter);
+          const nextLetterTemplateId = letterTemplateIds[lesson.learnStep];
+          const nextLetterTemplate: LetterTemplate | undefined = await getLetterTemplate(nextLetterTemplateId.lesson, nextLetterTemplateId.cid);
+          if (nextLetterTemplate) {
+            setLetterTemplateToIssue(nextLetterTemplate);
           }
         }
         if (lesson.reexamineStep < insuranceIds.length) {

@@ -1,5 +1,4 @@
 export interface LetterTemplate {
-  id?: number;
   valid: boolean,
   lastExamined: number; // timestamp
   lesson: string;

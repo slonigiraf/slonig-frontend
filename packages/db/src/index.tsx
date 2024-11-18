@@ -98,8 +98,8 @@ export const getLetter = async (signOverReceipt: string) => {
     return db.letters.get(signOverReceipt);
 }
 
-export const getLetterTemplate = async (id: number) => {
-    return db.letterTemplates.get(id);
+export const getLetterTemplate = async (lesson: string, cid: string) => {
+    return db.letterTemplates.get({lesson: lesson, cid: cid});
 }
 
 export const getCIDCache = async (cid: string) => {
