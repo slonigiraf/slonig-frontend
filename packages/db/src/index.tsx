@@ -7,6 +7,7 @@ import type { Letter } from "./db/Letter.js";
 import { CanceledLetter } from './db/CanceledLetter.js';
 import type { Insurance } from "./db/Insurance.js";
 import { Reimbursement } from "./db/Reimbursement.js";
+import { Reexamination } from './db/Reexamination.js';
 import type { Signer } from "./db/Signer.js";
 import type { UsageRight } from "./db/UsageRight.js";
 import type { Pseudonym } from "./db/Pseudonym.js";
@@ -19,7 +20,7 @@ import { blake2AsHex } from '@polkadot/util-crypto';
 import "dexie-export-import";
 import { InsurancesTransfer, LessonRequest } from "@slonigiraf/app-slonig-components";
 
-export type { LetterTemplate, CanceledLetter, Reimbursement, Letter, Insurance, Lesson, Pseudonym, Setting, Signer, UsageRight, Agreement };
+export type { Reexamination, LetterTemplate, CanceledLetter, Reimbursement, Letter, Insurance, Lesson, Pseudonym, Setting, Signer, UsageRight, Agreement };
 
 export const SettingKey = {
     ACCOUNT: 'account',
@@ -72,6 +73,7 @@ const progressCallback = ({ totalRows, completedRows }: any) => {
     console.log(`Progress: ${completedRows} of ${totalRows} rows completed`);
     return true;
 }
+
 export const exportDB = async () => {
     db.export({ prettyJson: true, progressCallback });
 }
@@ -79,6 +81,7 @@ export const exportDB = async () => {
 export const getLesson = async (id: string) => {
     return db.lessons.get(id);
 }
+
 export const getLessons = async (tutor: string, startDate: number | null, endDate: number | null) => {
     let query = db.lessons.where('tutor').equals(tutor);
     if (startDate || endDate) {
@@ -90,30 +93,41 @@ export const getLessons = async (tutor: string, startDate: number | null, endDat
     }
     return query.reverse().sortBy('created');
 }
+
 export const getLetter = async (signOverReceipt: string) => {
     return db.letters.get(signOverReceipt);
 }
+
 export const getLetterTemplate = async (id: number) => {
     return db.letterTemplates.get(id);
 }
+
 export const getCIDCache = async (cid: string) => {
     return db.cidCache.get(cid);
 }
+
 export const getAgreement = async (id: string) => {
     return db.agreements.get(id);
 }
 
-export const getInsurance = async (id: number) => {
-    return db.insurances.get(id);
+export const getInsurance = async (workerSign: string) => {
+    return db.insurances.get(workerSign);
 }
+
+export const getReexamination = async (workerSign: number) => {
+    return db.reexaminations.get(workerSign);
+}
+
 export const getLetterTemplatesByLessonId = async (lessonId: string) => {
     return db.letterTemplates.where({ lesson: lessonId }).sortBy('id');
 }
+
 export const getValidLetterTemplatesByLessonId = async (lessonId: string): Promise<LetterTemplate[]> => {
     return db.letterTemplates.where({ lesson: lessonId }).filter(letter => letter.valid).toArray();
 }
-export const getInsurancesByLessonId = async (lessonId: string) => {
-    return db.insurances.where({ lesson: lessonId }).sortBy('id');
+
+export const getReexaminationsByLessonId = async (lessonId: string) => {
+    return db.reexaminations.where({ lesson: lessonId }).sortBy('id');
 }
 
 export const getAllPseudonyms = async () => {
@@ -149,7 +163,7 @@ export const syncDB = async (data: string, password: string) => {
     letters.map((v: Letter) => putLetter(v));
     //insurances
     const insurances = getDBObjectsFromJson(json, "insurances");
-    insurances.map((v: Insurance) => storeInsurance(v));
+    insurances.map((v: Insurance) => putInsurance(v));
     //signers
     const signers = getDBObjectsFromJson(json, "signers");
     signers.map(async (v: Signer) => {
@@ -291,26 +305,15 @@ export const storeLesson = async (lessonRequest: LessonRequest, tutor: string) =
         }));
 
         await Promise.all(lessonRequest.reexamine.map(async (item: string[]) => {
-            const insurance: Insurance = {
-                created: now,
+            const reexamination: Reexamination = {
                 lastExamined: now,
                 valid: true,
                 lesson: lesson.id,
-                workerId: "",
                 cid: item[0],
-                genesis: '',
-                letterNumber: -1,
-                block: '',
-                blockAllowed: '',
-                referee: '',
-                worker: '',
                 amount: item[1],
-                signOverPrivateData: '',
                 signOverReceipt: item[2],
-                employer: '',
-                workerSign: '',
             };
-            return await storeInsurance(insurance);
+            return await putReexamination(reexamination);
         }));
     }
     await storeSetting(SettingKey.LESSON, lessonRequest.lesson);
@@ -330,9 +333,11 @@ export const putAgreement = async (agreement: Agreement) => {
 export const putLetter = async (letter: Letter) => {
     await db.letters.put(letter);
 }
+
 export const putLetterTemplate = async (letterTemplate: LetterTemplate) => {
     await db.letterTemplates.put(letterTemplate);
 }
+
 export const putCanceledLetter = async (canceledLetter: CanceledLetter) => {
     await db.canceledLetters.put(canceledLetter);
 }
@@ -342,9 +347,13 @@ export const putCIDCache = async (cid: string, data: string) => {
 }
 
 export const updateInsurance = async (insurance: Insurance) => {
-    const sameItem = await db.insurances.get({ id: insurance.id });
-    if (sameItem !== undefined && insurance.id) {
-        await db.insurances.update(insurance.id, insurance);
+    db.insurances.update(insurance.workerSign, insurance);
+}
+
+export const updateReexamination = async (reexamination: Reexamination) => {
+    const sameItem = await db.reexaminations.get(reexamination.signOverReceipt);
+    if (sameItem !== undefined) {
+        await db.reexaminations.update(reexamination.signOverReceipt, reexamination);
     }
 }
 
@@ -364,15 +373,12 @@ export const letterToReimbursement = (letter: Letter, employer: string, workerSi
     return reimbursement;
 }
 
-export const storeInsurance = async (insurance: Insurance) => {
-    const lessonKey = insurance.lesson ?? '';
-    const sameInsurance = await db.insurances
-        .where('[lesson+signOverReceipt]')
-        .equals([lessonKey, insurance.signOverReceipt])
-        .first();
-    if (sameInsurance === undefined) {
-        await db.insurances.add(insurance);
-    }
+export const putInsurance = async (insurance: Insurance) => {
+    db.insurances.put(insurance);
+}
+
+export const putReexamination = async (reexamination: Reexamination) => {
+    db.reexaminations.put(reexamination);
 }
 
 export const addReimbursement = async (reimbursement: Reimbursement) => {
@@ -416,19 +422,24 @@ export const storeSetting = async (id: string, value: string) => {
     const cleanValue = DOMPurify.sanitize(value);
     await db.settings.put({ id: cleanId, value: cleanValue });
 }
+
 export const deleteSetting = async (id: string) => {
     const cleanId = DOMPurify.sanitize(id);
     db.settings.delete(cleanId);
 }
+
 export const deleteLetter = async (signOverReceipt: string) => {
     db.letters.delete(signOverReceipt);
 }
-export const deleteInsurance = async (id: number) => {
-    db.insurances.delete(id);
+
+export const deleteInsurance = async (workerSign: string) => {
+    db.insurances.delete(workerSign);
 }
+
 export const deleteLesson = async (id: string) => {
     db.lessons.delete(id);
 }
+
 export const getSetting = async (id: string): Promise<string | undefined> => {
     const cleanId = DOMPurify.sanitize(id);
     const setting = await db.settings.get(cleanId);
@@ -538,7 +549,7 @@ const createAndStoreInsurance = async (data: string[]) => {
         employer: employerPublicKeyHex,
         workerSign: workerSignOverInsurance,
     };
-    await storeInsurance(insurance);
+    await putInsurance(insurance);
 }
 
 export const getPseudonym = async (publicKey: string): Promise<string | undefined> => {
@@ -553,7 +564,6 @@ export const getPseudonym = async (publicKey: string): Promise<string | undefine
     }
     return undefined;
 };
-
 
 /**
  * Serializes a LetterTemplate object to a JSON string, including only the specified fields.

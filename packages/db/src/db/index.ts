@@ -6,6 +6,7 @@ import { Pseudonym } from './Pseudonym.js';
 import { Signer } from './Signer.js';
 import { UsageRight } from './UsageRight.js';
 import { Insurance } from './Insurance.js';
+import { Reexamination } from './Reexamination.js';
 import { Reimbursement } from './Reimbursement.js';
 import { Setting } from './Setting.js';
 import { Lesson } from './Lesson.js';
@@ -20,6 +21,7 @@ class SlonigirafDB extends Dexie {
   signers!: Table<Signer>;
   usageRights!: Table<UsageRight>;
   insurances!: Table<Insurance>;
+  reexaminations!: Table<Reexamination>; 
   reimbursements!: Table<Reimbursement>;
   settings!: Table<Setting>;
   lessons!: Table<Lesson>;
@@ -35,8 +37,9 @@ class SlonigirafDB extends Dexie {
       pseudonyms: '&publicKey',
       signers: '&publicKey',
       usageRights: '&sign',
-      insurances: '++id,created,lesson,referee,workerId,[employer+workerId],[lesson+signOverReceipt]',
-      reimbursements: '&[referee+letterNumber],referee,letterNumber',
+      insurances: '&workerSign,created,workerId,[employer+workerId]',
+      reexaminations: '&signOverReceipt,lesson',
+      reimbursements: '&workerSign,[referee+letterNumber],referee',
       settings: '&id',
       lessons: '&id,created,tutor',
       agreements: '&id',

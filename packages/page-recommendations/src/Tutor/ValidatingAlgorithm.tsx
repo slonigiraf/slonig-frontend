@@ -1,13 +1,13 @@
 import { AlgorithmStage } from './AlgorithmStage.js';
 import { Algorithm } from './Algorithm.js';
 import type { Skill } from '@slonigiraf/app-slonig-components';
-import { Insurance } from '@slonigiraf/db';
+import { Reexamination } from '@slonigiraf/db';
 import BN from 'bn.js';
 import { styled } from '@polkadot/react-components';
 import ChatSimulation from './ChatSimulation.js';
 
 class ValidatingAlgorithm extends Algorithm {
-    constructor(t: any, studentName: string | null, skill: Skill, insurance: Insurance) {
+    constructor(t: any, studentName: string | null, skill: Skill, reexamination: Reexamination) {
         super();
         const questions = skill ? skill.q : [];
         let question1: string = questions.length > 0 ? questions[0].h : t('SOME EXERCISE FOR SKILL TRAINING (THE TUTOR SHOULD KNOW)');
@@ -27,7 +27,7 @@ class ValidatingAlgorithm extends Algorithm {
         );
 
 
-        const amount = new BN(insurance?.amount).div(new BN("1000000000000"));
+        const amount = new BN(reexamination?.amount).div(new BN("1000000000000"));
 
         const explainReimburse = new AlgorithmStage(
             'intermediate',

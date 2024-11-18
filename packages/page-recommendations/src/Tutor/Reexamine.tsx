@@ -8,7 +8,7 @@ import type { Skill } from '@slonigiraf/app-slonig-components';
 import { ValidatingAlgorithm } from './ValidatingAlgorithm.js';
 import { useTranslation } from '../translate.js';
 import { InstructionsButtonsContainer, InstructionsButtonsGroup, InstructionsContainer, useIpfsContext } from '@slonigiraf/app-slonig-components';
-import { Insurance, updateInsurance } from '@slonigiraf/db';
+import { Reexamination, updateInsurance, updateReexamination } from '@slonigiraf/db';
 import { getIPFSDataFromContentID, parseJson, useInfo } from '@slonigiraf/app-slonig-components';
 import type { KeyringPair } from '@polkadot/keyring/types';
 import { useApi } from '@polkadot/react-hooks';
@@ -16,12 +16,12 @@ import { useApi } from '@polkadot/react-hooks';
 interface Props {
   className?: string;
   currentPair: KeyringPair;
-  insurance: Insurance | null;
+  reexamination: Reexamination | null;
   onResult: () => void;
   studentName: string | null;
 }
 
-function Reexamine({ className = '', currentPair, insurance, onResult, studentName }: Props): React.ReactElement<Props> {
+function Reexamine({ className = '', currentPair, reexamination, onResult, studentName }: Props): React.ReactElement<Props> {
   const { api } = useApi();
   const { ipfs, isIpfsReady } = useIpfsContext();
   const [skill, setSkill] = useState<Skill>();
@@ -35,14 +35,14 @@ function Reexamine({ className = '', currentPair, insurance, onResult, studentNa
     let isComponentMounted = true;
 
     async function fetchData() {
-      if (isIpfsReady && insurance && insurance.cid) {
+      if (isIpfsReady && reexamination && reexamination.cid) {
         try {
-          const skillContent = await getIPFSDataFromContentID(ipfs, insurance.cid, 1);
+          const skillContent = await getIPFSDataFromContentID(ipfs, reexamination.cid, 1);
           const skillJson = parseJson(skillContent);
 
           if (isComponentMounted) {
             setSkill(skillJson);
-            const newAlgorithm = new ValidatingAlgorithm(t, studentName, skillJson, insurance);
+            const newAlgorithm = new ValidatingAlgorithm(t, studentName, skillJson, reexamination);
             setAlgorithmStage(newAlgorithm.getBegin());
           }
         } catch (e) {
@@ -59,21 +59,21 @@ function Reexamine({ className = '', currentPair, insurance, onResult, studentNa
     return () => {
       isComponentMounted = false;
     };
-  }, [ipfs, insurance, studentName]);
+  }, [ipfs, reexamination, studentName]);
 
   const handleStageChange = async (nextStage: AlgorithmStage | null) => {
     if (nextStage !== null) {
       setIsButtonClicked(true);
-      if (nextStage.type === 'reimburse' && insurance != null) {
+      if (nextStage.type === 'reimburse' && reexamination != null) {
         showInfo(t('Bounty will be collected after the lesson ends.'));
-        const invalidInsurance: Insurance = { ...insurance, lastExamined: (new Date).getTime(), valid: false };
-        await updateInsurance(invalidInsurance);
+        const failedReexamination: Reexamination = { ...reexamination, lastExamined: (new Date).getTime(), valid: false };
+        await updateReexamination(failedReexamination);
         onResult();
       } else if (nextStage.type === 'skip') {
         onResult();
-      } else if (nextStage.type === 'success' && insurance != null) {
-        const validInsurance: Insurance = { ...insurance, lastExamined: (new Date).getTime() };
-        await updateInsurance(validInsurance);
+      } else if (nextStage.type === 'success' && reexamination != null) {
+        const successfulReexamination: Reexamination = { ...reexamination, lastExamined: (new Date).getTime() };
+        await updateReexamination(successfulReexamination);
         onResult();
       } else {
         setAlgorithmStage(nextStage);

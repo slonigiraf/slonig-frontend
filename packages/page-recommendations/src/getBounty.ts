@@ -23,7 +23,7 @@ const errorMessages: Record<ErrorKey, string> = {
 
 const _onBountySuccess = async (insurance: Insurance, t: (key: string, options?: { replace: Record<string, unknown>; } | undefined) => string, onResult: () => void,
     showInfo: (message: string, type?: "error" | "info" | undefined, timeoutSec?: number | undefined) => void) => {
-    insurance?.id && await deleteInsurance(insurance?.id);
+    insurance?.workerSign && await deleteInsurance(insurance?.workerSign);
     showInfo(t('Got bounty'));
     onResult();
 }
@@ -91,7 +91,7 @@ export const getBounty = async (insurance: Insurance, currentPair: KeyringPair, 
             }
         });
     } catch (error) {
-        _onBountyFailed(insurance, t(error.toString()), t, onResult, showInfo);
+        _onBountyFailed(insurance, t(error?.toString?.() ?? ''), t, onResult, showInfo);
     }
 
 };

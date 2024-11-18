@@ -4,7 +4,7 @@ import React, { useCallback, useEffect, useState } from 'react';
 import { styled, Progress } from '@polkadot/react-components';
 import { u8aToHex } from '@polkadot/util';
 import { getBaseUrl, getIPFSDataFromContentID, parseJson, useIpfsContext, nameFromKeyringPair, useLoginContext, LoginButton, StyledContentCloseButton } from '@slonigiraf/app-slonig-components';
-import { LetterTemplate, Lesson, Insurance, getPseudonym, getLesson, getLetterTemplatesByLessonId, getInsurancesByLessonId, deleteSetting, getSetting, storeSetting, updateLesson, putLetter, getLetter, getInsurance, QRAction, SettingKey, putLetterTemplate, getLetterTemplate } from '@slonigiraf/db';
+import { LetterTemplate, Lesson, Reexamination, getPseudonym, getLesson, getLetterTemplatesByLessonId, getReexaminationsByLessonId, deleteSetting, getSetting, storeSetting, updateLesson, putLetter, getLetter, getReexamination, QRAction, SettingKey, putLetterTemplate, getLetterTemplate } from '@slonigiraf/db';
 import Reexamine from './Reexamine.js';
 import { TutoringAlgorithm } from './TutoringAlgorithm.js';
 import DoInstructions from './DoInstructions.js';
@@ -23,7 +23,7 @@ function Tutor({ className = '' }: Props): React.ReactElement<Props> {
   const { t } = useTranslation();
   const { currentPair, isLoggedIn } = useLoginContext();
 
-  const [insuranceToReexamine, setInsuranceToReexamine] = useState<Insurance | null>(null);
+  const [reexaminationToPerform, setReexaminationToPerform] = useState<Reexamination | null>(null);
   const [letterTemplateToIssue, setLetterTemplateToIssue] = useState<LetterTemplate | null>(null);
 
   // Store progress state
@@ -79,7 +79,7 @@ function Tutor({ className = '' }: Props): React.ReactElement<Props> {
   useEffect(() => {
     if (lesson?.id) {
       const fetchInsuranceIds = async () => {
-        const fetchedInsurances = await getInsurancesByLessonId(lesson?.id);
+        const fetchedInsurances = await getReexaminationsByLessonId(lesson?.id);
         if (fetchedInsurances) {
           const ids = fetchedInsurances.map(insurance => insurance.id).filter(id => id !== undefined);
           setInsuranceIds(ids);
@@ -87,7 +87,7 @@ function Tutor({ className = '' }: Props): React.ReactElement<Props> {
       };
       fetchInsuranceIds();
     }
-  }, [lesson?.id, getInsurancesByLessonId, setInsuranceIds]);
+  }, [lesson?.id, getReexaminationsByLessonId, setInsuranceIds]);
 
   // Fetch skill data and set teaching algorithm
   useEffect(() => {
@@ -187,10 +187,10 @@ function Tutor({ className = '' }: Props): React.ReactElement<Props> {
           }
         }
         if (lesson.reexamineStep < insuranceIds.length) {
-          const nextInsuranceId = insuranceIds[lesson.reexamineStep];
-          const nextInsurance: Insurance | undefined = await getInsurance(nextInsuranceId);
-          if (nextInsurance) {
-            setInsuranceToReexamine(nextInsurance);
+          const nextReexaminationId = insuranceIds[lesson.reexamineStep];
+          const nextReexamination: Reexamination | undefined = await getReexamination(nextReexaminationId);
+          if (nextReexamination) {
+            setReexaminationToPerform(nextReexamination);
           }
         }
         if (lesson.learnStep === lesson.toLearnCount && lesson.reexamineStep === lesson.toReexamineCount) {
@@ -200,8 +200,8 @@ function Tutor({ className = '' }: Props): React.ReactElement<Props> {
     }
     onLessonUpdate();
   }, [lesson, letterTemplateIds, insuranceIds, studentName, areResultsShown,
-    setReexamined, getLetter, setLetterTemplateToIssue, getInsurance,
-    setInsuranceToReexamine, onShowResults])
+    setReexamined, getLetter, setLetterTemplateToIssue, getReexamination,
+    setReexaminationToPerform, onShowResults])
 
   const onCloseTutoring = useCallback(async () => {
     await deleteSetting(SettingKey.LESSON);
@@ -234,7 +234,7 @@ function Tutor({ className = '' }: Props): React.ReactElement<Props> {
       icon='close'
     />
     <div style={!reexamined ? {} : { display: 'none' }}>
-      {currentPair && <Reexamine currentPair={currentPair} insurance={insuranceToReexamine} onResult={updateReexamined} studentName={studentName} key={'reexaminine' + lessonReactKey} />}
+      {currentPair && <Reexamine currentPair={currentPair} reexamination={reexaminationToPerform} onResult={updateReexamined} studentName={studentName} key={'reexaminine' + lessonReactKey} />}
     </div>
     <div style={reexamined ? {} : { display: 'none' }}>
       {tutoringAlgorithm && <DoInstructions algorithm={tutoringAlgorithm} onResult={updateTutoring} key={'learn' + lessonReactKey} />}

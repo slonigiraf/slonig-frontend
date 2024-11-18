@@ -130,9 +130,9 @@ function LessonResultReceiver({ webRTCPeerId }: Props): React.ReactElement {
 
 
         try {
-          if (currentPair && lessonResultJson?.insurances && agreement?.id) {
-            let reimbursementPromises = lessonResultJson.insurances.map(async insuranceMeta => {
-              const [signOverReceipt, lastExamined, valid] = insuranceMeta.split(',');
+          if (currentPair && lessonResultJson?.reexaminations && agreement?.id) {
+            let reimbursementPromises = lessonResultJson.reexaminations.map(async reexaminationMeta => {
+              const [signOverReceipt, lastExamined, valid] = reexaminationMeta.split(',');
               const time = parseInt(lastExamined, 10);
               if (signOverReceipt && valid === '0') {
                 const letter = await getLetter(signOverReceipt);

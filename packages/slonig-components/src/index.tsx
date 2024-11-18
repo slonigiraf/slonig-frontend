@@ -183,7 +183,7 @@ export interface LessonResult {
   refereeName: string;
   amount: string;
   letters: string[];
-  insurances: string[];
+  reexaminations: string[];
 }
 
 export interface LessonRequest {

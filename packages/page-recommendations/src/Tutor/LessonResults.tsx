@@ -8,7 +8,7 @@ import { useApi, useBlockTime, useToggle } from '@polkadot/react-hooks';
 import { u8aToHex, hexToU8a, u8aWrapBytes, BN_ONE, BN_ZERO, formatBalance } from '@polkadot/util';
 import type { LessonResult, Skill } from '@slonigiraf/app-slonig-components';
 import { getIPFSDataFromContentID, parseJson, useIpfsContext, useLoginContext, VerticalCenterItemsContainer, CenterQRContainer, KatexSpan, balanceToSlonString, SenderComponent, useInfo, nameFromKeyringPair, StyledContentCloseButton } from '@slonigiraf/app-slonig-components';
-import { getPseudonym, Lesson, getLastUnusedLetterNumber, setLastUsedLetterNumber, storeSetting, putLetter, getInsurancesByLessonId, getValidLetterTemplatesByLessonId, QRAction, SettingKey, QRField, serializeAsLetter, deleteSetting, LetterTemplate, putLetterTemplate } from '@slonigiraf/db';
+import { getPseudonym, Lesson, getLastUnusedLetterNumber, setLastUsedLetterNumber, storeSetting, getReexaminationsByLessonId, getValidLetterTemplatesByLessonId, QRAction, SettingKey, QRField, serializeAsLetter, LetterTemplate, putLetterTemplate } from '@slonigiraf/db';
 import { getPublicDataToSignByReferee, getPrivateDataToSignByReferee } from '@slonigiraf/helpers';
 import { useTranslation } from '../translate.js';
 import { blake2AsHex } from '@polkadot/util-crypto';
@@ -41,8 +41,8 @@ function LessonResults({ className = '', lesson, updateAndStoreLesson, onClose }
   const [studentName, setStudentName] = useState<string | null>(null);
   const [daysInputValue, setDaysInputValue] = useState<string>(lesson ? lesson.dValidity.toString() : "0"); //To allow empty strings
   const [countOfValidLetters, setCountOfValidLetters] = useState<number | null>(null);
-  const [countOfDiscussedInsurances, setCountOfDiscussedInsurances] = useState<number | null>(null);
-  const [countOfInvalidInsurances, setCountOfInvalidInsurances] = useState<number | null>(null);
+  const [countOfReexaminationsPerformed, setCountOfReexaminationsPerformed] = useState<number | null>(null);
+  const [countOfReexaminationsFailed, setCountOfReexaminationsFailed] = useState<number | null>(null);
   const [totalIncomeForBonuses, setTotalIncomeForBonuses] = useState<BN>(BN_ZERO);
   const [diplomaWarrantyAmount, setDiplomaWarrantyAmount] = useState<BN>(BN_ZERO);
   const [totalIncomeForLetters, setTotalIncomeForLetters] = useState<BN>(BN_ZERO);
@@ -53,14 +53,14 @@ function LessonResults({ className = '', lesson, updateAndStoreLesson, onClose }
   const { showInfo } = useInfo();
 
   useEffect(() => {
-    if (countOfValidLetters !== null && countOfDiscussedInsurances !== null) {
+    if (countOfValidLetters !== null && countOfReexaminationsPerformed !== null) {
       setProcessingStatistics(false);
-      if (countOfValidLetters + countOfDiscussedInsurances === 0) {
+      if (countOfValidLetters + countOfReexaminationsPerformed === 0) {
         showInfo(t('You did not issue or reexamine any diplomas during this lesson.'));
         onClose();
       }
     }
-  }, [countOfValidLetters, countOfDiscussedInsurances]);
+  }, [countOfValidLetters, countOfReexaminationsPerformed]);
 
   // Fetch required info from DB about current lesson
   useEffect(() => {
@@ -151,33 +151,33 @@ function LessonResults({ className = '', lesson, updateAndStoreLesson, onClose }
         return;
       }
       let letterData: string[] = [];
-      let insuranceData: string[] = [];
+      let reexaminationData: string[] = [];
       try {
-        // Update insurances statistics
-        const insurances = await getInsurancesByLessonId(lesson.id);
-        if (insurances) {
-          let invalidInsurancesCount = 0;
-          let skippedInsurancesCount = 0;
+        // Update reexaminations statistics
+        const reexaminations = await getReexaminationsByLessonId(lesson.id);
+        if (reexaminations) {
+          let failedReexaminationsCount = 0;
+          let skippedReexaminationsCount = 0;
           let totalBonusAmount = new BN(0);
 
           // Single loop to calculate all statistics
-          insurances.forEach(insurance => {
-            if (!insurance.valid) {
-              invalidInsurancesCount++;
-              totalBonusAmount = totalBonusAmount.add(new BN(insurance.amount));
+          reexaminations.forEach(reexamination => {
+            if (!reexamination.valid) {
+              failedReexaminationsCount++;
+              totalBonusAmount = totalBonusAmount.add(new BN(reexamination.amount));
             }
-            if (insurance.created === insurance.lastExamined) {
-              skippedInsurancesCount++;
+            if (reexamination.created === reexamination.lastExamined) {
+              skippedReexaminationsCount++;
             } else {
-              insuranceData.push(`${insurance.signOverReceipt},${insurance.lastExamined},${insurance.valid ? '1' : '0'}`);
+              reexaminationData.push(`${reexamination.signOverReceipt},${reexamination.lastExamined},${reexamination.valid ? '1' : '0'}`);
             }
           });
 
-          const calculatedDiscussedInsurances = lesson.reexamineStep - skippedInsurancesCount;
+          const calculatedReexaminationsPerformed = lesson.reexamineStep - skippedReexaminationsCount;
 
-          setCountOfInvalidInsurances(invalidInsurancesCount);
+          setCountOfReexaminationsFailed(failedReexaminationsCount);
           setTotalIncomeForBonuses(totalBonusAmount);
-          setCountOfDiscussedInsurances(calculatedDiscussedInsurances);
+          setCountOfReexaminationsPerformed(calculatedReexaminationsPerformed);
         }
 
         // Calculate block number
@@ -241,7 +241,7 @@ function LessonResults({ className = '', lesson, updateAndStoreLesson, onClose }
           refereeName: refereeName,
           amount: amount.toString(),
           letters: letterData,
-          insurances: insuranceData,
+          reexaminations: reexaminationData,
         };
         setData(JSON.stringify(lessonResult));
       } catch (error) {
@@ -299,7 +299,7 @@ function LessonResults({ className = '', lesson, updateAndStoreLesson, onClose }
                 </div>
                 <div className="row">
                   <div className="cell"><Icon icon='ban' /></div>
-                  <div className="cell">{countOfInvalidInsurances} {t('of')} {countOfDiscussedInsurances} {t('diplomas invalidated')}</div>
+                  <div className="cell">{countOfReexaminationsFailed} {t('of')} {countOfReexaminationsPerformed} {t('diplomas invalidated')}</div>
                 </div>
                 <div className="row">
                   <div className="cell"><Icon icon='money-bill-trend-up' /></div>
