@@ -28,7 +28,6 @@ export const ReimbursementProvider: React.FC<ReimbursementProviderProps> = ({ ch
         }
 
         let signedTransactionsPromises = insurances.map(async insurance => {
-            await storeInsurance(insurance);
             return api.tx.letters.reimburse(
                 insurance.letterNumber,
                 new BN(insurance.block),

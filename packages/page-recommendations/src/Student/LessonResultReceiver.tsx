@@ -4,7 +4,7 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { useLoginContext, parseJson, useTokenTransfer, receiveWebRTCData, useInfo, LessonResult, keyForCid, useReimbursement } from '@slonigiraf/app-slonig-components';
 import { hexToU8a, u8aToHex, u8aWrapBytes } from '@polkadot/util';
-import { addLetter, cancelLetter, deserializeLetter, getAgreement, getLetterBySignOverReceipt, letterToInsurance, putAgreement, storePseudonym, updateLetterReexaminingCount } from '@slonigiraf/db';
+import { addLetter, cancelLetter, deserializeLetter, getAgreement, getLetterBySignOverReceipt, letterToInsurance, putAgreement, storeInsurance, storePseudonym, updateLetterReexaminingCount } from '@slonigiraf/db';
 import { useTranslation } from '../translate.js';
 import { encodeAddress } from '@polkadot/keyring';
 import { Agreement } from '@slonigiraf/db';
@@ -135,7 +135,9 @@ function LessonResultReceiver({ webRTCPeerId }: Props): React.ReactElement {
                   hexToU8a(letter.worker), new BN(letter.amount), hexToU8a(letter.signOverReceipt), hexToU8a(lessonResultJson?.referee));
                 const diplomaKey = keyForCid(currentPair, letter.cid);
                 const workerSign = u8aToHex(diplomaKey.sign(u8aWrapBytes(letterInsurance)));
-                return letterToInsurance(letter, lessonResultJson?.referee, workerSign, false, letter.block);
+                const insurance = letterToInsurance(letter, lessonResultJson?.referee, workerSign, false, letter.block);
+                await storeInsurance(insurance);
+                return insurance;
               }
             } else {
               await updateLetterReexaminingCount(signOverReceipt, time);
