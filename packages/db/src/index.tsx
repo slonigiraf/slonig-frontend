@@ -114,8 +114,8 @@ export const getInsurance = async (workerSign: string) => {
     return db.insurances.get(workerSign);
 }
 
-export const getReexamination = async (workerSign: number) => {
-    return db.reexaminations.get(workerSign);
+export const getReexamination = async (signOverReceipt: string) => {
+    return db.reexaminations.get(signOverReceipt);
 }
 
 export const getLetterTemplatesByLessonId = async (lessonId: string) => {

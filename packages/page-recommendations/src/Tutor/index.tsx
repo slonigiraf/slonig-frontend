@@ -40,7 +40,7 @@ function Tutor({ className = '' }: Props): React.ReactElement<Props> {
   //   show stake and days or hide
   const [lesson, setLesson] = useState<Lesson | null>(null);
   const [letterTemplateIds, setLetterTemplateIds] = useState<LetterTemplateId[]>([]);
-  const [insuranceIds, setInsuranceIds] = useState<number[]>([]);
+  const [reexaminationIds, setReexaminationIds] = useState<string[]>([]);
   const [areResultsShown, setResultsShown] = useState(false);
 
   // Helper functions
@@ -54,7 +54,6 @@ function Tutor({ className = '' }: Props): React.ReactElement<Props> {
     [setLesson, updateLesson]
   );
 
-  // Fetch required info from DB about current lesson, letters to issue and insurances to reexamine
   useEffect(() => {
     async function fetchLesson() {
       const lessonId = await getSetting(SettingKey.LESSON);
@@ -70,29 +69,29 @@ function Tutor({ className = '' }: Props): React.ReactElement<Props> {
 
   useEffect(() => {
     if (lesson?.id) {
-      const fetchLetterIds = async () => {
-        const fetchedLetters = await getLetterTemplatesByLessonId(lesson.id);
-        if (fetchedLetters) {
-          const ids = fetchedLetters.map(({ lesson, cid }) => ({ lesson, cid }));
+      const fetchLetterTemplateIds = async () => {
+        const fetchedLetterTemplates = await getLetterTemplatesByLessonId(lesson.id);
+        if (fetchedLetterTemplates) {
+          const ids = fetchedLetterTemplates.map(({ lesson, cid }) => ({ lesson, cid }));
           setLetterTemplateIds(ids);
         }
       };
-      fetchLetterIds();
+      fetchLetterTemplateIds();
     }
   }, [lesson?.id, getLetterTemplatesByLessonId, setLetterTemplateIds]);
 
   useEffect(() => {
     if (lesson?.id) {
-      const fetchInsuranceIds = async () => {
-        const fetchedInsurances = await getReexaminationsByLessonId(lesson?.id);
-        if (fetchedInsurances) {
-          const ids = fetchedInsurances.map(insurance => insurance.id).filter(id => id !== undefined);
-          setInsuranceIds(ids);
+      const fetchReexaminationIds = async () => {
+        const fetchedReexaminations = await getReexaminationsByLessonId(lesson?.id);
+        if (fetchedReexaminations) {
+          const ids = fetchedReexaminations.map((reexamination: Reexamination) => reexamination.signOverReceipt);
+          setReexaminationIds(ids);
         }
       };
-      fetchInsuranceIds();
+      fetchReexaminationIds();
     }
-  }, [lesson?.id, getReexaminationsByLessonId, setInsuranceIds]);
+  }, [lesson?.id, getReexaminationsByLessonId, setReexaminationIds]);
 
   // Fetch skill data and set teaching algorithm
   useEffect(() => {
@@ -101,7 +100,7 @@ function Tutor({ className = '' }: Props): React.ReactElement<Props> {
         try {
           const skillContent = await getIPFSDataFromContentID(ipfs, letterTemplateToIssue.cid);
           const skillJson = parseJson(skillContent);
-          const studentUsedSlonig = insuranceIds?.length > 0 || lesson?.learnStep;
+          const studentUsedSlonig = reexaminationIds?.length > 0 || lesson?.learnStep;
           const name = studentName ? studentName : null;
           setTutoringAlgorithm(new TutoringAlgorithm(t, name, skillJson, !studentUsedSlonig));
         }
@@ -191,8 +190,8 @@ function Tutor({ className = '' }: Props): React.ReactElement<Props> {
             setLetterTemplateToIssue(nextLetterTemplate);
           }
         }
-        if (lesson.reexamineStep < insuranceIds.length) {
-          const nextReexaminationId = insuranceIds[lesson.reexamineStep];
+        if (lesson.reexamineStep < reexaminationIds.length) {
+          const nextReexaminationId = reexaminationIds[lesson.reexamineStep];
           const nextReexamination: Reexamination | undefined = await getReexamination(nextReexaminationId);
           if (nextReexamination) {
             setReexaminationToPerform(nextReexamination);
@@ -204,7 +203,7 @@ function Tutor({ className = '' }: Props): React.ReactElement<Props> {
       }
     }
     onLessonUpdate();
-  }, [lesson, letterTemplateIds, insuranceIds, studentName, areResultsShown,
+  }, [lesson, letterTemplateIds, reexaminationIds, studentName, areResultsShown,
     setReexamined, getLetter, setLetterTemplateToIssue, getReexamination,
     setReexaminationToPerform, onShowResults])
 
@@ -219,15 +218,6 @@ function Tutor({ className = '' }: Props): React.ReactElement<Props> {
   }, [setResultsShown, onCloseTutoring]);
 
   const publicKeyHex = currentPair ? u8aToHex(currentPair.publicKey) : "";
-  const name = nameFromKeyringPair(currentPair);
-  const qrData = {
-    q: QRAction.TUTOR_IDENTITY,
-    n: name,
-    p: publicKeyHex,
-  };
-  const qrCodeText = JSON.stringify(qrData);
-  const url: string = getBaseUrl() + `/#/knowledge?tutor=${publicKeyHex}&name=${encodeURIComponent(name)}`;
-
   const lessonReactKey = lesson ? (lesson.learnStep + lesson.reexamineStep) : 'loading';
 
   const reexamAndDiplomaIssuing = <>
