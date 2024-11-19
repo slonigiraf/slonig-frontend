@@ -7,7 +7,7 @@ import { IMessage, Skill } from '@slonigiraf/app-slonig-components';
 
 class TutoringAlgorithm extends Algorithm {
     constructor(t: any, studentName: string | null, skill: Skill, studentUsesSlonigFirstTime: boolean) {
-        super();
+        super(skill.i);
         const myMessage: IMessage = {
             id: skill.i,
             text: '',

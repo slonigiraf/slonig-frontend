@@ -8,21 +8,17 @@ import type { Skill } from '@slonigiraf/app-slonig-components';
 import { ValidatingAlgorithm } from './ValidatingAlgorithm.js';
 import { useTranslation } from '../translate.js';
 import { InstructionsButtonsContainer, InstructionsButtonsGroup, InstructionsContainer, useIpfsContext } from '@slonigiraf/app-slonig-components';
-import { Reexamination, updateInsurance, updateReexamination } from '@slonigiraf/db';
+import { Reexamination, updateReexamination } from '@slonigiraf/db';
 import { getIPFSDataFromContentID, parseJson, useInfo } from '@slonigiraf/app-slonig-components';
-import type { KeyringPair } from '@polkadot/keyring/types';
-import { useApi } from '@polkadot/react-hooks';
 
 interface Props {
   className?: string;
-  currentPair: KeyringPair;
   reexamination: Reexamination | null;
   onResult: () => void;
   studentName: string | null;
 }
 
-function Reexamine({ className = '', currentPair, reexamination, onResult, studentName }: Props): React.ReactElement<Props> {
-  const { api } = useApi();
+function Reexamine({ className = '', reexamination, onResult, studentName }: Props): React.ReactElement<Props> {
   const { ipfs, isIpfsReady } = useIpfsContext();
   const [skill, setSkill] = useState<Skill>();
   const { t } = useTranslation();
@@ -87,7 +83,7 @@ function Reexamine({ className = '', currentPair, reexamination, onResult, stude
   }
 
   return (
-    <div className={className}>
+    <div className={className} key={reexamination?.cid}>
       {algorithmStage ? (
         <InstructionsContainer>
           {algorithmStage.getWords()}

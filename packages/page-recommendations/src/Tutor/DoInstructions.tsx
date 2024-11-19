@@ -35,7 +35,7 @@ function DoInstructions({ className = '', algorithm, onResult }: Props): React.R
   }
 
   return (
-    <div className={className}>
+    <div className={className} key={algorithm.id}>
       {algorithmStage ? (
         <InstructionsContainer>
           {algorithmStage.getWords()}

@@ -8,7 +8,7 @@ import ChatSimulation from './ChatSimulation.js';
 
 class ValidatingAlgorithm extends Algorithm {
     constructor(t: any, studentName: string | null, skill: Skill, reexamination: Reexamination) {
-        super();
+        super(skill.i);
         const myMessage: IMessage = {
             id: skill.i,
             text: '',

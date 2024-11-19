@@ -228,7 +228,7 @@ function Tutor({ className = '' }: Props): React.ReactElement<Props> {
       icon='close'
     />
     <div style={!reexamined ? {} : { display: 'none' }}>
-      {currentPair && <Reexamine currentPair={currentPair} reexamination={reexaminationToPerform} onResult={updateReexamined} studentName={studentName} key={'reexaminine' + lessonReactKey} />}
+      {currentPair && <Reexamine reexamination={reexaminationToPerform} onResult={updateReexamined} studentName={studentName} key={'reexaminine' + lessonReactKey} />}
     </div>
     <div style={reexamined ? {} : { display: 'none' }}>
       {tutoringAlgorithm && <DoInstructions algorithm={tutoringAlgorithm} onResult={updateTutoring} key={'learn' + lessonReactKey} />}
