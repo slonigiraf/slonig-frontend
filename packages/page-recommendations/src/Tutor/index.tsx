@@ -93,7 +93,7 @@ function Tutor({ className = '' }: Props): React.ReactElement<Props> {
           const skillContent = await getIPFSDataFromContentID(ipfs, letterTemplateToIssue.cid);
           const skill: Skill = parseJson(skillContent);
           const studentUsedSlonig = reexaminationIds?.length > 0 || lesson?.learnStep;
-          setTutoringAlgorithm(new TutoringAlgorithm(t, studentName ? studentName : null, skill, !studentUsedSlonig));
+          setTutoringAlgorithm(new TutoringAlgorithm(letterTemplateToIssue.cid, t, studentName ? studentName : null, skill, !studentUsedSlonig));
         }
         catch (e) {
           console.log(e);
@@ -198,6 +198,8 @@ function Tutor({ className = '' }: Props): React.ReactElement<Props> {
   const publicKeyHex = currentPair ? u8aToHex(currentPair.publicKey) : "";
   const lessonReactKey = lesson ? (lesson.learnStep + lesson.reexamineStep) : 'loading';
 
+  const skillIsLoaded = tutoringAlgorithm?.id === letterTemplateToIssue?.cid;
+
   const reexamAndDiplomaIssuing = <>
     {lesson && <StyledProgress
       value={lesson.learnStep + lesson.reexamineStep}
@@ -210,7 +212,7 @@ function Tutor({ className = '' }: Props): React.ReactElement<Props> {
       {currentPair && <Reexamine reexamination={reexaminationToPerform} onResult={updateReexamined} studentName={studentName} key={'reexaminine' + lessonReactKey} />}
     </div>
     <div style={reexamined ? {} : { display: 'none' }}>
-      {tutoringAlgorithm && <DoInstructions algorithm={tutoringAlgorithm} onResult={updateTutoring} key={'learn' + lessonReactKey} />}
+      {tutoringAlgorithm && skillIsLoaded && <DoInstructions algorithm={tutoringAlgorithm} onResult={updateTutoring} key={'learn' + lessonReactKey} />}
     </div>
   </>;
 

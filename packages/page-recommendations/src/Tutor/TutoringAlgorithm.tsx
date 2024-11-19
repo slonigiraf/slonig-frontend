@@ -6,16 +6,16 @@ import { styled } from '@polkadot/react-components';
 import { IMessage, Skill } from '@slonigiraf/app-slonig-components';
 
 class TutoringAlgorithm extends Algorithm {
-    constructor(t: any, studentName: string | null, skill: Skill, studentUsesSlonigFirstTime: boolean) {
-        super(skill.i);
+    constructor(id: string, t: any, studentName: string | null, skill: Skill, studentUsesSlonigFirstTime: boolean) {
+        super(id);
         const myMessage: IMessage = {
-            id: skill.i,
+            id: id,
             text: '',
             sender: 'you',
             senderName: 'You'
         };
         const theirMessage: IMessage = {
-            id: skill.i,
+            id: id,
             text: '',
             sender: 'them',
             senderName: studentName
