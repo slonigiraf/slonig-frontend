@@ -7,6 +7,7 @@ import { styled } from '@polkadot/react-components';
 class TutoringAlgorithm extends Algorithm {
     constructor(t: any, studentName: string | null, skillJson: any, studentUsesSlonigFirstTime: boolean) {
         super();
+        console.log("skillJson: "+JSON.stringify(skillJson, null, 2))
         const questions = skillJson ? skillJson.q : [];
         let question1: string = questions.length > 0 ? questions[0].h : t('SOME TASK FOR SKILL TRAINING (THE TUTOR SHOULD KNOW)');
         let answer1: string = questions.length > 0 ? questions[0].a : '';

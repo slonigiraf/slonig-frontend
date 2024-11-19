@@ -9,11 +9,27 @@ interface IMessage {
     comment?: string;
     image?: string;
 }
-
-interface WhatsAppChatProps {
+interface ChatSimulationProps {
     messages: IMessage[];
 }
 
+const ChatSimulation: React.FC<ChatSimulationProps> = ({ messages }) => {
+    return (
+      <ChatContainer>
+        {messages.map((message) => (
+          <MessageContainer key={message.id} sender={message.sender}>
+            <Bubble sender={message.sender}>
+              {message.sender !== 'you' && <SenderName>{message.senderName}</SenderName>}
+              <KatexSpan content={message.text} />
+              {message.comment && <Red>&nbsp;*</Red>}
+              {message.image && <><br/><ResizableImage src={message.image} /></>}
+            </Bubble>
+            {message.comment && <Comment sender={message.sender}><Red>*&nbsp;</Red>{message.comment}</Comment>}
+          </MessageContainer>
+        ))}
+      </ChatContainer>
+    );
+};
 const ChatContainer = styled.div`
   padding: 5px;
   font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
@@ -64,23 +80,4 @@ const Comment = styled.div<{ sender: 'you' | 'them' }>`
 const Red = styled.span`
   color: red;
 `;
-
-const ChatSimulation: React.FC<WhatsAppChatProps> = ({ messages }) => {
-    return (
-      <ChatContainer>
-        {messages.map((message) => (
-          <MessageContainer key={message.id} sender={message.sender}>
-            <Bubble sender={message.sender}>
-              {message.sender !== 'you' && <SenderName>{message.senderName}</SenderName>}
-              <KatexSpan content={message.text} />
-              {message.comment && <Red>&nbsp;*</Red>}
-              {message.image && <><br/><ResizableImage src={message.image} /></>}
-            </Bubble>
-            {message.comment && <Comment sender={message.sender}><Red>*&nbsp;</Red>{message.comment}</Comment>}
-          </MessageContainer>
-        ))}
-      </ChatContainer>
-    );
-};
-
 export default React.memo(ChatSimulation);
