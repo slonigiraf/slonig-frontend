@@ -29,8 +29,8 @@ class SlonigirafDB extends Dexie {
   cidCache!: Table<CIDCache>;
 
   constructor() {
-    super('slonigiraf');
-    this.version(43).stores({
+    super('slonig');
+    this.version(44).stores({
       letters: '&signOverReceipt,created,lastExamined,workerId,knowledgeId,cid,referee,[workerId+knowledgeId]',
       canceledLetters: '&[knowledgeId+created]',
       letterTemplates: '&[lesson+cid]',
