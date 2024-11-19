@@ -48,10 +48,11 @@ function Tutor({ className = '' }: Props): React.ReactElement<Props> {
     async (updatedLesson: Lesson | null) => {
       if (updatedLesson) {
         await updateLesson(updatedLesson);
+        setLesson(updatedLesson);
+        onLessonUpdate(updatedLesson, letterTemplateIds, reexaminationIds);
       }
-      setLesson(updatedLesson);
     },
-    [setLesson, updateLesson]
+    [letterTemplateIds, reexaminationIds, setLesson, updateLesson]
   );
 
   useEffect(() => {
@@ -60,38 +61,29 @@ function Tutor({ className = '' }: Props): React.ReactElement<Props> {
       if (lessonId) {
         const fetchedLesson = await getLesson(lessonId);
         setLesson(fetchedLesson || null);
+        if (fetchedLesson) {
+          const fetchedLetterTemplates = await getLetterTemplatesByLessonId(lessonId);
+          if (fetchedLetterTemplates) {
+            const ids = fetchedLetterTemplates.map(({ lesson, cid }) => ({ lesson, cid }));
+            setLetterTemplateIds(ids);
+          }
+          const fetchedReexaminations = await getReexaminationsByLessonId(lessonId);
+          if (fetchedReexaminations) {
+            const ids = fetchedReexaminations.map((reexamination: Reexamination) => reexamination.signOverReceipt);
+            setReexaminationIds(ids);
+          }
+          const pseudonym = lesson ? await getPseudonym(lesson.student) : null;
+          if (pseudonym) {
+            setStudentName(pseudonym);
+          }
+          onLessonUpdate(fetchedLesson, fetchedLetterTemplates, fetchedReexaminations);
+        }
       } else {
         setLesson(null);
       }
     }
     fetchLesson();
-  }, [getSetting, getLesson, setLesson])
-
-  useEffect(() => {
-    if (lesson?.id) {
-      const fetchLetterTemplateIds = async () => {
-        const fetchedLetterTemplates = await getLetterTemplatesByLessonId(lesson.id);
-        if (fetchedLetterTemplates) {
-          const ids = fetchedLetterTemplates.map(({ lesson, cid }) => ({ lesson, cid }));
-          setLetterTemplateIds(ids);
-        }
-      };
-      fetchLetterTemplateIds();
-    }
-  }, [lesson?.id, getLetterTemplatesByLessonId, setLetterTemplateIds]);
-
-  useEffect(() => {
-    if (lesson?.id) {
-      const fetchReexaminationIds = async () => {
-        const fetchedReexaminations = await getReexaminationsByLessonId(lesson?.id);
-        if (fetchedReexaminations) {
-          const ids = fetchedReexaminations.map((reexamination: Reexamination) => reexamination.signOverReceipt);
-          setReexaminationIds(ids);
-        }
-      };
-      fetchReexaminationIds();
-    }
-  }, [lesson?.id, getReexaminationsByLessonId, setReexaminationIds]);
+  }, [])
 
   // Fetch skill data and set teaching algorithm
   useEffect(() => {
@@ -111,19 +103,6 @@ function Tutor({ className = '' }: Props): React.ReactElement<Props> {
     fetchData();
   }, [ipfs, isIpfsReady, letterTemplateToIssue, studentName,
     getIPFSDataFromContentID, parseJson, setTutoringAlgorithm, lesson?.learnStep])
-
-  // Fetch student name
-  useEffect(() => {
-    async function fetchStudentName() {
-      if (lesson?.student) {
-        const pseudonym = await getPseudonym(lesson.student);
-        if (pseudonym) {
-          setStudentName(pseudonym);
-        }
-      }
-    }
-    fetchStudentName();
-  }, [lesson?.student, getPseudonym, setStudentName])
 
   // Fetch days valid
 
@@ -174,37 +153,37 @@ function Tutor({ className = '' }: Props): React.ReactElement<Props> {
     setResultsShown(true);
   }, [storeSetting, setLesson, setResultsShown]);
 
-  useEffect(() => {
-    async function onLessonUpdate() {
-      if (lesson) {
-        if (lesson.reexamineStep < lesson.toReexamineCount) {
-          setReexamined(false);
-        } else {
-          setReexamined(true);
-        }
-        if (lesson.learnStep < letterTemplateIds.length) {
-          const nextLetterTemplateId = letterTemplateIds[lesson.learnStep];
-          const nextLetterTemplate: LetterTemplate | undefined = await getLetterTemplate(nextLetterTemplateId.cid, nextLetterTemplateId.lesson);
-          if (nextLetterTemplate) {
-            setLetterTemplateToIssue(nextLetterTemplate);
-          }
-        }
-        if (lesson.reexamineStep < reexaminationIds.length) {
-          const nextReexaminationId = reexaminationIds[lesson.reexamineStep];
-          const nextReexamination: Reexamination | undefined = await getReexamination(nextReexaminationId);
-          if (nextReexamination) {
-            setReexaminationToPerform(nextReexamination);
-          }
-        }
-        if (lesson.learnStep === lesson.toLearnCount && lesson.reexamineStep === lesson.toReexamineCount) {
-          setResultsShown(true);
+  const onLessonUpdate = useCallback((
+    updatedLesson: Lesson,
+    currentletterTemplateIds: LetterTemplateId[],
+    currentReexaminationIds: string[]) => {
+    async function run() {
+      if (updatedLesson.reexamineStep < updatedLesson.toReexamineCount) {
+        setReexamined(false);
+      } else {
+        setReexamined(true);
+      }
+      if (updatedLesson.learnStep < currentletterTemplateIds.length) {
+        const nextLetterTemplateId = currentletterTemplateIds[updatedLesson.learnStep];
+        const nextLetterTemplate: LetterTemplate | undefined = await getLetterTemplate(nextLetterTemplateId.cid, nextLetterTemplateId.lesson);
+        if (nextLetterTemplate) {
+          setLetterTemplateToIssue(nextLetterTemplate);
         }
       }
+      if (updatedLesson.reexamineStep < currentReexaminationIds.length) {
+        const nextReexaminationId = currentReexaminationIds[updatedLesson.reexamineStep];
+        const nextReexamination: Reexamination | undefined = await getReexamination(nextReexaminationId);
+        if (nextReexamination) {
+          setReexaminationToPerform(nextReexamination);
+        }
+      }
+      if (updatedLesson.learnStep === updatedLesson.toLearnCount && updatedLesson.reexamineStep === updatedLesson.toReexamineCount) {
+        setResultsShown(true);
+      }
     }
-    onLessonUpdate();
-  }, [lesson, letterTemplateIds, reexaminationIds, studentName, areResultsShown,
-    setReexamined, getLetter, setLetterTemplateToIssue, getReexamination,
-    setReexaminationToPerform, onShowResults])
+    run();
+  }, [setReexamined, getLetter, setLetterTemplateToIssue, getReexamination,
+    setReexaminationToPerform, onShowResults]);
 
   const onCloseTutoring = useCallback(async () => {
     await deleteSetting(SettingKey.LESSON);

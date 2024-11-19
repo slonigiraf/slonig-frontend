@@ -83,9 +83,9 @@ function Reexamine({ className = '', reexamination, onResult, studentName }: Pro
   }
 
   return (
-    <div className={className} key={reexamination?.cid}>
+    <div className={className} >
       {algorithmStage ? (
-        <InstructionsContainer>
+        <InstructionsContainer key={reexamination?.cid}>
           {algorithmStage.getWords()}
           <InstructionsButtonsContainer>
             <InstructionsButtonsGroup>

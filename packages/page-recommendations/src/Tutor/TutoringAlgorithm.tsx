@@ -32,11 +32,7 @@ class TutoringAlgorithm extends Algorithm {
         const giveInsurance = new AlgorithmStage(
             'success',
             t('Yes'),
-            <StyledDiv>
-                <ChatSimulation messages={[
-                    { ...myMessage, text: t('Buy a skill diploma from me to get a bonus from a teacher and a parent.'), comment: t('I sell the student a diploma in exchange for money or Slon tokens.') },
-                ]} />
-            </StyledDiv>
+            <></>
         );
         const repeatNextDay = new AlgorithmStage(
             'repeat',
