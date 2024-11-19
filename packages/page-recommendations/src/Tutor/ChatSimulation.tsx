@@ -1,14 +1,7 @@
 import React from 'react';
 import { styled } from '@polkadot/react-components';
-import { KatexSpan, ResizableImage } from '@slonigiraf/app-slonig-components';
-interface IMessage {
-    id: number;
-    text: string;
-    sender: 'you' | 'them';
-    senderName: string|null;
-    comment?: string;
-    image?: string;
-}
+import { IMessage, KatexSpan, ResizableImage } from '@slonigiraf/app-slonig-components';
+
 interface ChatSimulationProps {
     messages: IMessage[];
 }
@@ -16,8 +9,8 @@ interface ChatSimulationProps {
 const ChatSimulation: React.FC<ChatSimulationProps> = ({ messages }) => {
     return (
       <ChatContainer>
-        {messages.map((message) => (
-          <MessageContainer key={message.id} sender={message.sender}>
+        {messages.map((message, index) => (
+          <MessageContainer key={message.id+index} sender={message.sender}>
             <Bubble sender={message.sender}>
               {message.sender !== 'you' && <SenderName>{message.senderName}</SenderName>}
               <KatexSpan content={message.text} />

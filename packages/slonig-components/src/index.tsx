@@ -206,3 +206,12 @@ export interface Person {
   identity: string,
   name: string,
 }
+
+export interface IMessage {
+  id: string;
+  text: string;
+  sender: 'you' | 'them';
+  senderName: string|null;
+  comment?: string;
+  image?: string;
+}
