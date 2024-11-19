@@ -3,8 +3,8 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { styled, Progress } from '@polkadot/react-components';
 import { u8aToHex } from '@polkadot/util';
-import { getBaseUrl, getIPFSDataFromContentID, parseJson, useIpfsContext, nameFromKeyringPair, useLoginContext, LoginButton, StyledContentCloseButton } from '@slonigiraf/app-slonig-components';
-import { LetterTemplate, Lesson, Reexamination, getPseudonym, getLesson, getLetterTemplatesByLessonId, getReexaminationsByLessonId, deleteSetting, getSetting, storeSetting, updateLesson, putLetter, getLetter, getReexamination, QRAction, SettingKey, putLetterTemplate, getLetterTemplate } from '@slonigiraf/db';
+import { getIPFSDataFromContentID, parseJson, useIpfsContext, useLoginContext, LoginButton, StyledContentCloseButton } from '@slonigiraf/app-slonig-components';
+import { LetterTemplate, Lesson, Reexamination, getPseudonym, getLesson, getLetterTemplatesByLessonId, getReexaminationsByLessonId, deleteSetting, getSetting, storeSetting, updateLesson, putLetter, getLetter, getReexamination, SettingKey, putLetterTemplate, getLetterTemplate } from '@slonigiraf/db';
 import Reexamine from './Reexamine.js';
 import { TutoringAlgorithm } from './TutoringAlgorithm.js';
 import DoInstructions from './DoInstructions.js';
@@ -185,7 +185,7 @@ function Tutor({ className = '' }: Props): React.ReactElement<Props> {
         }
         if (lesson.learnStep < letterTemplateIds.length) {
           const nextLetterTemplateId = letterTemplateIds[lesson.learnStep];
-          const nextLetterTemplate: LetterTemplate | undefined = await getLetterTemplate(nextLetterTemplateId.lesson, nextLetterTemplateId.cid);
+          const nextLetterTemplate: LetterTemplate | undefined = await getLetterTemplate(nextLetterTemplateId.cid, nextLetterTemplateId.lesson);
           if (nextLetterTemplate) {
             setLetterTemplateToIssue(nextLetterTemplate);
           }
