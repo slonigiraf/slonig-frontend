@@ -3,12 +3,13 @@ import { Algorithm } from './Algorithm.js';
 import { ExerciseList } from '@slonigiraf/app-laws';
 import ChatSimulation from './ChatSimulation.js';
 import { styled } from '@polkadot/react-components';
+import { Skill } from '@slonigiraf/app-slonig-components';
 
 class TutoringAlgorithm extends Algorithm {
-    constructor(t: any, studentName: string | null, skillJson: any, studentUsesSlonigFirstTime: boolean) {
+    constructor(t: any, studentName: string | null, skill: Skill, studentUsesSlonigFirstTime: boolean) {
         super();
-        console.log("skillJson: "+JSON.stringify(skillJson, null, 2))
-        const questions = skillJson ? skillJson.q : [];
+        const skillId = skill.i;
+        const questions = skill ? skill.q : [];
         let question1: string = questions.length > 0 ? questions[0].h : t('SOME TASK FOR SKILL TRAINING (THE TUTOR SHOULD KNOW)');
         let answer1: string = questions.length > 0 ? questions[0].a : '';
         let question2: string = questions.length > 1 ? questions[1].h : question1;
@@ -180,7 +181,7 @@ class TutoringAlgorithm extends Algorithm {
             t('Yes'),
             <StyledDiv>
                 <ChatSimulation messages={[
-                    { id: 1, text: t('Teach me the skill') + (skillJson && ": \"" + skillJson.h + "\""), sender: 'them', senderName: studentName },
+                    { id: 1, text: t('Teach me the skill') + (skill && ": \"" + skill.h + "\""), sender: 'them', senderName: studentName },
                     { id: 2, text: t('Come up with an exercise similar to this:'), sender: 'you', senderName: 'You' },
                     { id: 3, text: question1, image: exerciseImage1, sender: 'you', senderName: 'You', comment: t('I can change the exercise a little.') },
                 ]} />
@@ -220,7 +221,7 @@ class TutoringAlgorithm extends Algorithm {
             t('Yes'),
             <StyledDiv>
                 <ChatSimulation messages={[
-                    { id: 1, text: t('Teach me the skill') + (skillJson && ": \"" + skillJson.h + "\""), sender: 'them', senderName: studentName },
+                    { id: 1, text: t('Teach me the skill') + (skill && ": \"" + skill.h + "\""), sender: 'them', senderName: studentName },
                     { id: 2, text: question1, image: exerciseImage1, sender: 'you', senderName: 'You' },
                 ]} />
             </StyledDiv>

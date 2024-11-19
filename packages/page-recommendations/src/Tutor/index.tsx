@@ -3,7 +3,7 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { styled, Progress } from '@polkadot/react-components';
 import { u8aToHex } from '@polkadot/util';
-import { getIPFSDataFromContentID, parseJson, useIpfsContext, useLoginContext, LoginButton, StyledContentCloseButton } from '@slonigiraf/app-slonig-components';
+import { getIPFSDataFromContentID, parseJson, useIpfsContext, useLoginContext, LoginButton, StyledContentCloseButton, Skill } from '@slonigiraf/app-slonig-components';
 import { LetterTemplate, Lesson, Reexamination, getPseudonym, getLesson, getLetterTemplatesByLessonId, getReexaminationsByLessonId, deleteSetting, getSetting, storeSetting, updateLesson, putLetter, getLetter, getReexamination, SettingKey, putLetterTemplate, getLetterTemplate } from '@slonigiraf/db';
 import Reexamine from './Reexamine.js';
 import { TutoringAlgorithm } from './TutoringAlgorithm.js';
@@ -99,10 +99,9 @@ function Tutor({ className = '' }: Props): React.ReactElement<Props> {
       if (isIpfsReady && letterTemplateToIssue) {
         try {
           const skillContent = await getIPFSDataFromContentID(ipfs, letterTemplateToIssue.cid);
-          const skillJson = parseJson(skillContent);
+          const skill: Skill = parseJson(skillContent);
           const studentUsedSlonig = reexaminationIds?.length > 0 || lesson?.learnStep;
-          const name = studentName ? studentName : null;
-          setTutoringAlgorithm(new TutoringAlgorithm(t, name, skillJson, !studentUsedSlonig));
+          setTutoringAlgorithm(new TutoringAlgorithm(t, studentName ? studentName : null, skill, !studentUsedSlonig));
         }
         catch (e) {
           console.log(e);

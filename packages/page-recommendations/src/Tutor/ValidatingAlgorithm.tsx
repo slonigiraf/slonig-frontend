@@ -9,6 +9,7 @@ import ChatSimulation from './ChatSimulation.js';
 class ValidatingAlgorithm extends Algorithm {
     constructor(t: any, studentName: string | null, skill: Skill, reexamination: Reexamination) {
         super();
+        const skillId = skill.i;
         const questions = skill ? skill.q : [];
         let question1: string = questions.length > 0 ? questions[0].h : t('SOME EXERCISE FOR SKILL TRAINING (THE TUTOR SHOULD KNOW)');
         let question2: string = questions.length > 1 ? questions[1].h : question1;
