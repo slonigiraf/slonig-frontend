@@ -8,7 +8,7 @@ import { Button, Icon, styled, Spinner } from '@polkadot/react-components';
 import DiplomaCheck from './DiplomaCheck.js';
 import { Letter } from '@slonigiraf/db';
 import { ItemWithCID } from '../types.js';
-
+import BN from 'bn.js';
 interface Props {
   className?: string;
   id: string;
@@ -69,7 +69,7 @@ function ItemLabel({ className = '', id, isText = false, defaultValue = '...', i
         setIsSkillItem(json.t === 3);
         setType(json.t);
       } catch (error) {
-        console.error(error.message);
+        console.error((error as {message: string}).message);
       }
     };
 
@@ -86,11 +86,10 @@ function ItemLabel({ className = '', id, isText = false, defaultValue = '...', i
 
 
   async function fetchLaw(key: string) {
-    const law = await api.query.laws.laws(key);
+    const law = (await api.query.laws.laws(key)) as { isSome: boolean; unwrap: () => [Uint8Array, BN] };
     if (law.isSome) {
       const tuple = law.unwrap();
       const byteArray = tuple[0]; // This should give you the [u8; 32]
-      const bigIntValue = tuple[1]; // This should give you the u128
       const cid = await getCIDFromBytes(byteArray);
       setCidString(cid);
     }
