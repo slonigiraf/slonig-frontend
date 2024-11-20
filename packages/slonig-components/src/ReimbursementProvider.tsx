@@ -28,6 +28,15 @@ export const ReimbursementProvider: React.FC<ReimbursementProviderProps> = ({ ch
     const refereesWithEnoughBalance = useRef<Map<string, BN>>(new Map());
     const [canSubmitTransactions, setCanSubmitTransactions] = useState<boolean>(true);
 
+
+
+    const isInitialized = useCallback(() => {
+        if (currentPair && api && isApiReady && isLoggedIn && referees && referees.length > 0) {
+            return true;
+        }
+        return false;
+    }, [currentPair, api, isApiReady, isLoggedIn, referees]);
+
     useEffect(() => {
         const run = async () => {
             const reimbursements = await getAllReimbursements();
@@ -37,8 +46,9 @@ export const ReimbursementProvider: React.FC<ReimbursementProviderProps> = ({ ch
         run();
     }, []);
 
+    // Subscribe to referees' balances change
     useEffect(() => {
-        if (api && isApiReady && isLoggedIn && currentPair) {
+        if (isInitialized()) {
             referees.forEach(referee => {
                 const refereeAddress = getAddressFromPublickeyHex(referee);
                 api.query.system.account(refereeAddress, ({ data: { free } }) => {
@@ -46,7 +56,7 @@ export const ReimbursementProvider: React.FC<ReimbursementProviderProps> = ({ ch
                         refereesWithEnoughBalance.current.set(referee, free);
                         if (canSubmitTransactions) {
                             setCanSubmitTransactions(false);
-                            submitTransactions();
+                            selectAndSendTransactions();
                         }
                     } else {
                         refereesWithEnoughBalance.current.delete(referee);
@@ -54,49 +64,49 @@ export const ReimbursementProvider: React.FC<ReimbursementProviderProps> = ({ ch
                 });
             });
         }
-    }, [api, isApiReady, isLoggedIn, currentPair, referees]);
+    }, [api, referees, isInitialized]);
 
-    const _reimburse = useCallback((reimbursements: Reimbursement[]) => {
+    const sendTransactions = useCallback((reimbursements: Reimbursement[]) => {
         const run = async (reimbursements: Reimbursement[]) => {
-            if (!currentPair || !api || !isApiReady || !isLoggedIn) {
-                return;
-            }
-            let signedTransactionsPromises = reimbursements.map(async reimbursement => {
-                return api.tx.letters.reimburse(
-                    reimbursement.letterNumber,
-                    new BN(reimbursement.block),
-                    new BN(reimbursement.blockAllowed),
-                    reimbursement.referee,
-                    reimbursement.worker,
-                    reimbursement.employer,
-                    new BN(reimbursement.amount),
-                    reimbursement.signOverReceipt,
-                    reimbursement.workerSign
-                );
-            });
+            if (currentPair && isInitialized()) {
+                let signedTransactionsPromises = reimbursements.map(async reimbursement => {
+                    return api.tx.letters.reimburse(
+                        reimbursement.letterNumber,
+                        new BN(reimbursement.block),
+                        new BN(reimbursement.blockAllowed),
+                        reimbursement.referee,
+                        reimbursement.worker,
+                        reimbursement.employer,
+                        new BN(reimbursement.amount),
+                        reimbursement.signOverReceipt,
+                        reimbursement.workerSign
+                    );
+                });
 
-            const txs = (await Promise.all(signedTransactionsPromises)).filter(tx => tx !== undefined);
+                const txs = (await Promise.all(signedTransactionsPromises)).filter(tx => tx !== undefined);
 
-            if (txs && txs.length > 0) {
-                api.tx.utility
-                    .forceBatch(txs)
-                    .signAndSend(currentPair, ({ status }) => {
-                        if (status.isInBlock) {
-                            // TODO listen events
-                            console.log(`included in ${status.asInBlock}`);
-                            setCanSubmitTransactions(true);
-                        }
-                    });
+                if (txs && txs.length > 0) {
+                    api.tx.utility
+                        .forceBatch(txs)
+                        .signAndSend(currentPair, ({ status }) => {
+                            if (status.isInBlock) {
+                                // TODO listen events
+                                console.log(`included in ${status.asInBlock}`);
+                                setCanSubmitTransactions(true);
+                            }
+                        });
+                }
             }
         };
-        run(reimbursements);
-    }, [currentPair, api, isApiReady, isLoggedIn]);
+        if (isInitialized()) {
+            run(reimbursements);
+        }
+    }, [currentPair, api, isInitialized]);
 
-    const submitTransactions = useCallback(() => {
+    const selectAndSendTransactions = useCallback(() => {
         const run = async () => {
             let selectedReimbursements: Reimbursement[] = [];
             for (const [referee, balance] of refereesWithEnoughBalance.current) {
-                console.log("Balance: "+balance.toString())
                 if (selectedReimbursements.length >= REIMBURSEMENT_BATCH_SIZE) {
                     break;
                 }
@@ -114,7 +124,7 @@ export const ReimbursementProvider: React.FC<ReimbursementProviderProps> = ({ ch
                         const reimbursementAmount = new BN(reimbursement.amount);
                         const penaltyWithThisReimbursement = penaltyAmount.add(reimbursementAmount);
                         const refereeHasEnoughBalance = refereeAvailableBalance.gte(penaltyWithThisReimbursement);
-                        
+
                         if (refereeHasEnoughBalance && selectedReimbursements.length < REIMBURSEMENT_BATCH_SIZE) {
                             selectedReimbursements.push(reimbursement);
                             penaltyAmount = penaltyAmount.add(reimbursementAmount);
@@ -125,11 +135,11 @@ export const ReimbursementProvider: React.FC<ReimbursementProviderProps> = ({ ch
                 }
             }
             if (selectedReimbursements.length > 0) {
-                _reimburse(selectedReimbursements);
+                sendTransactions(selectedReimbursements);
             }
         }
         run();
-    }, [_reimburse]);
+    }, [sendTransactions]);
 
     const reimburse = async (reimbursements: Reimbursement[]) => {
         const newReferees = reimbursements.map((r: Reimbursement) => r.referee);
