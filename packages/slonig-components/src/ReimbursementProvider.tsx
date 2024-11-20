@@ -28,8 +28,6 @@ export const ReimbursementProvider: React.FC<ReimbursementProviderProps> = ({ ch
     const refereesWithEnoughBalance = useRef<Map<string, BN>>(new Map());
     const [canSubmitTransactions, setCanSubmitTransactions] = useState<boolean>(true);
 
-    console.log("referees: " + JSON.stringify(referees, null, 2))
-
     useEffect(() => {
         const run = async () => {
             const reimbursements = await getAllReimbursements();
@@ -40,7 +38,7 @@ export const ReimbursementProvider: React.FC<ReimbursementProviderProps> = ({ ch
     }, []);
 
     useEffect(() => {
-        if (api && isApiReady) {
+        if (api && isApiReady && isLoggedIn && currentPair) {
             referees.forEach(referee => {
                 const refereeAddress = getAddressFromPublickeyHex(referee);
                 api.query.system.account(refereeAddress, ({ data: { free } }) => {
@@ -53,19 +51,16 @@ export const ReimbursementProvider: React.FC<ReimbursementProviderProps> = ({ ch
                     } else {
                         refereesWithEnoughBalance.current.delete(referee);
                     }
-                    // console.log("RP: refereesWithEnoughBalance.current: ", JSON.stringify(Array.from(refereesWithEnoughBalance.current.entries()), null, 2));
                 });
             });
         }
-    }, [api, isApiReady, referees]);
+    }, [api, isApiReady, isLoggedIn, currentPair, referees]);
 
     const _reimburse = useCallback((reimbursements: Reimbursement[]) => {
         const run = async (reimbursements: Reimbursement[]) => {
-            console.log("RP: _reimburse, run", JSON.stringify(reimbursements, null, 2))
             if (!currentPair || !api || !isApiReady || !isLoggedIn) {
                 return;
             }
-
             let signedTransactionsPromises = reimbursements.map(async reimbursement => {
                 return api.tx.letters.reimburse(
                     reimbursement.letterNumber,
@@ -99,7 +94,6 @@ export const ReimbursementProvider: React.FC<ReimbursementProviderProps> = ({ ch
 
     const submitTransactions = useCallback(() => {
         const run = async () => {
-            console.log('RP: submitTransactions');
             let selectedReimbursements: Reimbursement[] = [];
             for (const [referee, balance] of refereesWithEnoughBalance.current) {
                 console.log("Balance: "+balance.toString())
@@ -107,7 +101,6 @@ export const ReimbursementProvider: React.FC<ReimbursementProviderProps> = ({ ch
                     break;
                 }
                 if (balance.gt(EXISTENTIAL_REFEREE_BALANCE)) {
-                    console.log("balance.gt(EXISTENTIAL_REFEREE_BALANCE)")
                     let penaltyAmount = BN_ZERO;
                     const reimbursementsCollection = await getReimbursementsByReferee(referee);
                     const reimbursements = await reimbursementsCollection.toArray();
@@ -121,7 +114,7 @@ export const ReimbursementProvider: React.FC<ReimbursementProviderProps> = ({ ch
                         const reimbursementAmount = new BN(reimbursement.amount);
                         const penaltyWithThisReimbursement = penaltyAmount.add(reimbursementAmount);
                         const refereeHasEnoughBalance = refereeAvailableBalance.gte(penaltyWithThisReimbursement);
-                        console.log("refereeHasEnoughBalance: "+refereeHasEnoughBalance)
+                        
                         if (refereeHasEnoughBalance && selectedReimbursements.length < REIMBURSEMENT_BATCH_SIZE) {
                             selectedReimbursements.push(reimbursement);
                             penaltyAmount = penaltyAmount.add(reimbursementAmount);
@@ -139,7 +132,6 @@ export const ReimbursementProvider: React.FC<ReimbursementProviderProps> = ({ ch
     }, [_reimburse]);
 
     const reimburse = async (reimbursements: Reimbursement[]) => {
-        console.log('RP: reimburse')
         const newReferees = reimbursements.map((r: Reimbursement) => r.referee);
         setReferees([...new Set([...referees, ...newReferees])]);
     };
