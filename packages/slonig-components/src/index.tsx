@@ -208,7 +208,6 @@ export interface Person {
 }
 
 export interface IMessage {
-  id: string;
   text: string;
   sender: 'you' | 'them';
   senderName: string|null;

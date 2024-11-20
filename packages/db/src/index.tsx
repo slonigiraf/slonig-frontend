@@ -289,13 +289,13 @@ export const storeLesson = async (lessonRequest: LessonRequest, tutor: string) =
                 valid: false,
                 lastExamined: now,
                 lesson: lesson.id,
-                workerId: lesson.student,
+                workerId: lesson.student, // TODO: delete
                 knowledgeId: item[0],
                 cid: item[1],
                 genesis: '',
                 letterNumber: -1,
                 block: '',
-                referee: lesson.tutor,
+                referee: lesson.tutor, // TODO: delete
                 worker: item[2],
                 amount: '',
                 signOverPrivateData: '',

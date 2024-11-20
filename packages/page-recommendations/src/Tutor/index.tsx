@@ -3,12 +3,9 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { styled, Progress } from '@polkadot/react-components';
 import { u8aToHex } from '@polkadot/util';
-import { getIPFSDataFromContentID, parseJson, useIpfsContext, useLoginContext, LoginButton, StyledContentCloseButton, Skill } from '@slonigiraf/app-slonig-components';
-import { LetterTemplate, Lesson, Reexamination, getPseudonym, getLesson, getLetterTemplatesByLessonId, getReexaminationsByLessonId, deleteSetting, getSetting, storeSetting, updateLesson, putLetter, getLetter, getReexamination, SettingKey, putLetterTemplate, getLetterTemplate } from '@slonigiraf/db';
-import Reexamine from './Reexamine.js';
-import { TutoringAlgorithm } from './TutoringAlgorithm.js';
+import { useLoginContext, LoginButton, StyledContentCloseButton } from '@slonigiraf/app-slonig-components';
+import { LetterTemplate, Lesson, Reexamination, getPseudonym, getLesson, getLetterTemplatesByLessonId, getReexaminationsByLessonId, deleteSetting, getSetting, storeSetting, updateLesson, getLetter, getReexamination, SettingKey } from '@slonigiraf/db';
 import DoInstructions from './DoInstructions.js';
-import { useTranslation } from '../translate.js';
 import LessonsList from './LessonsList.js';
 import LessonResults from './LessonResults.js';
 import LessonRequestReceiver from './LessonRequestReceiver.js';
@@ -17,15 +14,8 @@ interface Props {
   className?: string;
 }
 
-interface LetterTemplateId {
-  lesson: string;
-  cid: string;
-}
-
 function Tutor({ className = '' }: Props): React.ReactElement<Props> {
   // Initialize api, ipfs and translation
-  const { ipfs, isIpfsReady } = useIpfsContext();
-  const { t } = useTranslation();
   const { currentPair, isLoggedIn } = useLoginContext();
 
   const [reexaminationToPerform, setReexaminationToPerform] = useState<Reexamination | null>(null);
@@ -33,7 +23,6 @@ function Tutor({ className = '' }: Props): React.ReactElement<Props> {
 
   // Store progress state
   const [reexamined, setReexamined] = useState<boolean>(false);
-  const [tutoringAlgorithm, setTutoringAlgorithm] = useState<TutoringAlgorithm | null>(null);
 
   //   student name
   const [studentName, setStudentName] = useState<string | null>(null);
@@ -42,6 +31,7 @@ function Tutor({ className = '' }: Props): React.ReactElement<Props> {
   const [letterTemplates, setLetterTemplates] = useState<LetterTemplate[]>([]);
   const [reexaminations, setReexaminations] = useState<Reexamination[]>([]);
   const [areResultsShown, setResultsShown] = useState(false);
+  const [studentUsedSlonig, setStudentUsedSlonig] = useState(false);
 
 
   // Helper functions
@@ -88,25 +78,6 @@ function Tutor({ className = '' }: Props): React.ReactElement<Props> {
     fetchLesson();
   }, [])
 
-  // Fetch skill data and set teaching algorithm
-  useEffect(() => {
-    async function fetchData() {
-      if (isIpfsReady && letterTemplateToIssue) {
-        try {
-          const skillContent = await getIPFSDataFromContentID(ipfs, letterTemplateToIssue.cid);
-          const skill: Skill = parseJson(skillContent);
-          const studentUsedSlonig = reexaminations?.length > 0 || lesson?.learnStep;
-          setTutoringAlgorithm(new TutoringAlgorithm(letterTemplateToIssue.cid, t, studentName ? studentName : null, skill, !studentUsedSlonig));
-        }
-        catch (e) {
-          console.log(e);
-        }
-      }
-    }
-    fetchData();
-  }, [ipfs, isIpfsReady, letterTemplateToIssue, studentName,
-    getIPFSDataFromContentID, parseJson, setTutoringAlgorithm, lesson?.learnStep])
-
   // Fetch days valid
 
   const updateReexamined = useCallback(async () => {
@@ -126,24 +97,7 @@ function Tutor({ className = '' }: Props): React.ReactElement<Props> {
     }
   }, [lesson, updateAndStoreLesson]);
 
-  const updateTutoring = useCallback(
-    async (stage: string) => {
-      if (letterTemplateToIssue) {
-        if (stage === 'success' || stage === 'next_skill') {
-          const preparedLetterTemplate: LetterTemplate = {
-            ...letterTemplateToIssue,
-            valid: stage === 'success',
-            lastExamined: (new Date()).getTime(),
-          };
-          await putLetterTemplate(preparedLetterTemplate);
-          updateLearned();
-        } else if (stage === 'skip') {
-          updateLearned();
-        }
-      }
-    },
-    [updateLearned, letterTemplateToIssue, putLetter]
-  );
+  
 
   const onResumeTutoring = useCallback((lesson: Lesson): void => {
     storeSetting(SettingKey.LESSON, lesson.id);
@@ -161,6 +115,9 @@ function Tutor({ className = '' }: Props): React.ReactElement<Props> {
     currentletterTemplates: LetterTemplate[],
     currentReexaminations: Reexamination[]) => {
     async function run() {
+      if(lesson && lesson.learnStep){
+        setStudentUsedSlonig( reexaminations?.length > 0 || lesson?.learnStep > 0);
+      }
       if (updatedLesson.reexamineStep < updatedLesson.toReexamineCount) {
         setReexamined(false);
       } else {
@@ -191,9 +148,6 @@ function Tutor({ className = '' }: Props): React.ReactElement<Props> {
   }, [setResultsShown, onCloseTutoring]);
 
   const publicKeyHex = currentPair ? u8aToHex(currentPair.publicKey) : "";
-  const lessonReactKey = lesson ? (lesson.learnStep + lesson.reexamineStep) : 'loading';
-
-  const skillIsLoaded = tutoringAlgorithm?.id === letterTemplateToIssue?.cid;
 
   const reexamAndDiplomaIssuing = <>
     {lesson && <StyledProgress
@@ -203,11 +157,9 @@ function Tutor({ className = '' }: Props): React.ReactElement<Props> {
     <StyledContentCloseButton onClick={onCloseTutoring}
       icon='close'
     />
-    <div style={!reexamined ? {} : { display: 'none' }}>
-      {currentPair && <Reexamine reexamination={reexaminationToPerform} onResult={updateReexamined} studentName={studentName} key={'reexaminine' + lessonReactKey} />}
-    </div>
-    <div style={reexamined ? {} : { display: 'none' }}>
-      {tutoringAlgorithm && skillIsLoaded && <DoInstructions algorithm={tutoringAlgorithm} onResult={updateTutoring} key={'learn' + lessonReactKey} />}
+    <div>
+      {!reexamined && reexaminationToPerform && <DoInstructions entity={reexaminationToPerform} onResult={updateReexamined} studentName={studentName} key={'reexaminine'+reexaminationToPerform.cid} />}
+      {reexamined && letterTemplateToIssue && <DoInstructions entity={letterTemplateToIssue} onResult={updateLearned} studentName={studentName} studentUsedSlonig={studentUsedSlonig} key={'learn'+letterTemplateToIssue.cid} />}
     </div>
   </>;
 
