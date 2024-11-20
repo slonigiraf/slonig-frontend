@@ -127,7 +127,12 @@ export const getValidLetterTemplatesByLessonId = async (lessonId: string): Promi
 export const getReexaminationsByLessonId = async (lessonId: string) => {
     return db.reexaminations.where({ lesson: lessonId }).sortBy('id');
 }
-
+export const getAllReimbursements = async () => {
+    return db.reimbursements.toArray();
+}
+export const getReimbursementsByReferee = async (referee: string) => {
+    return db.reimbursements.where({ referee: referee });
+}
 export const getAllPseudonyms = async () => {
     return db.pseudonyms.toArray();
 }

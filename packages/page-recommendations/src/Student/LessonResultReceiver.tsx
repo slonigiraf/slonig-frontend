@@ -2,11 +2,10 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import React, { useCallback, useEffect, useState } from 'react';
-import { useLoginContext, parseJson, useTokenTransfer, receiveWebRTCData, useInfo, LessonResult, keyForCid, useReimbursement } from '@slonigiraf/app-slonig-components';
+import { useLoginContext, parseJson, useTokenTransfer, receiveWebRTCData, useInfo, LessonResult, keyForCid, getAddressFromPublickeyHex, useReimbursement } from '@slonigiraf/app-slonig-components';
 import { hexToU8a, u8aToHex, u8aWrapBytes } from '@polkadot/util';
 import { addReimbursement, cancelLetter, deserializeLetter, getAgreement, getLetter, letterToReimbursement, putAgreement, putLetter, storePseudonym, updateLetterReexaminingCount } from '@slonigiraf/db';
 import { useTranslation } from '../translate.js';
-import { encodeAddress } from '@polkadot/keyring';
 import { Agreement } from '@slonigiraf/db';
 import { useNavigate } from 'react-router-dom';
 import BN from 'bn.js';
@@ -83,9 +82,8 @@ function LessonResultReceiver({ webRTCPeerId }: Props): React.ReactElement {
 
   useEffect(() => {
     async function pay() {
-      if (agreement) {
-        const recipientAddress = lessonResultJson?.referee ? encodeAddress(hexToU8a(lessonResultJson?.referee)) : "";
-        setRecipientId(recipientAddress);
+      if (agreement && lessonResultJson) {
+        setRecipientId(getAddressFromPublickeyHex(lessonResultJson.referee));
         setAmount(new BN(agreement.price));
         setModalCaption(t('Pay for the lesson'));
         setButtonCaption(t('Pay'));
@@ -152,7 +150,7 @@ function LessonResultReceiver({ webRTCPeerId }: Props): React.ReactElement {
               return undefined;
             });
             const reimbursements = (await Promise.all(reimbursementPromises)).filter(insurance => insurance !== undefined);
-            await reimburse(reimbursements);
+            reimburse(reimbursements);
           }
           const updatedAgreement: Agreement = { ...agreement, penaltySent: true };
           updateAgreement(updatedAgreement);

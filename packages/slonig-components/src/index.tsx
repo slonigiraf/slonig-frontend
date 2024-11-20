@@ -26,8 +26,11 @@ import { useEffect, useState } from 'react';
 import { getSetting, SettingKey } from '@slonigiraf/db';
 export { ReimbursementProvider, useReimbursement, TokenTransferProvider, useTokenTransfer, DateInput, SelectableList, SenderComponent, TextAreaWithPreview, KatexSpan, ResizableImage, LoginButton, ShareButton, ClipboardCopyButton, QRWithShareAndCopy, QRScanner, ButtonWithLabelBelow, ScanQR, IpfsProvider, useIpfsContext, InfoProvider, useInfo };
 export { balanceToSlonString, createPeer, receiveWebRTCData, getQrWidth, saveToSessionStorage, loadFromSessionStorage, getIPFSContentIDAndPinIt, getKey, arrayBufferToBase64, base64ToArrayBuffer, decryptData, encryptData, LoginProvider, useLoginContext, keyForCid, nameFromKeyringPair, getBaseUrl, CODEC, getIPFSContentID, getIPFSDataFromContentID, digestFromCIDv1, getCIDFromBytes, storeEncryptedTextOnIPFS, retrieveDecryptedDataFromIPFS, parseJson }
+import { encodeAddress } from '@polkadot/keyring';
+import { hexToU8a } from '@polkadot/util';
 
-const EXISTENTIAL_REFEREE_BALANCE = new BN('1000000000000000'); // 1k Slon
+export const EXISTENTIAL_REFEREE_BALANCE = new BN('1000000000000000'); // 1k Slon
+export const REIMBURSEMENT_BATCH_SIZE = 5;
 
 export const qrWidthPx = getQrWidth();
 export interface Exercise {
@@ -214,3 +217,7 @@ export interface IMessage {
   comment?: string;
   image?: string;
 }
+
+export const getAddressFromPublickeyHex = (publickeyHex: string) => {
+  return encodeAddress(hexToU8a(publickeyHex));
+} 
