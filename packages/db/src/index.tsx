@@ -97,7 +97,7 @@ export const getLetter = async (signOverReceipt: string) => {
 }
 
 export const getLetterTemplate = async (lesson: string, stage: number) => {
-    return db.letterTemplates.get({lesson: lesson, stage: stage});
+    return db.letterTemplates.get({ lesson: lesson, stage: stage });
 }
 
 export const getCIDCache = async (cid: string) => {
@@ -430,6 +430,13 @@ export const storeSetting = async (id: string, value: string) => {
 export const deleteSetting = async (id: string) => {
     const cleanId = DOMPurify.sanitize(id);
     db.settings.delete(cleanId);
+}
+
+export const deleteReimbursement = async (referee: string, letterNumber: number) => {
+    await db.reimbursements
+        .where('[referee+letterNumber]')
+        .equals([referee, letterNumber])
+        .delete();
 }
 
 export const deleteLetter = async (signOverReceipt: string) => {

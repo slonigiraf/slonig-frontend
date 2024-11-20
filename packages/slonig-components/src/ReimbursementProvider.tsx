@@ -1,4 +1,4 @@
-import { getAllReimbursements, getReimbursementsByReferee, Reimbursement } from '@slonigiraf/db';
+import { deleteReimbursement, getAllReimbursements, getReimbursementsByReferee, Reimbursement } from '@slonigiraf/db';
 import React, { useEffect, useState, useRef, useCallback, ReactNode, createContext, useContext } from 'react';
 import { useApi } from '@polkadot/react-hooks';
 import { useLoginContext } from './LoginContext.js';
@@ -86,13 +86,17 @@ export const ReimbursementProvider: React.FC<ReimbursementProviderProps> = ({ ch
                 const txs = (await Promise.all(signedTransactionsPromises)).filter(tx => tx !== undefined);
 
                 if (txs && txs.length > 0) {
-                    api.tx.utility
+                    const unsub = await api.tx.utility
                         .forceBatch(txs)
-                        .signAndSend(currentPair, ({ status }) => {
+                        .signAndSend(currentPair, ({ events = [], status }) => {
                             if (status.isInBlock) {
-                                // TODO listen events
-                                console.log(`included in ${status.asInBlock}`);
-                                setCanSubmitTransactions(true);
+                                events.forEach(({ event: { data, method, section } }) => {
+                                    if(section === 'letters' && method === 'ReimbursementHappened'){
+                                        const [referee, letterNumber] = data.toJSON() as [string, number];
+                                        deleteReimbursement(referee, letterNumber);
+                                    }
+                                });
+                                unsub();
                             }
                         });
                 }
