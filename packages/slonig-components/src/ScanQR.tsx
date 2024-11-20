@@ -57,9 +57,6 @@ function ScanQR({ className = '', label }: Props): React.ReactElement<Props> {
           case QRAction.LEARN_MODULE:
             navigate(`diplomas/tutor?${QRField.WEBRTC_PEER_ID}=${qrJSON[QRField.WEBRTC_PEER_ID]}`);
             break;
-          case QRAction.TUTOR_IDENTITY:
-            navigate(`knowledge?tutor=${qrJSON.p}`);
-            break;
           case QRAction.TEACHER_IDENTITY:
             navigate(`diplomas?teacher=${qrJSON.p}`);
             break;

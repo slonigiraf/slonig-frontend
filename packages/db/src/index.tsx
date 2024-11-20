@@ -42,11 +42,10 @@ export const QRAction = {
     TRANSFER: 1,
     ADD_DIPLOMA: 2,
     BUY_DIPLOMAS: 3,
-    TUTOR_IDENTITY: 4,
-    SKILL: 5,
-    TEACHER_IDENTITY: 6,
-    ADD_INSURANCES: 7,
-    LEARN_MODULE: 8
+    SKILL: 4,
+    TEACHER_IDENTITY: 5,
+    ADD_INSURANCES: 6,
+    LEARN_MODULE: 7
 };
 
 export const QRField = {
