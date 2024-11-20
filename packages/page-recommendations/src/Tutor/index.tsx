@@ -56,7 +56,7 @@ function Tutor({ className = '' }: Props): React.ReactElement<Props> {
     [letterTemplates, reexaminations, setLesson, updateLesson]
   );
 
-  useEffect(() => {
+  const fetchLesson = useCallback(
     async function fetchLesson() {
       const lessonId = await getSetting(SettingKey.LESSON);
       if (lessonId) {
@@ -80,7 +80,11 @@ function Tutor({ className = '' }: Props): React.ReactElement<Props> {
       } else {
         setLesson(null);
       }
-    }
+    },
+    []
+  );
+
+  useEffect(() => {
     fetchLesson();
   }, [])
 
@@ -212,7 +216,7 @@ function Tutor({ className = '' }: Props): React.ReactElement<Props> {
       {
         isLoggedIn &&
         <>
-          <LessonRequestReceiver setCurrentLesson={setLesson} />
+          <LessonRequestReceiver setCurrentLesson={fetchLesson} />
           {lesson == null ? <LessonsList tutor={publicKeyHex} onResumeTutoring={onResumeTutoring} onShowResults={onShowResults} />
             :
             <> {areResultsShown ? <LessonResults lesson={lesson} updateAndStoreLesson={updateAndStoreLesson} onClose={onCloseResults} /> : reexamAndDiplomaIssuing}</>
