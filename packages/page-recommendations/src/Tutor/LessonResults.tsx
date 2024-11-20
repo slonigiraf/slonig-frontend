@@ -220,14 +220,13 @@ function LessonResults({ className = '', lesson, updateAndStoreLesson, onClose }
             genesis: genesisU8.toHex(),
             letterNumber: letterId,
             block: diplomaBlockNumber.toString(),
-            referee: refereePublicKeyHex,
             amount: amount.toString(),
             signOverPrivateData: refereeSignOverPrivateData,
             signOverReceipt: refereeSignOverReceipt,
           };
           await putLetterTemplate(updatedLetterTemplate);
 
-          letterData.push(serializeAsLetter(updatedLetterTemplate));
+          letterData.push(serializeAsLetter(updatedLetterTemplate, refereePublicKeyHex));
         }
 
         const agreement = blake2AsHex(JSON.stringify(lesson));

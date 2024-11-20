@@ -289,13 +289,11 @@ export const storeLesson = async (lessonRequest: LessonRequest, tutor: string) =
                 valid: false,
                 lastExamined: now,
                 lesson: lesson.id,
-                workerId: lesson.student, // TODO: delete
                 knowledgeId: item[0],
                 cid: item[1],
                 genesis: '',
                 letterNumber: -1,
                 block: '',
-                referee: lesson.tutor, // TODO: delete
                 worker: item[2],
                 amount: '',
                 signOverPrivateData: '',
@@ -570,7 +568,7 @@ export const getPseudonym = async (publicKey: string): Promise<string | undefine
  * @param letterTemplate - The LetterTemplate object to serialize.
  * @returns The JSON string representation of the Letter.
  */
-export function serializeAsLetter(letterTemplate: LetterTemplate): string {
+export function serializeAsLetter(letterTemplate: LetterTemplate, referee: string): string {
     // Create an array with values in a specific order
     const serializedArray = [
         letterTemplate.lastExamined,
@@ -578,7 +576,7 @@ export function serializeAsLetter(letterTemplate: LetterTemplate): string {
         letterTemplate.cid,
         letterTemplate.letterNumber.toString(),
         letterTemplate.block,
-        letterTemplate.referee,
+        referee,
         letterTemplate.worker,
         letterTemplate.signOverPrivateData,
         letterTemplate.signOverReceipt
