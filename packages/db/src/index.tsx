@@ -26,7 +26,6 @@ export const SettingKey = {
     ACCOUNT: 'account',
     ENCRYPTION_KEY: 'encryptionKey',
     IV: 'iv',
-    KNOWLEDGE: 'knowledge',
     TUTOR: 'tutor',
     LESSON: 'lesson',
     RESULTS_FOR_LESSON: 'resultsForLesson',
