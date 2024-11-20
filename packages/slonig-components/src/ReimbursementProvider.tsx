@@ -25,24 +25,25 @@ export const ReimbursementProvider: React.FC<ReimbursementProviderProps> = ({ ch
     const { api, isApiReady } = useApi();
     const { currentPair, isLoggedIn } = useLoginContext();
     const [referees, setReferees] = useState<string[]>([]);
-    const refereesWithEnoughBalance = useRef<Map<string, BN>>(new Map<string, BN>());
-    const [canSubmitTransactions, setCanSubmitTransactions] = useState<boolean>(false);
+    const refereesWithEnoughBalance = useRef<Map<string, BN>>(new Map());
+    const [canSubmitTransactions, setCanSubmitTransactions] = useState<boolean>(true);
+
+    console.log("referees: " + JSON.stringify(referees, null, 2))
 
     useEffect(() => {
         const run = async () => {
             const reimbursements = await getAllReimbursements();
             const referees = reimbursements.map((r: Reimbursement) => r.referee);
-            setReferees(referees);
+            setReferees([...new Set([...referees])]);
         }
         run();
     }, []);
 
     useEffect(() => {
-        if (api && isApiReady && currentPair) {
+        if (api && isApiReady) {
             referees.forEach(referee => {
                 const refereeAddress = getAddressFromPublickeyHex(referee);
                 api.query.system.account(refereeAddress, ({ data: { free } }) => {
-                    console.log("typeof free: " + typeof free);
                     if (free.gt(EXISTENTIAL_REFEREE_BALANCE)) {
                         refereesWithEnoughBalance.current.set(referee, free);
                         if (canSubmitTransactions) {
@@ -52,11 +53,11 @@ export const ReimbursementProvider: React.FC<ReimbursementProviderProps> = ({ ch
                     } else {
                         refereesWithEnoughBalance.current.delete(referee);
                     }
-                    console.log("RP: refereesWithEnoughBalance.current: ", JSON.stringify(refereesWithEnoughBalance.current, null, 2));
+                    // console.log("RP: refereesWithEnoughBalance.current: ", JSON.stringify(Array.from(refereesWithEnoughBalance.current.entries()), null, 2));
                 });
             });
         }
-    }, [api, isApiReady, referees, refereesWithEnoughBalance]);
+    }, [api, isApiReady, referees]);
 
     const _reimburse = useCallback((reimbursements: Reimbursement[]) => {
         const run = async (reimbursements: Reimbursement[]) => {
@@ -88,6 +89,7 @@ export const ReimbursementProvider: React.FC<ReimbursementProviderProps> = ({ ch
                         if (status.isInBlock) {
                             // TODO listen events
                             console.log(`included in ${status.asInBlock}`);
+                            setCanSubmitTransactions(true);
                         }
                     });
             }
@@ -98,12 +100,14 @@ export const ReimbursementProvider: React.FC<ReimbursementProviderProps> = ({ ch
     const submitTransactions = useCallback(() => {
         const run = async () => {
             console.log('RP: submitTransactions');
-            let seletectedReimbursements: Reimbursement[] = [];
+            let selectedReimbursements: Reimbursement[] = [];
             for (const [referee, balance] of refereesWithEnoughBalance.current) {
-                if (seletectedReimbursements.length >= REIMBURSEMENT_BATCH_SIZE) {
+                console.log("Balance: "+balance.toString())
+                if (selectedReimbursements.length >= REIMBURSEMENT_BATCH_SIZE) {
                     break;
                 }
                 if (balance.gt(EXISTENTIAL_REFEREE_BALANCE)) {
+                    console.log("balance.gt(EXISTENTIAL_REFEREE_BALANCE)")
                     let penaltyAmount = BN_ZERO;
                     const reimbursementsCollection = await getReimbursementsByReferee(referee);
                     const reimbursements = await reimbursementsCollection.toArray();
@@ -112,11 +116,14 @@ export const ReimbursementProvider: React.FC<ReimbursementProviderProps> = ({ ch
                         const amountB = new BN(b.amount);
                         return amountA.cmp(amountB); // -1 if a < b, 0 if a === b, 1 if a > b
                     })
+                    const refereeAvailableBalance = balance.sub(EXISTENTIAL_REFEREE_BALANCE);
                     for (const reimbursement of fromMinToMaxReimbursement) {
                         const reimbursementAmount = new BN(reimbursement.amount);
-                        const refereeHasEnoughBalance = penaltyAmount.add(reimbursementAmount).gt(EXISTENTIAL_REFEREE_BALANCE);
-                        if (refereeHasEnoughBalance && seletectedReimbursements.length < REIMBURSEMENT_BATCH_SIZE) {
-                            seletectedReimbursements.push(reimbursement);
+                        const penaltyWithThisReimbursement = penaltyAmount.add(reimbursementAmount);
+                        const refereeHasEnoughBalance = refereeAvailableBalance.gte(penaltyWithThisReimbursement);
+                        console.log("refereeHasEnoughBalance: "+refereeHasEnoughBalance)
+                        if (refereeHasEnoughBalance && selectedReimbursements.length < REIMBURSEMENT_BATCH_SIZE) {
+                            selectedReimbursements.push(reimbursement);
                             penaltyAmount = penaltyAmount.add(reimbursementAmount);
                         } else {
                             break;
@@ -124,8 +131,8 @@ export const ReimbursementProvider: React.FC<ReimbursementProviderProps> = ({ ch
                     }
                 }
             }
-            if (seletectedReimbursements.length > 0) {
-                _reimburse(seletectedReimbursements);
+            if (selectedReimbursements.length > 0) {
+                _reimburse(selectedReimbursements);
             }
         }
         run();
