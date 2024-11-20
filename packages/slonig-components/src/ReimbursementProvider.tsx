@@ -43,7 +43,7 @@ export const ReimbursementProvider: React.FC<ReimbursementProviderProps> = ({ ch
                 const refereeAddress = getAddressFromPublickeyHex(referee);
                 api.query.system.account(refereeAddress, ({ data: { free } }) => {
                     console.log("typeof free: " + typeof free);
-                    if (EXISTENTIAL_REFEREE_BALANCE.gt(free)) {
+                    if (free.gt(EXISTENTIAL_REFEREE_BALANCE)) {
                         refereesWithEnoughBalance.current.set(referee, free);
                         if (canSubmitTransactions) {
                             setCanSubmitTransactions(false);
@@ -52,7 +52,7 @@ export const ReimbursementProvider: React.FC<ReimbursementProviderProps> = ({ ch
                     } else {
                         refereesWithEnoughBalance.current.delete(referee);
                     }
-                    console.log("refereesWithEnoughBalance.current: ", JSON.stringify(refereesWithEnoughBalance.current, null, 2));
+                    console.log("RP: refereesWithEnoughBalance.current: ", JSON.stringify(refereesWithEnoughBalance.current, null, 2));
                 });
             });
         }
@@ -60,6 +60,7 @@ export const ReimbursementProvider: React.FC<ReimbursementProviderProps> = ({ ch
 
     const _reimburse = useCallback((reimbursements: Reimbursement[]) => {
         const run = async (reimbursements: Reimbursement[]) => {
+            console.log("RP: _reimburse, run", JSON.stringify(reimbursements, null, 2))
             if (!currentPair || !api || !isApiReady || !isLoggedIn) {
                 return;
             }
@@ -96,6 +97,7 @@ export const ReimbursementProvider: React.FC<ReimbursementProviderProps> = ({ ch
 
     const submitTransactions = useCallback(() => {
         const run = async () => {
+            console.log('RP: submitTransactions');
             let seletectedReimbursements: Reimbursement[] = [];
             for (const [referee, balance] of refereesWithEnoughBalance.current) {
                 if (seletectedReimbursements.length >= REIMBURSEMENT_BATCH_SIZE) {
@@ -130,6 +132,7 @@ export const ReimbursementProvider: React.FC<ReimbursementProviderProps> = ({ ch
     }, [_reimburse]);
 
     const reimburse = async (reimbursements: Reimbursement[]) => {
+        console.log('RP: reimburse')
         const newReferees = reimbursements.map((r: Reimbursement) => r.referee);
         setReferees([...new Set([...referees, ...newReferees])]);
     };

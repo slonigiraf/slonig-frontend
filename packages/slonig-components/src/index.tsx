@@ -29,7 +29,7 @@ export { balanceToSlonString, createPeer, receiveWebRTCData, getQrWidth, saveToS
 import { encodeAddress } from '@polkadot/keyring';
 import { hexToU8a } from '@polkadot/util';
 
-export const EXISTENTIAL_REFEREE_BALANCE = new BN('1000000000000000'); // 1k Slon
+export const EXISTENTIAL_REFEREE_BALANCE = new BN('1000000000000000'); // 1k Slon = 1000000000000000
 export const REIMBURSEMENT_BATCH_SIZE = 5;
 
 export const qrWidthPx = getQrWidth();

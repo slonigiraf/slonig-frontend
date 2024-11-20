@@ -1,4 +1,5 @@
 export interface LetterTemplate {
+  stage: number, // lesson stage
   valid: boolean,
   lastExamined: number; // timestamp
   lesson: string;

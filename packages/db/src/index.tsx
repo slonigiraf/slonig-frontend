@@ -96,8 +96,8 @@ export const getLetter = async (signOverReceipt: string) => {
     return db.letters.get(signOverReceipt);
 }
 
-export const getLetterTemplate = async (cid: string, lesson: string) => {
-    return db.letterTemplates.get({lesson: lesson, cid: cid});
+export const getLetterTemplate = async (lesson: string, stage: number) => {
+    return db.letterTemplates.get({lesson: lesson, stage: stage});
 }
 
 export const getCIDCache = async (cid: string) => {
@@ -117,7 +117,7 @@ export const getReexamination = async (signOverReceipt: string) => {
 }
 
 export const getLetterTemplatesByLessonId = async (lessonId: string) => {
-    return db.letterTemplates.where({ lesson: lessonId }).sortBy('id');
+    return db.letterTemplates.where({ lesson: lessonId }).sortBy('stage');
 }
 
 export const getValidLetterTemplatesByLessonId = async (lessonId: string): Promise<LetterTemplate[]> => {
@@ -125,7 +125,7 @@ export const getValidLetterTemplatesByLessonId = async (lessonId: string): Promi
 }
 
 export const getReexaminationsByLessonId = async (lessonId: string) => {
-    return db.reexaminations.where({ lesson: lessonId }).sortBy('id');
+    return db.reexaminations.where({ lesson: lessonId }).sortBy('stage');
 }
 export const getAllReimbursements = async () => {
     return db.reimbursements.toArray();
@@ -146,7 +146,7 @@ export const getLetters = async (worker: string, startDate: number | null, endDa
             return true;
         });
     }
-    return query.reverse().sortBy('id');
+    return query.reverse().sortBy('created');
 }
 
 export const getInsurances = async (employer: string, worker: string, startDate: number | null, endDate: number | null) => {
@@ -156,7 +156,7 @@ export const getInsurances = async (employer: string, worker: string, startDate:
         if (endDate && insurance.created > endDate) return false;
         return true;
     });
-    return query.sortBy('id').then((insurances) => insurances.reverse());
+    return query.reverse().sortBy('created');
 }
 
 export const syncDB = async (data: string, password: string) => {
@@ -287,8 +287,10 @@ export const storeLesson = async (lessonRequest: LessonRequest, tutor: string) =
     const sameLesson = await db.lessons.get({ id: lesson.id });
     if (sameLesson === undefined) {
         await db.lessons.add(lesson);
+        let studyStage = 0;
         await Promise.all(lessonRequest.learn.map(async (item: string[]) => {
             const letterTemplate: LetterTemplate = {
+                stage: studyStage++,
                 valid: false,
                 lastExamined: now,
                 lesson: lesson.id,
@@ -304,9 +306,10 @@ export const storeLesson = async (lessonRequest: LessonRequest, tutor: string) =
             };
             return await putLetterTemplate(letterTemplate);
         }));
-
+        let reexaminationStage = 0;
         await Promise.all(lessonRequest.reexamine.map(async (item: string[]) => {
             const reexamination: Reexamination = {
+                stage: reexaminationStage++,
                 lastExamined: now,
                 valid: true,
                 lesson: lesson.id,
