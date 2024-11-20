@@ -39,9 +39,10 @@ function Tutor({ className = '' }: Props): React.ReactElement<Props> {
   const [studentName, setStudentName] = useState<string | null>(null);
   //   show stake and days or hide
   const [lesson, setLesson] = useState<Lesson | null>(null);
-  const [letterTemplateIds, setLetterTemplateIds] = useState<LetterTemplateId[]>([]);
-  const [reexaminationIds, setReexaminationIds] = useState<string[]>([]);
+  const [letterTemplates, setLetterTemplates] = useState<LetterTemplate[]>([]);
+  const [reexaminations, setReexaminations] = useState<Reexamination[]>([]);
   const [areResultsShown, setResultsShown] = useState(false);
+
 
   // Helper functions
   const updateAndStoreLesson = useCallback(
@@ -49,10 +50,10 @@ function Tutor({ className = '' }: Props): React.ReactElement<Props> {
       if (updatedLesson) {
         await updateLesson(updatedLesson);
         setLesson(updatedLesson);
-        onLessonUpdate(updatedLesson, letterTemplateIds, reexaminationIds);
+        onLessonUpdate(updatedLesson, letterTemplates, reexaminations);
       }
     },
-    [letterTemplateIds, reexaminationIds, setLesson, updateLesson]
+    [letterTemplates, reexaminations, setLesson, updateLesson]
   );
 
   useEffect(() => {
@@ -64,15 +65,13 @@ function Tutor({ className = '' }: Props): React.ReactElement<Props> {
         if (fetchedLesson) {
           const fetchedLetterTemplates = await getLetterTemplatesByLessonId(lessonId);
           if (fetchedLetterTemplates) {
-            const ids = fetchedLetterTemplates.map(({ lesson, cid }) => ({ lesson, cid }));
-            setLetterTemplateIds(ids);
+            setLetterTemplates(fetchedLetterTemplates);
           }
           const fetchedReexaminations = await getReexaminationsByLessonId(lessonId);
           if (fetchedReexaminations) {
-            const ids = fetchedReexaminations.map((reexamination: Reexamination) => reexamination.signOverReceipt);
-            setReexaminationIds(ids);
+            setReexaminations(fetchedReexaminations);
           }
-          const pseudonym = lesson ? await getPseudonym(lesson.student) : null;
+          const pseudonym = fetchedLesson ? await getPseudonym(fetchedLesson.student) : null;
           if (pseudonym) {
             setStudentName(pseudonym);
           }
@@ -92,7 +91,7 @@ function Tutor({ className = '' }: Props): React.ReactElement<Props> {
         try {
           const skillContent = await getIPFSDataFromContentID(ipfs, letterTemplateToIssue.cid);
           const skill: Skill = parseJson(skillContent);
-          const studentUsedSlonig = reexaminationIds?.length > 0 || lesson?.learnStep;
+          const studentUsedSlonig = reexaminations?.length > 0 || lesson?.learnStep;
           setTutoringAlgorithm(new TutoringAlgorithm(letterTemplateToIssue.cid, t, studentName ? studentName : null, skill, !studentUsedSlonig));
         }
         catch (e) {
@@ -155,27 +154,19 @@ function Tutor({ className = '' }: Props): React.ReactElement<Props> {
 
   const onLessonUpdate = useCallback((
     updatedLesson: Lesson,
-    currentletterTemplateIds: LetterTemplateId[],
-    currentReexaminationIds: string[]) => {
+    currentletterTemplates: LetterTemplate[],
+    currentReexaminations: Reexamination[]) => {
     async function run() {
       if (updatedLesson.reexamineStep < updatedLesson.toReexamineCount) {
         setReexamined(false);
       } else {
         setReexamined(true);
       }
-      if (updatedLesson.learnStep < currentletterTemplateIds.length) {
-        const nextLetterTemplateId = currentletterTemplateIds[updatedLesson.learnStep];
-        const nextLetterTemplate: LetterTemplate | undefined = await getLetterTemplate(nextLetterTemplateId.cid, nextLetterTemplateId.lesson);
-        if (nextLetterTemplate) {
-          setLetterTemplateToIssue(nextLetterTemplate);
-        }
+      if (updatedLesson.learnStep < currentletterTemplates.length) {
+        setLetterTemplateToIssue(currentletterTemplates[updatedLesson.learnStep]);
       }
-      if (updatedLesson.reexamineStep < currentReexaminationIds.length) {
-        const nextReexaminationId = currentReexaminationIds[updatedLesson.reexamineStep];
-        const nextReexamination: Reexamination | undefined = await getReexamination(nextReexaminationId);
-        if (nextReexamination) {
-          setReexaminationToPerform(nextReexamination);
-        }
+      if (updatedLesson.reexamineStep < currentReexaminations.length) {
+        setReexaminationToPerform(currentReexaminations[updatedLesson.reexamineStep]);
       }
       if (updatedLesson.learnStep === updatedLesson.toLearnCount && updatedLesson.reexamineStep === updatedLesson.toReexamineCount) {
         setResultsShown(true);

@@ -15,8 +15,6 @@ function DoInstructions({ className = '', algorithm, onResult }: Props): React.R
   const [algorithmStage, setAlgorithmStage] = useState<AlgorithmStage | null>(null);
   const { t } = useTranslation();
 
-  console.log("DoInstructions: " + algorithm?.id)
-
   useEffect(() => {
     if (algorithm) {
       setAlgorithmStage(algorithm.getBegin());
