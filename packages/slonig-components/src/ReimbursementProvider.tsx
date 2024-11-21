@@ -3,9 +3,10 @@ import React, { useEffect, useState, useRef, useCallback, ReactNode, createConte
 import { useApi } from '@polkadot/react-hooks';
 import { useLoginContext } from './LoginContext.js';
 import BN from 'bn.js';
-import { getAddressFromPublickeyHex } from './index.js';
+import { EXISTENTIAL_BATCH_SENDER_BALANCE, getAddressFromPublickeyHex } from './index.js';
 import { EXISTENTIAL_REFEREE_BALANCE, REIMBURSEMENT_BATCH_SIZE } from '@slonigiraf/app-slonig-components';
 import { BN_ZERO } from '@polkadot/util';
+import type { AccountInfo } from '@polkadot/types/interfaces';
 
 interface ReimbursementContextType {
     reimburse: (reimbursements: Reimbursement[]) => Promise<void>;
@@ -27,12 +28,23 @@ export const ReimbursementProvider: React.FC<ReimbursementProviderProps> = ({ ch
     const [referees, setReferees] = useState<string[]>([]);
     const refereesWithEnoughBalance = useRef<Map<string, BN>>(new Map());
     const [canSubmitTransactions, setCanSubmitTransactions] = useState<boolean>(true);
+    const myBalance = useRef<BN | null>(null);
+    const subscribedReferees = useRef(new Set());
+
     const isInitialized = useCallback(() => {
         if (currentPair && api && isApiReady && isLoggedIn && referees && referees.length > 0) {
             return true;
         }
         return false;
     }, [currentPair, api, isApiReady, isLoggedIn, referees]);
+
+    useEffect(() => {
+        if (isInitialized()) {
+            api.query.system.account(currentPair?.address, (accountInfo: AccountInfo) => {
+                myBalance.current = accountInfo.data.free;
+            });
+        }
+    }, [api, isInitialized]);
 
     useEffect(() => {
         const run = async () => {
@@ -47,18 +59,22 @@ export const ReimbursementProvider: React.FC<ReimbursementProviderProps> = ({ ch
     useEffect(() => {
         if (isInitialized()) {
             referees.forEach(referee => {
-                const refereeAddress = getAddressFromPublickeyHex(referee);
-                api.query.system.account(refereeAddress, ({ data: { free } }) => {
-                    if (free.gt(EXISTENTIAL_REFEREE_BALANCE)) {
-                        refereesWithEnoughBalance.current.set(referee, free);
-                        if (canSubmitTransactions) {
-                            setCanSubmitTransactions(false);
-                            selectAndSendTransactions();
+                if(!subscribedReferees.current.has(referee)){
+                    subscribedReferees.current.add(referee);
+                    const refereeAddress = getAddressFromPublickeyHex(referee);
+                    api.query.system.account(refereeAddress, (accountInfo: AccountInfo) => {
+                        if (accountInfo.data.free.gt(EXISTENTIAL_REFEREE_BALANCE)) {
+                            refereesWithEnoughBalance.current.set(referee, accountInfo.data.free);
+                            if (canSubmitTransactions &&
+                                myBalance.current && myBalance.current.gt(EXISTENTIAL_BATCH_SENDER_BALANCE)) {
+                                setCanSubmitTransactions(false);
+                                selectAndSendTransactions();
+                            }
+                        } else {
+                            refereesWithEnoughBalance.current.delete(referee);
                         }
-                    } else {
-                        refereesWithEnoughBalance.current.delete(referee);
-                    }
-                });
+                    });
+                }
             });
         }
     }, [api, referees, isInitialized]);
