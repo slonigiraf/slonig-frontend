@@ -28,7 +28,8 @@ export { ReimbursementProvider, useReimbursement, TokenTransferProvider, useToke
 export { balanceToSlonString, createPeer, receiveWebRTCData, getQrWidth, saveToSessionStorage, loadFromSessionStorage, getIPFSContentIDAndPinIt, getKey, arrayBufferToBase64, base64ToArrayBuffer, decryptData, encryptData, LoginProvider, useLoginContext, keyForCid, nameFromKeyringPair, getBaseUrl, CODEC, getIPFSContentID, getIPFSDataFromContentID, digestFromCIDv1, getCIDFromBytes, storeEncryptedTextOnIPFS, retrieveDecryptedDataFromIPFS, parseJson }
 import { encodeAddress } from '@polkadot/keyring';
 import { hexToU8a } from '@polkadot/util';
-
+import type { ApiPromise } from '@polkadot/api';
+import { Codec } from '@polkadot/types/types';
 export const EXISTENTIAL_REFEREE_BALANCE = new BN('1000000000000000'); // 1k Slon = 1000000000000000
 export const REIMBURSEMENT_BATCH_SIZE = 5;
 
@@ -221,3 +222,30 @@ export interface IMessage {
 export const getAddressFromPublickeyHex = (publickeyHex: string) => {
   return encodeAddress(hexToU8a(publickeyHex));
 } 
+
+export const checkLetterStatus = async (
+  api: ApiPromise,
+  referee: string,
+  letterNumber: number
+): Promise<boolean | undefined> => {
+  if (letterNumber >= 0) {
+      const insurancePerChunk: number = 1000;
+      const chunk = Math.floor(letterNumber / insurancePerChunk);
+      const index = letterNumber % insurancePerChunk;
+      const data = await api.query.letters.ownedLetersArray([referee, chunk]);
+      if (data && (data as Codec).toJSON) {
+          const jsonData = (data as Codec).toJSON();
+          if (Array.isArray(jsonData)) {
+              const letterArray = jsonData as boolean[];
+              if (letterArray.length === 0) {
+                  return true;
+              } else if (index < letterArray.length) {
+                  return letterArray[index];
+              } else {
+                  return undefined;
+              }
+          }
+      }
+  }
+  return undefined;
+};

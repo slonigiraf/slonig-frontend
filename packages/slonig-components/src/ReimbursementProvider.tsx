@@ -27,9 +27,6 @@ export const ReimbursementProvider: React.FC<ReimbursementProviderProps> = ({ ch
     const [referees, setReferees] = useState<string[]>([]);
     const refereesWithEnoughBalance = useRef<Map<string, BN>>(new Map());
     const [canSubmitTransactions, setCanSubmitTransactions] = useState<boolean>(true);
-
-
-
     const isInitialized = useCallback(() => {
         if (currentPair && api && isApiReady && isLoggedIn && referees && referees.length > 0) {
             return true;
@@ -91,7 +88,7 @@ export const ReimbursementProvider: React.FC<ReimbursementProviderProps> = ({ ch
                         .signAndSend(currentPair, ({ events = [], status }) => {
                             if (status.isInBlock) {
                                 events.forEach(({ event: { data, method, section } }) => {
-                                    if(section === 'letters' && method === 'ReimbursementHappened'){
+                                    if (section === 'letters' && method === 'ReimbursementHappened') {
                                         const [referee, letterNumber] = data.toJSON() as [string, number];
                                         deleteReimbursement(referee, letterNumber);
                                     }
