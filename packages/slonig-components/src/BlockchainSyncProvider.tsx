@@ -41,7 +41,7 @@ export const BlockchainSyncProvider: React.FC<BlockchainSyncProviderProps> = ({ 
     }, [currentPair, api, isApiReady, isLoggedIn]);
 
     const isInitialStateLoaded = useCallback(() => {
-        if (isReadyToLoadState() && badReferees && badReferees.length > 0) {
+        if (isReadyToLoadState() && badReferees && badReferees.size > 0) {
             return true;
         }
         return false;
@@ -226,7 +226,7 @@ export const BlockchainSyncProvider: React.FC<BlockchainSyncProviderProps> = ({ 
 
     const reimburse = async (reimbursements: Reimbursement[]) => {
         const newReferees = reimbursements.map((r: Reimbursement) => r.referee);
-        setBadReferees([...new Set([...badReferees, ...newReferees])]);
+        setBadReferees(new Set([...badReferees, ...newReferees]));
     };
 
     return (
