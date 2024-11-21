@@ -1,4 +1,4 @@
-import { deleteReimbursement, getAllInsurances, getAllLetters, getAllReimbursements, getReimbursementsByReferee, Insurance, Letter, Reimbursement } from '@slonigiraf/db';
+import { cancelLetter, deleteInsurance, deleteReimbursement, getAllInsurances, getAllLetters, getAllReimbursements, getReimbursementsByReferee, Insurance, Letter, Reimbursement } from '@slonigiraf/db';
 import React, { useEffect, useState, useRef, useCallback, ReactNode, createContext, useContext } from 'react';
 import { useApi } from '@polkadot/react-hooks';
 import { useLoginContext } from './LoginContext.js';
@@ -26,7 +26,7 @@ type Recommendation = Letter | Insurance | Reimbursement;
 export const BlockchainSyncProvider: React.FC<BlockchainSyncProviderProps> = ({ children }) => {
     const { api, isApiReady } = useApi();
     const { currentPair, isLoggedIn } = useLoginContext();
-    const [badReferees, setBadReferees] = useState<string[]>([]);
+    const [badReferees, setBadReferees] = useState<Set<string>>(new Set());
     const badRefereesWithEnoughBalance = useRef<Map<string, BN>>(new Map());
     const [canSubmitTransactions, setCanSubmitTransactions] = useState<boolean>(true);
     const myBalance = useRef<BN | null>(null);
@@ -50,8 +50,6 @@ export const BlockchainSyncProvider: React.FC<BlockchainSyncProviderProps> = ({ 
     useEffect(() => {
         const run = async () => {
             const reimbursements = await getAllReimbursements();
-            const badReferees = reimbursements.map((r: Reimbursement) => r.referee);
-            setBadReferees([...new Set([...badReferees])]);
             const letters = await getAllLetters();
             const insurances = await getAllInsurances();
             [...letters, ...insurances, ...reimbursements].forEach((recommendation: Recommendation) => {
@@ -65,6 +63,46 @@ export const BlockchainSyncProvider: React.FC<BlockchainSyncProviderProps> = ({ 
                 const blockchainState: Map<number, boolean> | null = await getRecommendationsFrom(api, referee, letterNumbers);
                 if (blockchainState) {
                     lettersICarryAbout.current.set(referee, blockchainState);
+                }
+            }
+            const referees: Set<string> = new Set();
+            for(const reimbursement of reimbursements){
+                if(lettersICarryAbout.current.has(reimbursement.referee)){
+                    const recommendations = lettersICarryAbout.current.get(reimbursement.referee);
+                    if(recommendations && recommendations.has(reimbursement.letterNumber)){
+                        const valid = recommendations.get(reimbursement.letterNumber);
+                        if(valid){
+                            referees.add(reimbursement.referee);
+                        } else{
+                            deleteReimbursement(reimbursement.referee, reimbursement.letterNumber);
+                        }
+                    }
+                }
+            }
+            setBadReferees(referees);
+            // Cancel used letters
+            const now = (new Date).getTime()
+            for(const letter of letters){
+                if(lettersICarryAbout.current.has(letter.referee)){
+                    const recommendations = lettersICarryAbout.current.get(letter.referee);
+                    if(recommendations && recommendations.has(letter.letterNumber)){
+                        const valid = recommendations.get(letter.letterNumber);
+                        if(!valid){
+                            cancelLetter(letter.signOverReceipt, now);
+                        }
+                    }
+                }
+            }
+            // Remove used insurances
+            for(const insurance of insurances){
+                if(lettersICarryAbout.current.has(insurance.referee)){
+                    const recommendations = lettersICarryAbout.current.get(insurance.referee);
+                    if(recommendations && recommendations.has(insurance.letterNumber)){
+                        const valid = recommendations.get(insurance.letterNumber);
+                        if(!valid){
+                            deleteInsurance(insurance.workerSign);
+                        }
+                    }
                 }
             }
         }

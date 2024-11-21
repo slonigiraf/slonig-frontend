@@ -439,7 +439,7 @@ export const deleteSetting = async (id: string) => {
 }
 
 export const deleteReimbursement = async (referee: string, letterNumber: number) => {
-    await db.reimbursements
+    db.reimbursements
         .where('[referee+letterNumber]')
         .equals([referee, letterNumber])
         .delete();
