@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import React, { useCallback, useEffect, useState } from 'react';
-import { useLoginContext, parseJson, useTokenTransfer, receiveWebRTCData, useInfo, LessonResult, keyForCid, getAddressFromPublickeyHex, useReimbursement } from '@slonigiraf/app-slonig-components';
+import { useLoginContext, parseJson, useTokenTransfer, receiveWebRTCData, useInfo, LessonResult, keyForCid, getAddressFromPublickeyHex, useBlockchainSync } from '@slonigiraf/app-slonig-components';
 import { hexToU8a, u8aToHex, u8aWrapBytes } from '@polkadot/util';
 import { addReimbursement, cancelLetter, deserializeLetter, getAgreement, getLetter, letterToReimbursement, putAgreement, putLetter, storePseudonym, updateLetterReexaminingCount } from '@slonigiraf/db';
 import { useTranslation } from '../translate.js';
@@ -27,7 +27,7 @@ function LessonResultReceiver({ webRTCPeerId }: Props): React.ReactElement {
   const [triedToFetchData, setTriedToFetchData] = useState(false);
   const [agreement, setAgreement] = useState<Agreement | null>(null);
   const navigate = useNavigate();
-  const { reimburse } = useReimbursement();
+  const { reimburse } = useBlockchainSync();
 
   const updateAgreement = useCallback(async (updatedAgreement: Agreement) => {
     setAgreement(updatedAgreement);

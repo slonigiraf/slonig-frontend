@@ -8,21 +8,21 @@ import { EXISTENTIAL_REFEREE_BALANCE, REIMBURSEMENT_BATCH_SIZE } from '@slonigir
 import { BN_ZERO } from '@polkadot/util';
 import type { AccountInfo } from '@polkadot/types/interfaces';
 
-interface ReimbursementContextType {
+interface BlockchainSyncContextType {
     reimburse: (reimbursements: Reimbursement[]) => Promise<void>;
 }
 
-const defaultContext: ReimbursementContextType = {
+const defaultContext: BlockchainSyncContextType = {
     reimburse: async (_: Reimbursement[]) => { },
 };
 
-const ReimbursementContext = createContext<ReimbursementContextType>(defaultContext);
+const BlockchainSyncContext = createContext<BlockchainSyncContextType>(defaultContext);
 
-interface ReimbursementProviderProps {
+interface BlockchainSyncProviderProps {
     children: ReactNode;
 }
 
-export const ReimbursementProvider: React.FC<ReimbursementProviderProps> = ({ children }) => {
+export const BlockchainSyncProvider: React.FC<BlockchainSyncProviderProps> = ({ children }) => {
     const { api, isApiReady } = useApi();
     const { currentPair, isLoggedIn } = useLoginContext();
     const [referees, setReferees] = useState<string[]>([]);
@@ -164,10 +164,10 @@ export const ReimbursementProvider: React.FC<ReimbursementProviderProps> = ({ ch
     };
 
     return (
-        <ReimbursementContext.Provider value={{ reimburse }}>
+        <BlockchainSyncContext.Provider value={{ reimburse }}>
             {children}
-        </ReimbursementContext.Provider>
+        </BlockchainSyncContext.Provider>
     );
 };
 
-export const useReimbursement = () => useContext(ReimbursementContext);
+export const useBlockchainSync = () => useContext(BlockchainSyncContext);
