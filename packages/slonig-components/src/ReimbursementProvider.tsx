@@ -19,7 +19,7 @@ const defaultContext: ReimbursementContextType = {
 const ReimbursementContext = createContext<ReimbursementContextType>(defaultContext);
 
 interface ReimbursementProviderProps {
-    children: ReactNode; // Define the type for 'children' here
+    children: ReactNode;
 }
 
 export const ReimbursementProvider: React.FC<ReimbursementProviderProps> = ({ children }) => {
