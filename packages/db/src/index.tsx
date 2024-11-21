@@ -137,6 +137,12 @@ export const getAllPseudonyms = async () => {
     return db.pseudonyms.toArray();
 }
 
+export const getAllLetters = async () => {
+    return db.letters.toArray();
+}
+export const getAllInsurances = async () => {
+    return db.insurances.toArray();
+}
 export const getLetters = async (worker: string, startDate: number | null, endDate: number | null) => {
     let query = db.letters.where('workerId').equals(worker);
     if (startDate || endDate) {

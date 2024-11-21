@@ -1,9 +1,9 @@
-import { deleteReimbursement, getAllReimbursements, getReimbursementsByReferee, Reimbursement } from '@slonigiraf/db';
+import { deleteReimbursement, getAllInsurances, getAllLetters, getAllReimbursements, getReimbursementsByReferee, Insurance, Letter, Reimbursement } from '@slonigiraf/db';
 import React, { useEffect, useState, useRef, useCallback, ReactNode, createContext, useContext } from 'react';
 import { useApi } from '@polkadot/react-hooks';
 import { useLoginContext } from './LoginContext.js';
 import BN from 'bn.js';
-import { EXISTENTIAL_BATCH_SENDER_BALANCE, getAddressFromPublickeyHex } from './index.js';
+import { EXISTENTIAL_BATCH_SENDER_BALANCE, getAddressFromPublickeyHex, getRecommendationsFrom } from './index.js';
 import { EXISTENTIAL_REFEREE_BALANCE, REIMBURSEMENT_BATCH_SIZE } from '@slonigiraf/app-slonig-components';
 import { BN_ZERO } from '@polkadot/util';
 import type { AccountInfo } from '@polkadot/types/interfaces';
@@ -21,67 +21,95 @@ const BlockchainSyncContext = createContext<BlockchainSyncContextType>(defaultCo
 interface BlockchainSyncProviderProps {
     children: ReactNode;
 }
+type Recommendation = Letter | Insurance | Reimbursement;
 
 export const BlockchainSyncProvider: React.FC<BlockchainSyncProviderProps> = ({ children }) => {
     const { api, isApiReady } = useApi();
     const { currentPair, isLoggedIn } = useLoginContext();
-    const [referees, setReferees] = useState<string[]>([]);
-    const refereesWithEnoughBalance = useRef<Map<string, BN>>(new Map());
+    const [badReferees, setBadReferees] = useState<string[]>([]);
+    const badRefereesWithEnoughBalance = useRef<Map<string, BN>>(new Map());
     const [canSubmitTransactions, setCanSubmitTransactions] = useState<boolean>(true);
     const myBalance = useRef<BN | null>(null);
-    const subscribedReferees = useRef(new Set());
+    const subscribedBadReferees = useRef(new Set());
+    const lettersICarryAbout = useRef<Map<string, Map<number, boolean>>>(new Map());
 
-    const isInitialized = useCallback(() => {
-        if (currentPair && api && isApiReady && isLoggedIn && referees && referees.length > 0) {
+    const isReadyToLoadState = useCallback(() => {
+        if (currentPair && api && isApiReady && isLoggedIn) {
             return true;
         }
         return false;
-    }, [currentPair, api, isApiReady, isLoggedIn, referees]);
+    }, [currentPair, api, isApiReady, isLoggedIn]);
 
-    useEffect(() => {
-        if (isInitialized()) {
-            api.query.system.account(currentPair?.address, (accountInfo: AccountInfo) => {
-                myBalance.current = accountInfo.data.free;
-            });
+    const isInitialStateLoaded = useCallback(() => {
+        if (isReadyToLoadState() && badReferees && badReferees.length > 0) {
+            return true;
         }
-    }, [api, isInitialized]);
+        return false;
+    }, [isReadyToLoadState, badReferees]);
 
     useEffect(() => {
         const run = async () => {
             const reimbursements = await getAllReimbursements();
-            const referees = reimbursements.map((r: Reimbursement) => r.referee);
-            setReferees([...new Set([...referees])]);
+            const badReferees = reimbursements.map((r: Reimbursement) => r.referee);
+            setBadReferees([...new Set([...badReferees])]);
+            const letters = await getAllLetters();
+            const insurances = await getAllInsurances();
+            [...letters, ...insurances, ...reimbursements].forEach((recommendation: Recommendation) => {
+                if (!lettersICarryAbout.current.has(recommendation.referee)) {
+                    lettersICarryAbout.current.set(recommendation.referee, new Map());
+                }
+                lettersICarryAbout.current.get(recommendation.referee)?.set(recommendation.letterNumber, true);                
+            });
+            for (const [referee, map] of lettersICarryAbout.current.entries()) {
+                const letterNumbers = Array.from(map.keys()).map(Number);
+                const blockchainState: Map<number, boolean> | null = await getRecommendationsFrom(api, referee, letterNumbers);
+                if (blockchainState) {
+                    lettersICarryAbout.current.set(referee, blockchainState);
+                }
+            }
         }
-        run();
-    }, []);
+        if (isReadyToLoadState()) {
+            run();
+        }
+    }, [api, isReadyToLoadState]);
+
+    useEffect(() => {
+        if (isInitialStateLoaded()) {
+            api.query.system.account(currentPair?.address, (accountInfo: AccountInfo) => {
+                myBalance.current = accountInfo.data.free;
+            });
+        }
+    }, [api, isInitialStateLoaded]);
+
+
 
     // Subscribe to referees' balances change
     useEffect(() => {
-        if (isInitialized()) {
-            referees.forEach(referee => {
-                if(!subscribedReferees.current.has(referee)){
-                    subscribedReferees.current.add(referee);
+        if (isInitialStateLoaded()) {
+            badReferees.forEach(referee => {
+                if (!subscribedBadReferees.current.has(referee)) {
+                    subscribedBadReferees.current.add(referee);
                     const refereeAddress = getAddressFromPublickeyHex(referee);
                     api.query.system.account(refereeAddress, (accountInfo: AccountInfo) => {
                         if (accountInfo.data.free.gt(EXISTENTIAL_REFEREE_BALANCE)) {
-                            refereesWithEnoughBalance.current.set(referee, accountInfo.data.free);
+                            badRefereesWithEnoughBalance.current.set(referee, accountInfo.data.free);
                             if (canSubmitTransactions &&
                                 myBalance.current && myBalance.current.gt(EXISTENTIAL_BATCH_SENDER_BALANCE)) {
                                 setCanSubmitTransactions(false);
                                 selectAndSendTransactions();
                             }
                         } else {
-                            refereesWithEnoughBalance.current.delete(referee);
+                            badRefereesWithEnoughBalance.current.delete(referee);
                         }
                     });
                 }
             });
         }
-    }, [api, referees, isInitialized]);
+    }, [api, badReferees, isInitialStateLoaded]);
 
     const sendTransactions = useCallback((reimbursements: Reimbursement[]) => {
         const run = async (reimbursements: Reimbursement[]) => {
-            if (currentPair && isInitialized()) {
+            if (currentPair && isInitialStateLoaded()) {
                 let signedTransactionsPromises = reimbursements.map(async reimbursement => {
                     return api.tx.letters.reimburse(
                         reimbursement.letterNumber,
@@ -115,15 +143,15 @@ export const BlockchainSyncProvider: React.FC<BlockchainSyncProviderProps> = ({ 
                 }
             }
         };
-        if (isInitialized()) {
+        if (isInitialStateLoaded()) {
             run(reimbursements);
         }
-    }, [currentPair, api, isInitialized]);
+    }, [currentPair, api, isInitialStateLoaded]);
 
     const selectAndSendTransactions = useCallback(() => {
         const run = async () => {
             let selectedReimbursements: Reimbursement[] = [];
-            for (const [referee, balance] of refereesWithEnoughBalance.current) {
+            for (const [referee, balance] of badRefereesWithEnoughBalance.current) {
                 if (selectedReimbursements.length >= REIMBURSEMENT_BATCH_SIZE) {
                     break;
                 }
@@ -160,7 +188,7 @@ export const BlockchainSyncProvider: React.FC<BlockchainSyncProviderProps> = ({ 
 
     const reimburse = async (reimbursements: Reimbursement[]) => {
         const newReferees = reimbursements.map((r: Reimbursement) => r.referee);
-        setReferees([...new Set([...referees, ...newReferees])]);
+        setBadReferees([...new Set([...badReferees, ...newReferees])]);
     };
 
     return (

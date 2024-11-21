@@ -215,38 +215,52 @@ export interface Person {
 export interface IMessage {
   text: string;
   sender: 'you' | 'them';
-  senderName: string|null;
+  senderName: string | null;
   comment?: string;
   image?: string;
 }
 
 export const getAddressFromPublickeyHex = (publickeyHex: string) => {
   return encodeAddress(hexToU8a(publickeyHex));
-} 
+}
 
-export const checkLetterStatus = async (
+export const getRecommendationsFrom = async (
   api: ApiPromise,
   referee: string,
-  letterNumber: number
-): Promise<boolean | undefined> => {
-  if (letterNumber >= 0) {
-      const insurancePerChunk: number = 1000;
-      const chunk = Math.floor(letterNumber / insurancePerChunk);
-      const index = letterNumber % insurancePerChunk;
-      const data = await api.query.letters.ownedLetersArray([referee, chunk]);
-      if (data && (data as Codec).toJSON) {
+  letterNumbers: number[]
+): Promise<Map<number, boolean> | null> => {
+  if (letterNumbers.length > 0) {
+    const sortedNumbers = letterNumbers.sort((a, b) => a - b);
+
+    const insurancePerChunk: number = 1000;
+    const firstLetterNumber = sortedNumbers[0];
+    let currentChunk = Math.floor(firstLetterNumber / insurancePerChunk);
+    let data = await api.query.letters.ownedLetersArray([referee, currentChunk]);
+    const result = new Map<number, boolean>();
+
+    for (const letterNumber of sortedNumbers) {
+      if (letterNumber >= 0) {
+        const chunk = Math.floor(letterNumber / insurancePerChunk);
+        if (chunk !== currentChunk) {
+          currentChunk = chunk;
+          data = await api.query.letters.ownedLetersArray([referee, chunk]);
+        }
+        const index = letterNumber % insurancePerChunk;
+
+        if (data && (data as Codec).toJSON) {
           const jsonData = (data as Codec).toJSON();
           if (Array.isArray(jsonData)) {
-              const letterArray = jsonData as boolean[];
-              if (letterArray.length === 0) {
-                  return true;
-              } else if (index < letterArray.length) {
-                  return letterArray[index];
-              } else {
-                  return undefined;
-              }
+            const letterArray = jsonData as boolean[];
+            if (letterArray.length === 0) {
+              result.set(letterNumber, true);
+            } else if (index < letterArray.length) {
+              result.set(letterNumber, letterArray[index]);
+            }
           }
+        }
       }
+    }
+    return result;
   }
-  return undefined;
+  return null;
 };
