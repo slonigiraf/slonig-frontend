@@ -1,12 +1,13 @@
 import { cancelLetter, deleteInsurance, deleteReimbursement, getAllInsurances, getAllLetters, getAllReimbursements, getReimbursementsByReferee, Insurance, Letter, Reimbursement } from '@slonigiraf/db';
 import React, { useEffect, useState, useRef, useCallback, ReactNode, createContext, useContext } from 'react';
-import { useApi } from '@polkadot/react-hooks';
+import { useApi, useBlockEvents } from '@polkadot/react-hooks';
 import { useLoginContext } from './LoginContext.js';
 import BN from 'bn.js';
 import { EXISTENTIAL_BATCH_SENDER_BALANCE, getAddressFromPublickeyHex, getRecommendationsFrom } from './index.js';
 import { EXISTENTIAL_REFEREE_BALANCE, REIMBURSEMENT_BATCH_SIZE } from '@slonigiraf/app-slonig-components';
 import { BN_ZERO } from '@polkadot/util';
 import type { AccountInfo } from '@polkadot/types/interfaces';
+import { KeyedEvent } from '@polkadot/react-hooks/ctx/types';
 
 interface BlockchainSyncContextType {
     reimburse: (reimbursements: Reimbursement[]) => Promise<void>;
@@ -32,20 +33,32 @@ export const BlockchainSyncProvider: React.FC<BlockchainSyncProviderProps> = ({ 
     const myBalance = useRef<BN | null>(null);
     const subscribedBadReferees = useRef(new Set());
     const lettersICarryAbout = useRef<Map<string, Map<number, boolean>>>(new Map());
+    const { events } = useBlockEvents();
+    const isInitialStateLoaded = useRef<boolean>(false);
 
-    const isReadyToLoadState = useCallback(() => {
+
+
+    const canCommunicateToBlockchain = useCallback(() => {
         if (currentPair && api && isApiReady && isLoggedIn) {
             return true;
         }
         return false;
     }, [currentPair, api, isApiReady, isLoggedIn]);
 
-    const isInitialStateLoaded = useCallback(() => {
-        if (isReadyToLoadState() && badReferees && badReferees.size > 0) {
-            return true;
-        }
-        return false;
-    }, [isReadyToLoadState, badReferees]);
+    // useEffect(() => {
+    //     if (isInitialStateLoaded) {
+    //         console.log("Events count: " + events.length)
+    //         events.forEach((event: KeyedEvent) => {
+    //             console.log("event.record: " + JSON.stringify(event.record));
+    //         })
+    //     }
+    // }, [events]);
+
+    const initializeMyBalance = useCallback(async () => {
+        await api.query.system.account(currentPair?.address, (accountInfo: AccountInfo) => {
+            myBalance.current = accountInfo.data.free;
+        });
+    }, [api, currentPair]);
 
     useEffect(() => {
         const run = async () => {
@@ -56,7 +69,7 @@ export const BlockchainSyncProvider: React.FC<BlockchainSyncProviderProps> = ({ 
                 if (!lettersICarryAbout.current.has(recommendation.referee)) {
                     lettersICarryAbout.current.set(recommendation.referee, new Map());
                 }
-                lettersICarryAbout.current.get(recommendation.referee)?.set(recommendation.letterNumber, true);                
+                lettersICarryAbout.current.get(recommendation.referee)?.set(recommendation.letterNumber, true);
             });
             for (const [referee, map] of lettersICarryAbout.current.entries()) {
                 const letterNumbers = Array.from(map.keys()).map(Number);
@@ -66,14 +79,14 @@ export const BlockchainSyncProvider: React.FC<BlockchainSyncProviderProps> = ({ 
                 }
             }
             const referees: Set<string> = new Set();
-            for(const reimbursement of reimbursements){
-                if(lettersICarryAbout.current.has(reimbursement.referee)){
+            for (const reimbursement of reimbursements) {
+                if (lettersICarryAbout.current.has(reimbursement.referee)) {
                     const recommendations = lettersICarryAbout.current.get(reimbursement.referee);
-                    if(recommendations && recommendations.has(reimbursement.letterNumber)){
+                    if (recommendations && recommendations.has(reimbursement.letterNumber)) {
                         const valid = recommendations.get(reimbursement.letterNumber);
-                        if(valid){
+                        if (valid) {
                             referees.add(reimbursement.referee);
-                        } else{
+                        } else {
                             deleteReimbursement(reimbursement.referee, reimbursement.letterNumber);
                         }
                     }
@@ -82,48 +95,42 @@ export const BlockchainSyncProvider: React.FC<BlockchainSyncProviderProps> = ({ 
             setBadReferees(referees);
             // Cancel used letters
             const now = (new Date).getTime()
-            for(const letter of letters){
-                if(lettersICarryAbout.current.has(letter.referee)){
+            for (const letter of letters) {
+                if (lettersICarryAbout.current.has(letter.referee)) {
                     const recommendations = lettersICarryAbout.current.get(letter.referee);
-                    if(recommendations && recommendations.has(letter.letterNumber)){
+                    if (recommendations && recommendations.has(letter.letterNumber)) {
                         const valid = recommendations.get(letter.letterNumber);
-                        if(!valid){
+                        if (!valid) {
                             cancelLetter(letter.signOverReceipt, now);
                         }
                     }
                 }
             }
             // Remove used insurances
-            for(const insurance of insurances){
-                if(lettersICarryAbout.current.has(insurance.referee)){
+            for (const insurance of insurances) {
+                if (lettersICarryAbout.current.has(insurance.referee)) {
                     const recommendations = lettersICarryAbout.current.get(insurance.referee);
-                    if(recommendations && recommendations.has(insurance.letterNumber)){
+                    if (recommendations && recommendations.has(insurance.letterNumber)) {
                         const valid = recommendations.get(insurance.letterNumber);
-                        if(!valid){
+                        if (!valid) {
                             deleteInsurance(insurance.workerSign);
                         }
                     }
                 }
             }
+            await initializeMyBalance();
+            isInitialStateLoaded.current = true;
         }
-        if (isReadyToLoadState()) {
+        if (canCommunicateToBlockchain()) {
             run();
         }
-    }, [api, isReadyToLoadState]);
-
-    useEffect(() => {
-        if (isInitialStateLoaded()) {
-            api.query.system.account(currentPair?.address, (accountInfo: AccountInfo) => {
-                myBalance.current = accountInfo.data.free;
-            });
-        }
-    }, [api, isInitialStateLoaded]);
+    }, [api, canCommunicateToBlockchain]);
 
 
 
     // Subscribe to referees' balances change
     useEffect(() => {
-        if (isInitialStateLoaded()) {
+        if (isInitialStateLoaded) {
             badReferees.forEach(referee => {
                 if (!subscribedBadReferees.current.has(referee)) {
                     subscribedBadReferees.current.add(referee);
@@ -143,11 +150,11 @@ export const BlockchainSyncProvider: React.FC<BlockchainSyncProviderProps> = ({ 
                 }
             });
         }
-    }, [api, badReferees, isInitialStateLoaded]);
+    }, [api, badReferees]);
 
     const sendTransactions = useCallback((reimbursements: Reimbursement[]) => {
         const run = async (reimbursements: Reimbursement[]) => {
-            if (currentPair && isInitialStateLoaded()) {
+            if (currentPair) {
                 let signedTransactionsPromises = reimbursements.map(async reimbursement => {
                     return api.tx.letters.reimburse(
                         reimbursement.letterNumber,
@@ -167,21 +174,65 @@ export const BlockchainSyncProvider: React.FC<BlockchainSyncProviderProps> = ({ 
                 if (txs && txs.length > 0) {
                     const unsub = await api.tx.utility
                         .forceBatch(txs)
-                        .signAndSend(currentPair, ({ events = [], status }) => {
-                            if (status.isInBlock) {
-                                events.forEach(({ event: { data, method, section } }) => {
-                                    if (section === 'letters' && method === 'ReimbursementHappened') {
-                                        const [referee, letterNumber] = data.toJSON() as [string, number];
-                                        deleteReimbursement(referee, letterNumber);
+                        .signAndSend(currentPair, async ({ events = [], status }) => {
+                            try {
+                                if (status.isInBlock || status.isFinalized) {
+                                    console.log(`Transaction included in block: ${status.asInBlock || status.asFinalized}`);
+
+                                    let batchCompletedWithErrors = false;
+
+                                    events.forEach(({ event, phase }) => {
+                                        if (phase.isApplyExtrinsic) {
+                                            // Handle utility.BatchCompletedWithErrors
+                                            if (event.section === 'utility' && event.method === 'BatchCompletedWithErrors') {
+                                                batchCompletedWithErrors = true;
+                                                console.warn('Batch completed with errors.');
+                                            }
+
+                                            // Handle utility.ItemFailed
+                                            if (event.section === 'utility' && event.method === 'ItemFailed') {
+                                                const [dispatchError] = event.data;
+                                                let errorInfo;
+
+                                                if (dispatchError.isModule) {
+                                                    const decoded = api.registry.findMetaError(dispatchError.asModule);
+                                                    errorInfo = `${decoded.section}.${decoded.name}`;
+                                                } else {
+                                                    errorInfo = dispatchError.toString();
+                                                }
+
+                                                console.error(`ItemFailed:: ${errorInfo}`);
+                                            }
+
+                                            // Handle utility.ItemCompleted
+                                            if (event.section === 'utility' && event.method === 'ItemCompleted') {
+                                                console.log('An item in the batch was successfully executed.');
+                                            }
+
+                                            // Handle custom event `ReimbursementHappened`
+                                            if (event.section === 'letters' && event.method === 'ReimbursementHappened') {
+                                                const [referee, letterNumber] = event.data.toJSON() as [string, number];
+                                                console.log(`Reimbursement happened for referee: ${referee}, letterNumber: ${letterNumber}`);
+                                                deleteReimbursement(referee, letterNumber);
+                                            }
+                                        }
+                                    });
+
+                                    if (batchCompletedWithErrors) {
+                                        console.warn('forceBatch transaction partially succeeded: Some items failed.');
                                     }
-                                });
-                                unsub();
+
+                                    unsub();
+                                }
+                            } catch (error) {
+                                console.error(`Error in transaction handling: ${error.message}`);
                             }
                         });
+
                 }
             }
         };
-        if (isInitialStateLoaded()) {
+        if (isInitialStateLoaded) {
             run(reimbursements);
         }
     }, [currentPair, api, isInitialStateLoaded]);
