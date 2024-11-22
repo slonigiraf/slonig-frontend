@@ -130,11 +130,12 @@ export const BlockchainSyncProvider: React.FC<BlockchainSyncProviderProps> = ({ 
 
     // Subscribe to referees' balances change
     useEffect(() => {
-        if (isInitialStateLoadedRef.current) {
+        if (canCommunicateToBlockchain() && badReferees.size > 0) {
             badReferees.forEach(referee => {
                 if (!subscribedBadReferees.current.has(referee)) {
                     subscribedBadReferees.current.add(referee);
                     const refereeAddress = getAddressFromPublickeyHex(referee);
+                    console.log('referee: ', referee)
                     api.query.system.account(refereeAddress, (accountInfo: AccountInfo) => {
                         if (accountInfo.data.free.gt(EXISTENTIAL_REFEREE_BALANCE)) {
                             badRefereesWithEnoughBalance.current.set(referee, accountInfo.data.free);
@@ -145,7 +146,7 @@ export const BlockchainSyncProvider: React.FC<BlockchainSyncProviderProps> = ({ 
                 }
             });
         }
-    }, [api, badReferees]);
+    }, [api, badReferees, canCommunicateToBlockchain]);
 
     // TODO: fix the issue that causes it fire twice
     const sendTransactions = useCallback(async (reimbursements: Reimbursement[]) => {
@@ -230,43 +231,45 @@ export const BlockchainSyncProvider: React.FC<BlockchainSyncProviderProps> = ({ 
         }
     }, [currentPair, api]);
 
-    const selectAndSendTransactions = useCallback(() => {
-        const run = async () => {
-            let selectedReimbursements: Reimbursement[] = [];
-            for (const [referee, balance] of badRefereesWithEnoughBalance.current) {
-                if (selectedReimbursements.length >= REIMBURSEMENT_BATCH_SIZE) {
-                    break;
-                }
-                if (balance.gt(EXISTENTIAL_REFEREE_BALANCE)) {
-                    let penaltyAmount = BN_ZERO;
-                    const reimbursementsCollection = await getReimbursementsByReferee(referee);
-                    const reimbursements = await reimbursementsCollection.toArray();
-                    const fromMinToMaxReimbursement = reimbursements.sort((a, b) => {
-                        const amountA = new BN(a.amount);
-                        const amountB = new BN(b.amount);
-                        return amountA.cmp(amountB); // -1 if a < b, 0 if a === b, 1 if a > b
-                    })
-                    const refereeAvailableBalance = balance.sub(EXISTENTIAL_REFEREE_BALANCE);
-                    for (const reimbursement of fromMinToMaxReimbursement) {
-                        const reimbursementAmount = new BN(reimbursement.amount);
-                        const penaltyWithThisReimbursement = penaltyAmount.add(reimbursementAmount);
-                        const refereeHasEnoughBalance = refereeAvailableBalance.gte(penaltyWithThisReimbursement);
+    const selectAndSendTransactions = useCallback(async () => {
+        let selectedReimbursements: Reimbursement[] = [];
+        // console.log('badReferees.size: ', badReferees.size)
+        // console.log('badRefereesWithEnoughBalance.current.size: ', badRefereesWithEnoughBalance.current.size)
+        for (const [referee, balance] of badRefereesWithEnoughBalance.current) {
+            if (selectedReimbursements.length >= REIMBURSEMENT_BATCH_SIZE) {
+                break;
+            }
+            if (balance.gt(EXISTENTIAL_REFEREE_BALANCE)) {
+                let penaltyAmount = BN_ZERO;
+                const reimbursementsCollection = await getReimbursementsByReferee(referee);
+                const reimbursements = await reimbursementsCollection.toArray();
+                const fromMinToMaxReimbursement = reimbursements.sort((a, b) => {
+                    const amountA = new BN(a.amount);
+                    const amountB = new BN(b.amount);
+                    return amountA.cmp(amountB); // -1 if a < b, 0 if a === b, 1 if a > b
+                })
+                const refereeAvailableBalance = balance.sub(EXISTENTIAL_REFEREE_BALANCE);
+                for (const reimbursement of fromMinToMaxReimbursement) {
+                    const reimbursementAmount = new BN(reimbursement.amount);
+                    const penaltyWithThisReimbursement = penaltyAmount.add(reimbursementAmount);
+                    const refereeHasEnoughBalance = refereeAvailableBalance.gte(penaltyWithThisReimbursement);
 
-                        if (refereeHasEnoughBalance && selectedReimbursements.length < REIMBURSEMENT_BATCH_SIZE) {
-                            selectedReimbursements.push(reimbursement);
-                            penaltyAmount = penaltyAmount.add(reimbursementAmount);
-                        } else {
-                            break;
-                        }
+                    if (refereeHasEnoughBalance && selectedReimbursements.length < REIMBURSEMENT_BATCH_SIZE) {
+                        selectedReimbursements.push(reimbursement);
+                        penaltyAmount = penaltyAmount.add(reimbursementAmount);
+                    } else {
+                        break;
                     }
                 }
             }
-            if (selectedReimbursements.length > 0) {
-                sendTransactions(selectedReimbursements);
-            }
         }
-        run();
-    }, [sendTransactions]);
+        // console.log('selectedReimbursements.length: ', selectedReimbursements.length)
+        if (selectedReimbursements.length > 0) {
+            sendTransactions(selectedReimbursements);
+        } else {
+            isSendingBatchRef.current = false;
+        }
+    }, [sendTransactions, badReferees]);
 
     useEffect(() => {
         if (!canCommunicateToBlockchain()) {
@@ -275,10 +278,13 @@ export const BlockchainSyncProvider: React.FC<BlockchainSyncProviderProps> = ({ 
         let blockCount = 0;
         const unsubscribe = api.rpc.chain.subscribeNewHeads((_header) => {
             blockCount++;
+            // console.log("------",)
+            // console.log("blockCount: ", blockCount)
+
             // Execute every 2 blocks
             if (blockCount % 2 === 0) {
-                if (isInitialStateLoadedRef.current &&
-                    canCommunicateToBlockchain() &&
+                if (canCommunicateToBlockchain() &&
+                    isInitialStateLoadedRef.current &&
                     !isSendingBatchRef.current) {
                     isSendingBatchRef.current = true;
                     selectAndSendTransactions();
