@@ -26,16 +26,16 @@ type Recommendation = Letter | Insurance | Reimbursement;
 
 export const BlockchainSyncProvider: React.FC<BlockchainSyncProviderProps> = ({ children }) => {
     const { api, isApiReady } = useApi();
+    const { events } = useBlockEvents();
     const { currentPair, isLoggedIn } = useLoginContext();
     const [badReferees, setBadReferees] = useState<Set<string>>(new Set());
+
     const badRefereesWithEnoughBalance = useRef<Map<string, BN>>(new Map());
-    const [canSubmitTransactions, setCanSubmitTransactions] = useState<boolean>(true);
     const myBalance = useRef<BN | null>(null);
     const subscribedBadReferees = useRef(new Set());
     const lettersICarryAbout = useRef<Map<string, Map<number, boolean>>>(new Map());
-    const { events } = useBlockEvents();
-    const isInitialStateLoaded = useRef<boolean>(false);
-
+    const isSendingBatchRef = useRef<boolean>(false);
+    const isInitialStateLoadedRef = useRef<boolean>(false);
 
 
     const canCommunicateToBlockchain = useCallback(() => {
@@ -119,7 +119,7 @@ export const BlockchainSyncProvider: React.FC<BlockchainSyncProviderProps> = ({ 
                 }
             }
             await initializeMyBalance();
-            isInitialStateLoaded.current = true;
+            isInitialStateLoadedRef.current = true;
         }
         if (canCommunicateToBlockchain()) {
             run();
@@ -130,7 +130,7 @@ export const BlockchainSyncProvider: React.FC<BlockchainSyncProviderProps> = ({ 
 
     // Subscribe to referees' balances change
     useEffect(() => {
-        if (isInitialStateLoaded) {
+        if (isInitialStateLoadedRef.current) {
             badReferees.forEach(referee => {
                 if (!subscribedBadReferees.current.has(referee)) {
                     subscribedBadReferees.current.add(referee);
@@ -138,11 +138,6 @@ export const BlockchainSyncProvider: React.FC<BlockchainSyncProviderProps> = ({ 
                     api.query.system.account(refereeAddress, (accountInfo: AccountInfo) => {
                         if (accountInfo.data.free.gt(EXISTENTIAL_REFEREE_BALANCE)) {
                             badRefereesWithEnoughBalance.current.set(referee, accountInfo.data.free);
-                            if (canSubmitTransactions &&
-                                myBalance.current && myBalance.current.gt(EXISTENTIAL_BATCH_SENDER_BALANCE)) {
-                                setCanSubmitTransactions(false);
-                                selectAndSendTransactions();
-                            }
                         } else {
                             badRefereesWithEnoughBalance.current.delete(referee);
                         }
@@ -152,90 +147,88 @@ export const BlockchainSyncProvider: React.FC<BlockchainSyncProviderProps> = ({ 
         }
     }, [api, badReferees]);
 
-    const sendTransactions = useCallback((reimbursements: Reimbursement[]) => {
-        const run = async (reimbursements: Reimbursement[]) => {
-            if (currentPair) {
-                let signedTransactionsPromises = reimbursements.map(async reimbursement => {
-                    return api.tx.letters.reimburse(
-                        reimbursement.letterNumber,
-                        new BN(reimbursement.block),
-                        new BN(reimbursement.blockAllowed),
-                        reimbursement.referee,
-                        reimbursement.worker,
-                        reimbursement.employer,
-                        new BN(reimbursement.amount),
-                        reimbursement.signOverReceipt,
-                        reimbursement.workerSign
-                    );
-                });
+    // TODO: fix the issue that causes it fire twice
+    const sendTransactions = useCallback(async (reimbursements: Reimbursement[]) => {
+        console.log("reimbursements: " + JSON.stringify(reimbursements))
+        if (currentPair) {
+            let signedTransactionsPromises = reimbursements.map(async reimbursement => {
+                return api.tx.letters.reimburse(
+                    reimbursement.letterNumber,
+                    new BN(reimbursement.block),
+                    new BN(reimbursement.blockAllowed),
+                    reimbursement.referee,
+                    reimbursement.worker,
+                    reimbursement.employer,
+                    new BN(reimbursement.amount),
+                    reimbursement.signOverReceipt,
+                    reimbursement.workerSign
+                );
+            });
 
-                const txs = (await Promise.all(signedTransactionsPromises)).filter(tx => tx !== undefined);
+            const txs = (await Promise.all(signedTransactionsPromises)).filter(tx => tx !== undefined);
 
-                if (txs && txs.length > 0) {
-                    const unsub = await api.tx.utility
-                        .forceBatch(txs)
-                        .signAndSend(currentPair, async ({ events = [], status }) => {
-                            try {
-                                if (status.isInBlock || status.isFinalized) {
-                                    console.log(`Transaction included in block: ${status.asInBlock || status.asFinalized}`);
+            if (txs && txs.length > 0) {
+                const unsub = await api.tx.utility
+                    .forceBatch(txs)
+                    .signAndSend(currentPair, async ({ events = [], status }) => {
+                        try {
+                            if (status.isInBlock || status.isFinalized) {
+                                console.log(`Transaction included in block: ${status.asInBlock || status.asFinalized}`);
 
-                                    let batchCompletedWithErrors = false;
+                                let batchCompletedWithErrors = false;
 
-                                    events.forEach(({ event, phase }) => {
-                                        if (phase.isApplyExtrinsic) {
-                                            // Handle utility.BatchCompletedWithErrors
-                                            if (event.section === 'utility' && event.method === 'BatchCompletedWithErrors') {
-                                                batchCompletedWithErrors = true;
-                                                console.warn('Batch completed with errors.');
-                                            }
-
-                                            // Handle utility.ItemFailed
-                                            if (event.section === 'utility' && event.method === 'ItemFailed') {
-                                                const [dispatchError] = event.data;
-                                                let errorInfo;
-
-                                                if (dispatchError.isModule) {
-                                                    const decoded = api.registry.findMetaError(dispatchError.asModule);
-                                                    errorInfo = `${decoded.section}.${decoded.name}`;
-                                                } else {
-                                                    errorInfo = dispatchError.toString();
-                                                }
-
-                                                console.error(`ItemFailed:: ${errorInfo}`);
-                                            }
-
-                                            // Handle utility.ItemCompleted
-                                            if (event.section === 'utility' && event.method === 'ItemCompleted') {
-                                                console.log('An item in the batch was successfully executed.');
-                                            }
-
-                                            // Handle custom event `ReimbursementHappened`
-                                            if (event.section === 'letters' && event.method === 'ReimbursementHappened') {
-                                                const [referee, letterNumber] = event.data.toJSON() as [string, number];
-                                                console.log(`Reimbursement happened for referee: ${referee}, letterNumber: ${letterNumber}`);
-                                                deleteReimbursement(referee, letterNumber);
-                                            }
+                                events.forEach(({ event, phase }) => {
+                                    if (phase.isApplyExtrinsic) {
+                                        // Handle utility.BatchCompletedWithErrors
+                                        if (event.section === 'utility' && event.method === 'BatchCompletedWithErrors') {
+                                            batchCompletedWithErrors = true;
+                                            console.warn('Batch completed with errors.');
                                         }
-                                    });
 
-                                    if (batchCompletedWithErrors) {
-                                        console.warn('forceBatch transaction partially succeeded: Some items failed.');
+                                        // Handle utility.ItemFailed
+                                        if (event.section === 'utility' && event.method === 'ItemFailed') {
+                                            const [dispatchError] = event.data;
+                                            let errorInfo;
+
+                                            if (dispatchError.isModule) {
+                                                const decoded = api.registry.findMetaError(dispatchError.asModule);
+                                                errorInfo = `${decoded.section}.${decoded.name}`;
+                                            } else {
+                                                errorInfo = dispatchError.toString();
+                                            }
+
+                                            console.error(`ItemFailed:: ${errorInfo}`);
+                                        }
+
+                                        // Handle utility.ItemCompleted
+                                        if (event.section === 'utility' && event.method === 'ItemCompleted') {
+                                            console.log('An item in the batch was successfully executed.');
+                                        }
+
+                                        // Handle custom event `ReimbursementHappened`
+                                        if (event.section === 'letters' && event.method === 'ReimbursementHappened') {
+                                            const [referee, letterNumber] = event.data.toJSON() as [string, number];
+                                            console.log(`Reimbursement happened for referee: ${referee}, letterNumber: ${letterNumber}`);
+                                            deleteReimbursement(referee, letterNumber);
+                                        }
                                     }
+                                });
 
-                                    unsub();
+                                if (batchCompletedWithErrors) {
+                                    console.warn('forceBatch transaction partially succeeded: Some items failed.');
                                 }
-                            } catch (error) {
-                                console.error(`Error in transaction handling: ${error.message}`);
+                                unsub();
+                                isSendingBatchRef.current = false;
                             }
-                        });
+                        } catch (error) {
+                            console.error(`Error in transaction handling: ${error.message}`);
+                            isSendingBatchRef.current = false;
+                        }
+                    });
 
-                }
             }
-        };
-        if (isInitialStateLoaded) {
-            run(reimbursements);
         }
-    }, [currentPair, api, isInitialStateLoaded]);
+    }, [currentPair, api]);
 
     const selectAndSendTransactions = useCallback(() => {
         const run = async () => {
@@ -274,6 +267,28 @@ export const BlockchainSyncProvider: React.FC<BlockchainSyncProviderProps> = ({ 
         }
         run();
     }, [sendTransactions]);
+
+    useEffect(() => {
+        if (!canCommunicateToBlockchain()) {
+            return;
+        }
+        let blockCount = 0;
+        const unsubscribe = api.rpc.chain.subscribeNewHeads((_header) => {
+            blockCount++;
+            // Execute every 2 blocks
+            if (blockCount % 2 === 0) {
+                if (isInitialStateLoadedRef.current &&
+                    canCommunicateToBlockchain() &&
+                    !isSendingBatchRef.current) {
+                    isSendingBatchRef.current = true;
+                    selectAndSendTransactions();
+                }
+            }
+        });
+        return () => {
+            unsubscribe.then((unsub) => unsub());
+        };
+    }, [api, canCommunicateToBlockchain, selectAndSendTransactions]);
 
     const reimburse = async (reimbursements: Reimbursement[]) => {
         const newReferees = reimbursements.map((r: Reimbursement) => r.referee);
