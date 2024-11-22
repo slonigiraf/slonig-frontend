@@ -383,6 +383,22 @@ export const letterToReimbursement = (letter: Letter, employer: string, workerSi
     return reimbursement;
 }
 
+export const insuranceToReimbursement = (insurance: Insurance): Reimbursement => {
+    const reimbursement: Reimbursement = {
+        genesis: insurance.genesis,
+        letterNumber: insurance.letterNumber,
+        block: insurance.block,
+        blockAllowed: insurance.blockAllowed,
+        referee: insurance.referee,
+        worker: insurance.worker,
+        amount: insurance.amount,
+        signOverReceipt: insurance.signOverReceipt,
+        employer: insurance.employer,
+        workerSign: insurance.workerSign,
+    }
+    return reimbursement;
+}
+
 export const putInsurance = async (insurance: Insurance) => {
     db.insurances.put(insurance);
 }

@@ -7,9 +7,8 @@ import { Button, InputAddress } from '@polkadot/react-components';
 import { useApi } from '@polkadot/react-hooks';
 import { keyring } from '@polkadot/ui-keyring';
 import { useTranslation } from '../translate.js';
-import { Insurance } from '@slonigiraf/db';
-import { useInfo } from '@slonigiraf/app-slonig-components';
-import { getBounty } from "../getBounty.js";
+import { addReimbursement, deleteInsurance, Insurance, insuranceToReimbursement } from '@slonigiraf/db';
+import { useBlockchainSync, useInfo } from '@slonigiraf/app-slonig-components';
 
 interface Props {
   className?: string;
@@ -22,6 +21,7 @@ function UseInsurance({ className = '', insurance }: Props): React.ReactElement<
   const { api } = useApi();
   const [isButtonClicked, setIsButtonClicked] = useState(false);
   const { showInfo } = useInfo();
+  const { reimburse } = useBlockchainSync();
 
   const _onChangeAccount = useCallback(
     (accountId: string | null) => accountId && setCurrentPair(keyring.getPair(accountId)),
@@ -30,24 +30,16 @@ function UseInsurance({ className = '', insurance }: Props): React.ReactElement<
 
   const isUsable = currentPair != null;
 
-  const onResult = () => {
-    () => setIsButtonClicked(false);
-  }
-
-  const processBounty = () => {
+  const processBounty = async () => {
     setIsButtonClicked(true);
     if (currentPair !== null) {
-      getBounty(insurance, currentPair, api, t, onResult, showInfo);
+      const reimbursement = insuranceToReimbursement(insurance);
+      await addReimbursement(reimbursement);
+      await deleteInsurance(insurance.workerSign);
+      reimburse([reimbursement]);
+      showInfo(t('The bounty will be received'));
     }
   };
-
-  const penalizeTutor = isUsable && <Button onClick={() => processBounty()}
-    icon='dollar'
-    label={t('Get bounty')}
-    isDisabled={isButtonClicked}
-  />
-
-  const usedInfo = <b>Was invalidated</b>
 
   return (
     <div className={`toolbox--Sign ${className}`}>
@@ -61,7 +53,11 @@ function UseInsurance({ className = '', insurance }: Props): React.ReactElement<
         />
       </div>
       <div className='ui--row'>
-        {penalizeTutor}
+        {isUsable && <Button onClick={() => processBounty()}
+          icon='dollar'
+          label={t('Get bounty')}
+          isDisabled={isButtonClicked}
+        />}
       </div>
     </div >
   );

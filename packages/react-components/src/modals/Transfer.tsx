@@ -50,10 +50,10 @@ async function checkPhishing(_senderId: string | null, recipientId: string | nul
   ];
 }
 
-function Transfer({ className = '', onClose, onSuccess, recipientId: propRecipientId, senderId: propSenderId, amount: propAmount, modalCaption, buttonCaption, isAmountEditable=true }: Props): React.ReactElement<Props> {
+function Transfer({ className = '', onClose, onSuccess, recipientId: propRecipientId, senderId: propSenderId, amount: propAmount, modalCaption, buttonCaption, isAmountEditable = true }: Props): React.ReactElement<Props> {
   const { t } = useTranslation();
   const { api } = useApi();
-  const [amount, setAmount] = useState<BN | undefined>(propAmount? propAmount : BN_ZERO);
+  const [amount, setAmount] = useState<BN | undefined>(propAmount ? propAmount : BN_ZERO);
   const [hasAvailable] = useState(true);
   const [isProtected, setIsProtected] = useState(true);
   const [isAll, setIsAll] = useState(false);
@@ -95,9 +95,9 @@ function Transfer({ className = '', onClose, onSuccess, recipientId: propRecipie
   }, [api, balances, propRecipientId, propSenderId, recipientId, senderId]);
 
   useEffect((): void => {
-    if(maxTransfer !== null && amount){
+    if (maxTransfer !== null && amount) {
       setAmountIsLessThanMax(amount.lt(maxTransfer))
-    } else{
+    } else {
       setAmountIsLessThanMax(false)
     }
   }, [maxTransfer, amount]);
@@ -134,7 +134,32 @@ function Transfer({ className = '', onClose, onSuccess, recipientId: propRecipie
           events.forEach(({ event }) => {
             if (api.events.system.ExtrinsicFailed.is(event)) {
               isError = true;
-              // Error handling similar to getBounty.ts
+              // TODO create human readable error info
+              /*
+              type ErrorKey = 'InvalidRefereeSign' | 'InvalidWorkerSign' .....;
+
+              const errorMessages: Record<ErrorKey, string> = {
+                  InvalidRefereeSign: 'Invalid signature of previous tutor',
+                  InvalidWorkerSign: 'Invalid signature of student',
+                  ...
+              };
+
+              events.forEach(({ event }) => {
+                    if (api.events.system.ExtrinsicFailed.is(event)) {
+                        isError = true;
+                        const [error] = event.data;
+                        if (error.isModule) {
+                            // for module errors, we have the section indexed, lookup
+                            const decoded = api.registry.findMetaError(error.asModule);
+                            const { docs, method, section } = decoded;
+                            errorInfo = `${method}`;
+                        } else {
+                            // Other, CannotLookup, BadOrigin, no extra info
+                            errorInfo = error.toString();
+                        }
+                    }
+                });
+               */
             }
           });
 
@@ -157,7 +182,7 @@ function Transfer({ className = '', onClose, onSuccess, recipientId: propRecipie
   return (
     <StyledModal
       className='app--accounts-Modal'
-      header={modalCaption? modalCaption : t('Send tokens')}
+      header={modalCaption ? modalCaption : t('Send tokens')}
       onClose={onClose}
       size='large'
     >
@@ -182,7 +207,7 @@ function Transfer({ className = '', onClose, onSuccess, recipientId: propRecipie
               defaultValue={propRecipientId}
               isDisabled={!!propRecipientId}
               label={t('recipient')}
-              labelExtra={ !propRecipientId?
+              labelExtra={!propRecipientId ?
                 <Available
                   params={propRecipientId || recipientId}
                 /> : ''
@@ -224,18 +249,18 @@ function Transfer({ className = '', onClose, onSuccess, recipientId: propRecipie
         </div>
       </Modal.Content>
       <Modal.Actions>
-        {isProcessing ? <Spinner noLabel variant='mini'/> :
-        <Button isDisabled={
-          isProcessing ||
-          (!isAll && (!hasAvailable || !amount)) ||
-          !(propRecipientId || recipientId) ||
-          !!recipientPhish ||
-          !amountIsLessThanMax
-        }
-          icon='paper-plane'
-          label={buttonCaption? buttonCaption : t('Send tokens')}
-          onClick={submitTransfer}
-        />
+        {isProcessing ? <Spinner noLabel variant='mini' /> :
+          <Button isDisabled={
+            isProcessing ||
+            (!isAll && (!hasAvailable || !amount)) ||
+            !(propRecipientId || recipientId) ||
+            !!recipientPhish ||
+            !amountIsLessThanMax
+          }
+            icon='paper-plane'
+            label={buttonCaption ? buttonCaption : t('Send tokens')}
+            onClick={submitTransfer}
+          />
         }
       </Modal.Actions>
     </StyledModal>
