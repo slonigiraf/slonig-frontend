@@ -4,7 +4,7 @@ import BN from 'bn.js';
 import { getDataToSignByWorker } from '@slonigiraf/helpers';
 import type { KeyringPair } from '@polkadot/keyring/types';
 import React, { useEffect, useState } from 'react';
-import { u8aToHex, hexToU8a, u8aWrapBytes, identity } from '@polkadot/util';
+import { u8aToHex, hexToU8a, u8aWrapBytes } from '@polkadot/util';
 import { nameFromKeyringPair, SenderComponent, CenterQRContainer, InsurancesTransfer } from '@slonigiraf/app-slonig-components';
 import { useTranslation } from '../translate.js';
 import { QRAction, storeLetterUsageRight, Letter, QRField } from '@slonigiraf/db';
@@ -38,6 +38,7 @@ function SignLettersUseRight({ className = '', letters, worker, employer, curren
         // create the result text
         let result = [];
         result.push(letter.worker);
+        result.push(letter.knowledgeId);
         result.push(letter.cid);
         result.push(letter.genesis);
         result.push(letter.letterNumber);

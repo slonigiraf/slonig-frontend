@@ -2,12 +2,12 @@
 // SPDX-License-Identifier: Apache-2.0
 import { db } from "./db/index.js";
 import type { Agreement } from "./db/Agreement.js";
-import { LetterTemplate } from "./db/LetterTemplate.js";
+import type { LetterTemplate } from "./db/LetterTemplate.js";
 import type { Letter } from "./db/Letter.js";
-import { CanceledLetter } from './db/CanceledLetter.js';
+import type { CanceledLetter } from './db/CanceledLetter.js';
 import type { Insurance } from "./db/Insurance.js";
-import { Reimbursement } from "./db/Reimbursement.js";
-import { Reexamination } from './db/Reexamination.js';
+import type { Reimbursement } from "./db/Reimbursement.js";
+import type { Reexamination } from './db/Reexamination.js';
 import type { Signer } from "./db/Signer.js";
 import type { UsageRight } from "./db/UsageRight.js";
 import type { Pseudonym } from "./db/Pseudonym.js";
@@ -19,8 +19,9 @@ import { isHex, u8aToHex } from '@polkadot/util';
 import { blake2AsHex } from '@polkadot/util-crypto';
 import "dexie-export-import";
 import { InsurancesTransfer, LessonRequest } from "@slonigiraf/app-slonig-components";
+import { CanceledInsurance } from "./db/CanceledInsurance.js";
 
-export type { Reexamination, LetterTemplate, CanceledLetter, Reimbursement, Letter, Insurance, Lesson, Pseudonym, Setting, Signer, UsageRight, Agreement };
+export type { CanceledInsurance, Reexamination, LetterTemplate, CanceledLetter, Reimbursement, Letter, Insurance, Lesson, Pseudonym, Setting, Signer, UsageRight, Agreement };
 
 export const SettingKey = {
     ACCOUNT: 'account',
@@ -224,9 +225,10 @@ export const cancelLetter = async (signOverReceipt: string, time: number) => {
     const letter: Letter | undefined = await getLetter(signOverReceipt);
     if (letter) {
         const canceledLetter: CanceledLetter = {
+            signOverReceipt: letter.signOverReceipt,
             created: letter.created,
             examCount: letter.examCount,
-            lastExamined: time,
+            canceled: time,
             workerId: letter.workerId,
             knowledgeId: letter.knowledgeId,
             cid: letter.cid,
@@ -234,6 +236,24 @@ export const cancelLetter = async (signOverReceipt: string, time: number) => {
         };
         await putCanceledLetter(canceledLetter);
         await deleteLetter(letter.signOverReceipt);
+    }
+}
+
+export const cancelInsurance = async (workerSign: string, time: number) => {
+    const insurance: Insurance | undefined = await getInsurance(workerSign);
+    if (insurance) {
+        const canceledInsurance: CanceledInsurance = {
+            workerSign: insurance.workerSign,
+            created: insurance.created,
+            canceled: time,
+            workerId: insurance.workerId,
+            knowledgeId: insurance.knowledgeId,
+            cid: insurance.cid,
+            referee: insurance.referee,
+            employer: insurance.employer,
+        };
+        await putCanceledInsurance(canceledInsurance);
+        await deleteInsurance(insurance.workerSign);
     }
 }
 
@@ -350,6 +370,10 @@ export const putLetterTemplate = async (letterTemplate: LetterTemplate) => {
 
 export const putCanceledLetter = async (canceledLetter: CanceledLetter) => {
     await db.canceledLetters.put(canceledLetter);
+}
+
+export const putCanceledInsurance = async (canceledInsurance: CanceledInsurance) => {
+    await db.canceledInsurances.put(canceledInsurance);
 }
 
 export const putCIDCache = async (cid: string, data: string) => {
@@ -550,7 +574,8 @@ const createAndStoreInsurance = async (data: string[]) => {
         workerId,
         employerPublicKeyHex,
         worker,
-        textHash,
+        knowledgeId,
+        cid,
         genesisHex,
         letterId,
         blockNumber,
@@ -565,11 +590,11 @@ const createAndStoreInsurance = async (data: string[]) => {
 
     const insurance: Insurance = {
         created: now,
-        lastExamined: now,
         valid: true,
         lesson: '',
         workerId: workerId,
-        cid: textHash,
+        knowledgeId: knowledgeId,
+        cid: cid,
         genesis: genesisHex,
         letterNumber: parseInt(letterId, 10),
         block: blockNumber,

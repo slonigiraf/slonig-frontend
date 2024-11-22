@@ -1,4 +1,4 @@
-import { cancelLetter, deleteInsurance, deleteReimbursement, getAllInsurances, getAllLetters, getAllReimbursements, getReimbursementsByReferee, Insurance, Letter, Reimbursement } from '@slonigiraf/db';
+import { cancelInsurance, cancelLetter, deleteReimbursement, getAllInsurances, getAllLetters, getAllReimbursements, getReimbursementsByReferee, Insurance, Letter, Reimbursement } from '@slonigiraf/db';
 import React, { useEffect, useState, useRef, useCallback, ReactNode, createContext, useContext } from 'react';
 import { useApi, useBlockEvents } from '@polkadot/react-hooks';
 import { useLoginContext } from './LoginContext.js';
@@ -113,7 +113,7 @@ export const BlockchainSyncProvider: React.FC<BlockchainSyncProviderProps> = ({ 
                     if (recommendations && recommendations.has(insurance.letterNumber)) {
                         const valid = recommendations.get(insurance.letterNumber);
                         if (!valid) {
-                            deleteInsurance(insurance.workerSign);
+                            cancelInsurance(insurance.workerSign, now);
                         }
                     }
                 }
@@ -274,7 +274,10 @@ export const BlockchainSyncProvider: React.FC<BlockchainSyncProviderProps> = ({ 
             if (blockCount % 2 === 0) {
                 if (canCommunicateToBlockchain() &&
                     isInitialStateLoadedRef.current &&
-                    !isSendingBatchRef.current) {
+                    !isSendingBatchRef.current &&
+                    myBalance.current &&
+                    myBalance.current.gt(EXISTENTIAL_BATCH_SENDER_BALANCE)
+                ) {
                     isSendingBatchRef.current = true;
                     selectAndSendTransactions();
                 }

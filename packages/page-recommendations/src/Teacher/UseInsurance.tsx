@@ -7,8 +7,8 @@ import { Button, InputAddress } from '@polkadot/react-components';
 import { useApi } from '@polkadot/react-hooks';
 import { keyring } from '@polkadot/ui-keyring';
 import { useTranslation } from '../translate.js';
-import { addReimbursement, deleteInsurance, Insurance, insuranceToReimbursement } from '@slonigiraf/db';
-import { useBlockchainSync, useInfo } from '@slonigiraf/app-slonig-components';
+import { addReimbursement, cancelInsurance, Insurance, insuranceToReimbursement } from '@slonigiraf/db';
+import { useBlockchainSync, useInfo, useLoginContext } from '@slonigiraf/app-slonig-components';
 
 interface Props {
   className?: string;
@@ -17,49 +17,30 @@ interface Props {
 
 function UseInsurance({ className = '', insurance }: Props): React.ReactElement<Props> {
   const { t } = useTranslation();
-  const [currentPair, setCurrentPair] = useState<KeyringPair | null>(() => keyring.getPairs()[0] || null);
-  const { api } = useApi();
+  const { currentPair } = useLoginContext();
   const [isButtonClicked, setIsButtonClicked] = useState(false);
   const { showInfo } = useInfo();
   const { reimburse } = useBlockchainSync();
-
-  const _onChangeAccount = useCallback(
-    (accountId: string | null) => accountId && setCurrentPair(keyring.getPair(accountId)),
-    []
-  );
-
-  const isUsable = currentPair != null;
 
   const processBounty = async () => {
     setIsButtonClicked(true);
     if (currentPair !== null) {
       const reimbursement = insuranceToReimbursement(insurance);
       await addReimbursement(reimbursement);
-      await deleteInsurance(insurance.workerSign);
+      await cancelInsurance(insurance.workerSign, (new Date).getTime());
       reimburse([reimbursement]);
       showInfo(t('The bounty will be received'));
     }
   };
 
   return (
-    <div className={`toolbox--Sign ${className}`}>
-      <div className='ui--row' style={{ display: 'none' }}>
-        <InputAddress
-          className='full'
-          isInput={false}
-          label={t('account')}
-          onChange={_onChangeAccount}
-          type='account'
-        />
-      </div>
-      <div className='ui--row'>
-        {isUsable && <Button onClick={() => processBounty()}
-          icon='dollar'
-          label={t('Get bounty')}
-          isDisabled={isButtonClicked}
-        />}
-      </div>
-    </div >
+    <>
+      {currentPair != null && <Button onClick={() => processBounty()}
+        icon='dollar'
+        label={t('Get bounty')}
+        isDisabled={isButtonClicked}
+      />}
+    </>
   );
 }
 

@@ -1,10 +1,10 @@
-export interface CanceledLetter {
-  signOverReceipt: string;
+export interface CanceledInsurance {
+  workerSign: string;
   created: number; // timestamp
-  examCount: number,
   canceled: number; // timestamp
   workerId: string;
   knowledgeId: string;
   cid: string;
   referee: string;
+  employer: string;
 }

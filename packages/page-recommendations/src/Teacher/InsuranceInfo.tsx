@@ -7,18 +7,21 @@ import UseInsurance from './UseInsurance.js'
 import { useTranslation } from '../translate.js';
 import { deleteInsurance, Insurance } from '@slonigiraf/db';
 import { useToggle } from '@polkadot/react-hooks';
-import { KatexSpan, getIPFSDataFromContentID, parseJson } from '@slonigiraf/app-slonig-components';
+import { Exercise, KatexSpan, getIPFSDataFromContentID, parseJson } from '@slonigiraf/app-slonig-components';
 import { useIpfsContext } from '@slonigiraf/app-slonig-components';
-import { ItemLabel, ExerciseList } from '@slonigiraf/app-laws';
+import { ExerciseList } from '@slonigiraf/app-laws';
 import { useInfo } from '@slonigiraf/app-slonig-components';
 
 interface Props {
   className?: string;
   insurance: Insurance;
+  isSelected: boolean;
+  onToggleSelection: (insurance: Insurance) => void;
+  isSelectionAllowed: boolean;
 }
 
-function InsuranceInfo({ className = '', insurance }: Props): React.ReactElement<Props> {
-  const { ipfs, isIpfsReady, ipfsInitError } = useIpfsContext();
+function InsuranceInfo({ className = '', insurance, isSelected, onToggleSelection, isSelectionAllowed }: Props): React.ReactElement<Props> {
+  const { ipfs } = useIpfsContext();
   type JsonType = { [key: string]: any } | null;
   const [data, setData] = useState<JsonType>(null);
   const { t } = useTranslation();
@@ -57,8 +60,8 @@ function InsuranceInfo({ className = '', insurance }: Props): React.ReactElement
 
   const deleteDiplomas = async () => {
     try {
-      if(insurance && insurance.id){
-        await deleteInsurance(insurance.id);
+      if (insurance && insurance.workerSign) {
+        await deleteInsurance(insurance.workerSign);
         showInfo(t('Deleted'));
       }
     } catch (error) {
@@ -71,128 +74,64 @@ function InsuranceInfo({ className = '', insurance }: Props): React.ReactElement
     }
   };
 
-  return (
-    <>
-      {
-        !areDetailsOpen ? <div className='ui--row' >
-          <StyledDiv><Button
-            icon='eye'
-            onClick={toggleDetailsOpen}
-          />
-            {skillNameToShow}
-          </StyledDiv>
-        </div> :
-          <>
-            <StyledDiv><Button
-              icon='chevron-up'
-              onClick={toggleDetailsOpen}
-            />{skillNameToShow}</StyledDiv>
-            <DiplomaDiv >
-              <Card>
+  data && data.e && data.e.map((item: Exercise, index: number) => {
+    console.log('item: ', JSON.stringify(item, null, 2))
+  });
 
-                {
-                  data === null ? "" :
+  return (
+    <StyledDiv>
+      <RowDiv>
+        {isSelectionAllowed && (
+          <Button
+            icon={isSelected ? 'check' : 'square'}
+            onClick={() => onToggleSelection(insurance)}
+          />
+        )}
+        <Button icon='eye' onClick={toggleDetailsOpen} isDisabled={isSelectionAllowed} />
+        {skillNameToShow}
+      </RowDiv>
+
+      {areDetailsOpen && <>
+        <Modal
+          header={skillNameToShow}
+          onClose={toggleDetailsOpen}
+          size='small'
+        >
+          <Modal.Content>
+            {
+              data === null ? "" :
+                <>
+                  {
+                    data.t !== null && data.t === 3 &&
                     <>
-                      {
-                        data.t !== null && data.t === 3 &&
-                        <>
-                          <h3>{t('Example exercises to train the skill')}</h3>
-                        </>
-                      }
-                      {data.e != null && data.e.map((item, index) => (
-                        <div className='ui--row' key={item}
-                          style={{
-                            alignItems: 'center'
-                          }}
-                        >
-                          <ItemLabel id={item} />
-                        </div>
-                      ))}
-                      {data.q != null && <ExerciseList exercises={data.q} />}
+                      <h3>{t('Example exercises to train the skill')}</h3>
                     </>
-                }
-                <div className='ui--row' >
-                  <UseInsurance
-                    insurance={insurance}
-                  />
-                  {deleteButton}
-                </div>
-                
-              </Card>
-            </DiplomaDiv>
-          </>
-      }
-      {isDeleteConfirmOpen && <>
-          <StyledModal
-            header={t('Are you sure you want to delete it?')}
-            onClose={toggleDeleteConfirm}
-            size='small'
-          >
-            <Modal.Content>
-            <StyledModalContent>
-                <Button
-                  icon={'check'}
-                  label={t('Yes')}
-                  onClick={deleteDiplomas}
-                />
-                <Button
-                  icon={'close'}
-                  label={t('No')}
-                  onClick={toggleDeleteConfirm}
-                />
-            </StyledModalContent>
-            </Modal.Content>
-          </StyledModal>
-        </>}
-    </>
+                  }
+                  {data.q != null && <ExerciseList exercises={data.q} />}
+                </>
+            }
+          </Modal.Content>
+          <Modal.Actions>
+            <UseInsurance insurance={insurance} />
+          </Modal.Actions>
+        </Modal>
+      </>}
+    </StyledDiv>
   )
 }
 
-const DiplomaDiv = styled.div`
+
+const StyledDiv = styled.div`
   display: flex;
-  flex-direction: row;
-  justify-content: center;
   align-items: center;
-  max-width: 300px;
-  .qr--row {
-    display: flex;
-    justify-content: center;
-    align-items: center;
-  }
-  Card {
-    width: 100%; // Adjust this as needed
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-  }
-  .table {
-    display: flex;
-    flex-direction: column;
-    width: 100%;
-  }
-
-  .row {
-    display: flex;
-    justify-content: center;
-    align-items: center;
-  }
-
-  .cell {
-    padding: 5px; // Add padding for spacing
-    // Add any additional styling you need for cells
-  }
-
-  .row .cell:first-child {
-    flex: 0 1 auto; // Allow shrinking but no growth, auto basis
-    white-space: nowrap; // Prevents text from wrapping
-    min-width: 30px;
-  }
-
-  .row .cell:nth-child(2) {
-    flex: 1; // Take up the remaining space
+  justify-content: space-between;
+  .ui--Spinner {
+    width: 50px;
+    margin-left: 25px;
+    margin-right: 25px;
   }
 `;
-const StyledDiv = styled.div`
+const RowDiv = styled.div`
   display: flex;
   flex-direction: row;
   align-items: center;
@@ -208,21 +147,5 @@ const StyledDiv = styled.div`
     margin-right: 25px;
   }
 `;
-const StyledModal = styled(Modal)`
-button[data-testid="close-modal"] {
-  opacity: 0;
-  background: transparent;
-  border: none;
-  cursor: pointer;
-}
 
-button[data-testid="close-modal"]:focus {
-  outline: none;
-}
-`;
-const StyledModalContent = styled.div`
-  display: flex;
-  justify-content: center;
-  align-items: center;
-`;
 export default React.memo(InsuranceInfo);

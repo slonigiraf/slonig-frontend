@@ -1,10 +1,9 @@
 export interface Insurance {
-  id?: number;
   created: number; // timestamp
-  lastExamined: number; // timestamp
   valid: boolean;
   lesson: string;
   workerId: string;
+  knowledgeId: string;
   cid: string;
   genesis: string;
   letterNumber: number;
