@@ -3,7 +3,7 @@ import React, { useEffect, useState, useRef, useCallback, ReactNode, createConte
 import { useApi, useBlockEvents } from '@polkadot/react-hooks';
 import { useLoginContext } from './LoginContext.js';
 import BN from 'bn.js';
-import { EXISTENTIAL_BATCH_SENDER_BALANCE, getAddressFromPublickeyHex, getRecommendationsFrom } from './index.js';
+import { balanceToSlonString, EXISTENTIAL_BATCH_SENDER_BALANCE, getAddressFromPublickeyHex, getRecommendationsFrom, useInfo } from './index.js';
 import { EXISTENTIAL_REFEREE_BALANCE, REIMBURSEMENT_BATCH_SIZE } from '@slonigiraf/app-slonig-components';
 import { BN_ZERO } from '@polkadot/util';
 import type { AccountInfo } from '@polkadot/types/interfaces';
@@ -27,6 +27,7 @@ type Recommendation = Letter | Insurance | Reimbursement;
 export const BlockchainSyncProvider: React.FC<BlockchainSyncProviderProps> = ({ children }) => {
     const { api, isApiReady } = useApi();
     const { events } = useBlockEvents();
+    const {showInfo} = useInfo();
     const { currentPair, isLoggedIn } = useLoginContext();
     const [badReferees, setBadReferees] = useState<Set<string>>(new Set());
 
@@ -56,6 +57,10 @@ export const BlockchainSyncProvider: React.FC<BlockchainSyncProviderProps> = ({ 
 
     const initializeMyBalance = useCallback(async () => {
         await api.query.system.account(currentPair?.address, (accountInfo: AccountInfo) => {
+            if(myBalance.current){
+                const balanceChange = accountInfo.data.free.sub(myBalance.current);
+                showInfo(balanceToSlonString(balanceChange));
+            }
             myBalance.current = accountInfo.data.free;
         });
     }, [api, currentPair]);

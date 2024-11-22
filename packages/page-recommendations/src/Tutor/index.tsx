@@ -115,8 +115,8 @@ function Tutor({ className = '' }: Props): React.ReactElement<Props> {
     currentletterTemplates: LetterTemplate[],
     currentReexaminations: Reexamination[]) => {
     async function run() {
-      if(lesson && lesson.learnStep){
-        setStudentUsedSlonig( reexaminations?.length > 0 || lesson?.learnStep > 0);
+      if(updatedLesson){
+        setStudentUsedSlonig( currentReexaminations?.length > 0 || updatedLesson.learnStep > 0);
       }
       if (updatedLesson.reexamineStep < updatedLesson.toReexamineCount) {
         setReexamined(false);
