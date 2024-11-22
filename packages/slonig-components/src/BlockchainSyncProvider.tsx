@@ -135,7 +135,6 @@ export const BlockchainSyncProvider: React.FC<BlockchainSyncProviderProps> = ({ 
                 if (!subscribedBadReferees.current.has(referee)) {
                     subscribedBadReferees.current.add(referee);
                     const refereeAddress = getAddressFromPublickeyHex(referee);
-                    console.log('referee: ', referee)
                     api.query.system.account(refereeAddress, (accountInfo: AccountInfo) => {
                         if (accountInfo.data.free.gt(EXISTENTIAL_REFEREE_BALANCE)) {
                             badRefereesWithEnoughBalance.current.set(referee, accountInfo.data.free);
@@ -150,7 +149,6 @@ export const BlockchainSyncProvider: React.FC<BlockchainSyncProviderProps> = ({ 
 
     // TODO: fix the issue that causes it fire twice
     const sendTransactions = useCallback(async (reimbursements: Reimbursement[]) => {
-        console.log("reimbursements: " + JSON.stringify(reimbursements))
         if (currentPair) {
             let signedTransactionsPromises = reimbursements.map(async reimbursement => {
                 return api.tx.letters.reimburse(
@@ -201,11 +199,6 @@ export const BlockchainSyncProvider: React.FC<BlockchainSyncProviderProps> = ({ 
                                             console.error(`ItemFailed:: ${errorInfo}`);
                                         }
 
-                                        // Handle utility.ItemCompleted
-                                        if (event.section === 'utility' && event.method === 'ItemCompleted') {
-                                            console.log('An item in the batch was successfully executed.');
-                                        }
-
                                         // Handle custom event `ReimbursementHappened`
                                         if (event.section === 'letters' && event.method === 'ReimbursementHappened') {
                                             const [referee, letterNumber] = event.data.toJSON() as [string, number];
@@ -233,8 +226,6 @@ export const BlockchainSyncProvider: React.FC<BlockchainSyncProviderProps> = ({ 
 
     const selectAndSendTransactions = useCallback(async () => {
         let selectedReimbursements: Reimbursement[] = [];
-        // console.log('badReferees.size: ', badReferees.size)
-        // console.log('badRefereesWithEnoughBalance.current.size: ', badRefereesWithEnoughBalance.current.size)
         for (const [referee, balance] of badRefereesWithEnoughBalance.current) {
             if (selectedReimbursements.length >= REIMBURSEMENT_BATCH_SIZE) {
                 break;
@@ -263,7 +254,6 @@ export const BlockchainSyncProvider: React.FC<BlockchainSyncProviderProps> = ({ 
                 }
             }
         }
-        // console.log('selectedReimbursements.length: ', selectedReimbursements.length)
         if (selectedReimbursements.length > 0) {
             sendTransactions(selectedReimbursements);
         } else {
@@ -278,10 +268,6 @@ export const BlockchainSyncProvider: React.FC<BlockchainSyncProviderProps> = ({ 
         let blockCount = 0;
         const unsubscribe = api.rpc.chain.subscribeNewHeads((_header) => {
             blockCount++;
-            // console.log("------",)
-            // console.log("blockCount: ", blockCount)
-
-            // Execute every 2 blocks
             if (blockCount % 2 === 0) {
                 if (canCommunicateToBlockchain() &&
                     isInitialStateLoadedRef.current &&
