@@ -189,8 +189,8 @@ export const BlockchainSyncProvider: React.FC<BlockchainSyncProviderProps> = ({ 
                                             const [dispatchError] = event.data;
                                             let errorInfo;
 
-                                            if (dispatchError.isModule) {
-                                                const decoded = api.registry.findMetaError(dispatchError.asModule);
+                                            if ((dispatchError as any).isModule) {
+                                                const decoded = api.registry.findMetaError((dispatchError as any).asModule);
                                                 errorInfo = `${decoded.section}.${decoded.name}`;
                                             } else {
                                                 errorInfo = dispatchError.toString();
@@ -215,11 +215,14 @@ export const BlockchainSyncProvider: React.FC<BlockchainSyncProviderProps> = ({ 
                                 isSendingBatchRef.current = false;
                             }
                         } catch (error) {
-                            console.error(`Error in transaction handling: ${error.message}`);
+                            if (error instanceof Error) {
+                                console.error(`Error in transaction handling: ${error.message}`);
+                            } else {
+                                console.error(`Unexpected error: ${JSON.stringify(error)}`);
+                            }
                             isSendingBatchRef.current = false;
                         }
                     });
-
             }
         }
     }, [currentPair, api]);
