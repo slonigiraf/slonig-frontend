@@ -1,6 +1,6 @@
 import { cancelInsurance, cancelInsuranceByRefereeAndLetterNumber, cancelLetter, cancelLetterByRefereeAndLetterNumber, deleteReimbursement, getAllInsurances, getAllLetters, getAllReimbursements, getReimbursementsByReferee, Insurance, Letter, Reimbursement } from '@slonigiraf/db';
 import React, { useEffect, useState, useRef, useCallback, ReactNode, createContext, useContext } from 'react';
-import { useApi, useBlockEvents } from '@polkadot/react-hooks';
+import { useApi, useBlockEvents, useCall } from '@polkadot/react-hooks';
 import { useLoginContext } from './LoginContext.js';
 import BN from 'bn.js';
 import { balanceToSlonString, EXISTENTIAL_BATCH_SENDER_BALANCE, getAddressFromPublickeyHex, getRecommendationsFrom, useInfo } from './index.js';
@@ -27,7 +27,7 @@ type Recommendation = Letter | Insurance | Reimbursement;
 export const BlockchainSyncProvider: React.FC<BlockchainSyncProviderProps> = ({ children }) => {
     const { api, isApiReady } = useApi();
     const { events } = useBlockEvents();
-    const {showInfo} = useInfo();
+    const { showInfo } = useInfo();
     const { currentPair, isLoggedIn } = useLoginContext();
     const [badReferees, setBadReferees] = useState<Set<string>>(new Set());
 
@@ -38,6 +38,12 @@ export const BlockchainSyncProvider: React.FC<BlockchainSyncProviderProps> = ({ 
     const isSendingBatchRef = useRef<boolean>(false);
     const isInitialStateLoadedRef = useRef<boolean>(false);
 
+    const accountInfo = useCall<AccountInfo>(
+        isApiReady && api?.query?.system?.account
+            ? api.query.system.account
+            : undefined,
+        currentPair?.address ? [currentPair.address] : undefined
+    );
 
     const canCommunicateToBlockchain = useCallback(() => {
         if (currentPair && api && isApiReady && isLoggedIn) {
@@ -60,27 +66,14 @@ export const BlockchainSyncProvider: React.FC<BlockchainSyncProviderProps> = ({ 
     }, [events]);
 
     useEffect(() => {
-        if (!canCommunicateToBlockchain()) {
-            return;
+        if (accountInfo && myBalance.current) {
+            const balanceChange = accountInfo.data.free.sub(myBalance.current);
+            const icon = balanceChange.gte(BN_ZERO) ? 'hand-holding-dollar' : 'money-bill-trend-up';
+            showInfo(balanceToSlonString(balanceChange) + ' Slon', 'info', 4, icon);
         }
-        let unsubscribe: (() => void) | undefined;
-        api.query.system.account(currentPair?.address, (accountInfo: AccountInfo) => {
-            if (myBalance.current) {
-                const balanceChange = accountInfo.data.free.sub(myBalance.current);
-                const icon = balanceChange.gte(BN_ZERO) ? 'hand-holding-dollar' : 'money-bill-trend-up';
-                showInfo(balanceToSlonString(balanceChange) + ' Slon', 'info', 4, icon);
-            }
-            myBalance.current = accountInfo.data.free;
-        }).then((unsub) => {
-            unsubscribe = unsub as () => void;
-        });
-        return () => {
-            if (unsubscribe) {
-                unsubscribe();
-            }
-        };
-    }, [api, currentPair]);
-    
+        myBalance.current = accountInfo?.data.free || null;
+    }, [accountInfo]);
+
 
     useEffect(() => {
         const run = async () => {
