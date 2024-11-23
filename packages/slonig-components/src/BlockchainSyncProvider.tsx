@@ -59,16 +59,28 @@ export const BlockchainSyncProvider: React.FC<BlockchainSyncProviderProps> = ({ 
         })
     }, [events]);
 
-    const initializeMyBalance = useCallback(async () => {
-        await api.query.system.account(currentPair?.address, (accountInfo: AccountInfo) => {
-            if(myBalance.current){
+    useEffect(() => {
+        if (!canCommunicateToBlockchain()) {
+            return;
+        }
+        let unsubscribe: (() => void) | undefined;
+        api.query.system.account(currentPair?.address, (accountInfo: AccountInfo) => {
+            if (myBalance.current) {
                 const balanceChange = accountInfo.data.free.sub(myBalance.current);
-                const icon = balanceChange.gte(BN_ZERO)? 'hand-holding-dollar' : 'money-bill-trend-up';
+                const icon = balanceChange.gte(BN_ZERO) ? 'hand-holding-dollar' : 'money-bill-trend-up';
                 showInfo(balanceToSlonString(balanceChange) + ' Slon', 'info', 4, icon);
             }
             myBalance.current = accountInfo.data.free;
+        }).then((unsub) => {
+            unsubscribe = unsub as () => void;
         });
+        return () => {
+            if (unsubscribe) {
+                unsubscribe();
+            }
+        };
     }, [api, currentPair]);
+    
 
     useEffect(() => {
         const run = async () => {
@@ -128,7 +140,6 @@ export const BlockchainSyncProvider: React.FC<BlockchainSyncProviderProps> = ({ 
                     }
                 }
             }
-            await initializeMyBalance();
             isInitialStateLoadedRef.current = true;
         }
         if (canCommunicateToBlockchain()) {
