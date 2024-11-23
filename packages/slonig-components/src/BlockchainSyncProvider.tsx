@@ -37,7 +37,7 @@ export const BlockchainSyncProvider: React.FC<BlockchainSyncProviderProps> = ({ 
     const lettersICarryAbout = useRef<Map<string, Map<number, boolean>>>(new Map());
     const isSendingBatchRef = useRef<boolean>(false);
     const isInitialStateLoadedRef = useRef<boolean>(false);
-
+    const newHeader = useCall(api.rpc.chain.subscribeNewHeads);
     const accountInfo = useCall<AccountInfo>(
         isApiReady && api?.query?.system?.account
             ? api.query.system.account
@@ -262,28 +262,19 @@ export const BlockchainSyncProvider: React.FC<BlockchainSyncProviderProps> = ({ 
     }, [sendTransactions, badReferees]);
 
     useEffect(() => {
-        if (!canCommunicateToBlockchain()) {
-            return;
-        }
-        let blockCount = 0;
-        const unsubscribe = api.rpc.chain.subscribeNewHeads((_header) => {
-            blockCount++;
-            if (blockCount % 2 === 0) {
-                if (canCommunicateToBlockchain() &&
-                    isInitialStateLoadedRef.current &&
-                    !isSendingBatchRef.current &&
-                    myBalance.current &&
-                    myBalance.current.gt(EXISTENTIAL_BATCH_SENDER_BALANCE)
-                ) {
-                    isSendingBatchRef.current = true;
-                    selectAndSendTransactions();
-                }
+        if (newHeader) {
+            if (
+                canCommunicateToBlockchain() &&
+                isInitialStateLoadedRef.current &&
+                !isSendingBatchRef.current &&
+                myBalance.current &&
+                myBalance.current.gt(EXISTENTIAL_BATCH_SENDER_BALANCE)
+            ) {
+                isSendingBatchRef.current = true;
+                selectAndSendTransactions();
             }
-        });
-        return () => {
-            unsubscribe.then((unsub) => unsub());
-        };
-    }, [api, canCommunicateToBlockchain, selectAndSendTransactions]);
+        }
+    }, [newHeader, canCommunicateToBlockchain, selectAndSendTransactions]);
 
     const reimburse = async (reimbursements: Reimbursement[]) => {
         const newReferees = reimbursements.map((r: Reimbursement) => r.referee);
