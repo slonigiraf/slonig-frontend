@@ -17,7 +17,7 @@ export const getBaseUrl = () => {
 
 export const balanceToSlonString = (balance: BN): string => {
   const numberWith4Decimals = (formatBalance(balance, { forceUnit: '-', withUnit: false })).replaceAll(',', '');
-  const number = parseFloat(numberWith4Decimals);
+  const number = parseFloat(parseFloat(numberWith4Decimals).toFixed(2));
   return number.toString();
 }
 

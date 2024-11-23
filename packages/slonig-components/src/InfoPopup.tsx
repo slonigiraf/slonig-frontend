@@ -1,14 +1,15 @@
 import React from 'react';
 import { useTranslation } from './translate.js';
 import { BaseOverlay } from '@polkadot/apps';
-
+import type { IconName } from '@fortawesome/fontawesome-svg-core';
 interface Props {
     isEnabled: boolean;
     message: string;
+    icon: IconName;
     type?: 'error' | 'info';
 }
 
-function InfoPopup({ isEnabled, message, type = 'info' }: Props): React.ReactElement<Props> | null {
+function InfoPopup({ isEnabled, message, icon, type = 'info' }: Props): React.ReactElement<Props> | null {
     const { t } = useTranslation();
     if (!isEnabled) {
         return null;
@@ -16,7 +17,7 @@ function InfoPopup({ isEnabled, message, type = 'info' }: Props): React.ReactEle
 
     return (
         <BaseOverlay
-            icon='circle-info'
+            icon={icon ? icon : 'circle-info'}
             type={type}
             isEnabled={isEnabled}
         >

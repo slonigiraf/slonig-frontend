@@ -166,7 +166,6 @@ function Transfer({ className = '', onClose, onSuccess, recipientId: propRecipie
           if (isError) {
             showInfo(t('Transfer failed'), 'error');
           } else {
-            showInfo(t('Transfer successful'), 'info');
             onSuccess();
             onClose(); // Close the modal on success
           }

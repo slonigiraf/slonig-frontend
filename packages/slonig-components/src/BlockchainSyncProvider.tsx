@@ -59,7 +59,8 @@ export const BlockchainSyncProvider: React.FC<BlockchainSyncProviderProps> = ({ 
         await api.query.system.account(currentPair?.address, (accountInfo: AccountInfo) => {
             if(myBalance.current){
                 const balanceChange = accountInfo.data.free.sub(myBalance.current);
-                showInfo(balanceToSlonString(balanceChange));
+                const icon = balanceChange.gte(BN_ZERO)? 'hand-holding-dollar' : 'money-bill-trend-up';
+                showInfo(balanceToSlonString(balanceChange) + ' Slon', 'info', 4, icon);
             }
             myBalance.current = accountInfo.data.free;
         });
