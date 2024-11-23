@@ -32,15 +32,15 @@ class SlonigirafDB extends Dexie {
 
   constructor() {
     super('slonig');
-    this.version(47).stores({
-      letters: '&signOverReceipt,created,lastExamined,workerId,knowledgeId,cid,referee,[workerId+knowledgeId]',
+    this.version(48).stores({
+      letters: '&signOverReceipt,created,lastExamined,workerId,knowledgeId,cid,referee,[workerId+knowledgeId],[referee+letterNumber]',
       canceledLetters: '&signOverReceipt',
       canceledInsurances: '&workerSign',
       letterTemplates: '&[cid+lesson],lesson',
       pseudonyms: '&publicKey',
       signers: '&publicKey',
       usageRights: '&sign',
-      insurances: '&workerSign,created,workerId,[employer+workerId]',
+      insurances: '&workerSign,created,workerId,[employer+workerId],[referee+letterNumber]',
       reexaminations: '&signOverReceipt,lesson',
       reimbursements: '&workerSign,[referee+letterNumber],referee',
       settings: '&id',

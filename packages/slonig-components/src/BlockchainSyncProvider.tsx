@@ -1,4 +1,4 @@
-import { cancelInsurance, cancelLetter, deleteReimbursement, getAllInsurances, getAllLetters, getAllReimbursements, getReimbursementsByReferee, Insurance, Letter, Reimbursement } from '@slonigiraf/db';
+import { cancelInsurance, cancelInsuranceByRefereeAndLetterNumber, cancelLetter, cancelLetterByRefereeAndLetterNumber, deleteReimbursement, getAllInsurances, getAllLetters, getAllReimbursements, getReimbursementsByReferee, Insurance, Letter, Reimbursement } from '@slonigiraf/db';
 import React, { useEffect, useState, useRef, useCallback, ReactNode, createContext, useContext } from 'react';
 import { useApi, useBlockEvents } from '@polkadot/react-hooks';
 import { useLoginContext } from './LoginContext.js';
@@ -46,14 +46,18 @@ export const BlockchainSyncProvider: React.FC<BlockchainSyncProviderProps> = ({ 
         return false;
     }, [currentPair, api, isApiReady, isLoggedIn]);
 
-    // useEffect(() => {
-    //     if (isInitialStateLoaded) {
-    //         console.log("Events count: " + events.length)
-    //         events.forEach((event: KeyedEvent) => {
-    //             console.log("event.record: " + JSON.stringify(event.record));
-    //         })
-    //     }
-    // }, [events]);
+    useEffect(() => {
+        const now = (new Date()).getTime();
+        events.forEach((keyedEvent: KeyedEvent) => {
+            const { event } = keyedEvent.record;
+            if (event.section === 'letters' && event.method === 'ReimbursementHappened') {
+                const [referee, letterNumber] = event.data.toJSON() as [string, number];
+                deleteReimbursement(referee, letterNumber);
+                cancelLetterByRefereeAndLetterNumber(referee, letterNumber, now);
+                cancelInsuranceByRefereeAndLetterNumber(referee, letterNumber, now);
+            }
+        })
+    }, [events]);
 
     const initializeMyBalance = useCallback(async () => {
         await api.query.system.account(currentPair?.address, (accountInfo: AccountInfo) => {
@@ -153,7 +157,6 @@ export const BlockchainSyncProvider: React.FC<BlockchainSyncProviderProps> = ({ 
         }
     }, [api, badReferees, canCommunicateToBlockchain]);
 
-    // TODO: fix the issue that causes it fire twice
     const sendTransactions = useCallback(async (reimbursements: Reimbursement[]) => {
         if (currentPair) {
             let signedTransactionsPromises = reimbursements.map(async reimbursement => {
@@ -178,44 +181,28 @@ export const BlockchainSyncProvider: React.FC<BlockchainSyncProviderProps> = ({ 
                     .signAndSend(currentPair, async ({ events = [], status }) => {
                         try {
                             if (status.isInBlock || status.isFinalized) {
-                                console.log(`Transaction included in block: ${status.asInBlock || status.asFinalized}`);
-
                                 let batchCompletedWithErrors = false;
-
                                 events.forEach(({ event, phase }) => {
                                     if (phase.isApplyExtrinsic) {
-                                        // Handle utility.BatchCompletedWithErrors
                                         if (event.section === 'utility' && event.method === 'BatchCompletedWithErrors') {
                                             batchCompletedWithErrors = true;
-                                            console.warn('Batch completed with errors.');
+                                            console.error('Batch completed with errors.');
                                         }
-
-                                        // Handle utility.ItemFailed
                                         if (event.section === 'utility' && event.method === 'ItemFailed') {
                                             const [dispatchError] = event.data;
                                             let errorInfo;
-
                                             if ((dispatchError as any).isModule) {
                                                 const decoded = api.registry.findMetaError((dispatchError as any).asModule);
                                                 errorInfo = `${decoded.section}.${decoded.name}`;
                                             } else {
                                                 errorInfo = dispatchError.toString();
                                             }
-
                                             console.error(`ItemFailed:: ${errorInfo}`);
-                                        }
-
-                                        // Handle custom event `ReimbursementHappened`
-                                        if (event.section === 'letters' && event.method === 'ReimbursementHappened') {
-                                            const [referee, letterNumber] = event.data.toJSON() as [string, number];
-                                            console.log(`Reimbursement happened for referee: ${referee}, letterNumber: ${letterNumber}`);
-                                            deleteReimbursement(referee, letterNumber);
                                         }
                                     }
                                 });
-
                                 if (batchCompletedWithErrors) {
-                                    console.warn('forceBatch transaction partially succeeded: Some items failed.');
+                                    console.error('forceBatch transaction partially succeeded: Some items failed.');
                                 }
                                 unsub();
                                 isSendingBatchRef.current = false;
