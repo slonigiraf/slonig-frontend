@@ -23,16 +23,17 @@ interface InfoProviderProps {
 }
 
 export const InfoProvider: React.FC<InfoProviderProps> = ({ children }) => {
+    const defaultIcon: IconName = 'circle-info';
     const [isInfoVisible, setInfoVisible] = useState(false);
     const [infoMessage, setInfoMessage] = useState('');
     const [type, setType] = useState<'error' | 'info'>('info');
-    const [icon, setIcon] = useState<IconName>('circle-info');
+    const [icon, setIcon] = useState<IconName>(defaultIcon);
 
-    const showInfo = (message: string, type: 'error' | 'info' = 'info', timeoutSec: number = 4, icon? : IconName) => {
+    const showInfo = (message: string, type: 'error' | 'info' = 'info', timeoutSec: number = 4, icon : IconName = defaultIcon) => {
         setInfoMessage(message);
         setType(type);
         setInfoVisible(true);
-        icon && setIcon(icon);
+        setIcon(icon);
         setTimeout(() => {
             hideInfo();
         }, 1000 * timeoutSec);

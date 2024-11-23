@@ -1,6 +1,6 @@
 import { cancelInsurance, cancelInsuranceByRefereeAndLetterNumber, cancelLetter, cancelLetterByRefereeAndLetterNumber, deleteReimbursement, getAllInsurances, getAllLetters, getAllReimbursements, getReimbursementsByReferee, Insurance, Letter, Reimbursement } from '@slonigiraf/db';
 import React, { useEffect, useState, useRef, useCallback, ReactNode, createContext, useContext } from 'react';
-import { useApi, useBlockEvents, useCall } from '@polkadot/react-hooks';
+import { useApi, useBlockEvents, useCall, useIsMountedRef } from '@polkadot/react-hooks';
 import { useLoginContext } from './LoginContext.js';
 import BN from 'bn.js';
 import { balanceToSlonString, EXISTENTIAL_BATCH_SENDER_BALANCE, getAddressFromPublickeyHex, getRecommendationsFrom, useInfo } from './index.js';
@@ -30,7 +30,7 @@ export const BlockchainSyncProvider: React.FC<BlockchainSyncProviderProps> = ({ 
     const { showInfo } = useInfo();
     const { currentPair, isLoggedIn } = useLoginContext();
     const [badReferees, setBadReferees] = useState<Set<string>>(new Set());
-
+    const mountedRef = useIsMountedRef();
     const badRefereesWithEnoughBalance = useRef<Map<string, BN>>(new Map());
     const myBalance = useRef<BN | null>(null);
     const subscribedBadReferees = useRef(new Set());
@@ -135,31 +135,39 @@ export const BlockchainSyncProvider: React.FC<BlockchainSyncProviderProps> = ({ 
             }
             isInitialStateLoadedRef.current = true;
         }
-        if (canCommunicateToBlockchain()) {
+        if (mountedRef.current && canCommunicateToBlockchain()) {
             run();
         }
     }, [api, canCommunicateToBlockchain]);
 
 
 
-    // Subscribe to referees' balances change
     useEffect(() => {
-        if (canCommunicateToBlockchain() && badReferees.size > 0) {
+        const unsubscribeMap = new Map();
+        if (mountedRef.current && canCommunicateToBlockchain() && badReferees.size > 0) {
             badReferees.forEach(referee => {
                 if (!subscribedBadReferees.current.has(referee)) {
                     subscribedBadReferees.current.add(referee);
                     const refereeAddress = getAddressFromPublickeyHex(referee);
-                    api.query.system.account(refereeAddress, (accountInfo: AccountInfo) => {
-                        if (accountInfo.data.free.gt(EXISTENTIAL_REFEREE_BALANCE)) {
-                            badRefereesWithEnoughBalance.current.set(referee, accountInfo.data.free);
-                        } else {
-                            badRefereesWithEnoughBalance.current.delete(referee);
+                    const unsubscribe = api.query.system.account(refereeAddress, (accountInfo: AccountInfo) => {
+                        if (mountedRef.current) {
+                            if (accountInfo.data.free.gt(EXISTENTIAL_REFEREE_BALANCE)) {
+                                badRefereesWithEnoughBalance.current.set(referee, accountInfo.data.free);
+                            } else {
+                                badRefereesWithEnoughBalance.current.delete(referee);
+                            }
                         }
                     });
+                    unsubscribeMap.set(referee, unsubscribe);
                 }
             });
         }
+        return () => {
+            unsubscribeMap.forEach(unsubscribe => unsubscribe && unsubscribe());
+            unsubscribeMap.clear();
+        };
     }, [api, badReferees, canCommunicateToBlockchain]);
+
 
     const sendTransactions = useCallback(async (reimbursements: Reimbursement[]) => {
         if (currentPair) {
