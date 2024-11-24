@@ -185,7 +185,7 @@ export const syncDB = async (data: string, password: string) => {
     });
     //usageRights
     const usageRights = getDBObjectsFromJson(json, "usageRights");
-    usageRights.map((v: UsageRight) => storeUsageRight(v));
+    usageRights.map((v: UsageRight) => putUsageRight(v));
     //TODO: implement for pseudonyms
 }
 
@@ -550,24 +550,18 @@ export const getSetting = async (id: string): Promise<string | undefined> => {
     return setting ? setting.value : undefined;
 };
 
-export const storeUsageRight = async (usageRight: UsageRight) => {
-    const sameUsageRight = await db.usageRights.get({ sign: usageRight.sign });
-    if (sameUsageRight === undefined) {
-        await db.usageRights.add(usageRight);
-    }
+export const putUsageRight = async (usageRight: UsageRight) => {
+    await db.usageRights.put(usageRight);
 }
 
-export const storeLetterUsageRight = async (letter: Letter, employer: string, sign: string) => {
-    const sameUsageRight = await db.usageRights.get(sign);
-    if (sameUsageRight === undefined && letter.signOverReceipt !== undefined) {
-        const usageRight = {
-            created: (new Date()).getTime(),
-            signOverReceipt: letter.signOverReceipt,
-            employer: employer,
-            sign: sign
-        };
-        await db.usageRights.add(usageRight);
-    }
+export const letterToUsageRight = (letter: Letter, employer: string, workerSign: string, timeStamp: number): UsageRight => {
+    const usageRight = {
+        created: timeStamp,
+        signOverReceipt: letter.signOverReceipt,
+        employer: employer,
+        workerSign: workerSign
+    };
+    return usageRight;
 }
 
 export const createAndStoreLetter = async (data: string[]) => {

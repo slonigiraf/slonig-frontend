@@ -7,7 +7,7 @@ import React, { useEffect, useState } from 'react';
 import { u8aToHex, hexToU8a, u8aWrapBytes } from '@polkadot/util';
 import { nameFromKeyringPair, SenderComponent, CenterQRContainer, InsurancesTransfer } from '@slonigiraf/app-slonig-components';
 import { useTranslation } from '../translate.js';
-import { QRAction, storeLetterUsageRight, Letter, QRField } from '@slonigiraf/db';
+import { QRAction, letterToUsageRight, Letter, QRField, putUsageRight } from '@slonigiraf/db';
 import { keyForCid } from '@slonigiraf/app-slonig-components';
 
 interface Props {
@@ -26,6 +26,7 @@ function SignLettersUseRight({ className = '', letters, worker, employer, curren
       if (!currentPair) {
         return;
       }
+      const now = (new Date()).getTime();
       let signedLettersPromises = letters.map(async letter => {
         // generate a data to sign      
         const letterInsurance = getDataToSignByWorker(letter.letterNumber, new BN(letter.block), new BN(letter.block), hexToU8a(letter.referee),
@@ -34,7 +35,7 @@ function SignLettersUseRight({ className = '', letters, worker, employer, curren
         const diplomaKey = keyForCid(currentPair, letter.cid);
         const workerSignOverInsurance = u8aToHex(diplomaKey.sign(u8aWrapBytes(letterInsurance)));
 
-        storeLetterUsageRight(letter, employer, workerSignOverInsurance);
+        putUsageRight(letterToUsageRight(letter, employer, workerSignOverInsurance, now));
         // create the result text
         let result = [];
         result.push(letter.worker);
