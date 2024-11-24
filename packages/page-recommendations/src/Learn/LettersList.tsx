@@ -76,7 +76,7 @@ function LettersList({ className = '', worker, currentPair }: Props): React.Reac
   ) : (
     <div>
       <h2>{employer === '' ? t('My diplomas') : t('Select diplomas and send them')}</h2>
-      {employer !== '' && (
+      {employer !== '' && selectedLetters && selectedLetters.length > 0 && (
         <div>
           <SignLettersUseRight
             letters={selectedLetters}

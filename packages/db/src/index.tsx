@@ -35,6 +35,7 @@ export const SettingKey = {
     DIPLOMA_PRICE: 'diploma_price',
     DIPLOMA_WARRANTY: 'diploma_warranty',
     DIPLOMA_VALIDITY: 'diploma_validity',
+    INSURANCE_VALIDITY: 'insurance_validity',
 };
 
 export const QRAction = {
@@ -327,8 +328,14 @@ export const getLettersByWorkerId = async (workerId: string) => {
     return await db.letters.where({ workerId: workerId }).toArray();
 };
 
+const DEFAULT_INSURANCE_VALIDITY = 730;//Days valid
+export const getInsuranceDaysValid = async () => {
+    const stored_validity = await getSetting(SettingKey.INSURANCE_VALIDITY);
+    return stored_validity ? parseInt(stored_validity, 10) : DEFAULT_INSURANCE_VALIDITY;
+}
+
 const DEFAULT_WARRANTY = "105000000000000";//105 Slon
-const DEFAULT_VALIDITY = 730;//Days valid
+const DEFAULT_DIPLOMA_VALIDITY = 730;//Days valid
 const DEFAULT_DIPLOMA_PRICE = "80000000000000";//80 Slon
 
 export const storeLesson = async (lessonRequest: LessonRequest, tutor: string) => {
@@ -339,7 +346,7 @@ export const storeLesson = async (lessonRequest: LessonRequest, tutor: string) =
     const stored_diploma_price = await getSetting(SettingKey.DIPLOMA_PRICE);
 
     const warranty = stored_warranty ? stored_warranty : DEFAULT_WARRANTY;
-    const validity: number = stored_validity ? parseInt(stored_validity, 10) : DEFAULT_VALIDITY;
+    const validity: number = stored_validity ? parseInt(stored_validity, 10) : DEFAULT_DIPLOMA_VALIDITY;
     const diploma_price = stored_diploma_price ? stored_diploma_price : DEFAULT_DIPLOMA_PRICE;
 
     const lesson: Lesson = {

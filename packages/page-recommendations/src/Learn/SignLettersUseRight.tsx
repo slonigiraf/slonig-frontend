@@ -3,12 +3,13 @@
 import BN from 'bn.js';
 import { getDataToSignByWorker } from '@slonigiraf/helpers';
 import type { KeyringPair } from '@polkadot/keyring/types';
-import React, { useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import { u8aToHex, hexToU8a, u8aWrapBytes } from '@polkadot/util';
 import { nameFromKeyringPair, SenderComponent, CenterQRContainer, InsurancesTransfer } from '@slonigiraf/app-slonig-components';
 import { useTranslation } from '../translate.js';
-import { QRAction, letterToUsageRight, Letter, QRField, putUsageRight } from '@slonigiraf/db';
+import { QRAction, letterToUsageRight, Letter, QRField, putUsageRight, getInsuranceDaysValid, SettingKey, storeSetting } from '@slonigiraf/db';
 import { keyForCid } from '@slonigiraf/app-slonig-components';
+import { Input } from '@polkadot/react-components';
 
 interface Props {
   className?: string;
@@ -20,6 +21,15 @@ interface Props {
 function SignLettersUseRight({ className = '', letters, worker, employer, currentPair }: Props): React.ReactElement<Props> {
   const { t } = useTranslation();
   const [data, setData] = useState('');
+  const [daysInputValue, setDaysInputValue] = useState<string>(''); //To allow empty strings
+
+  useEffect(() => {
+    getInsuranceDaysValid().then(value => {
+      if (value) {
+        setDaysInputValue(value.toString());
+      }
+    });
+  }, []);
 
   const _onSign =
     async () => {
@@ -72,12 +82,34 @@ function SignLettersUseRight({ className = '', letters, worker, employer, curren
   );
 
   const thereAreDiplomas = letters.length > 0;
-  
-  const [action] = useState({[QRField.QR_ACTION] : QRAction.BUY_DIPLOMAS});
+
+  const [action] = useState({ [QRField.QR_ACTION]: QRAction.BUY_DIPLOMAS });
+
+  const setDaysValid = useCallback(
+    (value: string) => {
+      setDaysInputValue(value);
+      if (value === "") return;
+      const days = parseInt(value, 10);
+      if (!isNaN(days) && days >= 0) {
+        storeSetting(SettingKey.INSURANCE_VALIDITY, days.toString());
+      }
+    },
+    []
+  );
 
   return (
     <CenterQRContainer>
       <SenderComponent data={data} route={'diplomas/assess'} action={action} textShare={t('Press the link to see diplomas of the student')} isDisabled={!thereAreDiplomas} />
+      <div className='ui--row'>
+        <Input
+          className='full'
+          label={t('days valid')}
+          onChange={setDaysValid}
+          value={daysInputValue}
+          placeholder={t('Positive number')}
+          isError={!daysInputValue || daysInputValue === "0"}
+        />
+      </div>
     </CenterQRContainer>
   );
 
