@@ -27,15 +27,15 @@ function DiplomasApp({ basePath, onStatusChange }: Props): React.ReactElement<Pr
     {
       isRoot: true,
       name: 'student',
-      text: t('Student')
+      text: t('Learn')
     },
     {
       name: 'tutor',
-      text: t('Tutor')
+      text: t('Teach')
     },
     {
       name: 'teacher',
-      text: t('Teacher')
+      text: t('Assess')
     },
   ]);
 
