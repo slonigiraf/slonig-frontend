@@ -563,6 +563,13 @@ export const deleteReimbursement = async (referee: string, letterNumber: number)
         .delete();
 }
 
+export const deleteUsageRight = async (referee: string, letterNumber: number) => {
+    await db.usageRights
+        .where('[referee+letterNumber]')
+        .equals([referee, letterNumber])
+        .delete();
+}
+
 export const deleteLetter = async (signOverReceipt: string) => {
     await db.letters.delete(signOverReceipt);
 }

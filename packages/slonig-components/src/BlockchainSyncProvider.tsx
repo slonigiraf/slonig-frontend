@@ -1,4 +1,4 @@
-import { cancelInsurance, cancelInsuranceByRefereeAndLetterNumber, cancelLetter, cancelLetterByRefereeAndLetterNumber, deleteReimbursement, getAllInsurances, getAllLetters, getAllReimbursements, getReimbursementsByReferee, Insurance, Letter, Reimbursement } from '@slonigiraf/db';
+import { cancelInsurance, cancelInsuranceByRefereeAndLetterNumber, cancelLetter, cancelLetterByRefereeAndLetterNumber, deleteReimbursement, deleteUsageRight, getAllInsurances, getAllLetters, getAllReimbursements, getReimbursementsByReferee, Insurance, Letter, Reimbursement } from '@slonigiraf/db';
 import React, { useEffect, useState, useRef, useCallback, ReactNode, createContext, useContext } from 'react';
 import { useApi, useBlockEvents, useCall, useIsMountedRef } from '@polkadot/react-hooks';
 import { useLoginContext } from './LoginContext.js';
@@ -210,6 +210,11 @@ export const BlockchainSyncProvider: React.FC<BlockchainSyncProviderProps> = ({ 
                                                 errorInfo = dispatchError.toString();
                                             }
                                             console.error(`ItemFailed:: ${errorInfo}`);
+                                        }
+                                        if (event.section === 'letters' && event.method === 'ReimbursementHappened') {
+                                            const [referee, letterNumber] = event.data.toJSON() as [string, number];
+                                            deleteUsageRight(referee, letterNumber);
+                                            // Letters and Insurances are managed at another event processor.
                                         }
                                     }
                                 });
