@@ -292,7 +292,7 @@ export const cancelInsuranceByRefereeAndLetterNumber = async (referee: string, l
         };
         await Promise.all([
             await putCanceledInsurance(canceledInsurance),
-            await deleteInsurance(insurance.signOverReceipt),
+            await deleteInsurance(insurance.workerSign),
         ]);
     });
 };
