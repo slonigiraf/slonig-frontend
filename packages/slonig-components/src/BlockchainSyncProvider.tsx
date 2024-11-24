@@ -37,7 +37,11 @@ export const BlockchainSyncProvider: React.FC<BlockchainSyncProviderProps> = ({ 
     const lettersICarryAbout = useRef<Map<string, Map<number, boolean>>>(new Map());
     const isSendingBatchRef = useRef<boolean>(false);
     const isInitialStateLoadedRef = useRef<boolean>(false);
-    const newHeader = useCall(api.rpc.chain.subscribeNewHeads);
+    const newHeader = useCall(
+        isApiReady && api?.rpc?.chain?.subscribeNewHeads
+            ? api.rpc.chain.subscribeNewHeads
+            : undefined
+    );
     const accountInfo = useCall<AccountInfo>(
         isApiReady && api?.query?.system?.account
             ? api.query.system.account

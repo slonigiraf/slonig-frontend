@@ -3,8 +3,8 @@
 import BN from 'bn.js';
 import { getDataToSignByWorker } from '@slonigiraf/helpers';
 import type { KeyringPair } from '@polkadot/keyring/types';
-import React, { useCallback, useEffect, useState } from 'react';
-import { u8aToHex, hexToU8a, u8aWrapBytes, BN, BN_ONE } from '@polkadot/util';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
+import { u8aToHex, hexToU8a, u8aWrapBytes, BN_ONE } from '@polkadot/util';
 import { nameFromKeyringPair, SenderComponent, CenterQRContainer, InsurancesTransfer, predictBlockNumber, useInfo } from '@slonigiraf/app-slonig-components';
 import { useTranslation } from '../translate.js';
 import { QRAction, insuranceToUsageRight, Letter, QRField, putUsageRight, getInsuranceDaysValid, SettingKey, storeSetting, letterToInsurance, serializeInsurance, UsageRight } from '@slonigiraf/db';
@@ -26,7 +26,7 @@ function SignLettersUseRight({ className = '', letters, worker, employer, curren
   const [data, setData] = useState('');
   const { api, isApiReady } = useApi();
   const [daysInputValue, setDaysInputValue] = useState<string>(''); //To allow empty strings
-  const [usageRights, setUsageRights] = useState<UsageRight[]>([]);
+  const usageRightsRef = useRef<UsageRight[]>([]);
   const [millisecondsPerBlock,] = useBlockTime(BN_ONE, api);
 
   useEffect(() => {
@@ -66,7 +66,8 @@ function SignLettersUseRight({ className = '', letters, worker, employer, curren
             });
 
             const insurances = await Promise.all(insurancePromises);
-            setUsageRights(insurances.map(insuranceToUsageRight));
+            usageRightsRef.current = insurances.map(insuranceToUsageRight);
+            
             const studentName = nameFromKeyringPair(currentPair);
 
             const preparedData: InsurancesTransfer = {
@@ -99,11 +100,11 @@ function SignLettersUseRight({ className = '', letters, worker, employer, curren
     []
   );
 
-  const _onDataSent = useCallback(() => {
-    usageRights.forEach(putUsageRight);
+  const _onDataSent = () => {
+    usageRightsRef.current.forEach(putUsageRight);
     showInfo(t('Sent'));
     onDataSent();
-  }, [usageRights])
+  }
 
   const validDays = daysInputValue && daysInputValue !== "0";
 
