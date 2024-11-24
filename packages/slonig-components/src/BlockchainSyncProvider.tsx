@@ -1,4 +1,4 @@
-import { cancelInsurance, cancelInsuranceByRefereeAndLetterNumber, cancelLetter, cancelLetterByRefereeAndLetterNumber, deleteReimbursement, deleteUsageRight, getAllInsurances, getAllLetters, getAllReimbursements, getReimbursementsByReferee, Insurance, Letter, Reimbursement } from '@slonigiraf/db';
+import { cancelInsurance, cancelInsuranceByRefereeAndLetterNumber, cancelLetter, cancelLetterByRefereeAndLetterNumber, markUsageRightAsUsed, deleteReimbursement, deleteUsageRight, getAllInsurances, getAllLetters, getAllReimbursements, getReimbursementsByReferee, Insurance, Letter, Reimbursement } from '@slonigiraf/db';
 import React, { useEffect, useState, useRef, useCallback, ReactNode, createContext, useContext } from 'react';
 import { useApi, useBlockEvents, useCall, useIsMountedRef } from '@polkadot/react-hooks';
 import { useLoginContext } from './LoginContext.js';
@@ -61,6 +61,7 @@ export const BlockchainSyncProvider: React.FC<BlockchainSyncProviderProps> = ({ 
                 deleteReimbursement(referee, letterNumber);
                 cancelLetterByRefereeAndLetterNumber(referee, letterNumber, now);
                 cancelInsuranceByRefereeAndLetterNumber(referee, letterNumber, now);
+                markUsageRightAsUsed(referee, letterNumber);
             }
         })
     }, [events]);

@@ -1,5 +1,5 @@
 export interface UsageRight {
-  valud: boolean;
+  used: boolean;
   created: number; // timestamp
   signOverReceipt: string;
   employer: string;

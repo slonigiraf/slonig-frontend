@@ -5,7 +5,7 @@ import { getDataToSignByWorker } from '@slonigiraf/helpers';
 import type { KeyringPair } from '@polkadot/keyring/types';
 import React, { useCallback, useEffect, useState } from 'react';
 import { u8aToHex, hexToU8a, u8aWrapBytes, BN, BN_ONE } from '@polkadot/util';
-import { nameFromKeyringPair, SenderComponent, CenterQRContainer, InsurancesTransfer, predictBlockNumber } from '@slonigiraf/app-slonig-components';
+import { nameFromKeyringPair, SenderComponent, CenterQRContainer, InsurancesTransfer, predictBlockNumber, useInfo } from '@slonigiraf/app-slonig-components';
 import { useTranslation } from '../translate.js';
 import { QRAction, insuranceToUsageRight, Letter, QRField, putUsageRight, getInsuranceDaysValid, SettingKey, storeSetting, letterToInsurance, serializeInsurance, UsageRight } from '@slonigiraf/db';
 import { keyForCid } from '@slonigiraf/app-slonig-components';
@@ -22,6 +22,7 @@ interface Props {
 }
 function SignLettersUseRight({ className = '', letters, worker, employer, currentPair, onDataSent }: Props): React.ReactElement<Props> {
   const { t } = useTranslation();
+  const { showInfo } = useInfo();
   const [data, setData] = useState('');
   const { api, isApiReady } = useApi();
   const [daysInputValue, setDaysInputValue] = useState<string>(''); //To allow empty strings
@@ -35,8 +36,6 @@ function SignLettersUseRight({ className = '', letters, worker, employer, curren
       }
     });
   }, []);
-
-
 
   useEffect(
     () => {
@@ -78,11 +77,10 @@ function SignLettersUseRight({ className = '', letters, worker, employer, curren
             };
             setData(JSON.stringify(preparedData));
           }
-
         };
 
       _onSign();
-    }, [api, isApiReady, millisecondsPerBlock, currentPair, worker, employer, letters]
+    }, [api, isApiReady, millisecondsPerBlock, currentPair, worker, employer, letters, daysInputValue]
   );
 
   const thereAreDiplomas = letters.length > 0;
@@ -102,7 +100,8 @@ function SignLettersUseRight({ className = '', letters, worker, employer, curren
   );
 
   const _onDataSent = useCallback(() => {
-    usageRights.map(putUsageRight);
+    usageRights.forEach(putUsageRight);
+    showInfo(t('Sent'));
     onDataSent();
   }, [usageRights])
 

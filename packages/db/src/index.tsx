@@ -264,6 +264,16 @@ export const cancelLetterByRefereeAndLetterNumber = async (referee: string, lett
     });
 };
 
+export const markUsageRightAsUsed = async (referee: string, letterNumber: number) => {
+    const usageRights = await db.usageRights
+        .where('[referee+letterNumber]')
+        .equals([referee, letterNumber])
+        .toArray();
+    usageRights.forEach(async (usageRight) => {
+        await putUsageRight({...usageRight, used: true});
+    });
+};
+
 export const cancelInsuranceByRefereeAndLetterNumber = async (referee: string, letterNumber: number, time: number) => {
     const insurances = await db.insurances
         .where('[referee+letterNumber]')
@@ -589,12 +599,13 @@ export const getSetting = async (id: string): Promise<string | undefined> => {
 };
 
 export const putUsageRight = async (usageRight: UsageRight) => {
+    console.log('usageRight: ', JSON.stringify(usageRight, null, 2))
     await db.usageRights.put(usageRight);
 }
 
 export const insuranceToUsageRight = (insurance: Insurance): UsageRight => {
-    const usageRight = {
-        valid: insurance.valid,
+    const usageRight: UsageRight = {
+        used: false,
         created: insurance.created,
         signOverReceipt: insurance.signOverReceipt,
         employer: insurance.employer,
