@@ -606,7 +606,6 @@ export const getSetting = async (id: string): Promise<string | undefined> => {
 };
 
 export const putUsageRight = async (usageRight: UsageRight) => {
-    console.log('usageRight: ', JSON.stringify(usageRight, null, 2))
     await db.usageRights.put(usageRight);
 }
 
