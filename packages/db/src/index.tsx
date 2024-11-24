@@ -382,6 +382,7 @@ export const storeLesson = async (lessonRequest: LessonRequest, tutor: string) =
         let reexaminationStage = 0;
         await Promise.all(lessonRequest.reexamine.map(async (item: string[]) => {
             const reexamination: Reexamination = {
+                created: now,
                 stage: reexaminationStage++,
                 lastExamined: now,
                 valid: true,
