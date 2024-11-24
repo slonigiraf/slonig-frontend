@@ -4,10 +4,10 @@ import { useLiveQuery } from 'dexie-react-hooks';
 import { deleteLetter, getLetters, Letter } from '@slonigiraf/db';
 import { Button, styled, Icon, Modal } from '@polkadot/react-components';
 import { useTranslation } from '../translate.js';
-import { useLocation } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 import SignLettersUseRight from './SignLettersUseRight.js';
 import type { KeyringPair } from '@polkadot/keyring/types';
-import { DateInput, SelectableList, useInfo } from '@slonigiraf/app-slonig-components';
+import { DateInput, SelectableList, StyledContentCloseButton, useInfo } from '@slonigiraf/app-slonig-components';
 import { useToggle } from '@polkadot/react-hooks';
 
 interface Props {
@@ -23,6 +23,8 @@ function LettersList({ className = '', worker, currentPair }: Props): React.Reac
   const queryParams = new URLSearchParams(location.search);
   const employer = queryParams.get('teacher') || '';
   const { showInfo } = useInfo();
+  const navigate = useNavigate();
+  const [reloadCount, setReloadCount] = useState<number>(0);
 
   // Initialize startDate and endDate as timestamps
   const [startDate, setStartDate] = useState<number | null>(new Date(new Date().setHours(0, 0, 0, 0)).getTime());
@@ -67,6 +69,12 @@ function LettersList({ className = '', worker, currentPair }: Props): React.Reac
       <Button icon="trash" label={t('Delete')} onClick={toggleDeleteConfirm} />
     );
 
+  const close = () => {
+    setSelectedLetters([]);
+    setReloadCount(reloadCount+1);
+    navigate('', { replace: true });
+  }
+
   const isSelectionAllowed = true;
   const startDateId = 'letters:start';
   const endDateId = 'letters:end';
@@ -78,11 +86,15 @@ function LettersList({ className = '', worker, currentPair }: Props): React.Reac
       <h2>{employer === '' ? t('My diplomas') : t('Select diplomas and send them')}</h2>
       {employer !== '' && selectedLetters && selectedLetters.length > 0 && (
         <div>
+          <StyledContentCloseButton onClick={close}
+            icon='close'
+          />
           <SignLettersUseRight
             letters={selectedLetters}
             worker={worker}
             employer={employer}
             currentPair={currentPair}
+            onDataSent={close}
           />
         </div>
       )}
@@ -115,8 +127,8 @@ function LettersList({ className = '', worker, currentPair }: Props): React.Reac
         onSelectionChange={handleSelectionChange}
         maxSelectableItems={MAX_SELECTED}
         additionalControls={deleteSelectedButton}
-        keyExtractor={(letter) => letter.signOverReceipt }
-        uniqueKey={worker}
+        keyExtractor={(letter) => letter.signOverReceipt}
+        key={worker+reloadCount}
       />
       {isDeleteConfirmOpen && (
         <StyledModal

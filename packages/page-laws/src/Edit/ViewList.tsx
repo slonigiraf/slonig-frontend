@@ -103,7 +103,7 @@ function ViewList({ className = '', id, cidString, list }: Props): React.ReactEl
           onItemsUpdate={handleItemsUpdate}
           isSelectionAllowed={isModuleQRVisible}
           keyExtractor={(item) => item.id}
-          uniqueKey={id}
+          key={id}
         />
       )}
 

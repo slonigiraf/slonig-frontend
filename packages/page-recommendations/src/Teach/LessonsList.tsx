@@ -112,7 +112,7 @@ function LessonsList({ className = '', tutor, onResumeTutoring, onShowResults }:
         maxSelectableItems={MAX_SELECTED}
         additionalControls={deleteSelectedButton}
         keyExtractor={(lesson) => lesson.id}
-        uniqueKey={tutor}
+        key={tutor}
         isSelectionAllowed={isSelectionAllowed}
       />
       {isDeleteConfirmOpen && (

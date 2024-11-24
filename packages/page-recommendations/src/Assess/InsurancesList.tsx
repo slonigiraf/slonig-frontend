@@ -131,7 +131,7 @@ function InsurancesList({ className = '', teacher, student, studentNameFromUrl }
         maxSelectableItems={MAX_SELECTED}
         additionalControls={deleteSelectedButton}
         keyExtractor={(insurance) => insurance.workerSign}
-        uniqueKey={student}
+        key={student}
         isSelectionAllowed={isSelectionAllowed}
       />
       {isDeleteConfirmOpen && (
