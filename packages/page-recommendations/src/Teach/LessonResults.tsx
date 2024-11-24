@@ -7,18 +7,11 @@ import { styled, Button, Input, InputBalance, Icon, Card, Modal, Spinner } from 
 import { useApi, useBlockTime, useToggle } from '@polkadot/react-hooks';
 import { u8aToHex, hexToU8a, u8aWrapBytes, BN_ONE, BN_ZERO, formatBalance } from '@polkadot/util';
 import type { LessonResult, Skill } from '@slonigiraf/app-slonig-components';
-import { getIPFSDataFromContentID, parseJson, useIpfsContext, useLoginContext, VerticalCenterItemsContainer, CenterQRContainer, KatexSpan, balanceToSlonString, SenderComponent, useInfo, nameFromKeyringPair, StyledContentCloseButton } from '@slonigiraf/app-slonig-components';
+import { getIPFSDataFromContentID, parseJson, useIpfsContext, useLoginContext, VerticalCenterItemsContainer, CenterQRContainer, KatexSpan, balanceToSlonString, SenderComponent, useInfo, nameFromKeyringPair, StyledContentCloseButton, predictBlockNumber } from '@slonigiraf/app-slonig-components';
 import { getPseudonym, Lesson, getLastUnusedLetterNumber, setLastUsedLetterNumber, storeSetting, getReexaminationsByLessonId, getValidLetterTemplatesByLessonId, QRAction, SettingKey, QRField, serializeAsLetter, LetterTemplate, putLetterTemplate } from '@slonigiraf/db';
 import { getPublicDataToSignByReferee, getPrivateDataToSignByReferee } from '@slonigiraf/helpers';
 import { useTranslation } from '../translate.js';
 import { blake2AsHex } from '@polkadot/util-crypto';
-
-const getDiplomaBlockNumber = (currentBlock: BN, blockTimeMs: number, secondsToAdd: number): BN => {
-  const secondsToGenerateBlock = blockTimeMs / 1000;
-  const blocksToAdd = new BN(secondsToAdd).div(new BN(secondsToGenerateBlock));
-  const blockAllowed = currentBlock.add(blocksToAdd);
-  return blockAllowed;
-}
 
 interface Props {
   className?: string;
@@ -185,7 +178,7 @@ function LessonResults({ className = '', lesson, updateAndStoreLesson, onClose }
         const currentBlockNumber = new BN((chainHeader as { number: BN }).number.toString());
         const secondsValid = lesson.dValidity * 86400;
 
-        const diplomaBlockNumber: BN = getDiplomaBlockNumber(currentBlockNumber, millisecondsPerBlock, secondsValid);
+        const diplomaBlockNumber: BN = predictBlockNumber(currentBlockNumber, millisecondsPerBlock, secondsValid);
 
         // Get diplomas to sign
         const letterTemplates: LetterTemplate[] = await getValidLetterTemplatesByLessonId(lesson.id);

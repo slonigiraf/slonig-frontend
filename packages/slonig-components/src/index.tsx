@@ -30,6 +30,9 @@ import { encodeAddress } from '@polkadot/keyring';
 import { hexToU8a } from '@polkadot/util';
 import type { ApiPromise } from '@polkadot/api';
 import { Codec } from '@polkadot/types/types';
+import { KeyringPair } from '@polkadot/keyring/types';
+import { u8aToHex, stringToU8a, u8aConcat } from '@polkadot/util';
+import { signatureVerify } from '@polkadot/util-crypto';
 
 export const EXISTENTIAL_BATCH_SENDER_BALANCE = new BN('10000000000000'); // 10 Slon = 10000000000000
 export const EXISTENTIAL_REFEREE_BALANCE = new BN('1000000000000000'); // 1k Slon = 1000000000000000
@@ -139,10 +142,6 @@ export function useDeveloperSetting(): boolean {
 
   return isDeveloper;
 }
-
-import { KeyringPair } from '@polkadot/keyring/types';
-import { u8aToHex, stringToU8a, u8aConcat } from '@polkadot/util';
-import { signatureVerify } from '@polkadot/util-crypto';
 
 /**
  * Signs an array of strings with a keyPair.
@@ -265,3 +264,10 @@ export const getRecommendationsFrom = async (
   }
   return null;
 };
+
+export const predictBlockNumber = (currentBlock: BN, blockTimeMs: number, secondsToAdd: number): BN => {
+  const secondsToGenerateBlock = blockTimeMs / 1000;
+  const blocksToAdd = new BN(secondsToAdd).div(new BN(secondsToGenerateBlock));
+  const blockAllowed = currentBlock.add(blocksToAdd);
+  return blockAllowed;
+}
