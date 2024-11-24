@@ -13,7 +13,7 @@ interface Props {
   className?: string;
 }
 
-function Student({ className = '' }: Props): React.ReactElement<Props> {
+function Learn({ className = '' }: Props): React.ReactElement<Props> {
   // Process query
   const location = useLocation();
   const queryParams = new URLSearchParams(location.search);
@@ -33,4 +33,4 @@ function Student({ className = '' }: Props): React.ReactElement<Props> {
   )
 }
 
-export default React.memo(Student);
+export default React.memo(Learn);

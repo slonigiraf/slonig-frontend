@@ -14,7 +14,7 @@ interface Props {
   className?: string;
 }
 
-function Tutor({ className = '' }: Props): React.ReactElement<Props> {
+function Teach({ className = '' }: Props): React.ReactElement<Props> {
   // Initialize api, ipfs and translation
   const { currentPair, isLoggedIn } = useLoginContext();
 
@@ -191,5 +191,5 @@ const StyledProgress = styled(Progress)`
   }
 `;
 
-export default React.memo(Tutor);
+export default React.memo(Teach);
 

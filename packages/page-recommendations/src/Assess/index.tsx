@@ -17,7 +17,7 @@ interface Props {
   className?: string;
 }
 
-function Teacher({ className = '' }: Props): React.ReactElement<Props> {
+function Assess({ className = '' }: Props): React.ReactElement<Props> {
   const { t } = useTranslation();
   // Initialize account
   const { currentPair, isLoggedIn } = useLoginContext();
@@ -109,4 +109,4 @@ const FlexRow = styled.div`
   align-items: left;
   margin-top: 20px;
 `;
-export default React.memo(Teacher);
+export default React.memo(Assess);

@@ -9,16 +9,16 @@ import { Tabs } from '@polkadot/react-components';
 import { useAccounts, useIpfs } from '@polkadot/react-hooks';
 import { useTranslation } from './translate.js';
 import useCounter from './useCounter.js';
-import Tutor from './Tutor/index.js';
-import Student from './Student/index.js';
-import Teacher from './Teacher/index.js';
-import DBImport from './Student/DBImport.js';
-import DBExport from './Student/DBExport.js';
+import Learn from './Learn/index.js';
+import Teach from './Teach/index.js';
+import Assess from './Assess/index.js';
+import DBImport from './Learn/DBImport.js';
+import DBExport from './Learn/DBExport.js';
 export { useCounter, DBImport, DBExport };
 
 const HIDDEN_ACC = ['vanity'];
 
-function DiplomasApp({ basePath, onStatusChange }: Props): React.ReactElement<Props> {
+function DiplomasApp({ basePath }: Props): React.ReactElement<Props> {
   const { t } = useTranslation();
   const { hasAccounts } = useAccounts();
   const { isIpfs } = useIpfs();
@@ -50,21 +50,21 @@ function DiplomasApp({ basePath, onStatusChange }: Props): React.ReactElement<Pr
         <Route path={basePath}>
           <Route
             element={
-              <Teacher onStatusChange={onStatusChange} />
-            }
-            path='assess'
-          />
-          <Route
-            element={
-              <Student onStatusChange={onStatusChange} />
+              <Learn />
             }
             index
           />
           <Route
             element={
-              <Tutor onStatusChange={onStatusChange} />
+              <Teach />
             }
             path='teach'
+          />
+          <Route
+            element={
+              <Assess />
+            }
+            path='assess'
           />
         </Route>
       </Routes>
