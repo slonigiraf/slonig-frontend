@@ -119,7 +119,7 @@ function SkillQR({ className = '', id, cid, type, selectedItems, isLearningReque
   }, [diplomasToReexamine, shouldRender]);
 
   const name = nameFromKeyringPair(currentPair);
-  const route = 'diplomas/tutor';
+  const route = 'diplomas/teach';
   const [action] = useState({ [QRField.QR_ACTION]: QRAction.LEARN_MODULE });
   const diplomaCheck = <DiplomaCheck id={id} cid={cid} caption={t('I have a diploma')} setValidDiplomas={setValidDiplomas} onLoad={() => setLoading(false)} />;
   const hasValidDiploma = validDiplomas && validDiplomas.length > 0;

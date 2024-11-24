@@ -52,10 +52,10 @@ function ScanQR({ className = '', label }: Props): React.ReactElement<Props> {
             navigate(`diplomas?${QRField.WEBRTC_PEER_ID}=${qrJSON[QRField.WEBRTC_PEER_ID]}`);
             break;
           case QRAction.BUY_DIPLOMAS:
-            navigate(`diplomas/teacher?${QRField.WEBRTC_PEER_ID}=${qrJSON[QRField.WEBRTC_PEER_ID]}`);
+            navigate(`diplomas/assess?${QRField.WEBRTC_PEER_ID}=${qrJSON[QRField.WEBRTC_PEER_ID]}`);
             break;
           case QRAction.LEARN_MODULE:
-            navigate(`diplomas/tutor?${QRField.WEBRTC_PEER_ID}=${qrJSON[QRField.WEBRTC_PEER_ID]}`);
+            navigate(`diplomas/teach?${QRField.WEBRTC_PEER_ID}=${qrJSON[QRField.WEBRTC_PEER_ID]}`);
             break;
           case QRAction.TEACHER_IDENTITY:
             navigate(`diplomas?teacher=${qrJSON.p}`);

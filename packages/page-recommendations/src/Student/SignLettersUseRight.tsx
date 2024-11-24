@@ -76,7 +76,7 @@ function SignLettersUseRight({ className = '', letters, worker, employer, curren
 
   return (
     <CenterQRContainer>
-      <SenderComponent data={data} route={'diplomas/teacher'} action={action} textShare={t('Press the link to see diplomas of the student')} isDisabled={!thereAreDiplomas} />
+      <SenderComponent data={data} route={'diplomas/assess'} action={action} textShare={t('Press the link to see diplomas of the student')} isDisabled={!thereAreDiplomas} />
     </CenterQRContainer>
   );
 

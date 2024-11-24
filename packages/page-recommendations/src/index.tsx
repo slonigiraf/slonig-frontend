@@ -26,15 +26,15 @@ function DiplomasApp({ basePath, onStatusChange }: Props): React.ReactElement<Pr
   const tabsRef = useRef([
     {
       isRoot: true,
-      name: 'student',
+      name: 'learn',
       text: t('Learn')
     },
     {
-      name: 'tutor',
+      name: 'teach',
       text: t('Teach')
     },
     {
-      name: 'teacher',
+      name: 'assess',
       text: t('Assess')
     },
   ]);
@@ -52,7 +52,7 @@ function DiplomasApp({ basePath, onStatusChange }: Props): React.ReactElement<Pr
             element={
               <Teacher onStatusChange={onStatusChange} />
             }
-            path='teacher'
+            path='assess'
           />
           <Route
             element={
@@ -64,7 +64,7 @@ function DiplomasApp({ basePath, onStatusChange }: Props): React.ReactElement<Pr
             element={
               <Tutor onStatusChange={onStatusChange} />
             }
-            path='tutor'
+            path='teach'
           />
         </Route>
       </Routes>
