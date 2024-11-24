@@ -1,4 +1,4 @@
-import { cancelInsurance, cancelInsuranceByRefereeAndLetterNumber, cancelLetter, cancelLetterByRefereeAndLetterNumber, markUsageRightAsUsed, deleteReimbursement, deleteUsageRight, getAllInsurances, getAllLetters, getAllReimbursements, getReimbursementsByReferee, Insurance, Letter, Reimbursement } from '@slonigiraf/db';
+import { cancelInsurance, cancelInsuranceByRefereeAndLetterNumber, cancelLetter, cancelLetterByRefereeAndLetterNumber, markUsageRightAsUsed, deleteReimbursement, deleteUsageRight, getAllInsurances, getAllLetters, getAllReimbursements, getReimbursementsByReferee, Insurance, Letter, Reimbursement, getReimbursementsByRefereeAndLetterNumber } from '@slonigiraf/db';
 import React, { useEffect, useState, useRef, useCallback, ReactNode, createContext, useContext } from 'react';
 import { useApi, useBlockEvents, useCall, useIsMountedRef } from '@polkadot/react-hooks';
 import { useLoginContext } from './LoginContext.js';
@@ -56,19 +56,29 @@ export const BlockchainSyncProvider: React.FC<BlockchainSyncProviderProps> = ({ 
         return false;
     }, [currentPair, api, isApiReady, isLoggedIn]);
 
+    const processLetterCancelationEvent = useCallback(async (referee: string, letterNumber: number, timeStamp: number) => {
+        await cancelLetterByRefereeAndLetterNumber(referee, letterNumber, timeStamp);
+        await cancelInsuranceByRefereeAndLetterNumber(referee, letterNumber, timeStamp);
+        const reimbursements = await getReimbursementsByRefereeAndLetterNumber(referee, letterNumber);
+        if(reimbursements.length > 0){
+            await deleteUsageRight(referee, letterNumber);
+            await deleteReimbursement(referee, letterNumber);
+        } else{
+            await markUsageRightAsUsed(referee, letterNumber);
+        }
+    }, []);
+
     useEffect(() => {
         const now = (new Date()).getTime();
         events.forEach((keyedEvent: KeyedEvent) => {
             const { event } = keyedEvent.record;
             if (event.section === 'letters' && event.method === 'ReimbursementHappened') {
                 const [referee, letterNumber] = event.data.toJSON() as [string, number];
-                deleteReimbursement(referee, letterNumber);
-                cancelLetterByRefereeAndLetterNumber(referee, letterNumber, now);
-                cancelInsuranceByRefereeAndLetterNumber(referee, letterNumber, now);
-                markUsageRightAsUsed(referee, letterNumber);
+                processLetterCancelationEvent(referee, letterNumber, now);
             }
         })
     }, [events]);
+
 
     useEffect(() => {
         if (accountInfo && myBalance.current) {
@@ -216,11 +226,6 @@ export const BlockchainSyncProvider: React.FC<BlockchainSyncProviderProps> = ({ 
                                             }
                                             console.error(`ItemFailed:: ${errorInfo}`);
                                         }
-                                        if (event.section === 'letters' && event.method === 'ReimbursementHappened') {
-                                            const [referee, letterNumber] = event.data.toJSON() as [string, number];
-                                            deleteUsageRight(referee, letterNumber);
-                                            // Letters and Insurances are managed at another event processor.
-                                        }
                                     }
                                 });
                                 if (batchCompletedWithErrors) {
@@ -250,8 +255,7 @@ export const BlockchainSyncProvider: React.FC<BlockchainSyncProviderProps> = ({ 
             }
             if (balance.gt(EXISTENTIAL_REFEREE_BALANCE)) {
                 let penaltyAmount = BN_ZERO;
-                const reimbursementsCollection = await getReimbursementsByReferee(referee);
-                const reimbursements = await reimbursementsCollection.toArray();
+                const reimbursements = await getReimbursementsByReferee(referee);
                 const fromMinToMaxReimbursement = reimbursements.sort((a, b) => {
                     const amountA = new BN(a.amount);
                     const amountB = new BN(b.amount);

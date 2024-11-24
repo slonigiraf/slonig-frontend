@@ -4,4 +4,6 @@ export interface UsageRight {
   signOverReceipt: string;
   employer: string;
   workerSign: string;
+  referee: string;
+  letterNumber: number;
 }

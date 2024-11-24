@@ -133,7 +133,7 @@ export const getAllReimbursements = async () => {
     return await db.reimbursements.toArray();
 }
 export const getReimbursementsByReferee = async (referee: string) => {
-    return await db.reimbursements.where({ referee: referee });
+    return await db.reimbursements.where({ referee: referee }).toArray();
 }
 export const getAllPseudonyms = async () => {
     return await db.pseudonyms.toArray();
@@ -573,6 +573,13 @@ export const deleteReimbursement = async (referee: string, letterNumber: number)
         .delete();
 }
 
+export const getReimbursementsByRefereeAndLetterNumber = async (referee: string, letterNumber: number) => {
+    return await db.reimbursements
+        .where('[referee+letterNumber]')
+        .equals([referee, letterNumber])
+        .toArray();
+}
+
 export const deleteUsageRight = async (referee: string, letterNumber: number) => {
     await db.usageRights
         .where('[referee+letterNumber]')
@@ -609,7 +616,9 @@ export const insuranceToUsageRight = (insurance: Insurance): UsageRight => {
         created: insurance.created,
         signOverReceipt: insurance.signOverReceipt,
         employer: insurance.employer,
-        workerSign: insurance.workerSign
+        workerSign: insurance.workerSign,
+        referee: insurance.referee,
+        letterNumber: insurance.letterNumber,
     };
     return usageRight;
 }
