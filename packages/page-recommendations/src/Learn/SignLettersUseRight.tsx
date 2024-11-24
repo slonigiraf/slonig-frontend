@@ -4,12 +4,13 @@ import BN from 'bn.js';
 import { getDataToSignByWorker } from '@slonigiraf/helpers';
 import type { KeyringPair } from '@polkadot/keyring/types';
 import React, { useCallback, useEffect, useState } from 'react';
-import { u8aToHex, hexToU8a, u8aWrapBytes } from '@polkadot/util';
-import { nameFromKeyringPair, SenderComponent, CenterQRContainer, InsurancesTransfer } from '@slonigiraf/app-slonig-components';
+import { u8aToHex, hexToU8a, u8aWrapBytes, BN, BN_ONE } from '@polkadot/util';
+import { nameFromKeyringPair, SenderComponent, CenterQRContainer, InsurancesTransfer, predictBlockNumber } from '@slonigiraf/app-slonig-components';
 import { useTranslation } from '../translate.js';
-import { QRAction, letterToUsageRight, Letter, QRField, putUsageRight, getInsuranceDaysValid, SettingKey, storeSetting } from '@slonigiraf/db';
+import { QRAction, insuranceToUsageRight, Letter, QRField, putUsageRight, getInsuranceDaysValid, SettingKey, storeSetting, letterToInsurance, serializeInsurance, UsageRight } from '@slonigiraf/db';
 import { keyForCid } from '@slonigiraf/app-slonig-components';
 import { Input } from '@polkadot/react-components';
+import { useApi, useBlockTime } from '@polkadot/react-hooks';
 
 interface Props {
   className?: string;
@@ -17,11 +18,15 @@ interface Props {
   worker: string;
   employer: string;
   currentPair: KeyringPair;
+  onDataSent: () => void;
 }
-function SignLettersUseRight({ className = '', letters, worker, employer, currentPair }: Props): React.ReactElement<Props> {
+function SignLettersUseRight({ className = '', letters, worker, employer, currentPair, onDataSent }: Props): React.ReactElement<Props> {
   const { t } = useTranslation();
   const [data, setData] = useState('');
+  const { api, isApiReady } = useApi();
   const [daysInputValue, setDaysInputValue] = useState<string>(''); //To allow empty strings
+  const [usageRights, setUsageRights] = useState<UsageRight[]>([]);
+  const [millisecondsPerBlock,] = useBlockTime(BN_ONE, api);
 
   useEffect(() => {
     getInsuranceDaysValid().then(value => {
@@ -31,54 +36,53 @@ function SignLettersUseRight({ className = '', letters, worker, employer, curren
     });
   }, []);
 
-  const _onSign =
-    async () => {
-      if (!currentPair) {
-        return;
-      }
-      const now = (new Date()).getTime();
-      let signedLettersPromises = letters.map(async letter => {
-        // generate a data to sign      
-        const letterInsurance = getDataToSignByWorker(letter.letterNumber, new BN(letter.block), new BN(letter.block), hexToU8a(letter.referee),
-          hexToU8a(letter.worker), new BN(letter.amount), hexToU8a(letter.signOverReceipt), hexToU8a(employer));
 
-        const diplomaKey = keyForCid(currentPair, letter.cid);
-        const workerSignOverInsurance = u8aToHex(diplomaKey.sign(u8aWrapBytes(letterInsurance)));
-
-        putUsageRight(letterToUsageRight(letter, employer, workerSignOverInsurance, now));
-        // create the result text
-        let result = [];
-        result.push(letter.worker);
-        result.push(letter.knowledgeId);
-        result.push(letter.cid);
-        result.push(letter.genesis);
-        result.push(letter.letterNumber);
-        result.push(letter.block);//This is for blockNumber
-        result.push(letter.block);//This is for blockAllowed
-        result.push(letter.referee);
-        result.push(letter.amount);
-        result.push(letter.signOverPrivateData);
-        result.push(letter.signOverReceipt);
-        result.push(workerSignOverInsurance);
-        return result.join(",");
-      });
-
-      const signedLetters = await Promise.all(signedLettersPromises);
-      const studentName = nameFromKeyringPair(currentPair);
-
-      const preparedData: InsurancesTransfer = {
-        identity: worker,
-        name: studentName,
-        insurances: signedLetters,
-        employer: employer,
-      };
-      setData(JSON.stringify(preparedData));
-    };
 
   useEffect(
     () => {
+      const _onSign =
+        async () => {
+          if (!currentPair || !api || !isApiReady) {
+            return;
+          }
+          const daysValid = parseInt(daysInputValue, 10);
+          if (daysValid > 0) {
+            const now = (new Date()).getTime();
+            // Calculate block number
+            const chainHeader = await api.rpc.chain.getHeader();
+            const currentBlockNumber = new BN((chainHeader as { number: BN }).number.toString());
+            const secondsValid = daysValid * 86400;
+            const predictedBlock: BN = predictBlockNumber(currentBlockNumber, millisecondsPerBlock, secondsValid);
+
+            let insurancePromises = letters.map(async letter => {
+              const block = new BN(letter.block);
+              const blockAllowed = block.gt(predictedBlock) ? predictedBlock : block;
+              // generate a data to sign      
+              const letterInsurance = getDataToSignByWorker(letter.letterNumber, block, blockAllowed, hexToU8a(letter.referee),
+                hexToU8a(letter.worker), new BN(letter.amount), hexToU8a(letter.signOverReceipt), hexToU8a(employer));
+
+              const diplomaKey = keyForCid(currentPair, letter.cid);
+              const workerSignOverInsurance = u8aToHex(diplomaKey.sign(u8aWrapBytes(letterInsurance)));
+              return letterToInsurance(letter, employer, workerSignOverInsurance, blockAllowed.toString(), now);
+            });
+
+            const insurances = await Promise.all(insurancePromises);
+            setUsageRights(insurances.map(insuranceToUsageRight));
+            const studentName = nameFromKeyringPair(currentPair);
+
+            const preparedData: InsurancesTransfer = {
+              identity: worker,
+              name: studentName,
+              insurances: insurances.map(serializeInsurance),
+              employer: employer,
+            };
+            setData(JSON.stringify(preparedData));
+          }
+
+        };
+
       _onSign();
-    }, [currentPair, worker, employer, letters]
+    }, [api, isApiReady, millisecondsPerBlock, currentPair, worker, employer, letters]
   );
 
   const thereAreDiplomas = letters.length > 0;
@@ -97,9 +101,22 @@ function SignLettersUseRight({ className = '', letters, worker, employer, curren
     []
   );
 
+  const _onDataSent = useCallback(() => {
+    usageRights.map(putUsageRight);
+    onDataSent();
+  }, [usageRights])
+
+  const validDays = daysInputValue && daysInputValue !== "0";
+
   return (
     <CenterQRContainer>
-      <SenderComponent data={data} route={'diplomas/assess'} action={action} textShare={t('Press the link to see diplomas of the student')} isDisabled={!thereAreDiplomas} />
+      {validDays && <SenderComponent
+        onDataSent={_onDataSent}
+        data={data}
+        route={'diplomas/assess'}
+        action={action}
+        textShare={t('Press the link to see diplomas of the student')}
+        isDisabled={!thereAreDiplomas} />}
       <div className='ui--row'>
         <Input
           className='full'

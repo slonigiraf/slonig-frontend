@@ -462,6 +462,29 @@ export const letterToReimbursement = (letter: Letter, employer: string, workerSi
     return reimbursement;
 }
 
+export const letterToInsurance = (letter: Letter, employer: string, workerSign: string, blockAllowed: string, timeStamp: number): Insurance => {
+    const insurance: Insurance = {
+        created: timeStamp,
+        valid: true,
+        lesson: '',
+        workerId: letter.workerId,
+        knowledgeId: letter.knowledgeId,
+        cid: letter.cid,
+        genesis: letter.genesis,
+        letterNumber: letter.letterNumber,
+        block: letter.block,
+        blockAllowed: blockAllowed,
+        referee: letter.referee,
+        worker: letter.worker,
+        amount: letter.amount,
+        signOverPrivateData: letter.signOverPrivateData,
+        signOverReceipt: letter.signOverReceipt,
+        employer: employer,
+        workerSign: workerSign,
+    }
+    return insurance;
+}
+
 export const insuranceToReimbursement = (insurance: Insurance): Reimbursement => {
     const reimbursement: Reimbursement = {
         genesis: insurance.genesis,
@@ -562,12 +585,13 @@ export const putUsageRight = async (usageRight: UsageRight) => {
     await db.usageRights.put(usageRight);
 }
 
-export const letterToUsageRight = (letter: Letter, employer: string, workerSign: string, timeStamp: number): UsageRight => {
+export const insuranceToUsageRight = (insurance: Insurance): UsageRight => {
     const usageRight = {
-        created: timeStamp,
-        signOverReceipt: letter.signOverReceipt,
-        employer: employer,
-        workerSign: workerSign
+        valid: insurance.valid,
+        created: insurance.created,
+        signOverReceipt: insurance.signOverReceipt,
+        employer: insurance.employer,
+        workerSign: insurance.workerSign
     };
     return usageRight;
 }
@@ -732,4 +756,21 @@ export function deserializeLetter(data: string, workerId: string, genesis: strin
         signOverReceipt
     };
     return result;
-}  
+}
+
+export function serializeInsurance(insurance: Insurance): string {
+    return [
+        insurance.worker,
+        insurance.knowledgeId,
+        insurance.cid,
+        insurance.genesis,
+        insurance.letterNumber,
+        insurance.block,
+        insurance.blockAllowed,
+        insurance.referee,
+        insurance.amount,
+        insurance.signOverPrivateData,
+        insurance.signOverReceipt,
+        insurance.workerSign,
+    ].join(",");
+}
