@@ -43,7 +43,7 @@ class SlonigirafDB extends Dexie {
       letterTemplates: '&[cid+lesson],lesson',
       pseudonyms: '&publicKey',
       reexaminations: '&signOverReceipt,lesson',
-      reimbursements: '&workerSign,[referee+letterNumber],referee',
+      reimbursements: '&workerSign,referee,[referee+letterNumber]',
       settings: '&id',
       signers: '&publicKey',
       usageRights: '&[signOverReceipt+employer],[referee+letterNumber]',
