@@ -36,6 +36,7 @@ export const SettingKey = {
     DIPLOMA_WARRANTY: 'diploma_warranty',
     DIPLOMA_VALIDITY: 'diploma_validity',
     INSURANCE_VALIDITY: 'insurance_validity',
+    CID_CACHE_SIZE: 'cid_cache_size',
 };
 
 export const QRAction = {
@@ -447,9 +448,43 @@ export const putCanceledInsurance = async (canceledInsurance: CanceledInsurance)
     await db.canceledInsurances.put(canceledInsurance);
 }
 
+const MAX_CACHE_SIZE = 25 * 1024 * 1024; // 25 MB will probably result in 50 MB with IndexedDB storage overhead
+const evictEntries = async (requiredSize: number) => {
+    let freedSpace = 0;
+    const entries = await db.cidCache
+        .orderBy('time')
+        .until(() => freedSpace >= requiredSize)
+        .toArray();
+    const deletePromises = entries.map(async ({ cid, size }) => {
+        await db.cidCache.delete(cid);
+        freedSpace += size || 0;
+    });
+    await Promise.all(deletePromises);
+    return freedSpace;
+};
+
+let cacheLock = Promise.resolve();
+const runLocked = async (fn: () => Promise<void>) => {
+    const unlock = cacheLock.then(() => fn());
+    cacheLock = unlock.catch(() => {});
+    return unlock;
+};
 export const putCIDCache = async (cid: string, data: string) => {
-    await db.cidCache.put({ cid, data });
-}
+    const size = new Blob([data]).size + new Blob([cid]).size;
+    await runLocked(async () => {
+        const cidCacheSizeString = await getSetting(SettingKey.CID_CACHE_SIZE);
+        let totalCacheSize = cidCacheSizeString ? parseInt(cidCacheSizeString, 10) : 0;
+        if (totalCacheSize + size > MAX_CACHE_SIZE) {
+            const spaceNeeded = totalCacheSize + size - MAX_CACHE_SIZE;
+            const freedSpace = await evictEntries(spaceNeeded);
+            totalCacheSize -= freedSpace;
+        }
+        await db.cidCache.put({ cid, data, size, time: Date.now() });
+        totalCacheSize += size;
+        await storeSetting(SettingKey.CID_CACHE_SIZE, totalCacheSize.toString());
+    });
+};
+
 
 export const updateInsurance = async (insurance: Insurance) => {
     await db.insurances.update(insurance.workerSign, insurance);

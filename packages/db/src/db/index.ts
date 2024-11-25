@@ -32,7 +32,7 @@ class SlonigirafDB extends Dexie {
 
   constructor() {
     super('slonig');
-    this.version(51).stores({
+    this.version(52).stores({
       letters: '&signOverReceipt,created,lastExamined,workerId,knowledgeId,cid,referee,[workerId+knowledgeId],[referee+letterNumber]',
       canceledLetters: '&signOverReceipt',
       canceledInsurances: '&workerSign',
@@ -46,7 +46,7 @@ class SlonigirafDB extends Dexie {
       settings: '&id',
       lessons: '&id,created,tutor',
       agreements: '&id',
-      cidCache: '&cid',
+      cidCache: '&cid,time',
     });
   }
 }
