@@ -2,11 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import React, { useCallback, useState } from 'react';
-import { useIpfsContext } from '@slonigiraf/app-slonig-components';
-import { Button, Modal } from '@polkadot/react-components';
-import { useTranslation } from './translate.js';
-import QRCode from 'qrcode.react';
-import { qrCodeSize } from '../constants.js';
+import { Button } from '@polkadot/react-components';
 import { exportDB } from '@slonigiraf/db';
 
 interface Props {
@@ -14,7 +10,6 @@ interface Props {
 }
 
 function DBExport({ className = '' }: Props): React.ReactElement<Props> {
-  const { t } = useTranslation();
   const [isRrocessing, setIsProcessing] = useState(false);
   const downloadDbJson = useCallback(
     async () => {
