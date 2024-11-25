@@ -1,15 +1,21 @@
 // SPDX-License-Identifier: Apache-2.0
-
+import FileSaver from 'file-saver';
 import React, { useCallback, useState } from 'react';
 import { Button } from '@polkadot/react-components';
 import { exportDB } from '@slonigiraf/db';
+import { useLogin } from './useLogin.js';
+import { nextTick } from '@polkadot/util';
+import { keyring } from '@polkadot/ui-keyring';
 
 interface Props {
   className?: string;
 }
 
 function DBExport({ className = '' }: Props): React.ReactElement<Props> {
+  const {currentPair} = useLogin();
   const [isProcessing, setIsProcessing] = useState(false);
+  const [isBusy, setIsBusy] = useState(false);
+  const [backupFailed, setBackupFailed] = useState(false);
 
   function progressCallback({ totalRows, completedRows }: any) {
     console.log(`Progress: ${completedRows} of ${totalRows} rows completed`);
@@ -55,6 +61,32 @@ function DBExport({ className = '' }: Props): React.ReactElement<Props> {
       setIsProcessing(false);
     }
   }, []);
+
+  const backupCurrentPair = useCallback(
+    (): void => {
+      setIsBusy(true);
+      nextTick((): void => {
+        try {
+          const password = ''; // Intentionally, users can't remember passwords.
+          const addressKeyring = currentPair;
+          const json = addressKeyring && keyring.backupAccount(addressKeyring, password);
+          const blob = new Blob([JSON.stringify(json)], { type: 'application/json; charset=utf-8' });
+
+          // eslint-disable-next-line deprecation/deprecation
+          FileSaver.saveAs(blob, `${currentPair?.address}.json`);
+        } catch (error) {
+          setBackupFailed(true);
+          setIsBusy(false);
+          console.error(error);
+
+          return;
+        }
+
+        setIsBusy(false);
+      });
+    },
+    [currentPair]
+  );
 
   return (
     <Button
