@@ -23,6 +23,7 @@ import { CanceledInsurance } from "./db/CanceledInsurance.js";
 
 export type { CanceledInsurance, Reexamination, LetterTemplate, CanceledLetter, Reimbursement, Letter, Insurance, Lesson, Pseudonym, Setting, Signer, UsageRight, Agreement };
 
+// Setting related
 export const SettingKey = {
     ACCOUNT: 'account',
     ENCRYPTION_KEY: 'encryptionKey',
@@ -39,14 +40,24 @@ export const SettingKey = {
     CID_CACHE_SIZE: 'cid_cache_size',
 };
 
-const progressCallback = ({ totalRows, completedRows }: any) => {
-    console.log(`Progress: ${completedRows} of ${totalRows} rows completed`);
-    return true;
+export const storeSetting = async (id: string, value: string) => {
+    const cleanId = DOMPurify.sanitize(id);
+    const cleanValue = DOMPurify.sanitize(value);
+    await db.settings.put({ id: cleanId, value: cleanValue });
 }
 
-export const exportDB = async () => {
-    await db.export({ prettyJson: true, progressCallback });
+export const deleteSetting = async (id: string) => {
+    const cleanId = DOMPurify.sanitize(id);
+    await db.settings.delete(cleanId);
 }
+
+export const getSetting = async (id: string): Promise<string | undefined> => {
+    const cleanId = DOMPurify.sanitize(id);
+    const setting = await db.settings.get(cleanId);
+    return setting ? setting.value : undefined;
+};
+
+
 
 export const getLesson = async (id: string) => {
     return await db.lessons.get(id);
@@ -565,16 +576,7 @@ export const storePseudonym = async (publicKey: string, pseudonym: string) => {
     }
 }
 
-export const storeSetting = async (id: string, value: string) => {
-    const cleanId = DOMPurify.sanitize(id);
-    const cleanValue = DOMPurify.sanitize(value);
-    await db.settings.put({ id: cleanId, value: cleanValue });
-}
 
-export const deleteSetting = async (id: string) => {
-    const cleanId = DOMPurify.sanitize(id);
-    await db.settings.delete(cleanId);
-}
 
 export const deleteReimbursement = async (referee: string, letterNumber: number) => {
     await db.reimbursements
@@ -609,11 +611,7 @@ export const deleteLesson = async (id: string) => {
     await db.lessons.delete(id);
 }
 
-export const getSetting = async (id: string): Promise<string | undefined> => {
-    const cleanId = DOMPurify.sanitize(id);
-    const setting = await db.settings.get(cleanId);
-    return setting ? setting.value : undefined;
-};
+
 
 export const putUsageRight = async (usageRight: UsageRight) => {
     await db.usageRights.put(usageRight);
@@ -812,4 +810,14 @@ export function serializeInsurance(insurance: Insurance): string {
         insurance.signOverReceipt,
         insurance.workerSign,
     ].join(",");
+}
+
+// Export DB
+const progressCallback = ({ totalRows, completedRows }: any) => {
+    console.log(`Progress: ${completedRows} of ${totalRows} rows completed`);
+    return true;
+}
+
+export const exportDB = async () => {
+    await db.export({ prettyJson: true, progressCallback });
 }
