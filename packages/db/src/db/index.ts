@@ -33,28 +33,20 @@ class SlonigirafDB extends Dexie {
   constructor() {
     super('slonig');
     this.version(52).stores({
+      agreements: '&id',
+      canceledInsurances: '&workerSign',
+      canceledLetters: '&signOverReceipt',
+      cidCache: '&cid,time',
+      insurances: '&workerSign,created,workerId,[employer+workerId],[referee+letterNumber]',
+      lessons: '&id,created,tutor',
+      letters: '&signOverReceipt,created,lastExamined,workerId,knowledgeId,cid,referee,[workerId+knowledgeId],[referee+letterNumber]',
+      letterTemplates: '&[cid+lesson],lesson',
+      pseudonyms: '&publicKey',
+      reexaminations: '&signOverReceipt,lesson',
+      reimbursements: '&workerSign,[referee+letterNumber],referee',
       settings: '&id',
       signers: '&publicKey',
-      pseudonyms: '&publicKey',
-      canceledLetters: '&signOverReceipt',
-      letters: '&signOverReceipt,created,lastExamined,workerId,knowledgeId,cid,referee,[workerId+knowledgeId],[referee+letterNumber]',
-      reexaminations: '&signOverReceipt,lesson',
-      lessons: '&id,created,tutor',
-
-      
-      
-      
-      letterTemplates: '&[cid+lesson],lesson',
-      
-      canceledInsurances: '&workerSign',
       usageRights: '&[signOverReceipt+employer],[referee+letterNumber]',
-      insurances: '&workerSign,created,workerId,[employer+workerId],[referee+letterNumber]',
-      
-      reimbursements: '&workerSign,[referee+letterNumber],referee',
-      
-      
-      agreements: '&id',
-      cidCache: '&cid,time',
     });
   }
 }
