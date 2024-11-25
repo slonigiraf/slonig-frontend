@@ -28,6 +28,7 @@ const DEFAULT_WARRANTY = "105000000000000";//105 Slon
 const DEFAULT_DIPLOMA_VALIDITY = 730;//Days valid
 const DEFAULT_DIPLOMA_PRICE = "80000000000000";//80 Slon
 const MAX_CACHE_SIZE = 25 * 1024 * 1024; // 25 MB will probably result in 50 MB with IndexedDB storage overhead
+
 // Setting related
 
 export const SettingKey = {
@@ -69,6 +70,7 @@ export async function getInsuranceDaysValid() {
 }
 
 // Signer related
+
 export async function setLastUsedLetterNumber(publicKey: string, lastUsed: number) {
     await db.signers.update(publicKey, { lastLetterNumber: lastUsed });
 }
@@ -454,6 +456,7 @@ export async function putAgreement(agreement: Agreement) {
 }
 
 // CIDCache related
+
 export async function getCIDCache(cid: string) {
     return await db.cidCache.get(cid);
 }
