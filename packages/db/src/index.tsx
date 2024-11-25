@@ -18,6 +18,7 @@ import { decodeAddress, encodeAddress } from '@polkadot/keyring';
 import { isHex, u8aToHex } from '@polkadot/util';
 import { blake2AsHex } from '@polkadot/util-crypto';
 import "dexie-export-import";
+import { exportDB as dexieExport } from 'dexie-export-import';
 import { InsurancesTransfer, LessonRequest } from "@slonigiraf/app-slonig-components";
 import { CanceledInsurance } from "./db/CanceledInsurance.js";
 
@@ -784,14 +785,18 @@ export function getDBObjectsFromJson(json: any, tableName: string) {
     return found.rows;
 }
 
-function progressCallback({ totalRows, completedRows }: any) {
-    console.log(`Progress: ${completedRows} of ${totalRows} rows completed`);
-    return true;
-}
-
-export async function exportDB() {
-    await db.export({ prettyJson: true, progressCallback });
-}
+export async function exportDB(progressCallback?: (progress: number) => void): Promise<Blob> {
+    try {
+      const blob = await dexieExport(db, {
+        prettyJson: true,
+        progressCallback,
+      });
+      return blob;
+    } catch (error) {
+      console.error('Error exporting Dexie database:', error);
+      throw error;
+    }
+  }
 
 export async function syncDB(data: string, password: string) {
     const json = JSON.parse(data);
