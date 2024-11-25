@@ -23,7 +23,13 @@ import { CanceledInsurance } from "./db/CanceledInsurance.js";
 
 export type { CanceledInsurance, Reexamination, LetterTemplate, CanceledLetter, Reimbursement, Letter, Insurance, Lesson, Pseudonym, Setting, Signer, UsageRight, Agreement };
 
+const DEFAULT_INSURANCE_VALIDITY = 730;//Days valid
+const DEFAULT_WARRANTY = "105000000000000";//105 Slon
+const DEFAULT_DIPLOMA_VALIDITY = 730;//Days valid
+const DEFAULT_DIPLOMA_PRICE = "80000000000000";//80 Slon
+const MAX_CACHE_SIZE = 25 * 1024 * 1024; // 25 MB will probably result in 50 MB with IndexedDB storage overhead
 // Setting related
+
 export const SettingKey = {
     ACCOUNT: 'account',
     ENCRYPTION_KEY: 'encryptionKey',
@@ -39,22 +45,34 @@ export const SettingKey = {
     INSURANCE_VALIDITY: 'insurance_validity',
     CID_CACHE_SIZE: 'cid_cache_size',
 };
+
 export async function storeSetting(id: string, value: string) {
     const cleanId = DOMPurify.sanitize(id);
     const cleanValue = DOMPurify.sanitize(value);
     await db.settings.put({ id: cleanId, value: cleanValue });
 }
+
 export async function deleteSetting(id: string) {
     const cleanId = DOMPurify.sanitize(id);
     await db.settings.delete(cleanId);
 }
+
 export async function getSetting(id: string): Promise<string | undefined> {
     const cleanId = DOMPurify.sanitize(id);
     const setting = await db.settings.get(cleanId);
     return setting ? setting.value : undefined;
 };
 
+export async function getInsuranceDaysValid() {
+    const stored_validity = await getSetting(SettingKey.INSURANCE_VALIDITY);
+    return stored_validity ? parseInt(stored_validity, 10) : DEFAULT_INSURANCE_VALIDITY;
+}
+
 // Signer related
+export async function setLastUsedLetterNumber(publicKey: string, lastUsed: number) {
+    await db.signers.update(publicKey, { lastLetterNumber: lastUsed });
+}
+
 export async function getLastUnusedLetterNumber(publicKey: string) {
     const sameSigner = await db.signers.get({ publicKey: publicKey });
     if (sameSigner === undefined) {
@@ -69,14 +87,21 @@ export async function getLastUnusedLetterNumber(publicKey: string) {
     return 1 + sameSigner.lastLetterNumber;
 }
 
-export async function setLastUsedLetterNumber(publicKey: string, lastUsed: number) {
-    await db.signers.update(publicKey, { lastLetterNumber: lastUsed });
+// Pseudonym related
+
+function isValidPublicKey(publicKey: string) {
+    try {
+        if (!isHex(publicKey)) {
+            return false;
+        }
+        const decoded = decodeAddress(publicKey);
+        const encoded = encodeAddress(decoded);
+        return u8aToHex(decoded) === publicKey || encoded === publicKey;
+    } catch (error) {
+        return false;
+    }
 }
 
-// Pseudonym related
-export async function getAllPseudonyms() {
-    return await db.pseudonyms.toArray();
-}
 export async function storePseudonym(publicKey: string, pseudonym: string) {
     if (isValidPublicKey(publicKey)) {
         const cleanPseudonym = DOMPurify.sanitize(pseudonym);
@@ -89,6 +114,7 @@ export async function storePseudonym(publicKey: string, pseudonym: string) {
         }
     }
 }
+
 export async function getPseudonym(publicKey: string): Promise<string | undefined> {
     try {
         const name = await db.pseudonyms.get(publicKey);
@@ -102,22 +128,35 @@ export async function getPseudonym(publicKey: string): Promise<string | undefine
     return undefined;
 };
 
+export async function getAllPseudonyms() {
+    return await db.pseudonyms.toArray();
+}
+
 // CanceledLetter related
+
 export async function putCanceledLetter(canceledLetter: CanceledLetter) {
     await db.canceledLetters.put(canceledLetter);
 }
 
 // Letter related
-export async function putLetter (letter: Letter) {
+
+export async function putLetter(letter: Letter) {
     await db.letters.put(letter);
 }
+
+export async function deleteLetter(signOverReceipt: string) {
+    await db.letters.delete(signOverReceipt);
+}
+
 export async function getLetter(signOverReceipt: string) {
     return await db.letters.get(signOverReceipt);
 }
-export async function getAllLetters (){
+
+export async function getAllLetters() {
     return await db.letters.toArray();
 }
-export async function getLetters(worker: string, startDate: number | null, endDate: number | null){
+
+export async function getLetters(worker: string, startDate: number | null, endDate: number | null) {
     let query = db.letters.where('workerId').equals(worker);
     if (startDate || endDate) {
         query = query.filter((letter: Letter) => {
@@ -128,16 +167,19 @@ export async function getLetters(worker: string, startDate: number | null, endDa
     }
     return await query.reverse().sortBy('created');
 }
+
 export async function getLettersForKnowledgeId(workerId: string, knowledgeId: string): Promise<Letter[]> {
     return await db.letters
         .where('[workerId+knowledgeId]')
         .equals([workerId, knowledgeId])
         .toArray();
 }
+
 export async function getLettersByWorkerId(workerId: string) {
     return await db.letters.where({ workerId: workerId }).toArray();
 };
-export async function updateLetterReexaminingCount(signOverReceipt: string, time: number){
+
+export async function updateLetterReexaminingCount(signOverReceipt: string, time: number) {
     const letter = await db.letters.get(signOverReceipt);
     if (letter) {
         const newExamCount = letter.examCount + 1;
@@ -145,6 +187,7 @@ export async function updateLetterReexaminingCount(signOverReceipt: string, time
     }
     return undefined;
 }
+
 export async function cancelLetter(signOverReceipt: string, time: number) {
     const letter: Letter | undefined = await getLetter(signOverReceipt);
     if (letter) {
@@ -162,6 +205,7 @@ export async function cancelLetter(signOverReceipt: string, time: number) {
         await deleteLetter(letter.signOverReceipt);
     }
 }
+
 export async function cancelLetterByRefereeAndLetterNumber(referee: string, letterNumber: number, time: number) {
     const letters = await db.letters
         .where('[referee+letterNumber]')
@@ -186,30 +230,107 @@ export async function cancelLetterByRefereeAndLetterNumber(referee: string, lett
     });
 };
 
+export async function createAndStoreLetter(data: string[]) {
+    const [textHash,
+        workerId,
+        genesisHex,
+        letterId,
+        blockNumber,
+        refereePublicKeyHex,
+        workerPublicKeyHex,
+        amount,
+        refereeSignOverPrivateData,
+        refereeSignOverReceipt,
+        knowledgeId] = data;
+
+    const now = (new Date()).getTime();
+    const letter: Letter = {
+        created: now,
+        examCount: 1,
+        lastExamined: now,
+        workerId: workerId,
+        knowledgeId: knowledgeId,
+        cid: textHash,
+        genesis: genesisHex,
+        letterNumber: parseInt(letterId, 10),
+        block: blockNumber,
+        referee: refereePublicKeyHex,
+        worker: workerPublicKeyHex,
+        amount: amount,
+        signOverPrivateData: refereeSignOverPrivateData,
+        signOverReceipt: refereeSignOverReceipt
+    };
+    await putLetter(letter);
+}
+
+export function deserializeLetter(data: string, workerId: string, genesis: string, amount: string): Letter {
+    const [
+        created,
+        knowledgeId,
+        cid,
+        letterNumber,
+        block,
+        referee,
+        worker,
+        signOverPrivateData,
+        signOverReceipt,
+    ] = data.split(',');
+    const timeStamp = parseInt(created, 10);
+    const result: Letter = {
+        created: timeStamp,
+        examCount: 1,
+        lastExamined: timeStamp,
+        workerId,
+        knowledgeId,
+        cid,
+        genesis,
+        letterNumber: parseInt(letterNumber, 10),
+        block,
+        referee,
+        worker,
+        amount,
+        signOverPrivateData,
+        signOverReceipt
+    };
+    return result;
+}
+
 // Reexamination related
+
 export async function putReexamination(reexamination: Reexamination) {
     await db.reexaminations.put(reexamination);
 }
+
 export async function getReexamination(signOverReceipt: string) {
     return await db.reexaminations.get(signOverReceipt);
 }
+
 export async function getReexaminationsByLessonId(lessonId: string) {
     return await db.reexaminations.where({ lesson: lessonId }).sortBy('stage');
 }
+
 export async function updateReexamination(reexamination: Reexamination) {
     await db.reexaminations.update(reexamination.signOverReceipt, reexamination);
 }
 
 // LetterTemplate related
+
 export async function putLetterTemplate(letterTemplate: LetterTemplate) {
     await db.letterTemplates.put(letterTemplate);
 }
+
+export async function getLetterTemplate(lesson: string, stage: number) {
+    return await db.letterTemplates.get({ lesson: lesson, stage: stage });
+}
+
 export async function getLetterTemplatesByLessonId(lessonId: string) {
     return await db.letterTemplates.where({ lesson: lessonId }).sortBy('stage');
 }
+
 export async function getValidLetterTemplatesByLessonId(lessonId: string): Promise<LetterTemplate[]> {
     return await db.letterTemplates.where({ lesson: lessonId }).filter(letter => letter.valid).toArray();
 }
+
 export function serializeAsLetter(letterTemplate: LetterTemplate, referee: string): string {
     return [
         letterTemplate.lastExamined,
@@ -225,9 +346,18 @@ export function serializeAsLetter(letterTemplate: LetterTemplate, referee: strin
 }
 
 // Lesson related
+
+export function getLessonId(ids: any[]): string {
+    const date = new Date().toISOString().split('T')[0]; // Get the current date in YYYY-MM-DD format
+    const dataToHash = `${date}-${ids.join('-')}`;
+    const hash = blake2AsHex(dataToHash);
+    return hash;
+};
+
 export async function getLesson(id: string) {
     return await db.lessons.get(id);
 }
+
 export async function getLessons(tutor: string, startDate: number | null, endDate: number | null) {
     let query = db.lessons.where('tutor').equals(tutor);
     if (startDate || endDate) {
@@ -239,19 +369,10 @@ export async function getLessons(tutor: string, startDate: number | null, endDat
     }
     return await query.reverse().sortBy('created');
 }
+
 export async function deleteLesson(id: string) {
     await db.lessons.delete(id);
 }
-export function getLessonId(ids: any[]): string {
-    const date = new Date().toISOString().split('T')[0]; // Get the current date in YYYY-MM-DD format
-    const dataToHash = `${date}-${ids.join('-')}`;
-    const hash = blake2AsHex(dataToHash);
-    return hash;
-};
-
-const DEFAULT_WARRANTY = "105000000000000";//105 Slon
-const DEFAULT_DIPLOMA_VALIDITY = 730;//Days valid
-const DEFAULT_DIPLOMA_PRICE = "80000000000000";//80 Slon
 
 export async function storeLesson(lessonRequest: LessonRequest, tutor: string) {
     const now = (new Date()).getTime();
@@ -261,7 +382,6 @@ export async function storeLesson(lessonRequest: LessonRequest, tutor: string) {
     const warranty = stored_warranty ? stored_warranty : DEFAULT_WARRANTY;
     const validity: number = stored_validity ? parseInt(stored_validity, 10) : DEFAULT_DIPLOMA_VALIDITY;
     const diploma_price = stored_diploma_price ? stored_diploma_price : DEFAULT_DIPLOMA_PRICE;
-
     const lesson: Lesson = {
         id: lessonRequest.lesson,
         created: now,
@@ -276,7 +396,6 @@ export async function storeLesson(lessonRequest: LessonRequest, tutor: string) {
         dWarranty: warranty,
         dValidity: validity,
     };
-
     const sameLesson = await db.lessons.get({ id: lesson.id });
     if (sameLesson === undefined) {
         await db.lessons.add(lesson);
@@ -316,48 +435,85 @@ export async function storeLesson(lessonRequest: LessonRequest, tutor: string) {
     }
     await storeSetting(SettingKey.LESSON, lessonRequest.lesson);
 }
+
 export async function updateLesson(lesson: Lesson) {
     const sameLesson = await db.lessons.get({ id: lesson.id });
     if (sameLesson !== undefined) {
         await db.lessons.update(lesson.id, lesson);
     }
 }
-// 
 
+// Agreement related
 
-
-export async function getLetterTemplate(lesson: string, stage: number) {
-    return await db.letterTemplates.get({ lesson: lesson, stage: stage });
+export async function getAgreement(id: string) {
+    return await db.agreements.get(id);
 }
 
+export async function putAgreement(agreement: Agreement) {
+    await db.agreements.put(agreement);
+}
+
+// CIDCache related
 export async function getCIDCache(cid: string) {
     return await db.cidCache.get(cid);
 }
 
-export async function getAgreement(id: string) {
-    return await db.agreements.get(id);
+async function evictEntries(requiredSize: number) {
+    let freedSpace = 0;
+    const entries = await db.cidCache
+        .orderBy('time')
+        .until(() => freedSpace >= requiredSize)
+        .toArray();
+    const deletePromises = entries.map(async ({ cid, size }) => {
+        await db.cidCache.delete(cid);
+        freedSpace += size || 0;
+    });
+    await Promise.all(deletePromises);
+    return freedSpace;
+};
+
+let cacheLock = Promise.resolve();
+async function runLocked(fn: () => Promise<void>) {
+    const unlock = cacheLock.then(() => fn());
+    cacheLock = unlock.catch(() => { });
+    return unlock;
+};
+
+export async function putCIDCache(cid: string, data: string) {
+    const size = new Blob([data]).size + new Blob([cid]).size;
+    await runLocked(async () => {
+        const cidCacheSizeString = await getSetting(SettingKey.CID_CACHE_SIZE);
+        let totalCacheSize = cidCacheSizeString ? parseInt(cidCacheSizeString, 10) : 0;
+        if (totalCacheSize + size > MAX_CACHE_SIZE) {
+            const spaceNeeded = totalCacheSize + size - MAX_CACHE_SIZE;
+            const freedSpace = await evictEntries(spaceNeeded);
+            totalCacheSize -= freedSpace;
+        }
+        await db.cidCache.put({ cid, data, size, time: Date.now() });
+        totalCacheSize += size;
+        await storeSetting(SettingKey.CID_CACHE_SIZE, totalCacheSize.toString());
+    });
+};
+
+// CanceledInsurance related
+
+export async function putCanceledInsurance(canceledInsurance: CanceledInsurance) {
+    await db.canceledInsurances.put(canceledInsurance);
+}
+
+// Insurance related
+
+export async function putInsurance(insurance: Insurance) {
+    await db.insurances.put(insurance);
 }
 
 export async function getInsurance(workerSign: string) {
     return await db.insurances.get(workerSign);
 }
 
-
-
-
-
-export async function getAllReimbursements() {
-    return await db.reimbursements.toArray();
-}
-export async function getReimbursementsByReferee(referee: string) {
-    return await db.reimbursements.where({ referee: referee }).toArray();
-}
-
-
 export async function getAllInsurances() {
     return await db.insurances.toArray();
 }
-
 
 export async function getInsurances(employer: string, worker: string, startDate: number | null, endDate: number | null) {
     let query = db.insurances.where('[employer+workerId]').equals([employer, worker]);
@@ -369,31 +525,21 @@ export async function getInsurances(employer: string, worker: string, startDate:
     return await query.reverse().sortBy('created');
 }
 
-
-
-export function getDBObjectsFromJson(json: any, tableName: string) {
-    const found = json.data.data.find((element: { tableName: string; }) => element.tableName === tableName);
-    return found.rows;
-}
-
-
-
-export async function markUsageRightAsUsed(referee: string, letterNumber: number) {
-    const usageRights = await db.usageRights
-        .where('[referee+letterNumber]')
-        .equals([referee, letterNumber])
-        .toArray();
-    usageRights.forEach(async (usageRight) => {
-        await putUsageRight({ ...usageRight, used: true });
-    });
-};
-
 export async function getInsurancesByRefereeAndLetterNumber(referee: string, letterNumber: number) {
     return await db.insurances
         .where('[referee+letterNumber]')
         .equals([referee, letterNumber])
         .toArray();
 }
+
+export async function deleteInsurance(workerSign: string) {
+    await db.insurances.delete(workerSign);
+}
+
+export async function updateInsurance(insurance: Insurance) {
+    await db.insurances.update(insurance.workerSign, insurance);
+}
+
 export async function cancelInsuranceByRefereeAndLetterNumber(referee: string, letterNumber: number, time: number) {
     const insurances = await db.insurances
         .where('[referee+letterNumber]')
@@ -433,249 +579,6 @@ export async function cancelInsurance(workerSign: string, time: number) {
         await putCanceledInsurance(canceledInsurance);
         await deleteInsurance(insurance.workerSign);
     }
-}
-
-
-
-
-export function getDataShortKey(data: string): string {
-    const hash = blake2AsHex(data);
-    return hash;
-};
-
-
-
-const DEFAULT_INSURANCE_VALIDITY = 730;//Days valid
-export async function getInsuranceDaysValid() {
-    const stored_validity = await getSetting(SettingKey.INSURANCE_VALIDITY);
-    return stored_validity ? parseInt(stored_validity, 10) : DEFAULT_INSURANCE_VALIDITY;
-}
-
-
-
-export async function putAgreement(agreement: Agreement) {
-    await db.agreements.put(agreement);
-}
-
-
-
-
-
-export async function putCanceledInsurance(canceledInsurance: CanceledInsurance) {
-    await db.canceledInsurances.put(canceledInsurance);
-}
-
-const MAX_CACHE_SIZE = 25 * 1024 * 1024; // 25 MB will probably result in 50 MB with IndexedDB storage overhead
-async function evictEntries(requiredSize: number) {
-    let freedSpace = 0;
-    const entries = await db.cidCache
-        .orderBy('time')
-        .until(() => freedSpace >= requiredSize)
-        .toArray();
-    const deletePromises = entries.map(async ({ cid, size }) => {
-        await db.cidCache.delete(cid);
-        freedSpace += size || 0;
-    });
-    await Promise.all(deletePromises);
-    return freedSpace;
-};
-
-let cacheLock = Promise.resolve();
-async function runLocked(fn: () => Promise<void>) {
-    const unlock = cacheLock.then(() => fn());
-    cacheLock = unlock.catch(() => { });
-    return unlock;
-};
-export async function putCIDCache(cid: string, data: string) {
-    const size = new Blob([data]).size + new Blob([cid]).size;
-    await runLocked(async () => {
-        const cidCacheSizeString = await getSetting(SettingKey.CID_CACHE_SIZE);
-        let totalCacheSize = cidCacheSizeString ? parseInt(cidCacheSizeString, 10) : 0;
-        if (totalCacheSize + size > MAX_CACHE_SIZE) {
-            const spaceNeeded = totalCacheSize + size - MAX_CACHE_SIZE;
-            const freedSpace = await evictEntries(spaceNeeded);
-            totalCacheSize -= freedSpace;
-        }
-        await db.cidCache.put({ cid, data, size, time: Date.now() });
-        totalCacheSize += size;
-        await storeSetting(SettingKey.CID_CACHE_SIZE, totalCacheSize.toString());
-    });
-};
-
-
-export async function updateInsurance(insurance: Insurance) {
-    await db.insurances.update(insurance.workerSign, insurance);
-}
-
-
-
-export function letterToReimbursement(letter: Letter, employer: string, workerSign: string, blockAllowed?: string): Reimbursement {
-    const reimbursement: Reimbursement = {
-        genesis: letter.genesis,
-        letterNumber: letter.letterNumber,
-        block: letter.block,
-        blockAllowed: blockAllowed ? blockAllowed : letter.block,
-        referee: letter.referee,
-        worker: letter.worker,
-        amount: letter.amount,
-        signOverReceipt: letter.signOverReceipt,
-        employer: employer,
-        workerSign: workerSign,
-    }
-    return reimbursement;
-}
-
-export function letterToInsurance(letter: Letter, employer: string, workerSign: string, blockAllowed: string, timeStamp: number): Insurance {
-    const insurance: Insurance = {
-        created: timeStamp,
-        valid: true,
-        lesson: '',
-        workerId: letter.workerId,
-        knowledgeId: letter.knowledgeId,
-        cid: letter.cid,
-        genesis: letter.genesis,
-        letterNumber: letter.letterNumber,
-        block: letter.block,
-        blockAllowed: blockAllowed,
-        referee: letter.referee,
-        worker: letter.worker,
-        amount: letter.amount,
-        signOverPrivateData: letter.signOverPrivateData,
-        signOverReceipt: letter.signOverReceipt,
-        employer: employer,
-        workerSign: workerSign,
-    }
-    return insurance;
-}
-
-export function insuranceToReimbursement(insurance: Insurance): Reimbursement {
-    const reimbursement: Reimbursement = {
-        genesis: insurance.genesis,
-        letterNumber: insurance.letterNumber,
-        block: insurance.block,
-        blockAllowed: insurance.blockAllowed,
-        referee: insurance.referee,
-        worker: insurance.worker,
-        amount: insurance.amount,
-        signOverReceipt: insurance.signOverReceipt,
-        employer: insurance.employer,
-        workerSign: insurance.workerSign,
-    }
-    return reimbursement;
-}
-
-export async function putInsurance(insurance: Insurance) {
-    await db.insurances.put(insurance);
-}
-
-
-export async function addReimbursement(reimbursement: Reimbursement) {
-    await db.reimbursements.add(reimbursement);
-}
-
-function isValidPublicKey(publicKey: string) {
-    try {
-        // Check if the public key is a valid hex string
-        if (!isHex(publicKey)) {
-            return false;
-        }
-
-        // Decode the public key to check if it's valid
-        const decoded = decodeAddress(publicKey);
-
-        // Optionally, re-encode and compare to the original
-        const encoded = encodeAddress(decoded);
-        return u8aToHex(decoded) === publicKey || encoded === publicKey;
-    } catch (error) {
-        // If an error occurs (like an invalid public key), return false
-        return false;
-    }
-}
-
-
-
-
-
-export async function deleteReimbursement(referee: string, letterNumber: number) {
-    await db.reimbursements
-        .where('[referee+letterNumber]')
-        .equals([referee, letterNumber])
-        .delete();
-}
-
-export async function getReimbursementsByRefereeAndLetterNumber(referee: string, letterNumber: number) {
-    return await db.reimbursements
-        .where('[referee+letterNumber]')
-        .equals([referee, letterNumber])
-        .toArray();
-}
-
-export async function deleteUsageRight(referee: string, letterNumber: number) {
-    await db.usageRights
-        .where('[referee+letterNumber]')
-        .equals([referee, letterNumber])
-        .delete();
-}
-
-export async function deleteLetter(signOverReceipt: string) {
-    await db.letters.delete(signOverReceipt);
-}
-
-export async function deleteInsurance(workerSign: string) {
-    await db.insurances.delete(workerSign);
-}
-
-
-
-
-export async function putUsageRight(usageRight: UsageRight) {
-    await db.usageRights.put(usageRight);
-}
-
-export function insuranceToUsageRight(insurance: Insurance): UsageRight {
-    const usageRight: UsageRight = {
-        used: false,
-        created: insurance.created,
-        signOverReceipt: insurance.signOverReceipt,
-        employer: insurance.employer,
-        workerSign: insurance.workerSign,
-        referee: insurance.referee,
-        letterNumber: insurance.letterNumber,
-    };
-    return usageRight;
-}
-
-export async function createAndStoreLetter(data: string[]) {
-    const [textHash,
-        workerId,
-        genesisHex,
-        letterId,
-        blockNumber,
-        refereePublicKeyHex,
-        workerPublicKeyHex,
-        amount,
-        refereeSignOverPrivateData,
-        refereeSignOverReceipt,
-        knowledgeId] = data;
-
-    const now = (new Date()).getTime();
-    const letter: Letter = {
-        created: now,
-        examCount: 1,
-        lastExamined: now,
-        workerId: workerId,
-        knowledgeId: knowledgeId,
-        cid: textHash,
-        genesis: genesisHex,
-        letterNumber: parseInt(letterId, 10),
-        block: blockNumber,
-        referee: refereePublicKeyHex,
-        worker: workerPublicKeyHex,
-        amount: amount,
-        signOverPrivateData: refereeSignOverPrivateData,
-        signOverReceipt: refereeSignOverReceipt
-    };
-    await putLetter(letter);
 }
 
 export async function storeInsurances(insurancesTransfer: InsurancesTransfer) {
@@ -735,40 +638,6 @@ async function createAndStoreInsurance(data: string[], timeStamp: number) {
     }
 }
 
-export function deserializeLetter(data: string, workerId: string, genesis: string, amount: string): Letter {
-    const [
-        created,
-        knowledgeId,
-        cid,
-        letterNumber,
-        block,
-        referee,
-        worker,
-        signOverPrivateData,
-        signOverReceipt,
-    ] = data.split(',');
-
-    const timeStamp = parseInt(created, 10);
-
-    const result: Letter = {
-        created: timeStamp,
-        examCount: 1,
-        lastExamined: timeStamp,
-        workerId,
-        knowledgeId,
-        cid,
-        genesis,
-        letterNumber: parseInt(letterNumber, 10),
-        block,
-        referee,
-        worker,
-        amount,
-        signOverPrivateData,
-        signOverReceipt
-    };
-    return result;
-}
-
 export function serializeInsurance(insurance: Insurance): string {
     return [
         insurance.worker,
@@ -786,7 +655,132 @@ export function serializeInsurance(insurance: Insurance): string {
     ].join(",");
 }
 
+export function letterToInsurance(letter: Letter, employer: string, workerSign: string, blockAllowed: string, timeStamp: number): Insurance {
+    const insurance: Insurance = {
+        created: timeStamp,
+        valid: true,
+        lesson: '',
+        workerId: letter.workerId,
+        knowledgeId: letter.knowledgeId,
+        cid: letter.cid,
+        genesis: letter.genesis,
+        letterNumber: letter.letterNumber,
+        block: letter.block,
+        blockAllowed: blockAllowed,
+        referee: letter.referee,
+        worker: letter.worker,
+        amount: letter.amount,
+        signOverPrivateData: letter.signOverPrivateData,
+        signOverReceipt: letter.signOverReceipt,
+        employer: employer,
+        workerSign: workerSign,
+    }
+    return insurance;
+}
+
+// Reimbursement related
+
+export async function addReimbursement(reimbursement: Reimbursement) {
+    await db.reimbursements.add(reimbursement);
+}
+
+export async function getAllReimbursements() {
+    return await db.reimbursements.toArray();
+}
+
+export async function getReimbursementsByReferee(referee: string) {
+    return await db.reimbursements.where({ referee: referee }).toArray();
+}
+
+export async function getReimbursementsByRefereeAndLetterNumber(referee: string, letterNumber: number) {
+    return await db.reimbursements
+        .where('[referee+letterNumber]')
+        .equals([referee, letterNumber])
+        .toArray();
+}
+
+export async function deleteReimbursement(referee: string, letterNumber: number) {
+    await db.reimbursements
+        .where('[referee+letterNumber]')
+        .equals([referee, letterNumber])
+        .delete();
+}
+
+export function letterToReimbursement(letter: Letter, employer: string, workerSign: string, blockAllowed?: string): Reimbursement {
+    const reimbursement: Reimbursement = {
+        genesis: letter.genesis,
+        letterNumber: letter.letterNumber,
+        block: letter.block,
+        blockAllowed: blockAllowed ? blockAllowed : letter.block,
+        referee: letter.referee,
+        worker: letter.worker,
+        amount: letter.amount,
+        signOverReceipt: letter.signOverReceipt,
+        employer: employer,
+        workerSign: workerSign,
+    }
+    return reimbursement;
+}
+
+export function insuranceToReimbursement(insurance: Insurance): Reimbursement {
+    const reimbursement: Reimbursement = {
+        genesis: insurance.genesis,
+        letterNumber: insurance.letterNumber,
+        block: insurance.block,
+        blockAllowed: insurance.blockAllowed,
+        referee: insurance.referee,
+        worker: insurance.worker,
+        amount: insurance.amount,
+        signOverReceipt: insurance.signOverReceipt,
+        employer: insurance.employer,
+        workerSign: insurance.workerSign,
+    }
+    return reimbursement;
+}
+
+// UsageRight related
+
+export async function putUsageRight(usageRight: UsageRight) {
+    await db.usageRights.put(usageRight);
+}
+
+export async function markUsageRightAsUsed(referee: string, letterNumber: number) {
+    const usageRights = await db.usageRights
+        .where('[referee+letterNumber]')
+        .equals([referee, letterNumber])
+        .toArray();
+    usageRights.forEach(async (usageRight) => {
+        await putUsageRight({ ...usageRight, used: true });
+    });
+};
+
+export async function deleteUsageRight(referee: string, letterNumber: number) {
+    await db.usageRights
+        .where('[referee+letterNumber]')
+        .equals([referee, letterNumber])
+        .delete();
+}
+
+export function insuranceToUsageRight(insurance: Insurance): UsageRight {
+    const usageRight: UsageRight = {
+        used: false,
+        created: insurance.created,
+        signOverReceipt: insurance.signOverReceipt,
+        employer: insurance.employer,
+        workerSign: insurance.workerSign,
+        referee: insurance.referee,
+        letterNumber: insurance.letterNumber,
+    };
+    return usageRight;
+}
+
 // Export DB
+
+export function getDBObjectsFromJson(json: any, tableName: string) {
+    const found = json.data.data.find((element: { tableName: string; }) => element.tableName === tableName);
+    return found.rows;
+}
+
 function progressCallback({ totalRows, completedRows }: any) {
     console.log(`Progress: ${completedRows} of ${totalRows} rows completed`);
     return true;
@@ -798,13 +792,10 @@ export async function exportDB() {
 
 export async function syncDB(data: string, password: string) {
     const json = JSON.parse(data);
-    //letters
     const letters = getDBObjectsFromJson(json, "letters");
     letters.map((v: Letter) => putLetter(v));
-    //insurances
     const insurances = getDBObjectsFromJson(json, "insurances");
     insurances.map((v: Insurance) => putInsurance(v));
-    //signers
     const signers = getDBObjectsFromJson(json, "signers");
     signers.map(async (v: Signer) => {
         const inLocal = await getLastUnusedLetterNumber(v.publicKey);
@@ -813,8 +804,6 @@ export async function syncDB(data: string, password: string) {
             setLastUsedLetterNumber(v.publicKey, inParsed);
         }
     });
-    //usageRights
     const usageRights = getDBObjectsFromJson(json, "usageRights");
     usageRights.map((v: UsageRight) => putUsageRight(v));
-    //TODO: implement for pseudonyms
 }
