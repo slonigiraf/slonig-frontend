@@ -5,5 +5,5 @@ export interface UsageRight {
   employer: string;
   workerSign: string;
   referee: string;
-  letterNumber: number;
+  letterId: number;
 }

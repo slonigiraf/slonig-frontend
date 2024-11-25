@@ -1,6 +1,6 @@
 export interface Reimbursement {
   genesis: string;
-  letterNumber: number;
+  letterId: number;
   block: string;
   blockAllowed: string;
   referee: string;

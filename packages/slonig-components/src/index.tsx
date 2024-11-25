@@ -227,10 +227,10 @@ export const getAddressFromPublickeyHex = (publickeyHex: string) => {
 export const getRecommendationsFrom = async (
   api: ApiPromise,
   referee: string,
-  letterNumbers: number[]
+  letterIds: number[]
 ): Promise<Map<number, boolean> | null> => {
-  if (letterNumbers.length > 0) {
-    const sortedNumbers = letterNumbers.sort((a, b) => a - b);
+  if (letterIds.length > 0) {
+    const sortedNumbers = letterIds.sort((a, b) => a - b);
 
     const insurancePerChunk: number = 1000;
     const firstLetterNumber = sortedNumbers[0];
@@ -238,23 +238,23 @@ export const getRecommendationsFrom = async (
     let data = await api.query.letters.ownedLetersArray([referee, currentChunk]);
     const result = new Map<number, boolean>();
 
-    for (const letterNumber of sortedNumbers) {
-      if (letterNumber >= 0) {
-        const chunk = Math.floor(letterNumber / insurancePerChunk);
+    for (const letterId of sortedNumbers) {
+      if (letterId >= 0) {
+        const chunk = Math.floor(letterId / insurancePerChunk);
         if (chunk !== currentChunk) {
           currentChunk = chunk;
           data = await api.query.letters.ownedLetersArray([referee, chunk]);
         }
-        const index = letterNumber % insurancePerChunk;
+        const index = letterId % insurancePerChunk;
 
         if (data && (data as Codec).toJSON) {
           const jsonData = (data as Codec).toJSON();
           if (Array.isArray(jsonData)) {
             const letterArray = jsonData as boolean[];
             if (letterArray.length === 0) {
-              result.set(letterNumber, true);
+              result.set(letterId, true);
             } else if (index < letterArray.length) {
-              result.set(letterNumber, letterArray[index]);
+              result.set(letterId, letterArray[index]);
             }
           }
         }

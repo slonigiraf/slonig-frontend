@@ -139,7 +139,7 @@ function LessonResultReceiver({ webRTCPeerId }: Props): React.ReactElement {
                 const letter = await getLetter(pubSign);
                 if (letter) {
                   await cancelLetter(pubSign, time);
-                  const letterInsurance = getDataToSignByWorker(letter.letterNumber, new BN(letter.block), new BN(letter.block), hexToU8a(letter.referee),
+                  const letterInsurance = getDataToSignByWorker(letter.letterId, new BN(letter.block), new BN(letter.block), hexToU8a(letter.referee),
                     hexToU8a(letter.worker), new BN(letter.amount), hexToU8a(letter.pubSign), hexToU8a(lessonResultJson?.referee));
                   const diplomaKey = keyForCid(currentPair, letter.cid);
                   const workerSign = u8aToHex(diplomaKey.sign(u8aWrapBytes(letterInsurance)));

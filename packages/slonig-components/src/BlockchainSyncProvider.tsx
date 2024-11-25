@@ -56,15 +56,15 @@ export const BlockchainSyncProvider: React.FC<BlockchainSyncProviderProps> = ({ 
         return false;
     }, [currentPair, api, isApiReady, isLoggedIn]);
 
-    const processLetterCancelationEvent = useCallback(async (referee: string, letterNumber: number, timeStamp: number) => {
-        await cancelLetterByRefereeAndLetterNumber(referee, letterNumber, timeStamp);
-        await cancelInsuranceByRefereeAndLetterNumber(referee, letterNumber, timeStamp);
-        const reimbursements = await getReimbursementsByRefereeAndLetterNumber(referee, letterNumber);
+    const processLetterCancelationEvent = useCallback(async (referee: string, letterId: number, timeStamp: number) => {
+        await cancelLetterByRefereeAndLetterNumber(referee, letterId, timeStamp);
+        await cancelInsuranceByRefereeAndLetterNumber(referee, letterId, timeStamp);
+        const reimbursements = await getReimbursementsByRefereeAndLetterNumber(referee, letterId);
         if(reimbursements.length > 0){
-            await deleteUsageRight(referee, letterNumber);
-            await deleteReimbursement(referee, letterNumber);
+            await deleteUsageRight(referee, letterId);
+            await deleteReimbursement(referee, letterId);
         } else{
-            await markUsageRightAsUsed(referee, letterNumber);
+            await markUsageRightAsUsed(referee, letterId);
         }
     }, []);
 
@@ -73,8 +73,8 @@ export const BlockchainSyncProvider: React.FC<BlockchainSyncProviderProps> = ({ 
         events.forEach((keyedEvent: KeyedEvent) => {
             const { event } = keyedEvent.record;
             if (event.section === 'letters' && event.method === 'ReimbursementHappened') {
-                const [referee, letterNumber] = event.data.toJSON() as [string, number];
-                processLetterCancelationEvent(referee, letterNumber, now);
+                const [referee, letterId] = event.data.toJSON() as [string, number];
+                processLetterCancelationEvent(referee, letterId, now);
             }
         })
     }, [events]);
@@ -102,11 +102,11 @@ export const BlockchainSyncProvider: React.FC<BlockchainSyncProviderProps> = ({ 
                 if (!lettersICarryAbout.current.has(recommendation.referee)) {
                     lettersICarryAbout.current.set(recommendation.referee, new Map());
                 }
-                lettersICarryAbout.current.get(recommendation.referee)?.set(recommendation.letterNumber, true);
+                lettersICarryAbout.current.get(recommendation.referee)?.set(recommendation.letterId, true);
             });
             for (const [referee, map] of lettersICarryAbout.current.entries()) {
-                const letterNumbers = Array.from(map.keys()).map(Number);
-                const blockchainState: Map<number, boolean> | null = await getRecommendationsFrom(api, referee, letterNumbers);
+                const letterIds = Array.from(map.keys()).map(Number);
+                const blockchainState: Map<number, boolean> | null = await getRecommendationsFrom(api, referee, letterIds);
                 if (blockchainState) {
                     lettersICarryAbout.current.set(referee, blockchainState);
                 }
@@ -115,12 +115,12 @@ export const BlockchainSyncProvider: React.FC<BlockchainSyncProviderProps> = ({ 
             for (const reimbursement of reimbursements) {
                 if (lettersICarryAbout.current.has(reimbursement.referee)) {
                     const recommendations = lettersICarryAbout.current.get(reimbursement.referee);
-                    if (recommendations && recommendations.has(reimbursement.letterNumber)) {
-                        const valid = recommendations.get(reimbursement.letterNumber);
+                    if (recommendations && recommendations.has(reimbursement.letterId)) {
+                        const valid = recommendations.get(reimbursement.letterId);
                         if (valid) {
                             referees.add(reimbursement.referee);
                         } else {
-                            deleteReimbursement(reimbursement.referee, reimbursement.letterNumber);
+                            deleteReimbursement(reimbursement.referee, reimbursement.letterId);
                         }
                     }
                 }
@@ -131,8 +131,8 @@ export const BlockchainSyncProvider: React.FC<BlockchainSyncProviderProps> = ({ 
             for (const letter of letters) {
                 if (lettersICarryAbout.current.has(letter.referee)) {
                     const recommendations = lettersICarryAbout.current.get(letter.referee);
-                    if (recommendations && recommendations.has(letter.letterNumber)) {
-                        const valid = recommendations.get(letter.letterNumber);
+                    if (recommendations && recommendations.has(letter.letterId)) {
+                        const valid = recommendations.get(letter.letterId);
                         if (!valid) {
                             cancelLetter(letter.pubSign, now);
                         }
@@ -143,8 +143,8 @@ export const BlockchainSyncProvider: React.FC<BlockchainSyncProviderProps> = ({ 
             for (const insurance of insurances) {
                 if (lettersICarryAbout.current.has(insurance.referee)) {
                     const recommendations = lettersICarryAbout.current.get(insurance.referee);
-                    if (recommendations && recommendations.has(insurance.letterNumber)) {
-                        const valid = recommendations.get(insurance.letterNumber);
+                    if (recommendations && recommendations.has(insurance.letterId)) {
+                        const valid = recommendations.get(insurance.letterId);
                         if (!valid) {
                             cancelInsurance(insurance.workerSign, now);
                         }
@@ -191,7 +191,7 @@ export const BlockchainSyncProvider: React.FC<BlockchainSyncProviderProps> = ({ 
         if (currentPair) {
             let signedTransactionsPromises = reimbursements.map(async reimbursement => {
                 return api.tx.letters.reimburse(
-                    reimbursement.letterNumber,
+                    reimbursement.letterId,
                     new BN(reimbursement.block),
                     new BN(reimbursement.blockAllowed),
                     reimbursement.referee,

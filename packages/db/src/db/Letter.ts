@@ -6,7 +6,7 @@ export interface Letter {
   knowledgeId: string;
   cid: string;
   genesis: string;
-  letterNumber: number;
+  letterId: number;
   block: string;
   referee: string;
   worker: string;

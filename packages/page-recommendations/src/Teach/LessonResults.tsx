@@ -197,8 +197,8 @@ function LessonResults({ className = '', lesson, updateAndStoreLesson, onClose }
 
         for (const letterTemlateFromDB of letterTemplates) {
           // calculate letter number (nonce)
-          let letterId = letterTemlateFromDB.letterNumber;
-          if (letterTemlateFromDB.letterNumber < 0) {
+          let letterId = letterTemlateFromDB.letterId;
+          if (letterTemlateFromDB.letterId < 0) {
             letterId = await getLastUnusedLetterNumber(refereePublicKeyHex);
             await setLastUsedLetterNumber(refereePublicKeyHex, letterId);
           }
@@ -211,7 +211,7 @@ function LessonResults({ className = '', lesson, updateAndStoreLesson, onClose }
           const updatedLetterTemplate: LetterTemplate = {
             ...letterTemlateFromDB,
             genesis: genesisU8.toHex(),
-            letterNumber: letterId,
+            letterId: letterId,
             block: diplomaBlockNumber.toString(),
             amount: amount.toString(),
             privSign: refereeSignOverPrivateData,

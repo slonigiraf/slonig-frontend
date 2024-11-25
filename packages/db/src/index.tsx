@@ -208,10 +208,10 @@ export async function cancelLetter(pubSign: string, time: number) {
     }
 }
 
-export async function cancelLetterByRefereeAndLetterNumber(referee: string, letterNumber: number, time: number) {
+export async function cancelLetterByRefereeAndLetterNumber(referee: string, letterId: number, time: number) {
     const letters = await db.letters
-        .where('[referee+letterNumber]')
-        .equals([referee, letterNumber])
+        .where('[referee+letterId]')
+        .equals([referee, letterId])
         .toArray();
     letters.forEach(async (letter) => {
         const canceledLetter: CanceledLetter = {
@@ -236,7 +236,7 @@ export async function createAndStoreLetter(data: string[]) {
     const [textHash,
         workerId,
         genesisHex,
-        letterId,
+        letterIdStr,
         blockNumber,
         refereePublicKeyHex,
         workerPublicKeyHex,
@@ -254,7 +254,7 @@ export async function createAndStoreLetter(data: string[]) {
         knowledgeId: knowledgeId,
         cid: textHash,
         genesis: genesisHex,
-        letterNumber: parseInt(letterId, 10),
+        letterId: parseInt(letterIdStr, 10),
         block: blockNumber,
         referee: refereePublicKeyHex,
         worker: workerPublicKeyHex,
@@ -270,7 +270,7 @@ export function deserializeLetter(data: string, workerId: string, genesis: strin
         created,
         knowledgeId,
         cid,
-        letterNumber,
+        letterId,
         block,
         referee,
         worker,
@@ -286,7 +286,7 @@ export function deserializeLetter(data: string, workerId: string, genesis: strin
         knowledgeId,
         cid,
         genesis,
-        letterNumber: parseInt(letterNumber, 10),
+        letterId: parseInt(letterId, 10),
         block,
         referee,
         worker,
@@ -338,7 +338,7 @@ export function serializeAsLetter(letterTemplate: LetterTemplate, referee: strin
         letterTemplate.lastExamined,
         letterTemplate.knowledgeId,
         letterTemplate.cid,
-        letterTemplate.letterNumber.toString(),
+        letterTemplate.letterId.toString(),
         letterTemplate.block,
         referee,
         letterTemplate.worker,
@@ -411,7 +411,7 @@ export async function storeLesson(lessonRequest: LessonRequest, tutor: string) {
                 knowledgeId: item[0],
                 cid: item[1],
                 genesis: '',
-                letterNumber: -1,
+                letterId: -1,
                 block: '',
                 worker: item[2],
                 amount: '',
@@ -528,10 +528,10 @@ export async function getInsurances(employer: string, worker: string, startDate:
     return await query.reverse().sortBy('created');
 }
 
-export async function getInsurancesByRefereeAndLetterNumber(referee: string, letterNumber: number) {
+export async function getInsurancesByRefereeAndLetterNumber(referee: string, letterId: number) {
     return await db.insurances
-        .where('[referee+letterNumber]')
-        .equals([referee, letterNumber])
+        .where('[referee+letterId]')
+        .equals([referee, letterId])
         .toArray();
 }
 
@@ -543,10 +543,10 @@ export async function updateInsurance(insurance: Insurance) {
     await db.insurances.update(insurance.workerSign, insurance);
 }
 
-export async function cancelInsuranceByRefereeAndLetterNumber(referee: string, letterNumber: number, time: number) {
+export async function cancelInsuranceByRefereeAndLetterNumber(referee: string, letterId: number, time: number) {
     const insurances = await db.insurances
-        .where('[referee+letterNumber]')
-        .equals([referee, letterNumber])
+        .where('[referee+letterId]')
+        .equals([referee, letterId])
         .toArray();
     insurances.forEach(async (insurance) => {
         const canceledInsurance: CanceledInsurance = {
@@ -606,7 +606,7 @@ async function createAndStoreInsurance(data: string[], timeStamp: number) {
         knowledgeId,
         cid,
         genesisHex,
-        letterId,
+        letterIdStr,
         blockNumber,
         blockAllowed,
         refereePublicKeyHex,
@@ -615,8 +615,8 @@ async function createAndStoreInsurance(data: string[], timeStamp: number) {
         refereeSignOverReceipt,
         workerSignOverInsurance] = data;
 
-    const letterNumber = parseInt(letterId, 10);
-    const sameInsurances = await getInsurancesByRefereeAndLetterNumber(refereePublicKeyHex, letterNumber);
+    const letterId = parseInt(letterIdStr, 10);
+    const sameInsurances = await getInsurancesByRefereeAndLetterNumber(refereePublicKeyHex, letterId);
     if (sameInsurances.length === 0) {
         const insurance: Insurance = {
             created: timeStamp,
@@ -626,7 +626,7 @@ async function createAndStoreInsurance(data: string[], timeStamp: number) {
             knowledgeId: knowledgeId,
             cid: cid,
             genesis: genesisHex,
-            letterNumber: letterNumber,
+            letterId: letterId,
             block: blockNumber,
             blockAllowed: blockAllowed,
             referee: refereePublicKeyHex,
@@ -647,7 +647,7 @@ export function serializeInsurance(insurance: Insurance): string {
         insurance.knowledgeId,
         insurance.cid,
         insurance.genesis,
-        insurance.letterNumber,
+        insurance.letterId,
         insurance.block,
         insurance.blockAllowed,
         insurance.referee,
@@ -667,7 +667,7 @@ export function letterToInsurance(letter: Letter, employer: string, workerSign: 
         knowledgeId: letter.knowledgeId,
         cid: letter.cid,
         genesis: letter.genesis,
-        letterNumber: letter.letterNumber,
+        letterId: letter.letterId,
         block: letter.block,
         blockAllowed: blockAllowed,
         referee: letter.referee,
@@ -695,24 +695,24 @@ export async function getReimbursementsByReferee(referee: string) {
     return await db.reimbursements.where({ referee: referee }).toArray();
 }
 
-export async function getReimbursementsByRefereeAndLetterNumber(referee: string, letterNumber: number) {
+export async function getReimbursementsByRefereeAndLetterNumber(referee: string, letterId: number) {
     return await db.reimbursements
-        .where('[referee+letterNumber]')
-        .equals([referee, letterNumber])
+        .where('[referee+letterId]')
+        .equals([referee, letterId])
         .toArray();
 }
 
-export async function deleteReimbursement(referee: string, letterNumber: number) {
+export async function deleteReimbursement(referee: string, letterId: number) {
     await db.reimbursements
-        .where('[referee+letterNumber]')
-        .equals([referee, letterNumber])
+        .where('[referee+letterId]')
+        .equals([referee, letterId])
         .delete();
 }
 
 export function letterToReimbursement(letter: Letter, employer: string, workerSign: string, blockAllowed?: string): Reimbursement {
     const reimbursement: Reimbursement = {
         genesis: letter.genesis,
-        letterNumber: letter.letterNumber,
+        letterId: letter.letterId,
         block: letter.block,
         blockAllowed: blockAllowed ? blockAllowed : letter.block,
         referee: letter.referee,
@@ -728,7 +728,7 @@ export function letterToReimbursement(letter: Letter, employer: string, workerSi
 export function insuranceToReimbursement(insurance: Insurance): Reimbursement {
     const reimbursement: Reimbursement = {
         genesis: insurance.genesis,
-        letterNumber: insurance.letterNumber,
+        letterId: insurance.letterId,
         block: insurance.block,
         blockAllowed: insurance.blockAllowed,
         referee: insurance.referee,
@@ -747,20 +747,20 @@ export async function putUsageRight(usageRight: UsageRight) {
     await db.usageRights.put(usageRight);
 }
 
-export async function markUsageRightAsUsed(referee: string, letterNumber: number) {
+export async function markUsageRightAsUsed(referee: string, letterId: number) {
     const usageRights = await db.usageRights
-        .where('[referee+letterNumber]')
-        .equals([referee, letterNumber])
+        .where('[referee+letterId]')
+        .equals([referee, letterId])
         .toArray();
     usageRights.forEach(async (usageRight) => {
         await putUsageRight({ ...usageRight, used: true });
     });
 };
 
-export async function deleteUsageRight(referee: string, letterNumber: number) {
+export async function deleteUsageRight(referee: string, letterId: number) {
     await db.usageRights
-        .where('[referee+letterNumber]')
-        .equals([referee, letterNumber])
+        .where('[referee+letterId]')
+        .equals([referee, letterId])
         .delete();
 }
 
@@ -772,7 +772,7 @@ export function insuranceToUsageRight(insurance: Insurance): UsageRight {
         employer: insurance.employer,
         workerSign: insurance.workerSign,
         referee: insurance.referee,
-        letterNumber: insurance.letterNumber,
+        letterId: insurance.letterId,
     };
     return usageRight;
 }

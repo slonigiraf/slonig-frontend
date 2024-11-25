@@ -6,7 +6,7 @@ export interface Insurance {
   knowledgeId: string;
   cid: string;
   genesis: string;
-  letterNumber: number;
+  letterId: number;
   block: string;
   blockAllowed: string;
   referee: string;
