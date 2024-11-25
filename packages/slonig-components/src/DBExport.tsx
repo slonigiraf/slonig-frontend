@@ -23,20 +23,32 @@ function DBExport({ className = '' }: Props): React.ReactElement<Props> {
       if (!blob) {
         throw new Error('No data available to export');
       }
-      const fileHandle = await window.showSaveFilePicker({
-        suggestedName: 'database.json',
-        types: [
-          {
-            description: 'JSON Files',
-            accept: {
-              'application/json': ['.json']
-            }
-          }
-        ]
-      });
-      const writableStream = await fileHandle.createWritable();
-      await writableStream.write(blob);
-      await writableStream.close();
+      if ('showSaveFilePicker' in window && typeof window.showSaveFilePicker === 'function') {
+        const fileHandle = await window.showSaveFilePicker({
+          suggestedName: 'database.json',
+          types: [
+            {
+              description: 'JSON Files',
+              accept: {
+                'application/json': ['.json'],
+              },
+            },
+          ],
+        });
+        const writableStream = await fileHandle.createWritable();
+        await writableStream.write(blob);
+        await writableStream.close();
+      } else {
+        // Fallback for unsupported browsers
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = 'database.json';
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+      }
     } catch (error) {
       console.error('Error exporting database:', error);
     } finally {
