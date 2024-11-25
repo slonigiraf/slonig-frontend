@@ -158,8 +158,6 @@ export const BlockchainSyncProvider: React.FC<BlockchainSyncProviderProps> = ({ 
         }
     }, [api, canCommunicateToBlockchain]);
 
-
-
     useEffect(() => {
         const unsubscribeMap = new Map();
         if (mountedRef.current && canCommunicateToBlockchain() && badReferees.size > 0) {
@@ -167,7 +165,7 @@ export const BlockchainSyncProvider: React.FC<BlockchainSyncProviderProps> = ({ 
                 if (!subscribedBadReferees.current.has(referee)) {
                     subscribedBadReferees.current.add(referee);
                     const refereeAddress = getAddressFromPublickeyHex(referee);
-                    const unsubscribe = api.query.system.account(refereeAddress, (accountInfo: AccountInfo) => {
+                    api.query.system.account(refereeAddress, (accountInfo: AccountInfo) => {
                         if (mountedRef.current) {
                             if (accountInfo.data.free.gt(EXISTENTIAL_REFEREE_BALANCE)) {
                                 badRefereesWithEnoughBalance.current.set(referee, accountInfo.data.free);
@@ -175,16 +173,23 @@ export const BlockchainSyncProvider: React.FC<BlockchainSyncProviderProps> = ({ 
                                 badRefereesWithEnoughBalance.current.delete(referee);
                             }
                         }
+                    }).then(unsubscribe => {
+                        unsubscribeMap.set(referee, unsubscribe);
+                    }).catch(err => {
+                        console.error(`Failed to subscribe to referee ${referee}:`, err);
                     });
-                    unsubscribeMap.set(referee, unsubscribe);
                 }
             });
         }
         return () => {
-            unsubscribeMap.forEach(unsubscribe => unsubscribe && unsubscribe());
+            unsubscribeMap.forEach(unsubscribe => {
+                if (typeof unsubscribe === 'function') {
+                    unsubscribe();
+                }
+            });
             unsubscribeMap.clear();
         };
-    }, [api, badReferees, canCommunicateToBlockchain]);
+    }, [api, badReferees, canCommunicateToBlockchain]);    
 
 
     const sendTransactions = useCallback(async (reimbursements: Reimbursement[]) => {
