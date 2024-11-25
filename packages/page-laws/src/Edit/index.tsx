@@ -34,9 +34,8 @@ function Edit({ className = '' }: Props): React.ReactElement<Props> {
 
   const location = useLocation();
   const queryParams = new URLSearchParams(location.search);
-  const tutor = queryParams.get('tutor');
   const defaultTextHexId = '0xfed8e6f01c6c746876d69f7f10f933cdcd849068f6dc2fa26769fc92584492e7';
-  const idFromQuery = tutor ? undefined : queryParams.get('id') || defaultTextHexId;
+  const idFromQuery = queryParams.get('id') || defaultTextHexId;
   const [textHexId, setTextHexId] = useState<string | undefined>(idFromQuery);
 
   // Load state changes to session storage
