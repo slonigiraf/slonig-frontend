@@ -1,11 +1,11 @@
 // Copyright 2021-2022 @slonigiraf/app-recommendations authors & contributors
 // SPDX-License-Identifier: Apache-2.0
 
-import { getLesson, Lesson, QRField, storeLesson, storePseudonym } from '@slonigiraf/db';
+import { getLesson, Lesson, storeLesson, storePseudonym } from '@slonigiraf/db';
 import React, { useEffect, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { useTranslation } from '../translate.js';
-import { LessonRequest, parseJson, receiveWebRTCData, useInfo, useLoginContext } from '@slonigiraf/app-slonig-components';
+import { QRField, LessonRequest, parseJson, receiveWebRTCData, useInfo, useLoginContext } from '@slonigiraf/app-slonig-components';
 import { u8aToHex } from '@polkadot/util';
 
 interface Props {

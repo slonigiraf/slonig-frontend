@@ -1,9 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { useTranslation } from '../translate.js';
 import { CenterQRContainer, LessonRequest, LoginButton, SenderComponent, nameFromKeyringPair, qrWidthPx, useLoginContext } from '@slonigiraf/app-slonig-components';
-import { Letter, getLessonId, getLettersByWorkerId, LawType, QRAction, QRField } from '@slonigiraf/db';
+import { Letter, getLessonId, getLettersByWorkerId } from '@slonigiraf/db';
 import { Spinner } from '@polkadot/react-components';
-import { keyForCid } from '@slonigiraf/app-slonig-components';
+import { keyForCid, LawType, QRAction, QRField } from '@slonigiraf/app-slonig-components';
 import { styled } from '@polkadot/react-components';
 import { u8aToHex } from '@polkadot/util';
 import BN from 'bn.js';

@@ -1,11 +1,11 @@
 import React, { useCallback } from 'react';
 import { useToggle } from '@polkadot/react-hooks';
-import { QRScanner, useLoginContext, useTokenTransfer } from '@slonigiraf/app-slonig-components';
+import { QRScanner, useLoginContext, useTokenTransfer, QRField, QRAction } from '@slonigiraf/app-slonig-components';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from './translate.js';
 import { Modal } from '@polkadot/react-components';
 import { ButtonWithLabelBelow } from '@slonigiraf/app-slonig-components';
-import { storePseudonym, QRField, QRAction } from '@slonigiraf/db';
+import { storePseudonym } from '@slonigiraf/db';
 import { encodeAddress } from '@polkadot/keyring';
 import { hexToU8a } from '@polkadot/util';
 interface QRCodeResult {

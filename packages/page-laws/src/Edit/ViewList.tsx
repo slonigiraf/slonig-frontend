@@ -1,5 +1,5 @@
 import React, { useCallback, useState } from 'react';
-import { KatexSpan, SelectableList, StyledSpinnerContainer } from '@slonigiraf/app-slonig-components';
+import { LawType, KatexSpan, SelectableList, StyledSpinnerContainer } from '@slonigiraf/app-slonig-components';
 import ItemLabel from './ItemLabel.js';
 import SkillQR from './SkillQR.js';
 import { useTranslation } from '../translate.js';
@@ -7,7 +7,6 @@ import ExerciseList from './ExerciseList.js';
 import LearnWithAI from './LearnWithAI.js';
 import { Toggle, Spinner } from '@polkadot/react-components';
 import { ItemWithCID } from '../types.js';
-import { LawType } from '@slonigiraf/db';
 
 type JsonType = { [key: string]: any } | null;
 interface Props {

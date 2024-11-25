@@ -5,8 +5,8 @@ import React, { useEffect, useState } from 'react';
 import { useTranslation } from '../translate.js';
 import { u8aToHex } from '@polkadot/util';
 import { useLocation, useNavigate } from 'react-router-dom';
-import { parseJson, useLoginContext, receiveWebRTCData, useInfo, InsurancesTransfer, Person } from '@slonigiraf/app-slonig-components';
-import { QRField, storeInsurances, storePseudonym } from '@slonigiraf/db';
+import { QRField, parseJson, useLoginContext, receiveWebRTCData, useInfo, InsurancesTransfer, Person } from '@slonigiraf/app-slonig-components';
+import { storeInsurances, storePseudonym } from '@slonigiraf/db';
 
 interface Props {
   setWorker: (person: Person) => void;

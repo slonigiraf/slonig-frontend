@@ -7,8 +7,8 @@ import { styled, Button, Input, InputBalance, Icon, Card, Modal, Spinner } from 
 import { useApi, useBlockTime, useToggle } from '@polkadot/react-hooks';
 import { u8aToHex, hexToU8a, u8aWrapBytes, BN_ONE, BN_ZERO, formatBalance } from '@polkadot/util';
 import type { LessonResult, Skill } from '@slonigiraf/app-slonig-components';
-import { getIPFSDataFromContentID, parseJson, useIpfsContext, useLoginContext, VerticalCenterItemsContainer, CenterQRContainer, KatexSpan, balanceToSlonString, SenderComponent, useInfo, nameFromKeyringPair, StyledContentCloseButton, predictBlockNumber } from '@slonigiraf/app-slonig-components';
-import { getPseudonym, Lesson, getLastUnusedLetterNumber, setLastUsedLetterNumber, storeSetting, getReexaminationsByLessonId, getValidLetterTemplatesByLessonId, QRAction, SettingKey, QRField, serializeAsLetter, LetterTemplate, putLetterTemplate } from '@slonigiraf/db';
+import { QRAction, QRField, getIPFSDataFromContentID, parseJson, useIpfsContext, useLoginContext, VerticalCenterItemsContainer, CenterQRContainer, KatexSpan, balanceToSlonString, SenderComponent, useInfo, nameFromKeyringPair, StyledContentCloseButton, predictBlockNumber } from '@slonigiraf/app-slonig-components';
+import { getPseudonym, Lesson, getLastUnusedLetterNumber, setLastUsedLetterNumber, storeSetting, getReexaminationsByLessonId, getValidLetterTemplatesByLessonId, SettingKey, serializeAsLetter, LetterTemplate, putLetterTemplate } from '@slonigiraf/db';
 import { getPublicDataToSignByReferee, getPrivateDataToSignByReferee } from '@slonigiraf/helpers';
 import { useTranslation } from '../translate.js';
 import { blake2AsHex } from '@polkadot/util-crypto';

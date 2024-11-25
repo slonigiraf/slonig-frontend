@@ -3,10 +3,9 @@
 
 import React from 'react';
 import LettersList from './LettersList.js';
-import { LoginButton, useLoginContext } from '@slonigiraf/app-slonig-components';
+import { QRField, LoginButton, useLoginContext } from '@slonigiraf/app-slonig-components';
 import { u8aToHex } from '@polkadot/util';
 import { useLocation } from 'react-router-dom';
-import { QRField } from '@slonigiraf/db';
 import LessonResultReceiver from './LessonResultReceiver.js';
 
 interface Props {

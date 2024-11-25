@@ -5,9 +5,8 @@ import { randomIdHex } from '../util.js';
 import Reordering from './Reordering.js';
 import ExerciseEditorList from './ExerciseEditorList.js';
 import { useApi } from '@polkadot/react-hooks';
-import { useInfo, useIpfsContext, getCIDFromBytes, getIPFSDataFromContentID, parseJson } from '@slonigiraf/app-slonig-components';
+import { LawType, useInfo, useIpfsContext, getCIDFromBytes, getIPFSDataFromContentID, parseJson } from '@slonigiraf/app-slonig-components';
 import BN from 'bn.js';
-import { LawType } from '@slonigiraf/db';
 
 interface Props {
   className?: string;
