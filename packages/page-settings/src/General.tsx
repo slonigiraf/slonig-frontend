@@ -16,6 +16,7 @@ import { settings } from '@polkadot/ui-settings';
 import { useTranslation } from './translate.js';
 import { createIdenticon, createOption, save, saveAndReload } from './util.js';
 import { getSetting, storeSetting, SettingKey } from '@slonigiraf/db';
+import { DBExport, DBImport } from '@slonigiraf/app-slonig-components';
 
 interface Props {
   className?: string;
@@ -138,6 +139,11 @@ function General({ className = '' }: Props): React.ReactElement<Props> {
 
   return (
     <div className={className}>
+      <h1>{t('Backup')}</h1>
+      <div className='ui--row'>
+        <DBExport />
+        <DBImport />
+      </div>
       <h1>{t('Select a network')}</h1>
       <ChainInfo />
       <h1>{t('UI options')}</h1>
@@ -164,65 +170,6 @@ function General({ className = '' }: Props): React.ReactElement<Props> {
           value={isDeveloper}
         />
       </div>
-
-
-      {/* <div className='ui--row'>
-        <Dropdown
-          defaultValue={state.prefix}
-          label={t('address prefix')}
-          onChange={_handleChange('prefix')}
-          options={prefixOptions}
-        />
-      </div>
-      {!isIpfs && !isElectron && (
-        <>
-          <div className='ui--row'>
-            <Dropdown
-              defaultValue={state.storage}
-              label={t('in-browser account creation')}
-              onChange={_handleChange('storage')}
-              options={storageOptions}
-            />
-          </div>
-          {state.storage === 'on' && (
-            <div className='ui--row'>
-              <MarkWarning content={t('It is recommended that you store all keys externally to the in-page browser local storage, either on browser extensions, signers operating via QR codes or hardware devices. This option is provided for advanced users with strong backup policies.')} />
-            </div>
-          )}
-        </>
-      )} */}
-      {hasLedgerChain && (
-        <>
-          <h1>{t('account options')}</h1>
-          <div className='ui--row'>
-            <Dropdown
-              defaultValue={
-                hasWebUsb
-                  ? state.ledgerConn
-                  : ledgerConnOptions[0].value
-              }
-              isDisabled={!hasWebUsb}
-              label={t('manage hardware connections')}
-              onChange={_handleChange('ledgerConn')}
-              options={ledgerConnOptions}
-            />
-          </div>
-          {hasWebUsb
-            ? state.ledgerConn !== 'none'
-              ? (
-                <div className='ui--row'>
-                  <MarkWarning content={t('Ledger support is still experimental and some issues may remain. Trust, but verify the addresses on your devices before transferring large amounts. There are some features that will not work, including batch calls (used extensively in staking and democracy) as well as any identity operations.')} />
-                </div>
-              )
-              : null
-            : (
-              <div className='ui--row'>
-                <MarkWarning content={t('Ledger hardware device support is only available on Chromium-based browsers where WebUSB and WebHID support is available in the browser.')} />
-              </div>
-            )
-          }
-        </>
-      )}
       <Button.Group>
         <Button
           icon='save'
@@ -239,6 +186,7 @@ function General({ className = '' }: Props): React.ReactElement<Props> {
           }
         />
       </Button.Group>
+      
     </div>
   );
 }

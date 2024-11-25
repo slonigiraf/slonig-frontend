@@ -17,6 +17,8 @@ import QRWithShareAndCopy from './QRWithShareAndCopy.js';
 import SenderComponent from './SenderComponent.js';
 import DateInput from './DateInput.js';
 import KatexSpan from './KatexSpan.js';
+import DBImport from './DBImport.js';
+import DBExport from './DBExport.js';
 import TextAreaWithPreview from './TextAreaWithPreview.js';
 import SelectableList from './SelectableList.js';
 import { Button, styled } from '@polkadot/react-components';
@@ -26,6 +28,7 @@ import { useEffect, useState } from 'react';
 import { getSetting, SettingKey } from '@slonigiraf/db';
 export { BlockchainSyncProvider, useBlockchainSync, TokenTransferProvider, useTokenTransfer, DateInput, SelectableList, SenderComponent, TextAreaWithPreview, KatexSpan, ResizableImage, LoginButton, ShareButton, ClipboardCopyButton, QRWithShareAndCopy, QRScanner, ButtonWithLabelBelow, ScanQR, IpfsProvider, useIpfsContext, InfoProvider, useInfo };
 export { balanceToSlonString, createPeer, receiveWebRTCData, getQrWidth, saveToSessionStorage, loadFromSessionStorage, getIPFSContentIDAndPinIt, getKey, arrayBufferToBase64, base64ToArrayBuffer, decryptData, encryptData, LoginProvider, useLoginContext, keyForCid, nameFromKeyringPair, getBaseUrl, CODEC, getIPFSContentID, getIPFSDataFromContentID, digestFromCIDv1, getCIDFromBytes, storeEncryptedTextOnIPFS, retrieveDecryptedDataFromIPFS, parseJson }
+export { DBImport, DBExport};
 import { encodeAddress } from '@polkadot/keyring';
 import { hexToU8a } from '@polkadot/util';
 import type { ApiPromise } from '@polkadot/api';

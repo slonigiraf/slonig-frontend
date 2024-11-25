@@ -12,9 +12,7 @@ import useCounter from './useCounter.js';
 import Learn from './Learn/index.js';
 import Teach from './Teach/index.js';
 import Assess from './Assess/index.js';
-import DBImport from './Learn/DBImport.js';
-import DBExport from './Learn/DBExport.js';
-export { useCounter, DBImport, DBExport };
+export { useCounter };
 
 const HIDDEN_ACC = ['vanity'];
 
