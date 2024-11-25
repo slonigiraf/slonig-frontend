@@ -162,7 +162,7 @@ function LessonResults({ className = '', lesson, updateAndStoreLesson, onClose }
             if (reexamination.created === reexamination.lastExamined) {
               skippedReexaminationsCount++;
             } else {
-              reexaminationData.push(`${reexamination.signOverReceipt},${reexamination.lastExamined},${reexamination.valid ? '1' : '0'}`);
+              reexaminationData.push(`${reexamination.pubSign},${reexamination.lastExamined},${reexamination.valid ? '1' : '0'}`);
             }
           });
 
@@ -214,8 +214,8 @@ function LessonResults({ className = '', lesson, updateAndStoreLesson, onClose }
             letterNumber: letterId,
             block: diplomaBlockNumber.toString(),
             amount: amount.toString(),
-            signOverPrivateData: refereeSignOverPrivateData,
-            signOverReceipt: refereeSignOverReceipt,
+            privSign: refereeSignOverPrivateData,
+            pubSign: refereeSignOverReceipt,
           };
           await putLetterTemplate(updatedLetterTemplate);
 

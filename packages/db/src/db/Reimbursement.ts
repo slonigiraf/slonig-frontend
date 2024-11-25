@@ -6,7 +6,7 @@ export interface Reimbursement {
   referee: string;
   worker: string;
   amount: string;
-  signOverReceipt: string;
+  pubSign: string;
   employer: string;
   workerSign: string;
 }

@@ -11,6 +11,6 @@ export interface Letter {
   referee: string;
   worker: string;
   amount: string;
-  signOverPrivateData: string;
-  signOverReceipt: string;
+  privSign: string;
+  pubSign: string;
 }

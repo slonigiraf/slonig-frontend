@@ -113,7 +113,7 @@ function SkillQR({ className = '', id, cid, type, selectedItems, isLearningReque
 
   useEffect(() => {
     if (shouldRender && diplomasToReexamine?.length) {
-      const examData = diplomasToReexamine.map((diploma) =>  [diploma.cid, diploma.amount, diploma.signOverReceipt]);
+      const examData = diplomasToReexamine.map((diploma) =>  [diploma.cid, diploma.amount, diploma.pubSign]);
       setReexamine(examData);
     }
   }, [diplomasToReexamine, shouldRender]);

@@ -133,14 +133,14 @@ function LessonResultReceiver({ webRTCPeerId }: Props): React.ReactElement {
         try {
           if (currentPair && lessonResultJson?.reexaminations && agreement?.id) {
             let reimbursementPromises = lessonResultJson.reexaminations.map(async reexaminationMeta => {
-              const [signOverReceipt, lastExamined, valid] = reexaminationMeta.split(',');
+              const [pubSign, lastExamined, valid] = reexaminationMeta.split(',');
               const time = parseInt(lastExamined, 10);
-              if (signOverReceipt && valid === '0') {
-                const letter = await getLetter(signOverReceipt);
+              if (pubSign && valid === '0') {
+                const letter = await getLetter(pubSign);
                 if (letter) {
-                  await cancelLetter(signOverReceipt, time);
+                  await cancelLetter(pubSign, time);
                   const letterInsurance = getDataToSignByWorker(letter.letterNumber, new BN(letter.block), new BN(letter.block), hexToU8a(letter.referee),
-                    hexToU8a(letter.worker), new BN(letter.amount), hexToU8a(letter.signOverReceipt), hexToU8a(lessonResultJson?.referee));
+                    hexToU8a(letter.worker), new BN(letter.amount), hexToU8a(letter.pubSign), hexToU8a(lessonResultJson?.referee));
                   const diplomaKey = keyForCid(currentPair, letter.cid);
                   const workerSign = u8aToHex(diplomaKey.sign(u8aWrapBytes(letterInsurance)));
                   const reimbursement = letterToReimbursement(letter, lessonResultJson?.referee, workerSign, letter.block);
@@ -148,7 +148,7 @@ function LessonResultReceiver({ webRTCPeerId }: Props): React.ReactElement {
                   return reimbursement;
                 }
               } else {
-                await updateLetterReexaminingCount(signOverReceipt, time);
+                await updateLetterReexaminingCount(pubSign, time);
               }
               return undefined;
             });

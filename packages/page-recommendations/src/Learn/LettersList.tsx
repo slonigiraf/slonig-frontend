@@ -47,7 +47,7 @@ function LettersList({ className = '', worker, currentPair }: Props): React.Reac
   };
 
   const deleteDiplomas = async () => {
-    const idsToDelete = selectedLetters.map((letter) => letter.signOverReceipt);
+    const idsToDelete = selectedLetters.map((letter) => letter.pubSign);
     try {
       for (const id of idsToDelete) {
         if (id) {
@@ -127,7 +127,7 @@ function LettersList({ className = '', worker, currentPair }: Props): React.Reac
         onSelectionChange={handleSelectionChange}
         maxSelectableItems={MAX_SELECTED}
         additionalControls={deleteSelectedButton}
-        keyExtractor={(letter) => letter.signOverReceipt}
+        keyExtractor={(letter) => letter.pubSign}
         key={worker+reloadCount}
       />
       {isDeleteConfirmOpen && (

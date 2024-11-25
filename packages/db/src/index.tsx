@@ -146,12 +146,12 @@ export async function putLetter(letter: Letter) {
     await db.letters.put(letter);
 }
 
-export async function deleteLetter(signOverReceipt: string) {
-    await db.letters.delete(signOverReceipt);
+export async function deleteLetter(pubSign: string) {
+    await db.letters.delete(pubSign);
 }
 
-export async function getLetter(signOverReceipt: string) {
-    return await db.letters.get(signOverReceipt);
+export async function getLetter(pubSign: string) {
+    return await db.letters.get(pubSign);
 }
 
 export async function getAllLetters() {
@@ -181,20 +181,20 @@ export async function getLettersByWorkerId(workerId: string) {
     return await db.letters.where({ workerId: workerId }).toArray();
 };
 
-export async function updateLetterReexaminingCount(signOverReceipt: string, time: number) {
-    const letter = await db.letters.get(signOverReceipt);
+export async function updateLetterReexaminingCount(pubSign: string, time: number) {
+    const letter = await db.letters.get(pubSign);
     if (letter) {
         const newExamCount = letter.examCount + 1;
-        return await db.letters.update(signOverReceipt, { examCount: newExamCount, lastExamined: time });
+        return await db.letters.update(pubSign, { examCount: newExamCount, lastExamined: time });
     }
     return undefined;
 }
 
-export async function cancelLetter(signOverReceipt: string, time: number) {
-    const letter: Letter | undefined = await getLetter(signOverReceipt);
+export async function cancelLetter(pubSign: string, time: number) {
+    const letter: Letter | undefined = await getLetter(pubSign);
     if (letter) {
         const canceledLetter: CanceledLetter = {
-            signOverReceipt: letter.signOverReceipt,
+            pubSign: letter.pubSign,
             created: letter.created,
             examCount: letter.examCount,
             canceled: time,
@@ -204,7 +204,7 @@ export async function cancelLetter(signOverReceipt: string, time: number) {
             referee: letter.referee,
         };
         await putCanceledLetter(canceledLetter);
-        await deleteLetter(letter.signOverReceipt);
+        await deleteLetter(letter.pubSign);
     }
 }
 
@@ -215,7 +215,7 @@ export async function cancelLetterByRefereeAndLetterNumber(referee: string, lett
         .toArray();
     letters.forEach(async (letter) => {
         const canceledLetter: CanceledLetter = {
-            signOverReceipt: letter.signOverReceipt,
+            pubSign: letter.pubSign,
             created: letter.created,
             examCount: letter.examCount,
             canceled: time,
@@ -227,7 +227,7 @@ export async function cancelLetterByRefereeAndLetterNumber(referee: string, lett
 
         await Promise.all([
             putCanceledLetter(canceledLetter),
-            deleteLetter(letter.signOverReceipt),
+            deleteLetter(letter.pubSign),
         ]);
     });
 };
@@ -259,8 +259,8 @@ export async function createAndStoreLetter(data: string[]) {
         referee: refereePublicKeyHex,
         worker: workerPublicKeyHex,
         amount: amount,
-        signOverPrivateData: refereeSignOverPrivateData,
-        signOverReceipt: refereeSignOverReceipt
+        privSign: refereeSignOverPrivateData,
+        pubSign: refereeSignOverReceipt
     };
     await putLetter(letter);
 }
@@ -274,8 +274,8 @@ export function deserializeLetter(data: string, workerId: string, genesis: strin
         block,
         referee,
         worker,
-        signOverPrivateData,
-        signOverReceipt,
+        privSign,
+        pubSign,
     ] = data.split(',');
     const timeStamp = parseInt(created, 10);
     const result: Letter = {
@@ -291,8 +291,8 @@ export function deserializeLetter(data: string, workerId: string, genesis: strin
         referee,
         worker,
         amount,
-        signOverPrivateData,
-        signOverReceipt
+        privSign,
+        pubSign
     };
     return result;
 }
@@ -303,8 +303,8 @@ export async function putReexamination(reexamination: Reexamination) {
     await db.reexaminations.put(reexamination);
 }
 
-export async function getReexamination(signOverReceipt: string) {
-    return await db.reexaminations.get(signOverReceipt);
+export async function getReexamination(pubSign: string) {
+    return await db.reexaminations.get(pubSign);
 }
 
 export async function getReexaminationsByLessonId(lessonId: string) {
@@ -312,7 +312,7 @@ export async function getReexaminationsByLessonId(lessonId: string) {
 }
 
 export async function updateReexamination(reexamination: Reexamination) {
-    await db.reexaminations.update(reexamination.signOverReceipt, reexamination);
+    await db.reexaminations.update(reexamination.pubSign, reexamination);
 }
 
 // LetterTemplate related
@@ -342,8 +342,8 @@ export function serializeAsLetter(letterTemplate: LetterTemplate, referee: strin
         letterTemplate.block,
         referee,
         letterTemplate.worker,
-        letterTemplate.signOverPrivateData,
-        letterTemplate.signOverReceipt
+        letterTemplate.privSign,
+        letterTemplate.pubSign
     ].join(",");
 }
 
@@ -415,8 +415,8 @@ export async function storeLesson(lessonRequest: LessonRequest, tutor: string) {
                 block: '',
                 worker: item[2],
                 amount: '',
-                signOverPrivateData: '',
-                signOverReceipt: '',
+                privSign: '',
+                pubSign: '',
             };
             return await putLetterTemplate(letterTemplate);
         }));
@@ -430,7 +430,7 @@ export async function storeLesson(lessonRequest: LessonRequest, tutor: string) {
                 lesson: lesson.id,
                 cid: item[0],
                 amount: item[1],
-                signOverReceipt: item[2],
+                pubSign: item[2],
             };
             return await putReexamination(reexamination);
         }));
@@ -632,8 +632,8 @@ async function createAndStoreInsurance(data: string[], timeStamp: number) {
             referee: refereePublicKeyHex,
             worker: worker,
             amount: amountValue,
-            signOverPrivateData: refereeSignOverPrivateData,
-            signOverReceipt: refereeSignOverReceipt,
+            privSign: refereeSignOverPrivateData,
+            pubSign: refereeSignOverReceipt,
             employer: employerPublicKeyHex,
             workerSign: workerSignOverInsurance,
         };
@@ -652,8 +652,8 @@ export function serializeInsurance(insurance: Insurance): string {
         insurance.blockAllowed,
         insurance.referee,
         insurance.amount,
-        insurance.signOverPrivateData,
-        insurance.signOverReceipt,
+        insurance.privSign,
+        insurance.pubSign,
         insurance.workerSign,
     ].join(",");
 }
@@ -673,8 +673,8 @@ export function letterToInsurance(letter: Letter, employer: string, workerSign: 
         referee: letter.referee,
         worker: letter.worker,
         amount: letter.amount,
-        signOverPrivateData: letter.signOverPrivateData,
-        signOverReceipt: letter.signOverReceipt,
+        privSign: letter.privSign,
+        pubSign: letter.pubSign,
         employer: employer,
         workerSign: workerSign,
     }
@@ -718,7 +718,7 @@ export function letterToReimbursement(letter: Letter, employer: string, workerSi
         referee: letter.referee,
         worker: letter.worker,
         amount: letter.amount,
-        signOverReceipt: letter.signOverReceipt,
+        pubSign: letter.pubSign,
         employer: employer,
         workerSign: workerSign,
     }
@@ -734,7 +734,7 @@ export function insuranceToReimbursement(insurance: Insurance): Reimbursement {
         referee: insurance.referee,
         worker: insurance.worker,
         amount: insurance.amount,
-        signOverReceipt: insurance.signOverReceipt,
+        pubSign: insurance.pubSign,
         employer: insurance.employer,
         workerSign: insurance.workerSign,
     }
@@ -768,7 +768,7 @@ export function insuranceToUsageRight(insurance: Insurance): UsageRight {
     const usageRight: UsageRight = {
         used: false,
         created: insurance.created,
-        signOverReceipt: insurance.signOverReceipt,
+        pubSign: insurance.pubSign,
         employer: insurance.employer,
         workerSign: insurance.workerSign,
         referee: insurance.referee,

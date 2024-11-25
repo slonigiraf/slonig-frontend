@@ -1,5 +1,5 @@
 export interface CanceledLetter {
-  signOverReceipt: string;
+  pubSign: string;
   created: number; // timestamp
   examCount: number,
   canceled: number; // timestamp

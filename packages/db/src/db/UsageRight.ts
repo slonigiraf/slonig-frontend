@@ -1,7 +1,7 @@
 export interface UsageRight {
   used: boolean;
   created: number; // timestamp
-  signOverReceipt: string;
+  pubSign: string;
   employer: string;
   workerSign: string;
   referee: string;

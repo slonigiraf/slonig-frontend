@@ -6,5 +6,5 @@ export interface Reexamination {
   lesson: string;
   cid: string;
   amount: string;
-  signOverReceipt: string;
+  pubSign: string;
 }

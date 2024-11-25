@@ -58,7 +58,7 @@ function SignLettersUseRight({ className = '', letters, worker, employer, curren
               const blockAllowed = block.gt(predictedBlock) ? predictedBlock : block;
               // generate a data to sign      
               const letterInsurance = getDataToSignByWorker(letter.letterNumber, block, blockAllowed, hexToU8a(letter.referee),
-                hexToU8a(letter.worker), new BN(letter.amount), hexToU8a(letter.signOverReceipt), hexToU8a(employer));
+                hexToU8a(letter.worker), new BN(letter.amount), hexToU8a(letter.pubSign), hexToU8a(employer));
 
               const diplomaKey = keyForCid(currentPair, letter.cid);
               const workerSignOverInsurance = u8aToHex(diplomaKey.sign(u8aWrapBytes(letterInsurance)));

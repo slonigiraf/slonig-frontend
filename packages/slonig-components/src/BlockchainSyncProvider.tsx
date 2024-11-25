@@ -134,7 +134,7 @@ export const BlockchainSyncProvider: React.FC<BlockchainSyncProviderProps> = ({ 
                     if (recommendations && recommendations.has(letter.letterNumber)) {
                         const valid = recommendations.get(letter.letterNumber);
                         if (!valid) {
-                            cancelLetter(letter.signOverReceipt, now);
+                            cancelLetter(letter.pubSign, now);
                         }
                     }
                 }
@@ -198,7 +198,7 @@ export const BlockchainSyncProvider: React.FC<BlockchainSyncProviderProps> = ({ 
                     reimbursement.worker,
                     reimbursement.employer,
                     new BN(reimbursement.amount),
-                    reimbursement.signOverReceipt,
+                    reimbursement.pubSign,
                     reimbursement.workerSign
                 );
             });
