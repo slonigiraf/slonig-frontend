@@ -4,7 +4,7 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { useLoginContext, parseJson, useTokenTransfer, receiveWebRTCData, useInfo, LessonResult, keyForCid, getAddressFromPublickeyHex, useBlockchainSync } from '@slonigiraf/app-slonig-components';
 import { hexToU8a, u8aToHex, u8aWrapBytes } from '@polkadot/util';
-import { addReimbursement, cancelLetter, deserializeLetter, getAgreement, getLetter, letterToReimbursement, putAgreement, putLetter, storePseudonym, updateLetterReexaminingCount } from '@slonigiraf/db';
+import { addReimbursement, cancelLetter, deserializeLetter, getAgreement, getLetter, getLettersForKnowledgeId, letterToReimbursement, putAgreement, putLetter, storePseudonym, updateLetterReexaminingCount } from '@slonigiraf/db';
 import { useTranslation } from '../translate.js';
 import { Agreement } from '@slonigiraf/db';
 import { useNavigate } from 'react-router-dom';
@@ -104,7 +104,10 @@ function LessonResultReceiver({ webRTCPeerId }: Props): React.ReactElement {
           if (lessonResultJson?.letters) {
             lessonResultJson.letters.forEach(async (serializedLetter) => {
               const letter = deserializeLetter(serializedLetter, lessonResultJson.workerId, lessonResultJson.genesis, lessonResultJson.amount);
-              await putLetter(letter);
+              const sameSkillLetters = await getLettersForKnowledgeId(letter.workerId, letter.knowledgeId);
+              if(sameSkillLetters.length === 0){
+                await putLetter(letter);
+              }
             });
           }
           const updatedAgreement: Agreement = { ...agreement, completed: true };
