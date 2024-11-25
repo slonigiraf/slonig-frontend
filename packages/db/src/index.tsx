@@ -39,143 +39,22 @@ export const SettingKey = {
     INSURANCE_VALIDITY: 'insurance_validity',
     CID_CACHE_SIZE: 'cid_cache_size',
 };
-
 export const storeSetting = async (id: string, value: string) => {
     const cleanId = DOMPurify.sanitize(id);
     const cleanValue = DOMPurify.sanitize(value);
     await db.settings.put({ id: cleanId, value: cleanValue });
 }
-
 export const deleteSetting = async (id: string) => {
     const cleanId = DOMPurify.sanitize(id);
     await db.settings.delete(cleanId);
 }
-
 export const getSetting = async (id: string): Promise<string | undefined> => {
     const cleanId = DOMPurify.sanitize(id);
     const setting = await db.settings.get(cleanId);
     return setting ? setting.value : undefined;
 };
 
-
-
-export const getLesson = async (id: string) => {
-    return await db.lessons.get(id);
-}
-
-export const getLessons = async (tutor: string, startDate: number | null, endDate: number | null) => {
-    let query = db.lessons.where('tutor').equals(tutor);
-    if (startDate || endDate) {
-        query = query.filter((lesson) => {
-            if (startDate && lesson.created < startDate) return false;
-            if (endDate && lesson.created > endDate) return false;
-            return true;
-        });
-    }
-    return await query.reverse().sortBy('created');
-}
-
-export const getLetter = async (signOverReceipt: string) => {
-    return await db.letters.get(signOverReceipt);
-}
-
-export const getLetterTemplate = async (lesson: string, stage: number) => {
-    return await db.letterTemplates.get({ lesson: lesson, stage: stage });
-}
-
-export const getCIDCache = async (cid: string) => {
-    return await db.cidCache.get(cid);
-}
-
-export const getAgreement = async (id: string) => {
-    return await db.agreements.get(id);
-}
-
-export const getInsurance = async (workerSign: string) => {
-    return await db.insurances.get(workerSign);
-}
-
-export const getReexamination = async (signOverReceipt: string) => {
-    return await db.reexaminations.get(signOverReceipt);
-}
-
-export const getLetterTemplatesByLessonId = async (lessonId: string) => {
-    return await db.letterTemplates.where({ lesson: lessonId }).sortBy('stage');
-}
-
-export const getValidLetterTemplatesByLessonId = async (lessonId: string): Promise<LetterTemplate[]> => {
-    return await db.letterTemplates.where({ lesson: lessonId }).filter(letter => letter.valid).toArray();
-}
-
-export const getReexaminationsByLessonId = async (lessonId: string) => {
-    return await db.reexaminations.where({ lesson: lessonId }).sortBy('stage');
-}
-export const getAllReimbursements = async () => {
-    return await db.reimbursements.toArray();
-}
-export const getReimbursementsByReferee = async (referee: string) => {
-    return await db.reimbursements.where({ referee: referee }).toArray();
-}
-export const getAllPseudonyms = async () => {
-    return await db.pseudonyms.toArray();
-}
-
-export const getAllLetters = async () => {
-    return await db.letters.toArray();
-}
-export const getAllInsurances = async () => {
-    return await db.insurances.toArray();
-}
-export const getLetters = async (worker: string, startDate: number | null, endDate: number | null) => {
-    let query = db.letters.where('workerId').equals(worker);
-    if (startDate || endDate) {
-        query = query.filter((letter: Letter) => {
-            if (startDate && letter.created < startDate) return false;
-            if (endDate && letter.created > endDate) return false;
-            return true;
-        });
-    }
-    return await query.reverse().sortBy('created');
-}
-
-export const getInsurances = async (employer: string, worker: string, startDate: number | null, endDate: number | null) => {
-    let query = db.insurances.where('[employer+workerId]').equals([employer, worker]);
-    query = query.filter((insurance: Insurance) => {
-        if (startDate && insurance.created < startDate) return false;
-        if (endDate && insurance.created > endDate) return false;
-        return true;
-    });
-    return await query.reverse().sortBy('created');
-}
-
-export const syncDB = async (data: string, password: string) => {
-    const json = JSON.parse(data);
-    //letters
-    const letters = getDBObjectsFromJson(json, "letters");
-    letters.map((v: Letter) => putLetter(v));
-    //insurances
-    const insurances = getDBObjectsFromJson(json, "insurances");
-    insurances.map((v: Insurance) => putInsurance(v));
-    //signers
-    const signers = getDBObjectsFromJson(json, "signers");
-    signers.map(async (v: Signer) => {
-        const inLocal = await getLastUnusedLetterNumber(v.publicKey);
-        const inParsed = v.lastLetterNumber;
-        if (inParsed > inLocal) {
-            setLastUsedLetterNumber(v.publicKey, inParsed);
-        }
-    });
-    //usageRights
-    const usageRights = getDBObjectsFromJson(json, "usageRights");
-    usageRights.map((v: UsageRight) => putUsageRight(v));
-    //TODO: implement for pseudonyms
-}
-
-export const getDBObjectsFromJson = (json: any, tableName: string) => {
-    const found = json.data.data.find((element: { tableName: string; }) => element.tableName === tableName);
-    return found.rows;
-}
-
+// Signer related
 export const getLastUnusedLetterNumber = async (publicKey: string) => {
     const sameSigner = await db.signers.get({ publicKey: publicKey });
     if (sameSigner === undefined) {
@@ -194,6 +73,70 @@ export const setLastUsedLetterNumber = async (publicKey: string, lastUsed: numbe
     await db.signers.update(publicKey, { lastLetterNumber: lastUsed });
 }
 
+// Pseudonym related
+export const getAllPseudonyms = async () => {
+    return await db.pseudonyms.toArray();
+}
+export const storePseudonym = async (publicKey: string, pseudonym: string) => {
+    if (isValidPublicKey(publicKey)) {
+        const cleanPseudonym = DOMPurify.sanitize(pseudonym);
+        const samePseudonym = await db.pseudonyms.get({ publicKey: publicKey });
+        if (samePseudonym === undefined) {
+            const newPseudonym: Pseudonym = { publicKey: publicKey, pseudonym: cleanPseudonym, altPseudonym: "" };
+            await db.pseudonyms.put(newPseudonym);
+        } else if (samePseudonym.pseudonym !== cleanPseudonym) {
+            await db.pseudonyms.update(publicKey, { altPseudonym: cleanPseudonym });
+        }
+    }
+}
+export const getPseudonym = async (publicKey: string): Promise<string | undefined> => {
+    try {
+        const name = await db.pseudonyms.get(publicKey);
+        if (name && typeof name.pseudonym === 'string') {
+            const pseudonym = name.pseudonym;
+            return DOMPurify.sanitize(pseudonym);
+        }
+    } catch (error) {
+        console.error('Error fetching pseudonym:', error);
+    }
+    return undefined;
+};
+
+// CanceledLetter related
+export const putCanceledLetter = async (canceledLetter: CanceledLetter) => {
+    await db.canceledLetters.put(canceledLetter);
+}
+
+// Letter related
+export const putLetter = async (letter: Letter) => {
+    await db.letters.put(letter);
+}
+export const getLetter = async (signOverReceipt: string) => {
+    return await db.letters.get(signOverReceipt);
+}
+export const getAllLetters = async () => {
+    return await db.letters.toArray();
+}
+export const getLetters = async (worker: string, startDate: number | null, endDate: number | null) => {
+    let query = db.letters.where('workerId').equals(worker);
+    if (startDate || endDate) {
+        query = query.filter((letter: Letter) => {
+            if (startDate && letter.created < startDate) return false;
+            if (endDate && letter.created > endDate) return false;
+            return true;
+        });
+    }
+    return await query.reverse().sortBy('created');
+}
+export const getLettersForKnowledgeId = async (workerId: string, knowledgeId: string): Promise<Letter[]> => {
+    return await db.letters
+        .where('[workerId+knowledgeId]')
+        .equals([workerId, knowledgeId])
+        .toArray();
+}
+export const getLettersByWorkerId = async (workerId: string) => {
+    return await db.letters.where({ workerId: workerId }).toArray();
+};
 export const updateLetterReexaminingCount = async (signOverReceipt: string, time: number) => {
     const letter = await db.letters.get(signOverReceipt);
     if (letter) {
@@ -202,7 +145,6 @@ export const updateLetterReexaminingCount = async (signOverReceipt: string, time
     }
     return undefined;
 }
-
 export const cancelLetter = async (signOverReceipt: string, time: number) => {
     const letter: Letter | undefined = await getLetter(signOverReceipt);
     if (letter) {
@@ -220,7 +162,6 @@ export const cancelLetter = async (signOverReceipt: string, time: number) => {
         await deleteLetter(letter.signOverReceipt);
     }
 }
-
 export const cancelLetterByRefereeAndLetterNumber = async (referee: string, letterNumber: number, time: number) => {
     const letters = await db.letters
         .where('[referee+letterNumber]')
@@ -239,76 +180,68 @@ export const cancelLetterByRefereeAndLetterNumber = async (referee: string, lett
         };
 
         await Promise.all([
-            db.canceledLetters.put(canceledLetter),
-            db.letters.delete(letter.signOverReceipt),
+            putCanceledLetter(canceledLetter),
+            deleteLetter(letter.signOverReceipt),
         ]);
     });
 };
 
-export const markUsageRightAsUsed = async (referee: string, letterNumber: number) => {
-    const usageRights = await db.usageRights
-        .where('[referee+letterNumber]')
-        .equals([referee, letterNumber])
-        .toArray();
-    usageRights.forEach(async (usageRight) => {
-        await putUsageRight({...usageRight, used: true});
-    });
-};
-
-export const getInsurancesByRefereeAndLetterNumber = async (referee: string, letterNumber: number) => {
-    return await db.insurances
-        .where('[referee+letterNumber]')
-        .equals([referee, letterNumber])
-        .toArray();
+// Reexamination related
+export const putReexamination = async (reexamination: Reexamination) => {
+    await db.reexaminations.put(reexamination);
 }
-export const cancelInsuranceByRefereeAndLetterNumber = async (referee: string, letterNumber: number, time: number) => {
-    const insurances = await db.insurances
-        .where('[referee+letterNumber]')
-        .equals([referee, letterNumber])
-        .toArray();
-    insurances.forEach(async (insurance) => {
-        const canceledInsurance: CanceledInsurance = {
-            workerSign: insurance.workerSign,
-            created: insurance.created,
-            canceled: time,
-            workerId: insurance.workerId,
-            knowledgeId: insurance.knowledgeId,
-            cid: insurance.cid,
-            referee: insurance.referee,
-            employer: insurance.employer,
-        };
-        await Promise.all([
-            await putCanceledInsurance(canceledInsurance),
-            await deleteInsurance(insurance.workerSign),
-        ]);
-    });
-};
+export const getReexamination = async (signOverReceipt: string) => {
+    return await db.reexaminations.get(signOverReceipt);
+}
+export const getReexaminationsByLessonId = async (lessonId: string) => {
+    return await db.reexaminations.where({ lesson: lessonId }).sortBy('stage');
+}
+export const updateReexamination = async (reexamination: Reexamination) => {
+    await db.reexaminations.update(reexamination.signOverReceipt, reexamination);
+}
 
-export const cancelInsurance = async (workerSign: string, time: number) => {
-    const insurance: Insurance | undefined = await getInsurance(workerSign);
-    if (insurance) {
-        const canceledInsurance: CanceledInsurance = {
-            workerSign: insurance.workerSign,
-            created: insurance.created,
-            canceled: time,
-            workerId: insurance.workerId,
-            knowledgeId: insurance.knowledgeId,
-            cid: insurance.cid,
-            referee: insurance.referee,
-            employer: insurance.employer,
-        };
-        await putCanceledInsurance(canceledInsurance);
-        await deleteInsurance(insurance.workerSign);
+// LetterTemplate related
+export const putLetterTemplate = async (letterTemplate: LetterTemplate) => {
+    await db.letterTemplates.put(letterTemplate);
+}
+export const getLetterTemplatesByLessonId = async (lessonId: string) => {
+    return await db.letterTemplates.where({ lesson: lessonId }).sortBy('stage');
+}
+export const getValidLetterTemplatesByLessonId = async (lessonId: string): Promise<LetterTemplate[]> => {
+    return await db.letterTemplates.where({ lesson: lessonId }).filter(letter => letter.valid).toArray();
+}
+export function serializeAsLetter(letterTemplate: LetterTemplate, referee: string): string {
+    return [
+        letterTemplate.lastExamined,
+        letterTemplate.knowledgeId,
+        letterTemplate.cid,
+        letterTemplate.letterNumber.toString(),
+        letterTemplate.block,
+        referee,
+        letterTemplate.worker,
+        letterTemplate.signOverPrivateData,
+        letterTemplate.signOverReceipt
+    ].join(",");
+}
+
+// Lesson related
+export const getLesson = async (id: string) => {
+    return await db.lessons.get(id);
+}
+export const getLessons = async (tutor: string, startDate: number | null, endDate: number | null) => {
+    let query = db.lessons.where('tutor').equals(tutor);
+    if (startDate || endDate) {
+        query = query.filter((lesson) => {
+            if (startDate && lesson.created < startDate) return false;
+            if (endDate && lesson.created > endDate) return false;
+            return true;
+        });
     }
+    return await query.reverse().sortBy('created');
 }
-
-export const getLettersForKnowledgeId = async (workerId: string, knowledgeId: string): Promise<Letter[]> => {
-    return await db.letters
-        .where('[workerId+knowledgeId]')
-        .equals([workerId, knowledgeId])
-        .toArray();
+export const deleteLesson = async (id: string) => {
+    await db.lessons.delete(id);
 }
-
 export const getLessonId = (ids: any[]): string => {
     const date = new Date().toISOString().split('T')[0]; // Get the current date in YYYY-MM-DD format
     const dataToHash = `${date}-${ids.join('-')}`;
@@ -316,32 +249,15 @@ export const getLessonId = (ids: any[]): string => {
     return hash;
 };
 
-export const getDataShortKey = (data: string): string => {
-    const hash = blake2AsHex(data);
-    return hash;
-};
-
-export const getLettersByWorkerId = async (workerId: string) => {
-    return await db.letters.where({ workerId: workerId }).toArray();
-};
-
-const DEFAULT_INSURANCE_VALIDITY = 730;//Days valid
-export const getInsuranceDaysValid = async () => {
-    const stored_validity = await getSetting(SettingKey.INSURANCE_VALIDITY);
-    return stored_validity ? parseInt(stored_validity, 10) : DEFAULT_INSURANCE_VALIDITY;
-}
-
 const DEFAULT_WARRANTY = "105000000000000";//105 Slon
 const DEFAULT_DIPLOMA_VALIDITY = 730;//Days valid
 const DEFAULT_DIPLOMA_PRICE = "80000000000000";//80 Slon
 
 export const storeLesson = async (lessonRequest: LessonRequest, tutor: string) => {
     const now = (new Date()).getTime();
-
     const stored_warranty = await getSetting(SettingKey.DIPLOMA_WARRANTY);
     const stored_validity = await getSetting(SettingKey.DIPLOMA_VALIDITY);
     const stored_diploma_price = await getSetting(SettingKey.DIPLOMA_PRICE);
-
     const warranty = stored_warranty ? stored_warranty : DEFAULT_WARRANTY;
     const validity: number = stored_validity ? parseInt(stored_validity, 10) : DEFAULT_DIPLOMA_VALIDITY;
     const diploma_price = stored_diploma_price ? stored_diploma_price : DEFAULT_DIPLOMA_PRICE;
@@ -400,29 +316,150 @@ export const storeLesson = async (lessonRequest: LessonRequest, tutor: string) =
     }
     await storeSetting(SettingKey.LESSON, lessonRequest.lesson);
 }
-
 export const updateLesson = async (lesson: Lesson) => {
     const sameLesson = await db.lessons.get({ id: lesson.id });
     if (sameLesson !== undefined) {
         await db.lessons.update(lesson.id, lesson);
     }
 }
+// 
+
+
+
+export const getLetterTemplate = async (lesson: string, stage: number) => {
+    return await db.letterTemplates.get({ lesson: lesson, stage: stage });
+}
+
+export const getCIDCache = async (cid: string) => {
+    return await db.cidCache.get(cid);
+}
+
+export const getAgreement = async (id: string) => {
+    return await db.agreements.get(id);
+}
+
+export const getInsurance = async (workerSign: string) => {
+    return await db.insurances.get(workerSign);
+}
+
+
+
+
+
+export const getAllReimbursements = async () => {
+    return await db.reimbursements.toArray();
+}
+export const getReimbursementsByReferee = async (referee: string) => {
+    return await db.reimbursements.where({ referee: referee }).toArray();
+}
+
+
+export const getAllInsurances = async () => {
+    return await db.insurances.toArray();
+}
+
+
+export const getInsurances = async (employer: string, worker: string, startDate: number | null, endDate: number | null) => {
+    let query = db.insurances.where('[employer+workerId]').equals([employer, worker]);
+    query = query.filter((insurance: Insurance) => {
+        if (startDate && insurance.created < startDate) return false;
+        if (endDate && insurance.created > endDate) return false;
+        return true;
+    });
+    return await query.reverse().sortBy('created');
+}
+
+
+
+export const getDBObjectsFromJson = (json: any, tableName: string) => {
+    const found = json.data.data.find((element: { tableName: string; }) => element.tableName === tableName);
+    return found.rows;
+}
+
+
+
+export const markUsageRightAsUsed = async (referee: string, letterNumber: number) => {
+    const usageRights = await db.usageRights
+        .where('[referee+letterNumber]')
+        .equals([referee, letterNumber])
+        .toArray();
+    usageRights.forEach(async (usageRight) => {
+        await putUsageRight({ ...usageRight, used: true });
+    });
+};
+
+export const getInsurancesByRefereeAndLetterNumber = async (referee: string, letterNumber: number) => {
+    return await db.insurances
+        .where('[referee+letterNumber]')
+        .equals([referee, letterNumber])
+        .toArray();
+}
+export const cancelInsuranceByRefereeAndLetterNumber = async (referee: string, letterNumber: number, time: number) => {
+    const insurances = await db.insurances
+        .where('[referee+letterNumber]')
+        .equals([referee, letterNumber])
+        .toArray();
+    insurances.forEach(async (insurance) => {
+        const canceledInsurance: CanceledInsurance = {
+            workerSign: insurance.workerSign,
+            created: insurance.created,
+            canceled: time,
+            workerId: insurance.workerId,
+            knowledgeId: insurance.knowledgeId,
+            cid: insurance.cid,
+            referee: insurance.referee,
+            employer: insurance.employer,
+        };
+        await Promise.all([
+            await putCanceledInsurance(canceledInsurance),
+            await deleteInsurance(insurance.workerSign),
+        ]);
+    });
+};
+
+export const cancelInsurance = async (workerSign: string, time: number) => {
+    const insurance: Insurance | undefined = await getInsurance(workerSign);
+    if (insurance) {
+        const canceledInsurance: CanceledInsurance = {
+            workerSign: insurance.workerSign,
+            created: insurance.created,
+            canceled: time,
+            workerId: insurance.workerId,
+            knowledgeId: insurance.knowledgeId,
+            cid: insurance.cid,
+            referee: insurance.referee,
+            employer: insurance.employer,
+        };
+        await putCanceledInsurance(canceledInsurance);
+        await deleteInsurance(insurance.workerSign);
+    }
+}
+
+
+
+
+export const getDataShortKey = (data: string): string => {
+    const hash = blake2AsHex(data);
+    return hash;
+};
+
+
+
+const DEFAULT_INSURANCE_VALIDITY = 730;//Days valid
+export const getInsuranceDaysValid = async () => {
+    const stored_validity = await getSetting(SettingKey.INSURANCE_VALIDITY);
+    return stored_validity ? parseInt(stored_validity, 10) : DEFAULT_INSURANCE_VALIDITY;
+}
+
+
 
 export const putAgreement = async (agreement: Agreement) => {
     await db.agreements.put(agreement);
 }
 
-export const putLetter = async (letter: Letter) => {
-    await db.letters.put(letter);
-}
 
-export const putLetterTemplate = async (letterTemplate: LetterTemplate) => {
-    await db.letterTemplates.put(letterTemplate);
-}
 
-export const putCanceledLetter = async (canceledLetter: CanceledLetter) => {
-    await db.canceledLetters.put(canceledLetter);
-}
+
 
 export const putCanceledInsurance = async (canceledInsurance: CanceledInsurance) => {
     await db.canceledInsurances.put(canceledInsurance);
@@ -446,7 +483,7 @@ const evictEntries = async (requiredSize: number) => {
 let cacheLock = Promise.resolve();
 const runLocked = async (fn: () => Promise<void>) => {
     const unlock = cacheLock.then(() => fn());
-    cacheLock = unlock.catch(() => {});
+    cacheLock = unlock.catch(() => { });
     return unlock;
 };
 export const putCIDCache = async (cid: string, data: string) => {
@@ -470,12 +507,7 @@ export const updateInsurance = async (insurance: Insurance) => {
     await db.insurances.update(insurance.workerSign, insurance);
 }
 
-export const updateReexamination = async (reexamination: Reexamination) => {
-    const sameItem = await db.reexaminations.get(reexamination.signOverReceipt);
-    if (sameItem !== undefined) {
-        await db.reexaminations.update(reexamination.signOverReceipt, reexamination);
-    }
-}
+
 
 export const letterToReimbursement = (letter: Letter, employer: string, workerSign: string, blockAllowed?: string): Reimbursement => {
     const reimbursement: Reimbursement = {
@@ -536,9 +568,6 @@ export const putInsurance = async (insurance: Insurance) => {
     await db.insurances.put(insurance);
 }
 
-export const putReexamination = async (reexamination: Reexamination) => {
-    await db.reexaminations.put(reexamination);
-}
 
 export const addReimbursement = async (reimbursement: Reimbursement) => {
     await db.reimbursements.add(reimbursement);
@@ -563,18 +592,7 @@ function isValidPublicKey(publicKey: string) {
     }
 }
 
-export const storePseudonym = async (publicKey: string, pseudonym: string) => {
-    if (isValidPublicKey(publicKey)) {
-        const cleanPseudonym = DOMPurify.sanitize(pseudonym);
-        const samePseudonym = await db.pseudonyms.get({ publicKey: publicKey });
-        if (samePseudonym === undefined) {
-            const newPseudonym: Pseudonym = { publicKey: publicKey, pseudonym: cleanPseudonym, altPseudonym: "" };
-            await db.pseudonyms.put(newPseudonym);
-        } else if (samePseudonym.pseudonym !== cleanPseudonym) {
-            await db.pseudonyms.update(publicKey, { altPseudonym: cleanPseudonym });
-        }
-    }
-}
+
 
 
 
@@ -607,9 +625,6 @@ export const deleteInsurance = async (workerSign: string) => {
     await db.insurances.delete(workerSign);
 }
 
-export const deleteLesson = async (id: string) => {
-    await db.lessons.delete(id);
-}
 
 
 
@@ -696,7 +711,7 @@ const createAndStoreInsurance = async (data: string[], timeStamp: number) => {
 
     const letterNumber = parseInt(letterId, 10);
     const sameInsurances = await getInsurancesByRefereeAndLetterNumber(refereePublicKeyHex, letterNumber);
-    if(sameInsurances.length === 0){
+    if (sameInsurances.length === 0) {
         const insurance: Insurance = {
             created: timeStamp,
             valid: true,
@@ -720,39 +735,10 @@ const createAndStoreInsurance = async (data: string[], timeStamp: number) => {
     }
 }
 
-export const getPseudonym = async (publicKey: string): Promise<string | undefined> => {
-    try {
-        const name = await db.pseudonyms.get(publicKey);
-        if (name && typeof name.pseudonym === 'string') {
-            const pseudonym = name.pseudonym;
-            return DOMPurify.sanitize(pseudonym);
-        }
-    } catch (error) {
-        console.error('Error fetching pseudonym:', error);
-    }
-    return undefined;
-};
 
-/**
- * Serializes a LetterTemplate object to a JSON string, including only the specified fields.
- * @param letterTemplate - The LetterTemplate object to serialize.
- * @returns The JSON string representation of the Letter.
- */
-export function serializeAsLetter(letterTemplate: LetterTemplate, referee: string): string {
-    // Create an array with values in a specific order
-    const serializedArray = [
-        letterTemplate.lastExamined,
-        letterTemplate.knowledgeId,
-        letterTemplate.cid,
-        letterTemplate.letterNumber.toString(),
-        letterTemplate.block,
-        referee,
-        letterTemplate.worker,
-        letterTemplate.signOverPrivateData,
-        letterTemplate.signOverReceipt
-    ];
-    return serializedArray.join(",");
-}
+
+
+
 
 /**
 * Deserializes a JSON string to a Letter object, including only the specified fields.
@@ -820,4 +806,27 @@ const progressCallback = ({ totalRows, completedRows }: any) => {
 
 export const exportDB = async () => {
     await db.export({ prettyJson: true, progressCallback });
+}
+
+export const syncDB = async (data: string, password: string) => {
+    const json = JSON.parse(data);
+    //letters
+    const letters = getDBObjectsFromJson(json, "letters");
+    letters.map((v: Letter) => putLetter(v));
+    //insurances
+    const insurances = getDBObjectsFromJson(json, "insurances");
+    insurances.map((v: Insurance) => putInsurance(v));
+    //signers
+    const signers = getDBObjectsFromJson(json, "signers");
+    signers.map(async (v: Signer) => {
+        const inLocal = await getLastUnusedLetterNumber(v.publicKey);
+        const inParsed = v.lastLetterNumber;
+        if (inParsed > inLocal) {
+            setLastUsedLetterNumber(v.publicKey, inParsed);
+        }
+    });
+    //usageRights
+    const usageRights = getDBObjectsFromJson(json, "usageRights");
+    usageRights.map((v: UsageRight) => putUsageRight(v));
+    //TODO: implement for pseudonyms
 }

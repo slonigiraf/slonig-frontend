@@ -35,18 +35,24 @@ class SlonigirafDB extends Dexie {
     this.version(52).stores({
       settings: '&id',
       signers: '&publicKey',
-      letters: '&signOverReceipt,created,lastExamined,workerId,knowledgeId,cid,referee,[workerId+knowledgeId],[referee+letterNumber]',
-      canceledLetters: '&signOverReceipt',
-      canceledInsurances: '&workerSign',
-      letterTemplates: '&[cid+lesson],lesson',
       pseudonyms: '&publicKey',
+      canceledLetters: '&signOverReceipt',
+      letters: '&signOverReceipt,created,lastExamined,workerId,knowledgeId,cid,referee,[workerId+knowledgeId],[referee+letterNumber]',
+      reexaminations: '&signOverReceipt,lesson',
+      lessons: '&id,created,tutor',
+
       
+      
+      
+      letterTemplates: '&[cid+lesson],lesson',
+      
+      canceledInsurances: '&workerSign',
       usageRights: '&[signOverReceipt+employer],[referee+letterNumber]',
       insurances: '&workerSign,created,workerId,[employer+workerId],[referee+letterNumber]',
-      reexaminations: '&signOverReceipt,lesson',
+      
       reimbursements: '&workerSign,[referee+letterNumber],referee',
       
-      lessons: '&id,created,tutor',
+      
       agreements: '&id',
       cidCache: '&cid,time',
     });
