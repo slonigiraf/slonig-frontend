@@ -274,6 +274,12 @@ export const markUsageRightAsUsed = async (referee: string, letterNumber: number
     });
 };
 
+export const getInsurancesByRefereeAndLetterNumber = async (referee: string, letterNumber: number) => {
+    return await db.insurances
+        .where('[referee+letterNumber]')
+        .equals([referee, letterNumber])
+        .toArray();
+}
 export const cancelInsuranceByRefereeAndLetterNumber = async (referee: string, letterNumber: number, time: number) => {
     const insurances = await db.insurances
         .where('[referee+letterNumber]')
@@ -656,19 +662,20 @@ export const createAndStoreLetter = async (data: string[]) => {
 }
 
 export const storeInsurances = async (insurancesTransfer: InsurancesTransfer) => {
+    const now = (new Date()).getTime();
     if (Array.isArray(insurancesTransfer.insurances) && insurancesTransfer.insurances.length > 0) {
         for (let i = insurancesTransfer.insurances.length - 1; i >= 0; i--) {
             const insuranceDataString = insurancesTransfer.insurances[i];
             const insuranceDataArray = insuranceDataString.split(",");
             insuranceDataArray.unshift(insurancesTransfer.identity, insurancesTransfer.employer);
-            await createAndStoreInsurance(insuranceDataArray);
+            await createAndStoreInsurance(insuranceDataArray, now);
         }
     } else {
         console.error("Invalid or empty insurances data.");
     }
 };
 
-const createAndStoreInsurance = async (data: string[]) => {
+const createAndStoreInsurance = async (data: string[], timeStamp: number) => {
     const [
         workerId,
         employerPublicKeyHex,
@@ -685,28 +692,30 @@ const createAndStoreInsurance = async (data: string[]) => {
         refereeSignOverReceipt,
         workerSignOverInsurance] = data;
 
-    const now = (new Date()).getTime();
-
-    const insurance: Insurance = {
-        created: now,
-        valid: true,
-        lesson: '',
-        workerId: workerId,
-        knowledgeId: knowledgeId,
-        cid: cid,
-        genesis: genesisHex,
-        letterNumber: parseInt(letterId, 10),
-        block: blockNumber,
-        blockAllowed: blockAllowed,
-        referee: refereePublicKeyHex,
-        worker: worker,
-        amount: amountValue,
-        signOverPrivateData: refereeSignOverPrivateData,
-        signOverReceipt: refereeSignOverReceipt,
-        employer: employerPublicKeyHex,
-        workerSign: workerSignOverInsurance,
-    };
-    await putInsurance(insurance);
+    const letterNumber = parseInt(letterId, 10);
+    const sameInsurances = await getInsurancesByRefereeAndLetterNumber(refereePublicKeyHex, letterNumber);
+    if(sameInsurances.length === 0){
+        const insurance: Insurance = {
+            created: timeStamp,
+            valid: true,
+            lesson: '',
+            workerId: workerId,
+            knowledgeId: knowledgeId,
+            cid: cid,
+            genesis: genesisHex,
+            letterNumber: letterNumber,
+            block: blockNumber,
+            blockAllowed: blockAllowed,
+            referee: refereePublicKeyHex,
+            worker: worker,
+            amount: amountValue,
+            signOverPrivateData: refereeSignOverPrivateData,
+            signOverReceipt: refereeSignOverReceipt,
+            employer: employerPublicKeyHex,
+            workerSign: workerSignOverInsurance,
+        };
+        await putInsurance(insurance);
+    }
 }
 
 export const getPseudonym = async (publicKey: string): Promise<string | undefined> => {
