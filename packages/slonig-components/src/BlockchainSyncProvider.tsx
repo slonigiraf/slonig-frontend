@@ -33,6 +33,7 @@ export const BlockchainSyncProvider: React.FC<BlockchainSyncProviderProps> = ({ 
     const mountedRef = useIsMountedRef();
     const badRefereesWithEnoughBalance = useRef<Map<string, BN>>(new Map());
     const myBalance = useRef<BN | null>(null);
+    const lastAddressRef = useRef<string | undefined>(undefined);
     const subscribedBadReferees = useRef(new Set());
     const lettersICarryAbout = useRef<Map<string, Map<number, boolean>>>(new Map());
     const isSendingBatchRef = useRef<boolean>(false);
@@ -81,7 +82,7 @@ export const BlockchainSyncProvider: React.FC<BlockchainSyncProviderProps> = ({ 
 
 
     useEffect(() => {
-        if (accountInfo && myBalance.current) {
+        if (accountInfo && myBalance.current && lastAddressRef.current === currentPair?.address) {
             const balanceChange = accountInfo.data.free.sub(myBalance.current);
             const icon = balanceChange.gte(BN_ZERO) ? 'hand-holding-dollar' : 'money-bill-trend-up';
             const balanceChangeToShow = balanceToSlonString(balanceChange);
@@ -90,6 +91,7 @@ export const BlockchainSyncProvider: React.FC<BlockchainSyncProviderProps> = ({ 
             }
         }
         myBalance.current = accountInfo?.data.free || null;
+        lastAddressRef.current = currentPair?.address;
     }, [accountInfo]);
 
 
