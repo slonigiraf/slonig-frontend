@@ -1,7 +1,7 @@
 import pako from 'pako';
 import FileSaver from 'file-saver';
 import React, { useCallback, useState } from 'react';
-import { Button } from '@polkadot/react-components';
+import { Button, Progress } from '@polkadot/react-components';
 import { exportDB } from '@slonigiraf/db';
 import { nextTick } from '@polkadot/util';
 import { keyring } from '@polkadot/ui-keyring';
@@ -12,12 +12,18 @@ interface Props {
   className?: string;
 }
 
+const compressionDeceleration = 0.8;
 function DBExport({ className = '' }: Props): React.ReactElement<Props> {
   const { currentPair } = useLoginContext();
   const [isBusy, setIsBusy] = useState(false);
+  const [progressValue, setProgressValue] = useState<number>(0);
+  const [progressTotal, setProgressTotal] = useState<number>(100);
 
   function progressCallback({ totalRows, completedRows }: any) {
-    console.log(`Progress: ${completedRows} of ${totalRows} rows completed`);
+    if (totalRows > 0) {
+      setProgressValue(compressionDeceleration * completedRows);
+      setProgressTotal(totalRows);
+    }
     return true;
   }
 
@@ -82,13 +88,20 @@ function DBExport({ className = '' }: Props): React.ReactElement<Props> {
   );
 
   return (
-    <Button
-      className={className}
-      icon="download"
-      label=""
-      onClick={backupData}
-      isDisabled={isBusy}
-    />
+    <div>
+      {!isBusy ?
+        <Button
+          className={className}
+          icon="download"
+          label="Backup"
+          onClick={backupData}
+          isDisabled={isBusy}
+        /> :
+        <Progress
+          value={progressValue}
+          total={progressTotal}
+        />}
+    </div>
   );
 }
 
