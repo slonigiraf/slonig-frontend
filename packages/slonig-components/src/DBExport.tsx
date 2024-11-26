@@ -3,86 +3,60 @@ import FileSaver from 'file-saver';
 import React, { useCallback, useState } from 'react';
 import { Button } from '@polkadot/react-components';
 import { exportDB } from '@slonigiraf/db';
-import { useLogin } from './useLogin.js';
 import { nextTick } from '@polkadot/util';
 import { keyring } from '@polkadot/ui-keyring';
+import { useLoginContext } from './LoginContext.js';
 
 interface Props {
   className?: string;
 }
 
 function DBExport({ className = '' }: Props): React.ReactElement<Props> {
-  const {currentPair} = useLogin();
-  const [isProcessing, setIsProcessing] = useState(false);
+  const { currentPair } = useLoginContext();
   const [isBusy, setIsBusy] = useState(false);
-  const [backupFailed, setBackupFailed] = useState(false);
 
   function progressCallback({ totalRows, completedRows }: any) {
     console.log(`Progress: ${completedRows} of ${totalRows} rows completed`);
     return true;
   }
 
-  const downloadDbJson = useCallback(async () => {
-    try {
-      setIsProcessing(true);
-      const blob = await exportDB(progressCallback);
-      if (!blob) {
-        throw new Error('No data available to export');
-      }
-      if ('showSaveFilePicker' in window && typeof window.showSaveFilePicker === 'function') {
-        const fileHandle = await window.showSaveFilePicker({
-          suggestedName: 'database.json',
-          types: [
-            {
-              description: 'JSON Files',
-              accept: {
-                'application/json': ['.json'],
-              },
-            },
-          ],
-        });
-        const writableStream = await fileHandle.createWritable();
-        await writableStream.write(blob);
-        await writableStream.close();
-      } else {
-        // Fallback for unsupported browsers
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = 'database.json';
-        document.body.appendChild(a);
-        a.click();
-        document.body.removeChild(a);
-        URL.revokeObjectURL(url);
-      }
-    } catch (error) {
-      console.error('Error exporting database:', error);
-    } finally {
-      setIsProcessing(false);
-    }
-  }, []);
-
-  const backupCurrentPair = useCallback(
+  const backupData = useCallback(
     (): void => {
       setIsBusy(true);
-      nextTick((): void => {
+      nextTick(async (): Promise<void> => {
         try {
+          // Backup current key pair
           const password = ''; // Intentionally, users can't remember passwords.
           const addressKeyring = currentPair;
           const json = addressKeyring && keyring.backupAccount(addressKeyring, password);
-          const blob = new Blob([JSON.stringify(json)], { type: 'application/json; charset=utf-8' });
 
-          // eslint-disable-next-line deprecation/deprecation
-          FileSaver.saveAs(blob, `${currentPair?.address}.json`);
+          if (!json) {
+            throw new Error('No key pair data available');
+          }
+
+          // Export database
+          const dbBlob = await exportDB(progressCallback);
+
+          if (!dbBlob) {
+            throw new Error('No database data available to export');
+          }
+
+          // Combine key pair and database into a single JSON file
+          const combinedData = {
+            keys: [json],
+            db: JSON.parse(await dbBlob.text())
+          };
+
+          const combinedBlob = new Blob([JSON.stringify(combinedData, null, 2)], {
+            type: 'application/json; charset=utf-8',
+          });
+
+          FileSaver.saveAs(combinedBlob, `${currentPair?.address}_backup.json`);
         } catch (error) {
-          setBackupFailed(true);
-          setIsBusy(false);
           console.error(error);
-
-          return;
+        } finally {
+          setIsBusy(false);
         }
-
-        setIsBusy(false);
       });
     },
     [currentPair]
@@ -92,9 +66,9 @@ function DBExport({ className = '' }: Props): React.ReactElement<Props> {
     <Button
       className={className}
       icon="download"
-      label={''}
-      onClick={downloadDbJson}
-      isDisabled={isProcessing}
+      label=""
+      onClick={backupData}
+      isDisabled={isBusy}
     />
   );
 }
