@@ -22,6 +22,7 @@
     "@slonigiraf/db": "^0.132.2-38-x",
     "@slonigiraf/helpers": "^7.0.0",
     "kubo-rpc-client": "^3.0.1",
+    "pako": "^2.1.0",
     "query-string": "^8.1.0",
     "react-qr-reader": "^3.0.0-beta-1"
   },
@@ -29,5 +30,8 @@
     "react": "*",
     "react-dom": "*",
     "react-is": "*"
+  },
+  "devDependencies": {
+    "@types/pako": "^2.0.3"
   }
 }

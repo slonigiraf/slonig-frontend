@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: Apache-2.0
+import pako from 'pako';
 import FileSaver from 'file-saver';
 import React, { useCallback, useState } from 'react';
 import { Button } from '@polkadot/react-components';
@@ -29,9 +29,9 @@ function DBExport({ className = '' }: Props): React.ReactElement<Props> {
           // Backup current key pair
           const password = ''; // Intentionally, users can't remember passwords.
           const addressKeyring = currentPair;
-          const json = addressKeyring && keyring.backupAccount(addressKeyring, password);
+          const keyPairJson = addressKeyring && keyring.backupAccount(addressKeyring, password);
 
-          if (!json) {
+          if (!keyPairJson) {
             throw new Error('No key pair data available');
           }
 
@@ -44,15 +44,22 @@ function DBExport({ className = '' }: Props): React.ReactElement<Props> {
 
           // Combine key pair and database into a single JSON file
           const combinedData = {
-            keys: [json],
-            db: JSON.parse(await dbBlob.text())
+            keys: [keyPairJson],
+            db: JSON.parse(await dbBlob.text()),
           };
 
-          const combinedBlob = new Blob([JSON.stringify(combinedData, null, 2)], {
-            type: 'application/json; charset=utf-8',
-          });
+          // Gzip the combined data
+          const combinedJson = JSON.stringify(combinedData, null, 2);
+          const gzipData = pako.gzip(combinedJson);
+
+          // Create a blob from the Gzip data
+          const gzipBlob = new Blob([gzipData], { type: 'application/gzip' });
+
           const timeStamp = getFormattedTimestamp(new Date());
-          FileSaver.saveAs(combinedBlob, `${currentPair?.meta.name}_backup_${timeStamp}.json`);
+          FileSaver.saveAs(
+            gzipBlob,
+            `${currentPair?.meta.name}_backup_${timeStamp}.json.gz`
+          );
         } catch (error) {
           console.error(error);
         } finally {
