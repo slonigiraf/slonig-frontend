@@ -6,6 +6,7 @@ import { exportDB } from '@slonigiraf/db';
 import { nextTick } from '@polkadot/util';
 import { keyring } from '@polkadot/ui-keyring';
 import { useLoginContext } from './LoginContext.js';
+import { getFormattedTimestamp } from '@slonigiraf/app-slonig-components';
 
 interface Props {
   className?: string;
@@ -50,8 +51,8 @@ function DBExport({ className = '' }: Props): React.ReactElement<Props> {
           const combinedBlob = new Blob([JSON.stringify(combinedData, null, 2)], {
             type: 'application/json; charset=utf-8',
           });
-
-          FileSaver.saveAs(combinedBlob, `${currentPair?.address}_backup.json`);
+          const timeStamp = getFormattedTimestamp(new Date());
+          FileSaver.saveAs(combinedBlob, `${currentPair?.meta.name}_backup_${timeStamp}.json`);
         } catch (error) {
           console.error(error);
         } finally {

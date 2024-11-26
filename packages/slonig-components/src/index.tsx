@@ -41,6 +41,15 @@ export const EXISTENTIAL_BATCH_SENDER_BALANCE = new BN('10000000000000'); // 10 
 export const EXISTENTIAL_REFEREE_BALANCE = new BN('1000000000000000'); // 1k Slon = 1000000000000000
 export const REIMBURSEMENT_BATCH_SIZE = 5;
 
+export function getFormattedTimestamp(date: Date): string {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  const hours = String(date.getHours()).padStart(2, '0');
+  const minutes = String(date.getMinutes()).padStart(2, '0');
+  return `${year}${month}${day}_${hours}_${minutes}`;
+};
+
 export const qrWidthPx = getQrWidth();
 export interface Exercise {
   /** The exercise text. */
