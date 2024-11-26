@@ -1,7 +1,7 @@
 import pako from 'pako';
 import FileSaver from 'file-saver';
 import React, { useCallback, useState } from 'react';
-import { Button, Progress, styled } from '@polkadot/react-components';
+import { Progress, styled } from '@polkadot/react-components';
 import { exportDB } from '@slonigiraf/db';
 import { nextTick } from '@polkadot/util';
 import { keyring } from '@polkadot/ui-keyring';
@@ -110,6 +110,7 @@ function DBExport({ className = '' }: Props): React.ReactElement<Props> {
 const StyledDiv = styled.div`
   display: flex;
   align-items: center;
+  justify-content: center;
   width: 75px;
   min-width: 75px;
   max-width: 75px;

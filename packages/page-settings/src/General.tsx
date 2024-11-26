@@ -6,15 +6,13 @@ import type { SettingsStruct } from '@polkadot/ui-settings/types';
 
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 
-import { createLanguages, createSs58 } from '@polkadot/apps-config';
+import { createLanguages } from '@polkadot/apps-config';
 import { ChainInfo } from '@polkadot/apps';
-import { allNetworks } from '@polkadot/networks';
-import { Button, Dropdown, MarkWarning, styled, Toggle } from '@polkadot/react-components';
-import { useApi, useLedger } from '@polkadot/react-hooks';
+import { Button, Dropdown, Toggle } from '@polkadot/react-components';
 import { settings } from '@polkadot/ui-settings';
 
 import { useTranslation } from './translate.js';
-import { createIdenticon, createOption, save, saveAndReload } from './util.js';
+import { createIdenticon, save, saveAndReload } from './util.js';
 import { getSetting, storeSetting, SettingKey } from '@slonigiraf/db';
 import { DBExport, DBImport } from '@slonigiraf/app-slonig-components';
 
@@ -22,13 +20,9 @@ interface Props {
   className?: string;
 }
 
-const _ledgerConnOptions = settings.availableLedgerConn;
-
 function General({ className = '' }: Props): React.ReactElement<Props> {
   const { t } = useTranslation();
-  const { chainSS58, isApiReady, isElectron } = useApi();
   const [isDeveloper, setDeveloper] = useState<boolean>(false);
-  const { hasLedgerChain, hasWebUsb } = useLedger();
   // tri-state: null = nothing changed, false = no reload, true = reload required
   const [changed, setChanged] = useState<boolean | null>(null);
   const [state, setSettings] = useState((): SettingsStruct => {
@@ -37,51 +31,10 @@ function General({ className = '' }: Props): React.ReactElement<Props> {
     return { ...values, uiTheme: values.uiTheme === 'dark' ? 'dark' : 'light' };
   });
 
-
-
-  const ledgerConnOptions = useMemo(
-    () => _ledgerConnOptions.filter(({ value }) => !isElectron || value !== 'webusb'),
-    [isElectron]
-  );
-
   const iconOptions = useMemo(
     () => settings.availableIcons
       .map((o): Option => createIdenticon(o, ['default'])),
     []
-  );
-
-  const prefixOptions = useMemo(
-    (): (Option | React.ReactNode)[] => {
-      const network = allNetworks.find(({ prefix }) => prefix === chainSS58);
-
-      return createSs58(t).map((o) =>
-        createOption(o, ['default'], 'empty', (o.value === -1
-          ? isApiReady
-            ? network
-              ? ` (${network.displayName}, ${chainSS58 || 0})`
-              : ` (${chainSS58 || 0})`
-            : undefined
-          : ` (${o.value})`
-        ))
-      );
-    },
-    [chainSS58, isApiReady, t]
-  );
-
-  const storageOptions = useMemo(
-    () => [
-      { text: t('Allow local in-browser account storage'), value: 'on' },
-      { text: t('Do not allow local in-browser account storage'), value: 'off' }
-    ],
-    [t]
-  );
-
-  const themeOptions = useMemo(
-    () => [
-      { text: t('Light theme'), value: 'light' },
-      { text: t('Dark theme'), value: 'dark' }
-    ],
-    [t]
   );
 
   const translateLanguages = useMemo(
@@ -186,7 +139,6 @@ function General({ className = '' }: Props): React.ReactElement<Props> {
           }
         />
       </Button.Group>
-      
     </div>
   );
 }
