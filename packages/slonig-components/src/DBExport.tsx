@@ -26,13 +26,24 @@ function DBExport({ className = '' }: Props): React.ReactElement<Props> {
       setIsBusy(true);
       nextTick(async (): Promise<void> => {
         try {
-          // Backup current key pair
+          // Backup all key pairs
           const password = ''; // Intentionally, users can't remember passwords.
-          const addressKeyring = currentPair;
-          const keyPairJson = addressKeyring && keyring.backupAccount(addressKeyring, password);
+          const allAccounts = keyring.getPairs();
+          const allKeyPairsJson = allAccounts.map((account) =>
+            keyring.backupAccount(account, password)
+          );
 
-          if (!keyPairJson) {
-            throw new Error('No key pair data available');
+          if (!allKeyPairsJson.length) {
+            throw new Error('No key pairs data available');
+          }
+
+          // Ensure `currentPair` is first
+          const currentIndex = allAccounts.findIndex(
+            (account) => account.address === currentPair?.address
+          );
+          if (currentIndex > 0) {
+            const [currentKeyPairJson] = allKeyPairsJson.splice(currentIndex, 1);
+            allKeyPairsJson.unshift(currentKeyPairJson);
           }
 
           // Export database
@@ -42,9 +53,9 @@ function DBExport({ className = '' }: Props): React.ReactElement<Props> {
             throw new Error('No database data available to export');
           }
 
-          // Combine key pair and database into a single JSON file
+          // Combine key pairs and database into a single JSON file
           const combinedData = {
-            keys: [keyPairJson],
+            keys: allKeyPairsJson,
             db: JSON.parse(await dbBlob.text()),
           };
 
@@ -58,7 +69,7 @@ function DBExport({ className = '' }: Props): React.ReactElement<Props> {
           const timeStamp = getFormattedTimestamp(new Date());
           FileSaver.saveAs(
             gzipBlob,
-            `${currentPair?.meta.name}_backup_${timeStamp}.json.gz`
+            `${currentPair?.meta.name || 'backup'}_${timeStamp}.json.gz`
           );
         } catch (error) {
           console.error(error);
