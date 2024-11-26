@@ -1,12 +1,13 @@
 import pako from 'pako';
 import FileSaver from 'file-saver';
 import React, { useCallback, useState } from 'react';
-import { Button, Progress } from '@polkadot/react-components';
+import { Button, Progress, styled } from '@polkadot/react-components';
 import { exportDB } from '@slonigiraf/db';
 import { nextTick } from '@polkadot/util';
 import { keyring } from '@polkadot/ui-keyring';
 import { useLoginContext } from './LoginContext.js';
-import { getFormattedTimestamp } from '@slonigiraf/app-slonig-components';
+import { ButtonWithLabelBelow, getFormattedTimestamp } from '@slonigiraf/app-slonig-components';
+import { useTranslation } from './translate.js';
 
 interface Props {
   className?: string;
@@ -14,6 +15,7 @@ interface Props {
 
 const compressionDeceleration = 0.8;
 function DBExport({ className = '' }: Props): React.ReactElement<Props> {
+  const { t } = useTranslation();
   const { currentPair } = useLoginContext();
   const [isBusy, setIsBusy] = useState(false);
   const [progressValue, setProgressValue] = useState<number>(0);
@@ -88,21 +90,29 @@ function DBExport({ className = '' }: Props): React.ReactElement<Props> {
   );
 
   return (
-    <div>
+    <StyledDiv>
       {!isBusy ?
-        <Button
+        <ButtonWithLabelBelow
           className={className}
           icon="download"
-          label="Backup"
+          label={t('Download')}
           onClick={backupData}
           isDisabled={isBusy}
-        /> :
+        />
+        :
         <Progress
           value={progressValue}
           total={progressTotal}
         />}
-    </div>
+    </StyledDiv>
   );
 }
-
+const StyledDiv = styled.div`
+  display: flex;
+  align-items: center;
+  width: 75px;
+  min-width: 75px;
+  max-width: 75px;
+  overflow: hidden;
+`;
 export default React.memo(DBExport);

@@ -9,7 +9,7 @@ import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { createLanguages, createSs58 } from '@polkadot/apps-config';
 import { ChainInfo } from '@polkadot/apps';
 import { allNetworks } from '@polkadot/networks';
-import { Button, Dropdown, MarkWarning, Toggle } from '@polkadot/react-components';
+import { Button, Dropdown, MarkWarning, styled, Toggle } from '@polkadot/react-components';
 import { useApi, useLedger } from '@polkadot/react-hooks';
 import { settings } from '@polkadot/ui-settings';
 
