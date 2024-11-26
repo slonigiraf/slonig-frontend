@@ -1,7 +1,6 @@
 // Copyright 2017-2023 @polkadot/app-settings authors & contributors
 // SPDX-License-Identifier: Apache-2.0
 
-import type { Option } from '@polkadot/apps-config/settings/types';
 import type { SettingsStruct } from '@polkadot/ui-settings/types';
 
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
@@ -12,9 +11,10 @@ import { Button, Dropdown, Toggle } from '@polkadot/react-components';
 import { settings } from '@polkadot/ui-settings';
 
 import { useTranslation } from './translate.js';
-import { createIdenticon, save, saveAndReload } from './util.js';
+import { save, saveAndReload } from './util.js';
 import { getSetting, storeSetting, SettingKey } from '@slonigiraf/db';
-import { DBExport, DBImport } from '@slonigiraf/app-slonig-components';
+import { clearAllData, ConfirmationDialog, DBExport, DBImport, useInfo } from '@slonigiraf/app-slonig-components';
+import { useToggle } from '@polkadot/react-hooks';
 
 interface Props {
   className?: string;
@@ -22,20 +22,17 @@ interface Props {
 
 function General({ className = '' }: Props): React.ReactElement<Props> {
   const { t } = useTranslation();
+  const {showInfo} = useInfo();
   const [isDeveloper, setDeveloper] = useState<boolean>(false);
   // tri-state: null = nothing changed, false = no reload, true = reload required
   const [changed, setChanged] = useState<boolean | null>(null);
+  const [exportSucceded, toggleExportSucceded] = useToggle(false);
+  const [isDeleteConfirmOpen, toggleDeleteConfirm] = useToggle();
   const [state, setSettings] = useState((): SettingsStruct => {
     const values = settings.get();
 
     return { ...values, uiTheme: values.uiTheme === 'dark' ? 'dark' : 'light' };
   });
-
-  const iconOptions = useMemo(
-    () => settings.availableIcons
-      .map((o): Option => createIdenticon(o, ['default'])),
-    []
-  );
 
   const translateLanguages = useMemo(
     () => createLanguages(t),
@@ -90,24 +87,18 @@ function General({ className = '' }: Props): React.ReactElement<Props> {
     []
   );
 
+  const onDataRemoved = (): void => {
+    _saveAndReload;
+  }
+
+  const onDateRemoveFail = (error: string): void => {
+    showInfo(error);
+  }
+
   return (
     <div className={className}>
-      <h1>{t('Backup')}</h1>
-      <div className='ui--row'>
-        <DBExport />
-        <DBImport />
-      </div>
-      <h1>{t('Select a network')}</h1>
-      <ChainInfo />
+
       <h1>{t('UI options')}</h1>
-      <div className='ui--row'>
-        <Dropdown
-          defaultValue={state.icon}
-          label={t('default icon theme')}
-          onChange={_handleChange('icon')}
-          options={iconOptions}
-        />
-      </div>
       <div className='ui--row'>
         <Dropdown
           defaultValue={state.i18nLang}
@@ -139,6 +130,37 @@ function General({ className = '' }: Props): React.ReactElement<Props> {
           }
         />
       </Button.Group>
+
+      <h1>{t('Backup')}</h1>
+      <div className='ui--row'>
+        <DBExport onSuccess={toggleExportSucceded} />
+        <DBImport />
+      </div>
+
+      <h1>{t('Delete all data')}</h1>
+      <div className='ui--row'>
+        <p>{t('Download the backup first to enable data deletion.')}</p>
+      </div>
+      <Button.Group>
+        <Button
+          icon='trash'
+          isDisabled={!exportSucceded}
+          label={t('Delete')}
+          onClick={toggleDeleteConfirm}
+        />
+      </Button.Group>
+
+      {isDeleteConfirmOpen &&
+        <ConfirmationDialog
+          onClose={toggleDeleteConfirm}
+          onConfirm={() => clearAllData(onDataRemoved, onDateRemoveFail)}
+        />}
+
+      {isDeveloper && !changed && <>
+        <h1>{t('Select a network')}</h1>
+        <ChainInfo />
+      </>}
+
     </div>
   );
 }

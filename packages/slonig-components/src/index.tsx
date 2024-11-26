@@ -26,9 +26,9 @@ import BN from 'bn.js';
 import { balanceToSlonString, createPeer, receiveWebRTCData, getQrWidth, saveToSessionStorage, loadFromSessionStorage, getKey, arrayBufferToBase64, base64ToArrayBuffer, decryptData, encryptData, keyForCid, nameFromKeyringPair, getBaseUrl, CODEC, getIPFSContentID, getIPFSContentIDAndPinIt, getIPFSDataFromContentID, digestFromCIDv1, getCIDFromBytes, storeEncryptedTextOnIPFS, retrieveDecryptedDataFromIPFS, parseJson, qrPadding } from './utils.js';
 import { useEffect, useState } from 'react';
 import { getSetting, SettingKey } from '@slonigiraf/db';
-export { BlockchainSyncProvider, useBlockchainSync, TokenTransferProvider, useTokenTransfer, DateInput, SelectableList, SenderComponent, TextAreaWithPreview, KatexSpan, ResizableImage, LoginButton, ShareButton, ClipboardCopyButton, QRWithShareAndCopy, QRScanner, ButtonWithLabelBelow, ScanQR, IpfsProvider, useIpfsContext, InfoProvider, useInfo };
+export { ConfirmationDialog, BlockchainSyncProvider, useBlockchainSync, TokenTransferProvider, useTokenTransfer, DateInput, SelectableList, SenderComponent, TextAreaWithPreview, KatexSpan, ResizableImage, LoginButton, ShareButton, ClipboardCopyButton, QRWithShareAndCopy, QRScanner, ButtonWithLabelBelow, ScanQR, IpfsProvider, useIpfsContext, InfoProvider, useInfo };
 export { balanceToSlonString, createPeer, receiveWebRTCData, getQrWidth, saveToSessionStorage, loadFromSessionStorage, getIPFSContentIDAndPinIt, getKey, arrayBufferToBase64, base64ToArrayBuffer, decryptData, encryptData, LoginProvider, useLoginContext, keyForCid, nameFromKeyringPair, getBaseUrl, CODEC, getIPFSContentID, getIPFSDataFromContentID, digestFromCIDv1, getCIDFromBytes, storeEncryptedTextOnIPFS, retrieveDecryptedDataFromIPFS, parseJson }
-export { DBImport, DBExport};
+export { DBImport, DBExport };
 import { encodeAddress } from '@polkadot/keyring';
 import { hexToU8a } from '@polkadot/util';
 import type { ApiPromise } from '@polkadot/api';
@@ -36,6 +36,7 @@ import { Codec } from '@polkadot/types/types';
 import { KeyringPair } from '@polkadot/keyring/types';
 import { u8aToHex, stringToU8a, u8aConcat } from '@polkadot/util';
 import { signatureVerify } from '@polkadot/util-crypto';
+import ConfirmationDialog from './ConfirmationDialog.js';
 
 export const EXISTENTIAL_BATCH_SENDER_BALANCE = new BN('10000000000000'); // 10 Slon = 10000000000000
 export const EXISTENTIAL_REFEREE_BALANCE = new BN('1000000000000000'); // 1k Slon = 1000000000000000
@@ -314,3 +315,37 @@ export const LawType = {
   SKILL: 3,
   EXERCISE: 4
 };
+
+export async function clearAllData(onSuccess: () => void, onError: (error: string) => void) {
+  try {
+      // Clear localStorage
+      localStorage.clear();
+
+      // Clear sessionStorage
+      sessionStorage.clear();
+
+      // Clear cookies
+      document.cookie.split(";").forEach((cookie) => {
+          const name = cookie.split("=")[0].trim();
+          document.cookie = `${name}=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/`;
+      });
+
+      // Clear IndexedDB (specifically Slonig database)
+      await new Promise<void>((resolve, reject) => {
+          const request = indexedDB.deleteDatabase('Slonig');
+          request.onsuccess = () => resolve();
+          request.onerror = () => reject(new Error("Failed to delete IndexedDB."));
+          request.onblocked = () => reject(new Error("The database deletion is blocked."));
+      });
+
+      // Call onSuccess after everything is cleared
+      onSuccess();
+  } catch (error) {
+      // Call onError if anything fails
+      if (error instanceof Error) {
+          onError(error.message);
+      } else {
+          onError("An unknown error occurred.");
+      }
+  }
+}

@@ -11,10 +11,11 @@ import { useTranslation } from './translate.js';
 
 interface Props {
   className?: string;
+  onSuccess: () => void;
 }
 
 const compressionDeceleration = 0.8;
-function DBExport({ className = '' }: Props): React.ReactElement<Props> {
+function DBExport({ className = '', onSuccess }: Props): React.ReactElement<Props> {
   const { t } = useTranslation();
   const { currentPair } = useLoginContext();
   const [isBusy, setIsBusy] = useState(false);
@@ -79,6 +80,7 @@ function DBExport({ className = '' }: Props): React.ReactElement<Props> {
             gzipBlob,
             `${currentPair?.meta.name || 'backup'}_${timeStamp}.json.gz`
           );
+          onSuccess();
         } catch (error) {
           console.error(error);
         } finally {
