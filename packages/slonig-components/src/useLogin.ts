@@ -34,8 +34,8 @@ export function useLogin() {
 
   const attemptUnlock = async (pair: KeyringPair) => {
     try {
-      // Intentionally dont use passwords
-      const password = '';
+      // Intentionally don't use passwords
+      const password = 'password';
       pair.decodePkcs8(password);
       if (!pair.isLocked) {
         setLoginIsRequired(false);

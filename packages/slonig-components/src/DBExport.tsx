@@ -35,7 +35,7 @@ function DBExport({ className = '' }: Props): React.ReactElement<Props> {
       nextTick(async (): Promise<void> => {
         try {
           // Backup all key pairs
-          const password = ''; // Intentionally, users can't remember passwords.
+          const password = 'password'; // Intentionally don't use passwords
           const allAccounts = keyring.getPairs();
           const allKeyPairsJson = allAccounts.map((account) =>
             keyring.backupAccount(account, password)

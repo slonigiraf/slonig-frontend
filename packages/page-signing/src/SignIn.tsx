@@ -25,7 +25,7 @@ function SignIn({ onClose, onUnlock, pair, toggleSignIn, toggleImport }: Props):
   const [isBusy, setIsBusy] = useState(false);
   const [address, setAddress] = useState('');
   // Intentionally don't use passwords
-  const password = '';
+  const password = 'password';
   const [unlockError, setUnlockError] = useState<string | null>(null);
 
   const { _onChangeAccount } = useLoginContext();

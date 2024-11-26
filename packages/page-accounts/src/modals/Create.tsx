@@ -160,7 +160,7 @@ function Create({ className = '', onClose, onStatusChange, seed: propsSeed, type
   const [{ isNameValid, name }, setName] = useState(() => ({ isNameValid: false, name: '' }));
   // Intentially don't use passwords
   const isPasswordValid = true;
-  const password = '';
+  const password = 'password'; // Intentionally don't use passwords
   const isFirstStepValid = !!address && isMnemonicSaved && !deriveValidation?.error && isSeedValid;
   const isSecondStepValid = isNameValid && isPasswordValid;
   const isValid = isFirstStepValid && isSecondStepValid;

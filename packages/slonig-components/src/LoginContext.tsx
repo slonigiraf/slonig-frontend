@@ -21,7 +21,6 @@ interface ILoginContext {
   isLoginRequired: boolean;
   setLoginIsRequired: (v: boolean) => void;
   _onChangeAccount: (accountId: string | null) => void;
-  logOut: () => void;
 }
 
 // Initialize the context with a default value.
@@ -36,7 +35,6 @@ export const LoginProvider: React.FC<LoginProviderProps> = ({ children }) => {
   const { hasAccounts } = useAccounts();
   const { t } = useTranslation();
   const [isSignIn, setIsSignIn] = useState(false);
-  const [isImport, setIsImport] = useState(false);
 
   const {
     isReady,

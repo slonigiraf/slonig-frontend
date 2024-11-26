@@ -58,7 +58,7 @@ function Import({ className = '', onClose, onStatusChange, toggleImport }: Props
   const [error, setError] = useState<string | null>(null);
   // Intentionally don't use passwords
   const isPassValid = true;
-  const password  = '';
+  const password = 'password'; // Intentionally don't use passwords
   const apiGenesisHash = useMemo(() => isDevelopment ? null : api.genesisHash.toHex(), [api, isDevelopment]);
   const differentGenesis = useMemo(() => !!pair?.meta.genesisHash && pair.meta.genesisHash !== apiGenesisHash, [apiGenesisHash, pair]);
 
