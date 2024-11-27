@@ -21,6 +21,7 @@ interface ILoginContext {
   isLoginRequired: boolean;
   setLoginIsRequired: (v: boolean) => void;
   _onChangeAccount: (accountId: string | null) => void;
+  setDefaultAccount: (accountId: string) => void;
 }
 
 // Initialize the context with a default value.
@@ -37,6 +38,7 @@ export const LoginProvider: React.FC<LoginProviderProps> = ({ children }) => {
   const [isSignIn, setIsSignIn] = useState(false);
 
   const {
+    defaultAccount,
     isReady,
     currentPair,
     accountState,
@@ -47,7 +49,8 @@ export const LoginProvider: React.FC<LoginProviderProps> = ({ children }) => {
     setLoginIsRequired,
     setIsAddingAccount,
     _onChangeAccount,
-    _onUnlock
+    _onUnlock,
+    setDefaultAccount
   } = useLogin();
 
   useEffect(() => {
@@ -82,15 +85,17 @@ export const LoginProvider: React.FC<LoginProviderProps> = ({ children }) => {
   return (
     <LoginContext.Provider value={{
       currentPair, accountState, isAddingAccount, isLoggedIn,
-      setIsLoggedIn, isLoginRequired, setLoginIsRequired, _onChangeAccount, setIsAddingAccount
+      setIsLoggedIn, isLoginRequired, setLoginIsRequired, _onChangeAccount, setIsAddingAccount, setDefaultAccount
     }}>
       <div className='ui--row' style={{ display: 'none' }}>
         <InputAddress
+          key={defaultAccount? defaultAccount : 'login-account-selector'}
           className='full'
           isInput={false}
           label={'account'}
           type='account'
           onChange={_onChangeAccount}
+          value={defaultAccount}
         />
       </div>
       {!isReady &&

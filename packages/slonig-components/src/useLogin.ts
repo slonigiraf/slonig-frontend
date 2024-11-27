@@ -7,6 +7,7 @@ import { useApi } from '@polkadot/react-hooks';
 
 export function useLogin() {
   const [currentPair, setCurrentPair] = useState<KeyringPair | null>(null);
+  const [defaultAccount, setDefaultAccount] = useState<string|undefined>(undefined);
   const [accountState, setAccountState] = useState<AccountState | null>(null);
   const [isLoginRequired, setLoginIsRequired] = useState<boolean>(false);
   const [isReady, setIsReady] = useState<boolean>(false);
@@ -103,5 +104,5 @@ export function useLogin() {
     [keyring]
   );
 
-  return { isReady, currentPair, accountState, isLoggedIn, isLoginRequired, isAddingAccount, setIsLoggedIn, setLoginIsRequired, setIsAddingAccount, _onChangeAccount, _onUnlock };
+  return { defaultAccount, isReady, currentPair, accountState, isLoggedIn, isLoginRequired, isAddingAccount, setIsLoggedIn, setLoginIsRequired, setIsAddingAccount, _onChangeAccount, _onUnlock, setDefaultAccount };
 }
