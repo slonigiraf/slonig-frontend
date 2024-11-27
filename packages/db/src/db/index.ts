@@ -14,7 +14,7 @@ import { Setting } from './Setting.js';
 import { Signer } from './Signer.js';
 import { UsageRight } from './UsageRight.js';
 
-class SlonigirafDB extends Dexie {
+class SlonigDB extends Dexie {
   agreements!: Table<Agreement>;
   canceledInsurances!: Table<CanceledInsurance>;
   canceledLetters!: Table<CanceledLetter>;
@@ -51,4 +51,4 @@ class SlonigirafDB extends Dexie {
   }
 }
 
-export const db = new SlonigirafDB();
+export const db = new SlonigDB();

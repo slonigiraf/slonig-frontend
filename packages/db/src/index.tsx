@@ -793,21 +793,34 @@ export async function exportDB(progressCallback?: (progress: number) => void): P
     }
 }
 
-function getDBObjectsFromJson(json: Record<string, any>, tableName: string): any[] {
-    if (!json[tableName]) {
-        console.warn(`No data found for table: ${tableName}`);
-        return [];
-    }
-    return json[tableName];
+export interface DexieTableData {
+    tableName: string;
+    inbound: boolean;
+    rows: any;
+}
+export interface DexieTableInfo {
+    name: string;
+    schema: string;
+    rowCount: number;
 }
 
-export async function syncDB(json: Object): Promise<void> {
+export interface DBExportFormat {
+    databaseName: string;
+    databaseVersion: number;
+    tables: DexieTableInfo[];
+    data: DexieTableData[]
+}
+export interface DexieExportFormat {
+    formatName: string;
+    formatVersion: string[][];
+    data: DBExportFormat;
+}
+
+export async function syncDB(json: DexieExportFormat): Promise<void> {
     try {
-        const tableNames = Object.keys(json);
-        for (const tableName of tableNames) {
-            const tableData = getDBObjectsFromJson(json, tableName);
+        for (const {tableName, rows} of json.data.data) {
             if (tableName === 'signers') {
-                for (const signer of tableData as Signer[]) {
+                for (const signer of rows as Signer[]) {
                     const sameSigner = await db.signers.get(signer.publicKey);
                     if(sameSigner){
                         if (signer.lastLetterNumber > sameSigner.lastLetterNumber) {
@@ -817,7 +830,7 @@ export async function syncDB(json: Object): Promise<void> {
                 }
             } else if (db.tables.some((table) => table.name === tableName)) {
                 const table = db.table(tableName);
-                for (const record of tableData) {
+                for (const record of rows) {
                     await table.put(record);
                 }
             } else {
