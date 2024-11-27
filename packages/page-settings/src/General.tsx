@@ -13,7 +13,7 @@ import { settings } from '@polkadot/ui-settings';
 import { useTranslation } from './translate.js';
 import { save, saveAndReload } from './util.js';
 import { getSetting, storeSetting, SettingKey } from '@slonigiraf/db';
-import { clearAllData, ConfirmationDialog, DBExport, DBImport, useInfo } from '@slonigiraf/app-slonig-components';
+import { clearAllData, Confirmation, DBExport, DBImport, useInfo, useLoginContext } from '@slonigiraf/app-slonig-components';
 import { useToggle } from '@polkadot/react-hooks';
 
 interface Props {
@@ -22,11 +22,12 @@ interface Props {
 
 function General({ className = '' }: Props): React.ReactElement<Props> {
   const { t } = useTranslation();
-  const {showInfo} = useInfo();
+  const { showInfo } = useInfo();
+  const { currentPair } = useLoginContext();
   const [isDeveloper, setDeveloper] = useState<boolean>(false);
   // tri-state: null = nothing changed, false = no reload, true = reload required
   const [changed, setChanged] = useState<boolean | null>(null);
-  const [exportSucceded, toggleExportSucceded] = useToggle(false);
+  const [exportSucceded, setExportSucceded] = useState(false);
   const [isDeleteConfirmOpen, toggleDeleteConfirm] = useToggle();
   const [state, setSettings] = useState((): SettingsStruct => {
     const values = settings.get();
@@ -88,7 +89,8 @@ function General({ className = '' }: Props): React.ReactElement<Props> {
   );
 
   const onDataRemoved = (): void => {
-    _saveAndReload;
+    showInfo(t('All data were removed.'));
+    window.location.reload();
   }
 
   const onDateRemoveFail = (error: string): void => {
@@ -133,28 +135,33 @@ function General({ className = '' }: Props): React.ReactElement<Props> {
 
       <h1>{t('Backup')}</h1>
       <div className='ui--row'>
-        <DBExport onSuccess={toggleExportSucceded} />
+        <DBExport onSuccess={() => setExportSucceded(true)} />
         <DBImport />
       </div>
 
-      <h1>{t('Delete all data')}</h1>
-      <div className='ui--row'>
-        <p>{t('Download the backup first to enable data deletion.')}</p>
-      </div>
-      <Button.Group>
-        <Button
-          icon='trash'
-          isDisabled={!exportSucceded}
-          label={t('Delete')}
-          onClick={toggleDeleteConfirm}
-        />
-      </Button.Group>
-
-      {isDeleteConfirmOpen &&
-        <ConfirmationDialog
+      {currentPair && <>
+        <h1>{t('Delete all data')}</h1>
+        <div className='ui--row'>
+          <p>{t('Download the backup first to enable data deletion.')}</p>
+        </div>
+        <Button.Group>
+          <Button
+            icon='trash'
+            isDisabled={!exportSucceded}
+            label={t('Delete')}
+            onClick={toggleDeleteConfirm}
+          />
+        </Button.Group>
+      </>}
+      {
+        isDeleteConfirmOpen && <Confirmation
           onClose={toggleDeleteConfirm}
-          onConfirm={() => clearAllData(onDataRemoved, onDateRemoveFail)}
-        />}
+          onConfirm={() => {
+            toggleDeleteConfirm();
+            clearAllData(onDataRemoved, onDateRemoveFail);
+          }}
+        />
+      }
 
       {isDeveloper && !changed && <>
         <h1>{t('Select a network')}</h1>

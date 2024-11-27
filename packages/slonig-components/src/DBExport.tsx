@@ -99,7 +99,7 @@ function DBExport({ className = '', onSuccess }: Props): React.ReactElement<Prop
           icon="download"
           label={t('Download')}
           onClick={backupData}
-          isDisabled={isBusy}
+          isDisabled={!currentPair}
         />
         :
         <Progress
@@ -114,6 +114,7 @@ const StyledDiv = styled.div`
   align-items: center;
   justify-content: center;
   width: 75px;
+  height: 75px;
   min-width: 75px;
   max-width: 75px;
   overflow: hidden;

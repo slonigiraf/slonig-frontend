@@ -19,6 +19,7 @@ import DateInput from './DateInput.js';
 import KatexSpan from './KatexSpan.js';
 import DBImport from './DBImport.js';
 import DBExport from './DBExport.js';
+import Confirmation from './Confirmation.js';
 import TextAreaWithPreview from './TextAreaWithPreview.js';
 import SelectableList from './SelectableList.js';
 import { Button, styled } from '@polkadot/react-components';
@@ -26,9 +27,9 @@ import BN from 'bn.js';
 import { balanceToSlonString, createPeer, receiveWebRTCData, getQrWidth, saveToSessionStorage, loadFromSessionStorage, getKey, arrayBufferToBase64, base64ToArrayBuffer, decryptData, encryptData, keyForCid, nameFromKeyringPair, getBaseUrl, CODEC, getIPFSContentID, getIPFSContentIDAndPinIt, getIPFSDataFromContentID, digestFromCIDv1, getCIDFromBytes, storeEncryptedTextOnIPFS, retrieveDecryptedDataFromIPFS, parseJson, qrPadding } from './utils.js';
 import { useEffect, useState } from 'react';
 import { getSetting, SettingKey } from '@slonigiraf/db';
-export { ConfirmationDialog, BlockchainSyncProvider, useBlockchainSync, TokenTransferProvider, useTokenTransfer, DateInput, SelectableList, SenderComponent, TextAreaWithPreview, KatexSpan, ResizableImage, LoginButton, ShareButton, ClipboardCopyButton, QRWithShareAndCopy, QRScanner, ButtonWithLabelBelow, ScanQR, IpfsProvider, useIpfsContext, InfoProvider, useInfo };
+export { BlockchainSyncProvider, useBlockchainSync, TokenTransferProvider, useTokenTransfer, DateInput, SelectableList, SenderComponent, TextAreaWithPreview, KatexSpan, ResizableImage, LoginButton, ShareButton, ClipboardCopyButton, QRWithShareAndCopy, QRScanner, ButtonWithLabelBelow, ScanQR, IpfsProvider, useIpfsContext, InfoProvider, useInfo };
 export { balanceToSlonString, createPeer, receiveWebRTCData, getQrWidth, saveToSessionStorage, loadFromSessionStorage, getIPFSContentIDAndPinIt, getKey, arrayBufferToBase64, base64ToArrayBuffer, decryptData, encryptData, LoginProvider, useLoginContext, keyForCid, nameFromKeyringPair, getBaseUrl, CODEC, getIPFSContentID, getIPFSDataFromContentID, digestFromCIDv1, getCIDFromBytes, storeEncryptedTextOnIPFS, retrieveDecryptedDataFromIPFS, parseJson }
-export { DBImport, DBExport };
+export { DBImport, DBExport, Confirmation };
 import { encodeAddress } from '@polkadot/keyring';
 import { hexToU8a } from '@polkadot/util';
 import type { ApiPromise } from '@polkadot/api';
@@ -36,7 +37,6 @@ import { Codec } from '@polkadot/types/types';
 import { KeyringPair } from '@polkadot/keyring/types';
 import { u8aToHex, stringToU8a, u8aConcat } from '@polkadot/util';
 import { signatureVerify } from '@polkadot/util-crypto';
-import ConfirmationDialog from './ConfirmationDialog.js';
 
 export const EXISTENTIAL_BATCH_SENDER_BALANCE = new BN('10000000000000'); // 10 Slon = 10000000000000
 export const EXISTENTIAL_REFEREE_BALANCE = new BN('1000000000000000'); // 1k Slon = 1000000000000000
@@ -321,8 +321,12 @@ export async function clearAllData(onSuccess: () => void, onError: (error: strin
       // Clear localStorage
       localStorage.clear();
 
+      console.log('localStorage.clear()')
+
       // Clear sessionStorage
       sessionStorage.clear();
+
+      console.log('sessionStorage.clear()')
 
       // Clear cookies
       document.cookie.split(";").forEach((cookie) => {
@@ -330,9 +334,11 @@ export async function clearAllData(onSuccess: () => void, onError: (error: strin
           document.cookie = `${name}=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/`;
       });
 
+      console.log('Clear cookies')
+
       // Clear IndexedDB (specifically Slonig database)
       await new Promise<void>((resolve, reject) => {
-          const request = indexedDB.deleteDatabase('Slonig');
+          const request = indexedDB.deleteDatabase('slonig');
           request.onsuccess = () => resolve();
           request.onerror = () => reject(new Error("Failed to delete IndexedDB."));
           request.onblocked = () => reject(new Error("The database deletion is blocked."));
