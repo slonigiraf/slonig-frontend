@@ -12,20 +12,10 @@ import type { KeyringAddress, KeyringJson$Meta } from '@polkadot/ui-keyring/type
 import type { AccountBalance, Delegation } from '../types.js';
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import useAccountLocks from '@polkadot/app-referenda/useAccountLocks';
-import { AddressInfo, AddressSmall, Badge, Button, ChainLock, Forget, Menu, Popup, styled, Table } from '@polkadot/react-components';
+import { AddressInfo, AddressSmall, Button, ChainLock, Forget, Menu, Popup, styled, Table } from '@polkadot/react-components';
 import { useAccountInfo, useApi, useBalancesAll, useBestNumber, useCall, useIncrement, useLedger, useQueue, useStakingInfo, useToggle } from '@polkadot/react-hooks';
 import { keyring } from '@polkadot/ui-keyring';
-import { BN, BN_ZERO, formatBalance, formatNumber, isFunction } from '@polkadot/util';
-import Backup from '../modals/Backup.js';
-import ChangePass from '../modals/ChangePass.js';
-import DelegateModal from '../modals/Delegate.js';
-import IdentityMain from '../modals/IdentityMain.js';
-import IdentitySub from '../modals/IdentitySub.js';
-import MultisigApprove from '../modals/MultisigApprove.js';
-import ProxyOverview from '../modals/ProxyOverview.js';
-import RecoverAccount from '../modals/RecoverAccount.js';
-import RecoverSetup from '../modals/RecoverSetup.js';
-import UndelegateModal from '../modals/Undelegate.js';
+import { BN, BN_ZERO, isFunction } from '@polkadot/util';
 import { useTranslation } from '../translate.js';
 import { createMenuGroup } from '../util.js';
 import useMultisigApprovals from './useMultisigApprovals.js';
@@ -441,7 +431,7 @@ function Account({ account: { address, meta }, className = '', delegation, filte
 
   return (
     <>
-      <StyledTr className={`${className} isExpanded isFirst packedBottom`} key={'account-tr-' + trigger}>
+      <tr className={`${className} isExpanded isFirst packedBottom`} key={'account-tr-' + trigger}>
         <td>
           <AddressSmall
             parentAddress={meta.parentAddress as string}
@@ -489,8 +479,8 @@ function Account({ account: { address, meta }, className = '', delegation, filte
             />
           </Button.Group>
         </td>
-      </StyledTr>
-      <StyledTr className={`${className} isExpanded ${isExpanded ? '' : 'isLast'} packedTop`}>
+      </tr>
+      <tr className={`${className} isExpanded ${isExpanded ? '' : 'isLast'} packedTop`}>
         <td />
         <td className='balance all'>
           <AddressInfo
@@ -499,15 +489,9 @@ function Account({ account: { address, meta }, className = '', delegation, filte
             withBalance={BAL_OPTS_DEFAULT}
           />
         </td>
-      </StyledTr>
+      </tr>
     </>
   );
 }
-
-const StyledTr = styled.tr`
-  .devBadge {
-    opacity: var(--opacity-light);
-  }
-`;
 
 export default React.memo(Account);
