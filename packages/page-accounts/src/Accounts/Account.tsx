@@ -441,36 +441,19 @@ function Account({ account: { address, meta }, className = '', delegation, filte
 
   return (
     <>
-      <StyledTr className={`${className} isExpanded isFirst packedBottom`} key={'account-tr-'+trigger}>
+      <StyledTr className={`${className} isExpanded isFirst packedBottom`} key={'account-tr-' + trigger}>
         <td>
           <AddressSmall
             parentAddress={meta.parentAddress as string}
             value={address}
             withShortAddress
           />
-          {isBackupOpen && (
-            <Backup
-              address={address}
-              key='modal-backup-account'
-              onClose={toggleBackup}
-            />
-          )}
           {isEditOpen && (
             <EditAccount
               address={address}
               key='modal-edit-account'
               onUpdate={_onUpdate}
               onClose={toggleEdit}
-            />
-          )}
-          {isDelegateOpen && (
-            <DelegateModal
-              key='modal-delegate'
-              onClose={toggleDelegate}
-              previousAmount={delegation?.amount}
-              previousConviction={delegation?.conviction}
-              previousDelegatedAccount={delegation?.accountDelegated}
-              previousDelegatingAccount={address}
             />
           )}
           {isForgetOpen && (
@@ -481,166 +464,6 @@ function Account({ account: { address, meta }, className = '', delegation, filte
               onForget={_onForget}
             />
           )}
-          {isIdentityMainOpen && (
-            <IdentityMain
-              address={address}
-              key='modal-identity-main'
-              onClose={toggleIdentityMain}
-            />
-          )}
-          {isIdentitySubOpen && (
-            <IdentitySub
-              address={address}
-              key='modal-identity-sub'
-              onClose={toggleIdentitySub}
-            />
-          )}
-          {isPasswordOpen && (
-            <ChangePass
-              address={address}
-              key='modal-change-pass'
-              onClose={togglePassword}
-            />
-          )}
-          {isProxyOverviewOpen && (
-            <ProxyOverview
-              key='modal-proxy-overview'
-              onClose={toggleProxyOverview}
-              previousProxy={proxy}
-              proxiedAccount={address}
-            />
-          )}
-          {isMultisig && isMultisigOpen && multiInfos && multiInfos.length !== 0 && (
-            <MultisigApprove
-              address={address}
-              key='multisig-approve'
-              onClose={toggleMultisig}
-              ongoing={multiInfos}
-              threshold={meta.threshold as number}
-              who={meta.who as string[]}
-            />
-          )}
-          {isRecoverAccountOpen && (
-            <RecoverAccount
-              address={address}
-              key='recover-account'
-              onClose={toggleRecoverAccount}
-            />
-          )}
-          {isRecoverSetupOpen && (
-            <RecoverSetup
-              address={address}
-              key='recover-setup'
-              onClose={toggleRecoverSetup}
-            />
-          )}
-          {isUndelegateOpen && (
-            <UndelegateModal
-              accountDelegating={address}
-              key='modal-delegate'
-              onClose={toggleUndelegate}
-            />
-          )}
-          <div className='absolute'>
-            {meta.genesisHash
-              ? <Badge color='transparent' />
-              : isDevelopment
-                ? (
-                  <Badge
-                    className='warning'
-                    hover={t('This is a development account derived from the known development seed. Do not use for any funds on a non-development network.')}
-                    icon='wrench'
-                  />
-                )
-                : (
-                  <Badge
-                    className='warning'
-                    hover={
-                      <div>
-                        <p>{t('This account is available on all networks. It is recommended to link to a specific network via the account options ("only this network" option) to limit availability. For accounts from an extension, set the network on the extension.')}</p>
-                        <p>{t('This does not send any transaction, rather it only sets the genesis in the account JSON.')}</p>
-                      </div>
-                    }
-                    icon='exclamation-triangle'
-                  />
-                )
-            }
-            {recoveryInfo && (
-              <Badge
-                className='recovery'
-                hover={
-                  <div>
-                    <p>{t('This account is recoverable, with the following friends:')}</p>
-                    <div>
-                      {recoveryInfo.friends.map((friend, index): React.ReactNode => (
-                        <AddressSmall
-                          key={index}
-                          value={friend}
-                        />
-                      ))}
-                    </div>
-                    <table>
-                      <tbody>
-                        <tr>
-                          <td>{t('threshold')}</td>
-                          <td>{formatNumber(recoveryInfo.threshold)}</td>
-                        </tr>
-                        <tr>
-                          <td>{t('delay')}</td>
-                          <td>{formatNumber(recoveryInfo.delayPeriod)}</td>
-                        </tr>
-                        <tr>
-                          <td>{t('deposit')}</td>
-                          <td>{formatBalance(recoveryInfo.deposit)}</td>
-                        </tr>
-                      </tbody>
-                    </table>
-                  </div>
-                }
-                icon='redo'
-              />
-            )}
-            {isProxied && proxyInfo?.isEmpty && (
-              <Badge
-                className='important'
-                hover={t('Proxied account has no owned proxies')}
-                icon='sitemap'
-                info='0'
-              />
-            )}
-            {isMultisig && multiInfos && multiInfos.length !== 0 && (
-              <Badge
-                className='important'
-                color='purple'
-                hover={t('Multisig approvals pending')}
-                hoverAction={t('View pending approvals')}
-                icon='file-signature'
-                onClick={toggleMultisig}
-              />
-            )}
-            {delegation?.accountDelegated && (
-              <Badge
-                className='information'
-                hover={t('This account has a governance delegation')}
-                hoverAction={t('Manage delegation')}
-                icon='calendar-check'
-                onClick={toggleDelegate}
-              />
-            )}
-            {proxy && proxy[0].length !== 0 && api.api.tx.utility && (
-              <Badge
-                className='information'
-                hover={
-                  proxy[0].length === 1
-                    ? t('This account has a proxy set')
-                    : t('This account has {{proxyNumber}} proxies set', { replace: { proxyNumber: proxy[0].length } })
-                }
-                hoverAction={t('Manage proxies')}
-                icon='sitemap'
-                onClick={toggleProxyOverview}
-              />
-            )}
-          </div>
         </td>
         <td className='actions button'>
           <Button.Group>
@@ -666,39 +489,16 @@ function Account({ account: { address, meta }, className = '', delegation, filte
             />
           </Button.Group>
         </td>
-        <Table.Column.Expand
-          isExpanded={isExpanded}
-          toggle={toggleIsExpanded}
-        />
       </StyledTr>
       <StyledTr className={`${className} isExpanded ${isExpanded ? '' : 'isLast'} packedTop`}>
         <td />
-        <td
-          className='balance all'
-          colSpan={2}
-        >
+        <td className='balance all'>
           <AddressInfo
             address={address}
             balancesAll={balancesAll}
             withBalance={BAL_OPTS_DEFAULT}
           />
         </td>
-        <td />
-      </StyledTr>
-      <StyledTr className={`${className} ${isExpanded ? 'isExpanded isLast' : 'isCollapsed'} packedTop`}>
-        <td />
-        <td
-          className='balance columar'
-          colSpan={2}
-        >
-          <AddressInfo
-            address={address}
-            balancesAll={balancesAll}
-            convictionLocks={convictionLocks}
-            withBalance={BAL_OPTS_EXPANDED}
-          />
-        </td>
-        <td />
       </StyledTr>
     </>
   );
