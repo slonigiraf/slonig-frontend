@@ -442,11 +442,6 @@ function Account({ account: { address, meta }, className = '', delegation, filte
   return (
     <>
       <StyledTr className={`${className} isExpanded isFirst packedBottom`} key={'account-tr-'+trigger}>
-        <Table.Column.Favorite
-          address={address}
-          isFavorite={isFavorite}
-          toggle={toggleFavorite}
-        />
         <td>
           <AddressSmall
             parentAddress={meta.parentAddress as string}
