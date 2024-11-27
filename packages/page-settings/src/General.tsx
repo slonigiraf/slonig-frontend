@@ -142,7 +142,7 @@ function General({ className = '' }: Props): React.ReactElement<Props> {
       {currentPair && <>
         <h2>{t('Delete all data')}</h2>
         <div className='ui--row'>
-          <p>{t('Download the backup first to enable data deletion.')}</p>
+          <p>{t('Before deleting the data, download a backup.')}</p>
         </div>
         <Button.Group>
           <Button

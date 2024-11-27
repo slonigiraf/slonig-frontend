@@ -21,6 +21,8 @@
   "transferable": "можно отправить",
   "send": "отправить",
   "only this network": "только в этой сети",
+  "Delete all data": "Удалить все данные",
+  "Before deleting the data, download a backup.": "Перед удалением данных скачайте резервную копию.",
   "Create a backup file for this account": "Создать резервную копию этого аккаунта",
   "Create an account now.": "Создать аккаунт сейчас.",
   "Create and backup account": "Создать аккаунт и его резервную копию",
