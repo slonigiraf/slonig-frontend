@@ -12,7 +12,7 @@ import type { KeyringAddress, KeyringJson$Meta } from '@polkadot/ui-keyring/type
 import type { AccountBalance, Delegation } from '../types.js';
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import useAccountLocks from '@polkadot/app-referenda/useAccountLocks';
-import { AddressInfo, AddressSmall, Badge, Button, ChainLock, Columar, CryptoType, Forget, LinkExternal, Menu, Popup, styled, Table, Tags, TransferModal } from '@polkadot/react-components';
+import { AddressInfo, AddressSmall, Badge, Button, ChainLock, Forget, Menu, Popup, styled, Table } from '@polkadot/react-components';
 import { useAccountInfo, useApi, useBalancesAll, useBestNumber, useCall, useIncrement, useLedger, useQueue, useStakingInfo, useToggle } from '@polkadot/react-hooks';
 import { keyring } from '@polkadot/ui-keyring';
 import { BN, BN_ZERO, formatBalance, formatNumber, isFunction } from '@polkadot/util';
@@ -353,14 +353,6 @@ function Account({ account: { address, meta }, className = '', delegation, filte
           key='editAccount'
           label={t('Edit')}
           onClick={toggleEdit}
-        />
-      ),
-      !(isExternal || isHardware || isInjected || isMultisig || isDevelopment) && (
-        <Menu.Item
-          icon='database'
-          key='backupJson'
-          label={t('Create a backup file for this account')}
-          onClick={toggleBackup}
         />
       ),
       !(isInjected || isDevelopment) && (
