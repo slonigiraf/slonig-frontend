@@ -780,38 +780,53 @@ export function insuranceToUsageRight(insurance: Insurance): UsageRight {
 
 // Export DB
 
-export function getDBObjectsFromJson(json: any, tableName: string) {
-    const found = json.data.data.find((element: { tableName: string; }) => element.tableName === tableName);
-    return found.rows;
-}
-
 export async function exportDB(progressCallback?: (progress: number) => void): Promise<Blob> {
     try {
-      const blob = await dexieExport(db, {
-        prettyJson: true,
-        progressCallback,
-      });
-      return blob;
+        const blob = await dexieExport(db, {
+            prettyJson: true,
+            progressCallback,
+        });
+        return blob;
     } catch (error) {
-      console.error('Error exporting Dexie database:', error);
-      throw error;
+        console.error('Error exporting Dexie database:', error);
+        throw error;
     }
-  }
+}
 
-export async function syncDB(data: string, password: string) {
-    const json = JSON.parse(data);
-    const letters = getDBObjectsFromJson(json, "letters");
-    letters.map((v: Letter) => putLetter(v));
-    const insurances = getDBObjectsFromJson(json, "insurances");
-    insurances.map((v: Insurance) => putInsurance(v));
-    const signers = getDBObjectsFromJson(json, "signers");
-    signers.map(async (v: Signer) => {
-        const inLocal = await getLastUnusedLetterNumber(v.publicKey);
-        const inParsed = v.lastLetterNumber;
-        if (inParsed > inLocal) {
-            setLastUsedLetterNumber(v.publicKey, inParsed);
+function getDBObjectsFromJson(json: Record<string, any>, tableName: string): any[] {
+    if (!json[tableName]) {
+        console.warn(`No data found for table: ${tableName}`);
+        return [];
+    }
+    return json[tableName];
+}
+
+export async function syncDB(data: string): Promise<void> {
+    try {
+        const json = JSON.parse(data);
+        const tableNames = Object.keys(json);
+        for (const tableName of tableNames) {
+            const tableData = getDBObjectsFromJson(json, tableName);
+            if (tableName === 'signers') {
+                for (const signer of tableData as Signer[]) {
+                    const sameSigner = await db.signers.get(signer.publicKey);
+                    if(sameSigner){
+                        if (signer.lastLetterNumber > sameSigner.lastLetterNumber) {
+                            await setLastUsedLetterNumber(signer.publicKey, signer.lastLetterNumber);
+                        }
+                    }
+                }
+            } else if (db.tables.some((table) => table.name === tableName)) {
+                const table = db.table(tableName);
+                for (const record of tableData) {
+                    await table.put(record);
+                }
+            } else {
+                console.warn(`Unknown table in backup JSON: ${tableName}`);
+            }
         }
-    });
-    const usageRights = getDBObjectsFromJson(json, "usageRights");
-    usageRights.map((v: UsageRight) => putUsageRight(v));
+    } catch (error) {
+        console.error('Error syncing database:', error);
+        throw new Error('Failed to synchronize database');
+    }
 }

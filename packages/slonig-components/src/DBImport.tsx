@@ -1,36 +1,64 @@
-// Copyright 2021-2022 @slonigiraf/app-recommendations authors & contributors
-// SPDX-License-Identifier: Apache-2.0
-
-import React, { useCallback, useState } from 'react';
-import { useIpfsContext } from '@slonigiraf/app-slonig-components';
-import { Button, InputFile, Modal } from '@polkadot/react-components';
+import React, { useCallback } from 'react';
+import { InputFile } from '@polkadot/react-components';
 import { useTranslation } from './translate.js';
-import { QRScanner } from '@slonigiraf/app-slonig-components';
-import { getIPFSDataFromContentID } from '@slonigiraf/app-slonig-components';
 import { syncDB } from '@slonigiraf/db';
+import { keyring } from '@polkadot/ui-keyring';
+import pako from 'pako';
+import { useInfo } from './InfoProvider.js';
 
 interface Props {
   className?: string;
 }
-const acceptedFormats = ['application/json', 'text/plain'];
+
+const acceptedFormats = ['application/gzip'];
+
 function DBImport({ className = '' }: Props): React.ReactElement<Props> {
   const { t } = useTranslation();
-
+  const {showInfo} = useInfo();
   const _onChangeFile = useCallback(
-    (file: Uint8Array) => {
-      // processFile
-      // syncDB(content, dataArray[1]);
+    async (file: Uint8Array) => {
+      try {
+        const decompressedData = new TextDecoder().decode(pako.ungzip(file));
+        const { keys, db } = JSON.parse(decompressedData);
+        if (keys && Array.isArray(keys)) {
+          keys.forEach((keyJson: any) => {
+            keyring.restoreAccount(keyJson, 'password');
+          });
+        } else {
+          throw new Error('No valid key pairs found in the file.');
+        }
+        if (db) {
+          await syncDB(db);
+        } else {
+          throw new Error('No valid database content found in the file.');
+        }
+        showInfo(t('Restored'));
+      } catch (error) {
+        showInfo((error as Error).message, 'error');
+      }
     },
-    []
+    [t]
   );
 
-  return (<InputFile
-    accept={acceptedFormats}
-    className='full'
-    label={t('Restore')}
-    onChange={_onChangeFile}
-    withLabel
-  />)
+  return (
+    <InputFile
+      accept={acceptedFormats}
+      className={`${className} full`}
+      label={t('Restore')}
+      onChange={(files) => {
+        if (files && files[0]) {
+          const reader = new FileReader();
+          reader.onload = () => {
+            if (reader.result) {
+              _onChangeFile(new Uint8Array(reader.result as ArrayBuffer));
+            }
+          };
+          reader.readAsArrayBuffer(files[0]);
+        }
+      }}
+      withLabel
+    />
+  );
 }
 
 export default React.memo(DBImport);
