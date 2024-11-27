@@ -100,7 +100,7 @@ function General({ className = '' }: Props): React.ReactElement<Props> {
   return (
     <div className={className}>
 
-      <h1>{t('UI options')}</h1>
+      <h2>{t('UI options')}</h2>
       <div className='ui--row'>
         <Dropdown
           defaultValue={state.i18nLang}
@@ -133,14 +133,14 @@ function General({ className = '' }: Props): React.ReactElement<Props> {
         />
       </Button.Group>
 
-      <h1>{t('Backup')}</h1>
+      <h2>{t('Backup')}</h2>
       <div className='ui--row'>
         <DBExport onSuccess={() => setExportSucceded(true)} />
         <DBImport />
       </div>
 
       {currentPair && <>
-        <h1>{t('Delete all data')}</h1>
+        <h2>{t('Delete all data')}</h2>
         <div className='ui--row'>
           <p>{t('Download the backup first to enable data deletion.')}</p>
         </div>
@@ -164,7 +164,7 @@ function General({ className = '' }: Props): React.ReactElement<Props> {
       }
 
       {isDeveloper && !changed && <>
-        <h1>{t('Select a network')}</h1>
+        <h2>{t('Select a network')}</h2>
         <ChainInfo />
       </>}
 
