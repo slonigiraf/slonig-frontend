@@ -817,23 +817,18 @@ export interface DexieExportFormat {
     data: DBExportFormat;
 }
 
-export async function syncDB(json: DexieExportFormat): Promise<void> {
+export async function replaceDB(json: DexieExportFormat): Promise<void> {
     try {
-        for (const {tableName, rows} of json.data.data) {
-            if (tableName === 'signers') {
-                for (const signer of rows as Signer[]) {
-                    const sameSigner = await db.signers.get(signer.publicKey);
-                    if(sameSigner){
-                        if (signer.lastLetterNumber > sameSigner.lastLetterNumber) {
-                            await setLastUsedLetterNumber(signer.publicKey, signer.lastLetterNumber);
-                        }
-                    }
-                }
-            } else if (db.tables.some((table) => table.name === tableName)) {
+        const uploadedVersion = json.data.databaseVersion;
+        const currentVersion = db.verno;
+        if (uploadedVersion > currentVersion) {
+            throw new Error('Update your application to match the database version.');
+        }
+        for (const { tableName, rows } of json.data.data) {
+            if (db.tables.some((table) => table.name === tableName)) {
                 const table = db.table(tableName);
-                for (const record of rows) {
-                    await table.put(record);
-                }
+                await table.clear();
+                await table.bulkAdd(rows);
             } else {
                 console.warn(`Unknown table in backup JSON: ${tableName}`);
             }

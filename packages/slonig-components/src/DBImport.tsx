@@ -1,7 +1,7 @@
 import React, { useCallback } from 'react';
 import { InputFile } from '@polkadot/react-components';
 import { useTranslation } from './translate.js';
-import { syncDB } from '@slonigiraf/db';
+import { replaceDB } from '@slonigiraf/db';
 import { keyring } from '@polkadot/ui-keyring';
 import pako from 'pako';
 import { useInfo } from './InfoProvider.js';
@@ -31,7 +31,7 @@ function DBImport({ className = '' }: Props): React.ReactElement<Props> {
           throw new Error('No valid key pairs found in the file.');
         }
         if (db) {
-          await syncDB(db);
+          await replaceDB(db);
         } else {
           throw new Error('No valid database content found in the file.');
         }
