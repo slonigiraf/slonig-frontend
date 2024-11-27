@@ -455,8 +455,8 @@ function Account({ account: { address, meta }, className = '', delegation, filte
             />
           )}
         </td>
-        <td className='actions button'>
-          <Button.Group>
+        <td>
+          <ButtonsDiv>
             {isFunction(api.api.tx.balances?.transfer) && (
               <Button
                 className='send-button'
@@ -477,12 +477,12 @@ function Account({ account: { address, meta }, className = '', delegation, filte
                 </Menu>
               }
             />
-          </Button.Group>
+          </ButtonsDiv>
         </td>
       </tr>
       <tr className={`${className} isExpanded ${isExpanded ? '' : 'isLast'} packedTop`}>
         <td />
-        <td className='balance all'>
+        <td>
           <AddressInfo
             address={address}
             balancesAll={balancesAll}
@@ -493,5 +493,10 @@ function Account({ account: { address, meta }, className = '', delegation, filte
     </>
   );
 }
-
+const ButtonsDiv = styled.div`
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 0;
+`;
 export default React.memo(Account);
