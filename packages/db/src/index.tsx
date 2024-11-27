@@ -801,9 +801,8 @@ function getDBObjectsFromJson(json: Record<string, any>, tableName: string): any
     return json[tableName];
 }
 
-export async function syncDB(data: string): Promise<void> {
+export async function syncDB(json: Object): Promise<void> {
     try {
-        const json = JSON.parse(data);
         const tableNames = Object.keys(json);
         for (const tableName of tableNames) {
             const tableData = getDBObjectsFromJson(json, tableName);

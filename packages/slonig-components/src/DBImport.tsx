@@ -45,17 +45,7 @@ function DBImport({ className = '' }: Props): React.ReactElement<Props> {
       accept={acceptedFormats}
       className={`${className} full`}
       label={t('Restore')}
-      onChange={(files) => {
-        if (files && files[0]) {
-          const reader = new FileReader();
-          reader.onload = () => {
-            if (reader.result) {
-              _onChangeFile(new Uint8Array(reader.result as ArrayBuffer));
-            }
-          };
-          reader.readAsArrayBuffer(files[0]);
-        }
-      }}
+      onChange={_onChangeFile}
       withLabel
     />
   );
