@@ -3,7 +3,6 @@ import React, { useContext, createContext, ReactNode, useState, useCallback, use
 import { useLogin } from './useLogin.js';
 import type { KeyringPair } from '@polkadot/keyring/types';
 import type { AccountState } from '@slonigiraf/app-slonig-components';
-import SignIn from '@polkadot/app-signing/SignIn';
 import { InputAddress, Spinner, styled } from '@polkadot/react-components';
 import { useTranslation } from './translate.js';
 import CreateModal from '@polkadot/app-accounts/modals/Create';
@@ -16,11 +15,13 @@ interface ILoginContext {
   currentPair: KeyringPair | null;
   accountState: AccountState | null;
   isLoggedIn: boolean;
+  isAddingAccount: boolean;
   setIsLoggedIn: (v: boolean) => void;
+  setIsAddingAccount: (v: boolean) => void;
   isLoginRequired: boolean;
   setLoginIsRequired: (v: boolean) => void;
   _onChangeAccount: (accountId: string | null) => void;
-  logOut: () => void;
+  setDefaultAccount: (accountId: string) => void;
 }
 
 // Initialize the context with a default value.
@@ -35,19 +36,21 @@ export const LoginProvider: React.FC<LoginProviderProps> = ({ children }) => {
   const { hasAccounts } = useAccounts();
   const { t } = useTranslation();
   const [isSignIn, setIsSignIn] = useState(false);
-  const [isImport, setIsImport] = useState(false);
 
   const {
+    defaultAccount,
     isReady,
     currentPair,
     accountState,
     isLoggedIn,
+    isAddingAccount,
     setIsLoggedIn,
     isLoginRequired,
     setLoginIsRequired,
+    setIsAddingAccount,
     _onChangeAccount,
     _onUnlock,
-    logOut
+    setDefaultAccount
   } = useLogin();
 
   useEffect(() => {
@@ -56,13 +59,6 @@ export const LoginProvider: React.FC<LoginProviderProps> = ({ children }) => {
     }
   }, [hasAccounts]);
 
-  const toggleImport = useCallback((): void => {
-    setIsImport(!isImport);
-    if (!hasAccounts) {
-      setIsSignIn(false);
-    }
-  }, [hasAccounts, isImport]);
-
 
   const toggleSignIn = useCallback((): void => {
     setIsSignIn(!isSignIn);
@@ -70,43 +66,36 @@ export const LoginProvider: React.FC<LoginProviderProps> = ({ children }) => {
 
   const cancelAuthorization = () => {
     setLoginIsRequired(false);
+    setIsAddingAccount(false);
   }
 
-  const signIn = (
-    <>
-      {hasAccounts &&
-        <SignIn
-          onClose={cancelAuthorization}
-          onUnlock={_onUnlock}
-          pair={currentPair}
-          toggleSignIn={toggleSignIn}
-          toggleImport={toggleImport}
-        />}
-      {(!hasAccounts || isImport) &&
-        <ImportModal
-          onClose={cancelAuthorization}
-          onStatusChange={_onUnlock}
-          toggleImport={toggleImport}
-        />}
-    </>
-  );
+  const importAccount = <ImportModal
+    onClose={cancelAuthorization}
+    onStatusChange={_onUnlock}
+    toggleImport={toggleSignIn}
+  />;
 
   const onCreateAccount = (status: ActionStatus) => {
     if (status.status === 'success' && status.account) {
       _onUnlock();
     }
+    setIsAddingAccount(false);
   }
 
   return (
-    <LoginContext.Provider value={{ currentPair, accountState,  isLoggedIn,
-      setIsLoggedIn,isLoginRequired, setLoginIsRequired, _onChangeAccount, logOut }}>
+    <LoginContext.Provider value={{
+      currentPair, accountState, isAddingAccount, isLoggedIn,
+      setIsLoggedIn, isLoginRequired, setLoginIsRequired, _onChangeAccount, setIsAddingAccount, setDefaultAccount
+    }}>
       <div className='ui--row' style={{ display: 'none' }}>
         <InputAddress
+          key={defaultAccount ? defaultAccount : 'login-account-selector'}
           className='full'
           isInput={false}
           label={'account'}
           type='account'
           onChange={_onChangeAccount}
+          value={defaultAccount}
         />
       </div>
       {!isReady &&
@@ -117,18 +106,19 @@ export const LoginProvider: React.FC<LoginProviderProps> = ({ children }) => {
         </StyledDiv>
       }
       {isReady && isLoginRequired && (
-        <>
-          {isSignIn ?
-            signIn
-            :
-            <CreateModal
-              onClose={cancelAuthorization}
-              onStatusChange={onCreateAccount}
-              toggle={toggleSignIn}
-            />
-          }</>
+        <CreateModal
+          onClose={cancelAuthorization}
+          onStatusChange={onCreateAccount}
+          cancelAuthorization={cancelAuthorization}
+        />
       )}
-      {isReady && !isLoginRequired && children}
+      {isReady && isAddingAccount && (
+        <CreateModal
+          onClose={cancelAuthorization}
+          onStatusChange={onCreateAccount}
+        />
+      )}
+      {children}
     </LoginContext.Provider>
   );
 };

@@ -1,0 +1,116 @@
+// Copyright 2021-2022 @slonigiraf/app-recommendations authors & contributors
+// SPDX-License-Identifier: Apache-2.0
+
+import React, { useState, useEffect } from 'react';
+import { AlgorithmStage } from './AlgorithmStage.js';
+import { Button, Spinner } from '@polkadot/react-components';
+import type { Skill } from '@slonigiraf/app-slonig-components';
+import { ValidatingAlgorithm } from './ValidatingAlgorithm.js';
+import { useTranslation } from '../translate.js';
+import { InstructionsButtonsContainer, InstructionsButtonsGroup, InstructionsContainer, useIpfsContext } from '@slonigiraf/app-slonig-components';
+import { Reexamination, updateReexamination } from '@slonigiraf/db';
+import { getIPFSDataFromContentID, parseJson, useInfo } from '@slonigiraf/app-slonig-components';
+
+interface Props {
+  className?: string;
+  reexamination: Reexamination | null;
+  onResult: () => void;
+  studentName: string | null;
+}
+
+function Reexamine({ className = '', reexamination, onResult, studentName }: Props): React.ReactElement<Props> {
+  const { ipfs, isIpfsReady } = useIpfsContext();
+  const [skill, setSkill] = useState<Skill>();
+  const { t } = useTranslation();
+  const [algorithmStage, setAlgorithmStage] = useState<AlgorithmStage>();
+  const { showInfo } = useInfo();
+  const [isButtonClicked, setIsButtonClicked] = useState(false);
+
+
+  useEffect(() => {
+    let isComponentMounted = true;
+
+    async function fetchData() {
+      if (isIpfsReady && reexamination && reexamination.cid) {
+        try {
+          const skillContent = await getIPFSDataFromContentID(ipfs, reexamination.cid, 1);
+          const skillJson = parseJson(skillContent);
+
+          if (isComponentMounted) {
+            setSkill(skillJson);
+            const newAlgorithm = new ValidatingAlgorithm(t, studentName, skillJson, reexamination);
+            setAlgorithmStage(newAlgorithm.getBegin());
+          }
+        } catch (e) {
+          if (isComponentMounted) {
+            setAlgorithmStage(undefined);
+            onResult();
+          }
+        }
+      }
+    }
+
+    fetchData();
+
+    return () => {
+      isComponentMounted = false;
+    };
+  }, [ipfs, reexamination, studentName]);
+
+  const handleStageChange = async (nextStage: AlgorithmStage | null) => {
+    if (nextStage !== null) {
+      setIsButtonClicked(true);
+      if (nextStage.type === 'reimburse' && reexamination != null) {
+        showInfo(t('Bounty will be collected after the lesson ends.'));
+        const failedReexamination: Reexamination = { ...reexamination, lastExamined: (new Date).getTime(), valid: false };
+        await updateReexamination(failedReexamination);
+        onResult();
+      } else if (nextStage.type === 'skip') {
+        onResult();
+      } else if (nextStage.type === 'success' && reexamination != null) {
+        const successfulReexamination: Reexamination = { ...reexamination, lastExamined: (new Date).getTime() };
+        await updateReexamination(successfulReexamination);
+        onResult();
+      } else {
+        setAlgorithmStage(nextStage);
+        setIsButtonClicked(false);
+      }
+    }
+  };
+
+  if (!skill) {
+    return <Spinner label={t('Loading')} />;
+  }
+
+  return (
+    <div className={className} >
+      {algorithmStage ? (
+        <InstructionsContainer key={reexamination?.cid}>
+          {algorithmStage.getWords()}
+          <InstructionsButtonsContainer>
+            <InstructionsButtonsGroup>
+              {algorithmStage.getPrevious() && (
+                <Button onClick={() => handleStageChange(algorithmStage.getPrevious())}
+                  icon='arrow-left'
+                  label={t('Back')}
+                  isDisabled={isButtonClicked}
+                />
+              )}
+              {algorithmStage.getNext().map((nextStage, index) => (
+                <Button key={index} onClick={() => handleStageChange(nextStage)}
+                  icon='square'
+                  label={nextStage.getName()}
+                  isDisabled={isButtonClicked}
+                />
+              ))}
+            </InstructionsButtonsGroup>
+          </InstructionsButtonsContainer>
+        </InstructionsContainer>
+      ) : (
+        <div>Error: Reload the page</div>
+      )}
+    </div>
+  );
+}
+
+export default React.memo(Reexamine)

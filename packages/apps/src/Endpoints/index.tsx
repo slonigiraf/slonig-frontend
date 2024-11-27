@@ -10,7 +10,7 @@ import React, { useCallback, useMemo, useRef, useState } from 'react';
 import store from 'store';
 
 import { createWsEndpoints, CUSTOM_ENDPOINT_KEY } from '@polkadot/apps-config';
-import { Button, Input, Sidebar, styled } from '@polkadot/react-components';
+import { Button, Input, Modal, styled } from '@polkadot/react-components';
 import { settings } from '@polkadot/ui-settings';
 import { isAscii } from '@polkadot/util';
 
@@ -32,7 +32,7 @@ interface UrlState {
 
 const STORAGE_AFFINITIES = 'network:affinities';
 
-function isValidUrl (url: string): boolean {
+function isValidUrl(url: string): boolean {
   return (
     // some random length... we probably want to parse via some lib
     (url.length >= 7) &&
@@ -41,7 +41,7 @@ function isValidUrl (url: string): boolean {
   );
 }
 
-function combineEndpoints (endpoints: LinkOption[]): Group[] {
+function combineEndpoints(endpoints: LinkOption[]): Group[] {
   return endpoints.reduce((result: Group[], e): Group[] => {
     if (e.isHeader) {
       result.push({ header: e.text, isDevelopment: e.isDevelopment, isSpaced: e.isSpaced, networks: [] });
@@ -68,7 +68,7 @@ function combineEndpoints (endpoints: LinkOption[]): Group[] {
   }, []);
 }
 
-function getCustomEndpoints (): string[] {
+function getCustomEndpoints(): string[] {
   try {
     const storedAsset = localStorage.getItem(CUSTOM_ENDPOINT_KEY);
 
@@ -83,7 +83,7 @@ function getCustomEndpoints (): string[] {
   return [];
 }
 
-function extractUrlState (apiUrl: string, groups: Group[]): UrlState {
+function extractUrlState(apiUrl: string, groups: Group[]): UrlState {
   let groupIndex = groups.findIndex(({ networks }) =>
     networks.some(({ providers }) =>
       providers.some(({ url }) => url === apiUrl)
@@ -102,7 +102,7 @@ function extractUrlState (apiUrl: string, groups: Group[]): UrlState {
   };
 }
 
-function loadAffinities (groups: Group[]): Record<string, string> {
+function loadAffinities(groups: Group[]): Record<string, string> {
   return Object
     .entries<string>(store.get(STORAGE_AFFINITIES) as Record<string, string> || {})
     .filter(([network, apiUrl]) =>
@@ -118,7 +118,7 @@ function loadAffinities (groups: Group[]): Record<string, string> {
     }), {});
 }
 
-function isSwitchDisabled (hasUrlChanged: boolean, apiUrl: string, isUrlValid: boolean): boolean {
+function isSwitchDisabled(hasUrlChanged: boolean, apiUrl: string, isUrlValid: boolean): boolean {
   if (!hasUrlChanged) {
     return true;
   } else if (apiUrl.startsWith('light://')) {
@@ -130,7 +130,7 @@ function isSwitchDisabled (hasUrlChanged: boolean, apiUrl: string, isUrlValid: b
   return true;
 }
 
-function Endpoints ({ className = '', offset, onClose }: Props): React.ReactElement<Props> {
+function Endpoints({ className = '', offset, onClose }: Props): React.ReactElement<Props> {
   const { t } = useTranslation();
   const linkOptions = createWsEndpoints(t);
   const [groups, setGroups] = useState(() => combineEndpoints(linkOptions));
@@ -250,68 +250,67 @@ function Endpoints ({ className = '', offset, onClose }: Props): React.ReactElem
   );
 
   return (
-    <StyledSidebar
-      button={
+    <StyledModal
+      className={className}
+      onClose={onClose}
+    >
+      <Modal.Content>
+        {groups.map((group, index): React.ReactNode => (
+          <GroupDisplay
+            affinities={affinities}
+            apiUrl={apiUrl}
+            index={index}
+            isSelected={groupIndex === index}
+            key={index}
+            setApiUrl={_setApiUrl}
+            setGroup={_changeGroup}
+            value={group}
+          >
+            {group.isDevelopment && (
+              <div className='endpointCustomWrapper'>
+                <Input
+                  className='endpointCustom'
+                  isError={!isUrlValid}
+                  isFull
+                  label={t('custom endpoint')}
+                  onChange={_onChangeCustom}
+                  value={apiUrl}
+                />
+                {isSavedCustomEndpoint
+                  ? (
+                    <Button
+                      className='customButton'
+                      icon='trash-alt'
+                      onClick={_removeApiEndpoint}
+                    />
+                  )
+                  : (
+                    <Button
+                      className='customButton'
+                      icon='save'
+                      isDisabled={!isUrlValid || isKnownUrl}
+                      onClick={_saveApiEndpoint}
+                    />
+                  )
+                }
+              </div>
+            )}
+          </GroupDisplay>
+        ))}
+      </Modal.Content>
+      <Modal.Actions>
         <Button
           icon='sync'
           isDisabled={canSwitch}
           label={t('Switch')}
           onClick={_onApply}
         />
-      }
-      className={className}
-      offset={offset}
-      onClose={onClose}
-      position='left'
-      sidebarRef={sidebarRef}
-    >
-      {groups.map((group, index): React.ReactNode => (
-        <GroupDisplay
-          affinities={affinities}
-          apiUrl={apiUrl}
-          index={index}
-          isSelected={groupIndex === index}
-          key={index}
-          setApiUrl={_setApiUrl}
-          setGroup={_changeGroup}
-          value={group}
-        >
-          {group.isDevelopment && (
-            <div className='endpointCustomWrapper'>
-              <Input
-                className='endpointCustom'
-                isError={!isUrlValid}
-                isFull
-                label={t('custom endpoint')}
-                onChange={_onChangeCustom}
-                value={apiUrl}
-              />
-              {isSavedCustomEndpoint
-                ? (
-                  <Button
-                    className='customButton'
-                    icon='trash-alt'
-                    onClick={_removeApiEndpoint}
-                  />
-                )
-                : (
-                  <Button
-                    className='customButton'
-                    icon='save'
-                    isDisabled={!isUrlValid || isKnownUrl}
-                    onClick={_saveApiEndpoint}
-                  />
-                )
-              }
-            </div>
-          )}
-        </GroupDisplay>
-      ))}
-    </StyledSidebar>
+      </Modal.Actions>
+    </StyledModal>
   );
 }
 
-const StyledSidebar = styled(Sidebar)`
+const StyledModal = styled(Modal)`
   color: var(--color-text);
   padding-top: 3.5rem;
 

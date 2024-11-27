@@ -5,7 +5,7 @@ import type { BareProps as Props } from '@polkadot/react-components/types';
 
 import React, { useMemo } from 'react';
 
-import { AccountSidebar, styled } from '@polkadot/react-components';
+import { styled } from '@polkadot/react-components';
 import GlobalStyle from '@polkadot/react-components/styles';
 import { useApi, useTheme } from '@polkadot/react-hooks';
 import Signer from '@polkadot/react-signer';
@@ -16,7 +16,7 @@ import ConnectingOverlay from './overlays/Connecting.js';
 import DotAppsOverlay from './overlays/DotApps.js';
 import WarmUp from './WarmUp.js';
 import BottomMenu from './BottomMenu/index.js';
-import { IpfsProvider, AppContainer } from '@slonigiraf/app-slonig-components';
+import { IpfsProvider, AppContainer, TokenTransferProvider, BlockchainSyncProvider } from '@slonigiraf/app-slonig-components';
 import { InfoProvider } from '@slonigiraf/app-slonig-components';
 import { LoginProvider } from '@slonigiraf/app-slonig-components';
 export const PORTAL_ID = 'portals';
@@ -34,26 +34,28 @@ function Apps({ className = '' }: Props): React.ReactElement<Props> {
   return (
     <InfoProvider>
       <IpfsProvider>
-        
-          <GlobalStyle uiHighlight={uiHighlight} />
-          <StyledDiv className={`${className} apps--Wrapper ${themeClassName}`}>
-            <AppContainer>
-              <Menu />
-              <LoginProvider>
-              <AccountSidebar>
+
+        <GlobalStyle uiHighlight={uiHighlight} />
+        <StyledDiv className={`${className} apps--Wrapper ${themeClassName}`}>
+          <AppContainer>
+            <LoginProvider>
+              <TokenTransferProvider>
+                <Menu />
                 <Signer>
-                  <Content />
-                  <BottomMenu />
+                  <BlockchainSyncProvider>
+                    <Content />
+                    <BottomMenu />
+                  </BlockchainSyncProvider>
                 </Signer>
                 <ConnectingOverlay />
                 <DotAppsOverlay />
                 <div id={PORTAL_ID} />
-              </AccountSidebar>
-              </LoginProvider>
-            </AppContainer>
-          </StyledDiv>
-          <WarmUp />
-        
+              </TokenTransferProvider>
+            </LoginProvider>
+          </AppContainer>
+        </StyledDiv>
+        <WarmUp />
+
       </IpfsProvider>
     </InfoProvider>
   );

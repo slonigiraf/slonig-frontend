@@ -15,7 +15,7 @@ import { MemoryRouter } from 'react-router-dom';
 import { ThemeProvider } from 'styled-components';
 
 import { POLKADOT_GENESIS } from '@polkadot/apps-config';
-import { AccountSidebar, lightTheme } from '@polkadot/react-components';
+import { lightTheme } from '@polkadot/react-components';
 import { ApiCtx } from '@polkadot/react-hooks/ctx/Api';
 import { QueueCtx } from '@polkadot/react-hooks/ctx/Queue';
 import { TypeRegistry } from '@polkadot/types/create';
@@ -220,9 +220,7 @@ export abstract class Page {
             <MemoryRouter>
               <ThemeProvider theme={lightTheme}>
                 <ApiCtx.Provider value={mockApi}>
-                  <AccountSidebar>
                     {React.cloneElement(this.overview, { onStatusChange: noop }) }
-                  </AccountSidebar>
                 </ApiCtx.Provider>
               </ThemeProvider>
             </MemoryRouter>

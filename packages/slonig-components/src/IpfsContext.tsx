@@ -1,18 +1,15 @@
-// IpfsContext.tsx
 import React, { useContext, createContext, ReactNode } from 'react';
 import useIpfsFactory from './useIpfsFactory.js';
+import { IPFSHTTPClient } from 'kubo-rpc-client';
 
-// Define an interface for your context state.
 interface IIpfsContext {
-  ipfs: any; // Replace 'any' with a more specific type if you know the structure of 'ipfs'
+  ipfs: IPFSHTTPClient | null;
   isIpfsReady: boolean;
   ipfsInitError: Error | null;
 }
 
-// Initialize the context with a default value.
 const IpfsContext = createContext<IIpfsContext | null>(null);
 
-// Define an interface for the props of IpfsProvider
 interface IpfsProviderProps {
   children: ReactNode;
 }
@@ -27,7 +24,7 @@ export const IpfsProvider: React.FC<IpfsProviderProps> = ({ children }) => {
   );
 };
 
-export function useIpfsContext() {
+export function useIpfsContext(): IIpfsContext {
   const context = useContext(IpfsContext);
   if (!context) {
     throw new Error('useIpfsContext must be used within an IpfsProvider');

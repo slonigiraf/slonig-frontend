@@ -37,7 +37,7 @@ export interface SortedAccount {
 export interface AccountBalance {
   total: BN;
   locked: BN;
-  transferrable: BN;
+  transferable: BN;
   bonded: BN;
   redeemable: BN;
   unbonding: BN;
@@ -51,7 +51,7 @@ export interface CreateProps extends ModalProps {
   onStatusChange: (status: ActionStatus) => void;
   seed?: string;
   type?: PairType;
-  toggle: () => void;
+  cancelAuthorization?: () => void;
 }
 
 export type SeedType = 'bip' | 'raw' | 'dev';

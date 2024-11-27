@@ -4,7 +4,6 @@
 // named exports
 export { default as AccountIndex } from './AccountIndex.js';
 export { default as AccountName } from './AccountName.js';
-export { default as AccountSidebar } from './AccountSidebar/index.js';
 export { default as AddressInfo } from './AddressInfo.js';
 export { default as AddressMini } from './AddressMini.js';
 export { default as AddressRow } from './AddressRow.js';
@@ -77,7 +76,6 @@ export { default as PasswordStrength } from './PasswordStrength.js';
 export { default as Popup } from './Popup/index.js';
 export { default as Progress } from './Progress.js';
 export { default as Row } from './Row.js';
-export { default as Sidebar } from './Sidebar.js';
 export { default as SortDropdown } from './SortDropdown.js';
 export { default as Spinner } from './Spinner.js';
 export { default as StakingBonded } from './StakingBonded.js';

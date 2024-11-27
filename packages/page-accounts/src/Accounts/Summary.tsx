@@ -5,7 +5,7 @@ import type { AccountBalance } from '../types.js';
 
 import React from 'react';
 
-import { CardSummary, SummaryBox } from '@polkadot/react-components';
+import { CardSummary, styled } from '@polkadot/react-components';
 import { FormatBalance } from '@polkadot/react-query';
 
 import { useTranslation } from '../translate.js';
@@ -19,7 +19,7 @@ function Summary ({ balance, className }: Props) {
   const { t } = useTranslation();
 
   return (
-    <SummaryBox className={className}>
+    <StyledDiv className={className}>
       <CardSummary label={t('total balance')}>
         <FormatBalance
           className={balance ? '' : '--tmp'}
@@ -28,11 +28,11 @@ function Summary ({ balance, className }: Props) {
       </CardSummary>
       <CardSummary
         className='media--900'
-        label={t('total transferrable')}
+        label={t('total transferable')}
       >
         <FormatBalance
           className={balance ? '' : '--tmp'}
-          value={balance?.transferrable || 1}
+          value={balance?.transferable || 1}
         />
       </CardSummary>
       <CardSummary label={t('total locked')}>
@@ -62,8 +62,13 @@ function Summary ({ balance, className }: Props) {
         >
           <FormatBalance value={balance.unbonding} />
         </CardSummary>}
-    </SummaryBox>
+    </StyledDiv>
   );
 }
-
+const StyledDiv = styled.div`
+  align-items: stretch;
+  display: flex;
+  flex-wrap: no-wrap;
+  justify-content: space-between;
+`;
 export default React.memo(Summary);

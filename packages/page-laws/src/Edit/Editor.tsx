@@ -2,12 +2,11 @@ import React, { useCallback } from 'react';
 import { Button, Dropdown, Input, styled } from '@polkadot/react-components';
 import { useTranslation } from '../translate.js';
 import { randomIdHex } from '../util.js';
-import { parseJson, useInfo } from '@slonigiraf/app-slonig-components';
 import Reordering from './Reordering.js';
-import type { LawType } from '../types.js';
 import ExerciseEditorList from './ExerciseEditorList.js';
 import { useApi } from '@polkadot/react-hooks';
-import { useIpfsContext, getCIDFromBytes, getIPFSDataFromContentID, parseJson } from '@slonigiraf/app-slonig-components';
+import { LawType, useInfo, useIpfsContext, getCIDFromBytes, getIPFSDataFromContentID, parseJson } from '@slonigiraf/app-slonig-components';
+import BN from 'bn.js';
 
 interface Props {
   className?: string;
@@ -27,12 +26,12 @@ function Editor(props: Props): React.ReactElement<Props> {
   const { t } = useTranslation();
   const { showInfo } = useInfo();
   const { api } = useApi();
-  const { ipfs, isIpfsReady, ipfsInitError } = useIpfsContext();
+  const { ipfs, isIpfsReady } = useIpfsContext();
 
   const parentToItemDefaultType = {
-    0: 0,
-    1: 2,
-    2: 3,
+    [LawType.LIST]: LawType.LIST,
+    [LawType.COURSE]: LawType.MODULE,
+    [LawType.MODULE]: LawType.SKILL,
   };
 
   const getDefaultItemLawType = useCallback(() => parentToItemDefaultType[list?.t] || 0, [list]);
@@ -47,7 +46,7 @@ function Editor(props: Props): React.ReactElement<Props> {
 
 
 
-  const selectLawType = useCallback((newLawType: LawType) => {
+  const selectLawType = useCallback((newLawType: typeof LawType) => {
     if (!item || newLawType !== item.t) {
       onItemChange({
         ...item,
@@ -61,12 +60,12 @@ function Editor(props: Props): React.ReactElement<Props> {
   }, [list, onListChange]);
 
   const baseOptions = {
-    0: [
-      { text: t('List'), value: 0 },
-      { text: t('Course'), value: 1 },
+    [LawType.LIST]: [
+      { text: t('List'), value: LawType.LIST },
+      { text: t('Course'), value: LawType.COURSE },
     ],
-    1: [{ text: t('Module'), value: 2 }],
-    2: [{ text: t('Skill'), value: 3 }],
+    [LawType.COURSE]: [{ text: t('Module'), value: LawType.MODULE }],
+    [LawType.MODULE]: [{ text: t('Skill'), value: LawType.SKILL }],
   };
 
   const lawTypeOpt = baseOptions[list?.t] || [];
@@ -88,7 +87,7 @@ function Editor(props: Props): React.ReactElement<Props> {
         return;
       }
 
-      const law = await api.query.laws.laws(idFromUrl);
+      const law = (await api.query.laws.laws(idFromUrl)) as { isSome: boolean; unwrap: () => [Uint8Array, BN] };
       if (!law.isSome) {
         showInfo(t('The link misses a known ID'), 'error');
         return;

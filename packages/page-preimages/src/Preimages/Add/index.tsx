@@ -37,10 +37,10 @@ function Add ({ className, imageHash }: Props): React.ReactElement<Props> {
           <Modal.Content>
             <Modal.Columns hint={t('This account will pay the fees for the preimage, based on the size thereof.')}>
               <InputAddress
-                label={t('send from account')}
+                label={t('sender')}
                 labelExtra={
                   <Available
-                    label={<span className='label'>{t('transferrable')}</span>}
+                    label={<span className='label'>{t('transferable')}</span>}
                     params={accountId}
                   />
                 }

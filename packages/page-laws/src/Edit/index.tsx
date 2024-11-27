@@ -15,7 +15,6 @@ import { parseJson } from '@slonigiraf/app-slonig-components';
 import Editor from './Editor.js';
 import ViewList from './ViewList.js';
 import { useLocation } from 'react-router-dom';
-import { storeSetting, getSetting, storePseudonym } from '@slonigiraf/app-recommendations';
 import { useLoginContext } from '@slonigiraf/app-slonig-components';
 import { sendCreateAndEditTransaction, sendEditTransaction } from './sendTransaction.js';
 import { useInfo } from '@slonigiraf/app-slonig-components';
@@ -35,17 +34,15 @@ function Edit({ className = '' }: Props): React.ReactElement<Props> {
 
   const location = useLocation();
   const queryParams = new URLSearchParams(location.search);
-  const tutor = queryParams.get("tutor");
-  const tutorName = queryParams.get("name");
   const defaultTextHexId = '0xfed8e6f01c6c746876d69f7f10f933cdcd849068f6dc2fa26769fc92584492e7';
-  const idFromQuery = tutor ? undefined : queryParams.get("id") || defaultTextHexId;
+  const idFromQuery = queryParams.get('id') || defaultTextHexId;
   const [textHexId, setTextHexId] = useState<string | undefined>(idFromQuery);
 
   // Load state changes to session storage
   const sessionPrefix = 'knowledge';
   const [list, setList] = useState<JsonType>(loadFromSessionStorage(sessionPrefix, 'list'));
   const [item, setItem] = useState<JsonType>(loadFromSessionStorage(sessionPrefix, 'item'));
-  const [cidString, setCidString] = useState<string>(loadFromSessionStorage(sessionPrefix, 'cidString') || "");
+  const [cidString, setCidString] = useState<string>(loadFromSessionStorage(sessionPrefix, 'cidString') || '');
   const [lawHexData, setLawHexData] = useState<string>(loadFromSessionStorage(sessionPrefix, 'lawHexData') || "");
   const [amountList, setAmountList] = useState<BN | undefined>(new BN(loadFromSessionStorage(sessionPrefix, 'amountList') || BN_ZERO));
   const [amountItem, setAmountItem] = useState<BN | undefined>(new BN(loadFromSessionStorage(sessionPrefix, 'amountItem') || BN_ZERO));
@@ -53,7 +50,7 @@ function Edit({ className = '' }: Props): React.ReactElement<Props> {
   const [isEditView, setIsEditView] = useState<boolean>(loadFromSessionStorage(sessionPrefix, 'isEditView') || false);
   const [isAddingLink, setIsAddingLink] = useState<boolean>(loadFromSessionStorage(sessionPrefix, 'isAddingLink') || false);
   const [isAddingItem, setIsAddingElement] = useState<boolean>(loadFromSessionStorage(sessionPrefix, 'isAddingItem') || false);
-  const [itemIdHex, setItemIdHex] = useState<string>(loadFromSessionStorage(sessionPrefix, 'itemIdHex') || "");
+  const [itemIdHex, setItemIdHex] = useState<string>(loadFromSessionStorage(sessionPrefix, 'itemIdHex') || '');
 
   // For storing original values
   const [originalList, setOriginalList] = useState<JsonType>(loadFromSessionStorage(sessionPrefix, 'originalList'));
@@ -87,28 +84,13 @@ function Edit({ className = '' }: Props): React.ReactElement<Props> {
 
   useEffect(() => {
     const updateSetting = async () => {
-      if (tutor) {
-        await storeSetting("tutor", tutor);
-        if (tutorName) {
-          try {
-            if (typeof tutor === 'string' && typeof tutorName === 'string') {
-              await storePseudonym(tutor, tutorName);
-            }
-          } catch (error) {
-            console.error("Failed to save tutor pseudonym:", error);
-          }
-        }
-        const savedId = await getSetting("knowledge");
-        setTextHexId(savedId);
-      } else if (idFromQuery) {
-        if (idFromQuery !== defaultTextHexId) {
-          await storeSetting("knowledge", idFromQuery);
-        }
+      if (idFromQuery && idFromQuery !== textHexId) {
+        setList(null);
         setTextHexId(idFromQuery);
       }
     };
     updateSetting();
-  }, [tutor, idFromQuery]);
+  }, [idFromQuery, setList]);
 
   const _onClickChangeView = useCallback(
     (): void => {
@@ -164,18 +146,19 @@ function Edit({ className = '' }: Props): React.ReactElement<Props> {
 
   async function fetchLaw(key: string) {
     if (key) {
-      const law = await api.query.laws.laws(key);
+      const law = (await api.query.laws.laws(key)) as { isSome: boolean; unwrap: () => [Uint8Array, BN] };
       if (law.isSome) {
         const tuple = law.unwrap();
-        const byteArray = tuple[0]; // This should give you the [u8; 32]
-        const bigIntValue = tuple[1]; // This should give you the u128
+        const byteArray = tuple[0]; // This should give you the [u8; 32] as Uint8Array
+        const bigIntValue = tuple[1]; // This should give you the u128 as bigint
+  
         const cid = await getCIDFromBytes(byteArray);
-        if (cid != cidString) {
+        if (cid !== cidString) {
           setCidString(cid);
           setLawHexData(u8aToHex(byteArray));
           setAmountList(bigIntValue);
           setPreviousAmount(bigIntValue);
-          // Set inital values
+          // Set initial values
           setOriginalCidString(cid);
           setOriginalLawHexData(u8aToHex(byteArray));
           setOriginalAmountList(bigIntValue);
@@ -284,16 +267,16 @@ function Edit({ className = '' }: Props): React.ReactElement<Props> {
       {!isIpfsReady ? <div>{t('Connecting to IPFS...')}</div> : ""}
     </div>
   );
-  
+
 
   const viewView = (
     <div className={`toolbox--Sign ${className}`}>
-      <ViewList id={textHexId} currentPair={currentPair} />
-      <Button
+      {textHexId && <ViewList key={textHexId} id={textHexId} cidString={cidString} list={list} />}
+      {list && <Button
         icon='edit'
         label={t('Edit')}
         onClick={_onClickEdit}
-      />
+      />}
       {!isIpfsReady ? <div>{t('Connecting to IPFS...')}</div> : ""}
     </div>
   );

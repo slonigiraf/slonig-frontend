@@ -21,13 +21,16 @@ function QRWithShareAndCopy({ className, dataQR, titleShare, textShare, urlShare
             <div>
                 <div
                     className='qr--row'
-                    style={{ display: isDisabled ? 'none' : 'block' }}
+                    style={{ display: isDisabled ? 'none' : '', paddingTop: '5px' }}
                 >
                     {/* This size of QR code was set to allow accounts page show Slon balance without scroll on Redmi 9C NFC */}
                     <QRCode value={dataQR} size={qrWidthPx} />
                 </div>
 
-                <div className='qr--row'>
+                <div
+                    className='qr--row'
+                    style={{ display: isDisabled ? 'none' : '' }}
+                >
                     <ShareButton title={titleShare} text={textShare} url={urlShare} isDisabled={isDisabled} />
                     <ClipboardCopyButton text={dataCopy} isDisabled={isDisabled} />
                 </div>

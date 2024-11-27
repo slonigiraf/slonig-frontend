@@ -25,17 +25,12 @@ interface Props {
   setPassword: (value: AccountPassword) => void;
 }
 
-const CreateAccountInputs = ({ name: { isNameValid, name }, onCommit, setName, setPassword }: Props) => {
+const CreateAccountInputs = ({ name: { isNameValid, name }, onCommit, setName }: Props) => {
   const { t } = useTranslation();
 
   const _onChangeName = useCallback(
     (name: string) => setName({ isNameValid: !!name.trim(), name }),
     [setName]
-  );
-
-  const _onChangePass = useCallback(
-    (password: string, isValid: boolean) => setPassword({ isPasswordValid: isValid, password }),
-    [setPassword]
   );
 
   return (
@@ -49,10 +44,6 @@ const CreateAccountInputs = ({ name: { isNameValid, name }, onCommit, setName, s
           placeholder={t('e.g., John Doe')}
           value={name}
         />
-      <PasswordInput
-        onChange={_onChangePass}
-        onEnter={onCommit}
-      />
     </>
   );
 };

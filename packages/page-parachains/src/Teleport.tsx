@@ -136,10 +136,10 @@ function Teleport ({ onClose }: Props): React.ReactElement<Props> | null {
       <Modal.Content>
         <Modal.Columns hint={t('The transferred balance will be subtracted (along with fees) from the sender account.')}>
           <InputAddress
-            label={t('send from account')}
+            label={t('sender')}
             labelExtra={
               <Available
-                label={t('transferrable')}
+                label={t('transferable')}
                 params={senderId}
               />
             }
@@ -162,7 +162,7 @@ function Teleport ({ onClose }: Props): React.ReactElement<Props> | null {
         )}
         <Modal.Columns hint={t('The beneficiary will have access to the transferred amount when the transaction is included in a block.')}>
           <InputAddress
-            label={t('send to address')}
+            label={t('recipient')}
             onChange={setRecipientId}
             type='allPlus'
           />

@@ -24,8 +24,13 @@ import { useInfo, useLoginContext } from '@slonigiraf/app-slonig-components';
 interface Props {
   className?: string;
   onClose: () => void;
+  onSuccess: () => void;
   recipientId?: string;
   senderId?: string;
+  amount?: BN;
+  modalCaption?: string;
+  buttonCaption?: string;
+  isAmountEditable: boolean;
 }
 
 function isRefcount(accountInfo: AccountInfoWithProviders | AccountInfoWithRefCount): accountInfo is AccountInfoWithRefCount {
@@ -45,10 +50,10 @@ async function checkPhishing(_senderId: string | null, recipientId: string | nul
   ];
 }
 
-function Transfer({ className = '', onClose, recipientId: propRecipientId, senderId: propSenderId }: Props): React.ReactElement<Props> {
+function Transfer({ className = '', onClose, onSuccess, recipientId: propRecipientId, senderId: propSenderId, amount: propAmount, modalCaption, buttonCaption, isAmountEditable = true }: Props): React.ReactElement<Props> {
   const { t } = useTranslation();
   const { api } = useApi();
-  const [amount, setAmount] = useState<BN | undefined>(BN_ZERO);
+  const [amount, setAmount] = useState<BN | undefined>(propAmount ? propAmount : BN_ZERO);
   const [hasAvailable] = useState(true);
   const [isProtected, setIsProtected] = useState(true);
   const [isAll, setIsAll] = useState(false);
@@ -61,6 +66,7 @@ function Transfer({ className = '', onClose, recipientId: propRecipientId, sende
   const { showInfo } = useInfo();
   const { currentPair } = useLoginContext();
   const [isProcessing, toggleProcessing] = useToggle();
+  const [amountIsLessThanMax, setAmountIsLessThanMax] = useState(false);
 
   useEffect((): void => {
     const fromId = propSenderId || senderId as string;
@@ -87,6 +93,14 @@ function Transfer({ className = '', onClose, recipientId: propRecipientId, sende
       setMaxTransfer([null, false]);
     }
   }, [api, balances, propRecipientId, propSenderId, recipientId, senderId]);
+
+  useEffect((): void => {
+    if (maxTransfer !== null && amount) {
+      setAmountIsLessThanMax(amount.lt(maxTransfer))
+    } else {
+      setAmountIsLessThanMax(false)
+    }
+  }, [maxTransfer, amount]);
 
   useEffect((): void => {
     checkPhishing(propSenderId || senderId, propRecipientId || recipientId)
@@ -120,14 +134,39 @@ function Transfer({ className = '', onClose, recipientId: propRecipientId, sende
           events.forEach(({ event }) => {
             if (api.events.system.ExtrinsicFailed.is(event)) {
               isError = true;
-              // Error handling similar to getBounty.ts
+              // TODO create human readable error info
+              /*
+              type ErrorKey = 'InvalidRefereeSign' | 'InvalidWorkerSign' .....;
+
+              const errorMessages: Record<ErrorKey, string> = {
+                  InvalidRefereeSign: 'Invalid signature of previous tutor',
+                  InvalidWorkerSign: 'Invalid signature of student',
+                  ...
+              };
+
+              events.forEach(({ event }) => {
+                    if (api.events.system.ExtrinsicFailed.is(event)) {
+                        isError = true;
+                        const [error] = event.data;
+                        if (error.isModule) {
+                            // for module errors, we have the section indexed, lookup
+                            const decoded = api.registry.findMetaError(error.asModule);
+                            const { docs, method, section } = decoded;
+                            errorInfo = `${method}`;
+                        } else {
+                            // Other, CannotLookup, BadOrigin, no extra info
+                            errorInfo = error.toString();
+                        }
+                    }
+                });
+               */
             }
           });
 
           if (isError) {
             showInfo(t('Transfer failed'), 'error');
           } else {
-            showInfo(t('Transfer successful'), 'info');
+            onSuccess();
             onClose(); // Close the modal on success
           }
           toggleProcessing();
@@ -142,7 +181,7 @@ function Transfer({ className = '', onClose, recipientId: propRecipientId, sende
   return (
     <StyledModal
       className='app--accounts-Modal'
-      header={t('Send funds')}
+      header={modalCaption ? modalCaption : t('Send tokens')}
       onClose={onClose}
       size='large'
     >
@@ -152,7 +191,7 @@ function Transfer({ className = '', onClose, recipientId: propRecipientId, sende
             <InputAddress
               defaultValue={propSenderId}
               isDisabled={!!propSenderId}
-              label={t('send from account')}
+              label={t('sender')}
               labelExtra={
                 <Available
                   params={propSenderId || senderId}
@@ -166,11 +205,11 @@ function Transfer({ className = '', onClose, recipientId: propRecipientId, sende
             <InputAddress
               defaultValue={propRecipientId}
               isDisabled={!!propRecipientId}
-              label={t('send to address')}
-              labelExtra={
+              label={t('recipient')}
+              labelExtra={!propRecipientId ?
                 <Available
                   params={propRecipientId || recipientId}
-                />
+                /> : ''
               }
               onChange={setRecipientId}
               type='allPlus'
@@ -187,7 +226,7 @@ function Transfer({ className = '', onClose, recipientId: propRecipientId, sende
                   defaultValue={maxTransfer}
                   isDisabled
                   key={maxTransfer?.toString()}
-                  label={t('transferrable minus fees')}
+                  label={t('transferable minus fees')}
                 />
               )
               : (
@@ -197,8 +236,10 @@ function Transfer({ className = '', onClose, recipientId: propRecipientId, sende
                     isError={!hasAvailable}
                     isZeroable
                     label={t('amount')}
+                    defaultValue={amount}
                     maxValue={maxTransfer}
                     onChange={setAmount}
+                    isDisabled={!isAmountEditable}
                   />
                 </>
               )
@@ -207,17 +248,18 @@ function Transfer({ className = '', onClose, recipientId: propRecipientId, sende
         </div>
       </Modal.Content>
       <Modal.Actions>
-        {isProcessing ? <Spinner noLabel variant='mini'/> :
-        <Button isDisabled={
-          isProcessing ||
-          (!isAll && (!hasAvailable || !amount)) ||
-          !(propRecipientId || recipientId) ||
-          !!recipientPhish
-        }
-          icon='paper-plane'
-          label={t('Make Transfer')}
-          onClick={submitTransfer}
-        />
+        {isProcessing ? <Spinner noLabel variant='mini' /> :
+          <Button isDisabled={
+            isProcessing ||
+            (!isAll && (!hasAvailable || !amount)) ||
+            !(propRecipientId || recipientId) ||
+            !!recipientPhish ||
+            !amountIsLessThanMax
+          }
+            icon='paper-plane'
+            label={buttonCaption ? buttonCaption : t('Send tokens')}
+            onClick={submitTransfer}
+          />
         }
       </Modal.Actions>
     </StyledModal>

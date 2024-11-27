@@ -53,9 +53,6 @@ function SettingsApp({ basePath, onStatusChange }: Props): React.ReactElement<Pr
     [isDeveloper]
   );
 
-  console.log("isDeveloper", isDeveloper)
-  console.log("hidden", hidden)
-
   return (
     <main className='settings--App'>
       <Tabs

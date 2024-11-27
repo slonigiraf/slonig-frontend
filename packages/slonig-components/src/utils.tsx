@@ -2,13 +2,24 @@ import { IPFSHTTPClient, CID, DAGGetResult } from 'kubo-rpc-client'
 import crypto from 'crypto';
 import { getAddressName } from '@polkadot/react-components';
 import type { KeyringPair } from '@polkadot/keyring/types';
-import { getSetting, storeSetting } from '@slonigiraf/app-recommendations';
+import { getSetting, storeSetting, SettingKey, getCIDCache, putCIDCache } from '@slonigiraf/db';
 import Peer from 'peerjs';
+import { formatBalance } from '@polkadot/util';
+import BN from 'bn.js';
+import { CIDCache } from 'db/src/db/CIDCache.js';
+
+// export const tokenSymbol = formatBalance(balance, { withUnit: false });
 
 export const getBaseUrl = () => {
   const { protocol, hostname, port } = window.location;
   return `${protocol}//${hostname}${port ? `:${port}` : ''}`;
 };
+
+export const balanceToSlonString = (balance: BN): string => {
+  const numberWith4Decimals = (formatBalance(balance, { forceUnit: '-', withUnit: false })).replaceAll(',', '');
+  const number = parseFloat(parseFloat(numberWith4Decimals).toFixed(2));
+  return number.toString();
+}
 
 // ------
 export const CODEC = 0x71;
@@ -59,23 +70,29 @@ async function tryToGetIPFSDataFromContentID(ipfs: IPFSHTTPClient, cidStr: strin
 }
 
 export const getIPFSDataFromContentID = async (ipfs: IPFSHTTPClient, cidString: string, maxAttempts = 60, delay = 1000) => {
-  let attempts = 0;
-  while (attempts < maxAttempts) {
-    try {
-      const jsonText = await tryToGetIPFSDataFromContentID(ipfs, cidString);
-      if (jsonText) {
-        return jsonText;
-      }
-    } catch (error) {
-      attempts++;
-      console.error(`CID: ${cidString} - attempt ${attempts} failed: ${error.message}`);
-      if (attempts < maxAttempts) {
-        // Wait for specified delay before trying again
-        await new Promise(resolve => setTimeout(resolve, delay));
+  const cached: CIDCache | undefined = await getCIDCache(cidString);
+  if(cached){
+    return cached.data;
+  } else{
+    let attempts = 0;
+    while (attempts < maxAttempts) {
+      try {
+        const jsonText = await tryToGetIPFSDataFromContentID(ipfs, cidString);
+        if (jsonText) {
+          await putCIDCache(cidString, jsonText);
+          return jsonText;
+        }
+      } catch (error) {
+        attempts++;
+        console.error(`CID: ${cidString} - attempt ${attempts} failed: ${error.message}`);
+        if (attempts < maxAttempts) {
+          // Wait for specified delay before trying again
+          await new Promise(resolve => setTimeout(resolve, delay));
+        }
       }
     }
+    throw new Error("Failed to fetch IPFS data after multiple attempts.");
   }
-  throw new Error("Failed to fetch IPFS data after multiple attempts.");
 };
 
 export async function digestFromCIDv1(cidStr: string) {
@@ -191,8 +208,9 @@ export async function decryptData(key: CryptoKey, encrypted: string, iv: string)
   return new TextDecoder().decode(decrypted);
 }
 
+// Use to encrypt archives
 export async function getKey() {
-  let keyB64 = await getSetting('encryptionKey');
+  let keyB64 = await getSetting(SettingKey.ENCRYPTION_KEY);
   if (!keyB64) {
     const cryptoKey = await window.crypto.subtle.generateKey(
       { name: "AES-GCM", length: 256 },
@@ -201,7 +219,7 @@ export async function getKey() {
     );
     const exportedKey = await window.crypto.subtle.exportKey("raw", cryptoKey);
     keyB64 = arrayBufferToBase64(exportedKey);
-    await storeSetting('encryptionKey', keyB64);
+    await storeSetting(SettingKey.ENCRYPTION_KEY, keyB64);
     return cryptoKey;
   } else {
     const keyBytes = base64ToArrayBuffer(keyB64);
@@ -239,7 +257,7 @@ export const loadFromSessionStorage = (prefix: string, name: string) => {
   }
 };
 
-export const qrPadding = 5;
+export const qrPadding = 10;
 export const getQrWidth = () => {
   const deviceMaxWidth = window.innerWidth || document.documentElement.clientWidth || document.body.clientWidth;
   const maxWidth = 260;
@@ -257,40 +275,133 @@ export const createPeer = () => {
     secure: true,
     path: '/',
     config: {
-        'iceServers': [
-            { urls: `stun:${process.env.COTURN_SERVER}` },
-            { urls: `turn:${process.env.COTURN_SERVER}`, username: process.env.COTURN_USER, credential: process.env.COTURN_PASSWORD }
-        ]
+      'iceServers': [
+        { urls: `stun:${process.env.COTURN_SERVER}` },
+        { urls: `turn:${process.env.COTURN_SERVER}`, username: process.env.COTURN_USER, credential: process.env.COTURN_PASSWORD }
+      ]
     }
   });
 }
-export const receiveWebRTCData = async (peerId: string) => {
-  try {
-    // Initialize the peer and wait until it's fully ready
-    const peer = await new Promise<Peer>((resolve, reject) => {
-      const p = createPeer();
-      p.on('open', () => resolve(p));
-      p.on('error', reject);
-    });
 
-    // Establish connection to the remote peer
-    const connection = await new Promise<any>((resolve, reject) => {
-      const conn = peer.connect(peerId);
-      conn.on('open', () => resolve(conn));
-      conn.on('error', reject);
-    });
+export const receiveWebRTCData = async (
+  peerId: string,
+  timeoutMsec: number
+): Promise<any> => {
+  const startTime = Date.now();
 
-    // Wait for data from the connected peer
-    const data = await new Promise<any>((resolve, reject) => {
-      connection.on('data', (data) => resolve(data));
-      connection.on('close', () => {
-        console.log('Connection closed with peer:', peerId);
-      });
-      connection.on('error', reject);
+  // Function to calculate remaining time
+  const getRemainingTime = (): number => {
+    const elapsed = Date.now() - startTime;
+    return timeoutMsec - elapsed;
+  };
+
+  // Step 1: Initialize the peer with a dynamic timeout
+  let peer: Peer;
+  const peerInitPromise = new Promise<Peer>((resolve, reject) => {
+    const p = createPeer();
+    p.on('open', () => resolve(p));
+    p.on('error', (err) => {
+      reject(new Error(`Peer initialization error: ${err.message}`));
     });
-    return data;
-  } catch (err) {
-    console.error('Error:', err);
-    throw err;
+  });
+
+  const peerInitTimeout = getRemainingTime();
+  if (peerInitTimeout <= 0) {
+    throw new Error('Operation timed out before peer initialization could start');
   }
+
+  peer = await Promise.race([
+    peerInitPromise,
+    new Promise<Peer>((_, reject) =>
+      setTimeout(
+        () =>
+          reject(
+            new Error(
+              `Peer initialization not completed within ${peerInitTimeout} ms`
+            )
+          ),
+        peerInitTimeout
+      )
+    )
+  ]);
+
+  // Step 2: Establish connection to the remote peer with a dynamic timeout
+  const connectionPromise = new Promise<any>((resolve, reject) => {
+    const conn = peer.connect(peerId);
+    conn.on('open', () => resolve(conn));
+    conn.on('error', (err) => {
+      reject(new Error(`Connection error: ${err.message}`));
+    });
+  });
+
+  const connectionTimeout = getRemainingTime();
+  if (connectionTimeout <= 0) {
+    throw new Error('Operation timed out before connection establishment could start');
+  }
+
+  const connection = await Promise.race([
+    connectionPromise,
+    new Promise<any>((_, reject) =>
+      setTimeout(
+        () =>
+          reject(
+            new Error(
+              `Connection not established within ${connectionTimeout} ms`
+            )
+          ),
+        connectionTimeout
+      )
+    )
+  ]);
+
+  // Step 3: Wait for data from the connected peer with a dynamic timeout
+  const dataPromise = new Promise<any>((resolve, reject) => {
+    const onData = (receivedData: any) => {
+      cleanup();
+      resolve(receivedData);
+    };
+
+    const onClose = () => {
+      cleanup();
+      reject(new Error('Connection closed before data was received'));
+    };
+
+    const onError = (err: { message: any }) => {
+      cleanup();
+      reject(new Error(`Connection error during data transfer: ${err.message}`));
+    };
+
+    const cleanup = () => {
+      clearTimeout(timeoutId);
+      connection.off('data', onData);
+      connection.off('close', onClose);
+      connection.off('error', onError);
+    };
+
+    connection.on('data', onData);
+    connection.on('close', onClose);
+    connection.on('error', onError);
+
+    const timeoutId = setTimeout(() => {
+      cleanup();
+      reject(new Error(`No data received within the remaining timeout`));
+    }, getRemainingTime());
+  });
+
+  const dataTimeout = getRemainingTime();
+  if (dataTimeout <= 0) {
+    throw new Error('Operation timed out before data reception could start');
+  }
+
+  const data = await Promise.race([
+    dataPromise,
+    new Promise<any>((_, reject) =>
+      setTimeout(
+        () => reject(new Error(`No data received within ${dataTimeout} ms`)),
+        dataTimeout
+      )
+    )
+  ]);
+
+  return data;
 };

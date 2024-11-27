@@ -1,0 +1,33 @@
+{
+  "bugs": "https://github.com/slonigiraf/apps-slonigiraf/issues",
+  "engines": {
+    "node": ">=16"
+  },
+  "homepage": "https://github.com/slonigiraf/apps-slonigiraf/tree/master/packages/db#readme",
+  "license": "Apache-2.0",
+  "name": "@slonigiraf/db",
+  "private": true,
+  "repository": {
+    "directory": "packages/db",
+    "type": "git",
+    "url": "https://github.com/slonigiraf/apps-slonigiraf.git"
+  },
+  "sideEffects": false,
+  "type": "module",
+  "version": "0.132.2-38-x",
+  "dependencies": {
+    "@polkadot/util": "^12.3.2",
+    "dexie": "^4.0.9",
+    "dexie-export-import": "^1.0.3",
+    "dexie-react-hooks": "^1.1.7",
+    "dompurify": "^3.0.6"
+  },
+  "devDependencies": {
+    "@polkadot/test-support": "0.132.2-38-x"
+  },
+  "peerDependencies": {
+    "react": "*",
+    "react-dom": "*",
+    "react-is": "*"
+  }
+}

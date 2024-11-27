@@ -1,17 +1,18 @@
 import { useState, useCallback, useEffect } from 'react';
 import { keyring } from '@polkadot/ui-keyring';
-import { getSetting, storeSetting } from '@slonigiraf/app-recommendations';
+import { getSetting, storeSetting, SettingKey } from '@slonigiraf/db';
 import type { KeyringPair } from '@polkadot/keyring/types';
 import type { AccountState } from '@slonigiraf/app-slonig-components';
-import { decryptData, getKey } from '@slonigiraf/app-slonig-components';
 import { useApi } from '@polkadot/react-hooks';
 
 export function useLogin() {
   const [currentPair, setCurrentPair] = useState<KeyringPair | null>(null);
+  const [defaultAccount, setDefaultAccount] = useState<string|undefined>(undefined);
   const [accountState, setAccountState] = useState<AccountState | null>(null);
   const [isLoginRequired, setLoginIsRequired] = useState<boolean>(false);
   const [isReady, setIsReady] = useState<boolean>(false);
   const [isLoggedIn, setIsLoggedIn] = useState<boolean>(false);
+  const [isAddingAccount, setIsAddingAccount] = useState<boolean>(false);
   const [hasError, setHasError] = useState(true);
   const { isApiConnected } = useApi();
 
@@ -33,24 +34,16 @@ export function useLogin() {
   }, [isApiConnected]);
 
   const attemptUnlock = async (pair: KeyringPair) => {
-        const encryptedPasswordB64 = await getSetting('password');
-    const ivB64 = await getSetting('iv');
-    if (encryptedPasswordB64 && ivB64) {
-            const key = await getKey();
-      try {
-        const password = await decryptData(key, encryptedPasswordB64, ivB64);
-                pair.decodePkcs8(password);
-                if (!pair.isLocked) {
-                    setLoginIsRequired(false);
-          setIsLoggedIn(true);
-          setIsReady(true);
-        }
-      } catch {
-        // setLoginIsRequired(true);
+    try {
+      // Intentionally don't use passwords
+      const password = 'password';
+      pair.decodePkcs8(password);
+      if (!pair.isLocked) {
+        setLoginIsRequired(false);
+        setIsLoggedIn(true);
         setIsReady(true);
       }
-    } else {
-      // setLoginIsRequired(true);
+    } catch {
       setIsReady(true);
     }
   };
@@ -58,14 +51,13 @@ export function useLogin() {
   const _onChangeAccount = useCallback(
     async (accountId: string | null) => {
       if (accountId && accountId !== currentPair?.address) {
-        const accountInDB = await getSetting('account');
+        const accountInDB = await getSetting(SettingKey.ACCOUNT);
         try {
           const newPair = keyring.getPair(accountId);
           if (accountId !== accountInDB) {
             newPair.lock();
             setIsLoggedIn(false);
-            storeSetting('account', newPair.address);
-            storeSetting('password', '');
+            storeSetting(SettingKey.ACCOUNT, newPair.address);
           }
           setCurrentPair(newPair);
           if (newPair && newPair.meta) {
@@ -89,23 +81,9 @@ export function useLogin() {
     [keyring]
   );
 
-  const logOut = useCallback(
-    async () => {
-      if (currentPair) {
-        const newPair = currentPair;
-        newPair.lock();
-        setCurrentPair(newPair);
-        storeSetting('password', '');
-        setIsLoggedIn(false);
-        // setLoginIsRequired(true);
-      }
-    },
-    [currentPair]
-  );
-
   const _onUnlock = useCallback(
     async () => {
-            const accountInDB = await getSetting('account');
+      const accountInDB = await getSetting(SettingKey.ACCOUNT);
       if (accountInDB) {
         const newPair = keyring.getPair(accountInDB);
         setCurrentPair(newPair);
@@ -126,5 +104,5 @@ export function useLogin() {
     [keyring]
   );
 
-  return { isReady, currentPair, accountState, isLoggedIn, isLoginRequired, setIsLoggedIn, setLoginIsRequired, _onChangeAccount, _onUnlock, logOut };
+  return { defaultAccount, isReady, currentPair, accountState, isLoggedIn, isLoginRequired, isAddingAccount, setIsLoggedIn, setLoginIsRequired, setIsAddingAccount, _onChangeAccount, _onUnlock, setDefaultAccount };
 }

@@ -3,7 +3,6 @@
 
 /* global expect */
 
-import type { Sidebar } from '@polkadot/test-support/pagesElements';
 import type { AccountOverrides } from '@polkadot/test-support/types';
 
 import { fireEvent, screen, within } from '@testing-library/react';
@@ -85,12 +84,6 @@ export class AccountsPage extends Page {
       (_, index) => [this.defaultAddresses[index], anAccount()] as [string, AccountOverrides]);
 
     this.render(accounts);
-  }
-
-  async openSidebarForRow (accountRowIndex: number): Promise<Sidebar> {
-    const accountRows = await this.getAccountRows();
-
-    return accountRows[accountRowIndex].openSidebar();
   }
 
   private async getSortCategory (categoryName: string): Promise<HTMLElement> {

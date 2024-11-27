@@ -9,8 +9,8 @@ import { Tabs } from '@polkadot/react-components';
 import { useDeveloperSetting } from '@slonigiraf/app-slonig-components';
 import { useTranslation } from './translate.js';
 import useCounter from './useCounter.js';
-import Create from './Create';
-import Edit from './Edit';
+import Create from './Create/index.js';
+import Edit from './Edit/index.js';
 import ItemLabel from './Edit/ItemLabel.js';
 import ExerciseList from './Edit/ExerciseList.js';
 export { useCounter, ItemLabel, ExerciseList };
@@ -49,13 +49,13 @@ function LawsApp({ basePath, onStatusChange }: Props): React.ReactElement<Props>
         <Route path={basePath}>
           {isDeveloper && (
             <Route
-              element={<Create onStatusChange={onStatusChange} />}
+              element={<Create />}
               path='create'
             />
           )}
           <Route
             element={
-              <Edit onStatusChange={onStatusChange} />
+              <Edit />
             }
             index
           />

@@ -152,7 +152,7 @@ class InputAddress extends React.PureComponent<Props, State> {
   public override render (): React.ReactNode {
     const { className = '', defaultValue, hideAddress = false, isDisabled = false, isError, isMultiple, label, labelExtra, options, optionsAll, placeholder, type = DEFAULT_TYPE, withEllipsis, withLabel } = this.props;
     const hasOptions = (options && options.length !== 0) || (optionsAll && Object.keys(optionsAll[type]).length !== 0);
-
+    
     // the options could be delayed, don't render without
     if (!hasOptions && !isDisabled) {
       // This is nasty, but since this things is non-functional, there is not much

@@ -9,14 +9,13 @@ import type { ModalProps } from '../types.js';
 
 import React, { useCallback, useMemo, useState } from 'react';
 
-import { AddressRow, Button, InputAddress, InputFile, MarkError, MarkWarning, Modal, Password, styled } from '@polkadot/react-components';
+import { Button, InputAddress, InputFile, MarkError, MarkWarning, Modal, styled } from '@polkadot/react-components';
 import { useApi } from '@polkadot/react-hooks';
 import { keyring } from '@polkadot/ui-keyring';
 import { assert, nextTick, u8aToString } from '@polkadot/util';
 
 import { useTranslation } from '../translate.js';
-import { storeSetting } from '@slonigiraf/app-recommendations';
-import { encryptData, getKey } from '@slonigiraf/app-slonig-components';
+import { storeSetting, SettingKey } from '@slonigiraf/db';
 
 interface Props extends ModalProps {
   className?: string;
@@ -57,18 +56,15 @@ function Import({ className = '', onClose, onStatusChange, toggleImport }: Props
   const [isBusy, setIsBusy] = useState(false);
   const [pair, setPair] = useState<KeyringPair | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [{ isPassValid, password }, setPass] = useState<PassState>({ isPassValid: false, password: '' });
+  // Intentionally don't use passwords
+  const isPassValid = true;
+  const password = 'password'; // Intentionally don't use passwords
   const apiGenesisHash = useMemo(() => isDevelopment ? null : api.genesisHash.toHex(), [api, isDevelopment]);
   const differentGenesis = useMemo(() => !!pair?.meta.genesisHash && pair.meta.genesisHash !== apiGenesisHash, [apiGenesisHash, pair]);
 
   const _onChangeFile = useCallback(
     (file: Uint8Array) => setPair(parseFile(file, setError, isEthereum, apiGenesisHash)),
     [apiGenesisHash, isEthereum]
-  );
-
-  const _onChangePass = useCallback(
-    (password: string) => setPass({ isPassValid: keyring.isPassValid(password), password }),
-    []
   );
 
   const _onSave = useCallback(
@@ -88,16 +84,10 @@ function Import({ className = '', onClose, onStatusChange, toggleImport }: Props
           status.account = pair.address;
           status.message = t('account restored');
 
-          const key = await getKey();
-          const { encrypted, iv } = await encryptData(key, password);
-          await storeSetting('account', pair.address);
-          await storeSetting('password', encrypted);
-          await storeSetting('iv', iv);
+          await storeSetting(SettingKey.ACCOUNT, pair.address);
           pair.decodePkcs8(password);
           InputAddress.setLastValue('account', pair.address);
         } catch (error) {
-          setPass((state: PassState) => ({ ...state, isPassValid: false }));
-
           status.status = 'error';
           status.message = (error as Error).message;
           console.error(error);
@@ -129,15 +119,6 @@ function Import({ className = '', onClose, onStatusChange, toggleImport }: Props
           label={t('backup file')}
           onChange={_onChangeFile}
           withLabel
-        />
-        <Password
-          autoFocus
-          className='full'
-          isError={!isPassValid}
-          label={t('password')}
-          onChange={_onChangePass}
-          onEnter={_onSave}
-          value={password}
         />
         {error && (
           <MarkError content={error} />

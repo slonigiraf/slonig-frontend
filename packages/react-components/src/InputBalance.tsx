@@ -54,11 +54,7 @@ function reformat (value?: string | BN | null, isDisabled = false, siDecimals?: 
   });
 
   return {
-    defaultValue: isDisabled
-      // since we drop 0's ensure we have at least 4 for disabled
-      ? `${defaultValue}.`.split('.').slice(0, 2).map((v, i) => i ? v.padEnd(4, '0') : v).join('.')
-      // remove the format specifiers for inputs
-      : defaultValue.replace(/,/g, ''),
+    defaultValue: defaultValue.replace(/,/g, ''),
     siDefault: formatBalance.findSi('-')
   };
 }

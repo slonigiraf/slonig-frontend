@@ -84,10 +84,6 @@ export interface KeyedEvent extends IndexedEvent {
   key: string;
 }
 
-export type SidebarState = [string | null, (() => void) | null];
-
-export type Sidebar = undefined | (([address, onUpdateName]: SidebarState) => void);
-
 export interface WindowSize {
   height: number;
   width: number;

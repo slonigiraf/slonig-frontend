@@ -1,5 +1,4 @@
 #!/bin/sh
-git checkout dev-slonig && \
 git pull origin dev-slonig && \
 export $(cat .env | xargs) && \
 docker build -t dev-app-slonig-org -f docker/Dockerfile \

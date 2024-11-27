@@ -6,28 +6,20 @@ import type { KeyringAddress } from '@polkadot/ui-keyring/types';
 import type { BN } from '@polkadot/util';
 import type { AccountBalance, Delegation, SortedAccount } from '../types.js';
 import type { SortCategory } from '../util.js';
-import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 
-import { Button, styled, Table, InputAddress, TransferModal } from '@polkadot/react-components';
+import { Button, styled, Table, InputAddress } from '@polkadot/react-components';
 import { getAccountCryptoType } from '@polkadot/react-components/util';
-import { useAccounts, useApi, useDelegations, useFavorites, useLedger, useNextTick, useProxies, useToggle } from '@polkadot/react-hooks';
+import { useAccounts, useDelegations, useFavorites, useIncrement, useNextTick, useProxies } from '@polkadot/react-hooks';
 import { keyring } from '@polkadot/ui-keyring';
-import { BN_ZERO, isFunction } from '@polkadot/util';
-import Ledger from '../modals/Ledger.js';
-import Multisig from '../modals/MultisigCreate.js';
-import Proxy from '../modals/ProxiedAdd.js';
-import Qr from '../modals/Qr.js';
+import { BN_ZERO } from '@polkadot/util';
 import { useTranslation } from '../translate.js';
-import { SORT_CATEGORY, sortAccounts } from '../util.js';
+import { sortAccounts } from '../util.js';
 import Account from './Account.js';
 import Summary from './Summary.js';
-import { CenterQRContainer, LoginButton, useInfo, useLoginContext } from '@slonigiraf/app-slonig-components';
+import { CenterQRContainer, LoginButton, useLoginContext } from '@slonigiraf/app-slonig-components';
 import PayToAccountQR from './PayToAccountQR.js';
-import { useLocation } from 'react-router-dom';
-import { useNavigate } from 'react-router-dom';
-import { encodeAddress } from '@polkadot/keyring';
-import { hexToU8a } from '@polkadot/util';
-import { storePseudonym } from '@slonigiraf/app-recommendations';
+import TransferParser from './TransferParser.js';
 
 interface Balances {
   accounts: Record<string, AccountBalance>;
@@ -89,68 +81,17 @@ function groupAccounts(accounts: SortedAccount[]): Record<GroupName, string[]> {
 
 function Overview({ className = '', onStatusChange }: Props): React.ReactElement<Props> {
   const { t } = useTranslation();
-  const { _onChangeAccount, isLoggedIn, logOut } = useLoginContext();
-  const { api, isElectron } = useApi();
-  const { allAccounts, hasAccounts } = useAccounts();
-  const { isLedgerEnabled } = useLedger();
-  const [isCreateOpen, toggleCreate] = useToggle();
-  const [isImportOpen, toggleImport] = useToggle();
-  const [isLedgerOpen, toggleLedger] = useToggle();
-  const [isMultisigOpen, toggleMultisig] = useToggle();
-  const [isProxyOpen, toggleProxy] = useToggle();
-  const [isQrOpen, toggleQr] = useToggle();
+  const { _onChangeAccount, isLoggedIn, setIsAddingAccount, currentPair } = useLoginContext();
+  const { allAccounts } = useAccounts();
   const [favorites, toggleFavorite] = useFavorites(STORE_FAVS);
   const [balances, setBalances] = useState<Balances>({ accounts: {} });
-  const [filterOn, setFilter] = useState<string>('');
+  const [filterOn] = useState<string>('');
   const [sortedAccounts, setSorted] = useState<SortedAccount[]>([]);
-  const [{ sortBy, sortFromMax }, setSortBy] = useState<SortControls>(DEFAULT_SORT_CONTROLS);
+  const [{ sortBy, sortFromMax }] = useState<SortControls>(DEFAULT_SORT_CONTROLS);
   const delegations = useDelegations();
   const proxies = useProxies();
   const isNextTick = useNextTick();
-  const [inputKey, setInputKey] = useState(0);
-  const { showInfo } = useInfo();
-
-  const location = useLocation();
-  const queryParams = new URLSearchParams(location.search);
-  const recipientHex = queryParams.get("recipientHex");
-  const recipientNameFromUrl = queryParams.get("name");
-  const recipientAddress = recipientHex ? encodeAddress(hexToU8a(recipientHex)) : null;
-  const navigate = useNavigate();
-  const [isTransferOpen, toggleTransfer] = useToggle();
-
-  const _closeTransfer = useCallback(
-    (): void => {
-      if (isTransferOpen) {
-        navigate(``);
-        toggleTransfer();
-      }
-    },
-    [isTransferOpen]
-  );
-
-  useEffect((): void => {
-    const savePseudonym = async () => {
-      if (recipientHex && recipientNameFromUrl) {
-        await storePseudonym(recipientHex, recipientNameFromUrl);
-      }
-    }
-    if (recipientAddress) {
-      toggleTransfer();
-    }
-    savePseudonym();
-  }, [recipientAddress]);
-
-  const onSortChange = useCallback(
-    (sortBy: SortCategory) => setSortBy(({ sortFromMax }) => ({ sortBy, sortFromMax })),
-    []
-  );
-
-  const onSortDirectionChange = useCallback(
-    () => setSortBy(({ sortBy, sortFromMax }) => ({ sortBy, sortFromMax: !sortFromMax })),
-    []
-  );
-
-  const sortOptions = useRef(SORT_CATEGORY.map((text) => ({ text, value: text })));
+  const [trigger, incTrigger] = useIncrement(1);
 
   const setBalance = useCallback(
     (account: string, balance: AccountBalance) =>
@@ -167,7 +108,7 @@ function Overview({ className = '', onStatusChange }: Props): React.ReactElement
             locked: aggregate('locked'),
             redeemable: aggregate('redeemable'),
             total: aggregate('total'),
-            transferrable: aggregate('transferrable'),
+            transferable: aggregate('transferable'),
             unbonding: aggregate('unbonding')
           }
         };
@@ -175,25 +116,11 @@ function Overview({ className = '', onStatusChange }: Props): React.ReactElement
     []
   );
 
-  const canStoreAccounts = true;
-
   // We use favorites only to check if it includes some element,
   // so Object is better than array for that because hashmap access is O(1).
   const favoritesMap = useMemo(
     () => Object.fromEntries(favorites.map((x) => [x, true])),
     [favorites]
-  );
-
-  // detect multisigs
-  const hasPalletMultisig = useMemo(
-    () => isFunction((api.tx.multisig || api.tx.utility)?.approveAsMulti),
-    [api]
-  );
-
-  // proxy support
-  const hasPalletProxy = useMemo(
-    () => isFunction(api.tx.proxy?.addProxy),
-    [api]
   );
 
   const accountsMap = useMemo(
@@ -225,7 +152,7 @@ function Overview({ className = '', onStatusChange }: Props): React.ReactElement
   const header = useMemo(
     (): Record<GroupName, [React.ReactNode?, string?, number?, (() => void)?][]> => {
       const ret: Record<GroupName, [React.ReactNode?, string?, number?, (() => void)?][]> = {
-        accounts: [[<>{t('accounts')}<div className='sub'>{t('all locally stored accounts')}</div></>]],
+        accounts: [[<>{t('accounts')}</>]],
         hardware: [[<>{t('hardware')}<div className='sub'>{t('accounts managed via hardware devices')}</div></>]],
         injected: [[<>{t('extension')}<div className='sub'>{t('accounts available via browser extensions')}</div></>]],
         multisig: [[<>{t('multisig')}<div className='sub'>{t('on-chain multisig accounts')}</div></>]],
@@ -261,6 +188,7 @@ function Overview({ className = '', onStatusChange }: Props): React.ReactElement
           proxy={proxies?.[index]}
           setBalance={setBalance}
           toggleFavorite={toggleFavorite}
+          onNameChange={incTrigger}
         />
       );
 
@@ -299,72 +227,35 @@ function Overview({ className = '', onStatusChange }: Props): React.ReactElement
       sortAccounts(sortedAccounts, accountsMap, balances.accounts, sortBy, sortFromMax));
   }, [accountsMap, balances, sortBy, sortFromMax]);
 
-  const callOnStatusChange = useCallback((status: ActionStatus) => {
-    if (onStatusChange) {
-      onStatusChange(status);
-    }
-    setInputKey(prev => prev + 1);
-  }, [onStatusChange]);
-
-  const _logOut = useCallback(() => {
-    showInfo(t('Logged Out'));
-    logOut();
-  }, [logOut]);
-
   return (
     <StyledDiv className={className}>
+      <TransferParser/>
       {isLoggedIn && <>
         <CenterQRContainer>
           <h2>{t('Show the QR to a sender to get Slon tokens')}</h2>
           <PayToAccountQR />
         </CenterQRContainer>
-        {isTransferOpen && (
-          <TransferModal
-            key='modal-transfer'
-            onClose={_closeTransfer}
-            recipientId={recipientAddress ? recipientAddress : undefined}
-          />
-        )}
-
+        <Summary balance={balances.summary} />
         <div className='ui--row'>
           <InputAddress
-            key={inputKey}
+            key={currentPair?.address + "-"+trigger}
             className='full'
             isInput={false}
-            label={t('Account')}
+            label={t('Current account')}
             onChange={_onChangeAccount}
             type='account'
           />
+        </div>
+        <div className='ui--row'>
           <Button.Group>
             {isLoggedIn && <Button
-              icon='right-from-bracket'
-              label={t('Log out')}
-              onClick={_logOut}
+              icon='plus'
+              label={t('Add account')}
+              onClick={() => setIsAddingAccount(true)}
             />}
           </Button.Group>
         </div>
-        <Summary balance={balances.summary} />
-        {isLedgerOpen && (
-          <Ledger onClose={toggleLedger} />
-        )}
-        {isMultisigOpen && (
-          <Multisig
-            onClose={toggleMultisig}
-            onStatusChange={callOnStatusChange}
-          />
-        )}
-        {isProxyOpen && (
-          <Proxy
-            onClose={toggleProxy}
-            onStatusChange={callOnStatusChange}
-          />
-        )}
-        {isQrOpen && (
-          <Qr
-            onClose={toggleQr}
-            onStatusChange={callOnStatusChange}
-          />
-        )}
+
         {!isNextTick || !sortedAccounts.length
           ? (
             <Table
@@ -387,7 +278,7 @@ function Overview({ className = '', onStatusChange }: Props): React.ReactElement
         }
       </>
       }
-      <LoginButton label={t('Log in')} />
+      <LoginButton />
     </StyledDiv>
   );
 }

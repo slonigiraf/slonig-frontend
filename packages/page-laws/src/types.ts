@@ -7,11 +7,18 @@ import type { Balance, Conviction } from '@polkadot/types/interfaces';
 import type { KeyringAddress } from '@polkadot/ui-keyring/types';
 import type { BN } from '@polkadot/util';
 import type { HexString } from '@polkadot/util/types';
+import { Letter } from '@slonigiraf/db';
 
 export type { AppProps as ComponentProps } from '@polkadot/react-components/types';
 
 export interface BareProps {
   className?: string;
+}
+
+export interface ItemWithCID {
+  id: string;
+  cid: string;
+  validDiplomas: Letter[];
 }
 
 export interface I18nProps extends BareProps, WithTranslation {}
@@ -37,7 +44,7 @@ export interface SortedAccount {
 export interface AccountBalance {
   total: BN;
   locked: BN;
-  transferrable: BN;
+  transferable: BN;
   bonded: BN;
   redeemable: BN;
   unbonding: BN;
@@ -52,7 +59,7 @@ export interface CreateProps extends ModalProps {
   seed?: string;
   type?: PairType;
 }
-export type LawType = '0' | '1' | '2' | '3' | '4';
+
 export type SeedType = 'bip' | 'raw' | 'dev';
 
 export interface AddressState {

@@ -5,12 +5,11 @@ import type { KeyringPair } from '@polkadot/keyring/types';
 
 import React, { useCallback, useEffect, useState } from 'react';
 
-import { Button, InputAddress, Modal, Password } from '@polkadot/react-components';
+import { Button, InputAddress, Modal } from '@polkadot/react-components';
 import { nextTick } from '@polkadot/util';
 
 import { useTranslation } from './translate.js';
-import { storeSetting } from '@slonigiraf/app-recommendations';
-import { encryptData, getKey } from '@slonigiraf/app-slonig-components';
+import { storeSetting, SettingKey } from '@slonigiraf/db';
 
 interface Props {
   onClose: () => void;
@@ -22,7 +21,8 @@ function Unlock({ onClose, onUnlock, pair }: Props): React.ReactElement<Props> |
   const { t } = useTranslation();
   const [isBusy, setIsBusy] = useState(false);
   const [address, setAddress] = useState('');
-  const [password, setPassword] = useState('');
+  // Intentionally don't use passwords
+  const password = 'password';
   const [unlockError, setUnlockError] = useState<string | null>(null);
 
   useEffect((): void => {
@@ -40,12 +40,7 @@ function Unlock({ onClose, onUnlock, pair }: Props): React.ReactElement<Props> |
     setIsBusy(true);
     nextTick(async () => {
       try {
-        // We store password intentionally. Using web accounts is not safe thus this doesn't add much risk.
-        const key = await getKey();
-        const { encrypted, iv } = await encryptData(key, password);
-        await storeSetting('account', pair.address);
-        await storeSetting('password', encrypted);
-        await storeSetting('iv', iv);
+        await storeSetting(SettingKey.ACCOUNT, pair.address);
         pair.decodePkcs8(password);
       } catch (error) {
         setIsBusy(false);
@@ -75,16 +70,6 @@ function Unlock({ onClose, onUnlock, pair }: Props): React.ReactElement<Props> |
             isDisabled
             label={t('account')}
             value={address}
-          />
-        </Modal.Columns>
-        <Modal.Columns hint={t('Unlock the account for signing. Once active the signature will be generated based on the content provided.')}>
-          <Password
-            autoFocus
-            isError={!!unlockError}
-            label={t('password')}
-            onChange={setPassword}
-            onEnter={_onUnlock}
-            value={password}
           />
         </Modal.Columns>
       </Modal.Content>

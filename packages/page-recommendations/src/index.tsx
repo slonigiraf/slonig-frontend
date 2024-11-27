@@ -8,20 +8,15 @@ import { Route, Routes } from 'react-router';
 import { Tabs } from '@polkadot/react-components';
 import { useAccounts, useIpfs } from '@polkadot/react-hooks';
 import { useTranslation } from './translate.js';
-import { saveLetterKnowledgeId, getSimmilarValidLetters, getValidLetters,createAndStoreLetter, storeInsurances, storePseudonym, storeSetting, deleteSetting, getSetting } from './utils.js';
 import useCounter from './useCounter.js';
-import Tutor from './Tutor';
-import Student from './Student';
-import Teacher from './Teacher';
-import DBImport from './Student/DBImport.js';
-import DBExport from './Student/DBExport.js';
-import type { Letter } from './db/Letter.js';
-import { db } from './db/index.js';
-export { db, Letter, useCounter, DBImport, DBExport, saveLetterKnowledgeId, getSimmilarValidLetters, getValidLetters, createAndStoreLetter, storeInsurances, storePseudonym, storeSetting, deleteSetting, getSetting };
+import Learn from './Learn/index.js';
+import Teach from './Teach/index.js';
+import Assess from './Assess/index.js';
+export { useCounter };
 
 const HIDDEN_ACC = ['vanity'];
 
-function DiplomasApp({ basePath, onStatusChange }: Props): React.ReactElement<Props> {
+function DiplomasApp({ basePath }: Props): React.ReactElement<Props> {
   const { t } = useTranslation();
   const { hasAccounts } = useAccounts();
   const { isIpfs } = useIpfs();
@@ -29,16 +24,16 @@ function DiplomasApp({ basePath, onStatusChange }: Props): React.ReactElement<Pr
   const tabsRef = useRef([
     {
       isRoot: true,
-      name: 'student',
-      text: t('Student')
+      name: 'learn',
+      text: t('Learn')
     },
     {
-      name: 'tutor',
-      text: t('Tutor')
+      name: 'teach',
+      text: t('Teach')
     },
     {
-      name: 'teacher',
-      text: t('Teacher')
+      name: 'assess',
+      text: t('Assess')
     },
   ]);
 
@@ -53,21 +48,21 @@ function DiplomasApp({ basePath, onStatusChange }: Props): React.ReactElement<Pr
         <Route path={basePath}>
           <Route
             element={
-              <Teacher onStatusChange={onStatusChange} />
-            }
-            path='teacher'
-          />
-          <Route
-            element={
-              <Student onStatusChange={onStatusChange} />
+              <Learn />
             }
             index
           />
           <Route
             element={
-              <Tutor onStatusChange={onStatusChange} />
+              <Teach />
             }
-            path='tutor'
+            path='teach'
+          />
+          <Route
+            element={
+              <Assess />
+            }
+            path='assess'
           />
         </Route>
       </Routes>

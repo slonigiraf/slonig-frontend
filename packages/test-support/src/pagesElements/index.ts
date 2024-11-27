@@ -3,5 +3,4 @@
 
 export * from './JudgementTag.js';
 export * from './Row.js';
-export * from './Sidebar.js';
 export * from './Table.js';
