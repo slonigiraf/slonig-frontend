@@ -89,7 +89,7 @@ export const LoginProvider: React.FC<LoginProviderProps> = ({ children }) => {
     }}>
       <div className='ui--row' style={{ display: 'none' }}>
         <InputAddress
-          key={defaultAccount? defaultAccount : 'login-account-selector'}
+          key={defaultAccount ? defaultAccount : 'login-account-selector'}
           className='full'
           isInput={false}
           label={'account'}
@@ -106,28 +106,17 @@ export const LoginProvider: React.FC<LoginProviderProps> = ({ children }) => {
         </StyledDiv>
       }
       {isReady && isLoginRequired && (
-        <>
-          {isSignIn ?
-            importAccount
-            :
-            <CreateModal
-              onClose={cancelAuthorization}
-              onStatusChange={onCreateAccount}
-              toggle={toggleSignIn}
-            />
-          }</>
+        <CreateModal
+          onClose={cancelAuthorization}
+          onStatusChange={onCreateAccount}
+          cancelAuthorization={cancelAuthorization}
+        />
       )}
       {isReady && isAddingAccount && (
-        <>
-          {!isSignIn ?
-            importAccount
-            :
-            <CreateModal
-              onClose={cancelAuthorization}
-              onStatusChange={onCreateAccount}
-              toggle={toggleSignIn}
-            />
-          }</>
+        <CreateModal
+          onClose={cancelAuthorization}
+          onStatusChange={onCreateAccount}
+        />
       )}
       {children}
     </LoginContext.Provider>

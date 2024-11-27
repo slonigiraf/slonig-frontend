@@ -18,6 +18,7 @@ import { tryCreateAccount } from '../util.js';
 import CreateAccountInputs from './CreateAccountInputs.js';
 import { ETH_DEFAULT_PATH } from './CreateEthDerivationPath.js';
 import { storeSetting, SettingKey } from '@slonigiraf/db';
+import { useNavigate } from 'react-router-dom';
 
 const DEFAULT_PAIR_TYPE = 'sr25519';
 
@@ -146,8 +147,9 @@ function createAccount(seed: string, derivePath: string, pairType: PairType, { g
   return tryCreateAccount(commitAccount, success);
 }
 
-function Create({ className = '', onClose, onStatusChange, seed: propsSeed, type: propsType, toggle }: CreateProps): React.ReactElement<CreateProps> {
+function Create({ className = '', onClose, onStatusChange, seed: propsSeed, type: propsType, cancelAuthorization }: CreateProps): React.ReactElement<CreateProps> {
   const { t } = useTranslation();
+  const navigate = useNavigate();
   const { api, isDevelopment, isEthereum } = useApi();
   const [{ address, derivePath, deriveValidation, isSeedValid, pairType, seed, seedType }, setAddress] = useState<AddressState>(() => generateSeed(
     propsSeed,
@@ -197,14 +199,17 @@ function Create({ className = '', onClose, onStatusChange, seed: propsSeed, type
           name={{ isNameValid, name }}
           onCommit={_onCommit}
           setName={setName}
-          setPassword={() => {}} // Intentionally don't use passwords
+          setPassword={() => { }} // Intentionally don't use passwords
         />
       </Modal.Content>
       <Modal.Actions>
-        <Button
+        {cancelAuthorization && <Button
           label={t(`Already have an account?`)}
-          onClick={toggle}
-        />
+          onClick={() => {
+            navigate('settings');
+            cancelAuthorization && cancelAuthorization();
+          }}
+        />}
         <Button
           activeOnEnter
           icon='user-plus'

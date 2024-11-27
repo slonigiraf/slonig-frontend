@@ -51,7 +51,7 @@ export interface CreateProps extends ModalProps {
   onStatusChange: (status: ActionStatus) => void;
   seed?: string;
   type?: PairType;
-  toggle: () => void;
+  cancelAuthorization?: () => void;
 }
 
 export type SeedType = 'bip' | 'raw' | 'dev';
