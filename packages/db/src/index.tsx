@@ -785,6 +785,7 @@ export async function exportDB(progressCallback?: (progress: number) => void): P
         const blob = await dexieExport(db, {
             prettyJson: true,
             progressCallback,
+            filter: (tableName: string) => tableName !== 'cidCache',
         });
         return blob;
     } catch (error) {
