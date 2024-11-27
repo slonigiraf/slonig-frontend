@@ -23,7 +23,7 @@ interface Props {
 function General({ className = '' }: Props): React.ReactElement<Props> {
   const { t } = useTranslation();
   const { showInfo } = useInfo();
-  const { currentPair } = useLoginContext();
+  const { isLoggedIn, currentPair } = useLoginContext();
   const [isDeveloper, setDeveloper] = useState<boolean>(false);
   // tri-state: null = nothing changed, false = no reload, true = reload required
   const [changed, setChanged] = useState<boolean | null>(null);
@@ -135,8 +135,9 @@ function General({ className = '' }: Props): React.ReactElement<Props> {
 
       <h2>{t('Backup')}</h2>
       <div className='ui--row'>
-        <DBExport onSuccess={() => setExportSucceded(true)} />
-        <DBImport />
+        {isLoggedIn ?
+          <DBExport onSuccess={() => setExportSucceded(true)} /> :
+          <DBImport />}
       </div>
 
       {currentPair && <>
