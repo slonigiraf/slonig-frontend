@@ -5,7 +5,6 @@ import type { AccountId, Address } from '@polkadot/types/interfaces';
 
 import React from 'react';
 
-import IdentityIcon from './IdentityIcon/index.js';
 import AccountName from './AccountName.js';
 import ParentAccount from './ParentAccount.js';
 import { styled } from './styled.js';
@@ -64,13 +63,6 @@ const StyledDiv = styled.div`
 
   &.withPadding {
     padding: 0.9rem 0;
-  }
-
-  .ui--AddressSmall-icon {
-    .ui--IdentityIcon {
-      margin-right: 0.5rem;
-      vertical-align: middle;
-    }
   }
 
   .ui--AddressSmall-info {

@@ -6,7 +6,7 @@ import type { SettingsStruct } from '@polkadot/ui-settings/types';
 
 import React from 'react';
 
-import { ChainImg, Dropdown, IdentityIcon } from '@polkadot/react-components';
+import { ChainImg, Dropdown } from '@polkadot/react-components';
 import { settings } from '@polkadot/ui-settings';
 
 export function createOption({ info, isHeader, text, value }: Option, overrides: string[] = [], override = 'empty', extra?: string): Option | React.ReactNode {

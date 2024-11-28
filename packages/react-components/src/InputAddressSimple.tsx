@@ -3,7 +3,6 @@
 
 import React, { useCallback, useState } from 'react';
 
-import IdentityIcon from './IdentityIcon/index.js';
 import { toAddress } from './util/index.js';
 import Input from './Input.js';
 import { styled } from './styled.js';

@@ -7,7 +7,6 @@ import type { BN } from '@polkadot/util';
 
 import React from 'react';
 
-import IdentityIcon from './IdentityIcon/index.js';
 import AccountName from './AccountName.js';
 import BalanceDisplay from './Balance.js';
 import BondedDisplay from './Bonded.js';
@@ -163,10 +162,6 @@ const StyledDiv = styled.div`
       z-index: 1;
     }
 
-    .ui--IdentityIcon {
-      margin-right: 0.5rem;
-      vertical-align: middle;
-    }
   }
 
   .ui--AddressMini-icon,

@@ -85,8 +85,6 @@ function createWebpack (context, mode = 'production') {
           ['logo', /[\\/]packages[\\/]apps-config[\\/]src[\\/]ui[\\/]logos/],
           // config cannot go in main - it has multiple users
           ['conf', /[\\/]packages[\\/]apps-config[\\/]src[\\/]/],
-          // exceptionally large - should not change at all
-          ['robo', /[\\/]packages[\\/]react-components[\\/]src[\\/]IdentityIcon[\\/]RoboHash/],
           // library split (although it probably changes alongside pages)
           ['comm', /[\\/]packages[\\/]react-.*[\\/]src[\\/]/],
           // pages are seperated out (non-perfect, but indv. too small)

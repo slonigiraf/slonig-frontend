@@ -122,10 +122,6 @@ const StyledDiv = styled.div`
 
   &.isDisabled {
     opacity: var(--opacity-light);
-
-    .ui--IdentityIcon  {
-      filter: grayscale(100%);
-    }
   }
 
   &.isInline {

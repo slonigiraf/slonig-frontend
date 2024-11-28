@@ -5,7 +5,7 @@ import type { CallResult } from './types.js';
 
 import React from 'react';
 
-import { Button, IdentityIcon, Output, styled } from '@polkadot/react-components';
+import { Button, Output, styled } from '@polkadot/react-components';
 import valueToText from '@polkadot/react-params/valueToText';
 
 import MessageSignature from '../shared/MessageSignature.js';

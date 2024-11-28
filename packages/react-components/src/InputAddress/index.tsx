@@ -348,18 +348,6 @@ const StyledDropdown = styled(Dropdown)`
 
   .ui.search.selection.dropdown {
     > .text > .ui--KeyPair {
-      .ui--IdentityIcon {
-        left: -2.75rem;
-        top: -1.05rem;
-
-        > div,
-        img,
-        svg {
-          height: 32px !important;
-          width: 32px !important;
-        }
-      }
-
       .name {
         margin-left: 0;
 

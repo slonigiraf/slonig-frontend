@@ -205,11 +205,6 @@ const StyledDiv = styled.div`
     opacity: 1;
   }
 
-  .ui--IdentityIcon {
-    margin: -10px 0;
-    vertical-align: middle;
-  }
-
   pre {
     margin: 0;
 
