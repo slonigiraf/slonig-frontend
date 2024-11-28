@@ -6,8 +6,9 @@ import React, { useState, useEffect } from 'react'
 import { KatexSpan, getIPFSDataFromContentID, parseJson } from '@slonigiraf/app-slonig-components'
 import { useTranslation } from '../translate.js';
 import { Letter } from '@slonigiraf/db';
-import LetterDetailsModal from './LetterDetailsModal.js';
 import { useIpfsContext } from '@slonigiraf/app-slonig-components';
+import { useToggle } from '@polkadot/react-hooks';
+import { ExerciseList } from '@slonigiraf/app-laws';
 
 interface Props {
   letter: Letter;
@@ -19,26 +20,32 @@ interface Props {
 function LetterInfo({ letter, isSelected, isSelectionAllowed, onToggleSelection }: Props): React.ReactElement<Props> {
   const { ipfs } = useIpfsContext();
   const { t } = useTranslation();
-  const [modalIsOpen, setModalIsOpen] = useState(false);
-  const [text, setText] = useState(letter.cid);
+  type JsonType = { [key: string]: any } | null;
+  const [data, setData] = useState<JsonType>(null);
+  const [areDetailsOpen, toggleDetailsOpen] = useToggle();
+  const [skillName, setSkillName] = useState(letter.cid);
   const [loaded, setLoaded] = useState(false);
 
   useEffect(() => {
     async function fetchData() {
-      if (ipfs !== null && text === letter.cid) {
+      if (ipfs !== null && skillName === letter.cid) {
         try {
           const content = await getIPFSDataFromContentID(ipfs, letter.cid);
           const json = parseJson(content);
-          setText(json.h);
+          setSkillName(json.h);
+          setData(json);
           setLoaded(true);
-        } catch (e) {
-          setText(`${letter.cid} (${t('loading')}...)`);
-          console.log(e);
+        }
+        catch (e) {
+          setSkillName(letter.cid + " (" + t('loading') + "...)")
+          console.log(e)
         }
       }
     }
-    fetchData();
-  }, [ipfs, letter, text, t]);
+    fetchData()
+  }, [ipfs, letter])
+
+  const skillNameToShow = loaded ? <KatexSpan content={skillName} /> : <Spinner noLabel />;
 
   return (
     <StyledDiv >
@@ -49,24 +56,31 @@ function LetterInfo({ letter, isSelected, isSelectionAllowed, onToggleSelection 
       <Button
         icon="eye"
         label=""
-        onClick={() => setModalIsOpen(true)}
+        onClick={toggleDetailsOpen}
       />
-      {loaded ? <KatexSpan content={text} /> : <Spinner noLabel />}
-      {modalIsOpen && (
+      {loaded ? <KatexSpan content={skillName} /> : <Spinner noLabel />}
+      {areDetailsOpen && <>
         <Modal
-          header={t('Diploma')}
-          size="small"
-          onClose={() => setModalIsOpen(false)}
+          header={skillNameToShow}
+          onClose={toggleDetailsOpen}
+          size='small'
         >
           <Modal.Content>
-            {loaded ? (
-              <LetterDetailsModal text={text} letter={letter} />
-            ) : (
-              <Spinner noLabel />
-            )}
+            {
+              data === null ? "" :
+                <>
+                  {
+                    data.t !== null && data.t === 3 &&
+                    <>
+                      <h3>{t('Example exercises to train the skill')}</h3>
+                    </>
+                  }
+                  {data.q != null && <ExerciseList exercises={data.q} />}
+                </>
+            }
           </Modal.Content>
         </Modal>
-      )}
+      </>}
     </StyledDiv>
   );
 }
