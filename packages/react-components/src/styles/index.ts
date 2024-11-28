@@ -516,7 +516,7 @@ export default createGlobalStyle<Props & ThemeProps>(({ theme, uiHighlight }: Pr
   }
 
   header {
-    margin-bottom: 1.5rem;
+    margin-bottom: 1rem;
     text-align: center;
 
     > article {

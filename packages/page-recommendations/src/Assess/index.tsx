@@ -68,13 +68,13 @@ function Assess({ className = '' }: Props): React.ReactElement<Props> {
                   <FlexRow>
                     <Dropdown
                       className={`dropdown ${className}`}
-                      label={t('select a student')}
+                      label={t('assessment history')}
                       value={''}
                       onChange={handleStudentSelect}
                       options={studentOptions || []}
                     />
                   </FlexRow>
-                  <h2>{t('Show to a student to see their results')}</h2>
+                  <h2 style={{marginTop: '0px'}}>{t('Show to a student to see their results')}</h2>
                   <QRWithShareAndCopy
                     dataQR={qrCodeText}
                     titleShare={t('QR code')}
@@ -107,6 +107,5 @@ const FlexRow = styled.div`
   display: flex;
   justify-content: left;
   align-items: left;
-  margin-top: 20px;
 `;
 export default React.memo(Assess);

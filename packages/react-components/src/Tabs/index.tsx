@@ -6,11 +6,7 @@ import type { TabItem } from '../types.js';
 
 import React, { useEffect, useMemo } from 'react';
 import { useLocation } from 'react-router-dom';
-
-import { TabsCtx } from '@polkadot/react-hooks/ctx/Tabs';
-
 import { styled } from '../styled.js';
-import CurrentSection from './CurrentSection.js';
 import Tab from './Tab.js';
 import Delimiter from './TabsSectionDelimiter.js';
 
@@ -22,10 +18,10 @@ interface Props {
 }
 
 // redirect on invalid tabs
-function redirect (basePath: string, location: Location, items: (TabItem | false | null | undefined)[], hidden?: string[] | null | false): void {
+function redirect(basePath: string, location: Location, items: (TabItem | false | null | undefined)[], hidden?: string[] | null | false): void {
   if (location.pathname !== basePath) {
     // Has the form /staking/query/<something>
-    const [,, section] = location.pathname.split('/');
+    const [, , section] = location.pathname.split('/');
     const alias = items.find((v) => v && v.alias === section);
 
     if (alias) {
@@ -38,9 +34,8 @@ function redirect (basePath: string, location: Location, items: (TabItem | false
   }
 }
 
-function Tabs ({ basePath, className = '', hidden, items }: Props): React.ReactElement<Props> {
+function Tabs({ basePath, className = '', hidden, items }: Props): React.ReactElement<Props> {
   const location = useLocation();
-  const { icon, text } = React.useContext(TabsCtx);
 
   const filtered = useMemo(
     () => items.filter((v): v is TabItem => !!v && (!hidden || !hidden.includes(v.name))),
@@ -53,32 +48,28 @@ function Tabs ({ basePath, className = '', hidden, items }: Props): React.ReactE
   );
 
   return (
-    <StyledHeader className={`${className} ui--Tabs`}>
-      <div className='tabs-container'>
-        {text && icon && (
-          <CurrentSection
-            icon={icon}
-            text={text}
-          />
-        )}
-        <Delimiter />
-        <ul className='ui--TabsList'>
-          {filtered.map((tab, index) => (
-            <li
-              className={tab.isHidden ? '--hidden' : ''}
-              key={index}
-            >
-              <Tab
-                {...tab}
-                basePath={basePath}
-                index={index}
-                key={tab.name}
-              />
-            </li>
-          ))}
-        </ul>
-      </div>
-    </StyledHeader>
+    filtered.length > 1 ?
+      <StyledHeader className={`${className} ui--Tabs`}>
+        <div className='tabs-container'>
+          <Delimiter />
+          <ul className='ui--TabsList'>
+            {filtered.map((tab, index) => (
+              <li
+                className={tab.isHidden ? '--hidden' : ''}
+                key={index}
+              >
+                <Tab
+                  {...tab}
+                  basePath={basePath}
+                  index={index}
+                  key={tab.name}
+                />
+              </li>
+            ))}
+          </ul>
+        </div>
+      </StyledHeader>
+      : <EmptySubmenu />
   );
 }
 
@@ -112,6 +103,10 @@ const StyledHeader = styled.header`
     white-space: nowrap;
 
   }
+`;
+
+const EmptySubmenu = styled.div`
+  margin-bottom: 1rem;
 `;
 
 export default React.memo(Tabs);
