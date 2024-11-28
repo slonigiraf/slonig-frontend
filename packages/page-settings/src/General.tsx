@@ -133,7 +133,7 @@ function General({ className = '' }: Props): React.ReactElement<Props> {
         />
       </Button.Group>
 
-      <h2>{t('Backup')}</h2>
+      <h2>{t(isLoggedIn ? 'Backup' : 'Already have an account?')}</h2>
       <div className='ui--row'>
         {isLoggedIn ?
           <DBExport onSuccess={() => setExportSucceded(true)} /> :
