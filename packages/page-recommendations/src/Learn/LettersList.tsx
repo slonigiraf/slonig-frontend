@@ -1,13 +1,13 @@
 import LetterInfo from './LetterInfo.js';
-import React, { useState } from 'react';
+import React, { useCallback, useState } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { deleteLetter, getLetters, Letter } from '@slonigiraf/db';
-import { Button, styled, Icon, Modal } from '@polkadot/react-components';
+import { Button, styled, Icon, Modal, Toggle } from '@polkadot/react-components';
 import { useTranslation } from '../translate.js';
 import { useLocation, useNavigate } from 'react-router-dom';
 import SignLettersUseRight from './SignLettersUseRight.js';
 import type { KeyringPair } from '@polkadot/keyring/types';
-import { DateInput, SelectableList, StyledContentCloseButton, useInfo } from '@slonigiraf/app-slonig-components';
+import { DateInput, SelectableList, StyledContentCloseButton, ToggleContainer, useInfo } from '@slonigiraf/app-slonig-components';
 import { useToggle } from '@polkadot/react-hooks';
 
 interface Props {
@@ -25,6 +25,7 @@ function LettersList({ className = '', worker, currentPair }: Props): React.Reac
   const { showInfo } = useInfo();
   const navigate = useNavigate();
   const [reloadCount, setReloadCount] = useState<number>(0);
+  const [isSelectionAllowed, setSelectionAllowed] = useState(false);
 
   // Initialize startDate and endDate as timestamps
   const [startDate, setStartDate] = useState<number | null>(new Date(new Date().setHours(0, 0, 0, 0)).getTime());
@@ -45,6 +46,10 @@ function LettersList({ className = '', worker, currentPair }: Props): React.Reac
     }
     setSelectedLetters(newSelectedLetters);
   };
+
+  const handleSelectionToggle = useCallback((checked: boolean): void => {
+    setSelectionAllowed(checked);
+  }, []);
 
   const deleteDiplomas = async () => {
     const idsToDelete = selectedLetters.map((letter) => letter.pubSign);
@@ -74,8 +79,7 @@ function LettersList({ className = '', worker, currentPair }: Props): React.Reac
     setReloadCount(reloadCount+1);
     navigate('', { replace: true });
   }
-
-  const isSelectionAllowed = true;
+  
   const startDateId = 'letters:start';
   const endDateId = 'letters:end';
 
@@ -115,6 +119,13 @@ function LettersList({ className = '', worker, currentPair }: Props): React.Reac
           />
         </div>
       </div>
+      <ToggleContainer>
+        <Toggle
+          label={t('Allow selection')}
+          onChange={handleSelectionToggle}
+          value={isSelectionAllowed}
+        />
+      </ToggleContainer>
       <SelectableList<Letter>
         items={letters}
         renderItem={(letter, isSelected, isSelectionAllowed, onToggleSelection) => (
@@ -122,6 +133,7 @@ function LettersList({ className = '', worker, currentPair }: Props): React.Reac
             letter={letter}
             isSelected={isSelected}
             onToggleSelection={onToggleSelection}
+            isSelectionAllowed={isSelectionAllowed}
           />
         )}
         onSelectionChange={handleSelectionChange}
@@ -129,6 +141,7 @@ function LettersList({ className = '', worker, currentPair }: Props): React.Reac
         additionalControls={deleteSelectedButton}
         keyExtractor={(letter) => letter.pubSign}
         key={worker+reloadCount}
+        isSelectionAllowed={isSelectionAllowed}
       />
       {isDeleteConfirmOpen && (
         <StyledModal

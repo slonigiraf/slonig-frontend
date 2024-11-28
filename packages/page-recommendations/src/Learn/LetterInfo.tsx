@@ -12,10 +12,11 @@ import { useIpfsContext } from '@slonigiraf/app-slonig-components';
 interface Props {
   letter: Letter;
   isSelected: boolean;
+  isSelectionAllowed: boolean;
   onToggleSelection: (letter: Letter) => void;
 }
 
-function LetterInfo({ letter, isSelected, onToggleSelection }: Props): React.ReactElement<Props> {
+function LetterInfo({ letter, isSelected, isSelectionAllowed, onToggleSelection }: Props): React.ReactElement<Props> {
   const { ipfs } = useIpfsContext();
   const { t } = useTranslation();
   const [modalIsOpen, setModalIsOpen] = useState(false);
@@ -41,16 +42,16 @@ function LetterInfo({ letter, isSelected, onToggleSelection }: Props): React.Rea
 
   return (
     <StyledDiv >
-      <Button
+      {isSelectionAllowed && <Button
         icon={isSelected ? 'check' : 'square'}
         onClick={() => onToggleSelection(letter)}
-      />
-      {loaded ? <KatexSpan content={text} /> : <Spinner noLabel />}
+      />}
       <Button
-        icon="question"
+        icon="eye"
         label=""
         onClick={() => setModalIsOpen(true)}
       />
+      {loaded ? <KatexSpan content={text} /> : <Spinner noLabel />}
       {modalIsOpen && (
         <Modal
           header={t('Diploma')}
