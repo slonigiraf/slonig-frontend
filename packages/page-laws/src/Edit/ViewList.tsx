@@ -1,5 +1,5 @@
 import React, { useCallback, useState } from 'react';
-import { LawType, KatexSpan, SelectableList, StyledSpinnerContainer } from '@slonigiraf/app-slonig-components';
+import { LawType, KatexSpan, SelectableList, StyledSpinnerContainer, useLoginContext } from '@slonigiraf/app-slonig-components';
 import ItemLabel from './ItemLabel.js';
 import SkillQR from './SkillQR.js';
 import { useTranslation } from '../translate.js';
@@ -18,6 +18,7 @@ interface Props {
 
 function ViewList({ className = '', id, cidString, list }: Props): React.ReactElement<Props> {
   const { t } = useTranslation();
+  const { isLoggedIn, setLoginIsRequired } = useLoginContext();
   const [isLearningRequested, setLearningRequested] = useState(false);
   const [isReexaminingRequested, setReexaminingRequested] = useState(false);
   const [isThereAnythingToReexamine, setIsThereAnythingToReexamine] = useState(false);
@@ -25,11 +26,16 @@ function ViewList({ className = '', id, cidString, list }: Props): React.ReactEl
   const [selectedItems, setSelectedItems] = useState<ItemWithCID[]>([]);
 
   const handleLearningToggle = useCallback((checked: boolean): void => {
-    setLearningRequested(checked);
-    if (checked) {
-      setReexaminingRequested(false);
+    if (isLoggedIn) {
+      setLearningRequested(checked);
+      if (checked) {
+        setReexaminingRequested(false);
+      }
+    } else if (checked) {
+      setLoginIsRequired(true);
+      setLearningRequested(false);
     }
-  }, []);
+  }, [setLoginIsRequired]);
 
   const handleReexaminingToggle = useCallback((checked: boolean): void => {
     setReexaminingRequested(checked);
