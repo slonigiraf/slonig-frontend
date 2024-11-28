@@ -1,7 +1,7 @@
-import LetterInfo from './LetterInfo.js';
+import DiplomaInfo from './../Assess/DiplomaInfo.js';
 import React, { useCallback, useState } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
-import { deleteLetter, getLetters, Letter } from '@slonigiraf/db';
+import { deleteLetter, Diploma, getLetters, Letter } from '@slonigiraf/db';
 import { Button, styled, Icon, Modal, Toggle } from '@polkadot/react-components';
 import { useTranslation } from '../translate.js';
 import { useLocation, useNavigate } from 'react-router-dom';
@@ -39,12 +39,13 @@ function LettersList({ className = '', worker, currentPair }: Props): React.Reac
 
   const [selectedLetters, setSelectedLetters] = useState<Letter[]>([]);
 
-  const handleSelectionChange = (newSelectedLetters: Letter[]) => {
-    if (newSelectedLetters.length > MAX_SELECTED) {
+  const handleSelectionChange = (newSelectedLetters: Diploma[]) => {
+    const letters = newSelectedLetters as Letter[];
+    if (letters.length > MAX_SELECTED) {
       showInfo(`${t('You can select no more than:')} ${MAX_SELECTED}`);
       return;
     }
-    setSelectedLetters(newSelectedLetters);
+    setSelectedLetters(letters);
   };
 
   const handleSelectionToggle = useCallback((checked: boolean): void => {
@@ -126,11 +127,11 @@ function LettersList({ className = '', worker, currentPair }: Props): React.Reac
           value={isSelectionAllowed}
         />
       </ToggleContainer>
-      <SelectableList<Letter>
+      <SelectableList<Diploma>
         items={letters}
         renderItem={(letter, isSelected, isSelectionAllowed, onToggleSelection) => (
-          <LetterInfo
-            letter={letter}
+          <DiplomaInfo
+            diploma={letter}
             isSelected={isSelected}
             onToggleSelection={onToggleSelection}
             isSelectionAllowed={isSelectionAllowed}

@@ -838,3 +838,6 @@ export async function replaceDB(json: DexieExportFormat): Promise<void> {
         throw new Error('Failed to synchronize database');
     }
 }
+
+export type Diploma = Letter | Insurance;
+export type Recommendation = Letter | Insurance | Reimbursement;

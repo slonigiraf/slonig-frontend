@@ -1,4 +1,4 @@
-import { cancelInsurance, cancelInsuranceByRefereeAndLetterNumber, cancelLetter, cancelLetterByRefereeAndLetterNumber, markUsageRightAsUsed, deleteReimbursement, deleteUsageRight, getAllInsurances, getAllLetters, getAllReimbursements, getReimbursementsByReferee, Insurance, Letter, Reimbursement, getReimbursementsByRefereeAndLetterNumber } from '@slonigiraf/db';
+import { cancelInsurance, cancelInsuranceByRefereeAndLetterNumber, cancelLetter, cancelLetterByRefereeAndLetterNumber, markUsageRightAsUsed, deleteReimbursement, deleteUsageRight, getAllInsurances, getAllLetters, getAllReimbursements, getReimbursementsByReferee, Insurance, Letter, Reimbursement, getReimbursementsByRefereeAndLetterNumber, Recommendation } from '@slonigiraf/db';
 import React, { useEffect, useState, useRef, useCallback, ReactNode, createContext, useContext } from 'react';
 import { useApi, useBlockEvents, useCall, useIsMountedRef } from '@polkadot/react-hooks';
 import { useLoginContext } from './LoginContext.js';
@@ -22,7 +22,6 @@ const BlockchainSyncContext = createContext<BlockchainSyncContextType>(defaultCo
 interface BlockchainSyncProviderProps {
     children: ReactNode;
 }
-type Recommendation = Letter | Insurance | Reimbursement;
 
 export const BlockchainSyncProvider: React.FC<BlockchainSyncProviderProps> = ({ children }) => {
     const { api, isApiReady } = useApi();

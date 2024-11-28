@@ -26,7 +26,7 @@ import { Button, styled, Toggle } from '@polkadot/react-components';
 import BN from 'bn.js';
 import { balanceToSlonString, createPeer, receiveWebRTCData, getQrWidth, saveToSessionStorage, loadFromSessionStorage, getKey, arrayBufferToBase64, base64ToArrayBuffer, decryptData, encryptData, keyForCid, nameFromKeyringPair, getBaseUrl, CODEC, getIPFSContentID, getIPFSContentIDAndPinIt, getIPFSDataFromContentID, digestFromCIDv1, getCIDFromBytes, storeEncryptedTextOnIPFS, retrieveDecryptedDataFromIPFS, parseJson, qrPadding } from './utils.js';
 import { useEffect, useState } from 'react';
-import { getSetting, SettingKey } from '@slonigiraf/db';
+import { getSetting, Insurance, Letter, SettingKey } from '@slonigiraf/db';
 export { BlockchainSyncProvider, useBlockchainSync, TokenTransferProvider, useTokenTransfer, DateInput, SelectableList, SenderComponent, TextAreaWithPreview, KatexSpan, ResizableImage, LoginButton, ShareButton, ClipboardCopyButton, QRWithShareAndCopy, QRScanner, ButtonWithLabelBelow, ScanQR, IpfsProvider, useIpfsContext, InfoProvider, useInfo };
 export { balanceToSlonString, createPeer, receiveWebRTCData, getQrWidth, saveToSessionStorage, loadFromSessionStorage, getIPFSContentIDAndPinIt, getKey, arrayBufferToBase64, base64ToArrayBuffer, decryptData, encryptData, LoginProvider, useLoginContext, keyForCid, nameFromKeyringPair, getBaseUrl, CODEC, getIPFSContentID, getIPFSDataFromContentID, digestFromCIDv1, getCIDFromBytes, storeEncryptedTextOnIPFS, retrieveDecryptedDataFromIPFS, parseJson }
 export { DBImport, DBExport, Confirmation };
@@ -62,6 +62,7 @@ export interface Exercise {
   /** The base64 encoded string for the exercise's solution image. */
   i: string;
 }
+
 export interface Skill {
   i: string;
   h: string;

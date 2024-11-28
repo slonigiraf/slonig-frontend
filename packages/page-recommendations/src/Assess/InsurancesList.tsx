@@ -1,14 +1,14 @@
 // Copyright 2021-2022 @slonigiraf/app-recommendations authors & contributors
 // SPDX-License-Identifier: Apache-2.0
 
-import InsuranceInfo from './InsuranceInfo.js'
 import React, { useCallback, useEffect, useState } from 'react'
 import { styled, Icon, Button, Modal, Toggle } from '@polkadot/react-components';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { useTranslation } from '../translate.js';
-import { deleteInsurance, getInsurances, getPseudonym, Insurance } from '@slonigiraf/db';
+import { deleteInsurance, Diploma, getInsurances, getPseudonym, Insurance } from '@slonigiraf/db';
 import { DateInput, SelectableList, ToggleContainer, useInfo } from '@slonigiraf/app-slonig-components';
 import { useToggle } from '@polkadot/react-hooks';
+import DiplomaInfo from './DiplomaInfo.js';
 
 interface Props {
   className?: string;
@@ -50,12 +50,13 @@ function InsurancesList({ className = '', teacher, student, studentNameFromUrl }
 
 
 
-  const handleSelectionChange = (newSelectedItems: Insurance[]) => {
+  const handleSelectionChange = (newSelectedItems: Diploma[]) => {
+    const insurances = newSelectedItems as Insurance[];
     if (newSelectedItems.length > MAX_SELECTED) {
       showInfo(`${t('You can select no more than:')} ${MAX_SELECTED}`);
       return;
     }
-    setSelectedItems(newSelectedItems);
+    setSelectedItems(insurances);
   };
 
   const handleSelectionToggle = useCallback((checked: boolean): void => {
@@ -119,11 +120,11 @@ function InsurancesList({ className = '', teacher, student, studentNameFromUrl }
           value={isSelectionAllowed}
         />
       </ToggleContainer>
-      <SelectableList<Insurance>
+      <SelectableList<Diploma>
         items={insurances}
         renderItem={(insurance, isSelected, isSelectionAllowed, onToggleSelection) => (
-          <InsuranceInfo
-            insurance={insurance}
+          <DiplomaInfo
+            diploma={insurance}
             isSelected={isSelected}
             onToggleSelection={onToggleSelection}
             isSelectionAllowed={isSelectionAllowed}
@@ -132,7 +133,7 @@ function InsurancesList({ className = '', teacher, student, studentNameFromUrl }
         onSelectionChange={handleSelectionChange}
         maxSelectableItems={MAX_SELECTED}
         additionalControls={deleteSelectedButton}
-        keyExtractor={(insurance) => insurance.workerSign}
+        keyExtractor={(insurance) => (insurance as Insurance).workerSign}
         key={student}
         isSelectionAllowed={isSelectionAllowed}
       />

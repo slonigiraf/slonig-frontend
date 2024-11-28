@@ -5,7 +5,7 @@ import { Modal, Button, Spinner, styled } from '@polkadot/react-components';
 import React, { useState, useEffect } from 'react'
 import UseInsurance from './UseInsurance.js'
 import { useTranslation } from '../translate.js';
-import { Insurance, Letter } from '@slonigiraf/db';
+import { Diploma, Insurance } from '@slonigiraf/db';
 import { useToggle } from '@polkadot/react-hooks';
 import { Exercise, KatexSpan, getIPFSDataFromContentID, parseJson } from '@slonigiraf/app-slonig-components';
 import { useIpfsContext } from '@slonigiraf/app-slonig-components';
@@ -13,39 +13,39 @@ import { ExerciseList } from '@slonigiraf/app-laws';
 
 interface Props {
   className?: string;
-  insurance: Insurance;
+  diploma: Diploma;
   isSelected: boolean;
-  onToggleSelection: (insurance: Insurance) => void;
+  onToggleSelection: (diploma: Diploma) => void;
   isSelectionAllowed: boolean;
 }
 
-function InsuranceInfo({ className = '', insurance, isSelected, onToggleSelection, isSelectionAllowed }: Props): React.ReactElement<Props> {
+function DiplomaInfo({ className = '', diploma, isSelected, onToggleSelection, isSelectionAllowed }: Props): React.ReactElement<Props> {
   const { ipfs } = useIpfsContext();
   type JsonType = { [key: string]: any } | null;
   const [data, setData] = useState<JsonType>(null);
   const { t } = useTranslation();
   const [areDetailsOpen, toggleDetailsOpen] = useToggle(false);
-  const [skillName, setSkillName] = useState(insurance.cid);
+  const [skillName, setSkillName] = useState(diploma.cid);
   const [loaded, setLoaded] = useState(false);
 
   useEffect(() => {
     async function fetchData() {
-      if (ipfs !== null && skillName === insurance.cid) {
+      if (ipfs !== null && skillName === diploma.cid) {
         try {
-          const content = await getIPFSDataFromContentID(ipfs, insurance.cid);
+          const content = await getIPFSDataFromContentID(ipfs, diploma.cid);
           const json = parseJson(content);
           setSkillName(json.h);
           setData(json);
           setLoaded(true);
         }
         catch (e) {
-          setSkillName(insurance.cid + " (" + t('loading') + "...)")
+          setSkillName(diploma.cid + " (" + t('loading') + "...)")
           console.log(e)
         }
       }
     }
     fetchData()
-  }, [ipfs, insurance])
+  }, [ipfs, diploma])
 
   const skillNameToShow = loaded ? <KatexSpan content={skillName} /> : <Spinner noLabel />;
 
@@ -59,7 +59,7 @@ function InsuranceInfo({ className = '', insurance, isSelected, onToggleSelectio
         {isSelectionAllowed && (
           <Button
             icon={isSelected ? 'check' : 'square'}
-            onClick={() => onToggleSelection(insurance)}
+            onClick={() => onToggleSelection(diploma)}
           />
         )}
         <Button icon='eye' onClick={toggleDetailsOpen} isDisabled={isSelectionAllowed} />
@@ -86,9 +86,12 @@ function InsuranceInfo({ className = '', insurance, isSelected, onToggleSelectio
                 </>
             }
           </Modal.Content>
-          <Modal.Actions>
-            <UseInsurance insurance={insurance} />
-          </Modal.Actions>
+          {
+            (diploma.referee) &&
+            <Modal.Actions>
+              <UseInsurance insurance={diploma as Insurance} />
+            </Modal.Actions>
+          }
         </Modal>
       </>}
     </StyledDiv>
@@ -123,4 +126,4 @@ const RowDiv = styled.div`
   }
 `;
 
-export default React.memo(InsuranceInfo);
+export default React.memo(DiplomaInfo);
