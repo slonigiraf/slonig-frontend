@@ -60,12 +60,6 @@ function InputAddressSimple ({ autoFocus, bytesLength, children, className = '',
       >
         {children}
       </Input>
-      <IdentityIcon
-        className='ui--InputAddressSimpleIcon'
-        forceIconType={forceIconType}
-        size={32}
-        value={address}
-      />
     </StyledDiv>
   );
 }

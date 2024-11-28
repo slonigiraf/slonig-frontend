@@ -144,13 +144,6 @@ function renderCol ({ author, hash, isEmpty, isFinalized, parent, width }: Col, 
         ? <div className='empty' />
         : (
           <>
-            {author && (
-              <IdentityIcon
-                className='author'
-                size={28}
-                value={author}
-              />
-            )}
             <div className='contents'>
               <div className='hash'>{hash}</div>
               <div className='parent'>{parent}</div>

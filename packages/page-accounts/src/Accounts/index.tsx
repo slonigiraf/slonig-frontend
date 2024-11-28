@@ -236,7 +236,7 @@ function Overview({ className = '', onStatusChange }: Props): React.ReactElement
           <PayToAccountQR />
         </CenterQRContainer>
         <Summary balance={balances.summary} />
-        <div className='ui--row'>
+        <NoLeftPaddingLabeledContent>
           <InputAddress
             key={currentPair?.address + "-"+trigger}
             className='full'
@@ -245,7 +245,7 @@ function Overview({ className = '', onStatusChange }: Props): React.ReactElement
             onChange={_onChangeAccount}
             type='account'
           />
-        </div>
+        </NoLeftPaddingLabeledContent>
         <div className='ui--row'>
           <Button.Group>
             {isLoggedIn && <Button
@@ -283,11 +283,21 @@ function Overview({ className = '', onStatusChange }: Props): React.ReactElement
   );
 }
 
+
+const NoLeftPaddingLabeledContent = styled.div`
+  .ui--Dropdown {
+    width: 100% !important;
+    padding-left: 0px !important;
+  }
+  label {
+    left: 20px !important;
+  }
+`;
+
 const StyledDiv = styled.div`
   .ui--Dropdown {
     width: 15rem;
   }
-
   .header-box {
     .dropdown-section {
       display: flex;

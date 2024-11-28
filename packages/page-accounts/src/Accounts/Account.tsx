@@ -8,7 +8,7 @@ import type { KeyringAddress } from '@polkadot/ui-keyring/types';
 import type { AccountBalance, Delegation } from '../types.js';
 import React, { useCallback, useEffect, useMemo } from 'react';
 import { AddressInfo, AddressSmall, Button, Forget, Menu, Popup, styled } from '@polkadot/react-components';
-import { useAccountInfo, useApi, useBalancesAll, useIncrement, useStakingInfo, useToggle } from '@polkadot/react-hooks';
+import { useAccountInfo, useApi, useBalancesAll, useIncrement, useQueue, useStakingInfo, useToggle } from '@polkadot/react-hooks';
 import { keyring } from '@polkadot/ui-keyring';
 import { BN, BN_ZERO, isFunction } from '@polkadot/util';
 import { useTranslation } from '../translate.js';
@@ -68,11 +68,12 @@ function Account({ account: { address, meta }, className = '', filter, setBalanc
   const api = useApi();
   const balancesAll = useBalancesAll(address);
   const stakingInfo = useStakingInfo(address);
-  const { flags: { isDevelopment, isInjected}, name: accName, tags } = useAccountInfo(address);
+  const { flags: { isDevelopment, isInjected }, name: accName, tags } = useAccountInfo(address);
   const [isEditOpen, toggleEdit] = useToggle();
   const [isForgetOpen, toggleForget] = useToggle();
   const { setIsTransferOpen } = useTokenTransfer();
   const [trigger, incTrigger] = useIncrement(1);
+  const { queueAction } = useQueue();
 
   useEffect((): void => {
     if (balancesAll) {
@@ -121,8 +122,26 @@ function Account({ account: { address, meta }, className = '', filter, setBalanc
     onNameChange();
   }, [incTrigger, onNameChange]);
 
+  const copyToClipboard = () => {
+    const tempElem = document.createElement('textarea');
+    tempElem.value = address;
+    document.body.appendChild(tempElem);
+    tempElem.select();
+    document.execCommand('copy');
+    document.body.removeChild(tempElem);
+    _onUpdate();
+  }
+
   const menuItems = useMemo(() => [
     createMenuGroup('backupGroup', [
+      (
+        <Menu.Item
+          icon='copy'
+          key='copyAddress'
+          label={t('Copy address')}
+          onClick={copyToClipboard}
+        />
+      ),
       !(isInjected || isDevelopment) && (
         <Menu.Item
           icon='edit'

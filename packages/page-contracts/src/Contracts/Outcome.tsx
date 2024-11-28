@@ -19,7 +19,6 @@ interface Props {
 function Outcome ({ className = '', onClear, outcome: { from, message, output, params, result, when } }: Props): React.ReactElement<Props> | null {
   return (
     <StyledDiv className={className}>
-      <IdentityIcon value={from} />
       <Output
         className='output'
         isError={!result.isOk}

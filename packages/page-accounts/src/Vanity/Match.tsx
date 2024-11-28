@@ -36,15 +36,6 @@ function Match ({ address, className = '', count, offset, onCreateToggle, onRemo
 
   return (
     <StyledTr className={className}>
-      <td
-        className='number'
-        colSpan={2}
-      >
-        <IdentityIcon
-          className='vanity--Match-icon'
-          value={address}
-        />
-      </td>
       <td className='address all'>
         <div className='vanity--Match-addr'>
           <span className='no'>{address.slice(0, offset)}</span><span className='yes'>{address.slice(offset, count + offset)}</span><span className='no'>{address.slice(count + offset)}</span>

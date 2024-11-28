@@ -134,13 +134,6 @@ function BaseBytes ({ asHex, children, className = '', defaultValue: { value }, 
         {withCopy && (
           <CopyButton value={defaultValue} />
         )}
-        {isAddress && (
-          <IdentityIcon
-            className='ui--InputAddressSimpleIcon'
-            size={32}
-            value={lastValue}
-          />
-        )}
       </Input>
     </StyledBare>
   );
