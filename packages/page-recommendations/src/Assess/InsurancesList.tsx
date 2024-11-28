@@ -7,7 +7,7 @@ import { styled, Icon, Button, Modal, Toggle } from '@polkadot/react-components'
 import { useLiveQuery } from 'dexie-react-hooks';
 import { useTranslation } from '../translate.js';
 import { deleteInsurance, getInsurances, getPseudonym, Insurance } from '@slonigiraf/db';
-import { DateInput, SelectableList, useInfo } from '@slonigiraf/app-slonig-components';
+import { DateInput, SelectableList, ToggleContainer, useInfo } from '@slonigiraf/app-slonig-components';
 import { useToggle } from '@polkadot/react-hooks';
 
 interface Props {
@@ -48,7 +48,7 @@ function InsurancesList({ className = '', teacher, student, studentNameFromUrl }
     [teacher, student, startDate, endDate]
   );
 
-  
+
 
   const handleSelectionChange = (newSelectedItems: Insurance[]) => {
     if (newSelectedItems.length > MAX_SELECTED) {
@@ -112,11 +112,13 @@ function InsurancesList({ className = '', teacher, student, studentNameFromUrl }
           />
         </div>
       </div>
-      <Toggle
-            label={t('Allow selection')}
-            onChange={handleSelectionToggle}
-            value={isSelectionAllowed}
-          />
+      <ToggleContainer>
+        <Toggle
+          label={t('Allow selection')}
+          onChange={handleSelectionToggle}
+          value={isSelectionAllowed}
+        />
+      </ToggleContainer>
       <SelectableList<Insurance>
         items={insurances}
         renderItem={(insurance, isSelected, isSelectionAllowed, onToggleSelection) => (

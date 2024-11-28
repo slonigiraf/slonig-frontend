@@ -22,7 +22,7 @@ import DBExport from './DBExport.js';
 import Confirmation from './Confirmation.js';
 import TextAreaWithPreview from './TextAreaWithPreview.js';
 import SelectableList from './SelectableList.js';
-import { Button, styled } from '@polkadot/react-components';
+import { Button, styled, Toggle } from '@polkadot/react-components';
 import BN from 'bn.js';
 import { balanceToSlonString, createPeer, receiveWebRTCData, getQrWidth, saveToSessionStorage, loadFromSessionStorage, getKey, arrayBufferToBase64, base64ToArrayBuffer, decryptData, encryptData, keyForCid, nameFromKeyringPair, getBaseUrl, CODEC, getIPFSContentID, getIPFSContentIDAndPinIt, getIPFSDataFromContentID, digestFromCIDv1, getCIDFromBytes, storeEncryptedTextOnIPFS, retrieveDecryptedDataFromIPFS, parseJson, qrPadding } from './utils.js';
 import { useEffect, useState } from 'react';
@@ -132,6 +132,10 @@ export const StyledSpinnerContainer = styled.div`
     margin-left: 0px;
     margin-right: 25px;
   }
+`;
+
+export const ToggleContainer = styled.div`
+  margin-top: 5px;
 `;
 
 export const StyledContentCloseButton = styled(Button)`

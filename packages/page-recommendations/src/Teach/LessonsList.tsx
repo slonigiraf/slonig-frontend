@@ -3,7 +3,7 @@ import React, { useCallback, useState } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { Button, styled, Icon, Modal, Toggle } from '@polkadot/react-components';
 import { useTranslation } from '../translate.js';
-import { DateInput, SelectableList, useInfo } from '@slonigiraf/app-slonig-components';
+import { DateInput, SelectableList, ToggleContainer, useInfo } from '@slonigiraf/app-slonig-components';
 import { useToggle } from '@polkadot/react-hooks';
 import { deleteLesson, getLessons, Lesson } from '@slonigiraf/db';
 
@@ -91,11 +91,13 @@ function LessonsList({ className = '', tutor, onResumeTutoring, onShowResults }:
           />
         </div>
       </div>
-      <Toggle
-            label={t('Allow selection')}
-            onChange={handleSelectionToggle}
-            value={isSelectionAllowed}
-          />
+      <ToggleContainer>
+        <Toggle
+          label={t('Allow selection')}
+          onChange={handleSelectionToggle}
+          value={isSelectionAllowed}
+        />
+      </ToggleContainer>
       <SelectableList<Lesson>
         items={lessons}
         renderItem={(lesson, isSelected, isSelectionAllowed, onToggleSelection) => (
