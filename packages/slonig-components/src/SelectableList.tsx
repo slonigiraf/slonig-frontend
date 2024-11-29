@@ -1,5 +1,5 @@
 import React, { useState, useCallback, useEffect } from 'react';
-import { Button, Table } from '@polkadot/react-components';
+import { Button, styled, Table } from '@polkadot/react-components';
 import { useTranslation } from './translate.js';
 
 interface SelectableListProps<T> {
@@ -120,7 +120,7 @@ function SelectableList<T>({
       >
         {updatedItems.map((item) => (
           <tr key={keyExtractor(item)+isSelectionAllowed}>
-            <td>
+            <StyledTd>
               {renderItem(
                 item,
                 selectedItems.some((selectedItem) => keyExtractor(selectedItem) === keyExtractor(item)),
@@ -128,7 +128,7 @@ function SelectableList<T>({
                 toggleItemSelection,
                 handleItemUpdate
               )}
-            </td>
+            </StyledTd>
           </tr>
         ))}
       </Table>
@@ -140,5 +140,9 @@ function SelectableList<T>({
 const MemorizedSelectableList = React.memo(
   SelectableList
 ) as <T>(props: SelectableListProps<T>) => React.ReactElement;
+
+const StyledTd = styled.td`
+  padding: 0px !important;
+`;
 
 export default MemorizedSelectableList;

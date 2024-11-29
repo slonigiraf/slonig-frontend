@@ -56,13 +56,14 @@ function DiplomaInfo({ className = '', diploma, isSelected, onToggleSelection, i
   return (
     <StyledDiv>
       <RowDiv>
-        {isSelectionAllowed && (
+        {isSelectionAllowed ? (
           <Button
             icon={isSelected ? 'check' : 'square'}
             onClick={() => onToggleSelection(diploma)}
           />
-        )}
-        <Button icon='eye' onClick={toggleDetailsOpen} isDisabled={isSelectionAllowed} />
+        )
+          : <Button icon='eye' onClick={toggleDetailsOpen} />
+        }
         {skillNameToShow}
       </RowDiv>
 
