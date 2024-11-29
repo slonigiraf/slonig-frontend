@@ -142,7 +142,7 @@ const MemorizedSelectableList = React.memo(
 ) as <T>(props: SelectableListProps<T>) => React.ReactElement;
 
 const StyledTd = styled.td`
-  padding: 0px !important;
+  padding: 7px !important;
 `;
 
 export default MemorizedSelectableList;

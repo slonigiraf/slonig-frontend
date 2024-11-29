@@ -114,7 +114,7 @@ const RowDiv = styled.div`
   flex-direction: row;
   align-items: center;
   justify-content: start;
-  padding: 10px;
+  padding: 0px;
   > span {
     margin-right: 10px;
     margin-left: 10px;

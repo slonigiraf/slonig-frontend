@@ -155,7 +155,7 @@ const StyledDiv = styled.div<{ isSelectable: boolean }>`
   align-items: center;
   justify-content: start;
   ${({ isSelectable }) => isSelectable && 'padding: 10px;'}
-  padding-left: 6px;
+  padding: 0px;
 `;
 
 export default React.memo(ItemLabel);

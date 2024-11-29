@@ -136,7 +136,7 @@ export const StyledSpinnerContainer = styled.div`
 `;
 
 export const ToggleContainer = styled.div`
-  margin-top: 5px;
+  margin: 5px 0;
 `;
 
 export const StyledContentCloseButton = styled(Button)`
