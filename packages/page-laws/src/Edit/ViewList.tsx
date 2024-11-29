@@ -35,7 +35,7 @@ function ViewList({ className = '', id, cidString, list }: Props): React.ReactEl
       setLoginIsRequired(true);
       setLearningRequested(false);
     }
-  }, [setLoginIsRequired]);
+  }, [isLoggedIn, setLoginIsRequired]);
 
   const handleReexaminingToggle = useCallback((checked: boolean): void => {
     setReexaminingRequested(checked);
