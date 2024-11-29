@@ -68,7 +68,7 @@ function LessonInfo({ lesson, isSelected, onToggleSelection, onResumeTutoring, o
   return (
     <StyledDiv>
       {isSelectionAllowed && (
-        <Button
+        <Button className='inList'
           icon={isSelected ? 'check' : 'square'}
           onClick={() => onToggleSelection(lesson)}
         />

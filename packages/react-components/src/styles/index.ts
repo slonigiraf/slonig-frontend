@@ -247,8 +247,24 @@ export default createGlobalStyle<Props & ThemeProps>(({ theme, uiHighlight }: Pr
       }
 
       .ui--Icon {
-        background: ${getHighlight(uiHighlight)};
+        background: transparent;
         color: inherit;
+        color: ${getHighlight(uiHighlight)};
+      }
+    }
+  }
+
+  .ui--Table td .inList {
+    &:not(.isDisabled):not(.isIcon):not(.isToplevel),
+    &.withoutLink:not(.isDisabled) {
+      &:hover {
+        .ui--Icon {
+          color: ${getContrast(uiHighlight)};
+        }
+      }
+
+      .ui--Icon {
+        background: ${getHighlight(uiHighlight)};
         color: ${getContrast(uiHighlight)};
       }
     }

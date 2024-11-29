@@ -138,6 +138,7 @@ function ItemLabel({ className = '', id, isText = false, defaultValue = '...', i
 
   return <StyledDiv isSelectable={isSelectable}>{
     (onToggleSelection !== undefined && isSelectable && <Button
+      className='inList'
       icon={wasSelected ? 'check' : 'square'}
       onClick={handleToggleSelection}
       isDisabled={!allowSelection}
