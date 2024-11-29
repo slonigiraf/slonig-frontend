@@ -5,7 +5,7 @@ import { Modal, Button, Spinner, styled } from '@polkadot/react-components';
 import React, { useState, useEffect } from 'react'
 import UseInsurance from './UseInsurance.js'
 import { useTranslation } from '../translate.js';
-import { Diploma, Insurance } from '@slonigiraf/db';
+import { Diploma, Insurance, isInsurance } from '@slonigiraf/db';
 import { useToggle } from '@polkadot/react-hooks';
 import { Exercise, KatexSpan, getIPFSDataFromContentID, parseJson } from '@slonigiraf/app-slonig-components';
 import { useIpfsContext } from '@slonigiraf/app-slonig-components';
@@ -86,8 +86,7 @@ function DiplomaInfo({ className = '', diploma, isSelected, onToggleSelection, i
                 </>
             }
           </Modal.Content>
-          {
-            (diploma.referee) &&
+          {isInsurance(diploma) &&
             <Modal.Actions>
               <UseInsurance insurance={diploma as Insurance} />
             </Modal.Actions>

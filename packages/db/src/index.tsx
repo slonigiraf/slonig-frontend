@@ -841,3 +841,6 @@ export async function replaceDB(json: DexieExportFormat): Promise<void> {
 
 export type Diploma = Letter | Insurance;
 export type Recommendation = Letter | Insurance | Reimbursement;
+export function isInsurance(diploma: Diploma): diploma is Insurance {
+    return (diploma as Insurance).employer !== undefined;
+}
