@@ -22,17 +22,17 @@ const VERY_DARK = 16;
 
 const defaultHighlight = '#f19135';
 
-function getHighlight (uiHighlight: string | undefined): string {
+function getHighlight(uiHighlight: string | undefined): string {
   return (uiHighlight || defaultHighlight);
 }
 
-function countBrightness (uiHighlight: string | undefined): number {
+function countBrightness(uiHighlight: string | undefined): number {
   const hc = getHighlight(uiHighlight).replace('#', '').toLowerCase();
 
   return PARTS.reduce((b, p, index) => b + (parseInt(hc.substring(p, p + 2), 16) * FACTORS[index]), 0);
 }
 
-function getContrast (uiHighlight: string | undefined): string {
+function getContrast(uiHighlight: string | undefined): string {
   const brightness = countBrightness(uiHighlight);
 
   return brightness > BRIGHTNESS
@@ -40,7 +40,7 @@ function getContrast (uiHighlight: string | undefined): string {
     : 'rgba(255, 253, 251, 0.875)';
 }
 
-function getMenuHoverContrast (uiHighlight: string | undefined): string {
+function getMenuHoverContrast(uiHighlight: string | undefined): string {
   const brightness = countBrightness(uiHighlight);
 
   if (brightness < VERY_DARK) {
@@ -52,7 +52,7 @@ function getMenuHoverContrast (uiHighlight: string | undefined): string {
     : 'rgba(255, 255, 255, 0.15)';
 }
 
-function hexToRGB (hex: string, alpha?: string) {
+function hexToRGB(hex: string, alpha?: string) {
   const r = parseInt(hex.slice(1, 3), 16);
   const g = parseInt(hex.slice(3, 5), 16);
   const b = parseInt(hex.slice(5, 7), 16);
@@ -237,7 +237,8 @@ export default createGlobalStyle<Props & ThemeProps>(({ theme, uiHighlight }: Pr
     }
   }
 
-  .ui--Table td .ui--Button {
+  .ui--Table td .ui--Button,
+  .ui--Table td .inList {
     &:not(.isDisabled):not(.isIcon):not(.isToplevel),
     &.withoutLink:not(.isDisabled) {
       &:hover {
@@ -252,11 +253,9 @@ export default createGlobalStyle<Props & ThemeProps>(({ theme, uiHighlight }: Pr
         color: ${getHighlight(uiHighlight)};
       }
     }
-  }
 
-  .ui--Table td .inList {
-    &:not(.isDisabled):not(.isIcon):not(.isToplevel),
-    &.withoutLink:not(.isDisabled) {
+    &.inList:not(.isDisabled):not(.isIcon):not(.isToplevel),
+    &.inList.withoutLink:not(.isDisabled) {
       &:hover {
         .ui--Icon {
           color: ${getContrast(uiHighlight)};
