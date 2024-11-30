@@ -22,7 +22,7 @@ import DBExport from './DBExport.js';
 import Confirmation from './Confirmation.js';
 import TextAreaWithPreview from './TextAreaWithPreview.js';
 import SelectableList from './SelectableList.js';
-import { Button, styled, Toggle } from '@polkadot/react-components';
+import { Button, Progress, styled, Toggle } from '@polkadot/react-components';
 import BN from 'bn.js';
 import { balanceToSlonString, createPeer, receiveWebRTCData, getQrWidth, saveToSessionStorage, loadFromSessionStorage, getKey, arrayBufferToBase64, base64ToArrayBuffer, decryptData, encryptData, keyForCid, nameFromKeyringPair, getBaseUrl, CODEC, getIPFSContentID, getIPFSContentIDAndPinIt, getIPFSDataFromContentID, digestFromCIDv1, getCIDFromBytes, storeEncryptedTextOnIPFS, retrieveDecryptedDataFromIPFS, parseJson, qrPadding } from './utils.js';
 import { useEffect, useState } from 'react';
@@ -41,6 +41,7 @@ import { signatureVerify } from '@polkadot/util-crypto';
 export const EXISTENTIAL_BATCH_SENDER_BALANCE = new BN('10000000000000'); // 10 Slon = 10000000000000
 export const EXISTENTIAL_REFEREE_BALANCE = new BN('1000000000000000'); // 1k Slon = 1000000000000000
 export const REIMBURSEMENT_BATCH_SIZE = 5;
+export const progressFromButtomPx = 80;
 
 export function getFormattedTimestamp(date: Date): string {
   const year = date.getFullYear();
@@ -114,18 +115,33 @@ export const CenterQRContainer = styled.div`
 export const InstructionsContainer = styled.div`
   padding-top: 15px;
   width: 100%;
+  max-height: calc(100vh - 280px); /* Limit height to ensure it stops 200px from the bottom */
+  overflow-y: auto; /* Enable scrolling when content exceeds height */
+  box-sizing: border-box; /* Include padding in height calculations */
 `;
+
 export const InstructionsButtonsContainer = styled.div`
   display: flex;
   align-items: center;
   width: 100%;
   margin: 0 auto;
+  position: fixed; /* Fix its position relative to the viewport */
+  bottom: ${progressFromButtomPx}px; /* Align with StyledProgress */
+  left: 20px; /* Consistent with StyledProgress */
+  z-index: 0; /* Ensure it doesn’t overlap with StyledProgress */
+  @media (min-width: 768px) {
+    left: 50%;
+    transform: translateX(-50%);
+  }
 `;
 export const InstructionsButtonsGroup = styled.div`
   display: flex;
+  justify-content: space-evenly;
+  gap: 5px;
   align-items: center;
   max-width: 400px;
   margin: 0 auto;
+  flex-wrap: wrap;
 `;
 export const StyledSpinnerContainer = styled.div`
   .ui--Spinner{

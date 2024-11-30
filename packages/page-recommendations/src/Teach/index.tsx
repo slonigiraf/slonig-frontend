@@ -3,7 +3,7 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { styled, Progress } from '@polkadot/react-components';
 import { u8aToHex } from '@polkadot/util';
-import { useLoginContext, LoginButton, StyledContentCloseButton } from '@slonigiraf/app-slonig-components';
+import { useLoginContext, LoginButton, StyledContentCloseButton, progressFromButtomPx } from '@slonigiraf/app-slonig-components';
 import { LetterTemplate, Lesson, Reexamination, getPseudonym, getLesson, getLetterTemplatesByLessonId, getReexaminationsByLessonId, deleteSetting, getSetting, storeSetting, updateLesson, getLetter, getReexamination, SettingKey } from '@slonigiraf/db';
 import DoInstructions from './DoInstructions.js';
 import LessonsList from './LessonsList.js';
@@ -182,7 +182,7 @@ function Teach({ className = '' }: Props): React.ReactElement<Props> {
 
 const StyledProgress = styled(Progress)`
   position: fixed;
-  bottom: 80px;
+  bottom: ${progressFromButtomPx}px;
   left: 20px;
   z-index: 1;
   @media (min-width: 768px) {

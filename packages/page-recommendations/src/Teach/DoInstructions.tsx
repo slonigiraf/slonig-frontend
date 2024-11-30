@@ -74,9 +74,10 @@ function DoInstructions({ className = '', entity, onResult, studentName, student
   const handleStageChange = async (nextStage: AlgorithmStage | null) => {
     if (nextStage !== null) {
       setIsButtonClicked(true);
+      const now = (new Date).getTime();
       if (isReexamination(entity) && nextStage.type === 'reimburse') {
         showInfo(t('Bounty will be collected after the lesson ends.'));
-        const failedReexamination: Reexamination = { ...entity, lastExamined: (new Date).getTime(), valid: false };
+        const failedReexamination: Reexamination = { ...entity, created: now, lastExamined: now, valid: false };
         await updateReexamination(failedReexamination);
         onResult();
       } else if (nextStage.type === 'skip') {
@@ -92,7 +93,7 @@ function DoInstructions({ className = '', entity, onResult, studentName, student
         await putLetterTemplate(preparedLetterTemplate);
         onResult();
       } else if (isReexamination(entity) && nextStage.type === 'success') {
-        const successfulReexamination: Reexamination = { ...entity, lastExamined: (new Date).getTime() };
+        const successfulReexamination: Reexamination = { ...entity, created: now, lastExamined: now };
         await updateReexamination(successfulReexamination);
         onResult();
       } else {
@@ -108,29 +109,30 @@ function DoInstructions({ className = '', entity, onResult, studentName, student
 
   return (
     <div className={className} >
-      {algorithmStage ? (
+      {algorithmStage ? (<>
         <InstructionsContainer key={entity?.cid}>
           {algorithmStage.getWords()}
-          <InstructionsButtonsContainer>
-            <InstructionsButtonsGroup>
-              {algorithmStage.getPrevious() && (
-                <Button onClick={() => handleStageChange(algorithmStage.getPrevious())}
-                  icon='arrow-left'
-                  label={t('Back')}
-                  isDisabled={isButtonClicked}
-                />
-              )}
-              {algorithmStage.getNext().map((nextStage, index) => (
-                <Button key={index} onClick={() => handleStageChange(nextStage)}
-                  icon='square'
-                  label={nextStage.getName()}
-                  isDisabled={isButtonClicked}
-                />
-              ))}
-            </InstructionsButtonsGroup>
-          </InstructionsButtonsContainer>
+
         </InstructionsContainer>
-      ) : (
+        <InstructionsButtonsContainer>
+          <InstructionsButtonsGroup>
+            {algorithmStage.getPrevious() && (
+              <Button onClick={() => handleStageChange(algorithmStage.getPrevious())}
+                icon='arrow-left'
+                label={t('Back')}
+                isDisabled={isButtonClicked}
+              />
+            )}
+            {algorithmStage.getNext().map((nextStage, index) => (
+              <Button key={index} onClick={() => handleStageChange(nextStage)}
+                icon='square'
+                label={nextStage.getName()}
+                isDisabled={isButtonClicked}
+              />
+            ))}
+          </InstructionsButtonsGroup>
+        </InstructionsButtonsContainer>
+      </>) : (
         <div>Error: Reload the page</div>
       )}
     </div>

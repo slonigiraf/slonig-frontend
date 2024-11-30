@@ -59,6 +59,11 @@ class ValidatingAlgorithm extends Algorithm {
             t('Next'),
             <></>
         );
+        const flashReimburse = new AlgorithmStage(
+            'reimburse',
+            t('Get bounty'),
+            <></>
+        );
         const reimburse = new AlgorithmStage(
             'reimburse',
             t('Get bounty'),
@@ -139,7 +144,6 @@ class ValidatingAlgorithm extends Algorithm {
             <StyledDiv>
                 <ChatSimulation messages={[
                     { ...theirMessage, text: t('Try to earn a bonus by testing my previous skill:') + (skill && " \"" + skill.h + "\".") },
-                    { ...myMessage, text: t('I will test your previous skill:') + (skill && " \"" + skill.h + "\".") },
                     { ...myMessage, text: t('Come up with an exercise similar to this:') },
                     { ...myMessage, text: question1, image: exerciseImage1, comment: t('I can change the exercise a little.') },
                 ]} />
@@ -161,7 +165,7 @@ class ValidatingAlgorithm extends Algorithm {
 
 
         // Algo linking:
-        this.begin.setNext([skip, hasStudentCreatedASimilarExercise]);
+        this.begin.setNext([skip, hasStudentCreatedASimilarExercise, flashReimburse]);
         hasStudentCreatedASimilarExercise.setPrevious(this.begin);
         hasStudentCreatedASimilarExercise.setNext([provideFakeSolution, askToRepeatTheExerciseAfterMe]);// Fork #1
         provideFakeSolution.setPrevious(hasStudentCreatedASimilarExercise);
