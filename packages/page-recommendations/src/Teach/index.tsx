@@ -1,9 +1,9 @@
 // Copyright 2021-2022 @slonigiraf/app-recommendations authors & contributors
 // SPDX-License-Identifier: Apache-2.0
 import React, { useCallback, useEffect, useState } from 'react';
-import { styled, Progress } from '@polkadot/react-components';
+import { styled, Progress, Button } from '@polkadot/react-components';
 import { u8aToHex } from '@polkadot/util';
-import { useLoginContext, LoginButton, StyledContentCloseButton, progressFromButtomPx } from '@slonigiraf/app-slonig-components';
+import { useLoginContext, LoginButton } from '@slonigiraf/app-slonig-components';
 import { LetterTemplate, Lesson, Reexamination, getPseudonym, getLesson, getLetterTemplatesByLessonId, getReexaminationsByLessonId, deleteSetting, getSetting, storeSetting, updateLesson, getLetter, getReexamination, SettingKey } from '@slonigiraf/db';
 import DoInstructions from './DoInstructions.js';
 import LessonsList from './LessonsList.js';
@@ -154,7 +154,7 @@ function Teach({ className = '' }: Props): React.ReactElement<Props> {
       value={lesson.learnStep + lesson.reexamineStep}
       total={lesson.toLearnCount + lesson.toReexamineCount}
     />}
-    <StyledContentCloseButton onClick={onCloseTutoring}
+    <ProgressCloseButton onClick={onCloseTutoring}
       icon='close'
     />
     <div>
@@ -181,15 +181,21 @@ function Teach({ className = '' }: Props): React.ReactElement<Props> {
 }
 
 const StyledProgress = styled(Progress)`
-  position: fixed;
-  bottom: ${progressFromButtomPx}px;
-  left: 20px;
+  position: absolute;
+  top: 50px;
+  right: 28px;
   z-index: 1;
-  @media (min-width: 768px) {
-    left: 50%;
-    transform: translateX(-50%) translateX(-350px);
+`;
+export const ProgressCloseButton = styled(Button)`
+  position: absolute;
+  width: 40px;
+  top: 35px;
+  right: 10px;
+  z-index: 1;
+  .ui--Icon {
+    border-radius: 1rem !important;
+    padding: 2px !important;
   }
 `;
-
 export default React.memo(Teach);
 

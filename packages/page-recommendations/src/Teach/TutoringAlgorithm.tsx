@@ -51,8 +51,8 @@ class TutoringAlgorithm extends Algorithm {
                     { ...myMessage, text: t('...'), comment: t('Correct execution of the exercise invented by the student.') },
                     { ...theirMessage, text: t('...') },
                 ]} />
-                <b>{t('Has the student repeated correctly?')}</b>
-            </StyledDiv>
+            </StyledDiv>,
+            t('Has the student repeated correctly?')
         );
 
         const hasStudentRepeatedTheRightSolutionOfExerciseOfTutor = new AlgorithmStage(
@@ -64,8 +64,8 @@ class TutoringAlgorithm extends Algorithm {
                     { ...myMessage, text: answer1 === '' ? t('...') : answer1, image: answerImage1, comment: answer1 === '' ? t('Correct execution of the exercise') : '' },
                     { ...theirMessage, text: t('...') },
                 ]} />
-                <b>{t('Has the student repeated correctly?')}</b>
-            </StyledDiv>
+            </StyledDiv>,
+            t('Has the student repeated correctly?')
         );
 
         const askStudentToRepeatTheAnswer = new AlgorithmStage(
@@ -102,8 +102,8 @@ class TutoringAlgorithm extends Algorithm {
                 <ChatSimulation messages={[
                     { ...theirMessage, text: t('...'), comment: t('The student has corrected me and has given me the correct solution.') },
                 ]} />
-                <b>{t('Were all of the student\'s exercises and answers perfect today?')}</b>
-            </StyledDiv>
+            </StyledDiv>,
+            t('Were all of the student\'s exercises and answers perfect today?')
         );
 
 
@@ -116,8 +116,8 @@ class TutoringAlgorithm extends Algorithm {
                     { ...myMessage, text: t('Correct me.') },
                     { ...theirMessage, text: t('...') },
                 ]} />
-                <b>{t('Has the student corrected the wrong solution?')}</b>
-            </StyledDiv>
+            </StyledDiv>,
+            t('Has the student corrected the wrong solution?')
         );
 
 
@@ -130,8 +130,8 @@ class TutoringAlgorithm extends Algorithm {
                     { ...myMessage, text: question2, image: exerciseImage2 },
                     { ...theirMessage, text: '...' },
                 ]} />
-                <b>{t('Has the student repeated correctly after me?')}</b>
-            </StyledDiv>
+            </StyledDiv>,
+            t('Has the student repeated correctly after me?')
         );
 
         const provideFakeAnswer = new AlgorithmStage(
@@ -169,8 +169,8 @@ class TutoringAlgorithm extends Algorithm {
                     { ...myMessage, text: question1, image: exerciseImage1 },
                     { ...theirMessage, text: '...' },
                 ]} />
-                <b>{t('Has the student now invented a similar exercise?')}</b>
-            </StyledDiv>
+            </StyledDiv>,
+            t('Has the student now invented a similar exercise?')
         );
 
         const skip = new AlgorithmStage(
@@ -178,7 +178,6 @@ class TutoringAlgorithm extends Algorithm {
             t('Skip'),
             <></>
         );
-
 
         // Link stages
         const askStudentToCreateASimilarExercise = new AlgorithmStage(
@@ -216,8 +215,8 @@ class TutoringAlgorithm extends Algorithm {
                     { ...myMessage, text: question1, image: exerciseImage1 },
                     { ...theirMessage, text: t('...') },
                 ]} />
-                <b>{t('Has the student now executed the exercise correctly?')}</b>
-            </StyledDiv>
+            </StyledDiv>,
+            t('Has the student now executed the exercise correctly?')
         );
 
 

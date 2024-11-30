@@ -123,12 +123,10 @@ export const InstructionsContainer = styled.div`
 export const InstructionsButtonsContainer = styled.div`
   display: flex;
   align-items: center;
-  width: 100%;
+  max-width: 400px;
   margin: 0 auto;
-  position: fixed; /* Fix its position relative to the viewport */
-  bottom: ${progressFromButtomPx}px; /* Align with StyledProgress */
-  left: 20px; /* Consistent with StyledProgress */
-  z-index: 0; /* Ensure it doesn’t overlap with StyledProgress */
+  position: fixed;
+  bottom: 80px;
   @media (min-width: 768px) {
     left: 50%;
     transform: translateX(-50%);
@@ -136,10 +134,8 @@ export const InstructionsButtonsContainer = styled.div`
 `;
 export const InstructionsButtonsGroup = styled.div`
   display: flex;
-  justify-content: space-evenly;
-  gap: 5px;
   align-items: center;
-  max-width: 400px;
+  width: 100%;
   margin: 0 auto;
   flex-wrap: wrap;
 `;

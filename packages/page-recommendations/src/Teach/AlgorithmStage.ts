@@ -1,14 +1,16 @@
 class AlgorithmStage {
     type: string;
     private name: string;
-    private words: React.ReactNode;
+    private chatSimulation: React.ReactNode;
+    private actionHint: string;
     private next: AlgorithmStage[];
     private previous: AlgorithmStage | null;
 
-    constructor(type: string, name: string, words: React.ReactNode) {
+    constructor(type: string, name: string, chatSimulation: React.ReactNode, actionHint='') {
         this.type = type;
         this.name = name;
-        this.words = words;
+        this.chatSimulation = chatSimulation;
+        this.actionHint = actionHint;
         this.next = [];
         this.previous = null;
     }
@@ -25,8 +27,12 @@ class AlgorithmStage {
         return this.name;
     }
 
-    getWords(): React.ReactNode {
-        return this.words;
+    getChatSimulation(): React.ReactNode {
+        return this.chatSimulation;
+    }
+
+    getActionHint(): string {
+        return this.actionHint;
     }
 
     getNext(): AlgorithmStage[] {

@@ -111,11 +111,13 @@ function DoInstructions({ className = '', entity, onResult, studentName, student
     <div className={className} >
       {algorithmStage ? (<>
         <InstructionsContainer key={entity?.cid}>
-          {algorithmStage.getWords()}
-
+          {algorithmStage.getChatSimulation()}
         </InstructionsContainer>
         <InstructionsButtonsContainer>
           <InstructionsButtonsGroup>
+            {algorithmStage.getActionHint() && (
+              <b>{algorithmStage.getActionHint()}</b>
+            )}
             {algorithmStage.getPrevious() && (
               <Button onClick={() => handleStageChange(algorithmStage.getPrevious())}
                 icon='arrow-left'

@@ -79,8 +79,8 @@ class ValidatingAlgorithm extends Algorithm {
                     { ...myMessage, text: t('Correct me.') },
                     { ...theirMessage, text: t('...') },
                 ]} />
-                <b>{t('Has the student corrected the wrong solution?')}</b>
-            </StyledDiv>
+            </StyledDiv>,
+            t('Has the student corrected the wrong solution?')
         );
 
 
@@ -93,8 +93,8 @@ class ValidatingAlgorithm extends Algorithm {
                     { ...myMessage, text: question2, image: exerciseImage2 },
                     { ...theirMessage, text: '...' },
                 ]} />
-                <b>{t('Has the student repeated correctly after me?')}</b>
-            </StyledDiv>
+            </StyledDiv>,
+            t('Has the student repeated correctly after me?')
         );
 
         const provideFakeSolution = new AlgorithmStage(
@@ -132,8 +132,8 @@ class ValidatingAlgorithm extends Algorithm {
                     { ...myMessage, text: question1, image: exerciseImage1 },
                     { ...theirMessage, text: '...' },
                 ]} />
-                <b>{t('Has the student now invented a similar exercise?')}</b>
-            </StyledDiv>
+            </StyledDiv>,
+            t('Has the student now invented a similar exercise?')
         );
 
 
