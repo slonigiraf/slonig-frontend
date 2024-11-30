@@ -60,6 +60,7 @@ export { default as Inspect } from './Inspect.js';
 export { default as Label } from './Label.js';
 export { default as LabelHelp } from './LabelHelp.js';
 export { default as Labelled } from './Labelled.js';
+export { default as LinearProgress } from './LinearProgress.js';
 export { default as LinkExternal } from './LinkExternal.js';
 export { default as LockedVote } from './LockedVote.js';
 export { default as MarkError } from './MarkError.js';

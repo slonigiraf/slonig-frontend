@@ -1,13 +1,13 @@
 // Copyright 2021-2022 @slonigiraf/app-recommendations authors & contributors
 // SPDX-License-Identifier: Apache-2.0
 import React, { useCallback, useEffect, useState } from 'react';
-import { styled, Progress, Button } from '@polkadot/react-components';
+import { LinearProgress } from '@polkadot/react-components';
 import { u8aToHex } from '@polkadot/util';
 import { useLoginContext, LoginButton } from '@slonigiraf/app-slonig-components';
 import { LetterTemplate, Lesson, Reexamination, getPseudonym, getLesson, getLetterTemplatesByLessonId, getReexaminationsByLessonId, deleteSetting, getSetting, storeSetting, updateLesson, getLetter, getReexamination, SettingKey } from '@slonigiraf/db';
 import DoInstructions from './DoInstructions.js';
 import LessonsList from './LessonsList.js';
-import LessonResults from './LessonResults.js';
+import LessonResults, { StyledCloseButton } from './LessonResults.js';
 import LessonRequestReceiver from './LessonRequestReceiver.js';
 
 interface Props {
@@ -150,11 +150,11 @@ function Teach({ className = '' }: Props): React.ReactElement<Props> {
   const publicKeyHex = currentPair ? u8aToHex(currentPair.publicKey) : "";
 
   const reexamAndDiplomaIssuing = <>
-    {lesson && <StyledProgress
+    {lesson && <LinearProgress
       value={lesson.learnStep + lesson.reexamineStep}
       total={lesson.toLearnCount + lesson.toReexamineCount}
     />}
-    <ProgressCloseButton onClick={onCloseTutoring}
+    <StyledCloseButton onClick={onCloseTutoring}
       icon='close'
     />
     <div>
@@ -180,28 +180,5 @@ function Teach({ className = '' }: Props): React.ReactElement<Props> {
   );
 }
 
-const StyledProgress = styled(Progress)`
-  position: absolute;
-  top: 50px;
-  right: 28px;
-  width: 40px;
-  height: 40px;
-  div{
-    font-size: 0.79rem !important;
-  }
-  
-  z-index: 1;
-`;
-export const ProgressCloseButton = styled(Button)`
-  position: absolute;
-  width: 40px;
-  top: 37px;
-  right: 10px;
-  z-index: 1;
-  .ui--Icon {
-    border-radius: 1rem !important;
-    padding: 2px !important;
-  }
-`;
 export default React.memo(Teach);
 
