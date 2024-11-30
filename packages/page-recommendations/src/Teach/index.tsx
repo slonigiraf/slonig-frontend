@@ -184,12 +184,18 @@ const StyledProgress = styled(Progress)`
   position: absolute;
   top: 50px;
   right: 28px;
+  width: 40px;
+  height: 40px;
+  div{
+    font-size: 0.79rem !important;
+  }
+  
   z-index: 1;
 `;
 export const ProgressCloseButton = styled(Button)`
   position: absolute;
   width: 40px;
-  top: 35px;
+  top: 37px;
   right: 10px;
   z-index: 1;
   .ui--Icon {
