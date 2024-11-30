@@ -97,7 +97,7 @@ function Teach({ className = '' }: Props): React.ReactElement<Props> {
     }
   }, [lesson, updateAndStoreLesson]);
 
-  
+
 
   const onResumeTutoring = useCallback((lesson: Lesson): void => {
     storeSetting(SettingKey.LESSON, lesson.id);
@@ -115,8 +115,8 @@ function Teach({ className = '' }: Props): React.ReactElement<Props> {
     currentletterTemplates: LetterTemplate[],
     currentReexaminations: Reexamination[]) => {
     async function run() {
-      if(updatedLesson){
-        setStudentUsedSlonig( currentReexaminations?.length > 0 || updatedLesson.learnStep > 0);
+      if (updatedLesson) {
+        setStudentUsedSlonig(currentReexaminations?.length > 0 || updatedLesson.learnStep > 0);
       }
       if (updatedLesson.reexamineStep < updatedLesson.toReexamineCount) {
         setReexamined(false);
@@ -150,16 +150,19 @@ function Teach({ className = '' }: Props): React.ReactElement<Props> {
   const publicKeyHex = currentPair ? u8aToHex(currentPair.publicKey) : "";
 
   const reexamAndDiplomaIssuing = <>
-    {lesson && <LinearProgress
-      value={lesson.learnStep + lesson.reexamineStep}
-      total={lesson.toLearnCount + lesson.toReexamineCount}
-    />}
+    {lesson && <div
+      style={{ marginLeft: '40px', marginRight: '40px' }}>
+      <LinearProgress
+        value={lesson.learnStep + lesson.reexamineStep}
+        total={lesson.toLearnCount + lesson.toReexamineCount}
+      />
+    </div>}
     <StyledCloseButton onClick={onCloseTutoring}
       icon='close'
     />
     <div>
-      {!reexamined && reexaminationToPerform && <DoInstructions entity={reexaminationToPerform} onResult={updateReexamined} studentName={studentName} key={'reexaminine'+reexaminationToPerform.cid} />}
-      {reexamined && letterTemplateToIssue && <DoInstructions entity={letterTemplateToIssue} onResult={updateLearned} studentName={studentName} studentUsedSlonig={studentUsedSlonig} key={'learn'+letterTemplateToIssue.cid} />}
+      {!reexamined && reexaminationToPerform && <DoInstructions entity={reexaminationToPerform} onResult={updateReexamined} studentName={studentName} key={'reexaminine' + reexaminationToPerform.cid} />}
+      {reexamined && letterTemplateToIssue && <DoInstructions entity={letterTemplateToIssue} onResult={updateLearned} studentName={studentName} studentUsedSlonig={studentUsedSlonig} key={'learn' + letterTemplateToIssue.cid} />}
     </div>
   </>;
 
@@ -181,4 +184,3 @@ function Teach({ className = '' }: Props): React.ReactElement<Props> {
 }
 
 export default React.memo(Teach);
-

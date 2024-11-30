@@ -408,7 +408,7 @@ const DiplomaDiv = styled.div`
 export const StyledCloseButton = styled(Button)`
   position: absolute;
   width: 40px;
-  top: 50px;
+  top: 52px;
   right: 10px;
   z-index: 1;
 `;
