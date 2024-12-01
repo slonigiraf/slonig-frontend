@@ -217,10 +217,5 @@ const StyledPopup = styled(Popup)`
     color: #F39200 !important;
   }
 `;
-const StyledDiv = styled.div`
-  display: flex;
-  flex-direction: column;
-  width: 100%;
-  align-items: center;
-`;
+
 export default React.memo(DoInstructions)

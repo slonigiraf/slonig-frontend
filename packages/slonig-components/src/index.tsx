@@ -146,6 +146,7 @@ export const InstructionsButtonsContainer = styled.div`
 export const InstructionsButtonsGroup = styled.div`
   display: flex;
   align-items: center;
+  justify-content: center;
   width: 100%;
   margin: 0 auto;
   min-width: 300px;
