@@ -163,7 +163,7 @@ class TutoringAlgorithm extends Algorithm {
 
         const hasStudentCreatedASimilarTask = new AlgorithmStage(
             'intermediate',
-            t('Next'),
+            t('Teach now'),
             <StyledDiv>
                 <ChatSimulation messages={[
                     { ...myMessage, text: t('Come up with an exercise similar to this:') },
@@ -210,7 +210,7 @@ class TutoringAlgorithm extends Algorithm {
 
         const hasStudentCompletedExerciseCorrectly = new AlgorithmStage(
             'intermediate',
-            t('Next'),
+            t('Teach now'),
             <StyledDiv>
                 <ChatSimulation messages={[
                     { ...myMessage, text: question1, image: exerciseImage1 },

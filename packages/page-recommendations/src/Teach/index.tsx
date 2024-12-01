@@ -99,9 +99,9 @@ function Teach({ className = '' }: Props): React.ReactElement<Props> {
 
 
 
-  const onResumeTutoring = useCallback((lesson: Lesson): void => {
-    storeSetting(SettingKey.LESSON, lesson.id);
-    setLesson(lesson);
+  const onResumeTutoring = useCallback(async (lesson: Lesson): Promise<void> => {
+    await storeSetting(SettingKey.LESSON, lesson.id);
+    fetchLesson();
   }, [storeSetting, setLesson]);
 
   const onShowResults = useCallback(async (lesson: Lesson) => {
