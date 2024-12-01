@@ -1,9 +1,9 @@
 // Copyright 2021-2022 @slonigiraf/app-recommendations authors & contributors
 // SPDX-License-Identifier: Apache-2.0
 
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { AlgorithmStage } from './AlgorithmStage.js';
-import { Button, Spinner } from '@polkadot/react-components';
+import { Button, Menu, Popup, Spinner } from '@polkadot/react-components';
 import type { Skill } from '@slonigiraf/app-slonig-components';
 import { ValidatingAlgorithm } from './ValidatingAlgorithm.js';
 import { useTranslation } from '../translate.js';
@@ -107,6 +107,9 @@ function DoInstructions({ className = '', entity, onResult, studentName, student
     return <Spinner label={t('Loading')} />;
   }
 
+
+
+
   return (
     <div className={className} >
       {algorithmStage ? (<>
@@ -133,6 +136,46 @@ function DoInstructions({ className = '', entity, onResult, studentName, student
                 isDisabled={isButtonClicked}
               />
             ))}
+            {!algorithmStage.getPrevious() && <Popup
+              value={
+                <Menu>
+                  {isReexamination(entity) ?
+                    <React.Fragment>
+                      <Menu.Item
+                        icon='thumbs-up'
+                        key='copyAddress'
+                        label={t('Student has the skill')}
+                        onClick={() => { }}
+                      />
+                      <Menu.Divider />
+                      <Menu.Item
+                        icon='circle-exclamation'
+                        key='copyAddress'
+                        label={t('Student failed the reexamination')}
+                        onClick={() => { }}
+                      />
+                    </React.Fragment>
+                    :
+                    <React.Fragment>
+                      <Menu.Item
+                        icon='thumbs-up'
+                        key='copyAddress'
+                        label={t('Student mastered the skill')}
+                        onClick={() => { }}
+                      />
+                      <Menu.Divider />
+                      <Menu.Item
+                        icon='circle-exclamation'
+                        key='copyAddress'
+                        label={t('Should be repeated tomorrow')}
+                        onClick={() => { }}
+                      />
+                    </React.Fragment>
+                  }
+                </Menu>
+              }
+            />}
+
           </InstructionsButtonsGroup>
         </InstructionsButtonsContainer>
       </>) : (

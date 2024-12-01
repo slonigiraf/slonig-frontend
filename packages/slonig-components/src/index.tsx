@@ -150,6 +150,9 @@ export const InstructionsButtonsGroup = styled.div`
   margin: 0 auto;
   min-width: 300px;
   max-width: 300px;
+  & > button {
+    padding: 5px !important;
+  }
 `;
 export const StyledSpinnerContainer = styled.div`
   .ui--Spinner{

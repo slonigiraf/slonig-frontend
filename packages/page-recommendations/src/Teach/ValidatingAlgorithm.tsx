@@ -125,7 +125,7 @@ class ValidatingAlgorithm extends Algorithm {
 
         const hasStudentCreatedASimilarExercise = new AlgorithmStage(
             'intermediate',
-            t('Next'),
+            t('Reexamine'),
             <StyledDiv>
                 <ChatSimulation messages={[
                     { ...myMessage, text: t('Come up with an exercise similar to this:') },
@@ -165,7 +165,7 @@ class ValidatingAlgorithm extends Algorithm {
 
 
         // Algo linking:
-        this.begin.setNext([skip, hasStudentCreatedASimilarExercise, flashReimburse]);
+        this.begin.setNext([skip, hasStudentCreatedASimilarExercise]);
         hasStudentCreatedASimilarExercise.setPrevious(this.begin);
         hasStudentCreatedASimilarExercise.setNext([provideFakeSolution, askToRepeatTheExerciseAfterMe]);// Fork #1
         provideFakeSolution.setPrevious(hasStudentCreatedASimilarExercise);
