@@ -4,6 +4,7 @@ import { ExerciseList } from '@slonigiraf/app-laws';
 import ChatSimulation from './ChatSimulation.js';
 import { styled } from '@polkadot/react-components';
 import { IMessage, Skill } from '@slonigiraf/app-slonig-components';
+import ExampleExercisesButton from './ExampleExercisesButton.js';
 
 class TutoringAlgorithm extends Algorithm {
     constructor(t: any, studentName: string | null, skill: Skill, studentUsesSlonigFirstTime: boolean) {
@@ -77,7 +78,7 @@ class TutoringAlgorithm extends Algorithm {
                     { ...myMessage, text: t('Repeat after me:') },
                     { ...myMessage, text: t('...'), comment: t('I provide the student with the correct execution of the exercise invented by the student. I can peek at examples here:') },
                 ]} />
-                {questions != null && <ExerciseList exercises={questions} areShownInitially={true} />}
+                {skill != null && <ExampleExercisesButton skill={skill} />}
             </StyledDiv>
         );
 
@@ -90,7 +91,7 @@ class TutoringAlgorithm extends Algorithm {
                     { ...myMessage, text: t('Repeat after me:') },
                     { ...myMessage, text: answer1 === '' ? t('...') : answer1, image: answerImage1, comment: answer1 === '' ? t('I provide the student with the correct execution of the exercise. I can peek at examples here:') : '' },
                 ]} />
-                {answer1 === '' && questions != null && <ExerciseList exercises={questions} areShownInitially={true} />}
+                {skill != null && <ExampleExercisesButton skill={skill} />}
             </StyledDiv>
         );
 
@@ -317,4 +318,5 @@ const StyledDiv = styled.div`
   width: 100%;
   align-items: center;
 `;
+
 export { TutoringAlgorithm };

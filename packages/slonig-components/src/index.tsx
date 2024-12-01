@@ -103,7 +103,11 @@ export const VerticalCenterItemsContainer = styled(CenterItemsContainer)`
 export const HorizontalCenterItemsContainer = styled(CenterItemsContainer)`
   flex-direction: row;
 `;
-
+export const AlignRightDiv = styled.div`
+    width: 100%;
+    display: flex;
+    justify-content: right;
+`;
 export const CenterQRContainer = styled.div`
   display: flex;
   flex-direction: column;

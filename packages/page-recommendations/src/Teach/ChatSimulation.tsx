@@ -24,7 +24,6 @@ const ChatSimulation: React.FC<ChatSimulationProps> = ({ messages }) => {
     );
 };
 const ChatContainer = styled.div`
-  padding: 5px;
   font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
   font-size: 18px;
   width: 100%;
