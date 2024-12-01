@@ -3,7 +3,7 @@
 
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { AlgorithmStage } from './AlgorithmStage.js';
-import { Button, Menu, Popup, Spinner } from '@polkadot/react-components';
+import { Button, Menu, Popup, Spinner, styled } from '@polkadot/react-components';
 import type { Skill } from '@slonigiraf/app-slonig-components';
 import { ValidatingAlgorithm } from './ValidatingAlgorithm.js';
 import { useTranslation } from '../translate.js';
@@ -136,45 +136,46 @@ function DoInstructions({ className = '', entity, onResult, studentName, student
                 isDisabled={isButtonClicked}
               />
             ))}
-            {!algorithmStage.getPrevious() && <Popup
-              value={
-                <Menu>
-                  {isReexamination(entity) ?
-                    <React.Fragment>
-                      <Menu.Item
-                        icon='thumbs-up'
-                        key='copyAddress'
-                        label={t('Student has the skill')}
-                        onClick={() => { }}
-                      />
-                      <Menu.Divider />
-                      <Menu.Item
-                        icon='circle-exclamation'
-                        key='copyAddress'
-                        label={t('Student failed the reexamination')}
-                        onClick={() => { }}
-                      />
-                    </React.Fragment>
-                    :
-                    <React.Fragment>
-                      <Menu.Item
-                        icon='thumbs-up'
-                        key='copyAddress'
-                        label={t('Student mastered the skill')}
-                        onClick={() => { }}
-                      />
-                      <Menu.Divider />
-                      <Menu.Item
-                        icon='circle-exclamation'
-                        key='copyAddress'
-                        label={t('Should be repeated tomorrow')}
-                        onClick={() => { }}
-                      />
-                    </React.Fragment>
-                  }
-                </Menu>
-              }
-            />}
+            {!algorithmStage.getPrevious() &&
+              <StyledPopup
+                value={
+                  <Menu>
+                    {isReexamination(entity) ?
+                      <React.Fragment>
+                        <Menu.Item
+                          icon='thumbs-up'
+                          key='copyAddress'
+                          label={t('Student has the skill')}
+                          onClick={() => { }}
+                        />
+                        <Menu.Divider />
+                        <Menu.Item
+                          icon='circle-exclamation'
+                          key='copyAddress'
+                          label={t('Student failed the reexamination')}
+                          onClick={() => { }}
+                        />
+                      </React.Fragment>
+                      :
+                      <React.Fragment>
+                        <Menu.Item
+                          icon='thumbs-up'
+                          key='copyAddress'
+                          label={t('Student mastered the skill')}
+                          onClick={() => { }}
+                        />
+                        <Menu.Divider />
+                        <Menu.Item
+                          icon='circle-exclamation'
+                          key='copyAddress'
+                          label={t('Should be repeated tomorrow')}
+                          onClick={() => { }}
+                        />
+                      </React.Fragment>
+                    }
+                  </Menu>
+                }
+              />}
 
           </InstructionsButtonsGroup>
         </InstructionsButtonsContainer>
@@ -184,5 +185,10 @@ function DoInstructions({ className = '', entity, onResult, studentName, student
     </div>
   );
 }
-
+const StyledPopup = styled(Popup)`
+  .ui--Icon {
+    background-color: transparent !important;
+    color: #F39200 !important;
+  }
+`;
 export default React.memo(DoInstructions)
