@@ -18,7 +18,8 @@ function ExampleExercisesButton({ className = '', skill }: Props): React.ReactEl
   const [areDetailsOpen, toggleDetailsOpen] = useToggle(false);
   return (
     <AlignRightDiv>
-      <StyledButton
+      <Button
+        icon='eye'
         label={t('examples')}
         onClick={toggleDetailsOpen}
       />
@@ -36,31 +37,5 @@ function ExampleExercisesButton({ className = '', skill }: Props): React.ReactEl
     </AlignRightDiv>
   );
 }
-
-const StyledButton = styled(Button)`
-    background: none !important;
-    border: none;
-    color: blue !important;
-    text-decoration: underline;
-    cursor: pointer;
-    padding: 0;
-    font: inherit;
-    
-    &:hover {
-        text-decoration: none;
-        color: darkblue;
-    }
-
-    &:active {
-        text-decoration: underline;
-        color: navy;
-    }
-
-    &:focus {
-        outline: none;
-        text-decoration: underline;
-        color: blue;
-    }
-`;
 
 export default React.memo(ExampleExercisesButton);
