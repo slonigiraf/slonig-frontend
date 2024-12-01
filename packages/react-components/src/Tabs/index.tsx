@@ -51,7 +51,6 @@ function Tabs({ basePath, className = '', hidden, items }: Props): React.ReactEl
     filtered.length > 1 ?
       <StyledHeader className={`${className} ui--Tabs`}>
         <div className='tabs-container'>
-          <Delimiter />
           <ul className='ui--TabsList'>
             {filtered.map((tab, index) => (
               <li
@@ -76,16 +75,16 @@ function Tabs({ basePath, className = '', hidden, items }: Props): React.ReactEl
 const StyledHeader = styled.header`
   background: var(--bg-tabs);
   border-bottom: 1px solid var(--border-tabs);
-  text-align: left;
   z-index: 1;
 
   & .tabs-container {
     display: flex;
     align-items: center;
+    justify-content: center;
     width: 100%;
     margin: 0 auto;
     max-width: var(--width-full);
-    padding: 0 1.5rem 0 0;
+    padding: 0;
     height: 3.286rem;
   }
 
