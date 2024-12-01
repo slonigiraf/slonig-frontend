@@ -71,47 +71,55 @@ function DoInstructions({ className = '', entity, onResult, studentName, student
     };
   }, [ipfs, entity, studentName]);
 
-  const repeatTomorrow = useCallback(async () => {
+  const processLetter = useCallback(async (success: boolean) => {
+    if (isLetterTemplate(entity)) {
+      const preparedLetterTemplate: LetterTemplate = {
+        ...entity,
+        valid: success,
+        lastExamined: (new Date()).getTime(),
+      };
+      await putLetterTemplate(preparedLetterTemplate);
+      onResult();
+    }
+  }, [isLetterTemplate, entity, putLetterTemplate, onResult]);
 
-  }, []);
+  const repeatTomorrow = useCallback(async () => {
+    processLetter(false);
+  }, [processLetter]);
 
   const issueDiploma = useCallback(async () => {
-
-  }, []);
+    processLetter(true);
+  }, [processLetter]);
 
   const studentPassedReexamination = useCallback(async () => {
-
-  }, []);
+    const now = (new Date).getTime();
+    if(isReexamination(entity)){
+      const successfulReexamination: Reexamination = { ...entity, created: now, lastExamined: now };
+      await updateReexamination(successfulReexamination);
+      onResult();
+    }
+  }, [isReexamination, entity, updateReexamination, onResult]);
 
   const studentFailedReexamination = useCallback(async () => {
-
-  }, []);
+    const now = (new Date).getTime();
+    showInfo(t('Bounty will be collected after the lesson ends.'));
+    const failedReexamination: Reexamination = { ...entity, created: now, lastExamined: now, valid: false };
+    await updateReexamination(failedReexamination);
+    onResult();
+  }, [showInfo, t, entity, updateReexamination, onResult]);
 
   const handleStageChange = async (nextStage: AlgorithmStage | null) => {
     if (nextStage !== null) {
       setIsButtonClicked(true);
       const now = (new Date).getTime();
       if (isReexamination(entity) && nextStage.type === 'reimburse') {
-        showInfo(t('Bounty will be collected after the lesson ends.'));
-        const failedReexamination: Reexamination = { ...entity, created: now, lastExamined: now, valid: false };
-        await updateReexamination(failedReexamination);
-        onResult();
+        studentFailedReexamination();
       } else if (nextStage.type === 'skip') {
         onResult();
-      } else if (
-        isLetterTemplate(entity) &&
-        (nextStage.type === 'success' || nextStage.type === 'next_skill')) {
-        const preparedLetterTemplate: LetterTemplate = {
-          ...entity,
-          valid: nextStage.type === 'success',
-          lastExamined: (new Date()).getTime(),
-        };
-        await putLetterTemplate(preparedLetterTemplate);
-        onResult();
+      } else if (isLetterTemplate(entity) && (nextStage.type === 'success' || nextStage.type === 'next_skill')) {
+        processLetter(nextStage.type === 'success');
       } else if (isReexamination(entity) && nextStage.type === 'success') {
-        const successfulReexamination: Reexamination = { ...entity, created: now, lastExamined: now };
-        await updateReexamination(successfulReexamination);
-        onResult();
+        studentPassedReexamination();
       } else {
         setAlgorithmStage(nextStage);
         setIsButtonClicked(false);
@@ -159,14 +167,14 @@ function DoInstructions({ className = '', entity, onResult, studentName, student
                           icon='thumbs-up'
                           key='copyAddress'
                           label={t('Student has the skill')}
-                          onClick={() => { }}
+                          onClick={studentPassedReexamination}
                         />
                         <Menu.Divider />
                         <Menu.Item
                           icon='circle-exclamation'
                           key='copyAddress'
                           label={t('Student failed the reexamination')}
-                          onClick={() => { }}
+                          onClick={studentFailedReexamination}
                         />
                       </React.Fragment>
                       :
@@ -175,14 +183,14 @@ function DoInstructions({ className = '', entity, onResult, studentName, student
                           icon='thumbs-up'
                           key='copyAddress'
                           label={t('Student mastered the skill')}
-                          onClick={() => { }}
+                          onClick={issueDiploma}
                         />
                         <Menu.Divider />
                         <Menu.Item
                           icon='circle-exclamation'
                           key='copyAddress'
                           label={t('Should be repeated tomorrow')}
-                          onClick={() => { }}
+                          onClick={repeatTomorrow}
                         />
                       </React.Fragment>
                     }
