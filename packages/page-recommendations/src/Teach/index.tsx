@@ -160,10 +160,8 @@ function Teach({ className = '' }: Props): React.ReactElement<Props> {
     <StyledCloseButton onClick={onCloseTutoring}
       icon='close'
     />
-    <div>
-      {!reexamined && reexaminationToPerform && <DoInstructions entity={reexaminationToPerform} onResult={updateReexamined} studentName={studentName} key={'reexaminine' + reexaminationToPerform.cid} />}
-      {reexamined && letterTemplateToIssue && <DoInstructions entity={letterTemplateToIssue} onResult={updateLearned} studentName={studentName} studentUsedSlonig={studentUsedSlonig} key={'learn' + letterTemplateToIssue.cid} />}
-    </div>
+    {!reexamined && reexaminationToPerform && <DoInstructions entity={reexaminationToPerform} onResult={updateReexamined} studentName={studentName} key={'reexaminine' + reexaminationToPerform.cid} />}
+    {reexamined && letterTemplateToIssue && <DoInstructions entity={letterTemplateToIssue} onResult={updateLearned} studentName={studentName} studentUsedSlonig={studentUsedSlonig} key={'learn' + letterTemplateToIssue.cid} />}
   </>;
 
   return (

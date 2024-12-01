@@ -93,26 +93,27 @@ function DoInstructions({ className = '', entity, onResult, studentName, student
   }, [processLetter]);
 
   const studentPassedReexamination = useCallback(async () => {
-    const now = (new Date).getTime();
-    if (isReexamination(entity)) {
-      const successfulReexamination: Reexamination = { ...entity, created: now, lastExamined: now };
+    if (isReexamination(entity) && 'created' in entity) {
+      const now = (new Date).getTime();
+      const successfulReexamination: Reexamination = { ...entity, lastExamined: now };
       await updateReexamination(successfulReexamination);
       onResult();
     }
   }, [isReexamination, entity, updateReexamination, onResult]);
 
   const studentFailedReexamination = useCallback(async () => {
-    const now = (new Date).getTime();
-    showInfo(t('Bounty will be collected after the lesson ends.'));
-    const failedReexamination: Reexamination = { ...entity, created: now, lastExamined: now, valid: false };
-    await updateReexamination(failedReexamination);
-    onResult();
+    if (isReexamination(entity) && 'created' in entity) {
+      const now = (new Date).getTime();
+      showInfo(t('Bounty will be collected after the lesson ends.'));
+      const failedReexamination: Reexamination = { ...entity, lastExamined: now, valid: false };
+      await updateReexamination(failedReexamination);
+      onResult();
+    }
   }, [showInfo, t, entity, updateReexamination, onResult]);
 
   const handleStageChange = async (nextStage: AlgorithmStage | null) => {
     if (nextStage !== null) {
       setIsButtonClicked(true);
-      const now = (new Date).getTime();
       if (isReexamination(entity) && nextStage.type === 'reimburse') {
         studentFailedReexamination();
       } else if (nextStage.type === 'skip') {
@@ -136,10 +137,10 @@ function DoInstructions({ className = '', entity, onResult, studentName, student
     <div className={className} >
       {algorithmStage ? (<>
         <InstructionsContainer key={entity?.cid}>
-          <StyledDiv>
-            <ChatSimulation messages={algorithmStage.getMessages()} />
-            {algorithmStage.getChatDecorator()}
-          </StyledDiv>
+          {/* <StyledDiv> */}
+          <ChatSimulation messages={algorithmStage.getMessages()} />
+          {algorithmStage.getChatDecorator()}
+          {/* </StyledDiv> */}
         </InstructionsContainer>
         <InstructionsButtonsContainer>
           {algorithmStage.getActionHint() && (
