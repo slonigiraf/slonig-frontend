@@ -120,7 +120,7 @@ export const InstructionsContainer = styled.div`
   padding-top: 15px;
   width: 100%;
   margin-top: 10px;
-  max-height: calc(100vh - 280px); /* Limit height to ensure it stops 200px from the bottom */
+  max-height: calc(100vh - 260px); /* Limit height to ensure it stops 200px from the bottom */
   overflow-y: auto; /* Enable scrolling when content exceeds height */
   box-sizing: border-box; /* Include padding in height calculations */
 `;
@@ -133,7 +133,7 @@ export const InstructionsButtonsContainer = styled.div`
   width: 100%;
   margin: 0 auto;
   position: fixed;
-  bottom: 80px;
+  bottom: 90px;
   @media (min-width: 768px) {
     left: 50%;
     transform: translateX(-50%);

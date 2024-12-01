@@ -71,6 +71,22 @@ function DoInstructions({ className = '', entity, onResult, studentName, student
     };
   }, [ipfs, entity, studentName]);
 
+  const repeatTomorrow = useCallback(async () => {
+
+  }, []);
+
+  const issueDiploma = useCallback(async () => {
+
+  }, []);
+
+  const studentPassedReexamination = useCallback(async () => {
+
+  }, []);
+
+  const studentFailedReexamination = useCallback(async () => {
+
+  }, []);
+
   const handleStageChange = async (nextStage: AlgorithmStage | null) => {
     if (nextStage !== null) {
       setIsButtonClicked(true);
@@ -106,9 +122,6 @@ function DoInstructions({ className = '', entity, onResult, studentName, student
   if (!skill) {
     return <Spinner label={t('Loading')} />;
   }
-
-
-
 
   return (
     <div className={className} >
