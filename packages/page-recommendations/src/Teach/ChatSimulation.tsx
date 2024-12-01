@@ -33,7 +33,7 @@ const MessageContainer = styled.div<{ sender: 'you' | 'them' }>`
   display: flex;
   flex-direction: column;
   align-items: ${props => props.sender === 'you' ? 'flex-end' : 'flex-start'};
-  padding: 5px;
+  padding: 3px;
   width: 100%;
   margin: 0 auto;
 `;
@@ -44,7 +44,7 @@ const Bubble = styled.div<{ sender: 'you' | 'them' }>`
   box-shadow: 0 1px 0.5px rgba(0, 0, 0, 0.13);
   max-width: 80%;
   min-width: 80%;
-  padding: 20px;
+  padding: 15px;
   margin: 1px 0;
   word-wrap: break-word;
   position: relative;
