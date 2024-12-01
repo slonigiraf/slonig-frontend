@@ -151,6 +151,7 @@ export const InstructionsButtonsGroup = styled.div`
   min-width: 300px;
   max-width: 300px;
   & > button {
+    height: 2.5rem !important;
     padding: 5px !important;
   }
 `;
