@@ -16,6 +16,12 @@ interface Props {
   currentPair: KeyringPair;
 }
 
+enum ToggleState {
+  NO_SELECTION = 0,
+  JUST_SELECTION = 1,
+  GETTING_BONUSES = 2,
+}
+
 function LettersList({ className = '', worker, currentPair }: Props): React.ReactElement<Props> {
   const MAX_SELECTED = 93;
   const { t } = useTranslation();
@@ -25,7 +31,7 @@ function LettersList({ className = '', worker, currentPair }: Props): React.Reac
   const { showInfo } = useInfo();
   const navigate = useNavigate();
   const [reloadCount, setReloadCount] = useState<number>(0);
-  const [isSelectionAllowed, setSelectionAllowed] = useState(false);
+  const [toggleState, setToggleState] = useState<ToggleState>(ToggleState.NO_SELECTION);
 
   // Initialize startDate and endDate as timestamps
   const [startDate, setStartDate] = useState<number | null>(new Date(new Date().setHours(0, 0, 0, 0)).getTime());
@@ -49,8 +55,20 @@ function LettersList({ className = '', worker, currentPair }: Props): React.Reac
   };
 
   const handleSelectionToggle = useCallback((checked: boolean): void => {
-    setSelectionAllowed(checked);
-  }, []);
+    if(checked && toggleState === ToggleState.NO_SELECTION){
+      setToggleState(ToggleState.JUST_SELECTION);
+    } else {
+      setToggleState(ToggleState.NO_SELECTION);
+    }
+  }, [toggleState]);
+
+  const handleGetBonusToggle = useCallback((checked: boolean): void => {
+    if(checked){
+      setToggleState(ToggleState.GETTING_BONUSES);
+    } else {
+      setToggleState(ToggleState.NO_SELECTION);
+    }
+  }, [toggleState]);
 
   const deleteDiplomas = async () => {
     const idsToDelete = selectedLetters.map((letter) => letter.pubSign);
@@ -124,12 +142,12 @@ function LettersList({ className = '', worker, currentPair }: Props): React.Reac
         <Toggle
           label={t('Select')}
           onChange={handleSelectionToggle}
-          value={isSelectionAllowed}
+          value={toggleState !== ToggleState.NO_SELECTION}
         />
         <Toggle
           label={t('Get bonus')}
-          onChange={() => {}}
-          value={false}
+          onChange={handleGetBonusToggle}
+          value={toggleState === ToggleState.GETTING_BONUSES}
         />
         <Tag
           key={'get-bonus-help'}
@@ -154,7 +172,7 @@ function LettersList({ className = '', worker, currentPair }: Props): React.Reac
         additionalControls={deleteSelectedButton}
         keyExtractor={(letter) => letter.pubSign}
         key={worker+reloadCount}
-        isSelectionAllowed={isSelectionAllowed}
+        isSelectionAllowed={toggleState !== ToggleState.NO_SELECTION}
       />
       {isDeleteConfirmOpen && (
         <StyledModal
