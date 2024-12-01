@@ -115,6 +115,7 @@ export const CenterQRContainer = styled.div`
 export const InstructionsContainer = styled.div`
   padding-top: 15px;
   width: 100%;
+  margin-top: 10px;
   max-height: calc(100vh - 280px); /* Limit height to ensure it stops 200px from the bottom */
   overflow-y: auto; /* Enable scrolling when content exceeds height */
   box-sizing: border-box; /* Include padding in height calculations */
@@ -122,8 +123,10 @@ export const InstructionsContainer = styled.div`
 
 export const InstructionsButtonsContainer = styled.div`
   display: flex;
+  flex-direction: column;
   align-items: center;
-  max-width: 400px;
+  justify-content: center;
+  width: 100%;
   margin: 0 auto;
   position: fixed;
   bottom: 80px;
@@ -131,13 +134,18 @@ export const InstructionsButtonsContainer = styled.div`
     left: 50%;
     transform: translateX(-50%);
   }
+  .hint {
+    min-width: 300px;
+    max-width: 300px;
+  }
 `;
 export const InstructionsButtonsGroup = styled.div`
   display: flex;
   align-items: center;
   width: 100%;
   margin: 0 auto;
-  flex-wrap: wrap;
+  min-width: 300px;
+  max-width: 300px;
 `;
 export const StyledSpinnerContainer = styled.div`
   .ui--Spinner{
