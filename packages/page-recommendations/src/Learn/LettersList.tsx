@@ -2,7 +2,7 @@ import DiplomaInfo from './../Assess/DiplomaInfo.js';
 import React, { useCallback, useState } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { deleteLetter, Diploma, getLetters, Letter } from '@slonigiraf/db';
-import { Button, styled, Icon, Modal, Toggle } from '@polkadot/react-components';
+import { Button, styled, Icon, Modal, Toggle, Tag } from '@polkadot/react-components';
 import { useTranslation } from '../translate.js';
 import { useLocation, useNavigate } from 'react-router-dom';
 import SignLettersUseRight from './SignLettersUseRight.js';
@@ -122,9 +122,21 @@ function LettersList({ className = '', worker, currentPair }: Props): React.Reac
       </div>
       <ToggleContainer>
         <Toggle
-          label={t('Allow selection')}
+          label={t('Select')}
           onChange={handleSelectionToggle}
           value={isSelectionAllowed}
+        />
+        <Toggle
+          label={t('Get bonus')}
+          onChange={() => {}}
+          value={false}
+        />
+        <Tag
+          key={'get-bonus-help'}
+          label={'?'}
+          size='large'
+          isHelp={true}
+          hover={t('Earn bonuses from teachers, parents, or employers—anyone who benefits from your learning. In return, they will be able to assess your diplomas and receive Slon tokens from tutors if you forget your skills.')}
         />
       </ToggleContainer>
       <SelectableList<Diploma>

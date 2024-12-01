@@ -115,7 +115,7 @@ function InsurancesList({ className = '', teacher, student, studentNameFromUrl }
       </div>
       <ToggleContainer>
         <Toggle
-          label={t('Allow selection')}
+          label={t('Select')}
           onChange={handleSelectionToggle}
           value={isSelectionAllowed}
         />

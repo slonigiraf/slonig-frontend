@@ -14,18 +14,19 @@ interface Props {
   color?: TagColor;
   hover?: React.ReactNode;
   label: React.ReactNode;
-  size?: 'small' | 'tiny';
+  size?: 'large' | 'medium' | 'small' | 'tiny';
+  isHelp?: boolean;
 }
 
 let tagId = 0;
 
-function Tag ({ className = '', color = 'theme', hover, label, size = 'small' }: Props): React.ReactElement<Props> {
+function Tag ({ className = '', color = 'theme', isHelp = false, hover, label, size = 'small' }: Props): React.ReactElement<Props> {
   const { theme } = useContext(ThemeContext as React.Context<ThemeDef>);
   const [trigger] = useState(() => `tag-hover-${Date.now()}-${tagId++}`);
 
   return (
     <StyledDiv
-      className={`${className} ui--Tag ${color}Color ${size}Size ${theme}Theme`}
+      className={`${className} ui--Tag ${color}Color ${isHelp && 'isHelp'} ${size}Size ${theme}Theme`}
       color={color || 'grey'}
       data-for={hover && trigger}
       data-tip={!!hover}
@@ -45,7 +46,7 @@ const StyledDiv = styled.div`
   border-radius: 0.25rem;
   color: #fff;
   display: inline-block;
-  font-size: var(--font-size-tiny);
+  font-size: var(--font-size-small);
   font-weight: var(--font-weight-normal);
   line-height: 1rem;
   margin: 0 0.125rem;
@@ -57,6 +58,14 @@ const StyledDiv = styled.div`
 
   &.tinySize {
     font-size: var(--font-size-tiny);
+  }
+
+  &.mediumSize {
+    font-size: var(--font-size-h3);
+  }
+
+  &.largeSize {
+    font-size: var(--font-size-h2);
   }
 
   &.blackColor {
@@ -102,6 +111,11 @@ const StyledDiv = styled.div`
 
   &.themeColor.darkTheme {
     background-color: rgba(255,255,255,0.08);
+  }
+
+  &.isHelp {
+    color: #F39200 !important;
+    background: transparent !important;
   }
 `;
 

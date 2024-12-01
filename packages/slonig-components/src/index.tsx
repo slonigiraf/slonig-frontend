@@ -166,6 +166,8 @@ export const StyledSpinnerContainer = styled.div`
 
 export const ToggleContainer = styled.div`
   margin: 5px 0;
+  display: flex;
+  flex-direction: row;
 `;
 
 export const StyledContentCloseButton = styled(Button)`

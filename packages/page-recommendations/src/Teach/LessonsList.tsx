@@ -93,7 +93,7 @@ function LessonsList({ className = '', tutor, onResumeTutoring, onShowResults }:
       </div>
       <ToggleContainer>
         <Toggle
-          label={t('Allow selection')}
+          label={t('Select')}
           onChange={handleSelectionToggle}
           value={isSelectionAllowed}
         />
