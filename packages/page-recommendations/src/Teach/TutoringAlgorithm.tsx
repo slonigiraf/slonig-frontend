@@ -31,79 +31,69 @@ class TutoringAlgorithm extends Algorithm {
         const giveInsurance = new AlgorithmStage(
             'success',
             t('Yes'),
-            <></>
+            []
         );
         const repeatNextDay = new AlgorithmStage(
             'repeat',
             t('No'),
-            <StyledDiv>
-                <ChatSimulation messages={[
-                    { ...myMessage, text: t('Excellent! Let\'s repeat this tomorrow.') },
-                ]} />
-            </StyledDiv>
+            [
+                { ...myMessage, text: t('Excellent! Let\'s repeat this tomorrow.') },
+            ]
         );
 
         const hasStudentRepeatedTheRightAnswerToExerciseCreatedThemselves = new AlgorithmStage(
             'intermediate',
             t('Next'),
-            <StyledDiv>
-                <ChatSimulation messages={[
-                    { ...myMessage, text: t('Repeat after me:') },
-                    { ...myMessage, text: t('...'), comment: t('Correct execution of the exercise invented by the student.') },
-                    { ...theirMessage, text: t('...') },
-                ]} />
-            </StyledDiv>,
+            [
+                { ...myMessage, text: t('Repeat after me:') },
+                { ...myMessage, text: t('...'), comment: t('Correct execution of the exercise invented by the student.') },
+                { ...theirMessage, text: t('...') },
+            ],
             t('Has the student repeated correctly?')
         );
 
         const hasStudentRepeatedTheRightSolutionOfExerciseOfTutor = new AlgorithmStage(
             'intermediate',
             t('Next'),
-            <StyledDiv>
-                <ChatSimulation messages={[
-                    { ...myMessage, text: t('Repeat after me:') },
-                    { ...myMessage, text: answer1 === '' ? t('...') : answer1, image: answerImage1, comment: answer1 === '' ? t('Correct execution of the exercise') : '' },
-                    { ...theirMessage, text: t('...') },
-                ]} />
-            </StyledDiv>,
+            [
+                { ...myMessage, text: t('Repeat after me:') },
+                { ...myMessage, text: answer1 === '' ? t('...') : answer1, image: answerImage1, comment: answer1 === '' ? t('Correct execution of the exercise') : '' },
+                { ...theirMessage, text: t('...') },
+            ],
             t('Has the student repeated correctly?')
         );
 
         const askStudentToRepeatTheAnswer = new AlgorithmStage(
             'intermediate',
             t('No'),
-            <StyledDiv>
-                <ChatSimulation messages={[
-                    { ...theirMessage, text: t('...'), comment: t('The student has not corrected me.') },
-                    { ...myMessage, text: t('Repeat after me:') },
-                    { ...myMessage, text: t('...'), comment: t('I provide the student with the correct execution of the exercise invented by the student. I can peek at examples here:') },
-                ]} />
-                {skill != null && <ExampleExercisesButton skill={skill} />}
-            </StyledDiv>
+            [
+                { ...theirMessage, text: t('...'), comment: t('The student has not corrected me.') },
+                { ...myMessage, text: t('Repeat after me:') },
+                { ...myMessage, text: t('...'), comment: t('I provide the student with the correct execution of the exercise invented by the student. I can peek at examples here:') },
+            ],
+            '',
+            <ExampleExercisesButton skill={skill} />
         );
 
         const askStudentToRepeatTheSolutionOfExerciseOfTutor = new AlgorithmStage(
             'intermediate',
             t('No'),
-            <StyledDiv>
-                <ChatSimulation messages={[
-                    { ...theirMessage, text: t('...'), comment: t('The student has not executed the exercise correctly.') },
-                    { ...myMessage, text: t('Repeat after me:') },
-                    { ...myMessage, text: answer1 === '' ? t('...') : answer1, image: answerImage1, comment: answer1 === '' ? t('I provide the student with the correct execution of the exercise. I can peek at examples here:') : '' },
-                ]} />
-                {skill != null && <ExampleExercisesButton skill={skill} />}
-            </StyledDiv>
+            [
+                { ...theirMessage, text: t('...'), comment: t('The student has not executed the exercise correctly.') },
+                { ...myMessage, text: t('Repeat after me:') },
+                { ...myMessage, text: answer1 === '' ? t('...') : answer1, image: answerImage1, comment: answer1 === '' ? t('I provide the student with the correct execution of the exercise. I can peek at examples here:') : '' },
+            ],
+            '',
+            <ExampleExercisesButton skill={skill} />
         );
 
 
         const wereTheStudentTasksAndAnswersPerfectToday = new AlgorithmStage(
             'intermediate',
             t('Yes'),
-            <StyledDiv>
-                <ChatSimulation messages={[
-                    { ...theirMessage, text: t('...'), comment: t('The student has corrected me and has given me the correct solution.') },
-                ]} />
-            </StyledDiv>,
+            [
+                { ...theirMessage, text: t('...'), comment: t('The student has corrected me and has given me the correct solution.') },
+            ],
             t('Were all of the student\'s exercises and answers perfect today?')
         );
 
@@ -111,13 +101,11 @@ class TutoringAlgorithm extends Algorithm {
         const hasStudentCorrectedTheFakeAnswer = new AlgorithmStage(
             'intermediate',
             t('Next'),
-            <StyledDiv>
-                <ChatSimulation messages={[
-                    { ...myMessage, text: t('...'), comment: t('I deliberately incorrectly perform the exercise invented by the student and say:') },
-                    { ...myMessage, text: t('Correct me.') },
-                    { ...theirMessage, text: t('...') },
-                ]} />
-            </StyledDiv>,
+            [
+                { ...myMessage, text: t('...'), comment: t('I deliberately incorrectly perform the exercise invented by the student and say:') },
+                { ...myMessage, text: t('Correct me.') },
+                { ...theirMessage, text: t('...') },
+            ],
             t('Has the student corrected the wrong solution?')
         );
 
@@ -125,72 +113,62 @@ class TutoringAlgorithm extends Algorithm {
         const hasStudentRepeatedAfterMeTheTask = new AlgorithmStage(
             'intermediate',
             t('Next'),
-            <StyledDiv>
-                <ChatSimulation messages={[
-                    { ...myMessage, text: t('Repeat after me:') },
-                    { ...myMessage, text: question2, image: exerciseImage2 },
-                    { ...theirMessage, text: '...' },
-                ]} />
-            </StyledDiv>,
+            [
+                { ...myMessage, text: t('Repeat after me:') },
+                { ...myMessage, text: question2, image: exerciseImage2 },
+                { ...theirMessage, text: '...' },
+            ],
             t('Has the student repeated correctly after me?')
         );
 
         const provideFakeAnswer = new AlgorithmStage(
             'intermediate',
             t('Yes'),
-            <StyledDiv>
-                <ChatSimulation messages={[
-                    { ...theirMessage, text: t('...'), comment: t('An exercise invented by a student.') },
-                    { ...myMessage, text: t('...'), comment: t('I deliberately incorrectly perform the exercise invented by the student and say:') },
-                    { ...myMessage, text: t('Correct me.') },
-                ]} />
-            </StyledDiv>
+            [
+                { ...theirMessage, text: t('...'), comment: t('An exercise invented by a student.') },
+                { ...myMessage, text: t('...'), comment: t('I deliberately incorrectly perform the exercise invented by the student and say:') },
+                { ...myMessage, text: t('Correct me.') },
+            ]
         );
 
 
         const askToRepeatTaskAfterMeTheTask = new AlgorithmStage(
             'intermediate',
             t('No'),
-            <StyledDiv>
-                <ChatSimulation messages={[
-                    { ...theirMessage, text: '...', comment: t('The student has not come up with the type of exercise needed.') },
-                    { ...myMessage, text: t('Repeat after me:') },
-                    { ...myMessage, text: question2, image: exerciseImage2, comment: t('I can change the exercise a little.') },
-                ]} />
-            </StyledDiv>
+            [
+                { ...theirMessage, text: '...', comment: t('The student has not come up with the type of exercise needed.') },
+                { ...myMessage, text: t('Repeat after me:') },
+                { ...myMessage, text: question2, image: exerciseImage2, comment: t('I can change the exercise a little.') },
+            ]
         );
 
 
         const hasStudentCreatedASimilarTask = new AlgorithmStage(
             'intermediate',
             t('Teach now'),
-            <StyledDiv>
-                <ChatSimulation messages={[
-                    { ...myMessage, text: t('Come up with an exercise similar to this:') },
-                    { ...myMessage, text: question1, image: exerciseImage1 },
-                    { ...theirMessage, text: '...' },
-                ]} />
-            </StyledDiv>,
+            [
+                { ...myMessage, text: t('Come up with an exercise similar to this:') },
+                { ...myMessage, text: question1, image: exerciseImage1 },
+                { ...theirMessage, text: '...' },
+            ],
             t('Has the student now invented a similar exercise?')
         );
 
         const skip = new AlgorithmStage(
             'skip',
             t('Skip'),
-            <></>
+            []
         );
 
         // Link stages
         const askStudentToCreateASimilarExercise = new AlgorithmStage(
             'begin',
             t('Yes'),
-            <StyledDiv>
-                <ChatSimulation messages={[
-                    { ...theirMessage, text: t('Teach me the skill') + (skill && ": \"" + skill.h + "\"") },
-                    { ...myMessage, text: t('Come up with an exercise similar to this:') },
-                    { ...myMessage, text: question1, image: exerciseImage1, comment: t('I can change the exercise a little.') },
-                ]} />
-            </StyledDiv>
+            [
+                { ...theirMessage, text: t('Teach me the skill') + (skill && ": \"" + skill.h + "\"") },
+                { ...myMessage, text: t('Come up with an exercise similar to this:') },
+                { ...myMessage, text: question1, image: exerciseImage1, comment: t('I can change the exercise a little.') },
+            ]
         );
 
 
@@ -198,25 +176,21 @@ class TutoringAlgorithm extends Algorithm {
         const askToCreateAnExerciseAfterCompletionOfExerciseOfTutor = new AlgorithmStage(
             'intermediate',
             t('Yes'),
-            <StyledDiv>
-                <ChatSimulation messages={[
-                    { ...theirMessage, text: t('...'), comment: t('The student has executed the exercise correctly.') },
-                    { ...myMessage, text: t('Come up with an exercise similar to this:') },
-                    { ...myMessage, text: question1, image: exerciseImage1, comment: t('I can change the exercise a little.') },
-                ]} />
-            </StyledDiv>
+            [
+                { ...theirMessage, text: t('...'), comment: t('The student has executed the exercise correctly.') },
+                { ...myMessage, text: t('Come up with an exercise similar to this:') },
+                { ...myMessage, text: question1, image: exerciseImage1, comment: t('I can change the exercise a little.') },
+            ]
         );
 
 
         const hasStudentCompletedExerciseCorrectly = new AlgorithmStage(
             'intermediate',
             t('Teach now'),
-            <StyledDiv>
-                <ChatSimulation messages={[
-                    { ...myMessage, text: question1, image: exerciseImage1 },
-                    { ...theirMessage, text: t('...') },
-                ]} />
-            </StyledDiv>,
+            [
+                { ...myMessage, text: question1, image: exerciseImage1 },
+                { ...theirMessage, text: t('...') },
+            ],
             t('Has the student now executed the exercise correctly?')
         );
 
@@ -224,30 +198,26 @@ class TutoringAlgorithm extends Algorithm {
         const askStudentToSolveAnExercise = new AlgorithmStage(
             'begin',
             t('Yes'),
-            <StyledDiv>
-                <ChatSimulation messages={[
-                    { ...theirMessage, text: t('Teach me the skill') + (skill && ": \"" + skill.h + "\"") },
-                    { ...myMessage, text: question1, image: exerciseImage1 },
-                ]} />
-            </StyledDiv>
+            [
+                { ...theirMessage, text: t('Teach me the skill') + (skill && ": \"" + skill.h + "\"") },
+                { ...myMessage, text: question1, image: exerciseImage1 },
+            ]
         );
 
         const repeatFromTheBeginning = new AlgorithmStage(
             'begin',
             t('Yes'),
-            <StyledDiv>
-                <ChatSimulation messages={[
-                    { ...theirMessage, text: t('...'), comment: t('The student has repeated correctly after me.') },
-                    { ...myMessage, text: t('Come up with an exercise similar to this:') },
-                    { ...myMessage, text: question1, image: exerciseImage1, comment: t('I can change the exercise a little.') },
-                ]} />
-            </StyledDiv>
+            [
+                { ...theirMessage, text: t('...'), comment: t('The student has repeated correctly after me.') },
+                { ...myMessage, text: t('Come up with an exercise similar to this:') },
+                { ...myMessage, text: question1, image: exerciseImage1, comment: t('I can change the exercise a little.') },
+            ]
         );
 
         const toNextSkill = new AlgorithmStage(
             'next_skill',
             t('Next'),
-            <></>
+            []
         );
 
         // Algo linking
@@ -309,14 +279,7 @@ class TutoringAlgorithm extends Algorithm {
         if (!studentUsesSlonigFirstTime) {
             hasStudentCreatedASimilarTask.setPrevious(askStudentToCreateASimilarExercise);
         }
-
     }
 }
-const StyledDiv = styled.div`
-  display: flex;
-  flex-direction: column;
-  width: 100%;
-  align-items: center;
-`;
 
 export { TutoringAlgorithm };

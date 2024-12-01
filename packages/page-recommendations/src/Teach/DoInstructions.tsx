@@ -11,6 +11,7 @@ import { InstructionsButtonsContainer, InstructionsButtonsGroup, InstructionsCon
 import { LetterTemplate, putLetterTemplate, Reexamination, updateReexamination } from '@slonigiraf/db';
 import { getIPFSDataFromContentID, parseJson, useInfo } from '@slonigiraf/app-slonig-components';
 import { TutoringAlgorithm } from './TutoringAlgorithm.js';
+import ChatSimulation from './ChatSimulation.js';
 
 interface Props {
   className?: string;
@@ -93,7 +94,7 @@ function DoInstructions({ className = '', entity, onResult, studentName, student
 
   const studentPassedReexamination = useCallback(async () => {
     const now = (new Date).getTime();
-    if(isReexamination(entity)){
+    if (isReexamination(entity)) {
       const successfulReexamination: Reexamination = { ...entity, created: now, lastExamined: now };
       await updateReexamination(successfulReexamination);
       onResult();
@@ -135,7 +136,10 @@ function DoInstructions({ className = '', entity, onResult, studentName, student
     <div className={className} >
       {algorithmStage ? (<>
         <InstructionsContainer key={entity?.cid}>
-          {algorithmStage.getChatSimulation()}
+          <StyledDiv>
+            <ChatSimulation messages={algorithmStage.getMessages()} />
+            {algorithmStage.getChatDecorator()}
+          </StyledDiv>
         </InstructionsContainer>
         <InstructionsButtonsContainer>
           {algorithmStage.getActionHint() && (
@@ -211,5 +215,11 @@ const StyledPopup = styled(Popup)`
     background-color: transparent !important;
     color: #F39200 !important;
   }
+`;
+const StyledDiv = styled.div`
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  align-items: center;
 `;
 export default React.memo(DoInstructions)

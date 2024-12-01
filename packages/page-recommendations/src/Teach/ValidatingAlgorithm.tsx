@@ -3,8 +3,6 @@ import { Algorithm } from './Algorithm.js';
 import type { IMessage, Skill } from '@slonigiraf/app-slonig-components';
 import { Reexamination } from '@slonigiraf/db';
 import BN from 'bn.js';
-import { styled } from '@polkadot/react-components';
-import ChatSimulation from './ChatSimulation.js';
 
 class ValidatingAlgorithm extends Algorithm {
     constructor(t: any, studentName: string | null, skill: Skill, reexamination: Reexamination) {
@@ -29,140 +27,113 @@ class ValidatingAlgorithm extends Algorithm {
         const validateDiploma = new AlgorithmStage(
             'intermediate',
             t('Yes'),
-            <StyledDiv>
-                <ChatSimulation messages={[
-                    { ...myMessage, text: t('Great, you remember the skill.') },
-                ]} />
-            </StyledDiv>
+            [
+                { ...myMessage, text: t('Great, you remember the skill.') },
+            ]
         );
-
 
         const amount = new BN(reexamination?.amount).div(new BN("1000000000000"));
 
         const explainReimburse = new AlgorithmStage(
             'intermediate',
             t('No'),
-            <StyledDiv>
-                <ChatSimulation messages={[
-                    { ...myMessage, text: t('You don\'t have such a skill. I will penalize the tutor which issued the diploma for it.'), comment: `${t('Press \"Get bounty\" to receive')} ${amount?.toString()} Slon.` },
-                ]} />
-            </StyledDiv>
+            [
+                { ...myMessage, text: t('You don\'t have such a skill. I will penalize the tutor which issued the diploma for it.'), comment: `${t('Press \"Get bounty\" to receive')} ${amount?.toString()} Slon.` },
+            ]
         );
 
         const skip = new AlgorithmStage(
             'skip',
             t('Skip'),
-            <></>
+            []
         );
+
         const nextToTeaching = new AlgorithmStage(
             'success',
             t('Next'),
-            <></>
+            []
         );
-        const flashReimburse = new AlgorithmStage(
-            'reimburse',
-            t('Get bounty'),
-            <></>
-        );
+
         const reimburse = new AlgorithmStage(
             'reimburse',
             t('Get bounty'),
-            <></>
+            []
         );
 
         const hasStudentCorrectedTheFakeSolution = new AlgorithmStage(
             'intermediate',
             t('Next'),
-            <StyledDiv>
-                <ChatSimulation messages={[
-                    { ...myMessage, text: t('...'), comment: t('I deliberately incorrectly perform the exercise invented by the student and say:') },
-                    { ...myMessage, text: t('Correct me.') },
-                    { ...theirMessage, text: t('...') },
-                ]} />
-            </StyledDiv>,
+            [
+                { ...myMessage, text: t('...'), comment: t('I deliberately incorrectly perform the exercise invented by the student and say:') },
+                { ...myMessage, text: t('Correct me.') },
+                { ...theirMessage, text: t('...') },
+            ],
             t('Has the student corrected the wrong solution?')
         );
-
 
         const hasStudentRepeatedAfterMeTheExercise = new AlgorithmStage(
             'intermediate',
             t('Next'),
-            <StyledDiv>
-                <ChatSimulation messages={[
-                    { ...myMessage, text: t('Repeat after me:') },
-                    { ...myMessage, text: question2, image: exerciseImage2 },
-                    { ...theirMessage, text: '...' },
-                ]} />
-            </StyledDiv>,
+            [
+                { ...myMessage, text: t('Repeat after me:') },
+                { ...myMessage, text: question2, image: exerciseImage2 },
+                { ...theirMessage, text: '...' },
+            ],
             t('Has the student repeated correctly after me?')
         );
 
         const provideFakeSolution = new AlgorithmStage(
             'intermediate',
             t('Yes'),
-            <StyledDiv>
-                <ChatSimulation messages={[
-                    { ...theirMessage, text: t('...'), comment: t('An exercise invented by a student.') },
-                    { ...myMessage, text: t('...'), comment: t('I deliberately incorrectly perform the exercise invented by the student and say:') },
-                    { ...myMessage, text: t('Correct me.') },
-                ]} />
-            </StyledDiv>
+            [
+                { ...theirMessage, text: t('...'), comment: t('An exercise invented by a student.') },
+                { ...myMessage, text: t('...'), comment: t('I deliberately incorrectly perform the exercise invented by the student and say:') },
+                { ...myMessage, text: t('Correct me.') },
+            ]
         );
 
 
         const askToRepeatTheExerciseAfterMe = new AlgorithmStage(
             'intermediate',
             t('No'),
-            <StyledDiv>
-                <ChatSimulation messages={[
-                    { ...theirMessage, text: '...', comment: t('The student has not come up with the type of exercise needed.') },
-                    { ...myMessage, text: t('Repeat after me:') },
-                    { ...myMessage, text: question2, image: exerciseImage2, comment: t('I can change the exercise a little.') },
-                ]} />
-            </StyledDiv>
+            [
+                { ...theirMessage, text: '...', comment: t('The student has not come up with the type of exercise needed.') },
+                { ...myMessage, text: t('Repeat after me:') },
+                { ...myMessage, text: question2, image: exerciseImage2, comment: t('I can change the exercise a little.') },
+            ]
         );
-
 
         const hasStudentCreatedASimilarExercise = new AlgorithmStage(
             'intermediate',
             t('Reexamine'),
-            <StyledDiv>
-                <ChatSimulation messages={[
-                    { ...myMessage, text: t('Come up with an exercise similar to this:') },
-                    { ...myMessage, text: question1, image: exerciseImage1 },
-                    { ...theirMessage, text: '...' },
-                ]} />
-            </StyledDiv>,
+            [
+                { ...myMessage, text: t('Come up with an exercise similar to this:') },
+                { ...myMessage, text: question1, image: exerciseImage1 },
+                { ...theirMessage, text: '...' },
+            ],
             t('Has the student now invented a similar exercise?')
         );
-
 
         // Link stages
         this.begin = new AlgorithmStage(
             'begin',
             t('Yes'),
-            <StyledDiv>
-                <ChatSimulation messages={[
-                    { ...theirMessage, text: t('Try to earn a bonus by testing my previous skill:') + (skill && " \"" + skill.h + "\".") },
-                    { ...myMessage, text: t('Come up with an exercise similar to this:') },
-                    { ...myMessage, text: question1, image: exerciseImage1, comment: t('I can change the exercise a little.') },
-                ]} />
-            </StyledDiv>
+            [
+                { ...theirMessage, text: t('Try to earn a bonus by testing my previous skill:') + (skill && " \"" + skill.h + "\".") },
+                { ...myMessage, text: t('Come up with an exercise similar to this:') },
+                { ...myMessage, text: question1, image: exerciseImage1, comment: t('I can change the exercise a little.') },
+            ]
         );
-
 
         const repeatFromTheBeginning = new AlgorithmStage(
             'begin',
             t('Yes'),
-            <StyledDiv>
-                <ChatSimulation messages={[
-                    { ...theirMessage, text: t('...'), comment: t('The student has repeated correctly after me.') },
-                    { ...myMessage, text: t('Come up with an exercise similar to this:') },
-                    { ...myMessage, text: question1, image: exerciseImage1, comment: t('I can change the exercise a little.') },
-                ]} />
-            </StyledDiv>
+            [
+                { ...theirMessage, text: t('...'), comment: t('The student has repeated correctly after me.') },
+                { ...myMessage, text: t('Come up with an exercise similar to this:') },
+                { ...myMessage, text: question1, image: exerciseImage1, comment: t('I can change the exercise a little.') },
+            ]
         );
-
 
         // Algo linking:
         this.begin.setNext([skip, hasStudentCreatedASimilarExercise]);
@@ -195,10 +166,5 @@ class ValidatingAlgorithm extends Algorithm {
 
     }
 }
-const StyledDiv = styled.div`
-  display: flex;
-  flex-direction: column;
-  width: 100%;
-  align-items: center;
-`;
+
 export { ValidatingAlgorithm };

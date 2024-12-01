@@ -73,13 +73,12 @@ function LessonInfo({ lesson, isSelected, onToggleSelection, onResumeTutoring, o
           onClick={() => onToggleSelection(lesson)}
         />
       )}
-
       <div>
-        <Button
+        {!isSelectionAllowed ? <Button
           icon="play"
           onClick={() => onResumeTutoring(lesson)}
           isDisabled={isSelectionAllowed || isFinished}
-        />
+        /> : <span>&nbsp;</span>}
       </div>
       <div style={{ width: '100%' }}>
         <div>
@@ -95,11 +94,11 @@ function LessonInfo({ lesson, isSelected, onToggleSelection, onResumeTutoring, o
         />
       </div>
       <div>
-        <Button
+        {!isSelectionAllowed && <Button
           icon="dollar"
           onClick={() => onShowResults(lesson)}
-          isDisabled={isSelectionAllowed || !progressValue}
-        />
+          isDisabled={!progressValue}
+        />}
       </div>
     </StyledDiv>
   );
