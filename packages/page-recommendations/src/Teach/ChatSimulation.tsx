@@ -38,12 +38,13 @@ const MessageContainer = styled.div<{ sender: 'you' | 'them' }>`
   margin: 0 auto;
 `;
 
+const BUBBLE_WIDTH_PERCENT = 90;
 const Bubble = styled.div<{ sender: 'you' | 'them' }>`
   background-color: ${props => props.sender === 'you' ? '#daf8cb' : 'white'};
   border-radius: 7.5px;
   box-shadow: 0 1px 0.5px rgba(0, 0, 0, 0.13);
-  max-width: 80%;
-  min-width: 80%;
+  max-width: ${BUBBLE_WIDTH_PERCENT}%;
+  min-width: ${BUBBLE_WIDTH_PERCENT}%;
   padding: 15px;
   margin: 1px 0;
   word-wrap: break-word;
@@ -67,7 +68,7 @@ const Comment = styled.div<{ sender: 'you' | 'them' }>`
   color: #707070;
   padding: 4px 20px;
   text-align: ${props => props.sender === 'you' ? 'right' : 'left'};
-  max-width: 80%;
+  max-width: ${BUBBLE_WIDTH_PERCENT}%;
 `;
 const Red = styled.span`
   color: red;
