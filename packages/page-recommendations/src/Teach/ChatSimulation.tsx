@@ -52,10 +52,6 @@ const Bubble = styled.div<{ sender: 'you' | 'them' }>`
 `;
 
 const SenderName = styled.div`
-  position: absolute;
-  top: 0.6em;
-  left: 20px;
-  right: 12px;
   font-size: 10px;
   color: #6a6a6a;
   overflow: hidden;
