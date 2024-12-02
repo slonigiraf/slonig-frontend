@@ -39,9 +39,6 @@ function SelectableList<T>({
   const [updatedItems, setUpdatedItems] = useState(items);
   const [selectedItems, setSelectedItems] = useState<T[]>([]);
 
-  useEffect(() => {
-    selectAll();
-  },[allSelected]);
 
   useEffect(() => {
     const shouldUpdateItems = 
@@ -107,6 +104,12 @@ function SelectableList<T>({
   const deselectAll = useCallback(() => {
     setSelectedItems([]);
   }, []);
+
+  useEffect(() => {
+    if(allSelected){
+      selectAll();
+    }
+  },[allSelected, selectAll]);
 
   return (
     <div className={className}>
