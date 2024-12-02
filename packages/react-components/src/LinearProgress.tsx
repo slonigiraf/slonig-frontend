@@ -26,16 +26,18 @@ function LinearProgress({ className = '', isBlurred, isDisabled, total, value }:
   }
 
   return (
-    <StyledDiv className={`${className} ui--LinearProgress ${isDisabled ? 'isDisabled' : ''} ${isBlurred ? '--tmp' : ''}`}>
-      <div className="background">
-        <div
-          className="progress highlight--bg"
-          style={{ width: `${percentage.toFixed(1)}%` }}
-        />
-      </div>
-      <div className="inner">
-        <div>{value?.toString()} / {total?.toString()}</div>
-      </div>
+    <StyledDiv>
+      <div className="progress--info">{value?.toString()}&nbsp;/&nbsp;{total?.toString()}</div>
+      <ProgressBar className={`${className} ui--LinearProgress ${isDisabled ? 'isDisabled' : ''} ${isBlurred ? '--tmp' : ''}`}>
+        <div className="background">
+          <div
+            className="progress highlight--bg"
+            style={{ width: `${percentage.toFixed(1)}%` }}
+          />
+        </div>
+        <div className="inner">
+        </div>
+      </ProgressBar>
     </StyledDiv>
   );
 }
@@ -43,6 +45,18 @@ function LinearProgress({ className = '', isBlurred, isDisabled, total, value }:
 const HEIGHT = '1.5rem';
 
 const StyledDiv = styled.div`
+  width: 100%;
+  display: flex;
+  flex-direction: row;
+  .progress--info {
+      line-height: 1;
+      color: var(--text-color, #000);
+      padding: 5px;
+  }
+  align-items: center;
+`;
+
+const ProgressBar = styled.div`
   position: relative;
   width: 100%;
   height: ${HEIGHT};
@@ -82,10 +96,6 @@ const StyledDiv = styled.div`
     font-size: var(--font-size-small);
     color: var(--text-color, #000);
     z-index: 3;
-
-    div {
-      line-height: 1;
-    }
   }
 `;
 

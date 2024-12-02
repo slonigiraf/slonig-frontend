@@ -151,7 +151,7 @@ function Teach({ className = '' }: Props): React.ReactElement<Props> {
 
   const reexamAndDiplomaIssuing = <>
     {lesson && <div
-      style={{ marginLeft: '40px', marginRight: '40px' }}>
+      style={{ marginLeft: '0px', marginRight: '40px' }}>
       <LinearProgress
         value={lesson.learnStep + lesson.reexamineStep}
         total={lesson.toLearnCount + lesson.toReexamineCount}
