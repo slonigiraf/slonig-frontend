@@ -91,7 +91,7 @@ function LettersList({ className = '', worker, currentPair }: Props): React.Reac
   };
 
   const deleteSelectedButton =
-    employer === '' && selectedLetters.length > 0 && (
+    toggleState !== ToggleState.GETTING_BONUSES && selectedLetters.length > 0 && (
       <Button icon="trash" label={t('Delete')} onClick={toggleDeleteConfirm} />
     );
 
