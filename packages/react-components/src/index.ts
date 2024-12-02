@@ -29,6 +29,7 @@ export { default as CopyButton } from './CopyButton.js';
 export { default as CryptoType } from './CryptoType.js';
 export { default as Dropdown } from './Dropdown.js';
 export { default as EditButton } from './EditButton.js';
+export { default as EditableInfo } from './EditableInfo.js';
 export { default as Editor } from './Editor.js';
 export { default as ErrorBoundary } from './ErrorBoundary.js';
 export { default as ExpandButton } from './ExpandButton.js';

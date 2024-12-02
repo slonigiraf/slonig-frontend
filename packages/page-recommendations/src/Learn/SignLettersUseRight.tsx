@@ -9,7 +9,7 @@ import { QRAction, QRField, nameFromKeyringPair, SenderComponent, CenterQRContai
 import { useTranslation } from '../translate.js';
 import { insuranceToUsageRight, Letter, putUsageRight, getInsuranceDaysValid, SettingKey, storeSetting, letterToInsurance, serializeInsurance, UsageRight } from '@slonigiraf/db';
 import { keyForCid } from '@slonigiraf/app-slonig-components';
-import { Input } from '@polkadot/react-components';
+import { EditableInfo } from '@polkadot/react-components';
 import { useApi, useBlockTime } from '@polkadot/react-hooks';
 
 interface Props {
@@ -67,7 +67,7 @@ function SignLettersUseRight({ className = '', letters, worker, employer, curren
 
             const insurances = await Promise.all(insurancePromises);
             usageRightsRef.current = insurances.map(insuranceToUsageRight);
-            
+
             const studentName = nameFromKeyringPair(currentPair);
 
             const preparedData: InsurancesTransfer = {
@@ -117,16 +117,13 @@ function SignLettersUseRight({ className = '', letters, worker, employer, curren
         action={action}
         textShare={t('Press the link to see diplomas of the student')}
         isDisabled={!thereAreDiplomas} />}
-      <div className='ui--row'>
-        <Input
-          className='full'
-          label={t('days valid')}
-          onChange={setDaysValid}
-          value={daysInputValue}
-          placeholder={t('Positive number')}
-          isError={!daysInputValue || daysInputValue === "0"}
-        />
-      </div>
+      <EditableInfo
+        label={t('days valid')}
+        onChange={setDaysValid}
+        value={daysInputValue}
+        placeholder={t('Positive number')}
+        isError={!daysInputValue || daysInputValue === "0"}
+      />
     </CenterQRContainer>
   );
 
