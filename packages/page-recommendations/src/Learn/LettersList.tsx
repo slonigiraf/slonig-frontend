@@ -9,6 +9,7 @@ import SignLettersUseRight from './SignLettersUseRight.js';
 import type { KeyringPair } from '@polkadot/keyring/types';
 import { DateInput, SelectableList, StyledContentCloseButton, ToggleContainer, useInfo } from '@slonigiraf/app-slonig-components';
 import { useToggle } from '@polkadot/react-hooks';
+import PersonSelector from '../PersonSelector.js';
 
 interface Props {
   className?: string;
@@ -27,7 +28,7 @@ function LettersList({ className = '', worker, currentPair }: Props): React.Reac
   const { t } = useTranslation();
   const location = useLocation();
   const queryParams = new URLSearchParams(location.search);
-  const employer = queryParams.get('teacher') || '';
+  const [employer, setEmployer] = useState(queryParams.get('teacher') || '');
   const { showInfo } = useInfo();
   const navigate = useNavigate();
   const [reloadCount, setReloadCount] = useState<number>(0);
@@ -55,7 +56,7 @@ function LettersList({ className = '', worker, currentPair }: Props): React.Reac
   };
 
   const handleSelectionToggle = useCallback((checked: boolean): void => {
-    if(checked && toggleState === ToggleState.NO_SELECTION){
+    if (checked && toggleState === ToggleState.NO_SELECTION) {
       setToggleState(ToggleState.JUST_SELECTION);
     } else {
       setToggleState(ToggleState.NO_SELECTION);
@@ -63,7 +64,7 @@ function LettersList({ className = '', worker, currentPair }: Props): React.Reac
   }, [toggleState]);
 
   const handleGetBonusToggle = useCallback((checked: boolean): void => {
-    if(checked){
+    if (checked) {
       setToggleState(ToggleState.GETTING_BONUSES);
     } else {
       setToggleState(ToggleState.NO_SELECTION);
@@ -95,18 +96,28 @@ function LettersList({ className = '', worker, currentPair }: Props): React.Reac
 
   const close = () => {
     setSelectedLetters([]);
-    setReloadCount(reloadCount+1);
+    setReloadCount(reloadCount + 1);
     navigate('', { replace: true });
   }
-  
+
   const startDateId = 'letters:start';
   const endDateId = 'letters:end';
+
+  const handleEmployerSelect = async (selectedKey: string) => {
+    if(selectedKey){
+      setEmployer(selectedKey);
+    }
+  };
 
   return !letters ? (
     <div></div>
   ) : (
     <div>
       <h2>{employer === '' ? t('My diplomas') : t('Select diplomas and send them')}</h2>
+      {<PersonSelector
+        label={t('select teacher / parent / employer')}
+        onChange={handleEmployerSelect}
+      />}
       {employer !== '' && selectedLetters && selectedLetters.length > 0 && (
         <div>
           <StyledContentCloseButton onClick={close}
@@ -171,7 +182,7 @@ function LettersList({ className = '', worker, currentPair }: Props): React.Reac
         maxSelectableItems={MAX_SELECTED}
         additionalControls={deleteSelectedButton}
         keyExtractor={(letter) => letter.pubSign}
-        key={worker+reloadCount}
+        key={worker + reloadCount}
         isSelectionAllowed={toggleState !== ToggleState.NO_SELECTION}
       />
       {isDeleteConfirmOpen && (

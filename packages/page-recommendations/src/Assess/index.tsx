@@ -10,7 +10,7 @@ import { getPseudonym } from '@slonigiraf/db';
 import InsurancesReceiver from './InsurancesReceiver.js';
 import { getAllPseudonyms } from '@slonigiraf/db';
 import { useLiveQuery } from "dexie-react-hooks";
-import { Dropdown, styled } from '@polkadot/react-components';
+import { styled } from '@polkadot/react-components';
 import type { Pseudonym } from '@slonigiraf/db';
 import PersonSelector from '../PersonSelector.js';
 
@@ -42,7 +42,7 @@ function Assess({ className = '' }: Props): React.ReactElement<Props> {
   }));
 
   const handleStudentSelect = async (selectedKey: string) => {
-    if(selectedKey){
+    if (selectedKey) {
       const pseudonym = await getPseudonym(selectedKey);
       if (pseudonym) {
         setStudent({ name: pseudonym, identity: selectedKey });
@@ -64,23 +64,19 @@ function Assess({ className = '' }: Props): React.ReactElement<Props> {
             :
             <>
               <InsurancesReceiver setWorker={setStudent} />
-              <StyledDiv>
-                <CenterQRContainer>
-                  <FlexRow>
-                    <PersonSelector
-                      label={t('assessment history')}
-                      onChange={handleStudentSelect}
-                    />
-                  </FlexRow>
-                  <h2 style={{marginTop: '0px'}}>{t('Show to a student to see their results')}</h2>
-                  <QRWithShareAndCopy
-                    dataQR={qrCodeText}
-                    titleShare={t('QR code')}
-                    textShare={t('Press the link to show diplomas')}
-                    urlShare={url}
-                    dataCopy={url} />
-                </CenterQRContainer>
-              </StyledDiv>
+              <PersonSelector
+                label={t('assessment history')}
+                onChange={handleStudentSelect}
+              />
+              <CenterQRContainer>
+                <h2 style={{ marginTop: '0px' }}>{t('Show to a student to see their results')}</h2>
+                <QRWithShareAndCopy
+                  dataQR={qrCodeText}
+                  titleShare={t('QR code')}
+                  textShare={t('Press the link to show diplomas')}
+                  urlShare={url}
+                  dataCopy={url} />
+              </CenterQRContainer>
             </>
           }
         </>
@@ -90,20 +86,4 @@ function Assess({ className = '' }: Props): React.ReactElement<Props> {
   );
 
 }
-const StyledDiv = styled.div`
-  justify-content: center;
-  align-items: center;
-  .ui--Dropdown {
-    width: ${qrWidthPx}px;
-    padding-left: 0px !important;
-  }
-  label {
-    left: 20px !important;
-  }
-`;
-const FlexRow = styled.div`
-  display: flex;
-  justify-content: left;
-  align-items: left;
-`;
 export default React.memo(Assess);
