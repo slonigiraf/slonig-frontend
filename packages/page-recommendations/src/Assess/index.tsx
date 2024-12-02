@@ -12,6 +12,7 @@ import { getAllPseudonyms } from '@slonigiraf/db';
 import { useLiveQuery } from "dexie-react-hooks";
 import { Dropdown, styled } from '@polkadot/react-components';
 import type { Pseudonym } from '@slonigiraf/db';
+import PersonSelector from '../PersonSelector.js';
 
 interface Props {
   className?: string;
@@ -66,12 +67,9 @@ function Assess({ className = '' }: Props): React.ReactElement<Props> {
               <StyledDiv>
                 <CenterQRContainer>
                   <FlexRow>
-                    <Dropdown
-                      className={`dropdown ${className}`}
+                    <PersonSelector
                       label={t('assessment history')}
-                      value={''}
                       onChange={handleStudentSelect}
-                      options={studentOptions || []}
                     />
                   </FlexRow>
                   <h2 style={{marginTop: '0px'}}>{t('Show to a student to see their results')}</h2>
