@@ -19,6 +19,7 @@ interface SelectableListProps<T> {
   additionalControls?: React.ReactNode;
   keyExtractor: (item: T) => string;
   header?: ([React.ReactNode?, string?, number?, (() => void)?] | false | null | undefined)[];
+  allSelected?: boolean;
 }
 
 function SelectableList<T>({
@@ -32,10 +33,15 @@ function SelectableList<T>({
   additionalControls,
   keyExtractor,
   header,
+  allSelected=false
 }: SelectableListProps<T>): React.ReactElement {
   const { t } = useTranslation();
   const [updatedItems, setUpdatedItems] = useState(items);
   const [selectedItems, setSelectedItems] = useState<T[]>([]);
+
+  useEffect(() => {
+    selectAll();
+  },[allSelected]);
 
   useEffect(() => {
     const shouldUpdateItems = 

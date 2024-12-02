@@ -96,6 +96,7 @@ function LettersList({ className = '', worker, currentPair }: Props): React.Reac
 
   const close = () => {
     setSelectedLetters([]);
+    setToggleState(ToggleState.NO_SELECTION);
     setReloadCount(reloadCount + 1);
     navigate('', { replace: true });
   }
@@ -104,33 +105,32 @@ function LettersList({ className = '', worker, currentPair }: Props): React.Reac
   const endDateId = 'letters:end';
 
   const handleEmployerSelect = async (selectedKey: string) => {
-    if(selectedKey){
+    if (selectedKey) {
       setEmployer(selectedKey);
     }
   };
+
+  const canSignLetters = employer !== '' && selectedLetters && selectedLetters.length > 0;
 
   return !letters ? (
     <div></div>
   ) : (
     <div>
-      <h2>{employer === '' ? t('My diplomas') : t('Select diplomas and send them')}</h2>
-      {<PersonSelector
-        label={t('select teacher / parent / employer')}
-        onChange={handleEmployerSelect}
-      />}
-      {employer !== '' && selectedLetters && selectedLetters.length > 0 && (
-        <div>
-          <StyledContentCloseButton onClick={close}
-            icon='close'
-          />
-          <SignLettersUseRight
-            letters={selectedLetters}
-            worker={worker}
-            employer={employer}
-            currentPair={currentPair}
-            onDataSent={close}
-          />
-        </div>
+      <h2>{toggleState === ToggleState.GETTING_BONUSES ? t('Select diplomas and send them') : t('My diplomas')}</h2>
+      {
+        toggleState === ToggleState.GETTING_BONUSES &&
+        <StyledContentCloseButton onClick={close}
+          icon='close'
+        />
+      }
+      {canSignLetters && (
+        <SignLettersUseRight
+          letters={selectedLetters}
+          worker={worker}
+          employer={employer}
+          currentPair={currentPair}
+          onDataSent={close}
+        />
       )}
       <div className="ui--row">
         <div>
@@ -168,7 +168,12 @@ function LettersList({ className = '', worker, currentPair }: Props): React.Reac
           hover={t('Earn bonuses from teachers, parents, or employers—anyone who benefits from your learning. In return, they will be able to assess your diplomas and receive Slon tokens from tutors if you forget your skills.')}
         />
       </ToggleContainer>
+      {toggleState === ToggleState.GETTING_BONUSES && <PersonSelector
+        label={t('select teacher / parent / employer')}
+        onChange={handleEmployerSelect}
+      />}
       <SelectableList<Diploma>
+        allSelected={toggleState === ToggleState.GETTING_BONUSES}
         items={letters}
         renderItem={(letter, isSelected, isSelectionAllowed, onToggleSelection) => (
           <DiplomaInfo
