@@ -28,11 +28,12 @@ function LettersList({ className = '', worker, currentPair }: Props): React.Reac
   const { t } = useTranslation();
   const location = useLocation();
   const queryParams = new URLSearchParams(location.search);
-  const [employer, setEmployer] = useState(queryParams.get('teacher') || '');
+  const queryEmployer = queryParams.get('employer') || ''
+  const [employer, setEmployer] = useState(queryEmployer);
   const { showInfo } = useInfo();
   const navigate = useNavigate();
   const [reloadCount, setReloadCount] = useState<number>(0);
-  const [toggleState, setToggleState] = useState<ToggleState>(ToggleState.NO_SELECTION);
+  const [toggleState, setToggleState] = useState<ToggleState>(queryEmployer !== '' ? ToggleState.GETTING_BONUSES : ToggleState.NO_SELECTION);
 
   // Initialize startDate and endDate as timestamps
   const [startDate, setStartDate] = useState<number | null>(new Date(new Date().setHours(0, 0, 0, 0)).getTime());
@@ -97,6 +98,7 @@ function LettersList({ className = '', worker, currentPair }: Props): React.Reac
   const close = () => {
     setSelectedLetters([]);
     setToggleState(ToggleState.NO_SELECTION);
+    setEmployer('');
     setReloadCount(reloadCount + 1);
     navigate('', { replace: true });
   }
@@ -168,12 +170,12 @@ function LettersList({ className = '', worker, currentPair }: Props): React.Reac
           hover={t('Earn bonuses from teachers, parents, or employers—anyone who benefits from your learning. In return, they will be able to assess your diplomas and receive Slon tokens from tutors if you forget your skills.')}
         />
       </ToggleContainer>
-      {toggleState === ToggleState.GETTING_BONUSES && <PersonSelector
+      {(toggleState === ToggleState.GETTING_BONUSES && employer === '') && <PersonSelector
         label={t('select teacher / parent / employer')}
         onChange={handleEmployerSelect}
       />}
       <SelectableList<Diploma>
-        allSelected={toggleState === ToggleState.GETTING_BONUSES}
+        allSelected={toggleState !== ToggleState.NO_SELECTION}
         items={letters}
         renderItem={(letter, isSelected, isSelectionAllowed, onToggleSelection) => (
           <DiplomaInfo

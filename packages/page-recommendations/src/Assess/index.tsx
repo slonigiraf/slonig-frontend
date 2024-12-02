@@ -23,8 +23,6 @@ function Assess({ className = '' }: Props): React.ReactElement<Props> {
   // Initialize account
   const { currentPair, isLoggedIn } = useLoginContext();
   const [student, setStudent] = useState<Person | null>(null);
-  const students = useLiveQuery(() => getAllPseudonyms(), []);
-
   const publicKeyHex = currentPair ? u8aToHex(currentPair.publicKey) : "";
   const name = nameFromKeyringPair(currentPair);
   const qrData = {
@@ -33,13 +31,7 @@ function Assess({ className = '' }: Props): React.ReactElement<Props> {
     p: publicKeyHex,
   };
   const qrCodeText = JSON.stringify(qrData);
-  const url = getBaseUrl() + `/#/diplomas?teacher=${publicKeyHex}&name=${encodeURIComponent(name)}`;
-
-  // Prepare dropdown options
-  let studentOptions = students?.map((student: Pseudonym) => ({
-    text: student.pseudonym,
-    value: student.publicKey
-  }));
+  const url = getBaseUrl() + `/#/diplomas?employer=${publicKeyHex}&name=${encodeURIComponent(name)}`;
 
   const handleStudentSelect = async (selectedKey: string) => {
     if (selectedKey) {
