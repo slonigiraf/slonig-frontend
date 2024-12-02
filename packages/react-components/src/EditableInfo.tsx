@@ -36,14 +36,22 @@ const StyledDiv = styled.div`
   display: flex;
   flex-direction: row;
   width: 100%;
-  padding: 5px;
+  padding: 10px;
   align: center;
+  justify-content: center;
   & > span {
     display: flex;
     align-items: center;
   }
   .input--info {
-    width: 80%;
+    padding-left: 0px !important;
+    width: 200px;
+  }
+  label {
+    left: 20px !important;
+  }
+  button {
+    margin-left: 10px !important;
   }
   .edit {
     .ui--Icon {
