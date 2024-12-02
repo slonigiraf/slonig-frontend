@@ -147,16 +147,15 @@ function DoInstructions({ className = '', entity, onResult, studentName, student
             <span className='hint'><b>{algorithmStage.getActionHint()}</b></span>
           )}
           <InstructionsButtonsGroup>
-
             {algorithmStage.getPrevious() && (
-              <Button onClick={() => handleStageChange(algorithmStage.getPrevious())}
+              <Button key={algorithmStage.getId()} onClick={() => handleStageChange(algorithmStage.getPrevious())}
                 icon='arrow-left'
                 label={t('Back')}
                 isDisabled={isButtonClicked}
               />
             )}
             {algorithmStage.getNext().map((nextStage, index) => (
-              <Button key={index} onClick={() => handleStageChange(nextStage)}
+              <Button key={index+algorithmStage.getId()} onClick={() => handleStageChange(nextStage)}
                 icon='square'
                 label={nextStage.getName()}
                 isDisabled={isButtonClicked}

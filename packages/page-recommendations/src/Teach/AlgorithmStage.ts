@@ -19,6 +19,14 @@ class AlgorithmStage {
         this.previous = null;
     }
 
+    getId(): string {
+        let id = 'algorithmStage';
+        if(this.messages.length > 0){
+            id = this.messages[0].text;
+        }
+        return id;
+    }
+
     getPrevious(): AlgorithmStage | null {
         return this.previous;
     }
