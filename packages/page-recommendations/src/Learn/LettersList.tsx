@@ -151,7 +151,7 @@ function LettersList({ className = '', worker, currentPair }: Props): React.Reac
           />
         </div>
       </div>
-      <ToggleContainer>
+      {employer === '' && <ToggleContainer>
         <Toggle
           label={t('Select')}
           onChange={handleSelectionToggle}
@@ -169,7 +169,7 @@ function LettersList({ className = '', worker, currentPair }: Props): React.Reac
           isHelp={true}
           hover={t('Earn bonuses from teachers, parents, or employers—anyone who benefits from your learning. In return, they will be able to assess your diplomas and receive Slon tokens from tutors if you forget your skills.')}
         />
-      </ToggleContainer>
+      </ToggleContainer>}
       {(toggleState === ToggleState.GETTING_BONUSES && employer === '') && <PersonSelector
         label={t('select teacher / parent / employer')}
         onChange={handleEmployerSelect}
