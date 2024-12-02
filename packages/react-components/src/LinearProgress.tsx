@@ -43,9 +43,11 @@ function LinearProgress({ className = '', isBlurred, isDisabled, total, value }:
 }
 
 const HEIGHT = '1.5rem';
+const BORDER_RADIUS = '1rem';
 
 const StyledDiv = styled.div`
   width: 100%;
+  height: ${HEIGHT};
   display: flex;
   flex-direction: row;
   .progress--info {
@@ -59,8 +61,8 @@ const StyledDiv = styled.div`
 const ProgressBar = styled.div`
   position: relative;
   width: 100%;
-  height: ${HEIGHT};
-  border-radius: 1rem;
+  height: 100%;
+  border-radius: ${BORDER_RADIUS};
   overflow: hidden;
   box-shadow: inset 0 0 0.25rem rgba(0, 0, 0, 0.1);
 
@@ -82,6 +84,7 @@ const ProgressBar = styled.div`
     height: 100%;
     transition: width 0.2s ease;
     z-index: 2;
+    border-radius: ${BORDER_RADIUS};
   }
 
   .inner {
