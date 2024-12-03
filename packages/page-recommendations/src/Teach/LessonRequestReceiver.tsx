@@ -19,12 +19,12 @@ function LessonRequestReceiver({ setCurrentLesson }: Props): React.ReactElement<
     const { currentPair } = useLoginContext();
     const tutorPublicKeyHex = u8aToHex(currentPair?.publicKey);
     const navigate = useNavigate();
-    useFetchWebRTC<LessonRequest>(webRTCPeerId, async (data) => {
-        if (data) {
-          await storePseudonym(data.identity, data.name);
-          await storeLesson(data, tutorPublicKeyHex);
+    useFetchWebRTC<LessonRequest>(webRTCPeerId, async (lessonRequest) => {
+        if (lessonRequest) {
+          await storePseudonym(lessonRequest.identity, lessonRequest.name);
+          await storeLesson(lessonRequest, tutorPublicKeyHex);
           navigate('', { replace: true });
-          const lesson = await getLesson(data.lesson);
+          const lesson = await getLesson(lessonRequest.lesson);
           if (lesson) {
             setCurrentLesson(lesson);
           }
