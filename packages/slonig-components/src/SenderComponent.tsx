@@ -1,5 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { createPeer, getBaseUrl, QRWithShareAndCopy } from '@slonigiraf/app-slonig-components';
+import { createPeer, getBaseUrl, QRWithShareAndCopy, useInfo } from '@slonigiraf/app-slonig-components';
+import { useTranslation } from './translate.js';
 
 interface SenderComponentProps {
     data: string;    // The data to send over the WebRTC data channel
@@ -12,11 +13,14 @@ interface SenderComponentProps {
 }
 
 const SenderComponent: React.FC<SenderComponentProps> = ({ data, route, action, textShare, isDisabled = false, onDataSent, onReady }) => {
+    const { t } = useTranslation();
+    const { showInfo } = useInfo();
     const [qrCodeText, setQrCodeText] = useState<string>('');
     const [url, setUrl] = useState<string>('');
     const peerRef = useRef<any>(null); // Replace `any` with the appropriate type if available
     const connectionRef = useRef<any>(null); // To store the connection
     const dataRef = useRef<string>(data); // To store the latest data
+
 
     // Update dataRef whenever `data` prop changes
     useEffect(() => {
@@ -69,6 +73,9 @@ const SenderComponent: React.FC<SenderComponentProps> = ({ data, route, action, 
 
         peer.on('open', handleOpen);
         peer.on('connection', handleConnection);
+        peer.on('error', (_e: Error) => {
+          showInfo(t('No internet connection. Check your connection and try again.'), 'error');
+        });
 
         return () => {
             // Cleanup on unmount
