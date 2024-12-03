@@ -34,7 +34,7 @@ function LessonResultReceiver({ webRTCPeerId }: Props): React.ReactElement {
     await putAgreement(updatedAgreement);
   }, []);
 
-  useFetchWebRTC<LessonResult>(webRTCPeerId, async (receivedResult) => {
+  const handleData = useCallback(async (receivedResult: LessonResult) => {
     if (receivedResult.workerId === workerPublicKeyHex) {
       storePseudonym(receivedResult.referee, receivedResult.refereeName);
       setLessonResult(receivedResult);
@@ -60,7 +60,9 @@ function LessonResultReceiver({ webRTCPeerId }: Props): React.ReactElement {
       showInfo(t('The tutor has shown you a QR code created for a different student. Ask the tutor to find the correct lesson.'), 'error');
       navigate('', { replace: true });
     }
-  });
+  }, [workerPublicKeyHex, setLessonResult, navigate, setAgreement, showInfo]);
+
+  useFetchWebRTC<LessonResult>(webRTCPeerId, handleData);
 
   useEffect(() => {
     async function pay() {
