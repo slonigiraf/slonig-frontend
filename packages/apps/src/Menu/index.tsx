@@ -114,7 +114,7 @@ function Menu({ className = '' }: Props): React.ReactElement<Props> {
   });
 
   return (
-    <StyledDiv className={`${className}${(!apiProps.isApiReady || !apiProps.isApiConnected) ? ' isLoading' : ''} highlight--bg`}>
+    <StyledDiv className={`${className} highlight--bg`}>
       <div className='menuContainer'>
         {!isDeveloper && (
           <div className="logoWrapper">
