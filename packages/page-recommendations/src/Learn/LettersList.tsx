@@ -118,7 +118,7 @@ function LettersList({ className = '', worker, currentPair }: Props): React.Reac
     <div></div>
   ) : (
     <div>
-      <h2>{toggleState === ToggleState.GETTING_BONUSES ? t('Select diplomas and send them') : t('My diplomas')}</h2>
+      {!canSignLetters && <h2>{t('My diplomas')}</h2>}
       {
         toggleState === ToggleState.GETTING_BONUSES &&
         <StyledContentCloseButton onClick={close}

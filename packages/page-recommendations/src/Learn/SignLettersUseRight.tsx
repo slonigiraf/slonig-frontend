@@ -9,7 +9,7 @@ import { QRAction, QRField, nameFromKeyringPair, SenderComponent, CenterQRContai
 import { useTranslation } from '../translate.js';
 import { insuranceToUsageRight, Letter, putUsageRight, getInsuranceDaysValid, SettingKey, storeSetting, letterToInsurance, serializeInsurance, UsageRight } from '@slonigiraf/db';
 import { keyForCid } from '@slonigiraf/app-slonig-components';
-import { EditableInfo } from '@polkadot/react-components';
+import { EditableInfo, Spinner } from '@polkadot/react-components';
 import { useApi, useBlockTime } from '@polkadot/react-hooks';
 
 interface Props {
@@ -28,6 +28,7 @@ function SignLettersUseRight({ className = '', letters, worker, employer, curren
   const [daysInputValue, setDaysInputValue] = useState<string>(''); //To allow empty strings
   const usageRightsRef = useRef<UsageRight[]>([]);
   const [millisecondsPerBlock,] = useBlockTime(BN_ONE, api);
+  const [isReady, setIsReady] = useState(false);
 
   useEffect(() => {
     getInsuranceDaysValid().then(value => {
@@ -107,23 +108,26 @@ function SignLettersUseRight({ className = '', letters, worker, employer, curren
   }
 
   const validDays = daysInputValue && daysInputValue !== "0";
+  const canShowHeader = isReady && validDays;
 
   return (
     <CenterQRContainer>
-      {validDays && <SenderComponent
+      {canShowHeader && <h2 style={{ marginTop: '0px' }}>{t('Show to get a bonus')}</h2>}
+      <SenderComponent
         onDataSent={_onDataSent}
         data={data}
         route={'diplomas/assess'}
         action={action}
         textShare={t('Press the link to see diplomas of the student')}
-        isDisabled={!thereAreDiplomas} />}
-      <EditableInfo
+        isDisabled={!thereAreDiplomas || !validDays} onReady={() => setIsReady(true)} />
+      {isReady && <EditableInfo
         label={t('days valid')}
         onChange={setDaysValid}
         value={daysInputValue}
         placeholder={t('Positive number')}
-        isError={!daysInputValue || daysInputValue === "0"}
-      />
+        isError={!validDays}
+      />}
+      {!isReady && <Spinner label=' ' />}
     </CenterQRContainer>
   );
 
