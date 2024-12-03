@@ -7,6 +7,7 @@ import { useLocation, useNavigate } from 'react-router-dom';
 import { useTranslation } from '../translate.js';
 import { QRField, LessonRequest, parseJson, receiveWebRTCData, useInfo, useLoginContext } from '@slonigiraf/app-slonig-components';
 import { u8aToHex } from '@polkadot/util';
+import useErrorInfo from '../useErrorInfo.js';
 
 interface Props {
     setCurrentLesson: (lesson: Lesson) => void;
@@ -14,6 +15,7 @@ interface Props {
 
 function LessonRequestReceiver({ setCurrentLesson }: Props): React.ReactElement<Props> {
     const location = useLocation();
+    const showError = useErrorInfo();
     const queryParams = new URLSearchParams(location.search);
     const webRTCPeerId = queryParams.get(QRField.WEBRTC_PEER_ID);
     const { t } = useTranslation();
@@ -40,8 +42,7 @@ function LessonRequestReceiver({ setCurrentLesson }: Props): React.ReactElement<
                     const receivedRequest: LessonRequest = parseJson(webRTCData);
                     setLessonRequest(receivedRequest);
                 } catch(e){
-                    showInfo(t('Ask the sender to refresh the QR page and keep it open while sending data.'), 'error');
-                    navigate('', { replace: true });
+                    showError(e as Error);
                 }
             }
         };

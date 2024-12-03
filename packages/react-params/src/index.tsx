@@ -162,3 +162,7 @@ class Params extends React.PureComponent<Props, State> {
 }
 
 export default translate<React.ComponentType<Props>>(Params);
+
+export const ErrorType = {
+  PEER_INITIALIZATION_ERROR: 'PEER_INITIALIZATION_ERROR',
+}

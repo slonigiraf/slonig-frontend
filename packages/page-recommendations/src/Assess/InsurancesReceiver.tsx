@@ -7,6 +7,7 @@ import { u8aToHex } from '@polkadot/util';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { QRField, parseJson, useLoginContext, receiveWebRTCData, useInfo, InsurancesTransfer, Person } from '@slonigiraf/app-slonig-components';
 import { storeInsurances, storePseudonym } from '@slonigiraf/db';
+import useErrorInfo from '../useErrorInfo.js';
 
 interface Props {
   setWorker: (person: Person) => void;
@@ -14,6 +15,7 @@ interface Props {
 
 function InsurancesReceiver({ setWorker }: Props): React.ReactElement<Props> {
   const location = useLocation();
+  const showError = useErrorInfo();
   const queryParams = new URLSearchParams(location.search);
   const webRTCPeerId = queryParams.get(QRField.WEBRTC_PEER_ID);
   const { currentPair } = useLoginContext();
@@ -45,8 +47,7 @@ function InsurancesReceiver({ setWorker }: Props): React.ReactElement<Props> {
             navigate('', { replace: true });
           }
         } catch (e) {
-          showInfo(t('Ask the sender to refresh the QR page and keep it open while sending data.'), 'error');
-          navigate('', { replace: true });
+          showError(e as Error);
         }
       }
     };

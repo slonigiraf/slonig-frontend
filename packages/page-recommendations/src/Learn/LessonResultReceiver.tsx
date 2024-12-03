@@ -11,12 +11,14 @@ import { useNavigate } from 'react-router-dom';
 import BN from 'bn.js';
 import { getDataToSignByWorker } from '@slonigiraf/helpers';
 import { useApi } from '@polkadot/react-hooks';
+import useErrorInfo from '../useErrorInfo.js';
 interface Props {
   webRTCPeerId: string | null;
 }
 
 function LessonResultReceiver({ webRTCPeerId }: Props): React.ReactElement {
   const { t } = useTranslation();
+  const showError = useErrorInfo();
   const { api, isApiReady } = useApi();
   const { setIsTransferOpen, setRecipientId, setAmount,
     setModalCaption, setButtonCaption, isTransferReady, transferSuccess } = useTokenTransfer();
@@ -69,8 +71,7 @@ function LessonResultReceiver({ webRTCPeerId }: Props): React.ReactElement {
             navigate('', { replace: true });
           }
         } catch (e) {
-          showInfo(t('Ask the sender to refresh the QR page and keep it open while sending data.'), 'error');
-          navigate('', { replace: true });
+          showError(e as Error);
         }
       }
     };

@@ -1,5 +1,5 @@
 import DiplomaInfo from './../Assess/DiplomaInfo.js';
-import React, { useCallback, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { deleteLetter, Diploma, getLetters, Letter } from '@slonigiraf/db';
 import { Button, styled, Icon, Modal, Toggle, Tag } from '@polkadot/react-components';
@@ -8,7 +8,7 @@ import { useLocation, useNavigate } from 'react-router-dom';
 import SignLettersUseRight from './SignLettersUseRight.js';
 import type { KeyringPair } from '@polkadot/keyring/types';
 import { DateInput, SelectableList, StyledContentCloseButton, ToggleContainer, useInfo } from '@slonigiraf/app-slonig-components';
-import { useToggle } from '@polkadot/react-hooks';
+import { useApi, useToggle } from '@polkadot/react-hooks';
 import PersonSelector from '../PersonSelector.js';
 
 interface Props {
@@ -27,6 +27,7 @@ function LettersList({ className = '', worker, currentPair }: Props): React.Reac
   const MAX_SELECTED = 93;
   const { t } = useTranslation();
   const location = useLocation();
+  const { isApiConnected } = useApi();
   const queryParams = new URLSearchParams(location.search);
   const queryEmployer = queryParams.get('employer') || ''
   const [employer, setEmployer] = useState(queryEmployer);
@@ -71,6 +72,12 @@ function LettersList({ className = '', worker, currentPair }: Props): React.Reac
       setToggleState(ToggleState.NO_SELECTION);
     }
   }, [toggleState]);
+
+  useEffect(() => {
+    if (!isApiConnected && toggleState === ToggleState.GETTING_BONUSES) {
+      setToggleState(ToggleState.NO_SELECTION);
+    }
+  }, [isApiConnected]);
 
   const deleteDiplomas = async () => {
     const idsToDelete = selectedLetters.map((letter) => letter.pubSign);
@@ -157,18 +164,21 @@ function LettersList({ className = '', worker, currentPair }: Props): React.Reac
           onChange={handleSelectionToggle}
           value={toggleState !== ToggleState.NO_SELECTION}
         />
-        <Toggle
-          label={t('Get bonus')}
-          onChange={handleGetBonusToggle}
-          value={toggleState === ToggleState.GETTING_BONUSES}
-        />
-        <Tag
-          key={'get-bonus-help'}
-          label={'?'}
-          size='large'
-          isHelp={true}
-          hover={t('Earn bonuses from teachers, parents, or employers—anyone who benefits from your learning. In return, they will be able to assess your diplomas and receive Slon tokens from tutors if you forget your skills.')}
-        />
+        {isApiConnected && <>
+          <Toggle
+            label={t('Get bonus')}
+            onChange={handleGetBonusToggle}
+            value={toggleState === ToggleState.GETTING_BONUSES}
+          />
+          <Tag
+            key={'get-bonus-help'}
+            label={'?'}
+            size='large'
+            isHelp={true}
+            hover={t('Earn bonuses from teachers, parents, or employers—anyone who benefits from your learning. In return, they will be able to assess your diplomas and receive Slon tokens from tutors if you forget your skills.')}
+          />
+        </>
+        }
       </ToggleContainer>}
       {(toggleState === ToggleState.GETTING_BONUSES && employer === '') && <PersonSelector
         label={t('select teacher / parent / employer')}

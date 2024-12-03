@@ -7,6 +7,7 @@ import Peer from 'peerjs';
 import { formatBalance } from '@polkadot/util';
 import BN from 'bn.js';
 import { CIDCache } from 'db/src/db/CIDCache.js';
+import { ErrorType } from '@polkadot/react-params';
 
 // export const tokenSymbol = formatBalance(balance, { withUnit: false });
 
@@ -300,8 +301,8 @@ export const receiveWebRTCData = async (
   const peerInitPromise = new Promise<Peer>((resolve, reject) => {
     const p = createPeer();
     p.on('open', () => resolve(p));
-    p.on('error', (err) => {
-      reject(new Error(`Peer initialization error: ${err.message}`));
+    p.on('error', (_err) => {
+      reject(new Error(ErrorType.PEER_INITIALIZATION_ERROR));
     });
   });
 
