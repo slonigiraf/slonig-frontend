@@ -23,7 +23,7 @@ function useFetchWebRTCImpl<T>(
         try {
           const webRTCData = await receiveWebRTCData(webRTCPeerId, MAX_LOADING_SEC * 1000);
           hideInfo();
-          const parsedData = parseJson<T>(webRTCData); // Ensure type-safe parsing
+          const parsedData = parseJson(webRTCData); // Ensure type-safe parsing
           await handleData(parsedData);
         } catch (e) {
           const errorMessage = (e as Error).message === ErrorType.PEER_INITIALIZATION_ERROR
