@@ -1,7 +1,7 @@
 // Copyright 2021-2022 @slonigiraf/app-recommendations authors & contributors
 // SPDX-License-Identifier: Apache-2.0
 
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { AlgorithmStage } from './AlgorithmStage.js';
 import { Button, Menu, Popup, Spinner, styled } from '@polkadot/react-components';
 import type { Skill } from '@slonigiraf/app-slonig-components';
@@ -12,6 +12,7 @@ import { LetterTemplate, putLetterTemplate, Reexamination, updateReexamination }
 import { getIPFSDataFromContentID, parseJson, useInfo } from '@slonigiraf/app-slonig-components';
 import { TutoringAlgorithm } from './TutoringAlgorithm.js';
 import ChatSimulation from './ChatSimulation.js';
+import { ErrorType } from '@polkadot/react-params';
 
 interface Props {
   className?: string;
@@ -57,10 +58,10 @@ function DoInstructions({ className = '', entity, onResult, studentName, student
             }
           }
         } catch (e) {
-          if (isComponentMounted) {
-            setAlgorithmStage(undefined);
-            onResult();
+          if((e as Error).message === ErrorType.IPFS_CONNECTION_ERROR){
+            showInfo(t('No internet connection. Check your connection and try again.'), 'error');
           }
+          console.log('ipfs err: ', e);
         }
       }
     }
@@ -130,7 +131,7 @@ function DoInstructions({ className = '', entity, onResult, studentName, student
   };
 
   if (!skill) {
-    return <Spinner label={t('Loading')} />;
+    return <StyledSpinner label={t('Loading')} />;
   }
 
   return (
@@ -215,6 +216,10 @@ const StyledPopup = styled(Popup)`
     background-color: transparent !important;
     color: #F39200 !important;
   }
+`;
+
+const StyledSpinner = styled(Spinner)`
+  margin: 20px;
 `;
 
 export default React.memo(DoInstructions)

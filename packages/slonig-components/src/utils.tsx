@@ -92,7 +92,7 @@ export const getIPFSDataFromContentID = async (ipfs: IPFSHTTPClient, cidString: 
         }
       }
     }
-    throw new Error("Failed to fetch IPFS data after multiple attempts.");
+    throw new Error(ErrorType.IPFS_CONNECTION_ERROR);
   }
 };
 

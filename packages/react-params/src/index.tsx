@@ -165,4 +165,5 @@ export default translate<React.ComponentType<Props>>(Params);
 
 export const ErrorType = {
   PEER_INITIALIZATION_ERROR: 'PEER_INITIALIZATION_ERROR',
+  IPFS_CONNECTION_ERROR: 'IPFS_CONNECTION_ERROR',
 }
