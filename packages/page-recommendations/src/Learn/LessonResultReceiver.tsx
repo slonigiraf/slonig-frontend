@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import React, { useCallback, useEffect, useState } from 'react';
-import { useLoginContext, parseJson, useTokenTransfer, receiveWebRTCData, useInfo, LessonResult, keyForCid, getAddressFromPublickeyHex, useBlockchainSync } from '@slonigiraf/app-slonig-components';
+import { useLoginContext, useTokenTransfer, useInfo, LessonResult, keyForCid, getAddressFromPublickeyHex, useBlockchainSync } from '@slonigiraf/app-slonig-components';
 import { hexToU8a, u8aToHex, u8aWrapBytes } from '@polkadot/util';
 import { addReimbursement, cancelLetter, deserializeLetter, getAgreement, getLetter, getLettersForKnowledgeId, letterToReimbursement, putAgreement, putLetter, storePseudonym, updateLetterReexaminingCount } from '@slonigiraf/db';
 import { useTranslation } from '../translate.js';
@@ -11,7 +11,6 @@ import { useNavigate } from 'react-router-dom';
 import BN from 'bn.js';
 import { getDataToSignByWorker } from '@slonigiraf/helpers';
 import { useApi } from '@polkadot/react-hooks';
-import useErrorInfo from '../useErrorInfo.js';
 import useFetchWebRTC from '../useFetchWebRTC.js';
 interface Props {
   webRTCPeerId: string | null;

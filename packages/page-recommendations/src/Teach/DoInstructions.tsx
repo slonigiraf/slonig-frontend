@@ -169,14 +169,14 @@ function DoInstructions({ className = '', entity, onResult, studentName, student
                       <React.Fragment>
                         <Menu.Item
                           icon='thumbs-up'
-                          key='copyAddress'
+                          key='studentPassedReexamination'
                           label={t('Student has the skill')}
                           onClick={studentPassedReexamination}
                         />
                         <Menu.Divider />
                         <Menu.Item
                           icon='circle-exclamation'
-                          key='copyAddress'
+                          key='studentFailedReexamination'
                           label={t('Student failed the reexamination')}
                           onClick={studentFailedReexamination}
                         />
@@ -185,14 +185,14 @@ function DoInstructions({ className = '', entity, onResult, studentName, student
                       <React.Fragment>
                         <Menu.Item
                           icon='thumbs-up'
-                          key='copyAddress'
+                          key='issueDiploma'
                           label={t('Student mastered the skill')}
                           onClick={issueDiploma}
                         />
                         <Menu.Divider />
                         <Menu.Item
                           icon='circle-exclamation'
-                          key='copyAddress'
+                          key='repeatTomorrow'
                           label={t('Should be repeated tomorrow')}
                           onClick={repeatTomorrow}
                         />

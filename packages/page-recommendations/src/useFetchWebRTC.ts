@@ -16,6 +16,8 @@ function useFetchWebRTCImpl<T>(
   const navigate = useNavigate();
   const [triedToFetchData, setTriedToFetchData] = useState(false);
 
+  useEffect(() => setTriedToFetchData(false), [webRTCPeerId]);
+
   useEffect(() => {
     const fetchData = async () => {
       if (webRTCPeerId) {
