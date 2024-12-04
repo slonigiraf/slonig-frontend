@@ -1,7 +1,8 @@
 import React, { useState, ChangeEvent, FC } from 'react';
 import { Button, styled } from '@polkadot/react-components';
 import { useTranslation } from '../translate.js';
-import { Exercise, ResizableImage, Skill, TextAreaWithPreview } from '@slonigiraf/app-slonig-components';
+import { Exercise, ResizableImage, Skill, TextAreaWithPreview, useIpfsContext } from '@slonigiraf/app-slonig-components';
+import { getIPFSContentIDForBytesAndPinIt } from '@slonigiraf/app-slonig-components';
 
 interface Props {
   className?: string;
@@ -13,19 +14,19 @@ interface Props {
 
 const ExerciseEditor: FC<Props> = ({ className = '', exercise, index, skill, onSkillChange }) => {
   const { t } = useTranslation();
-  const [exerciseImage, setExerciseImage] = useState<string>(exercise.p || '');
-  const [solutionImage, setSolutionImage] = useState<string>(exercise.i || '');
+  const { ipfs, isIpfsReady } = useIpfsContext();
+  const [exerciseImageCid, setExerciseImageCid] = useState<string>(exercise.p || '');
+  const [solutionImageCid, setSolutionImageCid] = useState<string>(exercise.i || '');
 
-  const convertToBase64 = (file: File, callback: (base64Image: string) => void) => {
-    const reader = new FileReader();
-    reader.onload = (e: ProgressEvent<FileReader>) => {
-      if (e.target?.result) {
-        callback(e.target.result as string);
-      }
-    };
-    reader.readAsDataURL(file);
+  const uploadFileToIPFS = async (file: File): Promise<string> => {
+    try {
+      const bytes = new Uint8Array(await file.arrayBuffer());
+      return await getIPFSContentIDForBytesAndPinIt(ipfs, bytes);
+    } catch (error) {
+      console.error('Error uploading file to IPFS:', error);
+      throw new Error('Failed to upload file to IPFS');
+    }
   };
-
 
   const updateExercise = (updatedExercise: Exercise) => {
     const updatedExercises = [...(skill.q || [])];
@@ -33,18 +34,21 @@ const ExerciseEditor: FC<Props> = ({ className = '', exercise, index, skill, onS
     onSkillChange({ ...skill, q: updatedExercises });
   };
 
-  const handleImageChange = (e: ChangeEvent<HTMLInputElement>, type: 'exercise' | 'solution') => {
+  const handleImageChange = async (e: ChangeEvent<HTMLInputElement>, type: 'exercise' | 'solution') => {
     const file = e.target.files ? e.target.files[0] : null;
-    if (file) {
-      convertToBase64(file, (base64Image) => {
+    if (file && isIpfsReady) {
+      try {
+        const cid = await uploadFileToIPFS(file);
         if (type === 'exercise') {
-          setExerciseImage(base64Image);
-          updateExercise({ ...exercise, p: base64Image });
+          setExerciseImageCid(cid);
+          updateExercise({ ...exercise, p: cid });
         } else {
-          setSolutionImage(base64Image);
-          updateExercise({ ...exercise, i: base64Image });
+          setSolutionImageCid(cid);
+          updateExercise({ ...exercise, i: cid });
         }
-      });
+      } catch (error) {
+        console.error('Error handling image upload:', error);
+      }
     }
   };
 
@@ -58,11 +62,11 @@ const ExerciseEditor: FC<Props> = ({ className = '', exercise, index, skill, onS
 
   const handleDeleteImage = (type: 'exercise' | 'solution') => {
     if (type === 'exercise') {
-      setExerciseImage('');
-      updateExercise({ ...exercise, p: undefined }); // Remove or set to a default value.
+      setExerciseImageCid('');
+      updateExercise({ ...exercise, p: '' });
     } else {
-      setSolutionImage('');
-      updateExercise({ ...exercise, i: undefined }); // Remove or set to a default value.
+      setSolutionImageCid('');
+      updateExercise({ ...exercise, i: '' });
     }
   };
 
@@ -74,19 +78,19 @@ const ExerciseEditor: FC<Props> = ({ className = '', exercise, index, skill, onS
         onChange={onEditExerciseText}
       />
       <ImageUploadContainer>
-        {
-          exerciseImage &&
+        {exerciseImageCid && (
           <ImageContainer>
-            <ResizableImage src={exerciseImage} />
-            <StyledDeleteButton label='' icon='trash' onClick={() => handleDeleteImage('exercise')} />
+            <ResizableImage cid={exerciseImageCid} alt="Exercise" />
+            <StyledDeleteButton label="" icon="trash" onClick={() => handleDeleteImage('exercise')} />
           </ImageContainer>
-        }
-
+        )}
         <input
           type="file"
           onChange={(e) => handleImageChange(e, 'exercise')}
           accept="image/*"
+          disabled={!isIpfsReady}
         />
+        {!isIpfsReady && <ErrorMessage>{t('IPFS is not ready. Please wait...')}</ErrorMessage>}
       </ImageUploadContainer>
 
       <TextAreaWithPreview
@@ -95,18 +99,19 @@ const ExerciseEditor: FC<Props> = ({ className = '', exercise, index, skill, onS
         onChange={onEditSolutionText}
       />
       <ImageUploadContainer>
-        {
-          solutionImage &&
+        {solutionImageCid && (
           <ImageContainer>
-            <ResizableImage src={solutionImage} alt="Solution" />
-            <StyledDeleteButton label='' icon='trash' onClick={() => handleDeleteImage('solution')} />
+            <ResizableImage cid={solutionImageCid} alt="Solution" />
+            <StyledDeleteButton label="" icon="trash" onClick={() => handleDeleteImage('solution')} />
           </ImageContainer>
-        }
+        )}
         <input
           type="file"
           onChange={(e) => handleImageChange(e, 'solution')}
           accept="image/*"
+          disabled={!isIpfsReady}
         />
+        {!isIpfsReady && <ErrorMessage>{t('IPFS is not ready. Please wait...')}</ErrorMessage>}
       </ImageUploadContainer>
     </div>
   );
@@ -133,6 +138,11 @@ const ImageUploadContainer = styled.div`
   flex-direction: column;
   align-items: left;
   margin-bottom: 15px;
+`;
+
+const ErrorMessage = styled.div`
+  color: red;
+  margin-top: 5px;
 `;
 
 export default React.memo(ExerciseEditor);

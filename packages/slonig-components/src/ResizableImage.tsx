@@ -1,20 +1,40 @@
-import React, { useRef, useState } from 'react';
+import React, { useRef, useState, useEffect } from 'react';
 import { styled } from '@polkadot/react-components';
 import { useToggle } from '@polkadot/react-hooks';
 import { Modal } from '@polkadot/react-components';
 import { useTranslation } from './translate.js';
-import { FullWidthContainer } from './index.js';
+import { FullWidthContainer, useIpfsContext } from './index.js';
+import { getIPFSBytesFromContentID } from '@slonigiraf/app-slonig-components';
 
 interface Props {
-  src: string;
+  cid: string;
   alt?: string;
 }
 
-const ResizableImage: React.FC<Props> = ({ src, alt }) => {
+const ResizableImage: React.FC<Props> = ({ cid, alt }) => {
+  console.log('Got cid: ', cid)
   const { t } = useTranslation();
+  const { ipfs, isIpfsReady } = useIpfsContext();
   const [isBig, toggleSize] = useToggle();
   const [scale, setScale] = useState(1); // State to handle image scale
+  const [src, setSrc] = useState<string | null>(null); // State for the image source
   const lastPinchDistance = useRef(0); // Ref to store the last pinch distance
+
+  // Fetch image from IPFS using the CID and utility function
+  useEffect(() => {
+    const fetchImage = async () => {
+      try {
+        const bytes = await getIPFSBytesFromContentID(ipfs, cid);
+        const blob = new Blob([bytes], { type: 'image/*' });
+        setSrc(URL.createObjectURL(blob));
+      } catch (error) {
+        console.error('Error fetching image from IPFS:', error);
+      }
+    };
+    if (isIpfsReady) {
+      fetchImage()
+    };
+  }, [cid, ipfs, isIpfsReady]);
 
   const handleToggleSize = () => {
     if (isBig) {
@@ -46,6 +66,10 @@ const ResizableImage: React.FC<Props> = ({ src, alt }) => {
     // Reset last pinch distance when a new touch gesture starts
     lastPinchDistance.current = 0;
   };
+
+  if (!src) {
+    return <p>{t('Loading image...')}</p>;
+  }
 
   return (
     <>

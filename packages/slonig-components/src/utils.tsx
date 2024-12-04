@@ -37,6 +37,11 @@ export async function getIPFSContentIDAndPinIt(ipfs: IPFSHTTPClient, content: st
   await ipfs.pin.add(cid);
   return cid.toString();
 }
+export async function getIPFSContentIDForBytesAndPinIt(ipfs: IPFSHTTPClient, bytes: Uint8Array) {
+  const {cid} = await ipfs.add(bytes, { pin: true, hashAlg: 'sha2-256', cidVersion: 1 });
+  await ipfs.pin.add(cid);
+  return cid.toString();
+}
 
 // Define a generic function to add timeout capability
 function timeout<T>(ms: number, promise: Promise<T>): Promise<T> {
@@ -72,9 +77,9 @@ async function tryToGetIPFSDataFromContentID(ipfs: IPFSHTTPClient, cidStr: strin
 
 export const getIPFSDataFromContentID = async (ipfs: IPFSHTTPClient, cidString: string, maxAttempts = 60, delay = 1000) => {
   const cached: CIDCache | undefined = await getCIDCache(cidString);
-  if(cached){
+  if (cached) {
     return cached.data;
-  } else{
+  } else {
     let attempts = 0;
     while (attempts < maxAttempts) {
       try {
@@ -85,7 +90,7 @@ export const getIPFSDataFromContentID = async (ipfs: IPFSHTTPClient, cidString: 
         }
       } catch (error) {
         attempts++;
-        console.error(`CID: ${cidString} - attempt ${attempts} failed: ${error.message}`);
+        console.error(`CID: ${cidString} - attempt ${attempts} failed: ${(error as Error).message}`);
         if (attempts < maxAttempts) {
           // Wait for specified delay before trying again
           await new Promise(resolve => setTimeout(resolve, delay));
@@ -94,6 +99,57 @@ export const getIPFSDataFromContentID = async (ipfs: IPFSHTTPClient, cidString: 
     }
     throw new Error(ErrorType.IPFS_CONNECTION_ERROR);
   }
+};
+
+async function tryToGetIPFSBytesFromContentID(
+  ipfs: IPFSHTTPClient,
+  cidStr: string
+): Promise<Uint8Array | null> {
+  const cid = CID.parse(cidStr);
+
+  try {
+    const result = await timeout(3000, (async () => {
+      const chunks = [];
+      for await (const file of ipfs.get(cid)) {
+        if (file && file.content) {
+          for await (const chunk of file.content) {
+            chunks.push(chunk);
+          }
+        }
+      }
+      return Uint8Array.from(chunks.flat());
+    })());
+    return result;
+  } catch (error) {
+    console.error(`Failed to fetch bytes for CID ${cidStr}: ${(error as Error).message}`);
+    return null;
+  }
+}
+export const getIPFSBytesFromContentID = async (
+  ipfs: IPFSHTTPClient,
+  cidString: string,
+  maxAttempts = 60,
+  delay = 1000
+): Promise<Uint8Array> => {
+  let attempts = 0;
+
+  while (attempts < maxAttempts) {
+    try {
+      const bytes = await tryToGetIPFSBytesFromContentID(ipfs, cidString);
+      if (bytes !== null) {
+        return bytes;
+      }
+    } catch (error) {
+      console.error(`CID: ${cidString} - attempt ${attempts + 1} failed: ${(error as Error).message}`);
+    }
+
+    attempts++;
+    if (attempts < maxAttempts) {
+      await new Promise((resolve) => setTimeout(resolve, delay));
+    }
+  }
+
+  throw new Error(`Failed to fetch bytes from IPFS after ${maxAttempts} attempts`);
 };
 
 export async function digestFromCIDv1(cidStr: string) {
