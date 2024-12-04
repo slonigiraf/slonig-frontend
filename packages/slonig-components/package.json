@@ -21,6 +21,7 @@
     "@polkadot/react-query": "^0.132.2-38-x",
     "@slonigiraf/db": "^0.132.2-38-x",
     "@slonigiraf/helpers": "^7.0.0",
+    "file-type": "^19.6.0",
     "kubo-rpc-client": "^3.0.1",
     "pako": "^2.1.0",
     "query-string": "^8.1.0",

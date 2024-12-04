@@ -5,6 +5,7 @@ import { Modal } from '@polkadot/react-components';
 import { useTranslation } from './translate.js';
 import { FullWidthContainer, useIpfsContext } from './index.js';
 import { getIPFSBytesFromContentID } from '@slonigiraf/app-slonig-components';
+import { fileTypeFromBuffer } from 'file-type';
 
 interface Props {
   cid: string;
@@ -24,11 +25,23 @@ const ResizableImage: React.FC<Props> = ({ cid, alt }) => {
   useEffect(() => {
     const fetchImage = async () => {
       try {
+        // Fetch the bytes from IPFS
         const bytes = await getIPFSBytesFromContentID(ipfs, cid);
-        const blob = new Blob([bytes], { type: 'image/*' });
-        setSrc(URL.createObjectURL(blob));
+    
+        // Detect the file type
+        const fileType = await fileTypeFromBuffer(bytes);
+        console.log('bytes.length: ', bytes.length)
+        const mimeType = fileType?.mime || 'application/octet-stream'; // Fallback to a generic type if undetectable
+    
+        console.log('Detected MIME type:', mimeType); // Log the MIME type for debugging
+
+        console.log('Downloaded bytes:', bytes.slice(0, 10));
+    
+        // Create a Blob using the detected MIME type
+        const blob = new Blob([bytes], { type: 'image/png' });
+        setSrc(URL.createObjectURL(blob)); // Generate a blob URL and set it as the image source
       } catch (error) {
-        console.error('Error fetching image from IPFS:', error);
+        console.error('Error fetching or processing the image from IPFS:', error);
       }
     };
     if (isIpfsReady) {

@@ -23,7 +23,6 @@ const ExerciseEditor: FC<Props> = ({ className = '', exercise, index, skill, onS
       const bytes = new Uint8Array(await file.arrayBuffer());
       return await getIPFSContentIDForBytesAndPinIt(ipfs, bytes);
     } catch (error) {
-      console.error('Error uploading file to IPFS:', error);
       throw new Error('Failed to upload file to IPFS');
     }
   };

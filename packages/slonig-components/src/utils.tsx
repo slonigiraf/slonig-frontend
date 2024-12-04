@@ -38,7 +38,7 @@ export async function getIPFSContentIDAndPinIt(ipfs: IPFSHTTPClient, content: st
   return cid.toString();
 }
 export async function getIPFSContentIDForBytesAndPinIt(ipfs: IPFSHTTPClient, bytes: Uint8Array) {
-  const {cid} = await ipfs.add(bytes, { pin: true, hashAlg: 'sha2-256', cidVersion: 1 });
+  const { cid } = await ipfs.add(bytes, { pin: true, hashAlg: 'sha2-256', cidVersion: 1 });
   await ipfs.pin.add(cid);
   return cid.toString();
 }
@@ -101,6 +101,7 @@ export const getIPFSDataFromContentID = async (ipfs: IPFSHTTPClient, cidString: 
   }
 };
 
+
 async function tryToGetIPFSBytesFromContentID(
   ipfs: IPFSHTTPClient,
   cidStr: string
@@ -109,15 +110,11 @@ async function tryToGetIPFSBytesFromContentID(
 
   try {
     const result = await timeout(3000, (async () => {
-      const chunks = [];
-      for await (const file of ipfs.get(cid)) {
-        if (file && file.content) {
-          for await (const chunk of file.content) {
-            chunks.push(chunk);
-          }
-        }
+      const chunks: Uint8Array[] = [];
+      for await (const file of ipfs.cat(cid)) {
+        chunks.push(file);
       }
-      return Uint8Array.from(chunks.flat());
+      return new Uint8Array(chunks.reduce((acc, chunk) => [...acc, ...chunk], []));
     })());
     return result;
   } catch (error) {
@@ -125,6 +122,8 @@ async function tryToGetIPFSBytesFromContentID(
     return null;
   }
 }
+
+
 export const getIPFSBytesFromContentID = async (
   ipfs: IPFSHTTPClient,
   cidString: string,
