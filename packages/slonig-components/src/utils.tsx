@@ -106,19 +106,32 @@ async function tryToGetIPFSBytesFromContentID(
   ipfs: IPFSHTTPClient,
   cidStr: string
 ): Promise<Uint8Array | null> {
-  const cid = CID.parse(cidStr);
-
   try {
+    const cid = CID.parse(cidStr);
+
     const result = await timeout(3000, (async () => {
       const chunks: Uint8Array[] = [];
-      for await (const file of ipfs.cat(cid)) {
-        chunks.push(file);
+      for await (const chunk of ipfs.cat(cid)) {
+        chunks.push(chunk);
       }
-      return new Uint8Array(chunks.reduce((acc, chunk) => [...acc, ...chunk], []));
+
+      // Compute the total size of all chunks
+      const totalSize = chunks.reduce((size, chunk) => size + chunk.length, 0);
+      const combined = new Uint8Array(totalSize);
+
+      // Copy each chunk into the combined Uint8Array
+      let offset = 0;
+      for (const chunk of chunks) {
+        combined.set(chunk, offset);
+        offset += chunk.length;
+      }
+
+      return combined;
     })());
+
     return result;
   } catch (error) {
-    console.error(`Failed to fetch bytes for CID ${cidStr}: ${(error as Error).message}`);
+    console.error(`Failed to fetch bytes for CID ${cidStr}: ${error instanceof Error ? error.message : String(error)}`);
     return null;
   }
 }
