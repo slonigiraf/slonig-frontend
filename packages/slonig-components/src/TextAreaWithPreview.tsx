@@ -3,6 +3,8 @@ import { TextArea, Toggle, styled } from '@polkadot/react-components';
 import { useToggle } from '@polkadot/react-hooks';
 import { useTranslation } from './translate.js';
 import { KatexSpan, FullWidthContainer } from '@slonigiraf/app-slonig-components';
+import { countWords, PHRASE_WORD_COUNT } from './utils.js';
+import MillerLawComment from './MillerLawComment.js';
 
 interface Props {
   children?: React.ReactNode;
@@ -17,21 +19,39 @@ interface Props {
 
 const TextAreaWithPreview: React.FC<Props> = ({ children, className, isError, isReadOnly, label, onChange, seed, withLabel }: Props) => {
   const [preview, togglePreview] = useToggle();
-  const [content, setContent] = useState(seed? seed : '');
+  const [content, setContent] = useState(seed ? seed : '');
   const { t } = useTranslation();
 
   const _onChange = (text: string) => {
-    onChange && onChange(text);
-    text && setContent(text);
+    const trimmedText = text.trim(); // Trim the input text
+    if (countWords(trimmedText) <= PHRASE_WORD_COUNT) {
+      onChange && onChange(trimmedText);
+      trimmedText && setContent(trimmedText);
+    }
   };
+
 
   return (
     <StyledDiv>
       {
         preview ?
-          <FullWidthContainer><KatexSpan content={content} /></FullWidthContainer> :
-          <TextArea children={children} className={className} isError={isError} isReadOnly={isReadOnly} label={label} onChange={_onChange} seed={seed} withLabel={withLabel} />
+          <FullWidthContainer>
+            <KatexSpan content={content} />
+          </FullWidthContainer> :
+          <>
+            <TextArea
+              children={children}
+              className={className}
+              isError={isError}
+              isReadOnly={isReadOnly}
+              label={label}
+              onChange={_onChange}
+              seed={seed}
+              withLabel={withLabel} />
+            {countWords(content) === PHRASE_WORD_COUNT && <MillerLawComment />}
+          </>
       }
+
       <Toggle
         label={t('preview')}
         onChange={togglePreview}
@@ -40,7 +60,7 @@ const TextAreaWithPreview: React.FC<Props> = ({ children, className, isError, is
     </StyledDiv>
   );
 };
-export const StyledDiv = styled.div`
+const StyledDiv = styled.div`
   width: 100%;
   display: flex;
   flex-direction: column;
@@ -54,4 +74,5 @@ export const StyledDiv = styled.div`
     padding-top: 5px;
   }
 `;
+
 export default React.memo(TextAreaWithPreview);

@@ -239,7 +239,7 @@ function Edit({ className = '' }: Props): React.ReactElement<Props> {
       <h1>{t('Edit')}</h1>
       <span>{t('You can use the KaTeX language to add formulas:')}</span>&nbsp;
       <span><em>&lt;kx&gt;\int&lt;/kx&gt;</em> {t('is')} <KatexSpan content={exampleKatex} />.</span>&nbsp;
-      <span><a href='https://katex.org/docs/supported'>{t('See more about KaTeX')}</a></span>
+      <span><a href='https://katex.org/docs/supported' target='_blank'>{t('See more about KaTeX')}</a></span>
       {editor}
       {amountItemElement}
       <div className='ui--row'>
