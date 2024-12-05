@@ -101,16 +101,6 @@ export const getIPFSDataFromContentID = async (ipfs: IPFSHTTPClient, cidString: 
   }
 };
 
-export const PHRASE_WORD_COUNT = 7;
-export function countWords(input: string) {
-  if(input){
-    const stringWithoutTags = input.replace(/<\/?kx>/g, '');
-    const words = stringWithoutTags.trim().split(/\s+/).filter(Boolean);
-    return words.length;
-  }
-  return 0;
-}
-
 async function tryToGetIPFSBytesFromContentID(
   ipfs: IPFSHTTPClient,
   cidStr: string

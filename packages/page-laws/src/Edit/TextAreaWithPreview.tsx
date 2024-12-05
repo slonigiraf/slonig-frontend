@@ -1,9 +1,9 @@
 import React, { useState } from 'react';
 import { TextArea, Toggle, styled } from '@polkadot/react-components';
 import { useToggle } from '@polkadot/react-hooks';
-import { useTranslation } from './translate.js';
+import { useTranslation } from '../translate.js';
 import { KatexSpan, FullWidthContainer } from '@slonigiraf/app-slonig-components';
-import { countWords, PHRASE_WORD_COUNT } from './utils.js';
+import { countWords, PHRASE_WORD_COUNT } from '../util.js';
 import MillerLawComment from './MillerLawComment.js';
 
 interface Props {
@@ -23,13 +23,11 @@ const TextAreaWithPreview: React.FC<Props> = ({ children, className, isError, is
   const { t } = useTranslation();
 
   const _onChange = (text: string) => {
-    const trimmedText = text.trim(); // Trim the input text
-    if (countWords(trimmedText) <= PHRASE_WORD_COUNT) {
-      onChange && onChange(trimmedText);
-      trimmedText && setContent(trimmedText);
+    if (countWords(text) <= PHRASE_WORD_COUNT && onChange && text) {
+      onChange(text);
+      setContent(text);
     }
   };
-
 
   return (
     <StyledDiv>

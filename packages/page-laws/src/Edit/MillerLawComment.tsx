@@ -1,6 +1,6 @@
 import React from 'react';
-import { useTranslation } from './translate.js';
-import { FullWidthContainer } from './index.js';
+import { useTranslation } from '../translate.js';
+import { FullWidthContainer } from '@slonigiraf/app-slonig-components';
 
 function MillerLawComment(): React.ReactElement {
   const { t } = useTranslation();

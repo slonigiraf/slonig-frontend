@@ -1,12 +1,13 @@
 import React, { useCallback } from 'react';
 import { Button, Dropdown, Input, styled } from '@polkadot/react-components';
 import { useTranslation } from '../translate.js';
-import { randomIdHex } from '../util.js';
+import { countWords, PHRASE_WORD_COUNT, randomIdHex } from '../util.js';
 import Reordering from './Reordering.js';
 import ExerciseEditorList from './ExerciseEditorList.js';
 import { useApi } from '@polkadot/react-hooks';
 import { LawType, useInfo, useIpfsContext, getCIDFromBytes, getIPFSDataFromContentID, parseJson } from '@slonigiraf/app-slonig-components';
 import BN from 'bn.js';
+import MillerLawComment from './MillerLawComment.js';
 
 interface Props {
   className?: string;
@@ -36,15 +37,15 @@ function Editor(props: Props): React.ReactElement<Props> {
 
   const getDefaultItemLawType = useCallback(() => parentToItemDefaultType[list?.t] || 0, [list]);
 
-  const editItemTitle = useCallback((title: string) => {
-    onItemChange({
-      ...item,
-      h: title,
-      t: item?.t || getDefaultItemLawType()
-    });
+  const editItemTitle = useCallback((text: string) => {
+    if (countWords(text) <= PHRASE_WORD_COUNT) {
+      onItemChange({
+        ...item,
+        h: text,
+        t: item?.t || getDefaultItemLawType()
+      });
+    }
   }, [item, onItemChange]);
-
-
 
   const selectLawType = useCallback((newLawType: typeof LawType) => {
     if (!item || newLawType !== item.t) {
@@ -180,7 +181,7 @@ function Editor(props: Props): React.ReactElement<Props> {
       {list && (
         <>
           <div className='ui--row'>
-            <TitleContainer>
+            <FormContainer>
               <Input
                 autoFocus
                 className='full'
@@ -188,7 +189,8 @@ function Editor(props: Props): React.ReactElement<Props> {
                 onChange={editListTitle}
                 value={list.h}
               />
-            </TitleContainer>
+              {countWords(list.h) === PHRASE_WORD_COUNT && <MillerLawComment />}
+            </FormContainer>
           </div>
           <Reordering list={list} onListChange={onListChange} itemText={itemText} />
         </>
@@ -208,15 +210,13 @@ function Editor(props: Props): React.ReactElement<Props> {
       )}
       {isAddingItem && (
         <>
-          <div className='ui--row'>
+          <FormContainer>
             <Dropdown
               label={t('type of item')}
               value={itemType}
               onChange={selectLawType}
               options={lawTypeOpt}
             />
-          </div>
-          <div className='ui--row'>
             <Input
               autoFocus
               className='full'
@@ -224,7 +224,8 @@ function Editor(props: Props): React.ReactElement<Props> {
               onChange={editItemTitle}
               value={item?.h || ""}
             />
-          </div>
+            {countWords(item?.h) === PHRASE_WORD_COUNT && <MillerLawComment />}
+          </FormContainer>
         </>
       )}
       {/* For adding new exercises at skill view */}
@@ -246,7 +247,9 @@ function Editor(props: Props): React.ReactElement<Props> {
     </>
   );
 }
-const TitleContainer = styled.div`
+const FormContainer = styled.div`
+  display: flex;
+  flex-direction: column;
   width: 100%;
   .ui--Labelled {
     padding-left: 0px !important;
@@ -255,4 +258,5 @@ const TitleContainer = styled.div`
     left: 20px !important;
   }
 `;
+
 export default React.memo(Editor);
