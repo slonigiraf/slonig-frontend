@@ -15,7 +15,7 @@ const ChatSimulation: React.FC<ChatSimulationProps> = ({ messages }) => {
               {message.sender !== 'you' && <SenderName>{message.senderName}</SenderName>}
               <KatexSpan content={message.text} />
               {message.comment && <Red>&nbsp;*</Red>}
-              {message.image && <><br/><ResizableImage src={message.image} /></>}
+              {message.image && <><br/><ResizableImage cid={message.image} /></>}
             </Bubble>
             {message.comment && <Comment sender={message.sender}><Red>*&nbsp;</Red>{message.comment}</Comment>}
           </MessageContainer>

@@ -34,13 +34,13 @@ const ExerciseList: React.FC<ExerciseListProps> = ({ exercises, areShownInitiall
                                 label=''
                             />
                             <span><KatexSpan content={` ${index + 1}. ` + exercise.h} /></span>
-                            {exercise.p && <ExerciseDetails><ResizableImage src={exercise.p} /></ExerciseDetails>}
+                            {exercise.p && <ExerciseDetails><ResizableImage cid={exercise.p} /></ExerciseDetails>}
 
                         </div>
                         {shownAnswers[index] && (
                             <Answer>
                                 <span><i>{t('Solution')}:</i> <KatexSpan content={exercise.a} /></span>
-                                {exercise.i && <><ResizableImage src={exercise.i} /></>}
+                                {exercise.i && <><ResizableImage cid={exercise.i} /></>}
                             </Answer>
                         )}
                     </div>
