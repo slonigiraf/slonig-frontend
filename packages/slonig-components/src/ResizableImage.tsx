@@ -1,5 +1,5 @@
 import React, { useRef, useState, useEffect } from 'react';
-import { styled } from '@polkadot/react-components';
+import { Spinner, styled } from '@polkadot/react-components';
 import { useToggle } from '@polkadot/react-hooks';
 import { Modal } from '@polkadot/react-components';
 import { useTranslation } from './translate.js';
@@ -13,7 +13,6 @@ interface Props {
 }
 
 const ResizableImage: React.FC<Props> = ({ cid, alt }) => {
-  console.log('Got cid: ', cid)
   const { t } = useTranslation();
   const { ipfs, isIpfsReady } = useIpfsContext();
   const [isBig, toggleSize] = useToggle();
@@ -25,21 +24,11 @@ const ResizableImage: React.FC<Props> = ({ cid, alt }) => {
   useEffect(() => {
     const fetchImage = async () => {
       try {
-        // Fetch the bytes from IPFS
         const bytes = await getIPFSBytesFromContentID(ipfs, cid);
-    
-        // Detect the file type
         const fileType = await fileTypeFromBuffer(bytes);
-        console.log('bytes.length: ', bytes.length)
-        const mimeType = fileType?.mime || 'application/octet-stream'; // Fallback to a generic type if undetectable
-    
-        console.log('Detected MIME type:', mimeType); // Log the MIME type for debugging
-
-        console.log('Downloaded bytes:', bytes.slice(0, 10));
-    
-        // Create a Blob using the detected MIME type
-        const blob = new Blob([bytes], { type: 'image/png' });
-        setSrc(URL.createObjectURL(blob)); // Generate a blob URL and set it as the image source
+        const mimeType = fileType?.mime || 'application/octet-stream';
+        const blob = new Blob([bytes], { type: mimeType });
+        setSrc(URL.createObjectURL(blob));
       } catch (error) {
         console.error('Error fetching or processing the image from IPFS:', error);
       }
@@ -80,11 +69,7 @@ const ResizableImage: React.FC<Props> = ({ cid, alt }) => {
     lastPinchDistance.current = 0;
   };
 
-  if (!src) {
-    return <p>{t('Loading image...')}</p>;
-  }
-
-  return (
+  return (src? 
     <>
       <NormalImage src={src} alt={alt ? alt : t('Image')} onClick={toggleSize} />
       {isBig && (
@@ -96,7 +81,7 @@ const ResizableImage: React.FC<Props> = ({ cid, alt }) => {
           </Modal.Content>
         </Modal>
       )}
-    </>
+    </> : <Spinner label=' '/>
   );
 };
 
