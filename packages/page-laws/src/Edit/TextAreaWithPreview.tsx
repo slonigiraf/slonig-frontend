@@ -23,7 +23,7 @@ const TextAreaWithPreview: React.FC<Props> = ({ children, className, isError, is
   const { t } = useTranslation();
 
   const _onChange = (text: string) => {
-    if (countWords(text) <= PHRASE_WORD_COUNT && onChange && text) {
+    if (countWords(text) <= PHRASE_WORD_COUNT && onChange) {
       onChange(text);
       setContent(text);
     }
