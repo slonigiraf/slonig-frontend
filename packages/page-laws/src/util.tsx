@@ -6,11 +6,14 @@ export function randomIdHex (): string {
 }
 
 export const PHRASE_WORD_COUNT = 7;
+
 export function countWords(input: string) {
-  if(input){
-    const stringWithoutTags = input.replace(/<\/?kx>/g, '');
-    const words = stringWithoutTags.trim().split(/\s+/).filter(Boolean);
-    return words.length;
+  if (input) {
+    const kxMatches = input.match(/<kx>.*?<\/kx>/g) || [];
+    const kxWordCount = kxMatches.length;
+    const stringWithoutKx = input.replace(/<kx>.*?<\/kx>/g, '');
+    const remainingWords = stringWithoutKx.trim().split(/\s+/).filter(Boolean);
+    return kxWordCount + remainingWords.length;
   }
   return 0;
 }
