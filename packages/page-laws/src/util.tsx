@@ -5,7 +5,7 @@ export function randomIdHex (): string {
   return u8aToHex(randomAsU8a(32));
 }
 
-export const PHRASE_WORD_COUNT = 7;
+export const PHRASE_WORD_COUNT = 9;
 
 export function countWords(input: string) {
   if (input) {

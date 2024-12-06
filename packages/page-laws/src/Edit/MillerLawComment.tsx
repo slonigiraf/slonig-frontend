@@ -9,7 +9,7 @@ function MillerLawComment(): React.ReactElement {
       <a
         href='https://en.wikipedia.org/wiki/The_Magical_Number_Seven,_Plus_or_Minus_Two'
         target='_blank'>
-        {t('Miller\'s law limit text to 7 words.')}
+        {t('Miller\'s law limit text to 9 words.')}
       </a>
     </FullWidthContainer>
   );
