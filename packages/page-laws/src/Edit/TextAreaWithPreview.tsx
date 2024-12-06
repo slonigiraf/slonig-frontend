@@ -3,7 +3,6 @@ import { TextArea, Toggle, styled } from '@polkadot/react-components';
 import { useToggle } from '@polkadot/react-hooks';
 import { useTranslation } from '../translate.js';
 import { KatexSpan, FullWidthContainer } from '@slonigiraf/app-slonig-components';
-import { countWords, PHRASE_WORD_COUNT } from '../util.js';
 import MillerLawComment from './MillerLawComment.js';
 
 interface Props {
@@ -23,10 +22,8 @@ const TextAreaWithPreview: React.FC<Props> = ({ children, className, isError, is
   const { t } = useTranslation();
 
   const _onChange = (text: string) => {
-    if (countWords(text) <= PHRASE_WORD_COUNT && onChange) {
-      onChange(text);
-      setContent(text);
-    }
+    onChange && onChange(text);
+    setContent(text);
   };
 
   return (
@@ -46,7 +43,7 @@ const TextAreaWithPreview: React.FC<Props> = ({ children, className, isError, is
               onChange={_onChange}
               seed={seed}
               withLabel={withLabel} />
-            {countWords(content) === PHRASE_WORD_COUNT && <MillerLawComment />}
+            <MillerLawComment text={content} />
           </>
       }
 

@@ -1,7 +1,7 @@
 import React, { useCallback } from 'react';
 import { Button, Dropdown, Input, styled } from '@polkadot/react-components';
 import { useTranslation } from '../translate.js';
-import { countWords, PHRASE_WORD_COUNT, randomIdHex } from '../util.js';
+import { randomIdHex } from '../util.js';
 import Reordering from './Reordering.js';
 import ExerciseEditorList from './ExerciseEditorList.js';
 import { useApi } from '@polkadot/react-hooks';
@@ -38,13 +38,11 @@ function Editor(props: Props): React.ReactElement<Props> {
   const getDefaultItemLawType = useCallback(() => parentToItemDefaultType[list?.t] || 0, [list]);
 
   const editItemTitle = useCallback((text: string) => {
-    if (countWords(text) <= PHRASE_WORD_COUNT) {
-      onItemChange({
-        ...item,
-        h: text,
-        t: item?.t || getDefaultItemLawType()
-      });
-    }
+    onItemChange({
+      ...item,
+      h: text,
+      t: item?.t || getDefaultItemLawType()
+    });
   }, [item, onItemChange]);
 
   const selectLawType = useCallback((newLawType: typeof LawType) => {
@@ -189,7 +187,7 @@ function Editor(props: Props): React.ReactElement<Props> {
                 onChange={editListTitle}
                 value={list.h}
               />
-              {countWords(list.h) === PHRASE_WORD_COUNT && <MillerLawComment />}
+              <MillerLawComment text={list.h} />
             </FormContainer>
           </div>
           <Reordering list={list} onListChange={onListChange} itemText={itemText} />
@@ -224,7 +222,7 @@ function Editor(props: Props): React.ReactElement<Props> {
               onChange={editItemTitle}
               value={item?.h || ""}
             />
-            {countWords(item?.h) === PHRASE_WORD_COUNT && <MillerLawComment />}
+            <MillerLawComment text={item?.h} />
           </FormContainer>
         </>
       )}
