@@ -18,6 +18,7 @@ import { useLocation } from 'react-router-dom';
 import { useLoginContext } from '@slonigiraf/app-slonig-components';
 import { sendCreateAndEditTransaction, sendEditTransaction } from './sendTransaction.js';
 import { useInfo } from '@slonigiraf/app-slonig-components';
+import { getSetting, SettingKey } from '@slonigiraf/db';
 
 interface Props {
   className?: string;
@@ -31,6 +32,7 @@ function Edit({ className = '' }: Props): React.ReactElement<Props> {
   const { currentPair, isLoggedIn, setLoginIsRequired } = useLoginContext();
   const { api } = useApi();
   const [isProcessing, toggleProcessing] = useToggle(false);
+  const [isDeveloper, setDeveloper] = useState<boolean>(false);
 
   const location = useLocation();
   const queryParams = new URLSearchParams(location.search);
@@ -59,6 +61,14 @@ function Edit({ className = '' }: Props): React.ReactElement<Props> {
   const [originalAmountList, setOriginalAmountList] = useState<BN | undefined>(new BN(loadFromSessionStorage(sessionPrefix, 'originalAmountList') || BN_ZERO));
 
   const toggleEditView = () => setIsEditView(!isEditView);
+
+  useEffect((): void => {
+    const loadDev = async () => {
+      const isDev = await getSetting(SettingKey.DEVELOPER);
+      setDeveloper(isDev === 'true' ? true : false);
+    };
+    loadDev();
+  }, []);
 
   // Save state changes to session storage
   useEffect(() => {
@@ -102,12 +112,16 @@ function Edit({ className = '' }: Props): React.ReactElement<Props> {
   const _onClickEdit = useCallback(
     (): void => {
       if (isLoggedIn) {
-        _onClickChangeView();
+        if(isDeveloper){
+          _onClickChangeView();
+        } else{
+          showInfo('Enable developer mode first in settings', 'error')
+        }
       } else {
         setLoginIsRequired(true);
       }
     },
-    [_onClickChangeView, isLoggedIn]
+    [_onClickChangeView, isLoggedIn, isDeveloper]
   );
 
   const _onSuccess = (digestHex: string) => {
@@ -151,7 +165,7 @@ function Edit({ className = '' }: Props): React.ReactElement<Props> {
         const tuple = law.unwrap();
         const byteArray = tuple[0]; // This should give you the [u8; 32] as Uint8Array
         const bigIntValue = tuple[1]; // This should give you the u128 as bigint
-  
+
         const cid = await getCIDFromBytes(byteArray);
         if (cid !== cidString) {
           setCidString(cid);
