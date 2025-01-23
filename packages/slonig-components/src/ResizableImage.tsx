@@ -102,10 +102,7 @@ const ResizableImage: React.FC<Props> = ({ cid, alt }) => {
 
 const NormalImage = styled.img`
   padding-top: 5px;
-  width: 100%;
-  @media (min-width: 768px) {
-    width: 400px;
-  }
+  width: 150px;
 `;
 
 const BigImage = styled.img`
