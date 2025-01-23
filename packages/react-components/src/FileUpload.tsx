@@ -4,9 +4,10 @@ interface FileUploadProps {
   accept: string;
   onChange: (e: React.ChangeEvent<HTMLInputElement>) => void;
   disabled: boolean;
+  label: string;
 }
 
-const FileUpload: FC<FileUploadProps> = ({ onChange, accept, disabled }) => {
+const FileUpload: FC<FileUploadProps> = ({ onChange, accept, disabled, label }) => {
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
   const handleClick = (): void => {
@@ -27,7 +28,7 @@ const FileUpload: FC<FileUploadProps> = ({ onChange, accept, disabled }) => {
 
       {/* Custom button */}
       <button type="button" onClick={handleClick}>
-        Upload File
+        {label}
       </button>
     </div>
   );

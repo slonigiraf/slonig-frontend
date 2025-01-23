@@ -89,6 +89,7 @@ const ExerciseEditor: FC<Props> = ({ className = '', exercise, index, skill, onS
           onChange={(e) => handleImageChange(e, 'exercise')}
           accept="image/*"
           disabled={!isIpfsReady}
+          label={t('Choose File')}
         />
         {!isIpfsReady && <ErrorMessage>{t('IPFS is not ready. Please wait...')}</ErrorMessage>}
       </ImageUploadContainer>
@@ -110,6 +111,7 @@ const ExerciseEditor: FC<Props> = ({ className = '', exercise, index, skill, onS
           onChange={(e) => handleImageChange(e, 'solution')}
           accept="image/*"
           disabled={!isIpfsReady}
+          label={t('Choose File')}
         />
         {!isIpfsReady && <ErrorMessage>{t('IPFS is not ready. Please wait...')}</ErrorMessage>}
       </ImageUploadContainer>
