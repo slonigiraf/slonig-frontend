@@ -1,5 +1,5 @@
-import React, { useState, useRef, ChangeEvent, FC } from 'react';
-import { Button, styled } from '@polkadot/react-components';
+import React, { useState, ChangeEvent, FC } from 'react';
+import { Button, FileUpload, styled } from '@polkadot/react-components';
 import { useTranslation } from '../translate.js';
 import { Exercise, ResizableImage, Skill, useIpfsContext } from '@slonigiraf/app-slonig-components';
 import { getIPFSContentIDForBytesAndPinIt } from '@slonigiraf/app-slonig-components';
@@ -18,9 +18,6 @@ const ExerciseEditor: FC<Props> = ({ className = '', exercise, index, skill, onS
   const { ipfs, isIpfsReady } = useIpfsContext();
   const [exerciseImageCid, setExerciseImageCid] = useState<string>(exercise.p || '');
   const [solutionImageCid, setSolutionImageCid] = useState<string>(exercise.i || '');
-
-  const exerciseFileInputRef = useRef<HTMLInputElement>(null);
-  const solutionFileInputRef = useRef<HTMLInputElement>(null);
 
   const uploadFileToIPFS = async (file: File): Promise<string> => {
     try {
@@ -67,17 +64,9 @@ const ExerciseEditor: FC<Props> = ({ className = '', exercise, index, skill, onS
     if (type === 'exercise') {
       setExerciseImageCid('');
       updateExercise({ ...exercise, p: '' });
-      if (exerciseFileInputRef.current) {
-        exerciseFileInputRef.current.value = "";
-        exerciseFileInputRef.current.type = "file";
-      }
     } else {
       setSolutionImageCid('');
       updateExercise({ ...exercise, i: '' });
-      if (solutionFileInputRef.current) {
-        solutionFileInputRef.current.value = "";
-        solutionFileInputRef.current.type = "file";
-      }
     }
   };
 
@@ -95,9 +84,8 @@ const ExerciseEditor: FC<Props> = ({ className = '', exercise, index, skill, onS
             <StyledDeleteButton label="" icon="trash" onClick={() => handleDeleteImage('exercise')} />
           </ImageContainer>
         )}
-        <input
-          ref={exerciseFileInputRef} 
-          type="file"
+        <FileUpload
+          key={exerciseImageCid}
           onChange={(e) => handleImageChange(e, 'exercise')}
           accept="image/*"
           disabled={!isIpfsReady}
@@ -117,9 +105,8 @@ const ExerciseEditor: FC<Props> = ({ className = '', exercise, index, skill, onS
             <StyledDeleteButton label="" icon="trash" onClick={() => handleDeleteImage('solution')} />
           </ImageContainer>
         )}
-        <input
-          ref={solutionFileInputRef} 
-          type="file"
+        <FileUpload
+          key={solutionImageCid} 
           onChange={(e) => handleImageChange(e, 'solution')}
           accept="image/*"
           disabled={!isIpfsReady}

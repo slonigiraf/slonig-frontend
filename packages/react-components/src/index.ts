@@ -35,6 +35,7 @@ export { default as ErrorBoundary } from './ErrorBoundary.js';
 export { default as ExpandButton } from './ExpandButton.js';
 export { default as Expander } from './Expander.js';
 export { default as ExpanderScroll } from './ExpanderScroll.js';
+export { default as FileUpload } from './FileUpload.js';
 export { default as FilterInput } from './FilterInput.js';
 export { default as FilterOverlay } from './FilterOverlay.js';
 export { default as Flag } from './Flag.js';
