@@ -123,10 +123,7 @@ const ImageContainer = styled.div`
   position: relative;
   display: inline-block;
   margin-right: 10px;
-  width: 100%;
-  @media (min-width: 768px) {
-    width: 400px;
-  }
+  width: 150px;
 `;
 
 const StyledDeleteButton = styled(Button)`
