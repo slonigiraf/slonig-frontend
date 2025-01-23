@@ -105,7 +105,7 @@ class ValidatingAlgorithm extends Algorithm {
 
         const hasStudentCreatedASimilarExercise = new AlgorithmStage(
             'intermediate',
-            t('Reexamine'),
+            t('Next'),
             [
                 { ...myMessage, text: t('Come up with an exercise similar to this:') },
                 { ...myMessage, text: question1, image: exerciseImage1 },

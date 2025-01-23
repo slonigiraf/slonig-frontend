@@ -145,7 +145,7 @@ class TutoringAlgorithm extends Algorithm {
 
         const hasStudentCreatedASimilarTask = new AlgorithmStage(
             'intermediate',
-            t('Teach now'),
+            t('Next'),
             [
                 { ...myMessage, text: t('Come up with an exercise similar to this:') },
                 { ...myMessage, text: question1, image: exerciseImage1 },
@@ -186,7 +186,7 @@ class TutoringAlgorithm extends Algorithm {
 
         const hasStudentCompletedExerciseCorrectly = new AlgorithmStage(
             'intermediate',
-            t('Teach now'),
+            t('Next'),
             [
                 { ...myMessage, text: question1, image: exerciseImage1 },
                 { ...theirMessage, text: t('...') },
