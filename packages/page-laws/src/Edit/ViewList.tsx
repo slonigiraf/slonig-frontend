@@ -145,6 +145,7 @@ function ViewList({ className = '', id, cidString, list }: Props): React.ReactEl
           renderItem={(item, isSelected, isSelectionAllowed, onToggleSelection, handleItemUpdate) => (
             <ItemLabel
               id={item.id}
+              cid={item.cid}
               isSelected={isSelected}
               isReexaminingRequested={isReexaminingRequested}
               onToggleSelection={onToggleSelection}

@@ -1,9 +1,12 @@
 // Copyright 2021-2022 @slonigiraf/app-laws authors & contributors
 // SPDX-License-Identifier: Apache-2.0
-import React, { useCallback } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import { Button } from '@polkadot/react-components';
 import ItemLabel from './ItemLabel.js';
-import { useIpfsContext } from '@slonigiraf/app-slonig-components';
+import { getCIDFromBytes } from '@slonigiraf/app-slonig-components';
+import { ItemWithCID } from '../types.js';
+import { useApi } from '@polkadot/react-hooks';
+import BN from 'bn.js';
 
 interface Props {
   className?: string;
@@ -12,10 +15,35 @@ interface Props {
   itemText: string;
 }
 
-// ... [The imports remain the same]
-
 function Reordering({ className = '', list, onListChange, itemText }: Props): React.ReactElement<Props> {
-  const { ipfs, isIpfsReady, ipfsInitError } = useIpfsContext();
+  const { api } = useApi();
+  const [itemsWithCID, setItemsWithCID] = useState<ItemWithCID[]>([]);
+
+  async function fetchLaw(key: string) {
+    const law = (await api.query.laws.laws(key)) as { isSome: boolean; unwrap: () => [Uint8Array, BN] };
+    if (law.isSome) {
+      const tuple = law.unwrap();
+      const byteArray = tuple[0];
+      const cid = await getCIDFromBytes(byteArray);
+      return cid;
+    }
+    return '';
+  }
+
+  useEffect(() => {
+    const fetchCIDs = async () => {
+      if (list?.e) {
+        const items = await Promise.all(
+          list.e.map(async (id: string) => ({
+            id: id,
+            cid: await fetchLaw(id) || ''
+          }))
+        );
+        setItemsWithCID(items);
+      }
+    };
+    fetchCIDs();
+  }, [list]);
 
 
   const handleMoveUp = useCallback((index: number) => {
@@ -42,13 +70,13 @@ function Reordering({ className = '', list, onListChange, itemText }: Props): Re
     onListChange({ ...list, e: newList });
   }, [list, onListChange]);
 
-  return (list == null || list.e == null) ? null : (
+  return (
     <>
-      {list.e.map((item, index) => (
+      {itemsWithCID.map((item, index) => (
         <div className='ui--row' key={index}
-        style={{
-          alignItems: 'center'
-        }}
+          style={{
+            alignItems: 'center'
+          }}
         >
           <Button
             icon='arrow-up'
@@ -64,7 +92,7 @@ function Reordering({ className = '', list, onListChange, itemText }: Props): Re
             icon='times'  // Assuming 'times' is the icon for delete
             onClick={() => handleDelete(index)}
           />
-          <ItemLabel key={item} id={item} isText={true} defaultValue={itemText}/>
+          <ItemLabel key={item.id} id={item.id} cid={item.cid} isText={true} defaultValue={itemText} />
         </div>
       ))}
     </>

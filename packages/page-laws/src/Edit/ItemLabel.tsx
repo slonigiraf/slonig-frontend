@@ -1,17 +1,16 @@
 // Copyright 2021-2022 @slonigiraf/app-laws authors & contributors
 // SPDX-License-Identifier: Apache-2.0
 import React, { useEffect, useState } from 'react';
-import { useApi } from '@polkadot/react-hooks';
-import { KatexSpan, StyledSpinnerContainer, getCIDFromBytes, getIPFSDataFromContentID, parseJson } from '@slonigiraf/app-slonig-components';
+import { KatexSpan, StyledSpinnerContainer, getIPFSDataFromContentID, parseJson } from '@slonigiraf/app-slonig-components';
 import { useIpfsContext } from '@slonigiraf/app-slonig-components';
 import { Button, Icon, styled, Spinner } from '@polkadot/react-components';
 import DiplomaCheck from './DiplomaCheck.js';
 import { Letter } from '@slonigiraf/db';
 import { ItemWithCID } from '../types.js';
-import BN from 'bn.js';
 interface Props {
   className?: string;
   id: string;
+  cid: string;
   isText?: boolean;
   defaultValue?: string;
   isSelected?: boolean;
@@ -21,10 +20,8 @@ interface Props {
   onItemUpdate?: (item: ItemWithCID) => void;
 }
 
-function ItemLabel({ className = '', id, isText = false, defaultValue = '...', isSelected = false, isSelectable = false, isReexaminingRequested = false, onToggleSelection, onItemUpdate, }: Props): React.ReactElement<Props> {
+function ItemLabel({ className = '', id, cid, isText = false, defaultValue = '...', isSelected = false, isSelectable = false, isReexaminingRequested = false, onToggleSelection, onItemUpdate, }: Props): React.ReactElement<Props> {
   const { ipfs, isIpfsReady } = useIpfsContext();
-  const { api } = useApi();
-  const [cidString, setCidString] = useState<string>("");
   const [text, setText] = useState<string>(id);
   const [isFetched, setIsFetched] = useState(false);
   const [isSkillItem, setIsSkillItem] = useState(false);
@@ -40,29 +37,25 @@ function ItemLabel({ className = '', id, isText = false, defaultValue = '...', i
   useEffect(() => {
     const allowSelection = isReexaminingRequested ? validDiplomas.length > 0 : validDiplomas.length === 0;
     if (!allowSelection && isSelected && onToggleSelection) {
-      onToggleSelection({ 'id': id, 'cid': cidString, 'validDiplomas': validDiplomas }); // Deselect if no valid diplomas
+      onToggleSelection({ 'id': id, 'cid': cid, 'validDiplomas': validDiplomas }); // Deselect if no valid diplomas
     }
-  }, [validDiplomas, isSelected, onToggleSelection, id, cidString]);
+  }, [validDiplomas, isSelected, onToggleSelection, id, cid]);
 
   const handleToggleSelection = () => {
     if (onToggleSelection) {
       setWasSelected(true);
-      onToggleSelection({ id, cid: cidString, validDiplomas });
+      onToggleSelection({ id, cid: cid, validDiplomas });
     }
   };
 
   useEffect(() => {
-    fetchLaw(id);
-  }, [id]);
-
-  useEffect(() => {
     const fetchIPFSData = async () => {
-      if (!isIpfsReady || cidString.length < 2) {
+      if (!isIpfsReady || cid.length < 2) {
         return;
       }
 
       try {
-        const jsonText = await getIPFSDataFromContentID(ipfs, cidString);
+        const jsonText = await getIPFSDataFromContentID(ipfs, cid);
         const json = parseJson(jsonText);
         setText(json.h);
         setIsFetched(true);
@@ -74,26 +67,15 @@ function ItemLabel({ className = '', id, isText = false, defaultValue = '...', i
     };
 
     fetchIPFSData();
-  }, [cidString, ipfs]);
+  }, [cid, ipfs]);
 
   // Call the item update function when data is available
   useEffect(() => {
     if (isFetched && onItemUpdate) {
-      const updatedItem = { id, cid: cidString, validDiplomas };
+      const updatedItem = { id, cid: cid, validDiplomas };
       onItemUpdate(updatedItem);
     }
-  }, [isFetched, cidString, validDiplomas, onItemUpdate, id]);
-
-
-  async function fetchLaw(key: string) {
-    const law = (await api.query.laws.laws(key)) as { isSome: boolean; unwrap: () => [Uint8Array, BN] };
-    if (law.isSome) {
-      const tuple = law.unwrap();
-      const byteArray = tuple[0]; // This should give you the [u8; 32]
-      const cid = await getCIDFromBytes(byteArray);
-      setCidString(cid);
-    }
-  }
+  }, [isFetched, cid, validDiplomas, onItemUpdate, id]);
 
   const textToDisplay = isFetched ? text : defaultValue;
 
@@ -125,7 +107,7 @@ function ItemLabel({ className = '', id, isText = false, defaultValue = '...', i
         {!isSkillItem && icon}
         {isSkillItem && <DiplomaCheck
           id={id}
-          cid={cidString}
+          cid={cid}
           setValidDiplomas={setValidDiplomas}
         />}
         <KatexSpan content={textToDisplay} />
