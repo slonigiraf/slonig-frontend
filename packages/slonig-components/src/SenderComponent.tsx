@@ -90,7 +90,7 @@ const SenderComponent: React.FC<SenderComponentProps> = ({ data, route, textShar
                 dataCopy={url}
                 isDisabled={isDisabled}
             />
-            </> : <Spinner />;
+            </> : <Spinner noLabel />;
 };
 
 export default React.memo(SenderComponent);

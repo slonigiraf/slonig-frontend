@@ -146,7 +146,7 @@ function SkillQR({ className = '', id, cid, type, selectedItems, isLearningReque
       {isLoggedIn && shouldRender && (
         <>
           {diplomaCheck}
-          {loading ? <Spinner /> :
+          {loading ? <Spinner noLabel /> :
             !hasValidDiploma && (
               <>
                 {

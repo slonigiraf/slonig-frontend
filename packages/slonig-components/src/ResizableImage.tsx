@@ -96,7 +96,7 @@ const ResizableImage: React.FC<Props> = ({ cid, alt }) => {
           </Modal.Content>
         </Modal>
       )}
-    </> : <Spinner label=' '/>
+    </> : <Spinner noLabel />
   );
 };
 
