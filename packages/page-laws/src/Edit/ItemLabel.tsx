@@ -30,14 +30,6 @@ function ItemLabel({ className = '', item, isText = false, defaultValue = '...',
     setWasSelected(isSelected);
   }, [isSelected]);
 
-  // Disable button based on validDiplomas size and toggle selection if necessary
-  useEffect(() => {
-    const allowSelection = isReexaminingRequested ? item.validDiplomas.length > 0 : item.validDiplomas.length === 0;
-    if (!allowSelection && isSelected && onToggleSelection) {
-      onToggleSelection(item); // Deselect if no valid diplomas
-    }
-  }, [isSelected, onToggleSelection, item]);
-
   const handleToggleSelection = () => {
     if (onToggleSelection) {
       setWasSelected(true);

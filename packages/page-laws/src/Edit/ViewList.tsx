@@ -64,10 +64,17 @@ function ViewList({ className = '', id, cidString, list }: Props): React.ReactEl
           })
         );
         setItemsWithCID(items);
+
+        if (items.length > 0) {
+          const allHaveValidDiplomas = items.every(item => item.validDiplomas && item.validDiplomas.length > 0);
+          setIsThereAnythingToLearn(!allHaveValidDiplomas);
+          const someHaveValidDiplomas = items.some(item => item.validDiplomas && item.validDiplomas.length > 0);
+          setIsThereAnythingToReexamine(someHaveValidDiplomas);
+        }
       }
     };
     fetchCIDs();
-  }, [list, studentIdentity]);
+  }, [list, studentIdentity, setIsThereAnythingToLearn, setIsThereAnythingToReexamine]);
 
   const handleLearningToggle = useCallback((checked: boolean): void => {
     if (isLoggedIn) {
@@ -108,15 +115,6 @@ function ViewList({ className = '', id, cidString, list }: Props): React.ReactEl
     setSelectedItems(newSelectedItems);
   };
 
-  const handleItemsUpdate = useCallback((items: ItemWithCID[]): void => {
-    if (items.length > 0) {
-      const allHaveValidDiplomas = items.every(item => item.validDiplomas && item.validDiplomas.length > 0);
-      setIsThereAnythingToLearn(!allHaveValidDiplomas);
-      const someHaveValidDiplomas = items.some(item => item.validDiplomas && item.validDiplomas.length > 0);
-      setIsThereAnythingToReexamine(someHaveValidDiplomas);
-    }
-  }, [setIsThereAnythingToLearn, setIsThereAnythingToReexamine]);
-
   const isSelectionAllowed = true;
 
   return list == null ? <StyledSpinnerContainer><Spinner noLabel /></StyledSpinnerContainer> : (
@@ -149,25 +147,23 @@ function ViewList({ className = '', id, cidString, list }: Props): React.ReactEl
       {itemsWithCID.length > 0 && (
         <SelectableList<ItemWithCID>
           items={itemsWithCID}
-          renderItem={(item, isSelected, isSelectionAllowed, onToggleSelection, handleItemUpdate) => (
+          renderItem={(item, isSelected, isSelectionAllowed, onToggleSelection) => (
             <ItemLabel
               item={item}
               isSelected={isSelected}
               isReexaminingRequested={isReexaminingRequested}
               onToggleSelection={onToggleSelection}
               isSelectable={isModuleQRVisible}
-              onItemUpdate={handleItemUpdate}
             />
           )}
           onSelectionChange={handleSelectionChange}
-          onItemsUpdate={handleItemsUpdate}
           isSelectionAllowed={isModuleQRVisible}
           keyExtractor={(item) => item.id+item.validDiplomas.length}
+          filterOutSelection={(item) => item.validDiplomas.length > 0}
           key={id}
           allSelected={shouldSelectAll}
         />
       )}
-
       {list.q != null && <ExerciseList exercises={list.q} />}
     </>
   );

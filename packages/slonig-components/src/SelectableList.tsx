@@ -9,7 +9,6 @@ interface SelectableListProps<T> {
     isSelected: boolean,
     isSelectionAllowed: boolean,
     onToggleSelection: (item: T) => void,
-    handleItemUpdate?: (item: T) => void,
   ) => React.ReactNode;
   onSelectionChange: (selectedItems: T[]) => void;
   onItemsUpdate?: (selectedItems: T[]) => void;
@@ -18,6 +17,7 @@ interface SelectableListProps<T> {
   className?: string;
   additionalControls?: React.ReactNode;
   keyExtractor: (item: T) => string;
+  filterOutSelection: (item: T) => boolean;
   header?: ([React.ReactNode?, string?, number?, (() => void)?] | false | null | undefined)[];
   allSelected?: boolean;
 }
@@ -26,54 +26,17 @@ function SelectableList<T>({
   items,
   renderItem,
   onSelectionChange,
-  onItemsUpdate,
   maxSelectableItems = Infinity,
   isSelectionAllowed = true,
   className = '',
   additionalControls,
   keyExtractor,
+  filterOutSelection = () => false,
   header,
   allSelected=false
 }: SelectableListProps<T>): React.ReactElement {
   const { t } = useTranslation();
-  const [updatedItems, setUpdatedItems] = useState(items);
   const [selectedItems, setSelectedItems] = useState<T[]>([]);
-  const [initialAllSelected, setInitialAllSelected] = useState(false);
-
-  useEffect(() => {
-    const shouldUpdateItems = 
-      items.length !== updatedItems.length || 
-      items.some((item, index) => {
-        // Ensure both item and updatedItems[index] are defined
-        if (!item || !updatedItems[index]) return true;
-        return keyExtractor(item) !== keyExtractor(updatedItems[index]);
-      });
-  
-    if (shouldUpdateItems) {
-      // Update only the items that differ by their keys
-      const newUpdatedItems = items.map((item, index) => {
-        // Ensure item and updatedItems[index] are defined before accessing their keys
-        if (!item || !updatedItems[index]) return item; 
-        return keyExtractor(item) === keyExtractor(updatedItems[index])
-          ? updatedItems[index]
-          : item;
-      });
-  
-      setUpdatedItems(newUpdatedItems);
-    }
-  }, [items, updatedItems]);
-
-  useEffect(() => {
-    onItemsUpdate && onItemsUpdate(updatedItems);
-  }, [updatedItems, onItemsUpdate]);
-
-  const handleItemUpdate = useCallback((updatedItem: T) => {
-    setUpdatedItems((prevItems) =>
-      prevItems.map((item) =>
-        keyExtractor(item) === keyExtractor(updatedItem) ? updatedItem : item
-      )
-    );
-  }, [keyExtractor]);
 
   useEffect(() => {
     onSelectionChange(selectedItems);
@@ -97,25 +60,19 @@ function SelectableList<T>({
   };
 
   const selectAll = useCallback(() => {
-    const allSelectable = updatedItems.slice(0, maxSelectableItems);
+    const allSelectable = items
+      .filter(item => !filterOutSelection(item))
+      .slice(0, maxSelectableItems);
     setSelectedItems(allSelectable);
-  }, [updatedItems, maxSelectableItems]);
+  }, [items, maxSelectableItems, filterOutSelection]);
 
   const deselectAll = useCallback(() => {
     setSelectedItems([]);
   }, []);
 
-  // Fixes a confict between auto unselection at all selection
   useEffect(() => {
-    allSelected && setInitialAllSelected(true);
-  }, [allSelected]);
-
-  useEffect(() => {
-    if (initialAllSelected && selectedItems.length !== items.length) {
-      setInitialAllSelected(false);
-      selectAll();
-    }
-  }, [initialAllSelected, items, selectedItems.length, selectAll]);
+    selectAll();
+  }, [allSelected, items]);
 
   return (
     <div className={className}>
@@ -133,15 +90,14 @@ function SelectableList<T>({
         empty={t('No items available')}
         header={header}
       >
-        {updatedItems.map((item) => (
+        {items.map((item) => (
           <tr key={keyExtractor(item)+isSelectionAllowed}>
             <StyledTd>
               {renderItem(
                 item,
                 selectedItems.some((selectedItem) => keyExtractor(selectedItem) === keyExtractor(item)),
                 isSelectionAllowed,
-                toggleItemSelection,
-                handleItemUpdate
+                toggleItemSelection
               )}
             </StyledTd>
           </tr>
