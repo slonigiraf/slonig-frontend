@@ -41,17 +41,6 @@ class TutoringAlgorithm extends Algorithm {
             ]
         );
 
-        const hasStudentRepeatedTheRightAnswerToExerciseCreatedThemselves = new AlgorithmStage(
-            'intermediate',
-            t('Next'),
-            [
-                { ...myMessage, text: t('Repeat after me:') },
-                { ...myMessage, text: t('...'), comment: t('Correct execution of the exercise invented by the student.') },
-                { ...theirMessage, text: t('...') },
-            ],
-            t('Has the student repeated correctly?')
-        );
-
         const hasStudentRepeatedTheRightSolutionOfExerciseOfTutor = new AlgorithmStage(
             'intermediate',
             t('Next'),
@@ -71,7 +60,7 @@ class TutoringAlgorithm extends Algorithm {
                 { ...myMessage, text: t('Repeat after me:') },
                 { ...myMessage, text: t('...'), comment: t('I provide the student with the correct execution of the exercise invented by the student. I can peek at examples here:') },
             ],
-            '',
+            t('Has the student repeated correctly?'),
             <ExampleExercisesButton skill={skill} />
         );
 
@@ -97,17 +86,6 @@ class TutoringAlgorithm extends Algorithm {
             t('Were all of the student\'s exercises and answers perfect today?')
         );
 
-        const hasStudentRepeatedAfterMeTheTask = new AlgorithmStage(
-            'intermediate',
-            t('Next'),
-            [
-                { ...myMessage, text: t('Repeat after me:') },
-                { ...myMessage, text: question2, image: exerciseImage2 },
-                { ...theirMessage, text: '...' },
-            ],
-            t('Has the student repeated correctly after me?')
-        );
-
         const provideFakeAnswer = new AlgorithmStage(
             'intermediate',
             t('Yes'),
@@ -127,7 +105,8 @@ class TutoringAlgorithm extends Algorithm {
                 { ...theirMessage, text: '...', comment: t('The student has not come up with the type of exercise needed.') },
                 { ...myMessage, text: t('Repeat after me:') },
                 { ...myMessage, text: question2, image: exerciseImage2, comment: t('I can change the exercise a little.') },
-            ]
+            ],
+            t('Has the student repeated correctly after me?')
         );
 
         const skip = new AlgorithmStage(
@@ -226,19 +205,15 @@ class TutoringAlgorithm extends Algorithm {
         repeatNextDay.setNext([toNextSkill]);
 
         // Fork #0: studentUsesSlonigFirstTime === true -> Fork #1: 'Yes' -> Fork #2: 'Yes' -> Fork #3: 'No'
-        askStudentToRepeatTheAnswer.setNext([hasStudentRepeatedTheRightAnswerToExerciseCreatedThemselves]);
-        hasStudentRepeatedTheRightAnswerToExerciseCreatedThemselves.setPrevious(askStudentToRepeatTheAnswer);
-        hasStudentRepeatedTheRightAnswerToExerciseCreatedThemselves.setNext([repeatFromTheBeginning, askStudentToRepeatTheAnswer]);// Loop back
+        askStudentToRepeatTheAnswer.setNext([repeatFromTheBeginning, askStudentToRepeatTheAnswer]);
 
 
         // Fork #0: studentUsesSlonigFirstTime === true -> Fork #1: 'Yes' -> Fork #2: 'No'
-        askToRepeatTaskAfterMeTheTask.setNext([hasStudentRepeatedAfterMeTheTask]);
-        hasStudentRepeatedAfterMeTheTask.setPrevious(askToRepeatTaskAfterMeTheTask);
-        hasStudentRepeatedAfterMeTheTask.setNext([repeatFromTheBeginning, askToRepeatTaskAfterMeTheTask]);// Fork #4
+        askToRepeatTaskAfterMeTheTask.setNext([repeatFromTheBeginning, askToRepeatTaskAfterMeTheTask]);
 
         // Fork #0: studentUsesSlonigFirstTime === true -> Fork #1: 'Yes' -> Fork #2: 'No' -> Fork #4: 'Yes'
         repeatFromTheBeginning.setNext([provideFakeAnswer, askToRepeatTaskAfterMeTheTask]);
-        repeatFromTheBeginning.setPrevious(hasStudentRepeatedAfterMeTheTask);
+        repeatFromTheBeginning.setPrevious(askToRepeatTaskAfterMeTheTask);
 
         // Fork #0: studentUsesSlonigFirstTime === true -> Fork #1: 'Yes' -> Fork #2: 'No' -> Fork #4: 'No'
         // This is just loop back, no code is needed.
