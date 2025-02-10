@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useState } from 'react';
-import { LawType, KatexSpan, SelectableList, StyledSpinnerContainer, useLoginContext } from '@slonigiraf/app-slonig-components';
+import { LawType, KatexSpan, SelectableList, StyledSpinnerContainer, useLoginContext, getCIDFromBytes } from '@slonigiraf/app-slonig-components';
 import { useLocation } from 'react-router-dom';
 import ItemLabel from './ItemLabel.js';
 import SkillQR from './SkillQR.js';
@@ -8,6 +8,8 @@ import ExerciseList from './ExerciseList.js';
 import LearnWithAI from './LearnWithAI.js';
 import { Toggle, Spinner } from '@polkadot/react-components';
 import { ItemWithCID } from '../types.js';
+import { useApi } from '@polkadot/react-hooks';
+import BN from 'bn.js';
 
 type JsonType = { [key: string]: any } | null;
 interface Props {
@@ -19,6 +21,7 @@ interface Props {
 
 function ViewList({ className = '', id, cidString, list }: Props): React.ReactElement<Props> {
   const location = useLocation();
+  const { api } = useApi();
   const queryParams = new URLSearchParams(location.search);
   const learnInUrl = queryParams.get('learn') != null;
   const { t } = useTranslation();
@@ -30,7 +33,33 @@ function ViewList({ className = '', id, cidString, list }: Props): React.ReactEl
   const [shouldSelectAll, setShouldSelectAll] = useState(false);
   const [selectedItems, setSelectedItems] = useState<ItemWithCID[]>([]);
   const [isLearningInitialized, setIsLearningInitialized] = useState(false);
+  const [itemsWithCID, setItemsWithCID] = useState<ItemWithCID[]>([]);
 
+  async function fetchLaw(key: string) {
+    const law = (await api.query.laws.laws(key)) as { isSome: boolean; unwrap: () => [Uint8Array, BN] };
+    if (law.isSome) {
+      const tuple = law.unwrap();
+      const byteArray = tuple[0];
+      const cid = await getCIDFromBytes(byteArray);
+      return cid;
+    }
+    return '';
+  }
+
+  useEffect(() => {
+    const fetchCIDs = async () => {
+      if (list?.e) {
+        const items = await Promise.all(
+          list.e.map(async (id: string) => ({
+            id: id,
+            cid: await fetchLaw(id) || ''
+          }))
+        );
+        setItemsWithCID(items);
+      }
+    };
+    fetchCIDs();
+  }, [list]);
 
   const handleLearningToggle = useCallback((checked: boolean): void => {
     if (isLoggedIn) {
@@ -59,12 +88,11 @@ function ViewList({ className = '', id, cidString, list }: Props): React.ReactEl
       !shouldSelectAll &&
       !isLearningInitialized
     ) {
-      setIsLearningInitialized(true); // Prevent re-triggering
-      setShouldSelectAll(true);       // Select all items first
-      handleLearningToggle(true);     // Request learning
+      setIsLearningInitialized(true);
+      setShouldSelectAll(true);
+      handleLearningToggle(true);
     }
   }, [learnInUrl, isLoggedIn, isThereAnythingToLearn, shouldSelectAll, isLearningInitialized]);
-  
 
   const isModuleQRVisible = isLearningRequested || isReexaminingRequested;
 
@@ -82,6 +110,7 @@ function ViewList({ className = '', id, cidString, list }: Props): React.ReactEl
   }, [setIsThereAnythingToLearn, setIsThereAnythingToReexamine]);
 
   const isSelectionAllowed = true;
+
   return list == null ? <StyledSpinnerContainer><Spinner noLabel /></StyledSpinnerContainer> : (
     <>
       <h1><KatexSpan content={list.h} /></h1>
@@ -110,12 +139,9 @@ function ViewList({ className = '', id, cidString, list }: Props): React.ReactEl
         </>
       )}
 
-      {list.e != null && (
+      {itemsWithCID.length > 0 && (
         <SelectableList<ItemWithCID>
-          items={list.e.map((id: string) => ({
-            id: id,
-            cid: ''
-          }))}
+          items={itemsWithCID}
           renderItem={(item, isSelected, isSelectionAllowed, onToggleSelection, handleItemUpdate) => (
             <ItemLabel
               id={item.id}
