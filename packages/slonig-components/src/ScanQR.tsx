@@ -32,44 +32,11 @@ function ScanQR({ className = '', label }: Props): React.ReactElement<Props> {
   }, [isLoggedIn, setLoginIsRequired, toggleQR]);
 
   // Process the scanned QR data
-  const processQR = useCallback(async (data: string) => {
+  const processQR = useCallback(async (url: string) => {
     toggleQR();
-    try {
-      const qrJSON = JSON.parse(data);
-      // Validate JSON properties
-      if (qrJSON.hasOwnProperty(QRField.QR_ACTION)) {
-        switch (qrJSON[QRField.QR_ACTION]) {
-          case QRAction.NAVIGATION:
-            navigate(qrJSON[QRField.DATA]);
-            break;
-          case QRAction.TRANSFER:
-            await storePseudonym(qrJSON.p, qrJSON.n);
-            const recipientAddress = qrJSON.p ? encodeAddress(hexToU8a(qrJSON.p)) : "";
-            setRecipientId(recipientAddress);
-            setIsTransferOpen(true);
-            break;
-          case QRAction.ADD_DIPLOMA:
-            navigate(`diplomas?${QRField.WEBRTC_PEER_ID}=${qrJSON[QRField.WEBRTC_PEER_ID]}`);
-            break;
-          case QRAction.BUY_DIPLOMAS:
-            navigate(`diplomas/assess?${QRField.WEBRTC_PEER_ID}=${qrJSON[QRField.WEBRTC_PEER_ID]}`);
-            break;
-          case QRAction.LEARN_MODULE:
-            navigate(`diplomas/teach?${QRField.WEBRTC_PEER_ID}=${qrJSON[QRField.WEBRTC_PEER_ID]}`);
-            break;
-          case QRAction.TEACHER_IDENTITY:
-            navigate(`diplomas?teacher=${qrJSON.p}`);
-            break;
-          default:
-            console.warn("Unknown QR type:", qrJSON.q);
-        }
-
-      } else {
-        console.error("Invalid QR data structure.");
-      }
-    } catch (error) {
-      console.error("Error parsing QR data as JSON:", error);
-    }
+    // example of url: http://localhost:3000/#/diplomas/teach?c=39b5fd47-a425-4a8d-a32b-81635bba09a6
+    const [_domain, path] = url.split('/#')
+    path && navigate(path);
   }, [navigate, toggleQR, setIsTransferOpen]);
 
   // Handle the QR Scanner result
