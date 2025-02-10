@@ -1,6 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { createPeer, getBaseUrl, QRWithShareAndCopy, useInfo } from '@slonigiraf/app-slonig-components';
 import { useTranslation } from './translate.js';
+import { Spinner } from '@polkadot/react-components';
 
 interface SenderComponentProps {
     data: string;    // The data to send over the WebRTC data channel
@@ -80,7 +81,7 @@ const SenderComponent: React.FC<SenderComponentProps> = ({ data, route, textShar
     }, [route]); // Initialize peer when `route` or changes
 
     return url ?
-        <>
+            <>
             {caption && <h2>{caption}</h2>}
             <QRWithShareAndCopy
                 titleShare="QR Code"
@@ -88,7 +89,8 @@ const SenderComponent: React.FC<SenderComponentProps> = ({ data, route, textShar
                 urlShare={url}
                 dataCopy={url}
                 isDisabled={isDisabled}
-            /></> : <></>;
+            />
+            </> : <Spinner />;
 };
 
 export default React.memo(SenderComponent);
