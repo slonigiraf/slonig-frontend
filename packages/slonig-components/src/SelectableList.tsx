@@ -38,7 +38,7 @@ function SelectableList<T>({
   const { t } = useTranslation();
   const [updatedItems, setUpdatedItems] = useState(items);
   const [selectedItems, setSelectedItems] = useState<T[]>([]);
-
+  const [initialAllSelected, setInitialAllSelected] = useState(false);
 
   useEffect(() => {
     const shouldUpdateItems = 
@@ -105,11 +105,17 @@ function SelectableList<T>({
     setSelectedItems([]);
   }, []);
 
+  // Fixes a confict between auto unselection at all selection
   useEffect(() => {
-    if (allSelected && selectedItems.length !== items.length) {
+    allSelected && setInitialAllSelected(true);
+  }, [allSelected]);
+
+  useEffect(() => {
+    if (initialAllSelected && selectedItems.length !== items.length) {
+      setInitialAllSelected(false);
       selectAll();
     }
-  }, [allSelected, items, selectedItems.length, selectAll]);
+  }, [initialAllSelected, items, selectedItems.length, selectAll]);
 
   return (
     <div className={className}>
