@@ -142,18 +142,6 @@ class TutoringAlgorithm extends Algorithm {
             ]
         );
 
-
-        const hasStudentCreatedASimilarTask = new AlgorithmStage(
-            'intermediate',
-            t('Next'),
-            [
-                { ...myMessage, text: t('Come up with an exercise similar to this:') },
-                { ...myMessage, text: question1, image: exerciseImage1 },
-                { ...theirMessage, text: '...' },
-            ],
-            t('Has the student now invented a similar exercise?')
-        );
-
         const skip = new AlgorithmStage(
             'skip',
             t('Skip'),
@@ -168,7 +156,8 @@ class TutoringAlgorithm extends Algorithm {
                 { ...theirMessage, text: t('Teach me the skill') + (skill && ": \"" + skill.h + "\"") },
                 { ...myMessage, text: t('Come up with an exercise similar to this:') },
                 { ...myMessage, text: question1, image: exerciseImage1, comment: t('I can change the exercise a little.') },
-            ]
+            ],
+            t('Has the student now invented a similar exercise?')
         );
 
 
@@ -211,7 +200,8 @@ class TutoringAlgorithm extends Algorithm {
                 { ...theirMessage, text: t('...'), comment: t('The student has repeated correctly after me.') },
                 { ...myMessage, text: t('Come up with an exercise similar to this:') },
                 { ...myMessage, text: question1, image: exerciseImage1, comment: t('I can change the exercise a little.') },
-            ]
+            ],
+            t('Has the student now invented a similar exercise?')
         );
 
         const toNextSkill = new AlgorithmStage(
@@ -230,13 +220,11 @@ class TutoringAlgorithm extends Algorithm {
         askStudentToRepeatTheSolutionOfExerciseOfTutor.setPrevious(hasStudentCompletedExerciseCorrectly);
 
         // Fork #0: studentUsesSlonigFirstTime === true -> Fork #1: 'Yes'
-        askToCreateAnExerciseAfterCompletionOfExerciseOfTutor.setNext([hasStudentCreatedASimilarTask]);
+        askToCreateAnExerciseAfterCompletionOfExerciseOfTutor.setNext([provideFakeAnswer, askToRepeatTaskAfterMeTheTask]);
         if (studentUsesSlonigFirstTime) {
-            hasStudentCreatedASimilarTask.setPrevious(askToCreateAnExerciseAfterCompletionOfExerciseOfTutor);
+            provideFakeAnswer.setPrevious(askToCreateAnExerciseAfterCompletionOfExerciseOfTutor);
+            askToRepeatTaskAfterMeTheTask.setPrevious(askToCreateAnExerciseAfterCompletionOfExerciseOfTutor);
         }
-        hasStudentCreatedASimilarTask.setNext([provideFakeAnswer, askToRepeatTaskAfterMeTheTask]);// Fork #2
-        provideFakeAnswer.setPrevious(hasStudentCreatedASimilarTask);
-        askToRepeatTaskAfterMeTheTask.setPrevious(hasStudentCreatedASimilarTask);
 
         // Fork #0: studentUsesSlonigFirstTime === true -> Fork #1: 'Yes' -> Fork #2: 'Yes'
         provideFakeAnswer.setNext([hasStudentCorrectedTheFakeAnswer]);
@@ -263,7 +251,7 @@ class TutoringAlgorithm extends Algorithm {
         hasStudentRepeatedAfterMeTheTask.setNext([repeatFromTheBeginning, askToRepeatTaskAfterMeTheTask]);// Fork #4
 
         // Fork #0: studentUsesSlonigFirstTime === true -> Fork #1: 'Yes' -> Fork #2: 'No' -> Fork #4: 'Yes'
-        repeatFromTheBeginning.setNext([hasStudentCreatedASimilarTask]);
+        repeatFromTheBeginning.setNext([provideFakeAnswer, askToRepeatTaskAfterMeTheTask]);
         repeatFromTheBeginning.setPrevious(hasStudentRepeatedAfterMeTheTask);
 
         // Fork #0: studentUsesSlonigFirstTime === true -> Fork #1: 'Yes' -> Fork #2: 'No' -> Fork #4: 'No'
@@ -275,9 +263,10 @@ class TutoringAlgorithm extends Algorithm {
         hasStudentRepeatedTheRightSolutionOfExerciseOfTutor.setNext([repeatFromTheBeginning, askStudentToRepeatTheSolutionOfExerciseOfTutor]);
 
         // Fork #0: studentUsesSlonigFirstTime === false
-        askStudentToCreateASimilarExercise.setNext([skip, hasStudentCreatedASimilarTask]);
+        askStudentToCreateASimilarExercise.setNext([skip, provideFakeAnswer, askToRepeatTaskAfterMeTheTask]);
         if (!studentUsesSlonigFirstTime) {
-            hasStudentCreatedASimilarTask.setPrevious(askStudentToCreateASimilarExercise);
+            provideFakeAnswer.setPrevious(askStudentToCreateASimilarExercise);
+            askToRepeatTaskAfterMeTheTask.setPrevious(askStudentToCreateASimilarExercise);
         }
     }
 }
