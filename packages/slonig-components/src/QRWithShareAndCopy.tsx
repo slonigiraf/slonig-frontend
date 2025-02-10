@@ -50,7 +50,7 @@ const StyledDiv = styled.div`
     justify-content: center;
     align-items: center;
   }
-  @media (min-width: 768px) {
+  @media (min-width: 500px) {
     width: 400px;
   }
 `;

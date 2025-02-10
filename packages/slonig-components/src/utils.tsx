@@ -329,8 +329,8 @@ export const qrPadding = 10;
 export const getQrWidth = () => {
   const deviceMaxWidth = window.innerWidth || document.documentElement.clientWidth || document.body.clientWidth;
   const maxWidth = 260;
-  // Assuming devices with a width of 768px or less are mobile
-  const isMobile = deviceMaxWidth <= 768;
+  // Assuming devices with a width of 500px or less are mobile
+  const isMobile = deviceMaxWidth <= 500;
 
   // For mobile devices, use the device's maximum width; otherwise, use maxWidth
   return isMobile ? (deviceMaxWidth - 4 * qrPadding) : maxWidth;

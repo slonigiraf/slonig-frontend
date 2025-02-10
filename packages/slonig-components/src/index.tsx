@@ -90,7 +90,7 @@ const CenterItemsContainer = styled.div`
   align-items: center;
   width: 100%;
   margin: 0 auto;
-  @media (min-width: 768px) {
+  @media (min-width: 800px) {
     width: 800px;
   }
 `;
@@ -133,7 +133,7 @@ export const InstructionsButtonsContainer = styled.div`
   margin: 0 auto;
   position: fixed;
   bottom: 90px;
-  @media (min-width: 768px) {
+  @media (min-width: 800px) {
     left: 50%;
     transform: translateX(-50%);
   }
