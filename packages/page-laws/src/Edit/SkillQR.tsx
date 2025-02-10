@@ -2,17 +2,10 @@ import React, { useState, useEffect } from 'react';
 import { useTranslation } from '../translate.js';
 import { CenterQRContainer, LessonRequest, LoginButton, SenderComponent, nameFromKeyringPair, qrWidthPx, useLoginContext } from '@slonigiraf/app-slonig-components';
 import { Letter, getLessonId, getLettersByWorkerId } from '@slonigiraf/db';
-import { Spinner } from '@polkadot/react-components';
-import { keyForCid, LawType } from '@slonigiraf/app-slonig-components';
+import { keyForCid } from '@slonigiraf/app-slonig-components';
 import { styled } from '@polkadot/react-components';
 import { u8aToHex } from '@polkadot/util';
-import BN from 'bn.js';
-import { BN_ONE } from '@polkadot/util';
-import { useApi } from '@polkadot/react-hooks';
-import { useBlockTime } from '@polkadot/react-hooks';
-import DiplomaCheck from './DiplomaCheck.js';
 import { ItemWithCID } from '../types.js';
-
 interface Props {
   className?: string;
   id: string;
@@ -23,46 +16,17 @@ interface Props {
   isReexaminingRequested?: boolean;
 }
 
-const getBlockAllowed = (currentBlock: BN, blockTimeMs: number, secondsToAdd: number): BN => {
-  const secondsToGenerateBlock = blockTimeMs / 1000;
-  const blocksToAdd = new BN(secondsToAdd).div(new BN(secondsToGenerateBlock));
-  const blockAllowed = currentBlock.add(blocksToAdd);
-  return blockAllowed;
-}
-
-function SkillQR({ className = '', id, cid, type, selectedItems, isLearningRequested, isReexaminingRequested }: Props): React.ReactElement<Props> | null {
+function SkillQR({ className = '', cid, selectedItems, isLearningRequested, isReexaminingRequested }: Props): React.ReactElement<Props> | null {
   // Always call hooks unconditionally
-  const { api, isApiReady } = useApi();
-  const [millisecondsPerBlock,] = useBlockTime(BN_ONE, api);
-  const [blockAllowed, setBlockAllowed] = useState<BN>(new BN(1));
   const { currentPair, isLoggedIn } = useLoginContext();
   const { t } = useTranslation();
   const [diplomasToReexamine, setDiplomasToReexamine] = useState<Letter[]>();
-  const [validDiplomas, setValidDiplomas] = useState<Letter[]>();
-  const [loading, setLoading] = useState<boolean>(true);
   const [lessonId, setLessonId] = useState<string>('');
   const [learn, setLearn] = useState<string[][]>([]);
   const [reexamine, setReexamine] = useState<string[][]>([]);
   const [data, setData] = useState<string | null>(null);
 
   const shouldRender = selectedItems && selectedItems.length > 0 && (isLearningRequested || isReexaminingRequested);
-  useEffect(() => {
-    async function fetchBlockNumber() {
-      if (isApiReady) {
-        try {
-          const chainHeader = await api.rpc.chain.getHeader();
-          const currentBlockNumber = new BN((chainHeader as { number: BN }).number.toString());
-          // Allow to reexamine within the following time
-          const secondsValid = 1800;
-          const blockAllowed: BN = getBlockAllowed(currentBlockNumber, millisecondsPerBlock, secondsValid);
-          setBlockAllowed(blockAllowed);
-        } catch (error) {
-          console.error("Error fetching block number: ", error);
-        }
-      }
-    }
-    fetchBlockNumber();
-  }, [api, isApiReady, millisecondsPerBlock]);
 
   // Initialize learn request
   useEffect(() => {
@@ -120,8 +84,6 @@ function SkillQR({ className = '', id, cid, type, selectedItems, isLearningReque
 
   const name = nameFromKeyringPair(currentPair);
   const route = 'diplomas/teach';
-  const diplomaCheck = <DiplomaCheck id={id} cid={cid} caption={t('I have a diploma')} setValidDiplomas={setValidDiplomas} onLoad={() => setLoading(false)} />;
-  const hasValidDiploma = validDiplomas && validDiplomas.length > 0;
 
   // Initialize learn request
   useEffect(() => {
@@ -141,16 +103,11 @@ function SkillQR({ className = '', id, cid, type, selectedItems, isLearningReque
     }
   }, [learn, reexamine, cid, lessonId, name, studentIdentity]);
 
+  const showQR = isLoggedIn && shouldRender && data;
+
   return (
     <>
-      {isLoggedIn && shouldRender && (
-        <>
-          {diplomaCheck}
-          {loading ? <Spinner noLabel /> :
-            !hasValidDiploma && (
-              <>
-                {
-                  (type === LawType.MODULE && data && (
+      {showQR && (
                     <StyledDiv>
                       <CenterQRContainer>
                         <SenderComponent
@@ -161,13 +118,7 @@ function SkillQR({ className = '', id, cid, type, selectedItems, isLearningReque
                         />
                       </CenterQRContainer>
                     </StyledDiv>
-                  ))
-                }
-              </>
-            )
-          }
-        </>
-      )}
+                  )}
       {isLoggedIn && !shouldRender && <LoginButton />}
     </>
   );

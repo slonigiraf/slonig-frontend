@@ -92,7 +92,7 @@ function Reordering({ className = '', list, onListChange, itemText }: Props): Re
             icon='times'  // Assuming 'times' is the icon for delete
             onClick={() => handleDelete(index)}
           />
-          <ItemLabel key={item.id} id={item.id} cid={item.cid} isText={true} defaultValue={itemText} />
+          <ItemLabel key={item.id} item={item} isText={true} defaultValue={itemText} />
         </div>
       ))}
     </>

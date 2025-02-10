@@ -10,6 +10,8 @@ import { Toggle, Spinner } from '@polkadot/react-components';
 import { ItemWithCID } from '../types.js';
 import { useApi } from '@polkadot/react-hooks';
 import BN from 'bn.js';
+import { getLettersForKnowledgeId } from '@slonigiraf/db';
+import { u8aToHex } from '@polkadot/util';
 
 type JsonType = { [key: string]: any } | null;
 interface Props {
@@ -25,7 +27,7 @@ function ViewList({ className = '', id, cidString, list }: Props): React.ReactEl
   const queryParams = new URLSearchParams(location.search);
   const learnInUrl = queryParams.get('learn') != null;
   const { t } = useTranslation();
-  const { isLoggedIn, setLoginIsRequired } = useLoginContext();
+  const {currentPair, isLoggedIn, setLoginIsRequired } = useLoginContext();
   const [isLearningRequested, setLearningRequested] = useState(false);
   const [isReexaminingRequested, setReexaminingRequested] = useState(false);
   const [isThereAnythingToReexamine, setIsThereAnythingToReexamine] = useState(false);
@@ -34,6 +36,7 @@ function ViewList({ className = '', id, cidString, list }: Props): React.ReactEl
   const [selectedItems, setSelectedItems] = useState<ItemWithCID[]>([]);
   const [isLearningInitialized, setIsLearningInitialized] = useState(false);
   const [itemsWithCID, setItemsWithCID] = useState<ItemWithCID[]>([]);
+  const studentIdentity = u8aToHex(currentPair?.publicKey);
 
   async function fetchLaw(key: string) {
     const law = (await api.query.laws.laws(key)) as { isSome: boolean; unwrap: () => [Uint8Array, BN] };
@@ -50,16 +53,21 @@ function ViewList({ className = '', id, cidString, list }: Props): React.ReactEl
     const fetchCIDs = async () => {
       if (list?.e) {
         const items = await Promise.all(
-          list.e.map(async (id: string) => ({
-            id: id,
-            cid: await fetchLaw(id) || ''
-          }))
+          list.e.map(async (id: string) => {
+            const cid = await fetchLaw(id) || '';
+            const validDiplomas = await getLettersForKnowledgeId(studentIdentity, id);
+            return {
+              id: id,
+              cid: cid,
+              validDiplomas: validDiplomas
+            };
+          })
         );
         setItemsWithCID(items);
       }
     };
     fetchCIDs();
-  }, [list]);
+  }, [list, studentIdentity]);
 
   const handleLearningToggle = useCallback((checked: boolean): void => {
     if (isLoggedIn) {
@@ -133,7 +141,6 @@ function ViewList({ className = '', id, cidString, list }: Props): React.ReactEl
       )}
       {list.t !== null && list.t === LawType.SKILL && (
         <>
-          <SkillQR id={id} cid={cidString} type={LawType.SKILL} selectedItems={[{ 'id': id, 'cid': cidString, 'validDiplomas': [] }]} isLearningRequested={true} />
           <LearnWithAI skillName={list.h} exercises={list.q} />
           <h3>{t('Example exercises to train the skill')}</h3>
         </>
@@ -144,8 +151,7 @@ function ViewList({ className = '', id, cidString, list }: Props): React.ReactEl
           items={itemsWithCID}
           renderItem={(item, isSelected, isSelectionAllowed, onToggleSelection, handleItemUpdate) => (
             <ItemLabel
-              id={item.id}
-              cid={item.cid}
+              item={item}
               isSelected={isSelected}
               isReexaminingRequested={isReexaminingRequested}
               onToggleSelection={onToggleSelection}
@@ -156,7 +162,7 @@ function ViewList({ className = '', id, cidString, list }: Props): React.ReactEl
           onSelectionChange={handleSelectionChange}
           onItemsUpdate={handleItemsUpdate}
           isSelectionAllowed={isModuleQRVisible}
-          keyExtractor={(item) => item.id}
+          keyExtractor={(item) => item.id+item.validDiplomas.length}
           key={id}
           allSelected={shouldSelectAll}
         />

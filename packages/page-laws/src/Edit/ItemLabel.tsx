@@ -5,12 +5,10 @@ import { KatexSpan, StyledSpinnerContainer, getIPFSDataFromContentID, parseJson 
 import { useIpfsContext } from '@slonigiraf/app-slonig-components';
 import { Button, Icon, styled, Spinner } from '@polkadot/react-components';
 import DiplomaCheck from './DiplomaCheck.js';
-import { Letter } from '@slonigiraf/db';
 import { ItemWithCID } from '../types.js';
 interface Props {
   className?: string;
-  id: string;
-  cid: string;
+  item: ItemWithCID;
   isText?: boolean;
   defaultValue?: string;
   isSelected?: boolean;
@@ -20,13 +18,12 @@ interface Props {
   onItemUpdate?: (item: ItemWithCID) => void;
 }
 
-function ItemLabel({ className = '', id, cid, isText = false, defaultValue = '...', isSelected = false, isSelectable = false, isReexaminingRequested = false, onToggleSelection, onItemUpdate, }: Props): React.ReactElement<Props> {
+function ItemLabel({ className = '', item, isText = false, defaultValue = '...', isSelected = false, isSelectable = false, isReexaminingRequested = false, onToggleSelection }: Props): React.ReactElement<Props> {
   const { ipfs, isIpfsReady } = useIpfsContext();
-  const [text, setText] = useState<string>(id);
+  const [text, setText] = useState<string>(item.id);
   const [isFetched, setIsFetched] = useState(false);
   const [isSkillItem, setIsSkillItem] = useState(false);
   const [type, setType] = useState(-1);
-  const [validDiplomas, setValidDiplomas] = useState<Letter[]>([]);
   const [wasSelected, setWasSelected] = useState(isSelected);
 
   useEffect(() => {
@@ -35,27 +32,26 @@ function ItemLabel({ className = '', id, cid, isText = false, defaultValue = '..
 
   // Disable button based on validDiplomas size and toggle selection if necessary
   useEffect(() => {
-    const allowSelection = isReexaminingRequested ? validDiplomas.length > 0 : validDiplomas.length === 0;
+    const allowSelection = isReexaminingRequested ? item.validDiplomas.length > 0 : item.validDiplomas.length === 0;
     if (!allowSelection && isSelected && onToggleSelection) {
-      onToggleSelection({ 'id': id, 'cid': cid, 'validDiplomas': validDiplomas }); // Deselect if no valid diplomas
+      onToggleSelection(item); // Deselect if no valid diplomas
     }
-  }, [validDiplomas, isSelected, onToggleSelection, id, cid]);
+  }, [isSelected, onToggleSelection, item]);
 
   const handleToggleSelection = () => {
     if (onToggleSelection) {
       setWasSelected(true);
-      onToggleSelection({ id, cid: cid, validDiplomas });
+      onToggleSelection(item);
     }
   };
 
   useEffect(() => {
     const fetchIPFSData = async () => {
-      if (!isIpfsReady || cid.length < 2) {
+      if (!isIpfsReady || item.cid.length < 2) {
         return;
       }
-
       try {
-        const jsonText = await getIPFSDataFromContentID(ipfs, cid);
+        const jsonText = await getIPFSDataFromContentID(ipfs, item.cid);
         const json = parseJson(jsonText);
         setText(json.h);
         setIsFetched(true);
@@ -65,17 +61,8 @@ function ItemLabel({ className = '', id, cid, isText = false, defaultValue = '..
         console.error((error as {message: string}).message);
       }
     };
-
     fetchIPFSData();
-  }, [cid, ipfs]);
-
-  // Call the item update function when data is available
-  useEffect(() => {
-    if (isFetched && onItemUpdate) {
-      const updatedItem = { id, cid: cid, validDiplomas };
-      onItemUpdate(updatedItem);
-    }
-  }, [isFetched, cid, validDiplomas, onItemUpdate, id]);
+  }, [item, ipfs]);
 
   const textToDisplay = isFetched ? text : defaultValue;
 
@@ -96,7 +83,7 @@ function ItemLabel({ className = '', id, cid, isText = false, defaultValue = '..
     <KatexSpan content={textToDisplay} />
     :
     isFetched ?
-      <StyledA href={`/#/knowledge?id=${id}`}
+      <StyledA href={`/#/knowledge?id=${item.id}`}
         onClick={(e) => {
           if (isSelectable) {
             e.preventDefault();
@@ -106,9 +93,7 @@ function ItemLabel({ className = '', id, cid, isText = false, defaultValue = '..
       >
         {!isSkillItem && icon}
         {isSkillItem && <DiplomaCheck
-          id={id}
-          cid={cid}
-          setValidDiplomas={setValidDiplomas}
+          item={item}
         />}
         <KatexSpan content={textToDisplay} />
       </StyledA>
@@ -116,7 +101,7 @@ function ItemLabel({ className = '', id, cid, isText = false, defaultValue = '..
       <StyledSpinnerContainer><Spinner noLabel /></StyledSpinnerContainer>;
 
 
-  const allowSelection = isReexaminingRequested ? validDiplomas.length > 0 : validDiplomas.length === 0;
+  const allowSelection = isReexaminingRequested ? item.validDiplomas.length > 0 : item.validDiplomas.length === 0;
 
   return <StyledDiv isSelectable={isSelectable}>{
     (onToggleSelection !== undefined && isSelectable && <Button
