@@ -25,9 +25,10 @@ import { CanceledInsurance } from "./db/CanceledInsurance.js";
 export type { CanceledInsurance, Reexamination, LetterTemplate, CanceledLetter, Reimbursement, Letter, Insurance, Lesson, Pseudonym, Setting, Signer, UsageRight, Agreement };
 
 const DEFAULT_INSURANCE_VALIDITY = 730;//Days valid
-const DEFAULT_WARRANTY = "105000000000000";//105 Slon
+const DEFAULT_WARRANTY = "573000000000000";//573 Slon for USA, 0.05688 USD in Ethiopia, 100.66*0.05688 USD in USA
 const DEFAULT_DIPLOMA_VALIDITY = 730;//Days valid
-const DEFAULT_DIPLOMA_PRICE = "80000000000000";//80 Slon
+const DEFAULT_DIPLOMA_PRICE = "475000000000000";//475 Slon for USA, 0.04722 USD in Ethiopia, 100.66*0.04722 USD in USA
+// I propose to giveout 10x of diploma price, and round to the nearest round integer, so 5k Slon for a US student
 const MAX_CACHE_SIZE = 25 * 1024 * 1024; // 25 MB will probably result in 50 MB with IndexedDB storage overhead
 
 // Setting related
