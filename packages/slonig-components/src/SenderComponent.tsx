@@ -5,17 +5,15 @@ import { useTranslation } from './translate.js';
 interface SenderComponentProps {
     data: string;    // The data to send over the WebRTC data channel
     route: string;     // A route that will be used to create a clickable link and used in the QR code share
-    action: object;
     textShare: string;
     isDisabled?: boolean;
     onDataSent?: () => void;
     onReady?: () => void;
 }
 
-const SenderComponent: React.FC<SenderComponentProps> = ({ data, route, action, textShare, isDisabled = false, onDataSent, onReady }) => {
+const SenderComponent: React.FC<SenderComponentProps> = ({ data, route, textShare, isDisabled = false, onDataSent, onReady }) => {
     const { t } = useTranslation();
     const { showInfo } = useInfo();
-    const [qrCodeText, setQrCodeText] = useState<string>('');
     const [url, setUrl] = useState<string>('');
     const peerRef = useRef<any>(null); // Replace `any` with the appropriate type if available
     const connectionRef = useRef<any>(null); // To store the connection
@@ -28,10 +26,10 @@ const SenderComponent: React.FC<SenderComponentProps> = ({ data, route, action, 
     }, [data]);
 
     useEffect(() => {
-        if (qrCodeText && typeof onReady === 'function') {
+        if (url && typeof onReady === 'function') {
             onReady();
         }
-    }, [qrCodeText, onReady]);
+    }, [url, onReady]);
 
     useEffect(() => {
         // Initialize the peer only once
@@ -43,15 +41,7 @@ const SenderComponent: React.FC<SenderComponentProps> = ({ data, route, action, 
             const routeWithConnectionId = route.includes('?')
                 ? `${route}&c=${id}`
                 : `${route}?c=${id}`;
-
-            console.log("PeerId:", id);
             setUrl(`${getBaseUrl()}/#/${routeWithConnectionId}`);
-
-            const qrCodeData = JSON.stringify({
-                c: id,
-                ...action
-            });
-            setQrCodeText(qrCodeData);
         };
 
         const handleConnection = (conn: any) => { // Replace `any` with the appropriate type
@@ -86,11 +76,10 @@ const SenderComponent: React.FC<SenderComponentProps> = ({ data, route, action, 
                 peerRef.current.disconnect();
             }
         };
-    }, [route, action]); // Initialize peer when `route` or `action` changes
+    }, [route]); // Initialize peer when `route` or changes
 
-    return qrCodeText ?
+    return url ?
         <QRWithShareAndCopy
-            dataQR={qrCodeText}
             titleShare="QR Code"
             textShare={textShare}
             urlShare={url}

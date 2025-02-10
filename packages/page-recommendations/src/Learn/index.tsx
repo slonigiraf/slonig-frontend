@@ -3,7 +3,7 @@
 
 import React from 'react';
 import LettersList from './LettersList.js';
-import { QRField, LoginButton, useLoginContext } from '@slonigiraf/app-slonig-components';
+import { LoginButton, UrlParams, useLoginContext } from '@slonigiraf/app-slonig-components';
 import { u8aToHex } from '@polkadot/util';
 import { useLocation } from 'react-router-dom';
 import LessonResultReceiver from './LessonResultReceiver.js';
@@ -16,7 +16,7 @@ function Learn({ className = '' }: Props): React.ReactElement<Props> {
   // Process query
   const location = useLocation();
   const queryParams = new URLSearchParams(location.search);
-  const webRTCPeerId = queryParams.get(QRField.WEBRTC_PEER_ID);
+  const webRTCPeerId = queryParams.get(UrlParams.WEBRTC_PEER_ID);
   const { currentPair, isLoggedIn } = useLoginContext();
 
   return (

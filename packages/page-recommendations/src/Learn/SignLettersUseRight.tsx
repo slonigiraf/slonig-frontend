@@ -5,7 +5,7 @@ import { getDataToSignByWorker } from '@slonigiraf/helpers';
 import type { KeyringPair } from '@polkadot/keyring/types';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { u8aToHex, hexToU8a, u8aWrapBytes, BN_ONE } from '@polkadot/util';
-import { QRAction, QRField, nameFromKeyringPair, SenderComponent, CenterQRContainer, InsurancesTransfer, predictBlockNumber, useInfo } from '@slonigiraf/app-slonig-components';
+import { nameFromKeyringPair, SenderComponent, CenterQRContainer, InsurancesTransfer, predictBlockNumber, useInfo } from '@slonigiraf/app-slonig-components';
 import { useTranslation } from '../translate.js';
 import { insuranceToUsageRight, Letter, putUsageRight, getInsuranceDaysValid, SettingKey, storeSetting, letterToInsurance, serializeInsurance, UsageRight } from '@slonigiraf/db';
 import { keyForCid } from '@slonigiraf/app-slonig-components';
@@ -87,8 +87,6 @@ function SignLettersUseRight({ className = '', letters, worker, employer, curren
 
   const thereAreDiplomas = letters.length > 0;
 
-  const [action] = useState({ [QRField.QR_ACTION]: QRAction.BUY_DIPLOMAS });
-
   const setDaysValid = useCallback(
     (value: string) => {
       setDaysInputValue(value);
@@ -117,7 +115,6 @@ function SignLettersUseRight({ className = '', letters, worker, employer, curren
         onDataSent={_onDataSent}
         data={data}
         route={'diplomas/assess'}
-        action={action}
         textShare={t('Press the link to see diplomas of the student')}
         isDisabled={!thereAreDiplomas || !validDays} onReady={() => setIsReady(true)} />
       {isReady && <EditableInfo

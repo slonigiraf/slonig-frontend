@@ -7,7 +7,6 @@ import { qrWidthPx } from './index.js';
 
 interface Props {
     className?: string;
-    dataQR: string;
     titleShare: string;
     textShare: string;
     urlShare: string;
@@ -15,7 +14,7 @@ interface Props {
     isDisabled?: boolean;
 }
 
-function QRWithShareAndCopy({ className, dataQR, titleShare, textShare, urlShare, dataCopy, isDisabled = false }: Props): React.ReactElement<Props> {
+function QRWithShareAndCopy({ className, titleShare, textShare, urlShare, dataCopy, isDisabled = false }: Props): React.ReactElement<Props> {
     return (
         <StyledDiv>
             <div>

@@ -320,27 +320,8 @@ export const predictBlockNumber = (currentBlock: BN, blockTimeMs: number, second
   return blockAllowed;
 }
 
-export const QRAction = {
-  NAVIGATION: 0,
-  TRANSFER: 1,
-  ADD_DIPLOMA: 2,
-  BUY_DIPLOMAS: 3,
-  SKILL: 4,
-  TEACHER_IDENTITY: 5,
-  ADD_INSURANCES: 6,
-  LEARN_MODULE: 7
-};
-
-export const QRField = {
+export const UrlParams = {
   WEBRTC_PEER_ID: 'c',
-  ID: 'i',
-  QR_ACTION: 'q',
-  QR_SIGNATURE: 's',
-  PERSON_NAME: 'n',
-  PERSON_IDENTITY: 'p',
-  TUTOR: 't',
-  DATA: 'd',
-  PRICE: 'm',
 };
 
 export const LawType = {

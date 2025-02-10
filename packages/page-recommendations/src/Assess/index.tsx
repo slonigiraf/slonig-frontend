@@ -5,13 +5,9 @@ import React, { useState } from 'react';
 import InsurancesList from './InsurancesList.js';
 import { useTranslation } from '../translate.js';
 import { u8aToHex } from '@polkadot/util';
-import { QRWithShareAndCopy, QRAction, nameFromKeyringPair, getBaseUrl, useLoginContext, LoginButton, CenterQRContainer, Person, StyledContentCloseButton, qrWidthPx } from '@slonigiraf/app-slonig-components';
+import { QRWithShareAndCopy, nameFromKeyringPair, getBaseUrl, useLoginContext, LoginButton, CenterQRContainer, Person, StyledContentCloseButton, qrWidthPx } from '@slonigiraf/app-slonig-components';
 import { getPseudonym } from '@slonigiraf/db';
 import InsurancesReceiver from './InsurancesReceiver.js';
-import { getAllPseudonyms } from '@slonigiraf/db';
-import { useLiveQuery } from "dexie-react-hooks";
-import { styled } from '@polkadot/react-components';
-import type { Pseudonym } from '@slonigiraf/db';
 import PersonSelector from '../PersonSelector.js';
 
 interface Props {
@@ -25,12 +21,6 @@ function Assess({ className = '' }: Props): React.ReactElement<Props> {
   const [student, setStudent] = useState<Person | null>(null);
   const publicKeyHex = currentPair ? u8aToHex(currentPair.publicKey) : "";
   const name = nameFromKeyringPair(currentPair);
-  const qrData = {
-    q: QRAction.TEACHER_IDENTITY,
-    n: name,
-    p: publicKeyHex,
-  };
-  const qrCodeText = JSON.stringify(qrData);
   const url = getBaseUrl() + `/#/diplomas?employer=${publicKeyHex}&name=${encodeURIComponent(name)}`;
 
   const handleStudentSelect = async (selectedKey: string) => {
@@ -63,7 +53,6 @@ function Assess({ className = '' }: Props): React.ReactElement<Props> {
               <CenterQRContainer>
                 <h2 style={{ marginTop: '0px' }}>{t('Show to a student to see their results')}</h2>
                 <QRWithShareAndCopy
-                  dataQR={qrCodeText}
                   titleShare={t('QR code')}
                   textShare={t('Press the link to show diplomas')}
                   urlShare={url}

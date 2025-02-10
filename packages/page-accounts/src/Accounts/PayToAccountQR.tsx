@@ -1,7 +1,7 @@
 import React from 'react';
 import { useTranslation } from '../translate.js';
 import { u8aToHex } from '@polkadot/util';
-import { QRAction, QRWithShareAndCopy, getBaseUrl, nameFromKeyringPair, useLoginContext } from '@slonigiraf/app-slonig-components';
+import { QRWithShareAndCopy, getBaseUrl, nameFromKeyringPair, useLoginContext } from '@slonigiraf/app-slonig-components';
 
 function PayToAccountQR(): React.ReactElement {
   const { t } = useTranslation();
@@ -9,18 +9,11 @@ function PayToAccountQR(): React.ReactElement {
 
   const publicKeyHex = currentPair ? u8aToHex(currentPair.publicKey) : "";
   const name = nameFromKeyringPair(currentPair);
-  const qrData = {
-    q: QRAction.TRANSFER,
-    n: name,
-    p: publicKeyHex,
-  };
-  const qrCodeText = JSON.stringify(qrData);
   const url = getBaseUrl() + `/#/accounts?name=${encodeURIComponent(name)}&recipientHex=${publicKeyHex}`;
 
   return (
     <>
       <QRWithShareAndCopy
-        dataQR={qrCodeText}
         titleShare={t('QR code')}
         textShare={t('Press the link to send Slon')}
         urlShare={url}

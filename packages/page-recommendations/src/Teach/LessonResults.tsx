@@ -7,7 +7,7 @@ import { styled, Button, Input, InputBalance, Icon, Card, Modal, Spinner } from 
 import { useApi, useBlockTime, useToggle } from '@polkadot/react-hooks';
 import { u8aToHex, hexToU8a, u8aWrapBytes, BN_ONE, BN_ZERO, formatBalance } from '@polkadot/util';
 import type { LessonResult, Skill } from '@slonigiraf/app-slonig-components';
-import { QRAction, QRField, getIPFSDataFromContentID, parseJson, useIpfsContext, useLoginContext, VerticalCenterItemsContainer, CenterQRContainer, KatexSpan, balanceToSlonString, SenderComponent, useInfo, nameFromKeyringPair, StyledContentCloseButton, predictBlockNumber } from '@slonigiraf/app-slonig-components';
+import { getIPFSDataFromContentID, parseJson, useIpfsContext, useLoginContext, VerticalCenterItemsContainer, CenterQRContainer, KatexSpan, balanceToSlonString, SenderComponent, useInfo, nameFromKeyringPair, StyledContentCloseButton, predictBlockNumber } from '@slonigiraf/app-slonig-components';
 import { getPseudonym, Lesson, getLastUnusedLetterNumber, setLastUsedLetterNumber, storeSetting, getReexaminationsByLessonId, getValidLetterTemplatesByLessonId, SettingKey, serializeAsLetter, LetterTemplate, putLetterTemplate } from '@slonigiraf/db';
 import { getPublicDataToSignByReferee, getPrivateDataToSignByReferee } from '@slonigiraf/helpers';
 import { useTranslation } from '../translate.js';
@@ -245,8 +245,6 @@ function LessonResults({ className = '', lesson, updateAndStoreLesson, onClose }
 
   }, [api, isApiReady, currentPair, lesson]);
 
-  const [action] = useState({ [QRField.QR_ACTION]: QRAction.ADD_DIPLOMA });
-
   const constContentIsVisible = !(processingStatistics || processingQR);
 
   return (
@@ -258,7 +256,7 @@ function LessonResults({ className = '', lesson, updateAndStoreLesson, onClose }
         {!constContentIsVisible && <Spinner />}
         <CenterQRContainer>
           {constContentIsVisible && <h2>{t('Show to the student')}</h2>}
-          <SenderComponent data={data} route={'diplomas'} action={action}
+          <SenderComponent data={data} route={'diplomas'}
             textShare={t('Press the link to add the diploma')} onDataSent={onClose} onReady={() => setProcessingQR(false)} />
         </CenterQRContainer>
         {constContentIsVisible &&

@@ -5,7 +5,7 @@ import React, { useCallback } from 'react';
 import { useTranslation } from '../translate.js';
 import { u8aToHex } from '@polkadot/util';
 import { useLocation, useNavigate } from 'react-router-dom';
-import { QRField, useLoginContext, useInfo, InsurancesTransfer, Person } from '@slonigiraf/app-slonig-components';
+import { useLoginContext, useInfo, InsurancesTransfer, Person, UrlParams } from '@slonigiraf/app-slonig-components';
 import { storeInsurances, storePseudonym } from '@slonigiraf/db';
 import useFetchWebRTC from '../useFetchWebRTC.js';
 interface Props {
@@ -15,7 +15,7 @@ interface Props {
 function InsurancesReceiver({ setWorker }: Props): React.ReactElement<Props> {
   const location = useLocation();
   const queryParams = new URLSearchParams(location.search);
-  const webRTCPeerId = queryParams.get(QRField.WEBRTC_PEER_ID);
+  const webRTCPeerId = queryParams.get(UrlParams.WEBRTC_PEER_ID);
   const { currentPair } = useLoginContext();
   const { t } = useTranslation();
   const employer = u8aToHex(currentPair?.publicKey);

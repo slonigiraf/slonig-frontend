@@ -3,7 +3,7 @@ import { useTranslation } from '../translate.js';
 import { CenterQRContainer, LessonRequest, LoginButton, SenderComponent, nameFromKeyringPair, qrWidthPx, useLoginContext } from '@slonigiraf/app-slonig-components';
 import { Letter, getLessonId, getLettersByWorkerId } from '@slonigiraf/db';
 import { Spinner } from '@polkadot/react-components';
-import { keyForCid, LawType, QRAction, QRField } from '@slonigiraf/app-slonig-components';
+import { keyForCid, LawType } from '@slonigiraf/app-slonig-components';
 import { styled } from '@polkadot/react-components';
 import { u8aToHex } from '@polkadot/util';
 import BN from 'bn.js';
@@ -120,7 +120,6 @@ function SkillQR({ className = '', id, cid, type, selectedItems, isLearningReque
 
   const name = nameFromKeyringPair(currentPair);
   const route = 'diplomas/teach';
-  const [action] = useState({ [QRField.QR_ACTION]: QRAction.LEARN_MODULE });
   const diplomaCheck = <DiplomaCheck id={id} cid={cid} caption={t('I have a diploma')} setValidDiplomas={setValidDiplomas} onLoad={() => setLoading(false)} />;
   const hasValidDiploma = validDiplomas && validDiplomas.length > 0;
 
@@ -158,7 +157,6 @@ function SkillQR({ className = '', id, cid, type, selectedItems, isLearningReque
                         <SenderComponent
                           data={data}
                           route={route}
-                          action={action}
                           textShare={t('Press the link to start tutoring')}
                         />
                       </CenterQRContainer>
