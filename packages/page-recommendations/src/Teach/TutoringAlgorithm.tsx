@@ -97,19 +97,6 @@ class TutoringAlgorithm extends Algorithm {
             t('Were all of the student\'s exercises and answers perfect today?')
         );
 
-
-        const hasStudentCorrectedTheFakeAnswer = new AlgorithmStage(
-            'intermediate',
-            t('Next'),
-            [
-                { ...myMessage, text: t('...'), comment: t('I deliberately incorrectly perform the exercise invented by the student and say:') },
-                { ...myMessage, text: t('Correct me.') },
-                { ...theirMessage, text: t('...') },
-            ],
-            t('Has the student corrected the wrong solution?')
-        );
-
-
         const hasStudentRepeatedAfterMeTheTask = new AlgorithmStage(
             'intermediate',
             t('Next'),
@@ -128,7 +115,8 @@ class TutoringAlgorithm extends Algorithm {
                 { ...theirMessage, text: t('...'), comment: t('An exercise invented by a student.') },
                 { ...myMessage, text: t('...'), comment: t('I deliberately incorrectly perform the exercise invented by the student and say:') },
                 { ...myMessage, text: t('Correct me.') },
-            ]
+            ],
+            t('Has the student corrected the wrong solution?')
         );
 
 
@@ -227,11 +215,9 @@ class TutoringAlgorithm extends Algorithm {
         }
 
         // Fork #0: studentUsesSlonigFirstTime === true -> Fork #1: 'Yes' -> Fork #2: 'Yes'
-        provideFakeAnswer.setNext([hasStudentCorrectedTheFakeAnswer]);
-        hasStudentCorrectedTheFakeAnswer.setPrevious(provideFakeAnswer);
-        hasStudentCorrectedTheFakeAnswer.setNext([wereTheStudentTasksAndAnswersPerfectToday, askStudentToRepeatTheAnswer]);// Fork #3
-        wereTheStudentTasksAndAnswersPerfectToday.setPrevious(hasStudentCorrectedTheFakeAnswer);
-        askStudentToRepeatTheAnswer.setPrevious(hasStudentCorrectedTheFakeAnswer);
+        provideFakeAnswer.setNext([wereTheStudentTasksAndAnswersPerfectToday, askStudentToRepeatTheAnswer]);
+        wereTheStudentTasksAndAnswersPerfectToday.setPrevious(provideFakeAnswer);
+        askStudentToRepeatTheAnswer.setPrevious(provideFakeAnswer);
 
         // Fork #0: studentUsesSlonigFirstTime === true -> Fork #1: 'Yes' -> Fork #2: 'Yes' -> Fork #3: 'Yes'
         wereTheStudentTasksAndAnswersPerfectToday.setNext([giveInsurance, repeatNextDay]);// End of the algo
