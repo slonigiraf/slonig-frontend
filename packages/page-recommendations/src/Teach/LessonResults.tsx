@@ -255,8 +255,7 @@ function LessonResults({ className = '', lesson, updateAndStoreLesson, onClose }
       <VerticalCenterItemsContainer>
         {!constContentIsVisible && <Spinner />}
         <CenterQRContainer>
-          {constContentIsVisible && <h2>{t('Show to the student')}</h2>}
-          <SenderComponent data={data} route={'diplomas'}
+          <SenderComponent data={data} route={'diplomas'} caption={t('Show to the student')}
             textShare={t('Press the link to add the diploma')} onDataSent={onClose} onReady={() => setProcessingQR(false)} />
         </CenterQRContainer>
         {constContentIsVisible &&

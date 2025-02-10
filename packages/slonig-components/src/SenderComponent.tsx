@@ -9,9 +9,10 @@ interface SenderComponentProps {
     isDisabled?: boolean;
     onDataSent?: () => void;
     onReady?: () => void;
+    caption?: string;
 }
 
-const SenderComponent: React.FC<SenderComponentProps> = ({ data, route, textShare, isDisabled = false, onDataSent, onReady }) => {
+const SenderComponent: React.FC<SenderComponentProps> = ({ data, route, textShare, isDisabled = false, onDataSent, onReady, caption }) => {
     const { t } = useTranslation();
     const { showInfo } = useInfo();
     const [url, setUrl] = useState<string>('');
@@ -64,7 +65,7 @@ const SenderComponent: React.FC<SenderComponentProps> = ({ data, route, textShar
         peer.on('open', handleOpen);
         peer.on('connection', handleConnection);
         peer.on('error', (_e: Error) => {
-          showInfo(t('No internet connection. Check your connection and try again.'), 'error');
+            showInfo(t('No internet connection. Check your connection and try again.'), 'error');
         });
 
         return () => {
@@ -79,13 +80,15 @@ const SenderComponent: React.FC<SenderComponentProps> = ({ data, route, textShar
     }, [route]); // Initialize peer when `route` or changes
 
     return url ?
-        <QRWithShareAndCopy
-            titleShare="QR Code"
-            textShare={textShare}
-            urlShare={url}
-            dataCopy={url}
-            isDisabled={isDisabled}
-        /> : <></>;
+        <>
+            {caption && <h2>{caption}</h2>}
+            <QRWithShareAndCopy
+                titleShare="QR Code"
+                textShare={textShare}
+                urlShare={url}
+                dataCopy={url}
+                isDisabled={isDisabled}
+            /></> : <></>;
 };
 
 export default React.memo(SenderComponent);

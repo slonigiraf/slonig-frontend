@@ -153,8 +153,8 @@ function SkillQR({ className = '', id, cid, type, selectedItems, isLearningReque
                   (type === LawType.MODULE && data && (
                     <StyledDiv>
                       <CenterQRContainer>
-                        <h2>{t('Show the QR to your tutor')}</h2>
                         <SenderComponent
+                          caption={t('Show the QR to your tutor')}
                           data={data}
                           route={route}
                           textShare={t('Press the link to start tutoring')}
