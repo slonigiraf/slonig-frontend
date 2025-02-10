@@ -113,7 +113,7 @@ function SkillQR({ className = '', id, cid, type, selectedItems, isLearningReque
 
   useEffect(() => {
     if (shouldRender && diplomasToReexamine?.length) {
-      const examData = diplomasToReexamine.map((diploma) =>  [diploma.cid, diploma.amount, diploma.pubSign]);
+      const examData = diplomasToReexamine.map((diploma) => [diploma.cid, diploma.amount, diploma.pubSign]);
       setReexamine(examData);
     }
   }, [diplomasToReexamine, shouldRender]);
@@ -154,6 +154,7 @@ function SkillQR({ className = '', id, cid, type, selectedItems, isLearningReque
                   (type === LawType.MODULE && data && (
                     <StyledDiv>
                       <CenterQRContainer>
+                        <h2>{t('Show the QR to your tutor')}</h2>
                         <SenderComponent
                           data={data}
                           route={route}
