@@ -1,5 +1,6 @@
-import React, { useCallback, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import { LawType, KatexSpan, SelectableList, StyledSpinnerContainer, useLoginContext } from '@slonigiraf/app-slonig-components';
+import { useLocation } from 'react-router-dom';
 import ItemLabel from './ItemLabel.js';
 import SkillQR from './SkillQR.js';
 import { useTranslation } from '../translate.js';
@@ -17,6 +18,9 @@ interface Props {
 }
 
 function ViewList({ className = '', id, cidString, list }: Props): React.ReactElement<Props> {
+  const location = useLocation();
+  const queryParams = new URLSearchParams(location.search);
+  const learnInUrl = queryParams.get('learn') != null;
   const { t } = useTranslation();
   const { isLoggedIn, setLoginIsRequired } = useLoginContext();
   const [isLearningRequested, setLearningRequested] = useState(false);
@@ -24,6 +28,7 @@ function ViewList({ className = '', id, cidString, list }: Props): React.ReactEl
   const [isThereAnythingToReexamine, setIsThereAnythingToReexamine] = useState(false);
   const [isThereAnythingToLearn, setIsThereAnythingToLearn] = useState(false);
   const [selectedItems, setSelectedItems] = useState<ItemWithCID[]>([]);
+
 
   const handleLearningToggle = useCallback((checked: boolean): void => {
     if (isLoggedIn) {
@@ -43,6 +48,12 @@ function ViewList({ className = '', id, cidString, list }: Props): React.ReactEl
       setLearningRequested(false);
     }
   }, []);
+
+  useEffect((): void => {
+    if (learnInUrl && isLoggedIn && isThereAnythingToLearn) {
+      handleLearningToggle(true);
+    }
+  }, [learnInUrl, isLoggedIn, isThereAnythingToLearn]);
 
   const isModuleQRVisible = isLearningRequested || isReexaminingRequested;
 
