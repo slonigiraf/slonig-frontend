@@ -106,10 +106,10 @@ function SelectableList<T>({
   }, []);
 
   useEffect(() => {
-    if(allSelected){
+    if (allSelected && selectedItems.length !== items.length) {
       selectAll();
     }
-  },[allSelected, selectAll]);
+  }, [allSelected, items, selectedItems.length, selectAll]);
 
   return (
     <div className={className}>

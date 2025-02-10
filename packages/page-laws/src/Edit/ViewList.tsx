@@ -27,7 +27,9 @@ function ViewList({ className = '', id, cidString, list }: Props): React.ReactEl
   const [isReexaminingRequested, setReexaminingRequested] = useState(false);
   const [isThereAnythingToReexamine, setIsThereAnythingToReexamine] = useState(false);
   const [isThereAnythingToLearn, setIsThereAnythingToLearn] = useState(false);
+  const [shouldSelectAll, setShouldSelectAll] = useState(false);
   const [selectedItems, setSelectedItems] = useState<ItemWithCID[]>([]);
+  const [isLearningInitialized, setIsLearningInitialized] = useState(false);
 
 
   const handleLearningToggle = useCallback((checked: boolean): void => {
@@ -50,10 +52,19 @@ function ViewList({ className = '', id, cidString, list }: Props): React.ReactEl
   }, []);
 
   useEffect((): void => {
-    if (learnInUrl && isLoggedIn && isThereAnythingToLearn) {
-      handleLearningToggle(true);
+    if (
+      learnInUrl &&
+      isLoggedIn &&
+      isThereAnythingToLearn &&
+      !shouldSelectAll &&
+      !isLearningInitialized
+    ) {
+      setIsLearningInitialized(true); // Prevent re-triggering
+      setShouldSelectAll(true);       // Select all items first
+      handleLearningToggle(true);     // Request learning
     }
-  }, [learnInUrl, isLoggedIn, isThereAnythingToLearn]);
+  }, [learnInUrl, isLoggedIn, isThereAnythingToLearn, shouldSelectAll, isLearningInitialized]);
+  
 
   const isModuleQRVisible = isLearningRequested || isReexaminingRequested;
 
@@ -120,6 +131,7 @@ function ViewList({ className = '', id, cidString, list }: Props): React.ReactEl
           isSelectionAllowed={isModuleQRVisible}
           keyExtractor={(item) => item.id}
           key={id}
+          allSelected={shouldSelectAll}
         />
       )}
 
