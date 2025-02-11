@@ -138,8 +138,10 @@ export const InstructionsButtonsContainer = styled.div`
     transform: translateX(-50%);
   }
   .hint {
-    min-width: 300px;
-    max-width: 300px;
+    text-align: center;
+    min-width: 250px;
+    max-width: 250px;
+    padding-bottom: 10px;
   }
 `;
 export const InstructionsButtonsGroup = styled.div`
