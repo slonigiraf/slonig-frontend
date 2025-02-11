@@ -28,21 +28,25 @@ const ExerciseList: React.FC<ExerciseListProps> = ({ exercises, areShownInitiall
                 >
                     <div className="exercise-display">
                         <div className="exercise-header">
-                            <Button
-                                icon={shownAnswers[index] ? 'eye-slash' : 'eye'}
-                                onClick={() => toggleAnswer(index)}
-                                label=''
-                            />
                             <span><KatexSpan content={` ${index + 1}. ` + exercise.h} /></span>
                             {exercise.p && <ExerciseDetails><ResizableImage cid={exercise.p} /></ExerciseDetails>}
-
                         </div>
-                        {shownAnswers[index] && (
-                            <Answer>
-                                <span><i>{t('Solution')}:</i> <KatexSpan content={exercise.a} /></span>
-                                {exercise.i && <><ResizableImage cid={exercise.i} /></>}
-                            </Answer>
-                        )}
+
+                        <Answer>
+                            <span>
+                                <Button
+                                    icon={shownAnswers[index] ? 'eye-slash' : 'eye'}
+                                    onClick={() => toggleAnswer(index)}
+                                    label='Solution'
+                                />
+                            </span>
+                            {shownAnswers[index] && (
+                                <>
+                                    <KatexSpan content={exercise.a} />
+                                    {exercise.i && <ResizableImage cid={exercise.i} />}
+                                </>
+                            )}
+                        </Answer>
                     </div>
                 </div>
             ))}
