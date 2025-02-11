@@ -115,6 +115,9 @@ function DoInstructions({ className = '', entity, onResult, studentName, student
   const handleStageChange = async (nextStage: AlgorithmStage | null) => {
     if (nextStage !== null) {
       setIsButtonClicked(true);
+      if(nextStage === algorithmStage){
+        showInfo(t('Do this again'));
+      }
       if (isReexamination(entity) && nextStage.type === 'reimburse') {
         studentFailedReexamination();
       } else if (nextStage.type === 'skip') {
