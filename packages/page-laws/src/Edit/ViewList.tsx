@@ -98,13 +98,14 @@ function ViewList({ className = '', id, cidString, list }: Props): React.ReactEl
   useEffect((): void => {
     if (
       learnInUrl &&
-      isLoggedIn &&
       isThereAnythingToLearn &&
       !shouldSelectAll &&
       !isLearningInitialized
     ) {
-      setIsLearningInitialized(true);
-      setShouldSelectAll(true);
+      if(isLoggedIn){
+        setIsLearningInitialized(true);
+        setShouldSelectAll(true);
+      }
       handleLearningToggle(true);
     }
   }, [learnInUrl, isLoggedIn, isThereAnythingToLearn, shouldSelectAll, isLearningInitialized]);
