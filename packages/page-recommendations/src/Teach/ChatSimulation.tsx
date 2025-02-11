@@ -10,7 +10,7 @@ const ChatSimulation: React.FC<ChatSimulationProps> = ({ messages }) => {
     return (
       <ChatContainer>
         {messages.map((message, index) => (
-          <MessageContainer key={index} sender={message.sender}>
+          <MessageContainer key={index+message.text+message.image} sender={message.sender}>
             <Bubble sender={message.sender}>
               {message.sender !== 'you' && <SenderName>{message.senderName}</SenderName>}
               <KatexSpan content={message.text} />
