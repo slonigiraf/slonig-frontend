@@ -60,28 +60,6 @@ class ValidatingAlgorithm extends Algorithm {
             []
         );
 
-        const hasStudentCorrectedTheFakeSolution = new AlgorithmStage(
-            'intermediate',
-            t('Next'),
-            [
-                { ...myMessage, text: t('...'), comment: t('I deliberately incorrectly perform the exercise invented by the student and say:') },
-                { ...myMessage, text: t('Correct me.') },
-                { ...theirMessage, text: t('...') },
-            ],
-            t('Has the student corrected the wrong solution?')
-        );
-
-        const hasStudentRepeatedAfterMeTheExercise = new AlgorithmStage(
-            'intermediate',
-            t('Next'),
-            [
-                { ...myMessage, text: t('Repeat after me:') },
-                { ...myMessage, text: question2, image: exerciseImage2 },
-                { ...theirMessage, text: '...' },
-            ],
-            t('Has the student repeated correctly after me?')
-        );
-
         const provideFakeSolution = new AlgorithmStage(
             'intermediate',
             t('Yes'),
@@ -89,9 +67,9 @@ class ValidatingAlgorithm extends Algorithm {
                 { ...theirMessage, text: t('...'), comment: t('An exercise invented by a student.') },
                 { ...myMessage, text: t('...'), comment: t('I deliberately incorrectly perform the exercise invented by the student and say:') },
                 { ...myMessage, text: t('Correct me.') },
-            ]
+            ],
+            t('Has the student corrected the wrong solution?')
         );
-
 
         const askToRepeatTheExerciseAfterMe = new AlgorithmStage(
             'intermediate',
@@ -100,21 +78,10 @@ class ValidatingAlgorithm extends Algorithm {
                 { ...theirMessage, text: '...', comment: t('The student has not come up with the type of exercise needed.') },
                 { ...myMessage, text: t('Repeat after me:') },
                 { ...myMessage, text: question2, image: exerciseImage2, comment: t('I can change the exercise a little.') },
-            ]
-        );
-
-        const hasStudentCreatedASimilarExercise = new AlgorithmStage(
-            'intermediate',
-            t('Next'),
-            [
-                { ...myMessage, text: t('Come up with an exercise similar to this:') },
-                { ...myMessage, text: question1, image: exerciseImage1 },
-                { ...theirMessage, text: '...' },
             ],
-            t('Has the student now invented a similar exercise?')
+            t('Has the student repeated correctly after me?')
         );
 
-        // Link stages
         this.begin = new AlgorithmStage(
             'begin',
             t('Yes'),
@@ -122,7 +89,8 @@ class ValidatingAlgorithm extends Algorithm {
                 { ...theirMessage, text: t('Try to earn a bonus by testing my previous skill:') + (skill && " \"" + skill.h + "\".") },
                 { ...myMessage, text: t('Come up with an exercise similar to this:') },
                 { ...myMessage, text: question1, image: exerciseImage1, comment: t('I can change the exercise a little.') },
-            ]
+            ],
+            t('Has the student now invented a similar exercise?')
         );
 
         const repeatFromTheBeginning = new AlgorithmStage(
@@ -136,33 +104,22 @@ class ValidatingAlgorithm extends Algorithm {
         );
 
         // Algo linking:
-        this.begin.setNext([skip, hasStudentCreatedASimilarExercise]);
-        hasStudentCreatedASimilarExercise.setPrevious(this.begin);
-        hasStudentCreatedASimilarExercise.setNext([provideFakeSolution, askToRepeatTheExerciseAfterMe]);// Fork #1
-        provideFakeSolution.setPrevious(hasStudentCreatedASimilarExercise);
-        askToRepeatTheExerciseAfterMe.setPrevious(hasStudentCreatedASimilarExercise);
+        this.begin.setNext([skip, provideFakeSolution, askToRepeatTheExerciseAfterMe]);
+        provideFakeSolution.setPrevious(this.begin);
+        askToRepeatTheExerciseAfterMe.setPrevious(this.begin);
 
-        // Fork #1: 'Yes'
-        provideFakeSolution.setNext([hasStudentCorrectedTheFakeSolution]);
-        hasStudentCorrectedTheFakeSolution.setPrevious(provideFakeSolution);
-        hasStudentCorrectedTheFakeSolution.setNext([validateDiploma, explainReimburse]);// Fork #2
-        validateDiploma.setPrevious(hasStudentCorrectedTheFakeSolution);
-        explainReimburse.setPrevious(hasStudentCorrectedTheFakeSolution);
+        provideFakeSolution.setNext([validateDiploma, explainReimburse]);
+        validateDiploma.setPrevious(provideFakeSolution);
+        explainReimburse.setPrevious(provideFakeSolution);
 
-        // Fork #1: 'Yes' -> Fork #2: 'Yes'
         validateDiploma.setNext([nextToTeaching]); // Algo end (no bonus)
 
-        // Fork #1: 'Yes' -> Fork #2: 'No'
         explainReimburse.setNext([reimburse]); // Algo end (bonus)
 
-        // Fork #1: 'No' (and Fork #3: 'No')
-        askToRepeatTheExerciseAfterMe.setNext([hasStudentRepeatedAfterMeTheExercise]);
-        hasStudentRepeatedAfterMeTheExercise.setPrevious(askToRepeatTheExerciseAfterMe);
-        hasStudentRepeatedAfterMeTheExercise.setNext([repeatFromTheBeginning, askToRepeatTheExerciseAfterMe]); // Fork #3
-        repeatFromTheBeginning.setPrevious(hasStudentRepeatedAfterMeTheExercise);
+        askToRepeatTheExerciseAfterMe.setNext([repeatFromTheBeginning, askToRepeatTheExerciseAfterMe]);
+        repeatFromTheBeginning.setPrevious(askToRepeatTheExerciseAfterMe);
 
-        // Fork #1: 'No' -> Fork #3: 'Yes'
-        repeatFromTheBeginning.setNext([hasStudentCreatedASimilarExercise]);
+        repeatFromTheBeginning.setNext([provideFakeSolution, askToRepeatTheExerciseAfterMe]);
 
     }
 }

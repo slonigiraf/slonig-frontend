@@ -83,7 +83,6 @@ class TutoringAlgorithm extends Algorithm {
             t('Has the student corrected the wrong solution?')
         );
 
-
         const askToRepeatTaskAfterMeTheTask = new AlgorithmStage(
             'intermediate',
             t('No'),
@@ -101,7 +100,6 @@ class TutoringAlgorithm extends Algorithm {
             []
         );
 
-        // Link stages
         const askStudentToCreateASimilarExercise = new AlgorithmStage(
             'begin',
             t('Yes'),
@@ -112,7 +110,6 @@ class TutoringAlgorithm extends Algorithm {
             ],
             t('Has the student now invented a similar exercise?')
         );
-
 
         //Use only if student never used Slonig
         const askToCreateAnExerciseAfterCompletionOfExerciseOfTutor = new AlgorithmStage(
@@ -155,48 +152,36 @@ class TutoringAlgorithm extends Algorithm {
 
         // Algo linking
         this.begin = studentUsesSlonigFirstTime ? askStudentToSolveAnExercise : askStudentToCreateASimilarExercise;
-        // Fork #0: studentUsesSlonigFirstTime === true
+
         askStudentToSolveAnExercise.setNext([skip, askToCreateAnExerciseAfterCompletionOfExerciseOfTutor, askStudentToRepeatTheSolutionOfExerciseOfTutor]);
 
         askToCreateAnExerciseAfterCompletionOfExerciseOfTutor.setPrevious(askStudentToSolveAnExercise);
         askStudentToRepeatTheSolutionOfExerciseOfTutor.setPrevious(askStudentToSolveAnExercise);
 
-        // Fork #0: studentUsesSlonigFirstTime === true -> Fork #1: 'Yes'
         askToCreateAnExerciseAfterCompletionOfExerciseOfTutor.setNext([provideFakeAnswer, askToRepeatTaskAfterMeTheTask]);
         if (studentUsesSlonigFirstTime) {
             provideFakeAnswer.setPrevious(askToCreateAnExerciseAfterCompletionOfExerciseOfTutor);
             askToRepeatTaskAfterMeTheTask.setPrevious(askToCreateAnExerciseAfterCompletionOfExerciseOfTutor);
         }
 
-        // Fork #0: studentUsesSlonigFirstTime === true -> Fork #1: 'Yes' -> Fork #2: 'Yes'
         provideFakeAnswer.setNext([wereTheStudentTasksAndAnswersPerfectToday, askStudentToRepeatTheAnswer]);
         wereTheStudentTasksAndAnswersPerfectToday.setPrevious(provideFakeAnswer);
         askStudentToRepeatTheAnswer.setPrevious(provideFakeAnswer);
 
-        // Fork #0: studentUsesSlonigFirstTime === true -> Fork #1: 'Yes' -> Fork #2: 'Yes' -> Fork #3: 'Yes'
         wereTheStudentTasksAndAnswersPerfectToday.setNext([giveInsurance, repeatNextDay]);// End of the algo
         giveInsurance.setPrevious(wereTheStudentTasksAndAnswersPerfectToday);
         repeatNextDay.setPrevious(wereTheStudentTasksAndAnswersPerfectToday);
         repeatNextDay.setNext([toNextSkill]);
 
-        // Fork #0: studentUsesSlonigFirstTime === true -> Fork #1: 'Yes' -> Fork #2: 'Yes' -> Fork #3: 'No'
         askStudentToRepeatTheAnswer.setNext([repeatFromTheBeginning, askStudentToRepeatTheAnswer]);
 
-
-        // Fork #0: studentUsesSlonigFirstTime === true -> Fork #1: 'Yes' -> Fork #2: 'No'
         askToRepeatTaskAfterMeTheTask.setNext([repeatFromTheBeginning, askToRepeatTaskAfterMeTheTask]);
 
-        // Fork #0: studentUsesSlonigFirstTime === true -> Fork #1: 'Yes' -> Fork #2: 'No' -> Fork #4: 'Yes'
         repeatFromTheBeginning.setNext([provideFakeAnswer, askToRepeatTaskAfterMeTheTask]);
         repeatFromTheBeginning.setPrevious(askToRepeatTaskAfterMeTheTask);
 
-        // Fork #0: studentUsesSlonigFirstTime === true -> Fork #1: 'Yes' -> Fork #2: 'No' -> Fork #4: 'No'
-        // This is just loop back, no code is needed.
-
-        // Fork #0: studentUsesSlonigFirstTime === true -> Fork #1: 'No'
         askStudentToRepeatTheSolutionOfExerciseOfTutor.setNext([repeatFromTheBeginning, askStudentToRepeatTheSolutionOfExerciseOfTutor]);
 
-        // Fork #0: studentUsesSlonigFirstTime === false
         askStudentToCreateASimilarExercise.setNext([skip, provideFakeAnswer, askToRepeatTaskAfterMeTheTask]);
         if (!studentUsesSlonigFirstTime) {
             provideFakeAnswer.setPrevious(askStudentToCreateASimilarExercise);
