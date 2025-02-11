@@ -124,7 +124,6 @@ function SignLettersUseRight({ className = '', letters, worker, employer, curren
         placeholder={t('Positive number')}
         isError={!validDays}
       />}
-      {!isReady && <Spinner label=' ' />}
     </CenterQRContainer>
   );
 
