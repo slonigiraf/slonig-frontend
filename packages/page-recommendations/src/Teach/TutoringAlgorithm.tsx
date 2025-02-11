@@ -1,8 +1,5 @@
 import { AlgorithmStage } from './AlgorithmStage.js';
 import { Algorithm } from './Algorithm.js';
-import { ExerciseList } from '@slonigiraf/app-laws';
-import ChatSimulation from './ChatSimulation.js';
-import { styled } from '@polkadot/react-components';
 import { IMessage, Skill } from '@slonigiraf/app-slonig-components';
 import ExampleExercisesButton from './ExampleExercisesButton.js';
 
@@ -41,17 +38,6 @@ class TutoringAlgorithm extends Algorithm {
             ]
         );
 
-        const hasStudentRepeatedTheRightSolutionOfExerciseOfTutor = new AlgorithmStage(
-            'intermediate',
-            t('Next'),
-            [
-                { ...myMessage, text: t('Repeat after me:') },
-                { ...myMessage, text: answer1 === '' ? t('...') : answer1, image: answerImage1, comment: answer1 === '' ? t('Correct execution of the exercise') : '' },
-                { ...theirMessage, text: t('...') },
-            ],
-            t('Has the student repeated correctly?')
-        );
-
         const askStudentToRepeatTheAnswer = new AlgorithmStage(
             'intermediate',
             t('No'),
@@ -72,7 +58,7 @@ class TutoringAlgorithm extends Algorithm {
                 { ...myMessage, text: t('Repeat after me:') },
                 { ...myMessage, text: answer1 === '' ? t('...') : answer1, image: answerImage1, comment: answer1 === '' ? t('I provide the student with the correct execution of the exercise. I can peek at examples here:') : '' },
             ],
-            '',
+            t('Has the student repeated correctly?'),
             <ExampleExercisesButton skill={skill} />
         );
 
@@ -136,20 +122,9 @@ class TutoringAlgorithm extends Algorithm {
                 { ...theirMessage, text: t('...'), comment: t('The student has executed the exercise correctly.') },
                 { ...myMessage, text: t('Come up with an exercise similar to this:') },
                 { ...myMessage, text: question1, image: exerciseImage1, comment: t('I can change the exercise a little.') },
-            ]
-        );
-
-
-        const hasStudentCompletedExerciseCorrectly = new AlgorithmStage(
-            'intermediate',
-            t('Next'),
-            [
-                { ...myMessage, text: question1, image: exerciseImage1 },
-                { ...theirMessage, text: t('...') },
             ],
-            t('Has the student now executed the exercise correctly?')
+            t('Has the student now invented a similar exercise?')
         );
-
 
         const askStudentToSolveAnExercise = new AlgorithmStage(
             'begin',
@@ -157,7 +132,8 @@ class TutoringAlgorithm extends Algorithm {
             [
                 { ...theirMessage, text: t('Teach me the skill') + (skill && ": \"" + skill.h + "\"") },
                 { ...myMessage, text: question1, image: exerciseImage1 },
-            ]
+            ],
+            t('Has the student now executed the exercise correctly?')
         );
 
         const repeatFromTheBeginning = new AlgorithmStage(
@@ -180,11 +156,10 @@ class TutoringAlgorithm extends Algorithm {
         // Algo linking
         this.begin = studentUsesSlonigFirstTime ? askStudentToSolveAnExercise : askStudentToCreateASimilarExercise;
         // Fork #0: studentUsesSlonigFirstTime === true
-        askStudentToSolveAnExercise.setNext([skip, hasStudentCompletedExerciseCorrectly]);
-        hasStudentCompletedExerciseCorrectly.setPrevious(askStudentToSolveAnExercise);
-        hasStudentCompletedExerciseCorrectly.setNext([askToCreateAnExerciseAfterCompletionOfExerciseOfTutor, askStudentToRepeatTheSolutionOfExerciseOfTutor]);// Fork #1
-        askToCreateAnExerciseAfterCompletionOfExerciseOfTutor.setPrevious(hasStudentCompletedExerciseCorrectly);
-        askStudentToRepeatTheSolutionOfExerciseOfTutor.setPrevious(hasStudentCompletedExerciseCorrectly);
+        askStudentToSolveAnExercise.setNext([skip, askToCreateAnExerciseAfterCompletionOfExerciseOfTutor, askStudentToRepeatTheSolutionOfExerciseOfTutor]);
+
+        askToCreateAnExerciseAfterCompletionOfExerciseOfTutor.setPrevious(askStudentToSolveAnExercise);
+        askStudentToRepeatTheSolutionOfExerciseOfTutor.setPrevious(askStudentToSolveAnExercise);
 
         // Fork #0: studentUsesSlonigFirstTime === true -> Fork #1: 'Yes'
         askToCreateAnExerciseAfterCompletionOfExerciseOfTutor.setNext([provideFakeAnswer, askToRepeatTaskAfterMeTheTask]);
@@ -219,9 +194,7 @@ class TutoringAlgorithm extends Algorithm {
         // This is just loop back, no code is needed.
 
         // Fork #0: studentUsesSlonigFirstTime === true -> Fork #1: 'No'
-        askStudentToRepeatTheSolutionOfExerciseOfTutor.setNext([hasStudentRepeatedTheRightSolutionOfExerciseOfTutor]);
-        hasStudentRepeatedTheRightSolutionOfExerciseOfTutor.setPrevious(askStudentToRepeatTheSolutionOfExerciseOfTutor);
-        hasStudentRepeatedTheRightSolutionOfExerciseOfTutor.setNext([repeatFromTheBeginning, askStudentToRepeatTheSolutionOfExerciseOfTutor]);
+        askStudentToRepeatTheSolutionOfExerciseOfTutor.setNext([repeatFromTheBeginning, askStudentToRepeatTheSolutionOfExerciseOfTutor]);
 
         // Fork #0: studentUsesSlonigFirstTime === false
         askStudentToCreateASimilarExercise.setNext([skip, provideFakeAnswer, askToRepeatTaskAfterMeTheTask]);
