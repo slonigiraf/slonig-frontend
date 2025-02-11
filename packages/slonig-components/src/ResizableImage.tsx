@@ -25,19 +25,19 @@ const ResizableImage: React.FC<Props> = ({ cid, alt }) => {
     const fetchImage = async () => {
       try {
         const bytes = await getIPFSBytesFromContentID(ipfs, cid);
-  
+
         // Check if the bytes represent an SVG
         const textDecoder = new TextDecoder('utf-8');
         const content = textDecoder.decode(bytes.slice(0, 100)); // Read the first 100 bytes as text
         const isSvg = content.trim().startsWith('<svg');
-  
+
         if (isSvg) {
           // Create a Blob for the SVG and set the source
           const svgBlob = new Blob([bytes], { type: 'image/svg+xml' });
           setSrc(URL.createObjectURL(svgBlob));
           return;
         }
-  
+
         // Handle non-SVG content with file-type detection
         const fileType = await fileTypeFromBuffer(bytes);
         const mimeType = fileType?.mime || 'application/octet-stream';
@@ -47,11 +47,11 @@ const ResizableImage: React.FC<Props> = ({ cid, alt }) => {
         console.error('Error fetching or processing the image from IPFS:', error);
       }
     };
-  
+
     if (isIpfsReady) {
       fetchImage();
     }
-  }, [cid, ipfs, isIpfsReady]);  
+  }, [cid, ipfs, isIpfsReady]);
 
   const handleToggleSize = () => {
     if (isBig) {
@@ -84,7 +84,7 @@ const ResizableImage: React.FC<Props> = ({ cid, alt }) => {
     lastPinchDistance.current = 0;
   };
 
-  return (src? 
+  return (src ?
     <>
       <NormalImage src={src} alt={alt ? alt : t('Image')} onClick={toggleSize} />
       {isBig && (
@@ -96,11 +96,18 @@ const ResizableImage: React.FC<Props> = ({ cid, alt }) => {
           </Modal.Content>
         </Modal>
       )}
-    </> : <Spinner noLabel />
+    </> :
+    <NormalImageAlt>
+      <Spinner noLabel />
+    </NormalImageAlt>
   );
 };
 
 const NormalImage = styled.img`
+  padding-top: 5px;
+  width: 150px;
+`;
+const NormalImageAlt = styled.div`
   padding-top: 5px;
   width: 150px;
 `;
