@@ -29,17 +29,20 @@ function LettersList({ className = '', worker, currentPair }: Props): React.Reac
   const location = useLocation();
   const { isApiConnected } = useApi();
   const queryParams = new URLSearchParams(location.search);
-  const queryEmployer = queryParams.get('employer') || ''
-  const [employer, setEmployer] = useState(queryEmployer);
+  const employer = queryParams.get('employer') || ''
   const { showInfo } = useInfo();
   const navigate = useNavigate();
   const [reloadCount, setReloadCount] = useState<number>(0);
-  const [toggleState, setToggleState] = useState<ToggleState>(queryEmployer !== '' ? ToggleState.GETTING_BONUSES : ToggleState.NO_SELECTION);
+  const [toggleState, setToggleState] = useState<ToggleState>(employer !== '' ? ToggleState.GETTING_BONUSES : ToggleState.NO_SELECTION);
 
   // Initialize startDate and endDate as timestamps
   const [startDate, setStartDate] = useState<number | null>(new Date(new Date().setHours(0, 0, 0, 0)).getTime());
   const [endDate, setEndDate] = useState<number | null>(new Date(new Date().setHours(23, 59, 59, 999)).getTime());
   const [isDeleteConfirmOpen, toggleDeleteConfirm] = useToggle();
+
+  useEffect(() => {
+    setToggleState(employer !== '' ? ToggleState.GETTING_BONUSES : ToggleState.NO_SELECTION)
+  }, [employer]);
 
   const letters = useLiveQuery<Letter[]>(
     () => getLetters(worker, startDate, endDate),
@@ -105,7 +108,6 @@ function LettersList({ className = '', worker, currentPair }: Props): React.Reac
   const close = () => {
     setSelectedLetters([]);
     setToggleState(ToggleState.NO_SELECTION);
-    setEmployer('');
     setReloadCount(reloadCount + 1);
     navigate('', { replace: true });
   }
@@ -115,7 +117,7 @@ function LettersList({ className = '', worker, currentPair }: Props): React.Reac
 
   const handleEmployerSelect = async (selectedKey: string) => {
     if (selectedKey) {
-      setEmployer(selectedKey);
+      navigate(`?employer=${encodeURIComponent(selectedKey)}`, { replace: true });
     }
   };
 

@@ -17,7 +17,7 @@ interface SelectableListProps<T> {
   className?: string;
   additionalControls?: React.ReactNode;
   keyExtractor: (item: T) => string;
-  filterOutSelection: (item: T) => boolean;
+  filterOutSelection?: (item: T) => boolean;
   header?: ([React.ReactNode?, string?, number?, (() => void)?] | false | null | undefined)[];
   allSelected?: boolean;
 }
