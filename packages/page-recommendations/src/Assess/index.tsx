@@ -45,7 +45,6 @@ function Assess({ className = '' }: Props): React.ReactElement<Props> {
             </div>
             :
             <>
-              <InsurancesReceiver setWorker={setStudent} />
               <PersonSelector
                 label={t('assessment history')}
                 onChange={handleStudentSelect}
@@ -60,6 +59,7 @@ function Assess({ className = '' }: Props): React.ReactElement<Props> {
               </CenterQRContainer>
             </>
           }
+          <InsurancesReceiver setWorker={setStudent} />
         </>
       }
       <LoginButton />
