@@ -140,7 +140,7 @@ function ViewList({ className = '', id, cidString, list }: Props): React.ReactEl
       )}
       {list.t !== null && list.t === LawType.SKILL && (
         <>
-          <LearnWithAI skillName={list.h} exercises={list.q} />
+          {/* <LearnWithAI skillName={list.h} exercises={list.q} /> */}
           <h3>{t('Example exercises to train the skill')}</h3>
         </>
       )}
