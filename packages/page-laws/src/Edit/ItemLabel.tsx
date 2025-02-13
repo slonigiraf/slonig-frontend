@@ -93,7 +93,7 @@ function ItemLabel({ className = '', item, isText = false, defaultValue = '...',
       <StyledSpinnerContainer><Spinner noLabel /></StyledSpinnerContainer>;
 
 
-  const allowSelection = isReexaminingRequested ? item.validDiplomas.length > 0 : item.validDiplomas.length === 0;
+  const allowSelection = isReexaminingRequested ? item.validDiplomas?.length > 0 : item.validDiplomas?.length === 0;
 
   return <StyledDiv isSelectable={isSelectable}>{
     (onToggleSelection !== undefined && isSelectable && <Button
