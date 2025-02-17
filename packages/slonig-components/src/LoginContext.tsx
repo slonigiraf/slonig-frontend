@@ -13,6 +13,7 @@ import type { ActionStatus } from '@polkadot/react-components/Status/types';
 // Define an interface for your context state.
 interface ILoginContext {
   currentPair: KeyringPair | null;
+  isReady: boolean;
   accountState: AccountState | null;
   isLoggedIn: boolean;
   isAddingAccount: boolean;
@@ -84,7 +85,7 @@ export const LoginProvider: React.FC<LoginProviderProps> = ({ children }) => {
 
   return (
     <LoginContext.Provider value={{
-      currentPair, accountState, isAddingAccount, isLoggedIn,
+      currentPair, isReady, accountState, isAddingAccount, isLoggedIn,
       setIsLoggedIn, isLoginRequired, setLoginIsRequired, _onChangeAccount, setIsAddingAccount, setDefaultAccount
     }}>
       <div className='ui--row' style={{ display: 'none' }}>

@@ -1,5 +1,5 @@
 import React from 'react';
-import { HorizontalCenterItemsContainer, ScanQR } from '@slonigiraf/app-slonig-components';
+import { HorizontalCenterItemsContainer, ScanQR, useLoginContext } from '@slonigiraf/app-slonig-components';
 import GoKnowledge from './GoKnowledge.js';
 import GetSlon from './GetSlon.js';
 import GoDiplomas from './GoDiplomas.js';
@@ -9,8 +9,9 @@ import { styled } from '@polkadot/react-components';
 
 function BottomMenu(): React.ReactElement {
   const { isApiReady, isWaitingInjected } = useApi();
+  const {isReady} = useLoginContext();
   const { t } = useTranslation();
-  if (isApiReady && !isWaitingInjected) {
+  if (isApiReady && !isWaitingInjected && isReady) {
     return (
       <MenuWrapper>
         <HorizontalCenterItemsContainer>

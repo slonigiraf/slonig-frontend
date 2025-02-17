@@ -3,7 +3,7 @@
 
 import type { Route } from '@polkadot/apps-routing/types';
 
-import React, { Suspense, useEffect, useMemo, useState } from 'react';
+import React, { Suspense, useMemo } from 'react';
 import { useLocation } from 'react-router-dom';
 
 import createRoutes from '@polkadot/apps-routing';
@@ -15,6 +15,7 @@ import { findMissingApis } from '../endpoint.js';
 import { useTranslation } from '../translate.js';
 import NotFound from './NotFound.js';
 import Status from './Status.js';
+import { useLoginContext } from '@slonigiraf/app-slonig-components';
 
 interface Props {
   className?: string;
@@ -32,6 +33,7 @@ const NOT_FOUND: Route = {
 
 function Content({ className }: Props): React.ReactElement<Props> {
   const location = useLocation();
+  const {isReady} = useLoginContext();
   const { t } = useTranslation();
   const { api, isApiConnected, isApiReady, isDevelopment } = useApi();
   const { queueAction } = useQueue();
@@ -59,6 +61,7 @@ function Content({ className }: Props): React.ReactElement<Props> {
   );
 
   return (
+    isReady? 
     <StyledDiv className={className}>
       {!missingApis
         ? (
@@ -97,7 +100,7 @@ function Content({ className }: Props): React.ReactElement<Props> {
           </>
         )
       }
-    </StyledDiv>
+    </StyledDiv>: <></>
   );
 }
 
