@@ -1,4 +1,4 @@
-import { IPFSHTTPClient, CID, DAGGetResult } from 'kubo-rpc-client'
+import { IPFSHTTPClient, CID } from 'kubo-rpc-client'
 import crypto from 'crypto';
 import { getAddressName } from '@polkadot/react-components';
 import type { KeyringPair } from '@polkadot/keyring/types';
@@ -64,7 +64,7 @@ function timeout<T>(ms: number, promise: Promise<T>): Promise<T> {
 
 async function tryToGetIPFSDataFromContentID(ipfs: IPFSHTTPClient, cidStr: string): Promise<string | null> {
   const cid = CID.parse(cidStr);
-  const result = await timeout<DAGGetResult>(3000, ipfs.dag.get(cid));
+  const result = await timeout<any>(3000, ipfs.dag.get(cid));
   // Use type assertion if necessary
   if (typeof result.value === 'string') {
     return result.value;
@@ -213,11 +213,14 @@ export async function retrieveDecryptedDataFromIPFS(ipfs: any, cid: string, pass
 }
 
 export function parseJson(input: string | null): any | null {
+  if (input === null){
+    return null;
+  }
   try {
     const result = JSON.parse(input);
     return result;
   } catch (e) {
-    console.error("Error parsing JSON: ", e.message);
+    console.error("Error parsing JSON");
     return null;
   }
 }
