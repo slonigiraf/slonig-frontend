@@ -159,8 +159,8 @@ function ViewList({ className = '', id, cidString, list }: Props): React.ReactEl
           onSelectionChange={handleSelectionChange}
           isSelectionAllowed={isModuleQRVisible}
           keyExtractor={(item) => item.id+item.validDiplomas.length}
-          filterOutSelection={(item) => item.validDiplomas.length > 0}
-          key={id}
+          filterOutSelection={(item) => isReexaminingRequested ? !(item.validDiplomas.length > 0) : (item.validDiplomas.length > 0)}
+          key={id+isReexaminingRequested}
           allSelected={shouldSelectAll}
         />
       )}
