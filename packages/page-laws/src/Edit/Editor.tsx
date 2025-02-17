@@ -231,11 +231,11 @@ function Editor(props: Props): React.ReactElement<Props> {
       {/* For adding new skills at module view */}
       <ExerciseEditorList list={list} onListChange={onListChange} className='exercise-editor' />
       {!isAddingItem && !isAddingLink && (<div className='ui--row'>
-        <Button
+        {list.t !== LawType.SKILL && <Button
           icon='link'
           label={t('Existing')}
           onClick={linkItem}
-        />
+        />}
         <Button
           icon='add'
           label={t('New')}
