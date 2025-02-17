@@ -58,7 +58,7 @@ const ExerciseDetails = styled.div`
   display: flex;
   flex-direction: column;
   align-items: left;
-  padding-left: 2.7rem;
+  padding-left: 0.75rem;
 `;
 const Answer = styled.div`
   display: flex;
