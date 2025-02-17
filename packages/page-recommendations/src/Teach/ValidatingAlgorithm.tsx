@@ -3,6 +3,7 @@ import { Algorithm } from './Algorithm.js';
 import type { IMessage, Skill } from '@slonigiraf/app-slonig-components';
 import { Reexamination } from '@slonigiraf/db';
 import BN from 'bn.js';
+import ExampleExercisesButton from './ExampleExercisesButton.js';
 
 class ValidatingAlgorithm extends Algorithm {
     constructor(t: any, studentName: string | null, skill: Skill, reexamination: Reexamination) {
@@ -68,7 +69,8 @@ class ValidatingAlgorithm extends Algorithm {
                 { ...myMessage, text: t('...'), comment: t('I deliberately incorrectly perform the exercise invented by the student and say:') },
                 { ...myMessage, text: t('Correct me.') },
             ],
-            t('Has the student corrected the wrong solution?')
+            t('Has the student corrected the wrong solution?'),
+            <ExampleExercisesButton skill={skill} />
         );
 
         const askToRepeatTheExerciseAfterMe = new AlgorithmStage(

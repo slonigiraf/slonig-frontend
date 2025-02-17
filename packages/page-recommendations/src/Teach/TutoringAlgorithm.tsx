@@ -80,7 +80,8 @@ class TutoringAlgorithm extends Algorithm {
                 { ...myMessage, text: t('...'), comment: t('I deliberately incorrectly perform the exercise invented by the student and say:') },
                 { ...myMessage, text: t('Correct me.') },
             ],
-            t('Has the student corrected the wrong solution?')
+            t('Has the student corrected the wrong solution?'),
+            <ExampleExercisesButton skill={skill} />
         );
 
         const askToRepeatTaskAfterMeTheTask = new AlgorithmStage(
