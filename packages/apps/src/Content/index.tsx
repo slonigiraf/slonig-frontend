@@ -15,7 +15,6 @@ import { findMissingApis } from '../endpoint.js';
 import { useTranslation } from '../translate.js';
 import NotFound from './NotFound.js';
 import Status from './Status.js';
-import { useLoginContext } from '@slonigiraf/app-slonig-components';
 
 interface Props {
   className?: string;
@@ -33,7 +32,6 @@ const NOT_FOUND: Route = {
 
 function Content({ className }: Props): React.ReactElement<Props> {
   const location = useLocation();
-  const {isReady} = useLoginContext();
   const { t } = useTranslation();
   const { api, isApiConnected, isApiReady, isDevelopment } = useApi();
   const { queueAction } = useQueue();
@@ -60,9 +58,7 @@ function Content({ className }: Props): React.ReactElement<Props> {
     [api, isApiConnected, isApiReady, needsApi, needsApiCheck, needsApiInstances]
   );
 
-  return (
-    isReady? 
-    <StyledDiv className={className}>
+  return (<StyledDiv className={className}>
       {!missingApis
         ? (
           <div className='connecting'>
@@ -100,8 +96,7 @@ function Content({ className }: Props): React.ReactElement<Props> {
           </>
         )
       }
-    </StyledDiv>: <></>
-  );
+    </StyledDiv>);
 }
 
 const StyledDiv = styled.div`

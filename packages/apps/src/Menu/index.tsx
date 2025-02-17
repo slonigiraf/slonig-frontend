@@ -16,7 +16,7 @@ import { useAccounts, useApi, useCall, useTeleport } from '@polkadot/react-hooks
 import { findMissingApis } from '../endpoint.js';
 import { useTranslation } from '../translate.js';
 import Grouping from './Grouping.js';
-import { useDeveloperSetting, useLoginContext } from '@slonigiraf/app-slonig-components';
+import { useDeveloperSetting } from '@slonigiraf/app-slonig-components';
 import SlonigLogo from './SlonigLogo.js';
 
 interface Props {
@@ -70,7 +70,6 @@ function extractGroups(routing: Routes, groupNames: Record<string, string>, apiP
 
 function Menu({ className = '' }: Props): React.ReactElement<Props> {
   const { t } = useTranslation();
-  const {isReady} = useLoginContext();
   const { allAccounts, hasAccounts } = useAccounts();
   const apiProps = useApi();
   const { allowTeleport } = useTeleport();
@@ -114,30 +113,27 @@ function Menu({ className = '' }: Props): React.ReactElement<Props> {
     return 0;
   });
 
-  return (isReady? 
-    <StyledDiv className={`${className} highlight--bg`}>
-      <div className='menuContainer'>
-        {!isDeveloper && (
-          <div className="logoWrapper">
-            <SlonigLogo />
-          </div>
-        )}
-        <div className='menuSection'>
-          <ul className='menuItems'>
-            {sortedGroups.map(({ name, routes }): React.ReactNode => (
-              <Grouping
-                isActive={!!activeRoute && activeRoute.group === name.toLowerCase()}
-                key={name}
-                name={name}
-                routes={routes}
-              />
-            ))}
-          </ul>
+  return (<StyledDiv className={`${className} highlight--bg`}>
+    <div className='menuContainer'>
+      {!isDeveloper && (
+        <div className="logoWrapper">
+          <SlonigLogo />
         </div>
+      )}
+      <div className='menuSection'>
+        <ul className='menuItems'>
+          {sortedGroups.map(({ name, routes }): React.ReactNode => (
+            <Grouping
+              isActive={!!activeRoute && activeRoute.group === name.toLowerCase()}
+              key={name}
+              name={name}
+              routes={routes}
+            />
+          ))}
+        </ul>
       </div>
-
-    </StyledDiv> : <></>
-  );
+    </div>
+  </StyledDiv>);
 }
 
 const StyledDiv = styled.div`

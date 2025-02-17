@@ -35,7 +35,6 @@ interface LoginProviderProps {
 
 export const LoginProvider: React.FC<LoginProviderProps> = ({ children }) => {
   const { hasAccounts } = useAccounts();
-  const { t } = useTranslation();
   const [isSignIn, setIsSignIn] = useState(false);
 
   const {
@@ -99,13 +98,6 @@ export const LoginProvider: React.FC<LoginProviderProps> = ({ children }) => {
           value={defaultAccount}
         />
       </div>
-      {!isReady &&
-        <StyledDiv>
-          <div className='connecting'>
-            <Spinner label={t('Loading')} />
-          </div>
-        </StyledDiv>
-      }
       {isReady && isLoginRequired && (
         <CreateModal
           onClose={cancelAuthorization}
@@ -131,15 +123,3 @@ export function useLoginContext() {
   }
   return context;
 }
-
-const StyledDiv = styled.div`
-  width: 100%;
-  height: 100vh;
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  
-  .connecting {
-    padding: 1rem;
-  }
-`;
