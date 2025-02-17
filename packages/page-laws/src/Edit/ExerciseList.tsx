@@ -35,9 +35,9 @@ const ExerciseList: React.FC<ExerciseListProps> = ({ exercises, areShownInitiall
                         <Answer>
                             <span>
                                 <Button
-                                    icon={shownAnswers[index] ? 'eye-slash' : 'eye'}
+                                    // icon={shownAnswers[index] ? 'eye-slash' : 'eye'}
                                     onClick={() => toggleAnswer(index)}
-                                    label='Solution'
+                                    label={shownAnswers[index] ? 'Hide the solution' : 'See the solution'}
                                 />
                             </span>
                             {shownAnswers[index] && (
@@ -64,6 +64,6 @@ const Answer = styled.div`
   display: flex;
   flex-direction: column;
   align-items: left;
-  padding-left: 2.7rem;
+  padding-left: 0.75rem;
 `;
 export default ExerciseList;
