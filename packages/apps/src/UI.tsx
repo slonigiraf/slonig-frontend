@@ -16,10 +16,10 @@ import { useApi, useTheme } from '@polkadot/react-hooks';
 export const PORTAL_ID = 'portals';
 
 function UI({ className = '' }: Props): React.ReactElement<Props> {
-  const { isReady } = useLoginContext();
+  const { isLoginReady } = useLoginContext();
   const { isApiReady, isWaitingInjected } = useApi();
   const { isIpfsReady } = useIpfsContext();
-  const connected = isReady && isIpfsReady && isApiReady && !isWaitingInjected
+  const connected = isLoginReady && isIpfsReady && isApiReady && !isWaitingInjected
   
   const { t } = useTranslation();
   const { themeClassName } = useTheme();

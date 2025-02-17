@@ -10,7 +10,7 @@ export function useLogin() {
   const [defaultAccount, setDefaultAccount] = useState<string|undefined>(undefined);
   const [accountState, setAccountState] = useState<AccountState | null>(null);
   const [isLoginRequired, setLoginIsRequired] = useState<boolean>(false);
-  const [isReady, setIsReady] = useState<boolean>(false);
+  const [isLoginReady, setIsLoginReady] = useState<boolean>(false);
   const [isLoggedIn, setIsLoggedIn] = useState<boolean>(false);
   const [isAddingAccount, setIsAddingAccount] = useState<boolean>(false);
   const [hasError, setHasError] = useState(true);
@@ -20,7 +20,7 @@ export function useLogin() {
     try {
       await keyring.getPairs();
       setHasError(false);
-      setTimeout(() => setIsReady(true), 1000);// In case no local account exist
+      setTimeout(() => setIsLoginReady(true), 1000);// In case no local account exist
     } catch (error) {
       setHasError(true);
       setTimeout(testKeyringState, 100);
@@ -41,10 +41,10 @@ export function useLogin() {
       if (!pair.isLocked) {
         setLoginIsRequired(false);
         setIsLoggedIn(true);
-        setIsReady(true);
+        setIsLoginReady(true);
       }
     } catch {
-      setIsReady(true);
+      setIsLoginReady(true);
     }
   };
 
@@ -104,5 +104,5 @@ export function useLogin() {
     [keyring]
   );
 
-  return { defaultAccount, isReady, currentPair, accountState, isLoggedIn, isLoginRequired, isAddingAccount, setIsLoggedIn, setLoginIsRequired, setIsAddingAccount, _onChangeAccount, _onUnlock, setDefaultAccount };
+  return { defaultAccount, isLoginReady, currentPair, accountState, isLoggedIn, isLoginRequired, isAddingAccount, setIsLoggedIn, setLoginIsRequired, setIsAddingAccount, _onChangeAccount, _onUnlock, setDefaultAccount };
 }

@@ -5,14 +5,13 @@ import type { KeyringPair } from '@polkadot/keyring/types';
 import type { AccountState } from '@slonigiraf/app-slonig-components';
 import { InputAddress } from '@polkadot/react-components';
 import CreateModal from '@polkadot/app-accounts/modals/Create';
-import ImportModal from '@polkadot/app-accounts/modals/Import';
 import { useAccounts } from '@polkadot/react-hooks';
 import type { ActionStatus } from '@polkadot/react-components/Status/types';
 
 // Define an interface for your context state.
 interface ILoginContext {
   currentPair: KeyringPair | null;
-  isReady: boolean;
+  isLoginReady: boolean;
   accountState: AccountState | null;
   isLoggedIn: boolean;
   isAddingAccount: boolean;
@@ -38,7 +37,7 @@ export const LoginProvider: React.FC<LoginProviderProps> = ({ children }) => {
 
   const {
     defaultAccount,
-    isReady,
+    isLoginReady,
     currentPair,
     accountState,
     isLoggedIn,
@@ -58,21 +57,10 @@ export const LoginProvider: React.FC<LoginProviderProps> = ({ children }) => {
     }
   }, [hasAccounts]);
 
-
-  const toggleSignIn = useCallback((): void => {
-    setIsSignIn(!isSignIn);
-  }, [isSignIn]);
-
   const cancelAuthorization = () => {
     setLoginIsRequired(false);
     setIsAddingAccount(false);
   }
-
-  const importAccount = <ImportModal
-    onClose={cancelAuthorization}
-    onStatusChange={_onUnlock}
-    toggleImport={toggleSignIn}
-  />;
 
   const onCreateAccount = (status: ActionStatus) => {
     if (status.status === 'success' && status.account) {
@@ -83,7 +71,7 @@ export const LoginProvider: React.FC<LoginProviderProps> = ({ children }) => {
 
   return (
     <LoginContext.Provider value={{
-      currentPair, isReady, accountState, isAddingAccount, isLoggedIn,
+      currentPair, isLoginReady, accountState, isAddingAccount, isLoggedIn,
       setIsLoggedIn, isLoginRequired, setLoginIsRequired, _onChangeAccount, setIsAddingAccount, setDefaultAccount
     }}>
       <div className='ui--row' style={{ display: 'none' }}>
@@ -97,14 +85,14 @@ export const LoginProvider: React.FC<LoginProviderProps> = ({ children }) => {
           value={defaultAccount}
         />
       </div>
-      {isReady && isLoginRequired && (
+      {isLoginReady && isLoginRequired && (
         <CreateModal
           onClose={cancelAuthorization}
           onStatusChange={onCreateAccount}
           cancelAuthorization={cancelAuthorization}
         />
       )}
-      {isReady && isAddingAccount && (
+      {isLoginReady && isAddingAccount && (
         <CreateModal
           onClose={cancelAuthorization}
           onStatusChange={onCreateAccount}
