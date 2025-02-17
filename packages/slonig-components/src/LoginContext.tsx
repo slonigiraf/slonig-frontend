@@ -3,8 +3,7 @@ import React, { useContext, createContext, ReactNode, useState, useCallback, use
 import { useLogin } from './useLogin.js';
 import type { KeyringPair } from '@polkadot/keyring/types';
 import type { AccountState } from '@slonigiraf/app-slonig-components';
-import { InputAddress, Spinner, styled } from '@polkadot/react-components';
-import { useTranslation } from './translate.js';
+import { InputAddress } from '@polkadot/react-components';
 import CreateModal from '@polkadot/app-accounts/modals/Create';
 import ImportModal from '@polkadot/app-accounts/modals/Import';
 import { useAccounts } from '@polkadot/react-hooks';
