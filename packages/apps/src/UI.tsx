@@ -9,19 +9,23 @@ import Menu from './Menu/index.js';
 import ConnectingOverlay from './overlays/Connecting.js';
 import DotAppsOverlay from './overlays/DotApps.js';
 import BottomMenu from './BottomMenu/index.js';
-import { AppContainer, BlockchainSyncProvider, useLoginContext } from '@slonigiraf/app-slonig-components';
+import { AppContainer, BlockchainSyncProvider, useIpfsContext, useLoginContext } from '@slonigiraf/app-slonig-components';
 import { Spinner, styled } from '@polkadot/react-components';
 import { useTranslation } from './translate.js';
-import { useTheme } from '@polkadot/react-hooks';
+import { useApi, useTheme } from '@polkadot/react-hooks';
 export const PORTAL_ID = 'portals';
 
 function UI({ className = '' }: Props): React.ReactElement<Props> {
   const { isReady } = useLoginContext();
+  const { isApiReady, isWaitingInjected } = useApi();
+  const { isIpfsReady } = useIpfsContext();
+  const connected = isReady && isIpfsReady && isApiReady && !isWaitingInjected
+  
   const { t } = useTranslation();
   const { themeClassName } = useTheme();
 
   return (
-    isReady ? <StyledDiv className={`${className} apps--Wrapper ${themeClassName}`}>
+    connected ? <StyledDiv className={`${className} apps--Wrapper ${themeClassName}`}>
       <AppContainer>
         <Menu />
         <Signer>
