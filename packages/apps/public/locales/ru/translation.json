@@ -406,7 +406,6 @@
   "SOME EXERCISE FOR SKILL TRAINING (THE TUTOR SHOULD KNOW)": "НЕКОТОРОЕ УПРАЖНЕНИЕ ДЛЯ ОБУЧЕНИЯ НАВЫКУ (РЕПЕТИТОР ДОЛЖЕН ЗНАТЬ)",
   "Say": "Скажи",
   "Buy a skill diploma from me to get a bonus from a teacher and a parent.": "Купи у меня диплом на навык, чтобы получить бонус от учителя и родителя.",
-  "I sell the student a diploma in exchange for money or Slon tokens.": "Продаю ученику диплом в обмен на деньги или жетоны Slon.",
   "Excellent! Let's repeat this tomorrow.": "Отлично! Давай повторим это завтра.",
   "Has the student repeated correctly?": "Повторил ли ученик правильно?",
   "Get bonus": "Получить бонус",
@@ -507,5 +506,5 @@
   "Student mastered the skill": "Ученик научился навыку",
   "Should be repeated tomorrow": "Нужно повторить завтра",
   "Congratulations!": "Поздравляем!",
-  "You have received some Slon money for free. Use it wisely. There won’t be any more gifts like this.": "Вы получили немного денег Slon бесплатно. Используйте их с умом. Больше таких подарков не будет."
+  "You have received Slon coins for free. Use them wisely. There won’t be any more gifts like this.": "Вы получили монеты Slon бесплатно. Используйте их с умом. Больше таких подарков не будет."
 }

@@ -2,18 +2,19 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import type { BareProps as Props } from '@polkadot/react-components/types';
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import Signer from '@polkadot/react-signer';
 import Content from './Content/index.js';
 import Menu from './Menu/index.js';
 import ConnectingOverlay from './overlays/Connecting.js';
 import DotAppsOverlay from './overlays/DotApps.js';
 import BottomMenu from './BottomMenu/index.js';
-import { AppContainer, BlockchainSyncProvider, useInfo, useIpfsContext, useLoginContext } from '@slonigiraf/app-slonig-components';
+import { AppContainer, balanceToSlonString, BlockchainSyncProvider, useInfo, useIpfsContext, useLoginContext } from '@slonigiraf/app-slonig-components';
 import { Button, Icon, Modal, Spinner, styled } from '@polkadot/react-components';
 import { useTranslation } from './translate.js';
 import { useApi, useTheme, useToggle } from '@polkadot/react-hooks';
 import { hasSetting, SettingKey, storeSetting } from '@slonigiraf/db';
+import BN from 'bn.js';
 export const PORTAL_ID = 'portals';
 
 interface Economy {
@@ -39,6 +40,7 @@ function UI({ className = '' }: Props): React.ReactElement<Props> {
   const { themeClassName } = useTheme();
   const economyNotificationTime = 10;
   const [isModalVisible, toggleModalVisible] = useToggle();
+  const [airdropAmount, setAirdropAmount] = useState('0');
 
   const showError = (error: string) => {
     showInfo(`${t('Please notify tech support.')} Error: ${error}.`, 'error', economyNotificationTime);
@@ -78,6 +80,7 @@ function UI({ className = '' }: Props): React.ReactElement<Props> {
           const airdropResults: AirdropResults = await response.json();
           if (airdropResults.success && airdropResults.amount) {
             await storeSetting(SettingKey.RECEIVED_AIRDROP, airdropResults.amount);
+            setAirdropAmount(balanceToSlonString(new BN(airdropResults.amount)));
             toggleModalVisible();
           } else if (airdropResults.error) {
             showError(airdropResults.error);
@@ -105,8 +108,11 @@ function UI({ className = '' }: Props): React.ReactElement<Props> {
               size='tiny'
             >
               <Modal.Content>
-                <Icon color='orange' icon='gift' size="8x" />
-                <p>{t('You have received some Slon money for free. Use it wisely. There won’t be any more gifts like this.')}</p>
+                <GiftDiv>
+                  <Icon color='orange' icon='gift' size="8x" />
+                  <StyledLabel>{airdropAmount} Slon</StyledLabel>
+                </GiftDiv>
+                <p>{t('You have received Slon coins for free. Use them wisely. There won’t be any more gifts like this.')}</p>
               </Modal.Content>
               <Modal.Actions>
                 <Button
@@ -165,6 +171,11 @@ const StyledDiv = styled.div`
   `).join('')}
 `;
 
+const GiftDiv = styled.div`
+  position: relative;
+  display: inline-block;
+`;
+
 const StyledModal = styled(Modal)`
   button[data-testid='close-modal'] {
     opacity: 0;
@@ -182,5 +193,17 @@ const StyledModal = styled(Modal)`
     gap: 1rem;
   }
 `;
-
+const StyledLabel = styled.span`
+  position: absolute;
+  top: 62%; 
+  left: 50%;
+  text-align: center;
+  transform: translate(-50%, -50%);
+  z-index: 1;
+  background-color: var(--bg-page);
+  color: darkorange;
+  font-weight: bold;
+  font-size: 1.5rem;
+  padding: 0.25rem 0.5rem;
+`;
 export default React.memo(UI);
