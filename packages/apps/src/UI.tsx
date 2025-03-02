@@ -44,7 +44,7 @@ function UI({ className = '' }: Props): React.ReactElement<Props> {
   const [airdropAmount, setAirdropAmount] = useState('0');
   const location = useLocation();
   const queryParams = new URLSearchParams(location.search);
-  const learnInUrl = queryParams.get('learn') != null;
+  const lessonInUrl = queryParams.get('lesson') != null;
 
   const showError = (error: string) => {
     showInfo(`${t('Please notify tech support.')} ${t('Error')}: ${error}.`, 'error', economyNotificationTime);
@@ -79,7 +79,7 @@ function UI({ className = '' }: Props): React.ReactElement<Props> {
     const askForAirdrop = async () => {
       const airdropReceived = await hasSetting(SettingKey.RECEIVED_AIRDROP);
       if (!airdropReceived) {
-        if (learnInUrl) {
+        if (lessonInUrl) {
           await storeSetting(SettingKey.AIRDROP_COMPATIBLE, 'true');
         }
         const airdropCompatible = await hasSetting(SettingKey.AIRDROP_COMPATIBLE);

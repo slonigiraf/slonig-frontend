@@ -24,7 +24,7 @@ function ViewList({ className = '', id, cidString, list }: Props): React.ReactEl
   const location = useLocation();
   const { api } = useApi();
   const queryParams = new URLSearchParams(location.search);
-  const learnInUrl = queryParams.get('learn') != null;
+  const lessonInUrl = queryParams.get('lesson') != null;
   const { t } = useTranslation();
   const {currentPair, isLoggedIn, setLoginIsRequired } = useLoginContext();
   const [isLearningRequested, setLearningRequested] = useState(false);
@@ -96,7 +96,7 @@ function ViewList({ className = '', id, cidString, list }: Props): React.ReactEl
 
   useEffect((): void => {
     if (
-      learnInUrl &&
+      lessonInUrl &&
       isThereAnythingToLearn &&
       !shouldSelectAll &&
       !isLearningInitialized
@@ -107,7 +107,7 @@ function ViewList({ className = '', id, cidString, list }: Props): React.ReactEl
       }
       handleLearningToggle(true);
     }
-  }, [learnInUrl, isLoggedIn, isThereAnythingToLearn, shouldSelectAll, isLearningInitialized]);
+  }, [lessonInUrl, isLoggedIn, isThereAnythingToLearn, shouldSelectAll, isLearningInitialized]);
 
   const isModuleQRVisible = isLearningRequested || isReexaminingRequested;
 
@@ -133,7 +133,7 @@ function ViewList({ className = '', id, cidString, list }: Props): React.ReactEl
             value={isReexaminingRequested}
           />}
           <div className='ui--row' style={isModuleQRVisible ? {} : { display: 'none' }}>
-            <SkillQR id={id} cid={cidString} type={LawType.MODULE} selectedItems={selectedItems} isLearningRequested={isLearningRequested} isReexaminingRequested={isReexaminingRequested} learnInUrl={learnInUrl} />
+            <SkillQR id={id} cid={cidString} type={LawType.MODULE} selectedItems={selectedItems} isLearningRequested={isLearningRequested} isReexaminingRequested={isReexaminingRequested} learnInUrl={lessonInUrl} />
           </div>
         </>
       )}
