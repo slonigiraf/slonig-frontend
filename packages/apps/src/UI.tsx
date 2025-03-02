@@ -43,7 +43,7 @@ function UI({ className = '' }: Props): React.ReactElement<Props> {
   const [airdropAmount, setAirdropAmount] = useState('0');
 
   const showError = (error: string) => {
-    showInfo(`${t('Please notify tech support.')} Error: ${error}.`, 'error', economyNotificationTime);
+    showInfo(`${t('Please notify tech support.')} ${t('Error')}: ${error}.`, 'error', economyNotificationTime);
   }
 
   const showNoConnectionToEconomyServerError = () => {
