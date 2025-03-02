@@ -248,19 +248,18 @@ function Transfer({ className = '', onClose, onSuccess, recipientId: propRecipie
         </div>
       </Modal.Content>
       <Modal.Actions>
-        {isProcessing ? <Spinner noLabel variant='mini' /> :
-          <Button isDisabled={
-            isProcessing ||
-            (!isAll && (!hasAvailable || !amount)) ||
-            !(propRecipientId || recipientId) ||
-            !!recipientPhish ||
-            !amountIsLessThanMax
-          }
-            icon='paper-plane'
-            label={buttonCaption ? buttonCaption : t('Send tokens')}
-            onClick={submitTransfer}
-          />
+        <Button isDisabled={
+          isProcessing ||
+          (!isAll && (!hasAvailable || !amount)) ||
+          !(propRecipientId || recipientId) ||
+          !!recipientPhish ||
+          !amountIsLessThanMax
         }
+          isBusy={isProcessing}
+          icon='paper-plane'
+          label={buttonCaption ? buttonCaption : t('Send tokens')}
+          onClick={submitTransfer}
+        />
       </Modal.Actions>
     </StyledModal>
   );
