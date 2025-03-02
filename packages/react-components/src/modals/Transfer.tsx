@@ -5,12 +5,12 @@ import type { DeriveBalancesAll } from '@polkadot/api-derive/types';
 import type { AccountInfoWithProviders, AccountInfoWithRefCount } from '@polkadot/types/interfaces';
 import type { BN } from '@polkadot/util';
 
-import React, { useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 
 import { checkAddress } from '@polkadot/phishing';
 import { useApi, useCall, useToggle } from '@polkadot/react-hooks';
 import { Available } from '@polkadot/react-query';
-import { BN_HUNDRED, BN_ZERO, isFunction, nextTick } from '@polkadot/util';
+import { BN_HUNDRED, BN_ZERO, nextTick } from '@polkadot/util';
 
 import InputAddress from '../InputAddress/index.js';
 import InputBalance from '../InputBalance.js';
@@ -18,7 +18,7 @@ import MarkError from '../MarkError.js';
 import Modal from '../Modal/index.js';
 import { styled } from '../styled.js';
 import { useTranslation } from '../translate.js';
-import { Button, Spinner } from '@polkadot/react-components';
+import { Button } from '@polkadot/react-components';
 import { useInfo, useLoginContext } from '@slonigiraf/app-slonig-components';
 
 interface Props {
@@ -64,9 +64,14 @@ function Transfer({ className = '', onClose, onSuccess, recipientId: propRecipie
   const balances = useCall<DeriveBalancesAll>(api.derive.balances?.all, [propSenderId || senderId]);
   const accountInfo = useCall<AccountInfoWithProviders | AccountInfoWithRefCount>(api.query.system.account, [propSenderId || senderId]);
   const { showInfo } = useInfo();
-  const { currentPair } = useLoginContext();
+  const { currentPair, _onChangeAccount } = useLoginContext();
   const [isProcessing, toggleProcessing] = useToggle();
   const [amountIsLessThanMax, setAmountIsLessThanMax] = useState(false);
+
+  const changeSender = useCallback((id: string | null) => {
+    setSenderId(id);
+    _onChangeAccount(id);
+  }, [currentPair]);
 
   useEffect((): void => {
     const fromId = propSenderId || senderId as string;
@@ -173,7 +178,7 @@ function Transfer({ className = '', onClose, onSuccess, recipientId: propRecipie
         }
       });
     } catch (error) {
-      showInfo(`${t('Transfer failed:')} ${error.toString()}`, 'error');
+      showInfo(`${t('Transfer failed:')} ${String(error)}`, 'error');
       toggleProcessing();
     }
   };
@@ -197,7 +202,7 @@ function Transfer({ className = '', onClose, onSuccess, recipientId: propRecipie
                   params={propSenderId || senderId}
                 />
               }
-              onChange={setSenderId}
+              onChange={changeSender}
               type='account'
             />
           </Modal.Columns>
