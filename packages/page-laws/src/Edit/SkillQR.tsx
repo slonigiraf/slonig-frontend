@@ -14,9 +14,10 @@ interface Props {
   selectedItems: ItemWithCID[];
   isLearningRequested: boolean;
   isReexaminingRequested?: boolean;
+  learnInUrl?: boolean;
 }
 
-function SkillQR({ className = '', cid, selectedItems, isLearningRequested, isReexaminingRequested }: Props): React.ReactElement<Props> | null {
+function SkillQR({ className = '', cid, selectedItems, isLearningRequested, isReexaminingRequested, learnInUrl}: Props): React.ReactElement<Props> | null {
   // Always call hooks unconditionally
   const { currentPair, isLoggedIn } = useLoginContext();
   const { t } = useTranslation();
@@ -83,7 +84,7 @@ function SkillQR({ className = '', cid, selectedItems, isLearningRequested, isRe
   }, [diplomasToReexamine, shouldRender]);
 
   const name = nameFromKeyringPair(currentPair);
-  const route = 'diplomas/teach';
+  const route = learnInUrl? 'diplomas/teach/?learn' : 'diplomas/teach';
 
   // Initialize learn request
   useEffect(() => {
