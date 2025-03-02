@@ -133,7 +133,7 @@ function ViewList({ className = '', id, cidString, list }: Props): React.ReactEl
             value={isReexaminingRequested}
           />}
           <div className='ui--row' style={isModuleQRVisible ? {} : { display: 'none' }}>
-            <SkillQR id={id} cid={cidString} type={LawType.MODULE} selectedItems={selectedItems} isLearningRequested={isLearningRequested} isReexaminingRequested={isReexaminingRequested} learnInUrl={lessonInUrl} />
+            <SkillQR id={id} cid={cidString} type={LawType.MODULE} selectedItems={selectedItems} isLearningRequested={isLearningRequested} isReexaminingRequested={isReexaminingRequested} lessonInUrl={lessonInUrl} />
           </div>
         </>
       )}

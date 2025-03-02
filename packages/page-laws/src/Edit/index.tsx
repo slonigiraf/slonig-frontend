@@ -296,7 +296,7 @@ function Edit({ className = '' }: Props): React.ReactElement<Props> {
           {
             isDeveloper &&
             <DownloadQRButton
-              label={t('Classroom link')} data={'https://app.slonig.org/#/knowledge?id='+idFromQuery+'&lesson'} fileName={idFromQuery} />
+              label={t('Classroom link')} data={'https://app.slonig.org/#/knowledge?lesson&id='+idFromQuery} fileName={idFromQuery} />
           }
         </div>
       }
