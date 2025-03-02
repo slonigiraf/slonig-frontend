@@ -502,5 +502,8 @@
   "Added": "Добавлено",
   "Problem with getting IPFS data": "Проблема с получением данныз из IPFS",
   "Wrong JSON format": "Неправильный формат JSON",
-  "Cannot be its child": "Не может быть его дочерним элементом"
+  "Cannot be its child": "Не может быть его дочерним элементом",
+  "Please notify tech support.": "Пожалуйста, свяжитесь c техподдержкой.",
+  "Congratulations!": "Поздравляем!",
+  "You have received some Slon money for free. Use it wisely. There won’t be any more gifts like this.": "Вы получили немного денег Slon бесплатно. Используйте их с умом. Больше таких подарков не будет."
 }

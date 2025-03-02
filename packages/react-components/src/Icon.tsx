@@ -17,7 +17,7 @@ interface Props {
   isPadded?: boolean;
   isSpinning?: boolean;
   onClick?: () => void;
-  size?: '1x' | '2x';
+  size?: '1x' | '2x' | '8x';
   tooltip?: string;
 }
 

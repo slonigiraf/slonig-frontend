@@ -68,6 +68,11 @@ export async function getSetting(id: string): Promise<string | undefined> {
     return setting ? setting.value : undefined;
 };
 
+export async function hasSetting(id: string): Promise<boolean> {
+    const value = await getSetting(id);
+    return value? true : false;
+};
+
 export async function getInsuranceDaysValid() {
     const stored_validity = await getSetting(SettingKey.INSURANCE_VALIDITY);
     return stored_validity ? parseInt(stored_validity, 10) : DEFAULT_INSURANCE_VALIDITY;

@@ -9,48 +9,86 @@ import Menu from './Menu/index.js';
 import ConnectingOverlay from './overlays/Connecting.js';
 import DotAppsOverlay from './overlays/DotApps.js';
 import BottomMenu from './BottomMenu/index.js';
-import { AppContainer, BlockchainSyncProvider, useIpfsContext, useLoginContext } from '@slonigiraf/app-slonig-components';
-import { Spinner, styled } from '@polkadot/react-components';
+import { AppContainer, BlockchainSyncProvider, useInfo, useIpfsContext, useLoginContext } from '@slonigiraf/app-slonig-components';
+import { Button, Icon, Modal, Spinner, styled } from '@polkadot/react-components';
 import { useTranslation } from './translate.js';
-import { useApi, useTheme } from '@polkadot/react-hooks';
-import { getSetting, SettingKey, storeSetting } from '@slonigiraf/db';
+import { useApi, useTheme, useToggle } from '@polkadot/react-hooks';
+import { hasSetting, SettingKey, storeSetting } from '@slonigiraf/db';
 export const PORTAL_ID = 'portals';
 
-interface EconomySettings {
+interface Economy {
   success: boolean;
   airdrop: string;
   diploma: string;
   warranty: string;
 }
 
+interface AirdropResults {
+  success: boolean;
+  amount?: string;
+  error?: string;
+}
+
 function UI({ className = '' }: Props): React.ReactElement<Props> {
-  const { isLoginReady } = useLoginContext();
+  const { isLoginReady, isLoggedIn, currentPair } = useLoginContext();
   const { isApiReady, isWaitingInjected } = useApi();
   const { isIpfsReady } = useIpfsContext();
   const connected = isLoginReady && isIpfsReady && isApiReady && !isWaitingInjected
-
+  const { showInfo } = useInfo();
   const { t } = useTranslation();
   const { themeClassName } = useTheme();
+  const economyNotificationTime = 10;
+  const [isModalVisible, toggleModalVisible] = useToggle();
+
+  const showError = (error: string) => {
+    showInfo(`${t('Please notify tech support.')} Error: ${error}.`, 'error', economyNotificationTime);
+  }
+
+  const showNoConnectionToEconomyServerError = () => {
+    showError('NO_CONNECTION_TO_THE_ECONOMY_SERVER');
+  }
 
   useEffect(() => {
     const fetchData = async () => {
-      const economyInitialized = await getSetting(SettingKey.ECONOMY_INITIALIZED);
+      const economyInitialized = await hasSetting(SettingKey.ECONOMY_INITIALIZED);
       if (!economyInitialized) {
         try {
           const response = await fetch('https://economy.slonig.org/prices/');
           if (!response.ok) {
             throw new Error(`Fetching ecomomy error! status: ${response.status}`);
           }
-          const economySettings: EconomySettings = await response.json();
+          const economySettings: Economy = await response.json();
           await storeSetting(SettingKey.DIPLOMA_PRICE, economySettings.diploma);
           await storeSetting(SettingKey.DIPLOMA_WARRANTY, economySettings.warranty);
+          await storeSetting(SettingKey.ECONOMY_INITIALIZED, 'true');
         } catch (error) {
-          console.log(error)
+          showNoConnectionToEconomyServerError();
         }
       }
     };
     fetchData();
   }, []);
+
+  useEffect(() => {
+    const askForAirdrop = async () => {
+      const airdropReceived = await hasSetting(SettingKey.RECEIVED_AIRDROP);
+      if (!airdropReceived && currentPair) {
+        try {
+          const response = await fetch('https://economy.slonig.org/airdrop/?to=' + currentPair.address);
+          const airdropResults: AirdropResults = await response.json();
+          if (airdropResults.success && airdropResults.amount) {
+            await storeSetting(SettingKey.RECEIVED_AIRDROP, airdropResults.amount);
+            toggleModalVisible();
+          } else if (airdropResults.error) {
+            showError(airdropResults.error);
+          }
+        } catch (error) {
+          showNoConnectionToEconomyServerError();
+        }
+      }
+    };
+    isLoggedIn && askForAirdrop();
+  }, [isLoggedIn, currentPair]);
 
   return (
     connected ? <StyledDiv className={`${className} apps--Wrapper ${themeClassName}`}>
@@ -60,6 +98,23 @@ function UI({ className = '' }: Props): React.ReactElement<Props> {
           <BlockchainSyncProvider>
             <Content />
             <BottomMenu />
+            {isModalVisible && <StyledModal
+              className={className}
+              onClose={toggleModalVisible}
+              header={t('Congratulations!')}
+              size='tiny'
+            >
+              <Modal.Content>
+                <Icon color='orange' icon='gift' size="8x" />
+                <p>{t('You have received some Slon money for free. Use it wisely. There won’t be any more gifts like this.')}</p>
+              </Modal.Content>
+              <Modal.Actions>
+                <Button
+                  label={t('OK')}
+                  onClick={toggleModalVisible}
+                />
+              </Modal.Actions>
+            </StyledModal>}
           </BlockchainSyncProvider>
         </Signer>
         <ConnectingOverlay />
@@ -109,4 +164,23 @@ const StyledDiv = styled.div`
     }
   `).join('')}
 `;
+
+const StyledModal = styled(Modal)`
+  button[data-testid='close-modal'] {
+    opacity: 0;
+    background: transparent;
+    border: none;
+    cursor: pointer;
+  }
+  button[data-testid='close-modal']:focus {
+    outline: none;
+  }
+  .ui--Modal-Content {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 1rem;
+  }
+`;
+
 export default React.memo(UI);
