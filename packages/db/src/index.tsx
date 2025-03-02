@@ -48,6 +48,7 @@ export const SettingKey = {
     INSURANCE_VALIDITY: 'insurance_validity',
     CID_CACHE_SIZE: 'cid_cache_size',
     ECONOMY_INITIALIZED: 'ECONOMY_INITIALIZED',
+    AIRDROP_COMPATIBLE: 'AIRDROP_COMPATIBLE',
     RECEIVED_AIRDROP: 'RECEIVED_AIRDROP',
 };
 

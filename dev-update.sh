@@ -7,5 +7,6 @@ docker build -t dev-app-slonig-org -f docker/Dockerfile \
   --build-arg COTURN_SERVER=$COTURN_SERVER \
   --build-arg COTURN_USER=$COTURN_USER \
   --build-arg COTURN_PASSWORD=$COTURN_PASSWORD \
+  --build-arg AIRDROP_AUTH_TOKEN=$AIRDROP_AUTH_TOKEN \
   . && \
 docker compose up -d

@@ -138,7 +138,8 @@ function createWebpack (context, mode = 'production') {
           PEERJS_SERVER: JSON.stringify(process.env.PEERJS_SERVER),
           COTURN_SERVER: JSON.stringify(process.env.COTURN_SERVER),
           COTURN_USER: JSON.stringify(process.env.COTURN_USER),
-          COTURN_PASSWORD: JSON.stringify(process.env.COTURN_PASSWORD)
+          COTURN_PASSWORD: JSON.stringify(process.env.COTURN_PASSWORD),
+          AIRDROP_AUTH_TOKEN: JSON.stringify(process.env.AIRDROP_AUTH_TOKEN)
         }
       }),
       new webpack.optimize.SplitChunksPlugin(),

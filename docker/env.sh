@@ -18,6 +18,7 @@ declare -a vars=(
   "COTURN_SERVER"
   "COTURN_USER"
   "COTURN_PASSWORD"
+  "AIRDROP_AUTH_TOKEN"
 )
 
 echo "window.process_env = {" >> $TARGET

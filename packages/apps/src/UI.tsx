@@ -15,6 +15,7 @@ import { useTranslation } from './translate.js';
 import { useApi, useTheme, useToggle } from '@polkadot/react-hooks';
 import { hasSetting, SettingKey, storeSetting } from '@slonigiraf/db';
 import BN from 'bn.js';
+import { useLocation } from 'react-router-dom';
 export const PORTAL_ID = 'portals';
 
 interface Economy {
@@ -41,6 +42,9 @@ function UI({ className = '' }: Props): React.ReactElement<Props> {
   const economyNotificationTime = 10;
   const [isModalVisible, toggleModalVisible] = useToggle();
   const [airdropAmount, setAirdropAmount] = useState('0');
+  const location = useLocation();
+  const queryParams = new URLSearchParams(location.search);
+  const learnInUrl = queryParams.get('learn') != null;
 
   const showError = (error: string) => {
     showInfo(`${t('Please notify tech support.')} ${t('Error')}: ${error}.`, 'error', economyNotificationTime);
@@ -74,19 +78,25 @@ function UI({ className = '' }: Props): React.ReactElement<Props> {
   useEffect(() => {
     const askForAirdrop = async () => {
       const airdropReceived = await hasSetting(SettingKey.RECEIVED_AIRDROP);
-      if (!airdropReceived && currentPair) {
-        try {
-          const response = await fetch('https://economy.slonig.org/airdrop/?to=' + currentPair.address);
-          const airdropResults: AirdropResults = await response.json();
-          if (airdropResults.success && airdropResults.amount) {
-            await storeSetting(SettingKey.RECEIVED_AIRDROP, airdropResults.amount);
-            setAirdropAmount(balanceToSlonString(new BN(airdropResults.amount)));
-            toggleModalVisible();
-          } else if (airdropResults.error) {
-            showError(airdropResults.error);
+      if (!airdropReceived) {
+        if (learnInUrl) {
+          await storeSetting(SettingKey.AIRDROP_COMPATIBLE, 'true');
+        }
+        const airdropCompatible = await hasSetting(SettingKey.AIRDROP_COMPATIBLE);
+        if (airdropCompatible && !airdropReceived && currentPair) {
+          try {
+            const response = await fetch(`https://economy.slonig.org/airdrop/?to=${currentPair.address}&auth=${process.env.AIRDROP_AUTH_TOKEN}`);
+            const airdropResults: AirdropResults = await response.json();
+            if (airdropResults.success && airdropResults.amount) {
+              await storeSetting(SettingKey.RECEIVED_AIRDROP, airdropResults.amount);
+              setAirdropAmount(balanceToSlonString(new BN(airdropResults.amount)));
+              toggleModalVisible();
+            } else if (airdropResults.error) {
+              showError(airdropResults.error);
+            }
+          } catch (error) {
+            showNoConnectionToEconomyServerError();
           }
-        } catch (error) {
-          showNoConnectionToEconomyServerError();
         }
       }
     };
