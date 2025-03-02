@@ -47,6 +47,8 @@ export const SettingKey = {
     DIPLOMA_VALIDITY: 'diploma_validity',
     INSURANCE_VALIDITY: 'insurance_validity',
     CID_CACHE_SIZE: 'cid_cache_size',
+    ECONOMY_INITIALIZED: 'ECONOMY_INITIALIZED',
+    RECEIVED_AIRDROP: 'RECEIVED_AIRDROP',
 };
 
 export async function storeSetting(id: string, value: string) {

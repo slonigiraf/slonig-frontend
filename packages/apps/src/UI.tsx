@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import type { BareProps as Props } from '@polkadot/react-components/types';
-import React from 'react';
+import React, { useEffect } from 'react';
 import Signer from '@polkadot/react-signer';
 import Content from './Content/index.js';
 import Menu from './Menu/index.js';
@@ -13,16 +13,44 @@ import { AppContainer, BlockchainSyncProvider, useIpfsContext, useLoginContext }
 import { Spinner, styled } from '@polkadot/react-components';
 import { useTranslation } from './translate.js';
 import { useApi, useTheme } from '@polkadot/react-hooks';
+import { getSetting, SettingKey, storeSetting } from '@slonigiraf/db';
 export const PORTAL_ID = 'portals';
+
+interface EconomySettings {
+  success: boolean;
+  airdrop: string;
+  diploma: string;
+  warranty: string;
+}
 
 function UI({ className = '' }: Props): React.ReactElement<Props> {
   const { isLoginReady } = useLoginContext();
   const { isApiReady, isWaitingInjected } = useApi();
   const { isIpfsReady } = useIpfsContext();
   const connected = isLoginReady && isIpfsReady && isApiReady && !isWaitingInjected
-  
+
   const { t } = useTranslation();
   const { themeClassName } = useTheme();
+
+  useEffect(() => {
+    const fetchData = async () => {
+      const economyInitialized = await getSetting(SettingKey.ECONOMY_INITIALIZED);
+      if (!economyInitialized) {
+        try {
+          const response = await fetch('https://economy.slonig.org/prices/');
+          if (!response.ok) {
+            throw new Error(`Fetching ecomomy error! status: ${response.status}`);
+          }
+          const economySettings: EconomySettings = await response.json();
+          await storeSetting(SettingKey.DIPLOMA_PRICE, economySettings.diploma);
+          await storeSetting(SettingKey.DIPLOMA_WARRANTY, economySettings.warranty);
+        } catch (error) {
+          console.log(error)
+        }
+      }
+    };
+    fetchData();
+  }, []);
 
   return (
     connected ? <StyledDiv className={`${className} apps--Wrapper ${themeClassName}`}>

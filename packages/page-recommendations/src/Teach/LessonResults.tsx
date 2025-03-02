@@ -3,7 +3,7 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import BN from 'bn.js';
 import { statics } from '@polkadot/react-api/statics';
-import { styled, Button, Input, InputBalance, Icon, Card, Modal, Spinner } from '@polkadot/react-components';
+import { styled, Button, Input, InputBalance, Icon, Card, Modal } from '@polkadot/react-components';
 import { useApi, useBlockTime, useToggle } from '@polkadot/react-hooks';
 import { u8aToHex, hexToU8a, u8aWrapBytes, BN_ONE, BN_ZERO, formatBalance } from '@polkadot/util';
 import type { LessonResult, Skill } from '@slonigiraf/app-slonig-components';
