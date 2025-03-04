@@ -49,11 +49,16 @@ function LessonResults({ className = '', lesson, updateAndStoreLesson, onClose }
     if (countOfValidLetters !== null && countOfReexaminationsPerformed !== null) {
       setProcessingStatistics(false);
       if (countOfValidLetters + countOfReexaminationsPerformed === 0) {
-        showInfo(t('You did not issue or reexamine any diplomas during this lesson.'));
+        if(dontSign){
+          showInfo(t('Go to Settings and set ’Days Valid’ and ’Warranty’ to their default values.'));
+        } else{
+          showInfo(t('You did not issue or reexamine any diplomas during this lesson.'));
+        }
+        
         onClose();
       }
     }
-  }, [countOfValidLetters, countOfReexaminationsPerformed]);
+  }, [countOfValidLetters, countOfReexaminationsPerformed, dontSign]);
 
   // Fetch required info from DB about current lesson
   useEffect(() => {
