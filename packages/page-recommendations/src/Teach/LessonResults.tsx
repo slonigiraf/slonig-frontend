@@ -92,15 +92,6 @@ function LessonResults({ className = '', lesson, updateAndStoreLesson, onClose }
   }, [lesson?.student])
 
   useEffect(() => {
-    async function fetchDaysValid() {
-      if (lesson && lesson.dValidity.toString() !== daysInputValue) {
-        setDaysInputValue(lesson.dValidity.toString());
-      }
-    }
-    fetchDaysValid()
-  }, [lesson?.dValidity])
-
-  useEffect(() => {
     async function updateWarrantyInSlon() {
       if (lesson) {
         setDiplomaWarrantyAmount(lesson ? new BN(lesson.dWarranty) : BN_ZERO);
