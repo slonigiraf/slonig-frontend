@@ -115,10 +115,6 @@ function LessonResults({ className = '', lesson, updateAndStoreLesson, onClose }
     }
   }, [setAmountInputValue]);
 
-
-
-
-
   const setDiplomaPrice = useCallback((value?: BN | undefined): void => {
     if (lesson && value && lesson.dPrice !== value.toString()) {
       const updatedLesson = { ...lesson, dPrice: value.toString() };
@@ -341,7 +337,7 @@ function LessonResults({ className = '', lesson, updateAndStoreLesson, onClose }
               className='full'
               label={t('days valid')}
               onChange={setDaysInputValue}
-              value={daysInputValue}
+              defaultValue={lesson ? lesson.dValidity.toString() : "0"}
               placeholder={t('Positive number')}
               isError={isWrongDaysInput}
             />
