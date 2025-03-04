@@ -102,7 +102,7 @@ function UI({ className = '' }: Props): React.ReactElement<Props> {
                   <Icon color='orange' icon='gift' size="8x" />
                   <StyledLabel>{airdropAmount} Slon</StyledLabel>
                 </GiftDiv>
-                <p>{t('You have received Slon coins for free. Use them wisely. There won’t be any more gifts like this.')}</p>
+                <p>{t('You have received Slon coins for free. It’s a one-time use, so use it wisely.')}</p>
               </Modal.Content>
               <Modal.Actions>
                 <Button
