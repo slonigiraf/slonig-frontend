@@ -60,7 +60,7 @@ const StyledDiv = styled.div`
   position: fixed;
   right: 0.75rem;
   top: 0.75rem;
-  z-index: 500;
+  z-index: 1001; // 1 more than modal
 
   &.isBottom {
     bottom: 0.75rem;

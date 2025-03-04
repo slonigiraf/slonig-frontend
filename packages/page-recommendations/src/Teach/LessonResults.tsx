@@ -33,6 +33,7 @@ function LessonResults({ className = '', lesson, updateAndStoreLesson, onClose }
   //   student name
   const [studentName, setStudentName] = useState<string | null>(null);
   const [daysInputValue, setDaysInputValue] = useState<string>(lesson ? lesson.dValidity.toString() : "0"); //To allow empty strings
+  const [amountInputValue, setAmountInputValue] = useState<BN>(lesson ? new BN(lesson.dWarranty) : BN_ZERO);
   const [countOfValidLetters, setCountOfValidLetters] = useState<number | null>(null);
   const [countOfReexaminationsPerformed, setCountOfReexaminationsPerformed] = useState<number | null>(null);
   const [countOfReexaminationsFailed, setCountOfReexaminationsFailed] = useState<number | null>(null);
@@ -49,12 +50,12 @@ function LessonResults({ className = '', lesson, updateAndStoreLesson, onClose }
     if (countOfValidLetters !== null && countOfReexaminationsPerformed !== null) {
       setProcessingStatistics(false);
       if (countOfValidLetters + countOfReexaminationsPerformed === 0) {
-        if(dontSign){
+        if (dontSign) {
           showInfo(t('Go to ’Settings’ and press ’Reset settings to default’.'), 'error');
-        } else{
+        } else {
           showInfo(t('You did not issue or reexamine any diplomas during this lesson.'));
         }
-        
+
         onClose();
       }
     }
@@ -108,14 +109,15 @@ function LessonResults({ className = '', lesson, updateAndStoreLesson, onClose }
   }, [lesson?.dWarranty])
 
 
-  // Update lesson properties in case edited
-  const setAmount = useCallback((value?: BN | undefined): void => {
-    if (lesson && value && lesson.dWarranty !== value.toString()) {
-      const updatedLesson = { ...lesson, dWarranty: value.toString() };
-      updateAndStoreLesson(updatedLesson);
-      storeSetting(SettingKey.DIPLOMA_WARRANTY, value.toString());
+  const setAmountIput = useCallback((value?: BN | undefined): void => {
+    if (value) {
+      setAmountInputValue(value);
     }
-  }, [lesson, updateAndStoreLesson]);
+  }, [setAmountInputValue]);
+
+
+
+
 
   const setDiplomaPrice = useCallback((value?: BN | undefined): void => {
     if (lesson && value && lesson.dPrice !== value.toString()) {
@@ -141,6 +143,20 @@ function LessonResults({ className = '', lesson, updateAndStoreLesson, onClose }
     },
     [lesson, updateAndStoreLesson]
   );
+
+  const saveLessonSettings = useCallback((): void => {
+    if (!amountInputValue || amountInputValue.eq(BN_ZERO)) {
+      showInfo('Correct errors', 'error');
+    } else {
+      if (lesson && lesson.dWarranty !== amountInputValue.toString()) {
+        console.log('lesson.dWarranty: ', lesson.dWarranty)
+        const updatedLesson = { ...lesson, dWarranty: amountInputValue.toString() };
+        updateAndStoreLesson(updatedLesson);
+        storeSetting(SettingKey.DIPLOMA_WARRANTY, amountInputValue.toString());
+      }
+      toggleVisibleDiplomaDetails();
+    }
+  }, [amountInputValue, toggleVisibleDiplomaDetails, updateAndStoreLesson]);
 
   // Sign diploma
   useEffect(() => {
@@ -329,9 +345,9 @@ function LessonResults({ className = '', lesson, updateAndStoreLesson, onClose }
             <InputBalance
               isZeroable
               label={t('stake for each diploma')}
-              onChange={setAmount}
+              onChange={setAmountIput}
               defaultValue={lesson ? new BN(lesson.dWarranty) : BN_ZERO}
-              isError={!lesson || new BN(lesson.dWarranty).eq(BN_ZERO)}
+              isError={amountInputValue.eq(BN_ZERO)}
             />
           </div>
           <div className='ui--row'>
@@ -349,7 +365,7 @@ function LessonResults({ className = '', lesson, updateAndStoreLesson, onClose }
           <Button
             icon='save'
             label={t('Save and close')}
-            onClick={toggleVisibleDiplomaDetails}
+            onClick={saveLessonSettings}
           />
         </Modal.Actions>
       </DetailsModal>}
