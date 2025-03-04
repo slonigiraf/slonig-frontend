@@ -177,7 +177,7 @@ function LettersList({ className = '', worker, currentPair }: Props): React.Reac
             label={'?'}
             size='large'
             isHelp={true}
-            hover={t('Earn bonuses from teachers, parents, or employers—anyone who benefits from your learning. In return, they will be able to assess your diplomas and receive Slon tokens from tutors if you forget your skills.')}
+            hover={t('Earn bonuses from teachers, parents, or employers—anyone who benefits from your learning. In return, they will be able to assess your diplomas and receive Slon coins from tutors if you forget your skills.')}
           />
         </>
         }

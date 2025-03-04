@@ -3,7 +3,7 @@
   "2. Enter the ETH address from the sale.": "2. Enter the ETH address from the sale.",
   "Account balance:": "Account balance:",
   "Claim": "Claim",
-  "Claim tokens": "Claim tokens",
+  "Claim coins": "Claim coins",
   "Confirm claim": "Confirm claim",
   "Continue": "Continue",
   "Copy the following string and sign it with the Ethereum account you used during the pre-sale in the wallet of your choice, using the string as the payload, and then paste the transaction signature object below:": "Copy the following string and sign it with the Ethereum account you used during the pre-sale in the wallet of your choice, using the string as the payload, and then paste the transaction signature object below:",

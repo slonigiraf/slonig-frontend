@@ -236,7 +236,7 @@ function Edit({ className = '' }: Props): React.ReactElement<Props> {
       key={amountItem ? 'ai' + amountItem.toString() : 'ai'}
       autoFocus
       isZeroable
-      label={t('Tokens to burn for item')}
+      label={t('Coins to burn for item')}
       value={amountItem}
       onChange={setAmountItem}
       isDisabled={!isIpfsReady}
@@ -261,7 +261,7 @@ function Edit({ className = '' }: Props): React.ReactElement<Props> {
           key={amountList ? 'aL' + amountList.toString() : 'aL'}
           autoFocus
           isZeroable
-          label={t('Tokens to burn')}
+          label={t('Coins to burn')}
           value={amountList}
           onChange={setAmountList}
           isDisabled={!isIpfsReady}
