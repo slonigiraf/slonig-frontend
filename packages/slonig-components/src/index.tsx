@@ -235,6 +235,7 @@ export interface Economy {
   airdrop: string;
   diploma: string;
   warranty: string;
+  validity: string;
 }
 
 export interface AirdropResults {
@@ -251,6 +252,7 @@ export async function fetchEconomy(): Promise<void> {
   const economySettings: Economy = await response.json();
   await storeSetting(SettingKey.DIPLOMA_PRICE, economySettings.diploma);
   await storeSetting(SettingKey.DIPLOMA_WARRANTY, economySettings.warranty);
+  await storeSetting(SettingKey.DIPLOMA_VALIDITY, economySettings.validity);
   await storeSetting(SettingKey.ECONOMY_INITIALIZED, 'true');
 };
 export interface LessonResult {

@@ -12,7 +12,7 @@ import { settings } from '@polkadot/ui-settings';
 
 import { useTranslation } from './translate.js';
 import { save, saveAndReload } from './util.js';
-import { getSetting, storeSetting, SettingKey } from '@slonigiraf/db';
+import { getSetting, storeSetting, SettingKey, updateAllLessons } from '@slonigiraf/db';
 import { clearAllData, Confirmation, DBExport, DBImport, fetchEconomy, useInfo, useLoginContext } from '@slonigiraf/app-slonig-components';
 import { useToggle } from '@polkadot/react-hooks';
 
@@ -83,6 +83,12 @@ function General({ className = '' }: Props): React.ReactElement<Props> {
     async () => {
       try {
         await fetchEconomy();
+        const price = await getSetting(SettingKey.DIPLOMA_PRICE);
+        const warranty = await getSetting(SettingKey.DIPLOMA_WARRANTY);
+        const validity = await getSetting(SettingKey.DIPLOMA_VALIDITY);
+        if (price && warranty && validity) {
+          updateAllLessons(price, warranty, parseInt(validity, 10));
+        }
         showInfo(t('Saved'));
       } catch (error) {
         showNoConnectionToEconomyServerError();

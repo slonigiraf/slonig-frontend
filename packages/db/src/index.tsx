@@ -381,6 +381,24 @@ export async function getLessons(tutor: string, startDate: number | null, endDat
     }
     return await query.reverse().sortBy('created');
 }
+export async function updateAllLessons(newDPrice: string, newDWarranty: string, newDValidity: number) {
+    try {
+        await db.transaction('rw', db.lessons, async () => {
+            const lessons = await db.lessons.toArray();
+            
+            const updates = lessons.map(lesson => ({
+                ...lesson,
+                dPrice: newDPrice,
+                dWarranty: newDWarranty,
+                dValidity: newDValidity
+            }));
+            
+            await db.lessons.bulkPut(updates);
+        });
+    } catch (error) {
+        console.error('Error updating lessons:', error);
+    }
+}
 
 export async function deleteLesson(id: string) {
     await db.lessons.delete(id);
