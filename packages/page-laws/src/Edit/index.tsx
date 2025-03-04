@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import BN from 'bn.js';
-import { getIPFSContentIDAndPinIt, digestFromCIDv1, getCIDFromBytes, getIPFSDataFromContentID, loadFromSessionStorage, saveToSessionStorage, KatexSpan, DownloadQRButton } from '@slonigiraf/app-slonig-components';
+import { getIPFSContentIDAndPinIt, digestFromCIDv1, getCIDFromBytes, getIPFSDataFromContentID, loadFromSessionStorage, saveToSessionStorage, KatexSpan, DownloadQRButton, LawType } from '@slonigiraf/app-slonig-components';
 import { BN_ZERO } from '@polkadot/util';
 import React, { useCallback, useEffect, useState } from 'react';
 import { Button, InputBalance } from '@polkadot/react-components';
@@ -294,7 +294,7 @@ function Edit({ className = '' }: Props): React.ReactElement<Props> {
             onClick={_onClickEdit}
           />
           {
-            isDeveloper &&
+            isDeveloper && list.t === LawType.MODULE &&
             <DownloadQRButton
               label={t('Classroom link')} data={'https://app.slonig.org/#/knowledge?lesson&id='+idFromQuery} fileName={idFromQuery} />
           }
