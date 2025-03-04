@@ -127,36 +127,22 @@ function LessonResults({ className = '', lesson, updateAndStoreLesson, onClose }
     }
   }, [lesson, updateAndStoreLesson]);
 
-  const setDaysValid = useCallback(
-    (value: string) => {
-      setDaysInputValue(value); // Update the input field's temporary value
-
-      // If the input is empty, don’t store it in lesson; only store valid numbers
-      if (value === "") return;
-
-      const days = parseInt(value, 10);
-      if (!isNaN(days) && days >= 0 && lesson) {
-        const updatedLesson: Lesson = { ...lesson, dValidity: days };
-        updateAndStoreLesson(updatedLesson);
-        storeSetting(SettingKey.DIPLOMA_VALIDITY, days.toString());
-      }
-    },
-    [lesson, updateAndStoreLesson]
-  );
-
+  const isWrongDaysInput = !daysInputValue || !(parseInt(daysInputValue) > 0);
   const saveLessonSettings = useCallback((): void => {
-    if (!amountInputValue || amountInputValue.eq(BN_ZERO)) {
+    const days = parseInt(daysInputValue, 10);
+    if (!amountInputValue || amountInputValue.eq(BN_ZERO) || isWrongDaysInput) {
       showInfo('Correct errors', 'error');
     } else {
       if (lesson && lesson.dWarranty !== amountInputValue.toString()) {
         console.log('lesson.dWarranty: ', lesson.dWarranty)
-        const updatedLesson = { ...lesson, dWarranty: amountInputValue.toString() };
+        const updatedLesson = { ...lesson, dWarranty: amountInputValue.toString(), dValidity: days };
         updateAndStoreLesson(updatedLesson);
         storeSetting(SettingKey.DIPLOMA_WARRANTY, amountInputValue.toString());
+        storeSetting(SettingKey.DIPLOMA_VALIDITY, days.toString());
       }
       toggleVisibleDiplomaDetails();
     }
-  }, [amountInputValue, toggleVisibleDiplomaDetails, updateAndStoreLesson]);
+  }, [amountInputValue, daysInputValue, isWrongDaysInput, toggleVisibleDiplomaDetails, updateAndStoreLesson]);
 
   // Sign diploma
   useEffect(() => {
@@ -354,10 +340,10 @@ function LessonResults({ className = '', lesson, updateAndStoreLesson, onClose }
             <Input
               className='full'
               label={t('days valid')}
-              onChange={setDaysValid}
+              onChange={setDaysInputValue}
               value={daysInputValue}
               placeholder={t('Positive number')}
-              isError={!daysInputValue || daysInputValue === "0"}
+              isError={isWrongDaysInput}
             />
           </div>
         </Modal.Content>
