@@ -32,8 +32,9 @@ function LessonResults({ className = '', lesson, updateAndStoreLesson, onClose }
   const [millisecondsPerBlock,] = useBlockTime(BN_ONE, api);
   //   student name
   const [studentName, setStudentName] = useState<string | null>(null);
-  const [daysInputValue, setDaysInputValue] = useState<string>(lesson ? lesson.dValidity.toString() : "0"); //To allow empty strings
+  const [priceInputValue, setPriceInputValue] = useState<BN>(lesson ? new BN(lesson.dPrice) : BN_ZERO);
   const [amountInputValue, setAmountInputValue] = useState<BN>(lesson ? new BN(lesson.dWarranty) : BN_ZERO);
+  const [daysInputValue, setDaysInputValue] = useState<string>(lesson ? lesson.dValidity.toString() : "0"); //To allow empty strings
   const [countOfValidLetters, setCountOfValidLetters] = useState<number | null>(null);
   const [countOfReexaminationsPerformed, setCountOfReexaminationsPerformed] = useState<number | null>(null);
   const [countOfReexaminationsFailed, setCountOfReexaminationsFailed] = useState<number | null>(null);
@@ -115,30 +116,33 @@ function LessonResults({ className = '', lesson, updateAndStoreLesson, onClose }
     }
   }, [setAmountInputValue]);
 
-  const setDiplomaPrice = useCallback((value?: BN | undefined): void => {
-    if (lesson && value && lesson.dPrice !== value.toString()) {
-      const updatedLesson = { ...lesson, dPrice: value.toString() };
-      updateAndStoreLesson(updatedLesson);
-      storeSetting(SettingKey.DIPLOMA_PRICE, value.toString());
+  const setPriceInput = useCallback((value?: BN | undefined): void => {
+    if (value) {
+      setPriceInputValue(value);
     }
-  }, [lesson, updateAndStoreLesson]);
+  }, [setPriceInputValue]);
 
   const isWrongDaysInput = !daysInputValue || !(parseInt(daysInputValue) > 0);
   const saveLessonSettings = useCallback((): void => {
     const days = parseInt(daysInputValue, 10);
     if (!amountInputValue || amountInputValue.eq(BN_ZERO) || isWrongDaysInput) {
-      showInfo('Correct errors', 'error');
+      showInfo('Correct the errors highlighted in red', 'error');
     } else {
-      if (lesson && lesson.dWarranty !== amountInputValue.toString()) {
-        console.log('lesson.dWarranty: ', lesson.dWarranty)
-        const updatedLesson = { ...lesson, dWarranty: amountInputValue.toString(), dValidity: days };
+      if (lesson) {
+        const updatedLesson = {
+          ...lesson,
+          dPrice: priceInputValue.toString(),
+          dWarranty: amountInputValue.toString(),
+          dValidity: days
+        };
         updateAndStoreLesson(updatedLesson);
+        storeSetting(SettingKey.DIPLOMA_PRICE, priceInputValue.toString());
         storeSetting(SettingKey.DIPLOMA_WARRANTY, amountInputValue.toString());
         storeSetting(SettingKey.DIPLOMA_VALIDITY, days.toString());
       }
       toggleVisibleDiplomaDetails();
     }
-  }, [amountInputValue, daysInputValue, isWrongDaysInput, toggleVisibleDiplomaDetails, updateAndStoreLesson]);
+  }, [priceInputValue, amountInputValue, daysInputValue, isWrongDaysInput, toggleVisibleDiplomaDetails, updateAndStoreLesson]);
 
   // Sign diploma
   useEffect(() => {
@@ -319,7 +323,7 @@ function LessonResults({ className = '', lesson, updateAndStoreLesson, onClose }
             <InputBalance
               isZeroable
               label={t('receive payment for each diploma')}
-              onChange={setDiplomaPrice}
+              onChange={setPriceInput}
               defaultValue={lesson ? new BN(lesson.dPrice) : BN_ZERO}
             />
           </div>
