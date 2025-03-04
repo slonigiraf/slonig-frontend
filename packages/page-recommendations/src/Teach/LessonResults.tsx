@@ -34,7 +34,7 @@ function LessonResults({ className = '', lesson, updateAndStoreLesson, onClose }
   const [studentName, setStudentName] = useState<string | null>(null);
   const [priceInputValue, setPriceInputValue] = useState<BN>(lesson ? new BN(lesson.dPrice) : BN_ZERO);
   const [amountInputValue, setAmountInputValue] = useState<BN>(lesson ? new BN(lesson.dWarranty) : BN_ZERO);
-  const [daysInputValue, setDaysInputValue] = useState<string>(lesson ? lesson.dValidity.toString() : "0"); //To allow empty strings
+  const [daysInput, setDaysInput] = useState<string>(lesson ? lesson.dValidity.toString() : "0"); //To allow empty strings
   const [countOfValidLetters, setCountOfValidLetters] = useState<number | null>(null);
   const [countOfReexaminationsPerformed, setCountOfReexaminationsPerformed] = useState<number | null>(null);
   const [countOfReexaminationsFailed, setCountOfReexaminationsFailed] = useState<number | null>(null);
@@ -113,9 +113,9 @@ function LessonResults({ className = '', lesson, updateAndStoreLesson, onClose }
     }
   }, [setPriceInputValue]);
 
-  const isWrongDaysInput = !daysInputValue || !(parseInt(daysInputValue) > 0);
+  const isWrongDaysInput = !daysInput || !(parseInt(daysInput) > 0);
   const saveLessonSettings = useCallback((): void => {
-    const days = parseInt(daysInputValue, 10);
+    const days = parseInt(daysInput, 10);
     if (!amountInputValue || amountInputValue.eq(BN_ZERO) || isWrongDaysInput) {
       showInfo('Correct the errors highlighted in red', 'error');
     } else {
@@ -133,7 +133,7 @@ function LessonResults({ className = '', lesson, updateAndStoreLesson, onClose }
       }
       toggleVisibleDiplomaDetails();
     }
-  }, [priceInputValue, amountInputValue, daysInputValue, isWrongDaysInput, toggleVisibleDiplomaDetails, updateAndStoreLesson]);
+  }, [priceInputValue, amountInputValue, daysInput, isWrongDaysInput, toggleVisibleDiplomaDetails, updateAndStoreLesson]);
 
   // Sign diploma
   useEffect(() => {
@@ -331,7 +331,7 @@ function LessonResults({ className = '', lesson, updateAndStoreLesson, onClose }
             <Input
               className='full'
               label={t('days valid')}
-              onChange={setDaysInputValue}
+              onChange={setDaysInput}
               defaultValue={lesson ? lesson.dValidity.toString() : "0"}
               placeholder={t('Positive number')}
               isError={isWrongDaysInput}
