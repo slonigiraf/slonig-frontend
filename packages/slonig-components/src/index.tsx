@@ -26,7 +26,7 @@ import { Button, styled } from '@polkadot/react-components';
 import BN from 'bn.js';
 import { getIPFSContentIDForBytesAndPinIt, getIPFSBytesFromContentID, balanceToSlonString, createPeer, receiveWebRTCData, getQrWidth, saveToSessionStorage, loadFromSessionStorage, getKey, arrayBufferToBase64, base64ToArrayBuffer, decryptData, encryptData, keyForCid, nameFromKeyringPair, getBaseUrl, CODEC, getIPFSContentID, getIPFSContentIDAndPinIt, getIPFSDataFromContentID, digestFromCIDv1, getCIDFromBytes, storeEncryptedTextOnIPFS, retrieveDecryptedDataFromIPFS, parseJson, qrPadding } from './utils.js';
 import { useEffect, useState } from 'react';
-import { getSetting, SettingKey } from '@slonigiraf/db';
+import { getSetting, SettingKey, storeSetting } from '@slonigiraf/db';
 export { DownloadQRButton, BlockchainSyncProvider, useBlockchainSync, TokenTransferProvider, useTokenTransfer, DateInput, SelectableList, SenderComponent, KatexSpan, ResizableImage, LoginButton, ShareButton, ClipboardCopyButton, QRWithShareAndCopy, QRScanner, ButtonWithLabelBelow, ScanQR, IpfsProvider, useIpfsContext, InfoProvider, useInfo };
 export { getIPFSContentIDForBytesAndPinIt, getIPFSBytesFromContentID, balanceToSlonString, createPeer, receiveWebRTCData, getQrWidth, saveToSessionStorage, loadFromSessionStorage, getIPFSContentIDAndPinIt, getKey, arrayBufferToBase64, base64ToArrayBuffer, decryptData, encryptData, LoginProvider, useLoginContext, keyForCid, nameFromKeyringPair, getBaseUrl, CODEC, getIPFSContentID, getIPFSDataFromContentID, digestFromCIDv1, getCIDFromBytes, storeEncryptedTextOnIPFS, retrieveDecryptedDataFromIPFS, parseJson }
 export { DBImport, DBExport, Confirmation };
@@ -230,6 +230,29 @@ export function verifySignature(messages: string[], signatureHex: string, public
   return isValid;
 }
 
+export interface Economy {
+  success: boolean;
+  airdrop: string;
+  diploma: string;
+  warranty: string;
+}
+
+export interface AirdropResults {
+  success: boolean;
+  amount?: string;
+  error?: string;
+}
+
+export async function fetchEconomy(): Promise<void> {
+  const response = await fetch('https://economy.slonig.org/prices/');
+  if (!response.ok) {
+    throw new Error(`Fetching ecomomy error! status: ${response.status}`);
+  }
+  const economySettings: Economy = await response.json();
+  await storeSetting(SettingKey.DIPLOMA_PRICE, economySettings.diploma);
+  await storeSetting(SettingKey.DIPLOMA_WARRANTY, economySettings.warranty);
+  await storeSetting(SettingKey.ECONOMY_INITIALIZED, 'true');
+};
 export interface LessonResult {
   agreement: string;
   price: string; // BN.toString()
@@ -337,40 +360,40 @@ export const LawType = {
 
 export async function clearAllData(onSuccess: () => void, onError: (error: string) => void) {
   try {
-      // Clear localStorage
-      localStorage.clear();
+    // Clear localStorage
+    localStorage.clear();
 
-      console.log('localStorage.clear()')
+    console.log('localStorage.clear()')
 
-      // Clear sessionStorage
-      sessionStorage.clear();
+    // Clear sessionStorage
+    sessionStorage.clear();
 
-      console.log('sessionStorage.clear()')
+    console.log('sessionStorage.clear()')
 
-      // Clear cookies
-      document.cookie.split(";").forEach((cookie) => {
-          const name = cookie.split("=")[0].trim();
-          document.cookie = `${name}=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/`;
-      });
+    // Clear cookies
+    document.cookie.split(";").forEach((cookie) => {
+      const name = cookie.split("=")[0].trim();
+      document.cookie = `${name}=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/`;
+    });
 
-      console.log('Clear cookies')
+    console.log('Clear cookies')
 
-      // Clear IndexedDB (specifically Slonig database)
-      await new Promise<void>((resolve, reject) => {
-          const request = indexedDB.deleteDatabase('slonig');
-          request.onsuccess = () => resolve();
-          request.onerror = () => reject(new Error("Failed to delete IndexedDB."));
-          request.onblocked = () => reject(new Error("The database deletion is blocked."));
-      });
+    // Clear IndexedDB (specifically Slonig database)
+    await new Promise<void>((resolve, reject) => {
+      const request = indexedDB.deleteDatabase('slonig');
+      request.onsuccess = () => resolve();
+      request.onerror = () => reject(new Error("Failed to delete IndexedDB."));
+      request.onblocked = () => reject(new Error("The database deletion is blocked."));
+    });
 
-      // Call onSuccess after everything is cleared
-      onSuccess();
+    // Call onSuccess after everything is cleared
+    onSuccess();
   } catch (error) {
-      // Call onError if anything fails
-      if (error instanceof Error) {
-          onError(error.message);
-      } else {
-          onError("An unknown error occurred.");
-      }
+    // Call onError if anything fails
+    if (error instanceof Error) {
+      onError(error.message);
+    } else {
+      onError("An unknown error occurred.");
+    }
   }
 }

@@ -9,7 +9,7 @@ import Menu from './Menu/index.js';
 import ConnectingOverlay from './overlays/Connecting.js';
 import DotAppsOverlay from './overlays/DotApps.js';
 import BottomMenu from './BottomMenu/index.js';
-import { AppContainer, balanceToSlonString, BlockchainSyncProvider, useInfo, useIpfsContext, useLoginContext } from '@slonigiraf/app-slonig-components';
+import { AirdropResults, AppContainer, balanceToSlonString, BlockchainSyncProvider, Economy, fetchEconomy, useInfo, useIpfsContext, useLoginContext } from '@slonigiraf/app-slonig-components';
 import { Button, Icon, Modal, Spinner, styled } from '@polkadot/react-components';
 import { useTranslation } from './translate.js';
 import { useApi, useTheme, useToggle } from '@polkadot/react-hooks';
@@ -17,19 +17,6 @@ import { hasSetting, SettingKey, storeSetting } from '@slonigiraf/db';
 import BN from 'bn.js';
 import { useLocation } from 'react-router-dom';
 export const PORTAL_ID = 'portals';
-
-interface Economy {
-  success: boolean;
-  airdrop: string;
-  diploma: string;
-  warranty: string;
-}
-
-interface AirdropResults {
-  success: boolean;
-  amount?: string;
-  error?: string;
-}
 
 function UI({ className = '' }: Props): React.ReactElement<Props> {
   const { isLoginReady, isLoggedIn, currentPair } = useLoginContext();
@@ -59,14 +46,7 @@ function UI({ className = '' }: Props): React.ReactElement<Props> {
       const economyInitialized = await hasSetting(SettingKey.ECONOMY_INITIALIZED);
       if (!economyInitialized) {
         try {
-          const response = await fetch('https://economy.slonig.org/prices/');
-          if (!response.ok) {
-            throw new Error(`Fetching ecomomy error! status: ${response.status}`);
-          }
-          const economySettings: Economy = await response.json();
-          await storeSetting(SettingKey.DIPLOMA_PRICE, economySettings.diploma);
-          await storeSetting(SettingKey.DIPLOMA_WARRANTY, economySettings.warranty);
-          await storeSetting(SettingKey.ECONOMY_INITIALIZED, 'true');
+          await fetchEconomy();
         } catch (error) {
           showNoConnectionToEconomyServerError();
         }

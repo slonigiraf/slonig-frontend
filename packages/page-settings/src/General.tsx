@@ -13,7 +13,7 @@ import { settings } from '@polkadot/ui-settings';
 import { useTranslation } from './translate.js';
 import { save, saveAndReload } from './util.js';
 import { getSetting, storeSetting, SettingKey } from '@slonigiraf/db';
-import { clearAllData, Confirmation, DBExport, DBImport, useInfo, useLoginContext } from '@slonigiraf/app-slonig-components';
+import { clearAllData, Confirmation, DBExport, DBImport, fetchEconomy, useInfo, useLoginContext } from '@slonigiraf/app-slonig-components';
 import { useToggle } from '@polkadot/react-hooks';
 
 interface Props {
@@ -31,9 +31,17 @@ function General({ className = '' }: Props): React.ReactElement<Props> {
   const [isDeleteConfirmOpen, toggleDeleteConfirm] = useToggle();
   const [state, setSettings] = useState((): SettingsStruct => {
     const values = settings.get();
-
     return { ...values, uiTheme: values.uiTheme === 'dark' ? 'dark' : 'light' };
   });
+  const economyNotificationTime = 10;
+
+  const showError = (error: string) => {
+    showInfo(`${t('Please notify tech support.')} ${t('Error')}: ${error}.`, 'error', economyNotificationTime);
+  }
+
+  const showNoConnectionToEconomyServerError = () => {
+    showError('NO_CONNECTION_TO_THE_ECONOMY_SERVER');
+  }
 
   const translateLanguages = useMemo(
     () => createLanguages(t),
@@ -69,6 +77,18 @@ function General({ className = '' }: Props): React.ReactElement<Props> {
   const _saveAndReload = useCallback(
     () => saveAndReload(state),
     [state]
+  );
+
+  const _resetPriceAndWarranty = useCallback(
+    async () => {
+      try {
+        await fetchEconomy();
+        showInfo(t('Saved'));
+      } catch (error) {
+        showNoConnectionToEconomyServerError();
+      }
+    },
+    []
   );
 
   const _save = useCallback(
@@ -116,6 +136,7 @@ function General({ className = '' }: Props): React.ReactElement<Props> {
           value={isDeveloper}
         />
       </div>
+
       <Button.Group>
         <Button
           icon='save'
@@ -132,7 +153,14 @@ function General({ className = '' }: Props): React.ReactElement<Props> {
           }
         />
       </Button.Group>
-
+      <h2>{t('Tutoring')}</h2>
+      <div className='ui--row'>
+        <Button
+          icon='arrows-rotate'
+          label={t('Reset settings to default')}
+          onClick={_resetPriceAndWarranty}
+        />
+      </div>
       <h2>{t(isLoggedIn ? 'Backup' : 'Already have an account?')}</h2>
       <div className='ui--row'>
         {isLoggedIn ?

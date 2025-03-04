@@ -50,7 +50,7 @@ function LessonResults({ className = '', lesson, updateAndStoreLesson, onClose }
       setProcessingStatistics(false);
       if (countOfValidLetters + countOfReexaminationsPerformed === 0) {
         if(dontSign){
-          showInfo(t('Go to Settings and set ’Days Valid’ and ’Warranty’ to their default values.'));
+          showInfo(t('Go to ’Settings’ and press ’Reset settings to default’.'), 'error');
         } else{
           showInfo(t('You did not issue or reexamine any diplomas during this lesson.'));
         }
