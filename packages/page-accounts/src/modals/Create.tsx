@@ -209,7 +209,7 @@ function Create({ className = '', onClose, onStatusChange, seed: propsSeed, type
       <Modal.Actions>
         {isImporting && <>
           <Button
-            label={t('Back to Sign Up')}
+            label={t('<< Back')}
             onClick={toggleImporting}
           />
           <Button
