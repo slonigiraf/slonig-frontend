@@ -9,7 +9,7 @@ import Menu from './Menu/index.js';
 import ConnectingOverlay from './overlays/Connecting.js';
 import DotAppsOverlay from './overlays/DotApps.js';
 import BottomMenu from './BottomMenu/index.js';
-import { AirdropResults, AppContainer, balanceToSlonString, BlockchainSyncProvider, Economy, fetchEconomy, useInfo, useIpfsContext, useLoginContext } from '@slonigiraf/app-slonig-components';
+import { AirdropResults, AppContainer, balanceToSlonString, BlockchainSyncProvider, fetchEconomy, useInfo, useIpfsContext, useLoginContext } from '@slonigiraf/app-slonig-components';
 import { Button, Icon, Modal, Spinner, styled } from '@polkadot/react-components';
 import { useTranslation } from './translate.js';
 import { useApi, useTheme, useToggle } from '@polkadot/react-hooks';
@@ -19,7 +19,7 @@ import { useLocation } from 'react-router-dom';
 export const PORTAL_ID = 'portals';
 
 function UI({ className = '' }: Props): React.ReactElement<Props> {
-  const { isLoginReady, isLoggedIn, currentPair } = useLoginContext();
+  const { isLoginReady, isLoggedIn, currentPair, setLoginIsRequired } = useLoginContext();
   const { isApiReady, isWaitingInjected } = useApi();
   const { isIpfsReady } = useIpfsContext();
   const connected = isLoginReady && isIpfsReady && isApiReady && !isWaitingInjected
@@ -32,6 +32,12 @@ function UI({ className = '' }: Props): React.ReactElement<Props> {
   const location = useLocation();
   const queryParams = new URLSearchParams(location.search);
   const lessonInUrl = queryParams.get('lesson') != null;
+
+  useEffect(() => {
+    if (!isLoggedIn) {
+      setLoginIsRequired(true);
+    }
+  }, [isLoggedIn, setLoginIsRequired]);
 
   const showError = (error: string) => {
     showInfo(`${t('Please notify tech support.')} ${t('Error')}: ${error}.`, 'error', economyNotificationTime);

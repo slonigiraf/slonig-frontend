@@ -255,5 +255,15 @@ const StyledModal = styled(Modal)`
       }
     }
   }
+  
+  button[data-testid='close-modal'] {
+    opacity: 0;
+    background: transparent;
+    border: none;
+    cursor: pointer;
+  }
+  button[data-testid='close-modal']:focus {
+    outline: none;
+  }   
 `;
 export default React.memo(Create);

@@ -1,5 +1,5 @@
 // IpfsContext.tsx
-import React, { useContext, createContext, ReactNode, useState, useCallback, useEffect } from 'react';
+import React, { useContext, createContext, ReactNode, useState, useEffect } from 'react';
 import { useLogin } from './useLogin.js';
 import type { KeyringPair } from '@polkadot/keyring/types';
 import type { AccountState } from '@slonigiraf/app-slonig-components';
@@ -57,9 +57,7 @@ export const LoginProvider: React.FC<LoginProviderProps> = ({ children }) => {
     }
   }, [hasAccounts]);
 
-  const cancelAuthorization = () => {
-    setLoginIsRequired(false);
-    setIsAddingAccount(false);
+  const notCancelAuthorization = () => {
   }
 
   const onCreateAccount = (status: ActionStatus) => {
@@ -87,14 +85,14 @@ export const LoginProvider: React.FC<LoginProviderProps> = ({ children }) => {
       </div>
       {isLoginReady && isLoginRequired && (
         <CreateModal
-          onClose={cancelAuthorization}
+          onClose={notCancelAuthorization}
           onStatusChange={onCreateAccount}
-          cancelAuthorization={cancelAuthorization}
+          cancelAuthorization={notCancelAuthorization}
         />
       )}
       {isLoginReady && isAddingAccount && (
         <CreateModal
-          onClose={cancelAuthorization}
+          onClose={() => {}}
           onStatusChange={onCreateAccount}
         />
       )}
