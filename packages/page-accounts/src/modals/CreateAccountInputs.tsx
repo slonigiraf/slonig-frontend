@@ -41,7 +41,7 @@ const CreateAccountInputs = ({ name: { isNameValid, name }, onCommit, setName }:
           label={t('full name')}
           onChange={_onChangeName}
           onEnter={onCommit}
-          placeholder={t('e.g., John Doe')}
+          placeholder={t('Name Surname')}
           value={name}
         />
     </>
