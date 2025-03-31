@@ -51,7 +51,7 @@ export interface CreateProps extends ModalProps {
   onStatusChange: (status: ActionStatus) => void;
   seed?: string;
   type?: PairType;
-  cancelAuthorization?: () => void;
+  hasCloseButton?: boolean;
 }
 
 export type SeedType = 'bip' | 'raw' | 'dev';

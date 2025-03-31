@@ -8,7 +8,7 @@ import React, { useCallback, useState } from 'react';
 
 import { DEV_PHRASE } from '@polkadot/keyring/defaults';
 import { Button, Modal, styled } from '@polkadot/react-components';
-import { useApi } from '@polkadot/react-hooks';
+import { useApi, useToggle } from '@polkadot/react-hooks';
 import { keyring } from '@polkadot/ui-keyring';
 import { isHex, nextTick, u8aToHex } from '@polkadot/util';
 import { hdLedger, hdValidatePath, keyExtractSuri, mnemonicGenerate, mnemonicValidate, randomAsU8a } from '@polkadot/util-crypto';
@@ -147,7 +147,7 @@ function createAccount(seed: string, derivePath: string, pairType: PairType, { g
   return tryCreateAccount(commitAccount, success);
 }
 
-function Create({ className = '', onClose, onStatusChange, seed: propsSeed, type: propsType, cancelAuthorization }: CreateProps): React.ReactElement<CreateProps> {
+function Create({ className = '', onClose, onStatusChange, seed: propsSeed, type: propsType, hasCloseButton = true }: CreateProps): React.ReactElement<CreateProps> {
   const { t } = useTranslation();
   const navigate = useNavigate();
   const { api, isDevelopment, isEthereum } = useApi();
@@ -166,6 +166,8 @@ function Create({ className = '', onClose, onStatusChange, seed: propsSeed, type
   const isFirstStepValid = !!address && isMnemonicSaved && !deriveValidation?.error && isSeedValid;
   const isSecondStepValid = isNameValid && isPasswordValid;
   const isValid = isFirstStepValid && isSecondStepValid;
+
+  const [isImporting, toggleImporting] = useToggle();
 
   const _onCommit = useCallback(
     async () => {
@@ -189,7 +191,7 @@ function Create({ className = '', onClose, onStatusChange, seed: propsSeed, type
 
   return (
     <StyledModal
-      className={className}
+      className={hasCloseButton ? className : 'hasNoCloseButton'}
       header={t('Sign Up for Slonig')}
       onClose={onClose}
       size='small'
@@ -203,13 +205,10 @@ function Create({ className = '', onClose, onStatusChange, seed: propsSeed, type
         />
       </Modal.Content>
       <Modal.Actions>
-        {cancelAuthorization && <Button
+        <Button
           label={t(`Already have an account?`)}
-          onClick={() => {
-            navigate('settings');
-            cancelAuthorization && cancelAuthorization();
-          }}
-        />}
+          onClick={toggleImporting}
+        />
         <Button
           activeOnEnter
           icon='user-plus'
@@ -255,15 +254,17 @@ const StyledModal = styled(Modal)`
       }
     }
   }
-  
-  button[data-testid='close-modal'] {
-    opacity: 0;
-    background: transparent;
-    border: none;
-    cursor: pointer;
+
+  &.hasNoCloseButton {
+    button[data-testid='close-modal'] {
+      opacity: 0;
+      background: transparent;
+      border: none;
+      cursor: pointer;
+    }
+    button[data-testid='close-modal']:focus {
+      outline: none;
+    }
   }
-  button[data-testid='close-modal']:focus {
-    outline: none;
-  }   
 `;
 export default React.memo(Create);

@@ -57,7 +57,8 @@ export const LoginProvider: React.FC<LoginProviderProps> = ({ children }) => {
     }
   }, [hasAccounts]);
 
-  const notCancelAuthorization = () => {
+  const cancelAddingAnAccount = () => {
+    setIsAddingAccount(false);
   }
 
   const onCreateAccount = (status: ActionStatus) => {
@@ -85,14 +86,14 @@ export const LoginProvider: React.FC<LoginProviderProps> = ({ children }) => {
       </div>
       {isLoginReady && isLoginRequired && (
         <CreateModal
-          onClose={notCancelAuthorization}
+          onClose={() => {}}
           onStatusChange={onCreateAccount}
-          cancelAuthorization={notCancelAuthorization}
+          hasCloseButton={false}
         />
       )}
       {isLoginReady && isAddingAccount && (
         <CreateModal
-          onClose={() => {}}
+          onClose={cancelAddingAnAccount}
           onStatusChange={onCreateAccount}
         />
       )}
