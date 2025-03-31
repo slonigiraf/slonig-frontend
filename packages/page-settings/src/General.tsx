@@ -167,14 +167,12 @@ function General({ className = '' }: Props): React.ReactElement<Props> {
           onClick={_resetPriceAndWarranty}
         />
       </div>
-      <h2>{t(isLoggedIn ? 'Backup' : 'Already have an account?')}</h2>
-      <div className='ui--row'>
-        {isLoggedIn ?
-          <DBExport onSuccess={() => setExportSucceded(true)} /> :
-          <DBImport />}
-      </div>
 
       {currentPair && <>
+        <h2>{t('Backup')}</h2>
+        <div className='ui--row'>
+          <DBExport onSuccess={() => setExportSucceded(true)} />
+        </div>
         <h2>{t('Delete all data')}</h2>
         <div className='ui--row'>
           <p>{t('Before deleting the data, download a backup.')}</p>

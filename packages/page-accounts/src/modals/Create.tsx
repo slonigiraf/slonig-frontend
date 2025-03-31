@@ -19,6 +19,7 @@ import CreateAccountInputs from './CreateAccountInputs.js';
 import { ETH_DEFAULT_PATH } from './CreateEthDerivationPath.js';
 import { storeSetting, SettingKey } from '@slonigiraf/db';
 import { useNavigate } from 'react-router-dom';
+import { DBImport } from '@slonigiraf/app-slonig-components';
 
 const DEFAULT_PAIR_TYPE = 'sr25519';
 
@@ -197,26 +198,44 @@ function Create({ className = '', onClose, onStatusChange, seed: propsSeed, type
       size='small'
     >
       <Modal.Content>
-        <CreateAccountInputs
-          name={{ isNameValid, name }}
-          onCommit={_onCommit}
-          setName={setName}
-          setPassword={() => { }} // Intentionally don't use passwords
-        />
+        {isImporting ? <DBImport /> :
+          <CreateAccountInputs
+            name={{ isNameValid, name }}
+            onCommit={_onCommit}
+            setName={setName}
+            setPassword={() => { }} // Intentionally don't use passwords
+          />}
       </Modal.Content>
       <Modal.Actions>
-        <Button
-          label={t(`Already have an account?`)}
-          onClick={toggleImporting}
-        />
-        <Button
-          activeOnEnter
-          icon='user-plus'
-          isDisabled={!isSecondStepValid}
-          isBusy={isBusy}
-          label={t('Sign Up')}
-          onClick={_onCommit}
-        />
+        {isImporting && <>
+          <Button
+            label={t('Back to Sign Up')}
+            onClick={toggleImporting}
+          />
+          <Button
+            icon='refresh'
+            label={t('Restore')}
+            isDisabled={true}
+            onClick={() => { }}
+          />
+        </>}
+
+        {!isImporting &&
+          <>
+            {!hasCloseButton && <Button
+              label={t('Already have an account?')}
+              onClick={toggleImporting}
+            />}
+            <Button
+              activeOnEnter
+              icon='user-plus'
+              isDisabled={!isSecondStepValid}
+              isBusy={isBusy}
+              label={t('Sign Up')}
+              onClick={_onCommit}
+            />
+          </>
+        }
       </Modal.Actions>
     </StyledModal>
   );
