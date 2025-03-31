@@ -17,7 +17,7 @@ import { useTranslation } from '../translate.js';
 import { sortAccounts } from '../util.js';
 import Account from './Account.js';
 import Summary from './Summary.js';
-import { CenterQRContainer, LoginButton, useLoginContext } from '@slonigiraf/app-slonig-components';
+import { CenterQRContainer, useLoginContext } from '@slonigiraf/app-slonig-components';
 import PayToAccountQR from './PayToAccountQR.js';
 import TransferParser from './TransferParser.js';
 
@@ -278,7 +278,6 @@ function Overview({ className = '', onStatusChange }: Props): React.ReactElement
         }
       </>
       }
-      <LoginButton />
     </StyledDiv>
   );
 }

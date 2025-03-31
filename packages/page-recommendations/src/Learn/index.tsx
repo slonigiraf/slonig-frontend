@@ -3,7 +3,7 @@
 
 import React from 'react';
 import LettersList from './LettersList.js';
-import { LoginButton, UrlParams, useLoginContext } from '@slonigiraf/app-slonig-components';
+import { UrlParams, useLoginContext } from '@slonigiraf/app-slonig-components';
 import { u8aToHex } from '@polkadot/util';
 import { useLocation } from 'react-router-dom';
 import LessonResultReceiver from './LessonResultReceiver.js';
@@ -26,7 +26,6 @@ function Learn({ className = '' }: Props): React.ReactElement<Props> {
           <LettersList worker={u8aToHex(currentPair?.publicKey)} currentPair={currentPair} />
           {webRTCPeerId && <LessonResultReceiver webRTCPeerId={webRTCPeerId} />}
         </>}
-        <LoginButton />
       </div>
     </div>
   )

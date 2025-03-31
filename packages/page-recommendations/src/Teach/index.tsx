@@ -3,7 +3,7 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { LinearProgress } from '@polkadot/react-components';
 import { u8aToHex } from '@polkadot/util';
-import { useLoginContext, LoginButton } from '@slonigiraf/app-slonig-components';
+import { useLoginContext } from '@slonigiraf/app-slonig-components';
 import { LetterTemplate, Lesson, Reexamination, getPseudonym, getLesson, getLetterTemplatesByLessonId, getReexaminationsByLessonId, deleteSetting, getSetting, storeSetting, updateLesson, getLetter, getReexamination, SettingKey } from '@slonigiraf/db';
 import DoInstructions from './DoInstructions.js';
 import LessonsList from './LessonsList.js';
@@ -176,7 +176,6 @@ function Teach({ className = '' }: Props): React.ReactElement<Props> {
           }
         </>
       }
-      <LoginButton />
     </div>
   );
 }
