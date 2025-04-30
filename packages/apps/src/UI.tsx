@@ -92,7 +92,7 @@ function UI({ className = '' }: Props): React.ReactElement<Props> {
   return (
     connected ? <StyledDiv className={`${className} apps--Wrapper ${themeClassName}`}>
       <AppContainer>
-        <HelpChatWidget />
+        <HelpChatWidget caption={t('Have questions?')}/>
         <Menu />
         <Signer>
           <BlockchainSyncProvider>

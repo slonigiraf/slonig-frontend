@@ -81,7 +81,11 @@ const ToggleWrapper = styled.button`
   color: white;
 `;
 
-function HelpChatWidget({}: Props): React.ReactElement<Props> {
+interface Props {
+  caption: string;
+}
+
+function HelpChatWidget({caption}: Props): React.ReactElement<Props> {
   const [isOpen, setIsOpen] = useState(false);
 
   const toggleChat = (): void => setIsOpen(!isOpen);
@@ -114,7 +118,7 @@ function HelpChatWidget({}: Props): React.ReactElement<Props> {
     <Wrapper>
       {isOpen && (
         <ChatOptions>
-          <ChatHeader>Get Help</ChatHeader>
+          <ChatHeader>{caption}</ChatHeader>
           <ChatButtonsRow>
             <ChatButtonWrapper href="https://m.me/reshetovdenis1" target="_blank" rel="noopener noreferrer" bg="#0078ff">
               {MessengerIcon}
