@@ -57,33 +57,27 @@ const ChatButtonWrapper = styled.a<{ bg: string }>`
   }
 `;
 
-const ToggleWrapper = styled.div<{ isOpen: boolean }>`
+const ToggleWrapper = styled.button`
   background-color: #6200ee;
-  border-radius: 50%;
+  border: none;
+  width: 48px;
+  height: 48px;
+  border-radius: 4px;
   box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3);
-  padding: ${({ isOpen }) => (isOpen ? '10px 14px' : '14px')};
-  transition: all 0.3s ease-in-out;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  cursor: pointer;
 
-  button {
-    background: none;
-    border: none;
-    cursor: pointer;
-    color: white;
+  svg {
     width: 24px;
     height: 24px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-
-    svg {
-      width: 24px;
-      height: 24px;
-      fill: white;
-    }
-
-    font-size: 24px;
-    line-height: 1;
+    fill: white;
   }
+
+  font-size: 24px;
+  color: white;
 `;
 
 function HelpChatWidget({}: Props): React.ReactElement<Props> {
@@ -155,10 +149,8 @@ function HelpChatWidget({}: Props): React.ReactElement<Props> {
         </ChatOptions>
       )}
 
-      <ToggleWrapper isOpen={isOpen}>
-        <button onClick={toggleChat}>
-          {isOpen ? '×' : ChatIcon}
-        </button>
+      <ToggleWrapper onClick={toggleChat}>
+        {isOpen ? '×' : ChatIcon}
       </ToggleWrapper>
     </Wrapper>
   );
