@@ -9,7 +9,7 @@ const Wrapper = styled.div`
   position: fixed;
   bottom: 80px;
   right: 10px;
-  z-index: 1000;
+  z-index: 1002;
   display: flex;
   flex-direction: row;
   align-items: flex-end;
