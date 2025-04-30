@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Button, styled } from '@polkadot/react-components';
+import { styled } from '@polkadot/react-components';
 
 interface Props {}
 
@@ -36,7 +36,7 @@ const ChatHeader = styled.div`
   box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
 `;
 
-const ChatButtonWrapper = styled.div<{ bg: string }>`
+const ChatButtonWrapper = styled.a<{ bg: string }>`
   background-color: ${({ bg }) => bg};
   border-radius: 4px;
   width: 48px;
@@ -44,16 +44,7 @@ const ChatButtonWrapper = styled.div<{ bg: string }>`
   display: flex;
   align-items: center;
   justify-content: center;
-
-  .ui--Button {
-    width: 100%;
-    height: 100%;
-    color: white !important;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    padding: 0;
-  }
+  text-decoration: none;
 
   svg {
     width: 24px;
@@ -64,8 +55,6 @@ const ChatButtonWrapper = styled.div<{ bg: string }>`
   &:hover {
     opacity: 0.9;
   }
-
-  text-decoration: none;
 `;
 
 const ToggleWrapper = styled.div<{ isOpen: boolean }>`
@@ -80,10 +69,6 @@ function HelpChatWidget({}: Props): React.ReactElement<Props> {
   const [isOpen, setIsOpen] = useState(false);
 
   const toggleChat = (): void => setIsOpen(!isOpen);
-
-  const openLink = (url: string) => (): void => {
-    void window.open(url, '_blank');
-  };
 
   const MessengerIcon = (
     <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
@@ -121,26 +106,41 @@ function HelpChatWidget({}: Props): React.ReactElement<Props> {
             {MessengerIcon}
           </ChatButtonWrapper>
 
-          <ChatButtonWrapper bg="#25D366">
-            <Button onClick={openLink('https://wa.me/1234567890')}>
-              {WhatsAppIcon}
-            </Button>
+          <ChatButtonWrapper
+            as="a"
+            href="https://wa.me/1234567890"
+            target="_blank"
+            rel="noopener noreferrer"
+            bg="#25D366"
+          >
+            {WhatsAppIcon}
           </ChatButtonWrapper>
 
-          <ChatButtonWrapper bg="#0088cc">
-            <Button onClick={openLink('https://t.me/yourusername')}>
-              {TelegramIcon}
-            </Button>
+          <ChatButtonWrapper
+            as="a"
+            href="https://t.me/yourusername"
+            target="_blank"
+            rel="noopener noreferrer"
+            bg="#0088cc"
+          >
+            {TelegramIcon}
           </ChatButtonWrapper>
         </ChatOptions>
       )}
 
       <ToggleWrapper isOpen={isOpen}>
-        <Button
-          icon={isOpen ? 'times' : 'comment'}
+        <button
           onClick={toggleChat}
-          label={isOpen ? '' : undefined}
-        />
+          style={{
+            background: 'none',
+            border: 'none',
+            cursor: 'pointer',
+            color: 'white',
+            fontSize: 20
+          }}
+        >
+          {isOpen ? '×' : '💬'}
+        </button>
       </ToggleWrapper>
     </Wrapper>
   );
