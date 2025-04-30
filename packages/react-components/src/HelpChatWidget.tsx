@@ -8,7 +8,7 @@ interface Props {
 const Wrapper = styled.div`
   position: fixed;
   bottom: 80px;
-  right: 20px;
+  right: 10px;
   z-index: 1000;
   display: flex;
   flex-direction: row;
