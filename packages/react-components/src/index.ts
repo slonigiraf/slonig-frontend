@@ -38,6 +38,7 @@ export { default as ExpanderScroll } from './ExpanderScroll.js';
 export { default as FileUpload } from './FileUpload.js';
 export { default as FilterInput } from './FilterInput.js';
 export { default as FilterOverlay } from './FilterOverlay.js';
+export { default as HelpChatWidget } from './HelpChatWidget.js';
 export { default as Flag } from './Flag.js';
 export { default as Forget } from './Forget.js';
 export { default as HelpOverlay } from './HelpOverlay.js';
