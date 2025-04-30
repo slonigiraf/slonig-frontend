@@ -11,7 +11,7 @@ interface Props {
   className?: string;
 }
 
-const acceptedFormats = ['application/gzip'];
+const acceptedFormats = ['.gz', 'application/gzip', 'application/x-gzip', 'application/octet-stream'];
 
 function DBImport({ className = '' }: Props): React.ReactElement<Props> {
   const { t } = useTranslation();
