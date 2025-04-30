@@ -9,31 +9,32 @@ const Wrapper = styled.div`
   right: 20px;
   z-index: 1000;
   display: flex;
-  flex-direction: column;
+  flex-direction: row;
   align-items: flex-end;
 `;
 
 const ChatOptions = styled.div`
-  margin-bottom: 10px;
+  margin-right: 10px;
   display: flex;
   flex-direction: column;
-  gap: 10px;
-  align-items: center;
-`;
-
-const ChatHeaderWrapper = styled.div`
-  display: flex;
-  justify-content: center;
-  width: 100%;
+  align-items: flex-start;
 `;
 
 const ChatHeader = styled.div`
+  align-self: center;
   font-weight: bold;
   color: #333;
   background-color: white;
   padding: 4px 8px;
   border-radius: 4px;
   box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  margin-bottom: 8px;
+`;
+
+const ChatButtonsRow = styled.div`
+  display: flex;
+  flex-direction: row;
+  gap: 10px;
 `;
 
 const ChatButtonWrapper = styled.a<{ bg: string }>`
@@ -113,42 +114,20 @@ function HelpChatWidget({}: Props): React.ReactElement<Props> {
     <Wrapper>
       {isOpen && (
         <ChatOptions>
-          <ChatHeaderWrapper>
-            <ChatHeader>Get help</ChatHeader>
-          </ChatHeaderWrapper>
-
-          <ChatButtonWrapper
-            as="a"
-            href="https://m.me/yourpage"
-            target="_blank"
-            rel="noopener noreferrer"
-            bg="#0078ff"
-          >
-            {MessengerIcon}
-          </ChatButtonWrapper>
-
-          <ChatButtonWrapper
-            as="a"
-            href="https://wa.me/1234567890"
-            target="_blank"
-            rel="noopener noreferrer"
-            bg="#25D366"
-          >
-            {WhatsAppIcon}
-          </ChatButtonWrapper>
-
-          <ChatButtonWrapper
-            as="a"
-            href="https://t.me/yourusername"
-            target="_blank"
-            rel="noopener noreferrer"
-            bg="#0088cc"
-          >
-            {TelegramIcon}
-          </ChatButtonWrapper>
+          <ChatHeader>Get Help</ChatHeader>
+          <ChatButtonsRow>
+            <ChatButtonWrapper href="https://m.me/yourpage" target="_blank" rel="noopener noreferrer" bg="#0078ff">
+              {MessengerIcon}
+            </ChatButtonWrapper>
+            <ChatButtonWrapper href="https://wa.me/1234567890" target="_blank" rel="noopener noreferrer" bg="#25D366">
+              {WhatsAppIcon}
+            </ChatButtonWrapper>
+            <ChatButtonWrapper href="https://t.me/yourusername" target="_blank" rel="noopener noreferrer" bg="#0088cc">
+              {TelegramIcon}
+            </ChatButtonWrapper>
+          </ChatButtonsRow>
         </ChatOptions>
       )}
-
       <ToggleWrapper onClick={toggleChat}>
         {isOpen ? '×' : ChatIcon}
       </ToggleWrapper>
