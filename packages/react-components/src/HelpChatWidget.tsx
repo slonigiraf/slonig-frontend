@@ -63,6 +63,27 @@ const ToggleWrapper = styled.div<{ isOpen: boolean }>`
   box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3);
   padding: ${({ isOpen }) => (isOpen ? '10px 14px' : '14px')};
   transition: all 0.3s ease-in-out;
+
+  button {
+    background: none;
+    border: none;
+    cursor: pointer;
+    color: white;
+    width: 24px;
+    height: 24px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+
+    svg {
+      width: 24px;
+      height: 24px;
+      fill: white;
+    }
+
+    font-size: 24px;
+    line-height: 1;
+  }
 `;
 
 function HelpChatWidget({}: Props): React.ReactElement<Props> {
@@ -85,6 +106,12 @@ function HelpChatWidget({}: Props): React.ReactElement<Props> {
   const TelegramIcon = (
     <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 496 512">
       <path d="M248 8C111 8 0 119 0 256S111 504 248 504 496 393 496 256 385 8 248 8zM363 176.7c-3.7 39.2-19.9 134.4-28.1 178.3-3.5 18.6-10.3 24.8-16.9 25.4-14.4 1.3-25.3-9.5-39.3-18.7-21.8-14.3-34.2-23.2-55.3-37.2-24.5-16.1-8.6-25 5.3-39.5 3.7-3.8 67.1-61.5 68.3-66.7 .2-.7 .3-3.1-1.2-4.4s-3.6-.8-5.1-.5q-3.3 .7-104.6 69.1-14.8 10.2-26.9 9.9c-8.9-.2-25.9-5-38.6-9.1-15.5-5-27.9-7.7-26.8-16.3q.8-6.7 18.5-13.7 108.4-47.2 144.6-62.3c68.9-28.6 83.2-33.6 92.5-33.8 2.1 0 6.6 .5 9.6 2.9a10.5 10.5 0 0 1 3.5 6.7A43.8 43.8 0 0 1 363 176.7z"/>
+    </svg>
+  );
+
+  const ChatIcon = (
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+      <path d="M160 368c26.5 0 48 21.5 48 48l0 16 72.5-54.4c8.3-6.2 18.4-9.6 28.8-9.6L448 368c8.8 0 16-7.2 16-16l0-288c0-8.8-7.2-16-16-16L64 48c-8.8 0-16 7.2-16 16l0 288c0 8.8 7.2 16 16 16l96 0zm48 124l-.2 .2-5.1 3.8-17.1 12.8c-4.8 3.6-11.3 4.2-16.8 1.5s-8.8-8.2-8.8-14.3l0-21.3 0-6.4 0-.3 0-4 0-48-48 0-48 0c-35.3 0-64-28.7-64-64L0 64C0 28.7 28.7 0 64 0L448 0c35.3 0 64 28.7 64 64l0 288c0 35.3-28.7 64-64 64l-138.7 0L208 492z" />
     </svg>
   );
 
@@ -129,17 +156,8 @@ function HelpChatWidget({}: Props): React.ReactElement<Props> {
       )}
 
       <ToggleWrapper isOpen={isOpen}>
-        <button
-          onClick={toggleChat}
-          style={{
-            background: 'none',
-            border: 'none',
-            cursor: 'pointer',
-            color: 'white',
-            fontSize: 20
-          }}
-        >
-          {isOpen ? '×' : '💬'}
+        <button onClick={toggleChat}>
+          {isOpen ? '×' : ChatIcon}
         </button>
       </ToggleWrapper>
     </Wrapper>
