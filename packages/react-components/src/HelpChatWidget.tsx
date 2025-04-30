@@ -59,7 +59,7 @@ const ChatButtonWrapper = styled.a<{ bg: string }>`
 `;
 
 const ToggleWrapper = styled.button`
-  background-color: #6200ee;
+  background-color: #F39200;
   border: none;
   width: 48px;
   height: 48px;
@@ -116,13 +116,13 @@ function HelpChatWidget({}: Props): React.ReactElement<Props> {
         <ChatOptions>
           <ChatHeader>Get Help</ChatHeader>
           <ChatButtonsRow>
-            <ChatButtonWrapper href="https://m.me/yourpage" target="_blank" rel="noopener noreferrer" bg="#0078ff">
+            <ChatButtonWrapper href="https://m.me/reshetovdenis1" target="_blank" rel="noopener noreferrer" bg="#0078ff">
               {MessengerIcon}
             </ChatButtonWrapper>
-            <ChatButtonWrapper href="https://wa.me/1234567890" target="_blank" rel="noopener noreferrer" bg="#25D366">
+            <ChatButtonWrapper href="https://wa.me/38267887600" target="_blank" rel="noopener noreferrer" bg="#25D366">
               {WhatsAppIcon}
             </ChatButtonWrapper>
-            <ChatButtonWrapper href="https://t.me/yourusername" target="_blank" rel="noopener noreferrer" bg="#0088cc">
+            <ChatButtonWrapper href="https://t.me/denisreshetov" target="_blank" rel="noopener noreferrer" bg="#0088cc">
               {TelegramIcon}
             </ChatButtonWrapper>
           </ChatButtonsRow>
