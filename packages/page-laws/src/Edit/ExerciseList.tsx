@@ -37,7 +37,7 @@ const ExerciseList: React.FC<ExerciseListProps> = ({ exercises, areShownInitiall
                                 <Button
                                     // icon={shownAnswers[index] ? 'eye-slash' : 'eye'}
                                     onClick={() => toggleAnswer(index)}
-                                    label={shownAnswers[index] ? t('Hide the solution') : ('See the solution')}
+                                    label={shownAnswers[index] ? t('Hide the solution') : t('See the solution')}
                                 />
                             </span>
                             {shownAnswers[index] && (
