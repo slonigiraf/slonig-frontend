@@ -64,7 +64,7 @@ function ViewList({ className = '', id, cidString, list }: Props): React.ReactEl
         );
         setItemsWithCID(items);
 
-        if (items.length > 0) {
+        if (list.t !== null && list.t === LawType.MODULE && items.length > 0) {
           const allHaveValidDiplomas = items.every(item => item.validDiplomas && item.validDiplomas.length > 0);
           setIsThereAnythingToLearn(!allHaveValidDiplomas);
           const someHaveValidDiplomas = items.some(item => item.validDiplomas && item.validDiplomas.length > 0);
