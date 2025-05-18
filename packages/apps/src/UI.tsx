@@ -10,12 +10,13 @@ import ConnectingOverlay from './overlays/Connecting.js';
 import DotAppsOverlay from './overlays/DotApps.js';
 import BottomMenu from './BottomMenu/index.js';
 import { AirdropResults, AppContainer, balanceToSlonString, BlockchainSyncProvider, fetchEconomy, useInfo, useIpfsContext, useLoginContext } from '@slonigiraf/app-slonig-components';
-import { Button, HelpChatWidget, Icon, Modal, Spinner, styled } from '@polkadot/react-components';
+import { Button, Icon, Modal, Spinner, styled } from '@polkadot/react-components';
 import { useTranslation } from './translate.js';
 import { useApi, useTheme, useToggle } from '@polkadot/react-hooks';
 import { hasSetting, SettingKey, storeSetting } from '@slonigiraf/db';
 import BN from 'bn.js';
 import { useLocation } from 'react-router-dom';
+import CookieManagerClient from './CookieManagerClient.js';
 export const PORTAL_ID = 'portals';
 
 function UI({ className = '' }: Props): React.ReactElement<Props> {
@@ -92,7 +93,8 @@ function UI({ className = '' }: Props): React.ReactElement<Props> {
   return (
     connected ? <StyledDiv className={`${className} apps--Wrapper ${themeClassName}`}>
       <AppContainer>
-        <HelpChatWidget caption={t('Have questions?')}/>
+        {/* <HelpChatWidget caption={t('Have questions?')}/> */}
+        <CookieManagerClient />
         <Menu />
         <Signer>
           <BlockchainSyncProvider>
