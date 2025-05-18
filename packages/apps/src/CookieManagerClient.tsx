@@ -3,7 +3,6 @@ import 'react-cookie-manager/dist/style.css';
 
 const loadAnalytics = () => {
   if (location.hostname !== "localhost") {
-    // Prevent duplicate GA load
     if (!document.querySelector('script[src*="googletagmanager.com/gtag/js"]')) {
       const gaScript = document.createElement('script');
       gaScript.src = 'https://www.googletagmanager.com/gtag/js?id=G-MKM4N6Z98X';
@@ -20,7 +19,6 @@ const loadAnalytics = () => {
     `;
     document.head.appendChild(inlineScript);
 
-    // Load Yandex Metrika
     const existingYM = Array.from(document.scripts).find(s => s.src === 'https://mc.yandex.ru/metrika/tag.js');
     if (existingYM) return;
 
@@ -53,13 +51,26 @@ const loadAnalytics = () => {
   }
 };
 
+// 1. Define the props for the CookieManager component
+interface CookieManagerProps {
+  translations: {
+    title: string;
+    message: string;
+  };
+  displayType?: 'modal' | 'banner';
+  theme?: 'light' | 'dark';
+  privacyPolicyUrl?: string;
+  onAccept?: () => void;
+  onDecline?: () => void;
+  onManage?: (preferences: { Analytics?: boolean }) => void;
+}
+
 const CookieManagerClient: React.FC = () => {
-  const [CookieManagerComponent, setCookieManagerComponent] = useState<React.ComponentType | null>(null);
+  const [CookieManagerComponent, setCookieManagerComponent] = useState<React.ComponentType<CookieManagerProps> | null>(null);
 
   useEffect(() => {
-    // Dynamically import only on the client
-    import('react-cookie-manager').then(mod => {
-      setCookieManagerComponent(() => mod.CookieManager);
+    import('react-cookie-manager').then((mod) => {
+      setCookieManagerComponent(() => mod.CookieManager as React.ComponentType<CookieManagerProps>);
     });
   }, []);
 
