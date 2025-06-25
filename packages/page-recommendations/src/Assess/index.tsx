@@ -21,7 +21,7 @@ function Assess({ className = '' }: Props): React.ReactElement<Props> {
   const [student, setStudent] = useState<Person | null>(null);
   const publicKeyHex = currentPair ? u8aToHex(currentPair.publicKey) : "";
   const name = nameFromKeyringPair(currentPair);
-  const url = getBaseUrl() + `/#/diplomas?employer=${publicKeyHex}&name=${encodeURIComponent(name)}`;
+  const url = getBaseUrl() + `/#/badges?employer=${publicKeyHex}&name=${encodeURIComponent(name)}`;
 
   const handleStudentSelect = async (selectedKey: string) => {
     if (selectedKey) {
@@ -53,7 +53,7 @@ function Assess({ className = '' }: Props): React.ReactElement<Props> {
                 <h2 style={{ marginTop: '0px' }}>{t('Show to a student to see their results')}</h2>
                 <QRWithShareAndCopy
                   titleShare={t('QR code')}
-                  textShare={t('Press the link to show diplomas')}
+                  textShare={t('Press the link to show badges')}
                   urlShare={url}
                   dataCopy={url} />
               </CenterQRContainer>

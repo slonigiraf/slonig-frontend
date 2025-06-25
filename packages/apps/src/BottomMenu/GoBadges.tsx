@@ -3,23 +3,23 @@ import { useNavigate } from 'react-router-dom';
 import { useTranslation } from '../translate.js';
 import { ButtonWithLabelBelow } from '@slonigiraf/app-slonig-components';
 
-function GoDiplomas(): React.ReactElement {
+function GoBadges(): React.ReactElement {
   const { t } = useTranslation();
   const navigate = useNavigate();
 
   const _onClick = () => {
-    navigate('diplomas');
+    navigate('badges');
   }
 
   return (
 
     <ButtonWithLabelBelow
       icon='award'
-      label={t('Diplomas')}
+      label={t('Badges')}
       onClick={_onClick}
     />
 
   );
 }
 
-export default GoDiplomas;
+export default GoBadges;

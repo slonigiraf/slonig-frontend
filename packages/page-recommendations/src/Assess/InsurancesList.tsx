@@ -5,10 +5,10 @@ import React, { useCallback, useEffect, useState } from 'react'
 import { styled, Icon, Button, Modal, Toggle } from '@polkadot/react-components';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { useTranslation } from '../translate.js';
-import { deleteInsurance, Diploma, getInsurances, getPseudonym, Insurance } from '@slonigiraf/db';
+import { deleteInsurance, Badge, getInsurances, getPseudonym, Insurance } from '@slonigiraf/db';
 import { DateInput, SelectableList, ToggleContainer, useInfo } from '@slonigiraf/app-slonig-components';
 import { useToggle } from '@polkadot/react-hooks';
-import DiplomaInfo from './DiplomaInfo.js';
+import BadgeInfo from './BadgeInfo.js';
 
 interface Props {
   className?: string;
@@ -50,7 +50,7 @@ function InsurancesList({ className = '', teacher, student, studentNameFromUrl }
 
 
 
-  const handleSelectionChange = (newSelectedItems: Diploma[]) => {
+  const handleSelectionChange = (newSelectedItems: Badge[]) => {
     const insurances = newSelectedItems as Insurance[];
     if (newSelectedItems.length > MAX_SELECTED) {
       showInfo(`${t('You can select no more than:')} ${MAX_SELECTED}`);
@@ -94,7 +94,7 @@ function InsurancesList({ className = '', teacher, student, studentNameFromUrl }
   return (
     <div>
       <h2>
-        {studentName + ', ' + t('diplomas')}:
+        {studentName + ', ' + t('badges')}:
       </h2>
       <div className="ui--row">
         <div>
@@ -120,11 +120,11 @@ function InsurancesList({ className = '', teacher, student, studentNameFromUrl }
           value={isSelectionAllowed}
         />
       </ToggleContainer>
-      <SelectableList<Diploma>
+      <SelectableList<Badge>
         items={insurances}
         renderItem={(insurance, isSelected, isSelectionAllowed, onToggleSelection) => (
-          <DiplomaInfo
-            diploma={insurance}
+          <BadgeInfo
+            badge={insurance}
             isSelected={isSelected}
             onToggleSelection={onToggleSelection}
             isSelectionAllowed={isSelectionAllowed}

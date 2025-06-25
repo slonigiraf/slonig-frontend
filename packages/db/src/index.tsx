@@ -28,7 +28,7 @@ const DEFAULT_INSURANCE_VALIDITY = 730;//Days valid
 const DEFAULT_WARRANTY = "573000000000000";//573 Slon for USA, 0.05688 USD in Ethiopia, 100.66*0.05688 USD in USA
 const DEFAULT_DIPLOMA_VALIDITY = 730;//Days valid
 const DEFAULT_DIPLOMA_PRICE = "475000000000000";//475 Slon for USA, 0.04722 USD in Ethiopia, 100.66*0.04722 USD in USA
-// I propose to giveout 10x of diploma price, and round to the nearest round integer, so 5k Slon for a US student
+// I propose to giveout 10x of badge price, and round to the nearest round integer, so 5k Slon for a US student
 const MAX_CACHE_SIZE = 25 * 1024 * 1024; // 25 MB will probably result in 50 MB with IndexedDB storage overhead
 
 // Setting related
@@ -866,8 +866,8 @@ export async function replaceDB(json: DexieExportFormat): Promise<void> {
     }
 }
 
-export type Diploma = Letter | Insurance;
+export type Badge = Letter | Insurance;
 export type Recommendation = Letter | Insurance | Reimbursement;
-export function isInsurance(diploma: Diploma): diploma is Insurance {
-    return (diploma as Insurance).employer !== undefined;
+export function isInsurance(badge: Badge): badge is Insurance {
+    return (badge as Insurance).employer !== undefined;
 }

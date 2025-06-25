@@ -39,7 +39,7 @@ class ValidatingAlgorithm extends Algorithm {
             'intermediate',
             t('No'),
             [
-                { ...myMessage, text: t('You don\'t have such a skill. I will penalize the tutor which issued the diploma for it.'), comment: `${t('Press \"Get bounty\" to receive')} ${amount?.toString()} Slon.` },
+                { ...myMessage, text: t('You don\'t have such a skill. I will penalize the tutor which issued the badge for it.'), comment: `${t('Press \"Get bounty\" to receive')} ${amount?.toString()} Slon.` },
             ]
         );
 

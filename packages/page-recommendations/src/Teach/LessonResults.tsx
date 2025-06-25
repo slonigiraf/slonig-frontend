@@ -54,7 +54,7 @@ function LessonResults({ className = '', lesson, updateAndStoreLesson, onClose }
         if (dontSign) {
           showInfo(t('Go to ’Settings’ and press ’Reset settings to default’.'), 'error');
         } else {
-          showInfo(t('You did not issue or reexamine any diplomas during this lesson.'));
+          showInfo(t('You did not issue or reexamine any badges during this lesson.'));
         }
 
         onClose();
@@ -135,7 +135,7 @@ function LessonResults({ className = '', lesson, updateAndStoreLesson, onClose }
     }
   }, [priceInputValue, amountInputValue, daysInput, isWrongDaysInput, toggleVisibleDiplomaDetails, updateAndStoreLesson]);
 
-  // Sign diploma
+  // Sign badge
   useEffect(() => {
     const signAndUpdateStatistics = async () => {
       if (!isApiReady || !currentPair || !lesson) {
@@ -178,7 +178,7 @@ function LessonResults({ className = '', lesson, updateAndStoreLesson, onClose }
 
         const diplomaBlockNumber: BN = predictBlockNumber(currentBlockNumber, millisecondsPerBlock, secondsValid);
 
-        // Get diplomas to sign
+        // Get badges to sign
         const letterTemplates: LetterTemplate[] = await getValidLetterTemplatesByLessonId(lesson.id);
         const numberOfValidLetters = dontSign ? 0 : letterTemplates.length;
         const priceBN = lesson ? new BN(lesson.dPrice) : BN_ZERO;
@@ -186,7 +186,7 @@ function LessonResults({ className = '', lesson, updateAndStoreLesson, onClose }
         setCountOfValidLetters(numberOfValidLetters);
         setTotalIncomeForLetters(lessonPrice);
 
-        // Get diplomas additional meta
+        // Get badges additional meta
         const genesisU8 = statics.api.genesisHash;
         const referee = currentPair;
         const refereeU8 = referee.publicKey;
@@ -252,8 +252,8 @@ function LessonResults({ className = '', lesson, updateAndStoreLesson, onClose }
       />
       <VerticalCenterItemsContainer>
         <CenterQRContainer>
-          <SenderComponent data={data} route={'diplomas'} caption={t('Show to the student')}
-            textShare={t('Press the link to add the diploma')} onDataSent={onClose} onReady={() => setProcessingQR(false)} />
+          <SenderComponent data={data} route={'badges'} caption={t('Show to the student')}
+            textShare={t('Press the link to add the badge')} onDataSent={onClose} onReady={() => setProcessingQR(false)} />
         </CenterQRContainer>
         {constContentIsVisible &&
           <DiplomaDiv>
@@ -273,7 +273,7 @@ function LessonResults({ className = '', lesson, updateAndStoreLesson, onClose }
                 </div>
                 <div className="row">
                   <div className="cell"><Icon icon='trophy' /></div>
-                  <div className="cell">{countOfValidLetters} {t('diplomas prepared')}</div>
+                  <div className="cell">{countOfValidLetters} {t('badges prepared')}</div>
                 </div>
                 <div className="row">
                   <div className="cell"><Icon icon='shield' /></div>
@@ -285,7 +285,7 @@ function LessonResults({ className = '', lesson, updateAndStoreLesson, onClose }
                 </div>
                 <div className="row">
                   <div className="cell"><Icon icon='ban' /></div>
-                  <div className="cell">{countOfReexaminationsFailed} {t('of')} {countOfReexaminationsPerformed} {t('diplomas invalidated')}</div>
+                  <div className="cell">{countOfReexaminationsFailed} {t('of')} {countOfReexaminationsPerformed} {t('badges invalidated')}</div>
                 </div>
                 <div className="row">
                   <div className="cell"><Icon icon='money-bill-trend-up' /></div>
@@ -313,7 +313,7 @@ function LessonResults({ className = '', lesson, updateAndStoreLesson, onClose }
           <div className='ui--row'>
             <InputBalance
               isZeroable
-              label={t('receive payment for each diploma')}
+              label={t('receive payment for each badge')}
               onChange={setPriceInput}
               defaultValue={lesson ? new BN(lesson.dPrice) : BN_ZERO}
             />
@@ -321,7 +321,7 @@ function LessonResults({ className = '', lesson, updateAndStoreLesson, onClose }
           <div className='ui--row'>
             <InputBalance
               isZeroable
-              label={t('stake for each diploma')}
+              label={t('stake for each badge')}
               onChange={setAmountIput}
               defaultValue={lesson ? new BN(lesson.dWarranty) : BN_ZERO}
               isError={amountInputValue.eq(BN_ZERO)}

@@ -1,7 +1,7 @@
-import DiplomaInfo from './../Assess/DiplomaInfo.js';
+import BadgeInfo from './../Assess/BadgeInfo.js';
 import React, { useCallback, useEffect, useState } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
-import { deleteLetter, Diploma, getLetters, Letter } from '@slonigiraf/db';
+import { deleteLetter, Badge, getLetters, Letter } from '@slonigiraf/db';
 import { Button, styled, Icon, Modal, Toggle, Tag } from '@polkadot/react-components';
 import { useTranslation } from '../translate.js';
 import { useLocation, useNavigate } from 'react-router-dom';
@@ -51,7 +51,7 @@ function LettersList({ className = '', worker, currentPair }: Props): React.Reac
 
   const [selectedLetters, setSelectedLetters] = useState<Letter[]>([]);
 
-  const handleSelectionChange = (newSelectedLetters: Diploma[]) => {
+  const handleSelectionChange = (newSelectedLetters: Badge[]) => {
     const letters = newSelectedLetters as Letter[];
     if (letters.length > MAX_SELECTED) {
       showInfo(`${t('You can select no more than:')} ${MAX_SELECTED}`);
@@ -93,7 +93,7 @@ function LettersList({ className = '', worker, currentPair }: Props): React.Reac
       showInfo(t('Deleted'));
       setSelectedLetters([]);
     } catch (error) {
-      console.error('Error deleting selected diplomas:', error);
+      console.error('Error deleting selected badges:', error);
       showInfo(t('Deletion failed'));
     } finally {
       toggleDeleteConfirm();
@@ -127,7 +127,7 @@ function LettersList({ className = '', worker, currentPair }: Props): React.Reac
     <div></div>
   ) : (
     <div>
-      {!canSignLetters && <h2>{t('My diplomas')}</h2>}
+      {!canSignLetters && <h2>{t('My badges')}</h2>}
       {
         toggleState === ToggleState.GETTING_BONUSES &&
         <StyledContentCloseButton onClick={close}
@@ -177,7 +177,7 @@ function LettersList({ className = '', worker, currentPair }: Props): React.Reac
             label={'?'}
             size='large'
             isHelp={true}
-            hover={t('Earn bonuses from teachers, parents, or employers—anyone who benefits from your learning. In return, they will be able to assess your diplomas and receive Slon coins from tutors if you forget your skills.')}
+            hover={t('Earn bonuses from teachers, parents, or employers—anyone who benefits from your learning. In return, they will be able to assess your badges and receive Slon coins from tutors if you forget your skills.')}
           />
         </>
         }
@@ -186,12 +186,12 @@ function LettersList({ className = '', worker, currentPair }: Props): React.Reac
         label={t('select teacher / parent / employer')}
         onChange={handleEmployerSelect}
       />}
-      <SelectableList<Diploma>
+      <SelectableList<Badge>
         allSelected={toggleState !== ToggleState.NO_SELECTION}
         items={letters}
         renderItem={(letter, isSelected, isSelectionAllowed, onToggleSelection) => (
-          <DiplomaInfo
-            diploma={letter}
+          <BadgeInfo
+            badge={letter}
             isSelected={isSelected}
             onToggleSelection={onToggleSelection}
             isSelectionAllowed={isSelectionAllowed}

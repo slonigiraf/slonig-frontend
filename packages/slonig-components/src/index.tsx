@@ -232,7 +232,7 @@ export function verifySignature(messages: string[], signatureHex: string, public
 export interface Economy {
   success: boolean;
   airdrop: string;
-  diploma: string;
+  badge: string;
   warranty: string;
   validity: string;
 }
@@ -249,7 +249,7 @@ export async function fetchEconomy(): Promise<void> {
     throw new Error(`Fetching ecomomy error! status: ${response.status}`);
   }
   const economySettings: Economy = await response.json();
-  await storeSetting(SettingKey.DIPLOMA_PRICE, economySettings.diploma);
+  await storeSetting(SettingKey.DIPLOMA_PRICE, economySettings.badge);
   await storeSetting(SettingKey.DIPLOMA_WARRANTY, economySettings.warranty);
   await storeSetting(SettingKey.DIPLOMA_VALIDITY, economySettings.validity);
   await storeSetting(SettingKey.ECONOMY_INITIALIZED, 'true');

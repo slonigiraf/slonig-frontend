@@ -57,7 +57,7 @@ function SkillQR({ className = '', cid, selectedItems, isLearningRequested, isRe
 
   const studentIdentity = u8aToHex(currentPair?.publicKey);
 
-  // Which diplomas should be reexamined?
+  // Which badges should be reexamined?
   useEffect(() => {
     const fetchRandomDiploma = async () => {
       const allDiplomas = await getLettersByWorkerId(studentIdentity);
@@ -71,20 +71,20 @@ function SkillQR({ className = '', cid, selectedItems, isLearningRequested, isRe
     } else if (isReexaminingRequested && selectedItems) {
       const validDiplomasArray = selectedItems
         .map(item => item.validDiplomas && item.validDiplomas.length > 0 ? item.validDiplomas[0] : null)
-        .filter((diploma): diploma is Letter => diploma !== null);
+        .filter((badge): badge is Letter => badge !== null);
       setDiplomasToReexamine(validDiplomasArray);
     }
   }, [studentIdentity, isLearningRequested, isReexaminingRequested, selectedItems]);
 
   useEffect(() => {
     if (shouldRender && diplomasToReexamine?.length) {
-      const examData = diplomasToReexamine.map((diploma) => [diploma.cid, diploma.amount, diploma.pubSign]);
+      const examData = diplomasToReexamine.map((badge) => [badge.cid, badge.amount, badge.pubSign]);
       setReexamine(examData);
     }
   }, [diplomasToReexamine, shouldRender]);
 
   const name = nameFromKeyringPair(currentPair);
-  const route = lessonInUrl? 'diplomas/teach/?lesson' : 'diplomas/teach';
+  const route = lessonInUrl? 'badges/teach/?lesson' : 'badges/teach';
 
   // Initialize learn request
   useEffect(() => {

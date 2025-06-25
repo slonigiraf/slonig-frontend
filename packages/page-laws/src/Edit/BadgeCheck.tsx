@@ -8,7 +8,7 @@ interface Props {
   caption?: string;
 }
 
-function DiplomaCheck({ className = '', item, caption }: Props): React.ReactElement<Props> {
+function BadgeCheck({ className = '', item, caption }: Props): React.ReactElement<Props> {
   const studentHasValidDiplomaForThisSkill = item.validDiplomas.length > 0;
   const icon = studentHasValidDiplomaForThisSkill ? 'check' : 'lightbulb';
   return (
@@ -17,4 +17,4 @@ function DiplomaCheck({ className = '', item, caption }: Props): React.ReactElem
     </span>
   );
 }
-export default React.memo(DiplomaCheck);
+export default React.memo(BadgeCheck);

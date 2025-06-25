@@ -15,13 +15,13 @@
 | - | - |
 | time | Time of the request creation |
 | learn | Array of skills to learn |
-| exam | Array of diplomas to re-examine |
+| exam | Array of badges to re-examine |
 ### Skill JSON format
 | Index  | What is it for |
 | - | - |
 | [0] | Skill CID |
 | [1] | Public key derived from the student's identity for this specific skill |
-###  Diploma format
+###  Badge format
 | Index  | What is it for |
 | - | - |
 | [0] | Skill CID |
@@ -29,7 +29,7 @@
 | [2] |  Nonce |
 | [3] |  Block at which issued |
 | [4] |  Block untill fine is allowed |
-| [5] |  Tutor, that issued the diploma |
+| [5] |  Tutor, that issued the badge |
 | [6] |  Public key derived from the student's identity for this specific skill |
 | [7] |  Amount |
 | [8] |  Sign over private data |

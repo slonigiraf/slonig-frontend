@@ -114,8 +114,8 @@ function SignLettersUseRight({ className = '', letters, worker, employer, curren
       <SenderComponent
         onDataSent={_onDataSent}
         data={data}
-        route={'diplomas/assess'}
-        textShare={t('Press the link to see diplomas of the student')}
+        route={'badges/assess'}
+        textShare={t('Press the link to see badges of the student')}
         isDisabled={!thereAreDiplomas || !validDays} onReady={() => setIsReady(true)} />
       {isReady && <EditableInfo
         label={t('days valid')}

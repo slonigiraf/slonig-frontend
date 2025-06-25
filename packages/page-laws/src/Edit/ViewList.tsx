@@ -128,7 +128,7 @@ function ViewList({ className = '', id, cidString, list }: Props): React.ReactEl
             value={isLearningRequested}
           />}
           {isThereAnythingToReexamine && <Toggle
-            label={t('Reexamine my diplomas')}
+            label={t('Reexamine my badges')}
             onChange={handleReexaminingToggle}
             value={isReexaminingRequested}
           />}

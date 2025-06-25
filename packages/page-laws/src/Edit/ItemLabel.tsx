@@ -4,7 +4,7 @@ import React, { useEffect, useState } from 'react';
 import { KatexSpan, StyledSpinnerContainer, getIPFSDataFromContentID, parseJson } from '@slonigiraf/app-slonig-components';
 import { useIpfsContext } from '@slonigiraf/app-slonig-components';
 import { Button, Icon, styled, Spinner } from '@polkadot/react-components';
-import DiplomaCheck from './DiplomaCheck.js';
+import BadgeCheck from './BadgeCheck.js';
 import { ItemWithCID } from '../types.js';
 interface Props {
   className?: string;
@@ -84,7 +84,7 @@ function ItemLabel({ className = '', item, isText = false, defaultValue = '...',
         }}
       >
         {!isSkillItem && icon}
-        {isSkillItem && <DiplomaCheck
+        {isSkillItem && <BadgeCheck
           item={item}
         />}
         <KatexSpan content={textToDisplay} />

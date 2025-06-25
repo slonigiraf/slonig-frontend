@@ -31,7 +31,7 @@ function ScanQR({ className = '', label }: Props): React.ReactElement<Props> {
   // Process the scanned QR data
   const processQR = useCallback(async (url: string) => {
     toggleQR();
-    // example of url: http://localhost:3000/#/diplomas/teach?c=39b5fd47-a425-4a8d-a32b-81635bba09a6
+    // example of url: http://localhost:3000/#/badges/teach?c=39b5fd47-a425-4a8d-a32b-81635bba09a6
     const [_domain, path] = url.split('/#')
     path && navigate(path);
   }, [navigate, toggleQR, setIsTransferOpen]);

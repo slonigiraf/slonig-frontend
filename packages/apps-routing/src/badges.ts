@@ -11,7 +11,7 @@ export default function create (t: TFunction): Route {
     display: {},
     group: 'accounts',
     icon: 'award',
-    name: 'diplomas',
-    text: t('nav.diplomas', 'Diplomas', { ns: 'apps-routing' })
+    name: 'badges',
+    text: t('nav.badges', 'Badges', { ns: 'apps-routing' })
   };
 }

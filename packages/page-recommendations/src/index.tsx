@@ -38,7 +38,7 @@ function DiplomasApp({ basePath }: Props): React.ReactElement<Props> {
   ]);
 
   return (
-    <main className='diplomas--App'>
+    <main className='badges--App'>
       <Tabs
         basePath={basePath}
         hidden={(hasAccounts && !isIpfs) ? undefined : HIDDEN_ACC}
