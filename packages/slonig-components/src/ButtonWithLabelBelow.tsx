@@ -1,5 +1,5 @@
 import React from 'react';
-import { Button, Icon, styled } from '@polkadot/react-components';
+import { Button, CustomSVGIcon, Icon, styled } from '@polkadot/react-components';
 
 const IconWrapper = styled.div`
   display: block;
@@ -25,7 +25,7 @@ export default function ButtonWithLabelBelow(props: any) {
   return (
     <Button className="icon-button-with-label-below" {...restProps}>
       {icon && <IconWrapper><Icon icon={icon} /></IconWrapper>}
-      {svg && <IconWrapper>{svg}</IconWrapper>}
+      {svg && <IconWrapper><CustomSVGIcon svg={svg} /></IconWrapper>}
       {label && <StyledLabel>{label}</StyledLabel>}
     </Button>
   );

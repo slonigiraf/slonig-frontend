@@ -2,7 +2,6 @@ import { useTranslation } from '../translate.js';
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ButtonWithLabelBelow, slonSVG } from '@slonigiraf/app-slonig-components';
-import { CustomSVGIcon } from '@polkadot/react-components';
 
 function GetSlon(): React.ReactElement {
   const { t } = useTranslation();
@@ -14,7 +13,7 @@ function GetSlon(): React.ReactElement {
 
   return (
     <ButtonWithLabelBelow
-      svg={<CustomSVGIcon svg={slonSVG} />}
+      svg={slonSVG}
       label={t('Slon')}
       onClick={_onClick}
     />

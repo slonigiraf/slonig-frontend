@@ -3,7 +3,7 @@ import { useToggle } from '@polkadot/react-hooks';
 import { QRScanner, scanSVG, useLoginContext, useTokenTransfer } from '@slonigiraf/app-slonig-components';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from './translate.js';
-import { CustomSVGIcon, Modal } from '@polkadot/react-components';
+import { Modal } from '@polkadot/react-components';
 import { ButtonWithLabelBelow } from '@slonigiraf/app-slonig-components';
 interface QRCodeResult {
   getText: () => string;
@@ -46,7 +46,7 @@ function ScanQR({ className = '', label }: Props): React.ReactElement<Props> {
   return (
     <>
       <ButtonWithLabelBelow
-        svg={<CustomSVGIcon svg={scanSVG} />}
+        svg={scanSVG}
         label={label}
         onClick={scan}
       />
