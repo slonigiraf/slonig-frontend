@@ -6,6 +6,13 @@ const IconWrapper = styled.div`
   text-align: center;
   margin-bottom: 0.7rem;
   min-width: 65px;
+  svg {
+    max-width: 15px;
+    max-height: 15px;
+    width: 100%;
+    height: auto;
+    display: inline-block;
+  }
 `;
 
 const StyledLabel = styled.span`
@@ -14,10 +21,11 @@ const StyledLabel = styled.span`
 `;
 
 export default function ButtonWithLabelBelow(props: any) {
-  const { icon, label, ...restProps } = props;
+  const { icon, svg, label, ...restProps } = props;
   return (
     <Button className="icon-button-with-label-below" {...restProps}>
       {icon && <IconWrapper><Icon icon={icon} /></IconWrapper>}
+      {svg && <IconWrapper>{svg}</IconWrapper>}
       {label && <StyledLabel>{label}</StyledLabel>}
     </Button>
   );

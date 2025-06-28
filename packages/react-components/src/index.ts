@@ -43,6 +43,7 @@ export { default as Flag } from './Flag.js';
 export { default as Forget } from './Forget.js';
 export { default as HelpOverlay } from './HelpOverlay.js';
 export { default as Icon } from './Icon.js';
+export { default as CustomSVGIcon } from './CustomSVGIcon.js';
 export { default as IconLink } from './IconLink.js';
 export { default as InfoForInput } from './InfoForInput.js';
 export { default as Input } from './Input.js';
