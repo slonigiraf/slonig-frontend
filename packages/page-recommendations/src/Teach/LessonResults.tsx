@@ -313,7 +313,7 @@ function LessonResults({ className = '', lesson, updateAndStoreLesson, onClose }
           <div className='ui--row'>
             <InputBalance
               isZeroable
-              label={t('receive payment for each badge')}
+              label={t('receive reward for each badge')}
               onChange={setPriceInput}
               defaultValue={lesson ? new BN(lesson.dPrice) : BN_ZERO}
             />

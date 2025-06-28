@@ -88,9 +88,9 @@ function Create({ className = '' }: Props): React.ReactElement<Props> {
       <div className='ui--row'>
         <InputBalance
           autoFocus
-          help={t('Coins to burn help info')}
+          help={t('Slon to burn help info')}
           isZeroable
-          label={t('Coins to burn')}
+          label={t('Slon to burn')}
           onChange={setAmount}
           isDisabled={ipfs == null}
         />

@@ -186,7 +186,7 @@ function Transfer({ className = '', onClose, onSuccess, recipientId: propRecipie
   return (
     <StyledModal
       className='app--accounts-Modal'
-      header={modalCaption ? modalCaption : t('Send coins')}
+      header={modalCaption ? modalCaption : t('Send Slon')}
       onClose={onClose}
       size='large'
     >
@@ -262,7 +262,7 @@ function Transfer({ className = '', onClose, onSuccess, recipientId: propRecipie
         }
           isBusy={isProcessing}
           icon='paper-plane'
-          label={buttonCaption ? buttonCaption : t('Send coins')}
+          label={buttonCaption ? buttonCaption : t('Send Slon')}
           onClick={submitTransfer}
         />
       </Modal.Actions>
