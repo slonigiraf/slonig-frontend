@@ -3,11 +3,11 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import BN from 'bn.js';
 import { statics } from '@polkadot/react-api/statics';
-import { styled, Button, Input, InputBalance, Icon, Card, Modal } from '@polkadot/react-components';
+import { styled, Button, Input, InputBalance, Icon, Card, Modal, CustomSVGIcon } from '@polkadot/react-components';
 import { useApi, useBlockTime, useToggle } from '@polkadot/react-hooks';
 import { u8aToHex, hexToU8a, u8aWrapBytes, BN_ONE, BN_ZERO, formatBalance } from '@polkadot/util';
 import type { LessonResult, Skill } from '@slonigiraf/app-slonig-components';
-import { getIPFSDataFromContentID, parseJson, useIpfsContext, useLoginContext, VerticalCenterItemsContainer, CenterQRContainer, KatexSpan, balanceToSlonString, SenderComponent, useInfo, nameFromKeyringPair, StyledContentCloseButton, predictBlockNumber } from '@slonigiraf/app-slonig-components';
+import { getIPFSDataFromContentID, parseJson, useIpfsContext, useLoginContext, VerticalCenterItemsContainer, CenterQRContainer, KatexSpan, balanceToSlonString, SenderComponent, useInfo, nameFromKeyringPair, StyledContentCloseButton, predictBlockNumber, slonSVG } from '@slonigiraf/app-slonig-components';
 import { getPseudonym, Lesson, getLastUnusedLetterNumber, setLastUsedLetterNumber, storeSetting, getReexaminationsByLessonId, getValidLetterTemplatesByLessonId, SettingKey, serializeAsLetter, LetterTemplate, putLetterTemplate } from '@slonigiraf/db';
 import { getPublicDataToSignByReferee, getPrivateDataToSignByReferee } from '@slonigiraf/helpers';
 import { useTranslation } from '../translate.js';
@@ -268,7 +268,7 @@ function LessonResults({ className = '', lesson, updateAndStoreLesson, onClose }
                   <div className="cell">{studentName}</div>
                 </div>
                 <div className="row">
-                  <div className="cell"><Icon icon='dollar' /></div>
+                  <div className="cell"><CustomSVGIcon svg={slonSVG} /></div>
                   <div className="cell">{balanceToSlonString(totalIncomeForLetters)} {tokenSymbol} - {t('lesson price')}</div>
                 </div>
                 <div className="row">
