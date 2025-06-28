@@ -69,8 +69,8 @@ function LessonResultReceiver({ webRTCPeerId }: Props): React.ReactElement {
       if (agreement && lessonResult) {
         setRecipientId(getAddressFromPublickeyHex(lessonResult.referee));
         setAmount(new BN(agreement.price));
-        setModalCaption(t('Pay for the lesson'));
-        setButtonCaption(t('Pay'));
+        setModalCaption(t('Reward for the lesson'));
+        setButtonCaption(t('Reward'));
         setIsTransferOpen(true);
       }
     }
