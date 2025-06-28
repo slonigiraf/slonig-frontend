@@ -12,7 +12,7 @@ function BottomMenu(): React.ReactElement {
     <MenuWrapper>
       <HorizontalCenterItemsContainer>
         <MenuItem><GoKnowledge /></MenuItem>
-        <MenuItem><ScanQR label={t('QR')} /></MenuItem>
+        <MenuItem><ScanQR label={t('Scan')} /></MenuItem>
         <MenuItem><GoBadges /></MenuItem>
         <MenuItem><GetSlon /></MenuItem>
       </HorizontalCenterItemsContainer>
