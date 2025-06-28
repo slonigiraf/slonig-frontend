@@ -20,10 +20,10 @@ const StyledLabel = styled.span`
   text-align: center;
 `;
 
-export default function ButtonWithLabelBelow(props: any) {
+export default function SVGButton(props: any) {
   const { icon, svg, label, ...restProps } = props;
   return (
-    <Button className="icon-button-with-label-below" {...restProps}>
+    <Button {...restProps}>
       {svg && <IconWrapper>{svg}</IconWrapper>}
       {label && <StyledLabel>{label}</StyledLabel>}
     </Button>

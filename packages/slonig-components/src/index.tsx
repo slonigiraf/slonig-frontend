@@ -27,6 +27,7 @@ import { getIPFSContentIDForBytesAndPinIt, getIPFSBytesFromContentID, balanceToS
 import { useEffect, useState } from 'react';
 import { getSetting, SettingKey, storeSetting } from '@slonigiraf/db';
 export * from './constants.js';
+export { default as SVGButton } from './SVGButton.js';
 export { DownloadQRButton, BlockchainSyncProvider, useBlockchainSync, TokenTransferProvider, useTokenTransfer, DateInput, SelectableList, SenderComponent, KatexSpan, ResizableImage, ShareButton, ClipboardCopyButton, QRWithShareAndCopy, QRScanner, ButtonWithLabelBelow, ScanQR, IpfsProvider, useIpfsContext, InfoProvider, useInfo };
 export { getIPFSContentIDForBytesAndPinIt, getIPFSBytesFromContentID, balanceToSlonString, createPeer, receiveWebRTCData, getQrWidth, saveToSessionStorage, loadFromSessionStorage, getIPFSContentIDAndPinIt, getKey, arrayBufferToBase64, base64ToArrayBuffer, decryptData, encryptData, LoginProvider, useLoginContext, keyForCid, nameFromKeyringPair, getBaseUrl, CODEC, getIPFSContentID, getIPFSDataFromContentID, digestFromCIDv1, getCIDFromBytes, storeEncryptedTextOnIPFS, retrieveDecryptedDataFromIPFS, parseJson }
 export { DBImport, DBExport, Confirmation };
@@ -37,6 +38,7 @@ import { Codec } from '@polkadot/types/types';
 import { KeyringPair } from '@polkadot/keyring/types';
 import { u8aToHex, stringToU8a, u8aConcat } from '@polkadot/util';
 import { signatureVerify } from '@polkadot/util-crypto';
+import SVGButton from './SVGButton.jsx';
 
 export const EXISTENTIAL_BATCH_SENDER_BALANCE = new BN('10000000000000'); // 10 Slon = 10000000000000
 export const EXISTENTIAL_REFEREE_BALANCE = new BN('1000000000000000'); // 1k Slon = 1000000000000000

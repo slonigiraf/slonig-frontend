@@ -1,14 +1,11 @@
 // Copyright 2021-2022 @slonigiraf/app-recommendations authors & contributors
 // SPDX-License-Identifier: Apache-2.0
 
-import type { KeyringPair } from '@polkadot/keyring/types';
-import React, { useCallback, useState } from 'react';
-import { Button, InputAddress } from '@polkadot/react-components';
-import { useApi } from '@polkadot/react-hooks';
-import { keyring } from '@polkadot/ui-keyring';
+import React, { useState } from 'react';
+import { CustomSVGIcon } from '@polkadot/react-components';
 import { useTranslation } from '../translate.js';
 import { addReimbursement, cancelInsurance, Insurance, insuranceToReimbursement } from '@slonigiraf/db';
-import { useBlockchainSync, useInfo, useLoginContext } from '@slonigiraf/app-slonig-components';
+import { slonSVG, SVGButton, useBlockchainSync, useInfo, useLoginContext } from '@slonigiraf/app-slonig-components';
 
 interface Props {
   className?: string;
@@ -35,8 +32,8 @@ function UseInsurance({ className = '', insurance }: Props): React.ReactElement<
 
   return (
     <>
-      {currentPair != null && <Button onClick={() => processBounty()}
-        icon='dollar'
+      {currentPair != null && <SVGButton onClick={() => processBounty()}
+        svg={<CustomSVGIcon svg={slonSVG} />}
         label={t('Get bounty')}
         isDisabled={isButtonClicked}
       />}
