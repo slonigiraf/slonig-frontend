@@ -269,7 +269,7 @@ function LessonResults({ className = '', lesson, updateAndStoreLesson, onClose }
                 </div>
                 <div className="row">
                   <div className="cell"><CustomSVGIcon svg={slonSVG} /></div>
-                  <div className="cell">{balanceToSlonString(totalIncomeForLetters)} {tokenSymbol} - {t('lesson price')}</div>
+                  <div className="cell">{balanceToSlonString(totalIncomeForLetters)} {tokenSymbol} - {t('for the lesson')}</div>
                 </div>
                 <div className="row">
                   <div className="cell"><Icon icon='trophy' /></div>
@@ -305,7 +305,7 @@ function LessonResults({ className = '', lesson, updateAndStoreLesson, onClose }
 
       {visibleDiplomaDetails && <DetailsModal
         className={className}
-        header={`${balanceToSlonString(totalIncomeForLetters)} ${tokenSymbol} - ${t('lesson price')}`}
+        header={`${balanceToSlonString(totalIncomeForLetters)} ${tokenSymbol} - ${t('for the lesson')}`}
         onClose={toggleVisibleDiplomaDetails}
         size='small'
       >
