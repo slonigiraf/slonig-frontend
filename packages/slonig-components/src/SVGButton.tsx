@@ -1,31 +1,29 @@
 import React from 'react';
 import { Button, styled } from '@polkadot/react-components';
 
+const ButtonContent = styled.div`
+  display: flex;
+  align-items: center;
+  gap: 0.975rem;
+`;
+
 const IconWrapper = styled.div`
-  display: block;
-  text-align: center;
-  margin-bottom: 0.7rem;
-  min-width: 65px;
-  svg {
-    max-width: 15px;
-    max-height: 15px;
-    width: 100%;
-    height: auto;
-    display: inline-block;
-  }
+  display: flex;
+  align-items: center;
 `;
 
 const StyledLabel = styled.span`
-  display: block;
-  text-align: center;
+  text-align: left;
 `;
 
 export default function SVGButton(props: any) {
   const { icon, svg, label, ...restProps } = props;
   return (
     <Button {...restProps}>
-      {svg && <IconWrapper>{svg}</IconWrapper>}
-      {label && <StyledLabel>{label}</StyledLabel>}
+      <ButtonContent>
+        {svg && <IconWrapper>{svg}</IconWrapper>}
+        {label && <StyledLabel>{label}</StyledLabel>}
+      </ButtonContent>
     </Button>
   );
 }
