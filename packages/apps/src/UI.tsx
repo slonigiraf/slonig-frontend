@@ -33,12 +33,13 @@ function UI({ className = '' }: Props): React.ReactElement<Props> {
   const location = useLocation();
   const queryParams = new URLSearchParams(location.search);
   const lessonInUrl = queryParams.get('lesson') != null;
+  const skipLoginInUrl = queryParams.get('skipLogin') != null;
 
   useEffect(() => {
-    if (!isLoggedIn) {
+    if (!isLoggedIn && !skipLoginInUrl) {
       setLoginIsRequired(true);
     }
-  }, [isLoggedIn, setLoginIsRequired]);
+  }, [isLoggedIn, skipLoginInUrl, setLoginIsRequired]);
 
   const showError = (error: string) => {
     showInfo(`${t('Please notify tech support.')} ${t('Error')}: ${error}.`, 'error', economyNotificationTime);
@@ -94,7 +95,7 @@ function UI({ className = '' }: Props): React.ReactElement<Props> {
     connected ? <StyledDiv className={`${className} apps--Wrapper ${themeClassName}`}>
       <AppContainer>
         {/* <HelpChatWidget caption={t('Have questions?')}/> */}
-        <CookieManagerClient />
+        {!skipLoginInUrl && <CookieManagerClient />}
         <Menu />
         <Signer>
           <BlockchainSyncProvider>
