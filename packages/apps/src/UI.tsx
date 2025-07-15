@@ -33,13 +33,13 @@ function UI({ className = '' }: Props): React.ReactElement<Props> {
   const location = useLocation();
   const queryParams = new URLSearchParams(location.search);
   const lessonInUrl = queryParams.get('lesson') != null;
-  const skipLoginInUrl = queryParams.get('skipLogin') != null;
+  const botInUrl = queryParams.get('bot') != null;
 
   useEffect(() => {
-    if (!isLoggedIn && !skipLoginInUrl) {
+    if (!isLoggedIn && !botInUrl) {
       setLoginIsRequired(true);
     }
-  }, [isLoggedIn, skipLoginInUrl, setLoginIsRequired]);
+  }, [isLoggedIn, botInUrl, setLoginIsRequired]);
 
   const showError = (error: string) => {
     showInfo(`${t('Please notify tech support.')} ${t('Error')}: ${error}.`, 'error', economyNotificationTime);
@@ -95,12 +95,12 @@ function UI({ className = '' }: Props): React.ReactElement<Props> {
     connected ? <StyledDiv className={`${className} apps--Wrapper ${themeClassName}`}>
       <AppContainer>
         {/* <HelpChatWidget caption={t('Have questions?')}/> */}
-        {!skipLoginInUrl && <CookieManagerClient />}
+        {!botInUrl && <CookieManagerClient />}
         <Menu />
         <Signer>
           <BlockchainSyncProvider>
             <Content />
-            <BottomMenu />
+            {!botInUrl && <BottomMenu />}
             {isModalVisible && <StyledModal
               className={className}
               onClose={toggleModalVisible}
