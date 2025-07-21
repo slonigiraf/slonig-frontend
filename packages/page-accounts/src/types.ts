@@ -51,7 +51,7 @@ export interface CreateProps extends ModalProps {
   onStatusChange: (status: ActionStatus) => void;
   seed?: string;
   type?: PairType;
-  hasCloseButton?: boolean;
+  isFirstScreen?: boolean;
 }
 
 export type SeedType = 'bip' | 'raw' | 'dev';

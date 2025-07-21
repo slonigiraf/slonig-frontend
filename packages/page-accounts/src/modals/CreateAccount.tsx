@@ -148,7 +148,7 @@ function createAccount(seed: string, derivePath: string, pairType: PairType, { g
   return tryCreateAccount(commitAccount, success);
 }
 
-function Create({ className = '', onClose, onStatusChange, seed: propsSeed, type: propsType, hasCloseButton = true }: CreateProps): React.ReactElement<CreateProps> {
+function Create({ className = '', onClose, onStatusChange, seed: propsSeed, type: propsType, isFirstScreen = true }: CreateProps): React.ReactElement<CreateProps> {
   const { t } = useTranslation();
   const navigate = useNavigate();
   const { api, isDevelopment, isEthereum } = useApi();
@@ -192,12 +192,14 @@ function Create({ className = '', onClose, onStatusChange, seed: propsSeed, type
   );
 
   return (
-    <StyledDiv>
-      <div style={{ display: 'flex', justifyContent: 'center' }}>
-        <img src="./signup.png" style={{ maxHeight: '200px' }} alt="Signup" />
-      </div>
+    <StyledDiv isFirstScreen={isFirstScreen}>
+      {isFirstScreen &&
+        <div style={{ display: 'flex', justifyContent: 'center' }}>
+          <img src="./signup.png" style={{ maxHeight: '200px' }} alt="Signup" />
+        </div>
+      }
 
-      <h1>{t('Get help from classmates and earn badges')}</h1>
+      {isFirstScreen && <h1>{t('Get help from classmates and earn badges')}</h1>}
 
       <div className='ui--row'>
         {isImporting ? <DBImport /> :
@@ -224,25 +226,25 @@ function Create({ className = '', onClose, onStatusChange, seed: propsSeed, type
             activeOnEnter
             // icon='user-plus'
             isBusy={isBusy}
-            label={t('Start Learning with Slonig')}
+            label={isFirstScreen? t('Start Learning with Slonig') : t('Add account')}
             onClick={_onCommit}
           />
-          {!hasCloseButton && <Button
+          {isFirstScreen && <Button
             label={t('Already have an account?')}
             onClick={toggleImporting}
           />}
         </ButtonContainer>
       }
 
-      <a href='https://slonig.org/privacy-policy'>{t('Slonig privacy policy')}</a>
+      {isFirstScreen && <a href='https://slonig.org/privacy-policy'>{t('Slonig privacy policy')}</a>}
     </StyledDiv>
   );
 }
-const StyledDiv = styled.div`
+const StyledDiv = styled.div<{ isFirstScreen: boolean }>`
   display: flex;
   justify-content: center;
   align-items: center;
-  min-height: 80vh; /* Full height of the viewport */
+  ${(props) => props.isFirstScreen && 'min-height: 80vh;'}
   text-align: center;
   flex-direction: column;
   max-width: 400px;
