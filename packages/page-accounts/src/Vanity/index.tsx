@@ -15,7 +15,7 @@ import generator from '@polkadot/vanitygen/generator';
 import matchRegex from '@polkadot/vanitygen/regex';
 import generatorSort from '@polkadot/vanitygen/sort';
 
-import CreateModal from '../modals/Create.js';
+import CreateAccountModal from '../modals/CreateAccountModal.js';
 import { useTranslation } from '../translate.js';
 import Match from './Match.js';
 
@@ -252,7 +252,7 @@ function VanityApp ({ className = '', onStatusChange }: Props): React.ReactEleme
         </>
       )}
       {createSeed && (
-        <CreateModal
+        <CreateAccountModal
           onClose={_clearSeed}
           onStatusChange={onStatusChange}
           seed={createSeed}

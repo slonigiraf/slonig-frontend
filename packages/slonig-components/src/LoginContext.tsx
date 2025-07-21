@@ -4,7 +4,7 @@ import { useLogin } from './useLogin.js';
 import type { KeyringPair } from '@polkadot/keyring/types';
 import type { AccountState } from '@slonigiraf/app-slonig-components';
 import { InputAddress } from '@polkadot/react-components';
-import CreateModal from '@polkadot/app-accounts/modals/Create';
+import CreateAccountModal from '@polkadot/app-accounts/modals/CreateAccountModal';
 import { useAccounts } from '@polkadot/react-hooks';
 import type { ActionStatus } from '@polkadot/react-components/Status/types';
 
@@ -87,7 +87,7 @@ export const LoginProvider: React.FC<LoginProviderProps> = ({ children }) => {
       </div>
 
       {isLoginReady && isAddingAccount && (
-        <CreateModal
+        <CreateAccountModal
           onClose={cancelAddingAnAccount}
           onStatusChange={onCreateAccount}
         />

@@ -9,7 +9,7 @@ import { useLoginContext } from '@slonigiraf/app-slonig-components';
 import { ModalProps } from '../types.js';
 
 
-function Create({ className = '', onClose }: ModalProps): React.ReactElement<ModalProps> {
+function CreateAccountModal({ className = '', onClose }: ModalProps): React.ReactElement<ModalProps> {
   const { t } = useTranslation();
   const { onCreateAccount } = useLoginContext();
 
@@ -54,4 +54,4 @@ const CenteredWrapper = styled.div`
   }
 `;
 
-export default React.memo(Create);
+export default React.memo(CreateAccountModal);
