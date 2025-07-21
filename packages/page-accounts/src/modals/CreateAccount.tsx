@@ -7,7 +7,7 @@ import type { AddressState, CreateOptions, CreateProps, DeriveValidationOutput, 
 import React, { useCallback, useState } from 'react';
 
 import { DEV_PHRASE } from '@polkadot/keyring/defaults';
-import { Button, Modal, styled } from '@polkadot/react-components';
+import { Button, styled } from '@polkadot/react-components';
 import { useApi, useToggle } from '@polkadot/react-hooks';
 import { keyring } from '@polkadot/ui-keyring';
 import { isHex, nextTick, u8aToHex } from '@polkadot/util';
@@ -191,13 +191,13 @@ function Create({ className = '', onClose, onStatusChange, seed: propsSeed, type
   );
 
   return (
-    <>
+    <StyledDiv>
 
       <div>
-        <h1>{t('Sign Up for Slonig')}</h1>
         <div style={{ display: 'flex', justifyContent: 'center' }}>
           <img src="./signup.png" style={{ maxHeight: '200px' }} alt="Signup" />
         </div>
+        <h1>{t('Get help from classmates and earn badges')}</h1>
         {isImporting ? <DBImport /> :
           <CreateAccountInputs
             name={{ isNameValid, name }}
@@ -221,24 +221,79 @@ function Create({ className = '', onClose, onStatusChange, seed: propsSeed, type
         </>}
 
         {!isImporting &&
-          <>
-            {!hasCloseButton && <Button
-              label={t('Already have an account?')}
-              onClick={toggleImporting}
-            />}
+          <ButtonContainer>
             <Button
               activeOnEnter
-              icon='user-plus'
-              isDisabled={!isSecondStepValid}
+              // icon='user-plus'
               isBusy={isBusy}
               label={t('Sign Up')}
               onClick={_onCommit}
             />
-          </>
+            {!hasCloseButton && <Button
+              label={t('Already have an account?')}
+              onClick={toggleImporting}
+            />}
+          </ButtonContainer>
         }
       </div>
-    </>
+    </StyledDiv>
   );
 }
+const StyledDiv = styled.div`
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  min-height: 70vh; /* Full height of the viewport */
+  text-align: center;
+  flex-direction: column;
+
+  .accounts--Creator-advanced {
+    margin-top: 1rem;
+    overflow: visible;
+  }
+
+  h1 {
+    margin-top: 20px;
+    margin-bottom: 20px;
+  }
+
+  .ui--CopyButton.copyMoved {
+    position: absolute;
+    right: 9.25rem;
+    top: 1.15rem;
+  }
+
+  && .TextAreaWithDropdown {
+    textarea {
+      width: 80%;
+    }
+    .ui.buttons {
+      width: 20%;
+    }
+  }
+
+  .saveToggle {
+    text-align: right;
+
+    .ui--Checkbox {
+      margin: 0.8rem 0;
+
+      > label {
+        font-weight: var(--font-weight-normal);
+      }
+    }
+  }
+`;
+
+const ButtonContainer = styled.div`
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  width: 100%;
+  text-align: center;
+  flex-direction: column;
+
+  
+`;
 
 export default React.memo(Create);

@@ -429,7 +429,7 @@
   "You don't have such a skill. I will penalize the tutor which issued the badge for it.": "У тебя нет такого навыка. Я оштрафую репетитора, выдавшего за этот значок.",
   "Press \"Get bounty\" to receive": "Нажми \"Получить бонус\", чтобы получить",
   "Sign Up for Slonig": "Зарегистрироваться в Slonig",
-  "full name": "имя фамилия",
+  "Enter your full name": "Укажи свои имя и фамилию",
   "Already have an account?": "Уже есть аккаунт?",
   "<< Back": "<< Назад",
   "Sign Up": "Зарегистрироваться",
@@ -476,7 +476,6 @@
   "Ask to regenerate the QR": "Попросите сгенерировать новый QR",
   "Log in" : "Войти",
   "Please log in first" : "Пожалуйста, войдите сначала",
-  "Sign up": "Зарегистрироваться",
   "click to select or drag and drop the file here": "нажмите, чтобы выбрать файл",
   "total balance": "общий баланс",
   "total locked": "всего блок.",
@@ -513,5 +512,6 @@
   "Go to ’Settings’ and press ’Reset settings to default’." : "Нажмите ’Вернуть параметры к исходным’ в настройках.",
   "Reset settings to default": "Вернуть параметры к исходным",
   "Correct the errors highlighted in red": "Исправьте ошибки, выделенные красным",
-  "Have questions?": "Есть вопросы?"
+  "Have questions?": "Есть вопросы?",
+  "Get help from classmates and earn badges": "Получай помощь от одноклассников и собирай значки"
 }

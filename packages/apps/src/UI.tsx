@@ -107,6 +107,7 @@ function UI({ className = '' }: Props): React.ReactElement<Props> {
             hasCloseButton={false}
           /> :
           <Signer>
+            
             <BlockchainSyncProvider>
               <Content />
               {!botInUrl && <BottomMenu />}
