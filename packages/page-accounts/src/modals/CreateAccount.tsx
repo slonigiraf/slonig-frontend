@@ -192,22 +192,23 @@ function Create({ className = '', onClose, onStatusChange, seed: propsSeed, type
 
   return (
     <StyledDiv>
-      <div >
         <div style={{ display: 'flex', justifyContent: 'center' }}>
           <img src="./signup.png" style={{ maxHeight: '200px' }} alt="Signup" />
         </div>
 
         <h1>{t('Get help from classmates and earn badges')}</h1>
         {isImporting ? <DBImport /> :
-          <CreateAccountInputs
+          <div className='ui--row'>
+            <CreateAccountInputs
             name={{ isNameValid, name }}
             onCommit={_onCommit}
             setName={setName}
             setPassword={() => { }}
-          />}
+          />
+          </div>}
 
 
-        {isImporting && <>
+        {isImporting && <ButtonContainer>
           <Button
             label={t('<< Back')}
             onClick={toggleImporting}
@@ -218,7 +219,7 @@ function Create({ className = '', onClose, onStatusChange, seed: propsSeed, type
             isDisabled={true}
             onClick={() => { }}
           />
-        </>}
+        </ButtonContainer>}
 
         {!isImporting &&
           <ButtonContainer>
@@ -236,7 +237,6 @@ function Create({ className = '', onClose, onStatusChange, seed: propsSeed, type
             />}
           </ButtonContainer>
         }
-      </div>
     </StyledDiv>
   );
 }
@@ -248,15 +248,10 @@ const StyledDiv = styled.div`
   text-align: center;
   flex-direction: column;
   max-width: 400px;
-
+  gap: 15px;
   .accounts--Creator-advanced {
     margin-top: 1rem;
     overflow: visible;
-  }
-
-  h1 {
-    margin-top: 20px;
-    margin-bottom: 20px;
   }
 
   .ui--Button {
@@ -266,6 +261,7 @@ const StyledDiv = styled.div`
   .highlight--bg {
     color: white !important;
   }
+
 `;
 
 const ButtonContainer = styled.div`
@@ -275,6 +271,7 @@ const ButtonContainer = styled.div`
   width: 100%;
   text-align: center;
   flex-direction: column;
+  gap: 15px;
 `;
 
 export default React.memo(Create);
