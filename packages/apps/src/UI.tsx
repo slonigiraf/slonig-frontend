@@ -99,7 +99,7 @@ function UI({ className = '' }: Props): React.ReactElement<Props> {
       <AppContainer>
         {/* <HelpChatWidget caption={t('Have questions?')}/> */}
         {!botInUrl && <CookieManagerClient />}
-        <Menu />
+        
         {loginIsRequired ?
           <CreateAccount
             onClose={() => { }}
@@ -107,7 +107,7 @@ function UI({ className = '' }: Props): React.ReactElement<Props> {
             hasCloseButton={false}
           /> :
           <Signer>
-            
+            <Menu />
             <BlockchainSyncProvider>
               <Content />
               {!botInUrl && <BottomMenu />}
