@@ -11,7 +11,7 @@ import { ModalProps } from '../types.js';
 
 function Create({ className = '', onClose }: ModalProps): React.ReactElement<ModalProps> {
   const { t } = useTranslation();
-  const { onCreateAccount, setIsAddingAccount } = useLoginContext();
+  const { onCreateAccount } = useLoginContext();
 
 
   return (
@@ -21,11 +21,13 @@ function Create({ className = '', onClose }: ModalProps): React.ReactElement<Mod
       onClose={onClose}
     >
       <Modal.Content>
-        <CreateAccount
-          isFirstScreen={false}
-          onClose={onClose}
-          onStatusChange={onCreateAccount}
-        />
+        <CenteredWrapper>
+          <CreateAccount
+            isFirstScreen={false}
+            onClose={onClose}
+            onStatusChange={onCreateAccount}
+          />
+        </CenteredWrapper>
       </Modal.Content>
     </StyledModal>
   );
@@ -39,4 +41,17 @@ const StyledModal = styled(Modal)`
     text-align: center;
   }
 `;
+const CenteredWrapper = styled.div`
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  flex-direction: column; /* optional, depending on child layout */
+  width: 100%;
+  height: 100%;
+  text-align: center;
+  .ui--row {
+    width: 300px;
+  }
+`;
+
 export default React.memo(Create);

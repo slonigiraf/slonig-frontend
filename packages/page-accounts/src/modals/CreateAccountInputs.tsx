@@ -23,9 +23,10 @@ interface Props {
   onCommit: () => void;
   setName: (value: AccountName) => void;
   setPassword: (value: AccountPassword) => void;
+  isFirstScreen: boolean;
 }
 
-const CreateAccountInputs = ({ name: { isNameValid, name }, onCommit, setName }: Props) => {
+const CreateAccountInputs = ({ name: { name }, onCommit, setName, isFirstScreen }: Props) => {
   const { t } = useTranslation();
 
   const _onChangeName = useCallback(
@@ -37,10 +38,10 @@ const CreateAccountInputs = ({ name: { isNameValid, name }, onCommit, setName }:
     <>
         <Input
           className='full'
-          label={t('Enter your full name')}
+          label={isFirstScreen? t('Enter your full name') : t('Enter the account name')}
           onChange={_onChangeName}
           onEnter={onCommit}
-          placeholder={t('Name Surname')}
+          placeholder={isFirstScreen? t('Name Surname') : t('account name')}
           value={name}
         />
     </>

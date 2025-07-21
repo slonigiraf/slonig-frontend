@@ -173,7 +173,7 @@ function Create({ className = '', onClose, onStatusChange, seed: propsSeed, type
   const _onCommit = useCallback(
     async () => {
       if (!isValid) {
-        showInfo(t('Enter your full name'), 'error');
+        showInfo(isFirstScreen? t('Enter your full name') : t('Enter the account name'), 'error');
         return;
       }
       setIsBusy(true);
@@ -204,6 +204,7 @@ function Create({ className = '', onClose, onStatusChange, seed: propsSeed, type
       <div className='ui--row'>
         {isImporting ? <DBImport /> :
           <CreateAccountInputs
+            isFirstScreen={isFirstScreen}
             name={{ isNameValid, name }}
             onCommit={_onCommit}
             setName={setName}
