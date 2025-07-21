@@ -192,21 +192,21 @@ function Create({ className = '', onClose, onStatusChange, seed: propsSeed, type
 
   return (
     <StyledDiv>
-
-      <div>
+      <div >
         <div style={{ display: 'flex', justifyContent: 'center' }}>
           <img src="./signup.png" style={{ maxHeight: '200px' }} alt="Signup" />
         </div>
+
         <h1>{t('Get help from classmates and earn badges')}</h1>
         {isImporting ? <DBImport /> :
           <CreateAccountInputs
             name={{ isNameValid, name }}
             onCommit={_onCommit}
             setName={setName}
-            setPassword={() => { }} // Intentionally don't use passwords
+            setPassword={() => { }}
           />}
-      </div>
-      <div>
+
+
         {isImporting && <>
           <Button
             label={t('<< Back')}
@@ -246,6 +246,7 @@ const StyledDiv = styled.div`
   min-height: 70vh; /* Full height of the viewport */
   text-align: center;
   flex-direction: column;
+  max-width: 400px;
 
   .accounts--Creator-advanced {
     margin-top: 1rem;
@@ -257,31 +258,8 @@ const StyledDiv = styled.div`
     margin-bottom: 20px;
   }
 
-  .ui--CopyButton.copyMoved {
-    position: absolute;
-    right: 9.25rem;
-    top: 1.15rem;
-  }
-
-  && .TextAreaWithDropdown {
-    textarea {
-      width: 80%;
-    }
-    .ui.buttons {
-      width: 20%;
-    }
-  }
-
-  .saveToggle {
-    text-align: right;
-
-    .ui--Checkbox {
-      margin: 0.8rem 0;
-
-      > label {
-        font-weight: var(--font-weight-normal);
-      }
-    }
+  .ui--Button {
+    width: 100%;
   }
 `;
 
@@ -292,8 +270,6 @@ const ButtonContainer = styled.div`
   width: 100%;
   text-align: center;
   flex-direction: column;
-
-  
 `;
 
 export default React.memo(Create);
