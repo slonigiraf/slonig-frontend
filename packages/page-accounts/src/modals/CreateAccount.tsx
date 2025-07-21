@@ -223,6 +223,7 @@ function Create({ className = '', onClose, onStatusChange, seed: propsSeed, type
         {!isImporting &&
           <ButtonContainer>
             <Button
+              className='highlight--bg'
               activeOnEnter
               // icon='user-plus'
               isBusy={isBusy}
@@ -260,6 +261,10 @@ const StyledDiv = styled.div`
 
   .ui--Button {
     width: 100%;
+  }
+
+  .highlight--bg {
+    color: white !important;
   }
 `;
 
