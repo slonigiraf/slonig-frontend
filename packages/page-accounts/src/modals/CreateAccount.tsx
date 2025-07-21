@@ -233,7 +233,7 @@ function Create({ className = '', onClose, onStatusChange, seed: propsSeed, type
         </ButtonContainer>
       }
 
-      <a href='https://slonig.org/privacy-policy'>Slonig privacy policy</a>
+      <a href='https://slonig.org/privacy-policy'>{t('Slonig privacy policy')}</a>
     </StyledDiv>
   );
 }
