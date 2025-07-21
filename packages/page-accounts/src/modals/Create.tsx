@@ -198,6 +198,9 @@ function Create({ className = '', onClose, onStatusChange, seed: propsSeed, type
       size='small'
     >
       <Modal.Content>
+        <div style={{ display: 'flex', justifyContent: 'center' }}>
+          <img src="./signup.png" style={{ maxHeight: '200px' }} alt="Signup" />
+        </div>
         {isImporting ? <DBImport /> :
           <CreateAccountInputs
             name={{ isNameValid, name }}
@@ -286,4 +289,5 @@ const StyledModal = styled(Modal)`
     }
   }
 `;
+
 export default React.memo(Create);
