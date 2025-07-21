@@ -21,6 +21,7 @@ interface ILoginContext {
   setLoginIsRequired: (v: boolean) => void;
   _onChangeAccount: (accountId: string | null) => void;
   setDefaultAccount: (accountId: string) => void;
+  onCreateAccount: (status: ActionStatus) => void;
 }
 
 // Initialize the context with a default value.
@@ -48,7 +49,7 @@ export const LoginProvider: React.FC<LoginProviderProps> = ({ children }) => {
     setIsAddingAccount,
     _onChangeAccount,
     _onUnlock,
-    setDefaultAccount
+    setDefaultAccount,
   } = useLogin();
 
   useEffect(() => {
@@ -71,7 +72,7 @@ export const LoginProvider: React.FC<LoginProviderProps> = ({ children }) => {
   return (
     <LoginContext.Provider value={{
       currentPair, isLoginReady, accountState, isAddingAccount, isLoggedIn,
-      setIsLoggedIn, isLoginRequired, setLoginIsRequired, _onChangeAccount, setIsAddingAccount, setDefaultAccount
+      setIsLoggedIn, isLoginRequired, setLoginIsRequired, _onChangeAccount, setIsAddingAccount, setDefaultAccount, onCreateAccount
     }}>
       <div className='ui--row' style={{ display: 'none' }}>
         <InputAddress
@@ -84,13 +85,7 @@ export const LoginProvider: React.FC<LoginProviderProps> = ({ children }) => {
           value={defaultAccount}
         />
       </div>
-      {isLoginReady && isLoginRequired && (
-        <CreateModal
-          onClose={() => {}}
-          onStatusChange={onCreateAccount}
-          hasCloseButton={false}
-        />
-      )}
+
       {isLoginReady && isAddingAccount && (
         <CreateModal
           onClose={cancelAddingAnAccount}

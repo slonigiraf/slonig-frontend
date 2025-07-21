@@ -17,10 +17,11 @@ import { hasSetting, SettingKey, storeSetting } from '@slonigiraf/db';
 import BN from 'bn.js';
 import { useLocation } from 'react-router-dom';
 import CookieManagerClient from './CookieManagerClient.js';
+import CreateAccount from '@polkadot/app-accounts/modals/CreateAccount';
 export const PORTAL_ID = 'portals';
 
 function UI({ className = '' }: Props): React.ReactElement<Props> {
-  const { isLoginReady, isLoggedIn, currentPair, setLoginIsRequired } = useLoginContext();
+  const { isLoginReady, isLoggedIn, currentPair, setLoginIsRequired, onCreateAccount } = useLoginContext();
   const { isApiReady, isWaitingInjected } = useApi();
   const { isIpfsReady } = useIpfsContext();
   const connected = isLoginReady && isIpfsReady && isApiReady && !isWaitingInjected
@@ -34,6 +35,8 @@ function UI({ className = '' }: Props): React.ReactElement<Props> {
   const queryParams = new URLSearchParams(location.search);
   const lessonInUrl = queryParams.get('lesson') != null;
   const botInUrl = queryParams.get('bot') != null;
+
+  const loginIsRequired = !isLoggedIn && !botInUrl;
 
   useEffect(() => {
     if (!isLoggedIn && !botInUrl) {
@@ -97,32 +100,39 @@ function UI({ className = '' }: Props): React.ReactElement<Props> {
         {/* <HelpChatWidget caption={t('Have questions?')}/> */}
         {!botInUrl && <CookieManagerClient />}
         <Menu />
-        <Signer>
-          <BlockchainSyncProvider>
-            <Content />
-            {!botInUrl && <BottomMenu />}
-            {isModalVisible && <StyledModal
-              className={className}
-              onClose={toggleModalVisible}
-              header={t('Congratulations!')}
-              size='tiny'
-            >
-              <Modal.Content>
-                <GiftDiv>
-                  <Icon color='orange' icon='gift' size="8x" />
-                  <StyledLabel>{airdropAmount} Slon</StyledLabel>
-                </GiftDiv>
-                <p>{t('You have received Slon coins for free. It’s a one-time gift, so use it wisely.')}</p>
-              </Modal.Content>
-              <Modal.Actions>
-                <Button
-                  label={t('OK')}
-                  onClick={toggleModalVisible}
-                />
-              </Modal.Actions>
-            </StyledModal>}
-          </BlockchainSyncProvider>
-        </Signer>
+        {loginIsRequired ?
+          <CreateAccount
+            onClose={() => { }}
+            onStatusChange={onCreateAccount}
+            hasCloseButton={false}
+          /> :
+          <Signer>
+            <BlockchainSyncProvider>
+              <Content />
+              {!botInUrl && <BottomMenu />}
+              {isModalVisible && <StyledModal
+                className={className}
+                onClose={toggleModalVisible}
+                header={t('Congratulations!')}
+                size='tiny'
+              >
+                <Modal.Content>
+                  <GiftDiv>
+                    <Icon color='orange' icon='gift' size="8x" />
+                    <StyledLabel>{airdropAmount} Slon</StyledLabel>
+                  </GiftDiv>
+                  <p>{t('You have received Slon coins for free. It’s a one-time gift, so use it wisely.')}</p>
+                </Modal.Content>
+                <Modal.Actions>
+                  <Button
+                    label={t('OK')}
+                    onClick={toggleModalVisible}
+                  />
+                </Modal.Actions>
+              </StyledModal>}
+            </BlockchainSyncProvider>
+          </Signer>
+        }
         <ConnectingOverlay />
         <DotAppsOverlay />
         <div id={PORTAL_ID} />

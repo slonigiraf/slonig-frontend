@@ -191,13 +191,13 @@ function Create({ className = '', onClose, onStatusChange, seed: propsSeed, type
   );
 
   return (
-    <StyledModal
-      className={hasCloseButton ? className : 'hasNoCloseButton'}
-      header={t('Sign Up for Slonig')}
-      onClose={onClose}
-      size='small'
-    >
-      <Modal.Content>
+    <>
+
+      <div>
+        <h1>{t('Sign Up for Slonig')}</h1>
+        <div style={{ display: 'flex', justifyContent: 'center' }}>
+          <img src="./signup.png" style={{ maxHeight: '200px' }} alt="Signup" />
+        </div>
         {isImporting ? <DBImport /> :
           <CreateAccountInputs
             name={{ isNameValid, name }}
@@ -205,8 +205,8 @@ function Create({ className = '', onClose, onStatusChange, seed: propsSeed, type
             setName={setName}
             setPassword={() => { }} // Intentionally don't use passwords
           />}
-      </Modal.Content>
-      <Modal.Actions>
+      </div>
+      <div>
         {isImporting && <>
           <Button
             label={t('<< Back')}
@@ -236,55 +236,9 @@ function Create({ className = '', onClose, onStatusChange, seed: propsSeed, type
             />
           </>
         }
-      </Modal.Actions>
-    </StyledModal>
+      </div>
+    </>
   );
 }
-
-const StyledModal = styled(Modal)`
-  .accounts--Creator-advanced {
-    margin-top: 1rem;
-    overflow: visible;
-  }
-
-  .ui--CopyButton.copyMoved {
-    position: absolute;
-    right: 9.25rem;
-    top: 1.15rem;
-  }
-
-  && .TextAreaWithDropdown {
-    textarea {
-      width: 80%;
-    }
-    .ui.buttons {
-      width: 20%;
-    }
-  }
-
-  .saveToggle {
-    text-align: right;
-
-    .ui--Checkbox {
-      margin: 0.8rem 0;
-
-      > label {
-        font-weight: var(--font-weight-normal);
-      }
-    }
-  }
-
-  &.hasNoCloseButton {
-    button[data-testid='close-modal'] {
-      opacity: 0;
-      background: transparent;
-      border: none;
-      cursor: pointer;
-    }
-    button[data-testid='close-modal']:focus {
-      outline: none;
-    }
-  }
-`;
 
 export default React.memo(Create);
