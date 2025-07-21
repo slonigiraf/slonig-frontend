@@ -199,7 +199,7 @@ function Create({ className = '', onClose, onStatusChange, seed: propsSeed, type
         </div>
       }
 
-      {isFirstScreen && <h1>{t('Get help from classmates and earn badges')}</h1>}
+      {isFirstScreen && <h1>{t('Get help and badges from classmates')}</h1>}
 
       <div className='ui--row'>
         {isImporting ? <DBImport /> :
@@ -248,15 +248,27 @@ const StyledDiv = styled.div<{ isFirstScreen: boolean }>`
   ${(props) => props.isFirstScreen && 'min-height: 80vh;'}
   text-align: center;
   flex-direction: column;
-  max-width: 400px;
+  
   gap: 15px;
-  .accounts--Creator-advanced {
-    margin-top: 1rem;
-    overflow: visible;
+
+  @media only screen and (max-width: 430px) {
+    width: 100%;
+    
+  }
+  @media only screen and (min-width: 431px) {
+    width: 400px;
   }
 
   .ui--Button {
-    width: 100%;
+    width: 80%;
+  }
+  .ui--row {
+    width: 80%;
+  }
+
+  .accounts--Creator-advanced {
+    margin-top: 1rem;
+    overflow: visible;
   }
 
   .ui--Labelled:not(.isSmall) {    

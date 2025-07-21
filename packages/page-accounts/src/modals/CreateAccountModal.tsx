@@ -49,9 +49,6 @@ const CenteredWrapper = styled.div`
   width: 100%;
   height: 100%;
   text-align: center;
-  .ui--row {
-    width: 300px;
-  }
 `;
 
 export default React.memo(CreateAccountModal);
