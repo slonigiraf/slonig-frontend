@@ -223,7 +223,7 @@ function Create({ className = '', onClose, onStatusChange, seed: propsSeed, type
             activeOnEnter
             // icon='user-plus'
             isBusy={isBusy}
-            label={t('Sign Up')}
+            label={t('Start Learning with Slonig')}
             onClick={_onCommit}
           />
           {!hasCloseButton && <Button
