@@ -198,16 +198,17 @@ function Create({ className = '', onClose, onStatusChange, seed: propsSeed, type
       </div>
 
       <h1>{t('Get help from classmates and earn badges')}</h1>
-      {isImporting ? <DBImport /> :
-        <div className='ui--row'>
+
+      <div className='ui--row'>
+        {isImporting ? <DBImport /> :
           <CreateAccountInputs
             name={{ isNameValid, name }}
             onCommit={_onCommit}
             setName={setName}
             setPassword={() => { }}
           />
-        </div>}
-
+        }
+      </div>
 
       {isImporting && <ButtonContainer>
         <Button
