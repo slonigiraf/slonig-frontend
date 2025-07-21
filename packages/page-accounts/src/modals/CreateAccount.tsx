@@ -19,7 +19,7 @@ import CreateAccountInputs from './CreateAccountInputs.js';
 import { ETH_DEFAULT_PATH } from './CreateEthDerivationPath.js';
 import { storeSetting, SettingKey } from '@slonigiraf/db';
 import { useNavigate } from 'react-router-dom';
-import { DBImport } from '@slonigiraf/app-slonig-components';
+import { DBImport, useInfo } from '@slonigiraf/app-slonig-components';
 
 const DEFAULT_PAIR_TYPE = 'sr25519';
 
@@ -167,12 +167,13 @@ function Create({ className = '', onClose, onStatusChange, seed: propsSeed, type
   const isFirstStepValid = !!address && isMnemonicSaved && !deriveValidation?.error && isSeedValid;
   const isSecondStepValid = isNameValid && isPasswordValid;
   const isValid = isFirstStepValid && isSecondStepValid;
-
+  const { showInfo } = useInfo();
   const [isImporting, toggleImporting] = useToggle();
 
   const _onCommit = useCallback(
     async () => {
       if (!isValid) {
+        showInfo(t('Enter your full name'), 'error');
         return;
       }
       setIsBusy(true);
@@ -192,51 +193,47 @@ function Create({ className = '', onClose, onStatusChange, seed: propsSeed, type
 
   return (
     <StyledDiv>
-        <div style={{ display: 'flex', justifyContent: 'center' }}>
-          <img src="./signup.png" style={{ maxHeight: '200px' }} alt="Signup" />
-        </div>
+      <div style={{ display: 'flex', justifyContent: 'center' }}>
+        <img src="./signup.png" style={{ maxHeight: '200px' }} alt="Signup" />
+      </div>
 
-        <h1>{t('Get help from classmates and earn badges')}</h1>
-        {isImporting ? <DBImport /> :
-          <div className='ui--row'>
-            <CreateAccountInputs
+      <h1>{t('Get help from classmates and earn badges')}</h1>
+      {isImporting ? <DBImport /> :
+        <div className='ui--row'>
+          <CreateAccountInputs
             name={{ isNameValid, name }}
             onCommit={_onCommit}
             setName={setName}
             setPassword={() => { }}
           />
-          </div>}
+        </div>}
 
 
-        {isImporting && <ButtonContainer>
+      {isImporting && <ButtonContainer>
+        <Button
+          label={t('<< Back')}
+          onClick={toggleImporting}
+        />
+      </ButtonContainer>}
+
+      {!isImporting &&
+        <ButtonContainer>
           <Button
-            label={t('<< Back')}
+            className='highlight--bg'
+            activeOnEnter
+            // icon='user-plus'
+            isBusy={isBusy}
+            label={t('Sign Up')}
+            onClick={_onCommit}
+          />
+          {!hasCloseButton && <Button
+            label={t('Already have an account?')}
             onClick={toggleImporting}
-          />
-          <Button
-            icon='refresh'
-            label={t('Restore')}
-            isDisabled={true}
-            onClick={() => { }}
-          />
-        </ButtonContainer>}
+          />}
+        </ButtonContainer>
+      }
 
-        {!isImporting &&
-          <ButtonContainer>
-            <Button
-              className='highlight--bg'
-              activeOnEnter
-              // icon='user-plus'
-              isBusy={isBusy}
-              label={t('Sign Up')}
-              onClick={_onCommit}
-            />
-            {!hasCloseButton && <Button
-              label={t('Already have an account?')}
-              onClick={toggleImporting}
-            />}
-          </ButtonContainer>
-        }
+      <a href='https://slonig.org/privacy-policy'>Slonig privacy policy</a>
     </StyledDiv>
   );
 }
@@ -244,7 +241,7 @@ const StyledDiv = styled.div`
   display: flex;
   justify-content: center;
   align-items: center;
-  min-height: 70vh; /* Full height of the viewport */
+  min-height: 80vh; /* Full height of the viewport */
   text-align: center;
   flex-direction: column;
   max-width: 400px;
@@ -258,8 +255,26 @@ const StyledDiv = styled.div`
     width: 100%;
   }
 
+  .ui--Labelled:not(.isSmall) {    
+    padding-left: 0 !important;
+  }
+
+  label {
+    left: 0 !important;
+    text-align: center !important;
+  }
+
+  input {
+    left: 0 !important;
+    text-align: center !important;
+  }
+
   .highlight--bg {
     color: white !important;
+  }
+
+  a {
+    color: grey !important;
   }
 
 `;

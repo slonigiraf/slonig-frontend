@@ -47,7 +47,7 @@ function DBImport({ className = '' }: Props): React.ReactElement<Props> {
     <InputFile
       accept={acceptedFormats}
       className={`${className} full`}
-      label={t('Restore')}
+      label={t('Upload your backup file')}
       onChange={_onChangeFile}
       withLabel
     />

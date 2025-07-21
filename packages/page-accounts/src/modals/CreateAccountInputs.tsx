@@ -37,7 +37,6 @@ const CreateAccountInputs = ({ name: { isNameValid, name }, onCommit, setName }:
     <>
         <Input
           className='full'
-          isError={!isNameValid}
           label={t('Enter your full name')}
           onChange={_onChangeName}
           onEnter={onCommit}
