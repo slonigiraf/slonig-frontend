@@ -194,8 +194,8 @@ function Create({ className = '', onClose, onStatusChange, seed: propsSeed, type
   return (
     <StyledDiv isFirstScreen={isFirstScreen}>
       {isFirstScreen &&
-        <div style={{ display: 'flex', justifyContent: 'center' }}>
-          <img src="./signup.png" style={{ maxHeight: '200px' }} alt="Signup" />
+        <div style={{ display: 'flex', justifyContent: 'center', width: '80%' }}>
+          <img src="./signup.png" style={{ width: '100%' }} alt="Signup" />
         </div>
       }
 
@@ -253,7 +253,6 @@ const StyledDiv = styled.div<{ isFirstScreen: boolean }>`
 
   @media only screen and (max-width: 430px) {
     width: 100%;
-    
   }
   @media only screen and (min-width: 431px) {
     width: 400px;
