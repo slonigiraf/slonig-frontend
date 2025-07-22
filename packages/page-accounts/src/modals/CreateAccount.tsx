@@ -199,7 +199,7 @@ function Create({ className = '', onClose, onStatusChange, seed: propsSeed, type
         </div>
       }
 
-      {isFirstScreen && <h1>{t('Get help and badges from classmates')}</h1>}
+      {isFirstScreen && <h1 style={{ margin: '0px' }} >{t('Get help and badges from classmates')}</h1>}
 
       <div className='ui--row'>
         {isImporting ? <DBImport /> :
