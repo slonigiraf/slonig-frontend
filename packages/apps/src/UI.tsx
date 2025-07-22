@@ -36,7 +36,7 @@ function UI({ className = '' }: Props): React.ReactElement<Props> {
   const lessonInUrl = queryParams.get('lesson') != null;
   const botInUrl = queryParams.get('bot') != null;
 
-  const loginIsRequired = !isLoggedIn && !botInUrl;
+  const isLoginRequired = !isLoggedIn && !botInUrl;
 
   useEffect(() => {
     if (!isLoggedIn && !botInUrl) {
@@ -95,12 +95,12 @@ function UI({ className = '' }: Props): React.ReactElement<Props> {
   }, [isLoggedIn, currentPair]);
 
   return (
-    connected ? <StyledDiv className={`${className} apps--Wrapper ${themeClassName}`}>
+    connected ? <StyledDiv isloginRequired={isLoginRequired} className={`${className} apps--Wrapper ${themeClassName}`}>
       <AppContainer>
         {/* <HelpChatWidget caption={t('Have questions?')}/> */}
         {!botInUrl && <CookieManagerClient />}
         
-        {loginIsRequired ?
+        {isLoginRequired ?
           <CreateAccount
             onClose={() => { }}
             onStatusChange={onCreateAccount}
@@ -157,13 +157,14 @@ const CenterItems = styled.div`
     padding: 1rem;
   }
 `;
-const StyledDiv = styled.div`
+const StyledDiv = styled.div<{ isloginRequired: boolean }>`
   background: var(--bg-page);
   box-sizing: border-box;
   display: flex;
   flex-direction: column;
   min-height: 100vh;
-  padding-bottom: 80px;
+  
+  ${(props) => !props.isloginRequired && 'padding-bottom: 80px;'}
 
   ${[
     0, 1, 2, 3, 4, 5, 6, 7, 8, 9,

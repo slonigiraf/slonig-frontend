@@ -245,7 +245,7 @@ const StyledDiv = styled.div<{ isFirstScreen: boolean }>`
   display: flex;
   justify-content: center;
   align-items: center;
-  ${(props) => props.isFirstScreen && 'min-height: 80vh;'}
+  ${(props) => props.isFirstScreen && 'min-height: 100dvh;'}
   text-align: center;
   flex-direction: column;
   
