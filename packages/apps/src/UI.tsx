@@ -162,7 +162,7 @@ const StyledDiv = styled.div<{ isloginRequired: boolean }>`
   box-sizing: border-box;
   display: flex;
   flex-direction: column;
-  min-height: 100vh;
+  min-height: 100dvh;
   
   ${(props) => !props.isloginRequired && 'padding-bottom: 80px;'}
 
