@@ -82,7 +82,7 @@ const SenderComponent: React.FC<SenderComponentProps> = ({ data, route, textShar
 
     return url ?
             <>
-            {caption && <h2>{caption}</h2>}
+            {caption && <h2 className='prompt'>{caption}</h2>}
             <QRWithShareAndCopy
                 titleShare="QR Code"
                 textShare={textShare}

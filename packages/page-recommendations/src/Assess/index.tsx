@@ -50,7 +50,7 @@ function Assess({ className = '' }: Props): React.ReactElement<Props> {
                 onChange={handleStudentSelect}
               />
               <CenterQRContainer>
-                <h2 style={{ marginTop: '0px' }}>{t('Show to a student to see their results')}</h2>
+                <h2 style={{ marginTop: '0px' }} className='prompt'>{t('To assess a student, ask them to scan:')}</h2>
                 <QRWithShareAndCopy
                   titleShare={t('QR code')}
                   textShare={t('Press the link to show badges')}

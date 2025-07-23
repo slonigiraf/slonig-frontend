@@ -199,7 +199,7 @@ function Create({ className = '', onClose, onStatusChange, seed: propsSeed, type
         </div>
       }
 
-      {isFirstScreen && <h1 style={{ margin: '0px' }} >{t('Get help and badges from classmates')}</h1>}
+      {isFirstScreen && <h1 style={{ margin: '0px' }} className='prompt'>{t('Get help and badges from classmates')}</h1>}
 
       <div className='ui--row'>
         {isImporting ? <DBImport /> :
@@ -238,6 +238,10 @@ function Create({ className = '', onClose, onStatusChange, seed: propsSeed, type
       }
 
       {isFirstScreen && <a href='https://slonig.org/privacy-policy'>{t('Slonig privacy policy')}</a>}
+
+      {isFirstScreen &&
+        <img src="./slonig_logo_color.svg" style={{ maxWidth: '100px' }} alt="Slonig logo" />
+      }
     </StyledDiv>
   );
 }

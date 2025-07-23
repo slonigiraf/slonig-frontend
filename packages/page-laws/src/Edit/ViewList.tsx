@@ -119,9 +119,13 @@ function ViewList({ className = '', id, cidString, list }: Props): React.ReactEl
 
   return list == null ? <StyledSpinnerContainer><Spinner noLabel /></StyledSpinnerContainer> : (
     <>
-      <h1><KatexSpan content={list.h} /></h1>
+      <h1 className='prompt'><KatexSpan content={list.h} /></h1>
       {list.t !== null && list.t === LawType.MODULE && (
         <>
+          
+          <div className='ui--row' style={isModuleQRVisible ? {} : { display: 'none' }}>
+            <SkillQR id={id} cid={cidString} type={LawType.MODULE} selectedItems={selectedItems} isLearningRequested={isLearningRequested} isReexaminingRequested={isReexaminingRequested} lessonInUrl={lessonInUrl} />
+          </div>
           {isThereAnythingToLearn && <Toggle
             label={t('Learn with a tutor')}
             onChange={handleLearningToggle}
@@ -132,9 +136,6 @@ function ViewList({ className = '', id, cidString, list }: Props): React.ReactEl
             onChange={handleReexaminingToggle}
             value={isReexaminingRequested}
           />}
-          <div className='ui--row' style={isModuleQRVisible ? {} : { display: 'none' }}>
-            <SkillQR id={id} cid={cidString} type={LawType.MODULE} selectedItems={selectedItems} isLearningRequested={isLearningRequested} isReexaminingRequested={isReexaminingRequested} lessonInUrl={lessonInUrl} />
-          </div>
         </>
       )}
       {list.t !== null && list.t === LawType.SKILL && (

@@ -232,7 +232,7 @@ function Overview({ className = '', onStatusChange }: Props): React.ReactElement
       <TransferParser/>
       {isLoggedIn && <>
         <CenterQRContainer>
-          <h2>{t('Show the QR to a sender to get Slon coins')}</h2>
+          <h2 className='prompt'>{t('To get Slon, ask a sender to scan:')}</h2>
           <PayToAccountQR />
         </CenterQRContainer>
         <Summary balance={balances.summary} />

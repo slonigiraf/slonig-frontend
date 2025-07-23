@@ -199,6 +199,11 @@ export default createGlobalStyle<Props & ThemeProps>(({ theme, uiHighlight }: Pr
     stroke: ${getHighlight(uiHighlight)} !important;
   }
 
+  .prompt {
+    font-weight: bold !important;
+    color: #0069b4 !important;
+  }
+
   .ui--Button {
     &:not(.isDisabled):not(.isIcon):not(.isBasic),
     &.withoutLink:not(.isDisabled) {
