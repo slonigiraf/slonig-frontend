@@ -112,7 +112,7 @@ function SkillQR({ className = '', cid, selectedItems, isLearningRequested, isRe
                     <StyledDiv>
                       <CenterQRContainer>
                         <SenderComponent
-                          caption={t('To learn this, ask your tutor to scan:')}
+                          caption={t('To learn this, ask a tutor to scan:')}
                           data={data}
                           route={route}
                           textShare={t('Press the link to start tutoring')}
