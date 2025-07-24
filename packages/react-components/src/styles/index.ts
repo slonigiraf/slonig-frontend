@@ -201,7 +201,7 @@ export default createGlobalStyle<Props & ThemeProps>(({ theme, uiHighlight }: Pr
 
   .prompt {
     font-weight: bold !important;
-    color: #0069b4 !important;
+    color: var(--color-prompt) !important;
   }
 
   .ui--Button {
@@ -387,7 +387,7 @@ export default createGlobalStyle<Props & ThemeProps>(({ theme, uiHighlight }: Pr
 
   a {
     cursor: pointer;
-    color: #0069b4 !important;
+    color: var(--color-link) !important;
   }
 
   article {

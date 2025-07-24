@@ -119,7 +119,7 @@ function ViewList({ className = '', id, cidString, list }: Props): React.ReactEl
 
   return list == null ? <StyledSpinnerContainer><Spinner noLabel /></StyledSpinnerContainer> : (
     <>
-      <h1 className='prompt'><KatexSpan content={list.h} /></h1>
+      <h1><KatexSpan content={list.h} /></h1>
       {list.t !== null && list.t === LawType.MODULE && (
         <>
           

@@ -22,46 +22,10 @@ function Summary ({ balance, className }: Props) {
     <StyledDiv className={className}>
       <CardSummary label={t('total balance')}>
         <FormatBalance
-          className={balance ? '' : '--tmp'}
+          className='prompt'
           value={balance?.total || 1}
         />
       </CardSummary>
-      <CardSummary
-        className='media--900'
-        label={t('total transferable')}
-      >
-        <FormatBalance
-          className={balance ? '' : '--tmp'}
-          value={balance?.transferable || 1}
-        />
-      </CardSummary>
-      <CardSummary label={t('total locked')}>
-        <FormatBalance
-          className={balance ? '' : '--tmp'}
-          value={balance?.locked || 1}
-        />
-      </CardSummary>
-      {balance?.bonded.gtn(0) &&
-        <CardSummary
-          className='media--1100'
-          label={t('bonded')}
-        >
-          <FormatBalance value={balance.bonded} />
-        </CardSummary>}
-      {balance?.redeemable.gtn(0) &&
-        <CardSummary
-          className='media--1500'
-          label={t('redeemable')}
-        >
-          <FormatBalance value={balance.redeemable} />
-        </CardSummary>}
-      {balance?.unbonding.gtn(0) &&
-        <CardSummary
-          className='media--1300'
-          label={t('unbonding')}
-        >
-          <FormatBalance value={balance.unbonding} />
-        </CardSummary>}
     </StyledDiv>
   );
 }
@@ -69,6 +33,6 @@ const StyledDiv = styled.div`
   align-items: stretch;
   display: flex;
   flex-wrap: no-wrap;
-  justify-content: space-between;
+  justify-content: right;
 `;
 export default React.memo(Summary);

@@ -50,7 +50,6 @@ const StyledDiv = styled.div`
 
     label {
       padding-right: 1rem;
-      color: #0069b4 !important;
     }
 
     .ui--CopyButton {
