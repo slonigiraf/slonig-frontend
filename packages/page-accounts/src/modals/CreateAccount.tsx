@@ -236,12 +236,7 @@ function Create({ className = '', onClose, onStatusChange, seed: propsSeed, type
           />}
         </ButtonContainer>
       }
-
       {isFirstScreen && <a href='https://slonig.org/privacy-policy'>{t('Slonig privacy policy')}</a>}
-
-      {isFirstScreen &&
-        <img src="./slonig_logo_color.svg" style={{ maxWidth: '100px' }} alt="Slonig logo" />
-      }
     </StyledDiv>
   );
 }
