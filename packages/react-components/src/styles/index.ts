@@ -387,6 +387,7 @@ export default createGlobalStyle<Props & ThemeProps>(({ theme, uiHighlight }: Pr
 
   a {
     cursor: pointer;
+    color: #0069b4 !important;
   }
 
   article {
