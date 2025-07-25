@@ -70,10 +70,13 @@ function ModulePreview({ className = '', itemsWithCID }: Props): React.ReactElem
 
       {totalPages > 1 && (
         <NavButtons>
-          <button onClick={() => setPage((p) => Math.max(p - 1, 0))} disabled={page === 0}>
+          <button
+            data-testid="nav-prev"
+            onClick={() => setPage((p) => Math.max(p - 1, 0))} disabled={page === 0}>
             ←
           </button>
           <button
+            data-testid="nav-next"
             onClick={() => setPage((p) => Math.min(p + 1, totalPages - 1))}
             disabled={page >= totalPages - 1}
           >
