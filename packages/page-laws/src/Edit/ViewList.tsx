@@ -11,6 +11,7 @@ import { useApi } from '@polkadot/react-hooks';
 import BN from 'bn.js';
 import { getLettersForKnowledgeId } from '@slonigiraf/db';
 import { u8aToHex } from '@polkadot/util';
+import ModulePreview from './ModulePreview.js';
 
 type JsonType = { [key: string]: any } | null;
 interface Props {
@@ -25,8 +26,9 @@ function ViewList({ className = '', id, cidString, list }: Props): React.ReactEl
   const { api } = useApi();
   const queryParams = new URLSearchParams(location.search);
   const lessonInUrl = queryParams.get('lesson') != null;
+  const expanded = queryParams.get('expanded') != null;
   const { t } = useTranslation();
-  const {currentPair, isLoggedIn, setLoginIsRequired } = useLoginContext();
+  const { currentPair, isLoggedIn, setLoginIsRequired } = useLoginContext();
   const [isLearningRequested, setLearningRequested] = useState(false);
   const [isReexaminingRequested, setReexaminingRequested] = useState(false);
   const [isThereAnythingToReexamine, setIsThereAnythingToReexamine] = useState(false);
@@ -101,7 +103,7 @@ function ViewList({ className = '', id, cidString, list }: Props): React.ReactEl
       !shouldSelectAll &&
       !isLearningInitialized
     ) {
-      if(isLoggedIn){
+      if (isLoggedIn) {
         setIsLearningInitialized(true);
         setShouldSelectAll(true);
       }
@@ -121,22 +123,23 @@ function ViewList({ className = '', id, cidString, list }: Props): React.ReactEl
     <>
       <h1><KatexSpan content={list.h} /></h1>
       {list.t !== null && list.t === LawType.MODULE && (
-        <>
-          
-          <div className='ui--row' style={isModuleQRVisible ? {} : { display: 'none' }}>
-            <SkillQR id={id} cid={cidString} type={LawType.MODULE} selectedItems={selectedItems} isLearningRequested={isLearningRequested} isReexaminingRequested={isReexaminingRequested} lessonInUrl={lessonInUrl} />
-          </div>
-          {isThereAnythingToLearn && <Toggle
-            label={t('Learn with a tutor')}
-            onChange={handleLearningToggle}
-            value={isLearningRequested}
-          />}
-          {isThereAnythingToReexamine && <Toggle
-            label={t('Reexamine my badges')}
-            onChange={handleReexaminingToggle}
-            value={isReexaminingRequested}
-          />}
-        </>
+        expanded ?
+          (itemsWithCID.length > 0 && <ModulePreview itemsWithCID={itemsWithCID}/>) :
+          <>
+            <div className='ui--row' style={isModuleQRVisible ? {} : { display: 'none' }}>
+              <SkillQR id={id} cid={cidString} type={LawType.MODULE} selectedItems={selectedItems} isLearningRequested={isLearningRequested} isReexaminingRequested={isReexaminingRequested} lessonInUrl={lessonInUrl} />
+            </div>
+            {isThereAnythingToLearn && <Toggle
+              label={t('Learn with a tutor')}
+              onChange={handleLearningToggle}
+              value={isLearningRequested}
+            />}
+            {isThereAnythingToReexamine && <Toggle
+              label={t('Reexamine my badges')}
+              onChange={handleReexaminingToggle}
+              value={isReexaminingRequested}
+            />}
+          </>
       )}
       {list.t !== null && list.t === LawType.SKILL && (
         <>
@@ -145,7 +148,7 @@ function ViewList({ className = '', id, cidString, list }: Props): React.ReactEl
         </>
       )}
 
-      {itemsWithCID.length > 0 && (
+      {itemsWithCID.length > 0 && !expanded && (
         <SelectableList<ItemWithCID>
           items={itemsWithCID}
           renderItem={(item, isSelected, isSelectionAllowed, onToggleSelection) => (
@@ -159,9 +162,9 @@ function ViewList({ className = '', id, cidString, list }: Props): React.ReactEl
           )}
           onSelectionChange={handleSelectionChange}
           isSelectionAllowed={isModuleQRVisible}
-          keyExtractor={(item) => item.id+item.validDiplomas.length}
+          keyExtractor={(item) => item.id + item.validDiplomas.length}
           filterOutSelection={(item) => isReexaminingRequested ? !(item.validDiplomas.length > 0) : (item.validDiplomas.length > 0)}
-          key={id+isReexaminingRequested}
+          key={id + isReexaminingRequested}
           allSelected={shouldSelectAll}
         />
       )}

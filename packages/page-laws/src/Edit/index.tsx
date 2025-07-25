@@ -19,6 +19,7 @@ import { useLoginContext } from '@slonigiraf/app-slonig-components';
 import { sendCreateAndEditTransaction, sendEditTransaction } from './sendTransaction.js';
 import { useInfo } from '@slonigiraf/app-slonig-components';
 import { getSetting, SettingKey } from '@slonigiraf/db';
+import { sessionPrefix } from '../constants.js';
 
 interface Props {
   className?: string;
@@ -41,7 +42,6 @@ function Edit({ className = '' }: Props): React.ReactElement<Props> {
   const [textHexId, setTextHexId] = useState<string | undefined>(idFromQuery);
 
   // Load state changes to session storage
-  const sessionPrefix = 'knowledge';
   const [list, setList] = useState<JsonType>(loadFromSessionStorage(sessionPrefix, 'list'));
   const [item, setItem] = useState<JsonType>(loadFromSessionStorage(sessionPrefix, 'item'));
   const [cidString, setCidString] = useState<string>(loadFromSessionStorage(sessionPrefix, 'cidString') || '');
