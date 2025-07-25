@@ -53,7 +53,7 @@ function ModulePreview({ className = '', itemsWithCID }: Props): React.ReactElem
   const totalPages = itemsPerPage > 0 ? Math.ceil(itemsWithCID.length / itemsPerPage) : 0;
 
   return (
-    <StyledWrapper ref={containerRef} className={className}>
+    <StyledWrapper ref={containerRef} className={className} data-testid="preview">
       {itemsWithCID.length > 0 && (
         <HiddenMeasure ref={measureRef}>
           <ItemPreview item={itemsWithCID[0]} />
