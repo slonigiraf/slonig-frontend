@@ -6,9 +6,10 @@ import { Exercise, ResizableImage, KatexSpan } from '@slonigiraf/app-slonig-comp
 interface ExerciseListProps {
     exercises: Exercise[];
     areShownInitially?: boolean;
+    isPreview?: boolean;
 }
 
-const ExerciseList: React.FC<ExerciseListProps> = ({ exercises, areShownInitially = false }) => {
+const ExerciseList: React.FC<ExerciseListProps> = ({ exercises, areShownInitially = false, isPreview = false }) => {
     const [shownAnswers, setShownAnswers] = useState<boolean[]>(new Array(exercises.length).fill(areShownInitially));
     const { t } = useTranslation();
 
@@ -18,39 +19,56 @@ const ExerciseList: React.FC<ExerciseListProps> = ({ exercises, areShownInitiall
         setShownAnswers(updatedShownAnswers);
     }
 
-    return (
-        <>
-            {exercises.map((exercise, index) => (
-                <div className='ui--row' key={index}
-                    style={{
-                        alignItems: 'center'
-                    }}
-                >
-                    <div className="exercise-display">
-                        <div className="exercise-header">
-                            <span><KatexSpan content={` ${index + 1}. ` + exercise.h} /></span>
-                            {exercise.p && <ExerciseDetails><ResizableImage cid={exercise.p} /></ExerciseDetails>}
-                        </div>
+    const exercise = exercises[0];
 
-                        <Answer>
-                            <span>
-                                <Button
-                                    // icon={shownAnswers[index] ? 'eye-slash' : 'eye'}
-                                    onClick={() => toggleAnswer(index)}
-                                    label={shownAnswers[index] ? t('Hide the solution') : t('See the solution')}
-                                />
-                            </span>
-                            {shownAnswers[index] && (
-                                <>
-                                    <KatexSpan content={exercise.a} />
-                                    {exercise.i && <ResizableImage cid={exercise.i} />}
-                                </>
-                            )}
-                        </Answer>
+
+    return (
+        isPreview ?
+            <div className='ui--row'
+                style={{
+                    alignItems: 'center'
+                }}
+            >
+                <div className="exercise-display">
+                    <div className="exercise-header">
+                        <span><KatexSpan content={exercise.h} /></span>
+                        {exercise.p && <ExerciseDetails><ResizableImage cid={exercise.p} /></ExerciseDetails>}
                     </div>
                 </div>
-            ))}
-        </>
+            </div> 
+            :
+            <>
+                {exercises.map((exercise, index) => (
+                    <div className='ui--row' key={index}
+                        style={{
+                            alignItems: 'center'
+                        }}
+                    >
+                        <div className="exercise-display">
+                            <div className="exercise-header">
+                                <span><KatexSpan content={` ${index + 1}. ` + exercise.h} /></span>
+                                {exercise.p && <ExerciseDetails><ResizableImage cid={exercise.p} /></ExerciseDetails>}
+                            </div>
+
+                            <Answer>
+                                <span>
+                                    <Button
+                                        // icon={shownAnswers[index] ? 'eye-slash' : 'eye'}
+                                        onClick={() => toggleAnswer(index)}
+                                        label={shownAnswers[index] ? t('Hide the solution') : t('See the solution')}
+                                    />
+                                </span>
+                                {shownAnswers[index] && (
+                                    <>
+                                        <KatexSpan content={exercise.a} />
+                                        {exercise.i && <ResizableImage cid={exercise.i} />}
+                                    </>
+                                )}
+                            </Answer>
+                        </div>
+                    </div>
+                ))}
+            </>
     );
 }
 

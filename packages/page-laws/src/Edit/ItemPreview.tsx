@@ -32,7 +32,7 @@ function ItemPreview({ className = '', item }: Props): React.ReactElement<Props>
   return (list == null || !list.q) ? <StyledSpinnerContainer><Spinner noLabel /></StyledSpinnerContainer> : (
     <div>
       <h2>{list.h}</h2>
-      <ExerciseList exercises={list.q} />
+      <ExerciseList exercises={list.q} isPreview={true}/>
     </div>
   );
 }
