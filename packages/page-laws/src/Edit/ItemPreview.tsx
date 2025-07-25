@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { StyledSpinnerContainer, getIPFSDataFromContentID, parseJson, loadFromSessionStorage, useIpfsContext } from '@slonigiraf/app-slonig-components';
 import ExerciseList from './ExerciseList.js';
-import { Spinner } from '@polkadot/react-components';
+import { Spinner, styled } from '@polkadot/react-components';
 import { ItemWithCID } from '../types.js';
 import { sessionPrefix } from '../constants.js';
 
@@ -30,11 +30,15 @@ function ItemPreview({ className = '', item }: Props): React.ReactElement<Props>
   }, [item, ipfs]);
 
   return (list == null || !list.q) ? <StyledSpinnerContainer><Spinner noLabel /></StyledSpinnerContainer> : (
-    <div>
+    <StyledDiv>
       <h2>{list.h}</h2>
       <ExerciseList exercises={list.q} isPreview={true}/>
-    </div>
+    </StyledDiv>
   );
 }
+const StyledDiv = styled.div`
+  break-inside: avoid;
+  margin-bottom: 1rem;
+`;
 
 export default React.memo(ItemPreview);

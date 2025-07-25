@@ -18,6 +18,20 @@ function ModulePreview({ className = '', itemsWithCID }: Props): React.ReactElem
 }
 
 const StyledDiv = styled.div`
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+  z-index: 9999;
+  background: white;
+
+  column-width: 300px;       /* or any suitable width for your items */
+  column-gap: 1rem;          /* space between columns */
+  padding: 1rem;
+  overflow: hidden;          /* avoid scrollbars, use columns instead */
 `;
+
+
 
 export default React.memo(ModulePreview);
