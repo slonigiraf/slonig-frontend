@@ -33,6 +33,13 @@ function ModulePreview({ className = '', itemsWithCID }: Props): React.ReactElem
       const rows = Math.floor(containerHeight / itemHeight);
       const count = cols * rows;
 
+      console.log("containerWidth: ", containerWidth)
+      console.log("containerHeight: ", containerHeight)
+      console.log("cols: ", cols)
+      console.log("rows: ", rows)
+      console.log("count: ", count)
+
+
       if (count > 0) {
         setItemsPerPage(count);
         setPage(0);
@@ -126,7 +133,7 @@ const NavButtons = styled.div`
     font-size: 1.2rem;
     border: none;
     background-color:white;
-    color: white;
+    color: blue;
     border-radius: 4px;
     cursor: pointer;
 

@@ -15,8 +15,6 @@ function ItemPreview({ className = '', item }: Props): React.ReactElement<Props>
   const { ipfs, isIpfsReady } = useIpfsContext();
   const [list, setList] = useState<JsonType>(loadFromSessionStorage(sessionPrefix, 'list'));
 
-  console.log("list: ", list)
-
   useEffect(() => {
     const fetchIPFSData = async () => {
       if (!isIpfsReady || !item.cid) {
