@@ -123,10 +123,6 @@ function ModulePreview({ className = '', itemsWithCID }: Props): React.ReactElem
           {paginatedItems.map((item, i) => (
             <div
               key={item.cid}
-              ref={(el) => {
-                // 4) Store each node in itemRefs.current[i]
-                itemRefs.current[i] = el;
-              }}
               style={{ breakInside: 'avoid', marginBottom: '1rem' }}
             >
               <ItemPreview item={item} />
@@ -138,7 +134,7 @@ function ModulePreview({ className = '', itemsWithCID }: Props): React.ReactElem
             <button
               data-testid="nav-prev"
               onClick={() => setPage((p) => Math.max(p - 1, 0))}
-              disabled={firstIndex === 0}
+              disabled={pageToSlice.get(page)?.from === 0}
             >
               ←
             </button>
