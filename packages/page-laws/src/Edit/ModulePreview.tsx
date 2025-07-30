@@ -8,10 +8,18 @@ interface Props {
   itemsWithCID: ItemWithCID[];
 }
 
+interface Slice {
+  from: number;
+  to: number;
+}
+
 function ModulePreview({ className = '', itemsWithCID }: Props): React.ReactElement<Props> {
   const [page, setPage] = useState(0);
-  const [itemsPerPage, setItemsPerPage] = useState(0);
-
+  const [firstIndex, setFirstIndex] = useState(0);
+  const [lastIndex, setLastIndex] = useState(itemsWithCID.length ? itemsWithCID.length - 1 : 0);
+  const [containerWidth, setContainerWidth] = useState(0);
+  const [containerHeight, setContainerHeight] = useState(0);
+  const [pageToSlice, setPageToSlice] = useState<Map<number, Slice>>(new Map());
   const containerRef = useRef<HTMLDivElement>(null);
 
   // 1) Keep an array of refs for the visible items on the current page
@@ -21,48 +29,48 @@ function ModulePreview({ className = '', itemsWithCID }: Props): React.ReactElem
   // 2) Store sizes parallel to itemRefs.current
   const [itemSizes, setItemSizes] = useState<Array<{ width: number; height: number }>>([]);
 
+  console.log("itemSizes: ", itemSizes)
+
   // --- your existing sizing for itemsPerPage using a hidden measure ---
   const measureRef = useRef<HTMLDivElement>(null);
 
+
+  // TODO: calculate here firstIndex and lastIndex for all pages
   useEffect(() => {
-    const container = containerRef.current;
-    const item = measureRef.current;
-    if (!container || !item) return;
+    if (true) {
+      const container = containerRef.current;
+      if (container) {
+        const slices: Map<number, Slice> = new Map();
+        let previousPageLastIndex = 0;
+        let currentPageLength = 0;
+        let currentPageNumber = 0;
 
-    const ro = new ResizeObserver(() => {
-      const itemWidth = item.offsetWidth;
-      const itemHeight = item.offsetHeight;
-      if (itemWidth === 0 || itemHeight === 0) return;
-
-      const containerWidth = container.offsetWidth;
-      const containerHeight = container.offsetHeight;
-
-      const cols = Math.max(1, Math.floor(containerWidth / itemWidth));
-      const rows = Math.max(1, Math.floor(containerHeight / itemHeight));
-      const count = cols * rows;
-
-      if (count > 0) {
-        setItemsPerPage(count);
-        setPage(0);
+        for (let i = 0; i < itemSizes.length; i++) {
+          console.log("----")
+          console.log("i: ", i)
+          console.log("currentPageLength + itemSizes[i].height: ", currentPageLength + itemSizes[i].height)
+          console.log("container.offsetHeight: ", container.offsetHeight)
+          if (currentPageLength + itemSizes[i].height > container.offsetHeight) {
+            slices.set(currentPageNumber, { from: previousPageLastIndex, to: i });
+            previousPageLastIndex = i;
+            currentPageNumber++;
+            currentPageLength = 0;
+          } else {
+            currentPageLength = currentPageLength + itemSizes[i].height;
+          }
+        }
+        slices.set(currentPageNumber, { from: previousPageLastIndex, to: itemSizes.length });
+        setPageToSlice(slices);
       }
-    });
+    }
+  }, [JSON.stringify(itemSizes)]);
 
-    ro.observe(item);
+  console.log("pageToSlice: ", pageToSlice)
 
-    // Recompute on window resize
-    const onResize = () => ro.observe(item);
-    window.addEventListener('resize', onResize);
-
-    return () => {
-      ro.disconnect();
-      window.removeEventListener('resize', onResize);
-    };
-  }, [itemsWithCID]);
-
-  const start = page * itemsPerPage;
-  const paginatedItems = itemsPerPage > 0 ? itemsWithCID.slice(start, start + itemsPerPage) : [];
-  const totalPages = itemsPerPage > 0 ? Math.ceil(itemsWithCID.length / itemsPerPage) : 0;
-
+  // const paginatedItems = pageToSlice.size? itemsWithCID.slice(pageToSlice.get(page)?.from, pageToSlice.get(page)?.to) : itemsWithCID;
+  const paginatedItems = itemsWithCID;
+  console.log("page: ", page)
+  console.log("paginatedItems: ", paginatedItems)
   // 3) Observe every visible item <div> to keep itemSizes in sync
   useEffect(() => {
     if (itemRefs.current.length === 0) {
@@ -75,7 +83,9 @@ function ModulePreview({ className = '', itemsWithCID }: Props): React.ReactElem
         width: el?.offsetWidth ?? 0,
         height: el?.offsetHeight ?? 0
       }));
-      setItemSizes(sizes);
+      if(sizes.length && sizes[0].height){
+        setItemSizes(sizes);
+      }
     });
 
     itemRefs.current.forEach((el) => el && ro.observe(el));
@@ -88,16 +98,10 @@ function ModulePreview({ className = '', itemsWithCID }: Props): React.ReactElem
     setItemSizes(initial);
 
     return () => ro.disconnect();
-  }, [paginatedItems.length, page]); // re-run when the page changes or count changes
+  }, [itemsWithCID]); // re-run when the page changes or count changes
 
   return (
     <StyledWrapper ref={containerRef} className={className} data-testid="preview">
-      {/* Hidden measure for determining itemsPerPage */}
-      {itemsWithCID.length > 0 && (
-        <HiddenMeasure ref={measureRef}>
-          <ItemPreview item={itemsWithCID[0]} />
-        </HiddenMeasure>
-      )}
 
       <StyledDiv>
         {paginatedItems.map((item, i) => (
@@ -118,19 +122,19 @@ function ModulePreview({ className = '', itemsWithCID }: Props): React.ReactElem
       {/* console.log or use it in layout logic */}
       {/* console.log('itemRefs:', itemRefs.current, 'itemSizes:', itemSizes) */}
 
-      {totalPages > 1 && (
+      {(
         <NavButtons>
           <button
             data-testid="nav-prev"
             onClick={() => setPage((p) => Math.max(p - 1, 0))}
-            disabled={page === 0}
+            disabled={firstIndex === 0}
           >
             ←
           </button>
           <button
             data-testid="nav-next"
-            onClick={() => setPage((p) => Math.min(p + 1, totalPages - 1))}
-            disabled={page >= totalPages - 1}
+            onClick={() => setPage((p) => p + 1)}
+            disabled={lastIndex === itemsWithCID.length}
           >
             →
           </button>
