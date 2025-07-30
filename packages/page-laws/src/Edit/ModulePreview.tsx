@@ -15,42 +15,24 @@ interface Slice {
 
 function ModulePreview({ className = '', itemsWithCID }: Props): React.ReactElement<Props> {
   const [page, setPage] = useState(0);
-  const [firstIndex, setFirstIndex] = useState(0);
-  const [lastIndex, setLastIndex] = useState(itemsWithCID.length ? itemsWithCID.length - 1 : 0);
-  const [containerWidth, setContainerWidth] = useState(0);
-  const [containerHeight, setContainerHeight] = useState(0);
   const [pageToSlice, setPageToSlice] = useState<Map<number, Slice>>(new Map());
   const containerRef = useRef<HTMLDivElement>(null);
-
-  // 1) Keep an array of refs for the visible items on the current page
-  const itemRefs = useRef<(HTMLDivElement | null)[]>([]); // <= itemRef[]
-  itemRefs.current = []; // clear before setting via callbacks on each render
-
-  // 2) Store sizes parallel to itemRefs.current
+  const itemRefs = useRef<(HTMLDivElement | null)[]>([]);
+  itemRefs.current = [];
   const [itemSizes, setItemSizes] = useState<Array<{ width: number; height: number }>>([]);
 
-  console.log("itemSizes: ", itemSizes)
-
-  // --- your existing sizing for itemsPerPage using a hidden measure ---
-  const measureRef = useRef<HTMLDivElement>(null);
-
-
-  // TODO: calculate here firstIndex and lastIndex for all pages
   useEffect(() => {
-    if (true) {
+    if (itemSizes[0]?.width) {
       const container = containerRef.current;
       if (container) {
         const slices: Map<number, Slice> = new Map();
         let previousPageLastIndex = 0;
         let currentPageLength = 0;
         let currentPageNumber = 0;
+        const columns = Math.floor(container.offsetWidth / itemSizes[0].width);
 
         for (let i = 0; i < itemSizes.length; i++) {
-          // console.log("----")
-          // console.log("i: ", i)
-          // console.log("currentPageLength + itemSizes[i].height: ", currentPageLength + itemSizes[i].height)
-          // console.log("container.offsetHeight: ", container.offsetHeight)
-          if (currentPageLength + itemSizes[i].height > container.offsetHeight) {
+          if (currentPageLength + itemSizes[i].height > columns * container.offsetHeight) {
             slices.set(currentPageNumber, { from: previousPageLastIndex, to: i });
             previousPageLastIndex = i;
             currentPageNumber++;
@@ -65,13 +47,8 @@ function ModulePreview({ className = '', itemsWithCID }: Props): React.ReactElem
     }
   }, [JSON.stringify(itemSizes)]);
 
-  console.log("pageToSlice: ", pageToSlice)
+  const paginatedItems = pageToSlice.size ? itemsWithCID.slice(pageToSlice.get(page)?.from, pageToSlice.get(page)?.to) : itemsWithCID;
 
-  const paginatedItems = pageToSlice.size? itemsWithCID.slice(pageToSlice.get(page)?.from, pageToSlice.get(page)?.to) : itemsWithCID;
-
-  console.log("page: ", page)
-
-  // 3) Observe every visible item <div> to keep itemSizes in sync
   useEffect(() => {
     if (itemRefs.current.length === 0) {
       setItemSizes([]);
@@ -98,7 +75,7 @@ function ModulePreview({ className = '', itemsWithCID }: Props): React.ReactElem
     setItemSizes(initial);
 
     return () => ro.disconnect();
-  }, [itemsWithCID]); // re-run when the page changes or count changes
+  }, [itemsWithCID]);
 
   return (
     <>
@@ -108,7 +85,6 @@ function ModulePreview({ className = '', itemsWithCID }: Props): React.ReactElem
             <div
               key={item.cid}
               ref={(el) => {
-                // 4) Store each node in itemRefs.current[i]
                 itemRefs.current[i] = el;
               }}
               style={{ breakInside: 'avoid', marginBottom: '1rem' }}
@@ -141,7 +117,7 @@ function ModulePreview({ className = '', itemsWithCID }: Props): React.ReactElem
             <button
               data-testid="nav-next"
               onClick={() => setPage((p) => p + 1)}
-              disabled={lastIndex === itemsWithCID.length}
+              disabled={pageToSlice.get(page)?.to === itemsWithCID.length}
             >
               →
             </button>
@@ -200,7 +176,7 @@ const NavButtons = styled.div`
     font-size: 1.2rem;
     border: none;
     background-color: white;
-    color: blue;
+    color: white;
     border-radius: 4px;
     cursor: pointer;
 
