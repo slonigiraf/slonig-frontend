@@ -46,10 +46,10 @@ function ModulePreview({ className = '', itemsWithCID }: Props): React.ReactElem
         let currentPageNumber = 0;
 
         for (let i = 0; i < itemSizes.length; i++) {
-          console.log("----")
-          console.log("i: ", i)
-          console.log("currentPageLength + itemSizes[i].height: ", currentPageLength + itemSizes[i].height)
-          console.log("container.offsetHeight: ", container.offsetHeight)
+          // console.log("----")
+          // console.log("i: ", i)
+          // console.log("currentPageLength + itemSizes[i].height: ", currentPageLength + itemSizes[i].height)
+          // console.log("container.offsetHeight: ", container.offsetHeight)
           if (currentPageLength + itemSizes[i].height > container.offsetHeight) {
             slices.set(currentPageNumber, { from: previousPageLastIndex, to: i });
             previousPageLastIndex = i;
@@ -67,10 +67,10 @@ function ModulePreview({ className = '', itemsWithCID }: Props): React.ReactElem
 
   console.log("pageToSlice: ", pageToSlice)
 
-  // const paginatedItems = pageToSlice.size? itemsWithCID.slice(pageToSlice.get(page)?.from, pageToSlice.get(page)?.to) : itemsWithCID;
-  const paginatedItems = itemsWithCID;
+  const paginatedItems = pageToSlice.size? itemsWithCID.slice(pageToSlice.get(page)?.from, pageToSlice.get(page)?.to) : itemsWithCID;
+
   console.log("page: ", page)
-  console.log("paginatedItems: ", paginatedItems)
+
   // 3) Observe every visible item <div> to keep itemSizes in sync
   useEffect(() => {
     if (itemRefs.current.length === 0) {
@@ -83,7 +83,7 @@ function ModulePreview({ className = '', itemsWithCID }: Props): React.ReactElem
         width: el?.offsetWidth ?? 0,
         height: el?.offsetHeight ?? 0
       }));
-      if(sizes.length && sizes[0].height){
+      if (sizes.length && sizes[0].height) {
         setItemSizes(sizes);
       }
     });
@@ -101,46 +101,58 @@ function ModulePreview({ className = '', itemsWithCID }: Props): React.ReactElem
   }, [itemsWithCID]); // re-run when the page changes or count changes
 
   return (
-    <StyledWrapper ref={containerRef} className={className} data-testid="preview">
-
-      <StyledDiv>
-        {paginatedItems.map((item, i) => (
-          <div
-            key={item.cid}
-            ref={(el) => {
-              // 4) Store each node in itemRefs.current[i]
-              itemRefs.current[i] = el;
-            }}
-            style={{ breakInside: 'avoid', marginBottom: '1rem' }}
-          >
-            <ItemPreview item={item} />
-          </div>
-        ))}
-      </StyledDiv>
-
-      {/* Example: you can read itemSizes anywhere you need */}
-      {/* console.log or use it in layout logic */}
-      {/* console.log('itemRefs:', itemRefs.current, 'itemSizes:', itemSizes) */}
-
-      {(
-        <NavButtons>
-          <button
-            data-testid="nav-prev"
-            onClick={() => setPage((p) => Math.max(p - 1, 0))}
-            disabled={firstIndex === 0}
-          >
-            ←
-          </button>
-          <button
-            data-testid="nav-next"
-            onClick={() => setPage((p) => p + 1)}
-            disabled={lastIndex === itemsWithCID.length}
-          >
-            →
-          </button>
-        </NavButtons>
-      )}
-    </StyledWrapper>
+    <>
+      <MeasureWrapper className={className} >
+        <StyledDiv>
+          {itemsWithCID.map((item, i) => (
+            <div
+              key={item.cid}
+              ref={(el) => {
+                // 4) Store each node in itemRefs.current[i]
+                itemRefs.current[i] = el;
+              }}
+              style={{ breakInside: 'avoid', marginBottom: '1rem' }}
+            >
+              <ItemPreview item={item} />
+            </div>
+          ))}
+        </StyledDiv>
+      </MeasureWrapper>
+      <StyledWrapper ref={containerRef} className={className} data-testid="preview">
+        <StyledDiv>
+          {paginatedItems.map((item, i) => (
+            <div
+              key={item.cid}
+              ref={(el) => {
+                // 4) Store each node in itemRefs.current[i]
+                itemRefs.current[i] = el;
+              }}
+              style={{ breakInside: 'avoid', marginBottom: '1rem' }}
+            >
+              <ItemPreview item={item} />
+            </div>
+          ))}
+        </StyledDiv>
+        {(
+          <NavButtons>
+            <button
+              data-testid="nav-prev"
+              onClick={() => setPage((p) => Math.max(p - 1, 0))}
+              disabled={firstIndex === 0}
+            >
+              ←
+            </button>
+            <button
+              data-testid="nav-next"
+              onClick={() => setPage((p) => p + 1)}
+              disabled={lastIndex === itemsWithCID.length}
+            >
+              →
+            </button>
+          </NavButtons>
+        )}
+      </StyledWrapper>
+    </>
   );
 }
 
@@ -151,6 +163,16 @@ const StyledWrapper = styled.div`
   width: 100vw;
   height: 100vh;
   z-index: 9999;
+  background: white;
+`;
+
+const MeasureWrapper = styled.div`
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+  z-index: 9998;
   background: white;
 `;
 
