@@ -359,9 +359,9 @@ export function serializeAsLetter(letterTemplate: LetterTemplate, referee: strin
 
 // Lesson related
 
-export function getLessonId(ids: any[]): string {
+export function getLessonId(studentPublicKeyHex: string, ids: any[]): string {
     const date = new Date().toISOString().split('T')[0]; // Get the current date in YYYY-MM-DD format
-    const dataToHash = `${date}-${ids.join('-')}`;
+    const dataToHash = `${date}-${studentPublicKeyHex}-${ids.join('-')}`;
     const hash = blake2AsHex(dataToHash);
     return hash;
 };
