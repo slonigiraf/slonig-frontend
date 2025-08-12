@@ -159,7 +159,7 @@ export const InstructionsButtonsGroup = styled.div`
   max-width: 300px;
   & > button {
     height: 2.5rem !important;
-    padding: 5px !important;
+    padding: 10px !important;
   }
 `;
 export const StyledSpinnerContainer = styled.div`
