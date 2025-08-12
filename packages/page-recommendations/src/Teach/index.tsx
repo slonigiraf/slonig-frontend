@@ -10,7 +10,6 @@ import LessonsList from './LessonsList.js';
 import LessonResults, { StyledCloseButton } from './LessonResults.js';
 import LessonRequestReceiver from './LessonRequestReceiver.js';
 import { useTranslation } from '../translate.js';
-import TeachingGlasses from './TeachingGlasses.js';
 
 interface Props {
   className?: string;
@@ -151,16 +150,15 @@ function Teach({ className = '' }: Props): React.ReactElement<Props> {
 
   const publicKeyHex = currentPair ? u8aToHex(currentPair.publicKey) : "";
 
-  const progress = lesson? `${lesson.learnStep + lesson.reexamineStep} / ${lesson.toLearnCount + lesson.toReexamineCount} ${t('of skills discussed.')}` : '';
   const reexamAndDiplomaIssuing = <FullFindow>
     <CenterContainer>
+      {lesson && <Progress><LinearProgress total={lesson.toLearnCount + lesson.toReexamineCount} value={lesson.learnStep + lesson.reexamineStep} /></Progress>}
       <CloseButton onClick={onCloseTutoring}
         icon='close'
       />
       <Bubbles>
       {!reexamined && reexaminationToPerform && <DoInstructions entity={reexaminationToPerform} onResult={updateReexamined} studentName={studentName} key={'reexaminine' + reexaminationToPerform.cid} />}
       {reexamined && letterTemplateToIssue && <DoInstructions entity={letterTemplateToIssue} onResult={updateLearned} studentName={studentName} studentUsedSlonig={studentUsedSlonig} key={'learn' + letterTemplateToIssue.cid} />}
-      <Comment>{progress}</Comment>
       </Bubbles>
     </CenterContainer>
   </FullFindow>;
@@ -201,8 +199,9 @@ const CenterContainer = styled.div`
     width: 800px;
   }
 `;
-const Comment = styled.div`
-  padding: 10px;
+const Progress = styled.div`
+  width: 70%;
+  margin-top: 17px;
 `;
 const Bubbles = styled.div`
   text-align: center;

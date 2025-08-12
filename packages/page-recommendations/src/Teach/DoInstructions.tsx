@@ -7,13 +7,12 @@ import { Button, Menu, Popup, Spinner, styled } from '@polkadot/react-components
 import type { Skill } from '@slonigiraf/app-slonig-components';
 import { ValidatingAlgorithm } from './ValidatingAlgorithm.js';
 import { useTranslation } from '../translate.js';
-import { ChatContainer, Bubble, useIpfsContext, HorizontalCenterItemsContainer } from '@slonigiraf/app-slonig-components';
+import { ChatContainer, Bubble, useIpfsContext } from '@slonigiraf/app-slonig-components';
 import { LetterTemplate, putLetterTemplate, Reexamination, updateReexamination } from '@slonigiraf/db';
 import { getIPFSDataFromContentID, parseJson, useInfo } from '@slonigiraf/app-slonig-components';
 import { TutoringAlgorithm } from './TutoringAlgorithm.js';
 import ChatSimulation from './ChatSimulation.js';
 import { ErrorType } from '@polkadot/react-params';
-import TeachingGlasses from './TeachingGlasses.js';
 
 interface Props {
   className?: string;
@@ -142,9 +141,6 @@ function DoInstructions({ className = '', entity, onResult, studentName, student
     <div className={className} >
       {algorithmStage ? (<>
         <InstructionsContainer key={entity?.cid}>
-          <CenterGlasses>
-            <TeachingGlasses selectedNumber={algorithmStage.getStageNumber()} />
-          </CenterGlasses>
           <ChatSimulation messages={algorithmStage.getMessages()} />
           {algorithmStage.getChatDecorator()}
           <InstructionsButtonsContainer>
