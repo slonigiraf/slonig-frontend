@@ -1,3 +1,4 @@
+import { styled } from '@polkadot/react-components';
 import React, { useCallback, useState } from 'react';
 
 interface Props {
@@ -6,9 +7,11 @@ interface Props {
 }
 
 function TeachingGlasses({ className = '', selectedNumber }: Props): React.ReactElement<Props> {
+  const getFillColor = (num: number) =>
+    num === selectedNumber ? "#0069b4" : "gray";
 
-  return <svg width="100%"
-    viewBox="0 0 1810 500"
+  return <StyledDiv><svg width="100%"
+    viewBox="0 0 1810 490"
     preserveAspectRatio="xMidYMid meet"
     xmlns="http://www.w3.org/2000/svg"
     version="1.1"
@@ -31,14 +34,90 @@ function TeachingGlasses({ className = '', selectedNumber }: Props): React.React
     <circle stroke="black" fill="none" r="50" cy="123.58965" cx="1710" />
     <circle stroke="black" fill="none" r="50" cy="123.58965" cx="1418.0007" />
     <circle id="svg_21" stroke="black" fill="none" r="50" cy="439.58965" cx="1232.0007" />
-    <text fill="gray" stroke="black" x="72" y="165" id="svg_20" stroke-width="0" font-size="120" text-anchor="start" xml:space="preserve">0</text>
-    <text fill="gray" stroke="black" x="359.84836" y="165" id="svg_23" stroke-width="0" font-size="120" text-anchor="start" xml:space="preserve">1</text>
-    <text fill="gray" stroke="black" x="545" y="481" id="svg_24" stroke-width="0" font-size="120" text-anchor="start" xml:space="preserve">2</text>
-    <text fill="gray" stroke="black" x="731" y="165" id="svg_25" stroke-width="0" font-size="120" text-anchor="start" xml:space="preserve">3</text>
-    <text fill="gray" stroke="black" x="1020" y="165" id="svg_26" stroke-width="0" font-size="120" text-anchor="start" xml:space="preserve">4</text>
-    <text fill="gray" stroke="black" x="1205" y="481" id="svg_27" stroke-width="0" font-size="120" text-anchor="start" xml:space="preserve">5</text>
-    <text fill="gray" stroke="black" x="1387" y="165" id="svg_28" stroke-width="0" font-size="115" text-anchor="start" xml:space="preserve">6</text>
-    <text fill="gray" stroke="black" x="1685" y="165" id="svg_29" stroke-width="0" font-size="115" text-anchor="start" xml:space="preserve">7</text>
-  </svg>;
+    <text
+        fill={getFillColor(0)}
+        stroke="black"
+        x="72"
+        y="165"
+        fontSize="120"
+        textAnchor="start"
+      >
+        0
+      </text>
+      <text
+        fill={getFillColor(1)}
+        stroke="black"
+        x="359.84836"
+        y="165"
+        fontSize="120"
+        textAnchor="start"
+      >
+        1
+      </text>
+      <text
+        fill={getFillColor(2)}
+        stroke="black"
+        x="545"
+        y="481"
+        fontSize="120"
+        textAnchor="start"
+      >
+        2
+      </text>
+      <text
+        fill={getFillColor(3)}
+        stroke="black"
+        x="731"
+        y="165"
+        fontSize="120"
+        textAnchor="start"
+      >
+        3
+      </text>
+      <text
+        fill={getFillColor(4)}
+        stroke="black"
+        x="1020"
+        y="165"
+        fontSize="120"
+        textAnchor="start"
+      >
+        4
+      </text>
+      <text
+        fill={getFillColor(5)}
+        stroke="black"
+        x="1205"
+        y="481"
+        fontSize="120"
+        textAnchor="start"
+      >
+        5
+      </text>
+      <text
+        fill={getFillColor(6)}
+        stroke="black"
+        x="1387"
+        y="165"
+        fontSize="115"
+        textAnchor="start"
+      >
+        6
+      </text>
+      <text
+        fill={getFillColor(7)}
+        stroke="black"
+        x="1685"
+        y="165"
+        fontSize="115"
+        textAnchor="start"
+      >
+        7
+      </text>
+  </svg></StyledDiv>;
 }
+const StyledDiv = styled.div`
+  width: 75%;
+  margin: 10px 0px 0px 0px;
+`;
 export default React.memo(TeachingGlasses);

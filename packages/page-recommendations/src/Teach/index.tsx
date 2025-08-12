@@ -206,7 +206,6 @@ const Comment = styled.div`
   padding: 10px;
 `;
 const Bubbles = styled.div`
-  margin-top: 40px;
   text-align: center;
 `;
 export const CloseButton = styled(Button)`
