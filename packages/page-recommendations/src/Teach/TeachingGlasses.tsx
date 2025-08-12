@@ -7,8 +7,10 @@ interface Props {
 }
 
 function TeachingGlasses({ className = '', selectedNumber }: Props): React.ReactElement<Props> {
-  const getFillColor = (num: number) =>
+  const getNumberColor = (num: number) =>
     num === selectedNumber ? "#0069b4" : "gray";
+  const getCircleColor = (num: number) =>
+    num === selectedNumber ? "#0069b4" : "white";
 
   return <StyledDiv><svg width="100%"
     viewBox="0 0 1810 490"
@@ -26,16 +28,17 @@ function TeachingGlasses({ className = '', selectedNumber }: Props): React.React
     <path transform="rotate(65.5, 1075.33, 303.416)" fill="none" stroke="black" d="m954.30745,268.23057c3.94104,-6.59515 5.63771,-3.13006 14.22087,0.92643c8.58316,4.05649 10.32582,5.12127 14.48118,6.45645c4.15536,1.33518 61.62195,23.84436 95.55012,21.6914c18.9093,-1.19992 37.11486,-5.75515 54.54977,-13.24578c1.04282,-0.448 2.00503,-1.08341 3.19495,-1.736c-1.10038,-5.16324 -6.42298,-7.19037 -8.67871,-12.67639c30.69412,-6.5448 61.04058,-13.01547 92.91427,-19.81177c-10.01016,30.89969 -19.54282,60.32532 -29.21817,90.19153c-4.63006,-2.36526 -6.88275,-6.15991 -9.6983,-9.25308c-2.1341,-2.34445 -3.82035,-3.01813 -6.78736,-1.3747c-26.26123,14.54578 -54.44641,23.37656 -84.23089,26.3631c-53.41254,5.35578 -102.8106,-6.74167 -147.99237,-35.80844c-3.50093,-2.25229 -6.85308,-4.73507 -10.33972,-7.01059c-2.98957,-1.95108 -2.61382,-2.27844 -0.44161,-6.25009c2.17221,-3.97165 18.53493,-31.86692 22.47597,-38.46207z" id="svg_12" />
     <path fill="none" stroke="black" d="m1124.17199,24.81541c3.94104,-6.59515 5.63771,-3.13006 14.22087,0.92643c8.58316,4.05649 10.32582,5.12127 14.48118,6.45645c4.15536,1.33518 61.62195,23.84436 95.55012,21.6914c18.9093,-1.19992 37.11486,-5.75515 54.54977,-13.24578c1.04282,-0.448 2.00503,-1.08341 3.19495,-1.736c-1.10038,-5.16324 -6.42298,-7.19037 -8.67871,-12.67639c30.69412,-6.5448 61.04058,-13.01547 92.91427,-19.81177c-10.01016,30.89969 -19.54282,60.32532 -29.21817,90.19153c-4.63006,-2.36526 -6.88275,-6.15991 -9.6983,-9.25308c-2.1341,-2.34445 -3.82035,-3.01813 -6.78736,-1.3747c-26.26123,14.54578 -54.44641,23.37656 -84.23089,26.3631c-53.41254,5.35578 -102.8106,-6.74167 -147.99237,-35.80844c-3.50093,-2.25229 -6.85308,-4.73507 -10.33972,-7.01059c-2.98957,-1.95108 -2.61382,-2.27844 -0.44161,-6.25009c2.17221,-3.97165 18.53493,-31.86692 22.47597,-38.46207z" id="svg_13" transform="rotate(187.5, 1245.19, 60.0001)" />
     <path fill="none" stroke="black" d="m1252.71565,288.1046c3.94104,-6.59515 5.63771,-3.13006 14.22087,0.92643c8.58316,4.05649 10.32582,5.12127 14.48118,6.45645c4.15536,1.33518 61.62195,23.84436 95.55012,21.6914c18.9093,-1.19992 37.11486,-5.75515 54.54977,-13.24578c1.04282,-0.448 2.00503,-1.08341 3.19495,-1.736c-1.10038,-5.16324 -6.42298,-7.19037 -8.67871,-12.67639c30.69412,-6.5448 61.04058,-13.01547 92.91427,-19.81177c-10.01016,30.89969 -19.54282,60.32532 -29.21817,90.19153c-4.63006,-2.36526 -6.88275,-6.15991 -9.6983,-9.25308c-2.1341,-2.34445 -3.82035,-3.01813 -6.78736,-1.3747c-26.26123,14.54578 -54.44641,23.37656 -84.23089,26.3631c-53.41254,5.35578 -102.8106,-6.74167 -147.99237,-35.80844c-3.50093,-2.25229 -6.85308,-4.73507 -10.33972,-7.01059c-2.98957,-1.95108 -2.61382,-2.27844 -0.44161,-6.25009c2.17221,-3.97165 18.53493,-31.86692 22.47597,-38.46207z" id="svg_14" transform="rotate(-52.5, 1373.73, 323.289)" />
-    <circle id="svg_11" stroke="black" fill="none" r="50" cy="124" cx="391.0007" />
-    <circle id="svg_1" stroke="black" fill="none" r="50" cy="124" cx="758.0007" />
-    <circle id="svg_7" stroke="black" fill="none" r="50" cy="440" cx="572.0007" />
-    <circle id="svg_10" stroke="black" fill="none" r="50" cy="123.58965" cx="1051.0007" />
-    <circle stroke="black" fill="none" r="50" cy="123.58965" cx="99" />
-    <circle stroke="black" fill="none" r="50" cy="123.58965" cx="1710" />
-    <circle stroke="black" fill="none" r="50" cy="123.58965" cx="1418.0007" />
-    <circle id="svg_21" stroke="black" fill="none" r="50" cy="439.58965" cx="1232.0007" />
+    
+    <circle stroke={getCircleColor(0)} fill="none" r="60" cy="123.58965" cx="99" />
+    <circle stroke={getCircleColor(1)} stroke-width="6" fill="none" r="60" cy="124" cx="391.0007" />
+    <circle stroke={getCircleColor(2)} fill="none" r="60" cy="440" cx="572.0007" />
+    <circle stroke={getCircleColor(3)} fill="none" r="60" cy="124" cx="758.0007" />
+    <circle stroke={getCircleColor(4)} fill="none" r="60" cy="123.58965" cx="1051.0007" />
+    <circle stroke={getCircleColor(5)} fill="none" r="60" cy="439.58965" cx="1232.0007" />
+    <circle stroke={getCircleColor(6)} fill="none" r="60" cy="123.58965" cx="1418.0007" />
+    <circle stroke={getCircleColor(7)} fill="none" r="60" cy="123.58965" cx="1710" />
     <text
-        fill={getFillColor(0)}
+        fill={getNumberColor(0)}
         stroke="black"
         x="72"
         y="165"
@@ -45,7 +48,7 @@ function TeachingGlasses({ className = '', selectedNumber }: Props): React.React
         0
       </text>
       <text
-        fill={getFillColor(1)}
+        fill={getNumberColor(1)}
         stroke="black"
         x="359.84836"
         y="165"
@@ -55,7 +58,7 @@ function TeachingGlasses({ className = '', selectedNumber }: Props): React.React
         1
       </text>
       <text
-        fill={getFillColor(2)}
+        fill={getNumberColor(2)}
         stroke="black"
         x="545"
         y="481"
@@ -65,7 +68,7 @@ function TeachingGlasses({ className = '', selectedNumber }: Props): React.React
         2
       </text>
       <text
-        fill={getFillColor(3)}
+        fill={getNumberColor(3)}
         stroke="black"
         x="731"
         y="165"
@@ -75,7 +78,7 @@ function TeachingGlasses({ className = '', selectedNumber }: Props): React.React
         3
       </text>
       <text
-        fill={getFillColor(4)}
+        fill={getNumberColor(4)}
         stroke="black"
         x="1020"
         y="165"
@@ -85,7 +88,7 @@ function TeachingGlasses({ className = '', selectedNumber }: Props): React.React
         4
       </text>
       <text
-        fill={getFillColor(5)}
+        fill={getNumberColor(5)}
         stroke="black"
         x="1205"
         y="481"
@@ -95,7 +98,7 @@ function TeachingGlasses({ className = '', selectedNumber }: Props): React.React
         5
       </text>
       <text
-        fill={getFillColor(6)}
+        fill={getNumberColor(6)}
         stroke="black"
         x="1387"
         y="165"
@@ -105,7 +108,7 @@ function TeachingGlasses({ className = '', selectedNumber }: Props): React.React
         6
       </text>
       <text
-        fill={getFillColor(7)}
+        fill={getNumberColor(7)}
         stroke="black"
         x="1685"
         y="165"
