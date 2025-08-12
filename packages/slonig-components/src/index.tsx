@@ -161,7 +161,6 @@ export const InstructionsButtonsGroup = styled.div`
   }
 `;
 export const ChatContainer = styled.div`
-  font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
   font-size: 18px;
   width: 100%;
 `;
