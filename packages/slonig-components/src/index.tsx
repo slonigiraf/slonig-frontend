@@ -292,8 +292,7 @@ export interface Person {
 
 export interface IMessage {
   text: string;
-  sender: 'you' | 'them';
-  senderName: string | null;
+  title: string | null;
   comment?: string;
   image?: string;
 }

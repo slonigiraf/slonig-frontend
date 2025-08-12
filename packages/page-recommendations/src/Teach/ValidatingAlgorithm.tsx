@@ -11,12 +11,12 @@ class ValidatingAlgorithm extends Algorithm {
         const myMessage: IMessage = {
             text: '',
             sender: 'you',
-            senderName: 'You'
+            title: 'You'
         };
         const theirMessage: IMessage = {
             text: '',
             sender: 'them',
-            senderName: studentName
+            title: studentName
         };
         const questions = skill ? skill.q : [];
         let question1: string = questions.length > 0 ? questions[0].h : t('SOME EXERCISE FOR SKILL TRAINING (THE TUTOR SHOULD KNOW)');
@@ -81,7 +81,7 @@ class ValidatingAlgorithm extends Algorithm {
                 { ...myMessage, text: t('Repeat after me:') },
                 { ...myMessage, text: question2, image: exerciseImage2, comment: t('I can change the exercise a little.') },
             ],
-            t('Has the student repeated correctly after me?')
+            t('Has the tutee repeated correctly after me?')
         );
 
         this.begin = new AlgorithmStage(

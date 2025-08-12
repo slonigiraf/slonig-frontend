@@ -6,16 +6,6 @@ import ExampleExercisesButton from './ExampleExercisesButton.js';
 class TutoringAlgorithm extends Algorithm {
     constructor(t: any, studentName: string | null, skill: Skill, studentUsesSlonigFirstTime: boolean) {
         super();
-        const myMessage: IMessage = {
-            text: '',
-            sender: 'you',
-            senderName: 'You'
-        };
-        const theirMessage: IMessage = {
-            text: '',
-            sender: 'them',
-            senderName: studentName
-        };
         const questions = skill ? skill.q : [];
         let question1: string = questions.length > 0 ? questions[0].h : t('SOME TASK FOR SKILL TRAINING (THE TUTOR SHOULD KNOW)');
         let answer1: string = questions.length > 0 ? questions[0].a : '';
@@ -34,7 +24,7 @@ class TutoringAlgorithm extends Algorithm {
             'repeat',
             t('No'),
             [
-                { ...myMessage, text: t('Excellent! Let\'s repeat this tomorrow.') },
+                { title: t('Say to the student.'), text: t('Excellent! Let\'s repeat this tomorrow.') },
             ]
         );
 
@@ -42,11 +32,10 @@ class TutoringAlgorithm extends Algorithm {
             'intermediate',
             t('No'),
             [
-                { ...theirMessage, text: t('...'), comment: t('The student has not corrected me.') },
-                { ...myMessage, text: t('Repeat after me:') },
-                { ...myMessage, text: t('...'), comment: t('I provide the student with the correct execution of the exercise invented by the student. I can peek at examples here:') },
+                { title: t('📖 Read what’s happening'), text: t('The student has not corrected me.') },
+                { title: t('🗣 Provide the tutee with the correct execution of the exercise invented by the tutee, and say'), text: t('Repeat after me.') },
             ],
-            t('Has the student repeated correctly?'),
+            t('Has the tutee repeated correctly?'),
             <ExampleExercisesButton skill={skill} />
         );
 
@@ -54,11 +43,10 @@ class TutoringAlgorithm extends Algorithm {
             'intermediate',
             t('No'),
             [
-                { ...theirMessage, text: t('...'), comment: t('The student has not executed the exercise correctly.') },
-                { ...myMessage, text: t('Repeat after me:') },
-                { ...myMessage, text: answer1 === '' ? t('...') : answer1, image: answerImage1, comment: answer1 === '' ? t('I provide the student with the correct execution of the exercise. I can peek at examples here:') : '' },
+                {  title: t('📖 Read what’s happening'), text: t('The tutee has not executed the exercise correctly.') },
+                { title: t('🗣 Say to the tutee'), text: t('Repeat after me:') + ' ' + answer1, image: answerImage1 },
             ],
-            t('Has the student repeated correctly?'),
+            t('Has the tutee repeated correctly?'),
             <ExampleExercisesButton skill={skill} />
         );
 
@@ -67,7 +55,7 @@ class TutoringAlgorithm extends Algorithm {
             'intermediate',
             t('Yes'),
             [
-                { ...theirMessage, text: t('...'), comment: t('The student has corrected me and has given me the correct solution.') },
+                { title: t('📖 Read what’s happening'), text: t('The student has corrected me and has given me the correct solution.') },
             ],
             t('Were all of the student\'s exercises and answers perfect today?')
         );
@@ -76,9 +64,8 @@ class TutoringAlgorithm extends Algorithm {
             'intermediate',
             t('Yes'),
             [
-                { ...theirMessage, text: t('...'), comment: t('An exercise invented by a student.') },
-                { ...myMessage, text: t('...'), comment: t('I deliberately incorrectly perform the exercise invented by the student and say:') },
-                { ...myMessage, text: t('Correct me.') },
+                { title: t('📖 Read what’s happening'), text: t('____ invented an exercise.').replace('____', studentName) },
+                { title: t('🗣 Deliberately incorrectly perform the exercise invented by the tutee and say'), text: t('Correct me.') },
             ],
             t('Has the student corrected the wrong solution?'),
             <ExampleExercisesButton skill={skill} />
@@ -88,11 +75,10 @@ class TutoringAlgorithm extends Algorithm {
             'intermediate',
             t('No'),
             [
-                { ...theirMessage, text: '...', comment: t('The student has not come up with the type of exercise needed.') },
-                { ...myMessage, text: t('Repeat after me:') },
-                { ...myMessage, text: question2, image: exerciseImage2, comment: t('I can change the exercise a little.') },
+                { title: t('📖 Read what’s happening'), text: t('The student has not come up with the type of exercise needed.') },
+                { title: t('🗣 Say to the tutee'), text: t('Repeat after me:') + ' ' + question2, image: exerciseImage2},
             ],
-            t('Has the student repeated correctly after me?')
+            t('Has the tutee repeated correctly after me?')
         );
 
         const skip = new AlgorithmStage(
@@ -105,9 +91,8 @@ class TutoringAlgorithm extends Algorithm {
             'begin',
             t('Yes'),
             [
-                { ...theirMessage, text: t('Teach me the skill') + (skill && ": \"" + skill.h + "\"") },
-                { ...myMessage, text: t('Come up with an exercise similar to this:') },
-                { ...myMessage, text: question1, image: exerciseImage1, comment: t('I can change the exercise a little.') },
+                { title: t('📖 Read what’s happening'), text: t('____ asks you to teach the skill').replace('____', studentName) + (skill && ": \"" + skill.h + "\"") },
+                { title: t('🗣 Say to the tutee'), text: t('Come up with an exercise similar to this:') + ' ' + question1, image: exerciseImage1 },
             ],
             t('Has the student now invented a similar exercise?')
         );
@@ -117,9 +102,8 @@ class TutoringAlgorithm extends Algorithm {
             'intermediate',
             t('Yes'),
             [
-                { ...theirMessage, text: t('...'), comment: t('The student has executed the exercise correctly.') },
-                { ...myMessage, text: t('Come up with an exercise similar to this:') },
-                { ...myMessage, text: question1, image: exerciseImage1, comment: t('I can change the exercise a little.') },
+                { title: t('📖 Read what’s happening'), text: t('The student has executed the exercise correctly.') },
+                { title: t('🗣 Say to the tutee'), text: t('Come up with an exercise similar to this:') + ' ' + question1, image: exerciseImage1},
             ],
             t('Has the student now invented a similar exercise?')
         );
@@ -128,8 +112,8 @@ class TutoringAlgorithm extends Algorithm {
             'begin',
             t('Yes'),
             [
-                { ...theirMessage, text: t('Teach me the skill') + (skill && ": \"" + skill.h + "\"") },
-                { ...myMessage, text: question1, image: exerciseImage1 },
+                { title: t('📖 Read what’s happening'), text: t('____ asks you to teach the skill').replace('____', studentName) + (skill && ": \"" + skill.h + "\"") },
+                { title: t('🗣 Say to the tutee'), text: question1, image: exerciseImage1 },
             ],
             t('Has the student now executed the exercise correctly?')
         );
@@ -138,9 +122,8 @@ class TutoringAlgorithm extends Algorithm {
             'begin',
             t('Yes'),
             [
-                { ...theirMessage, text: t('...'), comment: t('The student has repeated correctly after me.') },
-                { ...myMessage, text: t('Come up with an exercise similar to this:') },
-                { ...myMessage, text: question1, image: exerciseImage1, comment: t('I can change the exercise a little.') },
+                { title: t('📖 Read what’s happening'), text: t('The student has repeated correctly after me.') },
+                { title: t('🗣 Say to the tutee'), text: t('Come up with an exercise similar to this:') + ' '+ question1, image: exerciseImage1},
             ],
             t('Has the student now invented a similar exercise?')
         );
