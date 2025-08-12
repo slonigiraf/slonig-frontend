@@ -121,6 +121,6 @@ function TeachingGlasses({ className = '', selectedNumber }: Props): React.React
 }
 const StyledDiv = styled.div`
   width: 75%;
-  margin: 10px 0px 0px 0px;
+  margin-bottom: 10px;
 `;
 export default React.memo(TeachingGlasses);

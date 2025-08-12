@@ -154,7 +154,6 @@ function Teach({ className = '' }: Props): React.ReactElement<Props> {
   const progress = lesson? `${lesson.learnStep + lesson.reexamineStep} / ${lesson.toLearnCount + lesson.toReexamineCount} ${t('of skills discussed.')}` : '';
   const reexamAndDiplomaIssuing = <FullFindow>
     <CenterContainer>
-      <TeachingGlasses selectedNumber={1}/>
       <CloseButton onClick={onCloseTutoring}
         icon='close'
       />
