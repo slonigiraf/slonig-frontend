@@ -16,11 +16,13 @@ class TutoringAlgorithm extends Algorithm {
 
         // Initialize all stages
         const giveInsurance = new AlgorithmStage(
+            8,
             'success',
             t('Yes'),
             []
         );
         const repeatNextDay = new AlgorithmStage(
+            7,
             'repeat',
             t('No'),
             [
@@ -29,6 +31,7 @@ class TutoringAlgorithm extends Algorithm {
         );
 
         const askStudentToRepeatTheAnswer = new AlgorithmStage(
+            5,
             'intermediate',
             t('No'),
             [
@@ -40,6 +43,7 @@ class TutoringAlgorithm extends Algorithm {
         );
 
         const askStudentToRepeatTheSolutionOfExerciseOfTutor = new AlgorithmStage(
+            0,
             'intermediate',
             t('No'),
             [
@@ -51,6 +55,7 @@ class TutoringAlgorithm extends Algorithm {
 
 
         const wereTheStudentTasksAndAnswersPerfectToday = new AlgorithmStage(
+            7,
             'intermediate',
             t('Yes'),
             [
@@ -60,6 +65,7 @@ class TutoringAlgorithm extends Algorithm {
         );
 
         const provideFakeAnswer = new AlgorithmStage(
+            2,
             'intermediate',
             t('Yes'),
             [
@@ -71,6 +77,7 @@ class TutoringAlgorithm extends Algorithm {
         );
 
         const askToRepeatTaskAfterMeTheTask = new AlgorithmStage(
+            2,
             'intermediate',
             t('No'),
             [
@@ -81,12 +88,14 @@ class TutoringAlgorithm extends Algorithm {
         );
 
         const skip = new AlgorithmStage(
+            -1,
             'skip',
             t('Skip'),
             []
         );
 
         const askStudentToCreateASimilarExercise = new AlgorithmStage(
+            1,
             'begin',
             t('Yes'),
             [
@@ -98,6 +107,7 @@ class TutoringAlgorithm extends Algorithm {
 
         //Use only if student never used Slonig
         const askToCreateAnExerciseAfterCompletionOfExerciseOfTutor = new AlgorithmStage(
+            1,
             'intermediate',
             t('Yes'),
             [
@@ -108,6 +118,7 @@ class TutoringAlgorithm extends Algorithm {
         );
 
         const askStudentToSolveAnExercise = new AlgorithmStage(
+            1,
             'begin',
             t('Yes'),
             [
@@ -118,6 +129,7 @@ class TutoringAlgorithm extends Algorithm {
         );
 
         const repeatFromTheBeginning = new AlgorithmStage(
+            1,
             'begin',
             t('Yes'),
             [
@@ -128,6 +140,7 @@ class TutoringAlgorithm extends Algorithm {
         );
 
         const toNextSkill = new AlgorithmStage(
+            -1,
             'next_skill',
             t('Next'),
             []

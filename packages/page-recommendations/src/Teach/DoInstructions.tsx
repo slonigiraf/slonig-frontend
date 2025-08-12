@@ -143,7 +143,7 @@ function DoInstructions({ className = '', entity, onResult, studentName, student
       {algorithmStage ? (<>
         <InstructionsContainer key={entity?.cid}>
           <CenterGlasses>
-            <TeachingGlasses selectedNumber={1} />
+            <TeachingGlasses selectedNumber={algorithmStage.getStageNumber()} />
           </CenterGlasses>
           <ChatSimulation messages={algorithmStage.getMessages()} />
           {algorithmStage.getChatDecorator()}

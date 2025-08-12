@@ -120,7 +120,7 @@ function TeachingGlasses({ className = '', selectedNumber }: Props): React.React
   </svg></StyledDiv>;
 }
 const StyledDiv = styled.div`
-  width: 75%;
+  width: 60%;
   margin-bottom: 10px;
 `;
 export default React.memo(TeachingGlasses);

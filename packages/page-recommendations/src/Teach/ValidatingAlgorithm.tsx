@@ -16,6 +16,7 @@ class ValidatingAlgorithm extends Algorithm {
 
         // Initialize all stages
         const validateDiploma = new AlgorithmStage(
+            7,
             'intermediate',
             t('Yes'),
             [
@@ -24,6 +25,7 @@ class ValidatingAlgorithm extends Algorithm {
         );
 
         const explainReimburse = new AlgorithmStage(
+            7,
             'intermediate',
             t('No'),
             [
@@ -32,24 +34,28 @@ class ValidatingAlgorithm extends Algorithm {
         );
 
         const skip = new AlgorithmStage(
+            -1,
             'skip',
             t('Skip'),
             []
         );
 
         const nextToTeaching = new AlgorithmStage(
+            -1,
             'success',
             t('Next'),
             []
         );
 
         const reimburse = new AlgorithmStage(
+            8,
             'reimburse',
             t('Get bounty'),
             []
         );
 
         const provideFakeSolution = new AlgorithmStage(
+            2,
             'intermediate',
             t('Yes'),
             [
@@ -61,6 +67,7 @@ class ValidatingAlgorithm extends Algorithm {
         );
 
         const askToRepeatTheExerciseAfterMe = new AlgorithmStage(
+            3,
             'intermediate',
             t('No'),
             [
@@ -71,6 +78,7 @@ class ValidatingAlgorithm extends Algorithm {
         );
 
         this.begin = new AlgorithmStage(
+            1,
             'begin',
             t('Yes'),
             [
@@ -81,6 +89,7 @@ class ValidatingAlgorithm extends Algorithm {
         );
 
         const repeatFromTheBeginning = new AlgorithmStage(
+            1,
             'begin',
             t('Yes'),
             [

@@ -8,12 +8,14 @@ class AlgorithmStage {
     private chatDecorator: React.ReactNode;
     private next: AlgorithmStage[];
     private previous: AlgorithmStage | null;
+    private stageNumber: number;
 
-    constructor(type: string, name: string, messages: IMessage[], actionHint: string = '', chatDecorator: React.ReactNode = null) {
+    constructor(stageNumber: number, type: string, name: string, messages: IMessage[], actionHint: string = '', chatDecorator: React.ReactNode = null) {
         this.type = type;
         this.name = name;
         this.messages = messages;
         this.actionHint = actionHint;
+        this.stageNumber = stageNumber;
         this.chatDecorator = chatDecorator;
         this.next = [];
         this.previous = null;
@@ -37,6 +39,10 @@ class AlgorithmStage {
 
     getName(): string {
         return this.name;
+    }
+
+    getStageNumber(): number {
+        return this.stageNumber;
     }
 
     getChatDecorator(): React.ReactNode {
