@@ -33,7 +33,7 @@ const KatexSpan: React.FC<Props> = ({ content }) => {
 
   return (
     <span>
-      {parseContent(content)}
+      {content && parseContent(content)}
     </span>
   );
 };

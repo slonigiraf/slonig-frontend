@@ -56,7 +56,7 @@ class ValidatingAlgorithm extends Algorithm {
                 { title: t('📖 Read what’s happening'), text: t('The tutee invented an exercise.') },
                 { title: t('🗣 Deliberately incorrectly perform the exercise invented by the tutee and say'), text: t('Correct me.') },
             ],
-            t('Has the student corrected the wrong solution?'),
+            t('Has the tutee corrected the wrong solution?'),
             <ExampleExercisesButton skill={skill} />
         );
 
@@ -85,8 +85,9 @@ class ValidatingAlgorithm extends Algorithm {
             t('Yes'),
             [
                 { title: t('📖 Read what’s happening'), text: t('The tutee has repeated correctly after me.') },
-                { title: t('🗣 Say to the tutee'), text: t('Come up with an exercise similar to this:') + ' '+ question1, image: exerciseImage1},
-            ]
+                { title: t('🗣 Say to the tutee'), text: t('Come up with an exercise similar to this:') + ' '+ question1, image: exerciseImage1}
+            ],
+            t('Has the tutee now invented a similar exercise?')
         );
 
         // Algo linking:

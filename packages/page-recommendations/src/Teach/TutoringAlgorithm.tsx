@@ -66,7 +66,7 @@ class TutoringAlgorithm extends Algorithm {
                 { title: t('📖 Read what’s happening'), text: t('The tutee invented an exercise.') },
                 { title: t('🗣 Deliberately incorrectly perform the exercise invented by the tutee and say'), text: t('Correct me.') },
             ],
-            t('Has the student corrected the wrong solution?'),
+            t('Has the tutee corrected the wrong solution?'),
             <ExampleExercisesButton skill={skill} />
         );
 

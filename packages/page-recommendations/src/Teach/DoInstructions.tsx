@@ -145,11 +145,11 @@ function DoInstructions({ className = '', entity, onResult, studentName, student
           {algorithmStage.getChatDecorator()}
           <InstructionsButtonsContainer>
             <Bubble>
-              {algorithmStage.getActionHint() && (
-                <ChatContainer><h2>{t('⚖️ Decide on the next step')}</h2>
-                  {algorithmStage.getActionHint()}
-                </ChatContainer>
-              )}
+              <ChatContainer><h2>{t('⚖️ Decide on the next step')}</h2>
+                {algorithmStage.getActionHint() && (
+                  algorithmStage.getActionHint()
+                )}
+              </ChatContainer>
               <InstructionsButtonsGroup>
                 {algorithmStage.getPrevious() && (
                   <Button key={algorithmStage.getId()} onClick={() => handleStageChange(algorithmStage.getPrevious())}
