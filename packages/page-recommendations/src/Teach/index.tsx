@@ -9,6 +9,7 @@ import DoInstructions from './DoInstructions.js';
 import LessonsList from './LessonsList.js';
 import LessonResults, { StyledCloseButton } from './LessonResults.js';
 import LessonRequestReceiver from './LessonRequestReceiver.js';
+import { useTranslation } from '../translate.js';
 
 interface Props {
   className?: string;
@@ -17,7 +18,7 @@ interface Props {
 function Teach({ className = '' }: Props): React.ReactElement<Props> {
   // Initialize api, ipfs and translation
   const { currentPair, isLoggedIn } = useLoginContext();
-
+  const { t } = useTranslation();
   const [reexaminationToPerform, setReexaminationToPerform] = useState<Reexamination | null>(null);
   const [letterTemplateToIssue, setLetterTemplateToIssue] = useState<LetterTemplate | null>(null);
 
@@ -149,20 +150,15 @@ function Teach({ className = '' }: Props): React.ReactElement<Props> {
 
   const publicKeyHex = currentPair ? u8aToHex(currentPair.publicKey) : "";
 
+  const progress = lesson? `${lesson.learnStep + lesson.reexamineStep} / ${lesson.toLearnCount + lesson.toReexamineCount} ${t('of skills discussed.')}` : '';
   const reexamAndDiplomaIssuing = <FullFindow>
     <CenterContainer>
-      {lesson && <div
-        style={{ marginLeft: '0px', marginRight: '40px' }}>
-        <LinearProgress
-          value={lesson.learnStep + lesson.reexamineStep}
-          total={lesson.toLearnCount + lesson.toReexamineCount}
-        />
-      </div>}
       <CloseButton onClick={onCloseTutoring}
         icon='close'
       />
       {!reexamined && reexaminationToPerform && <DoInstructions entity={reexaminationToPerform} onResult={updateReexamined} studentName={studentName} key={'reexaminine' + reexaminationToPerform.cid} />}
       {reexamined && letterTemplateToIssue && <DoInstructions entity={letterTemplateToIssue} onResult={updateLearned} studentName={studentName} studentUsedSlonig={studentUsedSlonig} key={'learn' + letterTemplateToIssue.cid} />}
+      <Comment>{progress}</Comment>
     </CenterContainer>
   </FullFindow>;
 
@@ -201,6 +197,9 @@ const CenterContainer = styled.div`
   @media (min-width: 800px) {
     width: 800px;
   }
+`;
+const Comment = styled.div`
+  padding: 10px;
 `;
 export const CloseButton = styled(Button)`
   position: absolute;
