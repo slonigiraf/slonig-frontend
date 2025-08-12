@@ -1,9 +1,9 @@
 // Copyright 2021-2022 @slonigiraf/app-recommendations authors & contributors
 // SPDX-License-Identifier: Apache-2.0
 import React, { useCallback, useEffect, useState } from 'react';
-import { LinearProgress } from '@polkadot/react-components';
+import { Button, LinearProgress, styled } from '@polkadot/react-components';
 import { u8aToHex } from '@polkadot/util';
-import { useLoginContext } from '@slonigiraf/app-slonig-components';
+import { AppContainer, useLoginContext } from '@slonigiraf/app-slonig-components';
 import { LetterTemplate, Lesson, Reexamination, getPseudonym, getLesson, getLetterTemplatesByLessonId, getReexaminationsByLessonId, deleteSetting, getSetting, storeSetting, updateLesson, getLetter, getReexamination, SettingKey } from '@slonigiraf/db';
 import DoInstructions from './DoInstructions.js';
 import LessonsList from './LessonsList.js';
@@ -149,20 +149,22 @@ function Teach({ className = '' }: Props): React.ReactElement<Props> {
 
   const publicKeyHex = currentPair ? u8aToHex(currentPair.publicKey) : "";
 
-  const reexamAndDiplomaIssuing = <>
-    {lesson && <div
-      style={{ marginLeft: '0px', marginRight: '40px' }}>
-      <LinearProgress
-        value={lesson.learnStep + lesson.reexamineStep}
-        total={lesson.toLearnCount + lesson.toReexamineCount}
+  const reexamAndDiplomaIssuing = <FullFindow>
+    <CenterContainer>
+      {lesson && <div
+        style={{ marginLeft: '0px', marginRight: '40px' }}>
+        <LinearProgress
+          value={lesson.learnStep + lesson.reexamineStep}
+          total={lesson.toLearnCount + lesson.toReexamineCount}
+        />
+      </div>}
+      <CloseButton onClick={onCloseTutoring}
+        icon='close'
       />
-    </div>}
-    <StyledCloseButton onClick={onCloseTutoring}
-      icon='close'
-    />
-    {!reexamined && reexaminationToPerform && <DoInstructions entity={reexaminationToPerform} onResult={updateReexamined} studentName={studentName} key={'reexaminine' + reexaminationToPerform.cid} />}
-    {reexamined && letterTemplateToIssue && <DoInstructions entity={letterTemplateToIssue} onResult={updateLearned} studentName={studentName} studentUsedSlonig={studentUsedSlonig} key={'learn' + letterTemplateToIssue.cid} />}
-  </>;
+      {!reexamined && reexaminationToPerform && <DoInstructions entity={reexaminationToPerform} onResult={updateReexamined} studentName={studentName} key={'reexaminine' + reexaminationToPerform.cid} />}
+      {reexamined && letterTemplateToIssue && <DoInstructions entity={letterTemplateToIssue} onResult={updateLearned} studentName={studentName} studentUsedSlonig={studentUsedSlonig} key={'learn' + letterTemplateToIssue.cid} />}
+    </CenterContainer>
+  </FullFindow>;
 
   return (
     <div className={`toolbox--Tutor ${className}`}>
@@ -179,5 +181,32 @@ function Teach({ className = '' }: Props): React.ReactElement<Props> {
     </div>
   );
 }
-
+const FullFindow = styled.div`
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+  z-index: 1001;
+  background: white;
+`;
+const CenterContainer = styled.div`
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  width: 100%;
+  margin: 0 auto;
+  min-height: 500px;
+  @media (min-width: 800px) {
+    width: 800px;
+  }
+`;
+export const CloseButton = styled(Button)`
+  position: absolute;
+  width: 40px;
+  top: 10px;
+  right: 10px;
+  z-index: 1;
+`;
 export default React.memo(Teach);

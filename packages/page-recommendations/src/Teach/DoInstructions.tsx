@@ -7,7 +7,7 @@ import { Button, Menu, Popup, Spinner, styled } from '@polkadot/react-components
 import type { Skill } from '@slonigiraf/app-slonig-components';
 import { ValidatingAlgorithm } from './ValidatingAlgorithm.js';
 import { useTranslation } from '../translate.js';
-import { ChatContainer, InstructionsButtonsContainer, InstructionsButtonsGroup, InstructionsContainer, Bubble, useIpfsContext } from '@slonigiraf/app-slonig-components';
+import { ChatContainer, Bubble, useIpfsContext } from '@slonigiraf/app-slonig-components';
 import { LetterTemplate, putLetterTemplate, Reexamination, updateReexamination } from '@slonigiraf/db';
 import { getIPFSDataFromContentID, parseJson, useInfo } from '@slonigiraf/app-slonig-components';
 import { TutoringAlgorithm } from './TutoringAlgorithm.js';
@@ -227,4 +227,38 @@ const StyledSpinner = styled(Spinner)`
   margin: 20px;
 `;
 
+export const InstructionsContainer = styled.div`
+  padding: 15px 3px 3px 3px;
+  width: 100%;
+`;
+export const InstructionsButtonsContainer = styled.div`
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 0px 3px 0px 3px;
+  .hint {
+    text-align: center;
+    padding-bottom: 10px;
+  }
+  box-shadow: 0 1px 0.5px rgba(0, 0, 0, 0.13);
+  width: 100%;
+  margin: 0;
+  word-wrap: break-word;
+  position: relative;
+  text-align: center;
+`;
+export const InstructionsButtonsGroup = styled.div`
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  margin: 0 auto;
+  min-width: 300px;
+  max-width: 300px;
+  & > button {
+    height: 2.5rem !important;
+    padding: 10px !important;
+  }
+`;
 export default React.memo(DoInstructions)
