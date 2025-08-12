@@ -17,6 +17,7 @@ const ChatSimulation: React.FC<ChatSimulationProps> = ({ messages }) => {
               {message.comment && <Red>&nbsp;*</Red>}
               {message.image && <><br/><ResizableImage cid={message.image} /></>}
             </Bubble>
+            <Arrow><h2><b>↓</b></h2></Arrow>
             {message.comment && <Comment sender={message.sender}><Red>*&nbsp;</Red>{message.comment}</Comment>}
           </MessageContainer>
         ))}
@@ -32,23 +33,31 @@ const ChatContainer = styled.div`
 const MessageContainer = styled.div<{ sender: 'you' | 'them' }>`
   display: flex;
   flex-direction: column;
-  align-items: ${props => props.sender === 'you' ? 'flex-end' : 'flex-start'};
-  padding: 3px;
+  padding: 0px 3px 0px 3px;
   width: 100%;
   margin: 0 auto;
 `;
 
-const BUBBLE_WIDTH_PERCENT = 90;
-const Bubble = styled.div<{ sender: 'you' | 'them' }>`
-  background-color: ${props => props.sender === 'you' ? '#daf8cb' : 'white'};
+const BUBBLE_WIDTH_PERCENT = 100;
+const Bubble = styled.div`
+  background-color: white;
   border-radius: 7.5px;
   box-shadow: 0 1px 0.5px rgba(0, 0, 0, 0.13);
-  max-width: ${BUBBLE_WIDTH_PERCENT}%;
-  min-width: ${BUBBLE_WIDTH_PERCENT}%;
+  width: 100%;
   padding: 15px;
-  margin: 1px 0;
+  margin: 0;
   word-wrap: break-word;
   position: relative;
+  outline: 2px solid var(--color-header);
+`;
+const Arrow = styled.div`
+  width: 100%;
+  padding: 0px;
+  margin: 0;
+  text-align: center;
+  h2 {
+    margin: 0;
+  }
 `;
 
 const SenderName = styled.div`
