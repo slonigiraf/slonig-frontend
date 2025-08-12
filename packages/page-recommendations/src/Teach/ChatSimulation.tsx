@@ -1,6 +1,6 @@
 import React from 'react';
 import { styled } from '@polkadot/react-components';
-import { ChatContainer, IMessage, KatexSpan, ResizableImage } from '@slonigiraf/app-slonig-components';
+import { Bubble, ChatContainer, IMessage, KatexSpan, ResizableImage } from '@slonigiraf/app-slonig-components';
 
 interface ChatSimulationProps {
     messages: IMessage[];
@@ -32,18 +32,6 @@ const MessageContainer = styled.div`
   margin: 0 auto;
 `;
 
-const Bubble = styled.div`
-  background-color: white;
-  border-radius: 7.5px;
-  box-shadow: 0 1px 0.5px rgba(0, 0, 0, 0.13);
-  width: 100%;
-  padding: 15px;
-  margin: 0;
-  word-wrap: break-word;
-  position: relative;
-  outline: 2px solid var(--color-header);
-  text-align: center;
-`;
 const Arrow = styled.div`
   width: 100%;
   padding: 0px;

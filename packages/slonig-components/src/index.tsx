@@ -119,12 +119,25 @@ export const CenterQRContainer = styled.div`
 `;
 
 export const InstructionsContainer = styled.div`
-  padding-top: 15px;
+  padding: 15px 3px 3px 3px;
   width: 100%;
   margin-top: 10px;
   max-height: calc(100vh - 260px); /* Limit height to ensure it stops 200px from the bottom */
   overflow-y: auto; /* Enable scrolling when content exceeds height */
   box-sizing: border-box; /* Include padding in height calculations */
+`;
+
+export const Bubble = styled.div`
+  background-color: white;
+  border-radius: 7.5px;
+  box-shadow: 0 1px 0.5px rgba(0, 0, 0, 0.13);
+  width: 100%;
+  padding: 15px;
+  margin: 0;
+  word-wrap: break-word;
+  position: relative;
+  outline: 2px solid var(--color-header);
+  text-align: center;
 `;
 
 export const InstructionsButtonsContainer = styled.div`
@@ -140,7 +153,6 @@ export const InstructionsButtonsContainer = styled.div`
   border-radius: 7.5px;
   box-shadow: 0 1px 0.5px rgba(0, 0, 0, 0.13);
   width: 100%;
-  padding: 15px;
   margin: 0;
   word-wrap: break-word;
   position: relative;

@@ -17,9 +17,8 @@ function ExampleExercisesButton({ className = '', skill }: Props): React.ReactEl
   const { t } = useTranslation();
   const [areDetailsOpen, toggleDetailsOpen] = useToggle(false);
   return (
-    <AlignRightDiv>
+    <StyledDiv>
       <Button
-        icon='eye'
         label={t('examples')}
         onClick={toggleDetailsOpen}
       />
@@ -34,8 +33,14 @@ function ExampleExercisesButton({ className = '', skill }: Props): React.ReactEl
             <ExerciseList exercises={skill.q} />
           </Modal.Content>
         </Modal>}
-    </AlignRightDiv>
+    </StyledDiv>
   );
 }
-
+export const StyledDiv = styled.div`
+    width: 100%;
+    display: flex;
+    justify-content: right;
+    margin-top: -30px;
+    margin-bottom: -5px;
+`;
 export default React.memo(ExampleExercisesButton);

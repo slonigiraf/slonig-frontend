@@ -7,7 +7,7 @@ import { Button, Menu, Popup, Spinner, styled } from '@polkadot/react-components
 import type { Skill } from '@slonigiraf/app-slonig-components';
 import { ValidatingAlgorithm } from './ValidatingAlgorithm.js';
 import { useTranslation } from '../translate.js';
-import { ChatContainer, InstructionsButtonsContainer, InstructionsButtonsGroup, InstructionsContainer, useIpfsContext } from '@slonigiraf/app-slonig-components';
+import { ChatContainer, InstructionsButtonsContainer, InstructionsButtonsGroup, InstructionsContainer, Bubble, useIpfsContext } from '@slonigiraf/app-slonig-components';
 import { LetterTemplate, putLetterTemplate, Reexamination, updateReexamination } from '@slonigiraf/db';
 import { getIPFSDataFromContentID, parseJson, useInfo } from '@slonigiraf/app-slonig-components';
 import { TutoringAlgorithm } from './TutoringAlgorithm.js';
@@ -143,71 +143,73 @@ function DoInstructions({ className = '', entity, onResult, studentName, student
         <InstructionsContainer key={entity?.cid}>
           <ChatSimulation messages={algorithmStage.getMessages()} />
           {algorithmStage.getChatDecorator()}
-        </InstructionsContainer>
-        <InstructionsButtonsContainer>
-          {algorithmStage.getActionHint() && (
-            <><h2>{t('⚖️ Decide on the next step')}</h2>
-              <ChatContainer>{algorithmStage.getActionHint()}</ChatContainer>
-            </>
-          )}
-          <InstructionsButtonsGroup>
-            {algorithmStage.getPrevious() && (
-              <Button key={algorithmStage.getId()} onClick={() => handleStageChange(algorithmStage.getPrevious())}
-                icon='arrow-left'
-                label={t('Back')}
-                isDisabled={isButtonClicked}
-              />
-            )}
-            {algorithmStage.getNext().map((nextStage, index) => (
-              <Button key={index + algorithmStage.getId()} onClick={() => handleStageChange(nextStage)}
-                icon='square'
-                label={nextStage.getName()}
-                isDisabled={isButtonClicked}
-              />
-            ))}
-            {!algorithmStage.getPrevious() &&
-              <StyledPopup
-                value={
-                  <Menu>
-                    {isReexamination(entity) ?
-                      <React.Fragment>
-                        <Menu.Item
-                          icon='thumbs-up'
-                          key='studentPassedReexamination'
-                          label={t('Student has the skill')}
-                          onClick={studentPassedReexamination}
-                        />
-                        <Menu.Divider />
-                        <Menu.Item
-                          icon='circle-exclamation'
-                          key='studentFailedReexamination'
-                          label={t('Student failed the reexamination')}
-                          onClick={studentFailedReexamination}
-                        />
-                      </React.Fragment>
-                      :
-                      <React.Fragment>
-                        <Menu.Item
-                          icon='thumbs-up'
-                          key='issueDiploma'
-                          label={t('Student mastered the skill')}
-                          onClick={issueDiploma}
-                        />
-                        <Menu.Divider />
-                        <Menu.Item
-                          icon='circle-exclamation'
-                          key='repeatTomorrow'
-                          label={t('Should be repeated tomorrow')}
-                          onClick={repeatTomorrow}
-                        />
-                      </React.Fragment>
+          <InstructionsButtonsContainer>
+            <Bubble>
+              {algorithmStage.getActionHint() && (
+                <ChatContainer><h2>{t('⚖️ Decide on the next step')}</h2>
+                  {algorithmStage.getActionHint()}
+                </ChatContainer>
+              )}
+              <InstructionsButtonsGroup>
+                {algorithmStage.getPrevious() && (
+                  <Button key={algorithmStage.getId()} onClick={() => handleStageChange(algorithmStage.getPrevious())}
+                    icon='arrow-left'
+                    label={t('Back')}
+                    isDisabled={isButtonClicked}
+                  />
+                )}
+                {algorithmStage.getNext().map((nextStage, index) => (
+                  <Button key={index + algorithmStage.getId()} onClick={() => handleStageChange(nextStage)}
+                    icon='square'
+                    label={nextStage.getName()}
+                    isDisabled={isButtonClicked}
+                  />
+                ))}
+                {!algorithmStage.getPrevious() &&
+                  <StyledPopup
+                    value={
+                      <Menu>
+                        {isReexamination(entity) ?
+                          <React.Fragment>
+                            <Menu.Item
+                              icon='thumbs-up'
+                              key='studentPassedReexamination'
+                              label={t('Student has the skill')}
+                              onClick={studentPassedReexamination}
+                            />
+                            <Menu.Divider />
+                            <Menu.Item
+                              icon='circle-exclamation'
+                              key='studentFailedReexamination'
+                              label={t('Student failed the reexamination')}
+                              onClick={studentFailedReexamination}
+                            />
+                          </React.Fragment>
+                          :
+                          <React.Fragment>
+                            <Menu.Item
+                              icon='thumbs-up'
+                              key='issueDiploma'
+                              label={t('Student mastered the skill')}
+                              onClick={issueDiploma}
+                            />
+                            <Menu.Divider />
+                            <Menu.Item
+                              icon='circle-exclamation'
+                              key='repeatTomorrow'
+                              label={t('Should be repeated tomorrow')}
+                              onClick={repeatTomorrow}
+                            />
+                          </React.Fragment>
+                        }
+                      </Menu>
                     }
-                  </Menu>
-                }
-              />}
+                  />}
 
-          </InstructionsButtonsGroup>
-        </InstructionsButtonsContainer>
+              </InstructionsButtonsGroup>
+            </Bubble>
+          </InstructionsButtonsContainer>
+        </InstructionsContainer>
       </>) : (
         <div>Error: Reload the page</div>
       )}
