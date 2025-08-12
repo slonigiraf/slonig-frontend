@@ -92,7 +92,7 @@ class ValidatingAlgorithm extends Algorithm {
                 { ...myMessage, text: t('Come up with an exercise similar to this:') },
                 { ...myMessage, text: question1, image: exerciseImage1, comment: t('I can change the exercise a little.') },
             ],
-            t('Has the student now invented a similar exercise?')
+            t('Has the tutee now invented a similar exercise?')
         );
 
         const repeatFromTheBeginning = new AlgorithmStage(

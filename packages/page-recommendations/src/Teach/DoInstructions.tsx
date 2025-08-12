@@ -7,7 +7,7 @@ import { Button, Menu, Popup, Spinner, styled } from '@polkadot/react-components
 import type { Skill } from '@slonigiraf/app-slonig-components';
 import { ValidatingAlgorithm } from './ValidatingAlgorithm.js';
 import { useTranslation } from '../translate.js';
-import { InstructionsButtonsContainer, InstructionsButtonsGroup, InstructionsContainer, useIpfsContext } from '@slonigiraf/app-slonig-components';
+import { ChatContainer, InstructionsButtonsContainer, InstructionsButtonsGroup, InstructionsContainer, useIpfsContext } from '@slonigiraf/app-slonig-components';
 import { LetterTemplate, putLetterTemplate, Reexamination, updateReexamination } from '@slonigiraf/db';
 import { getIPFSDataFromContentID, parseJson, useInfo } from '@slonigiraf/app-slonig-components';
 import { TutoringAlgorithm } from './TutoringAlgorithm.js';
@@ -147,7 +147,7 @@ function DoInstructions({ className = '', entity, onResult, studentName, student
         <InstructionsButtonsContainer>
           {algorithmStage.getActionHint() && (
             <><h2>{t('⚖️ Decide on the next step')}</h2>
-              <span>{algorithmStage.getActionHint()}</span>
+              <ChatContainer>{algorithmStage.getActionHint()}</ChatContainer>
             </>
           )}
           <InstructionsButtonsGroup>

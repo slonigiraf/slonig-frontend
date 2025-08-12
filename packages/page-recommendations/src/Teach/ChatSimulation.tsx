@@ -1,6 +1,6 @@
 import React from 'react';
 import { styled } from '@polkadot/react-components';
-import { IMessage, KatexSpan, ResizableImage } from '@slonigiraf/app-slonig-components';
+import { ChatContainer, IMessage, KatexSpan, ResizableImage } from '@slonigiraf/app-slonig-components';
 
 interface ChatSimulationProps {
     messages: IMessage[];
@@ -23,11 +23,6 @@ const ChatSimulation: React.FC<ChatSimulationProps> = ({ messages }) => {
       </ChatContainer>
     );
 };
-const ChatContainer = styled.div`
-  font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
-  font-size: 18px;
-  width: 100%;
-`;
 
 const MessageContainer = styled.div`
   display: flex;

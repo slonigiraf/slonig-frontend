@@ -424,7 +424,7 @@
   "I deliberately incorrectly perform the exercise invented by the student and say:": "Я специально неправильно выполняю придуманное учеником упражнение и говорю:",
   "Correct me.": "Поправь меня.",
   "Tell the student:": "Скажи ученику:",
-  "Has the student now invented a similar exercise?": "Придумал ли ученик сейчас похожее упражнение?",
+  "Has the tutee now invented a similar exercise?": "Придумал ли ученик сейчас похожее упражнение?",
   "Come up with an exercise similar to this:": "Придумай упражнение, похожее на такое:",
   "Great, you remember the skill.": "Отлично, ты помнишь этот навык.",
   "You don't have such a skill. I will penalize the tutor which issued the badge for it.": "У тебя нет такого навыка. Я оштрафую репетитора, выдавшего за этот значок.",
@@ -466,7 +466,7 @@
   "No internet connection. Check your connection and try again.": "Нет подключения к интернету. Проверьте соединение и попробуйте снова.",
   "Metadata": "Метаданные",
   "The student has executed the exercise correctly.": "Ученик правильно выполнил упражнение.",
-  "Has the student now executed the exercise correctly?": "Правильно ли ученик выполнил упражнение?",
+  "Has the tutee now executed the exercise correctly?": "Правильно ли ученик выполнил упражнение?",
   "The tutee has not executed the exercise correctly.": "Ученик не выполнил упражнение.",
   "Correct execution of the exercise invented by the student.": "Правильное решение и ответ к упражнению, придуманному учеником.",
   "Correct execution of the exercise": "Правильное выполнение упражнения.",
@@ -524,6 +524,6 @@
   "⚖️ Decide on the next step": "⚖️ Определи следующий шаг",
   "🗣 Deliberately incorrectly perform the exercise invented by the tutee and say": "🗣 Специально ошибочно выполни упражнение, придуманное учеником, и скажи",
   "🗣 Provide the tutee with the correct execution of the exercise invented by the tutee, and say": "🗣 Покажи ученику, как правильно выполнить упражнение, которое он придумал, и скажи",
-  "____ invented an exercise." : "____ придумал упражнение.",
+  "The tutee invented an exercise." : "Ученик придумал упражнение.",
   "⚖️ Decide on the next step": "⚖️ Выбери следующий шаг"
 }

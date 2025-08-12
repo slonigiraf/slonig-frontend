@@ -146,8 +146,6 @@ export const InstructionsButtonsContainer = styled.div`
   position: relative;
   outline: 2px solid var(--color-header);
   text-align: center;
-  font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
-  font-size: 18px;
 `;
 export const InstructionsButtonsGroup = styled.div`
   display: flex;
@@ -162,6 +160,12 @@ export const InstructionsButtonsGroup = styled.div`
     padding: 10px !important;
   }
 `;
+export const ChatContainer = styled.div`
+  font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
+  font-size: 18px;
+  width: 100%;
+`;
+
 export const StyledSpinnerContainer = styled.div`
   .ui--Spinner{
     width: 50px;

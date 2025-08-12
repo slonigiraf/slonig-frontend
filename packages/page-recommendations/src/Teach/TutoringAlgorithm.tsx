@@ -63,7 +63,7 @@ class TutoringAlgorithm extends Algorithm {
             'intermediate',
             t('Yes'),
             [
-                { title: t('📖 Read what’s happening'), text: t('____ invented an exercise.').replace('____', studentName) },
+                { title: t('📖 Read what’s happening'), text: t('The tutee invented an exercise.') },
                 { title: t('🗣 Deliberately incorrectly perform the exercise invented by the tutee and say'), text: t('Correct me.') },
             ],
             t('Has the student corrected the wrong solution?'),
@@ -93,7 +93,7 @@ class TutoringAlgorithm extends Algorithm {
                 { title: t('📖 Read what’s happening'), text: t('____ asks you to teach the skill').replace('____', studentName) + (skill && ": \"" + skill.h + "\"") },
                 { title: t('🗣 Say to the tutee'), text: t('Come up with an exercise similar to this:') + ' ' + question1, image: exerciseImage1 },
             ],
-            t('Has the student now invented a similar exercise?')
+            t('Has the tutee now invented a similar exercise?')
         );
 
         //Use only if student never used Slonig
@@ -104,7 +104,7 @@ class TutoringAlgorithm extends Algorithm {
                 { title: t('📖 Read what’s happening'), text: t('The student has executed the exercise correctly.') },
                 { title: t('🗣 Say to the tutee'), text: t('Come up with an exercise similar to this:') + ' ' + question1, image: exerciseImage1},
             ],
-            t('Has the student now invented a similar exercise?')
+            t('Has the tutee now invented a similar exercise?')
         );
 
         const askStudentToSolveAnExercise = new AlgorithmStage(
@@ -114,7 +114,7 @@ class TutoringAlgorithm extends Algorithm {
                 { title: t('📖 Read what’s happening'), text: t('____ asks you to teach the skill').replace('____', studentName) + (skill && ": \"" + skill.h + "\"") },
                 { title: t('🗣 Say to the tutee'), text: question1, image: exerciseImage1 },
             ],
-            t('Has the student now executed the exercise correctly?')
+            t('Has the tutee now executed the exercise correctly?')
         );
 
         const repeatFromTheBeginning = new AlgorithmStage(
@@ -124,7 +124,7 @@ class TutoringAlgorithm extends Algorithm {
                 { title: t('📖 Read what’s happening'), text: t('The student has repeated correctly after me.') },
                 { title: t('🗣 Say to the tutee'), text: t('Come up with an exercise similar to this:') + ' '+ question1, image: exerciseImage1},
             ],
-            t('Has the student now invented a similar exercise?')
+            t('Has the tutee now invented a similar exercise?')
         );
 
         const toNextSkill = new AlgorithmStage(
