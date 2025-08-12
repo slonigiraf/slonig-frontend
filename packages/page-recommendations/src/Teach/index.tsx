@@ -10,6 +10,7 @@ import LessonsList from './LessonsList.js';
 import LessonResults, { StyledCloseButton } from './LessonResults.js';
 import LessonRequestReceiver from './LessonRequestReceiver.js';
 import { useTranslation } from '../translate.js';
+import TeachingGlasses from './TeachingGlasses.js';
 
 interface Props {
   className?: string;
@@ -153,6 +154,7 @@ function Teach({ className = '' }: Props): React.ReactElement<Props> {
   const progress = lesson? `${lesson.learnStep + lesson.reexamineStep} / ${lesson.toLearnCount + lesson.toReexamineCount} ${t('of skills discussed.')}` : '';
   const reexamAndDiplomaIssuing = <FullFindow>
     <CenterContainer>
+      <TeachingGlasses selectedNumber={1}/>
       <CloseButton onClick={onCloseTutoring}
         icon='close'
       />
