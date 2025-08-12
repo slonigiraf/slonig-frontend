@@ -1,6 +1,6 @@
 import { AlgorithmStage } from './AlgorithmStage.js';
 import { Algorithm } from './Algorithm.js';
-import type { IMessage, Skill } from '@slonigiraf/app-slonig-components';
+import type { Skill } from '@slonigiraf/app-slonig-components';
 import { Reexamination } from '@slonigiraf/db';
 import BN from 'bn.js';
 import ExampleExercisesButton from './ExampleExercisesButton.js';
@@ -8,16 +8,6 @@ import ExampleExercisesButton from './ExampleExercisesButton.js';
 class ValidatingAlgorithm extends Algorithm {
     constructor(t: any, studentName: string | null, skill: Skill, reexamination: Reexamination) {
         super();
-        const myMessage: IMessage = {
-            text: '',
-            sender: 'you',
-            title: 'You'
-        };
-        const theirMessage: IMessage = {
-            text: '',
-            sender: 'them',
-            title: studentName
-        };
         const questions = skill ? skill.q : [];
         let question1: string = questions.length > 0 ? questions[0].h : t('SOME EXERCISE FOR SKILL TRAINING (THE TUTOR SHOULD KNOW)');
         let question2: string = questions.length > 1 ? questions[1].h : question1;
@@ -29,17 +19,15 @@ class ValidatingAlgorithm extends Algorithm {
             'intermediate',
             t('Yes'),
             [
-                { ...myMessage, text: t('Great, you remember the skill.') },
+                { title: t('🗣 Say to the tutee'), text: t('Great, you remember the skill.') },
             ]
         );
-
-        const amount = new BN(reexamination?.amount).div(new BN("1000000000000"));
 
         const explainReimburse = new AlgorithmStage(
             'intermediate',
             t('No'),
             [
-                { ...myMessage, text: t('You don\'t have such a skill. I will penalize the tutor which issued the badge for it.'), comment: `${t('Press \"Get bounty\" to receive')} ${amount?.toString()} Slon.` },
+                { title: t('🗣 Say to the tutee'), text: t('You don\'t have such a skill. I will penalize the tutor which issued the badge for it.') },
             ]
         );
 
@@ -65,9 +53,8 @@ class ValidatingAlgorithm extends Algorithm {
             'intermediate',
             t('Yes'),
             [
-                { ...theirMessage, text: t('...'), comment: t('An exercise invented by a student.') },
-                { ...myMessage, text: t('...'), comment: t('I deliberately incorrectly perform the exercise invented by the student and say:') },
-                { ...myMessage, text: t('Correct me.') },
+                { title: t('📖 Read what’s happening'), text: t('The tutee invented an exercise.') },
+                { title: t('🗣 Deliberately incorrectly perform the exercise invented by the tutee and say'), text: t('Correct me.') },
             ],
             t('Has the student corrected the wrong solution?'),
             <ExampleExercisesButton skill={skill} />
@@ -77,9 +64,8 @@ class ValidatingAlgorithm extends Algorithm {
             'intermediate',
             t('No'),
             [
-                { ...theirMessage, text: '...', comment: t('The student has not come up with the type of exercise needed.') },
-                { ...myMessage, text: t('Repeat after me:') },
-                { ...myMessage, text: question2, image: exerciseImage2, comment: t('I can change the exercise a little.') },
+                { title: t('📖 Read what’s happening'), text: t('The tutee has not come up with the type of exercise needed.') },
+                { title: t('🗣 Say to the tutee'), text: t('Repeat after me:') + ' ' + question2, image: exerciseImage2},
             ],
             t('Has the tutee repeated correctly after me?')
         );
@@ -88,9 +74,8 @@ class ValidatingAlgorithm extends Algorithm {
             'begin',
             t('Yes'),
             [
-                { ...theirMessage, text: t('Try to earn a bonus by testing my previous skill:') + (skill && " \"" + skill.h + "\".") },
-                { ...myMessage, text: t('Come up with an exercise similar to this:') },
-                { ...myMessage, text: question1, image: exerciseImage1, comment: t('I can change the exercise a little.') },
+                { title: t('📖 Read what’s happening'), text: t('____ asks you to teach a skill. Before starting, try to earn a bonus by testing the previous skill:').replace('____', studentName) + (skill && " \"" + skill.h + "\".") },
+                { title: t('🗣 Say to the tutee'), text: t('Come up with an exercise similar to this:') + ' ' + question1, image: exerciseImage1 },
             ],
             t('Has the tutee now invented a similar exercise?')
         );
@@ -99,9 +84,8 @@ class ValidatingAlgorithm extends Algorithm {
             'begin',
             t('Yes'),
             [
-                { ...theirMessage, text: t('...'), comment: t('The student has repeated correctly after me.') },
-                { ...myMessage, text: t('Come up with an exercise similar to this:') },
-                { ...myMessage, text: question1, image: exerciseImage1, comment: t('I can change the exercise a little.') },
+                { title: t('📖 Read what’s happening'), text: t('The tutee has repeated correctly after me.') },
+                { title: t('🗣 Say to the tutee'), text: t('Come up with an exercise similar to this:') + ' '+ question1, image: exerciseImage1},
             ]
         );
 

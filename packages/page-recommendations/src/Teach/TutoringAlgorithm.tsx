@@ -24,7 +24,7 @@ class TutoringAlgorithm extends Algorithm {
             'repeat',
             t('No'),
             [
-                { title: t('Say to the student.'), text: t('Excellent! Let\'s repeat this tomorrow.') },
+                { title: t('Say to the tutee.'), text: t('Excellent! Let\'s repeat this tomorrow.') },
             ]
         );
 
@@ -32,7 +32,7 @@ class TutoringAlgorithm extends Algorithm {
             'intermediate',
             t('No'),
             [
-                { title: t('📖 Read what’s happening'), text: t('The student has not corrected me.') },
+                { title: t('📖 Read what’s happening'), text: t('The tutee has not corrected me.') },
                 { title: t('🗣 Provide the tutee with the correct execution of the exercise invented by the tutee, and say'), text: t('Repeat after me.') },
             ],
             t('Has the tutee repeated correctly?'),
@@ -54,9 +54,9 @@ class TutoringAlgorithm extends Algorithm {
             'intermediate',
             t('Yes'),
             [
-                { title: t('📖 Read what’s happening'), text: t('The student has corrected me and has given me the correct solution.') },
+                { title: t('📖 Read what’s happening'), text: t('The tutee has corrected me and has given me the correct solution.') },
             ],
-            t('Were all of the student\'s exercises and answers perfect today?')
+            t('Were all of the tutee\'s exercises and answers perfect today?')
         );
 
         const provideFakeAnswer = new AlgorithmStage(
@@ -74,7 +74,7 @@ class TutoringAlgorithm extends Algorithm {
             'intermediate',
             t('No'),
             [
-                { title: t('📖 Read what’s happening'), text: t('The student has not come up with the type of exercise needed.') },
+                { title: t('📖 Read what’s happening'), text: t('The tutee has not come up with the type of exercise needed.') },
                 { title: t('🗣 Say to the tutee'), text: t('Repeat after me:') + ' ' + question2, image: exerciseImage2},
             ],
             t('Has the tutee repeated correctly after me?')
@@ -101,7 +101,7 @@ class TutoringAlgorithm extends Algorithm {
             'intermediate',
             t('Yes'),
             [
-                { title: t('📖 Read what’s happening'), text: t('The student has executed the exercise correctly.') },
+                { title: t('📖 Read what’s happening'), text: t('The tutee has executed the exercise correctly.') },
                 { title: t('🗣 Say to the tutee'), text: t('Come up with an exercise similar to this:') + ' ' + question1, image: exerciseImage1},
             ],
             t('Has the tutee now invented a similar exercise?')
@@ -121,7 +121,7 @@ class TutoringAlgorithm extends Algorithm {
             'begin',
             t('Yes'),
             [
-                { title: t('📖 Read what’s happening'), text: t('The student has repeated correctly after me.') },
+                { title: t('📖 Read what’s happening'), text: t('The tutee has repeated correctly after me.') },
                 { title: t('🗣 Say to the tutee'), text: t('Come up with an exercise similar to this:') + ' '+ question1, image: exerciseImage1},
             ],
             t('Has the tutee now invented a similar exercise?')
