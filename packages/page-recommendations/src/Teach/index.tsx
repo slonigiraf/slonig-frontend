@@ -156,9 +156,11 @@ function Teach({ className = '' }: Props): React.ReactElement<Props> {
       <CloseButton onClick={onCloseTutoring}
         icon='close'
       />
+      <Bubbles>
       {!reexamined && reexaminationToPerform && <DoInstructions entity={reexaminationToPerform} onResult={updateReexamined} studentName={studentName} key={'reexaminine' + reexaminationToPerform.cid} />}
       {reexamined && letterTemplateToIssue && <DoInstructions entity={letterTemplateToIssue} onResult={updateLearned} studentName={studentName} studentUsedSlonig={studentUsedSlonig} key={'learn' + letterTemplateToIssue.cid} />}
       <Comment>{progress}</Comment>
+      </Bubbles>
     </CenterContainer>
   </FullFindow>;
 
@@ -200,6 +202,10 @@ const CenterContainer = styled.div`
 `;
 const Comment = styled.div`
   padding: 10px;
+`;
+const Bubbles = styled.div`
+  margin-top: 40px;
+  text-align: center;
 `;
 export const CloseButton = styled(Button)`
   position: absolute;
