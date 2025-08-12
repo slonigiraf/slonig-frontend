@@ -1,6 +1,6 @@
 import { AlgorithmStage } from './AlgorithmStage.js';
 import { Algorithm } from './Algorithm.js';
-import { IMessage, Skill } from '@slonigiraf/app-slonig-components';
+import { Skill } from '@slonigiraf/app-slonig-components';
 import ExampleExercisesButton from './ExampleExercisesButton.js';
 
 class TutoringAlgorithm extends Algorithm {
@@ -46,8 +46,7 @@ class TutoringAlgorithm extends Algorithm {
                 {  title: t('📖 Read what’s happening'), text: t('The tutee has not executed the exercise correctly.') },
                 { title: t('🗣 Say to the tutee'), text: t('Repeat after me:') + ' ' + answer1, image: answerImage1 },
             ],
-            t('Has the tutee repeated correctly?'),
-            <ExampleExercisesButton skill={skill} />
+            t('Has the tutee repeated correctly?')
         );
 
 

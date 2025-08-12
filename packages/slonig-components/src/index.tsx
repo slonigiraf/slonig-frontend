@@ -132,20 +132,22 @@ export const InstructionsButtonsContainer = styled.div`
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  width: 100%;
-  margin: 0 auto;
-  position: fixed;
-  bottom: 90px;
-  @media (min-width: 800px) {
-    left: 50%;
-    transform: translateX(-50%);
-  }
   .hint {
     text-align: center;
-    min-width: 250px;
-    max-width: 250px;
     padding-bottom: 10px;
   }
+  background-color: white;
+  border-radius: 7.5px;
+  box-shadow: 0 1px 0.5px rgba(0, 0, 0, 0.13);
+  width: 100%;
+  padding: 15px;
+  margin: 0;
+  word-wrap: break-word;
+  position: relative;
+  outline: 2px solid var(--color-header);
+  text-align: center;
+  font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
+  font-size: 18px;
 `;
 export const InstructionsButtonsGroup = styled.div`
   display: flex;

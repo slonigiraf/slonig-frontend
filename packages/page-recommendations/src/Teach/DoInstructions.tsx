@@ -58,7 +58,7 @@ function DoInstructions({ className = '', entity, onResult, studentName, student
             }
           }
         } catch (e) {
-          if((e as Error).message === ErrorType.IPFS_CONNECTION_ERROR){
+          if ((e as Error).message === ErrorType.IPFS_CONNECTION_ERROR) {
             showInfo(t('No internet connection. Check your connection and try again.'), 'error');
           }
           console.log('ipfs err: ', e);
@@ -115,7 +115,7 @@ function DoInstructions({ className = '', entity, onResult, studentName, student
   const handleStageChange = async (nextStage: AlgorithmStage | null) => {
     if (nextStage !== null) {
       setIsButtonClicked(true);
-      if(nextStage === algorithmStage){
+      if (nextStage === algorithmStage) {
         showInfo(t('Do this again'));
       }
       if (isReexamination(entity) && nextStage.type === 'reimburse') {
@@ -141,14 +141,14 @@ function DoInstructions({ className = '', entity, onResult, studentName, student
     <div className={className} >
       {algorithmStage ? (<>
         <InstructionsContainer key={entity?.cid}>
-          {/* <StyledDiv> */}
           <ChatSimulation messages={algorithmStage.getMessages()} />
           {algorithmStage.getChatDecorator()}
-          {/* </StyledDiv> */}
         </InstructionsContainer>
         <InstructionsButtonsContainer>
           {algorithmStage.getActionHint() && (
-            <span className='hint'><b>{algorithmStage.getActionHint()}</b></span>
+            <><h2>{t('⚖️ Decide on the next step')}</h2>
+              <span>{algorithmStage.getActionHint()}</span>
+            </>
           )}
           <InstructionsButtonsGroup>
             {algorithmStage.getPrevious() && (
@@ -159,7 +159,7 @@ function DoInstructions({ className = '', entity, onResult, studentName, student
               />
             )}
             {algorithmStage.getNext().map((nextStage, index) => (
-              <Button key={index+algorithmStage.getId()} onClick={() => handleStageChange(nextStage)}
+              <Button key={index + algorithmStage.getId()} onClick={() => handleStageChange(nextStage)}
                 icon='square'
                 label={nextStage.getName()}
                 isDisabled={isButtonClicked}
