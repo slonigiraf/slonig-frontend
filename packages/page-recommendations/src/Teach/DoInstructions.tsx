@@ -258,6 +258,7 @@ export const InstructionsButtonsGroup = styled.div`
   justify-content: center;
   width: 100%;
   margin: 0 auto;
+  margin-top: 5px;
   min-width: 300px;
   max-width: 300px;
   & > button {
