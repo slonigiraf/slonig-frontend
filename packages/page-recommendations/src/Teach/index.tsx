@@ -184,8 +184,9 @@ const FullFindow = styled.div`
   left: 0;
   width: 100vw;
   height: 100vh;
-  z-index: 1001;
-  background: white;
+  z-index: 999;
+  background: var(--bg-page);
+  overflow-y: auto;
 `;
 const CenterContainer = styled.div`
   position: relative;
@@ -207,6 +208,7 @@ const Progress = styled.div`
 `;
 const Bubbles = styled.div`
   text-align: center;
+  width: 100%;
 `;
 export const CloseButton = styled(Button)`
   position: absolute;

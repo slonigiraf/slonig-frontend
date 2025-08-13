@@ -31,7 +31,7 @@ const MenuWrapper = styled.div`
   height: 70px;
   background-color: #f7f7f7;
   border-top: 1px solid #d1d1d1;
-  z-index: 1000;  
+  z-index: 998;  
 `;
 
 const MenuItem = styled.div`
