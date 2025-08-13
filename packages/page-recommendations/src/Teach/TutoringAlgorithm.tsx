@@ -26,7 +26,7 @@ class TutoringAlgorithm extends Algorithm {
             'repeat',
             t('No'),
             [
-                { title: t('Say to the tutee.'), text: t('Excellent! Let\'s repeat this tomorrow.') },
+                { title: t('🗣 Say to the tutee.'), text: t('Excellent! Let\'s repeat this tomorrow.') },
             ]
         );
 
