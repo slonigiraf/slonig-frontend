@@ -230,12 +230,9 @@ const StyledSpinner = styled(Spinner)`
 const InstructionsContainer = styled.div`
   padding: 15px 3px 3px 3px;
   width: 100%;
-`;
-const CenterGlasses = styled.div`
-  display: flex;
   justify-content: center;
-  width: 100%;
 `;
+
 const InstructionsButtonsContainer = styled.div`
   display: flex;
   flex-direction: column;

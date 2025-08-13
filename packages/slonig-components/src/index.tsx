@@ -131,10 +131,15 @@ export const Bubble = styled.div`
   position: relative;
   outline: 2px solid var(--color-header);
   text-align: center;
+  h2 {
+    font-size: 27px;
+  }
+  span {
+    font-size: 18px;
+  }
 `;
 
 export const ChatContainer = styled.div`
-  font-size: 18px;
   width: 100%;
 `;
 

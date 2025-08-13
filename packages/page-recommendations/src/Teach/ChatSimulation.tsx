@@ -14,7 +14,6 @@ const ChatSimulation: React.FC<ChatSimulationProps> = ({ messages }) => {
             <Bubble>
               <h2>{message.title}</h2>
               <KatexSpan content={message.text} />
-              {message.comment && <Red>&nbsp;*</Red>}
               {message.image && <><br/><ResizableImage cid={message.image} /></>}
             </Bubble>
             <Arrow><h2><b>↓</b></h2></Arrow>
@@ -40,8 +39,5 @@ const Arrow = styled.div`
   h2 {
     margin: 0;
   }
-`;
-const Red = styled.span`
-  color: red;
 `;
 export default React.memo(ChatSimulation);
