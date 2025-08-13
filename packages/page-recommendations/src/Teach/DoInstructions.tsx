@@ -146,9 +146,11 @@ function DoInstructions({ className = '', entity, onResult, studentName, student
           <InstructionsButtonsContainer>
             <Bubble>
               <ChatContainer><h2>{t('⚖️ Decide on the next step')}</h2>
-                {algorithmStage.getActionHint() && (
-                  algorithmStage.getActionHint()
-                )}
+                <span>
+                  {algorithmStage.getActionHint() && (
+                    algorithmStage.getActionHint()
+                  )}
+                </span>
               </ChatContainer>
               <InstructionsButtonsGroup>
                 {algorithmStage.getPrevious() && (
