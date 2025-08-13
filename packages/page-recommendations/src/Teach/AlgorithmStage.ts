@@ -1,4 +1,6 @@
 import { IMessage } from "@slonigiraf/app-slonig-components";
+import { stringToU8a } from '@polkadot/util';
+import { blake2AsHex } from '@polkadot/util-crypto';
 
 class AlgorithmStage {
     type: string;
@@ -24,7 +26,8 @@ class AlgorithmStage {
     getId(): string {
         let id = 'algorithmStage';
         if(this.messages.length > 0){
-            id = this.messages[0].text;
+            const joined = this.messages.map(m => m?.text ?? '').join('\u241F');
+            id = blake2AsHex(stringToU8a(joined));
         }
         return id;
     }

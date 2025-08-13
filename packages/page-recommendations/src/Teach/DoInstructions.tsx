@@ -207,7 +207,6 @@ function DoInstructions({ className = '', entity, onResult, studentName, student
                       </Menu>
                     }
                   />}
-
               </InstructionsButtonsGroup>
             </Bubble>
           </InstructionsButtonsContainer>
