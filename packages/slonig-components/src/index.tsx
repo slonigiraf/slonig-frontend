@@ -100,6 +100,16 @@ const CenterItemsContainer = styled.div`
 export const AppContainer = styled(CenterItemsContainer)`
   min-height: 500px;
 `;
+export const FullFindow = styled.div`
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+  z-index: 999;
+  background: var(--bg-page);
+  overflow-y: auto;
+`;
 export const VerticalCenterItemsContainer = styled(CenterItemsContainer)`
 `;
 export const HorizontalCenterItemsContainer = styled(CenterItemsContainer)`
