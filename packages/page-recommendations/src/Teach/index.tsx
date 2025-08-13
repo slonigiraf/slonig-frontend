@@ -153,8 +153,10 @@ function Teach({ className = '' }: Props): React.ReactElement<Props> {
   const reexamAndDiplomaIssuing = <FullFindow>
     <CenterContainer>
       {lesson && <Progress>
+        <Spacer/>
         <LinearProgress total={lesson.toLearnCount + lesson.toReexamineCount} value={lesson.learnStep + lesson.reexamineStep} />
         <CloseButton onClick={onCloseTutoring} icon='close' />
+        <Spacer/>
         </Progress>}
       
       <Bubbles>
@@ -201,6 +203,9 @@ const CenterContainer = styled.div`
     width: 800px;
   }
 `;
+const Spacer = styled.div`
+  width: 20px;
+`;
 const Progress = styled.div`
   margin-top: 20px;
   width: 100%;
@@ -216,6 +221,5 @@ export const CloseButton = styled(Button)`
   position: relative;
   right: 0px;
   margin-left: 10px;
-  margin-right: 20px;
 `;
 export default React.memo(Teach);
