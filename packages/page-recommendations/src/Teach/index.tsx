@@ -200,8 +200,10 @@ const CenterContainer = styled.div`
   }
 `;
 const Progress = styled.div`
-  width: 70%;
+  width: 80%;
   margin-top: 17px;
+  margin-left: 0px;
+  margin-right: 40px;
 `;
 const Bubbles = styled.div`
   text-align: center;
