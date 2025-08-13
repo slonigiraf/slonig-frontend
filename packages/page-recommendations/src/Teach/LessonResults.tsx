@@ -7,7 +7,7 @@ import { styled, Button, Input, InputBalance, Icon, Card, Modal, CustomSVGIcon }
 import { useApi, useBlockTime, useToggle } from '@polkadot/react-hooks';
 import { u8aToHex, hexToU8a, u8aWrapBytes, BN_ONE, BN_ZERO, formatBalance } from '@polkadot/util';
 import type { LessonResult, Skill } from '@slonigiraf/app-slonig-components';
-import { getIPFSDataFromContentID, parseJson, useIpfsContext, useLoginContext, VerticalCenterItemsContainer, CenterQRContainer, KatexSpan, balanceToSlonString, SenderComponent, useInfo, nameFromKeyringPair, StyledContentCloseButton, predictBlockNumber, slonSVG } from '@slonigiraf/app-slonig-components';
+import { getIPFSDataFromContentID, parseJson, useIpfsContext, useLoginContext, VerticalCenterItemsContainerWithMargin, CenterQRContainer, KatexSpan, balanceToSlonString, SenderComponent, useInfo, nameFromKeyringPair, StyledCloseButton, predictBlockNumber, slonSVG, FullFindow } from '@slonigiraf/app-slonig-components';
 import { getPseudonym, Lesson, getLastUnusedLetterNumber, setLastUsedLetterNumber, storeSetting, getReexaminationsByLessonId, getValidLetterTemplatesByLessonId, SettingKey, serializeAsLetter, LetterTemplate, putLetterTemplate } from '@slonigiraf/db';
 import { getPublicDataToSignByReferee, getPrivateDataToSignByReferee } from '@slonigiraf/helpers';
 import { useTranslation } from '../translate.js';
@@ -246,11 +246,11 @@ function LessonResults({ className = '', lesson, updateAndStoreLesson, onClose }
   const constContentIsVisible = !(processingStatistics || processingQR);
 
   return (
-    <>
-      <StyledContentCloseButton onClick={onClose}
+    <FullFindow>
+      <StyledCloseButton onClick={onClose}
         icon='close'
       />
-      <VerticalCenterItemsContainer>
+      <VerticalCenterItemsContainerWithMargin>
         <CenterQRContainer>
           <SenderComponent data={data} route={'badges'} caption={t('Show to the tutee')}
             textShare={t('Press the link to add the badge')} onDataSent={onClose} onReady={() => setProcessingQR(false)} />
@@ -301,7 +301,7 @@ function LessonResults({ className = '', lesson, updateAndStoreLesson, onClose }
             </Card>
           </DiplomaDiv>
         }
-      </VerticalCenterItemsContainer>
+      </VerticalCenterItemsContainerWithMargin>
 
       {visibleDiplomaDetails && <DetailsModal
         className={className}
@@ -346,7 +346,7 @@ function LessonResults({ className = '', lesson, updateAndStoreLesson, onClose }
           />
         </Modal.Actions>
       </DetailsModal>}
-    </>
+    </FullFindow>
   );
 }
 
@@ -397,14 +397,6 @@ const DiplomaDiv = styled.div`
   .row .cell:nth-child(2) {
     flex: 1; // Take up the remaining space
   }
-`;
-
-export const StyledCloseButton = styled(Button)`
-  position: absolute;
-  width: 40px;
-  top: 52px;
-  right: 10px;
-  z-index: 1;
 `;
 
 const DetailsModal = styled(Modal)`

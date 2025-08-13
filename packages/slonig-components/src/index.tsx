@@ -112,6 +112,9 @@ export const FullFindow = styled.div`
 `;
 export const VerticalCenterItemsContainer = styled(CenterItemsContainer)`
 `;
+export const VerticalCenterItemsContainerWithMargin = styled(CenterItemsContainer)`
+  margin-top: 40px;
+`;
 export const HorizontalCenterItemsContainer = styled(CenterItemsContainer)`
   flex-direction: row;
 `;
@@ -172,6 +175,13 @@ export const StyledContentCloseButton = styled(Button)`
   width: 40px;
   top: 50px;
   right: 2px;
+  z-index: 1;
+`;
+
+export const StyledCloseButton = styled(Button)`
+  position: absolute;
+  top: 20px;
+  right: 20px;
   z-index: 1;
 `;
 
