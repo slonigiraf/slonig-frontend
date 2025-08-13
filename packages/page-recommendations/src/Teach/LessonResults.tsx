@@ -252,7 +252,7 @@ function LessonResults({ className = '', lesson, updateAndStoreLesson, onClose }
       />
       <VerticalCenterItemsContainer>
         <CenterQRContainer>
-          <SenderComponent data={data} route={'badges'} caption={t('Show to the student')}
+          <SenderComponent data={data} route={'badges'} caption={t('Show to the tutee')}
             textShare={t('Press the link to add the badge')} onDataSent={onClose} onReady={() => setProcessingQR(false)} />
         </CenterQRContainer>
         {constContentIsVisible &&
