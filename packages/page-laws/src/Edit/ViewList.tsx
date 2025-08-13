@@ -119,58 +119,60 @@ function ViewList({ className = '', id, cidString, list }: Props): React.ReactEl
 
   const isSelectionAllowed = true;
 
-  return list == null ? <StyledSpinnerContainer><Spinner noLabel /></StyledSpinnerContainer> : (
-    <>
-      <h1><KatexSpan content={list.h} /></h1>
-      {list.t !== null && list.t === LawType.MODULE && (
-        expanded ?
-          (itemsWithCID.length > 0 && <ModulePreview itemsWithCID={itemsWithCID}/>) :
-          <>
-            <div className='ui--row' style={isModuleQRVisible ? {} : { display: 'none' }}>
-              <SkillQR id={id} cid={cidString} type={LawType.MODULE} selectedItems={selectedItems} isLearningRequested={isLearningRequested} isReexaminingRequested={isReexaminingRequested} lessonInUrl={lessonInUrl} />
-            </div>
-            {isThereAnythingToLearn && <Toggle
-              label={t('Learn with a tutor')}
-              onChange={handleLearningToggle}
-              value={isLearningRequested}
-            />}
-            {isThereAnythingToReexamine && <Toggle
-              label={t('Reexamine my badges')}
-              onChange={handleReexaminingToggle}
-              value={isReexaminingRequested}
-            />}
-          </>
-      )}
-      {list.t !== null && list.t === LawType.SKILL && (
+  const content = list ? <>
+    <h1><KatexSpan content={list.h} /></h1>
+    {list.t !== null && list.t === LawType.MODULE && (
+      expanded ?
+        (itemsWithCID.length > 0 && <ModulePreview itemsWithCID={itemsWithCID} />) :
         <>
-          {/* <LearnWithAI skillName={list.h} exercises={list.q} /> */}
-          <h3>{t('Example exercises to train the skill')}</h3>
+          <div className='ui--row' style={isModuleQRVisible ? {} : { display: 'none' }}>
+            <SkillQR id={id} cid={cidString} type={LawType.MODULE} selectedItems={selectedItems} isLearningRequested={isLearningRequested} isReexaminingRequested={isReexaminingRequested} lessonInUrl={lessonInUrl} />
+          </div>
+          {isThereAnythingToLearn && <Toggle
+            label={t('Learn with a tutor')}
+            onChange={handleLearningToggle}
+            value={isLearningRequested}
+          />}
+          {isThereAnythingToReexamine && <Toggle
+            label={t('Reexamine my badges')}
+            onChange={handleReexaminingToggle}
+            value={isReexaminingRequested}
+          />}
         </>
-      )}
+    )}
+    {list.t !== null && list.t === LawType.SKILL && (
+      <>
+        {/* <LearnWithAI skillName={list.h} exercises={list.q} /> */}
+        <h3>{t('Example exercises to train the skill')}</h3>
+      </>
+    )}
 
-      {itemsWithCID.length > 0 && !expanded && (
-        <SelectableList<ItemWithCID>
-          items={itemsWithCID}
-          renderItem={(item, isSelected, isSelectionAllowed, onToggleSelection) => (
-            <ItemLabel
-              item={item}
-              isSelected={isSelected}
-              isReexaminingRequested={isReexaminingRequested}
-              onToggleSelection={onToggleSelection}
-              isSelectable={isModuleQRVisible}
-            />
-          )}
-          onSelectionChange={handleSelectionChange}
-          isSelectionAllowed={isModuleQRVisible}
-          keyExtractor={(item) => item.id + item.validDiplomas.length}
-          filterOutSelection={(item) => isReexaminingRequested ? !(item.validDiplomas.length > 0) : (item.validDiplomas.length > 0)}
-          key={id + isReexaminingRequested}
-          allSelected={shouldSelectAll}
-        />
-      )}
-      {list.q != null && <ExerciseList exercises={list.q} />}
-    </>
-  );
+    {itemsWithCID.length > 0 && !expanded && (
+      <SelectableList<ItemWithCID>
+        items={itemsWithCID}
+        renderItem={(item, isSelected, isSelectionAllowed, onToggleSelection) => (
+          <ItemLabel
+            item={item}
+            isSelected={isSelected}
+            isReexaminingRequested={isReexaminingRequested}
+            onToggleSelection={onToggleSelection}
+            isSelectable={isModuleQRVisible}
+          />
+        )}
+        onSelectionChange={handleSelectionChange}
+        isSelectionAllowed={isModuleQRVisible}
+        keyExtractor={(item) => item.id + item.validDiplomas.length}
+        filterOutSelection={(item) => isReexaminingRequested ? !(item.validDiplomas.length > 0) : (item.validDiplomas.length > 0)}
+        key={id + isReexaminingRequested}
+        allSelected={shouldSelectAll}
+      />
+    )}
+    {list.q != null && <ExerciseList exercises={list.q} />}
+  </> : <></>;
+
+  return list == null ?
+    <StyledSpinnerContainer><Spinner noLabel /></StyledSpinnerContainer> :
+    content;
 }
 
 export default React.memo(ViewList);
