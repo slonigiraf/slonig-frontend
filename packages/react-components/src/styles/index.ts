@@ -227,8 +227,8 @@ export default createGlobalStyle<Props & ThemeProps>(({ theme, uiHighlight }: Pr
       box-shadow: 0 0 1px ${getHighlight(uiHighlight)};
     }
 
-    &:hover:not(.isDisabled):not(.isReadOnly),
-    &.isSelected {
+   &:hover:not(.isDisabled):not(.isReadOnly):not(.noHighlight),
+   &.isSelected:not(.noHighlight) {
       background: ${getHighlight(uiHighlight)};
       color: ${getContrast(uiHighlight)};
       text-shadow: none;

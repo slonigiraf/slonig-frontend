@@ -154,14 +154,14 @@ function DoInstructions({ className = '', entity, onResult, studentName, student
               </ChatContainer>
               <InstructionsButtonsGroup>
                 {algorithmStage.getPrevious() && (
-                  <Button key={algorithmStage.getId()} onClick={() => handleStageChange(algorithmStage.getPrevious())}
+                  <Button className='noHighlight' key={algorithmStage.getId()} onClick={() => handleStageChange(algorithmStage.getPrevious())}
                     icon='arrow-left'
                     label={t('Back')}
                     isDisabled={isButtonClicked}
                   />
                 )}
                 {algorithmStage.getNext().map((nextStage, index) => (
-                  <Button key={index + algorithmStage.getId()} onClick={() => handleStageChange(nextStage)}
+                  <Button className='noHighlight' key={index + algorithmStage.getId()} onClick={() => handleStageChange(nextStage)}
                     icon='square'
                     label={nextStage.getName()}
                     isDisabled={isButtonClicked}
