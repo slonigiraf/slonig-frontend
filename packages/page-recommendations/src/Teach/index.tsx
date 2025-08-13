@@ -152,10 +152,11 @@ function Teach({ className = '' }: Props): React.ReactElement<Props> {
 
   const reexamAndDiplomaIssuing = <FullFindow>
     <CenterContainer>
-      {lesson && <Progress><LinearProgress total={lesson.toLearnCount + lesson.toReexamineCount} value={lesson.learnStep + lesson.reexamineStep} /></Progress>}
-      <CloseButton onClick={onCloseTutoring}
-        icon='close'
-      />
+      {lesson && <Progress>
+        <LinearProgress total={lesson.toLearnCount + lesson.toReexamineCount} value={lesson.learnStep + lesson.reexamineStep} />
+        <CloseButton onClick={onCloseTutoring} icon='close' />
+        </Progress>}
+      
       <Bubbles>
       {!reexamined && reexaminationToPerform && <DoInstructions entity={reexaminationToPerform} onResult={updateReexamined} studentName={studentName} key={'reexaminine' + reexaminationToPerform.cid} />}
       {reexamined && letterTemplateToIssue && <DoInstructions entity={letterTemplateToIssue} onResult={updateLearned} studentName={studentName} studentUsedSlonig={studentUsedSlonig} key={'learn' + letterTemplateToIssue.cid} />}
@@ -201,20 +202,20 @@ const CenterContainer = styled.div`
   }
 `;
 const Progress = styled.div`
-  width: 80%;
-  margin-top: 17px;
-  margin-left: 0px;
-  margin-right: 40px;
+  margin-top: 20px;
+  width: 100%;
+  display: flex;
+  flex-direction: row;
+  align-items: center;
 `;
 const Bubbles = styled.div`
   text-align: center;
   width: 100%;
 `;
 export const CloseButton = styled(Button)`
-  position: absolute;
-  width: 40px;
-  top: 10px;
-  right: 10px;
-  z-index: 1;
+  position: relative;
+  right: 0px;
+  margin-left: 10px;
+  margin-right: 20px;
 `;
 export default React.memo(Teach);
