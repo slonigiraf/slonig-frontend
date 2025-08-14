@@ -247,58 +247,57 @@ function LessonResults({ className = '', lesson, updateAndStoreLesson, onClose }
 
   return (
     <FullscreenActivity caption={t('Send results and get a reward')} onClose={onClose}>
-        <CenterQRContainer>
-          <SenderComponent data={data} route={'badges'} caption={t('Ask the tutee to scan')}
-            textShare={t('Press the link to add the badge')} onDataSent={onClose} onReady={() => setProcessingQR(false)} />
-        </CenterQRContainer>
-        {constContentIsVisible &&
-          <DiplomaDiv>
-            <Card>
-              <div className="table">
-                <div className="row">
-                  <div className="cell"><Icon icon='graduation-cap' /></div>
-                  <div className="cell">{lessonName ? <KatexSpan content={lessonName} /> : ''}</div>
-                </div>
-                <div className="row">
-                  <div className="cell"><Icon icon='user' /></div>
-                  <div className="cell">{studentName}</div>
-                </div>
-                <div className="row">
-                  <div className="cell"><CustomSVGIcon svg={slonSVG} /></div>
-                  <div className="cell">{balanceToSlonString(totalIncomeForLetters)} {tokenSymbol} - {t('reward')}</div>
-                </div>
-                <div className="row">
-                  <div className="cell"><Icon icon='trophy' /></div>
-                  <div className="cell">{countOfValidLetters} {t('badges prepared')}</div>
-                </div>
-                <div className="row">
-                  <div className="cell"><Icon icon='shield' /></div>
-                  <div className="cell">{balanceToSlonString(diplomaWarrantyAmount)} {tokenSymbol} - {t('warranty')}</div>
-                </div>
-                <div className="row">
-                  <div className="cell"><Icon icon='clock-rotate-left' /></div>
-                  <div className="cell">{lesson ? lesson.dValidity : '0'} {t('days valid')}</div>
-                </div>
-                <div className="row">
-                  <div className="cell"><Icon icon='ban' /></div>
-                  <div className="cell">{countOfReexaminationsFailed} {t('of')} {countOfReexaminationsPerformed} {t('badges invalidated')}</div>
-                </div>
-                <div className="row">
-                  <div className="cell"><Icon icon='money-bill-trend-up' /></div>
-                  <div className="cell">{balanceToSlonString(totalIncomeForBonuses)} {tokenSymbol} - {t('bonuses will be received')}</div>
-                </div>
-                <div className="row">
-                  <div className="cell">
-                    <Button icon='edit' label={t('Edit')} onClick={toggleVisibleDiplomaDetails} />
-                    <Button icon='close' label={t('Close')} onClick={onClose} />
-                  </div>
+      <CenterQRContainer>
+        <SenderComponent data={data} route={'badges'} caption={t('Ask the tutee to scan')}
+          textShare={t('Press the link to add the badge')} onDataSent={onClose} onReady={() => setProcessingQR(false)} />
+      </CenterQRContainer>
+      {constContentIsVisible &&
+        <DiplomaDiv>
+          <Card>
+            <div className="table">
+              <div className="row">
+                <div className="cell"><Icon icon='graduation-cap' /></div>
+                <div className="cell">{lessonName ? <KatexSpan content={lessonName} /> : ''}</div>
+              </div>
+              <div className="row">
+                <div className="cell"><Icon icon='user' /></div>
+                <div className="cell">{studentName}</div>
+              </div>
+              <div className="row">
+                <div className="cell"><CustomSVGIcon svg={slonSVG} /></div>
+                <div className="cell">{balanceToSlonString(totalIncomeForLetters)} {tokenSymbol} - {t('reward')}</div>
+              </div>
+              <div className="row">
+                <div className="cell"><Icon icon='trophy' /></div>
+                <div className="cell">{countOfValidLetters} {t('badges prepared')}</div>
+              </div>
+              <div className="row">
+                <div className="cell"><Icon icon='shield' /></div>
+                <div className="cell">{balanceToSlonString(diplomaWarrantyAmount)} {tokenSymbol} - {t('warranty')}</div>
+              </div>
+              <div className="row">
+                <div className="cell"><Icon icon='clock-rotate-left' /></div>
+                <div className="cell">{lesson ? lesson.dValidity : '0'} {t('days valid')}</div>
+              </div>
+              <div className="row">
+                <div className="cell"><Icon icon='ban' /></div>
+                <div className="cell">{countOfReexaminationsFailed} {t('of')} {countOfReexaminationsPerformed} {t('badges invalidated')}</div>
+              </div>
+              <div className="row">
+                <div className="cell"><Icon icon='money-bill-trend-up' /></div>
+                <div className="cell">{balanceToSlonString(totalIncomeForBonuses)} {tokenSymbol} - {t('bonuses will be received')}</div>
+              </div>
+              <div className="row">
+                <div className="cell">
+                  <Button icon='edit' label={t('Edit')} onClick={toggleVisibleDiplomaDetails} />
+                  <Button icon='close' label={t('Close')} onClick={onClose} />
                 </div>
               </div>
-            </Card>
-          </DiplomaDiv>
-          
-        }
-      
+            </div>
+          </Card>
+        </DiplomaDiv>
+      }
+
 
       {visibleDiplomaDetails && <DetailsModal
         className={className}
@@ -394,6 +393,15 @@ const DiplomaDiv = styled.div`
   .row .cell:nth-child(2) {
     flex: 1; // Take up the remaining space
   }
+  
+  article {
+    border: 0px;
+  }
+
+  border-radius: 7.5px;
+  box-shadow: 0 1px 0.5px rgba(0, 0, 0, 0.13);
+  outline: 2px solid var(--color-header);
+  margin-top: 10px;
 `;
 
 const DetailsModal = styled(Modal)`
