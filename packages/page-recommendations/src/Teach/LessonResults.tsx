@@ -398,9 +398,6 @@ const DiplomaDiv = styled.div`
     border: 0px;
   }
 
-  border-radius: 7.5px;
-  box-shadow: 0 1px 0.5px rgba(0, 0, 0, 0.13);
-  outline: 2px solid var(--color-header);
   margin-top: 10px;
 `;
 
