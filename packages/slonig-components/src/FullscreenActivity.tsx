@@ -1,25 +1,33 @@
 import React from 'react';
-import { Button, styled } from '@polkadot/react-components';
+import { Button, Spinner, styled } from '@polkadot/react-components';
+import { useTranslation } from './translate.js';
 
 interface Props {
   className?: string;
   caption?: string;
   captionElement?: React.ReactNode;
   children?: React.ReactNode;
+  isLoading?: boolean;
   onClose: () => void;
 }
 
-function FullscreenActivity({ className = '', caption = ' ', captionElement, children, onClose }: Props): React.ReactElement<Props> {
+function FullscreenActivity({ className = '', caption = ' ', captionElement, children, isLoading = false, onClose }: Props): React.ReactElement<Props> {
+  const { t } = useTranslation();
   return (
     <FullFindow>
       <CenterContainer>
         <Top>
-          <Caption><h1><b>
-            {captionElement || caption}
-            </b></h1></Caption>
+          <Caption>
+            <h1><b>{captionElement || caption}</b></h1>
+          </Caption>
           <CloseButton onClick={onClose} icon='close' />
         </Top>
-        {children}
+        {isLoading ?
+          <div className='connecting'>
+            <Spinner label={t('Loading')} />
+          </div> :
+          children}
+
       </CenterContainer>
     </FullFindow>
   );
