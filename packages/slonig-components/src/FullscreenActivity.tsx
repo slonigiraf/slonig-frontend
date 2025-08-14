@@ -4,16 +4,19 @@ import { Button, styled } from '@polkadot/react-components';
 interface Props {
   className?: string;
   caption?: string;
+  captionElement?: React.ReactNode;
   children?: React.ReactNode;
   onClose: () => void;
 }
 
-function FullscreenActivity({ className = '', caption = ' ', children, onClose }: Props): React.ReactElement<Props> {
+function FullscreenActivity({ className = '', caption = ' ', captionElement, children, onClose }: Props): React.ReactElement<Props> {
   return (
     <FullFindow>
       <CenterContainer>
         <Top>
-          <Caption><h1><b>{caption}</b></h1></Caption>
+          <Caption><h1><b>
+            {captionElement || caption}
+            </b></h1></Caption>
           <CloseButton onClick={onClose} icon='close' />
         </Top>
         {children}

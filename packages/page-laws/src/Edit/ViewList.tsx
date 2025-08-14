@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useState } from 'react';
-import { LawType, KatexSpan, SelectableList, StyledSpinnerContainer, useLoginContext, getCIDFromBytes, FullFindow, VerticalCenterItemsContainer, StyledCloseButton } from '@slonigiraf/app-slonig-components';
+import { LawType, KatexSpan, SelectableList, StyledSpinnerContainer, useLoginContext, getCIDFromBytes, FullFindow, VerticalCenterItemsContainer, StyledCloseButton, FullscreenActivity } from '@slonigiraf/app-slonig-components';
 import { useLocation } from 'react-router-dom';
 import ItemLabel from './ItemLabel.js';
 import SkillQR from './SkillQR.js';
@@ -12,6 +12,7 @@ import BN from 'bn.js';
 import { getLettersForKnowledgeId } from '@slonigiraf/db';
 import { u8aToHex } from '@polkadot/util';
 import ModulePreview from './ModulePreview.js';
+import styled from 'styled-components';
 
 type JsonType = { [key: string]: any } | null;
 interface Props {
@@ -96,6 +97,11 @@ function ViewList({ className = '', id, cidString, list }: Props): React.ReactEl
     }
   }, []);
 
+  const closeQR = useCallback((): void => {
+    setLearningRequested(false);
+    setReexaminingRequested(false);
+  }, []);
+
   useEffect((): void => {
     if (
       lessonInUrl &&
@@ -120,7 +126,7 @@ function ViewList({ className = '', id, cidString, list }: Props): React.ReactEl
   const isSelectionAllowed = true;
 
   const content = list ? <>
-    <h1><KatexSpan content={list.h} /></h1>
+    {!isModuleQRVisible && <h1><KatexSpan content={list.h} /></h1>}
     {list.t !== null && list.t === LawType.MODULE && (
       expanded ?
         (itemsWithCID.length > 0 && <ModulePreview itemsWithCID={itemsWithCID} />) :
@@ -173,14 +179,25 @@ function ViewList({ className = '', id, cidString, list }: Props): React.ReactEl
   return list == null ?
     <StyledSpinnerContainer><Spinner noLabel /></StyledSpinnerContainer> :
     (isModuleQRVisible ?
-      <FullFindow>
-        <StyledCloseButton onClick={() => { }}
-          icon='close'
-        />
-        <VerticalCenterItemsContainer>
-          {content}</VerticalCenterItemsContainer>
-      </FullFindow> :
+      <FullscreenActivity captionElement={<KatexSpan content={list.h} />} onClose={closeQR} >
+        <RemoveBorders>{content}</RemoveBorders>
+      </FullscreenActivity> :
       content);
 }
 
+const RemoveBorders = styled.div`
+  table {
+    border-collapse: collapse;
+  }
+
+  tbody td {
+    border-top: none !important;
+  }
+
+  tbody td:first-child {
+    border-left: none !important;
+    border-right: none !important;
+    border-top: none !important;
+  }
+`;
 export default React.memo(ViewList);
