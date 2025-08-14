@@ -1,43 +1,58 @@
 import React from 'react';
-import { FullFindow, VerticalCenterItemsContainer } from './index.js';
+import { VerticalCenterItemsContainer } from './index.js';
 import { Button, styled } from '@polkadot/react-components';
 
 interface Props {
   className?: string;
   caption?: string;
-  content: React.ReactNode;
+  children?: React.ReactNode;
   onClose: () => void;
 }
 
-function FullscreenActivity({ className = '', caption = '', content, onClose }: Props): React.ReactElement<Props> {
+function FullscreenActivity({ className = '', caption = ' ', children, onClose }: Props): React.ReactElement<Props> {
   return (
     <FullFindow>
-      <Top>
-        <Caption>{caption}</Caption>
-        <CloseButton onClick={onClose} icon='close' />
-      </Top>
       <VerticalCenterItemsContainer>
-        {content}
+        <Top>
+          <Caption><h1><b>{caption}</b></h1></Caption>
+          <CloseButton onClick={onClose} icon='close' />
+        </Top>
+        {children}
       </VerticalCenterItemsContainer>
     </FullFindow>
   );
 }
-const Caption = styled.div`
-  position: relative;
-  float: left;
-  margin-left: 20px;
+
+const FullFindow = styled.div`
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  z-index: 999;
+  background: var(--bg-page);
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
 `;
-const CloseButton = styled(Button)`
-  position: relative;
-  float: right;
-  margin-right: 20px;
-  margin-left: 10px;
-`;
+
 const Top = styled.div`
   margin-top: 20px;
   width: 100%;
   display: flex;
   flex-direction: row;
-  spacing 10px;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0 20px;
+  gap: 10px;
 `;
+
+const Caption = styled.div`
+  text-align: center;
+  width: 100%;
+`;
+
+const CloseButton = styled(Button)`
+  flex-shrink: 0; /* don't let the button shrink */
+`;
+
 export default React.memo(FullscreenActivity);

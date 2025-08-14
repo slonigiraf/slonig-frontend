@@ -7,7 +7,7 @@ import { styled, Button, Input, InputBalance, Icon, Card, Modal, CustomSVGIcon }
 import { useApi, useBlockTime, useToggle } from '@polkadot/react-hooks';
 import { u8aToHex, hexToU8a, u8aWrapBytes, BN_ONE, BN_ZERO, formatBalance } from '@polkadot/util';
 import type { LessonResult, Skill } from '@slonigiraf/app-slonig-components';
-import { getIPFSDataFromContentID, parseJson, useIpfsContext, useLoginContext, VerticalCenterItemsContainerWithMargin, CenterQRContainer, KatexSpan, balanceToSlonString, SenderComponent, useInfo, nameFromKeyringPair, StyledCloseButton, predictBlockNumber, slonSVG, FullFindow } from '@slonigiraf/app-slonig-components';
+import { getIPFSDataFromContentID, parseJson, useIpfsContext, useLoginContext, VerticalCenterItemsContainerWithMargin, CenterQRContainer, KatexSpan, balanceToSlonString, SenderComponent, useInfo, nameFromKeyringPair, StyledCloseButton, predictBlockNumber, slonSVG, FullFindow, FullscreenActivity } from '@slonigiraf/app-slonig-components';
 import { getPseudonym, Lesson, getLastUnusedLetterNumber, setLastUsedLetterNumber, storeSetting, getReexaminationsByLessonId, getValidLetterTemplatesByLessonId, SettingKey, serializeAsLetter, LetterTemplate, putLetterTemplate } from '@slonigiraf/db';
 import { getPublicDataToSignByReferee, getPrivateDataToSignByReferee } from '@slonigiraf/helpers';
 import { useTranslation } from '../translate.js';
@@ -246,13 +246,9 @@ function LessonResults({ className = '', lesson, updateAndStoreLesson, onClose }
   const constContentIsVisible = !(processingStatistics || processingQR);
 
   return (
-    <FullFindow>
-      <StyledCloseButton onClick={onClose}
-        icon='close'
-      />
-      <VerticalCenterItemsContainerWithMargin>
+    <FullscreenActivity caption={t('Send results and get a reward')} onClose={onClose}>
         <CenterQRContainer>
-          <SenderComponent data={data} route={'badges'} caption={t('Show to the tutee')}
+          <SenderComponent data={data} route={'badges'} caption={t('Ask the tutee to scan')}
             textShare={t('Press the link to add the badge')} onDataSent={onClose} onReady={() => setProcessingQR(false)} />
         </CenterQRContainer>
         {constContentIsVisible &&
@@ -301,7 +297,7 @@ function LessonResults({ className = '', lesson, updateAndStoreLesson, onClose }
             </Card>
           </DiplomaDiv>
         }
-      </VerticalCenterItemsContainerWithMargin>
+      
 
       {visibleDiplomaDetails && <DetailsModal
         className={className}
@@ -346,7 +342,7 @@ function LessonResults({ className = '', lesson, updateAndStoreLesson, onClose }
           />
         </Modal.Actions>
       </DetailsModal>}
-    </FullFindow>
+    </FullscreenActivity>
   );
 }
 

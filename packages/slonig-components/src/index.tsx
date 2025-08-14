@@ -38,7 +38,7 @@ import { Codec } from '@polkadot/types/types';
 import { KeyringPair } from '@polkadot/keyring/types';
 import { u8aToHex, stringToU8a, u8aConcat } from '@polkadot/util';
 import { signatureVerify } from '@polkadot/util-crypto';
-import SVGButton from './SVGButton.jsx';
+export { default as FullscreenActivity } from './FullscreenActivity.js';
 
 export const EXISTENTIAL_BATCH_SENDER_BALANCE = new BN('10000000000000'); // 10 Slon = 10000000000000
 export const EXISTENTIAL_REFEREE_BALANCE = new BN('1000000000000000'); // 1k Slon = 1000000000000000
