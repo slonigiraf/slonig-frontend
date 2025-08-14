@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useState } from 'react';
-import { LawType, KatexSpan, SelectableList, StyledSpinnerContainer, useLoginContext, getCIDFromBytes } from '@slonigiraf/app-slonig-components';
+import { LawType, KatexSpan, SelectableList, StyledSpinnerContainer, useLoginContext, getCIDFromBytes, FullFindow, VerticalCenterItemsContainer, StyledCloseButton } from '@slonigiraf/app-slonig-components';
 import { useLocation } from 'react-router-dom';
 import ItemLabel from './ItemLabel.js';
 import SkillQR from './SkillQR.js';
@@ -172,7 +172,15 @@ function ViewList({ className = '', id, cidString, list }: Props): React.ReactEl
 
   return list == null ?
     <StyledSpinnerContainer><Spinner noLabel /></StyledSpinnerContainer> :
-    content;
+    (isModuleQRVisible ?
+      <FullFindow>
+        <StyledCloseButton onClick={() => { }}
+          icon='close'
+        />
+        <VerticalCenterItemsContainer>
+          {content}</VerticalCenterItemsContainer>
+      </FullFindow> :
+      content);
 }
 
 export default React.memo(ViewList);
