@@ -248,7 +248,7 @@ function LessonResults({ className = '', lesson, updateAndStoreLesson, onClose }
   return (
     <FullscreenActivity caption={t('Send results and get a reward')} onClose={onClose}>
       <CenterQRContainer>
-        <SenderComponent data={data} route={'badges'} caption={t('Ask the tutee to scan')}
+        <SenderComponent data={data} route={'badges'} caption={t('Ask the tutee to scan:')}
           textShare={t('Press the link to add the badge')} onDataSent={onClose} onReady={() => setProcessingQR(false)} />
       </CenterQRContainer>
       {constContentIsVisible &&

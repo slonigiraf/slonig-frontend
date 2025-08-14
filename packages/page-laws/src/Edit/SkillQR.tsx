@@ -109,7 +109,7 @@ function SkillQR({ className = '', cid, selectedItems, isLearningRequested, isRe
   return (
     <>
       {showQR && (
-                    <StyledDiv>
+                    <StyledDiv className='test'>
                       <CenterQRContainer>
                         <SenderComponent
                           caption={t('To learn this, ask a tutor to scan:')}
