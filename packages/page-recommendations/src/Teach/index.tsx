@@ -145,9 +145,9 @@ function Teach({ className = '' }: Props): React.ReactElement<Props> {
   }, [deleteSetting, setLesson]);
 
   const onCloseResults = useCallback(async () => {
+    onCloseTutoring();
     await deleteSetting(SettingKey.LESSON_RESULTS_ARE_SHOWN);
     setResultsShown(false);
-    onCloseTutoring();
   }, [setResultsShown, onCloseTutoring]);
 
   const publicKeyHex = currentPair ? u8aToHex(currentPair.publicKey) : "";
