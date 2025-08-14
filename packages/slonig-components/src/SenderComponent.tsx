@@ -81,7 +81,7 @@ const SenderComponent: React.FC<SenderComponentProps> = ({ data, route, textShar
     }, [route]); // Initialize peer when `route` or changes
 
     return url ?
-            <>
+        <>
             {caption && <h2 className='prompt'>{caption}</h2>}
             <QRWithShareAndCopy
                 titleShare="QR Code"
@@ -90,7 +90,9 @@ const SenderComponent: React.FC<SenderComponentProps> = ({ data, route, textShar
                 dataCopy={url}
                 isDisabled={isDisabled}
             />
-            </> : <Spinner noLabel />;
+        </> : <div className='connecting'>
+            <Spinner label={t('Loading')} />
+        </div>;
 };
 
 export default React.memo(SenderComponent);
