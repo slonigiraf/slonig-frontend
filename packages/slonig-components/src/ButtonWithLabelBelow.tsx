@@ -23,7 +23,7 @@ const StyledLabel = styled.span`
 export default function ButtonWithLabelBelow(props: any) {
   const { icon, svg, label, ...restProps } = props;
   return (
-    <Button className="icon-button-with-label-below" {...restProps}>
+    <Button className="icon-button-with-label-below noHighlight" {...restProps}>
       {icon && <IconWrapper><Icon icon={icon} /></IconWrapper>}
       {svg && <IconWrapper><CustomSVGIcon svg={svg} /></IconWrapper>}
       {label && <StyledLabel>{label}</StyledLabel>}
