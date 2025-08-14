@@ -50,6 +50,7 @@ export const SettingKey = {
     ECONOMY_INITIALIZED: 'ECONOMY_INITIALIZED',
     AIRDROP_COMPATIBLE: 'AIRDROP_COMPATIBLE',
     RECEIVED_AIRDROP: 'RECEIVED_AIRDROP',
+    LESSON_RESULTS_ARE_SHOWN: 'LESSON_RESULTS_ARE_SHOWN',
 };
 
 export async function storeSetting(id: string, value: string) {

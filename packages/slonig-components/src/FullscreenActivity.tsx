@@ -1,5 +1,4 @@
 import React from 'react';
-import { VerticalCenterItemsContainer } from './index.js';
 import { Button, styled } from '@polkadot/react-components';
 
 interface Props {
@@ -12,13 +11,13 @@ interface Props {
 function FullscreenActivity({ className = '', caption = ' ', children, onClose }: Props): React.ReactElement<Props> {
   return (
     <FullFindow>
-      <VerticalCenterItemsContainer>
+      <CenterContainer>
         <Top>
           <Caption><h1><b>{caption}</b></h1></Caption>
           <CloseButton onClick={onClose} icon='close' />
         </Top>
         {children}
-      </VerticalCenterItemsContainer>
+      </CenterContainer>
     </FullFindow>
   );
 }
@@ -33,6 +32,17 @@ const FullFindow = styled.div`
   background: var(--bg-page);
   overflow-y: auto;
   -webkit-overflow-scrolling: touch;
+`;
+const CenterContainer = styled.div`
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  width: 100%;
+  margin: 0 auto;
+  background: white;
+  @media (min-width: 800px) {
+    width: 800px;
+  }
 `;
 
 const Top = styled.div`

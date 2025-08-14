@@ -4,12 +4,11 @@ import React, { useCallback, useEffect, useState } from 'react';
 import { Button, LinearProgress, styled } from '@polkadot/react-components';
 import { u8aToHex } from '@polkadot/util';
 import { FullFindow, VerticalCenterItemsContainer, useLoginContext } from '@slonigiraf/app-slonig-components';
-import { LetterTemplate, Lesson, Reexamination, getPseudonym, getLesson, getLetterTemplatesByLessonId, getReexaminationsByLessonId, deleteSetting, getSetting, storeSetting, updateLesson, getLetter, getReexamination, SettingKey } from '@slonigiraf/db';
+import { LetterTemplate, Lesson, Reexamination, getPseudonym, getLesson, getLetterTemplatesByLessonId, getReexaminationsByLessonId, getSetting, storeSetting, updateLesson, getLetter, getReexamination, SettingKey, deleteSetting } from '@slonigiraf/db';
 import DoInstructions from './DoInstructions.js';
 import LessonsList from './LessonsList.js';
-import LessonResults, { StyledCloseButton } from './LessonResults.js';
+import LessonResults from './LessonResults.js';
 import LessonRequestReceiver from './LessonRequestReceiver.js';
-import { useTranslation } from '../translate.js';
 
 interface Props {
   className?: string;
@@ -49,9 +48,11 @@ function Teach({ className = '' }: Props): React.ReactElement<Props> {
   const fetchLesson = useCallback(
     async function fetchLesson() {
       const lessonId = await getSetting(SettingKey.LESSON);
+      const lessonResultsAreShown = await getSetting(SettingKey.LESSON_RESULTS_ARE_SHOWN);
       if (lessonId) {
         const fetchedLesson = await getLesson(lessonId);
         setLesson(fetchedLesson || null);
+        setResultsShown(lessonResultsAreShown? true : false);
         if (fetchedLesson) {
           const fetchedLetterTemplates = await getLetterTemplatesByLessonId(lessonId);
           if (fetchedLetterTemplates) {
@@ -106,6 +107,7 @@ function Teach({ className = '' }: Props): React.ReactElement<Props> {
 
   const onShowResults = useCallback(async (lesson: Lesson) => {
     storeSetting(SettingKey.LESSON, lesson.id);
+    storeSetting(SettingKey.LESSON_RESULTS_ARE_SHOWN, 'true');
     setLesson(lesson);
     setResultsShown(true);
   }, [storeSetting, setLesson, setResultsShown]);
@@ -142,7 +144,8 @@ function Teach({ className = '' }: Props): React.ReactElement<Props> {
     setLesson(null);
   }, [deleteSetting, setLesson]);
 
-  const onCloseResults = useCallback(() => {
+  const onCloseResults = useCallback(async () => {
+    await deleteSetting(SettingKey.LESSON_RESULTS_ARE_SHOWN);
     setResultsShown(false);
     onCloseTutoring();
   }, [setResultsShown, onCloseTutoring]);
