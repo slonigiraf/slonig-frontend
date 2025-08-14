@@ -43,8 +43,8 @@ const CenterContainer = styled.div`
   width: 100%;
   margin: 0 auto;
   background: white;
-  @media (min-width: 400px) {
-    width: 400px;
+  @media (min-width: 430px) {
+    width: 430px;
   }
   min-height: 100%;
   padding-bottom: 10px;
