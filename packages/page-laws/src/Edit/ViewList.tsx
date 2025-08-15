@@ -5,7 +5,7 @@ import ItemLabel from './ItemLabel.js';
 import SkillQR from './SkillQR.js';
 import { useTranslation } from '../translate.js';
 import ExerciseList from './ExerciseList.js';
-import { Toggle, Spinner } from '@polkadot/react-components';
+import { Toggle, Spinner, Label, Tag } from '@polkadot/react-components';
 import { ItemWithCID } from '../types.js';
 import { useApi } from '@polkadot/react-hooks';
 import BN from 'bn.js';
@@ -174,6 +174,11 @@ function ViewList({ className = '', id, cidString, list }: Props): React.ReactEl
       />
     )}
     {list.q != null && <ExerciseList exercises={list.q} />}
+    {list.t !== null && list.s && list.t === LawType.MODULE && (
+      <Standards>
+        <Label label={t('Educational standards')+': '} /> <Label label={list.s} />
+      </Standards>
+    )}
   </> : <></>;
 
   return list == null ?
@@ -198,6 +203,15 @@ const RemoveBorders = styled.div`
     border-left: none !important;
     border-right: none !important;
     border-top: none !important;
+  }
+`;
+const Standards = styled.div`
+  display: flex;
+  flex-direction: row;
+  gap: 10px;
+  flex-wrap: wrap;
+  label {
+    text-transform: none;
   }
 `;
 export default React.memo(ViewList);
