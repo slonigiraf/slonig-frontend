@@ -1,6 +1,71 @@
 import React, { useEffect, useState } from 'react';
 import 'react-cookie-manager/dist/style.css';
 
+const CONSENT_COUNTRIES = new Set<string>([
+  // EU
+  'AT','BE','BG','HR','CY','CZ','DK','EE','FI','FR','DE','GR','HU','IE','IT','LV','LT','LU','MT','NL','PL','PT','RO','SK','SI','ES','SE',
+  // EEA (non-EU)
+  'IS','LI','NO',
+  // UK
+  'GB',
+  // Canada
+  'CA'
+]);
+
+// Small helper: fetch with timeout
+async function fetchWithTimeout(input: RequestInfo | URL, init: RequestInit = {}, ms = 1200) {
+  const ctrl = new AbortController();
+  const t = setTimeout(() => ctrl.abort(), ms);
+  try {
+    return await fetch(input, { ...init, signal: ctrl.signal });
+  } finally {
+    clearTimeout(t);
+  }
+}
+
+// Try multiple lightweight country sources
+async function detectCountryCode(): Promise<string | null> {
+  try {
+    // 1) Cloudflare (if you’re behind CF)
+    // Returns text; look for "loc=CC"
+    const cf = await fetchWithTimeout('/cdn-cgi/trace', {}, 600);
+    if (cf.ok) {
+      const txt = await cf.text();
+      const m = txt.match(/(?:^|\n)loc=([A-Z]{2})(?:\n|$)/);
+      if (m) return m[1];
+    }
+  } catch (_) {}
+
+  try {
+    // 2) api.country.is — returns {"country":"US"}
+    const r = await fetchWithTimeout('https://api.country.is', {}, 900);
+    if (r.ok) {
+      const j = await r.json();
+      if (j?.country) return String(j.country);
+    }
+  } catch (_) {}
+
+  try {
+    // 3) geojs — returns {"country":"US"}
+    const r = await fetchWithTimeout('https://get.geojs.io/v1/ip/country.json', {}, 900);
+    if (r.ok) {
+      const j = await r.json();
+      if (j?.country) return String(j.country);
+    }
+  } catch (_) {}
+
+  try {
+    // 4) ipapi — returns "US" as plain text
+    const r = await fetchWithTimeout('https://ipapi.co/country/', {}, 900);
+    if (r.ok) {
+      const t = (await r.text()).trim();
+      if (/^[A-Z]{2}$/.test(t)) return t;
+    }
+  } catch (_) {}
+
+  return null;
+}
+
 const loadAnalytics = () => {
   if (location.hostname !== "localhost") {
     if (!document.querySelector('script[src*="googletagmanager.com/gtag/js"]')) {
@@ -68,13 +133,50 @@ interface CookieManagerProps {
 const CookieManagerClient: React.FC = () => {
   const [CookieManagerComponent, setCookieManagerComponent] = useState<React.ComponentType<CookieManagerProps> | null>(null);
 
+  const [shouldShowCMP, setShouldShowCMP] = useState<boolean | null>(null);
+
+  // Lazy-load CMP component
   useEffect(() => {
     import('react-cookie-manager').then((mod) => {
       setCookieManagerComponent(() => mod.CookieManager as React.ComponentType<CookieManagerProps>);
     });
   }, []);
 
-  if (!CookieManagerComponent) return null;
+  // Geo decision: show CMP only in EU/EEA/UK/CA; otherwise load analytics now
+  useEffect(() => {
+    let cancelled = false;
+
+    (async () => {
+      // Respect localhost: do nothing
+      if (location.hostname === 'localhost') {
+        if (!cancelled) setShouldShowCMP(false);
+        return;
+      }
+
+      // If the user agent signals Global Privacy Control, prefer showing CMP
+      const gpc = (navigator as any).globalPrivacyControl === true;
+
+      const cc = await detectCountryCode();
+      console.log('Country: ', cc)
+      const inConsentRegion = cc ? CONSENT_COUNTRIES.has(cc.toUpperCase()) : true; // default conservative when unknown
+
+      if (cancelled) return;
+
+      if (gpc || inConsentRegion) {
+        setShouldShowCMP(true);
+      } else {
+        setShouldShowCMP(false);
+        loadAnalytics();
+      }
+    })();
+
+    return () => { cancelled = true; };
+  }, []);
+
+  // Don’t render anything until we decide
+  if (CookieManagerComponent == null || shouldShowCMP == null) return null;
+
+  if (!shouldShowCMP) return null; // outside consent regions → no plate
 
   return (
     <CookieManagerComponent
