@@ -175,9 +175,12 @@ function ViewList({ className = '', id, cidString, list }: Props): React.ReactEl
     )}
     {list.q != null && <ExerciseList exercises={list.q} />}
     {list.t !== null && list.s && list.t === LawType.MODULE && (
-      <Standards>
-        <Label label={t('Educational standards')+': '} /> <Label label={list.s} />
-      </Standards>
+      <>
+        <h3>{t('Educational standards') + ': '}</h3>
+        <Standards>
+          <Label label={list.s} />
+        </Standards>
+      </>
     )}
   </> : <></>;
 
@@ -208,7 +211,7 @@ const RemoveBorders = styled.div`
 const Standards = styled.div`
   display: flex;
   flex-direction: row;
-  gap: 10px;
+  gap: 5px;
   flex-wrap: wrap;
   label {
     text-transform: none;
