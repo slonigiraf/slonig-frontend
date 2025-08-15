@@ -146,6 +146,8 @@ const CookieManagerClient: React.FC = () => {
       const gpc = (navigator as any).globalPrivacyControl === true;
 
       const cc = await detectCountryCode();
+      console.log('Country: ', cc);
+      
       const inConsentRegion = cc ? CONSENT_COUNTRIES.has(cc.toUpperCase()) : true; // default conservative when unknown
 
       if (cancelled) return;
