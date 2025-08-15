@@ -26,18 +26,7 @@ async function fetchWithTimeout(input: RequestInfo | URL, init: RequestInit = {}
 // Try multiple lightweight country sources
 async function detectCountryCode(): Promise<string | null> {
   try {
-    // 1) Cloudflare (if you’re behind CF)
-    // Returns text; look for "loc=CC"
-    const cf = await fetchWithTimeout('/cdn-cgi/trace', {}, 600);
-    if (cf.ok) {
-      const txt = await cf.text();
-      const m = txt.match(/(?:^|\n)loc=([A-Z]{2})(?:\n|$)/);
-      if (m) return m[1];
-    }
-  } catch (_) {}
-
-  try {
-    // 2) api.country.is — returns {"country":"US"}
+    // api.country.is — returns {"country":"US"}
     const r = await fetchWithTimeout('https://api.country.is', {}, 900);
     if (r.ok) {
       const j = await r.json();
@@ -46,7 +35,7 @@ async function detectCountryCode(): Promise<string | null> {
   } catch (_) {}
 
   try {
-    // 3) geojs — returns {"country":"US"}
+    // geojs — returns {"country":"US"}
     const r = await fetchWithTimeout('https://get.geojs.io/v1/ip/country.json', {}, 900);
     if (r.ok) {
       const j = await r.json();
@@ -55,7 +44,7 @@ async function detectCountryCode(): Promise<string | null> {
   } catch (_) {}
 
   try {
-    // 4) ipapi — returns "US" as plain text
+    // ipapi — returns "US" as plain text
     const r = await fetchWithTimeout('https://ipapi.co/country/', {}, 900);
     if (r.ok) {
       const t = (await r.text()).trim();
@@ -157,7 +146,6 @@ const CookieManagerClient: React.FC = () => {
       const gpc = (navigator as any).globalPrivacyControl === true;
 
       const cc = await detectCountryCode();
-      console.log('Country: ', cc)
       const inConsentRegion = cc ? CONSENT_COUNTRIES.has(cc.toUpperCase()) : true; // default conservative when unknown
 
       if (cancelled) return;
