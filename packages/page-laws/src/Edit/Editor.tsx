@@ -45,6 +45,15 @@ function Editor(props: Props): React.ReactElement<Props> {
     });
   }, [item, onItemChange]);
 
+  const editStandards = useCallback((text: string) => {
+    onListChange({
+      ...list,
+      s: text
+    });
+  }, [list, onListChange]);
+
+  console.log('list: ', list)
+
   const selectLawType = useCallback((newLawType: typeof LawType) => {
     if (!item || newLawType !== item.t) {
       onItemChange({
@@ -241,6 +250,15 @@ function Editor(props: Props): React.ReactElement<Props> {
           label={t('New')}
           onClick={addItem}
         />
+      </div>)}
+      {list.t == LawType.MODULE && (<div className='ui--row'>
+        <Input
+              autoFocus
+              className='full'
+              label={t('aligned to standards')}
+              onChange={editStandards}
+              value={list?.s || ""}
+            />
       </div>)}
     </>
   );
