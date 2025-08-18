@@ -184,7 +184,7 @@ function ViewList({ className = '', id, cidString, list }: Props): React.ReactEl
       <>
         <h3>{t('Educational standards') + ': '}</h3>
         <Standards>
-          <Label label={list.s} />
+          <Label data-testid='standards' label={list.s} />
         </Standards>
       </>
     )}
