@@ -255,7 +255,7 @@ function Editor(props: Props): React.ReactElement<Props> {
         <Input
               autoFocus
               className='full'
-              label={t('Educational standards')}
+              label={t('Educational standards for the module')}
               onChange={editStandards}
               value={list?.s || ""}
             />
