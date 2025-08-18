@@ -183,8 +183,8 @@ function ViewList({ className = '', id, cidString, list }: Props): React.ReactEl
     {list.t !== null && list.s && list.t === LawType.MODULE && (
       <>
         <h3>{t('Educational standards') + ': '}</h3>
-        <Standards>
-          <Label data-testid='standards' label={list.s} />
+        <Standards data-testid='standards'>
+          <Label label={list.s} />
         </Standards>
       </>
     )}
