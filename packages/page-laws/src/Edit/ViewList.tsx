@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useState } from 'react';
-import { LawType, KatexSpan, SelectableList, StyledSpinnerContainer, useLoginContext, getCIDFromBytes, FullFindow, VerticalCenterItemsContainer, StyledCloseButton, FullscreenActivity } from '@slonigiraf/app-slonig-components';
+import { LawType, KatexSpan, SelectableList, StyledSpinnerContainer, useLoginContext, getCIDFromBytes, FullFindow, VerticalCenterItemsContainer, StyledCloseButton, FullscreenActivity, useInfo } from '@slonigiraf/app-slonig-components';
 import { useLocation } from 'react-router-dom';
 import ItemLabel from './ItemLabel.js';
 import SkillQR from './SkillQR.js';
@@ -24,6 +24,7 @@ interface Props {
 
 function ViewList({ className = '', id, cidString, list }: Props): React.ReactElement<Props> {
   const location = useLocation();
+  const { showInfo } = useInfo();
   const { api } = useApi();
   const queryParams = new URLSearchParams(location.search);
   const lessonInUrl = queryParams.get('lesson') != null;
@@ -102,6 +103,11 @@ function ViewList({ className = '', id, cidString, list }: Props): React.ReactEl
     setReexaminingRequested(false);
   }, []);
 
+  const onDataSent = useCallback((): void => {
+    closeQR();
+    showInfo(t('You can put your device aside'));
+  }, [closeQR]);
+
   useEffect((): void => {
     if (
       lessonInUrl &&
@@ -132,7 +138,7 @@ function ViewList({ className = '', id, cidString, list }: Props): React.ReactEl
         (itemsWithCID.length > 0 && <ModulePreview itemsWithCID={itemsWithCID} />) :
         <>
           <div className='ui--row' style={isModuleQRVisible ? {} : { display: 'none' }}>
-            <SkillQR id={id} cid={cidString} type={LawType.MODULE} selectedItems={selectedItems} isLearningRequested={isLearningRequested} isReexaminingRequested={isReexaminingRequested} lessonInUrl={lessonInUrl} />
+            <SkillQR id={id} cid={cidString} type={LawType.MODULE} selectedItems={selectedItems} isLearningRequested={isLearningRequested} isReexaminingRequested={isReexaminingRequested} lessonInUrl={lessonInUrl} onDataSent={onDataSent}/>
           </div>
           {isThereAnythingToLearn && <Toggle
             label={t('Learn with a tutor')}

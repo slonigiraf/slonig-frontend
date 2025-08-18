@@ -15,9 +15,10 @@ interface Props {
   isLearningRequested: boolean;
   isReexaminingRequested?: boolean;
   lessonInUrl?: boolean;
+  onDataSent: () => void;
 }
 
-function SkillQR({ className = '', cid, selectedItems, isLearningRequested, isReexaminingRequested, lessonInUrl}: Props): React.ReactElement<Props> | null {
+function SkillQR({ className = '', cid, selectedItems, isLearningRequested, isReexaminingRequested, lessonInUrl, onDataSent}: Props): React.ReactElement<Props> | null {
   // Always call hooks unconditionally
   const { currentPair, isLoggedIn } = useLoginContext();
   const { t } = useTranslation();
@@ -116,6 +117,7 @@ function SkillQR({ className = '', cid, selectedItems, isLearningRequested, isRe
                           data={data}
                           route={route}
                           textShare={t('Press the link to start tutoring')}
+                          onDataSent={onDataSent}
                         />
                       </CenterQRContainer>
                     </StyledDiv>
