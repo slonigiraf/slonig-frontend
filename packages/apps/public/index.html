@@ -115,6 +115,7 @@
     text-align: center;
     margin-top: 2em;
     color: #555;
+    display: none;
   ">
     ⏳ Slonig may load slowly the first time. Please wait a minute.
   </div>
@@ -122,12 +123,21 @@
   <div id="root"></div>
   <div id="tooltips"></div>
   <script>
-    // When your app is ready, hide the loading message and show the root
-    window.addEventListener('DOMContentLoaded', () => {
-      const root = document.getElementById('root');
-      const loading = document.getElementById('loading-message');
-      if (loading) loading.style.display = 'none';
-      if (root) root.style.display = 'block';
+    // Check if user is visiting for the first time
+    const firstVisit = !localStorage.getItem("slonigFirstVisitDone");
+    const loadingMsg = document.getElementById("loading-message");
+    const root = document.getElementById("root");
+
+    if (firstVisit && loadingMsg) {
+      loadingMsg.style.display = "block"; // show only first time
+    }
+
+    window.addEventListener("DOMContentLoaded", () => {
+      if (loadingMsg) loadingMsg.style.display = "none";
+      if (root) root.style.display = "block";
+
+      // Mark that the user has already visited
+      localStorage.setItem("slonigFirstVisitDone", "true");
     });
 
     if (window.self !== window.top) {
