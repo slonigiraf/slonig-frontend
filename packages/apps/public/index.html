@@ -104,14 +104,32 @@
     }
   </style>
 
- 
+
 </head>
 
 <body>
   <noscript>You need to enable JavaScript to run this app.</noscript>
+  <!-- Loading message -->
+  <div id="loading-message" style="
+    font-family: sans-serif;
+    text-align: center;
+    margin-top: 2em;
+    color: #555;
+  ">
+    ⏳ Slonig may load slowly the first time. Please wait a minute.
+  </div>
+
   <div id="root"></div>
   <div id="tooltips"></div>
   <script>
+    // When your app is ready, hide the loading message and show the root
+    window.addEventListener('DOMContentLoaded', () => {
+      const root = document.getElementById('root');
+      const loading = document.getElementById('loading-message');
+      if (loading) loading.style.display = 'none';
+      if (root) root.style.display = 'block';
+    });
+
     if (window.self !== window.top) {
       window.top.location.href = window.location.href;
     }
