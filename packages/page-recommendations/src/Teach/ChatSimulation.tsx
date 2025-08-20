@@ -26,7 +26,7 @@ const ChatSimulation: React.FC<ChatSimulationProps> = ({ messages }) => {
 const MessageContainer = styled.div`
   display: flex;
   flex-direction: column;
-  padding: 0px 3px 0px 3px;
+  padding: 0px 10px 0px 10px;
   width: 100%;
   margin: 0 auto;
 `;

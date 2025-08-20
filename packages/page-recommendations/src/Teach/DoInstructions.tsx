@@ -239,7 +239,7 @@ const InstructionsButtonsContainer = styled.div`
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  padding: 0px 3px 0px 3px;
+  padding: 0px 10px 0px 10px;
   .hint {
     text-align: center;
     padding-bottom: 10px;
