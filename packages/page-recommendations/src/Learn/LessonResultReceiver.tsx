@@ -131,13 +131,12 @@ function LessonResultReceiver({ webRTCPeerId, onDaysRangeChange }: Props): React
           let endDate = new Date(date.setHours(23, 59, 59, 999));
           onDaysRangeChange(startDate, endDate);
         }
-        navigate('', { replace: true });
       } catch (e) {
         console.log(e);
       }
     }
     if (lessonResult) {
-      // setDaysRange();
+      setDaysRange();
     }
   }, [lessonResult])
 
