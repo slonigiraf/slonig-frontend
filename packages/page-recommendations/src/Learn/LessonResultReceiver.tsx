@@ -124,9 +124,28 @@ function LessonResultReceiver({ webRTCPeerId, onDaysRangeChange }: Props): React
               lessonResult.amount
             );
             if (firstLetter.created) {
-              const created = new Date(firstLetter.created);
-              const startDate = new Date(created.setHours(0, 0, 0, 0));
-              const endDate = new Date(created.setHours(23, 59, 59, 999));
+              let begin = new Date(firstLetter.lastExamined);
+              let end = new Date(firstLetter.lastExamined);
+
+              for (let letter of lessonResult?.letters) {
+                const deserializedLetter = deserializeLetter(
+                  letter,
+                  lessonResult.workerId,
+                  lessonResult.genesis,
+                  lessonResult.amount
+                );
+
+                const examined = new Date(deserializedLetter.lastExamined);
+                if (examined < begin) {
+                  begin = examined;
+                }
+                if (examined > end) {
+                  end = examined;
+                }
+
+              }
+              let startDate = new Date(begin.setHours(0, 0, 0, 0));
+              let endDate = new Date(end.setHours(23, 59, 59, 999));
               onDaysRangeChange(startDate, endDate);
             }
           }
