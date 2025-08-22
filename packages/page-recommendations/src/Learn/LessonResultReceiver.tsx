@@ -114,41 +114,22 @@ function LessonResultReceiver({ webRTCPeerId, onDaysRangeChange }: Props): React
   useEffect(() => {
     async function setDaysRange() {
       try {
-        if (lessonResult?.letters) {
-          if (lessonResult.letters.length > 0) {
-            const firstSerialized = lessonResult.letters[0];
-            const firstLetter = deserializeLetter(
-              firstSerialized,
-              lessonResult.workerId,
-              lessonResult.genesis,
-              lessonResult.amount
-            );
-            if (firstLetter.created) {
-              let begin = new Date(firstLetter.lastExamined);
-              let end = new Date(firstLetter.lastExamined);
-
-              for (let letter of lessonResult?.letters) {
-                const deserializedLetter = deserializeLetter(
-                  letter,
-                  lessonResult.workerId,
-                  lessonResult.genesis,
-                  lessonResult.amount
-                );
-
-                const examined = new Date(deserializedLetter.lastExamined);
-                if (examined < begin) {
-                  begin = examined;
-                }
-                if (examined > end) {
-                  end = examined;
-                }
-
-              }
-              let startDate = new Date(begin.setHours(0, 0, 0, 0));
-              let endDate = new Date(end.setHours(23, 59, 59, 999));
-              onDaysRangeChange(startDate, endDate);
-            }
+        if (lessonResult?.letters && lessonResult.letters.length > 0) {
+          const firstSerialized = lessonResult.letters[0];
+          const firstLetter = deserializeLetter(
+            firstSerialized,
+            lessonResult.workerId,
+            lessonResult.genesis,
+            lessonResult.amount
+          );
+          const dbLetter = await getLetter(firstLetter.pubSign);
+          let date = new Date();
+          if (dbLetter) {
+            date = new Date(dbLetter.created);
           }
+          let startDate = new Date(date.setHours(0, 0, 0, 0));
+          let endDate = new Date(date.setHours(23, 59, 59, 999));
+          onDaysRangeChange(startDate, endDate);
         }
         navigate('', { replace: true });
       } catch (e) {
