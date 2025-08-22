@@ -7,10 +7,11 @@ import { useTranslation } from '../translate.js';
 import { useLocation, useNavigate } from 'react-router-dom';
 import SignLettersUseRight from './SignLettersUseRight.js';
 import type { KeyringPair } from '@polkadot/keyring/types';
-import { DaysRangePicker, loadFromSessionStorage, saveToSessionStorage, SelectableList, StyledContentCloseButton, ToggleContainer, useInfo } from '@slonigiraf/app-slonig-components';
+import { DaysRangePicker, loadFromSessionStorage, saveToSessionStorage, SelectableList, StyledContentCloseButton, ToggleContainer, UrlParams, useInfo } from '@slonigiraf/app-slonig-components';
 import { useApi, useToggle } from '@polkadot/react-hooks';
 import PersonSelector from '../PersonSelector.js';
 import { LETTERS } from '../constants.js';
+import LessonResultReceiver from './LessonResultReceiver.js';
 
 interface Props {
   className?: string;
@@ -30,7 +31,8 @@ function LettersList({ className = '', worker, currentPair }: Props): React.Reac
   const location = useLocation();
   const { isApiConnected } = useApi();
   const queryParams = new URLSearchParams(location.search);
-  const employer = queryParams.get('employer') || ''
+  const webRTCPeerId = queryParams.get(UrlParams.WEBRTC_PEER_ID);
+  const employer = queryParams.get('employer') || '';
   const { showInfo } = useInfo();
   const navigate = useNavigate();
   const [reloadCount, setReloadCount] = useState<number>(0);
@@ -48,6 +50,11 @@ function LettersList({ className = '', worker, currentPair }: Props): React.Reac
   });
 
   const [isDeleteConfirmOpen, toggleDeleteConfirm] = useToggle();
+
+  const onDaysRangeChange = useCallback((start: Date, end: Date) => {
+    setStartDate(start);
+    setEndDate(end);
+  }, [setStartDate, setEndDate]);
 
   useEffect(() => {
     setToggleState(employer !== '' ? ToggleState.GETTING_BONUSES : ToggleState.NO_SELECTION)
@@ -223,6 +230,7 @@ function LettersList({ className = '', worker, currentPair }: Props): React.Reac
           </Modal.Content>
         </StyledModal>
       )}
+      {webRTCPeerId && <LessonResultReceiver webRTCPeerId={webRTCPeerId} onDaysRangeChange={onDaysRangeChange} />}
     </div>
   );
 }

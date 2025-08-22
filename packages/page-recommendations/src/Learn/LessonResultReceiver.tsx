@@ -12,12 +12,12 @@ import BN from 'bn.js';
 import { getDataToSignByWorker } from '@slonigiraf/helpers';
 import { useApi } from '@polkadot/react-hooks';
 import useFetchWebRTC from '../useFetchWebRTC.js';
-import { END, LETTERS, START } from '../constants.js';
 interface Props {
   webRTCPeerId: string | null;
+  onDaysRangeChange: (start: Date, end: Date) => void;
 }
 
-function LessonResultReceiver({ webRTCPeerId }: Props): React.ReactElement {
+function LessonResultReceiver({ webRTCPeerId, onDaysRangeChange }: Props): React.ReactElement {
   const { t } = useTranslation();
   const { api, isApiReady } = useApi();
   const { setIsTransferOpen, setRecipientId, setAmount,
@@ -113,31 +113,28 @@ function LessonResultReceiver({ webRTCPeerId }: Props): React.ReactElement {
 
   useEffect(() => {
     async function setDaysRange() {
-        try {
-          if (lessonResult?.letters) {
-            if (lessonResult.letters.length > 0) {
-              const firstSerialized = lessonResult.letters[0];
-              const firstLetter = deserializeLetter(
-                firstSerialized,
-                lessonResult.workerId,
-                lessonResult.genesis,
-                lessonResult.amount
-              );
-              if (firstLetter.created) {
-                const created = new Date(firstLetter.created);
-                const startDate = new Date(created.setHours(0, 0, 0, 0));
-                const endDate = new Date(created.setHours(23, 59, 59, 999));
-                console.log('setting LETTERS_START_DATE_ID', startDate.toISOString())
-                console.log('setting LETTERS_END_DATE_ID', endDate.toISOString())
-                saveToSessionStorage(LETTERS, START, startDate.toISOString());
-                saveToSessionStorage(LETTERS, END, endDate.toISOString());
-              }
+      try {
+        if (lessonResult?.letters) {
+          if (lessonResult.letters.length > 0) {
+            const firstSerialized = lessonResult.letters[0];
+            const firstLetter = deserializeLetter(
+              firstSerialized,
+              lessonResult.workerId,
+              lessonResult.genesis,
+              lessonResult.amount
+            );
+            if (firstLetter.created) {
+              const created = new Date(firstLetter.created);
+              const startDate = new Date(created.setHours(0, 0, 0, 0));
+              const endDate = new Date(created.setHours(23, 59, 59, 999));
+              onDaysRangeChange(startDate, endDate);
             }
           }
-          navigate('', { replace: true });
-        } catch (e) {
-          console.log(e);
         }
+        navigate('', { replace: true });
+      } catch (e) {
+        console.log(e);
+      }
     }
     if (lessonResult) {
       setDaysRange();

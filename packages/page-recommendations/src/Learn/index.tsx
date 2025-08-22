@@ -3,20 +3,14 @@
 
 import React from 'react';
 import LettersList from './LettersList.js';
-import { UrlParams, useLoginContext } from '@slonigiraf/app-slonig-components';
+import { useLoginContext } from '@slonigiraf/app-slonig-components';
 import { u8aToHex } from '@polkadot/util';
-import { useLocation } from 'react-router-dom';
-import LessonResultReceiver from './LessonResultReceiver.js';
 
 interface Props {
   className?: string;
 }
 
 function Learn({ className = '' }: Props): React.ReactElement<Props> {
-  // Process query
-  const location = useLocation();
-  const queryParams = new URLSearchParams(location.search);
-  const webRTCPeerId = queryParams.get(UrlParams.WEBRTC_PEER_ID);
   const { currentPair, isLoggedIn } = useLoginContext();
 
   return (
@@ -24,7 +18,6 @@ function Learn({ className = '' }: Props): React.ReactElement<Props> {
       <div className='ui--row'>
         {isLoggedIn && currentPair && <>
           <LettersList worker={u8aToHex(currentPair?.publicKey)} currentPair={currentPair} />
-          {webRTCPeerId && <LessonResultReceiver webRTCPeerId={webRTCPeerId} />}
         </>}
       </div>
     </div>
