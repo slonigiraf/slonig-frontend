@@ -52,8 +52,14 @@ function LettersList({ className = '', worker, currentPair }: Props): React.Reac
   const [isDeleteConfirmOpen, toggleDeleteConfirm] = useToggle();
 
   const onDaysRangeChange = useCallback((start: Date, end: Date) => {
-    setStartDate(start);
-    setEndDate(end);
+    if (start) {
+      setStartDate(start);
+      saveToSessionStorage(LETTERS, 'start', start.toISOString());
+    }
+    if (end) {
+      setEndDate(end);
+      saveToSessionStorage(LETTERS, 'end', end.toISOString());
+    }
   }, [setStartDate, setEndDate]);
 
   useEffect(() => {
@@ -160,16 +166,7 @@ function LettersList({ className = '', worker, currentPair }: Props): React.Reac
         <DaysRangePicker
           startDate={startDate ? new Date(startDate) : null}
           endDate={endDate ? new Date(endDate) : null}
-          onChange={(start: Date, end: Date) => {
-            if (start) {
-              setStartDate(start);
-              saveToSessionStorage(LETTERS, 'start', start.toISOString());
-            }
-            if (end) {
-              setEndDate(end);
-              saveToSessionStorage(LETTERS, 'end', end.toISOString());
-            }
-          }}
+          onChange={onDaysRangeChange}
         />
       </div>
       {employer === '' && <ToggleContainer>
