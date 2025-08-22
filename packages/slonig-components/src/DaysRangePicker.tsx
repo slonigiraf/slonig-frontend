@@ -1,62 +1,45 @@
-import React, { useState, useEffect } from "react";
+import React from "react";
 import { styled, Icon } from "@polkadot/react-components";
-import { DateInput, loadFromSessionStorage, saveToSessionStorage } from "@slonigiraf/app-slonig-components";
+import { DateInput } from "@slonigiraf/app-slonig-components";
 import { useTranslation } from "./translate.js";
 
 interface DaysRangePickerProps {
-  startDate: Date | null;
-  endDate: Date | null;
-  onChange: (start: Date | null, end: Date | null) => void;
-  sessionStorageId: string;
+  startDate: Date;
+  endDate: Date;
+  onChange: (start: Date, end: Date) => void;
 }
 
 const DaysRangePicker: React.FC<DaysRangePickerProps> = ({
   startDate,
   endDate,
   onChange,
-  sessionStorageId,
 }) => {
   const { t } = useTranslation();
 
-  // Restore dates from sessionStorage or fallback to props
-  const [localStart, setLocalStart] = useState<Date | null>(() => {
-    const stored = loadFromSessionStorage(sessionStorageId, 'start');
-    return stored ? new Date(stored) : startDate;
-  });
-
-  const [localEnd, setLocalEnd] = useState<Date | null>(() => {
-    const stored = loadFromSessionStorage(sessionStorageId, 'end');
-    return stored ? getEndOfDay(new Date(stored)) : (endDate ? getEndOfDay(endDate) : null);
-  });
-
-  useEffect(() => {
-    onChange(localStart, localEnd);
-  }, [localStart, localEnd, onChange]);
+  function getStartOfDay(date: Date): Date {
+    const result = new Date(date);
+    result.setHours(0, 0, 0, 0);
+    return result;
+  }
 
   function getEndOfDay(date: Date): Date {
-    const end = new Date(date);
-    end.setHours(23, 59, 59, 999);
-    return end;
+    const result = new Date(date);
+    result.setHours(23, 59, 59, 999);
+    return result;
   }
 
   return (
     <StyledDiv>
       <DateInput
         id='start'
-        date={localStart}
-        onDateChange={(date) => {
-          if (!date) {
-            setLocalStart(null);
-            saveToSessionStorage(sessionStorageId, 'start', null);
-            return;
-          }
-          setLocalStart(date);
-          saveToSessionStorage(sessionStorageId, 'start', date.toISOString());
-
-          if (localEnd && localEnd < date) {
-            const corrected = getEndOfDay(date);
-            setLocalEnd(corrected);
-            saveToSessionStorage(sessionStorageId, 'end', corrected.toISOString());
+        date={startDate}
+        onDateChange={(selectedStartDate) => {
+          if (selectedStartDate) {
+            if (selectedStartDate > endDate) {
+              onChange(getStartOfDay(selectedStartDate), getEndOfDay(selectedStartDate));
+            } else {
+              onChange(getStartOfDay(selectedStartDate), endDate);
+            }
           }
         }}
         label={t("Dates of receipt")}
@@ -66,23 +49,14 @@ const DaysRangePicker: React.FC<DaysRangePickerProps> = ({
 
       <DateInput
         id='end'
-        date={localEnd}
-        onDateChange={(date) => {
-          if (!date) {
-            setLocalEnd(null);
-            saveToSessionStorage(sessionStorageId, 'end', null);
-            return;
-          }
-
-          const normalizedEnd = getEndOfDay(date);
-
-          if (localStart && normalizedEnd < localStart) {
-            const corrected = getEndOfDay(localStart);
-            setLocalEnd(corrected);
-            saveToSessionStorage(sessionStorageId, 'end', corrected.toISOString());
-          } else {
-            setLocalEnd(normalizedEnd);
-            saveToSessionStorage(sessionStorageId, 'end', normalizedEnd.toISOString());
+        date={endDate}
+        onDateChange={(selectedEndDate) => {
+          if (selectedEndDate) {
+            if (startDate > selectedEndDate) {
+              onChange(getStartOfDay(selectedEndDate), getEndOfDay(selectedEndDate));
+            } else {
+              onChange(startDate, getEndOfDay(selectedEndDate));
+            }
           }
         }}
       />

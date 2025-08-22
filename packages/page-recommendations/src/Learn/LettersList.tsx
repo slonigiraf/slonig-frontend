@@ -7,7 +7,7 @@ import { useTranslation } from '../translate.js';
 import { useLocation, useNavigate } from 'react-router-dom';
 import SignLettersUseRight from './SignLettersUseRight.js';
 import type { KeyringPair } from '@polkadot/keyring/types';
-import { DaysRangePicker, SelectableList, StyledContentCloseButton, ToggleContainer, useInfo } from '@slonigiraf/app-slonig-components';
+import { DaysRangePicker, loadFromSessionStorage, saveToSessionStorage, SelectableList, StyledContentCloseButton, ToggleContainer, useInfo } from '@slonigiraf/app-slonig-components';
 import { useApi, useToggle } from '@polkadot/react-hooks';
 import PersonSelector from '../PersonSelector.js';
 import { LETTERS } from '../constants.js';
@@ -36,9 +36,17 @@ function LettersList({ className = '', worker, currentPair }: Props): React.Reac
   const [reloadCount, setReloadCount] = useState<number>(0);
   const [toggleState, setToggleState] = useState<ToggleState>(employer !== '' ? ToggleState.GETTING_BONUSES : ToggleState.NO_SELECTION);
 
-  // Initialize startDate and endDate as timestamps
-  const [startDate, setStartDate] = useState<number | null>(new Date(new Date().setHours(0, 0, 0, 0)).getTime());
-  const [endDate, setEndDate] = useState<number | null>(new Date(new Date().setHours(23, 59, 59, 999)).getTime());
+  // Initialize startDate and endDate
+  const [startDate, setStartDate] = useState<Date>(() => {
+    const stored = loadFromSessionStorage(LETTERS, 'start');
+    return stored ? new Date(stored) : new Date(new Date().setHours(0, 0, 0, 0));
+  });
+
+  const [endDate, setEndDate] = useState<Date>(() => {
+    const stored = loadFromSessionStorage(LETTERS, 'end');
+    return stored ? new Date(stored) : new Date(new Date().setHours(23, 59, 59, 999));
+  });
+
   const [isDeleteConfirmOpen, toggleDeleteConfirm] = useToggle();
 
   useEffect(() => {
@@ -46,7 +54,7 @@ function LettersList({ className = '', worker, currentPair }: Props): React.Reac
   }, [employer]);
 
   const letters = useLiveQuery<Letter[]>(
-    () => getLetters(worker, startDate, endDate),
+    () => getLetters(worker, startDate.getTime(), endDate.getTime()),
     [worker, startDate, endDate]
   );
 
@@ -145,10 +153,15 @@ function LettersList({ className = '', worker, currentPair }: Props): React.Reac
         <DaysRangePicker
           startDate={startDate ? new Date(startDate) : null}
           endDate={endDate ? new Date(endDate) : null}
-          sessionStorageId={LETTERS}
-          onChange={(start: Date | null, end: Date | null) => {
-            setStartDate(start ? start.getTime() : null);
-            setEndDate(end ? end.getTime() : null);
+          onChange={(start: Date, end: Date) => {
+            if (start) {
+              setStartDate(start);
+              saveToSessionStorage(LETTERS, 'start', start.toISOString());
+            }
+            if (end) {
+              setEndDate(end);
+              saveToSessionStorage(LETTERS, 'end', end.toISOString());
+            }
           }}
         />
       </div>

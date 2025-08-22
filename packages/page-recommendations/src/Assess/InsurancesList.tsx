@@ -6,7 +6,7 @@ import { styled, Icon, Button, Modal, Toggle } from '@polkadot/react-components'
 import { useLiveQuery } from 'dexie-react-hooks';
 import { useTranslation } from '../translate.js';
 import { deleteInsurance, Badge, getInsurances, getPseudonym, Insurance } from '@slonigiraf/db';
-import { DaysRangePicker, SelectableList, ToggleContainer, useInfo } from '@slonigiraf/app-slonig-components';
+import { DaysRangePicker, loadFromSessionStorage, saveToSessionStorage, SelectableList, ToggleContainer, useInfo } from '@slonigiraf/app-slonig-components';
 import { useToggle } from '@polkadot/react-hooks';
 import BadgeInfo from './BadgeInfo.js';
 import { INSURANCES } from '../constants.js';
@@ -24,9 +24,17 @@ function InsurancesList({ className = '', teacher, student, studentNameFromUrl }
   const { showInfo } = useInfo();
   const [studentName, setStudentName] = useState<string | undefined>(studentNameFromUrl);
 
-  // Initialize startDate and endDate as timestamps
-  const [startDate, setStartDate] = useState<number | null>(new Date(new Date().setHours(0, 0, 0, 0)).getTime());
-  const [endDate, setEndDate] = useState<number | null>(new Date(new Date().setHours(23, 59, 59, 999)).getTime());
+  // Initialize startDate and endDate
+  const [startDate, setStartDate] = useState<Date>(() => {
+    const stored = loadFromSessionStorage(INSURANCES, 'start');
+    return stored ? new Date(stored) : new Date(new Date().setHours(0, 0, 0, 0));
+  });
+
+  const [endDate, setEndDate] = useState<Date>(() => {
+    const stored = loadFromSessionStorage(INSURANCES, 'end');
+    return stored ? new Date(stored) : new Date(new Date().setHours(23, 59, 59, 999));
+  });
+
   const [isSelectionAllowed, setSelectionAllowed] = useState(false);
   const [selectedItems, setSelectedItems] = useState<Insurance[]>([]);
   const [isDeleteConfirmOpen, toggleDeleteConfirm] = useToggle();
@@ -45,7 +53,7 @@ function InsurancesList({ className = '', teacher, student, studentNameFromUrl }
   }, [student, studentNameFromUrl]);
 
   const insurances = useLiveQuery(
-    () => getInsurances(teacher, student, startDate, endDate),
+    () => getInsurances(teacher, student, startDate.getTime(), endDate.getTime()),
     [teacher, student, startDate, endDate]
   );
 
@@ -99,9 +107,15 @@ function InsurancesList({ className = '', teacher, student, studentNameFromUrl }
           startDate={startDate ? new Date(startDate) : null}
           endDate={endDate ? new Date(endDate) : null}
           sessionStorageId={INSURANCES}
-          onChange={(start: Date | null, end: Date | null) => {
-            setStartDate(start ? start.getTime() : null);
-            setEndDate(end ? end.getTime() : null);
+          onChange={(start: Date, end: Date) => {
+            if (start) {
+              setStartDate(start);
+              saveToSessionStorage(INSURANCES, 'start', start.toISOString());
+            }
+            if (end) {
+              setEndDate(end);
+              saveToSessionStorage(INSURANCES, 'end', end.toISOString());
+            }
           }}
         />
       </div>

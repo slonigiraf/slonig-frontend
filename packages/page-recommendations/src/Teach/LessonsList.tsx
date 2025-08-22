@@ -3,7 +3,7 @@ import React, { useCallback, useState } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { Button, styled, Icon, Modal, Toggle } from '@polkadot/react-components';
 import { useTranslation } from '../translate.js';
-import { DaysRangePicker, SelectableList, ToggleContainer, useInfo } from '@slonigiraf/app-slonig-components';
+import { DaysRangePicker, loadFromSessionStorage, saveToSessionStorage, SelectableList, ToggleContainer, useInfo } from '@slonigiraf/app-slonig-components';
 import { useToggle } from '@polkadot/react-hooks';
 import { deleteLesson, getLessons, Lesson } from '@slonigiraf/db';
 import { LESSONS } from '../constants.js';
@@ -21,13 +21,20 @@ function LessonsList({ className = '', tutor, onResumeTutoring, onShowResults }:
   const { showInfo } = useInfo();
   const [isSelectionAllowed, setSelectionAllowed] = useState(false);
 
-  // Initialize startDate and endDate as timestamps (numbers)
-  const [startDate, setStartDate] = useState<number | null>(new Date(new Date().setHours(0, 0, 0, 0)).getTime());
-  const [endDate, setEndDate] = useState<number | null>(new Date(new Date().setHours(23, 59, 59, 999)).getTime());
+  // Initialize startDate and endDate
+  const [startDate, setStartDate] = useState<Date>(() => {
+    const stored = loadFromSessionStorage(LESSONS, 'start');
+    return stored ? new Date(stored) : new Date(new Date().setHours(0, 0, 0, 0));
+  });
+
+  const [endDate, setEndDate] = useState<Date>(() => {
+    const stored = loadFromSessionStorage(LESSONS, 'end');
+    return stored ? new Date(stored) : new Date(new Date().setHours(23, 59, 59, 999));
+  });
   const [isDeleteConfirmOpen, toggleDeleteConfirm] = useToggle();
 
   const lessons = useLiveQuery<Lesson[]>(
-    () => getLessons(tutor, startDate, endDate),
+    () => getLessons(tutor, startDate.getTime(), endDate.getTime()),
     [tutor, startDate, endDate]
   );
 
@@ -78,9 +85,15 @@ function LessonsList({ className = '', tutor, onResumeTutoring, onShowResults }:
           startDate={startDate ? new Date(startDate) : null}
           endDate={endDate ? new Date(endDate) : null}
           sessionStorageId={LESSONS}
-          onChange={(start: Date | null, end: Date | null) => {
-            setStartDate(start ? start.getTime() : null);
-            setEndDate(end ? end.getTime() : null);
+          onChange={(start: Date, end: Date) => {
+            if (start) {
+              setStartDate(start);
+              saveToSessionStorage(LESSONS, 'start', start.toISOString());
+            }
+            if (end) {
+              setEndDate(end);
+              saveToSessionStorage(LESSONS, 'end', end.toISOString());
+            }
           }}
         />
       </div>
