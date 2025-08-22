@@ -9,7 +9,7 @@ import { deleteInsurance, Badge, getInsurances, getPseudonym, Insurance } from '
 import { DaysRangePicker, SelectableList, ToggleContainer, useInfo } from '@slonigiraf/app-slonig-components';
 import { useToggle } from '@polkadot/react-hooks';
 import BadgeInfo from './BadgeInfo.js';
-import { INSURANCES_END_DATE_ID, INSURANCES_START_DATE_ID } from '../constants.js';
+import { INSURANCES } from '../constants.js';
 
 interface Props {
   className?: string;
@@ -98,8 +98,7 @@ function InsurancesList({ className = '', teacher, student, studentNameFromUrl }
         <DaysRangePicker
           startDate={startDate ? new Date(startDate) : null}
           endDate={endDate ? new Date(endDate) : null}
-          startDateId={INSURANCES_START_DATE_ID}
-          endDateId={INSURANCES_END_DATE_ID}
+          sessionStorageId={INSURANCES}
           onChange={(start: Date | null, end: Date | null) => {
             setStartDate(start ? start.getTime() : null);
             setEndDate(end ? end.getTime() : null);

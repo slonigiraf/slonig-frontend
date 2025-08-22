@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import React, { useCallback, useEffect, useState } from 'react';
-import { useLoginContext, useTokenTransfer, useInfo, LessonResult, keyForCid, getAddressFromPublickeyHex, useBlockchainSync } from '@slonigiraf/app-slonig-components';
+import { useLoginContext, useTokenTransfer, useInfo, LessonResult, keyForCid, getAddressFromPublickeyHex, useBlockchainSync, saveToSessionStorage } from '@slonigiraf/app-slonig-components';
 import { hexToU8a, u8aToHex, u8aWrapBytes } from '@polkadot/util';
 import { addReimbursement, cancelLetter, deserializeLetter, getAgreement, getLetter, getLettersForKnowledgeId, letterToReimbursement, putAgreement, putLetter, storePseudonym, updateLetterReexaminingCount } from '@slonigiraf/db';
 import { useTranslation } from '../translate.js';
@@ -12,6 +12,7 @@ import BN from 'bn.js';
 import { getDataToSignByWorker } from '@slonigiraf/helpers';
 import { useApi } from '@polkadot/react-hooks';
 import useFetchWebRTC from '../useFetchWebRTC.js';
+import { END, LETTERS, START } from '../constants.js';
 interface Props {
   webRTCPeerId: string | null;
 }
@@ -108,6 +109,40 @@ function LessonResultReceiver({ webRTCPeerId }: Props): React.ReactElement {
       saveResults();
     }
   }, [lessonResult, agreement])
+
+
+  useEffect(() => {
+    async function setDaysRange() {
+        try {
+          if (lessonResult?.letters) {
+            if (lessonResult.letters.length > 0) {
+              const firstSerialized = lessonResult.letters[0];
+              const firstLetter = deserializeLetter(
+                firstSerialized,
+                lessonResult.workerId,
+                lessonResult.genesis,
+                lessonResult.amount
+              );
+              if (firstLetter.created) {
+                const created = new Date(firstLetter.created);
+                const startDate = new Date(created.setHours(0, 0, 0, 0));
+                const endDate = new Date(created.setHours(23, 59, 59, 999));
+                console.log('setting LETTERS_START_DATE_ID', startDate.toISOString())
+                console.log('setting LETTERS_END_DATE_ID', endDate.toISOString())
+                saveToSessionStorage(LETTERS, START, startDate.toISOString());
+                saveToSessionStorage(LETTERS, END, endDate.toISOString());
+              }
+            }
+          }
+          navigate('', { replace: true });
+        } catch (e) {
+          console.log(e);
+        }
+    }
+    if (lessonResult) {
+      setDaysRange();
+    }
+  }, [lessonResult])
 
   useEffect(() => {
     async function sendPenalties() {

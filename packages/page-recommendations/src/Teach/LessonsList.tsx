@@ -6,7 +6,7 @@ import { useTranslation } from '../translate.js';
 import { DaysRangePicker, SelectableList, ToggleContainer, useInfo } from '@slonigiraf/app-slonig-components';
 import { useToggle } from '@polkadot/react-hooks';
 import { deleteLesson, getLessons, Lesson } from '@slonigiraf/db';
-import { LESSONS_END_DATE_ID, LESSONS_START_DATE_ID } from '../constants.js';
+import { LESSONS } from '../constants.js';
 
 interface Props {
   className?: string;
@@ -77,8 +77,7 @@ function LessonsList({ className = '', tutor, onResumeTutoring, onShowResults }:
         <DaysRangePicker
           startDate={startDate ? new Date(startDate) : null}
           endDate={endDate ? new Date(endDate) : null}
-          startDateId={LESSONS_START_DATE_ID}
-          endDateId={LESSONS_END_DATE_ID}
+          sessionStorageId={LESSONS}
           onChange={(start: Date | null, end: Date | null) => {
             setStartDate(start ? start.getTime() : null);
             setEndDate(end ? end.getTime() : null);
