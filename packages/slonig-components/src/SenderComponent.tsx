@@ -52,6 +52,11 @@ const SenderComponent: React.FC<SenderComponentProps> = ({ data, route, textShar
             conn.on('open', async () => {
                 if (conn.open) {
                     await conn.send(dataRef.current);
+                }
+            });
+
+            conn.on('data', (msg: any) => {
+                if (msg?.type === 'ack') {
                     if (typeof onDataSent === 'function') {
                         onDataSent();
                     }
