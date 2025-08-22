@@ -10,6 +10,7 @@ import type { KeyringPair } from '@polkadot/keyring/types';
 import { DaysRangePicker, SelectableList, StyledContentCloseButton, ToggleContainer, useInfo } from '@slonigiraf/app-slonig-components';
 import { useApi, useToggle } from '@polkadot/react-hooks';
 import PersonSelector from '../PersonSelector.js';
+import { LETTERS_END_DATE_ID, LETTERS_START_DATE_ID } from '../constants.js';
 
 interface Props {
   className?: string;
@@ -144,8 +145,8 @@ function LettersList({ className = '', worker, currentPair }: Props): React.Reac
         <DaysRangePicker
           startDate={startDate ? new Date(startDate) : null}
           endDate={endDate ? new Date(endDate) : null}
-          startDateId='letters:start'
-          endDateId='letters:end'
+          startDateId={LETTERS_START_DATE_ID}
+          endDateId={LETTERS_END_DATE_ID}
           onChange={(start: Date | null, end: Date | null) => {
             setStartDate(start ? start.getTime() : null);
             setEndDate(end ? end.getTime() : null);
