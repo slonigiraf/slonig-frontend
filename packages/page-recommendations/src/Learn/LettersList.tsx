@@ -157,6 +157,7 @@ function LettersList({ className = '', worker, currentPair }: Props): React.Reac
             date={endDate ? new Date(endDate) : null}
             onDateChange={(date) => setEndDate(date ? date.getTime() : null)}
             id={endDateId}
+            sessionStorageId={endDateId}
           />
         </div>
       </div>
