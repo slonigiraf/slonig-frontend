@@ -7,16 +7,17 @@ import { useTranslation } from '../translate.js';
 import { useLocation, useNavigate } from 'react-router-dom';
 import SignLettersUseRight from './SignLettersUseRight.js';
 import type { KeyringPair } from '@polkadot/keyring/types';
-import { DaysRangePicker, loadFromSessionStorage, saveToSessionStorage, SelectableList, StyledContentCloseButton, ToggleContainer, UrlParams, useInfo } from '@slonigiraf/app-slonig-components';
+import { DaysRangePicker, SelectableList, StyledContentCloseButton, ToggleContainer, UrlParams, useInfo } from '@slonigiraf/app-slonig-components';
 import { useApi, useToggle } from '@polkadot/react-hooks';
 import PersonSelector from '../PersonSelector.js';
-import { LETTERS } from '../constants.js';
-import LessonResultReceiver from './LessonResultReceiver.js';
 
 interface Props {
   className?: string;
   worker: string;
   currentPair: KeyringPair;
+  startDate: Date;
+  endDate: Date;
+  onDaysRangeChange: (start: Date, end: Date) => void;
 }
 
 enum ToggleState {
@@ -25,7 +26,7 @@ enum ToggleState {
   GETTING_BONUSES = 2,
 }
 
-function LettersList({ className = '', worker, currentPair }: Props): React.ReactElement<Props> {
+function LettersList({ className = '', worker, currentPair, startDate, endDate, onDaysRangeChange }: Props): React.ReactElement<Props> {
   const MAX_SELECTED = 93;
   const { t } = useTranslation();
   const location = useLocation();
@@ -37,30 +38,7 @@ function LettersList({ className = '', worker, currentPair }: Props): React.Reac
   const navigate = useNavigate();
   const [reloadCount, setReloadCount] = useState<number>(0);
   const [toggleState, setToggleState] = useState<ToggleState>(employer !== '' ? ToggleState.GETTING_BONUSES : ToggleState.NO_SELECTION);
-
-  // Initialize startDate and endDate
-  const [startDate, setStartDate] = useState<Date>(() => {
-    const stored = loadFromSessionStorage(LETTERS, 'start');
-    return stored ? new Date(stored) : new Date(new Date().setHours(0, 0, 0, 0));
-  });
-
-  const [endDate, setEndDate] = useState<Date>(() => {
-    const stored = loadFromSessionStorage(LETTERS, 'end');
-    return stored ? new Date(stored) : new Date(new Date().setHours(23, 59, 59, 999));
-  });
-
   const [isDeleteConfirmOpen, toggleDeleteConfirm] = useToggle();
-
-  const onDaysRangeChange = useCallback((start: Date, end: Date) => {
-    if (start) {
-      setStartDate(start);
-      saveToSessionStorage(LETTERS, 'start', start.toISOString());
-    }
-    if (end) {
-      setEndDate(end);
-      saveToSessionStorage(LETTERS, 'end', end.toISOString());
-    }
-  }, [setStartDate, setEndDate]);
 
   useEffect(() => {
     setToggleState(employer !== '' ? ToggleState.GETTING_BONUSES : ToggleState.NO_SELECTION)
@@ -227,7 +205,6 @@ function LettersList({ className = '', worker, currentPair }: Props): React.Reac
           </Modal.Content>
         </StyledModal>
       )}
-      {webRTCPeerId && <LessonResultReceiver webRTCPeerId={webRTCPeerId} onDaysRangeChange={onDaysRangeChange} />}
     </div>
   );
 }

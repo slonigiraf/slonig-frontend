@@ -137,7 +137,7 @@ function LessonResultReceiver({ webRTCPeerId, onDaysRangeChange }: Props): React
       }
     }
     if (lessonResult) {
-      setDaysRange();
+      // setDaysRange();
     }
   }, [lessonResult])
 
