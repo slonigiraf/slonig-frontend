@@ -331,7 +331,7 @@ export const loadFromSessionStorage = (prefix: string, name: string) => {
 export const qrPadding = 20;
 export const getQrWidth = () => {
   const deviceMaxWidth = window.innerWidth || document.documentElement.clientWidth || document.body.clientWidth;
-  const maxWidth = 260;
+  const maxWidth = 300;
   // Assuming devices with a width of 500px or less are mobile
   const isMobile = deviceMaxWidth <= 500;
 
