@@ -6,7 +6,7 @@ import { styled, Icon, Button, Modal, Toggle } from '@polkadot/react-components'
 import { useLiveQuery } from 'dexie-react-hooks';
 import { useTranslation } from '../translate.js';
 import { deleteInsurance, Badge, getInsurances, getPseudonym, Insurance } from '@slonigiraf/db';
-import { DateInput, SelectableList, ToggleContainer, useInfo } from '@slonigiraf/app-slonig-components';
+import { DaysRangePicker, SelectableList, ToggleContainer, useInfo } from '@slonigiraf/app-slonig-components';
 import { useToggle } from '@polkadot/react-hooks';
 import BadgeInfo from './BadgeInfo.js';
 
@@ -86,9 +86,6 @@ function InsurancesList({ className = '', teacher, student, studentNameFromUrl }
       <Button icon="trash" label={t('Delete')} onClick={toggleDeleteConfirm} />
     );
 
-  const startDateId = 'insurances:start';
-  const endDateId = 'insurances:end';
-
   if (!insurances) return <div></div>;
 
   return (
@@ -97,22 +94,16 @@ function InsurancesList({ className = '', teacher, student, studentNameFromUrl }
         {studentName + ', ' + t('badges')}:
       </h2>
       <div className="ui--row">
-        <div>
-          <DateInput
-            date={startDate ? new Date(startDate) : null}
-            onDateChange={(date) => setStartDate(date ? date.getTime() : null)}
-            id={startDateId}
-            sessionStorageId={startDateId}
-            label={t('Dates of receipt')}
-          />
-          <StyledIcon icon="arrow-right" />
-          <DateInput
-            date={endDate ? new Date(endDate) : null}
-            onDateChange={(date) => setEndDate(date ? date.getTime() : null)}
-            id={endDateId}
-            sessionStorageId={endDateId}
-          />
-        </div>
+        <DaysRangePicker
+          startDate={startDate ? new Date(startDate) : null}
+          endDate={endDate ? new Date(endDate) : null}
+          startDateId='insurances:start'
+          endDateId='insurances:end'
+          onChange={(start: Date | null, end: Date | null) => {
+            setStartDate(start ? start.getTime() : null);
+            setEndDate(end ? end.getTime() : null);
+          }}
+        />
       </div>
       <ToggleContainer>
         <Toggle

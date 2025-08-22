@@ -7,7 +7,7 @@ import { useTranslation } from '../translate.js';
 import { useLocation, useNavigate } from 'react-router-dom';
 import SignLettersUseRight from './SignLettersUseRight.js';
 import type { KeyringPair } from '@polkadot/keyring/types';
-import { DateInput, SelectableList, StyledContentCloseButton, ToggleContainer, useInfo } from '@slonigiraf/app-slonig-components';
+import { DaysRangePicker, SelectableList, StyledContentCloseButton, ToggleContainer, useInfo } from '@slonigiraf/app-slonig-components';
 import { useApi, useToggle } from '@polkadot/react-hooks';
 import PersonSelector from '../PersonSelector.js';
 
@@ -112,9 +112,6 @@ function LettersList({ className = '', worker, currentPair }: Props): React.Reac
     navigate('', { replace: true });
   }
 
-  const startDateId = 'letters:start';
-  const endDateId = 'letters:end';
-
   const handleEmployerSelect = async (selectedKey: string) => {
     if (selectedKey) {
       navigate(`?employer=${encodeURIComponent(selectedKey)}`, { replace: true });
@@ -144,22 +141,16 @@ function LettersList({ className = '', worker, currentPair }: Props): React.Reac
         />
       )}
       <div className="ui--row">
-        <div>
-          <DateInput
-            date={startDate ? new Date(startDate) : null}
-            onDateChange={(date) => setStartDate(date ? date.getTime() : null)}
-            id={startDateId}
-            sessionStorageId={startDateId}
-            label={t('Dates of receipt')}
-          />
-          <StyledIcon icon="arrow-right" />
-          <DateInput
-            date={endDate ? new Date(endDate) : null}
-            onDateChange={(date) => setEndDate(date ? date.getTime() : null)}
-            id={endDateId}
-            sessionStorageId={endDateId}
-          />
-        </div>
+        <DaysRangePicker
+          startDate={startDate ? new Date(startDate) : null}
+          endDate={endDate ? new Date(endDate) : null}
+          startDateId='letters:start'
+          endDateId='letters:end'
+          onChange={(start: Date | null, end: Date | null) => {
+            setStartDate(start ? start.getTime() : null);
+            setEndDate(end ? end.getTime() : null);
+          }}
+        />
       </div>
       {employer === '' && <ToggleContainer>
         <Toggle
