@@ -16,7 +16,6 @@ import { useApi, useTheme, useToggle } from '@polkadot/react-hooks';
 import { hasSetting, SettingKey, storeSetting } from '@slonigiraf/db';
 import BN from 'bn.js';
 import { useLocation } from 'react-router-dom';
-import CookieManagerClient from './CookieManagerClient.js';
 import CreateAccount from '@polkadot/app-accounts/modals/CreateAccount';
 export const PORTAL_ID = 'portals';
 
@@ -98,7 +97,6 @@ function UI({ className = '' }: Props): React.ReactElement<Props> {
     connected ? <StyledDiv isloginRequired={isLoginRequired} className={`${className} apps--Wrapper ${themeClassName}`}>
       <AppContainer>
         {/* <HelpChatWidget caption={t('Have questions?')}/> */}
-        {!botInUrl && <CookieManagerClient />}
         
         {isLoginRequired ?
           <CreateAccount
