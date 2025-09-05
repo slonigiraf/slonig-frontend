@@ -181,12 +181,12 @@ function ViewList({ className = '', id, cidString, list }: Props): React.ReactEl
     )}
     {list.q != null && <ExerciseList exercises={list.q} />}
     {list.t !== null && list.s && list.t === LawType.MODULE && (
-      <>
+      <DivWithLeftMargin>
         <h3>{t('Educational standards') + ': '}</h3>
         <Standards data-testid='standards'>
           <Label label={list.s} />
         </Standards>
-      </>
+      </DivWithLeftMargin>
     )}
   </> : <></>;
 
@@ -200,8 +200,12 @@ function ViewList({ className = '', id, cidString, list }: Props): React.ReactEl
 }
 
 const RemoveBorders = styled.div`
+  width: 100%;
+  flex: 1;
+
   table {
     border-collapse: collapse;
+    width: 100%;
   }
 
   tbody td {
@@ -214,6 +218,11 @@ const RemoveBorders = styled.div`
     border-top: none !important;
   }
 `;
+
+const DivWithLeftMargin = styled.div`
+  margin-left: 10px;
+`;
+
 const Standards = styled.div`
   display: flex;
   flex-direction: row;
