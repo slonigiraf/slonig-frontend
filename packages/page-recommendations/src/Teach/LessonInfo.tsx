@@ -75,7 +75,7 @@ function LessonInfo({ lesson, isSelected, onToggleSelection, onResumeTutoring, o
       )}
       <div>
         {!isSelectionAllowed ? <Button
-          icon="play"
+          icon='play'
           onClick={() => onResumeTutoring(lesson)}
           isDisabled={isSelectionAllowed || isFinished}
         /> : <span>&nbsp;</span>}
@@ -95,7 +95,7 @@ function LessonInfo({ lesson, isSelected, onToggleSelection, onResumeTutoring, o
       </div>
       <div>
         {!isSelectionAllowed && <Button
-          icon="fast-forward"
+          icon='paper-plane'
           onClick={() => onShowResults(lesson)}
           isDisabled={!progressValue}
         />}

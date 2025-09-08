@@ -3,18 +3,20 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { Button, LinearProgress, styled } from '@polkadot/react-components';
 import { u8aToHex } from '@polkadot/util';
-import { FullFindow, VerticalCenterItemsContainer, useLoginContext } from '@slonigiraf/app-slonig-components';
+import { CenterQRContainer, FullFindow, VerticalCenterItemsContainer, useLoginContext } from '@slonigiraf/app-slonig-components';
 import { LetterTemplate, Lesson, Reexamination, getPseudonym, getLesson, getLetterTemplatesByLessonId, getReexaminationsByLessonId, getSetting, storeSetting, updateLesson, getLetter, getReexamination, SettingKey, deleteSetting } from '@slonigiraf/db';
 import DoInstructions from './DoInstructions.js';
 import LessonsList from './LessonsList.js';
 import LessonResults from './LessonResults.js';
 import LessonRequestReceiver from './LessonRequestReceiver.js';
+import { useTranslation } from '../translate.js';
 
 interface Props {
   className?: string;
 }
 
 function Teach({ className = '' }: Props): React.ReactElement<Props> {
+  const { t } = useTranslation();
   // Initialize api, ipfs and translation
   const { currentPair, isLoggedIn } = useLoginContext();
   const [reexaminationToPerform, setReexaminationToPerform] = useState<Reexamination | null>(null);
@@ -164,6 +166,10 @@ function Teach({ className = '' }: Props): React.ReactElement<Props> {
       <Bubbles>
       {!reexamined && reexaminationToPerform && <DoInstructions entity={reexaminationToPerform} onResult={updateReexamined} studentName={studentName} key={'reexaminine' + reexaminationToPerform.cid} />}
       {reexamined && letterTemplateToIssue && <DoInstructions entity={letterTemplateToIssue} onResult={updateLearned} studentName={studentName} studentUsedSlonig={studentUsedSlonig} key={'learn' + letterTemplateToIssue.cid} />}
+      {lesson && (lesson.toLearnCount + lesson.toReexamineCount) > 0 && 
+      <SendResults>
+        <Button icon={'paper-plane'} label ={t('Send results')} onClick={() => onShowResults(lesson)}/></SendResults>
+      }
       </Bubbles>
     </VerticalCenterItemsContainer>
   </FullFindow>;
@@ -183,6 +189,14 @@ function Teach({ className = '' }: Props): React.ReactElement<Props> {
     </div>
   );
 }
+
+const SendResults = styled.div`
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  width: 100%;
+  margin-top: 20px;
+`;
 
 const Spacer = styled.div`
   width: 20px;
