@@ -196,7 +196,7 @@ const SendResults = styled.div`
   flex-direction: column;
   align-items: center;
   width: 100%;
-  margin-top: 20px;
+  margin-top: 15px;
 `;
 
 const Spacer = styled.div`
