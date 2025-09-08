@@ -54,7 +54,7 @@ function Teach({ className = '' }: Props): React.ReactElement<Props> {
       if (lessonId) {
         const fetchedLesson = await getLesson(lessonId);
         setLesson(fetchedLesson || null);
-        setResultsShown(lessonResultsAreShown? true : false);
+        setResultsShown(lessonResultsAreShown ? true : false);
         if (fetchedLesson) {
           const fetchedLetterTemplates = await getLetterTemplatesByLessonId(lessonId);
           if (fetchedLetterTemplates) {
@@ -157,19 +157,20 @@ function Teach({ className = '' }: Props): React.ReactElement<Props> {
   const reexamAndDiplomaIssuing = <FullFindow>
     <VerticalCenterItemsContainer>
       {lesson && <Progress>
-        <Spacer/>
+        <Spacer />
         <LinearProgress total={lesson.toLearnCount + lesson.toReexamineCount} value={lesson.learnStep + lesson.reexamineStep} />
         <CloseButton onClick={onCloseTutoring} icon='close' />
-        <Spacer/>
-        </Progress>}
-      
+        <Spacer />
+      </Progress>}
+
       <Bubbles>
-      {!reexamined && reexaminationToPerform && <DoInstructions entity={reexaminationToPerform} onResult={updateReexamined} studentName={studentName} key={'reexaminine' + reexaminationToPerform.cid} />}
-      {reexamined && letterTemplateToIssue && <DoInstructions entity={letterTemplateToIssue} onResult={updateLearned} studentName={studentName} studentUsedSlonig={studentUsedSlonig} key={'learn' + letterTemplateToIssue.cid} />}
-      {lesson && (lesson.toLearnCount + lesson.toReexamineCount) > 0 && 
-      <SendResults>
-        <Button icon={'paper-plane'} label ={t('Send results')} onClick={() => onShowResults(lesson)}/></SendResults>
-      }
+        {!reexamined && reexaminationToPerform && <DoInstructions entity={reexaminationToPerform} onResult={updateReexamined} studentName={studentName} key={'reexaminine' + reexaminationToPerform.cid} />}
+        {reexamined && letterTemplateToIssue && <DoInstructions entity={letterTemplateToIssue} onResult={updateLearned} studentName={studentName} studentUsedSlonig={studentUsedSlonig} key={'learn' + letterTemplateToIssue.cid} />}
+        {lesson && (lesson.learnStep + lesson.reexamineStep) > 0 &&
+          <SendResults>
+            <Button icon={'paper-plane'} label={t('Send results')} onClick={() => onShowResults(lesson)} />
+          </SendResults>
+        }
       </Bubbles>
     </VerticalCenterItemsContainer>
   </FullFindow>;
