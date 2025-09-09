@@ -154,6 +154,8 @@ function Teach({ className = '' }: Props): React.ReactElement<Props> {
 
   const publicKeyHex = currentPair ? u8aToHex(currentPair.publicKey) : "";
 
+  const isSendingResultsEnabled = lesson && (lesson.learnStep + lesson.reexamineStep) > 0;
+
   const reexamAndDiplomaIssuing = <FullFindow>
     <VerticalCenterItemsContainer>
       {lesson && <Progress>
@@ -166,9 +168,13 @@ function Teach({ className = '' }: Props): React.ReactElement<Props> {
       <Bubbles>
         {!reexamined && reexaminationToPerform && <DoInstructions entity={reexaminationToPerform} onResult={updateReexamined} studentName={studentName} key={'reexaminine' + reexaminationToPerform.cid} />}
         {reexamined && letterTemplateToIssue && <DoInstructions entity={letterTemplateToIssue} onResult={updateLearned} studentName={studentName} studentUsedSlonig={studentUsedSlonig} key={'learn' + letterTemplateToIssue.cid} />}
-        {lesson && (lesson.learnStep + lesson.reexamineStep) > 0 &&
+        {lesson &&
           <SendResults>
-            <Button icon={'paper-plane'} label={t('Send results')} onClick={() => onShowResults(lesson)} />
+            <Button
+              isDisabled={!isSendingResultsEnabled}
+              icon={'paper-plane'}
+              label={t('Send results and get a reward')}
+              onClick={() => onShowResults(lesson)} />
           </SendResults>
         }
       </Bubbles>
