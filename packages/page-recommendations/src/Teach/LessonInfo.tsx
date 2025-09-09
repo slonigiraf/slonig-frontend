@@ -6,7 +6,7 @@ import React, { useState, useEffect } from 'react';
 import { KatexSpan, getIPFSDataFromContentID, parseJson } from '@slonigiraf/app-slonig-components';
 import { useTranslation } from '../translate.js';
 import { useIpfsContext } from '@slonigiraf/app-slonig-components';
-import { Lesson, getPseudonym } from '@slonigiraf/db';
+import { Lesson, getPseudonym, isThereAnyLessonResult } from '@slonigiraf/db';
 
 interface Props {
   lesson: Lesson;
@@ -24,6 +24,7 @@ function LessonInfo({ lesson, isSelected, onToggleSelection, onResumeTutoring, o
   const [loaded, setLoaded] = useState(false);
   const [studentName, setStudentName] = useState<string>('');
   const [userLocale, setUserLocale] = useState('en-US');
+  const [isSendingResultsEnabled, setIsSendingResultsEnabled] = useState(false);
 
   useEffect(() => {
     const locale = navigator.language || 'en-US';
@@ -65,6 +66,15 @@ function LessonInfo({ lesson, isSelected, onToggleSelection, onResumeTutoring, o
   const progressValue = lesson.learnStep + lesson.reexamineStep;
   const progressTotal = lesson.toLearnCount + lesson.toReexamineCount;
 
+  useEffect(() => {
+    const checkResults = async () => {
+      if (lesson) {
+        setIsSendingResultsEnabled(await isThereAnyLessonResult(lesson?.id));
+      }
+    }
+    checkResults();
+  }, [lesson])
+
   return (
     <StyledDiv>
       {isSelectionAllowed && (
@@ -97,7 +107,7 @@ function LessonInfo({ lesson, isSelected, onToggleSelection, onResumeTutoring, o
         {!isSelectionAllowed && <Button
           icon='paper-plane'
           onClick={() => onShowResults(lesson)}
-          isDisabled={!progressValue}
+          isDisabled={!isSendingResultsEnabled}
         />}
       </div>
     </StyledDiv>

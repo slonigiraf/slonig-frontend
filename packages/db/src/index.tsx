@@ -72,7 +72,7 @@ export async function getSetting(id: string): Promise<string | undefined> {
 
 export async function hasSetting(id: string): Promise<boolean> {
     const value = await getSetting(id);
-    return value? true : false;
+    return value ? true : false;
 };
 
 export async function getInsuranceDaysValid() {
@@ -322,6 +322,31 @@ export async function getReexaminationsByLessonId(lessonId: string) {
     return await db.reexaminations.where({ lesson: lessonId }).sortBy('stage');
 }
 
+export async function isThereAnyLessonResult(lessonId: string) {
+    const lesson = await getLesson(lessonId);
+    if (lesson) {
+        const letterTemplates: LetterTemplate[] = await getValidLetterTemplatesByLessonId(lesson.id);
+        const numberOfValidLetters = letterTemplates.length;
+        let calculatedReexaminationsPerformed = 0;
+        const reexaminations = await getReexaminationsByLessonId(lesson.id);
+        if (reexaminations) {
+            let failedReexaminationsCount = 0;
+            let skippedReexaminationsCount = 0;
+            reexaminations.forEach(reexamination => {
+                if (!reexamination.valid) {
+                    failedReexaminationsCount++;
+                }
+                if (reexamination.created === reexamination.lastExamined) {
+                    skippedReexaminationsCount++;
+                }
+            });
+            calculatedReexaminationsPerformed = lesson.reexamineStep - skippedReexaminationsCount;
+        }
+        return (numberOfValidLetters + calculatedReexaminationsPerformed) > 0;
+    }
+    return false;
+}
+
 export async function updateReexamination(reexamination: Reexamination) {
     await db.reexaminations.update(reexamination.pubSign, reexamination);
 }
@@ -386,14 +411,14 @@ export async function updateAllLessons(newDPrice: string, newDWarranty: string, 
     try {
         await db.transaction('rw', db.lessons, async () => {
             const lessons = await db.lessons.toArray();
-            
+
             const updates = lessons.map(lesson => ({
                 ...lesson,
                 dPrice: newDPrice,
                 dWarranty: newDWarranty,
                 dValidity: newDValidity
             }));
-            
+
             await db.lessons.bulkPut(updates);
         });
     } catch (error) {

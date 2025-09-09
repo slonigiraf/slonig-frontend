@@ -4,7 +4,7 @@ import React, { useCallback, useEffect, useState } from 'react';
 import { Button, LinearProgress, styled } from '@polkadot/react-components';
 import { u8aToHex } from '@polkadot/util';
 import { CenterQRContainer, FullFindow, VerticalCenterItemsContainer, useLoginContext } from '@slonigiraf/app-slonig-components';
-import { LetterTemplate, Lesson, Reexamination, getPseudonym, getLesson, getLetterTemplatesByLessonId, getReexaminationsByLessonId, getSetting, storeSetting, updateLesson, getLetter, getReexamination, SettingKey, deleteSetting } from '@slonigiraf/db';
+import { LetterTemplate, Lesson, Reexamination, getPseudonym, getLesson, getLetterTemplatesByLessonId, getReexaminationsByLessonId, getSetting, storeSetting, updateLesson, getLetter, getReexamination, SettingKey, deleteSetting, getValidLetterTemplatesByLessonId, isThereAnyLessonResult } from '@slonigiraf/db';
 import DoInstructions from './DoInstructions.js';
 import LessonsList from './LessonsList.js';
 import LessonResults from './LessonResults.js';
@@ -34,6 +34,16 @@ function Teach({ className = '' }: Props): React.ReactElement<Props> {
   const [areResultsShown, setResultsShown] = useState(false);
   const [studentUsedSlonig, setStudentUsedSlonig] = useState(false);
 
+  const [isSendingResultsEnabled, setIsSendingResultsEnabled] = useState(false);
+
+  useEffect(() => {
+    const checkResults = async () => {
+      if (lesson) {
+        setIsSendingResultsEnabled(await isThereAnyLessonResult(lesson?.id));
+      }
+    }
+    checkResults();
+  }, [lesson])
 
   // Helper functions
   const updateAndStoreLesson = useCallback(
@@ -153,8 +163,6 @@ function Teach({ className = '' }: Props): React.ReactElement<Props> {
   }, [setResultsShown, onCloseTutoring]);
 
   const publicKeyHex = currentPair ? u8aToHex(currentPair.publicKey) : "";
-
-  const isSendingResultsEnabled = lesson && (lesson.learnStep + lesson.reexamineStep) > 0;
 
   const reexamAndDiplomaIssuing = <FullFindow>
     <VerticalCenterItemsContainer>
