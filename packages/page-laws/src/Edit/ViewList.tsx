@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { LawType, KatexSpan, SelectableList, StyledSpinnerContainer, useLoginContext, getCIDFromBytes, FullFindow, VerticalCenterItemsContainer, StyledCloseButton, FullscreenActivity, useInfo } from '@slonigiraf/app-slonig-components';
-import { useLocation } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 import ItemLabel from './ItemLabel.js';
 import SkillQR from './SkillQR.js';
 import { useTranslation } from '../translate.js';
@@ -24,6 +24,7 @@ interface Props {
 
 function ViewList({ className = '', id, cidString, list }: Props): React.ReactElement<Props> {
   const location = useLocation();
+  const navigate = useNavigate();
   const { showInfo } = useInfo();
   const { api } = useApi();
   const queryParams = new URLSearchParams(location.search);
@@ -101,7 +102,8 @@ function ViewList({ className = '', id, cidString, list }: Props): React.ReactEl
   const closeQR = useCallback((): void => {
     setLearningRequested(false);
     setReexaminingRequested(false);
-  }, []);
+    id && navigate(`/knowledge?id=${id}`, { replace: true });
+  }, [id, navigate]);
 
   const onDataSent = useCallback((): void => {
     closeQR();
