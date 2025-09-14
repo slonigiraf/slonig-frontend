@@ -49,7 +49,7 @@ export function createLanguages (t: TFunction): Option[] {
       value: 'pt'
     },
     {
-      text: 'русский',
+      text: 'Русский',
       value: 'ru'
     },
     {
