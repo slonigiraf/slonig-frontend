@@ -59,8 +59,8 @@ class ValidatingAlgorithm extends Algorithm {
             'intermediate',
             t('Yes'),
             [
-                { title: t('📖 Read what’s happening'), text: t('The tutee invented an exercise.') },
-                { title: t('🗣 Deliberately incorrectly perform the exercise invented by the tutee and say'), text: t('Correct me.') },
+                { title: t('📖 Read what’s happening'), text: t('The tutee has created an exercise.') },
+                { title: t('🗣 Do your tutee’s exercise WRONG and say'), text: t('Correct me.') },
             ],
             t('Has the tutee corrected the wrong solution?'),
             <ExampleExercisesButton skill={skill} />
@@ -71,7 +71,7 @@ class ValidatingAlgorithm extends Algorithm {
             'intermediate',
             t('No'),
             [
-                { title: t('📖 Read what’s happening'), text: t('The tutee has not come up with the type of exercise needed.') },
+                { title: t('📖 Read what’s happening'), text: t('The tutee has not created a similar exercise.') },
                 { title: t('🗣 Say to the tutee'), text: t('Repeat after me:') + ' ' + question2, image: exerciseImage2},
             ],
             t('Has the tutee repeated correctly after me?')
@@ -83,9 +83,9 @@ class ValidatingAlgorithm extends Algorithm {
             t('Yes'),
             [
                 { title: t('📖 Read what’s happening'), text: t('____ asks you to teach a skill. Before starting, try to earn a bonus by testing the previous skill:').replace('____', studentName) + (skill && " \"" + skill.h + "\".") },
-                { title: t('🗣 Say to the tutee'), text: t('Come up with an exercise similar to this:') + ' ' + question1, image: exerciseImage1 },
+                { title: t('🗣 Say to the tutee'), text: t('Create an exercise similar to this:') + ' ' + question1, image: exerciseImage1 },
             ],
-            t('Has the tutee now invented a similar exercise?')
+            t('Has the tutee now created a similar exercise?')
         );
 
         const repeatFromTheBeginning = new AlgorithmStage(
@@ -94,9 +94,9 @@ class ValidatingAlgorithm extends Algorithm {
             t('Yes'),
             [
                 { title: t('📖 Read what’s happening'), text: t('The tutee has repeated correctly after me.') },
-                { title: t('🗣 Say to the tutee'), text: t('Come up with an exercise similar to this:') + ' '+ question1, image: exerciseImage1}
+                { title: t('🗣 Say to the tutee'), text: t('Create an exercise similar to this:') + ' '+ question1, image: exerciseImage1}
             ],
-            t('Has the tutee now invented a similar exercise?')
+            t('Has the tutee now created a similar exercise?')
         );
 
         // Algo linking:
