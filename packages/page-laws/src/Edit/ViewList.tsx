@@ -1,15 +1,15 @@
 import React, { useCallback, useEffect, useState } from 'react';
-import { LawType, KatexSpan, SelectableList, StyledSpinnerContainer, useLoginContext, getCIDFromBytes, FullFindow, VerticalCenterItemsContainer, StyledCloseButton, FullscreenActivity, useInfo } from '@slonigiraf/app-slonig-components';
+import { LawType, KatexSpan, SelectableList, StyledSpinnerContainer, useLoginContext, getCIDFromBytes, FullscreenActivity, useInfo, Confirmation } from '@slonigiraf/app-slonig-components';
 import { useLocation, useNavigate } from 'react-router-dom';
 import ItemLabel from './ItemLabel.js';
 import SkillQR from './SkillQR.js';
 import { useTranslation } from '../translate.js';
 import ExerciseList from './ExerciseList.js';
-import { Toggle, Spinner, Label, Tag } from '@polkadot/react-components';
+import { Toggle, Spinner, Label } from '@polkadot/react-components';
 import { ItemWithCID } from '../types.js';
 import { useApi } from '@polkadot/react-hooks';
 import BN from 'bn.js';
-import { getLettersForKnowledgeId } from '@slonigiraf/db';
+import { getLettersForKnowledgeId, getSetting, SettingKey } from '@slonigiraf/db';
 import { u8aToHex } from '@polkadot/util';
 import ModulePreview from './ModulePreview.js';
 import styled from 'styled-components';
@@ -41,6 +41,16 @@ function ViewList({ className = '', id, cidString, list }: Props): React.ReactEl
   const [isLearningInitialized, setIsLearningInitialized] = useState(false);
   const [itemsWithCID, setItemsWithCID] = useState<ItemWithCID[]>([]);
   const studentIdentity = u8aToHex(currentPair?.publicKey);
+  const [isExitConfirmOpen, setIsExitConfirmOpen] = useState(false);
+  const [hasTuteeCompletedTutorial, setHasTuteeCompletedTutorial] = useState(false);
+
+  useEffect((): void => {
+   const loadTutorialResults = async () => {
+     const completed = await getSetting(SettingKey.TUTEE_TUTORIAL_COMPLETED);
+     setHasTuteeCompletedTutorial(completed === 'true' ? true : false);
+   };
+   loadTutorialResults();
+ }, []);
 
   async function fetchLaw(key: string) {
     const law = (await api.query.laws.laws(key)) as { isSome: boolean; unwrap: () => [Uint8Array, BN] };
@@ -99,9 +109,12 @@ function ViewList({ className = '', id, cidString, list }: Props): React.ReactEl
     }
   }, []);
 
+
+
   const closeQR = useCallback((): void => {
     setLearningRequested(false);
     setReexaminingRequested(false);
+    setIsExitConfirmOpen(false);
     id && navigate(`/knowledge?id=${id}`, { replace: true });
   }, [id, navigate]);
 
@@ -109,6 +122,10 @@ function ViewList({ className = '', id, cidString, list }: Props): React.ReactEl
     closeQR();
     showInfo(t('You can put your device aside'));
   }, [closeQR]);
+
+  const exitFullScreenActivity = useCallback((): void => {
+    hasTuteeCompletedTutorial ? closeQR() : setIsExitConfirmOpen(true);
+  }, [hasTuteeCompletedTutorial, closeQR]);
 
   useEffect((): void => {
     if (
@@ -140,7 +157,7 @@ function ViewList({ className = '', id, cidString, list }: Props): React.ReactEl
         (itemsWithCID.length > 0 && <ModulePreview itemsWithCID={itemsWithCID} />) :
         <>
           <div className='ui--row' style={isModuleQRVisible ? {} : { display: 'none' }}>
-            <SkillQR id={id} cid={cidString} type={LawType.MODULE} selectedItems={selectedItems} isLearningRequested={isLearningRequested} isReexaminingRequested={isReexaminingRequested} lessonInUrl={lessonInUrl} onDataSent={onDataSent}/>
+            <SkillQR id={id} cid={cidString} type={LawType.MODULE} selectedItems={selectedItems} isLearningRequested={isLearningRequested} isReexaminingRequested={isReexaminingRequested} lessonInUrl={lessonInUrl} onDataSent={onDataSent} />
           </div>
           {isThereAnythingToLearn && <Toggle
             label={t('Learn with a tutor')}
@@ -195,8 +212,11 @@ function ViewList({ className = '', id, cidString, list }: Props): React.ReactEl
   return list == null ?
     <StyledSpinnerContainer><Spinner noLabel /></StyledSpinnerContainer> :
     (isModuleQRVisible ?
-      <FullscreenActivity captionElement={<KatexSpan content={list.h} />} onClose={closeQR} >
+      <FullscreenActivity captionElement={<KatexSpan content={list.h} />} onClose={exitFullScreenActivity} >
         <RemoveBorders>{content}</RemoveBorders>
+        {isExitConfirmOpen && (
+          <Confirmation question={t('Show this QR code to a classmate instead of closing. Do you still want to exit learning?')} onClose={() => setIsExitConfirmOpen(false)} onConfirm={closeQR} />
+        )}
       </FullscreenActivity> :
       content);
 }
