@@ -4,7 +4,7 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { useLoginContext, useTokenTransfer, useInfo, LessonResult, keyForCid, getAddressFromPublickeyHex, useBlockchainSync, saveToSessionStorage } from '@slonigiraf/app-slonig-components';
 import { hexToU8a, u8aToHex, u8aWrapBytes } from '@polkadot/util';
-import { addReimbursement, cancelLetter, deserializeLetter, getAgreement, getLetter, getLettersForKnowledgeId, letterToReimbursement, putAgreement, putLetter, storePseudonym, updateLetterReexaminingCount } from '@slonigiraf/db';
+import { addReimbursement, cancelLetter, deserializeLetter, getAgreement, getLetter, getLettersForKnowledgeId, letterToReimbursement, putAgreement, putLetter, SettingKey, storePseudonym, storeSetting, updateLetterReexaminingCount } from '@slonigiraf/db';
 import { useTranslation } from '../translate.js';
 import { Agreement } from '@slonigiraf/db';
 import { useNavigate } from 'react-router-dom';
@@ -97,6 +97,7 @@ function LessonResultReceiver({ webRTCPeerId, onDaysRangeChange }: Props): React
           }
           const updatedAgreement: Agreement = { ...agreement, completed: true };
           updateAgreement(updatedAgreement);
+          await storeSetting(SettingKey.STUDENT_TUTORIAL_COMPLETED,'true');
           showInfo(t('Saved'));
           navigate('', { replace: true });
         } catch (e) {

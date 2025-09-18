@@ -51,6 +51,7 @@ export const SettingKey = {
     AIRDROP_COMPATIBLE: 'AIRDROP_COMPATIBLE',
     RECEIVED_AIRDROP: 'RECEIVED_AIRDROP',
     LESSON_RESULTS_ARE_SHOWN: 'LESSON_RESULTS_ARE_SHOWN',
+    STUDENT_TUTORIAL_COMPLETED: 'STUDENT_TUTORIAL_COMPLETED',
 };
 
 export async function storeSetting(id: string, value: string) {
