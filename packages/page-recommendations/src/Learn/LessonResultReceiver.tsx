@@ -97,7 +97,7 @@ function LessonResultReceiver({ webRTCPeerId, onDaysRangeChange }: Props): React
           }
           const updatedAgreement: Agreement = { ...agreement, completed: true };
           updateAgreement(updatedAgreement);
-          await storeSetting(SettingKey.STUDENT_TUTORIAL_COMPLETED,'true');
+          await storeSetting(SettingKey.TUTEE_TUTORIAL_COMPLETED,'true');
           showInfo(t('Saved'));
           navigate('', { replace: true });
         } catch (e) {

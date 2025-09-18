@@ -100,6 +100,11 @@ function LessonResults({ className = '', lesson, updateAndStoreLesson, onClose }
     updateWarrantyInSlon()
   }, [lesson?.dWarranty])
 
+  const onDataSent = useCallback(async (): Promise<void> => {
+    await storeSetting(SettingKey.TUTOR_TUTORIAL_COMPLETED, 'true');
+    onClose();
+  }, [onClose]);
+
 
   const setAmountIput = useCallback((value?: BN | undefined): void => {
     if (value) {
@@ -249,7 +254,7 @@ function LessonResults({ className = '', lesson, updateAndStoreLesson, onClose }
     <FullscreenActivity caption={t('Send results and get a reward')} onClose={onClose}>
       <CenterQRContainer>
         <SenderComponent data={data} route={'badges'} caption={t('Ask the tutee to scan:')}
-          textShare={t('Press the link to add the badge')} onDataSent={onClose} onReady={() => setProcessingQR(false)} />
+          textShare={t('Press the link to add the badge')} onDataSent={onDataSent} onReady={() => setProcessingQR(false)} />
       </CenterQRContainer>
       {constContentIsVisible &&
         <DiplomaDiv>
