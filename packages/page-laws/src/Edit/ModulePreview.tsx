@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { styled } from '@polkadot/react-components';
 import { ItemWithCID } from '../types.js';
 import ItemPreview from './ItemPreview.js';
@@ -96,11 +96,8 @@ function ModulePreview({ className = '', itemsWithCID }: Props): React.ReactElem
       </MeasureWrapper>
       <StyledWrapper ref={containerRef} className={className} data-testid="preview">
         <StyledDiv>
-          {paginatedItems.map((item, i) => (
-            <div
-              key={item.cid}
-              style={{ breakInside: 'avoid', marginBottom: '1rem' }}
-            >
+          {paginatedItems.map((item) => (
+            <div key={item.cid}>
               <ItemPreview item={item} />
             </div>
           ))}
@@ -149,20 +146,34 @@ const MeasureWrapper = styled.div`
 `;
 
 const StyledDiv = styled.div`
+  /* CSS Columns */
   column-width: 300px;
   column-gap: 1rem;
+  column-fill: auto;                 /* ← critical: fill first column, then next */
+
+  /* WebKit prefixes (Safari/Chrome) */
+  -webkit-column-width: 300px;
+  -webkit-column-gap: 1rem;
+  -webkit-column-fill: auto;
+
+  /* Box + scrolling */
   padding: 1rem;
   height: 100%;
-  overflow: hidden;
+  overflow: auto;                    /* ← don't hide; allow scroll */
+
+  /* Child items */
+  > div {
+    /* prevent breaking items across columns */
+    break-inside: avoid-column;      /* modern syntax */
+    -webkit-column-break-inside: avoid;
+    page-break-inside: avoid;
+
+    margin-bottom: 1rem;
+    display: inline-block;           /* helps some engines treat each as a blocky unit */
+    width: 100%;                     /* spans the column width */
+  }
 `;
 
-const HiddenMeasure = styled.div`
-  visibility: hidden;
-  position: absolute;
-  top: -9999px;
-  left: -9999px;
-  pointer-events: none;
-`;
 
 const NavButtons = styled.div`
   position: absolute;
