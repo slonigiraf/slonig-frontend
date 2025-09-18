@@ -7,7 +7,7 @@ import { useTranslation } from '../translate.js';
 import { useLocation, useNavigate } from 'react-router-dom';
 import SignLettersUseRight from './SignLettersUseRight.js';
 import type { KeyringPair } from '@polkadot/keyring/types';
-import { DaysRangePicker, SelectableList, StyledContentCloseButton, ToggleContainer, UrlParams, useInfo } from '@slonigiraf/app-slonig-components';
+import { Confirmation, DaysRangePicker, SelectableList, StyledContentCloseButton, ToggleContainer, UrlParams, useInfo } from '@slonigiraf/app-slonig-components';
 import { useApi, useToggle } from '@polkadot/react-hooks';
 import PersonSelector from '../PersonSelector.js';
 
@@ -192,45 +192,10 @@ function LettersList({ className = '', worker, currentPair, startDate, endDate, 
         isSelectionAllowed={toggleState !== ToggleState.NO_SELECTION}
       />
       {isDeleteConfirmOpen && (
-        <StyledModal
-          header={t('Are you sure you want to delete it?')}
-          onClose={toggleDeleteConfirm}
-          size="small"
-        >
-          <Modal.Content>
-            <StyledDiv>
-              <Button icon="check" label={t('Yes')} onClick={deleteDiplomas} />
-              <Button icon="close" label={t('No')} onClick={toggleDeleteConfirm} />
-            </StyledDiv>
-          </Modal.Content>
-        </StyledModal>
+        <Confirmation question={t('Are you sure you want to delete it?')} onClose={toggleDeleteConfirm} onConfirm={deleteDiplomas}/>
       )}
     </div>
   );
 }
-
-const StyledIcon = styled(Icon)`
-  margin: 0 10px;
-`;
-
-const StyledDiv = styled.div`
-  width: 100%;
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  column-gap: 40px;
-`;
-
-const StyledModal = styled(Modal)`
-  button[data-testid='close-modal'] {
-    opacity: 0;
-    background: transparent;
-    border: none;
-    cursor: pointer;
-  }
-  button[data-testid='close-modal']:focus {
-    outline: none;
-  }
-`;
 
 export default React.memo(LettersList);

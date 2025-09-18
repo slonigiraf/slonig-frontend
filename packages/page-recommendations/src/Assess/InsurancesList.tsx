@@ -2,11 +2,11 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import React, { useCallback, useEffect, useState } from 'react'
-import { styled, Icon, Button, Modal, Toggle } from '@polkadot/react-components';
+import { Button, Toggle } from '@polkadot/react-components';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { useTranslation } from '../translate.js';
 import { deleteInsurance, Badge, getInsurances, getPseudonym, Insurance } from '@slonigiraf/db';
-import { DaysRangePicker, loadFromSessionStorage, saveToSessionStorage, SelectableList, ToggleContainer, useInfo } from '@slonigiraf/app-slonig-components';
+import { Confirmation, DaysRangePicker, loadFromSessionStorage, saveToSessionStorage, SelectableList, ToggleContainer, useInfo } from '@slonigiraf/app-slonig-components';
 import { useToggle } from '@polkadot/react-hooks';
 import BadgeInfo from './BadgeInfo.js';
 import { INSURANCES } from '../constants.js';
@@ -144,43 +144,9 @@ function InsurancesList({ className = '', teacher, student, studentNameFromUrl }
         isSelectionAllowed={isSelectionAllowed}
       />
       {isDeleteConfirmOpen && (
-        <StyledModal
-          header={t('Are you sure you want to delete it?')}
-          onClose={toggleDeleteConfirm}
-          size="small"
-        >
-          <Modal.Content>
-            <StyledDiv>
-              <Button icon="check" label={t('Yes')} onClick={deleteItems} />
-              <Button icon="close" label={t('No')} onClick={toggleDeleteConfirm} />
-            </StyledDiv>
-          </Modal.Content>
-        </StyledModal>
+        <Confirmation question={t('Are you sure you want to delete it?')} onClose={toggleDeleteConfirm} onConfirm={deleteItems}/>
       )}
     </div>
   );
 }
-
-const StyledIcon = styled(Icon)`
-  margin: 0 10px;
-`;
-const StyledDiv = styled.div`
-  width: 100%;
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  column-gap: 40px;
-`;
-
-const StyledModal = styled(Modal)`
-  button[data-testid='close-modal'] {
-    opacity: 0;
-    background: transparent;
-    border: none;
-    cursor: pointer;
-  }
-  button[data-testid='close-modal']:focus {
-    outline: none;
-  }
-`;
 export default React.memo(InsurancesList);
