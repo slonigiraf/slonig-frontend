@@ -1,7 +1,7 @@
 import LessonInfo from './LessonInfo.js';
 import React, { useCallback, useState } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
-import { Button, styled, Icon, Modal, Toggle } from '@polkadot/react-components';
+import { Button, Toggle } from '@polkadot/react-components';
 import { useTranslation } from '../translate.js';
 import { Confirmation, DaysRangePicker, loadFromSessionStorage, saveToSessionStorage, SelectableList, ToggleContainer, useInfo } from '@slonigiraf/app-slonig-components';
 import { useToggle } from '@polkadot/react-hooks';
@@ -129,29 +129,5 @@ function LessonsList({ className = '', tutor, onResumeTutoring, onShowResults }:
     </div>
   );
 }
-
-const StyledIcon = styled(Icon)`
-  margin: 0 10px;
-`;
-
-const StyledDiv = styled.div`
-  width: 100%;
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  column-gap: 40px;
-`;
-
-const StyledModal = styled(Modal)`
-  button[data-testid='close-modal'] {
-    opacity: 0;
-    background: transparent;
-    border: none;
-    cursor: pointer;
-  }
-  button[data-testid='close-modal']:focus {
-    outline: none;
-  }
-`;
 
 export default React.memo(LessonsList);
