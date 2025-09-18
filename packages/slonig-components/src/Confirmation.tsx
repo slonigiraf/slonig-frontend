@@ -1,35 +1,45 @@
 import React from 'react';
 import { useTranslation } from './translate.js';
 import { Button, Modal, styled } from '@polkadot/react-components';
+import { HorizontalCenterItemsContainer, VerticalCenterItemsContainer } from './index.js';
 interface Props {
-    onClose: () => void;
-    onConfirm: () => void;
+  question: string;
+  onClose: () => void;
+  onConfirm: () => void;
 }
 
-function Confirmation({onClose, onConfirm}: Props): React.ReactElement<Props> | null {
-    const { t } = useTranslation();
-   
-    return (
-        <StyledModal
-                header={t('Are you sure you want to delete it?')}
-                onClose={onClose}
-                size="small"
-            >
-                <Modal.Content>
-                    <StyledDiv>
-                        <Button icon="check" label={t('Yes')} onClick={onConfirm} />
-                        <Button icon="close" label={t('No')} onClick={onClose} />
-                    </StyledDiv>
-                </Modal.Content>
-            </StyledModal>
-    );
+function Confirmation({ question, onClose, onConfirm }: Props): React.ReactElement<Props> | null {
+  const { t } = useTranslation();
+
+  return (
+    <StyledModal
+      header=''
+      onClose={onClose}
+      size="tiny"
+    >
+      <Modal.Content>
+        <Title>{question}</Title>
+        <br />
+        <ButtonsRow>
+          <Button icon='check' label={t('Yes')} onClick={onConfirm} />
+          <Button icon='close' label={t('No')} onClick={onClose} />
+        </ButtonsRow>
+      </Modal.Content>
+    </StyledModal>
+  );
 }
-const StyledDiv = styled.div`
+const ButtonsRow = styled.div`
   width: 100%;
   display: flex;
   justify-content: center;
   align-items: center;
   column-gap: 40px;
+`;
+
+const Title = styled.h1`
+  width: 100%;
+  text-align: center;
+  margin: 0.5rem 0 0;
 `;
 
 const StyledModal = styled(Modal)`
@@ -42,5 +52,9 @@ const StyledModal = styled(Modal)`
   button[data-testid='close-modal']:focus {
     outline: none;
   }
+  .ui--Modal-Header {
+    display: none !important;
+  }
 `;
+
 export default React.memo(Confirmation);

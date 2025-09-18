@@ -3,7 +3,7 @@ import React, { useCallback, useState } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { Button, styled, Icon, Modal, Toggle } from '@polkadot/react-components';
 import { useTranslation } from '../translate.js';
-import { DaysRangePicker, loadFromSessionStorage, saveToSessionStorage, SelectableList, ToggleContainer, useInfo } from '@slonigiraf/app-slonig-components';
+import { Confirmation, DaysRangePicker, loadFromSessionStorage, saveToSessionStorage, SelectableList, ToggleContainer, useInfo } from '@slonigiraf/app-slonig-components';
 import { useToggle } from '@polkadot/react-hooks';
 import { deleteLesson, getLessons, Lesson } from '@slonigiraf/db';
 import { LESSONS } from '../constants.js';
@@ -124,18 +124,7 @@ function LessonsList({ className = '', tutor, onResumeTutoring, onShowResults }:
         isSelectionAllowed={isSelectionAllowed}
       />
       {isDeleteConfirmOpen && (
-        <StyledModal
-          header={t('Are you sure you want to delete it?')}
-          onClose={toggleDeleteConfirm}
-          size="small"
-        >
-          <Modal.Content>
-            <StyledDiv>
-              <Button icon="check" label={t('Yes')} onClick={deleteItems} />
-              <Button icon="close" label={t('No')} onClick={toggleDeleteConfirm} />
-            </StyledDiv>
-          </Modal.Content>
-        </StyledModal>
+        <Confirmation question={t('Are you sure you want to delete it?')} onClose={toggleDeleteConfirm} onConfirm={deleteItems}/>
       )}
     </div>
   );
