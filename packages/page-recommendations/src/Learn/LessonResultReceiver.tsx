@@ -58,7 +58,7 @@ function LessonResultReceiver({ webRTCPeerId, onDaysRangeChange }: Props): React
         await putAgreement(newAgreement);
       }
     } else {
-      showInfo(t('The tutor has shown you a QR code created for a different student. Ask the tutor to find the correct lesson.'), 'error');
+      showInfo(t('The tutor has shown you a QR code created for a different tutee. Ask the tutor to find the correct lesson.'), 'error');
       navigate('', { replace: true });
     }
   }, [workerPublicKeyHex, setLessonResult, navigate, setAgreement, showInfo]);
