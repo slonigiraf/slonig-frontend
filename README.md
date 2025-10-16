@@ -8,7 +8,7 @@ Contributions are welcome!
 
 To start off, this repo uses yarn workspaces to organize the code. As such, after cloning dependencies _should_ be installed via `yarn`, not via npm, the latter will result in broken dependencies.
 
-To get started -
+**To get started**
 
 1. Clone the repo locally, via `git clone https://github.com/slonigiraf/slonig.git <optional local path>`
 2. Ensure that you have a recent LTS version of Node.js, for development purposes [Node >= 16](https://nodejs.org/en/) is recommended.
@@ -24,8 +24,8 @@ export COTURN_USER=some
 export COTURN_PASSWORD=some
 export AIRDROP_AUTH_TOKEN=some
 ```
-6. Ready! Now you can launch the UI, via `yarn run start`
-7. Access the UI via [http://localhost:3000](http://localhost:3000)
+7. Ready! Now you can launch the UI, via `yarn run start`
+8. Access the UI via [http://localhost:3000](http://localhost:3000)
 
 
 ## Docker
