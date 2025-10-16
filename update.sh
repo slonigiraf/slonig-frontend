@@ -1,6 +1,6 @@
 #!/bin/sh
-git checkout slonig && \
-git pull origin slonig && \
+git checkout master && \
+git pull origin master && \
 export $(cat .env | xargs) && \
 docker build -t app-slonig-org -f docker/Dockerfile \
   --build-arg IPFS_SERVER=$IPFS_SERVER \
