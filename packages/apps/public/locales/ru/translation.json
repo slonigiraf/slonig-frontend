@@ -64,7 +64,7 @@
   "Backup": "Резервная копия",
   "Parachains overview": "Обзор парачейна",
   "Reward": "Вознаградить",
-  "Reward for the lesson": "Вознаградить за урок",
+  "Reward your tutor": "Вознагради репетитора",
   "Preimage": "Прообраз",
   "Present the QR code containing the signature to the UI. Once scanned it will be submitted for on-chain processing and execution.": "Предьявите QR-код с подписью. После сканирования транзакция будет запущена для исполнения в сети",
   "Prev": "Предыдущий",
@@ -523,5 +523,7 @@
   "You can put your device aside": "Ты можешь отложить своё устройство",
   "Tutee has the skill": "Ученик помнит навык",
   "Tutee failed the reexamination": "Ученик провалил проверку",
-  "Show this QR code to a classmate instead of closing. Do you still want to exit learning?": "Лучше покажи этот QR-код однокласснику, а не закрывай. Ты все еще хочешь перестать обучаться?"
+  "Show this QR code to a classmate instead of closing. Do you still want to exit learning?": "Лучше покажи этот QR-код однокласснику, а не закрывай. Ты все еще хочешь перестать обучаться?",
+  "To get the lesson results, send your tutor ___ Slon.": "Чтобы получить результаты урока, отправь своему репетитору ___ Slon'ов.",
+  "Slons will be deducted from your account. You currently have ___ Slon.": "Slon'ы будут списаны с твоего аккаунта. У тебя сейчас есть ___ Slon."
 }

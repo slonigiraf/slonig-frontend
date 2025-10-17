@@ -19,7 +19,8 @@ import Modal from '../Modal/index.js';
 import { styled } from '../styled.js';
 import { useTranslation } from '../translate.js';
 import { Button } from '@polkadot/react-components';
-import { useInfo, useLoginContext } from '@slonigiraf/app-slonig-components';
+import { balanceToSlonString, useInfo, useLoginContext } from '@slonigiraf/app-slonig-components';
+import BN from 'bn.js';
 
 interface Props {
   className?: string;
@@ -183,7 +184,14 @@ function Transfer({ className = '', onClose, onSuccess, recipientId: propRecipie
     }
   };
 
+  const isRewardView = modalCaption === t('Reward your tutor');
+  const amountToSendText = balanceToSlonString(amount || BN_ZERO);
+  const maxTransferText = balanceToSlonString(maxTransfer || BN_ZERO);
+  const rewardInfo1 = t('To get the lesson results, send your tutor ___ Slon.').replaceAll('___', amountToSendText);
+  const rewardInfo2 = t('Slons will be deducted from your account. You currently have ___ Slon.').replaceAll('___', maxTransferText);
+
   return (
+    !isRewardView || (isRewardView && maxTransfer != null) ?
     <StyledModal
       className='app--accounts-Modal'
       header={modalCaption ? modalCaption : t('Send Slon')}
@@ -192,58 +200,62 @@ function Transfer({ className = '', onClose, onSuccess, recipientId: propRecipie
     >
       <Modal.Content>
         <div className={className}>
+          {isRewardView && <div className="row">
+            <h2>{rewardInfo1}</h2>
+            <p>{rewardInfo2}</p>
+          </div>}
           <InputAddress
-              defaultValue={propSenderId}
-              isDisabled={!!propSenderId}
-              label={t('sender')}
-              labelExtra={
-                <Available
-                  params={propSenderId || senderId}
-                />
-              }
-              onChange={changeSender}
-              type='account'
-            />
+            defaultValue={propSenderId}
+            isDisabled={!!propSenderId}
+            label={t('sender')}
+            labelExtra={
+              <Available
+                params={propSenderId || senderId}
+              />
+            }
+            onChange={changeSender}
+            type='account'
+          />
           <InputAddress
-              defaultValue={propRecipientId}
-              isDisabled={!!propRecipientId}
-              label={t('recipient')}
-              labelExtra={!propRecipientId ?
-                <Available
-                  params={propRecipientId || recipientId}
-                /> : ''
-              }
-              onChange={setRecipientId}
-              type='allPlus'
-            />
-            {recipientPhish && (
-              <MarkError content={t('The recipient is associated with a known phishing site on {{url}}', { replace: { url: recipientPhish } })} />
-            )}
+            defaultValue={propRecipientId}
+            isDisabled={!!propRecipientId}
+            label={t('recipient')}
+            labelExtra={!propRecipientId ?
+              <Available
+                params={propRecipientId || recipientId}
+              /> : ''
+            }
+            onChange={setRecipientId}
+            type='allPlus'
+          />
+          {recipientPhish && (
+            <MarkError content={t('The recipient is associated with a known phishing site on {{url}}', { replace: { url: recipientPhish } })} />
+          )}
           {canToggleAll && isAll
-              ? (
+            ? (
+              <InputBalance
+                autoFocus
+                defaultValue={maxTransfer}
+                isDisabled
+                key={maxTransfer?.toString()}
+                label={t('transferable minus fees')}
+              />
+            )
+            : (
+              <>
                 <InputBalance
                   autoFocus
-                  defaultValue={maxTransfer}
-                  isDisabled
-                  key={maxTransfer?.toString()}
-                  label={t('transferable minus fees')}
+                  isError={!hasAvailable}
+                  isZeroable
+                  label={t('amount')}
+                  defaultValue={amount}
+                  maxValue={maxTransfer}
+                  onChange={setAmount}
+                  isDisabled={!isAmountEditable}
                 />
-              )
-              : (
-                <>
-                  <InputBalance
-                    autoFocus
-                    isError={!hasAvailable}
-                    isZeroable
-                    label={t('amount')}
-                    defaultValue={amount}
-                    maxValue={maxTransfer}
-                    onChange={setAmount}
-                    isDisabled={!isAmountEditable}
-                  />
-                </>
-              )
-            }
+              </>
+            )
+          }
         </div>
       </Modal.Content>
       <Modal.Actions>
@@ -260,7 +272,8 @@ function Transfer({ className = '', onClose, onSuccess, recipientId: propRecipie
           onClick={submitTransfer}
         />
       </Modal.Actions>
-    </StyledModal>
+    </StyledModal> 
+    : <></>
   );
 }
 

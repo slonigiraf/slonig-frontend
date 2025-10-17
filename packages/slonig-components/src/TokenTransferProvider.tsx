@@ -6,9 +6,11 @@ import { useApi } from '@polkadot/react-hooks';
 interface TokenTransferContextType {
     isTransferReady: boolean;
     isTransferOpen: boolean;
+    senderId: string;
     recipientId: string;
     amount: BN | undefined;
     transferSuccess: boolean;
+    setSenderId: (senderId: string) => void;
     setRecipientId: (recipientId: string) => void;
     setIsTransferOpen: (isOpen: boolean) => void;
     setAmount: (amount: BN) => void;
@@ -22,6 +24,7 @@ const defaultTokenTransferContext: TokenTransferContextType = {
     recipientId: '',
     amount: BN_ZERO,
     transferSuccess: false,
+    setSenderId: (_) => { },
     setRecipientId: (_) => { },
     setIsTransferOpen: (_) => { },
     setAmount: (_) => { },
@@ -37,6 +40,7 @@ interface TokenTransferProviderProps {
 
 export const TokenTransferProvider: React.FC<TokenTransferProviderProps> = ({ children }) => {
     const [isTransferOpen, setIsTransferOpen] = useState<boolean>(false);
+    const [senderId, setSenderId] = useState<string>('');
     const [recipientId, setRecipientId] = useState<string>('');
     const [amount, _setAmount] = useState<BN | undefined>(BN_ZERO);
     const [isAmountEditable, setIsAmountEditable] = useState(true);
@@ -62,6 +66,7 @@ export const TokenTransferProvider: React.FC<TokenTransferProviderProps> = ({ ch
         } else {
             _setAmount(BN_ZERO);
             setIsAmountEditable(true);
+            setSenderId('');
             setRecipientId('');
             setModalCaption('');
             setButtonCaption('');
@@ -84,9 +89,11 @@ export const TokenTransferProvider: React.FC<TokenTransferProviderProps> = ({ ch
             value={{
                 isTransferReady,
                 isTransferOpen,
+                senderId,
                 recipientId,
                 amount,
                 transferSuccess,
+                setSenderId,
                 setRecipientId,
                 setIsTransferOpen,
                 setAmount,
@@ -100,6 +107,7 @@ export const TokenTransferProvider: React.FC<TokenTransferProviderProps> = ({ ch
                     key='modal-transfer'
                     onClose={() => setIsTransferOpen(false)}
                     onSuccess={handleSuccess}
+                    senderId={senderId}
                     recipientId={recipientId}
                     amount={amount}
                     isAmountEditable={isAmountEditable}
