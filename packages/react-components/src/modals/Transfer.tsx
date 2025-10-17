@@ -188,12 +188,11 @@ function Transfer({ className = '', onClose, onSuccess, recipientId: propRecipie
       className='app--accounts-Modal'
       header={modalCaption ? modalCaption : t('Send Slon')}
       onClose={onClose}
-      size='large'
+      size='small'
     >
       <Modal.Content>
         <div className={className}>
-          <Modal.Columns hint={t('The transferred balance will be subtracted (along with fees) from the sender account.')}>
-            <InputAddress
+          <InputAddress
               defaultValue={propSenderId}
               isDisabled={!!propSenderId}
               label={t('sender')}
@@ -205,9 +204,7 @@ function Transfer({ className = '', onClose, onSuccess, recipientId: propRecipie
               onChange={changeSender}
               type='account'
             />
-          </Modal.Columns>
-          <Modal.Columns hint={t('The beneficiary will have access to the transferred fees when the transaction is included in a block.')}>
-            <InputAddress
+          <InputAddress
               defaultValue={propRecipientId}
               isDisabled={!!propRecipientId}
               label={t('recipient')}
@@ -222,9 +219,7 @@ function Transfer({ className = '', onClose, onSuccess, recipientId: propRecipie
             {recipientPhish && (
               <MarkError content={t('The recipient is associated with a known phishing site on {{url}}', { replace: { url: recipientPhish } })} />
             )}
-          </Modal.Columns>
-          <Modal.Columns hint={t('If the recipient account is new, the balance needs to be more than the existential deposit. Likewise if the sending account balance drops below the same value, the account will be removed from the state.')}>
-            {canToggleAll && isAll
+          {canToggleAll && isAll
               ? (
                 <InputBalance
                   autoFocus
@@ -249,7 +244,6 @@ function Transfer({ className = '', onClose, onSuccess, recipientId: propRecipie
                 </>
               )
             }
-          </Modal.Columns>
         </div>
       </Modal.Content>
       <Modal.Actions>
