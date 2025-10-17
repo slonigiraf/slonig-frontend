@@ -215,7 +215,7 @@ function ViewList({ className = '', id, cidString, list }: Props): React.ReactEl
       <FullscreenActivity captionElement={<KatexSpan content={list.h} />} onClose={exitFullScreenActivity} >
         <RemoveBorders>{content}</RemoveBorders>
         {isExitConfirmOpen && (
-          <Confirmation question={t('Show this QR code to a classmate instead of closing. Do you still want to exit learning?')} onClose={() => setIsExitConfirmOpen(false)} onConfirm={closeQR} />
+          <Confirmation question={t('Sure to exit learning?')} onClose={() => setIsExitConfirmOpen(false)} onConfirm={closeQR} />
         )}
       </FullscreenActivity> :
       content);

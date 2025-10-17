@@ -2,6 +2,9 @@ import React, { createContext, useContext, useState, ReactNode, useEffect, useCa
 import { TransferModal } from '@polkadot/react-components';
 import { BN, BN_ZERO } from '@polkadot/util';
 import { useApi } from '@polkadot/react-hooks';
+import Confirmation from './Confirmation.js';
+import { useTranslation } from './translate.js';
+import { useNavigate } from 'react-router-dom';
 
 interface TokenTransferContextType {
     isTransferReady: boolean;
@@ -21,6 +24,7 @@ interface TokenTransferContextType {
 const defaultTokenTransferContext: TokenTransferContextType = {
     isTransferReady: false,
     isTransferOpen: false,
+    senderId: '',
     recipientId: '',
     amount: BN_ZERO,
     transferSuccess: false,
@@ -49,11 +53,20 @@ export const TokenTransferProvider: React.FC<TokenTransferProviderProps> = ({ ch
     const [transferSuccess, setTransferSuccess] = useState<boolean>(false);
     const [isTransferReady, setIsTransferReady] = useState<boolean>(false);
     const { isApiConnected } = useApi();
+    const [isExitConfirmOpen, setIsExitConfirmOpen] = useState(false);
+    const { t } = useTranslation();
+    const navigate = useNavigate();
 
     const setAmount = useCallback((value: BN | undefined) => {
         setIsAmountEditable(false);
         _setAmount(value);
     }, [setIsAmountEditable, _setAmount]);
+
+    const closeTokenTransfer = useCallback(() => {
+        setIsExitConfirmOpen(false);
+        setIsTransferOpen(false);
+        navigate('', { replace: true });
+    }, [setIsExitConfirmOpen, setIsTransferOpen]);
 
     useEffect(() => {
         setIsTransferReady(true);
@@ -105,7 +118,7 @@ export const TokenTransferProvider: React.FC<TokenTransferProviderProps> = ({ ch
             {isTransferOpen && (
                 <TransferModal
                     key='modal-transfer'
-                    onClose={() => setIsTransferOpen(false)}
+                    onClose={() => setIsExitConfirmOpen(true)}
                     onSuccess={handleSuccess}
                     senderId={senderId}
                     recipientId={recipientId}
@@ -114,6 +127,9 @@ export const TokenTransferProvider: React.FC<TokenTransferProviderProps> = ({ ch
                     modalCaption={modalCaption}
                     buttonCaption={buttonCaption}
                 />
+            )}
+            {isExitConfirmOpen && (
+                <Confirmation question={t('Sure to delete learning results?')} onClose={() => setIsExitConfirmOpen(false)} onConfirm={closeTokenTransfer} />
             )}
         </TokenTransferContext.Provider>
     );
