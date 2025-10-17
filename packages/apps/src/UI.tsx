@@ -9,12 +9,11 @@ import Menu from './Menu/index.js';
 import ConnectingOverlay from './overlays/Connecting.js';
 import DotAppsOverlay from './overlays/DotApps.js';
 import BottomMenu from './BottomMenu/index.js';
-import { AirdropResults, AppContainer, balanceToSlonString, BlockchainSyncProvider, fetchEconomy, useInfo, useIpfsContext, useLoginContext } from '@slonigiraf/app-slonig-components';
-import { Button, Icon, Modal, Spinner, styled } from '@polkadot/react-components';
+import { AirdropResults, AppContainer, BlockchainSyncProvider, fetchEconomy, useInfo, useIpfsContext, useLoginContext } from '@slonigiraf/app-slonig-components';
+import { Modal, Spinner, styled } from '@polkadot/react-components';
 import { useTranslation } from './translate.js';
-import { useApi, useTheme, useToggle } from '@polkadot/react-hooks';
+import { useApi, useTheme } from '@polkadot/react-hooks';
 import { hasSetting, SettingKey, storeSetting } from '@slonigiraf/db';
-import BN from 'bn.js';
 import { useLocation } from 'react-router-dom';
 import CreateAccount from '@polkadot/app-accounts/modals/CreateAccount';
 export const PORTAL_ID = 'portals';
@@ -28,8 +27,6 @@ function UI({ className = '' }: Props): React.ReactElement<Props> {
   const { t } = useTranslation();
   const { themeClassName } = useTheme();
   const economyNotificationTime = 10;
-  const [isModalVisible, toggleModalVisible] = useToggle();
-  const [airdropAmount, setAirdropAmount] = useState('0');
   const location = useLocation();
   const queryParams = new URLSearchParams(location.search);
   const lessonInUrl = queryParams.get('lesson') != null;
@@ -79,8 +76,6 @@ function UI({ className = '' }: Props): React.ReactElement<Props> {
             const airdropResults: AirdropResults = await response.json();
             if (airdropResults.success && airdropResults.amount) {
               await storeSetting(SettingKey.RECEIVED_AIRDROP, airdropResults.amount);
-              setAirdropAmount(balanceToSlonString(new BN(airdropResults.amount)));
-              toggleModalVisible();
             } else if (airdropResults.error) {
               showError(airdropResults.error);
             }
@@ -109,26 +104,6 @@ function UI({ className = '' }: Props): React.ReactElement<Props> {
             <BlockchainSyncProvider>
               <Content />
               {!botInUrl && <BottomMenu />}
-              {isModalVisible && <StyledModal
-                className={className}
-                onClose={toggleModalVisible}
-                header={t('Congratulations!')}
-                size='tiny'
-              >
-                <Modal.Content>
-                  <GiftDiv>
-                    <Icon color='orange' icon='gift' size="8x" />
-                    <StyledLabel>{airdropAmount} Slon</StyledLabel>
-                  </GiftDiv>
-                  <p>{t('You have received Slons for free. It’s a one-time gift, so use it wisely.')}</p>
-                </Modal.Content>
-                <Modal.Actions>
-                  <Button
-                    label={t('OK')}
-                    onClick={toggleModalVisible}
-                  />
-                </Modal.Actions>
-              </StyledModal>}
             </BlockchainSyncProvider>
           </Signer>
         }
