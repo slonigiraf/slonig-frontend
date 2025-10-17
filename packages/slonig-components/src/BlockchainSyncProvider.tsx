@@ -85,7 +85,7 @@ export const BlockchainSyncProvider: React.FC<BlockchainSyncProviderProps> = ({ 
             const balanceChange = accountInfo.data.free.sub(myBalance.current);
             const icon = balanceChange.gte(BN_ZERO) ? 'hand-holding-dollar' : 'money-bill-trend-up';
             const balanceChangeToShow = balanceToSlonString(balanceChange);
-            if(balanceChangeToShow !== '0'){
+            if(balanceChangeToShow !== '0' && myBalance.current.gt(BN_ZERO)){
                 showInfo(balanceToSlonString(balanceChange) + ' Slon', 'info', 4, icon);
             }
         }
