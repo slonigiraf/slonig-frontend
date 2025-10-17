@@ -3,7 +3,7 @@
 
 import type { DeriveBalancesAll } from '@polkadot/api-derive/types';
 import type { AccountInfoWithProviders, AccountInfoWithRefCount } from '@polkadot/types/interfaces';
-import type { BN } from '@polkadot/util';
+import { BN } from '@polkadot/util';
 
 import React, { useCallback, useEffect, useState } from 'react';
 
@@ -20,6 +20,7 @@ import { styled } from '../styled.js';
 import { useTranslation } from '../translate.js';
 import { Button, Spinner } from '@polkadot/react-components';
 import { balanceToSlonString, useInfo, useLoginContext } from '@slonigiraf/app-slonig-components';
+import { useNavigate } from 'react-router-dom';
 
 interface Props {
   className?: string;
@@ -67,6 +68,7 @@ function Transfer({ className = '', onClose, onSuccess, recipientId: propRecipie
   const { currentPair, _onChangeAccount } = useLoginContext();
   const [isProcessing, toggleProcessing] = useToggle();
   const [amountIsLessThanMax, setAmountIsLessThanMax] = useState(false);
+  const navigate = useNavigate();
 
   const changeSender = useCallback((id: string | null) => {
     setSenderId(id);
@@ -112,6 +114,14 @@ function Transfer({ className = '', onClose, onSuccess, recipientId: propRecipie
       .then(setPhishing)
       .catch(console.error);
   }, [propRecipientId, propSenderId, recipientId, senderId]);
+
+  const goTopUp = useCallback(
+    () => {
+      navigate('accounts')
+      onClose();
+    },
+    [navigate]
+  );
 
   const noReference = accountInfo
     ? isRefcount(accountInfo)
@@ -187,7 +197,10 @@ function Transfer({ className = '', onClose, onSuccess, recipientId: propRecipie
   const amountToSendText = balanceToSlonString(amount || BN_ZERO);
   const maxTransferText = balanceToSlonString(maxTransfer || BN_ZERO);
   const rewardInfo = t('To get the lesson results, reward your tutor with ___ Slon.').replaceAll('___', amountToSendText);
+  const topUpAmountText = balanceToSlonString(amount?.sub(maxTransfer || BN_ZERO).add(new BN('1000000000000')) || BN_ZERO);
+  const topUpInfo = t('You do not have enough Slon to reward your tutor and get the lesson results. Top up your balance with at least ___ Slon.').replaceAll('___', topUpAmountText);
   const balanceInfo = t('You currently have ___ Slon.').replaceAll('___', maxTransferText);
+  const isTopUpView = isRewardView && amount !== undefined && maxTransfer !== null && amount?.gte(maxTransfer);
 
   return (
 
@@ -197,13 +210,13 @@ function Transfer({ className = '', onClose, onSuccess, recipientId: propRecipie
       onClose={onClose}
       size='small'
     >
-      {!isRewardView || (isRewardView && maxTransfer != null) ?
+      {!isRewardView || (isRewardView && maxTransfer != null && amount !== undefined) ?
         <>
           <Modal.Content>
             <div className={className}>
               {isRewardView && <div className="row">
-                <h2>{rewardInfo}</h2>
-                <p>{t('Slons will be deducted from your account.')}<br />{balanceInfo}</p>
+                <h2>{isTopUpView ? topUpInfo : rewardInfo}</h2>
+                {!isTopUpView && <p>{t('Slons will be deducted from your account.')}<br />{balanceInfo}</p>}
               </div>}
               {!isRewardView &&
                 <>
@@ -263,18 +276,27 @@ function Transfer({ className = '', onClose, onSuccess, recipientId: propRecipie
             </div>
           </Modal.Content>
           <Modal.Actions>
-            <Button isDisabled={
-              isProcessing ||
-              (!isAll && (!hasAvailable || !amount)) ||
-              !(propRecipientId || recipientId) ||
-              !!recipientPhish ||
-              !amountIsLessThanMax
+            {isTopUpView ?
+              <Button
+                icon='hand-holding-dollar'
+                label={t('Top up my balance')}
+                onClick={goTopUp}
+              />
+              :
+              <Button isDisabled={
+                isProcessing ||
+                (!isAll && (!hasAvailable || !amount)) ||
+                !(propRecipientId || recipientId) ||
+                !!recipientPhish ||
+                !amountIsLessThanMax
+              }
+                isBusy={isProcessing}
+                icon='paper-plane'
+                label={buttonCaption ? buttonCaption : t('Send Slon')}
+                onClick={submitTransfer}
+              />
             }
-              isBusy={isProcessing}
-              icon='paper-plane'
-              label={buttonCaption ? buttonCaption : t('Send Slon')}
-              onClick={submitTransfer}
-            />
+
           </Modal.Actions>
         </> : <div className='connecting'>
           <Spinner label={t('Loading')} />
