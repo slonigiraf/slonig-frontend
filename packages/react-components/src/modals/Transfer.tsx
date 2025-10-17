@@ -18,9 +18,8 @@ import MarkError from '../MarkError.js';
 import Modal from '../Modal/index.js';
 import { styled } from '../styled.js';
 import { useTranslation } from '../translate.js';
-import { Button } from '@polkadot/react-components';
+import { Button, Spinner } from '@polkadot/react-components';
 import { balanceToSlonString, useInfo, useLoginContext } from '@slonigiraf/app-slonig-components';
-import BN from 'bn.js';
 
 interface Props {
   className?: string;
@@ -187,93 +186,101 @@ function Transfer({ className = '', onClose, onSuccess, recipientId: propRecipie
   const isRewardView = modalCaption === t('Reward your tutor');
   const amountToSendText = balanceToSlonString(amount || BN_ZERO);
   const maxTransferText = balanceToSlonString(maxTransfer || BN_ZERO);
-  const rewardInfo1 = t('To get the lesson results, send your tutor ___ Slon.').replaceAll('___', amountToSendText);
+  const rewardInfo1 = t('To get the lesson results, reward your tutor with ___ Slon.').replaceAll('___', amountToSendText);
   const rewardInfo2 = t('Slons will be deducted from your account. You currently have ___ Slon.').replaceAll('___', maxTransferText);
 
   return (
-    !isRewardView || (isRewardView && maxTransfer != null) ?
+
     <StyledModal
       className='app--accounts-Modal'
       header={modalCaption ? modalCaption : t('Send Slon')}
       onClose={onClose}
       size='small'
     >
-      <Modal.Content>
-        <div className={className}>
-          {isRewardView && <div className="row">
-            <h2>{rewardInfo1}</h2>
-            <p>{rewardInfo2}</p>
-          </div>}
-          <InputAddress
-            defaultValue={propSenderId}
-            isDisabled={!!propSenderId}
-            label={t('sender')}
-            labelExtra={
-              <Available
-                params={propSenderId || senderId}
-              />
+      {!isRewardView || (isRewardView && maxTransfer != null) ?
+        <>
+          <Modal.Content>
+            <div className={className}>
+              {isRewardView && <div className="row">
+                <h2>{rewardInfo1}</h2>
+                <p>{rewardInfo2}</p>
+              </div>}
+              {!isRewardView &&
+                <>
+                  <InputAddress
+                    defaultValue={propSenderId}
+                    isDisabled={!!propSenderId}
+                    label={t('sender')}
+                    labelExtra={
+                      <Available
+                        params={propSenderId || senderId}
+                      />
+                    }
+                    onChange={changeSender}
+                    type='account'
+                  />
+                  <InputAddress
+                    defaultValue={propRecipientId}
+                    isDisabled={!!propRecipientId}
+                    label={t('recipient')}
+                    labelExtra={!propRecipientId ?
+                      <Available
+                        params={propRecipientId || recipientId}
+                      /> : ''
+                    }
+                    onChange={setRecipientId}
+                    type='allPlus'
+                  />
+                  {recipientPhish && (
+                    <MarkError content={t('The recipient is associated with a known phishing site on {{url}}', { replace: { url: recipientPhish } })} />
+                  )}
+                  {canToggleAll && isAll
+                    ? (
+                      <InputBalance
+                        autoFocus
+                        defaultValue={maxTransfer}
+                        isDisabled
+                        key={maxTransfer?.toString()}
+                        label={t('transferable minus fees')}
+                      />
+                    )
+                    : (
+                      <>
+                        <InputBalance
+                          autoFocus
+                          isError={!hasAvailable}
+                          isZeroable
+                          label={t('amount')}
+                          defaultValue={amount}
+                          maxValue={maxTransfer}
+                          onChange={setAmount}
+                          isDisabled={!isAmountEditable}
+                        />
+                      </>
+                    )
+                  }
+                </>}
+            </div>
+          </Modal.Content>
+          <Modal.Actions>
+            <Button isDisabled={
+              isProcessing ||
+              (!isAll && (!hasAvailable || !amount)) ||
+              !(propRecipientId || recipientId) ||
+              !!recipientPhish ||
+              !amountIsLessThanMax
             }
-            onChange={changeSender}
-            type='account'
-          />
-          <InputAddress
-            defaultValue={propRecipientId}
-            isDisabled={!!propRecipientId}
-            label={t('recipient')}
-            labelExtra={!propRecipientId ?
-              <Available
-                params={propRecipientId || recipientId}
-              /> : ''
-            }
-            onChange={setRecipientId}
-            type='allPlus'
-          />
-          {recipientPhish && (
-            <MarkError content={t('The recipient is associated with a known phishing site on {{url}}', { replace: { url: recipientPhish } })} />
-          )}
-          {canToggleAll && isAll
-            ? (
-              <InputBalance
-                autoFocus
-                defaultValue={maxTransfer}
-                isDisabled
-                key={maxTransfer?.toString()}
-                label={t('transferable minus fees')}
-              />
-            )
-            : (
-              <>
-                <InputBalance
-                  autoFocus
-                  isError={!hasAvailable}
-                  isZeroable
-                  label={t('amount')}
-                  defaultValue={amount}
-                  maxValue={maxTransfer}
-                  onChange={setAmount}
-                  isDisabled={!isAmountEditable}
-                />
-              </>
-            )
-          }
+              isBusy={isProcessing}
+              icon='paper-plane'
+              label={buttonCaption ? buttonCaption : t('Send Slon')}
+              onClick={submitTransfer}
+            />
+          </Modal.Actions>
+        </> : <div className='connecting'>
+          <Spinner label={t('Loading')} />
         </div>
-      </Modal.Content>
-      <Modal.Actions>
-        <Button isDisabled={
-          isProcessing ||
-          (!isAll && (!hasAvailable || !amount)) ||
-          !(propRecipientId || recipientId) ||
-          !!recipientPhish ||
-          !amountIsLessThanMax
-        }
-          isBusy={isProcessing}
-          icon='paper-plane'
-          label={buttonCaption ? buttonCaption : t('Send Slon')}
-          onClick={submitTransfer}
-        />
-      </Modal.Actions>
-    </StyledModal> 
-    : <></>
+      }
+    </StyledModal>
   );
 }
 
