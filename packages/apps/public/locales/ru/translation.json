@@ -525,5 +525,6 @@
   "Tutee failed the reexamination": "Ученик провалил проверку",
   "Show this QR code to a classmate instead of closing. Do you still want to exit learning?": "Лучше покажи этот QR-код однокласснику, а не закрывай. Ты все еще хочешь перестать обучаться?",
   "To get the lesson results, reward your tutor with ___ Slon.": "Чтобы получить результаты урока, вознагради своего репетитора ___ Slon'ами.",
-  "Slons will be deducted from your account. You currently have ___ Slon.": "Slon'ы будут списаны с твоего аккаунта. У тебя сейчас есть ___ Slon."
+  "Slons will be deducted from your account.": "Slon'ы будут списаны с твоего аккаунта.",
+  "You currently have ___ Slon.": "У тебя сейчас есть ___ Slon."
 }

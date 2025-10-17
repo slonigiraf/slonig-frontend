@@ -186,8 +186,8 @@ function Transfer({ className = '', onClose, onSuccess, recipientId: propRecipie
   const isRewardView = modalCaption === t('Reward your tutor');
   const amountToSendText = balanceToSlonString(amount || BN_ZERO);
   const maxTransferText = balanceToSlonString(maxTransfer || BN_ZERO);
-  const rewardInfo1 = t('To get the lesson results, reward your tutor with ___ Slon.').replaceAll('___', amountToSendText);
-  const rewardInfo2 = t('Slons will be deducted from your account. You currently have ___ Slon.').replaceAll('___', maxTransferText);
+  const rewardInfo = t('To get the lesson results, reward your tutor with ___ Slon.').replaceAll('___', amountToSendText);
+  const balanceInfo = t('You currently have ___ Slon.').replaceAll('___', maxTransferText);
 
   return (
 
@@ -202,8 +202,8 @@ function Transfer({ className = '', onClose, onSuccess, recipientId: propRecipie
           <Modal.Content>
             <div className={className}>
               {isRewardView && <div className="row">
-                <h2>{rewardInfo1}</h2>
-                <p>{rewardInfo2}</p>
+                <h2>{rewardInfo}</h2>
+                <p>{t('Slons will be deducted from your account.')}<br />{balanceInfo}</p>
               </div>}
               {!isRewardView &&
                 <>
