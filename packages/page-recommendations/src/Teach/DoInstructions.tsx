@@ -50,7 +50,6 @@ function DoInstructions({ className = '', entity, onResult, studentName, bothUse
           if (isComponentMounted) {
             setSkill(skill);
             if (isLetterTemplate(entity)) {
-              console.log('bothUsedSlonig: ', bothUsedSlonig)
               const newAlgorithm = new TutoringAlgorithm(t, studentName, skill, bothUsedSlonig);
               setAlgorithmStage(newAlgorithm.getBegin());
             } else {
