@@ -3,7 +3,7 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { Button, LinearProgress, styled } from '@polkadot/react-components';
 import { u8aToHex } from '@polkadot/util';
-import { CenterQRContainer, FullFindow, VerticalCenterItemsContainer, useLoginContext } from '@slonigiraf/app-slonig-components';
+import { Confirmation, FullFindow, VerticalCenterItemsContainer, useLoginContext } from '@slonigiraf/app-slonig-components';
 import { LetterTemplate, Lesson, Reexamination, getPseudonym, getLesson, getLetterTemplatesByLessonId, getReexaminationsByLessonId, getSetting, storeSetting, updateLesson, getLetter, getReexamination, SettingKey, deleteSetting, getValidLetterTemplatesByLessonId, isThereAnyLessonResult } from '@slonigiraf/db';
 import DoInstructions from './DoInstructions.js';
 import LessonsList from './LessonsList.js';
@@ -21,7 +21,7 @@ function Teach({ className = '' }: Props): React.ReactElement<Props> {
   const { currentPair, isLoggedIn } = useLoginContext();
   const [reexaminationToPerform, setReexaminationToPerform] = useState<Reexamination | null>(null);
   const [letterTemplateToIssue, setLetterTemplateToIssue] = useState<LetterTemplate | null>(null);
-
+  const [hasTutorCompletedTutorial, setHasTutorCompletedTutorial] = useState(false);
   // Store progress state
   const [reexamined, setReexamined] = useState<boolean>(false);
 
@@ -32,9 +32,17 @@ function Teach({ className = '' }: Props): React.ReactElement<Props> {
   const [letterTemplates, setLetterTemplates] = useState<LetterTemplate[]>([]);
   const [reexaminations, setReexaminations] = useState<Reexamination[]>([]);
   const [areResultsShown, setResultsShown] = useState(false);
+  const [isExitConfirmOpen, setIsExitConfirmOpen] = useState(false);
   const [studentUsedSlonig, setStudentUsedSlonig] = useState(false);
-
   const [isSendingResultsEnabled, setIsSendingResultsEnabled] = useState(false);
+
+  useEffect((): void => {
+    const loadTutorialResults = async () => {
+      const completed = await getSetting(SettingKey.TUTOR_TUTORIAL_COMPLETED);
+      setHasTutorCompletedTutorial(completed === 'true' ? true : false);
+    };
+    loadTutorialResults();
+  }, []);
 
   useEffect(() => {
     const checkResults = async () => {
@@ -159,8 +167,13 @@ function Teach({ className = '' }: Props): React.ReactElement<Props> {
   const onCloseResults = useCallback(async () => {
     onCloseTutoring();
     await deleteSetting(SettingKey.LESSON_RESULTS_ARE_SHOWN);
+    setIsExitConfirmOpen(false);
     setResultsShown(false);
   }, [setResultsShown, onCloseTutoring]);
+
+  const exitFullScreenActivity = useCallback((): void => {
+    hasTutorCompletedTutorial ? onCloseResults() : setIsExitConfirmOpen(true);
+  }, [hasTutorCompletedTutorial, onCloseResults, setIsExitConfirmOpen]);
 
   const publicKeyHex = currentPair ? u8aToHex(currentPair.publicKey) : "";
 
@@ -197,8 +210,11 @@ function Teach({ className = '' }: Props): React.ReactElement<Props> {
           <LessonRequestReceiver setCurrentLesson={fetchLesson} />
           {lesson == null ? <LessonsList tutor={publicKeyHex} onResumeTutoring={onResumeTutoring} onShowResults={onShowResults} />
             :
-            <> {areResultsShown ? <LessonResults lesson={lesson} updateAndStoreLesson={updateAndStoreLesson} onClose={onCloseResults} /> : reexamAndDiplomaIssuing}</>
+            <> {areResultsShown ? <LessonResults lesson={lesson} updateAndStoreLesson={updateAndStoreLesson} onClose={exitFullScreenActivity} onFinished={onCloseResults} /> : reexamAndDiplomaIssuing}</>
           }
+          {isExitConfirmOpen && (
+            <Confirmation question={t('Sure to exit tutoring?')} onClose={() => setIsExitConfirmOpen(false)} onConfirm={onCloseResults} />
+          )}
         </>
       }
     </div>

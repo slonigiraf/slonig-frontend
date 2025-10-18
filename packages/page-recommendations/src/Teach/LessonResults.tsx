@@ -18,9 +18,10 @@ interface Props {
   lesson: Lesson | null;
   updateAndStoreLesson: (lesson: Lesson | null) => void;
   onClose: () => void;
+  onFinished: () => void;
 }
 
-function LessonResults({ className = '', lesson, updateAndStoreLesson, onClose }: Props): React.ReactElement<Props> {
+function LessonResults({ className = '', lesson, updateAndStoreLesson, onClose, onFinished }: Props): React.ReactElement<Props> {
   // Initialize api, ipfs and translation
   const { api, isApiReady } = useApi();
   const { t } = useTranslation();
@@ -57,7 +58,7 @@ function LessonResults({ className = '', lesson, updateAndStoreLesson, onClose }
 
   const onDataSent = useCallback(async (): Promise<void> => {
     await storeSetting(SettingKey.TUTOR_TUTORIAL_COMPLETED, 'true');
-    onClose();
+    onFinished();
   }, [onClose]);
 
   const setAmountIput = useCallback((value?: BN | undefined): void => {
