@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { styled, Button } from '@polkadot/react-components';
 import {
   Bubble,
@@ -11,9 +11,10 @@ import { useTranslation } from '../translate.js';
 
 interface ChatSimulationProps {
   messages: IMessage[];
+  onAllMessagesRevealed?: () => void; // 👈 NEW PROP
 }
 
-const ChatSimulation: React.FC<ChatSimulationProps> = ({ messages }) => {
+const ChatSimulation: React.FC<ChatSimulationProps> = ({ messages, onAllMessagesRevealed }) => {
   const [currentIndex, setCurrentIndex] = useState(0);
   const { t } = useTranslation();
 
@@ -22,6 +23,13 @@ const ChatSimulation: React.FC<ChatSimulationProps> = ({ messages }) => {
       setCurrentIndex(currentIndex + 1);
     }
   };
+
+  // 👇 Trigger parent callback when all messages are visible
+  useEffect(() => {
+    if (currentIndex === messages.length - 1 && onAllMessagesRevealed) {
+      onAllMessagesRevealed();
+    }
+  }, [currentIndex, messages.length, onAllMessagesRevealed]);
 
   return (
     <ChatContainer>
@@ -44,7 +52,6 @@ const ChatSimulation: React.FC<ChatSimulationProps> = ({ messages }) => {
               </Bubble>
             </MessageContainer>
 
-            {/* Overlay the NEXT button on the next blurred bubble */}
             {isNext && (
               <NextOverlay>
                 <Button
@@ -67,7 +74,6 @@ const ChatSimulation: React.FC<ChatSimulationProps> = ({ messages }) => {
 };
 
 // --- Styled components ---
-
 const MessageWrapper = styled.div`
   position: relative;
   width: 100%;
@@ -100,6 +106,10 @@ const NextOverlay = styled.div`
   align-items: center;
   justify-content: center;
   pointer-events: none;
+  button {
+    pointer-events: all;
+  }
 `;
+
 
 export default React.memo(ChatSimulation);

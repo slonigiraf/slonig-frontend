@@ -30,6 +30,7 @@ function DoInstructions({ className = '', entity, onResult, studentName, bothUse
   const [algorithmStage, setAlgorithmStage] = useState<AlgorithmStage>();
   const { showInfo } = useInfo();
   const [isButtonClicked, setIsButtonClicked] = useState(false);
+  const [isChatFinished, setIsChatFinished] = useState(false);
 
   const isLetterTemplate = useCallback((entity: LetterTemplate | Reexamination) => {
     return 'knowledgeId' in entity;
@@ -156,41 +157,52 @@ function DoInstructions({ className = '', entity, onResult, studentName, bothUse
   }
 
   return (
-    <div className={className} >
-      {algorithmStage ? (<>
+    <div className={className}>
+      {algorithmStage ? (
         <InstructionsContainer key={entity?.cid}>
-          <ChatSimulation messages={algorithmStage.getMessages()} />
+          <ChatSimulation
+            messages={algorithmStage.getMessages()}
+            onAllMessagesRevealed={() => setIsChatFinished(true)} // 👈 NEW
+          />
+
           {algorithmStage.getChatDecorator()}
+
           <InstructionsButtonsContainer>
-            <Bubble>
-              <ChatContainer><h2>{t('⚖️ Decide on the next step')}</h2>
+            <DecisionBubble $blur={!isChatFinished}> {/* 👈 use blur here */}
+              <ChatContainer>
+                <h2>{t('⚖️ Decide on the next step')}</h2>
                 <span>
-                  {algorithmStage.getActionHint() && (
-                    algorithmStage.getActionHint()
-                  )}
+                  {algorithmStage.getActionHint() && algorithmStage.getActionHint()}
                 </span>
               </ChatContainer>
+
               <InstructionsButtonsGroup>
                 {algorithmStage.getPrevious() && (
-                  <Button className='noHighlight' key={algorithmStage.getId()} onClick={() => handleStageChange(algorithmStage.getPrevious())}
+                  <Button
+                    className='noHighlight'
+                    key={algorithmStage.getId()}
+                    onClick={() => handleStageChange(algorithmStage.getPrevious())}
                     icon='arrow-left'
                     label={t('Back')}
                     isDisabled={isButtonClicked}
                   />
                 )}
                 {algorithmStage.getNext().map((nextStage, index) => (
-                  <Button className='noHighlight' key={index + algorithmStage.getId()} onClick={() => handleStageChange(nextStage)}
+                  <Button
+                    className='noHighlight'
+                    key={index + algorithmStage.getId()}
+                    onClick={() => handleStageChange(nextStage)}
                     icon='square'
                     label={nextStage.getName()}
                     isDisabled={isButtonClicked}
                   />
                 ))}
-                {!algorithmStage.getPrevious() &&
+                {!algorithmStage.getPrevious() && (
                   <StyledPopup
                     value={
                       <Menu>
-                        {isReexamination(entity) ?
-                          <React.Fragment>
+                        {isReexamination(entity) ? (
+                          <>
                             <Menu.Item
                               icon='thumbs-up'
                               key='studentPassedReexamination'
@@ -204,9 +216,9 @@ function DoInstructions({ className = '', entity, onResult, studentName, bothUse
                               label={t('Tutee failed the reexamination')}
                               onClick={studentFailedReexamination}
                             />
-                          </React.Fragment>
-                          :
-                          <React.Fragment>
+                          </>
+                        ) : (
+                          <>
                             <Menu.Item
                               icon='thumbs-up'
                               key='issueDiploma'
@@ -220,21 +232,28 @@ function DoInstructions({ className = '', entity, onResult, studentName, bothUse
                               label={t('Should be repeated tomorrow')}
                               onClick={() => preserveFromNoobs(repeatTomorrow)}
                             />
-                          </React.Fragment>
-                        }
+                          </>
+                        )}
                       </Menu>
                     }
-                  />}
+                  />
+                )}
               </InstructionsButtonsGroup>
-            </Bubble>
+            </DecisionBubble>
           </InstructionsButtonsContainer>
         </InstructionsContainer>
-      </>) : (
+      ) : (
         <div>Error: Reload the page</div>
       )}
     </div>
   );
 }
+const DecisionBubble = styled(Bubble) <{ $blur: boolean }>`
+  transition: filter 0.3s ease, opacity 0.3s ease;
+  filter: ${({ $blur }) => ($blur ? 'blur(3px) brightness(0.7)' : 'none')};
+  opacity: ${({ $blur }) => ($blur ? 0.5 : 1)};
+  pointer-events: ${({ $blur }) => ($blur ? 'none' : 'auto')};
+`;
 const StyledPopup = styled(Popup)`
   .ui--Icon {
     background-color: transparent !important;
