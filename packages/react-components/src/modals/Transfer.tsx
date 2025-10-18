@@ -32,6 +32,7 @@ interface Props {
   modalCaption?: string;
   buttonCaption?: string;
   isAmountEditable: boolean;
+  isRewardType?: boolean;
 }
 
 function isRefcount(accountInfo: AccountInfoWithProviders | AccountInfoWithRefCount): accountInfo is AccountInfoWithRefCount {
@@ -51,7 +52,7 @@ async function checkPhishing(_senderId: string | null, recipientId: string | nul
   ];
 }
 
-function Transfer({ className = '', onClose, onSuccess, recipientId: propRecipientId, senderId: propSenderId, amount: propAmount, modalCaption, buttonCaption, isAmountEditable = true }: Props): React.ReactElement<Props> {
+function Transfer({ className = '', onClose, onSuccess, recipientId: propRecipientId, senderId: propSenderId, amount: propAmount, modalCaption, buttonCaption, isAmountEditable = true, isRewardType=false }: Props): React.ReactElement<Props> {
   const { t } = useTranslation();
   const { api } = useApi();
   const [amount, setAmount] = useState<BN | undefined>(propAmount ? propAmount : BN_ZERO);
@@ -193,14 +194,13 @@ function Transfer({ className = '', onClose, onSuccess, recipientId: propRecipie
     }
   };
 
-  const isRewardView = modalCaption === t('Reward your tutor');
   const amountToSendText = balanceToSlonString(amount || BN_ZERO);
   const maxTransferText = balanceToSlonString(maxTransfer || BN_ZERO);
   const rewardInfo = t('To get the lesson results, reward your tutor with ___ Slon.').replaceAll('___', amountToSendText);
   const topUpAmountText = balanceToSlonString(amount?.sub(maxTransfer || BN_ZERO).add(new BN('1000000000000')) || BN_ZERO);
   const topUpInfo = t('You do not have enough Slon to reward your tutor and get the lesson results. Top up your balance with at least ___ Slon.').replaceAll('___', topUpAmountText);
   const balanceInfo = t('You currently have ___ Slon.').replaceAll('___', maxTransferText);
-  const isTopUpView = isRewardView && amount !== undefined && maxTransfer !== null && amount?.gte(maxTransfer);
+  const isTopUpView = isRewardType && amount !== undefined && maxTransfer !== null && amount?.gte(maxTransfer);
 
   return (
 
@@ -210,69 +210,68 @@ function Transfer({ className = '', onClose, onSuccess, recipientId: propRecipie
       onClose={onClose}
       size='small'
     >
-      {!isRewardView || (isRewardView && maxTransfer != null && amount !== undefined) ?
+      {!isRewardType || (isRewardType && maxTransfer != null && amount !== undefined) ?
         <>
           <Modal.Content>
             <div className={className}>
-              {isRewardView && <div className="row">
+              {isRewardType && <div className="row">
                 <h2>{isTopUpView ? topUpInfo : rewardInfo}</h2>
                 {!isTopUpView && <p>{t('Slons will be deducted from your account.')}<br />{balanceInfo}</p>}
               </div>}
-              {!isRewardView &&
-                <>
-                  <InputAddress
-                    defaultValue={propSenderId}
-                    isDisabled={!!propSenderId}
-                    label={t('sender')}
-                    labelExtra={
-                      <Available
-                        params={propSenderId || senderId}
-                      />
-                    }
-                    onChange={changeSender}
-                    type='account'
-                  />
-                  <InputAddress
-                    defaultValue={propRecipientId}
-                    isDisabled={!!propRecipientId}
-                    label={t('recipient')}
-                    labelExtra={!propRecipientId ?
-                      <Available
-                        params={propRecipientId || recipientId}
-                      /> : ''
-                    }
-                    onChange={setRecipientId}
-                    type='allPlus'
-                  />
-                  {recipientPhish && (
-                    <MarkError content={t('The recipient is associated with a known phishing site on {{url}}', { replace: { url: recipientPhish } })} />
-                  )}
-                  {canToggleAll && isAll
-                    ? (
+              <div style={{ display: isRewardType ? 'none' : '' }}>
+                <InputAddress
+                  defaultValue={propSenderId}
+                  isDisabled={!!propSenderId}
+                  label={t('sender')}
+                  labelExtra={
+                    <Available
+                      params={propSenderId || senderId}
+                    />
+                  }
+                  onChange={changeSender}
+                  type='account'
+                />
+                <InputAddress
+                  defaultValue={propRecipientId}
+                  isDisabled={!!propRecipientId}
+                  label={t('recipient')}
+                  labelExtra={!propRecipientId ?
+                    <Available
+                      params={propRecipientId || recipientId}
+                    /> : ''
+                  }
+                  onChange={setRecipientId}
+                  type='allPlus'
+                />
+                {recipientPhish && (
+                  <MarkError content={t('The recipient is associated with a known phishing site on {{url}}', { replace: { url: recipientPhish } })} />
+                )}
+                {canToggleAll && isAll
+                  ? (
+                    <InputBalance
+                      autoFocus
+                      defaultValue={maxTransfer}
+                      isDisabled
+                      key={maxTransfer?.toString()}
+                      label={t('transferable minus fees')}
+                    />
+                  )
+                  : (
+                    <>
                       <InputBalance
                         autoFocus
-                        defaultValue={maxTransfer}
-                        isDisabled
-                        key={maxTransfer?.toString()}
-                        label={t('transferable minus fees')}
+                        isError={!hasAvailable}
+                        isZeroable
+                        label={t('amount')}
+                        defaultValue={amount}
+                        maxValue={maxTransfer}
+                        onChange={setAmount}
+                        isDisabled={!isAmountEditable}
                       />
-                    )
-                    : (
-                      <>
-                        <InputBalance
-                          autoFocus
-                          isError={!hasAvailable}
-                          isZeroable
-                          label={t('amount')}
-                          defaultValue={amount}
-                          maxValue={maxTransfer}
-                          onChange={setAmount}
-                          isDisabled={!isAmountEditable}
-                        />
-                      </>
-                    )
-                  }
-                </>}
+                    </>
+                  )
+                }
+              </div>
             </div>
           </Modal.Content>
           <Modal.Actions>

@@ -4,7 +4,7 @@ import { BN, BN_ZERO } from '@polkadot/util';
 import { useApi } from '@polkadot/react-hooks';
 import Confirmation from './Confirmation.js';
 import { useTranslation } from './translate.js';
-import { useNavigate } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 
 interface TokenTransferContextType {
     isTransferReady: boolean;
@@ -15,6 +15,7 @@ interface TokenTransferContextType {
     transferSuccess: boolean;
     setSenderId: (senderId: string) => void;
     setRecipientId: (recipientId: string) => void;
+    setIsRewardType: (isRewardType: boolean) => void;
     setIsTransferOpen: (isOpen: boolean) => void;
     setAmount: (amount: BN) => void;
     setModalCaption: (caption: string) => void;
@@ -30,6 +31,7 @@ const defaultTokenTransferContext: TokenTransferContextType = {
     transferSuccess: false,
     setSenderId: (_) => { },
     setRecipientId: (_) => { },
+    setIsRewardType: (_) => { },
     setIsTransferOpen: (_) => { },
     setAmount: (_) => { },
     setModalCaption: (_) => { },
@@ -44,6 +46,7 @@ interface TokenTransferProviderProps {
 
 export const TokenTransferProvider: React.FC<TokenTransferProviderProps> = ({ children }) => {
     const [isTransferOpen, setIsTransferOpen] = useState<boolean>(false);
+    const [isRewardType, setIsRewardType] = useState<boolean>(false);
     const [senderId, setSenderId] = useState<string>('');
     const [recipientId, setRecipientId] = useState<string>('');
     const [amount, _setAmount] = useState<BN | undefined>(BN_ZERO);
@@ -55,6 +58,7 @@ export const TokenTransferProvider: React.FC<TokenTransferProviderProps> = ({ ch
     const { isApiConnected } = useApi();
     const [isExitConfirmOpen, setIsExitConfirmOpen] = useState(false);
     const { t } = useTranslation();
+    const location = useLocation();
     const navigate = useNavigate();
 
     const setAmount = useCallback((value: BN | undefined) => {
@@ -65,8 +69,16 @@ export const TokenTransferProvider: React.FC<TokenTransferProviderProps> = ({ ch
     const closeTokenTransfer = useCallback(() => {
         setIsExitConfirmOpen(false);
         setIsTransferOpen(false);
-        navigate('', { replace: true });
+        navigate(location.pathname, { replace: true });
     }, [setIsExitConfirmOpen, setIsTransferOpen]);
+
+    const onClose = useCallback(() => {
+        if (isRewardType) {
+            setIsExitConfirmOpen(true);
+        } else {
+            closeTokenTransfer();
+        }
+    }, [isRewardType, setIsExitConfirmOpen, closeTokenTransfer]);
 
     useEffect(() => {
         setIsTransferReady(true);
@@ -108,6 +120,7 @@ export const TokenTransferProvider: React.FC<TokenTransferProviderProps> = ({ ch
                 transferSuccess,
                 setSenderId,
                 setRecipientId,
+                setIsRewardType,
                 setIsTransferOpen,
                 setAmount,
                 setModalCaption,
@@ -118,7 +131,8 @@ export const TokenTransferProvider: React.FC<TokenTransferProviderProps> = ({ ch
             {isTransferOpen && (
                 <TransferModal
                     key='modal-transfer'
-                    onClose={() => setIsExitConfirmOpen(true)}
+                    isRewardType={isRewardType}
+                    onClose={onClose}
                     onSuccess={handleSuccess}
                     senderId={senderId}
                     recipientId={recipientId}

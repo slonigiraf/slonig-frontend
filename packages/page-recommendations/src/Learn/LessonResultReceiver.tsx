@@ -21,7 +21,7 @@ function LessonResultReceiver({ webRTCPeerId, onDaysRangeChange }: Props): React
   const { t } = useTranslation();
   const { api, isApiReady } = useApi();
   const { setIsTransferOpen, setSenderId, setRecipientId, setAmount,
-    setModalCaption, setButtonCaption, isTransferReady, transferSuccess } = useTokenTransfer();
+    setModalCaption, setIsRewardType, setButtonCaption, isTransferReady, transferSuccess } = useTokenTransfer();
   const { currentPair } = useLoginContext();
   const workerPublicKeyHex = u8aToHex(currentPair?.publicKey);
   const { showInfo } = useInfo();
@@ -72,6 +72,7 @@ function LessonResultReceiver({ webRTCPeerId, onDaysRangeChange }: Props): React
         setRecipientId(getAddressFromPublickeyHex(lessonResult.referee));
         setAmount(new BN(agreement.price));
         setModalCaption(t('Reward your tutor'));
+        setIsRewardType(true);
         setButtonCaption(t('Reward your tutor'));
         setIsTransferOpen(true);
       }
