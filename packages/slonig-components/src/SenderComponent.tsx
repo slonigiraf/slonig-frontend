@@ -95,6 +95,9 @@ const SenderComponent: React.FC<SenderComponentProps> = ({ data, route, textShar
                 dataCopy={url}
                 isDisabled={isDisabled}
             />
+            <div style={{ display: 'flex', justifyContent: 'center', width: '100%' }}>
+                <img src="./scan_qr.png" style={{ width: '100%' }} alt="Signup" />
+            </div>
         </> : <div className='connecting'>
             <Spinner label={t('Loading')} />
         </div>;
