@@ -45,12 +45,12 @@ function ViewList({ className = '', id, cidString, list }: Props): React.ReactEl
   const [hasTuteeCompletedTutorial, setHasTuteeCompletedTutorial] = useState(false);
 
   useEffect((): void => {
-   const loadTutorialResults = async () => {
-     const completed = await getSetting(SettingKey.TUTEE_TUTORIAL_COMPLETED);
-     setHasTuteeCompletedTutorial(completed === 'true' ? true : false);
-   };
-   loadTutorialResults();
- }, []);
+    const loadTutorialResults = async () => {
+      const completed = await getSetting(SettingKey.TUTEE_TUTORIAL_COMPLETED);
+      setHasTuteeCompletedTutorial(completed === 'true' ? true : false);
+    };
+    loadTutorialResults();
+  }, []);
 
   async function fetchLaw(key: string) {
     const law = (await api.query.laws.laws(key)) as { isSome: boolean; unwrap: () => [Uint8Array, BN] };
@@ -159,12 +159,12 @@ function ViewList({ className = '', id, cidString, list }: Props): React.ReactEl
           <div className='ui--row' style={isModuleQRVisible ? {} : { display: 'none' }}>
             <SkillQR id={id} cid={cidString} type={LawType.MODULE} selectedItems={selectedItems} isLearningRequested={isLearningRequested} isReexaminingRequested={isReexaminingRequested} lessonInUrl={lessonInUrl} onDataSent={onDataSent} />
           </div>
-          {isThereAnythingToLearn && <Toggle
+          {isThereAnythingToLearn && !isModuleQRVisible && <Toggle
             label={t('Learn with a tutor')}
             onChange={handleLearningToggle}
             value={isLearningRequested}
           />}
-          {isThereAnythingToReexamine && <Toggle
+          {isThereAnythingToReexamine && !isModuleQRVisible && <Toggle
             label={t('Reexamine my badges')}
             onChange={handleReexaminingToggle}
             value={isReexaminingRequested}
@@ -179,27 +179,29 @@ function ViewList({ className = '', id, cidString, list }: Props): React.ReactEl
     )}
 
     {itemsWithCID.length > 0 && !expanded && (
-      <SelectableList<ItemWithCID>
-        items={itemsWithCID}
-        renderItem={(item, isSelected, isSelectionAllowed, onToggleSelection) => (
-          <ItemLabel
-            item={item}
-            isSelected={isSelected}
-            isReexaminingRequested={isReexaminingRequested}
-            onToggleSelection={onToggleSelection}
-            isSelectable={isModuleQRVisible}
-          />
-        )}
-        onSelectionChange={handleSelectionChange}
-        isSelectionAllowed={isModuleQRVisible}
-        keyExtractor={(item) => item.id + item.validDiplomas.length}
-        filterOutSelection={(item) => isReexaminingRequested ? !(item.validDiplomas.length > 0) : (item.validDiplomas.length > 0)}
-        key={id + isReexaminingRequested}
-        allSelected={shouldSelectAll}
-      />
+      <div className='ui--row' style={isModuleQRVisible ? { display: 'none' } : {}}>
+        <SelectableList<ItemWithCID>
+          items={itemsWithCID}
+          renderItem={(item, isSelected, isSelectionAllowed, onToggleSelection) => (
+            <ItemLabel
+              item={item}
+              isSelected={isSelected}
+              isReexaminingRequested={isReexaminingRequested}
+              onToggleSelection={onToggleSelection}
+              isSelectable={isModuleQRVisible}
+            />
+          )}
+          onSelectionChange={handleSelectionChange}
+          isSelectionAllowed={isModuleQRVisible}
+          keyExtractor={(item) => item.id + item.validDiplomas.length}
+          filterOutSelection={(item) => isReexaminingRequested ? !(item.validDiplomas.length > 0) : (item.validDiplomas.length > 0)}
+          key={id + isReexaminingRequested}
+          allSelected={shouldSelectAll}
+        />
+      </div>
     )}
     {list.q != null && <ExerciseList exercises={list.q} />}
-    {list.t !== null && list.s && list.t === LawType.MODULE && (
+    {list.t !== null && list.s && list.t === LawType.MODULE && !isModuleQRVisible && (
       <DivWithLeftMargin>
         <h3>{t('Educational standards') + ': '}</h3>
         <Standards data-testid='standards'>
