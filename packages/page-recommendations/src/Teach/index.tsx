@@ -21,7 +21,7 @@ function Teach({ className = '' }: Props): React.ReactElement<Props> {
   const { currentPair, isLoggedIn } = useLoginContext();
   const [reexaminationToPerform, setReexaminationToPerform] = useState<Reexamination | null>(null);
   const [letterTemplateToIssue, setLetterTemplateToIssue] = useState<LetterTemplate | null>(null);
-  const [hasTutorCompletedTutorial, setHasTutorCompletedTutorial] = useState(false);
+
   // Store progress state
   const [reexamined, setReexamined] = useState<boolean>(false);
 
@@ -33,7 +33,8 @@ function Teach({ className = '' }: Props): React.ReactElement<Props> {
   const [reexaminations, setReexaminations] = useState<Reexamination[]>([]);
   const [areResultsShown, setResultsShown] = useState(false);
   const [isExitConfirmOpen, setIsExitConfirmOpen] = useState(false);
-  const [studentUsedSlonig, setStudentUsedSlonig] = useState(false);
+  const [hasTutorCompletedTutorial, setHasTutorCompletedTutorial] = useState(false);
+  const [bothUsedSlonig, setBothUsedSlonig] = useState(false);
   const [isSendingResultsEnabled, setIsSendingResultsEnabled] = useState(false);
 
   useEffect((): void => {
@@ -138,7 +139,8 @@ function Teach({ className = '' }: Props): React.ReactElement<Props> {
     currentReexaminations: Reexamination[]) => {
     async function run() {
       if (updatedLesson) {
-        setStudentUsedSlonig(currentReexaminations?.length > 0 || updatedLesson.learnStep > 0);
+        const bothUsed = hasTutorCompletedTutorial && currentReexaminations?.length > 0 || updatedLesson.learnStep > 0;
+        setBothUsedSlonig(bothUsed);
       }
       if (updatedLesson.reexamineStep < updatedLesson.toReexamineCount) {
         setReexamined(false);
@@ -157,7 +159,7 @@ function Teach({ className = '' }: Props): React.ReactElement<Props> {
     }
     run();
   }, [setReexamined, getLetter, setLetterTemplateToIssue, getReexamination,
-    setReexaminationToPerform, onShowResults]);
+    setReexaminationToPerform, onShowResults, hasTutorCompletedTutorial]);
 
   const onCloseTutoring = useCallback(async () => {
     await deleteSetting(SettingKey.LESSON);
@@ -193,7 +195,7 @@ function Teach({ className = '' }: Props): React.ReactElement<Props> {
 
       <Bubbles>
         {!reexamined && reexaminationToPerform && <DoInstructions entity={reexaminationToPerform} onResult={updateReexamined} studentName={studentName} key={'reexaminine' + reexaminationToPerform.cid} />}
-        {reexamined && letterTemplateToIssue && <DoInstructions entity={letterTemplateToIssue} onResult={updateLearned} studentName={studentName} studentUsedSlonig={studentUsedSlonig} key={'learn' + letterTemplateToIssue.cid} />}
+        {reexamined && letterTemplateToIssue && <DoInstructions entity={letterTemplateToIssue} onResult={updateLearned} studentName={studentName} bothUsedSlonig={bothUsedSlonig} key={'learn' + letterTemplateToIssue.cid} />}
         {lesson &&
           <SendResults>
             <Button

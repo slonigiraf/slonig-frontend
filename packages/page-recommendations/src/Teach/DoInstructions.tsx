@@ -19,10 +19,10 @@ interface Props {
   entity: LetterTemplate | Reexamination;
   onResult: () => void;
   studentName: string | null;
-  studentUsedSlonig?: boolean;
+  bothUsedSlonig?: boolean;
 }
 
-function DoInstructions({ className = '', entity, onResult, studentName, studentUsedSlonig = true }: Props): React.ReactElement<Props> {
+function DoInstructions({ className = '', entity, onResult, studentName, bothUsedSlonig = true }: Props): React.ReactElement<Props> {
   const { ipfs, isIpfsReady } = useIpfsContext();
   const [skill, setSkill] = useState<Skill>();
   const { t } = useTranslation();
@@ -50,7 +50,8 @@ function DoInstructions({ className = '', entity, onResult, studentName, student
           if (isComponentMounted) {
             setSkill(skill);
             if (isLetterTemplate(entity)) {
-              const newAlgorithm = new TutoringAlgorithm(t, studentName, skill, !studentUsedSlonig);
+              console.log('bothUsedSlonig: ', bothUsedSlonig)
+              const newAlgorithm = new TutoringAlgorithm(t, studentName, skill, !bothUsedSlonig);
               setAlgorithmStage(newAlgorithm.getBegin());
             } else {
               const newAlgorithm = new ValidatingAlgorithm(t, studentName, skill, entity);
