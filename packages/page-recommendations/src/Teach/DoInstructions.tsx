@@ -142,6 +142,8 @@ function DoInstructions({ className = '', entity, onResult, studentName, bothUse
         processLetter(nextStage.type === 'success');
       } else if (isReexamination(entity) && nextStage.type === 'success') {
         studentPassedReexamination();
+      } else if (nextStage.type === 'repeat') {
+        preserveFromNoobs(() => setAlgorithmStage(nextStage), () => setIsButtonClicked(false));
       } else {
         setAlgorithmStage(nextStage);
         setIsButtonClicked(false);
