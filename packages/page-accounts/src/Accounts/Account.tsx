@@ -198,7 +198,7 @@ function Account({ account: { address, meta }, className = '', filter, setBalanc
                 className='send-button'
                 icon='paper-plane'
                 label={t('send')}
-                onClick={openTransfer}
+                onClick={() => openTransfer({})}
               />
             )}
             <Popup

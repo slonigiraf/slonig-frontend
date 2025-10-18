@@ -13,11 +13,13 @@ interface TokenTransferContextType {
     recipientId: string;
     amount: BN | undefined;
     transferReceipt: TransferReceipt | undefined;
-    setSenderId: (senderId: string) => void;
-    setRecipientId: (recipientId: string) => void;
-    setIsRewardType: (isRewardType: boolean) => void;
-    setAmount: (amount: BN) => void;
-    openTransfer: (transferReceipt?: TransferReceipt) => void;
+    openTransfer: (options: {
+        senderId?: string;
+        recipientId?: string;
+        amount?: BN;
+        transferReceipt?: TransferReceipt;
+        isRewardType?: boolean;
+    }) => void;
 }
 
 const defaultTokenTransferContext: TokenTransferContextType = {
@@ -27,11 +29,7 @@ const defaultTokenTransferContext: TokenTransferContextType = {
     recipientId: '',
     transferReceipt: undefined,
     amount: BN_ZERO,
-    setSenderId: (_) => { },
-    setRecipientId: (_) => { },
-    openTransfer: (_) => { },
-    setIsRewardType: (_) => { },
-    setAmount: (_) => { },
+    openTransfer: () => { },
 };
 
 const TokenTransferContext = createContext<TokenTransferContextType>(defaultTokenTransferContext);
@@ -58,9 +56,26 @@ export const TokenTransferProvider: React.FC<TokenTransferProviderProps> = ({ ch
         _setAmount(value);
     }, [setIsAmountEditable, _setAmount]);
 
-    const openTransfer = useCallback((transferReceipt?: TransferReceipt) => {
+    const openTransfer = useCallback(({
+        senderId,
+        recipientId,
+        amount,
+        transferReceipt,
+        isRewardType = false,
+    }: {
+        senderId?: string;
+        recipientId?: string;
+        amount?: BN;
+        transferReceipt?: TransferReceipt;
+        isRewardType?: boolean;
+    }) => {
+        if (senderId) setSenderId(senderId);
+        if (recipientId) setRecipientId(recipientId);
+        if (amount) setAmount(amount);
         setTransferReceipt(transferReceipt);
+        setIsRewardType(isRewardType);
     }, [setTransferReceipt]);
+
 
     const closeTokenTransfer = useCallback(() => {
         setIsExitConfirmOpen(false);
@@ -80,7 +95,6 @@ export const TokenTransferProvider: React.FC<TokenTransferProviderProps> = ({ ch
     }, [setIsTransferReady])
 
     // Initialize state after use
-    // NOTICE that transferReceipt is initialized separately!!!
     useEffect(() => {
         if (!isTransferOpen) {
             _setAmount(BN_ZERO);
@@ -112,10 +126,6 @@ export const TokenTransferProvider: React.FC<TokenTransferProviderProps> = ({ ch
                 amount,
                 transferReceipt,
                 openTransfer,
-                setSenderId,
-                setRecipientId,
-                setIsRewardType,
-                setAmount,
             }}
         >
             {children}

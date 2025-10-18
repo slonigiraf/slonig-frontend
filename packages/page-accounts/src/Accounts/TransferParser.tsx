@@ -15,21 +15,20 @@ function TransferParser(): React.ReactElement {
   const recipientHex = queryParams.get("recipientHex");
   const recipientNameFromUrl = queryParams.get("name");
   const navigate = useNavigate();
-  const { openTransfer, setRecipientId } = useTokenTransfer();
-  
+  const { openTransfer } = useTokenTransfer();
+
   useEffect((): void => {
     const processParameters = async () => {
       if (recipientHex && recipientNameFromUrl) {
         await storePseudonym(recipientHex, recipientNameFromUrl);
-        const recipientAddress = encodeAddress(hexToU8a(recipientHex));
-        setRecipientId(recipientAddress);
-        openTransfer();
+        const recipientId = encodeAddress(hexToU8a(recipientHex));
+        openTransfer({ recipientId });
         navigate('', { replace: true });
       }
     }
     processParameters();
-  }, [recipientHex, recipientNameFromUrl, storePseudonym, 
-    encodeAddress, hexToU8a, setRecipientId, openTransfer, navigate]);
+  }, [recipientHex, recipientNameFromUrl, storePseudonym,
+    encodeAddress, hexToU8a, openTransfer, navigate]);
 
   return <></>;
 }
