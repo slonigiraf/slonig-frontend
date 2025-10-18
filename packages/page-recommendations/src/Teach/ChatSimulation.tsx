@@ -11,7 +11,7 @@ import { useTranslation } from '../translate.js';
 
 interface ChatSimulationProps {
   messages: IMessage[];
-  onAllMessagesRevealed?: () => void; // 👈 NEW PROP
+  onAllMessagesRevealed?: () => void;
 }
 
 const ChatSimulation: React.FC<ChatSimulationProps> = ({ messages, onAllMessagesRevealed }) => {
@@ -22,7 +22,6 @@ const ChatSimulation: React.FC<ChatSimulationProps> = ({ messages, onAllMessages
     if (currentIndex < messages.length - 1) {
       setCurrentIndex(currentIndex + 1);
     } else if (currentIndex === messages.length - 1 && onAllMessagesRevealed) {
-      // Trigger parent callback only after pressing Next on the final bubble
       onAllMessagesRevealed();
     }
   };
@@ -48,7 +47,6 @@ const ChatSimulation: React.FC<ChatSimulationProps> = ({ messages, onAllMessages
               </Bubble>
             </MessageContainer>
 
-            {/* Show button also for the last bubble */}
             {isNext && (
               <NextOverlay>
                 <Button
