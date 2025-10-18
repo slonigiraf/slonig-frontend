@@ -25,6 +25,7 @@ import { useNavigate } from 'react-router-dom';
 interface Props {
   className?: string;
   onClose: () => void;
+  onConfirmedClose: () => void;
   onSuccess: () => void;
   recipientId?: string;
   senderId?: string;
@@ -52,7 +53,7 @@ async function checkPhishing(_senderId: string | null, recipientId: string | nul
   ];
 }
 
-function Transfer({ className = '', onClose, onSuccess, recipientId: propRecipientId, senderId: propSenderId, amount: propAmount, modalCaption, buttonCaption, isAmountEditable = true, isRewardType=false }: Props): React.ReactElement<Props> {
+function Transfer({ className = '', onClose, onConfirmedClose, onSuccess, recipientId: propRecipientId, senderId: propSenderId, amount: propAmount, modalCaption, buttonCaption, isAmountEditable = true, isRewardType=false }: Props): React.ReactElement<Props> {
   const { t } = useTranslation();
   const { api } = useApi();
   const [amount, setAmount] = useState<BN | undefined>(propAmount ? propAmount : BN_ZERO);
@@ -93,6 +94,8 @@ function Transfer({ className = '', onClose, onSuccess, recipientId: propRecipie
               ? [maxTransfer, false]
               : [null, true]
           );
+          setSenderId(fromId);
+          setRecipientId(toId);
         } catch (error) {
           console.error(error);
         }
@@ -119,7 +122,7 @@ function Transfer({ className = '', onClose, onSuccess, recipientId: propRecipie
   const goTopUp = useCallback(
     () => {
       navigate('accounts')
-      onClose();
+      onConfirmedClose();
     },
     [navigate]
   );
@@ -183,7 +186,7 @@ function Transfer({ className = '', onClose, onSuccess, recipientId: propRecipie
             showInfo(t('Transfer failed'), 'error');
           } else {
             onSuccess();
-            onClose(); // Close the modal on success
+            onConfirmedClose();
           }
           toggleProcessing();
         }
@@ -218,7 +221,8 @@ function Transfer({ className = '', onClose, onSuccess, recipientId: propRecipie
                 <h2>{isTopUpView ? topUpInfo : rewardInfo}</h2>
                 {!isTopUpView && <p>{t('Slons will be deducted from your account.')}<br />{balanceInfo}</p>}
               </div>}
-              <div style={{ display: isRewardType ? 'none' : '' }}>
+
+              {!isRewardType && <>
                 <InputAddress
                   defaultValue={propSenderId}
                   isDisabled={!!propSenderId}
@@ -271,7 +275,7 @@ function Transfer({ className = '', onClose, onSuccess, recipientId: propRecipie
                     </>
                   )
                 }
-              </div>
+              </>}
             </div>
           </Modal.Content>
           <Modal.Actions>

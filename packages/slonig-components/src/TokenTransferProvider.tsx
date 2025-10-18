@@ -4,7 +4,6 @@ import { BN, BN_ZERO } from '@polkadot/util';
 import { useApi } from '@polkadot/react-hooks';
 import Confirmation from './Confirmation.js';
 import { useTranslation } from './translate.js';
-import { useLocation, useNavigate } from 'react-router-dom';
 
 interface TokenTransferContextType {
     isTransferReady: boolean;
@@ -58,8 +57,6 @@ export const TokenTransferProvider: React.FC<TokenTransferProviderProps> = ({ ch
     const { isApiConnected } = useApi();
     const [isExitConfirmOpen, setIsExitConfirmOpen] = useState(false);
     const { t } = useTranslation();
-    const location = useLocation();
-    const navigate = useNavigate();
 
     const setAmount = useCallback((value: BN | undefined) => {
         setIsAmountEditable(false);
@@ -69,7 +66,6 @@ export const TokenTransferProvider: React.FC<TokenTransferProviderProps> = ({ ch
     const closeTokenTransfer = useCallback(() => {
         setIsExitConfirmOpen(false);
         setIsTransferOpen(false);
-        navigate(location.pathname, { replace: true });
     }, [setIsExitConfirmOpen, setIsTransferOpen]);
 
     const onClose = useCallback(() => {
@@ -95,6 +91,7 @@ export const TokenTransferProvider: React.FC<TokenTransferProviderProps> = ({ ch
             setRecipientId('');
             setModalCaption('');
             setButtonCaption('');
+            setIsRewardType(false);
         }
     }, [isTransferOpen, _setAmount, setIsAmountEditable])
 
@@ -134,6 +131,7 @@ export const TokenTransferProvider: React.FC<TokenTransferProviderProps> = ({ ch
                     isRewardType={isRewardType}
                     onClose={onClose}
                     onSuccess={handleSuccess}
+                    onConfirmedClose={closeTokenTransfer}
                     senderId={senderId}
                     recipientId={recipientId}
                     amount={amount}
