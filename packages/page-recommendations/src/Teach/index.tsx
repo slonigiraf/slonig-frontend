@@ -33,7 +33,7 @@ function Teach({ className = '' }: Props): React.ReactElement<Props> {
   const [reexaminations, setReexaminations] = useState<Reexamination[]>([]);
   const [areResultsShown, setResultsShown] = useState(false);
   const [isExitConfirmOpen, setIsExitConfirmOpen] = useState(false);
-  const [hasTutorCompletedTutorial, setHasTutorCompletedTutorial] = useState(false);
+  const [hasTutorCompletedTutorial, setHasTutorCompletedTutorial] = useState<boolean | undefined>(undefined);
   const [bothUsedSlonig, setBothUsedSlonig] = useState(false);
   const [isSendingResultsEnabled, setIsSendingResultsEnabled] = useState(false);
 
@@ -183,6 +183,15 @@ function Teach({ className = '' }: Props): React.ReactElement<Props> {
   }, [hasTutorCompletedTutorial, onCloseTutoring, setIsExitConfirmOpen]);
 
   const publicKeyHex = currentPair ? u8aToHex(currentPair.publicKey) : "";
+
+  // Don't do reexaminations if the tutor is a first time tutor
+  useEffect((): void => {
+    if(hasTutorCompletedTutorial === false && !reexamined && reexaminationToPerform){
+      if(letterTemplateToIssue){
+        updateReexamined();
+      }
+    }
+  }, [hasTutorCompletedTutorial, reexamined, reexaminationToPerform, letterTemplateToIssue, updateReexamined]);
 
   const reexamAndDiplomaIssuing = <FullFindow>
     <VerticalCenterItemsContainer>
