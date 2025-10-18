@@ -3,12 +3,12 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import BN from 'bn.js';
 import { statics } from '@polkadot/react-api/statics';
-import { styled, Button, Input, InputBalance, Icon, Card, Modal, CustomSVGIcon } from '@polkadot/react-components';
+import { styled, Button, Input, InputBalance, Modal } from '@polkadot/react-components';
 import { useApi, useBlockTime, useToggle } from '@polkadot/react-hooks';
 import { u8aToHex, hexToU8a, u8aWrapBytes, BN_ONE, BN_ZERO, formatBalance } from '@polkadot/util';
-import type { LessonResult, Skill } from '@slonigiraf/app-slonig-components';
-import { getIPFSDataFromContentID, parseJson, useIpfsContext, useLoginContext, CenterQRContainer, KatexSpan, balanceToSlonString, SenderComponent, useInfo, nameFromKeyringPair, StyledCloseButton, predictBlockNumber, slonSVG, FullFindow, FullscreenActivity, HorizontalCenterItemsContainer } from '@slonigiraf/app-slonig-components';
-import { getPseudonym, Lesson, getLastUnusedLetterNumber, setLastUsedLetterNumber, storeSetting, getReexaminationsByLessonId, getValidLetterTemplatesByLessonId, SettingKey, serializeAsLetter, LetterTemplate, putLetterTemplate } from '@slonigiraf/db';
+import type { LessonResult } from '@slonigiraf/app-slonig-components';
+import { useLoginContext, CenterQRContainer, balanceToSlonString, SenderComponent, useInfo, nameFromKeyringPair, predictBlockNumber, FullscreenActivity } from '@slonigiraf/app-slonig-components';
+import { Lesson, getLastUnusedLetterNumber, setLastUsedLetterNumber, storeSetting, getReexaminationsByLessonId, getValidLetterTemplatesByLessonId, SettingKey, serializeAsLetter, LetterTemplate, putLetterTemplate } from '@slonigiraf/db';
 import { getPublicDataToSignByReferee, getPrivateDataToSignByReferee } from '@slonigiraf/helpers';
 import { useTranslation } from '../translate.js';
 import { blake2AsHex } from '@polkadot/util-crypto';
@@ -22,24 +22,18 @@ interface Props {
 
 function LessonResults({ className = '', lesson, updateAndStoreLesson, onClose }: Props): React.ReactElement<Props> {
   // Initialize api, ipfs and translation
-  const { ipfs, isIpfsReady } = useIpfsContext();
   const { api, isApiReady } = useApi();
   const { t } = useTranslation();
   const { currentPair } = useLoginContext();
   const tokenSymbol = formatBalance.findSi('-').text;
   const dontSign = lesson ? (lesson.dWarranty === '0' || lesson.dValidity === 0) : true;
-  const [lessonName, setLessonName] = useState<string>('');
   const [millisecondsPerBlock,] = useBlockTime(BN_ONE, api);
   //   student name
-  const [studentName, setStudentName] = useState<string | null>(null);
   const [priceInputValue, setPriceInputValue] = useState<BN>(lesson ? new BN(lesson.dPrice) : BN_ZERO);
   const [amountInputValue, setAmountInputValue] = useState<BN>(lesson ? new BN(lesson.dWarranty) : BN_ZERO);
   const [daysInput, setDaysInput] = useState<string>(lesson ? lesson.dValidity.toString() : "0"); //To allow empty strings
   const [countOfValidLetters, setCountOfValidLetters] = useState<number | null>(null);
   const [countOfReexaminationsPerformed, setCountOfReexaminationsPerformed] = useState<number | null>(null);
-  const [countOfReexaminationsFailed, setCountOfReexaminationsFailed] = useState<number | null>(null);
-  const [totalIncomeForBonuses, setTotalIncomeForBonuses] = useState<BN>(BN_ZERO);
-  const [diplomaWarrantyAmount, setDiplomaWarrantyAmount] = useState<BN>(BN_ZERO);
   const [totalIncomeForLetters, setTotalIncomeForLetters] = useState<BN>(BN_ZERO);
   const [visibleDiplomaDetails, toggleVisibleDiplomaDetails] = useToggle(false);
   const [data, setData] = useState('');
@@ -56,55 +50,15 @@ function LessonResults({ className = '', lesson, updateAndStoreLesson, onClose }
         } else {
           showInfo(t('You did not issue or reexamine any badges during this lesson.'));
         }
-
         onClose();
       }
     }
   }, [countOfValidLetters, countOfReexaminationsPerformed, dontSign]);
 
-  // Fetch required info from DB about current lesson
-  useEffect(() => {
-    async function fetchData() {
-      if (isIpfsReady && lesson?.cid) {
-        try {
-          const skillContent = await getIPFSDataFromContentID(ipfs, lesson?.cid);
-          const skillJson: Skill = parseJson(skillContent);
-          setLessonName(skillJson.h);
-        }
-        catch (e) {
-          console.log(e);
-        }
-      }
-    }
-    fetchData()
-  }, [ipfs, lesson?.cid, studentName])
-
-  useEffect(() => {
-    async function fetchStudentName() {
-      if (lesson?.student) {
-        const pseudonym = await getPseudonym(lesson.student);
-        if (pseudonym) {
-          setStudentName(pseudonym);
-        }
-      }
-    }
-    fetchStudentName()
-  }, [lesson?.student])
-
-  useEffect(() => {
-    async function updateWarrantyInSlon() {
-      if (lesson) {
-        setDiplomaWarrantyAmount(lesson ? new BN(lesson.dWarranty) : BN_ZERO);
-      }
-    }
-    updateWarrantyInSlon()
-  }, [lesson?.dWarranty])
-
   const onDataSent = useCallback(async (): Promise<void> => {
     await storeSetting(SettingKey.TUTOR_TUTORIAL_COMPLETED, 'true');
     onClose();
   }, [onClose]);
-
 
   const setAmountIput = useCallback((value?: BN | undefined): void => {
     if (value) {
@@ -152,27 +106,8 @@ function LessonResults({ className = '', lesson, updateAndStoreLesson, onClose }
         // Update reexaminations statistics
         const reexaminations = await getReexaminationsByLessonId(lesson.id);
         if (reexaminations) {
-          let failedReexaminationsCount = 0;
           let skippedReexaminationsCount = 0;
-          let totalBonusAmount = new BN(0);
-
-          // Single loop to calculate all statistics
-          reexaminations.forEach(reexamination => {
-            if (!reexamination.valid) {
-              failedReexaminationsCount++;
-              totalBonusAmount = totalBonusAmount.add(new BN(reexamination.amount));
-            }
-            if (reexamination.created === reexamination.lastExamined) {
-              skippedReexaminationsCount++;
-            } else {
-              reexaminationData.push(`${reexamination.pubSign},${reexamination.lastExamined},${reexamination.valid ? '1' : '0'}`);
-            }
-          });
-
           const calculatedReexaminationsPerformed = lesson.reexamineStep - skippedReexaminationsCount;
-
-          setCountOfReexaminationsFailed(failedReexaminationsCount);
-          setTotalIncomeForBonuses(totalBonusAmount);
           setCountOfReexaminationsPerformed(calculatedReexaminationsPerformed);
         }
 
@@ -257,52 +192,10 @@ function LessonResults({ className = '', lesson, updateAndStoreLesson, onClose }
           textShare={t('Press the link to add the badge')} onDataSent={onDataSent} onReady={() => setProcessingQR(false)} />
       </CenterQRContainer>
       {constContentIsVisible &&
-        <DiplomaDiv>
-          <Card>
-            <div className="table">
-              <div className="row">
-                <div className="cell"><Icon icon='graduation-cap' /></div>
-                <div className="cell">{lessonName ? <KatexSpan content={lessonName} /> : ''}</div>
-              </div>
-              <div className="row">
-                <div className="cell"><Icon icon='user' /></div>
-                <div className="cell">{studentName}</div>
-              </div>
-              <div className="row">
-                <div className="cell"><CustomSVGIcon svg={slonSVG} /></div>
-                <div className="cell">{balanceToSlonString(totalIncomeForLetters)} {tokenSymbol} - {t('reward')}</div>
-              </div>
-              <div className="row">
-                <div className="cell"><Icon icon='trophy' /></div>
-                <div className="cell">{countOfValidLetters} {t('badges prepared')}</div>
-              </div>
-              <div className="row">
-                <div className="cell"><Icon icon='shield' /></div>
-                <div className="cell">{balanceToSlonString(diplomaWarrantyAmount)} {tokenSymbol} - {t('warranty')}</div>
-              </div>
-              <div className="row">
-                <div className="cell"><Icon icon='clock-rotate-left' /></div>
-                <div className="cell">{lesson ? lesson.dValidity : '0'} {t('days valid')}</div>
-              </div>
-              <div className="row">
-                <div className="cell"><Icon icon='ban' /></div>
-                <div className="cell">{countOfReexaminationsFailed} {t('of')} {countOfReexaminationsPerformed} {t('badges invalidated')}</div>
-              </div>
-              <div className="row">
-                <div className="cell"><Icon icon='money-bill-trend-up' /></div>
-                <div className="cell">{balanceToSlonString(totalIncomeForBonuses)} {tokenSymbol} - {t('bonuses will be received')}</div>
-              </div>
-              <div className="row">
-                <div className="cell">
-                  <Button icon='edit' label={t('Edit')} onClick={toggleVisibleDiplomaDetails} />
-                  <Button icon='close' label={t('Close')} onClick={onClose} />
-                </div>
-              </div>
-            </div>
-          </Card>
-        </DiplomaDiv>
+        <StyledDiv>
+          <Button className='highlight--bg' icon='edit' label={t('Edit')} onClick={toggleVisibleDiplomaDetails} />
+        </StyledDiv>
       }
-
 
       {visibleDiplomaDetails && <DetailsModal
         className={className}
@@ -351,59 +244,16 @@ function LessonResults({ className = '', lesson, updateAndStoreLesson, onClose }
   );
 }
 
-const DiplomaDiv = styled.div`
+const StyledDiv = styled.div`
   display: flex;
   flex-direction: row;
   justify-content: center;
   align-items: center;
   width: 100%;
   margin: 0 auto;
-  @media (min-width: 360px) {
-    width: 360px;
+  .highlight--bg {
+    color: white !important;
   }
-  .qr--row {
-    display: flex;
-    justify-content: center;
-    align-items: center;
-  }
-  Card {
-    width: 100%; // Adjust this as needed
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-  }
-  .table {
-    display: flex;
-    flex-direction: column;
-    width: 100%;
-  }
-
-  .row {
-    display: flex;
-    justify-content: center;
-    align-items: center;
-  }
-
-  .cell {
-    padding: 5px; // Add padding for spacing
-    // Add any additional styling you need for cells
-  }
-
-  .row .cell:first-child {
-    flex: 0 1 auto; // Allow shrinking but no growth, auto basis
-    white-space: nowrap; // Prevents text from wrapping
-    min-width: 30px;
-  }
-
-  .row .cell:nth-child(2) {
-    flex: 1; // Take up the remaining space
-  }
-  
-  article {
-    border: 0px;
-  }
-
-  margin-top: 10px;
 `;
 
 const DetailsModal = styled(Modal)`
