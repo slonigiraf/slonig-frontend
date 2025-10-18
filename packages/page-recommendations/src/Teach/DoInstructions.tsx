@@ -32,6 +32,7 @@ function DoInstructions({ className = '', entity, onResult, studentName, bothUse
   const [isButtonClicked, setIsButtonClicked] = useState(false);
   const [isChatFinished, setIsChatFinished] = useState(false);
   const [areButtonsBlured, setButtonsBlured] = useState(true);
+  const [processedStages, setProcessedStages] = useState(0);
 
   const isLetterTemplate = useCallback((entity: LetterTemplate | Reexamination) => {
     return 'knowledgeId' in entity;
@@ -131,6 +132,9 @@ function DoInstructions({ className = '', entity, onResult, studentName, bothUse
 
 
   const handleStageChange = async (nextStage: AlgorithmStage | null) => {
+    setProcessedStages(processedStages+1)
+    setButtonsBlured(true);
+    setIsChatFinished(false);
     if (nextStage !== null) {
       setIsButtonClicked(true);
       if (nextStage === algorithmStage) {
@@ -162,6 +166,7 @@ function DoInstructions({ className = '', entity, onResult, studentName, bothUse
       {algorithmStage ? (
         <InstructionsContainer key={entity?.cid}>
           <ChatSimulation
+            key={algorithmStage.getId()+processedStages}
             messages={algorithmStage.getMessages()}
             onAllMessagesRevealed={() => setIsChatFinished(true)}
           />
