@@ -31,7 +31,6 @@ interface Props {
   senderId?: string;
   amount?: BN;
   modalCaption?: string;
-  buttonCaption?: string;
   isAmountEditable: boolean;
   isRewardType?: boolean;
 }
@@ -53,7 +52,7 @@ async function checkPhishing(_senderId: string | null, recipientId: string | nul
   ];
 }
 
-function Transfer({ className = '', onClose, onConfirmedClose, onSuccess, recipientId: propRecipientId, senderId: propSenderId, amount: propAmount, modalCaption, buttonCaption, isAmountEditable = true, isRewardType=false }: Props): React.ReactElement<Props> {
+function Transfer({ className = '', onClose, onConfirmedClose, onSuccess, recipientId: propRecipientId, senderId: propSenderId, amount: propAmount, modalCaption, isAmountEditable = true, isRewardType=false }: Props): React.ReactElement<Props> {
   const { t } = useTranslation();
   const { api } = useApi();
   const [amount, setAmount] = useState<BN | undefined>(propAmount ? propAmount : BN_ZERO);
@@ -295,7 +294,7 @@ function Transfer({ className = '', onClose, onConfirmedClose, onSuccess, recipi
               }
                 isBusy={isProcessing}
                 icon='paper-plane'
-                label={buttonCaption ? buttonCaption : t('Send Slon')}
+                label={isRewardType ? t('Reward your tutor') : t('Send Slon')}
                 onClick={submitTransfer}
               />
             }

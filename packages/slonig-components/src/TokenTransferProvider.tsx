@@ -16,10 +16,9 @@ interface TokenTransferContextType {
     setSenderId: (senderId: string) => void;
     setRecipientId: (recipientId: string) => void;
     setIsRewardType: (isRewardType: boolean) => void;
-    openTransfer: (transferReceipt?: TransferReceipt) => void;
     setAmount: (amount: BN) => void;
     setModalCaption: (caption: string) => void;
-    setButtonCaption: (caption: string) => void;
+    openTransfer: (transferReceipt?: TransferReceipt) => void;
 }
 
 const defaultTokenTransferContext: TokenTransferContextType = {
@@ -35,7 +34,6 @@ const defaultTokenTransferContext: TokenTransferContextType = {
     setIsRewardType: (_) => { },
     setAmount: (_) => { },
     setModalCaption: (_) => { },
-    setButtonCaption: (_) => { },
 };
 
 const TokenTransferContext = createContext<TokenTransferContextType>(defaultTokenTransferContext);
@@ -52,7 +50,6 @@ export const TokenTransferProvider: React.FC<TokenTransferProviderProps> = ({ ch
     const [amount, _setAmount] = useState<BN | undefined>(BN_ZERO);
     const [isAmountEditable, setIsAmountEditable] = useState(true);
     const [modalCaption, setModalCaption] = useState<string>('');
-    const [buttonCaption, setButtonCaption] = useState<string>('');
     const [transferReceipt, setTransferReceipt] = useState<TransferReceipt | undefined>(undefined);
     const [isTransferReady, setIsTransferReady] = useState<boolean>(false);
     const { isApiConnected } = useApi();
@@ -94,7 +91,6 @@ export const TokenTransferProvider: React.FC<TokenTransferProviderProps> = ({ ch
             setSenderId('');
             setRecipientId('');
             setModalCaption('');
-            setButtonCaption('');
             setIsRewardType(false);
         }
     }, [isTransferOpen, _setAmount, setIsAmountEditable])
@@ -125,7 +121,6 @@ export const TokenTransferProvider: React.FC<TokenTransferProviderProps> = ({ ch
                 setIsRewardType,
                 setAmount,
                 setModalCaption,
-                setButtonCaption,
             }}
         >
             {children}
@@ -141,7 +136,6 @@ export const TokenTransferProvider: React.FC<TokenTransferProviderProps> = ({ ch
                     amount={amount}
                     isAmountEditable={isAmountEditable}
                     modalCaption={modalCaption}
-                    buttonCaption={buttonCaption}
                 />
             )}
             {isExitConfirmOpen && (
