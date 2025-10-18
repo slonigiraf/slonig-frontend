@@ -31,6 +31,7 @@ function DoInstructions({ className = '', entity, onResult, studentName, bothUse
   const { showInfo } = useInfo();
   const [isButtonClicked, setIsButtonClicked] = useState(false);
   const [isChatFinished, setIsChatFinished] = useState(false);
+  const [areButtonsBlured, setButtonsBlured] = useState(true);
 
   const isLetterTemplate = useCallback((entity: LetterTemplate | Reexamination) => {
     return 'knowledgeId' in entity;
@@ -162,13 +163,13 @@ function DoInstructions({ className = '', entity, onResult, studentName, bothUse
         <InstructionsContainer key={entity?.cid}>
           <ChatSimulation
             messages={algorithmStage.getMessages()}
-            onAllMessagesRevealed={() => setIsChatFinished(true)} // 👈 NEW
+            onAllMessagesRevealed={() => setIsChatFinished(true)}
           />
 
           {algorithmStage.getChatDecorator()}
 
           <InstructionsButtonsContainer>
-            <DecisionBubble $blur={!isChatFinished}> {/* 👈 use blur here */}
+            <DecisionBubble $blur={areButtonsBlured}>
               <ChatContainer>
                 <h2>{t('⚖️ Decide on the next step')}</h2>
                 <span>
@@ -241,6 +242,18 @@ function DoInstructions({ className = '', entity, onResult, studentName, bothUse
               </InstructionsButtonsGroup>
             </DecisionBubble>
           </InstructionsButtonsContainer>
+
+          {isChatFinished && areButtonsBlured && (
+            <NextOverlay>
+              <Button
+                className='highlighted--button'
+                icon="eye"
+                label={t('Next')}
+                onClick={() => setButtonsBlured(false)}
+              />
+            </NextOverlay>
+          )}
+
         </InstructionsContainer>
       ) : (
         <div>Error: Reload the page</div>
@@ -248,6 +261,18 @@ function DoInstructions({ className = '', entity, onResult, studentName, bothUse
     </div>
   );
 }
+const NextOverlay = styled.div`
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  pointer-events: none;
+  button {
+    pointer-events: all;
+  }
+`;
+
 const DecisionBubble = styled(Bubble) <{ $blur: boolean }>`
   transition: filter 0.3s ease, opacity 0.3s ease;
   filter: ${({ $blur }) => ($blur ? 'blur(3px) brightness(0.7)' : 'none')};
