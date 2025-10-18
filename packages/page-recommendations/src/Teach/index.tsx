@@ -162,6 +162,7 @@ function Teach({ className = '' }: Props): React.ReactElement<Props> {
   const onCloseTutoring = useCallback(async () => {
     await deleteSetting(SettingKey.LESSON);
     setLesson(null);
+    setIsExitConfirmOpen(false);
   }, [deleteSetting, setLesson]);
 
   const onCloseResults = useCallback(async () => {
@@ -171,9 +172,13 @@ function Teach({ className = '' }: Props): React.ReactElement<Props> {
     setResultsShown(false);
   }, [setResultsShown, onCloseTutoring]);
 
-  const exitFullScreenActivity = useCallback((): void => {
+  const tryToCloseResults = useCallback((): void => {
     hasTutorCompletedTutorial ? onCloseResults() : setIsExitConfirmOpen(true);
   }, [hasTutorCompletedTutorial, onCloseResults, setIsExitConfirmOpen]);
+
+  const tryToCloseTutoring = useCallback((): void => {
+    hasTutorCompletedTutorial ? onCloseTutoring() : setIsExitConfirmOpen(true);
+  }, [hasTutorCompletedTutorial, onCloseTutoring, setIsExitConfirmOpen]);
 
   const publicKeyHex = currentPair ? u8aToHex(currentPair.publicKey) : "";
 
@@ -182,7 +187,7 @@ function Teach({ className = '' }: Props): React.ReactElement<Props> {
       {lesson && <Progress>
         <Spacer />
         <LinearProgress total={lesson.toLearnCount + lesson.toReexamineCount} value={lesson.learnStep + lesson.reexamineStep} />
-        <CloseButton onClick={onCloseTutoring} icon='close' />
+        <CloseButton onClick={tryToCloseTutoring} icon='close' />
         <Spacer />
       </Progress>}
 
@@ -210,7 +215,7 @@ function Teach({ className = '' }: Props): React.ReactElement<Props> {
           <LessonRequestReceiver setCurrentLesson={fetchLesson} />
           {lesson == null ? <LessonsList tutor={publicKeyHex} onResumeTutoring={onResumeTutoring} onShowResults={onShowResults} />
             :
-            <> {areResultsShown ? <LessonResults lesson={lesson} updateAndStoreLesson={updateAndStoreLesson} onClose={exitFullScreenActivity} onFinished={onCloseResults} /> : reexamAndDiplomaIssuing}</>
+            <> {areResultsShown ? <LessonResults lesson={lesson} updateAndStoreLesson={updateAndStoreLesson} onClose={tryToCloseResults} onFinished={onCloseResults} /> : reexamAndDiplomaIssuing}</>
           }
           {isExitConfirmOpen && (
             <Confirmation question={t('Sure to exit tutoring?')} onClose={() => setIsExitConfirmOpen(false)} onConfirm={onCloseResults} />
