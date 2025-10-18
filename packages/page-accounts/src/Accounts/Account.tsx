@@ -71,9 +71,8 @@ function Account({ account: { address, meta }, className = '', filter, setBalanc
   const { flags: { isDevelopment, isInjected }, name: accName, tags } = useAccountInfo(address);
   const [isEditOpen, toggleEdit] = useToggle();
   const [isForgetOpen, toggleForget] = useToggle();
-  const { setIsTransferOpen } = useTokenTransfer();
+  const { setIsTransferOpen, setTransferReceipt } = useTokenTransfer();
   const [trigger, incTrigger] = useIncrement(1);
-  const { queueAction } = useQueue();
 
   useEffect((): void => {
     if (balancesAll) {
@@ -201,7 +200,8 @@ function Account({ account: { address, meta }, className = '', filter, setBalanc
                 label={t('send')}
                 onClick={
                   () => {
-                    setIsTransferOpen(true)
+                    setIsTransferOpen(true);
+                    setTransferReceipt(undefined);
                   }
                 }
               />

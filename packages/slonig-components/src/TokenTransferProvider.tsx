@@ -4,18 +4,18 @@ import { BN, BN_ZERO } from '@polkadot/util';
 import { useApi } from '@polkadot/react-hooks';
 import Confirmation from './Confirmation.js';
 import { useTranslation } from './translate.js';
+import { TransferReceipt } from './index.js';
 
 interface TokenTransferContextType {
     isTransferReady: boolean;
     isTransferOpen: boolean;
     senderId: string;
     recipientId: string;
-    recieptId: string;
     amount: BN | undefined;
-    transferSuccess: boolean;
+    transferReceipt: TransferReceipt | undefined;
     setSenderId: (senderId: string) => void;
     setRecipientId: (recipientId: string) => void;
-    setRecieptId: (recieptId: string) => void;
+    setTransferReceipt: (transferReceipt: TransferReceipt | undefined) => void;
     setIsRewardType: (isRewardType: boolean) => void;
     setIsTransferOpen: (isOpen: boolean) => void;
     setAmount: (amount: BN) => void;
@@ -28,12 +28,11 @@ const defaultTokenTransferContext: TokenTransferContextType = {
     isTransferOpen: false,
     senderId: '',
     recipientId: '',
-    recieptId: '',
+    transferReceipt: undefined,
     amount: BN_ZERO,
-    transferSuccess: false,
     setSenderId: (_) => { },
     setRecipientId: (_) => { },
-    setRecieptId: (_) => { },
+    setTransferReceipt: (_) => { },
     setIsRewardType: (_) => { },
     setIsTransferOpen: (_) => { },
     setAmount: (_) => { },
@@ -52,12 +51,11 @@ export const TokenTransferProvider: React.FC<TokenTransferProviderProps> = ({ ch
     const [isRewardType, setIsRewardType] = useState<boolean>(false);
     const [senderId, setSenderId] = useState<string>('');
     const [recipientId, setRecipientId] = useState<string>('');
-    const [recieptId, setRecieptId] = useState<string>('');
     const [amount, _setAmount] = useState<BN | undefined>(BN_ZERO);
     const [isAmountEditable, setIsAmountEditable] = useState(true);
     const [modalCaption, setModalCaption] = useState<string>('');
     const [buttonCaption, setButtonCaption] = useState<string>('');
-    const [transferSuccess, setTransferSuccess] = useState<boolean>(false);
+    const [transferReceipt, setTransferReceipt] = useState<TransferReceipt | undefined>(undefined);
     const [isTransferReady, setIsTransferReady] = useState<boolean>(false);
     const { isApiConnected } = useApi();
     const [isExitConfirmOpen, setIsExitConfirmOpen] = useState(false);
@@ -86,10 +84,9 @@ export const TokenTransferProvider: React.FC<TokenTransferProviderProps> = ({ ch
     }, [setIsTransferReady])
 
     // Initialize state after use
+    // NOTICE that transferReceipt is initialized separately!!!
     useEffect(() => {
-        if (isTransferOpen) {
-            setTransferSuccess(false);
-        } else {
+        if (!isTransferOpen) {
             _setAmount(BN_ZERO);
             setIsAmountEditable(true);
             setSenderId('');
@@ -97,12 +94,11 @@ export const TokenTransferProvider: React.FC<TokenTransferProviderProps> = ({ ch
             setModalCaption('');
             setButtonCaption('');
             setIsRewardType(false);
-            setRecieptId('');
         }
     }, [isTransferOpen, _setAmount, setIsAmountEditable])
 
     const handleSuccess = () => {
-        setTransferSuccess(true);
+        transferReceipt && setTransferReceipt({ ...transferReceipt, success: true });
         setIsTransferOpen(false);
     };
 
@@ -120,9 +116,8 @@ export const TokenTransferProvider: React.FC<TokenTransferProviderProps> = ({ ch
                 senderId,
                 recipientId,
                 amount,
-                transferSuccess,
-                recieptId,
-                setRecieptId,
+                transferReceipt,
+                setTransferReceipt,
                 setSenderId,
                 setRecipientId,
                 setIsRewardType,

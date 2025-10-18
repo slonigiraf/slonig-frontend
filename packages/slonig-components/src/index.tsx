@@ -73,6 +73,14 @@ export interface Skill {
   q: Exercise[];
 }
 
+export interface TransferReceipt {
+  id: string;
+  senderId: string;
+  recipientId: string;
+  success: boolean;
+  amount: BN | undefined;
+}
+
 export interface AccountState {
   isExternal: boolean;
   isHardware: boolean;

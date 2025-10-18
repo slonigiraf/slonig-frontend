@@ -21,7 +21,7 @@ function LessonResultReceiver({ webRTCPeerId, onDaysRangeChange }: Props): React
   const { t } = useTranslation();
   const { api, isApiReady } = useApi();
   const { setIsTransferOpen, setSenderId, setRecipientId, setAmount,
-    setModalCaption, setIsRewardType, setButtonCaption, setRecieptId, recieptId, isTransferReady, transferSuccess } = useTokenTransfer();
+    setModalCaption, setIsRewardType, setButtonCaption, setTransferReceipt, transferReceipt, isTransferReady } = useTokenTransfer();
   const { currentPair } = useLoginContext();
   const workerPublicKeyHex = u8aToHex(currentPair?.publicKey);
   const { showInfo } = useInfo();
@@ -68,14 +68,25 @@ function LessonResultReceiver({ webRTCPeerId, onDaysRangeChange }: Props): React
   useEffect(() => {
     async function pay() {
       if (agreement && lessonResult) {
-        setSenderId(currentPair? currentPair?.address : '')
-        setRecipientId(getAddressFromPublickeyHex(lessonResult.referee));
-        setAmount(new BN(agreement.price));
+        const senderId = currentPair ? currentPair?.address : '';
+        const recipientId = getAddressFromPublickeyHex(lessonResult.referee);
+        const amount = new BN(agreement.price);
+        setSenderId(senderId)
+        setRecipientId(recipientId);
+        setAmount(amount);
         setModalCaption(t('Reward your tutor'));
         setIsRewardType(true);
         setButtonCaption(t('Reward your tutor'));
         setIsTransferOpen(true);
-        setRecieptId(agreement.id);
+        setTransferReceipt(
+          {
+            senderId,
+            recipientId,
+            amount,
+            success: false,
+            id: agreement.id,
+          }
+        )
       }
     }
     if (lessonResult && agreement && agreement.penaltySent === true &&
@@ -100,7 +111,7 @@ function LessonResultReceiver({ webRTCPeerId, onDaysRangeChange }: Props): React
           }
           const updatedAgreement: Agreement = { ...agreement, completed: true };
           updateAgreement(updatedAgreement);
-          await storeSetting(SettingKey.TUTEE_TUTORIAL_COMPLETED,'true');
+          await storeSetting(SettingKey.TUTEE_TUTORIAL_COMPLETED, 'true');
           showInfo(t('Saved'));
           navigate('', { replace: true });
         } catch (e) {
@@ -185,12 +196,12 @@ function LessonResultReceiver({ webRTCPeerId, onDaysRangeChange }: Props): React
   }, [api, isApiReady, currentPair, lessonResult, agreement, t])
 
   useEffect(() => {
-    if (agreement && agreement.penaltySent === true &&
-      agreement.paid === false && (transferSuccess && recieptId === agreement.id || agreement.price === "0")) {
+    if (agreement && transferReceipt && agreement.penaltySent === true &&
+      agreement.paid === false && (transferReceipt.success && transferReceipt.id === agreement.id || agreement.price === "0")) {
       const updatedAgreement: Agreement = { ...agreement, paid: true };
       updateAgreement(updatedAgreement);
     }
-  }, [transferSuccess, recieptId, agreement])
+  }, [transferReceipt, agreement])
 
   return <></>;
 }
