@@ -21,15 +21,11 @@ const ChatSimulation: React.FC<ChatSimulationProps> = ({ messages, onAllMessages
   const handleNext = () => {
     if (currentIndex < messages.length - 1) {
       setCurrentIndex(currentIndex + 1);
-    }
-  };
-
-  // 👇 Trigger parent callback when all messages are visible
-  useEffect(() => {
-    if (currentIndex === messages.length - 1 && onAllMessagesRevealed) {
+    } else if (currentIndex === messages.length - 1 && onAllMessagesRevealed) {
+      // Trigger parent callback only after pressing Next on the final bubble
       onAllMessagesRevealed();
     }
-  }, [currentIndex, messages.length, onAllMessagesRevealed]);
+  };
 
   return (
     <ChatContainer>
@@ -52,7 +48,8 @@ const ChatSimulation: React.FC<ChatSimulationProps> = ({ messages, onAllMessages
               </Bubble>
             </MessageContainer>
 
-            {isNext && (
+            {/* Show button also for the last bubble */}
+            {(isNext || (index === currentIndex && index === messages.length - 1)) && (
               <NextOverlay>
                 <Button
                   className='highlighted--button'
