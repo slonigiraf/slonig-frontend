@@ -49,7 +49,7 @@ const ChatSimulation: React.FC<ChatSimulationProps> = ({ messages, onAllMessages
             </MessageContainer>
 
             {/* Show button also for the last bubble */}
-            {(isNext || (index === currentIndex && index === messages.length - 1)) && (
+            {isNext && (
               <NextOverlay>
                 <Button
                   className='highlighted--button'
