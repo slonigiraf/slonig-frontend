@@ -223,7 +223,7 @@ function Create({ className = '', onClose, onStatusChange, seed: propsSeed, type
       {!isImporting &&
         <ButtonContainer>
           <Button
-            className='highlight--bg'
+            className='highlighted--button'
             activeOnEnter
             // icon='user-plus'
             isBusy={isBusy}
@@ -281,10 +281,6 @@ const StyledDiv = styled.div<{ isFirstScreen: boolean }>`
   input {
     left: 0 !important;
     text-align: center !important;
-  }
-
-  .highlight--bg {
-    color: white !important;
   }
 
   a {

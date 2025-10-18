@@ -194,7 +194,7 @@ function LessonResults({ className = '', lesson, updateAndStoreLesson, onClose, 
       </CenterQRContainer>
       {constContentIsVisible &&
         <StyledDiv>
-          <Button className='highlight--bg' icon='edit' label={t('Edit')} onClick={toggleVisibleDiplomaDetails} />
+          <Button className='highlighted--button' icon='edit' label={t('Edit')} onClick={toggleVisibleDiplomaDetails} />
         </StyledDiv>
       }
 
@@ -235,6 +235,7 @@ function LessonResults({ className = '', lesson, updateAndStoreLesson, onClose, 
         </Modal.Content>
         <Modal.Actions>
           <Button
+            className='highlighted--button'
             icon='save'
             label={t('Save and close')}
             onClick={saveLessonSettings}
@@ -252,9 +253,6 @@ const StyledDiv = styled.div`
   align-items: center;
   width: 100%;
   margin: 0 auto;
-  .highlight--bg {
-    color: white !important;
-  }
 `;
 
 const DetailsModal = styled(Modal)`

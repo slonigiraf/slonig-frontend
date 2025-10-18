@@ -5,7 +5,7 @@ import ItemLabel from './ItemLabel.js';
 import SkillQR from './SkillQR.js';
 import { useTranslation } from '../translate.js';
 import ExerciseList from './ExerciseList.js';
-import { Toggle, Spinner, Label } from '@polkadot/react-components';
+import { Spinner, Label, Button } from '@polkadot/react-components';
 import { ItemWithCID } from '../types.js';
 import { useApi } from '@polkadot/react-hooks';
 import BN from 'bn.js';
@@ -159,16 +159,20 @@ function ViewList({ className = '', id, cidString, list }: Props): React.ReactEl
           <div className='ui--row' style={isModuleQRVisible ? {} : { display: 'none' }}>
             <SkillQR id={id} cid={cidString} type={LawType.MODULE} selectedItems={selectedItems} isLearningRequested={isLearningRequested} isReexaminingRequested={isReexaminingRequested} lessonInUrl={lessonInUrl} onDataSent={onDataSent} />
           </div>
-          {isThereAnythingToLearn && !isModuleQRVisible && <Toggle
-            label={t('Learn with a tutor')}
-            onChange={handleLearningToggle}
-            value={isLearningRequested}
-          />}
-          {isThereAnythingToReexamine && !isModuleQRVisible && <Toggle
-            label={t('Reexamine my badges')}
-            onChange={handleReexaminingToggle}
-            value={isReexaminingRequested}
-          />}
+          <ButtonsRow>
+            {isThereAnythingToLearn && !isModuleQRVisible && <Button
+              className='highlighted--button'
+              icon='people-arrows'
+              label={t('Learn')}
+              onClick={() => handleLearningToggle(true)}
+            />}
+            {isThereAnythingToReexamine && !isModuleQRVisible && <Button
+              // className='highlighted--button'
+              icon='arrows-rotate'
+              label={t('Reexamine')}
+              onClick={() => handleReexaminingToggle(true)}
+            />}
+          </ButtonsRow>
         </>
     )}
     {list.t !== null && list.t === LawType.SKILL && (
@@ -222,6 +226,17 @@ function ViewList({ className = '', id, cidString, list }: Props): React.ReactEl
       </FullscreenActivity> :
       content);
 }
+const ButtonsRow = styled.div`
+  width: 100%;
+  display: flex;
+  justify-content: left;
+  align-items: center;
+  column-gap: 20px;
+  .ui--Button {
+    text-align: center;
+    margin: 5px;
+  }
+`;
 
 const RemoveBorders = styled.div`
   width: 100%;

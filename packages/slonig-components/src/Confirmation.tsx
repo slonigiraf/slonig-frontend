@@ -21,8 +21,8 @@ function Confirmation({ question, onClose, onConfirm }: Props): React.ReactEleme
         <Title>{question}</Title>
         <br />
         <ButtonsRow>
-          <Button className='highlight--bg' label={t('Yes')} onClick={onConfirm} />
-          <Button className='highlight--bg' label={t('No')} onClick={onClose} />
+          <Button className='highlighted--button' label={t('Yes')} onClick={onConfirm} />
+          <Button className='highlighted--button' label={t('No')} onClick={onClose} />
         </ButtonsRow>
       </Modal.Content>
     </StyledModal>
@@ -35,7 +35,6 @@ const ButtonsRow = styled.div`
   align-items: center;
   column-gap: 40px;
   .ui--Button {
-    color: white;
     width: 100px;
     text-align: center;
   }

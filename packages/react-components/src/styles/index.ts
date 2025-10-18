@@ -81,6 +81,11 @@ export default createGlobalStyle<Props & ThemeProps>(({ theme, uiHighlight }: Pr
     background: ${getHighlight(uiHighlight)} !important;
   }
 
+  .highlighted--button {
+    background: ${getHighlight(uiHighlight)} !important;
+    color: white !important;
+  }
+
   .highlight--bg-contrast {
     background: ${getContrast(uiHighlight)};
   }
