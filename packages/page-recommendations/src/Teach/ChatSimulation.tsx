@@ -28,6 +28,12 @@ const ChatSimulation: React.FC<ChatSimulationProps> = ({ messages, onAllMessages
     }
   };
 
+  useEffect(() => {
+    if (messages && messages.length == 1) {
+      onAllMessagesRevealed();
+    }
+  }, [messages]);
+
   return (
     <ChatContainer>
       {messages.map((message, index) => {
