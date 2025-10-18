@@ -160,18 +160,19 @@ function ViewList({ className = '', id, cidString, list }: Props): React.ReactEl
             <SkillQR id={id} cid={cidString} type={LawType.MODULE} selectedItems={selectedItems} isLearningRequested={isLearningRequested} isReexaminingRequested={isReexaminingRequested} lessonInUrl={lessonInUrl} onDataSent={onDataSent} />
           </div>
           <ButtonsRow>
-            {isThereAnythingToLearn && !isModuleQRVisible && <Button
-              className='highlighted--button'
-              icon='people-arrows'
-              label={t('Learn')}
-              onClick={() => handleLearningToggle(true)}
-            />}
-            {isThereAnythingToReexamine && !isModuleQRVisible && <Button
-              // className='highlighted--button'
-              icon='arrows-rotate'
-              label={t('Reexamine')}
-              onClick={() => handleReexaminingToggle(true)}
-            />}
+            {isThereAnythingToLearn && !isModuleQRVisible &&
+              <Button
+                className='highlighted--button'
+                icon='people-arrows'
+                label={t('Learn')}
+                onClick={() => handleLearningToggle(true)}
+              />}
+            {isThereAnythingToReexamine && !isModuleQRVisible &&
+              <Button
+                icon='arrows-rotate'
+                label={t('Revise')}
+                onClick={() => handleReexaminingToggle(true)}
+              />}
           </ButtonsRow>
         </>
     )}
