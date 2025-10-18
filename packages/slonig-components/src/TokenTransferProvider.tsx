@@ -74,6 +74,7 @@ export const TokenTransferProvider: React.FC<TokenTransferProviderProps> = ({ ch
         if (amount) setAmount(amount);
         setTransferReceipt(transferReceipt);
         setIsRewardType(isRewardType);
+        setIsTransferOpen(true);
     }, [setTransferReceipt]);
 
 
