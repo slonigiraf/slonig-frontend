@@ -17,7 +17,6 @@ interface TokenTransferContextType {
     setRecipientId: (recipientId: string) => void;
     setIsRewardType: (isRewardType: boolean) => void;
     setAmount: (amount: BN) => void;
-    setModalCaption: (caption: string) => void;
     openTransfer: (transferReceipt?: TransferReceipt) => void;
 }
 
@@ -33,7 +32,6 @@ const defaultTokenTransferContext: TokenTransferContextType = {
     openTransfer: (_) => { },
     setIsRewardType: (_) => { },
     setAmount: (_) => { },
-    setModalCaption: (_) => { },
 };
 
 const TokenTransferContext = createContext<TokenTransferContextType>(defaultTokenTransferContext);
@@ -49,7 +47,6 @@ export const TokenTransferProvider: React.FC<TokenTransferProviderProps> = ({ ch
     const [recipientId, setRecipientId] = useState<string>('');
     const [amount, _setAmount] = useState<BN | undefined>(BN_ZERO);
     const [isAmountEditable, setIsAmountEditable] = useState(true);
-    const [modalCaption, setModalCaption] = useState<string>('');
     const [transferReceipt, setTransferReceipt] = useState<TransferReceipt | undefined>(undefined);
     const [isTransferReady, setIsTransferReady] = useState<boolean>(false);
     const { isApiConnected } = useApi();
@@ -90,7 +87,6 @@ export const TokenTransferProvider: React.FC<TokenTransferProviderProps> = ({ ch
             setIsAmountEditable(true);
             setSenderId('');
             setRecipientId('');
-            setModalCaption('');
             setIsRewardType(false);
         }
     }, [isTransferOpen, _setAmount, setIsAmountEditable])
@@ -120,7 +116,6 @@ export const TokenTransferProvider: React.FC<TokenTransferProviderProps> = ({ ch
                 setRecipientId,
                 setIsRewardType,
                 setAmount,
-                setModalCaption,
             }}
         >
             {children}
@@ -135,7 +130,6 @@ export const TokenTransferProvider: React.FC<TokenTransferProviderProps> = ({ ch
                     recipientId={recipientId}
                     amount={amount}
                     isAmountEditable={isAmountEditable}
-                    modalCaption={modalCaption}
                 />
             )}
             {isExitConfirmOpen && (
