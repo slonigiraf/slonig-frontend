@@ -214,8 +214,8 @@ function Teach({ className = '' }: Props): React.ReactElement<Props> {
       </Progress>}
 
       <Bubbles>
-        {!reexamined && reexaminationToPerform && <DoInstructions entity={reexaminationToPerform} onResult={updateReexamined} studentName={studentName} key={'reexaminine' + reexaminationToPerform.cid} />}
-        {reexamined && letterTemplateToIssue && <DoInstructions entity={letterTemplateToIssue} onResult={updateLearned} studentName={studentName} bothUsedSlonig={bothUsedSlonig} key={'learn' + letterTemplateToIssue.cid} />}
+        {!reexamined && reexaminationToPerform && <DoInstructions entity={reexaminationToPerform} hasTutorCompletedTutorial={hasTutorCompletedTutorial} onResult={updateReexamined} studentName={studentName} key={'reexaminine' + reexaminationToPerform.cid} />}
+        {reexamined && letterTemplateToIssue && <DoInstructions entity={letterTemplateToIssue} hasTutorCompletedTutorial={hasTutorCompletedTutorial} onResult={updateLearned} studentName={studentName} bothUsedSlonig={bothUsedSlonig} key={'learn' + letterTemplateToIssue.cid} />}
         {lesson &&
           <SendResults>
             <Button

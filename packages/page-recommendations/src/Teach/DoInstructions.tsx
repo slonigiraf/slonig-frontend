@@ -18,11 +18,12 @@ interface Props {
   className?: string;
   entity: LetterTemplate | Reexamination;
   onResult: () => void;
+  hasTutorCompletedTutorial: boolean | undefined;
   studentName: string | null;
   bothUsedSlonig?: boolean;
 }
 
-function DoInstructions({ className = '', entity, onResult, studentName, bothUsedSlonig = true }: Props): React.ReactElement<Props> {
+function DoInstructions({ className = '', entity, onResult, studentName, bothUsedSlonig = true, hasTutorCompletedTutorial }: Props): React.ReactElement<Props> {
   const { ipfs, isIpfsReady } = useIpfsContext();
   const [skill, setSkill] = useState<Skill>();
   const { t } = useTranslation();
@@ -112,6 +113,21 @@ function DoInstructions({ className = '', entity, onResult, studentName, bothUse
     }
   }, [showInfo, t, entity, updateReexamination, onResult]);
 
+  const preserveFromNoobs = useCallback(
+    (run: () => void, fallback?: () => void) => {
+      if (hasTutorCompletedTutorial) {
+        run();
+      } else {
+        showInfo(
+          t('After completing the training, you’ll be able to press it. Now try another button.')
+        );
+        fallback?.();
+      }
+    },
+    [hasTutorCompletedTutorial, showInfo, t]
+  );
+
+
   const handleStageChange = async (nextStage: AlgorithmStage | null) => {
     if (nextStage !== null) {
       setIsButtonClicked(true);
@@ -121,7 +137,7 @@ function DoInstructions({ className = '', entity, onResult, studentName, bothUse
       if (isReexamination(entity) && nextStage.type === 'reimburse') {
         studentFailedReexamination();
       } else if (nextStage.type === 'skip') {
-        onResult();
+        preserveFromNoobs(onResult, () => setIsButtonClicked(false));
       } else if (isLetterTemplate(entity) && (nextStage.type === 'success' || nextStage.type === 'next_skill')) {
         processLetter(nextStage.type === 'success');
       } else if (isReexamination(entity) && nextStage.type === 'success') {
@@ -193,14 +209,14 @@ function DoInstructions({ className = '', entity, onResult, studentName, bothUse
                               icon='thumbs-up'
                               key='issueDiploma'
                               label={t('Tutee mastered the skill')}
-                              onClick={issueDiploma}
+                              onClick={() => preserveFromNoobs(issueDiploma)}
                             />
                             <Menu.Divider />
                             <Menu.Item
                               icon='circle-exclamation'
                               key='repeatTomorrow'
                               label={t('Should be repeated tomorrow')}
-                              onClick={repeatTomorrow}
+                              onClick={() => preserveFromNoobs(repeatTomorrow)}
                             />
                           </React.Fragment>
                         }
