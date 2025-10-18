@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { styled } from '@polkadot/react-components';
+import { styled, Button } from '@polkadot/react-components';
 import {
   Bubble,
   ChatContainer,
@@ -44,13 +44,21 @@ const ChatSimulation: React.FC<ChatSimulationProps> = ({ messages }) => {
               </Bubble>
             </MessageContainer>
 
-            {/* Overlay the NEXT button on top of the next blurred bubble */}
+            {/* Overlay the NEXT button on the next blurred bubble */}
             {isNext && (
               <NextOverlay>
-                <NextButton onClick={handleNext}>{t('Next')}</NextButton>
+                <Button
+                  className='highlighted--button'
+                  icon="eye"
+                  label={t('Next')}
+                  onClick={handleNext}
+                />
               </NextOverlay>
             )}
-            <Arrow><h2><b>↓</b></h2></Arrow>
+
+            <Arrow>
+              <h2><b>↓</b></h2>
+            </Arrow>
           </MessageWrapper>
         );
       })}
@@ -68,7 +76,7 @@ const MessageWrapper = styled.div`
 const MessageContainer = styled.div<{ $blur: boolean }>`
   display: flex;
   flex-direction: column;
-  padding: 0px 10px 0px 10px;
+  padding: 0px 10px;
   width: 100%;
   margin: 0 auto;
   transition: filter 0.3s ease, opacity 0.3s ease;
@@ -79,33 +87,19 @@ const MessageContainer = styled.div<{ $blur: boolean }>`
 
 const Arrow = styled.div`
   width: 100%;
-  padding: 0;
-  margin: 0;
   text-align: center;
   h2 {
     margin: 0;
   }
 `;
 
-// Overlay positioned above blurred bubble
 const NextOverlay = styled.div`
   position: absolute;
   inset: 0;
   display: flex;
   align-items: center;
   justify-content: center;
-  pointer-events: none; /* ensure button only clickable itself */
-`;
-
-const NextButton = styled.button`
-  pointer-events: auto;
-  background-color: #F39200;
-  color: white;
-  font-size: 1.3rem;
-  border: none;
-  border-radius: 4px;
-  padding: 5px 15px;
-  cursor: pointer;
+  pointer-events: none;
 `;
 
 export default React.memo(ChatSimulation);
