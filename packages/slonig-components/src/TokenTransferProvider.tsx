@@ -10,10 +10,12 @@ interface TokenTransferContextType {
     isTransferOpen: boolean;
     senderId: string;
     recipientId: string;
+    recieptId: string;
     amount: BN | undefined;
     transferSuccess: boolean;
     setSenderId: (senderId: string) => void;
     setRecipientId: (recipientId: string) => void;
+    setRecieptId: (recieptId: string) => void;
     setIsRewardType: (isRewardType: boolean) => void;
     setIsTransferOpen: (isOpen: boolean) => void;
     setAmount: (amount: BN) => void;
@@ -26,10 +28,12 @@ const defaultTokenTransferContext: TokenTransferContextType = {
     isTransferOpen: false,
     senderId: '',
     recipientId: '',
+    recieptId: '',
     amount: BN_ZERO,
     transferSuccess: false,
     setSenderId: (_) => { },
     setRecipientId: (_) => { },
+    setRecieptId: (_) => { },
     setIsRewardType: (_) => { },
     setIsTransferOpen: (_) => { },
     setAmount: (_) => { },
@@ -48,6 +52,7 @@ export const TokenTransferProvider: React.FC<TokenTransferProviderProps> = ({ ch
     const [isRewardType, setIsRewardType] = useState<boolean>(false);
     const [senderId, setSenderId] = useState<string>('');
     const [recipientId, setRecipientId] = useState<string>('');
+    const [recieptId, setRecieptId] = useState<string>('');
     const [amount, _setAmount] = useState<BN | undefined>(BN_ZERO);
     const [isAmountEditable, setIsAmountEditable] = useState(true);
     const [modalCaption, setModalCaption] = useState<string>('');
@@ -92,6 +97,7 @@ export const TokenTransferProvider: React.FC<TokenTransferProviderProps> = ({ ch
             setModalCaption('');
             setButtonCaption('');
             setIsRewardType(false);
+            setRecieptId('');
         }
     }, [isTransferOpen, _setAmount, setIsAmountEditable])
 
@@ -115,6 +121,8 @@ export const TokenTransferProvider: React.FC<TokenTransferProviderProps> = ({ ch
                 recipientId,
                 amount,
                 transferSuccess,
+                recieptId,
+                setRecieptId,
                 setSenderId,
                 setRecipientId,
                 setIsRewardType,

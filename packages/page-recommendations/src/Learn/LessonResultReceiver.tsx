@@ -21,7 +21,7 @@ function LessonResultReceiver({ webRTCPeerId, onDaysRangeChange }: Props): React
   const { t } = useTranslation();
   const { api, isApiReady } = useApi();
   const { setIsTransferOpen, setSenderId, setRecipientId, setAmount,
-    setModalCaption, setIsRewardType, setButtonCaption, isTransferReady, transferSuccess } = useTokenTransfer();
+    setModalCaption, setIsRewardType, setButtonCaption, setRecieptId, recieptId, isTransferReady, transferSuccess } = useTokenTransfer();
   const { currentPair } = useLoginContext();
   const workerPublicKeyHex = u8aToHex(currentPair?.publicKey);
   const { showInfo } = useInfo();
@@ -75,6 +75,7 @@ function LessonResultReceiver({ webRTCPeerId, onDaysRangeChange }: Props): React
         setIsRewardType(true);
         setButtonCaption(t('Reward your tutor'));
         setIsTransferOpen(true);
+        setRecieptId(agreement.id);
       }
     }
     if (lessonResult && agreement && agreement.penaltySent === true &&
@@ -185,11 +186,11 @@ function LessonResultReceiver({ webRTCPeerId, onDaysRangeChange }: Props): React
 
   useEffect(() => {
     if (agreement && agreement.penaltySent === true &&
-      agreement.paid === false && (transferSuccess || agreement.price === "0")) {
+      agreement.paid === false && (transferSuccess && recieptId === agreement.id || agreement.price === "0")) {
       const updatedAgreement: Agreement = { ...agreement, paid: true };
       updateAgreement(updatedAgreement);
     }
-  }, [transferSuccess, agreement])
+  }, [transferSuccess, recieptId, agreement])
 
   return <></>;
 }
