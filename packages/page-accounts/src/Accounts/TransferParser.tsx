@@ -15,7 +15,7 @@ function TransferParser(): React.ReactElement {
   const recipientHex = queryParams.get("recipientHex");
   const recipientNameFromUrl = queryParams.get("name");
   const navigate = useNavigate();
-  const { setIsTransferOpen, setRecipientId, setTransferReceipt } = useTokenTransfer();
+  const { openTransfer, setRecipientId } = useTokenTransfer();
   
   useEffect((): void => {
     const processParameters = async () => {
@@ -23,14 +23,13 @@ function TransferParser(): React.ReactElement {
         await storePseudonym(recipientHex, recipientNameFromUrl);
         const recipientAddress = encodeAddress(hexToU8a(recipientHex));
         setRecipientId(recipientAddress);
-        setIsTransferOpen(true);
-        setTransferReceipt(undefined);
+        openTransfer();
         navigate('', { replace: true });
       }
     }
     processParameters();
   }, [recipientHex, recipientNameFromUrl, storePseudonym, 
-    encodeAddress, hexToU8a, setRecipientId, setIsTransferOpen, navigate]);
+    encodeAddress, hexToU8a, setRecipientId, openTransfer, navigate]);
 
   return <></>;
 }

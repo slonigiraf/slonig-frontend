@@ -71,7 +71,7 @@ function Account({ account: { address, meta }, className = '', filter, setBalanc
   const { flags: { isDevelopment, isInjected }, name: accName, tags } = useAccountInfo(address);
   const [isEditOpen, toggleEdit] = useToggle();
   const [isForgetOpen, toggleForget] = useToggle();
-  const { setIsTransferOpen, setTransferReceipt } = useTokenTransfer();
+  const { openTransfer } = useTokenTransfer();
   const [trigger, incTrigger] = useIncrement(1);
 
   useEffect((): void => {
@@ -198,12 +198,7 @@ function Account({ account: { address, meta }, className = '', filter, setBalanc
                 className='send-button'
                 icon='paper-plane'
                 label={t('send')}
-                onClick={
-                  () => {
-                    setIsTransferOpen(true);
-                    setTransferReceipt(undefined);
-                  }
-                }
+                onClick={openTransfer}
               />
             )}
             <Popup
