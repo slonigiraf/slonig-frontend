@@ -530,5 +530,6 @@
   "You currently have ___ Slon.": "У тебя сейчас есть ___ Slon.",
   "You do not have enough Slon to reward your tutor and get the lesson results. Top up your balance with at least ___ Slon." : "У тебя недостаточно Slon, чтобы вознаградить репетитора и получить результаты урока. Пополни свой баланс как минимум на ___ Slon.",
   "Top up my balance" : "Пополнить мой баланс",
-  "Sure to exit tutoring?": "Xочешь перестать обучать?"
+  "Sure to exit tutoring?": "Xочешь перестать обучать?",
+  "You should practice tutoring first before you can reexamine." : "Научись сначала обучать, а потом сможешь перепроверять."
 }

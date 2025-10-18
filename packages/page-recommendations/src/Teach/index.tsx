@@ -3,7 +3,7 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { Button, LinearProgress, styled } from '@polkadot/react-components';
 import { u8aToHex } from '@polkadot/util';
-import { Confirmation, FullFindow, VerticalCenterItemsContainer, useLoginContext } from '@slonigiraf/app-slonig-components';
+import { Confirmation, FullFindow, VerticalCenterItemsContainer, useInfo, useLoginContext } from '@slonigiraf/app-slonig-components';
 import { LetterTemplate, Lesson, Reexamination, getPseudonym, getLesson, getLetterTemplatesByLessonId, getReexaminationsByLessonId, getSetting, storeSetting, updateLesson, getLetter, getReexamination, SettingKey, deleteSetting, getValidLetterTemplatesByLessonId, isThereAnyLessonResult } from '@slonigiraf/db';
 import DoInstructions from './DoInstructions.js';
 import LessonsList from './LessonsList.js';
@@ -17,6 +17,7 @@ interface Props {
 
 function Teach({ className = '' }: Props): React.ReactElement<Props> {
   const { t } = useTranslation();
+  const { showInfo } = useInfo();
   // Initialize api, ipfs and translation
   const { currentPair, isLoggedIn } = useLoginContext();
   const [reexaminationToPerform, setReexaminationToPerform] = useState<Reexamination | null>(null);
@@ -119,8 +120,6 @@ function Teach({ className = '' }: Props): React.ReactElement<Props> {
     }
   }, [lesson, updateAndStoreLesson]);
 
-
-
   const onResumeTutoring = useCallback(async (lesson: Lesson): Promise<void> => {
     await storeSetting(SettingKey.LESSON, lesson.id);
     fetchLesson();
@@ -165,12 +164,19 @@ function Teach({ className = '' }: Props): React.ReactElement<Props> {
     await deleteSetting(SettingKey.LESSON);
     setLesson(null);
     setIsExitConfirmOpen(false);
+    setReexaminationToPerform(null);
+    setLetterTemplateToIssue(null);
+    setReexamined(false);
+    setStudentName(null);
+    setLetterTemplates([]);
+    setReexaminations([]);
+    setResultsShown(false);
+    setIsSendingResultsEnabled(false);
   }, [deleteSetting, setLesson]);
 
   const onCloseResults = useCallback(async () => {
     onCloseTutoring();
     await deleteSetting(SettingKey.LESSON_RESULTS_ARE_SHOWN);
-    setIsExitConfirmOpen(false);
     setResultsShown(false);
   }, [setResultsShown, onCloseTutoring]);
 
@@ -186,12 +192,17 @@ function Teach({ className = '' }: Props): React.ReactElement<Props> {
 
   // Don't do reexaminations if the tutor is a first time tutor
   useEffect((): void => {
-    if(hasTutorCompletedTutorial === false && !reexamined && reexaminationToPerform){
-      if(letterTemplateToIssue){
-        updateReexamined();
+    if (lesson != null) {
+      if (hasTutorCompletedTutorial === false && !reexamined && reexaminationToPerform) {
+        if (letterTemplateToIssue) {
+          updateReexamined();
+        } else {
+          onCloseTutoring();
+          showInfo(t('You should practice tutoring first before you can reexamine.'));
+        }
       }
     }
-  }, [hasTutorCompletedTutorial, reexamined, reexaminationToPerform, letterTemplateToIssue, updateReexamined]);
+  }, [lesson, hasTutorCompletedTutorial, reexamined, reexaminationToPerform, letterTemplateToIssue, updateReexamined]);
 
   const reexamAndDiplomaIssuing = <FullFindow>
     <VerticalCenterItemsContainer>
