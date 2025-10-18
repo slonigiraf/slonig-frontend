@@ -51,7 +51,7 @@ function DoInstructions({ className = '', entity, onResult, studentName, bothUse
             setSkill(skill);
             if (isLetterTemplate(entity)) {
               console.log('bothUsedSlonig: ', bothUsedSlonig)
-              const newAlgorithm = new TutoringAlgorithm(t, studentName, skill, !bothUsedSlonig);
+              const newAlgorithm = new TutoringAlgorithm(t, studentName, skill, bothUsedSlonig);
               setAlgorithmStage(newAlgorithm.getBegin());
             } else {
               const newAlgorithm = new ValidatingAlgorithm(t, studentName, skill, entity);
