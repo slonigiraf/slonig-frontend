@@ -4,7 +4,7 @@ import { Skill } from '@slonigiraf/app-slonig-components';
 import ExampleExercisesButton from './ExampleExercisesButton.js';
 
 class TutoringAlgorithm extends Algorithm {
-    constructor(t: any, studentName: string | null, skill: Skill, studentUsesSlonigFirstTime: boolean) {
+    constructor(t: any, studentName: string | null, skill: Skill, bothUsedSlonig: boolean) {
         super();
         const questions = skill ? skill.q : [];
         let question1: string = questions.length > 0 ? questions[0].h : t('SOME TASK FOR SKILL TRAINING (THE TUTOR SHOULD KNOW)');
@@ -147,7 +147,7 @@ class TutoringAlgorithm extends Algorithm {
         );
 
         // Algo linking
-        this.begin = studentUsesSlonigFirstTime ? askStudentToSolveAnExercise : askStudentToCreateASimilarExercise;
+        this.begin = bothUsedSlonig ? askStudentToCreateASimilarExercise : askStudentToSolveAnExercise;
 
         askStudentToSolveAnExercise.setNext([skip, askToCreateAnExerciseAfterCompletionOfExerciseOfTutor, askStudentToRepeatTheSolutionOfExerciseOfTutor]);
 
@@ -155,7 +155,7 @@ class TutoringAlgorithm extends Algorithm {
         askStudentToRepeatTheSolutionOfExerciseOfTutor.setPrevious(askStudentToSolveAnExercise);
 
         askToCreateAnExerciseAfterCompletionOfExerciseOfTutor.setNext([provideFakeAnswer, askToRepeatTaskAfterMeTheTask]);
-        if (studentUsesSlonigFirstTime) {
+        if (!bothUsedSlonig) {
             provideFakeAnswer.setPrevious(askToCreateAnExerciseAfterCompletionOfExerciseOfTutor);
             askToRepeatTaskAfterMeTheTask.setPrevious(askToCreateAnExerciseAfterCompletionOfExerciseOfTutor);
         }
@@ -179,7 +179,7 @@ class TutoringAlgorithm extends Algorithm {
         askStudentToRepeatTheSolutionOfExerciseOfTutor.setNext([repeatFromTheBeginning, askStudentToRepeatTheSolutionOfExerciseOfTutor]);
 
         askStudentToCreateASimilarExercise.setNext([skip, provideFakeAnswer, askToRepeatTaskAfterMeTheTask]);
-        if (!studentUsesSlonigFirstTime) {
+        if (bothUsedSlonig) {
             provideFakeAnswer.setPrevious(askStudentToCreateASimilarExercise);
             askToRepeatTaskAfterMeTheTask.setPrevious(askStudentToCreateASimilarExercise);
         }
