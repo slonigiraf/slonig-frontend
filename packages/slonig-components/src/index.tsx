@@ -95,6 +95,45 @@ export interface SignerState {
 }
 
 // Styled components
+export const HintBubble = styled.div<{ tailLeft?: string }>`
+  position: absolute;
+  bottom: 100%; /* place above the button */
+  left: 50%;
+  transform: translateX(-50%) translateY(2px);
+  z-index: 9999; /* ensure it overflows any parent */
+
+  background: white;
+  color: black;
+  border: 2px solid rgba(0,0,0,0.15);
+  padding: 10px 14px;
+  border-radius: 16px;
+  box-shadow: 0 4px 8px rgba(0,0,0,0.15);
+  max-width: 260px;
+  text-align: center;
+  line-height: 1.3;
+
+  /* comic-style tail */
+  &::after {
+    content: '';
+    position: absolute;
+    top: 100%;
+    left: ${({ tailLeft }) => tailLeft ?? '10%'};
+    transform: translateX(-50%);
+    width: 0;
+    height: 0;
+    border: 8px solid transparent;
+    border-top-color: white;
+    filter: drop-shadow(0px 2px 1px rgba(0, 0, 0, 0.15));
+  }
+
+  /* gentle float animation */
+  animation: floatHint 0.35s ease-out;
+  @keyframes floatHint {
+    from { transform: translateX(-50%) translateY(-4px); opacity: 0; }
+    to { transform: translateX(-50%) translateY(-12px); opacity: 1; }
+  }
+`;
+
 export const VerticallyCenteredModal = styled(Modal)`
   /* Hide header and close button */
   button[data-testid='close-modal'] {
