@@ -277,7 +277,7 @@ function Teach({ className = '' }: Props): React.ReactElement<Props> {
             <OKBox info={t('This app will help you teach your tutee. Let’s start by teaching just one skill.')} onClose={() => setIsGreetingOpen(false)} />
           )}
           {lesson === null && isViralMessageOpen && (
-            <OKBox info={t('Congratulations! You know how to teach. Please help your classmates learn to use the app for teaching. Just become a tutee of one of them.')} onClose={() => setIsViralMessageOpen(false)} />
+            <OKBox info={t('Congratulations! Now help your friends become tutors — pretend to be their tutee.')} onClose={() => setIsViralMessageOpen(false)} />
           )}
         </>
       }
