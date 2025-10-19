@@ -176,7 +176,7 @@ function DoInstructions({ className = '', entity, onResult, studentName, bothUse
           {algorithmStage.getChatDecorator()}
 
           <InstructionsButtonsContainer>
-            <DecisionBubble $blur={hasTutorCompletedTutorial === false && (areButtonsBlured || isSendingResultsEnabled)}>
+            <DecisionBubble $blur={hasTutorCompletedTutorial === false && (areButtonsBlured || isSendingResultsEnabled === true)}>
               <ChatContainer>
                 <h2>{t('⚖️ Decide on the next step')}</h2>
                 <span>
