@@ -2,7 +2,6 @@ import { AlgorithmStage } from './AlgorithmStage.js';
 import { Algorithm } from './Algorithm.js';
 import type { Skill } from '@slonigiraf/app-slonig-components';
 import { Reexamination } from '@slonigiraf/db';
-import BN from 'bn.js';
 import ExampleExercisesButton from './ExampleExercisesButton.js';
 
 class ValidatingAlgorithm extends Algorithm {
