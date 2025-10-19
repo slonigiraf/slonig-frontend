@@ -38,6 +38,7 @@ function Teach({ className = '' }: Props): React.ReactElement<Props> {
   const [bothUsedSlonig, setBothUsedSlonig] = useState(false);
   const [isSendingResultsEnabled, setIsSendingResultsEnabled] = useState<boolean | undefined>(undefined);
   const [isGreetingOpen, setIsGreetingOpen] = useState(false);
+  const [isViralMessageOpen, setIsViralMessageOpen] = useState(false);
 
   useEffect((): void => {
     const loadTutorialResults = async () => {
@@ -181,10 +182,14 @@ function Teach({ className = '' }: Props): React.ReactElement<Props> {
   const onCloseResults = useCallback(async () => {
     onCloseTutoring();
     await deleteSetting(SettingKey.LESSON_RESULTS_ARE_SHOWN);
-    const tutorStatus = await getSetting(SettingKey.TUTOR_TUTORIAL_COMPLETED);
-    setHasTutorCompletedTutorial(tutorStatus === 'true' ? true : false);
+    const tutorStatusString = await getSetting(SettingKey.TUTOR_TUTORIAL_COMPLETED);
+    const tutorStatus = tutorStatusString === 'true' ? true : false;
+    if (tutorStatus === true && !hasTutorCompletedTutorial) {
+      setIsViralMessageOpen(true);
+    }
+    setHasTutorCompletedTutorial(tutorStatus);
     setResultsShown(false);
-  }, [setResultsShown, onCloseTutoring]);
+  }, [setResultsShown, onCloseTutoring, setIsViralMessageOpen]);
 
   const tryToCloseResults = useCallback((): void => {
     hasTutorCompletedTutorial ? onCloseResults() : setIsExitConfirmOpen(true);
@@ -270,6 +275,9 @@ function Teach({ className = '' }: Props): React.ReactElement<Props> {
           )}
           {lesson !== null && isGreetingOpen && (
             <OKBox info={t('This app will help you teach your tutee. Let’s start by teaching just one skill.')} onClose={() => setIsGreetingOpen(false)} />
+          )}
+          {lesson === null && isViralMessageOpen && (
+            <OKBox info={t('Congratulations! You know how to teach. Please help your classmates learn to use the app for teaching. Just become a tutee of one of them.')} onClose={() => setIsGreetingOpen(false)} />
           )}
         </>
       }
