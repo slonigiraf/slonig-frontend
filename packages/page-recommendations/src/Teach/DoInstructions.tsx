@@ -167,13 +167,14 @@ function DoInstructions({ className = '', entity, onResult, studentName, bothUse
           <ChatSimulation
             key={algorithmStage.getId() + processedStages}
             messages={algorithmStage.getMessages()}
+            hasTutorCompletedTutorial={hasTutorCompletedTutorial}
             onAllMessagesRevealed={() => setIsChatFinished(true)}
           />
 
           {algorithmStage.getChatDecorator()}
 
           <InstructionsButtonsContainer>
-            <DecisionBubble $blur={areButtonsBlured}>
+            <DecisionBubble $blur={hasTutorCompletedTutorial === false && areButtonsBlured}>
               <ChatContainer>
                 <h2>{t('⚖️ Decide on the next step')}</h2>
                 <span>
@@ -244,9 +245,10 @@ function DoInstructions({ className = '', entity, onResult, studentName, bothUse
                   />
                 )}
               </InstructionsButtonsGroup>
-              
+
             </DecisionBubble>
-            {isChatFinished && areButtonsBlured && (
+            {hasTutorCompletedTutorial === false &&
+              isChatFinished && areButtonsBlured && (
                 <NextOverlay>
                   <Button
                     className='highlighted--button'

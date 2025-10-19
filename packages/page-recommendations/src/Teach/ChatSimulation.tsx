@@ -11,10 +11,11 @@ import { useTranslation } from '../translate.js';
 
 interface ChatSimulationProps {
   messages: IMessage[];
+  hasTutorCompletedTutorial: boolean | undefined;
   onAllMessagesRevealed: () => void;
 }
 
-const ChatSimulation: React.FC<ChatSimulationProps> = ({ messages, onAllMessagesRevealed }) => {
+const ChatSimulation: React.FC<ChatSimulationProps> = ({ messages, hasTutorCompletedTutorial, onAllMessagesRevealed }) => {
   const [revealedCount, setRevealedCount] = useState(1);
   const { t } = useTranslation();
 
@@ -36,8 +37,8 @@ const ChatSimulation: React.FC<ChatSimulationProps> = ({ messages, onAllMessages
   return (
     <ChatContainer>
       {messages.map((message, index) => {
-        const isVisible = index < revealedCount;
-        const isNext = index === revealedCount;
+        const isVisible = hasTutorCompletedTutorial || (index < revealedCount);
+        const isNext = (hasTutorCompletedTutorial === false) && (index === revealedCount);
 
         return (
           <MessageWrapper key={index + message.text + (message.image || '')}>
