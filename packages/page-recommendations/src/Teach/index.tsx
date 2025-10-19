@@ -269,7 +269,7 @@ function Teach({ className = '' }: Props): React.ReactElement<Props> {
             <Confirmation question={t('Sure to exit tutoring?')} onClose={() => setIsExitConfirmOpen(false)} onConfirm={onCloseResults} />
           )}
           {lesson !== null && isGreetingOpen && (
-            <OKBox info={t('This guide will help you teach your tutee. Let’s start by teaching just one skill.')} onClose={() => setIsGreetingOpen(false)} />
+            <OKBox info={t('This app will help you teach your tutee. Let’s start by teaching just one skill.')} onClose={() => setIsGreetingOpen(false)} />
           )}
         </>
       }
