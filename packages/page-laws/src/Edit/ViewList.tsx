@@ -221,7 +221,7 @@ function ViewList({ className = '', id, cidString, list }: Props): React.ReactEl
     <StyledSpinnerContainer><Spinner noLabel /></StyledSpinnerContainer> :
     (isAPairWork ?
       (!role && lessonInUrl) ? <NotClosableFullscreen>
-        <Title>{t('Select your role')}</Title>
+        <Title>{t('Select your role:')}</Title>
         <br />
         <RoleButtonsRow>
           <Button className='highlighted--button' label={t('Tutee')} onClick={() => setRole('tutee')} />
@@ -239,10 +239,11 @@ function ViewList({ className = '', id, cidString, list }: Props): React.ReactEl
       content);
 }
 
-const Title = styled.h2`
+const Title = styled.h1`
   width: 100%;
   text-align: center;
   margin: 0.5rem 0 0;
+  font-weight: bold;
 `;
 
 const ButtonsRow = styled.div`
@@ -303,11 +304,6 @@ const RoleButtonsRow = styled.div`
     text-align: center;
   }
 `;
-const RoleDiv = styled.div`
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  margin-top: 40px;
-`;
+
 
 export default React.memo(ViewList);
