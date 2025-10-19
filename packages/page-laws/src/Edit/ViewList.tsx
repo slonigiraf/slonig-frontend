@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useState } from 'react';
-import { LawType, KatexSpan, SelectableList, StyledSpinnerContainer, useLoginContext, getCIDFromBytes, FullscreenActivity, useInfo, Confirmation } from '@slonigiraf/app-slonig-components';
+import { LawType, KatexSpan, SelectableList, StyledSpinnerContainer, useLoginContext, getCIDFromBytes, FullscreenActivity, useInfo, Confirmation, NotClosableFullscreen } from '@slonigiraf/app-slonig-components';
 import { useLocation, useNavigate } from 'react-router-dom';
 import ItemLabel from './ItemLabel.js';
 import SkillQR from './SkillQR.js';
@@ -43,6 +43,7 @@ function ViewList({ className = '', id, cidString, list }: Props): React.ReactEl
   const studentIdentity = u8aToHex(currentPair?.publicKey);
   const [isExitConfirmOpen, setIsExitConfirmOpen] = useState(false);
   const [hasTuteeCompletedTutorial, setHasTuteeCompletedTutorial] = useState(false);
+  const [role, setRole] = useState<'tutor' | 'tutee' | undefined>(undefined);
 
   useEffect((): void => {
     const loadTutorialResults = async () => {
@@ -142,7 +143,7 @@ function ViewList({ className = '', id, cidString, list }: Props): React.ReactEl
     }
   }, [lessonInUrl, isLoggedIn, isThereAnythingToLearn, shouldSelectAll, isLearningInitialized]);
 
-  const isModuleQRVisible = isLearningRequested || isReexaminingRequested;
+  const isAPairWork = isLearningRequested || isReexaminingRequested;
 
   const handleSelectionChange = (newSelectedItems: ItemWithCID[]) => {
     setSelectedItems(newSelectedItems);
@@ -151,23 +152,23 @@ function ViewList({ className = '', id, cidString, list }: Props): React.ReactEl
   const isSelectionAllowed = true;
 
   const content = list ? <>
-    {!isModuleQRVisible && <h1><KatexSpan content={list.h} /></h1>}
+    {!isAPairWork && <h1><KatexSpan content={list.h} /></h1>}
     {list.t !== null && list.t === LawType.MODULE && (
       expanded ?
         (itemsWithCID.length > 0 && <ModulePreview itemsWithCID={itemsWithCID} />) :
         <>
-          <div className='ui--row' style={isModuleQRVisible ? {} : { display: 'none' }}>
+          <div className='ui--row' style={isAPairWork ? {} : { display: 'none' }}>
             <SkillQR id={id} cid={cidString} type={LawType.MODULE} selectedItems={selectedItems} isLearningRequested={isLearningRequested} isReexaminingRequested={isReexaminingRequested} lessonInUrl={lessonInUrl} onDataSent={onDataSent} />
           </div>
           <ButtonsRow>
-            {isThereAnythingToLearn && !isModuleQRVisible &&
+            {isThereAnythingToLearn && !isAPairWork &&
               <Button
                 className='highlighted--button'
                 icon='people-arrows'
                 label={t('Learn')}
                 onClick={() => handleLearningToggle(true)}
               />}
-            {isThereAnythingToReexamine && !isModuleQRVisible &&
+            {isThereAnythingToReexamine && !isAPairWork &&
               <Button
                 icon='arrows-rotate'
                 label={t('Revise')}
@@ -184,7 +185,7 @@ function ViewList({ className = '', id, cidString, list }: Props): React.ReactEl
     )}
 
     {itemsWithCID.length > 0 && !expanded && (
-      <div className='ui--row' style={isModuleQRVisible ? { display: 'none' } : {}}>
+      <div className='ui--row' style={isAPairWork ? { display: 'none' } : {}}>
         <SelectableList<ItemWithCID>
           items={itemsWithCID}
           renderItem={(item, isSelected, isSelectionAllowed, onToggleSelection) => (
@@ -193,11 +194,11 @@ function ViewList({ className = '', id, cidString, list }: Props): React.ReactEl
               isSelected={isSelected}
               isReexaminingRequested={isReexaminingRequested}
               onToggleSelection={onToggleSelection}
-              isSelectable={isModuleQRVisible}
+              isSelectable={isAPairWork}
             />
           )}
           onSelectionChange={handleSelectionChange}
-          isSelectionAllowed={isModuleQRVisible}
+          isSelectionAllowed={isAPairWork}
           keyExtractor={(item) => item.id + item.validDiplomas.length}
           filterOutSelection={(item) => isReexaminingRequested ? !(item.validDiplomas.length > 0) : (item.validDiplomas.length > 0)}
           key={id + isReexaminingRequested}
@@ -206,7 +207,7 @@ function ViewList({ className = '', id, cidString, list }: Props): React.ReactEl
       </div>
     )}
     {list.q != null && <ExerciseList exercises={list.q} />}
-    {list.t !== null && list.s && list.t === LawType.MODULE && !isModuleQRVisible && (
+    {list.t !== null && list.s && list.t === LawType.MODULE && !isAPairWork && (
       <DivWithLeftMargin>
         <h3>{t('Educational standards') + ': '}</h3>
         <Standards data-testid='standards'>
@@ -218,15 +219,32 @@ function ViewList({ className = '', id, cidString, list }: Props): React.ReactEl
 
   return list == null ?
     <StyledSpinnerContainer><Spinner noLabel /></StyledSpinnerContainer> :
-    (isModuleQRVisible ?
-      <FullscreenActivity captionElement={<KatexSpan content={list.h} />} onClose={exitFullScreenActivity} >
-        <RemoveBorders>{content}</RemoveBorders>
-        {isExitConfirmOpen && (
-          <Confirmation question={t('Sure to exit learning?')} onClose={() => setIsExitConfirmOpen(false)} onConfirm={closeQR} />
-        )}
-      </FullscreenActivity> :
+    (isAPairWork ?
+      (!role && lessonInUrl) ? <NotClosableFullscreen>
+        <Title>{t('Select your role')}</Title>
+        <br />
+        <RoleButtonsRow>
+          <Button className='highlighted--button' label={t('Tutee')} onClick={() => setRole('tutee')} />
+          <Button className='highlighted--button' label={t('Tutor')} onClick={() => setRole('tutor')} />
+        </RoleButtonsRow>
+        <div style={{ display: 'flex', justifyContent: 'center', width: '80%', paddingTop: '10px' }}>
+          <img src="./signup.png" style={{ width: '100%' }} alt="Signup" />
+        </div>
+      </NotClosableFullscreen> :
+        <FullscreenActivity captionElement={<KatexSpan content={list.h} />} onClose={exitFullScreenActivity} >
+          {isExitConfirmOpen && (
+            <Confirmation question={t('Sure to exit learning?')} onClose={() => setIsExitConfirmOpen(false)} onConfirm={closeQR} />
+          )}
+        </FullscreenActivity> :
       content);
 }
+
+const Title = styled.h2`
+  width: 100%;
+  text-align: center;
+  margin: 0.5rem 0 0;
+`;
+
 const ButtonsRow = styled.div`
   width: 100%;
   display: flex;
@@ -272,4 +290,24 @@ const Standards = styled.div`
     text-transform: none;
   }
 `;
+
+const RoleButtonsRow = styled.div`
+  width: 100%;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  column-gap: 40px;
+  margin-top: 10px;
+  .ui--Button {
+    width: 100px;
+    text-align: center;
+  }
+`;
+const RoleDiv = styled.div`
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  margin-top: 40px;
+`;
+
 export default React.memo(ViewList);
