@@ -2,25 +2,59 @@ import React, { createContext, useContext, useState, useEffect, ReactNode } from
 import { getSetting, storeSetting, SettingKey } from '@slonigiraf/db';
 
 interface Settings {
-  TUTOR_TUTORIAL_COMPLETED: string;
-  TUTEE_TUTORIAL_COMPLETED: string;
-  SCAN_TUTORIAL_COMPLETED: string;
+  ACCOUNT: string | undefined;
+  ENCRYPTION_KEY: string | undefined;
+  IV: string | undefined;
+  TUTOR: string | undefined;
+  LESSON: string | undefined;
+  RESULTS_FOR_LESSON: string | undefined;
+  DEVELOPER: string | undefined;
+  TEACHER: string | undefined;
+  DIPLOMA_PRICE: string | undefined;
+  DIPLOMA_WARRANTY: string | undefined;
+  DIPLOMA_VALIDITY: string | undefined;
+  INSURANCE_VALIDITY: string | undefined;
+  CID_CACHE_SIZE: string | undefined;
+  ECONOMY_INITIALIZED: string | undefined;
+  AIRDROP_COMPATIBLE: string | undefined;
+  RECEIVED_AIRDROP: string | undefined;
+  LESSON_RESULTS_ARE_SHOWN: string | undefined;
+  TUTOR_TUTORIAL_COMPLETED: string | undefined;
+  TUTEE_TUTORIAL_COMPLETED: string | undefined;
+  SCAN_TUTORIAL_COMPLETED: string | undefined;
 }
 
 interface SettingsContextType {
   settings: Settings;
-  setSettings: (key: keyof Settings, value: string) => Promise<void>;
+  saveSetting: (key: keyof Settings, value: string) => Promise<void>;
 }
 
 const defaultSettings: Settings = {
-  TUTOR_TUTORIAL_COMPLETED: 'false',
-  TUTEE_TUTORIAL_COMPLETED: 'false',
-  SCAN_TUTORIAL_COMPLETED: 'false'
+  ACCOUNT: undefined,
+  ENCRYPTION_KEY: undefined,
+  IV: undefined,
+  TUTOR: undefined,
+  LESSON: undefined,
+  RESULTS_FOR_LESSON: undefined,
+  DEVELOPER: undefined,
+  TEACHER: undefined,
+  DIPLOMA_PRICE: undefined,
+  DIPLOMA_WARRANTY: undefined,
+  DIPLOMA_VALIDITY: undefined,
+  INSURANCE_VALIDITY: undefined,
+  CID_CACHE_SIZE: undefined,
+  ECONOMY_INITIALIZED: undefined,
+  AIRDROP_COMPATIBLE: undefined,
+  RECEIVED_AIRDROP: undefined,
+  LESSON_RESULTS_ARE_SHOWN: undefined,
+  TUTOR_TUTORIAL_COMPLETED: undefined,
+  TUTEE_TUTORIAL_COMPLETED: undefined,
+  SCAN_TUTORIAL_COMPLETED: undefined,
 };
 
 const defaultContext: SettingsContextType = {
   settings: defaultSettings,
-  setSettings: async () => {}
+  saveSetting: async () => { }
 };
 
 const SettingsContext = createContext<SettingsContextType>(defaultContext);
@@ -32,7 +66,7 @@ interface SettingsProviderProps {
 export const SettingsProvider: React.FC<SettingsProviderProps> = ({ children }) => {
   const [settings, _setSettings] = useState<Settings>(defaultSettings);
 
-  console.log(settings)
+  console.log('settings: ', settings)
 
   useEffect(() => {
     (async () => {
@@ -62,7 +96,7 @@ export const SettingsProvider: React.FC<SettingsProviderProps> = ({ children }) 
   };
 
   return (
-    <SettingsContext.Provider value={{ settings: settings, setSettings }}>
+    <SettingsContext.Provider value={{ settings: settings, saveSetting: setSettings }}>
       {children}
     </SettingsContext.Provider>
   );
