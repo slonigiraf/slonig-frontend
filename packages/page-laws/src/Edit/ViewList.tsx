@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useState } from 'react';
-import { LawType, KatexSpan, SelectableList, StyledSpinnerContainer, useLoginContext, getCIDFromBytes, FullscreenActivity, useInfo, Confirmation, NotClosableFullscreen } from '@slonigiraf/app-slonig-components';
+import { LawType, KatexSpan, SelectableList, StyledSpinnerContainer, useLoginContext, getCIDFromBytes, FullscreenActivity, useInfo, Confirmation, NotClosableFullscreen, useSettings } from '@slonigiraf/app-slonig-components';
 import { useLocation, useNavigate } from 'react-router-dom';
 import ItemLabel from './ItemLabel.js';
 import SkillQR from './SkillQR.js';
@@ -9,7 +9,7 @@ import { Spinner, Label, Button } from '@polkadot/react-components';
 import { ItemWithCID } from '../types.js';
 import { useApi } from '@polkadot/react-hooks';
 import BN from 'bn.js';
-import { getLettersForKnowledgeId, getSetting, SettingKey } from '@slonigiraf/db';
+import { getLettersForKnowledgeId } from '@slonigiraf/db';
 import { u8aToHex } from '@polkadot/util';
 import ModulePreview from './ModulePreview.js';
 import styled from 'styled-components';
@@ -31,6 +31,8 @@ function ViewList({ className = '', id, cidString, list }: Props): React.ReactEl
   const lessonInUrl = queryParams.get('lesson') != null;
   const expanded = queryParams.get('expanded') != null;
   const { t } = useTranslation();
+  const { settings } = useSettings();
+  const hasTuteeCompletedTutorial = settings.TUTEE_TUTORIAL_COMPLETED;
   const { currentPair, isLoggedIn, setLoginIsRequired } = useLoginContext();
   const [isLearningRequested, setLearningRequested] = useState(false);
   const [isReexaminingRequested, setReexaminingRequested] = useState(false);
@@ -42,16 +44,7 @@ function ViewList({ className = '', id, cidString, list }: Props): React.ReactEl
   const [itemsWithCID, setItemsWithCID] = useState<ItemWithCID[]>([]);
   const studentIdentity = u8aToHex(currentPair?.publicKey);
   const [isExitConfirmOpen, setIsExitConfirmOpen] = useState(false);
-  const [hasTuteeCompletedTutorial, setHasTuteeCompletedTutorial] = useState(false);
   const [role, setRole] = useState<'tutee' | undefined>(undefined);
-
-  useEffect((): void => {
-    const loadTutorialResults = async () => {
-      const completed = await getSetting(SettingKey.TUTEE_TUTORIAL_COMPLETED);
-      setHasTuteeCompletedTutorial(completed === 'true' ? true : false);
-    };
-    loadTutorialResults();
-  }, []);
 
   async function fetchLaw(key: string) {
     const law = (await api.query.laws.laws(key)) as { isSome: boolean; unwrap: () => [Uint8Array, BN] };

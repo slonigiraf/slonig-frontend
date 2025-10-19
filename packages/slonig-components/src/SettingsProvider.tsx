@@ -9,7 +9,7 @@ interface Settings extends Record<SettingName, string | undefined> { }
 
 interface SettingsContextType {
   settings: Settings;
-  saveSetting: (key: SettingName, value: string) => Promise<void>;
+  saveSetting: (key: SettingKeyType[keyof SettingKeyType], value: string) => Promise<void>;
 }
 
 // --- Default values ---
@@ -20,7 +20,7 @@ const defaultSettings = Object.keys(SettingKey).reduce((acc, key) => {
 
 const defaultContext: SettingsContextType = {
   settings: defaultSettings,
-  saveSetting: async () => {}
+  saveSetting: async () => { }
 };
 
 const SettingsContext = createContext<SettingsContextType>(defaultContext);
@@ -31,7 +31,7 @@ interface SettingsProviderProps {
 
 export const SettingsProvider: React.FC<SettingsProviderProps> = ({ children }) => {
   const [settings, _setSettings] = useState<Settings>(defaultSettings);
-  
+
   useEffect(() => {
     (async () => {
       const newState: Partial<Settings> = {};
@@ -52,9 +52,14 @@ export const SettingsProvider: React.FC<SettingsProviderProps> = ({ children }) 
     })();
   }, []);
 
-  const saveSetting = async (key: SettingName, value: string) => {
-    _setSettings(prev => ({ ...prev, [key]: value }));
-    await storeSetting(SettingKey[key], value);
+  const saveSetting = async (key: SettingKeyType[keyof SettingKeyType], value: string) => {
+    const entry = Object.entries(SettingKey).find(([_, v]) => v === key);
+    if (!entry) throw new Error(`Invalid SettingKey: ${key}`);
+
+    const [logicalKey] = entry as [SettingName, string];
+
+    _setSettings(prev => ({ ...prev, [logicalKey]: value }));
+    await storeSetting(key, value);
   };
 
   return (
