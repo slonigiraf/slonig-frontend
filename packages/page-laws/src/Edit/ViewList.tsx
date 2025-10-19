@@ -248,7 +248,7 @@ const RoleImagesRow = styled.div`
   display: flex;
   justify-content: center;
   align-items: flex-start;
-  column-gap: 40px;
+  column-gap: 20px;
   margin-top: 10px;
   flex-wrap: wrap;
 `;
@@ -263,6 +263,7 @@ const RoleOption = styled.div`
   border-radius: 16px;
   background: white;
   box-shadow: 0 0 8px rgba(0,0,0,0.1);
+  border: 3px solid #F39200;
 
   &:hover {
     transform: scale(1.05);
