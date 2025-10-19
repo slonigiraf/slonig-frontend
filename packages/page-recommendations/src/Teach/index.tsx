@@ -36,7 +36,7 @@ function Teach({ className = '' }: Props): React.ReactElement<Props> {
   const [isExitConfirmOpen, setIsExitConfirmOpen] = useState(false);
   const [hasTutorCompletedTutorial, setHasTutorCompletedTutorial] = useState<boolean | undefined>(undefined);
   const [bothUsedSlonig, setBothUsedSlonig] = useState(false);
-  const [isSendingResultsEnabled, setIsSendingResultsEnabled] = useState(false);
+  const [isSendingResultsEnabled, setIsSendingResultsEnabled] = useState<boolean|undefined>(undefined);
 
   useEffect((): void => {
     const loadTutorialResults = async () => {
@@ -171,7 +171,7 @@ function Teach({ className = '' }: Props): React.ReactElement<Props> {
     setLetterTemplates([]);
     setReexaminations([]);
     setResultsShown(false);
-    setIsSendingResultsEnabled(false);
+    setIsSendingResultsEnabled(undefined);
   }, [deleteSetting, setLesson]);
 
   const onCloseResults = useCallback(async () => {
@@ -215,7 +215,7 @@ function Teach({ className = '' }: Props): React.ReactElement<Props> {
         <Spacer />
       </Progress>}
 
-      <Bubbles>
+      {isSendingResultsEnabled !== undefined && <Bubbles>
         {!reexamined && reexaminationToPerform &&
           <DoInstructions
             entity={reexaminationToPerform}
@@ -242,7 +242,7 @@ function Teach({ className = '' }: Props): React.ReactElement<Props> {
               onClick={() => onShowResults(lesson)} />
           </SendResults>
         }
-      </Bubbles>
+      </Bubbles>}
     </VerticalCenterItemsContainer>
   </FullFindow>;
 

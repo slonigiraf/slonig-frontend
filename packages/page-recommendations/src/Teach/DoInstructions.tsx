@@ -21,7 +21,7 @@ interface Props {
   hasTutorCompletedTutorial: boolean | undefined;
   studentName: string | null;
   bothUsedSlonig?: boolean;
-  isSendingResultsEnabled: boolean;
+  isSendingResultsEnabled: boolean|undefined;
 }
 
 function DoInstructions({ className = '', entity, onResult, studentName, bothUsedSlonig = true, isSendingResultsEnabled, hasTutorCompletedTutorial }: Props): React.ReactElement<Props> {
@@ -160,7 +160,7 @@ function DoInstructions({ className = '', entity, onResult, studentName, bothUse
   if (!skill) {
     return <StyledSpinner label={t('Loading')} />;
   }
-  
+
   return (
     <div className={className}>
       {algorithmStage ? (
