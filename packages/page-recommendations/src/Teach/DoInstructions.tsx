@@ -147,28 +147,37 @@ function DoInstructions({ className = '', entity, onResult, studentName, bothUse
     setButtonsBlured(false);
   }, [setTalkingConfirmOpen, setTutorConfirmedTalking, setButtonsBlured])
 
-  const handleStageChange = async (nextStage: AlgorithmStage | null) => {
+  const refreshStageView = useCallback(() => {
     setProcessedStages(processedStages + 1)
     setButtonsBlured(true);
     setIsChatFinished(false);
     setTutorConfirmedTalking(false);
+  }, [setProcessedStages, processedStages, setButtonsBlured, setIsChatFinished, setTutorConfirmedTalking])
+
+  const handleStageChange = async (nextStage: AlgorithmStage | null) => {
     if (nextStage !== null) {
       setIsButtonClicked(true);
       if (nextStage === algorithmStage) {
         showInfo(t('Do this again'));
+        refreshStageView();
       }
       if (isReexamination(entity) && nextStage.type === 'reimburse') {
         studentFailedReexamination();
+        refreshStageView();
       } else if (nextStage.type === 'skip') {
-        preserveFromNoobs(onResult, () => setIsButtonClicked(false));
+        preserveFromNoobs(() => { refreshStageView(); onResult }, () => setIsButtonClicked(false));
       } else if (isLetterTemplate(entity) && (nextStage.type === 'success' || nextStage.type === 'next_skill')) {
         processLetter(nextStage.type === 'success');
+        refreshStageView();
       } else if (isReexamination(entity) && nextStage.type === 'success') {
         studentPassedReexamination();
+        refreshStageView();
       } else if (nextStage.type === 'repeat') {
         preserveFromNoobs(() => setAlgorithmStage(nextStage), () => setIsButtonClicked(false));
+        refreshStageView();
       } else {
         setAlgorithmStage(nextStage);
+        refreshStageView();
         setIsButtonClicked(false);
       }
     }
