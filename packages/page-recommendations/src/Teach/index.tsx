@@ -189,7 +189,7 @@ function Teach({ className = '' }: Props): React.ReactElement<Props> {
     }
     setHasTutorCompletedTutorial(tutorStatus);
     setResultsShown(false);
-  }, [setResultsShown, onCloseTutoring, setIsViralMessageOpen]);
+  }, [deleteSetting, getSetting, hasTutorCompletedTutorial, setResultsShown, setHasTutorCompletedTutorial, onCloseTutoring, setIsViralMessageOpen]);
 
   const tryToCloseResults = useCallback((): void => {
     hasTutorCompletedTutorial ? onCloseResults() : setIsExitConfirmOpen(true);
@@ -277,7 +277,7 @@ function Teach({ className = '' }: Props): React.ReactElement<Props> {
             <OKBox info={t('This app will help you teach your tutee. Let’s start by teaching just one skill.')} onClose={() => setIsGreetingOpen(false)} />
           )}
           {lesson === null && isViralMessageOpen && (
-            <OKBox info={t('Congratulations! Now help your friends become tutors — pretend to be their tutee.')} onClose={() => setIsViralMessageOpen(false)} />
+            <OKBox info={t('Congratulations! Now help your other friends become tutors — pretend to be their tutee.')} onClose={() => setIsViralMessageOpen(false)} />
           )}
         </>
       }
