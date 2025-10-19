@@ -3,7 +3,7 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { Button, LinearProgress, styled } from '@polkadot/react-components';
 import { u8aToHex } from '@polkadot/util';
-import { Confirmation, FullFindow, VerticalCenterItemsContainer, useInfo, useLoginContext } from '@slonigiraf/app-slonig-components';
+import { Confirmation, OKBox, FullFindow, VerticalCenterItemsContainer, useInfo, useLoginContext } from '@slonigiraf/app-slonig-components';
 import { LetterTemplate, Lesson, Reexamination, getPseudonym, getLesson, getLetterTemplatesByLessonId, getReexaminationsByLessonId, getSetting, storeSetting, updateLesson, getLetter, getReexamination, SettingKey, deleteSetting, getValidLetterTemplatesByLessonId, isThereAnyLessonResult } from '@slonigiraf/db';
 import DoInstructions from './DoInstructions.js';
 import LessonsList from './LessonsList.js';
@@ -37,11 +37,14 @@ function Teach({ className = '' }: Props): React.ReactElement<Props> {
   const [hasTutorCompletedTutorial, setHasTutorCompletedTutorial] = useState<boolean | undefined>(undefined);
   const [bothUsedSlonig, setBothUsedSlonig] = useState(false);
   const [isSendingResultsEnabled, setIsSendingResultsEnabled] = useState<boolean | undefined>(undefined);
+  const [isGreetingOpen, setIsGreetingOpen] = useState(false);
 
   useEffect((): void => {
     const loadTutorialResults = async () => {
-      const completed = await getSetting(SettingKey.TUTOR_TUTORIAL_COMPLETED);
-      setHasTutorCompletedTutorial(completed === 'true' ? true : false);
+      const completedString = await getSetting(SettingKey.TUTOR_TUTORIAL_COMPLETED);
+      const completed = completedString === 'true' ? true : false
+      setHasTutorCompletedTutorial(completed);
+      setIsGreetingOpen(!completed);
     };
     loadTutorialResults();
   }, []);
@@ -172,6 +175,7 @@ function Teach({ className = '' }: Props): React.ReactElement<Props> {
     setReexaminations([]);
     setResultsShown(false);
     setIsSendingResultsEnabled(undefined);
+    setIsGreetingOpen(false);
   }, [deleteSetting, setLesson]);
 
   const onCloseResults = useCallback(async () => {
@@ -263,6 +267,9 @@ function Teach({ className = '' }: Props): React.ReactElement<Props> {
           }
           {isExitConfirmOpen && (
             <Confirmation question={t('Sure to exit tutoring?')} onClose={() => setIsExitConfirmOpen(false)} onConfirm={onCloseResults} />
+          )}
+          {lesson !== null && isGreetingOpen && (
+            <OKBox info={t('This guide will help you teach your tutee. Let’s start by teaching just one skill.')} onClose={() => setIsGreetingOpen(false)} />
           )}
         </>
       }

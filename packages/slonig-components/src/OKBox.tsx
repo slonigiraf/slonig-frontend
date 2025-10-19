@@ -2,12 +2,11 @@ import React from 'react';
 import { useTranslation } from './translate.js';
 import { Button, Modal, styled } from '@polkadot/react-components';
 interface Props {
-  question: string;
+  info: string;
   onClose: () => void;
-  onConfirm: () => void;
 }
 
-function Confirmation({ question, onClose, onConfirm }: Props): React.ReactElement<Props> | null {
+function Confirmation({ info: question, onClose }: Props): React.ReactElement<Props> | null {
   const { t } = useTranslation();
 
   return (
@@ -20,8 +19,7 @@ function Confirmation({ question, onClose, onConfirm }: Props): React.ReactEleme
         <Title>{question}</Title>
         <br />
         <ButtonsRow>
-          <Button className='highlighted--button' label={t('Yes')} onClick={onConfirm} />
-          <Button className='highlighted--button' label={t('No')} onClick={onClose} />
+          <Button className='highlighted--button' label={t('OK')} onClick={onClose} />
         </ButtonsRow>
       </Modal.Content>
     </StyledModal>
