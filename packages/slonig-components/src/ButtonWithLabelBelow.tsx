@@ -1,5 +1,6 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { Button, CustomSVGIcon, Icon, styled } from '@polkadot/react-components';
+import { HintBubble } from './index.js';
 
 const IconWrapper = styled.div`
   display: block;
@@ -21,12 +22,19 @@ const StyledLabel = styled.span`
 `;
 
 export default function ButtonWithLabelBelow(props: any) {
-  const { icon, svg, label, ...restProps } = props;
+  const { icon, svg, label, hint, showHint, ...restProps } = props;
+  const [isHintShown, setIsHintShown] = useState(showHint);
   return (
-    <Button className="icon-button-with-label-below noHighlight" {...restProps}>
-      {icon && <IconWrapper><Icon icon={icon} /></IconWrapper>}
-      {svg && <IconWrapper><CustomSVGIcon svg={svg} /></IconWrapper>}
-      {label && <StyledLabel>{label}</StyledLabel>}
-    </Button>
+    <>{isHintShown &&
+      <HintBubble onClick={() => setIsHintShown(false)}>
+        <h2>{hint}</h2>
+      </HintBubble>
+    }
+      <Button className="icon-button-with-label-below noHighlight" {...restProps}>
+        {icon && <IconWrapper><Icon icon={icon} /></IconWrapper>}
+        {svg && <IconWrapper><CustomSVGIcon svg={svg} /></IconWrapper>}
+        {label && <StyledLabel>{label}</StyledLabel>}
+      </Button>
+    </>
   );
 }

@@ -49,6 +49,8 @@ function ScanQR({ className = '', label }: Props): React.ReactElement<Props> {
         svg={scanSVG}
         label={label}
         onClick={scan}
+        hint={t('Next time, use this button to scan.')}
+        showHint={false}
       />
       {isQROpen && (
         <Modal
