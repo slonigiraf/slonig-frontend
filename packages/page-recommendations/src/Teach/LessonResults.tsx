@@ -7,7 +7,7 @@ import { styled, Button, Input, InputBalance, Modal } from '@polkadot/react-comp
 import { useApi, useBlockTime, useToggle } from '@polkadot/react-hooks';
 import { u8aToHex, hexToU8a, u8aWrapBytes, BN_ONE, BN_ZERO, formatBalance } from '@polkadot/util';
 import type { LessonResult } from '@slonigiraf/app-slonig-components';
-import { useLoginContext, CenterQRContainer, balanceToSlonString, SenderComponent, useInfo, nameFromKeyringPair, predictBlockNumber, FullscreenActivity } from '@slonigiraf/app-slonig-components';
+import { useLoginContext, CenterQRContainer, balanceToSlonString, SenderComponent, useInfo, nameFromKeyringPair, predictBlockNumber, FullscreenActivity, useSettings } from '@slonigiraf/app-slonig-components';
 import { Lesson, getLastUnusedLetterNumber, setLastUsedLetterNumber, storeSetting, getReexaminationsByLessonId, getValidLetterTemplatesByLessonId, SettingKey, serializeAsLetter, LetterTemplate, putLetterTemplate } from '@slonigiraf/db';
 import { getPublicDataToSignByReferee, getPrivateDataToSignByReferee } from '@slonigiraf/helpers';
 import { useTranslation } from '../translate.js';
@@ -25,6 +25,7 @@ function LessonResults({ className = '', lesson, updateAndStoreLesson, onClose, 
   // Initialize api, ipfs and translation
   const { api, isApiReady } = useApi();
   const { t } = useTranslation();
+  const { saveSetting } = useSettings();
   const { currentPair } = useLoginContext();
   const tokenSymbol = formatBalance.findSi('-').text;
   const dontSign = lesson ? (lesson.dWarranty === '0' || lesson.dValidity === 0) : true;
@@ -57,7 +58,7 @@ function LessonResults({ className = '', lesson, updateAndStoreLesson, onClose, 
   }, [countOfValidLetters, countOfReexaminationsPerformed, dontSign]);
 
   const onDataSent = useCallback(async (): Promise<void> => {
-    await storeSetting(SettingKey.TUTOR_TUTORIAL_COMPLETED, 'true');
+    saveSetting(SettingKey.TUTOR_TUTORIAL_COMPLETED, 'true');
     onFinished();
   }, [onClose]);
 

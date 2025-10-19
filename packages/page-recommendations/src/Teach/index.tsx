@@ -3,7 +3,7 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { Button, LinearProgress, styled } from '@polkadot/react-components';
 import { u8aToHex } from '@polkadot/util';
-import { Confirmation, OKBox, FullFindow, VerticalCenterItemsContainer, useInfo, useLoginContext, HintBubble } from '@slonigiraf/app-slonig-components';
+import { Confirmation, OKBox, FullFindow, VerticalCenterItemsContainer, useInfo, useLoginContext, HintBubble, useSettings } from '@slonigiraf/app-slonig-components';
 import { LetterTemplate, Lesson, Reexamination, getPseudonym, getLesson, getLetterTemplatesByLessonId, getReexaminationsByLessonId, getSetting, storeSetting, updateLesson, getLetter, getReexamination, SettingKey, deleteSetting, getValidLetterTemplatesByLessonId, isThereAnyLessonResult } from '@slonigiraf/db';
 import DoInstructions from './DoInstructions.js';
 import LessonsList from './LessonsList.js';
@@ -39,22 +39,14 @@ function Teach({ className = '' }: Props): React.ReactElement<Props> {
   const [reexaminations, setReexaminations] = useState<Reexamination[]>([]);
   const [areResultsShown, setResultsShown] = useState(false);
   const [isExitConfirmOpen, setIsExitConfirmOpen] = useState(false);
-  const [hasTutorCompletedTutorial, setHasTutorCompletedTutorial] = useState<boolean | undefined>(undefined);
+  const { settings, saveSetting } = useSettings();
+  const hasTutorCompletedTutorial = settings.TUTOR_TUTORIAL_COMPLETED === 'true';
+  const isViralMessageOpen = settings.VIRAL_TUTORIAL_COMPLETED !== 'true' && hasTutorCompletedTutorial;
   const [bothUsedSlonig, setBothUsedSlonig] = useState(false);
   const [isSendingResultsEnabled, setIsSendingResultsEnabled] = useState<boolean | undefined>(undefined);
-  const [isGreetingOpen, setIsGreetingOpen] = useState(false);
-  const [isViralMessageOpen, setIsViralMessageOpen] = useState(false);
+  const [isGreetingOpen, setIsGreetingOpen] = useState(!hasTutorCompletedTutorial);
   const [isHelpQRInfoShown, setIsHelpQRInfoShown] = useState(showHelpQRInfo);
 
-  useEffect((): void => {
-    const loadTutorialResults = async () => {
-      const completedString = await getSetting(SettingKey.TUTOR_TUTORIAL_COMPLETED);
-      const completed = completedString === 'true' ? true : false
-      setHasTutorCompletedTutorial(completed);
-      setIsGreetingOpen(!completed);
-    };
-    loadTutorialResults();
-  }, []);
 
   useEffect(() => {
     const checkResults = async () => {
@@ -188,14 +180,8 @@ function Teach({ className = '' }: Props): React.ReactElement<Props> {
   const onCloseResults = useCallback(async () => {
     onCloseTutoring();
     await deleteSetting(SettingKey.LESSON_RESULTS_ARE_SHOWN);
-    const tutorStatusString = await getSetting(SettingKey.TUTOR_TUTORIAL_COMPLETED);
-    const tutorStatus = tutorStatusString === 'true' ? true : false;
-    if (tutorStatus === true && !hasTutorCompletedTutorial) {
-      setIsViralMessageOpen(true);
-    }
-    setHasTutorCompletedTutorial(tutorStatus);
     setResultsShown(false);
-  }, [deleteSetting, getSetting, hasTutorCompletedTutorial, setResultsShown, setHasTutorCompletedTutorial, onCloseTutoring, setIsViralMessageOpen]);
+  }, [deleteSetting, getSetting, hasTutorCompletedTutorial, setResultsShown, onCloseTutoring]);
 
   const tryToCloseResults = useCallback((): void => {
     hasTutorCompletedTutorial ? onCloseResults() : setIsExitConfirmOpen(true);
@@ -284,7 +270,7 @@ function Teach({ className = '' }: Props): React.ReactElement<Props> {
             <OKBox info={t('This app will help you teach your tutee. Let’s start by teaching just one skill.')} onClose={() => setIsGreetingOpen(false)} />
           )}
           {lesson === null && isViralMessageOpen && (
-            <OKBox info={t('Congratulations! Now help your other friends become tutors — pretend to be their tutee.')} onClose={() => setIsViralMessageOpen(false)} />
+            <OKBox info={t('Congratulations! Now help your other friends become tutors — pretend to be their tutee.')} onClose={() => saveSetting(SettingKey.VIRAL_TUTORIAL_COMPLETED, 'true')} />
           )}
           {isHelpQRInfoShown && (
             <OKBox info={t('Tell the tutee to scan the same QR code.')} onClose={() => setIsHelpQRInfoShown(false)} />

@@ -32,7 +32,7 @@ function ViewList({ className = '', id, cidString, list }: Props): React.ReactEl
   const expanded = queryParams.get('expanded') != null;
   const { t } = useTranslation();
   const { settings } = useSettings();
-  const hasTuteeCompletedTutorial = settings.TUTEE_TUTORIAL_COMPLETED;
+  const hasTuteeCompletedTutorial = settings.TUTEE_TUTORIAL_COMPLETED === 'true';
   const { currentPair, isLoggedIn, setLoginIsRequired } = useLoginContext();
   const [isLearningRequested, setLearningRequested] = useState(false);
   const [isReexaminingRequested, setReexaminingRequested] = useState(false);
