@@ -21,9 +21,10 @@ interface Props {
   hasTutorCompletedTutorial: boolean | undefined;
   studentName: string | null;
   bothUsedSlonig?: boolean;
+  isSendingResultsEnabled: boolean;
 }
 
-function DoInstructions({ className = '', entity, onResult, studentName, bothUsedSlonig = true, hasTutorCompletedTutorial }: Props): React.ReactElement<Props> {
+function DoInstructions({ className = '', entity, onResult, studentName, bothUsedSlonig = true, isSendingResultsEnabled, hasTutorCompletedTutorial }: Props): React.ReactElement<Props> {
   const { ipfs, isIpfsReady } = useIpfsContext();
   const [skill, setSkill] = useState<Skill>();
   const { t } = useTranslation();
@@ -159,7 +160,7 @@ function DoInstructions({ className = '', entity, onResult, studentName, bothUse
   if (!skill) {
     return <StyledSpinner label={t('Loading')} />;
   }
-
+  
   return (
     <div className={className}>
       {algorithmStage ? (
@@ -168,13 +169,14 @@ function DoInstructions({ className = '', entity, onResult, studentName, bothUse
             key={algorithmStage.getId() + processedStages}
             messages={algorithmStage.getMessages()}
             hasTutorCompletedTutorial={hasTutorCompletedTutorial}
+            isSendingResultsEnabled={isSendingResultsEnabled}
             onAllMessagesRevealed={() => setIsChatFinished(true)}
           />
 
           {algorithmStage.getChatDecorator()}
 
           <InstructionsButtonsContainer>
-            <DecisionBubble $blur={hasTutorCompletedTutorial === false && areButtonsBlured}>
+            <DecisionBubble $blur={hasTutorCompletedTutorial === false && (areButtonsBlured || isSendingResultsEnabled)}>
               <ChatContainer>
                 <h2>{t('⚖️ Decide on the next step')}</h2>
                 <span>

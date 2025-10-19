@@ -177,8 +177,8 @@ function Teach({ className = '' }: Props): React.ReactElement<Props> {
   const onCloseResults = useCallback(async () => {
     onCloseTutoring();
     await deleteSetting(SettingKey.LESSON_RESULTS_ARE_SHOWN);
-    await storeSetting(SettingKey.TUTOR_TUTORIAL_COMPLETED, 'true');
-    setHasTutorCompletedTutorial(true);
+    const tutorStatus = await getSetting(SettingKey.TUTOR_TUTORIAL_COMPLETED);
+    setHasTutorCompletedTutorial(tutorStatus === 'true' ? true : false);
     setResultsShown(false);
   }, [setResultsShown, onCloseTutoring]);
 
@@ -216,8 +216,23 @@ function Teach({ className = '' }: Props): React.ReactElement<Props> {
       </Progress>}
 
       <Bubbles>
-        {!reexamined && reexaminationToPerform && <DoInstructions entity={reexaminationToPerform} hasTutorCompletedTutorial={hasTutorCompletedTutorial} onResult={updateReexamined} studentName={studentName} key={'reexaminine' + reexaminationToPerform.cid} />}
-        {reexamined && letterTemplateToIssue && <DoInstructions entity={letterTemplateToIssue} hasTutorCompletedTutorial={hasTutorCompletedTutorial} onResult={updateLearned} studentName={studentName} bothUsedSlonig={bothUsedSlonig} key={'learn' + letterTemplateToIssue.cid} />}
+        {!reexamined && reexaminationToPerform &&
+          <DoInstructions
+            entity={reexaminationToPerform}
+            hasTutorCompletedTutorial={hasTutorCompletedTutorial}
+            onResult={updateReexamined}
+            studentName={studentName}
+            isSendingResultsEnabled={isSendingResultsEnabled}
+            key={'reexaminine' + reexaminationToPerform.cid} />}
+        {reexamined && letterTemplateToIssue &&
+          <DoInstructions
+            entity={letterTemplateToIssue}
+            hasTutorCompletedTutorial={hasTutorCompletedTutorial}
+            onResult={updateLearned}
+            studentName={studentName}
+            bothUsedSlonig={bothUsedSlonig}
+            isSendingResultsEnabled={isSendingResultsEnabled}
+            key={'learn' + letterTemplateToIssue.cid} />}
         {lesson &&
           <SendResults>
             <Button
