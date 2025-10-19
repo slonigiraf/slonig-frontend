@@ -154,7 +154,7 @@ function DoInstructions({ className = '', entity, onResult, studentName, bothUse
     setTutorConfirmedTalking(false);
   }, [setProcessedStages, processedStages, setButtonsBlured, setIsChatFinished, setTutorConfirmedTalking])
 
-  const handleStageChange = async (nextStage: AlgorithmStage | null) => {
+  const handleStageChange = useCallback(async (nextStage: AlgorithmStage | null) => {
     if (nextStage !== null) {
       setIsButtonClicked(true);
       if (nextStage === algorithmStage) {
@@ -181,7 +181,18 @@ function DoInstructions({ className = '', entity, onResult, studentName, bothUse
         setIsButtonClicked(false);
       }
     }
-  };
+  }, [algorithmStage,
+    entity,
+    t,
+    showInfo,
+    refreshStageView,
+    studentFailedReexamination,
+    studentPassedReexamination,
+    preserveFromNoobs,
+    processLetter,
+    setAlgorithmStage,
+    setIsButtonClicked,
+    onResult]);
 
   if (!skill) {
     return <StyledSpinner label={t('Loading')} />;
