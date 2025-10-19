@@ -54,6 +54,9 @@ const ChatSimulation: React.FC<ChatSimulationProps> = ({ messages, hasTutorCompl
                   </>
                 )}
               </Bubble>
+              <Arrow>
+                <h2><b>↓</b></h2>
+              </Arrow>
             </MessageContainer>
 
             {isNext && (
@@ -67,9 +70,7 @@ const ChatSimulation: React.FC<ChatSimulationProps> = ({ messages, hasTutorCompl
               </NextOverlay>
             )}
 
-            <Arrow>
-              <h2><b>↓</b></h2>
-            </Arrow>
+
           </MessageWrapper>
         );
       })}
