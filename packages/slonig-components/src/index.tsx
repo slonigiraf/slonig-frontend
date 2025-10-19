@@ -21,7 +21,7 @@ import DownloadQRButton from './DownloadQRButton.js';
 import DBExport from './DBExport.js';
 import Confirmation from './Confirmation.js';
 import SelectableList from './SelectableList.js';
-import { Button, styled } from '@polkadot/react-components';
+import { Button, Modal, styled } from '@polkadot/react-components';
 import BN from 'bn.js';
 import { getIPFSContentIDForBytesAndPinIt, getIPFSBytesFromContentID, balanceToSlonString, createPeer, receiveWebRTCData, getQrWidth, saveToSessionStorage, loadFromSessionStorage, getKey, arrayBufferToBase64, base64ToArrayBuffer, decryptData, encryptData, keyForCid, nameFromKeyringPair, getBaseUrl, CODEC, getIPFSContentID, getIPFSContentIDAndPinIt, getIPFSDataFromContentID, digestFromCIDv1, getCIDFromBytes, storeEncryptedTextOnIPFS, retrieveDecryptedDataFromIPFS, parseJson, qrPadding } from './utils.js';
 import { useEffect, useState } from 'react';
@@ -94,6 +94,31 @@ export interface SignerState {
 }
 
 // Styled components
+export const VerticallyCenteredModal = styled(Modal)`
+  /* Hide header and close button */
+  button[data-testid='close-modal'] {
+    opacity: 0;
+    background: transparent;
+    border: none;
+    cursor: pointer;
+  }
+  button[data-testid='close-modal']:focus {
+    outline: none;
+  }
+  .ui--Modal-Header {
+    display: none !important;
+  }
+
+  /* Center the modal vertically & horizontally */
+  .ui--Modal__body {
+    position: fixed !important;
+    top: 50% !important;
+    left: 50% !important;
+    transform: translate(-50%, -50%) !important;
+    margin: 0 !important;
+  }
+`;
+
 export const FullWidthContainer = styled.div`
   width: 100%;
 `;

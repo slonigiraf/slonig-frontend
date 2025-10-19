@@ -14,7 +14,7 @@ import Columns from './Columns.js';
 import Content from './Content.js';
 import Header from './Header.js';
 
-interface Props {
+export interface Props {
   size?: 'large' | 'medium' | 'small' | 'tiny';
   children: React.ReactNode;
   className?: string;

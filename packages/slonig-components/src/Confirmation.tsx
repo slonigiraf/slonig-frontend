@@ -1,6 +1,7 @@
 import React from 'react';
 import { useTranslation } from './translate.js';
 import { Button, Modal, styled } from '@polkadot/react-components';
+import { VerticallyCenteredModal } from './index.js';
 interface Props {
   question: string;
   onClose: () => void;
@@ -11,7 +12,7 @@ function Confirmation({ question, onClose, onConfirm }: Props): React.ReactEleme
   const { t } = useTranslation();
 
   return (
-    <StyledModal
+    <VerticallyCenteredModal
       header=''
       onClose={onClose}
       size="tiny"
@@ -24,7 +25,7 @@ function Confirmation({ question, onClose, onConfirm }: Props): React.ReactEleme
           <Button className='highlighted--button' label={t('No')} onClick={onClose} />
         </ButtonsRow>
       </Modal.Content>
-    </StyledModal>
+    </VerticallyCenteredModal>
   );
 }
 const ButtonsRow = styled.div`
@@ -43,21 +44,6 @@ const Title = styled.h1`
   width: 100%;
   text-align: center;
   margin: 0.5rem 0 0;
-`;
-
-const StyledModal = styled(Modal)`
-  button[data-testid='close-modal'] {
-    opacity: 0;
-    background: transparent;
-    border: none;
-    cursor: pointer;
-  }
-  button[data-testid='close-modal']:focus {
-    outline: none;
-  }
-  .ui--Modal-Header {
-    display: none !important;
-  }
 `;
 
 export default React.memo(Confirmation);

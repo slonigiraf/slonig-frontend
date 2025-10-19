@@ -1,6 +1,7 @@
 import React from 'react';
 import { useTranslation } from './translate.js';
 import { Button, Modal, styled } from '@polkadot/react-components';
+import { VerticallyCenteredModal } from './index.js';
 interface Props {
   info: string;
   onClose: () => void;
@@ -10,7 +11,7 @@ function OKBox({ info: question, onClose }: Props): React.ReactElement<Props> | 
   const { t } = useTranslation();
 
   return (
-    <StyledModal
+    <VerticallyCenteredModal
       header=''
       onClose={onClose}
       size="tiny"
@@ -22,7 +23,7 @@ function OKBox({ info: question, onClose }: Props): React.ReactElement<Props> | 
           <Button className='highlighted--button' label={t('OK')} onClick={onClose} />
         </ButtonsRow>
       </Modal.Content>
-    </StyledModal>
+    </VerticallyCenteredModal>
   );
 }
 const ButtonsRow = styled.div`
@@ -43,19 +44,5 @@ const Title = styled.h1`
   margin: 0.5rem 0 0;
 `;
 
-const StyledModal = styled(Modal)`
-  button[data-testid='close-modal'] {
-    opacity: 0;
-    background: transparent;
-    border: none;
-    cursor: pointer;
-  }
-  button[data-testid='close-modal']:focus {
-    outline: none;
-  }
-  .ui--Modal-Header {
-    display: none !important;
-  }
-`;
 
 export default React.memo(OKBox);
