@@ -4,7 +4,7 @@ import type { Skill } from '@slonigiraf/app-slonig-components';
 import ExampleExercisesButton from './ExampleExercisesButton.js';
 
 class ValidatingAlgorithm extends Algorithm {
-    constructor(t: any, studentName: string | null, skill: Skill) {
+    constructor(t: any, studentName: string | null, skill: Skill, isBeforeTeaching: boolean) {
         super();
         const questions = skill ? skill.q : [];
         let question1: string = questions.length > 0 ? questions[0].h : t('SOME EXERCISE FOR SKILL TRAINING (THE TUTOR SHOULD KNOW)');
@@ -70,7 +70,7 @@ class ValidatingAlgorithm extends Algorithm {
             t('No'),
             [
                 { title: t('📖 Read what’s happening'), text: t('The tutee has not created a similar exercise.') },
-                { title: t('🗣 Say to the tutee'), text: t('Repeat after me:') + ' ' + question2, image: exerciseImage2},
+                { title: t('🗣 Say to the tutee'), text: t('Repeat after me:') + ' ' + question2, image: exerciseImage2 },
             ],
             t('Has the tutee repeated correctly after me?')
         );
@@ -80,7 +80,12 @@ class ValidatingAlgorithm extends Algorithm {
             'begin',
             t('Yes'),
             [
-                { title: t('📖 Read what’s happening'), text: t('___ asks you to teach a skill. Before starting, try to earn a bonus by testing the previous skill:').replace('___', studentName) + (skill && " \"" + skill.h + "\".") },
+                {
+                    title: t('📖 Read what’s happening'),
+                    text: isBeforeTeaching ?
+                        t('___ asks you to teach a skill. Before starting, try to earn a bonus by testing the previous skill:').replace('___', studentName) + (skill && " \"" + skill.h + "\".")
+                        : t('___ asks you to reexamine a skill. Try to earn a bonus by testing the skill:').replace('___', studentName) + (skill && " \"" + skill.h + "\".")
+                },
                 { title: t('🗣 Say to the tutee'), text: t('Create an exercise similar to this:') + ' ' + question1, image: exerciseImage1 },
             ],
             t('Has the tutee now created a similar exercise?')
@@ -92,7 +97,7 @@ class ValidatingAlgorithm extends Algorithm {
             t('Yes'),
             [
                 { title: t('📖 Read what’s happening'), text: t('The tutee has repeated correctly after me.') },
-                { title: t('🗣 Say to the tutee'), text: t('Create an exercise similar to this:') + ' '+ question1, image: exerciseImage1}
+                { title: t('🗣 Say to the tutee'), text: t('Create an exercise similar to this:') + ' ' + question1, image: exerciseImage1 }
             ],
             t('Has the tutee now created a similar exercise?')
         );

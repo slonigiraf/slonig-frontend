@@ -232,6 +232,7 @@ function Teach({ className = '' }: Props): React.ReactElement<Props> {
             onResult={updateReexamined}
             studentName={studentName}
             isSendingResultsEnabled={isSendingResultsEnabled}
+            isBeforeTeaching={letterTemplates && letterTemplates.length > 0}
             key={'reexaminine' + reexaminationToPerform.cid} />}
         {reexamined && letterTemplateToIssue &&
           <DoInstructions

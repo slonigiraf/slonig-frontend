@@ -22,9 +22,10 @@ interface Props {
   studentName: string | null;
   bothUsedSlonig?: boolean;
   isSendingResultsEnabled: boolean | undefined;
+  isBeforeTeaching?: boolean;
 }
 
-function DoInstructions({ className = '', entity, onResult, studentName, bothUsedSlonig = true, isSendingResultsEnabled, hasTutorCompletedTutorial }: Props): React.ReactElement<Props> {
+function DoInstructions({ className = '', entity, onResult, studentName, bothUsedSlonig = true, isSendingResultsEnabled, hasTutorCompletedTutorial, isBeforeTeaching = false}: Props): React.ReactElement<Props> {
   const { ipfs, isIpfsReady } = useIpfsContext();
   const [skill, setSkill] = useState<Skill>();
   const { t } = useTranslation();
@@ -68,7 +69,7 @@ function DoInstructions({ className = '', entity, onResult, studentName, bothUse
               const newAlgorithm = new TutoringAlgorithm(t, studentName, skill, bothUsedSlonig);
               setAlgorithmStage(newAlgorithm.getBegin());
             } else {
-              const newAlgorithm = new ValidatingAlgorithm(t, studentName, skill, entity);
+              const newAlgorithm = new ValidatingAlgorithm(t, studentName, skill, isBeforeTeaching);
               setAlgorithmStage(newAlgorithm.getBegin());
             }
           }
