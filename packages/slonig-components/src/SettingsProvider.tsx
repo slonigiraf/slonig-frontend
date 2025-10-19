@@ -1,26 +1,26 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import { getSetting, storeSetting, SettingKey } from '@slonigiraf/db';
 
-interface TutorialStep {
-  TUTOR_TUTORIAL_COMPLETED: boolean;
-  TUTEE_TUTORIAL_COMPLETED: boolean;
-  SCAN_TUTORIAL_COMPLETED: boolean;
+interface Settings {
+  TUTOR_TUTORIAL_COMPLETED: string;
+  TUTEE_TUTORIAL_COMPLETED: string;
+  SCAN_TUTORIAL_COMPLETED: string;
 }
 
 interface SettingsContextType {
-  tutorialStep: TutorialStep;
-  setTutorialStep: (key: keyof TutorialStep, value: boolean) => void;
+  settings: Settings;
+  setSettings: (key: keyof Settings, value: string) => Promise<void>;
 }
 
-const defaultTutorialStep: TutorialStep = {
-  TUTOR_TUTORIAL_COMPLETED: false,
-  TUTEE_TUTORIAL_COMPLETED: false,
-  SCAN_TUTORIAL_COMPLETED: false
+const defaultSettings: Settings = {
+  TUTOR_TUTORIAL_COMPLETED: 'false',
+  TUTEE_TUTORIAL_COMPLETED: 'false',
+  SCAN_TUTORIAL_COMPLETED: 'false'
 };
 
 const defaultContext: SettingsContextType = {
-  tutorialStep: defaultTutorialStep,
-  setTutorialStep: () => {}
+  settings: defaultSettings,
+  setSettings: async () => {}
 };
 
 const SettingsContext = createContext<SettingsContextType>(defaultContext);
@@ -30,39 +30,39 @@ interface SettingsProviderProps {
 }
 
 export const SettingsProvider: React.FC<SettingsProviderProps> = ({ children }) => {
-  const [tutorialStep, setTutorialStepState] = useState<TutorialStep>(defaultTutorialStep);
+  const [settings, _setSettings] = useState<Settings>(defaultSettings);
 
-  console.log('tutorialStep: ', tutorialStep)
+  console.log(settings)
 
-  // Load each key individually on mount
   useEffect(() => {
     (async () => {
-      const keys = Object.keys(defaultTutorialStep) as (keyof TutorialStep)[];
-      const newState: Partial<TutorialStep> = {};
+      const keys = Object.keys(defaultSettings) as (keyof Settings)[];
+      const newState: Partial<Settings> = {};
 
       for (const key of keys) {
         try {
-          // Convert to SettingKey dynamically
           const settingKey = (SettingKey as any)[key] ?? key;
           const storedValue = await getSetting(settingKey);
-          newState[key] = storedValue === 'true';
+          if (storedValue !== undefined && storedValue !== null) {
+            newState[key] = storedValue;
+          }
         } catch (err) {
           console.warn(`Could not load setting for ${key}`, err);
         }
       }
 
-      setTutorialStepState(prev => ({ ...prev, ...newState }));
+      _setSettings(prev => ({ ...prev, ...newState }));
     })();
   }, []);
 
-  const setTutorialStep = async (key: keyof TutorialStep, value: boolean) => {
-    setTutorialStepState(prev => ({ ...prev, [key]: value }));
+  const setSettings = async (key: keyof Settings, value: string) => {
+    _setSettings(prev => ({ ...prev, [key]: value }));
     const settingKey = (SettingKey as any)[key] ?? key;
-    await storeSetting(settingKey, value.toString());
+    await storeSetting(settingKey, value);
   };
 
   return (
-    <SettingsContext.Provider value={{ tutorialStep, setTutorialStep }}>
+    <SettingsContext.Provider value={{ settings: settings, setSettings }}>
       {children}
     </SettingsContext.Provider>
   );
