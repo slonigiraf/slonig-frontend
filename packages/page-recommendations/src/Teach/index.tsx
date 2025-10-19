@@ -234,7 +234,7 @@ function Teach({ className = '' }: Props): React.ReactElement<Props> {
             isSendingResultsEnabled={isSendingResultsEnabled}
             key={'learn' + letterTemplateToIssue.cid} />}
         {lesson &&
-          <SendResults>
+          <SendResults $blur={isSendingResultsEnabled !== true}>
             {hasTutorCompletedTutorial === false && isSendingResultsEnabled === true &&
               <HintBubble>
                 <h2>{t('Press this button to send the results and get your reward for tutoring')}</h2>
@@ -270,13 +270,18 @@ function Teach({ className = '' }: Props): React.ReactElement<Props> {
   );
 }
 
-const SendResults = styled.div`
+const SendResults = styled.div<{ $blur: boolean }>`
   position: relative; /* 🧭 important for absolute positioning of HintBubble */
   display: flex;
   flex-direction: column;
   align-items: center;
   width: 100%;
   margin-top: 10px;
+
+    transition: filter 0.3s ease, opacity 0.3s ease;
+  filter: ${({ $blur }) => ($blur ? 'blur(3px) brightness(0.7)' : 'none')};
+  opacity: ${({ $blur }) => ($blur ? 0.5 : 1)};
+  pointer-events: ${({ $blur }) => ($blur ? 'none' : 'auto')};
 `;
 
 const Spacer = styled.div`
@@ -336,7 +341,5 @@ const HintBubble = styled.div`
     to { transform: translateX(-50%) translateY(-12px); opacity: 1; }
   }
 `;
-
-
 
 export default React.memo(Teach);
