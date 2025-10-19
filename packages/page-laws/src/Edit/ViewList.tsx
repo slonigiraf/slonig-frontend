@@ -226,11 +226,11 @@ function ViewList({ className = '', id, cidString, list }: Props): React.ReactEl
         <RoleImagesRow>
           <RoleOption onClick={() => setRole('tutee')}>
             <img src="./tutee.png" alt="Tutee" />
-            <p>{t('Tutee')}</p>
+            <p>{t('TUTEE – learns new skills and earns badges')}</p>
           </RoleOption>
           <RoleOption onClick={() => setRole('tutor')}>
             <img src="./tutor.png" alt="Tutor" />
-            <p>{t('Tutor')}</p>
+            <p>{t('TUTOR – helps friends and earns rewards')}</p>
           </RoleOption>
         </RoleImagesRow>
       </NotClosableFullscreen> :
@@ -264,6 +264,7 @@ const RoleOption = styled.div`
   background: white;
   box-shadow: 0 0 8px rgba(0,0,0,0.1);
   border: 3px solid #F39200;
+  width: 150px;
 
   &:hover {
     transform: scale(1.05);
