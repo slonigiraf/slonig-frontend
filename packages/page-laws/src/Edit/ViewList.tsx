@@ -223,13 +223,16 @@ function ViewList({ className = '', id, cidString, list }: Props): React.ReactEl
       (!role && lessonInUrl) ? <NotClosableFullscreen>
         <Title>{t('Choose your role for now')}</Title>
         <br />
-        <RoleButtonsRow>
-          <Button className='highlighted--button' label={t('Tutee')} onClick={() => setRole('tutee')} />
-          <Button className='highlighted--button' label={t('Tutor')} onClick={() => setRole('tutor')} />
-        </RoleButtonsRow>
-        <div style={{ display: 'flex', justifyContent: 'center', width: '80%', paddingTop: '10px' }}>
-          <img src="./signup.png" style={{ width: '100%' }} alt="Signup" />
-        </div>
+        <RoleImagesRow>
+          <RoleOption onClick={() => setRole('tutee')}>
+            <img src="./tutee.png" alt="Tutee" />
+            <p>{t('Tutee')}</p>
+          </RoleOption>
+          <RoleOption onClick={() => setRole('tutor')}>
+            <img src="./tutor.png" alt="Tutor" />
+            <p>{t('Tutor')}</p>
+          </RoleOption>
+        </RoleImagesRow>
       </NotClosableFullscreen> :
         <FullscreenActivity captionElement={<KatexSpan content={list.h} />} onClose={exitFullScreenActivity} >
           <RemoveBorders>{content}</RemoveBorders>
@@ -239,6 +242,47 @@ function ViewList({ className = '', id, cidString, list }: Props): React.ReactEl
         </FullscreenActivity> :
       content);
 }
+
+const RoleImagesRow = styled.div`
+  width: 100%;
+  display: flex;
+  justify-content: center;
+  align-items: flex-start;
+  column-gap: 40px;
+  margin-top: 10px;
+  flex-wrap: wrap;
+`;
+
+const RoleOption = styled.div`
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  cursor: pointer;
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+  padding: 10px;
+  border-radius: 16px;
+  background: white;
+  box-shadow: 0 0 8px rgba(0,0,0,0.1);
+
+  &:hover {
+    transform: scale(1.05);
+    box-shadow: 0 0 12px rgba(0,0,0,0.2);
+  }
+
+  img {
+    height: 140px;
+    width: auto;
+    object-fit: contain;
+    margin-bottom: 8px;
+    display: block;
+  }
+
+  p {
+    margin: 0;
+    font-weight: bold;
+    text-align: center;
+  }
+`;
 
 const Title = styled.h1`
   width: 100%;
