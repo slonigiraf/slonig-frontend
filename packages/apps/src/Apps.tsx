@@ -10,7 +10,7 @@ import WarmUp from './WarmUp.js';
 import UI from './UI.js';
 import { IpfsProvider, TokenTransferProvider } from '@slonigiraf/app-slonig-components';
 import { InfoProvider } from '@slonigiraf/app-slonig-components';
-import { LoginProvider } from '@slonigiraf/app-slonig-components';
+import { LoginProvider, SettingsProvider } from '@slonigiraf/app-slonig-components';
 export const PORTAL_ID = 'portals';
 
 function Apps({ className = '' }: Props): React.ReactElement<Props> {
@@ -22,17 +22,19 @@ function Apps({ className = '' }: Props): React.ReactElement<Props> {
     [apiEndpoint, isDevelopment]
   );
   return (
-    <InfoProvider>
-      <IpfsProvider>
-        <GlobalStyle uiHighlight={uiHighlight} />
-        <LoginProvider>
-          <TokenTransferProvider>
-            <UI />
-          </TokenTransferProvider>
-        </LoginProvider>
-        <WarmUp />
-      </IpfsProvider>
-    </InfoProvider>
+    <SettingsProvider>
+      <InfoProvider>
+        <IpfsProvider>
+          <GlobalStyle uiHighlight={uiHighlight} />
+          <LoginProvider>
+            <TokenTransferProvider>
+              <UI />
+            </TokenTransferProvider>
+          </LoginProvider>
+          <WarmUp />
+        </IpfsProvider>
+      </InfoProvider>
+    </SettingsProvider>
   );
 }
 
