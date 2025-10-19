@@ -217,10 +217,7 @@ function ViewList({ className = '', id, cidString, list }: Props): React.ReactEl
     )}
   </> : <></>;
 
-  return list == null ?
-    <StyledSpinnerContainer><Spinner noLabel /></StyledSpinnerContainer> :
-    (isAPairWork ?
-      (!role && lessonInUrl) ? <NotClosableFullscreen>
+  const roleSelector = <NotClosableFullscreen>
         <Title>{t('Choose your role for now')}</Title>
         <br />
         <RoleImagesRow>
@@ -233,7 +230,12 @@ function ViewList({ className = '', id, cidString, list }: Props): React.ReactEl
             <p>{t('TUTOR – helps friends and earns rewards')}</p>
           </RoleOption>
         </RoleImagesRow>
-      </NotClosableFullscreen> :
+      </NotClosableFullscreen>;
+
+  return list == null ?
+    <StyledSpinnerContainer><Spinner noLabel /></StyledSpinnerContainer> :
+    (isAPairWork ?
+      (!role && lessonInUrl) ? roleSelector :
         <FullscreenActivity captionElement={<KatexSpan content={list.h} />} onClose={exitFullScreenActivity} >
           <RemoveBorders>{content}</RemoveBorders>
           {isExitConfirmOpen && (
