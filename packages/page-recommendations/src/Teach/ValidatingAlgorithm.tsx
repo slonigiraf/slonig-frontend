@@ -1,11 +1,10 @@
 import { AlgorithmStage } from './AlgorithmStage.js';
 import { Algorithm } from './Algorithm.js';
 import type { Skill } from '@slonigiraf/app-slonig-components';
-import { Reexamination } from '@slonigiraf/db';
 import ExampleExercisesButton from './ExampleExercisesButton.js';
 
 class ValidatingAlgorithm extends Algorithm {
-    constructor(t: any, studentName: string | null, skill: Skill, reexamination: Reexamination) {
+    constructor(t: any, studentName: string | null, skill: Skill) {
         super();
         const questions = skill ? skill.q : [];
         let question1: string = questions.length > 0 ? questions[0].h : t('SOME EXERCISE FOR SKILL TRAINING (THE TUTOR SHOULD KNOW)');
