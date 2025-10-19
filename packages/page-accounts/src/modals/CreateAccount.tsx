@@ -18,7 +18,7 @@ import { tryCreateAccount } from '../util.js';
 import CreateAccountInputs from './CreateAccountInputs.js';
 import { ETH_DEFAULT_PATH } from './CreateEthDerivationPath.js';
 import { storeSetting, SettingKey } from '@slonigiraf/db';
-import { useNavigate } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { DBImport, useInfo } from '@slonigiraf/app-slonig-components';
 
 const DEFAULT_PAIR_TYPE = 'sr25519';
@@ -150,7 +150,7 @@ function createAccount(seed: string, derivePath: string, pairType: PairType, { g
 
 function Create({ className = '', onClose, onStatusChange, seed: propsSeed, type: propsType, isFirstScreen = true }: CreateProps): React.ReactElement<CreateProps> {
   const { t } = useTranslation();
-  const navigate = useNavigate();
+  const { pathname } = useLocation();
   const { api, isDevelopment, isEthereum } = useApi();
   const [{ address, derivePath, deriveValidation, isSeedValid, pairType, seed, seedType }, setAddress] = useState<AddressState>(() => generateSeed(
     propsSeed,
@@ -173,7 +173,7 @@ function Create({ className = '', onClose, onStatusChange, seed: propsSeed, type
   const _onCommit = useCallback(
     async () => {
       if (!isValid) {
-        showInfo(isFirstScreen? t('Enter your full name') : t('Enter the account name'), 'error');
+        showInfo(isFirstScreen ? t('Enter your full name') : t('Enter the account name'), 'error');
         return;
       }
       setIsBusy(true);
@@ -227,7 +227,7 @@ function Create({ className = '', onClose, onStatusChange, seed: propsSeed, type
             activeOnEnter
             // icon='user-plus'
             isBusy={isBusy}
-            label={isFirstScreen? t('Start Learning with Slonig') : t('Add account')}
+            label={isFirstScreen ? pathname === '/badges/teach' ? t('Start Tutoring with Slonig') : t('Start Learning with Slonig') : t('Add account')}
             onClick={_onCommit}
           />
           {isFirstScreen && <Button
