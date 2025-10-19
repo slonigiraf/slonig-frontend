@@ -6,7 +6,7 @@ interface Props {
   onClose: () => void;
 }
 
-function Confirmation({ info: question, onClose }: Props): React.ReactElement<Props> | null {
+function OKBox({ info: question, onClose }: Props): React.ReactElement<Props> | null {
   const { t } = useTranslation();
 
   return (
@@ -58,4 +58,4 @@ const StyledModal = styled(Modal)`
   }
 `;
 
-export default React.memo(Confirmation);
+export default React.memo(OKBox);
