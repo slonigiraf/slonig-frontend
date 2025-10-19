@@ -300,7 +300,7 @@ function DoInstructions({ className = '', entity, onResult, studentName, bothUse
           </InstructionsButtonsContainer>
           {isTalkingConfirmOpen && (
             <Confirmation
-              question={t('🗣 means “say it out loud.” Did you say what was written in the instruction?')}
+              question={t('Did you SAY what the instruction asks you to say?')}
               onClose={() => setTalkingConfirmOpen(false)}
               onConfirm={tutorPressedConfirmation}
             />
