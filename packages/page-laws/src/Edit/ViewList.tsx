@@ -43,7 +43,7 @@ function ViewList({ className = '', id, cidString, list }: Props): React.ReactEl
   const studentIdentity = u8aToHex(currentPair?.publicKey);
   const [isExitConfirmOpen, setIsExitConfirmOpen] = useState(false);
   const [hasTuteeCompletedTutorial, setHasTuteeCompletedTutorial] = useState(false);
-  const [role, setRole] = useState<'tutor' | 'tutee' | undefined>(undefined);
+  const [role, setRole] = useState<'tutee' | undefined>(undefined);
 
   useEffect((): void => {
     const loadTutorialResults = async () => {
@@ -118,6 +118,13 @@ function ViewList({ className = '', id, cidString, list }: Props): React.ReactEl
     setIsExitConfirmOpen(false);
     id && navigate(`/knowledge?id=${id}`, { replace: true });
   }, [id, navigate]);
+
+  const helpTutor = useCallback((): void => {
+    setLearningRequested(false);
+    setReexaminingRequested(false);
+    setIsExitConfirmOpen(false);
+    navigate('/badges/teach?showHelpQRInfo', { replace: true });
+  }, [navigate]);
 
   const onDataSent = useCallback((): void => {
     closeQR();
@@ -225,7 +232,7 @@ function ViewList({ className = '', id, cidString, list }: Props): React.ReactEl
             <img src="./tutee.png" alt="Tutee" />
             <p>{t('TUTEE – learns new skills and earns badges')}</p>
           </RoleOption>
-          <RoleOption onClick={() => setRole('tutor')}>
+          <RoleOption onClick={helpTutor}>
             <img src="./tutor.png" alt="Tutor" />
             <p>{t('TUTOR – helps friends and earns rewards')}</p>
           </RoleOption>

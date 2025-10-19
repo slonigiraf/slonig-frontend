@@ -10,12 +10,17 @@ import LessonsList from './LessonsList.js';
 import LessonResults from './LessonResults.js';
 import LessonRequestReceiver from './LessonRequestReceiver.js';
 import { useTranslation } from '../translate.js';
+import { useLocation } from 'react-router-dom';
 
 interface Props {
   className?: string;
 }
 
 function Teach({ className = '' }: Props): React.ReactElement<Props> {
+  const location = useLocation();
+  const queryParams = new URLSearchParams(location.search);
+  const showHelpQRInfo = queryParams.get('showHelpQRInfo') != null;
+
   const { t } = useTranslation();
   const { showInfo } = useInfo();
   // Initialize api, ipfs and translation
@@ -39,6 +44,7 @@ function Teach({ className = '' }: Props): React.ReactElement<Props> {
   const [isSendingResultsEnabled, setIsSendingResultsEnabled] = useState<boolean | undefined>(undefined);
   const [isGreetingOpen, setIsGreetingOpen] = useState(false);
   const [isViralMessageOpen, setIsViralMessageOpen] = useState(false);
+  const [isHelpQRInfoShown, setIsHelpQRInfoShown] = useState(showHelpQRInfo);
 
   useEffect((): void => {
     const loadTutorialResults = async () => {
@@ -279,6 +285,9 @@ function Teach({ className = '' }: Props): React.ReactElement<Props> {
           )}
           {lesson === null && isViralMessageOpen && (
             <OKBox info={t('Congratulations! Now help your other friends become tutors — pretend to be their tutee.')} onClose={() => setIsViralMessageOpen(false)} />
+          )}
+          {isHelpQRInfoShown && (
+            <OKBox info={t('Tell the tutee to scan the same QR code.')} onClose={() => setIsHelpQRInfoShown(false)} />
           )}
         </>
       }
