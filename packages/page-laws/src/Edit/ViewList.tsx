@@ -221,7 +221,7 @@ function ViewList({ className = '', id, cidString, list }: Props): React.ReactEl
     <StyledSpinnerContainer><Spinner noLabel /></StyledSpinnerContainer> :
     (isAPairWork ?
       (!role && lessonInUrl) ? <NotClosableFullscreen>
-        <Title>{t('Select your role:')}</Title>
+        <Title>{t('Choose your role for now')}</Title>
         <br />
         <RoleButtonsRow>
           <Button className='highlighted--button' label={t('Tutee')} onClick={() => setRole('tutee')} />
@@ -232,6 +232,7 @@ function ViewList({ className = '', id, cidString, list }: Props): React.ReactEl
         </div>
       </NotClosableFullscreen> :
         <FullscreenActivity captionElement={<KatexSpan content={list.h} />} onClose={exitFullScreenActivity} >
+          <RemoveBorders>{content}</RemoveBorders>
           {isExitConfirmOpen && (
             <Confirmation question={t('Sure to exit learning?')} onClose={() => setIsExitConfirmOpen(false)} onConfirm={closeQR} />
           )}
