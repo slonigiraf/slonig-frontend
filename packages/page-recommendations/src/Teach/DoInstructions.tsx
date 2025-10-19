@@ -47,18 +47,12 @@ function DoInstructions({ className = '', entity, onResult, studentName, bothUse
   }, []);
 
   const revealActionButtons = useCallback(() => {
-    if (areButtonsBlured && !tutorConfirmedTalking) {
+    if (areButtonsBlured && !tutorConfirmedTalking && algorithmStage && algorithmStage?.getMessages().length > 1) {
       setTalkingConfirmOpen(true);
     } else {
       setButtonsBlured(false);
     }
-  }, [areButtonsBlured, tutorConfirmedTalking, setTalkingConfirmOpen, setButtonsBlured]);
-
-  useEffect(() => {
-    if (!areButtonsBlured && !tutorConfirmedTalking && !isChatFinished) {
-      setTalkingConfirmOpen(true);
-    }
-  }, [areButtonsBlured, tutorConfirmedTalking, isChatFinished, setTalkingConfirmOpen]);
+  }, [areButtonsBlured, tutorConfirmedTalking, algorithmStage, setTalkingConfirmOpen, setButtonsBlured]);
 
   useEffect(() => {
     let isComponentMounted = true;
