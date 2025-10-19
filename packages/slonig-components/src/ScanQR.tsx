@@ -1,10 +1,11 @@
 import React, { useCallback } from 'react';
 import { useToggle } from '@polkadot/react-hooks';
-import { QRScanner, scanSVG, useLoginContext } from '@slonigiraf/app-slonig-components';
+import { QRScanner, scanSVG, useLoginContext, useSettings } from '@slonigiraf/app-slonig-components';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from './translate.js';
 import { Modal } from '@polkadot/react-components';
 import { ButtonWithLabelBelow } from '@slonigiraf/app-slonig-components';
+import { SettingKey } from '@slonigiraf/db';
 interface QRCodeResult {
   getText: () => string;
 }
@@ -18,8 +19,11 @@ function ScanQR({ className = '', label }: Props): React.ReactElement<Props> {
   const [isQROpen, toggleQR] = useToggle();
   const navigate = useNavigate();
   const { isLoggedIn, setLoginIsRequired } = useLoginContext();
+  const { settings, saveSetting } = useSettings();
+  const showHint = settings.SCAN_TUTORIAL_COMPLETED !== 'true' && settings.TUTEE_TUTORIAL_COMPLETED === 'true';
 
   const scan = useCallback(() => {
+    saveSetting(SettingKey.SCAN_TUTORIAL_COMPLETED, 'true');
     if (isLoggedIn) {
       toggleQR();
     } else {
@@ -49,7 +53,7 @@ function ScanQR({ className = '', label }: Props): React.ReactElement<Props> {
         label={label}
         onClick={scan}
         hint={t('Next time, use this button to scan.')}
-        showHint={false}
+        showHint={showHint}
       />
       {isQROpen && (
         <Modal

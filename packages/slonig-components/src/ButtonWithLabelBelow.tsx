@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Button, CustomSVGIcon, Icon, styled } from '@polkadot/react-components';
 import { HintBubble } from './index.js';
 
@@ -24,6 +24,13 @@ const StyledLabel = styled.span`
 export default function ButtonWithLabelBelow(props: any) {
   const { icon, svg, label, hint, showHint, ...restProps } = props;
   const [isHintShown, setIsHintShown] = useState(showHint);
+
+  useEffect(
+    () => {
+      setIsHintShown(showHint);
+    }, [showHint]
+  );
+
   return (
     <>{isHintShown &&
       <HintBubble onClick={() => setIsHintShown(false)}>
