@@ -227,7 +227,7 @@ function Create({ className = '', onClose, onStatusChange, seed: propsSeed, type
             activeOnEnter
             // icon='user-plus'
             isBusy={isBusy}
-            label={isFirstScreen ? pathname === '/badges/teach' ? t('Start Tutoring with Slonig') : t('Start Learning with Slonig') : t('Add account')}
+            label={isFirstScreen ? pathname.startsWith('/badges/teach') ? t('Start Tutoring with Slonig') : t('Start Learning with Slonig') : t('Add account')}
             onClick={_onCommit}
           />
           {isFirstScreen && <Button
