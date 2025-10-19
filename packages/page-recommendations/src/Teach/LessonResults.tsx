@@ -57,7 +57,6 @@ function LessonResults({ className = '', lesson, updateAndStoreLesson, onClose, 
   }, [countOfValidLetters, countOfReexaminationsPerformed, dontSign]);
 
   const onDataSent = useCallback(async (): Promise<void> => {
-    await storeSetting(SettingKey.TUTOR_TUTORIAL_COMPLETED, 'true');
     onFinished();
   }, [onClose]);
 

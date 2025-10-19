@@ -177,6 +177,8 @@ function Teach({ className = '' }: Props): React.ReactElement<Props> {
   const onCloseResults = useCallback(async () => {
     onCloseTutoring();
     await deleteSetting(SettingKey.LESSON_RESULTS_ARE_SHOWN);
+    await storeSetting(SettingKey.TUTOR_TUTORIAL_COMPLETED, 'true');
+    setHasTutorCompletedTutorial(true);
     setResultsShown(false);
   }, [setResultsShown, onCloseTutoring]);
 
