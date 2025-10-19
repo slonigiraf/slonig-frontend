@@ -130,9 +130,8 @@ function DoInstructions({ className = '', entity, onResult, studentName, bothUse
     [hasTutorCompletedTutorial, showInfo, t]
   );
 
-
   const handleStageChange = async (nextStage: AlgorithmStage | null) => {
-    setProcessedStages(processedStages+1)
+    setProcessedStages(processedStages + 1)
     setButtonsBlured(true);
     setIsChatFinished(false);
     if (nextStage !== null) {
@@ -166,7 +165,7 @@ function DoInstructions({ className = '', entity, onResult, studentName, bothUse
       {algorithmStage ? (
         <InstructionsContainer key={entity?.cid}>
           <ChatSimulation
-            key={algorithmStage.getId()+processedStages}
+            key={algorithmStage.getId() + processedStages}
             messages={algorithmStage.getMessages()}
             onAllMessagesRevealed={() => setIsChatFinished(true)}
           />
@@ -245,20 +244,19 @@ function DoInstructions({ className = '', entity, onResult, studentName, bothUse
                   />
                 )}
               </InstructionsButtonsGroup>
+              
             </DecisionBubble>
+            {isChatFinished && areButtonsBlured && (
+                <NextOverlay>
+                  <Button
+                    className='highlighted--button'
+                    icon="eye"
+                    label={t('Next')}
+                    onClick={() => setButtonsBlured(false)}
+                  />
+                </NextOverlay>
+              )}
           </InstructionsButtonsContainer>
-
-          {isChatFinished && areButtonsBlured && (
-            <NextOverlay>
-              <Button
-                className='highlighted--button'
-                icon="eye"
-                label={t('Next')}
-                onClick={() => setButtonsBlured(false)}
-              />
-            </NextOverlay>
-          )}
-
         </InstructionsContainer>
       ) : (
         <div>Error: Reload the page</div>

@@ -16,7 +16,6 @@ interface ChatSimulationProps {
 
 const ChatSimulation: React.FC<ChatSimulationProps> = ({ messages, onAllMessagesRevealed }) => {
   const [revealedCount, setRevealedCount] = useState(1);
-  console.log("revealedCount: ", revealedCount)
   const { t } = useTranslation();
 
   const handleNext = () => {
@@ -76,7 +75,6 @@ const ChatSimulation: React.FC<ChatSimulationProps> = ({ messages, onAllMessages
   );
 };
 
-// --- Styled components ---
 const MessageWrapper = styled.div`
   position: relative;
   width: 100%;
@@ -113,6 +111,5 @@ const NextOverlay = styled.div`
     pointer-events: all;
   }
 `;
-
 
 export default React.memo(ChatSimulation);
