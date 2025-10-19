@@ -36,7 +36,7 @@ function Teach({ className = '' }: Props): React.ReactElement<Props> {
   const [isExitConfirmOpen, setIsExitConfirmOpen] = useState(false);
   const [hasTutorCompletedTutorial, setHasTutorCompletedTutorial] = useState<boolean | undefined>(undefined);
   const [bothUsedSlonig, setBothUsedSlonig] = useState(false);
-  const [isSendingResultsEnabled, setIsSendingResultsEnabled] = useState<boolean|undefined>(undefined);
+  const [isSendingResultsEnabled, setIsSendingResultsEnabled] = useState<boolean | undefined>(undefined);
 
   useEffect((): void => {
     const loadTutorialResults = async () => {
@@ -235,6 +235,11 @@ function Teach({ className = '' }: Props): React.ReactElement<Props> {
             key={'learn' + letterTemplateToIssue.cid} />}
         {lesson &&
           <SendResults>
+            {hasTutorCompletedTutorial === false && isSendingResultsEnabled === true &&
+              <HintBubble>
+                <h2>{t('Press this button to send the results and get your reward for tutoring')}</h2>
+              </HintBubble>
+            }
             <Button
               isDisabled={!isSendingResultsEnabled}
               icon={'paper-plane'}
@@ -266,6 +271,7 @@ function Teach({ className = '' }: Props): React.ReactElement<Props> {
 }
 
 const SendResults = styled.div`
+  position: relative; /* 🧭 important for absolute positioning of HintBubble */
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -292,4 +298,45 @@ export const CloseButton = styled(Button)`
   right: 0px;
   margin-left: 10px;
 `;
+const HintBubble = styled.div`
+  position: absolute;
+  bottom: 100%; /* place above the button */
+  left: 50%;
+  transform: translateX(-50%) translateY(2px);
+  z-index: 9999; /* ensure it overflows any parent */
+
+  background: white;
+  color: black;
+  border: 2px solid rgba(0,0,0,0.15);
+  padding: 10px 14px;
+  border-radius: 16px;
+  box-shadow: 0 4px 8px rgba(0,0,0,0.15);
+  max-width: 260px;
+  text-align: center;
+  line-height: 1.3;
+
+  /* comic-style tail */
+  &::after {
+    content: '';
+    position: absolute;
+    top: 100%;
+    left: 10%;
+    transform: translateX(-50%);
+    width: 0;
+    height: 0;
+    border: 8px solid transparent;
+    border-top-color: white;
+    filter: drop-shadow(0px 2px 1px rgba(0, 0, 0, 0.15));
+  }
+
+  /* gentle float animation */
+  animation: floatHint 0.35s ease-out;
+  @keyframes floatHint {
+    from { transform: translateX(-50%) translateY(-4px); opacity: 0; }
+    to { transform: translateX(-50%) translateY(-12px); opacity: 1; }
+  }
+`;
+
+
+
 export default React.memo(Teach);
