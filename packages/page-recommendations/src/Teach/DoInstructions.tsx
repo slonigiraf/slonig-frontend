@@ -7,7 +7,7 @@ import { Button, Menu, Popup, Spinner, styled } from '@polkadot/react-components
 import type { Skill } from '@slonigiraf/app-slonig-components';
 import { ValidatingAlgorithm } from './ValidatingAlgorithm.js';
 import { useTranslation } from '../translate.js';
-import { ChatContainer, Bubble, useIpfsContext, Confirmation } from '@slonigiraf/app-slonig-components';
+import { ChatContainer, Bubble, useIpfsContext } from '@slonigiraf/app-slonig-components';
 import { LetterTemplate, putLetterTemplate, Reexamination, updateReexamination } from '@slonigiraf/db';
 import { getIPFSDataFromContentID, parseJson, useInfo } from '@slonigiraf/app-slonig-components';
 import { TutoringAlgorithm } from './TutoringAlgorithm.js';
@@ -34,8 +34,6 @@ function DoInstructions({ className = '', entity, onResult, studentName, bothUse
   const [isButtonClicked, setIsButtonClicked] = useState(false);
   const [isChatFinished, setIsChatFinished] = useState(false);
   const [areButtonsBlured, setButtonsBlured] = useState(true);
-  const [tutorConfirmedTalking, setTutorConfirmedTalking] = useState(false);
-  const [isTalkingConfirmOpen, setTalkingConfirmOpen] = useState(false);
 
   const [processedStages, setProcessedStages] = useState(0);
 
@@ -46,14 +44,6 @@ function DoInstructions({ className = '', entity, onResult, studentName, bothUse
   const isReexamination = useCallback((entity: LetterTemplate | Reexamination) => {
     return !isLetterTemplate(entity);
   }, []);
-
-  const revealActionButtons = useCallback(() => {
-    if (areButtonsBlured && !tutorConfirmedTalking && algorithmStage && algorithmStage?.getMessages().length > 1) {
-      setTalkingConfirmOpen(true);
-    } else {
-      setButtonsBlured(false);
-    }
-  }, [areButtonsBlured, tutorConfirmedTalking, algorithmStage, setTalkingConfirmOpen, setButtonsBlured]);
 
   useEffect(() => {
     let isComponentMounted = true;
@@ -142,18 +132,11 @@ function DoInstructions({ className = '', entity, onResult, studentName, bothUse
     [hasTutorCompletedTutorial, showInfo, t]
   );
 
-  const tutorPressedConfirmation = useCallback(() => {
-    setTalkingConfirmOpen(false);
-    setTutorConfirmedTalking(true);
-    setButtonsBlured(false);
-  }, [setTalkingConfirmOpen, setTutorConfirmedTalking, setButtonsBlured])
-
   const refreshStageView = useCallback(() => {
     setProcessedStages(processedStages + 1)
     setButtonsBlured(true);
     setIsChatFinished(false);
-    setTutorConfirmedTalking(false);
-  }, [setProcessedStages, processedStages, setButtonsBlured, setIsChatFinished, setTutorConfirmedTalking])
+  }, [setProcessedStages, processedStages, setButtonsBlured, setIsChatFinished])
 
   const handleStageChange = useCallback(async (nextStage: AlgorithmStage | null) => {
     if (nextStage !== null) {
@@ -294,18 +277,11 @@ function DoInstructions({ className = '', entity, onResult, studentName, bothUse
                     className='highlighted--button'
                     icon="eye"
                     label={t('Next')}
-                    onClick={revealActionButtons}
+                    onClick={() => setButtonsBlured(false)}
                   />
                 </NextOverlay>
               )}
           </InstructionsButtonsContainer>
-          {isTalkingConfirmOpen && (
-            <Confirmation
-              question={t('Did you SAY what the instruction asks you to say?')}
-              onClose={() => setTalkingConfirmOpen(false)}
-              onConfirm={tutorPressedConfirmation}
-            />
-          )}
         </InstructionsContainer>
       ) : (
         <div>Error: Reload the page</div>
