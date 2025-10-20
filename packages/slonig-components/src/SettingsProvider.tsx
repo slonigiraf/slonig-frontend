@@ -34,21 +34,30 @@ export const SettingsProvider: React.FC<SettingsProviderProps> = ({ children }) 
 
   useEffect(() => {
     (async () => {
-      const newState: Partial<Settings> = {};
-
-      for (const key of Object.keys(SettingKey) as SettingName[]) {
-        try {
-          const settingKey = SettingKey[key];
-          const storedValue = await getSetting(settingKey);
-          if (storedValue !== undefined && storedValue !== null) {
-            newState[key] = storedValue;
+      try {
+        const entries = Object.keys(SettingKey).map(async (key) => {
+          const logicalKey = key as SettingName;
+          const settingKey = SettingKey[logicalKey];
+          try {
+            const value = await getSetting(settingKey);
+            return [logicalKey, value] as const;
+          } catch (err) {
+            console.warn(`Could not load setting for ${key}`, err);
+            return [logicalKey, undefined] as const;
           }
-        } catch (err) {
-          console.warn(`Could not load setting for ${key}`, err);
-        }
-      }
+        });
 
-      _setSettings(prev => ({ ...prev, ...newState }));
+        const results = await Promise.all(entries);
+
+        const newSettings = results.reduce((acc, [k, v]) => {
+          acc[k] = v;
+          return acc;
+        }, {} as Settings);
+
+        _setSettings((prev) => ({ ...prev, ...newSettings }));
+      } catch (err) {
+        console.error('Failed to initialize settings', err);
+      }
     })();
   }, []);
 
