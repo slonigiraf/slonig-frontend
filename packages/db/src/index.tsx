@@ -64,6 +64,11 @@ export async function storeSetting(id: string, value: string) {
     await db.settings.put({ id: cleanId, value: cleanValue });
 }
 
+export async function setSettingToTrue(id: string) {
+    const cleanId = DOMPurify.sanitize(id);
+    await db.settings.put({ id: cleanId, value: 'true' });
+}
+
 export async function deleteSetting(id: string) {
     const cleanId = DOMPurify.sanitize(id);
     await db.settings.delete(cleanId);
