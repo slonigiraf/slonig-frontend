@@ -9,23 +9,23 @@ import React, {
 import { getSetting, storeSetting, SettingKey } from '@slonigiraf/db';
 
 // ---------- Types derived from SettingKey ----------
-type SettingKeyType = typeof SettingKey;
-type SettingName = keyof SettingKeyType;
-type SettingValue = SettingKeyType[SettingName]; // union of all SettingKey values
+type SettingType = typeof SettingKey;
+type SettingId = keyof SettingType;
+type SettingDBKey = SettingType[SettingId]; // union of all SettingKey values
 
-interface Settings extends Record<SettingName, string | undefined> {}
+interface Settings extends Record<SettingId, string | undefined> {}
 
 interface SettingsContextType {
   settings: Settings;
-  saveSetting: (key: SettingValue, value: string) => Promise<void>;
-  isTrueSetting: (key: SettingValue) => boolean;
-  getBooleanOrUndefinedSetting: (key: SettingValue) => boolean | undefined;
-  setSettingToTrue: (key: SettingValue) => Promise<void>;
+  saveSetting: (key: SettingDBKey, value: string) => Promise<void>;
+  isTrueSetting: (key: SettingDBKey) => boolean;
+  getBooleanOrUndefinedSetting: (key: SettingDBKey) => boolean | undefined;
+  setSettingToTrue: (key: SettingDBKey) => Promise<void>;
 }
 
 // ---------- Default values ----------
 const defaultSettings = Object.keys(SettingKey).reduce((acc, key) => {
-  acc[key as SettingName] = undefined;
+  acc[key as SettingId] = undefined;
   return acc;
 }, {} as Settings);
 
@@ -50,11 +50,11 @@ export const SettingsProvider: React.FC<SettingsProviderProps> = ({ children }) 
   // Helper: reverse lookup map (for speed and clarity)
   const reverseSettingKey = Object.fromEntries(
     Object.entries(SettingKey).map(([k, v]) => [v, k])
-  ) as Record<SettingValue, SettingName>;
+  ) as Record<SettingDBKey, SettingId>;
 
   // --- isTrueSetting ---
   const isTrueSetting = useCallback(
-    (key: SettingValue): boolean => {
+    (key: SettingDBKey): boolean => {
       const logicalKey = reverseSettingKey[key];
       if (!logicalKey) throw new Error(`Unknown SettingKey: ${key}`);
       return settings[logicalKey] === 'true';
@@ -64,7 +64,7 @@ export const SettingsProvider: React.FC<SettingsProviderProps> = ({ children }) 
 
   // --- getBooleanOrUndefinedSetting ---
   const getBooleanOrUndefinedSetting = useCallback(
-    (key: SettingValue): boolean | undefined => {
+    (key: SettingDBKey): boolean | undefined => {
       const logicalKey = reverseSettingKey[key];
       if (!logicalKey) throw new Error(`Unknown SettingKey: ${key}`);
 
@@ -76,7 +76,7 @@ export const SettingsProvider: React.FC<SettingsProviderProps> = ({ children }) 
 
   // --- setSettingToTrue ---
   const setSettingToTrue = useCallback(
-    async (key: SettingValue): Promise<void> => {
+    async (key: SettingDBKey): Promise<void> => {
       const logicalKey = reverseSettingKey[key];
       if (!logicalKey) throw new Error(`Invalid SettingKey: ${key}`);
 
@@ -94,7 +94,7 @@ export const SettingsProvider: React.FC<SettingsProviderProps> = ({ children }) 
     (async () => {
       try {
         const entries = Object.keys(SettingKey).map(async (key) => {
-          const logicalKey = key as SettingName;
+          const logicalKey = key as SettingId;
           const settingKey = SettingKey[logicalKey];
           try {
             const value = await getSetting(settingKey);
@@ -120,7 +120,7 @@ export const SettingsProvider: React.FC<SettingsProviderProps> = ({ children }) 
 
   // --- saveSetting ---
   const saveSetting = useCallback(
-    async (key: SettingValue, value: string): Promise<void> => {
+    async (key: SettingDBKey, value: string): Promise<void> => {
       const logicalKey = reverseSettingKey[key];
       if (!logicalKey) throw new Error(`Invalid SettingKey: ${key}`);
 
