@@ -55,7 +55,7 @@ export const SettingKey = {
     TUTOR_TUTORIAL_COMPLETED: 'TUTOR_TUTORIAL_COMPLETED',
     VIRAL_TUTORIAL_COMPLETED: 'VIRAL_TUTORIAL_COMPLETED',
     SCAN_TUTORIAL_COMPLETED: 'SCAN_TUTORIAL_COMPLETED',
-};
+} as const;
 
 export async function storeSetting(id: string, value: string) {
     const cleanId = DOMPurify.sanitize(id);

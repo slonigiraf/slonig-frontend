@@ -17,9 +17,10 @@ interface Settings extends Record<SettingName, string | undefined> {}
 
 interface SettingsContextType {
   settings: Settings;
-  saveSetting: <K extends SettingName>(key: typeof SettingKey[K], value: string) => Promise<void>;
-  isTrueSetting: <K extends SettingName>(key: typeof SettingKey[K]) => boolean;
-  getBooleanOrUndefinedSetting: <K extends SettingName>(key: typeof SettingKey[K]) => boolean | undefined;
+  saveSetting: (key: SettingValue, value: string) => Promise<void>;
+  isTrueSetting: (key: SettingValue) => boolean;
+  getBooleanOrUndefinedSetting: (key: SettingValue) => boolean | undefined;
+  setSettingToTrue: (key: SettingValue) => Promise<void>;
 }
 
 // ---------- Default values ----------
@@ -32,7 +33,8 @@ const defaultContext: SettingsContextType = {
   settings: defaultSettings,
   saveSetting: async () => {},
   isTrueSetting: () => false,
-  getBooleanOrUndefinedSetting: () => undefined
+  getBooleanOrUndefinedSetting: () => undefined,
+  setSettingToTrue: async () => {}
 };
 
 const SettingsContext = createContext<SettingsContextType>(defaultContext);
@@ -52,7 +54,7 @@ export const SettingsProvider: React.FC<SettingsProviderProps> = ({ children }) 
 
   // --- isTrueSetting ---
   const isTrueSetting = useCallback(
-    <K extends SettingName>(key: typeof SettingKey[K]): boolean => {
+    (key: SettingValue): boolean => {
       const logicalKey = reverseSettingKey[key];
       if (!logicalKey) throw new Error(`Unknown SettingKey: ${key}`);
       return settings[logicalKey] === 'true';
@@ -62,7 +64,7 @@ export const SettingsProvider: React.FC<SettingsProviderProps> = ({ children }) 
 
   // --- getBooleanOrUndefinedSetting ---
   const getBooleanOrUndefinedSetting = useCallback(
-    <K extends SettingName>(key: typeof SettingKey[K]): boolean | undefined => {
+    (key: SettingValue): boolean | undefined => {
       const logicalKey = reverseSettingKey[key];
       if (!logicalKey) throw new Error(`Unknown SettingKey: ${key}`);
 
@@ -70,6 +72,21 @@ export const SettingsProvider: React.FC<SettingsProviderProps> = ({ children }) 
       return value === undefined ? undefined : isTrueSetting(key);
     },
     [settings, isTrueSetting, reverseSettingKey]
+  );
+
+  // --- setSettingToTrue ---
+  const setSettingToTrue = useCallback(
+    async (key: SettingValue): Promise<void> => {
+      const logicalKey = reverseSettingKey[key];
+      if (!logicalKey) throw new Error(`Invalid SettingKey: ${key}`);
+
+      const currentValue = settings[logicalKey];
+      if (currentValue !== 'true') {
+        _setSettings((prev) => ({ ...prev, [logicalKey]: 'true' }));
+        await storeSetting(key, 'true');
+      }
+    },
+    [settings, reverseSettingKey]
   );
 
   // --- Load all settings once on mount ---
@@ -103,7 +120,7 @@ export const SettingsProvider: React.FC<SettingsProviderProps> = ({ children }) 
 
   // --- saveSetting ---
   const saveSetting = useCallback(
-    async <K extends SettingName>(key: typeof SettingKey[K], value: string): Promise<void> => {
+    async (key: SettingValue, value: string): Promise<void> => {
       const logicalKey = reverseSettingKey[key];
       if (!logicalKey) throw new Error(`Invalid SettingKey: ${key}`);
 
@@ -116,7 +133,13 @@ export const SettingsProvider: React.FC<SettingsProviderProps> = ({ children }) 
   // --- Context value ---
   return (
     <SettingsContext.Provider
-      value={{ settings, saveSetting, isTrueSetting, getBooleanOrUndefinedSetting }}
+      value={{
+        settings,
+        saveSetting,
+        isTrueSetting,
+        getBooleanOrUndefinedSetting,
+        setSettingToTrue
+      }}
     >
       {children}
     </SettingsContext.Provider>

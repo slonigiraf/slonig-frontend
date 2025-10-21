@@ -9,7 +9,7 @@ import Menu from './Menu/index.js';
 import ConnectingOverlay from './overlays/Connecting.js';
 import DotAppsOverlay from './overlays/DotApps.js';
 import BottomMenu from './BottomMenu/index.js';
-import { AirdropResults, AppContainer, BlockchainSyncProvider, fetchEconomy, useInfo, useIpfsContext, useLoginContext } from '@slonigiraf/app-slonig-components';
+import { AirdropResults, AppContainer, BlockchainSyncProvider, fetchEconomy, useInfo, useIpfsContext, useLoginContext, useSettings } from '@slonigiraf/app-slonig-components';
 import { Modal, Spinner, styled } from '@polkadot/react-components';
 import { useTranslation } from './translate.js';
 import { useApi, useTheme } from '@polkadot/react-hooks';
@@ -22,6 +22,7 @@ function UI({ className = '' }: Props): React.ReactElement<Props> {
   const { isLoginReady, isLoggedIn, currentPair, setLoginIsRequired, onCreateAccount } = useLoginContext();
   const { isApiReady, isWaitingInjected } = useApi();
   const { isIpfsReady } = useIpfsContext();
+  const { isTrueSetting, saveSetting } = useSettings();
   const connected = isLoginReady && isIpfsReady && isApiReady && !isWaitingInjected
   const { showInfo } = useInfo();
   const { t } = useTranslation();
@@ -87,6 +88,12 @@ function UI({ className = '' }: Props): React.ReactElement<Props> {
     };
     isLoggedIn && askForAirdrop();
   }, [isLoggedIn, currentPair]);
+
+  //---
+  useEffect(() => {
+    saveSetting(SettingKey.AIRDROP_COMPATIBLE, 'true');
+  }, [lessonInUrl, saveSetting]);
+  //---
 
   return (
     connected ? <StyledDiv isloginRequired={isLoginRequired} className={`${className} apps--Wrapper ${themeClassName}`}>
