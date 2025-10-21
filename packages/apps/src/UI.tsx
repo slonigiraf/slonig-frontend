@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import type { BareProps as Props } from '@polkadot/react-components/types';
-import React, { useEffect, useState } from 'react';
+import React, { useEffect } from 'react';
 import Signer from '@polkadot/react-signer';
 import Content from './Content/index.js';
 import Menu from './Menu/index.js';
@@ -13,7 +13,7 @@ import { AirdropResults, AppContainer, BlockchainSyncProvider, fetchEconomy, use
 import { Modal, Spinner, styled } from '@polkadot/react-components';
 import { useTranslation } from './translate.js';
 import { useApi, useTheme } from '@polkadot/react-hooks';
-import { hasSetting, SettingKey, storeSetting } from '@slonigiraf/db';
+import { SettingKey } from '@slonigiraf/db';
 import { useLocation } from 'react-router-dom';
 import CreateAccount from '@polkadot/app-accounts/modals/CreateAccount';
 export const PORTAL_ID = 'portals';
@@ -22,7 +22,7 @@ function UI({ className = '' }: Props): React.ReactElement<Props> {
   const { isLoginReady, isLoggedIn, currentPair, setLoginIsRequired, onCreateAccount } = useLoginContext();
   const { isApiReady, isWaitingInjected } = useApi();
   const { isIpfsReady } = useIpfsContext();
-  const { isTrueSetting, setSettingToTrue } = useSettings();
+  const { settings, isTrueSetting, setSettingToTrue, saveSetting } = useSettings();
   const connected = isLoginReady && isIpfsReady && isApiReady && !isWaitingInjected
   const { showInfo } = useInfo();
   const { t } = useTranslation();
@@ -51,8 +51,7 @@ function UI({ className = '' }: Props): React.ReactElement<Props> {
 
   useEffect(() => {
     const fetchData = async () => {
-      const economyInitialized = await hasSetting(SettingKey.ECONOMY_INITIALIZED);
-      if (!economyInitialized) {
+      if (!isTrueSetting(SettingKey.ECONOMY_INITIALIZED)) {
         try {
           await fetchEconomy();
         } catch (error) {
@@ -61,45 +60,38 @@ function UI({ className = '' }: Props): React.ReactElement<Props> {
       }
     };
     fetchData();
-  }, []);
+  }, [settings]);
 
-  useEffect(() => {
-    const askForAirdrop = async () => {
-      const airdropReceived = await hasSetting(SettingKey.RECEIVED_AIRDROP);
-      if (!airdropReceived) {
-        if (lessonInUrl) {
-          await storeSetting(SettingKey.AIRDROP_COMPATIBLE, 'true');
-        }
-        const airdropCompatible = await hasSetting(SettingKey.AIRDROP_COMPATIBLE);
-        if (airdropCompatible && !airdropReceived && currentPair) {
-          try {
-            const response = await fetch(`https://economy.slonig.org/airdrop/?to=${currentPair.address}&auth=${process.env.AIRDROP_AUTH_TOKEN}`);
-            const airdropResults: AirdropResults = await response.json();
-            if (airdropResults.success && airdropResults.amount) {
-              await storeSetting(SettingKey.RECEIVED_AIRDROP, airdropResults.amount);
-            } else if (airdropResults.error) {
-              showError(airdropResults.error);
-            }
-          } catch (error) {
-            showNoConnectionToEconomyServerError();
-          }
-        }
-      }
-    };
-    isLoggedIn && askForAirdrop();
-  }, [isLoggedIn, currentPair]);
-
-  //---
   useEffect(() => {
     lessonInUrl && setSettingToTrue(SettingKey.AIRDROP_COMPATIBLE);
   }, [lessonInUrl, setSettingToTrue]);
-  //---
+
+  useEffect(() => {
+    const run = async () => {
+      if (currentPair) {
+        try {
+          const response = await fetch(`https://economy.slonig.org/airdrop/?to=${currentPair.address}&auth=${process.env.AIRDROP_AUTH_TOKEN}`);
+          const airdropResults: AirdropResults = await response.json();
+          if (airdropResults.success && airdropResults.amount) {
+            await saveSetting(SettingKey.RECEIVED_AIRDROP, airdropResults.amount);
+          } else if (airdropResults.error) {
+            showError(airdropResults.error);
+          }
+        } catch (error) {
+          showNoConnectionToEconomyServerError();
+        }
+      }
+    }
+    if (isTrueSetting(SettingKey.AIRDROP_COMPATIBLE) && settings.RECEIVED_AIRDROP === undefined && currentPair) {
+      run();
+    }
+  }, [settings, isTrueSetting, currentPair, showError, showNoConnectionToEconomyServerError]);
 
   return (
     connected ? <StyledDiv isloginRequired={isLoginRequired} className={`${className} apps--Wrapper ${themeClassName}`}>
       <AppContainer>
         {/* <HelpChatWidget caption={t('Have questions?')}/> */}
-        
+
         {isLoginRequired ?
           <CreateAccount
             onClose={() => { }}
