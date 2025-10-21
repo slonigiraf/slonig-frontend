@@ -19,7 +19,7 @@ interface Props {
 
 function LessonResultReceiver({ webRTCPeerId, onDaysRangeChange }: Props): React.ReactElement {
   const { t } = useTranslation();
-  const { saveSetting } = useSettings();
+  const { setSettingToTrue } = useSettings();
   const { api, isApiReady } = useApi();
   const { openTransfer, transferReceipt, isTransferReady } = useTokenTransfer();
   const { currentPair } = useLoginContext();
@@ -107,7 +107,7 @@ function LessonResultReceiver({ webRTCPeerId, onDaysRangeChange }: Props): React
           }
           const updatedAgreement: Agreement = { ...agreement, completed: true };
           updateAgreement(updatedAgreement);
-          await saveSetting(SettingKey.TUTEE_TUTORIAL_COMPLETED, 'true');
+          await setSettingToTrue(SettingKey.TUTEE_TUTORIAL_COMPLETED);
           showInfo(t('Saved'));
           navigate('', { replace: true });
         } catch (e) {

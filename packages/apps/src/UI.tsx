@@ -22,7 +22,7 @@ function UI({ className = '' }: Props): React.ReactElement<Props> {
   const { isLoginReady, isLoggedIn, currentPair, setLoginIsRequired, onCreateAccount } = useLoginContext();
   const { isApiReady, isWaitingInjected } = useApi();
   const { isIpfsReady } = useIpfsContext();
-  const { isTrueSetting, saveSetting } = useSettings();
+  const { isTrueSetting, setSettingToTrue } = useSettings();
   const connected = isLoginReady && isIpfsReady && isApiReady && !isWaitingInjected
   const { showInfo } = useInfo();
   const { t } = useTranslation();
@@ -91,8 +91,8 @@ function UI({ className = '' }: Props): React.ReactElement<Props> {
 
   //---
   useEffect(() => {
-    saveSetting(SettingKey.AIRDROP_COMPATIBLE, 'true');
-  }, [lessonInUrl, saveSetting]);
+    lessonInUrl && setSettingToTrue(SettingKey.AIRDROP_COMPATIBLE);
+  }, [lessonInUrl, setSettingToTrue]);
   //---
 
   return (

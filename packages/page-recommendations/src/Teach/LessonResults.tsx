@@ -25,7 +25,7 @@ function LessonResults({ className = '', lesson, updateAndStoreLesson, onClose, 
   // Initialize api, ipfs and translation
   const { api, isApiReady } = useApi();
   const { t } = useTranslation();
-  const { saveSetting } = useSettings();
+  const { setSettingToTrue } = useSettings();
   const { currentPair } = useLoginContext();
   const tokenSymbol = formatBalance.findSi('-').text;
   const dontSign = lesson ? (lesson.dWarranty === '0' || lesson.dValidity === 0) : true;
@@ -58,7 +58,7 @@ function LessonResults({ className = '', lesson, updateAndStoreLesson, onClose, 
   }, [countOfValidLetters, countOfReexaminationsPerformed, dontSign]);
 
   const onDataSent = useCallback(async (): Promise<void> => {
-    saveSetting(SettingKey.TUTOR_TUTORIAL_COMPLETED, 'true');
+    setSettingToTrue(SettingKey.TUTOR_TUTORIAL_COMPLETED);
     onFinished();
   }, [onClose]);
 

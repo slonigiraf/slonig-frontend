@@ -39,9 +39,9 @@ function Teach({ className = '' }: Props): React.ReactElement<Props> {
   const [reexaminations, setReexaminations] = useState<Reexamination[]>([]);
   const [areResultsShown, setResultsShown] = useState(false);
   const [isExitConfirmOpen, setIsExitConfirmOpen] = useState(false);
-  const { settings, saveSetting } = useSettings();
-  const hasTutorCompletedTutorial = settings.TUTOR_TUTORIAL_COMPLETED === 'true';
-  const isViralMessageOpen = settings.VIRAL_TUTORIAL_COMPLETED !== 'true' && hasTutorCompletedTutorial;
+  const { isTrueSetting, setSettingToTrue } = useSettings();
+  const hasTutorCompletedTutorial = isTrueSetting(SettingKey.TUTOR_TUTORIAL_COMPLETED);
+  const isViralMessageOpen = !isTrueSetting(SettingKey.VIRAL_TUTORIAL_COMPLETED) && hasTutorCompletedTutorial;
   const [bothUsedSlonig, setBothUsedSlonig] = useState(false);
   const [isSendingResultsEnabled, setIsSendingResultsEnabled] = useState<boolean | undefined>(undefined);
   const [isGreetingOpen, setIsGreetingOpen] = useState(!hasTutorCompletedTutorial);
@@ -270,7 +270,7 @@ function Teach({ className = '' }: Props): React.ReactElement<Props> {
             <OKBox info={t('This app will help you teach your tutee. Let’s start by teaching just one skill.')} onClose={() => setIsGreetingOpen(false)} />
           )}
           {lesson === null && isViralMessageOpen && (
-            <OKBox info={t('Congratulations! Now help your other friends become tutors — pretend to be their tutee.')} onClose={() => saveSetting(SettingKey.VIRAL_TUTORIAL_COMPLETED, 'true')} />
+            <OKBox info={t('Congratulations! Now help your other friends become tutors — pretend to be their tutee.')} onClose={() => setSettingToTrue(SettingKey.VIRAL_TUTORIAL_COMPLETED)} />
           )}
           {isHelpQRInfoShown && (
             <OKBox info={t('Tell the tutee to scan the same QR code.')} onClose={() => setIsHelpQRInfoShown(false)} />

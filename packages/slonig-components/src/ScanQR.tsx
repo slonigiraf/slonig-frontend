@@ -19,11 +19,11 @@ function ScanQR({ className = '', label }: Props): React.ReactElement<Props> {
   const [isQROpen, toggleQR] = useToggle();
   const navigate = useNavigate();
   const { isLoggedIn, setLoginIsRequired } = useLoginContext();
-  const { isTrueSetting, saveSetting } = useSettings();
+  const { isTrueSetting, setSettingToTrue } = useSettings();
   const showHint = !isTrueSetting(SettingKey.SCAN_TUTORIAL_COMPLETED) && isTrueSetting(SettingKey.TUTEE_TUTORIAL_COMPLETED);
 
   const scan = useCallback(() => {
-    saveSetting(SettingKey.SCAN_TUTORIAL_COMPLETED, 'true');
+    setSettingToTrue(SettingKey.SCAN_TUTORIAL_COMPLETED);
     if (isLoggedIn) {
       toggleQR();
     } else {
