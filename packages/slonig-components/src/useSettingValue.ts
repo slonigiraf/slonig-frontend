@@ -40,3 +40,19 @@ export function useSettingValue(key: SettingId): string | null | undefined {
 
   return value;
 }
+
+/**
+ * Wrapper around useSettingValue that interprets the setting as a boolean.
+ * 
+ * @returns
+ * - `null` — setting is **not yet loaded** from the database
+ * - `undefined` — setting has **no stored value**
+ * - `boolean` — interpreted value once loaded (`true` if "true", else `false`)
+ */
+export function useBooleanSettingValue(key: SettingId): boolean | null | undefined {
+  const value = useSettingValue(key);
+
+  if (value === null) return null; // not yet loaded
+  if (value === undefined) return undefined; // no value stored
+  return value === 'true';
+}
