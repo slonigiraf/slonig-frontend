@@ -51,8 +51,6 @@ export function useSettingValue(key: SettingId): string | null | undefined {
  */
 export function useBooleanSettingValue(key: SettingId): boolean | null | undefined {
   const value = useSettingValue(key);
-
   if (value === null) return null; // not yet loaded
-  if (value === undefined) return undefined; // no value stored
   return value === 'true';
 }

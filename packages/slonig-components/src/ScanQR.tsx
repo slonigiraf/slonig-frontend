@@ -1,11 +1,12 @@
 import React, { useCallback } from 'react';
 import { useToggle } from '@polkadot/react-hooks';
-import { QRScanner, scanSVG, useLoginContext, useSettings } from '@slonigiraf/app-slonig-components';
+import { QRScanner, scanSVG, useLoginContext } from '@slonigiraf/app-slonig-components';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from './translate.js';
 import { Modal } from '@polkadot/react-components';
 import { ButtonWithLabelBelow } from '@slonigiraf/app-slonig-components';
-import { SettingKey } from '@slonigiraf/db';
+import { setSettingToTrue, SettingKey } from '@slonigiraf/db';
+import { useBooleanSettingValue } from './useSettingValue.js';
 interface QRCodeResult {
   getText: () => string;
 }
@@ -19,11 +20,12 @@ function ScanQR({ className = '', label }: Props): React.ReactElement<Props> {
   const [isQROpen, toggleQR] = useToggle();
   const navigate = useNavigate();
   const { isLoggedIn, setLoginIsRequired } = useLoginContext();
-  const { isTrueSetting, setSettingToTrue } = useSettings();
-  const showHint = !isTrueSetting(SettingKey.SCAN_TUTORIAL_COMPLETED) && isTrueSetting(SettingKey.TUTEE_TUTORIAL_COMPLETED);
+  const isScanTutorialCompleted = useBooleanSettingValue(SettingKey.SCAN_TUTORIAL_COMPLETED);
+  const isTuteeTutorialCompleted = useBooleanSettingValue(SettingKey.TUTEE_TUTORIAL_COMPLETED);
+  const showHint = !isScanTutorialCompleted && isTuteeTutorialCompleted;
 
-  const scan = useCallback(() => {
-    setSettingToTrue(SettingKey.SCAN_TUTORIAL_COMPLETED);
+  const scan = useCallback(async () => {
+    await setSettingToTrue(SettingKey.SCAN_TUTORIAL_COMPLETED);
     if (isLoggedIn) {
       toggleQR();
     } else {

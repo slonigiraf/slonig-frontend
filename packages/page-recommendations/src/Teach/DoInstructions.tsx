@@ -18,10 +18,10 @@ interface Props {
   className?: string;
   entity: LetterTemplate | Reexamination;
   onResult: () => void;
-  hasTutorCompletedTutorial: boolean | undefined;
+  hasTutorCompletedTutorial: boolean | null | undefined;
   studentName: string | null;
   bothUsedSlonig?: boolean;
-  isSendingResultsEnabled: boolean | undefined;
+  isSendingResultsEnabled: boolean | null | undefined;
   isBeforeTeaching?: boolean;
 }
 

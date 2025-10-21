@@ -9,11 +9,11 @@ import Menu from './Menu/index.js';
 import ConnectingOverlay from './overlays/Connecting.js';
 import DotAppsOverlay from './overlays/DotApps.js';
 import BottomMenu from './BottomMenu/index.js';
-import { AirdropResults, AppContainer, BlockchainSyncProvider, fetchEconomy, useInfo, useIpfsContext, useLoginContext, useSettings } from '@slonigiraf/app-slonig-components';
-import { Modal, Spinner, styled } from '@polkadot/react-components';
+import { AirdropResults, AppContainer, BlockchainSyncProvider, fetchEconomy, useBooleanSettingValue, useInfo, useIpfsContext, useLoginContext, useSettingValue } from '@slonigiraf/app-slonig-components';
+import { Spinner, styled } from '@polkadot/react-components';
 import { useTranslation } from './translate.js';
 import { useApi, useTheme } from '@polkadot/react-hooks';
-import { SettingKey } from '@slonigiraf/db';
+import { setSettingToTrue, SettingKey, storeSetting } from '@slonigiraf/db';
 import { useLocation } from 'react-router-dom';
 import CreateAccount from '@polkadot/app-accounts/modals/CreateAccount';
 export const PORTAL_ID = 'portals';
@@ -22,7 +22,6 @@ function UI({ className = '' }: Props): React.ReactElement<Props> {
   const { isLoginReady, isLoggedIn, currentPair, setLoginIsRequired, onCreateAccount } = useLoginContext();
   const { isApiReady, isWaitingInjected } = useApi();
   const { isIpfsReady } = useIpfsContext();
-  const { settings, isTrueSetting, setSettingToTrue, saveSetting } = useSettings();
   const connected = isLoginReady && isIpfsReady && isApiReady && !isWaitingInjected
   const { showInfo } = useInfo();
   const { t } = useTranslation();
@@ -35,6 +34,10 @@ function UI({ className = '' }: Props): React.ReactElement<Props> {
   const [isProcessingAirdrop, setIsProcessingAirdrop] = useState(false);
 
   const isLoginRequired = !isLoggedIn && !botInUrl;
+  const isEconomyInitialized = useBooleanSettingValue(SettingKey.ECONOMY_INITIALIZED);
+  const isAirdropCompatible = useBooleanSettingValue(SettingKey.AIRDROP_COMPATIBLE);
+  const recievedAirdropAmount = useSettingValue(SettingKey.RECEIVED_AIRDROP);
+  const expectedAirdropAmount = useSettingValue(SettingKey.EXPECTED_AIRDROP);
 
   useEffect(() => {
     if (!isLoggedIn && !botInUrl) {
@@ -52,7 +55,7 @@ function UI({ className = '' }: Props): React.ReactElement<Props> {
 
   useEffect(() => {
     const fetchData = async () => {
-      if (!isTrueSetting(SettingKey.ECONOMY_INITIALIZED)) {
+      if (isEconomyInitialized === false) {
         try {
           await fetchEconomy();
         } catch (error) {
@@ -61,7 +64,7 @@ function UI({ className = '' }: Props): React.ReactElement<Props> {
       }
     };
     fetchData();
-  }, [settings]);
+  }, [isEconomyInitialized]);
 
   useEffect(() => {
     lessonInUrl && setSettingToTrue(SettingKey.AIRDROP_COMPATIBLE);
@@ -74,14 +77,14 @@ function UI({ className = '' }: Props): React.ReactElement<Props> {
           const response = await fetch(`https://economy.slonig.org/airdrop/?to=${currentPair.address}&auth=${process.env.AIRDROP_AUTH_TOKEN}`);
           const airdropResults: AirdropResults = await response.json();
           if (airdropResults.success && airdropResults.amount) {
-            await saveSetting(SettingKey.RECEIVED_AIRDROP, airdropResults.amount);
+            await storeSetting(SettingKey.RECEIVED_AIRDROP, airdropResults.amount);
           } else if (airdropResults.error) {
             if (airdropResults.error === 'DUPLICATED_AIRDROP') {
-              if (settings.EXPECTED_AIRDROP === undefined) {
+              if (expectedAirdropAmount === undefined) {
                 await fetchEconomy();
               }
-              const expectedAirdrop = settings.EXPECTED_AIRDROP || 'undefined';
-              await saveSetting(SettingKey.RECEIVED_AIRDROP, expectedAirdrop);
+              const expectedAirdrop = expectedAirdropAmount || 'undefined';
+              await storeSetting(SettingKey.RECEIVED_AIRDROP, expectedAirdrop);
             } else {
               showError(airdropResults.error);
             }
@@ -91,11 +94,11 @@ function UI({ className = '' }: Props): React.ReactElement<Props> {
         }
       }
     }
-    if (isTrueSetting(SettingKey.AIRDROP_COMPATIBLE) && settings.RECEIVED_AIRDROP === undefined && currentPair && !isProcessingAirdrop) {
+    if (isAirdropCompatible === true && recievedAirdropAmount === undefined && currentPair && !isProcessingAirdrop) {
       setIsProcessingAirdrop(true);
       run();
     }
-  }, [settings, isTrueSetting, currentPair, showError, showNoConnectionToEconomyServerError, setIsProcessingAirdrop]);
+  }, [isAirdropCompatible, expectedAirdropAmount, recievedAirdropAmount, currentPair, showError, showNoConnectionToEconomyServerError, setIsProcessingAirdrop]);
 
   return (
     connected ? <StyledDiv isloginRequired={isLoginRequired} className={`${className} apps--Wrapper ${themeClassName}`}>
@@ -165,39 +168,4 @@ const StyledDiv = styled.div<{ isloginRequired: boolean }>`
   `).join('')}
 `;
 
-const GiftDiv = styled.div`
-  position: relative;
-  display: inline-block;
-`;
-
-const StyledModal = styled(Modal)`
-  button[data-testid='close-modal'] {
-    opacity: 0;
-    background: transparent;
-    border: none;
-    cursor: pointer;
-  }
-  button[data-testid='close-modal']:focus {
-    outline: none;
-  }
-  .ui--Modal-Content {
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    gap: 1rem;
-  }
-`;
-const StyledLabel = styled.span`
-  position: absolute;
-  top: 62%; 
-  left: 50%;
-  text-align: center;
-  transform: translate(-50%, -50%);
-  z-index: 1;
-  background-color: var(--bg-page);
-  color: darkorange;
-  font-weight: bold;
-  font-size: 1.5rem;
-  padding: 0.25rem 0.5rem;
-`;
 export default React.memo(UI);

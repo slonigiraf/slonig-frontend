@@ -7,8 +7,8 @@ import { styled, Button, Input, InputBalance, Modal } from '@polkadot/react-comp
 import { useApi, useBlockTime, useToggle } from '@polkadot/react-hooks';
 import { u8aToHex, hexToU8a, u8aWrapBytes, BN_ONE, BN_ZERO, formatBalance } from '@polkadot/util';
 import type { LessonResult } from '@slonigiraf/app-slonig-components';
-import { useLoginContext, CenterQRContainer, balanceToSlonString, SenderComponent, useInfo, nameFromKeyringPair, predictBlockNumber, FullscreenActivity, useSettings } from '@slonigiraf/app-slonig-components';
-import { Lesson, getLastUnusedLetterNumber, setLastUsedLetterNumber, storeSetting, getReexaminationsByLessonId, getValidLetterTemplatesByLessonId, SettingKey, serializeAsLetter, LetterTemplate, putLetterTemplate } from '@slonigiraf/db';
+import { useLoginContext, CenterQRContainer, balanceToSlonString, SenderComponent, useInfo, nameFromKeyringPair, predictBlockNumber, FullscreenActivity } from '@slonigiraf/app-slonig-components';
+import { Lesson, getLastUnusedLetterNumber, setLastUsedLetterNumber, storeSetting, getReexaminationsByLessonId, getValidLetterTemplatesByLessonId, SettingKey, serializeAsLetter, LetterTemplate, putLetterTemplate, setSettingToTrue } from '@slonigiraf/db';
 import { getPublicDataToSignByReferee, getPrivateDataToSignByReferee } from '@slonigiraf/helpers';
 import { useTranslation } from '../translate.js';
 import { blake2AsHex } from '@polkadot/util-crypto';
@@ -25,7 +25,6 @@ function LessonResults({ className = '', lesson, updateAndStoreLesson, onClose, 
   // Initialize api, ipfs and translation
   const { api, isApiReady } = useApi();
   const { t } = useTranslation();
-  const { setSettingToTrue } = useSettings();
   const { currentPair } = useLoginContext();
   const tokenSymbol = formatBalance.findSi('-').text;
   const dontSign = lesson ? (lesson.dWarranty === '0' || lesson.dValidity === 0) : true;
@@ -58,7 +57,7 @@ function LessonResults({ className = '', lesson, updateAndStoreLesson, onClose, 
   }, [countOfValidLetters, countOfReexaminationsPerformed, dontSign]);
 
   const onDataSent = useCallback(async (): Promise<void> => {
-    setSettingToTrue(SettingKey.TUTOR_TUTORIAL_COMPLETED);
+    await setSettingToTrue(SettingKey.TUTOR_TUTORIAL_COMPLETED);
     onFinished();
   }, [onClose]);
 
@@ -75,7 +74,7 @@ function LessonResults({ className = '', lesson, updateAndStoreLesson, onClose, 
   }, [setPriceInputValue]);
 
   const isWrongDaysInput = !daysInput || !(parseInt(daysInput) > 0);
-  const saveLessonSettings = useCallback((): void => {
+  const saveLessonSettings = useCallback(async (): Promise<void> => {
     const days = parseInt(daysInput, 10);
     if (!amountInputValue || amountInputValue.eq(BN_ZERO) || isWrongDaysInput) {
       showInfo('Correct the errors highlighted in red', 'error');
@@ -88,9 +87,11 @@ function LessonResults({ className = '', lesson, updateAndStoreLesson, onClose, 
           dValidity: days
         };
         updateAndStoreLesson(updatedLesson);
-        storeSetting(SettingKey.DIPLOMA_PRICE, priceInputValue.toString());
-        storeSetting(SettingKey.DIPLOMA_WARRANTY, amountInputValue.toString());
-        storeSetting(SettingKey.DIPLOMA_VALIDITY, days.toString());
+        await Promise.all([
+          storeSetting(SettingKey.DIPLOMA_PRICE, priceInputValue.toString()),
+          storeSetting(SettingKey.DIPLOMA_WARRANTY, amountInputValue.toString()),
+          storeSetting(SettingKey.DIPLOMA_VALIDITY, days.toString())
+        ]);
       }
       toggleVisibleDiplomaDetails();
     }

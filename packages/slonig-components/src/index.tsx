@@ -42,8 +42,7 @@ export { default as FullscreenActivity } from './FullscreenActivity.js';
 export { default as DaysRangePicker } from './DaysRangePicker.js';
 export { default as OKBox } from './OKBox.js';
 export { default as NotClosableFullscreen } from './NotClosableFullscreen.js';
-export { SettingsProvider, useSettings } from './SettingsProvider.js';
-export { useSettingValue } from './useSettingValue.js';
+export { useSettingValue, useBooleanSettingValue } from './useSettingValue.js';
 
 export const EXISTENTIAL_BATCH_SENDER_BALANCE = new BN('10000000000000'); // 10 Slon = 10000000000000
 export const EXISTENTIAL_REFEREE_BALANCE = new BN('1000000000000000'); // 1k Slon = 1000000000000000

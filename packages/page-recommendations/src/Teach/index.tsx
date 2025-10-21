@@ -3,8 +3,8 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { Button, LinearProgress, styled } from '@polkadot/react-components';
 import { u8aToHex } from '@polkadot/util';
-import { Confirmation, OKBox, FullFindow, VerticalCenterItemsContainer, useInfo, useLoginContext, HintBubble, useSettings } from '@slonigiraf/app-slonig-components';
-import { LetterTemplate, Lesson, Reexamination, getPseudonym, getLesson, getLetterTemplatesByLessonId, getReexaminationsByLessonId, getSetting, storeSetting, updateLesson, getLetter, getReexamination, SettingKey, deleteSetting, getValidLetterTemplatesByLessonId, isThereAnyLessonResult } from '@slonigiraf/db';
+import { Confirmation, OKBox, FullFindow, VerticalCenterItemsContainer, useInfo, useLoginContext, HintBubble, useBooleanSettingValue } from '@slonigiraf/app-slonig-components';
+import { LetterTemplate, Lesson, Reexamination, getPseudonym, getLesson, getLetterTemplatesByLessonId, getReexaminationsByLessonId, getSetting, storeSetting, updateLesson, getLetter, getReexamination, SettingKey, deleteSetting, getValidLetterTemplatesByLessonId, isThereAnyLessonResult, setSettingToTrue } from '@slonigiraf/db';
 import DoInstructions from './DoInstructions.js';
 import LessonsList from './LessonsList.js';
 import LessonResults from './LessonResults.js';
@@ -39,12 +39,11 @@ function Teach({ className = '' }: Props): React.ReactElement<Props> {
   const [reexaminations, setReexaminations] = useState<Reexamination[]>([]);
   const [areResultsShown, setResultsShown] = useState(false);
   const [isExitConfirmOpen, setIsExitConfirmOpen] = useState(false);
-  const { isTrueSetting, setSettingToTrue } = useSettings();
-  const hasTutorCompletedTutorial = isTrueSetting(SettingKey.TUTOR_TUTORIAL_COMPLETED);
-  const isViralMessageOpen = !isTrueSetting(SettingKey.VIRAL_TUTORIAL_COMPLETED) && hasTutorCompletedTutorial;
+  const hasTutorCompletedTutorial = useBooleanSettingValue(SettingKey.TUTOR_TUTORIAL_COMPLETED);
+  const isViralMessageOpen = useBooleanSettingValue(SettingKey.VIRAL_TUTORIAL_COMPLETED) === false && hasTutorCompletedTutorial;
   const [bothUsedSlonig, setBothUsedSlonig] = useState(false);
   const [isSendingResultsEnabled, setIsSendingResultsEnabled] = useState<boolean | undefined>(undefined);
-  const [isGreetingOpen, setIsGreetingOpen] = useState(!hasTutorCompletedTutorial);
+  const [isGreetingOpen, setIsGreetingOpen] = useState(hasTutorCompletedTutorial === false);
   const [isHelpQRInfoShown, setIsHelpQRInfoShown] = useState(showHelpQRInfo);
 
 
@@ -128,8 +127,10 @@ function Teach({ className = '' }: Props): React.ReactElement<Props> {
   }, [storeSetting, setLesson]);
 
   const onShowResults = useCallback(async (lesson: Lesson) => {
-    storeSetting(SettingKey.LESSON, lesson.id);
-    storeSetting(SettingKey.LESSON_RESULTS_ARE_SHOWN, 'true');
+    await Promise.all([
+      storeSetting(SettingKey.LESSON, lesson.id),
+      storeSetting(SettingKey.LESSON_RESULTS_ARE_SHOWN, 'true'),
+    ]);
     setLesson(lesson);
     setResultsShown(true);
   }, [storeSetting, setLesson, setResultsShown]);

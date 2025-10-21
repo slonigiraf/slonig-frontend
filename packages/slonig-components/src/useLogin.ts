@@ -57,7 +57,7 @@ export function useLogin() {
           if (accountId !== accountInDB) {
             newPair.lock();
             setIsLoggedIn(false);
-            storeSetting(SettingKey.ACCOUNT, newPair.address);
+            await storeSetting(SettingKey.ACCOUNT, newPair.address);
           }
           setCurrentPair(newPair);
           if (newPair && newPair.meta) {

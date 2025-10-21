@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useState } from 'react';
-import { LawType, KatexSpan, SelectableList, StyledSpinnerContainer, useLoginContext, getCIDFromBytes, FullscreenActivity, useInfo, Confirmation, NotClosableFullscreen, useSettings } from '@slonigiraf/app-slonig-components';
+import { LawType, KatexSpan, SelectableList, StyledSpinnerContainer, useLoginContext, getCIDFromBytes, FullscreenActivity, useInfo, Confirmation, NotClosableFullscreen, useBooleanSettingValue } from '@slonigiraf/app-slonig-components';
 import { useLocation, useNavigate } from 'react-router-dom';
 import ItemLabel from './ItemLabel.js';
 import SkillQR from './SkillQR.js';
@@ -31,8 +31,7 @@ function ViewList({ className = '', id, cidString, list }: Props): React.ReactEl
   const lessonInUrl = queryParams.get('lesson') != null;
   const expanded = queryParams.get('expanded') != null;
   const { t } = useTranslation();
-  const { isTrueSetting } = useSettings();
-  const hasTuteeCompletedTutorial = isTrueSetting(SettingKey.TUTEE_TUTORIAL_COMPLETED);
+  const hasTuteeCompletedTutorial = useBooleanSettingValue(SettingKey.TUTEE_TUTORIAL_COMPLETED);
   const { currentPair, isLoggedIn, setLoginIsRequired } = useLoginContext();
   const [isLearningRequested, setLearningRequested] = useState(false);
   const [isReexaminingRequested, setReexaminingRequested] = useState(false);

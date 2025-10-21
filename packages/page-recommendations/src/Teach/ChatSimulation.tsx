@@ -11,8 +11,8 @@ import { useTranslation } from '../translate.js';
 
 interface ChatSimulationProps {
   messages: IMessage[];
-  hasTutorCompletedTutorial: boolean | undefined;
-  isSendingResultsEnabled: boolean | undefined;
+  hasTutorCompletedTutorial: boolean | null | undefined;
+  isSendingResultsEnabled: boolean | null | undefined;
   onAllMessagesRevealed: () => void;
 }
 

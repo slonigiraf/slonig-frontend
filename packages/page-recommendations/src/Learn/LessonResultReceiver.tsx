@@ -2,9 +2,9 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import React, { useCallback, useEffect, useState } from 'react';
-import { useLoginContext, useTokenTransfer, useInfo, LessonResult, keyForCid, getAddressFromPublickeyHex, useBlockchainSync, useSettings } from '@slonigiraf/app-slonig-components';
+import { useLoginContext, useTokenTransfer, useInfo, LessonResult, keyForCid, getAddressFromPublickeyHex, useBlockchainSync } from '@slonigiraf/app-slonig-components';
 import { hexToU8a, u8aToHex, u8aWrapBytes } from '@polkadot/util';
-import { addReimbursement, cancelLetter, deserializeLetter, getAgreement, getLetter, getLettersForKnowledgeId, letterToReimbursement, putAgreement, putLetter, SettingKey, storePseudonym, updateLetterReexaminingCount } from '@slonigiraf/db';
+import { addReimbursement, cancelLetter, deserializeLetter, getAgreement, getLetter, getLettersForKnowledgeId, letterToReimbursement, putAgreement, putLetter, setSettingToTrue, SettingKey, storePseudonym, updateLetterReexaminingCount } from '@slonigiraf/db';
 import { useTranslation } from '../translate.js';
 import { Agreement } from '@slonigiraf/db';
 import { useNavigate } from 'react-router-dom';
@@ -19,7 +19,6 @@ interface Props {
 
 function LessonResultReceiver({ webRTCPeerId, onDaysRangeChange }: Props): React.ReactElement {
   const { t } = useTranslation();
-  const { setSettingToTrue } = useSettings();
   const { api, isApiReady } = useApi();
   const { openTransfer, transferReceipt, isTransferReady } = useTokenTransfer();
   const { currentPair } = useLoginContext();
