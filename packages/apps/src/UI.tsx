@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import type { BareProps as Props } from '@polkadot/react-components/types';
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import Signer from '@polkadot/react-signer';
 import Content from './Content/index.js';
 import Menu from './Menu/index.js';
@@ -32,6 +32,7 @@ function UI({ className = '' }: Props): React.ReactElement<Props> {
   const queryParams = new URLSearchParams(location.search);
   const lessonInUrl = queryParams.get('lesson') != null;
   const botInUrl = queryParams.get('bot') != null;
+  const [isProcessingAirdrop, setIsProcessingAirdrop] = useState(false);
 
   const isLoginRequired = !isLoggedIn && !botInUrl;
 
@@ -75,17 +76,26 @@ function UI({ className = '' }: Props): React.ReactElement<Props> {
           if (airdropResults.success && airdropResults.amount) {
             await saveSetting(SettingKey.RECEIVED_AIRDROP, airdropResults.amount);
           } else if (airdropResults.error) {
-            showError(airdropResults.error);
+            if (airdropResults.error === 'DUPLICATED_AIRDROP') {
+              if (settings.EXPECTED_AIRDROP === undefined) {
+                await fetchEconomy();
+              }
+              const expectedAirdrop = settings.EXPECTED_AIRDROP || 'undefined';
+              await saveSetting(SettingKey.RECEIVED_AIRDROP, expectedAirdrop);
+            } else {
+              showError(airdropResults.error);
+            }
           }
         } catch (error) {
           showNoConnectionToEconomyServerError();
         }
       }
     }
-    if (isTrueSetting(SettingKey.AIRDROP_COMPATIBLE) && settings.RECEIVED_AIRDROP === undefined && currentPair) {
+    if (isTrueSetting(SettingKey.AIRDROP_COMPATIBLE) && settings.RECEIVED_AIRDROP === undefined && currentPair && !isProcessingAirdrop) {
+      setIsProcessingAirdrop(true);
       run();
     }
-  }, [settings, isTrueSetting, currentPair, showError, showNoConnectionToEconomyServerError]);
+  }, [settings, isTrueSetting, currentPair, showError, showNoConnectionToEconomyServerError, setIsProcessingAirdrop]);
 
   return (
     connected ? <StyledDiv isloginRequired={isLoginRequired} className={`${className} apps--Wrapper ${themeClassName}`}>

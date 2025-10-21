@@ -336,6 +336,7 @@ export async function fetchEconomy(): Promise<void> {
   await storeSetting(SettingKey.DIPLOMA_PRICE, economySettings.diploma);
   await storeSetting(SettingKey.DIPLOMA_WARRANTY, economySettings.warranty);
   await storeSetting(SettingKey.DIPLOMA_VALIDITY, economySettings.validity);
+  await storeSetting(SettingKey.EXPECTED_AIRDROP, economySettings.airdrop);
   await storeSetting(SettingKey.ECONOMY_INITIALIZED, 'true');
 };
 export interface LessonResult {
