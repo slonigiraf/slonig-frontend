@@ -1,18 +1,28 @@
-import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
+import React, {
+  createContext,
+  useContext,
+  useState,
+  useEffect,
+  ReactNode,
+  useCallback
+} from 'react';
 import { getSetting, storeSetting, SettingKey } from '@slonigiraf/db';
 
-// --- Derive type from SettingKey ---
+// ---------- Types derived from SettingKey ----------
 type SettingKeyType = typeof SettingKey;
 type SettingName = keyof SettingKeyType;
+type SettingValue = SettingKeyType[SettingName]; // union of all SettingKey values
 
-interface Settings extends Record<SettingName, string | undefined> { }
+interface Settings extends Record<SettingName, string | undefined> {}
 
 interface SettingsContextType {
   settings: Settings;
-  saveSetting: (key: SettingKeyType[keyof SettingKeyType], value: string) => Promise<void>;
+  saveSetting: <K extends SettingName>(key: typeof SettingKey[K], value: string) => Promise<void>;
+  isTrueSetting: <K extends SettingName>(key: typeof SettingKey[K]) => boolean;
+  getBooleanOrUndefinedSetting: <K extends SettingName>(key: typeof SettingKey[K]) => boolean | undefined;
 }
 
-// --- Default values ---
+// ---------- Default values ----------
 const defaultSettings = Object.keys(SettingKey).reduce((acc, key) => {
   acc[key as SettingName] = undefined;
   return acc;
@@ -20,7 +30,9 @@ const defaultSettings = Object.keys(SettingKey).reduce((acc, key) => {
 
 const defaultContext: SettingsContextType = {
   settings: defaultSettings,
-  saveSetting: async () => { }
+  saveSetting: async () => {},
+  isTrueSetting: () => false,
+  getBooleanOrUndefinedSetting: () => undefined
 };
 
 const SettingsContext = createContext<SettingsContextType>(defaultContext);
@@ -29,9 +41,38 @@ interface SettingsProviderProps {
   children: ReactNode;
 }
 
+// ---------- Provider ----------
 export const SettingsProvider: React.FC<SettingsProviderProps> = ({ children }) => {
   const [settings, _setSettings] = useState<Settings>(defaultSettings);
 
+  // Helper: reverse lookup map (for speed and clarity)
+  const reverseSettingKey = Object.fromEntries(
+    Object.entries(SettingKey).map(([k, v]) => [v, k])
+  ) as Record<SettingValue, SettingName>;
+
+  // --- isTrueSetting ---
+  const isTrueSetting = useCallback(
+    <K extends SettingName>(key: typeof SettingKey[K]): boolean => {
+      const logicalKey = reverseSettingKey[key];
+      if (!logicalKey) throw new Error(`Unknown SettingKey: ${key}`);
+      return settings[logicalKey] === 'true';
+    },
+    [settings, reverseSettingKey]
+  );
+
+  // --- getBooleanOrUndefinedSetting ---
+  const getBooleanOrUndefinedSetting = useCallback(
+    <K extends SettingName>(key: typeof SettingKey[K]): boolean | undefined => {
+      const logicalKey = reverseSettingKey[key];
+      if (!logicalKey) throw new Error(`Unknown SettingKey: ${key}`);
+
+      const value = settings[logicalKey];
+      return value === undefined ? undefined : isTrueSetting(key);
+    },
+    [settings, isTrueSetting, reverseSettingKey]
+  );
+
+  // --- Load all settings once on mount ---
   useEffect(() => {
     (async () => {
       try {
@@ -48,7 +89,6 @@ export const SettingsProvider: React.FC<SettingsProviderProps> = ({ children }) 
         });
 
         const results = await Promise.all(entries);
-
         const newSettings = results.reduce((acc, [k, v]) => {
           acc[k] = v;
           return acc;
@@ -61,21 +101,27 @@ export const SettingsProvider: React.FC<SettingsProviderProps> = ({ children }) 
     })();
   }, []);
 
-  const saveSetting = async (key: SettingKeyType[keyof SettingKeyType], value: string) => {
-    const entry = Object.entries(SettingKey).find(([_, v]) => v === key);
-    if (!entry) throw new Error(`Invalid SettingKey: ${key}`);
+  // --- saveSetting ---
+  const saveSetting = useCallback(
+    async <K extends SettingName>(key: typeof SettingKey[K], value: string): Promise<void> => {
+      const logicalKey = reverseSettingKey[key];
+      if (!logicalKey) throw new Error(`Invalid SettingKey: ${key}`);
 
-    const [logicalKey] = entry as [SettingName, string];
+      _setSettings((prev) => ({ ...prev, [logicalKey]: value }));
+      await storeSetting(key, value);
+    },
+    [reverseSettingKey]
+  );
 
-    _setSettings(prev => ({ ...prev, [logicalKey]: value }));
-    await storeSetting(key, value);
-  };
-
+  // --- Context value ---
   return (
-    <SettingsContext.Provider value={{ settings, saveSetting }}>
+    <SettingsContext.Provider
+      value={{ settings, saveSetting, isTrueSetting, getBooleanOrUndefinedSetting }}
+    >
       {children}
     </SettingsContext.Provider>
   );
 };
 
+// ---------- Hook ----------
 export const useSettings = () => useContext(SettingsContext);
