@@ -56,6 +56,7 @@ function Transfer({ className = '', onClose, onConfirmedClose, onSuccess, recipi
   const { api } = useApi();
   const [amount, setAmount] = useState<BN | undefined>(propAmount ? propAmount : BN_ZERO);
   const [hasAvailable] = useState(true);
+  const [isUserBalanceInitilized, setIsUserBalanceInitilized] = useState(false);
   const [isProtected, setIsProtected] = useState(true);
   const [isAll, setIsAll] = useState(false);
   const [[maxTransfer, noFees], setMaxTransfer] = useState<[BN | null, boolean]>([null, false]);
@@ -92,6 +93,7 @@ function Transfer({ className = '', onClose, onConfirmedClose, onSuccess, recipi
               ? [maxTransfer, false]
               : [null, true]
           );
+          setIsUserBalanceInitilized(true);
           setSenderId(fromId);
           setRecipientId(toId);
         } catch (error) {
@@ -201,7 +203,8 @@ function Transfer({ className = '', onClose, onConfirmedClose, onSuccess, recipi
   const topUpAmountText = balanceToSlonString(amount?.sub(maxTransfer || BN_ZERO).add(new BN('1000000000000')) || BN_ZERO);
   const topUpInfo = t('You do not have enough Slon to reward your tutor and get the lesson results. Top up your balance with at least ___ Slon.').replaceAll('___', topUpAmountText);
   const balanceInfo = t('You currently have ___ Slon.').replaceAll('___', maxTransferText);
-  const isTopUpView = isRewardType && amount !== undefined && maxTransfer !== null && amount?.gte(maxTransfer);
+  const userHasLessSlonThanRequired = isUserBalanceInitilized && ((maxTransfer !== null && amount?.gte(maxTransfer)) || (maxTransfer === null && amount !== undefined));
+  const isTopUpView = isRewardType && userHasLessSlonThanRequired;
 
   return (
 
@@ -211,7 +214,7 @@ function Transfer({ className = '', onClose, onConfirmedClose, onSuccess, recipi
       onClose={onClose}
       size='small'
     >
-      {!isRewardType || (isRewardType && maxTransfer != null && amount !== undefined) ?
+      {!isRewardType || (isRewardType && isUserBalanceInitilized) ?
         <>
           <Modal.Content>
             <div className={className}>
