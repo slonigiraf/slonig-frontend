@@ -1,5 +1,5 @@
-import React, { useEffect, useRef, useState } from 'react';
-import { KatexSpan, NotClosableFullscreen } from '@slonigiraf/app-slonig-components';
+import React from 'react';
+import { KatexSpan } from '@slonigiraf/app-slonig-components';
 import QRCode from 'qrcode.react';
 import { Button, styled } from '@polkadot/react-components';
 import { useTranslation } from './translate.js';
@@ -15,8 +15,12 @@ function ClassInstruction({ className = '', knowledgeId, caption, setIsClassInst
   const { t } = useTranslation();
   const url = `http://localhost:3000/#/knowledge?id=${knowledgeId}&lesson`;
 
+  const printPage = (): void => {
+    window.print();
+  };
+
   return (
-    <FullFindow>
+    <FullWindow className={className}>
       <CenterContainer>
         <h1><KatexSpan content={caption} /></h1>
         <Steps>
@@ -24,18 +28,17 @@ function ClassInstruction({ className = '', knowledgeId, caption, setIsClassInst
             <QRCode value={url} style={{ width: '100%', height: '100%' }} renderAs="canvas" />
           </Step>
           <Step>
-            <img src="./scan_qr.png" style={{ maxWidth: '100%' }} alt="Signup" />
+            <img src="./scan_qr.png" style={{ maxWidth: '100%' }} alt="Scan QR" />
           </Step>
           <Step>
             <img src="./signup.png" style={{ maxWidth: '100%' }} alt="Signup" />
           </Step>
         </Steps>
-        <ButtonsRow>
+        <ButtonsRow className="no-print">
           <Button
             icon='print'
             label={t('Print')}
-            // TODO implement
-            // onClick={printPage}
+            onClick={printPage}
           />
           <Button
             icon='close'
@@ -44,9 +47,8 @@ function ClassInstruction({ className = '', knowledgeId, caption, setIsClassInst
           />
         </ButtonsRow>
       </CenterContainer>
-    </FullFindow>
+    </FullWindow>
   );
-
 }
 
 const Steps = styled.div`
@@ -54,7 +56,6 @@ const Steps = styled.div`
   justify-content: center;
   align-items: center;
   width: 100%;
-  height: 100%;
   flex-wrap: nowrap;
 `;
 
@@ -71,13 +72,14 @@ const ButtonsRow = styled.div`
   justify-content: center;
   align-items: center;
   column-gap: 20px;
+
   .ui--Button {
     text-align: center;
     margin: 5px;
   }
 `;
 
-const FullFindow = styled.div`
+const FullWindow = styled.div`
   position: fixed;
   top: 0;
   left: 0;
@@ -87,7 +89,16 @@ const FullFindow = styled.div`
   background: var(--bg-page);
   overflow-y: auto;
   -webkit-overflow-scrolling: touch;
+
+  @media print {
+    background: white;
+    color: black;
+    .no-print {
+      display: none !important;
+    }
+  }
 `;
+
 const CenterContainer = styled.div`
   display: flex;
   flex-direction: column;
