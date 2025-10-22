@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import BN from 'bn.js';
-import { getIPFSContentIDAndPinIt, digestFromCIDv1, getCIDFromBytes, getIPFSDataFromContentID, loadFromSessionStorage, saveToSessionStorage, KatexSpan } from '@slonigiraf/app-slonig-components';
+import { getIPFSContentIDAndPinIt, digestFromCIDv1, getCIDFromBytes, getIPFSDataFromContentID, loadFromSessionStorage, saveToSessionStorage, KatexSpan, LawType } from '@slonigiraf/app-slonig-components';
 import { BN_ZERO } from '@polkadot/util';
 import React, { useCallback, useEffect, useState } from 'react';
 import { Button, InputBalance, styled } from '@polkadot/react-components';
@@ -294,11 +294,13 @@ function Edit({ className = '' }: Props): React.ReactElement<Props> {
             label={t('Edit')}
             onClick={_onClickEdit}
           />
-          <Button
-            icon='person-chalkboard'
-            label={t('Show to a classroom')}
-            onClick={() => setIsClassInstructionShown(true)}
-          />
+          {list.t !== null && list.t === LawType.MODULE &&
+            <Button
+              icon='person-chalkboard'
+              label={t('Show to a classroom')}
+              onClick={() => setIsClassInstructionShown(true)}
+            />
+          }
         </ButtonsRow>
       }
       {!isIpfsReady ? <div>{t('Connecting to IPFS...')}</div> : ""}
