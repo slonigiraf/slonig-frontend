@@ -70,7 +70,7 @@ class TutoringAlgorithm extends Algorithm {
             t('Yes'),
             [
                 { title: t('📖 Read what’s happening'), text: t('The tutee has created an exercise.') },
-                { title: t('🗣 Do your tutee’s exercise WRONG and say'), text: t('Correct me.') },
+                { title: t('🗣 Give your tutee a wrong answer and say'), text: t('Correct me.') },
             ],
             t('Has the tutee corrected the wrong solution?'),
             <ExampleExercisesButton skill={skill} />
