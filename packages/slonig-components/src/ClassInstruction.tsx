@@ -13,7 +13,7 @@ interface Props {
 
 function ClassInstruction({ className = '', knowledgeId, caption, setIsClassInstructionShown }: Props): React.ReactElement<Props> {
   const { t } = useTranslation();
-  const url = `http://localhost:3000/#/knowledge?id=${knowledgeId}&lesson`;
+  const url = `https://app.slonig.org/#/knowledge?id=${knowledgeId}&lesson`;
 
   const printPage = (): void => {
     window.print();
