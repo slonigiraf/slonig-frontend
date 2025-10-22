@@ -543,5 +543,8 @@
   "TUTEE – learns new skills and earns badges": "УЧЕНИК – получает новые навыки и значки",
   "TUTOR – helps friends and earns rewards": "НАСТАВНИК – помогает друзьям, получает награду",
   "Tell the tutee to scan the same QR code.": "Скажи ученику отсканировать тот же QR-код.",
-  "Next time, use this button to scan.": "В следующий раз сканируй так."
+  "Next time, use this button to scan.": "В следующий раз сканируй так.",
+  "Tutee scans this QR code.": "Ученик сканирует этот QR-код.",
+  "Tutor scans the QR code from the tutee’s device.": "Репетитор сканирует QR-код с устройства ученика.",
+  "Tutor helps the tutee face-to-face using hints from the app.": "Репетитор помогает ученику вживую, используя подсказки из приложения."
 }

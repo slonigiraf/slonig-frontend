@@ -59,7 +59,7 @@ function Edit({ className = '' }: Props): React.ReactElement<Props> {
   const [originalCidString, setOriginalCidString] = useState<string>(loadFromSessionStorage(sessionPrefix, 'originalCidString') || "");
   const [originalLawHexData, setOriginalLawHexData] = useState<string>(loadFromSessionStorage(sessionPrefix, 'originalLawHexData') || "");
   const [originalAmountList, setOriginalAmountList] = useState<BN | undefined>(new BN(loadFromSessionStorage(sessionPrefix, 'originalAmountList') || BN_ZERO));
-  const [isClassInstructionShown, setIsClassInstructionShown] = useState(true);
+  const [isClassInstructionShown, setIsClassInstructionShown] = useState(false);
 
   const toggleEditView = () => setIsEditView(!isEditView);
 

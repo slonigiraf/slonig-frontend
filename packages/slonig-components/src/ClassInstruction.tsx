@@ -25,15 +25,15 @@ function ClassInstruction({ className = '', knowledgeId, caption, setIsClassInst
         <h1><KatexSpan content={caption} /></h1>
         <Steps>
           <Step>
-            <h2>{'1. ' + t('Tutee scans this QR code')}</h2>
+            <h2>{'1. ' + t('Tutee scans this QR code.')}</h2>
             <QRWrapper><QRCode value={url} style={{ width: '100%', height: '100%' }} renderAs="canvas" /></QRWrapper>
           </Step>
           <Step>
-            <h2>{'2. ' + t('Tutor scans a QR code from the tutee’s device')}</h2>
+            <h2>{'2. ' + t('Tutor scans the QR code from the tutee’s device.')}</h2>
             <img src="./scan_qr.png" style={{ maxWidth: '100%' }} alt="Scan QR" />
           </Step>
           <Step>
-            <h2>{'3. ' + t('Tutor helps the tutee face to face, using hints from the app')}</h2>
+            <h2>{'3. ' + t('Tutor helps the tutee face-to-face using hints from the app.')}</h2>
             <img src="./signup.png" style={{ maxWidth: '100%' }} alt="Signup" />
           </Step>
         </Steps>
