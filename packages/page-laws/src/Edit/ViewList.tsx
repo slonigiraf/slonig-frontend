@@ -216,7 +216,6 @@ function ViewList({ className = '', id, cidString, isClassInstructionShown, setI
         </Standards>
       </DivWithLeftMargin>
     )}
-    {isClassInstructionShown && <ClassInstruction caption={list.h} knowledgeId={id} setIsClassInstructionShown={setIsClassInstructionShown}/>}
     {isPutDeviceAsideOpen && (
       <OKBox info={t('You can put your device aside')} onClose={() => setIsPutDeviceAsideOpen(false)} />
     )}
@@ -239,15 +238,17 @@ function ViewList({ className = '', id, cidString, isClassInstructionShown, setI
 
   return list == null ?
     <StyledSpinnerContainer><Spinner noLabel /></StyledSpinnerContainer> :
-    (isAPairWork ?
-      (!role && lessonInUrl) ? roleSelector :
-        <FullscreenActivity captionElement={<KatexSpan content={list.h} />} onClose={exitFullScreenActivity} >
-          <RemoveBorders>{content}</RemoveBorders>
-          {isExitConfirmOpen && (
-            <Confirmation question={t('Sure to exit learning?')} onClose={() => setIsExitConfirmOpen(false)} onConfirm={closeQR} />
-          )}
-        </FullscreenActivity> :
-      content);
+    (isClassInstructionShown ?
+      <ClassInstruction caption={list.h} knowledgeId={id} setIsClassInstructionShown={setIsClassInstructionShown} /> :
+      isAPairWork ?
+        (!role && lessonInUrl) ? roleSelector :
+          <FullscreenActivity captionElement={<KatexSpan content={list.h} />} onClose={exitFullScreenActivity} >
+            <RemoveBorders>{content}</RemoveBorders>
+            {isExitConfirmOpen && (
+              <Confirmation question={t('Sure to exit learning?')} onClose={() => setIsExitConfirmOpen(false)} onConfirm={closeQR} />
+            )}
+          </FullscreenActivity> :
+        content);
 }
 
 const RoleImagesRow = styled.div`
