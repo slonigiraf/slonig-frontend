@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useState } from 'react';
-import { LawType, KatexSpan, SelectableList, StyledSpinnerContainer, useLoginContext, getCIDFromBytes, FullscreenActivity, useInfo, Confirmation, NotClosableFullscreen, useBooleanSettingValue } from '@slonigiraf/app-slonig-components';
+import { LawType, KatexSpan, SelectableList, StyledSpinnerContainer, useLoginContext, getCIDFromBytes, FullscreenActivity, Confirmation, NotClosableFullscreen, useBooleanSettingValue, OKBox } from '@slonigiraf/app-slonig-components';
 import { useLocation, useNavigate } from 'react-router-dom';
 import ItemLabel from './ItemLabel.js';
 import SkillQR from './SkillQR.js';
@@ -25,7 +25,6 @@ interface Props {
 function ViewList({ className = '', id, cidString, list }: Props): React.ReactElement<Props> {
   const location = useLocation();
   const navigate = useNavigate();
-  const { showInfo } = useInfo();
   const { api } = useApi();
   const queryParams = new URLSearchParams(location.search);
   const lessonInUrl = queryParams.get('lesson') != null;
@@ -44,6 +43,7 @@ function ViewList({ className = '', id, cidString, list }: Props): React.ReactEl
   const studentIdentity = u8aToHex(currentPair?.publicKey);
   const [isExitConfirmOpen, setIsExitConfirmOpen] = useState(false);
   const [role, setRole] = useState<'tutee' | undefined>(undefined);
+  const [isPutDeviceAsideOpen, setIsPutDeviceAsideOpen] = useState(false);
 
   async function fetchLaw(key: string) {
     const law = (await api.query.laws.laws(key)) as { isSome: boolean; unwrap: () => [Uint8Array, BN] };
@@ -120,8 +120,8 @@ function ViewList({ className = '', id, cidString, list }: Props): React.ReactEl
 
   const onDataSent = useCallback((): void => {
     closeQR();
-    showInfo(t('You can put your device aside'));
-  }, [closeQR]);
+    setIsPutDeviceAsideOpen(true);
+  }, [closeQR, setIsPutDeviceAsideOpen]);
 
   const exitFullScreenActivity = useCallback((): void => {
     hasTuteeCompletedTutorial ? closeQR() : setIsExitConfirmOpen(true);
@@ -214,22 +214,25 @@ function ViewList({ className = '', id, cidString, list }: Props): React.ReactEl
         </Standards>
       </DivWithLeftMargin>
     )}
+    {isPutDeviceAsideOpen && (
+      <OKBox info={t('You can put your device aside')} onClose={() => setIsPutDeviceAsideOpen(false)} />
+    )}
   </> : <></>;
 
   const roleSelector = <NotClosableFullscreen>
-        <Title>{t('Choose your role for now')}</Title>
-        <br />
-        <RoleImagesRow>
-          <RoleOption onClick={() => setRole('tutee')}>
-            <img src="./tutee.png" alt="Tutee" />
-            <p>{t('TUTEE – learns new skills and earns badges')}</p>
-          </RoleOption>
-          <RoleOption onClick={helpTutor}>
-            <img src="./tutor.png" alt="Tutor" />
-            <p>{t('TUTOR – helps friends and earns rewards')}</p>
-          </RoleOption>
-        </RoleImagesRow>
-      </NotClosableFullscreen>;
+    <Title>{t('Choose your role for now')}</Title>
+    <br />
+    <RoleImagesRow>
+      <RoleOption onClick={() => setRole('tutee')}>
+        <img src="./tutee.png" alt="Tutee" />
+        <p>{t('TUTEE – learns new skills and earns badges')}</p>
+      </RoleOption>
+      <RoleOption onClick={helpTutor}>
+        <img src="./tutor.png" alt="Tutor" />
+        <p>{t('TUTOR – helps friends and earns rewards')}</p>
+      </RoleOption>
+    </RoleImagesRow>
+  </NotClosableFullscreen>;
 
   return list == null ?
     <StyledSpinnerContainer><Spinner noLabel /></StyledSpinnerContainer> :
