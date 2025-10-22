@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useState } from 'react';
-import { LawType, KatexSpan, SelectableList, StyledSpinnerContainer, useLoginContext, getCIDFromBytes, FullscreenActivity, Confirmation, NotClosableFullscreen, useBooleanSettingValue, OKBox } from '@slonigiraf/app-slonig-components';
+import { LawType, KatexSpan, SelectableList, StyledSpinnerContainer, useLoginContext, getCIDFromBytes, FullscreenActivity, Confirmation, NotClosableFullscreen, useBooleanSettingValue, OKBox, ClassInstruction } from '@slonigiraf/app-slonig-components';
 import { useLocation, useNavigate } from 'react-router-dom';
 import ItemLabel from './ItemLabel.js';
 import SkillQR from './SkillQR.js';
@@ -19,10 +19,12 @@ interface Props {
   className?: string;
   id: string;
   cidString: string;
+  isClassInstructionShown: boolean;
+  setIsClassInstructionShown: (isShown: boolean) => void;
   list: JsonType;
 }
 
-function ViewList({ className = '', id, cidString, list }: Props): React.ReactElement<Props> {
+function ViewList({ className = '', id, cidString, isClassInstructionShown, setIsClassInstructionShown, list }: Props): React.ReactElement<Props> {
   const location = useLocation();
   const navigate = useNavigate();
   const { api } = useApi();
@@ -214,6 +216,7 @@ function ViewList({ className = '', id, cidString, list }: Props): React.ReactEl
         </Standards>
       </DivWithLeftMargin>
     )}
+    {isClassInstructionShown && <ClassInstruction caption={list.h} knowledgeId={id} setIsClassInstructionShown={setIsClassInstructionShown}/>}
     {isPutDeviceAsideOpen && (
       <OKBox info={t('You can put your device aside')} onClose={() => setIsPutDeviceAsideOpen(false)} />
     )}
@@ -342,19 +345,5 @@ const Standards = styled.div`
     text-transform: none;
   }
 `;
-
-const RoleButtonsRow = styled.div`
-  width: 100%;
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  column-gap: 40px;
-  margin-top: 10px;
-  .ui--Button {
-    width: 100px;
-    text-align: center;
-  }
-`;
-
 
 export default React.memo(ViewList);

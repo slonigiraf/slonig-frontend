@@ -5,7 +5,7 @@ import BN from 'bn.js';
 import { getIPFSContentIDAndPinIt, digestFromCIDv1, getCIDFromBytes, getIPFSDataFromContentID, loadFromSessionStorage, saveToSessionStorage, KatexSpan } from '@slonigiraf/app-slonig-components';
 import { BN_ZERO } from '@polkadot/util';
 import React, { useCallback, useEffect, useState } from 'react';
-import { Button, InputBalance } from '@polkadot/react-components';
+import { Button, InputBalance, styled } from '@polkadot/react-components';
 import { useToggle } from '@polkadot/react-hooks';
 import { u8aToHex } from '@polkadot/util';
 import { useTranslation } from '../translate.js';
@@ -59,6 +59,7 @@ function Edit({ className = '' }: Props): React.ReactElement<Props> {
   const [originalCidString, setOriginalCidString] = useState<string>(loadFromSessionStorage(sessionPrefix, 'originalCidString') || "");
   const [originalLawHexData, setOriginalLawHexData] = useState<string>(loadFromSessionStorage(sessionPrefix, 'originalLawHexData') || "");
   const [originalAmountList, setOriginalAmountList] = useState<BN | undefined>(new BN(loadFromSessionStorage(sessionPrefix, 'originalAmountList') || BN_ZERO));
+  const [isClassInstructionShown, setIsClassInstructionShown] = useState(false);
 
   const toggleEditView = () => setIsEditView(!isEditView);
 
@@ -285,15 +286,20 @@ function Edit({ className = '' }: Props): React.ReactElement<Props> {
 
   const viewView = (
     <div className={`toolbox--Sign ${className}`}>
-      {textHexId && <ViewList key={textHexId} id={textHexId} cidString={cidString} list={list} />}
+      {textHexId && <ViewList key={textHexId} id={textHexId} cidString={cidString} isClassInstructionShown={isClassInstructionShown} setIsClassInstructionShown={(isShown: boolean) => setIsClassInstructionShown(isShown)} list={list} />}
       {list &&
-        <div>
+        <ButtonsRow>
           <Button
             icon='edit'
             label={t('Edit')}
             onClick={_onClickEdit}
           />
-        </div>
+          <Button
+            icon='person-chalkboard'
+            label={t('Show to a classroom')}
+            onClick={() => setIsClassInstructionShown(true)}
+          />
+        </ButtonsRow>
       }
       {!isIpfsReady ? <div>{t('Connecting to IPFS...')}</div> : ""}
     </div>
@@ -303,5 +309,17 @@ function Edit({ className = '' }: Props): React.ReactElement<Props> {
     {isEditView ? editView : viewView}
   </>;
 }
+
+const ButtonsRow = styled.div`
+  width: 100%;
+  display: flex;
+  justify-content: left;
+  align-items: center;
+  column-gap: 20px;
+  .ui--Button {
+    text-align: center;
+    margin: 5px;
+  }
+`;
 
 export default React.memo(Edit);
