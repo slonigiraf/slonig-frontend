@@ -39,6 +39,7 @@ function Edit({ className = '' }: Props): React.ReactElement<Props> {
   const queryParams = new URLSearchParams(location.search);
   const defaultTextHexId = '0xfed8e6f01c6c746876d69f7f10f933cdcd849068f6dc2fa26769fc92584492e7';
   const idFromQuery = queryParams.get('id') || defaultTextHexId;
+  const [idFromSessionStorage] = useState<string>(loadFromSessionStorage(sessionPrefix, 'textHexId') || "");
   const [textHexId, setTextHexId] = useState<string | undefined>(idFromQuery);
 
   // Load state changes to session storage
@@ -73,6 +74,7 @@ function Edit({ className = '' }: Props): React.ReactElement<Props> {
 
   // Save state changes to session storage
   useEffect(() => {
+    saveToSessionStorage(sessionPrefix, 'textHexId', textHexId);
     saveToSessionStorage(sessionPrefix, 'list', list);
     saveToSessionStorage(sessionPrefix, 'item', item);
     saveToSessionStorage(sessionPrefix, 'cidString', cidString);
@@ -90,8 +92,14 @@ function Edit({ className = '' }: Props): React.ReactElement<Props> {
     saveToSessionStorage(sessionPrefix, 'originalLawHexData', originalLawHexData);
     saveToSessionStorage(sessionPrefix, 'originalAmountList', originalAmountList?.toString());
 
-  }, [list, item, cidString, lawHexData, amountList, amountItem, previousAmount, isEditView, isAddingLink, isAddingItem, itemIdHex,
+  }, [textHexId, list, item, cidString, lawHexData, amountList, amountItem, previousAmount, isEditView, isAddingLink, isAddingItem, itemIdHex,
     originalList, originalCidString, originalLawHexData, originalAmountList]);
+
+  useEffect(() => {
+    if (idFromQuery && idFromSessionStorage && (idFromQuery !== idFromSessionStorage)) {
+      setIsEditView(false);
+    }
+  }, [idFromQuery, idFromSessionStorage]);
 
   useEffect(() => {
     const updateSetting = async () => {

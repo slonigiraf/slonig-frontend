@@ -52,8 +52,6 @@ function Editor(props: Props): React.ReactElement<Props> {
     });
   }, [list, onListChange]);
 
-  console.log('list: ', list)
-
   const selectLawType = useCallback((newLawType: typeof LawType) => {
     if (!item || newLawType !== item.t) {
       onItemChange({
