@@ -20,12 +20,12 @@ interface Props {
   onResult: () => void;
   hasTutorCompletedTutorial: boolean | null | undefined;
   studentName: string | null;
-  bothUsedSlonig?: boolean;
+  hasTuteeUsedSlonig: boolean;
   isSendingResultsEnabled: boolean | null | undefined;
   isBeforeTeaching?: boolean;
 }
 
-function DoInstructions({ className = '', entity, onResult, studentName, bothUsedSlonig = true, isSendingResultsEnabled, hasTutorCompletedTutorial, isBeforeTeaching = false}: Props): React.ReactElement<Props> {
+function DoInstructions({ className = '', entity, onResult, studentName, isSendingResultsEnabled, hasTuteeUsedSlonig, hasTutorCompletedTutorial, isBeforeTeaching = false}: Props): React.ReactElement<Props> {
   const { ipfs, isIpfsReady } = useIpfsContext();
   const [skill, setSkill] = useState<Skill>();
   const { t } = useTranslation();
@@ -56,7 +56,7 @@ function DoInstructions({ className = '', entity, onResult, studentName, bothUse
           if (isComponentMounted) {
             setSkill(skill);
             if (isLetterTemplate(entity)) {
-              const newAlgorithm = new TutoringAlgorithm(t, studentName, skill, bothUsedSlonig);
+              const newAlgorithm = new TutoringAlgorithm(t, studentName, skill, hasTuteeUsedSlonig, hasTutorCompletedTutorial? true : false);
               setAlgorithmStage(newAlgorithm.getBegin());
             } else {
               const newAlgorithm = new ValidatingAlgorithm(t, studentName, skill, isBeforeTeaching);
@@ -155,9 +155,6 @@ function DoInstructions({ className = '', entity, onResult, studentName, bothUse
         refreshStageView();
       } else if (isReexamination(entity) && nextStage.type === 'success') {
         studentPassedReexamination();
-        refreshStageView();
-      } else if (nextStage.type === 'repeat') {
-        preserveFromNoobs(() => setAlgorithmStage(nextStage), () => setIsButtonClicked(false));
         refreshStageView();
       } else {
         setAlgorithmStage(nextStage);

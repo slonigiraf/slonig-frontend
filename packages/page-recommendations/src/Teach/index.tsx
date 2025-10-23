@@ -41,7 +41,7 @@ function Teach({ className = '' }: Props): React.ReactElement<Props> {
   const [isExitConfirmOpen, setIsExitConfirmOpen] = useState(false);
   const hasTutorCompletedTutorial = useBooleanSettingValue(SettingKey.TUTOR_TUTORIAL_COMPLETED);
   const isViralMessageOpen = useBooleanSettingValue(SettingKey.VIRAL_TUTORIAL_COMPLETED) === false && hasTutorCompletedTutorial;
-  const [bothUsedSlonig, setBothUsedSlonig] = useState(false);
+  const [hasTuteeUsedSlonig, setHasTuteeUsedSlonig] = useState(false);
   const [isSendingResultsEnabled, setIsSendingResultsEnabled] = useState<boolean | undefined>(undefined);
   const [isGreetingOpen, setIsGreetingOpen] = useState(hasTutorCompletedTutorial === false);
   const [isHelpQRInfoShown, setIsHelpQRInfoShown] = useState(showHelpQRInfo);
@@ -141,8 +141,7 @@ function Teach({ className = '' }: Props): React.ReactElement<Props> {
     currentReexaminations: Reexamination[]) => {
     async function run() {
       if (updatedLesson) {
-        const bothUsed = hasTutorCompletedTutorial && currentReexaminations?.length > 0 || updatedLesson.learnStep > 0;
-        setBothUsedSlonig(bothUsed);
+        setHasTuteeUsedSlonig(currentReexaminations?.length > 0 || updatedLesson.learnStep > 0);
       }
       if (updatedLesson.reexamineStep < updatedLesson.toReexamineCount) {
         setReexamined(false);
@@ -221,6 +220,7 @@ function Teach({ className = '' }: Props): React.ReactElement<Props> {
         {!reexamined && reexaminationToPerform &&
           <DoInstructions
             entity={reexaminationToPerform}
+            hasTuteeUsedSlonig={hasTuteeUsedSlonig}
             hasTutorCompletedTutorial={hasTutorCompletedTutorial}
             onResult={updateReexamined}
             studentName={studentName}
@@ -230,10 +230,10 @@ function Teach({ className = '' }: Props): React.ReactElement<Props> {
         {reexamined && letterTemplateToIssue &&
           <DoInstructions
             entity={letterTemplateToIssue}
+            hasTuteeUsedSlonig={hasTuteeUsedSlonig}
             hasTutorCompletedTutorial={hasTutorCompletedTutorial}
             onResult={updateLearned}
             studentName={studentName}
-            bothUsedSlonig={bothUsedSlonig}
             isSendingResultsEnabled={isSendingResultsEnabled}
             key={'learn' + letterTemplateToIssue.cid} />}
         {lesson &&

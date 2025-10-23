@@ -4,8 +4,9 @@ import { Skill } from '@slonigiraf/app-slonig-components';
 import ExampleExercisesButton from './ExampleExercisesButton.js';
 
 class TutoringAlgorithm extends Algorithm {
-    constructor(t: any, studentName: string | null, skill: Skill, bothUsedSlonig: boolean) {
+    constructor(t: any, studentName: string | null, skill: Skill, hasTuteeCompletedTutorial: boolean, hasTutorCompletedTutorial: boolean) {
         super();
+        const bothUsedSlonig = hasTuteeCompletedTutorial && hasTutorCompletedTutorial;
         const questions = skill ? skill.q : [];
         let question1: string = questions.length > 0 ? questions[0].h : t('SOME TASK FOR SKILL TRAINING (THE TUTOR SHOULD KNOW)');
         let answer1: string = questions.length > 0 ? questions[0].a : '';
@@ -23,7 +24,7 @@ class TutoringAlgorithm extends Algorithm {
         );
         const repeatNextDay = new AlgorithmStage(
             7,
-            'repeat',
+            hasTutorCompletedTutorial? 'repeat' : 'success',
             t('No'),
             [
                 { title: t('🗣 Say to the tutee'), text: t('Excellent! Let’s repeat this tomorrow.') },
