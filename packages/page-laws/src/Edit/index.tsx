@@ -150,7 +150,7 @@ function Edit({ className = '' }: Props): React.ReactElement<Props> {
     if (textHexId) {
       fetchLaw(textHexId);
     }
-  }, [textHexId]);
+  }, [textHexId, lawHexData]);
 
   useEffect(() => {
     const fetchIPFSData = async () => {
