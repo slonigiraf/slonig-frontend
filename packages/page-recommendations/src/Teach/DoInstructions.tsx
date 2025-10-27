@@ -149,7 +149,7 @@ function DoInstructions({ className = '', entity, onResult, studentName, isSendi
         studentFailedReexamination();
         refreshStageView();
       } else if (nextStage.type === 'skip') {
-        preserveFromNoobs(() => { refreshStageView(); onResult }, () => setIsButtonClicked(false));
+        preserveFromNoobs(() => { refreshStageView(); onResult(); }, () => setIsButtonClicked(false));
       } else if (isLetterTemplate(entity) && (nextStage.type === 'success' || nextStage.type === 'next_skill')) {
         processLetter(nextStage.type === 'success');
         refreshStageView();
