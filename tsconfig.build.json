@@ -26,7 +26,6 @@
     { "path": "./packages/page-collator/tsconfig.build.json" },
     { "path": "./packages/page-council/tsconfig.build.json" },
     { "path": "./packages/page-democracy/tsconfig.build.json" },
-    { "path": "./packages/page-extrinsics/tsconfig.build.json" },
     { "path": "./packages/page-fellowship/tsconfig.build.json" },
     { "path": "./packages/page-files/tsconfig.build.json" },
     { "path": "./packages/page-gilt/tsconfig.build.json" },

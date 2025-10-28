@@ -3,7 +3,6 @@
 
 import type { Routes, TFunction } from './types.js';
 import accounts from './accounts.js';
-import extrinsics from './extrinsics.js';
 import js from './js.js';
 import parachains from './parachains.js';
 import badges from './badges.js';
@@ -29,7 +28,6 @@ export default function create (t: TFunction): Routes {
     // others
     parachains(t),
     storage(t),
-    extrinsics(t),
     rpc(t),
     runtime(t),
     signing(t),
