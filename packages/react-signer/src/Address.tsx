@@ -313,7 +313,7 @@ function Address ({ currentItem, onChange, onEnter, passwordError, requestAddres
             label={
               isProxyActive
                 ? t('Use a proxy for this call')
-                : t("Don't use a proxy for this call")
+                : t('Don’t use a proxy for this call')
             }
             onChange={setIsProxyActive}
             value={isProxyActive}

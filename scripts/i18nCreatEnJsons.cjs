@@ -3,6 +3,7 @@
 /**
  * Extract translation keys (t('key')) from all source files
  * and write them into per-package locale JSON files based on package.json name.
+ * Also writes a combined translation.json with all keys and empty values.
  */
 
 const fs = require("fs");
@@ -10,9 +11,10 @@ const path = require("path");
 
 const rootDir = path.resolve(__dirname, "../");
 const localesBase = path.join(rootDir, "packages", "apps", "public", "locales", "en");
+const translationJsonPath = path.join(localesBase, "translation.json");
 
 const exts = [".js", ".jsx", ".ts", ".tsx"];
-const regex = /t\(\s*['"]([^'"]+)['"]/g; // matches t('key') or t("key")
+const regex = /t\(\s*['"]([^'"]+)['"]/g;
 
 /**
  * Recursively collect all JS/TS/JSX/TSX file paths.
@@ -66,7 +68,7 @@ function ensureDirSync(dir) {
  * @returns {boolean}
  */
 function isOnlyPunctuation(key) {
-  return /^[\p{P}\p{S}]+$/u.test(key); // matches only punctuation or symbols
+  return /^[\p{P}\p{S}]+$/u.test(key);
 }
 
 /**
@@ -78,22 +80,23 @@ function extractTranslations() {
 
   /** @type {Record<string, Set<string>>} */
   const packageKeys = {};
+  const allKeys = new Set();
 
   for (const file of files) {
     const content = fs.readFileSync(file, "utf8");
     let match;
     while ((match = regex.exec(content)) !== null) {
       const key = match[1].trim();
-      if (!key || isOnlyPunctuation(key)) continue; // skip invalid keys
+      if (!key || isOnlyPunctuation(key)) continue;
 
-      // find nearest package.json
+      allKeys.add(key);
+
       const pkgPath = findNearestPackageJson(file);
       let outName = "root.json";
       if (pkgPath) {
         try {
           const pkg = JSON.parse(fs.readFileSync(pkgPath, "utf8"));
           if (pkg.name && typeof pkg.name === "string") {
-            // remove @scope/
             const clean = pkg.name.replace(/^@[^/]+\//, "");
             outName = `${clean}.json`;
           }
@@ -109,35 +112,26 @@ function extractTranslations() {
 
   ensureDirSync(localesBase);
 
+  // --- Write per-package files (overwrite mode) ---
   for (const [outFileName, keys] of Object.entries(packageKeys)) {
     const outFile = path.join(localesBase, outFileName);
+    const sorted = Array.from(keys).sort().reduce((acc, k) => {
+      acc[k] = k;
+      return acc;
+    }, /** @type {Record<string, string>} */ ({}));
 
-    /** @type {Record<string, string>} */
-    let existing = /** @type {Record<string, string>} */ ({});
-    if (fs.existsSync(outFile)) {
-      try {
-        existing = JSON.parse(fs.readFileSync(outFile, "utf8"));
-      } catch {
-        existing = /** @type {Record<string, string>} */ ({});
-      }
-    }
-
-    for (const key of keys) {
-      if (!(key in existing)) existing[key] = key;
-    }
-
-    // sort alphabetically
-    const sorted = Object.keys(existing)
-      .sort()
-      .reduce((acc, k) => {
-        acc[k] = existing[k];
-        return acc;
-      }, /** @type {Record<string, string>} */ ({}));
-
-    // write without final newline
     fs.writeFileSync(outFile, JSON.stringify(sorted, null, 2), "utf8");
-    console.log(`✅ ${outFileName}: wrote ${keys.size} keys to ${outFile}`);
+    console.log(`✅ ${outFileName}: wrote ${keys.size} keys`);
   }
+
+  // --- Write combined translation.json (empty values) ---
+  const allSorted = Array.from(allKeys).sort().reduce((acc, k) => {
+    acc[k] = "";
+    return acc;
+  }, /** @type {Record<string, string>} */ ({}));
+
+  fs.writeFileSync(translationJsonPath, JSON.stringify(allSorted, null, 2), "utf8");
+  console.log(`🌐 translation.json: wrote ${allKeys.size} total keys`);
 
   console.log("✨ Extraction complete!");
 }
