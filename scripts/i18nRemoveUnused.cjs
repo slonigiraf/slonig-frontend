@@ -16,7 +16,6 @@ console.log(`🔍 Checking ${keys.length} translation keys in project...`);
 const unusedKeys = [];
 
 for (const key of keys) {
-  // Construct grep command
   const grepCommand = [
     `grep -R --exclude-dir=node_modules`,
     fileExtensions.map(ext => `--include="*.${ext}"`).join(" "),
@@ -30,15 +29,23 @@ for (const key of keys) {
     if (!result.trim()) {
       unusedKeys.push(key);
     }
-  } catch (err) {
-    // grep returns nonzero exit if no matches found
+  } catch {
     unusedKeys.push(key);
   }
 }
 
+// --- REMOVE UNUSED KEYS ---
 if (unusedKeys.length > 0) {
-  console.log(`\n🚨 Unused translation keys found (${unusedKeys.length}):`);
-  unusedKeys.forEach(k => console.log(" -", k));
+  console.log(`\n🚨 Removing ${unusedKeys.length} unused translation keys:`);
+
+  for (const key of unusedKeys) {
+    console.log(" -", key);
+    delete translations[key];
+  }
+
+  // Write updated JSON with 2-space indentation
+  fs.writeFileSync(translationPath, JSON.stringify(translations, null, 2) + "\n", "utf8");
+  console.log(`\n🧹 Cleaned ${unusedKeys.length} unused keys from translation.json`);
 } else {
   console.log("\n✅ All translation keys are used in the codebase!");
 }
