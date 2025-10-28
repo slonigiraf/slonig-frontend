@@ -93,7 +93,7 @@ function Funds ({ bestNumber, className, leasePeriod, value }: Props): React.Rea
     <>
       <MarkWarning
         className='warning centered'
-        content={t('Do not transfer any funds directly to a specific account that is associated with a loan or a team. Use the "Contribute" action to record the contribution on-chain using the crowdloan runtime module. When the fund is dissolved, after either the parachain lease expires or the loan ending without winning, the full value will be returned to your account by the runtime. Funds sent directly to an account, without using the crowdloan functionality, may not be returned by the receiving account.')}
+        content={t('Do not transfer any funds directly to a specific account that is associated with a loan or a team. Use the ’Contribute’ action to record the contribution on-chain using the crowdloan runtime module. When the fund is dissolved, after either the parachain lease expires or the loan ending without winning, the full value will be returned to your account by the runtime. Funds sent directly to an account, without using the crowdloan functionality, may not be returned by the receiving account.')}
       />
       <Table
         className={className}

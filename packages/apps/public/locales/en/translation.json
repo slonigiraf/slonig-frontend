@@ -233,7 +233,7 @@
   "Distinct stash and controller accounts are recommended to ensure fund security. You will be allowed to make the transaction, but take care to not tie up all funds, only use a portion of the available funds during this period.": "",
   "Do not allow local in-browser account storage": "",
   "Do not include a tip for the block author": "",
-  "Do not transfer any funds directly to a specific account that is associated with a loan or a team. Use the \"Contribute\" action to record the contribution on-chain using the crowdloan runtime module. When the fund is dissolved, after either the parachain lease expires or the loan ending without winning, the full value will be returned to your account by the runtime. Funds sent directly to an account, without using the crowdloan functionality, may not be returned by the receiving account.": "",
+  "Do not transfer any funds directly to a specific account that is associated with a loan or a team. Use the ’Contribute’ action to record the contribution on-chain using the crowdloan runtime module. When the fund is dissolved, after either the parachain lease expires or the loan ending without winning, the full value will be returned to your account by the runtime. Funds sent directly to an account, without using the crowdloan functionality, may not be returned by the receiving account.": "",
   "Do not upload files larger than 100MB!": "",
   "Don't use a proxy for this call": "",
   "Download": "",
