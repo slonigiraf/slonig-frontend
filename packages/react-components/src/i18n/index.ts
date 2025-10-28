@@ -67,7 +67,6 @@ i18next
       'app-signing',
       'app-society',
       'app-staking',
-      'app-storage',
       'app-sudo',
       'app-tech-comm',
       'app-treasury',
