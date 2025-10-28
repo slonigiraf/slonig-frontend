@@ -1,5 +1,4 @@
 {
-  "Account type {{index}}": "Тип аккаунта {{главный}}",
   "Add": "Добавить",
   "Add account": "Добавить аккаунт",
   "Current account": "Используемый аккаунт",
@@ -64,7 +63,6 @@
   "account forgotten": "аккаунт забыт",
   "account name": "название аккаунта",
   "account restored": "аккаунт восстановлен",
-  "account type": "тип аккаунта",
   "accounts": "аккаунты",
   "accounts available via browser extensions": "доступные акаунты в браузерном расширении",
   "accounts available via mobile devices": "доступные акаунты на мобильном устройстве",

@@ -16,7 +16,6 @@ import { hdLedger, hdValidatePath, keyExtractSuri, mnemonicGenerate, mnemonicVal
 import { useTranslation } from '../translate.js';
 import { tryCreateAccount } from '../util.js';
 import CreateAccountInputs from './CreateAccountInputs.js';
-import { ETH_DEFAULT_PATH } from './CreateEthDerivationPath.js';
 import { storeSetting, SettingKey } from '@slonigiraf/db';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { DBImport, useInfo } from '@slonigiraf/slonig-components';
@@ -151,12 +150,12 @@ function createAccount(seed: string, derivePath: string, pairType: PairType, { g
 function Create({ className = '', onClose, onStatusChange, seed: propsSeed, type: propsType, isFirstScreen = true }: CreateProps): React.ReactElement<CreateProps> {
   const { t } = useTranslation();
   const { pathname } = useLocation();
-  const { api, isDevelopment, isEthereum } = useApi();
+  const { api, isDevelopment } = useApi();
   const [{ address, derivePath, deriveValidation, isSeedValid, pairType, seed, seedType }, setAddress] = useState<AddressState>(() => generateSeed(
     propsSeed,
-    isEthereum ? ETH_DEFAULT_PATH : '',
+    '',
     propsSeed ? 'raw' : 'bip',
-    isEthereum ? 'ethereum' : propsType
+    propsType
   ));
   const [isMnemonicSaved, setIsMnemonicSaved] = useState<boolean>(true);
   const [isBusy, setIsBusy] = useState(false);
