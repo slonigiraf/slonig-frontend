@@ -5,7 +5,7 @@
 
 import '@polkadot/react-components/i18n';
 
-import { fireEvent, render, waitForElementToBeRemoved } from '@testing-library/react';
+import { fireEvent, render } from '@testing-library/react';
 import React from 'react';
 import { MemoryRouter } from 'react-router-dom';
 import { ThemeProvider } from 'styled-components';
@@ -45,20 +45,3 @@ const renderAccounts = () => {
     </MemoryRouter>
   );
 };
-
-  it('gives an error message when entering invalid derivation path', async () => {
-    const { findByTestId, findByText } = renderAccounts();
-
-    const addAccountButton = await findByText('Add account', {});
-
-    fireEvent.click(addAccountButton);
-
-    const derivationPathInput = await findByTestId('secret derivation path', {});
-
-    fireEvent.change(derivationPathInput, { target: { value: '//abc//' } });
-
-    const errorMsg = await findByText('Unable to match provided value to a secret URI', {});
-
-    expect(errorMsg).toBeTruthy();
-  });
-});

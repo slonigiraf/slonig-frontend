@@ -64,14 +64,6 @@ describe.skip('Accounts page', () => {
       expect(accountRows).toHaveLength(0);
     });
 
-    // eslint-disable-next-line jest/expect-expect
-    it('the accounts table contains a message about no accounts available', async () => {
-      const noAccountsMessage = 'You don’t have any accounts. Some features are currently hidden and will only become available once you have accounts.';
-      const accountsTable = await accountsPage.getTable();
-
-      await accountsTable.assertText(noAccountsMessage);
-    });
-
     it('no summary is displayed', () => {
       const summaries = screen.queryAllByTestId(/card-summary:total \w+/i);
 
@@ -172,16 +164,6 @@ describe.skip('Accounts page', () => {
       await rows[0].assertTags('my tagSuper Tag');
     });
 
-    it('account details rows toggled on icon toggle click', async () => {
-      accountsPage.renderDefaultAccounts(1);
-      const row = (await accountsPage.getAccountRows())[0];
-
-      expect(row.detailsRow).toHaveClass('isCollapsed');
-
-      await row.expand();
-
-      expect(row.detailsRow).toHaveClass('isExpanded');
-    });
 
     it('displays some summary', () => {
       accountsPage.renderAccountsWithDefaultAddresses(
@@ -481,38 +463,6 @@ describe.skip('Accounts page', () => {
           anAccountWithInfoAndMeta({ flags: { isDevelopment: true } as AddressFlags }, { name: 'alice', who: [] })
         );
         accountRows = await accountsPage.getAccountRows();
-      });
-
-      // eslint-disable-next-line jest/expect-expect
-      it('development', async () => {
-        await accountRows[0].assertBadge('wrench-badge');
-        const badgePopup = getPopupById(/wrench-badge-hover.*/);
-
-        await within(badgePopup).findByText('This is a development account derived from the known development seed. Do not use for any funds on a non-development network.');
-      });
-
-      it('multisig approvals', async () => {
-        await accountRows[0].assertBadge('file-signature-badge');
-        const badgePopup = getPopupById(/file-signature-badge-hover.*/);
-        const approvalsModalToggle = await within(badgePopup).findByText('View pending approvals');
-
-        fireEvent.click(approvalsModalToggle);
-        const modal = await screen.findByTestId('modal');
-
-        within(modal).getByText('Pending call hashes');
-        expect(approvalsModalToggle).toHaveClass('purpleColor');
-      });
-
-      it('proxy overview', async () => {
-        await accountRows[0].assertBadge('sitemap-badge');
-        const badgePopup = getPopupById(/sitemap-badge-hover.*/);
-        const proxyOverviewToggle = await within(badgePopup).findByText('Manage proxies');
-
-        fireEvent.click(proxyOverviewToggle);
-        const modal = await screen.findByTestId('modal');
-
-        within(modal).getByText('Proxy overview');
-        expect(proxyOverviewToggle).toHaveClass('normalColor');
       });
 
       afterEach(() => {

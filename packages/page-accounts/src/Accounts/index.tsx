@@ -257,12 +257,7 @@ function Overview({ className = '', onStatusChange }: Props): React.ReactElement
         </div>
 
         {!isNextTick || !sortedAccounts.length
-          ? (
-            <Table
-              empty={isNextTick && sortedAccounts && t("You don’t have any accounts. Some features are currently hidden and will only become available once you have accounts.")}
-              header={header.accounts}
-            />
-          )
+          ? <></>
           : GROUP_ORDER.map((group) =>
             groups[group] && (
               <Table
