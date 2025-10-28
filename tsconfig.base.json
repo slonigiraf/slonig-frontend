@@ -32,7 +32,6 @@
       "@polkadot/app-settings": ["page-settings/src/index.tsx"],
       "@polkadot/app-settings/useCounter": ["page-settings/src/useCounter.ts"],
       "@polkadot/app-settings/util": ["page-settings/src/util.tsx"],
-      "@polkadot/app-signing": ["page-signing/src/index.tsx"],
       "@polkadot/app-utilities": ["page-utilities/src/index.tsx"],
       "@polkadot/react-api": ["react-api/src/index.ts"],
       "@polkadot/react-api/hoc": ["react-api/src/hoc/index.ts"],

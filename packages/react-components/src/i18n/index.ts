@@ -58,7 +58,6 @@ i18next
       'app-parachains',
       'app-recommendations',
       'app-settings',
-      'app-signing',
       'react-api',
       'react-components',
       'react-hooks',

@@ -7,7 +7,6 @@ import parachains from './parachains.js';
 import badges from './badges.js';
 import knowledge from './knowledge.js';
 import settings from './settings.js';
-import signing from './signing.js';
 import teleport from './teleport.js';
 import transfer from './transfer.js';
 import utilities from './utilities.js';
@@ -20,7 +19,6 @@ export default function create (t: TFunction): Routes {
     knowledge(t),
     badges(t),
     parachains(t),
-    signing(t),
     utilities(t),
     settings(t)
   ];
