@@ -14,7 +14,6 @@
   "Slonig": "Slonig",
   "Switch": "Switch",
   "Waiting for authorization from the extension. Please open the installed extension and approve or reject access.": "Waiting for authorization from the extension. Please open the installed extension and approve or reject access.",
-  "You are connected to the development instance of the UI. For a fully decentralized experience, you are encouraged to use the IPFS deployed version as the canonical URL:": "You are connected to the development instance of the UI. For a fully decentralized experience, you are encouraged to use the IPFS deployed version as the canonical URL:",
   "custom endpoint": "custom endpoint",
   "transfer received": "transfer received",
   "update on #{{index}}": "update on #{{index}}",

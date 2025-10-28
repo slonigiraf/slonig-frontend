@@ -7,7 +7,6 @@ import Signer from '@polkadot/react-signer';
 import Content from './Content/index.js';
 import Menu from './Menu/index.js';
 import ConnectingOverlay from './overlays/Connecting.js';
-import DotAppsOverlay from './overlays/DotApps.js';
 import BottomMenu from './BottomMenu/index.js';
 import { AirdropResults, AppContainer, BlockchainSyncProvider, fetchEconomy, useBooleanSettingValue, useInfo, useIpfsContext, useLoginContext, useSettingValue } from '@slonigiraf/slonig-components';
 import { Spinner, styled } from '@polkadot/react-components';
@@ -120,7 +119,6 @@ function UI({ className = '' }: Props): React.ReactElement<Props> {
           </Signer>
         }
         <ConnectingOverlay />
-        <DotAppsOverlay />
         <div id={PORTAL_ID} />
       </AppContainer>
     </StyledDiv> :
