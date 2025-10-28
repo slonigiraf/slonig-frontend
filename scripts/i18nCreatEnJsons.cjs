@@ -1,8 +1,8 @@
 #!/usr/bin/env node
 // @ts-check
 /**
- * Extract translation keys from source files.
- * Works with JS/TS/JSX/TSX files.
+ * Extract translation keys (t('key')) from all source files
+ * and write them into per-package locale JSON files based on package.json name.
  */
 
 const fs = require("fs");
@@ -15,7 +15,7 @@ const exts = [".js", ".jsx", ".ts", ".tsx"];
 const regex = /t\(\s*['"]([^'"]+)['"]/g; // matches t('key') or t("key")
 
 /**
- * Recursively collect all source files.
+ * Recursively collect all JS/TS/JSX/TSX file paths.
  * @param {string} dir
  * @returns {string[]}
  */
@@ -36,7 +36,24 @@ function walk(dir) {
 }
 
 /**
- * Ensure a directory exists.
+ * Find the nearest package.json upward from a given file.
+ * @param {string} filePath
+ * @returns {string|null}
+ */
+function findNearestPackageJson(filePath) {
+  let dir = path.dirname(filePath);
+  while (dir.startsWith(rootDir)) {
+    const pkgJsonPath = path.join(dir, "package.json");
+    if (fs.existsSync(pkgJsonPath)) return pkgJsonPath;
+    const parent = path.dirname(dir);
+    if (parent === dir) break;
+    dir = parent;
+  }
+  return null;
+}
+
+/**
+ * Ensure directory exists.
  * @param {string} dir
  */
 function ensureDirSync(dir) {
@@ -44,7 +61,7 @@ function ensureDirSync(dir) {
 }
 
 /**
- * Main extraction function.
+ * Main extraction logic.
  */
 function extractTranslations() {
   const files = walk(rootDir);
@@ -60,19 +77,31 @@ function extractTranslations() {
       const key = match[1].trim();
       if (!key) continue;
 
-      // Determine package name based on path: ../packages/<name>/
-      const parts = file.split(path.sep);
-      const pkgIndex = parts.indexOf("packages");
-      const pkgName = pkgIndex !== -1 && parts[pkgIndex + 1] ? parts[pkgIndex + 1] : "root";
+      // find nearest package.json
+      const pkgPath = findNearestPackageJson(file);
+      let outName = "root.json";
+      if (pkgPath) {
+        try {
+          const pkg = JSON.parse(fs.readFileSync(pkgPath, "utf8"));
+          if (pkg.name && typeof pkg.name === "string") {
+            // remove @scope/
+            const clean = pkg.name.replace(/^@[^/]+\//, "");
+            outName = `${clean}.json`;
+          }
+        } catch {
+          // ignore invalid package.json
+        }
+      }
 
-      if (!packageKeys[pkgName]) packageKeys[pkgName] = new Set();
-      packageKeys[pkgName].add(key);
+      if (!packageKeys[outName]) packageKeys[outName] = new Set();
+      packageKeys[outName].add(key);
     }
   }
 
-  for (const [pkgName, keys] of Object.entries(packageKeys)) {
-    ensureDirSync(localesBase);
-    const outFile = path.join(localesBase, `${pkgName}.json`);
+  ensureDirSync(localesBase);
+
+  for (const [outFileName, keys] of Object.entries(packageKeys)) {
+    const outFile = path.join(localesBase, outFileName);
 
     /** @type {Record<string, string>} */
     let existing = /** @type {Record<string, string>} */ ({});
@@ -88,15 +117,16 @@ function extractTranslations() {
       if (!(key in existing)) existing[key] = key;
     }
 
+    // sort alphabetically
     const sorted = Object.keys(existing)
       .sort()
       .reduce((acc, k) => {
         acc[k] = existing[k];
         return acc;
-      }, /** @type {Record<string, string>} */({}));
+      }, /** @type {Record<string, string>} */ ({}));
 
     fs.writeFileSync(outFile, JSON.stringify(sorted, null, 2) + "\n", "utf8");
-    console.log(`✅ ${pkgName}: wrote ${keys.size} keys to ${outFile}`);
+    console.log(`✅ ${outFileName}: wrote ${keys.size} keys to ${outFile}`);
   }
 
   console.log("✨ Extraction complete!");
