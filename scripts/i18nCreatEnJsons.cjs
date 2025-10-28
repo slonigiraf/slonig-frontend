@@ -61,6 +61,15 @@ function ensureDirSync(dir) {
 }
 
 /**
+ * Check if key consists only of punctuation.
+ * @param {string} key
+ * @returns {boolean}
+ */
+function isOnlyPunctuation(key) {
+  return /^[\p{P}\p{S}]+$/u.test(key); // matches only punctuation or symbols
+}
+
+/**
  * Main extraction logic.
  */
 function extractTranslations() {
@@ -75,7 +84,7 @@ function extractTranslations() {
     let match;
     while ((match = regex.exec(content)) !== null) {
       const key = match[1].trim();
-      if (!key) continue;
+      if (!key || isOnlyPunctuation(key)) continue; // skip invalid keys
 
       // find nearest package.json
       const pkgPath = findNearestPackageJson(file);
@@ -125,7 +134,8 @@ function extractTranslations() {
         return acc;
       }, /** @type {Record<string, string>} */ ({}));
 
-    fs.writeFileSync(outFile, JSON.stringify(sorted, null, 2) + "\n", "utf8");
+    // write without final newline
+    fs.writeFileSync(outFile, JSON.stringify(sorted, null, 2), "utf8");
     console.log(`✅ ${outFileName}: wrote ${keys.size} keys to ${outFile}`);
   }
 
