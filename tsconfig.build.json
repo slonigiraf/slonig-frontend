@@ -39,7 +39,6 @@
     { "path": "./packages/page-nis/tsconfig.build.json" },
     { "path": "./packages/page-parachains/tsconfig.build.json" },
     { "path": "./packages/page-poll/tsconfig.build.json" },
-    { "path": "./packages/page-preimages/tsconfig.build.json" },
     { "path": "./packages/page-ranked/tsconfig.build.json" },
     { "path": "./packages/page-recommendations/tsconfig.build.json" },
     { "path": "./packages/page-recommendations/tsconfig.spec.json" },

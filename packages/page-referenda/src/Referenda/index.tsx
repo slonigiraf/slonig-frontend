@@ -6,7 +6,6 @@ import type { PalletReferenda, PalletVote, ReferendaGroup } from '../types.js';
 
 import React, { useMemo, useState } from 'react';
 
-import AddPreimage from '@polkadot/app-preimages/Preimages/Add';
 import { Button, Dropdown, styled } from '@polkadot/react-components';
 import { useAccounts, useApi, useCall } from '@polkadot/react-hooks';
 import { BN_ZERO } from '@polkadot/util';
@@ -95,7 +94,6 @@ function Referenda ({ className, isConvictionVote, members, palletReferenda, pal
             tracks={tracks}
           />
         )}
-        <AddPreimage />
         <Submit
           isMember={isMember}
           members={members}

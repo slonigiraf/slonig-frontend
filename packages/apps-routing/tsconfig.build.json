@@ -27,7 +27,6 @@
     { "path": "../page-nis/tsconfig.build.json" },
     { "path": "../page-parachains/tsconfig.build.json" },
     { "path": "../page-poll/tsconfig.build.json" },
-    { "path": "../page-preimages/tsconfig.build.json" },
     { "path": "../page-ranked/tsconfig.build.json" },
     { "path": "../page-recommendations/tsconfig.build.json" },
     { "path": "../page-referenda/tsconfig.build.json" },
