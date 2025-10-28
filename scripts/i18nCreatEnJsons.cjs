@@ -134,6 +134,38 @@ function extractTranslations() {
   console.log(`🌐 translation.json: wrote ${allKeys.size} total keys`);
 
   console.log("✨ Extraction complete!");
+
+    // --- Cleanup non-English locale files ---
+  const localesDir = path.join(rootDir, "packages", "apps", "public", "locales");
+  const allKeysEn = new Set(Object.keys(allSorted));
+
+  const langs = fs.readdirSync(localesDir).filter(
+    (lang) => fs.statSync(path.join(localesDir, lang)).isDirectory() && lang !== "en"
+  );
+
+  for (const lang of langs) {
+    const langDir = path.join(localesDir, lang);
+    const files = fs.readdirSync(langDir).filter((f) => f.endsWith(".json"));
+
+    for (const file of files) {
+      const filePath = path.join(langDir, file);
+      try {
+        const data = JSON.parse(fs.readFileSync(filePath, "utf8"));
+        const cleaned = Object.fromEntries(
+          Object.entries(data).filter(([key]) => allKeysEn.has(key))
+        );
+
+        fs.writeFileSync(filePath, JSON.stringify(cleaned, null, 2), "utf8");
+        console.log(`🧹 Cleaned ${lang}/${file}: kept ${Object.keys(cleaned).length} keys`);
+      } catch (err) {
+        // @ts-ignore
+        console.error(`❌ Failed to clean ${filePath}: ${err.message}`);
+      }
+    }
+  }
+
+  console.log("🧽 Non-English locales cleaned up!");
+
 }
 
 extractTranslations();
