@@ -55,7 +55,6 @@ i18next
       'app-accounts',
       'app-generic-asset',
       'app-laws',
-      'app-js',
       'app-parachains',
       'app-recommendations',
       'app-settings',

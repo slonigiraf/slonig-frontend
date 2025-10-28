@@ -3,7 +3,6 @@
 
 import type { Routes, TFunction } from './types.js';
 import accounts from './accounts.js';
-import js from './js.js';
 import parachains from './parachains.js';
 import badges from './badges.js';
 import knowledge from './knowledge.js';
@@ -22,7 +21,6 @@ export default function create (t: TFunction): Routes {
     badges(t),
     parachains(t),
     signing(t),
-    js(t),
     utilities(t),
     settings(t)
   ];
