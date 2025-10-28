@@ -27,7 +27,7 @@ class ValidatingAlgorithm extends Algorithm {
             'intermediate',
             t('No'),
             [
-                { title: t('🗣 Say to the tutee'), text: t('You don\'t have such a skill. I will penalize the tutor which issued the badge for it.') },
+                { title: t('🗣 Say to the tutee'), text: t('You don’t have such a skill. I will penalize the tutor which issued the badge for it.') },
             ]
         );
 

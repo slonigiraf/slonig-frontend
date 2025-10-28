@@ -66,7 +66,7 @@ describe.skip('Accounts page', () => {
 
     // eslint-disable-next-line jest/expect-expect
     it('the accounts table contains a message about no accounts available', async () => {
-      const noAccountsMessage = 'You don\'t have any accounts. Some features are currently hidden and will only become available once you have accounts.';
+      const noAccountsMessage = 'You don’t have any accounts. Some features are currently hidden and will only become available once you have accounts.';
       const accountsTable = await accountsPage.getTable();
 
       await accountsTable.assertText(noAccountsMessage);

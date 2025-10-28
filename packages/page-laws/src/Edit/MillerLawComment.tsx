@@ -29,7 +29,7 @@ function MillerLawComment({ text }: Props): React.ReactElement {
         <StyledA
           href='https://en.wikipedia.org/wiki/The_Magical_Number_Seven,_Plus_or_Minus_Two'
           target='_blank'>
-          {t('It\'s better to shorten it to 9 words.')}
+          {t('It’s better to shorten it to 9 words.')}
         </StyledA>
       </FullWidthContainer> : <></>
   );

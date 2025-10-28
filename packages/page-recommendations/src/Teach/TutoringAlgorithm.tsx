@@ -62,7 +62,7 @@ class TutoringAlgorithm extends Algorithm {
             [
                 { title: t('📖 Read what’s happening'), text: t('The tutee has corrected me and has given me the correct solution.') },
             ],
-            t('Were all of the tutee\'s exercises and answers perfect today?')
+            t('Were all of the tutee’s exercises and answers perfect today?')
         );
 
         const provideFakeAnswer = new AlgorithmStage(

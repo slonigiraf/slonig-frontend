@@ -38,7 +38,7 @@ function getContent (mode: Mode, t: (key: string) => string): React.ReactNode | 
     case 'contract':
       return (
         <>
-          <p>{t('You are about to remove this contract from your list of available contracts. Once completed, should you need to access it again, you will have to manually add the contract\'s address in the Instantiate tab.')}</p>
+          <p>{t('You are about to remove this contract from your list of available contracts. Once completed, should you need to access it again, you will have to manually add the contract’s address in the Instantiate tab.')}</p>
           <p>{t('This operation does not remove the history of the contract from the chain, nor any associated funds from its account. The forget operation only limits your access to the contract on this browser.')}</p>
         </>
       );
