@@ -43,7 +43,6 @@
     { "path": "./packages/page-recommendations/tsconfig.build.json" },
     { "path": "./packages/page-recommendations/tsconfig.spec.json" },
     { "path": "./packages/page-recommendations/tsconfig.test.json" },
-    { "path": "./packages/page-referenda/tsconfig.build.json" },
     { "path": "./packages/page-rpc/tsconfig.build.json" },
     { "path": "./packages/page-runtime/tsconfig.build.json" },
     { "path": "./packages/page-scheduler/tsconfig.build.json" },

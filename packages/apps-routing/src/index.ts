@@ -8,7 +8,6 @@ import js from './js.js';
 import parachains from './parachains.js';
 import badges from './badges.js';
 import knowledge from './knowledge.js';
-import referenda from './referenda.js';
 import rpc from './rpc.js';
 import runtime from './runtime.js';
 import settings from './settings.js';
@@ -27,7 +26,6 @@ export default function create (t: TFunction): Routes {
     knowledge(t),
     badges(t),
     // governance v2
-    referenda(t),
     // others
     parachains(t),
     storage(t),

@@ -12,7 +12,6 @@
   ],
   "references": [
     { "path": "../page-claims/tsconfig.build.json" },
-    { "path": "../page-referenda/tsconfig.build.json" },
     { "path": "../page-settings/tsconfig.build.json" },
     { "path": "../react-components/tsconfig.build.json" },
     { "path": "../react-hooks/tsconfig.build.json" },
