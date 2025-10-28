@@ -94,10 +94,6 @@ describe.skip('--SLOW--: Account Create', () => {
 
     fireEvent.click(addAccountButton);
 
-    const showAdvancedOptionsButton = await findByText('Advanced creation options', {});
-
-    fireEvent.click(showAdvancedOptionsButton);
-
     const derivationPathInput = await findByTestId('secret derivation path', {});
 
     fireEvent.change(derivationPathInput, { target: { value: '//abc//' } });

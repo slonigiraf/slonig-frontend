@@ -56,10 +56,6 @@ describe('Create an account modal', () => {
   // eslint-disable-next-line jest/expect-expect
   it('gives an error message when entering invalid derivation path', async () => {
 
-    const showAdvancedOptionsButton = await screen.findByText('Advanced creation options');
-
-    fireEvent.click(showAdvancedOptionsButton);
-
     fillInput('secret derivation path', '//abc//');
 
     await assertText('Unable to match provided value to a secret URI');
