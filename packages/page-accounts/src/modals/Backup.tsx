@@ -68,7 +68,7 @@ function Backup({ address, onClose }: Props): React.ReactElement<Props> {
           value={address}
         />
         <div>
-          <p>{t('An encrypted backup file will be created once you have pressed the "Download" button. This can be used to re-import your account on any other machine.')}</p>
+          <p>{t('An encrypted backup file will be created once you have pressed the ’Download’ button. This can be used to re-import your account on any other machine.')}</p>
           <p>{t('Save this backup file in a secure location. Additionally, the password associated with this account is needed together with this backup file in order to restore your account.')}</p>
           <p></p>
         </div>

@@ -46,7 +46,7 @@ function CreateEthDerivationPath ({ className, derivePath, deriveValidation, onC
     INVALID_DERIVATION_PATH: t('This is an invalid derivation path.'),
     PASSWORD_IGNORED: t('Password are ignored for hex seed'),
     SOFT_NOT_ALLOWED: t('Soft derivation paths are not allowed on ed25519'),
-    WARNING_SLASH_PASSWORD: t('Your password contains at least one "/" character. Disregard this warning if it is intended.')
+    WARNING_SLASH_PASSWORD: t('Your password contains at least one ’/’ character. Disregard this warning if it is intended.')
   });
 
   useEffect((): void => {
