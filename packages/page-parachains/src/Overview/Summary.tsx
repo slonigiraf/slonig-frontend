@@ -5,7 +5,6 @@ import type { LeasePeriod } from '../types.js';
 
 import React from 'react';
 
-import SummarySession from '@polkadot/app-explorer/SummarySession';
 import { CardSummary, SummaryBox } from '@polkadot/react-components';
 import { BestFinalized } from '@polkadot/react-query';
 import { BN_THREE, BN_TWO, formatNumber, isNumber } from '@polkadot/util';
@@ -68,10 +67,6 @@ function Summary ({ leasePeriod, parachainCount, proposalCount, upcomingCount }:
         <CardSummary label={t('finalized')}>
           <BestFinalized />
         </CardSummary>
-        <SummarySession
-          className='media--1200'
-          withEra={false}
-        />
       </section>
     </SummaryBox>
   );

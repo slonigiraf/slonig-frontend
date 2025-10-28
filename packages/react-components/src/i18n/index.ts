@@ -56,7 +56,6 @@ i18next
       'app-claims',
       'app-council',
       'app-democracy',
-      'app-explorer',
       'app-extrinsics',
       'app-generic-asset',
       'app-laws',
