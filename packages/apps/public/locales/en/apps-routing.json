@@ -1,12 +1,9 @@
 {
   "nav.accounts": "nav.accounts",
   "nav.badges": "nav.badges",
-  "nav.js": "nav.js",
   "nav.knowledge": "nav.knowledge",
   "nav.parachains": "nav.parachains",
   "nav.settings": "nav.settings",
-  "nav.signing": "nav.signing",
   "nav.teleport": "nav.teleport",
-  "nav.transfer": "nav.transfer",
-  "nav.utilities": "nav.utilities"
+  "nav.transfer": "nav.transfer"
 }
