@@ -25,22 +25,10 @@
   "account name": "account name",
   "account restored": "account restored",
   "accounts": "accounts",
-  "accounts available via browser extensions": "accounts available via browser extensions",
-  "accounts available via mobile devices": "accounts available via mobile devices",
-  "accounts derived via development seeds": "accounts derived via development seeds",
-  "accounts managed via hardware devices": "accounts managed via hardware devices",
   "backup file": "backup file",
   "created account": "created account",
-  "development": "development",
-  "extension": "extension",
-  "hardware": "hardware",
-  "multisig": "multisig",
-  "on-chain multisig accounts": "on-chain multisig accounts",
-  "on-chain proxied accounts": "on-chain proxied accounts",
   "password": "password",
   "password (repeat)": "password (repeat)",
-  "proxied": "proxied",
   "send": "send",
-  "total balance": "total balance",
-  "via qr": "via qr"
+  "total balance": "total balance"
 }
