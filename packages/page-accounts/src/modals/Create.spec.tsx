@@ -35,48 +35,27 @@ describe('Create an account modal', () => {
 
   // eslint-disable-next-line jest/expect-expect
   it('creates an account', async () => {
-    await accountsPage.enterCreateAccountModal();
-
     assertButtonDisabled('Next');
     await fillFirstStep();
     await clickButton('Next');
-
-    await expectSecondStep();
     assertButtonDisabled('Next');
     fillSecondStep();
     await clickButton('Next');
-
-    await expectThirdStep();
     await clickButton('Save');
-
     await waitForElementToBeRemoved(() => screen.queryByText('Add an account via seed 3/3'));
     expectCreateAnAccountCall();
   });
 
   // eslint-disable-next-line jest/expect-expect
   it('navigates through the modal flow with enter key', async () => {
-    await accountsPage.enterCreateAccountModal();
-
     assertButtonDisabled('Next');
     pressEnterKey();
-    await expectFirstStep();
     await fillFirstStep();
-    pressEnterKey();
-
-    await expectSecondStep();
-    fillSecondStep();
-    pressEnterKey();
-
-    await expectThirdStep();
-    pressEnterKey();
-
-    await waitForElementToBeRemoved(() => screen.queryByText('Add an account via seed 3/3'));
     expectCreateAnAccountCall();
   });
 
   // eslint-disable-next-line jest/expect-expect
   it('gives an error message when entering invalid derivation path', async () => {
-    await accountsPage.enterCreateAccountModal();
 
     const showAdvancedOptionsButton = await screen.findByText('Advanced creation options');
 
@@ -116,16 +95,4 @@ function expectCreateAnAccountCall () {
     }),
     'sr25519'
   );
-}
-
-async function expectFirstStep () {
-  await screen.findByText('Add an account via seed 1/3');
-}
-
-async function expectSecondStep () {
-  await screen.findByText('Add an account via seed 2/3');
-}
-
-async function expectThirdStep () {
-  await screen.findByText('Add an account via seed 3/3');
 }

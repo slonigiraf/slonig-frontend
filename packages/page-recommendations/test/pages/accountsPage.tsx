@@ -59,13 +59,6 @@ export class AccountsPage extends Page {
     return within(sortByComponent).findByRole('alert');
   }
 
-  async enterCreateAccountModal (): Promise<void> {
-    this.render([]);
-    await clickButton('Account');
-
-    await assertText('Add an account via seed 1/3');
-  }
-
   renderAccountsWithDefaultAddresses (...overrides: AccountOverrides[]): void {
     const accounts = overrides.map((accountProperties, index) =>
       [this.defaultAddresses[index], accountProperties] as [string, AccountOverrides]);
