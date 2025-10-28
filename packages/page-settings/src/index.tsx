@@ -32,15 +32,6 @@ function SettingsApp({ basePath, onStatusChange }: Props): React.ReactElement<Pr
       text: t('General')
     },
     {
-      count: numExtensions,
-      name: 'metadata',
-      text: t('Metadata')
-    },
-    {
-      name: 'developer',
-      text: t('Developer')
-    },
-    {
       name: 'i18n',
       text: t('Translate')
     }
@@ -49,7 +40,7 @@ function SettingsApp({ basePath, onStatusChange }: Props): React.ReactElement<Pr
   const hidden = useMemo(
     () => isDeveloper
       ? []
-      : ['developer', 'metadata', 'i18n'],
+      : ['i18n'],
     [isDeveloper]
   );
 
@@ -64,21 +55,9 @@ function SettingsApp({ basePath, onStatusChange }: Props): React.ReactElement<Pr
         <Route path={basePath}>
           <Route
             element={
-              <Developer onStatusChange={onStatusChange} />
-            }
-            path='developer'
-          />
-          <Route
-            element={
               <I18n />
             }
             path='i18n'
-          />
-          <Route
-            element={
-              <Metadata />
-            }
-            path='metadata'
           />
           <Route
             element={
