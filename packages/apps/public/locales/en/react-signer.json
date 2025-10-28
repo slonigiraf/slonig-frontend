@@ -3,6 +3,7 @@
   "Authorize transaction": "Authorize transaction",
   "Current account nonce: {{accountNonce}}": "Current account nonce: {{accountNonce}}",
   "Do not include a tip for the block author": "Do not include a tip for the block author",
+  "Don": "Don",
   "Don't use a proxy for this call": "Don't use a proxy for this call",
   "Include an optional tip for faster processing": "Include an optional tip for faster processing",
   "Lifetime (# of blocks)": "Lifetime (# of blocks)",

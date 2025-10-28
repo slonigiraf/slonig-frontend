@@ -1,6 +1,9 @@
 {
   "Crypto not detected": "Crypto not detected",
+  "Log in": "Log in",
   "No": "No",
+  "Sign Up": "Sign Up",
+  "Sign in To Slonig": "Sign in To Slonig",
   "Sign message": "Sign message",
   "This account that will perform the message signing.": "This account that will perform the message signing.",
   "This external account cannot be used to sign data. Only Limited support is currently available for signing from any non-internal accounts.": "This external account cannot be used to sign data. Only Limited support is currently available for signing from any non-internal accounts.",

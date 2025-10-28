@@ -1,4 +1,5 @@
 {
+  "all derives are re-exported": "all derives are re-exported",
   "lightclient.experimental": "light client (experimental)",
   "lng.detect": "Default browser language (auto-detect)",
   "rpc.dev.custom": "Custom environment",

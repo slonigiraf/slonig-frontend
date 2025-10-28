@@ -1,6 +1,6 @@
 [
   "app-accounts.json",
-  "app-db.json",
+  "db.json",
   "app-js.json",
   "app-laws.json",
   "app-parachains.json",
