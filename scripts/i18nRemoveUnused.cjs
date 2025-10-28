@@ -16,10 +16,14 @@ console.log(`🔍 Checking ${keys.length} translation keys in project...`);
 const unusedKeys = [];
 
 for (const key of keys) {
+  // Match both t('key') and t("key")
+  const escapedKey = key.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  const searchPattern = `-E "t\\(['\\"]${escapedKey}['\\"]\\)"`;
+
   const grepCommand = [
     `grep -R --exclude-dir=node_modules`,
     fileExtensions.map(ext => `--include="*.${ext}"`).join(" "),
-    `"${key}"`,
+    searchPattern,
     `"${projectRoot}"`,
     `| grep -v "${translationPath}" || true`
   ].join(" ");

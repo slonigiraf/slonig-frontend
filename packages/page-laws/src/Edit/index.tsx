@@ -124,7 +124,7 @@ function Edit({ className = '' }: Props): React.ReactElement<Props> {
         if (isDeveloper) {
           _onClickChangeView();
         } else {
-          showInfo('Enable developer mode first in settings', 'error')
+          showInfo(t('Enable developer mode first in settings'), 'error')
         }
       } else {
         setLoginIsRequired(true);
