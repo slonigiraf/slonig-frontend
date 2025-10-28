@@ -7,7 +7,6 @@ import js from './js.js';
 import parachains from './parachains.js';
 import badges from './badges.js';
 import knowledge from './knowledge.js';
-import rpc from './rpc.js';
 import settings from './settings.js';
 import signing from './signing.js';
 import teleport from './teleport.js';
@@ -21,10 +20,7 @@ export default function create (t: TFunction): Routes {
     teleport(t),
     knowledge(t),
     badges(t),
-    // governance v2
-    // others
     parachains(t),
-    rpc(t),
     signing(t),
     js(t),
     utilities(t),

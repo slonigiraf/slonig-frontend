@@ -62,7 +62,6 @@ i18next
       'app-parachains',
       'app-poll',
       'app-recommendations',
-      'app-rpc',
       'app-settings',
       'app-signing',
       'app-society',

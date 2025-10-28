@@ -30,7 +30,6 @@
       "@polkadot/app-parachains/Teleport": ["page-parachains/src/Teleport.tsx"],
       "@polkadot/app-parachains/useLeaseRanges": ["page-parachains/src/useLeaseRanges.ts"],
       "@slonigiraf/app-recommendations": ["page-recommendations/src/index.tsx"],
-      "@polkadot/app-rpc": ["page-rpc/src/index.tsx"],
       "@polkadot/app-settings": ["page-settings/src/index.tsx"],
       "@polkadot/app-settings/useCounter": ["page-settings/src/useCounter.ts"],
       "@polkadot/app-settings/util": ["page-settings/src/util.tsx"],

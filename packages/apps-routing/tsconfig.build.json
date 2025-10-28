@@ -28,7 +28,6 @@
     { "path": "../page-poll/tsconfig.build.json" },
     { "path": "../page-ranked/tsconfig.build.json" },
     { "path": "../page-recommendations/tsconfig.build.json" },
-    { "path": "../page-rpc/tsconfig.build.json" },
     { "path": "../page-scheduler/tsconfig.build.json" },
     { "path": "../page-settings/tsconfig.build.json" },
     { "path": "../slonig-components/tsconfig.build.json" },
