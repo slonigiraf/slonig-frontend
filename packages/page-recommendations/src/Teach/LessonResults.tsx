@@ -77,7 +77,7 @@ function LessonResults({ className = '', lesson, updateAndStoreLesson, onClose, 
   const saveLessonSettings = useCallback(async (): Promise<void> => {
     const days = parseInt(daysInput, 10);
     if (!amountInputValue || amountInputValue.eq(BN_ZERO) || isWrongDaysInput) {
-      showInfo('Correct the errors highlighted in red', 'error');
+      showInfo(t('Correct the errors highlighted in red'), 'error');
     } else {
       if (lesson) {
         const updatedLesson = {

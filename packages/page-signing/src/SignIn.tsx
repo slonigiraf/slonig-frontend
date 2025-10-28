@@ -80,7 +80,7 @@ function SignIn({ onClose, onUnlock, pair, toggleSignIn, toggleImport }: Props):
       <Modal.Actions>
         
       <Button
-            label={t(`Sign Up`)}
+            label={t('Sign Up')}
             onClick={toggleSignIn}
           />
           <Button
