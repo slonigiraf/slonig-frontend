@@ -124,7 +124,7 @@ function Import({ className = '', onClose, onStatusChange, toggleImport }: Props
           <MarkError content={error} />
         )}
         {differentGenesis && (
-          <MarkWarning content={t('The network from which this account was originally generated is different than the network you are currently connected to. Once imported ensure you toggle the "allow on any network" option for the account to keep it visible on the current network.')} />
+          <MarkWarning content={t('The network from which this account was originally generated is different than the network you are currently connected to. Once imported ensure you toggle the ’allow on any network’ option for the account to keep it visible on the current network.')} />
         )}
       </Modal.Content>
       <Modal.Actions>
