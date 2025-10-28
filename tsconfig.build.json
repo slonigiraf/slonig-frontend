@@ -50,7 +50,6 @@
     { "path": "./packages/page-staking2/tsconfig.build.json" },
     { "path": "./packages/page-tech-comm/tsconfig.build.json" },
     { "path": "./packages/page-treasury/tsconfig.build.json" },
-    { "path": "./packages/page-utilities/tsconfig.build.json" },
     { "path": "./packages/page-whitelist/tsconfig.build.json" },
     { "path": "./packages/react-api/tsconfig.build.json" },
     { "path": "./packages/react-api/tsconfig.xref.json" },

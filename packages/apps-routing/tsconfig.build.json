@@ -36,7 +36,6 @@
     { "path": "../page-staking2/tsconfig.build.json" },
     { "path": "../page-tech-comm/tsconfig.build.json" },
     { "path": "../page-treasury/tsconfig.build.json" },
-    { "path": "../page-utilities/tsconfig.build.json" },
     { "path": "../page-whitelist/tsconfig.build.json" },
     { "path": "../react-components/tsconfig.build.json" },
     { "path": "../react-hooks/tsconfig.build.json" }

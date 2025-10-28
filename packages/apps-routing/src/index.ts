@@ -9,7 +9,6 @@ import knowledge from './knowledge.js';
 import settings from './settings.js';
 import teleport from './teleport.js';
 import transfer from './transfer.js';
-import utilities from './utilities.js';
 
 export default function create (t: TFunction): Routes {
   return [
@@ -19,7 +18,6 @@ export default function create (t: TFunction): Routes {
     knowledge(t),
     badges(t),
     parachains(t),
-    utilities(t),
     settings(t)
   ];
 }
