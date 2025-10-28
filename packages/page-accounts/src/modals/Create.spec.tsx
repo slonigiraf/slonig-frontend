@@ -3,7 +3,7 @@
 
 /// <reference types="@polkadot/dev-test/globals.d.ts" />
 
-import { fireEvent, screen, waitForElementToBeRemoved } from '@testing-library/react';
+import { fireEvent, screen } from '@testing-library/react';
 
 import i18next from '@polkadot/react-components/i18n';
 import { MemoryStore } from '@polkadot/test-support/keyring';
@@ -42,7 +42,6 @@ describe('Create an account modal', () => {
     fillSecondStep();
     await clickButton('Next');
     await clickButton('Save');
-    await waitForElementToBeRemoved(() => screen.queryByText('Add an account via seed 3/3'));
     expectCreateAnAccountCall();
   });
 

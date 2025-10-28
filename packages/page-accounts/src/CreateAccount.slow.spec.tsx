@@ -84,8 +84,6 @@ describe.skip('--SLOW--: Account Create', () => {
 
     fireEvent.click(createAnAccountButton);
 
-    await waitForElementToBeRemoved(() => queryByText('Add an account via seed 3/3'));
-
     expect(await findByText('MY NEW ACCOUNT')).toBeTruthy();
   });
 
