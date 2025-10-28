@@ -36,7 +36,6 @@ describe('Create an account modal', () => {
   // eslint-disable-next-line jest/expect-expect
   it('creates an account', async () => {
     assertButtonDisabled('Next');
-    await fillFirstStep();
     await clickButton('Next');
     assertButtonDisabled('Next');
     fillSecondStep();
@@ -49,7 +48,6 @@ describe('Create an account modal', () => {
   it('navigates through the modal flow with enter key', async () => {
     assertButtonDisabled('Next');
     pressEnterKey();
-    await fillFirstStep();
     expectCreateAnAccountCall();
   });
 
@@ -66,12 +64,6 @@ function fillSecondStep () {
   fillInput('name', newAccountName);
   fillInput('password', newAccountPassword);
   fillInput('password (repeat)', newAccountPassword);
-}
-
-async function fillFirstStep () {
-  const checkbox = await screen.findByText('I have saved my mnemonic seed safely');
-
-  fireEvent.click(checkbox);
 }
 
 function pressEnterKey () {

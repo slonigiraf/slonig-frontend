@@ -46,47 +46,6 @@ const renderAccounts = () => {
   );
 };
 
-// eslint-disable-next-line jest/no-disabled-tests
-describe.skip('--SLOW--: Account Create', () => {
-  it('created account is added to list', async () => {
-    const { findByTestId, findByText, queryByText } = renderAccounts();
-
-    const addAccountButton = await findByText('Add account', {});
-
-    fireEvent.click(addAccountButton);
-
-    const isSeedSavedCheckbox = await findByText('I have saved my mnemonic seed safely');
-    const hiddenCheckbox = isSeedSavedCheckbox as HTMLInputElement;
-
-    fireEvent.click(hiddenCheckbox);
-
-    const nextStepButton = await findByText('Next', {});
-
-    fireEvent.click(nextStepButton);
-
-    const accountNameInput = await findByTestId('name');
-
-    fireEvent.change(accountNameInput, { target: { value: 'my new account' } });
-
-    const passwordInput = await findByTestId('password');
-
-    fireEvent.change(passwordInput, { target: { value: 'password' } });
-
-    const passwordInput2 = await findByTestId('password (repeat)');
-
-    fireEvent.change(passwordInput2, { target: { value: 'password' } });
-
-    const toStep3Button = await findByText('Next', {});
-
-    fireEvent.click(toStep3Button);
-
-    const createAnAccountButton = await findByText('Save', {});
-
-    fireEvent.click(createAnAccountButton);
-
-    expect(await findByText('MY NEW ACCOUNT')).toBeTruthy();
-  });
-
   it('gives an error message when entering invalid derivation path', async () => {
     const { findByTestId, findByText } = renderAccounts();
 

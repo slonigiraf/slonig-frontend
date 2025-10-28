@@ -503,18 +503,6 @@ describe.skip('Accounts page', () => {
         expect(approvalsModalToggle).toHaveClass('purpleColor');
       });
 
-      it('delegate democracy vote', async () => {
-        await accountRows[0].assertBadge('calendar-check-badge');
-        const badgePopup = getPopupById(/calendar-check-badge-hover.*/);
-        const delegateModalToggle = await within(badgePopup).findByText('Manage delegation');
-
-        fireEvent.click(delegateModalToggle);
-        const modal = await screen.findByTestId('modal');
-
-        within(modal).getByText('democracy vote delegation');
-        expect(delegateModalToggle).toHaveClass('normalColor');
-      });
-
       it('proxy overview', async () => {
         await accountRows[0].assertBadge('sitemap-badge');
         const badgePopup = getPopupById(/sitemap-badge-hover.*/);
