@@ -3,7 +3,6 @@
 
 import type { Routes, TFunction } from './types.js';
 import accounts from './accounts.js';
-import contracts from './contracts.js';
 import explorer from './explorer.js';
 import extrinsics from './extrinsics.js';
 import js from './js.js';
@@ -33,7 +32,6 @@ export default function create (t: TFunction): Routes {
     referenda(t),
     // others
     parachains(t),
-    contracts(t),
     storage(t),
     extrinsics(t),
     rpc(t),
