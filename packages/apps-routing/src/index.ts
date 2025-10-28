@@ -8,7 +8,6 @@ import parachains from './parachains.js';
 import badges from './badges.js';
 import knowledge from './knowledge.js';
 import rpc from './rpc.js';
-import runtime from './runtime.js';
 import settings from './settings.js';
 import signing from './signing.js';
 import storage from './storage.js';
@@ -29,7 +28,6 @@ export default function create (t: TFunction): Routes {
     parachains(t),
     storage(t),
     rpc(t),
-    runtime(t),
     signing(t),
     sudo(t),
     js(t),
