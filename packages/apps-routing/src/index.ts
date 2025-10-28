@@ -10,7 +10,6 @@ import knowledge from './knowledge.js';
 import rpc from './rpc.js';
 import settings from './settings.js';
 import signing from './signing.js';
-import sudo from './sudo.js';
 import teleport from './teleport.js';
 import transfer from './transfer.js';
 import utilities from './utilities.js';
@@ -27,7 +26,6 @@ export default function create (t: TFunction): Routes {
     parachains(t),
     rpc(t),
     signing(t),
-    sudo(t),
     js(t),
     utilities(t),
     settings(t)

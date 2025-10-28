@@ -36,7 +36,6 @@
     { "path": "../page-society/tsconfig.build.json" },
     { "path": "../page-staking/tsconfig.build.json" },
     { "path": "../page-staking2/tsconfig.build.json" },
-    { "path": "../page-sudo/tsconfig.build.json" },
     { "path": "../page-tech-comm/tsconfig.build.json" },
     { "path": "../page-treasury/tsconfig.build.json" },
     { "path": "../page-utilities/tsconfig.build.json" },
