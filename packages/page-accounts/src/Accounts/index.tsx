@@ -36,44 +36,32 @@ interface SortControls {
   sortFromMax: boolean;
 }
 
-type GroupName = 'accounts' | 'hardware' | 'injected' | 'multisig' | 'proxied' | 'qr' | 'testing';
+type GroupName = 'accounts';
 
 const DEFAULT_SORT_CONTROLS: SortControls = { sortBy: 'date', sortFromMax: true };
 
 const STORE_FAVS = 'accounts:favorites';
 
-const GROUP_ORDER: GroupName[] = ['accounts', 'injected', 'qr', 'hardware', 'proxied', 'multisig', 'testing'];
+const GROUP_ORDER: GroupName[] = ['accounts'];
 
 function groupAccounts(accounts: SortedAccount[]): Record<GroupName, string[]> {
   const ret: Record<GroupName, string[]> = {
-    accounts: [],
-    hardware: [],
-    injected: [],
-    multisig: [],
-    proxied: [],
-    qr: [],
-    testing: []
+    accounts: []
   };
 
   for (let i = 0; i < accounts.length; i++) {
     const { account, address } = accounts[i];
     const cryptoType = getAccountCryptoType(address);
 
-    if (account?.meta.isHardware) {
-      ret.hardware.push(address);
-    } else if (account?.meta.isTesting) {
-      ret.testing.push(address);
-    } else if (cryptoType === 'injected') {
-      ret.injected.push(address);
-    } else if (cryptoType === 'multisig') {
-      ret.multisig.push(address);
-    } else if (cryptoType === 'proxied') {
-      ret.proxied.push(address);
-    } else if (cryptoType === 'qr') {
-      ret.qr.push(address);
-    } else {
+    const isExcluded =
+      account?.meta.isHardware ||
+      account?.meta.isTesting ||
+      ['injected', 'multisig', 'proxied', 'qr'].includes(cryptoType);
+
+    if (!isExcluded) {
       ret.accounts.push(address);
     }
+
   }
 
   return ret;
@@ -229,7 +217,7 @@ function Overview({ className = '', onStatusChange }: Props): React.ReactElement
 
   return (
     <StyledDiv className={className}>
-      <TransferParser/>
+      <TransferParser />
       {isLoggedIn && <>
         <CenterQRContainer>
           <h2 className='prompt'>{t('To get Slon, ask a sender to scan:')}</h2>
@@ -238,7 +226,7 @@ function Overview({ className = '', onStatusChange }: Props): React.ReactElement
         <Summary balance={balances.summary} />
         <NoLeftPaddingLabeledContent>
           <InputAddress
-            key={currentPair?.address + "-"+trigger}
+            key={currentPair?.address + "-" + trigger}
             className='full'
             isInput={false}
             label={t('Current account')}
