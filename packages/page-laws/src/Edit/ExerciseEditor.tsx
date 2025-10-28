@@ -1,8 +1,8 @@
 import React, { useState, ChangeEvent, FC } from 'react';
 import { Button, FileUpload, styled } from '@polkadot/react-components';
 import { useTranslation } from '../translate.js';
-import { Exercise, ResizableImage, Skill, useIpfsContext } from '@slonigiraf/app-slonig-components';
-import { getIPFSContentIDForBytesAndPinIt } from '@slonigiraf/app-slonig-components';
+import { Exercise, ResizableImage, Skill, useIpfsContext } from '@slonigiraf/slonig-components';
+import { getIPFSContentIDForBytesAndPinIt } from '@slonigiraf/slonig-components';
 import TextAreaWithPreview from './TextAreaWithPreview.js';
 
 interface Props {

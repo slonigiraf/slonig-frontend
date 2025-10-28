@@ -2,7 +2,7 @@ import { useState, useCallback, useEffect } from 'react';
 import { keyring } from '@polkadot/ui-keyring';
 import { getSetting, storeSetting, SettingKey } from '@slonigiraf/db';
 import type { KeyringPair } from '@polkadot/keyring/types';
-import type { AccountState } from '@slonigiraf/app-slonig-components';
+import type { AccountState } from '@slonigiraf/slonig-components';
 import { useApi } from '@polkadot/react-hooks';
 
 export function useLogin() {

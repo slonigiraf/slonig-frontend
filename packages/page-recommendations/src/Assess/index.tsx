@@ -5,7 +5,7 @@ import React, { useState } from 'react';
 import InsurancesList from './InsurancesList.js';
 import { useTranslation } from '../translate.js';
 import { u8aToHex } from '@polkadot/util';
-import { QRWithShareAndCopy, nameFromKeyringPair, getBaseUrl, useLoginContext, CenterQRContainer, Person, StyledContentCloseButton, qrWidthPx } from '@slonigiraf/app-slonig-components';
+import { QRWithShareAndCopy, nameFromKeyringPair, getBaseUrl, useLoginContext, CenterQRContainer, Person, StyledContentCloseButton, qrWidthPx } from '@slonigiraf/slonig-components';
 import { getPseudonym } from '@slonigiraf/db';
 import InsurancesReceiver from './InsurancesReceiver.js';
 import PersonSelector from '../PersonSelector.js';

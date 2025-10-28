@@ -5,7 +5,7 @@ import { replaceDB } from '@slonigiraf/db';
 import { keyring } from '@polkadot/ui-keyring';
 import pako from 'pako';
 import { useInfo } from './InfoProvider.js';
-import { useLoginContext } from '@slonigiraf/app-slonig-components';
+import { useLoginContext } from '@slonigiraf/slonig-components';
 
 interface Props {
   className?: string;

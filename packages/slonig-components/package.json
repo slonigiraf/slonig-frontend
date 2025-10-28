@@ -5,7 +5,7 @@
   },
   "homepage": "https://github.com/slonigiraf/apps-slonigiraf#readme",
   "license": "Apache-2.0",
-  "name": "@slonigiraf/app-slonig-components",
+  "name": "@slonigiraf/slonig-components",
   "private": true,
   "repository": {
     "directory": "packages/slonig-components",

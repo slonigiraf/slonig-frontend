@@ -6,7 +6,7 @@ import { exportDB } from '@slonigiraf/db';
 import { nextTick } from '@polkadot/util';
 import { keyring } from '@polkadot/ui-keyring';
 import { useLoginContext } from './LoginContext.js';
-import { ButtonWithLabelBelow, getFormattedTimestamp } from '@slonigiraf/app-slonig-components';
+import { ButtonWithLabelBelow, getFormattedTimestamp } from '@slonigiraf/slonig-components';
 import { useTranslation } from './translate.js';
 
 interface Props {

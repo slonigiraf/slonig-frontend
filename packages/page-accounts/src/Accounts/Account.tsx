@@ -13,7 +13,7 @@ import { keyring } from '@polkadot/ui-keyring';
 import { BN, BN_ZERO, isFunction } from '@polkadot/util';
 import { useTranslation } from '../translate.js';
 import { createMenuGroup } from '../util.js';
-import { useTokenTransfer } from '@slonigiraf/app-slonig-components';
+import { useTokenTransfer } from '@slonigiraf/slonig-components';
 import EditAccount from '../modals/EditAccount.js';
 interface Props {
   account: KeyringAddress;

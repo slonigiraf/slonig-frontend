@@ -19,7 +19,7 @@ import { isHex, u8aToHex } from '@polkadot/util';
 import { blake2AsHex } from '@polkadot/util-crypto';
 import "dexie-export-import";
 import { exportDB as dexieExport } from 'dexie-export-import';
-import { InsurancesTransfer, LessonRequest } from "@slonigiraf/app-slonig-components";
+import { InsurancesTransfer, LessonRequest } from "@slonigiraf/slonig-components";
 import { CanceledInsurance } from "./db/CanceledInsurance.js";
 
 export type { CanceledInsurance, Reexamination, LetterTemplate, CanceledLetter, Reimbursement, Letter, Insurance, Lesson, Pseudonym, Setting, Signer, UsageRight, Agreement };

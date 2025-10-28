@@ -10,7 +10,7 @@ import { nextTick } from '@polkadot/util';
 
 import { useTranslation } from './translate.js';
 import { SettingKey, storeSetting } from '@slonigiraf/db';
-import { useLoginContext } from '@slonigiraf/app-slonig-components';
+import { useLoginContext } from '@slonigiraf/slonig-components';
 
 interface Props {
   onClose: () => void;

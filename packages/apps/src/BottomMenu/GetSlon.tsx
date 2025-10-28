@@ -1,7 +1,7 @@
 import { useTranslation } from '../translate.js';
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ButtonWithLabelBelow, slonSVG } from '@slonigiraf/app-slonig-components';
+import { ButtonWithLabelBelow, slonSVG } from '@slonigiraf/slonig-components';
 
 function GetSlon(): React.ReactElement {
   const { t } = useTranslation();

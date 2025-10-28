@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { Button, styled } from '@polkadot/react-components';
 import { useTranslation } from '../translate.js';
-import { Exercise, ResizableImage, KatexSpan } from '@slonigiraf/app-slonig-components';
+import { Exercise, ResizableImage, KatexSpan } from '@slonigiraf/slonig-components';
 
 interface ExerciseListProps {
     exercises: Exercise[];

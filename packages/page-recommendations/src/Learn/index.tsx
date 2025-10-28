@@ -3,7 +3,7 @@
 
 import React, { useCallback, useState } from 'react';
 import LettersList from './LettersList.js';
-import { loadFromSessionStorage, saveToSessionStorage, UrlParams, useLoginContext } from '@slonigiraf/app-slonig-components';
+import { loadFromSessionStorage, saveToSessionStorage, UrlParams, useLoginContext } from '@slonigiraf/slonig-components';
 import { u8aToHex } from '@polkadot/util';
 import { useLocation } from 'react-router-dom';
 import LessonResultReceiver from './LessonResultReceiver.js';

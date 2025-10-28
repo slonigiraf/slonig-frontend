@@ -3001,7 +3001,7 @@ __metadata:
     "@polkadot/test-support": 0.132.2-38-x
     "@polkadot/util": ^12.3.2
     "@polkadot/vanitygen": ^0.55.3
-    "@slonigiraf/app-slonig-components": ^0.132.2-38-x
+    "@slonigiraf/slonig-components": ^0.132.2-38-x
     "@slonigiraf/helpers": ^7.0.0
     "@types/qrcode.react": ^1.0.2
     detect-browser: ^5.3.0
@@ -3028,7 +3028,7 @@ __metadata:
     "@polkadot/test-support": 0.132.2-38-x
     "@polkadot/util": ^12.3.2
     "@polkadot/vanitygen": ^0.55.3
-    "@slonigiraf/app-slonig-components": ^0.132.2-38-x
+    "@slonigiraf/slonig-components": ^0.132.2-38-x
     "@slonigiraf/helpers": ^7.0.0
     "@types/qrcode.react": ^1.0.2
     detect-browser: ^5.3.0
@@ -3047,9 +3047,9 @@ __metadata:
   languageName: unknown
   linkType: soft
 
-"@slonigiraf/app-slonig-components@^0.132.2-38-x, @slonigiraf/app-slonig-components@workspace:packages/slonig-components":
+"@slonigiraf/slonig-components@^0.132.2-38-x, @slonigiraf/slonig-components@workspace:packages/slonig-components":
   version: 0.0.0-use.local
-  resolution: "@slonigiraf/app-slonig-components@workspace:packages/slonig-components"
+  resolution: "@slonigiraf/slonig-components@workspace:packages/slonig-components"
   dependencies:
     "@polkadot/apps-config": ^0.132.2-38-x
     "@polkadot/react-components": ^0.132.2-38-x

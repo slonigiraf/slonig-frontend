@@ -3,7 +3,7 @@
 import React from 'react';
 import { useTranslation } from '../translate.js';
 import { Letter } from '@slonigiraf/db';
-import { KatexSpan } from '@slonigiraf/app-slonig-components';
+import { KatexSpan } from '@slonigiraf/slonig-components';
 
 interface Props {
   className?: string;

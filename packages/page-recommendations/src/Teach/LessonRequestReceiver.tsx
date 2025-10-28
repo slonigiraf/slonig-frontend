@@ -4,7 +4,7 @@
 import { getLesson, Lesson, storeLesson, storePseudonym } from '@slonigiraf/db';
 import React, { useCallback } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
-import { LessonRequest, UrlParams, useLoginContext } from '@slonigiraf/app-slonig-components';
+import { LessonRequest, UrlParams, useLoginContext } from '@slonigiraf/slonig-components';
 import { u8aToHex } from '@polkadot/util';
 import useFetchWebRTC from '../useFetchWebRTC.js';
 

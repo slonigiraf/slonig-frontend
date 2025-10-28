@@ -2,7 +2,7 @@
 import React, { useContext, createContext, ReactNode, useState, useEffect } from 'react';
 import { useLogin } from './useLogin.js';
 import type { KeyringPair } from '@polkadot/keyring/types';
-import type { AccountState } from '@slonigiraf/app-slonig-components';
+import type { AccountState } from '@slonigiraf/slonig-components';
 import { InputAddress } from '@polkadot/react-components';
 import CreateAccountModal from '@polkadot/app-accounts/modals/CreateAccountModal';
 import { useAccounts } from '@polkadot/react-hooks';

@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { TextArea, Toggle, styled } from '@polkadot/react-components';
 import { useToggle } from '@polkadot/react-hooks';
 import { useTranslation } from '../translate.js';
-import { KatexSpan, FullWidthContainer } from '@slonigiraf/app-slonig-components';
+import { KatexSpan, FullWidthContainer } from '@slonigiraf/slonig-components';
 import MillerLawComment from './MillerLawComment.js';
 
 interface Props {

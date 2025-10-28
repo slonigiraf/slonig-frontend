@@ -6,7 +6,7 @@ import { Button, Toggle } from '@polkadot/react-components';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { useTranslation } from '../translate.js';
 import { deleteInsurance, Badge, getInsurances, getPseudonym, Insurance } from '@slonigiraf/db';
-import { Confirmation, DaysRangePicker, loadFromSessionStorage, saveToSessionStorage, SelectableList, ToggleContainer, useInfo } from '@slonigiraf/app-slonig-components';
+import { Confirmation, DaysRangePicker, loadFromSessionStorage, saveToSessionStorage, SelectableList, ToggleContainer, useInfo } from '@slonigiraf/slonig-components';
 import { useToggle } from '@polkadot/react-hooks';
 import BadgeInfo from './BadgeInfo.js';
 import { INSURANCES } from '../constants.js';

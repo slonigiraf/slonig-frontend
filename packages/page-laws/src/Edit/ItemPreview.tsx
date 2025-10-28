@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { StyledSpinnerContainer, getIPFSDataFromContentID, parseJson, loadFromSessionStorage, useIpfsContext } from '@slonigiraf/app-slonig-components';
+import { StyledSpinnerContainer, getIPFSDataFromContentID, parseJson, loadFromSessionStorage, useIpfsContext } from '@slonigiraf/slonig-components';
 import ExerciseList from './ExerciseList.js';
 import { Spinner, styled } from '@polkadot/react-components';
 import { ItemWithCID } from '../types.js';

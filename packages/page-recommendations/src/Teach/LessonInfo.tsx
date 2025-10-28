@@ -3,9 +3,9 @@
 
 import { Button, Progress, Spinner, styled } from '@polkadot/react-components';
 import React, { useState, useEffect } from 'react';
-import { KatexSpan, getIPFSDataFromContentID, parseJson } from '@slonigiraf/app-slonig-components';
+import { KatexSpan, getIPFSDataFromContentID, parseJson } from '@slonigiraf/slonig-components';
 import { useTranslation } from '../translate.js';
-import { useIpfsContext } from '@slonigiraf/app-slonig-components';
+import { useIpfsContext } from '@slonigiraf/slonig-components';
 import { Lesson, getPseudonym, isThereAnyLessonResult } from '@slonigiraf/db';
 
 interface Props {

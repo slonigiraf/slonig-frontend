@@ -6,7 +6,7 @@ import {
   IMessage,
   KatexSpan,
   ResizableImage
-} from '@slonigiraf/app-slonig-components';
+} from '@slonigiraf/slonig-components';
 import { useTranslation } from '../translate.js';
 
 interface ChatSimulationProps {

@@ -5,7 +5,7 @@ import { Modal, Button, styled } from '@polkadot/react-components';
 import React from 'react'
 import { useTranslation } from '../translate.js';
 import { useToggle } from '@polkadot/react-hooks';
-import { AlignRightDiv, KatexSpan, Skill } from '@slonigiraf/app-slonig-components';
+import { AlignRightDiv, KatexSpan, Skill } from '@slonigiraf/slonig-components';
 import { ExerciseList } from '@slonigiraf/app-laws';
 
 interface Props {

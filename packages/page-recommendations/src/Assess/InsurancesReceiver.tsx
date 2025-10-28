@@ -5,7 +5,7 @@ import React, { useCallback } from 'react';
 import { useTranslation } from '../translate.js';
 import { u8aToHex } from '@polkadot/util';
 import { useLocation, useNavigate } from 'react-router-dom';
-import { useLoginContext, useInfo, InsurancesTransfer, Person, UrlParams } from '@slonigiraf/app-slonig-components';
+import { useLoginContext, useInfo, InsurancesTransfer, Person, UrlParams } from '@slonigiraf/slonig-components';
 import { storeInsurances, storePseudonym } from '@slonigiraf/db';
 import useFetchWebRTC from '../useFetchWebRTC.js';
 interface Props {

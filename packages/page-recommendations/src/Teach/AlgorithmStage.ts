@@ -1,4 +1,4 @@
-import { IMessage } from "@slonigiraf/app-slonig-components";
+import { IMessage } from "@slonigiraf/slonig-components";
 import { stringToU8a } from '@polkadot/util';
 import { blake2AsHex } from '@polkadot/util-crypto';
 

@@ -2,22 +2,22 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import BN from 'bn.js';
-import { getIPFSContentIDAndPinIt, digestFromCIDv1, getCIDFromBytes, getIPFSDataFromContentID, loadFromSessionStorage, saveToSessionStorage, KatexSpan, LawType } from '@slonigiraf/app-slonig-components';
+import { getIPFSContentIDAndPinIt, digestFromCIDv1, getCIDFromBytes, getIPFSDataFromContentID, loadFromSessionStorage, saveToSessionStorage, KatexSpan, LawType } from '@slonigiraf/slonig-components';
 import { BN_ZERO } from '@polkadot/util';
 import React, { useCallback, useEffect, useState } from 'react';
 import { Button, InputBalance, styled } from '@polkadot/react-components';
 import { useToggle } from '@polkadot/react-hooks';
 import { u8aToHex } from '@polkadot/util';
 import { useTranslation } from '../translate.js';
-import { useIpfsContext } from '@slonigiraf/app-slonig-components';
+import { useIpfsContext } from '@slonigiraf/slonig-components';
 import { useApi } from '@polkadot/react-hooks';
-import { parseJson } from '@slonigiraf/app-slonig-components';
+import { parseJson } from '@slonigiraf/slonig-components';
 import Editor from './Editor.js';
 import ViewList from './ViewList.js';
 import { useLocation } from 'react-router-dom';
-import { useLoginContext } from '@slonigiraf/app-slonig-components';
+import { useLoginContext } from '@slonigiraf/slonig-components';
 import { sendCreateAndEditTransaction, sendEditTransaction } from './sendTransaction.js';
-import { useInfo } from '@slonigiraf/app-slonig-components';
+import { useInfo } from '@slonigiraf/slonig-components';
 import { getSetting, SettingKey } from '@slonigiraf/db';
 import { sessionPrefix } from '../constants.js';
 

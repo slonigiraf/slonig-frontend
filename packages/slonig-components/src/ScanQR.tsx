@@ -1,10 +1,10 @@
 import React, { useCallback } from 'react';
 import { useToggle } from '@polkadot/react-hooks';
-import { QRScanner, scanSVG, useLoginContext } from '@slonigiraf/app-slonig-components';
+import { QRScanner, scanSVG, useLoginContext } from '@slonigiraf/slonig-components';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from './translate.js';
 import { Modal } from '@polkadot/react-components';
-import { ButtonWithLabelBelow } from '@slonigiraf/app-slonig-components';
+import { ButtonWithLabelBelow } from '@slonigiraf/slonig-components';
 import { setSettingToTrue, SettingKey } from '@slonigiraf/db';
 import { useBooleanSettingValue } from './useSettingValue.js';
 interface QRCodeResult {

@@ -4,7 +4,7 @@ import { useToggle } from '@polkadot/react-hooks';
 import { Modal } from '@polkadot/react-components';
 import { useTranslation } from './translate.js';
 import { FullWidthContainer, useIpfsContext } from './index.js';
-import { getIPFSBytesFromContentID } from '@slonigiraf/app-slonig-components';
+import { getIPFSBytesFromContentID } from '@slonigiraf/slonig-components';
 import { fileTypeFromBuffer } from 'file-type';
 
 interface Props {

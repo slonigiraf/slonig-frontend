@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import BN from 'bn.js';
-import { getIPFSContentIDAndPinIt, digestFromCIDv1, useLoginContext } from '@slonigiraf/app-slonig-components';
+import { getIPFSContentIDAndPinIt, digestFromCIDv1, useLoginContext } from '@slonigiraf/slonig-components';
 import { BN_ZERO } from '@polkadot/util';
 import React, { useCallback, useState } from 'react';
 import { Button, Input, InputBalance } from '@polkadot/react-components';
@@ -10,8 +10,8 @@ import { u8aToHex } from '@polkadot/util';
 import { useTranslation } from '../translate.js';
 import { useApi } from '@polkadot/react-hooks';
 import { randomAsU8a } from '@polkadot/util-crypto';
-import { useIpfsContext } from '@slonigiraf/app-slonig-components';
-import { useInfo } from '@slonigiraf/app-slonig-components';
+import { useIpfsContext } from '@slonigiraf/slonig-components';
+import { useInfo } from '@slonigiraf/slonig-components';
 import { useToggle } from '@polkadot/react-hooks';
 import { sendCreateTransaction } from '../Edit/sendTransaction.js';
 

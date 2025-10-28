@@ -15,7 +15,7 @@ import Developer from './Developer.js';
 import General from './General.js';
 import { useTranslation } from './translate.js';
 import useCounter from './useCounter.js';
-import { useDeveloperSetting } from '@slonigiraf/app-slonig-components';
+import { useDeveloperSetting } from '@slonigiraf/slonig-components';
 
 export { useCounter };
 

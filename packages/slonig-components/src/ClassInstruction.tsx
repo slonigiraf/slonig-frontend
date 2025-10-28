@@ -1,5 +1,5 @@
 import React from 'react';
-import { KatexSpan } from '@slonigiraf/app-slonig-components';
+import { KatexSpan } from '@slonigiraf/slonig-components';
 import QRCode from 'qrcode.react';
 import { Button, styled } from '@polkadot/react-components';
 import { useTranslation } from './translate.js';

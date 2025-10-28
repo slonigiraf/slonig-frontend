@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { createPeer, getBaseUrl, QRWithShareAndCopy, useInfo } from '@slonigiraf/app-slonig-components';
+import { createPeer, getBaseUrl, QRWithShareAndCopy, useInfo } from '@slonigiraf/slonig-components';
 import { useTranslation } from './translate.js';
 import { Spinner } from '@polkadot/react-components';
 

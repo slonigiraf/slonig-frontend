@@ -7,8 +7,8 @@ import UseInsurance from './UseInsurance.js'
 import { useTranslation } from '../translate.js';
 import { Badge, Insurance, isInsurance } from '@slonigiraf/db';
 import { useToggle } from '@polkadot/react-hooks';
-import { Exercise, KatexSpan, getIPFSDataFromContentID, parseJson } from '@slonigiraf/app-slonig-components';
-import { useIpfsContext } from '@slonigiraf/app-slonig-components';
+import { Exercise, KatexSpan, getIPFSDataFromContentID, parseJson } from '@slonigiraf/slonig-components';
+import { useIpfsContext } from '@slonigiraf/slonig-components';
 import { ExerciseList } from '@slonigiraf/app-laws';
 
 interface Props {

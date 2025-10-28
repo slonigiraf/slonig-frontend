@@ -4,7 +4,7 @@ import { useApi, useBlockEvents, useCall, useIsMountedRef } from '@polkadot/reac
 import { useLoginContext } from './LoginContext.js';
 import BN from 'bn.js';
 import { balanceToSlonString, EXISTENTIAL_BATCH_SENDER_BALANCE, getAddressFromPublickeyHex, getRecommendationsFrom, useInfo } from './index.js';
-import { EXISTENTIAL_REFEREE_BALANCE, REIMBURSEMENT_BATCH_SIZE } from '@slonigiraf/app-slonig-components';
+import { EXISTENTIAL_REFEREE_BALANCE, REIMBURSEMENT_BATCH_SIZE } from '@slonigiraf/slonig-components';
 import { BN_ZERO } from '@polkadot/util';
 import type { AccountInfo } from '@polkadot/types/interfaces';
 import { KeyedEvent } from '@polkadot/react-hooks/ctx/types';

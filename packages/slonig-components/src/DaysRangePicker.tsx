@@ -1,6 +1,6 @@
 import React from "react";
 import { styled, Icon } from "@polkadot/react-components";
-import { DateInput } from "@slonigiraf/app-slonig-components";
+import { DateInput } from "@slonigiraf/slonig-components";
 import { useTranslation } from "./translate.js";
 
 interface DaysRangePickerProps {

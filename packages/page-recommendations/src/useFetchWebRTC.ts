@@ -1,5 +1,5 @@
 import { createNamedHook } from '@polkadot/react-hooks';
-import { parseJson, receiveWebRTCData, useInfo } from '@slonigiraf/app-slonig-components';
+import { parseJson, receiveWebRTCData, useInfo } from '@slonigiraf/slonig-components';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from './translate.js';
 import { ErrorType } from '@polkadot/react-params';

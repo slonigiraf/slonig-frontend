@@ -8,9 +8,9 @@ import GlobalStyle from '@polkadot/react-components/styles';
 import { useApi } from '@polkadot/react-hooks';
 import WarmUp from './WarmUp.js';
 import UI from './UI.js';
-import { IpfsProvider, TokenTransferProvider } from '@slonigiraf/app-slonig-components';
-import { InfoProvider } from '@slonigiraf/app-slonig-components';
-import { LoginProvider } from '@slonigiraf/app-slonig-components';
+import { IpfsProvider, TokenTransferProvider } from '@slonigiraf/slonig-components';
+import { InfoProvider } from '@slonigiraf/slonig-components';
+import { LoginProvider } from '@slonigiraf/slonig-components';
 export const PORTAL_ID = 'portals';
 
 function Apps({ className = '' }: Props): React.ReactElement<Props> {

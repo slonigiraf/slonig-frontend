@@ -1,8 +1,8 @@
 // Copyright 2021-2022 @slonigiraf/app-laws authors & contributors
 // SPDX-License-Identifier: Apache-2.0
 import React, { useEffect, useState } from 'react';
-import { KatexSpan, StyledSpinnerContainer, getIPFSDataFromContentID, parseJson } from '@slonigiraf/app-slonig-components';
-import { useIpfsContext } from '@slonigiraf/app-slonig-components';
+import { KatexSpan, StyledSpinnerContainer, getIPFSDataFromContentID, parseJson } from '@slonigiraf/slonig-components';
+import { useIpfsContext } from '@slonigiraf/slonig-components';
 import { Button, Icon, styled, Spinner } from '@polkadot/react-components';
 import BadgeCheck from './BadgeCheck.js';
 import { ItemWithCID } from '../types.js';

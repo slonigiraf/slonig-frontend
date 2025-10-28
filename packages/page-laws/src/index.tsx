@@ -6,7 +6,7 @@ import type { AppProps as Props } from '@polkadot/react-components/types';
 import React, { useRef, useMemo } from 'react';
 import { Route, Routes } from 'react-router';
 import { Tabs } from '@polkadot/react-components';
-import { useDeveloperSetting } from '@slonigiraf/app-slonig-components';
+import { useDeveloperSetting } from '@slonigiraf/slonig-components';
 import { useTranslation } from './translate.js';
 import useCounter from './useCounter.js';
 import Create from './Create/index.js';

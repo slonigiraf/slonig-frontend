@@ -1,7 +1,7 @@
 import React from 'react';
 import { Button } from '@polkadot/react-components';
 import { useTranslation } from './translate.js';
-import { useInfo } from '@slonigiraf/app-slonig-components';
+import { useInfo } from '@slonigiraf/slonig-components';
 
 interface Props {
     className?: string;

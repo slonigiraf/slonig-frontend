@@ -1,6 +1,6 @@
 import React from 'react';
 import { useTranslation } from '../translate.js';
-import { FullWidthContainer } from '@slonigiraf/app-slonig-components';
+import { FullWidthContainer } from '@slonigiraf/slonig-components';
 import styled from 'styled-components';
 
 const PHRASE_WORD_COUNT = 9;

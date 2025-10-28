@@ -17,7 +17,7 @@ import { useTranslation } from '../translate.js';
 import { sortAccounts } from '../util.js';
 import Account from './Account.js';
 import Summary from './Summary.js';
-import { CenterQRContainer, useLoginContext } from '@slonigiraf/app-slonig-components';
+import { CenterQRContainer, useLoginContext } from '@slonigiraf/slonig-components';
 import PayToAccountQR from './PayToAccountQR.js';
 import TransferParser from './TransferParser.js';
 

@@ -3,7 +3,7 @@ import React from 'react';
 import { Dropdown, styled } from '@polkadot/react-components';
 import { useLiveQuery } from "dexie-react-hooks";
 import { getAllPseudonyms, type Pseudonym } from '@slonigiraf/db';
-import { qrWidthPx } from '@slonigiraf/app-slonig-components';
+import { qrWidthPx } from '@slonigiraf/slonig-components';
 
 interface PersonSelectorProps {
     className?: string;

@@ -19,7 +19,7 @@ import CreateAccountInputs from './CreateAccountInputs.js';
 import { ETH_DEFAULT_PATH } from './CreateEthDerivationPath.js';
 import { storeSetting, SettingKey } from '@slonigiraf/db';
 import { useLocation, useNavigate } from 'react-router-dom';
-import { DBImport, useInfo } from '@slonigiraf/app-slonig-components';
+import { DBImport, useInfo } from '@slonigiraf/slonig-components';
 
 const DEFAULT_PAIR_TYPE = 'sr25519';
 

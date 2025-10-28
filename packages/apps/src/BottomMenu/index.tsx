@@ -1,5 +1,5 @@
 import React from 'react';
-import { HorizontalCenterItemsContainer, ScanQR } from '@slonigiraf/app-slonig-components';
+import { HorizontalCenterItemsContainer, ScanQR } from '@slonigiraf/slonig-components';
 import GoKnowledge from './GoKnowledge.js';
 import GetSlon from './GetSlon.js';
 import GoBadges from './GoBadges.js';

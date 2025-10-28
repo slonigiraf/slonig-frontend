@@ -5,10 +5,10 @@ import { getDataToSignByWorker } from '@slonigiraf/helpers';
 import type { KeyringPair } from '@polkadot/keyring/types';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { u8aToHex, hexToU8a, u8aWrapBytes, BN_ONE } from '@polkadot/util';
-import { nameFromKeyringPair, SenderComponent, CenterQRContainer, InsurancesTransfer, predictBlockNumber, useInfo } from '@slonigiraf/app-slonig-components';
+import { nameFromKeyringPair, SenderComponent, CenterQRContainer, InsurancesTransfer, predictBlockNumber, useInfo } from '@slonigiraf/slonig-components';
 import { useTranslation } from '../translate.js';
 import { insuranceToUsageRight, Letter, putUsageRight, getInsuranceDaysValid, SettingKey, storeSetting, letterToInsurance, serializeInsurance, UsageRight } from '@slonigiraf/db';
-import { keyForCid } from '@slonigiraf/app-slonig-components';
+import { keyForCid } from '@slonigiraf/slonig-components';
 import { EditableInfo, Spinner } from '@polkadot/react-components';
 import { useApi, useBlockTime } from '@polkadot/react-hooks';
 

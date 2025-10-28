@@ -1,7 +1,7 @@
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from '../translate.js';
-import { ButtonWithLabelBelow } from '@slonigiraf/app-slonig-components';
+import { ButtonWithLabelBelow } from '@slonigiraf/slonig-components';
 
 function GoKnowledge(): React.ReactElement {
   const { t } = useTranslation();

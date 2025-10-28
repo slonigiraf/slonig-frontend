@@ -5,7 +5,7 @@ import React, { useState } from 'react';
 import { CustomSVGIcon } from '@polkadot/react-components';
 import { useTranslation } from '../translate.js';
 import { addReimbursement, cancelInsurance, Insurance, insuranceToReimbursement } from '@slonigiraf/db';
-import { slonSVG, SVGButton, useBlockchainSync, useInfo, useLoginContext } from '@slonigiraf/app-slonig-components';
+import { slonSVG, SVGButton, useBlockchainSync, useInfo, useLoginContext } from '@slonigiraf/slonig-components';
 
 interface Props {
   className?: string;

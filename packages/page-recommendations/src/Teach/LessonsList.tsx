@@ -3,7 +3,7 @@ import React, { useCallback, useState } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { Button, Toggle } from '@polkadot/react-components';
 import { useTranslation } from '../translate.js';
-import { Confirmation, DaysRangePicker, loadFromSessionStorage, saveToSessionStorage, SelectableList, ToggleContainer, useInfo } from '@slonigiraf/app-slonig-components';
+import { Confirmation, DaysRangePicker, loadFromSessionStorage, saveToSessionStorage, SelectableList, ToggleContainer, useInfo } from '@slonigiraf/slonig-components';
 import { useToggle } from '@polkadot/react-hooks';
 import { deleteLesson, getLessons, Lesson } from '@slonigiraf/db';
 import { LESSONS } from '../constants.js';

@@ -19,7 +19,7 @@ import Modal from '../Modal/index.js';
 import { styled } from '../styled.js';
 import { useTranslation } from '../translate.js';
 import { Button, Spinner } from '@polkadot/react-components';
-import { balanceToSlonString, useInfo, useLoginContext } from '@slonigiraf/app-slonig-components';
+import { balanceToSlonString, useInfo, useLoginContext } from '@slonigiraf/slonig-components';
 import { useNavigate } from 'react-router-dom';
 
 interface Props {

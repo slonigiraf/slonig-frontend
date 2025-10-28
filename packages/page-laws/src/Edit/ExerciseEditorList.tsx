@@ -3,7 +3,7 @@
 import React, { useCallback } from 'react';
 import { Button, styled } from '@polkadot/react-components';
 import ExerciseEditor from './ExerciseEditor.js';
-import { Exercise, HorizontalCenterItemsContainer } from '@slonigiraf/app-slonig-components';
+import { Exercise, HorizontalCenterItemsContainer } from '@slonigiraf/slonig-components';
 
 interface Props {
   className?: string;

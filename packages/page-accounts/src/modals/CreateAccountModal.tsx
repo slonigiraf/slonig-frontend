@@ -5,7 +5,7 @@ import React from 'react';
 import { Modal, styled } from '@polkadot/react-components';
 import { useTranslation } from '../translate.js';
 import CreateAccount from './CreateAccount.js';
-import { useLoginContext } from '@slonigiraf/app-slonig-components';
+import { useLoginContext } from '@slonigiraf/slonig-components';
 import { ModalProps } from '../types.js';
 
 

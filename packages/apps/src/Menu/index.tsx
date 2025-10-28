@@ -16,7 +16,7 @@ import { useAccounts, useApi, useCall, useTeleport } from '@polkadot/react-hooks
 import { findMissingApis } from '../endpoint.js';
 import { useTranslation } from '../translate.js';
 import Grouping from './Grouping.js';
-import { useDeveloperSetting } from '@slonigiraf/app-slonig-components';
+import { useDeveloperSetting } from '@slonigiraf/slonig-components';
 import SlonigLogo from './SlonigLogo.js';
 
 interface Props {
