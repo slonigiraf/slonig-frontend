@@ -24,7 +24,7 @@ class TutoringAlgorithm extends Algorithm {
         );
         const repeatNextDay = new AlgorithmStage(
             7,
-            hasTutorCompletedTutorial? 'repeat' : 'success',
+            hasTutorCompletedTutorial ? 'repeat' : 'success',
             t('No'),
             [
                 { title: t('🗣 Say to the tutee'), text: t('Excellent! Let’s repeat this tomorrow.') },
@@ -48,7 +48,7 @@ class TutoringAlgorithm extends Algorithm {
             'intermediate',
             t('No'),
             [
-                {  title: t('📖 Read what’s happening'), text: t('The tutee has not executed the exercise correctly.') },
+                { title: t('📖 Read what’s happening'), text: t('The tutee has not executed the exercise correctly.') },
                 { title: t('🗣 Say to the tutee'), text: t('Repeat after me:') + ' ' + answer1, image: answerImage1 },
             ],
             t('Has the tutee repeated correctly?')
@@ -83,7 +83,7 @@ class TutoringAlgorithm extends Algorithm {
             t('No'),
             [
                 { title: t('📖 Read what’s happening'), text: t('The tutee has not created a similar exercise.') },
-                { title: t('🗣 Say to the tutee'), text: t('Repeat after me:') + ' ' + question2, image: exerciseImage2},
+                { title: t('🗣 Say to the tutee'), text: t('Repeat after me:') + ' ' + question2, image: exerciseImage2 },
             ],
             t('Has the tutee repeated correctly after me?')
         );
@@ -100,7 +100,7 @@ class TutoringAlgorithm extends Algorithm {
             'begin',
             t('Yes'),
             [
-                { title: t('📖 Read what’s happening'), text: t('___ asks you to teach the skill').replace('___', studentName) + (skill && ": \"" + skill.h + "\"") },
+                { title: t('📖 Read what’s happening'), text: t('{{name}} asks you to teach the skill', { replace: { name: studentName } }) + (skill && ': ’' + skill.h + '’') },
                 { title: t('🗣 Say to the tutee'), text: t('Create an exercise similar to this:') + ' ' + question1, image: exerciseImage1 },
             ],
             t('Has the tutee now created a similar exercise?')
@@ -113,7 +113,7 @@ class TutoringAlgorithm extends Algorithm {
             t('Yes'),
             [
                 { title: t('📖 Read what’s happening'), text: t('The tutee has executed the exercise correctly.') },
-                { title: t('🗣 Say to the tutee'), text: t('Create an exercise similar to this:') + ' ' + question1, image: exerciseImage1},
+                { title: t('🗣 Say to the tutee'), text: t('Create an exercise similar to this:') + ' ' + question1, image: exerciseImage1 },
             ],
             t('Has the tutee now created a similar exercise?')
         );
@@ -123,7 +123,7 @@ class TutoringAlgorithm extends Algorithm {
             'begin',
             t('Yes'),
             [
-                { title: t('📖 Read what’s happening'), text: t('___ asks you to teach the skill').replace('___', studentName) + (skill && ": \"" + skill.h + "\"") },
+                { title: t('📖 Read what’s happening'), text: t('{{name}} asks you to teach the skill', { replace: { name: studentName } }) + (skill && ': ’' + skill.h + '’') },
                 { title: t('🗣 Say to the tutee'), text: question1, image: exerciseImage1 },
             ],
             t('Has the tutee now executed the exercise correctly?')
@@ -135,7 +135,7 @@ class TutoringAlgorithm extends Algorithm {
             t('Yes'),
             [
                 { title: t('📖 Read what’s happening'), text: t('The tutee has repeated correctly after me.') },
-                { title: t('🗣 Say to the tutee'), text: t('Create an exercise similar to this:') + ' '+ question1, image: exerciseImage1},
+                { title: t('🗣 Say to the tutee'), text: t('Create an exercise similar to this:') + ' ' + question1, image: exerciseImage1 },
             ],
             t('Has the tutee now created a similar exercise?')
         );

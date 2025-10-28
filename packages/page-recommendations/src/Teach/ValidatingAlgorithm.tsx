@@ -83,8 +83,8 @@ class ValidatingAlgorithm extends Algorithm {
                 {
                     title: t('📖 Read what’s happening'),
                     text: isBeforeTeaching ?
-                        t('___ asks you to teach a skill. Before starting, try to earn a bonus by testing the previous skill:').replace('___', studentName) + (skill && " \"" + skill.h + "\".")
-                        : t('___ asks you to reexamine a skill. Try to earn a bonus by testing the skill:').replace('___', studentName) + (skill && " \"" + skill.h + "\".")
+                        t('{{name}} asks you to teach a skill. Before starting, try to earn a bonus by testing the previous skill:', { replace: { name: studentName} }) + (skill && ' ’' + skill.h + '’.')
+                        : t('{{name}} asks you to reexamine a skill. Try to earn a bonus by testing the skill:', { replace: { name: studentName} }) + (skill && ' ’' + skill.h + '’.')
                 },
                 { title: t('🗣 Say to the tutee'), text: t('Create an exercise similar to this:') + ' ' + question1, image: exerciseImage1 },
             ],
