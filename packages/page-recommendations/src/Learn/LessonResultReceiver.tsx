@@ -43,7 +43,16 @@ function LessonResultReceiver({ webRTCPeerId, onDaysRangeChange }: Props): React
         if (dbAgreement.completed === true) {
           navigate('', { replace: true });
         } else {
-          setAgreement(dbAgreement);
+          if (dbAgreement.price === receivedResult.price) {
+            setAgreement(dbAgreement);
+          } else {
+            const newAgreement = {
+              ...dbAgreement,
+              price: receivedResult.price,
+            };
+            setAgreement(newAgreement);
+            await putAgreement(newAgreement);
+          }
         }
       } else {
         const newAgreement = {

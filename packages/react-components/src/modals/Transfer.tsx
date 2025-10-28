@@ -51,7 +51,7 @@ async function checkPhishing(_senderId: string | null, recipientId: string | nul
   ];
 }
 
-function Transfer({ className = '', onClose, onConfirmedClose, onSuccess, recipientId: propRecipientId, senderId: propSenderId, amount: propAmount, isAmountEditable = true, isRewardType=false }: Props): React.ReactElement<Props> {
+function Transfer({ className = '', onClose, onConfirmedClose, onSuccess, recipientId: propRecipientId, senderId: propSenderId, amount: propAmount, isAmountEditable = true, isRewardType = false }: Props): React.ReactElement<Props> {
   const { t } = useTranslation();
   const { api } = useApi();
   const [amount, setAmount] = useState<BN | undefined>(propAmount ? propAmount : BN_ZERO);
@@ -199,10 +199,10 @@ function Transfer({ className = '', onClose, onConfirmedClose, onSuccess, recipi
 
   const amountToSendText = balanceToSlonString(amount || BN_ZERO);
   const maxTransferText = balanceToSlonString(maxTransfer || BN_ZERO);
-  const rewardInfo = t('To get the lesson results, reward your tutor with ___ Slon.').replaceAll('___', amountToSendText);
+  const rewardInfo = t('To get the lesson results, reward your tutor with {{amount}} Slon.', { replace: { amount: amountToSendText } });
   const topUpAmountText = balanceToSlonString(amount?.sub(maxTransfer || BN_ZERO).add(new BN('1000000000000')) || BN_ZERO);
-  const topUpInfo = t('You do not have enough Slon to reward your tutor and get the lesson results. Top up your balance with at least ___ Slon.').replaceAll('___', topUpAmountText);
-  const balanceInfo = t('You currently have ___ Slon.').replaceAll('___', maxTransferText);
+  const topUpInfo = t('You do not have enough Slon to reward your tutor and get the lesson results. Top up your balance with at least {{amount}} Slon.', { replace: { amount: topUpAmountText } });
+  const balanceInfo = t('You currently have {{amount}} Slon.', { replace: { amount: maxTransferText } });
   const userHasLessSlonThanRequired = isUserBalanceInitilized && ((maxTransfer !== null && amount?.gte(maxTransfer)) || (maxTransfer === null && amount !== undefined));
   const isTopUpView = isRewardType && userHasLessSlonThanRequired;
 
