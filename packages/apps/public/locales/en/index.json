@@ -1,5 +1,6 @@
 [
   "app-accounts.json",
+  "app-db.json",
   "app-js.json",
   "app-laws.json",
   "app-parachains.json",
@@ -13,5 +14,6 @@
   "react-components.json",
   "react-params.json",
   "react-query.json",
-  "react-signer.json"
+  "react-signer.json",
+  "slonig-components.json"
 ]
