@@ -14,7 +14,7 @@ const localesBase = path.join(rootDir, "packages", "apps", "public", "locales", 
 const translationJsonPath = path.join(localesBase, "translation.json");
 
 const exts = [".js", ".jsx", ".ts", ".tsx"];
-const regex = /t\(\s*['"]([^'"]+)['"]/g;
+const regex = /(?<![A-Za-z0-9_\/])t\(\s*['"]([^'"]+)['"]/g;
 
 /**
  * Recursively collect all JS/TS/JSX/TSX file paths.

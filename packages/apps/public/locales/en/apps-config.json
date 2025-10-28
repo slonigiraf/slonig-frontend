@@ -1,5 +1,4 @@
 {
-  "all derives are re-exported": "all derives are re-exported",
   "lightclient.experimental": "lightclient.experimental",
   "lng.detect": "lng.detect",
   "rpc.dev.custom": "rpc.dev.custom",

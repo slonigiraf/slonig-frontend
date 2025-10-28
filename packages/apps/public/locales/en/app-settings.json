@@ -41,7 +41,6 @@
   "include all empty strings in the generated file": "include all empty strings in the generated file",
   "the language to display translations for": "the language to display translations for",
   "the module to display strings for": "the module to display strings for",
-  "types": "types",
   "upgradable extensions": "upgradable extensions",
   "url": "url",
   "{{done}}/{{total}}, {{progress}}% done": "{{done}}/{{total}}, {{progress}}% done"
