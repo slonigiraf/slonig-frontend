@@ -5,6 +5,31 @@ import OpenAI from 'openai';
 import { FileUpload } from '@polkadot/react-components';
 import { skillListPrompt } from '../constants.js';
 
+export function fixInvalidJSONBackslashes(jsonString: string): string {
+  // This regex finds text inside double quotes, excluding the quotes themselves
+  return jsonString.replace(
+    /"((?:\\.|[^"\\])*)"/g,
+    (match, inner) => {
+      // Replace any single backslash that is not already escaped (i.e., not \\)
+      const fixedInner = inner.replace(/(?<!\\)\\(?![\\/"bfnrtu])/g, '\\\\');
+      return `"${fixedInner}"`;
+    }
+  );
+}
+
+/**
+ * Safely parses JSON with LaTeX-like backslashes.
+ */
+export function safeJSONParse<T = any>(input: string): T {
+  try {
+    return JSON.parse(input);
+  } catch (error) {
+    // Try to fix and reparse
+    const fixed = fixInvalidJSONBackslashes(input);
+    return JSON.parse(fixed);
+  }
+}
+
 interface Props {
   className?: string;
   moduleId: string;
@@ -112,7 +137,7 @@ const GenerateSkills: React.FC = ({ className = '', moduleId }: Props) => {
 
       let parsed: any;
       try {
-        parsed = JSON.parse(cleaned);
+        parsed = safeJSONParse(cleaned);
       } catch (e) {
         console.error('JSON parse error:', e, text);
         setOutput('❌ Failed to parse OpenAI response as JSON.\n\n' + cleaned);
@@ -143,7 +168,7 @@ const GenerateSkills: React.FC = ({ className = '', moduleId }: Props) => {
 
   return (
     <div className='p-4 space-y-4'>
-      <h2 className='text-xl font-semibold'>{t('Learn with AI')}</h2>
+      <h2>{t('Prepare skills for adding')}</h2>
 
       <FileUpload
         accept="*/*"
