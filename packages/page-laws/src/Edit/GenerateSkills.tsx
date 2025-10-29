@@ -14,6 +14,7 @@ const LearnWithAI: React.FC = () => {
     const files = e.target.files;
     if (files && files.length > 0) {
       setFile(files[0]);
+      setOutput('');
     }
   }, []);
 
@@ -26,6 +27,7 @@ const LearnWithAI: React.FC = () => {
     const key = await getSetting(SettingKey.OPENAI_TOKEN);
     if (!key) {
       console.error('Missing OpenAI token');
+      setOutput('⚠️ No OpenAI token found. Please add it in settings.');
       return;
     }
 
@@ -35,19 +37,45 @@ const LearnWithAI: React.FC = () => {
     try {
       setLoading(true);
 
-      // Upload the file first
+      // --- Handle images with GPT-4o Vision ---
+      if (file.type.startsWith('image/')) {
+        const base64 = await new Promise<string>((resolve) => {
+          const reader = new FileReader();
+          reader.onload = () => resolve(reader.result as string);
+          reader.readAsDataURL(file);
+        });
+
+        const response = await client.chat.completions.create({
+          model: 'gpt-4o-mini', // supports vision
+          messages: [
+            { role: 'system', content: 'You are an AI image analyst.' },
+            {
+              role: 'user',
+              content: [
+                { type: 'text', text: prompt },
+                { type: 'image_url', image_url: { url: base64 } } // ✅ correct shape
+              ]
+            }
+          ]
+        });
+
+        const text = response.choices[0].message?.content ?? '(no response)';
+        console.log('AI Output (image):', text);
+        setOutput(text);
+        return;
+      }
+
+      // --- Handle PDFs, TXT, CSV, etc. ---
       const uploaded = await client.files.create({
         file,
         purpose: 'assistants'
       });
 
-      // Correct input format for `responses.create`
       const response = await client.responses.create({
         model: 'gpt-4.1-mini',
         input: [
           {
             role: 'user',
-            // ✅ Use an array of simple objects, not unioned inline type
             content: [
               { type: 'input_text', text: prompt },
               { type: 'input_file', file_id: uploaded.id }
@@ -57,11 +85,11 @@ const LearnWithAI: React.FC = () => {
       });
 
       const text = response.output_text ?? '(no text output)';
-      console.log('AI Output:', text);
+      console.log('AI Output (file):', text);
       setOutput(text);
-    } catch (err) {
+    } catch (err: any) {
       console.error('OpenAI error:', err);
-      setOutput('Error communicating with AI. Check console for details.');
+      setOutput(`❌ OpenAI error: ${err.message || 'Unknown error'}`);
     } finally {
       setLoading(false);
     }
