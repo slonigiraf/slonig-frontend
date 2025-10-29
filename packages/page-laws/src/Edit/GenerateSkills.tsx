@@ -5,7 +5,7 @@ import OpenAI from 'openai';
 import { FileUpload } from '@polkadot/react-components';
 import { skillListPrompt } from '../constants.js';
 
-const LearnWithAI: React.FC = () => {
+const GenerateSkills: React.FC = () => {
   const { t } = useTranslation();
   const [file, setFile] = useState<File | null>(null);
   const [output, setOutput] = useState<string>('');
@@ -129,4 +129,4 @@ const LearnWithAI: React.FC = () => {
   );
 };
 
-export default LearnWithAI;
+export default GenerateSkills;
