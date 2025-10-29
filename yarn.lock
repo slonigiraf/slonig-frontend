@@ -1654,23 +1654,6 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@polkadot/api-contract@npm:^10.9.1":
-  version: 10.9.1
-  resolution: "@polkadot/api-contract@npm:10.9.1"
-  dependencies:
-    "@polkadot/api": 10.9.1
-    "@polkadot/api-augment": 10.9.1
-    "@polkadot/types": 10.9.1
-    "@polkadot/types-codec": 10.9.1
-    "@polkadot/types-create": 10.9.1
-    "@polkadot/util": ^12.3.1
-    "@polkadot/util-crypto": ^12.3.1
-    rxjs: ^7.8.1
-    tslib: ^2.5.3
-  checksum: 2a4b4818e5fd4ef1b385a0ad1144d986b449b531c278ccc3a441770c1e95a2fd24cd5da401d56040dcd594254e2a5c2e4a09a9de5827ee8bb951e3aad9558bed
-  languageName: node
-  linkType: hard
-
 "@polkadot/api-derive@npm:^10.9.1":
   version: 10.9.1
   resolution: "@polkadot/api-derive@npm:10.9.1"
@@ -1734,109 +1717,12 @@ __metadata:
   languageName: unknown
   linkType: soft
 
-"@polkadot/app-contracts@workspace:packages/page-contracts":
-  version: 0.0.0-use.local
-  resolution: "@polkadot/app-contracts@workspace:packages/page-contracts"
-  dependencies:
-    "@polkadot/api-contract": ^10.9.1
-    eventemitter3: ^5.0.1
-  peerDependencies:
-    react: "*"
-    react-dom: "*"
-    react-is: "*"
-  languageName: unknown
-  linkType: soft
-
-"@polkadot/app-explorer@workspace:packages/page-explorer":
-  version: 0.0.0-use.local
-  resolution: "@polkadot/app-explorer@workspace:packages/page-explorer"
-  dependencies:
-    "@polkadot/react-components": ^0.132.2-38-x
-  peerDependencies:
-    react: "*"
-    react-dom: "*"
-    react-is: "*"
-  languageName: unknown
-  linkType: soft
-
-"@polkadot/app-extrinsics@workspace:packages/page-extrinsics":
-  version: 0.0.0-use.local
-  resolution: "@polkadot/app-extrinsics@workspace:packages/page-extrinsics"
-  dependencies:
-    "@polkadot/react-components": ^0.132.2-38-x
-    "@polkadot/react-params": ^0.132.2-38-x
-    "@polkadot/react-signer": ^0.132.2-38-x
-  peerDependencies:
-    react: "*"
-    react-dom: "*"
-    react-is: "*"
-  languageName: unknown
-  linkType: soft
-
-"@polkadot/app-js@workspace:packages/page-js":
-  version: 0.0.0-use.local
-  resolution: "@polkadot/app-js@workspace:packages/page-js"
-  dependencies:
-    "@polkadot/react-components": ^0.132.2-38-x
-  peerDependencies:
-    react: "*"
-    react-dom: "*"
-    react-is: "*"
-  languageName: unknown
-  linkType: soft
-
 "@polkadot/app-parachains@workspace:packages/page-parachains":
   version: 0.0.0-use.local
   resolution: "@polkadot/app-parachains@workspace:packages/page-parachains"
   dependencies:
     "@polkadot/react-components": ^0.132.2-38-x
     "@polkadot/react-query": ^0.132.2-38-x
-  peerDependencies:
-    react: "*"
-    react-dom: "*"
-    react-is: "*"
-  languageName: unknown
-  linkType: soft
-
-"@polkadot/app-preimages@workspace:packages/page-preimages":
-  version: 0.0.0-use.local
-  resolution: "@polkadot/app-preimages@workspace:packages/page-preimages"
-  peerDependencies:
-    react: "*"
-    react-dom: "*"
-    react-is: "*"
-  languageName: unknown
-  linkType: soft
-
-"@polkadot/app-referenda@workspace:packages/page-referenda":
-  version: 0.0.0-use.local
-  resolution: "@polkadot/app-referenda@workspace:packages/page-referenda"
-  dependencies:
-    chart.js: ^4.3.0
-  peerDependencies:
-    react: "*"
-    react-dom: "*"
-    react-is: "*"
-  languageName: unknown
-  linkType: soft
-
-"@polkadot/app-rpc@workspace:packages/page-rpc":
-  version: 0.0.0-use.local
-  resolution: "@polkadot/app-rpc@workspace:packages/page-rpc"
-  dependencies:
-    "@polkadot/react-components": ^0.132.2-38-x
-  peerDependencies:
-    react: "*"
-    react-dom: "*"
-    react-is: "*"
-  languageName: unknown
-  linkType: soft
-
-"@polkadot/app-runtime@workspace:packages/page-runtime":
-  version: 0.0.0-use.local
-  resolution: "@polkadot/app-runtime@workspace:packages/page-runtime"
-  dependencies:
-    "@polkadot/react-components": ^0.132.2-38-x
   peerDependencies:
     react: "*"
     react-dom: "*"
@@ -1852,55 +1738,6 @@ __metadata:
     "@polkadot/react-components": ^0.132.2-38-x
     "@polkadot/react-query": ^0.132.2-38-x
     query-string: ^8.1.0
-  peerDependencies:
-    react: "*"
-    react-dom: "*"
-    react-is: "*"
-  languageName: unknown
-  linkType: soft
-
-"@polkadot/app-signing@workspace:packages/page-signing":
-  version: 0.0.0-use.local
-  resolution: "@polkadot/app-signing@workspace:packages/page-signing"
-  dependencies:
-    "@polkadot/react-components": ^0.132.2-38-x
-  peerDependencies:
-    react: "*"
-    react-dom: "*"
-    react-is: "*"
-  languageName: unknown
-  linkType: soft
-
-"@polkadot/app-storage@workspace:packages/page-storage":
-  version: 0.0.0-use.local
-  resolution: "@polkadot/app-storage@workspace:packages/page-storage"
-  dependencies:
-    "@polkadot/react-components": ^0.132.2-38-x
-    "@polkadot/react-params": ^0.132.2-38-x
-  peerDependencies:
-    react: "*"
-    react-dom: "*"
-    react-is: "*"
-  languageName: unknown
-  linkType: soft
-
-"@polkadot/app-sudo@workspace:packages/page-sudo":
-  version: 0.0.0-use.local
-  resolution: "@polkadot/app-sudo@workspace:packages/page-sudo"
-  dependencies:
-    "@polkadot/react-components": ^0.132.2-38-x
-  peerDependencies:
-    react: "*"
-    react-dom: "*"
-    react-is: "*"
-  languageName: unknown
-  linkType: soft
-
-"@polkadot/app-utilities@workspace:packages/page-utilities":
-  version: 0.0.0-use.local
-  resolution: "@polkadot/app-utilities@workspace:packages/page-utilities"
-  dependencies:
-    "@polkadot/react-components": ^0.132.2-38-x
   peerDependencies:
     react: "*"
     react-dom: "*"
@@ -3001,8 +2838,8 @@ __metadata:
     "@polkadot/test-support": 0.132.2-38-x
     "@polkadot/util": ^12.3.2
     "@polkadot/vanitygen": ^0.55.3
-    "@slonigiraf/slonig-components": ^0.132.2-38-x
     "@slonigiraf/helpers": ^7.0.0
+    "@slonigiraf/slonig-components": ^0.132.2-38-x
     "@types/qrcode.react": ^1.0.2
     detect-browser: ^5.3.0
     file-saver: ^2.0.5
@@ -3028,8 +2865,8 @@ __metadata:
     "@polkadot/test-support": 0.132.2-38-x
     "@polkadot/util": ^12.3.2
     "@polkadot/vanitygen": ^0.55.3
-    "@slonigiraf/slonig-components": ^0.132.2-38-x
     "@slonigiraf/helpers": ^7.0.0
+    "@slonigiraf/slonig-components": ^0.132.2-38-x
     "@types/qrcode.react": ^1.0.2
     detect-browser: ^5.3.0
     dexie: ^4.0.9
@@ -3040,28 +2877,6 @@ __metadata:
     ipfs-core: ^0.14.2
     ipfs-core-types: ^0.10.1
     qrcode.react: ^2.0.0
-  peerDependencies:
-    react: "*"
-    react-dom: "*"
-    react-is: "*"
-  languageName: unknown
-  linkType: soft
-
-"@slonigiraf/slonig-components@^0.132.2-38-x, @slonigiraf/slonig-components@workspace:packages/slonig-components":
-  version: 0.0.0-use.local
-  resolution: "@slonigiraf/slonig-components@workspace:packages/slonig-components"
-  dependencies:
-    "@polkadot/apps-config": ^0.132.2-38-x
-    "@polkadot/react-components": ^0.132.2-38-x
-    "@polkadot/react-query": ^0.132.2-38-x
-    "@slonigiraf/db": ^0.132.2-38-x
-    "@slonigiraf/helpers": ^7.0.0
-    "@types/pako": ^2.0.3
-    file-type: ^19.6.0
-    kubo-rpc-client: ^3.0.1
-    pako: ^2.1.0
-    query-string: ^8.1.0
-    react-qr-reader: ^3.0.0-beta-1
   peerDependencies:
     react: "*"
     react-dom: "*"
@@ -3095,6 +2910,28 @@ __metadata:
   checksum: 7d16b59aaed603aceda44638889ab2931d8e95ea7f050ec73e987134da911da6209a228dc2ff5087d9b64ff61337000c3c7c2f36659bc7bc0e4976c886acb58d
   languageName: node
   linkType: hard
+
+"@slonigiraf/slonig-components@^0.132.2-38-x, @slonigiraf/slonig-components@workspace:packages/slonig-components":
+  version: 0.0.0-use.local
+  resolution: "@slonigiraf/slonig-components@workspace:packages/slonig-components"
+  dependencies:
+    "@polkadot/apps-config": ^0.132.2-38-x
+    "@polkadot/react-components": ^0.132.2-38-x
+    "@polkadot/react-query": ^0.132.2-38-x
+    "@slonigiraf/db": ^0.132.2-38-x
+    "@slonigiraf/helpers": ^7.0.0
+    "@types/pako": ^2.0.3
+    file-type: ^19.6.0
+    kubo-rpc-client: ^3.0.1
+    pako: ^2.1.0
+    query-string: ^8.1.0
+    react-qr-reader: ^3.0.0-beta-1
+  peerDependencies:
+    react: "*"
+    react-dom: "*"
+    react-is: "*"
+  languageName: unknown
+  linkType: soft
 
 "@socket.io/component-emitter@npm:~3.1.0":
   version: 3.1.0
@@ -16289,6 +16126,23 @@ __metadata:
   languageName: node
   linkType: hard
 
+"openai@npm:^6.7.0":
+  version: 6.7.0
+  resolution: "openai@npm:6.7.0"
+  peerDependencies:
+    ws: ^8.18.0
+    zod: ^3.25 || ^4.0
+  peerDependenciesMeta:
+    ws:
+      optional: true
+    zod:
+      optional: true
+  bin:
+    openai: bin/cli
+  checksum: b481567e0f4783da069d60aa1ad03f832f31f87babd0f486b4317f2e2fd543b3b5b6b031e06da6ee5227f1fdd9a880c86836570f1902b90f2c20d547bc3b547a
+  languageName: node
+  linkType: hard
+
 "optionator@npm:^0.9.3":
   version: 0.9.3
   resolution: "optionator@npm:0.9.3"
@@ -16931,6 +16785,7 @@ __metadata:
     extensionless: ^1.4.5
     i18next-scanner: ^4.2.0
     katex: ^0.16.10
+    openai: ^6.7.0
     peerjs: ^1.5.4
     react: ^18.2.0
     react-day-picker: ^9.1.4

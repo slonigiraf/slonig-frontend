@@ -12,7 +12,6 @@ import React, { useCallback, useMemo, useRef, useState } from 'react';
 
 import { getDispatchError, getIncompleteMessage } from '@polkadot/react-components/Status/checks';
 import { STATUS_COMPLETE } from '@polkadot/react-components/Status/constants';
-import { getContractAbi } from '@polkadot/react-components/util';
 import jsonrpc from '@polkadot/types/interfaces/jsonrpc';
 
 export interface Props {
@@ -118,25 +117,6 @@ function extractEvents (result?: SubmittableResult): ActionStatus[] {
           };
         } else if (section === 'contracts') {
           if (method === 'ContractExecution' && data.length === 2) {
-            // see if we have info for this contract
-            const [accountId, encoded] = data;
-
-            try {
-              const abi = getContractAbi(accountId.toString());
-
-              if (abi) {
-                const decoded = abi.decodeEvent(encoded as Bytes);
-
-                return {
-                  action: decoded.event.identifier,
-                  message: 'contract event',
-                  status: 'event'
-                };
-              }
-            } catch (error) {
-              // ABI mismatch?
-              console.error(error);
-            }
           } else if (method === 'Evicted') {
             return {
               action: `${section}.${method}`,
