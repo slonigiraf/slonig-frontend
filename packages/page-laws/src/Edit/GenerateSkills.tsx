@@ -3,6 +3,7 @@ import { useTranslation } from '../translate.js';
 import { getSetting, SettingKey } from '@slonigiraf/db';
 import OpenAI from 'openai';
 import { FileUpload } from '@polkadot/react-components';
+import { skillListPrompt } from '../constants.js';
 
 const LearnWithAI: React.FC = () => {
   const { t } = useTranslation();
@@ -32,7 +33,7 @@ const LearnWithAI: React.FC = () => {
     }
 
     const client = new OpenAI({ apiKey: key, dangerouslyAllowBrowser: true });
-    const prompt = 'Summarize the contents of this file:';
+    const prompt = skillListPrompt;
 
     try {
       setLoading(true);
