@@ -186,7 +186,7 @@ function ViewList({ className = '', id, cidString, isClassInstructionShown, setI
       </>
     )}
     {list.t !== null && list.t === LawType.MODULE && (
-      <GenerateSkills/>
+      <GenerateSkills moduleId={id}/>
     )}
 
     {itemsWithCID.length > 0 && !expanded && (

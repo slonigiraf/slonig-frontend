@@ -5,7 +5,12 @@ import OpenAI from 'openai';
 import { FileUpload } from '@polkadot/react-components';
 import { skillListPrompt } from '../constants.js';
 
-const GenerateSkills: React.FC = () => {
+interface Props {
+  className?: string;
+  moduleId: string;
+}
+
+const GenerateSkills: React.FC = ({ className = '', moduleId }: Props) => {
   const { t } = useTranslation();
   const [file, setFile] = useState<File | null>(null);
   const [output, setOutput] = useState<string>('');
@@ -121,11 +126,8 @@ const GenerateSkills: React.FC = () => {
 
       let count = 0;
       for (const item of parsed) {
-        if (typeof item === 'string' && item.trim()) {
-          await storeSkillTemplate('default', item.trim());
-          count++;
-        } else if (item && typeof item === 'object') {
-          await storeSkillTemplate(item.moduleId || 'default', JSON.stringify(item));
+        if (item && typeof item === 'object') {
+          await storeSkillTemplate(moduleId, JSON.stringify(item));
           count++;
         }
       }
