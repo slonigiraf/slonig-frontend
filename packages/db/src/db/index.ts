@@ -13,6 +13,7 @@ import { Reimbursement } from './Reimbursement.js';
 import { Setting } from './Setting.js';
 import { Signer } from './Signer.js';
 import { UsageRight } from './UsageRight.js';
+import { SkillTemplate } from './SkillTemplate.js';
 
 class SlonigDB extends Dexie {
   agreements!: Table<Agreement>;
@@ -29,10 +30,11 @@ class SlonigDB extends Dexie {
   settings!: Table<Setting>;
   signers!: Table<Signer>;
   usageRights!: Table<UsageRight>;
+  skillTemplates!: Table<SkillTemplate>;
 
   constructor() {
     super('slonig');
-    this.version(53).stores({
+    this.version(54).stores({
       agreements: '&id',
       canceledInsurances: '&workerSign',
       canceledLetters: '&pubSign',
@@ -47,6 +49,7 @@ class SlonigDB extends Dexie {
       settings: '&id',
       signers: '&publicKey',
       usageRights: '&[pubSign+employer],[referee+letterId]',
+      skillTemplates: '&id',
     });
   }
 }

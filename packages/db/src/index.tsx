@@ -91,6 +91,21 @@ export async function getInsuranceDaysValid() {
     return stored_validity ? parseInt(stored_validity, 10) : DEFAULT_INSURANCE_VALIDITY;
 }
 
+// SkillTemplate related
+
+export async function storeSkillTemplate(moduleId: string, content: string): Promise<string> {
+  const cleanContent = DOMPurify.sanitize(content ?? '');
+  const id = blake2AsHex(cleanContent);
+  const record = {
+    id,
+    moduleId,
+    content: cleanContent
+  };
+  await db.skillTemplates.put(record);
+  return id;
+}
+
+
 // Signer related
 
 export async function setLastUsedLetterNumber(publicKey: string, lastUsed: number) {

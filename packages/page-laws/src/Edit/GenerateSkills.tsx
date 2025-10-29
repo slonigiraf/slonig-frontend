@@ -1,6 +1,6 @@
 import React, { useCallback, useState } from 'react';
 import { useTranslation } from '../translate.js';
-import { getSetting, SettingKey } from '@slonigiraf/db';
+import { getSetting, SettingKey, storeSkillTemplate } from '@slonigiraf/db';
 import OpenAI from 'openai';
 import { FileUpload } from '@polkadot/react-components';
 import { skillListPrompt } from '../constants.js';
@@ -33,10 +33,12 @@ const GenerateSkills: React.FC = () => {
     }
 
     const client = new OpenAI({ apiKey: key, dangerouslyAllowBrowser: true });
-    const prompt = skillListPrompt;
+    const prompt = `${skillListPrompt}\n\nRespond strictly as a JSON array, without markdown formatting or commentary.`;
 
     try {
       setLoading(true);
+
+      let text = '';
 
       // --- Handle images with GPT-4o Vision ---
       if (file.type.startsWith('image/')) {
@@ -47,47 +49,88 @@ const GenerateSkills: React.FC = () => {
         });
 
         const response = await client.chat.completions.create({
-          model: 'gpt-4o-mini', // supports vision
+          model: 'gpt-4o-mini',
           messages: [
-            { role: 'system', content: 'You are an AI image analyst.' },
+            { role: 'system', content: 'You are an AI image analyst. Respond strictly as a JSON array.' },
             {
               role: 'user',
               content: [
                 { type: 'text', text: prompt },
-                { type: 'image_url', image_url: { url: base64 } } // ✅ correct shape
+                { type: 'image_url', image_url: { url: base64 } }
               ]
             }
           ]
         });
 
-        const text = response.choices[0].message?.content ?? '(no response)';
-        console.log('AI Output (image):', text);
-        setOutput(text);
+        text = response.choices[0].message?.content ?? '';
+      } else {
+        // --- Handle PDFs, TXT, CSV, etc. ---
+        const uploaded = await client.files.create({
+          file,
+          purpose: 'assistants'
+        });
+
+        const response = await client.responses.create({
+          model: 'gpt-4.1-mini',
+          input: [
+            {
+              role: 'user',
+              content: [
+                { type: 'input_text', text: prompt },
+                { type: 'input_file', file_id: uploaded.id }
+              ]
+            }
+          ]
+        });
+
+        text = response.output_text ?? '';
+      }
+
+      // --- Parse and store ---
+      if (!text) {
+        setOutput('❌ No text returned from OpenAI.');
         return;
       }
 
-      // --- Handle PDFs, TXT, CSV, etc. ---
-      const uploaded = await client.files.create({
-        file,
-        purpose: 'assistants'
-      });
+      // 🧹 Clean up Markdown fences or extra text
+      let cleaned = text.trim();
 
-      const response = await client.responses.create({
-        model: 'gpt-4.1-mini',
-        input: [
-          {
-            role: 'user',
-            content: [
-              { type: 'input_text', text: prompt },
-              { type: 'input_file', file_id: uploaded.id }
-            ]
-          }
-        ]
-      });
+      // Remove ```json ... ``` or ``` ... ``` wrappers
+      cleaned = cleaned.replace(/^```(?:json)?/i, '').replace(/```$/, '').trim();
 
-      const text = response.output_text ?? '(no text output)';
-      console.log('AI Output (file):', text);
-      setOutput(text);
+      // Extract JSON array portion (in case model added intro text)
+      const firstBracket = cleaned.indexOf('[');
+      const lastBracket = cleaned.lastIndexOf(']');
+      if (firstBracket !== -1 && lastBracket !== -1) {
+        cleaned = cleaned.slice(firstBracket, lastBracket + 1);
+      }
+
+      let parsed: any;
+      try {
+        parsed = JSON.parse(cleaned);
+      } catch (e) {
+        console.error('JSON parse error:', e, text);
+        setOutput('❌ Failed to parse OpenAI response as JSON.\n\n' + cleaned);
+        return;
+      }
+
+      if (!Array.isArray(parsed)) {
+        setOutput('❌ OpenAI response is not an array.\n\n' + cleaned);
+        return;
+      }
+
+      let count = 0;
+      for (const item of parsed) {
+        if (typeof item === 'string' && item.trim()) {
+          await storeSkillTemplate('default', item.trim());
+          count++;
+        } else if (item && typeof item === 'object') {
+          await storeSkillTemplate(item.moduleId || 'default', JSON.stringify(item));
+          count++;
+        }
+      }
+
+      setOutput(`✅ Stored ${count} skill templates.`);
     } catch (err: any) {
       console.error('OpenAI error:', err);
       setOutput(`❌ OpenAI error: ${err.message || 'Unknown error'}`);
