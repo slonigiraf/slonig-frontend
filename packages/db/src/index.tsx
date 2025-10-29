@@ -56,6 +56,7 @@ export const SettingKey = {
     VIRAL_TUTORIAL_COMPLETED: 'VIRAL_TUTORIAL_COMPLETED',
     SCAN_TUTORIAL_COMPLETED: 'SCAN_TUTORIAL_COMPLETED',
     EXPECTED_AIRDROP: 'EXPECTED_AIRDROP',
+    OPENAI_TOKEN: 'OPENAI_TOKEN'
 } as const;
 
 export async function storeSetting(id: string, value: string) {

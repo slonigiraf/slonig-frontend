@@ -7,13 +7,13 @@ import React, { useCallback, useEffect, useMemo, useState } from 'react';
 
 import { createLanguages } from '@polkadot/apps-config';
 import { ChainInfo } from '@polkadot/apps';
-import { Button, Dropdown, Toggle } from '@polkadot/react-components';
+import { Button, Dropdown, Input, Toggle } from '@polkadot/react-components';
 import { settings } from '@polkadot/ui-settings';
 
 import { useTranslation } from './translate.js';
 import { save, saveAndReload } from './util.js';
 import { getSetting, storeSetting, SettingKey, updateAllLessons } from '@slonigiraf/db';
-import { clearAllData, Confirmation, DBExport, DBImport, fetchEconomy, useInfo, useLoginContext } from '@slonigiraf/slonig-components';
+import { clearAllData, Confirmation, DBExport, DBImport, fetchEconomy, useInfo, useLoginContext, useSettingValue } from '@slonigiraf/slonig-components';
 import { useToggle } from '@polkadot/react-hooks';
 
 interface Props {
@@ -24,6 +24,7 @@ function General({ className = '' }: Props): React.ReactElement<Props> {
   const { t } = useTranslation();
   const { showInfo } = useInfo();
   const { isLoggedIn, currentPair } = useLoginContext();
+  const [openAIToken, setOpenAIToken] = useState('');
   const [isDeveloper, setDeveloper] = useState<boolean>(false);
   // tri-state: null = nothing changed, false = no reload, true = reload required
   const [changed, setChanged] = useState<boolean | null>(null);
@@ -68,6 +69,14 @@ function General({ className = '' }: Props): React.ReactElement<Props> {
     );
   }, [state]);
 
+  useEffect((): void => {
+    const loadOpenAIKey = async () => {
+      const key = await getSetting(SettingKey.OPENAI_TOKEN);
+      key && setOpenAIToken(key);
+    }
+    loadOpenAIKey();
+  }, []);
+
   const _handleChange = useCallback(
     (key: keyof SettingsStruct) => <T extends string | number>(value: T) =>
       setSettings((state) => ({ ...state, [key]: value })),
@@ -77,6 +86,15 @@ function General({ className = '' }: Props): React.ReactElement<Props> {
   const _saveAndReload = useCallback(
     () => saveAndReload(state),
     [state]
+  );
+
+  const saveOpenAIToken = useCallback(
+    async (value: string) => {
+      setOpenAIToken(value);
+      await storeSetting(SettingKey.OPENAI_TOKEN, value)
+      setChanged(true);
+    },
+    [setOpenAIToken]
   );
 
   const _resetPriceAndWarranty = useCallback(
@@ -135,6 +153,17 @@ function General({ className = '' }: Props): React.ReactElement<Props> {
           options={translateLanguages}
         />
       </div>
+
+      {isDeveloper && <div className='ui--row'>
+        <Input
+          autoFocus
+          className='full'
+          label={t('OpenAI Token')}
+          onChange={saveOpenAIToken}
+          value={openAIToken}
+        />
+      </div>}
+
       <div className='ui--row'>
         <Toggle
           label={t('Developer mode')}

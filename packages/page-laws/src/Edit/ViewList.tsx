@@ -13,6 +13,7 @@ import { getLettersForKnowledgeId, SettingKey } from '@slonigiraf/db';
 import { u8aToHex } from '@polkadot/util';
 import ModulePreview from './ModulePreview.js';
 import styled from 'styled-components';
+import GenerateSkills from './GenerateSkills.js';
 
 type JsonType = { [key: string]: any } | null;
 interface Props {
@@ -184,6 +185,9 @@ function ViewList({ className = '', id, cidString, isClassInstructionShown, setI
         <h3>{t('Example exercises to train the skill')}</h3>
       </>
     )}
+    {/* {list.t !== null && list.t === LawType.MODULE && (
+      <GenerateSkills/>
+    )} */}
 
     {itemsWithCID.length > 0 && !expanded && (
       <div className='ui--row' style={isAPairWork ? { display: 'none' } : {}}>
