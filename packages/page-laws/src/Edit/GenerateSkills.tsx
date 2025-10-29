@@ -1,14 +1,17 @@
 import React, { useCallback, useState } from 'react';
 import { useTranslation } from '../translate.js';
-import { FileUpload } from '@polkadot/react-components';
-import OpenAI from 'openai';
 import { getSetting, SettingKey } from '@slonigiraf/db';
+import OpenAI from 'openai';
+import { FileUpload } from '@polkadot/react-components';
 
 const LearnWithAI: React.FC = () => {
   const { t } = useTranslation();
   const [file, setFile] = useState<File | null>(null);
+  const [output, setOutput] = useState<string>('');
+  const [loading, setLoading] = useState(false);
 
-  const handleFileChange = useCallback((files: File[]) => {
+  const handleFileChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
     if (files && files.length > 0) {
       setFile(files[0]);
     }
@@ -27,50 +30,70 @@ const LearnWithAI: React.FC = () => {
     }
 
     const client = new OpenAI({ apiKey: key, dangerouslyAllowBrowser: true });
-
-    const prompt = 'Analyze the uploaded file and summarize its content.';
-
-    console.log('Uploading file to OpenAI...');
+    const prompt = 'Summarize the contents of this file:';
 
     try {
-      const response = await client.chat.completions.create({
-        model: 'gpt-4o-mini',
-        messages: [
-          { role: 'system', content: 'You are an AI file analyst.' },
-          { role: 'user', content: prompt },
+      setLoading(true);
+
+      // Upload the file first
+      const uploaded = await client.files.create({
+        file,
+        purpose: 'assistants'
+      });
+
+      // Correct input format for `responses.create`
+      const response = await client.responses.create({
+        model: 'gpt-4.1-mini',
+        input: [
           {
             role: 'user',
+            // ✅ Use an array of simple objects, not unioned inline type
             content: [
-              {
-                type: 'input_file',
-                name: file.name,
-                mime_type: file.type || 'application/octet-stream',
-                data: await file.arrayBuffer()
-              }
+              { type: 'input_text', text: prompt },
+              { type: 'input_file', file_id: uploaded.id }
             ]
           }
         ]
       });
 
-      console.log('AI Output:', response.choices[0].message?.content);
+      const text = response.output_text ?? '(no text output)';
+      console.log('AI Output:', text);
+      setOutput(text);
     } catch (err) {
       console.error('OpenAI error:', err);
+      setOutput('Error communicating with AI. Check console for details.');
+    } finally {
+      setLoading(false);
     }
   }, [file]);
 
   return (
     <div className='p-4 space-y-4'>
       <h2 className='text-xl font-semibold'>{t('Learn with AI')}</h2>
-      <FileUpload label={t('Upload a file')} onChange={handleFileChange} />
+
+      <FileUpload
+        accept="*/*"
+        disabled={loading}
+        label={t(file ? 'Change file' : 'Upload a file')}
+        onChange={handleFileChange}
+      />
+
       {file && (
         <div className='flex flex-col space-y-2'>
           <p>{t('Selected file:')} {file.name}</p>
           <button
-            className='px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600'
+            className='px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600 disabled:opacity-50'
             onClick={handleSend}
+            disabled={loading}
           >
-            {t('Send to AI')}
+            {loading ? t('Processing...') : t('Send to AI')}
           </button>
+        </div>
+      )}
+
+      {output && (
+        <div className='mt-4 p-3 bg-gray-100 rounded whitespace-pre-wrap'>
+          {output}
         </div>
       )}
     </div>

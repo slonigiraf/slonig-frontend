@@ -185,9 +185,9 @@ function ViewList({ className = '', id, cidString, isClassInstructionShown, setI
         <h3>{t('Example exercises to train the skill')}</h3>
       </>
     )}
-    {/* {list.t !== null && list.t === LawType.MODULE && (
+    {list.t !== null && list.t === LawType.MODULE && (
       <GenerateSkills/>
-    )} */}
+    )}
 
     {itemsWithCID.length > 0 && !expanded && (
       <div className='ui--row' style={isAPairWork ? { display: 'none' } : {}}>
