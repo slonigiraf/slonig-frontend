@@ -4,8 +4,7 @@ import { getSetting, SettingKey, storeSkillTemplate } from '@slonigiraf/db';
 import OpenAI from 'openai';
 import { FileUpload } from '@polkadot/react-components';
 import { skillListPrompt } from '../constants.js';
-import { escapeSpecialBackslashesInObject, safeJSONParse } from '../util.js';
-import { parseJson } from '@slonigiraf/slonig-components';
+import { safeJSONParse } from '../util.js';
 
 interface Props {
   className?: string;
@@ -18,17 +17,7 @@ const GenerateSkills: React.FC<Props> = ({ className = '', moduleId }: Props) =>
   const [output, setOutput] = useState<string>('');
   const [loading, setLoading] = useState(false);
 
-  const example = {
-    a: '\tIndented text',
-    b: '\bNormal text',
-    c: '\fPage break',
-    nested: { x: '\nNew line', y: 42 },
-  };
-
-  const fixed = escapeSpecialBackslashesInObject(example);
-  console.log(fixed);
-
-
+  
   const handleFileChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
     if (files && files.length > 0) {
@@ -140,7 +129,7 @@ const GenerateSkills: React.FC<Props> = ({ className = '', moduleId }: Props) =>
       let count = 0;
       for (const item of parsed) {
         if (item && typeof item === 'object') {
-          await storeSkillTemplate(moduleId, JSON.stringify(escapeSpecialBackslashesInObject(item)));
+          await storeSkillTemplate(moduleId, JSON.stringify(item));
           count++;
         }
       }
