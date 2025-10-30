@@ -94,12 +94,11 @@ export async function getInsuranceDaysValid() {
 // SkillTemplate related
 
 export async function storeSkillTemplate(moduleId: string, content: string): Promise<string> {
-    const cleanContent = DOMPurify.sanitize(content ?? '');
-    const id = blake2AsHex(cleanContent);
+    const id = blake2AsHex(content);
     const record = {
         id,
         moduleId,
-        content: cleanContent
+        content: content
     };
     await db.skillTemplates.put(record);
     return id;

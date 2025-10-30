@@ -4,31 +4,7 @@ import { getSetting, SettingKey, storeSkillTemplate } from '@slonigiraf/db';
 import OpenAI from 'openai';
 import { FileUpload } from '@polkadot/react-components';
 import { skillListPrompt } from '../constants.js';
-
-export function fixInvalidJSONBackslashes(jsonString: string): string {
-  // This regex finds text inside double quotes, excluding the quotes themselves
-  return jsonString.replace(
-    /"((?:\\.|[^"\\])*)"/g,
-    (match, inner) => {
-      // Replace any single backslash that is not already escaped (i.e., not \\)
-      const fixedInner = inner.replace(/(?<!\\)\\(?![\\/"bfnrtu])/g, '\\\\');
-      return `"${fixedInner}"`;
-    }
-  );
-}
-
-/**
- * Safely parses JSON with LaTeX-like backslashes.
- */
-export function safeJSONParse<T = any>(input: string): T {
-  try {
-    return JSON.parse(input);
-  } catch (error) {
-    // Try to fix and reparse
-    const fixed = fixInvalidJSONBackslashes(input);
-    return JSON.parse(fixed);
-  }
-}
+import { safeJSONParse } from '../util.js';
 
 interface Props {
   className?: string;
