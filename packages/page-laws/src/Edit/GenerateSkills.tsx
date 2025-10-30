@@ -20,7 +20,7 @@ const GenerateSkills: React.FC<Props> = ({ className = '', moduleId }: Props) =>
 
   const example = {
     a: '\tIndented text',
-    b: 'Normal text',
+    b: '\bNormal text',
     c: '\fPage break',
     nested: { x: '\nNew line', y: 42 },
   };
