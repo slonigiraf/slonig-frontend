@@ -5,22 +5,30 @@ export function randomIdHex(): string {
   return u8aToHex(randomAsU8a(32));
 }
 
-export function escapeSpecialBackslashesInObject(obj) {
-  const fixed = {};
+export function escapeSpecialBackslashesInObject<T>(obj: T): T {
+  if (obj === null || typeof obj !== 'object') return obj;
 
-  for (const [key, value] of Object.entries(obj)) {
-    if (typeof value === 'string') {
-      // Double any single backslash followed by a letter (a–z or A–Z)
-      fixed[key] = value.replaceAll('\b', '\\b').replaceAll('\f', '\\f').replaceAll('\n', '\\n').replaceAll('\r', '\\r').replaceAll('\t', '\\t').replaceAll('\v', '\\v');
-    } else if (value && typeof value === 'object' && !Array.isArray(value)) {
-      // Recursively handle nested objects
-      fixed[key] = escapeSpecialBackslashesInObject(value);
-    } else {
-      fixed[key] = value;
-    }
+  const escapeString = (str: string) =>
+    str
+      .replaceAll('\b', '\\b')
+      .replaceAll('\f', '\\f')
+      .replaceAll('\n', '\\n')
+      .replaceAll('\r', '\\r')
+      .replaceAll('\t', '\\t')
+      .replaceAll('\v', '\\v');
+
+  if (Array.isArray(obj)) {
+    return obj.map((item) => escapeSpecialBackslashesInObject(item)) as T;
   }
 
-  return fixed;
+  return Object.fromEntries(
+    Object.entries(obj).map(([key, value]) => [
+      key,
+      typeof value === 'string'
+        ? escapeString(value)
+        : escapeSpecialBackslashesInObject(value),
+    ])
+  ) as T;
 }
 
 function fixInvalidJSONBackslashes(jsonString: string): string {
