@@ -49,7 +49,7 @@ class SlonigDB extends Dexie {
       settings: '&id',
       signers: '&publicKey',
       usageRights: '&[pubSign+employer],[referee+letterId]',
-      skillTemplates: '&id',
+      skillTemplates: '&id,moduleId',
     });
   }
 }

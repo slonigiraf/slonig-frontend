@@ -35,7 +35,7 @@ interface Props {
   moduleId: string;
 }
 
-const GenerateSkills: React.FC = ({ className = '', moduleId }: Props) => {
+const GenerateSkills: React.FC<Props> = ({ className = '', moduleId }: Props) => {
   const { t } = useTranslation();
   const [file, setFile] = useState<File | null>(null);
   const [output, setOutput] = useState<string>('');

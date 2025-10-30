@@ -49,10 +49,6 @@ function BadgeInfo({ className = '', badge, isSelected, onToggleSelection, isSel
 
   const skillNameToShow = loaded ? <KatexSpan content={skillName} /> : <Spinner noLabel />;
 
-  data && data.e && data.e.map((item: Exercise, _index: number) => {
-    console.log('item: ', JSON.stringify(item, null, 2))
-  });
-
   return (
     <StyledDiv>
       <RowDiv>
