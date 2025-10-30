@@ -4,7 +4,7 @@ import { getSetting, SettingKey, storeSkillTemplate } from '@slonigiraf/db';
 import OpenAI from 'openai';
 import { FileUpload } from '@polkadot/react-components';
 import { skillListPrompt } from '../constants.js';
-import { escapeSingleBackslashesInKX, escapeSpecialBackslashesInObject, safeJSONParse } from '../util.js';
+import { escapeSpecialBackslashesInObject, safeJSONParse } from '../util.js';
 import { parseJson } from '@slonigiraf/slonig-components';
 
 interface Props {
@@ -140,7 +140,7 @@ const GenerateSkills: React.FC<Props> = ({ className = '', moduleId }: Props) =>
       let count = 0;
       for (const item of parsed) {
         if (item && typeof item === 'object') {
-          await storeSkillTemplate(moduleId, JSON.stringify(escapeSingleBackslashesInKX(item)));
+          await storeSkillTemplate(moduleId, JSON.stringify(escapeSpecialBackslashesInObject(item)));
           count++;
         }
       }
