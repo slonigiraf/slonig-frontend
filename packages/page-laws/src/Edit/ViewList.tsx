@@ -13,8 +13,6 @@ import { getLettersForKnowledgeId, SettingKey } from '@slonigiraf/db';
 import { u8aToHex } from '@polkadot/util';
 import ModulePreview from './ModulePreview.js';
 import styled from 'styled-components';
-import GenerateSkills from './GenerateSkills.js';
-import SkillTemplateList from './SkillTemplateList.js';
 
 type JsonType = { [key: string]: any } | null;
 interface Props {
@@ -185,9 +183,6 @@ function ViewList({ className = '', id, cidString, isClassInstructionShown, setI
         {/* <LearnWithAI skillName={list.h} exercises={list.q} /> */}
         <h3>{t('Example exercises to train the skill')}</h3>
       </>
-    )}
-    {list.t !== null && list.t === LawType.MODULE && (
-      <><GenerateSkills moduleId={id} /><SkillTemplateList moduleId={id} /></>
     )}
 
     {itemsWithCID.length > 0 && !expanded && (

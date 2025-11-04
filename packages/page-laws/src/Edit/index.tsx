@@ -20,6 +20,8 @@ import { sendCreateAndEditTransaction, sendEditTransaction } from './sendTransac
 import { useInfo } from '@slonigiraf/slonig-components';
 import { getSetting, SettingKey } from '@slonigiraf/db';
 import { sessionPrefix } from '../constants.js';
+import GenerateSkills from './GenerateSkills.js';
+import SkillTemplateList from './SkillTemplateList.js';
 
 interface Props {
   className?: string;
@@ -287,6 +289,13 @@ function Edit({ className = '' }: Props): React.ReactElement<Props> {
         onClick={_onSave}
         isDisabled={isProcessing}
       />
+
+      {list && list.i && list.t !== null && list.t === LawType.MODULE && (
+        <Templates>
+          <GenerateSkills moduleId={list.i} />
+          <SkillTemplateList moduleId={list.i} />
+        </Templates>
+      )}
       {!isIpfsReady ? <div>{t('Connecting to IPFS...')}</div> : ""}
     </div>
   );
@@ -330,6 +339,10 @@ const ButtonsRow = styled.div`
     text-align: center;
     margin: 5px;
   }
+`;
+
+const Templates = styled.div`
+  margin-top: 20px;
 `;
 
 export default React.memo(Edit);
