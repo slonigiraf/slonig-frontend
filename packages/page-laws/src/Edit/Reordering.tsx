@@ -95,7 +95,7 @@ function Reordering({ className = '', list, onListChange, itemText }: Props): Re
               icon='times'
               onClick={() => handleDelete(index)}
             />
-            <div style={{ marginBottom: '0.5rem', fontSize: '1.2rem' }}>⋮⋮</div>
+            <div style={{ fontSize: '1.2rem' }}>⋮⋮</div>
             <ItemLabel item={item} isText={true} defaultValue={itemText} />
           </ControElements>
 
