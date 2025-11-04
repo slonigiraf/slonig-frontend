@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import BN from 'bn.js';
-import { getIPFSContentIDAndPinIt, digestFromCIDv1, getCIDFromBytes, getIPFSDataFromContentID, loadFromSessionStorage, saveToSessionStorage, KatexSpan, LawType } from '@slonigiraf/slonig-components';
+import { getIPFSContentIDAndPinIt, digestFromCIDv1, getCIDFromBytes, getIPFSDataFromContentID, loadFromSessionStorage, saveToSessionStorage, KatexSpan, LawType, useSettingValue } from '@slonigiraf/slonig-components';
 import { BN_ZERO } from '@polkadot/util';
 import React, { useCallback, useEffect, useState } from 'react';
 import { Button, InputBalance, styled } from '@polkadot/react-components';
@@ -36,6 +36,8 @@ function Edit({ className = '' }: Props): React.ReactElement<Props> {
   const { api } = useApi();
   const [isProcessing, toggleProcessing] = useToggle(false);
   const [isDeveloper, setDeveloper] = useState<boolean>(false);
+
+  const openAIToken = useSettingValue(SettingKey.OPENAI_TOKEN);
 
   const location = useLocation();
   const queryParams = new URLSearchParams(location.search);
@@ -290,7 +292,7 @@ function Edit({ className = '' }: Props): React.ReactElement<Props> {
         isDisabled={isProcessing}
       />
 
-      {list && list.i && list.t !== null && list.t === LawType.MODULE && (
+      {openAIToken && list && list.i && list.t !== null && list.t === LawType.MODULE && (
         <Templates>
           <GenerateSkills moduleId={list.i} />
           <SkillTemplateList moduleId={list.i} />
