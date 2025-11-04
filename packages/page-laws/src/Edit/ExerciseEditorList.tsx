@@ -3,7 +3,7 @@
 import React, { useCallback } from 'react';
 import { Button, styled } from '@polkadot/react-components';
 import ExerciseEditor from './ExerciseEditor.js';
-import { Exercise, HorizontalCenterItemsContainer } from '@slonigiraf/slonig-components';
+import { Exercise } from '@slonigiraf/slonig-components';
 
 interface Props {
   className?: string;
@@ -51,7 +51,7 @@ function ExerciseEditorList({ className = '', list, onListChange }: Props): Reac
               onClick={() => handleMoveDown(index)}
             />
             <Button
-              icon='times'  // Assuming 'times' is the icon for delete
+              icon='times'
               onClick={() => handleDelete(index)}
             />
           </ButtonsAsAColumn>
