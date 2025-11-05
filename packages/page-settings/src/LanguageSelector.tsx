@@ -37,10 +37,7 @@ function LanguageSelector ({ className = '' }: LanguageSelectorProps): React.Rea
   }, []);
 
   return (
-    <div
-      className={`language-selector ${className}`}
-      style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}
-    >
+    <Container className={`language--selector ${className}`}>
       {translateLanguages.slice(1).map(({ text, value }) => (
         <StyledDiv
           key={value}
@@ -50,9 +47,17 @@ function LanguageSelector ({ className = '' }: LanguageSelectorProps): React.Rea
           {text}
         </StyledDiv>
       ))}
-    </div>
+    </Container>
   );
 }
+
+const Container = styled.div`
+  margin-top: 40px;
+  display: flex;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+  justify-content: center;
+`;
 
 const StyledDiv = styled.div`
   cursor: pointer;
