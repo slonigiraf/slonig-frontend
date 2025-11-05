@@ -7,6 +7,7 @@ import React, { useCallback, useMemo, useState } from 'react';
 
 import { createLanguages } from '@polkadot/apps-config';
 import { settings } from '@polkadot/ui-settings';
+import { styled } from '@polkadot/react-components';
 
 import { useTranslation } from './translate.js';
 import { saveAndReload } from './util.js';
@@ -36,25 +37,35 @@ function LanguageSelector ({ className = '' }: LanguageSelectorProps): React.Rea
   }, []);
 
   return (
-    <div className={`language-selector ${className}`} style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
-      {translateLanguages.map(({ text, value }) => (
-        <div
+    <div
+      className={`language-selector ${className}`}
+      style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}
+    >
+      {translateLanguages.slice(1).map(({ text, value }) => (
+        <StyledDiv
           key={value}
+          className={value === currentLang ? 'isActive' : ''}
           onClick={() => onSelectLang(value as string)}
-          style={{
-            cursor: 'pointer',
-            padding: '0.25rem 0.5rem',
-            borderRadius: '4px',
-            border: value === currentLang ? '1px solid #999' : '1px solid transparent',
-            textDecoration: value === currentLang ? 'underline' : 'none',
-            whiteSpace: 'nowrap'
-          }}
         >
           {text}
-        </div>
+        </StyledDiv>
       ))}
     </div>
   );
 }
+
+const StyledDiv = styled.div`
+  cursor: pointer;
+  padding: 0.25rem 0.5rem;
+  border-radius: 4px;
+  border: 1px solid transparent;
+  white-space: nowrap;
+  color: #aaa; /* light grey text */
+
+  &.isActive {
+    border-color: #999;
+    text-decoration: underline;
+  }
+`;
 
 export default React.memo(LanguageSelector);
