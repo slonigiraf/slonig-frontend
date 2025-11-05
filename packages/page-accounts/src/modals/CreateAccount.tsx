@@ -19,6 +19,7 @@ import CreateAccountInputs from './CreateAccountInputs.js';
 import { storeSetting, SettingKey } from '@slonigiraf/db';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { DBImport, useInfo } from '@slonigiraf/slonig-components';
+import { LanguageSelector } from '@polkadot/app-settings';
 
 const DEFAULT_PAIR_TYPE = 'sr25519';
 
@@ -236,6 +237,7 @@ function Create({ className = '', onClose, onStatusChange, seed: propsSeed, type
         </ButtonContainer>
       }
       {isFirstScreen && <a href='https://slonig.org/privacy-policy'>{t('Slonig privacy policy')}</a>}
+      {isFirstScreen && <LanguageSelector />}
     </StyledDiv>
   );
 }

@@ -10,14 +10,13 @@ import { Tabs } from '@polkadot/react-components';
 import { useApi } from '@polkadot/react-hooks';
 
 import I18n from './I18n/index.js';
-import Metadata from './Metadata/index.js';
-import Developer from './Developer.js';
 import General from './General.js';
 import { useTranslation } from './translate.js';
 import useCounter from './useCounter.js';
 import { useDeveloperSetting } from '@slonigiraf/slonig-components';
 
 export { useCounter };
+export { default as LanguageSelector } from './LanguageSelector.js'
 
 function SettingsApp({ basePath, onStatusChange }: Props): React.ReactElement<Props> {
   const { t } = useTranslation();
