@@ -4,7 +4,7 @@
 import type { TFunction } from '../types.js';
 import type { Option } from './types.js';
 
-export function createLanguages (t: TFunction): Option[] {
+export function createLanguages(t: TFunction): Option[] {
   return [
     {
       text: t('lng.detect', 'Default browser language (auto-detect)', { ns: 'apps-config' }),
@@ -23,6 +23,10 @@ export function createLanguages (t: TFunction): Option[] {
     {
       text: 'Español',
       value: 'es'
+    },
+    {
+      text: 'Deutsch',
+      value: 'de'
     },
     {
       text: 'Français',
