@@ -13,7 +13,7 @@ import { settings } from '@polkadot/ui-settings';
 import { useTranslation } from './translate.js';
 import { save, saveAndReload } from './util.js';
 import { getSetting, storeSetting, SettingKey, updateAllLessons } from '@slonigiraf/db';
-import { clearAllData, Confirmation, DBExport, DBImport, fetchEconomy, useInfo, useLoginContext, useSettingValue } from '@slonigiraf/slonig-components';
+import { clearAllData, Confirmation, DBExport, fetchEconomy, useInfo, useLoginContext } from '@slonigiraf/slonig-components';
 import { useToggle } from '@polkadot/react-hooks';
 
 interface Props {
@@ -60,7 +60,7 @@ function General({ className = '' }: Props): React.ReactElement<Props> {
   useEffect((): void => {
     const prev = settings.get() as unknown as Record<string, unknown>;
     const hasChanges = Object.entries(state).some(([key, value]) => prev[key] !== value);
-    const needsReload = prev.apiUrl !== state.apiUrl || prev.prefix !== state.prefix;
+    const needsReload = prev.apiUrl !== state.apiUrl || prev.prefix !== state.prefix || prev.i18nLang !== state.i18nLang;
 
     setChanged(
       hasChanges
