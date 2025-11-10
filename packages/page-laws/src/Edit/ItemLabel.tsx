@@ -1,11 +1,18 @@
 // Copyright 2021-2022 @slonigiraf/app-laws authors & contributors
 // SPDX-License-Identifier: Apache-2.0
+
 import React, { useEffect, useState } from 'react';
-import { KatexSpan, StyledSpinnerContainer, getIPFSDataFromContentID, parseJson } from '@slonigiraf/slonig-components';
+import {
+  KatexSpan,
+  StyledSpinnerContainer,
+  getIPFSDataFromContentID,
+  parseJson
+} from '@slonigiraf/slonig-components';
 import { useIpfsContext } from '@slonigiraf/slonig-components';
 import { Button, Icon, styled, Spinner } from '@polkadot/react-components';
 import BadgeCheck from './BadgeCheck.js';
 import { ItemWithCID } from '../types.js';
+
 interface Props {
   className?: string;
   item: ItemWithCID;
@@ -18,7 +25,16 @@ interface Props {
   onItemUpdate?: (item: ItemWithCID) => void;
 }
 
-function ItemLabel({ className = '', item, isText = false, defaultValue = '...', isSelected = false, isSelectable = false, isReexaminingRequested = false, onToggleSelection }: Props): React.ReactElement<Props> {
+function ItemLabel({
+  className = '',
+  item,
+  isText = false,
+  defaultValue = '...',
+  isSelected = false,
+  isSelectable = false,
+  isReexaminingRequested = false,
+  onToggleSelection
+}: Props): React.ReactElement<Props> {
   const { ipfs, isIpfsReady } = useIpfsContext();
   const [text, setText] = useState<string>(item.id);
   const [isFetched, setIsFetched] = useState(false);
@@ -30,33 +46,34 @@ function ItemLabel({ className = '', item, isText = false, defaultValue = '...',
     setWasSelected(isSelected);
   }, [isSelected]);
 
-  const handleToggleSelection = () => {
-    if (onToggleSelection) {
-      setWasSelected(true);
-      onToggleSelection(item);
-    }
-  };
-
   useEffect(() => {
     const fetchIPFSData = async () => {
       if (!isIpfsReady || item.cid.length < 2) {
         return;
       }
+
       try {
         const jsonText = await getIPFSDataFromContentID(ipfs, item.cid);
         const json = parseJson(jsonText);
+
         setText(json.h);
         setIsFetched(true);
         setIsSkillItem(json.t === 3);
         setType(json.t);
       } catch (error) {
-        console.error((error as {message: string}).message);
+        console.error((error as { message: string }).message);
       }
     };
+
     fetchIPFSData();
-  }, [item, ipfs]);
+  }, [item, ipfs, isIpfsReady]);
 
   const textToDisplay = isFetched ? text : defaultValue;
+  const href = `/#/knowledge?id=${item.id}`;
+
+  const allowSelection = isReexaminingRequested
+    ? (item.validDiplomas?.length ?? 0) > 0
+    : (item.validDiplomas?.length ?? 0) === 0;
 
   const getIconName = () => {
     switch (type) {
@@ -67,47 +84,86 @@ function ItemLabel({ className = '', item, isText = false, defaultValue = '...',
     }
   };
 
-  const iconToDisplay = <Icon icon={getIconName()} color='gray' />;
-
+  const iconToDisplay = <Icon icon={getIconName()} color='gray'/>;
   const icon = <span>{iconToDisplay}&nbsp;</span>;
 
-  const content = isText ?
-    <KatexSpan content={textToDisplay} />
-    :
-    isFetched ?
-      <StyledA href={`/#/knowledge?id=${item.id}`}
-        onClick={(e) => {
-          if (isSelectable) {
-            e.preventDefault();
-            handleToggleSelection();
-          }
-        }}
-      >
-        {!isSkillItem && icon}
-        {isSkillItem && <BadgeCheck
-          item={item}
-        />}
-        <KatexSpan content={textToDisplay} />
-      </StyledA>
-      :
-      <StyledSpinnerContainer><Spinner noLabel /></StyledSpinnerContainer>;
+  const handleToggleSelection = () => {
+    if (!allowSelection) {
+      return;
+    }
 
+    if (onToggleSelection) {
+      setWasSelected(true);
+      onToggleSelection(item);
+    }
+  };
 
-  const allowSelection = isReexaminingRequested ? item.validDiplomas?.length > 0 : item.validDiplomas?.length === 0;
+  const handleContainerClick = (e: React.MouseEvent<HTMLElement>) => {
+    if (!isFetched || isText) {
+      return;
+    }
 
-  return <StyledDiv isSelectable={isSelectable}>{
-    (onToggleSelection !== undefined && isSelectable && <Button
-      className='inList'
-      icon={wasSelected ? 'check' : 'square'}
-      onClick={handleToggleSelection}
-      isDisabled={!allowSelection}
-    />)}
-    {content}</StyledDiv>;
+    // If click came from the button, ignore (button has its own handler)
+    if ((e.target as HTMLElement).closest('button')) {
+      return;
+    }
+
+    // When selectable, behave like old preventDefault + toggle selection
+    if (isSelectable) {
+      e.preventDefault();
+
+      if (allowSelection) {
+        handleToggleSelection();
+      }
+
+      return;
+    }
+
+    // Non-selectable: behave like href click
+    window.location.href = href;
+  };
+
+  const content = isText
+    ? (
+      <KatexSpan content={textToDisplay} />
+    )
+    : isFetched
+      ? (<StyledA href={href}>
+          {!isSkillItem && icon}
+          {isSkillItem && <BadgeCheck
+            item={item}
+          />}
+          <KatexSpan content={textToDisplay} />
+        </StyledA>)
+      : (
+        <StyledSpinnerContainer>
+          <Spinner noLabel />
+        </StyledSpinnerContainer>
+      );
+
+  return (
+    <StyledDiv
+      className={className}
+      isSelectable={isSelectable}
+      onClick={handleContainerClick}
+      role={!isText && isFetched ? 'link' : undefined}
+    >
+      {onToggleSelection !== undefined && isSelectable && (
+        <Button
+          className='inList'
+          icon={wasSelected ? 'check' : 'square'}
+          isDisabled={!allowSelection}
+          onClick={handleToggleSelection} // no event arg => matches Button$Callback
+        />
+      )}
+      {content}
+    </StyledDiv>
+  );
 }
 
 const StyledA = styled.a`
-   font-size: 16px;
-   margin: 7px;
+  font-size: 16px;
+  margin: 7px;
 `;
 
 const StyledDiv = styled.div<{ isSelectable: boolean }>`
@@ -116,6 +172,7 @@ const StyledDiv = styled.div<{ isSelectable: boolean }>`
   justify-content: start;
   ${({ isSelectable }) => isSelectable && 'padding: 10px;'}
   padding: 0px;
+  cursor: pointer;
 `;
 
 export default React.memo(ItemLabel);
