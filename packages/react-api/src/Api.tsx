@@ -14,7 +14,6 @@ import store from 'store';
 import { ApiPromise, ScProvider, WsProvider } from '@polkadot/api';
 import { deriveMapCache, setDeriveCache } from '@polkadot/api-derive/util';
 import { ethereumChains, typesBundle } from '@polkadot/apps-config';
-import { web3Accounts, web3Enable } from '@polkadot/extension-dapp';
 import { TokenUnit } from '@polkadot/react-components/InputConsts/units';
 import { useApiUrl, useEndpoint, useQueue } from '@polkadot/react-hooks';
 import { ApiCtx } from '@polkadot/react-hooks/ctx/Api';
@@ -75,8 +74,24 @@ function getDevTypes(): Record<string, Record<string, string>> {
   return types;
 }
 
-async function getInjectedAccounts(injectedPromise: Promise<InjectedExtension[]>): Promise<InjectedAccountExt[]> {
-  return [];
+async function getInjectedAccounts (injectedPromise: Promise<InjectedExtension[]>): Promise<InjectedAccountExt[]> {
+  try {
+    await injectedPromise;
+
+    const accounts = await web3Accounts();
+
+    return accounts.map(({ address, meta }, whenCreated): InjectedAccountExt => ({
+      address,
+      meta: objectSpread({}, meta, {
+        name: `${meta.name || 'unknown'} (${meta.source === 'polkadot-js' ? 'extension' : meta.source})`,
+        whenCreated
+      })
+    }));
+  } catch (error) {
+    console.error('web3Accounts', error);
+
+    return [];
+  }
 }
 
 function makeCreateLink(baseApiUrl: string, isElectron: boolean): (path: string) => string {
@@ -257,7 +272,7 @@ export function ApiCtxRoot({ apiUrl, children, isElectron, store }: Props): Reac
     [apiUrl, isElectron]
   );
   const value = useMemo<ApiProps>(
-    () => objectSpread({}, state, { api: statics.api, apiEndpoint, apiError, apiRelay, apiUrl, createLink, extensions, isApiConnected, isApiInitialized, isElectron, isWaitingInjected: !extensions }),
+    () => objectSpread({}, state, { api: statics.api, apiEndpoint, apiError, apiRelay, apiUrl, createLink, extensions, isApiConnected, isApiInitialized, isElectron, isWaitingInjected: false }),
     [apiError, createLink, extensions, isApiConnected, isApiInitialized, isElectron, state, apiEndpoint, apiRelay, apiUrl]
   );
 
@@ -275,12 +290,8 @@ export function ApiCtxRoot({ apiUrl, children, isElectron, store }: Props): Reac
         statics.api.on('disconnected', () => setIsApiConnected(false));
         statics.api.on('error', onError);
         statics.api.on('ready', (): void => {
-          const injectedPromise = web3Enable('polkadot-js/apps');
-
-          injectedPromise
-            .then(setExtensions)
-            .catch(console.error);
-
+          const injectedPromise: Promise<InjectedExtension[]> = Promise.resolve([]);
+          setExtensions([]);
           loadOnReady(statics.api, apiEndpoint, injectedPromise, store, types)
             .then(setState)
             .catch(onError);
