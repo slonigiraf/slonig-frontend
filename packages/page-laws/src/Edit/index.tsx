@@ -209,8 +209,40 @@ function Edit({ className = '' }: Props): React.ReactElement<Props> {
     }
   };
 
+  const canBeSaved = useCallback((list: any, item: any) => {
+    if (!list || list.h === '') {
+      return false;
+    }
+
+    if (!item) {
+      return true;
+    }
+
+    if (item.h === '') {
+      return false;
+    }
+
+    if (item.t !== LawType.SKILL) {
+      return true;
+    }
+
+    const questions = item.q;
+
+    if (!Array.isArray(questions)) {
+      return false;
+    }
+
+    return questions.every(
+      (q: any) => q && q.h !== '' && q.a !== ''
+    );
+  }, []);
+
   const _onSave = async (): Promise<void> => {
     if (!isIpfsReady) {
+      return;
+    }
+    if (!canBeSaved(list, item)) {
+      showInfo(t('Please fill in all the fields!'), 'error');
       return;
     }
     // generate data about list

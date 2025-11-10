@@ -28,12 +28,6 @@ function ExerciseEditorList({ className = '', list, onListChange }: Props): Reac
     onListChange({ ...list, q: updatedExercises });
   }, [list, onListChange]);
 
-  const handleDelete = useCallback((index: number) => {
-    const updatedExercises = [...list.q];
-    updatedExercises.splice(index, 1);
-    onListChange({ ...list, q: updatedExercises });
-  }, [list, onListChange]);
-
   return (list == null || list.q == null) ? <></> : (
     <>
       {list.q.map((exercise: Exercise, index: number) => (
@@ -49,10 +43,6 @@ function ExerciseEditorList({ className = '', list, onListChange }: Props): Reac
               icon='arrow-down'
               isDisabled={index === list.q.length - 1}
               onClick={() => handleMoveDown(index)}
-            />
-            <Button
-              icon='times'
-              onClick={() => handleDelete(index)}
             />
           </ButtonsAsAColumn>
           <ExerciseEditor skill={list} exercise={exercise} onSkillChange={onListChange} index={index} />
