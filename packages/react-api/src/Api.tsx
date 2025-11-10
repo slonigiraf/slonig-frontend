@@ -75,23 +75,7 @@ function getDevTypes(): Record<string, Record<string, string>> {
 }
 
 async function getInjectedAccounts (injectedPromise: Promise<InjectedExtension[]>): Promise<InjectedAccountExt[]> {
-  try {
-    await injectedPromise;
-
-    const accounts = await web3Accounts();
-
-    return accounts.map(({ address, meta }, whenCreated): InjectedAccountExt => ({
-      address,
-      meta: objectSpread({}, meta, {
-        name: `${meta.name || 'unknown'} (${meta.source === 'polkadot-js' ? 'extension' : meta.source})`,
-        whenCreated
-      })
-    }));
-  } catch (error) {
-    console.error('web3Accounts', error);
-
-    return [];
-  }
+  return [];
 }
 
 function makeCreateLink(baseApiUrl: string, isElectron: boolean): (path: string) => string {
