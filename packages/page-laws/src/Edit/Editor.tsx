@@ -249,7 +249,7 @@ function Editor(props: Props): React.ReactElement<Props> {
           onClick={addItem}
         />
       </div>)}
-      {list.t == LawType.MODULE && (<div className='ui--row'>
+      {list.t == LawType.MODULE && !item && (<div className='ui--row'>
         <Input
               autoFocus
               className='full'
