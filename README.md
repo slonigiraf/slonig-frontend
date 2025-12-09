@@ -16,6 +16,64 @@ Slonig solves all these problems in one solution: it includes all learning mater
 
 We conducted pilot lessons with Slonig in several schools and observed remarkable efficiency in training students to teach their peers. In most cases, just one lesson was enough to start effective peer learning. You can read more in our [research paper](https://slonig.org/assets/pdf/site.Slonig-paper.pdf).
 
+## For marketing
+
+Slonig supports Matomo - free and open source web analytics that doesn't require setting cookies and is doesn't send user data to third parties.
+
+Here is a list of user actions tracked by Slonig:
+
+| Supported | Category | Action | Name | Value |
+| --- | --- | --- | --- | --- |
+| ❌ | AUTHENTICATION | SIGN_UP | success | N/A |
+| ❌ | AUTHENTICATION | SIGN_IN | success | N/A |
+| ❌ | AUTHENTICATION | BACKUP | success | backup file size |
+| ❌ | AUTHENTICATION | RESTORE | success | backup file size |
+| ❌ | LEARNING | AUTO_SHOW_QR | KnowledgeName | KnowledgeId |
+| ❌ | LEARNING | CLICK_LEARN | KnowledgeName | KnowledgeId |
+| ❌ | LEARNING | CANCEL | KnowledgeName | KnowledgeId |
+| ❌ | LEARNING | SCAN_RESULTS | success | LessonPrice |
+| ❌ | TRANSACTIONS | SEND | success | amount |
+| ❌ | TRANSACTIONS | RECEIVE | success | amount |
+| ❌ | LEARNING | SAVE_BADGES | success | count |
+| ❌ | LEARNING | SAVE_REEXAMINATIONS | success | count |
+| ❌ | LEARNING | SEND_PENALTIES | success | count |
+| ❌ | TUTORING | RESTART_LESSON | KnowledgeName | KnowledgeId |
+| ❌ | TUTORING | GET_STUDENT_REQUEST | KnowledgeName | KnowledgeId |
+| ❌ | TUTORING | REEXAMINE | validated | KnowledgeName |
+| ❌ | TUTORING | REEXAMINE | invalidated | KnowledgeName |
+| ❌ | TUTORING | TEACH | mastered | KnowledgeName |
+| ❌ | TUTORING | TEACH | marked_for_repeat | KnowledgeName |
+| ❌ | TUTORING | RESULTS | auto_send_opened | amount |
+| ❌ | TUTORING | RESULTS | send_clicked_during_lesson | amount |
+| ❌ | TUTORING | RESULTS | send_clicked_at_lesson_list | amount |
+| ❌ | TUTORING | RESULTS | badges | count |
+| ❌ | TUTORING | RESULTS | reexaminations | count |
+| ❌ | TUTORING | RESULTS | data_sent | amount |
+| ❌ | ASSESSMENT | SHOW_QR | success | N/A |
+| ❌ | ASSESSMENT | RECEIVE | success | count |
+| ❌ | ASSESSMENT | VIEW | KnowledgeName | KnowledgeId |
+| ❌ | ASSESSMENT | SEND_PENALTIES | KnowledgeName | KnowledgeId |
+| ❌ | QR | CLICK | send | N/A |
+| ❌ | QR | CLICK | copy | N/A |
+| ❌ | SETTINGS | DIPLOMA_PRICE | manually_changed | amount |
+| ❌ | SETTINGS | DIPLOMA_WARRANTY | manually_changed | amount |
+| ❌ | SETTINGS | DIPLOMA_VALIDITY | manually_changed | amount |
+| ❌ | SETTINGS | INSURANCE_VALIDITY | manually_changed | amount |
+| ❌ | SETTINGS | ECONOMY_INITIALIZED | success | amount |
+| ❌ | SETTINGS | AIRDROP_COMPATIBLE | success | N/A |
+| ❌ | SETTINGS | EXPECTED_AIRDROP | success | amount |
+| ❌ | SETTINGS | RECEIVED_AIRDROP | success | amount |
+| ❌ | SETTINGS | DEVELOPER_MODE | saved_value | true/false |
+| ❌ | SETTINGS | LANGUAGE | auto_set | two-letter code |
+| ❌ | SETTINGS | LANGUAGE | manually_changed | two-letter code |
+| ❌ | TUTORIAL | tutee | success | N/A |
+| ❌ | TUTORIAL | tutor | success | N/A |
+| ❌ | TUTORIAL | viral | success | N/A |
+| ❌ | TUTORIAL | scan | success | N/A |
+| ❌ | EDITING | CLICK_EDIT | KnowledgeName | KnowledgeId |
+| ❌ | EDITING | CLICK_SAVE | KnowledgeName | KnowledgeId |
+| ❌ | EDITING | UPDATE | KnowledgeName | KnowledgeId |
+
 ## Technical details for developers
 
 If you’re a developer or interested in contributing to the project’s design, you may want to explore our [technical draft white paper](https://github.com/slonigiraf/whitepaper/blob/main/slonigiraf/ENG.md). It’s a long read and still under development, so please keep that in mind when reviewing sections on tokenomics and the business model — these are early drafts and likely to be revised soon. You’re welcome to contribute by proposing improvements or changes.
