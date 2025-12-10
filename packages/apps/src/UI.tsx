@@ -66,8 +66,10 @@ function UI({ className = '' }: Props): React.ReactElement<Props> {
   }, [isEconomyInitialized]);
 
   useEffect(() => {
-    lessonInUrl && setSettingToTrue(SettingKey.AIRDROP_COMPATIBLE);
-  }, [lessonInUrl, setSettingToTrue]);
+    if (isAirdropCompatible === undefined || isAirdropCompatible === false) {
+      setSettingToTrue(SettingKey.AIRDROP_COMPATIBLE)
+    }
+  }, [isAirdropCompatible, setSettingToTrue]);
 
   useEffect(() => {
     const run = async () => {
