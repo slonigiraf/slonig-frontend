@@ -15,6 +15,8 @@ import { useApi, useTheme } from '@polkadot/react-hooks';
 import { setSettingToTrue, SettingKey, storeSetting } from '@slonigiraf/db';
 import { useLocation } from 'react-router-dom';
 import CreateAccount from '@polkadot/app-accounts/modals/CreateAccount';
+import detectIncognito from 'detectincognitojs';
+import IncognitoView from './IncognitoView.js';
 export const PORTAL_ID = 'portals';
 
 function UI({ className = '' }: Props): React.ReactElement<Props> {
@@ -37,12 +39,33 @@ function UI({ className = '' }: Props): React.ReactElement<Props> {
   const isAirdropCompatible = useBooleanSettingValue(SettingKey.AIRDROP_COMPATIBLE);
   const recievedAirdropAmount = useSettingValue(SettingKey.RECEIVED_AIRDROP);
   const expectedAirdropAmount = useSettingValue(SettingKey.EXPECTED_AIRDROP);
+  const [isIncognito, setIsIncognito] = useState<boolean | null>(null);
 
   useEffect(() => {
     if (!isLoggedIn && !botInUrl) {
       setLoginIsRequired(true);
     }
   }, [isLoggedIn, botInUrl, setLoginIsRequired]);
+
+  useEffect(() => {
+    let mounted = true;
+
+    detectIncognito()
+      .then((result) => {
+        if (mounted) {
+          setIsIncognito(result.isPrivate);
+        }
+      })
+      .catch(() => {
+        if (mounted) {
+          setIsIncognito(false);
+        }
+      });
+
+    return () => {
+      mounted = false;
+    };
+  }, []);
 
   const showError = (error: string) => {
     showInfo(`${t('Please notify tech support.')} ${t('Error')}: ${error}.`, 'error', economyNotificationTime);
@@ -106,12 +129,15 @@ function UI({ className = '' }: Props): React.ReactElement<Props> {
       <AppContainer>
         {/* <HelpChatWidget caption={t('Have questions?')}/> */}
 
-        {isLoginRequired ?
+        {isIncognito ? (
+          <IncognitoView />
+        ) : isLoginRequired ? (
           <CreateAccount
             onClose={() => { }}
             onStatusChange={onCreateAccount}
             hasCloseButton={false}
-          /> :
+          />
+        ) : (
           <Signer>
             <Menu />
             <BlockchainSyncProvider>
@@ -119,7 +145,8 @@ function UI({ className = '' }: Props): React.ReactElement<Props> {
               {!botInUrl && <BottomMenu />}
             </BlockchainSyncProvider>
           </Signer>
-        }
+        )}
+
         <ConnectingOverlay />
         <div id={PORTAL_ID} />
       </AppContainer>
