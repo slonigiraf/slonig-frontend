@@ -22,8 +22,6 @@ const StyledDiv = styled.div`
   min-height: 100dvh;
   text-align: center;
   flex-direction: column;
-  
-  gap: 15px;
 
   @media only screen and (max-width: 430px) {
     width: 100%;
