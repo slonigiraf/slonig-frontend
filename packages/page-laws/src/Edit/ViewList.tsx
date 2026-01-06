@@ -136,7 +136,8 @@ function ViewList({ className = '', id, cidString, isClassInstructionShown, setI
 
   const exitFullScreenActivity = useCallback((): void => {
     hasTuteeCompletedTutorial ? closeQR() : setIsExitConfirmOpen(true);
-  }, [hasTuteeCompletedTutorial, closeQR]);
+    logEvent('LEARNING', 'CANCEL');
+  }, [hasTuteeCompletedTutorial, closeQR, logEvent]);
 
   useEffect((): void => {
     if (
