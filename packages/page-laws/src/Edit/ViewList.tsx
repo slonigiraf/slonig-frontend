@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useState } from 'react';
-import { LawType, KatexSpan, SelectableList, StyledSpinnerContainer, useLoginContext, getCIDFromBytes, FullscreenActivity, Confirmation, NotClosableFullscreen, useBooleanSettingValue, OKBox, ClassInstruction } from '@slonigiraf/slonig-components';
+import { LawType, KatexSpan, SelectableList, StyledSpinnerContainer, useLoginContext, getCIDFromBytes, FullscreenActivity, Confirmation, NotClosableFullscreen, useBooleanSettingValue, OKBox, ClassInstruction, useLog } from '@slonigiraf/slonig-components';
 import { useLocation, useNavigate } from 'react-router-dom';
 import ItemLabel from './ItemLabel.js';
 import SkillQR from './SkillQR.js';
@@ -46,6 +46,7 @@ function ViewList({ className = '', id, cidString, isClassInstructionShown, setI
   const [isExitConfirmOpen, setIsExitConfirmOpen] = useState(false);
   const [role, setRole] = useState<'tutee' | undefined>(undefined);
   const [isPutDeviceAsideOpen, setIsPutDeviceAsideOpen] = useState(false);
+  const { logEvent } = useLog();
 
   async function fetchLaw(key: string) {
     const law = (await api.query.laws.laws(key)) as { isSome: boolean; unwrap: () => [Uint8Array, BN] };
@@ -84,6 +85,10 @@ function ViewList({ className = '', id, cidString, isClassInstructionShown, setI
     };
     fetchCIDs();
   }, [list, studentIdentity, setIsThereAnythingToLearn, setIsThereAnythingToReexamine]);
+
+  useEffect(() => {
+    lessonInUrl && list && list.t !== null && list.t === LawType.MODULE && logEvent('LEARNING', 'AUTO_SHOW_QR', list.h);
+  },[lessonInUrl, list]);
 
   const handleLearningToggle = useCallback((checked: boolean): void => {
     if (isLoggedIn) {

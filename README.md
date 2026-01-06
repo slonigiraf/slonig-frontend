@@ -29,8 +29,8 @@ Here is a list of user actions tracked by Slonig:
 | ✅ | AUTHENTICATION | SIGN_UP | N/A | N/A |
 | ✅ | AUTHENTICATION | BACKUP | success | backup file size |
 | ✅ | AUTHENTICATION | BACKUP | error | N/A |
-| ❌ | AUTHENTICATION | RESTORE | success | backup file size |
-| ❌ | LEARNING | AUTO_SHOW_QR | KnowledgeName | KnowledgeId |
+| ✅ | AUTHENTICATION | RESTORE | success | backup file size |
+| ✅ | LEARNING | AUTO_SHOW_QR | KnowledgeName | KnowledgeId |
 | ❌ | LEARNING | CLICK_LEARN | KnowledgeName | KnowledgeId |
 | ❌ | LEARNING | CANCEL | KnowledgeName | KnowledgeId |
 | ❌ | LEARNING | SCAN_RESULTS | success | LessonPrice |
