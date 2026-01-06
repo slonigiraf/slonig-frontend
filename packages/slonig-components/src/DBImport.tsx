@@ -38,7 +38,6 @@ function DBImport({ className = '' }: Props): React.ReactElement<Props> {
           throw new Error('No valid database content found in the file.');
         }
         logEvent('AUTHENTICATION', 'RESTORE', 'success', backupFileSizeBytes);
-
         showInfo(t('Restored'));
       } catch (error) {
         logEvent('AUTHENTICATION', 'RESTORE', 'error', backupFileSizeBytes);
