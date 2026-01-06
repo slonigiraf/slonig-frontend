@@ -18,7 +18,7 @@ import { tryCreateAccount } from '../util.js';
 import CreateAccountInputs from './CreateAccountInputs.js';
 import { storeSetting, SettingKey } from '@slonigiraf/db';
 import { useLocation, useNavigate } from 'react-router-dom';
-import { DBImport, useInfo } from '@slonigiraf/slonig-components';
+import { DBImport, useInfo, useLog } from '@slonigiraf/slonig-components';
 import { LanguageSelector } from '@polkadot/app-settings';
 
 const DEFAULT_PAIR_TYPE = 'sr25519';
@@ -169,6 +169,7 @@ function Create({ className = '', onClose, onStatusChange, seed: propsSeed, type
   const isValid = isFirstStepValid && isSecondStepValid;
   const { showInfo } = useInfo();
   const [isImporting, toggleImporting] = useToggle();
+  const { log } = useLog();
 
   const _onCommit = useCallback(
     async () => {
@@ -182,6 +183,7 @@ function Create({ className = '', onClose, onStatusChange, seed: propsSeed, type
         const status = createAccount(seed, derivePath, pairType, options, password, t('created account'));
         if (status.status === 'success' && status.account) {
           await storeSetting(SettingKey.ACCOUNT, status.account?.toString());
+          log('AUTHENTICATION', 'SIGN_UP');
         }
         onStatusChange(status);
         setIsBusy(false);

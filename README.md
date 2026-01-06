@@ -26,8 +26,7 @@ Here is a list of user actions tracked by Slonig:
 | --- | --- | --- | --- | --- |
 | ✅ | INFO | INCOGNITO | N/A | N/A |
 | ✅ | INFO | LANGUAGE | two_letter_code | N/A |
-| ❌ | AUTHENTICATION | SIGN_UP | success | N/A |
-| ❌ | AUTHENTICATION | SIGN_IN | success | N/A |
+| ✅ | AUTHENTICATION | SIGN_UP | N/A | N/A |
 | ❌ | AUTHENTICATION | BACKUP | success | backup file size |
 | ❌ | AUTHENTICATION | RESTORE | success | backup file size |
 | ❌ | LEARNING | AUTO_SHOW_QR | KnowledgeName | KnowledgeId |
@@ -67,7 +66,7 @@ Here is a list of user actions tracked by Slonig:
 | ❌ | TUTORING | RESULTS | badges | count |
 | ❌ | TUTORING | RESULTS | reexaminations | count |
 | ❌ | TUTORING | RESULTS | data_sent | amount |
-| ❌ | ASSESSMENT | SHOW_QR | success | N/A |
+| ❌ | ASSESSMENT | SHOW_QR | N/A | N/A |
 | ❌ | ASSESSMENT | RECEIVE | success | count |
 | ❌ | ASSESSMENT | VIEW | KnowledgeName (skill) | KnowledgeId (skill) |
 | ❌ | ASSESSMENT | SEND_PENALTIES | KnowledgeName (skill) | KnowledgeId (skill) |
@@ -78,16 +77,16 @@ Here is a list of user actions tracked by Slonig:
 | ❌ | SETTINGS | DIPLOMA_VALIDITY | manually_changed | amount |
 | ❌ | SETTINGS | INSURANCE_VALIDITY | manually_changed | amount |
 | ❌ | SETTINGS | ECONOMY_INITIALIZED | success | amount |
-| ❌ | SETTINGS | AIRDROP_COMPATIBLE | success | N/A |
+| ❌ | SETTINGS | AIRDROP_COMPATIBLE | N/A | N/A |
 | ❌ | SETTINGS | EXPECTED_AIRDROP | success | amount |
 | ❌ | SETTINGS | RECEIVED_AIRDROP | success | amount |
 | ❌ | SETTINGS | DEVELOPER_MODE | saved_value | true/false |
 | ❌ | SETTINGS | LANGUAGE | auto_set | two-letter code |
 | ❌ | SETTINGS | LANGUAGE | manually_changed | two-letter code |
-| ❌ | TUTORIAL | tutee | success | N/A |
-| ❌ | TUTORIAL | tutor | success | N/A |
-| ❌ | TUTORIAL | viral | success | N/A |
-| ❌ | TUTORIAL | scan | success | N/A |
+| ❌ | TUTORIAL | tutee | N/A | N/A |
+| ❌ | TUTORIAL | tutor | N/A | N/A |
+| ❌ | TUTORIAL | viral | N/A | N/A |
+| ❌ | TUTORIAL | scan | N/A | N/A |
 | ❌ | EDITING | CLICK_EDIT | KnowledgeName | KnowledgeId |
 | ❌ | EDITING | CLICK_SAVE | KnowledgeName | KnowledgeId |
 | ❌ | EDITING | UPDATE | KnowledgeName | KnowledgeId |
