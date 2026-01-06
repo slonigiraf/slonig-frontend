@@ -1,11 +1,11 @@
 import React, { createContext, useContext, ReactNode, useCallback } from 'react';
 
 interface LogContextType {
-  log: (category: string, action: string, name?: string, value?: number) => void;
+  logEvent: (category: string, action: string, name?: string, value?: number) => void;
 }
 
 const defaultLogContext: LogContextType = {
-  log: (_category: string, _action: string, _name?: string, _value?: number) => {},
+  logEvent: (_category: string, _action: string, _name?: string, _value?: number) => {},
 };
 
 const LogContext = createContext<LogContextType>(defaultLogContext);
@@ -15,7 +15,7 @@ interface LogProviderProps {
 }
 
 export const LogProvider: React.FC<LogProviderProps> = ({ children }) => {
-  const log = useCallback(
+  const logEvent = useCallback(
     (category: string, action: string, name?: string, value?: number) => {
       // SSR/Node safety
       if (typeof window === 'undefined') return;
@@ -39,7 +39,7 @@ export const LogProvider: React.FC<LogProviderProps> = ({ children }) => {
     []
   );
 
-  return <LogContext.Provider value={{ log }}>{children}</LogContext.Provider>;
+  return <LogContext.Provider value={{ logEvent }}>{children}</LogContext.Provider>;
 };
 
 export const useLog = () => useContext(LogContext);

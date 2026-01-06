@@ -26,7 +26,7 @@ function UI({ className = '' }: Props): React.ReactElement<Props> {
   const connected = isLoginReady && isIpfsReady && isApiReady && !isWaitingInjected
   const { showInfo } = useInfo();
   const { t, i18n } = useTranslation();
-  const { log } = useLog();
+  const { logEvent } = useLog();
   const { themeClassName } = useTheme();
   const economyNotificationTime = 10;
   const location = useLocation();
@@ -43,15 +43,15 @@ function UI({ className = '' }: Props): React.ReactElement<Props> {
   const [isIncognito, setIsIncognito] = useState<boolean | null>(null);
 
   useEffect(() => {
-    isIncognito && log('INFO', 'INCOGNITO');
-  }, [isIncognito]);
+    isIncognito && logEvent('INFO', 'INCOGNITO');
+  }, [logEvent, isIncognito]);
 
   useEffect(() => {
     const lang = (i18n.resolvedLanguage || i18n.language || 'en')
       .slice(0, 2)
       .toLowerCase();
-    log('INFO', 'LANGUAGE', lang);
-  }, [log, i18n.resolvedLanguage, i18n.language]);
+    logEvent('INFO', 'LANGUAGE', lang);
+  }, [logEvent, i18n.resolvedLanguage, i18n.language]);
 
   useEffect(() => {
     if (!isLoggedIn && !botInUrl) {

@@ -6,7 +6,7 @@ import { exportDB } from '@slonigiraf/db';
 import { nextTick } from '@polkadot/util';
 import { keyring } from '@polkadot/ui-keyring';
 import { useLoginContext } from './LoginContext.js';
-import { ButtonWithLabelBelow, getFormattedTimestamp } from '@slonigiraf/slonig-components';
+import { ButtonWithLabelBelow, getFormattedTimestamp, useLog } from '@slonigiraf/slonig-components';
 import { useTranslation } from './translate.js';
 
 interface Props {
@@ -21,6 +21,7 @@ function DBExport({ className = '', onSuccess }: Props): React.ReactElement<Prop
   const [isBusy, setIsBusy] = useState(false);
   const [progressValue, setProgressValue] = useState<number>(0);
   const [progressTotal, setProgressTotal] = useState<number>(100);
+  const { logEvent } = useLog();
 
   function progressCallback({ totalRows, completedRows }: any) {
     if (totalRows > 0) {
@@ -73,16 +74,19 @@ function DBExport({ className = '', onSuccess }: Props): React.ReactElement<Prop
           const gzipData = pako.gzip(combinedJson);
 
           // Create a blob from the Gzip data
-          const gzipBlob = new Blob([gzipData], { type: 'application/gzip' });
+          const gzipU8 = new Uint8Array(gzipData);
+          const gzipBlob = new Blob([gzipU8], { type: 'application/gzip' });
 
           const timeStamp = getFormattedTimestamp(new Date());
           FileSaver.saveAs(
             gzipBlob,
             `${currentPair?.meta.name || 'backup'}_${timeStamp}.json.gz`
           );
+          logEvent('AUTHENTICATION', 'BACKUP', 'success');
           onSuccess();
         } catch (error) {
           console.error(error);
+          logEvent('AUTHENTICATION', 'BACKUP', 'error');
         } finally {
           setIsBusy(false);
         }

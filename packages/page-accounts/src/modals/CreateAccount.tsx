@@ -169,7 +169,7 @@ function Create({ className = '', onClose, onStatusChange, seed: propsSeed, type
   const isValid = isFirstStepValid && isSecondStepValid;
   const { showInfo } = useInfo();
   const [isImporting, toggleImporting] = useToggle();
-  const { log } = useLog();
+  const { logEvent } = useLog();
 
   const _onCommit = useCallback(
     async () => {
@@ -183,7 +183,7 @@ function Create({ className = '', onClose, onStatusChange, seed: propsSeed, type
         const status = createAccount(seed, derivePath, pairType, options, password, t('created account'));
         if (status.status === 'success' && status.account) {
           await storeSetting(SettingKey.ACCOUNT, status.account?.toString());
-          log('AUTHENTICATION', 'SIGN_UP');
+          logEvent('AUTHENTICATION', 'SIGN_UP');
         }
         onStatusChange(status);
         setIsBusy(false);
