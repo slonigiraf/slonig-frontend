@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import React, { useCallback, useEffect, useState } from 'react';
-import { useLoginContext, useTokenTransfer, useInfo, LessonResult, keyForCid, getAddressFromPublickeyHex, useBlockchainSync } from '@slonigiraf/slonig-components';
+import { useLoginContext, useTokenTransfer, useInfo, LessonResult, keyForCid, getAddressFromPublickeyHex, useBlockchainSync, useLog, balanceToSlonString } from '@slonigiraf/slonig-components';
 import { hexToU8a, u8aToHex, u8aWrapBytes } from '@polkadot/util';
 import { addReimbursement, cancelLetter, deserializeLetter, getAgreement, getLetter, getLettersForKnowledgeId, letterToReimbursement, putAgreement, putLetter, setSettingToTrue, SettingKey, storePseudonym, updateLetterReexaminingCount } from '@slonigiraf/db';
 import { useTranslation } from '../translate.js';
@@ -28,6 +28,7 @@ function LessonResultReceiver({ webRTCPeerId, onDaysRangeChange }: Props): React
   const [agreement, setAgreement] = useState<Agreement | null>(null);
   const navigate = useNavigate();
   const { reimburse } = useBlockchainSync();
+  const { logEvent } = useLog();
 
   const updateAgreement = useCallback(async (updatedAgreement: Agreement) => {
     setAgreement(updatedAgreement);
@@ -39,10 +40,21 @@ function LessonResultReceiver({ webRTCPeerId, onDaysRangeChange }: Props): React
       storePseudonym(receivedResult.referee, receivedResult.refereeName);
       setLessonResult(receivedResult);
       const dbAgreement = await getAgreement(receivedResult.agreement);
+      const priceToLog = (() => {
+        try {
+          return parseFloat(balanceToSlonString(new BN(receivedResult.price)));
+        } catch (e) {
+          console.log(e);
+          return -1;
+        }
+      })();
+
       if (dbAgreement) {
         if (dbAgreement.completed === true) {
+          logEvent('LEARNING', 'LOAD_RESULTS', 'old', 0);
           navigate('', { replace: true });
         } else {
+          logEvent('LEARNING', 'LOAD_RESULTS', 'price_changed', priceToLog);
           if (dbAgreement.price === receivedResult.price) {
             setAgreement(dbAgreement);
           } else {
@@ -55,6 +67,7 @@ function LessonResultReceiver({ webRTCPeerId, onDaysRangeChange }: Props): React
           }
         }
       } else {
+        logEvent('LEARNING', 'LOAD_RESULTS', 'new', priceToLog);
         const newAgreement = {
           id: receivedResult.agreement,
           price: receivedResult.price,

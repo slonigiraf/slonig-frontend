@@ -51,6 +51,9 @@ export const TokenTransferProvider: React.FC<TokenTransferProviderProps> = ({ ch
     const [isExitConfirmOpen, setIsExitConfirmOpen] = useState(false);
     const { t } = useTranslation();
 
+    // increments every time openTransfer is called; used as <TransferModal key=...>
+    const [modalNonce, setModalNonce] = useState(0);
+
     const setAmount = useCallback((value: BN | undefined) => {
         setIsAmountEditable(false);
         _setAmount(value);
@@ -69,9 +72,16 @@ export const TokenTransferProvider: React.FC<TokenTransferProviderProps> = ({ ch
         transferReceipt?: TransferReceipt;
         isRewardType?: boolean;
     }) => {
-        if (senderId) setSenderId(senderId);
-        if (recipientId) setRecipientId(recipientId);
-        if (amount) setAmount(amount);
+        // Force modal remount so it can't keep internal stale state
+        setModalNonce((n) => n + 1);
+        setSenderId(senderId ?? '');
+        setRecipientId(recipientId ?? '');
+        if (amount !== undefined) {
+            setAmount(amount);
+        } else {
+            _setAmount(BN_ZERO);
+            setIsAmountEditable(true);
+        }
         setTransferReceipt(transferReceipt);
         setIsRewardType(isRewardType);
         setIsTransferOpen(true);
@@ -103,6 +113,8 @@ export const TokenTransferProvider: React.FC<TokenTransferProviderProps> = ({ ch
             setSenderId('');
             setRecipientId('');
             setIsRewardType(false);
+            setTransferReceipt(undefined);
+            setIsExitConfirmOpen(false);
         }
     }, [isTransferOpen, _setAmount, setIsAmountEditable])
 
@@ -113,9 +125,10 @@ export const TokenTransferProvider: React.FC<TokenTransferProviderProps> = ({ ch
 
     useEffect(() => {
         if (!isApiConnected && isTransferOpen) {
+            setIsExitConfirmOpen(false);
             setIsTransferOpen(false);
         }
-    }, [isApiConnected]);
+    }, [isApiConnected, isTransferOpen]);
 
     return (
         <TokenTransferContext.Provider
@@ -132,7 +145,7 @@ export const TokenTransferProvider: React.FC<TokenTransferProviderProps> = ({ ch
             {children}
             {isTransferOpen && (
                 <TransferModal
-                    key='modal-transfer'
+                    key={`modal-transfer-${modalNonce}`}
                     isRewardType={isRewardType}
                     onClose={onClose}
                     onSuccess={handleSuccess}
