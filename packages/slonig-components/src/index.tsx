@@ -42,6 +42,7 @@ export { default as FullscreenActivity } from './FullscreenActivity.js';
 export { default as DaysRangePicker } from './DaysRangePicker.js';
 export { default as OKBox } from './OKBox.js';
 export { default as NotClosableFullscreen } from './NotClosableFullscreen.js';
+export { default as LogProvider } from './LogProvider.js';
 export { useSettingValue, useBooleanSettingValue } from './useSettingValue.js';
 export { default as ClassInstruction } from './ClassInstruction.js';
 

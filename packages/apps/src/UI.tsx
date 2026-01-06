@@ -17,6 +17,7 @@ import { useLocation } from 'react-router-dom';
 import CreateAccount from '@polkadot/app-accounts/modals/CreateAccount';
 import detectIncognito from 'detectincognitojs';
 import IncognitoView from './IncognitoView.js';
+import { useLog } from 'slonig-components/src/LogProvider.jsx';
 export const PORTAL_ID = 'portals';
 
 function UI({ className = '' }: Props): React.ReactElement<Props> {
@@ -26,6 +27,7 @@ function UI({ className = '' }: Props): React.ReactElement<Props> {
   const connected = isLoginReady && isIpfsReady && isApiReady && !isWaitingInjected
   const { showInfo } = useInfo();
   const { t } = useTranslation();
+  const { log } = useLog();
   const { themeClassName } = useTheme();
   const economyNotificationTime = 10;
   const location = useLocation();
@@ -40,6 +42,10 @@ function UI({ className = '' }: Props): React.ReactElement<Props> {
   const recievedAirdropAmount = useSettingValue(SettingKey.RECEIVED_AIRDROP);
   const expectedAirdropAmount = useSettingValue(SettingKey.EXPECTED_AIRDROP);
   const [isIncognito, setIsIncognito] = useState<boolean | null>(null);
+
+  useEffect(() => {
+    isIncognito && log('AUTHENTICATION', 'INCOGNITO', 'page_load', 0);
+  }, [isIncognito]);
 
   useEffect(() => {
     if (!isLoggedIn && !botInUrl) {

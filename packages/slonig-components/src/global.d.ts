@@ -4,6 +4,7 @@ declare global {
   interface Window {
     ipfs?: IPFSHTTPClient;
     showSaveFilePicker?: (options?: SaveFilePickerOptions) => Promise<FileSystemFileHandle>;
+    _paq?: any[];
   }
   interface SaveFilePickerOptions {
     suggestedName?: string;

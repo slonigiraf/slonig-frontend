@@ -8,9 +8,7 @@ import GlobalStyle from '@polkadot/react-components/styles';
 import { useApi } from '@polkadot/react-hooks';
 import WarmUp from './WarmUp.js';
 import UI from './UI.js';
-import { IpfsProvider, TokenTransferProvider } from '@slonigiraf/slonig-components';
-import { InfoProvider } from '@slonigiraf/slonig-components';
-import { LoginProvider } from '@slonigiraf/slonig-components';
+import { IpfsProvider, TokenTransferProvider, InfoProvider, LoginProvider, LogProvider } from '@slonigiraf/slonig-components';
 export const PORTAL_ID = 'portals';
 
 function Apps({ className = '' }: Props): React.ReactElement<Props> {
@@ -22,17 +20,19 @@ function Apps({ className = '' }: Props): React.ReactElement<Props> {
     [apiEndpoint, isDevelopment]
   );
   return (
-    <InfoProvider>
-      <IpfsProvider>
-        <GlobalStyle uiHighlight={uiHighlight} />
-        <LoginProvider>
-          <TokenTransferProvider>
-            <UI />
-          </TokenTransferProvider>
-        </LoginProvider>
-        <WarmUp />
-      </IpfsProvider>
-    </InfoProvider>
+    <LogProvider>
+      <InfoProvider>
+        <IpfsProvider>
+          <GlobalStyle uiHighlight={uiHighlight} />
+          <LoginProvider>
+            <TokenTransferProvider>
+              <UI />
+            </TokenTransferProvider>
+          </LoginProvider>
+          <WarmUp />
+        </IpfsProvider>
+      </InfoProvider>
+    </LogProvider>
   );
 }
 
