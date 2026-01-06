@@ -5,7 +5,7 @@ import { replaceDB } from '@slonigiraf/db';
 import { keyring } from '@polkadot/ui-keyring';
 import pako from 'pako';
 import { useInfo } from './InfoProvider.js';
-import { useLoginContext } from '@slonigiraf/slonig-components';
+import { useLoginContext, useLog } from '@slonigiraf/slonig-components';
 
 interface Props {
   className?: string;
@@ -15,10 +15,12 @@ const acceptedFormats = ['.gz', 'application/gzip', 'application/x-gzip', 'appli
 
 function DBImport({ className = '' }: Props): React.ReactElement<Props> {
   const { t } = useTranslation();
-  const {showInfo} = useInfo();
+  const { showInfo } = useInfo();
   const { setDefaultAccount } = useLoginContext();
+  const { logEvent } = useLog();
   const _onChangeFile = useCallback(
     async (file: Uint8Array) => {
+      const backupFileSizeBytes = file.byteLength;
       try {
         const decompressedData = new TextDecoder().decode(pako.ungzip(file));
         const { keys, db } = JSON.parse(decompressedData);
@@ -35,8 +37,11 @@ function DBImport({ className = '' }: Props): React.ReactElement<Props> {
         } else {
           throw new Error('No valid database content found in the file.');
         }
+        logEvent('AUTHENTICATION', 'RESTORE', 'success', backupFileSizeBytes);
+
         showInfo(t('Restored'));
       } catch (error) {
+        logEvent('AUTHENTICATION', 'RESTORE', 'error', backupFileSizeBytes);
         showInfo((error as Error).message, 'error');
       }
     },

@@ -82,7 +82,7 @@ function DBExport({ className = '', onSuccess }: Props): React.ReactElement<Prop
             gzipBlob,
             `${currentPair?.meta.name || 'backup'}_${timeStamp}.json.gz`
           );
-          logEvent('AUTHENTICATION', 'BACKUP', 'success');
+          logEvent('AUTHENTICATION', 'BACKUP', 'success', gzipBlob.size);
           onSuccess();
         } catch (error) {
           console.error(error);

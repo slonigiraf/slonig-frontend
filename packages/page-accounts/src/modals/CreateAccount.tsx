@@ -17,7 +17,7 @@ import { useTranslation } from '../translate.js';
 import { tryCreateAccount } from '../util.js';
 import CreateAccountInputs from './CreateAccountInputs.js';
 import { storeSetting, SettingKey } from '@slonigiraf/db';
-import { useLocation, useNavigate } from 'react-router-dom';
+import { useLocation } from 'react-router-dom';
 import { DBImport, useInfo, useLog } from '@slonigiraf/slonig-components';
 import { LanguageSelector } from '@polkadot/app-settings';
 
