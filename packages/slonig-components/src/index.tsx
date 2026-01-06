@@ -5,6 +5,7 @@ import QRScanner from './QRScanner.js'
 import { IpfsProvider, useIpfsContext } from './IpfsContext.js';
 import { LoginProvider, useLoginContext } from './LoginContext.js';
 import { InfoProvider, useInfo } from './InfoProvider.js';
+import { LogProvider, useLog } from './LogProvider.js';
 import { BlockchainSyncProvider, useBlockchainSync } from './BlockchainSyncProvider.js';
 import { TokenTransferProvider, useTokenTransfer } from './TokenTransferProvider.js';
 import ShareButton from './ShareButton.js';
@@ -28,7 +29,7 @@ import { useEffect, useState } from 'react';
 import { getSetting, SettingKey, storeSetting } from '@slonigiraf/db';
 export * from './constants.js';
 export { default as SVGButton } from './SVGButton.js';
-export { DownloadQRButton, BlockchainSyncProvider, useBlockchainSync, TokenTransferProvider, useTokenTransfer, DateInput, SelectableList, SenderComponent, KatexSpan, ResizableImage, ShareButton, ClipboardCopyButton, QRWithShareAndCopy, QRScanner, ButtonWithLabelBelow, ScanQR, IpfsProvider, useIpfsContext, InfoProvider, useInfo };
+export { DownloadQRButton, BlockchainSyncProvider, useBlockchainSync, TokenTransferProvider, useTokenTransfer, DateInput, SelectableList, SenderComponent, KatexSpan, ResizableImage, ShareButton, ClipboardCopyButton, QRWithShareAndCopy, QRScanner, ButtonWithLabelBelow, ScanQR, IpfsProvider, useIpfsContext, InfoProvider, useInfo, LogProvider, useLog };
 export { getIPFSContentIDForBytesAndPinIt, getIPFSBytesFromContentID, balanceToSlonString, createPeer, receiveWebRTCData, getQrWidth, saveToSessionStorage, loadFromSessionStorage, getIPFSContentIDAndPinIt, getKey, arrayBufferToBase64, base64ToArrayBuffer, decryptData, encryptData, LoginProvider, useLoginContext, keyForCid, nameFromKeyringPair, getBaseUrl, CODEC, getIPFSContentID, getIPFSDataFromContentID, digestFromCIDv1, getCIDFromBytes, storeEncryptedTextOnIPFS, retrieveDecryptedDataFromIPFS, parseJson }
 export { DBImport, DBExport, Confirmation };
 import { encodeAddress } from '@polkadot/keyring';
@@ -42,7 +43,6 @@ export { default as FullscreenActivity } from './FullscreenActivity.js';
 export { default as DaysRangePicker } from './DaysRangePicker.js';
 export { default as OKBox } from './OKBox.js';
 export { default as NotClosableFullscreen } from './NotClosableFullscreen.js';
-export { default as LogProvider } from './LogProvider.js';
 export { useSettingValue, useBooleanSettingValue } from './useSettingValue.js';
 export { default as ClassInstruction } from './ClassInstruction.js';
 

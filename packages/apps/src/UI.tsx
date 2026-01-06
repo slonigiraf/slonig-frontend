@@ -8,7 +8,7 @@ import Content from './Content/index.js';
 import Menu from './Menu/index.js';
 import ConnectingOverlay from './overlays/Connecting.js';
 import BottomMenu from './BottomMenu/index.js';
-import { AirdropResults, AppContainer, BlockchainSyncProvider, fetchEconomy, useBooleanSettingValue, useInfo, useIpfsContext, useLoginContext, useSettingValue } from '@slonigiraf/slonig-components';
+import { AirdropResults, AppContainer, BlockchainSyncProvider, fetchEconomy, useBooleanSettingValue, useInfo, useIpfsContext, useLog, useLoginContext, useSettingValue } from '@slonigiraf/slonig-components';
 import { Spinner, styled } from '@polkadot/react-components';
 import { useTranslation } from './translate.js';
 import { useApi, useTheme } from '@polkadot/react-hooks';
@@ -17,7 +17,6 @@ import { useLocation } from 'react-router-dom';
 import CreateAccount from '@polkadot/app-accounts/modals/CreateAccount';
 import detectIncognito from 'detectincognitojs';
 import IncognitoView from './IncognitoView.js';
-import { useLog } from 'slonig-components/src/LogProvider.jsx';
 export const PORTAL_ID = 'portals';
 
 function UI({ className = '' }: Props): React.ReactElement<Props> {
@@ -44,7 +43,7 @@ function UI({ className = '' }: Props): React.ReactElement<Props> {
   const [isIncognito, setIsIncognito] = useState<boolean | null>(null);
 
   useEffect(() => {
-    isIncognito && log('AUTHENTICATION', 'INCOGNITO', 'page_load', 0);
+    isIncognito && log('AUTHENTICATION', 'INCOGNITO');
   }, [isIncognito]);
 
   useEffect(() => {

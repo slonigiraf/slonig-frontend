@@ -24,7 +24,7 @@ Here is a list of user actions tracked by Slonig:
 
 | Supported | Category | Action | Name | Value |
 | --- | --- | --- | --- | --- |
-| ❌ | AUTHENTICATION | INCOGNITO | page_load | N/A |
+| ✅ | AUTHENTICATION | INCOGNITO | N/A | N/A |
 | ❌ | AUTHENTICATION | SIGN_UP | success | N/A |
 | ❌ | AUTHENTICATION | SIGN_IN | success | N/A |
 | ❌ | AUTHENTICATION | BACKUP | success | backup file size |
