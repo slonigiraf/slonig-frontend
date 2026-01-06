@@ -3,7 +3,7 @@ import React, { useEffect, useState, useRef, useCallback, ReactNode, createConte
 import { useApi, useBlockEvents, useCall, useIsMountedRef } from '@polkadot/react-hooks';
 import { useLoginContext } from './LoginContext.js';
 import BN from 'bn.js';
-import { balanceToSlonString, EXISTENTIAL_BATCH_SENDER_BALANCE, getAddressFromPublickeyHex, getRecommendationsFrom, useInfo } from './index.js';
+import { balanceToSlonString, EXISTENTIAL_BATCH_SENDER_BALANCE, getAddressFromPublickeyHex, getRecommendationsFrom, useInfo, useLog } from './index.js';
 import { EXISTENTIAL_REFEREE_BALANCE, REIMBURSEMENT_BATCH_SIZE } from '@slonigiraf/slonig-components';
 import { BN_ZERO } from '@polkadot/util';
 import type { AccountInfo } from '@polkadot/types/interfaces';
@@ -27,6 +27,7 @@ export const BlockchainSyncProvider: React.FC<BlockchainSyncProviderProps> = ({ 
     const { api, isApiReady } = useApi();
     const { events } = useBlockEvents();
     const { showInfo } = useInfo();
+    const { logEvent } = useLog();
     const { currentPair, isLoggedIn } = useLoginContext();
     const [badReferees, setBadReferees] = useState<Set<string>>(new Set());
     const mountedRef = useIsMountedRef();
@@ -83,9 +84,19 @@ export const BlockchainSyncProvider: React.FC<BlockchainSyncProviderProps> = ({ 
     useEffect(() => {
         if (accountInfo && myBalance.current && lastAddressRef.current === currentPair?.address) {
             const balanceChange = accountInfo.data.free.sub(myBalance.current);
+            const priceToLog = (() => {
+                    try {
+                      return parseFloat(balanceToSlonString(new BN(balanceChange)));
+                    } catch (e) {
+                      console.log(e);
+                      return 0;
+                    }
+                  })();
+
             const icon = balanceChange.gte(BN_ZERO) ? 'hand-holding-dollar' : 'money-bill-trend-up';
             const balanceChangeToShow = balanceToSlonString(balanceChange);
             if(balanceChangeToShow !== '0' && myBalance.current.gt(BN_ZERO)){
+                logEvent('TRANSACTIONS', priceToLog > 0? 'RECEIVE' : 'SEND', 'tokens', Math.abs(priceToLog));
                 showInfo(balanceToSlonString(balanceChange) + ' Slon', 'info', 4, icon);
             }
         }
