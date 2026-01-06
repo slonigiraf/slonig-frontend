@@ -34,7 +34,10 @@ Here is a list of user actions tracked by Slonig:
 | ✅ | LEARNING | CLICK_LEARN | KnowledgeName | N/A |
 | ✅ | LEARNING | CLICK_REVISE | KnowledgeName | N/A |
 | ✅ | LEARNING | CANCEL |  N/A | N/A |
-| ❌ | LEARNING | SCAN_RESULTS | success | LessonPrice |
+| ✅ | SCAN | OPEN | N/A | N/A |
+| ✅ | SCAN | SUCCESS | N/A | N/A |
+| ✅ | SCAN | MANUAL_CLOSE | N/A | N/A |
+| ❌ | LEARNING | LOAD_RESULTS | success | LessonPrice |
 | ❌ | TRANSACTIONS | SEND | success | amount |
 | ❌ | TRANSACTIONS | RECEIVE | success | amount |
 | ❌ | LEARNING | SAVE_BADGES | success | count |

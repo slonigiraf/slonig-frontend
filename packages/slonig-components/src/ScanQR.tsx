@@ -1,6 +1,6 @@
 import React, { useCallback } from 'react';
 import { useToggle } from '@polkadot/react-hooks';
-import { QRScanner, scanSVG, useLoginContext } from '@slonigiraf/slonig-components';
+import { QRScanner, scanSVG, useLog, useLoginContext } from '@slonigiraf/slonig-components';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from './translate.js';
 import { Modal } from '@polkadot/react-components';
@@ -17,6 +17,7 @@ interface Props {
 
 function ScanQR({ className = '', label }: Props): React.ReactElement<Props> {
   const { t } = useTranslation();
+  const { logEvent } = useLog();
   const [isQROpen, toggleQR] = useToggle();
   const navigate = useNavigate();
   const { isLoggedIn, setLoginIsRequired } = useLoginContext();
@@ -27,14 +28,16 @@ function ScanQR({ className = '', label }: Props): React.ReactElement<Props> {
   const scan = useCallback(async () => {
     await setSettingToTrue(SettingKey.SCAN_TUTORIAL_COMPLETED);
     if (isLoggedIn) {
+      logEvent('SCAN', 'OPEN');
       toggleQR();
     } else {
       setLoginIsRequired(true);
     }
-  }, [isLoggedIn, setLoginIsRequired, toggleQR]);
+  }, [isLoggedIn, setLoginIsRequired, toggleQR, logEvent]);
 
   // Process the scanned QR data
   const processQR = useCallback(async (url: string) => {
+    logEvent('SCAN', 'SUCCESS');
     toggleQR();
     // example of url: http://localhost:3000/#/badges/teach?c=39b5fd47-a425-4a8d-a32b-81635bba09a6
     const [_domain, path] = url.split('/#')
@@ -48,6 +51,11 @@ function ScanQR({ className = '', label }: Props): React.ReactElement<Props> {
     }
   }, [processQR]);
 
+  const manuallyClose = useCallback(() => {
+    logEvent('SCAN', 'MANUAL_CLOSE');
+    toggleQR();
+  }, [toggleQR, logEvent]);
+
   return (
     <>
       <ButtonWithLabelBelow
@@ -60,7 +68,7 @@ function ScanQR({ className = '', label }: Props): React.ReactElement<Props> {
       {isQROpen && (
         <Modal
           header={t('Scan a QR code')}
-          onClose={toggleQR}
+          onClose={manuallyClose}
           size='small'
         >
           <Modal.Content>
