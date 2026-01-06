@@ -30,9 +30,10 @@ Here is a list of user actions tracked by Slonig:
 | ✅ | AUTHENTICATION | BACKUP | success | backup file size |
 | ✅ | AUTHENTICATION | BACKUP | error | N/A |
 | ✅ | AUTHENTICATION | RESTORE | success | backup file size |
-| ✅ | LEARNING | AUTO_SHOW_QR | KnowledgeName | KnowledgeId |
-| ❌ | LEARNING | CLICK_LEARN | KnowledgeName | KnowledgeId |
-| ❌ | LEARNING | CANCEL | KnowledgeName | KnowledgeId |
+| ✅ | LEARNING | AUTO_SHOW_QR | KnowledgeName | N/A |
+| ❌ | LEARNING | CLICK_LEARN | KnowledgeName | N/A |
+| ❌ | LEARNING | CLICK_REVISE | KnowledgeName | N/A |
+| ❌ | LEARNING | CANCEL | KnowledgeName | N/A |
 | ❌ | LEARNING | SCAN_RESULTS | success | LessonPrice |
 | ❌ | TRANSACTIONS | SEND | success | amount |
 | ❌ | TRANSACTIONS | RECEIVE | success | amount |

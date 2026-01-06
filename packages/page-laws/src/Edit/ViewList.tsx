@@ -88,27 +88,31 @@ function ViewList({ className = '', id, cidString, isClassInstructionShown, setI
 
   useEffect(() => {
     lessonInUrl && list && list.t !== null && list.t === LawType.MODULE && logEvent('LEARNING', 'AUTO_SHOW_QR', list.h);
-  },[lessonInUrl, list]);
+  }, [lessonInUrl, list]);
+
+  const learnClicked = useCallback((checked: boolean): void => {
+    list && logEvent('LEARNING', 'CLICK_LEARN', list.h);
+    handleLearningToggle(checked);
+  }, [list, logEvent]);
+
+  const reviseClicked = useCallback((checked: boolean): void => {
+    list && logEvent('LEARNING', 'CLICK_REVISE', list.h);
+    handleReexaminingToggle(checked);
+  }, [list, logEvent]);
 
   const handleLearningToggle = useCallback((checked: boolean): void => {
-    if (isLoggedIn) {
-      setLearningRequested(checked);
-      if (checked) {
-        setReexaminingRequested(false);
-      }
-    } else if (checked) {
-      setLoginIsRequired(true);
-      setLearningRequested(false);
+    setLearningRequested(checked);
+    if (checked) {
+      setReexaminingRequested(false);
     }
-  }, [isLoggedIn, setLoginIsRequired]);
+  }, [list, logEvent]);
 
   const handleReexaminingToggle = useCallback((checked: boolean): void => {
     setReexaminingRequested(checked);
     if (checked) {
       setLearningRequested(false);
     }
-  }, []);
-
+  }, [list, logEvent]);
 
 
   const closeQR = useCallback((): void => {
@@ -172,13 +176,13 @@ function ViewList({ className = '', id, cidString, isClassInstructionShown, setI
                 className='highlighted--button'
                 icon='people-arrows'
                 label={t('Learn')}
-                onClick={() => handleLearningToggle(true)}
+                onClick={() => learnClicked(true)}
               />}
             {isThereAnythingToReexamine && !isAPairWork &&
               <Button
                 icon='arrows-rotate'
                 label={t('Revise')}
-                onClick={() => handleReexaminingToggle(true)}
+                onClick={() => reviseClicked(true)}
               />}
           </ButtonsRow>
         </>

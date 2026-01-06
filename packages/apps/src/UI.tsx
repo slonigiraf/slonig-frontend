@@ -47,9 +47,24 @@ function UI({ className = '' }: Props): React.ReactElement<Props> {
   }, [logEvent, isIncognito]);
 
   useEffect(() => {
+    // SSR/Node safety
+    if (typeof window === 'undefined') return;
+
+    // Don't log on localhost (dev)
+    const host = window.location.hostname;
+    const isLocalhost =
+      host === 'localhost' ||
+      host === '127.0.0.1' ||
+      host === '::1' ||
+      // covers 127.x.x.x
+      /^127(?:\.\d{1,3}){3}$/.test(host);
+
+    if (isLocalhost) return;
+
     const lang = (i18n.resolvedLanguage || i18n.language || 'en')
       .slice(0, 2)
       .toLowerCase();
+
     logEvent('INFO', 'LANGUAGE', lang);
   }, [logEvent, i18n.resolvedLanguage, i18n.language]);
 
