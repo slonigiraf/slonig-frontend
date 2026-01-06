@@ -103,7 +103,8 @@ class TutoringAlgorithm extends Algorithm {
                 { title: t('📖 Read what’s happening'), text: t('{{name}} asks you to teach the skill', { replace: { name: studentName } }) + (skill && ': ’' + skill.h + '’') },
                 { title: t('🗣 Say to the tutee'), text: t('Create an exercise similar to this:') + ' ' + question1, image: exerciseImage1 },
             ],
-            t('Has the tutee now created a similar exercise?')
+            t('Has the tutee now created a similar exercise?'),
+            <ExampleExercisesButton skill={skill} />
         );
 
         //Use only if student never used Slonig
@@ -115,7 +116,8 @@ class TutoringAlgorithm extends Algorithm {
                 { title: t('📖 Read what’s happening'), text: t('The tutee has executed the exercise correctly.') },
                 { title: t('🗣 Say to the tutee'), text: t('Create an exercise similar to this:') + ' ' + question1, image: exerciseImage1 },
             ],
-            t('Has the tutee now created a similar exercise?')
+            t('Has the tutee now created a similar exercise?'),
+            <ExampleExercisesButton skill={skill} />
         );
 
         const askStudentToSolveAnExercise = new AlgorithmStage(
@@ -126,7 +128,8 @@ class TutoringAlgorithm extends Algorithm {
                 { title: t('📖 Read what’s happening'), text: t('{{name}} asks you to teach the skill', { replace: { name: studentName } }) + (skill && ': ’' + skill.h + '’') },
                 { title: t('🗣 Say to the tutee'), text: question1, image: exerciseImage1 },
             ],
-            t('Has the tutee now executed the exercise correctly?')
+            t('Has the tutee now executed the exercise correctly?'),
+            <ExampleExercisesButton skill={skill} />
         );
 
         const repeatFromTheBeginning = new AlgorithmStage(
@@ -137,7 +140,8 @@ class TutoringAlgorithm extends Algorithm {
                 { title: t('📖 Read what’s happening'), text: t('The tutee has repeated correctly after me.') },
                 { title: t('🗣 Say to the tutee'), text: t('Create an exercise similar to this:') + ' ' + question1, image: exerciseImage1 },
             ],
-            t('Has the tutee now created a similar exercise?')
+            t('Has the tutee now created a similar exercise?'),
+            <ExampleExercisesButton skill={skill} />
         );
 
         const toNextSkill = new AlgorithmStage(

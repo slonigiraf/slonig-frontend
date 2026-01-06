@@ -191,7 +191,7 @@ function DoInstructions({ className = '', entity, onResult, studentName, isSendi
             onAllMessagesRevealed={() => setIsChatFinished(true)}
           />
 
-          {algorithmStage.getChatDecorator()}
+          {(hasTutorCompletedTutorial || isChatFinished) && algorithmStage.getChatDecorator()}
 
           <InstructionsButtonsContainer>
             <DecisionBubble $blur={hasTutorCompletedTutorial === false && (areButtonsBlured || isSendingResultsEnabled === true)}>

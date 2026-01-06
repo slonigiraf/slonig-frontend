@@ -88,7 +88,8 @@ class ValidatingAlgorithm extends Algorithm {
                 },
                 { title: t('🗣 Say to the tutee'), text: t('Create an exercise similar to this:') + ' ' + question1, image: exerciseImage1 },
             ],
-            t('Has the tutee now created a similar exercise?')
+            t('Has the tutee now created a similar exercise?'),
+            <ExampleExercisesButton skill={skill} />
         );
 
         const repeatFromTheBeginning = new AlgorithmStage(
@@ -99,7 +100,8 @@ class ValidatingAlgorithm extends Algorithm {
                 { title: t('📖 Read what’s happening'), text: t('The tutee has repeated correctly after me.') },
                 { title: t('🗣 Say to the tutee'), text: t('Create an exercise similar to this:') + ' ' + question1, image: exerciseImage1 }
             ],
-            t('Has the tutee now created a similar exercise?')
+            t('Has the tutee now created a similar exercise?'),
+            <ExampleExercisesButton skill={skill} />
         );
 
         // Algo linking:
