@@ -118,16 +118,14 @@ function LessonResultReceiver({ webRTCPeerId, onDaysRangeChange }: Props): React
       if (agreement) {
         try {
           if (lessonResult?.letters && lessonResult?.letters.length > 0) {
-            let savedCount = 0;
-            for (const serializedLetter of lessonResult.letters) {
+            lessonResult.letters.forEach(async (serializedLetter) => {
               const letter = deserializeLetter(serializedLetter, lessonResult.workerId, lessonResult.genesis, lessonResult.amount);
               const sameSkillLetters = await getLettersForKnowledgeId(letter.workerId, letter.knowledgeId);
               if (sameSkillLetters.length === 0) {
                 await putLetter(letter);
-                savedCount++;
               }
-            }
-            logEvent('LEARNING', 'SAVE_BADGES', 'count', savedCount);
+            });
+            logEvent('LEARNING', 'SAVE_BADGES', 'count', lessonResult?.letters.length);
           }
           const updatedAgreement: Agreement = { ...agreement, completed: true };
           updateAgreement(updatedAgreement);
