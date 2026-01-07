@@ -2,8 +2,8 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { Button, Progress, Spinner, styled } from '@polkadot/react-components';
-import React, { useState, useEffect } from 'react';
-import { KatexSpan, getIPFSDataFromContentID, parseJson } from '@slonigiraf/slonig-components';
+import React, { useState, useEffect, useCallback } from 'react';
+import { KatexSpan, getIPFSDataFromContentID, parseJson, useLog } from '@slonigiraf/slonig-components';
 import { useTranslation } from '../translate.js';
 import { useIpfsContext } from '@slonigiraf/slonig-components';
 import { Lesson, getPseudonym, isThereAnyLessonResult } from '@slonigiraf/db';
@@ -20,6 +20,7 @@ interface Props {
 function LessonInfo({ lesson, isSelected, onToggleSelection, onResumeTutoring, onShowResults, isSelectionAllowed }: Props): React.ReactElement<Props> {
   const { ipfs } = useIpfsContext();
   const { t } = useTranslation();
+  const { logEvent } = useLog();
   const [text, setText] = useState(lesson.cid);
   const [loaded, setLoaded] = useState(false);
   const [studentName, setStudentName] = useState<string>('');
@@ -73,7 +74,12 @@ function LessonInfo({ lesson, isSelected, onToggleSelection, onResumeTutoring, o
       }
     }
     checkResults();
-  }, [lesson])
+  }, [lesson]);
+
+  const resumeTutoring = useCallback((lesson: Lesson) => {
+    logEvent('TUTORING', 'RESTART_LESSON', text);
+    onResumeTutoring(lesson);
+  }, [logEvent, onResumeTutoring, text]);
 
   return (
     <StyledDiv>
@@ -86,7 +92,7 @@ function LessonInfo({ lesson, isSelected, onToggleSelection, onResumeTutoring, o
       <div>
         {!isSelectionAllowed ? <Button
           icon='play'
-          onClick={() => onResumeTutoring(lesson)}
+          onClick={() => resumeTutoring(lesson)}
           isDisabled={isSelectionAllowed || isFinished}
         /> : <span>&nbsp;</span>}
       </div>
