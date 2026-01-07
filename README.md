@@ -48,15 +48,16 @@ Here is a list of user actions tracked by Slonig:
 | ✅ | TUTORING | RESTART_LESSON | KnowledgeName (module) | N/A |
 | ✅ | TUTORING | GET_STUDENT_REQUEST | N/A | N/A |
 | ✅ | TUTORING | REEXAMINE_START | KnowledgeName (skill) | N/A |
+| ❌ | TUTORING | REEXAMINE_ALGO | do_this_again | N/A |
 | ❌ | TUTORING | REEXAMINE_ALGO | create_similar_exercise | N/A |
 | ❌ | TUTORING | REEXAMINE_ALGO | repeat_similar_exercise | N/A |
 | ❌ | TUTORING | REEXAMINE_ALGO | correct_fake_solution | N/A |
-| ❌ | TUTORING | REEXAMINE_ALGO | announce_cancelation | N/A |
 | ❌ | TUTORING | REEXAMINE_ALGO | validated | N/A |
 | ❌ | TUTORING | REEXAMINE_ALGO | invalidated | N/A |
 | ❌ | TUTORING | REEXAMINE_ALGO | instant_validated | N/A |
 | ❌ | TUTORING | REEXAMINE_ALGO | instant_invalidated | N/A |
 | ✅ | TUTORING | TEACH_START | KnowledgeName (skill) | N/A |
+| ❌ | TUTORING | TEACH_START | do_this_again | N/A |
 | ❌ | TUTORING | TEACH_ALGO | solve_example | N/A |
 | ❌ | TUTORING | TEACH_ALGO | repeat_example_answer | N/A |
 | ❌ | TUTORING | TEACH_ALGO | create_similar_exercise | N/A |

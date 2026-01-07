@@ -25,13 +25,16 @@ interface Props {
   isBeforeTeaching?: boolean;
 }
 
-function DoInstructions({ className = '', entity, onResult, studentName, isSendingResultsEnabled, hasTuteeUsedSlonig, hasTutorCompletedTutorial, isBeforeTeaching = false}: Props): React.ReactElement<Props> {
+type AlgorithmType = '' | 'TEACH_ALGO' | 'REEXAMINE_ALGO';
+
+function DoInstructions({ className = '', entity, onResult, studentName, isSendingResultsEnabled, hasTuteeUsedSlonig, hasTutorCompletedTutorial, isBeforeTeaching = false }: Props): React.ReactElement<Props> {
   const { ipfs, isIpfsReady } = useIpfsContext();
   const [skill, setSkill] = useState<Skill>();
   const { t } = useTranslation();
   const [algorithmStage, setAlgorithmStage] = useState<AlgorithmStage>();
   const { showInfo } = useInfo();
   const { logEvent } = useLog();
+  const [algorithmType, setAlgorithmType] = useState<AlgorithmType>('');
   const [isButtonClicked, setIsButtonClicked] = useState(false);
   const [isChatFinished, setIsChatFinished] = useState(false);
   const [areButtonsBlured, setButtonsBlured] = useState(true);
@@ -58,11 +61,13 @@ function DoInstructions({ className = '', entity, onResult, studentName, isSendi
             setSkill(skill);
             if (isLetterTemplate(entity)) {
               logEvent('TUTORING', 'TEACH_START', skill.h);
-              const newAlgorithm = new TutoringAlgorithm(t, studentName, skill, hasTuteeUsedSlonig, hasTutorCompletedTutorial? true : false);
+              const newAlgorithm = new TutoringAlgorithm(t, studentName, skill, hasTuteeUsedSlonig, hasTutorCompletedTutorial ? true : false);
+              setAlgorithmType('TEACH_ALGO');
               setAlgorithmStage(newAlgorithm.getBegin());
             } else {
               logEvent('TUTORING', 'REEXAMINE_START', skill.h);
               const newAlgorithm = new ValidatingAlgorithm(t, studentName, skill, isBeforeTeaching);
+              setAlgorithmType('REEXAMINE_ALGO');
               setAlgorithmStage(newAlgorithm.getBegin());
             }
           }
@@ -145,21 +150,30 @@ function DoInstructions({ className = '', entity, onResult, studentName, isSendi
     if (nextStage !== null) {
       setIsButtonClicked(true);
       if (nextStage === algorithmStage) {
+        logEvent('TUTORING', algorithmType, 'do_this_again');
         showInfo(t('Do this again'));
         refreshStageView();
       }
       if (isReexamination(entity) && nextStage.type === 'reimburse') {
+        logEvent('TUTORING', algorithmType, 'invalidated');
         studentFailedReexamination();
         refreshStageView();
       } else if (nextStage.type === 'skip') {
-        preserveFromNoobs(() => { refreshStageView(); onResult(); }, () => setIsButtonClicked(false));
+        preserveFromNoobs(() => {
+          logEvent('TUTORING', algorithmType, 'skip');
+          refreshStageView();
+          onResult();
+        }, () => setIsButtonClicked(false));
       } else if (isLetterTemplate(entity) && (nextStage.type === 'success' || nextStage.type === 'next_skill')) {
+        logEvent('TUTORING', algorithmType, nextStage.type === 'success'? 'mastered' : 'marked_for_repeat');
         processLetter(nextStage.type === 'success');
         refreshStageView();
       } else if (isReexamination(entity) && nextStage.type === 'success') {
+        logEvent('TUTORING', algorithmType, 'validated');
         studentPassedReexamination();
         refreshStageView();
       } else {
+        logEvent('TUTORING', algorithmType, nextStage.type);
         setAlgorithmStage(nextStage);
         refreshStageView();
         setIsButtonClicked(false);
