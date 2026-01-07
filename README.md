@@ -46,7 +46,7 @@ Here is a list of user actions tracked by Slonig:
 | ✅ | LEARNING | SAVE_REEXAMINATIONS | success | count |
 | ✅ | LEARNING_CLEANUP | SEND_PENALTIES | KnowledgeId (skill) | N/A |
 | ✅ | TUTORING | RESTART_LESSON | KnowledgeName (module) | N/A |
-| ❌ | TUTORING | GET_STUDENT_REQUEST | KnowledgeName (module) | KnowledgeId (module) |
+| ✅ | TUTORING | GET_STUDENT_REQUEST | N/A | N/A |
 | ❌ | TUTORING | REEXAMINE_START | KnowledgeName (skill) | KnowledgeId (skill) |
 | ❌ | TUTORING | REEXAMINE_ALGO | create_similar_exercise | N/A |
 | ❌ | TUTORING | REEXAMINE_ALGO | repeat_similar_exercise | N/A |

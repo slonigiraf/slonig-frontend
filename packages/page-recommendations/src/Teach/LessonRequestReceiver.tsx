@@ -4,7 +4,7 @@
 import { getLesson, Lesson, storeLesson, storePseudonym } from '@slonigiraf/db';
 import React, { useCallback } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
-import { LessonRequest, UrlParams, useLoginContext } from '@slonigiraf/slonig-components';
+import { LessonRequest, UrlParams, useLog, useLoginContext } from '@slonigiraf/slonig-components';
 import { u8aToHex } from '@polkadot/util';
 import useFetchWebRTC from '../useFetchWebRTC.js';
 
@@ -17,6 +17,7 @@ function LessonRequestReceiver({ setCurrentLesson }: Props): React.ReactElement<
   const queryParams = new URLSearchParams(location.search);
   const webRTCPeerId = queryParams.get(UrlParams.WEBRTC_PEER_ID);
   const { currentPair } = useLoginContext();
+  const { logEvent } = useLog();
   const tutorPublicKeyHex = u8aToHex(currentPair?.publicKey);
   const navigate = useNavigate();
 
@@ -27,6 +28,7 @@ function LessonRequestReceiver({ setCurrentLesson }: Props): React.ReactElement<
       navigate('', { replace: true });
       const lesson = await getLesson(lessonRequest.lesson);
       if (lesson) {
+        logEvent('TUTORING', 'GET_STUDENT_REQUEST');
         setCurrentLesson(lesson);
       }
     }
