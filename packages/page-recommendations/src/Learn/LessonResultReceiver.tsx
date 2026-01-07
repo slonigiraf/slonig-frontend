@@ -117,24 +117,21 @@ function LessonResultReceiver({ webRTCPeerId, onDaysRangeChange }: Props): React
     async function saveResults() {
       if (agreement) {
         try {
-          const savedCount =
-            lessonResult?.letters
-              ? (await Promise.all(
-                lessonResult.letters.map(async (serializedLetter) => {
-                  const letter = deserializeLetter(serializedLetter, lessonResult.workerId, lessonResult.genesis, lessonResult.amount);
-                  const sameSkillLetters = await getLettersForKnowledgeId(letter.workerId, letter.knowledgeId);
-                  if (sameSkillLetters.length === 0) {
-                    await putLetter(letter);
-                    return true;
-                  }
-                  return false;
-                })
-              )).filter(Boolean).length
-              : 0;
+          if (lessonResult?.letters && lessonResult?.letters.length > 0) {
+            let savedCount = 0;
+            for (const serializedLetter of lessonResult.letters) {
+              const letter = deserializeLetter(serializedLetter, lessonResult.workerId, lessonResult.genesis, lessonResult.amount);
+              const sameSkillLetters = await getLettersForKnowledgeId(letter.workerId, letter.knowledgeId);
+              if (sameSkillLetters.length === 0) {
+                await putLetter(letter);
+                savedCount++;
+              }
+            }
+            logEvent('LEARNING', 'SAVE_BADGES', 'count', savedCount);
+          }
           const updatedAgreement: Agreement = { ...agreement, completed: true };
           updateAgreement(updatedAgreement);
           await setSettingToTrue(SettingKey.TUTEE_TUTORIAL_COMPLETED);
-          logEvent('LEARNING', 'SAVE_BADGES', 'count', savedCount);
           showInfo(t('Saved'));
           navigate('', { replace: true });
         } catch (e) {
@@ -178,8 +175,6 @@ function LessonResultReceiver({ webRTCPeerId, onDaysRangeChange }: Props): React
     }
   }, [lessonResult])
 
-  console.log("lessonResult: ", lessonResult)
-
   useEffect(() => {
     async function sendPenalties() {
       if (agreement) {
@@ -217,8 +212,8 @@ function LessonResultReceiver({ webRTCPeerId, onDaysRangeChange }: Props): React
         }
       }
     }
-    if (isApiReady && api && currentPair && lessonResult && 
-      agreement && lessonResult?.reexaminations.length >0 && agreement.penaltySent === false) {
+    if (isApiReady && api && currentPair && lessonResult &&
+      agreement && lessonResult?.reexaminations.length > 0 && agreement.penaltySent === false) {
       sendPenalties();
     }
   }, [api, isApiReady, currentPair, lessonResult, agreement, t])
