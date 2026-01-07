@@ -106,12 +106,17 @@ function LessonResults({ className = '', lesson, updateAndStoreLesson, onClose, 
       let letterData: string[] = [];
       let reexaminationData: string[] = [];
       try {
-        // Update reexaminations statistics
+        // Update reexaminations data
         const reexaminations = await getReexaminationsByLessonId(lesson.id);
         if (reexaminations) {
           let skippedReexaminationsCount = 0;
           const calculatedReexaminationsPerformed = lesson.reexamineStep - skippedReexaminationsCount;
           setCountOfReexaminationsPerformed(calculatedReexaminationsPerformed);
+          reexaminations.forEach(reexamination => {
+            if (reexamination.created !== reexamination.lastExamined) {
+              reexaminationData.push(`${reexamination.pubSign},${reexamination.lastExamined},${reexamination.valid ? '1' : '0'}`);
+            }
+          });
         }
 
         // Calculate block number
