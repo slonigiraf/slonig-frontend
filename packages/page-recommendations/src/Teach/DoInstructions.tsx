@@ -7,7 +7,7 @@ import { Button, Menu, Popup, Spinner, styled } from '@polkadot/react-components
 import type { Skill } from '@slonigiraf/slonig-components';
 import { ValidatingAlgorithm } from './ValidatingAlgorithm.js';
 import { useTranslation } from '../translate.js';
-import { ChatContainer, Bubble, useIpfsContext } from '@slonigiraf/slonig-components';
+import { ChatContainer, Bubble, useIpfsContext, useLog } from '@slonigiraf/slonig-components';
 import { LetterTemplate, putLetterTemplate, Reexamination, updateReexamination } from '@slonigiraf/db';
 import { getIPFSDataFromContentID, parseJson, useInfo } from '@slonigiraf/slonig-components';
 import { TutoringAlgorithm } from './TutoringAlgorithm.js';
@@ -31,6 +31,7 @@ function DoInstructions({ className = '', entity, onResult, studentName, isSendi
   const { t } = useTranslation();
   const [algorithmStage, setAlgorithmStage] = useState<AlgorithmStage>();
   const { showInfo } = useInfo();
+  const { logEvent } = useLog();
   const [isButtonClicked, setIsButtonClicked] = useState(false);
   const [isChatFinished, setIsChatFinished] = useState(false);
   const [areButtonsBlured, setButtonsBlured] = useState(true);
@@ -56,9 +57,11 @@ function DoInstructions({ className = '', entity, onResult, studentName, isSendi
           if (isComponentMounted) {
             setSkill(skill);
             if (isLetterTemplate(entity)) {
+              logEvent('TUTORING', 'TEACH_START', skill.h);
               const newAlgorithm = new TutoringAlgorithm(t, studentName, skill, hasTuteeUsedSlonig, hasTutorCompletedTutorial? true : false);
               setAlgorithmStage(newAlgorithm.getBegin());
             } else {
+              logEvent('TUTORING', 'REEXAMINE_START', skill.h);
               const newAlgorithm = new ValidatingAlgorithm(t, studentName, skill, isBeforeTeaching);
               setAlgorithmStage(newAlgorithm.getBegin());
             }

@@ -47,7 +47,7 @@ Here is a list of user actions tracked by Slonig:
 | ✅ | LEARNING_CLEANUP | SEND_PENALTIES | KnowledgeId (skill) | N/A |
 | ✅ | TUTORING | RESTART_LESSON | KnowledgeName (module) | N/A |
 | ✅ | TUTORING | GET_STUDENT_REQUEST | N/A | N/A |
-| ❌ | TUTORING | REEXAMINE_START | KnowledgeName (skill) | KnowledgeId (skill) |
+| ✅ | TUTORING | REEXAMINE_START | KnowledgeName (skill) | N/A |
 | ❌ | TUTORING | REEXAMINE_ALGO | create_similar_exercise | N/A |
 | ❌ | TUTORING | REEXAMINE_ALGO | repeat_similar_exercise | N/A |
 | ❌ | TUTORING | REEXAMINE_ALGO | correct_fake_solution | N/A |
@@ -56,7 +56,7 @@ Here is a list of user actions tracked by Slonig:
 | ❌ | TUTORING | REEXAMINE_ALGO | invalidated | N/A |
 | ❌ | TUTORING | REEXAMINE_ALGO | instant_validated | N/A |
 | ❌ | TUTORING | REEXAMINE_ALGO | instant_invalidated | N/A |
-| ❌ | TUTORING | TEACH_START | KnowledgeName (skill) | KnowledgeId (skill) |
+| ✅ | TUTORING | TEACH_START | KnowledgeName (skill) | N/A |
 | ❌ | TUTORING | TEACH_ALGO | solve_example | N/A |
 | ❌ | TUTORING | TEACH_ALGO | repeat_example_answer | N/A |
 | ❌ | TUTORING | TEACH_ALGO | create_similar_exercise | N/A |
