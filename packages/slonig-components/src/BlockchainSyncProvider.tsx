@@ -61,10 +61,10 @@ export const BlockchainSyncProvider: React.FC<BlockchainSyncProviderProps> = ({ 
         await cancelLetterByRefereeAndLetterNumber(referee, letterId, timeStamp);
         await cancelInsuranceByRefereeAndLetterNumber(referee, letterId, timeStamp);
         const reimbursements = await getReimbursementsByRefereeAndLetterNumber(referee, letterId);
-        if(reimbursements.length > 0){
+        if (reimbursements.length > 0) {
             await deleteUsageRight(referee, letterId);
             await deleteReimbursement(referee, letterId);
-        } else{
+        } else {
             await markUsageRightAsUsed(referee, letterId);
         }
     }, []);
@@ -85,18 +85,18 @@ export const BlockchainSyncProvider: React.FC<BlockchainSyncProviderProps> = ({ 
         if (accountInfo && myBalance.current && lastAddressRef.current === currentPair?.address) {
             const balanceChange = accountInfo.data.free.sub(myBalance.current);
             const priceToLog = (() => {
-                    try {
-                      return parseFloat(balanceToSlonString(new BN(balanceChange)));
-                    } catch (e) {
-                      console.log(e);
-                      return 0;
-                    }
-                  })();
+                try {
+                    return parseFloat(balanceToSlonString(new BN(balanceChange)));
+                } catch (e) {
+                    console.log(e);
+                    return 0;
+                }
+            })();
 
             const icon = balanceChange.gte(BN_ZERO) ? 'hand-holding-dollar' : 'money-bill-trend-up';
             const balanceChangeToShow = balanceToSlonString(balanceChange);
-            if(balanceChangeToShow !== '0' && myBalance.current.gt(BN_ZERO)){
-                logEvent('TRANSACTIONS', priceToLog > 0? 'RECEIVE' : 'SEND', 'tokens', Math.abs(priceToLog));
+            if (balanceChangeToShow !== '0' && myBalance.current.gt(BN_ZERO)) {
+                logEvent('TRANSACTIONS', priceToLog > 0 ? 'RECEIVE' : 'SEND', 'tokens', Math.abs(priceToLog));
                 showInfo(balanceToSlonString(balanceChange) + ' Slon', 'info', 4, icon);
             }
         }
@@ -201,7 +201,7 @@ export const BlockchainSyncProvider: React.FC<BlockchainSyncProviderProps> = ({ 
             });
             unsubscribeMap.clear();
         };
-    }, [api, badReferees, canCommunicateToBlockchain]);    
+    }, [api, badReferees, canCommunicateToBlockchain]);
 
 
     const sendTransactions = useCallback(async (reimbursements: Reimbursement[]) => {
@@ -298,6 +298,17 @@ export const BlockchainSyncProvider: React.FC<BlockchainSyncProviderProps> = ({ 
         }
         if (selectedReimbursements.length > 0) {
             sendTransactions(selectedReimbursements);
+            selectedReimbursements.forEach(r => {
+                const priceToLog = (() => {
+                    try {
+                        return parseFloat(balanceToSlonString(new BN(r.amount)));
+                    } catch (e) {
+                        console.log(e);
+                        return 0;
+                    }
+                })();
+                logEvent('LEARNING_CLEANUP', 'SEND_PENALTIES', 'tokens', Math.abs(priceToLog));
+            });
         } else {
             isSendingBatchRef.current = false;
         }
