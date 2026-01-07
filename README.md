@@ -42,8 +42,8 @@ Here is a list of user actions tracked by Slonig:
 | ✅ | LEARNING | LOAD_RESULTS | new | LessonPrice |
 | ✅ | TRANSACTIONS | SEND | tokens | amount |
 | ✅ | TRANSACTIONS | RECEIVE | tokens | amount |
-| ❌ | LEARNING | SAVE_BADGES | success | count |
-| ❌ | LEARNING | SAVE_REEXAMINATIONS | success | count |
+| ✅ | LEARNING | SAVE_BADGES | success | count |
+| ✅ | LEARNING | SAVE_REEXAMINATIONS | success | count |
 | ❌ | LEARNING_CLEANUP | SEND_PENALTIES | KnowledgeName (skill) | KnowledgeId (skill) |
 | ❌ | TUTORING | RESTART_LESSON | KnowledgeName (module) | KnowledgeId (module) |
 | ❌ | TUTORING | GET_STUDENT_REQUEST | KnowledgeName (module) | KnowledgeId (module) |
