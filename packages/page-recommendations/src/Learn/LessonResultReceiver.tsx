@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import React, { useCallback, useEffect, useState } from 'react';
-import { useLoginContext, useTokenTransfer, useInfo, LessonResult, keyForCid, getAddressFromPublickeyHex, useBlockchainSync, useLog, balanceToSlonString } from '@slonigiraf/slonig-components';
+import { useLoginContext, useTokenTransfer, useInfo, LessonResult, keyForCid, getAddressFromPublickeyHex, useBlockchainSync, useLog, balanceToSlonString, balanceToSlonFloatOrNaN } from '@slonigiraf/slonig-components';
 import { hexToU8a, u8aToHex, u8aWrapBytes } from '@polkadot/util';
 import { addReimbursement, cancelLetter, deserializeLetter, getAgreement, getLetter, getLettersForKnowledgeId, letterToReimbursement, putAgreement, putLetter, setSettingToTrue, SettingKey, storePseudonym, updateLetterReexaminingCount } from '@slonigiraf/db';
 import { useTranslation } from '../translate.js';
@@ -40,21 +40,14 @@ function LessonResultReceiver({ webRTCPeerId, onDaysRangeChange }: Props): React
       storePseudonym(receivedResult.referee, receivedResult.refereeName);
       setLessonResult(receivedResult);
       const dbAgreement = await getAgreement(receivedResult.agreement);
-      const priceToLog = (() => {
-        try {
-          return parseFloat(balanceToSlonString(new BN(receivedResult.price)));
-        } catch (e) {
-          console.log(e);
-          return -1;
-        }
-      })();
+      const priceToLog = balanceToSlonFloatOrNaN(new BN(receivedResult.price));
 
       if (dbAgreement) {
         if (dbAgreement.completed === true) {
           logEvent('LEARNING', 'LOAD_RESULTS', 'old');
           navigate('', { replace: true });
         } else {
-          logEvent('LEARNING', 'LOAD_RESULTS', 'tokens', priceToLog);
+          logEvent('LEARNING', 'LOAD_RESULTS', 'price', priceToLog);
           if (dbAgreement.price === receivedResult.price) {
             setAgreement(dbAgreement);
           } else {
@@ -67,7 +60,7 @@ function LessonResultReceiver({ webRTCPeerId, onDaysRangeChange }: Props): React
           }
         }
       } else {
-        logEvent('LEARNING', 'LOAD_RESULTS', 'tokens', priceToLog);
+        logEvent('LEARNING', 'LOAD_RESULTS', 'price', priceToLog);
         const newAgreement = {
           id: receivedResult.agreement,
           price: receivedResult.price,

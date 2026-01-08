@@ -22,6 +22,14 @@ export const balanceToSlonString = (balance: BN): string => {
   return number.toString();
 }
 
+export const balanceToSlonFloatOrNaN = (balance: BN): number => {
+  try {
+    return parseFloat(balanceToSlonString(new BN(balance)));
+  } catch (_e) {
+    return NaN;
+  }
+}
+
 // ------
 export const CODEC = 0x71;
 // 1 is v1, 113 is 0x71, 18 is 0x12 the multihash code for sha2-256, 32 is length of digest
@@ -213,7 +221,7 @@ export async function retrieveDecryptedDataFromIPFS(ipfs: any, cid: string, pass
 }
 
 export function parseJson(input: string | null): any | null {
-  if (input === null){
+  if (input === null) {
     return null;
   }
   try {

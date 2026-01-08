@@ -3,7 +3,7 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { Button, LinearProgress, styled } from '@polkadot/react-components';
 import { u8aToHex } from '@polkadot/util';
-import { Confirmation, OKBox, FullFindow, VerticalCenterItemsContainer, useInfo, useLoginContext, HintBubble, useBooleanSettingValue } from '@slonigiraf/slonig-components';
+import { Confirmation, OKBox, FullFindow, VerticalCenterItemsContainer, useInfo, useLoginContext, HintBubble, useBooleanSettingValue, useLog } from '@slonigiraf/slonig-components';
 import { LetterTemplate, Lesson, Reexamination, getPseudonym, getLesson, getLetterTemplatesByLessonId, getReexaminationsByLessonId, getSetting, storeSetting, updateLesson, getLetter, getReexamination, SettingKey, deleteSetting, getValidLetterTemplatesByLessonId, isThereAnyLessonResult, setSettingToTrue } from '@slonigiraf/db';
 import DoInstructions from './DoInstructions.js';
 import LessonsList from './LessonsList.js';
@@ -23,6 +23,7 @@ function Teach({ className = '' }: Props): React.ReactElement<Props> {
 
   const { t } = useTranslation();
   const { showInfo } = useInfo();
+  const { logEvent } = useLog(); 
   // Initialize api, ipfs and translation
   const { currentPair, isLoggedIn } = useLoginContext();
   const [reexaminationToPerform, setReexaminationToPerform] = useState<Reexamination | null>(null);
@@ -155,6 +156,7 @@ function Teach({ className = '' }: Props): React.ReactElement<Props> {
         setReexaminationToPerform(currentReexaminations[updatedLesson.reexamineStep]);
       }
       if (updatedLesson.learnStep === updatedLesson.toLearnCount && updatedLesson.reexamineStep === updatedLesson.toReexamineCount) {
+        logEvent('TUTORING', 'RESULTS', 'auto_send_opened');
         setResultsShown(true);
       }
     }
@@ -247,7 +249,11 @@ function Teach({ className = '' }: Props): React.ReactElement<Props> {
               isDisabled={!isSendingResultsEnabled}
               icon={'paper-plane'}
               label={t('Send results and get a reward')}
-              onClick={() => onShowResults(lesson)} />
+              onClick={() => {
+                logEvent('TUTORING', 'RESULTS', 'click_send_during_lesson');
+                onShowResults(lesson);
+              }
+              } />
           </SendResults>
         }
       </Bubbles>}

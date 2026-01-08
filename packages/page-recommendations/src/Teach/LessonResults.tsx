@@ -7,7 +7,7 @@ import { styled, Button, Input, InputBalance, Modal } from '@polkadot/react-comp
 import { useApi, useBlockTime, useToggle } from '@polkadot/react-hooks';
 import { u8aToHex, hexToU8a, u8aWrapBytes, BN_ONE, BN_ZERO, formatBalance } from '@polkadot/util';
 import type { LessonResult } from '@slonigiraf/slonig-components';
-import { useLoginContext, CenterQRContainer, balanceToSlonString, SenderComponent, useInfo, nameFromKeyringPair, predictBlockNumber, FullscreenActivity } from '@slonigiraf/slonig-components';
+import { useLoginContext, CenterQRContainer, balanceToSlonString, SenderComponent, useInfo, nameFromKeyringPair, predictBlockNumber, FullscreenActivity, useLog, balanceToSlonFloatOrNaN } from '@slonigiraf/slonig-components';
 import { Lesson, getLastUnusedLetterNumber, setLastUsedLetterNumber, storeSetting, getReexaminationsByLessonId, getValidLetterTemplatesByLessonId, SettingKey, serializeAsLetter, LetterTemplate, putLetterTemplate, setSettingToTrue } from '@slonigiraf/db';
 import { getPublicDataToSignByReferee, getPrivateDataToSignByReferee } from '@slonigiraf/helpers';
 import { useTranslation } from '../translate.js';
@@ -25,6 +25,7 @@ function LessonResults({ className = '', lesson, updateAndStoreLesson, onClose, 
   // Initialize api, ipfs and translation
   const { api, isApiReady } = useApi();
   const { t } = useTranslation();
+  const { logEvent } = useLog();
   const { currentPair } = useLoginContext();
   const tokenSymbol = formatBalance.findSi('-').text;
   const dontSign = lesson ? (lesson.dWarranty === '0' || lesson.dValidity === 0) : true;
@@ -57,6 +58,7 @@ function LessonResults({ className = '', lesson, updateAndStoreLesson, onClose, 
   }, [countOfValidLetters, countOfReexaminationsPerformed, dontSign]);
 
   const onDataSent = useCallback(async (): Promise<void> => {
+    logEvent('TUTORING', 'RESULTS', 'data_was_sent');
     await setSettingToTrue(SettingKey.TUTOR_TUTORIAL_COMPLETED);
     onFinished();
   }, [onClose]);
@@ -181,6 +183,17 @@ function LessonResults({ className = '', lesson, updateAndStoreLesson, onClose, 
           letters: letterData,
           reexaminations: reexaminationData,
         };
+
+        if (letterData.length > 0) {
+          logEvent('TUTORING', 'RESULTS', 'badges', letterData.length);
+          logEvent('TUTORING', 'RESULTS', 'price', balanceToSlonFloatOrNaN(lessonPrice));
+          logEvent('TUTORING', 'RESULTS', 'warranty', balanceToSlonFloatOrNaN(amount));
+          logEvent('TUTORING', 'RESULTS', 'days_valid', lesson.dValidity);
+        }
+        if (reexaminationData.length) {
+          logEvent('TUTORING', 'RESULTS', 'reexaminations', reexaminationData.length);
+        }
+
         setData(JSON.stringify(lessonResult));
       } catch (error) {
         console.error(error);

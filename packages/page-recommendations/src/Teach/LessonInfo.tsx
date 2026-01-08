@@ -112,7 +112,10 @@ function LessonInfo({ lesson, isSelected, onToggleSelection, onResumeTutoring, o
       <div>
         {!isSelectionAllowed && <Button
           icon='paper-plane'
-          onClick={() => onShowResults(lesson)}
+          onClick={() => {
+            logEvent('TUTORING', 'RESULTS', 'click_send_at_list_of_lessons');
+            onShowResults(lesson);
+          }}
           isDisabled={!isSendingResultsEnabled}
         />}
       </div>

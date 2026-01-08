@@ -3,7 +3,7 @@ import React, { useEffect, useState, useRef, useCallback, ReactNode, createConte
 import { useApi, useBlockEvents, useCall, useIsMountedRef } from '@polkadot/react-hooks';
 import { useLoginContext } from './LoginContext.js';
 import BN from 'bn.js';
-import { balanceToSlonString, EXISTENTIAL_BATCH_SENDER_BALANCE, getAddressFromPublickeyHex, getRecommendationsFrom, useInfo, useLog } from './index.js';
+import { balanceToSlonFloatOrNaN, balanceToSlonString, EXISTENTIAL_BATCH_SENDER_BALANCE, getAddressFromPublickeyHex, getRecommendationsFrom, useInfo, useLog } from './index.js';
 import { EXISTENTIAL_REFEREE_BALANCE, REIMBURSEMENT_BATCH_SIZE } from '@slonigiraf/slonig-components';
 import { BN_ZERO } from '@polkadot/util';
 import type { AccountInfo } from '@polkadot/types/interfaces';
@@ -84,15 +84,7 @@ export const BlockchainSyncProvider: React.FC<BlockchainSyncProviderProps> = ({ 
     useEffect(() => {
         if (accountInfo && myBalance.current && lastAddressRef.current === currentPair?.address) {
             const balanceChange = accountInfo.data.free.sub(myBalance.current);
-            const priceToLog = (() => {
-                try {
-                    return parseFloat(balanceToSlonString(new BN(balanceChange)));
-                } catch (e) {
-                    console.log(e);
-                    return 0;
-                }
-            })();
-
+            const priceToLog = balanceToSlonFloatOrNaN(new BN(balanceChange));
             const icon = balanceChange.gte(BN_ZERO) ? 'hand-holding-dollar' : 'money-bill-trend-up';
             const balanceChangeToShow = balanceToSlonString(balanceChange);
             if (balanceChangeToShow !== '0' && myBalance.current.gt(BN_ZERO)) {
@@ -299,14 +291,7 @@ export const BlockchainSyncProvider: React.FC<BlockchainSyncProviderProps> = ({ 
         if (selectedReimbursements.length > 0) {
             sendTransactions(selectedReimbursements);
             selectedReimbursements.forEach(r => {
-                const priceToLog = (() => {
-                    try {
-                        return parseFloat(balanceToSlonString(new BN(r.amount)));
-                    } catch (e) {
-                        console.log(e);
-                        return 0;
-                    }
-                })();
+                const priceToLog = balanceToSlonFloatOrNaN(new BN(r.amount));
                 logEvent('LEARNING_CLEANUP', 'SEND_PENALTIES', 'tokens', Math.abs(priceToLog));
             });
         } else {
