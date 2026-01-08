@@ -199,7 +199,9 @@ function LessonResultReceiver({ webRTCPeerId, onDaysRangeChange }: Props): React
               return undefined;
             });
 
-            logEvent('LEARNING', 'SAVE_REEXAMINATIONS', 'count', lessonResult.reexaminations.length);
+            if (lessonResult.reexaminations.length > 0) {
+              logEvent('LEARNING', 'SAVE_REEXAMINATIONS', 'count', lessonResult.reexaminations.length);
+            }
             const reimbursements = (await Promise.all(reimbursementPromises)).filter(insurance => insurance !== undefined);
             reimburse(reimbursements);
           }
@@ -210,8 +212,7 @@ function LessonResultReceiver({ webRTCPeerId, onDaysRangeChange }: Props): React
         }
       }
     }
-    if (isApiReady && api && currentPair && lessonResult &&
-      agreement && lessonResult?.reexaminations.length > 0 && agreement.penaltySent === false) {
+    if (isApiReady && api && currentPair && lessonResult && agreement && agreement.penaltySent === false) {
       sendPenalties();
     }
   }, [api, isApiReady, currentPair, lessonResult, agreement, t])
