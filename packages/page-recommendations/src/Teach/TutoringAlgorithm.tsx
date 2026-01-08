@@ -45,7 +45,7 @@ class TutoringAlgorithm extends Algorithm {
 
         const askStudentToRepeatTheSolutionOfExerciseOfTutor = new AlgorithmStage(
             0,
-            'repeat_example_solution',
+            'ask_to_repeat_example_solution',
             t('No'),
             [
                 { title: t('📖 Read what’s happening'), text: t('The tutee has not executed the exercise correctly.') },
@@ -110,7 +110,7 @@ class TutoringAlgorithm extends Algorithm {
         //Use only if student never used Slonig
         const askToCreateAnExerciseAfterCompletionOfExerciseOfTutor = new AlgorithmStage(
             1,
-            'create_similar_exercise',
+            'ask_to_create_similar_exercise',
             t('Yes'),
             [
                 { title: t('📖 Read what’s happening'), text: t('The tutee has executed the exercise correctly.') },

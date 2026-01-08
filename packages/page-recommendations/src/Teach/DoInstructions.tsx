@@ -106,12 +106,14 @@ function DoInstructions({ className = '', entity, onResult, studentName, isSendi
   }, [isLetterTemplate, entity, putLetterTemplate, onResult]);
 
   const repeatTomorrow = useCallback(async () => {
+    logEvent('TUTORING', 'TEACH_ALGO', 'click_instant_mark_for_repeat');
     processLetter(false);
-  }, [processLetter]);
+  }, [processLetter, logEvent]);
 
   const issueDiploma = useCallback(async () => {
+    logEvent('TUTORING', 'TEACH_ALGO', 'click_instant_mark_mastered');
     processLetter(true);
-  }, [processLetter]);
+  }, [processLetter, logEvent]);
 
   const studentPassedReexamination = useCallback(async () => {
     if (isReexamination(entity) && 'created' in entity) {
@@ -171,7 +173,7 @@ function DoInstructions({ className = '', entity, onResult, studentName, isSendi
         }, () => setIsButtonClicked(false));
       } else if (isLetterTemplate(entity) && (nextStage.type === 'success' || nextStage.type === 'next_skill')) {
         if (nextStage.type === 'success') {
-          logEvent('TUTORING', algorithmType, 'mastered');
+          logEvent('TUTORING', algorithmType, 'mark_mastered');
         }
         processLetter(nextStage.type === 'success');
         refreshStageView();
