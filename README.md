@@ -86,24 +86,24 @@ Here is a list of user actions tracked by Slonig:
 | ✅ | ASSESSMENT | PENALIZE | tokens | amount |
 | ✅ | QR | CLICK_SEND | N/A | N/A |
 | ✅ | QR | CLICK_COPY | N/A | N/A |
-| ❌ | SETTINGS | DIPLOMA_PRICE | manually_changed | amount |
-| ❌ | SETTINGS | DIPLOMA_WARRANTY | manually_changed | amount |
-| ❌ | SETTINGS | DIPLOMA_VALIDITY | manually_changed | amount |
-| ❌ | SETTINGS | INSURANCE_VALIDITY | manually_changed | amount |
-| ❌ | SETTINGS | ECONOMY_INITIALIZED | success | amount |
+| ❌ | SETTINGS | DIPLOMA_PRICE_SET | tokens | amount |
+| ❌ | SETTINGS | DIPLOMA_WARRANTY_SET | tokens | amount |
+| ❌ | SETTINGS | DIPLOMA_VALIDITY_SET | days | amount |
+| ❌ | SETTINGS | INSURANCE_VALIDITY_SET | days | amount |
+| ❌ | SETTINGS | ECONOMY_INITIALIZED | N/A | N/A |
 | ❌ | SETTINGS | AIRDROP_COMPATIBLE | N/A | N/A |
-| ❌ | SETTINGS | EXPECTED_AIRDROP | success | amount |
-| ❌ | SETTINGS | RECEIVED_AIRDROP | success | amount |
-| ❌ | SETTINGS | DEVELOPER_MODE | saved_value | true/false |
+| ❌ | SETTINGS | EXPECTED_AIRDROP | tokens | amount |
+| ❌ | SETTINGS | RECEIVED_AIRDROP | tokens | amount |
+| ❌ | SETTINGS | DEVELOPER_MODE | true/false | N/A |
 | ❌ | SETTINGS | LANGUAGE | auto_set | two-letter code |
 | ❌ | SETTINGS | LANGUAGE | manually_changed | two-letter code |
-| ❌ | TUTORIAL | tutee | N/A | N/A |
-| ❌ | TUTORIAL | tutor | N/A | N/A |
-| ❌ | TUTORIAL | viral | N/A | N/A |
-| ❌ | TUTORIAL | scan | N/A | N/A |
-| ❌ | EDITING | CLICK_EDIT | KnowledgeName | KnowledgeId |
-| ❌ | EDITING | CLICK_SAVE | KnowledgeName | KnowledgeId |
-| ❌ | EDITING | UPDATE | KnowledgeName | KnowledgeId |
+| ❌ | TUTORIAL | TUTEE_COMPLETED | N/A | N/A |
+| ❌ | TUTORIAL | TUTOR_COMPLETED | N/A | N/A |
+| ❌ | TUTORIAL | VIRAL_COMPLETED | N/A | N/A |
+| ❌ | TUTORIAL | SCAN_COMPLETED | N/A | N/A |
+| ❌ | EDITING | CLICK_EDIT | KnowledgeName | N/A |
+| ❌ | EDITING | CLICK_SAVE | KnowledgeName | N/A |
+| ❌ | EDITING | UPDATE | KnowledgeName | N/A |
 
 ## Technical details for developers
 
