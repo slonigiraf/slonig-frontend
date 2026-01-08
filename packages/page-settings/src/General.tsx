@@ -128,7 +128,9 @@ function General({ className = '' }: Props): React.ReactElement<Props> {
 
   const saveDeveloper = useCallback(
     async (value: boolean) => {
-      await storeSetting(SettingKey.DEVELOPER, value ? "true" : "false");
+      const value_string = value ? "true" : "false";
+      logEvent('SETTINGS', 'DEVELOPER_MODE', value_string);
+      await storeSetting(SettingKey.DEVELOPER, value_string);
       setDeveloper(value);
       setChanged(true);
     },

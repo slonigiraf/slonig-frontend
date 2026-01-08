@@ -99,8 +99,6 @@ Here is a list of user actions tracked by Slonig:
 | ✅ | SETTINGS | AIRDROP_COMPATIBLE | true/false | N/A |
 | ✅ | SETTINGS | RECEIVED_AIRDROP | tokens | amount |
 | ❌ | SETTINGS | DEVELOPER_MODE | true/false | N/A |
-| ❌ | SETTINGS | LANGUAGE | auto_set | two-letter code |
-| ❌ | SETTINGS | LANGUAGE | manually_changed | two-letter code |
 | ❌ | TUTORIAL | TUTEE_COMPLETED | N/A | N/A |
 | ❌ | TUTORIAL | TUTOR_COMPLETED | N/A | N/A |
 | ❌ | TUTORIAL | VIRAL_COMPLETED | N/A | N/A |
