@@ -208,7 +208,7 @@ function Create({ className = '', onClose, onStatusChange, seed: propsSeed, type
           <CreateAccountInputs
             isFirstScreen={isFirstScreen}
             name={{ isNameValid, name }}
-            onCommit={_onCommit}
+            onCommit={() => {}}
             setName={setName}
             setPassword={() => { }}
           />
