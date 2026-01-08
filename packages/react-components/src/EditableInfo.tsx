@@ -1,18 +1,24 @@
-import React from 'react';
+import React, { useCallback } from 'react';
 import { Button, Input, styled } from './index.js';
 import { useToggle } from '@polkadot/react-hooks';
 
 interface Props {
   className?: string;
   onChange: ((value: string) => void) | undefined;
+  onSave: () => void;
   label?: string;
   value?: string;
   placeholder?: string;
   isError?: boolean;
 }
 
-function EditableInfo({ className = '', onChange, label = '', value = '', placeholder = '', isError = false }: Props): React.ReactElement<Props> | null {
+function EditableInfo({ className = '', onChange, onSave, label = '', value = '', placeholder = '', isError = false }: Props): React.ReactElement<Props> | null {
   const [isEditing, toggleIsEditing] = useToggle();
+  const _onSave = useCallback(() => {
+    toggleIsEditing();
+    onSave();
+  }, [onSave, toggleIsEditing]);
+
   return (
     <StyledDiv>
       {isEditing ? <>
@@ -25,7 +31,8 @@ function EditableInfo({ className = '', onChange, label = '', value = '', placeh
           isError={isError}
         />
         <Button icon='save'
-          onClick={toggleIsEditing}
+          isDisabled={isError}
+          onClick={_onSave}
         />
       </> : <><Button icon='edit' onClick={toggleIsEditing} className='edit' /><span>{value} {label}</span></>
       }

@@ -88,8 +88,8 @@ Here is a list of user actions tracked by Slonig:
 | ✅ | QR | CLICK_COPY | N/A | N/A |
 | ✅ | SETTINGS | DIPLOMA_PRICE_SET | tokens | amount |
 | ✅ | SETTINGS | DIPLOMA_WARRANTY_SET | tokens | amount |
-| ✅ | SETTINGS | DIPLOMA_VALIDITY_SET | days | amount |
-| ❌ | SETTINGS | INSURANCE_VALIDITY_SET | days | amount |
+| ✅ | SETTINGS | DIPLOMA_VALIDITY_SET | days | count |
+| ✅ | SETTINGS | INSURANCE_VALIDITY_SET | days | count |
 | ❌ | SETTINGS | ECONOMY_INITIALIZED | N/A | N/A |
 | ❌ | SETTINGS | AIRDROP_COMPATIBLE | N/A | N/A |
 | ❌ | SETTINGS | EXPECTED_AIRDROP | tokens | amount |

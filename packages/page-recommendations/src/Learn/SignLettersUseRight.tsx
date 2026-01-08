@@ -5,11 +5,11 @@ import { getDataToSignByWorker } from '@slonigiraf/helpers';
 import type { KeyringPair } from '@polkadot/keyring/types';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { u8aToHex, hexToU8a, u8aWrapBytes, BN_ONE } from '@polkadot/util';
-import { nameFromKeyringPair, SenderComponent, CenterQRContainer, InsurancesTransfer, predictBlockNumber, useInfo } from '@slonigiraf/slonig-components';
+import { nameFromKeyringPair, SenderComponent, CenterQRContainer, InsurancesTransfer, predictBlockNumber, useInfo, useLog } from '@slonigiraf/slonig-components';
 import { useTranslation } from '../translate.js';
 import { insuranceToUsageRight, Letter, putUsageRight, getInsuranceDaysValid, SettingKey, storeSetting, letterToInsurance, serializeInsurance, UsageRight } from '@slonigiraf/db';
 import { keyForCid } from '@slonigiraf/slonig-components';
-import { EditableInfo, Spinner } from '@polkadot/react-components';
+import { EditableInfo } from '@polkadot/react-components';
 import { useApi, useBlockTime } from '@polkadot/react-hooks';
 
 interface Props {
@@ -22,10 +22,12 @@ interface Props {
 }
 function SignLettersUseRight({ className = '', letters, worker, employer, currentPair, onDataSent }: Props): React.ReactElement<Props> {
   const { t } = useTranslation();
+  const { logEvent } = useLog();
   const { showInfo } = useInfo();
   const [data, setData] = useState('');
   const { api, isApiReady } = useApi();
-  const [daysInputValue, setDaysInputValue] = useState<string>(''); //To allow empty strings
+  const [daysValid, setDaysValid] = useState<number>(0);
+  const [daysInputValue, setDaysInputValue] = useState<string>('');
   const usageRightsRef = useRef<UsageRight[]>([]);
   const [millisecondsPerBlock,] = useBlockTime(BN_ONE, api);
   const [isReady, setIsReady] = useState(false);
@@ -33,6 +35,7 @@ function SignLettersUseRight({ className = '', letters, worker, employer, curren
   useEffect(() => {
     getInsuranceDaysValid().then(value => {
       if (value) {
+        setDaysValid(value);
         setDaysInputValue(value.toString());
       }
     });
@@ -45,7 +48,6 @@ function SignLettersUseRight({ className = '', letters, worker, employer, curren
           if (!currentPair || !api || !isApiReady) {
             return;
           }
-          const daysValid = parseInt(daysInputValue, 10);
           if (daysValid > 0) {
             const now = (new Date()).getTime();
             // Calculate block number
@@ -82,21 +84,22 @@ function SignLettersUseRight({ className = '', letters, worker, employer, curren
         };
 
       _onSign();
-    }, [api, isApiReady, millisecondsPerBlock, currentPair, worker, employer, letters, daysInputValue]
+    }, [api, isApiReady, millisecondsPerBlock, currentPair, worker, employer, letters, daysValid]
   );
 
   const thereAreDiplomas = letters.length > 0;
 
-  const setDaysValid = useCallback(
-    (value: string) => {
-      setDaysInputValue(value);
-      if (value === "") return;
-      const days = parseInt(value, 10);
+  const updateDays = useCallback(
+    () => {
+      if (daysInputValue === "") return;
+      const days = parseInt(daysInputValue, 10);
       if (!isNaN(days) && days >= 0) {
+        logEvent('SETTINGS', 'INSURANCE_VALIDITY_SET', 'days', days);
         storeSetting(SettingKey.INSURANCE_VALIDITY, days.toString());
+        setDaysValid(days);
       }
     },
-    []
+    [daysInputValue, setDaysValid, storeSetting, logEvent]
   );
 
   const _onDataSent = () => {
@@ -119,8 +122,9 @@ function SignLettersUseRight({ className = '', letters, worker, employer, curren
         isDisabled={!thereAreDiplomas || !validDays} onReady={() => setIsReady(true)} />
       {isReady && <EditableInfo
         label={t('days valid')}
-        onChange={setDaysValid}
+        onChange={setDaysInputValue}
         value={daysInputValue}
+        onSave={updateDays}
         placeholder={t('Positive number')}
         isError={!validDays}
       />}
