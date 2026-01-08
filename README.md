@@ -98,14 +98,10 @@ Here is a list of user actions tracked by Slonig:
 | ✅ | SETTINGS | ECONOMY_DIPLOMA_VALIDITY | days | count |
 | ✅ | SETTINGS | AIRDROP_COMPATIBLE | true/false | N/A |
 | ✅ | SETTINGS | RECEIVED_AIRDROP | tokens | amount |
-| ❌ | SETTINGS | DEVELOPER_MODE | true/false | N/A |
-| ❌ | TUTORIAL | TUTEE_COMPLETED | N/A | N/A |
-| ❌ | TUTORIAL | TUTOR_COMPLETED | N/A | N/A |
-| ❌ | TUTORIAL | VIRAL_COMPLETED | N/A | N/A |
-| ❌ | TUTORIAL | SCAN_COMPLETED | N/A | N/A |
-| ❌ | EDITING | CLICK_EDIT | KnowledgeName | N/A |
-| ❌ | EDITING | CLICK_SAVE | KnowledgeName | N/A |
-| ❌ | EDITING | UPDATE | KnowledgeName | N/A |
+| ✅ | SETTINGS | DEVELOPER_MODE | true/false | N/A |
+| ✅ | EDITING | CLICK_EDIT | KnowledgeName | N/A |
+| ✅ | EDITING | CLICK_SAVE | KnowledgeName | N/A |
+| ✅ | EDITING | UPDATED | KnowledgeName | N/A |
 
 ## Technical details for developers
 

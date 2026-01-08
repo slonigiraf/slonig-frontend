@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import BN from 'bn.js';
-import { getIPFSContentIDAndPinIt, digestFromCIDv1, getCIDFromBytes, getIPFSDataFromContentID, loadFromSessionStorage, saveToSessionStorage, KatexSpan, LawType, useSettingValue } from '@slonigiraf/slonig-components';
+import { getIPFSContentIDAndPinIt, digestFromCIDv1, getCIDFromBytes, getIPFSDataFromContentID, loadFromSessionStorage, saveToSessionStorage, KatexSpan, LawType, useSettingValue, useLog } from '@slonigiraf/slonig-components';
 import { BN_ZERO } from '@polkadot/util';
 import React, { useCallback, useEffect, useState } from 'react';
 import { Button, InputBalance, styled } from '@polkadot/react-components';
@@ -34,6 +34,7 @@ function Edit({ className = '' }: Props): React.ReactElement<Props> {
   const { t } = useTranslation();
   const { currentPair, isLoggedIn, setLoginIsRequired } = useLoginContext();
   const { api } = useApi();
+  const { logEvent } = useLog();
   const [isProcessing, toggleProcessing] = useToggle(false);
   const [isDeveloper, setDeveloper] = useState<boolean>(false);
 
@@ -125,6 +126,7 @@ function Edit({ className = '' }: Props): React.ReactElement<Props> {
   const _onClickEdit = useCallback(
     (): void => {
       if (isLoggedIn) {
+        logEvent('EDITING', 'CLICK_EDIT', list?.h);
         if (isDeveloper) {
           _onClickChangeView();
         } else {
@@ -134,18 +136,29 @@ function Edit({ className = '' }: Props): React.ReactElement<Props> {
         setLoginIsRequired(true);
       }
     },
-    [_onClickChangeView, isLoggedIn, isDeveloper]
+    [_onClickChangeView, isLoggedIn, isDeveloper, list]
   );
 
-  const _onSuccess = (digestHex: string) => {
+  const _onSuccess = useCallback((digestHex: string) => {
+    logEvent('EDITING', 'UPDATED', list?.h);
     _onClickChangeView();
     setIsAddingElement(false);
     setIsAddingLink(false);
     setItem(null);
-    setItemIdHex("");
+    setItemIdHex('');
     setLawHexData(digestHex);
     toggleProcessing();
-  }
+  }, [
+    logEvent,
+    list,
+    _onClickChangeView,
+    setIsAddingElement,
+    setIsAddingLink,
+    setItem,
+    setItemIdHex,
+    setLawHexData,
+    toggleProcessing
+  ]);
   const _onFailed = () => {
     toggleProcessing();
   }
@@ -238,6 +251,7 @@ function Edit({ className = '' }: Props): React.ReactElement<Props> {
   }, []);
 
   const _onSave = async (): Promise<void> => {
+    logEvent('EDITING', 'CLICK_SAVE', list?.h);
     if (!isIpfsReady) {
       return;
     }
