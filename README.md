@@ -86,9 +86,9 @@ Here is a list of user actions tracked by Slonig:
 | ✅ | ASSESSMENT | PENALIZE | tokens | amount |
 | ✅ | QR | CLICK_SEND | N/A | N/A |
 | ✅ | QR | CLICK_COPY | N/A | N/A |
-| ❌ | SETTINGS | DIPLOMA_PRICE_SET | tokens | amount |
-| ❌ | SETTINGS | DIPLOMA_WARRANTY_SET | tokens | amount |
-| ❌ | SETTINGS | DIPLOMA_VALIDITY_SET | days | amount |
+| ✅ | SETTINGS | DIPLOMA_PRICE_SET | tokens | amount |
+| ✅ | SETTINGS | DIPLOMA_WARRANTY_SET | tokens | amount |
+| ✅ | SETTINGS | DIPLOMA_VALIDITY_SET | days | amount |
 | ❌ | SETTINGS | INSURANCE_VALIDITY_SET | days | amount |
 | ❌ | SETTINGS | ECONOMY_INITIALIZED | N/A | N/A |
 | ❌ | SETTINGS | AIRDROP_COMPATIBLE | N/A | N/A |

@@ -82,6 +82,15 @@ function LessonResults({ className = '', lesson, updateAndStoreLesson, onClose, 
       showInfo(t('Correct the errors highlighted in red'), 'error');
     } else {
       if (lesson) {
+        if (priceInputValue.toString() !== lesson.dPrice) {
+          logEvent('SETTINGS', 'DIPLOMA_PRICE_SET', 'tokens', balanceToSlonFloatOrNaN(priceInputValue));
+        }
+        if (amountInputValue.toString() !== lesson.dWarranty) {
+          logEvent('SETTINGS', 'DIPLOMA_WARRANTY_SET', 'tokens', balanceToSlonFloatOrNaN(amountInputValue))
+        }
+        if (days !== lesson.dValidity) {
+          logEvent('SETTINGS', 'DIPLOMA_VALIDITY_SET', 'days', days);
+        }
         const updatedLesson = {
           ...lesson,
           dPrice: priceInputValue.toString(),
