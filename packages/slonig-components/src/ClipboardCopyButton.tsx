@@ -1,7 +1,7 @@
 import React from 'react';
 import { Button } from '@polkadot/react-components';
 import { useTranslation } from './translate.js';
-import { useInfo } from '@slonigiraf/slonig-components';
+import { useInfo, useLog } from '@slonigiraf/slonig-components';
 
 interface Props {
     className?: string;
@@ -12,8 +12,10 @@ interface Props {
 function ClipboardCopyButton({ className, text, isDisabled = false }: Props): React.ReactElement<Props> {
     const { t } = useTranslation();
     const { showInfo } = useInfo();
+    const { logEvent } = useLog();
 
     const copyToClipboard = () => {
+        logEvent('QR', 'CLICK_COPY');
         // Create a temporary textarea element to hold the text to copy
         const tempElem = document.createElement('textarea');
         tempElem.value = text;

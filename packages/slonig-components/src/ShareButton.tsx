@@ -1,6 +1,7 @@
 import React from 'react';
 import { Button } from '@polkadot/react-components';
 import { useTranslation } from './translate.js';
+import { useLog } from './LogProvider.js';
 
 interface ShareButtonProps {
     title: string;
@@ -11,8 +12,10 @@ interface ShareButtonProps {
 
 function ShareButton({ title, text, url, isDisabled = false }: ShareButtonProps): React.ReactElement<ShareButtonProps> {
     const { t } = useTranslation();
+    const { logEvent } = useLog();
 
     const handleShare = async () => {
+        logEvent('QR', 'CLICK_SEND');
         const shareData = { title, text, url };
         if (navigator.share) {
             try {

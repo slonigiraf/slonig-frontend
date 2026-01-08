@@ -84,8 +84,8 @@ Here is a list of user actions tracked by Slonig:
 | ✅ | ASSESSMENT | RECEIVE_STUDENT_DATA | insurances | count |
 | ✅ | ASSESSMENT | VIEW_INSURANCE | KnowledgeName (skill) | N/A |
 | ✅ | ASSESSMENT | PENALIZE | tokens | amount |
-| ❌ | QR | CLICK | send | N/A |
-| ❌ | QR | CLICK | copy | N/A |
+| ✅ | QR | CLICK_SEND | N/A | N/A |
+| ✅ | QR | CLICK_COPY | N/A | N/A |
 | ❌ | SETTINGS | DIPLOMA_PRICE | manually_changed | amount |
 | ❌ | SETTINGS | DIPLOMA_WARRANTY | manually_changed | amount |
 | ❌ | SETTINGS | DIPLOMA_VALIDITY | manually_changed | amount |
