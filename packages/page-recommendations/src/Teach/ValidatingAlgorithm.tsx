@@ -15,7 +15,7 @@ class ValidatingAlgorithm extends Algorithm {
         // Initialize all stages
         const validateDiploma = new AlgorithmStage(
             7,
-            'intermediate',
+            'validate',
             t('Yes'),
             [
                 { title: t('🗣 Say to the tutee'), text: t('Great, you remember the skill.') },
@@ -24,7 +24,7 @@ class ValidatingAlgorithm extends Algorithm {
 
         const explainReimburse = new AlgorithmStage(
             7,
-            'intermediate',
+            'explain_reimburse',
             t('No'),
             [
                 { title: t('🗣 Say to the tutee'), text: t('You don’t have such a skill. I will penalize the tutor which issued the badge for it.') },
@@ -54,7 +54,7 @@ class ValidatingAlgorithm extends Algorithm {
 
         const provideFakeSolution = new AlgorithmStage(
             2,
-            'intermediate',
+            'provide_fake_solution',
             t('Yes'),
             [
                 { title: t('📖 Read what’s happening'), text: t('The tutee has created an exercise.') },
@@ -66,7 +66,7 @@ class ValidatingAlgorithm extends Algorithm {
 
         const askToRepeatTheExerciseAfterMe = new AlgorithmStage(
             3,
-            'intermediate',
+            'ask_to_repeat_similar_exercise',
             t('No'),
             [
                 { title: t('📖 Read what’s happening'), text: t('The tutee has not created a similar exercise.') },
@@ -77,7 +77,7 @@ class ValidatingAlgorithm extends Algorithm {
 
         this.begin = new AlgorithmStage(
             1,
-            'begin',
+            'begin_ask_to_create_similar_exercise',
             t('Yes'),
             [
                 {
@@ -94,7 +94,7 @@ class ValidatingAlgorithm extends Algorithm {
 
         const repeatFromTheBeginning = new AlgorithmStage(
             1,
-            'begin',
+            'cycle_ask_to_create_similar_exercise',
             t('Yes'),
             [
                 { title: t('📖 Read what’s happening'), text: t('The tutee has repeated correctly after me.') },

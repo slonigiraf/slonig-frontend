@@ -62,11 +62,13 @@ function DoInstructions({ className = '', entity, onResult, studentName, isSendi
             if (isLetterTemplate(entity)) {
               logEvent('TUTORING', 'TEACH_START', skill.h);
               const newAlgorithm = new TutoringAlgorithm(t, studentName, skill, hasTuteeUsedSlonig, hasTutorCompletedTutorial ? true : false);
+              logEvent('TUTORING', 'TEACH_ALGO', newAlgorithm.getBegin().type);
               setAlgorithmType('TEACH_ALGO');
               setAlgorithmStage(newAlgorithm.getBegin());
             } else {
               logEvent('TUTORING', 'REEXAMINE_START', skill.h);
               const newAlgorithm = new ValidatingAlgorithm(t, studentName, skill, isBeforeTeaching);
+              logEvent('TUTORING', 'REEXAMINE_ALGO', newAlgorithm.getBegin().type);
               setAlgorithmType('REEXAMINE_ALGO');
               setAlgorithmStage(newAlgorithm.getBegin());
             }
@@ -150,12 +152,11 @@ function DoInstructions({ className = '', entity, onResult, studentName, isSendi
     if (nextStage !== null) {
       setIsButtonClicked(true);
       if (nextStage === algorithmStage) {
-        logEvent('TUTORING', algorithmType, 'do_this_again');
         showInfo(t('Do this again'));
         refreshStageView();
       }
       if (isReexamination(entity) && nextStage.type === 'reimburse') {
-        logEvent('TUTORING', algorithmType, 'invalidated');
+        logEvent('TUTORING', algorithmType, 'invalidate');
         studentFailedReexamination();
         refreshStageView();
       } else if (nextStage.type === 'skip') {
@@ -165,11 +166,10 @@ function DoInstructions({ className = '', entity, onResult, studentName, isSendi
           onResult();
         }, () => setIsButtonClicked(false));
       } else if (isLetterTemplate(entity) && (nextStage.type === 'success' || nextStage.type === 'next_skill')) {
-        logEvent('TUTORING', algorithmType, nextStage.type === 'success'? 'mastered' : 'marked_for_repeat');
         processLetter(nextStage.type === 'success');
         refreshStageView();
       } else if (isReexamination(entity) && nextStage.type === 'success') {
-        logEvent('TUTORING', algorithmType, 'validated');
+        logEvent('TUTORING', algorithmType, 'validate');
         studentPassedReexamination();
         refreshStageView();
       } else {
@@ -224,7 +224,11 @@ function DoInstructions({ className = '', entity, onResult, studentName, isSendi
                   <Button
                     className='noHighlight'
                     key={algorithmStage.getId()}
-                    onClick={() => handleStageChange(algorithmStage.getPrevious())}
+                    onClick={() => {
+                      logEvent('TUTORING', algorithmType, 'click_back');
+                      handleStageChange(algorithmStage.getPrevious());
+                    }
+                    }
                     icon='arrow-left'
                     label={t('Back')}
                     isDisabled={isButtonClicked}

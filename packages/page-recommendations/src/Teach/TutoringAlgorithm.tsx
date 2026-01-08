@@ -24,7 +24,7 @@ class TutoringAlgorithm extends Algorithm {
         );
         const repeatNextDay = new AlgorithmStage(
             7,
-            hasTutorCompletedTutorial ? 'repeat' : 'success',
+            hasTutorCompletedTutorial ? 'mark_for_repeat' : 'success',
             t('No'),
             [
                 { title: t('🗣 Say to the tutee'), text: t('Excellent! Let’s repeat this tomorrow.') },
@@ -33,7 +33,7 @@ class TutoringAlgorithm extends Algorithm {
 
         const askStudentToRepeatTheAnswer = new AlgorithmStage(
             5,
-            'intermediate',
+            'correct_fake_solution',
             t('No'),
             [
                 { title: t('📖 Read what’s happening'), text: t('The tutee has not corrected me.') },
@@ -45,7 +45,7 @@ class TutoringAlgorithm extends Algorithm {
 
         const askStudentToRepeatTheSolutionOfExerciseOfTutor = new AlgorithmStage(
             0,
-            'intermediate',
+            'repeat_example_solution',
             t('No'),
             [
                 { title: t('📖 Read what’s happening'), text: t('The tutee has not executed the exercise correctly.') },
@@ -57,7 +57,7 @@ class TutoringAlgorithm extends Algorithm {
 
         const wereTheStudentTasksAndAnswersPerfectToday = new AlgorithmStage(
             7,
-            'intermediate',
+            'decide_was_it_perfect_today',
             t('Yes'),
             [
                 { title: t('📖 Read what’s happening'), text: t('The tutee has corrected me and has given me the correct solution.') },
@@ -67,7 +67,7 @@ class TutoringAlgorithm extends Algorithm {
 
         const provideFakeAnswer = new AlgorithmStage(
             2,
-            'intermediate',
+            'provide_fake_solution',
             t('Yes'),
             [
                 { title: t('📖 Read what’s happening'), text: t('The tutee has created an exercise.') },
@@ -77,9 +77,9 @@ class TutoringAlgorithm extends Algorithm {
             <ExampleExercisesButton skill={skill} />
         );
 
-        const askToRepeatTaskAfterMeTheTask = new AlgorithmStage(
+        const askToRepeatTaskAfterMe = new AlgorithmStage(
             2,
-            'intermediate',
+            'ask_to_repeat_similar_exercise',
             t('No'),
             [
                 { title: t('📖 Read what’s happening'), text: t('The tutee has not created a similar exercise.') },
@@ -97,7 +97,7 @@ class TutoringAlgorithm extends Algorithm {
 
         const askStudentToCreateASimilarExercise = new AlgorithmStage(
             1,
-            'begin',
+            'begin_ask_to_create_similar_exercise',
             t('Yes'),
             [
                 { title: t('📖 Read what’s happening'), text: t('{{name}} asks you to teach the skill', { replace: { name: studentName } }) + (skill && ': ’' + skill.h + '’') },
@@ -110,7 +110,7 @@ class TutoringAlgorithm extends Algorithm {
         //Use only if student never used Slonig
         const askToCreateAnExerciseAfterCompletionOfExerciseOfTutor = new AlgorithmStage(
             1,
-            'intermediate',
+            'create_similar_exercise',
             t('Yes'),
             [
                 { title: t('📖 Read what’s happening'), text: t('The tutee has executed the exercise correctly.') },
@@ -122,7 +122,7 @@ class TutoringAlgorithm extends Algorithm {
 
         const askStudentToSolveAnExercise = new AlgorithmStage(
             1,
-            'begin',
+            'begin_ask_to_solve_exercise',
             t('Yes'),
             [
                 { title: t('📖 Read what’s happening'), text: t('{{name}} asks you to teach the skill', { replace: { name: studentName } }) + (skill && ': ’' + skill.h + '’') },
@@ -134,7 +134,7 @@ class TutoringAlgorithm extends Algorithm {
 
         const repeatFromTheBeginning = new AlgorithmStage(
             1,
-            'begin',
+            'cycle_ask_to_create_similar_exercise',
             t('Yes'),
             [
                 { title: t('📖 Read what’s happening'), text: t('The tutee has repeated correctly after me.') },
@@ -159,10 +159,10 @@ class TutoringAlgorithm extends Algorithm {
         askToCreateAnExerciseAfterCompletionOfExerciseOfTutor.setPrevious(askStudentToSolveAnExercise);
         askStudentToRepeatTheSolutionOfExerciseOfTutor.setPrevious(askStudentToSolveAnExercise);
 
-        askToCreateAnExerciseAfterCompletionOfExerciseOfTutor.setNext([provideFakeAnswer, askToRepeatTaskAfterMeTheTask]);
+        askToCreateAnExerciseAfterCompletionOfExerciseOfTutor.setNext([provideFakeAnswer, askToRepeatTaskAfterMe]);
         if (!bothUsedSlonig) {
             provideFakeAnswer.setPrevious(askToCreateAnExerciseAfterCompletionOfExerciseOfTutor);
-            askToRepeatTaskAfterMeTheTask.setPrevious(askToCreateAnExerciseAfterCompletionOfExerciseOfTutor);
+            askToRepeatTaskAfterMe.setPrevious(askToCreateAnExerciseAfterCompletionOfExerciseOfTutor);
         }
 
         provideFakeAnswer.setNext([wereTheStudentTasksAndAnswersPerfectToday, askStudentToRepeatTheAnswer]);
@@ -176,17 +176,17 @@ class TutoringAlgorithm extends Algorithm {
 
         askStudentToRepeatTheAnswer.setNext([repeatFromTheBeginning, askStudentToRepeatTheAnswer]);
 
-        askToRepeatTaskAfterMeTheTask.setNext([repeatFromTheBeginning, askToRepeatTaskAfterMeTheTask]);
+        askToRepeatTaskAfterMe.setNext([repeatFromTheBeginning, askToRepeatTaskAfterMe]);
 
-        repeatFromTheBeginning.setNext([provideFakeAnswer, askToRepeatTaskAfterMeTheTask]);
-        repeatFromTheBeginning.setPrevious(askToRepeatTaskAfterMeTheTask);
+        repeatFromTheBeginning.setNext([provideFakeAnswer, askToRepeatTaskAfterMe]);
+        repeatFromTheBeginning.setPrevious(askToRepeatTaskAfterMe);
 
         askStudentToRepeatTheSolutionOfExerciseOfTutor.setNext([repeatFromTheBeginning, askStudentToRepeatTheSolutionOfExerciseOfTutor]);
 
-        askStudentToCreateASimilarExercise.setNext([skip, provideFakeAnswer, askToRepeatTaskAfterMeTheTask]);
+        askStudentToCreateASimilarExercise.setNext([skip, provideFakeAnswer, askToRepeatTaskAfterMe]);
         if (bothUsedSlonig) {
             provideFakeAnswer.setPrevious(askStudentToCreateASimilarExercise);
-            askToRepeatTaskAfterMeTheTask.setPrevious(askStudentToCreateASimilarExercise);
+            askToRepeatTaskAfterMe.setPrevious(askStudentToCreateASimilarExercise);
         }
     }
 }

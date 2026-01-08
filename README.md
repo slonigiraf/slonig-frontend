@@ -48,26 +48,32 @@ Here is a list of user actions tracked by Slonig:
 | ✅ | TUTORING | RESTART_LESSON | KnowledgeName (module) | N/A |
 | ✅ | TUTORING | GET_STUDENT_REQUEST | N/A | N/A |
 | ✅ | TUTORING | REEXAMINE_START | KnowledgeName (skill) | N/A |
-| ❌ | TUTORING | REEXAMINE_ALGO | do_this_again | N/A |
-| ❌ | TUTORING | REEXAMINE_ALGO | create_similar_exercise | N/A |
-| ❌ | TUTORING | REEXAMINE_ALGO | repeat_similar_exercise | N/A |
+| ❌ | TUTORING | REEXAMINE_ALGO | begin_ask_to_create_similar_exercise | N/A |
+| ❌ | TUTORING | REEXAMINE_ALGO | cycle_ask_to_create_similar_exercise | N/A |
+| ✅ | TUTORING | REEXAMINE_ALGO | ask_to_repeat_similar_exercise | N/A |
+| ✅ | TUTORING | REEXAMINE_ALGO | provide_fake_solution | N/A |
 | ❌ | TUTORING | REEXAMINE_ALGO | correct_fake_solution | N/A |
-| ❌ | TUTORING | REEXAMINE_ALGO | validated | N/A |
-| ❌ | TUTORING | REEXAMINE_ALGO | invalidated | N/A |
-| ❌ | TUTORING | REEXAMINE_ALGO | instant_validated | N/A |
-| ❌ | TUTORING | REEXAMINE_ALGO | instant_invalidated | N/A |
+| ❌ | TUTORING | REEXAMINE_ALGO | validate | N/A |
+| ✅ | TUTORING | REEXAMINE_ALGO | explain_reimburse | N/A |
+| ✅ | TUTORING | REEXAMINE_ALGO | invalidate | N/A |
+| ❌ | TUTORING | REEXAMINE_ALGO | click_instant_validate | N/A |
+| ❌ | TUTORING | REEXAMINE_ALGO | click_instant_invalidate | N/A |
 | ✅ | TUTORING | TEACH_START | KnowledgeName (skill) | N/A |
-| ❌ | TUTORING | TEACH_START | do_this_again | N/A |
+| ❌ | TUTORING | TEACH_ALGO | begin_ask_to_create_similar_exercise | N/A |
+| ❌ | TUTORING | TEACH_ALGO | begin_ask_to_solve_exercise | N/A |
+| ❌ | TUTORING | TEACH_ALGO | cycle_ask_to_create_similar_exercise | N/A |
 | ❌ | TUTORING | TEACH_ALGO | solve_example | N/A |
-| ❌ | TUTORING | TEACH_ALGO | repeat_example_answer | N/A |
+| ❌ | TUTORING | TEACH_ALGO | repeat_example_solution | N/A |
 | ❌ | TUTORING | TEACH_ALGO | create_similar_exercise | N/A |
-| ❌ | TUTORING | TEACH_ALGO | repeat_similar_exercise | N/A |
+| ✅ | TUTORING | TEACH_ALGO | ask_to_repeat_similar_exercise | N/A |
+| ❌ | TUTORING | TEACH_ALGO | provide_fake_solution | N/A |
 | ❌ | TUTORING | TEACH_ALGO | correct_fake_solution | N/A |
 | ❌ | TUTORING | TEACH_ALGO | repeat_proper_solution | N/A |
-| ❌ | TUTORING | TEACH_ALGO | mastered | N/A |
-| ❌ | TUTORING | TEACH_ALGO | marked_for_repeat | N/A |
-| ❌ | TUTORING | TEACH_ALGO | instant_mastered | N/A |
-| ❌ | TUTORING | TEACH_ALGO | instant_marked_for_repeat | N/A |
+| ❌ | TUTORING | TEACH_ALGO | decide_was_it_perfect_today | N/A |
+| ❌ | TUTORING | TEACH_ALGO | success | N/A |
+| ❌ | TUTORING | TEACH_ALGO | mark_for_repeat | N/A |
+| ❌ | TUTORING | TEACH_ALGO | click_instant_success | N/A |
+| ❌ | TUTORING | TEACH_ALGO | click_instant_mark_for_repeat | N/A |
 | ❌ | TUTORING | RESULTS | auto_send_opened | amount |
 | ❌ | TUTORING | RESULTS | send_clicked_during_lesson | amount |
 | ❌ | TUTORING | RESULTS | send_clicked_at_lesson_list | amount |
