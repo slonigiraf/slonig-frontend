@@ -60,15 +60,19 @@ function DoInstructions({ className = '', entity, onResult, studentName, isSendi
           if (isComponentMounted) {
             setSkill(skill);
             if (isLetterTemplate(entity)) {
-              logEvent('TUTORING', 'TEACH_START', skill.h);
               const newAlgorithm = new TutoringAlgorithm(t, studentName, skill, hasTuteeUsedSlonig, hasTutorCompletedTutorial ? true : false);
-              logEvent('TUTORING', 'TEACH_ALGO', newAlgorithm.getBegin().type);
+              logEvent('TUTORING', 'TEACH_START', skill.h);
+              setTimeout(() => {
+                logEvent('TUTORING', 'TEACH_ALGO', newAlgorithm.getBegin().type);
+              }, 200);
               setAlgorithmType('TEACH_ALGO');
               setAlgorithmStage(newAlgorithm.getBegin());
             } else {
-              logEvent('TUTORING', 'REEXAMINE_START', skill.h);
               const newAlgorithm = new ValidatingAlgorithm(t, studentName, skill, isBeforeTeaching);
-              logEvent('TUTORING', 'REEXAMINE_ALGO', newAlgorithm.getBegin().type);
+              logEvent('TUTORING', 'REEXAMINE_START', skill.h);
+              setTimeout(() => {
+                logEvent('TUTORING', 'REEXAMINE_ALGO', newAlgorithm.getBegin().type);
+              }, 200);
               setAlgorithmType('REEXAMINE_ALGO');
               setAlgorithmStage(newAlgorithm.getBegin());
             }
