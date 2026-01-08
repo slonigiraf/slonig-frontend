@@ -7,7 +7,7 @@ import UseInsurance from './UseInsurance.js'
 import { useTranslation } from '../translate.js';
 import { Badge, Insurance, isInsurance } from '@slonigiraf/db';
 import { useToggle } from '@polkadot/react-hooks';
-import { Exercise, KatexSpan, getIPFSDataFromContentID, parseJson } from '@slonigiraf/slonig-components';
+import { KatexSpan, getIPFSDataFromContentID, parseJson, useLog } from '@slonigiraf/slonig-components';
 import { useIpfsContext } from '@slonigiraf/slonig-components';
 import { ExerciseList } from '@slonigiraf/app-laws';
 
@@ -24,6 +24,7 @@ function BadgeInfo({ className = '', badge, isSelected, onToggleSelection, isSel
   type JsonType = { [key: string]: any } | null;
   const [data, setData] = useState<JsonType>(null);
   const { t } = useTranslation();
+  const { logEvent } = useLog();
   const [areDetailsOpen, toggleDetailsOpen] = useToggle(false);
   const [skillName, setSkillName] = useState(badge.cid);
   const [loaded, setLoaded] = useState(false);
@@ -46,6 +47,12 @@ function BadgeInfo({ className = '', badge, isSelected, onToggleSelection, isSel
     }
     fetchData()
   }, [ipfs, badge])
+
+  useEffect(() => {
+    if(areDetailsOpen && skillName){
+      logEvent('ASSESSMENT', 'VIEW_INSURANCE', skillName);
+    }
+  }, [areDetailsOpen, skillName, logEvent]);
 
   const skillNameToShow = loaded ? <KatexSpan content={skillName} /> : <Spinner noLabel />;
 

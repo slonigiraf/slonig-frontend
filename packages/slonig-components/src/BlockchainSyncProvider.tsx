@@ -292,7 +292,7 @@ export const BlockchainSyncProvider: React.FC<BlockchainSyncProviderProps> = ({ 
             sendTransactions(selectedReimbursements);
             selectedReimbursements.forEach(r => {
                 const priceToLog = balanceToSlonFloatOrNaN(new BN(r.amount));
-                logEvent('LEARNING_CLEANUP', 'SEND_PENALTIES', 'tokens', Math.abs(priceToLog));
+                logEvent('SYNC', 'SUBMIT_PENALTY_EXTRINSIC', 'tokens', Math.abs(priceToLog));
             });
         } else {
             isSendingBatchRef.current = false;

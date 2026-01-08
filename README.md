@@ -43,7 +43,7 @@ Here is a list of user actions tracked by Slonig:
 | ✅ | TRANSACTIONS | RECEIVE | tokens | amount |
 | ✅ | LEARNING | SAVE_BADGES | success | count |
 | ✅ | LEARNING | SAVE_REEXAMINATIONS | success | count |
-| ✅ | LEARNING_CLEANUP | SEND_PENALTIES | KnowledgeId (skill) | N/A |
+| ✅ | SYNC | SUBMIT_PENALTY_EXTRINSIC | tokens | N/A |
 | ✅ | TUTORING | RESTART_LESSON | KnowledgeName (module) | N/A |
 | ✅ | TUTORING | GET_STUDENT_REQUEST | N/A | N/A |
 | ✅ | TUTORING | REEXAMINE_START | KnowledgeName (skill) | N/A |
@@ -79,10 +79,11 @@ Here is a list of user actions tracked by Slonig:
 | ✅ | TUTORING | RESULTS | warranty | amount in tokens |
 | ✅ | TUTORING | RESULTS | days_valid | count |
 | ✅ | TUTORING | RESULTS | data_was_sent | N/A |
-| ❌ | ASSESSMENT | SHOW_QR | N/A | N/A |
-| ❌ | ASSESSMENT | RECEIVE | success | count |
-| ❌ | ASSESSMENT | VIEW | KnowledgeName (skill) | KnowledgeId (skill) |
-| ❌ | ASSESSMENT | SEND_PENALTIES | KnowledgeName (skill) | KnowledgeId (skill) |
+| ✅ | ASSESSMENT | SHOW_QR | N/A | N/A |
+| ✅ | ASSESSMENT | VIEW_STUDENT | KnowledgeName (skill) | KnowledgeId (skill) |
+| ✅ | ASSESSMENT | RECEIVE_STUDENT_DATA | insurances | count |
+| ✅ | ASSESSMENT | VIEW_INSURANCE | KnowledgeName (skill) | N/A |
+| ✅ | ASSESSMENT | PENALIZE | tokens | amount |
 | ❌ | QR | CLICK | send | N/A |
 | ❌ | QR | CLICK | copy | N/A |
 | ❌ | SETTINGS | DIPLOMA_PRICE | manually_changed | amount |

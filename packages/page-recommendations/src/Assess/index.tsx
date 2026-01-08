@@ -1,11 +1,11 @@
 // Copyright 2021-2022 @slonigiraf/app-recommendations authors & contributors
 // SPDX-License-Identifier: Apache-2.0
 
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import InsurancesList from './InsurancesList.js';
 import { useTranslation } from '../translate.js';
 import { u8aToHex } from '@polkadot/util';
-import { QRWithShareAndCopy, nameFromKeyringPair, getBaseUrl, useLoginContext, CenterQRContainer, Person, StyledContentCloseButton, qrWidthPx } from '@slonigiraf/slonig-components';
+import { QRWithShareAndCopy, nameFromKeyringPair, getBaseUrl, useLoginContext, CenterQRContainer, Person, StyledContentCloseButton, qrWidthPx, useLog } from '@slonigiraf/slonig-components';
 import { getPseudonym } from '@slonigiraf/db';
 import InsurancesReceiver from './InsurancesReceiver.js';
 import PersonSelector from '../PersonSelector.js';
@@ -16,6 +16,7 @@ interface Props {
 
 function Assess({ className = '' }: Props): React.ReactElement<Props> {
   const { t } = useTranslation();
+  const { logEvent } = useLog();
   // Initialize account
   const { currentPair, isLoggedIn } = useLoginContext();
   const [student, setStudent] = useState<Person | null>(null);
@@ -31,6 +32,16 @@ function Assess({ className = '' }: Props): React.ReactElement<Props> {
       }
     }
   };
+
+  useEffect(() => {
+    if (isLoggedIn) {
+      if (student) {
+        logEvent('ASSESSMENT', 'VIEW_STUDENT');
+      } else {
+        logEvent('ASSESSMENT', 'SHOW_QR');
+      }
+    }
+  }, [isLoggedIn, student]);
 
   return (
     <div className={`toolbox--Student ${className}`}>

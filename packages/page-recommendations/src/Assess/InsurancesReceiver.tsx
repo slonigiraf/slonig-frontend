@@ -5,7 +5,7 @@ import React, { useCallback } from 'react';
 import { useTranslation } from '../translate.js';
 import { u8aToHex } from '@polkadot/util';
 import { useLocation, useNavigate } from 'react-router-dom';
-import { useLoginContext, useInfo, InsurancesTransfer, Person, UrlParams } from '@slonigiraf/slonig-components';
+import { useLoginContext, useInfo, InsurancesTransfer, Person, UrlParams, useLog } from '@slonigiraf/slonig-components';
 import { storeInsurances, storePseudonym } from '@slonigiraf/db';
 import useFetchWebRTC from '../useFetchWebRTC.js';
 interface Props {
@@ -20,10 +20,12 @@ function InsurancesReceiver({ setWorker }: Props): React.ReactElement<Props> {
   const { t } = useTranslation();
   const employer = u8aToHex(currentPair?.publicKey);
   const { showInfo } = useInfo();
+  const { logEvent } = useLog();
   const navigate = useNavigate();
 
   const handleData = useCallback(async (insurancesTransfer: InsurancesTransfer) => {
     if (insurancesTransfer.employer === employer) {
+      logEvent('ASSESSMENT', 'RECEIVE_STUDENT_DATA', 'insurances', insurancesTransfer.insurances.length);
       await storePseudonym(insurancesTransfer.identity, insurancesTransfer.name);
       await storeInsurances(insurancesTransfer);
       navigate('', { replace: true });
