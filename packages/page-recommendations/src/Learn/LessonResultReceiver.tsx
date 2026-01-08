@@ -54,7 +54,7 @@ function LessonResultReceiver({ webRTCPeerId, onDaysRangeChange }: Props): React
           logEvent('LEARNING', 'LOAD_RESULTS', 'old');
           navigate('', { replace: true });
         } else {
-          logEvent('LEARNING', 'LOAD_RESULTS', 'price', priceToLog);
+          logEvent('LEARNING', 'LOAD_RESULTS', 'tokens', priceToLog);
           if (dbAgreement.price === receivedResult.price) {
             setAgreement(dbAgreement);
           } else {
@@ -67,7 +67,7 @@ function LessonResultReceiver({ webRTCPeerId, onDaysRangeChange }: Props): React
           }
         }
       } else {
-        logEvent('LEARNING', 'LOAD_RESULTS', 'price', priceToLog);
+        logEvent('LEARNING', 'LOAD_RESULTS', 'tokens', priceToLog);
         const newAgreement = {
           id: receivedResult.agreement,
           price: receivedResult.price,
