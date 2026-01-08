@@ -64,7 +64,7 @@ function DoInstructions({ className = '', entity, onResult, studentName, isSendi
               logEvent('TUTORING', 'TEACH_START', skill.h);
               setTimeout(() => {
                 logEvent('TUTORING', 'TEACH_ALGO', newAlgorithm.getBegin().type);
-              }, 200);
+              }, 500);
               setAlgorithmType('TEACH_ALGO');
               setAlgorithmStage(newAlgorithm.getBegin());
             } else {
@@ -72,7 +72,7 @@ function DoInstructions({ className = '', entity, onResult, studentName, isSendi
               logEvent('TUTORING', 'REEXAMINE_START', skill.h);
               setTimeout(() => {
                 logEvent('TUTORING', 'REEXAMINE_ALGO', newAlgorithm.getBegin().type);
-              }, 200);
+              }, 500);
               setAlgorithmType('REEXAMINE_ALGO');
               setAlgorithmStage(newAlgorithm.getBegin());
             }
@@ -162,7 +162,7 @@ function DoInstructions({ className = '', entity, onResult, studentName, isSendi
         refreshStageView();
       }
       if (isReexamination(entity) && nextStage.type === 'reimburse') {
-        logEvent('TUTORING', algorithmType, 'invalidate');
+        logEvent('TUTORING', algorithmType, 'revoke');
         studentFailedReexamination();
         refreshStageView();
       } else if (nextStage.type === 'skip') {
@@ -178,7 +178,6 @@ function DoInstructions({ className = '', entity, onResult, studentName, isSendi
         processLetter(nextStage.type === 'success');
         refreshStageView();
       } else if (isReexamination(entity) && nextStage.type === 'success') {
-        logEvent('TUTORING', algorithmType, 'validate');
         studentPassedReexamination();
         refreshStageView();
       } else {
@@ -263,14 +262,20 @@ function DoInstructions({ className = '', entity, onResult, studentName, isSendi
                               icon='thumbs-up'
                               key='studentPassedReexamination'
                               label={t('Tutee has the skill')}
-                              onClick={studentPassedReexamination}
+                              onClick={() => {
+                                logEvent('TUTORING', 'REEXAMINE_ALGO', 'click_instant_validate');
+                                studentPassedReexamination();
+                              }}
                             />
                             <Menu.Divider />
                             <Menu.Item
                               icon='circle-exclamation'
                               key='studentFailedReexamination'
                               label={t('Tutee failed the reexamination')}
-                              onClick={studentFailedReexamination}
+                              onClick={() => {
+                                logEvent('TUTORING', 'REEXAMINE_ALGO', 'click_instant_revoke');
+                                studentFailedReexamination();
+                              }}
                             />
                           </>
                         ) : (
