@@ -329,7 +329,15 @@ export interface AirdropResults {
   error?: string;
 }
 
-export async function fetchEconomy(): Promise<void> {
+export type StoredEconomy = {
+  diplomaPrice: string;
+  diplomaWarranty: string;
+  diplomaValidity: string;
+  expectedAirdrop: string;
+  economyInitialized: string;
+};
+
+export async function fetchEconomy(): Promise<StoredEconomy> {
   const response = await fetch('https://economy.slonig.org/prices/');
   if (!response.ok) {
     throw new Error(`Fetching ecomomy error! status: ${response.status}`);
@@ -340,6 +348,13 @@ export async function fetchEconomy(): Promise<void> {
   await storeSetting(SettingKey.DIPLOMA_VALIDITY, economySettings.validity);
   await storeSetting(SettingKey.EXPECTED_AIRDROP, economySettings.airdrop);
   await storeSetting(SettingKey.ECONOMY_INITIALIZED, 'true');
+  return {
+    diplomaPrice: economySettings.diploma,
+    diplomaWarranty: economySettings.warranty,
+    diplomaValidity: economySettings.validity,
+    expectedAirdrop: economySettings.airdrop,
+    economyInitialized: 'true'
+  };
 };
 export interface LessonResult {
   agreement: string;

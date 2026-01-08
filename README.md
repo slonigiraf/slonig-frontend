@@ -90,9 +90,13 @@ Here is a list of user actions tracked by Slonig:
 | ✅ | SETTINGS | DIPLOMA_WARRANTY_SET | tokens | amount |
 | ✅ | SETTINGS | DIPLOMA_VALIDITY_SET | days | count |
 | ✅ | SETTINGS | INSURANCE_VALIDITY_SET | days | count |
-| ❌ | SETTINGS | ECONOMY_INITIALIZED | N/A | N/A |
+| ✅ | SETTINGS | CLICK_RESET_TO_DEFAULT | N/A | N/A |
+| ✅ | SETTINGS | ECONOMY_DIPLOMA_PRICE | tokens | amount |
+| ✅ | SETTINGS | ECONOMY_DIPLOMA_WARRANTY | tokens | amount |
+| ✅ | SETTINGS | ECONOMY_EXPECTED_AIRDROP | tokens | amount |
+| ✅ | SETTINGS | ECONOMY_INITIALIZED | N/A | N/A |
+| ✅ | SETTINGS | ECONOMY_DIPLOMA_VALIDITY | days | count |
 | ❌ | SETTINGS | AIRDROP_COMPATIBLE | N/A | N/A |
-| ❌ | SETTINGS | EXPECTED_AIRDROP | tokens | amount |
 | ❌ | SETTINGS | RECEIVED_AIRDROP | tokens | amount |
 | ❌ | SETTINGS | DEVELOPER_MODE | true/false | N/A |
 | ❌ | SETTINGS | LANGUAGE | auto_set | two-letter code |

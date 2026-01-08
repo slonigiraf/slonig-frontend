@@ -16,15 +16,31 @@ export const getBaseUrl = () => {
   return `${protocol}//${hostname}${port ? `:${port}` : ''}`;
 };
 
+const TOKEN_DECIMALS = 12;
+const BASE = new BN(10).pow(new BN(TOKEN_DECIMALS));
+
 export const balanceToSlonString = (balance: BN): string => {
-  const numberWith4Decimals = (formatBalance(balance, { forceUnit: '-', withUnit: false })).replaceAll(',', '');
-  const number = parseFloat(parseFloat(numberWith4Decimals).toFixed(2));
-  return number.toString();
-}
+  if (!balance || balance.isZero()) return '0';
+
+  const whole = balance.div(BASE);
+  const frac = balance.mod(BASE);
+
+  // Take first 2 decimal digits (truncate, like toFixed without rounding)
+  const frac2 = frac.muln(100).div(BASE); // 0..99
+
+  if (frac2.isZero()) {
+    return whole.toString();
+  }
+
+  // pad to exactly 2 digits, then trim trailing zeros
+  let fracStr = frac2.toString().padStart(2, '0').replace(/0+$/, '');
+
+  return `${whole.toString()}.${fracStr}`;
+};
 
 export const balanceToSlonFloatOrNaN = (balance: BN): number => {
   try {
-    return parseFloat(balanceToSlonString(new BN(balance)));
+    return parseFloat(balanceToSlonString(balance));
   } catch (_e) {
     return NaN;
   }

@@ -13,7 +13,7 @@ import { settings } from '@polkadot/ui-settings';
 import { useTranslation } from './translate.js';
 import { save, saveAndReload } from './util.js';
 import { getSetting, storeSetting, SettingKey, updateAllLessons } from '@slonigiraf/db';
-import { clearAllData, Confirmation, DBExport, fetchEconomy, useInfo, useLoginContext } from '@slonigiraf/slonig-components';
+import { clearAllData, Confirmation, DBExport, fetchEconomy, useInfo, useLog, useLoginContext } from '@slonigiraf/slonig-components';
 import { useToggle } from '@polkadot/react-hooks';
 
 interface Props {
@@ -23,6 +23,7 @@ interface Props {
 function General({ className = '' }: Props): React.ReactElement<Props> {
   const { t } = useTranslation();
   const { showInfo } = useInfo();
+  const {logEvent, logEconomy } = useLog();
   const { isLoggedIn, currentPair } = useLoginContext();
   const [openAIToken, setOpenAIToken] = useState('');
   const [isDeveloper, setDeveloper] = useState<boolean>(false);
@@ -100,7 +101,9 @@ function General({ className = '' }: Props): React.ReactElement<Props> {
   const _resetPriceAndWarranty = useCallback(
     async () => {
       try {
-        await fetchEconomy();
+        logEvent('SETTINGS', 'CLICK_RESET_TO_DEFAULT');
+        const storedEconomy = await fetchEconomy();
+        logEconomy(storedEconomy);
         const price = await getSetting(SettingKey.DIPLOMA_PRICE);
         const warranty = await getSetting(SettingKey.DIPLOMA_WARRANTY);
         const validity = await getSetting(SettingKey.DIPLOMA_VALIDITY);

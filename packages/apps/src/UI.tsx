@@ -26,7 +26,7 @@ function UI({ className = '' }: Props): React.ReactElement<Props> {
   const connected = isLoginReady && isIpfsReady && isApiReady && !isWaitingInjected
   const { showInfo } = useInfo();
   const { t, i18n } = useTranslation();
-  const { logEvent } = useLog();
+  const { logEvent, logEconomy } = useLog();
   const { themeClassName } = useTheme();
   const economyNotificationTime = 10;
   const location = useLocation();
@@ -106,7 +106,8 @@ function UI({ className = '' }: Props): React.ReactElement<Props> {
     const fetchData = async () => {
       if (isEconomyInitialized === false) {
         try {
-          await fetchEconomy();
+          const storedEconomy = await fetchEconomy();
+          logEconomy(storedEconomy);
         } catch (error) {
           showNoConnectionToEconomyServerError();
         }
@@ -132,7 +133,8 @@ function UI({ className = '' }: Props): React.ReactElement<Props> {
           } else if (airdropResults.error) {
             if (airdropResults.error === 'DUPLICATED_AIRDROP') {
               if (expectedAirdropAmount === undefined) {
-                await fetchEconomy();
+                const storedEconomy = await fetchEconomy();
+                logEconomy(storedEconomy);
               }
               const expectedAirdrop = expectedAirdropAmount || 'undefined';
               await storeSetting(SettingKey.RECEIVED_AIRDROP, expectedAirdrop);
