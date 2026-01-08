@@ -8,7 +8,7 @@ import Content from './Content/index.js';
 import Menu from './Menu/index.js';
 import ConnectingOverlay from './overlays/Connecting.js';
 import BottomMenu from './BottomMenu/index.js';
-import { AirdropResults, AppContainer, BlockchainSyncProvider, fetchEconomy, useBooleanSettingValue, useInfo, useIpfsContext, useLog, useLoginContext, useSettingValue } from '@slonigiraf/slonig-components';
+import { AirdropResults, AppContainer, balanceToSlonFloatOrNaN, BlockchainSyncProvider, fetchEconomy, useBooleanSettingValue, useInfo, useIpfsContext, useLog, useLoginContext, useSettingValue } from '@slonigiraf/slonig-components';
 import { Spinner, styled } from '@polkadot/react-components';
 import { useTranslation } from './translate.js';
 import { useApi, useTheme } from '@polkadot/react-hooks';
@@ -18,6 +18,7 @@ import CreateAccount from '@polkadot/app-accounts/modals/CreateAccount';
 import detectIncognito from 'detectincognitojs';
 import IncognitoView from './IncognitoView.js';
 export const PORTAL_ID = 'portals';
+import BN from 'bn.js';
 
 function UI({ className = '' }: Props): React.ReactElement<Props> {
   const { isLoginReady, isLoggedIn, currentPair, setLoginIsRequired, onCreateAccount } = useLoginContext();
@@ -130,6 +131,7 @@ function UI({ className = '' }: Props): React.ReactElement<Props> {
           const response = await fetch(`https://economy.slonig.org/airdrop/?to=${currentPair.address}&auth=${process.env.AIRDROP_AUTH_TOKEN}`);
           const airdropResults: AirdropResults = await response.json();
           if (airdropResults.success && airdropResults.amount) {
+            logEvent('SETTINGS', 'RECEIVED_AIRDROP', 'tokens', balanceToSlonFloatOrNaN(new BN(airdropResults.amount)));
             await storeSetting(SettingKey.RECEIVED_AIRDROP, airdropResults.amount);
           } else if (airdropResults.error) {
             if (airdropResults.error === 'DUPLICATED_AIRDROP') {
