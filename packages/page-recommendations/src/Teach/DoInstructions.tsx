@@ -170,6 +170,9 @@ function DoInstructions({ className = '', entity, onResult, studentName, isSendi
           onResult();
         }, () => setIsButtonClicked(false));
       } else if (isLetterTemplate(entity) && (nextStage.type === 'success' || nextStage.type === 'next_skill')) {
+        if (nextStage.type === 'success') {
+          logEvent('TUTORING', algorithmType, 'mastered');
+        }
         processLetter(nextStage.type === 'success');
         refreshStageView();
       } else if (isReexamination(entity) && nextStage.type === 'success') {

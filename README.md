@@ -66,12 +66,12 @@ Here is a list of user actions tracked by Slonig:
 | ❌ | TUTORING | TEACH_ALGO | repeat_example_solution | N/A |
 | ❌ | TUTORING | TEACH_ALGO | create_similar_exercise | N/A |
 | ✅ | TUTORING | TEACH_ALGO | ask_to_repeat_similar_exercise | N/A |
-| ❌ | TUTORING | TEACH_ALGO | provide_fake_solution | N/A |
+| ✅ | TUTORING | TEACH_ALGO | provide_fake_solution | N/A |
 | ❌ | TUTORING | TEACH_ALGO | correct_fake_solution | N/A |
 | ❌ | TUTORING | TEACH_ALGO | repeat_proper_solution | N/A |
-| ❌ | TUTORING | TEACH_ALGO | decide_was_it_perfect_today | N/A |
-| ❌ | TUTORING | TEACH_ALGO | success | N/A |
-| ❌ | TUTORING | TEACH_ALGO | mark_for_repeat | N/A |
+| ✅ | TUTORING | TEACH_ALGO | decide_was_it_perfect_today | N/A |
+| ✅ | TUTORING | TEACH_ALGO | mastered | N/A |
+| ✅ | TUTORING | TEACH_ALGO | mark_for_repeat | N/A |
 | ❌ | TUTORING | TEACH_ALGO | click_instant_success | N/A |
 | ❌ | TUTORING | TEACH_ALGO | click_instant_mark_for_repeat | N/A |
 | ❌ | TUTORING | RESULTS | auto_send_opened | amount |
