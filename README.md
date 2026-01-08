@@ -97,7 +97,7 @@ Here is a list of user actions tracked by Slonig:
 | ✅ | SETTINGS | ECONOMY_INITIALIZED | N/A | N/A |
 | ✅ | SETTINGS | ECONOMY_DIPLOMA_VALIDITY | days | count |
 | ✅ | SETTINGS | AIRDROP_COMPATIBLE | true/false | N/A |
-| ❌ | SETTINGS | RECEIVED_AIRDROP | tokens | amount |
+| ✅ | SETTINGS | RECEIVED_AIRDROP | tokens | amount |
 | ❌ | SETTINGS | DEVELOPER_MODE | true/false | N/A |
 | ❌ | SETTINGS | LANGUAGE | auto_set | two-letter code |
 | ❌ | SETTINGS | LANGUAGE | manually_changed | two-letter code |
