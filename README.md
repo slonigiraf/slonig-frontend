@@ -38,8 +38,7 @@ Here is a list of user actions tracked by Slonig:
 | ✅ | SCAN | SUCCESS | N/A | N/A |
 | ✅ | SCAN | MANUAL_CLOSE | N/A | N/A |
 | ✅ | LEARNING | LOAD_RESULTS | old | LessonPrice |
-| ✅ | LEARNING | LOAD_RESULTS | price_changed | LessonPrice |
-| ✅ | LEARNING | LOAD_RESULTS | new | LessonPrice |
+| ✅ | LEARNING | LOAD_RESULTS | price | LessonPrice |
 | ✅ | TRANSACTIONS | SEND | tokens | amount |
 | ✅ | TRANSACTIONS | RECEIVE | tokens | amount |
 | ✅ | LEARNING | SAVE_BADGES | success | count |
@@ -52,7 +51,6 @@ Here is a list of user actions tracked by Slonig:
 | ❌ | TUTORING | REEXAMINE_ALGO | cycle_ask_to_create_similar_exercise | N/A |
 | ✅ | TUTORING | REEXAMINE_ALGO | ask_to_repeat_similar_exercise | N/A |
 | ✅ | TUTORING | REEXAMINE_ALGO | provide_fake_solution | N/A |
-| ❌ | TUTORING | REEXAMINE_ALGO | correct_fake_solution | N/A |
 | ❌ | TUTORING | REEXAMINE_ALGO | validate | N/A |
 | ✅ | TUTORING | REEXAMINE_ALGO | explain_reimburse | N/A |
 | ✅ | TUTORING | REEXAMINE_ALGO | invalidate | N/A |
