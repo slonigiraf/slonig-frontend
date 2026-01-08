@@ -118,6 +118,7 @@ function UI({ className = '' }: Props): React.ReactElement<Props> {
 
   useEffect(() => {
     if (isAirdropCompatible === undefined || isAirdropCompatible === false) {
+      logEvent('SETTINGS', 'AIRDROP_COMPATIBLE', 'true');
       setSettingToTrue(SettingKey.AIRDROP_COMPATIBLE)
     }
   }, [isAirdropCompatible, setSettingToTrue]);
