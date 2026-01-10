@@ -7,7 +7,6 @@ import { KatexSpan, getIPFSDataFromContentID, parseJson, useLog } from '@slonigi
 import { useTranslation } from '../translate.js';
 import { useIpfsContext } from '@slonigiraf/slonig-components';
 import { Lesson, getPseudonym, isThereAnyLessonResult } from '@slonigiraf/db';
-import { TUTORIAL_NAME } from '../constants.js';
 
 interface Props {
   lesson: Lesson;
@@ -35,7 +34,7 @@ function LessonInfo({ lesson, isSelected, onToggleSelection, onResumeTutoring, o
 
   useEffect(() => {
     async function fetchData() {
-      if (ipfs !== null && text === lesson.cid && text !== TUTORIAL_NAME) {
+      if (ipfs !== null && text === lesson.cid) {
         try {
           const content = await getIPFSDataFromContentID(ipfs, lesson.cid);
           const json = parseJson(content);
@@ -45,8 +44,6 @@ function LessonInfo({ lesson, isSelected, onToggleSelection, onResumeTutoring, o
           setText(`${lesson.cid} (${t('loading')}...)`);
           console.log(e);
         }
-      } else if (text === TUTORIAL_NAME) {
-        setLoaded(true);
       }
     }
     fetchData();

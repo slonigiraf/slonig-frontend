@@ -7,7 +7,7 @@ import { useLocation, useNavigate } from 'react-router-dom';
 import { LessonRequest, UrlParams, useBooleanSettingValue, useLog, useLoginContext } from '@slonigiraf/slonig-components';
 import { u8aToHex } from '@polkadot/util';
 import useFetchWebRTC from '../useFetchWebRTC.js';
-import { EXAMPLE_SKILL_KNOWLEDGE_CID, EXAMPLE_SKILL_KNOWLEDGE_ID, TUTORIAL_NAME } from '../constants.js';
+import { EXAMPLE_SKILL_KNOWLEDGE_CID, EXAMPLE_SKILL_KNOWLEDGE_ID, EXAMPLE_MODULE_KNOWLEDGE_CID } from '../constants.js';
 
 interface Props {
   setCurrentLesson: (lesson: Lesson) => void;
@@ -29,7 +29,7 @@ function LessonRequestReceiver({ setCurrentLesson }: Props): React.ReactElement<
     const tutorialRequest = {
       ...lessonRequest,
       lesson,
-      cid: TUTORIAL_NAME,
+      cid: EXAMPLE_MODULE_KNOWLEDGE_CID,
       reexamine: [],
       learn: [[EXAMPLE_SKILL_KNOWLEDGE_ID, EXAMPLE_SKILL_KNOWLEDGE_CID, diplomaPublicKeyHex],
       [id, cid, diplomaPublicKeyHex]]
