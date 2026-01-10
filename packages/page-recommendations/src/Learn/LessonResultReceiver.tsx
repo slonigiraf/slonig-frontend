@@ -12,6 +12,7 @@ import BN from 'bn.js';
 import { getDataToSignByWorker } from '@slonigiraf/helpers';
 import { useApi } from '@polkadot/react-hooks';
 import useFetchWebRTC from '../useFetchWebRTC.js';
+import { EXAMPLE_SKILL_KNOWLEDGE_ID } from '../constants.js';
 interface Props {
   webRTCPeerId: string | null;
   onDaysRangeChange: (start: Date, end: Date) => void;
@@ -105,12 +106,19 @@ function LessonResultReceiver({ webRTCPeerId, onDaysRangeChange }: Props): React
       pay();
     }
   }, [lessonResult, agreement, isTransferReady, openTransfer])
-
+  
   useEffect(() => {
     async function saveResults() {
       if (agreement) {
         try {
           if (lessonResult?.letters && lessonResult?.letters.length > 0) {
+            if (lessonResult.letters.length === 1) {
+              const letter = deserializeLetter(lessonResult.letters[0], lessonResult.workerId, lessonResult.genesis, lessonResult.amount);
+              if (letter.knowledgeId === EXAMPLE_SKILL_KNOWLEDGE_ID) {
+                logEvent('SETTINGS', 'NOW_IS_CLASS_ONBOARDING', 'true_or_false', 1);
+                await setSettingToTrue(SettingKey.NOW_IS_CLASS_ONBOARDING);
+              }
+            }
             lessonResult.letters.forEach(async (serializedLetter) => {
               const letter = deserializeLetter(serializedLetter, lessonResult.workerId, lessonResult.genesis, lessonResult.amount);
               const sameSkillLetters = await getLettersForKnowledgeId(letter.workerId, letter.knowledgeId);

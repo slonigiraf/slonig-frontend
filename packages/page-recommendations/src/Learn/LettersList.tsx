@@ -10,6 +10,7 @@ import type { KeyringPair } from '@polkadot/keyring/types';
 import { Confirmation, DaysRangePicker, SelectableList, StyledContentCloseButton, ToggleContainer, UrlParams, useInfo } from '@slonigiraf/slonig-components';
 import { useApi, useToggle } from '@polkadot/react-hooks';
 import PersonSelector from '../PersonSelector.js';
+import { EXAMPLE_SKILL_KNOWLEDGE_ID } from '../constants.js';
 
 interface Props {
   className?: string;
@@ -44,10 +45,14 @@ function LettersList({ className = '', worker, currentPair, startDate, endDate, 
     setToggleState(employer !== '' ? ToggleState.GETTING_BONUSES : ToggleState.NO_SELECTION)
   }, [employer]);
 
-  const letters = useLiveQuery<Letter[]>(
+  const lettersRaw = useLiveQuery<Letter[]>(
     () => getLetters(worker, startDate.getTime(), endDate.getTime()),
     [worker, startDate, endDate]
   );
+
+  const letters = toggleState
+    ? (lettersRaw ?? []).filter((letter: Letter) => letter.knowledgeId !== EXAMPLE_SKILL_KNOWLEDGE_ID)
+    : (lettersRaw ?? []);
 
   const [selectedLetters, setSelectedLetters] = useState<Letter[]>([]);
 
@@ -192,7 +197,7 @@ function LettersList({ className = '', worker, currentPair, startDate, endDate, 
         isSelectionAllowed={toggleState !== ToggleState.NO_SELECTION}
       />
       {isDeleteConfirmOpen && (
-        <Confirmation question={t('Are you sure you want to delete it?')} onClose={toggleDeleteConfirm} onConfirm={deleteDiplomas}/>
+        <Confirmation question={t('Are you sure you want to delete it?')} onClose={toggleDeleteConfirm} onConfirm={deleteDiplomas} />
       )}
     </div>
   );

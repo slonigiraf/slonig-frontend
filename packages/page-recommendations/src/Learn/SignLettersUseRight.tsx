@@ -11,6 +11,7 @@ import { insuranceToUsageRight, Letter, putUsageRight, getInsuranceDaysValid, Se
 import { keyForCid } from '@slonigiraf/slonig-components';
 import { EditableInfo } from '@polkadot/react-components';
 import { useApi, useBlockTime } from '@polkadot/react-hooks';
+import { EXAMPLE_SKILL_KNOWLEDGE_ID } from '../constants.js';
 
 interface Props {
   className?: string;
@@ -56,17 +57,19 @@ function SignLettersUseRight({ className = '', letters, worker, employer, curren
             const secondsValid = daysValid * 86400;
             const predictedBlock: BN = predictBlockNumber(currentBlockNumber, millisecondsPerBlock, secondsValid);
 
-            let insurancePromises = letters.map(async letter => {
-              const block = new BN(letter.block);
-              const blockAllowed = block.gt(predictedBlock) ? predictedBlock : block;
-              // generate a data to sign      
-              const letterInsurance = getDataToSignByWorker(letter.letterId, block, blockAllowed, hexToU8a(letter.referee),
-                hexToU8a(letter.worker), new BN(letter.amount), hexToU8a(letter.pubSign), hexToU8a(employer));
+            let insurancePromises = letters
+              .filter((letter) => letter.knowledgeId !== EXAMPLE_SKILL_KNOWLEDGE_ID)
+              .map(async letter => {
+                const block = new BN(letter.block);
+                const blockAllowed = block.gt(predictedBlock) ? predictedBlock : block;
+                // generate a data to sign      
+                const letterInsurance = getDataToSignByWorker(letter.letterId, block, blockAllowed, hexToU8a(letter.referee),
+                  hexToU8a(letter.worker), new BN(letter.amount), hexToU8a(letter.pubSign), hexToU8a(employer));
 
-              const diplomaKey = keyForCid(currentPair, letter.cid);
-              const workerSignOverInsurance = u8aToHex(diplomaKey.sign(u8aWrapBytes(letterInsurance)));
-              return letterToInsurance(letter, employer, workerSignOverInsurance, blockAllowed.toString(), now);
-            });
+                const diplomaKey = keyForCid(currentPair, letter.cid);
+                const workerSignOverInsurance = u8aToHex(diplomaKey.sign(u8aWrapBytes(letterInsurance)));
+                return letterToInsurance(letter, employer, workerSignOverInsurance, blockAllowed.toString(), now);
+              });
 
             const insurances = await Promise.all(insurancePromises);
             usageRightsRef.current = insurances.map(insuranceToUsageRight);
