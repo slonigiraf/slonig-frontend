@@ -4,7 +4,6 @@ import { getAddressName } from '@polkadot/react-components';
 import type { KeyringPair } from '@polkadot/keyring/types';
 import { getSetting, storeSetting, SettingKey, getCIDCache, putCIDCache } from '@slonigiraf/db';
 import Peer from 'peerjs';
-import { formatBalance } from '@polkadot/util';
 import BN from 'bn.js';
 import { CIDCache } from 'db/src/db/CIDCache.js';
 import { ErrorType } from '@polkadot/react-params';
