@@ -5,7 +5,7 @@ import React, { useState } from 'react';
 import { CustomSVGIcon } from '@polkadot/react-components';
 import { useTranslation } from '../translate.js';
 import { addReimbursement, cancelInsurance, Insurance, insuranceToReimbursement } from '@slonigiraf/db';
-import { balanceToSlonFloatOrNaN, slonSVG, SVGButton, useBlockchainSync, useInfo, useLog, useLoginContext } from '@slonigiraf/slonig-components';
+import { bnToSlonFloatOrNaN, slonSVG, SVGButton, useBlockchainSync, useInfo, useLog, useLoginContext } from '@slonigiraf/slonig-components';
 import BN from 'bn.js';
 interface Props {
   className?: string;
@@ -23,7 +23,7 @@ function UseInsurance({ className = '', insurance }: Props): React.ReactElement<
   const processBounty = async () => {
     setIsButtonClicked(true);
     if (currentPair !== null) {
-      logEvent('ASSESSMENT', 'PENALIZE', 'tokens', balanceToSlonFloatOrNaN(new BN(insurance.amount)));
+      logEvent('ASSESSMENT', 'PENALIZE', 'tokens', bnToSlonFloatOrNaN(new BN(insurance.amount)));
       const reimbursement = insuranceToReimbursement(insurance);
       await addReimbursement(reimbursement);
       await cancelInsurance(insurance.workerSign, (new Date).getTime());

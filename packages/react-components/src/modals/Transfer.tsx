@@ -19,7 +19,7 @@ import Modal from '../Modal/index.js';
 import { styled } from '../styled.js';
 import { useTranslation } from '../translate.js';
 import { Button, Spinner } from '@polkadot/react-components';
-import { balanceToSlonString, useInfo, useLoginContext } from '@slonigiraf/slonig-components';
+import { bnToSlonString, useInfo, useLoginContext } from '@slonigiraf/slonig-components';
 import { useNavigate } from 'react-router-dom';
 
 interface Props {
@@ -197,10 +197,10 @@ function Transfer({ className = '', onClose, onConfirmedClose, onSuccess, recipi
     }
   };
 
-  const amountToSendText = balanceToSlonString(amount || BN_ZERO);
-  const maxTransferText = balanceToSlonString(maxTransfer || BN_ZERO);
+  const amountToSendText = bnToSlonString(amount || BN_ZERO);
+  const maxTransferText = bnToSlonString(maxTransfer || BN_ZERO);
   const rewardInfo = t('To get the lesson results, reward your tutor with {{amount}} Slon.', { replace: { amount: amountToSendText } });
-  const topUpAmountText = balanceToSlonString(amount?.sub(maxTransfer || BN_ZERO).add(new BN('1000000000000')) || BN_ZERO);
+  const topUpAmountText = bnToSlonString(amount?.sub(maxTransfer || BN_ZERO).add(new BN('1000000000000')) || BN_ZERO);
   const topUpInfo = t('You do not have enough Slon to reward your tutor and get the lesson results. Top up your balance with at least {{amount}} Slon.', { replace: { amount: topUpAmountText } });
   const balanceInfo = t('You currently have {{amount}} Slon.', { replace: { amount: maxTransferText } });
   const userHasLessSlonThanRequired = isUserBalanceInitilized && ((maxTransfer !== null && amount?.gte(maxTransfer)) || (maxTransfer === null && amount !== undefined));

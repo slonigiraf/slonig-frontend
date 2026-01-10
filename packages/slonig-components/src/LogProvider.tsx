@@ -1,5 +1,5 @@
 import React, { createContext, useContext, ReactNode, useCallback } from 'react';
-import { balanceToSlonFloatOrNaN, balanceToSlonString, StoredEconomy } from './index.js';
+import { bnToSlonFloatOrNaN, bnToSlonString, StoredEconomy } from './index.js';
 import BN from 'bn.js';
 interface LogContextType {
   logEvent: (category: string, action: string, name?: string, value?: number) => void;
@@ -55,10 +55,10 @@ export const LogProvider: React.FC<LogProviderProps> = ({ children }) => {
 
   const logEconomy = useCallback(
     (storedEconomy: StoredEconomy) => {
-      logEvent('SETTINGS', 'ECONOMY_DIPLOMA_PRICE', 'tokens', balanceToSlonFloatOrNaN(new BN(storedEconomy.diplomaPrice)));
-      logEvent('SETTINGS', 'ECONOMY_DIPLOMA_WARRANTY', 'tokens', balanceToSlonFloatOrNaN(new BN(storedEconomy.diplomaWarranty)));
+      logEvent('SETTINGS', 'ECONOMY_DIPLOMA_PRICE', 'tokens', bnToSlonFloatOrNaN(new BN(storedEconomy.diplomaPrice)));
+      logEvent('SETTINGS', 'ECONOMY_DIPLOMA_WARRANTY', 'tokens', bnToSlonFloatOrNaN(new BN(storedEconomy.diplomaWarranty)));
       logEvent('SETTINGS', 'ECONOMY_DIPLOMA_VALIDITY', 'days', parseInt(storedEconomy.diplomaValidity, 10));
-      logEvent('SETTINGS', 'ECONOMY_EXPECTED_AIRDROP', 'tokens', balanceToSlonFloatOrNaN(new BN(storedEconomy.expectedAirdrop)));
+      logEvent('SETTINGS', 'ECONOMY_EXPECTED_AIRDROP', 'tokens', bnToSlonFloatOrNaN(new BN(storedEconomy.expectedAirdrop)));
       logEvent('SETTINGS', 'ECONOMY_INITIALIZED', storedEconomy.economyInitialized);
     },
     [logEvent]

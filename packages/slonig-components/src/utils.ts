@@ -18,28 +18,33 @@ export const getBaseUrl = () => {
 const TOKEN_DECIMALS = 12;
 const BASE = new BN(10).pow(new BN(TOKEN_DECIMALS));
 
-export const balanceToSlonString = (balance: BN): string => {
+export const bnToSlonString = (balance: BN): string => {
   if (!balance || balance.isZero()) return '0';
 
-  const whole = balance.div(BASE);
-  const frac = balance.mod(BASE);
+  const neg = balance.isNeg();
+  const abs = balance.abs();
 
-  // Take first 2 decimal digits (truncate, like toFixed without rounding)
+  const whole = abs.div(BASE);
+  const frac = abs.mod(BASE);
+
+  // first 2 decimals, truncating (no rounding)
   const frac2 = frac.muln(100).div(BASE); // 0..99
 
+  let out: string;
   if (frac2.isZero()) {
-    return whole.toString();
+    out = whole.toString();
+  } else {
+    const fracStr = frac2.toString().padStart(2, '0').replace(/0+$/, '');
+    out = `${whole.toString()}.${fracStr}`;
   }
-
-  // pad to exactly 2 digits, then trim trailing zeros
-  let fracStr = frac2.toString().padStart(2, '0').replace(/0+$/, '');
-
-  return `${whole.toString()}.${fracStr}`;
+  // avoid "-0" / "-0.xxx" edge weirdness
+  if (neg && out !== '0') return `-${out}`;
+  return out;
 };
 
-export const balanceToSlonFloatOrNaN = (balance: BN): number => {
+export const bnToSlonFloatOrNaN = (balance: BN): number => {
   try {
-    return parseFloat(balanceToSlonString(balance));
+    return parseFloat(bnToSlonString(balance));
   } catch (_e) {
     return NaN;
   }

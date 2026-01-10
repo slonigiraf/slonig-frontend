@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import React, { useCallback, useEffect, useState } from 'react';
-import { useLoginContext, useTokenTransfer, useInfo, LessonResult, keyForCid, getAddressFromPublickeyHex, useBlockchainSync, useLog, balanceToSlonString, balanceToSlonFloatOrNaN } from '@slonigiraf/slonig-components';
+import { useLoginContext, useTokenTransfer, useInfo, LessonResult, keyForCid, getAddressFromPublickeyHex, useBlockchainSync, useLog, bnToSlonString, bnToSlonFloatOrNaN } from '@slonigiraf/slonig-components';
 import { hexToU8a, u8aToHex, u8aWrapBytes } from '@polkadot/util';
 import { addReimbursement, cancelLetter, deserializeLetter, getAgreement, getLetter, getLettersForKnowledgeId, letterToReimbursement, putAgreement, putLetter, setSettingToTrue, SettingKey, storePseudonym, updateLetterReexaminingCount } from '@slonigiraf/db';
 import { useTranslation } from '../translate.js';
@@ -41,7 +41,7 @@ function LessonResultReceiver({ webRTCPeerId, onDaysRangeChange }: Props): React
       storePseudonym(receivedResult.referee, receivedResult.refereeName);
       setLessonResult(receivedResult);
       const dbAgreement = await getAgreement(receivedResult.agreement);
-      const priceToLog = balanceToSlonFloatOrNaN(new BN(receivedResult.price));
+      const priceToLog = bnToSlonFloatOrNaN(new BN(receivedResult.price));
 
       if (dbAgreement) {
         if (dbAgreement.completed === true) {

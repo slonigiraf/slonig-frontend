@@ -3,7 +3,7 @@ import React, { useEffect, useState, useRef, useCallback, ReactNode, createConte
 import { useApi, useBlockEvents, useCall, useIsMountedRef } from '@polkadot/react-hooks';
 import { useLoginContext } from './LoginContext.js';
 import BN from 'bn.js';
-import { balanceToSlonFloatOrNaN, balanceToSlonString, EXISTENTIAL_BATCH_SENDER_BALANCE, getAddressFromPublickeyHex, getRecommendationsFrom, useInfo, useLog } from './index.js';
+import { bnToSlonFloatOrNaN, bnToSlonString, EXISTENTIAL_BATCH_SENDER_BALANCE, getAddressFromPublickeyHex, getRecommendationsFrom, useInfo, useLog } from './index.js';
 import { EXISTENTIAL_REFEREE_BALANCE, REIMBURSEMENT_BATCH_SIZE } from '@slonigiraf/slonig-components';
 import { BN_ZERO } from '@polkadot/util';
 import type { AccountInfo } from '@polkadot/types/interfaces';
@@ -84,12 +84,12 @@ export const BlockchainSyncProvider: React.FC<BlockchainSyncProviderProps> = ({ 
     useEffect(() => {
         if (accountInfo && myBalance.current && lastAddressRef.current === currentPair?.address) {
             const balanceChange = accountInfo.data.free.sub(myBalance.current);
-            const priceToLog = balanceToSlonFloatOrNaN(new BN(balanceChange));
+            const priceToLog = bnToSlonFloatOrNaN(new BN(balanceChange));
             const icon = balanceChange.gte(BN_ZERO) ? 'hand-holding-dollar' : 'money-bill-trend-up';
-            const balanceChangeToShow = balanceToSlonString(balanceChange);
+            const balanceChangeToShow = bnToSlonString(balanceChange);
             if (balanceChangeToShow !== '0' && myBalance.current.gt(BN_ZERO)) {
                 logEvent('TRANSACTIONS', priceToLog > 0 ? 'RECEIVE' : 'SEND', 'tokens', Math.abs(priceToLog));
-                showInfo(balanceToSlonString(balanceChange) + ' Slon', 'info', 4, icon);
+                showInfo(bnToSlonString(balanceChange) + ' Slon', 'info', 4, icon);
             }
         }
         myBalance.current = accountInfo?.data.free || null;
@@ -291,7 +291,7 @@ export const BlockchainSyncProvider: React.FC<BlockchainSyncProviderProps> = ({ 
         if (selectedReimbursements.length > 0) {
             sendTransactions(selectedReimbursements);
             selectedReimbursements.forEach(r => {
-                const priceToLog = balanceToSlonFloatOrNaN(new BN(r.amount));
+                const priceToLog = bnToSlonFloatOrNaN(new BN(r.amount));
                 logEvent('SYNC', 'SUBMIT_PENALTY_EXTRINSIC', 'tokens', Math.abs(priceToLog));
             });
         } else {
