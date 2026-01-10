@@ -23,11 +23,12 @@ interface Props {
   hasTuteeUsedSlonig: boolean;
   isSendingResultsEnabled: boolean | null | undefined;
   isBeforeTeaching?: boolean;
+  isTutorial: boolean;
 }
 
 type AlgorithmType = '' | 'TEACH_ALGO' | 'REEXAMINE_ALGO';
 
-function DoInstructions({ className = '', entity, onResult, studentName, isSendingResultsEnabled, hasTuteeUsedSlonig, hasTutorCompletedTutorial, isBeforeTeaching = false }: Props): React.ReactElement<Props> {
+function DoInstructions({ className = '', entity, onResult, studentName, isSendingResultsEnabled, hasTuteeUsedSlonig, hasTutorCompletedTutorial, isBeforeTeaching = false, isTutorial }: Props): React.ReactElement<Props> {
   const { ipfs, isIpfsReady } = useIpfsContext();
   const [skill, setSkill] = useState<Skill>();
   const { t } = useTranslation();
@@ -204,6 +205,11 @@ function DoInstructions({ className = '', entity, onResult, studentName, isSendi
     return <StyledSpinner label={t('Loading')} />;
   }
 
+  const isDecisionStyleBlured = (hasTutorCompletedTutorial === false &&
+    (areButtonsBlured || isSendingResultsEnabled === true)) || (hasTutorCompletedTutorial === true && isTutorial);
+
+  const showChatDecorator = (hasTutorCompletedTutorial || isChatFinished) && (hasTutorCompletedTutorial && !isTutorial);
+
   return (
     <div className={className}>
       {algorithmStage ? (
@@ -213,13 +219,14 @@ function DoInstructions({ className = '', entity, onResult, studentName, isSendi
             messages={algorithmStage.getMessages()}
             hasTutorCompletedTutorial={hasTutorCompletedTutorial}
             isSendingResultsEnabled={isSendingResultsEnabled}
+            isTutorial={isTutorial}
             onAllMessagesRevealed={() => setIsChatFinished(true)}
           />
 
-          {(hasTutorCompletedTutorial || isChatFinished) && algorithmStage.getChatDecorator()}
+          {showChatDecorator && algorithmStage.getChatDecorator()}
 
           <InstructionsButtonsContainer>
-            <DecisionBubble $blur={hasTutorCompletedTutorial === false && (areButtonsBlured || isSendingResultsEnabled === true)}>
+            <DecisionBubble $blur={isDecisionStyleBlured}>
               <ChatContainer>
                 <h2>{t('⚖️ Decide on the next step')}</h2>
                 <span>

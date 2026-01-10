@@ -11,6 +11,7 @@ import LessonResults from './LessonResults.js';
 import LessonRequestReceiver from './LessonRequestReceiver.js';
 import { useTranslation } from '../translate.js';
 import { useLocation } from 'react-router-dom';
+import { EXAMPLE_MODULE_KNOWLEDGE_CID } from '../constants.js';
 
 interface Props {
   className?: string;
@@ -209,6 +210,7 @@ function Teach({ className = '' }: Props): React.ReactElement<Props> {
     }
   }, [lesson, hasTutorCompletedTutorial, reexamined, reexaminationToPerform, letterTemplateToIssue, updateReexamined]);
 
+  const isTutorial = lesson?.cid===EXAMPLE_MODULE_KNOWLEDGE_CID;
   const reexamAndDiplomaIssuing = <FullFindow>
     <VerticalCenterItemsContainer>
       {lesson && <Progress>
@@ -226,6 +228,7 @@ function Teach({ className = '' }: Props): React.ReactElement<Props> {
             hasTutorCompletedTutorial={hasTutorCompletedTutorial}
             onResult={updateReexamined}
             studentName={studentName}
+            isTutorial={isTutorial}
             isSendingResultsEnabled={isSendingResultsEnabled}
             isBeforeTeaching={letterTemplates && letterTemplates.length > 0}
             key={'reexaminine' + reexaminationToPerform.cid} />}
@@ -236,11 +239,12 @@ function Teach({ className = '' }: Props): React.ReactElement<Props> {
             hasTutorCompletedTutorial={hasTutorCompletedTutorial}
             onResult={updateLearned}
             studentName={studentName}
+            isTutorial={isTutorial}
             isSendingResultsEnabled={isSendingResultsEnabled}
             key={'learn' + letterTemplateToIssue.cid} />}
         {lesson &&
           <SendResults $blur={isSendingResultsEnabled !== true}>
-            {hasTutorCompletedTutorial === false && isSendingResultsEnabled === true &&
+            {(hasTutorCompletedTutorial === false || isTutorial ) && isSendingResultsEnabled === true &&
               <HintBubble>
                 <h2>{t('Press this button to send the results and get your reward for tutoring')}</h2>
               </HintBubble>

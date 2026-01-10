@@ -14,9 +14,10 @@ interface ChatSimulationProps {
   hasTutorCompletedTutorial: boolean | null | undefined;
   isSendingResultsEnabled: boolean | null | undefined;
   onAllMessagesRevealed: () => void;
+  isTutorial: boolean;
 }
 
-const ChatSimulation: React.FC<ChatSimulationProps> = ({ messages, hasTutorCompletedTutorial, isSendingResultsEnabled, onAllMessagesRevealed }) => {
+const ChatSimulation: React.FC<ChatSimulationProps> = ({ messages, hasTutorCompletedTutorial, isSendingResultsEnabled, onAllMessagesRevealed, isTutorial }) => {
   const [revealedCount, setRevealedCount] = useState(1);
   const { t } = useTranslation();
 
@@ -38,7 +39,7 @@ const ChatSimulation: React.FC<ChatSimulationProps> = ({ messages, hasTutorCompl
   return (
     <ChatContainer>
       {messages.map((message, index) => {
-        const isVisible = hasTutorCompletedTutorial || (isSendingResultsEnabled === false && (index < revealedCount));
+        const isVisible = !(isTutorial && hasTutorCompletedTutorial) && (hasTutorCompletedTutorial || (isSendingResultsEnabled === false && (index < revealedCount)));
         const isNext = isSendingResultsEnabled === false && (hasTutorCompletedTutorial === false) && (index === revealedCount);
 
         return (
