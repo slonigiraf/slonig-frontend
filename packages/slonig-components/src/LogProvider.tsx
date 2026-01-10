@@ -23,6 +23,17 @@ export const LogProvider: React.FC<LogProviderProps> = ({ children }) => {
       // SSR/Node safety
       if (typeof window === 'undefined') return;
 
+      // Don't log on localhost (dev)
+      const host = window.location.hostname;
+      const isLocalhost =
+        host === 'localhost' ||
+        host === '127.0.0.1' ||
+        host === '::1' ||
+        // covers 127.x.x.x
+        /^127(?:\.\d{1,3}){3}$/.test(host);
+
+      if (isLocalhost) return;
+
       // Matomo allows queuing events before the tracker script is fully loaded.
       window._paq = window._paq || [];
 
