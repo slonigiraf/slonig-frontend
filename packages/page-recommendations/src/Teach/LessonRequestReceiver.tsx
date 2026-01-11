@@ -23,7 +23,10 @@ function LessonRequestReceiver({ setCurrentLesson }: Props): React.ReactElement<
 
   const changeRequestIntoTutorial = (lessonRequest: LessonRequest): LessonRequest => {
     const lesson = getLessonId(lessonRequest.identity, []);
-    const [[id, cid, diplomaPublicKeyHex]] = lessonRequest.learn;
+    const tuple = lessonRequest.learn.at(-1) ?? lessonRequest.learn.at(0);
+    if (!tuple) throw new Error('lessonRequest.learn is empty');
+    const [id, cid, diplomaPublicKeyHex] = tuple;
+    
     const tutorialRequest = {
       ...lessonRequest,
       lesson,
