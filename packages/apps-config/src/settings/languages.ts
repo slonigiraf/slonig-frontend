@@ -49,6 +49,10 @@ export function createLanguages(t: TFunction): Option[] {
       value: 'ko'
     },
     {
+      text: 'Кыргызча',
+      value: 'ky'
+    },
+    {
       text: 'Português',
       value: 'pt'
     },
