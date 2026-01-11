@@ -108,6 +108,17 @@ class TutoringAlgorithm extends Algorithm {
         );
 
         //Use only if student never used Slonig
+        const intro = new AlgorithmStage(
+            0,
+            'intro',
+            t('Yes'),
+            [
+                { title: t('📖 Read what’s happening'), text: t('You will do first tutoring.') },
+            ],
+            t('Let’s go?'),
+            <ExampleExercisesButton skill={skill} />
+        );
+
         const askToCreateAnExerciseAfterCompletionOfExerciseOfTutor = new AlgorithmStage(
             1,
             'ask_to_create_similar_exercise',
@@ -152,7 +163,9 @@ class TutoringAlgorithm extends Algorithm {
         );
 
         // Algo linking
-        this.begin = bothUsedSlonig ? askStudentToCreateASimilarExercise : askStudentToSolveAnExercise;
+        this.begin = bothUsedSlonig ? askStudentToCreateASimilarExercise : intro;
+
+        intro.setNext([askStudentToSolveAnExercise]);
 
         askStudentToSolveAnExercise.setNext([skip, askToCreateAnExerciseAfterCompletionOfExerciseOfTutor, askStudentToRepeatTheSolutionOfExerciseOfTutor]);
 

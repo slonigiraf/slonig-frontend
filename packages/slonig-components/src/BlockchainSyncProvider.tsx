@@ -197,67 +197,107 @@ export const BlockchainSyncProvider: React.FC<BlockchainSyncProviderProps> = ({ 
 
 
     const sendTransactions = useCallback(async (reimbursements: Reimbursement[]) => {
-        if (currentPair) {
-            let signedTransactionsPromises = reimbursements.map(async reimbursement => {
-                return api.tx.letters.reimburse(
-                    reimbursement.letterId,
-                    new BN(reimbursement.block),
-                    new BN(reimbursement.blockAllowed),
-                    reimbursement.referee,
-                    reimbursement.worker,
-                    reimbursement.employer,
-                    new BN(reimbursement.amount),
-                    reimbursement.pubSign,
-                    reimbursement.workerSign
-                );
-            });
+        if (!currentPair) return;
 
-            const txs = (await Promise.all(signedTransactionsPromises)).filter(tx => tx !== undefined);
+        // Keep tx + metadata together so indexes can’t drift
+        const txWithMeta = (
+            await Promise.all(
+                reimbursements.map(async (reimbursement) => {
+                    const tx = api.tx.letters.reimburse(
+                        reimbursement.letterId,
+                        new BN(reimbursement.block),
+                        new BN(reimbursement.blockAllowed),
+                        reimbursement.referee,
+                        reimbursement.worker,
+                        reimbursement.employer,
+                        new BN(reimbursement.amount),
+                        reimbursement.pubSign,
+                        reimbursement.workerSign
+                    );
 
-            if (txs && txs.length > 0) {
-                const unsub = await api.tx.utility
-                    .forceBatch(txs)
-                    .signAndSend(currentPair, async ({ events = [], status }) => {
-                        try {
-                            if (status.isInBlock || status.isFinalized) {
-                                let batchCompletedWithErrors = false;
-                                events.forEach(({ event, phase }) => {
-                                    if (phase.isApplyExtrinsic) {
-                                        if (event.section === 'utility' && event.method === 'BatchCompletedWithErrors') {
-                                            batchCompletedWithErrors = true;
-                                            console.error('Batch completed with errors.');
-                                        }
-                                        if (event.section === 'utility' && event.method === 'ItemFailed') {
-                                            const [dispatchError] = event.data;
-                                            let errorInfo;
-                                            if ((dispatchError as any).isModule) {
-                                                const decoded = api.registry.findMetaError((dispatchError as any).asModule);
-                                                errorInfo = `${decoded.section}.${decoded.name}`;
-                                            } else {
-                                                errorInfo = dispatchError.toString();
-                                            }
-                                            console.error(`ItemFailed:: ${errorInfo}`);
-                                        }
-                                    }
-                                });
-                                if (batchCompletedWithErrors) {
-                                    console.error('forceBatch transaction partially succeeded: Some items failed.');
-                                }
-                                unsub();
-                                isSendingBatchRef.current = false;
-                            }
-                        } catch (error) {
-                            if (error instanceof Error) {
-                                console.error(`Error in transaction handling: ${error.message}`);
-                            } else {
-                                console.error(`Unexpected error: ${JSON.stringify(error)}`);
-                            }
-                            isSendingBatchRef.current = false;
+                    return { tx, reimbursement };
+                })
+            )
+        ).filter((x) => !!x?.tx);
+
+        const txs = txWithMeta.map((x) => x.tx);
+
+        if (txs.length === 0) return;
+
+        const now = Date.now();
+
+        const unsub = await api.tx.utility
+            .forceBatch(txs)
+            .signAndSend(currentPair, async ({ events = [], status }) => {
+                try {
+                    if (!status.isInBlock && !status.isFinalized) return;
+
+                    let batchCompletedWithErrors = false;
+
+                    // This counts only ItemCompleted/ItemFailed, and maps 1:1 to calls order
+                    let itemIndex = 0;
+
+                    for (const { event, phase } of events) {
+                        if (!phase.isApplyExtrinsic) continue;
+
+                        // Summary-only (no details)
+                        if (api.events.utility.BatchCompletedWithErrors.is(event)) {
+                            batchCompletedWithErrors = true;
+                            continue;
                         }
-                    });
-            }
-        }
-    }, [currentPair, api]);
+
+                        // Success for one item
+                        if (api.events.utility.ItemCompleted.is(event)) {
+                            itemIndex++;
+                            continue;
+                        }
+
+                        // Failure for one item
+                        if (api.events.utility.ItemFailed.is(event)) {
+                            const [dispatchError] = event.data;
+
+                            const failed = txWithMeta[itemIndex]; // ✅ exact tx + reimbursement
+                            const failedReferee = failed?.reimbursement?.referee;
+                            const failedLetterId = failed?.reimbursement?.letterId;
+
+                            let errorInfo: string;
+                            if ((dispatchError as any).isModule) {
+                                const decoded = api.registry.findMetaError((dispatchError as any).asModule);
+                                errorInfo = `${decoded.section}.${decoded.name}`;
+                            } else {
+                                errorInfo = dispatchError.toString();
+                            }
+
+                            console.error(`ItemFailed @ index=${itemIndex} :: ${errorInfo}`);
+
+                            // ✅ Apply same cancellation logic when appropriate
+                            // Expand this condition if you want to treat more errors as “cancel locally”.
+                            if (errorInfo === 'letters.Expired' && failedReferee && typeof failedLetterId === 'number') {
+                                await processLetterCancelationEvent(failedReferee, failedLetterId, now);
+                            }
+
+                            itemIndex++;
+                            continue;
+                        }
+                    }
+
+                    if (batchCompletedWithErrors) {
+                        console.error('forceBatch partially succeeded: Some items failed.');
+                    }
+
+                    unsub();
+                    isSendingBatchRef.current = false;
+                } catch (error) {
+                    console.error(
+                        error instanceof Error
+                            ? `Error in transaction handling: ${error.message}`
+                            : `Unexpected error: ${JSON.stringify(error)}`
+                    );
+                    isSendingBatchRef.current = false;
+                }
+            });
+    }, [currentPair, api, processLetterCancelationEvent]);
+
 
     const selectAndSendTransactions = useCallback(async () => {
         let selectedReimbursements: Reimbursement[] = [];
