@@ -136,9 +136,8 @@ function ViewList({ className = '', id, cidString, isClassInstructionShown, setI
   }, [closeQR, setIsPutDeviceAsideOpen]);
 
   const exitFullScreenActivity = useCallback((): void => {
-    hasTuteeCompletedTutorial ? closeQR() : setIsExitConfirmOpen(true);
-    logEvent('LEARNING', 'CANCEL');
-  }, [hasTuteeCompletedTutorial, closeQR, logEvent]);
+    setIsExitConfirmOpen(true);
+  }, [hasTuteeCompletedTutorial]);
 
   useEffect((): void => {
     if (
@@ -256,7 +255,14 @@ function ViewList({ className = '', id, cidString, isClassInstructionShown, setI
           <FullscreenActivity captionElement={<KatexSpan content={list.h} />} onClose={exitFullScreenActivity} >
             <RemoveBorders>{content}</RemoveBorders>
             {isExitConfirmOpen && (
-              <Confirmation question={t('Sure to exit learning?')} onClose={() => setIsExitConfirmOpen(false)} onConfirm={closeQR} />
+              <Confirmation
+                question={t('Sure to exit learning?')}
+                onClose={() => setIsExitConfirmOpen(false)}
+                onConfirm={() => {
+                  logEvent('LEARNING', 'CANCEL');
+                  closeQR();
+                }}
+              />
             )}
           </FullscreenActivity> :
         content);
