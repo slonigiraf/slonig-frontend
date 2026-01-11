@@ -290,7 +290,7 @@
   "OpenAI Token": "OpenAI 令牌",
   "Please forget everything you know about teaching—just follow the app’s hints.": "请忘掉你对教学的一切认知——只需按照应用的提示操作。",
   "Start": "开始",
-  "You are a tutor. The app will show you how to teach the student sitting in front of you.": "你是导师。应用会向你展示如何教你面前的学生。",
+  "You are a tutor. The app will show you how to teach the student who showed you a QR code.": "你是导师。应用会向你展示如何教你面前的学生。",
   "🧠 Important": "🧠 重要",
   "Warm-up": "热身"
 }

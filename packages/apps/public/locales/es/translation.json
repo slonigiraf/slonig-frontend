@@ -290,7 +290,7 @@
   "OpenAI Token": "Token de OpenAI",
   "Please forget everything you know about teaching—just follow the app’s hints.": "Por favor, olvida todo lo que sabes sobre enseñar y simplemente sigue las sugerencias de la aplicación.",
   "Start": "Comenzar",
-  "You are a tutor. The app will show you how to teach the student sitting in front of you.": "Eres el tutor. La aplicación te mostrará cómo enseñar al estudiante que está frente a ti.",
+  "You are a tutor. The app will show you how to teach the student who showed you a QR code.": "Eres el tutor. La aplicación te mostrará cómo enseñar al estudiante que está frente a ti.",
   "🧠 Important": "🧠 Importante",
   "Warm-up": "Calentamiento"
 }
