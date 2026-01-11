@@ -116,7 +116,7 @@ class TutoringAlgorithm extends Algorithm {
                 { title: t('📖 Read what’s happening'), text: t('You are a tutor. The app will show you how to teach the student sitting in front of you.') },
                 { title: t('🧠 Important'), text: t('Please forget everything you know about teaching—just follow the app’s hints.') },
             ],
-            t('Let’s start with an example skill. Your student will pretend not to know it so you can practice using the app’s hints to teach.'),
+            t('Let’s start with an example skill. Your student will pretend not to know it, so you can practice using the app’s prompts to teach.'),
             <ExampleExercisesButton skill={skill} />
         );
 
