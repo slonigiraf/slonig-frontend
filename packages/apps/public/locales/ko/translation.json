@@ -280,5 +280,10 @@
   "🗣 Give your tutee a wrong answer and say": "🗣 학생에게 잘못된 답을 주고 이렇게 말하세요",
   "🗣 Say to the tutee": "🗣 학생에게 이렇게 말하세요",
   "🗣 Show the tutee the correct execution, and say": "🗣 학생에게 올바른 실행을 보여주며 이렇게 말하세요",
-  "Please fill in all the fields!": "모든 항목을 입력해 주세요!"
+  "Please fill in all the fields!": "모든 항목을 입력해 주세요!",
+  "Are you sure everyone around you has tried using Slonig?": "주변의 모든 사람이 이미 Slonig를 사용해 본 것이 확실한가요?",
+  "I’ve found a new partner": "새 파트너를 찾았어요",
+  "Please close this private / incognito window and open the site in a normal one.": "이 비공개 / 시크릿 창을 닫고 일반 창에서 사이트를 열어 주세요.",
+  "Split and find a partner that never used Slonig": "나뉘어서 Slonig를 한 번도 사용해 본 적 없는 파트너를 찾으세요",
+  "That person will be your tutor.": "그 사람이 당신의 튜터가 될 거예요."
 }
