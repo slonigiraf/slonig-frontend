@@ -3,7 +3,7 @@
 
 import { Button, Progress, Spinner, styled } from '@polkadot/react-components';
 import React, { useState, useEffect, useCallback } from 'react';
-import { KatexSpan, getIPFSDataFromContentID, parseJson, useLog } from '@slonigiraf/slonig-components';
+import { EXAMPLE_MODULE_KNOWLEDGE_CID, KatexSpan, getIPFSDataFromContentID, parseJson, useLog } from '@slonigiraf/slonig-components';
 import { useTranslation } from '../translate.js';
 import { useIpfsContext } from '@slonigiraf/slonig-components';
 import { Lesson, getPseudonym, isThereAnyLessonResult } from '@slonigiraf/db';
@@ -38,7 +38,11 @@ function LessonInfo({ lesson, isSelected, onToggleSelection, onResumeTutoring, o
         try {
           const content = await getIPFSDataFromContentID(ipfs, lesson.cid);
           const json = parseJson(content);
-          setText(json.h);
+          if (lesson.cid === EXAMPLE_MODULE_KNOWLEDGE_CID) {
+            setText(t('Warm-up'));
+          } else {
+            setText(json.h);
+          }
           setLoaded(true);
         } catch (e) {
           setText(`${lesson.cid} (${t('loading')}...)`);
