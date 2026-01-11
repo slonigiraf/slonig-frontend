@@ -113,9 +113,10 @@ class TutoringAlgorithm extends Algorithm {
             'intro',
             t('Yes'),
             [
-                { title: t('📖 Read what’s happening'), text: t('You will do first tutoring.') },
+                { title: t('📖 Read what’s happening'), text: t('You are a tutor. The app will show you how to teach the student sitting in front of you.') },
+                { title: t('🧠 Important'), text: t('Please forget everything you know about teaching—just follow the app’s hints.') },
             ],
-            t('Let’s go?'),
+            t('Let’s start with an example skill. Your student will pretend not to know it so you can practice the teaching steps.'),
             <ExampleExercisesButton skill={skill} />
         );
 
@@ -134,7 +135,7 @@ class TutoringAlgorithm extends Algorithm {
         const askStudentToSolveAnExercise = new AlgorithmStage(
             1,
             'begin_ask_to_solve_exercise',
-            t('Yes'),
+            t('Start'),
             [
                 { title: t('📖 Read what’s happening'), text: t('{{name}} asks you to teach the skill', { replace: { name: studentName } }) + (skill && ': ’' + skill.h + '’') },
                 { title: t('🗣 Say to the tutee'), text: question1, image: exerciseImage1 },
