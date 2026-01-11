@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import React, { useCallback, useEffect, useState } from 'react';
-import { useLoginContext, useTokenTransfer, useInfo, LessonResult, keyForCid, getAddressFromPublickeyHex, useBlockchainSync, useLog, bnToSlonString, bnToSlonFloatOrNaN } from '@slonigiraf/slonig-components';
+import { useLoginContext, useTokenTransfer, useInfo, LessonResult, keyForCid, getAddressFromPublickeyHex, useBlockchainSync, useLog, EXAMPLE_SKILL_KNOWLEDGE_ID, bnToSlonFloatOrNaN } from '@slonigiraf/slonig-components';
 import { hexToU8a, u8aToHex, u8aWrapBytes } from '@polkadot/util';
 import { addReimbursement, cancelLetter, deserializeLetter, getAgreement, getLetter, getLettersForKnowledgeId, letterToReimbursement, putAgreement, putLetter, setSettingToTrue, SettingKey, storePseudonym, updateLetterReexaminingCount } from '@slonigiraf/db';
 import { useTranslation } from '../translate.js';
@@ -12,7 +12,6 @@ import BN from 'bn.js';
 import { getDataToSignByWorker } from '@slonigiraf/helpers';
 import { useApi } from '@polkadot/react-hooks';
 import useFetchWebRTC from '../useFetchWebRTC.js';
-import { EXAMPLE_SKILL_KNOWLEDGE_ID } from '../constants.js';
 interface Props {
   webRTCPeerId: string | null;
   onDaysRangeChange: (start: Date, end: Date) => void;

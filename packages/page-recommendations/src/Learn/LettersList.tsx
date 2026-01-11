@@ -2,15 +2,14 @@ import BadgeInfo from './../Assess/BadgeInfo.js';
 import React, { useCallback, useEffect, useState } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { deleteLetter, Badge, getLetters, Letter } from '@slonigiraf/db';
-import { Button, styled, Icon, Modal, Toggle, Tag } from '@polkadot/react-components';
+import { Button, Toggle, Tag } from '@polkadot/react-components';
 import { useTranslation } from '../translate.js';
 import { useLocation, useNavigate } from 'react-router-dom';
 import SignLettersUseRight from './SignLettersUseRight.js';
 import type { KeyringPair } from '@polkadot/keyring/types';
-import { Confirmation, DaysRangePicker, SelectableList, StyledContentCloseButton, ToggleContainer, UrlParams, useInfo } from '@slonigiraf/slonig-components';
+import { Confirmation, DaysRangePicker, SelectableList, StyledContentCloseButton, ToggleContainer, UrlParams, useInfo, EXAMPLE_SKILL_KNOWLEDGE_ID } from '@slonigiraf/slonig-components';
 import { useApi, useToggle } from '@polkadot/react-hooks';
 import PersonSelector from '../PersonSelector.js';
-import { EXAMPLE_SKILL_KNOWLEDGE_ID } from '../constants.js';
 
 interface Props {
   className?: string;

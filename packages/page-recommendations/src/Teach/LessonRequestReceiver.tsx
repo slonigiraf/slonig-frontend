@@ -4,10 +4,9 @@
 import { getLesson, getLessonId, getSetting, Lesson, setSettingToTrue, SettingKey, storeLesson, storePseudonym } from '@slonigiraf/db';
 import React, { useCallback } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
-import { LessonRequest, UrlParams, useLog, useLoginContext } from '@slonigiraf/slonig-components';
+import { LessonRequest, UrlParams, useLog, useLoginContext, EXAMPLE_SKILL_KNOWLEDGE_CID, EXAMPLE_SKILL_KNOWLEDGE_ID, EXAMPLE_MODULE_KNOWLEDGE_CID } from '@slonigiraf/slonig-components';
 import { u8aToHex } from '@polkadot/util';
 import useFetchWebRTC from '../useFetchWebRTC.js';
-import { EXAMPLE_SKILL_KNOWLEDGE_CID, EXAMPLE_SKILL_KNOWLEDGE_ID, EXAMPLE_MODULE_KNOWLEDGE_CID } from '../constants.js';
 
 interface Props {
   setCurrentLesson: (lesson: Lesson) => void;
@@ -45,13 +44,7 @@ function LessonRequestReceiver({ setCurrentLesson }: Props): React.ReactElement<
       const goWithNormalRequest = dbValueOfHasTutorCompletedTutorial === 'true';
 
       if (goWithNormalRequest) {
-        const lessonRequestWithoutTutorialData = {
-          ...lessonRequest,
-          reexamine: lessonRequest.reexamine.filter(
-            ([cid]) => cid !== EXAMPLE_SKILL_KNOWLEDGE_CID
-          )
-        };
-        await storeLesson(lessonRequestWithoutTutorialData, tutorPublicKeyHex);
+        await storeLesson(lessonRequest, tutorPublicKeyHex);
       }
       else {
         logEvent('SETTINGS', 'NOW_IS_CLASS_ONBOARDING', 'true_or_false', 1);

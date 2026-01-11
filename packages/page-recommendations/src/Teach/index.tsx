@@ -3,15 +3,14 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { Button, LinearProgress, styled } from '@polkadot/react-components';
 import { u8aToHex } from '@polkadot/util';
-import { Confirmation, OKBox, FullFindow, VerticalCenterItemsContainer, useInfo, useLoginContext, HintBubble, useBooleanSettingValue, useLog } from '@slonigiraf/slonig-components';
-import { LetterTemplate, Lesson, Reexamination, getPseudonym, getLesson, getLetterTemplatesByLessonId, getReexaminationsByLessonId, getSetting, storeSetting, updateLesson, getLetter, getReexamination, SettingKey, deleteSetting, getValidLetterTemplatesByLessonId, isThereAnyLessonResult, setSettingToTrue } from '@slonigiraf/db';
+import { Confirmation, OKBox, FullFindow, VerticalCenterItemsContainer, useInfo, useLoginContext, HintBubble, useBooleanSettingValue, useLog, EXAMPLE_MODULE_KNOWLEDGE_CID } from '@slonigiraf/slonig-components';
+import { LetterTemplate, Lesson, Reexamination, getPseudonym, getLesson, getLetterTemplatesByLessonId, getReexaminationsByLessonId, getSetting, storeSetting, updateLesson, getLetter, getReexamination, SettingKey, deleteSetting, isThereAnyLessonResult, setSettingToTrue } from '@slonigiraf/db';
 import DoInstructions from './DoInstructions.js';
 import LessonsList from './LessonsList.js';
 import LessonResults from './LessonResults.js';
 import LessonRequestReceiver from './LessonRequestReceiver.js';
 import { useTranslation } from '../translate.js';
 import { useLocation } from 'react-router-dom';
-import { EXAMPLE_MODULE_KNOWLEDGE_CID } from '../constants.js';
 
 interface Props {
   className?: string;
@@ -24,7 +23,7 @@ function Teach({ className = '' }: Props): React.ReactElement<Props> {
 
   const { t } = useTranslation();
   const { showInfo } = useInfo();
-  const { logEvent } = useLog(); 
+  const { logEvent } = useLog();
   // Initialize api, ipfs and translation
   const { currentPair, isLoggedIn } = useLoginContext();
   const [reexaminationToPerform, setReexaminationToPerform] = useState<Reexamination | null>(null);
@@ -210,7 +209,7 @@ function Teach({ className = '' }: Props): React.ReactElement<Props> {
     }
   }, [lesson, hasTutorCompletedTutorial, reexamined, reexaminationToPerform, letterTemplateToIssue, updateReexamined]);
 
-  const isTutorial = lesson?.cid===EXAMPLE_MODULE_KNOWLEDGE_CID;
+  const isTutorial = lesson?.cid === EXAMPLE_MODULE_KNOWLEDGE_CID;
   const reexamAndDiplomaIssuing = <FullFindow>
     <VerticalCenterItemsContainer>
       {lesson && <Progress>
@@ -244,7 +243,7 @@ function Teach({ className = '' }: Props): React.ReactElement<Props> {
             key={'learn' + letterTemplateToIssue.cid} />}
         {lesson &&
           <SendResults $blur={isSendingResultsEnabled !== true}>
-            {(hasTutorCompletedTutorial === false || isTutorial ) && isSendingResultsEnabled === true &&
+            {(hasTutorCompletedTutorial === false || isTutorial) && isSendingResultsEnabled === true &&
               <HintBubble>
                 <h2>{t('Press this button to send the results and get your reward for tutoring')}</h2>
               </HintBubble>

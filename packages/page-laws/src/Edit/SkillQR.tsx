@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useTranslation } from '../translate.js';
-import { CenterQRContainer, LessonRequest, SenderComponent, nameFromKeyringPair, qrWidthPx, useLoginContext } from '@slonigiraf/slonig-components';
+import { CenterQRContainer, LessonRequest, SenderComponent, nameFromKeyringPair, qrWidthPx, useLoginContext, EXAMPLE_SKILL_KNOWLEDGE_ID } from '@slonigiraf/slonig-components';
 import { Letter, getLessonId, getLettersByWorkerId } from '@slonigiraf/db';
 import { keyForCid } from '@slonigiraf/slonig-components';
 import { styled } from '@polkadot/react-components';
@@ -62,7 +62,8 @@ function SkillQR({ className = '', cid, selectedItems, isLearningRequested, isRe
   useEffect(() => {
     const fetchRandomDiploma = async () => {
       const allDiplomas = await getLettersByWorkerId(studentIdentity);
-      if (allDiplomas.length > 0) {
+      const notTutorialDiplomas = (allDiplomas ?? []).filter((letter: Letter) => letter.knowledgeId !== EXAMPLE_SKILL_KNOWLEDGE_ID);
+      if (notTutorialDiplomas.length > 0) {
         const randomIndex = Math.floor(Math.random() * allDiplomas.length);
         setDiplomasToReexamine([allDiplomas[randomIndex]]);
       }

@@ -162,9 +162,16 @@ class TutoringAlgorithm extends Algorithm {
             []
         );
 
-        // Algo linking
-        this.begin = bothUsedSlonig ? askStudentToCreateASimilarExercise : intro;
+        // Defining the first step
+        if (bothUsedSlonig) {
+            this.begin = askStudentToCreateASimilarExercise;
+        } else if (hasTutorCompletedTutorial) {
+            this.begin = askStudentToSolveAnExercise;
+        } else {
+            this.begin = intro;
+        }
 
+        // Algo linking
         intro.setNext([askStudentToSolveAnExercise]);
 
         askStudentToSolveAnExercise.setNext([skip, askToCreateAnExerciseAfterCompletionOfExerciseOfTutor, askStudentToRepeatTheSolutionOfExerciseOfTutor]);
