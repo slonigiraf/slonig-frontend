@@ -42,6 +42,7 @@ function UI({ className = '' }: Props): React.ReactElement<Props> {
   const recievedAirdropAmount = useSettingValue(SettingKey.RECEIVED_AIRDROP);
   const expectedAirdropAmount = useSettingValue(SettingKey.EXPECTED_AIRDROP);
   const nowIsClassOnboarding = useBooleanSettingValue(SettingKey.NOW_IS_CLASS_ONBOARDING);
+  const lessonId = useSettingValue(SettingKey.LESSON);
 
   const [isIncognito, setIsIncognito] = useState<boolean | null>(null);
 
@@ -161,7 +162,7 @@ function UI({ className = '' }: Props): React.ReactElement<Props> {
           <Signer>
             <Menu />
             <BlockchainSyncProvider>
-              {nowIsClassOnboarding ? <ClassOnboarding /> :
+              {nowIsClassOnboarding && !lessonId ? <ClassOnboarding /> :
                 <>
                   <Content />
                   {!botInUrl && <BottomMenu />}
