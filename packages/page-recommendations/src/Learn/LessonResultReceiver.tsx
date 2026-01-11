@@ -4,7 +4,7 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { useLoginContext, useTokenTransfer, useInfo, LessonResult, keyForCid, getAddressFromPublickeyHex, useBlockchainSync, useLog, EXAMPLE_SKILL_KNOWLEDGE_ID, bnToSlonFloatOrNaN } from '@slonigiraf/slonig-components';
 import { hexToU8a, u8aToHex, u8aWrapBytes } from '@polkadot/util';
-import { addReimbursement, cancelLetter, deserializeLetter, getAgreement, getLetter, getLettersForKnowledgeId, letterToReimbursement, putAgreement, putLetter, setSettingToTrue, SettingKey, storePseudonym, updateLetterReexaminingCount } from '@slonigiraf/db';
+import { addReimbursement, cancelLetter, deleteLetter, deserializeLetter, getAgreement, getLetter, getLettersForKnowledgeId, letterToReimbursement, putAgreement, putLetter, setSettingToTrue, SettingKey, storePseudonym, updateLetterReexaminingCount } from '@slonigiraf/db';
 import { useTranslation } from '../translate.js';
 import { Agreement } from '@slonigiraf/db';
 import { useNavigate } from 'react-router-dom';
@@ -105,7 +105,7 @@ function LessonResultReceiver({ webRTCPeerId, onDaysRangeChange }: Props): React
       pay();
     }
   }, [lessonResult, agreement, isTransferReady, openTransfer])
-  
+
   useEffect(() => {
     async function saveResults() {
       if (agreement) {
@@ -121,15 +121,24 @@ function LessonResultReceiver({ webRTCPeerId, onDaysRangeChange }: Props): React
             lessonResult.letters.forEach(async (serializedLetter) => {
               const letter = deserializeLetter(serializedLetter, lessonResult.workerId, lessonResult.genesis, lessonResult.amount);
               const sameSkillLetters = await getLettersForKnowledgeId(letter.workerId, letter.knowledgeId);
-              if (sameSkillLetters.length === 0) {
+              if (sameSkillLetters.length === 0 || sameSkillLetters.length === 1) {
+                if (sameSkillLetters.length === 1 && letter.knowledgeId === EXAMPLE_SKILL_KNOWLEDGE_ID) {
+                  await deleteLetter(sameSkillLetters[0].pubSign);
+                } else if (sameSkillLetters.length === 0 && letter.knowledgeId === EXAMPLE_SKILL_KNOWLEDGE_ID) {
+                  logEvent('ONBOARDING', 'TUTEE_TUTORIAL_COMPLETED');
+                  await setSettingToTrue(SettingKey.TUTEE_TUTORIAL_COMPLETED);
+                }
                 await putLetter(letter);
               }
             });
+            if (!lessonResult.tutorIsExperienced) {
+              logEvent('ONBOARDING', 'RECRUITED_OTHER_TUTOR');
+            }
             logEvent('LEARNING', 'SAVE_BADGES', 'count', lessonResult?.letters.length);
           }
           const updatedAgreement: Agreement = { ...agreement, completed: true };
           updateAgreement(updatedAgreement);
-          await setSettingToTrue(SettingKey.TUTEE_TUTORIAL_COMPLETED);
+
           showInfo(t('Saved'));
           navigate('', { replace: true });
         } catch (e) {

@@ -8,7 +8,7 @@ import { useApi, useBlockTime, useToggle } from '@polkadot/react-hooks';
 import { u8aToHex, hexToU8a, u8aWrapBytes, BN_ONE, BN_ZERO, formatBalance } from '@polkadot/util';
 import type { LessonResult } from '@slonigiraf/slonig-components';
 import { useLoginContext, CenterQRContainer, bnToSlonString, SenderComponent, useInfo, nameFromKeyringPair, predictBlockNumber, FullscreenActivity, useLog, bnToSlonFloatOrNaN } from '@slonigiraf/slonig-components';
-import { Lesson, getLastUnusedLetterNumber, setLastUsedLetterNumber, storeSetting, getReexaminationsByLessonId, getValidLetterTemplatesByLessonId, SettingKey, serializeAsLetter, LetterTemplate, putLetterTemplate, setSettingToTrue, getLesson } from '@slonigiraf/db';
+import { Lesson, getLastUnusedLetterNumber, setLastUsedLetterNumber, storeSetting, getReexaminationsByLessonId, getValidLetterTemplatesByLessonId, SettingKey, serializeAsLetter, LetterTemplate, putLetterTemplate, setSettingToTrue, getLesson, getSetting } from '@slonigiraf/db';
 import { getPublicDataToSignByReferee, getPrivateDataToSignByReferee } from '@slonigiraf/helpers';
 import { useTranslation } from '../translate.js';
 import { blake2AsHex } from '@polkadot/util-crypto';
@@ -62,7 +62,6 @@ function LessonResults({ className = '', lesson, updateAndStoreLesson, onClose, 
 
   const onDataSent = useCallback(async (): Promise<void> => {
     logEvent('TUTORING', 'RESULTS', 'data_was_sent');
-    await setSettingToTrue(SettingKey.TUTOR_TUTORIAL_COMPLETED);
     setResultsWereSent(true);
     if (totalIncomeRef.current.isZero()) {
       onFinished();
@@ -70,11 +69,19 @@ function LessonResults({ className = '', lesson, updateAndStoreLesson, onClose, 
   }, [onFinished, setResultsWereSent]);
 
   useEffect(() => {
-    if (resultsWereSent && lesson && paidLesson
-      && lesson.id === paidLesson.id
-      && paidLesson.isPaid === true) {
-      onFinished();
+    const run = async () => {
+      if (resultsWereSent && lesson && paidLesson
+        && lesson.id === paidLesson.id
+        && paidLesson.isPaid === true) {
+        const dbTutorTutorialCompletedValue = await getSetting(SettingKey.TUTOR_TUTORIAL_COMPLETED);
+        if (!dbTutorTutorialCompletedValue) {
+          logEvent('ONBOARDING', 'TUTOR_TUTORIAL_COMPLETED');
+          await setSettingToTrue(SettingKey.TUTOR_TUTORIAL_COMPLETED);
+        }
+        onFinished();
+      }
     }
+    run();
   }, [resultsWereSent, lesson, paidLesson, onFinished]);
 
   const setAmountIput = useCallback((value?: BN | undefined): void => {
@@ -195,6 +202,7 @@ function LessonResults({ className = '', lesson, updateAndStoreLesson, onClose, 
 
         const agreement = blake2AsHex(JSON.stringify(lesson));
         const refereeName = nameFromKeyringPair(currentPair);
+        const tutorIsExperienced = await getSetting(SettingKey.TUTOR_TUTORIAL_COMPLETED);
         const lessonResult: LessonResult = {
           agreement: agreement,
           price: lessonPrice.toString(),
@@ -203,6 +211,7 @@ function LessonResults({ className = '', lesson, updateAndStoreLesson, onClose, 
           referee: refereePublicKeyHex,
           refereeName: refereeName,
           amount: amount.toString(),
+          tutorIsExperienced: tutorIsExperienced === 'true',
           letters: letterData,
           reexaminations: reexaminationData,
         };

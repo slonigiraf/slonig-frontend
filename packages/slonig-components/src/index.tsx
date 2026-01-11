@@ -367,6 +367,7 @@ export interface LessonResult {
   referee: string;
   refereeName: string;
   amount: string;
+  tutorIsExperienced: boolean;
   letters: string[];
   reexaminations: string[];
 }

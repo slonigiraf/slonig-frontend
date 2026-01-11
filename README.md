@@ -26,10 +26,13 @@ Here is a list of user actions tracked by Slonig:
 | --- | --- | --- | --- | --- |
 | ✅ | INFO | INCOGNITO | N/A | N/A |
 | ✅ | INFO | LANGUAGE | two_letter_code | N/A |
-| ✅ | AUTHENTICATION | SIGN_UP | N/A | N/A |
-| ✅ | AUTHENTICATION | BACKUP | success | backup file size |
-| ✅ | AUTHENTICATION | BACKUP | error | N/A |
-| ✅ | AUTHENTICATION | RESTORE | success | backup file size |
+| ✅ | ONBOARDING | SIGN_UP | N/A | N/A |
+| ✅ | ONBOARDING | BACKUP | success | backup file size |
+| ✅ | ONBOARDING | BACKUP | error | N/A |
+| ✅ | ONBOARDING | RESTORE | success | backup file size |
+| ✅ | ONBOARDING | TUTOR_TUTORIAL_COMPLETED | N/A | N/A |
+| ✅ | ONBOARDING | TUTEE_TUTORIAL_COMPLETED | N/A | N/A |
+| ✅ | ONBOARDING | RECRUITED_OTHER_TUTOR | N/A | N/A |
 | ✅ | LEARNING | AUTO_SHOW_QR | KnowledgeName | N/A |
 | ✅ | LEARNING | CLICK_LEARN | KnowledgeName | N/A |
 | ✅ | LEARNING | CLICK_REVISE | KnowledgeName | N/A |
