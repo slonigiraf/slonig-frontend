@@ -41,10 +41,8 @@ function Teach({ className = '' }: Props): React.ReactElement<Props> {
   const [areResultsShown, setResultsShown] = useState(false);
   const [isExitConfirmOpen, setIsExitConfirmOpen] = useState(false);
   const hasTutorCompletedTutorial = useBooleanSettingValue(SettingKey.TUTOR_TUTORIAL_COMPLETED);
-  const isViralMessageOpen = useBooleanSettingValue(SettingKey.VIRAL_TUTORIAL_COMPLETED) === false && hasTutorCompletedTutorial;
   const [hasTuteeUsedSlonig, setHasTuteeUsedSlonig] = useState(false);
   const [isSendingResultsEnabled, setIsSendingResultsEnabled] = useState<boolean | undefined>(undefined);
-  const [isGreetingOpen, setIsGreetingOpen] = useState(hasTutorCompletedTutorial === false);
   const [isHelpQRInfoShown, setIsHelpQRInfoShown] = useState(showHelpQRInfo);
 
 
@@ -176,7 +174,6 @@ function Teach({ className = '' }: Props): React.ReactElement<Props> {
     setReexaminations([]);
     setResultsShown(false);
     setIsSendingResultsEnabled(undefined);
-    setIsGreetingOpen(false);
   }, [deleteSetting, setLesson]);
 
   const onCloseResults = useCallback(async () => {
@@ -275,12 +272,6 @@ function Teach({ className = '' }: Props): React.ReactElement<Props> {
           }
           {isExitConfirmOpen && (
             <Confirmation question={t('Sure to exit tutoring?')} onClose={() => setIsExitConfirmOpen(false)} onConfirm={onCloseResults} />
-          )}
-          {lesson !== null && isGreetingOpen && (
-            <OKBox info={t('This app will help you teach your tutee. Let’s start by teaching just one skill.')} onClose={() => setIsGreetingOpen(false)} />
-          )}
-          {lesson === null && isViralMessageOpen && (
-            <OKBox info={t('Congratulations! Now help your other friends become tutors — pretend to be their tutee.')} onClose={() => setSettingToTrue(SettingKey.VIRAL_TUTORIAL_COMPLETED)} />
           )}
           {isHelpQRInfoShown && (
             <OKBox info={t('Tell the tutee to scan the same QR code.')} onClose={() => setIsHelpQRInfoShown(false)} />
