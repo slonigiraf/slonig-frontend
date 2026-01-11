@@ -1,10 +1,10 @@
 // Copyright 2021-2022 @slonigiraf/app-recommendations authors & contributors
 // SPDX-License-Identifier: Apache-2.0
 
-import { getLesson, getLessonId, Lesson, setSettingToTrue, SettingKey, storeLesson, storePseudonym } from '@slonigiraf/db';
+import { getLesson, getLessonId, getSetting, Lesson, setSettingToTrue, SettingKey, storeLesson, storePseudonym } from '@slonigiraf/db';
 import React, { useCallback } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
-import { LessonRequest, UrlParams, useBooleanSettingValue, useLog, useLoginContext } from '@slonigiraf/slonig-components';
+import { LessonRequest, UrlParams, useLog, useLoginContext } from '@slonigiraf/slonig-components';
 import { u8aToHex } from '@polkadot/util';
 import useFetchWebRTC from '../useFetchWebRTC.js';
 import { EXAMPLE_SKILL_KNOWLEDGE_CID, EXAMPLE_SKILL_KNOWLEDGE_ID, EXAMPLE_MODULE_KNOWLEDGE_CID } from '../constants.js';
@@ -15,7 +15,6 @@ interface Props {
 
 function LessonRequestReceiver({ setCurrentLesson }: Props): React.ReactElement<Props> {
   const location = useLocation();
-  const hasTutorCompletedTutorial = useBooleanSettingValue(SettingKey.TUTOR_TUTORIAL_COMPLETED);
   const queryParams = new URLSearchParams(location.search);
   const webRTCPeerId = queryParams.get(UrlParams.WEBRTC_PEER_ID);
   const { currentPair } = useLoginContext();
@@ -41,7 +40,11 @@ function LessonRequestReceiver({ setCurrentLesson }: Props): React.ReactElement<
     if (lessonRequest) {
       await storePseudonym(lessonRequest.identity, lessonRequest.name);
       let lessonId = lessonRequest.lesson;
-      if (hasTutorCompletedTutorial) {
+
+      const dbValueOfHasTutorCompletedTutorial = await getSetting(SettingKey.TUTOR_TUTORIAL_COMPLETED);
+      const goWithNormalRequest = dbValueOfHasTutorCompletedTutorial === 'true';
+
+      if (goWithNormalRequest) {
         const lessonRequestWithoutTutorialData = {
           ...lessonRequest,
           reexamine: lessonRequest.reexamine.filter(
@@ -49,7 +52,8 @@ function LessonRequestReceiver({ setCurrentLesson }: Props): React.ReactElement<
           )
         };
         await storeLesson(lessonRequestWithoutTutorialData, tutorPublicKeyHex);
-      } else {
+      }
+      else {
         logEvent('SETTINGS', 'NOW_IS_CLASS_ONBOARDING', 'true_or_false', 1);
         await setSettingToTrue(SettingKey.NOW_IS_CLASS_ONBOARDING);
         const tutorialRequest = changeRequestIntoTutorial(lessonRequest);
@@ -63,7 +67,7 @@ function LessonRequestReceiver({ setCurrentLesson }: Props): React.ReactElement<
         setCurrentLesson(lesson);
       }
     }
-  }, [hasTutorCompletedTutorial, navigate, setCurrentLesson]);
+  }, [getSetting, navigate, setCurrentLesson]);
 
   useFetchWebRTC<LessonRequest>(webRTCPeerId, handleData);
 
