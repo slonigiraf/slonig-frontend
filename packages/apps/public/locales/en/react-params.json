@@ -18,7 +18,6 @@
   "aye: bool": "aye: bool",
   "call hash / {{section}}.{{method}}": "call hash / {{section}}.{{method}}",
   "click to select or drag and drop JSON key/value (hex-encoded) file": "click to select or drag and drop JSON key/value (hex-encoded) file",
-  "contract event": "contract event",
   "conviction: Conviction": "conviction: Conviction",
   "details": "details",
   "extrinsic hash": "extrinsic hash",

@@ -28,12 +28,14 @@
   "Has the tutee repeated correctly after me?": "Has the tutee repeated correctly after me?",
   "Has the tutee repeated correctly?": "Has the tutee repeated correctly?",
   "Learn": "Learn",
+  "Let’s start with an example skill. Your student will pretend not to know it, so you can practice using the app’s prompts to teach.": "Let’s start with an example skill. Your student will pretend not to know it, so you can practice using the app’s prompts to teach.",
   "Loading": "Loading",
   "My badges": "My badges",
   "My lessons": "My lessons",
   "Next": "Next",
   "No": "No",
   "No internet connection. Check your connection and try again.": "No internet connection. Check your connection and try again.",
+  "Please forget everything you know about teaching—just follow the app’s hints.": "Please forget everything you know about teaching—just follow the app’s hints.",
   "Positive number": "Positive number",
   "Press the link to add the badge": "Press the link to add the badge",
   "Press the link to see badges of the student": "Press the link to see badges of the student",
@@ -52,6 +54,7 @@
   "Should be repeated tomorrow": "Should be repeated tomorrow",
   "Show to get a bonus": "Show to get a bonus",
   "Skip": "Skip",
+  "Start": "Start",
   "Student has shown you a QR code created for a different teacher. Ask them to scan your QR code.": "Student has shown you a QR code created for a different teacher. Ask them to scan your QR code.",
   "Sure to exit tutoring?": "Sure to exit tutoring?",
   "Teach": "Teach",
@@ -72,6 +75,7 @@
   "Tutee mastered the skill": "Tutee mastered the skill",
   "Were all of the tutee’s exercises and answers perfect today?": "Were all of the tutee’s exercises and answers perfect today?",
   "Yes": "Yes",
+  "You are a tutor. The app will show you how to teach the student sitting in front of you.": "You are a tutor. The app will show you how to teach the student sitting in front of you.",
   "You can select no more than:": "You can select no more than:",
   "You did not issue or reexamine any badges during this lesson.": "You did not issue or reexamine any badges during this lesson.",
   "You don’t have such a skill. I will penalize the tutor which issued the badge for it.": "You don’t have such a skill. I will penalize the tutor which issued the badge for it.",
@@ -92,5 +96,6 @@
   "📖 Read what’s happening": "📖 Read what’s happening",
   "🗣 Give your tutee a wrong answer and say": "🗣 Give your tutee a wrong answer and say",
   "🗣 Say to the tutee": "🗣 Say to the tutee",
-  "🗣 Show the tutee the correct execution, and say": "🗣 Show the tutee the correct execution, and say"
+  "🗣 Show the tutee the correct execution, and say": "🗣 Show the tutee the correct execution, and say",
+  "🧠 Important": "🧠 Important"
 }
