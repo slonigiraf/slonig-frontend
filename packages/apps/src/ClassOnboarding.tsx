@@ -51,7 +51,7 @@ function ClassOnboarding({ className = '' }: Props): React.ReactElement<Props> {
 
       </FullscreenActivity>
       {isExitConfirmOpen && (
-        <Confirmation question={t('Are you sure all the students around you have tried using Slonig?')}
+        <Confirmation question={t('Are you sure everyone around you has tried using Slonig?')}
           onClose={() => setIsExitConfirmOpen(false)}
           onConfirm={exitOnboarding} />
       )}
