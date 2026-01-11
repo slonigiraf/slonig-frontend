@@ -285,5 +285,12 @@
   "I’ve found a new partner": "J’ai trouvé un nouveau partenaire",
   "Please close this private / incognito window and open the site in a normal one.": "Veuillez fermer cette fenêtre privée / de navigation privée et ouvrir le site dans une fenêtre normale.",
   "Split and find a partner that never used Slonig": "Séparez-vous et trouvez un partenaire qui n’a jamais utilisé Slonig",
-  "That person will be your tutor.": "Cette personne sera votre tuteur."
+  "That person will be your tutor.": "Cette personne sera votre tuteur.",
+  "Let’s start with a simple skill. Your student will pretend not to know it, so you can practice using the app’s prompts to teach.": "Commençons par une compétence simple. Votre élève fera semblant de ne pas la connaître afin que vous puissiez vous entraîner à utiliser les indications de l’application pour enseigner.",
+  "OpenAI Token": "Jeton OpenAI",
+  "Please forget everything you know about teaching—just follow the app’s hints.": "Veuillez oublier tout ce que vous savez sur l’enseignement — suivez simplement les indications de l’application.",
+  "Start": "Démarrer",
+  "You are a tutor. The app will show you how to teach the student sitting in front of you.": "Vous êtes le tuteur. L’application vous montrera comment enseigner à l’élève assis devant vous.",
+  "🧠 Important": "🧠 Important",
+  "Warm-up": "Échauffement"
 }

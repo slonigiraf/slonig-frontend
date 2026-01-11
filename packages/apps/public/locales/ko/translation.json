@@ -285,5 +285,12 @@
   "I’ve found a new partner": "새 파트너를 찾았어요",
   "Please close this private / incognito window and open the site in a normal one.": "이 비공개 / 시크릿 창을 닫고 일반 창에서 사이트를 열어 주세요.",
   "Split and find a partner that never used Slonig": "나뉘어서 Slonig를 한 번도 사용해 본 적 없는 파트너를 찾으세요",
-  "That person will be your tutor.": "그 사람이 당신의 튜터가 될 거예요."
+  "That person will be your tutor.": "그 사람이 당신의 튜터가 될 거예요.",
+  "Let’s start with a simple skill. Your student will pretend not to know it, so you can practice using the app’s prompts to teach.": "간단한 기술부터 시작해 봅시다. 학생은 모르는 척할 것이며, 당신은 앱의 안내를 따라 가르치는 연습을 하게 됩니다.",
+  "OpenAI Token": "OpenAI 토큰",
+  "Please forget everything you know about teaching—just follow the app’s hints.": "가르치는 것에 대해 알고 있는 모든 것을 잠시 잊고, 앱의 힌트만 따라주세요.",
+  "Start": "시작",
+  "You are a tutor. The app will show you how to teach the student sitting in front of you.": "당신은 튜터입니다. 앱이 지금 앞에 앉아 있는 학생을 어떻게 가르칠지 보여줄 것입니다.",
+  "🧠 Important": "🧠 중요",
+  "Warm-up": "워밍업"
 }

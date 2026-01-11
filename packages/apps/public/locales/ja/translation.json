@@ -285,5 +285,12 @@
   "I’ve found a new partner": "新しいパートナーを見つけました",
   "Please close this private / incognito window and open the site in a normal one.": "このプライベート／シークレットウィンドウを閉じて、通常のウィンドウでサイトを開いてください。",
   "Split and find a partner that never used Slonig": "分かれて、まだSlonigを使ったことがないパートナーを見つけてください",
-  "That person will be your tutor.": "その人があなたのチューターになります。"
+  "That person will be your tutor.": "その人があなたのチューターになります。",
+  "Let’s start with a simple skill. Your student will pretend not to know it, so you can practice using the app’s prompts to teach.": "簡単なスキルから始めましょう。生徒はそれを知らないふりをするので、アプリのヒントに従って教える練習ができます。",
+  "OpenAI Token": "OpenAIトークン",
+  "Please forget everything you know about teaching—just follow the app’s hints.": "教えることについて知っていることはいったん忘れて、アプリのヒントに従ってください。",
+  "Start": "開始",
+  "You are a tutor. The app will show you how to teach the student sitting in front of you.": "あなたはチューターです。アプリが、目の前に座っている生徒の教え方を案内します。",
+  "🧠 Important": "🧠 重要",
+  "Warm-up": "ウォームアップ"
 }

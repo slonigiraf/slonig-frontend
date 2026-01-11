@@ -285,5 +285,12 @@
   "I’ve found a new partner": "我找到了一个新的伙伴",
   "Please close this private / incognito window and open the site in a normal one.": "请关闭这个隐私 / 无痕窗口，并在普通窗口中打开该网站。",
   "Split and find a partner that never used Slonig": "分开并找到一个从未使用过 Slonig 的伙伴",
-  "That person will be your tutor.": "那个人将成为你的导师。"
+  "That person will be your tutor.": "那个人将成为你的导师。",
+  "Let’s start with a simple skill. Your student will pretend not to know it, so you can practice using the app’s prompts to teach.": "让我们从一个简单的技能开始。你的学生会假装不会，这样你可以练习使用应用中的提示来进行教学。",
+  "OpenAI Token": "OpenAI 令牌",
+  "Please forget everything you know about teaching—just follow the app’s hints.": "请忘掉你对教学的一切认知——只需按照应用的提示操作。",
+  "Start": "开始",
+  "You are a tutor. The app will show you how to teach the student sitting in front of you.": "你是导师。应用会向你展示如何教你面前的学生。",
+  "🧠 Important": "🧠 重要",
+  "Warm-up": "热身"
 }
