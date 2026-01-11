@@ -8,10 +8,11 @@ import { useApi, useBlockTime, useToggle } from '@polkadot/react-hooks';
 import { u8aToHex, hexToU8a, u8aWrapBytes, BN_ONE, BN_ZERO, formatBalance } from '@polkadot/util';
 import type { LessonResult } from '@slonigiraf/slonig-components';
 import { useLoginContext, CenterQRContainer, bnToSlonString, SenderComponent, useInfo, nameFromKeyringPair, predictBlockNumber, FullscreenActivity, useLog, bnToSlonFloatOrNaN } from '@slonigiraf/slonig-components';
-import { Lesson, getLastUnusedLetterNumber, setLastUsedLetterNumber, storeSetting, getReexaminationsByLessonId, getValidLetterTemplatesByLessonId, SettingKey, serializeAsLetter, LetterTemplate, putLetterTemplate, setSettingToTrue } from '@slonigiraf/db';
+import { Lesson, getLastUnusedLetterNumber, setLastUsedLetterNumber, storeSetting, getReexaminationsByLessonId, getValidLetterTemplatesByLessonId, SettingKey, serializeAsLetter, LetterTemplate, putLetterTemplate, setSettingToTrue, getLesson } from '@slonigiraf/db';
 import { getPublicDataToSignByReferee, getPrivateDataToSignByReferee } from '@slonigiraf/helpers';
 import { useTranslation } from '../translate.js';
 import { blake2AsHex } from '@polkadot/util-crypto';
+import { useLiveQuery } from 'dexie-react-hooks';
 
 interface Props {
   className?: string;
@@ -26,6 +27,7 @@ function LessonResults({ className = '', lesson, updateAndStoreLesson, onClose, 
   const { api, isApiReady } = useApi();
   const { t } = useTranslation();
   const { logEvent } = useLog();
+  const paidLesson = useLiveQuery(() => lesson ? getLesson(lesson.id) : undefined, [lesson]);
   const { currentPair } = useLoginContext();
   const tokenSymbol = formatBalance.findSi('-').text;
   const dontSign = lesson ? (lesson.dWarranty === '0' || lesson.dValidity === 0) : true;
@@ -36,11 +38,12 @@ function LessonResults({ className = '', lesson, updateAndStoreLesson, onClose, 
   const [daysInput, setDaysInput] = useState<string>(lesson ? lesson.dValidity.toString() : "0"); //To allow empty strings
   const [countOfValidLetters, setCountOfValidLetters] = useState<number | null>(null);
   const [countOfReexaminationsPerformed, setCountOfReexaminationsPerformed] = useState<number | null>(null);
-  const [totalIncomeForLetters, setTotalIncomeForLetters] = useState<BN>(BN_ZERO);
+  const totalIncomeRef = React.useRef<BN>(BN_ZERO);
   const [visibleDiplomaDetails, toggleVisibleDiplomaDetails] = useToggle(false);
   const [data, setData] = useState('');
   const [processingStatistics, setProcessingStatistics] = useState(true);
   const [processingQR, setProcessingQR] = useState(true);
+  const [resultsWereSent, setResultsWereSent] = useState(false);
   const { showInfo } = useInfo();
 
   useEffect(() => {
@@ -60,8 +63,19 @@ function LessonResults({ className = '', lesson, updateAndStoreLesson, onClose, 
   const onDataSent = useCallback(async (): Promise<void> => {
     logEvent('TUTORING', 'RESULTS', 'data_was_sent');
     await setSettingToTrue(SettingKey.TUTOR_TUTORIAL_COMPLETED);
-    onFinished();
-  }, [onClose]);
+    setResultsWereSent(true);
+    if (totalIncomeRef.current.isZero()) {
+      onFinished();
+    };
+  }, [onFinished, setResultsWereSent]);
+
+  useEffect(() => {
+    if (resultsWereSent && lesson && paidLesson
+      && lesson.id === paidLesson.id
+      && paidLesson.isPaid === true) {
+      onFinished();
+    }
+  }, [resultsWereSent, lesson, paidLesson, onFinished]);
 
   const setAmountIput = useCallback((value?: BN | undefined): void => {
     if (value) {
@@ -143,7 +157,7 @@ function LessonResults({ className = '', lesson, updateAndStoreLesson, onClose, 
         const priceBN = lesson ? new BN(lesson.dPrice) : BN_ZERO;
         const lessonPrice = new BN(numberOfValidLetters).mul(priceBN);
         setCountOfValidLetters(numberOfValidLetters);
-        setTotalIncomeForLetters(lessonPrice);
+        totalIncomeRef.current = lessonPrice;
 
         // Get badges additional meta
         const genesisU8 = statics.api.genesisHash;
@@ -229,7 +243,7 @@ function LessonResults({ className = '', lesson, updateAndStoreLesson, onClose, 
 
       {visibleDiplomaDetails && <DetailsModal
         className={className}
-        header={`${bnToSlonString(totalIncomeForLetters)} ${tokenSymbol} - ${t('reward')}`}
+        header={`${bnToSlonString(totalIncomeRef.current)} ${tokenSymbol} - ${t('reward')}`}
         onClose={toggleVisibleDiplomaDetails}
         size='small'
       >

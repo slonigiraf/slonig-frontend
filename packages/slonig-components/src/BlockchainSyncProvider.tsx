@@ -1,13 +1,14 @@
-import { cancelInsurance, cancelInsuranceByRefereeAndLetterNumber, cancelLetter, cancelLetterByRefereeAndLetterNumber, markUsageRightAsUsed, deleteReimbursement, deleteUsageRight, getAllInsurances, getAllLetters, getAllReimbursements, getReimbursementsByReferee, Insurance, Letter, Reimbursement, getReimbursementsByRefereeAndLetterNumber, Recommendation } from '@slonigiraf/db';
+import { cancelInsurance, cancelInsuranceByRefereeAndLetterNumber, cancelLetter, cancelLetterByRefereeAndLetterNumber, markUsageRightAsUsed, deleteReimbursement, deleteUsageRight, getAllInsurances, getAllLetters, getAllReimbursements, getReimbursementsByReferee, Insurance, Letter, Reimbursement, getReimbursementsByRefereeAndLetterNumber, Recommendation, SettingKey, getLesson, storeLesson, updateLesson, LetterTemplate, getValidLetterTemplatesByLessonId } from '@slonigiraf/db';
 import React, { useEffect, useState, useRef, useCallback, ReactNode, createContext, useContext } from 'react';
 import { useApi, useBlockEvents, useCall, useIsMountedRef } from '@polkadot/react-hooks';
 import { useLoginContext } from './LoginContext.js';
 import BN from 'bn.js';
-import { bnToSlonFloatOrNaN, bnToSlonString, EXISTENTIAL_BATCH_SENDER_BALANCE, getAddressFromPublickeyHex, getRecommendationsFrom, useInfo, useLog } from './index.js';
+import { bnToSlonFloatOrNaN, bnToSlonString, EXISTENTIAL_BATCH_SENDER_BALANCE, getAddressFromPublickeyHex, getRecommendationsFrom, useInfo, useLog, useSettingValue } from './index.js';
 import { EXISTENTIAL_REFEREE_BALANCE, REIMBURSEMENT_BATCH_SIZE } from '@slonigiraf/slonig-components';
 import { BN_ZERO } from '@polkadot/util';
 import type { AccountInfo } from '@polkadot/types/interfaces';
 import { KeyedEvent } from '@polkadot/react-hooks/ctx/types';
+import { useLiveQuery } from "dexie-react-hooks";
 
 interface BlockchainSyncContextType {
     reimburse: (reimbursements: Reimbursement[]) => Promise<void>;
@@ -26,6 +27,9 @@ interface BlockchainSyncProviderProps {
 export const BlockchainSyncProvider: React.FC<BlockchainSyncProviderProps> = ({ children }) => {
     const { api, isApiReady } = useApi();
     const { events } = useBlockEvents();
+
+    const lessonId = useSettingValue(SettingKey.LESSON);
+    const lessonResultsAreShown = useSettingValue(SettingKey.LESSON_RESULTS_ARE_SHOWN);
     const { showInfo } = useInfo();
     const { logEvent } = useLog();
     const { currentPair, isLoggedIn } = useLoginContext();
@@ -82,19 +86,32 @@ export const BlockchainSyncProvider: React.FC<BlockchainSyncProviderProps> = ({ 
 
 
     useEffect(() => {
-        if (accountInfo && myBalance.current && lastAddressRef.current === currentPair?.address) {
-            const balanceChange = accountInfo.data.free.sub(myBalance.current);
-            const priceToLog = bnToSlonFloatOrNaN(new BN(balanceChange));
-            const icon = balanceChange.gte(BN_ZERO) ? 'hand-holding-dollar' : 'money-bill-trend-up';
-            const balanceChangeToShow = bnToSlonString(balanceChange);
-            if (balanceChangeToShow !== '0' && myBalance.current.gt(BN_ZERO)) {
-                logEvent('TRANSACTIONS', priceToLog > 0 ? 'RECEIVE' : 'SEND', 'tokens', Math.abs(priceToLog));
-                showInfo(bnToSlonString(balanceChange) + ' Slon', 'info', 4, icon);
+        const run = async () => {
+            if (accountInfo && myBalance.current && lastAddressRef.current === currentPair?.address) {
+                const balanceChange = accountInfo.data.free.sub(myBalance.current);
+                const priceToLog = bnToSlonFloatOrNaN(new BN(balanceChange));
+                const icon = balanceChange.gte(BN_ZERO) ? 'hand-holding-dollar' : 'money-bill-trend-up';
+                const balanceChangeToShow = bnToSlonString(balanceChange);
+                if (balanceChangeToShow !== '0' && myBalance.current.gt(BN_ZERO)) {
+                    logEvent('TRANSACTIONS', priceToLog > 0 ? 'RECEIVE' : 'SEND', 'tokens', Math.abs(priceToLog));
+                    showInfo(bnToSlonString(balanceChange) + ' Slon', 'info', 4, icon);
+                }
+                if (lessonId && lessonResultsAreShown) {
+                    const lesson = await getLesson(lessonId);
+                    if (lesson) {
+                        const letterTemplates: LetterTemplate[] = await getValidLetterTemplatesByLessonId(lessonId);
+                        const lessonPrice = new BN(letterTemplates.length).mul(new BN(lesson.dPrice));
+                        if (!lesson.isPaid && balanceChange.eq(lessonPrice)) {
+                            await updateLesson({ ...lesson, isPaid: true });
+                        }
+                    }
+                }
             }
+            myBalance.current = accountInfo?.data.free || null;
+            lastAddressRef.current = currentPair?.address;
         }
-        myBalance.current = accountInfo?.data.free || null;
-        lastAddressRef.current = currentPair?.address;
-    }, [accountInfo]);
+        run();
+    }, [accountInfo, lessonId, lessonResultsAreShown]);
 
 
     useEffect(() => {

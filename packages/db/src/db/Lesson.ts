@@ -11,4 +11,5 @@ export interface Lesson {
   dPrice: string;
   dWarranty: string;
   dValidity: number;
+  isPaid: boolean;
 }

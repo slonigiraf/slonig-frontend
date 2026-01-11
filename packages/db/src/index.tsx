@@ -39,7 +39,6 @@ export const SettingKey = {
     IV: 'iv',
     TUTOR: 'tutor',
     LESSON: 'lesson',
-    RESULTS_FOR_LESSON: 'resultsForLesson',
     DEVELOPER: 'developer',
     TEACHER: 'teacher',
     DIPLOMA_PRICE: 'diploma_price',
@@ -480,6 +479,7 @@ export async function storeLesson(lessonRequest: LessonRequest, tutor: string) {
         dPrice: diploma_price,
         dWarranty: warranty,
         dValidity: validity,
+        isPaid: false,
     };
     const sameLesson = await db.lessons.get({ id: lesson.id });
     if (sameLesson === undefined) {

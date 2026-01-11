@@ -34,7 +34,7 @@ class SlonigDB extends Dexie {
 
   constructor() {
     super('slonig');
-    this.version(54).stores({
+    this.version(55).stores({
       agreements: '&id',
       canceledInsurances: '&workerSign',
       canceledLetters: '&pubSign',
