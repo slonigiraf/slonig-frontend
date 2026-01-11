@@ -19,6 +19,7 @@ import detectIncognito from 'detectincognitojs';
 import IncognitoView from './IncognitoView.js';
 export const PORTAL_ID = 'portals';
 import BN from 'bn.js';
+import ClassOnboarding from './ClassOnboarding.js';
 
 function UI({ className = '' }: Props): React.ReactElement<Props> {
   const { isLoginReady, isLoggedIn, currentPair, setLoginIsRequired, onCreateAccount } = useLoginContext();
@@ -32,7 +33,6 @@ function UI({ className = '' }: Props): React.ReactElement<Props> {
   const economyNotificationTime = 10;
   const location = useLocation();
   const queryParams = new URLSearchParams(location.search);
-  const lessonInUrl = queryParams.get('lesson') != null;
   const botInUrl = queryParams.get('bot') != null;
   const [isProcessingAirdrop, setIsProcessingAirdrop] = useState(false);
 
@@ -41,6 +41,8 @@ function UI({ className = '' }: Props): React.ReactElement<Props> {
   const isAirdropCompatible = useBooleanSettingValue(SettingKey.AIRDROP_COMPATIBLE);
   const recievedAirdropAmount = useSettingValue(SettingKey.RECEIVED_AIRDROP);
   const expectedAirdropAmount = useSettingValue(SettingKey.EXPECTED_AIRDROP);
+  const nowIsClassOnboarding = useBooleanSettingValue(SettingKey.NOW_IS_CLASS_ONBOARDING);
+
   const [isIncognito, setIsIncognito] = useState<boolean | null>(null);
 
   useEffect(() => {
@@ -159,8 +161,12 @@ function UI({ className = '' }: Props): React.ReactElement<Props> {
           <Signer>
             <Menu />
             <BlockchainSyncProvider>
-              <Content />
-              {!botInUrl && <BottomMenu />}
+              {nowIsClassOnboarding ? <ClassOnboarding /> :
+                <>
+                  <Content />
+                  {!botInUrl && <BottomMenu />}
+                </>
+              }
             </BlockchainSyncProvider>
           </Signer>
         )}

@@ -52,6 +52,7 @@ export const REIMBURSEMENT_BATCH_SIZE = 5;
 export const progressFromButtomPx = 80;
 export const EXAMPLE_SKILL_KNOWLEDGE_ID = '0x6d3cd8005f0b14f197f5c3617933afbfd32ca75420773165d3b70e132d5b1df7';
 export const EXAMPLE_SKILL_KNOWLEDGE_CID = 'bafyreictjpbqaxvetm6tpimql6bdu6lo4fvhlqljhbggrox5js35fjjapy';
+export const EXAMPLE_MODULE_KNOWLEDGE_ID = '0xc93cafd0d50625e1e203d20c596e87b9f01c93798ea8c358370d286903c260b3';
 export const EXAMPLE_MODULE_KNOWLEDGE_CID = 'bafyreigteikhxg6n3nnj7rabbfeflqn4kspuanozwf2pot2ul2uafsmisu';
 
 export function getFormattedTimestamp(date: Date): string {

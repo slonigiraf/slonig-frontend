@@ -30,6 +30,7 @@ function ViewList({ className = '', id, cidString, isClassInstructionShown, setI
   const { api } = useApi();
   const queryParams = new URLSearchParams(location.search);
   const lessonInUrl = queryParams.get('lesson') != null;
+  const showSkillQrInUrl = queryParams.get('showSkillQr') != null;
   const expanded = queryParams.get('expanded') != null;
   const { t } = useTranslation();
   const hasTuteeCompletedTutorial = useBooleanSettingValue(SettingKey.TUTEE_TUTORIAL_COMPLETED);
@@ -87,8 +88,8 @@ function ViewList({ className = '', id, cidString, isClassInstructionShown, setI
   }, [list, studentIdentity, setIsThereAnythingToLearn, setIsThereAnythingToReexamine]);
 
   useEffect(() => {
-    lessonInUrl && list && list.t !== null && list.t === LawType.MODULE && logEvent('LEARNING', 'AUTO_SHOW_QR', list.h);
-  }, [lessonInUrl, list]);
+    (lessonInUrl || showSkillQrInUrl) && list && list.t !== null && list.t === LawType.MODULE && logEvent('LEARNING', 'AUTO_SHOW_QR', list.h);
+  }, [lessonInUrl, showSkillQrInUrl, list]);
 
   const learnClicked = useCallback((checked: boolean): void => {
     list && logEvent('LEARNING', 'CLICK_LEARN', list.h);
@@ -141,7 +142,7 @@ function ViewList({ className = '', id, cidString, isClassInstructionShown, setI
 
   useEffect((): void => {
     if (
-      lessonInUrl &&
+      (lessonInUrl || showSkillQrInUrl) &&
       isThereAnythingToLearn &&
       !shouldSelectAll &&
       !isLearningInitialized
@@ -152,7 +153,7 @@ function ViewList({ className = '', id, cidString, isClassInstructionShown, setI
       }
       handleLearningToggle(true);
     }
-  }, [lessonInUrl, isLoggedIn, isThereAnythingToLearn, shouldSelectAll, isLearningInitialized]);
+  }, [lessonInUrl, showSkillQrInUrl, isLoggedIn, isThereAnythingToLearn, shouldSelectAll, isLearningInitialized]);
 
   const isAPairWork = isLearningRequested || isReexaminingRequested;
 
@@ -169,7 +170,7 @@ function ViewList({ className = '', id, cidString, isClassInstructionShown, setI
         (itemsWithCID.length > 0 && <ModulePreview itemsWithCID={itemsWithCID} />) :
         <>
           <div className='ui--row' style={isAPairWork ? {} : { display: 'none' }}>
-            <SkillQR id={id} cid={cidString} type={LawType.MODULE} selectedItems={selectedItems} isLearningRequested={isLearningRequested} isReexaminingRequested={isReexaminingRequested} lessonInUrl={lessonInUrl} onDataSent={onDataSent} />
+            <SkillQR id={id} cid={cidString} type={LawType.MODULE} selectedItems={selectedItems} isLearningRequested={isLearningRequested} isReexaminingRequested={isReexaminingRequested} lessonInUrl={lessonInUrl || showSkillQrInUrl} onDataSent={onDataSent} />
           </div>
           <ButtonsRow>
             {isThereAnythingToLearn && !isAPairWork &&
