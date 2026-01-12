@@ -33,6 +33,7 @@ Here is a list of user actions tracked by Slonig:
 | ✅ | ONBOARDING | TUTOR_TUTORIAL_COMPLETED | N/A | N/A |
 | ✅ | ONBOARDING | TUTEE_TUTORIAL_COMPLETED | N/A | N/A |
 | ✅ | ONBOARDING | RECRUITED_OTHER_TUTOR | N/A | N/A |
+| ✅ | ONBOARDING | ATTEMPT_TO_WARMUP_WRONG_TUTOR | N/A | N/A |
 | ✅ | LEARNING | AUTO_SHOW_QR | KnowledgeName | N/A |
 | ✅ | LEARNING | CLICK_LEARN | KnowledgeName | N/A |
 | ✅ | LEARNING | CLICK_REVISE | KnowledgeName | N/A |
