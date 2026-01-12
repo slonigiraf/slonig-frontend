@@ -1,29 +1,61 @@
 {
+  "0.1x voting balance, no lockup period": "رصيد تصويت 0.1x، بدون فترة قفل",
+  "0x prefixed hex, e.g. 0x1234 or ascii data": "سداسي عشري مسبوق بـ 0x، مثل 0x1234 أو بيانات ASCII",
+  "0x...": "0x...",
+  "1 day": "يوم واحد",
+  "1 hr": "ساعة واحدة",
+  "1 min": "دقيقة واحدة",
+  "1 s": "ثانية واحدة",
   "<< Back": "<< رجوع",
+  "<empty>": "<فارغ>",
+  "Active": "نشط",
   "Add": "إضافة",
   "Add account": "إضافة حساب",
+  "Add campaign": "إضافة حملة",
+  "Add fund": "إضافة صندوق",
   "Add item": "إضافة عنصر",
+  "Add validator": "إضافة مُدقِّق",
   "Added": "تمت الإضافة",
+  "Adding an optional tip to the transaction could allow for higher priority, especially when the chain is busy.": "قد تؤدي إضافة إكرامية اختيارية إلى المعاملة إلى منحها أولوية أعلى، خاصةً عندما تكون السلسلة مزدحمة.",
+  "Additional types as a JSON file (or edit below)": "أنواع إضافية كملف JSON (أو حرّر أدناه)",
+  "Address Prefix": "بادئة العنوان",
+  "After completing the training, you’ll be able to press it. Now try another button.": "بعد إكمال التدريب، ستتمكن من الضغط عليه. جرّب الآن زرًا آخر.",
   "All data were removed.": "تم حذف جميع البيانات.",
   "Already have an account?": "هل لديك حساب بالفعل؟",
+  "Apply to UI": "تطبيق على واجهة المستخدم",
+  "Approve": "موافقة",
   "Are you sure everyone around you has tried using Slonig?": "هل أنت متأكد أن كل من حولك قد جرّب استخدام Slonig؟",
   "Are you sure you want to delete it?": "هل أنت متأكد أنك تريد حذفه؟",
   "Ask the sender to refresh the QR page and keep it open while sending data.": "اطلب من المرسل تحديث صفحة رمز QR وتركها مفتوحة أثناء إرسال البيانات.",
   "Ask the tutee to scan:": "اطلب من الطالب مسح هذا الرمز:",
   "Assess": "تقييم",
+  "Auctions": "المزادات",
+  "Authorize transaction": "تفويض المعاملة",
+  "Aye": "نعم",
   "Back": "رجوع",
   "Backup": "نسخة احتياطية",
   "Badges": "الشارات",
   "Before deleting the data, download a backup.": "قبل حذف البيانات، قم بتنزيل نسخة احتياطية.",
+  "Before using this registered paraId, you need to have a WASM validation function registered on-chain": "قبل استخدام هذا الـ paraId المسجّل، يجب أن تكون لديك دالة تحقق WASM مسجّلة على السلسلة",
+  "Bid": "مزايدة",
   "Bounty will be collected after the lesson ends.": "سيتم استلام المكافأة بعد انتهاء الدرس.",
   "Browse": "تصفح",
   "Cancel": "إلغاء",
   "Cannot be its child": "لا يمكن أن يكون تابعًا له",
+  "Capped": "محدود بسقف",
+  "Chain Type": "نوع السلسلة",
   "Change camera": "تبديل الكاميرا",
   "Choose File": "اختر ملفًا",
   "Choose your role for now": "اختر دورك الآن",
   "Close": "إغلاق",
+  "Color": "اللون",
+  "Confirm account removal": "تأكيد إزالة الحساب",
+  "Confirm address removal": "تأكيد إزالة العنوان",
+  "Confirm code removal": "تأكيد إزالة الشفرة",
+  "Confirm contract removal": "تأكيد إزالة العقد",
   "Connecting to IPFS...": "جارٍ الاتصال بـ IPFS...",
+  "Contribute": "مساهمة",
+  "Contribute to fund": "المساهمة في الصندوق",
   "Copied": "تم النسخ",
   "Copy": "نسخ",
   "Copy address": "نسخ العنوان",
@@ -32,7 +64,10 @@
   "Course": "دورة",
   "Create": "إنشاء",
   "Create an exercise similar to this:": "أنشئ تمرينًا مشابهًا لهذا:",
+  "Crowdloan": "قرض جماعي",
   "Current account": "الحساب الحالي",
+  "Current account nonce: {{accountNonce}}": "Nonce الحساب الحالي: {{accountNonce}}",
+  "Currently this is a one-way transfer since the on-chain runtime functionality to send the funds from the destination chain back to this account not yet available.": "حاليًا هذا تحويل باتجاه واحد لأن وظيفة وقت التشغيل على السلسلة لإرسال الأموال من سلسلة الوجهة إلى هذا الحساب غير متاحة بعد.",
   "Dates of receipt": "تواريخ الاستلام",
   "Decimals": "الكسور العشرية",
   "Delete": "حذف",
@@ -40,10 +75,14 @@
   "Delete this account": "حذف هذا الحساب",
   "Deleted": "تم الحذف",
   "Deletion failed": "فشل الحذف",
+  "Deregister": "إلغاء التسجيل",
   "Deselect all": "إلغاء تحديد الكل",
   "Developer": "المطور",
   "Developer mode": "وضع المطور",
+  "Do not include a tip for the block author": "لا تُدرج إكرامية لمؤلف الكتلة",
+  "Do not transfer any funds directly to a specific account that is associated with a loan or a team. Use the ’Contribute’ action to record the contribution on-chain using the crowdloan runtime module. When the fund is dissolved, after either the parachain lease expires or the loan ending without winning, the full value will be returned to your account by the runtime. Funds sent directly to an account, without using the crowdloan functionality, may not be returned by the receiving account.": "لا تُحوِّل أي أموال مباشرةً إلى حساب محدد مرتبط بقرض أو بفريق. استخدم إجراء \"مساهمة\" لتسجيل المساهمة على السلسلة باستخدام وحدة وقت تشغيل القرض الجماعي. عند حلّ الصندوق، بعد انتهاء عقد إيجار الباراشين أو انتهاء القرض دون الفوز، ستُعاد القيمة كاملةً إلى حسابك بواسطة وقت التشغيل. قد لا تُعاد الأموال المُرسلة مباشرةً إلى حساب، دون استخدام وظيفة القرض الجماعي، من قِبل الحساب المستلم.",
   "Do this again": "افعل ذلك مرة أخرى",
+  "Don’t use a proxy for this call": "لا تستخدم وكيلاً لهذا الاستدعاء",
   "Download": "تنزيل",
   "Duplicate": "تكرار",
   "Earn bonuses from teachers, parents, or employers—anyone who benefits from your learning. In return, they will be able to assess your badges and receive Slons from tutors if you forget your skills.": "احصل على مكافآت من المعلمين أو الوالدين أو أصحاب العمل — أي شخص يستفيد من تعلمك. في المقابل، سيتمكنون من تقييم شاراتك وتلقي Slon من المعلمين إذا نسيت مهاراتك.",
@@ -51,14 +90,20 @@
   "Educational standards": "المعايير التعليمية",
   "Educational standards for the module": "المعايير التعليمية للوحدة",
   "Enable developer mode first in settings": "قم أولاً بتمكين وضع المطور في الإعدادات",
+  "Ended": "انتهى",
   "Enter the account name": "أدخل اسم الحساب",
   "Enter your full name": "أدخل اسمك الكامل",
+  "Era is overdue for completion due to current network operating conditions": "تأخر إكمال الحقبة بسبب ظروف تشغيل الشبكة الحالية",
   "Error": "خطأ",
   "Example exercises to train the skill": "تمارين نموذجية لتدريب المهارة",
   "Excellent! Let’s repeat this tomorrow.": "ممتاز! لنكرر ذلك غدًا.",
   "Exercise": "تمرين",
   "Existing": "موجود",
+  "Extensions": "الامتدادات",
+  "Forget": "نسيان",
   "General": "عام",
+  "Generate {{lng}}/translation.json": "إنشاء {{lng}}/translation.json",
+  "Genesis Hash": "تجزئة التكوين (Genesis)",
   "Get bonus": "احصل على مكافأة",
   "Get bounty": "احصل على جائزة",
   "Get help and badges from classmates": "احصل على المساعدة والشارات من زملائك في الصف",
@@ -71,50 +116,92 @@
   "Has the tutee repeated correctly?": "هل كرر الطالب بشكل صحيح؟",
   "Have questions?": "هل لديك أسئلة؟",
   "Hide the solution": "إخفاء الحل",
+  "Homepage": "الصفحة الرئيسية",
   "IPFS is not ready. Please wait...": "IPFS غير جاهز بعد. يرجى الانتظار...",
   "Image": "صورة",
+  "Include an optional tip for faster processing": "تضمين إكرامية اختيارية لمعالجة أسرع",
   "Initializing connection": "جارٍ تهيئة الاتصال",
   "It’s better to shorten it to 9 words.": "من الأفضل اختصاره إلى 9 كلمات.",
   "I’ve found a new partner": "لقد وجدت شريكًا جديدًا",
   "Learn": "تعلّم",
   "Learn with AI": "تعلّم باستخدام الذكاء الاصطناعي",
+  "Let’s start with a simple skill. Your student will pretend not to know it.": "لنبدأ بمهارة بسيطة. سيتظاهر طالبك بأنه لا يعرفها.",
+  "Lifetime (# of blocks)": "مدة الحياة (عدد الكتل)",
   "List": "قائمة",
   "Loading": "جارٍ التحميل",
+  "Locked1x": "مقفل 1x",
+  "Locked2x": "مقفل 2x",
+  "Locked3x": "مقفل 3x",
+  "Locked4x": "مقفل 4x",
+  "Locked5x": "مقفل 5x",
+  "Locked6x": "مقفل 6x",
   "Missing required information for transfer": "المعلومات المطلوبة للتحويل غير مكتملة",
   "Module": "وحدة",
+  "Multisig approval with hash (non-final approval)": "موافقة متعددة التواقيع مع التجزئة (موافقة غير نهائية)",
+  "Multisig message with call (for final approval)": "رسالة متعددة التواقيع مع الاستدعاء (للموافقة النهائية)",
   "My accounts": "حساباتي",
   "My badges": "شاراتي",
+  "My contributions ({{count}})": "مساهماتي ({{count}})",
   "My lessons": "دروسي",
   "Name Surname": "الاسم واللقب",
+  "Nay": "لا",
   "Network Name": "اسم الشبكة",
   "New": "جديد",
   "Next": "التالي",
   "Next time, use this button to scan.": "في المرة القادمة استخدم هذا الزر للمسح.",
   "No": "لا",
+  "No Upgradable extensions": "لا توجد امتدادات قابلة للترقية",
   "No accounts": "لا توجد حسابات",
+  "No active campaigns found": "لم يتم العثور على حملات نشطة",
+  "No completed campaigns found": "لم يتم العثور على حملات مكتملة",
+  "No execution details available for this proposal": "لا تتوفر تفاصيل التنفيذ لهذا المقترح",
   "No internet connection. Check your connection and try again.": "لا يوجد اتصال بالإنترنت. تحقق من الاتصال وحاول مرة أخرى.",
   "No items available": "لا توجد عناصر متاحة",
+  "No ongoing auction": "لا يوجد مزاد جارٍ",
+  "No open tips": "لا توجد إكراميات مفتوحة",
+  "No winners in this auction": "لا يوجد فائزون في هذا المزاد",
+  "Non-signature, non-hex data received from QR. Data contains ’{{sample}}’ instead of a hex-only signature. Please present the correct signature generated from the QR presented for submission.": "تم استلام بيانات ليست توقيعًا وليست بصيغة سداسية عشرية من رمز QR. تحتوي البيانات على ’{{sample}}’ بدلًا من توقيع سداسي عشري فقط. يرجى تقديم التوقيع الصحيح المُنشأ من رمز QR المُقدَّم للإرسال.",
+  "Non-voters ({{count}})": "غير المصوّتين ({{count}})",
   "Nonce": "Nonce",
   "None": "لا شيء",
+  "OK": "حسنًا",
   "OpenAI Token": "رمز OpenAI",
+  "Override any applicable values for the specific signed output. These will be used to construct and display the signed transaction.": "تجاوز أي قيم قابلة للتطبيق للمخرجات الموقعة المحددة. سيتم استخدامها لبناء المعاملة الموقعة وعرضها.",
   "Overview": "نظرة عامة",
+  "ParaId": "معرّف ParaId",
+  "ParaThread": "ParaThread",
+  "Parathreads": "Parathreads",
+  "Past": "سابق",
+  "Place bid": "قدّم عرضًا",
+  "Please change your partner.": "يرجى تغيير شريكك.",
   "Please close this private / incognito window and open the site in a normal one.": "يرجى إغلاق نافذة التصفح الخاص / المتخفي هذه وفتح الموقع في نافذة عادية.",
   "Please fill in all the fields!": "يرجى ملء جميع الحقول!",
   "Please notify tech support.": "يرجى إبلاغ الدعم الفني.",
   "Positive number": "عدد موجب",
+  "Preparing QR for signing": "جارٍ تحضير رمز QR للتوقيع",
   "Press the link to add the badge": "اضغط على الرابط لإضافة الشارة",
   "Press the link to see badges of the student": "اضغط على الرابط لعرض شارات الطالب",
   "Press the link to send Slon": "اضغط على الرابط لإرسال Slon",
   "Press the link to show badges": "اضغط على الرابط لعرض الشارات",
   "Press the link to start tutoring": "اضغط على الرابط لبدء التعليم",
   "Press this button to send the results and get your reward for tutoring": "اضغط على هذا الزر لإرسال النتائج والحصول على مكافأتك مقابل التعليم",
+  "Print": "طباعة",
+  "Prior locked voting": "تصويت مقفل سابق",
   "Problem with getting IPFS data": "مشكلة في جلب بيانات IPFS",
   "Processing": "جارٍ المعالجة",
   "Processing...": "جارٍ المعالجة...",
+  "Proposals": "المقترحات",
+  "Propose": "اقترح",
+  "Propose parachain": "اقترح Parachain",
   "QR code": "رمز QR",
+  "Refund": "استرداد",
+  "Register parathread": "تسجيل Parathread",
+  "Relay chain": "سلسلة الترحيل",
   "Remove item": "إزالة العنصر",
+  "Remove validator": "إزالة المُدقّق",
   "Repeat after me.": "كرر بعدي.",
   "Repeat after me:": "كرر بعدي:",
+  "Reserve ParaId": "حجز ParaId",
   "Reset": "إعادة تعيين",
   "Reset settings to default": "إعادة الإعدادات إلى الوضع الافتراضي",
   "Restore": "استعادة",
@@ -124,6 +211,7 @@
   "Revise": "راجع",
   "Reward your tutor": "كافئ معلمك",
   "SOME EXERCISE FOR SKILL TRAINING (THE TUTOR SHOULD KNOW)": "بعض التمارين لتدريب المهارة (يجب أن يعرفها المعلم)",
+  "SOME TASK FOR SKILL TRAINING (THE TUTOR SHOULD KNOW)": "مهمة ما لتدريب المهارات (يجب أن يعرفها المدرّس)",
   "Save": "حفظ",
   "Save & Reload": "احفظ وأعد التحميل",
   "Save and close": "احفظ وأغلق",
@@ -142,16 +230,24 @@
   "Send results and get a reward": "أرسل النتائج واحصل على مكافأة",
   "Send to AI": "أرسل إلى الذكاء الاصطناعي",
   "Sent": "تم الإرسال",
+  "Set to 0 to make transaction immortal": "اضبطه على 0 لجعل المعاملة غير منتهية الصلاحية",
   "Settings": "الإعدادات",
+  "Share": "مشاركة",
   "Should be repeated tomorrow": "يجب تكراره غدًا",
   "Show to a classroom": "اعرضه على الصف",
   "Show to get a bonus": "اعرضه للحصول على مكافأة",
+  "Sign (no submission)": "وقّع (بدون إرسال)",
+  "Sign and Submit": "وقّع وأرسل",
+  "Sign via Qr": "وقّع عبر QR",
+  "Signed transaction": "المعاملة الموقعة",
   "Skill": "مهارة",
   "Skills": "مهارات",
   "Skip": "تخطي",
+  "Slon": "Slon",
   "Slon to burn": "Slon للحرق",
   "Slon to burn for item": "Slon للحرق مقابل العنصر",
   "Slon to burn help info": "معلومات حول عدد Slon المحترقة",
+  "Slonig": "Slonig",
   "Slonig privacy policy": "سياسة الخصوصية الخاصة بـ Slonig",
   "Slons will be deducted from your account.": "سيتم خصم Slon من حسابك.",
   "Solution": "حل",
@@ -162,18 +258,58 @@
   "Student has shown you a QR code created for a different teacher. Ask them to scan your QR code.": "أظهر لك الطالب رمز QR تم إنشاؤه لمعلم آخر. اطلب منه مسح رمزك الخاص.",
   "Submit": "إرسال",
   "Submit (no signature)": "إرسال (بدون توقيع)",
+  "Submit individual": "إرسال عنصر واحد",
+  "Submit {{queueSize}} items": "إرسال {{queueSize}} عنصرًا",
   "Sure to delete learning results?": "هل أنت متأكد من حذف نتائج التعلم؟",
   "Sure to exit learning?": "هل تريد التوقف عن التعلم؟",
   "Sure to exit tutoring?": "هل تريد التوقف عن التعليم؟",
   "Switch": "تبديل",
   "TUTEE – learns new skills and earns badges": "الطالب – يتعلم مهارات جديدة ويحصل على شارات",
   "TUTOR – helps friends and earns rewards": "المعلم – يساعد الأصدقاء ويحصل على مكافآت",
+  "Tags": "الوسوم",
   "Teach": "تدريس",
+  "Teleport": "نقل فوري",
+  "Teleport assets": "نقل الأصول عبر Teleport",
   "Tell the tutee to scan the same QR code.": "قل للطالب أن يمسح نفس رمز QR.",
   "Templates of skills:": "نماذج المهارات:",
   "Text": "نص",
+  "The Id of this parachain as known on the network (selected from nextFreeId)": "معرّف هذه السلسلة الموازية (parachain) كما هو معروف على الشبكة (مُختار من nextFreeId)",
+  "The WASM validation function as well as the genesis state for this parachain.": "دالة التحقق WASM وكذلك حالة التكوين (genesis state) لهذه السلسلة الموازية.",
+  "The WASM validation function for this parachain.": "دالة التحقق WASM لهذه السلسلة الموازية.",
+  "The above contribution should more than minimum contribution amount and less than the remaining value.": "يجب أن تكون المساهمة أعلاه أكبر من الحد الأدنى للمساهمة وأقل من القيمة المتبقية.",
+  "The account does not have enough free funds (excluding locked/bonded/reserved) available to cover the transaction fees without dropping the balance below the account existential amount.": "لا يحتوي الحساب على أموال حرة كافية (باستثناء المقفلة/المربوطة/المحجوزة) لتغطية رسوم المعاملة دون خفض الرصيد إلى ما دون الحد الوجودي للحساب.",
+  "The actual fully constructed signed output. This can be used for submission via other channels.": "المخرجات الموقعة الفعلية والمُنشأة بالكامل. يمكن استخدامها للإرسال عبر قنوات أخرى.",
+  "The amount deposited to the recipient will be net the calculated cross-chain fee. If the recipient address is new, the amount deposited should be greater than the Existential Deposit": "سيكون المبلغ المُودَع لدى المستلم صافيًا بعد خصم رسوم العبور بين السلاسل المحسوبة. إذا كان عنوان المستلم جديدًا، فيجب أن يكون المبلغ المُودَع أكبر من الإيداع الوجودي (Existential Deposit).",
+  "The amount is less than the minimum allowed contribution of {{value}}": "المبلغ أقل من الحد الأدنى المسموح به للمساهمة وهو {{value}}",
+  "The amount is more than the remaining contribution needed {{value}}": "المبلغ أكبر من المساهمة المتبقية المطلوبة {{value}}",
+  "The amount to be raised in this funding campaign.": "المبلغ المراد جمعه في حملة التمويل هذه.",
+  "The amount to contribute from this account.": "المبلغ المراد المساهمة به من هذا الحساب.",
+  "The amount to to bid for this parachain lease period range.": "المبلغ المراد المزايدة به لنطاق فترة تأجير هذه السلسلة الموازية.",
+  "The beneficiary will have access to the transferred amount when the transaction is included in a block.": "سيتمكن المستفيد من الوصول إلى المبلغ المحوّل عند تضمين المعاملة في كتلة.",
+  "The bid should be more than the current range winner to be accepted and influence the auction outcome.": "يجب أن تكون المزايدة أعلى من الفائز الحالي في النطاق ليتم قبولها وتؤثر في نتيجة المزاد.",
   "The bounty will be received": "سيتم استلام الجائزة",
+  "The call hash as calculated for this transaction": "تجزئة الاستدعاء (call hash) كما تم حسابها لهذه المعاملة",
+  "The code is not recognized as being in valid WASM format": "لم يتم التعرف على الشيفرة على أنها بتنسيق WASM صالح",
+  "The destination chain for this asset teleport. The transferred value will appear on this chain.": "السلسلة الوجهة لعملية نقل الأصول عبر Teleport. ستظهر القيمة المحوّلة على هذه السلسلة.",
+  "The details of the transaction including the type, the description (as available from the chain metadata) as well as any parameters and fee estimations (as available) for the specific type of call.": "تفاصيل المعاملة بما في ذلك النوع والوصف (حسب المتاح من بيانات السلسلة الوصفية) وكذلك أي معاملات وتقديرات للرسوم (حسب المتاح) لنوع الاستدعاء المحدد.",
+  "The end block for contributions to this fund.": "كتلة النهاية للمساهمات في هذا الصندوق.",
+  "The ending lease period should be after the first and a maximum of {{maxPeriods}} periods more than the first": "يجب أن تكون فترة التأجير النهائية بعد الأولى وبحد أقصى {{maxPeriods}} فترات أكثر من الأولى",
+  "The first and last lease period for this bid. The last lease period should be after the first with the maximum determined by the auction config.": "فترة التأجير الأولى والأخيرة لهذه المزايدة. يجب أن تكون فترة التأجير الأخيرة بعد الأولى، مع تحديد الحد الأقصى بواسطة إعدادات المزاد.",
+  "The first and last lease periods for this funding campaign.": "فترتا التأجير الأولى والأخيرة لحملة التمويل هذه.",
+  "The full call data that can be supplied to a final call to multi approvals": "بيانات الاستدعاء الكاملة التي يمكن تزويدها للاستدعاء النهائي لعمليات الموافقة المتعددة",
+  "The genesis state for this parachain.": "حالة التكوين (genesis state) لهذه السلسلة الموازية.",
+  "The hex-encoded verifier signature should be provided to you by the team running the crowdloan (based on the information you provide).": "يجب أن يزوّدك فريق تشغيل القرض الجماعي (crowdloan) بتوقيع المُتحقِّق المُرمَّز بصيغة hex (استنادًا إلى المعلومات التي تقدمها).",
+  "The id of this parachain as known on the network": "معرّف هذه السلسلة الموازية كما هو معروف على الشبكة",
   "The link misses a known ID": "الرابط لا يحتوي على معرف معروف",
+  "The name for this parachain, the id and the allocated/requested balance.": "اسم هذه السلسلة الموازية ومعرّفها والرصيد المخصص/المطلوب.",
+  "The parachain id is associated with the selected account via parathread registration.": "معرّف السلسلة الموازية مرتبط بالحساب المحدد عبر تسجيل parathread.",
+  "The proxy is one of the allowed proxies on the account, as set and filtered by the transaction type.": "الوكيل (proxy) هو أحد الوكلاء المسموح بهم على الحساب، كما تم تعيينه وتصفيته حسب نوع المعاملة.",
+  "The recipient is associated with a known phishing site on {{url}}": "المستلم مرتبط بموقع تصيّد معروف على {{url}}",
+  "The reservation fee for this Id": "رسوم حجز هذا المعرّف",
+  "The reservation fee for this parachain, including base fee and per-byte fees": "رسوم حجز هذه السلسلة الموازية، بما في ذلك الرسوم الأساسية ورسوم كل بايت",
+  "The sending account that will be used to send this transaction. Any applicable fees will be paid by this account.": "الحساب المُرسِل الذي سيُستخدم لإرسال هذه المعاملة. سيتم دفع أي رسوم مطبّقة من هذا الحساب.",
+  "The signatory is one of the allowed accounts on the multisig, making a recorded approval for the transaction.": "الموقّع هو أحد الحسابات المسموح بها في التوقيع المتعدد (multisig)، ويقوم بتسجيل موافقة على المعاملة.",
+  "The transferred balance will be subtracted (along with fees) from the sender account.": "سيتم خصم الرصيد المحوّل (مع الرسوم) من حساب المُرسِل.",
   "The tutee has corrected me and has given me the correct solution.": "قام الطالب بتصحيحي وأعطاني الحل الصحيح.",
   "The tutee has created an exercise.": "أنشأ الطالب تمرينًا.",
   "The tutee has executed the exercise correctly.": "نفذ الطالب التمرين بشكل صحيح.",
@@ -182,6 +318,22 @@
   "The tutee has not executed the exercise correctly.": "لم ينفذ الطالب التمرين بشكل صحيح.",
   "The tutee has repeated correctly after me.": "كرر الطالب بشكل صحيح بعدي.",
   "The tutor has shown you a QR code created for a different tutee. Ask the tutor to find the correct lesson.": "أظهر لك المعلم رمز QR تم إنشاؤه لطالب آخر. اطلب من المعلم العثور على الدرس الصحيح.",
+  "The validators for this parachain. At least one is required and where multiple is supplied, they need to be unique.": "المُدقِّقون لهذه السلسلة الموازية. يلزم وجود واحد على الأقل، وعند توفير عدة مُدقِّقين يجب أن يكونوا فريدين.",
+  "The verifier signature that is to be associated with this contribution.": "توقيع المُتحقِّق الذي سيتم ربطه بهذه المساهمة.",
+  "There are no available parathreads": "لا توجد parathreads متاحة",
+  "There are no pending proposals": "لا توجد مقترحات معلّقة",
+  "There are no registered parachains": "لا توجد سلاسل موازية مسجّلة",
+  "This account that has been used to register the parachain. This will pay all associated fees.": "هذا هو الحساب الذي تم استخدامه لتسجيل السلسلة الموازية. سيدفع هذا الحساب جميع الرسوم المرتبطة.",
+  "This account will be associated with the parachain and pay the deposit.": "سيتم ربط هذا الحساب بالسلسلة الموازية وسيدفع الإيداع.",
+  "This account will be used to send the transaction.": "سيُستخدم هذا الحساب لإرسال المعاملة.",
+  "This account will be used to the Id reservation and for the future parathread.": "سيُستخدم هذا الحساب لحجز المعرّف ولـ parathread مستقبلية.",
+  "This account will contribute to the crowdloan.": "سيساهم هذا الحساب في القرض الجماعي (crowdloan).",
+  "This chain does not yet support atomic batch operations. This means that if the transaction gets executed and one of the operations do fail (due to invalid data or lack of available funds) some of the changes made may not be applied.": "لا تدعم هذه السلسلة بعد عمليات الدُفعات الذرّية (atomic batch). هذا يعني أنه إذا تم تنفيذ المعاملة وفشلت إحدى العمليات (بسبب بيانات غير صالحة أو نقص الأموال المتاحة) فقد لا يتم تطبيق بعض التغييرات التي تم إجراؤها.",
+  "This could either be an approval for the hash or with full call details. The call as last approval triggers execution.": "قد تكون هذه موافقة على التجزئة أو مع تفاصيل الاستدعاء كاملة. الاستدعاء باعتباره آخر موافقة يؤدي إلى التنفيذ.",
+  "This is the amount to be teleported to the destination chain and does not account for the source or the destination transfer fee": "هذا هو المبلغ الذي سيتم نقله عبر Teleport إلى السلسلة الوجهة ولا يشمل رسوم التحويل في المصدر أو الوجهة",
+  "This operation does not remove the history of the account from the chain, nor any associated funds from the account. The forget operation only limits your access to the account on this browser.": "لا تزيل هذه العملية سجل الحساب من السلسلة ولا أي أموال مرتبطة بالحساب. عملية النسيان (forget) تقيّد فقط وصولك إلى الحساب على هذا المتصفح.",
+  "This operation does not remove the history of the account from the chain, nor any associated funds from the account. The forget operation only limits your access to the address on this browser.": "لا تؤدي هذه العملية إلى إزالة سجل الحساب من السلسلة، ولا أي أموال مرتبطة بالحساب. عملية النسيان تقيّد فقط وصولك إلى العنوان على هذا المتصفح.",
+  "This operation does not remove the history of the contract from the chain, nor any associated funds from its account. The forget operation only limits your access to the contract on this browser.": "لا تؤدي هذه العملية إلى إزالة سجل العقد من السلسلة، ولا أي أموال مرتبطة بحسابه. عملية النسيان تقيّد فقط وصولك إلى العقد على هذا المتصفح.",
   "Tip (optional)": "إكرامية (اختياري)",
   "To assess a student, ask them to scan:": "لتقييم الطالب، اطلب منه مسح:",
   "To get Slon, ask a sender to scan:": "للحصول على Slon، اطلب من المرسل مسح:",
@@ -190,6 +342,7 @@
   "To revise this, ask a tutor to scan:": "لمراجعة هذا، اطلب من المعلم مسح:",
   "Top up my balance": "شحن رصيدي",
   "Transfer failed": "فشل التحويل",
+  "Transfer failed:": "فشل التحويل:",
   "Translate": "ترجمة",
   "Tutee failed the reexamination": "فشل الطالب في إعادة التقييم",
   "Tutee has the skill": "الطالب يمتلك المهارة",
@@ -199,59 +352,173 @@
   "Tutor scans the QR code from the tutee’s device.": "يمسح المعلم رمز QR من جهاز الطالب.",
   "Tutoring": "التعليم",
   "UI options": "خيارات الواجهة",
+  "Unable to connect to the Ledger, ensure support is enabled in settings and no other app is using it. {{errorMessage}}": "تعذّر الاتصال بـ Ledger، تأكد من تفعيل الدعم في الإعدادات وألا يكون هناك تطبيق آخر يستخدمه. {{errorMessage}}",
   "Unbonding {{value}}": "فك الربط {{value}}",
+  "Uncaught error. Something went wrong with the query and rendering of this component. Please supply all the details below when logging an issue, it may help in tracing the cause.": "خطأ غير معالَج. حدث خطأ ما في الاستعلام وعرض هذا المكوّن. يُرجى تزويد جميع التفاصيل أدناه عند تسجيل مشكلة، فقد يساعد ذلك في تتبّع السبب.",
   "Unit": "وحدة",
   "Unknown": "غير معروف",
   "Unlock the sending account to allow signing of this transaction.": "افتح حساب الإرسال للسماح بتوقيع هذه المعاملة.",
   "Update metadata": "تحديث البيانات الوصفية",
+  "Upgrading": "جارٍ الترقية",
   "Upload your backup file": "حمّل ملف النسخة الاحتياطية",
+  "Use a proxy for this call": "استخدم وكيلاً لهذا الاستدعاء",
+  "Val. Group {{group}} ({{count}})": "مجموعة المدققين {{group}} ({{count}})",
+  "Valid number": "رقم صالح",
+  "Validators ({{count}})": "المدققون ({{count}})",
+  "View this externally": "عرض هذا خارجيًا",
+  "Waiting for authorization from the extension. Please open the installed extension and approve or reject access.": "بانتظار التفويض من الإضافة. يُرجى فتح الإضافة المثبّتة والموافقة على الوصول أو رفضه.",
   "Warm-up": "تمهيد",
   "Were all of the tutee’s exercises and answers perfect today?": "هل كانت جميع تمارين وإجابات الطالب مثالية اليوم؟",
+  "Winner": "الفائز",
+  "Withdraw from fund": "سحب من الصندوق",
+  "Withdraw these unbonded funds": "سحب هذه الأموال غير المربوطة",
   "Wrong JSON format": "تنسيق JSON غير صحيح",
   "Yes": "نعم",
   "You are a tutor. The app will show you how to teach the student who showed you a QR code.": "أنت المعلّم. سيُظهر لك التطبيق كيفية تعليم الطالب الجالس أمامك.",
+  "You are about to remove this account from your list of available accounts. Once completed, should you need to access it again, you will have to re-create the account either via seed or via a backup file.": "أنت على وشك إزالة هذا الحساب من قائمة الحسابات المتاحة لديك. بعد الإكمال، إذا احتجت إلى الوصول إليه مرة أخرى، فسيتعين عليك إعادة إنشاء الحساب إما عبر العبارة الأولية (seed) أو عبر ملف نسخة احتياطية.",
+  "You are about to remove this address from your address book. Once completed, should you need to access it again, you will have to re-add the address.": "أنت على وشك إزالة هذا العنوان من دفتر العناوين. بعد الإكمال، إذا احتجت إلى الوصول إليه مرة أخرى، فسيتعين عليك إعادة إضافة العنوان.",
+  "You are about to remove this contract from your list of available contracts. Once completed, should you need to access it again, you will have to manually add the contract’s address in the Instantiate tab.": "أنت على وشك إزالة هذا العقد من قائمة العقود المتاحة لديك. بعد الإكمال، إذا احتجت إلى الوصول إليه مرة أخرى، فسيتعين عليك إضافة عنوان العقد يدويًا في تبويب Instantiate.",
   "You can put your device aside": "يمكنك وضع جهازك جانبًا",
   "You can select no more than:": "يمكنك اختيار ما لا يزيد عن:",
   "You can use the KaTeX language to add formulas:": "يمكنك استخدام لغة KaTeX لإضافة الصيغ:",
   "You currently have {{amount}} Slon.": "لديك حاليًا {{amount}} Slon.",
   "You did not issue or reexamine any badges during this lesson.": "لم تنشئ أو تراجع أي شارات خلال هذا الدرس.",
   "You do not have enough Slon to reward your tutor and get the lesson results. Top up your balance with at least {{amount}} Slon.": "ليس لديك ما يكفي من Slon لمكافأة معلمك والحصول على نتائج الدرس. اشحن رصيدك بما لا يقل عن {{amount}} Slon.",
+  "You don’t have such a skill. I will penalize the tutor which issued the badge for it.": "لا تمتلك مثل هذه المهارة. سأعاقب المدرّس الذي أصدر الشارة لها.",
+  "You have duplicated validator entries, ensure each is unique.": "لديك إدخالات مدققين مكررة، تأكد من أن كل إدخال فريد.",
+  "You need to supply at last one running validator for your parachain alongside this request.": "تحتاج إلى توفير مدقق واحد على الأقل قيد التشغيل لسلسلتك الجانبية (parachain) مع هذا الطلب.",
   "You should practice tutoring first before you can reexamine.": "يجب أن تتدرب على التعليم أولاً قبل أن تتمكن من إعادة التقييم.",
+  "Your custom types have been added": "تمت إضافة الأنواع المخصصة لديك",
   "account forgotten": "تم نسيان الحساب",
   "account name": "اسم الحساب",
   "account restored": "تمت استعادة الحساب",
   "accounts": "الحسابات",
   "active": "نشط",
+  "active raised / cap": "المبلغ المُجمَّع النشط / الحد الأقصى",
   "amount": "المبلغ",
   "assessment history": "سجل التقييمات",
+  "auctions": "المزادات",
+  "available to be unlocked": "متاح لإلغاء القفل",
+  "aye: bool": "نعم: bool",
+  "backed": "مدعوم",
   "backup file": "ملف النسخة الاحتياطية",
   "badges": "الشارات",
   "balance": "الرصيد",
   "beneficiary": "المستفيد",
+  "bid amount": "مبلغ المزايدة",
+  "bid period range (first lease - last lease)": "نطاق فترة المزايدة (أول عقد إيجار - آخر عقد إيجار)",
+  "bidder": "المزايد",
   "bids": "العروض",
   "blocks": "الكتل",
+  "bond": "ربط",
+  "bonded": "مربوط",
+  "call hash": "تجزئة الاستدعاء",
+  "call hash / {{section}}.{{method}}": "تجزئة الاستدعاء / {{section}}.{{method}}",
+  "chain": "السلسلة",
+  "chain specifications": "مواصفات السلسلة",
+  "click to select or drag and drop JSON key/value (hex-encoded) file": "انقر للاختيار أو اسحب وأفلت ملف JSON لمفتاح/قيمة (مشفّر بالهيكس)",
   "click to select or drag and drop the file here": "انقر للاختيار أو اسحب الملف إلى هنا",
+  "clipboard": "الحافظة",
+  "code": "الرمز",
+  "commission": "العمولة",
+  "completed": "مكتمل",
+  "contribute from": "المساهمة من",
+  "contribution": "المساهمة",
+  "conviction: Conviction": "درجة القناعة: Conviction",
+  "count": "العدد",
   "created account": "تم إنشاء الحساب",
+  "crowdfund cap": "الحد الأقصى للتمويل الجماعي",
+  "crowdloan": "قرض جماعي",
+  "current lease": "عقد الإيجار الحالي",
+  "current range winning bid": "المزايدة الفائزة ضمن النطاق الحالي",
+  "custom endpoint": "نقطة نهاية مخصصة",
   "days valid": "صالح لعدد من الأيام",
   "default interface language": "اللغة الافتراضية للواجهة",
+  "democracy": "الديمقراطية",
+  "destination chain": "السلسلة الوجهة",
+  "destination existential deposit": "الإيداع الوجودي للوجهة",
+  "details": "التفاصيل",
+  "do not include empty strings in the generated file": "لا تُضمّن السلاسل الفارغة في الملف المُولَّد",
+  "end period at": "تنتهي الفترة عند",
+  "ending": "النهاية",
+  "ending block": "كتلة النهاية",
+  "ending period": "فترة النهاية",
+  "everything": "كل شيء",
   "examples": "أمثلة",
+  "external links": "روابط خارجية",
+  "extrinsic hash": "تجزئة المعاملة الخارجية",
+  "file upload": "رفع ملف",
+  "filter by name, address, or account index": "التصفية حسب الاسم أو العنوان أو فهرس الحساب",
+  "finalized": "مُعتمَد نهائيًا",
+  "first - last": "الأول - الأخير",
+  "first period": "الفترة الأولى",
+  "funds": "الأموال",
+  "generate random color": "توليد لون عشوائي",
+  "genesis state": "حالة التكوين",
+  "hash a file": "تجزئة ملف",
+  "head": "الرأس",
+  "in/out": "داخل/خارج",
+  "include all empty strings in the generated file": "ضمّن جميع السلاسل الفارغة في الملف المُولَّد",
+  "include option": "خيار التضمين",
+  "included": "مُضمَّن",
+  "initial balance": "الرصيد الابتدائي",
+  "initial state": "الحالة الابتدائية",
   "is": "هو",
+  "last period": "الفترة الأخيرة",
+  "latest": "الأحدث",
+  "lease period": "فترة التأجير",
+  "leases": "عقود التأجير",
+  "lifecycle": "دورة الحياة",
+  "lifetime": "مدة الحياة",
+  "lightclient.experimental": "عميل خفيف.تجريبي",
   "link": "رابط",
   "lng.detect": "لغة المتصفح",
   "loading": "جارٍ التحميل",
+  "lock expired": "انتهت مدة القفل",
+  "locked": "مقفول",
+  "minimum allowed": "الحد الأدنى المسموح",
+  "multisig call data": "بيانات استدعاء التوقيع المتعدد",
+  "multisig signatory": "الموقّع في التوقيع المتعدد",
   "nav.accounts": "الحسابات",
   "nav.badges": "الشارات",
   "nav.knowledge": "المهارات",
   "nav.parachains": "البارا تشينز",
   "nav.settings": "الإعدادات",
+  "nav.teleport": "التنقّل.الترحيل",
   "nav.transfer": "التحويل",
   "no": "لا",
+  "none": "لا شيء",
+  "of {{locked}} vested": "مستحق من أصل {{locked}}",
+  "ongoing": "جارٍ",
+  "ongoing referendum": "استفتاء جارٍ",
   "only this network": "فقط في هذه الشبكة",
+  "parachain id": "معرّف الباراشين",
+  "parachain name": "اسم الباراشين",
+  "parachain owner": "مالك الباراشين",
+  "parachains": "باراشينات",
+  "parathreads": "باراثريدز",
   "password": "كلمة المرور",
   "password (repeat)": "كلمة المرور (تأكيد)",
+  "per block": "لكل كتلة",
+  "preimage": "الصورة المسبقة",
   "preview": "معاينة",
+  "proposals": "المقترحات",
+  "propose from": "اقتراح من",
+  "proposed by": "مقترح من قبل",
+  "proposer": "مقدّم الاقتراح",
+  "proxy account": "حساب الوكيل",
+  "raised": "تم جمعه",
   "receive reward for each badge": "احصل على مكافأة مقابل كل شارة",
   "recipient": "المستلم",
+  "redeemable": "قابل للاسترداد",
+  "referenda": "الاستفتاءات",
+  "register from": "تسجيل من",
+  "remaining till cap": "المتبقي حتى الحد الأقصى",
+  "requested id": "المعرّف المطلوب",
+  "requesting from": "طلب من",
+  "reserve from": "حجز من",
+  "reserved": "محجوز",
+  "reserved deposit": "إيداع محجوز",
   "reward": "مكافأة",
   "rpc.dev.custom": "بيئة مخصصة",
   "rpc.dev.custom.entry": "مخصص {{WS_URL}}",
@@ -268,20 +535,69 @@
   "select teacher / parent / employer": "اختر معلم / ولي أمر / صاحب عمل",
   "send": "إرسال",
   "sender": "المرسل",
+  "sending from my account": "إرسال من حسابي",
+  "session keys": "مفاتيح الجلسة",
+  "session next": "الجلسة التالية",
+  "signature {{type}}": "التوقيع {{type}}",
+  "ss58.default": "ss58.default",
   "stake for each badge": "ضمان مقابل كل شارة",
   "strong": "قوي",
   "text": "نص",
+  "the language to display translations for": "اللغة التي سيتم عرض الترجمات لها",
+  "the module to display strings for": "الوحدة التي سيتم عرض السلاسل النصية لها",
+  "timeout": "انتهاء المهلة",
+  "tip": "إكرامية",
   "title": "العنوان",
   "title of item": "عنوان العنصر",
   "total": "الإجمالي",
   "total balance": "إجمالي الرصيد",
+  "total raised / cap": "إجمالي المجمّع / الحد الأقصى",
   "transactions": "المعاملات",
+  "transfer received": "تم استلام التحويل",
   "transferable": "قابل للتحويل",
+  "transferable minus fees": "القابل للتحويل بعد خصم الرسوم",
+  "type": "النوع",
   "type of item": "نوع العنصر",
+  "unbonding": "فكّ الرهن",
+  "unlock account with password": "فتح قفل الحساب بكلمة المرور",
+  "unlock for {{expiry}} min": "فتح القفل لمدة {{expiry}} دقيقة",
+  "unstake threshold": "حد إلغاء التخزين",
+  "until block": "حتى الكتلة",
+  "update on #{{index}}": "تحديث على #{{index}}",
+  "upgradable extensions": "إضافات قابلة للترقية",
+  "url": "عنوان URL",
+  "validation code": "رمز التحقق",
+  "validator {{index}}": "المدقق {{index}}",
+  "value": "القيمة",
+  "verifier signature": "توقيع المُتحقِّق",
+  "vested": "مستحق",
+  "via Council/Vote": "عبر المجلس/تصويت",
+  "via Democracy/Vote": "عبر الديمقراطية/تصويت",
+  "via Referenda/Vote": "عبر الاستفتاءات/تصويت",
+  "via Staking/Bond": "عبر التخزين/رهن",
+  "via Vesting": "عبر الاستحقاق",
+  "vote value": "قيمة التصويت",
+  "vote with account": "التصويت باستخدام الحساب",
+  "voting balance": "رصيد التصويت",
   "weak": "ضعيف",
+  "yes": "نعم",
+  "{{blocks}} blocks": "{{blocks}} كتل",
+  "{{count}} key/value pairs encoded for submission": "تم ترميز {{count}} من أزواج المفتاح/القيمة للإرسال",
+  "{{days}} days": "{{days}} أيام",
+  "{{done}}/{{total}}, {{progress}}% done": "{{done}}/{{total}}، اكتمل {{progress}}%",
+  "{{eras}} eras remaining": "متبقٍ {{eras}} من العصور",
+  "{{hours}} hrs": "{{hours}} ساعة",
+  "{{minutes}} mins": "{{minutes}} دقيقة",
+  "{{name}} ({{size}} bytes)": "{{name}} ({{size}} بايت)",
   "{{name}} asks you to reexamine a skill. Try to earn a bonus by testing the skill:": "{{name}} يطلب منك إعادة تقييم مهارة. حاول كسب مكافأة عن طريق اختبار المهارة:",
   "{{name}} asks you to teach a skill. Before starting, try to earn a bonus by testing the previous skill:": "{{name}} يطلب منك تعليم مهارة. قبل البدء، حاول كسب مكافأة باختبار المهارة السابقة:",
   "{{name}} asks you to teach the skill": "{{name}} يطلب منك تعليم المهارة",
+  "{{relay}} Common": "{{relay}} شائع",
+  "{{relay}} Parachain": "{{relay}} باراشين",
+  "{{relay}} System": "{{relay}} النظام",
+  "{{seconds}} s": "{{seconds}} ث",
+  "{{type}} copied": "تم نسخ {{type}}",
+  "{{value}}x voting balance, locked for {{duration}}x duration{{period}}": "{{value}}x رصيد التصويت، مقفل لمدة {{duration}}x مدة{{period}}",
   "⚖️ Decide on the next step": "⚖️ قرر الخطوة التالية",
   "📖 Read what’s happening": "📖 اقرأ ما يحدث",
   "🗣 Give your tutee a wrong answer and say": "🗣 أعط الطالب إجابة خاطئة وقل",

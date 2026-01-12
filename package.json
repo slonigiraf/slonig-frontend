@@ -131,7 +131,7 @@
     "dexie": "^4.0.9",
     "dexie-react-hooks": "^1.1.7",
     "katex": "^0.16.10",
-    "openai": "^6.7.0",
+    "openai": "^6.16.0",
     "peerjs": "^1.5.4",
     "react-day-picker": "^9.1.4",
     "react-katex": "^3.0.1",

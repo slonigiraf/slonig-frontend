@@ -16133,9 +16133,9 @@ __metadata:
   languageName: node
   linkType: hard
 
-"openai@npm:^6.7.0":
-  version: 6.7.0
-  resolution: "openai@npm:6.7.0"
+"openai@npm:^6.16.0":
+  version: 6.16.0
+  resolution: "openai@npm:6.16.0"
   peerDependencies:
     ws: ^8.18.0
     zod: ^3.25 || ^4.0
@@ -16146,7 +16146,7 @@ __metadata:
       optional: true
   bin:
     openai: bin/cli
-  checksum: b481567e0f4783da069d60aa1ad03f832f31f87babd0f486b4317f2e2fd543b3b5b6b031e06da6ee5227f1fdd9a880c86836570f1902b90f2c20d547bc3b547a
+  checksum: 4f0b61543664c6ba15d808ff050d5e786fe6e53fde4e4b336b43fbaf0eb3c95e15b0c86c09ac312eb87d79c7a1ca0bfee9aa85f537c9636b0cfb361fc1c010b4
   languageName: node
   linkType: hard
 
@@ -16793,7 +16793,7 @@ __metadata:
     extensionless: ^1.4.5
     i18next-scanner: ^4.2.0
     katex: ^0.16.10
-    openai: ^6.7.0
+    openai: ^6.16.0
     peerjs: ^1.5.4
     react: ^18.2.0
     react-day-picker: ^9.1.4
