@@ -118,7 +118,7 @@ function extractTranslations() {
     const sorted = Array.from(keys).sort().reduce((acc, k) => {
       acc[k] = k;
       return acc;
-    }, /** @type {Record<string, string>} */ ({}));
+    }, /** @type {Record<string, string>} */({}));
 
     fs.writeFileSync(outFile, JSON.stringify(sorted, null, 2), "utf8");
     console.log(`✅ ${outFileName}: wrote ${keys.size} keys`);
@@ -128,14 +128,14 @@ function extractTranslations() {
   const allSorted = Array.from(allKeys).sort().reduce((acc, k) => {
     acc[k] = "";
     return acc;
-  }, /** @type {Record<string, string>} */ ({}));
+  }, /** @type {Record<string, string>} */({}));
 
   fs.writeFileSync(translationJsonPath, JSON.stringify(allSorted, null, 2), "utf8");
   console.log(`🌐 translation.json: wrote ${allKeys.size} total keys`);
 
   console.log("✨ Extraction complete!");
 
-    // --- Cleanup non-English locale files ---
+  // --- Cleanup non-English locale files ---
   const localesDir = path.join(rootDir, "packages", "apps", "public", "locales");
   const allKeysEn = new Set(Object.keys(allSorted));
 
@@ -151,9 +151,13 @@ function extractTranslations() {
       const filePath = path.join(langDir, file);
       try {
         const data = JSON.parse(fs.readFileSync(filePath, "utf8"));
-        const cleaned = Object.fromEntries(
-          Object.entries(data).filter(([key]) => allKeysEn.has(key))
-        );
+        const cleaned = Object.keys(data)
+          .filter((k) => allKeysEn.has(k))
+          .sort()
+          .reduce((acc, k) => {
+            acc[k] = data[k];
+            return acc;
+          }, /** @type {Record<string, string>} */({}));
 
         fs.writeFileSync(filePath, JSON.stringify(cleaned, null, 2), "utf8");
         console.log(`🧹 Cleaned ${lang}/${file}: kept ${Object.keys(cleaned).length} keys`);
