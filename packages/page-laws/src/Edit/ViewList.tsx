@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useState } from 'react';
-import { LawType, KatexSpan, SelectableList, StyledSpinnerContainer, useLoginContext, getCIDFromBytes, FullscreenActivity, Confirmation, NotClosableFullscreen, useBooleanSettingValue, OKBox, ClassInstruction, useLog } from '@slonigiraf/slonig-components';
+import { LawType, KatexSpan, SelectableList, StyledSpinnerContainer, useLoginContext, getCIDFromBytes, FullscreenActivity, Confirmation, NotClosableFullscreen, useBooleanSettingValue, OKBox, ClassInstruction, useLog, EXAMPLE_MODULE_KNOWLEDGE_CID } from '@slonigiraf/slonig-components';
 import { useLocation, useNavigate } from 'react-router-dom';
 import ItemLabel from './ItemLabel.js';
 import SkillQR from './SkillQR.js';
@@ -252,7 +252,7 @@ function ViewList({ className = '', id, cidString, isClassInstructionShown, setI
       <ClassInstruction caption={list.h} knowledgeId={id} setIsClassInstructionShown={setIsClassInstructionShown} /> :
       isAPairWork ?
         (!role && lessonInUrl) ? roleSelector :
-          <FullscreenActivity captionElement={<KatexSpan content={list.h} />} onClose={exitFullScreenActivity} >
+          <FullscreenActivity captionElement={<KatexSpan content={cidString === EXAMPLE_MODULE_KNOWLEDGE_CID? t('Warm-up'): list.h} />} onClose={exitFullScreenActivity} >
             <RemoveBorders>{content}</RemoveBorders>
             {isExitConfirmOpen && (
               <Confirmation
