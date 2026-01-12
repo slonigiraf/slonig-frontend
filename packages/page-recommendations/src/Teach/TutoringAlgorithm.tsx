@@ -100,7 +100,7 @@ class TutoringAlgorithm extends Algorithm {
             'begin_ask_to_create_similar_exercise',
             t('Yes'),
             [
-                { title: t('📖 Read what’s happening'), text: t('{{name}} asks you to teach the skill', { replace: { name: studentName } }) + (skill && ': ’' + skill.h + '’') },
+                { title: t('📖 Read what’s happening'), text: t('{{name}} asks you to teach the skill', { replace: { name: studentName } }) + (skill && ': ' + skill.h + '.') },
                 { title: t('🗣 Say to the tutee'), text: t('Create an exercise similar to this:') + ' ' + question1, image: exerciseImage1 },
             ],
             t('Has the tutee now created a similar exercise?'),
@@ -136,7 +136,7 @@ class TutoringAlgorithm extends Algorithm {
             'begin_ask_to_solve_exercise',
             t('Start'),
             [
-                { title: t('📖 Read what’s happening'), text: t('{{name}} asks you to teach the skill', { replace: { name: studentName } }) + (skill && ': ’' + skill.h + '’') },
+                { title: t('📖 Read what’s happening'), text: t('{{name}} asks you to teach the skill', { replace: { name: studentName } }) + (skill && ': ' + skill.h + '.') },
                 { title: t('🗣 Say to the tutee'), text: question1, image: exerciseImage1 },
             ],
             t('Has the tutee now executed the exercise correctly?'),
