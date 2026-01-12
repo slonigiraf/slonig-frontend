@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 import React, { useCallback, useState } from 'react';
 import { Button, styled } from '@polkadot/react-components';
-import { Confirmation, EXAMPLE_MODULE_KNOWLEDGE_CID, EXAMPLE_MODULE_KNOWLEDGE_ID, FullFindow, FullscreenActivity, VerticalCenterItemsContainer } from '@slonigiraf/slonig-components';
+import { Confirmation, EXAMPLE_MODULE_KNOWLEDGE_CID, EXAMPLE_MODULE_KNOWLEDGE_ID, FullFindow, FullscreenActivity, useLog, VerticalCenterItemsContainer } from '@slonigiraf/slonig-components';
 import { SettingKey, deleteSetting } from '@slonigiraf/db';
 import { useTranslation } from './translate.js';
 import { useNavigate } from 'react-router-dom';
@@ -36,13 +36,13 @@ function ClassOnboarding({ className = '' }: Props): React.ReactElement<Props> {
       <FullscreenActivity caption={''} onClose={tryToClose}>
 
         <StyledDiv>
-          <h1 className='prompt' style={{ width: '70%', maxWidth: 430, textAlign: 'center' }}>{t('Split and find a partner that never used Slonig')}</h1>
-          <h2 style={{ width: '70%', maxWidth: 430, textAlign: 'center' }}>{t('That person will be your tutor.')}</h2>
           <img
             src="./split_pair.png"
             alt="Signup"
             style={{ width: '80%', maxWidth: 430 }}
           />
+          <h1 className='prompt' style={{ width: '70%', maxWidth: 430, textAlign: 'center' }}>{t('Split and find a partner that never used Slonig')}</h1>
+          
           <Button
             className='highlighted--button'
             activeOnEnter
