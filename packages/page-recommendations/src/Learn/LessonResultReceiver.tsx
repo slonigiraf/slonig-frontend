@@ -4,7 +4,7 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { useLoginContext, useTokenTransfer, useInfo, LessonResult, keyForCid, getAddressFromPublickeyHex, useBlockchainSync, useLog, EXAMPLE_SKILL_KNOWLEDGE_ID, bnToSlonFloatOrNaN } from '@slonigiraf/slonig-components';
 import { hexToU8a, u8aToHex, u8aWrapBytes } from '@polkadot/util';
-import { addReimbursement, cancelLetter, deleteLetter, deserializeLetter, getAgreement, getLetter, getLettersForKnowledgeId, letterToReimbursement, putAgreement, putLetter, setSettingToTrue, SettingKey, storePseudonym, updateLetterReexaminingCount } from '@slonigiraf/db';
+import { addReimbursement, cancelLetter, deleteLetter, deserializeLetter, getAgreement, getLetter, getLettersForKnowledgeId, getSetting, letterToReimbursement, putAgreement, putLetter, setSettingToTrue, SettingKey, storePseudonym, updateLetterReexaminingCount } from '@slonigiraf/db';
 import { useTranslation } from '../translate.js';
 import { Agreement } from '@slonigiraf/db';
 import { useNavigate } from 'react-router-dom';
@@ -124,7 +124,9 @@ function LessonResultReceiver({ webRTCPeerId, onDaysRangeChange }: Props): React
               if (sameSkillLetters.length === 0 || sameSkillLetters.length === 1) {
                 if (sameSkillLetters.length === 1 && letter.knowledgeId === EXAMPLE_SKILL_KNOWLEDGE_ID) {
                   await deleteLetter(sameSkillLetters[0].pubSign);
-                } else if (sameSkillLetters.length === 0 && letter.knowledgeId === EXAMPLE_SKILL_KNOWLEDGE_ID) {
+                }
+                const hasTuteeCompletedTutorial = await getSetting(SettingKey.TUTEE_TUTORIAL_COMPLETED);
+                if (hasTuteeCompletedTutorial !== 'true') {
                   logEvent('ONBOARDING', 'TUTEE_TUTORIAL_COMPLETED');
                   await setSettingToTrue(SettingKey.TUTEE_TUTORIAL_COMPLETED);
                 }

@@ -34,6 +34,7 @@ function ViewList({ className = '', id, cidString, isClassInstructionShown, setI
   const expanded = queryParams.get('expanded') != null;
   const { t } = useTranslation();
   const hasTuteeCompletedTutorial = useBooleanSettingValue(SettingKey.TUTEE_TUTORIAL_COMPLETED);
+  const nowIsClassOnboarding = useBooleanSettingValue(SettingKey.NOW_IS_CLASS_ONBOARDING);
   const { currentPair, isLoggedIn, setLoginIsRequired } = useLoginContext();
   const [isLearningRequested, setLearningRequested] = useState(false);
   const [isReexaminingRequested, setReexaminingRequested] = useState(false);
@@ -155,6 +156,7 @@ function ViewList({ className = '', id, cidString, isClassInstructionShown, setI
   }, [lessonInUrl, showSkillQrInUrl, isLoggedIn, isThereAnythingToLearn, shouldSelectAll, isLearningInitialized]);
 
   const isAPairWork = isLearningRequested || isReexaminingRequested;
+  const disableSelectionOfWhatToLearn = isAPairWork && (hasTuteeCompletedTutorial === false || nowIsClassOnboarding);
 
   const handleSelectionChange = (newSelectedItems: ItemWithCID[]) => {
     setSelectedItems(newSelectedItems);
@@ -196,7 +198,7 @@ function ViewList({ className = '', id, cidString, isClassInstructionShown, setI
     )}
 
     {itemsWithCID.length > 0 && !expanded && (
-      <div className='ui--row' style={isAPairWork ? { display: 'none' } : {}}>
+      <div className='ui--row' style={disableSelectionOfWhatToLearn ? { display: 'none' } : {}}>
         <SelectableList<ItemWithCID>
           items={itemsWithCID}
           renderItem={(item, isSelected, isSelectionAllowed, onToggleSelection) => (
