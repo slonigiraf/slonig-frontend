@@ -6,6 +6,7 @@
   "Added": "شامل کر دیا گیا",
   "All data were removed.": "تمام ڈیٹا حذف کر دیا گیا۔",
   "Already have an account?": "کیا آپ کے پاس پہلے سے اکاؤنٹ ہے؟",
+  "Are you sure everyone around you has tried using Slonig?": "کیا آپ کو یقین ہے کہ آپ کے آس پاس سب نے Slonig استعمال کیا ہے؟",
   "Are you sure you want to delete it?": "کیا آپ واقعی اسے حذف کرنا چاہتے ہیں؟",
   "Ask the sender to refresh the QR page and keep it open while sending data.": "بھیجنے والے سے کہیں کہ QR صفحہ ریفریش کرے اور ڈیٹا بھیجتے وقت اسے کھلا رکھے۔",
   "Ask the tutee to scan:": "طالب علم سے اسکین کرنے کو کہیں:",
@@ -22,7 +23,6 @@
   "Choose File": "فائل منتخب کریں",
   "Choose your role for now": "فی الحال اپنا کردار منتخب کریں",
   "Close": "بند کریں",
-  "Congratulations! Now help your other friends become tutors — pretend to be their tutee.": "مبارک ہو! اب اپنے دوستوں کی مدد کریں کہ وہ ٹیچر بنیں — ان کے طالب علم بننے کا دکھاوا کریں۔",
   "Connecting to IPFS...": "IPFS سے جڑ رہا ہے...",
   "Copied": "کاپی ہو گیا",
   "Copy": "کاپی کریں",
@@ -75,6 +75,7 @@
   "Image": "تصویر",
   "Initializing connection": "کنکشن شروع کیا جا رہا ہے",
   "It’s better to shorten it to 9 words.": "اسے 9 الفاظ تک مختصر کرنا بہتر ہے۔",
+  "I’ve found a new partner": "میں نے ایک نیا ساتھی ڈھونڈ لیا ہے",
   "Learn": "سیکھیں",
   "Learn with AI": "AI کے ساتھ سیکھیں",
   "List": "فہرست",
@@ -95,7 +96,10 @@
   "No items available": "کوئی آئٹم دستیاب نہیں",
   "Nonce": "نانس",
   "None": "کوئی نہیں",
+  "OpenAI Token": "اوپن اے آئی ٹوکن",
   "Overview": "جائزہ",
+  "Please close this private / incognito window and open the site in a normal one.": "براہ کرم اس نجی / انکوگنیٹو ونڈو کو بند کریں اور سائٹ کو عام ونڈو میں کھولیں۔",
+  "Please fill in all the fields!": "براہِ مہربانی تمام خانے پُر کریں!",
   "Please notify tech support.": "براہ کرم تکنیکی مدد کو مطلع کریں۔",
   "Positive number": "مثبت عدد",
   "Press the link to add the badge": "بیج شامل کرنے کے لیے لنک دبائیں",
@@ -151,6 +155,8 @@
   "Slonig privacy policy": "Slonig کی رازداری کی پالیسی",
   "Slons will be deducted from your account.": "Slon آپ کے اکاؤنٹ سے کاٹے جائیں گے۔",
   "Solution": "حل",
+  "Split and find a partner that never used Slonig": "الگ ہو جائیں اور ایسا ساتھی تلاش کریں جس نے کبھی Slonig استعمال نہ کیا ہو",
+  "Start": "شروع کریں",
   "Start Learning with Slonig": "Slonig کے ساتھ سیکھنا شروع کریں",
   "Start Tutoring with Slonig": "Slonig کے ساتھ پڑھانا شروع کریں",
   "Student has shown you a QR code created for a different teacher. Ask them to scan your QR code.": "طالب علم نے کسی دوسرے استاد کے لیے بنایا گیا QR کوڈ دکھایا ہے۔ ان سے کہیں کہ آپ کا QR کوڈ اسکین کریں۔",
@@ -176,7 +182,6 @@
   "The tutee has not executed the exercise correctly.": "طالب علم نے مشق درست نہیں کی۔",
   "The tutee has repeated correctly after me.": "طالب علم نے میرے بعد درست دہرایا۔",
   "The tutor has shown you a QR code created for a different tutee. Ask the tutor to find the correct lesson.": "ٹیچر نے کسی اور طالب علم کے لیے بنایا گیا QR کوڈ دکھایا ہے۔ ٹیچر سے کہیں کہ درست سبق تلاش کرے۔",
-  "This app will help you teach your tutee. Let’s start by teaching just one skill.": "یہ ایپ آپ کو اپنے طالب علم کو سکھانے میں مدد کرے گی۔ آئیے ایک مہارت سے شروع کرتے ہیں۔",
   "Tip (optional)": "ٹپ (اختیاری)",
   "To assess a student, ask them to scan:": "طالب علم کا جائزہ لینے کے لیے کہیں کہ اسکین کرے:",
   "To get Slon, ask a sender to scan:": "Slon حاصل کرنے کے لیے، بھیجنے والے سے اسکین کرنے کو کہیں:",
@@ -200,9 +205,11 @@
   "Unlock the sending account to allow signing of this transaction.": "اس ٹرانزیکشن پر دستخط کی اجازت دینے کے لیے بھیجنے والا اکاؤنٹ ان لاک کریں۔",
   "Update metadata": "میٹا ڈیٹا اپ ڈیٹ کریں",
   "Upload your backup file": "اپنی بیک اپ فائل اپ لوڈ کریں",
+  "Warm-up": "تیاری",
   "Were all of the tutee’s exercises and answers perfect today?": "کیا آج طالب علم کی تمام مشقیں اور جوابات کامل تھے؟",
   "Wrong JSON format": "غلط JSON فارمیٹ",
   "Yes": "ہاں",
+  "You are a tutor. The app will show you how to teach the student who showed you a QR code.": "آپ ایک استاد ہیں۔ ایپ آپ کو دکھائے گی کہ آپ اپنے سامنے بیٹھے طالب علم کو کیسے پڑھائیں۔",
   "You can put your device aside": "آپ اپنا آلہ ایک طرف رکھ سکتے ہیں",
   "You can select no more than:": "آپ اس سے زیادہ منتخب نہیں کر سکتے:",
   "You can use the KaTeX language to add formulas:": "فارمولے شامل کرنے کے لیے KaTeX زبان استعمال کر سکتے ہیں:",
@@ -279,18 +286,5 @@
   "📖 Read what’s happening": "📖 پڑھیں کہ کیا ہو رہا ہے",
   "🗣 Give your tutee a wrong answer and say": "🗣 اپنے طالب علم کو غلط جواب دیں اور کہیں",
   "🗣 Say to the tutee": "🗣 طالب علم سے کہیں",
-  "🗣 Show the tutee the correct execution, and say": "🗣 طالب علم کو صحیح طریقہ دکھائیں، اور کہیں",
-  "Please fill in all the fields!": "براہِ مہربانی تمام خانے پُر کریں!",
-  "Are you sure everyone around you has tried using Slonig?": "کیا آپ کو یقین ہے کہ آپ کے آس پاس سب نے Slonig استعمال کیا ہے؟",
-  "I’ve found a new partner": "میں نے ایک نیا ساتھی ڈھونڈ لیا ہے",
-  "Please close this private / incognito window and open the site in a normal one.": "براہ کرم اس نجی / انکوگنیٹو ونڈو کو بند کریں اور سائٹ کو عام ونڈو میں کھولیں۔",
-  "Split and find a partner that never used Slonig": "الگ ہو جائیں اور ایسا ساتھی تلاش کریں جس نے کبھی Slonig استعمال نہ کیا ہو",
-  "That person will be your tutor.": "وہ شخص آپ کا ٹیوٹر ہوگا۔",
-  "Let’s start with a simple skill. Your student will pretend not to know it, so you can practice using the app’s prompts to teach.": "آئیے ایک سادہ مہارت سے شروع کریں۔ آپ کا طالب علم ایسے ظاہر کرے گا جیسے وہ اسے نہیں جانتا، تاکہ آپ ایپ کی رہنمائیوں کے ذریعے سکھانے کی مشق کر سکیں۔",
-  "OpenAI Token": "اوپن اے آئی ٹوکن",
-  "Please forget everything you know about teaching—just follow the app’s hints.": "براہِ کرم تدریس کے بارے میں جو کچھ آپ جانتے ہیں وہ سب بھول جائیں — بس ایپ کی ہدایات پر عمل کریں۔",
-  "Start": "شروع کریں",
-  "You are a tutor. The app will show you how to teach the student who showed you a QR code.": "آپ ایک استاد ہیں۔ ایپ آپ کو دکھائے گی کہ آپ اپنے سامنے بیٹھے طالب علم کو کیسے پڑھائیں۔",
-  "🧠 Important": "🧠 اہم",
-  "Warm-up": "تیاری"
+  "🗣 Show the tutee the correct execution, and say": "🗣 طالب علم کو صحیح طریقہ دکھائیں، اور کہیں"
 }
