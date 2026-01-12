@@ -162,12 +162,11 @@ function UI({ className = '' }: Props): React.ReactElement<Props> {
           <Signer>
             <Menu />
             <BlockchainSyncProvider>
-              {nowIsClassOnboarding && !lessonId ? <ClassOnboarding /> :
-                <>
-                  <Content />
-                  {!botInUrl && <BottomMenu />}
-                </>
-              }
+              {nowIsClassOnboarding && !lessonId && <ClassOnboarding />}
+              <>
+                <Content />
+                {!botInUrl && <BottomMenu />}
+              </>
             </BlockchainSyncProvider>
           </Signer>
         )}

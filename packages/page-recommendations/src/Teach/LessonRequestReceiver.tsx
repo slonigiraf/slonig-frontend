@@ -49,8 +49,8 @@ function LessonRequestReceiver({ setCurrentLesson }: Props): React.ReactElement<
       if (lessonRequest.cid === EXAMPLE_MODULE_KNOWLEDGE_CID && dbValueOfHasTutorCompletedTutorial) {
         logEvent('ONBOARDING', 'ATTEMPT_TO_WARMUP_WRONG_TUTOR');
         await deleteSetting(SettingKey.LESSON);
-        await setSettingToTrue(SettingKey.NOW_IS_CLASS_ONBOARDING);
         logEvent('SETTINGS', 'NOW_IS_CLASS_ONBOARDING', 'true_or_false', 1);
+        await setSettingToTrue(SettingKey.NOW_IS_CLASS_ONBOARDING);
         showInfo(t('Please change your partner.'), 'error');
         navigate('', { replace: true });
       } else {
@@ -59,6 +59,8 @@ function LessonRequestReceiver({ setCurrentLesson }: Props): React.ReactElement<
         const goWithNormalRequest = dbValueOfHasTutorCompletedTutorial === 'true';
 
         if (goWithNormalRequest) {
+          logEvent('SETTINGS', 'NOW_IS_CLASS_ONBOARDING', 'true_or_false', 0);
+          await deleteSetting(SettingKey.NOW_IS_CLASS_ONBOARDING);
           await storeLesson(lessonRequest, tutorPublicKeyHex);
         }
         else {

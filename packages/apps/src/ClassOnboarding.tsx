@@ -15,8 +15,10 @@ function ClassOnboarding({ className = '' }: Props): React.ReactElement<Props> {
   const { t } = useTranslation();
   const navigate = useNavigate();
   const [isExitConfirmOpen, setIsExitConfirmOpen] = useState(false);
+  const { logEvent } = useLog();
 
   const exitOnboarding = useCallback(async () => {
+    logEvent('SETTINGS', 'NOW_IS_CLASS_ONBOARDING', 'true_or_false', 0);
     await deleteSetting(SettingKey.NOW_IS_CLASS_ONBOARDING);
   }, [deleteSetting]);
 
@@ -24,7 +26,7 @@ function ClassOnboarding({ className = '' }: Props): React.ReactElement<Props> {
     setIsExitConfirmOpen(true);
   }, [setIsExitConfirmOpen]);
 
-  const helpOthers = useCallback( async (): Promise<void> => {
+  const helpOthers = useCallback(async (): Promise<void> => {
     navigate(`/knowledge?id=${EXAMPLE_MODULE_KNOWLEDGE_ID}&showSkillQr`, { replace: true });
     await deleteSetting(SettingKey.NOW_IS_CLASS_ONBOARDING);
   }, [setIsExitConfirmOpen]);
@@ -42,11 +44,11 @@ function ClassOnboarding({ className = '' }: Props): React.ReactElement<Props> {
             style={{ width: '80%', maxWidth: 430 }}
           />
           <Button
-                      className='highlighted--button'
-                      activeOnEnter
-                      label={t('I’ve found a new partner')}
-                      onClick={helpOthers}
-                    />
+            className='highlighted--button'
+            activeOnEnter
+            label={t('I’ve found a new partner')}
+            onClick={helpOthers}
+          />
         </StyledDiv>
 
       </FullscreenActivity>
