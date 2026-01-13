@@ -267,6 +267,7 @@ function LessonResults({ className = '', lesson, updateAndStoreLesson, onClose, 
           </div>
           <div className='ui--row'>
             <InputBalance
+              isDisabled={true}
               isZeroable
               label={t('stake for each badge')}
               onChange={setAmountIput}
@@ -276,6 +277,7 @@ function LessonResults({ className = '', lesson, updateAndStoreLesson, onClose, 
           </div>
           <div className='ui--row'>
             <Input
+              isDisabled={true}
               className='full'
               label={t('days valid')}
               onChange={setDaysInput}
