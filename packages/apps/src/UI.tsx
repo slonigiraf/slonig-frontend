@@ -92,19 +92,34 @@ function UI({ className = '' }: Props): React.ReactElement<Props> {
     showError('NO_CONNECTION_TO_THE_ECONOMY_SERVER');
   }
 
+  // TODO: uncomment at March 31, 2026
+  // useEffect(() => {
+  //   const fetchData = async () => {
+  //     if (isEconomyInitialized === false) {
+  //       try {
+  //         const storedEconomy = await fetchEconomy();
+  //         logEconomy(storedEconomy);
+  //       } catch (error) {
+  //         showNoConnectionToEconomyServerError();
+  //       }
+  //     }
+  //   };
+  //   fetchData();
+  // }, [isEconomyInitialized]);
+
+
+  // TODO: remove at March 31, 2026
   useEffect(() => {
     const fetchData = async () => {
-      if (isEconomyInitialized === false) {
-        try {
-          const storedEconomy = await fetchEconomy();
-          logEconomy(storedEconomy);
-        } catch (error) {
-          showNoConnectionToEconomyServerError();
-        }
+      try {
+        const storedEconomy = await fetchEconomy();
+        logEconomy(storedEconomy);
+      } catch (error) {
+        showNoConnectionToEconomyServerError();
       }
     };
     fetchData();
-  }, [isEconomyInitialized]);
+  }, []);
 
   useEffect(() => {
     if (isAirdropCompatible === undefined || isAirdropCompatible === false) {
@@ -128,8 +143,6 @@ function UI({ className = '' }: Props): React.ReactElement<Props> {
                 const storedEconomy = await fetchEconomy();
                 logEconomy(storedEconomy);
               }
-              const expectedAirdrop = expectedAirdropAmount || 'undefined';
-              await storeSetting(SettingKey.RECEIVED_AIRDROP, expectedAirdrop);
             } else {
               showError(airdropResults.error);
             }
@@ -139,7 +152,10 @@ function UI({ className = '' }: Props): React.ReactElement<Props> {
         }
       }
     }
-    if (isAirdropCompatible === true && recievedAirdropAmount === undefined && currentPair && !isProcessingAirdrop) {
+    const notEnough = recievedAirdropAmount !== null && recievedAirdropAmount !== undefined && expectedAirdropAmount !== null && expectedAirdropAmount !== undefined && (new BN(recievedAirdropAmount)).lt(new BN(expectedAirdropAmount));
+    if (isAirdropCompatible === true &&
+      (recievedAirdropAmount === undefined || notEnough) &&
+      currentPair && !isProcessingAirdrop) {
       setIsProcessingAirdrop(true);
       run();
     }
