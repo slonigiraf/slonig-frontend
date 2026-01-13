@@ -7,13 +7,13 @@ import React, { useCallback, useEffect, useMemo, useState } from 'react';
 
 import { createLanguages } from '@polkadot/apps-config';
 import { ChainInfo } from '@polkadot/apps';
-import { Button, Dropdown, Input, Toggle } from '@polkadot/react-components';
+import { Button, Dropdown, Input, styled, Toggle } from '@polkadot/react-components';
 import { settings } from '@polkadot/ui-settings';
 
 import { useTranslation } from './translate.js';
 import { save, saveAndReload } from './util.js';
 import { getSetting, storeSetting, SettingKey, updateAllLessons } from '@slonigiraf/db';
-import { clearAllData, Confirmation, DBExport, fetchEconomy, useInfo, useLog, useLoginContext } from '@slonigiraf/slonig-components';
+import { clearAllData, Confirmation, DBExport, fetchEconomy, useBooleanSettingValue, useInfo, useLog, useLoginContext } from '@slonigiraf/slonig-components';
 import { useToggle } from '@polkadot/react-hooks';
 
 interface Props {
@@ -23,8 +23,9 @@ interface Props {
 function General({ className = '' }: Props): React.ReactElement<Props> {
   const { t } = useTranslation();
   const { showInfo } = useInfo();
-  const {logEvent, logEconomy } = useLog();
-  const { isLoggedIn, currentPair } = useLoginContext();
+  const { logEvent, logEconomy } = useLog();
+  const hasCompletedTutoringTutorial = useBooleanSettingValue(SettingKey.TUTOR_TUTORIAL_COMPLETED);
+  const { currentPair } = useLoginContext();
   const [openAIToken, setOpenAIToken] = useState('');
   const [isDeveloper, setDeveloper] = useState<boolean>(false);
   // tri-state: null = nothing changed, false = no reload, true = reload required
@@ -149,6 +150,10 @@ function General({ className = '' }: Props): React.ReactElement<Props> {
   return (
     <div className={className}>
 
+      <h2>{t('Achievements')}</h2>
+      <div className='ui--row'>
+        {hasCompletedTutoringTutorial ? <AchievementInfo icon='user-graduate' isDisabled={true} label={t('I know how to teach')} /> : t('None yet')}
+      </div>
       <h2>{t('UI options')}</h2>
       <div className='ui--row'>
         <Dropdown
@@ -239,5 +244,9 @@ function General({ className = '' }: Props): React.ReactElement<Props> {
     </div>
   );
 }
+
+export const AchievementInfo = styled(Button)`
+  color: var(--color-label) !important;
+`;
 
 export default React.memo(General);

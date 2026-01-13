@@ -44,5 +44,8 @@
   "the module to display strings for": "the module to display strings for",
   "upgradable extensions": "upgradable extensions",
   "url": "url",
-  "{{done}}/{{total}}, {{progress}}% done": "{{done}}/{{total}}, {{progress}}% done"
+  "{{done}}/{{total}}, {{progress}}% done": "{{done}}/{{total}}, {{progress}}% done",
+  "Achievements": "Achievements",
+  "I know how to teach": "I know how to teach",
+  "None yet": "None yet"
 }
