@@ -14,6 +14,7 @@ import { Setting } from './Setting.js';
 import { Signer } from './Signer.js';
 import { UsageRight } from './UsageRight.js';
 import { SkillTemplate } from './SkillTemplate.js';
+import { Repetition } from './Repetition.js';
 
 class SlonigDB extends Dexie {
   agreements!: Table<Agreement>;
@@ -31,6 +32,7 @@ class SlonigDB extends Dexie {
   signers!: Table<Signer>;
   usageRights!: Table<UsageRight>;
   skillTemplates!: Table<SkillTemplate>;
+  repetitions!: Table<Repetition>;
 
   constructor() {
     super('slonig');
@@ -50,6 +52,7 @@ class SlonigDB extends Dexie {
       signers: '&publicKey',
       usageRights: '&[pubSign+employer],[referee+letterId]',
       skillTemplates: '&id,moduleId',
+      repetitions: '&[workerId+knowledgeId],lastExamined',
     });
   }
 }

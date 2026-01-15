@@ -99,6 +99,7 @@ function DoInstructions({ className = '', entity, onResult, studentName, isSendi
       const preparedLetterTemplate: LetterTemplate = {
         ...entity,
         valid: success,
+        toRepeat: !success,
         lastExamined: (new Date()).getTime(),
       };
       await putLetterTemplate(preparedLetterTemplate);

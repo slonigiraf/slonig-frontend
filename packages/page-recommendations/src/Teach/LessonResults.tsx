@@ -8,7 +8,7 @@ import { useApi, useBlockTime, useToggle } from '@polkadot/react-hooks';
 import { u8aToHex, hexToU8a, u8aWrapBytes, BN_ONE, BN_ZERO, formatBalance } from '@polkadot/util';
 import type { LessonResult } from '@slonigiraf/slonig-components';
 import { useLoginContext, CenterQRContainer, bnToSlonString, SenderComponent, useInfo, nameFromKeyringPair, predictBlockNumber, FullscreenActivity, useLog, bnToSlonFloatOrNaN } from '@slonigiraf/slonig-components';
-import { Lesson, getLastUnusedLetterNumber, setLastUsedLetterNumber, storeSetting, getReexaminationsByLessonId, getValidLetterTemplatesByLessonId, SettingKey, serializeAsLetter, LetterTemplate, putLetterTemplate, setSettingToTrue, getLesson, getSetting } from '@slonigiraf/db';
+import { Lesson, getLastUnusedLetterNumber, setLastUsedLetterNumber, storeSetting, getReexaminationsByLessonId, getValidLetterTemplatesByLessonId, SettingKey, serializeAsLetter, LetterTemplate, putLetterTemplate, setSettingToTrue, getLesson, getSetting, getToRepeatLetterTemplatesByLessonId } from '@slonigiraf/db';
 import { getPublicDataToSignByReferee, getPrivateDataToSignByReferee } from '@slonigiraf/helpers';
 import { useTranslation } from '../translate.js';
 import { blake2AsHex } from '@polkadot/util-crypto';
@@ -137,6 +137,7 @@ function LessonResults({ className = '', lesson, updateAndStoreLesson, onClose, 
       }
       let letterData: string[] = [];
       let reexaminationData: string[] = [];
+      let repetitionData: string[] = [];
       try {
         // Update reexaminations data
         const reexaminations = await getReexaminationsByLessonId(lesson.id);
@@ -150,6 +151,9 @@ function LessonResults({ className = '', lesson, updateAndStoreLesson, onClose, 
             }
           });
         }
+        // Update repetition data
+        const repetitionTemplates = await getToRepeatLetterTemplatesByLessonId(lesson.id);
+        repetitionData.push(...repetitionTemplates.map(t => `${t.lastExamined},${t.knowledgeId}`));
 
         // Calculate block number
         const chainHeader = await api.rpc.chain.getHeader();
@@ -213,6 +217,7 @@ function LessonResults({ className = '', lesson, updateAndStoreLesson, onClose, 
           amount: amount.toString(),
           tutorIsExperienced: tutorIsExperienced === 'true',
           letters: letterData,
+          repetitions: repetitionData,
           reexaminations: reexaminationData,
         };
 
@@ -222,11 +227,15 @@ function LessonResults({ className = '', lesson, updateAndStoreLesson, onClose, 
           logEvent('TUTORING', 'RESULTS', 'warranty', bnToSlonFloatOrNaN(amount));
           logEvent('TUTORING', 'RESULTS', 'days_valid', lesson.dValidity);
         }
+        if (repetitionData.length) {
+          logEvent('TUTORING', 'RESULTS', 'repetitions', repetitionData.length);
+        }
         if (reexaminationData.length) {
           logEvent('TUTORING', 'RESULTS', 'reexaminations', reexaminationData.length);
         }
 
         setData(JSON.stringify(lessonResult));
+        console.log('lessonResult: ', lessonResult)
       } catch (error) {
         console.error(error);
       }

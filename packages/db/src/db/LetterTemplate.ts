@@ -1,6 +1,7 @@
 export interface LetterTemplate {
   stage: number, // lesson stage
   valid: boolean,
+  toRepeat: boolean,
   lastExamined: number; // timestamp
   lesson: string;
   knowledgeId: string; // Also used to discriminate from Reexamination, is it doesn't contain the field

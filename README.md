@@ -78,6 +78,7 @@ Here is a list of user actions tracked by Slonig:
 | ✅ | TUTORING | RESULTS | click_send_during_lesson | N/A |
 | ✅ | TUTORING | RESULTS | click_send_at_list_of_lessons |  N/A |
 | ✅ | TUTORING | RESULTS | badges | count |
+| ✅ | TUTORING | RESULTS | repetitions | count |
 | ✅ | TUTORING | RESULTS | reexaminations | count |
 | ✅ | TUTORING | RESULTS | price | amount in tokens |
 | ✅ | TUTORING | RESULTS | warranty | amount in tokens |

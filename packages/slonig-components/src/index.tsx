@@ -370,6 +370,7 @@ export interface LessonResult {
   amount: string;
   tutorIsExperienced: boolean;
   letters: string[];
+  repetitions: string[];
   reexaminations: string[];
 }
 

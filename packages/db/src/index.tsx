@@ -21,6 +21,7 @@ import "dexie-export-import";
 import { exportDB as dexieExport } from 'dexie-export-import';
 import { InsurancesTransfer, LessonRequest } from "@slonigiraf/slonig-components";
 import { CanceledInsurance } from "./db/CanceledInsurance.js";
+import { Repetition } from "./db/Repetition.js";
 
 export type { CanceledInsurance, Reexamination, LetterTemplate, CanceledLetter, Reimbursement, Letter, Insurance, Lesson, Pseudonym, Setting, Signer, UsageRight, Agreement };
 
@@ -176,6 +177,32 @@ export async function getAllPseudonyms() {
 
 export async function putCanceledLetter(canceledLetter: CanceledLetter) {
     await db.canceledLetters.put(canceledLetter);
+}
+
+// Repetitions related
+
+export async function upsertRepetition(rep: Repetition): Promise<void> {
+  await db.transaction('rw', db.repetitions, async () => {
+    const key: [string, string] = [rep.workerId, rep.knowledgeId];
+
+    const prev = await db.repetitions.get(key);
+
+    const next: Repetition = prev
+      ? {
+          ...prev,
+          examCount: (prev.examCount ?? 0) + 1,
+          lastExamined: rep.lastExamined
+        }
+      : {
+          workerId: rep.workerId,
+          knowledgeId: rep.knowledgeId,
+          created: rep.lastExamined,
+          examCount: 1,
+          lastExamined: rep.lastExamined
+        };
+
+    await db.repetitions.put(next);
+  });
 }
 
 // Letter related
@@ -396,6 +423,10 @@ export async function getValidLetterTemplatesByLessonId(lessonId: string): Promi
     return await db.letterTemplates.where({ lesson: lessonId }).filter(letter => letter.valid).toArray();
 }
 
+export async function getToRepeatLetterTemplatesByLessonId(lessonId: string): Promise<LetterTemplate[]> {
+    return await db.letterTemplates.where({ lesson: lessonId }).filter(letter => letter.toRepeat).toArray();
+}
+
 export function serializeAsLetter(letterTemplate: LetterTemplate, referee: string): string {
     return [
         letterTemplate.lastExamined,
@@ -488,6 +519,7 @@ export async function storeLesson(lessonRequest: LessonRequest, tutor: string) {
             const letterTemplate: LetterTemplate = {
                 stage: studyStage++,
                 valid: false,
+                toRepeat: false,
                 lastExamined: now,
                 lesson: lesson.id,
                 knowledgeId: item[0],
