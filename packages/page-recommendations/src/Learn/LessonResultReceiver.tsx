@@ -4,7 +4,7 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { useLoginContext, useTokenTransfer, useInfo, LessonResult, keyForCid, getAddressFromPublickeyHex, useBlockchainSync, useLog, EXAMPLE_SKILL_KNOWLEDGE_ID, bnToSlonFloatOrNaN } from '@slonigiraf/slonig-components';
 import { hexToU8a, u8aToHex, u8aWrapBytes } from '@polkadot/util';
-import { addReimbursement, cancelLetter, deleteLetter, deserializeLetter, getAgreement, getLetter, getLettersForKnowledgeId, getSetting, letterToReimbursement, putAgreement, putLetter, setSettingToTrue, SettingKey, storePseudonym, updateLetterReexaminingCount, upsertRepetition } from '@slonigiraf/db';
+import { addReimbursement, cancelLetter, deleteLetter, deserializeLetter, getAgreement, getLetter, getLettersForKnowledgeId, getSetting, letterToReimbursement, putAgreement, putLetter, setSettingToTrue, SettingKey, storePseudonym, updateLetterReexaminingCount, putRepetition as putRepetition } from '@slonigiraf/db';
 import { useTranslation } from '../translate.js';
 import { Agreement } from '@slonigiraf/db';
 import { useNavigate } from 'react-router-dom';
@@ -186,36 +186,42 @@ function LessonResultReceiver({ webRTCPeerId, onDaysRangeChange }: Props): React
   }, [lessonResult])
 
   useEffect(() => {
+    async function saveRepetitions() {
+      if (lessonResult) {
+        try {
+          const now = Date.now();
+          lessonResult.repetitions.forEach((repetitionsMeta) => {
+            const [lastExaminedRaw, knowledgeId] = repetitionsMeta.split(',');
+
+            const parsed = Number.parseInt(lastExaminedRaw, 10);
+            if (!Number.isFinite(parsed) || !knowledgeId) {
+              return;
+            }
+
+            // Ensure lastExamined is <= now
+            const time = Math.min(parsed, now);
+
+            const repetition: Repetition = {
+              lastExamined: time,
+              workerId: lessonResult.workerId,
+              knowledgeId
+            };
+            putRepetition(repetition);
+          });
+        } catch (e) {
+          console.log(e);
+        }
+      }
+    }
+    if (lessonResult) {
+      saveRepetitions();
+    }
+  }, [lessonResult])
+
+  useEffect(() => {
     async function sendPenalties() {
       if (agreement) {
         try {
-          // save repetitions
-          if (currentPair && lessonResult?.repetitions) {
-            const now = Date.now();
-
-            lessonResult.repetitions.forEach((repetitionsMeta) => {
-              const [lastExaminedRaw, knowledgeId] = repetitionsMeta.split(',');
-
-              const parsed = Number.parseInt(lastExaminedRaw, 10);
-              if (!Number.isFinite(parsed) || !knowledgeId) {
-                return;
-              }
-
-              // Ensure lastExamined is <= now
-              const time = Math.min(parsed, now);
-
-              const repetition: Repetition = {
-                created: time,
-                examCount: 1,
-                lastExamined: time,
-                workerId: lessonResult.workerId,
-                knowledgeId
-              };
-
-              upsertRepetition(repetition);
-            });
-          }
-
           // send penalties
           if (currentPair && lessonResult?.reexaminations && agreement?.id) {
             let reimbursementPromises = lessonResult.reexaminations.map(async reexaminationMeta => {

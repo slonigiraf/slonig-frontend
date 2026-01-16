@@ -181,28 +181,12 @@ export async function putCanceledLetter(canceledLetter: CanceledLetter) {
 
 // Repetitions related
 
-export async function upsertRepetition(rep: Repetition): Promise<void> {
-  await db.transaction('rw', db.repetitions, async () => {
-    const key: [string, string] = [rep.workerId, rep.knowledgeId];
+export async function putRepetition(repetition: Repetition) {
+    await db.repetitions.put(repetition);
+}
 
-    const prev = await db.repetitions.get(key);
-
-    const next: Repetition = prev
-      ? {
-          ...prev,
-          examCount: (prev.examCount ?? 0) + 1,
-          lastExamined: rep.lastExamined
-        }
-      : {
-          workerId: rep.workerId,
-          knowledgeId: rep.knowledgeId,
-          created: rep.lastExamined,
-          examCount: 1,
-          lastExamined: rep.lastExamined
-        };
-
-    await db.repetitions.put(next);
-  });
+export async function deleteRepetition(repetition: Repetition) {
+    await db.repetitions.delete([repetition.workerId, repetition.knowledgeId]);
 }
 
 // Letter related
@@ -380,7 +364,7 @@ export async function isThereAnyLessonResult(lessonId: string) {
     const lesson = await getLesson(lessonId);
     if (lesson) {
         const letterTemplates: LetterTemplate[] = await getValidLetterTemplatesByLessonId(lesson.id);
-        const numberOfValidLetters = letterTemplates.length;
+        const repetitions = await getToRepeatLetterTemplatesByLessonId(lesson.id);
         let calculatedReexaminationsPerformed = 0;
         const reexaminations = await getReexaminationsByLessonId(lesson.id);
         if (reexaminations) {
@@ -396,7 +380,7 @@ export async function isThereAnyLessonResult(lessonId: string) {
             });
             calculatedReexaminationsPerformed = lesson.reexamineStep - skippedReexaminationsCount;
         }
-        return (numberOfValidLetters + calculatedReexaminationsPerformed) > 0;
+        return (letterTemplates.length + calculatedReexaminationsPerformed+repetitions.length) > 0;
     }
     return false;
 }

@@ -37,6 +37,7 @@ function LessonResults({ className = '', lesson, updateAndStoreLesson, onClose, 
   const [amountInputValue, setAmountInputValue] = useState<BN>(lesson ? new BN(lesson.dWarranty) : BN_ZERO);
   const [daysInput, setDaysInput] = useState<string>(lesson ? lesson.dValidity.toString() : "0"); //To allow empty strings
   const [countOfValidLetters, setCountOfValidLetters] = useState<number | null>(null);
+  const [countOfRepetitions, setCountOfRepetitions] = useState<number | null>(null);
   const [countOfReexaminationsPerformed, setCountOfReexaminationsPerformed] = useState<number | null>(null);
   const totalIncomeRef = React.useRef<BN>(BN_ZERO);
   const [visibleDiplomaDetails, toggleVisibleDiplomaDetails] = useToggle(false);
@@ -47,9 +48,9 @@ function LessonResults({ className = '', lesson, updateAndStoreLesson, onClose, 
   const { showInfo } = useInfo();
 
   useEffect(() => {
-    if (countOfValidLetters !== null && countOfReexaminationsPerformed !== null) {
+    if (countOfValidLetters !== null && countOfReexaminationsPerformed !== null && countOfRepetitions !== null) {
       setProcessingStatistics(false);
-      if (countOfValidLetters + countOfReexaminationsPerformed === 0) {
+      if (countOfValidLetters + countOfReexaminationsPerformed + countOfRepetitions === 0) {
         if (dontSign) {
           showInfo(t('Go to ’Settings’ and press ’Reset settings to default’.'), 'error');
         } else {
@@ -58,7 +59,7 @@ function LessonResults({ className = '', lesson, updateAndStoreLesson, onClose, 
         onClose();
       }
     }
-  }, [countOfValidLetters, countOfReexaminationsPerformed, dontSign]);
+  }, [countOfValidLetters, countOfRepetitions, countOfReexaminationsPerformed, dontSign]);
 
   const onDataSent = useCallback(async (): Promise<void> => {
     logEvent('TUTORING', 'RESULTS', 'data_was_sent');
@@ -154,6 +155,7 @@ function LessonResults({ className = '', lesson, updateAndStoreLesson, onClose, 
         // Update repetition data
         const repetitionTemplates = await getToRepeatLetterTemplatesByLessonId(lesson.id);
         repetitionData.push(...repetitionTemplates.map(t => `${t.lastExamined},${t.knowledgeId}`));
+        setCountOfRepetitions(repetitionTemplates.length);
 
         // Calculate block number
         const chainHeader = await api.rpc.chain.getHeader();
