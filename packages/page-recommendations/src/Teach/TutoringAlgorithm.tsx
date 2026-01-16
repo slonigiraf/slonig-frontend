@@ -16,21 +16,6 @@ class TutoringAlgorithm extends Algorithm {
         let exerciseImage2: string | undefined = questions.length > 0 ? questions[1].p : undefined;
 
         // Initialize all stages
-        const giveInsurance = new AlgorithmStage(
-            8,
-            'success',
-            t('Yes'),
-            []
-        );
-        const repeatNextDay = new AlgorithmStage(
-            7,
-            hasTutorCompletedTutorial ? 'mark_for_repeat' : 'success',
-            t('No'),
-            [
-                { title: t('🗣 Say to the tutee'), text: t('Excellent! Let’s repeat this tomorrow.') },
-            ]
-        );
-
         const askStudentToRepeatTheAnswer = new AlgorithmStage(
             5,
             'correct_fake_solution',
@@ -52,17 +37,6 @@ class TutoringAlgorithm extends Algorithm {
                 { title: t('🗣 Say to the tutee'), text: t('Repeat after me:') + ' ' + answer1, image: answerImage1 },
             ],
             t('Has the tutee repeated correctly?')
-        );
-
-
-        const wereTheStudentTasksAndAnswersPerfectToday = new AlgorithmStage(
-            7,
-            'decide_was_it_perfect_today',
-            t('Yes'),
-            [
-                { title: t('📖 Read what’s happening'), text: t('The tutee has corrected me and has given me the correct solution.') },
-            ],
-            t('Were all of the tutee’s exercises and answers perfect today?')
         );
 
         const provideFakeAnswer = new AlgorithmStage(
@@ -158,7 +132,7 @@ class TutoringAlgorithm extends Algorithm {
         const toNextSkill = new AlgorithmStage(
             -1,
             'next_skill',
-            t('Next'),
+            t('Yes'),
             []
         );
 
@@ -185,14 +159,8 @@ class TutoringAlgorithm extends Algorithm {
             askToRepeatTaskAfterMe.setPrevious(askToCreateAnExerciseAfterCompletionOfExerciseOfTutor);
         }
 
-        provideFakeAnswer.setNext([wereTheStudentTasksAndAnswersPerfectToday, askStudentToRepeatTheAnswer]);
-        wereTheStudentTasksAndAnswersPerfectToday.setPrevious(provideFakeAnswer);
+        provideFakeAnswer.setNext([toNextSkill, askStudentToRepeatTheAnswer]);
         askStudentToRepeatTheAnswer.setPrevious(provideFakeAnswer);
-
-        wereTheStudentTasksAndAnswersPerfectToday.setNext([giveInsurance, repeatNextDay]);// End of the algo
-        giveInsurance.setPrevious(wereTheStudentTasksAndAnswersPerfectToday);
-        repeatNextDay.setPrevious(wereTheStudentTasksAndAnswersPerfectToday);
-        repeatNextDay.setNext([toNextSkill]);
 
         askStudentToRepeatTheAnswer.setNext([repeatFromTheBeginning, askStudentToRepeatTheAnswer]);
 

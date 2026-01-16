@@ -8,7 +8,7 @@ import type { Skill } from '@slonigiraf/slonig-components';
 import { ValidatingAlgorithm } from './ValidatingAlgorithm.js';
 import { useTranslation } from '../translate.js';
 import { ChatContainer, Bubble, useIpfsContext, useLog } from '@slonigiraf/slonig-components';
-import { LetterTemplate, putLetterTemplate, Reexamination, updateReexamination } from '@slonigiraf/db';
+import { getLetterTemplate, LetterTemplate, putLetterTemplate, Reexamination, updateReexamination } from '@slonigiraf/db';
 import { getIPFSDataFromContentID, parseJson, useInfo } from '@slonigiraf/slonig-components';
 import { TutoringAlgorithm } from './TutoringAlgorithm.js';
 import ChatSimulation from './ChatSimulation.js';
@@ -94,27 +94,46 @@ function DoInstructions({ className = '', entity, onResult, studentName, isSendi
     };
   }, [ipfs, entity, studentName]);
 
-  const processLetter = useCallback(async (success: boolean) => {
+  const processLetter = useCallback(async () => {
     if (isLetterTemplate(entity)) {
-      const preparedLetterTemplate: LetterTemplate = {
-        ...entity,
-        valid: success,
-        toRepeat: !success,
-        lastExamined: (new Date()).getTime(),
-      };
-      await putLetterTemplate(preparedLetterTemplate);
+      const template = await getLetterTemplate(entity.lesson, entity.stage);
+      if (template) {
+        if (template.toRepeat) {
+          logEvent('TUTORING', algorithmType, 'mark_for_repeat');
+        } else {
+          logEvent('TUTORING', algorithmType, 'mark_mastered');
+        }
+        const preparedLetterTemplate: LetterTemplate = {
+          ...template,
+          valid: !template.toRepeat,
+          lastExamined: (new Date()).getTime(),
+        };
+        await putLetterTemplate(preparedLetterTemplate);
+      }
       onResult();
     }
   }, [isLetterTemplate, entity, putLetterTemplate, onResult]);
 
+  const markLetterAsNotPerfect = useCallback(async () => {
+    if (isLetterTemplate(entity)) {
+      const preparedLetterTemplate: LetterTemplate = {
+        ...entity,
+        valid: false,
+        toRepeat: true,
+      };
+      await putLetterTemplate(preparedLetterTemplate);
+    }
+  }, [isLetterTemplate, entity, putLetterTemplate]);
+
   const repeatTomorrow = useCallback(async () => {
     logEvent('TUTORING', 'TEACH_ALGO', 'click_instant_mark_for_repeat');
-    processLetter(false);
+    await markLetterAsNotPerfect();
+    await processLetter();
   }, [processLetter, logEvent]);
 
   const issueDiploma = useCallback(async () => {
     logEvent('TUTORING', 'TEACH_ALGO', 'click_instant_mark_mastered');
-    processLetter(true);
+    await processLetter();
   }, [processLetter, logEvent]);
 
   const studentPassedReexamination = useCallback(async () => {
@@ -156,9 +175,22 @@ function DoInstructions({ className = '', entity, onResult, studentName, isSendi
     setIsChatFinished(false);
   }, [setProcessedStages, processedStages, setButtonsBlured, setIsChatFinished])
 
+  const hasStudenFailed = (stage: AlgorithmStage): boolean => {
+    if (!hasTutorCompletedTutorial) return false;
+    if (stage.type === 'correct_fake_solution' ||
+      stage.type === 'ask_to_repeat_similar_exercise'
+    ) {
+      return true;
+    }
+    return false;
+  }
+
   const handleStageChange = useCallback(async (nextStage: AlgorithmStage | null) => {
     if (nextStage !== null) {
       setIsButtonClicked(true);
+      if (hasStudenFailed(nextStage)) {
+        await markLetterAsNotPerfect();
+      }
       if (nextStage === algorithmStage) {
         showInfo(t('Do this again'));
         refreshStageView();
@@ -173,11 +205,8 @@ function DoInstructions({ className = '', entity, onResult, studentName, isSendi
           refreshStageView();
           onResult();
         }, () => setIsButtonClicked(false));
-      } else if (isLetterTemplate(entity) && (nextStage.type === 'success' || nextStage.type === 'next_skill')) {
-        if (nextStage.type === 'success') {
-          logEvent('TUTORING', algorithmType, 'mark_mastered');
-        }
-        processLetter(nextStage.type === 'success');
+      } else if (isLetterTemplate(entity) && (nextStage.type === 'next_skill')) {
+        await processLetter();
         refreshStageView();
       } else if (isReexamination(entity) && nextStage.type === 'success') {
         studentPassedReexamination();
