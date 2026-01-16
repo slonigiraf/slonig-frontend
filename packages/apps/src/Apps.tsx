@@ -24,8 +24,8 @@ function Apps({ className = '' }: Props): React.ReactElement<Props> {
 
   const { updateAvailable, reloadNow } = useAppVersionReload({
     url: '/version.json',
-    intervalMs: 10_000,
-    initialDelayMs: 10_000
+    intervalMs: 60_000,
+    initialDelayMs: 60_000
   });
 
   return (
