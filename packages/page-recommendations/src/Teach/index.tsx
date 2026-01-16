@@ -155,7 +155,7 @@ function Teach({ className = '' }: Props): React.ReactElement<Props> {
       }
       if (updatedLesson.learnStep === updatedLesson.toLearnCount && updatedLesson.reexamineStep === updatedLesson.toReexamineCount) {
         logEvent('TUTORING', 'RESULTS', 'auto_send_opened');
-        setResultsShown(true);
+        onShowResults(updatedLesson);
       }
     }
     run();
