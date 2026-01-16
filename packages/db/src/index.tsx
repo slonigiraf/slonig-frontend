@@ -387,7 +387,7 @@ export async function isThereAnyLessonResult(lessonId: string) {
             });
             calculatedReexaminationsPerformed = lesson.reexamineStep - skippedReexaminationsCount;
         }
-        return (letterTemplates.length + calculatedReexaminationsPerformed+repetitions.length) > 0;
+        return (letterTemplates.length > 0 || calculatedReexaminationsPerformed > 0 || repetitions.length > 0);
     }
     return false;
 }
