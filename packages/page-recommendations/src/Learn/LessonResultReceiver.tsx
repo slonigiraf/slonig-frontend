@@ -156,7 +156,6 @@ function LessonResultReceiver({ webRTCPeerId, onDaysRangeChange }: Props): React
     }
   }, [lessonResult, agreement])
 
-
   useEffect(() => {
     async function setDaysRange() {
       try {
@@ -265,10 +264,13 @@ function LessonResultReceiver({ webRTCPeerId, onDaysRangeChange }: Props): React
   }, [api, isApiReady, currentPair, lessonResult, agreement, t])
 
   useEffect(() => {
-    if (agreement && transferReceipt && agreement.penaltySent === true &&
-      agreement.paid === false && (transferReceipt.success && transferReceipt.id === agreement.id || agreement.price === "0")) {
+    if (agreement && agreement.paid === false && agreement.penaltySent === true) {
       const updatedAgreement: Agreement = { ...agreement, paid: true };
-      updateAgreement(updatedAgreement);
+      if (agreement.price === "0") {
+        updateAgreement(updatedAgreement);
+      } else if (transferReceipt  && (transferReceipt.success && transferReceipt.id === agreement.id)) {
+        updateAgreement(updatedAgreement);
+      }
     }
   }, [transferReceipt, agreement])
 
