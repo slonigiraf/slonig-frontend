@@ -93,11 +93,12 @@ function ViewList({ className = '', id, cidString, isClassInstructionShown, setI
         const skills = items.length;
         const letters = items.filter(i => i.validDiplomas.length).length;
         const repetitions = items.filter(i => i.shouldBeRepeated).length;
+        const blockedForLearning = items.filter(i => i.isBlockedForLearning).length;
         setProgressData({ skills, letters, repetitions });
 
         if (list.t !== null && list.t === LawType.MODULE && items.length > 0) {
           const allHaveValidDiplomas = items.every(item => item.validDiplomas && item.validDiplomas.length > 0);
-          setIsThereAnythingToLearn(!allHaveValidDiplomas);
+          setIsThereAnythingToLearn(skills > letters + blockedForLearning);
           const someHaveValidDiplomas = items.some(item => item.validDiplomas && item.validDiplomas.length > 0);
           setIsThereAnythingToReexamine(someHaveValidDiplomas);
         }
