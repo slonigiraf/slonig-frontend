@@ -185,8 +185,8 @@ export async function putRepetition(repetition: Repetition) {
     await db.repetitions.put(repetition);
 }
 
-export async function deleteRepetition(repetition: Repetition) {
-    await db.repetitions.delete([repetition.workerId, repetition.knowledgeId]);
+export async function deleteRepetition(workerId: string, knowledgeId: string) {
+    await db.repetitions.delete([workerId, knowledgeId]);
 }
 
 export async function getRepetitionsForKnowledgeId(workerId: string, knowledgeId: string): Promise<Repetition[]> {

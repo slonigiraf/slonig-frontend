@@ -4,7 +4,7 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { useLoginContext, useTokenTransfer, useInfo, LessonResult, keyForCid, getAddressFromPublickeyHex, useBlockchainSync, useLog, EXAMPLE_SKILL_KNOWLEDGE_ID, bnToSlonFloatOrNaN } from '@slonigiraf/slonig-components';
 import { hexToU8a, u8aToHex, u8aWrapBytes } from '@polkadot/util';
-import { addReimbursement, cancelLetter, deleteLetter, deserializeLetter, getAgreement, getLetter, getLettersForKnowledgeId, getSetting, letterToReimbursement, putAgreement, putLetter, setSettingToTrue, SettingKey, storePseudonym, updateLetterReexaminingCount, putRepetition as putRepetition } from '@slonigiraf/db';
+import { addReimbursement, cancelLetter, deleteLetter, deserializeLetter, getAgreement, getLetter, getLettersForKnowledgeId, getSetting, letterToReimbursement, putAgreement, putLetter, setSettingToTrue, SettingKey, storePseudonym, updateLetterReexaminingCount, putRepetition as putRepetition, deleteRepetition } from '@slonigiraf/db';
 import { useTranslation } from '../translate.js';
 import { Agreement } from '@slonigiraf/db';
 import { useNavigate } from 'react-router-dom';
@@ -131,6 +131,7 @@ function LessonResultReceiver({ webRTCPeerId, onDaysRangeChange }: Props): React
                   logEvent('ONBOARDING', 'TUTEE_TUTORIAL_COMPLETED');
                   await setSettingToTrue(SettingKey.TUTEE_TUTORIAL_COMPLETED);
                 }
+                await deleteRepetition(letter.workerId, letter.knowledgeId);
                 await putLetter(letter);
               }
             });
