@@ -5,7 +5,7 @@ import ItemLabel from './ItemLabel.js';
 import SkillQR from './SkillQR.js';
 import { useTranslation } from '../translate.js';
 import ExerciseList from './ExerciseList.js';
-import { Spinner, Label, Button } from '@polkadot/react-components';
+import { Spinner, Label, Button, Progress as ProgressData } from '@polkadot/react-components';
 import { ItemWithCID } from '../types.js';
 import { useApi } from '@polkadot/react-hooks';
 import BN from 'bn.js';
@@ -22,6 +22,12 @@ interface Props {
   isClassInstructionShown: boolean;
   setIsClassInstructionShown: (isShown: boolean) => void;
   list: JsonType;
+}
+
+interface ProgressData {
+  skills: number;
+  letters: number;
+  repetitions: number;
 }
 
 function ViewList({ className = '', id, cidString, isClassInstructionShown, setIsClassInstructionShown, list }: Props): React.ReactElement<Props> {
@@ -49,6 +55,7 @@ function ViewList({ className = '', id, cidString, isClassInstructionShown, setI
   const [role, setRole] = useState<'tutee' | undefined>(undefined);
   const [isPutDeviceAsideOpen, setIsPutDeviceAsideOpen] = useState(false);
   const { logEvent } = useLog();
+  const [progressData, setProgressData] = useState<ProgressData>({ skills: 0, letters: 0, repetitions: 0 });
 
   async function fetchLaw(key: string) {
     const law = (await api.query.laws.laws(key)) as { isSome: boolean; unwrap: () => [Uint8Array, BN] };
@@ -78,6 +85,10 @@ function ViewList({ className = '', id, cidString, isClassInstructionShown, setI
           })
         );
         setItemsWithCID(items);
+        const skills = items.length;
+        const letters = items.filter(i => i.validDiplomas.length).length;
+        const repetitions = items.filter(i => i.shouldBeRepeated).length;
+        setProgressData({ skills, letters, repetitions });
 
         if (list.t !== null && list.t === LawType.MODULE && items.length > 0) {
           const allHaveValidDiplomas = items.every(item => item.validDiplomas && item.validDiplomas.length > 0);
@@ -175,6 +186,12 @@ function ViewList({ className = '', id, cidString, isClassInstructionShown, setI
           <div className='ui--row' style={isAPairWork ? {} : { display: 'none' }}>
             <SkillQR id={id} cid={cidString} type={LawType.MODULE} selectedItems={selectedItems} isLearningRequested={isLearningRequested} isReexaminingRequested={isReexaminingRequested} lessonInUrl={lessonInUrl || showSkillQrInUrl} onDataSent={onDataSent} />
           </div>
+          <ProgressDiv>
+            <ProgressData
+              value={progressData.letters + 0.5 * progressData.repetitions}
+              total={progressData.skills}
+            />
+          </ProgressDiv>
           <ButtonsRow>
             {isThereAnythingToLearn && !isAPairWork &&
               <Button
@@ -185,7 +202,7 @@ function ViewList({ className = '', id, cidString, isClassInstructionShown, setI
               />}
             {isThereAnythingToReexamine && !isAPairWork &&
               <Button
-                icon='arrows-rotate'
+                icon='graduation-cap'
                 label={t('Revise')}
                 onClick={() => reviseClicked(true)}
               />}
@@ -256,7 +273,7 @@ function ViewList({ className = '', id, cidString, isClassInstructionShown, setI
       <ClassInstruction caption={list.h} knowledgeId={id} setIsClassInstructionShown={setIsClassInstructionShown} /> :
       isAPairWork ?
         (!role && lessonInUrl) ? roleSelector :
-          <FullscreenActivity captionElement={<KatexSpan content={cidString === EXAMPLE_MODULE_KNOWLEDGE_CID? t('Warm-up'): list.h} />} onClose={exitFullScreenActivity} >
+          <FullscreenActivity captionElement={<KatexSpan content={cidString === EXAMPLE_MODULE_KNOWLEDGE_CID ? t('Warm-up') : list.h} />} onClose={exitFullScreenActivity} >
             <RemoveBorders>{content}</RemoveBorders>
             {isExitConfirmOpen && (
               <Confirmation
@@ -366,6 +383,12 @@ const Standards = styled.div`
   label {
     text-transform: none;
   }
+`;
+
+const ProgressDiv = styled.div`
+  position: absolute;
+  top: 35px;
+  right: 15px;
 `;
 
 export default React.memo(ViewList);
