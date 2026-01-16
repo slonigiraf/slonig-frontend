@@ -110,8 +110,8 @@ function ViewList({ className = '', id, cidString, isClassInstructionShown, setI
     handleLearningToggle(checked);
   }, [list, logEvent]);
 
-  const reviseClicked = useCallback((checked: boolean): void => {
-    list && logEvent('LEARNING', 'CLICK_REVISE', list.h);
+  const examClicked = useCallback((checked: boolean): void => {
+    list && logEvent('LEARNING', 'CLICK_EXAM', list.h);
     handleReexaminingToggle(checked);
   }, [list, logEvent]);
 
@@ -186,7 +186,7 @@ function ViewList({ className = '', id, cidString, isClassInstructionShown, setI
           <div className='ui--row' style={isAPairWork ? {} : { display: 'none' }}>
             <SkillQR id={id} cid={cidString} type={LawType.MODULE} selectedItems={selectedItems} isLearningRequested={isLearningRequested} isReexaminingRequested={isReexaminingRequested} lessonInUrl={lessonInUrl || showSkillQrInUrl} onDataSent={onDataSent} />
           </div>
-          <ProgressDiv>
+          <ProgressDiv style={isAPairWork ? { display: 'none' } : {}}>
             <ProgressData
               value={progressData.letters + 0.5 * progressData.repetitions}
               total={progressData.skills}
@@ -203,8 +203,8 @@ function ViewList({ className = '', id, cidString, isClassInstructionShown, setI
             {isThereAnythingToReexamine && !isAPairWork &&
               <Button
                 icon='graduation-cap'
-                label={t('Revise')}
-                onClick={() => reviseClicked(true)}
+                label={t('Exam')}
+                onClick={() => examClicked(true)}
               />}
           </ButtonsRow>
         </>

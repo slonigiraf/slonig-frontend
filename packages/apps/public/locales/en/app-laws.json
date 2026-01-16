@@ -29,7 +29,6 @@
   "Problem with getting IPFS data": "Problem with getting IPFS data",
   "Processing": "Processing",
   "Processing...": "Processing...",
-  "Revise": "Revise",
   "Save": "Save",
   "Saved": "Saved",
   "See more about KaTeX": "See more about KaTeX",
@@ -49,7 +48,6 @@
   "Text": "Text",
   "The link misses a known ID": "The link misses a known ID",
   "To learn this, ask a tutor to scan:": "To learn this, ask a tutor to scan:",
-  "To revise this, ask a tutor to scan:": "To revise this, ask a tutor to scan:",
   "Warm-up": "Warm-up",
   "Wrong JSON format": "Wrong JSON format",
   "You can put your device aside": "You can put your device aside",
@@ -60,5 +58,7 @@
   "text": "text",
   "title": "title",
   "title of item": "title of item",
-  "type of item": "type of item"
+  "type of item": "type of item",
+  "To exam this, ask a tutor to scan:": "To exam this, ask a tutor to scan:",
+  "Exam": "Exam"
 }
