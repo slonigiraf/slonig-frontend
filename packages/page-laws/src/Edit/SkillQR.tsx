@@ -64,8 +64,8 @@ function SkillQR({ className = '', cid, selectedItems, isLearningRequested, isRe
       const allDiplomas = await getLettersByWorkerId(studentIdentity);
       const notTutorialDiplomas = (allDiplomas ?? []).filter((letter: Letter) => letter.knowledgeId !== EXAMPLE_SKILL_KNOWLEDGE_ID);
       if (notTutorialDiplomas.length > 0) {
-        const randomIndex = Math.floor(Math.random() * allDiplomas.length);
-        setDiplomasToReexamine([allDiplomas[randomIndex]]);
+        const randomIndex = Math.floor(Math.random() * notTutorialDiplomas.length);
+        setDiplomasToReexamine([notTutorialDiplomas[randomIndex]]);
       }
     };
     if (isLearningRequested && !isReexaminingRequested) {
