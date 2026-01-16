@@ -177,6 +177,10 @@ function ViewList({ className = '', id, cidString, isClassInstructionShown, setI
 
   const isSelectionAllowed = true;
 
+  const canBeSelected = useCallback((item: ItemWithCID): boolean => {
+    return isReexaminingRequested ? !(item.validDiplomas.length > 0) : (item.validDiplomas.length > 0);
+  },[isReexaminingRequested]);
+
   const content = list ? <>
     {!isAPairWork && <h1><KatexSpan content={list.h} /></h1>}
     {list.t !== null && list.t === LawType.MODULE && (
@@ -232,7 +236,7 @@ function ViewList({ className = '', id, cidString, isClassInstructionShown, setI
           onSelectionChange={handleSelectionChange}
           isSelectionAllowed={isAPairWork}
           keyExtractor={(item) => item.id + item.validDiplomas.length}
-          filterOutSelection={(item) => isReexaminingRequested ? !(item.validDiplomas.length > 0) : (item.validDiplomas.length > 0)}
+          filterOutSelection={(item) => canBeSelected(item)}
           key={id + isReexaminingRequested}
           allSelected={shouldSelectAll}
         />
