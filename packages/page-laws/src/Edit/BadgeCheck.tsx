@@ -10,10 +10,11 @@ interface Props {
 
 function BadgeCheck({ className = '', item, caption }: Props): React.ReactElement<Props> {
   const studentHasValidDiplomaForThisSkill = item.validDiplomas.length > 0;
-  const icon = studentHasValidDiplomaForThisSkill ? 'check' : 'lightbulb';
+  const showIcon = studentHasValidDiplomaForThisSkill || item.shouldBeRepeated;
+  const icon = studentHasValidDiplomaForThisSkill ? 'check' : 'rotate';
   return (
     <span>
-      {studentHasValidDiplomaForThisSkill && <><Icon icon={icon} color='gray'/>&nbsp;{caption}</>}
+      {showIcon && <><Icon icon={icon} color='gray'/>&nbsp;&nbsp;{caption}</>}
     </span>
   );
 }

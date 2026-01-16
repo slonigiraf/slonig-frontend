@@ -9,7 +9,7 @@ import { Spinner, Label, Button } from '@polkadot/react-components';
 import { ItemWithCID } from '../types.js';
 import { useApi } from '@polkadot/react-hooks';
 import BN from 'bn.js';
-import { getLettersForKnowledgeId, SettingKey } from '@slonigiraf/db';
+import { getLettersForKnowledgeId, getRepetitionsForKnowledgeId, SettingKey } from '@slonigiraf/db';
 import { u8aToHex } from '@polkadot/util';
 import ModulePreview from './ModulePreview.js';
 import styled from 'styled-components';
@@ -68,10 +68,12 @@ function ViewList({ className = '', id, cidString, isClassInstructionShown, setI
           list.e.map(async (id: string) => {
             const cid = await fetchLaw(id) || '';
             const validDiplomas = await getLettersForKnowledgeId(studentIdentity, id);
+            const repetitions = await getRepetitionsForKnowledgeId(studentIdentity, id);
             return {
               id: id,
               cid: cid,
-              validDiplomas: validDiplomas
+              validDiplomas: validDiplomas,
+              shouldBeRepeated: repetitions.length > 0
             };
           })
         );

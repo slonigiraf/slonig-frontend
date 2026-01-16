@@ -189,6 +189,13 @@ export async function deleteRepetition(repetition: Repetition) {
     await db.repetitions.delete([repetition.workerId, repetition.knowledgeId]);
 }
 
+export async function getRepetitionsForKnowledgeId(workerId: string, knowledgeId: string): Promise<Repetition[]> {
+    return await db.repetitions
+        .where('[workerId+knowledgeId]')
+        .equals([workerId, knowledgeId])
+        .toArray();
+}
+
 // Letter related
 
 export async function putLetter(letter: Letter) {
