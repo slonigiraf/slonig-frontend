@@ -130,7 +130,10 @@ function LessonResultReceiver({ webRTCPeerId, onDaysRangeChange }: Props): React
                   await setSettingToTrue(SettingKey.TUTEE_TUTORIAL_COMPLETED);
                 }
                 await deleteRepetition(letter.workerId, letter.knowledgeId);
-                await putLetter(letter);
+                const validLetters = await getLettersForKnowledgeId(letter.workerId, letter.knowledgeId);
+                if (validLetters.length === 0) {
+                  await putLetter(letter);
+                }
               }
             });
             if (!lessonResult.tutorIsExperienced) {
