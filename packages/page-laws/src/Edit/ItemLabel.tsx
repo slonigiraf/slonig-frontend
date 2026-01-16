@@ -73,7 +73,7 @@ function ItemLabel({
 
   const allowSelection = isReexaminingRequested
     ? (item.validDiplomas?.length ?? 0) > 0
-    : (item.validDiplomas?.length ?? 0) === 0;
+    : (item.validDiplomas?.length ?? 0) === 0 && !item.isBlockedForLearning;
 
   const getIconName = () => {
     switch (type) {

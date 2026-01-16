@@ -13,6 +13,7 @@ import { getLettersForKnowledgeId, getRepetitionsForKnowledgeId, SettingKey } fr
 import { u8aToHex } from '@polkadot/util';
 import ModulePreview from './ModulePreview.js';
 import styled from 'styled-components';
+import { sleptBetween } from '../util.js';
 
 type JsonType = { [key: string]: any } | null;
 interface Props {
@@ -71,16 +72,20 @@ function ViewList({ className = '', id, cidString, isClassInstructionShown, setI
   useEffect(() => {
     const fetchCIDs = async () => {
       if (list?.e) {
+        const now = (new Date()).getTime();
         const items = await Promise.all(
           list.e.map(async (id: string) => {
             const cid = await fetchLaw(id) || '';
             const validDiplomas = await getLettersForKnowledgeId(studentIdentity, id);
             const repetitions = await getRepetitionsForKnowledgeId(studentIdentity, id);
+            const shouldBeBlockedForLearning = repetitions.length > 0 ? !sleptBetween(repetitions[0].lastExamined, now) : false;
+
             return {
               id: id,
               cid: cid,
               validDiplomas: validDiplomas,
-              shouldBeRepeated: repetitions.length > 0
+              shouldBeRepeated: repetitions.length > 0,
+              isBlockedForLearning: shouldBeBlockedForLearning,
             };
           })
         );
@@ -177,9 +182,13 @@ function ViewList({ className = '', id, cidString, isClassInstructionShown, setI
 
   const isSelectionAllowed = true;
 
-  const canBeSelected = useCallback((item: ItemWithCID): boolean => {
-    return isReexaminingRequested ? !(item.validDiplomas.length > 0) : (item.validDiplomas.length > 0);
-  },[isReexaminingRequested]);
+  const filterOutItem = useCallback((item: ItemWithCID): boolean => {
+    if (isReexaminingRequested) {
+      return !(item.validDiplomas.length > 0);
+    } else {
+      return (item.validDiplomas.length > 0) || item.isBlockedForLearning;
+    }
+  }, [isReexaminingRequested]);
 
   const content = list ? <>
     {!isAPairWork && <h1><KatexSpan content={list.h} /></h1>}
@@ -236,7 +245,7 @@ function ViewList({ className = '', id, cidString, isClassInstructionShown, setI
           onSelectionChange={handleSelectionChange}
           isSelectionAllowed={isAPairWork}
           keyExtractor={(item) => item.id + item.validDiplomas.length}
-          filterOutSelection={(item) => canBeSelected(item)}
+          filterOutSelection={(item) => filterOutItem(item)}
           key={id + isReexaminingRequested}
           allSelected={shouldSelectAll}
         />

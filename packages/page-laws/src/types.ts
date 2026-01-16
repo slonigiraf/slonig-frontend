@@ -20,6 +20,7 @@ export interface ItemWithCID {
   cid: string;
   validDiplomas: Letter[];
   shouldBeRepeated: boolean;
+  isBlockedForLearning: boolean;
 }
 
 export interface I18nProps extends BareProps, WithTranslation {}
