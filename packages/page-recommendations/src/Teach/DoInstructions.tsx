@@ -94,25 +94,29 @@ function DoInstructions({ className = '', entity, onResult, studentName, isSendi
     };
   }, [ipfs, entity, studentName]);
 
-  const processLetter = useCallback(async () => {
-    if (isLetterTemplate(entity)) {
-      const template = await getLetterTemplate(entity.lesson, entity.stage);
-      if (template) {
-        if (template.toRepeat) {
-          logEvent('TUTORING', algorithmType, 'mark_for_repeat');
-        } else {
-          logEvent('TUTORING', algorithmType, 'mark_mastered');
-        }
-        const preparedLetterTemplate: LetterTemplate = {
-          ...template,
-          valid: !template.toRepeat,
-          lastExamined: (new Date()).getTime(),
-        };
-        await putLetterTemplate(preparedLetterTemplate);
-      }
+  const processLetter = useCallback(async (isValid?: boolean) => {
+    if (!isLetterTemplate(entity)) return;
+
+    const template = await getLetterTemplate(entity.lesson, entity.stage);
+    if (!template) {
       onResult();
+      return;
     }
-  }, [isLetterTemplate, entity, putLetterTemplate, onResult]);
+
+    const valid = isValid ?? !template.toRepeat;
+
+    logEvent("TUTORING", algorithmType, valid ? "mark_mastered" : "mark_for_repeat");
+
+    await putLetterTemplate({
+      ...template,
+      valid,
+      toRepeat: !valid,
+      lastExamined: Date.now(),
+    });
+
+    onResult();
+  }, [entity, isLetterTemplate, getLetterTemplate, putLetterTemplate, onResult, algorithmType, logEvent,]);
+
 
   const markLetterAsNotPerfect = useCallback(async () => {
     if (isLetterTemplate(entity)) {
@@ -127,13 +131,12 @@ function DoInstructions({ className = '', entity, onResult, studentName, isSendi
 
   const repeatTomorrow = useCallback(async () => {
     logEvent('TUTORING', 'TEACH_ALGO', 'click_instant_mark_for_repeat');
-    await markLetterAsNotPerfect();
-    await processLetter();
+    await processLetter(false);
   }, [processLetter, logEvent]);
 
   const issueDiploma = useCallback(async () => {
     logEvent('TUTORING', 'TEACH_ALGO', 'click_instant_mark_mastered');
-    await processLetter();
+    await processLetter(true);
   }, [processLetter, logEvent]);
 
   const studentPassedReexamination = useCallback(async () => {
