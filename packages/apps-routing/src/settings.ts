@@ -10,7 +10,7 @@ export default function create (t: TFunction): Route {
     Component,
     display: {},
     group: 'settings',
-    icon: 'gear',
+    icon: 'user',
     name: 'settings',
     text: t('nav.settings', 'Settings', { ns: 'apps-routing' }),
     useCounter
