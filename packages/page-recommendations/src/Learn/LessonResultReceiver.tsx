@@ -32,9 +32,9 @@ function LessonResultReceiver({ webRTCPeerId, onDaysRangeChange }: Props): React
   const { logEvent } = useLog();
 
   const updateAgreement = useCallback(async (updatedAgreement: Agreement) => {
-    setAgreement(updatedAgreement);
     await putAgreement(updatedAgreement);
-  }, []);
+    setAgreement(updatedAgreement);
+  }, [putAgreement, setAgreement]);
 
   const handleData = useCallback(async (receivedResult: LessonResult) => {
     if (receivedResult.workerId === workerPublicKeyHex) {
@@ -56,8 +56,7 @@ function LessonResultReceiver({ webRTCPeerId, onDaysRangeChange }: Props): React
               ...dbAgreement,
               price: receivedResult.price,
             };
-            setAgreement(newAgreement);
-            await putAgreement(newAgreement);
+            updateAgreement(newAgreement);
           }
         }
       } else {
@@ -69,8 +68,7 @@ function LessonResultReceiver({ webRTCPeerId, onDaysRangeChange }: Props): React
           paid: false,
           completed: false,
         };
-        setAgreement(newAgreement);
-        await putAgreement(newAgreement);
+        updateAgreement(newAgreement);
       }
     } else {
       showInfo(t('The tutor has shown you a QR code created for a different tutee. Ask the tutor to find the correct lesson.'), 'error');
@@ -264,14 +262,20 @@ function LessonResultReceiver({ webRTCPeerId, onDaysRangeChange }: Props): React
   }, [api, isApiReady, currentPair, lessonResult, agreement, t])
 
   useEffect(() => {
-    if (agreement && agreement.paid === false && agreement.penaltySent === true) {
-      const updatedAgreement: Agreement = { ...agreement, paid: true };
-      if (agreement.price === "0") {
-        updateAgreement(updatedAgreement);
-      } else if (transferReceipt  && (transferReceipt.success && transferReceipt.id === agreement.id)) {
-        updateAgreement(updatedAgreement);
+    const run = async () => {
+      if (agreement) {
+        const dbAgreement = await getAgreement(agreement.id);
+        if (dbAgreement && dbAgreement.paid === false && dbAgreement.penaltySent === true) {
+          const updatedAgreement: Agreement = { ...dbAgreement, paid: true };
+          if (agreement.price === "0") {
+            updateAgreement(updatedAgreement);
+          } else if (transferReceipt && (transferReceipt.success && transferReceipt.id === dbAgreement.id)) {
+            updateAgreement(updatedAgreement);
+          }
+        }
       }
-    }
+    };
+    run();
   }, [transferReceipt, agreement])
 
   return <></>;
