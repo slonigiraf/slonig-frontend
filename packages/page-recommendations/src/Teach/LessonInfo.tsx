@@ -97,7 +97,7 @@ function LessonInfo({ lesson, isSelected, onToggleSelection, onResumeTutoring, o
         {!isSelectionAllowed ? <Button
           icon='play'
           onClick={() => resumeTutoring(lesson)}
-          isDisabled={isSelectionAllowed || isFinished}
+          isDisabled={isSelectionAllowed || isFinished || lesson.isPaid}
         /> : <span>&nbsp;</span>}
       </div>
       <div style={{ width: '100%' }}>
@@ -120,7 +120,7 @@ function LessonInfo({ lesson, isSelected, onToggleSelection, onResumeTutoring, o
             logEvent('TUTORING', 'RESULTS', 'click_send_at_list_of_lessons');
             onShowResults(lesson);
           }}
-          isDisabled={!isSendingResultsEnabled}
+          isDisabled={!isSendingResultsEnabled || lesson.isPaid}
         />}
       </div>
     </StyledDiv>
