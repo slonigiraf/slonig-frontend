@@ -23,5 +23,6 @@
   "update on #{{index}}": "update on #{{index}}",
   "{{relay}} Common": "{{relay}} Common",
   "{{relay}} Parachain": "{{relay}} Parachain",
-  "{{relay}} System": "{{relay}} System"
+  "{{relay}} System": "{{relay}} System",
+  "A new version is available. Please reload the page.": "A new version is available. Please reload the page."
 }
