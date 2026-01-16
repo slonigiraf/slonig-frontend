@@ -42,5 +42,6 @@ export const StyledDiv = styled.div`
     justify-content: right;
     margin-top: -30px;
     margin-bottom: -5px;
+    color: red;
 `;
 export default React.memo(ExampleExercisesButton);
