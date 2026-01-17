@@ -35,5 +35,3 @@ NOW="$(date -u +%s)"
 cat > "${VERSION_JSON_PATH}" <<EOF
 { "version": "${NOW}" }
 EOF
-
-echo "Wrote ${VERSION_JSON_PATH}: $(cat "${VERSION_JSON_PATH}")"
