@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import styled from 'styled-components';
 import { Button } from '@polkadot/react-components';
 import { useTranslation } from './translate.js';
@@ -20,50 +20,61 @@ function QrScannerElement({
   const { t } = useTranslation();
 
   const [facingMode, setFacingMode] = useState<FacingMode>(initialFacingMode);
+  const [isSwitching, setIsSwitching] = useState(false);
+
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const scannerRef = useRef<QrScanner | null>(null);
+  const onResultRef = useRef(onResult);
 
-  const changeCamera = () => {
-    setFacingMode((m) => (m === 'user' ? 'environment' : 'user'));
-  };
+  // keep latest callback without recreating scanner
+  useEffect(() => {
+    onResultRef.current = onResult;
+  }, [onResult]);
 
+  // Create scanner ONCE
   useEffect(() => {
     const video = videoRef.current;
     if (!video) return;
 
-    // iOS Safari: must be inline
     video.setAttribute('playsinline', 'true');
-
-    // Clean up previous scanner instance (if any)
-    if (scannerRef.current) {
-      scannerRef.current.stop();
-      scannerRef.current.destroy();
-      scannerRef.current = null;
-    }
 
     const scanner = new QrScanner(
       video,
-      (result) => {
-        onResult(result.data);
-      },
-      {
-        preferredCamera: facingMode
-      }
+      (result) => onResultRef.current(result.data),
+      { preferredCamera: initialFacingMode }
     );
-    scanner.setInversionMode('both');
 
+    scanner.setInversionMode('both');
     scannerRef.current = scanner;
 
-    scanner.start().catch((e) => {
-      console.error('Failed to start QR scanner:', e);
-    });
+    scanner.start().catch((e) => console.error('Failed to start QR scanner:', e));
 
     return () => {
       scanner.stop();
       scanner.destroy();
       scannerRef.current = null;
     };
-  }, [facingMode, onResult]);
+    // only once on mount (initialFacingMode is fine to read here)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Switch camera via setCamera (async) — no recreate
+  const changeCamera = useCallback(async () => {
+    const scanner = scannerRef.current;
+    if (!scanner || isSwitching) return;
+
+    const next: FacingMode = facingMode === 'user' ? 'environment' : 'user';
+
+    try {
+      setIsSwitching(true);
+      await scanner.setCamera(next); // <-- key fix (async)
+      setFacingMode(next);
+    } catch (e) {
+      console.error('Failed to switch camera:', e);
+    } finally {
+      setIsSwitching(false);
+    }
+  }, [facingMode, isSwitching]);
 
   return (
     <div className={`qr-wrapper ${className}`}>
@@ -76,7 +87,12 @@ function QrScannerElement({
         </section>
       </div>
 
-      <Button icon="repeat" label={t('Change camera')} onClick={changeCamera} />
+      <Button
+        icon="repeat"
+        label={t('Change camera')}
+        onClick={changeCamera}
+        isDisabled={isSwitching}
+      />
     </div>
   );
 }
@@ -99,13 +115,12 @@ export default React.memo(styled(QrScannerElement)`
     transform: matrix(-1, 0, 0, 1, 0, 0);
   }
 
-  /* IMPORTANT: give the container height (aspect-ratio) */
   .ui--qr-Scan-container {
     position: relative;
     width: 100%;
-    aspect-ratio: 1 / 1; /* square scanner; change to 4/3 if you want */
+    aspect-ratio: 1 / 1;
     overflow: hidden;
-    background: #000; /* so you see something before camera starts */
+    background: #000;
 
     video {
       position: absolute;
