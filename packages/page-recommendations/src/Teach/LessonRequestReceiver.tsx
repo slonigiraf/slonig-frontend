@@ -65,11 +65,11 @@ function LessonRequestReceiver({ setCurrentLesson }: Props): React.ReactElement<
           await storeLesson(lessonRequest, tutorPublicKeyHex);
         }
         else {
-          logEvent('SETTINGS', 'NOW_IS_CLASS_ONBOARDING', 'true_or_false', 1);
-          await setSettingToTrue(SettingKey.NOW_IS_CLASS_ONBOARDING);
           const tutorialRequest = changeRequestIntoTutorial(lessonRequest);
           lessonId = tutorialRequest.lesson;
           await storeLesson(tutorialRequest, tutorPublicKeyHex);
+          logEvent('SETTINGS', 'NOW_IS_CLASS_ONBOARDING', 'true_or_false', 1);
+          await setSettingToTrue(SettingKey.NOW_IS_CLASS_ONBOARDING);
         }
         navigate('', { replace: true });
         const lesson = await getLesson(lessonId);

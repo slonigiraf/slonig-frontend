@@ -161,6 +161,8 @@ function UI({ className = '' }: Props): React.ReactElement<Props> {
     }
   }, [isAirdropCompatible, expectedAirdropAmount, recievedAirdropAmount, currentPair, showError, showNoConnectionToEconomyServerError, setIsProcessingAirdrop]);
 
+  const showOnboarding = nowIsClassOnboarding && lessonId === undefined;
+
   return (
     connected ? <StyledDiv isloginRequired={isLoginRequired} className={`${className} apps--Wrapper ${themeClassName}`}>
       <AppContainer>
@@ -178,7 +180,7 @@ function UI({ className = '' }: Props): React.ReactElement<Props> {
           <Signer>
             <Menu />
             <BlockchainSyncProvider>
-              {nowIsClassOnboarding && !lessonId && <ClassOnboarding />}
+              {showOnboarding && <ClassOnboarding />}
               <>
                 <Content />
                 {!botInUrl && <BottomMenu />}
