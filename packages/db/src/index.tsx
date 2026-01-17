@@ -22,6 +22,7 @@ import { exportDB as dexieExport } from 'dexie-export-import';
 import { InsurancesTransfer, LessonRequest } from "@slonigiraf/slonig-components";
 import { CanceledInsurance } from "./db/CanceledInsurance.js";
 import { Repetition } from "./db/Repetition.js";
+import { EXAMPLE_SKILL_KNOWLEDGE_ID } from "@slonigiraf/utils";
 
 export type { CanceledInsurance, Reexamination, LetterTemplate, CanceledLetter, Reimbursement, Letter, Insurance, Lesson, Pseudonym, Setting, Signer, UsageRight, Agreement };
 
@@ -224,6 +225,41 @@ export async function getLetters(worker: string, startDate: number | null, endDa
         });
     }
     return await query.reverse().sortBy('created');
+}
+
+export async function getLettersToReexamine(): Promise<Letter[]> {
+    const results: Letter[] = [];
+
+    const findFirstForExamCounts = async (
+        predicate: (letter: Letter) => boolean
+    ): Promise<Letter | undefined> => {
+        for (let examCount = 1; examCount <= 3; examCount++) {
+            const letter = await db.letters
+                .orderBy('created')
+                .filter(
+                    (l) =>
+                        l.examCount === examCount &&
+                        l.knowledgeId !== EXAMPLE_SKILL_KNOWLEDGE_ID &&
+                        predicate(l)
+                )
+                .first();
+
+            if (letter) return letter;
+        }
+        return undefined;
+    };
+
+    const firstLetter = await findFirstForExamCounts(() => true);
+    if (!firstLetter) return results;
+
+    results.push(firstLetter);
+
+    const secondLetter = await findFirstForExamCounts(
+        (l) => l.referee !== firstLetter.referee
+    );
+    if (secondLetter) results.push(secondLetter);
+
+    return results;
 }
 
 export async function getLettersForKnowledgeId(workerId: string, knowledgeId: string): Promise<Letter[]> {
@@ -480,6 +516,17 @@ export async function deleteLesson(id: string) {
 }
 
 export async function storeLesson(lessonRequest: LessonRequest, tutor: string) {
+    let toReexamine: string[][] = lessonRequest.reexamine;
+
+    if (lessonRequest.learn.length > 0 && lessonRequest.reexamine.length === 2) {
+        const [first, second] = lessonRequest.reexamine;
+        if (first?.[3] === tutor) {
+            toReexamine = [second];
+        } else {
+            toReexamine = [first];
+        }
+    }
+
     const now = (new Date()).getTime();
     const stored_warranty = await getSetting(SettingKey.DIPLOMA_WARRANTY);
     const stored_validity = await getSetting(SettingKey.DIPLOMA_VALIDITY);
@@ -495,7 +542,7 @@ export async function storeLesson(lessonRequest: LessonRequest, tutor: string) {
         student: lessonRequest.identity,
         toLearnCount: lessonRequest.learn.length,
         learnStep: 0,
-        toReexamineCount: lessonRequest.reexamine.length,
+        toReexamineCount: toReexamine.length,
         reexamineStep: 0,
         dPrice: diploma_price,
         dWarranty: warranty,
@@ -526,7 +573,7 @@ export async function storeLesson(lessonRequest: LessonRequest, tutor: string) {
             return await putLetterTemplate(letterTemplate);
         }));
         let reexaminationStage = 0;
-        await Promise.all(lessonRequest.reexamine.map(async (item: string[]) => {
+        await Promise.all(toReexamine.map(async (item: string[]) => {
             const reexamination: Reexamination = {
                 created: now,
                 stage: reexaminationStage++,

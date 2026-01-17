@@ -1,0 +1,21 @@
+{
+  "bugs": "https://github.com/slonigiraf/apps-slonigiraf/issues",
+  "engines": {
+    "node": ">=16"
+  },
+  "homepage": "https://github.com/slonigiraf/apps-slonigiraf/tree/master/packages/utils#readme",
+  "license": "Apache-2.0",
+  "name": "@slonigiraf/utils",
+  "private": true,
+  "repository": {
+    "directory": "packages/utils",
+    "type": "git",
+    "url": "https://github.com/slonigiraf/apps-slonigiraf.git"
+  },
+  "sideEffects": false,
+  "type": "module",
+  "version": "0.132.2-38-x",
+  "devDependencies": {
+    "@polkadot/test-support": "0.132.2-38-x"
+  }
+}

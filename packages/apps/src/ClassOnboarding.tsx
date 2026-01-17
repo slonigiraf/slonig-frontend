@@ -2,10 +2,11 @@
 // SPDX-License-Identifier: Apache-2.0
 import React, { useCallback, useState } from 'react';
 import { Button, styled } from '@polkadot/react-components';
-import { Confirmation, EXAMPLE_MODULE_KNOWLEDGE_CID, EXAMPLE_MODULE_KNOWLEDGE_ID, FullFindow, FullscreenActivity, useLog, VerticalCenterItemsContainer } from '@slonigiraf/slonig-components';
+import { Confirmation, FullFindow, FullscreenActivity, useLog } from '@slonigiraf/slonig-components';
 import { SettingKey, deleteSetting } from '@slonigiraf/db';
 import { useTranslation } from './translate.js';
 import { useNavigate } from 'react-router-dom';
+import { EXAMPLE_MODULE_KNOWLEDGE_ID } from '@slonigiraf/utils';
 
 interface Props {
   className?: string;

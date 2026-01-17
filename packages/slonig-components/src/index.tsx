@@ -50,10 +50,6 @@ export const EXISTENTIAL_BATCH_SENDER_BALANCE = new BN('10000000000000'); // 10 
 export const EXISTENTIAL_REFEREE_BALANCE = new BN('1000000000000000'); // 1k Slon = 1000000000000000
 export const REIMBURSEMENT_BATCH_SIZE = 5;
 export const progressFromButtomPx = 80;
-export const EXAMPLE_SKILL_KNOWLEDGE_ID = '0x6d3cd8005f0b14f197f5c3617933afbfd32ca75420773165d3b70e132d5b1df7';
-export const EXAMPLE_SKILL_KNOWLEDGE_CID = 'bafyreictjpbqaxvetm6tpimql6bdu6lo4fvhlqljhbggrox5js35fjjapy';
-export const EXAMPLE_MODULE_KNOWLEDGE_ID = '0xc93cafd0d50625e1e203d20c596e87b9f01c93798ea8c358370d286903c260b3';
-export const EXAMPLE_MODULE_KNOWLEDGE_CID = 'bafyreidptwdha5jb7bzrk2g6vr2bfw6lvxfeff57hxud2u5sansdmowgp4';
 
 export function getFormattedTimestamp(date: Date): string {
   const year = date.getFullYear();

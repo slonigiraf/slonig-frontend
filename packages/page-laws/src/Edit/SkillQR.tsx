@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useTranslation } from '../translate.js';
-import { CenterQRContainer, LessonRequest, SenderComponent, nameFromKeyringPair, qrWidthPx, useLoginContext, EXAMPLE_SKILL_KNOWLEDGE_ID } from '@slonigiraf/slonig-components';
-import { Letter, getLessonId, getLettersByWorkerId } from '@slonigiraf/db';
+import { CenterQRContainer, LessonRequest, SenderComponent, nameFromKeyringPair, qrWidthPx, useLoginContext } from '@slonigiraf/slonig-components';
+import { Letter, getLessonId, getLettersToReexamine } from '@slonigiraf/db';
 import { keyForCid } from '@slonigiraf/slonig-components';
 import { styled } from '@polkadot/react-components';
 import { u8aToHex } from '@polkadot/util';
@@ -61,11 +61,9 @@ function SkillQR({ className = '', cid, selectedItems, isLearningRequested, isRe
   // Which badges should be reexamined?
   useEffect(() => {
     const fetchRandomDiploma = async () => {
-      const allDiplomas = await getLettersByWorkerId(studentIdentity);
-      const notTutorialDiplomas = (allDiplomas ?? []).filter((letter: Letter) => letter.knowledgeId !== EXAMPLE_SKILL_KNOWLEDGE_ID);
-      if (notTutorialDiplomas.length > 0) {
-        const randomIndex = Math.floor(Math.random() * notTutorialDiplomas.length);
-        setDiplomasToReexamine([notTutorialDiplomas[randomIndex]]);
+      const toReexamine = await getLettersToReexamine();
+      if (toReexamine.length > 0) {
+        setDiplomasToReexamine(toReexamine);
       }
     };
     if (isLearningRequested && !isReexaminingRequested) {
@@ -80,7 +78,7 @@ function SkillQR({ className = '', cid, selectedItems, isLearningRequested, isRe
 
   useEffect(() => {
     if (shouldRender && diplomasToReexamine?.length) {
-      const examData = diplomasToReexamine.map((badge) => [badge.cid, badge.amount, badge.pubSign]);
+      const examData = diplomasToReexamine.map((badge) => [badge.cid, badge.amount, badge.pubSign, badge.referee]);
       setReexamine(examData);
     }
   }, [diplomasToReexamine, shouldRender]);

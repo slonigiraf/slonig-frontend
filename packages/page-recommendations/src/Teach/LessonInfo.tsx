@@ -3,10 +3,11 @@
 
 import { Button, Progress, Spinner, styled } from '@polkadot/react-components';
 import React, { useState, useEffect, useCallback } from 'react';
-import { EXAMPLE_MODULE_KNOWLEDGE_CID, KatexSpan, getIPFSDataFromContentID, parseJson, useLog } from '@slonigiraf/slonig-components';
+import { KatexSpan, getIPFSDataFromContentID, parseJson, useLog } from '@slonigiraf/slonig-components';
 import { useTranslation } from '../translate.js';
 import { useIpfsContext } from '@slonigiraf/slonig-components';
 import { Lesson, getPseudonym, isThereAnyLessonResult } from '@slonigiraf/db';
+import { EXAMPLE_MODULE_KNOWLEDGE_CID } from '@slonigiraf/utils';
 
 interface Props {
   lesson: Lesson;

@@ -2933,6 +2933,14 @@ __metadata:
   languageName: unknown
   linkType: soft
 
+"@slonigiraf/utils@workspace:packages/utils":
+  version: 0.0.0-use.local
+  resolution: "@slonigiraf/utils@workspace:packages/utils"
+  dependencies:
+    "@polkadot/test-support": 0.132.2-38-x
+  languageName: unknown
+  linkType: soft
+
 "@socket.io/component-emitter@npm:~3.1.0":
   version: 3.1.0
   resolution: "@socket.io/component-emitter@npm:3.1.0"

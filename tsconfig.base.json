@@ -23,6 +23,7 @@
       "@polkadot/app-accounts": ["page-accounts/src/index.tsx"],
       "@polkadot/app-i18n": ["page-i18n/src/index.tsx"],
       "@slonigiraf/db": ["db/src/index.tsx"],
+      "@slonigiraf/utils": ["utils/src/index.ts"],
       "@slonigiraf/app-laws": ["page-laws/src/index.tsx"],
       "@slonigiraf/slonig-components": ["slonig-components/src/index.tsx"],
       "@polkadot/app-parachains": ["page-parachains/src/index.tsx"],

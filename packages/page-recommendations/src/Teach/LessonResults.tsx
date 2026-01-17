@@ -237,7 +237,6 @@ function LessonResults({ className = '', lesson, updateAndStoreLesson, onClose, 
         }
 
         setData(JSON.stringify(lessonResult));
-        console.log('lessonResult: ', lessonResult)
       } catch (error) {
         console.error(error);
       }
