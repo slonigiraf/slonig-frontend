@@ -133,6 +133,7 @@
     "katex": "^0.16.10",
     "openai": "^6.16.0",
     "peerjs": "^1.5.4",
+    "qr-scanner": "^1.4.2",
     "react-day-picker": "^9.1.4",
     "react-katex": "^3.0.1",
     "wrtc": "^0.4.7"

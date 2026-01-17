@@ -1,96 +1,128 @@
-import { QrReader, QrReaderProps } from 'react-qr-reader';
-import { Button } from '@polkadot/react-components';
-import React, { useState } from 'react';
-import { useTranslation } from './translate.js';
+import React, { useEffect, useRef, useState } from 'react';
 import styled from 'styled-components';
+import { Button } from '@polkadot/react-components';
+import { useTranslation } from './translate.js';
+import QrScanner from 'qr-scanner';
 
-function QrScanner({ onResult, constraints, className = '' }: QrReaderProps): React.ReactElement<QrReaderProps> {
-    const [mode, setMode] = useState(constraints);
-    const { t } = useTranslation();
-    const [visible, setVisible] = useState(true);
+type FacingMode = 'user' | 'environment';
 
-    const changeMode = () => {
-        setVisible(false);
-        if (mode.facingMode === 'user') {
-            setMode({ facingMode: 'environment' });
-        } else {
-            setMode({ facingMode: 'user' });
-        }
-        setTimeout(function () {
-            setVisible(true);
-        }, 1);
-    }
-
-    return (
-        <div className={`qr-wrapper ${className}`}>
-            <div className={`qr-size`}>
-                <section className={`ui--qr-Scan ${mode.facingMode === 'user' ? 'mirrored' : ''}`}>
-                    <section className="ui--qr-Scan-container">
-                        <div className="ui--qr-Scan-focus" />
-                        {visible &&
-                            <QrReader
-                                onResult={onResult}
-                                constraints={mode}
-                            />
-                        }
-                    </section>
-                </section>
-            </div>
-            <Button
-                icon='repeat'
-                label={t('Change camera')}
-                onClick={changeMode}
-            />
-        </div>
-    );
+interface Props {
+  className?: string;
+  onResult: (data: string) => void;
+  initialFacingMode?: FacingMode; // default: environment
 }
 
-export default React.memo(styled(QrScanner)`
-    text-align: center;
-    max-width: 30rem;
-    margin: 0px auto;
+function QrScannerElement({
+  onResult,
+  initialFacingMode = 'environment',
+  className = ''
+}: Props): React.ReactElement<Props> {
+  const { t } = useTranslation();
 
-    .qr-size {
-        height: auto;
-        width: 100%;
+  const [facingMode, setFacingMode] = useState<FacingMode>(initialFacingMode);
+  const videoRef = useRef<HTMLVideoElement | null>(null);
+  const scannerRef = useRef<QrScanner | null>(null);
+
+  const changeCamera = () => {
+    setFacingMode((m) => (m === 'user' ? 'environment' : 'user'));
+  };
+
+  useEffect(() => {
+    const video = videoRef.current;
+    if (!video) return;
+
+    // iOS Safari: must be inline
+    video.setAttribute('playsinline', 'true');
+
+    // Clean up previous scanner instance (if any)
+    if (scannerRef.current) {
+      scannerRef.current.stop();
+      scannerRef.current.destroy();
+      scannerRef.current = null;
     }
 
-    .ui--qr-Scan {
-        display: inline-block;
-        height: 100%;
-        width: 100%;
-    }
+    const scanner = new QrScanner(
+      video,
+      (result) => {
+        onResult(result.data);
+      },
+      {
+        preferredCamera: facingMode
+      }
+    );
+    scanner.setInversionMode('both');
 
-    .ui--qr-Scan.mirrored {
-        transform: matrix(-1, 0, 0, 1, 0, 0);
-    }
+    scannerRef.current = scanner;
 
-    .ui--qr-Scan-container {
-        overflow: hidden;
-        position: relative;
-        width: 100%;
+    scanner.start().catch((e) => {
+      console.error('Failed to start QR scanner:', e);
+    });
 
-        video {
-            top: 0px;
-            left: 0px;
-            display: block;
-            position: absolute;
-            overflow: hidden;
-            width: 100%;
-            height: 100%;
-            object-fit: cover;
-        }
-    }
+    return () => {
+      scanner.stop();
+      scanner.destroy();
+      scannerRef.current = null;
+    };
+  }, [facingMode, onResult]);
 
-    .ui--qr-Scan-focus {
-        top: 0px;
-        left: 0px;
-        z-index: 1;
-        box-sizing: border-box;
-        border: 50px solid rgba(0, 0, 0, 0.3);
-        box-shadow: rgb(255 0 0 / 50%) 0px 0px 0px 5px inset;
-        position: absolute;
-        width: 100%;
-        height: 100%;
+  return (
+    <div className={`qr-wrapper ${className}`}>
+      <div className="qr-size">
+        <section className={`ui--qr-Scan ${facingMode === 'user' ? 'mirrored' : ''}`}>
+          <section className="ui--qr-Scan-container">
+            <div className="ui--qr-Scan-focus" />
+            <video ref={videoRef} muted />
+          </section>
+        </section>
+      </div>
+
+      <Button icon="repeat" label={t('Change camera')} onClick={changeCamera} />
+    </div>
+  );
+}
+
+export default React.memo(styled(QrScannerElement)`
+  text-align: center;
+  max-width: 30rem;
+  margin: 0px auto;
+
+  .qr-size {
+    width: 100%;
+  }
+
+  .ui--qr-Scan {
+    display: inline-block;
+    width: 100%;
+  }
+
+  .ui--qr-Scan.mirrored {
+    transform: matrix(-1, 0, 0, 1, 0, 0);
+  }
+
+  /* IMPORTANT: give the container height (aspect-ratio) */
+  .ui--qr-Scan-container {
+    position: relative;
+    width: 100%;
+    aspect-ratio: 1 / 1; /* square scanner; change to 4/3 if you want */
+    overflow: hidden;
+    background: #000; /* so you see something before camera starts */
+
+    video {
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
     }
+  }
+
+  .ui--qr-Scan-focus {
+    position: absolute;
+    inset: 0;
+    z-index: 1;
+    box-sizing: border-box;
+    border: 50px solid rgba(0, 0, 0, 0.3);
+    box-shadow: rgb(255 0 0 / 50%) 0px 0px 0px 5px inset;
+    pointer-events: none;
+  }
 `);

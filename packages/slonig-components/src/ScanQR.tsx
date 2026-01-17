@@ -45,9 +45,9 @@ function ScanQR({ className = '', label }: Props): React.ReactElement<Props> {
   }, [navigate, toggleQR]);
 
   // Handle the QR Scanner result
-  const handleQRResult = useCallback((result: QRCodeResult | undefined, _e: Error | undefined) => {
+  const handleQRResult = useCallback((result: string) => {
     if (result != undefined) {
-      processQR(result?.getText());
+      processQR(result);
     }
   }, [processQR]);
 
