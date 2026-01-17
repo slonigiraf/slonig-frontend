@@ -26,3 +26,14 @@ for VAR in ${vars[@]}; do
   echo "  $VAR: \"${!VAR}\"," >> $TARGET
 done
 echo "}" >> $TARGET
+
+# update version
+HTML_DIR="/usr/share/nginx/html"
+VERSION_JSON_PATH="${HTML_DIR}/version.json"
+NOW="$(date -u +%s)"
+
+cat > "${VERSION_JSON_PATH}" <<EOF
+{ "version": "${NOW}" }
+EOF
+
+echo "Wrote ${VERSION_JSON_PATH}: $(cat "${VERSION_JSON_PATH}")"
