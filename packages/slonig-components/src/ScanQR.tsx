@@ -34,11 +34,36 @@ function ScanQR({ className = '', label }: Props): React.ReactElement<Props> {
 
   // Process the scanned QR data
   const processQR = useCallback(async (url: string) => {
+    const allowedHosts = new Set(['localhost', 'app.slonig.org']);
+
+    let parsed: URL;
+
+    try {
+      // Supports absolute URLs. If someone gives "/#/badges/...", treat it as localhost (optional).
+      parsed = url.startsWith('http://') || url.startsWith('https://')
+        ? new URL(url)
+        : new URL(url, 'http://localhost');
+    } catch {
+      return;
+    }
+
+    if (!allowedHosts.has(parsed.hostname)) {
+      return;
+    }
+
+    const idx = url.indexOf('/#');
+    if (idx === -1) {
+      return;
+    }
+
+    const path = url.slice(idx + 2);
+    if (!path) {
+      return;
+    }
+
     logEvent('SCAN', 'SUCCESS');
     toggleQR();
-    // example of url: http://localhost:3000/#/badges/teach?c=39b5fd47-a425-4a8d-a32b-81635bba09a6
-    const [_domain, path] = url.split('/#')
-    path && navigate(path);
+    navigate(path);
   }, [navigate, toggleQR]);
 
   // Handle the QR Scanner result
