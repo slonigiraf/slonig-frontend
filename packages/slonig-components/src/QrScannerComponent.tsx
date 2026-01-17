@@ -12,7 +12,7 @@ interface Props {
   initialFacingMode?: FacingMode; // default: environment
 }
 
-function QrScannerElement({
+function QrScannerComponent({
   onResult,
   initialFacingMode = 'environment',
   className = ''
@@ -97,7 +97,7 @@ function QrScannerElement({
   );
 }
 
-export default React.memo(styled(QrScannerElement)`
+export default React.memo(styled(QrScannerComponent)`
   text-align: center;
   max-width: 30rem;
   margin: 0px auto;

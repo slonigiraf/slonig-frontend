@@ -1,15 +1,12 @@
 import React, { useCallback } from 'react';
 import { useToggle } from '@polkadot/react-hooks';
-import { QRScanner, scanSVG, useLog, useLoginContext } from '@slonigiraf/slonig-components';
+import { QrScannerComponent, scanSVG, useLog, useLoginContext } from '@slonigiraf/slonig-components';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from './translate.js';
 import { Modal } from '@polkadot/react-components';
 import { ButtonWithLabelBelow } from '@slonigiraf/slonig-components';
 import { setSettingToTrue, SettingKey } from '@slonigiraf/db';
 import { useBooleanSettingValue } from './useSettingValue.js';
-interface QRCodeResult {
-  getText: () => string;
-}
 interface Props {
   className?: string;
   label?: string;
@@ -72,7 +69,7 @@ function ScanQR({ className = '', label }: Props): React.ReactElement<Props> {
           size='small'
         >
           <Modal.Content>
-            <QRScanner
+            <QrScannerComponent
               onResult={handleQRResult}
               constraints={{ facingMode: 'environment' }}
             />

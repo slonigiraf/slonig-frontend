@@ -1,7 +1,7 @@
 // Copyright 2017-2023 @polkadot/app-settings authors & contributors
 // SPDX-License-Identifier: Apache-2.0
 import type { Signer } from '@polkadot/api/types';
-import QRScanner from './QRScanner.js'
+import QrScannerComponent from './QrScannerComponent.js'
 import { IpfsProvider, useIpfsContext } from './IpfsContext.js';
 import { LoginProvider, useLoginContext } from './LoginContext.js';
 import { InfoProvider, useInfo } from './InfoProvider.js';
@@ -29,7 +29,7 @@ import { useEffect, useState } from 'react';
 import { getSetting, SettingKey, storeSetting } from '@slonigiraf/db';
 export * from './constants.js';
 export { default as SVGButton } from './SVGButton.js';
-export { DownloadQRButton, BlockchainSyncProvider, useBlockchainSync, TokenTransferProvider, useTokenTransfer, DateInput, SelectableList, SenderComponent, KatexSpan, ResizableImage, ShareButton, ClipboardCopyButton, QRWithShareAndCopy, QRScanner, ButtonWithLabelBelow, ScanQR, IpfsProvider, useIpfsContext, InfoProvider, useInfo, LogProvider, useLog };
+export { DownloadQRButton, BlockchainSyncProvider, useBlockchainSync, TokenTransferProvider, useTokenTransfer, DateInput, SelectableList, SenderComponent, KatexSpan, ResizableImage, ShareButton, ClipboardCopyButton, QRWithShareAndCopy, QrScannerComponent, ButtonWithLabelBelow, ScanQR, IpfsProvider, useIpfsContext, InfoProvider, useInfo, LogProvider, useLog };
 export { getIPFSContentIDForBytesAndPinIt, getIPFSBytesFromContentID, bnToSlonString, bnToSlonFloatOrNaN, createPeer, receiveWebRTCData, getQrWidth, saveToSessionStorage, loadFromSessionStorage, getIPFSContentIDAndPinIt, getKey, arrayBufferToBase64, base64ToArrayBuffer, decryptData, encryptData, LoginProvider, useLoginContext, keyForCid, nameFromKeyringPair, getBaseUrl, CODEC, getIPFSContentID, getIPFSDataFromContentID, digestFromCIDv1, getCIDFromBytes, storeEncryptedTextOnIPFS, retrieveDecryptedDataFromIPFS, parseJson }
 export { DBImport, DBExport, Confirmation };
 import { encodeAddress } from '@polkadot/keyring';
