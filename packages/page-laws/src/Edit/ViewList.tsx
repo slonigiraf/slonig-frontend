@@ -14,7 +14,7 @@ import { u8aToHex } from '@polkadot/util';
 import ModulePreview from './ModulePreview.js';
 import styled from 'styled-components';
 import { sleptBetween, takeWithinTime } from '../util.js';
-import { EXAMPLE_MODULE_KNOWLEDGE_CID, EXAMPLE_MODULE_KNOWLEDGE_ID, LESSON_LENGTH_SEC } from '@slonigiraf/utils';
+import { EXAMPLE_COURSE_KNOWLEDGE_ID, EXAMPLE_MODULE_KNOWLEDGE_CID, EXAMPLE_MODULE_KNOWLEDGE_ID, LESSON_LENGTH_SEC } from '@slonigiraf/utils';
 import LearningRouter from './LearningRouter.js';
 
 type JsonType = { [key: string]: any } | null;
@@ -78,7 +78,7 @@ function ViewList({ className = '', id, cidString, isClassInstructionShown, setI
       if (list?.e) {
         const now = (new Date()).getTime();
         const items = await Promise.all(
-          list.e.map(async (id: string) => {
+          list.e.filter((id: string) => id !== EXAMPLE_COURSE_KNOWLEDGE_ID).map(async (id: string) => {
             const cid = await fetchLaw(id) || '';
             if (list.t === LawType.MODULE) {
               const validDiplomas = await getLettersForKnowledgeId(studentIdentity, id);
