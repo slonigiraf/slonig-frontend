@@ -6,18 +6,19 @@ import { useNavigate } from 'react-router-dom';
 interface Props {
   question: string;
   courseId: string;
+  isExam?: boolean;
   onClose: () => void;
   onConfirm: () => void;
 }
 
-function LearningRouter({ question, courseId, onClose, onConfirm }: Props): React.ReactElement<Props> | null {
+function LearningRouter({ question, courseId, isExam = false, onClose, onConfirm }: Props): React.ReactElement<Props> | null {
   const { t } = useTranslation();
   const navigate = useNavigate();
   const { showInfo } = useInfo();
 
   const openCourse = useCallback(() => {
     if (courseId && courseId.length > 0) {
-      navigate(`/knowledge?id=${courseId}&showSkillQr`, { replace: true });
+      navigate(`/knowledge?id=${courseId}&showSkillQr${isExam? '&exam':''}`, { replace: true });
       onClose();
     } else {
       showInfo(t('Select the course manually.'));

@@ -36,6 +36,7 @@ function ViewList({ className = '', id, cidString, isClassInstructionShown, setI
   const queryParams = new URLSearchParams(location.search);
   const lessonInUrl = queryParams.get('lesson') != null;
   const showSkillQrInUrl = queryParams.get('showSkillQr') != null;
+  const examInUrl = queryParams.get('exam') != null;
   const expanded = queryParams.get('expanded') != null;
   const { t } = useTranslation();
   const hasTuteeCompletedTutorial = useBooleanSettingValue(SettingKey.TUTEE_TUTORIAL_COMPLETED);
@@ -291,9 +292,13 @@ function ViewList({ className = '', id, cidString, isClassInstructionShown, setI
         setIsLearningInitialized(true);
         setShouldSelectAll(true);
       }
-      handleLearningToggle(true);
+      if (examInUrl) {
+        processExam();
+      } else {
+        processLearn();
+      }
     }
-  }, [lessonInUrl, showSkillQrInUrl, isLoggedIn, isThereAnythingToLearn, shouldSelectAll, isLearningInitialized]);
+  }, [examInUrl, lessonInUrl, showSkillQrInUrl, isLoggedIn, isThereAnythingToLearn, shouldSelectAll, isLearningInitialized]);
 
   const isAPairWork = isLearningRequested || isReexaminingRequested;
   const disableSelectionOfWhatToLearn = isAPairWork && (hasTuteeCompletedTutorial === false || nowIsClassOnboarding || list?.t === LawType.COURSE);
@@ -357,6 +362,7 @@ function ViewList({ className = '', id, cidString, isClassInstructionShown, setI
           )}
           {isLaunchExamConfirmOpen && (
             <LearningRouter
+              isExam={true}
               courseId={list?.p}
               question={t('Select what to examine')}
               onClose={() => setIsLaunchExamConfirmOpen(false)}
