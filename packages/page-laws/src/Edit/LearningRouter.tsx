@@ -1,7 +1,7 @@
 import React, { useCallback } from 'react';
 import { useTranslation } from '../translate.js';
 import { Button, Modal, styled } from '@polkadot/react-components';
-import { useInfo, VerticallyCenteredModal } from '@slonigiraf/slonig-components';
+import { useInfo, useLog, VerticallyCenteredModal } from '@slonigiraf/slonig-components';
 import { useNavigate } from 'react-router-dom';
 interface Props {
   question: string;
@@ -15,9 +15,11 @@ function LearningRouter({ question, courseId, isExam = false, onClose, onConfirm
   const { t } = useTranslation();
   const navigate = useNavigate();
   const { showInfo } = useInfo();
+  const { logEvent } = useLog();
 
   const openCourse = useCallback(() => {
     if (courseId && courseId.length > 0) {
+      logEvent('LEARNING', 'REDIRECT_TO_COURSE');
       navigate(`/knowledge?id=${courseId}&showSkillQr${isExam? '&exam':''}`, { replace: true });
       onClose();
     } else {
