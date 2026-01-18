@@ -380,7 +380,7 @@ function ViewList({ className = '', id, cidString, isClassInstructionShown, setI
       </>
     )}
 
-    {!displayContent && <Spinner />}
+    {!displayContent && list.e && <Spinner />}
 
     {itemsWithCID.length > 0 && !expanded && displayContent && (
       <div className='ui--row' style={disableSelectionOfWhatToLearn ? { display: 'none' } : {}}>
