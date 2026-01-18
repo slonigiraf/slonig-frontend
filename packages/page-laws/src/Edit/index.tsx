@@ -359,7 +359,7 @@ function Edit({ className = '' }: Props): React.ReactElement<Props> {
             label={t('Edit')}
             onClick={_onClickEdit}
           />
-          {list.t !== null && list.t === LawType.MODULE &&
+          {list.t !== null && list.t === LawType.MODULE && false && // Don't show it
             <Button
               icon='person-chalkboard'
               label={t('Show to a classroom')}
