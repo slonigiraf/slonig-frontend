@@ -5,7 +5,6 @@ import React, { useEffect, useState } from 'react';
 import {
   KatexSpan,
   ProgressData,
-  StyledSpinnerContainer,
   getIPFSDataFromContentID,
   parseJson,
   progressValue
@@ -139,11 +138,7 @@ function ItemLabel({
         />}
         <KatexSpan content={textToDisplay} />
       </StyledA>)
-      : (
-        <StyledSpinnerContainer>
-          <Spinner noLabel />
-        </StyledSpinnerContainer>
-      );
+      : <LeftAlignedSpinner noLabel />;
 
   return (
     <StyledDiv
@@ -180,12 +175,8 @@ function ItemLabel({
 const StyledA = styled.a`
   font-size: 16px;
   margin: 7px;
-
-  /* allow wrapping */
   white-space: normal;
   word-break: break-word;
-
-  /* key for flex: allow this item to shrink */
   min-width: 0;
 `;
 
@@ -198,20 +189,34 @@ const StyledDiv = styled.div<{ isSelectable: boolean }>`
   padding-top: 7px;
   padding-bottom: 7px;
   cursor: pointer;
-
-  /* prevent children from overflowing/cropping weirdly */
   width: 100%;
 `;
 
 /* Add wrappers so we can control flex behavior */
 const ProgressWrap = styled.div`
-  flex: 0 0 auto;     /* don't shrink */
-  margin-right: 8px;  /* optional spacing */
+  flex: 0 0 auto;
+  margin-right: 8px;
 `;
 
 const ContentWrap = styled.div`
-  flex: 1 1 auto;     /* take remaining space */
-  min-width: 0;       /* IMPORTANT: allow wrapping without pushing siblings off */
+  flex: 1 1 auto;
+  min-width: 0;
+`;
+
+const LeftAlignedSpinner = styled(Spinner)`
+  &.ui--Spinner {
+    margin: 0;
+    text-align: left;
+  }
+
+  &.ui--Spinner img {
+    margin: 0;
+    display: block;
+  }
+
+  &.ui--Spinner .text {
+    margin-left: 0;
+  }
 `;
 
 export default React.memo(ItemLabel);
