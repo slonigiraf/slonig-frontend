@@ -158,7 +158,9 @@ function Editor(props: Props): React.ReactElement<Props> {
       try {
         const jsonText = await getIPFSDataFromContentID(ipfs, cid);
         const json = parseJson(jsonText);
-        const acceptableTypes = lawTypeOpt.map((option: { value: any; }) => option.value);
+        const acceptableTypes = lawTypeOpt
+          .map((option: { value: any }) => option.value)
+          .filter((v) => v !== LawType.MODULE);
         if (!acceptableTypes.includes(json.t)) {
           showInfo(t('Cannot be its child'), 'error');
           return;
