@@ -221,7 +221,7 @@ function ViewList({ className = '', id, cidString, isClassInstructionShown, setI
 
   const learnClicked = useCallback((): void => {
     list && logEvent('LEARNING', 'CLICK_LEARN', list.h);
-    if (list?.t === LawType.MODULE) {
+    if (list?.t === LawType.MODULE && list.p) {
       setIsLaunchLearnConfirmOpen(true);
     } else {
       processLearn();
@@ -236,7 +236,7 @@ function ViewList({ className = '', id, cidString, isClassInstructionShown, setI
 
   const examClicked = useCallback((): void => {
     list && logEvent('LEARNING', 'CLICK_EXAM', list.h);
-    if (list?.t === LawType.MODULE) {
+    if (list?.t === LawType.MODULE && list.p) {
       setIsLaunchExamConfirmOpen(true);
     } else {
       processExam();
