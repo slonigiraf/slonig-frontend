@@ -257,7 +257,7 @@ function Editor(props: Props): React.ReactElement<Props> {
                 value={list.h}
               />
               <MillerLawComment text={list.h} />
-              {list.t === LawType.MODULE &&
+              {list.t === LawType.MODULE && !list?.p &&
                 <Input
                   className='full'
                   label={t('Link to the course') + ' (app.slonig.org/#/knowledge?id=...)'}
