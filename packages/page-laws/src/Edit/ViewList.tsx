@@ -77,17 +77,27 @@ function ViewList({ className = '', id, cidString, isClassInstructionShown, setI
         const items = await Promise.all(
           list.e.map(async (id: string) => {
             const cid = await fetchLaw(id) || '';
-            const validDiplomas = await getLettersForKnowledgeId(studentIdentity, id);
-            const repetitions = await getRepetitionsForKnowledgeId(studentIdentity, id);
-            const shouldBeBlockedForLearning = repetitions.length > 0 ? !sleptBetween(repetitions[0].lastExamined, now) : false;
+            if (list.t === LawType.MODULE) {
+              const validDiplomas = await getLettersForKnowledgeId(studentIdentity, id);
+              const repetitions = await getRepetitionsForKnowledgeId(studentIdentity, id);
+              const shouldBeBlockedForLearning = repetitions.length > 0 ? !sleptBetween(repetitions[0].lastExamined, now) : false;
 
-            return {
-              id: id,
-              cid: cid,
-              validDiplomas: validDiplomas,
-              shouldBeRepeated: repetitions.length > 0,
-              isBlockedForLearning: shouldBeBlockedForLearning,
-            };
+              return {
+                id: id,
+                cid: cid,
+                validDiplomas: validDiplomas,
+                shouldBeRepeated: repetitions.length > 0,
+                isBlockedForLearning: shouldBeBlockedForLearning,
+              };
+            } else {
+              return {
+                id: id,
+                cid: cid,
+                validDiplomas: [],
+                shouldBeRepeated: false,
+                isBlockedForLearning: false,
+              };
+            }
           })
         );
         setItemsWithCID(items);
