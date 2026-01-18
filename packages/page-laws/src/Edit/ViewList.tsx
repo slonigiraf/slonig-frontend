@@ -14,7 +14,7 @@ import { u8aToHex } from '@polkadot/util';
 import ModulePreview from './ModulePreview.js';
 import styled from 'styled-components';
 import { sleptBetween, takeWithinTime } from '../util.js';
-import { EXAMPLE_MODULE_KNOWLEDGE_CID, LESSON_LENGTH_SEC } from '@slonigiraf/utils';
+import { EXAMPLE_MODULE_KNOWLEDGE_CID, EXAMPLE_MODULE_KNOWLEDGE_ID, LESSON_LENGTH_SEC } from '@slonigiraf/utils';
 import LearningRouter from './LearningRouter.js';
 
 type JsonType = { [key: string]: any } | null;
@@ -304,7 +304,7 @@ function ViewList({ className = '', id, cidString, isClassInstructionShown, setI
   }, [examInUrl, lessonInUrl, showSkillQrInUrl, isLoggedIn, isThereAnythingToLearn, shouldSelectAll, isLearningInitialized]);
 
   const isAPairWork = isLearningRequested || isReexaminingRequested;
-  const disableSelectionOfWhatToLearn = isAPairWork && (hasTuteeCompletedTutorial === false || nowIsClassOnboarding || list?.t === LawType.COURSE);
+  const disableSelectionOfWhatToLearn = isAPairWork && (hasTuteeCompletedTutorial === false || nowIsClassOnboarding || list?.t === LawType.COURSE || id === EXAMPLE_MODULE_KNOWLEDGE_ID);
 
   const handleSelectionChange = (newSelectedItems: ItemWithCID[]) => {
     if (list?.t === LawType.COURSE) return;
