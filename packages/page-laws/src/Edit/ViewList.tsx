@@ -213,13 +213,13 @@ function ViewList({ className = '', id, cidString, isClassInstructionShown, setI
   }, [lessonInUrl, showSkillQrInUrl, list]);
 
   const processLearn = useCallback((): void => {
-    list && logEvent('LEARNING', 'CLICK_LEARN', list.h);
     if (list?.t === LawType.COURSE) setSelectedItems(canBeLearnedToday);
     handleLearningToggle(true);
     setIsLaunchLearnConfirmOpen(false);
   }, [list, canBeLearnedToday, logEvent]);
 
   const learnClicked = useCallback((): void => {
+    list && logEvent('LEARNING', 'CLICK_LEARN', list.h);
     if (list?.t === LawType.MODULE) {
       setIsLaunchLearnConfirmOpen(true);
     } else {
@@ -228,13 +228,13 @@ function ViewList({ className = '', id, cidString, isClassInstructionShown, setI
   }, [list, processLearn, logEvent]);
 
   const processExam = useCallback((): void => {
-    list && logEvent('LEARNING', 'CLICK_EXAM', list.h);
     if (list?.t === LawType.COURSE) setSelectedItems(canBeExamined);
     handleReexaminingToggle(true);
     setIsLaunchExamConfirmOpen(false);
   }, [list, canBeExamined, logEvent]);
 
   const examClicked = useCallback((): void => {
+    list && logEvent('LEARNING', 'CLICK_EXAM', list.h);
     if (list?.t === LawType.MODULE) {
       setIsLaunchExamConfirmOpen(true);
     } else {
