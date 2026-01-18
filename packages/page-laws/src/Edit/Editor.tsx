@@ -29,7 +29,7 @@ function Editor(props: Props): React.ReactElement<Props> {
   const { api } = useApi();
   const { ipfs, isIpfsReady } = useIpfsContext();
 
-  console.log('item: ', item)
+  console.log('list: ', list)
 
   const parentToItemDefaultType = {
     [LawType.LIST]: LawType.LIST,
@@ -111,11 +111,9 @@ function Editor(props: Props): React.ReactElement<Props> {
           showInfo(t('The provide link is not a course'), 'error');
           return;
         }
-
-        onItemChange({
-          ...item,
-          p: idFromUrl,
-          t: item?.t || getDefaultItemLawType()
+        onListChange({
+          ...list,
+          p: idFromUrl
         });
       } catch (error) {
         showInfo(t('Wrong JSON format'), 'error');
@@ -123,7 +121,7 @@ function Editor(props: Props): React.ReactElement<Props> {
     };
 
     checkAndUpdateItem();
-  }, [api, ipfs, isIpfsReady, lawTypeOpt, t]);
+  }, [api, list, ipfs, isIpfsReady, lawTypeOpt, t]);
 
   const editItemLink = useCallback((url: string) => {
     const namePattern = /[?&]id=([^&#]*)/;
@@ -259,6 +257,14 @@ function Editor(props: Props): React.ReactElement<Props> {
                 value={list.h}
               />
               <MillerLawComment text={list.h} />
+              {list.t === LawType.MODULE &&
+                <Input
+                  className='full'
+                  label={t('Link to the course') + ' (app.slonig.org/#/knowledge?id=...)'}
+                  onChange={editCourseLink}
+                  value={list?.p}
+                />
+              }
             </FormContainer>
           </div>
           <Reordering list={list} onListChange={onListChange} itemText={itemText} />
@@ -293,15 +299,6 @@ function Editor(props: Props): React.ReactElement<Props> {
               onChange={editItemTitle}
               value={item?.h || ""}
             />
-            {itemType === LawType.MODULE &&
-              <Input
-                isDisabled={item?.p.length > 0}
-                className='full'
-                label={t('Link to the course') + ' (app.slonig.org/#/knowledge?id=...)'}
-                onChange={editCourseLink}
-                value={item.p}
-              />
-            }
             <MillerLawComment text={item?.h} />
           </FormContainer>
         </>
