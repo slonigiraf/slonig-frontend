@@ -330,15 +330,15 @@ function ViewList({ className = '', id, cidString, isClassInstructionShown, setI
           <div className='ui--row' style={isAPairWork ? {} : { display: 'none' }}>
             <SkillQR id={id} cid={cidString} selectedItems={selectedItems} isLearningRequested={isLearningRequested} isReexaminingRequested={isReexaminingRequested} lessonInUrl={lessonInUrl || showSkillQrInUrl} onDataSent={onDataSent} />
           </div>
-          {wasLearningDataLoaded &&
-            <ProgressDiv style={isAPairWork ? { display: 'none' } : {}}>
-              <Progress
-                value={progressValue(progressData)}
-                total={progressData.skills}
-              />
-            </ProgressDiv>
-          }
           <ButtonsRow>
+            {wasLearningDataLoaded &&
+              <ProgressDiv style={isAPairWork ? { display: 'none' } : {}}>
+                <Progress
+                  value={progressValue(progressData)}
+                  total={progressData.skills}
+                />
+              </ProgressDiv>
+            }
             {isThereAnythingToLearn && !isAPairWork &&
               <Button
                 className='highlighted--button'
@@ -505,8 +505,9 @@ const Title = styled.h1`
 
 const ButtonsRow = styled.div`
   width: 100%;
+  position: relative;
   display: flex;
-  justify-content: left;
+  justify-content: flex-start;
   align-items: center;
   column-gap: 20px;
   .ui--Button {
@@ -551,8 +552,8 @@ const Standards = styled.div`
 
 const ProgressDiv = styled.div`
   position: absolute;
-  top: 35px;
-  right: 15px;
+  top: -5px;
+  right: 0px;
 `;
 
 export default React.memo(ViewList);
