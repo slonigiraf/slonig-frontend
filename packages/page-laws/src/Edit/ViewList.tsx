@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useState } from 'react';
-import { LawType, KatexSpan, SelectableList, StyledSpinnerContainer, useLoginContext, getCIDFromBytes, FullscreenActivity, Confirmation, NotClosableFullscreen, useBooleanSettingValue, OKBox, ClassInstruction, useLog } from '@slonigiraf/slonig-components';
+import { LawType, KatexSpan, SelectableList, StyledSpinnerContainer, useLoginContext, getCIDFromBytes, FullscreenActivity, Confirmation, NotClosableFullscreen, useBooleanSettingValue, OKBox, ClassInstruction, useLog, useIpfsContext, getIPFSDataFromContentID, parseJson } from '@slonigiraf/slonig-components';
 import { useLocation, useNavigate } from 'react-router-dom';
 import ItemLabel from './ItemLabel.js';
 import SkillQR from './SkillQR.js';
@@ -35,6 +35,7 @@ interface ProgressData {
 function ViewList({ className = '', id, cidString, isClassInstructionShown, setIsClassInstructionShown, list }: Props): React.ReactElement<Props> {
   const location = useLocation();
   const navigate = useNavigate();
+  const { ipfs, isIpfsReady } = useIpfsContext();
   const { api } = useApi();
   const queryParams = new URLSearchParams(location.search);
   const lessonInUrl = queryParams.get('lesson') != null;
@@ -58,6 +59,8 @@ function ViewList({ className = '', id, cidString, isClassInstructionShown, setI
   const [isPutDeviceAsideOpen, setIsPutDeviceAsideOpen] = useState(false);
   const { logEvent } = useLog();
   const [progressData, setProgressData] = useState<ProgressData>({ skills: 0, letters: 0, repetitions: 0 });
+
+  const [modules, setModules] = useState<any>([]);
 
   async function fetchLaw(key: string) {
     const law = (await api.query.laws.laws(key)) as { isSome: boolean; unwrap: () => [Uint8Array, BN] };
@@ -117,6 +120,27 @@ function ViewList({ className = '', id, cidString, isClassInstructionShown, setI
     };
     fetchCIDs();
   }, [list, studentIdentity, setIsThereAnythingToLearn, setIsThereAnythingToReexamine]);
+
+  useEffect(() => {
+    const fetchModulesIPFSData = async () => {
+      if (
+        modules.length > 0 ||
+        !isIpfsReady ||
+        itemsWithCID.length === 0 ||
+        list?.t !== LawType.COURSE
+      ) {
+        return;
+      }
+      const items = await Promise.all(
+        itemsWithCID.map(async (i) => {
+          const textValue = await getIPFSDataFromContentID(ipfs, i.cid);
+          return parseJson(textValue);
+        })
+      );
+      setModules(items);
+    };
+    fetchModulesIPFSData();
+  }, [list?.t, itemsWithCID, isIpfsReady, ipfs, modules]);
 
   useEffect(() => {
     (lessonInUrl || showSkillQrInUrl) && list && list.t !== null && list.t === LawType.MODULE && logEvent('LEARNING', 'AUTO_SHOW_QR', list.h);

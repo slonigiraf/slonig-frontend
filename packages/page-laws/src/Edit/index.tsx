@@ -182,7 +182,7 @@ function Edit({ className = '' }: Props): React.ReactElement<Props> {
       }
     };
     fetchIPFSData();
-  }, [cidString, ipfs]);
+  }, [cidString, ipfs, isIpfsReady]);
 
   async function fetchLaw(key: string) {
     if (key) {
