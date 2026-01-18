@@ -479,7 +479,7 @@ export async function deleteLesson(id: string) {
     await db.lessons.delete(id);
 }
 
-export async function storeLesson(lessonRequest: LessonRequest, tutor: string) {
+export async function storeLesson(lessonRequest: LessonRequest, tutor: string, onResult: () => Promise<void>) {
     const now = (new Date()).getTime();
     const stored_warranty = await getSetting(SettingKey.DIPLOMA_WARRANTY);
     const stored_validity = await getSetting(SettingKey.DIPLOMA_VALIDITY);
@@ -541,6 +541,7 @@ export async function storeLesson(lessonRequest: LessonRequest, tutor: string) {
         }));
     }
     await storeSetting(SettingKey.LESSON, lessonRequest.lesson);
+    await onResult();
 }
 
 export async function updateLesson(lesson: Lesson) {

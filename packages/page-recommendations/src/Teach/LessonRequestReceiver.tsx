@@ -59,16 +59,20 @@ function LessonRequestReceiver({ setCurrentLesson }: Props): React.ReactElement<
         const goWithNormalRequest = dbValueOfHasTutorCompletedTutorial === 'true';
 
         if (goWithNormalRequest) {
-          logEvent('SETTINGS', 'NOW_IS_CLASS_ONBOARDING', 'true_or_false', 0);
-          await deleteSetting(SettingKey.NOW_IS_CLASS_ONBOARDING);
-          await storeLesson(lessonRequest, tutorPublicKeyHex);
+          const processOnboaring = async () => {
+            logEvent('SETTINGS', 'NOW_IS_CLASS_ONBOARDING', 'true_or_false', 0);
+            await deleteSetting(SettingKey.NOW_IS_CLASS_ONBOARDING);
+          }
+          await storeLesson(lessonRequest, tutorPublicKeyHex, processOnboaring);
         }
         else {
-          logEvent('SETTINGS', 'NOW_IS_CLASS_ONBOARDING', 'true_or_false', 1);
-          await setSettingToTrue(SettingKey.NOW_IS_CLASS_ONBOARDING);
+          const processOnboaring = async () => {
+            logEvent('SETTINGS', 'NOW_IS_CLASS_ONBOARDING', 'true_or_false', 1);
+            await setSettingToTrue(SettingKey.NOW_IS_CLASS_ONBOARDING);
+          }
           const tutorialRequest = changeRequestIntoTutorial(lessonRequest);
           lessonId = tutorialRequest.lesson;
-          await storeLesson(tutorialRequest, tutorPublicKeyHex);
+          await storeLesson(tutorialRequest, tutorPublicKeyHex, processOnboaring);
         }
         navigate('', { replace: true });
         const lesson = await getLesson(lessonId);
