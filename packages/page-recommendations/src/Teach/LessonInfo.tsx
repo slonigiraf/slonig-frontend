@@ -70,7 +70,7 @@ function LessonInfo({ lesson, isSelected, onToggleSelection, onResumeTutoring, o
     (lesson.toLearnCount + lesson.toReexamineCount)
 
   const progressValue = lesson.learnStep + lesson.reexamineStep;
-  const progressTotal = lesson.toLearnCount + lesson.toReexamineCount;
+  const progressTotal = lesson.cid === EXAMPLE_MODULE_KNOWLEDGE_CID ? progressValue : lesson.toLearnCount + lesson.toReexamineCount;
 
   useEffect(() => {
     const checkResults = async () => {
