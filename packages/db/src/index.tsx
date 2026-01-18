@@ -515,7 +515,7 @@ export async function deleteLesson(id: string) {
     await db.lessons.delete(id);
 }
 
-export async function storeLesson(lessonRequest: LessonRequest, tutor: string) {
+export async function storeLesson(lessonRequest: LessonRequest, tutor: string, onResult: () => Promise<void>) {
     let toReexamine: string[][] = lessonRequest.reexamine;
 
     if (lessonRequest.learn.length > 0 && lessonRequest.reexamine.length === 2) {
@@ -588,6 +588,7 @@ export async function storeLesson(lessonRequest: LessonRequest, tutor: string) {
         }));
     }
     await storeSetting(SettingKey.LESSON, lessonRequest.lesson);
+    await onResult();
 }
 
 export async function updateLesson(lesson: Lesson) {
