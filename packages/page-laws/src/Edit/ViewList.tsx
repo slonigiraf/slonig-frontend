@@ -1,11 +1,11 @@
 import React, { useCallback, useEffect, useState } from 'react';
-import { LawType, KatexSpan, SelectableList, StyledSpinnerContainer, useLoginContext, getCIDFromBytes, FullscreenActivity, Confirmation, NotClosableFullscreen, useBooleanSettingValue, OKBox, ClassInstruction, useLog, useIpfsContext, getIPFSDataFromContentID, parseJson } from '@slonigiraf/slonig-components';
+import { LawType, KatexSpan, SelectableList, StyledSpinnerContainer, useLoginContext, getCIDFromBytes, FullscreenActivity, Confirmation, NotClosableFullscreen, useBooleanSettingValue, OKBox, ClassInstruction, useLog, useIpfsContext, getIPFSDataFromContentID, parseJson, ProgressData } from '@slonigiraf/slonig-components';
 import { useLocation, useNavigate } from 'react-router-dom';
 import ItemLabel from './ItemLabel.js';
 import SkillQR from './SkillQR.js';
 import { useTranslation } from '../translate.js';
 import ExerciseList from './ExerciseList.js';
-import { Spinner, Label, Button, Progress as ProgressData } from '@polkadot/react-components';
+import { Spinner, Label, Button, Progress } from '@polkadot/react-components';
 import { ItemWithCID } from '../types.js';
 import { useApi } from '@polkadot/react-hooks';
 import BN from 'bn.js';
@@ -24,12 +24,6 @@ interface Props {
   isClassInstructionShown: boolean;
   setIsClassInstructionShown: (isShown: boolean) => void;
   list: JsonType;
-}
-
-interface ProgressData {
-  skills: number;
-  letters: number;
-  repetitions: number;
 }
 
 function ViewList({ className = '', id, cidString, isClassInstructionShown, setIsClassInstructionShown, list }: Props): React.ReactElement<Props> {
@@ -236,7 +230,7 @@ function ViewList({ className = '', id, cidString, isClassInstructionShown, setI
             <SkillQR id={id} cid={cidString} type={LawType.MODULE} selectedItems={selectedItems} isLearningRequested={isLearningRequested} isReexaminingRequested={isReexaminingRequested} lessonInUrl={lessonInUrl || showSkillQrInUrl} onDataSent={onDataSent} />
           </div>
           <ProgressDiv style={isAPairWork ? { display: 'none' } : {}}>
-            <ProgressData
+            <Progress
               value={progressData.letters + 0.5 * progressData.repetitions}
               total={progressData.skills}
             />
