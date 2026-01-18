@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useState } from 'react';
-import { LawType, KatexSpan, SelectableList, StyledSpinnerContainer, useLoginContext, getCIDFromBytes, FullscreenActivity, Confirmation, NotClosableFullscreen, useBooleanSettingValue, OKBox, ClassInstruction, useLog, useIpfsContext, getIPFSDataFromContentID, parseJson, ProgressData } from '@slonigiraf/slonig-components';
+import { LawType, KatexSpan, SelectableList, StyledSpinnerContainer, useLoginContext, getCIDFromBytes, FullscreenActivity, Confirmation, NotClosableFullscreen, useBooleanSettingValue, OKBox, ClassInstruction, useLog, useIpfsContext, getIPFSDataFromContentID, parseJson, ProgressData, progressValue } from '@slonigiraf/slonig-components';
 import { useLocation, useNavigate } from 'react-router-dom';
 import ItemLabel from './ItemLabel.js';
 import SkillQR from './SkillQR.js';
@@ -17,6 +17,7 @@ import { sleptBetween } from '../util.js';
 import { EXAMPLE_MODULE_KNOWLEDGE_CID } from '@slonigiraf/utils';
 
 type JsonType = { [key: string]: any } | null;
+
 interface Props {
   className?: string;
   id: string;
@@ -44,6 +45,8 @@ function ViewList({ className = '', id, cidString, isClassInstructionShown, setI
   const [isThereAnythingToReexamine, setIsThereAnythingToReexamine] = useState(false);
   const [isThereAnythingToLearn, setIsThereAnythingToLearn] = useState(false);
   const [shouldSelectAll, setShouldSelectAll] = useState(false);
+  const [canBeLearnedToday, setCanBeLearnedToday] = useState<ItemWithCID[]>([]);
+  const [canBeExamined, setCanBeExamined] = useState<ItemWithCID[]>([]);
   const [selectedItems, setSelectedItems] = useState<ItemWithCID[]>([]);
   const [isLearningInitialized, setIsLearningInitialized] = useState(false);
   const [itemsWithCID, setItemsWithCID] = useState<ItemWithCID[]>([]);
@@ -53,8 +56,7 @@ function ViewList({ className = '', id, cidString, isClassInstructionShown, setI
   const [isPutDeviceAsideOpen, setIsPutDeviceAsideOpen] = useState(false);
   const { logEvent } = useLog();
   const [progressData, setProgressData] = useState<ProgressData>({ skills: 0, letters: 0, repetitions: 0 });
-
-  const [modules, setModules] = useState<any>([]);
+  const [modulesProgress, setModulesProgess] = useState<Map<string, ProgressData>>(() => new Map());
 
   async function fetchLaw(key: string) {
     const law = (await api.query.laws.laws(key)) as { isSome: boolean; unwrap: () => [Uint8Array, BN] };
@@ -116,39 +118,108 @@ function ViewList({ className = '', id, cidString, isClassInstructionShown, setI
   }, [list, studentIdentity, setIsThereAnythingToLearn, setIsThereAnythingToReexamine]);
 
   useEffect(() => {
+    let cancelled = false;
+
     const fetchModulesIPFSData = async () => {
       if (
-        modules.length > 0 ||
+        modulesProgress.size > 0 ||
         !isIpfsReady ||
         itemsWithCID.length === 0 ||
         list?.t !== LawType.COURSE
       ) {
         return;
       }
-      const items = await Promise.all(
-        itemsWithCID.map(async (i) => {
-          const textValue = await getIPFSDataFromContentID(ipfs, i.cid);
-          return parseJson(textValue);
+
+      const now = Date.now();
+
+      const results = await Promise.all(
+        itemsWithCID.map(async (entry) => {
+          const textValue = await getIPFSDataFromContentID(ipfs, entry.cid);
+          const json = parseJson(textValue);
+
+          const ids: string[] = Array.isArray(json?.e) ? json.e : [];
+
+          const moduleItems = await Promise.all(
+            ids.map(async (id) => {
+              const cid = (await fetchLaw(id)) || '';
+              const validDiplomas = await getLettersForKnowledgeId(studentIdentity, id);
+              const reps = await getRepetitionsForKnowledgeId(studentIdentity, id);
+
+              const isBlockedForLearning =
+                reps.length > 0 ? !sleptBetween(reps[0].lastExamined, now) : false;
+
+              return {
+                id,
+                cid,
+                validDiplomas,
+                shouldBeRepeated: reps.length > 0,
+                isBlockedForLearning,
+              };
+            })
+          );
+
+          const itemsToLearnToday = moduleItems.filter(
+            (x) => x.validDiplomas.length === 0 && !x.isBlockedForLearning
+          );
+          const itemsToReexamine = moduleItems.filter((x) => x.validDiplomas.length > 0);
+
+          const progress = {
+            skills: moduleItems.length,
+            letters: itemsToReexamine.length,
+            repetitions: moduleItems.filter((x) => x.shouldBeRepeated).length,
+          };
+
+          return { entry, itemsToLearnToday, itemsToReexamine, progress };
         })
       );
-      setModules(items);
+
+      if (cancelled) return;
+
+      const progressMap = new Map(results.map((r) => [r.entry.id, r.progress]));
+      setModulesProgess(progressMap);
+
+      // total progress (sum of all module progresses)
+      const totalProgress: ProgressData = results.reduce<ProgressData>(
+        (acc, r) => ({
+          skills: acc.skills + r.progress.skills,
+          letters: acc.letters + r.progress.letters,
+          repetitions: acc.repetitions + r.progress.repetitions,
+        }),
+        { skills: 0, letters: 0, repetitions: 0 }
+      );
+      setProgressData(totalProgress);
+
+      // first 10 across all modules (change if you need per-module)
+      const toLearn = results.flatMap((r) => r.itemsToLearnToday).slice(0, 10);
+      setCanBeLearnedToday(toLearn);
+      setIsThereAnythingToLearn(toLearn.length > 0);
+      const toExamine = results.flatMap((r) => r.itemsToReexamine).slice(0, 10);
+      setCanBeExamined(toExamine)
+      setIsThereAnythingToReexamine(toExamine.length > 0);
     };
+
     fetchModulesIPFSData();
-  }, [list?.t, itemsWithCID, isIpfsReady, ipfs, modules]);
+
+    return () => {
+      cancelled = true;
+    };
+  }, [list, itemsWithCID, isIpfsReady, ipfs, modulesProgress, studentIdentity]);
 
   useEffect(() => {
     (lessonInUrl || showSkillQrInUrl) && list && list.t !== null && list.t === LawType.MODULE && logEvent('LEARNING', 'AUTO_SHOW_QR', list.h);
-  }, [lessonInUrl, showSkillQrInUrl, list]);
+  }, [lessonInUrl, showSkillQrInUrl, list]); 
 
   const learnClicked = useCallback((checked: boolean): void => {
     list && logEvent('LEARNING', 'CLICK_LEARN', list.h);
+    if(list?.t === LawType.COURSE) setSelectedItems(canBeLearnedToday);
     handleLearningToggle(checked);
-  }, [list, logEvent]);
+  }, [list, canBeLearnedToday, logEvent]);
 
   const examClicked = useCallback((checked: boolean): void => {
     list && logEvent('LEARNING', 'CLICK_EXAM', list.h);
+    if(list?.t === LawType.COURSE) setSelectedItems(canBeExamined);
     handleReexaminingToggle(checked);
-  }, [list, logEvent]);
+  }, [list, canBeExamined, logEvent]);
 
   const handleLearningToggle = useCallback((checked: boolean): void => {
     setLearningRequested(checked);
@@ -204,9 +275,10 @@ function ViewList({ className = '', id, cidString, isClassInstructionShown, setI
   }, [lessonInUrl, showSkillQrInUrl, isLoggedIn, isThereAnythingToLearn, shouldSelectAll, isLearningInitialized]);
 
   const isAPairWork = isLearningRequested || isReexaminingRequested;
-  const disableSelectionOfWhatToLearn = isAPairWork && (hasTuteeCompletedTutorial === false || nowIsClassOnboarding);
+  const disableSelectionOfWhatToLearn = isAPairWork && (hasTuteeCompletedTutorial === false || nowIsClassOnboarding || list?.t === LawType.COURSE);
 
   const handleSelectionChange = (newSelectedItems: ItemWithCID[]) => {
+    if(list?.t === LawType.COURSE) return;
     setSelectedItems(newSelectedItems);
   };
 
@@ -220,21 +292,26 @@ function ViewList({ className = '', id, cidString, isClassInstructionShown, setI
     }
   }, [isReexaminingRequested]);
 
+  const wasLearningDataLoaded = isThereAnythingToLearn || isThereAnythingToReexamine;
+  const displayContent = list && (list.t === LawType.COURSE || list.t === LawType.MODULE) ? wasLearningDataLoaded : true;
+
   const content = list ? <>
     {!isAPairWork && <h1><KatexSpan content={list.h} /></h1>}
-    {list.t !== null && list.t === LawType.MODULE && (
+    {list.t !== null && (list.t === LawType.COURSE || list.t === LawType.MODULE) && (
       expanded ?
         (itemsWithCID.length > 0 && <ModulePreview itemsWithCID={itemsWithCID} />) :
         <>
           <div className='ui--row' style={isAPairWork ? {} : { display: 'none' }}>
-            <SkillQR id={id} cid={cidString} type={LawType.MODULE} selectedItems={selectedItems} isLearningRequested={isLearningRequested} isReexaminingRequested={isReexaminingRequested} lessonInUrl={lessonInUrl || showSkillQrInUrl} onDataSent={onDataSent} />
+            <SkillQR id={id} cid={cidString} selectedItems={selectedItems} isLearningRequested={isLearningRequested} isReexaminingRequested={isReexaminingRequested} lessonInUrl={lessonInUrl || showSkillQrInUrl} onDataSent={onDataSent} />
           </div>
-          <ProgressDiv style={isAPairWork ? { display: 'none' } : {}}>
-            <Progress
-              value={progressData.letters + 0.5 * progressData.repetitions}
-              total={progressData.skills}
-            />
-          </ProgressDiv>
+          {wasLearningDataLoaded &&
+            <ProgressDiv style={isAPairWork ? { display: 'none' } : {}}>
+              <Progress
+                value={progressValue(progressData)}
+                total={progressData.skills}
+              />
+            </ProgressDiv>
+          }
           <ButtonsRow>
             {isThereAnythingToLearn && !isAPairWork &&
               <Button
@@ -259,7 +336,9 @@ function ViewList({ className = '', id, cidString, isClassInstructionShown, setI
       </>
     )}
 
-    {itemsWithCID.length > 0 && !expanded && (
+    {!displayContent && <Spinner />}
+
+    {itemsWithCID.length > 0 && !expanded && displayContent && (
       <div className='ui--row' style={disableSelectionOfWhatToLearn ? { display: 'none' } : {}}>
         <SelectableList<ItemWithCID>
           items={itemsWithCID}
@@ -270,6 +349,7 @@ function ViewList({ className = '', id, cidString, isClassInstructionShown, setI
               isReexaminingRequested={isReexaminingRequested}
               onToggleSelection={onToggleSelection}
               isSelectable={isAPairWork}
+              progressData={modulesProgress.get(item.id)}
             />
           )}
           onSelectionChange={handleSelectionChange}

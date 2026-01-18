@@ -343,6 +343,10 @@ export interface ProgressData {
   repetitions: number;
 }
 
+export function progressValue(progressData: ProgressData): number {
+  return progressData.letters + 0.5 * progressData.repetitions;
+}
+
 export async function fetchEconomy(): Promise<StoredEconomy> {
   const response = await fetch('https://economy.slonig.org/prices/');
   if (!response.ok) {

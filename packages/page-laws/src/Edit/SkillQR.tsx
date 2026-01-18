@@ -10,7 +10,6 @@ interface Props {
   className?: string;
   id: string;
   cid: string;
-  type: number;
   selectedItems: ItemWithCID[];
   isLearningRequested: boolean;
   isReexaminingRequested?: boolean;

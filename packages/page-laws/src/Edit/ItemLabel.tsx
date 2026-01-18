@@ -4,12 +4,14 @@
 import React, { useEffect, useState } from 'react';
 import {
   KatexSpan,
+  ProgressData,
   StyledSpinnerContainer,
   getIPFSDataFromContentID,
-  parseJson
+  parseJson,
+  progressValue
 } from '@slonigiraf/slonig-components';
 import { useIpfsContext } from '@slonigiraf/slonig-components';
-import { Button, Icon, styled, Spinner } from '@polkadot/react-components';
+import { Button, Icon, styled, Spinner, Progress } from '@polkadot/react-components';
 import BadgeCheck from './BadgeCheck.js';
 import { ItemWithCID } from '../types.js';
 
@@ -23,6 +25,7 @@ interface Props {
   isReexaminingRequested?: boolean;
   onToggleSelection?: (item: ItemWithCID) => void;
   onItemUpdate?: (item: ItemWithCID) => void;
+  progressData?: ProgressData
 }
 
 function ItemLabel({
@@ -33,7 +36,8 @@ function ItemLabel({
   isSelected = false,
   isSelectable = false,
   isReexaminingRequested = false,
-  onToggleSelection
+  onToggleSelection,
+  progressData
 }: Props): React.ReactElement<Props> {
   const { ipfs, isIpfsReady } = useIpfsContext();
   const [text, setText] = useState<string>(item.id);
@@ -84,7 +88,7 @@ function ItemLabel({
     }
   };
 
-  const iconToDisplay = <Icon icon={getIconName()} color='gray'/>;
+  const iconToDisplay = <Icon icon={getIconName()} color='gray' />;
   const icon = <span>{iconToDisplay}&nbsp;</span>;
 
   const handleToggleSelection = () => {
@@ -129,12 +133,12 @@ function ItemLabel({
     )
     : isFetched
       ? (<StyledA href={href}>
-          {!isSkillItem && icon}
-          {isSkillItem && <BadgeCheck
-            item={item}
-          />}
-          <KatexSpan content={textToDisplay} />
-        </StyledA>)
+        {!isSkillItem && !progressData && icon}
+        {isSkillItem && <BadgeCheck
+          item={item}
+        />}
+        <KatexSpan content={textToDisplay} />
+      </StyledA>)
       : (
         <StyledSpinnerContainer>
           <Spinner noLabel />
@@ -156,6 +160,12 @@ function ItemLabel({
           onClick={handleToggleSelection} // no event arg => matches Button$Callback
         />
       )}
+      {progressData &&
+        <Progress
+          value={progressValue(progressData)}
+          total={progressData.skills}
+        />
+      }
       {content}
     </StyledDiv>
   );
