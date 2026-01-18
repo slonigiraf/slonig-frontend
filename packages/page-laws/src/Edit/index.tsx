@@ -22,6 +22,7 @@ import { getSetting, SettingKey } from '@slonigiraf/db';
 import { sessionPrefix } from '../constants.js';
 import GenerateSkills from './GenerateSkills.js';
 import SkillTemplateList from './SkillTemplateList.js';
+import { DEFAULT_KNOWLEDGE_ID } from '@slonigiraf/utils';
 
 interface Props {
   className?: string;
@@ -42,8 +43,7 @@ function Edit({ className = '' }: Props): React.ReactElement<Props> {
 
   const location = useLocation();
   const queryParams = new URLSearchParams(location.search);
-  const defaultTextHexId = '0xfed8e6f01c6c746876d69f7f10f933cdcd849068f6dc2fa26769fc92584492e7';
-  const idFromQuery = queryParams.get('id') || defaultTextHexId;
+  const idFromQuery = queryParams.get('id') || DEFAULT_KNOWLEDGE_ID;
   const [idFromSessionStorage] = useState<string>(loadFromSessionStorage(sessionPrefix, 'textHexId') || "");
   const [textHexId, setTextHexId] = useState<string | undefined>(idFromQuery);
 

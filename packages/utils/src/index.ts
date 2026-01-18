@@ -2,6 +2,7 @@ export const EXAMPLE_SKILL_KNOWLEDGE_ID = '0x6d3cd8005f0b14f197f5c3617933afbfd32
 export const EXAMPLE_SKILL_KNOWLEDGE_CID = 'bafyreictjpbqaxvetm6tpimql6bdu6lo4fvhlqljhbggrox5js35fjjapy';
 export const EXAMPLE_MODULE_KNOWLEDGE_ID = '0xc93cafd0d50625e1e203d20c596e87b9f01c93798ea8c358370d286903c260b3';
 export const EXAMPLE_MODULE_KNOWLEDGE_CID = 'bafyreidptwdha5jb7bzrk2g6vr2bfw6lvxfeff57hxud2u5sansdmowgp4';
+export const DEFAULT_KNOWLEDGE_ID = '0xfed8e6f01c6c746876d69f7f10f933cdcd849068f6dc2fa26769fc92584492e7';
 export const LESSON_LENGTH_SEC = 30 * 60;
 export const LEARN_FIRST_TIME_SEC = 206;
 export const LEARN_SECOND_TIME_SEC = 206;
