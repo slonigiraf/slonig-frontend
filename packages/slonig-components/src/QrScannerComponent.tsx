@@ -25,6 +25,7 @@ function QrScannerComponent({
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const scannerRef = useRef<QrScanner | null>(null);
   const onResultRef = useRef(onResult);
+  const didEmitRef = useRef(false);
 
   // keep latest callback without recreating scanner
   useEffect(() => {
@@ -40,7 +41,15 @@ function QrScannerComponent({
 
     const scanner = new QrScanner(
       video,
-      (result) => onResultRef.current(result.data),
+      (result) => {
+        if (didEmitRef.current) return;
+        didEmitRef.current = true;
+        try {
+          scanner.pause();
+        } catch {
+        }
+        onResultRef.current(result.data);
+      },
       { preferredCamera: initialFacingMode }
     );
 
