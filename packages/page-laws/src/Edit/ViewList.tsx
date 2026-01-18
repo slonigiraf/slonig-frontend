@@ -13,8 +13,8 @@ import { getLettersForKnowledgeId, getRepetitionsForKnowledgeId, SettingKey } fr
 import { u8aToHex } from '@polkadot/util';
 import ModulePreview from './ModulePreview.js';
 import styled from 'styled-components';
-import { sleptBetween } from '../util.js';
-import { EXAMPLE_MODULE_KNOWLEDGE_CID } from '@slonigiraf/utils';
+import { sleptBetween, takeWithinTime } from '../util.js';
+import { EXAMPLE_MODULE_KNOWLEDGE_CID, LESSON_LENGTH_SEC } from '@slonigiraf/utils';
 import LearningRouter from './LearningRouter.js';
 
 type JsonType = { [key: string]: any } | null;
@@ -193,11 +193,14 @@ function ViewList({ className = '', id, cidString, isClassInstructionShown, setI
       );
       setProgressData(totalProgress);
 
-      // first 10 across all modules (change if you need per-module)
-      const toLearn = results.flatMap((r) => r.itemsToLearnToday).slice(0, 10);
+      const toLearn = takeWithinTime(
+        results.flatMap((r) => r.itemsToLearnToday),
+        LESSON_LENGTH_SEC
+      );
+      
       setCanBeLearnedToday(toLearn);
       setIsThereAnythingToLearn(toLearn.length > 0);
-      const toExamine = results.flatMap((r) => r.itemsToReexamine).slice(0, 10);
+      const toExamine = results.flatMap((r) => r.itemsToReexamine);
       setCanBeExamined(toExamine)
       setIsThereAnythingToReexamine(toExamine.length > 0);
     };

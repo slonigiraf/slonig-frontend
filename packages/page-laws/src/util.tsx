@@ -1,5 +1,28 @@
 import { u8aToHex } from '@polkadot/util';
 import { randomAsU8a } from '@polkadot/util-crypto';
+import { LEARN_FIRST_TIME_SEC, LEARN_SECOND_TIME_SEC } from '@slonigiraf/utils';
+import { ItemWithCID } from './types.js';
+
+const estimateItemSec = (item: ItemWithCID): number =>
+  item.shouldBeRepeated ? LEARN_SECOND_TIME_SEC : LEARN_FIRST_TIME_SEC;
+
+export function takeWithinTime(items: ItemWithCID[], lessonSec: number): ItemWithCID[] {
+  const picked: ItemWithCID[] = [];
+  let used = 0;
+
+  for (const item of items) {
+    if (item.isBlockedForLearning) continue;
+
+    const cost = estimateItemSec(item);
+
+    if (used + cost > lessonSec) break;
+
+    picked.push(item);
+    used += cost;
+  }
+
+  return picked;
+}
 
 export function sleptBetween(timeA: number, timeB: number): boolean {
   const startMs = Math.min(timeA, timeB);
