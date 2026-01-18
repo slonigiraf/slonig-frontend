@@ -5,7 +5,8 @@ From https://github.com/slonigiraf/whitepaper/blob/main/giraf/data-format.md
 
 | Key | Description | Example |
 | --- | ----------- | ------- |
-| i | id at the blockchain, text | "0x88acc7a936797768868965af924321c7e90f916a445996f59b9c648f098f5e2b"
+| i | id at the blockchain, text | "0x88acc7a936797768868965af924321c7e90f916a445996f59b9c648f098f5e2b" |
+| p | id of the parent element at the blockchain, text. Used only for modules. Their parents are courses. | "0x88acc7a936797768868965af924321c7e90f916a445996f59b9c648f098f5e2b" |
 | t | type, numeric | "0" |
 | h | header, text | "Math, 5th grade" |
 | e | array of children jsons | ["0x91a00e045bfa0b392db90f94262caee5f1c6060768c225e8f6fcdecd4ff0c37d", "0x992990ef841c7a7e07c1968963290c6a2aa1252a6b61347c27ba7b2fe4f50c0f"] |

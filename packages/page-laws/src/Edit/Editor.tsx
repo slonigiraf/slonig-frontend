@@ -1,4 +1,4 @@
-import React, { useCallback } from 'react';
+import React, { useCallback, useState } from 'react';
 import { Button, Dropdown, Input, styled } from '@polkadot/react-components';
 import { useTranslation } from '../translate.js';
 import { randomIdHex } from '../util.js';
@@ -28,6 +28,8 @@ function Editor(props: Props): React.ReactElement<Props> {
   const { showInfo } = useInfo();
   const { api } = useApi();
   const { ipfs, isIpfsReady } = useIpfsContext();
+
+  console.log('item: ', item)
 
   const parentToItemDefaultType = {
     [LawType.LIST]: LawType.LIST,
@@ -75,6 +77,53 @@ function Editor(props: Props): React.ReactElement<Props> {
   };
 
   const lawTypeOpt = baseOptions[list?.t] || [];
+
+  const editCourseLink = useCallback((url: string) => {
+    const namePattern = /[?&]id=([^&#]*)/;
+    const match = url.match(namePattern);
+    const idFromUrl = match ? match[1] : null;
+
+    const checkAndUpdateItem = async () => {
+      if (!idFromUrl || idFromUrl.length !== 66) {
+        showInfo(t('The link misses a known ID'), 'error');
+        return;
+      }
+
+      const law = (await api.query.laws.laws(idFromUrl)) as { isSome: boolean; unwrap: () => [Uint8Array, BN] };
+      if (!law.isSome) {
+        showInfo(t('The link misses a known ID'), 'error');
+        return;
+      }
+
+      const tuple = law.unwrap();
+      const byteArray = tuple[0];
+      const cid = await getCIDFromBytes(byteArray);
+
+      if (!isIpfsReady || cid.length <= 2) {
+        showInfo(t('Problem with getting IPFS data'), 'error');
+        return;
+      }
+
+      try {
+        const jsonText = await getIPFSDataFromContentID(ipfs, cid);
+        const json = parseJson(jsonText);
+        if (json.t !== LawType.COURSE) {
+          showInfo(t('The provide link is not a course'), 'error');
+          return;
+        }
+
+        onItemChange({
+          ...item,
+          p: idFromUrl,
+          t: item?.t || getDefaultItemLawType()
+        });
+      } catch (error) {
+        showInfo(t('Wrong JSON format'), 'error');
+      }
+    };
+
+    checkAndUpdateItem();
+  }, [api, ipfs, isIpfsReady, lawTypeOpt, t]);
 
   const editItemLink = useCallback((url: string) => {
     const namePattern = /[?&]id=([^&#]*)/;
@@ -132,43 +181,58 @@ function Editor(props: Props): React.ReactElement<Props> {
   }, [list, onListChange, api, ipfs, isIpfsReady, lawTypeOpt, showInfo, t]);
 
   const addItem = useCallback(() => {
-    if (isAddingItem || isAddingLink) {
+    if (isAddingItem || isAddingLink || !list) return;
+
+    const pushToList = (key: 'e' | 'q', value: unknown) => {
+      onListChange({
+        ...list,
+        [key]: [...((list as any)[key] || []), value],
+      });
+    };
+
+    // 1) Adding an exercise (list.t === 3)
+    if (list.t === 3) {
+      pushToList('q', { h: '', a: '' });
       return;
     }
-    if (list?.t === 3) { // Adding an exercise
-      const itemJSONTemplate = `{"h":"", "a":""}`;
-      const itemJson = parseJson(itemJSONTemplate);
-      const updatedList = {
-        ...list,
-        q: [...(list.q || []), itemJson]
-      };
-      onListChange(updatedList);
-    } else if (list?.t === 2) { // Adding a skill
-      const newItemIdHex = randomIdHex();
-      onItemIdHexChange(newItemIdHex);
-      const itemType = getDefaultItemLawType();
-      const itemJSONTemplate = `{"i":"${newItemIdHex}","t":${itemType},"h":"","q":[{"h":"", "a":""},{"h":"", "a":""}]}`;
-      onItemChange(parseJson(itemJSONTemplate));
-      const updatedList = {
-        ...list,
-        e: [...(list.e || []), newItemIdHex]
-      };
-      onListChange(updatedList);
-      onIsAddingItemChange(true);
-    } else { // Adding a general item
-      const newItemIdHex = randomIdHex();
-      onItemIdHexChange(newItemIdHex);
-      const itemType = getDefaultItemLawType();
-      const itemJSONTemplate = `{"i":"${newItemIdHex}","t":${itemType},"h":""}`;
-      onItemChange(parseJson(itemJSONTemplate));
-      const updatedList = {
-        ...list,
-        e: [...(list.e || []), newItemIdHex]
-      };
-      onListChange(updatedList);
-      onIsAddingItemChange(true);
+
+    // 2) Everything else: create a new item with an id
+    const newItemIdHex = randomIdHex();
+    onItemIdHexChange(newItemIdHex);
+
+    const itemType = getDefaultItemLawType();
+
+    const baseItem: any = {
+      i: newItemIdHex,
+      t: itemType,
+      h: '',
+    };
+
+    // Adding a module inside a course: needs parent `p`
+    if (list.t === LawType.COURSE) {
+      baseItem.p = list.i;
     }
-  }, [list, onItemChange, onIsAddingItemChange, lawTypeOpt]);
+
+    // Adding a skill inside a module: needs default `q`
+    if (list.t === LawType.MODULE) {
+      baseItem.q = [{ h: '', a: '' }, { h: '', a: '' }];
+    }
+
+    onItemChange(baseItem);
+    pushToList('e', newItemIdHex);
+    onIsAddingItemChange(true);
+  }, [
+    list,
+    isAddingItem,
+    isAddingLink,
+    onListChange,
+    onItemIdHexChange,
+    onItemChange,
+    onIsAddingItemChange,
+    getDefaultItemLawType,
+    randomIdHex,
+  ]);
+
 
   const linkItem = useCallback(() => {
     if (isAddingItem || isAddingLink) {
@@ -229,6 +293,15 @@ function Editor(props: Props): React.ReactElement<Props> {
               onChange={editItemTitle}
               value={item?.h || ""}
             />
+            {itemType === LawType.MODULE &&
+              <Input
+                isDisabled={item?.p.length > 0}
+                className='full'
+                label={t('Link to the course') + ' (app.slonig.org/#/knowledge?id=...)'}
+                onChange={editCourseLink}
+                value={item.p}
+              />
+            }
             <MillerLawComment text={item?.h} />
           </FormContainer>
         </>
@@ -251,12 +324,12 @@ function Editor(props: Props): React.ReactElement<Props> {
       </div>)}
       {list.t == LawType.MODULE && !item && (<div className='ui--row'>
         <Input
-              autoFocus
-              className='full'
-              label={t('Educational standards for the module')}
-              onChange={editStandards}
-              value={list?.s || ""}
-            />
+          autoFocus
+          className='full'
+          label={t('Educational standards for the module')}
+          onChange={editStandards}
+          value={list?.s || ""}
+        />
       </div>)}
     </>
   );
