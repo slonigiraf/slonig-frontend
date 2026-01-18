@@ -60,5 +60,10 @@
   "title of item": "title of item",
   "type of item": "type of item",
   "To exam this, ask a tutor to scan:": "To exam this, ask a tutor to scan:",
-  "Exam": "Exam"
+  "Exam": "Exam",
+  "The provide link is not a course": "The provide link is not a course",
+  "Link to the course": "Link to the course",
+  "Course (recommended)": "Course (recommended)",
+  "Select what to learn": "Select what to learn",
+  "Select what to examine": "Select what to examine"
 }

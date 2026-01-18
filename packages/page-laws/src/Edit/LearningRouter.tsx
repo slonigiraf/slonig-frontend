@@ -23,7 +23,6 @@ function LearningRouter({ question, courseId, isExam = false, onClose, onConfirm
       navigate(`/knowledge?id=${courseId}&showSkillQr${isExam? '&exam':''}`, { replace: true });
       onClose();
     } else {
-      showInfo(t('Select the course manually.'));
       onClose();
     }
   }, [courseId])
