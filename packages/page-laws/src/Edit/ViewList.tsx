@@ -15,6 +15,7 @@ import ModulePreview from './ModulePreview.js';
 import styled from 'styled-components';
 import { sleptBetween } from '../util.js';
 import { EXAMPLE_MODULE_KNOWLEDGE_CID } from '@slonigiraf/utils';
+import LearningRouter from './LearningRouter.js';
 
 type JsonType = { [key: string]: any } | null;
 
@@ -57,6 +58,8 @@ function ViewList({ className = '', id, cidString, isClassInstructionShown, setI
   const { logEvent } = useLog();
   const [progressData, setProgressData] = useState<ProgressData>({ skills: 0, letters: 0, repetitions: 0 });
   const [modulesProgress, setModulesProgess] = useState<Map<string, ProgressData>>(() => new Map());
+  const [isLaunchLearnConfirmOpen, setIsLaunchLearnConfirmOpen] = useState(false);
+  const [isLaunchExamConfirmOpen, setIsLaunchExamConfirmOpen] = useState(false);
 
   async function fetchLaw(key: string) {
     const law = (await api.query.laws.laws(key)) as { isSome: boolean; unwrap: () => [Uint8Array, BN] };
@@ -207,19 +210,37 @@ function ViewList({ className = '', id, cidString, isClassInstructionShown, setI
 
   useEffect(() => {
     (lessonInUrl || showSkillQrInUrl) && list && list.t !== null && list.t === LawType.MODULE && logEvent('LEARNING', 'AUTO_SHOW_QR', list.h);
-  }, [lessonInUrl, showSkillQrInUrl, list]); 
+  }, [lessonInUrl, showSkillQrInUrl, list]);
 
-  const learnClicked = useCallback((checked: boolean): void => {
+  const processLearn = useCallback((): void => {
     list && logEvent('LEARNING', 'CLICK_LEARN', list.h);
-    if(list?.t === LawType.COURSE) setSelectedItems(canBeLearnedToday);
-    handleLearningToggle(checked);
+    if (list?.t === LawType.COURSE) setSelectedItems(canBeLearnedToday);
+    handleLearningToggle(true);
+    setIsLaunchLearnConfirmOpen(false);
   }, [list, canBeLearnedToday, logEvent]);
 
-  const examClicked = useCallback((checked: boolean): void => {
+  const learnClicked = useCallback((): void => {
+    if (list?.t === LawType.MODULE) {
+      setIsLaunchLearnConfirmOpen(true);
+    } else {
+      processLearn();
+    }
+  }, [list, processLearn, logEvent]);
+
+  const processExam = useCallback((): void => {
     list && logEvent('LEARNING', 'CLICK_EXAM', list.h);
-    if(list?.t === LawType.COURSE) setSelectedItems(canBeExamined);
-    handleReexaminingToggle(checked);
+    if (list?.t === LawType.COURSE) setSelectedItems(canBeExamined);
+    handleReexaminingToggle(true);
+    setIsLaunchExamConfirmOpen(false);
   }, [list, canBeExamined, logEvent]);
+
+  const examClicked = useCallback((): void => {
+    if (list?.t === LawType.MODULE) {
+      setIsLaunchExamConfirmOpen(true);
+    } else {
+      processExam();
+    }
+  }, [list, processExam, logEvent]);
 
   const handleLearningToggle = useCallback((checked: boolean): void => {
     setLearningRequested(checked);
@@ -278,7 +299,7 @@ function ViewList({ className = '', id, cidString, isClassInstructionShown, setI
   const disableSelectionOfWhatToLearn = isAPairWork && (hasTuteeCompletedTutorial === false || nowIsClassOnboarding || list?.t === LawType.COURSE);
 
   const handleSelectionChange = (newSelectedItems: ItemWithCID[]) => {
-    if(list?.t === LawType.COURSE) return;
+    if (list?.t === LawType.COURSE) return;
     setSelectedItems(newSelectedItems);
   };
 
@@ -318,15 +339,25 @@ function ViewList({ className = '', id, cidString, isClassInstructionShown, setI
                 className='highlighted--button'
                 icon='people-arrows'
                 label={t('Learn')}
-                onClick={() => learnClicked(true)}
+                onClick={() => learnClicked()}
               />}
             {isThereAnythingToReexamine && !isAPairWork &&
               <Button
                 icon='graduation-cap'
                 label={t('Exam')}
-                onClick={() => examClicked(true)}
+                onClick={() => examClicked()}
               />}
           </ButtonsRow>
+          {isLaunchLearnConfirmOpen && (
+            <LearningRouter question={t('Select what to learn')}
+              onClose={() => setIsLaunchLearnConfirmOpen(false)}
+              onConfirm={processLearn} />
+          )}
+          {isLaunchExamConfirmOpen && (
+            <LearningRouter question={t('Select what to examine')}
+              onClose={() => setIsLaunchExamConfirmOpen(false)}
+              onConfirm={processExam} />
+          )}
         </>
     )}
     {list.t !== null && list.t === LawType.SKILL && (
