@@ -157,16 +157,22 @@ function ItemLabel({
           className='inList'
           icon={wasSelected ? 'check' : 'square'}
           isDisabled={!allowSelection}
-          onClick={handleToggleSelection} // no event arg => matches Button$Callback
+          onClick={handleToggleSelection}
         />
       )}
-      {progressData &&
-        <Progress
-          value={progressValue(progressData)}
-          total={progressData.skills}
-        />
-      }
-      {content}
+
+      {progressData && (
+        <ProgressWrap>
+          <Progress
+            value={progressValue(progressData)}
+            total={progressData.skills}
+          />
+        </ProgressWrap>
+      )}
+
+      <ContentWrap>
+        {content}
+      </ContentWrap>
     </StyledDiv>
   );
 }
@@ -174,6 +180,13 @@ function ItemLabel({
 const StyledA = styled.a`
   font-size: 16px;
   margin: 7px;
+
+  /* allow wrapping */
+  white-space: normal;
+  word-break: break-word;
+
+  /* key for flex: allow this item to shrink */
+  min-width: 0;
 `;
 
 const StyledDiv = styled.div<{ isSelectable: boolean }>`
@@ -181,8 +194,24 @@ const StyledDiv = styled.div<{ isSelectable: boolean }>`
   align-items: center;
   justify-content: start;
   ${({ isSelectable }) => isSelectable && 'padding: 10px;'}
-  padding: 0px;
+  padding-left: 0px;
+  padding-top: 7px;
+  padding-bottom: 7px;
   cursor: pointer;
+
+  /* prevent children from overflowing/cropping weirdly */
+  width: 100%;
+`;
+
+/* Add wrappers so we can control flex behavior */
+const ProgressWrap = styled.div`
+  flex: 0 0 auto;     /* don't shrink */
+  margin-right: 8px;  /* optional spacing */
+`;
+
+const ContentWrap = styled.div`
+  flex: 1 1 auto;     /* take remaining space */
+  min-width: 0;       /* IMPORTANT: allow wrapping without pushing siblings off */
 `;
 
 export default React.memo(ItemLabel);
