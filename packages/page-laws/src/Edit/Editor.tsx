@@ -262,7 +262,7 @@ function Editor(props: Props): React.ReactElement<Props> {
                   className='full'
                   label={t('Link to the course') + ' (app.slonig.org/#/knowledge?id=...)'}
                   onChange={editCourseLink}
-                  value={list?.p}
+                  value={list?.p || ''}
                 />
               }
             </FormContainer>

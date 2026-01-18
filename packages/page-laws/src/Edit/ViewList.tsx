@@ -349,12 +349,16 @@ function ViewList({ className = '', id, cidString, isClassInstructionShown, setI
               />}
           </ButtonsRow>
           {isLaunchLearnConfirmOpen && (
-            <LearningRouter question={t('Select what to learn')}
+            <LearningRouter
+              courseId={list?.p}
+              question={t('Select what to learn')}
               onClose={() => setIsLaunchLearnConfirmOpen(false)}
               onConfirm={processLearn} />
           )}
           {isLaunchExamConfirmOpen && (
-            <LearningRouter question={t('Select what to examine')}
+            <LearningRouter
+              courseId={list?.p}
+              question={t('Select what to examine')}
               onClose={() => setIsLaunchExamConfirmOpen(false)}
               onConfirm={processExam} />
           )}
