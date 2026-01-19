@@ -385,6 +385,7 @@
   "You are about to remove this account from your list of available accounts. Once completed, should you need to access it again, you will have to re-create the account either via seed or via a backup file.": "このアカウントを利用可能なアカウントのリストから削除しようとしています。完了したら、再度アクセスする必要がある場合、シードまたはバックアップファイルを使用してアカウントを再作成する必要があります。",
   "You are about to remove this address from your address book. Once completed, should you need to access it again, you will have to re-add the address.": "このアドレスをアドレス帳から削除しようとしています。完了したら、再度アクセスする必要がある場合、アドレスを再追加する必要があります。",
   "You are about to remove this contract from your list of available contracts. Once completed, should you need to access it again, you will have to manually add the contract’s address in the Instantiate tab.": "この契約を利用可能な契約のリストから削除しようとしています。完了したら、再度アクセスする必要がある場合、Instantiateタブで契約のアドレスを手動で追加する必要があります。",
+  "You are going too fast. Your tutee will forget the skill tomorrow, and you will lose Slon. Follow all the teaching steps carefully.": "あなたは早すぎます。あなたの生徒は明日そのスキルを忘れてしまい、あなたはスロンを失います。すべての指導ステップを注意深く守ってください。",
   "You can put your device aside": "デバイスを置いても大丈夫です",
   "You can select no more than:": "選択できるのは次の数まで：",
   "You can use the KaTeX language to add formulas:": "数式を追加するにはKaTeX言語を使用できます：",

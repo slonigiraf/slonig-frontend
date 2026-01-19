@@ -385,6 +385,7 @@
   "You are about to remove this account from your list of available accounts. Once completed, should you need to access it again, you will have to re-create the account either via seed or via a backup file.": "您即将从可用账户列表中移除此账户。完成后，如果您需要再次访问它，您必须通过种子或备份文件重新创建该账户。",
   "You are about to remove this address from your address book. Once completed, should you need to access it again, you will have to re-add the address.": "您即将从联系人列表中移除此地址。完成后，如果您需要再次访问它，您必须重新添加该地址。",
   "You are about to remove this contract from your list of available contracts. Once completed, should you need to access it again, you will have to manually add the contract’s address in the Instantiate tab.": "您即将从可用合约列表中移除此合约。完成后，如果您需要再次访问它，您必须在实例化选项卡中手动添加合约的地址。",
+  "You are going too fast. Your tutee will forget the skill tomorrow, and you will lose Slon. Follow all the teaching steps carefully.": "你走得太快了。你的学生明天会忘记这项技能，而你将失去 Slon。请仔细遵循所有教学步骤。",
   "You can put your device aside": "你可以把设备放到一边",
   "You can select no more than:": "最多可选择：",
   "You can use the KaTeX language to add formulas:": "你可以使用 KaTeX 语言添加公式：",

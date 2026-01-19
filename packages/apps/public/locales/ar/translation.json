@@ -385,6 +385,7 @@
   "You are about to remove this account from your list of available accounts. Once completed, should you need to access it again, you will have to re-create the account either via seed or via a backup file.": "أنت على وشك إزالة هذا الحساب من قائمة الحسابات المتاحة لديك. بعد الإكمال، إذا احتجت إلى الوصول إليه مرة أخرى، فسيتعين عليك إعادة إنشاء الحساب إما عبر العبارة الأولية (seed) أو عبر ملف نسخة احتياطية.",
   "You are about to remove this address from your address book. Once completed, should you need to access it again, you will have to re-add the address.": "أنت على وشك إزالة هذا العنوان من دفتر العناوين. بعد الإكمال، إذا احتجت إلى الوصول إليه مرة أخرى، فسيتعين عليك إعادة إضافة العنوان.",
   "You are about to remove this contract from your list of available contracts. Once completed, should you need to access it again, you will have to manually add the contract’s address in the Instantiate tab.": "أنت على وشك إزالة هذا العقد من قائمة العقود المتاحة لديك. بعد الإكمال، إذا احتجت إلى الوصول إليه مرة أخرى، فسيتعين عليك إضافة عنوان العقد يدويًا في تبويب Instantiate.",
+  "You are going too fast. Your tutee will forget the skill tomorrow, and you will lose Slon. Follow all the teaching steps carefully.": "أنت تسير بسرعة كبيرة. سيتForget تلميذك هذه المهارة غدًا، وستفقد Slon. اتبع جميع خطوات التعليم بعناية.",
   "You can put your device aside": "يمكنك وضع جهازك جانبًا",
   "You can select no more than:": "يمكنك اختيار ما لا يزيد عن:",
   "You can use the KaTeX language to add formulas:": "يمكنك استخدام لغة KaTeX لإضافة الصيغ:",
