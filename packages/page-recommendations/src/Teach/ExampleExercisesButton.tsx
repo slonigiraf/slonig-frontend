@@ -26,18 +26,17 @@ function ExampleExercisesButton({ className = '', skill }: Props): React.ReactEl
     if (pressingExamplesTutorialCompleted === false) {
       logEvent('ONBOARDING', 'PRESSING_EXAMPLES_TUTORIAL_COMPLETED');
     }
+    logEvent('TUTORING', 'CLICK_EXAMPLES');
     await setSettingToTrue(SettingKey.PRESSING_EXAMPLES_TUTORIAL_COMPLETED);
     toggleDetailsOpen();
   }, [pressingExamplesTutorialCompleted, setSettingToTrue, toggleDetailsOpen]);
-
-
 
   return (
     <>
       <StyledDiv>
         <ButtonWrap>
           {isHintShown && !areDetailsOpen && (
-            <StyledHint onClick={() => {}} tailLeft="80%">
+            <StyledHint onClick={() => { }} tailLeft="80%">
               <h2>{t('Try pressing this button')}</h2>
             </StyledHint>
           )}

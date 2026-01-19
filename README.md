@@ -52,6 +52,7 @@ Here is a list of user actions tracked by Slonig:
 | ✅ | SYNC | SUBMIT_PENALTY_EXTRINSIC | tokens | N/A |
 | ✅ | TUTORING | RESTART_LESSON | KnowledgeName (module) | N/A |
 | ✅ | TUTORING | GET_STUDENT_REQUEST | N/A | N/A |
+| ✅ | TUTORING | CLICK_EXAMPLES | N/A | N/A |
 | ✅ | TUTORING | REEXAMINE_START | KnowledgeName (skill) | N/A |
 | ✅ | TUTORING | REEXAMINE_ALGO | begin_ask_to_create_similar_exercise | N/A |
 | ✅ | TUTORING | REEXAMINE_ALGO | cycle_ask_to_create_similar_exercise | N/A |
