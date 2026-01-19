@@ -11,11 +11,14 @@ import LessonResults from './LessonResults.js';
 import LessonRequestReceiver from './LessonRequestReceiver.js';
 import { useTranslation } from '../translate.js';
 import { useLocation } from 'react-router-dom';
-import { EXAMPLE_MODULE_KNOWLEDGE_CID } from '@slonigiraf/utils';
+import { EXAMPLE_MODULE_KNOWLEDGE_CID, FAST_SKILL_DISCUSSION_SEC, MAX_FAST_DISCUSSED_SKILLS_COUNT as MAX_FAST_DISCUSSED_SKILLS_IN_ROW_COUNT, MIN_SKILL_DISCUSSION_SEC } from '@slonigiraf/utils';
 
 interface Props {
   className?: string;
 }
+
+const MIN_SKILL_DISCUSSION_MS = MIN_SKILL_DISCUSSION_SEC * 1000;
+const FAST_SKILL_DISCUSSION_MS = FAST_SKILL_DISCUSSION_SEC * 1000;
 
 function Teach({ className = '' }: Props): React.ReactElement<Props> {
   const location = useLocation();
@@ -45,7 +48,48 @@ function Teach({ className = '' }: Props): React.ReactElement<Props> {
   const [hasTuteeUsedSlonig, setHasTuteeUsedSlonig] = useState(false);
   const [isSendingResultsEnabled, setIsSendingResultsEnabled] = useState<boolean | undefined>(undefined);
   const [isHelpQRInfoShown, setIsHelpQRInfoShown] = useState(showHelpQRInfo);
+  const [lastSkillDiscussedTime, setLastSkillDiscussedTime] = useState<number|null>(null);
+  const [tooFastConfirmationIsShown, setTooFastConfirmationIsShown] = useState(false);
+  const [fastDiscussedSkillsCount, setFastDiscussedSkillsCount] = useState(0);
 
+  useEffect(() => {
+    if(!lastSkillDiscussedTime && (letterTemplateToIssue !== null || reexaminationToPerform  !== null)){
+      setLastSkillDiscussedTime((new Date()).getTime());
+    }
+  }, [lastSkillDiscussedTime, letterTemplateToIssue, reexaminationToPerform]);
+
+  const protectTutor = useCallback((isLearning: boolean) => {
+    if(!lastSkillDiscussedTime) return;
+
+    const now = (new Date()).getTime();
+    const timeSpent = now - lastSkillDiscussedTime;
+
+    logEvent('TUTORING',
+      isLearning ? 'TEACH_SKILL_TIME' : 'REEXAMINE_SKILL_TIME',
+      isLearning ? 'teach_skill_time_sec' : 'reexamine_skill_time_sec',
+      Math.round(timeSpent / 1000)
+    );
+
+    if (timeSpent < MIN_SKILL_DISCUSSION_MS) {
+      logEvent('TUTORING',
+        isLearning ? 'TOO_SHORT_TEACH' : 'TOO_SHORT_REEXAMINE',
+        isLearning ? 'too_short_teach_time_sec' : 'too_short_reexamine_time_sec',
+        Math.round(timeSpent / 1000)
+      );
+      setTooFastConfirmationIsShown(true);
+    } else if (timeSpent < FAST_SKILL_DISCUSSION_MS) {
+      if (fastDiscussedSkillsCount + 1 > MAX_FAST_DISCUSSED_SKILLS_IN_ROW_COUNT) {
+        logEvent('TUTORING', 'SEVERAL_FAST_DISCUSSIONS_IN_ROW');
+        setTooFastConfirmationIsShown(true);
+        setFastDiscussedSkillsCount(0);
+      } else {
+        setFastDiscussedSkillsCount(fastDiscussedSkillsCount + 1);
+      }
+    } else {
+      setFastDiscussedSkillsCount(0);
+    }
+    setLastSkillDiscussedTime(now);
+  }, [fastDiscussedSkillsCount, lastSkillDiscussedTime, setTooFastConfirmationIsShown]);
 
   useEffect(() => {
     const checkResults = async () => {
@@ -110,16 +154,18 @@ function Teach({ className = '' }: Props): React.ReactElement<Props> {
       if (nextStep <= lesson.toReexamineCount) {
         const updatedLesson = { ...lesson, reexamineStep: nextStep };
         updateAndStoreLesson(updatedLesson);
+        protectTutor(false);
       }
     }
-  }, [lesson, updateAndStoreLesson]);
+  }, [lesson, updateAndStoreLesson, protectTutor]);
 
   const updateLearned = useCallback(async (): Promise<void> => {
     if (lesson && lesson.toLearnCount > lesson.learnStep) {
       const updatedLesson = { ...lesson, learnStep: lesson.learnStep + 1 };
       updateAndStoreLesson(updatedLesson);
+      protectTutor(true);
     }
-  }, [lesson, updateAndStoreLesson]);
+  }, [lesson, updateAndStoreLesson, protectTutor]);
 
   const onResumeTutoring = useCallback(async (lesson: Lesson): Promise<void> => {
     await storeSetting(SettingKey.LESSON, lesson.id);
@@ -165,6 +211,9 @@ function Teach({ className = '' }: Props): React.ReactElement<Props> {
 
   const onCloseTutoring = useCallback(async () => {
     await deleteSetting(SettingKey.LESSON);
+    setLastSkillDiscussedTime(null);
+    setFastDiscussedSkillsCount(0);
+    setTooFastConfirmationIsShown(false);
     setLesson(null);
     setIsExitConfirmOpen(false);
     setReexaminationToPerform(null);
@@ -276,6 +325,9 @@ function Teach({ className = '' }: Props): React.ReactElement<Props> {
           )}
           {isHelpQRInfoShown && (
             <OKBox info={t('Tell the tutee to scan the same QR code.')} onClose={() => setIsHelpQRInfoShown(false)} />
+          )}
+          {tooFastConfirmationIsShown && (
+            <OKBox info={t('You are going too fast. Your tutee will forget the skill tomorrow, and you will lose Slon. Follow all the teaching steps carefully.')} onClose={() => setTooFastConfirmationIsShown(false)} />
           )}
         </>
       }

@@ -53,6 +53,8 @@ Here is a list of user actions tracked by Slonig:
 | ✅ | TUTORING | RESTART_LESSON | KnowledgeName (module) | N/A |
 | ✅ | TUTORING | GET_STUDENT_REQUEST | N/A | N/A |
 | ✅ | TUTORING | CLICK_EXAMPLES | N/A | N/A |
+| ✅ | TUTORING | REEXAMINE_SKILL_TIME | reexamine_skill_time_sec | sec |
+| ✅ | TUTORING | TOO_SHORT_REEXAMINE | too_short_reexamine_time_sec | sec |
 | ✅ | TUTORING | REEXAMINE_START | KnowledgeName (skill) | N/A |
 | ✅ | TUTORING | REEXAMINE_ALGO | begin_ask_to_create_similar_exercise | N/A |
 | ✅ | TUTORING | REEXAMINE_ALGO | cycle_ask_to_create_similar_exercise | N/A |
@@ -63,6 +65,9 @@ Here is a list of user actions tracked by Slonig:
 | ✅ | TUTORING | REEXAMINE_ALGO | revoke | N/A |
 | ✅ | TUTORING | REEXAMINE_ALGO | click_instant_validate | N/A |
 | ✅ | TUTORING | REEXAMINE_ALGO | click_instant_revoke | N/A |
+| ✅ | TUTORING | TOO_SHORT_TEACH | too_short_teach_time_sec | sec |
+| ✅ | TUTORING | TEACH_SKILL_TIME | teach_skill_time_sec | sec |
+| ✅ | TUTORING | SEVERAL_FAST_DISCUSSIONS_IN_ROW | N/A | N/A |
 | ✅ | TUTORING | TEACH_START | KnowledgeName (skill) | N/A |
 | ✅ | TUTORING | TEACH_ALGO | begin_ask_to_solve_exercise | N/A |
 | ✅ | TUTORING | TEACH_ALGO | ask_to_create_similar_exercise | N/A |

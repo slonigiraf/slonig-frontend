@@ -33,7 +33,7 @@ export const LogProvider: React.FC<LogProviderProps> = ({ children }) => {
         /^127(?:\.\d{1,3}){3}$/.test(host);
 
       if (isLocalhost) {
-        console.log(`${category} - ${action}${name? ' - ' + name : ''}`)
+        console.log(`${category} - ${action}${name? ' - ' + name : ''}${value? ' - ' + value : ''}`)
         return;
       }
 
