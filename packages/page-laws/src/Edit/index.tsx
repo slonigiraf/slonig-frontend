@@ -354,11 +354,11 @@ function Edit({ className = '' }: Props): React.ReactElement<Props> {
       {textHexId && <ViewList key={textHexId} id={textHexId} cidString={cidString} isClassInstructionShown={isClassInstructionShown} setIsClassInstructionShown={(isShown: boolean) => setIsClassInstructionShown(isShown)} list={list} />}
       {list &&
         <ButtonsRow>
-          <Button
+          {isDeveloper && <Button
             icon='edit'
             label={t('Edit')}
             onClick={_onClickEdit}
-          />
+          />}
           {list.t !== null && list.t === LawType.MODULE && false && // Don't show it
             <Button
               icon='person-chalkboard'
