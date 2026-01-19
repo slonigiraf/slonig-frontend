@@ -32,7 +32,10 @@ export const LogProvider: React.FC<LogProviderProps> = ({ children }) => {
         // covers 127.x.x.x
         /^127(?:\.\d{1,3}){3}$/.test(host);
 
-      if (isLocalhost) return;
+      if (isLocalhost) {
+        console.log(`${category} - ${action}${name? ' - ' + name : ''}`)
+        return;
+      }
 
       // Matomo allows queuing events before the tracker script is fully loaded.
       window._paq = window._paq || [];
