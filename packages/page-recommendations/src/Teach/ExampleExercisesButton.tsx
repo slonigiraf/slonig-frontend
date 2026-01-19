@@ -38,7 +38,7 @@ function ExampleExercisesButton({ className = '', skill }: Props): React.ReactEl
         <ButtonWrap>
           {isHintShown && !areDetailsOpen && (
             <StyledHint onClick={() => {}} tailLeft="80%">
-              <h2>{t('Try pressing it to see example exercises and answers')}</h2>
+              <h2>{t('Try pressing this button')}</h2>
             </StyledHint>
           )}
 
