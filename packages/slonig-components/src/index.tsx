@@ -347,24 +347,32 @@ export function progressValue(progressData: ProgressData): number {
   return progressData.letters + 0.5 * progressData.repetitions;
 }
 
-export async function fetchEconomy(): Promise<StoredEconomy> {
+// TODO: revert to the Jan 1 version at March 31, 2026
+export async function fetchEconomy(onResult: (economy: StoredEconomy) => void) {
   const response = await fetch('https://economy.slonig.org/prices/');
   if (!response.ok) {
     throw new Error(`Fetching ecomomy error! status: ${response.status}`);
   }
   const economySettings: Economy = await response.json();
-  await storeSetting(SettingKey.DIPLOMA_PRICE, economySettings.diploma);
-  await storeSetting(SettingKey.DIPLOMA_WARRANTY, economySettings.warranty);
-  await storeSetting(SettingKey.DIPLOMA_VALIDITY, economySettings.validity);
-  await storeSetting(SettingKey.EXPECTED_AIRDROP, economySettings.airdrop);
-  await storeSetting(SettingKey.ECONOMY_INITIALIZED, 'true');
-  return {
+
+  const result: StoredEconomy = {
     diplomaPrice: economySettings.diploma,
     diplomaWarranty: economySettings.warranty,
     diplomaValidity: economySettings.validity,
     expectedAirdrop: economySettings.airdrop,
     economyInitialized: 'true'
   };
+
+  const dbEconomyInitilizedBefore = await getSetting(SettingKey.ECONOMY_INITIALIZED);
+  if (!dbEconomyInitilizedBefore) {
+    onResult(result);
+  }
+
+  await storeSetting(SettingKey.DIPLOMA_PRICE, economySettings.diploma);
+  await storeSetting(SettingKey.DIPLOMA_WARRANTY, economySettings.warranty);
+  await storeSetting(SettingKey.DIPLOMA_VALIDITY, economySettings.validity);
+  await storeSetting(SettingKey.EXPECTED_AIRDROP, economySettings.airdrop);
+  await storeSetting(SettingKey.ECONOMY_INITIALIZED, 'true');
 };
 export interface LessonResult {
   agreement: string;

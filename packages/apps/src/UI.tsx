@@ -112,8 +112,7 @@ function UI({ className = '' }: Props): React.ReactElement<Props> {
   useEffect(() => {
     const fetchData = async () => {
       try {
-        const storedEconomy = await fetchEconomy();
-        logEconomy(storedEconomy);
+        await fetchEconomy(logEconomy);
       } catch (error) {
         showNoConnectionToEconomyServerError();
       }
