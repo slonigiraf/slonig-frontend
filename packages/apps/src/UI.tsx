@@ -2,13 +2,13 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import type { BareProps as Props } from '@polkadot/react-components/types';
-import React, { useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import Signer from '@polkadot/react-signer';
 import Content from './Content/index.js';
 import Menu from './Menu/index.js';
 import ConnectingOverlay from './overlays/Connecting.js';
 import BottomMenu from './BottomMenu/index.js';
-import { AirdropResults, AppContainer, bnToSlonFloatOrNaN, BlockchainSyncProvider, fetchEconomy, useBooleanSettingValue, useInfo, useIpfsContext, useLog, useLoginContext, useSettingValue } from '@slonigiraf/slonig-components';
+import { AirdropResults, AppContainer, bnToSlonFloatOrNaN, BlockchainSyncProvider, fetchEconomy, useBooleanSettingValue, useInfo, useIpfsContext, useLog, useLoginContext, useSettingValue, useNumberSettingValue } from '@slonigiraf/slonig-components';
 import { Spinner, styled } from '@polkadot/react-components';
 import { useTranslation } from './translate.js';
 import { useApi, useTheme } from '@polkadot/react-hooks';
@@ -20,6 +20,8 @@ import IncognitoView from './IncognitoView.js';
 export const PORTAL_ID = 'portals';
 import BN from 'bn.js';
 import ClassOnboarding from './ClassOnboarding.js';
+import BackupReminder from './BackupReminder.js';
+import { BACKUP_REQUIREMENT_PERIOD_MS } from '@slonigiraf/utils';
 
 function UI({ className = '' }: Props): React.ReactElement<Props> {
   const { isLoginReady, isLoggedIn, currentPair, setLoginIsRequired, onCreateAccount } = useLoginContext();
@@ -43,6 +45,10 @@ function UI({ className = '' }: Props): React.ReactElement<Props> {
   const expectedAirdropAmount = useSettingValue(SettingKey.EXPECTED_AIRDROP);
   const nowIsClassOnboarding = useBooleanSettingValue(SettingKey.NOW_IS_CLASS_ONBOARDING);
   const lessonId = useSettingValue(SettingKey.LESSON);
+  const lastBackup = useNumberSettingValue(SettingKey.LAST_BACKUP_TIME);
+  const now = (new Date()).getTime();
+  const lastBackupMs = lastBackup === undefined ? 0 :  lastBackup;
+  const shouldBackup = lastBackupMs !== null? (now - lastBackupMs) > BACKUP_REQUIREMENT_PERIOD_MS : false;
 
   const [isIncognito, setIsIncognito] = useState<boolean | null>(null);
 
@@ -139,8 +145,7 @@ function UI({ className = '' }: Props): React.ReactElement<Props> {
           } else if (airdropResults.error) {
             if (airdropResults.error === 'DUPLICATED_AIRDROP') {
               if (expectedAirdropAmount === undefined) {
-                const storedEconomy = await fetchEconomy();
-                logEconomy(storedEconomy);
+                await fetchEconomy(logEconomy);
               }
             } else {
               showError(airdropResults.error);
@@ -160,7 +165,13 @@ function UI({ className = '' }: Props): React.ReactElement<Props> {
     }
   }, [isAirdropCompatible, expectedAirdropAmount, recievedAirdropAmount, currentPair, showError, showNoConnectionToEconomyServerError, setIsProcessingAirdrop]);
 
+
+  const onBackup = useCallback(async () => {
+    await storeSetting(SettingKey.LAST_BACKUP_TIME, (now.toString()))
+  }, []);
+
   const showOnboarding = nowIsClassOnboarding && lessonId === undefined;
+
 
   return (
     connected ? <StyledDiv isloginRequired={isLoginRequired} className={`${className} apps--Wrapper ${themeClassName}`}>
@@ -180,6 +191,7 @@ function UI({ className = '' }: Props): React.ReactElement<Props> {
             <Menu />
             <BlockchainSyncProvider>
               {showOnboarding && <ClassOnboarding />}
+              {shouldBackup && <BackupReminder onResult={onBackup}/>}
               <>
                 <Content />
                 {!botInUrl && <BottomMenu />}

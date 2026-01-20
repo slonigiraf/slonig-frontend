@@ -54,3 +54,28 @@ export function useBooleanSettingValue(key: SettingId): boolean | null | undefin
   if (value === null) return null; // not yet loaded
   return value === 'true';
 }
+
+/**
+ * Wrapper around useSettingValue that interprets the setting as a number.
+ *
+ * @param key - A key from `SettingKey`.
+ * @returns
+ * - `null` — setting is **not yet loaded** from the database
+ * - `undefined` — setting has **no stored value** (or is not a valid number)
+ * - `number` — parsed numeric value once loaded
+ *
+ * Note:
+ * - If you store empty string or non-numeric text, this returns `undefined`.
+ */
+export function useNumberSettingValue(key: SettingId): number | null | undefined {
+  const value = useSettingValue(key);
+
+  if (value === null) return null; // not yet loaded
+  if (value === undefined) return undefined; // no stored value
+
+  const trimmed = value.trim();
+  if (trimmed.length === 0) return undefined;
+
+  const num = Number(trimmed);
+  return Number.isFinite(num) ? num : undefined;
+}

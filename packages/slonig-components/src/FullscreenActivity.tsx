@@ -8,7 +8,7 @@ interface Props {
   captionElement?: React.ReactNode;
   children?: React.ReactNode;
   isLoading?: boolean;
-  onClose: () => void;
+  onClose?: () => void;
 }
 
 function FullscreenActivity({ className = '', caption = ' ', captionElement, children, isLoading = false, onClose }: Props): React.ReactElement<Props> {
@@ -20,7 +20,7 @@ function FullscreenActivity({ className = '', caption = ' ', captionElement, chi
           <Caption>
             <h1><b>{captionElement || caption}</b></h1>
           </Caption>
-          <CloseButton onClick={onClose} icon='close' />
+          {onClose && <CloseButton onClick={onClose} icon='close' />}
         </Top>
         {isLoading ?
           <div className='connecting'>

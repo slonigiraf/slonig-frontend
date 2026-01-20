@@ -10,3 +10,4 @@ export const FAST_SKILL_DISCUSSION_SEC = 40;
 export const MAX_FAST_DISCUSSED_SKILLS_COUNT = 1;
 export const LEARN_FIRST_TIME_SEC = 206;
 export const LEARN_SECOND_TIME_SEC = 94;
+export const BACKUP_REQUIREMENT_PERIOD_MS = 7 * 24 * 60 * 60 * 1000; // One week
