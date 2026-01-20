@@ -223,7 +223,7 @@ function ViewList({ className = '', id, cidString, isClassInstructionShown, setI
     }
 
     const timeout = setTimeout(() => {
-      logEvent('LEARNING', 'AUTO_SHOW_QR');
+      logEvent('LEARNING', 'AUTO_SHOW_LESSON_REQUEST_QR');
       logEvent('LEARNING', examInUrl ? 'EXAM_REQUESTED' : 'LEARNING_REQUESTED', list.h);
     }, 1000);
 
