@@ -25,7 +25,7 @@ function ScanQR({ className = '', label }: Props): React.ReactElement<Props> {
   const scan = useCallback(async () => {
     await setSettingToTrue(SettingKey.SCAN_TUTORIAL_COMPLETED);
     if (isLoggedIn) {
-      logEvent('SCAN', 'OPEN');
+      logEvent('SCAN', 'SCAN_OPEN');
       toggleQR();
     } else {
       setLoginIsRequired(true);
@@ -61,7 +61,7 @@ function ScanQR({ className = '', label }: Props): React.ReactElement<Props> {
       return;
     }
 
-    logEvent('SCAN', 'SUCCESS');
+    logEvent('SCAN', 'SCAN_SUCCESS');
     toggleQR();
     navigate(path);
   }, [navigate, toggleQR]);
