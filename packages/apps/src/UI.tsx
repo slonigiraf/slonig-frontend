@@ -47,14 +47,25 @@ function UI({ className = '' }: Props): React.ReactElement<Props> {
   const lessonId = useSettingValue(SettingKey.LESSON);
   const lastBackup = useNumberSettingValue(SettingKey.LAST_BACKUP_TIME);
   const now = (new Date()).getTime();
-  const lastBackupMs = lastBackup === undefined ? 0 :  lastBackup;
-  const shouldBackup = lastBackupMs !== null? (now - lastBackupMs) > BACKUP_REQUIREMENT_PERIOD_MS : false;
+  const lastBackupMs = lastBackup === undefined ? 0 : lastBackup;
+  const shouldBackup = lastBackupMs !== null ? (now - lastBackupMs) > BACKUP_REQUIREMENT_PERIOD_MS : false;
 
   const [isIncognito, setIsIncognito] = useState<boolean | null>(null);
 
   useEffect(() => {
     isIncognito && logEvent('INFO', 'INCOGNITO');
   }, [logEvent, isIncognito]);
+
+  useEffect(() => {
+    const initilizeLastBackupTime = async () => {
+      if (lastBackupMs === 0) {
+        const QUARTER_LESSON = 15 * 60 * 1000;
+        const backupTime = (new Date()).getTime() - BACKUP_REQUIREMENT_PERIOD_MS + QUARTER_LESSON;
+        await storeSetting(SettingKey.LAST_BACKUP_TIME, backupTime.toString());
+      }
+    }
+    initilizeLastBackupTime();
+  }, [lastBackupMs]);
 
   useEffect(() => {
     const lang = (i18n.resolvedLanguage || i18n.language || 'en')
@@ -191,7 +202,7 @@ function UI({ className = '' }: Props): React.ReactElement<Props> {
             <Menu />
             <BlockchainSyncProvider>
               {showOnboarding && <ClassOnboarding />}
-              {shouldBackup && <BackupReminder onResult={onBackup}/>}
+              {shouldBackup && <BackupReminder onResult={onBackup} />}
               <>
                 <Content />
                 {!botInUrl && <BottomMenu />}
