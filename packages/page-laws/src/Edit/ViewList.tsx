@@ -197,7 +197,7 @@ function ViewList({ className = '', id, cidString, isClassInstructionShown, setI
         results.flatMap((r) => r.itemsToLearnToday),
         LESSON_LENGTH_SEC
       );
-      
+
       setCanBeLearnedToday(toLearn);
       setIsThereAnythingToLearn(toLearn.length > 0);
       const toExamine = results.flatMap((r) => r.itemsToReexamine);
@@ -213,8 +213,21 @@ function ViewList({ className = '', id, cidString, isClassInstructionShown, setI
   }, [list, itemsWithCID, isIpfsReady, ipfs, modulesProgress, studentIdentity]);
 
   useEffect(() => {
-    (lessonInUrl || showSkillQrInUrl) && list && list.t !== null && list.t === LawType.MODULE && logEvent('LEARNING', 'AUTO_SHOW_QR', list.h);
-  }, [lessonInUrl, showSkillQrInUrl, list]);
+    if (
+      !(lessonInUrl || showSkillQrInUrl) ||
+      !list ||
+      list.t === null ||
+      (list.t !== LawType.MODULE && list.t !== LawType.COURSE)
+    ) {
+      return;
+    }
+
+    const timeout = setTimeout(() => {
+      logEvent('LEARNING', 'AUTO_SHOW_QR', list.h);
+    }, 1000);
+
+    return () => clearTimeout(timeout);
+  }, [lessonInUrl, showSkillQrInUrl, list, logEvent]);
 
   const processLearn = useCallback((): void => {
     if (list?.t === LawType.COURSE) setSelectedItems(canBeLearnedToday);
@@ -358,6 +371,7 @@ function ViewList({ className = '', id, cidString, isClassInstructionShown, setI
           </ButtonsRow>
           {isLaunchLearnConfirmOpen && (
             <LearningRouter
+              key="learn"
               courseId={list?.p}
               question={t('Select what to learn')}
               onClose={() => setIsLaunchLearnConfirmOpen(false)}
@@ -365,6 +379,7 @@ function ViewList({ className = '', id, cidString, isClassInstructionShown, setI
           )}
           {isLaunchExamConfirmOpen && (
             <LearningRouter
+              key="exam"
               isExam={true}
               courseId={list?.p}
               question={t('Select what to examine')}
