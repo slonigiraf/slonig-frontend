@@ -35,10 +35,12 @@ Here is a list of user actions tracked by Slonig:
 | ✅ | ONBOARDING | PRESSING_EXAMPLES_TUTORIAL_COMPLETED | N/A | N/A |
 | ✅ | ONBOARDING | RECRUITED_OTHER_TUTOR | N/A | N/A |
 | ✅ | ONBOARDING | ATTEMPT_TO_WARMUP_WRONG_TUTOR | N/A | N/A |
-| ✅ | LEARNING | AUTO_SHOW_QR | KnowledgeName | N/A |
-| ✅ | LEARNING | CLICK_LEARN | KnowledgeName | N/A |
-| ✅ | LEARNING | CLICK_EXAM | KnowledgeName | N/A |
-| ✅ | LEARNING | REDIRECT_TO_COURSE | KnowledgeName | N/A |
+| ✅ | LEARNING | AUTO_SHOW_QR | N/A | N/A |
+| ✅ | LEARNING | CLICK_LEARN | N/A | N/A |
+| ✅ | LEARNING | CLICK_EXAM | N/A | N/A |
+| ✅ | LEARNING | LEARNING_REQUESTED | KnowledgeName | N/A |
+| ✅ | LEARNING | EXAM_REQUESTED | KnowledgeName | N/A |
+| ✅ | LEARNING | REDIRECT_TO_COURSE | N/A | N/A |
 | ✅ | LEARNING | CANCEL |  N/A | N/A |
 | ✅ | SCAN | OPEN | N/A | N/A |
 | ✅ | SCAN | SUCCESS | N/A | N/A |

@@ -223,11 +223,12 @@ function ViewList({ className = '', id, cidString, isClassInstructionShown, setI
     }
 
     const timeout = setTimeout(() => {
-      logEvent('LEARNING', 'AUTO_SHOW_QR', list.h);
+      logEvent('LEARNING', 'AUTO_SHOW_QR');
+      logEvent('LEARNING', examInUrl ? 'EXAM_REQUESTED' : 'LEARNING_REQUESTED', list.h);
     }, 1000);
 
     return () => clearTimeout(timeout);
-  }, [lessonInUrl, showSkillQrInUrl, list, logEvent]);
+  }, [lessonInUrl, examInUrl, showSkillQrInUrl, list, logEvent]);
 
   const processLearn = useCallback((): void => {
     if (list?.t === LawType.COURSE) setSelectedItems(canBeLearnedToday);
@@ -236,7 +237,7 @@ function ViewList({ className = '', id, cidString, isClassInstructionShown, setI
   }, [list, canBeLearnedToday, logEvent]);
 
   const learnClicked = useCallback((): void => {
-    list && logEvent('LEARNING', 'CLICK_LEARN', list.h);
+    list && logEvent('LEARNING', 'CLICK_LEARN');
     if (list?.t === LawType.MODULE && list.p) {
       setIsLaunchLearnConfirmOpen(true);
     } else {
@@ -251,7 +252,7 @@ function ViewList({ className = '', id, cidString, isClassInstructionShown, setI
   }, [list, canBeExamined, logEvent]);
 
   const examClicked = useCallback((): void => {
-    list && logEvent('LEARNING', 'CLICK_EXAM', list.h);
+    list && logEvent('LEARNING', 'CLICK_EXAM');
     if (list?.t === LawType.MODULE && list.p) {
       setIsLaunchExamConfirmOpen(true);
     } else {
@@ -375,7 +376,11 @@ function ViewList({ className = '', id, cidString, isClassInstructionShown, setI
               courseId={list?.p}
               question={t('Select what to learn')}
               onClose={() => setIsLaunchLearnConfirmOpen(false)}
-              onConfirm={processLearn} />
+              onConfirm={() => {
+                logEvent('LEARNING', 'LEARNING_REQUESTED', list?.h);
+                processLearn();
+              }
+              } />
           )}
           {isLaunchExamConfirmOpen && (
             <LearningRouter
@@ -384,7 +389,10 @@ function ViewList({ className = '', id, cidString, isClassInstructionShown, setI
               courseId={list?.p}
               question={t('Select what to examine')}
               onClose={() => setIsLaunchExamConfirmOpen(false)}
-              onConfirm={processExam} />
+              onConfirm={() => {
+                logEvent('LEARNING', 'EXAM_REQUESTED', list?.h);
+                processExam();
+              }} />
           )}
         </>
     )}
