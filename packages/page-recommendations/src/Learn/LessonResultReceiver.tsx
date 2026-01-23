@@ -118,25 +118,31 @@ function LessonResultReceiver({ webRTCPeerId, onDaysRangeChange }: Props): React
                 await setSettingToTrue(SettingKey.NOW_IS_CLASS_ONBOARDING);
               }
             }
-            lessonResult.letters.forEach(async (serializedLetter) => {
-              const letter = deserializeLetter(serializedLetter, lessonResult.workerId, lessonResult.genesis, lessonResult.amount);
-              const sameSkillLetters = await getLettersForKnowledgeId(letter.workerId, letter.knowledgeId);
-              if (sameSkillLetters.length === 0 || sameSkillLetters.length === 1) {
-                if (sameSkillLetters.length === 1 && letter.knowledgeId === EXAMPLE_SKILL_KNOWLEDGE_ID) {
-                  await deleteLetter(sameSkillLetters[0].pubSign);
-                }
-                const hasTuteeCompletedTutorial = await getSetting(SettingKey.TUTEE_TUTORIAL_COMPLETED);
-                if (hasTuteeCompletedTutorial !== 'true') {
-                  logEvent('ONBOARDING', 'TUTEE_TUTORIAL_COMPLETED');
-                  await setSettingToTrue(SettingKey.TUTEE_TUTORIAL_COMPLETED);
-                }
-                await deleteRepetition(letter.workerId, letter.knowledgeId);
-                const validLetters = await getLettersForKnowledgeId(letter.workerId, letter.knowledgeId);
-                if (validLetters.length === 0) {
-                  await putLetter(letter);
-                }
+
+            if (lessonResult.letters.length === 1) {
+              const hasTuteeCompletedTutorial = await getSetting(SettingKey.TUTEE_TUTORIAL_COMPLETED);
+              if (hasTuteeCompletedTutorial !== 'true') {
+                logEvent('ONBOARDING', 'TUTEE_TUTORIAL_COMPLETED');
+                await setSettingToTrue(SettingKey.TUTEE_TUTORIAL_COMPLETED);
               }
-            });
+            }
+
+            await Promise.all(
+              lessonResult.letters.map(async (serializedLetter) => {
+                const letter = deserializeLetter(serializedLetter, lessonResult.workerId, lessonResult.genesis, lessonResult.amount);
+                const sameSkillLetters = await getLettersForKnowledgeId(letter.workerId, letter.knowledgeId);
+                if (sameSkillLetters.length === 0 || sameSkillLetters.length === 1) {
+                  if (sameSkillLetters.length === 1 && letter.knowledgeId === EXAMPLE_SKILL_KNOWLEDGE_ID) {
+                    await deleteLetter(sameSkillLetters[0].pubSign);
+                  }
+                  await deleteRepetition(letter.workerId, letter.knowledgeId);
+                  const validLetters = await getLettersForKnowledgeId(letter.workerId, letter.knowledgeId);
+                  if (validLetters.length === 0) {
+                    await putLetter(letter);
+                  }
+                }
+              })
+            );
             if (!lessonResult.tutorIsExperienced) {
               logEvent('ONBOARDING', 'RECRUITED_OTHER_TUTOR');
             }
