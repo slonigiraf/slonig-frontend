@@ -5,10 +5,11 @@ import React, { useEffect, useState } from 'react';
 import InsurancesList from './InsurancesList.js';
 import { useTranslation } from '../translate.js';
 import { u8aToHex } from '@polkadot/util';
-import { QRWithShareAndCopy, nameFromKeyringPair, getBaseUrl, useLoginContext, CenterQRContainer, Person, StyledContentCloseButton, qrWidthPx, useLog } from '@slonigiraf/slonig-components';
-import { getPseudonym } from '@slonigiraf/db';
+import { QRWithShareAndCopy, nameFromKeyringPair, getBaseUrl, useLoginContext, CenterQRContainer, Person, StyledContentCloseButton, qrWidthPx, useLog, useBooleanSettingValue } from '@slonigiraf/slonig-components';
+import { getPseudonym, SettingKey } from '@slonigiraf/db';
 import InsurancesReceiver from './InsurancesReceiver.js';
 import PersonSelector from '../PersonSelector.js';
+import { Button, styled } from '@polkadot/react-components';
 
 interface Props {
   className?: string;
@@ -17,12 +18,21 @@ interface Props {
 function Assess({ className = '' }: Props): React.ReactElement<Props> {
   const { t } = useTranslation();
   const { logEvent } = useLog();
+  const assessmentTutorialCompleted = useBooleanSettingValue(SettingKey.ASSESSMENT_TUTORIAL_COMPLETED);
   // Initialize account
   const { currentPair, isLoggedIn } = useLoginContext();
   const [student, setStudent] = useState<Person | null>(null);
   const publicKeyHex = currentPair ? u8aToHex(currentPair.publicKey) : "";
   const name = nameFromKeyringPair(currentPair);
+  const [isAssessmentAllowed, setIsAssessmentAllowed] = useState(false);
+
   const url = getBaseUrl() + `/#/badges?employer=${publicKeyHex}&name=${encodeURIComponent(name)}`;
+
+  useEffect(() => {
+    if (assessmentTutorialCompleted === true) {
+      setIsAssessmentAllowed(true);
+    }
+  }, [assessmentTutorialCompleted]);
 
   const handleStudentSelect = async (selectedKey: string) => {
     if (selectedKey) {
@@ -43,10 +53,18 @@ function Assess({ className = '' }: Props): React.ReactElement<Props> {
     }
   }, [isLoggedIn, student]);
 
+  const guard = <StyledDiv>
+    <h1>{t('Are you a parent or a teacher?')}</h1>
+    <ButtonsRow>
+      <Button className='highlighted--button' label={t('Parent')} onClick={() => setIsAssessmentAllowed(true)} />
+      <Button className='highlighted--button' label={t('Teacher')} onClick={() => setIsAssessmentAllowed(true)} />
+    </ButtonsRow>
+  </StyledDiv>;
+
   return (
     <div className={`toolbox--Student ${className}`}>
       {
-        isLoggedIn && <>
+        isLoggedIn && !isAssessmentAllowed ? guard : <>
           {student ?
             <div className='ui--row'>
               <StyledContentCloseButton onClick={() => setStudent(null)}
@@ -77,4 +95,32 @@ function Assess({ className = '' }: Props): React.ReactElement<Props> {
   );
 
 }
+
+const StyledDiv = styled.div`
+  flex: 1;
+  width: 100%;
+  min-height: 0;
+  display: flex;
+  align-items: center;
+  text-align: center;
+  justify-content: center;
+  flex-direction: column;
+  gap: 10px;
+  h1 {
+    margin-bottom: 0px;
+  }
+`;
+
+const ButtonsRow = styled.div`
+  width: 100%;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  column-gap: 40px;
+  .ui--Button {
+    width: 100px;
+    text-align: center;
+  }
+`;
+
 export default React.memo(Assess);
