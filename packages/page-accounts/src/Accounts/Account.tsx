@@ -148,15 +148,16 @@ function Account({ account: { address, meta }, className = '', filter, setBalanc
           label={t('Edit')}
           onClick={toggleEdit}
         />
-      ),
-      !(isInjected || isDevelopment) && (
-        <Menu.Item
-          icon='trash-alt'
-          key='forgetAccount'
-          label={t('Delete this account')}
-          onClick={toggleForget}
-        />
       )
+      // ,
+      // !(isInjected || isDevelopment) && (
+      //   <Menu.Item
+      //     icon='trash-alt'
+      //     key='forgetAccount'
+      //     label={t('Delete this account')}
+      //     onClick={toggleForget}
+      //   />
+      // )
     ], ''),
   ].filter((i) => i),
     [t, toggleEdit, toggleForget]);
