@@ -9,8 +9,6 @@ import { useApi } from '@polkadot/react-hooks';
 import WarmUp from './WarmUp.js';
 import UI from './UI.js';
 import { IpfsProvider, TokenTransferProvider, InfoProvider, LoginProvider, LogProvider } from '@slonigiraf/slonig-components';
-import { useAppVersionReload } from './useAppVersionReload.js';
-import AskToReload from './AskToReload.js';
 export const PORTAL_ID = 'portals';
 
 function Apps({ className = '' }: Props): React.ReactElement<Props> {
@@ -22,30 +20,19 @@ function Apps({ className = '' }: Props): React.ReactElement<Props> {
     [apiEndpoint, isDevelopment]
   );
 
-  const { updateAvailable, reloadNow } = useAppVersionReload({
-    url: '/version.json',
-    intervalMs: 60_000,
-    initialDelayMs: 60_000
-  });
-
   return (
     <LogProvider>
-
       <InfoProvider>
         <IpfsProvider>
           <GlobalStyle uiHighlight={uiHighlight} />
-          {updateAvailable ? <AskToReload reload={reloadNow} /> :
-            <>
-              <LoginProvider>
-                <TokenTransferProvider>
-                  <UI />
-                </TokenTransferProvider>
-              </LoginProvider>
-              <WarmUp />
-            </>}
+          <LoginProvider>
+            <TokenTransferProvider>
+              <UI />
+            </TokenTransferProvider>
+          </LoginProvider>
+          <WarmUp />
         </IpfsProvider>
       </InfoProvider>
-
     </LogProvider>
   );
 }

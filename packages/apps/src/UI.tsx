@@ -22,6 +22,8 @@ import BN from 'bn.js';
 import ClassOnboarding from './ClassOnboarding.js';
 import BackupReminder from './BackupReminder.js';
 import { BACKUP_REQUIREMENT_PERIOD_MS } from '@slonigiraf/utils';
+import { useAppVersionReload } from './useAppVersionReload.js';
+import AskToReload from './AskToReload.js';
 
 function UI({ className = '' }: Props): React.ReactElement<Props> {
   const { isLoginReady, isLoggedIn, currentPair, setLoginIsRequired, onCreateAccount } = useLoginContext();
@@ -49,8 +51,16 @@ function UI({ className = '' }: Props): React.ReactElement<Props> {
   const now = (new Date()).getTime();
   const lastBackupMs = lastBackup === undefined ? 0 : lastBackup;
   const shouldBackup = lastBackupMs !== null ? (now - lastBackupMs) > BACKUP_REQUIREMENT_PERIOD_MS : false;
-
   const [isIncognito, setIsIncognito] = useState<boolean | null>(null);
+
+  const { currentVersion, updateAvailable, reloadNow } = useAppVersionReload({
+    url: '/version.json',
+    intervalMs: 60_000
+  });
+
+  useEffect(() => {
+    currentVersion && logEvent('INFO', 'VERSION', currentVersion)
+  }, [logEvent, currentVersion]);
 
   useEffect(() => {
     isIncognito && logEvent('INFO', 'INCOGNITO');
@@ -203,6 +213,7 @@ function UI({ className = '' }: Props): React.ReactElement<Props> {
             <BlockchainSyncProvider>
               {showOnboarding && <ClassOnboarding />}
               {shouldBackup && <BackupReminder onResult={onBackup} />}
+              {updateAvailable && <AskToReload reload={reloadNow} />}
               <>
                 <Content />
                 {!botInUrl && <BottomMenu />}

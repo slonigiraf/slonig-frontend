@@ -26,6 +26,7 @@ Here is a list of user actions tracked by Slonig:
 | --- | --- | --- | --- | --- |
 | ✅ | INFO | INCOGNITO | N/A | N/A |
 | ✅ | INFO | LANGUAGE | two_letter_code | N/A |
+| ✅ | INFO | VERSION | N/A | N/A |
 | ✅ | ONBOARDING | SIGN_UP | N/A | N/A |
 | ✅ | ONBOARDING | BACKUP | success | backup file size |
 | ✅ | ONBOARDING | BACKUP | error | N/A |

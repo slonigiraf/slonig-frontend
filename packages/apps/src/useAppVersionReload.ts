@@ -1,3 +1,4 @@
+import { useLog } from '@slonigiraf/slonig-components';
 import { useEffect, useRef, useState } from 'react';
 
 type VersionResponse = {
@@ -31,7 +32,6 @@ async function fetchVersion(url = '/version.json'): Promise<string | null> {
 export function useAppVersionReload(options?: {
   url?: string;
   intervalMs?: number;
-  initialDelayMs?: number;
 }): {
   updateAvailable: boolean;
   reloadNow: () => void;
@@ -39,8 +39,7 @@ export function useAppVersionReload(options?: {
   latestVersion: string | null;
 } {
   const url = options?.url ?? '/version.json';
-  const intervalMs = options?.intervalMs ?? 60_000; // 1 min
-  const initialDelayMs = options?.initialDelayMs ?? 5_000;
+  const intervalMs = options?.intervalMs ?? 60_000;
 
   const [updateAvailable, setUpdateAvailable] = useState(false);
   const [currentVersion, setCurrentVersion] = useState<string | null>(null);
@@ -73,10 +72,8 @@ export function useAppVersionReload(options?: {
       }
     };
 
-    timer = setTimeout(() => {
-      void check();
-      interval = setInterval(() => void check(), intervalMs);
-    }, initialDelayMs);
+    void check();
+    interval = setInterval(() => void check(), intervalMs);
 
     return () => {
       stoppedRef.current = true;
@@ -84,7 +81,7 @@ export function useAppVersionReload(options?: {
       if (interval) clearInterval(interval);
     };
     // Intentionally include currentVersion so we compare against latest baseline
-  }, [url, intervalMs, initialDelayMs, currentVersion]);
+  }, [url, intervalMs, currentVersion]);
 
   const reloadNow = () => {
     // Force reload (bypass some caches)
