@@ -4,12 +4,17 @@ import { Button, Modal, styled } from '@polkadot/react-components';
 import { VerticallyCenteredModal } from './index.js';
 interface Props {
   question: string;
+  agreeText?: string;
+  disagreeText?: string;
+  decorator?: React.ReactNode;
   onClose: () => void;
   onConfirm: () => void;
 }
 
-function Confirmation({ question, onClose, onConfirm }: Props): React.ReactElement<Props> | null {
+function Confirmation({ question, agreeText, disagreeText, decorator, onClose, onConfirm }: Props): React.ReactElement<Props> | null {
   const { t } = useTranslation();
+  const yes = agreeText || t('Yes');
+  const no = disagreeText || t('No');
 
   return (
     <VerticallyCenteredModal
@@ -18,11 +23,12 @@ function Confirmation({ question, onClose, onConfirm }: Props): React.ReactEleme
       size="tiny"
     >
       <Modal.Content>
+        {decorator}
         <Title>{question}</Title>
         <br />
         <ButtonsRow>
-          <Button className='highlighted--button' label={t('Yes')} onClick={onConfirm} />
-          <Button className='highlighted--button' label={t('No')} onClick={onClose} />
+          <Button className='highlighted--button' label={yes} onClick={onConfirm} />
+          <Button className='highlighted--button' label={no} onClick={onClose} />
         </ButtonsRow>
       </Modal.Content>
     </VerticallyCenteredModal>

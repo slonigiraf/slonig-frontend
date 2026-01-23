@@ -40,6 +40,8 @@ Here is a list of user actions tracked by Slonig:
 | ✅ | ONBOARDING | ATTEMPT_TO_WARMUP_WRONG_TUTOR | N/A | N/A |
 | ✅ | CLASSROOM | NEW_PARTNER_FOUND | N/A | N/A |
 | ✅ | CLASSROOM | UNIQUE_PARTNERS_COUNT | unique_partners_count_# | N/A |
+| ✅ | CLASSROOM | POSTPONE_PARTNER_CHANGE | N/A | N/A |
+| ✅ | CLASSROOM | AGREE_PARTNER_CHANGE | N/A | N/A |
 | ✅ | LEARNING | AUTO_SHOW_LESSON_REQUEST_QR | N/A | N/A |
 | ✅ | LEARNING | CLICK_LEARN | N/A | N/A |
 | ✅ | LEARNING | CLICK_EXAM | N/A | N/A |
@@ -92,6 +94,7 @@ Here is a list of user actions tracked by Slonig:
 | ✅ | TUTORING | RESULTS | auto_send_opened | amount |
 | ✅ | TUTORING | RESULTS | click_send_during_lesson | N/A |
 | ✅ | TUTORING | RESULTS | click_send_at_list_of_lessons |  N/A |
+| ✅ | TUTORING | RESULTS | click_agree_to_send_results | N/A |
 | ✅ | TUTORING | RESULTS | badges | count |
 | ✅ | TUTORING | RESULTS | repetitions | count |
 | ✅ | TUTORING | RESULTS | reexaminations | count |

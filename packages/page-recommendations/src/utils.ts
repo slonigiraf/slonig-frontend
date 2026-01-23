@@ -7,14 +7,14 @@ import { ONE_SUBJECT_PERIOD_MS } from "@slonigiraf/utils";
  * Also keeps uniqueness info for return values.
  *
  * Behavior:
- * - Always appends `identity` to PAIRS_WITHIN_CLASSROOM (history).
+ * - Always appends `identity` to PARTNERS_WITHIN_CLASSROOM (history).
  * - Resets the array if subject period window elapsed.
- * - LAST_PAIR_CHANGE_TIME is updated when we start a new window OR when partner differs from last.
+ * - LAST_PARTNER_CHANGE_TIME is updated when we start a new window OR when partner differs from last.
  */
 export async function processNewPartner(identity: string): Promise<PartnersTodayResult> {
   const now = Date.now();
 
-  const lastTimePairChangeRaw = await getSetting(SettingKey.LAST_PAIR_CHANGE_TIME);
+  const lastTimePairChangeRaw = await getSetting(SettingKey.LAST_PARTNER_CHANGE_TIME);
   const lastTimePairChange = timeStampStringToNumber(lastTimePairChangeRaw);
 
   const isNewWindow =
@@ -23,7 +23,7 @@ export async function processNewPartner(identity: string): Promise<PartnersToday
   // Load history array unless window expired (then start fresh)
   let history: string[] = [];
   if (!isNewWindow) {
-    const raw = await getSetting(SettingKey.PAIRS_WITHIN_CLASSROOM);
+    const raw = await getSetting(SettingKey.PARTNERS_WITHIN_CLASSROOM);
     if (raw) {
       try {
         const parsed = JSON.parse(raw);
@@ -41,7 +41,7 @@ export async function processNewPartner(identity: string): Promise<PartnersToday
 
   // Always push (history, can include duplicates)
   history.push(identity);
-  await storeSetting(SettingKey.PAIRS_WITHIN_CLASSROOM, JSON.stringify(history));
+  await storeSetting(SettingKey.PARTNERS_WITHIN_CLASSROOM, JSON.stringify(history));
 
   // Unique counts / "new today" computed from uniques
   const uniques = new Set(history);
@@ -67,7 +67,7 @@ export async function processNewPartner(identity: string): Promise<PartnersToday
   // - new window (start of a fresh "today")
   // - or partner changed vs last (what you previously treated as "pair change")
   if (isNewWindow || isDifferentFromLast) {
-    await storeSetting(SettingKey.LAST_PAIR_CHANGE_TIME, now.toString());
+    await storeSetting(SettingKey.LAST_PARTNER_CHANGE_TIME, now.toString());
   }
 
   return {

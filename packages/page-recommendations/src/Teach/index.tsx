@@ -1,9 +1,9 @@
 // Copyright 2021-2022 @slonigiraf/app-recommendations authors & contributors
 // SPDX-License-Identifier: Apache-2.0
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { Button, LinearProgress, styled } from '@polkadot/react-components';
 import { u8aToHex } from '@polkadot/util';
-import { Confirmation, OKBox, FullFindow, VerticalCenterItemsContainer, useInfo, useLoginContext, HintBubble, useBooleanSettingValue, useLog } from '@slonigiraf/slonig-components';
+import { Confirmation, OKBox, FullFindow, VerticalCenterItemsContainer, useInfo, useLoginContext, HintBubble, useBooleanSettingValue, useLog, useNumberSettingValue } from '@slonigiraf/slonig-components';
 import { LetterTemplate, Lesson, Reexamination, getPseudonym, getLesson, getLetterTemplatesByLessonId, getReexaminationsByLessonId, getSetting, storeSetting, updateLesson, getLetter, getReexamination, SettingKey, deleteSetting, isThereAnyLessonResult, setSettingToTrue } from '@slonigiraf/db';
 import DoInstructions from './DoInstructions.js';
 import LessonsList from './LessonsList.js';
@@ -45,6 +45,7 @@ function Teach({ className = '' }: Props): React.ReactElement<Props> {
   const [areResultsShown, setResultsShown] = useState(false);
   const [isExitConfirmOpen, setIsExitConfirmOpen] = useState(false);
   const hasTutorCompletedTutorial = useBooleanSettingValue(SettingKey.TUTOR_TUTORIAL_COMPLETED);
+  const lastPartnerChangeTime = useNumberSettingValue(SettingKey.LAST_PARTNER_CHANGE_TIME);
   const [hasTuteeUsedSlonig, setHasTuteeUsedSlonig] = useState(false);
   const [isSendingResultsEnabled, setIsSendingResultsEnabled] = useState<boolean | undefined>(undefined);
   const [isHelpQRInfoShown, setIsHelpQRInfoShown] = useState(showHelpQRInfo);
@@ -52,12 +53,49 @@ function Teach({ className = '' }: Props): React.ReactElement<Props> {
   const [tooFastConfirmationIsShown, setTooFastConfirmationIsShown] = useState(false);
   const [fastDiscussedSkillsCount, setFastDiscussedSkillsCount] = useState(0);
   const [warningCount, setWarningCount] = useState(0);
+  const [isPairChangeDialogueOpen, setIsPairChangeDialogueOpen] = useState(false);
+  const lastTimeBucketRef = useRef<number | null>(null);
 
   useEffect(() => {
     if (!lastSkillDiscussedTime && (letterTemplateToIssue !== null || reexaminationToPerform !== null)) {
       setLastSkillDiscussedTime((new Date()).getTime());
     }
   }, [lastSkillDiscussedTime, letterTemplateToIssue, reexaminationToPerform]);
+
+  const QUARTER_MS = 15 * 60_000;
+  const SUPPRESS_MS = 7 * 60_000;
+
+  useEffect(() => {
+    if (isPairChangeDialogueOpen) return;
+
+    const tick = () => {
+      if (isPairChangeDialogueOpen) return;
+
+      const now = Date.now();
+
+      // suppression: last partner change within 7 minutes
+      if (lastPartnerChangeTime && now - lastPartnerChangeTime < SUPPRESS_MS) return;
+
+      // integer division buckets of 15 minutes
+      const bucket = Math.floor(now / QUARTER_MS);
+
+      // first run: initialize
+      if (lastTimeBucketRef.current === null) {
+        lastTimeBucketRef.current = bucket;
+        return;
+      }
+
+      // bucket changed => crossed a 15-min boundary
+      if (bucket !== lastTimeBucketRef.current) {
+        lastTimeBucketRef.current = bucket;
+        setIsPairChangeDialogueOpen(true);
+      }
+    };
+
+    tick();
+    const id = setInterval(tick, 1000);
+    return () => clearInterval(id);
+  }, [lastPartnerChangeTime, isPairChangeDialogueOpen, setIsPairChangeDialogueOpen]);
 
   const protectTutor = useCallback(async (isLearning: boolean, action: () => Promise<void>) => {
     if (!lastSkillDiscussedTime) return;
@@ -99,7 +137,7 @@ function Teach({ className = '' }: Props): React.ReactElement<Props> {
       logTime(isLearning, timeSpent);
       await action();
     }
-    
+
   }, [hasTutorCompletedTutorial, fastDiscussedSkillsCount, lastSkillDiscussedTime, setTooFastConfirmationIsShown]);
 
   useEffect(() => {
@@ -268,6 +306,8 @@ function Teach({ className = '' }: Props): React.ReactElement<Props> {
     }
   }, [lesson, hasTutorCompletedTutorial, reexamined, reexaminationToPerform, letterTemplateToIssue, updateReexamined]);
 
+  const clock = <ClockDiv>🕑</ClockDiv>;
+
   const isTutorial = lesson?.cid === EXAMPLE_MODULE_KNOWLEDGE_CID;
   const reexamAndDiplomaIssuing = <FullFindow>
     <VerticalCenterItemsContainer>
@@ -341,6 +381,28 @@ function Teach({ className = '' }: Props): React.ReactElement<Props> {
           {tooFastConfirmationIsShown && (
             <OKBox info={t('Please teach more slowly and follow all the hints carefully.')} onClose={tutorUnderstoodWarning} />
           )}
+          {
+            lesson && isPairChangeDialogueOpen && <Confirmation
+              decorator={clock}
+              question={t('It’s time to send the results and find a new partner to learn from.')}
+              agreeText={t('Agree')}
+              disagreeText={t('Postpone')}
+              onClose={() => {
+                setIsPairChangeDialogueOpen(false);
+                logEvent('CLASSROOM', 'POSTPONE_PARTNER_CHANGE');
+              }}
+              onConfirm={() => {
+                setIsPairChangeDialogueOpen(false);
+                logEvent('CLASSROOM', 'AGREE_PARTNER_CHANGE');
+                if (isSendingResultsEnabled) {
+                  logEvent('TUTORING', 'RESULTS', 'click_agree_to_send_results');
+                  onShowResults(lesson);
+                } else {
+                  onCloseResults();
+                }
+              }}
+            />
+          }
         </>
       }
     </div>
@@ -363,6 +425,12 @@ const SendResults = styled.div<{ $blur: boolean }>`
 
 const Spacer = styled.div`
   width: 20px;
+`;
+const ClockDiv = styled.div`
+  margin: 5px;  
+  width: 100%;
+  font-size: 4em;
+  text-align: center;
 `;
 const Progress = styled.div`
   margin-top: 20px;
