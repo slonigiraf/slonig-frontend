@@ -48,21 +48,26 @@ function Teach({ className = '' }: Props): React.ReactElement<Props> {
   const [hasTuteeUsedSlonig, setHasTuteeUsedSlonig] = useState(false);
   const [isSendingResultsEnabled, setIsSendingResultsEnabled] = useState<boolean | undefined>(undefined);
   const [isHelpQRInfoShown, setIsHelpQRInfoShown] = useState(showHelpQRInfo);
-  const [lastSkillDiscussedTime, setLastSkillDiscussedTime] = useState<number|null>(null);
+  const [lastSkillDiscussedTime, setLastSkillDiscussedTime] = useState<number | null>(null);
   const [tooFastConfirmationIsShown, setTooFastConfirmationIsShown] = useState(false);
   const [fastDiscussedSkillsCount, setFastDiscussedSkillsCount] = useState(0);
 
   useEffect(() => {
-    if(!lastSkillDiscussedTime && (letterTemplateToIssue !== null || reexaminationToPerform  !== null)){
+    if (!lastSkillDiscussedTime && (letterTemplateToIssue !== null || reexaminationToPerform !== null)) {
       setLastSkillDiscussedTime((new Date()).getTime());
     }
   }, [lastSkillDiscussedTime, letterTemplateToIssue, reexaminationToPerform]);
 
   const protectTutor = useCallback((isLearning: boolean) => {
-    if(!lastSkillDiscussedTime) return;
+    if (!lastSkillDiscussedTime) return;
 
     const now = (new Date()).getTime();
     const timeSpent = now - lastSkillDiscussedTime;
+
+    if (!hasTutorCompletedTutorial) {
+      logEvent('ONBOARDING', 'TUTOR_TUTORIAL_TIME', 'tutor_tutorial_time_sec', Math.round(timeSpent / 1000));
+      return;
+    }
 
     logEvent('TUTORING',
       isLearning ? 'TEACH_SKILL_TIME' : 'REEXAMINE_SKILL_TIME',
@@ -89,7 +94,7 @@ function Teach({ className = '' }: Props): React.ReactElement<Props> {
       setFastDiscussedSkillsCount(0);
     }
     setLastSkillDiscussedTime(now);
-  }, [fastDiscussedSkillsCount, lastSkillDiscussedTime, setTooFastConfirmationIsShown]);
+  }, [hasTutorCompletedTutorial, fastDiscussedSkillsCount, lastSkillDiscussedTime, setTooFastConfirmationIsShown]);
 
   useEffect(() => {
     const checkResults = async () => {
