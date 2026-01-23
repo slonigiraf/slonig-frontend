@@ -129,9 +129,8 @@ function General({ className = '' }: Props): React.ReactElement<Props> {
 
   const saveDeveloper = useCallback(
     async (value: boolean) => {
-      const value_string = value ? "true" : "false";
-      logEvent('SETTINGS', 'DEVELOPER_MODE', value_string);
-      await storeSetting(SettingKey.DEVELOPER, value_string);
+      logEvent('SETTINGS', value? 'CLICK_DEVELOPER_MODE_ON' : 'CLICK_DEVELOPER_MODE_OFF');
+      await storeSetting(SettingKey.DEVELOPER, value ? "true" : "false");
       setDeveloper(value);
       setChanged(true);
     },
@@ -149,11 +148,6 @@ function General({ className = '' }: Props): React.ReactElement<Props> {
 
   return (
     <div className={className}>
-
-      <h2>{t('Achievements')}</h2>
-      <div className='ui--row'>
-        {hasCompletedTutoringTutorial ? <AchievementInfo icon='user-graduate' isDisabled={true} label={t('I know how to teach')} /> : t('None yet')}
-      </div>
       <h2>{t('UI options')}</h2>
       <div className='ui--row'>
         <Dropdown
@@ -244,9 +238,5 @@ function General({ className = '' }: Props): React.ReactElement<Props> {
     </div>
   );
 }
-
-export const AchievementInfo = styled(Button)`
-  color: var(--color-label) !important;
-`;
 
 export default React.memo(General);

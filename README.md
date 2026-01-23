@@ -115,7 +115,8 @@ Here is a list of user actions tracked by Slonig:
 | ✅ | SETTINGS | ECONOMY_DIPLOMA_VALIDITY | days | count |
 | ✅ | SETTINGS | AIRDROP_COMPATIBLE | true/false | N/A |
 | ✅ | SETTINGS | RECEIVED_AIRDROP | tokens | amount |
-| ✅ | SETTINGS | DEVELOPER_MODE | true/false | N/A |
+| ✅ | SETTINGS | CLICK_DEVELOPER_MODE_ON | N/A | N/A |
+| ✅ | SETTINGS | CLICK_DEVELOPER_MODE_OFF | N/A | N/A |
 | ✅ | EDITING | CLICK_EDIT | KnowledgeName | N/A |
 | ✅ | EDITING | CLICK_SAVE | KnowledgeName | N/A |
 | ✅ | EDITING | UPDATED | KnowledgeName | N/A |
