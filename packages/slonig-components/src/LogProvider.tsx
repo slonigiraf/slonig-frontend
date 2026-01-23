@@ -72,10 +72,10 @@ export const LogProvider: React.FC<LogProviderProps> = ({ children }) => {
   const logPairs = useCallback(
     (r: PartnersTodayResult) => {
       if (r.isNewPartnerToday || r.isDifferentFromLast) {
-        logEvent('CLASSROOM', 'PAIR_WAS_CHANGED');
+        logEvent('CLASSROOM', 'NEW_PARTNER_FOUND');
       }
       if (r.isNewPartnerToday) {
-        logEvent('CLASSROOM', 'PAIR_WAS_CHANGED_TIMES', 'pair_was_changed_times_' + r.uniquePartnersToday.toString());
+        logEvent('CLASSROOM', 'NEW_PARTNER_FOUND_TIMES', 'new_partner_found_times_' + r.uniquePartnersToday.toString());
       }
     },
     [logEvent]

@@ -38,8 +38,8 @@ Here is a list of user actions tracked by Slonig:
 | ✅ | ONBOARDING | PRESSING_EXAMPLES_TUTORIAL_COMPLETED | N/A | N/A |
 | ✅ | ONBOARDING | RECRUITED_OTHER_TUTOR | N/A | N/A |
 | ✅ | ONBOARDING | ATTEMPT_TO_WARMUP_WRONG_TUTOR | N/A | N/A |
-| ✅ | CLASSROOM | PAIR_WAS_CHANGED | N/A | N/A |
-| ✅ | CLASSROOM | PAIR_WAS_CHANGED_TIMES | pair_was_changed_times_# | N/A |
+| ✅ | CLASSROOM | NEW_PARTNER_FOUND | N/A | N/A |
+| ✅ | CLASSROOM | NEW_PARTNER_FOUND_TIMES | new_partner_found_times_# | N/A |
 | ✅ | LEARNING | AUTO_SHOW_LESSON_REQUEST_QR | N/A | N/A |
 | ✅ | LEARNING | CLICK_LEARN | N/A | N/A |
 | ✅ | LEARNING | CLICK_EXAM | N/A | N/A |
