@@ -57,7 +57,10 @@ function LessonRequestReceiver({ setCurrentLesson }: Props): React.ReactElement<
         navigate('', { replace: true });
       } else {
         await storePseudonym(lessonRequest.identity, lessonRequest.name);
-        await processNewPartner(lessonRequest.identity);
+        const changedThePair = await processNewPartner(lessonRequest.identity);
+        if(changedThePair){
+          logEvent('CLASSROOM', 'PAIR_WAS_CHANGED');
+        }
 
         let lessonId = lessonRequest.lesson;
         const goWithNormalRequest = dbValueOfHasTutorCompletedTutorial === 'true';

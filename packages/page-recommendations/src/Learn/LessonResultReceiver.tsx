@@ -41,7 +41,11 @@ function LessonResultReceiver({ webRTCPeerId, onDaysRangeChange }: Props): React
   const handleData = useCallback(async (receivedResult: LessonResult) => {
     if (receivedResult.workerId === workerPublicKeyHex) {
       await storePseudonym(receivedResult.referee, receivedResult.refereeName);
-      await processNewPartner(receivedResult.referee);
+      const changedThePair = await processNewPartner(receivedResult.referee);
+      if (changedThePair) {
+        logEvent('CLASSROOM', 'PAIR_WAS_CHANGED');
+      }
+
       setLessonResult(receivedResult);
       const dbAgreement = await getAgreement(receivedResult.agreement);
       const priceToLog = bnToSlonFloatOrNaN(new BN(receivedResult.price));
