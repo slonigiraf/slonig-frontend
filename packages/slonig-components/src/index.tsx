@@ -97,6 +97,15 @@ export interface SignerState {
   signer: Signer | null;
 }
 
+export type PartnersTodayResult = {
+  /** true if `identity` was NOT already present in today's unique set */
+  isNewPartnerToday: boolean;
+  /** count of unique partner identities today */
+  uniquePartnersToday: number;
+  /** true if `identity` !== last partner (the most recent entry) */
+  isDifferentFromLast: boolean;
+};
+
 // Styled components
 export const HintBubble = styled.div<{ tailLeft?: string }>`
   position: absolute;

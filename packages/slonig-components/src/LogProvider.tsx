@@ -1,14 +1,16 @@
 import React, { createContext, useContext, ReactNode, useCallback } from 'react';
-import { bnToSlonFloatOrNaN, bnToSlonString, StoredEconomy } from './index.js';
+import { bnToSlonFloatOrNaN, PartnersTodayResult, StoredEconomy } from './index.js';
 import BN from 'bn.js';
 interface LogContextType {
   logEvent: (category: string, action: string, name?: string, value?: number) => void;
   logEconomy: (storedEconomy: StoredEconomy) => void;
+  logPartners: (partnersTodayResult: PartnersTodayResult) => void;
 }
 
 const defaultLogContext: LogContextType = {
   logEvent: (_category: string, _action: string, _name?: string, _value?: number) => { },
-  logEconomy: (_storedEconomy: StoredEconomy) => { }
+  logEconomy: (_storedEconomy: StoredEconomy) => { },
+  logPartners: (_partnersTodayResult: PartnersTodayResult) => { },
 };
 
 const LogContext = createContext<LogContextType>(defaultLogContext);
@@ -33,7 +35,7 @@ export const LogProvider: React.FC<LogProviderProps> = ({ children }) => {
         /^127(?:\.\d{1,3}){3}$/.test(host);
 
       if (isLocalhost) {
-        console.log(`${category} - ${action}${name? ' - ' + name : ''}${value? ' - ' + value : ''}`)
+        console.log(`${category} - ${action}${name ? ' - ' + name : ''}${value ? ' - ' + value : ''}`)
         return;
       }
 
@@ -67,7 +69,19 @@ export const LogProvider: React.FC<LogProviderProps> = ({ children }) => {
     [logEvent]
   );
 
-  return <LogContext.Provider value={{ logEvent, logEconomy }}>{children}</LogContext.Provider>;
+  const logPairs = useCallback(
+    (r: PartnersTodayResult) => {
+      if (r.isNewPartnerToday || r.isDifferentFromLast) {
+        logEvent('CLASSROOM', 'PAIR_WAS_CHANGED');
+      }
+      if (r.isNewPartnerToday) {
+        logEvent('CLASSROOM', 'PAIR_WAS_CHANGED_TIMES', 'pair_was_changed_times_' + r.uniquePartnersToday.toString());
+      }
+    },
+    [logEvent]
+  );
+
+  return <LogContext.Provider value={{ logEvent, logEconomy, logPartners: logPairs }}>{children}</LogContext.Provider>;
 };
 
 export const useLog = () => useContext(LogContext);

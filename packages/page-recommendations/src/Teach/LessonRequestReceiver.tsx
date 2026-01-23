@@ -20,7 +20,7 @@ function LessonRequestReceiver({ setCurrentLesson }: Props): React.ReactElement<
   const queryParams = new URLSearchParams(location.search);
   const webRTCPeerId = queryParams.get(UrlParams.WEBRTC_PEER_ID);
   const { currentPair } = useLoginContext();
-  const { logEvent } = useLog();
+  const { logEvent, logPartners } = useLog();
   const tutorPublicKeyHex = u8aToHex(currentPair?.publicKey);
   const navigate = useNavigate();
   const { showInfo } = useInfo();
@@ -57,10 +57,8 @@ function LessonRequestReceiver({ setCurrentLesson }: Props): React.ReactElement<
         navigate('', { replace: true });
       } else {
         await storePseudonym(lessonRequest.identity, lessonRequest.name);
-        const changedThePair = await processNewPartner(lessonRequest.identity);
-        if(changedThePair){
-          logEvent('CLASSROOM', 'PAIR_WAS_CHANGED');
-        }
+    
+        logPartners(await processNewPartner(lessonRequest.identity));
 
         let lessonId = lessonRequest.lesson;
         const goWithNormalRequest = dbValueOfHasTutorCompletedTutorial === 'true';

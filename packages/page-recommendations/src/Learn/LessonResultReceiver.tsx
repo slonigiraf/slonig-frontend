@@ -31,7 +31,7 @@ function LessonResultReceiver({ webRTCPeerId, onDaysRangeChange }: Props): React
   const [agreement, setAgreement] = useState<Agreement | null>(null);
   const navigate = useNavigate();
   const { reimburse } = useBlockchainSync();
-  const { logEvent } = useLog();
+  const { logEvent, logPartners } = useLog();
 
   const updateAgreement = useCallback(async (updatedAgreement: Agreement) => {
     await putAgreement(updatedAgreement);
@@ -41,10 +41,7 @@ function LessonResultReceiver({ webRTCPeerId, onDaysRangeChange }: Props): React
   const handleData = useCallback(async (receivedResult: LessonResult) => {
     if (receivedResult.workerId === workerPublicKeyHex) {
       await storePseudonym(receivedResult.referee, receivedResult.refereeName);
-      const changedThePair = await processNewPartner(receivedResult.referee);
-      if (changedThePair) {
-        logEvent('CLASSROOM', 'PAIR_WAS_CHANGED');
-      }
+      logPartners(await processNewPartner(receivedResult.referee));
 
       setLessonResult(receivedResult);
       const dbAgreement = await getAgreement(receivedResult.agreement);

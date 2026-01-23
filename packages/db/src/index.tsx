@@ -62,7 +62,7 @@ export const SettingKey = {
     NOW_IS_CLASS_ONBOARDING: 'NOW_IS_CLASS_ONBOARDING',
     LAST_BACKUP_TIME: 'LAST_BACKUP_TIME',
     LAST_PAIR_CHANGE_TIME: 'LAST_PAIR_CHANGE_TIME',
-    LAST_PAIR: 'LAST_PAIR',
+    PAIRS_WITHIN_CLASSROOM: 'PAIRS_WITHIN_CLASSROOM',
 } as const;
 
 export async function storeSetting(id: string, value: string) {
