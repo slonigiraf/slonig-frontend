@@ -13,7 +13,7 @@ import { getIPFSDataFromContentID, parseJson, useInfo } from '@slonigiraf/slonig
 import { TutoringAlgorithm } from './TutoringAlgorithm.js';
 import ChatSimulation from './ChatSimulation.js';
 import { ErrorType } from '@polkadot/react-params';
-import { MIN_USING_HINT_SEC } from '@slonigiraf/utils';
+import { EXAMPLE_SKILL_KNOWLEDGE_ID, MIN_USING_HINT_SEC } from '@slonigiraf/utils';
 
 interface Props {
   className?: string;
@@ -66,10 +66,12 @@ function DoInstructions({ className = '', entity, onResult, studentName, isSendi
             setSkill(skill);
             if (isLetterTemplate(entity)) {
               const newAlgorithm = new TutoringAlgorithm(t, studentName, skill, hasTuteeUsedSlonig, hasTutorCompletedTutorial ? true : false);
-              logEvent('TUTORING', 'TEACH_START', skill.h);
-              setTimeout(() => {
-                logEvent('TUTORING', 'TEACH_ALGO', newAlgorithm.getBegin().type);
-              }, 500);
+              if (hasTutorCompletedTutorial || skill.i === EXAMPLE_SKILL_KNOWLEDGE_ID) {
+                logEvent('TUTORING', 'TEACH_START', skill.h);
+                setTimeout(() => {
+                  logEvent('TUTORING', 'TEACH_ALGO', newAlgorithm.getBegin().type);
+                }, 500);
+              }
               setAlgorithmType('TEACH_ALGO');
               setAlgorithmStage(newAlgorithm.getBegin());
             } else {
@@ -96,7 +98,7 @@ function DoInstructions({ className = '', entity, onResult, studentName, isSendi
     return () => {
       isComponentMounted = false;
     };
-  }, [ipfs, entity, studentName]);
+  }, [ipfs, entity, studentName, hasTutorCompletedTutorial]);
 
   const processLetter = useCallback(async (isValid?: boolean) => {
     if (!isLetterTemplate(entity)) return;
