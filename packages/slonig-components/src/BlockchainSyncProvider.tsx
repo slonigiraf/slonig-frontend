@@ -96,7 +96,7 @@ export const BlockchainSyncProvider: React.FC<BlockchainSyncProviderProps> = ({ 
                     logEvent('TRANSACTIONS', priceToLog > 0 ? 'RECEIVE' : 'SEND', 'tokens', Math.abs(priceToLog));
                     showInfo(bnToSlonString(balanceChange) + ' Slon', 'info', 4, icon);
                 }
-                if (lessonId && lessonResultsAreShown) {
+                if (balanceChange.gt(BN_ZERO) && lessonId && lessonResultsAreShown) {
                     const lesson = await getLesson(lessonId);
                     if (lesson) {
                         const letterTemplates: LetterTemplate[] = await getValidLetterTemplatesByLessonId(lessonId);
