@@ -22,7 +22,7 @@ function BackupReminder({ className = '', onResult }: Props): React.ReactElement
     <FullFindow>
       <FullscreenActivity caption={''}>
         <StyledDiv>
-          <h1 className='prompt' style={{ width: '70%', maxWidth: 430, textAlign: 'center' }}>{t('Download your backup')}</h1>
+          <h1 className='prompt' style={{ width: '70%', maxWidth: 430, textAlign: 'center' }}>{t('Download your backup in case you erase your browser history')}</h1>
           <DBExport onSuccess={() => onBackup()} />
         </StyledDiv>
       </FullscreenActivity>
