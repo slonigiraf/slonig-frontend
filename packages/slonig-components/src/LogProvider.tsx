@@ -75,7 +75,7 @@ export const LogProvider: React.FC<LogProviderProps> = ({ children }) => {
         logEvent('CLASSROOM', 'NEW_PARTNER_FOUND');
       }
       if (r.isNewPartnerToday) {
-        logEvent('CLASSROOM', 'NEW_PARTNER_FOUND_TIMES', 'new_partner_found_times_' + r.uniquePartnersToday.toString());
+        logEvent('CLASSROOM', 'UNIQUE_PARTNERS_COUNT', 'unique_partners_count_' + r.uniquePartnersToday.toString());
       }
     },
     [logEvent]
