@@ -339,7 +339,7 @@ function Teach({ className = '' }: Props): React.ReactElement<Props> {
             <OKBox info={t('Tell the tutee to scan the same QR code.')} onClose={() => setIsHelpQRInfoShown(false)} />
           )}
           {tooFastConfirmationIsShown && (
-            <OKBox info={t('You are going too fast. Your tutee will forget the skill tomorrow, and you will lose Slon. Follow all the teaching steps carefully.')} onClose={tutorUnderstoodWarning} />
+            <OKBox info={t('Please teach more slowly and follow all the hints carefully.')} onClose={tutorUnderstoodWarning} />
           )}
         </>
       }

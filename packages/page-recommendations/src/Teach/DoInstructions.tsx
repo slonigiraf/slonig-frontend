@@ -377,7 +377,7 @@ function DoInstructions({ className = '', entity, onResult, studentName, isSendi
               )}
           </InstructionsButtonsContainer>
           {tooFastConfirmationIsShown && (
-            <OKBox info={t('You are going too fast. Your tutee will forget the skill tomorrow, and you will lose Slon. Follow all the teaching steps carefully.')} onClose={() => setTooFastConfirmationIsShown(false)} />
+            <OKBox info={t('Please teach more slowly and follow all the hints carefully.')} onClose={() => setTooFastConfirmationIsShown(false)} />
           )}
         </InstructionsContainer>
       ) : (
