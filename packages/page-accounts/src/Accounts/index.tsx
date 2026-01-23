@@ -218,7 +218,7 @@ function Overview({ className = '', onStatusChange }: Props): React.ReactElement
           <PayToAccountQR />
         </CenterQRContainer>
         <Summary balance={balances.summary} />
-        <NoLeftPaddingLabeledContent>
+        {/* <NoLeftPaddingLabeledContent>
           <InputAddress
             key={currentPair?.address + "-" + trigger}
             className='full'
@@ -227,8 +227,8 @@ function Overview({ className = '', onStatusChange }: Props): React.ReactElement
             onChange={_onChangeAccount}
             type='account'
           />
-        </NoLeftPaddingLabeledContent>
-        <div className='ui--row'>
+        </NoLeftPaddingLabeledContent> */}
+        {/* <div className='ui--row'>
           <Button.Group>
             {isLoggedIn && <Button
               icon='plus'
@@ -236,7 +236,7 @@ function Overview({ className = '', onStatusChange }: Props): React.ReactElement
               onClick={() => setIsAddingAccount(true)}
             />}
           </Button.Group>
-        </div>
+        </div> */}
 
         {!isNextTick || !sortedAccounts.length
           ? <></>
@@ -244,7 +244,7 @@ function Overview({ className = '', onStatusChange }: Props): React.ReactElement
             groups[group] && (
               <Table
                 empty={t('No accounts')}
-                header={header[group]}
+                // header={header[group]}
                 isSplit
                 key={group}
               >
