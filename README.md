@@ -31,6 +31,7 @@ Here is a list of user actions tracked by Slonig:
 | ✅ | ONBOARDING | BACKUP | success | backup file size |
 | ✅ | ONBOARDING | BACKUP | error | N/A |
 | ✅ | ONBOARDING | RESTORE | success | backup file size |
+| ✅ | ONBOARDING | TOO_SHORT_USING_HINT_TIME | too_short_using_hint_time_sec | sec |
 | ✅ | ONBOARDING | TUTOR_TUTORIAL_COMPLETED | N/A | N/A |
 | ✅ | ONBOARDING | TUTEE_TUTORIAL_COMPLETED | N/A | N/A |
 | ✅ | ONBOARDING | PRESSING_EXAMPLES_TUTORIAL_COMPLETED | N/A | N/A |

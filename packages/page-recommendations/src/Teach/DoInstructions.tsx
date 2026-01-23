@@ -7,12 +7,13 @@ import { Button, Menu, Popup, Spinner, styled } from '@polkadot/react-components
 import type { Skill } from '@slonigiraf/slonig-components';
 import { ValidatingAlgorithm } from './ValidatingAlgorithm.js';
 import { useTranslation } from '../translate.js';
-import { ChatContainer, Bubble, useIpfsContext, useLog } from '@slonigiraf/slonig-components';
+import { ChatContainer, Bubble, useIpfsContext, useLog, OKBox } from '@slonigiraf/slonig-components';
 import { getLetterTemplate, LetterTemplate, putLetterTemplate, Reexamination, updateReexamination } from '@slonigiraf/db';
 import { getIPFSDataFromContentID, parseJson, useInfo } from '@slonigiraf/slonig-components';
 import { TutoringAlgorithm } from './TutoringAlgorithm.js';
 import ChatSimulation from './ChatSimulation.js';
 import { ErrorType } from '@polkadot/react-params';
+import { MIN_USING_HINT_SEC } from '@slonigiraf/utils';
 
 interface Props {
   className?: string;
@@ -28,6 +29,8 @@ interface Props {
 
 type AlgorithmType = '' | 'TEACH_ALGO' | 'REEXAMINE_ALGO';
 
+const MIN_USING_HINT_MS = MIN_USING_HINT_SEC * 1000;
+
 function DoInstructions({ className = '', entity, onResult, studentName, isSendingResultsEnabled, hasTuteeUsedSlonig, hasTutorCompletedTutorial, isBeforeTeaching = false, isTutorial }: Props): React.ReactElement<Props> {
   const { ipfs, isIpfsReady } = useIpfsContext();
   const [skill, setSkill] = useState<Skill>();
@@ -35,11 +38,12 @@ function DoInstructions({ className = '', entity, onResult, studentName, isSendi
   const [algorithmStage, setAlgorithmStage] = useState<AlgorithmStage>();
   const { showInfo } = useInfo();
   const { logEvent } = useLog();
+  const [lastPressingNextButtonTime, setLastPressingNextButtonTime] = useState((new Date()).getTime());
   const [algorithmType, setAlgorithmType] = useState<AlgorithmType>('');
   const [isButtonClicked, setIsButtonClicked] = useState(false);
   const [isChatFinished, setIsChatFinished] = useState(false);
   const [areButtonsBlured, setButtonsBlured] = useState(true);
-
+  const [tooFastConfirmationIsShown, setTooFastConfirmationIsShown] = useState(false);
   const [processedStages, setProcessedStages] = useState(0);
 
   const isLetterTemplate = useCallback((entity: LetterTemplate | Reexamination) => {
@@ -188,6 +192,24 @@ function DoInstructions({ className = '', entity, onResult, studentName, isSendi
     return false;
   }
 
+  const onAllMessagesRevealed = useCallback(() => {
+    setIsChatFinished(true);
+    setLastPressingNextButtonTime((new Date()).getTime());
+  }, [setIsChatFinished, setLastPressingNextButtonTime]);
+
+  const processNext = useCallback(() => {
+    const now = (new Date()).getTime();
+    const timeSpent = now - lastPressingNextButtonTime;
+    if (timeSpent < MIN_USING_HINT_MS) {
+      logEvent('ONBOARDING', 'TOO_SHORT_USING_HINT_TIME', 'too_short_using_hint_time_sec', Math.round(timeSpent / 1000)
+      );
+      setTooFastConfirmationIsShown(true);
+    } else {
+      setLastPressingNextButtonTime(now);
+      setButtonsBlured(false);
+    }
+  }, [lastPressingNextButtonTime, logEvent, setTooFastConfirmationIsShown, setButtonsBlured]);
+
   const handleStageChange = useCallback(async (nextStage: AlgorithmStage | null) => {
     if (nextStage !== null) {
       setIsButtonClicked(true);
@@ -253,7 +275,7 @@ function DoInstructions({ className = '', entity, onResult, studentName, isSendi
             hasTutorCompletedTutorial={hasTutorCompletedTutorial}
             isSendingResultsEnabled={isSendingResultsEnabled}
             isTutorial={isTutorial}
-            onAllMessagesRevealed={() => setIsChatFinished(true)}
+            onAllMessagesRevealed={onAllMessagesRevealed}
           />
 
           {showChatDecorator && algorithmStage.getChatDecorator()}
@@ -349,11 +371,14 @@ function DoInstructions({ className = '', entity, onResult, studentName, isSendi
                     className='highlighted--button'
                     icon="eye"
                     label={t('Next')}
-                    onClick={() => setButtonsBlured(false)}
+                    onClick={processNext}
                   />
                 </NextOverlay>
               )}
           </InstructionsButtonsContainer>
+          {tooFastConfirmationIsShown && (
+            <OKBox info={t('You are going too fast. Your tutee will forget the skill tomorrow, and you will lose Slon. Follow all the teaching steps carefully.')} onClose={() => setTooFastConfirmationIsShown(false)} />
+          )}
         </InstructionsContainer>
       ) : (
         <div>Error: Reload the page</div>

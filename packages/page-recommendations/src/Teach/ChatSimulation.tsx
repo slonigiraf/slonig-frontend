@@ -5,9 +5,12 @@ import {
   ChatContainer,
   IMessage,
   KatexSpan,
-  ResizableImage
+  OKBox,
+  ResizableImage,
+  useLog
 } from '@slonigiraf/slonig-components';
 import { useTranslation } from '../translate.js';
+import { MIN_USING_HINT_SEC } from '@slonigiraf/utils';
 
 interface ChatSimulationProps {
   messages: IMessage[];
@@ -17,16 +20,30 @@ interface ChatSimulationProps {
   isTutorial: boolean;
 }
 
+const MIN_USING_HINT_MS = MIN_USING_HINT_SEC * 1000;
+
 const ChatSimulation: React.FC<ChatSimulationProps> = ({ messages, hasTutorCompletedTutorial, isSendingResultsEnabled, onAllMessagesRevealed, isTutorial }) => {
   const [revealedCount, setRevealedCount] = useState(1);
+  const [tooFastConfirmationIsShown, setTooFastConfirmationIsShown] = useState(false);
   const { t } = useTranslation();
+  const { logEvent } = useLog();
+  const [lastPressingNextButtonTime, setLastPressingNextButtonTime] = useState((new Date()).getTime());
 
   const handleNext = () => {
-    if (revealedCount + 1 === messages.length) {
-      onAllMessagesRevealed();
-    }
-    if (revealedCount < messages.length) {
-      setRevealedCount(revealedCount + 1);
+    const now = (new Date()).getTime();
+    const timeSpent = now - lastPressingNextButtonTime;
+    if (timeSpent < MIN_USING_HINT_MS) {
+      logEvent('ONBOARDING', 'TOO_SHORT_USING_HINT_TIME', 'too_short_using_hint_time_sec', Math.round(timeSpent / 1000)
+      );
+      setTooFastConfirmationIsShown(true);
+    } else {
+      setLastPressingNextButtonTime(now);
+      if (revealedCount + 1 === messages.length) {
+        onAllMessagesRevealed();
+      }
+      if (revealedCount < messages.length) {
+        setRevealedCount(revealedCount + 1);
+      }
     }
   };
 
@@ -69,6 +86,9 @@ const ChatSimulation: React.FC<ChatSimulationProps> = ({ messages, hasTutorCompl
                   onClick={handleNext}
                 />
               </NextOverlay>
+            )}
+            {tooFastConfirmationIsShown && (
+              <OKBox info={t('You are going too fast. Your tutee will forget the skill tomorrow, and you will lose Slon. Follow all the teaching steps carefully.')} onClose={() => setTooFastConfirmationIsShown(false)} />
             )}
 
 
