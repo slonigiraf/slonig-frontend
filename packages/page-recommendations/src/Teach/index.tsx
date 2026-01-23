@@ -51,6 +51,7 @@ function Teach({ className = '' }: Props): React.ReactElement<Props> {
   const [lastSkillDiscussedTime, setLastSkillDiscussedTime] = useState<number | null>(null);
   const [tooFastConfirmationIsShown, setTooFastConfirmationIsShown] = useState(false);
   const [fastDiscussedSkillsCount, setFastDiscussedSkillsCount] = useState(0);
+  const [warningCount, setWarningCount] = useState(0);
 
   useEffect(() => {
     if (!lastSkillDiscussedTime && (letterTemplateToIssue !== null || reexaminationToPerform !== null)) {
@@ -58,7 +59,7 @@ function Teach({ className = '' }: Props): React.ReactElement<Props> {
     }
   }, [lastSkillDiscussedTime, letterTemplateToIssue, reexaminationToPerform]);
 
-  const protectTutor = useCallback((isLearning: boolean) => {
+  const protectTutor = useCallback(async (isLearning: boolean, action: () => Promise<void>) => {
     if (!lastSkillDiscussedTime) return;
 
     const now = (new Date()).getTime();
@@ -66,21 +67,22 @@ function Teach({ className = '' }: Props): React.ReactElement<Props> {
 
     if (!hasTutorCompletedTutorial) {
       logEvent('ONBOARDING', 'TUTOR_TUTORIAL_TIME', 'tutor_tutorial_time_sec', Math.round(timeSpent / 1000));
+      await action();
       return;
     }
 
-    logEvent('TUTORING',
-      isLearning ? 'TEACH_SKILL_TIME' : 'REEXAMINE_SKILL_TIME',
-      isLearning ? 'teach_skill_time_sec' : 'reexamine_skill_time_sec',
-      Math.round(timeSpent / 1000)
-    );
+    setLastSkillDiscussedTime(now);
 
-    if (timeSpent < MIN_SKILL_DISCUSSION_MS) {
+    const logTime = (isLearning: boolean, timeSpent: number) => {
       logEvent('TUTORING',
         isLearning ? 'TOO_SHORT_TEACH' : 'TOO_SHORT_REEXAMINE',
         isLearning ? 'too_short_teach_time_sec' : 'too_short_reexamine_time_sec',
         Math.round(timeSpent / 1000)
       );
+    }
+
+    if (timeSpent < MIN_SKILL_DISCUSSION_MS) {
+      logTime(isLearning, timeSpent);
       setTooFastConfirmationIsShown(true);
     } else if (timeSpent < FAST_SKILL_DISCUSSION_MS) {
       if (fastDiscussedSkillsCount + 1 > MAX_FAST_DISCUSSED_SKILLS_IN_ROW_COUNT) {
@@ -89,11 +91,15 @@ function Teach({ className = '' }: Props): React.ReactElement<Props> {
         setFastDiscussedSkillsCount(0);
       } else {
         setFastDiscussedSkillsCount(fastDiscussedSkillsCount + 1);
+        logTime(isLearning, timeSpent);
+        await action();
       }
     } else {
       setFastDiscussedSkillsCount(0);
+      logTime(isLearning, timeSpent);
+      await action();
     }
-    setLastSkillDiscussedTime(now);
+    
   }, [hasTutorCompletedTutorial, fastDiscussedSkillsCount, lastSkillDiscussedTime, setTooFastConfirmationIsShown]);
 
   useEffect(() => {
@@ -149,17 +155,14 @@ function Teach({ className = '' }: Props): React.ReactElement<Props> {
 
   useEffect(() => {
     fetchLesson();
-  }, [])
-
-  // Fetch days valid
+  }, []);
 
   const updateReexamined = useCallback(async () => {
     if (lesson) {
       const nextStep = lesson.reexamineStep + 1;
       if (nextStep <= lesson.toReexamineCount) {
         const updatedLesson = { ...lesson, reexamineStep: nextStep };
-        updateAndStoreLesson(updatedLesson);
-        protectTutor(false);
+        await protectTutor(false, () => updateAndStoreLesson(updatedLesson));
       }
     }
   }, [lesson, updateAndStoreLesson, protectTutor]);
@@ -167,8 +170,7 @@ function Teach({ className = '' }: Props): React.ReactElement<Props> {
   const updateLearned = useCallback(async (): Promise<void> => {
     if (lesson && lesson.toLearnCount > lesson.learnStep) {
       const updatedLesson = { ...lesson, learnStep: lesson.learnStep + 1 };
-      updateAndStoreLesson(updatedLesson);
-      protectTutor(true);
+      await protectTutor(true, () => updateAndStoreLesson(updatedLesson));
     }
   }, [lesson, updateAndStoreLesson, protectTutor]);
 
@@ -245,6 +247,11 @@ function Teach({ className = '' }: Props): React.ReactElement<Props> {
     hasTutorCompletedTutorial ? onCloseTutoring() : setIsExitConfirmOpen(true);
   }, [hasTutorCompletedTutorial, onCloseTutoring, setIsExitConfirmOpen]);
 
+  const tutorUnderstoodWarning = useCallback(() => {
+    setWarningCount(warningCount + 1);
+    setTooFastConfirmationIsShown(false);
+  }, [warningCount, setWarningCount, setTooFastConfirmationIsShown]);
+
   const publicKeyHex = currentPair ? u8aToHex(currentPair.publicKey) : "";
 
   // Don't do reexaminations if the tutor is a first time tutor
@@ -282,7 +289,7 @@ function Teach({ className = '' }: Props): React.ReactElement<Props> {
             isTutorial={isTutorial}
             isSendingResultsEnabled={isSendingResultsEnabled}
             isBeforeTeaching={letterTemplates && letterTemplates.length > 0}
-            key={'reexaminine' + reexaminationToPerform.cid} />}
+            key={'reexaminine' + warningCount + reexaminationToPerform.cid} />}
         {reexamined && letterTemplateToIssue &&
           <DoInstructions
             entity={letterTemplateToIssue}
@@ -292,7 +299,7 @@ function Teach({ className = '' }: Props): React.ReactElement<Props> {
             studentName={studentName}
             isTutorial={isTutorial}
             isSendingResultsEnabled={isSendingResultsEnabled}
-            key={'learn' + letterTemplateToIssue.cid} />}
+            key={'learn' + warningCount + letterTemplateToIssue.cid} />}
         {lesson &&
           <SendResults $blur={isSendingResultsEnabled !== true}>
             {(hasTutorCompletedTutorial === false || isTutorial) && isSendingResultsEnabled === true &&
@@ -332,7 +339,7 @@ function Teach({ className = '' }: Props): React.ReactElement<Props> {
             <OKBox info={t('Tell the tutee to scan the same QR code.')} onClose={() => setIsHelpQRInfoShown(false)} />
           )}
           {tooFastConfirmationIsShown && (
-            <OKBox info={t('You are going too fast. Your tutee will forget the skill tomorrow, and you will lose Slon. Follow all the teaching steps carefully.')} onClose={() => setTooFastConfirmationIsShown(false)} />
+            <OKBox info={t('You are going too fast. Your tutee will forget the skill tomorrow, and you will lose Slon. Follow all the teaching steps carefully.')} onClose={tutorUnderstoodWarning} />
           )}
         </>
       }
