@@ -44,14 +44,14 @@ function Assess({ className = '' }: Props): React.ReactElement<Props> {
   };
 
   useEffect(() => {
-    if (isLoggedIn) {
+    if (isLoggedIn && isAssessmentAllowed) {
       if (student) {
         logEvent('ASSESSMENT', 'VIEW_STUDENT');
       } else {
         logEvent('ASSESSMENT', 'SHOW_QR');
       }
     }
-  }, [isLoggedIn, student]);
+  }, [isLoggedIn, isAssessmentAllowed, student]);
 
   const guard = <StyledDiv>
     <h1>{t('Are you a parent or a teacher?')}</h1>

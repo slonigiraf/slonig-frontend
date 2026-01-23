@@ -6,7 +6,7 @@ import { useTranslation } from '../translate.js';
 import { u8aToHex } from '@polkadot/util';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { useLoginContext, useInfo, InsurancesTransfer, Person, UrlParams, useLog } from '@slonigiraf/slonig-components';
-import { storeInsurances, storePseudonym } from '@slonigiraf/db';
+import { getSetting, setSettingToTrue, SettingKey, storeInsurances, storePseudonym } from '@slonigiraf/db';
 import useFetchWebRTC from '../useFetchWebRTC.js';
 interface Props {
   setWorker: (person: Person) => void;
@@ -25,6 +25,11 @@ function InsurancesReceiver({ setWorker }: Props): React.ReactElement<Props> {
 
   const handleData = useCallback(async (insurancesTransfer: InsurancesTransfer) => {
     if (insurancesTransfer.employer === employer) {
+      const assessmentTutorialWasCompleted = await getSetting(SettingKey.ASSESSMENT_TUTORIAL_COMPLETED);
+      if (assessmentTutorialWasCompleted !== 'true') {
+        logEvent('ONBOARDING', 'ASSESSMENT_TUTORIAL_COMPLETED');
+        await setSettingToTrue(SettingKey.ASSESSMENT_TUTORIAL_COMPLETED);
+      }
       logEvent('ASSESSMENT', 'RECEIVE_STUDENT_DATA', 'insurances', insurancesTransfer.insurances.length);
       await storePseudonym(insurancesTransfer.identity, insurancesTransfer.name);
       await storeInsurances(insurancesTransfer);
