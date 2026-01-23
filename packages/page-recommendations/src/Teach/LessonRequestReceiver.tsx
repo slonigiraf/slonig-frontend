@@ -1,7 +1,7 @@
 // Copyright 2021-2022 @slonigiraf/app-recommendations authors & contributors
 // SPDX-License-Identifier: Apache-2.0
 
-import { deleteSetting, getLesson, getLessonId, getSetting, Lesson, setSettingToTrue, SettingKey, storeLesson, storePseudonym } from '@slonigiraf/db';
+import { deleteSetting, getLesson, getLessonId, getSetting, Lesson, setSettingToTrue, SettingKey, storeLesson, storePseudonym, storeSetting } from '@slonigiraf/db';
 import React, { useCallback } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { LessonRequest, UrlParams, useLog, useLoginContext, useInfo } from '@slonigiraf/slonig-components';
@@ -9,6 +9,7 @@ import { u8aToHex } from '@polkadot/util';
 import useFetchWebRTC from '../useFetchWebRTC.js';
 import { useTranslation } from '../translate.js';
 import { EXAMPLE_MODULE_KNOWLEDGE_CID, EXAMPLE_SKILL_KNOWLEDGE_CID, EXAMPLE_SKILL_KNOWLEDGE_ID } from '@slonigiraf/utils';
+import { processNewPartner } from '../utils.js';
 
 interface Props {
   setCurrentLesson: (lesson: Lesson) => void;
@@ -56,6 +57,8 @@ function LessonRequestReceiver({ setCurrentLesson }: Props): React.ReactElement<
         navigate('', { replace: true });
       } else {
         await storePseudonym(lessonRequest.identity, lessonRequest.name);
+        await processNewPartner(lessonRequest.identity);
+
         let lessonId = lessonRequest.lesson;
         const goWithNormalRequest = dbValueOfHasTutorCompletedTutorial === 'true';
 

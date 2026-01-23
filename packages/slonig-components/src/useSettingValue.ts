@@ -55,6 +55,17 @@ export function useBooleanSettingValue(key: SettingId): boolean | null | undefin
   return value === 'true';
 }
 
+export function timeStampStringToNumber(value: null | undefined | string) {
+  if (value === null) return null; // not yet loaded
+  if (value === undefined) return undefined; // no stored value
+
+  const trimmed = value.trim();
+  if (trimmed.length === 0) return undefined;
+
+  const num = Number(trimmed);
+  return Number.isFinite(num) ? num : undefined;
+}
+
 /**
  * Wrapper around useSettingValue that interprets the setting as a number.
  *
@@ -69,13 +80,5 @@ export function useBooleanSettingValue(key: SettingId): boolean | null | undefin
  */
 export function useNumberSettingValue(key: SettingId): number | null | undefined {
   const value = useSettingValue(key);
-
-  if (value === null) return null; // not yet loaded
-  if (value === undefined) return undefined; // no stored value
-
-  const trimmed = value.trim();
-  if (trimmed.length === 0) return undefined;
-
-  const num = Number(trimmed);
-  return Number.isFinite(num) ? num : undefined;
+  return timeStampStringToNumber(value);
 }

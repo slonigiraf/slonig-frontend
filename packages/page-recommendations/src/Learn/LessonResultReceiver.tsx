@@ -14,6 +14,7 @@ import { useApi } from '@polkadot/react-hooks';
 import useFetchWebRTC from '../useFetchWebRTC.js';
 import { Repetition } from 'db/src/db/Repetition.js';
 import { EXAMPLE_SKILL_KNOWLEDGE_ID } from '@slonigiraf/utils';
+import { processNewPartner } from '../utils.js';
 interface Props {
   webRTCPeerId: string | null;
   onDaysRangeChange: (start: Date, end: Date) => void;
@@ -39,7 +40,8 @@ function LessonResultReceiver({ webRTCPeerId, onDaysRangeChange }: Props): React
 
   const handleData = useCallback(async (receivedResult: LessonResult) => {
     if (receivedResult.workerId === workerPublicKeyHex) {
-      storePseudonym(receivedResult.referee, receivedResult.refereeName);
+      await storePseudonym(receivedResult.referee, receivedResult.refereeName);
+      await processNewPartner(receivedResult.referee);
       setLessonResult(receivedResult);
       const dbAgreement = await getAgreement(receivedResult.agreement);
       const priceToLog = bnToSlonFloatOrNaN(new BN(receivedResult.price));

@@ -61,6 +61,8 @@ export const SettingKey = {
     OPENAI_TOKEN: 'OPENAI_TOKEN',
     NOW_IS_CLASS_ONBOARDING: 'NOW_IS_CLASS_ONBOARDING',
     LAST_BACKUP_TIME: 'LAST_BACKUP_TIME',
+    LAST_PAIR_CHANGE_TIME: 'LAST_PAIR_CHANGE_TIME',
+    LAST_PAIR: 'LAST_PAIR',
 } as const;
 
 export async function storeSetting(id: string, value: string) {
