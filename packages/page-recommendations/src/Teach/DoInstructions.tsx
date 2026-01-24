@@ -18,7 +18,7 @@ import { EXAMPLE_SKILL_KNOWLEDGE_ID, MIN_USING_HINT_MS } from '@slonigiraf/utils
 interface Props {
   className?: string;
   entity: LetterTemplate | Reexamination;
-  onResult: () => void;
+  onResult: (updater: () => Promise<void>) => void;
   hasTutorCompletedTutorial: boolean | null | undefined;
   studentName: string | null;
   hasTuteeUsedSlonig: boolean;
@@ -103,22 +103,22 @@ function DoInstructions({ className = '', entity, onResult, studentName, isSendi
 
     const template = await getLetterTemplate(entity.lesson, entity.stage);
     if (!template) {
-      onResult();
+      onResult(async () => { });
       return;
     }
 
-    const valid = isValid ?? !template.toRepeat;
+    onResult(async () => {
+      const valid = isValid ?? !template.toRepeat;
 
-    logEvent("TUTORING", algorithmType, valid ? "mark_mastered" : "mark_for_repeat");
+      logEvent("TUTORING", algorithmType, valid ? "mark_mastered" : "mark_for_repeat");
 
-    await putLetterTemplate({
-      ...template,
-      valid,
-      toRepeat: !valid,
-      lastExamined: Date.now(),
+      await putLetterTemplate({
+        ...template,
+        valid,
+        toRepeat: !valid,
+        lastExamined: Date.now(),
+      });
     });
-
-    onResult();
   }, [entity, isLetterTemplate, getLetterTemplate, putLetterTemplate, onResult, algorithmType, logEvent,]);
 
 
@@ -145,20 +145,22 @@ function DoInstructions({ className = '', entity, onResult, studentName, isSendi
 
   const studentPassedReexamination = useCallback(async () => {
     if (isReexamination(entity) && 'created' in entity) {
-      const now = (new Date).getTime();
-      const successfulReexamination: Reexamination = { ...entity, lastExamined: now };
-      await updateReexamination(successfulReexamination);
-      onResult();
+      onResult(async () => {
+        const now = (new Date).getTime();
+        const successfulReexamination: Reexamination = { ...entity, lastExamined: now };
+        await updateReexamination(successfulReexamination);
+      });
     }
   }, [isReexamination, entity, updateReexamination, onResult]);
 
   const studentFailedReexamination = useCallback(async () => {
     if (isReexamination(entity) && 'created' in entity) {
-      const now = (new Date).getTime();
-      showInfo(t('Bounty will be collected after the lesson ends.'));
-      const failedReexamination: Reexamination = { ...entity, lastExamined: now, valid: false };
-      await updateReexamination(failedReexamination);
-      onResult();
+      onResult(async () => {
+        const now = (new Date).getTime();
+        showInfo(t('Bounty will be collected after the lesson ends.'));
+        const failedReexamination: Reexamination = { ...entity, lastExamined: now, valid: false };
+        await updateReexamination(failedReexamination);
+      });
     }
   }, [showInfo, t, entity, updateReexamination, onResult]);
 
@@ -228,7 +230,7 @@ function DoInstructions({ className = '', entity, onResult, studentName, isSendi
         preserveFromNoobs(() => {
           logEvent('TUTORING', algorithmType, 'skip');
           refreshStageView();
-          onResult();
+          onResult(async () => { });
         }, () => setIsButtonClicked(false));
       } else if (isLetterTemplate(entity) && (nextStage.type === 'next_skill')) {
         await processLetter();

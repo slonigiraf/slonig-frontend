@@ -174,24 +174,30 @@ function Teach({ className = '' }: Props): React.ReactElement<Props> {
     fetchLesson();
   }, []);
 
-  const updateReexamined = useCallback(async () => {
+  const updateReexamined = useCallback(async (updater: () => Promise<void>) => {
     if (lesson) {
       const nextStep = lesson.reexamineStep + 1;
       if (nextStep <= lesson.toReexamineCount) {
         const updatedLesson = { ...lesson, reexamineStep: nextStep };
-        await protectTutor(false, () => updateAndStoreLesson(updatedLesson));
+        await protectTutor(false, async () => {
+          await updater();
+          await updateAndStoreLesson(updatedLesson);
+        });
       }
     }
   }, [lesson, updateAndStoreLesson, protectTutor]);
 
-  const updateLearned = useCallback(async (): Promise<void> => {
+  const updateLearned = useCallback(async (updater: () => Promise<void>) => {
     if (lesson && lesson.toLearnCount > lesson.learnStep) {
       const updatedLesson = { ...lesson, learnStep: lesson.learnStep + 1 };
-      await protectTutor(true, () => updateAndStoreLesson(updatedLesson));
+      await protectTutor(true, async () => {
+        await updater();
+        await updateAndStoreLesson(updatedLesson);
+      });
     }
   }, [lesson, updateAndStoreLesson, protectTutor]);
 
-  const onResumeTutoring = useCallback(async (lesson: Lesson): Promise<void> => {
+  const onResumeTutoring = useCallback(async (lesson: Lesson) => {
     await storeSetting(SettingKey.LESSON, lesson.id);
     fetchLesson();
   }, [storeSetting, setLesson]);
@@ -295,7 +301,7 @@ function Teach({ className = '' }: Props): React.ReactElement<Props> {
     if (lesson != null) {
       if (hasTutorCompletedTutorial === false && !reexamined && reexaminationToPerform) {
         if (letterTemplateToIssue) {
-          updateReexamined();
+          updateReexamined(async () => {});
         } else {
           onCloseTutoring();
           showInfo(t('You should practice tutoring first before you can reexamine.'));
