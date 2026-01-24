@@ -45,14 +45,17 @@ function LettersList({ className = '', worker, currentPair, startDate, endDate, 
     setToggleState(employer !== '' ? ToggleState.GETTING_BONUSES : ToggleState.NO_SELECTION)
   }, [employer]);
 
-  const lettersRaw = useLiveQuery<Letter[]>(
-    () => getLetters(worker, startDate.getTime(), endDate.getTime()),
-    [worker, startDate, endDate]
-  );
+  const letters = useLiveQuery<Letter[]>(
+    async () => {
+      const res = await getLetters(worker, startDate.getTime(), endDate.getTime());
+      const arr = res ?? [];
 
-  const letters = toggleState
-    ? (lettersRaw ?? []).filter((letter: Letter) => letter.knowledgeId !== EXAMPLE_SKILL_KNOWLEDGE_ID)
-    : (lettersRaw ?? []);
+      return toggleState
+        ? arr.filter((l) => l.knowledgeId !== EXAMPLE_SKILL_KNOWLEDGE_ID)
+        : arr;
+    },
+    [worker, startDate, endDate, toggleState]
+  );
 
   const [selectedLetters, setSelectedLetters] = useState<Letter[]>([]);
 
