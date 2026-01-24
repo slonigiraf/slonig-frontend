@@ -123,7 +123,7 @@ Here is a list of user actions tracked by Slonig:
 | ✅ | SETTINGS | ECONOMY_EXPECTED_AIRDROP | economy_expected_airdrop_slon | amount |
 | ✅ | SETTINGS | ECONOMY_INITIALIZED | N/A | N/A |
 | ✅ | SETTINGS | ECONOMY_DIPLOMA_VALIDITY | economy_diploma_validity_day | count |
-| ✅ | SETTINGS | AIRDROP_COMPATIBLE | true/false | N/A |
+| ✅ | SETTINGS | AIRDROP_COMPATIBLE | N/A | N/A |
 | ✅ | SETTINGS | RECEIVED_AIRDROP | tokens | amount |
 | ✅ | SETTINGS | CLICK_DEVELOPER_MODE_ON | N/A | N/A |
 | ✅ | SETTINGS | CLICK_DEVELOPER_MODE_OFF | N/A | N/A |
