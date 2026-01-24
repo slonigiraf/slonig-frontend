@@ -149,7 +149,7 @@ function LessonResultReceiver({ webRTCPeerId, onDaysRangeChange }: Props): React
             if (!lessonResult.tutorIsExperienced) {
               logEvent('ONBOARDING', 'RECRUITED_OTHER_TUTOR');
             }
-            logEvent('LEARNING', 'SAVE_BADGES', 'count', lessonResult?.letters.length);
+            logEvent('LEARNING', 'SAVE_BADGES', 'saved_badges_count', lessonResult?.letters.length);
           }
           const updatedAgreement: Agreement = { ...agreement, completed: true };
           updateAgreement(updatedAgreement);
@@ -201,6 +201,8 @@ function LessonResultReceiver({ webRTCPeerId, onDaysRangeChange }: Props): React
       if (lessonResult) {
         try {
           const now = Date.now();
+          logEvent('LEARNING', 'SAVE_REPETITIONS', 'saved_repetitions_count', lessonResult.letters.length);
+
           lessonResult.repetitions.forEach((repetitionsMeta) => {
             const [lastExaminedRaw, knowledgeId] = repetitionsMeta.split(',');
 
@@ -227,7 +229,7 @@ function LessonResultReceiver({ webRTCPeerId, onDaysRangeChange }: Props): React
     if (lessonResult) {
       saveRepetitions();
     }
-  }, [lessonResult])
+  }, [lessonResult, logEvent])
 
   useEffect(() => {
     async function sendPenalties() {
@@ -257,7 +259,7 @@ function LessonResultReceiver({ webRTCPeerId, onDaysRangeChange }: Props): React
             });
 
             if (lessonResult.reexaminations.length > 0) {
-              logEvent('LEARNING', 'SAVE_REEXAMINATIONS', 'count', lessonResult.reexaminations.length);
+              logEvent('LEARNING', 'SAVE_REEXAMINATIONS', 'saved_reexaminations_count', lessonResult.reexaminations.length);
             }
             const reimbursements = (await Promise.all(reimbursementPromises)).filter(insurance => insurance !== undefined);
             reimburse(reimbursements);

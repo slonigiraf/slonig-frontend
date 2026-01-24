@@ -49,7 +49,7 @@ Here is a list of user actions tracked by Slonig:
 | ✅ | LEARNING | LEARNING_REQUESTED | KnowledgeName | N/A |
 | ✅ | LEARNING | EXAM_REQUESTED | KnowledgeName | N/A |
 | ✅ | LEARNING | REDIRECT_TO_COURSE | N/A | N/A |
-| ✅ | LEARNING | CANCEL |  N/A | N/A |
+| ✅ | LEARNING | EXIT_LEARNING |  N/A | N/A |
 | ✅ | BADGE | VIEW_BADGE |  KnowledgeName | N/A |
 | ✅ | SCAN | SCAN_OPEN | N/A | N/A |
 | ✅ | SCAN | SCAN_SUCCESS | N/A | N/A |
@@ -58,8 +58,9 @@ Here is a list of user actions tracked by Slonig:
 | ✅ | LEARNING | LOAD_RESULTS | agreement_price_slon | amount |
 | ✅ | TRANSACTIONS | SEND | tokens | amount |
 | ✅ | TRANSACTIONS | RECEIVE | tokens | amount |
-| ✅ | LEARNING | SAVE_BADGES | success | count |
-| ✅ | LEARNING | SAVE_REEXAMINATIONS | success | count |
+| ✅ | LEARNING | SAVE_REPETITIONS | saved_repetitions_count | count |
+| ✅ | LEARNING | SAVE_BADGES | saved_badges_count | count |
+| ✅ | LEARNING | SAVE_REEXAMINATIONS | saved_reexaminations_count | count |
 | ✅ | SYNC | SUBMIT_PENALTY_EXTRINSIC | submitted_penalty_slon | N/A |
 | ✅ | TUTORING | RESTART_LESSON | KnowledgeName (module) | N/A |
 | ✅ | TUTORING | GET_STUDENT_REQUEST | N/A | N/A |
