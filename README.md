@@ -55,7 +55,7 @@ Here is a list of user actions tracked by Slonig:
 | ✅ | SCAN | SUCCESS | N/A | N/A |
 | ✅ | SCAN | MANUAL_CLOSE | N/A | N/A |
 | ✅ | LEARNING | LOAD_RESULTS | loaded_old_agreement | N/A |
-| ✅ | LEARNING | LOAD_RESULTS | agreement_price | amount |
+| ✅ | LEARNING | LOAD_RESULTS | agreement_price_slon | amount |
 | ✅ | TRANSACTIONS | SEND | tokens | amount |
 | ✅ | TRANSACTIONS | RECEIVE | tokens | amount |
 | ✅ | LEARNING | SAVE_BADGES | success | count |
@@ -100,8 +100,8 @@ Here is a list of user actions tracked by Slonig:
 | ✅ | TUTORING | LESSON_RESULTS | lesson_badges | count |
 | ✅ | TUTORING | LESSON_RESULTS | lesson_repetitions | count |
 | ✅ | TUTORING | LESSON_RESULTS | lesson_reexaminations | count |
-| ✅ | TUTORING | LESSON_RESULTS | lesson_price | amount in tokens |
-| ✅ | TUTORING | LESSON_RESULTS | lesson_warranty | amount in tokens |
+| ✅ | TUTORING | LESSON_RESULTS | lesson_price_slon | amount in tokens |
+| ✅ | TUTORING | LESSON_RESULTS | lesson_warranty_slon | amount in tokens |
 | ✅ | TUTORING | LESSON_RESULTS | lesson_days_valid | count |
 | ✅ | TUTORING | LESSON_RESULTS | lesson_data_was_sent | N/A |
 | ✅ | ASSESSMENT | SHOW_QR | N/A | N/A |

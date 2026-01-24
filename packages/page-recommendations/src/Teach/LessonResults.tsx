@@ -225,8 +225,8 @@ function LessonResults({ className = '', lesson, updateAndStoreLesson, onClose, 
 
         if (letterData.length > 0) {
           logEvent('TUTORING', 'LESSON_RESULTS', 'lesson_badges', letterData.length);
-          logEvent('TUTORING', 'LESSON_RESULTS', 'lesson_price', bnToSlonFloatOrNaN(lessonPrice));
-          logEvent('TUTORING', 'LESSON_RESULTS', 'lesson_warranty', bnToSlonFloatOrNaN(amount));
+          logEvent('TUTORING', 'LESSON_RESULTS', 'lesson_price_slon', bnToSlonFloatOrNaN(lessonPrice));
+          logEvent('TUTORING', 'LESSON_RESULTS', 'lesson_warranty_slon', bnToSlonFloatOrNaN(amount));
           logEvent('TUTORING', 'LESSON_RESULTS', 'lesson_days_valid', lesson.dValidity);
         }
         if (repetitionData.length) {
