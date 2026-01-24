@@ -29,8 +29,8 @@ export function sleptBetween(timeA: number, timeB: number): boolean {
   const endMs = Math.max(timeA, timeB);
   const timeDiff = endMs - startMs;
 
-  const FOUR_HOURS_MS = 4 * 60 * 60 * 1000;
-  const TWENTY_FOUR_HOURS = 24 * 60 * 60 * 1000;
+  const FOUR_HOURS_MS = 4 * 60 * 60_000;
+  const TWENTY_FOUR_HOURS = 24 * 60 * 60_000;
   if (timeDiff < FOUR_HOURS_MS) return false;
   if (timeDiff >= TWENTY_FOUR_HOURS) return true;
 

@@ -4,12 +4,16 @@ export const EXAMPLE_COURSE_KNOWLEDGE_ID = '0xc758eb9ebae4f7affdf2c7a97d0f7af714
 export const EXAMPLE_MODULE_KNOWLEDGE_ID = '0xc93cafd0d50625e1e203d20c596e87b9f01c93798ea8c358370d286903c260b3';
 export const EXAMPLE_MODULE_KNOWLEDGE_CID = 'bafyreidptwdha5jb7bzrk2g6vr2bfw6lvxfeff57hxud2u5sansdmowgp4';
 export const DEFAULT_KNOWLEDGE_ID = '0xfed8e6f01c6c746876d69f7f10f933cdcd849068f6dc2fa26769fc92584492e7';
-export const LESSON_LENGTH_SEC = 30 * 60;
-export const MIN_USING_HINT_SEC = 2;
-export const MIN_SKILL_DISCUSSION_SEC = 10;
-export const FAST_SKILL_DISCUSSION_SEC = 20;
-export const MAX_FAST_DISCUSSED_SKILLS_COUNT = 1;
+
 export const LEARN_FIRST_TIME_SEC = 206;
 export const LEARN_SECOND_TIME_SEC = 94;
-export const BACKUP_REQUIREMENT_PERIOD_MS = 1 * 24 * 60 * 60 * 1000; // One day
-export const ONE_SUBJECT_PERIOD_MS = 60 * 60 * 1000; // One hour
+export const LESSON_LENGTH_SEC = 30 * 60;
+
+export const MIN_USING_HINT_MS = 2_000;
+export const MIN_SKILL_DISCUSSION_MS = 10_000;
+export const FAST_SKILL_DISCUSSION_MS = 20_000;
+export const MAX_FAST_DISCUSSED_SKILLS_IN_ROW_COUNT = 1;
+
+export const BACKUP_REQUIREMENT_PERIOD_MS = 24 * 60 * 60_000; // One day
+export const ONE_SUBJECT_PERIOD_MS = 60 * 60_000; // One hour long lesson
+export const MAX_SAME_PARTNER_TIME_MS = 15 * 60_000; // 4 times change per 1 hour

@@ -13,7 +13,7 @@ import { getIPFSDataFromContentID, parseJson, useInfo } from '@slonigiraf/slonig
 import { TutoringAlgorithm } from './TutoringAlgorithm.js';
 import ChatSimulation from './ChatSimulation.js';
 import { ErrorType } from '@polkadot/react-params';
-import { EXAMPLE_SKILL_KNOWLEDGE_ID, MIN_USING_HINT_SEC } from '@slonigiraf/utils';
+import { EXAMPLE_SKILL_KNOWLEDGE_ID, MIN_USING_HINT_MS } from '@slonigiraf/utils';
 
 interface Props {
   className?: string;
@@ -28,8 +28,6 @@ interface Props {
 }
 
 type AlgorithmType = '' | 'TEACH_ALGO' | 'REEXAMINE_ALGO';
-
-const MIN_USING_HINT_MS = MIN_USING_HINT_SEC * 1000;
 
 function DoInstructions({ className = '', entity, onResult, studentName, isSendingResultsEnabled, hasTuteeUsedSlonig, hasTutorCompletedTutorial, isBeforeTeaching = false, isTutorial }: Props): React.ReactElement<Props> {
   const { ipfs, isIpfsReady } = useIpfsContext();

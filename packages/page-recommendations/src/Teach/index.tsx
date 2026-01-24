@@ -11,14 +11,11 @@ import LessonResults from './LessonResults.js';
 import LessonRequestReceiver from './LessonRequestReceiver.js';
 import { useTranslation } from '../translate.js';
 import { useLocation } from 'react-router-dom';
-import { EXAMPLE_MODULE_KNOWLEDGE_CID, FAST_SKILL_DISCUSSION_SEC, MAX_FAST_DISCUSSED_SKILLS_COUNT as MAX_FAST_DISCUSSED_SKILLS_IN_ROW_COUNT, MIN_SKILL_DISCUSSION_SEC } from '@slonigiraf/utils';
+import { EXAMPLE_MODULE_KNOWLEDGE_CID, FAST_SKILL_DISCUSSION_MS, MAX_FAST_DISCUSSED_SKILLS_IN_ROW_COUNT, MAX_SAME_PARTNER_TIME_MS, MIN_SKILL_DISCUSSION_MS } from '@slonigiraf/utils';
 
 interface Props {
   className?: string;
 }
-
-const MIN_SKILL_DISCUSSION_MS = MIN_SKILL_DISCUSSION_SEC * 1000;
-const FAST_SKILL_DISCUSSION_MS = FAST_SKILL_DISCUSSION_SEC * 1000;
 
 function Teach({ className = '' }: Props): React.ReactElement<Props> {
   const location = useLocation();
@@ -62,8 +59,7 @@ function Teach({ className = '' }: Props): React.ReactElement<Props> {
     }
   }, [lastSkillDiscussedTime, letterTemplateToIssue, reexaminationToPerform]);
 
-  const QUARTER_MS = 15 * 60_000;
-  const SUPPRESS_MS = 7 * 60_000;
+
 
   useEffect(() => {
     if (isPairChangeDialogueOpen) return;
@@ -74,10 +70,10 @@ function Teach({ className = '' }: Props): React.ReactElement<Props> {
       const now = Date.now();
 
       // suppression: last partner change within 7 minutes
-      if (lastPartnerChangeTime && now - lastPartnerChangeTime < SUPPRESS_MS) return;
+      if (lastPartnerChangeTime && now - lastPartnerChangeTime < MAX_SAME_PARTNER_TIME_MS/2) return;
 
-      // integer division buckets of 15 minutes
-      const bucket = Math.floor(now / QUARTER_MS);
+      // integer division buckets of X minutes
+      const bucket = Math.floor(now / MAX_SAME_PARTNER_TIME_MS);
 
       // first run: initialize
       if (lastTimeBucketRef.current === null) {
