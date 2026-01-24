@@ -60,7 +60,7 @@ function Teach({ className = '' }: Props): React.ReactElement<Props> {
   }, [lastSkillDiscussedTime, letterTemplateToIssue, reexaminationToPerform]);
 
   useEffect(() => {
-    if (!lesson || isPairChangeDialogueOpen) return;
+    if (!lesson || isPairChangeDialogueOpen || !lastPartnerChangeTime) return;
 
     const tick = () => {
       const now = Date.now();
@@ -301,7 +301,7 @@ function Teach({ className = '' }: Props): React.ReactElement<Props> {
     if (lesson != null) {
       if (hasTutorCompletedTutorial === false && !reexamined && reexaminationToPerform) {
         if (letterTemplateToIssue) {
-          updateReexamined(async () => {});
+          updateReexamined(async () => { });
         } else {
           onCloseTutoring();
           showInfo(t('You should practice tutoring first before you can reexamine.'));
