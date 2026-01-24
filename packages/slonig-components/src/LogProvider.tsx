@@ -61,11 +61,11 @@ export const LogProvider: React.FC<LogProviderProps> = ({ children }) => {
 
   const logEconomy = useCallback(
     (storedEconomy: StoredEconomy) => {
-      logEvent('SETTINGS', 'ECONOMY_DIPLOMA_PRICE', 'tokens', bnToSlonFloatOrNaN(new BN(storedEconomy.diplomaPrice)));
-      logEvent('SETTINGS', 'ECONOMY_DIPLOMA_WARRANTY', 'tokens', bnToSlonFloatOrNaN(new BN(storedEconomy.diplomaWarranty)));
-      logEvent('SETTINGS', 'ECONOMY_DIPLOMA_VALIDITY', 'days', parseInt(storedEconomy.diplomaValidity, 10));
-      logEvent('SETTINGS', 'ECONOMY_EXPECTED_AIRDROP', 'tokens', bnToSlonFloatOrNaN(new BN(storedEconomy.expectedAirdrop)));
-      logEvent('SETTINGS', 'ECONOMY_INITIALIZED', storedEconomy.economyInitialized);
+      logEvent('SETTINGS', 'ECONOMY_DIPLOMA_PRICE', 'economy_diploma_price_slon', bnToSlonFloatOrNaN(new BN(storedEconomy.diplomaPrice)));
+      logEvent('SETTINGS', 'ECONOMY_DIPLOMA_WARRANTY', 'economy_diploma_warranty_slon', bnToSlonFloatOrNaN(new BN(storedEconomy.diplomaWarranty)));
+      logEvent('SETTINGS', 'ECONOMY_DIPLOMA_VALIDITY', 'economy_diploma_validity_day', parseInt(storedEconomy.diplomaValidity, 10));
+      logEvent('SETTINGS', 'ECONOMY_EXPECTED_AIRDROP', 'economy_expected_airdrop_slon', bnToSlonFloatOrNaN(new BN(storedEconomy.expectedAirdrop)));
+      logEvent('SETTINGS', 'ECONOMY_INITIALIZED');
     },
     [logEvent]
   );

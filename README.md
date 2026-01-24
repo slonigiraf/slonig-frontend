@@ -60,7 +60,7 @@ Here is a list of user actions tracked by Slonig:
 | ✅ | TRANSACTIONS | RECEIVE | tokens | amount |
 | ✅ | LEARNING | SAVE_BADGES | success | count |
 | ✅ | LEARNING | SAVE_REEXAMINATIONS | success | count |
-| ✅ | SYNC | SUBMIT_PENALTY_EXTRINSIC | tokens | N/A |
+| ✅ | SYNC | SUBMIT_PENALTY_EXTRINSIC | submitted_penalty_slon | N/A |
 | ✅ | TUTORING | RESTART_LESSON | KnowledgeName (module) | N/A |
 | ✅ | TUTORING | GET_STUDENT_REQUEST | N/A | N/A |
 | ✅ | TUTORING | CLICK_EXAMPLES | N/A | N/A |
@@ -117,11 +117,11 @@ Here is a list of user actions tracked by Slonig:
 | ✅ | SETTINGS | DIPLOMA_VALIDITY_SET | days | count |
 | ✅ | SETTINGS | INSURANCE_VALIDITY_SET | days | count |
 | ✅ | SETTINGS | CLICK_RESET_TO_DEFAULT | N/A | N/A |
-| ✅ | SETTINGS | ECONOMY_DIPLOMA_PRICE | tokens | amount |
-| ✅ | SETTINGS | ECONOMY_DIPLOMA_WARRANTY | tokens | amount |
-| ✅ | SETTINGS | ECONOMY_EXPECTED_AIRDROP | tokens | amount |
+| ✅ | SETTINGS | ECONOMY_DIPLOMA_PRICE | economy_diploma_price_slon | amount |
+| ✅ | SETTINGS | ECONOMY_DIPLOMA_WARRANTY | economy_diploma_warranty_slon | amount |
+| ✅ | SETTINGS | ECONOMY_EXPECTED_AIRDROP | economy_expected_airdrop_slon | amount |
 | ✅ | SETTINGS | ECONOMY_INITIALIZED | N/A | N/A |
-| ✅ | SETTINGS | ECONOMY_DIPLOMA_VALIDITY | days | count |
+| ✅ | SETTINGS | ECONOMY_DIPLOMA_VALIDITY | economy_diploma_validity_day | count |
 | ✅ | SETTINGS | AIRDROP_COMPATIBLE | true/false | N/A |
 | ✅ | SETTINGS | RECEIVED_AIRDROP | tokens | amount |
 | ✅ | SETTINGS | CLICK_DEVELOPER_MODE_ON | N/A | N/A |
