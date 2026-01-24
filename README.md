@@ -98,11 +98,11 @@ Here is a list of user actions tracked by Slonig:
 | ✅ | TUTORING | LESSON_RESULTS | click_send_at_list_of_lessons |  N/A |
 | ✅ | TUTORING | LESSON_RESULTS | click_agree_to_send_results | N/A |
 | ✅ | TUTORING | LESSON_RESULTS | lesson_badges | count |
-| ✅ | TUTORING | LESSON_RESULTS | repetitions | count |
-| ✅ | TUTORING | LESSON_RESULTS | reexaminations | count |
-| ✅ | TUTORING | LESSON_RESULTS | price | amount in tokens |
-| ✅ | TUTORING | LESSON_RESULTS | warranty | amount in tokens |
-| ✅ | TUTORING | LESSON_RESULTS | days_valid | count |
+| ✅ | TUTORING | LESSON_RESULTS | lesson_repetitions | count |
+| ✅ | TUTORING | LESSON_RESULTS | lesson_reexaminations | count |
+| ✅ | TUTORING | LESSON_RESULTS | lesson_price | amount in tokens |
+| ✅ | TUTORING | LESSON_RESULTS | lesson_warranty | amount in tokens |
+| ✅ | TUTORING | LESSON_RESULTS | lesson_days_valid | count |
 | ✅ | TUTORING | LESSON_RESULTS | lesson_data_was_sent | N/A |
 | ✅ | ASSESSMENT | SHOW_QR | N/A | N/A |
 | ✅ | ASSESSMENT | VIEW_STUDENT | KnowledgeName (skill) | KnowledgeId (skill) |
