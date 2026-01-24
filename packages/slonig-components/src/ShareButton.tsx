@@ -15,7 +15,7 @@ function ShareButton({ title, text, url, isDisabled = false }: ShareButtonProps)
     const { logEvent } = useLog();
 
     const handleShare = async () => {
-        logEvent('QR', 'CLICK_SEND');
+        logEvent('QR', 'CLICK_SEND_QR');
         const shareData = { title, text, url };
         if (navigator.share) {
             try {

@@ -15,7 +15,7 @@ function ClipboardCopyButton({ className, text, isDisabled = false }: Props): Re
     const { logEvent } = useLog();
 
     const copyToClipboard = () => {
-        logEvent('QR', 'CLICK_COPY');
+        logEvent('QR', 'CLICK_COPY_QR');
         // Create a temporary textarea element to hold the text to copy
         const tempElem = document.createElement('textarea');
         tempElem.value = text;

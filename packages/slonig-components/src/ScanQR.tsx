@@ -74,7 +74,7 @@ function ScanQR({ className = '', label }: Props): React.ReactElement<Props> {
   }, [processQR]);
 
   const manuallyClose = useCallback(() => {
-    logEvent('SCAN', 'MANUAL_CLOSE');
+    logEvent('SCAN', 'SCAN_MANUAL_CLOSE');
     toggleQR();
   }, [toggleQR, logEvent]);
 

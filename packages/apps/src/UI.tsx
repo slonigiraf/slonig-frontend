@@ -161,7 +161,7 @@ function UI({ className = '' }: Props): React.ReactElement<Props> {
           const response = await fetch(`https://economy.slonig.org/airdrop/?to=${currentPair.address}&auth=${process.env.AIRDROP_AUTH_TOKEN}`);
           const airdropResults: AirdropResults = await response.json();
           if (airdropResults.success && airdropResults.amount) {
-            logEvent('SETTINGS', 'RECEIVED_AIRDROP', 'tokens', bnToSlonFloatOrNaN(new BN(airdropResults.amount)));
+            logEvent('SETTINGS', 'RECEIVED_AIRDROP', 'received_airdrop_slon', bnToSlonFloatOrNaN(new BN(airdropResults.amount)));
             await storeSetting(SettingKey.RECEIVED_AIRDROP, airdropResults.amount);
           } else if (airdropResults.error) {
             if (airdropResults.error === 'DUPLICATED_AIRDROP') {

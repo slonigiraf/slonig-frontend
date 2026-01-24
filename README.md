@@ -51,9 +51,9 @@ Here is a list of user actions tracked by Slonig:
 | ✅ | LEARNING | REDIRECT_TO_COURSE | N/A | N/A |
 | ✅ | LEARNING | CANCEL |  N/A | N/A |
 | ✅ | BADGE | VIEW_BADGE |  KnowledgeName | N/A |
-| ✅ | SCAN | OPEN | N/A | N/A |
-| ✅ | SCAN | SUCCESS | N/A | N/A |
-| ✅ | SCAN | MANUAL_CLOSE | N/A | N/A |
+| ✅ | SCAN | SCAN_OPEN | N/A | N/A |
+| ✅ | SCAN | SCAN_SUCCESS | N/A | N/A |
+| ✅ | SCAN | SCAN_MANUAL_CLOSE | N/A | N/A |
 | ✅ | LEARNING | LOAD_RESULTS | loaded_old_agreement | N/A |
 | ✅ | LEARNING | LOAD_RESULTS | agreement_price_slon | amount |
 | ✅ | TRANSACTIONS | SEND | tokens | amount |
@@ -109,8 +109,8 @@ Here is a list of user actions tracked by Slonig:
 | ✅ | ASSESSMENT | RECEIVE_STUDENT_DATA | insurances | count |
 | ✅ | ASSESSMENT | VIEW_INSURANCE | KnowledgeName (skill) | N/A |
 | ✅ | ASSESSMENT | PENALIZE | tokens | amount |
-| ✅ | QR | CLICK_SEND | N/A | N/A |
-| ✅ | QR | CLICK_COPY | N/A | N/A |
+| ✅ | QR | CLICK_SEND_QR | N/A | N/A |
+| ✅ | QR | CLICK_COPY_QR | N/A | N/A |
 | ✅ | SETTINGS | CLASS_ONBOARDING_OFF | N/A | N/A |
 | ✅ | SETTINGS | CLASS_ONBOARDING_ON | N/A | N/A |
 | ✅ | SETTINGS | DIPLOMA_PRICE_SET | diploma_price_set_to_slon | amount |
@@ -124,7 +124,7 @@ Here is a list of user actions tracked by Slonig:
 | ✅ | SETTINGS | ECONOMY_INITIALIZED | N/A | N/A |
 | ✅ | SETTINGS | ECONOMY_DIPLOMA_VALIDITY | economy_diploma_validity_day | count |
 | ✅ | SETTINGS | AIRDROP_COMPATIBLE | N/A | N/A |
-| ✅ | SETTINGS | RECEIVED_AIRDROP | tokens | amount |
+| ✅ | SETTINGS | RECEIVED_AIRDROP | received_airdrop_slon | amount |
 | ✅ | SETTINGS | CLICK_DEVELOPER_MODE_ON | N/A | N/A |
 | ✅ | SETTINGS | CLICK_DEVELOPER_MODE_OFF | N/A | N/A |
 | ✅ | EDITING | CLICK_EDIT | KnowledgeName | N/A |
