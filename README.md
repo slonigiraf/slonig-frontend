@@ -27,10 +27,11 @@ Here is a list of user actions tracked by Slonig:
 | ✅ | INFO | INCOGNITO | N/A | N/A |
 | ✅ | INFO | LANGUAGE | two_letter_code | N/A |
 | ✅ | INFO | VERSION | N/A | N/A |
-| ✅ | ONBOARDING | SIGN_UP | N/A | N/A |
-| ✅ | ONBOARDING | BACKUP | success | backup file size |
-| ✅ | ONBOARDING | BACKUP | error | N/A |
-| ✅ | ONBOARDING | RESTORE | success | backup file size |
+| ✅ | ONBOARDING | SIGN_UP_SUCCESS | N/A | N/A |
+| ✅ | ONBOARDING | BACKUP_SUCCESS | backup_file_kb | backup file size |
+| ✅ | ONBOARDING | BACKUP_ERROR | N/A | N/A |
+| ✅ | ONBOARDING | RESTORE_SUCCESS | restore_success_kb | backup file size |
+| ✅ | ONBOARDING | RESTORE_ERROR | restore_error_kb | backup file size |
 | ✅ | ONBOARDING | TOO_SHORT_USING_HINT_TIME | too_short_using_hint_time_sec | sec |
 | ✅ | ONBOARDING | TUTOR_TUTORIAL_COMPLETED | N/A | N/A |
 | ✅ | ONBOARDING | TUTEE_TUTORIAL_COMPLETED | N/A | N/A |

@@ -20,7 +20,7 @@ function DBImport({ className = '' }: Props): React.ReactElement<Props> {
   const { logEvent } = useLog();
   const _onChangeFile = useCallback(
     async (file: Uint8Array) => {
-      const backupFileSizeBytes = file.byteLength;
+      const backupFileSizeKb = Math.round(file.byteLength / 1024);
       try {
         const decompressedData = new TextDecoder().decode(pako.ungzip(file));
         const { keys, db } = JSON.parse(decompressedData);
@@ -37,10 +37,10 @@ function DBImport({ className = '' }: Props): React.ReactElement<Props> {
         } else {
           throw new Error('No valid database content found in the file.');
         }
-        logEvent('AUTHENTICATION', 'RESTORE', 'success', backupFileSizeBytes);
+        logEvent('AUTHENTICATION', 'RESTORE_SUCCESS', 'restore_success_kb', backupFileSizeKb);
         showInfo(t('Restored'));
       } catch (error) {
-        logEvent('AUTHENTICATION', 'RESTORE', 'error', backupFileSizeBytes);
+        logEvent('AUTHENTICATION', 'RESTORE_ERROR', 'restore_error_kb', backupFileSizeKb);
         showInfo((error as Error).message, 'error');
       }
     },

@@ -183,7 +183,7 @@ function Create({ className = '', onClose, onStatusChange, seed: propsSeed, type
         const status = createAccount(seed, derivePath, pairType, options, password, t('created account'));
         if (status.status === 'success' && status.account) {
           await storeSetting(SettingKey.ACCOUNT, status.account?.toString());
-          logEvent('AUTHENTICATION', 'SIGN_UP');
+          logEvent('AUTHENTICATION', 'SIGN_UP_SUCCESS');
         }
         onStatusChange(status);
         setIsBusy(false);
