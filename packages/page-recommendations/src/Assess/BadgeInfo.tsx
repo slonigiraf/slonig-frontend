@@ -19,6 +19,10 @@ interface Props {
   isSelectionAllowed: boolean;
 }
 
+function isInsurance(badge: Badge): badge is Insurance {
+  return 'valid' in badge;
+}
+
 function BadgeInfo({ className = '', badge, isSelected, onToggleSelection, isSelectionAllowed }: Props): React.ReactElement<Props> {
   const { ipfs } = useIpfsContext();
   type JsonType = { [key: string]: any } | null;
@@ -49,10 +53,14 @@ function BadgeInfo({ className = '', badge, isSelected, onToggleSelection, isSel
   }, [ipfs, badge])
 
   useEffect(() => {
-    if(areDetailsOpen && skillName){
-      logEvent('ASSESSMENT', 'VIEW_INSURANCE', skillName);
+    if (areDetailsOpen && skillName && badge) {
+      if (isInsurance(badge)) {
+        logEvent('ASSESSMENT', 'VIEW_INSURANCE', skillName);
+      } else {
+        logEvent('BADGE', 'VIEW_BADGE', skillName);
+      }
     }
-  }, [areDetailsOpen, skillName, logEvent]);
+  }, [areDetailsOpen, skillName, badge, logEvent]);
 
   const skillNameToShow = loaded ? <KatexSpan content={skillName} /> : <Spinner noLabel />;
 

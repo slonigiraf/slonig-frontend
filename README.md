@@ -49,6 +49,7 @@ Here is a list of user actions tracked by Slonig:
 | ✅ | LEARNING | EXAM_REQUESTED | KnowledgeName | N/A |
 | ✅ | LEARNING | REDIRECT_TO_COURSE | N/A | N/A |
 | ✅ | LEARNING | CANCEL |  N/A | N/A |
+| ✅ | BADGE | VIEW_BADGE |  KnowledgeName | N/A |
 | ✅ | SCAN | OPEN | N/A | N/A |
 | ✅ | SCAN | SUCCESS | N/A | N/A |
 | ✅ | SCAN | MANUAL_CLOSE | N/A | N/A |
