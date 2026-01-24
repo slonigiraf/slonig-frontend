@@ -93,17 +93,17 @@ Here is a list of user actions tracked by Slonig:
 | ✅ | TUTORING | TEACH_ALGO | mark_for_repeat | N/A |
 | ✅ | TUTORING | TEACH_ALGO | click_instant_mark_mastered | N/A |
 | ✅ | TUTORING | TEACH_ALGO | click_instant_mark_for_repeat | N/A |
-| ✅ | TUTORING | RESULTS | auto_send_opened | amount |
-| ✅ | TUTORING | RESULTS | click_send_during_lesson | N/A |
-| ✅ | TUTORING | RESULTS | click_send_at_list_of_lessons |  N/A |
-| ✅ | TUTORING | RESULTS | click_agree_to_send_results | N/A |
-| ✅ | TUTORING | RESULTS | badges | count |
-| ✅ | TUTORING | RESULTS | repetitions | count |
-| ✅ | TUTORING | RESULTS | reexaminations | count |
-| ✅ | TUTORING | RESULTS | price | amount in tokens |
-| ✅ | TUTORING | RESULTS | warranty | amount in tokens |
-| ✅ | TUTORING | RESULTS | days_valid | count |
-| ✅ | TUTORING | RESULTS | data_was_sent | N/A |
+| ✅ | TUTORING | LESSON_RESULTS | lesson_auto_send_opened | amount |
+| ✅ | TUTORING | LESSON_RESULTS | click_send_during_lesson | N/A |
+| ✅ | TUTORING | LESSON_RESULTS | click_send_at_list_of_lessons |  N/A |
+| ✅ | TUTORING | LESSON_RESULTS | click_agree_to_send_results | N/A |
+| ✅ | TUTORING | LESSON_RESULTS | lesson_badges | count |
+| ✅ | TUTORING | LESSON_RESULTS | repetitions | count |
+| ✅ | TUTORING | LESSON_RESULTS | reexaminations | count |
+| ✅ | TUTORING | LESSON_RESULTS | price | amount in tokens |
+| ✅ | TUTORING | LESSON_RESULTS | warranty | amount in tokens |
+| ✅ | TUTORING | LESSON_RESULTS | days_valid | count |
+| ✅ | TUTORING | LESSON_RESULTS | lesson_data_was_sent | N/A |
 | ✅ | ASSESSMENT | SHOW_QR | N/A | N/A |
 | ✅ | ASSESSMENT | VIEW_STUDENT | KnowledgeName (skill) | KnowledgeId (skill) |
 | ✅ | ASSESSMENT | RECEIVE_STUDENT_DATA | insurances | count |

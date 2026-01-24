@@ -62,7 +62,7 @@ function LessonResults({ className = '', lesson, updateAndStoreLesson, onClose, 
   }, [countOfValidLetters, countOfRepetitions, countOfReexaminationsPerformed, dontSign]);
 
   const onDataSent = useCallback(async (): Promise<void> => {
-    logEvent('TUTORING', 'RESULTS', 'data_was_sent');
+    logEvent('TUTORING', 'LESSON_RESULTS', 'lesson_data_was_sent');
     setResultsWereSent(true);
     if (totalIncomeRef.current.isZero()) {
       onFinished();
@@ -224,16 +224,16 @@ function LessonResults({ className = '', lesson, updateAndStoreLesson, onClose, 
         };
 
         if (letterData.length > 0) {
-          logEvent('TUTORING', 'RESULTS', 'badges', letterData.length);
-          logEvent('TUTORING', 'RESULTS', 'price', bnToSlonFloatOrNaN(lessonPrice));
-          logEvent('TUTORING', 'RESULTS', 'warranty', bnToSlonFloatOrNaN(amount));
-          logEvent('TUTORING', 'RESULTS', 'days_valid', lesson.dValidity);
+          logEvent('TUTORING', 'LESSON_RESULTS', 'lesson_badges', letterData.length);
+          logEvent('TUTORING', 'LESSON_RESULTS', 'price', bnToSlonFloatOrNaN(lessonPrice));
+          logEvent('TUTORING', 'LESSON_RESULTS', 'warranty', bnToSlonFloatOrNaN(amount));
+          logEvent('TUTORING', 'LESSON_RESULTS', 'days_valid', lesson.dValidity);
         }
         if (repetitionData.length) {
-          logEvent('TUTORING', 'RESULTS', 'repetitions', repetitionData.length);
+          logEvent('TUTORING', 'LESSON_RESULTS', 'repetitions', repetitionData.length);
         }
         if (reexaminationData.length) {
-          logEvent('TUTORING', 'RESULTS', 'reexaminations', reexaminationData.length);
+          logEvent('TUTORING', 'LESSON_RESULTS', 'reexaminations', reexaminationData.length);
         }
 
         setData(JSON.stringify(lessonResult));

@@ -225,7 +225,7 @@ function Teach({ className = '' }: Props): React.ReactElement<Props> {
         setReexaminationToPerform(currentReexaminations[updatedLesson.reexamineStep]);
       }
       if (updatedLesson.learnStep === updatedLesson.toLearnCount && updatedLesson.reexamineStep === updatedLesson.toReexamineCount) {
-        logEvent('TUTORING', 'RESULTS', 'auto_send_opened');
+        logEvent('TUTORING', 'LESSON_RESULTS', 'lesson_auto_send_opened');
         onShowResults(updatedLesson);
       }
     }
@@ -274,7 +274,7 @@ function Teach({ className = '' }: Props): React.ReactElement<Props> {
     setIsPairChangeDialogueOpen(false);
     logEvent('CLASSROOM', 'AGREE_PARTNER_CHANGE');
     if (isSendingResultsEnabled) {
-      logEvent('TUTORING', 'RESULTS', 'click_agree_to_send_results');
+      logEvent('TUTORING', 'LESSON_RESULTS', 'click_agree_to_send_results');
       onShowResults(lesson);
     } else {
       onCloseResults();
@@ -350,7 +350,7 @@ function Teach({ className = '' }: Props): React.ReactElement<Props> {
               icon={'paper-plane'}
               label={t('Send results and get a reward')}
               onClick={() => {
-                logEvent('TUTORING', 'RESULTS', 'click_send_during_lesson');
+                logEvent('TUTORING', 'LESSON_RESULTS', 'click_send_during_lesson');
                 onShowResults(lesson);
               }
               } />
