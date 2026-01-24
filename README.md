@@ -111,7 +111,8 @@ Here is a list of user actions tracked by Slonig:
 | ✅ | ASSESSMENT | PENALIZE | tokens | amount |
 | ✅ | QR | CLICK_SEND | N/A | N/A |
 | ✅ | QR | CLICK_COPY | N/A | N/A |
-| ✅ | SETTINGS | NOW_IS_CLASS_ONBOARDING | true_or_false | 1 or 0 |
+| ✅ | SETTINGS | CLASS_ONBOARDING_OFF | N/A | N/A |
+| ✅ | SETTINGS | CLASS_ONBOARDING_ON | N/A | N/A |
 | ✅ | SETTINGS | DIPLOMA_PRICE_SET | tokens | amount |
 | ✅ | SETTINGS | DIPLOMA_WARRANTY_SET | tokens | amount |
 | ✅ | SETTINGS | DIPLOMA_VALIDITY_SET | days | count |

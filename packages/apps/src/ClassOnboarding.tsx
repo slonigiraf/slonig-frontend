@@ -19,7 +19,7 @@ function ClassOnboarding({ className = '' }: Props): React.ReactElement<Props> {
   const { logEvent } = useLog();
 
   const exitOnboarding = useCallback(async () => {
-    logEvent('SETTINGS', 'NOW_IS_CLASS_ONBOARDING', 'true_or_false', 0);
+    logEvent('SETTINGS', 'CLASS_ONBOARDING_OFF');
     await deleteSetting(SettingKey.NOW_IS_CLASS_ONBOARDING);
   }, [deleteSetting]);
 

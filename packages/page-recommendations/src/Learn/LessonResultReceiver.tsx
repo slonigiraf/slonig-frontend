@@ -117,7 +117,7 @@ function LessonResultReceiver({ webRTCPeerId, onDaysRangeChange }: Props): React
             if (lessonResult.letters.length === 1) {
               const letter = deserializeLetter(lessonResult.letters[0], lessonResult.workerId, lessonResult.genesis, lessonResult.amount);
               if (letter.knowledgeId === EXAMPLE_SKILL_KNOWLEDGE_ID) {
-                logEvent('SETTINGS', 'NOW_IS_CLASS_ONBOARDING', 'true_or_false', 1);
+                logEvent('SETTINGS', 'CLASS_ONBOARDING_ON');
                 await setSettingToTrue(SettingKey.NOW_IS_CLASS_ONBOARDING);
               }
             }
