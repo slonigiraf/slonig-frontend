@@ -10,7 +10,7 @@ import {
   useLog
 } from '@slonigiraf/slonig-components';
 import { useTranslation } from '../translate.js';
-import { MIN_USING_HINT_SEC } from '@slonigiraf/utils';
+import { MIN_USING_HINT_MS } from '@slonigiraf/utils';
 
 interface ChatSimulationProps {
   messages: IMessage[];
@@ -19,8 +19,6 @@ interface ChatSimulationProps {
   onAllMessagesRevealed: () => void;
   isTutorial: boolean;
 }
-
-const MIN_USING_HINT_MS = MIN_USING_HINT_SEC * 1000;
 
 const ChatSimulation: React.FC<ChatSimulationProps> = ({ messages, hasTutorCompletedTutorial, isSendingResultsEnabled, onAllMessagesRevealed, isTutorial }) => {
   const [revealedCount, setRevealedCount] = useState(1);
