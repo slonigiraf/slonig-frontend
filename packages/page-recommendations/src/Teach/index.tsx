@@ -11,7 +11,7 @@ import LessonResults from './LessonResults.js';
 import LessonRequestReceiver from './LessonRequestReceiver.js';
 import { useTranslation } from '../translate.js';
 import { useLocation } from 'react-router-dom';
-import { EXAMPLE_MODULE_KNOWLEDGE_CID, FAST_SKILL_DISCUSSION_MS, MAX_FAST_DISCUSSED_SKILLS_IN_ROW_COUNT, MAX_SAME_PARTNER_TIME_MS, MIN_SKILL_DISCUSSION_MS } from '@slonigiraf/utils';
+import { EXAMPLE_MODULE_KNOWLEDGE_CID, FAST_SKILL_DISCUSSION_MS, MAX_FAST_DISCUSSED_SKILLS_IN_ROW_COUNT, MAX_SAME_PARTNER_TIME_MS, MIN_SAME_PARTNER_TIME_MS, MIN_SKILL_DISCUSSION_MS } from '@slonigiraf/utils';
 
 interface Props {
   className?: string;
@@ -59,39 +59,22 @@ function Teach({ className = '' }: Props): React.ReactElement<Props> {
     }
   }, [lastSkillDiscussedTime, letterTemplateToIssue, reexaminationToPerform]);
 
-
-
   useEffect(() => {
-    if (isPairChangeDialogueOpen) return;
+    if (!lesson || isPairChangeDialogueOpen) return;
 
     const tick = () => {
-      if (isPairChangeDialogueOpen) return;
-
       const now = Date.now();
-
-      // suppression: last partner change within 7 minutes
-      if (lastPartnerChangeTime && now - lastPartnerChangeTime < MAX_SAME_PARTNER_TIME_MS/2) return;
-
-      // integer division buckets of X minutes
+      const justStartedToWork = lastPartnerChangeTime && (now - lastPartnerChangeTime) < MIN_SAME_PARTNER_TIME_MS;
       const bucket = Math.floor(now / MAX_SAME_PARTNER_TIME_MS);
-
-      // first run: initialize
-      if (lastTimeBucketRef.current === null) {
-        lastTimeBucketRef.current = bucket;
-        return;
-      }
-
-      // bucket changed => crossed a 15-min boundary
-      if (bucket !== lastTimeBucketRef.current) {
-        lastTimeBucketRef.current = bucket;
+      if (!justStartedToWork && bucket !== lastTimeBucketRef.current) {
         setIsPairChangeDialogueOpen(true);
       }
+      lastTimeBucketRef.current = bucket;
     };
 
-    tick();
-    const id = setInterval(tick, 1000);
+    const id = setInterval(tick, 1_000);
     return () => clearInterval(id);
-  }, [lastPartnerChangeTime, isPairChangeDialogueOpen, setIsPairChangeDialogueOpen]);
+  }, [lesson, lastPartnerChangeTime, isPairChangeDialogueOpen, setIsPairChangeDialogueOpen]);
 
   const protectTutor = useCallback(async (isLearning: boolean, action: () => Promise<void>) => {
     if (!lastSkillDiscussedTime) return;
@@ -286,6 +269,25 @@ function Teach({ className = '' }: Props): React.ReactElement<Props> {
     setTooFastConfirmationIsShown(false);
   }, [warningCount, setWarningCount, setTooFastConfirmationIsShown]);
 
+  const onChangePartnerConfirm = useCallback(() => {
+    if (!lesson) return;
+    setIsPairChangeDialogueOpen(false);
+    logEvent('CLASSROOM', 'AGREE_PARTNER_CHANGE');
+    if (isSendingResultsEnabled) {
+      logEvent('TUTORING', 'RESULTS', 'click_agree_to_send_results');
+      onShowResults(lesson);
+    } else {
+      onCloseResults();
+    }
+  }, [setIsPairChangeDialogueOpen, logEvent, isSendingResultsEnabled, onShowResults, onCloseResults, lesson]);
+
+  const onChangePartnerPostpone = useCallback(async () => {
+    setIsPairChangeDialogueOpen(false);
+    logEvent('CLASSROOM', 'POSTPONE_PARTNER_CHANGE');
+    const now = (new Date()).getTime();
+    await storeSetting(SettingKey.LAST_PARTNER_CHANGE_TIME, now.toString());
+  }, [setIsPairChangeDialogueOpen, logEvent, storeSetting]);
+
   const publicKeyHex = currentPair ? u8aToHex(currentPair.publicKey) : "";
 
   // Don't do reexaminations if the tutor is a first time tutor
@@ -383,20 +385,8 @@ function Teach({ className = '' }: Props): React.ReactElement<Props> {
               question={t('It’s time to send the results and find a new partner to learn from.')}
               agreeText={t('Agree')}
               disagreeText={t('Postpone')}
-              onClose={() => {
-                setIsPairChangeDialogueOpen(false);
-                logEvent('CLASSROOM', 'POSTPONE_PARTNER_CHANGE');
-              }}
-              onConfirm={() => {
-                setIsPairChangeDialogueOpen(false);
-                logEvent('CLASSROOM', 'AGREE_PARTNER_CHANGE');
-                if (isSendingResultsEnabled) {
-                  logEvent('TUTORING', 'RESULTS', 'click_agree_to_send_results');
-                  onShowResults(lesson);
-                } else {
-                  onCloseResults();
-                }
-              }}
+              onClose={onChangePartnerPostpone}
+              onConfirm={onChangePartnerConfirm}
             />
           }
         </>

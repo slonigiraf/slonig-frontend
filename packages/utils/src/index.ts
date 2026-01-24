@@ -17,3 +17,4 @@ export const MAX_FAST_DISCUSSED_SKILLS_IN_ROW_COUNT = 1;
 export const BACKUP_REQUIREMENT_PERIOD_MS = 24 * 60 * 60_000; // One day
 export const ONE_SUBJECT_PERIOD_MS = 60 * 60_000; // One hour long lesson
 export const MAX_SAME_PARTNER_TIME_MS = 15 * 60_000; // 4 times change per 1 hour
+export const MIN_SAME_PARTNER_TIME_MS = Math.floor(MAX_SAME_PARTNER_TIME_MS / 2);
