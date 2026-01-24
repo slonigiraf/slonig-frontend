@@ -97,7 +97,7 @@ function SignLettersUseRight({ className = '', letters, worker, employer, curren
       if (daysInputValue === "") return;
       const days = parseInt(daysInputValue, 10);
       if (!isNaN(days) && days >= 0) {
-        logEvent('SETTINGS', 'INSURANCE_VALIDITY_SET', 'days', days);
+        logEvent('SETTINGS', 'INSURANCE_VALIDITY_SET', 'insurance_validity_set_to_days', days);
         storeSetting(SettingKey.INSURANCE_VALIDITY, days.toString());
         setDaysValid(days);
       }
