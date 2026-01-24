@@ -23,7 +23,7 @@ function UseInsurance({ className = '', insurance }: Props): React.ReactElement<
   const processBounty = async () => {
     setIsButtonClicked(true);
     if (currentPair !== null) {
-      logEvent('ASSESSMENT', 'PENALIZE', 'tokens', bnToSlonFloatOrNaN(new BN(insurance.amount)));
+      logEvent('ASSESSMENT', 'ASSESSMENT_PENALIZE', 'assessment_penalize_by_slon', bnToSlonFloatOrNaN(new BN(insurance.amount)));
       const reimbursement = insuranceToReimbursement(insurance);
       await addReimbursement(reimbursement);
       await cancelInsurance(insurance.workerSign, (new Date).getTime());

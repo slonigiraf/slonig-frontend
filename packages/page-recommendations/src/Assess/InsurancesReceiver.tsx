@@ -30,7 +30,7 @@ function InsurancesReceiver({ setWorker }: Props): React.ReactElement<Props> {
         logEvent('ONBOARDING', 'ASSESSMENT_TUTORIAL_COMPLETED');
         await setSettingToTrue(SettingKey.ASSESSMENT_TUTORIAL_COMPLETED);
       }
-      logEvent('ASSESSMENT', 'RECEIVE_STUDENT_DATA', 'insurances', insurancesTransfer.insurances.length);
+      logEvent('ASSESSMENT', 'RECEIVE_INSURANCE_DATA', 'insurances', insurancesTransfer.insurances.length);
       await storePseudonym(insurancesTransfer.identity, insurancesTransfer.name);
       await storeInsurances(insurancesTransfer);
       navigate('', { replace: true });

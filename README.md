@@ -56,8 +56,8 @@ Here is a list of user actions tracked by Slonig:
 | ✅ | SCAN | SCAN_MANUAL_CLOSE | N/A | N/A |
 | ✅ | LEARNING | LOAD_RESULTS | loaded_old_agreement | N/A |
 | ✅ | LEARNING | LOAD_RESULTS | agreement_price_slon | amount |
-| ✅ | TRANSACTIONS | SEND | tokens | amount |
-| ✅ | TRANSACTIONS | RECEIVE | tokens | amount |
+| ✅ | TRANSACTIONS | SEND_SLON | send_slon | amount |
+| ✅ | TRANSACTIONS | RECEIVE_SLON | receive_slon | amount |
 | ✅ | LEARNING | SAVE_REPETITIONS | saved_repetitions_count | count |
 | ✅ | LEARNING | SAVE_BADGES | saved_badges_count | count |
 | ✅ | LEARNING | SAVE_REEXAMINATIONS | saved_reexaminations_count | count |
@@ -105,11 +105,11 @@ Here is a list of user actions tracked by Slonig:
 | ✅ | TUTORING | LESSON_RESULTS | lesson_warranty_slon | amount in tokens |
 | ✅ | TUTORING | LESSON_RESULTS | lesson_days_valid | count |
 | ✅ | TUTORING | LESSON_RESULTS | lesson_data_was_sent | N/A |
-| ✅ | ASSESSMENT | SHOW_QR | N/A | N/A |
-| ✅ | ASSESSMENT | VIEW_STUDENT | KnowledgeName (skill) | KnowledgeId (skill) |
-| ✅ | ASSESSMENT | RECEIVE_STUDENT_DATA | insurances | count |
+| ✅ | ASSESSMENT | SHOW_ASSESSMENT_QR | N/A | N/A |
+| ✅ | ASSESSMENT | VIEW_STUDENT_INSURANCE_LIST | KnowledgeName (skill) | KnowledgeId (skill) |
+| ✅ | ASSESSMENT | RECEIVE_INSURANCE_DATA | insurances | count |
 | ✅ | ASSESSMENT | VIEW_INSURANCE | KnowledgeName (skill) | N/A |
-| ✅ | ASSESSMENT | PENALIZE | tokens | amount |
+| ✅ | ASSESSMENT | ASSESSMENT_PENALIZE | assessment_penalize_by_slon | amount |
 | ✅ | QR | CLICK_SEND_QR | N/A | N/A |
 | ✅ | QR | CLICK_COPY_QR | N/A | N/A |
 | ✅ | SETTINGS | CLASS_ONBOARDING_OFF | N/A | N/A |
@@ -128,9 +128,9 @@ Here is a list of user actions tracked by Slonig:
 | ✅ | SETTINGS | RECEIVED_AIRDROP | received_airdrop_slon | amount |
 | ✅ | SETTINGS | CLICK_DEVELOPER_MODE_ON | N/A | N/A |
 | ✅ | SETTINGS | CLICK_DEVELOPER_MODE_OFF | N/A | N/A |
-| ✅ | EDITING | CLICK_EDIT | KnowledgeName | N/A |
-| ✅ | EDITING | CLICK_SAVE | KnowledgeName | N/A |
-| ✅ | EDITING | UPDATED | KnowledgeName | N/A |
+| ✅ | EDITING | CLICK_EDIT_KNOWLEDGE | KnowledgeName | N/A |
+| ✅ | EDITING | CLICK_SAVE_KNOWLEDGE | KnowledgeName | N/A |
+| ✅ | EDITING | KNOWLEDGE_UPDATED | KnowledgeName | N/A |
 
 ## Technical details for developers
 

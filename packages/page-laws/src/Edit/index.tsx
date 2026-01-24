@@ -126,7 +126,7 @@ function Edit({ className = '' }: Props): React.ReactElement<Props> {
   const _onClickEdit = useCallback(
     (): void => {
       if (isLoggedIn) {
-        logEvent('EDITING', 'CLICK_EDIT', list?.h);
+        logEvent('EDITING', 'CLICK_EDIT_KNOWLEDGE', list?.h);
         if (isDeveloper) {
           _onClickChangeView();
         } else {
@@ -140,7 +140,7 @@ function Edit({ className = '' }: Props): React.ReactElement<Props> {
   );
 
   const _onSuccess = useCallback((digestHex: string) => {
-    logEvent('EDITING', 'UPDATED', list?.h);
+    logEvent('EDITING', 'KNOWLEDGE_UPDATED', list?.h);
     _onClickChangeView();
     setIsAddingElement(false);
     setIsAddingLink(false);
@@ -251,7 +251,7 @@ function Edit({ className = '' }: Props): React.ReactElement<Props> {
   }, []);
 
   const _onSave = async (): Promise<void> => {
-    logEvent('EDITING', 'CLICK_SAVE', list?.h);
+    logEvent('EDITING', 'CLICK_SAVE_KNOWLEDGE', list?.h);
     if (!isIpfsReady) {
       return;
     }

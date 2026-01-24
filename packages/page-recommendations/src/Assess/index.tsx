@@ -46,9 +46,9 @@ function Assess({ className = '' }: Props): React.ReactElement<Props> {
   useEffect(() => {
     if (isLoggedIn && isAssessmentAllowed) {
       if (student) {
-        logEvent('ASSESSMENT', 'VIEW_STUDENT');
+        logEvent('ASSESSMENT', 'VIEW_STUDENT_INSURANCE_LIST');
       } else {
-        logEvent('ASSESSMENT', 'SHOW_QR');
+        logEvent('ASSESSMENT', 'SHOW_ASSESSMENT_QR');
       }
     }
   }, [isLoggedIn, isAssessmentAllowed, student]);

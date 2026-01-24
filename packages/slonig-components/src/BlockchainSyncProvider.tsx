@@ -93,7 +93,10 @@ export const BlockchainSyncProvider: React.FC<BlockchainSyncProviderProps> = ({ 
                 const icon = balanceChange.gte(BN_ZERO) ? 'hand-holding-dollar' : 'money-bill-trend-up';
                 const balanceChangeToShow = bnToSlonString(balanceChange);
                 if (balanceChangeToShow !== '0' && myBalance.current.gt(BN_ZERO)) {
-                    logEvent('TRANSACTIONS', priceToLog > 0 ? 'RECEIVE' : 'SEND', 'tokens', Math.abs(priceToLog));
+                    logEvent('TRANSACTIONS', 
+                        priceToLog > 0 ? 'RECEIVE_SLON' : 'SEND_SLON', 
+                        priceToLog > 0 ? 'receive_slon' : 'send_slon', 
+                        Math.abs(priceToLog));
                     showInfo(bnToSlonString(balanceChange) + ' Slon', 'info', 4, icon);
                 }
                 if (balanceChange.gt(BN_ZERO) && lessonId && lessonResultsAreShown) {
