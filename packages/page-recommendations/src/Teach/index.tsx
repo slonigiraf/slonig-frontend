@@ -382,8 +382,8 @@ function Teach({ className = '' }: Props): React.ReactElement<Props> {
           {
             lesson && isPairChangeDialogueOpen && <Confirmation
               decorator={clock}
-              question={t('It’s time to send the results and find a new partner to learn from.')}
-              agreeText={t('Agree')}
+              question={t('It’s time to send the results and become a student of a new partner.')}
+              agreeText={t('OK')}
               disagreeText={t('Postpone')}
               onClose={onChangePartnerPostpone}
               onConfirm={onChangePartnerConfirm}
