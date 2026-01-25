@@ -201,7 +201,9 @@ function LessonResultReceiver({ webRTCPeerId, onDaysRangeChange }: Props): React
       if (lessonResult) {
         try {
           const now = Date.now();
-          logEvent('LEARNING', 'SAVE_REPETITIONS', 'saved_repetitions_count', lessonResult.letters.length);
+          if (lessonResult.letters.length > 0) {
+            logEvent('LEARNING', 'SAVE_REPETITIONS', 'saved_repetitions_count', lessonResult.letters.length);
+          }
 
           lessonResult.repetitions.forEach((repetitionsMeta) => {
             const [lastExaminedRaw, knowledgeId] = repetitionsMeta.split(',');
