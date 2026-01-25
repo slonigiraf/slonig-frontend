@@ -92,14 +92,18 @@ function Teach({ className = '' }: Props): React.ReactElement<Props> {
 
     const logTime = (isLearning: boolean, timeSpent: number) => {
       logEvent('TUTORING',
-        isLearning ? 'TOO_SHORT_TEACH' : 'TOO_SHORT_REEXAMINE',
-        isLearning ? 'too_short_teach_time_sec' : 'too_short_reexamine_time_sec',
+        isLearning ? 'TEACH_SKILL_TIME' : 'REEXAMINE_SKILL_TIME',
+        isLearning ? 'teach_skill_time_sec' : 'reexamine_skill_time_sec',
         Math.round(timeSpent / 1000)
       );
     }
 
     if (timeSpent < MIN_SKILL_DISCUSSION_MS) {
-      logTime(isLearning, timeSpent);
+      logEvent('TUTORING',
+        isLearning ? 'TOO_SHORT_TEACH' : 'TOO_SHORT_REEXAMINE',
+        isLearning ? 'too_short_teach_time_sec' : 'too_short_reexamine_time_sec',
+        Math.round(timeSpent / 1000)
+      );
       setTooFastConfirmationIsShown(true);
     } else if (timeSpent < FAST_SKILL_DISCUSSION_MS) {
       if (fastDiscussedSkillsCount + 1 > MAX_FAST_DISCUSSED_SKILLS_IN_ROW_COUNT) {
