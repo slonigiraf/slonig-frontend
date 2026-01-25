@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 import React, { useCallback, useState } from 'react';
 import { Button, styled } from '@polkadot/react-components';
-import { Confirmation, FullFindow, FullscreenActivity, useLog } from '@slonigiraf/slonig-components';
+import { Confirmation, FullscreenActivity, useLog } from '@slonigiraf/slonig-components';
 import { SettingKey, deleteSetting, getSetting } from '@slonigiraf/db';
 import { useTranslation } from './translate.js';
 import { useNavigate } from 'react-router-dom';
@@ -38,9 +38,8 @@ function ClassOnboarding({ className = '' }: Props): React.ReactElement<Props> {
   }, [logEvent, navigate, deleteSetting]);
 
   return (
-    <FullFindow>
+    <>
       <FullscreenActivity caption={''} onClose={tryToClose}>
-
         <StyledDiv>
           <img
             src="./split_pair.png"
@@ -48,7 +47,7 @@ function ClassOnboarding({ className = '' }: Props): React.ReactElement<Props> {
             style={{ width: '80%', maxWidth: 430 }}
           />
           <h1 className='prompt' style={{ width: '70%', maxWidth: 430, textAlign: 'center' }}>{t('Split and find a partner that never used Slonig')}</h1>
-          
+
           <Button
             className='highlighted--button'
             activeOnEnter
@@ -56,14 +55,13 @@ function ClassOnboarding({ className = '' }: Props): React.ReactElement<Props> {
             onClick={helpOthers}
           />
         </StyledDiv>
-
       </FullscreenActivity>
       {isExitConfirmOpen && (
         <Confirmation question={t('Are you sure everyone around you has tried using Slonig?')}
           onClose={() => setIsExitConfirmOpen(false)}
           onConfirm={exitOnboarding} />
       )}
-    </FullFindow>
+    </>
   );
 }
 
