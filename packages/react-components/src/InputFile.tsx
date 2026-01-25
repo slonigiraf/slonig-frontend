@@ -30,6 +30,7 @@ export interface InputFileProps extends InputFilePropsBase {
   // i.e. MIME types: 'application/json, text/plain', or '.json, .txt'
   accept?: string[];
   onChange?: (contents: Uint8Array, name: string) => void;
+  onFileSelect?: () => void;
 }
 
 interface FileState {
@@ -61,7 +62,7 @@ function convertResult (result: ArrayBuffer): Uint8Array {
   return data;
 }
 
-function InputFile ({ accept, className = '', clearContent, isDisabled, isError = false, isFull, label, labelExtra, onChange, placeholder, withEllipsis, withLabel }: InputFileProps): React.ReactElement<InputFileProps> {
+function InputFile ({ accept, className = '', clearContent, isDisabled, isError = false, isFull, label, labelExtra, onChange, onFileSelect, placeholder, withEllipsis, withLabel }: InputFileProps): React.ReactElement<InputFileProps> {
   const { t } = useTranslation();
   const dropRef = createRef<DropzoneRef>();
   const [file, setFile] = useState<FileState | undefined>();
@@ -69,6 +70,7 @@ function InputFile ({ accept, className = '', clearContent, isDisabled, isError 
   const onDrop = useCallback(
     (files: File[]): void => {
       files.forEach((file): void => {
+        onFileSelect && onFileSelect();
         const reader = new FileReader();
 
         reader.onabort = NOOP;

@@ -1,7 +1,7 @@
 import React, { useCallback } from 'react';
 import { InputFile } from '@polkadot/react-components';
 import { useTranslation } from './translate.js';
-import { replaceDB } from '@slonigiraf/db';
+import { replaceDB, SettingKey, storeSetting } from '@slonigiraf/db';
 import { keyring } from '@polkadot/ui-keyring';
 import pako from 'pako';
 import { useInfo } from './InfoProvider.js';
@@ -9,17 +9,20 @@ import { useLoginContext, useLog } from '@slonigiraf/slonig-components';
 
 interface Props {
   className?: string;
+  onFileSelect: () => void;
+  onRestoreResult: () => void;
 }
 
 const acceptedFormats = ['.gz', 'application/gzip', 'application/x-gzip', 'application/octet-stream'];
 
-function DBImport({ className = '' }: Props): React.ReactElement<Props> {
+function DBImport({ className = '', onFileSelect, onRestoreResult }: Props): React.ReactElement<Props> {
   const { t } = useTranslation();
   const { showInfo } = useInfo();
   const { setDefaultAccount } = useLoginContext();
   const { logEvent } = useLog();
   const _onChangeFile = useCallback(
     async (file: Uint8Array) => {
+      onFileSelect();
       const backupFileSizeKb = Math.round(file.byteLength / 1024);
       try {
         const decompressedData = new TextDecoder().decode(pako.ungzip(file));
@@ -39,10 +42,12 @@ function DBImport({ className = '' }: Props): React.ReactElement<Props> {
         }
         logEvent('AUTHENTICATION', 'RESTORE_SUCCESS', 'restore_success_kb', backupFileSizeKb);
         showInfo(t('Restored'));
+        await storeSetting(SettingKey.LAST_BACKUP_TIME, Date.now().toString());
       } catch (error) {
         logEvent('AUTHENTICATION', 'RESTORE_ERROR', 'restore_error_kb', backupFileSizeKb);
         showInfo((error as Error).message, 'error');
       }
+      onRestoreResult();
     },
     [t]
   );
