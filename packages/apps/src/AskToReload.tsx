@@ -16,20 +16,18 @@ function AskToReload({ reload }: Props): React.ReactElement<Props> {
     reload();
   }, []);
   return (
-    <FullFindow>
-      <FullscreenActivity caption={''}>
-          <StyledDiv>
-            {isReloading ?
-              <Spinner label={t('Loading')} />
-              :
-              <>
-                <h1>{t('A new version is available. Please reload the page.')}</h1>
-                <Button className={'highlighted--button'} onClick={onReload} icon={'rotate'} label={'Reload'} />
-              </>
-            }
-          </StyledDiv>
-      </FullscreenActivity>
-    </FullFindow>
+    <FullscreenActivity caption={''} backgroundColor={'var(--bg-page)'}>
+      <StyledDiv>
+        {isReloading ?
+          <Spinner label={t('Loading')} />
+          :
+          <>
+            <h1>{t('A new version is available. Please reload the page.')}</h1>
+            <Button className={'highlighted--button'} onClick={onReload} icon={'rotate'} label={'Reload'} />
+          </>
+        }
+      </StyledDiv>
+    </FullscreenActivity>
   );
 }
 
