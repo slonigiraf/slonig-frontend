@@ -31,7 +31,7 @@ echo "}" >> $TARGET
 # update version
 HTML_DIR="/usr/share/nginx/html"
 VERSION_JSON_PATH="${HTML_DIR}/version.json"
-NOW="$(date -u +%s)"
+NOW="$(date -u '+%Y-%m-%dT%H:%M:%SZ')"
 
 cat > "${VERSION_JSON_PATH}" <<EOF
 { "version": "${NOW}" }
