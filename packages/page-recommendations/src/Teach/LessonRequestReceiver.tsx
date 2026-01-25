@@ -1,7 +1,7 @@
 // Copyright 2021-2022 @slonigiraf/app-recommendations authors & contributors
 // SPDX-License-Identifier: Apache-2.0
 
-import { deleteSetting, getLesson, getLessonId, getSetting, Lesson, setSettingToTrue, SettingKey, storeLesson, storePseudonym, storeSetting } from '@slonigiraf/db';
+import { deleteSetting, getLesson, getLessonId, getSetting, hasSetting, Lesson, setSettingToTrue, SettingKey, storeLesson, storePseudonym, storeSetting } from '@slonigiraf/db';
 import React, { useCallback } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { LessonRequest, UrlParams, useLog, useLoginContext, useInfo } from '@slonigiraf/slonig-components';
@@ -57,7 +57,7 @@ function LessonRequestReceiver({ setCurrentLesson }: Props): React.ReactElement<
         navigate('', { replace: true });
       } else {
         await storePseudonym(lessonRequest.identity, lessonRequest.name);
-    
+
         logPartners(await processNewPartner(lessonRequest.identity));
 
         let lessonId = lessonRequest.lesson;
@@ -65,8 +65,11 @@ function LessonRequestReceiver({ setCurrentLesson }: Props): React.ReactElement<
 
         if (goWithNormalRequest) {
           const processOnboaring = async () => {
-            logEvent('SETTINGS', 'CLASS_ONBOARDING_OFF');
-            await deleteSetting(SettingKey.NOW_IS_CLASS_ONBOARDING);
+            const nowIsOnboarding = await hasSetting(SettingKey.NOW_IS_CLASS_ONBOARDING);
+            if (nowIsOnboarding) {
+              logEvent('SETTINGS', 'CLASS_ONBOARDING_OFF');
+              await deleteSetting(SettingKey.NOW_IS_CLASS_ONBOARDING);
+            }
           }
           await storeLesson(lessonRequest, tutorPublicKeyHex, processOnboaring);
         }
