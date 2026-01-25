@@ -1,7 +1,7 @@
-import React, { useCallback, useState } from 'react';
+import React from 'react';
 import { useTranslation } from '../translate.js';
-import { Button, Spinner, styled } from '@polkadot/react-components';
-import { FullFindow, FullscreenActivity } from '@slonigiraf/slonig-components';
+import { Spinner, styled } from '@polkadot/react-components';
+import { FullscreenActivity } from '@slonigiraf/slonig-components';
 
 interface Props {
 }
@@ -10,13 +10,11 @@ function RestoringProgress({ }: Props): React.ReactElement<Props> {
   const { t } = useTranslation();
 
   return (
-    <FullFindow>
-      <FullscreenActivity caption={''}>
-          <StyledDiv>
-            <Spinner label={t('Loading')} />
-          </StyledDiv>
-      </FullscreenActivity>
-    </FullFindow>
+    <FullscreenActivity caption={''} backgroundColor={'var(--bg-page)'}>
+      <StyledDiv>
+        <Spinner label={t('Loading')} />
+      </StyledDiv>
+    </FullscreenActivity>
   );
 }
 

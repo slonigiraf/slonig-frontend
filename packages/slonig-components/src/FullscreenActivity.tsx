@@ -4,6 +4,7 @@ import { useTranslation } from './translate.js';
 
 interface Props {
   className?: string;
+  backgroundColor?: string;
   caption?: string;
   captionElement?: React.ReactNode;
   children?: React.ReactNode;
@@ -11,11 +12,11 @@ interface Props {
   onClose?: () => void;
 }
 
-function FullscreenActivity({ className = '', caption = ' ', captionElement, children, isLoading = false, onClose }: Props): React.ReactElement<Props> {
+function FullscreenActivity({ className = '', backgroundColor = 'white', caption = ' ', captionElement, children, isLoading = false, onClose }: Props): React.ReactElement<Props> {
   const { t } = useTranslation();
   return (
     <FullFindow>
-      <CenterContainer>
+      <CenterContainer backgroundColor={backgroundColor}>
         <Top>
           <Caption>
             <h1><b>{captionElement || caption}</b></h1>
@@ -44,13 +45,13 @@ const FullFindow = styled.div`
   overflow-y: auto;
   -webkit-overflow-scrolling: touch;
 `;
-const CenterContainer = styled.div`
+const CenterContainer = styled.div<{ backgroundColor: string }>`
   display: flex;
   flex-direction: column;
   align-items: center;
   width: 100%;
   margin: 0 auto;
-  background: white;
+  background: ${props => props.backgroundColor};
   @media (min-width: 430px) {
     width: 430px;
   }
