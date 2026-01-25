@@ -28,6 +28,7 @@ function ClassOnboarding({ className = '' }: Props): React.ReactElement<Props> {
   }, [setIsExitConfirmOpen]);
 
   const helpOthers = useCallback(async (): Promise<void> => {
+    logEvent('ONBOARDING', 'CLICK_FOUND_NEW_PARTNER');
     navigate(`/knowledge?id=${EXAMPLE_MODULE_KNOWLEDGE_ID}&showSkillQr`, { replace: true });
     await deleteSetting(SettingKey.NOW_IS_CLASS_ONBOARDING);
   }, [setIsExitConfirmOpen]);

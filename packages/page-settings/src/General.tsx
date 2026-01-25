@@ -221,7 +221,7 @@ function General({ className = '' }: Props): React.ReactElement<Props> {
       </>}
       {
         isDeleteConfirmOpen && <Confirmation
-          question={t('Are you sure you want to delete it?')}
+          question={t('Sure about deleting it?')}
           onClose={toggleDeleteConfirm}
           onConfirm={() => {
             toggleDeleteConfirm();

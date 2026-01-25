@@ -241,6 +241,7 @@ function ViewList({ className = '', id, cidString, isClassInstructionShown, setI
     if (list?.t === LawType.MODULE && list.p) {
       setIsLaunchLearnConfirmOpen(true);
     } else {
+      logEvent('LEARNING', 'LEARNING_REQUESTED', list?.h);
       processLearn();
     }
   }, [list, processLearn, logEvent]);
@@ -256,6 +257,7 @@ function ViewList({ className = '', id, cidString, isClassInstructionShown, setI
     if (list?.t === LawType.MODULE && list.p) {
       setIsLaunchExamConfirmOpen(true);
     } else {
+      logEvent('LEARNING', 'EXAM_REQUESTED', list?.h);
       processExam();
     }
   }, [list, processExam, logEvent]);

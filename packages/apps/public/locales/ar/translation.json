@@ -270,6 +270,7 @@
   "Submit (no signature)": "إرسال (بدون توقيع)",
   "Submit individual": "إرسال عنصر واحد",
   "Submit {{queueSize}} items": "إرسال {{queueSize}} عنصرًا",
+  "Sure about deleting it?": "هل أنت متأكد من حذفها؟",
   "Sure to delete learning results?": "هل أنت متأكد من حذف نتائج التعلم؟",
   "Sure to exit learning?": "هل تريد التوقف عن التعلم؟",
   "Sure to exit tutoring?": "هل تريد التوقف عن التعليم؟",

@@ -270,6 +270,7 @@
   "Submit (no signature)": "제출 (서명 없음)",
   "Submit individual": "개별 제출",
   "Submit {{queueSize}} items": "{{queueSize}} 항목 제출",
+  "Sure about deleting it?": "정말로 삭제할까요?",
   "Sure to delete learning results?": "학습 결과를 삭제하시겠습니까?",
   "Sure to exit learning?": "학습을 종료하시겠습니까?",
   "Sure to exit tutoring?": "튜터링을 종료하시겠습니까?",

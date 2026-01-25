@@ -270,6 +270,7 @@
   "Submit (no signature)": "送信（署名なし）",
   "Submit individual": "個別に提出",
   "Submit {{queueSize}} items": "{{queueSize}}アイテムを提出",
+  "Sure about deleting it?": "本当に削除しますか？",
   "Sure to delete learning results?": "学習結果を削除してもよいですか？",
   "Sure to exit learning?": "学習を終了しますか？",
   "Sure to exit tutoring?": "チュータリングを終了しますか？",

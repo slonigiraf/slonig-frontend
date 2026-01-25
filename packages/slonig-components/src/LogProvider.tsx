@@ -36,7 +36,7 @@ export const LogProvider: React.FC<LogProviderProps> = ({ children }) => {
 
       if (isLocalhost) {
         const isValueDefined = value !== null && value !== undefined;
-        console.log(`${category} - ${action}${name ? ' - ' + name : ''}${isValueDefined ? ' - ' + value : ''}`)
+        console.log(`EVENT: ${category} - ${action}${name ? ' - ' + name : ''}${isValueDefined ? ' - ' + value : ''}`)
         return;
       }
 
