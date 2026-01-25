@@ -1,6 +1,6 @@
 import React, { useCallback } from 'react';
 import { useToggle } from '@polkadot/react-hooks';
-import { QrScannerComponent, scanSVG, useLog, useLoginContext } from '@slonigiraf/slonig-components';
+import { QrScannerComponent, scanSVG, useInfo, useLog, useLoginContext } from '@slonigiraf/slonig-components';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from './translate.js';
 import { Modal } from '@polkadot/react-components';
@@ -16,6 +16,7 @@ function ScanQR({ className = '', label }: Props): React.ReactElement<Props> {
   const { t } = useTranslation();
   const { logEvent } = useLog();
   const [isQROpen, toggleQR] = useToggle();
+  const { showInfo } = useInfo();
   const navigate = useNavigate();
   const { isLoggedIn, setLoginIsRequired } = useLoginContext();
   const isScanTutorialCompleted = useBooleanSettingValue(SettingKey.SCAN_TUTORIAL_COMPLETED);
@@ -48,6 +49,8 @@ function ScanQR({ className = '', label }: Props): React.ReactElement<Props> {
     }
 
     if (!allowedHosts.has(parsed.hostname)) {
+      showInfo(t('It was a QR code not from Slonig.'), 'error')
+      toggleQR();
       return;
     }
 
