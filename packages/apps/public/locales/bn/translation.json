@@ -430,6 +430,7 @@
   "call hash / {{section}}.{{method}}": "কল হ্যাশ / {{section}}.{{method}}",
   "chain": "চেইন",
   "chain specifications": "চেইন স্পেসিফিকেশনগুলি",
+  "click to select *.json.gz file": "ফাইলটি নির্বাচন করতে ক্লিক করুন *.json.gz",
   "click to select or drag and drop JSON key/value (hex-encoded) file": "নির্বাচনের জন্য ক্লিক করুন বা JSON কী/মান (হেক্স-কোডেড) ফাইলটি টেনে আনুন এবং ফেলে দিন",
   "click to select or drag and drop the file here": "ফাইল বাছাই করতে ক্লিক করো বা এখানে টেনে আনো",
   "clipboard": "ক্লিপবোর্ড",

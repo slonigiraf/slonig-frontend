@@ -430,6 +430,7 @@
   "call hash / {{section}}.{{method}}": "хэш вызова / {{section}}.{{method}}",
   "chain": "цепочка",
   "chain specifications": "спецификации цепочки",
+  "click to select *.json.gz file": "нажмите, чтобы выбрать файл *.json.gz",
   "click to select or drag and drop JSON key/value (hex-encoded) file": "нажмите, чтобы выбрать, или перетащите и отпустите файл JSON ключ/значение (в шестнадцатеричном кодировании)",
   "click to select or drag and drop the file here": "нажмите, чтобы выбрать файл",
   "clipboard": "буфер обмена",

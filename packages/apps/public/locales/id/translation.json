@@ -430,6 +430,7 @@
   "call hash / {{section}}.{{method}}": "hash panggilan / {{section}}.{{method}}",
   "chain": "rantai",
   "chain specifications": "spesifikasi rantai",
+  "click to select *.json.gz file": "klik untuk memilih file *.json.gz",
   "click to select or drag and drop JSON key/value (hex-encoded) file": "klik untuk memilih atau seret dan jatuhkan file JSON kunci/nilai (hex-encoded)",
   "click to select or drag and drop the file here": "klik untuk memilih atau seret dan letakkan file di sini",
   "clipboard": "papan klip",

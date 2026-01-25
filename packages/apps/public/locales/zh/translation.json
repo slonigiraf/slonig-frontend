@@ -430,6 +430,7 @@
   "call hash / {{section}}.{{method}}": "调用哈希 / {{section}}.{{method}}",
   "chain": "链",
   "chain specifications": "链规范",
+  "click to select *.json.gz file": "点击选择 *.json.gz 文件",
   "click to select or drag and drop JSON key/value (hex-encoded) file": "点击选择或拖放 JSON 键/值（十六进制编码）文件",
   "click to select or drag and drop the file here": "点击选择或拖放文件到此处",
   "clipboard": "剪贴板",

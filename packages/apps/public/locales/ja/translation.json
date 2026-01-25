@@ -430,6 +430,7 @@
   "call hash / {{section}}.{{method}}": "コールハッシュ / {{section}}.{{method}}",
   "chain": "チェーン",
   "chain specifications": "チェーンの仕様",
+  "click to select *.json.gz file": "クリックして *.json.gz ファイルを選択",
   "click to select or drag and drop JSON key/value (hex-encoded) file": "クリックして選択するか、JSONキー/値 (16進エンコード) ファイルをドラッグアンドドロップ",
   "click to select or drag and drop the file here": "クリックしてファイルを選択するか、ここにドラッグ＆ドロップしてください",
   "clipboard": "クリップボード",

@@ -430,6 +430,7 @@
   "call hash / {{section}}.{{method}}": "чакыруунун хеши / {{section}}.{{method}}",
   "chain": "чынжыр",
   "chain specifications": "чынжырдын спецификациялары",
+  "click to select *.json.gz file": "/*.json.gz файлын тандаңыз",
   "click to select or drag and drop JSON key/value (hex-encoded) file": "Тандоо үчүн басып коюңуз же JSON ключ/стойка (hex-коддолгон) файлын сүйрөп таштаңыз",
   "click to select or drag and drop the file here": "файлды тандоо үчүн басыңыз же бул жерге сүйрөп таштаңыз",
   "clipboard": "клипборд",

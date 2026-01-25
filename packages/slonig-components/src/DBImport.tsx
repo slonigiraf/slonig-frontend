@@ -52,6 +52,7 @@ function DBImport({ className = '' }: Props): React.ReactElement<Props> {
       accept={acceptedFormats}
       className={`${className} full`}
       label={t('Upload your backup file')}
+      placeholder={t('click to select *.json.gz file')}
       onChange={_onChangeFile}
       withLabel
     />

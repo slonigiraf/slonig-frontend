@@ -430,6 +430,7 @@
   "call hash / {{section}}.{{method}}": "hash da chamada / {{section}}.{{method}}",
   "chain": "cadeia",
   "chain specifications": "especificações da cadeia",
+  "click to select *.json.gz file": "clique para selecionar o arquivo *.json.gz",
   "click to select or drag and drop JSON key/value (hex-encoded) file": "clique para selecionar ou arraste e solte o arquivo JSON chave/valor (codificado em hex)",
   "click to select or drag and drop the file here": "clique para selecionar ou arraste o arquivo aqui",
   "clipboard": "área de transferência",

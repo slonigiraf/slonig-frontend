@@ -149,6 +149,12 @@ const StyledDiv = styled.div`
   &:hover {
     cursor: pointer;
   }
+    
+  .label {
+    display: block;
+    width: 100%;
+    text-align: center;
+  }
 `;
 
 export default React.memo(InputFile);

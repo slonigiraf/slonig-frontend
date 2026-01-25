@@ -430,6 +430,7 @@
   "call hash / {{section}}.{{method}}": "تجزئة الاستدعاء / {{section}}.{{method}}",
   "chain": "السلسلة",
   "chain specifications": "مواصفات السلسلة",
+  "click to select *.json.gz file": "انقر لاختيار ملف *.json.gz",
   "click to select or drag and drop JSON key/value (hex-encoded) file": "انقر للاختيار أو اسحب وأفلت ملف JSON لمفتاح/قيمة (مشفّر بالهيكس)",
   "click to select or drag and drop the file here": "انقر للاختيار أو اسحب الملف إلى هنا",
   "clipboard": "الحافظة",

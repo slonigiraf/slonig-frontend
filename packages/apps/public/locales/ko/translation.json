@@ -430,6 +430,7 @@
   "call hash / {{section}}.{{method}}": "호출 해시 / {{section}}.{{method}}",
   "chain": "체인",
   "chain specifications": "체인 사양",
+  "click to select *.json.gz file": "클릭하여 *.json.gz 파일 선택",
   "click to select or drag and drop JSON key/value (hex-encoded) file": "선택하려면 클릭하거나 JSON 키/값 (16진수 인코딩) 파일을 드래그 앤 드롭하십시오.",
   "click to select or drag and drop the file here": "클릭하거나 파일을 여기에 드래그 앤 드롭하세요",
   "clipboard": "클립보드",
