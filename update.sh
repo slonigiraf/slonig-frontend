@@ -9,7 +9,7 @@ if [ "${DIR_NAME#dev}" != "$DIR_NAME" ]; then
   echo "Detected dev directory ($DIR_NAME) → using image: $IMAGE_TAG"
 else
   IMAGE_TAG="app-slonig-org"
-  echo "Detected non-dev directory ($DIR_NAME) → using image: $IMAGE_TAG"
+  echo "Detected production directory ($DIR_NAME) → using image: $IMAGE_TAG"
 fi
 
 git checkout master && \
