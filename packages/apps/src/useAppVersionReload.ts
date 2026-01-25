@@ -71,12 +71,14 @@ export function useAppVersionReload(options?: {
 
       if (!wasVersionSavedRef.current && isHardReload()) {
         wasVersionSavedRef.current = true;
-        await storeSetting(SettingKey.APP_VERSION, v)
+        await storeSetting(SettingKey.APP_VERSION, v);
+        setUpdateAvailable(false);
       }
 
       setLatestVersion(v);
 
       if (currentVersion !== null && v !== currentVersion) {
+        wasVersionSavedRef.current = false;
         setUpdateAvailable(true);
       }
     };

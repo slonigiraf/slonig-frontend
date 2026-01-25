@@ -235,7 +235,7 @@ function General({ className = '' }: Props): React.ReactElement<Props> {
       </>}
 
       {currentVersion && <Version>
-        {t('Slonig Version: ') + currentVersion}
+        {`Slonig Version: ${currentVersion}`}
       </Version>}
 
     </div>
