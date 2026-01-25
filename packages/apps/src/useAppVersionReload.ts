@@ -1,4 +1,5 @@
-import { useLog } from '@slonigiraf/slonig-components';
+import { SettingKey, storeSetting } from '@slonigiraf/db';
+import { useSettingValue } from '@slonigiraf/slonig-components';
 import { useEffect, useRef, useState } from 'react';
 
 type VersionResponse = {
@@ -25,6 +26,14 @@ async function fetchVersion(url = '/version.json'): Promise<string | null> {
   }
 }
 
+function isHardReload(): boolean {
+  const nav = performance.getEntriesByType?.('navigation')?.[0] as PerformanceNavigationTiming | undefined;
+  if (nav) return nav.type === 'reload';
+
+  // legacy fallback (deprecated but still exists in some browsers)
+  return performance?.navigation?.type === 1;
+}
+
 /**
  * Polls /version.json and when it changes, exposes `updateAvailable`.
  * `reloadNow()` forces a full reload.
@@ -35,15 +44,16 @@ export function useAppVersionReload(options?: {
 }): {
   updateAvailable: boolean;
   reloadNow: () => void;
-  currentVersion: string | null;
+  currentVersion: string | null | undefined;
   latestVersion: string | null;
 } {
   const url = options?.url ?? '/version.json';
   const intervalMs = options?.intervalMs ?? 60_000;
 
   const [updateAvailable, setUpdateAvailable] = useState(false);
-  const [currentVersion, setCurrentVersion] = useState<string | null>(null);
+  const currentVersion = useSettingValue(SettingKey.APP_VERSION);
   const [latestVersion, setLatestVersion] = useState<string | null>(null);
+  const wasVersionSavedRef = useRef(false);
 
   const stoppedRef = useRef(false);
 
@@ -59,15 +69,14 @@ export function useAppVersionReload(options?: {
         return;
       }
 
-      setLatestVersion(v);
-
-      // First successful fetch establishes baseline
-      if (currentVersion === null) {
-        setCurrentVersion(v);
-        return;
+      if (!wasVersionSavedRef.current && isHardReload()) {
+        wasVersionSavedRef.current = true;
+        await storeSetting(SettingKey.APP_VERSION, v)
       }
 
-      if (v !== currentVersion) {
+      setLatestVersion(v);
+
+      if (currentVersion !== null && v !== currentVersion) {
         setUpdateAvailable(true);
       }
     };

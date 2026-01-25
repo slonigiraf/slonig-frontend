@@ -68,6 +68,7 @@ export const SettingKey = {
     LAST_LESSON_START_TIME: 'LAST_LESSON_START_TIME',
     LAST_LESSON_ID: 'LAST_LESSON_ID',
     FALLBACK_KNOWLEDGE_ID: 'FALLBACK_KNOWLEDGE_ID',
+    APP_VERSION: 'APP_VERSION',
 } as const;
 
 export async function storeSetting(id: string, value: string) {

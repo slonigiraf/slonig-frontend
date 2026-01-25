@@ -13,7 +13,7 @@ import { settings } from '@polkadot/ui-settings';
 import { useTranslation } from './translate.js';
 import { save, saveAndReload } from './util.js';
 import { getSetting, storeSetting, SettingKey, updateAllLessons } from '@slonigiraf/db';
-import { clearAllData, Confirmation, DBExport, fetchEconomy, useBooleanSettingValue, useInfo, useLog, useLoginContext } from '@slonigiraf/slonig-components';
+import { clearAllData, Confirmation, DBExport, fetchEconomy, useBooleanSettingValue, useInfo, useLog, useLoginContext, useSettingValue } from '@slonigiraf/slonig-components';
 import { useToggle } from '@polkadot/react-hooks';
 
 interface Props {
@@ -24,7 +24,7 @@ function General({ className = '' }: Props): React.ReactElement<Props> {
   const { t } = useTranslation();
   const { showInfo } = useInfo();
   const { logEvent, logEconomy } = useLog();
-  const hasCompletedTutoringTutorial = useBooleanSettingValue(SettingKey.TUTOR_TUTORIAL_COMPLETED);
+  const currentVersion = useSettingValue(SettingKey.APP_VERSION);
   const { currentPair } = useLoginContext();
   const [openAIToken, setOpenAIToken] = useState('');
   const [isDeveloper, setDeveloper] = useState<boolean>(false);
@@ -103,8 +103,7 @@ function General({ className = '' }: Props): React.ReactElement<Props> {
     async () => {
       try {
         logEvent('SETTINGS', 'CLICK_RESET_TO_DEFAULT');
-        const storedEconomy = await fetchEconomy();
-        logEconomy(storedEconomy);
+        await fetchEconomy(logEconomy);
         const price = await getSetting(SettingKey.DIPLOMA_PRICE);
         const warranty = await getSetting(SettingKey.DIPLOMA_WARRANTY);
         const validity = await getSetting(SettingKey.DIPLOMA_VALIDITY);
@@ -129,7 +128,7 @@ function General({ className = '' }: Props): React.ReactElement<Props> {
 
   const saveDeveloper = useCallback(
     async (value: boolean) => {
-      logEvent('SETTINGS', value? 'CLICK_DEVELOPER_MODE_ON' : 'CLICK_DEVELOPER_MODE_OFF');
+      logEvent('SETTINGS', value ? 'CLICK_DEVELOPER_MODE_ON' : 'CLICK_DEVELOPER_MODE_OFF');
       await storeSetting(SettingKey.DEVELOPER, value ? "true" : "false");
       setDeveloper(value);
       setChanged(true);
@@ -235,8 +234,23 @@ function General({ className = '' }: Props): React.ReactElement<Props> {
         <ChainInfo />
       </>}
 
+      {currentVersion && <Version>
+        {t('Slonig Version: ') + currentVersion}
+      </Version>}
+
     </div>
   );
 }
+
+
+const Version = styled.div`
+  display: flex;
+  width: 100%;
+  justify-content: center;
+  text-align: center;
+  font-size: 0.75em;
+  color: #b0b0b0;
+  margin-top: 40px;
+`;
 
 export default React.memo(General);
