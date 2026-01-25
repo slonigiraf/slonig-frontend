@@ -3,7 +3,7 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { Button, LinearProgress, styled } from '@polkadot/react-components';
 import { u8aToHex } from '@polkadot/util';
-import { Confirmation, OKBox, FullFindow, VerticalCenterItemsContainer, useInfo, useLoginContext, HintBubble, useBooleanSettingValue, useLog, useNumberSettingValue } from '@slonigiraf/slonig-components';
+import { Confirmation, OKBox, FullFindow, VerticalCenterItemsContainer, useInfo, useLoginContext, HintBubble, useBooleanSettingValue, useLog, useNumberSettingValue, getIPFSDataFromContentID, parseJson, useIpfsContext, timeStampStringToNumber } from '@slonigiraf/slonig-components';
 import { LetterTemplate, Lesson, Reexamination, getPseudonym, getLesson, getLetterTemplatesByLessonId, getReexaminationsByLessonId, getSetting, storeSetting, updateLesson, getLetter, getReexamination, SettingKey, deleteSetting, isThereAnyLessonResult, setSettingToTrue } from '@slonigiraf/db';
 import DoInstructions from './DoInstructions.js';
 import LessonsList from './LessonsList.js';
@@ -11,7 +11,7 @@ import LessonResults from './LessonResults.js';
 import LessonRequestReceiver from './LessonRequestReceiver.js';
 import { useTranslation } from '../translate.js';
 import { useLocation } from 'react-router-dom';
-import { EXAMPLE_MODULE_KNOWLEDGE_CID, FAST_SKILL_DISCUSSION_MS, MAX_FAST_DISCUSSED_SKILLS_IN_ROW_COUNT, MAX_SAME_PARTNER_TIME_MS, MIN_SAME_PARTNER_TIME_MS, MIN_SKILL_DISCUSSION_MS } from '@slonigiraf/utils';
+import { EXAMPLE_MODULE_KNOWLEDGE_CID, FAST_SKILL_DISCUSSION_MS, MAX_FAST_DISCUSSED_SKILLS_IN_ROW_COUNT, MAX_SAME_PARTNER_TIME_MS, MIN_SAME_PARTNER_TIME_MS, MIN_SKILL_DISCUSSION_MS, ONE_SUBJECT_PERIOD_MS } from '@slonigiraf/utils';
 
 interface Props {
   className?: string;
@@ -25,6 +25,7 @@ function Teach({ className = '' }: Props): React.ReactElement<Props> {
   const { t } = useTranslation();
   const { showInfo } = useInfo();
   const { logEvent } = useLog();
+  const { ipfs } = useIpfsContext();
   // Initialize api, ipfs and translation
   const { currentPair, isLoggedIn } = useLoginContext();
   const [reexaminationToPerform, setReexaminationToPerform] = useState<Reexamination | null>(null);
@@ -52,6 +53,31 @@ function Teach({ className = '' }: Props): React.ReactElement<Props> {
   const [warningCount, setWarningCount] = useState(0);
   const [isPairChangeDialogueOpen, setIsPairChangeDialogueOpen] = useState(false);
   const lastTimeBucketRef = useRef<number | null>(null);
+  const [lessonName, setLessonName] = useState<null | string>(null);
+
+  useEffect(() => {
+    async function fetchData() {
+      if (ipfs !== null && lesson && lessonName === null) {
+        try {
+          const content = await getIPFSDataFromContentID(ipfs, lesson.cid);
+          const json = parseJson(content);
+          setLessonName(json.h);
+
+          const lastLessonId = await getSetting(SettingKey.LAST_LESSON_ID);
+          const lastLessonStartTime = timeStampStringToNumber(await getSetting(SettingKey.LAST_LESSON_START_TIME));
+          const timePassed = lastLessonStartTime ? (Date.now() - lastLessonStartTime) : Date.now();
+          if (lastLessonId !== lesson.id || timePassed > ONE_SUBJECT_PERIOD_MS) {
+            logEvent('TUTORING', 'LESSON_START', json.h);
+            await storeSetting(SettingKey.LAST_LESSON_ID, lesson.id);
+            await storeSetting(SettingKey.LAST_LESSON_START_TIME, Date.now().toString());
+          }
+        } catch (e) {
+          console.log(e);
+        }
+      }
+    }
+    fetchData();
+  }, [ipfs, lesson, lessonName]);
 
   useEffect(() => {
     if (!lastSkillDiscussedTime && (letterTemplateToIssue !== null || reexaminationToPerform !== null)) {
@@ -245,10 +271,13 @@ function Teach({ className = '' }: Props): React.ReactElement<Props> {
 
   const onCloseTutoring = useCallback(async () => {
     await deleteSetting(SettingKey.LESSON);
+    await deleteSetting(SettingKey.LAST_LESSON_ID);
+    await deleteSetting(SettingKey.LAST_LESSON_START_TIME);
     setLastSkillDiscussedTime(null);
     setFastDiscussedSkillsCount(0);
     setTooFastConfirmationIsShown(false);
     setLesson(null);
+    setLessonName(null);
     setIsExitConfirmOpen(false);
     setReexaminationToPerform(null);
     setLetterTemplateToIssue(null);

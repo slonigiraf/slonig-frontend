@@ -82,9 +82,9 @@ function LessonInfo({ lesson, isSelected, onToggleSelection, onResumeTutoring, o
   }, [lesson]);
 
   const resumeTutoring = useCallback((lesson: Lesson) => {
-    logEvent('TUTORING', 'RESTART_LESSON', text);
+    logEvent('TUTORING', 'CLICK_RESTART_LESSON');
     onResumeTutoring(lesson);
-  }, [logEvent, onResumeTutoring, text]);
+  }, [logEvent, onResumeTutoring]);
 
   return (
     <StyledDiv>

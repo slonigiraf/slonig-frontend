@@ -62,7 +62,7 @@ Here is a list of user actions tracked by Slonig:
 | ✅ | LEARNING | SAVE_BADGES | saved_badges_count | count |
 | ✅ | LEARNING | SAVE_REEXAMINATIONS | saved_reexaminations_count | count |
 | ✅ | SYNC | SUBMIT_PENALTY_EXTRINSIC | submitted_penalty_slon | N/A |
-| ✅ | TUTORING | RESTART_LESSON | KnowledgeName (module) | N/A |
+| ✅ | TUTORING | CLICK_RESTART_LESSON | N/A | N/A |
 | ✅ | TUTORING | GET_STUDENT_REQUEST | N/A | N/A |
 | ✅ | TUTORING | CLICK_EXAMPLES | N/A | N/A |
 | ✅ | TUTORING | REEXAMINE_SKILL_TIME | reexamine_skill_time_sec | sec |
@@ -80,6 +80,7 @@ Here is a list of user actions tracked by Slonig:
 | ✅ | TUTORING | TOO_SHORT_TEACH | too_short_teach_time_sec | sec |
 | ✅ | TUTORING | TEACH_SKILL_TIME | teach_skill_time_sec | sec |
 | ✅ | TUTORING | SEVERAL_FAST_DISCUSSIONS_IN_ROW | N/A | N/A |
+| ✅ | TUTORING | LESSON_START | KnowledgeName (course/module) | N/A |
 | ✅ | TUTORING | TEACH_START | KnowledgeName (skill) | N/A |
 | ✅ | TUTORING | TEACH_ALGO | begin_ask_to_solve_exercise | N/A |
 | ✅ | TUTORING | TEACH_ALGO | ask_to_create_similar_exercise | N/A |
