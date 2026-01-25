@@ -7,13 +7,13 @@ import { Button, Menu, Popup, Spinner, styled } from '@polkadot/react-components
 import type { Skill } from '@slonigiraf/slonig-components';
 import { ValidatingAlgorithm } from './ValidatingAlgorithm.js';
 import { useTranslation } from '../translate.js';
-import { ChatContainer, Bubble, useIpfsContext, useLog, OKBox } from '@slonigiraf/slonig-components';
-import { getLetterTemplate, LetterTemplate, putLetterTemplate, Reexamination, updateReexamination } from '@slonigiraf/db';
+import { ChatContainer, Bubble, useIpfsContext, useLog, OKBox, timeStampStringToNumber } from '@slonigiraf/slonig-components';
+import { getLetterTemplate, getSetting, LetterTemplate, putLetterTemplate, Reexamination, SettingKey, storeSetting, updateReexamination } from '@slonigiraf/db';
 import { getIPFSDataFromContentID, parseJson, useInfo } from '@slonigiraf/slonig-components';
 import { TutoringAlgorithm } from './TutoringAlgorithm.js';
 import ChatSimulation from './ChatSimulation.js';
 import { ErrorType } from '@polkadot/react-params';
-import { EXAMPLE_SKILL_KNOWLEDGE_ID, MIN_USING_HINT_MS } from '@slonigiraf/utils';
+import { EXAMPLE_SKILL_KNOWLEDGE_ID, MIN_USING_HINT_MS, ONE_SUBJECT_PERIOD_MS } from '@slonigiraf/utils';
 
 interface Props {
   className?: string;
@@ -60,12 +60,24 @@ function DoInstructions({ className = '', entity, onResult, studentName, isSendi
         try {
           const skillContent = await getIPFSDataFromContentID(ipfs, entity.cid, 1);
           const skill: Skill = parseJson(skillContent);
+
+          const logStartEvent = async (action: string) => {
+            const lastDiscussedId = await getSetting(SettingKey.LAST_SKILL_TUTORING_ID);
+            const lastDiscussedStartTime = timeStampStringToNumber(await getSetting(SettingKey.LAST_SKILL_TUTORING_START_TIME));
+            const timePassed = lastDiscussedStartTime? (Date.now() - lastDiscussedStartTime) : Date.now();
+            if (lastDiscussedId !== skill.i || timePassed > ONE_SUBJECT_PERIOD_MS) {
+              logEvent('TUTORING', action, skill.h);
+              await storeSetting(SettingKey.LAST_SKILL_TUTORING_ID, skill.i);
+              await storeSetting(SettingKey.LAST_SKILL_TUTORING_START_TIME, Date.now().toString());
+            }
+          }
+
           if (isComponentMounted) {
             setSkill(skill);
             if (isLetterTemplate(entity)) {
               const newAlgorithm = new TutoringAlgorithm(t, studentName, skill, hasTuteeUsedSlonig, hasTutorCompletedTutorial ? true : false);
               if (hasTutorCompletedTutorial || skill.i === EXAMPLE_SKILL_KNOWLEDGE_ID) {
-                logEvent('TUTORING', 'TEACH_START', skill.h);
+                logStartEvent('TEACH_START');
                 setTimeout(() => {
                   logEvent('TUTORING', 'TEACH_ALGO', newAlgorithm.getBegin().type);
                 }, 500);
@@ -74,7 +86,7 @@ function DoInstructions({ className = '', entity, onResult, studentName, isSendi
               setAlgorithmStage(newAlgorithm.getBegin());
             } else {
               const newAlgorithm = new ValidatingAlgorithm(t, studentName, skill, isBeforeTeaching);
-              logEvent('TUTORING', 'REEXAMINE_START', skill.h);
+              logStartEvent('REEXAMINE_START');
               setTimeout(() => {
                 logEvent('TUTORING', 'REEXAMINE_ALGO', newAlgorithm.getBegin().type);
               }, 500);
