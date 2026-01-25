@@ -8,7 +8,7 @@ import { LessonRequest, UrlParams, useLog, useLoginContext, useInfo } from '@slo
 import { u8aToHex } from '@polkadot/util';
 import useFetchWebRTC from '../useFetchWebRTC.js';
 import { useTranslation } from '../translate.js';
-import { EXAMPLE_MODULE_KNOWLEDGE_CID, EXAMPLE_SKILL_KNOWLEDGE_CID, EXAMPLE_SKILL_KNOWLEDGE_ID } from '@slonigiraf/utils';
+import { EXAMPLE_MODULE_KNOWLEDGE_CID, EXAMPLE_MODULE_KNOWLEDGE_ID, EXAMPLE_SKILL_KNOWLEDGE_CID, EXAMPLE_SKILL_KNOWLEDGE_ID } from '@slonigiraf/utils';
 import { processNewPartner } from '../utils.js';
 
 interface Props {
@@ -81,7 +81,9 @@ function LessonRequestReceiver({ setCurrentLesson }: Props): React.ReactElement<
           const tutorialRequest = changeRequestIntoTutorial(lessonRequest);
           lessonId = tutorialRequest.lesson;
           await storeLesson(tutorialRequest, tutorPublicKeyHex, processOnboaring);
-          await storeSetting(SettingKey.FALLBACK_KNOWLEDGE_ID, tutorialRequest.kid)
+          if (tutorialRequest.kid !== EXAMPLE_MODULE_KNOWLEDGE_ID) {
+            await storeSetting(SettingKey.FALLBACK_KNOWLEDGE_ID, tutorialRequest.kid);
+          }
         }
         navigate('', { replace: true });
         const lesson = await getLesson(lessonId);
