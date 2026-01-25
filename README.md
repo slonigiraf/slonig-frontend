@@ -49,7 +49,7 @@ Here is a list of user actions tracked by Slonig:
 | ✅ | LEARNING | LEARNING_REQUESTED | KnowledgeName | N/A |
 | ✅ | LEARNING | EXAM_REQUESTED | KnowledgeName | N/A |
 | ✅ | LEARNING | REDIRECT_TO_COURSE | N/A | N/A |
-| ✅ | LEARNING | EXIT_LEARNING |  N/A | N/A |
+| ✅ | LEARNING | EXIT_LEARNING_CONFIRMED |  N/A | N/A |
 | ✅ | BADGE | VIEW_BADGE |  KnowledgeName | N/A |
 | ✅ | SCAN | SCAN_OPEN | N/A | N/A |
 | ✅ | SCAN | SCAN_SUCCESS | N/A | N/A |
@@ -65,6 +65,7 @@ Here is a list of user actions tracked by Slonig:
 | ✅ | TUTORING | CLICK_RESTART_LESSON | N/A | N/A |
 | ✅ | TUTORING | GET_STUDENT_REQUEST | N/A | N/A |
 | ✅ | TUTORING | CLICK_EXAMPLES | N/A | N/A |
+| ✅ | TUTORING | EXIT_TUTORING_CONFIRMED | N/A | N/A |
 | ✅ | TUTORING | REEXAMINE_SKILL_TIME | reexamine_skill_time_sec | sec |
 | ✅ | TUTORING | TOO_SHORT_REEXAMINE | too_short_reexamine_time_sec | sec |
 | ✅ | TUTORING | REEXAMINE_START | KnowledgeName (skill) | N/A |

@@ -273,6 +273,8 @@ function Teach({ className = '' }: Props): React.ReactElement<Props> {
     await deleteSetting(SettingKey.LESSON);
     await deleteSetting(SettingKey.LAST_LESSON_ID);
     await deleteSetting(SettingKey.LAST_LESSON_START_TIME);
+    await deleteSetting(SettingKey.LESSON_RESULTS_ARE_SHOWN);
+
     setLastSkillDiscussedTime(null);
     setFastDiscussedSkillsCount(0);
     setTooFastConfirmationIsShown(false);
@@ -295,13 +297,14 @@ function Teach({ className = '' }: Props): React.ReactElement<Props> {
     setResultsShown(false);
   }, [deleteSetting, getSetting, hasTutorCompletedTutorial, setResultsShown, onCloseTutoring]);
 
-  const tryToCloseResults = useCallback((): void => {
-    hasTutorCompletedTutorial ? onCloseResults() : setIsExitConfirmOpen(true);
-  }, [hasTutorCompletedTutorial, onCloseResults, setIsExitConfirmOpen]);
-
   const tryToCloseTutoring = useCallback((): void => {
-    hasTutorCompletedTutorial ? onCloseTutoring() : setIsExitConfirmOpen(true);
-  }, [hasTutorCompletedTutorial, onCloseTutoring, setIsExitConfirmOpen]);
+    setIsExitConfirmOpen(true);
+  }, [setIsExitConfirmOpen]);
+
+  const logEventAndCloseTutoring = useCallback(() => {
+    logEvent('TUTORING', 'EXIT_TUTORING_CONFIRMED');
+    onCloseTutoring();
+  }, [logEvent, onCloseTutoring]);
 
   const tutorUnderstoodWarning = useCallback(() => {
     setWarningCount(warningCount + 1);
@@ -407,10 +410,10 @@ function Teach({ className = '' }: Props): React.ReactElement<Props> {
           <LessonRequestReceiver setCurrentLesson={fetchLesson} />
           {lesson == null ? <LessonsList tutor={publicKeyHex} onResumeTutoring={onResumeTutoring} onShowResults={onShowResults} />
             :
-            <> {areResultsShown ? <LessonResults lesson={lesson} updateAndStoreLesson={updateAndStoreLesson} onClose={tryToCloseResults} onFinished={onCloseResults} /> : reexamAndDiplomaIssuing}</>
+            <> {areResultsShown ? <LessonResults lesson={lesson} updateAndStoreLesson={updateAndStoreLesson} onClose={tryToCloseTutoring} onFinished={onCloseTutoring} /> : reexamAndDiplomaIssuing}</>
           }
           {isExitConfirmOpen && (
-            <Confirmation question={t('Sure to exit tutoring?')} onClose={() => setIsExitConfirmOpen(false)} onConfirm={onCloseResults} />
+            <Confirmation question={t('Sure to exit tutoring?')} onClose={() => setIsExitConfirmOpen(false)} onConfirm={logEventAndCloseTutoring} />
           )}
           {isHelpQRInfoShown && (
             <OKBox info={t('Tell the tutee to scan the same QR code.')} onClose={() => setIsHelpQRInfoShown(false)} />

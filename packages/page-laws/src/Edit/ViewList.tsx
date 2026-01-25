@@ -472,7 +472,7 @@ function ViewList({ className = '', id, cidString, isClassInstructionShown, setI
                 question={t('Sure to exit learning?')}
                 onClose={() => setIsExitConfirmOpen(false)}
                 onConfirm={() => {
-                  logEvent('LEARNING', 'EXIT_LEARNING');
+                  logEvent('LEARNING', 'EXIT_LEARNING_CONFIRMED');
                   closeQR();
                 }}
               />
