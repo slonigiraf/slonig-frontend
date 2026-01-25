@@ -1,7 +1,7 @@
 import React, { useCallback, useState } from 'react';
 import { useTranslation } from './translate.js';
 import { Button, Spinner, styled } from '@polkadot/react-components';
-import { FullFindow, FullscreenActivity } from '@slonigiraf/slonig-components';
+import { FullscreenActivity } from '@slonigiraf/slonig-components';
 
 interface Props {
   reload: () => void;
@@ -42,10 +42,6 @@ const StyledDiv = styled.div`
   flex-direction: column;
   gap: 10px;
   h1 {
-    margin-top: 0px;
-    margin-bottom: 0px;
-  }
-  h2 {
     margin-top: 0px;
     margin-bottom: 0px;
   }
