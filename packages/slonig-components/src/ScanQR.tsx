@@ -34,7 +34,7 @@ function ScanQR({ className = '', label }: Props): React.ReactElement<Props> {
 
   // Process the scanned QR data
   const processQR = useCallback(async (url: string) => {
-    const allowedHosts = new Set(['localhost', 'app.slonig.org']);
+    const allowedHosts = new Set(['localhost', 'app.slonig.org', 'dev-app.slonig.org']);
 
     let parsed: URL;
 
