@@ -81,6 +81,7 @@ function LessonRequestReceiver({ setCurrentLesson }: Props): React.ReactElement<
           const tutorialRequest = changeRequestIntoTutorial(lessonRequest);
           lessonId = tutorialRequest.lesson;
           await storeLesson(tutorialRequest, tutorPublicKeyHex, processOnboaring);
+          await storeSetting(SettingKey.FALLBACK_KNOWLEDGE_ID, tutorialRequest.kid)
         }
         navigate('', { replace: true });
         const lesson = await getLesson(lessonId);

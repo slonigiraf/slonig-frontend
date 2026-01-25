@@ -1,11 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import { useTranslation } from '../translate.js';
 import { CenterQRContainer, LessonRequest, SenderComponent, nameFromKeyringPair, qrWidthPx, useLoginContext } from '@slonigiraf/slonig-components';
-import { Letter, getLessonId, getLettersToReexamine } from '@slonigiraf/db';
+import { Letter, SettingKey, getLessonId, getLettersToReexamine, storeSetting } from '@slonigiraf/db';
 import { keyForCid } from '@slonigiraf/slonig-components';
 import { styled } from '@polkadot/react-components';
 import { u8aToHex } from '@polkadot/util';
 import { ItemWithCID } from '../types.js';
+import { EXAMPLE_MODULE_KNOWLEDGE_ID } from '@slonigiraf/utils';
 interface Props {
   className?: string;
   id: string;
@@ -17,7 +18,7 @@ interface Props {
   onDataSent: () => void;
 }
 
-function SkillQR({ className = '', cid, selectedItems, isLearningRequested, isReexaminingRequested, lessonInUrl, onDataSent}: Props): React.ReactElement<Props> | null {
+function SkillQR({ className = '', id, cid, selectedItems, isLearningRequested, isReexaminingRequested, lessonInUrl, onDataSent }: Props): React.ReactElement<Props> | null {
   // Always call hooks unconditionally
   const { currentPair, isLoggedIn } = useLoginContext();
   const { t } = useTranslation();
@@ -28,6 +29,12 @@ function SkillQR({ className = '', cid, selectedItems, isLearningRequested, isRe
   const [data, setData] = useState<string | null>(null);
 
   const shouldRender = selectedItems && selectedItems.length > 0 && (isLearningRequested || isReexaminingRequested);
+
+  useEffect(() => {
+    if (id && id !== EXAMPLE_MODULE_KNOWLEDGE_ID) {
+      storeSetting(SettingKey.FALLBACK_KNOWLEDGE_ID, id);
+    }
+  }, [id]);
 
   // Initialize learn request
   useEffect(() => {
@@ -83,7 +90,7 @@ function SkillQR({ className = '', cid, selectedItems, isLearningRequested, isRe
   }, [diplomasToReexamine, shouldRender]);
 
   const name = nameFromKeyringPair(currentPair);
-  const route = lessonInUrl? 'badges/teach/?lesson' : 'badges/teach';
+  const route = lessonInUrl ? 'badges/teach/?lesson' : 'badges/teach';
 
   // Initialize learn request
   useEffect(() => {
@@ -91,6 +98,7 @@ function SkillQR({ className = '', cid, selectedItems, isLearningRequested, isRe
     if (dataIsNotEmpty) {
       const lessonRequest: LessonRequest = {
         cid: cid,
+        kid: id,
         learn: learn,
         reexamine: reexamine,
         lesson: lessonId,
@@ -108,18 +116,18 @@ function SkillQR({ className = '', cid, selectedItems, isLearningRequested, isRe
   return (
     <>
       {showQR && (
-                    <StyledDiv className='test'>
-                      <CenterQRContainer>
-                        <SenderComponent
-                          caption={isReexaminingRequested? t('To exam this, ask a tutor to scan:') : t('To learn this, ask a tutor to scan:')}
-                          data={data}
-                          route={route}
-                          textShare={t('Press the link to start tutoring')}
-                          onDataSent={onDataSent}
-                        />
-                      </CenterQRContainer>
-                    </StyledDiv>
-                  )}
+        <StyledDiv className='test'>
+          <CenterQRContainer>
+            <SenderComponent
+              caption={isReexaminingRequested ? t('To exam this, ask a tutor to scan:') : t('To learn this, ask a tutor to scan:')}
+              data={data}
+              route={route}
+              textShare={t('Press the link to start tutoring')}
+              onDataSent={onDataSent}
+            />
+          </CenterQRContainer>
+        </StyledDiv>
+      )}
     </>
   );
 }

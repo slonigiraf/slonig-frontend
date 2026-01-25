@@ -3,7 +3,7 @@
 import React, { useCallback, useState } from 'react';
 import { Button, styled } from '@polkadot/react-components';
 import { Confirmation, FullFindow, FullscreenActivity, useLog } from '@slonigiraf/slonig-components';
-import { SettingKey, deleteSetting } from '@slonigiraf/db';
+import { SettingKey, deleteSetting, getSetting } from '@slonigiraf/db';
 import { useTranslation } from './translate.js';
 import { useNavigate } from 'react-router-dom';
 import { EXAMPLE_MODULE_KNOWLEDGE_ID } from '@slonigiraf/utils';
@@ -21,7 +21,11 @@ function ClassOnboarding({ className = '' }: Props): React.ReactElement<Props> {
   const exitOnboarding = useCallback(async () => {
     logEvent('SETTINGS', 'CLASS_ONBOARDING_OFF');
     await deleteSetting(SettingKey.NOW_IS_CLASS_ONBOARDING);
-  }, [deleteSetting]);
+    const fallbackKnowledgeId = await getSetting(SettingKey.FALLBACK_KNOWLEDGE_ID);
+    if (fallbackKnowledgeId) {
+      navigate(`/knowledge?id=${fallbackKnowledgeId}`, { replace: true })
+    }
+  }, [logEvent, deleteSetting, navigate, getSetting]);
 
   const tryToClose = useCallback((): void => {
     setIsExitConfirmOpen(true);
@@ -31,7 +35,7 @@ function ClassOnboarding({ className = '' }: Props): React.ReactElement<Props> {
     logEvent('ONBOARDING', 'CLICK_FOUND_NEW_PARTNER');
     navigate(`/knowledge?id=${EXAMPLE_MODULE_KNOWLEDGE_ID}&showSkillQr`, { replace: true });
     await deleteSetting(SettingKey.NOW_IS_CLASS_ONBOARDING);
-  }, [setIsExitConfirmOpen]);
+  }, [logEvent, navigate, deleteSetting]);
 
   return (
     <FullFindow>

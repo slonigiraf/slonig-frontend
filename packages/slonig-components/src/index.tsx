@@ -399,6 +399,7 @@ export interface LessonResult {
 
 export interface LessonRequest {
   cid: string;
+  kid: string;
   learn: string[][];
   reexamine: string[][];
   lesson: string;

@@ -9,7 +9,7 @@ import { Spinner, Label, Button, Progress } from '@polkadot/react-components';
 import { ItemWithCID } from '../types.js';
 import { useApi } from '@polkadot/react-hooks';
 import BN from 'bn.js';
-import { getLettersForKnowledgeId, getRepetitionsForKnowledgeId, SettingKey } from '@slonigiraf/db';
+import { getLettersForKnowledgeId, getRepetitionsForKnowledgeId, getSetting, SettingKey } from '@slonigiraf/db';
 import { u8aToHex } from '@polkadot/util';
 import ModulePreview from './ModulePreview.js';
 import styled from 'styled-components';
@@ -471,9 +471,15 @@ function ViewList({ className = '', id, cidString, isClassInstructionShown, setI
               <Confirmation
                 question={t('Sure to exit learning?')}
                 onClose={() => setIsExitConfirmOpen(false)}
-                onConfirm={() => {
+                onConfirm={async () => {
                   logEvent('LEARNING', 'EXIT_LEARNING_CONFIRMED');
                   closeQR();
+                  if (id === EXAMPLE_MODULE_KNOWLEDGE_ID) {
+                    const fallbackKnowledgeId = await getSetting(SettingKey.FALLBACK_KNOWLEDGE_ID);
+                    if (fallbackKnowledgeId) {
+                      navigate(`/knowledge?id=${fallbackKnowledgeId}`, { replace: true })
+                    }
+                  }
                 }}
               />
             )}
