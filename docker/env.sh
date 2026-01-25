@@ -19,6 +19,7 @@ declare -a vars=(
   "COTURN_USER"
   "COTURN_PASSWORD"
   "AIRDROP_AUTH_TOKEN"
+  "MATOMO_SITE_ID"
 )
 
 echo "window.process_env = {" >> $TARGET

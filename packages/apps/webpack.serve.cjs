@@ -19,6 +19,7 @@ module.exports = merge(
     plugins: [
       new HtmlWebpackPlugin({
         PAGE_TITLE: 'Slonig',
+        MATOMO_SITE_ID: process.env.MATOMO_SITE_ID || 'PLEASE_DEFINE_MATOMO_SITE_ID',
         inject: true,
         template: path.join(__dirname, 'public/index.html')
       })

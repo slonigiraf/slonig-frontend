@@ -163,6 +163,7 @@ export COTURN_SERVER=coturn.some.org:3478
 export COTURN_USER=some
 export COTURN_PASSWORD=some
 export AIRDROP_AUTH_TOKEN=some
+export MATOMO_SITE_ID=some
 ```
 7. Ready! Now you can launch the UI, via `yarn run start`
 8. Access the UI via [http://localhost:3000](http://localhost:3000)
