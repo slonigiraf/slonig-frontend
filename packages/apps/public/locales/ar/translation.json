@@ -104,6 +104,7 @@
   "Exercise": "تمرين",
   "Existing": "موجود",
   "Extensions": "الامتدادات",
+  "First time here?": "هل هذه المرة الأولى لك هنا؟",
   "Forget": "نسيان",
   "General": "عام",
   "Generate {{lng}}/translation.json": "إنشاء {{lng}}/translation.json",

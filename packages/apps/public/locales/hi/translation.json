@@ -104,6 +104,7 @@
   "Exercise": "अभ्यास",
   "Existing": "मौजूदा",
   "Extensions": "विस्तार",
+  "First time here?": "क्या आप यहाँ पहली बार हैं?",
   "Forget": "भूल जाओ",
   "General": "सामान्य",
   "Generate {{lng}}/translation.json": "{{lng}}/translation.json उत्पन्न करें",

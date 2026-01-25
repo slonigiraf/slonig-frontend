@@ -104,6 +104,7 @@
   "Exercise": "練習問題",
   "Existing": "既存",
   "Extensions": "拡張",
+  "First time here?": "ここが初めてですか？",
   "Forget": "忘れる",
   "General": "一般",
   "Generate {{lng}}/translation.json": "{{lng}}/translation.json を生成",

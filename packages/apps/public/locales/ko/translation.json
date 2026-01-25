@@ -104,6 +104,7 @@
   "Exercise": "연습",
   "Existing": "기존의",
   "Extensions": "확장",
+  "First time here?": "처음이신가요?",
   "Forget": "잊기",
   "General": "일반",
   "Generate {{lng}}/translation.json": "{{lng}}/translation.json 생성",

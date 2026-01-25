@@ -18,7 +18,7 @@ import { tryCreateAccount } from '../util.js';
 import CreateAccountInputs from './CreateAccountInputs.js';
 import { storeSetting, SettingKey } from '@slonigiraf/db';
 import { useLocation } from 'react-router-dom';
-import { DBImport, useInfo, useLog } from '@slonigiraf/slonig-components';
+import { Confirmation, DBImport, useInfo, useLog } from '@slonigiraf/slonig-components';
 import { LanguageSelector } from '@polkadot/app-settings';
 
 const DEFAULT_PAIR_TYPE = 'sr25519';
@@ -170,6 +170,7 @@ function Create({ className = '', onClose, onStatusChange, seed: propsSeed, type
   const { showInfo } = useInfo();
   const [isImporting, toggleImporting] = useToggle();
   const { logEvent } = useLog();
+  const [createNewConfirmationOpen, setCreateNewConfirmationOpen] = useState(false);
 
   const _onCommit = useCallback(
     async () => {
@@ -208,7 +209,7 @@ function Create({ className = '', onClose, onStatusChange, seed: propsSeed, type
           <CreateAccountInputs
             isFirstScreen={isFirstScreen}
             name={{ isNameValid, name }}
-            onCommit={() => {}}
+            onCommit={() => { }}
             setName={setName}
             setPassword={() => { }}
           />
@@ -230,7 +231,7 @@ function Create({ className = '', onClose, onStatusChange, seed: propsSeed, type
             // icon='user-plus'
             isBusy={isBusy}
             label={isFirstScreen ? pathname.startsWith('/badges/teach') ? t('Start Tutoring with Slonig') : t('Start Learning with Slonig') : t('Add account')}
-            onClick={_onCommit}
+            onClick={() => setCreateNewConfirmationOpen(true)}
           />
           {isFirstScreen && <Button
             label={t('Already have an account?')}
@@ -240,6 +241,15 @@ function Create({ className = '', onClose, onStatusChange, seed: propsSeed, type
       }
       {isFirstScreen && <a href='https://slonig.org/privacy-policy'>{t('Slonig privacy policy')}</a>}
       {isFirstScreen && <LanguageSelector />}
+      {createNewConfirmationOpen && <Confirmation question={t('First time here?')}
+        onClose={() => {
+          setCreateNewConfirmationOpen(false);
+          toggleImporting();
+        }}
+        onConfirm={() => {
+          setCreateNewConfirmationOpen(false);
+          _onCommit();
+        }} />}
     </StyledDiv>
   );
 }
