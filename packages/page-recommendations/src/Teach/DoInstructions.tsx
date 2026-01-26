@@ -31,7 +31,7 @@ interface Props {
 
 type AlgorithmType = '' | 'TEACH_ALGO' | 'REEXAMINE_ALGO';
 
-function DoInstructions({ className = '', entity, onResult, studentName, stake='', isSendingResultsEnabled, hasTuteeUsedSlonig, hasTutorCompletedTutorial, showIntro = false, isBeforeTeaching = false, isTutorial }: Props): React.ReactElement<Props> {
+function DoInstructions({ className = '', entity, onResult, studentName, stake = '', isSendingResultsEnabled, hasTuteeUsedSlonig, hasTutorCompletedTutorial, showIntro = false, isBeforeTeaching = false, isTutorial }: Props): React.ReactElement<Props> {
   const { ipfs, isIpfsReady } = useIpfsContext();
   const [skill, setSkill] = useState<Skill>();
   const { t } = useTranslation();
@@ -66,7 +66,7 @@ function DoInstructions({ className = '', entity, onResult, studentName, stake='
           const logStartEvent = async (action: string) => {
             const lastDiscussedId = await getSetting(SettingKey.LAST_SKILL_TUTORING_ID);
             const lastDiscussedStartTime = timeStampStringToNumber(await getSetting(SettingKey.LAST_SKILL_TUTORING_START_TIME));
-            const timePassed = lastDiscussedStartTime? (Date.now() - lastDiscussedStartTime) : Date.now();
+            const timePassed = lastDiscussedStartTime ? (Date.now() - lastDiscussedStartTime) : Date.now();
             if (lastDiscussedId !== skill.i || timePassed > ONE_SUBJECT_PERIOD_MS) {
               logEvent('TUTORING', action, skill.h);
               await storeSetting(SettingKey.LAST_SKILL_TUTORING_ID, skill.i);
@@ -122,9 +122,9 @@ function DoInstructions({ className = '', entity, onResult, studentName, stake='
     }
 
     onResult(async () => {
-      const valid = isValid ?? !template.toRepeat;
+      const valid = (template.cid === EXAMPLE_SKILL_KNOWLEDGE_CID) || (isValid ?? !template.toRepeat);
 
-      const matureInfo = template.cid === EXAMPLE_SKILL_KNOWLEDGE_CID ? 'warm_up' : template.mature? 'mature' : 'crude';
+      const matureInfo = template.cid === EXAMPLE_SKILL_KNOWLEDGE_CID ? 'warm_up' : template.mature ? 'mature' : 'crude';
 
       logEvent('TUTORING', algorithmType, valid ? `mark_mastered_${matureInfo}` : `mark_for_repeat_${matureInfo}`); // algorithmType is always the same
 
@@ -281,7 +281,8 @@ function DoInstructions({ className = '', entity, onResult, studentName, stake='
     return <StyledSpinner label={t('Loading')} />;
   }
 
-  const isDecisionStyleBlured = (hasTutorCompletedTutorial === false &&
+  const isDecisionStyleBlured = (algorithmStage && algorithmStage.getMessages().length > 0 &&
+    hasTutorCompletedTutorial === false &&
     (areButtonsBlured || isSendingResultsEnabled === true)) || (hasTutorCompletedTutorial === true && isTutorial);
 
   const showChatDecorator = (hasTutorCompletedTutorial || isChatFinished) && (hasTutorCompletedTutorial && !isTutorial);
