@@ -55,6 +55,7 @@ function ExampleExercisesButton({ className = '', skill }: Props): React.ReactEl
           >
             <Modal.Content>
               <h3>{t('Example exercises to train the skill')}</h3>
+              <Important>{t('Hide it from your student!')}</Important>
               <ExerciseList exercises={skill.q} />
             </Modal.Content>
           </Modal>
@@ -82,6 +83,11 @@ const ButtonWrap = styled.div`
 
 const StyledHint = styled(HintBubble)`
   left: 10%;
+`;
+
+const Important = styled.span`
+  color: red;
+  font-weight: bold;
 `;
 
 export default React.memo(ExampleExercisesButton);
