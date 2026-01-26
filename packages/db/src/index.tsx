@@ -238,10 +238,24 @@ export async function getLetters(worker: string, startDate: number | null, endDa
     return await query.reverse().sortBy('created');
 }
 
+// get 4 letters from 2 different referees
 export async function getLettersToReexamine(): Promise<Letter[]> {
     const results: Letter[] = [];
+    const refereeCounts = new Map<string | null | undefined, number>();
 
-    const findFirstForExamCounts = async (
+    const canTake = (l: Letter): boolean => {
+        const key = l.referee;
+        const used = refereeCounts.get(key) ?? 0;
+        return used < 2;
+    };
+
+    const take = (l: Letter): void => {
+        results.push(l);
+        const key = l.referee;
+        refereeCounts.set(key, (refereeCounts.get(key) ?? 0) + 1);
+    };
+
+    const findNext = async (
         predicate: (letter: Letter) => boolean
     ): Promise<Letter | undefined> => {
         for (let examCount = 1; examCount <= 3; examCount++) {
@@ -251,7 +265,9 @@ export async function getLettersToReexamine(): Promise<Letter[]> {
                     (l) =>
                         l.examCount === examCount &&
                         l.knowledgeId !== EXAMPLE_SKILL_KNOWLEDGE_ID &&
-                        predicate(l)
+                        !results.some((r) => r.cid === l.cid) && // prevent duplicates
+                        predicate(l) &&
+                        canTake(l)
                 )
                 .first();
 
@@ -260,15 +276,11 @@ export async function getLettersToReexamine(): Promise<Letter[]> {
         return undefined;
     };
 
-    const firstLetter = await findFirstForExamCounts(() => true);
-    if (!firstLetter) return results;
-
-    results.push(firstLetter);
-
-    const secondLetter = await findFirstForExamCounts(
-        (l) => l.referee !== firstLetter.referee
-    );
-    if (secondLetter) results.push(secondLetter);
+    while (results.length < 4) {
+        const next = await findNext(() => true);
+        if (!next) break;
+        take(next);
+    }
 
     return results;
 }
@@ -419,22 +431,9 @@ export async function isThereAnyLessonResult(lessonId: string) {
     if (lesson) {
         const letterTemplates: LetterTemplate[] = await getValidLetterTemplatesByLessonId(lesson.id);
         const repetitions = await getToRepeatLetterTemplatesByLessonId(lesson.id);
-        let calculatedReexaminationsPerformed = 0;
         const reexaminations = await getReexaminationsByLessonId(lesson.id);
-        if (reexaminations) {
-            let failedReexaminationsCount = 0;
-            let skippedReexaminationsCount = 0;
-            reexaminations.forEach(reexamination => {
-                if (!reexamination.valid) {
-                    failedReexaminationsCount++;
-                }
-                if (reexamination.created === reexamination.lastExamined) {
-                    skippedReexaminationsCount++;
-                }
-            });
-            calculatedReexaminationsPerformed = lesson.reexamineStep - skippedReexaminationsCount;
-        }
-        return (letterTemplates.length > 0 || calculatedReexaminationsPerformed > 0 || repetitions.length > 0);
+        const performedReexaminations = reexaminations.filter((r) => r.created !== r.lastExamined);
+        return (letterTemplates.length > 0 || performedReexaminations.length > 0 || repetitions.length > 0);
     }
     return false;
 }
@@ -537,13 +536,11 @@ export async function deleteLesson(id: string) {
 export async function storeLesson(lessonRequest: LessonRequest, tutor: string, onResult: () => Promise<void>) {
     let toReexamine: string[][] = lessonRequest.reexamine;
 
-    if (lessonRequest.learn.length > 0 && lessonRequest.reexamine.length === 2) {
-        const [first, second] = lessonRequest.reexamine;
-        if (first?.[3] === tutor) {
-            toReexamine = [second];
-        } else {
-            toReexamine = [first];
-        }
+    if (lessonRequest.learn.length > 0 && lessonRequest.reexamine.length >= 1) {
+        const nonMatching = lessonRequest.reexamine.filter((x) => x?.[3] !== tutor);
+        const matching = lessonRequest.reexamine.filter((x) => x?.[3] === tutor);
+
+        toReexamine = [...nonMatching, ...matching].slice(0, Math.min(2, lessonRequest.reexamine.length));
     }
 
     const now = (new Date()).getTime();
