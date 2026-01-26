@@ -106,5 +106,9 @@
   "It’s time to send the results and find a new partner to learn from.": "It’s time to send the results and find a new partner to learn from.",
   "OK": "OK",
   "Postpone": "Postpone",
-  "It’s time to send the results and become a student of a new partner.": "It’s time to send the results and become a student of a new partner."
+  "It’s time to send the results and become a student of a new partner.": "It’s time to send the results and become a student of a new partner.",
+  "Sure about deleting it?": "Sure about deleting it?",
+  "Download your backup in case you erase your browser history": "Download your backup in case you erase your browser history",
+  "I’m risking {{stake}} Slon if {{name}} forgets this skill. Granting a badge.": "I’m risking {{stake}} Slon if {{name}} forgets this skill. Granting a badge.",
+  "Risk": "Risk"
 }
