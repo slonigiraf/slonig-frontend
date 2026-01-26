@@ -54,7 +54,8 @@ Here is a list of user actions tracked by Slonig:
 | ✅ | SCAN | SCAN_OPEN | N/A | N/A |
 | ✅ | SCAN | SCAN_SUCCESS | N/A | N/A |
 | ✅ | SCAN | SCAN_MANUAL_CLOSE | N/A | N/A |
-| ✅ | LEARNING | LOAD_RESULTS | loaded_old_agreement | N/A |
+| ✅ | LEARNING | LOAD_OLD_RESULTS | N/A | N/A |
+| ✅ | LEARNING | RELOAD_RESULTS | agreement_price_slon | amount |
 | ✅ | LEARNING | LOAD_RESULTS | agreement_price_slon | amount |
 | ✅ | TRANSACTIONS | SEND_SLON | send_slon | amount |
 | ✅ | TRANSACTIONS | RECEIVE_SLON | receive_slon | amount |
