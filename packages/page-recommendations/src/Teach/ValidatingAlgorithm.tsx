@@ -4,7 +4,7 @@ import type { Skill } from '@slonigiraf/slonig-components';
 import ExampleExercisesButton from './ExampleExercisesButton.js';
 
 class ValidatingAlgorithm extends Algorithm {
-    constructor(t: any, studentName: string | null, skill: Skill, isBeforeTeaching: boolean) {
+    constructor(t: any, studentName: string | null, stake: string, skill: Skill, isBeforeTeaching: boolean) {
         super();
         const questions = skill ? skill.q : [];
         let question1: string = questions.length > 0 ? questions[0].h : t('SOME EXERCISE FOR SKILL TRAINING (THE TUTOR SHOULD KNOW)');

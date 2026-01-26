@@ -4,7 +4,7 @@ import { Skill } from '@slonigiraf/slonig-components';
 import ExampleExercisesButton from './ExampleExercisesButton.js';
 
 class TutoringAlgorithm extends Algorithm {
-    constructor(t: any, studentName: string | null, skill: Skill, hasTuteeCompletedTutorial: boolean, hasTutorCompletedTutorial: boolean) {
+    constructor(t: any, studentName: string | null, stake: string, skill: Skill, hasTuteeCompletedTutorial: boolean, hasTutorCompletedTutorial: boolean) {
         super();
         const bothUsedSlonig = hasTuteeCompletedTutorial && hasTutorCompletedTutorial;
         const questions = skill ? skill.q : [];
@@ -16,6 +16,21 @@ class TutoringAlgorithm extends Algorithm {
         let exerciseImage2: string | undefined = questions.length > 0 ? questions[1].p : undefined;
 
         // Initialize all stages
+        const issueBadge = new AlgorithmStage(
+            5,
+            'decide_about_badge',
+            t('Yes'),
+            [],
+            t('I’m risking {{stake}} Slon if {{name}} forgets this skill. Granting a badge.', { replace: { name: studentName, stake: stake } })
+        );
+
+        const repeatTomorrow = new AlgorithmStage(
+            -1,
+            'repeat_tomorrow',
+            t('No'),
+            []
+        );
+
         const askStudentToRepeatTheAnswer = new AlgorithmStage(
             5,
             'correct_fake_solution',
@@ -132,7 +147,7 @@ class TutoringAlgorithm extends Algorithm {
         const toNextSkill = new AlgorithmStage(
             -1,
             'next_skill',
-            t('Yes'),
+            stake? t('Risk') : t('Yes'),
             []
         );
 
@@ -159,7 +174,12 @@ class TutoringAlgorithm extends Algorithm {
             askToRepeatTaskAfterMe.setPrevious(askToCreateAnExerciseAfterCompletionOfExerciseOfTutor);
         }
 
-        provideFakeAnswer.setNext([toNextSkill, askStudentToRepeatTheAnswer]);
+        provideFakeAnswer.setNext([
+            stake? issueBadge : toNextSkill, 
+            askStudentToRepeatTheAnswer
+        ]);
+        issueBadge.setNext([toNextSkill, repeatTomorrow]);
+
         askStudentToRepeatTheAnswer.setPrevious(provideFakeAnswer);
 
         askStudentToRepeatTheAnswer.setNext([repeatFromTheBeginning, askStudentToRepeatTheAnswer]);

@@ -3,7 +3,7 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { Button, LinearProgress, styled } from '@polkadot/react-components';
 import { u8aToHex } from '@polkadot/util';
-import { Confirmation, OKBox, FullFindow, VerticalCenterItemsContainer, useInfo, useLoginContext, HintBubble, useBooleanSettingValue, useLog, useNumberSettingValue, getIPFSDataFromContentID, parseJson, useIpfsContext, timeStampStringToNumber } from '@slonigiraf/slonig-components';
+import { Confirmation, OKBox, FullFindow, VerticalCenterItemsContainer, useInfo, useLoginContext, HintBubble, useBooleanSettingValue, useLog, useNumberSettingValue, getIPFSDataFromContentID, parseJson, useIpfsContext, timeStampStringToNumber, bnToSlonFloatOrNaN, bnToSlonString } from '@slonigiraf/slonig-components';
 import { LetterTemplate, Lesson, Reexamination, getPseudonym, getLesson, getLetterTemplatesByLessonId, getReexaminationsByLessonId, getSetting, storeSetting, updateLesson, getLetter, getReexamination, SettingKey, deleteSetting, isThereAnyLessonResult, setSettingToTrue } from '@slonigiraf/db';
 import DoInstructions from './DoInstructions.js';
 import LessonsList from './LessonsList.js';
@@ -12,7 +12,7 @@ import LessonRequestReceiver from './LessonRequestReceiver.js';
 import { useTranslation } from '../translate.js';
 import { useLocation } from 'react-router-dom';
 import { EXAMPLE_MODULE_KNOWLEDGE_CID, FAST_SKILL_DISCUSSION_MS, MAX_FAST_DISCUSSED_SKILLS_IN_ROW_COUNT, MAX_SAME_PARTNER_TIME_MS, MIN_SAME_PARTNER_TIME_MS, MIN_SKILL_DISCUSSION_MS, ONE_SUBJECT_PERIOD_MS } from '@slonigiraf/utils';
-
+import BN from 'bn.js';
 interface Props {
   className?: string;
 }
@@ -54,6 +54,7 @@ function Teach({ className = '' }: Props): React.ReactElement<Props> {
   const [isPairChangeDialogueOpen, setIsPairChangeDialogueOpen] = useState(false);
   const lastTimeBucketRef = useRef<number | null>(null);
   const [lessonName, setLessonName] = useState<null | string>(null);
+  
 
   useEffect(() => {
     async function fetchData() {
@@ -365,7 +366,8 @@ function Teach({ className = '' }: Props): React.ReactElement<Props> {
             hasTuteeUsedSlonig={hasTuteeUsedSlonig}
             hasTutorCompletedTutorial={hasTutorCompletedTutorial}
             onResult={updateReexamined}
-            studentName={studentName}
+            studentName={studentName ?? ''}
+            stake={bnToSlonString(new BN(reexaminationToPerform.amount ?? 0))}
             isTutorial={isTutorial}
             isSendingResultsEnabled={isSendingResultsEnabled}
             isBeforeTeaching={letterTemplates && letterTemplates.length > 0}
@@ -376,7 +378,8 @@ function Teach({ className = '' }: Props): React.ReactElement<Props> {
             hasTuteeUsedSlonig={hasTuteeUsedSlonig}
             hasTutorCompletedTutorial={hasTutorCompletedTutorial}
             onResult={updateLearned}
-            studentName={studentName}
+            studentName={studentName ?? ''}
+            stake={letterTemplateToIssue.mature ? bnToSlonString(new BN(lesson?.dWarranty ?? 0)) : ''}
             isTutorial={isTutorial}
             isSendingResultsEnabled={isSendingResultsEnabled}
             key={'learn' + warningCount + letterTemplateToIssue.cid} />}
