@@ -1,7 +1,7 @@
 // Copyright 2021-2022 @slonigiraf/apps authors & contributors
 // SPDX-License-Identifier: Apache-2.0
-import React, { useCallback } from 'react';
-import { styled } from '@polkadot/react-components';
+import React, { useCallback, useEffect, useState } from 'react';
+import { Spinner, styled } from '@polkadot/react-components';
 import { DBExport, FullscreenActivity, useLog } from '@slonigiraf/slonig-components';
 import { useTranslation } from './translate.js';
 
@@ -13,18 +13,32 @@ interface Props {
 function BackupReminder({ className = '', onResult }: Props): React.ReactElement<Props> {
   const { t } = useTranslation();
   const { logEvent } = useLog();
+  const [isLoading, setIsLoading] = useState(true);
 
   const onBackup = useCallback(async () => {
     onResult();
   }, [logEvent, onResult]);
 
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setIsLoading(false);
+    }, 1000);
+
+    return () => clearTimeout(timer);
+  }, []);
+
   return (
-    <FullscreenActivity caption={''} backgroundColor={'var(--bg-page)'}>
-      <StyledDiv>
-        <h1 className='prompt' style={{ width: '70%', maxWidth: 430, textAlign: 'center' }}>{t('Download your backup in case you erase your browser history')}</h1>
-        <DBExport onSuccess={() => onBackup()} />
-      </StyledDiv>
-    </FullscreenActivity>
+    <TopLayer>
+      <FullscreenActivity caption={''} backgroundColor={'var(--bg-page)'}>
+        <StyledDiv>
+          {isLoading ? <Spinner label={t('Loading')} /> : <>
+            <h1 className='prompt' style={{ width: '70%', maxWidth: 430, textAlign: 'center' }}>{t('Download your backup in case you erase your browser history')}</h1>
+            <DBExport onSuccess={() => onBackup()} />
+          </>
+          }
+        </StyledDiv>
+      </FullscreenActivity>
+    </TopLayer>
   );
 }
 
@@ -42,6 +56,10 @@ const StyledDiv = styled.div`
     margin-top: 0px;
     margin-bottom: 0px;
   }
+`;
+
+const TopLayer = styled.div`
+  z-index: 1000;
 `;
 
 export default React.memo(BackupReminder);

@@ -67,17 +67,6 @@ function UI({ className = '' }: Props): React.ReactElement<Props> {
   }, [logEvent, isIncognito]);
 
   useEffect(() => {
-    const initilizeLastBackupTime = async () => {
-      if (lastBackupMs === 0) {
-        const QUARTER_LESSON = 15 * 60 * 1000;
-        const backupTime = (new Date()).getTime() - BACKUP_REQUIREMENT_PERIOD_MS + QUARTER_LESSON;
-        await storeSetting(SettingKey.LAST_BACKUP_TIME, backupTime.toString());
-      }
-    }
-    initilizeLastBackupTime();
-  }, [lastBackupMs]);
-
-  useEffect(() => {
     const lang = (i18n.resolvedLanguage || i18n.language || 'en')
       .slice(0, 2)
       .toLowerCase();
