@@ -201,7 +201,7 @@ function LettersList({ className = '', worker, currentPair, startDate, endDate, 
       />
       <StyledDiv>
         <DBExport caption={''} onSuccess={() => { }} />
-        <span>{t('Download your backup in case you erase your browser history')}</span>
+        <h3>{t('Download your backup in case you erase your browser history')}</h3>
       </StyledDiv>
       {isDeleteConfirmOpen && (
         <Confirmation question={t('Are you sure you want to delete it?')} onClose={toggleDeleteConfirm} onConfirm={deleteDiplomas} />
@@ -216,9 +216,10 @@ const StyledDiv = styled.div`
   align-items: center;
   justify-content: left;
 
-  > span {
+  > h3 {
+    margin-top: 0px;
     display: inline-block;
-    transform: translateY(-5px); /* move 5px higher */
+    transform: translateY(-5px);
   }
 `;
 
