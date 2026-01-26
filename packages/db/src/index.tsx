@@ -521,18 +521,6 @@ export async function updateAllLessons(newDPrice: string, newDWarranty: string, 
     }
 }
 
-export async function deleteLesson(id: string) {
-    const letterTemplates = await getLetterTemplatesByLessonId(id);
-    await Promise.all(
-        letterTemplates.map(t => db.letterTemplates.delete([t.cid, t.lesson]))
-    );
-    const reexaminations = await getReexaminationsByLessonId(id);
-    await Promise.all(
-        reexaminations.map(r => db.reexaminations.delete(r.pubSign))
-    );
-    await db.lessons.delete(id);
-}
-
 export async function storeLesson(lessonRequest: LessonRequest, tutor: string, onResult: () => Promise<void>) {
     let toReexamine: string[][] = lessonRequest.reexamine;
 

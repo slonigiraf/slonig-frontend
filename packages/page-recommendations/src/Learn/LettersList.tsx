@@ -30,10 +30,12 @@ enum ToggleState {
 function LettersList({ className = '', worker, currentPair, startDate, endDate, onDaysRangeChange }: Props): React.ReactElement<Props> {
   const MAX_SELECTED = 93;
   const { t } = useTranslation();
+  const now = new Date();
+  const defaultStart = new Date(now.setHours(0, 0, 0, 0));
+  const defaultEnd = new Date(now.setHours(23, 59, 59, 999));
   const location = useLocation();
   const { isApiConnected } = useApi();
   const queryParams = new URLSearchParams(location.search);
-  const webRTCPeerId = queryParams.get(UrlParams.WEBRTC_PEER_ID);
   const employer = queryParams.get('employer') || '';
   const { showInfo } = useInfo();
   const navigate = useNavigate();
@@ -150,8 +152,8 @@ function LettersList({ className = '', worker, currentPair, startDate, endDate, 
       )}
       <div className="ui--row">
         <DaysRangePicker
-          startDate={startDate ? new Date(startDate) : null}
-          endDate={endDate ? new Date(endDate) : null}
+          startDate={startDate || defaultStart}
+          endDate={endDate || defaultEnd}
           onChange={onDaysRangeChange}
         />
       </div>
@@ -204,7 +206,7 @@ function LettersList({ className = '', worker, currentPair, startDate, endDate, 
         <h3>{t('Download your backup in case you erase your browser history')}</h3>
       </StyledDiv>
       {isDeleteConfirmOpen && (
-        <Confirmation question={t('Are you sure you want to delete it?')} onClose={toggleDeleteConfirm} onConfirm={deleteDiplomas} />
+        <Confirmation question={t('Sure about deleting it?')} onClose={toggleDeleteConfirm} onConfirm={deleteDiplomas} />
       )}
     </div>
   );

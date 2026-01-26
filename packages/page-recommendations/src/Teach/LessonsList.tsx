@@ -1,11 +1,10 @@
 import LessonInfo from './LessonInfo.js';
-import React, { useCallback, useState } from 'react';
+import React, { useState } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
-import { Button, Toggle } from '@polkadot/react-components';
+import { styled } from '@polkadot/react-components';
 import { useTranslation } from '../translate.js';
-import { Confirmation, DaysRangePicker, loadFromSessionStorage, saveToSessionStorage, SelectableList, ToggleContainer, useInfo } from '@slonigiraf/slonig-components';
-import { useToggle } from '@polkadot/react-hooks';
-import { deleteLesson, getLessons, Lesson } from '@slonigiraf/db';
+import { DaysRangePicker, loadFromSessionStorage, saveToSessionStorage, SelectableList } from '@slonigiraf/slonig-components';
+import { getLessons, Lesson } from '@slonigiraf/db';
 import { LESSONS } from '../constants.js';
 
 interface Props {
@@ -16,64 +15,28 @@ interface Props {
 }
 
 function LessonsList({ className = '', tutor, onResumeTutoring, onShowResults }: Props): React.ReactElement<Props> {
-  const MAX_SELECTED = 93;
   const { t } = useTranslation();
-  const { showInfo } = useInfo();
-  const [isSelectionAllowed, setSelectionAllowed] = useState(false);
+  const now = new Date();
+  const defaultStart = new Date(now.setHours(0, 0, 0, 0));
+  const defaultEnd = new Date(now.setHours(23, 59, 59, 999));
 
   // Initialize startDate and endDate
   const [startDate, setStartDate] = useState<Date>(() => {
     const stored = loadFromSessionStorage(LESSONS, 'start');
-    return stored ? new Date(stored) : new Date(new Date().setHours(0, 0, 0, 0));
+    return stored ? new Date(stored) : defaultStart;
   });
 
   const [endDate, setEndDate] = useState<Date>(() => {
     const stored = loadFromSessionStorage(LESSONS, 'end');
-    return stored ? new Date(stored) : new Date(new Date().setHours(23, 59, 59, 999));
+    return stored ? new Date(stored) : defaultEnd;
   });
-  const [isDeleteConfirmOpen, toggleDeleteConfirm] = useToggle();
 
   const lessons = useLiveQuery<Lesson[]>(
     () => getLessons(tutor, startDate.getTime(), endDate.getTime()),
     [tutor, startDate, endDate]
   );
 
-  const [selectedItems, setSelectedLessons] = useState<Lesson[]>([]);
-
-  const handleSelectionChange = (newSelectedLessons: Lesson[]) => {
-    if (newSelectedLessons.length > MAX_SELECTED) {
-      showInfo(`${t('You can select no more than:')} ${MAX_SELECTED}`);
-      return;
-    }
-    setSelectedLessons(newSelectedLessons);
-  };
-
-  const handleSelectionToggle = useCallback((checked: boolean): void => {
-    setSelectionAllowed(checked);
-  }, []);
-
-  const deleteItems = async () => {
-    const idsToDelete = selectedItems.map((lesson) => lesson.id);
-    try {
-      for (const id of idsToDelete) {
-        if (id) {
-          await deleteLesson(id);
-        }
-      }
-      showInfo(t('Deleted'));
-      setSelectedLessons([]);
-    } catch (error) {
-      console.error('Error deleting selected items:', error);
-      showInfo(t('Deletion failed'));
-    } finally {
-      toggleDeleteConfirm();
-    }
-  };
-
-  const deleteSelectedButton =
-    selectedItems.length > 0 && (
-      <Button icon="trash" label={t('Delete')} onClick={toggleDeleteConfirm} />
-    );
+  const isSelectionAllowed = false;
 
   return !lessons ? (
     <div></div>
@@ -82,9 +45,8 @@ function LessonsList({ className = '', tutor, onResumeTutoring, onShowResults }:
       <h2>{t('My lessons')}</h2>
       <div className="ui--row">
         <DaysRangePicker
-          startDate={startDate ? new Date(startDate) : null}
-          endDate={endDate ? new Date(endDate) : null}
-          sessionStorageId={LESSONS}
+          startDate={startDate || defaultStart}
+          endDate={endDate || defaultEnd}
           onChange={(start: Date, end: Date) => {
             if (start) {
               setStartDate(start);
@@ -97,13 +59,7 @@ function LessonsList({ className = '', tutor, onResumeTutoring, onShowResults }:
           }}
         />
       </div>
-      <ToggleContainer>
-        <Toggle
-          label={t('Select')}
-          onChange={handleSelectionToggle}
-          value={isSelectionAllowed}
-        />
-      </ToggleContainer>
+      <Spacer />
       <SelectableList<Lesson>
         items={lessons}
         renderItem={(lesson, isSelected, isSelectionAllowed, onToggleSelection) => (
@@ -116,18 +72,18 @@ function LessonsList({ className = '', tutor, onResumeTutoring, onShowResults }:
             isSelectionAllowed={isSelectionAllowed}
           />
         )}
-        onSelectionChange={handleSelectionChange}
-        maxSelectableItems={MAX_SELECTED}
-        additionalControls={deleteSelectedButton}
+        onSelectionChange={() => { }}
         keyExtractor={(lesson) => lesson.id}
         key={tutor}
         isSelectionAllowed={isSelectionAllowed}
       />
-      {isDeleteConfirmOpen && (
-        <Confirmation question={t('Are you sure you want to delete it?')} onClose={toggleDeleteConfirm} onConfirm={deleteItems}/>
-      )}
     </div>
   );
 }
+
+const Spacer = styled.div`
+  width: 100%;
+  height: 10px;
+`;
 
 export default React.memo(LessonsList);

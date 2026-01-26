@@ -21,18 +21,21 @@ interface Props {
 function InsurancesList({ className = '', teacher, student, studentNameFromUrl }: Props): React.ReactElement<Props> {
   const MAX_SELECTED = 10000;
   const { t } = useTranslation();
+  const now = new Date();
+  const defaultStart = new Date(now.setHours(0, 0, 0, 0));
+  const defaultEnd = new Date(now.setHours(23, 59, 59, 999));
   const { showInfo } = useInfo();
   const [studentName, setStudentName] = useState<string | undefined>(studentNameFromUrl);
 
   // Initialize startDate and endDate
   const [startDate, setStartDate] = useState<Date>(() => {
     const stored = loadFromSessionStorage(INSURANCES, 'start');
-    return stored ? new Date(stored) : new Date(new Date().setHours(0, 0, 0, 0));
+    return stored ? new Date(stored) : defaultStart;
   });
 
   const [endDate, setEndDate] = useState<Date>(() => {
     const stored = loadFromSessionStorage(INSURANCES, 'end');
-    return stored ? new Date(stored) : new Date(new Date().setHours(23, 59, 59, 999));
+    return stored ? new Date(stored) : defaultEnd;
   });
 
   const [isSelectionAllowed, setSelectionAllowed] = useState(false);
@@ -104,9 +107,8 @@ function InsurancesList({ className = '', teacher, student, studentNameFromUrl }
       </h2>
       <div className="ui--row">
         <DaysRangePicker
-          startDate={startDate ? new Date(startDate) : null}
-          endDate={endDate ? new Date(endDate) : null}
-          sessionStorageId={INSURANCES}
+          startDate={startDate || defaultStart}
+          endDate={endDate || defaultEnd}
           onChange={(start: Date, end: Date) => {
             if (start) {
               setStartDate(start);
@@ -144,7 +146,7 @@ function InsurancesList({ className = '', teacher, student, studentNameFromUrl }
         isSelectionAllowed={isSelectionAllowed}
       />
       {isDeleteConfirmOpen && (
-        <Confirmation question={t('Are you sure you want to delete it?')} onClose={toggleDeleteConfirm} onConfirm={deleteItems}/>
+        <Confirmation question={t('Sure about deleting it?')} onClose={toggleDeleteConfirm} onConfirm={deleteItems} />
       )}
     </div>
   );

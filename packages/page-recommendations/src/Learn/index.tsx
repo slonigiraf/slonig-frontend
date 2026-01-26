@@ -19,16 +19,19 @@ function Learn({ className = '' }: Props): React.ReactElement<Props> {
   const queryParams = new URLSearchParams(location.search);
   const webRTCPeerId = queryParams.get(UrlParams.WEBRTC_PEER_ID);
   const { currentPair, isLoggedIn } = useLoginContext();
+  const now = new Date();
+  const defaultStart = new Date(now.setHours(0, 0, 0, 0));
+  const defaultEnd = new Date(now.setHours(23, 59, 59, 999));
 
   // Initialize startDate and endDate
   const [startDate, setStartDate] = useState<Date>(() => {
     const stored = loadFromSessionStorage(LETTERS, 'start');
-    return stored ? new Date(stored) : new Date(new Date().setHours(0, 0, 0, 0));
+    return stored ? new Date(stored) : defaultStart;
   });
 
   const [endDate, setEndDate] = useState<Date>(() => {
     const stored = loadFromSessionStorage(LETTERS, 'end');
-    return stored ? new Date(stored) : new Date(new Date().setHours(23, 59, 59, 999));
+    return stored ? new Date(stored) : defaultEnd;
   });
 
   const onDaysRangeChange = useCallback((start: Date, end: Date) => {
