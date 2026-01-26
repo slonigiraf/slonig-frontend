@@ -39,8 +39,8 @@ function LessonRequestReceiver({ setCurrentLesson }: Props): React.ReactElement<
       lesson,
       cid: EXAMPLE_MODULE_KNOWLEDGE_CID,
       reexamine: [],
-      learn: [[EXAMPLE_SKILL_KNOWLEDGE_ID, EXAMPLE_SKILL_KNOWLEDGE_CID, diplomaPublicKeyHex],
-      [id, cid, diplomaPublicKeyHex]]
+      learn: [[EXAMPLE_SKILL_KNOWLEDGE_ID, EXAMPLE_SKILL_KNOWLEDGE_CID, diplomaPublicKeyHex, '1'],
+      [id, cid, diplomaPublicKeyHex, '0']]
     };
     return tutorialRequest;
   }

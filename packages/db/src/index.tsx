@@ -458,7 +458,7 @@ export async function getLetterTemplatesByLessonId(lessonId: string) {
 }
 
 export async function getValidLetterTemplatesByLessonId(lessonId: string): Promise<LetterTemplate[]> {
-    return await db.letterTemplates.where({ lesson: lessonId }).filter(letter => letter.valid).toArray();
+    return await db.letterTemplates.where({ lesson: lessonId }).filter(letter => (letter.valid && letter.mature)).toArray();
 }
 
 export async function getToRepeatLetterTemplatesByLessonId(lessonId: string): Promise<LetterTemplate[]> {
@@ -576,6 +576,7 @@ export async function storeLesson(lessonRequest: LessonRequest, tutor: string, o
             const letterTemplate: LetterTemplate = {
                 stage: studyStage++,
                 valid: false,
+                mature: item[3] === '1',
                 toRepeat: false,
                 lastExamined: now,
                 lesson: lesson.id,

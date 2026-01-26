@@ -398,7 +398,7 @@
   "You currently have {{amount}} Slon.": "У тебя сейчас есть {{amount}} Slon.",
   "You did not issue or reexamine any badges during this lesson.": "Вы не создали и не проверили ни одного диплома на этом уроке.",
   "You do not have enough Slon to reward your tutor and get the lesson results. Top up your balance with at least {{amount}} Slon.": "У тебя недостаточно Slon, чтобы вознаградить репетитора и получить результаты урока. Пополни свой баланс как минимум на {{amount}} Slon.",
-  "You don’t have such a skill. I will penalize the tutor which issued the badge for it.": "У вас нет такой навыка. Я накажу наставника, который выдал за это значок.",
+  "You don’t have such a skill. I will penalize the tutor which issued the badge for it.": "Вы не знаете этот навык. Я оштрафую репетитора, который выдал за это значок.",
   "You have duplicated validator entries, ensure each is unique.": "У вас дублированные записи валидаторов, убедитесь, что каждая из них уникальна.",
   "You need to supply at last one running validator for your parachain alongside this request.": "Вы должны предоставить как минимум одного работающего валидатора для вашего парачейна вместе с этим запросом.",
   "You should practice tutoring first before you can reexamine.": "Научись сначала обучать, а потом сможешь перепроверять.",

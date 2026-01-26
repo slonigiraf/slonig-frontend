@@ -13,7 +13,7 @@ import { getIPFSDataFromContentID, parseJson, useInfo } from '@slonigiraf/slonig
 import { TutoringAlgorithm } from './TutoringAlgorithm.js';
 import ChatSimulation from './ChatSimulation.js';
 import { ErrorType } from '@polkadot/react-params';
-import { EXAMPLE_SKILL_KNOWLEDGE_ID, MIN_USING_HINT_MS, ONE_SUBJECT_PERIOD_MS } from '@slonigiraf/utils';
+import { EXAMPLE_SKILL_KNOWLEDGE_CID, EXAMPLE_SKILL_KNOWLEDGE_ID, MIN_USING_HINT_MS, ONE_SUBJECT_PERIOD_MS } from '@slonigiraf/utils';
 
 interface Props {
   className?: string;
@@ -122,12 +122,14 @@ function DoInstructions({ className = '', entity, onResult, studentName, isSendi
     onResult(async () => {
       const valid = isValid ?? !template.toRepeat;
 
-      logEvent("TUTORING", algorithmType, valid ? "mark_mastered" : "mark_for_repeat");
+      const matureInfo = template.cid === EXAMPLE_SKILL_KNOWLEDGE_CID ? 'warm_up' : template.mature? 'mature' : 'crude';
+
+      logEvent('TUTORING', algorithmType, valid ? `mark_mastered_${matureInfo}` : `mark_for_repeat_${matureInfo}`); // algorithmType is always the same
 
       await putLetterTemplate({
         ...template,
         valid,
-        toRepeat: !valid,
+        toRepeat: !valid || !template.mature,
         lastExamined: Date.now(),
       });
     });

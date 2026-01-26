@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useState } from 'react';
-import { LawType, KatexSpan, SelectableList, StyledSpinnerContainer, useLoginContext, getCIDFromBytes, FullscreenActivity, Confirmation, NotClosableFullscreen, useBooleanSettingValue, OKBox, ClassInstruction, useLog, useIpfsContext, getIPFSDataFromContentID, parseJson, ProgressData, progressValue } from '@slonigiraf/slonig-components';
+import { LawType, KatexSpan, SelectableList, StyledSpinnerContainer, useLoginContext, getCIDFromBytes, FullscreenActivity, Confirmation, NotClosableFullscreen, useBooleanSettingValue, OKBox, ClassInstruction, useLog, useIpfsContext, getIPFSDataFromContentID, parseJson, ProgressData, progressValue, useInfo } from '@slonigiraf/slonig-components';
 import { useLocation, useNavigate } from 'react-router-dom';
 import ItemLabel from './ItemLabel.js';
 import SkillQR from './SkillQR.js';
@@ -39,6 +39,7 @@ function ViewList({ className = '', id, cidString, isClassInstructionShown, setI
   const examInUrl = queryParams.get('exam') != null;
   const expanded = queryParams.get('expanded') != null;
   const { t } = useTranslation();
+  const { showOKBox } = useInfo();
   const hasTuteeCompletedTutorial = useBooleanSettingValue(SettingKey.TUTEE_TUTORIAL_COMPLETED);
   const nowIsClassOnboarding = useBooleanSettingValue(SettingKey.NOW_IS_CLASS_ONBOARDING);
   const { currentPair, isLoggedIn, setLoginIsRequired } = useLoginContext();
@@ -55,7 +56,7 @@ function ViewList({ className = '', id, cidString, isClassInstructionShown, setI
   const studentIdentity = u8aToHex(currentPair?.publicKey);
   const [isExitConfirmOpen, setIsExitConfirmOpen] = useState(false);
   const [role, setRole] = useState<'tutee' | undefined>(undefined);
-  const [isPutDeviceAsideOpen, setIsPutDeviceAsideOpen] = useState(false);
+  
   const { logEvent } = useLog();
   const [progressData, setProgressData] = useState<ProgressData>({ skills: 0, letters: 0, repetitions: 0 });
   const [modulesProgress, setModulesProgess] = useState<Map<string, ProgressData>>(() => new Map());
@@ -291,10 +292,16 @@ function ViewList({ className = '', id, cidString, isClassInstructionShown, setI
     navigate('/badges/teach?showHelpQRInfo', { replace: true });
   }, [navigate]);
 
-  const onDataSent = useCallback((): void => {
+  const onDataSent = useCallback(async () => {
     closeQR();
-    setIsPutDeviceAsideOpen(true);
-  }, [closeQR, setIsPutDeviceAsideOpen]);
+    if (id === EXAMPLE_MODULE_KNOWLEDGE_ID) {
+      const fallbackKnowledgeId = await getSetting(SettingKey.FALLBACK_KNOWLEDGE_ID);
+      if (fallbackKnowledgeId) {
+        navigate(`/knowledge?id=${fallbackKnowledgeId}`, { replace: true })
+      }
+    }
+    showOKBox(t('You can put your device aside'));
+  }, [closeQR, showOKBox, getSetting]);
 
   const exitFullScreenActivity = useCallback((): void => {
     setIsExitConfirmOpen(true);
@@ -438,9 +445,6 @@ function ViewList({ className = '', id, cidString, isClassInstructionShown, setI
           <Label label={list.s} />
         </Standards>
       </DivWithLeftMargin>
-    )}
-    {isPutDeviceAsideOpen && (
-      <OKBox info={t('You can put your device aside')} onClose={() => setIsPutDeviceAsideOpen(false)} />
     )}
   </> : <></>;
 

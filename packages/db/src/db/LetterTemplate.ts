@@ -1,6 +1,7 @@
 export interface LetterTemplate {
   stage: number, // lesson stage
   valid: boolean,
+  mature: boolean, // if this skill was already leant at previous day
   toRepeat: boolean,
   lastExamined: number; // timestamp
   lesson: string;

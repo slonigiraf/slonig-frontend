@@ -6,7 +6,7 @@ import { keyForCid } from '@slonigiraf/slonig-components';
 import { styled } from '@polkadot/react-components';
 import { u8aToHex } from '@polkadot/util';
 import { ItemWithCID } from '../types.js';
-import { EXAMPLE_MODULE_KNOWLEDGE_ID } from '@slonigiraf/utils';
+import { EXAMPLE_MODULE_KNOWLEDGE_ID, EXAMPLE_SKILL_KNOWLEDGE_CID } from '@slonigiraf/utils';
 interface Props {
   className?: string;
   id: string;
@@ -42,7 +42,8 @@ function SkillQR({ className = '', id, cid, selectedItems, isLearningRequested, 
       const newLearnData = selectedItems.map(item => {
         const diplomaKey = item.cid ? keyForCid(currentPair, item.cid) : null;
         const diplomaPublicKeyHex = diplomaKey?.publicKey ? u8aToHex(diplomaKey.publicKey) : '';
-        return [item.id, item.cid, diplomaPublicKeyHex];
+        const allowToIssueBadge = item.shouldBeRepeated || item.cid === EXAMPLE_SKILL_KNOWLEDGE_CID;
+        return [item.id, item.cid, diplomaPublicKeyHex, allowToIssueBadge? '1' : '0'];
       });
       if (isLearningRequested) {
         setLearn(newLearnData);
