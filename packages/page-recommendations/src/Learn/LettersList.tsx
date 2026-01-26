@@ -2,12 +2,12 @@ import BadgeInfo from './../Assess/BadgeInfo.js';
 import React, { useCallback, useEffect, useState } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { deleteLetter, Badge, getLetters, Letter } from '@slonigiraf/db';
-import { Button, Toggle, Tag } from '@polkadot/react-components';
+import { Button, Toggle, Tag, styled } from '@polkadot/react-components';
 import { useTranslation } from '../translate.js';
 import { useLocation, useNavigate } from 'react-router-dom';
 import SignLettersUseRight from './SignLettersUseRight.js';
 import type { KeyringPair } from '@polkadot/keyring/types';
-import { Confirmation, DaysRangePicker, SelectableList, StyledContentCloseButton, ToggleContainer, UrlParams, useInfo } from '@slonigiraf/slonig-components';
+import { Confirmation, DaysRangePicker, DBExport, SelectableList, StyledContentCloseButton, ToggleContainer, UrlParams, useInfo } from '@slonigiraf/slonig-components';
 import { useApi, useToggle } from '@polkadot/react-hooks';
 import PersonSelector from '../PersonSelector.js';
 import { EXAMPLE_SKILL_KNOWLEDGE_ID } from '@slonigiraf/utils';
@@ -199,11 +199,28 @@ function LettersList({ className = '', worker, currentPair, startDate, endDate, 
         key={worker + reloadCount}
         isSelectionAllowed={toggleState !== ToggleState.NO_SELECTION}
       />
+      <StyledDiv>
+        <DBExport caption={''} onSuccess={() => { }} />
+        <span>{t('Download your backup in case you erase your browser history')}</span>
+      </StyledDiv>
       {isDeleteConfirmOpen && (
         <Confirmation question={t('Are you sure you want to delete it?')} onClose={toggleDeleteConfirm} onConfirm={deleteDiplomas} />
       )}
     </div>
   );
 }
+
+const StyledDiv = styled.div`
+  display: flex;
+  width: 100%;
+  align-items: center;
+  justify-content: center;
+
+  > span {
+    display: inline-block;
+    transform: translateY(-5px); /* move 5px higher */
+  }
+`;
+
 
 export default React.memo(LettersList);

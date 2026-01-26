@@ -11,11 +11,12 @@ import { useTranslation } from './translate.js';
 
 interface Props {
   className?: string;
+  caption?: string;
   onSuccess: () => void;
 }
 
 const compressionDeceleration = 0.8;
-function DBExport({ className = '', onSuccess }: Props): React.ReactElement<Props> {
+function DBExport({ className = '', caption, onSuccess }: Props): React.ReactElement<Props> {
   const { t } = useTranslation();
   const { currentPair } = useLoginContext();
   const [isBusy, setIsBusy] = useState(false);
@@ -101,7 +102,7 @@ function DBExport({ className = '', onSuccess }: Props): React.ReactElement<Prop
         <ButtonWithLabelBelow
           className={className}
           icon="download"
-          label={t('Download')}
+          label={caption ?? t('Download')}
           onClick={backupData}
           isDisabled={!currentPair}
         />

@@ -37,7 +37,7 @@ export default function ButtonWithLabelBelow(props: any) {
         <h2>{hint}</h2>
       </HintBubble>
     }
-      <Button className="icon-button-with-label-below noHighlight" {...restProps}>
+      <Button className={`${label && 'icon-button-with-label-below '}noHighlight`} {...restProps}>
         {icon && <IconWrapper><Icon icon={icon} /></IconWrapper>}
         {svg && <IconWrapper><CustomSVGIcon svg={svg} /></IconWrapper>}
         {label && <StyledLabel>{label}</StyledLabel>}
