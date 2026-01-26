@@ -125,7 +125,7 @@ function Create({ className = '', onClose, onStatusChange, seed: propsSeed, type
       {isFirstScreen && <h1 style={{ margin: '0px' }} className='prompt'>{t('Get help and badges from classmates')}</h1>}
 
       <div className='ui--row'>
-        {isImporting ? <DBImport onFileSelect={() => setIsRestoringInProgress(true)} onRestoreResult={() => setIsRestoringInProgress(false)}/> :
+        {isImporting ? <DBImport onFileSelect={() => setIsRestoringInProgress(true)} onRestoreResult={() => setIsRestoringInProgress(false)} /> :
           <CreateAccountInputs
             isFirstScreen={isFirstScreen}
             name={{ isNameValid, name }}
@@ -139,7 +139,10 @@ function Create({ className = '', onClose, onStatusChange, seed: propsSeed, type
       {isImporting && <ButtonContainer>
         <Button
           label={t('<< Back')}
-          onClick={toggleImporting}
+          onClick={() => {
+            logEvent('AUTHENTICATION', 'CLICK_BACK_AUTH_BUTTON');
+            toggleImporting();
+          }}
         />
       </ButtonContainer>}
 
@@ -151,11 +154,17 @@ function Create({ className = '', onClose, onStatusChange, seed: propsSeed, type
             // icon='user-plus'
             isBusy={isBusy}
             label={isFirstScreen ? pathname.startsWith('/badges/teach') ? t('Start Tutoring with Slonig') : t('Start Learning with Slonig') : t('Add account')}
-            onClick={() => setCreateNewConfirmationOpen(true)}
+            onClick={() => {
+              logEvent('AUTHENTICATION', 'CLICK_START_SLONIG');
+              setCreateNewConfirmationOpen(true);
+            }}
           />
           {isFirstScreen && <Button
             label={t('Already have an account?')}
-            onClick={toggleImporting}
+            onClick={() => {
+              logEvent('AUTHENTICATION', 'CLICK_ALREADY_HAVE_ACCOUNT');
+              toggleImporting();
+            }}
           />}
         </ButtonContainer>
       }
@@ -163,10 +172,12 @@ function Create({ className = '', onClose, onStatusChange, seed: propsSeed, type
       {isFirstScreen && <LanguageSelector />}
       {createNewConfirmationOpen && <Confirmation question={t('First time here?')}
         onClose={() => {
+          logEvent('AUTHENTICATION', 'CLICK_NOT_FIRST_TIME');
           setCreateNewConfirmationOpen(false);
           toggleImporting();
         }}
         onConfirm={() => {
+          logEvent('AUTHENTICATION', 'CLICK_FIRST_TIME');
           setCreateNewConfirmationOpen(false);
           _onCommit();
         }} />}
