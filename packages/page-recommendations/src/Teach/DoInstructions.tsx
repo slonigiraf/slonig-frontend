@@ -23,6 +23,7 @@ interface Props {
   studentName: string;
   stake?: string;
   hasTuteeUsedSlonig: boolean;
+  showIntro?: boolean;
   isSendingResultsEnabled: boolean | null | undefined;
   isBeforeTeaching?: boolean;
   isTutorial: boolean;
@@ -30,7 +31,7 @@ interface Props {
 
 type AlgorithmType = '' | 'TEACH_ALGO' | 'REEXAMINE_ALGO';
 
-function DoInstructions({ className = '', entity, onResult, studentName, stake='', isSendingResultsEnabled, hasTuteeUsedSlonig, hasTutorCompletedTutorial, isBeforeTeaching = false, isTutorial }: Props): React.ReactElement<Props> {
+function DoInstructions({ className = '', entity, onResult, studentName, stake='', isSendingResultsEnabled, hasTuteeUsedSlonig, hasTutorCompletedTutorial, showIntro = false, isBeforeTeaching = false, isTutorial }: Props): React.ReactElement<Props> {
   const { ipfs, isIpfsReady } = useIpfsContext();
   const [skill, setSkill] = useState<Skill>();
   const { t } = useTranslation();
@@ -86,7 +87,7 @@ function DoInstructions({ className = '', entity, onResult, studentName, stake='
               setAlgorithmType('TEACH_ALGO');
               setAlgorithmStage(newAlgorithm.getBegin());
             } else {
-              const newAlgorithm = new ValidatingAlgorithm(t, studentName, stake, skill, isBeforeTeaching);
+              const newAlgorithm = new ValidatingAlgorithm(t, studentName, stake, skill, showIntro);
               logStartEvent('REEXAMINE_START');
               setTimeout(() => {
                 logEvent('TUTORING', 'REEXAMINE_ALGO', newAlgorithm.getBegin().type);

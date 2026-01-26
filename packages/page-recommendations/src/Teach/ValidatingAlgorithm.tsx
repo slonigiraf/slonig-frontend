@@ -4,7 +4,7 @@ import type { Skill } from '@slonigiraf/slonig-components';
 import ExampleExercisesButton from './ExampleExercisesButton.js';
 
 class ValidatingAlgorithm extends Algorithm {
-    constructor(t: any, studentName: string | null, stake: string, skill: Skill, isBeforeTeaching: boolean) {
+    constructor(t: any, studentName: string | null, stake: string, skill: Skill, showIntro: boolean) {
         super();
         const questions = skill ? skill.q : [];
         let question1: string = questions.length > 0 ? questions[0].h : t('SOME EXERCISE FOR SKILL TRAINING (THE TUTOR SHOULD KNOW)');
@@ -75,21 +75,29 @@ class ValidatingAlgorithm extends Algorithm {
             t('Has the tutee repeated correctly after me?')
         );
 
-        this.begin = new AlgorithmStage(
+    
+        const beginAskToCreateSimilarExercise = new AlgorithmStage(
             1,
             'begin_ask_to_create_similar_exercise',
-            t('Yes'),
+            t('Start'),
             [
                 {
                     title: t('📖 Read what’s happening'),
-                    text: isBeforeTeaching ?
-                        t('{{name}} asks you to teach a skill. Before starting, try to earn a bonus by testing the previous skill:', { replace: { name: studentName} }) + (skill && ' ' + skill.h)
-                        : t('{{name}} asks you to reexamine a skill. Try to earn a bonus by testing the skill:', { replace: { name: studentName} }) + (skill && ' ' + skill.h)
+                    text: t('Try to earn {{stake}} Slon by checking how another tutor taught {{name}} the skill:', { replace: { name: studentName, stake: stake } }) + (skill && ' ' + skill.h)
                 },
                 { title: t('🗣 Say to the tutee'), text: t('Create an exercise similar to this:') + ' ' + question1, image: exerciseImage1 },
             ],
             t('Has the tutee now created a similar exercise?'),
             <ExampleExercisesButton skill={skill} />
+        );
+
+        const intro = new AlgorithmStage(
+            0,
+            'intro',
+            t('Yes'),
+            [
+                { title: t('📖 Read what’s happening'), text: t('Before teaching, help your student identify what they have learned wrongly from bad tutors. If you find a problem, the bad tutor will automatically send you a bonus.') },
+            ]
         );
 
         const repeatFromTheBeginning = new AlgorithmStage(
@@ -105,9 +113,11 @@ class ValidatingAlgorithm extends Algorithm {
         );
 
         // Algo linking:
-        this.begin.setNext([skip, provideFakeSolution, askToRepeatTheExerciseAfterMe]);
-        provideFakeSolution.setPrevious(this.begin);
-        askToRepeatTheExerciseAfterMe.setPrevious(this.begin);
+        this.begin = stake? beginAskToCreateSimilarExercise : intro;
+        intro.setNext([beginAskToCreateSimilarExercise]);
+        beginAskToCreateSimilarExercise.setNext([skip, provideFakeSolution, askToRepeatTheExerciseAfterMe]);
+        provideFakeSolution.setPrevious(beginAskToCreateSimilarExercise);
+        askToRepeatTheExerciseAfterMe.setPrevious(beginAskToCreateSimilarExercise);
 
         provideFakeSolution.setNext([validateDiploma, explainReimburse]);
         validateDiploma.setPrevious(provideFakeSolution);

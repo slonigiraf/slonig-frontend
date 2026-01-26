@@ -367,6 +367,7 @@ function Teach({ className = '' }: Props): React.ReactElement<Props> {
             hasTutorCompletedTutorial={hasTutorCompletedTutorial}
             onResult={updateReexamined}
             studentName={studentName ?? ''}
+            showIntro={lesson?.reexamineStep === 0}
             stake={bnToSlonString(new BN(reexaminationToPerform.amount ?? 0))}
             isTutorial={isTutorial}
             isSendingResultsEnabled={isSendingResultsEnabled}

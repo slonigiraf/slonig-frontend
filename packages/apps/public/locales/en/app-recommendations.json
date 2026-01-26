@@ -112,5 +112,10 @@
   "I’m risking {{stake}} Slon if {{name}} forgets this skill. Granting a badge.": "I’m risking {{stake}} Slon if {{name}} forgets this skill. Granting a badge.",
   "Risk": "Risk",
   "I risk losing {{stake}} Slon if {{name}} forgets this skill. I am granting a badge.": "I risk losing {{stake}} Slon if {{name}} forgets this skill. I am granting a badge.",
-  "I risk losing {{stake}} Slon if {{name}} forgets this skill. I’m awarding a badge for this skill.": "I risk losing {{stake}} Slon if {{name}} forgets this skill. I’m awarding a badge for this skill."
+  "I risk losing {{stake}} Slon if {{name}} forgets this skill. I’m awarding a badge for this skill.": "I risk losing {{stake}} Slon if {{name}} forgets this skill. I’m awarding a badge for this skill.",
+  "Before teaching, help your student spot mistakes from other tutors. If you find one, you’ll get a bonus taken from the careless tutor.": "Before teaching, help your student spot mistakes from other tutors. If you find one, you’ll get a bonus taken from the careless tutor.",
+  "Before teaching, help your student identify what they may have learned incorrectly from other tutors. If you find an issue, you’ll get a bonus deducted from the careless tutor’s earnings.": "Before teaching, help your student identify what they may have learned incorrectly from other tutors. If you find an issue, you’ll get a bonus deducted from the careless tutor’s earnings.",
+  "Before teaching, help your student identify what they may have learned incorrectly from other tutors. If you find an issue, the careless tutor will automatically send you a bonus.": "Before teaching, help your student identify what they may have learned incorrectly from other tutors. If you find an issue, the careless tutor will automatically send you a bonus.",
+  "Before teaching, help your student identify what they have learned wrongly from bad tutors. If you find a problem, the bad tutor will automatically send you a bonus.": "Before teaching, help your student identify what they have learned wrongly from bad tutors. If you find a problem, the bad tutor will automatically send you a bonus.",
+  "Try to earn {{stake}} Slon by checking how another tutor taught {{name}} the skill:": "Try to earn {{stake}} Slon by checking how another tutor taught {{name}} the skill:"
 }
