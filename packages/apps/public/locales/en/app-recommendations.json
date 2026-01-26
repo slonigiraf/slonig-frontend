@@ -110,5 +110,7 @@
   "Sure about deleting it?": "Sure about deleting it?",
   "Download your backup in case you erase your browser history": "Download your backup in case you erase your browser history",
   "I’m risking {{stake}} Slon if {{name}} forgets this skill. Granting a badge.": "I’m risking {{stake}} Slon if {{name}} forgets this skill. Granting a badge.",
-  "Risk": "Risk"
+  "Risk": "Risk",
+  "I risk losing {{stake}} Slon if {{name}} forgets this skill. I am granting a badge.": "I risk losing {{stake}} Slon if {{name}} forgets this skill. I am granting a badge.",
+  "I risk losing {{stake}} Slon if {{name}} forgets this skill. I’m awarding a badge for this skill.": "I risk losing {{stake}} Slon if {{name}} forgets this skill. I’m awarding a badge for this skill."
 }

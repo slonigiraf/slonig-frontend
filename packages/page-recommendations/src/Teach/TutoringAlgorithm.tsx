@@ -21,7 +21,7 @@ class TutoringAlgorithm extends Algorithm {
             'decide_about_badge',
             t('Yes'),
             [],
-            t('I’m risking {{stake}} Slon if {{name}} forgets this skill. Granting a badge.', { replace: { name: studentName, stake: stake } })
+            t('I risk losing {{stake}} Slon if {{name}} forgets this skill. I’m awarding a badge for this skill.', { replace: { name: studentName, stake: stake } })
         );
 
         const repeatTomorrow = new AlgorithmStage(
