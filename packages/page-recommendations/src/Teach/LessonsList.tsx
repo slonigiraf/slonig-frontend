@@ -83,7 +83,7 @@ function LessonsList({ className = '', tutor, onResumeTutoring, onShowResults }:
 
 const Spacer = styled.div`
   width: 100%;
-  height: 10px;
+  height: 5px;
 `;
 
 export default React.memo(LessonsList);
