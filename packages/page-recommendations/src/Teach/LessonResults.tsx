@@ -100,8 +100,14 @@ function LessonResults({ className = '', lesson, updateAndStoreLesson, onClose, 
   const isWrongDaysInput = !daysInput || !(parseInt(daysInput) > 0);
   const saveLessonSettings = useCallback(async (): Promise<void> => {
     const days = parseInt(daysInput, 10);
+    const defaultWarranty = await getSetting(SettingKey.DIPLOMA_WARRANTY);
+    const defaultBadgePriceBN = new BN(defaultWarranty ?? '0')
+      .mul(new BN(100000000))
+      .divRound(new BN(119921875));
     if (!amountInputValue || amountInputValue.eq(BN_ZERO) || isWrongDaysInput) {
       showInfo(t('Correct the errors highlighted in red'), 'error');
+    } else if (priceInputValue.gt(defaultBadgePriceBN)) {
+      showInfo(t('Can not be larger than: {{price}}', { replace: { price: bnToSlonString(defaultBadgePriceBN) } }), 'error');
     } else {
       if (lesson) {
         if (priceInputValue.toString() !== lesson.dPrice) {
