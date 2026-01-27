@@ -2,11 +2,26 @@ import { AlgorithmStage } from './AlgorithmStage.js';
 import { Algorithm } from './Algorithm.js';
 import { Skill } from '@slonigiraf/slonig-components';
 import ExampleExercisesButton from './ExampleExercisesButton.js';
+import { LessonStat } from '../types.js';
 
+export type TutoringAlgorithmType = 'tutorial' | 'with_trade' | 'with_stat';
+export interface TutoringAlgorithmProps {
+    lessonStat: LessonStat | null;
+    variation: TutoringAlgorithmType;
+    studentName: string | null;
+    stake: string;
+    canIssueBadge: boolean;
+    skill: Skill;
+    hasTuteeUsedSlonig: boolean;
+    t: (key: string, options?: {
+        replace: Record<string, unknown>;
+    } | undefined) => string;
+}
 class TutoringAlgorithm extends Algorithm {
-    constructor(t: any, studentName: string | null, stake: string, skill: Skill, hasTuteeCompletedTutorial: boolean, hasTutorCompletedTutorial: boolean) {
+    //get from one param of type TutoringAlgorithmType
+    constructor({ lessonStat, variation, studentName, stake, canIssueBadge, skill, hasTuteeUsedSlonig, t }: TutoringAlgorithmProps) {
         super();
-        const bothUsedSlonig = hasTuteeCompletedTutorial && hasTutorCompletedTutorial;
+        const bothUsedSlonig = hasTuteeUsedSlonig && variation === 'tutorial';
         const questions = skill ? skill.q : [];
         let question1: string = questions.length > 0 ? questions[0].h : t('SOME TASK FOR SKILL TRAINING (THE TUTOR SHOULD KNOW)');
         let answer1: string = questions.length > 0 ? questions[0].a : '';
@@ -107,6 +122,15 @@ class TutoringAlgorithm extends Algorithm {
             t('Let’s start with a simple skill. Your student will pretend not to know it.'),
             <ExampleExercisesButton skill={skill} />
         );
+        // Stat for users that know how to use it.
+        const stat = new AlgorithmStage(
+            0,
+            'stat',
+            t('Yes'),
+            [
+                { title: t('📖 Read what’s happening'), text: t('You have just issued a badge.') },
+            ]
+        );
 
         const askToCreateAnExerciseAfterCompletionOfExerciseOfTutor = new AlgorithmStage(
             1,
@@ -147,17 +171,18 @@ class TutoringAlgorithm extends Algorithm {
         const toNextSkill = new AlgorithmStage(
             -1,
             'next_skill',
-            stake? t('Risk') : t('Yes'),
+            canIssueBadge ? t('Risk') : t('Yes'),
             []
         );
 
         // Defining the first step
-        if (bothUsedSlonig) {
-            this.begin = askStudentToCreateASimilarExercise;
-        } else if (hasTutorCompletedTutorial) {
+
+        if (variation === 'tutorial') {
+            this.begin = intro;
+        } else if (!hasTuteeUsedSlonig) {
             this.begin = askStudentToSolveAnExercise;
         } else {
-            this.begin = intro;
+            this.begin = askStudentToCreateASimilarExercise;
         }
 
         // Algo linking
@@ -175,7 +200,7 @@ class TutoringAlgorithm extends Algorithm {
         }
 
         provideFakeAnswer.setNext([
-            stake? issueBadge : toNextSkill, 
+            canIssueBadge ? issueBadge : toNextSkill,
             askStudentToRepeatTheAnswer
         ]);
         issueBadge.setNext([toNextSkill, repeatTomorrow]);

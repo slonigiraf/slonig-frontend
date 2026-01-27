@@ -10,10 +10,11 @@ import { useTranslation } from '../translate.js';
 import { ChatContainer, Bubble, useIpfsContext, useLog, OKBox, timeStampStringToNumber } from '@slonigiraf/slonig-components';
 import { getLetterTemplate, getSetting, LetterTemplate, putLetterTemplate, Reexamination, SettingKey, storeSetting, updateReexamination } from '@slonigiraf/db';
 import { getIPFSDataFromContentID, parseJson, useInfo } from '@slonigiraf/slonig-components';
-import { TutoringAlgorithm } from './TutoringAlgorithm.js';
+import { TutoringAlgorithm, TutoringAlgorithmType } from './TutoringAlgorithm.js';
 import ChatSimulation from './ChatSimulation.js';
 import { ErrorType } from '@polkadot/react-params';
 import { EXAMPLE_SKILL_KNOWLEDGE_CID, EXAMPLE_SKILL_KNOWLEDGE_ID, MIN_USING_HINT_MS, ONE_SUBJECT_PERIOD_MS } from '@slonigiraf/utils';
+import { LessonStat } from '../types.js';
 
 interface Props {
   className?: string;
@@ -22,6 +23,7 @@ interface Props {
   hasTutorCompletedTutorial: boolean | null | undefined;
   studentName: string;
   stake?: string;
+  lessonStat: LessonStat | null;
   hasTuteeUsedSlonig: boolean;
   showIntro?: boolean;
   isSendingResultsEnabled: boolean | null | undefined;
@@ -31,7 +33,7 @@ interface Props {
 
 type AlgorithmType = '' | 'TEACH_ALGO' | 'REEXAMINE_ALGO';
 
-function DoInstructions({ className = '', entity, onResult, studentName, stake = '', isSendingResultsEnabled, hasTuteeUsedSlonig, hasTutorCompletedTutorial, showIntro = false, isTutorial }: Props): React.ReactElement<Props> {
+function DoInstructions({ className = '', entity, onResult, studentName, stake = '', lessonStat, isSendingResultsEnabled, hasTuteeUsedSlonig, hasTutorCompletedTutorial, showIntro = false, isTutorial }: Props): React.ReactElement<Props> {
   const { ipfs, isIpfsReady } = useIpfsContext();
   const [skill, setSkill] = useState<Skill>();
   const { t } = useTranslation();
@@ -77,7 +79,20 @@ function DoInstructions({ className = '', entity, onResult, studentName, stake =
           if (isComponentMounted) {
             setSkill(skill);
             if (isLetterTemplate(entity)) {
-              const newAlgorithm = new TutoringAlgorithm(t, studentName, stake, skill, hasTuteeUsedSlonig, hasTutorCompletedTutorial ? true : false);
+              const variation: TutoringAlgorithmType = !hasTutorCompletedTutorial ? 'tutorial' : 'with_trade';
+
+              const newAlgorithm = new TutoringAlgorithm(
+                {
+                  t,
+                  studentName,
+                  stake,
+                  canIssueBadge: !!stake,
+                  skill,
+                  hasTuteeUsedSlonig,
+                  variation,
+                  lessonStat
+                });
+
               if (hasTutorCompletedTutorial || skill.i === EXAMPLE_SKILL_KNOWLEDGE_ID) {
                 logStartEvent('TEACH_START');
                 setTimeout(() => {

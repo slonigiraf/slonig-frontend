@@ -75,3 +75,18 @@ export interface DeriveValidationOutput {
   error?: string;
   warning?: string;
 }
+
+export interface LessonStat {
+  askedToLearn: number;
+  askedToLearnFirstTime: number;
+  askedToLearnSecondTime: number;
+  askedForReexaminations: number;
+  issuedBadgeCount: number;
+  markedForRepeatCount: number;
+  validatedBadgesCount: number;
+  revokedBadgesCount: number;
+  totalProfitForReexamination: number;
+  totalProfitForTeaching: number;
+  totalProfit: number;
+  totalWarranty: number;
+}

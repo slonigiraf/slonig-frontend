@@ -4,7 +4,7 @@ import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { Button, LinearProgress, styled } from '@polkadot/react-components';
 import { u8aToHex } from '@polkadot/util';
 import { Confirmation, OKBox, FullFindow, VerticalCenterItemsContainer, useInfo, useLoginContext, HintBubble, useBooleanSettingValue, useLog, useNumberSettingValue, getIPFSDataFromContentID, parseJson, useIpfsContext, timeStampStringToNumber, bnToSlonFloatOrNaN, bnToSlonString } from '@slonigiraf/slonig-components';
-import { LetterTemplate, Lesson, Reexamination, getPseudonym, getLesson, getLetterTemplatesByLessonId, getReexaminationsByLessonId, getSetting, storeSetting, updateLesson, getLetter, getReexamination, SettingKey, deleteSetting, isThereAnyLessonResult, setSettingToTrue } from '@slonigiraf/db';
+import { LetterTemplate, Lesson, Reexamination, getPseudonym, getLesson, getLetterTemplatesByLessonId, getReexaminationsByLessonId, getSetting, storeSetting, updateLesson, getLetter, getReexamination, SettingKey, deleteSetting, isThereAnyLessonResult, setSettingToTrue, getToRepeatLetterTemplatesByLessonId, getValidLetterTemplatesByLessonId } from '@slonigiraf/db';
 import DoInstructions from './DoInstructions.js';
 import LessonsList from './LessonsList.js';
 import LessonResults from './LessonResults.js';
@@ -13,6 +13,7 @@ import { useTranslation } from '../translate.js';
 import { useLocation } from 'react-router-dom';
 import { EXAMPLE_MODULE_KNOWLEDGE_CID, FAST_SKILL_DISCUSSION_MS, MAX_FAST_DISCUSSED_SKILLS_IN_ROW_COUNT, MAX_SAME_PARTNER_TIME_MS, MIN_SAME_PARTNER_TIME_MS, MIN_SKILL_DISCUSSION_MS, ONE_SUBJECT_PERIOD_MS } from '@slonigiraf/utils';
 import BN from 'bn.js';
+import { LessonStat } from '../types.js';
 interface Props {
   className?: string;
 }
@@ -54,7 +55,8 @@ function Teach({ className = '' }: Props): React.ReactElement<Props> {
   const [isPairChangeDialogueOpen, setIsPairChangeDialogueOpen] = useState(false);
   const lastTimeBucketRef = useRef<number | null>(null);
   const [lessonName, setLessonName] = useState<null | string>(null);
-  
+  const [lessonStat, setLessonStat] = useState<LessonStat | null>(null);
+
 
   useEffect(() => {
     async function fetchData() {
@@ -79,6 +81,62 @@ function Teach({ className = '' }: Props): React.ReactElement<Props> {
     }
     fetchData();
   }, [ipfs, lesson, lessonName]);
+
+  useEffect(() => {
+    const refreshLessonStat = async () => {
+      const nothingToDiscuss = (reexaminations.length + letterTemplates.length) > 0;
+      if (!lesson || nothingToDiscuss) return;
+
+      try {
+        // Get fresh data
+        const reexaminations = await getReexaminationsByLessonId(lesson.id);
+        const markedToRepeat = await getToRepeatLetterTemplatesByLessonId(lesson.id);
+        const toIssueLetters: LetterTemplate[] = await getValidLetterTemplatesByLessonId(lesson.id);
+
+        const askedToLearn = letterTemplates.length;
+        const askedToLearnSecondTime = letterTemplates.filter(t => t.mature).length;
+        const askedToLearnFirstTime = letterTemplates.length - askedToLearnSecondTime;
+        const askedForReexaminations = reexaminations.length;
+
+
+        const issuedBadgeCount = toIssueLetters.length;
+        const markedForRepeatCount = markedToRepeat.length;
+        const validatedBadgesCount = reexaminations.filter(r => r.created !== r.lastExamined && r.valid).length;
+        const revokedBadgesCount = reexaminations.filter(r => !r.valid).length;
+        const totalProfitForReexamination = bnToSlonFloatOrNaN(
+          reexaminations
+            .filter((r) => !r.valid)
+            .reduce((acc, r) => acc.add(new BN(r.amount)), new BN(0))
+        );
+        const totalProfitForTeaching = issuedBadgeCount * bnToSlonFloatOrNaN(new BN(lesson.dPrice));
+        const totalProfit = totalProfitForReexamination + totalProfitForTeaching;
+        const totalWarranty = issuedBadgeCount * bnToSlonFloatOrNaN(new BN(lesson.dWarranty));
+
+        setLessonStat({
+          askedToLearn,
+          askedToLearnFirstTime,
+          askedToLearnSecondTime,
+          askedForReexaminations,
+          issuedBadgeCount,
+          markedForRepeatCount,
+          validatedBadgesCount,
+          revokedBadgesCount,
+          totalProfitForReexamination,
+          totalProfitForTeaching,
+          totalProfit,
+          totalWarranty,
+        })
+
+      } catch (error) {
+        console.error(error);
+      }
+    };
+
+    refreshLessonStat();
+
+  }, [lesson]);
+
+  console.log('lessonStat: ', lessonStat)
 
   useEffect(() => {
     if (!lastSkillDiscussedTime && (letterTemplateToIssue !== null || reexaminationToPerform !== null)) {
@@ -363,6 +421,7 @@ function Teach({ className = '' }: Props): React.ReactElement<Props> {
         {!reexamined && reexaminationToPerform &&
           <DoInstructions
             entity={reexaminationToPerform}
+            lessonStat={lessonStat}
             hasTuteeUsedSlonig={hasTuteeUsedSlonig}
             hasTutorCompletedTutorial={hasTutorCompletedTutorial}
             onResult={updateReexamined}
@@ -376,6 +435,7 @@ function Teach({ className = '' }: Props): React.ReactElement<Props> {
         {reexamined && letterTemplateToIssue &&
           <DoInstructions
             entity={letterTemplateToIssue}
+            lessonStat={lessonStat}
             hasTuteeUsedSlonig={hasTuteeUsedSlonig}
             hasTutorCompletedTutorial={hasTutorCompletedTutorial}
             onResult={updateLearned}
