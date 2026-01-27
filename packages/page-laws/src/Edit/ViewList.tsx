@@ -56,12 +56,13 @@ function ViewList({ className = '', id, cidString, isClassInstructionShown, setI
   const studentIdentity = u8aToHex(currentPair?.publicKey);
   const [isExitConfirmOpen, setIsExitConfirmOpen] = useState(false);
   const [role, setRole] = useState<'tutee' | undefined>(undefined);
-  
+
   const { logEvent } = useLog();
   const [progressData, setProgressData] = useState<ProgressData>({ skills: 0, letters: 0, repetitions: 0 });
   const [modulesProgress, setModulesProgess] = useState<Map<string, ProgressData>>(() => new Map());
   const [isLaunchLearnConfirmOpen, setIsLaunchLearnConfirmOpen] = useState(false);
   const [isLaunchExamConfirmOpen, setIsLaunchExamConfirmOpen] = useState(false);
+  const [wereStatisticsLoaded, setWereStatisticsLoaded] = useState(false);
 
   async function fetchLaw(key: string) {
     const law = (await api.query.laws.laws(key)) as { isSome: boolean; unwrap: () => [Uint8Array, BN] };
@@ -116,11 +117,12 @@ function ViewList({ className = '', id, cidString, isClassInstructionShown, setI
           setIsThereAnythingToLearn(skills > letters + blockedForLearning);
           const someHaveValidDiplomas = items.some(item => item.validDiplomas && item.validDiplomas.length > 0);
           setIsThereAnythingToReexamine(someHaveValidDiplomas);
+          setWereStatisticsLoaded(true);
         }
       }
     };
     fetchCIDs();
-  }, [list, studentIdentity, setIsThereAnythingToLearn, setIsThereAnythingToReexamine]);
+  }, [list, studentIdentity, setIsThereAnythingToLearn, setIsThereAnythingToReexamine, setWereStatisticsLoaded]);
 
   useEffect(() => {
     let cancelled = false;
@@ -204,6 +206,7 @@ function ViewList({ className = '', id, cidString, isClassInstructionShown, setI
       const toExamine = results.flatMap((r) => r.itemsToReexamine);
       setCanBeExamined(toExamine)
       setIsThereAnythingToReexamine(toExamine.length > 0);
+      setWereStatisticsLoaded(true);
     };
 
     fetchModulesIPFSData();
@@ -211,7 +214,7 @@ function ViewList({ className = '', id, cidString, isClassInstructionShown, setI
     return () => {
       cancelled = true;
     };
-  }, [list, itemsWithCID, isIpfsReady, ipfs, modulesProgress, studentIdentity]);
+  }, [list, itemsWithCID, isIpfsReady, ipfs, modulesProgress, studentIdentity, setWereStatisticsLoaded]);
 
   useEffect(() => {
     if (
@@ -344,8 +347,7 @@ function ViewList({ className = '', id, cidString, isClassInstructionShown, setI
     }
   }, [isReexaminingRequested]);
 
-  const wasLearningDataLoaded = isThereAnythingToLearn || isThereAnythingToReexamine;
-  const displayContent = list && (list.t === LawType.COURSE || list.t === LawType.MODULE) ? wasLearningDataLoaded : true;
+  const displayContent = list && (list.t === LawType.COURSE || list.t === LawType.MODULE) ? wereStatisticsLoaded : true;
 
   const content = list ? <>
     {!isAPairWork && <h1><KatexSpan content={list.h} /></h1>}
@@ -357,7 +359,7 @@ function ViewList({ className = '', id, cidString, isClassInstructionShown, setI
             <SkillQR id={id} cid={cidString} selectedItems={selectedItems} isLearningRequested={isLearningRequested} isReexaminingRequested={isReexaminingRequested} lessonInUrl={lessonInUrl || showSkillQrInUrl} onDataSent={onDataSent} />
           </div>
           <ButtonsRow>
-            {wasLearningDataLoaded &&
+            {wereStatisticsLoaded &&
               <ProgressDiv style={isAPairWork ? { display: 'none' } : {}}>
                 <Progress
                   value={progressValue(progressData)}
@@ -371,6 +373,13 @@ function ViewList({ className = '', id, cidString, isClassInstructionShown, setI
                 icon='people-arrows'
                 label={t('Learn')}
                 onClick={() => learnClicked()}
+              />}
+            {wereStatisticsLoaded && !isThereAnythingToLearn && !isThereAnythingToReexamine && !isAPairWork &&
+              <Button
+                icon='people-arrows'
+                isDisabled={true}
+                label={t('Wait until tomorrow to learn')}
+                onClick={() => { }}
               />}
             {isThereAnythingToReexamine && !isAPairWork &&
               <Button
