@@ -84,7 +84,7 @@ function Teach({ className = '' }: Props): React.ReactElement<Props> {
 
   useEffect(() => {
     const refreshLessonStat = async () => {
-      const nothingToDiscuss = (reexaminations.length + letterTemplates.length) > 0;
+      const nothingToDiscuss = (reexaminations.length + letterTemplates.length) === 0;
       if (!lesson || nothingToDiscuss) return;
 
       try {
@@ -134,9 +134,7 @@ function Teach({ className = '' }: Props): React.ReactElement<Props> {
 
     refreshLessonStat();
 
-  }, [lesson]);
-
-  console.log('lessonStat: ', lessonStat)
+  }, [lesson, reexaminations, letterTemplates]);
 
   useEffect(() => {
     if (!lastSkillDiscussedTime && (letterTemplateToIssue !== null || reexaminationToPerform !== null)) {
