@@ -113,7 +113,7 @@ class ValidatingAlgorithm extends Algorithm {
         );
 
         // Algo linking:
-        this.begin = stake? beginAskToCreateSimilarExercise : intro;
+        this.begin = showIntro ? intro:  beginAskToCreateSimilarExercise;
         intro.setNext([beginAskToCreateSimilarExercise]);
         beginAskToCreateSimilarExercise.setNext([skip, provideFakeSolution, askToRepeatTheExerciseAfterMe]);
         provideFakeSolution.setPrevious(beginAskToCreateSimilarExercise);

@@ -31,7 +31,7 @@ interface Props {
 
 type AlgorithmType = '' | 'TEACH_ALGO' | 'REEXAMINE_ALGO';
 
-function DoInstructions({ className = '', entity, onResult, studentName, stake = '', isSendingResultsEnabled, hasTuteeUsedSlonig, hasTutorCompletedTutorial, showIntro = false, isBeforeTeaching = false, isTutorial }: Props): React.ReactElement<Props> {
+function DoInstructions({ className = '', entity, onResult, studentName, stake = '', isSendingResultsEnabled, hasTuteeUsedSlonig, hasTutorCompletedTutorial, showIntro = false, isTutorial }: Props): React.ReactElement<Props> {
   const { ipfs, isIpfsReady } = useIpfsContext();
   const [skill, setSkill] = useState<Skill>();
   const { t } = useTranslation();
