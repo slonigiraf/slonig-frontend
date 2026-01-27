@@ -3,6 +3,7 @@ import { Algorithm } from './Algorithm.js';
 import { Skill } from '@slonigiraf/slonig-components';
 import ExampleExercisesButton from './ExampleExercisesButton.js';
 import { LessonStat } from '../types.js';
+import LessonProcessInfo from './LessonProcessInfo.js';
 
 export type TutoringAlgorithmType = 'tutorial' | 'with_trade' | 'with_stat';
 export interface TutoringAlgorithmProps {
@@ -129,7 +130,9 @@ class TutoringAlgorithm extends Algorithm {
             t('Yes'),
             [
                 { title: t('📖 Read what’s happening'), text: t('You have just issued a badge.') },
-            ]
+            ],
+            t('Next?'),
+            <LessonProcessInfo lessonStat={lessonStat} />
         );
 
         const askToCreateAnExerciseAfterCompletionOfExerciseOfTutor = new AlgorithmStage(
@@ -181,6 +184,9 @@ class TutoringAlgorithm extends Algorithm {
             this.begin = intro;
         } else if (!hasTuteeUsedSlonig) {
             this.begin = askStudentToSolveAnExercise;
+        } else if (variation === 'with_stat') {
+            this.begin = stat;
+            stat.setNext([askStudentToCreateASimilarExercise])
         } else {
             this.begin = askStudentToCreateASimilarExercise;
         }

@@ -14,7 +14,7 @@ export interface BareProps {
   className?: string;
 }
 
-export interface I18nProps extends BareProps, WithTranslation {}
+export interface I18nProps extends BareProps, WithTranslation { }
 
 export interface ModalProps {
   onClose: () => void;
@@ -77,6 +77,8 @@ export interface DeriveValidationOutput {
 }
 
 export interface LessonStat {
+  learnStep: number;
+  reexamineStep: number;
   askedToLearn: number;
   askedToLearnFirstTime: number;
   askedToLearnSecondTime: number;

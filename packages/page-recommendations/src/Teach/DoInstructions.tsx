@@ -15,11 +15,12 @@ import ChatSimulation from './ChatSimulation.js';
 import { ErrorType } from '@polkadot/react-params';
 import { EXAMPLE_SKILL_KNOWLEDGE_CID, EXAMPLE_SKILL_KNOWLEDGE_ID, MIN_USING_HINT_MS, ONE_SUBJECT_PERIOD_MS } from '@slonigiraf/utils';
 import { LessonStat } from '../types.js';
+import { TutorAction } from 'db/src/db/Lesson.js';
 
 interface Props {
   className?: string;
   entity: LetterTemplate | Reexamination;
-  onResult: (updater: () => Promise<void>) => void;
+  onResult: (updater: () => Promise<void>, action: TutorAction) => void;
   hasTutorCompletedTutorial: boolean | null | undefined;
   studentName: string;
   stake?: string;
@@ -79,7 +80,8 @@ function DoInstructions({ className = '', entity, onResult, studentName, stake =
           if (isComponentMounted) {
             setSkill(skill);
             if (isLetterTemplate(entity)) {
-              const variation: TutoringAlgorithmType = !hasTutorCompletedTutorial ? 'tutorial' : 'with_trade';
+              const variation: TutoringAlgorithmType = !hasTutorCompletedTutorial ? 'tutorial' :
+                lessonStat?.learnStep === 0 ? 'with_trade' : 'with_stat';
 
               const newAlgorithm = new TutoringAlgorithm(
                 {
@@ -132,16 +134,18 @@ function DoInstructions({ className = '', entity, onResult, studentName, stake =
 
     const template = await getLetterTemplate(entity.lesson, entity.stage);
     if (!template) {
-      onResult(async () => { });
+      onResult(async () => { }, undefined);
       return;
     }
 
+    const valid = (template.cid === EXAMPLE_SKILL_KNOWLEDGE_CID) || (isValid ?? !template.toRepeat);
+
+    const matureInfo = template.cid === EXAMPLE_SKILL_KNOWLEDGE_CID ? 'warm_up' : template.mature ? 'mature' : 'crude';
+
+    const action: TutorAction = valid ? `mark_mastered_${matureInfo}` : `mark_for_repeat_${matureInfo}`;
+
     onResult(async () => {
-      const valid = (template.cid === EXAMPLE_SKILL_KNOWLEDGE_CID) || (isValid ?? !template.toRepeat);
-
-      const matureInfo = template.cid === EXAMPLE_SKILL_KNOWLEDGE_CID ? 'warm_up' : template.mature ? 'mature' : 'crude';
-
-      logEvent('TUTORING', algorithmType, valid ? `mark_mastered_${matureInfo}` : `mark_for_repeat_${matureInfo}`); // algorithmType is always the same
+      logEvent('TUTORING', algorithmType, action); // algorithmType is always the same
 
       await putLetterTemplate({
         ...template,
@@ -149,7 +153,7 @@ function DoInstructions({ className = '', entity, onResult, studentName, stake =
         toRepeat: !valid || !template.mature,
         lastExamined: Date.now(),
       });
-    });
+    }, action);
   }, [entity, isLetterTemplate, getLetterTemplate, putLetterTemplate, onResult, algorithmType, logEvent,]);
 
 
@@ -180,7 +184,7 @@ function DoInstructions({ className = '', entity, onResult, studentName, stake =
         const now = (new Date).getTime();
         const successfulReexamination: Reexamination = { ...entity, lastExamined: now };
         await updateReexamination(successfulReexamination);
-      });
+      }, 'validate');
     }
   }, [isReexamination, entity, updateReexamination, onResult]);
 
@@ -191,7 +195,7 @@ function DoInstructions({ className = '', entity, onResult, studentName, stake =
         showInfo(t('Bounty will be collected after the lesson ends.'));
         const failedReexamination: Reexamination = { ...entity, lastExamined: now, valid: false };
         await updateReexamination(failedReexamination);
-      });
+      }, 'revoke');
     }
   }, [showInfo, t, entity, updateReexamination, onResult]);
 
@@ -261,7 +265,7 @@ function DoInstructions({ className = '', entity, onResult, studentName, stake =
         preserveFromNoobs(() => {
           logEvent('TUTORING', algorithmType, 'skip');
           refreshStageView();
-          onResult(async () => { });
+          onResult(async () => { }, 'skip');
         }, () => setIsButtonClicked(false));
       } else if (isLetterTemplate(entity) && (nextStage.type === 'next_skill')) {
         await processLetter();

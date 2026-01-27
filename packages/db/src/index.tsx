@@ -552,6 +552,7 @@ export async function storeLesson(lessonRequest: LessonRequest, tutor: string, o
         dWarranty: warranty,
         dValidity: validity,
         isPaid: false,
+        lastAction: undefined,
     };
     const sameLesson = await db.lessons.get({ id: lesson.id });
     if (sameLesson === undefined) {

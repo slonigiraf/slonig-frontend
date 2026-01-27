@@ -14,6 +14,7 @@ import { useLocation } from 'react-router-dom';
 import { EXAMPLE_MODULE_KNOWLEDGE_CID, FAST_SKILL_DISCUSSION_MS, MAX_FAST_DISCUSSED_SKILLS_IN_ROW_COUNT, MAX_SAME_PARTNER_TIME_MS, MIN_SAME_PARTNER_TIME_MS, MIN_SKILL_DISCUSSION_MS, ONE_SUBJECT_PERIOD_MS } from '@slonigiraf/utils';
 import BN from 'bn.js';
 import { LessonStat } from '../types.js';
+import { TutorAction } from 'db/src/db/Lesson.js';
 interface Props {
   className?: string;
 }
@@ -111,8 +112,11 @@ function Teach({ className = '' }: Props): React.ReactElement<Props> {
         const totalProfitForTeaching = issuedBadgeCount * bnToSlonFloatOrNaN(new BN(lesson.dPrice));
         const totalProfit = totalProfitForReexamination + totalProfitForTeaching;
         const totalWarranty = issuedBadgeCount * bnToSlonFloatOrNaN(new BN(lesson.dWarranty));
+        
 
         setLessonStat({
+          learnStep: lesson.learnStep,
+          reexamineStep: lesson.reexamineStep,
           askedToLearn,
           askedToLearnFirstTime,
           askedToLearnSecondTime,
@@ -261,11 +265,11 @@ function Teach({ className = '' }: Props): React.ReactElement<Props> {
     fetchLesson();
   }, []);
 
-  const updateReexamined = useCallback(async (updater: () => Promise<void>) => {
+  const updateReexamined = useCallback(async (updater: () => Promise<void>, lastAction: TutorAction) => {
     if (lesson) {
       const nextStep = lesson.reexamineStep + 1;
       if (nextStep <= lesson.toReexamineCount) {
-        const updatedLesson = { ...lesson, reexamineStep: nextStep };
+        const updatedLesson = { ...lesson, lastAction, reexamineStep: nextStep };
         await protectTutor(false, async () => {
           await updater();
           await updateAndStoreLesson(updatedLesson);
@@ -274,9 +278,9 @@ function Teach({ className = '' }: Props): React.ReactElement<Props> {
     }
   }, [lesson, updateAndStoreLesson, protectTutor]);
 
-  const updateLearned = useCallback(async (updater: () => Promise<void>) => {
+  const updateLearned = useCallback(async (updater: () => Promise<void>, lastAction: TutorAction) => {
     if (lesson && lesson.toLearnCount > lesson.learnStep) {
-      const updatedLesson = { ...lesson, learnStep: lesson.learnStep + 1 };
+      const updatedLesson = { ...lesson, lastAction, learnStep: lesson.learnStep + 1 };
       await protectTutor(true, async () => {
         await updater();
         await updateAndStoreLesson(updatedLesson);
@@ -394,7 +398,7 @@ function Teach({ className = '' }: Props): React.ReactElement<Props> {
     if (lesson != null) {
       if (hasTutorCompletedTutorial === false && !reexamined && reexaminationToPerform) {
         if (letterTemplateToIssue) {
-          updateReexamined(async () => { });
+          updateReexamined(async () => { }, undefined);
         } else {
           onCloseTutoring();
           showInfo(t('You should practice tutoring first before you can reexamine.'));
