@@ -5,6 +5,7 @@ import ExampleExercisesButton from './ExampleExercisesButton.js';
 import { Lesson } from '@slonigiraf/db';
 import LessonProcessInfo from './LessonProcessInfo.js';
 import TooFastWarning from './TooFastWarning.js';
+import ExampleExercises from './ExampleExercises.js';
 
 export type ValidatingAlgorithmType = 'with_too_fast_warning' | 'intro' | 'with_stat' | 'no_stat';
 export interface ValidatingAlgorithmProps {
@@ -90,14 +91,14 @@ class ValidatingAlgorithm extends Algorithm {
         );
 
 
-        const beginAskToCreateSimilarExercise = new AlgorithmStage(
+        const askToCreateSimilarExercise = new AlgorithmStage(
             1,
-            'begin_ask_to_create_similar_exercise',
-            t('Continue'),
+            'ask_to_create_similar_exercise',
+            t('Yes'),
             [
                 {
                     title: t('📖 Read what’s happening'),
-                    text: t('Try to earn {{stake}} Slon by checking how another tutor taught {{name}} the skill:', { replace: { name: studentName, stake: stake } }) + (skill && ' ' + skill.h)
+                    text: t('You’ve refreshed your memory about the skill: {{skillName}}', { replace: { skillName: skill.h } })
                 },
                 { title: t('🗣 Say to the tutee'), text: t('Create an exercise similar to this:') + ' ' + question1, image: exerciseImage1 },
             ],
@@ -144,6 +145,21 @@ class ValidatingAlgorithm extends Algorithm {
             <ExampleExercisesButton skill={skill} />
         );
 
+        const findPatterns = new AlgorithmStage(
+            1,
+            'find_patterns',
+            t('Continue'),
+            [
+                {
+                    title: t('📖 Read what’s happening'),
+                    text: t('Try to earn {{stake}} Slon by checking how another tutor taught {{name}} the skill:', { replace: { name: studentName, stake: stake } }) + (skill && ' ' + skill.h)
+                },
+                { title: t('🧠 Don’t show it to tutee. Try to find patterns'), text: '', reactNode: <ExampleExercises skill={skill} /> },
+            ],
+            t('Ready to teach this skill?')
+        );
+
+
         // Algo linking:
         if (variation === 'with_too_fast_warning') {
             this.begin = tooFast;
@@ -152,15 +168,21 @@ class ValidatingAlgorithm extends Algorithm {
         } else if (variation === 'with_stat') {
             this.begin = stat;
         } else {
-            this.begin = beginAskToCreateSimilarExercise;
+            this.begin = findPatterns;
         }
 
-        intro.setNext([beginAskToCreateSimilarExercise]);
-        tooFast.setNext([beginAskToCreateSimilarExercise]);
-        stat.setNext([beginAskToCreateSimilarExercise]);
-        beginAskToCreateSimilarExercise.setNext([skip, provideFakeSolution, askToRepeatTheExerciseAfterMe]);
-        provideFakeSolution.setPrevious(beginAskToCreateSimilarExercise);
-        askToRepeatTheExerciseAfterMe.setPrevious(beginAskToCreateSimilarExercise);
+        intro.setNext([findPatterns]);
+        tooFast.setNext([findPatterns]);
+        stat.setNext([findPatterns]);
+
+        askToCreateSimilarExercise.setPrevious(findPatterns);
+
+        findPatterns.setNext([skip, askToCreateSimilarExercise]);
+
+
+        askToCreateSimilarExercise.setNext([provideFakeSolution, askToRepeatTheExerciseAfterMe]);
+        provideFakeSolution.setPrevious(askToCreateSimilarExercise);
+        askToRepeatTheExerciseAfterMe.setPrevious(askToCreateSimilarExercise);
 
         provideFakeSolution.setNext([validateDiploma, explainReimburse]);
         validateDiploma.setPrevious(provideFakeSolution);

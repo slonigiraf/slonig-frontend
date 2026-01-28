@@ -105,21 +105,21 @@ class TutoringAlgorithm extends Algorithm {
         const askStudentToCreateASimilarExercise = new AlgorithmStage(
             1,
             'begin_ask_to_create_similar_exercise',
-            t('Continue'),
+            t('Yes'),
             [
-                { title: t('📖 Read what’s happening'), text: t('{{name}} asks you to teach the skill', { replace: { name: studentName } }) + (skill && ': ' + skill.h) },
+                { title: t('📖 Read what’s happening'), text: t('You’ve refreshed your memory about the skill: {{skillName}}', { replace: { skillName: skill.h } }) },
                 { title: t('🗣 Say to the tutee'), text: t('Create an exercise similar to this:') + ' ' + question1, image: exerciseImage1 },
             ],
             t('Has the tutee now created a similar exercise?'),
             <ExampleExercisesButton skill={skill} />
         );
 
-        const lookExamples = new AlgorithmStage(
+        const findPatterns = new AlgorithmStage(
             1,
-            'look_examples',
+            'find_patterns',
             t('Continue'),
             [
-                { title: t('📖 Read what’s happening'), text: t('{{name}} asks you to teach the skill', { replace: { name: studentName } }) + (skill && ': ' + skill.h) },
+                { title: t('📖 Read what’s happening'), text: t('{{name}} asks you to teach the skill: {{skillName}}', { replace: { name: studentName, skillName: skill.h } }) },
                 { title: t('🧠 Don’t show it to tutee. Try to find patterns'), text: '', reactNode: <ExampleExercises skill={skill} /> },
             ],
             t('Ready to teach this skill?')
@@ -163,7 +163,7 @@ class TutoringAlgorithm extends Algorithm {
             'begin_ask_to_solve_exercise',
             t('Start'),
             [
-                { title: t('📖 Read what’s happening'), text: t('{{name}} asks you to teach the skill', { replace: { name: studentName } }) + (skill && ': ' + skill.h) },
+                { title: t('📖 Read what’s happening'), text: t('You’ve refreshed your memory about the skill: {{skillName}}', { replace: { skillName: skill.h } }) },
                 { title: t('🗣 Say to the tutee'), text: question1, image: exerciseImage1 },
             ],
             t('Has the tutee now executed the exercise correctly?'),
@@ -201,9 +201,11 @@ class TutoringAlgorithm extends Algorithm {
         // Defining the first step
 
         if (!hasTuteeUsedSlonig || variation === 'tutorial') {
-            lookExamples.setNext([skip, askStudentToSolveAnExercise]);
+            findPatterns.setNext([skip, askStudentToSolveAnExercise]);
+            askStudentToSolveAnExercise.setPrevious(findPatterns);
         } else {
-            lookExamples.setNext([skip, askStudentToCreateASimilarExercise])
+            findPatterns.setNext([skip, askStudentToCreateASimilarExercise]);
+            askStudentToCreateASimilarExercise.setPrevious(findPatterns);
         }
 
         if (variation === 'with_too_fast_warning') {
@@ -213,13 +215,13 @@ class TutoringAlgorithm extends Algorithm {
         } else if (variation === 'with_stat') {
             this.begin = stat;
         } else {
-            this.begin = lookExamples;
+            this.begin = findPatterns;
         }
 
         // Algo linking
-        intro.setNext([lookExamples]);
-        tooFast.setNext([lookExamples]);
-        stat.setNext([lookExamples])
+        intro.setNext([findPatterns]);
+        tooFast.setNext([findPatterns]);
+        stat.setNext([findPatterns])
 
         askStudentToSolveAnExercise.setNext([askToCreateAnExerciseAfterCompletionOfExerciseOfTutor, askStudentToRepeatTheSolutionOfExerciseOfTutor]);
 
