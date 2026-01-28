@@ -12,10 +12,8 @@ function TooFastWarning(): React.ReactElement {
     <StyledDiv>
       <IconDiv><Icon icon={'ban'} /></IconDiv>
       <LastAction>
-        <span>{t('It seems like you’re not following the hints. Please teach more slowly and follow all hints carefully.')}</span>
+        {t('It seems like you’re not following the hints. Please teach more slowly and follow all hints carefully.')}
       </LastAction>
-      
-
     </StyledDiv>
   );
 }
