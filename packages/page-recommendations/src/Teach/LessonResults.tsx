@@ -7,7 +7,7 @@ import { styled, Button, Input, InputBalance, Modal } from '@polkadot/react-comp
 import { useApi, useBlockTime, useToggle } from '@polkadot/react-hooks';
 import { u8aToHex, hexToU8a, u8aWrapBytes, BN_ONE, BN_ZERO, formatBalance } from '@polkadot/util';
 import type { LessonResult } from '@slonigiraf/slonig-components';
-import { useLoginContext, CenterQRContainer, bnToSlonString, SenderComponent, useInfo, nameFromKeyringPair, predictBlockNumber, FullscreenActivity, useLog, bnToSlonFloatOrNaN } from '@slonigiraf/slonig-components';
+import { useLoginContext, CenterQRContainer, bnToSlonString, SenderComponent, useInfo, nameFromKeyringPair, predictBlockNumber, FullscreenActivity, useLog, bnToSlonFloatOrNaN, useSettingValue } from '@slonigiraf/slonig-components';
 import { Lesson, getLastUnusedLetterNumber, setLastUsedLetterNumber, storeSetting, getReexaminationsByLessonId, getValidLetterTemplatesByLessonId, SettingKey, serializeAsLetter, LetterTemplate, putLetterTemplate, setSettingToTrue, getLesson, getSetting, getToRepeatLetterTemplatesByLessonId } from '@slonigiraf/db';
 import { getPublicDataToSignByReferee, getPrivateDataToSignByReferee } from '@slonigiraf/helpers';
 import { useTranslation } from '../translate.js';
@@ -22,6 +22,9 @@ interface Props {
   onClose: () => void;
   onFinished: () => void;
 }
+
+const divisor = new BN(100000000);
+const multiplier = new BN(119921875);
 
 function LessonResults({ className = '', lesson, updateAndStoreLesson, onClose, onFinished }: Props): React.ReactElement<Props> {
   // Initialize api, ipfs and translation
@@ -46,6 +49,9 @@ function LessonResults({ className = '', lesson, updateAndStoreLesson, onClose, 
   const [processingStatistics, setProcessingStatistics] = useState(true);
   const [processingQR, setProcessingQR] = useState(true);
   const [resultsWereSent, setResultsWereSent] = useState(false);
+  const defaultWarranty = useSettingValue(SettingKey.DIPLOMA_WARRANTY);
+  const defaultWarrantyBN = defaultWarranty ? new BN(defaultWarranty) : BN_ZERO;
+
   const { showInfo } = useInfo();
 
   useEffect(() => {
@@ -95,20 +101,17 @@ function LessonResults({ className = '', lesson, updateAndStoreLesson, onClose, 
   const setPriceInput = useCallback((value?: BN | undefined): void => {
     if (value) {
       setPriceInputValue(value);
+      const calculatedAmount = value.divRound(divisor).mul(multiplier);
+      setAmountInputValue(calculatedAmount.gt(defaultWarrantyBN)? calculatedAmount : defaultWarrantyBN);
     }
-  }, [setPriceInputValue]);
+  }, [setPriceInputValue, defaultWarrantyBN]);
 
   const isWrongDaysInput = !daysInput || !(parseInt(daysInput) > 0);
   const saveLessonSettings = useCallback(async (): Promise<void> => {
     const days = parseInt(daysInput, 10);
-    const defaultWarranty = await getSetting(SettingKey.DIPLOMA_WARRANTY);
-    const defaultBadgePriceBN = new BN(defaultWarranty ?? '0')
-      .mul(new BN(100000000))
-      .divRound(new BN(119921875));
+   
     if (!amountInputValue || amountInputValue.eq(BN_ZERO) || isWrongDaysInput) {
       showInfo(t('Correct the errors highlighted in red'), 'error');
-    } else if (priceInputValue.gt(defaultBadgePriceBN)) {
-      showInfo(t('Can not be larger than: {{price}}', { replace: { price: bnToSlonString(defaultBadgePriceBN) } }), 'error');
     } else {
       if (lesson) {
         if (priceInputValue.toString() !== lesson.dPrice) {
@@ -127,11 +130,6 @@ function LessonResults({ className = '', lesson, updateAndStoreLesson, onClose, 
           dValidity: days
         };
         updateAndStoreLesson(updatedLesson);
-        await Promise.all([
-          storeSetting(SettingKey.DIPLOMA_PRICE, priceInputValue.toString()),
-          storeSetting(SettingKey.DIPLOMA_WARRANTY, amountInputValue.toString()),
-          storeSetting(SettingKey.DIPLOMA_VALIDITY, days.toString())
-        ]);
       }
       toggleVisibleDiplomaDetails();
     }
@@ -287,27 +285,12 @@ function LessonResults({ className = '', lesson, updateAndStoreLesson, onClose, 
               defaultValue={lesson ? new BN(lesson.dPrice) : BN_ZERO}
             />
           </div>
-          <div className='ui--row'>
-            <InputBalance
-              isDisabled={true}
-              isZeroable
-              label={t('stake for each badge')}
-              onChange={setAmountIput}
-              defaultValue={lesson ? new BN(lesson.dWarranty) : BN_ZERO}
-              isError={amountInputValue.eq(BN_ZERO)}
-            />
-          </div>
-          <div className='ui--row'>
-            <Input
-              isDisabled={true}
-              className='full'
-              label={t('days valid')}
-              onChange={setDaysInput}
-              defaultValue={lesson ? lesson.dValidity.toString() : "0"}
-              placeholder={t('Positive number')}
-              isError={isWrongDaysInput}
-            />
-          </div>
+          <WarrantyAndDays>
+            <span>{bnToSlonFloatOrNaN(amountInputValue) + ' Slon - ' + t('stake for each badge') + ';'}</span>
+          
+            <span>{lesson && lesson.dValidity.toString() + ' ' + t('days valid')}</span>
+            
+          </WarrantyAndDays>
         </Modal.Content>
         <Modal.Actions>
           <Button
@@ -329,6 +312,15 @@ const StyledDiv = styled.div`
   align-items: center;
   width: 100%;
   margin-top: 10px;
+`;
+
+const WarrantyAndDays = styled.div`
+  display: flex;
+  flex-direction: row;
+  justify-content: left;
+  width: 100%;
+  margin-left: 50px;
+  gap: 10px;
 `;
 
 const DetailsModal = styled(Modal)`
