@@ -5,7 +5,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { AlgorithmStage } from './AlgorithmStage.js';
 import { Button, Menu, Popup, Spinner, styled } from '@polkadot/react-components';
 import type { Skill } from '@slonigiraf/slonig-components';
-import { ValidatingAlgorithm } from './ValidatingAlgorithm.js';
+import { ValidatingAlgorithm, ValidatingAlgorithmType } from './ValidatingAlgorithm.js';
 import { useTranslation } from '../translate.js';
 import { ChatContainer, Bubble, useIpfsContext, useLog, OKBox, timeStampStringToNumber } from '@slonigiraf/slonig-components';
 import { getLetterTemplate, getSetting, Lesson, LetterTemplate, putLetterTemplate, Reexamination, SettingKey, storeSetting, TutorAction, updateReexamination } from '@slonigiraf/db';
@@ -20,6 +20,7 @@ interface Props {
   lesson: Lesson;
   entity: LetterTemplate | Reexamination;
   tooFastWarning: boolean;
+  pageWasJustRefreshed: boolean;
   onResult: (updater: () => Promise<void>, action: TutorAction) => void;
   hasTutorCompletedTutorial: boolean | null | undefined;
   studentName: string;
@@ -33,7 +34,7 @@ interface Props {
 
 type AlgorithmType = '' | 'TEACH_ALGO' | 'REEXAMINE_ALGO';
 
-function DoInstructions({ className = '', entity, tooFastWarning, lesson, onResult, studentName, stake = '', isSendingResultsEnabled, hasTuteeUsedSlonig, hasTutorCompletedTutorial, showIntro = false, isTutorial }: Props): React.ReactElement<Props> {
+function DoInstructions({ className = '', entity, tooFastWarning, pageWasJustRefreshed, lesson, onResult, studentName, stake = '', isSendingResultsEnabled, hasTuteeUsedSlonig, hasTutorCompletedTutorial, showIntro = false, isTutorial }: Props): React.ReactElement<Props> {
   const { ipfs, isIpfsReady } = useIpfsContext();
   const [skill, setSkill] = useState<Skill>();
   const { t } = useTranslation();
@@ -79,7 +80,9 @@ function DoInstructions({ className = '', entity, tooFastWarning, lesson, onResu
           if (isComponentMounted) {
             setSkill(skill);
             if (isLetterTemplate(entity)) {
-              const variation: TutoringAlgorithmType = tooFastWarning ? 'with_too_fast_warning' : !hasTutorCompletedTutorial ? 'tutorial' : 'with_stat';
+              const variation: TutoringAlgorithmType = tooFastWarning ? 'with_too_fast_warning' : 
+              !hasTutorCompletedTutorial ? 'tutorial' : 
+              pageWasJustRefreshed? 'no_stat' : 'with_stat';
 
               const newAlgorithm = new TutoringAlgorithm(
                 {
@@ -102,7 +105,9 @@ function DoInstructions({ className = '', entity, tooFastWarning, lesson, onResu
               setAlgorithmType('TEACH_ALGO');
               setAlgorithmStage(newAlgorithm.getBegin());
             } else {
-              const variation = tooFastWarning ? 'with_too_fast_warning' : lesson?.reexamineStep === 0 ? 'intro' : 'with_stat';
+              const variation: ValidatingAlgorithmType = tooFastWarning ? 'with_too_fast_warning' : 
+              lesson?.reexamineStep === 0 ? 'intro' : 
+              pageWasJustRefreshed? 'no_stat' : 'with_stat';
 
               const newAlgorithm = new ValidatingAlgorithm(
                 {

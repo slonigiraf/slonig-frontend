@@ -6,7 +6,7 @@ import LessonProcessInfo from './LessonProcessInfo.js';
 import { Lesson } from '@slonigiraf/db';
 import TooFastWarning from './TooFastWarning.js';
 
-export type TutoringAlgorithmType = 'with_too_fast_warning' | 'tutorial' | 'with_stat';
+export type TutoringAlgorithmType = 'with_too_fast_warning' | 'tutorial' | 'with_stat' | 'no_stat';
 export interface TutoringAlgorithmProps {
     lesson: Lesson;
     variation: TutoringAlgorithmType;

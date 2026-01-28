@@ -55,6 +55,7 @@ function Teach({ className = '' }: Props): React.ReactElement<Props> {
   const [isPairChangeDialogueOpen, setIsPairChangeDialogueOpen] = useState(false);
   const lastTimeBucketRef = useRef<number | null>(null);
   const [lessonName, setLessonName] = useState<null | string>(null);
+  const [pageWasJustRefreshed, setPageWasJustRefreshed] = useState(true);
 
 
   useEffect(() => {
@@ -174,10 +175,11 @@ function Teach({ className = '' }: Props): React.ReactElement<Props> {
         await updateLesson(updatedLesson);
         setLesson(updatedLesson);
         setTooFastConfirmationIsShown(false);
+        setPageWasJustRefreshed(false);
         onLessonUpdate(updatedLesson, letterTemplates, reexaminations);
       }
     },
-    [letterTemplates, reexaminations, setLesson, updateLesson]
+    [letterTemplates, reexaminations, setLesson, updateLesson, setPageWasJustRefreshed]
   );
 
   const fetchLesson = useCallback(
@@ -368,6 +370,7 @@ function Teach({ className = '' }: Props): React.ReactElement<Props> {
           <DoInstructions
             entity={reexaminationToPerform}
             tooFastWarning={tooFastConfirmationIsShown}
+            pageWasJustRefreshed={pageWasJustRefreshed}
             lesson={lesson}
             hasTuteeUsedSlonig={hasTuteeUsedSlonig}
             hasTutorCompletedTutorial={hasTutorCompletedTutorial}
@@ -383,6 +386,7 @@ function Teach({ className = '' }: Props): React.ReactElement<Props> {
           <DoInstructions
             entity={letterTemplateToIssue}
             tooFastWarning={tooFastConfirmationIsShown}
+            pageWasJustRefreshed={pageWasJustRefreshed}
             lesson={lesson}
             hasTuteeUsedSlonig={hasTuteeUsedSlonig}
             hasTutorCompletedTutorial={hasTutorCompletedTutorial}

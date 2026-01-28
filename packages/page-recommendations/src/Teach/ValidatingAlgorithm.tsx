@@ -6,7 +6,7 @@ import { Lesson } from '@slonigiraf/db';
 import LessonProcessInfo from './LessonProcessInfo.js';
 import TooFastWarning from './TooFastWarning.js';
 
-export type ValidatingAlgorithmType = 'with_too_fast_warning' | 'intro' | 'with_stat';
+export type ValidatingAlgorithmType = 'with_too_fast_warning' | 'intro' | 'with_stat' | 'no_stat';
 export interface ValidatingAlgorithmProps {
     lesson: Lesson;
     variation: ValidatingAlgorithmType;
