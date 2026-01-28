@@ -5,7 +5,7 @@ import ExampleExercisesButton from './ExampleExercisesButton.js';
 import { Lesson } from '@slonigiraf/db';
 import LessonProcessInfo from './LessonProcessInfo.js';
 import TooFastWarning from './TooFastWarning.js';
-import ExampleExercises from './ExampleExercises.js';
+import { ExerciseList } from '@slonigiraf/app-laws';
 
 export type ValidatingAlgorithmType = 'with_too_fast_warning' | 'intro' | 'with_stat' | 'no_stat';
 export interface ValidatingAlgorithmProps {
@@ -154,7 +154,7 @@ class ValidatingAlgorithm extends Algorithm {
                     title: t('📖 Read what’s happening'),
                     text: t('Try to earn {{stake}} Slon by checking how another tutor taught {{name}} the skill:', { replace: { name: studentName, stake: stake } }) + (skill && ' ' + skill.h)
                 },
-                { title: t('🧠 Don’t show it to tutee. Try to find patterns'), text: '', reactNode: <ExampleExercises skill={skill} /> },
+                { title: t('🧠 Don’t show it to tutee. Try to find patterns'), text: '', reactNode: <ExerciseList exercises={skill.q} location='reexamine'/> },
             ],
             t('Ready to teach this skill?')
         );

@@ -46,7 +46,7 @@ function SkillTemplateInfo({ className = '', skillTemplate }: Props): React.Reac
                       <h3>{t('Example exercises to train the skill')}</h3>
                     </>
                   }
-                  {data.q != null && <ExerciseList exercises={data.q} />}
+                  {data.q != null && <ExerciseList exercises={data.q} location='skill_template_info' />}
                 </>
             }
           </Modal.Content>

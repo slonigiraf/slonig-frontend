@@ -1,20 +1,28 @@
-import React from 'react';
+import React, { useCallback, useState } from 'react';
 import { Button, styled } from '@polkadot/react-components';
 import { useTranslation } from '../translate.js';
-import { Exercise, ResizableImage, KatexSpan } from '@slonigiraf/slonig-components';
-import { useToggle } from '@polkadot/react-hooks';
+import { Exercise, ResizableImage, KatexSpan, useLog } from '@slonigiraf/slonig-components';
 
 interface ExerciseListProps {
     exercises: Exercise[];
     areShownInitially?: boolean;
     isPreview?: boolean;
+    location?: string;
 }
 
-const ExerciseList: React.FC<ExerciseListProps> = ({ exercises, areShownInitially = false, isPreview = false }) => {
-    const [areAnswersShown, toggleAreAnswersShown] = useToggle(areShownInitially);
+const ExerciseList: React.FC<ExerciseListProps> = ({ exercises, areShownInitially = false, isPreview = false, location = 'default' }) => {
+    const [areAnswersShown, setAreAnswersShown] = useState(areShownInitially);
     const { t } = useTranslation();
+    const { logEvent } = useLog();
 
     const exercise = exercises[0];
+
+    const toggleAreAnswersShown = useCallback(() => {
+        if(!areAnswersShown){
+            logEvent('EXAMPLES', 'SHOW_ANSWERS', `show_answers_at_${location}`);
+        }
+        setAreAnswersShown(!areAnswersShown);
+    }, [areAnswersShown]);
 
 
     return (

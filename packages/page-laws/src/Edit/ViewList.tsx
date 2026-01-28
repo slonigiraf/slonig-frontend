@@ -446,7 +446,7 @@ function ViewList({ className = '', id, cidString, isClassInstructionShown, setI
         />
       </div>
     )}
-    {list.q != null && <ExerciseList exercises={list.q} />}
+    {list.q != null && <ExerciseList exercises={list.q} location='view_list'/>}
     {list.t !== null && list.s && list.t === LawType.MODULE && !isAPairWork && (
       <DivWithLeftMargin>
         <h3>{t('Educational standards') + ': '}</h3>

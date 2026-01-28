@@ -63,6 +63,14 @@ Here is a list of user actions tracked by Slonig:
 | ✅ | LEARNING | SAVE_BADGES | saved_badges_count | count |
 | ✅ | LEARNING | SAVE_REEXAMINATIONS | saved_reexaminations_count | count |
 | ✅ | SYNC | SUBMIT_PENALTY_EXTRINSIC | submitted_penalty_slon | N/A |
+| ✅ | EXAMPLES | SHOW_ANSWERS | show_asnwers_at_item_preview | N/A |
+| ✅ | EXAMPLES | SHOW_ANSWERS | show_asnwers_at_skill_template_info | N/A |
+| ✅ | EXAMPLES | SHOW_ANSWERS | show_asnwers_at_view_list | N/A |
+| ✅ | EXAMPLES | SHOW_ANSWERS | show_asnwers_at_view_insurance | N/A |
+| ✅ | EXAMPLES | SHOW_ANSWERS | show_asnwers_at_view_badge | N/A |
+| ✅ | EXAMPLES | SHOW_ANSWERS | show_asnwers_at_example_exercises_button | N/A |
+| ✅ | EXAMPLES | SHOW_ANSWERS | show_asnwers_at_teach | N/A |
+| ✅ | EXAMPLES | SHOW_ANSWERS | show_asnwers_at_reexamine | N/A |
 | ✅ | TUTORING | CLICK_RESTART_LESSON | N/A | N/A |
 | ✅ | TUTORING | GET_STUDENT_REQUEST | N/A | N/A |
 | ✅ | TUTORING | CLICK_EXAMPLES | N/A | N/A |

@@ -94,7 +94,7 @@ function BadgeInfo({ className = '', badge, isSelected, onToggleSelection, isSel
                       <h3>{t('Example exercises to train the skill')}</h3>
                     </>
                   }
-                  {data.q != null && <ExerciseList exercises={data.q} />}
+                  {data.q != null && <ExerciseList exercises={data.q} location={isInsurance(badge) ? 'view_insurance' : 'view_badge'} />}
                 </>
             }
           </Modal.Content>

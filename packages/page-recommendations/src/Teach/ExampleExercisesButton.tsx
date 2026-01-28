@@ -56,7 +56,7 @@ function ExampleExercisesButton({ className = '', skill }: Props): React.ReactEl
             <Modal.Content>
               <h3>{t('Example exercises to train the skill')}</h3>
               <Important>{t('Hide it from your student!')}</Important>
-              <ExerciseList exercises={skill.q} />
+              <ExerciseList exercises={skill.q} location='example_exercises_button'/>
             </Modal.Content>
           </Modal>
         )}

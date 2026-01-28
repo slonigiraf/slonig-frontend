@@ -5,7 +5,7 @@ import ExampleExercisesButton from './ExampleExercisesButton.js';
 import LessonProcessInfo from './LessonProcessInfo.js';
 import { Lesson } from '@slonigiraf/db';
 import TooFastWarning from './TooFastWarning.js';
-import ExampleExercises from './ExampleExercises.js';
+import { ExerciseList } from '@slonigiraf/app-laws';
 
 export type TutoringAlgorithmType = 'with_too_fast_warning' | 'tutorial' | 'with_stat' | 'no_stat';
 export interface TutoringAlgorithmProps {
@@ -120,7 +120,7 @@ class TutoringAlgorithm extends Algorithm {
             t('Continue'),
             [
                 { title: t('📖 Read what’s happening'), text: t('{{name}} asks you to teach the skill: {{skillName}}', { replace: { name: studentName, skillName: skill.h } }) },
-                { title: t('🧠 Don’t show it to tutee. Try to find patterns'), text: '', reactNode: <ExampleExercises skill={skill} /> },
+                { title: t('🧠 Don’t show it to tutee. Try to find patterns'), text: '', reactNode: <ExerciseList exercises={skill.q} location='teach' /> },
             ],
             t('Ready to teach this skill?')
         );
