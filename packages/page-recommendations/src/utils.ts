@@ -87,7 +87,7 @@ export const actionToInfo = new Map<TutorAction, ActionInfo>([
   ['skip', { icon: undefined, comment: '' }],
 
   ['validate', { icon: 'shield', comment: 'You’ve validated a badge issued by another tutor.' }],
-  ['revoke', { icon: 'shield-halved', comment: 'You’ve penalized another tutor.' }],
+  ['revoke', { icon: 'shield-halved', comment: 'You’ve canceled the badge because the student forgot the skill.' }],
 
   ['mark_mastered_warm_up', { icon: undefined, comment: '' }],
   ['mark_for_repeat_warm_up', { icon: undefined, comment: '' }],

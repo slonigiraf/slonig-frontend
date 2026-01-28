@@ -21,6 +21,7 @@ function LessonProcessInfo({ className = '', lesson }: Props): React.ReactElemen
   const { t } = useTranslation();
   const [lessonStat, setLessonStat] = useState<LessonStat | null>(null);
   const lastAction = lesson?.lastAction;
+  const [lastBonus, setLastBonus] = useState(0);
 
   useEffect(() => {
     const refreshLessonStat = async () => {
@@ -40,6 +41,9 @@ function LessonProcessInfo({ className = '', lesson }: Props): React.ReactElemen
         const askedToLearnSecondTime = letterTemplates.filter(t => t.mature).length;
         const askedToLearnFirstTime = letterTemplates.length - askedToLearnSecondTime;
         const askedForReexaminations = reexaminations.length;
+
+        const lastBonus = (lesson.reexamineStep > 0 && lesson.learnStep === 0) ? bnToSlonFloatOrNaN(new BN(reexaminations[lesson.reexamineStep - 1].amount)) : 0;
+        setLastBonus(lastBonus);
 
         const issuedBadgeCount = toIssueLetters.length;
         const markedForRepeatCount = markedToRepeat.length;
@@ -84,7 +88,7 @@ function LessonProcessInfo({ className = '', lesson }: Props): React.ReactElemen
 
   const { icon, comment } = getActionInfo(lastAction);
 
-  const lastEarning = lesson.lastBonus ? lesson.lastBonus :
+  const lastEarning = lastBonus ? lastBonus :
     (lastAction === 'mark_mastered_mature' || lastAction === 'mark_mastered_warm_up') ? bnToSlonFloatOrNaN(new BN(lesson.dPrice)) : 0;
 
   const warrantyAmount = (lastAction === 'mark_mastered_mature' || lastAction === 'mark_mastered_warm_up') ? bnToSlonFloatOrNaN(new BN(lesson.dWarranty)) : 0;
@@ -94,7 +98,7 @@ function LessonProcessInfo({ className = '', lesson }: Props): React.ReactElemen
 
   const lastEarningComment = earningCommentOnBadge || earningCommentOnRevoke || t('You haven’t earned Slon.');
 
-  
+
 
   return (
     <StyledDiv>

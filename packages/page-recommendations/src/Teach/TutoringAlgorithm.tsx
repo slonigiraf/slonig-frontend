@@ -5,7 +5,7 @@ import ExampleExercisesButton from './ExampleExercisesButton.js';
 import LessonProcessInfo from './LessonProcessInfo.js';
 import { Lesson } from '@slonigiraf/db';
 
-export type TutoringAlgorithmType = 'tutorial' | 'with_trade' | 'with_stat';
+export type TutoringAlgorithmType = 'tutorial' | 'with_stat';
 export interface TutoringAlgorithmProps {
     lesson: Lesson;
     variation: TutoringAlgorithmType;

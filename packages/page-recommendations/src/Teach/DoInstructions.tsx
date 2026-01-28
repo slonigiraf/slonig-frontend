@@ -78,8 +78,7 @@ function DoInstructions({ className = '', entity, lesson, onResult, studentName,
           if (isComponentMounted) {
             setSkill(skill);
             if (isLetterTemplate(entity)) {
-              const variation: TutoringAlgorithmType = !hasTutorCompletedTutorial ? 'tutorial' :
-                lesson?.learnStep === 0 ? 'with_trade' : 'with_stat';
+              const variation: TutoringAlgorithmType = !hasTutorCompletedTutorial ? 'tutorial' : 'with_stat';
 
               const newAlgorithm = new TutoringAlgorithm(
                 {
@@ -201,7 +200,6 @@ function DoInstructions({ className = '', entity, lesson, onResult, studentName,
     if (isReexamination(entity) && 'created' in entity) {
       onResult(async () => {
         const now = (new Date).getTime();
-        showInfo(t('Bounty will be collected after the lesson ends.'));
         const failedReexamination: Reexamination = { ...entity, lastExamined: now, valid: false };
         await updateReexamination(failedReexamination);
       }, 'revoke');

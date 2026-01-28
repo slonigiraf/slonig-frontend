@@ -14,5 +14,4 @@ export interface Lesson {
   dValidity: number;
   isPaid: boolean;
   lastAction: TutorAction;
-  lastBonus: number;
 }
