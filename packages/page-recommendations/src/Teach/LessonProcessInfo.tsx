@@ -13,11 +13,12 @@ import { getActionInfo } from '../utils.js';
 interface Props {
   className?: string;
   lesson: Lesson;
+  showLastAction?: boolean;
 }
 
 
 
-function LessonProcessInfo({ className = '', lesson }: Props): React.ReactElement<Props> {
+function LessonProcessInfo({ className = '', lesson, showLastAction = true }: Props): React.ReactElement<Props> {
   const { t } = useTranslation();
   const [lessonStat, setLessonStat] = useState<LessonStat | null>(null);
   const lastAction = lesson?.lastAction;
@@ -102,10 +103,12 @@ function LessonProcessInfo({ className = '', lesson }: Props): React.ReactElemen
 
   return (
     <StyledDiv>
-      {icon && <IconDiv><div><Icon icon={icon} /> + 1</div> <div>Slon + {lastEarning}</div></IconDiv>}
-      <LastAction>
-        <span>{comment}&nbsp;{lastEarningComment}</span>
-      </LastAction>
+      {showLastAction && <>
+        {icon && <IconDiv><div><Icon icon={icon} /> + 1</div> <div>Slon + {lastEarning}</div></IconDiv>}
+        <LastAction>
+          <span>{comment}&nbsp;{lastEarningComment}</span>
+        </LastAction>
+      </>}
       <TotalStat>
         <StatElement><Icon icon={'shield'} />&nbsp;{lessonStat?.validatedBadgesCount}</StatElement>
         <StatElement><Icon icon={'shield-halved'} />&nbsp;{lessonStat?.revokedBadgesCount}</StatElement>

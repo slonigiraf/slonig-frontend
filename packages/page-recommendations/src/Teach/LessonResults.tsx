@@ -13,6 +13,7 @@ import { getPublicDataToSignByReferee, getPrivateDataToSignByReferee } from '@sl
 import { useTranslation } from '../translate.js';
 import { blake2AsHex } from '@polkadot/util-crypto';
 import { useLiveQuery } from 'dexie-react-hooks';
+import LessonProcessInfo from './LessonProcessInfo.js';
 
 interface Props {
   className?: string;
@@ -261,9 +262,14 @@ function LessonResults({ className = '', lesson, updateAndStoreLesson, onClose, 
           textShare={t('Press the link to add the badge')} onDataSent={onDataSent} onReady={() => setProcessingQR(false)} />
       </CenterQRContainer>
       {constContentIsVisible &&
-        <StyledDiv>
-          <Button className='highlighted--button' icon='edit' label={t('Edit')} onClick={toggleVisibleDiplomaDetails} />
-        </StyledDiv>
+        <>
+          <StyledDiv>
+            {lesson && <LessonProcessInfo lesson={lesson} showLastAction={false} />}
+          </StyledDiv>
+          <StyledDiv>
+            <Button className='highlighted--button' icon='edit' label={t('Edit')} onClick={toggleVisibleDiplomaDetails} />
+          </StyledDiv>
+        </>
       }
 
       {visibleDiplomaDetails && <DetailsModal
@@ -322,7 +328,7 @@ const StyledDiv = styled.div`
   justify-content: center;
   align-items: center;
   width: 100%;
-  margin: 0 auto;
+  margin-top: 10px;
 `;
 
 const DetailsModal = styled(Modal)`
