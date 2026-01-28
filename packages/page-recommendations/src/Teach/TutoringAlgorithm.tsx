@@ -103,7 +103,7 @@ class TutoringAlgorithm extends Algorithm {
         const askStudentToCreateASimilarExercise = new AlgorithmStage(
             1,
             'begin_ask_to_create_similar_exercise',
-            t('Yes'),
+            t('Continue'),
             [
                 { title: t('📖 Read what’s happening'), text: t('{{name}} asks you to teach the skill', { replace: { name: studentName } }) + (skill && ': ' + skill.h) },
                 { title: t('🗣 Say to the tutee'), text: t('Create an exercise similar to this:') + ' ' + question1, image: exerciseImage1 },
@@ -126,12 +126,11 @@ class TutoringAlgorithm extends Algorithm {
         // Stat for users that know how to use it.
         const stat = new AlgorithmStage(
             0,
-            'stat',
+            'see_statistics',
             t('Yes'),
             [
                 { title: t('📖 Read what’s happening'), text: '', reactNode: <LessonProcessInfo lesson={lesson} /> },
-            ],
-            t('Continue?'),
+            ]
         );
 
         const askToCreateAnExerciseAfterCompletionOfExerciseOfTutor = new AlgorithmStage(

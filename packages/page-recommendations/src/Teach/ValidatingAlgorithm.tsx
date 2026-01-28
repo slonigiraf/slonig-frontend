@@ -92,7 +92,7 @@ class ValidatingAlgorithm extends Algorithm {
         const beginAskToCreateSimilarExercise = new AlgorithmStage(
             1,
             'begin_ask_to_create_similar_exercise',
-            t('Start'),
+            t('Continue'),
             [
                 {
                     title: t('📖 Read what’s happening'),
@@ -115,12 +115,11 @@ class ValidatingAlgorithm extends Algorithm {
 
         const stat = new AlgorithmStage(
             0,
-            'stat',
+            'see_statistics',
             t('Yes'),
             [
                 { title: t('📖 Read what’s happening'), text: '', reactNode: <LessonProcessInfo lesson={lesson} /> },
-            ],
-            t('Continue?'),
+            ]
         );
 
         const repeatFromTheBeginning = new AlgorithmStage(

@@ -32,6 +32,10 @@ class AlgorithmStage {
         return id;
     }
 
+    getType(): string {
+        return this.type;
+    }
+
     getPrevious(): AlgorithmStage | null {
         return this.previous;
     }

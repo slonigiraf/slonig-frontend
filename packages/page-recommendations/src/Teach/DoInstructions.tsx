@@ -362,7 +362,7 @@ function DoInstructions({ className = '', entity, lesson, onResult, studentName,
                     isDisabled={isButtonClicked}
                   />
                 ))}
-                {!algorithmStage.getPrevious() && (
+                {!algorithmStage.getPrevious() && algorithmStage.getType() !== 'see_statistics' && (
                   <StyledPopup
                     value={
                       <Menu>
