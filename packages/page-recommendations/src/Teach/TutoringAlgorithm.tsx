@@ -5,6 +5,7 @@ import ExampleExercisesButton from './ExampleExercisesButton.js';
 import LessonProcessInfo from './LessonProcessInfo.js';
 import { Lesson } from '@slonigiraf/db';
 import TooFastWarning from './TooFastWarning.js';
+import ExampleExercises from './ExampleExercises.js';
 
 export type TutoringAlgorithmType = 'with_too_fast_warning' | 'tutorial' | 'with_stat' | 'no_stat';
 export interface TutoringAlgorithmProps {
@@ -113,6 +114,17 @@ class TutoringAlgorithm extends Algorithm {
             <ExampleExercisesButton skill={skill} />
         );
 
+        const lookExamples = new AlgorithmStage(
+            1,
+            'look_examples',
+            t('Continue'),
+            [
+                { title: t('📖 Read what’s happening'), text: t('{{name}} asks you to teach the skill', { replace: { name: studentName } }) + (skill && ': ' + skill.h) },
+                { title: t('🧠 Don’t show it to tutee. Try to find patterns'), text: '', reactNode: <ExampleExercises skill={skill} /> },
+            ],
+            t('Ready to teach this skill?')
+        );
+
         //Use only if student never used Slonig
         const intro = new AlgorithmStage(
             0,
@@ -188,28 +200,28 @@ class TutoringAlgorithm extends Algorithm {
 
         // Defining the first step
 
+        if (!hasTuteeUsedSlonig || variation === 'tutorial') {
+            lookExamples.setNext([skip, askStudentToSolveAnExercise]);
+        } else {
+            lookExamples.setNext([skip, askStudentToCreateASimilarExercise])
+        }
+
         if (variation === 'with_too_fast_warning') {
             this.begin = tooFast;
-            if (!hasTuteeUsedSlonig) {
-                tooFast.setNext([askStudentToSolveAnExercise]);
-            } else {
-                tooFast.setNext([askStudentToCreateASimilarExercise])
-            }
         } else if (variation === 'tutorial') {
             this.begin = intro;
-        } else if (!hasTuteeUsedSlonig) {
-            this.begin = askStudentToSolveAnExercise;
         } else if (variation === 'with_stat') {
             this.begin = stat;
-            stat.setNext([askStudentToCreateASimilarExercise])
         } else {
-            this.begin = askStudentToCreateASimilarExercise;
+            this.begin = lookExamples;
         }
 
         // Algo linking
-        intro.setNext([askStudentToSolveAnExercise]);
+        intro.setNext([lookExamples]);
+        tooFast.setNext([lookExamples]);
+        stat.setNext([lookExamples])
 
-        askStudentToSolveAnExercise.setNext([skip, askToCreateAnExerciseAfterCompletionOfExerciseOfTutor, askStudentToRepeatTheSolutionOfExerciseOfTutor]);
+        askStudentToSolveAnExercise.setNext([askToCreateAnExerciseAfterCompletionOfExerciseOfTutor, askStudentToRepeatTheSolutionOfExerciseOfTutor]);
 
         askToCreateAnExerciseAfterCompletionOfExerciseOfTutor.setPrevious(askStudentToSolveAnExercise);
         askStudentToRepeatTheSolutionOfExerciseOfTutor.setPrevious(askStudentToSolveAnExercise);
@@ -237,7 +249,7 @@ class TutoringAlgorithm extends Algorithm {
 
         askStudentToRepeatTheSolutionOfExerciseOfTutor.setNext([repeatFromTheBeginning, askStudentToRepeatTheSolutionOfExerciseOfTutor]);
 
-        askStudentToCreateASimilarExercise.setNext([skip, provideFakeAnswer, askToRepeatTaskAfterMe]);
+        askStudentToCreateASimilarExercise.setNext([provideFakeAnswer, askToRepeatTaskAfterMe]);
         if (bothUsedSlonig) {
             provideFakeAnswer.setPrevious(askStudentToCreateASimilarExercise);
             askToRepeatTaskAfterMe.setPrevious(askStudentToCreateASimilarExercise);

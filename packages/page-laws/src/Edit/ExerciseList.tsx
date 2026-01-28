@@ -1,7 +1,8 @@
-import React, { useState } from 'react';
+import React from 'react';
 import { Button, styled } from '@polkadot/react-components';
 import { useTranslation } from '../translate.js';
 import { Exercise, ResizableImage, KatexSpan } from '@slonigiraf/slonig-components';
+import { useToggle } from '@polkadot/react-hooks';
 
 interface ExerciseListProps {
     exercises: Exercise[];
@@ -10,14 +11,8 @@ interface ExerciseListProps {
 }
 
 const ExerciseList: React.FC<ExerciseListProps> = ({ exercises, areShownInitially = false, isPreview = false }) => {
-    const [shownAnswers, setShownAnswers] = useState<boolean[]>(new Array(exercises.length).fill(areShownInitially));
+    const [areAnswersShown, toggleAreAnswersShown] = useToggle(areShownInitially);
     const { t } = useTranslation();
-
-    const toggleAnswer = (index: number) => {
-        const updatedShownAnswers = [...shownAnswers];
-        updatedShownAnswers[index] = !updatedShownAnswers[index];
-        setShownAnswers(updatedShownAnswers);
-    }
 
     const exercise = exercises[0];
 
@@ -35,7 +30,7 @@ const ExerciseList: React.FC<ExerciseListProps> = ({ exercises, areShownInitiall
                         {exercise.p && <ExerciseDetails><ResizableImage cid={exercise.p} /></ExerciseDetails>}
                     </div>
                 </div>
-            </div> 
+            </div>
             :
             <>
                 {exercises.map((exercise, index) => (
@@ -53,12 +48,11 @@ const ExerciseList: React.FC<ExerciseListProps> = ({ exercises, areShownInitiall
                             <Answer>
                                 <span>
                                     <Button
-                                        // icon={shownAnswers[index] ? 'eye-slash' : 'eye'}
-                                        onClick={() => toggleAnswer(index)}
-                                        label={shownAnswers[index] ? t('Hide the solution') : t('See the solution')}
+                                        onClick={toggleAreAnswersShown}
+                                        label={areAnswersShown ? t('Hide the solution') : t('See the solution')}
                                     />
                                 </span>
-                                {shownAnswers[index] && (
+                                {areAnswersShown && (
                                     <>
                                         <KatexSpan content={exercise.a} />
                                         {exercise.i && <ResizableImage cid={exercise.i} />}
