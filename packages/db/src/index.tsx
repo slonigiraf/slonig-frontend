@@ -12,7 +12,7 @@ import type { Signer } from "./db/Signer.js";
 import type { UsageRight } from "./db/UsageRight.js";
 import type { Pseudonym } from "./db/Pseudonym.js";
 import type { Setting } from "./db/Setting.js";
-import type { Lesson } from "./db/Lesson.js";
+import type { Lesson, TutorAction } from "./db/Lesson.js";
 import DOMPurify from 'dompurify';
 import { decodeAddress, encodeAddress } from '@polkadot/keyring';
 import { isHex, u8aToHex } from '@polkadot/util';
@@ -24,7 +24,7 @@ import { CanceledInsurance } from "./db/CanceledInsurance.js";
 import { Repetition } from "./db/Repetition.js";
 import { EXAMPLE_SKILL_KNOWLEDGE_ID } from "@slonigiraf/utils";
 
-export type { CanceledInsurance, Reexamination, LetterTemplate, CanceledLetter, Reimbursement, Letter, Insurance, Lesson, Pseudonym, Setting, Signer, UsageRight, Agreement };
+export type { TutorAction, CanceledInsurance, Reexamination, LetterTemplate, CanceledLetter, Reimbursement, Letter, Insurance, Lesson, Pseudonym, Setting, Signer, UsageRight, Agreement };
 
 const DEFAULT_INSURANCE_VALIDITY = 730;//Days valid
 const DEFAULT_WARRANTY = "573000000000000";//573 Slon for USA, 0.05688 USD in Ethiopia, 100.66*0.05688 USD in USA
@@ -553,6 +553,7 @@ export async function storeLesson(lessonRequest: LessonRequest, tutor: string, o
         dValidity: validity,
         isPaid: false,
         lastAction: undefined,
+        lastBonus: 0,
     };
     const sameLesson = await db.lessons.get({ id: lesson.id });
     if (sameLesson === undefined) {

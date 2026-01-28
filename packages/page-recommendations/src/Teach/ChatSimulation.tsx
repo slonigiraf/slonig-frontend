@@ -69,6 +69,7 @@ const ChatSimulation: React.FC<ChatSimulationProps> = ({ messages, hasTutorCompl
                     <ResizableImage cid={message.image} />
                   </>
                 )}
+                {message.reactNode && message.reactNode}
               </Bubble>
               <Arrow>
                 <h2><b>↓</b></h2>

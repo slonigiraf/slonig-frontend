@@ -424,6 +424,7 @@ export interface IMessage {
   title: string | null;
   comment?: string;
   image?: string;
+  reactNode?: React.ReactNode;
 }
 
 export const getAddressFromPublickeyHex = (publickeyHex: string) => {

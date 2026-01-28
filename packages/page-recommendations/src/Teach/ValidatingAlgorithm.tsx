@@ -2,9 +2,22 @@ import { AlgorithmStage } from './AlgorithmStage.js';
 import { Algorithm } from './Algorithm.js';
 import type { Skill } from '@slonigiraf/slonig-components';
 import ExampleExercisesButton from './ExampleExercisesButton.js';
+import { Lesson } from '@slonigiraf/db';
+import LessonProcessInfo from './LessonProcessInfo.js';
 
+export type ValidatingAlgorithmType = 'intro' | 'no_stat' | 'with_stat';
+export interface ValidatingAlgorithmProps {
+    lesson: Lesson;
+    variation: ValidatingAlgorithmType;
+    studentName: string | null;
+    stake: string;
+    skill: Skill;
+    t: (key: string, options?: {
+        replace: Record<string, unknown>;
+    } | undefined) => string;
+}
 class ValidatingAlgorithm extends Algorithm {
-    constructor(t: any, studentName: string | null, stake: string, skill: Skill, showIntro: boolean) {
+    constructor({ lesson, variation, studentName, stake, skill, t }: ValidatingAlgorithmProps) {
         super();
         const questions = skill ? skill.q : [];
         let question1: string = questions.length > 0 ? questions[0].h : t('SOME EXERCISE FOR SKILL TRAINING (THE TUTOR SHOULD KNOW)');
@@ -75,7 +88,7 @@ class ValidatingAlgorithm extends Algorithm {
             t('Has the tutee repeated correctly after me?')
         );
 
-    
+
         const beginAskToCreateSimilarExercise = new AlgorithmStage(
             1,
             'begin_ask_to_create_similar_exercise',
@@ -100,6 +113,16 @@ class ValidatingAlgorithm extends Algorithm {
             ]
         );
 
+        const stat = new AlgorithmStage(
+            0,
+            'stat',
+            t('Yes'),
+            [
+                { title: t('📖 Read what’s happening'), text: '', reactNode: <LessonProcessInfo lesson={lesson} /> },
+            ],
+            t('Continue?'),
+        );
+
         const repeatFromTheBeginning = new AlgorithmStage(
             1,
             'cycle_ask_to_create_similar_exercise',
@@ -113,8 +136,9 @@ class ValidatingAlgorithm extends Algorithm {
         );
 
         // Algo linking:
-        this.begin = showIntro ? intro:  beginAskToCreateSimilarExercise;
+        this.begin = variation === 'intro' ? intro : variation === 'with_stat' ? stat : beginAskToCreateSimilarExercise;
         intro.setNext([beginAskToCreateSimilarExercise]);
+        stat.setNext([beginAskToCreateSimilarExercise]);
         beginAskToCreateSimilarExercise.setNext([skip, provideFakeSolution, askToRepeatTheExerciseAfterMe]);
         provideFakeSolution.setPrevious(beginAskToCreateSimilarExercise);
         askToRepeatTheExerciseAfterMe.setPrevious(beginAskToCreateSimilarExercise);

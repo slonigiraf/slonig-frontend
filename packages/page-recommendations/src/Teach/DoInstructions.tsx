@@ -8,23 +8,21 @@ import type { Skill } from '@slonigiraf/slonig-components';
 import { ValidatingAlgorithm } from './ValidatingAlgorithm.js';
 import { useTranslation } from '../translate.js';
 import { ChatContainer, Bubble, useIpfsContext, useLog, OKBox, timeStampStringToNumber } from '@slonigiraf/slonig-components';
-import { getLetterTemplate, getSetting, LetterTemplate, putLetterTemplate, Reexamination, SettingKey, storeSetting, updateReexamination } from '@slonigiraf/db';
+import { getLetterTemplate, getSetting, Lesson, LetterTemplate, putLetterTemplate, Reexamination, SettingKey, storeSetting, TutorAction, updateReexamination } from '@slonigiraf/db';
 import { getIPFSDataFromContentID, parseJson, useInfo } from '@slonigiraf/slonig-components';
 import { TutoringAlgorithm, TutoringAlgorithmType } from './TutoringAlgorithm.js';
 import ChatSimulation from './ChatSimulation.js';
 import { ErrorType } from '@polkadot/react-params';
 import { EXAMPLE_SKILL_KNOWLEDGE_CID, EXAMPLE_SKILL_KNOWLEDGE_ID, MIN_USING_HINT_MS, ONE_SUBJECT_PERIOD_MS } from '@slonigiraf/utils';
-import { LessonStat } from '../types.js';
-import { TutorAction } from 'db/src/db/Lesson.js';
 
 interface Props {
   className?: string;
+  lesson: Lesson;
   entity: LetterTemplate | Reexamination;
   onResult: (updater: () => Promise<void>, action: TutorAction) => void;
   hasTutorCompletedTutorial: boolean | null | undefined;
   studentName: string;
   stake?: string;
-  lessonStat: LessonStat | null;
   hasTuteeUsedSlonig: boolean;
   showIntro?: boolean;
   isSendingResultsEnabled: boolean | null | undefined;
@@ -34,7 +32,7 @@ interface Props {
 
 type AlgorithmType = '' | 'TEACH_ALGO' | 'REEXAMINE_ALGO';
 
-function DoInstructions({ className = '', entity, onResult, studentName, stake = '', lessonStat, isSendingResultsEnabled, hasTuteeUsedSlonig, hasTutorCompletedTutorial, showIntro = false, isTutorial }: Props): React.ReactElement<Props> {
+function DoInstructions({ className = '', entity, lesson, onResult, studentName, stake = '', isSendingResultsEnabled, hasTuteeUsedSlonig, hasTutorCompletedTutorial, showIntro = false, isTutorial }: Props): React.ReactElement<Props> {
   const { ipfs, isIpfsReady } = useIpfsContext();
   const [skill, setSkill] = useState<Skill>();
   const { t } = useTranslation();
@@ -81,7 +79,7 @@ function DoInstructions({ className = '', entity, onResult, studentName, stake =
             setSkill(skill);
             if (isLetterTemplate(entity)) {
               const variation: TutoringAlgorithmType = !hasTutorCompletedTutorial ? 'tutorial' :
-                lessonStat?.learnStep === 0 ? 'with_trade' : 'with_stat';
+                lesson?.learnStep === 0 ? 'with_trade' : 'with_stat';
 
               const newAlgorithm = new TutoringAlgorithm(
                 {
@@ -92,7 +90,7 @@ function DoInstructions({ className = '', entity, onResult, studentName, stake =
                   skill,
                   hasTuteeUsedSlonig,
                   variation,
-                  lessonStat
+                  lesson
                 });
 
               if (hasTutorCompletedTutorial || skill.i === EXAMPLE_SKILL_KNOWLEDGE_ID) {
@@ -104,7 +102,18 @@ function DoInstructions({ className = '', entity, onResult, studentName, stake =
               setAlgorithmType('TEACH_ALGO');
               setAlgorithmStage(newAlgorithm.getBegin());
             } else {
-              const newAlgorithm = new ValidatingAlgorithm(t, studentName, stake, skill, showIntro);
+              const variation = lesson?.reexamineStep === 0 ? 'intro' : 'with_stat';
+
+              const newAlgorithm = new ValidatingAlgorithm(
+                {
+                  t,
+                  studentName,
+                  stake,
+                  skill,
+                  variation,
+                  lesson
+                });
+
               logStartEvent('REEXAMINE_START');
               setTimeout(() => {
                 logEvent('TUTORING', 'REEXAMINE_ALGO', newAlgorithm.getBegin().type);

@@ -2,12 +2,12 @@ import { AlgorithmStage } from './AlgorithmStage.js';
 import { Algorithm } from './Algorithm.js';
 import { Skill } from '@slonigiraf/slonig-components';
 import ExampleExercisesButton from './ExampleExercisesButton.js';
-import { LessonStat } from '../types.js';
 import LessonProcessInfo from './LessonProcessInfo.js';
+import { Lesson } from '@slonigiraf/db';
 
 export type TutoringAlgorithmType = 'tutorial' | 'with_trade' | 'with_stat';
 export interface TutoringAlgorithmProps {
-    lessonStat: LessonStat | null;
+    lesson: Lesson;
     variation: TutoringAlgorithmType;
     studentName: string | null;
     stake: string;
@@ -20,7 +20,7 @@ export interface TutoringAlgorithmProps {
 }
 class TutoringAlgorithm extends Algorithm {
     //get from one param of type TutoringAlgorithmType
-    constructor({ lessonStat, variation, studentName, stake, canIssueBadge, skill, hasTuteeUsedSlonig, t }: TutoringAlgorithmProps) {
+    constructor({ lesson, variation, studentName, stake, canIssueBadge, skill, hasTuteeUsedSlonig, t }: TutoringAlgorithmProps) {
         super();
         const bothUsedSlonig = hasTuteeUsedSlonig && variation === 'tutorial';
         const questions = skill ? skill.q : [];
@@ -129,10 +129,9 @@ class TutoringAlgorithm extends Algorithm {
             'stat',
             t('Yes'),
             [
-                { title: t('📖 Read what’s happening'), text: t('You have just issued a badge.') },
+                { title: t('📖 Read what’s happening'), text: '', reactNode: <LessonProcessInfo lesson={lesson} /> },
             ],
-            t('Next?'),
-            <LessonProcessInfo lessonStat={lessonStat} />
+            t('Continue?'),
         );
 
         const askToCreateAnExerciseAfterCompletionOfExerciseOfTutor = new AlgorithmStage(
