@@ -4,8 +4,9 @@ import type { Skill } from '@slonigiraf/slonig-components';
 import ExampleExercisesButton from './ExampleExercisesButton.js';
 import { Lesson } from '@slonigiraf/db';
 import LessonProcessInfo from './LessonProcessInfo.js';
+import TooFastWarning from './TooFastWarning.js';
 
-export type ValidatingAlgorithmType = 'intro' | 'no_stat' | 'with_stat';
+export type ValidatingAlgorithmType = 'with_too_fast_warning' | 'intro' | 'with_stat';
 export interface ValidatingAlgorithmProps {
     lesson: Lesson;
     variation: ValidatingAlgorithmType;
@@ -106,7 +107,7 @@ class ValidatingAlgorithm extends Algorithm {
 
         const intro = new AlgorithmStage(
             0,
-            'intro',
+            'encourage_penalization',
             t('Yes'),
             [
                 { title: t('📖 Read what’s happening'), text: t('Before teaching, help your student identify what they have learned wrongly from bad tutors. If you find a problem, the bad tutor will automatically send you a bonus.') },
@@ -119,6 +120,15 @@ class ValidatingAlgorithm extends Algorithm {
             t('Yes'),
             [
                 { title: t('📖 Read what’s happening'), text: '', reactNode: <LessonProcessInfo lesson={lesson} /> },
+            ]
+        );
+
+        const tooFast = new AlgorithmStage(
+            0,
+            'too_fast_warning',
+            t('Yes'),
+            [
+                { title: t('📖 Read what’s happening'), text: '', reactNode: <TooFastWarning /> },
             ]
         );
 
@@ -135,8 +145,18 @@ class ValidatingAlgorithm extends Algorithm {
         );
 
         // Algo linking:
-        this.begin = variation === 'intro' ? intro : variation === 'with_stat' ? stat : beginAskToCreateSimilarExercise;
+        if (variation === 'with_too_fast_warning') {
+            this.begin = tooFast;
+        } else if (variation === 'intro') {
+            this.begin = intro;
+        } else if (variation === 'with_stat') {
+            this.begin = stat;
+        } else {
+            this.begin = beginAskToCreateSimilarExercise;
+        }
+
         intro.setNext([beginAskToCreateSimilarExercise]);
+        tooFast.setNext([beginAskToCreateSimilarExercise]);
         stat.setNext([beginAskToCreateSimilarExercise]);
         beginAskToCreateSimilarExercise.setNext([skip, provideFakeSolution, askToRepeatTheExerciseAfterMe]);
         provideFakeSolution.setPrevious(beginAskToCreateSimilarExercise);

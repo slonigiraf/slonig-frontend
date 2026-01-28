@@ -19,6 +19,7 @@ interface Props {
   className?: string;
   lesson: Lesson;
   entity: LetterTemplate | Reexamination;
+  tooFastWarning: boolean;
   onResult: (updater: () => Promise<void>, action: TutorAction) => void;
   hasTutorCompletedTutorial: boolean | null | undefined;
   studentName: string;
@@ -32,7 +33,7 @@ interface Props {
 
 type AlgorithmType = '' | 'TEACH_ALGO' | 'REEXAMINE_ALGO';
 
-function DoInstructions({ className = '', entity, lesson, onResult, studentName, stake = '', isSendingResultsEnabled, hasTuteeUsedSlonig, hasTutorCompletedTutorial, showIntro = false, isTutorial }: Props): React.ReactElement<Props> {
+function DoInstructions({ className = '', entity, tooFastWarning, lesson, onResult, studentName, stake = '', isSendingResultsEnabled, hasTuteeUsedSlonig, hasTutorCompletedTutorial, showIntro = false, isTutorial }: Props): React.ReactElement<Props> {
   const { ipfs, isIpfsReady } = useIpfsContext();
   const [skill, setSkill] = useState<Skill>();
   const { t } = useTranslation();
@@ -78,7 +79,7 @@ function DoInstructions({ className = '', entity, lesson, onResult, studentName,
           if (isComponentMounted) {
             setSkill(skill);
             if (isLetterTemplate(entity)) {
-              const variation: TutoringAlgorithmType = !hasTutorCompletedTutorial ? 'tutorial' : 'with_stat';
+              const variation: TutoringAlgorithmType = tooFastWarning ? 'with_too_fast_warning' : !hasTutorCompletedTutorial ? 'tutorial' : 'with_stat';
 
               const newAlgorithm = new TutoringAlgorithm(
                 {
@@ -101,7 +102,7 @@ function DoInstructions({ className = '', entity, lesson, onResult, studentName,
               setAlgorithmType('TEACH_ALGO');
               setAlgorithmStage(newAlgorithm.getBegin());
             } else {
-              const variation = lesson?.reexamineStep === 0 ? 'intro' : 'with_stat';
+              const variation = tooFastWarning ? 'with_too_fast_warning' : lesson?.reexamineStep === 0 ? 'intro' : 'with_stat';
 
               const newAlgorithm = new ValidatingAlgorithm(
                 {
@@ -362,53 +363,57 @@ function DoInstructions({ className = '', entity, lesson, onResult, studentName,
                     isDisabled={isButtonClicked}
                   />
                 ))}
-                {!algorithmStage.getPrevious() && algorithmStage.getType() !== 'see_statistics' && (
-                  <StyledPopup
-                    value={
-                      <Menu>
-                        {isReexamination(entity) ? (
-                          <>
-                            <Menu.Item
-                              icon='thumbs-up'
-                              key='studentPassedReexamination'
-                              label={t('Tutee has the skill')}
-                              onClick={() => {
-                                logEvent('TUTORING', 'REEXAMINE_ALGO', 'click_instant_validate');
-                                studentPassedReexamination();
-                              }}
-                            />
-                            <Menu.Divider />
-                            <Menu.Item
-                              icon='circle-exclamation'
-                              key='studentFailedReexamination'
-                              label={t('Tutee failed the reexamination')}
-                              onClick={() => {
-                                logEvent('TUTORING', 'REEXAMINE_ALGO', 'click_instant_revoke');
-                                studentFailedReexamination();
-                              }}
-                            />
-                          </>
-                        ) : (
-                          <>
-                            <Menu.Item
-                              icon='thumbs-up'
-                              key='issueDiploma'
-                              label={t('Tutee mastered the skill')}
-                              onClick={() => preserveFromNoobs(issueDiploma)}
-                            />
-                            <Menu.Divider />
-                            <Menu.Item
-                              icon='circle-exclamation'
-                              key='repeatTomorrow'
-                              label={t('Should be repeated tomorrow')}
-                              onClick={() => preserveFromNoobs(repeatTomorrow)}
-                            />
-                          </>
-                        )}
-                      </Menu>
-                    }
-                  />
-                )}
+                {algorithmStage.getType() !== 'see_statistics' &&
+                  algorithmStage.getType() !== 'too_fast_warning' &&
+                  algorithmStage.getType() !== 'first_time_intro' &&
+                  algorithmStage.getType() !== 'encourage_penalization' &&
+                  (
+                    <StyledPopup
+                      value={
+                        <Menu>
+                          {isReexamination(entity) ? (
+                            <>
+                              <Menu.Item
+                                icon='thumbs-up'
+                                key='studentPassedReexamination'
+                                label={t('Tutee has the skill')}
+                                onClick={() => {
+                                  logEvent('TUTORING', 'REEXAMINE_ALGO', 'click_instant_validate');
+                                  studentPassedReexamination();
+                                }}
+                              />
+                              <Menu.Divider />
+                              <Menu.Item
+                                icon='circle-exclamation'
+                                key='studentFailedReexamination'
+                                label={t('Tutee failed the reexamination')}
+                                onClick={() => {
+                                  logEvent('TUTORING', 'REEXAMINE_ALGO', 'click_instant_revoke');
+                                  studentFailedReexamination();
+                                }}
+                              />
+                            </>
+                          ) : (
+                            <>
+                              <Menu.Item
+                                icon='thumbs-up'
+                                key='issueDiploma'
+                                label={t('Tutee mastered the skill')}
+                                onClick={() => preserveFromNoobs(issueDiploma)}
+                              />
+                              <Menu.Divider />
+                              <Menu.Item
+                                icon='circle-exclamation'
+                                key='repeatTomorrow'
+                                label={t('Should be repeated tomorrow')}
+                                onClick={() => preserveFromNoobs(repeatTomorrow)}
+                              />
+                            </>
+                          )}
+                        </Menu>
+                      }
+                    />
+                  )}
               </InstructionsButtonsGroup>
 
             </DecisionBubble>

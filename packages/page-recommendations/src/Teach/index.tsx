@@ -81,7 +81,7 @@ function Teach({ className = '' }: Props): React.ReactElement<Props> {
     fetchData();
   }, [ipfs, lesson, lessonName]);
 
-  
+
 
   useEffect(() => {
     if (!lastSkillDiscussedTime && (letterTemplateToIssue !== null || reexaminationToPerform !== null)) {
@@ -105,6 +105,11 @@ function Teach({ className = '' }: Props): React.ReactElement<Props> {
     const id = setInterval(tick, 1_000);
     return () => clearInterval(id);
   }, [lesson, lastPartnerChangeTime, isPairChangeDialogueOpen, setIsPairChangeDialogueOpen]);
+
+  const showTooFastWarning = useCallback(() => {
+    setWarningCount(warningCount + 1);
+    setTooFastConfirmationIsShown(true);
+  }, [warningCount, setWarningCount, setTooFastConfirmationIsShown]);
 
   const protectTutor = useCallback(async (isLearning: boolean, action: () => Promise<void>) => {
     if (!lastSkillDiscussedTime) return;
@@ -134,11 +139,11 @@ function Teach({ className = '' }: Props): React.ReactElement<Props> {
         isLearning ? 'too_short_teach_time_sec' : 'too_short_reexamine_time_sec',
         Math.round(timeSpent / 1000)
       );
-      setTooFastConfirmationIsShown(true);
+      showTooFastWarning();
     } else if (timeSpent < FAST_SKILL_DISCUSSION_MS) {
       if (fastDiscussedSkillsCount + 1 > MAX_FAST_DISCUSSED_SKILLS_IN_ROW_COUNT) {
         logEvent('TUTORING', 'SEVERAL_FAST_DISCUSSIONS_IN_ROW');
-        setTooFastConfirmationIsShown(true);
+        showTooFastWarning();
         setFastDiscussedSkillsCount(0);
       } else {
         setFastDiscussedSkillsCount(fastDiscussedSkillsCount + 1);
@@ -151,7 +156,7 @@ function Teach({ className = '' }: Props): React.ReactElement<Props> {
       await action();
     }
 
-  }, [hasTutorCompletedTutorial, fastDiscussedSkillsCount, lastSkillDiscussedTime, setTooFastConfirmationIsShown]);
+  }, [hasTutorCompletedTutorial, fastDiscussedSkillsCount, lastSkillDiscussedTime, showTooFastWarning]);
 
   useEffect(() => {
     const checkResults = async () => {
@@ -168,6 +173,7 @@ function Teach({ className = '' }: Props): React.ReactElement<Props> {
       if (updatedLesson) {
         await updateLesson(updatedLesson);
         setLesson(updatedLesson);
+        setTooFastConfirmationIsShown(false);
         onLessonUpdate(updatedLesson, letterTemplates, reexaminations);
       }
     },
@@ -310,11 +316,6 @@ function Teach({ className = '' }: Props): React.ReactElement<Props> {
     onCloseTutoring();
   }, [logEvent, onCloseTutoring]);
 
-  const tutorUnderstoodWarning = useCallback(() => {
-    setWarningCount(warningCount + 1);
-    setTooFastConfirmationIsShown(false);
-  }, [warningCount, setWarningCount, setTooFastConfirmationIsShown]);
-
   const onChangePartnerConfirm = useCallback(() => {
     if (!lesson) return;
     setIsPairChangeDialogueOpen(false);
@@ -366,6 +367,7 @@ function Teach({ className = '' }: Props): React.ReactElement<Props> {
         {!reexamined && reexaminationToPerform && lesson &&
           <DoInstructions
             entity={reexaminationToPerform}
+            tooFastWarning={tooFastConfirmationIsShown}
             lesson={lesson}
             hasTuteeUsedSlonig={hasTuteeUsedSlonig}
             hasTutorCompletedTutorial={hasTutorCompletedTutorial}
@@ -380,6 +382,7 @@ function Teach({ className = '' }: Props): React.ReactElement<Props> {
         {reexamined && letterTemplateToIssue && lesson &&
           <DoInstructions
             entity={letterTemplateToIssue}
+            tooFastWarning={tooFastConfirmationIsShown}
             lesson={lesson}
             hasTuteeUsedSlonig={hasTuteeUsedSlonig}
             hasTutorCompletedTutorial={hasTutorCompletedTutorial}
@@ -426,9 +429,6 @@ function Teach({ className = '' }: Props): React.ReactElement<Props> {
           )}
           {isHelpQRInfoShown && (
             <OKBox info={t('Tell the tutee to scan the same QR code.')} onClose={() => setIsHelpQRInfoShown(false)} />
-          )}
-          {tooFastConfirmationIsShown && (
-            <OKBox info={t('Please teach more slowly and follow all the hints carefully.')} onClose={tutorUnderstoodWarning} />
           )}
           {
             lesson && isPairChangeDialogueOpen && <Confirmation

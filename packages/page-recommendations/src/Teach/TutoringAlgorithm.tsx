@@ -4,8 +4,9 @@ import { Skill } from '@slonigiraf/slonig-components';
 import ExampleExercisesButton from './ExampleExercisesButton.js';
 import LessonProcessInfo from './LessonProcessInfo.js';
 import { Lesson } from '@slonigiraf/db';
+import TooFastWarning from './TooFastWarning.js';
 
-export type TutoringAlgorithmType = 'tutorial' | 'with_stat';
+export type TutoringAlgorithmType = 'with_too_fast_warning' | 'tutorial' | 'with_stat';
 export interface TutoringAlgorithmProps {
     lesson: Lesson;
     variation: TutoringAlgorithmType;
@@ -115,7 +116,7 @@ class TutoringAlgorithm extends Algorithm {
         //Use only if student never used Slonig
         const intro = new AlgorithmStage(
             0,
-            'intro',
+            'first_time_intro',
             t('Yes'),
             [
                 { title: t('📖 Read what’s happening'), text: t('You are a tutor. The app will show you how to teach the student who showed you a QR code.') },
@@ -176,9 +177,25 @@ class TutoringAlgorithm extends Algorithm {
             []
         );
 
+        const tooFast = new AlgorithmStage(
+            0,
+            'too_fast_warning',
+            t('Yes'),
+            [
+                { title: t('📖 Read what’s happening'), text: '', reactNode: <TooFastWarning /> },
+            ]
+        );
+
         // Defining the first step
 
-        if (variation === 'tutorial') {
+        if (variation === 'with_too_fast_warning') {
+            this.begin = tooFast;
+            if (!hasTuteeUsedSlonig) {
+                tooFast.setNext([askStudentToSolveAnExercise]);
+            } else {
+                tooFast.setNext([askStudentToCreateASimilarExercise])
+            }
+        } else if (variation === 'tutorial') {
             this.begin = intro;
         } else if (!hasTuteeUsedSlonig) {
             this.begin = askStudentToSolveAnExercise;
