@@ -156,7 +156,7 @@ class ValidatingAlgorithm extends Algorithm {
                 },
                 { title: t('🧠 Don’t show it to tutee. Try to find patterns'), text: '', reactNode: <ExerciseList exercises={skill.q} location='reexamine'/> },
             ],
-            t('Ready to teach this skill?')
+            t('Ready to examine this skill?')
         );
 
 

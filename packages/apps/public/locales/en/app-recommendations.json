@@ -130,5 +130,6 @@
   "Continue": "Continue",
   "{{name}} asks you to teach the skill: {{skillName}}": "{{name}} asks you to teach the skill: {{skillName}}",
   "🧠 Don’t show it to tutee. Try to find patterns": "🧠 Don’t show it to tutee. Try to find patterns",
-  "Ready to teach this skill?": "Ready to teach this skill?"
+  "Ready to teach this skill?": "Ready to teach this skill?",
+  "Ready to examine this skill?": "Ready to examine this skill?"
 }
