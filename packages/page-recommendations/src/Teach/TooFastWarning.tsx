@@ -5,7 +5,7 @@ import { Icon, styled } from '@polkadot/react-components';
 import React from 'react'
 import { useTranslation } from '../translate.js';
 
-function TooFastWarning(): React.ReactElement<Props> {
+function TooFastWarning(): React.ReactElement {
   const { t } = useTranslation();
 
   return (
