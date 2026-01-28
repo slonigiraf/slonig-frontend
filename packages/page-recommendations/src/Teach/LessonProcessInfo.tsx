@@ -102,7 +102,7 @@ function LessonProcessInfo({ className = '', lesson }: Props): React.ReactElemen
 
   return (
     <StyledDiv>
-      {icon && <IconDiv><Icon icon={icon} /> + 1</IconDiv>}
+      {icon && <IconDiv><div><Icon icon={icon} /> + 1</div> <div>Slon + {lastEarning}</div></IconDiv>}
       <LastAction>
         <span>{comment}&nbsp;{lastEarningComment}</span>
       </LastAction>
@@ -122,11 +122,14 @@ function LessonProcessInfo({ className = '', lesson }: Props): React.ReactElemen
 }
 
 const IconDiv = styled.div`
+  display: flex;
   margin: 5px;  
   width: 100%;
   font-size: 1.5em;
   text-align: center;
+  justify-content: center;
   color: #F39200;
+  gap: 20px;
 `;
 
 const LastAction = styled.div`
