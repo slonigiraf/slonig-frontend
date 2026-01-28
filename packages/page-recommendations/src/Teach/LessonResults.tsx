@@ -3,17 +3,18 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import BN from 'bn.js';
 import { statics } from '@polkadot/react-api/statics';
-import { styled, Button, Input, InputBalance, Modal } from '@polkadot/react-components';
+import { styled, Button, InputBalance } from '@polkadot/react-components';
 import { useApi, useBlockTime, useToggle } from '@polkadot/react-hooks';
 import { u8aToHex, hexToU8a, u8aWrapBytes, BN_ONE, BN_ZERO, formatBalance } from '@polkadot/util';
 import type { LessonResult } from '@slonigiraf/slonig-components';
 import { useLoginContext, CenterQRContainer, bnToSlonString, SenderComponent, useInfo, nameFromKeyringPair, predictBlockNumber, FullscreenActivity, useLog, bnToSlonFloatOrNaN, useSettingValue } from '@slonigiraf/slonig-components';
-import { Lesson, getLastUnusedLetterNumber, setLastUsedLetterNumber, storeSetting, getReexaminationsByLessonId, getValidLetterTemplatesByLessonId, SettingKey, serializeAsLetter, LetterTemplate, putLetterTemplate, setSettingToTrue, getLesson, getSetting, getToRepeatLetterTemplatesByLessonId } from '@slonigiraf/db';
+import { Lesson, getLastUnusedLetterNumber, setLastUsedLetterNumber, getReexaminationsByLessonId, getValidLetterTemplatesByLessonId, SettingKey, serializeAsLetter, LetterTemplate, putLetterTemplate, setSettingToTrue, getLesson, getSetting, getToRepeatLetterTemplatesByLessonId } from '@slonigiraf/db';
 import { getPublicDataToSignByReferee, getPrivateDataToSignByReferee } from '@slonigiraf/helpers';
 import { useTranslation } from '../translate.js';
 import { blake2AsHex } from '@polkadot/util-crypto';
 import { useLiveQuery } from 'dexie-react-hooks';
 import LessonProcessInfo from './LessonProcessInfo.js';
+import BadgeInfo from '../Assess/BadgeInfo.js';
 
 interface Props {
   className?: string;
@@ -32,6 +33,11 @@ function LessonResults({ className = '', lesson, updateAndStoreLesson, onClose, 
   const { t } = useTranslation();
   const { logEvent } = useLog();
   const paidLesson = useLiveQuery(() => lesson ? getLesson(lesson.id) : undefined, [lesson]);
+  const validLetterTemplates = lesson ? useLiveQuery<LetterTemplate[]>(
+    () => getValidLetterTemplatesByLessonId(lesson.id),
+    [lesson]
+  ) : [];
+
   const { currentPair } = useLoginContext();
   const tokenSymbol = formatBalance.findSi('-').text;
   const dontSign = lesson ? (lesson.dWarranty === '0' || lesson.dValidity === 0) : true;
@@ -92,24 +98,18 @@ function LessonResults({ className = '', lesson, updateAndStoreLesson, onClose, 
     run();
   }, [resultsWereSent, lesson, paidLesson, onFinished]);
 
-  const setAmountIput = useCallback((value?: BN | undefined): void => {
-    if (value) {
-      setAmountInputValue(value);
-    }
-  }, [setAmountInputValue]);
-
   const setPriceInput = useCallback((value?: BN | undefined): void => {
     if (value) {
       setPriceInputValue(value);
       const calculatedAmount = value.divRound(divisor).mul(multiplier);
-      setAmountInputValue(calculatedAmount.gt(defaultWarrantyBN)? calculatedAmount : defaultWarrantyBN);
+      setAmountInputValue(calculatedAmount.gt(defaultWarrantyBN) ? calculatedAmount : defaultWarrantyBN);
     }
   }, [setPriceInputValue, defaultWarrantyBN]);
 
   const isWrongDaysInput = !daysInput || !(parseInt(daysInput) > 0);
   const saveLessonSettings = useCallback(async (): Promise<void> => {
     const days = parseInt(daysInput, 10);
-   
+
     if (!amountInputValue || amountInputValue.eq(BN_ZERO) || isWrongDaysInput) {
       showInfo(t('Correct the errors highlighted in red'), 'error');
     } else {
@@ -251,6 +251,10 @@ function LessonResults({ className = '', lesson, updateAndStoreLesson, onClose, 
 
   }, [api, isApiReady, currentPair, lesson]);
 
+  const cancelLetterTemplate = async (letterTemplate: LetterTemplate) => {
+    await putLetterTemplate({ ...letterTemplate, valid: false, toRepeat: true });
+  };
+
   const constContentIsVisible = !(processingStatistics || processingQR);
 
   return (
@@ -269,41 +273,43 @@ function LessonResults({ className = '', lesson, updateAndStoreLesson, onClose, 
           </StyledDiv>
         </>
       }
-
-      {visibleDiplomaDetails && <DetailsModal
-        className={className}
-        header={`${bnToSlonString(totalIncomeRef.current)} ${tokenSymbol} - ${t('reward')}`}
-        onClose={toggleVisibleDiplomaDetails}
-        size='small'
-      >
-        <Modal.Content>
-          <div className='ui--row'>
-            <InputBalance
-              isZeroable
-              label={t('my reward per badge')}
-              onChange={setPriceInput}
-              defaultValue={lesson ? new BN(lesson.dPrice) : BN_ZERO}
-            />
-          </div>
+      {visibleDiplomaDetails &&
+        <FullscreenActivity caption={`${bnToSlonString(totalIncomeRef.current)} ${tokenSymbol} - ${t('reward')}`} onClose={saveLessonSettings}>
           <WarrantyAndDays>
-            <span>{bnToSlonFloatOrNaN(amountInputValue) + ' Slon - ' + t('stake for each badge') + ';'}</span>
-          
-            <span>{lesson && lesson.dValidity.toString() + ' ' + t('days valid')}</span>
-            
+            <label>{bnToSlonFloatOrNaN(amountInputValue) + ' Slon - ' + t('stake for each badge')}</label>
+            <label>{lesson && lesson.dValidity.toString() + ' ' + t('days valid')}</label>
           </WarrantyAndDays>
-        </Modal.Content>
-        <Modal.Actions>
-          <Button
-            className='highlighted--button'
-            icon='save'
-            label={t('Save and close')}
-            onClick={saveLessonSettings}
-          />
-        </Modal.Actions>
-      </DetailsModal>}
+          <InputDiv>
+            <div className='ui--row'>
+              <InputBalance
+                isZeroable
+                label={t('my reward per badge')}
+                onChange={setPriceInput}
+                defaultValue={lesson ? new BN(lesson.dPrice) : BN_ZERO}
+              />
+            </div>
+          </InputDiv>
+          {validLetterTemplates && validLetterTemplates.map((item: LetterTemplate) => (
+            <LetterTemplateInfo key={item.cid}>
+              <Button icon='trash-can' onClick={() => cancelLetterTemplate(item)} />
+              <BadgeInfo badge={item} isSelected={false} onToggleSelection={() => { }} isSelectionAllowed={false} />
+            </LetterTemplateInfo>
+          ))}
+        </FullscreenActivity>
+      }
     </FullscreenActivity>
   );
 }
+
+const LetterTemplateInfo = styled.div`
+  display: flex;
+  flex-direction: row;
+  justify-content: left;
+  align-items: center;
+  width: 100%;
+  padding-left: 10px;
+  gap: 20px;
+`;
 
 const StyledDiv = styled.div`
   display: flex;
@@ -313,26 +319,20 @@ const StyledDiv = styled.div`
   width: 100%;
   margin-top: 10px;
 `;
-
-const WarrantyAndDays = styled.div`
+const InputDiv = styled.div`
   display: flex;
-  flex-direction: row;
-  justify-content: left;
-  width: 100%;
-  margin-left: 50px;
-  gap: 10px;
+  justify-content: center;
+  align-items: center;
+  width: 85%;
 `;
 
-const DetailsModal = styled(Modal)`
-  button[data-testid='close-modal'] {
-    opacity: 0;
-    background: transparent;
-    border: none;
-    cursor: pointer;
-  }
-  button[data-testid='close-modal']:focus {
-    outline: none;
-  }
+const WarrantyAndDays = styled.div`
+  margin-top: 10px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  width: 100%;
+  padding-left: 75px;
 `;
 export default React.memo(LessonResults);
 

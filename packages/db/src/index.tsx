@@ -997,7 +997,7 @@ export async function replaceDB(json: DexieExportFormat): Promise<void> {
     }
 }
 
-export type Badge = Letter | Insurance;
+export type Badge = Letter | Insurance | LetterTemplate;
 export type Recommendation = Letter | Insurance | Reimbursement;
 export function isInsurance(badge: Badge): badge is Insurance {
     return (badge as Insurance).employer !== undefined;

@@ -5,7 +5,7 @@ import { Modal, Button, Spinner, styled } from '@polkadot/react-components';
 import React, { useState, useEffect } from 'react'
 import UseInsurance from './UseInsurance.js'
 import { useTranslation } from '../translate.js';
-import { Badge, Insurance, isInsurance } from '@slonigiraf/db';
+import { Badge, Insurance, LetterTemplate } from '@slonigiraf/db';
 import { useToggle } from '@polkadot/react-hooks';
 import { KatexSpan, getIPFSDataFromContentID, parseJson, useLog } from '@slonigiraf/slonig-components';
 import { useIpfsContext } from '@slonigiraf/slonig-components';
@@ -20,7 +20,10 @@ interface Props {
 }
 
 function isInsurance(badge: Badge): badge is Insurance {
-  return 'valid' in badge;
+  return 'workerSign' in badge;
+}
+function isLetterTemplate(badge: Badge): badge is LetterTemplate {
+  return 'stage' in badge;
 }
 
 function BadgeInfo({ className = '', badge, isSelected, onToggleSelection, isSelectionAllowed }: Props): React.ReactElement<Props> {
@@ -56,6 +59,8 @@ function BadgeInfo({ className = '', badge, isSelected, onToggleSelection, isSel
     if (areDetailsOpen && skillName && badge) {
       if (isInsurance(badge)) {
         logEvent('ASSESSMENT', 'VIEW_INSURANCE', skillName);
+      } else if (isLetterTemplate(badge)) {
+        logEvent('TUTORING', 'VIEW_BADGE_TEMPLATE', skillName);
       } else {
         logEvent('BADGE', 'VIEW_BADGE', skillName);
       }
@@ -94,7 +99,7 @@ function BadgeInfo({ className = '', badge, isSelected, onToggleSelection, isSel
                       <h3>{t('Example exercises to train the skill')}</h3>
                     </>
                   }
-                  {data.q != null && <ExerciseList exercises={data.q} location={isInsurance(badge) ? 'view_insurance' : 'view_badge'} />}
+                  {data.q != null && <ExerciseList exercises={data.q} location={isInsurance(badge) ? 'view_insurance' : isLetterTemplate(badge) ? 'view_badge_template' : 'view_badge'} />}
                 </>
             }
           </Modal.Content>

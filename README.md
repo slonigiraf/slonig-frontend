@@ -68,9 +68,11 @@ Here is a list of user actions tracked by Slonig:
 | ✅ | EXAMPLES | SHOW_ANSWERS | show_asnwers_at_view_list | N/A |
 | ✅ | EXAMPLES | SHOW_ANSWERS | show_asnwers_at_view_insurance | N/A |
 | ✅ | EXAMPLES | SHOW_ANSWERS | show_asnwers_at_view_badge | N/A |
+| ✅ | EXAMPLES | SHOW_ANSWERS | show_asnwers_at_view_badge_template | N/A |
 | ✅ | EXAMPLES | SHOW_ANSWERS | show_asnwers_at_example_exercises_button | N/A |
 | ✅ | EXAMPLES | SHOW_ANSWERS | show_asnwers_at_teach | N/A |
 | ✅ | EXAMPLES | SHOW_ANSWERS | show_asnwers_at_reexamine | N/A |
+| ✅ | TUTORING | VIEW_BADGE_TEMPLATE | KnowledgeName (skill) | N/A |
 | ✅ | TUTORING | CLICK_RESTART_LESSON | N/A | N/A |
 | ✅ | TUTORING | GET_STUDENT_REQUEST | N/A | N/A |
 | ✅ | TUTORING | CLICK_EXAMPLES | N/A | N/A |
