@@ -40,9 +40,7 @@
   "Before teaching, help your student identify what they have learned wrongly from bad tutors. If you find a problem, the bad tutor will automatically send you a bonus.": "قبل أن تبدأ في التعليم، ساعد طالبك في تحديد ما تعلموه بشكل خاطئ من معلمين سيئين. إذا وجدت مشكلة، سيتم إرسال مكافأة لك تلقائيًا من المعلم السيئ.",
   "Before using this registered paraId, you need to have a WASM validation function registered on-chain": "قبل استخدام هذا الـ paraId المسجّل، يجب أن تكون لديك دالة تحقق WASM مسجّلة على السلسلة",
   "Bid": "مزايدة",
-  "Bounty will be collected after the lesson ends.": "سيتم استلام المكافأة بعد انتهاء الدرس.",
   "Browse": "تصفح",
-  "Can not be larger than: {{price}}": "لا يمكن أن تكون أكبر من: {{price}}",
   "Cancel": "إلغاء",
   "Cannot be its child": "لا يمكن أن يكون تابعًا له",
   "Capped": "محدود بسقف",
@@ -57,6 +55,7 @@
   "Confirm code removal": "تأكيد إزالة الشفرة",
   "Confirm contract removal": "تأكيد إزالة العقد",
   "Connecting to IPFS...": "جارٍ الاتصال بـ IPFS...",
+  "Continue": "استمر",
   "Contribute": "مساهمة",
   "Contribute to fund": "المساهمة في الصندوق",
   "Copied": "تم النسخ",
@@ -124,11 +123,13 @@
   "Hide it from your student!": "اخفِه عن طلابك!",
   "Hide the solution": "إخفاء الحل",
   "Homepage": "الصفحة الرئيسية",
+  "I may lose": "قد أخسر",
   "I risk losing {{stake}} Slon if {{name}} forgets this skill. I’m awarding a badge for this skill.": "أخاطر بفقدان {{stake}} سلون إذا نسي {{name}} هذه المهارة. سأقوم بمنح شارة لهذه المهارة.",
   "IPFS is not ready. Please wait...": "IPFS غير جاهز بعد. يرجى الانتظار...",
   "Image": "صورة",
   "Include an optional tip for faster processing": "تضمين إكرامية اختيارية لمعالجة أسرع",
   "Initializing connection": "جارٍ تهيئة الاتصال",
+  "It seems like you’re not following the hints. Please teach more slowly and follow all hints carefully.": "يبدو أنك لا تتبع التلميحات. يرجى التعليم ببطء أكثر واتباع جميع التلميحات بعناية.",
   "It was a QR code not from Slonig.": "كانت رمز QR ليس من سلوينيغ.",
   "It’s better to shorten it to 9 words.": "من الأفضل اختصاره إلى 9 كلمات.",
   "It’s time to send the results and become a student of a new partner.": "حان الوقت لإرسال النتائج وأن تصبح طالبًا لدى شريك جديد.",
@@ -208,6 +209,7 @@
   "Propose": "اقترح",
   "Propose parachain": "اقترح Parachain",
   "QR code": "رمز QR",
+  "Ready to teach this skill?": "هل أنت مستعد لتعليم هذه المهارة؟",
   "Refund": "استرداد",
   "Register parathread": "تسجيل Parathread",
   "Relay chain": "سلسلة الترحيل",
@@ -228,7 +230,6 @@
   "SOME TASK FOR SKILL TRAINING (THE TUTOR SHOULD KNOW)": "مهمة ما لتدريب المهارات (يجب أن يعرفها المدرّس)",
   "Save": "حفظ",
   "Save & Reload": "احفظ وأعد التحميل",
-  "Save and close": "احفظ وأغلق",
   "Saved": "تم الحفظ",
   "Scan": "مسح",
   "Scan a QR code": "مسح رمز QR",
@@ -359,6 +360,7 @@
   "To get the lesson results, reward your tutor with {{amount}} Slon.": "للحصول على نتائج الدرس، كافئ معلمك بـ {{amount}} Slon.",
   "To learn this, ask a tutor to scan:": "لتعلم هذا، اطلب من المعلم مسح:",
   "Top up my balance": "شحن رصيدي",
+  "Total profit": "إجمالي الأرباح",
   "Transfer failed": "فشل التحويل",
   "Transfer failed:": "فشل التحويل:",
   "Translate": "ترجمة",
@@ -406,9 +408,13 @@
   "You do not have enough Slon to reward your tutor and get the lesson results. Top up your balance with at least {{amount}} Slon.": "ليس لديك ما يكفي من Slon لمكافأة معلمك والحصول على نتائج الدرس. اشحن رصيدك بما لا يقل عن {{amount}} Slon.",
   "You don’t have such a skill. I will penalize the tutor which issued the badge for it.": "لا تمتلك مثل هذه المهارة. سأعاقب المدرّس الذي أصدر الشارة لها.",
   "You have duplicated validator entries, ensure each is unique.": "لديك إدخالات مدققين مكررة، تأكد من أن كل إدخال فريد.",
+  "You haven’t earned Slon.": "لم تكسب Slon.",
   "You need to supply at last one running validator for your parachain alongside this request.": "تحتاج إلى توفير مدقق واحد على الأقل قيد التشغيل لسلسلتك الجانبية (parachain) مع هذا الطلب.",
   "You should practice tutoring first before you can reexamine.": "يجب أن تتدرب على التعليم أولاً قبل أن تتمكن من إعادة التقييم.",
   "Your custom types have been added": "تمت إضافة الأنواع المخصصة لديك",
+  "You’ve earned {{amount}} Slon.": "لقد كسبت {{amount}} Slon.",
+  "You’ve got {{amount}} Slon from a bad tutor.": "لقد حصلت على {{amount}} Slon من معلم سيء.",
+  "You’ve refreshed your memory about the skill: {{skillName}}": "لقد قمت بإنعاش ذاكرتك حول المهارة: {{skillName}}",
   "account forgotten": "تم نسيان الحساب",
   "account name": "اسم الحساب",
   "account restored": "تمت استعادة الحساب",
@@ -610,7 +616,7 @@
   "{{hours}} hrs": "{{hours}} ساعة",
   "{{minutes}} mins": "{{minutes}} دقيقة",
   "{{name}} ({{size}} bytes)": "{{name}} ({{size}} بايت)",
-  "{{name}} asks you to teach the skill": "{{name}} يطلب منك تعليم المهارة",
+  "{{name}} asks you to teach the skill: {{skillName}}": "{{name}} يطلب منك تعليم المهارة: {{skillName}}",
   "{{relay}} Common": "{{relay}} شائع",
   "{{relay}} Parachain": "{{relay}} باراشين",
   "{{relay}} System": "{{relay}} النظام",
@@ -621,5 +627,6 @@
   "📖 Read what’s happening": "📖 اقرأ ما يحدث",
   "🗣 Give your tutee a wrong answer and say": "🗣 أعط الطالب إجابة خاطئة وقل",
   "🗣 Say to the tutee": "🗣 قل للطالب",
-  "🗣 Show the tutee the correct execution, and say": "🗣 أر الطالب الطريقة الصحيحة وقل"
+  "🗣 Show the tutee the correct execution, and say": "🗣 أر الطالب الطريقة الصحيحة وقل",
+  "🧠 Don’t show it to tutee. Try to find patterns": "🧠 لا تظهرها للطالب. حاول أن تجد أنماطًا"
 }

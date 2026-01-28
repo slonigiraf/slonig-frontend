@@ -119,5 +119,16 @@
   "Before teaching, help your student identify what they have learned wrongly from bad tutors. If you find a problem, the bad tutor will automatically send you a bonus.": "Before teaching, help your student identify what they have learned wrongly from bad tutors. If you find a problem, the bad tutor will automatically send you a bonus.",
   "Try to earn {{stake}} Slon by checking how another tutor taught {{name}} the skill:": "Try to earn {{stake}} Slon by checking how another tutor taught {{name}} the skill:",
   "Hide it from your student!": "Hide it from your student!",
-  "Can not be larger than: {{price}}": "Can not be larger than: {{price}}"
+  "Can not be larger than: {{price}}": "Can not be larger than: {{price}}",
+  "You’ve earned {{amount}} Slon.": "You’ve earned {{amount}} Slon.",
+  "You’ve got {{amount}} Slon from a bad tutor.": "You’ve got {{amount}} Slon from a bad tutor.",
+  "You haven’t earned Slon.": "You haven’t earned Slon.",
+  "Total profit": "Total profit",
+  "I may lose": "I may lose",
+  "It seems like you’re not following the hints. Please teach more slowly and follow all hints carefully.": "It seems like you’re not following the hints. Please teach more slowly and follow all hints carefully.",
+  "You’ve refreshed your memory about the skill: {{skillName}}": "You’ve refreshed your memory about the skill: {{skillName}}",
+  "Continue": "Continue",
+  "{{name}} asks you to teach the skill: {{skillName}}": "{{name}} asks you to teach the skill: {{skillName}}",
+  "🧠 Don’t show it to tutee. Try to find patterns": "🧠 Don’t show it to tutee. Try to find patterns",
+  "Ready to teach this skill?": "Ready to teach this skill?"
 }

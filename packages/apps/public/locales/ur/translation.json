@@ -40,9 +40,7 @@
   "Before teaching, help your student identify what they have learned wrongly from bad tutors. If you find a problem, the bad tutor will automatically send you a bonus.": "پڑھانے سے پہلے، اپنے طالب علم کی مدد کریں کہ وہ یہ شناخت کریں کہ انہوں نے برا ٹیوٹر سے کیا غلط سیکھا ہے۔ اگر آپ کو کوئی مسئلہ ملتا ہے، تو برا ٹیوٹر خود بخود آپ کو ایک بونس بھیجے گا۔",
   "Before using this registered paraId, you need to have a WASM validation function registered on-chain": "اس رجسٹرڈ paraId کو استعمال کرنے سے پہلے، آپ کو چین پر ایک WASM توثیق فنکشن رجسٹرڈ ہونے کی ضرورت ہے",
   "Bid": "بولی",
-  "Bounty will be collected after the lesson ends.": "سبق ختم ہونے کے بعد انعام حاصل کیا جائے گا۔",
   "Browse": "تلاش کریں",
-  "Can not be larger than: {{price}}": "اس سے بڑا نہیں ہو سکتا: {{price}}",
   "Cancel": "منسوخ کریں",
   "Cannot be its child": "اس کا ذیلی عنصر نہیں ہو سکتا",
   "Capped": "محدود",
@@ -57,6 +55,7 @@
   "Confirm code removal": "کوڈ ہٹانے کی تصدیق کریں",
   "Confirm contract removal": "کنٹریکٹ ہٹانے کی تصدیق کریں",
   "Connecting to IPFS...": "IPFS سے جڑ رہا ہے...",
+  "Continue": "جاری رکھیں",
   "Contribute": "شراکت کریں",
   "Contribute to fund": "فنڈ میں شراکت کریں",
   "Copied": "کاپی ہو گیا",
@@ -124,11 +123,13 @@
   "Hide it from your student!": "اسے اپنے طالب علم سے چھپائیں!",
   "Hide the solution": "حل چھپائیں",
   "Homepage": "ہوم پیج",
+  "I may lose": "میں ہار سکتا ہوں",
   "I risk losing {{stake}} Slon if {{name}} forgets this skill. I’m awarding a badge for this skill.": "اگر {{name}} یہ مہارت بھول جاتا ہے تو میں {{stake}} سلوان کھونے کا خطرہ مول لے رہا ہوں۔ میں اس مہارت کے لیے ایک بیج دے رہا ہوں۔",
   "IPFS is not ready. Please wait...": "IPFS تیار نہیں ہے۔ براہ کرم انتظار کریں...",
   "Image": "تصویر",
   "Include an optional tip for faster processing": "تیز پروسیسنگ کے لیے ایک آپشنل ٹپ شامل کریں",
   "Initializing connection": "کنکشن شروع کیا جا رہا ہے",
+  "It seems like you’re not following the hints. Please teach more slowly and follow all hints carefully.": "ایسا لگتا ہے کہ آپ اشاروں کی پیروی نہیں کر رہے ہیں۔ براہ کرم آہستہ آرہ تدریس کریں اور تمام اشاروں کی احتیاط سے پیروی کریں۔",
   "It was a QR code not from Slonig.": "یہ ایک QR کوڈ تھا جو Slonig سے نہیں تھا۔",
   "It’s better to shorten it to 9 words.": "اسے 9 الفاظ تک مختصر کرنا بہتر ہے۔",
   "It’s time to send the results and become a student of a new partner.": "یہ نتائج بھیجنے اور نئے شراکت دار کے طالب علم بننے کا وقت ہے۔",
@@ -208,6 +209,7 @@
   "Propose": "پیش کرنا",
   "Propose parachain": "پیرا چین کی تجویز کریں",
   "QR code": "QR کوڈ",
+  "Ready to teach this skill?": "کیا آپ اس مہارت کو پڑھانے کے لیے تیار ہیں؟",
   "Refund": "ترمیم",
   "Register parathread": "پیرا تھریڈ کی رجسٹریشن کریں",
   "Relay chain": "ریلے چین",
@@ -228,7 +230,6 @@
   "SOME TASK FOR SKILL TRAINING (THE TUTOR SHOULD KNOW)": "مہارت کی تربیت کے لیے کچھ کام (ٹیچر کو معلوم ہونا چاہیے)",
   "Save": "محفوظ کریں",
   "Save & Reload": "محفوظ کریں اور دوبارہ لوڈ کریں",
-  "Save and close": "محفوظ کریں اور بند کریں",
   "Saved": "محفوظ کر لیا گیا",
   "Scan": "اسکین",
   "Scan a QR code": "QR کوڈ اسکین کریں",
@@ -359,6 +360,7 @@
   "To get the lesson results, reward your tutor with {{amount}} Slon.": "سبق کے نتائج حاصل کرنے کے لیے، اپنے ٹیچر کو {{amount}} Slon سے انعام دیں۔",
   "To learn this, ask a tutor to scan:": "یہ سیکھنے کے لیے، ٹیچر سے اسکین کرنے کو کہیں:",
   "Top up my balance": "میرا بیلنس بڑھائیں",
+  "Total profit": "کل منافع",
   "Transfer failed": "منتقلی ناکام ہو گئی",
   "Transfer failed:": "منتقلی ناکام ہوگئی:",
   "Translate": "ترجمہ کریں",
@@ -406,9 +408,13 @@
   "You do not have enough Slon to reward your tutor and get the lesson results. Top up your balance with at least {{amount}} Slon.": "آپ کے پاس اپنے ٹیچر کو انعام دینے اور سبق کے نتائج حاصل کرنے کے لیے کافی Slon نہیں ہیں۔ اپنا بیلنس کم از کم {{amount}} Slon سے بڑھائیں۔",
   "You don’t have such a skill. I will penalize the tutor which issued the badge for it.": "آپ کے پاس ایسی مہارت نہیں ہے۔ میں اس استاد کو سزا دوں گا جس نے اس کے لیے بیج جاری کیا تھا۔",
   "You have duplicated validator entries, ensure each is unique.": "آپ کے پاس دہرائی ہوئی ویلیڈیٹر کی اندراجات ہیں، یقینی بنائیں کہ ہر ایک منفرد ہے۔",
+  "You haven’t earned Slon.": "آپ نے سلون حاصل نہیں کیا۔",
   "You need to supply at last one running validator for your parachain alongside this request.": "آپ کو اس درخواست کے ساتھ اپنے پیراچین کے لیے کم از کم ایک فعال ویلیڈیٹر فراہم کرنے کی ضرورت ہے۔",
   "You should practice tutoring first before you can reexamine.": "آپ کو دوبارہ جانچ کرنے سے پہلے تدریس کی مشق کرنی چاہیے۔",
   "Your custom types have been added": "آپ کی حسب ضرورت اقسام شامل کر دی گئی ہیں",
+  "You’ve earned {{amount}} Slon.": "آپ نے {{amount}} سلون کمایا ہے۔",
+  "You’ve got {{amount}} Slon from a bad tutor.": "آپ کو ایک خراب استاد سے {{amount}} سلون ملا ہے۔",
+  "You’ve refreshed your memory about the skill: {{skillName}}": "آپ نے مہارت کے بارے میں اپنی یاد دہانی تازہ کردی ہے: {{skillName}}",
   "account forgotten": "اکاؤنٹ بھول گیا",
   "account name": "اکاؤنٹ کا نام",
   "account restored": "اکاؤنٹ بحال ہو گیا",
@@ -610,7 +616,7 @@
   "{{hours}} hrs": "{{hours}} گھنٹے",
   "{{minutes}} mins": "{{minutes}} منٹ",
   "{{name}} ({{size}} bytes)": "{{name}} ({{size}} بائٹس)",
-  "{{name}} asks you to teach the skill": "{{name}} آپ سے مہارت سکھانے کو کہتا ہے",
+  "{{name}} asks you to teach the skill: {{skillName}}": "{{name}} آپ سے مہارت سکھانے کے لیے کہتا ہے: {{skillName}}",
   "{{relay}} Common": "{{relay}} عام",
   "{{relay}} Parachain": "{{relay}} پیرالی چین",
   "{{relay}} System": "{{relay}} نظام",
@@ -621,5 +627,6 @@
   "📖 Read what’s happening": "📖 پڑھیں کہ کیا ہو رہا ہے",
   "🗣 Give your tutee a wrong answer and say": "🗣 اپنے طالب علم کو غلط جواب دیں اور کہیں",
   "🗣 Say to the tutee": "🗣 طالب علم سے کہیں",
-  "🗣 Show the tutee the correct execution, and say": "🗣 طالب علم کو صحیح طریقہ دکھائیں، اور کہیں"
+  "🗣 Show the tutee the correct execution, and say": "🗣 طالب علم کو صحیح طریقہ دکھائیں، اور کہیں",
+  "🧠 Don’t show it to tutee. Try to find patterns": "🧠 اسے طلبہ کو نہ دکھائیں۔ پیٹرن تلاش کرنے کی کوشش کریں"
 }
