@@ -35,6 +35,18 @@ interface Props {
 
 type AlgorithmType = '' | 'TEACH_ALGO' | 'REEXAMINE_ALGO';
 
+const nonEssentialStageTypes = new Set([
+  StageType.see_statistics,
+  StageType.too_fast_warning,
+  StageType.first_time_intro,
+  StageType.encourage_penalization
+]);
+
+function isNonEssentialStageType(algorithmStage: AlgorithmStage) {
+  return nonEssentialStageTypes.has(algorithmStage.getType());
+}
+
+
 function DoInstructions({ className = '', entity, anythingToLearn = true, resetTimer, tooFastWarning, pageWasJustRefreshed, lesson, onResult, studentName, stake = '', isSendingResultsEnabled, hasTuteeUsedSlonig, hasTutorCompletedTutorial, isTutorial }: Props): React.ReactElement<Props> {
   const { ipfs, isIpfsReady } = useIpfsContext();
   const [skill, setSkill] = useState<Skill>();
@@ -269,8 +281,7 @@ function DoInstructions({ className = '', entity, anythingToLearn = true, resetT
 
   const handleStageChange = useCallback(async (nextStage: AlgorithmStage | null) => {
     if (nextStage !== null && algorithmStage) {
-      if (algorithmStage.getType() === StageType.see_statistics || 
-      algorithmStage.getType() === StageType.too_fast_warning) {
+      if (isNonEssentialStageType(algorithmStage)) {
         resetTimer();
       }
       const timeSpent = Math.round((Date.now() - lastStageEndTime) / 1000);
@@ -388,10 +399,7 @@ function DoInstructions({ className = '', entity, anythingToLearn = true, resetT
                     isDisabled={isButtonClicked}
                   />
                 ))}
-                {algorithmStage.getType() !== StageType.see_statistics &&
-                  algorithmStage.getType() !== StageType.too_fast_warning &&
-                  algorithmStage.getType() !== StageType.first_time_intro &&
-                  algorithmStage.getType() !== StageType.encourage_penalization &&
+                {!isNonEssentialStageType(algorithmStage) &&
                   (
                     <StyledPopup
                       value={
