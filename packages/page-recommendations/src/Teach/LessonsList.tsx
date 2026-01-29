@@ -14,6 +14,7 @@ interface Props {
   onResumeTutoring: (lesson: Lesson) => void;
   onShowResults: (lesson: Lesson) => void;
 }
+type Penalty = LetterTemplate & { student?: string };
 
 function LessonsList({ className = '', tutor, onResumeTutoring, onShowResults }: Props): React.ReactElement<Props> {
   const { t } = useTranslation();
@@ -37,7 +38,7 @@ function LessonsList({ className = '', tutor, onResumeTutoring, onShowResults }:
     [tutor, startDate, endDate]
   );
 
-  const penalties = useLiveQuery<LetterTemplate[]>(() => getPenalties(), []);
+  const penalties = useLiveQuery<Penalty[]>(() => getPenalties(), []);
 
   const isSelectionAllowed = false;
 
@@ -82,9 +83,9 @@ function LessonsList({ className = '', tutor, onResumeTutoring, onShowResults }:
       />
 
       <h2>{t('I have been penalized for')}</h2>
-      {penalties && penalties.map((item: LetterTemplate) => (
-        <LetterTemplateInfo key={item.cid}>
-          <PenaltyInfo badge={item} isSelected={false} onToggleSelection={() => { }} isSelectionAllowed={false} />
+      {penalties?.map((item: Penalty) => (
+        <LetterTemplateInfo key={`${item.lesson}-${item.letterId}`}>
+          <PenaltyInfo badge={item} student={item.student} />
         </LetterTemplateInfo>
       ))}
     </div>

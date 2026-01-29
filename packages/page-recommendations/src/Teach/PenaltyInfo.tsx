@@ -4,7 +4,7 @@
 import { Modal, Button, Spinner, styled } from '@polkadot/react-components';
 import React, { useState, useEffect } from 'react'
 import { useTranslation } from '../translate.js';
-import { Badge, Insurance, LetterTemplate } from '@slonigiraf/db';
+import { Badge, getPseudonym, Insurance, LetterTemplate } from '@slonigiraf/db';
 import { useToggle } from '@polkadot/react-hooks';
 import { KatexSpan, getIPFSDataFromContentID, parseJson, useLog } from '@slonigiraf/slonig-components';
 import { useIpfsContext } from '@slonigiraf/slonig-components';
@@ -13,9 +13,10 @@ import { ExerciseList } from '@slonigiraf/app-laws';
 interface Props {
   className?: string;
   badge: LetterTemplate;
+  student: string | undefined;
 }
 
-function PenaltyInfo({ className = '', badge }: Props): React.ReactElement<Props> {
+function PenaltyInfo({ className = '', badge, student }: Props): React.ReactElement<Props> {
   const { ipfs } = useIpfsContext();
   type JsonType = { [key: string]: any } | null;
   const [data, setData] = useState<JsonType>(null);
@@ -24,6 +25,16 @@ function PenaltyInfo({ className = '', badge }: Props): React.ReactElement<Props
   const [areDetailsOpen, toggleDetailsOpen] = useToggle(false);
   const [skillName, setSkillName] = useState(badge.cid);
   const [loaded, setLoaded] = useState(false);
+  const [studentName, setStudentName] = useState<string|undefined>(undefined);
+
+
+
+  useEffect(() => {
+    const run = async () => {
+      student && setStudentName(await getPseudonym(student));
+    }
+    run();
+  }, []);
 
   useEffect(() => {
     async function fetchData() {
@@ -56,7 +67,10 @@ function PenaltyInfo({ className = '', badge }: Props): React.ReactElement<Props
     <StyledDiv>
       <RowDiv>
         <Button className='inList' icon='trophy' onClick={toggleDetailsOpen} />
-        {skillNameToShow}
+        <SkillAndName>
+          {skillNameToShow}
+          {studentName}
+        </SkillAndName>
       </RowDiv>
 
       {areDetailsOpen && <>
@@ -96,6 +110,14 @@ const StyledDiv = styled.div`
     margin-right: 25px;
   }
 `;
+
+const SkillAndName = styled.div`
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-start;
+`;
+
 const RowDiv = styled.div`
   display: flex;
   flex-direction: row;
