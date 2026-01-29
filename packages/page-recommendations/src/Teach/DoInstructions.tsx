@@ -18,6 +18,7 @@ import { EXAMPLE_SKILL_KNOWLEDGE_CID, EXAMPLE_SKILL_KNOWLEDGE_ID, MIN_USING_HINT
 interface Props {
   className?: string;
   lesson: Lesson;
+  anythingToLearn?: boolean;
   entity: LetterTemplate | Reexamination;
   tooFastWarning: boolean;
   pageWasJustRefreshed: boolean;
@@ -34,7 +35,7 @@ interface Props {
 
 type AlgorithmType = '' | 'TEACH_ALGO' | 'REEXAMINE_ALGO';
 
-function DoInstructions({ className = '', entity, tooFastWarning, pageWasJustRefreshed, lesson, onResult, studentName, stake = '', isSendingResultsEnabled, hasTuteeUsedSlonig, hasTutorCompletedTutorial, showIntro = false, isTutorial }: Props): React.ReactElement<Props> {
+function DoInstructions({ className = '', entity, anythingToLearn = true, tooFastWarning, pageWasJustRefreshed, lesson, onResult, studentName, stake = '', isSendingResultsEnabled, hasTuteeUsedSlonig, hasTutorCompletedTutorial, showIntro = false, isTutorial }: Props): React.ReactElement<Props> {
   const { ipfs, isIpfsReady } = useIpfsContext();
   const [skill, setSkill] = useState<Skill>();
   const { t } = useTranslation();
@@ -110,6 +111,7 @@ function DoInstructions({ className = '', entity, tooFastWarning, pageWasJustRef
               const newAlgorithm = new ValidatingAlgorithm(
                 {
                   t,
+                  anythingToLearn,
                   studentName,
                   stake,
                   skill,

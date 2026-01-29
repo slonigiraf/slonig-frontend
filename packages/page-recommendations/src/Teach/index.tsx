@@ -379,6 +379,7 @@ function Teach({ className = '' }: Props): React.ReactElement<Props> {
             tooFastWarning={tooFastConfirmationIsShown}
             pageWasJustRefreshed={pageWasJustRefreshed}
             lesson={lesson}
+            anythingToLearn={letterTemplateToIssue !== null}
             hasTuteeUsedSlonig={hasTuteeUsedSlonig}
             hasTutorCompletedTutorial={hasTutorCompletedTutorial}
             onResult={updateReexamined}

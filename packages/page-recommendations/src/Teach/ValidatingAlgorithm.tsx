@@ -14,12 +14,13 @@ export interface ValidatingAlgorithmProps {
     studentName: string | null;
     stake: string;
     skill: Skill;
+    anythingToLearn: boolean;
     t: (key: string, options?: {
         replace: Record<string, unknown>;
     } | undefined) => string;
 }
 class ValidatingAlgorithm extends Algorithm {
-    constructor({ lesson, variation, studentName, stake, skill, t }: ValidatingAlgorithmProps) {
+    constructor({ lesson, variation, studentName, stake, skill, anythingToLearn, t }: ValidatingAlgorithmProps) {
         super();
         const questions = skill ? skill.q : [];
         let question1: string = questions.length > 0 ? questions[0].h : t('SOME EXERCISE FOR SKILL TRAINING (THE TUTOR SHOULD KNOW)');
@@ -106,12 +107,16 @@ class ValidatingAlgorithm extends Algorithm {
             <ExampleExercisesButton skill={skill} />
         );
 
+        const penalizationInfo = t('Help your student identify what they have learned wrongly from bad tutors. If you find a problem, the bad tutor will automatically send you a bonus.') ;
+
         const intro = new AlgorithmStage(
             0,
             'encourage_penalization',
             t('Yes'),
             [
-                { title: t('📖 Read what’s happening'), text: t('Before teaching, help your student identify what they have learned wrongly from bad tutors. If you find a problem, the bad tutor will automatically send you a bonus.') },
+                { title: t('📖 Read what’s happening'), 
+                    text: anythingToLearn? t('Before teaching:') + ' ' + penalizationInfo : penalizationInfo
+                },
             ]
         );
 
