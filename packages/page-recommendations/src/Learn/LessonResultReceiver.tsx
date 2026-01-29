@@ -122,12 +122,10 @@ function LessonResultReceiver({ webRTCPeerId, onDaysRangeChange }: Props): React
               }
             }
 
-            if (lessonResult.letters.length === 1) {
-              const hasTuteeCompletedTutorial = await getSetting(SettingKey.TUTEE_TUTORIAL_COMPLETED);
-              if (hasTuteeCompletedTutorial !== 'true') {
-                logEvent('ONBOARDING', 'TUTEE_TUTORIAL_COMPLETED');
-                await setSettingToTrue(SettingKey.TUTEE_TUTORIAL_COMPLETED);
-              }
+            const hasTuteeCompletedTutorial = await getSetting(SettingKey.TUTEE_TUTORIAL_COMPLETED);
+            if (hasTuteeCompletedTutorial !== 'true') {
+              logEvent('ONBOARDING', 'TUTEE_TUTORIAL_COMPLETED');
+              await setSettingToTrue(SettingKey.TUTEE_TUTORIAL_COMPLETED);
             }
 
             await Promise.all(
