@@ -24,36 +24,36 @@ function Negotiation({ className = '', lesson, updateAndStoreLesson, onClose }: 
   const { logEvent } = useLog();
   const [priceInputValue, setPriceInputValue] = useState<BN>(lesson ? new BN(lesson.dPrice) : BN_ZERO);
   const [amountInputValue, setAmountInputValue] = useState<BN>(lesson ? new BN(lesson.dWarranty) : BN_ZERO);
-  const {currentPair} = useLoginContext();
+  const { currentPair } = useLoginContext();
   const balances = useCall<DeriveBalancesAll>(api.derive.balances?.all, [currentPair?.address]);
   const [[maxTransfer, noFees], setMaxTransfer] = useState<[BN | null, boolean]>([null, false]);
   const { showInfo } = useInfo();
 
   useEffect((): void => {
-      const fromId = currentPair?.address as string;
-      const toId = currentPair?.address as string;
-  
-      if (balances && balances.accountId?.eq(fromId) && fromId && toId && api.call.transactionPaymentApi && api.tx.balances) {
-        nextTick(async (): Promise<void> => {
-          try {
-            const extrinsic = api.tx.balances.transfer(toId, balances.availableBalance);
-            const { partialFee } = await extrinsic.paymentInfo(fromId);
-            const adjFee = partialFee.muln(110).div(BN_HUNDRED);
-            const maxTransfer = balances.availableBalance.sub(adjFee);
-  
-            setMaxTransfer(
-              api.consts.balances && maxTransfer.gt(api.consts.balances.existentialDeposit)
-                ? [maxTransfer, false]
-                : [null, true]
-            );
-          } catch (error) {
-            console.error(error);
-          }
-        });
-      } else {
-        setMaxTransfer([null, false]);
-      }
-    }, [api, balances]);
+    const fromId = currentPair?.address as string;
+    const toId = currentPair?.address as string;
+
+    if (balances && balances.accountId?.eq(fromId) && fromId && toId && api.call.transactionPaymentApi && api.tx.balances) {
+      nextTick(async (): Promise<void> => {
+        try {
+          const extrinsic = api.tx.balances.transfer(toId, balances.availableBalance);
+          const { partialFee } = await extrinsic.paymentInfo(fromId);
+          const adjFee = partialFee.muln(110).div(BN_HUNDRED);
+          const maxTransfer = balances.availableBalance.sub(adjFee);
+
+          setMaxTransfer(
+            api.consts.balances && maxTransfer.gt(api.consts.balances.existentialDeposit)
+              ? [maxTransfer, false]
+              : [null, true]
+          );
+        } catch (error) {
+          console.error(error);
+        }
+      });
+    } else {
+      setMaxTransfer([null, false]);
+    }
+  }, [api, balances]);
 
   const setPriceInput = useCallback(async (value?: BN | undefined) => {
     if (value) {
@@ -98,11 +98,13 @@ function Negotiation({ className = '', lesson, updateAndStoreLesson, onClose }: 
               defaultValue={lesson ? new BN(lesson.dPrice) : BN_ZERO}
             />
           </div>
-          {maxTransfer ? 
-          <span>{t('I will lose {{amount}} Slon if I issue a badge too early and the student forgets the skill. I have {{balance}} Slon now.', {replace: {amount: bnToSlonFloatOrNaN(amountInputValue), balance: bnToSlonFloatOrNaN(maxTransfer ? maxTransfer : BN_ZERO)}})}</span>
-          : 
-          <span>{t('I will lose {{amount}} Slon if I issue a badge too early and the student forgets the skill.')}</span>
-          }
+
+          <span>
+            {t('I will lose {{amount}} Slon if I issue a badge too early and the student forgets the skill.', {replace: {amount: bnToSlonFloatOrNaN(amountInputValue)}}) +
+              (!maxTransfer ? '' : ' ' + t('I have {{balance}} Slon now.', { replace: { balance: bnToSlonFloatOrNaN(maxTransfer ? maxTransfer : BN_ZERO) } }))
+            }
+          </span>
+
         </InputDiv>
         <Button className={'highlighted--button'} label={t('We negotiated')} onClick={saveLessonSettings} />
       </StyledDiv>
