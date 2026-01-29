@@ -82,7 +82,7 @@ function LessonsList({ className = '', tutor, onResumeTutoring, onShowResults }:
         isSelectionAllowed={isSelectionAllowed}
       />
 
-      <h2>{t('I have been penalized for')}</h2>
+      <h2>{t('I was penalized for')}</h2>
       {penalties?.map((item: Penalty) => (
         <LetterTemplateInfo key={`${item.lesson}-${item.letterId}`}>
           <PenaltyInfo badge={item} student={item.student} />

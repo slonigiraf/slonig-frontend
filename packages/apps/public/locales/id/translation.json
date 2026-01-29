@@ -126,6 +126,7 @@
   "Homepage": "Halaman utama",
   "I may lose": "Saya mungkin kalah",
   "I risk losing {{stake}} Slon if {{name}} forgets this skill. I’m awarding a badge for this skill.": "Saya berisiko kehilangan {{stake}} Slon jika {{name}} melupakan keterampilan ini. Saya memberikan lencana untuk keterampilan ini.",
+  "I was penalized for": "Saya dihukum karena",
   "I will lose {{amount}} Slon (from {{balance}}) if I issue a badge too early and my student forgets the skill.": "Saya akan kehilangan {{amount}} Slon (dari {{balance}}) jika saya mengeluarkan lencana terlalu awal dan siswa saya lupa keterampilan.",
   "IPFS is not ready. Please wait...": "IPFS belum siap. Harap tunggu...",
   "Image": "Gambar",

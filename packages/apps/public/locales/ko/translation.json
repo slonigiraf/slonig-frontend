@@ -126,6 +126,7 @@
   "Homepage": "홈페이지",
   "I may lose": "저는 질 수 있습니다",
   "I risk losing {{stake}} Slon if {{name}} forgets this skill. I’m awarding a badge for this skill.": "{{name}}가 이 기술을 잊으면 {{stake}} Slon을 잃을 위험이 있습니다. 이 기술에 대해 배지를 수여합니다.",
+  "I was penalized for": "나는 ~로 처벌받았다",
   "I will lose {{amount}} Slon (from {{balance}}) if I issue a badge too early and my student forgets the skill.": "{{amount}} Slon을 잃게 됩니다 ({{balance}}에서) 내 학생이 기술을 잊어버리고 배지를 너무 일찍 발급하면.",
   "IPFS is not ready. Please wait...": "IPFS가 준비되지 않았습니다. 잠시 기다려주세요...",
   "Image": "이미지",

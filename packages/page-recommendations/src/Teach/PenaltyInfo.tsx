@@ -25,7 +25,7 @@ function PenaltyInfo({ className = '', badge, student }: Props): React.ReactElem
   const [areDetailsOpen, toggleDetailsOpen] = useToggle(false);
   const [skillName, setSkillName] = useState(badge.cid);
   const [loaded, setLoaded] = useState(false);
-  const [studentName, setStudentName] = useState<string|undefined>(undefined);
+  const [studentName, setStudentName] = useState<string | undefined>(undefined);
 
 
 
@@ -66,10 +66,11 @@ function PenaltyInfo({ className = '', badge, student }: Props): React.ReactElem
   return (
     <StyledDiv>
       <RowDiv>
-        <Button className='inList' icon='trophy' onClick={toggleDetailsOpen} />
+        <Button className='inList' icon='shield-halved' onClick={toggleDetailsOpen} />
         <SkillAndName>
+          <b>{studentName}</b>
           {skillNameToShow}
-          {studentName}
+
         </SkillAndName>
       </RowDiv>
 
@@ -114,8 +115,9 @@ const StyledDiv = styled.div`
 const SkillAndName = styled.div`
   display: flex;
   flex-direction: column;
-  align-items: center;
+  align-items: left;
   justify-content: flex-start;
+  padding-left: 10px;
 `;
 
 const RowDiv = styled.div`

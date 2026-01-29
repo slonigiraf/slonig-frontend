@@ -126,6 +126,7 @@
   "Homepage": "ホームページ",
   "I may lose": "負けるかもしれない",
   "I risk losing {{stake}} Slon if {{name}} forgets this skill. I’m awarding a badge for this skill.": "私は{{name}}がこのスキルを忘れた場合、{{stake}} Slonを失うリスクがあります。このスキルのためにバッジを授与します。",
+  "I was penalized for": "私は罰を受けました",
   "I will lose {{amount}} Slon (from {{balance}}) if I issue a badge too early and my student forgets the skill.": "{{balance}}から{{amount}}スロンを失います。バッジを早く発行すると、生徒がスキルを忘れてしまう場合があります。",
   "IPFS is not ready. Please wait...": "IPFSの準備中です。しばらくお待ちください...",
   "Image": "画像",

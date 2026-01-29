@@ -126,6 +126,7 @@
   "Homepage": "হোমপেজ",
   "I may lose": "আমি হারাতে পারি",
   "I risk losing {{stake}} Slon if {{name}} forgets this skill. I’m awarding a badge for this skill.": "আমি ঝুঁকি নিচ্ছি {{stake}} Slon হারানোর যদি {{name}} এই দক্ষতা ভুলে যায়। আমি এই দক্ষতার জন্য একটি ব্যাজ প্রদান করছি।",
+  "I was penalized for": "আমাকে শাস্তি দেওয়া হয়েছিল",
   "I will lose {{amount}} Slon (from {{balance}}) if I issue a badge too early and my student forgets the skill.": "যদি আমি খুব তাড়াতাড়ি একটি ব্যাজ দিই এবং আমার ছাত্র দক্ষতা ভুলে যায় তবে আমি {{balance}} থেকে {{amount}} স্লোন হারাব।",
   "IPFS is not ready. Please wait...": "IPFS প্রস্তুত নয়। অনুগ্রহ করে অপেক্ষা করো...",
   "Image": "ছবি",

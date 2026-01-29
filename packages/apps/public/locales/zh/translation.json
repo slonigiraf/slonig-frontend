@@ -126,6 +126,7 @@
   "Homepage": "主页",
   "I may lose": "我可能会输",
   "I risk losing {{stake}} Slon if {{name}} forgets this skill. I’m awarding a badge for this skill.": "如果{{name}}忘记这个技能，我风险失去{{stake}} Slon。我将为这个技能授予一个徽章。",
+  "I was penalized for": "我因...受到了惩罚",
   "I will lose {{amount}} Slon (from {{balance}}) if I issue a badge too early and my student forgets the skill.": "如果我过早颁发徽章，而我的学生忘记了技能，我将损失 {{amount}} Slon（从 {{balance}} 中）。",
   "IPFS is not ready. Please wait...": "IPFS 尚未准备好。请稍候……",
   "Image": "图片",

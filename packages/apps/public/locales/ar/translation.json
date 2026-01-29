@@ -126,6 +126,7 @@
   "Homepage": "الصفحة الرئيسية",
   "I may lose": "قد أخسر",
   "I risk losing {{stake}} Slon if {{name}} forgets this skill. I’m awarding a badge for this skill.": "أخاطر بفقدان {{stake}} سلون إذا نسي {{name}} هذه المهارة. سأقوم بمنح شارة لهذه المهارة.",
+  "I was penalized for": "تم معاقبتي على",
   "I will lose {{amount}} Slon (from {{balance}}) if I issue a badge too early and my student forgets the skill.": "سأفقد {{amount}} س لون (من {{balance}}) إذا أصدرت شارة مبكرًا ونسي الطالب المهارة.",
   "IPFS is not ready. Please wait...": "IPFS غير جاهز بعد. يرجى الانتظار...",
   "Image": "صورة",

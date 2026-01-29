@@ -126,6 +126,7 @@
   "Homepage": "Página inicial",
   "I may lose": "Posso perder",
   "I risk losing {{stake}} Slon if {{name}} forgets this skill. I’m awarding a badge for this skill.": "Corro o risco de perder {{stake}} Slon se {{name}} esquecer esta habilidade. Estou concedendo um badge para esta habilidade.",
+  "I was penalized for": "Fui penalizado por",
   "I will lose {{amount}} Slon (from {{balance}}) if I issue a badge too early and my student forgets the skill.": "Eu vou perder {{amount}} Slon (de {{balance}}) se eu emitir um crachá muito cedo e meu aluno esquecer a habilidade.",
   "IPFS is not ready. Please wait...": "IPFS não está pronto. Por favor, aguarde...",
   "Image": "Imagem",

@@ -126,6 +126,7 @@
   "Homepage": "Главная страница",
   "I may lose": "Я могу потерять",
   "I risk losing {{stake}} Slon if {{name}} forgets this skill. I’m awarding a badge for this skill.": "Я рискую потерять {{stake}} Slon, если {{name}} забудет этот навык. Я вручаю значок за этот навык.",
+  "I was penalized for": "Я был оштрафован за",
   "I will lose {{amount}} Slon (from {{balance}}) if I issue a badge too early and my student forgets the skill.": "Я потеряю {{amount}} Slon (из {{balance}}), если выдам значок слишком рано, и мой студент забудет навык.",
   "IPFS is not ready. Please wait...": "IPFS загружается. Пожалуйста, подождите...",
   "Image": "Изображение",
