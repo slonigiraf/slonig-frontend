@@ -1,11 +1,11 @@
-import { cancelInsurance, cancelInsuranceByRefereeAndLetterNumber, cancelLetter, cancelLetterByRefereeAndLetterNumber, markUsageRightAsUsed, deleteReimbursement, deleteUsageRight, getAllInsurances, getAllLetters, getAllReimbursements, getReimbursementsByReferee, Insurance, Letter, Reimbursement, getReimbursementsByRefereeAndLetterNumber, Recommendation, SettingKey, getLesson, updateLesson, LetterTemplate, getValidLetterTemplatesByLessonId } from '@slonigiraf/db';
+import { cancelInsurance, cancelInsuranceByRefereeAndLetterNumber, cancelLetter, cancelLetterByRefereeAndLetterNumber, markUsageRightAsUsed, deleteReimbursement, deleteUsageRight, getAllInsurances, getAllLetters, getAllReimbursements, getReimbursementsByReferee, Insurance, Letter, Reimbursement, getReimbursementsByRefereeAndLetterNumber, Recommendation, SettingKey, getLesson, updateLesson, LetterTemplate, getValidLetterTemplatesByLessonId, markLetterTemplatePenalized } from '@slonigiraf/db';
 import React, { useEffect, useState, useRef, useCallback, ReactNode, createContext, useContext } from 'react';
 import { useApi, useBlockEvents, useCall, useIsMountedRef } from '@polkadot/react-hooks';
 import { useLoginContext } from './LoginContext.js';
 import BN from 'bn.js';
 import { bnToSlonFloatOrNaN, bnToSlonString, EXISTENTIAL_BATCH_SENDER_BALANCE, getAddressFromPublickeyHex, getRecommendationsFrom, useInfo, useLog, useSettingValue } from './index.js';
 import { EXISTENTIAL_REFEREE_BALANCE, REIMBURSEMENT_BATCH_SIZE } from '@slonigiraf/slonig-components';
-import { BN_ZERO } from '@polkadot/util';
+import { BN_ZERO, u8aToHex } from '@polkadot/util';
 import type { AccountInfo } from '@polkadot/types/interfaces';
 import { KeyedEvent } from '@polkadot/react-hooks/ctx/types';
 import { useLiveQuery } from "dexie-react-hooks";
@@ -80,10 +80,12 @@ export const BlockchainSyncProvider: React.FC<BlockchainSyncProviderProps> = ({ 
             if (event.section === 'letters' && event.method === 'ReimbursementHappened') {
                 const [referee, letterId] = event.data.toJSON() as [string, number];
                 processLetterCancelationEvent(referee, letterId, now);
+                if (currentPair && referee === u8aToHex(currentPair.publicKey)) {
+                    markLetterTemplatePenalized(letterId);
+                }
             }
         })
-    }, [events]);
-
+    }, [events, currentPair]);
 
     useEffect(() => {
         const run = async () => {
@@ -93,9 +95,9 @@ export const BlockchainSyncProvider: React.FC<BlockchainSyncProviderProps> = ({ 
                 const icon = balanceChange.gte(BN_ZERO) ? 'hand-holding-dollar' : 'money-bill-trend-up';
                 const balanceChangeToShow = bnToSlonString(balanceChange);
                 if (balanceChangeToShow !== '0' && myBalance.current.gt(BN_ZERO)) {
-                    logEvent('TRANSACTIONS', 
-                        priceToLog > 0 ? 'RECEIVE_SLON' : 'SEND_SLON', 
-                        priceToLog > 0 ? 'receive_slon' : 'send_slon', 
+                    logEvent('TRANSACTIONS',
+                        priceToLog > 0 ? 'RECEIVE_SLON' : 'SEND_SLON',
+                        priceToLog > 0 ? 'receive_slon' : 'send_slon',
                         Math.abs(priceToLog));
                     showInfo(bnToSlonString(balanceChange) + ' Slon', 'info', 4, icon);
                 }

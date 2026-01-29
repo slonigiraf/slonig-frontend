@@ -439,6 +439,16 @@ export function updateReexamination(reexamination: Reexamination) {
 
 // LetterTemplate related
 
+export function markLetterTemplatePenalized(letterId: number) {
+    return db.letterTemplates
+        .where('letterId')
+        .equals(letterId)
+        .modify({
+            penalized: true,
+            penalizedTime: Date.now(),
+        });
+}
+
 export async function putLetterTemplate(letterTemplate: LetterTemplate) {
     await db.letterTemplates.put(letterTemplate);
 }
@@ -472,6 +482,8 @@ export function serializeAsLetter(letterTemplate: LetterTemplate, referee: strin
         letterTemplate.pubSign
     ].join(",");
 }
+
+
 
 // Lesson related
 
@@ -560,6 +572,8 @@ export async function storeLesson(lessonRequest: LessonRequest, tutor: string, o
                 valid: false,
                 mature: item[3] === '1',
                 toRepeat: false,
+                penalized: false,
+                penalizedTime: undefined,
                 lastExamined: now,
                 lesson: lesson.id,
                 knowledgeId: item[0],

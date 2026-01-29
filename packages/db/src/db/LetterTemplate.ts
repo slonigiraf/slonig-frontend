@@ -3,6 +3,8 @@ export interface LetterTemplate {
   valid: boolean,
   mature: boolean, // if this skill was already leant at previous day
   toRepeat: boolean,
+  penalized: boolean,
+  penalizedTime: number | undefined; // timestamp
   lastExamined: number; // timestamp
   lesson: string;
   knowledgeId: string; // Also used to discriminate from Reexamination, is it doesn't contain the field
