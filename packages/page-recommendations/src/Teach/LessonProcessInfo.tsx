@@ -43,7 +43,9 @@ function LessonProcessInfo({ className = '', lesson, showLastAction = true }: Pr
         const askedToLearnFirstTime = letterTemplates.length - askedToLearnSecondTime;
         const askedForReexaminations = reexaminations.length;
 
-        const lastBonus = (lesson.reexamineStep > 0 && lesson.learnStep === 0) ? bnToSlonFloatOrNaN(new BN(reexaminations[lesson.reexamineStep - 1].amount)) : 0;
+        const lastBonus = (lesson.reexamineStep > 0 && lesson.learnStep === 0) &&
+          !reexaminations[lesson.reexamineStep - 1].valid ?
+          bnToSlonFloatOrNaN(new BN(reexaminations[lesson.reexamineStep - 1].amount)) : 0;
         setLastBonus(lastBonus);
 
         const issuedBadgeCount = toIssueLetters.length;
@@ -98,8 +100,6 @@ function LessonProcessInfo({ className = '', lesson, showLastAction = true }: Pr
   const earningCommentOnRevoke = (lastAction === 'revoke') ? t('You’ve got {{amount}} Slon from a bad tutor.', { replace: { amount: lastEarning } }) : '';
 
   const lastEarningComment = earningCommentOnBadge || earningCommentOnRevoke || t('You haven’t earned Slon.');
-
-
 
   return (
     <StyledDiv>

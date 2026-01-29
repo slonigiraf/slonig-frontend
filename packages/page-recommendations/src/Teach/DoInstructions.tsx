@@ -154,8 +154,8 @@ function DoInstructions({ className = '', entity, tooFastWarning, pageWasJustRef
     const action: TutorAction = valid ? `mark_mastered_${matureInfo}` : `mark_for_repeat_${matureInfo}`;
 
     onResult(async () => {
-      logEvent('TUTORING', algorithmType, action); // algorithmType is always the same
-
+      const timeSpent = Math.round((Date.now()-lastStageEndTime)/1000);
+      logEvent('TUTORING', algorithmType, action, timeSpent); // algorithmType is always the same
       await putLetterTemplate({
         ...template,
         valid,
@@ -163,7 +163,7 @@ function DoInstructions({ className = '', entity, tooFastWarning, pageWasJustRef
         lastExamined: Date.now(),
       });
     }, action);
-  }, [entity, isLetterTemplate, getLetterTemplate, putLetterTemplate, onResult, algorithmType, logEvent,]);
+  }, [entity, isLetterTemplate, getLetterTemplate, putLetterTemplate, onResult, algorithmType, logEvent, lastStageEndTime]);
 
 
   const markLetterAsNotPerfect = useCallback(async () => {
