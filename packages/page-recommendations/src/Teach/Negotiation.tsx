@@ -89,7 +89,7 @@ function Negotiation({ className = '', lesson, updateAndStoreLesson, onClose }: 
   return (
     <FullscreenActivity caption={''} onClose={onClose}>
       <StyledDiv>
-        <h1>{t('Negotiate payment with your student')}</h1>
+        <h1>{t('Negotiate price with your student')}</h1>
         <InputDiv>
           <InputBalance
             isZeroable
@@ -100,7 +100,7 @@ function Negotiation({ className = '', lesson, updateAndStoreLesson, onClose }: 
 
           <span>
             {
-              t('I will lose {{amount}} Slon (from {{balance}}) if I issue a badge too early and my student forgets.',
+              t('I will lose {{amount}} Slon (from {{balance}}) if I issue a badge too early and my student forgets the skill.',
                 { replace: { amount: bnToSlonFloatOrNaN(amountInputValue), balance: bnToSlonFloatOrNaN(maxTransfer ? maxTransfer : BN_ZERO) } })
             }
           </span>
