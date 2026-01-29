@@ -2,99 +2,32 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { Icon, styled } from '@polkadot/react-components';
-import React, { useEffect, useState } from 'react'
+import React from 'react'
 import { useTranslation } from '../translate.js';
 import { LessonStat } from '../types.js';
-import { getLetterTemplatesByLessonId, getReexaminationsByLessonId, getToRepeatLetterTemplatesByLessonId, getValidLetterTemplatesByLessonId, Lesson, LetterTemplate } from '@slonigiraf/db';
 import { bnToSlonFloatOrNaN } from '@slonigiraf/slonig-components';
 import BN from 'bn.js';
 import { getActionInfo } from '../utils.js';
 
 interface Props {
   className?: string;
-  lesson: Lesson;
+  lessonStat: LessonStat;
   showLastAction?: boolean;
 }
 
 
 
-function LessonProcessInfo({ className = '', lesson, showLastAction = true }: Props): React.ReactElement<Props> {
+function LessonProcessInfo({ className = '', lessonStat, showLastAction = true }: Props): React.ReactElement<Props> {
+  if (!lessonStat) return;
   const { t } = useTranslation();
-  const [lessonStat, setLessonStat] = useState<LessonStat | null>(null);
-  const lastAction = lesson?.lastAction;
-  const [lastBonus, setLastBonus] = useState(0);
-
-  useEffect(() => {
-    const refreshLessonStat = async () => {
-      const reexaminations = await getReexaminationsByLessonId(lesson.id);
-      const letterTemplates = await getLetterTemplatesByLessonId(lesson.id);
-
-      const nothingToDiscuss = (reexaminations.length + letterTemplates.length) === 0;
-      if (!lesson || nothingToDiscuss) return;
-
-      try {
-        // Get fresh data
-
-        const markedToRepeat = await getToRepeatLetterTemplatesByLessonId(lesson.id);
-        const toIssueLetters: LetterTemplate[] = await getValidLetterTemplatesByLessonId(lesson.id);
-
-        const askedToLearn = letterTemplates.length;
-        const askedToLearnSecondTime = letterTemplates.filter(t => t.mature).length;
-        const askedToLearnFirstTime = letterTemplates.length - askedToLearnSecondTime;
-        const askedForReexaminations = reexaminations.length;
-
-        const lastBonus = (lesson.reexamineStep > 0 && lesson.learnStep === 0) &&
-          !reexaminations[lesson.reexamineStep - 1].valid ?
-          bnToSlonFloatOrNaN(new BN(reexaminations[lesson.reexamineStep - 1].amount)) : 0;
-        setLastBonus(lastBonus);
-
-        const issuedBadgeCount = toIssueLetters.length;
-        const markedForRepeatCount = markedToRepeat.length;
-        const validatedBadgesCount = reexaminations.filter(r => r.created !== r.lastExamined && r.valid).length;
-        const revokedBadgesCount = reexaminations.filter(r => !r.valid).length;
-        const totalProfitForReexamination = bnToSlonFloatOrNaN(
-          reexaminations
-            .filter((r) => !r.valid)
-            .reduce((acc, r) => acc.add(new BN(r.amount)), new BN(0))
-        );
-        const totalProfitForTeaching = issuedBadgeCount * bnToSlonFloatOrNaN(new BN(lesson.dPrice));
-        const totalProfit = totalProfitForReexamination + totalProfitForTeaching;
-        const totalWarranty = issuedBadgeCount * bnToSlonFloatOrNaN(new BN(lesson.dWarranty));
-
-
-        setLessonStat({
-          learnStep: lesson.learnStep,
-          reexamineStep: lesson.reexamineStep,
-          askedToLearn,
-          askedToLearnFirstTime,
-          askedToLearnSecondTime,
-          askedForReexaminations,
-          issuedBadgeCount,
-          markedForRepeatCount,
-          validatedBadgesCount,
-          revokedBadgesCount,
-          totalProfitForReexamination,
-          totalProfitForTeaching,
-          totalProfit,
-          totalWarranty,
-        })
-
-      } catch (error) {
-        console.error(error);
-      }
-    };
-
-    refreshLessonStat();
-
-  }, [lesson]);
-
-
-  const { icon, comment } = getActionInfo(lastAction);
+  const lastAction = lessonStat.lastAction;
+  const lastBonus = lessonStat.lastBonus;
+  const { icon, comment } = getActionInfo(lessonStat.lastAction);
 
   const lastEarning = lastBonus ? lastBonus :
-    (lastAction === 'mark_mastered_mature' || lastAction === 'mark_mastered_warm_up') ? bnToSlonFloatOrNaN(new BN(lesson.dPrice)) : 0;
+    (lastAction === 'mark_mastered_mature' || lastAction === 'mark_mastered_warm_up') ? bnToSlonFloatOrNaN(new BN(lessonStat.dPrice)) : 0;
 
-  const warrantyAmount = (lastAction === 'mark_mastered_mature' || lastAction === 'mark_mastered_warm_up') ? bnToSlonFloatOrNaN(new BN(lesson.dWarranty)) : 0;
+  const warrantyAmount = (lastAction === 'mark_mastered_mature' || lastAction === 'mark_mastered_warm_up') ? bnToSlonFloatOrNaN(new BN(lessonStat.dWarranty)) : 0;
 
   const earningCommentOnBadge = (lastAction === 'mark_mastered_mature' || lastAction === 'mark_mastered_warm_up') ? t('You’ve earned {{amount}} Slon.', { replace: { amount: lastEarning, warranty: warrantyAmount } }) : '';
   const earningCommentOnRevoke = (lastAction === 'revoke') ? t('You’ve got {{amount}} Slon from a bad tutor.', { replace: { amount: lastEarning } }) : '';

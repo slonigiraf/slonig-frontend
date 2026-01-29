@@ -2,25 +2,25 @@ import { AlgorithmStage, StageType } from './AlgorithmStage.js';
 import { Algorithm } from './Algorithm.js';
 import type { Skill } from '@slonigiraf/slonig-components';
 import ExampleExercisesButton from './ExampleExercisesButton.js';
-import { Lesson } from '@slonigiraf/db';
 import LessonProcessInfo from './LessonProcessInfo.js';
 import TooFastWarning from './TooFastWarning.js';
 import { ExerciseList } from '@slonigiraf/app-laws';
+import { LessonStat } from '../types.js';
 
 export type ValidatingAlgorithmType = 'with_too_fast_warning' | 'intro' | 'with_stat' | 'no_stat';
 export interface ValidatingAlgorithmProps {
-    lesson: Lesson;
     variation: ValidatingAlgorithmType;
     studentName: string | null;
     stake: string;
     skill: Skill;
+    lessonStat: LessonStat;
     anythingToLearn: boolean;
     t: (key: string, options?: {
         replace: Record<string, unknown>;
     } | undefined) => string;
 }
 class ValidatingAlgorithm extends Algorithm {
-    constructor({ lesson, variation, studentName, stake, skill, anythingToLearn, t }: ValidatingAlgorithmProps) {
+    constructor({ lessonStat, variation, studentName, stake, skill, anythingToLearn, t }: ValidatingAlgorithmProps) {
         super();
         const questions = skill ? skill.q : [];
         let question1: string = questions.length > 0 ? questions[0].h : t('SOME EXERCISE FOR SKILL TRAINING (THE TUTOR SHOULD KNOW)');
@@ -125,7 +125,7 @@ class ValidatingAlgorithm extends Algorithm {
             StageType.see_statistics,
             t('Yes'),
             [
-                { title: t('📖 Read what’s happening'), text: '', reactNode: <LessonProcessInfo lesson={lesson} /> },
+                { title: t('📖 Read what’s happening'), text: '', reactNode: <LessonProcessInfo lessonStat={lessonStat} /> },
             ]
         );
 

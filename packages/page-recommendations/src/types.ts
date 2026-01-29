@@ -7,6 +7,7 @@ import type { Balance, Conviction } from '@polkadot/types/interfaces';
 import type { KeyringAddress } from '@polkadot/ui-keyring/types';
 import type { BN } from '@polkadot/util';
 import type { HexString } from '@polkadot/util/types';
+import { TutorAction } from '@slonigiraf/db';
 
 export type { AppProps as ComponentProps } from '@polkadot/react-components/types';
 
@@ -91,4 +92,8 @@ export interface LessonStat {
   totalProfitForTeaching: number;
   totalProfit: number;
   totalWarranty: number;
+  lastAction: TutorAction;
+  lastBonus: number;
+  dPrice: string;
+  dWarranty: string;
 }

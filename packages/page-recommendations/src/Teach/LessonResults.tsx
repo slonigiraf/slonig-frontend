@@ -16,16 +16,18 @@ import { useLiveQuery } from 'dexie-react-hooks';
 import LessonProcessInfo from './LessonProcessInfo.js';
 import BadgeInfo from '../Assess/BadgeInfo.js';
 import { warrantyFromPrice } from '../utils.js';
+import { LessonStat } from '../types.js';
 
 interface Props {
   className?: string;
-  lesson: Lesson | null;
+  lesson: Lesson;
+  lessonStat: LessonStat;
   updateAndStoreLesson: (lesson: Lesson | null) => Promise<void>;
   onClose: () => void;
   onFinished: () => void;
 }
 
-function LessonResults({ className = '', lesson, updateAndStoreLesson, onClose, onFinished }: Props): React.ReactElement<Props> {
+function LessonResults({ className = '', lesson, lessonStat, updateAndStoreLesson, onClose, onFinished }: Props): React.ReactElement<Props> {
   // Initialize api, ipfs and translation
   const { api, isApiReady } = useApi();
   const { t } = useTranslation();
@@ -259,7 +261,7 @@ function LessonResults({ className = '', lesson, updateAndStoreLesson, onClose, 
       {constContentIsVisible &&
         <>
           <StyledDiv>
-            {lesson && <LessonProcessInfo lesson={lesson} showLastAction={false} />}
+            {lesson && <LessonProcessInfo lessonStat={lessonStat} showLastAction={false} />}
           </StyledDiv>
           <StyledDiv>
             <Button className='highlighted--button' icon='edit' label={t('Edit')} onClick={toggleVisibleDiplomaDetails} />

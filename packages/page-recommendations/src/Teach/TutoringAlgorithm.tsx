@@ -3,18 +3,18 @@ import { Algorithm } from './Algorithm.js';
 import { Skill } from '@slonigiraf/slonig-components';
 import ExampleExercisesButton from './ExampleExercisesButton.js';
 import LessonProcessInfo from './LessonProcessInfo.js';
-import { Lesson } from '@slonigiraf/db';
 import TooFastWarning from './TooFastWarning.js';
 import { ExerciseList } from '@slonigiraf/app-laws';
+import { LessonStat } from '../types.js';
 
 export type TutoringAlgorithmType = 'with_too_fast_warning' | 'tutorial' | 'with_stat' | 'no_stat';
 export interface TutoringAlgorithmProps {
-    lesson: Lesson;
     variation: TutoringAlgorithmType;
     studentName: string | null;
     stake: string;
     canIssueBadge: boolean;
     skill: Skill;
+    lessonStat: LessonStat;
     hasTuteeUsedSlonig: boolean;
     t: (key: string, options?: {
         replace: Record<string, unknown>;
@@ -22,7 +22,7 @@ export interface TutoringAlgorithmProps {
 }
 class TutoringAlgorithm extends Algorithm {
     //get from one param of type TutoringAlgorithmType
-    constructor({ lesson, variation, studentName, stake, canIssueBadge, skill, hasTuteeUsedSlonig, t }: TutoringAlgorithmProps) {
+    constructor({ variation, studentName, stake, lessonStat, canIssueBadge, skill, hasTuteeUsedSlonig, t }: TutoringAlgorithmProps) {
         super();
         const bothUsedSlonig = hasTuteeUsedSlonig && variation === 'tutorial';
         const questions = skill ? skill.q : [];
@@ -142,7 +142,7 @@ class TutoringAlgorithm extends Algorithm {
             StageType.see_statistics,
             t('Yes'),
             [
-                { title: t('📖 Read what’s happening'), text: '', reactNode: <LessonProcessInfo lesson={lesson} /> },
+                { title: t('📖 Read what’s happening'), text: '', reactNode: <LessonProcessInfo lessonStat={lessonStat} /> },
             ]
         );
 

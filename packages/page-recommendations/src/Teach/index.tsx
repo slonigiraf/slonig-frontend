@@ -15,6 +15,7 @@ import { EXAMPLE_MODULE_KNOWLEDGE_CID, FAST_SKILL_DISCUSSION_MS, MAX_FAST_DISCUS
 import BN from 'bn.js';
 import { TutorAction } from 'db/src/db/Lesson.js';
 import Negotiation from './Negotiation.js';
+import { LessonStat } from '../types.js';
 interface Props {
   className?: string;
 }
@@ -57,6 +58,76 @@ function Teach({ className = '' }: Props): React.ReactElement<Props> {
   const lastTimeBucketRef = useRef<number | null>(null);
   const [lessonName, setLessonName] = useState<null | string>(null);
   const [pageWasJustRefreshed, setPageWasJustRefreshed] = useState(true);
+  const [lessonStat, setLessonStat] = useState<LessonStat | null>(null);
+
+  useEffect(() => {
+    const refreshLessonStat = async () => {
+      if (lesson === null) return;
+
+      const reexaminations = await getReexaminationsByLessonId(lesson.id);
+      const letterTemplates = await getLetterTemplatesByLessonId(lesson.id);
+
+      const nothingToDiscuss = (reexaminations.length + letterTemplates.length) === 0;
+      if (!lesson || nothingToDiscuss) return;
+
+      try {
+        // Get fresh data
+
+        const markedToRepeat = await getToRepeatLetterTemplatesByLessonId(lesson.id);
+        const toIssueLetters: LetterTemplate[] = await getValidLetterTemplatesByLessonId(lesson.id);
+
+        const askedToLearn = letterTemplates.length;
+        const askedToLearnSecondTime = letterTemplates.filter(t => t.mature).length;
+        const askedToLearnFirstTime = letterTemplates.length - askedToLearnSecondTime;
+        const askedForReexaminations = reexaminations.length;
+
+        const lastBonus = (lesson.reexamineStep > 0 && lesson.learnStep === 0) &&
+          !reexaminations[lesson.reexamineStep - 1].valid ?
+          bnToSlonFloatOrNaN(new BN(reexaminations[lesson.reexamineStep - 1].amount)) : 0;
+
+        const issuedBadgeCount = toIssueLetters.length;
+        const markedForRepeatCount = markedToRepeat.length;
+        const validatedBadgesCount = reexaminations.filter(r => r.created !== r.lastExamined && r.valid).length;
+        const revokedBadgesCount = reexaminations.filter(r => !r.valid).length;
+        const totalProfitForReexamination = bnToSlonFloatOrNaN(
+          reexaminations
+            .filter((r) => !r.valid)
+            .reduce((acc, r) => acc.add(new BN(r.amount)), new BN(0))
+        );
+        const totalProfitForTeaching = issuedBadgeCount * bnToSlonFloatOrNaN(new BN(lesson.dPrice));
+        const totalProfit = totalProfitForReexamination + totalProfitForTeaching;
+        const totalWarranty = issuedBadgeCount * bnToSlonFloatOrNaN(new BN(lesson.dWarranty));
+
+
+        setLessonStat({
+          learnStep: lesson.learnStep,
+          reexamineStep: lesson.reexamineStep,
+          askedToLearn,
+          askedToLearnFirstTime,
+          askedToLearnSecondTime,
+          askedForReexaminations,
+          issuedBadgeCount,
+          markedForRepeatCount,
+          validatedBadgesCount,
+          revokedBadgesCount,
+          totalProfitForReexamination,
+          totalProfitForTeaching,
+          totalProfit,
+          totalWarranty,
+          lastAction: lesson.lastAction,
+          lastBonus,
+          dPrice: lesson.dPrice,
+          dWarranty: lesson.dWarranty,
+        })
+
+      } catch (error) {
+        console.error(error);
+      }
+    };
+
+    refreshLessonStat();
+
+  }, [lesson]);
 
 
   useEffect(() => {
@@ -275,10 +346,6 @@ function Teach({ className = '' }: Props): React.ReactElement<Props> {
       if (updatedLesson.reexamineStep < currentReexaminations.length) {
         setReexaminationToPerform(currentReexaminations[updatedLesson.reexamineStep]);
       }
-      if (updatedLesson.learnStep === updatedLesson.toLearnCount && updatedLesson.reexamineStep === updatedLesson.toReexamineCount) {
-        logEvent('TUTORING', 'LESSON_RESULTS', 'lesson_auto_send_opened');
-        onShowResults(updatedLesson);
-      }
     }
     run();
   }, [setReexamined, getLetter, setLetterTemplateToIssue, getReexamination,
@@ -366,6 +433,21 @@ function Teach({ className = '' }: Props): React.ReactElement<Props> {
     }
   }, [lesson, hasTutorCompletedTutorial, reexamined, reexaminationToPerform, letterTemplateToIssue, updateReexamined]);
 
+  useEffect(() => {
+    if (lessonStat === null || lesson === null) return;
+    const sumResult = lessonStat.issuedBadgeCount + lessonStat.markedForRepeatCount + lessonStat.validatedBadgesCount + lessonStat.revokedBadgesCount;
+    const ended = lessonStat.learnStep === lessonStat.askedToLearn && lessonStat.reexamineStep === lessonStat.askedForReexaminations;
+    if (ended) {
+      if (sumResult) {
+        logEvent('TUTORING', 'LESSON_RESULTS', 'lesson_auto_send_opened');
+        onShowResults(lesson);
+      } else {
+        logEvent('TUTORING', 'EXIT_LESSON_WITH_EMPTY_RESULTS');
+        onCloseTutoring();
+      }
+    }
+  }, [lessonStat, lesson]);
+
   const clock = <ClockDiv>🕑</ClockDiv>;
 
   const isTutorial = lesson?.cid === EXAMPLE_MODULE_KNOWLEDGE_CID;
@@ -379,9 +461,10 @@ function Teach({ className = '' }: Props): React.ReactElement<Props> {
       </Progress>}
 
       {isSendingResultsEnabled !== undefined && <Bubbles>
-        {!reexamined && reexaminationToPerform && lesson &&
+        {!reexamined && reexaminationToPerform && lesson && lessonStat &&
           <DoInstructions
             entity={reexaminationToPerform}
+            lessonStat={lessonStat}
             tooFastWarning={tooFastConfirmationIsShown}
             pageWasJustRefreshed={pageWasJustRefreshed}
             lesson={lesson}
@@ -396,9 +479,10 @@ function Teach({ className = '' }: Props): React.ReactElement<Props> {
             isSendingResultsEnabled={isSendingResultsEnabled}
             isBeforeTeaching={letterTemplates && letterTemplates.length > 0}
             key={'reexaminine' + warningCount + reexaminationToPerform.cid} />}
-        {reexamined && letterTemplateToIssue && lesson &&
+        {reexamined && letterTemplateToIssue && lesson && lessonStat &&
           <DoInstructions
             entity={letterTemplateToIssue}
+            lessonStat={lessonStat}
             tooFastWarning={tooFastConfirmationIsShown}
             pageWasJustRefreshed={pageWasJustRefreshed}
             lesson={lesson}
@@ -441,9 +525,9 @@ function Teach({ className = '' }: Props): React.ReactElement<Props> {
         isLoggedIn &&
         <>
           <LessonRequestReceiver setCurrentLesson={fetchLesson} />
-          {lesson == null ? <LessonsList tutor={publicKeyHex} onResumeTutoring={onResumeTutoring} onShowResults={onShowResults} />
+          {lesson === null ? <LessonsList tutor={publicKeyHex} onResumeTutoring={onResumeTutoring} onShowResults={onShowResults} />
             :
-            <> {areResultsShown ? <LessonResults lesson={lesson} updateAndStoreLesson={updateAndStoreLesson} onClose={tryToCloseTutoring} onFinished={onCloseTutoring} /> : reexamAndDiplomaIssuing}</>
+            <> {(areResultsShown && lessonStat) ? <LessonResults lesson={lesson} lessonStat={lessonStat} updateAndStoreLesson={updateAndStoreLesson} onClose={tryToCloseTutoring} onFinished={onCloseTutoring} /> : reexamAndDiplomaIssuing}</>
           }
           {isExitConfirmOpen && (
             <Confirmation question={t('Sure to exit tutoring?')} onClose={() => setIsExitConfirmOpen(false)} onConfirm={logEventAndCloseTutoring} />

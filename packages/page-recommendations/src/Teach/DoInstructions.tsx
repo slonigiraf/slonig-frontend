@@ -14,10 +14,12 @@ import { TutoringAlgorithm, TutoringAlgorithmType } from './TutoringAlgorithm.js
 import ChatSimulation from './ChatSimulation.js';
 import { ErrorType } from '@polkadot/react-params';
 import { EXAMPLE_SKILL_KNOWLEDGE_CID, EXAMPLE_SKILL_KNOWLEDGE_ID, MIN_USING_HINT_MS, ONE_SUBJECT_PERIOD_MS } from '@slonigiraf/utils';
+import { LessonStat } from '../types.js';
 
 interface Props {
   className?: string;
   lesson: Lesson;
+  lessonStat: LessonStat;
   anythingToLearn?: boolean;
   entity: LetterTemplate | Reexamination;
   tooFastWarning: boolean;
@@ -47,7 +49,7 @@ function isNonEssentialStageType(algorithmStage: AlgorithmStage) {
 }
 
 
-function DoInstructions({ className = '', entity, anythingToLearn = true, resetTimer, tooFastWarning, pageWasJustRefreshed, lesson, onResult, studentName, stake = '', isSendingResultsEnabled, hasTuteeUsedSlonig, hasTutorCompletedTutorial, isTutorial }: Props): React.ReactElement<Props> {
+function DoInstructions({ className = '', entity, lessonStat, anythingToLearn = true, resetTimer, tooFastWarning, pageWasJustRefreshed, lesson, onResult, studentName, stake = '', isSendingResultsEnabled, hasTuteeUsedSlonig, hasTutorCompletedTutorial, isTutorial }: Props): React.ReactElement<Props> {
   const { ipfs, isIpfsReady } = useIpfsContext();
   const [skill, setSkill] = useState<Skill>();
   const { t } = useTranslation();
@@ -101,13 +103,13 @@ function DoInstructions({ className = '', entity, anythingToLearn = true, resetT
               const newAlgorithm = new TutoringAlgorithm(
                 {
                   t,
+                  lessonStat,
                   studentName,
                   stake,
                   canIssueBadge: !!stake,
                   skill,
                   hasTuteeUsedSlonig,
                   variation,
-                  lesson
                 });
 
               if (hasTutorCompletedTutorial || skill.i === EXAMPLE_SKILL_KNOWLEDGE_ID) {
@@ -123,12 +125,12 @@ function DoInstructions({ className = '', entity, anythingToLearn = true, resetT
               const newAlgorithm = new ValidatingAlgorithm(
                 {
                   t,
+                  lessonStat,
                   anythingToLearn,
                   studentName,
                   stake,
                   skill,
                   variation,
-                  lesson
                 });
 
               logStartEvent('REEXAMINE_START');
