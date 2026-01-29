@@ -107,7 +107,7 @@ class ValidatingAlgorithm extends Algorithm {
             <ExampleExercisesButton skill={skill} />
         );
 
-        const penalizationInfo = t('Help your student identify what they have learned wrongly from bad tutors. If you find a problem, the bad tutor will automatically send you a bonus.') ;
+        const penalizationInfo = t('Help your student identify what they have learned wrongly from bad tutors. If you find a problem, the bad tutor will automatically send you a bonus. Don’t be shy — other tutors won’t hesitate to penalize you.') ;
 
         const intro = new AlgorithmStage(
             0,
