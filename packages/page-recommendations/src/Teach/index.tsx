@@ -4,7 +4,7 @@ import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { Button, LinearProgress, styled } from '@polkadot/react-components';
 import { u8aToHex } from '@polkadot/util';
 import { Confirmation, OKBox, FullFindow, VerticalCenterItemsContainer, useInfo, useLoginContext, HintBubble, useBooleanSettingValue, useLog, useNumberSettingValue, getIPFSDataFromContentID, parseJson, useIpfsContext, timeStampStringToNumber, bnToSlonFloatOrNaN, bnToSlonString } from '@slonigiraf/slonig-components';
-import { LetterTemplate, Lesson, Reexamination, getPseudonym, getLesson, getLetterTemplatesByLessonId, getReexaminationsByLessonId, getSetting, storeSetting, updateLesson, getLetter, getReexamination, SettingKey, deleteSetting, isThereAnyLessonResult, setSettingToTrue, getToRepeatLetterTemplatesByLessonId, getValidLetterTemplatesByLessonId } from '@slonigiraf/db';
+import { LetterTemplate, Lesson, Reexamination, getPseudonym, getLesson, getLetterTemplatesByLessonId, getReexaminationsByLessonId, getSetting, storeSetting, updateLesson, getLetter, SettingKey, deleteSetting, isThereAnyLessonResult, setSettingToTrue, getToRepeatLetterTemplatesByLessonId, getValidLetterTemplatesByLessonId } from '@slonigiraf/db';
 import DoInstructions from './DoInstructions.js';
 import LessonsList from './LessonsList.js';
 import LessonResults from './LessonResults.js';
@@ -348,7 +348,7 @@ function Teach({ className = '' }: Props): React.ReactElement<Props> {
       }
     }
     run();
-  }, [setReexamined, getLetter, setLetterTemplateToIssue, getReexamination,
+  }, [setReexamined, getLetter, setLetterTemplateToIssue,
     setReexaminationToPerform, onShowResults, hasTutorCompletedTutorial]);
 
   const onCloseTutoring = useCallback(async () => {

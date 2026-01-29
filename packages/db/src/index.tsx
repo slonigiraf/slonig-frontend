@@ -413,17 +413,12 @@ export function deserializeLetter(data: string, workerId: string, genesis: strin
 }
 
 // Reexamination related
-
-export async function putReexamination(reexamination: Reexamination) {
-    await db.reexaminations.put(reexamination);
+export function putReexamination(reexamination: Reexamination) {
+    return db.reexams.put(reexamination);
 }
 
-export async function getReexamination(pubSign: string) {
-    return await db.reexaminations.get(pubSign);
-}
-
-export async function getReexaminationsByLessonId(lessonId: string) {
-    return await db.reexaminations.where({ lesson: lessonId }).sortBy('stage');
+export function getReexaminationsByLessonId(lessonId: string) {
+    return db.reexams.where({ lesson: lessonId }).sortBy('stage');
 }
 
 export async function isThereAnyLessonResult(lessonId: string) {
@@ -438,8 +433,8 @@ export async function isThereAnyLessonResult(lessonId: string) {
     return false;
 }
 
-export async function updateReexamination(reexamination: Reexamination) {
-    await db.reexaminations.update(reexamination.pubSign, reexamination);
+export function updateReexamination(reexamination: Reexamination) {
+    return db.reexams.update([reexamination.pubSign, reexamination.lesson], reexamination);
 }
 
 // LetterTemplate related
