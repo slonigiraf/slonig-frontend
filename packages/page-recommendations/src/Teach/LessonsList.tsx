@@ -4,8 +4,9 @@ import { useLiveQuery } from 'dexie-react-hooks';
 import { styled } from '@polkadot/react-components';
 import { useTranslation } from '../translate.js';
 import { DaysRangePicker, loadFromSessionStorage, saveToSessionStorage, SelectableList } from '@slonigiraf/slonig-components';
-import { getLessons, Lesson } from '@slonigiraf/db';
+import { getLessons, getPenalties, Lesson, LetterTemplate } from '@slonigiraf/db';
 import { LESSONS } from '../constants.js';
+import PenaltyInfo from './PenaltyInfo.js';
 
 interface Props {
   className?: string;
@@ -35,6 +36,8 @@ function LessonsList({ className = '', tutor, onResumeTutoring, onShowResults }:
     () => getLessons(tutor, startDate.getTime(), endDate.getTime()),
     [tutor, startDate, endDate]
   );
+
+  const penalties = useLiveQuery<LetterTemplate[]>(() => getPenalties(), []);
 
   const isSelectionAllowed = false;
 
@@ -77,7 +80,15 @@ function LessonsList({ className = '', tutor, onResumeTutoring, onShowResults }:
         key={tutor}
         isSelectionAllowed={isSelectionAllowed}
       />
+
+      <h2>{t('I have been penalized for')}</h2>
+      {penalties && penalties.map((item: LetterTemplate) => (
+        <LetterTemplateInfo key={item.cid}>
+          <PenaltyInfo badge={item} isSelected={false} onToggleSelection={() => { }} isSelectionAllowed={false} />
+        </LetterTemplateInfo>
+      ))}
     </div>
+
   );
 }
 
@@ -85,5 +96,13 @@ const Spacer = styled.div`
   width: 100%;
   height: 5px;
 `;
-
+const LetterTemplateInfo = styled.div`
+  display: flex;
+  flex-direction: row;
+  justify-content: left;
+  align-items: center;
+  width: 100%;
+  padding-left: 10px;
+  gap: 20px;
+`;
 export default React.memo(LessonsList);

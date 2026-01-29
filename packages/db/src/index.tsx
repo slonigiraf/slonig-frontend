@@ -465,6 +465,10 @@ export async function getValidLetterTemplatesByLessonId(lessonId: string): Promi
     return await db.letterTemplates.where({ lesson: lessonId }).filter(letter => (letter.valid && letter.mature)).toArray();
 }
 
+export function getPenalties(): Promise<LetterTemplate[]> {
+    return db.letterTemplates.filter(letter => letter.penalized).sortBy('penalizedTime');
+}
+
 export async function getToRepeatLetterTemplatesByLessonId(lessonId: string): Promise<LetterTemplate[]> {
     return await db.letterTemplates.where({ lesson: lessonId }).filter(letter => letter.toRepeat).toArray();
 }
