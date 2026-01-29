@@ -103,11 +103,11 @@ Here is a list of user actions tracked by Slonig:
 | ✅ | TUTORING | TEACH_ALGO | provide_fake_solution | N/A |
 | ✅ | TUTORING | TEACH_ALGO | correct_fake_solution | N/A |
 | ✅ | TUTORING | TEACH_ALGO | decide_was_it_perfect_today | N/A |
-| ✅ | TUTORING | TEACH_ALGO | mark_mastered_warm_up | N/A |
-| ✅ | TUTORING | TEACH_ALGO | mark_mastered_mature | N/A |
-| ✅ | TUTORING | TEACH_ALGO | mark_mastered_crude | N/A |
-| ✅ | TUTORING | TEACH_ALGO | mark_for_repeat_mature | N/A |
-| ✅ | TUTORING | TEACH_ALGO | mark_for_repeat_crude | N/A |
+| ✅ | TUTORING | TEACH_END | mark_mastered_warm_up | N/A |
+| ✅ | TUTORING | TEACH_END | mark_mastered_mature | N/A |
+| ✅ | TUTORING | TEACH_END | mark_mastered_crude | N/A |
+| ✅ | TUTORING | TEACH_END | mark_for_repeat_mature | N/A |
+| ✅ | TUTORING | TEACH_END | mark_for_repeat_crude | N/A |
 | ✅ | TUTORING | TEACH_ALGO | click_instant_mark_mastered | N/A |
 | ✅ | TUTORING | TEACH_ALGO | click_instant_mark_for_repeat | N/A |
 | ✅ | TUTORING | LESSON_RESULTS | lesson_auto_send_opened | amount |

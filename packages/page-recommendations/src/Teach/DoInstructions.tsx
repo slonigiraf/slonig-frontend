@@ -81,9 +81,9 @@ function DoInstructions({ className = '', entity, tooFastWarning, pageWasJustRef
           if (isComponentMounted) {
             setSkill(skill);
             if (isLetterTemplate(entity)) {
-              const variation: TutoringAlgorithmType = tooFastWarning ? 'with_too_fast_warning' : 
-              !hasTutorCompletedTutorial ? 'tutorial' : 
-              pageWasJustRefreshed? 'no_stat' : 'with_stat';
+              const variation: TutoringAlgorithmType = tooFastWarning ? 'with_too_fast_warning' :
+                !hasTutorCompletedTutorial ? 'tutorial' :
+                  pageWasJustRefreshed ? 'no_stat' : 'with_stat';
 
               const newAlgorithm = new TutoringAlgorithm(
                 {
@@ -103,9 +103,9 @@ function DoInstructions({ className = '', entity, tooFastWarning, pageWasJustRef
               setAlgorithmType('TEACH_ALGO');
               setAlgorithmStage(newAlgorithm.getBegin());
             } else {
-              const variation: ValidatingAlgorithmType = tooFastWarning ? 'with_too_fast_warning' : 
-              lesson?.reexamineStep === 0 ? 'intro' : 
-              pageWasJustRefreshed? 'no_stat' : 'with_stat';
+              const variation: ValidatingAlgorithmType = tooFastWarning ? 'with_too_fast_warning' :
+                lesson?.reexamineStep === 0 ? 'intro' :
+                  pageWasJustRefreshed ? 'no_stat' : 'with_stat';
 
               const newAlgorithm = new ValidatingAlgorithm(
                 {
@@ -140,22 +140,19 @@ function DoInstructions({ className = '', entity, tooFastWarning, pageWasJustRef
 
   const processLetter = useCallback(async (isValid?: boolean) => {
     if (!isLetterTemplate(entity)) return;
+    const { template, matureInfo } = await getMatureInfo();
 
-    const template = await getLetterTemplate(entity.lesson, entity.stage);
     if (!template) {
       onResult(async () => { }, undefined);
       return;
     }
 
     const valid = (template.cid === EXAMPLE_SKILL_KNOWLEDGE_CID) || (isValid ?? !template.toRepeat);
-
-    const matureInfo = template.cid === EXAMPLE_SKILL_KNOWLEDGE_CID ? 'warm_up' : template.mature ? 'mature' : 'crude';
-
-    const action: TutorAction = valid ? `mark_mastered_${matureInfo}` : `mark_for_repeat_${matureInfo}`;
+    const action: TutorAction = (valid ? `mark_mastered_${matureInfo}` : `mark_for_repeat_${matureInfo}`) as TutorAction;
 
     onResult(async () => {
-      const timeSpent = Math.round((Date.now()-lastStageEndTime)/1000);
-      logEvent('TUTORING', algorithmType, action, timeSpent); // algorithmType is always the same
+      const timeSpent = Math.round((Date.now() - lastStageEndTime) / 1000);
+      logEvent('TUTORING', 'TEACH_END', action, timeSpent); // algorithmType is always the same
       await putLetterTemplate({
         ...template,
         valid,
@@ -177,13 +174,26 @@ function DoInstructions({ className = '', entity, tooFastWarning, pageWasJustRef
     }
   }, [isLetterTemplate, entity, putLetterTemplate]);
 
+  const getMatureInfo = useCallback(async () => {
+    const template = await getLetterTemplate(entity.lesson, entity.stage);
+    if (!template) {
+      return { template: undefined, matureInfo: undefined };
+    }
+    const matureInfo = template.cid === EXAMPLE_SKILL_KNOWLEDGE_CID ? 'warm_up' : template.mature ? 'mature' : 'crude';
+    return { template, matureInfo };
+  }, []);
+
   const repeatTomorrow = useCallback(async () => {
-    logEvent('TUTORING', 'TEACH_ALGO', 'click_instant_mark_for_repeat');
+    const timeSpent = Math.round((Date.now() - lastStageEndTime) / 1000);
+    const { matureInfo } = await getMatureInfo();
+    logEvent('TUTORING', 'TEACH_END', `click_instant_mark_for_repeat_${matureInfo}`, timeSpent);
     await processLetter(false);
   }, [processLetter, logEvent]);
 
   const issueDiploma = useCallback(async () => {
-    logEvent('TUTORING', 'TEACH_ALGO', 'click_instant_mark_mastered');
+    const timeSpent = Math.round((Date.now() - lastStageEndTime) / 1000);
+    const { matureInfo } = await getMatureInfo();
+    logEvent('TUTORING', 'TEACH_ALGO', `click_instant_mark_mastered_${matureInfo}`, timeSpent);
     await processLetter(true);
   }, [processLetter, logEvent]);
 
@@ -257,7 +267,7 @@ function DoInstructions({ className = '', entity, tooFastWarning, pageWasJustRef
 
   const handleStageChange = useCallback(async (nextStage: AlgorithmStage | null) => {
     if (nextStage !== null && algorithmStage) {
-      const timeSpent = Math.round((Date.now()-lastStageEndTime)/1000);
+      const timeSpent = Math.round((Date.now() - lastStageEndTime) / 1000);
       setIsButtonClicked(true);
       const logStageTime = () => {
         logEvent('TUTORING', algorithmType, algorithmStage.type, timeSpent);
@@ -387,7 +397,8 @@ function DoInstructions({ className = '', entity, tooFastWarning, pageWasJustRef
                                 key='studentPassedReexamination'
                                 label={t('Tutee has the skill')}
                                 onClick={() => {
-                                  logEvent('TUTORING', 'REEXAMINE_ALGO', 'click_instant_validate');
+                                  const timeSpent = Math.round((Date.now() - lastStageEndTime) / 1000);
+                                  logEvent('TUTORING', 'REEXAMINE_ALGO', 'click_instant_validate', timeSpent);
                                   studentPassedReexamination();
                                 }}
                               />
@@ -397,7 +408,8 @@ function DoInstructions({ className = '', entity, tooFastWarning, pageWasJustRef
                                 key='studentFailedReexamination'
                                 label={t('Tutee failed the reexamination')}
                                 onClick={() => {
-                                  logEvent('TUTORING', 'REEXAMINE_ALGO', 'click_instant_revoke');
+                                  const timeSpent = Math.round((Date.now() - lastStageEndTime) / 1000);
+                                  logEvent('TUTORING', 'REEXAMINE_ALGO', 'click_instant_revoke', timeSpent);
                                   studentFailedReexamination();
                                 }}
                               />
