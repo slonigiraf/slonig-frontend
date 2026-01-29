@@ -11,7 +11,7 @@ interface Props {
 function BadgeCheck({ className = '', item, caption }: Props): React.ReactElement<Props> {
   const studentHasValidDiplomaForThisSkill = item.validDiplomas.length > 0;
   const showIcon = studentHasValidDiplomaForThisSkill || item.shouldBeRepeated;
-  const icon = studentHasValidDiplomaForThisSkill ? 'check' : 'rotate';
+  const icon = studentHasValidDiplomaForThisSkill ? 'trophy' : 'rotate';
   return (
     <span>
       {showIcon && <><Icon icon={icon} color='gray'/>&nbsp;&nbsp;{caption}</>}
