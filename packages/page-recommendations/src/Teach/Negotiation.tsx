@@ -69,10 +69,11 @@ function Negotiation({ className = '', lesson, updateAndStoreLesson, onClose }: 
     } else {
       if (lesson) {
         if (priceInputValue.toString() !== lesson.dPrice) {
-          logEvent('SETTINGS', 'DIPLOMA_PRICE_SET', 'diploma_price_set_to_slon', bnToSlonFloatOrNaN(priceInputValue));
-        }
-        if (amountInputValue.toString() !== lesson.dWarranty) {
-          logEvent('SETTINGS', 'DIPLOMA_WARRANTY_SET', 'diploma_warranty_set_to_slon', bnToSlonFloatOrNaN(amountInputValue))
+          logEvent('TUTORING', 'NEGOTIATION', 'negotiation_price_set_to_slon', bnToSlonFloatOrNaN(priceInputValue));
+          logEvent('TUTORING', 'NEGOTIATION', 'negotiation_warranty_set_to_slon', bnToSlonFloatOrNaN(amountInputValue));
+        } else {
+          logEvent('TUTORING', 'NEGOTIATION', 'negotiation_default_price_slon', bnToSlonFloatOrNaN(priceInputValue));
+          logEvent('TUTORING', 'NEGOTIATION', 'negotiation_default_warranty_slon', bnToSlonFloatOrNaN(amountInputValue));
         }
         const updatedLesson: Lesson = {
           ...lesson,
@@ -90,17 +91,15 @@ function Negotiation({ className = '', lesson, updateAndStoreLesson, onClose }: 
       <StyledDiv>
         <h1>{t('Make a deal with your student on how much they will pay you for teaching one skill and issuing a skill badge.')}</h1>
         <InputDiv>
-          <div className='ui--row'>
-            <InputBalance
-              isZeroable
-              label={t('my reward per badge')}
-              onChange={setPriceInput}
-              defaultValue={lesson ? new BN(lesson.dPrice) : BN_ZERO}
-            />
-          </div>
+          <InputBalance
+            isZeroable
+            label={t('price per badge')}
+            onChange={setPriceInput}
+            defaultValue={lesson ? new BN(lesson.dPrice) : BN_ZERO}
+          />
 
           <span>
-            {t('I will lose {{amount}} Slon if I issue a badge too early and the student forgets the skill.', {replace: {amount: bnToSlonFloatOrNaN(amountInputValue)}}) +
+            {t('I will lose {{amount}} Slon if I issue a badge too early and the student forgets the skill.', { replace: { amount: bnToSlonFloatOrNaN(amountInputValue) } }) +
               (!maxTransfer ? '' : ' ' + t('I have {{balance}} Slon now.', { replace: { balance: bnToSlonFloatOrNaN(maxTransfer ? maxTransfer : BN_ZERO) } }))
             }
           </span>
@@ -133,8 +132,13 @@ const InputDiv = styled.div`
   display: flex;
   flex-direction: column;
   justify-content: center;
-  align-items: flex-start;
-  width: 90%;
+  align-items: center;
+
+  .ui--InputBalance{
+    width: 60%;
+  }
+  width: 100%;
+
   span {
     padding-left: 50px;
     padding-right: 20px;

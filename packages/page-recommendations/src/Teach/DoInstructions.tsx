@@ -48,6 +48,7 @@ function DoInstructions({ className = '', entity, tooFastWarning, pageWasJustRef
   const [areButtonsBlured, setButtonsBlured] = useState(true);
   const [tooFastConfirmationIsShown, setTooFastConfirmationIsShown] = useState(false);
   const [processedStages, setProcessedStages] = useState(0);
+  const [lastStageEndTime, setLastStageEndTime] = useState<number>(Date.now());
 
   const isLetterTemplate = useCallback((entity: LetterTemplate | Reexamination) => {
     return 'knowledgeId' in entity;
@@ -98,9 +99,6 @@ function DoInstructions({ className = '', entity, tooFastWarning, pageWasJustRef
 
               if (hasTutorCompletedTutorial || skill.i === EXAMPLE_SKILL_KNOWLEDGE_ID) {
                 logStartEvent('TEACH_START');
-                setTimeout(() => {
-                  logEvent('TUTORING', 'TEACH_ALGO', newAlgorithm.getBegin().type);
-                }, 500);
               }
               setAlgorithmType('TEACH_ALGO');
               setAlgorithmStage(newAlgorithm.getBegin());
@@ -120,9 +118,6 @@ function DoInstructions({ className = '', entity, tooFastWarning, pageWasJustRef
                 });
 
               logStartEvent('REEXAMINE_START');
-              setTimeout(() => {
-                logEvent('TUTORING', 'REEXAMINE_ALGO', newAlgorithm.getBegin().type);
-              }, 500);
               setAlgorithmType('REEXAMINE_ALGO');
               setAlgorithmStage(newAlgorithm.getBegin());
             }
@@ -261,8 +256,12 @@ function DoInstructions({ className = '', entity, tooFastWarning, pageWasJustRef
   }, [lastPressingNextButtonTime, logEvent, setTooFastConfirmationIsShown, setButtonsBlured]);
 
   const handleStageChange = useCallback(async (nextStage: AlgorithmStage | null) => {
-    if (nextStage !== null) {
+    if (nextStage !== null && algorithmStage) {
+      const timeSpent = Math.round((Date.now()-lastStageEndTime)/1000);
       setIsButtonClicked(true);
+      const logStageTime = () => {
+        logEvent('TUTORING', algorithmType, algorithmStage.type, timeSpent);
+      }
       if (hasStudenFailed(nextStage)) {
         await markLetterAsNotPerfect();
       }
@@ -271,33 +270,38 @@ function DoInstructions({ className = '', entity, tooFastWarning, pageWasJustRef
         refreshStageView();
       }
       if (isReexamination(entity) && nextStage.type === 'reimburse') {
-        logEvent('TUTORING', algorithmType, 'revoke');
+        logStageTime();
         studentFailedReexamination();
         refreshStageView();
       } else if (nextStage.type === 'skip') {
         preserveFromNoobs(() => {
-          logEvent('TUTORING', algorithmType, 'skip');
+          logStageTime();
           refreshStageView();
           onResult(async () => { }, 'skip');
         }, () => setIsButtonClicked(false));
       } else if (isLetterTemplate(entity) && (nextStage.type === 'next_skill')) {
+        logStageTime();
         await processLetter();
         refreshStageView();
       } else if (isLetterTemplate(entity) && (nextStage.type === 'repeat_tomorrow')) {
+        logStageTime();
         await processLetter(false);
         refreshStageView();
       } else if (isReexamination(entity) && nextStage.type === 'success') {
+        logStageTime();
         studentPassedReexamination();
         refreshStageView();
       } else {
-        logEvent('TUTORING', algorithmType, nextStage.type);
+        logStageTime();
         setAlgorithmStage(nextStage);
         refreshStageView();
         setIsButtonClicked(false);
       }
     }
+    setLastStageEndTime(Date.now());
   }, [algorithmStage,
     entity,
+    lastStageEndTime,
     t,
     showInfo,
     refreshStageView,

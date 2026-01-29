@@ -130,8 +130,10 @@ Here is a list of user actions tracked by Slonig:
 | ✅ | QR | CLICK_COPY_QR | N/A | N/A |
 | ✅ | SETTINGS | CLASS_ONBOARDING_OFF | N/A | N/A |
 | ✅ | SETTINGS | CLASS_ONBOARDING_ON | N/A | N/A |
-| ✅ | SETTINGS | DIPLOMA_PRICE_SET | diploma_price_set_to_slon | amount |
-| ✅ | SETTINGS | DIPLOMA_WARRANTY_SET | diploma_warranty_set_to_slon | amount |
+| ✅ | TUTORING | NEGOTIATION | negotiation_price_set_to_slon | amount |
+| ✅ | TUTORING | NEGOTIATION | negotiation_warranty_set_to_slon | amount |
+| ✅ | TUTORING | NEGOTIATION | negotiation_default_price_slon | amount |
+| ✅ | TUTORING | NEGOTIATION | negotiation_default_warranty_slon | amount |
 | ✅ | SETTINGS | DIPLOMA_VALIDITY_SET | diploma_validity_set_to_days | count |
 | ✅ | SETTINGS | INSURANCE_VALIDITY_SET | insurance_validity_set_to_days | count |
 | ✅ | SETTINGS | CLICK_RESET_TO_DEFAULT | N/A | N/A |
