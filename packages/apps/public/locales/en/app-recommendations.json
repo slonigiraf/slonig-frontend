@@ -135,5 +135,8 @@
   "Make a deal with your student on how much they will pay you for teaching one skill and issuing a skill badge.": "Make a deal with your student on how much they will pay you for teaching one skill and issuing a skill badge.",
   "I will lose {{amount}} Slon if I issue a badge too early and the student forgets the skill.": "I will lose {{amount}} Slon if I issue a badge too early and the student forgets the skill.",
   "I have {{balance}} Slon now.": "I have {{balance}} Slon now.",
-  "We made a deal": "We made a deal"
+  "We made a deal": "We made a deal",
+  "price per badge": "price per badge",
+  "Help your student identify what they have learned wrongly from bad tutors. If you find a problem, the bad tutor will automatically send you a bonus.": "Help your student identify what they have learned wrongly from bad tutors. If you find a problem, the bad tutor will automatically send you a bonus.",
+  "Before teaching:": "Before teaching:"
 }
