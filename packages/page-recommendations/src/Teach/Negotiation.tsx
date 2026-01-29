@@ -88,7 +88,7 @@ function Negotiation({ className = '', lesson, updateAndStoreLesson, onClose }: 
   return (
     <FullscreenActivity caption={''} onClose={onClose}>
       <StyledDiv>
-        <h1>{t('Negotiate with your student how much they will pay you for teaching one skill and issuing a skill badge')}</h1>
+        <h1>{t('Make a deal with your student on how much they will pay you for teaching one skill and issuing a skill badge.')}</h1>
         <InputDiv>
           <div className='ui--row'>
             <InputBalance
