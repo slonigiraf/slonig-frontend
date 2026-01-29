@@ -45,7 +45,7 @@ function LessonResults({ className = '', lesson, updateAndStoreLesson, onClose, 
   //   student name
   const [priceInputValue, setPriceInputValue] = useState<BN>(lesson ? new BN(lesson.dPrice) : BN_ZERO);
   const [amountInputValue, setAmountInputValue] = useState<BN>(lesson ? new BN(lesson.dWarranty) : BN_ZERO);
-  const [daysInput, setDaysInput] = useState<string>(lesson ? lesson.dValidity.toString() : "0"); //To allow empty strings
+  
   const [countOfValidLetters, setCountOfValidLetters] = useState<number | null>(null);
   const [countOfRepetitions, setCountOfRepetitions] = useState<number | null>(null);
   const [countOfReexaminationsPerformed, setCountOfReexaminationsPerformed] = useState<number | null>(null);
@@ -106,11 +106,11 @@ function LessonResults({ className = '', lesson, updateAndStoreLesson, onClose, 
     }
   }, [setPriceInputValue, defaultWarrantyBN]);
 
-  const isWrongDaysInput = !daysInput || !(parseInt(daysInput) > 0);
+  
   const saveLessonSettings = useCallback(async (): Promise<void> => {
-    const days = parseInt(daysInput, 10);
+    
 
-    if (!amountInputValue || amountInputValue.eq(BN_ZERO) || isWrongDaysInput) {
+    if (!amountInputValue || amountInputValue.eq(BN_ZERO)) {
       showInfo(t('Correct the errors highlighted in red'), 'error');
     } else {
       if (lesson) {
@@ -120,20 +120,17 @@ function LessonResults({ className = '', lesson, updateAndStoreLesson, onClose, 
         if (amountInputValue.toString() !== lesson.dWarranty) {
           logEvent('SETTINGS', 'DIPLOMA_WARRANTY_SET', 'diploma_warranty_set_to_slon', bnToSlonFloatOrNaN(amountInputValue))
         }
-        if (days !== lesson.dValidity) {
-          logEvent('SETTINGS', 'DIPLOMA_VALIDITY_SET', 'diploma_validity_set_to_days', days);
-        }
+       
         const updatedLesson = {
           ...lesson,
           dPrice: priceInputValue.toString(),
           dWarranty: amountInputValue.toString(),
-          dValidity: days
         };
         updateAndStoreLesson(updatedLesson);
       }
       toggleVisibleDiplomaDetails();
     }
-  }, [priceInputValue, amountInputValue, daysInput, isWrongDaysInput, toggleVisibleDiplomaDetails, updateAndStoreLesson]);
+  }, [priceInputValue, amountInputValue, toggleVisibleDiplomaDetails, updateAndStoreLesson]);
 
   // Sign badge
   useEffect(() => {
