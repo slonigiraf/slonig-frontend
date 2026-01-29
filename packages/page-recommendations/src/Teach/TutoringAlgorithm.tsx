@@ -1,4 +1,4 @@
-import { AlgorithmStage } from './AlgorithmStage.js';
+import { AlgorithmStage, StageType } from './AlgorithmStage.js';
 import { Algorithm } from './Algorithm.js';
 import { Skill } from '@slonigiraf/slonig-components';
 import ExampleExercisesButton from './ExampleExercisesButton.js';
@@ -36,7 +36,7 @@ class TutoringAlgorithm extends Algorithm {
         // Initialize all stages
         const issueBadge = new AlgorithmStage(
             5,
-            'decide_about_badge',
+            StageType.decide_about_badge,
             t('Yes'),
             [],
             t('I risk losing {{stake}} Slon if {{name}} forgets this skill. I’m awarding a badge for this skill.', { replace: { name: studentName, stake: stake } })
@@ -44,14 +44,14 @@ class TutoringAlgorithm extends Algorithm {
 
         const repeatTomorrow = new AlgorithmStage(
             -1,
-            'repeat_tomorrow',
+            StageType.repeat_tomorrow,
             t('No'),
             []
         );
 
         const askStudentToRepeatTheAnswer = new AlgorithmStage(
             5,
-            'correct_fake_solution',
+            StageType.correct_fake_solution,
             t('No'),
             [
                 { title: t('📖 Read what’s happening'), text: t('The tutee has not corrected me.') },
@@ -63,7 +63,7 @@ class TutoringAlgorithm extends Algorithm {
 
         const askStudentToRepeatTheSolutionOfExerciseOfTutor = new AlgorithmStage(
             0,
-            'ask_to_repeat_example_solution',
+            StageType.ask_to_repeat_example_solution,
             t('No'),
             [
                 { title: t('📖 Read what’s happening'), text: t('The tutee has not executed the exercise correctly.') },
@@ -74,7 +74,7 @@ class TutoringAlgorithm extends Algorithm {
 
         const provideFakeAnswer = new AlgorithmStage(
             2,
-            'provide_fake_solution',
+            StageType.provide_fake_solution,
             t('Yes'),
             [
                 { title: t('📖 Read what’s happening'), text: t('The tutee has created an exercise.') },
@@ -86,7 +86,7 @@ class TutoringAlgorithm extends Algorithm {
 
         const askToRepeatTaskAfterMe = new AlgorithmStage(
             2,
-            'ask_to_repeat_similar_exercise',
+            StageType.ask_to_repeat_similar_exercise,
             t('No'),
             [
                 { title: t('📖 Read what’s happening'), text: t('The tutee has not created a similar exercise.') },
@@ -97,14 +97,14 @@ class TutoringAlgorithm extends Algorithm {
 
         const skip = new AlgorithmStage(
             -1,
-            'skip',
+            StageType.skip,
             t('Skip'),
             []
         );
 
         const askStudentToCreateASimilarExercise = new AlgorithmStage(
             1,
-            'begin_ask_to_create_similar_exercise',
+            StageType.begin_ask_to_create_similar_exercise,
             t('Yes'),
             [
                 { title: t('📖 Read what’s happening'), text: t('You’ve refreshed your memory about the skill: {{skillName}}', { replace: { skillName: skill.h } }) },
@@ -116,7 +116,7 @@ class TutoringAlgorithm extends Algorithm {
 
         const findPatterns = new AlgorithmStage(
             1,
-            'find_patterns',
+            StageType.find_patterns,
             t('Continue'),
             [
                 { title: t('📖 Read what’s happening'), text: t('{{name}} asks you to teach the skill: {{skillName}}', { replace: { name: studentName, skillName: skill.h } }) },
@@ -128,7 +128,7 @@ class TutoringAlgorithm extends Algorithm {
         //Use only if student never used Slonig
         const intro = new AlgorithmStage(
             0,
-            'first_time_intro',
+            StageType.first_time_intro,
             t('Yes'),
             [
                 { title: t('📖 Read what’s happening'), text: t('You are a tutor. The app will show you how to teach the student who showed you a QR code.') },
@@ -139,7 +139,7 @@ class TutoringAlgorithm extends Algorithm {
         // Stat for users that know how to use it.
         const stat = new AlgorithmStage(
             0,
-            'see_statistics',
+            StageType.see_statistics,
             t('Yes'),
             [
                 { title: t('📖 Read what’s happening'), text: '', reactNode: <LessonProcessInfo lesson={lesson} /> },
@@ -148,7 +148,7 @@ class TutoringAlgorithm extends Algorithm {
 
         const askToCreateAnExerciseAfterCompletionOfExerciseOfTutor = new AlgorithmStage(
             1,
-            'ask_to_create_similar_exercise',
+            StageType.ask_to_create_similar_exercise,
             t('Yes'),
             [
                 { title: t('📖 Read what’s happening'), text: t('The tutee has executed the exercise correctly.') },
@@ -160,7 +160,7 @@ class TutoringAlgorithm extends Algorithm {
 
         const askStudentToSolveAnExercise = new AlgorithmStage(
             1,
-            'begin_ask_to_solve_exercise',
+            StageType.begin_ask_to_solve_exercise,
             t('Start'),
             [
                 { title: t('📖 Read what’s happening'), text: t('You’ve refreshed your memory about the skill: {{skillName}}', { replace: { skillName: skill.h } }) },
@@ -172,7 +172,7 @@ class TutoringAlgorithm extends Algorithm {
 
         const repeatFromTheBeginning = new AlgorithmStage(
             1,
-            'cycle_ask_to_create_similar_exercise',
+            StageType.cycle_ask_to_create_similar_exercise,
             t('Yes'),
             [
                 { title: t('📖 Read what’s happening'), text: t('The tutee has repeated correctly after me.') },
@@ -184,14 +184,14 @@ class TutoringAlgorithm extends Algorithm {
 
         const toNextSkill = new AlgorithmStage(
             -1,
-            'next_skill',
+            StageType.next_skill,
             canIssueBadge ? t('Risk') : t('Yes'),
             []
         );
 
         const tooFast = new AlgorithmStage(
             0,
-            'too_fast_warning',
+            StageType.too_fast_warning,
             t('Yes'),
             [
                 { title: t('📖 Read what’s happening'), text: '', reactNode: <TooFastWarning /> },

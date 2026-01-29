@@ -344,6 +344,10 @@ function Teach({ className = '' }: Props): React.ReactElement<Props> {
     }
   }, [lesson, updateAndStoreLesson]);
 
+  const resetTimer = useCallback(() => {
+    setLastSkillDiscussedTime(Date.now());
+  }, [setLastSkillDiscussedTime]);
+
   const publicKeyHex = currentPair ? u8aToHex(currentPair.publicKey) : "";
 
   // Don't do reexaminations if the tutor is a first time tutor
@@ -384,7 +388,7 @@ function Teach({ className = '' }: Props): React.ReactElement<Props> {
             hasTutorCompletedTutorial={hasTutorCompletedTutorial}
             onResult={updateReexamined}
             studentName={studentName ?? ''}
-            showIntro={lesson?.reexamineStep === 0}
+            resetTimer={resetTimer}
             stake={bnToSlonString(new BN(reexaminationToPerform.amount ?? 0))}
             isTutorial={isTutorial}
             isSendingResultsEnabled={isSendingResultsEnabled}
@@ -396,6 +400,7 @@ function Teach({ className = '' }: Props): React.ReactElement<Props> {
             tooFastWarning={tooFastConfirmationIsShown}
             pageWasJustRefreshed={pageWasJustRefreshed}
             lesson={lesson}
+            resetTimer={resetTimer}
             hasTuteeUsedSlonig={hasTuteeUsedSlonig}
             hasTutorCompletedTutorial={hasTutorCompletedTutorial}
             onResult={updateLearned}

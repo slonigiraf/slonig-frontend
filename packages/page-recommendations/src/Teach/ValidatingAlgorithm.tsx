@@ -1,4 +1,4 @@
-import { AlgorithmStage } from './AlgorithmStage.js';
+import { AlgorithmStage, StageType } from './AlgorithmStage.js';
 import { Algorithm } from './Algorithm.js';
 import type { Skill } from '@slonigiraf/slonig-components';
 import ExampleExercisesButton from './ExampleExercisesButton.js';
@@ -31,7 +31,7 @@ class ValidatingAlgorithm extends Algorithm {
         // Initialize all stages
         const validateDiploma = new AlgorithmStage(
             7,
-            'validate',
+            StageType.validate,
             t('Yes'),
             [
                 { title: t('🗣 Say to the tutee'), text: t('Great, you remember the skill.') },
@@ -40,7 +40,7 @@ class ValidatingAlgorithm extends Algorithm {
 
         const explainReimburse = new AlgorithmStage(
             7,
-            'explain_reimburse',
+            StageType.explain_reimburse,
             t('No'),
             [
                 { title: t('🗣 Say to the tutee'), text: t('You don’t have such a skill. I will penalize the tutor which issued the badge for it.') },
@@ -49,28 +49,28 @@ class ValidatingAlgorithm extends Algorithm {
 
         const skip = new AlgorithmStage(
             -1,
-            'skip',
+            StageType.skip,
             t('Skip'),
             []
         );
 
         const nextToTeaching = new AlgorithmStage(
             -1,
-            'success',
+            StageType.success,
             t('Next'),
             []
         );
 
         const reimburse = new AlgorithmStage(
             8,
-            'reimburse',
+            StageType.reimburse,
             t('Get bounty'),
             []
         );
 
         const provideFakeSolution = new AlgorithmStage(
             2,
-            'provide_fake_solution',
+            StageType.provide_fake_solution,
             t('Yes'),
             [
                 { title: t('📖 Read what’s happening'), text: t('The tutee has created an exercise.') },
@@ -82,7 +82,7 @@ class ValidatingAlgorithm extends Algorithm {
 
         const askToRepeatTheExerciseAfterMe = new AlgorithmStage(
             3,
-            'ask_to_repeat_similar_exercise',
+            StageType.ask_to_repeat_similar_exercise,
             t('No'),
             [
                 { title: t('📖 Read what’s happening'), text: t('The tutee has not created a similar exercise.') },
@@ -94,7 +94,7 @@ class ValidatingAlgorithm extends Algorithm {
 
         const askToCreateSimilarExercise = new AlgorithmStage(
             1,
-            'ask_to_create_similar_exercise',
+            StageType.ask_to_create_similar_exercise,
             t('Yes'),
             [
                 {
@@ -111,7 +111,7 @@ class ValidatingAlgorithm extends Algorithm {
 
         const intro = new AlgorithmStage(
             0,
-            'encourage_penalization',
+            StageType.encourage_penalization,
             t('Yes'),
             [
                 { title: t('📖 Read what’s happening'), 
@@ -122,7 +122,7 @@ class ValidatingAlgorithm extends Algorithm {
 
         const stat = new AlgorithmStage(
             0,
-            'see_statistics',
+            StageType.see_statistics,
             t('Yes'),
             [
                 { title: t('📖 Read what’s happening'), text: '', reactNode: <LessonProcessInfo lesson={lesson} /> },
@@ -131,7 +131,7 @@ class ValidatingAlgorithm extends Algorithm {
 
         const tooFast = new AlgorithmStage(
             0,
-            'too_fast_warning',
+            StageType.too_fast_warning,
             t('Yes'),
             [
                 { title: t('📖 Read what’s happening'), text: '', reactNode: <TooFastWarning /> },
@@ -140,7 +140,7 @@ class ValidatingAlgorithm extends Algorithm {
 
         const repeatFromTheBeginning = new AlgorithmStage(
             1,
-            'cycle_ask_to_create_similar_exercise',
+            StageType.cycle_ask_to_create_similar_exercise,
             t('Yes'),
             [
                 { title: t('📖 Read what’s happening'), text: t('The tutee has repeated correctly after me.') },
@@ -152,7 +152,7 @@ class ValidatingAlgorithm extends Algorithm {
 
         const findPatterns = new AlgorithmStage(
             1,
-            'find_patterns',
+            StageType.find_patterns,
             t('Continue'),
             [
                 {

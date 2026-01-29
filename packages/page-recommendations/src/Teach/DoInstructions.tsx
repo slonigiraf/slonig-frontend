@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import React, { useState, useEffect, useCallback } from 'react';
-import { AlgorithmStage } from './AlgorithmStage.js';
+import { AlgorithmStage, StageType } from './AlgorithmStage.js';
 import { Button, Menu, Popup, Spinner, styled } from '@polkadot/react-components';
 import type { Skill } from '@slonigiraf/slonig-components';
 import { ValidatingAlgorithm, ValidatingAlgorithmType } from './ValidatingAlgorithm.js';
@@ -27,15 +27,15 @@ interface Props {
   studentName: string;
   stake?: string;
   hasTuteeUsedSlonig: boolean;
-  showIntro?: boolean;
   isSendingResultsEnabled: boolean | null | undefined;
   isBeforeTeaching?: boolean;
+  resetTimer: () => void;
   isTutorial: boolean;
 }
 
 type AlgorithmType = '' | 'TEACH_ALGO' | 'REEXAMINE_ALGO';
 
-function DoInstructions({ className = '', entity, anythingToLearn = true, tooFastWarning, pageWasJustRefreshed, lesson, onResult, studentName, stake = '', isSendingResultsEnabled, hasTuteeUsedSlonig, hasTutorCompletedTutorial, showIntro = false, isTutorial }: Props): React.ReactElement<Props> {
+function DoInstructions({ className = '', entity, anythingToLearn = true, resetTimer, tooFastWarning, pageWasJustRefreshed, lesson, onResult, studentName, stake = '', isSendingResultsEnabled, hasTuteeUsedSlonig, hasTutorCompletedTutorial, isTutorial }: Props): React.ReactElement<Props> {
   const { ipfs, isIpfsReady } = useIpfsContext();
   const [skill, setSkill] = useState<Skill>();
   const { t } = useTranslation();
@@ -241,8 +241,8 @@ function DoInstructions({ className = '', entity, anythingToLearn = true, tooFas
 
   const hasStudenFailed = (stage: AlgorithmStage): boolean => {
     if (!hasTutorCompletedTutorial) return false;
-    if (stage.type === 'correct_fake_solution' ||
-      stage.type === 'ask_to_repeat_similar_exercise'
+    if (stage.getType() === StageType.correct_fake_solution ||
+      stage.getType() === StageType.ask_to_repeat_similar_exercise
     ) {
       return true;
     }
@@ -269,10 +269,14 @@ function DoInstructions({ className = '', entity, anythingToLearn = true, tooFas
 
   const handleStageChange = useCallback(async (nextStage: AlgorithmStage | null) => {
     if (nextStage !== null && algorithmStage) {
+      if (algorithmStage.getType() === StageType.see_statistics || 
+      algorithmStage.getType() === StageType.too_fast_warning) {
+        resetTimer();
+      }
       const timeSpent = Math.round((Date.now() - lastStageEndTime) / 1000);
       setIsButtonClicked(true);
       const logStageTime = () => {
-        logEvent('TUTORING', algorithmType, algorithmStage.type, timeSpent);
+        logEvent('TUTORING', algorithmType, algorithmStage.getType().toString(), timeSpent);
       }
       if (hasStudenFailed(nextStage)) {
         await markLetterAsNotPerfect();
@@ -281,25 +285,25 @@ function DoInstructions({ className = '', entity, anythingToLearn = true, tooFas
         showInfo(t('Do this again'));
         refreshStageView();
       }
-      if (isReexamination(entity) && nextStage.type === 'reimburse') {
+      if (isReexamination(entity) && nextStage.getType() === StageType.reimburse) {
         logStageTime();
         studentFailedReexamination();
         refreshStageView();
-      } else if (nextStage.type === 'skip') {
+      } else if (nextStage.getType() === StageType.skip) {
         preserveFromNoobs(() => {
           logStageTime();
           refreshStageView();
           onResult(async () => { }, 'skip');
         }, () => setIsButtonClicked(false));
-      } else if (isLetterTemplate(entity) && (nextStage.type === 'next_skill')) {
+      } else if (isLetterTemplate(entity) && (nextStage.getType() === StageType.next_skill)) {
         logStageTime();
         await processLetter();
         refreshStageView();
-      } else if (isLetterTemplate(entity) && (nextStage.type === 'repeat_tomorrow')) {
+      } else if (isLetterTemplate(entity) && (nextStage.getType() === StageType.repeat_tomorrow)) {
         logStageTime();
         await processLetter(false);
         refreshStageView();
-      } else if (isReexamination(entity) && nextStage.type === 'success') {
+      } else if (isReexamination(entity) && nextStage.getType() === StageType.success) {
         logStageTime();
         studentPassedReexamination();
         refreshStageView();
@@ -384,10 +388,10 @@ function DoInstructions({ className = '', entity, anythingToLearn = true, tooFas
                     isDisabled={isButtonClicked}
                   />
                 ))}
-                {algorithmStage.getType() !== 'see_statistics' &&
-                  algorithmStage.getType() !== 'too_fast_warning' &&
-                  algorithmStage.getType() !== 'first_time_intro' &&
-                  algorithmStage.getType() !== 'encourage_penalization' &&
+                {algorithmStage.getType() !== StageType.see_statistics &&
+                  algorithmStage.getType() !== StageType.too_fast_warning &&
+                  algorithmStage.getType() !== StageType.first_time_intro &&
+                  algorithmStage.getType() !== StageType.encourage_penalization &&
                   (
                     <StyledPopup
                       value={

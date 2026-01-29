@@ -2,8 +2,16 @@ import { IMessage } from "@slonigiraf/slonig-components";
 import { stringToU8a } from '@polkadot/util';
 import { blake2AsHex } from '@polkadot/util-crypto';
 
+export enum StageType {
+    'decide_about_badge', 'repeat_tomorrow', 'correct_fake_solution', 'ask_to_repeat_example_solution',
+    'provide_fake_solution', 'ask_to_repeat_similar_exercise', 'skip', 'begin_ask_to_create_similar_exercise',
+    'find_patterns', 'first_time_intro', 'see_statistics', 'ask_to_create_similar_exercise', 'begin_ask_to_solve_exercise',
+    'cycle_ask_to_create_similar_exercise', 'next_skill', 'too_fast_warning', 'validate', 'explain_reimburse',
+    'success', 'reimburse', 'encourage_penalization',
+};
+
 class AlgorithmStage {
-    type: string;
+    private type: StageType;
     private name: string;
     private messages: IMessage[];
     private actionHint: string;
@@ -12,7 +20,7 @@ class AlgorithmStage {
     private previous: AlgorithmStage | null;
     private stageNumber: number;
 
-    constructor(stageNumber: number, type: string, name: string, messages: IMessage[], actionHint: string = '', chatDecorator: React.ReactNode = null) {
+    constructor(stageNumber: number, type: StageType, name: string, messages: IMessage[], actionHint: string = '', chatDecorator: React.ReactNode = null) {
         this.type = type;
         this.name = name;
         this.messages = messages;
@@ -25,14 +33,14 @@ class AlgorithmStage {
 
     getId(): string {
         let id = 'algorithmStage';
-        if(this.messages.length > 0){
+        if (this.messages.length > 0) {
             const joined = this.messages.map(m => m?.text ?? '').join('\u241F');
             id = blake2AsHex(stringToU8a(joined));
         }
         return id;
     }
 
-    getType(): string {
+    getType(): StageType {
         return this.type;
     }
 
