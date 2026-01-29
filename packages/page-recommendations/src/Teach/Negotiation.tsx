@@ -106,7 +106,7 @@ function Negotiation({ className = '', lesson, updateAndStoreLesson, onClose }: 
           </span>
 
         </InputDiv>
-        <Button className={'highlighted--button'} label={t('We negotiated')} onClick={saveLessonSettings} />
+        <Button className={'highlighted--button'} label={t('We made a deal')} onClick={saveLessonSettings} />
       </StyledDiv>
     </FullscreenActivity>
   );
