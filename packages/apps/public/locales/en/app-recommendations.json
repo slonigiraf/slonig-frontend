@@ -131,5 +131,9 @@
   "{{name}} asks you to teach the skill: {{skillName}}": "{{name}} asks you to teach the skill: {{skillName}}",
   "🧠 Don’t show it to tutee. Try to find patterns": "🧠 Don’t show it to tutee. Try to find patterns",
   "Ready to teach this skill?": "Ready to teach this skill?",
-  "Ready to examine this skill?": "Ready to examine this skill?"
+  "Ready to examine this skill?": "Ready to examine this skill?",
+  "Make a deal with your student on how much they will pay you for teaching one skill and issuing a skill badge.": "Make a deal with your student on how much they will pay you for teaching one skill and issuing a skill badge.",
+  "I will lose {{amount}} Slon if I issue a badge too early and the student forgets the skill.": "I will lose {{amount}} Slon if I issue a badge too early and the student forgets the skill.",
+  "I have {{balance}} Slon now.": "I have {{balance}} Slon now.",
+  "We made a deal": "We made a deal"
 }
