@@ -89,7 +89,7 @@ function Negotiation({ className = '', lesson, updateAndStoreLesson, onClose }: 
   return (
     <FullscreenActivity caption={''} onClose={onClose}>
       <StyledDiv>
-        <h1>{t('Make a deal with your student on how much they will pay you for teaching one skill and issuing a skill badge.')}</h1>
+        <h1>{t('Negotiate payment with your student')}</h1>
         <InputDiv>
           <InputBalance
             isZeroable
@@ -99,8 +99,9 @@ function Negotiation({ className = '', lesson, updateAndStoreLesson, onClose }: 
           />
 
           <span>
-            {t('I will lose {{amount}} Slon if I issue a badge too early and the student forgets the skill.', { replace: { amount: bnToSlonFloatOrNaN(amountInputValue) } }) +
-              (!maxTransfer ? '' : ' ' + t('I have {{balance}} Slon now.', { replace: { balance: bnToSlonFloatOrNaN(maxTransfer ? maxTransfer : BN_ZERO) } }))
+            {
+              t('I will lose {{amount}} Slon (from {{balance}}) if I issue a badge too early and my student forgets.',
+                { replace: { amount: bnToSlonFloatOrNaN(amountInputValue), balance: bnToSlonFloatOrNaN(maxTransfer ? maxTransfer : BN_ZERO) } })
             }
           </span>
 
@@ -135,14 +136,21 @@ const InputDiv = styled.div`
   align-items: center;
 
   .ui--InputBalance{
-    width: 60%;
+    width: 80%;
+    padding-left: 0px !important;
+    padding-right: 0px;
+  }
+
+  label {
+    position: relative !important;
+    left: 20px !important;
+    top: 25px !important;
   }
   width: 100%;
 
   span {
-    padding-left: 50px;
-    padding-right: 20px;
     opacity: 0.50;
+    width: 70%;
   }
 `;
 
