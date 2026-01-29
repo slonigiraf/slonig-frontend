@@ -98,8 +98,9 @@ function LessonResults({ className = '', lesson, updateAndStoreLesson, onClose, 
     if (value) {
       setPriceInputValue(value);
       setAmountInputValue(await warrantyFromPrice(value));
+      totalIncomeRef.current = countOfValidLetters? value.mul(new BN(countOfValidLetters)) : BN_ZERO;
     }
-  }, [setPriceInputValue, setAmountInputValue, warrantyFromPrice]);
+  }, [setPriceInputValue, setAmountInputValue, warrantyFromPrice, countOfValidLetters]);
 
   
   const saveLessonSettings = useCallback(async (): Promise<void> => {

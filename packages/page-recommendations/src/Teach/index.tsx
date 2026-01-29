@@ -14,6 +14,7 @@ import { useLocation } from 'react-router-dom';
 import { EXAMPLE_MODULE_KNOWLEDGE_CID, FAST_SKILL_DISCUSSION_MS, MAX_FAST_DISCUSSED_SKILLS_IN_ROW_COUNT, MAX_SAME_PARTNER_TIME_MS, MIN_SAME_PARTNER_TIME_MS, MIN_SKILL_DISCUSSION_MS, ONE_SUBJECT_PERIOD_MS } from '@slonigiraf/utils';
 import BN from 'bn.js';
 import { TutorAction } from 'db/src/db/Lesson.js';
+import Negotiation from './Negotiation.js';
 interface Props {
   className?: string;
 }
@@ -337,6 +338,12 @@ function Teach({ className = '' }: Props): React.ReactElement<Props> {
     await storeSetting(SettingKey.LAST_PARTNER_CHANGE_TIME, now.toString());
   }, [setIsPairChangeDialogueOpen, logEvent, storeSetting]);
 
+  const closeTrade = useCallback(() => {
+    if (lesson) {
+      updateAndStoreLesson({ ...lesson, wasPriceDiscussed: true });
+    }
+  }, [lesson, updateAndStoreLesson]);
+
   const publicKeyHex = currentPair ? u8aToHex(currentPair.publicKey) : "";
 
   // Don't do reexaminations if the tutor is a first time tutor
@@ -396,6 +403,8 @@ function Teach({ className = '' }: Props): React.ReactElement<Props> {
             isTutorial={isTutorial}
             isSendingResultsEnabled={isSendingResultsEnabled}
             key={'learn' + warningCount + letterTemplateToIssue.cid} />}
+        {lesson && !lesson.wasPriceDiscussed && (reexaminationToPerform || letterTemplateToIssue) &&
+          <Negotiation lesson={lesson} updateAndStoreLesson={updateAndStoreLesson} onClose={closeTrade} />}
         {lesson &&
           <SendResults $blur={isSendingResultsEnabled !== true}>
             {(hasTutorCompletedTutorial === false || isTutorial) && isSendingResultsEnabled === true &&
