@@ -151,6 +151,7 @@ const InputDiv = styled.div`
   span {
     opacity: 0.50;
     width: 70%;
+    font-size: 0.9rem;
   }
 `;
 
