@@ -287,7 +287,7 @@ function DoInstructions({ className = '', entity, anythingToLearn = true, resetT
       const timeSpent = Math.round((Date.now() - lastStageEndTime) / 1000);
       setIsButtonClicked(true);
       const logStageTime = () => {
-        logEvent('TUTORING', algorithmType, algorithmStage.getType().toString(), timeSpent);
+        logEvent('TUTORING', algorithmType, algorithmStage.getType(), timeSpent);
       }
       if (hasStudenFailed(nextStage)) {
         await markLetterAsNotPerfect();

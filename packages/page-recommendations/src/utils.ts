@@ -86,7 +86,7 @@ export interface ActionInfo {
 }
 
 export const actionToInfo = new Map<TutorAction, ActionInfo>([
-  ['skip', { icon: undefined, comment: '' }],
+  ['skip', { icon: 'forward', comment: 'You’ve skipped.' }],
 
   ['validate', { icon: 'shield', comment: 'You’ve validated a badge issued by another tutor.' }],
   ['revoke', { icon: 'shield-halved', comment: 'You’ve canceled the badge because the student forgot the skill.' }],

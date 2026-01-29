@@ -3,12 +3,28 @@ import { stringToU8a } from '@polkadot/util';
 import { blake2AsHex } from '@polkadot/util-crypto';
 
 export enum StageType {
-    'decide_about_badge', 'repeat_tomorrow', 'correct_fake_solution', 'ask_to_repeat_example_solution',
-    'provide_fake_solution', 'ask_to_repeat_similar_exercise', 'skip', 'begin_ask_to_create_similar_exercise',
-    'find_patterns', 'first_time_intro', 'see_statistics', 'ask_to_create_similar_exercise', 'begin_ask_to_solve_exercise',
-    'cycle_ask_to_create_similar_exercise', 'next_skill', 'too_fast_warning', 'validate', 'explain_reimburse',
-    'success', 'reimburse', 'encourage_penalization',
-};
+  decide_about_badge = 'decide_about_badge',
+  repeat_tomorrow = 'repeat_tomorrow',
+  correct_fake_solution = 'correct_fake_solution',
+  ask_to_repeat_example_solution = 'ask_to_repeat_example_solution',
+  provide_fake_solution = 'provide_fake_solution',
+  ask_to_repeat_similar_exercise = 'ask_to_repeat_similar_exercise',
+  skip = 'skip',
+  begin_ask_to_create_similar_exercise = 'begin_ask_to_create_similar_exercise',
+  find_patterns = 'find_patterns',
+  first_time_intro = 'first_time_intro',
+  see_statistics = 'see_statistics',
+  ask_to_create_similar_exercise = 'ask_to_create_similar_exercise',
+  begin_ask_to_solve_exercise = 'begin_ask_to_solve_exercise',
+  cycle_ask_to_create_similar_exercise = 'cycle_ask_to_create_similar_exercise',
+  next_skill = 'next_skill',
+  too_fast_warning = 'too_fast_warning',
+  validate = 'validate',
+  explain_reimburse = 'explain_reimburse',
+  success = 'success',
+  reimburse = 'reimburse',
+  encourage_penalization = 'encourage_penalization',
+}
 
 class AlgorithmStage {
     private type: StageType;

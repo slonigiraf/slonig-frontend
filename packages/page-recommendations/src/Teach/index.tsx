@@ -113,7 +113,7 @@ function Teach({ className = '' }: Props): React.ReactElement<Props> {
     setTooFastConfirmationIsShown(true);
   }, [warningCount, setWarningCount, setTooFastConfirmationIsShown]);
 
-  const protectTutor = useCallback(async (isLearning: boolean, action: () => Promise<void>) => {
+  const protectTutor = useCallback(async (isLearning: boolean, lastAction: TutorAction, action: () => Promise<void>) => {
     if (!lastSkillDiscussedTime) return;
 
     const now = (new Date()).getTime();
@@ -135,7 +135,9 @@ function Teach({ className = '' }: Props): React.ReactElement<Props> {
       );
     }
 
-    if (timeSpent < MIN_SKILL_DISCUSSION_MS) {
+    if (lastAction === 'skip') {
+      await action();
+    } else if (timeSpent < MIN_SKILL_DISCUSSION_MS) {
       logEvent('TUTORING',
         isLearning ? 'TOO_SHORT_TEACH' : 'TOO_SHORT_REEXAMINE',
         isLearning ? 'too_short_teach_time_sec' : 'too_short_reexamine_time_sec',
@@ -222,7 +224,7 @@ function Teach({ className = '' }: Props): React.ReactElement<Props> {
       const nextStep = lesson.reexamineStep + 1;
       if (nextStep <= lesson.toReexamineCount) {
         const updatedLesson = { ...lesson, lastAction, reexamineStep: nextStep };
-        await protectTutor(false, async () => {
+        await protectTutor(false, lastAction, async () => {
           await updater();
           await updateAndStoreLesson(updatedLesson);
         });
@@ -233,7 +235,7 @@ function Teach({ className = '' }: Props): React.ReactElement<Props> {
   const updateLearned = useCallback(async (updater: () => Promise<void>, lastAction: TutorAction) => {
     if (lesson && lesson.toLearnCount > lesson.learnStep) {
       const updatedLesson = { ...lesson, lastAction, learnStep: lesson.learnStep + 1 };
-      await protectTutor(true, async () => {
+      await protectTutor(true, lastAction, async () => {
         await updater();
         await updateAndStoreLesson(updatedLesson);
       });
