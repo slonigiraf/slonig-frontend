@@ -15,17 +15,15 @@ import { blake2AsHex } from '@polkadot/util-crypto';
 import { useLiveQuery } from 'dexie-react-hooks';
 import LessonProcessInfo from './LessonProcessInfo.js';
 import BadgeInfo from '../Assess/BadgeInfo.js';
+import { warrantyFromPrice } from '../utils.js';
 
 interface Props {
   className?: string;
   lesson: Lesson | null;
-  updateAndStoreLesson: (lesson: Lesson | null) => void;
+  updateAndStoreLesson: (lesson: Lesson | null) => Promise<void>;
   onClose: () => void;
   onFinished: () => void;
 }
-
-const divisor = new BN(100000000);
-const multiplier = new BN(119921875);
 
 function LessonResults({ className = '', lesson, updateAndStoreLesson, onClose, onFinished }: Props): React.ReactElement<Props> {
   // Initialize api, ipfs and translation
@@ -55,8 +53,6 @@ function LessonResults({ className = '', lesson, updateAndStoreLesson, onClose, 
   const [processingStatistics, setProcessingStatistics] = useState(true);
   const [processingQR, setProcessingQR] = useState(true);
   const [resultsWereSent, setResultsWereSent] = useState(false);
-  const defaultWarranty = useSettingValue(SettingKey.DIPLOMA_WARRANTY);
-  const defaultWarrantyBN = defaultWarranty ? new BN(defaultWarranty) : BN_ZERO;
 
   const { showInfo } = useInfo();
 
@@ -98,13 +94,12 @@ function LessonResults({ className = '', lesson, updateAndStoreLesson, onClose, 
     run();
   }, [resultsWereSent, lesson, paidLesson, onFinished]);
 
-  const setPriceInput = useCallback((value?: BN | undefined): void => {
+  const setPriceInput = useCallback(async (value?: BN | undefined) => {
     if (value) {
       setPriceInputValue(value);
-      const calculatedAmount = value.divRound(divisor).mul(multiplier);
-      setAmountInputValue(calculatedAmount.gt(defaultWarrantyBN) ? calculatedAmount : defaultWarrantyBN);
+      setAmountInputValue(await warrantyFromPrice(value));
     }
-  }, [setPriceInputValue, defaultWarrantyBN]);
+  }, [setPriceInputValue, setAmountInputValue, warrantyFromPrice]);
 
   
   const saveLessonSettings = useCallback(async (): Promise<void> => {
@@ -126,7 +121,7 @@ function LessonResults({ className = '', lesson, updateAndStoreLesson, onClose, 
           dPrice: priceInputValue.toString(),
           dWarranty: amountInputValue.toString(),
         };
-        updateAndStoreLesson(updatedLesson);
+        await updateAndStoreLesson(updatedLesson);
       }
       toggleVisibleDiplomaDetails();
     }

@@ -2,6 +2,8 @@ import { getSetting, SettingKey, storeSetting, TutorAction } from "@slonigiraf/d
 import { PartnersTodayResult, timeStampStringToNumber } from "@slonigiraf/slonig-components";
 import { ONE_SUBJECT_PERIOD_MS } from "@slonigiraf/utils";
 import type { IconName } from '@fortawesome/fontawesome-svg-core';
+import BN from 'bn.js';
+import { BN_ZERO } from "@polkadot/util";
 
 /**
  * Stores today's partners as a JSON array (history, can contain duplicates).
@@ -101,4 +103,13 @@ export const actionToInfo = new Map<TutorAction, ActionInfo>([
 
 export function getActionInfo(action: TutorAction): ActionInfo {
   return (action ? actionToInfo.get(action) : undefined) ?? { icon: undefined, comment: '' };
+}
+
+const divisor = new BN(100000000);
+const multiplier = new BN(119921875);
+export async function warrantyFromPrice(price: BN): Promise<BN> {
+  const defaultWarranty = await getSetting(SettingKey.DIPLOMA_WARRANTY);
+  const defaultWarrantyBN = defaultWarranty ? new BN(defaultWarranty) : BN_ZERO;
+  const calculatedAmount = price.divRound(divisor).mul(multiplier);
+  return calculatedAmount.gt(defaultWarrantyBN) ? calculatedAmount : defaultWarrantyBN;
 }
