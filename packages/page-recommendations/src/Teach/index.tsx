@@ -536,7 +536,7 @@ function Teach({ className = '' }: Props): React.ReactElement<Props> {
             <OKBox info={t('Tell the tutee to scan the same QR code.')} onClose={() => setIsHelpQRInfoShown(false)} />
           )}
           {
-            lesson && isPairChangeDialogueOpen && <Confirmation
+            lesson && isPairChangeDialogueOpen && !areResultsShown && <Confirmation
               decorator={clock}
               question={t('It’s time to send the results and become a student of a new partner.')}
               agreeText={t('OK')}
