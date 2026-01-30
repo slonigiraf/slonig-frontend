@@ -8,8 +8,7 @@ import { EXISTENTIAL_REFEREE_BALANCE, REIMBURSEMENT_BATCH_SIZE } from '@slonigir
 import { BN_ZERO, u8aToHex } from '@polkadot/util';
 import type { AccountInfo } from '@polkadot/types/interfaces';
 import { KeyedEvent } from '@polkadot/react-hooks/ctx/types';
-import { useLiveQuery } from "dexie-react-hooks";
-import { CHECK_WHICH_BADGES_ISSUED_BY_ME_WERE_PENALIZED_EVERY_MS } from '@slonigiraf/utils';
+import { CHECK_WHICH_LETTERS_ISSUED_BY_ME_WERE_PENALIZED_EVERY_MS, CHECK_WHICH_MY_LETTERS_WERE_CANCELED_EVERY_MS } from '@slonigiraf/utils';
 
 interface BlockchainSyncContextType {
     reimburse: (reimbursements: Reimbursement[]) => Promise<void>;
@@ -120,69 +119,84 @@ export const BlockchainSyncProvider: React.FC<BlockchainSyncProviderProps> = ({ 
     }, [accountInfo, lessonId, lessonResultsAreShown]);
 
     // Loads blockchain state about letters and updates IndexedDb if some letters are canceled
+    const isLoadingMyLettersStateRef = useRef(false);
     useEffect(() => {
-        const run = async () => {
-            const reimbursements = await getAllReimbursements();
-            const letters = await getAllLetters();
-            const insurances = await getAllInsurances();
-            [...letters, ...insurances, ...reimbursements].forEach((recommendation: Recommendation) => {
-                if (!lettersICarryAbout.current.has(recommendation.referee)) {
-                    lettersICarryAbout.current.set(recommendation.referee, new Map());
+        const syncMyLetters = async () => {
+            if (isLoadingMyLettersStateRef.current) return;
+            isLoadingMyLettersStateRef.current = true;
+
+            try {
+                const reimbursements = await getAllReimbursements();
+                const letters = await getAllLetters();
+                const insurances = await getAllInsurances();
+                [...letters, ...insurances, ...reimbursements].forEach((recommendation: Recommendation) => {
+                    if (!lettersICarryAbout.current.has(recommendation.referee)) {
+                        lettersICarryAbout.current.set(recommendation.referee, new Map());
+                    }
+                    lettersICarryAbout.current.get(recommendation.referee)?.set(recommendation.letterId, true);
+                });
+                for (const [referee, map] of lettersICarryAbout.current.entries()) {
+                    const letterIds = Array.from(map.keys()).map(Number);
+                    const blockchainState: Map<number, boolean> | null = await getRecommendationsFrom(api, referee, letterIds);
+                    if (blockchainState) {
+                        lettersICarryAbout.current.set(referee, blockchainState);
+                    }
                 }
-                lettersICarryAbout.current.get(recommendation.referee)?.set(recommendation.letterId, true);
-            });
-            for (const [referee, map] of lettersICarryAbout.current.entries()) {
-                const letterIds = Array.from(map.keys()).map(Number);
-                const blockchainState: Map<number, boolean> | null = await getRecommendationsFrom(api, referee, letterIds);
-                if (blockchainState) {
-                    lettersICarryAbout.current.set(referee, blockchainState);
-                }
-            }
-            const referees: Set<string> = new Set();
-            for (const reimbursement of reimbursements) {
-                if (lettersICarryAbout.current.has(reimbursement.referee)) {
-                    const recommendations = lettersICarryAbout.current.get(reimbursement.referee);
-                    if (recommendations && recommendations.has(reimbursement.letterId)) {
-                        const valid = recommendations.get(reimbursement.letterId);
-                        if (valid) {
-                            referees.add(reimbursement.referee);
-                        } else {
-                            deleteReimbursement(reimbursement.referee, reimbursement.letterId);
+                const referees: Set<string> = new Set();
+                for (const reimbursement of reimbursements) {
+                    if (lettersICarryAbout.current.has(reimbursement.referee)) {
+                        const recommendations = lettersICarryAbout.current.get(reimbursement.referee);
+                        if (recommendations && recommendations.has(reimbursement.letterId)) {
+                            const valid = recommendations.get(reimbursement.letterId);
+                            if (valid) {
+                                referees.add(reimbursement.referee);
+                            } else {
+                                deleteReimbursement(reimbursement.referee, reimbursement.letterId);
+                            }
                         }
                     }
                 }
-            }
-            setBadReferees(referees);
-            // Cancel used letters
-            const now = (new Date).getTime()
-            for (const letter of letters) {
-                if (lettersICarryAbout.current.has(letter.referee)) {
-                    const recommendations = lettersICarryAbout.current.get(letter.referee);
-                    if (recommendations && recommendations.has(letter.letterId)) {
-                        const valid = recommendations.get(letter.letterId);
-                        if (!valid) {
-                            cancelLetter(letter.pubSign, now);
+                setBadReferees(referees);
+                // Cancel used letters
+                const now = (new Date).getTime()
+                for (const letter of letters) {
+                    if (lettersICarryAbout.current.has(letter.referee)) {
+                        const recommendations = lettersICarryAbout.current.get(letter.referee);
+                        if (recommendations && recommendations.has(letter.letterId)) {
+                            const valid = recommendations.get(letter.letterId);
+                            if (!valid) {
+                                cancelLetter(letter.pubSign, now);
+                            }
                         }
                     }
                 }
-            }
-            // Remove used insurances
-            for (const insurance of insurances) {
-                if (lettersICarryAbout.current.has(insurance.referee)) {
-                    const recommendations = lettersICarryAbout.current.get(insurance.referee);
-                    if (recommendations && recommendations.has(insurance.letterId)) {
-                        const valid = recommendations.get(insurance.letterId);
-                        if (!valid) {
-                            cancelInsurance(insurance.workerSign, now);
+                // Remove used insurances
+                for (const insurance of insurances) {
+                    if (lettersICarryAbout.current.has(insurance.referee)) {
+                        const recommendations = lettersICarryAbout.current.get(insurance.referee);
+                        if (recommendations && recommendations.has(insurance.letterId)) {
+                            const valid = recommendations.get(insurance.letterId);
+                            if (!valid) {
+                                cancelInsurance(insurance.workerSign, now);
+                            }
                         }
                     }
                 }
+                isInitialStateLoadedRef.current = true;
+            } catch (e) {
+                console.log(e);
+            } finally {
+                isLoadingMyLettersStateRef.current = false;
             }
-            isInitialStateLoadedRef.current = true;
         }
-        if (mountedRef.current && canCommunicateToBlockchain()) {
-            run();
-        }
+
+        const shouldRun = mountedRef.current && canCommunicateToBlockchain();
+        if (!shouldRun) return;
+        syncMyLetters();
+
+        const id = setInterval(syncMyLetters, CHECK_WHICH_MY_LETTERS_WERE_CANCELED_EVERY_MS);
+        return () => clearInterval(id);
+
     }, [api, canCommunicateToBlockchain]);
 
 
@@ -220,7 +234,7 @@ export const BlockchainSyncProvider: React.FC<BlockchainSyncProviderProps> = ({ 
 
         void syncRefereeData();
 
-        const id = setInterval(syncRefereeData, CHECK_WHICH_BADGES_ISSUED_BY_ME_WERE_PENALIZED_EVERY_MS);
+        const id = setInterval(syncRefereeData, CHECK_WHICH_LETTERS_ISSUED_BY_ME_WERE_PENALIZED_EVERY_MS);
         return () => clearInterval(id);
 
     }, [api, canCommunicateToBlockchain, currentPair]);
