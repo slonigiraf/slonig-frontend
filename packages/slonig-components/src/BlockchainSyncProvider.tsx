@@ -9,6 +9,7 @@ import { BN_ZERO, u8aToHex } from '@polkadot/util';
 import type { AccountInfo } from '@polkadot/types/interfaces';
 import { KeyedEvent } from '@polkadot/react-hooks/ctx/types';
 import { useLiveQuery } from "dexie-react-hooks";
+import { CHECK_WHICH_BADGES_ISSUED_BY_ME_WERE_PENALIZED_EVERY_MS } from '@slonigiraf/utils';
 
 interface BlockchainSyncContextType {
     reimburse: (reimbursements: Reimbursement[]) => Promise<void>;
@@ -186,29 +187,42 @@ export const BlockchainSyncProvider: React.FC<BlockchainSyncProviderProps> = ({ 
 
 
     // Loads blockchain state about letters issued by user and updates IndexedDb if some letters are canceled
+    const isLoadingRefereeStateRef = useRef(false);
     useEffect(() => {
-        const run = async () => {
-            const letterIds = await getIssuedNonPenalizedLetterTemplateIds();
-
-            const referee = currentPair?.publicKey ? u8aToHex(currentPair.publicKey) : undefined;
-            if (!referee || !api) return;
-
-            const blockchainState: Map<number, boolean> | null = await getRecommendationsFrom(api, referee, letterIds);
-
-            if (!blockchainState) return;
-
-            const toPenalize: number[] = [];
-
-            blockchainState.forEach((valid, letterId) => {
-                if (!valid) toPenalize.push(letterId);
-            });
-
-            await Promise.all(toPenalize.map((letterId) => markLetterTemplatePenalized(letterId)));
+        const syncRefereeData = async () => {
+            if (isLoadingRefereeStateRef.current) return;
+            isLoadingRefereeStateRef.current = true;
+            try {
+                const letterIds = await getIssuedNonPenalizedLetterTemplateIds();
+                const referee = currentPair?.publicKey ? u8aToHex(currentPair.publicKey) : undefined;
+                if (!referee || !api) return;
+                const blockchainState: Map<number, boolean> | null = await getRecommendationsFrom(api, referee, letterIds);
+                if (!blockchainState) return;
+                const toPenalize: number[] = [];
+                blockchainState.forEach((valid, letterId) => {
+                    if (!valid) toPenalize.push(letterId);
+                });
+                await Promise.all(toPenalize.map((letterId) => markLetterTemplatePenalized(letterId)));
+            } catch (e) {
+                console.log(e);
+            } finally {
+                isLoadingRefereeStateRef.current = false;
+            }
         };
 
-        if (mountedRef.current && canCommunicateToBlockchain()) {
-            void run();
-        }
+        const shouldRun =
+            mountedRef.current &&
+            canCommunicateToBlockchain() &&
+            api &&
+            currentPair?.publicKey;
+
+        if (!shouldRun) return;
+
+        void syncRefereeData();
+
+        const id = setInterval(syncRefereeData, CHECK_WHICH_BADGES_ISSUED_BY_ME_WERE_PENALIZED_EVERY_MS);
+        return () => clearInterval(id);
+
     }, [api, canCommunicateToBlockchain, currentPair]);
 
     useEffect(() => {
