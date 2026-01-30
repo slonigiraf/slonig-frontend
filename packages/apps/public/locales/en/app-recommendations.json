@@ -142,5 +142,6 @@
   "Negotiate price with your student": "Negotiate price with your student",
   "I will lose {{amount}} Slon (from {{balance}}) if I issue a badge too early and my student forgets the skill.": "I will lose {{amount}} Slon (from {{balance}}) if I issue a badge too early and my student forgets the skill.",
   "Help your student identify what they have learned wrongly from bad tutors. If you find a problem, the bad tutor will automatically send you a bonus. Don’t be shy — other tutors won’t hesitate to penalize you.": "Help your student identify what they have learned wrongly from bad tutors. If you find a problem, the bad tutor will automatically send you a bonus. Don’t be shy — other tutors won’t hesitate to penalize you.",
-  "I was penalized for": "I was penalized for"
+  "I was penalized for": "I was penalized for",
+  "Negotiate the price the student will pay you for each skill badge": "Negotiate the price the student will pay you for each skill badge"
 }
