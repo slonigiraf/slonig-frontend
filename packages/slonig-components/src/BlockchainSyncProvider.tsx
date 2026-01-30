@@ -75,25 +75,50 @@ export const BlockchainSyncProvider: React.FC<BlockchainSyncProviderProps> = ({ 
     }, []);
 
     useEffect(() => {
-        let showPenalties = false;
-        const now = (new Date()).getTime();
-        events.forEach((keyedEvent: KeyedEvent) => {
-            const { event } = keyedEvent.record;
-            if (event.section === 'letters' && event.method === 'ReimbursementHappened') {
+        let cancelled = false;
+
+        const run = async () => {
+
+            let showPenalties = false;
+            const now = Date.now();
+
+            const tasks: Promise<unknown>[] = [];
+
+            for (const keyedEvent of events) {
+                const { event } = keyedEvent.record;
+
+                if (event.section !== 'letters' || event.method !== 'ReimbursementHappened') continue;
+
                 const [referee, letterId] = event.data.toJSON() as [string, number];
                 const key = `${referee}${letterId}`;
-                if (!processedCancelations.current.has(key)) {
-                    processedCancelations.current.add(key);
-                    processLetterCancelationEvent(referee, letterId, now);
-                    if (currentPair && referee === u8aToHex(currentPair.publicKey)) {
-                        showPenalties = true;
-                        markLetterTemplatePenalized(letterId, now);
-                    }
+
+                if (processedCancelations.current.has(key)) continue;
+                processedCancelations.current.add(key);
+
+                // Always process the cancellation event
+                tasks.push(processLetterCancelationEvent(referee, letterId, now));
+
+                // If this is "me", mark penalized and later show penalties
+                if (currentPair && referee === u8aToHex(currentPair.publicKey)) {
+                    showPenalties = true;
+                    tasks.push(markLetterTemplatePenalized(letterId, now));
                 }
             }
-        })
-        showPenalties && showRecentPenalties();
-    }, [events, currentPair]);
+
+            // Wait for IndexedDB / side-effects to finish before showing UI
+            await Promise.all(tasks);
+
+            if (!cancelled && showPenalties) {
+                showRecentPenalties();
+            }
+        };
+
+        void run();
+
+        return () => {
+            cancelled = true;
+        };
+    }, [events, currentPair, showRecentPenalties, processLetterCancelationEvent, markLetterTemplatePenalized]);
 
     useEffect(() => {
         const run = async () => {

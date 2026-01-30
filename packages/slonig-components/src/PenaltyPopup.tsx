@@ -11,7 +11,7 @@ interface Props {
 function PenaltyPopup({ onClose }: Props): React.ReactElement<Props> | null {
   const { t } = useTranslation();
   const now = Date.now();
-  const penalties = useLiveQuery<Penalty[]>(() => getPenalties(now - 5_000, now), []);
+  const penalties = useLiveQuery<Penalty[]>(() => getPenalties(now - 20_000, now), []);
 
   if(penalties === undefined || penalties.length === 0) return <></>;
 
