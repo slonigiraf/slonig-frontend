@@ -59,6 +59,7 @@ function Teach({ className = '' }: Props): React.ReactElement<Props> {
   const [lessonName, setLessonName] = useState<null | string>(null);
   const [pageWasJustRefreshed, setPageWasJustRefreshed] = useState(true);
   const [lessonStat, setLessonStat] = useState<LessonStat | null>(null);
+  const [lastLessonId, setLastLessonId] = useState<null | string>(null);
 
   useEffect(() => {
     const refreshLessonStat = async () => {
@@ -132,11 +133,13 @@ function Teach({ className = '' }: Props): React.ReactElement<Props> {
 
   useEffect(() => {
     async function fetchData() {
-      if (ipfs !== null && lesson && lessonName === null) {
+      if (ipfs !== null && lesson && lesson.id !== lastLessonId) {
         try {
           const content = await getIPFSDataFromContentID(ipfs, lesson.cid);
           const json = parseJson(content);
           setLessonName(json.h);
+          setLastLessonId(lesson.id);
+          setIsPairChangeDialogueOpen(false);
 
           const lastLessonId = await getSetting(SettingKey.LAST_LESSON_ID);
           const lastLessonStartTime = timeStampStringToNumber(await getSetting(SettingKey.LAST_LESSON_START_TIME));
@@ -152,7 +155,7 @@ function Teach({ className = '' }: Props): React.ReactElement<Props> {
       }
     }
     fetchData();
-  }, [ipfs, lesson, lessonName]);
+  }, [ipfs, lesson, lastLessonId]);
 
 
 
@@ -357,6 +360,7 @@ function Teach({ className = '' }: Props): React.ReactElement<Props> {
     await deleteSetting(SettingKey.LAST_LESSON_START_TIME);
     await deleteSetting(SettingKey.LESSON_RESULTS_ARE_SHOWN);
 
+    setIsPairChangeDialogueOpen(false);
     setLastSkillDiscussedTime(null);
     setFastDiscussedSkillsCount(0);
     setTooFastConfirmationIsShown(false);
