@@ -8,7 +8,9 @@ interface Props {
 
 function PenaltyPopup({ onClose }: Props): React.ReactElement<Props> | null {
   const { t } = useTranslation();
- 
+  const now = Date.now();
+  const fiveSecAgo = now - 5_000;
+
 
   return (
     <VerticallyCenteredModal
@@ -18,7 +20,7 @@ function PenaltyPopup({ onClose }: Props): React.ReactElement<Props> | null {
     >
       <Modal.Content>
         <h1>{t('Another tutor penalized me')}</h1>
-        <Penalties />
+        <Penalties startDate={fiveSecAgo} endDate={now}/>
         <ButtonsRow>
           <Button className='highlighted--button' label={t('OK')} onClick={onClose} />
         </ButtonsRow>

@@ -30,7 +30,7 @@ export const BlockchainSyncProvider: React.FC<BlockchainSyncProviderProps> = ({ 
 
     const lessonId = useSettingValue(SettingKey.LESSON);
     const lessonResultsAreShown = useSettingValue(SettingKey.LESSON_RESULTS_ARE_SHOWN);
-    const { showInfo } = useInfo();
+    const { showInfo, showRecentPenalties } = useInfo();
     const { logEvent } = useLog();
     const { currentPair, isLoggedIn } = useLoginContext();
     const [badReferees, setBadReferees] = useState<Set<string>>(new Set());
@@ -82,6 +82,7 @@ export const BlockchainSyncProvider: React.FC<BlockchainSyncProviderProps> = ({ 
                 processLetterCancelationEvent(referee, letterId, now);
                 if (currentPair && referee === u8aToHex(currentPair.publicKey)) {
                     markLetterTemplatePenalized(letterId);
+                    showRecentPenalties();
                 }
             }
         })
@@ -208,15 +209,22 @@ export const BlockchainSyncProvider: React.FC<BlockchainSyncProviderProps> = ({ 
             isLoadingRefereeStateRef.current = true;
             try {
                 const letterIds = await getIssuedNonPenalizedLetterTemplateIds();
+                
                 const referee = currentPair?.publicKey ? u8aToHex(currentPair.publicKey) : undefined;
                 if (!referee || !api) return;
                 const blockchainState: Map<number, boolean> | null = await getRecommendationsFrom(api, referee, letterIds);
                 if (!blockchainState) return;
                 const toPenalize: number[] = [];
+
+                const letterIdsToCheck = new Set(letterIds);
                 blockchainState.forEach((valid, letterId) => {
-                    if (!valid) toPenalize.push(letterId);
+                    if (letterIdsToCheck.has(letterId) && !valid) toPenalize.push(letterId);
                 });
                 await Promise.all(toPenalize.map((letterId) => markLetterTemplatePenalized(letterId)));
+
+                if(toPenalize.length > 0){
+                    showRecentPenalties();
+                }
             } catch (e) {
                 console.log(e);
             } finally {

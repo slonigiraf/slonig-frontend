@@ -466,7 +466,7 @@ export async function getValidLetterTemplatesByLessonId(lessonId: string): Promi
 
 export async function getIssuedNonPenalizedLetterTemplateIds(): Promise<number[]> {
     const templates = await db.letterTemplates
-        .filter(l => l.pubSign.length > 0 && l.penalizedTime !== undefined)
+        .filter(l => l.pubSign.length > 0 && l.penalizedTime === undefined)
         .toArray();
 
     return templates.map(l => l.letterId);

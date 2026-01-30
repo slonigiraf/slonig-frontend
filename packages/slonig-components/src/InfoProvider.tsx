@@ -69,8 +69,12 @@ export const InfoProvider: React.FC<InfoProviderProps> = ({ children }) => {
         setBoxMessage('');
     };
 
+    const showRecentPenalties = () => {
+        setIsPenaltyInfoVisible(true);
+    }
+
     return (
-        <InfoContext.Provider value={{ isInfoVisible, infoMessage, showInfo, showOKBox, hideInfo }}>
+        <InfoContext.Provider value={{ isInfoVisible, showRecentPenalties, infoMessage, showInfo, showOKBox, hideInfo }}>
             {children}
             <InfoPopup message={infoMessage} isEnabled={isInfoVisible} type={type} icon={icon} />
             {isBoxVisible && (
