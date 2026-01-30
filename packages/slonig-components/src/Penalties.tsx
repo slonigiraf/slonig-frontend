@@ -9,12 +9,14 @@ import { BN_ZERO } from '@polkadot/util';
 import { bnToSlonFloatOrNaN } from './utils.js';
 
 interface Props {
+  startDate?: number;
+  endDate?: number;
 }
 type Penalty = LetterTemplate & { student?: string };
 
-function Penalties({ }: Props): React.ReactElement<Props> | null {
+function Penalties({startDate, endDate }: Props): React.ReactElement<Props> | null {
   const { t } = useTranslation();
-  const penalties = useLiveQuery<Penalty[]>(() => getPenalties(), []);
+  const penalties = useLiveQuery<Penalty[]>(() => getPenalties(startDate, endDate), []);
 
   const amount = (penalties ?? [])
     .map((p: Penalty) => new BN(p.amount))

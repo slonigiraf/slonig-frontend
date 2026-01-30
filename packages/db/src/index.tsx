@@ -444,7 +444,6 @@ export function markLetterTemplatePenalized(letterId: number) {
         .where('letterId')
         .equals(letterId)
         .modify({
-            penalized: true,
             penalizedTime: Date.now(),
         });
 }
@@ -466,23 +465,34 @@ export async function getValidLetterTemplatesByLessonId(lessonId: string): Promi
 }
 
 export async function getIssuedNonPenalizedLetterTemplateIds(): Promise<number[]> {
-  const templates = await db.letterTemplates
-    .filter(l => l.pubSign.length > 0 && !l.penalized)
-    .toArray();
+    const templates = await db.letterTemplates
+        .filter(l => l.pubSign.length > 0 && l.penalizedTime !== undefined)
+        .toArray();
 
-  return templates.map(l => l.letterId);
+    return templates.map(l => l.letterId);
 }
 
-export async function getPenalties() {
-  const penalties = await db.letterTemplates
-    .filter(l => l.penalized)
-    .sortBy('penalizedTime');
+export async function getPenalties(startDate: number | undefined, endDate: number | undefined) {
 
-  const lessons = await db.lessons.bulkGet(penalties.map(p => p.lesson));
-  const lessonMap = new Map(penalties.map((p, i) => [p.lesson, lessons[i]]));
+    let query = db.letterTemplates.toCollection();
 
-  return penalties
-    .map(p => ({ ...p, student: lessonMap.get(p.lesson)?.student }));
+    query = query.filter((l) => {
+        const t = l.penalizedTime;
+        if (t === undefined) return false;
+
+        if (startDate !== undefined && t < startDate) return false;
+        if (endDate !== undefined && t > endDate) return false;
+
+        return true;
+    });
+
+    const penalties = await query.sortBy('penalizedTime');
+
+    const lessons = await db.lessons.bulkGet(penalties.map(p => p.lesson));
+    const lessonMap = new Map(penalties.map((p, i) => [p.lesson, lessons[i]]));
+
+    return penalties
+        .map(p => ({ ...p, student: lessonMap.get(p.lesson)?.student }));
 }
 
 export async function getToRepeatLetterTemplatesByLessonId(lessonId: string): Promise<LetterTemplate[]> {
@@ -592,7 +602,6 @@ export async function storeLesson(lessonRequest: LessonRequest, tutor: string, o
                 valid: false,
                 mature: item[3] === '1',
                 toRepeat: false,
-                penalized: false,
                 penalizedTime: undefined,
                 lastExamined: now,
                 lesson: lesson.id,

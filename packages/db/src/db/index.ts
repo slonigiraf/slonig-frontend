@@ -36,7 +36,7 @@ class SlonigDB extends Dexie {
 
   constructor() {
     super('slonig');
-    this.version(58).stores({
+    this.version(60).stores({
       agreements: '&id',
       canceledInsurances: '&workerSign',
       canceledLetters: '&pubSign',
@@ -44,7 +44,7 @@ class SlonigDB extends Dexie {
       insurances: '&workerSign,created,workerId,[employer+workerId],[referee+letterId]',
       lessons: '&id,created,tutor',
       letters: '&pubSign,created,workerId,knowledgeId,[workerId+knowledgeId],[referee+letterId]',
-      letterTemplates: '&[cid+lesson],[lesson+stage],lesson,letterId',
+      letterTemplates: '&[cid+lesson],[lesson+stage],lesson,letterId,penalizedTime',
       pseudonyms: '&publicKey',
       reexaminations: null,
       reexams: '&[pubSign+lesson],lesson',

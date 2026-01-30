@@ -3,7 +3,6 @@ export interface LetterTemplate {
   valid: boolean,
   mature: boolean, // if this skill was already leant at previous day
   toRepeat: boolean,
-  penalized: boolean,
   penalizedTime: number | undefined; // timestamp
   lastExamined: number; // timestamp
   lesson: string;
