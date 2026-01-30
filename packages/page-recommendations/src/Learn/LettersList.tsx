@@ -1,7 +1,7 @@
 import BadgeInfo from './../Assess/BadgeInfo.js';
 import React, { useCallback, useEffect, useState } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
-import { deleteLetter, Badge, getLetters, Letter } from '@slonigiraf/db';
+import { deleteLetter, Badge, getLetters, Letter, storePseudonym } from '@slonigiraf/db';
 import { Button, Toggle, Tag, styled } from '@polkadot/react-components';
 import { useTranslation } from '../translate.js';
 import { useLocation, useNavigate } from 'react-router-dom';
@@ -37,6 +37,7 @@ function LettersList({ className = '', worker, currentPair, startDate, endDate, 
   const { isApiConnected } = useApi();
   const queryParams = new URLSearchParams(location.search);
   const employer = queryParams.get('employer') || '';
+  const employerName = queryParams.get('name') || '';
   const { showInfo } = useInfo();
   const navigate = useNavigate();
   const [reloadCount, setReloadCount] = useState<number>(0);
@@ -46,6 +47,12 @@ function LettersList({ className = '', worker, currentPair, startDate, endDate, 
   useEffect(() => {
     setToggleState(employer !== '' ? ToggleState.GETTING_BONUSES : ToggleState.NO_SELECTION)
   }, [employer]);
+
+  useEffect(() => {
+    if(employer && employerName){
+      void storePseudonym(employer, employerName);
+    }
+  }, [employer, employerName]);
 
   const letters = useLiveQuery<Letter[]>(
     async () => {
