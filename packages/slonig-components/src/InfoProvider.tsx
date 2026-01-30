@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, ReactNode } from 'react';
+import React, { createContext, useContext, useState, ReactNode, useRef } from 'react';
 import InfoPopup from './InfoPopup.js';
 import type { IconName } from '@fortawesome/fontawesome-svg-core';
 import OKBox from './OKBox.js';
@@ -37,6 +37,7 @@ export const InfoProvider: React.FC<InfoProviderProps> = ({ children }) => {
     const [boxMessage, setBoxMessage] = useState('');
     const [type, setType] = useState<'error' | 'info'>('info');
     const [icon, setIcon] = useState<IconName>(defaultIcon);
+    const penaltyKeyRef = useRef(0);
 
     const showInfo = (message: string, type: 'error' | 'info' = 'info', timeoutSec: number = 4, icon: IconName = defaultIcon) => {
         setInfoMessage(message);
@@ -70,6 +71,7 @@ export const InfoProvider: React.FC<InfoProviderProps> = ({ children }) => {
     };
 
     const showRecentPenalties = () => {
+        penaltyKeyRef.current = penaltyKeyRef.current + 1;
         setIsPenaltyInfoVisible(true);
     }
 
@@ -81,7 +83,7 @@ export const InfoProvider: React.FC<InfoProviderProps> = ({ children }) => {
                 <OKBox info={boxMessage} onClose={() => { }} />
             )}
             {isPenaltyInfoVisible && (
-                <PenaltyPopup onClose={() => setIsPenaltyInfoVisible(false)} />
+                <PenaltyPopup key={penaltyKeyRef.current} onClose={() => setIsPenaltyInfoVisible(false)} />
             )}
         </InfoContext.Provider>
     );

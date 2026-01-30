@@ -439,12 +439,12 @@ export function updateReexamination(reexamination: Reexamination) {
 
 // LetterTemplate related
 
-export function markLetterTemplatePenalized(letterId: number) {
+export function markLetterTemplatePenalized(letterId: number, timeStamp: number) {
     return db.letterTemplates
         .where('letterId')
         .equals(letterId)
         .modify({
-            penalizedTime: Date.now(),
+            penalizedTime: timeStamp,
         });
 }
 
@@ -486,7 +486,7 @@ export async function getPenalties(startDate: number | undefined, endDate: numbe
         return true;
     });
 
-    const penalties = await query.sortBy('penalizedTime');
+    const penalties = (await query.sortBy('penalizedTime')).reverse();
 
     const lessons = await db.lessons.bulkGet(penalties.map(p => p.lesson));
     const lessonMap = new Map(penalties.map((p, i) => [p.lesson, lessons[i]]));

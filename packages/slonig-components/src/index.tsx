@@ -27,7 +27,7 @@ import { Button, Modal, styled } from '@polkadot/react-components';
 import BN from 'bn.js';
 import { getIPFSContentIDForBytesAndPinIt, getIPFSBytesFromContentID, bnToSlonString, bnToSlonFloatOrNaN, createPeer, receiveWebRTCData, getQrWidth, saveToSessionStorage, loadFromSessionStorage, getKey, arrayBufferToBase64, base64ToArrayBuffer, decryptData, encryptData, keyForCid, nameFromKeyringPair, getBaseUrl, CODEC, getIPFSContentID, getIPFSContentIDAndPinIt, getIPFSDataFromContentID, digestFromCIDv1, getCIDFromBytes, storeEncryptedTextOnIPFS, retrieveDecryptedDataFromIPFS, parseJson, qrPadding } from './utils.js';
 import { useEffect, useState } from 'react';
-import { getSetting, SettingKey, storeSetting } from '@slonigiraf/db';
+import { getSetting, LetterTemplate, SettingKey, storeSetting } from '@slonigiraf/db';
 export * from './constants.js';
 export { default as SVGButton } from './SVGButton.js';
 export { Penalties, DownloadQRButton, BlockchainSyncProvider, useBlockchainSync, TokenTransferProvider, useTokenTransfer, DateInput, SelectableList, SenderComponent, KatexSpan, ResizableImage, ShareButton, ClipboardCopyButton, QRWithShareAndCopy, QrScannerComponent, ButtonWithLabelBelow, ScanQR, IpfsProvider, useIpfsContext, InfoProvider, useInfo, LogProvider, useLog };
@@ -106,6 +106,8 @@ export type PartnersTodayResult = {
   /** true if `identity` !== last partner (the most recent entry) */
   isDifferentFromLast: boolean;
 };
+
+export type Penalty = LetterTemplate & { student?: string };
 
 // Styled components
 export const HintBubble = styled.div<{ tailLeft?: string }>`

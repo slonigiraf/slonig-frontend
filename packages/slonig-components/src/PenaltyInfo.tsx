@@ -68,7 +68,6 @@ function PenaltyInfo({ className = '', badge, student }: Props): React.ReactElem
         <SkillAndName>
           <b>{studentName}</b>
           {skillNameToShow}
-
         </SkillAndName>
       </RowDiv>
 

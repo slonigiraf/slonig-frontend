@@ -3,8 +3,8 @@ import React, { useState } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { styled } from '@polkadot/react-components';
 import { useTranslation } from '../translate.js';
-import { DaysRangePicker, loadFromSessionStorage, Penalties, saveToSessionStorage, SelectableList } from '@slonigiraf/slonig-components';
-import { getLessons, Lesson } from '@slonigiraf/db';
+import { DaysRangePicker, loadFromSessionStorage, Penalties, Penalty, saveToSessionStorage, SelectableList } from '@slonigiraf/slonig-components';
+import { getLessons, getPenalties, Lesson } from '@slonigiraf/db';
 import { LESSONS } from '../constants.js';
 
 interface Props {
@@ -36,6 +36,8 @@ function LessonsList({ className = '', tutor, onResumeTutoring, onShowResults }:
     () => getLessons(tutor, startDate.getTime(), endDate.getTime()),
     [tutor, startDate, endDate]
   );
+
+  const penalties = useLiveQuery<Penalty[]>(() => getPenalties(undefined, undefined), []);
 
   const isSelectionAllowed = false;
 
@@ -78,7 +80,7 @@ function LessonsList({ className = '', tutor, onResumeTutoring, onShowResults }:
         key={tutor}
         isSelectionAllowed={isSelectionAllowed}
       />
-      <Penalties />
+      <Penalties penalties={penalties}/>
     </div>
   );
 }

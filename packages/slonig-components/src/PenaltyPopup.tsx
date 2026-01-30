@@ -1,7 +1,9 @@
 import React from 'react';
+import { useLiveQuery } from 'dexie-react-hooks';
 import { useTranslation } from './translate.js';
 import { Button, Modal, styled } from '@polkadot/react-components';
-import { Penalties, VerticallyCenteredModal } from './index.js';
+import { Penalties, Penalty, VerticallyCenteredModal } from './index.js';
+import { getPenalties } from '@slonigiraf/db';
 interface Props {
   onClose: () => void;
 }
@@ -9,8 +11,9 @@ interface Props {
 function PenaltyPopup({ onClose }: Props): React.ReactElement<Props> | null {
   const { t } = useTranslation();
   const now = Date.now();
-  const fiveSecAgo = now - 5_000;
+  const penalties = useLiveQuery<Penalty[]>(() => getPenalties(now - 5_000, now), []);
 
+  if(penalties === undefined || penalties.length === 0) return <></>;
 
   return (
     <VerticallyCenteredModal
@@ -20,7 +23,7 @@ function PenaltyPopup({ onClose }: Props): React.ReactElement<Props> | null {
     >
       <Modal.Content>
         <h1>{t('Another tutor penalized me')}</h1>
-        <Penalties startDate={fiveSecAgo} endDate={now}/>
+        <Penalties penalties={penalties} />
         <ButtonsRow>
           <Button className='highlighted--button' label={t('OK')} onClick={onClose} />
         </ButtonsRow>

@@ -40,6 +40,7 @@ export const BlockchainSyncProvider: React.FC<BlockchainSyncProviderProps> = ({ 
     const lastAddressRef = useRef<string | undefined>(undefined);
     const subscribedBadReferees = useRef(new Set());
     const lettersICarryAbout = useRef<Map<string, Map<number, boolean>>>(new Map());
+    const processedCancelations = useRef<Set<string>>(new Set());
     const isSendingBatchRef = useRef<boolean>(false);
     const isInitialStateLoadedRef = useRef<boolean>(false);
     const newHeader = useCall(
@@ -74,18 +75,24 @@ export const BlockchainSyncProvider: React.FC<BlockchainSyncProviderProps> = ({ 
     }, []);
 
     useEffect(() => {
+        let showPenalties = false;
         const now = (new Date()).getTime();
         events.forEach((keyedEvent: KeyedEvent) => {
             const { event } = keyedEvent.record;
             if (event.section === 'letters' && event.method === 'ReimbursementHappened') {
                 const [referee, letterId] = event.data.toJSON() as [string, number];
-                processLetterCancelationEvent(referee, letterId, now);
-                if (currentPair && referee === u8aToHex(currentPair.publicKey)) {
-                    markLetterTemplatePenalized(letterId);
-                    showRecentPenalties();
+                const key = `${referee}${letterId}`;
+                if (!processedCancelations.current.has(key)) {
+                    processedCancelations.current.add(key);
+                    processLetterCancelationEvent(referee, letterId, now);
+                    if (currentPair && referee === u8aToHex(currentPair.publicKey)) {
+                        showPenalties = true;
+                        markLetterTemplatePenalized(letterId, now);
+                    }
                 }
             }
         })
+        showPenalties && showRecentPenalties();
     }, [events, currentPair]);
 
     useEffect(() => {
@@ -209,7 +216,7 @@ export const BlockchainSyncProvider: React.FC<BlockchainSyncProviderProps> = ({ 
             isLoadingRefereeStateRef.current = true;
             try {
                 const letterIds = await getIssuedNonPenalizedLetterTemplateIds();
-                
+
                 const referee = currentPair?.publicKey ? u8aToHex(currentPair.publicKey) : undefined;
                 if (!referee || !api) return;
                 const blockchainState: Map<number, boolean> | null = await getRecommendationsFrom(api, referee, letterIds);
@@ -220,7 +227,8 @@ export const BlockchainSyncProvider: React.FC<BlockchainSyncProviderProps> = ({ 
                 blockchainState.forEach((valid, letterId) => {
                     if (letterIdsToCheck.has(letterId) && !valid) toPenalize.push(letterId);
                 });
-                await Promise.all(toPenalize.map((letterId) => markLetterTemplatePenalized(letterId)));
+                const now = Date.now();
+                await Promise.all(toPenalize.map((letterId) => markLetterTemplatePenalized(letterId, now)));
 
                 if(toPenalize.length > 0){
                     showRecentPenalties();
