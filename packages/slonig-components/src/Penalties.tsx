@@ -14,9 +14,13 @@ interface Props {
 }
 type Penalty = LetterTemplate & { student?: string };
 
-function Penalties({startDate, endDate }: Props): React.ReactElement<Props> | null {
+function Penalties({ startDate, endDate }: Props): React.ReactElement<Props> | null {
   const { t } = useTranslation();
-  const penalties = useLiveQuery<Penalty[]>(() => getPenalties(startDate, endDate), []);
+  const penalties = useLiveQuery<Penalty[]>(() => getPenalties(startDate, endDate), [startDate, endDate]);
+
+  if (penalties === undefined || penalties.length === 0) {
+    return <></>;
+  }
 
   const amount = (penalties ?? [])
     .map((p: Penalty) => new BN(p.amount))
