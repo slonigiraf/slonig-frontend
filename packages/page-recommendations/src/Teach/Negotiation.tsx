@@ -89,7 +89,7 @@ function Negotiation({ className = '', lesson, updateAndStoreLesson, onClose }: 
   return (
     <FullscreenActivity caption={''} onClose={onClose}>
       <StyledDiv>
-        <h1>{t('Negotiate price with your student')}</h1>
+        <h1>{t('Negotiate the price the student will pay you for each skill badge')}</h1>
         <InputDiv>
           <InputBalance
             isZeroable
@@ -124,8 +124,8 @@ const StyledDiv = styled.div`
   h1 {
     margin-top: 0px;
     margin-bottom: 0px;
-    padding-left: 20px;
-    padding-right: 20px;
+    padding-left: 10%;
+    padding-right: 10%;
   }
 `;
 
