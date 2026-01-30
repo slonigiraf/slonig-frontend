@@ -88,6 +88,11 @@ function LessonsList({ className = '', tutor, onResumeTutoring, onShowResults }:
           <PenaltyInfo badge={item} student={item.student} />
         </LetterTemplateInfo>
       ))}
+      {penalties && penalties.length === 0 &&
+        <LetterTemplateInfo key={'nothing'}>
+          <span>{t('Here you will see the data if you issue a badge to a student and another tutor, teacher, or the student’s parent penalizes you because the student forgot the skill.')}</span>
+        </LetterTemplateInfo>
+      }
     </div>
 
   );
@@ -104,6 +109,6 @@ const LetterTemplateInfo = styled.div`
   align-items: center;
   width: 100%;
   padding-left: 10px;
-  gap: 20px;
+  margin-top: 10px;
 `;
 export default React.memo(LessonsList);
