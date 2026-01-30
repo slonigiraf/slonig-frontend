@@ -18,7 +18,7 @@ interface Props {
 
 
 function LessonProcessInfo({ className = '', lessonStat, showLastAction = true }: Props): React.ReactElement<Props> {
-  if (!lessonStat) return;
+  if (!lessonStat) return <></>;
   const { t } = useTranslation();
   const lastAction = lessonStat.lastAction;
   const lastBonus = lessonStat.lastBonus;

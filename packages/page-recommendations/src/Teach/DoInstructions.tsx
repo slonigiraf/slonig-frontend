@@ -96,46 +96,13 @@ function DoInstructions({ className = '', entity, lessonStat, anythingToLearn = 
           if (isComponentMounted) {
             setSkill(skill);
             if (isLetterTemplate(entity)) {
-              const variation: TutoringAlgorithmType = tooFastWarning ? 'with_too_fast_warning' :
-                !hasTutorCompletedTutorial ? 'tutorial' :
-                  pageWasJustRefreshed ? 'no_stat' : 'with_stat';
-
-              const newAlgorithm = new TutoringAlgorithm(
-                {
-                  t,
-                  lessonStat,
-                  studentName,
-                  stake,
-                  canIssueBadge: !!stake,
-                  skill,
-                  hasTuteeUsedSlonig,
-                  variation,
-                });
-
               if (hasTutorCompletedTutorial || skill.i === EXAMPLE_SKILL_KNOWLEDGE_ID) {
                 logStartEvent('TEACH_START');
               }
               setAlgorithmType('TEACH_ALGO');
-              setAlgorithmStage(newAlgorithm.getBegin());
             } else {
-              const variation: ValidatingAlgorithmType = tooFastWarning ? 'with_too_fast_warning' :
-                lesson?.reexamineStep === 0 ? 'intro' :
-                  pageWasJustRefreshed ? 'no_stat' : 'with_stat';
-
-              const newAlgorithm = new ValidatingAlgorithm(
-                {
-                  t,
-                  lessonStat,
-                  anythingToLearn,
-                  studentName,
-                  stake,
-                  skill,
-                  variation,
-                });
-
               logStartEvent('REEXAMINE_START');
               setAlgorithmType('REEXAMINE_ALGO');
-              setAlgorithmStage(newAlgorithm.getBegin());
             }
           }
         } catch (e) {
@@ -152,7 +119,48 @@ function DoInstructions({ className = '', entity, lessonStat, anythingToLearn = 
     return () => {
       isComponentMounted = false;
     };
-  }, [ipfs, entity, studentName, hasTutorCompletedTutorial]);
+  }, [ipfs, entity, hasTutorCompletedTutorial]);
+
+  useEffect(() => {
+    if (!skill) return;
+
+    if (isLetterTemplate(entity)) {
+      const variation: TutoringAlgorithmType = tooFastWarning ? 'with_too_fast_warning' :
+        !hasTutorCompletedTutorial ? 'tutorial' :
+          pageWasJustRefreshed ? 'no_stat' : 'with_stat';
+
+      const newAlgorithm = new TutoringAlgorithm(
+        {
+          t,
+          lessonStat,
+          studentName,
+          stake,
+          canIssueBadge: !!stake,
+          skill,
+          hasTuteeUsedSlonig,
+          variation,
+        });
+        
+      setAlgorithmStage(newAlgorithm.getBegin());
+    } else {
+      const variation: ValidatingAlgorithmType = tooFastWarning ? 'with_too_fast_warning' :
+        lesson?.reexamineStep === 0 ? 'intro' :
+          pageWasJustRefreshed ? 'no_stat' : 'with_stat';
+
+      const newAlgorithm = new ValidatingAlgorithm(
+        {
+          t,
+          lessonStat,
+          anythingToLearn,
+          studentName,
+          stake,
+          skill,
+          variation,
+        });
+
+      setAlgorithmStage(newAlgorithm.getBegin());
+    }
+  }, [skill, entity, studentName, hasTutorCompletedTutorial]);
 
   const processLetter = useCallback(async (isValid?: boolean) => {
     if (!isLetterTemplate(entity)) return;
