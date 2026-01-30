@@ -3,10 +3,9 @@ import React, { useState } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { styled } from '@polkadot/react-components';
 import { useTranslation } from '../translate.js';
-import { DaysRangePicker, loadFromSessionStorage, saveToSessionStorage, SelectableList } from '@slonigiraf/slonig-components';
-import { getLessons, getPenalties, Lesson, LetterTemplate } from '@slonigiraf/db';
+import { DaysRangePicker, loadFromSessionStorage, Penalties, saveToSessionStorage, SelectableList } from '@slonigiraf/slonig-components';
+import { getLessons, Lesson } from '@slonigiraf/db';
 import { LESSONS } from '../constants.js';
-import PenaltyInfo from './PenaltyInfo.js';
 
 interface Props {
   className?: string;
@@ -14,7 +13,7 @@ interface Props {
   onResumeTutoring: (lesson: Lesson) => void;
   onShowResults: (lesson: Lesson) => void;
 }
-type Penalty = LetterTemplate & { student?: string };
+
 
 function LessonsList({ className = '', tutor, onResumeTutoring, onShowResults }: Props): React.ReactElement<Props> {
   const { t } = useTranslation();
@@ -37,8 +36,6 @@ function LessonsList({ className = '', tutor, onResumeTutoring, onShowResults }:
     () => getLessons(tutor, startDate.getTime(), endDate.getTime()),
     [tutor, startDate, endDate]
   );
-
-  const penalties = useLiveQuery<Penalty[]>(() => getPenalties(), []);
 
   const isSelectionAllowed = false;
 
@@ -81,20 +78,8 @@ function LessonsList({ className = '', tutor, onResumeTutoring, onShowResults }:
         key={tutor}
         isSelectionAllowed={isSelectionAllowed}
       />
-
-      <h2>{t('I was penalized for')}</h2>
-      {penalties?.map((item: Penalty) => (
-        <LetterTemplateInfo key={`${item.lesson}-${item.letterId}`}>
-          <PenaltyInfo badge={item} student={item.student} />
-        </LetterTemplateInfo>
-      ))}
-      {penalties && penalties.length === 0 &&
-        <LetterTemplateInfo key={'nothing'}>
-          <span>{t('Here you will see the data if you issue a badge to a student and another tutor, teacher, or the student’s parent penalizes you because the student forgot the skill.')}</span>
-        </LetterTemplateInfo>
-      }
+      <Penalties />
     </div>
-
   );
 }
 
@@ -102,13 +87,5 @@ const Spacer = styled.div`
   width: 100%;
   height: 5px;
 `;
-const LetterTemplateInfo = styled.div`
-  display: flex;
-  flex-direction: row;
-  justify-content: left;
-  align-items: center;
-  width: 100%;
-  padding-left: 10px;
-  margin-top: 10px;
-`;
+
 export default React.memo(LessonsList);

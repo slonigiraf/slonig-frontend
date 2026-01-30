@@ -22,8 +22,8 @@ function Apps({ className = '' }: Props): React.ReactElement<Props> {
 
   return (
     <LogProvider>
-      <InfoProvider>
-        <IpfsProvider>
+      <IpfsProvider>
+        <InfoProvider>
           <GlobalStyle uiHighlight={uiHighlight} />
           <LoginProvider>
             <TokenTransferProvider>
@@ -31,8 +31,8 @@ function Apps({ className = '' }: Props): React.ReactElement<Props> {
             </TokenTransferProvider>
           </LoginProvider>
           <WarmUp />
-        </IpfsProvider>
-      </InfoProvider>
+        </InfoProvider>
+      </IpfsProvider>
     </LogProvider>
   );
 }

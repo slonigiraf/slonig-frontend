@@ -3,7 +3,7 @@
 
 import { Modal, Button, Spinner, styled } from '@polkadot/react-components';
 import React, { useState, useEffect } from 'react'
-import { useTranslation } from '../translate.js';
+import { useTranslation } from './translate.js';
 import { Badge, getPseudonym, Insurance, LetterTemplate } from '@slonigiraf/db';
 import { useToggle } from '@polkadot/react-hooks';
 import { KatexSpan, getIPFSDataFromContentID, parseJson, useLog } from '@slonigiraf/slonig-components';
@@ -26,8 +26,6 @@ function PenaltyInfo({ className = '', badge, student }: Props): React.ReactElem
   const [skillName, setSkillName] = useState(badge.cid);
   const [loaded, setLoaded] = useState(false);
   const [studentName, setStudentName] = useState<string | undefined>(undefined);
-
-
 
   useEffect(() => {
     const run = async () => {
