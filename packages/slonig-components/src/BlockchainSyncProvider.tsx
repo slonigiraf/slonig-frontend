@@ -1,4 +1,4 @@
-import { cancelInsurance, cancelInsuranceByRefereeAndLetterNumber, cancelLetter, cancelLetterByRefereeAndLetterNumber, markUsageRightAsUsed, deleteReimbursement, deleteUsageRight, getAllInsurances, getAllLetters, getAllReimbursements, getReimbursementsByReferee, Insurance, Letter, Reimbursement, getReimbursementsByRefereeAndLetterNumber, Recommendation, SettingKey, getLesson, updateLesson, LetterTemplate, getValidLetterTemplatesByLessonId, markLetterTemplatePenalized } from '@slonigiraf/db';
+import { cancelInsurance, cancelInsuranceByRefereeAndLetterNumber, cancelLetter, cancelLetterByRefereeAndLetterNumber, markUsageRightAsUsed, deleteReimbursement, deleteUsageRight, getAllInsurances, getAllLetters, getAllReimbursements, getReimbursementsByReferee, Insurance, Letter, Reimbursement, getReimbursementsByRefereeAndLetterNumber, Recommendation, SettingKey, getLesson, updateLesson, LetterTemplate, getValidLetterTemplatesByLessonId, markLetterTemplatePenalized, getIssuedNonPenalizedLetterTemplateIds } from '@slonigiraf/db';
 import React, { useEffect, useState, useRef, useCallback, ReactNode, createContext, useContext } from 'react';
 import { useApi, useBlockEvents, useCall, useIsMountedRef } from '@polkadot/react-hooks';
 import { useLoginContext } from './LoginContext.js';
@@ -118,7 +118,7 @@ export const BlockchainSyncProvider: React.FC<BlockchainSyncProviderProps> = ({ 
         run();
     }, [accountInfo, lessonId, lessonResultsAreShown]);
 
-
+    // Loads blockchain state about letters and updates IndexedDb if some letters are canceled
     useEffect(() => {
         const run = async () => {
             const reimbursements = await getAllReimbursements();
@@ -183,6 +183,33 @@ export const BlockchainSyncProvider: React.FC<BlockchainSyncProviderProps> = ({ 
             run();
         }
     }, [api, canCommunicateToBlockchain]);
+
+
+    // Loads blockchain state about letters issued by user and updates IndexedDb if some letters are canceled
+    useEffect(() => {
+        const run = async () => {
+            const letterIds = await getIssuedNonPenalizedLetterTemplateIds();
+
+            const referee = currentPair?.publicKey ? u8aToHex(currentPair.publicKey) : undefined;
+            if (!referee || !api) return;
+
+            const blockchainState: Map<number, boolean> | null = await getRecommendationsFrom(api, referee, letterIds);
+
+            if (!blockchainState) return;
+
+            const toPenalize: number[] = [];
+
+            blockchainState.forEach((valid, letterId) => {
+                if (!valid) toPenalize.push(letterId);
+            });
+
+            await Promise.all(toPenalize.map((letterId) => markLetterTemplatePenalized(letterId)));
+        };
+
+        if (mountedRef.current && canCommunicateToBlockchain()) {
+            void run();
+        }
+    }, [api, canCommunicateToBlockchain, currentPair]);
 
     useEffect(() => {
         const unsubscribeMap = new Map();

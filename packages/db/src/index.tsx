@@ -465,6 +465,14 @@ export async function getValidLetterTemplatesByLessonId(lessonId: string): Promi
     return await db.letterTemplates.where({ lesson: lessonId }).filter(letter => (letter.valid && letter.mature)).toArray();
 }
 
+export async function getIssuedNonPenalizedLetterTemplateIds(): Promise<number[]> {
+  const templates = await db.letterTemplates
+    .filter(l => l.pubSign.length > 0 && !l.penalized)
+    .toArray();
+
+  return templates.map(l => l.letterId);
+}
+
 export async function getPenalties() {
   const penalties = await db.letterTemplates
     .filter(l => l.penalized)
