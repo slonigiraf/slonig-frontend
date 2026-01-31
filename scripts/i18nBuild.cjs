@@ -135,6 +135,8 @@ async function translateBatch(client, lang, keys) {
     `You are a professional software localizer.`,
     `Translate UI strings into language: "${lang}".`,
     `Rules:`,
+    `- Always use the informal second-person singular form (T-form, e.g. “ты”, “tu”, “tú”, “du”) in the target language whenever there is a choice between formal and informal address.`,
+    `- Do NOT use any formal or polite forms (V-form, e.g. “вы”, “vous”, “Sie”).`,
     `- Return ONLY a valid JSON object mapping the ORIGINAL STRING to its translation.`,
     `- Preserve placeholders exactly: {{var}}, {var}, %s, %d, <0>...</0>, HTML tags, markdown, emojis.`,
     `- Do not add extra commentary.`,
