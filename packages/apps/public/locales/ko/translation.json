@@ -125,7 +125,7 @@
   "Hide it from your student!": "학생에게서 숨기기!",
   "Hide the solution": "해답 숨기기",
   "Homepage": "홈페이지",
-  "I have lost {{amount}} Slon because of issuing these badges": "이 배지를 발급한 이유로 {{amount}} Slon을 잃었습니다.",
+  "I lost {{amount}} Slon because of issuing these badges": "{{amount}} 슬론을 이러한 배지를 발급하는 바람에 잃었습니다",
   "I may lose": "저는 질 수 있습니다",
   "I risk losing {{stake}} Slon if {{name}} forgets this skill. I’m awarding a badge for this skill.": "{{name}}가 이 기술을 잊으면 {{stake}} Slon을 잃을 위험이 있습니다. 이 기술에 대해 배지를 수여합니다.",
   "I will lose {{amount}} Slon (from {{balance}}) if I issue a badge too early and my student forgets the skill.": "{{amount}} Slon을 잃게 됩니다 ({{balance}}에서) 내 학생이 기술을 잊어버리고 배지를 너무 일찍 발급하면.",

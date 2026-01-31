@@ -125,7 +125,7 @@
   "Hide it from your student!": "学生から隠す！",
   "Hide the solution": "解答を隠す",
   "Homepage": "ホームページ",
-  "I have lost {{amount}} Slon because of issuing these badges": "これらのバッジを発行したため、{{amount}} Slonを失いました",
+  "I lost {{amount}} Slon because of issuing these badges": "これらのバッジを発行したことで、{{amount}} Slonを失いました",
   "I may lose": "負けるかもしれない",
   "I risk losing {{stake}} Slon if {{name}} forgets this skill. I’m awarding a badge for this skill.": "私は{{name}}がこのスキルを忘れた場合、{{stake}} Slonを失うリスクがあります。このスキルのためにバッジを授与します。",
   "I will lose {{amount}} Slon (from {{balance}}) if I issue a badge too early and my student forgets the skill.": "{{balance}}から{{amount}}スロンを失います。バッジを早く発行すると、生徒がスキルを忘れてしまう場合があります。",

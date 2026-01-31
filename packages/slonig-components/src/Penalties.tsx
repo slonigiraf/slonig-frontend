@@ -25,7 +25,7 @@ function Penalties({ penalties }: Props): React.ReactElement<Props> | null {
 
   return (
     <>
-      <h2>{t('I have lost {{amount}} Slon because of issuing these badges', {replace: {amount: bnToSlonFloatOrNaN(amount)}})}</h2>
+      <h2>{t('I lost {{amount}} Slon because of issuing these badges', {replace: {amount: bnToSlonFloatOrNaN(amount)}})}</h2>
       {penalties?.map((item: Penalty) => (
         <LetterTemplateInfo key={`${item.lesson}-${item.letterId}`}>
           <PenaltyInfo badge={item} student={item.student} />

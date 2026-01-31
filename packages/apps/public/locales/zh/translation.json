@@ -125,7 +125,7 @@
   "Hide it from your student!": "把它从你的学生那里隐藏起来！",
   "Hide the solution": "隐藏答案",
   "Homepage": "主页",
-  "I have lost {{amount}} Slon because of issuing these badges": "由于发放这些徽章，我失去了 {{amount}} Slon",
+  "I lost {{amount}} Slon because of issuing these badges": "我因发行这些徽章而失去了 {{amount}} Slon",
   "I may lose": "我可能会输",
   "I risk losing {{stake}} Slon if {{name}} forgets this skill. I’m awarding a badge for this skill.": "如果{{name}}忘记这个技能，我风险失去{{stake}} Slon。我将为这个技能授予一个徽章。",
   "I will lose {{amount}} Slon (from {{balance}}) if I issue a badge too early and my student forgets the skill.": "如果我过早颁发徽章，而我的学生忘记了技能，我将损失 {{amount}} Slon（从 {{balance}} 中）。",

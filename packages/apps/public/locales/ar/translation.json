@@ -125,7 +125,7 @@
   "Hide it from your student!": "اخفِه عن طلابك!",
   "Hide the solution": "إخفاء الحل",
   "Homepage": "الصفحة الرئيسية",
-  "I have lost {{amount}} Slon because of issuing these badges": "لقد فقدت {{amount}} Slon بسبب إصدار هذه الشهادات",
+  "I lost {{amount}} Slon because of issuing these badges": "فقدت {{amount}} سلون بسبب إصدار هذه الشارات",
   "I may lose": "قد أخسر",
   "I risk losing {{stake}} Slon if {{name}} forgets this skill. I’m awarding a badge for this skill.": "أخاطر بفقدان {{stake}} سلون إذا نسي {{name}} هذه المهارة. سأقوم بمنح شارة لهذه المهارة.",
   "I will lose {{amount}} Slon (from {{balance}}) if I issue a badge too early and my student forgets the skill.": "سأفقد {{amount}} س لون (من {{balance}}) إذا أصدرت شارة مبكرًا ونسي الطالب المهارة.",

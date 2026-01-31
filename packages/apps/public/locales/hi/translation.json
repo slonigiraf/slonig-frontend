@@ -125,7 +125,7 @@
   "Hide it from your student!": "इसे अपने छात्र से छिपाएं!",
   "Hide the solution": "उत्तर छिपाएं",
   "Homepage": "होमपेज",
-  "I have lost {{amount}} Slon because of issuing these badges": "मैंने इन बैजों को जारी करने के कारण {{amount}} स्लोन खो दिए हैं",
+  "I lost {{amount}} Slon because of issuing these badges": "मैंने इन बैज जारी करने के कारण {{amount}} स्लॉन खो दिए",
   "I may lose": "मैं हार सकता हूँ",
   "I risk losing {{stake}} Slon if {{name}} forgets this skill. I’m awarding a badge for this skill.": "अगर {{name}} इस कौशल को भूल जाता है तो मैं {{stake}} स्लोन खोने का जोखिम उठाता हूँ। मैं इस कौशल के लिए एक बैज प्रदान कर रहा हूँ।",
   "I will lose {{amount}} Slon (from {{balance}}) if I issue a badge too early and my student forgets the skill.": "अगर मैं एक बैज जल्दी जारी करता हूँ और मेरा छात्र कौशल भूल जाता है तो मैं {{amount}} स्लोन ({{balance}} में से) खो दूँगा।",

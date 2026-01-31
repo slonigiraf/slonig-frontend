@@ -125,7 +125,7 @@
   "Hide it from your student!": "Esconda isso do seu estudante!",
   "Hide the solution": "Ocultar solução",
   "Homepage": "Página inicial",
-  "I have lost {{amount}} Slon because of issuing these badges": "Perdi {{amount}} Slon por emitir esses crachás",
+  "I lost {{amount}} Slon because of issuing these badges": "Eu perdi {{amount}} Slon por causa da emissão dessas credenciais",
   "I may lose": "Posso perder",
   "I risk losing {{stake}} Slon if {{name}} forgets this skill. I’m awarding a badge for this skill.": "Corro o risco de perder {{stake}} Slon se {{name}} esquecer esta habilidade. Estou concedendo um badge para esta habilidade.",
   "I will lose {{amount}} Slon (from {{balance}}) if I issue a badge too early and my student forgets the skill.": "Eu vou perder {{amount}} Slon (de {{balance}}) se eu emitir um crachá muito cedo e meu aluno esquecer a habilidade.",
