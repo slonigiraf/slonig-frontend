@@ -15,6 +15,7 @@ import { Signer } from './Signer.js';
 import { UsageRight } from './UsageRight.js';
 import { SkillTemplate } from './SkillTemplate.js';
 import { Repetition } from './Repetition.js';
+import { LearnRequest } from './LearnRequest.js';
 
 class SlonigDB extends Dexie {
   agreements!: Table<Agreement>;
@@ -33,10 +34,11 @@ class SlonigDB extends Dexie {
   usageRights!: Table<UsageRight>;
   skillTemplates!: Table<SkillTemplate>;
   repetitions!: Table<Repetition>;
+  learnRequests!:Table<LearnRequest>;
 
   constructor() {
     super('slonig');
-    this.version(60).stores({
+    this.version(62).stores({
       agreements: '&id',
       canceledInsurances: '&workerSign',
       canceledLetters: '&pubSign',
@@ -54,6 +56,7 @@ class SlonigDB extends Dexie {
       usageRights: '&[pubSign+employer],[referee+letterId]',
       skillTemplates: '&id,moduleId',
       repetitions: '&[workerId+knowledgeId],lastExamined',
+      learnRequests:'&id,created'
     });
   }
 }

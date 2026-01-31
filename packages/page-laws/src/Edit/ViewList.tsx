@@ -9,7 +9,7 @@ import { Spinner, Label, Button, Progress } from '@polkadot/react-components';
 import { ItemWithCID } from '../types.js';
 import { useApi } from '@polkadot/react-hooks';
 import BN from 'bn.js';
-import { getLettersForKnowledgeId, getRepetitionsForKnowledgeId, getSetting, SettingKey } from '@slonigiraf/db';
+import { LearnRequest, getLettersForKnowledgeId, getRepetitionsForKnowledgeId, getSetting, putLearnRequest, SettingKey } from '@slonigiraf/db';
 import { u8aToHex } from '@polkadot/util';
 import ModulePreview from './ModulePreview.js';
 import styled from 'styled-components';
@@ -295,8 +295,10 @@ function ViewList({ className = '', id, cidString, isClassInstructionShown, setI
     navigate('/badges/teach?showHelpQRInfo', { replace: true });
   }, [navigate]);
 
-  const onDataSent = useCallback(async () => {
+  const onDataSent = useCallback(async (lessonId: string) => {
     closeQR();
+    const learnRequest: LearnRequest = { id: lessonId, created: Date.now() };
+    await putLearnRequest(learnRequest);
     if (id === EXAMPLE_MODULE_KNOWLEDGE_ID) {
       const fallbackKnowledgeId = await getSetting(SettingKey.FALLBACK_KNOWLEDGE_ID);
       if (fallbackKnowledgeId) {
@@ -446,7 +448,7 @@ function ViewList({ className = '', id, cidString, isClassInstructionShown, setI
         />
       </div>
     )}
-    {list.q != null && <ExerciseList exercises={list.q} location='view_list'/>}
+    {list.q != null && <ExerciseList exercises={list.q} location='view_list' />}
     {list.t !== null && list.s && list.t === LawType.MODULE && !isAPairWork && (
       <DivWithLeftMargin>
         <h3>{t('Educational standards') + ': '}</h3>

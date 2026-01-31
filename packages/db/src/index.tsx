@@ -23,8 +23,9 @@ import { InsurancesTransfer, LessonRequest } from "@slonigiraf/slonig-components
 import { CanceledInsurance } from "./db/CanceledInsurance.js";
 import { Repetition } from "./db/Repetition.js";
 import { EXAMPLE_SKILL_KNOWLEDGE_ID } from "@slonigiraf/utils";
+import { LearnRequest } from "./db/LearnRequest.js";
 
-export type { TutorAction, CanceledInsurance, Reexamination, LetterTemplate, CanceledLetter, Reimbursement, Letter, Insurance, Lesson, Pseudonym, Setting, Signer, UsageRight, Agreement };
+export type { LearnRequest, TutorAction, CanceledInsurance, Reexamination, LetterTemplate, CanceledLetter, Reimbursement, Letter, Insurance, Lesson, Pseudonym, Setting, Signer, UsageRight, Agreement };
 
 const DEFAULT_INSURANCE_VALIDITY = 730;//Days valid
 const DEFAULT_WARRANTY = "573000000000000";//573 Slon for USA, 0.05688 USD in Ethiopia, 100.66*0.05688 USD in USA
@@ -101,6 +102,22 @@ export async function hasSetting(id: string): Promise<boolean> {
 export async function getInsuranceDaysValid() {
     const stored_validity = await getSetting(SettingKey.INSURANCE_VALIDITY);
     return stored_validity ? parseInt(stored_validity, 10) : DEFAULT_INSURANCE_VALIDITY;
+}
+
+// LearnRequests related
+
+export async function putLearnRequest(learnRequest: LearnRequest) {
+    await db.learnRequests.put(learnRequest);
+}
+
+export async function deleteLearnRequest(id: string) {
+    await db.learnRequests.delete(id);
+}
+
+export async function getAnyNonFinishedLessonRequest(createdBefore: number) {
+    return db.learnRequests
+        .filter((learnRequest: LearnRequest) => learnRequest.created < createdBefore)
+        .first();
 }
 
 // SkillTemplate related

@@ -15,7 +15,7 @@ interface Props {
   isLearningRequested: boolean;
   isReexaminingRequested?: boolean;
   lessonInUrl?: boolean;
-  onDataSent: () => void;
+  onDataSent: (lessonId: string) => void;
 }
 
 function SkillQR({ className = '', id, cid, selectedItems, isLearningRequested, isReexaminingRequested, lessonInUrl, onDataSent }: Props): React.ReactElement<Props> | null {
@@ -124,7 +124,7 @@ function SkillQR({ className = '', id, cid, selectedItems, isLearningRequested, 
               data={data}
               route={route}
               textShare={t('Press the link to start tutoring')}
-              onDataSent={onDataSent}
+              onDataSent={() => onDataSent(lessonId)}
             />
           </CenterQRContainer>
         </StyledDiv>
