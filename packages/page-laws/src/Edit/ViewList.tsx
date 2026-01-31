@@ -289,10 +289,10 @@ function ViewList({ className = '', id, cidString, isClassInstructionShown, setI
   }, [id, navigate]);
 
   const helpTutor = useCallback((): void => {
-    // setLearningRequested(false);
-    // setReexaminingRequested(false);
-    // setIsExitConfirmOpen(false);
-    // navigate('/badges/teach?studentReminder', { replace: true });
+    setLearningRequested(false);
+    setReexaminingRequested(false);
+    setIsExitConfirmOpen(false);
+    navigate('/badges/teach?showHelpQRInfo', { replace: true });
   }, [navigate]);
 
   const onDataSent = useCallback(async (learnRequest: LearnRequest) => {

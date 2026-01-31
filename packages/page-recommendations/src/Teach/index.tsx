@@ -64,6 +64,11 @@ function Teach({ className = '' }: Props): React.ReactElement<Props> {
   const [lessonStat, setLessonStat] = useState<LessonStat | null>(null);
   const [lastLessonId, setLastLessonId] = useState<null | string>(null);
 
+
+  useEffect(() => {
+    showHelpQRInfo && setIsHelpQRInfoShown(true);
+  }, [showHelpQRInfo]);
+
   useEffect(() => {
     const refreshLessonStat = async () => {
       if (lesson === null) return;
