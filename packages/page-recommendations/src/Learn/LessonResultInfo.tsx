@@ -26,13 +26,27 @@ function LessonProcessInfo({ className = '', lessonResult }: Props): React.React
   const canceledReexaminations = reexaminations.length - validReexaminations;
 
   return (
+
     <StyledDiv>
       <TotalStat>
         <h3>{t('After payment, you will receive')}</h3>
-        <StatElement><Icon icon={'shield'} />&nbsp;{validReexaminations}&nbsp;&nbsp;&nbsp;{t('Badges survived the reexamination')}</StatElement>
-        <StatElement><Icon icon={'shield-halved'} />&nbsp;{canceledReexaminations}&nbsp;&nbsp;&nbsp;{t('Canceled badges')}</StatElement>
-        <StatElement><Icon icon={'rotate'} />&nbsp;{lessonResult.repetitions.length}&nbsp;&nbsp;&nbsp;{t('Skills to repeat')}</StatElement>
-        <StatElement><Icon icon={'trophy'} />&nbsp;{lessonResult.letters.length}&nbsp;&nbsp;&nbsp;{t('New badges')}</StatElement>
+        <StatGrid>
+          <Icon icon="shield" />
+          <StatNumber>{validReexaminations}</StatNumber>
+          <StatLabel>{t('Badges survived the reexamination')}</StatLabel>
+        
+          <Icon icon="shield-halved" />
+          <StatNumber>{canceledReexaminations}</StatNumber>
+          <StatLabel>{t('Canceled badges')}</StatLabel>
+       
+          <Icon icon="rotate" />
+          <StatNumber>{lessonResult.repetitions.length}</StatNumber>
+          <StatLabel>{t('Skills to repeat')}</StatLabel>
+    
+          <Icon icon="trophy" />
+          <StatNumber>{lessonResult.letters.length}</StatNumber>
+          <StatLabel>{t('New badges')}</StatLabel>
+        </StatGrid>
       </TotalStat>
     </StyledDiv>
   );
@@ -56,10 +70,24 @@ const TotalStat = styled.div`
   }
 `;
 
-const StatElement = styled.div`
-  display: flex;
-  justify-content: left;
-  margin-top: 5px;
+const StatNumber = styled.span`
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
 `;
+
+const StatLabel = styled.span`
+  opacity: 0.9;
+`;
+
+const StatGrid = styled.div`
+  display: grid;
+  grid-template-columns: repeat(3, max-content); /* each column shrinks to content */
+  grid-auto-rows: auto;
+  gap: 0.5rem 0.5rem; /* row gap / column gap */
+  align-items: center;
+  justify-content: start; /* keep it left-aligned */
+`;
+
+
 
 export default React.memo(LessonProcessInfo);
