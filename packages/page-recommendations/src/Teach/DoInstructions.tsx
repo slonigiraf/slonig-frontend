@@ -140,7 +140,7 @@ function DoInstructions({ className = '', entity, lessonStat, anythingToLearn = 
           hasTuteeUsedSlonig,
           variation,
         });
-        
+
       setAlgorithmStage(newAlgorithm.getBegin());
     } else {
       const variation: ValidatingAlgorithmType = tooFastWarning ? 'with_too_fast_warning' :
@@ -296,8 +296,11 @@ function DoInstructions({ className = '', entity, lessonStat, anythingToLearn = 
       }
       const timeSpent = Math.round((Date.now() - lastStageEndTime) / 1000);
       setIsButtonClicked(true);
-      const logStageTime = () => {
+      const logStageTime = (nextStageType?: StageType) => {
         logEvent('TUTORING', algorithmType, algorithmStage.getType(), timeSpent);
+        if (nextStageType) {
+          logEvent('TUTORING', algorithmType, nextStageType, timeSpent);
+        }
       }
       if (hasStudenFailed(nextStage)) {
         await markLetterAsNotPerfect();
@@ -312,7 +315,7 @@ function DoInstructions({ className = '', entity, lessonStat, anythingToLearn = 
         refreshStageView();
       } else if (nextStage.getType() === StageType.skip) {
         preserveFromNoobs(() => {
-          logStageTime();
+          logStageTime(StageType.skip);
           refreshStageView();
           onResult(async () => { }, 'skip');
         }, () => setIsButtonClicked(false));
