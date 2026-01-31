@@ -83,6 +83,8 @@ function LessonResultReceiver({ webRTCPeerId, onDaysRangeChange }: Props): React
 
   useFetchWebRTC<LessonResult>(webRTCPeerId, handleData);
 
+  const decorator = <></>;
+
   useEffect(() => {
     async function pay() {
       if (agreement && lessonResult) {
@@ -99,7 +101,8 @@ function LessonResultReceiver({ webRTCPeerId, onDaysRangeChange }: Props): React
               amount,
               success: false,
               id: agreement.id,
-            }
+            },
+            decorator
           }
         )
       }

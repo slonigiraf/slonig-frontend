@@ -5,7 +5,7 @@ import type { DeriveBalancesAll } from '@polkadot/api-derive/types';
 import type { AccountInfoWithProviders, AccountInfoWithRefCount } from '@polkadot/types/interfaces';
 import { BN } from '@polkadot/util';
 
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { ReactNode, useCallback, useEffect, useState } from 'react';
 
 import { checkAddress } from '@polkadot/phishing';
 import { useApi, useCall, useToggle } from '@polkadot/react-hooks';
@@ -32,6 +32,7 @@ interface Props {
   amount?: BN;
   isAmountEditable: boolean;
   isRewardType?: boolean;
+  decorator?: ReactNode;
 }
 
 function isRefcount(accountInfo: AccountInfoWithProviders | AccountInfoWithRefCount): accountInfo is AccountInfoWithRefCount {
@@ -51,7 +52,7 @@ async function checkPhishing(_senderId: string | null, recipientId: string | nul
   ];
 }
 
-function Transfer({ className = '', onClose, onConfirmedClose, onSuccess, recipientId: propRecipientId, senderId: propSenderId, amount: propAmount, isAmountEditable = true, isRewardType = false }: Props): React.ReactElement<Props> {
+function Transfer({ className = '', decorator, onClose, onConfirmedClose, onSuccess, recipientId: propRecipientId, senderId: propSenderId, amount: propAmount, isAmountEditable = true, isRewardType = false }: Props): React.ReactElement<Props> {
   const { t } = useTranslation();
   const { api } = useApi();
   const [amount, setAmount] = useState<BN | undefined>(propAmount ? propAmount : BN_ZERO);
@@ -277,6 +278,7 @@ function Transfer({ className = '', onClose, onConfirmedClose, onSuccess, recipi
                   )
                 }
               </>}
+              {decorator}
             </div>
           </Modal.Content>
           <Modal.Actions>

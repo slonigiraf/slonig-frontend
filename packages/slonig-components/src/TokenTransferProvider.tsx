@@ -19,6 +19,7 @@ interface TokenTransferContextType {
         amount?: BN;
         transferReceipt?: TransferReceipt;
         isRewardType?: boolean;
+        decorator?: ReactNode;
     }) => void;
 }
 
@@ -49,6 +50,7 @@ export const TokenTransferProvider: React.FC<TokenTransferProviderProps> = ({ ch
     const [isTransferReady, setIsTransferReady] = useState<boolean>(false);
     const { isApiConnected } = useApi();
     const [isExitConfirmOpen, setIsExitConfirmOpen] = useState(false);
+    const [decorator, setDecorator] = useState<ReactNode|null>(null);
     const { t } = useTranslation();
 
     // increments every time openTransfer is called; used as <TransferModal key=...>
@@ -65,15 +67,18 @@ export const TokenTransferProvider: React.FC<TokenTransferProviderProps> = ({ ch
         amount,
         transferReceipt,
         isRewardType = false,
+        decorator
     }: {
         senderId?: string;
         recipientId?: string;
         amount?: BN;
         transferReceipt?: TransferReceipt;
         isRewardType?: boolean;
+        decorator?: ReactNode;
     }) => {
         // Force modal remount so it can't keep internal stale state
         setModalNonce((n) => n + 1);
+        setDecorator(decorator ?? null);
         setSenderId(senderId ?? '');
         setRecipientId(recipientId ?? '');
         if (amount !== undefined) {
@@ -115,6 +120,7 @@ export const TokenTransferProvider: React.FC<TokenTransferProviderProps> = ({ ch
             setIsRewardType(false);
             setTransferReceipt(undefined);
             setIsExitConfirmOpen(false);
+            setDecorator(null);
         }
     }, [isTransferOpen, _setAmount, setIsAmountEditable])
 
@@ -154,6 +160,7 @@ export const TokenTransferProvider: React.FC<TokenTransferProviderProps> = ({ ch
                     recipientId={recipientId}
                     amount={amount}
                     isAmountEditable={isAmountEditable}
+                    decorator={decorator}
                 />
             )}
             {isExitConfirmOpen && (
