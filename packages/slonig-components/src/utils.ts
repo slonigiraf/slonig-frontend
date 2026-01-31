@@ -7,6 +7,7 @@ import Peer from 'peerjs';
 import BN from 'bn.js';
 import { CIDCache } from 'db/src/db/CIDCache.js';
 import { ErrorType } from '@polkadot/react-params';
+import { getAddressMeta } from '@polkadot/react-components/util';
 
 // export const tokenSymbol = formatBalance(balance, { withUnit: false });
 
@@ -257,8 +258,8 @@ export function nameFromKeyringPair(keyringPair: KeyringPair | null): string {
   if (keyringPair === null) {
     return '';
   }
-  const [, , name] = getAddressName(keyringPair.address, null, "");
-  return name;
+  const meta = getAddressMeta(keyringPair.address, null);
+  return meta.name || '';
 }
 
 export function keyForCid(keyPair: KeyringPair, cid: string): KeyringPair {
