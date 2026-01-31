@@ -262,7 +262,7 @@ function LessonResults({ className = '', lesson, lessonStat, updateAndStoreLesso
       </CenterQRContainer>}
       {isThereAnyResult === false && <h2>{t('There are no results for this lesson')}</h2>}
 
-      {!processingQR && lesson.cid !== EXAMPLE_MODULE_KNOWLEDGE_CID &&
+      {!processingQR && lesson.cid !== EXAMPLE_MODULE_KNOWLEDGE_CID && lessonStat.issuedBadgeCount > 0 &&
         <StyledDiv>
           <Button className='highlighted--button' icon='edit' label={t('Edit')} onClick={toggleVisibleDiplomaDetails} />
         </StyledDiv>
