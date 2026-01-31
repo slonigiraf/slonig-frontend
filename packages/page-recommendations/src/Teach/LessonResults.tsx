@@ -8,7 +8,7 @@ import { useApi, useBlockTime, useToggle } from '@polkadot/react-hooks';
 import { u8aToHex, hexToU8a, u8aWrapBytes, BN_ONE, BN_ZERO, formatBalance } from '@polkadot/util';
 import type { LessonResult } from '@slonigiraf/slonig-components';
 import { useLoginContext, CenterQRContainer, bnToSlonString, SenderComponent, useInfo, nameFromKeyringPair, predictBlockNumber, FullscreenActivity, useLog, bnToSlonFloatOrNaN, useSettingValue } from '@slonigiraf/slonig-components';
-import { Lesson, getLastUnusedLetterNumber, setLastUsedLetterNumber, getReexaminationsByLessonId, getValidLetterTemplatesByLessonId, SettingKey, serializeAsLetter, LetterTemplate, putLetterTemplate, setSettingToTrue, getLesson, getSetting, getToRepeatLetterTemplatesByLessonId, isThereAnyLessonResult } from '@slonigiraf/db';
+import { Lesson, getLastUnusedLetterNumber, setLastUsedLetterNumber, getReexaminationsByLessonId, getValidLetterTemplatesByLessonId, SettingKey, serializeAsLetter, LetterTemplate, putLetterTemplate, setSettingToTrue, getLesson, getSetting, getToRepeatLetterTemplatesByLessonId, isThereAnyLessonResult, getPseudonym } from '@slonigiraf/db';
 import { getPublicDataToSignByReferee, getPrivateDataToSignByReferee } from '@slonigiraf/helpers';
 import { useTranslation } from '../translate.js';
 import { blake2AsHex } from '@polkadot/util-crypto';
@@ -50,10 +50,19 @@ function LessonResults({ className = '', lesson, lessonStat, updateAndStoreLesso
   const totalIncomeRef = React.useRef<BN>(BN_ZERO);
   const [visibleDiplomaDetails, toggleVisibleDiplomaDetails] = useToggle(false);
   const [data, setData] = useState('');
-  const [processingStatistics, setProcessingStatistics] = useState(true);
   const [processingQR, setProcessingQR] = useState(true);
   const [resultsWereSent, setResultsWereSent] = useState(false);
   const [isThereAnyResult, setIsThereAnyResult] = useState<boolean | undefined>(undefined);
+
+  const [studentName, setStudentName] = useState(t('student'));
+
+  useEffect(() => {
+    const run = async () => {
+      const studentName = await getPseudonym(lesson.student);
+      studentName && setStudentName(studentName);
+    };
+    run();
+  }, [lesson])
 
   const { showInfo } = useInfo();
 
@@ -242,20 +251,17 @@ function LessonResults({ className = '', lesson, lessonStat, updateAndStoreLesso
     await putLetterTemplate({ ...letterTemplate, valid: false, toRepeat: true });
   };
 
-  const constContentIsVisible = !(processingStatistics || processingQR);
-
   return (
     <FullscreenActivity caption={t('Send results and get a reward')} onClose={onClose}>
-      {isThereAnyResult ? <CenterQRContainer>
-        <SenderComponent data={data} route={'badges'} caption={t('Ask the tutee to scan:')}
+      {isThereAnyResult && <CenterQRContainer>
+        <SenderComponent data={data} route={'badges'} caption={t('Ask {{studentName}} to scan', { replace: { studentName: studentName } })}
           textShare={t('Press the link to add the badge')} onDataSent={onDataSent} onReady={() => setProcessingQR(false)} />
 
-        <LessonProcessInfo lessonStat={lessonStat} showLastAction={false} />
-      </CenterQRContainer> :
-        <h2>{t('There are no results for this lesson')}</h2>
-      }
+        {!processingQR && <LessonProcessInfo lessonStat={lessonStat} showLastAction={false} />}
+      </CenterQRContainer>}
+      {isThereAnyResult === false && <h2>{t('There are no results for this lesson')}</h2>}
 
-      {constContentIsVisible &&
+      {!processingQR &&
         <StyledDiv>
           <Button className='highlighted--button' icon='edit' label={t('Edit')} onClick={toggleVisibleDiplomaDetails} />
         </StyledDiv>
