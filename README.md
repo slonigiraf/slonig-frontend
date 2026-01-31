@@ -74,6 +74,7 @@ Here is a list of user actions tracked by Slonig:
 | ✅ | EXAMPLES | SHOW_ANSWERS | show_asnwers_at_example_exercises_button | N/A |
 | ✅ | EXAMPLES | SHOW_ANSWERS | show_asnwers_at_teach | N/A |
 | ✅ | EXAMPLES | SHOW_ANSWERS | show_asnwers_at_reexamine | N/A |
+| ✅ | PROGRESS | PROGRESS_PERCENTAGE | Knowledge name | percentage |
 | ✅ | TUTORING | VIEW_BADGE_TEMPLATE | KnowledgeName (skill) | N/A |
 | ✅ | TUTORING | VIEW_PENALTY | KnowledgeName (skill) | N/A |
 | ✅ | TUTORING | CLICK_RESTART_LESSON | N/A | N/A |

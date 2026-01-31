@@ -1,11 +1,11 @@
 import React, { useCallback, useEffect, useState } from 'react';
-import { LawType, KatexSpan, SelectableList, StyledSpinnerContainer, useLoginContext, getCIDFromBytes, FullscreenActivity, Confirmation, NotClosableFullscreen, useBooleanSettingValue, OKBox, ClassInstruction, useLog, useIpfsContext, getIPFSDataFromContentID, parseJson, ProgressData, progressValue, useInfo } from '@slonigiraf/slonig-components';
+import { LawType, KatexSpan, SelectableList, StyledSpinnerContainer, useLoginContext, getCIDFromBytes, FullscreenActivity, Confirmation, NotClosableFullscreen, useBooleanSettingValue, OKBox, ClassInstruction, useLog, useIpfsContext, getIPFSDataFromContentID, parseJson, ProgressData, progressValue, useInfo, RoundProgress } from '@slonigiraf/slonig-components';
 import { useLocation, useNavigate } from 'react-router-dom';
 import ItemLabel from './ItemLabel.js';
 import SkillQR from './SkillQR.js';
 import { useTranslation } from '../translate.js';
 import ExerciseList from './ExerciseList.js';
-import { Spinner, Label, Button, Progress } from '@polkadot/react-components';
+import { Spinner, Label, Button } from '@polkadot/react-components';
 import { ItemWithCID } from '../types.js';
 import { useApi } from '@polkadot/react-hooks';
 import BN from 'bn.js';
@@ -106,7 +106,8 @@ function ViewList({ className = '', id, cidString, isClassInstructionShown, setI
           })
         );
         setItemsWithCID(items);
-        const skills = items.length;
+
+        const skills = (list.t === LawType.MODULE) ? items.length : 0;
         const letters = items.filter(i => i.validDiplomas.length).length;
         const repetitions = items.filter(i => i.shouldBeRepeated).length;
         const blockedForLearning = items.filter(i => i.isBlockedForLearning).length;
@@ -348,6 +349,13 @@ function ViewList({ className = '', id, cidString, isClassInstructionShown, setI
     }
   }, [isReexaminingRequested]);
 
+  useEffect(() => {
+    if (list && progressData && progressData.skills > 0) {
+      const percentage = Math.round(100 * progressValue(progressData) / progressData.skills);
+      logEvent('PROGRESS', 'PROGRESS_PERCENTAGE', list.h, percentage);
+    }
+  }, [list, progressData])
+
   const displayContent = list && (list.t === LawType.COURSE || list.t === LawType.MODULE) ? wereStatisticsLoaded : true;
 
   const content = list ? <>
@@ -362,7 +370,7 @@ function ViewList({ className = '', id, cidString, isClassInstructionShown, setI
           <ButtonsRow>
             {wereStatisticsLoaded &&
               <ProgressDiv style={isAPairWork ? { display: 'none' } : {}}>
-                <Progress
+                <RoundProgress
                   value={progressValue(progressData)}
                   total={progressData.skills}
                 />

@@ -1,12 +1,12 @@
 import pako from 'pako';
 import FileSaver from 'file-saver';
 import React, { useCallback, useState } from 'react';
-import { Progress, styled } from '@polkadot/react-components';
+import { styled } from '@polkadot/react-components';
 import { exportDB } from '@slonigiraf/db';
 import { nextTick } from '@polkadot/util';
 import { keyring } from '@polkadot/ui-keyring';
 import { useLoginContext } from './LoginContext.js';
-import { ButtonWithLabelBelow, getFormattedTimestamp, useLog } from '@slonigiraf/slonig-components';
+import { ButtonWithLabelBelow, getFormattedTimestamp, RoundProgress, useLog } from '@slonigiraf/slonig-components';
 import { useTranslation } from './translate.js';
 
 interface Props {
@@ -107,7 +107,7 @@ function DBExport({ className = '', caption, onSuccess }: Props): React.ReactEle
           isDisabled={!currentPair}
         />
         :
-        <Progress
+        <RoundProgress
           value={progressValue}
           total={progressTotal}
         />}

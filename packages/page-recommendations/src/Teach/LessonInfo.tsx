@@ -1,9 +1,9 @@
 // Copyright 2021-2022 @slonigiraf/app-recommendations authors & contributors
 // SPDX-License-Identifier: Apache-2.0
 
-import { Button, Progress, Spinner, styled } from '@polkadot/react-components';
+import { Button, Spinner, styled } from '@polkadot/react-components';
 import React, { useState, useEffect, useCallback } from 'react';
-import { KatexSpan, getIPFSDataFromContentID, parseJson, useLog } from '@slonigiraf/slonig-components';
+import { KatexSpan, RoundProgress, getIPFSDataFromContentID, parseJson, useLog } from '@slonigiraf/slonig-components';
 import { useTranslation } from '../translate.js';
 import { useIpfsContext } from '@slonigiraf/slonig-components';
 import { Lesson, getPseudonym, isThereAnyLessonResult } from '@slonigiraf/db';
@@ -109,7 +109,7 @@ function LessonInfo({ lesson, isSelected, onToggleSelection, onResumeTutoring, o
       </div>
 
       <div>
-        <Progress
+        <RoundProgress
           value={progressValue}
           total={progressTotal}
         />

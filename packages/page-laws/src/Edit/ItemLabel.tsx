@@ -5,12 +5,13 @@ import React, { useEffect, useState } from 'react';
 import {
   KatexSpan,
   ProgressData,
+  RoundProgress,
   getIPFSDataFromContentID,
   parseJson,
   progressValue
 } from '@slonigiraf/slonig-components';
 import { useIpfsContext } from '@slonigiraf/slonig-components';
-import { Button, Icon, styled, Spinner, Progress } from '@polkadot/react-components';
+import { Button, Icon, styled, Spinner } from '@polkadot/react-components';
 import BadgeCheck from './BadgeCheck.js';
 import { ItemWithCID } from '../types.js';
 
@@ -158,7 +159,7 @@ function ItemLabel({
 
       {progressData && (
         <ProgressWrap>
-          <Progress
+          <RoundProgress
             value={progressValue(progressData)}
             total={progressData.skills}
           />
