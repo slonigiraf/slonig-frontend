@@ -335,9 +335,12 @@ function Teach({ className = '' }: Props): React.ReactElement<Props> {
   useEffect(() => {
     const run = async () => {
       if (lessonToShowResults === null) return;
-
+      
       const lesson = await getLesson(lessonToShowResults);
-      lesson && onShowResults(lesson);
+      if (lesson) {
+        logEvent('TUTORING', 'LESSON_RESULTS', 'lesson_results_opened_after_student_reminder');
+        onShowResults(lesson);
+      }
     }
     lessonToShowResults && run();
 

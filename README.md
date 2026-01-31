@@ -63,6 +63,7 @@ Here is a list of user actions tracked by Slonig:
 | ✅ | LEARNING | SAVE_BADGES | saved_badges_count | count |
 | ✅ | LEARNING | SAVE_REEXAMINATIONS | saved_reexaminations_count | count |
 | ✅ | SYNC | SUBMIT_PENALTY_EXTRINSIC | submitted_penalty_slon | N/A |
+| ✅ | ALARM | LOAD_LESSON_RESULTS_ALARM | Knowledge name | N/A |
 | ✅ | EXAMPLES | SHOW_ANSWERS | show_asnwers_at_item_preview | N/A |
 | ✅ | EXAMPLES | SHOW_ANSWERS | show_asnwers_at_skill_template_info | N/A |
 | ✅ | EXAMPLES | SHOW_ANSWERS | show_asnwers_at_view_list | N/A |
@@ -113,6 +114,10 @@ Here is a list of user actions tracked by Slonig:
 | ✅ | TUTORING | TEACH_ALGO | click_instant_mark_mastered | N/A |
 | ✅ | TUTORING | TEACH_ALGO | click_instant_mark_for_repeat | N/A |
 | ✅ | TUTORING | LESSON_RESULTS | lesson_auto_send_opened | amount |
+
+| ✅ | TUTORING | LESSON_RESULTS | lesson_results_opened_after_student_reminder | amount |
+
+
 | ✅ | TUTORING | LESSON_RESULTS | click_send_during_lesson | N/A |
 | ✅ | TUTORING | LESSON_RESULTS | click_send_at_list_of_lessons |  N/A |
 | ✅ | TUTORING | LESSON_RESULTS | click_agree_to_send_results | N/A |

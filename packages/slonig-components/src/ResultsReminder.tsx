@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { useTranslation } from './translate.js';
 import { Button, Modal, styled } from '@polkadot/react-components';
-import { getBaseUrl, getIPFSDataFromContentID, parseJson, QRWithShareAndCopy, useIpfsContext, VerticalCenterItemsContainer, VerticallyCenteredModal, KatexSpan } from './index.js';
+import { getBaseUrl, getIPFSDataFromContentID, parseJson, QRWithShareAndCopy, useIpfsContext, VerticalCenterItemsContainer, VerticallyCenteredModal, KatexSpan, useLog } from './index.js';
 import { LearnRequest } from '@slonigiraf/db';
 interface Props {
   learnRequest: LearnRequest;
@@ -11,7 +11,13 @@ interface Props {
 function ResultsReminder({ learnRequest, onClose }: Props): React.ReactElement<Props> | null {
   const { t } = useTranslation();
   const { ipfs } = useIpfsContext();
+  const { logEvent } = useLog();
   const [lessonName, setLessonName] = useState('');
+
+  useEffect(() => {
+    logEvent('ALARM', 'LOAD_LESSON_RESULTS_ALARM', lessonName);
+  }, [lessonName]);
+
 
   useEffect(() => {
     async function fetchData() {
@@ -33,7 +39,7 @@ function ResultsReminder({ learnRequest, onClose }: Props): React.ReactElement<P
 
   const url = getBaseUrl() + `/#/badges/teach?learnRequest=${learnRequest.id}`;
 
-  const min = Math.round((Date.now() - learnRequest.created)/60_000);
+  const min = Math.round((Date.now() - learnRequest.created) / 60_000);
 
   return (
     <VerticallyCenteredModal
@@ -46,7 +52,7 @@ function ResultsReminder({ learnRequest, onClose }: Props): React.ReactElement<P
 
           <Title>{t('You forgot to receive the lesson results. Ask the tutor to scan')}</Title>
           <h2><KatexSpan content={lessonName} /></h2>
-          <span>{t('🕑 {{min}} minutes ago', {replace: {min: min}})}</span>
+          <span>{t('🕑 {{min}} minutes ago', { replace: { min: min } })}</span>
           <QRWithShareAndCopy
             titleShare={t('QR code')}
             textShare={t('Press the link to send Slon')}
