@@ -3,6 +3,7 @@ import InfoPopup from './InfoPopup.js';
 import type { IconName } from '@fortawesome/fontawesome-svg-core';
 import OKBox from './OKBox.js';
 import PenaltyPopup from './PenaltyPopup.js';
+import ResultsReminder from './ResultsReminder.js';
 
 interface InfoContextType {
     isInfoVisible: boolean;
@@ -33,6 +34,7 @@ export const InfoProvider: React.FC<InfoProviderProps> = ({ children }) => {
     const [isInfoVisible, setInfoVisible] = useState(false);
     const [isBoxVisible, setBoxVisible] = useState(false);
     const [isPenaltyInfoVisible, setIsPenaltyInfoVisible] = useState(false);
+    const [isLoadLessonResultsReminderVisible, setIsLoadLessonResultsReminderVisible] = useState(false);
     const [infoMessage, setInfoMessage] = useState('');
     const [boxMessage, setBoxMessage] = useState('');
     const [type, setType] = useState<'error' | 'info'>('info');
@@ -85,6 +87,7 @@ export const InfoProvider: React.FC<InfoProviderProps> = ({ children }) => {
             {isPenaltyInfoVisible && (
                 <PenaltyPopup key={penaltyKeyRef.current} onClose={() => setIsPenaltyInfoVisible(false)} />
             )}
+            {isLoadLessonResultsReminderVisible && <ResultsReminder knowledgeId={''} onClose={() => {}} onConfirm={() => {}}/>}
         </InfoContext.Provider>
     );
 };
