@@ -36,7 +36,7 @@ function LessonProcessInfo({ className = '', lessonStat, showLastAction = true }
     ['mark_mastered_warm_up', { icon: undefined, comment: '' }],
     ['mark_for_repeat_warm_up', { icon: undefined, comment: '' }],
 
-    ['mark_mastered_crude', { icon: 'rotate', comment: t('It looked perfect, but this was the student’s first time learning the skill, so it was marked for repetition.') }],
+    ['mark_mastered_crude', { icon: 'rotate', comment: t('This was the student’s first time learning the skill, so it was marked for repetition.') }],
     ['mark_for_repeat_crude', { icon: 'rotate', comment: t('You’ve taught the skill and marked it for repetition to ensure the student remembers it.') }],
 
     ['mark_mastered_mature', { icon: 'trophy', comment: t('You’ve prepared a badge to your student.') }],
