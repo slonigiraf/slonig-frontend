@@ -36,5 +36,8 @@
   "🕑 {{min}} minutes ago": "🕑 {{min}} minutes ago",
   "QR code": "QR code",
   "Press the link to send Slon": "Press the link to send Slon",
-  "Cancel": "Cancel"
+  "Cancel": "Cancel",
+  "You forgot to send lesson results": "You forgot to send lesson results",
+  "Send": "Send",
+  "Postpone for 10 minutes": "Postpone for 10 minutes"
 }

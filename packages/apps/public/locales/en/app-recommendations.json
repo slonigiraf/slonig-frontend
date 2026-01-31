@@ -145,5 +145,7 @@
   "I was penalized for": "I was penalized for",
   "Negotiate the price the student will pay you for each skill badge": "Negotiate the price the student will pay you for each skill badge",
   "Here you will see the data if you issue a badge to a student and another tutor, teacher, or the student’s parent penalizes you because the student forgot the skill.": "Here you will see the data if you issue a badge to a student and another tutor, teacher, or the student’s parent penalizes you because the student forgot the skill.",
-  "There are no results for this lesson": "There are no results for this lesson"
+  "There are no results for this lesson": "There are no results for this lesson",
+  "student": "student",
+  "Ask {{studentName}} to scan": "Ask {{studentName}} to scan"
 }
