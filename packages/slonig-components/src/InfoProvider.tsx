@@ -10,6 +10,7 @@ import { useLiveQuery } from 'dexie-react-hooks';
 import SendResultsReminder from './SendResultsReminder.js';
 import LessonResultInfo from './LessonResultInfo.js';
 import { LessonResult } from './index.jsx';
+import { useTranslation } from './translate.js';
 interface InfoContextType {
     isInfoVisible: boolean;
     infoMessage: string;
@@ -38,6 +39,7 @@ interface InfoProviderProps {
 
 export const InfoProvider: React.FC<InfoProviderProps> = ({ children }) => {
     const defaultIcon: IconName = 'circle-info';
+    const { t } = useTranslation();
     const [areLoadedResultsShown, setAreLoadedResultsShown] = useState(false);
     const [isInfoVisible, setInfoVisible] = useState(false);
     const [isBoxVisible, setBoxVisible] = useState(false);
@@ -107,8 +109,10 @@ export const InfoProvider: React.FC<InfoProviderProps> = ({ children }) => {
     }
 
     const showLoadedResult = (lessonResult: LessonResult) => {
-        setLoadedResultInfo(<LessonResultInfo title={''} lessonResult={lessonResult} />);
-        setAreLoadedResultsShown(Boolean(lessonResult));
+        if (lessonResult.tutorIsExperienced) {
+            setLoadedResultInfo(<LessonResultInfo title={''} lessonResult={lessonResult} />);
+            setAreLoadedResultsShown(Boolean(lessonResult));
+        }
     }
 
     useEffect(() => {
@@ -149,9 +153,9 @@ export const InfoProvider: React.FC<InfoProviderProps> = ({ children }) => {
             }
             {
                 isSendLessonResultsReminderVisible && lastNonSentLesson &&
-                <SendResultsReminder lesson={lastNonSentLesson} onResult={() => setIsSendLessonResultsReminderVisible(false)}/>
+                <SendResultsReminder lesson={lastNonSentLesson} onResult={() => setIsSendLessonResultsReminderVisible(false)} />
             }
-            {areLoadedResultsShown && <OKBox info={'Results are loaded'} decorator={loadedResultInfo} onClose={onCloseLoadedResults} />}
+            {areLoadedResultsShown && <OKBox info={t('Results are loaded')} decorator={loadedResultInfo} onClose={onCloseLoadedResults} />}
         </InfoContext.Provider>
     );
 };
