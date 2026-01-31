@@ -160,7 +160,7 @@ function DoInstructions({ className = '', entity, lessonStat, anythingToLearn = 
 
       setAlgorithmStage(newAlgorithm.getBegin());
     }
-  }, [skill, entity, studentName, hasTutorCompletedTutorial]);
+  }, [tooFastWarning, skill, lesson, anythingToLearn, lessonStat, pageWasJustRefreshed, entity, studentName, stake, hasTuteeUsedSlonig, hasTutorCompletedTutorial]);
 
   const processLetter = useCallback(async (isValid?: boolean) => {
     if (!isLetterTemplate(entity)) return;
