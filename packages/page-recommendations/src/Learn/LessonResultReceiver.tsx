@@ -15,6 +15,7 @@ import useFetchWebRTC from '../useFetchWebRTC.js';
 import { Repetition } from 'db/src/db/Repetition.js';
 import { EXAMPLE_SKILL_KNOWLEDGE_ID } from '@slonigiraf/utils';
 import { processNewPartner } from '../utils.js';
+import LessonResultInfo from './LessonResultInfo.js';
 interface Props {
   webRTCPeerId: string | null;
   onDaysRangeChange: (start: Date, end: Date) => void;
@@ -83,7 +84,7 @@ function LessonResultReceiver({ webRTCPeerId, onDaysRangeChange }: Props): React
 
   useFetchWebRTC<LessonResult>(webRTCPeerId, handleData);
 
-  const decorator = <></>;
+  const decorator = lessonResult? <LessonResultInfo lessonResult={lessonResult} /> : null;
 
   useEffect(() => {
     async function pay() {
