@@ -15,7 +15,7 @@ function ResultsReminder({ learnRequest, onClose }: Props): React.ReactElement<P
   const [lessonName, setLessonName] = useState('');
 
   useEffect(() => {
-    logEvent('ALARM', 'LOAD_LESSON_RESULTS_ALARM', lessonName);
+    lessonName && logEvent('ALARM', 'LOAD_LESSON_RESULTS_ALARM', lessonName);
   }, [lessonName]);
 
 
