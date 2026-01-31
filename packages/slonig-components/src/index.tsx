@@ -387,6 +387,7 @@ export async function fetchEconomy(onResult: (economy: StoredEconomy) => void) {
   await storeSetting(SettingKey.ECONOMY_INITIALIZED, 'true');
 };
 export interface LessonResult {
+  lesson: string; //Lesson.id
   agreement: string;
   price: string; // BN.toString()
   workerId: string;

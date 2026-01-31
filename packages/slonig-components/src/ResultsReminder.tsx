@@ -33,6 +33,8 @@ function ResultsReminder({ learnRequest, onClose }: Props): React.ReactElement<P
 
   const url = getBaseUrl() + `/#/badges/teach?learnRequest=${learnRequest.id}`;
 
+  const min = Math.round((Date.now() - learnRequest.created)/60_000);
+
   return (
     <VerticallyCenteredModal
       header=''
@@ -44,6 +46,7 @@ function ResultsReminder({ learnRequest, onClose }: Props): React.ReactElement<P
 
           <Title>{t('You forgot to receive the lesson results. Ask the tutor to scan')}</Title>
           <h2><KatexSpan content={lessonName} /></h2>
+          <span>{t('🕑 {{min}} minutes ago', {replace: {min: min}})}</span>
           <QRWithShareAndCopy
             titleShare={t('QR code')}
             textShare={t('Press the link to send Slon')}

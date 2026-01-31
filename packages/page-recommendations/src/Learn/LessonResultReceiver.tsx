@@ -4,7 +4,7 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { useLoginContext, useTokenTransfer, useInfo, LessonResult, keyForCid, getAddressFromPublickeyHex, useBlockchainSync, useLog, bnToSlonFloatOrNaN } from '@slonigiraf/slonig-components';
 import { hexToU8a, u8aToHex, u8aWrapBytes } from '@polkadot/util';
-import { addReimbursement, cancelLetter, deleteLetter, deserializeLetter, getAgreement, getLetter, getLettersForKnowledgeId, getSetting, letterToReimbursement, putAgreement, putLetter, setSettingToTrue, SettingKey, storePseudonym, updateLetterReexaminingCount, putRepetition as putRepetition, deleteRepetition } from '@slonigiraf/db';
+import { addReimbursement, cancelLetter, deleteLetter, deserializeLetter, getAgreement, getLetter, getLettersForKnowledgeId, getSetting, letterToReimbursement, putAgreement, putLetter, setSettingToTrue, SettingKey, storePseudonym, updateLetterReexaminingCount, putRepetition as putRepetition, deleteRepetition, deleteLearnRequest } from '@slonigiraf/db';
 import { useTranslation } from '../translate.js';
 import { Agreement } from '@slonigiraf/db';
 import { useNavigate } from 'react-router-dom';
@@ -41,6 +41,7 @@ function LessonResultReceiver({ webRTCPeerId, onDaysRangeChange }: Props): React
   const handleData = useCallback(async (receivedResult: LessonResult) => {
     if (receivedResult.workerId === workerPublicKeyHex) {
       await storePseudonym(receivedResult.referee, receivedResult.refereeName);
+      await deleteLearnRequest(receivedResult.lesson);
       logPartners(await processNewPartner(receivedResult.referee));
 
       setLessonResult(receivedResult);

@@ -201,6 +201,7 @@ function LessonResults({ className = '', lesson, lessonStat, updateAndStoreLesso
         const refereeName = nameFromKeyringPair(currentPair);
         const tutorIsExperienced = await getSetting(SettingKey.TUTOR_TUTORIAL_COMPLETED);
         const lessonResult: LessonResult = {
+          lesson: lesson.id,
           agreement: agreement,
           price: lessonPrice.toString(),
           workerId: lesson.student,
