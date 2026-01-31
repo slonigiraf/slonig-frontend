@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useTranslation } from '../translate.js';
 import { CenterQRContainer, LessonRequest, SenderComponent, nameFromKeyringPair, qrWidthPx, useLoginContext } from '@slonigiraf/slonig-components';
-import { Letter, SettingKey, getLessonId, getLettersToReexamine, storeSetting } from '@slonigiraf/db';
+import { LearnRequest, Letter, SettingKey, getLessonId, getLettersToReexamine, storeSetting } from '@slonigiraf/db';
 import { keyForCid } from '@slonigiraf/slonig-components';
 import { styled } from '@polkadot/react-components';
 import { u8aToHex } from '@polkadot/util';
@@ -15,7 +15,7 @@ interface Props {
   isLearningRequested: boolean;
   isReexaminingRequested?: boolean;
   lessonInUrl?: boolean;
-  onDataSent: (lessonId: string) => void;
+  onDataSent: (learnRequest: LearnRequest) => void;
 }
 
 function SkillQR({ className = '', id, cid, selectedItems, isLearningRequested, isReexaminingRequested, lessonInUrl, onDataSent }: Props): React.ReactElement<Props> | null {
@@ -43,7 +43,7 @@ function SkillQR({ className = '', id, cid, selectedItems, isLearningRequested, 
         const diplomaKey = item.cid ? keyForCid(currentPair, item.cid) : null;
         const diplomaPublicKeyHex = diplomaKey?.publicKey ? u8aToHex(diplomaKey.publicKey) : '';
         const allowToIssueBadge = item.shouldBeRepeated || item.cid === EXAMPLE_SKILL_KNOWLEDGE_CID;
-        return [item.id, item.cid, diplomaPublicKeyHex, allowToIssueBadge? '1' : '0'];
+        return [item.id, item.cid, diplomaPublicKeyHex, allowToIssueBadge ? '1' : '0'];
       });
       if (isLearningRequested) {
         setLearn(newLearnData);
@@ -114,6 +114,12 @@ function SkillQR({ className = '', id, cid, selectedItems, isLearningRequested, 
 
   const showQR = isLoggedIn && shouldRender && data;
 
+  const learnRequest: LearnRequest = {
+    id: lessonId,
+    created: Date.now(),
+    cid,
+  };
+
   return (
     <>
       {showQR && (
@@ -124,7 +130,7 @@ function SkillQR({ className = '', id, cid, selectedItems, isLearningRequested, 
               data={data}
               route={route}
               textShare={t('Press the link to start tutoring')}
-              onDataSent={() => onDataSent(lessonId)}
+              onDataSent={() => onDataSent(learnRequest)}
             />
           </CenterQRContainer>
         </StyledDiv>

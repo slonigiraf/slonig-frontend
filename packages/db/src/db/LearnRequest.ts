@@ -1,4 +1,5 @@
 export interface LearnRequest {
-  id: string;
+  id: string; // lesson id
+  cid: string; // knowledge cid
   created: number; // timestamp
 }

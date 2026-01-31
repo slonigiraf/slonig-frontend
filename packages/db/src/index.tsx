@@ -114,10 +114,12 @@ export async function deleteLearnRequest(id: string) {
     await db.learnRequests.delete(id);
 }
 
-export async function getAnyNonFinishedLessonRequest(createdBefore: number) {
-    return db.learnRequests
-        .filter((learnRequest: LearnRequest) => learnRequest.created < createdBefore)
-        .first();
+export async function getLastNonFinishedLessonRequest(createdBefore: number) {
+  return db.learnRequests
+    .where('created')
+    .below(createdBefore)
+    .reverse()
+    .first();
 }
 
 // SkillTemplate related

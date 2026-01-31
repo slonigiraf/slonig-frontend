@@ -16,25 +16,31 @@ interface Props {
 
 function QRWithShareAndCopy({ className, titleShare, textShare, urlShare, dataCopy, isDisabled = false }: Props): React.ReactElement<Props> {
     return (
-        <StyledDiv>
-            <div>
-                <div
-                    className='qr--row'
-                    style={{ display: isDisabled ? 'none' : '', paddingTop: '5px' }}
-                >
-                    {/* This size of QR code was set to allow accounts page show Slon balance without scroll on Redmi 9C NFC */}
-                    <QRCode value={urlShare} size={qrWidthPx} />
+        <>
+            <StyledDiv>
+                <div>
+                    <div
+                        className='qr--row'
+                        style={{ display: isDisabled ? 'none' : '', paddingTop: '5px' }}
+                    >
+                        {/* This size of QR code was set to allow accounts page show Slon balance without scroll on Redmi 9C NFC */}
+                        <QRCode value={urlShare} size={qrWidthPx} />
+                    </div>
+
+                    <div
+                        className='qr--row'
+                        style={{ display: isDisabled ? 'none' : '' }}
+                    >
+                        <ShareButton title={titleShare} text={textShare} url={urlShare} isDisabled={isDisabled} />
+                        <ClipboardCopyButton text={dataCopy} isDisabled={isDisabled} />
+                    </div>
                 </div>
 
-                <div
-                    className='qr--row'
-                    style={{ display: isDisabled ? 'none' : '' }}
-                >
-                    <ShareButton title={titleShare} text={textShare} url={urlShare} isDisabled={isDisabled} />
-                    <ClipboardCopyButton text={dataCopy} isDisabled={isDisabled} />
-                </div>
+            </StyledDiv>
+            <div style={{ display: 'flex', justifyContent: 'center', width: '100%' }}>
+                <img src='./scan_qr.png' style={{ width: '50%' }} alt='Scan' />
             </div>
-        </StyledDiv>
+        </>
     );
 }
 

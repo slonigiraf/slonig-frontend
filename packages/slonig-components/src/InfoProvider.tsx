@@ -1,9 +1,11 @@
-import React, { createContext, useContext, useState, ReactNode, useRef } from 'react';
+import React, { createContext, useContext, useState, ReactNode, useRef, useEffect, useCallback } from 'react';
 import InfoPopup from './InfoPopup.js';
 import type { IconName } from '@fortawesome/fontawesome-svg-core';
 import OKBox from './OKBox.js';
 import PenaltyPopup from './PenaltyPopup.js';
 import ResultsReminder from './ResultsReminder.js';
+import { deleteLearnRequest, getLastNonFinishedLessonRequest, LearnRequest } from '@slonigiraf/db';
+import { TOO_LONG_LESSON_MS } from '@slonigiraf/utils';
 
 interface InfoContextType {
     isInfoVisible: boolean;
@@ -40,6 +42,7 @@ export const InfoProvider: React.FC<InfoProviderProps> = ({ children }) => {
     const [type, setType] = useState<'error' | 'info'>('info');
     const [icon, setIcon] = useState<IconName>(defaultIcon);
     const penaltyKeyRef = useRef(0);
+    const [lastNonFinishedLessonRequest, setLastNonFinishedLessonRequest] = useState<LearnRequest | undefined>(undefined);
 
     const showInfo = (message: string, type: 'error' | 'info' = 'info', timeoutSec: number = 4, icon: IconName = defaultIcon) => {
         setInfoMessage(message);
@@ -77,6 +80,42 @@ export const InfoProvider: React.FC<InfoProviderProps> = ({ children }) => {
         setIsPenaltyInfoVisible(true);
     }
 
+    useEffect(() => {
+        let canceled = false;
+        let timeoutId: ReturnType<typeof setTimeout> | null = null;
+
+        const check = async () => {
+            try {
+                const last = await getLastNonFinishedLessonRequest(
+                    Date.now() - TOO_LONG_LESSON_MS
+                );
+
+                if (canceled) return;
+
+                setLastNonFinishedLessonRequest(last);
+                setIsLoadLessonResultsReminderVisible(Boolean(last));
+            } finally {
+                if (!canceled) {
+                    timeoutId = setTimeout(check, 1_000);
+                }
+            }
+        };
+
+        void check();
+
+        return () => {
+            canceled = true;
+            if (timeoutId !== null) clearTimeout(timeoutId);
+        };
+    }, []);
+
+    const onCloseLastNonFinishedLessonRequest = useCallback(() => {
+        setIsLoadLessonResultsReminderVisible(false);
+        if (lastNonFinishedLessonRequest) {
+            deleteLearnRequest(lastNonFinishedLessonRequest.id);
+        }
+    }, [setIsLoadLessonResultsReminderVisible, lastNonFinishedLessonRequest, deleteLearnRequest])
+
     return (
         <InfoContext.Provider value={{ isInfoVisible, showRecentPenalties, infoMessage, showInfo, showOKBox, hideInfo }}>
             {children}
@@ -87,7 +126,12 @@ export const InfoProvider: React.FC<InfoProviderProps> = ({ children }) => {
             {isPenaltyInfoVisible && (
                 <PenaltyPopup key={penaltyKeyRef.current} onClose={() => setIsPenaltyInfoVisible(false)} />
             )}
-            {isLoadLessonResultsReminderVisible && <ResultsReminder knowledgeId={''} onClose={() => {}} onConfirm={() => {}}/>}
+            {
+                isLoadLessonResultsReminderVisible && lastNonFinishedLessonRequest &&
+                <ResultsReminder
+                    learnRequest={lastNonFinishedLessonRequest}
+                    onClose={onCloseLastNonFinishedLessonRequest} />
+            }
         </InfoContext.Provider>
     );
 };

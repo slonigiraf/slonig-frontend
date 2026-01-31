@@ -295,9 +295,8 @@ function ViewList({ className = '', id, cidString, isClassInstructionShown, setI
     navigate('/badges/teach?showHelpQRInfo', { replace: true });
   }, [navigate]);
 
-  const onDataSent = useCallback(async (lessonId: string) => {
+  const onDataSent = useCallback(async (learnRequest: LearnRequest) => {
     closeQR();
-    const learnRequest: LearnRequest = { id: lessonId, created: Date.now() };
     await putLearnRequest(learnRequest);
     if (id === EXAMPLE_MODULE_KNOWLEDGE_ID) {
       const fallbackKnowledgeId = await getSetting(SettingKey.FALLBACK_KNOWLEDGE_ID);

@@ -1,36 +1,61 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { useTranslation } from './translate.js';
 import { Button, Modal, styled } from '@polkadot/react-components';
-import { VerticallyCenteredModal } from './index.js';
+import { getBaseUrl, getIPFSDataFromContentID, parseJson, QRWithShareAndCopy, useIpfsContext, VerticalCenterItemsContainer, VerticallyCenteredModal, KatexSpan } from './index.js';
+import { LearnRequest } from '@slonigiraf/db';
 interface Props {
-  knowledgeId: string;
-  student?: string;
+  learnRequest: LearnRequest;
   onClose: () => void;
-  onConfirm: () => void;
 }
 
-function ResultsReminder({ knowledgeId, student='', onClose, onConfirm }: Props): React.ReactElement<Props> | null {
+function ResultsReminder({ learnRequest, onClose }: Props): React.ReactElement<Props> | null {
   const { t } = useTranslation();
-  const yes = t('Yes');
-  const no = t('No');
+  const { ipfs } = useIpfsContext();
+  const [lessonName, setLessonName] = useState('');
 
+  useEffect(() => {
+    async function fetchData() {
+      if (ipfs !== null && learnRequest) {
+        try {
+          const content = await getIPFSDataFromContentID(ipfs, learnRequest.cid);
+          const json = parseJson(content);
+          setLessonName(json.h);
+        }
+        catch (e) {
+          setLessonName(learnRequest.cid + " (" + t('loading') + "...)")
+          console.log(e)
+        }
+      }
+    }
+    fetchData()
+  }, [ipfs, learnRequest])
+
+
+  const url = getBaseUrl() + `/#/badges/teach?learnRequest=${learnRequest.id}`;
 
   return (
     <VerticallyCenteredModal
       header=''
       onClose={onClose}
-      size="tiny"
+      size="small"
     >
       <Modal.Content>
-        
-        <Title>{student? t('You have forgotten to send lesson results') : t('You have forgotten to receive lesson results')}</Title>
-        <br />
+        <VerticalCenterItemsContainer>
+
+          <Title>{t('You forgot to receive the lesson results. Ask the tutor to scan')}</Title>
+          <h2><KatexSpan content={lessonName} /></h2>
+          <QRWithShareAndCopy
+            titleShare={t('QR code')}
+            textShare={t('Press the link to send Slon')}
+            urlShare={url}
+            dataCopy={url} />
+        </VerticalCenterItemsContainer>
+
         <ButtonsRow>
-          <Button className='highlighted--button' label={yes} onClick={onConfirm} />
-          <Button className='highlighted--button' label={no} onClick={onClose} />
+          <Button className='highlighted--button' label={t('Cancel')} onClick={onClose} />
         </ButtonsRow>
       </Modal.Content>
-    </VerticallyCenteredModal>
+    </VerticallyCenteredModal >
   );
 }
 const ButtonsRow = styled.div`
@@ -39,6 +64,7 @@ const ButtonsRow = styled.div`
   justify-content: center;
   align-items: center;
   column-gap: 40px;
+  margin-top: 20px;
   .ui--Button {
     width: 100px;
     text-align: center;

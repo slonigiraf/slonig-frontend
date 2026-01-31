@@ -8,7 +8,7 @@ import { useApi, useBlockTime, useToggle } from '@polkadot/react-hooks';
 import { u8aToHex, hexToU8a, u8aWrapBytes, BN_ONE, BN_ZERO, formatBalance } from '@polkadot/util';
 import type { LessonResult } from '@slonigiraf/slonig-components';
 import { useLoginContext, CenterQRContainer, bnToSlonString, SenderComponent, useInfo, nameFromKeyringPair, predictBlockNumber, FullscreenActivity, useLog, bnToSlonFloatOrNaN, useSettingValue } from '@slonigiraf/slonig-components';
-import { Lesson, getLastUnusedLetterNumber, setLastUsedLetterNumber, getReexaminationsByLessonId, getValidLetterTemplatesByLessonId, SettingKey, serializeAsLetter, LetterTemplate, putLetterTemplate, setSettingToTrue, getLesson, getSetting, getToRepeatLetterTemplatesByLessonId } from '@slonigiraf/db';
+import { Lesson, getLastUnusedLetterNumber, setLastUsedLetterNumber, getReexaminationsByLessonId, getValidLetterTemplatesByLessonId, SettingKey, serializeAsLetter, LetterTemplate, putLetterTemplate, setSettingToTrue, getLesson, getSetting, getToRepeatLetterTemplatesByLessonId, isThereAnyLessonResult } from '@slonigiraf/db';
 import { getPublicDataToSignByReferee, getPrivateDataToSignByReferee } from '@slonigiraf/helpers';
 import { useTranslation } from '../translate.js';
 import { blake2AsHex } from '@polkadot/util-crypto';
@@ -45,32 +45,26 @@ function LessonResults({ className = '', lesson, lessonStat, updateAndStoreLesso
   //   student name
   const [priceInputValue, setPriceInputValue] = useState<BN>(lesson ? new BN(lesson.dPrice) : BN_ZERO);
   const [amountInputValue, setAmountInputValue] = useState<BN>(lesson ? new BN(lesson.dWarranty) : BN_ZERO);
-  
+
   const [countOfValidLetters, setCountOfValidLetters] = useState<number | null>(null);
-  const [countOfRepetitions, setCountOfRepetitions] = useState<number | null>(null);
-  const [countOfReexaminationsPerformed, setCountOfReexaminationsPerformed] = useState<number | null>(null);
   const totalIncomeRef = React.useRef<BN>(BN_ZERO);
   const [visibleDiplomaDetails, toggleVisibleDiplomaDetails] = useToggle(false);
   const [data, setData] = useState('');
   const [processingStatistics, setProcessingStatistics] = useState(true);
   const [processingQR, setProcessingQR] = useState(true);
   const [resultsWereSent, setResultsWereSent] = useState(false);
+  const [isThereAnyResult, setIsThereAnyResult] = useState<boolean | undefined>(undefined);
 
   const { showInfo } = useInfo();
 
   useEffect(() => {
-    if (countOfValidLetters !== null && countOfReexaminationsPerformed !== null && countOfRepetitions !== null) {
-      setProcessingStatistics(false);
-      if (countOfValidLetters + countOfReexaminationsPerformed + countOfRepetitions === 0) {
-        if (dontSign) {
-          showInfo(t('Go to ’Settings’ and press ’Reset settings to default’.'), 'error');
-        } else {
-          showInfo(t('You did not issue or reexamine any badges during this lesson.'));
-        }
-        onClose();
+    const checkResult = async () => {
+      if (lesson) {
+        setIsThereAnyResult(await isThereAnyLessonResult(lesson.id));
       }
-    }
-  }, [countOfValidLetters, countOfRepetitions, countOfReexaminationsPerformed, dontSign]);
+    };
+    checkResult()
+  }, [lesson]);
 
   const onDataSent = useCallback(async (): Promise<void> => {
     logEvent('TUTORING', 'LESSON_RESULTS', 'lesson_data_was_sent');
@@ -100,13 +94,13 @@ function LessonResults({ className = '', lesson, lessonStat, updateAndStoreLesso
     if (value) {
       setPriceInputValue(value);
       setAmountInputValue(await warrantyFromPrice(value));
-      totalIncomeRef.current = countOfValidLetters? value.mul(new BN(countOfValidLetters)) : BN_ZERO;
+      totalIncomeRef.current = countOfValidLetters ? value.mul(new BN(countOfValidLetters)) : BN_ZERO;
     }
   }, [setPriceInputValue, setAmountInputValue, warrantyFromPrice, countOfValidLetters]);
 
-  
+
   const saveLessonSettings = useCallback(async (): Promise<void> => {
-    
+
 
     if (!amountInputValue || amountInputValue.eq(BN_ZERO)) {
       showInfo(t('Correct the errors highlighted in red'), 'error');
@@ -118,7 +112,7 @@ function LessonResults({ className = '', lesson, lessonStat, updateAndStoreLesso
         if (amountInputValue.toString() !== lesson.dWarranty) {
           logEvent('SETTINGS', 'BADGE_WARRANTY_SET', 'diploma_warranty_set_to_slon', bnToSlonFloatOrNaN(amountInputValue))
         }
-       
+
         const updatedLesson = {
           ...lesson,
           dPrice: priceInputValue.toString(),
@@ -143,9 +137,6 @@ function LessonResults({ className = '', lesson, lessonStat, updateAndStoreLesso
         // Update reexaminations data
         const reexaminations = await getReexaminationsByLessonId(lesson.id);
         if (reexaminations) {
-          let skippedReexaminationsCount = 0;
-          const calculatedReexaminationsPerformed = lesson.reexamineStep - skippedReexaminationsCount;
-          setCountOfReexaminationsPerformed(calculatedReexaminationsPerformed);
           reexaminations.forEach(reexamination => {
             if (reexamination.created !== reexamination.lastExamined) {
               reexaminationData.push(`${reexamination.pubSign},${reexamination.lastExamined},${reexamination.valid ? '1' : '0'}`);
@@ -155,7 +146,7 @@ function LessonResults({ className = '', lesson, lessonStat, updateAndStoreLesso
         // Update repetition data
         const repetitionTemplates = await getToRepeatLetterTemplatesByLessonId(lesson.id);
         repetitionData.push(...repetitionTemplates.map(t => `${t.lastExamined},${t.knowledgeId}`));
-        setCountOfRepetitions(repetitionTemplates.length);
+
 
         // Calculate block number
         const chainHeader = await api.rpc.chain.getHeader();
@@ -242,9 +233,9 @@ function LessonResults({ className = '', lesson, lessonStat, updateAndStoreLesso
       }
     };
 
-    signAndUpdateStatistics();
+    isThereAnyResult && signAndUpdateStatistics();
 
-  }, [api, isApiReady, currentPair, lesson]);
+  }, [api, isApiReady, currentPair, lesson, isThereAnyResult]);
 
   const cancelLetterTemplate = async (letterTemplate: LetterTemplate) => {
     await putLetterTemplate({ ...letterTemplate, valid: false, toRepeat: true });
@@ -254,19 +245,19 @@ function LessonResults({ className = '', lesson, lessonStat, updateAndStoreLesso
 
   return (
     <FullscreenActivity caption={t('Send results and get a reward')} onClose={onClose}>
-      <CenterQRContainer>
+      {isThereAnyResult ? <CenterQRContainer>
         <SenderComponent data={data} route={'badges'} caption={t('Ask the tutee to scan:')}
           textShare={t('Press the link to add the badge')} onDataSent={onDataSent} onReady={() => setProcessingQR(false)} />
-      </CenterQRContainer>
+
+        <LessonProcessInfo lessonStat={lessonStat} showLastAction={false} />
+      </CenterQRContainer> :
+        <h2>{t('There are no results for this lesson')}</h2>
+      }
+
       {constContentIsVisible &&
-        <>
-          <StyledDiv>
-            {lesson && <LessonProcessInfo lessonStat={lessonStat} showLastAction={false} />}
-          </StyledDiv>
-          <StyledDiv>
-            <Button className='highlighted--button' icon='edit' label={t('Edit')} onClick={toggleVisibleDiplomaDetails} />
-          </StyledDiv>
-        </>
+        <StyledDiv>
+          <Button className='highlighted--button' icon='edit' label={t('Edit')} onClick={toggleVisibleDiplomaDetails} />
+        </StyledDiv>
       }
       {visibleDiplomaDetails &&
         <FullscreenActivity caption={`${bnToSlonString(totalIncomeRef.current)} ${tokenSymbol} - ${t('reward')}`} onClose={saveLessonSettings}>

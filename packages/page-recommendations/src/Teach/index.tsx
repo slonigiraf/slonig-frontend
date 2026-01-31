@@ -10,7 +10,7 @@ import LessonsList from './LessonsList.js';
 import LessonResults from './LessonResults.js';
 import LessonRequestReceiver from './LessonRequestReceiver.js';
 import { useTranslation } from '../translate.js';
-import { useLocation } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { EXAMPLE_MODULE_KNOWLEDGE_CID, FAST_SKILL_DISCUSSION_MS, MAX_FAST_DISCUSSED_SKILLS_IN_ROW_COUNT, MAX_SAME_PARTNER_TIME_MS, MIN_SAME_PARTNER_TIME_MS, MIN_SKILL_DISCUSSION_MS, ONE_SUBJECT_PERIOD_MS } from '@slonigiraf/utils';
 import BN from 'bn.js';
 import { TutorAction } from 'db/src/db/Lesson.js';
@@ -22,8 +22,10 @@ interface Props {
 
 function Teach({ className = '' }: Props): React.ReactElement<Props> {
   const location = useLocation();
+  const navigate = useNavigate();
   const queryParams = new URLSearchParams(location.search);
   const showHelpQRInfo = queryParams.get('showHelpQRInfo') != null;
+  const lessonToShowResults = queryParams.get('learnRequest');
 
   const { t } = useTranslation();
   const { showInfo } = useInfo();
@@ -330,6 +332,17 @@ function Teach({ className = '' }: Props): React.ReactElement<Props> {
     setResultsShown(true);
   }, [storeSetting, setLesson, setResultsShown]);
 
+  useEffect(() => {
+    const run = async () => {
+      if (lessonToShowResults === null) return;
+
+      const lesson = await getLesson(lessonToShowResults);
+      lesson && onShowResults(lesson);
+    }
+    lessonToShowResults && run();
+
+  }, [lessonToShowResults, onShowResults]);
+
   const onLessonUpdate = useCallback((
     updatedLesson: Lesson,
     currentletterTemplates: LetterTemplate[],
@@ -375,6 +388,7 @@ function Teach({ className = '' }: Props): React.ReactElement<Props> {
     setReexaminations([]);
     setResultsShown(false);
     setIsSendingResultsEnabled(undefined);
+    navigate('', { replace: true });
   }, [deleteSetting, setLesson]);
 
   const onCloseResults = useCallback(async () => {
