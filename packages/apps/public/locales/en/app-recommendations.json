@@ -148,5 +148,12 @@
   "There are no results for this lesson": "There are no results for this lesson",
   "student": "student",
   "Ask {{studentName}} to scan": "Ask {{studentName}} to scan",
-  "After payment, you will receive": "After payment, you will receive"
+  "After payment, you will receive": "After payment, you will receive",
+  "You’ve skipped.": "You’ve skipped.",
+  "You’ve validated a badge issued by another tutor.": "You’ve validated a badge issued by another tutor.",
+  "You’ve canceled the badge because the student forgot the skill.": "You’ve canceled the badge because the student forgot the skill.",
+  "It looked perfect, but this was the student’s first time learning the skill, so it was marked for repetition.": "It looked perfect, but this was the student’s first time learning the skill, so it was marked for repetition.",
+  "You’ve taught the skill and marked it for repetition to ensure the student remembers it.": "You’ve taught the skill and marked it for repetition to ensure the student remembers it.",
+  "You’ve prepared a badge to your student.": "You’ve prepared a badge to your student.",
+  "You were unsure the student would remember the skill, so it was marked for repetition.": "You were unsure the student would remember the skill, so it was marked for repetition."
 }
