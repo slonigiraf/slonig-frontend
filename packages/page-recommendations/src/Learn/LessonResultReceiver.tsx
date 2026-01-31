@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import React, { useCallback, useEffect, useState } from 'react';
-import { useLoginContext, useTokenTransfer, useInfo, LessonResult, keyForCid, getAddressFromPublickeyHex, useBlockchainSync, useLog, bnToSlonFloatOrNaN } from '@slonigiraf/slonig-components';
+import { useLoginContext, useTokenTransfer, useInfo, LessonResult, keyForCid, getAddressFromPublickeyHex, useBlockchainSync, useLog, bnToSlonFloatOrNaN, OKBox, LessonResultInfo } from '@slonigiraf/slonig-components';
 import { hexToU8a, u8aToHex, u8aWrapBytes } from '@polkadot/util';
 import { addReimbursement, cancelLetter, deleteLetter, deserializeLetter, getAgreement, getLetter, getLettersForKnowledgeId, getSetting, letterToReimbursement, putAgreement, putLetter, setSettingToTrue, SettingKey, storePseudonym, updateLetterReexaminingCount, putRepetition as putRepetition, deleteRepetition, deleteLearnRequest } from '@slonigiraf/db';
 import { useTranslation } from '../translate.js';
@@ -15,7 +15,6 @@ import useFetchWebRTC from '../useFetchWebRTC.js';
 import { Repetition } from 'db/src/db/Repetition.js';
 import { EXAMPLE_SKILL_KNOWLEDGE_ID } from '@slonigiraf/utils';
 import { processNewPartner } from '../utils.js';
-import LessonResultInfo from './LessonResultInfo.js';
 interface Props {
   webRTCPeerId: string | null;
   onDaysRangeChange: (start: Date, end: Date) => void;
@@ -27,12 +26,13 @@ function LessonResultReceiver({ webRTCPeerId, onDaysRangeChange }: Props): React
   const { openTransfer, transferReceipt, isTransferReady } = useTokenTransfer();
   const { currentPair } = useLoginContext();
   const workerPublicKeyHex = u8aToHex(currentPair?.publicKey);
-  const { showInfo } = useInfo();
+  const { showInfo, showLoadedResult } = useInfo();
   const [lessonResult, setLessonResult] = useState<LessonResult | null>(null);
   const [agreement, setAgreement] = useState<Agreement | null>(null);
   const navigate = useNavigate();
   const { reimburse } = useBlockchainSync();
   const { logEvent, logPartners } = useLog();
+  
 
   const updateAgreement = useCallback(async (updatedAgreement: Agreement) => {
     await putAgreement(updatedAgreement);
@@ -52,6 +52,7 @@ function LessonResultReceiver({ webRTCPeerId, onDaysRangeChange }: Props): React
       if (dbAgreement) {
         if (dbAgreement.completed === true) {
           logEvent('LEARNING', 'LOAD_OLD_RESULTS');
+          receivedResult && showLoadedResult(receivedResult);
           navigate('', { replace: true });
         } else {
           logEvent('LEARNING', 'RELOAD_RESULTS', 'agreement_price_slon', priceToLog);
@@ -84,7 +85,7 @@ function LessonResultReceiver({ webRTCPeerId, onDaysRangeChange }: Props): React
 
   useFetchWebRTC<LessonResult>(webRTCPeerId, handleData);
 
-  const decorator = lessonResult? <LessonResultInfo lessonResult={lessonResult} /> : null;
+  const decorator = lessonResult ? <LessonResultInfo title={t('After payment, you will receive')} lessonResult={lessonResult} /> : null;
 
   useEffect(() => {
     async function pay() {
@@ -157,7 +158,8 @@ function LessonResultReceiver({ webRTCPeerId, onDaysRangeChange }: Props): React
           const updatedAgreement: Agreement = { ...agreement, completed: true };
           updateAgreement(updatedAgreement);
 
-          showInfo(t('Saved'));
+          lessonResult && showLoadedResult(lessonResult);
+          
           navigate('', { replace: true });
         } catch (e) {
           console.log(e);

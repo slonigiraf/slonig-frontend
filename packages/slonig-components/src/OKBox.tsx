@@ -1,13 +1,14 @@
-import React from 'react';
+import React, { ReactNode } from 'react';
 import { useTranslation } from './translate.js';
 import { Button, Modal, styled } from '@polkadot/react-components';
 import { VerticallyCenteredModal } from './index.js';
 interface Props {
   info: string;
   onClose: () => void;
+  decorator?: ReactNode;
 }
 
-function OKBox({ info: question, onClose }: Props): React.ReactElement<Props> | null {
+function OKBox({ info, onClose, decorator }: Props): React.ReactElement<Props> | null {
   const { t } = useTranslation();
 
   return (
@@ -17,7 +18,8 @@ function OKBox({ info: question, onClose }: Props): React.ReactElement<Props> | 
       size="tiny"
     >
       <Modal.Content>
-        <Title>{question}</Title>
+        <Title>{info}</Title>
+        {decorator && <><br />{decorator}</>}
         <br />
         <ButtonsRow>
           <Button className='highlighted--button' label={t('OK')} onClick={onClose} />

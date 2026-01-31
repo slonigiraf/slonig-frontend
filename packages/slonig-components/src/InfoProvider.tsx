@@ -8,6 +8,8 @@ import { deleteLearnRequest, getLastNonFinishedLessonRequest, getLastNonSentLess
 import { TOO_LONG_LESSON_MS } from '@slonigiraf/utils';
 import { useLiveQuery } from 'dexie-react-hooks';
 import SendResultsReminder from './SendResultsReminder.js';
+import LessonResultInfo from './LessonResultInfo.js';
+import { LessonResult } from './index.jsx';
 interface InfoContextType {
     isInfoVisible: boolean;
     infoMessage: string;
@@ -15,6 +17,7 @@ interface InfoContextType {
     showOKBox: (message: string, type?: 'error' | 'info', timeoutSec?: number, icon?: IconName) => void;
     showRecentPenalties: () => void;
     hideInfo: () => void;
+    showLoadedResult: (lessonResult: LessonResult) => void;
 }
 
 const defaultInfoContext: InfoContextType = {
@@ -23,7 +26,8 @@ const defaultInfoContext: InfoContextType = {
     showInfo: () => { },
     showOKBox: () => { },
     hideInfo: () => { },
-    showRecentPenalties: () => { }
+    showRecentPenalties: () => { },
+    showLoadedResult: () => { },
 };
 
 const InfoContext = createContext<InfoContextType>(defaultInfoContext);
@@ -34,6 +38,7 @@ interface InfoProviderProps {
 
 export const InfoProvider: React.FC<InfoProviderProps> = ({ children }) => {
     const defaultIcon: IconName = 'circle-info';
+    const [areLoadedResultsShown, setAreLoadedResultsShown] = useState(false);
     const [isInfoVisible, setInfoVisible] = useState(false);
     const [isBoxVisible, setBoxVisible] = useState(false);
     const [isPenaltyInfoVisible, setIsPenaltyInfoVisible] = useState(false);
@@ -45,6 +50,7 @@ export const InfoProvider: React.FC<InfoProviderProps> = ({ children }) => {
     const [icon, setIcon] = useState<IconName>(defaultIcon);
     const penaltyKeyRef = useRef(0);
     const [tick, setTick] = useState<number>(Date.now());
+    const [loadedResultInfo, setLoadedResultInfo] = useState<ReactNode>();
 
     const lastNonFinishedLessonRequest = useLiveQuery<LearnRequest>(
         () => getLastNonFinishedLessonRequest(tick - TOO_LONG_LESSON_MS),
@@ -100,6 +106,11 @@ export const InfoProvider: React.FC<InfoProviderProps> = ({ children }) => {
         setIsPenaltyInfoVisible(true);
     }
 
+    const showLoadedResult = (lessonResult: LessonResult) => {
+        setLoadedResultInfo(<LessonResultInfo title={''} lessonResult={lessonResult} />);
+        setAreLoadedResultsShown(Boolean(lessonResult));
+    }
+
     useEffect(() => {
         const id = setInterval(() => {
             setTick(Date.now());
@@ -115,8 +126,13 @@ export const InfoProvider: React.FC<InfoProviderProps> = ({ children }) => {
         setIsLoadLessonResultsReminderVisible(false);
     }, [setIsLoadLessonResultsReminderVisible, lastNonFinishedLessonRequest, deleteLearnRequest])
 
+    const onCloseLoadedResults = useCallback(() => {
+        setLoadedResultInfo(null);
+        setAreLoadedResultsShown(false);
+    }, [setLoadedResultInfo, setAreLoadedResultsShown]);
+
     return (
-        <InfoContext.Provider value={{ isInfoVisible, showRecentPenalties, infoMessage, showInfo, showOKBox, hideInfo }}>
+        <InfoContext.Provider value={{ isInfoVisible, showLoadedResult, showRecentPenalties, infoMessage, showInfo, showOKBox, hideInfo }}>
             {children}
             <InfoPopup message={infoMessage} isEnabled={isInfoVisible} type={type} icon={icon} />
             {isBoxVisible && (
@@ -135,6 +151,7 @@ export const InfoProvider: React.FC<InfoProviderProps> = ({ children }) => {
                 isSendLessonResultsReminderVisible && lastNonSentLesson &&
                 <SendResultsReminder lesson={lastNonSentLesson} onResult={() => setIsSendLessonResultsReminderVisible(false)}/>
             }
+            {areLoadedResultsShown && <OKBox info={'Results are loaded'} decorator={loadedResultInfo} onClose={onCloseLoadedResults} />}
         </InfoContext.Provider>
     );
 };

@@ -3,18 +3,19 @@
 
 import { Icon, styled } from '@polkadot/react-components';
 import React from 'react'
-import { useTranslation } from '../translate.js';
+import { useTranslation } from './translate.js';
 import { LessonResult } from '@slonigiraf/slonig-components';
 
 
 interface Props {
   className?: string;
+  title: string;
   lessonResult: LessonResult;
 }
 
 
 
-function LessonProcessInfo({ className = '', lessonResult }: Props): React.ReactElement<Props> {
+function LessonResultInfo({ className = '', title, lessonResult }: Props): React.ReactElement<Props> {
   const { t } = useTranslation();
 
 
@@ -29,7 +30,7 @@ function LessonProcessInfo({ className = '', lessonResult }: Props): React.React
 
     <StyledDiv>
       <TotalStat>
-        <h3>{t('After payment, you will receive')}</h3>
+        {title && <h3>{title}</h3>}
         <StatGrid>
           <Icon icon="shield" />
           <StatNumber>{validReexaminations}</StatNumber>
@@ -67,6 +68,7 @@ const TotalStat = styled.div`
   justify-content: center;
   h3 {
     margin-top: 10px;
+    color: inherit;
   }
 `;
 
@@ -90,4 +92,4 @@ const StatGrid = styled.div`
 
 
 
-export default React.memo(LessonProcessInfo);
+export default React.memo(LessonResultInfo);
