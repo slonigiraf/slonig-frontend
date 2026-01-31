@@ -28,7 +28,6 @@ function LessonRequestReceiver({ setCurrentLesson }: Props): React.ReactElement<
 
 
   const changeRequestIntoTutorial = (lessonRequest: LessonRequest): LessonRequest => {
-    const lesson = getLessonId(lessonRequest.identity, []);
     const tuple = lessonRequest.learn.at(-1) ?? lessonRequest.learn.at(0);
     if (!tuple) throw new Error('lessonRequest.learn is empty');
     const [id, cid, diplomaPublicKeyHex] = tuple;
@@ -36,7 +35,6 @@ function LessonRequestReceiver({ setCurrentLesson }: Props): React.ReactElement<
 
     const tutorialRequest = {
       ...lessonRequest,
-      lesson,
       cid: EXAMPLE_MODULE_KNOWLEDGE_CID,
       reexamine: [],
       learn: [[EXAMPLE_SKILL_KNOWLEDGE_ID, EXAMPLE_SKILL_KNOWLEDGE_CID, diplomaPublicKeyHex, '1'],
@@ -72,8 +70,7 @@ function LessonRequestReceiver({ setCurrentLesson }: Props): React.ReactElement<
             }
           }
           await storeLesson(lessonRequest, tutorPublicKeyHex, processOnboaring);
-        }
-        else {
+        } else {
           const processOnboaring = async () => {
             logEvent('SETTINGS', 'CLASS_ONBOARDING_ON');
             await setSettingToTrue(SettingKey.NOW_IS_CLASS_ONBOARDING);

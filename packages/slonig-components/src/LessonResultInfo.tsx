@@ -2,10 +2,9 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { Icon, styled } from '@polkadot/react-components';
-import React from 'react'
+import React, { useMemo } from 'react';
 import { useTranslation } from './translate.js';
 import { LessonResult } from '@slonigiraf/slonig-components';
-
 
 interface Props {
   className?: string;
@@ -13,41 +12,71 @@ interface Props {
   lessonResult: LessonResult;
 }
 
+type StatRow = {
+  key: string;
+  icon: Parameters<typeof Icon>[0]['icon'];
+  count: number;
+  label: string;
+};
 
+function parseReexaminationValidFlags(values: string[]): boolean[] {
+  return values.map((v) => v.split(',')[2] === '1');
+}
 
 function LessonResultInfo({ className = '', title, lessonResult }: Props): React.ReactElement<Props> {
   const { t } = useTranslation();
 
+  const rows = useMemo<StatRow[]>(() => {
+    const validFlags = parseReexaminationValidFlags(lessonResult.reexaminations);
+    const validReexaminations = validFlags.filter(Boolean).length;
+    const canceledReexaminations = validFlags.length - validReexaminations;
 
-  const reexaminations = lessonResult.reexaminations
-    .map(v => v.split(','))
-    .map(([, , valid]) => valid === '1');
+    const all: StatRow[] = [
+      {
+        key: 'survived',
+        icon: 'shield',
+        count: validReexaminations,
+        label: t('Badges survived the reexamination'),
+      },
+      {
+        key: 'canceled',
+        icon: 'shield-halved',
+        count: canceledReexaminations,
+        label: t('Canceled badges'),
+      },
+      {
+        key: 'repeat',
+        icon: 'rotate',
+        count: lessonResult.repetitions.length,
+        label: t('Skills to repeat'),
+      },
+      {
+        key: 'new',
+        icon: 'trophy',
+        count: lessonResult.letters.length,
+        label: t('New badges'),
+      },
+    ];
 
-  const validReexaminations = reexaminations.filter(v => v).length;
-  const canceledReexaminations = reexaminations.length - validReexaminations;
+    return all.filter((r) => r.count > 0);
+  }, [lessonResult, t]);
 
   return (
-
-    <StyledDiv>
+    <StyledDiv className={className}>
       <TotalStat>
         {title && <h3>{title}</h3>}
-        <StatGrid>
-          <Icon icon="shield" />
-          <StatNumber>{validReexaminations}</StatNumber>
-          <StatLabel>{t('Badges survived the reexamination')}</StatLabel>
-        
-          <Icon icon="shield-halved" />
-          <StatNumber>{canceledReexaminations}</StatNumber>
-          <StatLabel>{t('Canceled badges')}</StatLabel>
-       
-          <Icon icon="rotate" />
-          <StatNumber>{lessonResult.repetitions.length}</StatNumber>
-          <StatLabel>{t('Skills to repeat')}</StatLabel>
-    
-          <Icon icon="trophy" />
-          <StatNumber>{lessonResult.letters.length}</StatNumber>
-          <StatLabel>{t('New badges')}</StatLabel>
-        </StatGrid>
+
+        {rows.length > 0 && (
+          <StatGrid>
+            {rows.map((row) => (
+              <React.Fragment key={row.key}>
+                <Icon icon={row.icon} />
+                <StatNumber>{row.count}</StatNumber>
+                <StatLabel>{row.label}</StatLabel>
+              </React.Fragment>
+            ))}
+          </StatGrid>
+        )}
       </TotalStat>
     </StyledDiv>
   );
@@ -66,6 +95,7 @@ const TotalStat = styled.div`
   flex-direction: column;
   flex-wrap: wrap;
   justify-content: center;
+
   h3 {
     margin-top: 10px;
     color: inherit;
@@ -89,7 +119,5 @@ const StatGrid = styled.div`
   align-items: center;
   justify-content: start; /* keep it left-aligned */
 `;
-
-
 
 export default React.memo(LessonResultInfo);

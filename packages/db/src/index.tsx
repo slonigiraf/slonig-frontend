@@ -22,7 +22,7 @@ import { exportDB as dexieExport } from 'dexie-export-import';
 import { InsurancesTransfer, LessonRequest } from "@slonigiraf/slonig-components";
 import { CanceledInsurance } from "./db/CanceledInsurance.js";
 import { Repetition } from "./db/Repetition.js";
-import { EXAMPLE_SKILL_KNOWLEDGE_ID } from "@slonigiraf/utils";
+import { EXAMPLE_MODULE_KNOWLEDGE_CID, EXAMPLE_SKILL_KNOWLEDGE_ID } from "@slonigiraf/utils";
 import { LearnRequest } from "./db/LearnRequest.js";
 
 export type { LearnRequest, TutorAction, CanceledInsurance, Reexamination, LetterTemplate, CanceledLetter, Reimbursement, Letter, Insurance, Lesson, Pseudonym, Setting, Signer, UsageRight, Agreement };
@@ -536,6 +536,18 @@ export function serializeAsLetter(letterTemplate: LetterTemplate, referee: strin
 
 // Lesson related
 
+export async function deleteLesson(id: string) {
+    const letterTemplates = await getLetterTemplatesByLessonId(id);
+    await Promise.all(
+        letterTemplates.map(t => db.letterTemplates.delete([t.cid, t.lesson]))
+    );
+    const reexaminations = await getReexaminationsByLessonId(id);
+    await Promise.all(
+        reexaminations.map(r => db.reexams.delete([r.pubSign, r.lesson]))
+    );
+    await db.lessons.delete(id);
+}
+
 export async function getLastNonSentLesson(starting: number) {
     return db.lessons
         .where('deadline')
@@ -620,7 +632,10 @@ export async function storeLesson(lessonRequest: LessonRequest, tutor: string, o
         lastAction: undefined,
     };
     const sameLesson = await db.lessons.get({ id: lesson.id });
-    if (sameLesson === undefined) {
+    if(sameLesson && sameLesson.cid === EXAMPLE_MODULE_KNOWLEDGE_CID){
+        await deleteLesson(lesson.id);
+    }
+    if (sameLesson === undefined || sameLesson.cid === EXAMPLE_MODULE_KNOWLEDGE_CID) {
         await db.lessons.add(lesson);
         let studyStage = 0;
         await Promise.all(lessonRequest.learn.map(async (item: string[]) => {
