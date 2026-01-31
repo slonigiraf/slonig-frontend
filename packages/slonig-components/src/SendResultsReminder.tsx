@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { useTranslation } from './translate.js';
 import { Button, Modal, styled } from '@polkadot/react-components';
-import { getBaseUrl, getIPFSDataFromContentID, parseJson, useIpfsContext, VerticallyCenteredModal, KatexSpan, useLog } from './index.js';
+import { getIPFSDataFromContentID, parseJson, useIpfsContext, VerticallyCenteredModal, KatexSpan, useLog } from './index.js';
 import { Lesson, putLesson } from '@slonigiraf/db';
 import { useNavigate } from 'react-router-dom';
 interface Props {
@@ -54,13 +54,6 @@ function SendResultsReminder({ lesson, onResult }: Props): React.ReactElement<Pr
     }
     fetchData()
   }, [ipfs, lesson])
-
-  
-
-
-  const url = getBaseUrl() + `/#/badges/teach?studentReminder=${lesson.id}`;
-
-
 
   const min = Math.round((Date.now() - lesson.created) / 60_000);
 
