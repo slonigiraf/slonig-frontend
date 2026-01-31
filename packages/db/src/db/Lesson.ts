@@ -14,5 +14,6 @@ export interface Lesson {
   dValidity: number;
   wasPriceDiscussed: boolean;
   isPaid: boolean;
+  sent: boolean;
   lastAction: TutorAction;
 }

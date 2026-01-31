@@ -2,13 +2,15 @@ import React, { useEffect, useState } from 'react';
 import { useTranslation } from './translate.js';
 import { Button, Modal, styled } from '@polkadot/react-components';
 import { getBaseUrl, getIPFSDataFromContentID, parseJson, QRWithShareAndCopy, useIpfsContext, VerticalCenterItemsContainer, VerticallyCenteredModal, KatexSpan, useLog } from './index.js';
-import { LearnRequest } from '@slonigiraf/db';
+import { LearnRequest, Lesson } from '@slonigiraf/db';
+
+export type EventToRemind = LearnRequest | Lesson;
 interface Props {
-  learnRequest: LearnRequest;
+  eventToRemind: EventToRemind;
   onClose: () => void;
 }
 
-function ResultsReminder({ learnRequest, onClose }: Props): React.ReactElement<Props> | null {
+function ResultsReminder({ eventToRemind, onClose }: Props): React.ReactElement<Props> | null {
   const { t } = useTranslation();
   const { ipfs } = useIpfsContext();
   const { logEvent } = useLog();
@@ -21,25 +23,25 @@ function ResultsReminder({ learnRequest, onClose }: Props): React.ReactElement<P
 
   useEffect(() => {
     async function fetchData() {
-      if (ipfs !== null && learnRequest) {
+      if (ipfs !== null && eventToRemind) {
         try {
-          const content = await getIPFSDataFromContentID(ipfs, learnRequest.cid);
+          const content = await getIPFSDataFromContentID(ipfs, eventToRemind.cid);
           const json = parseJson(content);
           setLessonName(json.h);
         }
         catch (e) {
-          setLessonName(learnRequest.cid + " (" + t('loading') + "...)")
+          setLessonName(eventToRemind.cid + " (" + t('loading') + "...)")
           console.log(e)
         }
       }
     }
     fetchData()
-  }, [ipfs, learnRequest])
+  }, [ipfs, eventToRemind])
 
 
-  const url = getBaseUrl() + `/#/badges/teach?learnRequest=${learnRequest.id}`;
+  const url = getBaseUrl() + `/#/badges/teach?learnRequest=${eventToRemind.id}`;
 
-  const min = Math.round((Date.now() - learnRequest.created) / 60_000);
+  const min = Math.round((Date.now() - eventToRemind.created) / 60_000);
 
   return (
     <VerticallyCenteredModal

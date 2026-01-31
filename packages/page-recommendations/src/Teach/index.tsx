@@ -4,7 +4,7 @@ import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { Button, LinearProgress, styled } from '@polkadot/react-components';
 import { u8aToHex } from '@polkadot/util';
 import { Confirmation, OKBox, FullFindow, VerticalCenterItemsContainer, useInfo, useLoginContext, HintBubble, useBooleanSettingValue, useLog, useNumberSettingValue, getIPFSDataFromContentID, parseJson, useIpfsContext, timeStampStringToNumber, bnToSlonFloatOrNaN, bnToSlonString } from '@slonigiraf/slonig-components';
-import { LetterTemplate, Lesson, Reexamination, getPseudonym, getLesson, getLetterTemplatesByLessonId, getReexaminationsByLessonId, getSetting, storeSetting, updateLesson, getLetter, SettingKey, deleteSetting, isThereAnyLessonResult, setSettingToTrue, getToRepeatLetterTemplatesByLessonId, getValidLetterTemplatesByLessonId } from '@slonigiraf/db';
+import { LetterTemplate, Lesson, Reexamination, getPseudonym, getLesson, getLetterTemplatesByLessonId, getReexaminationsByLessonId, getSetting, storeSetting, putLesson, getLetter, SettingKey, deleteSetting, isThereAnyLessonResult, setSettingToTrue, getToRepeatLetterTemplatesByLessonId, getValidLetterTemplatesByLessonId } from '@slonigiraf/db';
 import DoInstructions from './DoInstructions.js';
 import LessonsList from './LessonsList.js';
 import LessonResults from './LessonResults.js';
@@ -251,14 +251,17 @@ function Teach({ className = '' }: Props): React.ReactElement<Props> {
   const updateAndStoreLesson = useCallback(
     async (updatedLesson: Lesson | null) => {
       if (updatedLesson) {
-        await updateLesson(updatedLesson);
-        setLesson(updatedLesson);
+        const fromDb = await getLesson(updatedLesson.id);
+        const sent = fromDb?.sent === true || false;
+        const mergedLesson = {...updatedLesson, sent};
+        await putLesson(mergedLesson);
+        setLesson(mergedLesson);
         setTooFastConfirmationIsShown(false);
         setPageWasJustRefreshed(false);
-        onLessonUpdate(updatedLesson, letterTemplates, reexaminations);
+        onLessonUpdate(mergedLesson, letterTemplates, reexaminations);
       }
     },
-    [letterTemplates, reexaminations, setLesson, updateLesson, setPageWasJustRefreshed]
+    [letterTemplates, reexaminations, setLesson, putLesson, setPageWasJustRefreshed]
   );
 
   const fetchLesson = useCallback(
@@ -335,7 +338,7 @@ function Teach({ className = '' }: Props): React.ReactElement<Props> {
   useEffect(() => {
     const run = async () => {
       if (lessonToShowResults === null) return;
-      
+
       const lesson = await getLesson(lessonToShowResults);
       if (lesson) {
         logEvent('TUTORING', 'LESSON_RESULTS', 'lesson_results_opened_after_student_reminder');

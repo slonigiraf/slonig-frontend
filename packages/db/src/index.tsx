@@ -536,6 +536,15 @@ export function serializeAsLetter(letterTemplate: LetterTemplate, referee: strin
 
 // Lesson related
 
+export async function getLastNonSentLesson(createdBefore: number) {
+  return db.lessons
+    .where('created')
+    .below(createdBefore)
+    .filter(l => l.sent === false)
+    .reverse()
+    .first();
+}
+
 export function getLessonId(studentPublicKeyHex: string, ids: any[]): string {
     const date = new Date().toISOString().split('T')[0]; // Get the current date in YYYY-MM-DD format
     const dataToHash = `${date}-${studentPublicKeyHex}-${ids.join('-')}`;
@@ -609,6 +618,7 @@ export async function storeLesson(lessonRequest: LessonRequest, tutor: string, o
         dValidity: validity,
         wasPriceDiscussed: false,
         isPaid: false,
+        sent: false,
         lastAction: undefined,
     };
     const sameLesson = await db.lessons.get({ id: lesson.id });
@@ -655,11 +665,8 @@ export async function storeLesson(lessonRequest: LessonRequest, tutor: string, o
     await onResult();
 }
 
-export async function updateLesson(lesson: Lesson) {
-    const sameLesson = await db.lessons.get({ id: lesson.id });
-    if (sameLesson !== undefined) {
-        await db.lessons.update(lesson.id, lesson);
-    }
+export async function putLesson(lesson: Lesson): Promise<string> {
+  return await db.lessons.put(lesson);
 }
 
 // Agreement related

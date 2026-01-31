@@ -1,4 +1,4 @@
-import { cancelInsurance, cancelInsuranceByRefereeAndLetterNumber, cancelLetter, cancelLetterByRefereeAndLetterNumber, markUsageRightAsUsed, deleteReimbursement, deleteUsageRight, getAllInsurances, getAllLetters, getAllReimbursements, getReimbursementsByReferee, Insurance, Letter, Reimbursement, getReimbursementsByRefereeAndLetterNumber, Recommendation, SettingKey, getLesson, updateLesson, LetterTemplate, getValidLetterTemplatesByLessonId, markLetterTemplatePenalized, getIssuedNonPenalizedLetterTemplateIds } from '@slonigiraf/db';
+import { cancelInsurance, cancelInsuranceByRefereeAndLetterNumber, cancelLetter, cancelLetterByRefereeAndLetterNumber, markUsageRightAsUsed, deleteReimbursement, deleteUsageRight, getAllInsurances, getAllLetters, getAllReimbursements, getReimbursementsByReferee, Insurance, Letter, Reimbursement, getReimbursementsByRefereeAndLetterNumber, Recommendation, SettingKey, getLesson, putLesson, LetterTemplate, getValidLetterTemplatesByLessonId, markLetterTemplatePenalized, getIssuedNonPenalizedLetterTemplateIds } from '@slonigiraf/db';
 import React, { useEffect, useState, useRef, useCallback, ReactNode, createContext, useContext } from 'react';
 import { useApi, useBlockEvents, useCall, useIsMountedRef } from '@polkadot/react-hooks';
 import { useLoginContext } from './LoginContext.js';
@@ -7,7 +7,6 @@ import { bnToSlonFloatOrNaN, bnToSlonString, EXISTENTIAL_BATCH_SENDER_BALANCE, g
 import { EXISTENTIAL_REFEREE_BALANCE, REIMBURSEMENT_BATCH_SIZE } from '@slonigiraf/slonig-components';
 import { BN_ZERO, u8aToHex } from '@polkadot/util';
 import type { AccountInfo } from '@polkadot/types/interfaces';
-import { KeyedEvent } from '@polkadot/react-hooks/ctx/types';
 import { CHECK_WHICH_LETTERS_ISSUED_BY_ME_WERE_PENALIZED_EVERY_MS, CHECK_WHICH_MY_LETTERS_WERE_CANCELED_EVERY_MS } from '@slonigiraf/utils';
 
 interface BlockchainSyncContextType {
@@ -140,7 +139,7 @@ export const BlockchainSyncProvider: React.FC<BlockchainSyncProviderProps> = ({ 
                         const letterTemplates: LetterTemplate[] = await getValidLetterTemplatesByLessonId(lessonId);
                         const lessonPrice = new BN(letterTemplates.length).mul(new BN(lesson.dPrice));
                         if (!lesson.isPaid && balanceChange.eq(lessonPrice)) {
-                            await updateLesson({ ...lesson, isPaid: true });
+                            await putLesson({ ...lesson, isPaid: true });
                         }
                     }
                 }
