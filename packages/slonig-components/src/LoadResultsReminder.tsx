@@ -85,6 +85,10 @@ const StyledDiv = styled.div`
   align-items: center;
   flex-direction: column;
   text-align: center;
+  h2 {
+    margin-top: 0px;
+    color: inherit;
+  }
 `;
 
 export default React.memo(LoadResultsReminder);
