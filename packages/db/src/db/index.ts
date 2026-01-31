@@ -38,13 +38,13 @@ class SlonigDB extends Dexie {
 
   constructor() {
     super('slonig');
-    this.version(62).stores({
+    this.version(63).stores({
       agreements: '&id',
       canceledInsurances: '&workerSign',
       canceledLetters: '&pubSign',
       cidCache: '&cid,time',
       insurances: '&workerSign,created,workerId,[employer+workerId],[referee+letterId]',
-      lessons: '&id,created,tutor',
+      lessons: '&id,created,tutor,deadline',
       letters: '&pubSign,created,workerId,knowledgeId,[workerId+knowledgeId],[referee+letterId]',
       letterTemplates: '&[cid+lesson],[lesson+stage],lesson,letterId,penalizedTime',
       pseudonyms: '&publicKey',

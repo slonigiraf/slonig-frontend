@@ -25,7 +25,8 @@ function Teach({ className = '' }: Props): React.ReactElement<Props> {
   const navigate = useNavigate();
   const queryParams = new URLSearchParams(location.search);
   const showHelpQRInfo = queryParams.get('showHelpQRInfo') != null;
-  const lessonToShowResults = queryParams.get('learnRequest');
+  const studentReminder = queryParams.get('studentReminder');
+  const tutorReminder = queryParams.get('tutorReminder');
 
   const { t } = useTranslation();
   const { showInfo } = useInfo();
@@ -251,9 +252,9 @@ function Teach({ className = '' }: Props): React.ReactElement<Props> {
   const updateAndStoreLesson = useCallback(
     async (updatedLesson: Lesson | null) => {
       if (updatedLesson) {
-        const fromDb = await getLesson(updatedLesson.id);
-        const sent = fromDb?.sent === true || false;
-        const mergedLesson = {...updatedLesson, sent};
+        const mergedLesson = isSendingResultsEnabled
+          ? { ...updatedLesson, deadline: Date.now() + MAX_SAME_PARTNER_TIME_MS }
+          : updatedLesson;
         await putLesson(mergedLesson);
         setLesson(mergedLesson);
         setTooFastConfirmationIsShown(false);
@@ -261,7 +262,7 @@ function Teach({ className = '' }: Props): React.ReactElement<Props> {
         onLessonUpdate(mergedLesson, letterTemplates, reexaminations);
       }
     },
-    [letterTemplates, reexaminations, setLesson, putLesson, setPageWasJustRefreshed]
+    [letterTemplates, reexaminations, setLesson, putLesson, setPageWasJustRefreshed, isSendingResultsEnabled]
   );
 
   const fetchLesson = useCallback(
@@ -337,17 +338,31 @@ function Teach({ className = '' }: Props): React.ReactElement<Props> {
 
   useEffect(() => {
     const run = async () => {
-      if (lessonToShowResults === null) return;
+      if (studentReminder === null) return;
 
-      const lesson = await getLesson(lessonToShowResults);
+      const lesson = await getLesson(studentReminder);
       if (lesson) {
         logEvent('TUTORING', 'LESSON_RESULTS', 'lesson_results_opened_after_student_reminder');
         onShowResults(lesson);
       }
     }
-    lessonToShowResults && run();
+    studentReminder && run();
 
-  }, [lessonToShowResults, onShowResults]);
+  }, [studentReminder, onShowResults]);
+
+  useEffect(() => {
+    const run = async () => {
+      if (tutorReminder === null) return;
+
+      const lesson = await getLesson(tutorReminder);
+      if (lesson) {
+        logEvent('TUTORING', 'LESSON_RESULTS', 'lesson_results_opened_after_tutor_reminder');
+        onShowResults(lesson);
+      }
+    }
+    tutorReminder && run();
+
+  }, [tutorReminder, onShowResults]);
 
   const onLessonUpdate = useCallback((
     updatedLesson: Lesson,

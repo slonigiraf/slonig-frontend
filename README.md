@@ -114,10 +114,8 @@ Here is a list of user actions tracked by Slonig:
 | ✅ | TUTORING | TEACH_ALGO | click_instant_mark_mastered | N/A |
 | ✅ | TUTORING | TEACH_ALGO | click_instant_mark_for_repeat | N/A |
 | ✅ | TUTORING | LESSON_RESULTS | lesson_auto_send_opened | amount |
-
 | ✅ | TUTORING | LESSON_RESULTS | lesson_results_opened_after_student_reminder | amount |
-
-
+| ✅ | TUTORING | LESSON_RESULTS | lesson_results_opened_after_tutor_reminder | amount |
 | ✅ | TUTORING | LESSON_RESULTS | click_send_during_lesson | N/A |
 | ✅ | TUTORING | LESSON_RESULTS | click_send_at_list_of_lessons |  N/A |
 | ✅ | TUTORING | LESSON_RESULTS | click_agree_to_send_results | N/A |

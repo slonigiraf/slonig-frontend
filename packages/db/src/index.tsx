@@ -115,11 +115,11 @@ export async function deleteLearnRequest(id: string) {
 }
 
 export async function getLastNonFinishedLessonRequest(createdBefore: number) {
-  return db.learnRequests
-    .where('created')
-    .below(createdBefore)
-    .reverse()
-    .first();
+    return db.learnRequests
+        .where('created')
+        .below(createdBefore)
+        .reverse()
+        .first();
 }
 
 // SkillTemplate related
@@ -491,28 +491,28 @@ export async function getIssuedNonPenalizedLetterTemplateIds(): Promise<number[]
     return templates.map(l => l.letterId);
 }
 
-export async function getPenalties(startDate: number | undefined, endDate: number | undefined) {
+export async function getPenalties(startDate?: number, endDate?: number) {
+    let q = db.letterTemplates.where('penalizedTime').above(0); // only rows with a numeric timestamp
 
-    let query = db.letterTemplates.toCollection();
+    if (startDate !== undefined && endDate !== undefined) {
+        q = db.letterTemplates
+            .where('penalizedTime')
+            .between(startDate, endDate, true, true);
+    } else if (startDate !== undefined) {
+        q = db.letterTemplates.where('penalizedTime').aboveOrEqual(startDate);
+    } else if (endDate !== undefined) {
+        q = db.letterTemplates.where('penalizedTime').belowOrEqual(endDate);
+    }
 
-    query = query.filter((l) => {
-        const t = l.penalizedTime;
-        if (t === undefined) return false;
-
-        if (startDate !== undefined && t < startDate) return false;
-        if (endDate !== undefined && t > endDate) return false;
-
-        return true;
-    });
-
-    const penalties = (await query.sortBy('penalizedTime')).reverse();
+    // newest first
+    const penalties = await q.reverse().toArray();
 
     const lessons = await db.lessons.bulkGet(penalties.map(p => p.lesson));
     const lessonMap = new Map(penalties.map((p, i) => [p.lesson, lessons[i]]));
 
-    return penalties
-        .map(p => ({ ...p, student: lessonMap.get(p.lesson)?.student }));
+    return penalties.map(p => ({ ...p, student: lessonMap.get(p.lesson)?.student }));
 }
+
 
 export async function getToRepeatLetterTemplatesByLessonId(lessonId: string): Promise<LetterTemplate[]> {
     return await db.letterTemplates.where({ lesson: lessonId }).filter(letter => letter.toRepeat).toArray();
@@ -536,13 +536,12 @@ export function serializeAsLetter(letterTemplate: LetterTemplate, referee: strin
 
 // Lesson related
 
-export async function getLastNonSentLesson(createdBefore: number) {
-  return db.lessons
-    .where('created')
-    .below(createdBefore)
-    .filter(l => l.sent === false)
-    .reverse()
-    .first();
+export async function getLastNonSentLesson(starting: number) {
+    return db.lessons
+        .where('deadline')
+        .below(starting)
+        .reverse()
+        .first();
 }
 
 export function getLessonId(studentPublicKeyHex: string, ids: any[]): string {
@@ -618,7 +617,6 @@ export async function storeLesson(lessonRequest: LessonRequest, tutor: string, o
         dValidity: validity,
         wasPriceDiscussed: false,
         isPaid: false,
-        sent: false,
         lastAction: undefined,
     };
     const sameLesson = await db.lessons.get({ id: lesson.id });
@@ -666,7 +664,7 @@ export async function storeLesson(lessonRequest: LessonRequest, tutor: string, o
 }
 
 export async function putLesson(lesson: Lesson): Promise<string> {
-  return await db.lessons.put(lesson);
+    return await db.lessons.put(lesson);
 }
 
 // Agreement related

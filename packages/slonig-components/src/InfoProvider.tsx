@@ -3,10 +3,11 @@ import InfoPopup from './InfoPopup.js';
 import type { IconName } from '@fortawesome/fontawesome-svg-core';
 import OKBox from './OKBox.js';
 import PenaltyPopup from './PenaltyPopup.js';
-import ResultsReminder from './ResultsReminder.js';
+import LoadResultsReminder from './LoadResultsReminder.js';
 import { deleteLearnRequest, getLastNonFinishedLessonRequest, getLastNonSentLesson, LearnRequest, Lesson, putLesson, storeLesson } from '@slonigiraf/db';
 import { TOO_LONG_LESSON_MS } from '@slonigiraf/utils';
 import { useLiveQuery } from 'dexie-react-hooks';
+import SendResultsReminder from './SendResultsReminder.js';
 interface InfoContextType {
     isInfoVisible: boolean;
     infoMessage: string;
@@ -114,11 +115,6 @@ export const InfoProvider: React.FC<InfoProviderProps> = ({ children }) => {
         setIsLoadLessonResultsReminderVisible(false);
     }, [setIsLoadLessonResultsReminderVisible, lastNonFinishedLessonRequest, deleteLearnRequest])
 
-    const onCloseLastNonSendLesson = useCallback(() => {
-        setIsSendLessonResultsReminderVisible(false);
-        putLesson({...lastNonSentLesson, sent:true});
-    }, [setIsSendLessonResultsReminderVisible, lastNonSentLesson])
-
     return (
         <InfoContext.Provider value={{ isInfoVisible, showRecentPenalties, infoMessage, showInfo, showOKBox, hideInfo }}>
             {children}
@@ -131,15 +127,13 @@ export const InfoProvider: React.FC<InfoProviderProps> = ({ children }) => {
             )}
             {
                 isLoadLessonResultsReminderVisible && lastNonFinishedLessonRequest &&
-                <ResultsReminder
-                    eventToRemind={lastNonFinishedLessonRequest}
+                <LoadResultsReminder
+                    learnRequest={lastNonFinishedLessonRequest}
                     onClose={onCloseLastNonFinishedLessonRequest} />
             }
             {
                 isSendLessonResultsReminderVisible && lastNonSentLesson &&
-                <ResultsReminder
-                    eventToRemind={lastNonSentLesson}
-                    onClose={onCloseLastNonSendLesson} />
+                <SendResultsReminder lesson={lastNonSentLesson} onResult={() => setIsSendLessonResultsReminderVisible(false)}/>
             }
         </InfoContext.Provider>
     );
