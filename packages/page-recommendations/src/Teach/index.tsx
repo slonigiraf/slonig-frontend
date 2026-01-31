@@ -20,6 +20,24 @@ interface Props {
   className?: string;
 }
 
+function keyFromLessonStat(lessonStat: LessonStat): string {
+  const normalize = (v: unknown): unknown => {
+    if (v === null || typeof v !== 'object') return v;
+
+    if (Array.isArray(v)) return v.map(normalize);
+
+    // object: sort keys for stable output
+    return Object.keys(v as Record<string, unknown>)
+      .sort()
+      .reduce<Record<string, unknown>>((acc, k) => {
+        acc[k] = normalize((v as Record<string, unknown>)[k]);
+        return acc;
+      }, {});
+  };
+
+  return JSON.stringify(normalize(lessonStat));
+}
+
 function Teach({ className = '' }: Props): React.ReactElement<Props> {
   const location = useLocation();
   const navigate = useNavigate();
@@ -522,7 +540,7 @@ function Teach({ className = '' }: Props): React.ReactElement<Props> {
             isTutorial={isTutorial}
             isSendingResultsEnabled={isSendingResultsEnabled}
             isBeforeTeaching={letterTemplates && letterTemplates.length > 0}
-            key={'reexaminine' + warningCount + reexaminationToPerform.cid} />}
+            key={'reexaminine' + warningCount + reexaminationToPerform.cid + keyFromLessonStat(lessonStat)} />}
         {reexamined && letterTemplateToIssue && lesson && lessonStat &&
           <DoInstructions
             entity={letterTemplateToIssue}
@@ -538,7 +556,7 @@ function Teach({ className = '' }: Props): React.ReactElement<Props> {
             stake={letterTemplateToIssue.mature ? bnToSlonString(new BN(lesson?.dWarranty ?? 0)) : ''}
             isTutorial={isTutorial}
             isSendingResultsEnabled={isSendingResultsEnabled}
-            key={'learn' + warningCount + letterTemplateToIssue.cid} />}
+            key={'learn' + warningCount + letterTemplateToIssue.cid + keyFromLessonStat(lessonStat)} />}
         {lesson && !lesson.wasPriceDiscussed && letterTemplateToIssue &&
           <Negotiation lesson={lesson} updateAndStoreLesson={updateAndStoreLesson} onClose={closeTrade} />}
         {lesson &&
