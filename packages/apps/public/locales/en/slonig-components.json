@@ -26,5 +26,15 @@
   "Upload your backup file": "Upload your backup file",
   "Yes": "Yes",
   "It was a QR code not from Slonig.": "It was a QR code not from Slonig.",
-  "click to select *.json.gz file": "click to select *.json.gz file"
+  "click to select *.json.gz file": "click to select *.json.gz file",
+  "I have lost {{amount}} Slon because of issuing these badges": "I have lost {{amount}} Slon because of issuing these badges",
+  "Here you will see the data if you issue a badge to a student and another tutor, teacher, or the student’s parent penalizes you because the student forgot the skill.": "Here you will see the data if you issue a badge to a student and another tutor, teacher, or the student’s parent penalizes you because the student forgot the skill.",
+  "loading": "loading",
+  "Example exercises to train the skill": "Example exercises to train the skill",
+  "Another tutor penalized me": "Another tutor penalized me",
+  "You forgot to receive the lesson results. Ask the tutor to scan": "You forgot to receive the lesson results. Ask the tutor to scan",
+  "🕑 {{min}} minutes ago": "🕑 {{min}} minutes ago",
+  "QR code": "QR code",
+  "Press the link to send Slon": "Press the link to send Slon",
+  "Cancel": "Cancel"
 }
