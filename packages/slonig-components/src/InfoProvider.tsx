@@ -6,7 +6,7 @@ import PenaltyPopup from './PenaltyPopup.js';
 import ResultsReminder from './ResultsReminder.js';
 import { deleteLearnRequest, getLastNonFinishedLessonRequest, LearnRequest } from '@slonigiraf/db';
 import { TOO_LONG_LESSON_MS } from '@slonigiraf/utils';
-
+import { useLiveQuery } from 'dexie-react-hooks';
 interface InfoContextType {
     isInfoVisible: boolean;
     infoMessage: string;
@@ -42,7 +42,16 @@ export const InfoProvider: React.FC<InfoProviderProps> = ({ children }) => {
     const [type, setType] = useState<'error' | 'info'>('info');
     const [icon, setIcon] = useState<IconName>(defaultIcon);
     const penaltyKeyRef = useRef(0);
-    const [lastNonFinishedLessonRequest, setLastNonFinishedLessonRequest] = useState<LearnRequest | undefined>(undefined);
+    const [tick, setTick] = useState<number>(Date.now());
+
+    const lastNonFinishedLessonRequest = useLiveQuery<LearnRequest>(
+        () => getLastNonFinishedLessonRequest(tick - TOO_LONG_LESSON_MS),
+        [tick]
+    );
+
+    useEffect(() => {
+        setIsLoadLessonResultsReminderVisible(Boolean(lastNonFinishedLessonRequest));
+    }, [lastNonFinishedLessonRequest, setIsLoadLessonResultsReminderVisible]);
 
     const showInfo = (message: string, type: 'error' | 'info' = 'info', timeoutSec: number = 4, icon: IconName = defaultIcon) => {
         setInfoMessage(message);
@@ -81,32 +90,11 @@ export const InfoProvider: React.FC<InfoProviderProps> = ({ children }) => {
     }
 
     useEffect(() => {
-        let canceled = false;
-        let timeoutId: ReturnType<typeof setTimeout> | null = null;
+        const id = setInterval(() => {
+            setTick(Date.now());
+        }, 1_000);
 
-        const check = async () => {
-            try {
-                const last = await getLastNonFinishedLessonRequest(
-                    Date.now() - TOO_LONG_LESSON_MS
-                );
-
-                if (canceled) return;
-
-                setLastNonFinishedLessonRequest(last);
-                setIsLoadLessonResultsReminderVisible(Boolean(last));
-            } finally {
-                if (!canceled) {
-                    timeoutId = setTimeout(check, 1_000);
-                }
-            }
-        };
-
-        void check();
-
-        return () => {
-            canceled = true;
-            if (timeoutId !== null) clearTimeout(timeoutId);
-        };
+        return () => clearInterval(id);
     }, []);
 
     const onCloseLastNonFinishedLessonRequest = useCallback(() => {
