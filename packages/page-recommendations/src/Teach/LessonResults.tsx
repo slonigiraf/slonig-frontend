@@ -17,6 +17,7 @@ import LessonProcessInfo from './LessonProcessInfo.js';
 import BadgeInfo from '../Assess/BadgeInfo.js';
 import { warrantyFromPrice } from '../utils.js';
 import { LessonStat } from '../types.js';
+import { EXAMPLE_MODULE_KNOWLEDGE_CID } from '@slonigiraf/utils';
 
 interface Props {
   className?: string;
@@ -261,7 +262,7 @@ function LessonResults({ className = '', lesson, lessonStat, updateAndStoreLesso
       </CenterQRContainer>}
       {isThereAnyResult === false && <h2>{t('There are no results for this lesson')}</h2>}
 
-      {!processingQR &&
+      {!processingQR && lesson.cid !== EXAMPLE_MODULE_KNOWLEDGE_CID &&
         <StyledDiv>
           <Button className='highlighted--button' icon='edit' label={t('Edit')} onClick={toggleVisibleDiplomaDetails} />
         </StyledDiv>
