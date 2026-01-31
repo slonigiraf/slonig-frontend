@@ -258,7 +258,7 @@ function LessonResults({ className = '', lesson, lessonStat, updateAndStoreLesso
         <SenderComponent data={data} route={'badges'} caption={t('Ask {{studentName}} to scan', { replace: { studentName: studentName } })}
           textShare={t('Press the link to add the badge')} onDataSent={onDataSent} onReady={() => setProcessingQR(false)} />
 
-        {!processingQR && <LessonProcessInfo lessonStat={lessonStat} showLastAction={false} />}
+        {!processingQR && lesson.cid !== EXAMPLE_MODULE_KNOWLEDGE_CID && <LessonProcessInfo lessonStat={lessonStat} showLastAction={false} />}
       </CenterQRContainer>}
       {isThereAnyResult === false && <h2>{t('There are no results for this lesson')}</h2>}
 
