@@ -147,5 +147,6 @@
   "Here you will see the data if you issue a badge to a student and another tutor, teacher, or the student’s parent penalizes you because the student forgot the skill.": "Here you will see the data if you issue a badge to a student and another tutor, teacher, or the student’s parent penalizes you because the student forgot the skill.",
   "There are no results for this lesson": "There are no results for this lesson",
   "student": "student",
-  "Ask {{studentName}} to scan": "Ask {{studentName}} to scan"
+  "Ask {{studentName}} to scan": "Ask {{studentName}} to scan",
+  "After payment, you will receive": "After payment, you will receive"
 }

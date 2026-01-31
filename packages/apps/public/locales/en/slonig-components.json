@@ -40,5 +40,9 @@
   "You forgot to send lesson results": "You forgot to send lesson results",
   "Send": "Send",
   "Postpone for 10 minutes": "Postpone for 10 minutes",
-  "I lost {{amount}} Slon because of issuing these badges": "I lost {{amount}} Slon because of issuing these badges"
+  "I lost {{amount}} Slon because of issuing these badges": "I lost {{amount}} Slon because of issuing these badges",
+  "Badges survived the reexamination": "Badges survived the reexamination",
+  "Canceled badges": "Canceled badges",
+  "Skills to repeat": "Skills to repeat",
+  "New badges": "New badges"
 }
