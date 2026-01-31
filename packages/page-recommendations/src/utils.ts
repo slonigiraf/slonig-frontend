@@ -1,7 +1,6 @@
-import { getSetting, SettingKey, storeSetting, TutorAction } from "@slonigiraf/db";
+import { getSetting, SettingKey, storeSetting } from "@slonigiraf/db";
 import { PartnersTodayResult, timeStampStringToNumber } from "@slonigiraf/slonig-components";
 import { ONE_SUBJECT_PERIOD_MS } from "@slonigiraf/utils";
-import type { IconName } from '@fortawesome/fontawesome-svg-core';
 import BN from 'bn.js';
 import { BN_ZERO } from "@polkadot/util";
 
@@ -78,31 +77,6 @@ export async function processNewPartner(identity: string): Promise<PartnersToday
     uniquePartnersToday,
     isDifferentFromLast
   };
-}
-
-export interface ActionInfo {
-  icon: IconName | undefined;
-  comment: string;
-}
-
-export const actionToInfo = new Map<TutorAction, ActionInfo>([
-  ['skip', { icon: 'forward', comment: 'You’ve skipped.' }],
-
-  ['validate', { icon: 'shield', comment: 'You’ve validated a badge issued by another tutor.' }],
-  ['revoke', { icon: 'shield-halved', comment: 'You’ve canceled the badge because the student forgot the skill.' }],
-
-  ['mark_mastered_warm_up', { icon: undefined, comment: '' }],
-  ['mark_for_repeat_warm_up', { icon: undefined, comment: '' }],
-
-  ['mark_mastered_crude', { icon: 'rotate', comment: 'It looked perfect, but this was the student’s first time learning the skill, so it was marked for repetition.' }],
-  ['mark_for_repeat_crude', { icon: 'rotate', comment: 'You’ve taught the skill and marked it for repetition to ensure the student remembers it.' }],
-
-  ['mark_mastered_mature', { icon: 'trophy', comment: 'You’ve prepared a badge to your student.' }],
-  ['mark_for_repeat_mature', { icon: 'rotate', comment: 'You were unsure the student would remember the skill, so it was marked for repetition.' }],
-]);
-
-export function getActionInfo(action: TutorAction): ActionInfo {
-  return (action ? actionToInfo.get(action) : undefined) ?? { icon: undefined, comment: '' };
 }
 
 const divisor = new BN(100000000);

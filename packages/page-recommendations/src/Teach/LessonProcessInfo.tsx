@@ -7,7 +7,8 @@ import { useTranslation } from '../translate.js';
 import { LessonStat } from '../types.js';
 import { bnToSlonFloatOrNaN } from '@slonigiraf/slonig-components';
 import BN from 'bn.js';
-import { getActionInfo } from '../utils.js';
+import { TutorAction } from '@slonigiraf/db';
+import type { IconName } from '@fortawesome/fontawesome-svg-core';
 
 interface Props {
   className?: string;
@@ -15,13 +16,37 @@ interface Props {
   showLastAction?: boolean;
 }
 
-
+  interface ActionInfo {
+    icon: IconName | undefined;
+    comment: string;
+  }
 
 function LessonProcessInfo({ className = '', lessonStat, showLastAction = true }: Props): React.ReactElement<Props> {
   if (!lessonStat) return <></>;
   const { t } = useTranslation();
   const lastAction = lessonStat.lastAction;
   const lastBonus = lessonStat.lastBonus;
+
+  const actionToInfo = new Map<TutorAction, ActionInfo>([
+    ['skip', { icon: 'forward', comment: t('You’ve skipped.') }],
+
+    ['validate', { icon: 'shield', comment: t('You’ve validated a badge issued by another tutor.') }],
+    ['revoke', { icon: 'shield-halved', comment: t('You’ve canceled the badge because the student forgot the skill.') }],
+
+    ['mark_mastered_warm_up', { icon: undefined, comment: '' }],
+    ['mark_for_repeat_warm_up', { icon: undefined, comment: '' }],
+
+    ['mark_mastered_crude', { icon: 'rotate', comment: t('It looked perfect, but this was the student’s first time learning the skill, so it was marked for repetition.') }],
+    ['mark_for_repeat_crude', { icon: 'rotate', comment: t('You’ve taught the skill and marked it for repetition to ensure the student remembers it.') }],
+
+    ['mark_mastered_mature', { icon: 'trophy', comment: t('You’ve prepared a badge to your student.') }],
+    ['mark_for_repeat_mature', { icon: 'rotate', comment: t('You were unsure the student would remember the skill, so it was marked for repetition.') }],
+  ]);
+
+  const getActionInfo = (action: TutorAction): ActionInfo => {
+    return (action ? actionToInfo.get(action) : undefined) ?? { icon: undefined, comment: '' };
+  }
+
   const { icon, comment } = getActionInfo(lessonStat.lastAction);
 
   const lastEarning = lastBonus ? lastBonus :
