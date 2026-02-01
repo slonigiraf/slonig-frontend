@@ -136,7 +136,7 @@ function DoInstructions({ className = '', entity, lessonStat, anythingToLearn = 
           lessonStat,
           studentName,
           stake,
-          canIssueBadge: !!stake,
+          canIssueBadge: !!stake && !!hasTutorCompletedTutorial,
           skill,
           hasTuteeUsedSlonig,
           variation,
