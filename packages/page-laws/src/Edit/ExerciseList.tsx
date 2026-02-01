@@ -56,8 +56,9 @@ const ExerciseList: React.FC<ExerciseListProps> = ({ exercises, areShownInitiall
                             <Answer>
                                 <span>
                                     <Button
+                                        icon={areAnswersShown? 'eye-slash' : 'eye'}
                                         onClick={toggleAreAnswersShown}
-                                        label={areAnswersShown ? t('Hide the solution') : t('See the solution')}
+                                        label={areAnswersShown ? t('Solution') : t('See the solution')}
                                     />
                                 </span>
                                 {areAnswersShown && (
