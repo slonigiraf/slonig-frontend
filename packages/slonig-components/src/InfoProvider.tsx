@@ -15,7 +15,6 @@ interface InfoContextType {
     isInfoVisible: boolean;
     infoMessage: string;
     showInfo: (message: string, type?: 'error' | 'info', timeoutSec?: number, icon?: IconName) => void;
-    showOKBox: (message: string) => void;
     showRecentPenalties: () => void;
     hideInfo: () => void;
     showLoadedResult: (lessonResult: LessonResult) => void;
@@ -25,7 +24,6 @@ const defaultInfoContext: InfoContextType = {
     isInfoVisible: false,
     infoMessage: '',
     showInfo: () => { },
-    showOKBox: () => { },
     hideInfo: () => { },
     showRecentPenalties: () => { },
     showLoadedResult: () => { },
@@ -42,12 +40,10 @@ export const InfoProvider: React.FC<InfoProviderProps> = ({ children }) => {
     const { t } = useTranslation();
     const [areLoadedResultsShown, setAreLoadedResultsShown] = useState(false);
     const [isInfoVisible, setInfoVisible] = useState(false);
-    const [isBoxVisible, setBoxVisible] = useState(false);
     const [isPenaltyInfoVisible, setIsPenaltyInfoVisible] = useState(false);
     const [isLoadLessonResultsReminderVisible, setIsLoadLessonResultsReminderVisible] = useState(false);
     const [isSendLessonResultsReminderVisible, setIsSendLessonResultsReminderVisible] = useState(false);
     const [infoMessage, setInfoMessage] = useState('');
-    const [boxMessage, setBoxMessage] = useState('');
     const [type, setType] = useState<'error' | 'info'>('info');
     const [icon, setIcon] = useState<IconName>(defaultIcon);
     const penaltyKeyRef = useRef(0);
@@ -81,12 +77,6 @@ export const InfoProvider: React.FC<InfoProviderProps> = ({ children }) => {
             hideInfo();
         }, 1000 * timeoutSec);
     };
-
-    const showOKBox = (message: string) => {
-        setBoxMessage(message);
-        setBoxVisible(true);
-    };
-
 
     const hideInfo = () => {
         setInfoVisible(false);
@@ -126,12 +116,10 @@ export const InfoProvider: React.FC<InfoProviderProps> = ({ children }) => {
     }, [setLoadedResultInfo, setAreLoadedResultsShown]);
 
     return (
-        <InfoContext.Provider value={{ isInfoVisible, showLoadedResult, showRecentPenalties, infoMessage, showInfo, showOKBox, hideInfo }}>
+        <InfoContext.Provider value={{ isInfoVisible, showLoadedResult, showRecentPenalties, infoMessage, showInfo, hideInfo }}>
             {children}
             <InfoPopup message={infoMessage} isEnabled={isInfoVisible} type={type} icon={icon} />
-            {isBoxVisible && (
-                <OKBox info={boxMessage} onClose={() => { }} />
-            )}
+            
             {isPenaltyInfoVisible && (
                 <PenaltyPopup key={penaltyKeyRef.current} onClose={() => setIsPenaltyInfoVisible(false)} />
             )}

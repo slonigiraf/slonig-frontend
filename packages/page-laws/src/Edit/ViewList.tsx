@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useState } from 'react';
-import { LawType, KatexSpan, SelectableList, StyledSpinnerContainer, useLoginContext, getCIDFromBytes, FullscreenActivity, Confirmation, NotClosableFullscreen, useBooleanSettingValue, OKBox, ClassInstruction, useLog, useIpfsContext, getIPFSDataFromContentID, parseJson, ProgressData, progressValue, useInfo, RoundProgress } from '@slonigiraf/slonig-components';
+import { LawType, KatexSpan, SelectableList, StyledSpinnerContainer, useLoginContext, getCIDFromBytes, FullscreenActivity, Confirmation, NotClosableFullscreen, useBooleanSettingValue, OKBox, ClassInstruction, useLog, useIpfsContext, getIPFSDataFromContentID, parseJson, ProgressData, progressValue, RoundProgress } from '@slonigiraf/slonig-components';
 import { useLocation, useNavigate } from 'react-router-dom';
 import ItemLabel from './ItemLabel.js';
 import SkillQR from './SkillQR.js';
@@ -7,7 +7,7 @@ import { useTranslation } from '../translate.js';
 import ExerciseList from './ExerciseList.js';
 import { Spinner, Label, Button } from '@polkadot/react-components';
 import { ItemWithCID } from '../types.js';
-import { useApi } from '@polkadot/react-hooks';
+import { useApi, useToggle } from '@polkadot/react-hooks';
 import BN from 'bn.js';
 import { LearnRequest, getLettersForKnowledgeId, getRepetitionsForKnowledgeId, getSetting, putLearnRequest, SettingKey } from '@slonigiraf/db';
 import { u8aToHex } from '@polkadot/util';
@@ -39,10 +39,9 @@ function ViewList({ className = '', id, cidString, isClassInstructionShown, setI
   const examInUrl = queryParams.get('exam') != null;
   const expanded = queryParams.get('expanded') != null;
   const { t } = useTranslation();
-  const { showOKBox } = useInfo();
   const hasTuteeCompletedTutorial = useBooleanSettingValue(SettingKey.TUTEE_TUTORIAL_COMPLETED);
   const nowIsClassOnboarding = useBooleanSettingValue(SettingKey.NOW_IS_CLASS_ONBOARDING);
-  const { currentPair, isLoggedIn, setLoginIsRequired } = useLoginContext();
+  const { currentPair, isLoggedIn } = useLoginContext();
   const [isLearningRequested, setLearningRequested] = useState(false);
   const [isReexaminingRequested, setReexaminingRequested] = useState(false);
   const [isThereAnythingToReexamine, setIsThereAnythingToReexamine] = useState(false);
@@ -63,6 +62,7 @@ function ViewList({ className = '', id, cidString, isClassInstructionShown, setI
   const [isLaunchLearnConfirmOpen, setIsLaunchLearnConfirmOpen] = useState(false);
   const [isLaunchExamConfirmOpen, setIsLaunchExamConfirmOpen] = useState(false);
   const [wereStatisticsLoaded, setWereStatisticsLoaded] = useState(false);
+  const [isPutDeviceAsideVisible, togglePutDeviceAsideVisible] = useToggle();
 
   async function fetchLaw(key: string) {
     const law = (await api.query.laws.laws(key)) as { isSome: boolean; unwrap: () => [Uint8Array, BN] };
@@ -305,8 +305,8 @@ function ViewList({ className = '', id, cidString, isClassInstructionShown, setI
         navigate(`/knowledge?id=${fallbackKnowledgeId}`, { replace: true })
       }
     }
-    showOKBox(t('You can put your device aside'));
-  }, [closeQR, showOKBox, getSetting]);
+    togglePutDeviceAsideVisible();
+  }, [closeQR, togglePutDeviceAsideVisible, getSetting]);
 
   const exitFullScreenActivity = useCallback((): void => {
     setIsExitConfirmOpen(true);
@@ -464,6 +464,7 @@ function ViewList({ className = '', id, cidString, isClassInstructionShown, setI
         </Standards>
       </DivWithLeftMargin>
     )}
+    {isPutDeviceAsideVisible && <OKBox info={t('You can put your device aside')} onClose={togglePutDeviceAsideVisible} />}
   </> : <></>;
 
   const roleSelector = <NotClosableFullscreen>
