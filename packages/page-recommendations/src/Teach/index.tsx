@@ -557,7 +557,7 @@ function Teach({ className = '' }: Props): React.ReactElement<Props> {
             isTutorial={isTutorial}
             isSendingResultsEnabled={isSendingResultsEnabled}
             key={'learn' + warningCount + letterTemplateToIssue.cid + keyFromLessonStat(lessonStat)} />}
-        {lesson && !lesson.wasPriceDiscussed && letterTemplateToIssue &&
+        {lesson && !lesson.wasPriceDiscussed && letterTemplateToIssue && hasTutorCompletedTutorial &&
           <Negotiation lesson={lesson} updateAndStoreLesson={updateAndStoreLesson} onClose={closeTrade} />}
         {lesson &&
           <SendResults $blur={isSendingResultsEnabled !== true}>
