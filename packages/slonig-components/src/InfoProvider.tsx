@@ -15,7 +15,7 @@ interface InfoContextType {
     isInfoVisible: boolean;
     infoMessage: string;
     showInfo: (message: string, type?: 'error' | 'info', timeoutSec?: number, icon?: IconName) => void;
-    showOKBox: (message: string, type?: 'error' | 'info', timeoutSec?: number, icon?: IconName) => void;
+    showOKBox: (message: string) => void;
     showRecentPenalties: () => void;
     hideInfo: () => void;
     showLoadedResult: (lessonResult: LessonResult) => void;
@@ -82,25 +82,15 @@ export const InfoProvider: React.FC<InfoProviderProps> = ({ children }) => {
         }, 1000 * timeoutSec);
     };
 
-    const showOKBox = (message: string, type: 'error' | 'info' = 'info', timeoutSec: number = 4, icon: IconName = defaultIcon) => {
+    const showOKBox = (message: string) => {
         setBoxMessage(message);
-        // setType(type);
         setBoxVisible(true);
-        // setIcon(icon);
-        setTimeout(() => {
-            hideBox();
-        }, 1000 * timeoutSec);
     };
 
 
     const hideInfo = () => {
         setInfoVisible(false);
         setInfoMessage('');
-    };
-
-    const hideBox = () => {
-        setBoxVisible(false);
-        setBoxMessage('');
     };
 
     const showRecentPenalties = () => {
