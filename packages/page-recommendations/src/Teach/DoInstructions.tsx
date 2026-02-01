@@ -125,9 +125,10 @@ function DoInstructions({ className = '', entity, lessonStat, anythingToLearn = 
     if (!skill) return;
 
     if (isLetterTemplate(entity)) {
+      const skipStat = pageWasJustRefreshed || (lessonStat.askedForReexaminations === 0 && lessonStat.learnStep === 0);
       const variation: TutoringAlgorithmType = tooFastWarning ? 'with_too_fast_warning' :
         !hasTutorCompletedTutorial ? 'tutorial' :
-          pageWasJustRefreshed ? 'no_stat' : 'with_stat';
+          skipStat ? 'no_stat' : 'with_stat';
 
       const newAlgorithm = new TutoringAlgorithm(
         {
