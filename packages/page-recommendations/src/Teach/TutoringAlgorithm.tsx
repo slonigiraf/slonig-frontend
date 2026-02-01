@@ -200,13 +200,6 @@ class TutoringAlgorithm extends Algorithm {
 
         // Defining the first step
 
-        if (!hasTuteeUsedSlonig || variation === 'tutorial') {
-            findPatterns.setNext([skip, askStudentToSolveAnExercise]);
-            askStudentToSolveAnExercise.setPrevious(findPatterns);
-        } else {
-            findPatterns.setNext([skip, askStudentToCreateASimilarExercise]);
-            askStudentToCreateASimilarExercise.setPrevious(findPatterns);
-        }
 
         if (variation === 'with_too_fast_warning') {
             this.begin = tooFast;
@@ -219,9 +212,12 @@ class TutoringAlgorithm extends Algorithm {
         }
 
         // Algo linking
-        intro.setNext([findPatterns]);
+        intro.setNext([skip, askStudentToSolveAnExercise]);
         tooFast.setNext([findPatterns]);
-        stat.setNext([findPatterns])
+        stat.setNext([findPatterns]);
+
+        findPatterns.setNext([skip, askStudentToCreateASimilarExercise]);
+        askStudentToCreateASimilarExercise.setPrevious(findPatterns);
 
         askStudentToSolveAnExercise.setNext([askToCreateAnExerciseAfterCompletionOfExerciseOfTutor, askStudentToRepeatTheSolutionOfExerciseOfTutor]);
 
