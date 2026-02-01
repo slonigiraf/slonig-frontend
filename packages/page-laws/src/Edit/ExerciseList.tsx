@@ -18,7 +18,7 @@ const ExerciseList: React.FC<ExerciseListProps> = ({ exercises, areShownInitiall
     const exercise = exercises[0];
 
     const toggleAreAnswersShown = useCallback(() => {
-        if(!areAnswersShown){
+        if (!areAnswersShown) {
             logEvent('EXAMPLES', 'SHOW_ANSWERS', `show_answers_at_${location}`);
         }
         setAreAnswersShown(!areAnswersShown);
@@ -56,7 +56,7 @@ const ExerciseList: React.FC<ExerciseListProps> = ({ exercises, areShownInitiall
                             <Answer>
                                 <span>
                                     <Button
-                                        icon={areAnswersShown? 'eye-slash' : 'eye'}
+                                        icon={areAnswersShown ? 'eye-slash' : 'eye'}
                                         onClick={toggleAreAnswersShown}
                                         label={areAnswersShown ? t('Solution') : t('See the solution')}
                                     />
