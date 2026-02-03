@@ -55,7 +55,7 @@ function DoInstructions({ className = '', entity, lessonStat, anythingToLearn = 
   const { t } = useTranslation();
   const [algorithmStage, setAlgorithmStage] = useState<AlgorithmStage>();
   const { showInfo } = useInfo();
-  const { logEvent } = useLog();
+  const { logEvent, logBan } = useLog();
   const [lastPressingNextButtonTime, setLastPressingNextButtonTime] = useState((new Date()).getTime());
   const [algorithmType, setAlgorithmType] = useState<AlgorithmType>('');
   const [isButtonClicked, setIsButtonClicked] = useState(false);
@@ -276,8 +276,8 @@ function DoInstructions({ className = '', entity, lessonStat, anythingToLearn = 
     const now = (new Date()).getTime();
     const timeSpent = now - lastPressingNextButtonTime;
     if (timeSpent < MIN_USING_HINT_MS) {
-      logEvent('ONBOARDING', 'TOO_SHORT_USING_HINT_TIME', 'too_short_using_hint_time_sec', Math.round(timeSpent / 1000)
-      );
+      logEvent('ONBOARDING', 'TOO_SHORT_USING_HINT_TIME', 'too_short_using_hint_time_sec', Math.round(timeSpent / 1000));
+      logBan('too_short_using_hint_time_sec');
       setTooFastConfirmationIsShown(true);
     } else {
       setLastPressingNextButtonTime(now);

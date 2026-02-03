@@ -2,7 +2,7 @@ import React, { createContext, useContext, ReactNode, useCallback, useEffect } f
 import { useLiveQuery } from 'dexie-react-hooks';
 import { ScheduledEvent } from 'db/src/db/ScheduledEvent.js';
 import { deserializeEventData } from './utils.js';
-import { deleteScheduledEvent, getAllLogScheduledEvents, getFirstScheduledEventByType } from '@slonigiraf/db';
+import { deleteScheduledEvent, getAllBanEvents, getAllLogEvents, getFirstScheduledEventByType, setSettingToTrue, SettingKey } from '@slonigiraf/db';
 import { MATOMO_PAUSE_BETWEEN_EVENTS_MS } from '@slonigiraf/utils';
 
 interface EventsQueueContextType {
@@ -22,11 +22,20 @@ const shortPause = () => new Promise<void>(resolve => setTimeout(resolve, MATOMO
 
 export const EventsQueueProvider: React.FC<EventsQueueProviderProps> = ({ children }) => {
 
-  const allLogEvents = useLiveQuery(getAllLogScheduledEvents, []);
+  const allLogEvents = useLiveQuery(getAllLogEvents, []);
+  const allBanEvents = useLiveQuery(getAllBanEvents, []);
 
   const scheduledLogEvent = useLiveQuery(async () => {
     return getFirstScheduledEventByType('LOG');
   }, [allLogEvents]);
+
+  useEffect(() => {
+    const scheduleBan = async () => {
+      if (allBanEvents === undefined || allBanEvents.length === 0) return;
+      await setSettingToTrue(SettingKey.BAN_TUTORING);
+    }
+    scheduleBan();
+  }, [allBanEvents]);
 
   useEffect(() => {
     const submitLogEvent = async (scheduledLogEvent: ScheduledEvent) => {

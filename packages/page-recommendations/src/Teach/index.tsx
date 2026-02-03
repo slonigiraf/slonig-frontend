@@ -3,7 +3,7 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { Button, LinearProgress, styled } from '@polkadot/react-components';
 import { u8aToHex } from '@polkadot/util';
-import { Confirmation, OKBox, FullFindow, VerticalCenterItemsContainer, useInfo, useLoginContext, HintBubble, useBooleanSettingValue, useLog, useNumberSettingValue, getIPFSDataFromContentID, parseJson, useIpfsContext, timeStampStringToNumber, bnToSlonFloatOrNaN, bnToSlonString } from '@slonigiraf/slonig-components';
+import { Confirmation, OKBox, FullFindow, VerticalCenterItemsContainer, useInfo, useLoginContext, HintBubble, useBooleanSettingValue, useLog, useNumberSettingValue, getIPFSDataFromContentID, parseJson, useIpfsContext, timeStampStringToNumber, bnToSlonFloatOrNaN, bnToSlonString, FullscreenActivity } from '@slonigiraf/slonig-components';
 import { LetterTemplate, Lesson, Reexamination, getPseudonym, getLesson, getLetterTemplatesByLessonId, getReexaminationsByLessonId, getSetting, storeSetting, putLesson, getLetter, SettingKey, deleteSetting, isThereAnyLessonResult, setSettingToTrue, getToRepeatLetterTemplatesByLessonId, getValidLetterTemplatesByLessonId } from '@slonigiraf/db';
 import DoInstructions from './DoInstructions.js';
 import LessonsList from './LessonsList.js';
@@ -15,6 +15,7 @@ import { EXAMPLE_MODULE_KNOWLEDGE_CID, FAST_SKILL_DISCUSSION_MS, MAX_FAST_DISCUS
 import BN from 'bn.js';
 import { TutorAction } from 'db/src/db/Lesson.js';
 import { LessonStat } from '../types.js';
+import UnblockTutoring from './UnblockTutoring.js';
 interface Props {
   className?: string;
 }
@@ -47,7 +48,7 @@ function Teach({ className = '' }: Props): React.ReactElement<Props> {
 
   const { t } = useTranslation();
   const { showInfo } = useInfo();
-  const { logEvent } = useLog();
+  const { logEvent, logBan } = useLog();
   const { ipfs } = useIpfsContext();
   // Initialize api, ipfs and translation
   const { currentPair, isLoggedIn } = useLoginContext();
@@ -66,6 +67,7 @@ function Teach({ className = '' }: Props): React.ReactElement<Props> {
   const [areResultsShown, setResultsShown] = useState(false);
   const [isExitConfirmOpen, setIsExitConfirmOpen] = useState(false);
   const hasTutorCompletedTutorial = useBooleanSettingValue(SettingKey.TUTOR_TUTORIAL_COMPLETED);
+  const blockTutoring = useBooleanSettingValue(SettingKey.BAN_TUTORING);
   const lastPartnerChangeTime = useNumberSettingValue(SettingKey.LAST_PARTNER_CHANGE_TIME);
   const [hasTuteeUsedSlonig, setHasTuteeUsedSlonig] = useState(false);
   const [isSendingResultsEnabled, setIsSendingResultsEnabled] = useState<boolean | undefined>(undefined);
@@ -235,13 +237,15 @@ function Teach({ className = '' }: Props): React.ReactElement<Props> {
     }
 
     if (lastAction === 'skip') {
-      
+
     } else if (timeSpent < MIN_SKILL_DISCUSSION_MS) {
+      const eventType = isLearning ? 'too_short_teach_time_sec' : 'too_short_reexamine_time_sec';
       logEvent('TUTORING',
         isLearning ? 'TOO_SHORT_TEACH' : 'TOO_SHORT_REEXAMINE',
-        isLearning ? 'too_short_teach_time_sec' : 'too_short_reexamine_time_sec',
+        eventType,
         Math.round(timeSpent / 1000)
       );
+      logBan(eventType);
     } else if (timeSpent < FAST_SKILL_DISCUSSION_MS) {
       if (fastDiscussedSkillsCount + 1 > MAX_FAST_DISCUSSED_SKILLS_IN_ROW_COUNT) {
         logEvent('TUTORING', 'SEVERAL_FAST_DISCUSSIONS_IN_ROW');
@@ -504,71 +508,72 @@ function Teach({ className = '' }: Props): React.ReactElement<Props> {
 
   const isTutorial = lesson?.cid === EXAMPLE_MODULE_KNOWLEDGE_CID;
 
-  const reexamAndDiplomaIssuing = <FullFindow>
-    <VerticalCenterItemsContainer>
-      {lesson && <Progress>
-        <Spacer />
-        <LinearProgress total={lesson.toLearnCount + lesson.toReexamineCount} value={lesson.learnStep + lesson.reexamineStep} />
-        <CloseButton onClick={tryToCloseTutoring} icon='close' />
-        <Spacer />
-      </Progress>}
+  const reexamAndDiplomaIssuing = blockTutoring === true ? <UnblockTutoring onClose={onCloseTutoring} /> :
+    <FullFindow>
+      <VerticalCenterItemsContainer>
+        {lesson && <Progress>
+          <Spacer />
+          <LinearProgress total={lesson.toLearnCount + lesson.toReexamineCount} value={lesson.learnStep + lesson.reexamineStep} />
+          <CloseButton onClick={tryToCloseTutoring} icon='close' />
+          <Spacer />
+        </Progress>}
 
-      {isSendingResultsEnabled !== undefined && <Bubbles>
-        {!reexamined && reexaminationToPerform && lesson && lessonStat &&
-          <DoInstructions
-            entity={reexaminationToPerform}
-            lessonStat={lessonStat}
-            tooFastWarning={tooFastConfirmationIsShown}
-            pageWasJustRefreshed={pageWasJustRefreshed}
-            lesson={lesson}
-            anythingToLearn={letterTemplateToIssue !== null}
-            hasTuteeUsedSlonig={hasTuteeUsedSlonig}
-            hasTutorCompletedTutorial={hasTutorCompletedTutorial}
-            onResult={updateReexamined}
-            studentName={studentName ?? ''}
-            resetTimer={resetTimer}
-            stake={bnToSlonString(new BN(reexaminationToPerform.amount ?? 0))}
-            isTutorial={isTutorial}
-            isSendingResultsEnabled={isSendingResultsEnabled}
-            isBeforeTeaching={letterTemplates && letterTemplates.length > 0}
-            key={'reexaminine' + warningCount + reexaminationToPerform.cid + keyFromLessonStat(lessonStat)} />}
-        {reexamined && letterTemplateToIssue && lesson && lessonStat &&
-          <DoInstructions
-            entity={letterTemplateToIssue}
-            lessonStat={lessonStat}
-            tooFastWarning={tooFastConfirmationIsShown}
-            pageWasJustRefreshed={pageWasJustRefreshed}
-            lesson={lesson}
-            resetTimer={resetTimer}
-            hasTuteeUsedSlonig={hasTuteeUsedSlonig}
-            hasTutorCompletedTutorial={hasTutorCompletedTutorial}
-            onResult={updateLearned}
-            studentName={studentName ?? ''}
-            stake={letterTemplateToIssue.mature ? bnToSlonString(new BN(lesson?.dWarranty ?? 0)) : ''}
-            isTutorial={isTutorial}
-            isSendingResultsEnabled={isSendingResultsEnabled}
-            key={'learn' + warningCount + letterTemplateToIssue.cid + keyFromLessonStat(lessonStat)} />}
-        {lesson &&
-          <SendResults $blur={isSendingResultsEnabled !== true}>
-            {(hasTutorCompletedTutorial === false || isTutorial) && isSendingResultsEnabled === true &&
-              <HintBubble>
-                <h2>{t('Press this button to send the results and get your reward for tutoring')}</h2>
-              </HintBubble>
-            }
-            <Button
-              isDisabled={!isSendingResultsEnabled}
-              icon={'paper-plane'}
-              label={t('Send results and get a reward')}
-              onClick={() => {
-                logEvent('TUTORING', 'LESSON_RESULTS', 'click_send_during_lesson');
-                onShowResults(lesson);
+        {isSendingResultsEnabled !== undefined && <Bubbles>
+          {!reexamined && reexaminationToPerform && lesson && lessonStat &&
+            <DoInstructions
+              entity={reexaminationToPerform}
+              lessonStat={lessonStat}
+              tooFastWarning={tooFastConfirmationIsShown}
+              pageWasJustRefreshed={pageWasJustRefreshed}
+              lesson={lesson}
+              anythingToLearn={letterTemplateToIssue !== null}
+              hasTuteeUsedSlonig={hasTuteeUsedSlonig}
+              hasTutorCompletedTutorial={hasTutorCompletedTutorial}
+              onResult={updateReexamined}
+              studentName={studentName ?? ''}
+              resetTimer={resetTimer}
+              stake={bnToSlonString(new BN(reexaminationToPerform.amount ?? 0))}
+              isTutorial={isTutorial}
+              isSendingResultsEnabled={isSendingResultsEnabled}
+              isBeforeTeaching={letterTemplates && letterTemplates.length > 0}
+              key={'reexaminine' + warningCount + reexaminationToPerform.cid + keyFromLessonStat(lessonStat)} />}
+          {reexamined && letterTemplateToIssue && lesson && lessonStat &&
+            <DoInstructions
+              entity={letterTemplateToIssue}
+              lessonStat={lessonStat}
+              tooFastWarning={tooFastConfirmationIsShown}
+              pageWasJustRefreshed={pageWasJustRefreshed}
+              lesson={lesson}
+              resetTimer={resetTimer}
+              hasTuteeUsedSlonig={hasTuteeUsedSlonig}
+              hasTutorCompletedTutorial={hasTutorCompletedTutorial}
+              onResult={updateLearned}
+              studentName={studentName ?? ''}
+              stake={letterTemplateToIssue.mature ? bnToSlonString(new BN(lesson?.dWarranty ?? 0)) : ''}
+              isTutorial={isTutorial}
+              isSendingResultsEnabled={isSendingResultsEnabled}
+              key={'learn' + warningCount + letterTemplateToIssue.cid + keyFromLessonStat(lessonStat)} />}
+          {lesson &&
+            <SendResults $blur={isSendingResultsEnabled !== true}>
+              {(hasTutorCompletedTutorial === false || isTutorial) && isSendingResultsEnabled === true &&
+                <HintBubble>
+                  <h2>{t('Press this button to send the results and get your reward for tutoring')}</h2>
+                </HintBubble>
               }
-              } />
-          </SendResults>
-        }
-      </Bubbles>}
-    </VerticalCenterItemsContainer>
-  </FullFindow>;
+              <Button
+                isDisabled={!isSendingResultsEnabled}
+                icon={'paper-plane'}
+                label={t('Send results and get a reward')}
+                onClick={() => {
+                  logEvent('TUTORING', 'LESSON_RESULTS', 'click_send_during_lesson');
+                  onShowResults(lesson);
+                }
+                } />
+            </SendResults>
+          }
+        </Bubbles>}
+      </VerticalCenterItemsContainer>
+    </FullFindow>;
 
   return (
     <div className={`toolbox--Tutor ${className}`}>

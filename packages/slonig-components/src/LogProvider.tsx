@@ -7,12 +7,14 @@ interface LogContextType {
   logEvent: (category: string, action: string, name?: string, value?: number) => void;
   logEconomy: (storedEconomy: StoredEconomy) => void;
   logPartners: (partnersTodayResult: PartnersTodayResult) => void;
+  logBan: (reason: string) => void;
 }
 
 const defaultLogContext: LogContextType = {
   logEvent: (_category: string, _action: string, _name?: string, _value?: number) => { },
   logEconomy: (_storedEconomy: StoredEconomy) => { },
   logPartners: (_partnersTodayResult: PartnersTodayResult) => { },
+  logBan: (_reason: string) => { },
 };
 
 const LogContext = createContext<LogContextType>(defaultLogContext);
@@ -31,6 +33,19 @@ export const LogProvider: React.FC<LogProviderProps> = ({ children }) => {
       putScheduledEvent({
         type: 'LOG',
         data: serializeEventData(data),
+        deadline: Date.now()
+      });
+    },
+    [putScheduledEvent]
+  );
+
+  const logBan = useCallback(
+    (reason: string) => {
+      logEvent('TUTORING', 'BAN', 'ban_' + reason);
+
+      putScheduledEvent({
+        type: 'BAN',
+        data: serializeEventData([]),
         deadline: Date.now()
       });
     },
@@ -60,7 +75,7 @@ export const LogProvider: React.FC<LogProviderProps> = ({ children }) => {
     [logEvent]
   );
 
-  return <LogContext.Provider value={{ logEvent, logEconomy, logPartners: logPairs }}>{children}</LogContext.Provider>;
+  return <LogContext.Provider value={{ logBan, logEvent, logEconomy, logPartners: logPairs }}>{children}</LogContext.Provider>;
 };
 
 export const useLog = () => useContext(LogContext);

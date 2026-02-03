@@ -72,6 +72,7 @@ export const SettingKey = {
     LAST_LESSON_ID: 'LAST_LESSON_ID',
     FALLBACK_KNOWLEDGE_ID: 'FALLBACK_KNOWLEDGE_ID',
     APP_VERSION: 'APP_VERSION',
+    BAN_TUTORING: 'BAN_TUTORING',
 } as const;
 
 export async function storeSetting(id: string, value: string) {
@@ -140,8 +141,12 @@ export async function getFirstScheduledEventByType(type: ScheduledEventType) {
     .first();
 }
 
-export async function getAllLogScheduledEvents() {
+export async function getAllLogEvents() {
   return db.scheduledEvents.where('type').equals('LOG').toArray();
+}
+
+export async function getAllBanEvents() {
+  return db.scheduledEvents.where('type').equals('BAN').toArray();
 }
 
 // SkillTemplate related
