@@ -1,6 +1,6 @@
 import React from 'react';
 import { useTranslation } from '../translate.js';
-import { styled } from '@polkadot/react-components';
+import { Button, styled } from '@polkadot/react-components';
 import { CenterQRContainer, FullscreenActivity, nameFromKeyringPair, ScanQR, SenderComponent, useLoginContext } from '@slonigiraf/slonig-components';
 import { useToggle } from '@polkadot/react-hooks';
 
@@ -23,7 +23,7 @@ function UnblockTutoring({ onClose }: Props): React.ReactElement<Props> {
       <StyledDiv>
         {isQrShown ?
           <CenterQRContainer>
-            <h1>{t('🚫 Your tutoring is paused')}</h1>
+            <h1>{t('🚫 Your tutoring is paused because it was not good')}</h1>
             <SenderComponent
               caption={t('Ask a teacher to scan:')}
               data={data}
@@ -36,6 +36,7 @@ function UnblockTutoring({ onClose }: Props): React.ReactElement<Props> {
           <>
             <h1>{t('Scan the teacher’s QR code')}</h1>
             <ScanQR label={t('Scan')} />
+            <Button label={t('Reshow the QR')} onClick={toggleIsQrShown}/>
           </>
         }
       </StyledDiv>
