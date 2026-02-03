@@ -118,7 +118,7 @@ class ValidatingAlgorithm extends Algorithm {
             StageType.close_notes,
             t('Yes'),
             [
-                { title: t('❗ Check it', {replace: {studentName: studentName}}), text: t('Make sure {{studentName}} doesn’t use notes and can’t see any written prompts when answering questions.', {replace: {studentName: studentName}}) },
+                { title: t('👀 Make sure {{studentName}} doesn’t use notes and can’t see any written prompts when answering questions', {replace: {studentName: studentName}}), text: ''},
             ],
         );
 
