@@ -168,7 +168,7 @@ function DoInstructions({ className = '', entity, lessonStat, anythingToLearn = 
 
     onResult(async () => {
       const timeSpent = Math.round((Date.now() - lastStageEndTime) / 1000);
-      logEvent('TUTORING', 'TEACH_END', action, timeSpent);
+      logEvent('TUTORING', 'TEACH_ALGO', action, timeSpent);
       await putLetterTemplate({
         ...template,
         valid,
@@ -202,7 +202,7 @@ function DoInstructions({ className = '', entity, lessonStat, anythingToLearn = 
   const repeatTomorrow = useCallback(async () => {
     const timeSpent = Math.round((Date.now() - lastStageEndTime) / 1000);
     const { matureInfo } = await getMatureInfo();
-    logEvent('TUTORING', 'TEACH_END', `click_instant_mark_for_repeat_${matureInfo}`, timeSpent);
+    logEvent('TUTORING', 'TEACH_ALGO', `click_instant_mark_for_repeat_${matureInfo}`, timeSpent);
     await processLetter(false);
   }, [processLetter, logEvent]);
 
