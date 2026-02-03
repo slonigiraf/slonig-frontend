@@ -118,7 +118,6 @@
   "Has {{studentName}} corrected the wrong solution?": "{{studentName}}가 잘못된 해결책을 고쳤어?",
   "Has {{studentName}} now created a similar exercise?": "{{studentName}}가 이제 비슷한 문제를 만들었어?",
   "Has {{studentName}} now executed the exercise correctly?": "{{studentName}}가 이제 문제를 올바르게 수행했어?",
-  "Has {{studentName}} repeated correctly after me?": "{{studentName}}가 나한테 제대로 따라했어?",
   "Has {{studentName}} repeated correctly?": "{{studentName}}가 제대로 반복했어?",
   "Have questions?": "질문이 있나요?",
   "Here you will see the data if you issue a badge to a student and another tutor, teacher, or the student’s parent penalizes you because the student forgot the skill.": "여기에서는 학생에게 배지를 발급했을 때, 다른 튜터, 교사 또는 학생의 부모가 학생이 기술을 잊었기 때문에 당신에게 불이익을 주면 데이터를 볼 수 있습니다.",

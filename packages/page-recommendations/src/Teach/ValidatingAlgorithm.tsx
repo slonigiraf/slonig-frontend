@@ -82,7 +82,7 @@ class ValidatingAlgorithm extends Algorithm {
                 { title: t('📖 Read what’s happening'), text: t('{{studentName}} has not created a similar exercise.', { replace: { studentName: studentName } }) },
                 { title: t('🗣 Say to {{studentName}}', { replace: { studentName: studentName } }), text: t('Repeat after me:') + ' ' + question2, image: exerciseImage2 },
             ],
-            t('Has {{studentName}} repeated correctly after me?', { replace: { studentName: studentName } })
+            t('Has {{studentName}} repeated correctly?', { replace: { studentName: studentName } })
         );
 
 
