@@ -649,7 +649,6 @@ export async function storeLesson(lessonRequest: LessonRequest, tutor: string, o
         dPrice: diploma_price,
         dWarranty: warranty,
         dValidity: validity,
-        wasPriceDiscussed: false,
         isPaid: false,
         lastAction: undefined,
     };

@@ -13,7 +13,6 @@ export interface Lesson {
   dPrice: string;
   dWarranty: string;
   dValidity: number;
-  wasPriceDiscussed: boolean;
   isPaid: boolean;
   lastAction: TutorAction;
 }
