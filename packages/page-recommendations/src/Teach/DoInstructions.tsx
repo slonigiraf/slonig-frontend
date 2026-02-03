@@ -38,10 +38,8 @@ interface Props {
 type AlgorithmType = '' | 'TEACH_ALGO' | 'REEXAMINE_ALGO';
 
 const nonEssentialStageTypes = new Set([
-  StageType.see_statistics,
-  StageType.too_fast_warning,
   StageType.first_time_intro,
-  StageType.encourage_penalization
+  StageType.close_notes,
 ]);
 
 function isNonEssentialStageType(algorithmStage: AlgorithmStage) {
