@@ -235,29 +235,26 @@ function Teach({ className = '' }: Props): React.ReactElement<Props> {
     }
 
     if (lastAction === 'skip') {
-      await action();
+      
     } else if (timeSpent < MIN_SKILL_DISCUSSION_MS) {
       logEvent('TUTORING',
         isLearning ? 'TOO_SHORT_TEACH' : 'TOO_SHORT_REEXAMINE',
         isLearning ? 'too_short_teach_time_sec' : 'too_short_reexamine_time_sec',
         Math.round(timeSpent / 1000)
       );
-      showTooFastWarning();
     } else if (timeSpent < FAST_SKILL_DISCUSSION_MS) {
       if (fastDiscussedSkillsCount + 1 > MAX_FAST_DISCUSSED_SKILLS_IN_ROW_COUNT) {
         logEvent('TUTORING', 'SEVERAL_FAST_DISCUSSIONS_IN_ROW');
-        showTooFastWarning();
         setFastDiscussedSkillsCount(0);
       } else {
         setFastDiscussedSkillsCount(fastDiscussedSkillsCount + 1);
         logTime(isLearning, timeSpent);
-        await action();
       }
     } else {
       setFastDiscussedSkillsCount(0);
       logTime(isLearning, timeSpent);
-      await action();
     }
+    await action();
 
   }, [hasTutorCompletedTutorial, fastDiscussedSkillsCount, lastSkillDiscussedTime, showTooFastWarning]);
 

@@ -121,8 +121,8 @@ class ValidatingAlgorithm extends Algorithm {
         validateDiploma.setPrevious(provideFakeSolution);
 
         validateDiploma.setNext([nextToTeaching]); // Algo end (no bonus)
-
         explainReimburse.setNext([reimburse]); // Algo end (bonus)
+        reimburse.setNext([nextToTeaching]);
 
         askToRepeatTheExerciseAfterMe.setNext([repeatFromTheBeginning, askToRepeatTheExerciseAfterMe]);
         repeatFromTheBeginning.setPrevious(askToRepeatTheExerciseAfterMe);

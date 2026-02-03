@@ -168,7 +168,7 @@ function DoInstructions({ className = '', entity, lessonStat, anythingToLearn = 
 
     onResult(async () => {
       const timeSpent = Math.round((Date.now() - lastStageEndTime) / 1000);
-      logEvent('TUTORING', 'TEACH_END', action, timeSpent); // algorithmType is always the same
+      logEvent('TUTORING', 'TEACH_END', action, timeSpent);
       await putLetterTemplate({
         ...template,
         valid,
@@ -176,7 +176,7 @@ function DoInstructions({ className = '', entity, lessonStat, anythingToLearn = 
         lastExamined: Date.now(),
       });
     }, action);
-  }, [entity, isLetterTemplate, getLetterTemplate, putLetterTemplate, onResult, algorithmType, logEvent, lastStageEndTime]);
+  }, [entity, isLetterTemplate, getLetterTemplate, putLetterTemplate, onResult, logEvent, lastStageEndTime]);
 
 
   const markLetterAsNotPerfect = useCallback(async () => {
@@ -231,7 +231,7 @@ function DoInstructions({ className = '', entity, lessonStat, anythingToLearn = 
         await updateReexamination(failedReexamination);
       }, 'revoke');
     }
-  }, [showInfo, t, entity, updateReexamination, onResult]);
+  }, [isReexamination, entity, updateReexamination, onResult]);
 
   const preserveFromNoobs = useCallback(
     (run: () => void, fallback?: () => void) => {
