@@ -52,7 +52,7 @@ function LessonResultInfo({ className = '', title, lessonResult }: Props): React
       },
       {
         key: 'new',
-        icon: 'trophy',
+        icon: 'medal',
         count: lessonResult.letters.length,
         label: t('New badges'),
       },
