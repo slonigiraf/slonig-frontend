@@ -1,6 +1,8 @@
 import React, { createContext, useContext, ReactNode, useCallback } from 'react';
 import { bnToSlonFloatOrNaN, PartnersTodayResult, StoredEconomy } from './index.js';
 import BN from 'bn.js';
+import { putScheduledEvent } from '@slonigiraf/db';
+import { serializeEventData } from './utils.js';
 interface LogContextType {
   logEvent: (category: string, action: string, name?: string, value?: number) => void;
   logEconomy: (storedEconomy: StoredEconomy) => void;
@@ -22,41 +24,17 @@ interface LogProviderProps {
 export const LogProvider: React.FC<LogProviderProps> = ({ children }) => {
   const logEvent = useCallback(
     (category: string, action: string, name?: string, value?: number) => {
-      // SSR/Node safety
-      if (typeof window === 'undefined') return;
+      const data = [category, action, name, value?.toString()].filter(
+        (x): x is string => x !== undefined
+      );
 
-      // Don't log on localhost (dev)
-      const host = window.location.hostname;
-      const isLocalhost =
-        host === 'localhost' ||
-        host === '127.0.0.1' ||
-        host === '::1' ||
-        // covers 127.x.x.x
-        /^127(?:\.\d{1,3}){3}$/.test(host);
-
-      if (isLocalhost) {
-        const isValueDefined = value !== null && value !== undefined;
-        console.log(`EVENT: ${category} - ${action}${name ? ' - ' + name : ''}${isValueDefined ? ' - ' + value : ''}`)
-        return;
-      }
-
-      // Matomo allows queuing events before the tracker script is fully loaded.
-      window._paq = window._paq || [];
-
-      // Build args, only include optional params if provided
-      const args: any[] = ['trackEvent', category, action];
-
-      if (typeof name === 'string' && name.length > 0) {
-        args.push(name);
-
-        if (Number.isFinite(value)) {
-          args.push(Math.round(value as number));
-        }
-      }
-
-      window._paq.push(args as any);
+      putScheduledEvent({
+        type: 'LOG',
+        data: serializeEventData(data),
+        deadline: Date.now()
+      });
     },
-    []
+    [putScheduledEvent]
   );
 
   const logEconomy = useCallback(

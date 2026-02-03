@@ -1,0 +1,83 @@
+import React, { createContext, useContext, ReactNode, useCallback, useEffect } from 'react';
+import { useLiveQuery } from 'dexie-react-hooks';
+import { ScheduledEvent } from 'db/src/db/ScheduledEvent.js';
+import { deserializeEventData } from './utils.js';
+import { deleteScheduledEvent, getAllLogScheduledEvents, getFirstScheduledEventByType } from '@slonigiraf/db';
+import { MATOMO_PAUSE_BETWEEN_EVENTS_MS } from '@slonigiraf/utils';
+
+interface EventsQueueContextType {
+}
+
+const defaultContext: EventsQueueContextType = {
+};
+
+const EventsQueueContext = createContext<EventsQueueContextType>(defaultContext);
+
+interface EventsQueueProviderProps {
+  children: ReactNode;
+}
+
+const shortPause = () => new Promise<void>(resolve => setTimeout(resolve, MATOMO_PAUSE_BETWEEN_EVENTS_MS));
+
+
+export const EventsQueueProvider: React.FC<EventsQueueProviderProps> = ({ children }) => {
+
+  const allLogEvents = useLiveQuery(getAllLogScheduledEvents, []);
+
+  const scheduledLogEvent = useLiveQuery(async () => {
+    return getFirstScheduledEventByType('LOG');
+  }, [allLogEvents]);
+
+  useEffect(() => {
+    const submitLogEvent = async (scheduledLogEvent: ScheduledEvent) => {
+
+      const [category, action, name, value] = deserializeEventData(scheduledLogEvent.data) as [
+        string,
+        string,
+        string?,
+        number?
+      ];
+
+      // SSR/Node safety
+      if (typeof window === 'undefined') return;
+
+      // Don't log on localhost (dev)
+      const host = window.location.hostname;
+      const isLocalhost =
+        host === 'localhost' ||
+        host === '127.0.0.1' ||
+        host === '::1' ||
+        // covers 127.x.x.x
+        /^127(?:\.\d{1,3}){3}$/.test(host);
+
+      if (isLocalhost) {
+        const isValueDefined = value !== null && value !== undefined;
+        console.log(`EVENT: ${category} - ${action}${name ? ' - ' + name : ''}${isValueDefined ? ' - ' + value : ''}`)
+      } else {
+        // Matomo allows queuing events before the tracker script is fully loaded.
+        window._paq = window._paq || [];
+
+        // Build args, only include optional params if provided
+        const args: any[] = ['trackEvent', category, action];
+
+        if (typeof name === 'string' && name.length > 0) {
+          args.push(name);
+
+          if (Number.isFinite(value)) {
+            args.push(Math.round(value as number));
+          }
+        }
+
+        window._paq.push(args as any);
+      }
+      await shortPause();
+      if (scheduledLogEvent.id) deleteScheduledEvent(scheduledLogEvent.id);
+    }
+
+    if (scheduledLogEvent) submitLogEvent(scheduledLogEvent);
+  }, [scheduledLogEvent]);
+
+  return <EventsQueueContext.Provider value={{}}>{children}</EventsQueueContext.Provider>;
+};
+
+export const useEventsQueue = () => useContext(EventsQueueContext);

@@ -1,6 +1,5 @@
 import { IPFSHTTPClient, CID } from 'kubo-rpc-client'
 import crypto from 'crypto';
-import { getAddressName } from '@polkadot/react-components';
 import type { KeyringPair } from '@polkadot/keyring/types';
 import { getSetting, storeSetting, SettingKey, getCIDCache, putCIDCache } from '@slonigiraf/db';
 import Peer from 'peerjs';
@@ -10,6 +9,19 @@ import { ErrorType } from '@polkadot/react-params';
 import { getAddressMeta } from '@polkadot/react-components/util';
 
 // export const tokenSymbol = formatBalance(balance, { withUnit: false });
+
+export function serializeEventData(data: string[]) {
+  return JSON.stringify(data);
+};
+
+export function deserializeEventData(serialized: string): string[] {
+  try {
+    const parsed = JSON.parse(serialized);
+    return Array.isArray(parsed) ? parsed : [];
+  } catch {
+    return [];
+  }
+}
 
 export const getBaseUrl = () => {
   const { protocol, hostname, port } = window.location;

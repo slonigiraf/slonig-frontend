@@ -7,6 +7,7 @@ import { LoginProvider, useLoginContext } from './LoginContext.js';
 import { InfoProvider, useInfo } from './InfoProvider.js';
 import { LogProvider, useLog } from './LogProvider.js';
 import { BlockchainSyncProvider, useBlockchainSync } from './BlockchainSyncProvider.js';
+import { EventsQueueProvider, useEventsQueue } from './EventsQueueProvider.js';
 import { TokenTransferProvider, useTokenTransfer } from './TokenTransferProvider.js';
 import ShareButton from './ShareButton.js';
 import ClipboardCopyButton from './ClipboardCopyButton.js';
@@ -30,7 +31,7 @@ import { useEffect, useState } from 'react';
 import { getSetting, LetterTemplate, SettingKey, storeSetting } from '@slonigiraf/db';
 export * from './constants.js';
 export { default as SVGButton } from './SVGButton.js';
-export { Penalties, DownloadQRButton, BlockchainSyncProvider, useBlockchainSync, TokenTransferProvider, useTokenTransfer, DateInput, SelectableList, SenderComponent, KatexSpan, ResizableImage, ShareButton, ClipboardCopyButton, QRWithShareAndCopy, QrScannerComponent, ButtonWithLabelBelow, ScanQR, IpfsProvider, useIpfsContext, InfoProvider, useInfo, LogProvider, useLog };
+export { EventsQueueProvider, useEventsQueue, Penalties, DownloadQRButton, BlockchainSyncProvider, useBlockchainSync, TokenTransferProvider, useTokenTransfer, DateInput, SelectableList, SenderComponent, KatexSpan, ResizableImage, ShareButton, ClipboardCopyButton, QRWithShareAndCopy, QrScannerComponent, ButtonWithLabelBelow, ScanQR, IpfsProvider, useIpfsContext, InfoProvider, useInfo, LogProvider, useLog };
 export { getIPFSContentIDForBytesAndPinIt, getIPFSBytesFromContentID, bnToSlonString, bnToSlonFloatOrNaN, createPeer, receiveWebRTCData, getQrWidth, saveToSessionStorage, loadFromSessionStorage, getIPFSContentIDAndPinIt, getKey, arrayBufferToBase64, base64ToArrayBuffer, decryptData, encryptData, LoginProvider, useLoginContext, keyForCid, nameFromKeyringPair, getBaseUrl, CODEC, getIPFSContentID, getIPFSDataFromContentID, digestFromCIDv1, getCIDFromBytes, storeEncryptedTextOnIPFS, retrieveDecryptedDataFromIPFS, parseJson }
 export { DBImport, DBExport, Confirmation };
 import { encodeAddress } from '@polkadot/keyring';

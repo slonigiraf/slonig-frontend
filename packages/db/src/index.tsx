@@ -24,6 +24,8 @@ import { CanceledInsurance } from "./db/CanceledInsurance.js";
 import { Repetition } from "./db/Repetition.js";
 import { EXAMPLE_MODULE_KNOWLEDGE_CID, EXAMPLE_SKILL_KNOWLEDGE_ID } from "@slonigiraf/utils";
 import { LearnRequest } from "./db/LearnRequest.js";
+import { ScheduledEvent, ScheduledEventType } from "./db/ScheduledEvent.js";
+import Dexie from "dexie";
 
 export type { LearnRequest, TutorAction, CanceledInsurance, Reexamination, LetterTemplate, CanceledLetter, Reimbursement, Letter, Insurance, Lesson, Pseudonym, Setting, Signer, UsageRight, Agreement };
 
@@ -120,6 +122,26 @@ export async function getLastNonFinishedLessonRequest(createdBefore: number) {
         .below(createdBefore)
         .reverse()
         .first();
+}
+// ScheduledEvent related
+
+export async function putScheduledEvent(scheduledEvent: ScheduledEvent) {
+    return db.scheduledEvents.put(scheduledEvent);
+}
+
+export async function deleteScheduledEvent(id: number) {
+    return db.scheduledEvents.delete(id);
+}
+
+export async function getFirstScheduledEventByType(type: ScheduledEventType) {
+  return db.scheduledEvents
+    .where('[type+id]')
+    .between([type, Dexie.minKey], [type, Dexie.maxKey])
+    .first();
+}
+
+export async function getAllLogScheduledEvents() {
+  return db.scheduledEvents.where('type').equals('LOG').toArray();
 }
 
 // SkillTemplate related
