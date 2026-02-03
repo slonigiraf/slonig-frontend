@@ -5,7 +5,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { AlgorithmStage, StageType } from './AlgorithmStage.js';
 import { Button, Menu, Popup, Spinner, styled } from '@polkadot/react-components';
 import type { Skill } from '@slonigiraf/slonig-components';
-import { ValidatingAlgorithm, ValidatingAlgorithmType } from './ValidatingAlgorithm.js';
+import { ValidatingAlgorithm } from './ValidatingAlgorithm.js';
 import { useTranslation } from '../translate.js';
 import { ChatContainer, Bubble, useIpfsContext, useLog, OKBox, timeStampStringToNumber } from '@slonigiraf/slonig-components';
 import { getLetterTemplate, getSetting, Lesson, LetterTemplate, putLetterTemplate, Reexamination, SettingKey, storeSetting, TutorAction, updateReexamination } from '@slonigiraf/db';
@@ -133,7 +133,6 @@ function DoInstructions({ className = '', entity, lessonStat, anythingToLearn = 
       const newAlgorithm = new TutoringAlgorithm(
         {
           t,
-          lessonStat,
           studentName,
           stake,
           canIssueBadge: !!stake && !!hasTutorCompletedTutorial,
@@ -144,21 +143,13 @@ function DoInstructions({ className = '', entity, lessonStat, anythingToLearn = 
 
       setAlgorithmStage(newAlgorithm.getBegin());
     } else {
-      const variation: ValidatingAlgorithmType = tooFastWarning ? 'with_too_fast_warning' :
-        lesson?.reexamineStep === 0 ? 'intro' :
-          pageWasJustRefreshed ? 'no_stat' : 'with_stat';
-
       const newAlgorithm = new ValidatingAlgorithm(
         {
           t,
-          lessonStat,
-          anythingToLearn,
           studentName,
           stake,
           skill,
-          variation,
         });
-
       setAlgorithmStage(newAlgorithm.getBegin());
     }
   }, [tooFastWarning, skill, lesson, anythingToLearn, lessonStat, pageWasJustRefreshed, entity, studentName, stake, hasTuteeUsedSlonig, hasTutorCompletedTutorial]);

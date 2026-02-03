@@ -2,10 +2,6 @@ import { AlgorithmStage, StageType } from './AlgorithmStage.js';
 import { Algorithm } from './Algorithm.js';
 import { Skill } from '@slonigiraf/slonig-components';
 import ExampleExercisesButton from './ExampleExercisesButton.js';
-import LessonProcessInfo from './LessonProcessInfo.js';
-import TooFastWarning from './TooFastWarning.js';
-import { ExerciseList } from '@slonigiraf/app-laws';
-import { LessonStat } from '../types.js';
 
 export type TutoringAlgorithmType = 'with_too_fast_warning' | 'tutorial' | 'with_stat' | 'no_stat';
 export interface TutoringAlgorithmProps {
@@ -14,7 +10,6 @@ export interface TutoringAlgorithmProps {
     stake: string;
     canIssueBadge: boolean;
     skill: Skill;
-    lessonStat: LessonStat;
     hasTuteeUsedSlonig: boolean;
     t: (key: string, options?: {
         replace: Record<string, unknown>;
@@ -22,7 +17,7 @@ export interface TutoringAlgorithmProps {
 }
 class TutoringAlgorithm extends Algorithm {
     //get from one param of type TutoringAlgorithmType
-    constructor({ variation, studentName, stake, lessonStat, canIssueBadge, skill, hasTuteeUsedSlonig, t }: TutoringAlgorithmProps) {
+    constructor({ variation, studentName, stake, canIssueBadge, skill, hasTuteeUsedSlonig, t }: TutoringAlgorithmProps) {
         super();
         const bothUsedSlonig = hasTuteeUsedSlonig && variation === 'tutorial';
         const questions = skill ? skill.q : [];
@@ -39,7 +34,7 @@ class TutoringAlgorithm extends Algorithm {
             StageType.decide_about_badge,
             t('Yes'),
             [],
-            t('I risk losing {{stake}} Slon if {{name}} forgets this skill. I’m awarding a badge for this skill.', { replace: { name: studentName, stake: stake } })
+            t('I risk losing {{stake}} Slon if {{studentName}} forgets this skill. I’m awarding a badge for this skill.', { replace: { studentName: studentName, stake: stake } })
         );
 
         const repeatTomorrow = new AlgorithmStage(
@@ -54,10 +49,10 @@ class TutoringAlgorithm extends Algorithm {
             StageType.correct_fake_solution,
             t('No'),
             [
-                { title: t('📖 Read what’s happening'), text: t('The tutee has not corrected me.') },
-                { title: t('🗣 Show the tutee the correct execution, and say'), text: t('Repeat after me.') },
+                { title: t('📖 Read what’s happening'), text: t('{{studentName}} has not corrected me.', {replace: {studentName: studentName}}) },
+                { title: t('🗣 Show {{studentName}} the correct execution, and say', {replace: {studentName: studentName}}), text: t('Repeat after me.') },
             ],
-            t('Has the tutee repeated correctly?'),
+            t('Has {{studentName}} repeated correctly?', {replace: {studentName: studentName}}),
             <ExampleExercisesButton skill={skill} />
         );
 
@@ -66,10 +61,10 @@ class TutoringAlgorithm extends Algorithm {
             StageType.ask_to_repeat_example_solution,
             t('No'),
             [
-                { title: t('📖 Read what’s happening'), text: t('The tutee has not executed the exercise correctly.') },
-                { title: t('🗣 Say to the tutee'), text: t('Repeat after me:') + ' ' + answer1, image: answerImage1 },
+                { title: t('📖 Read what’s happening'), text: t('{{studentName}} has not executed the exercise correctly.', {replace: {studentName: studentName}}) },
+                { title: t('🗣 Say to {{studentName}}', {replace: {studentName: studentName}}), text: t('Repeat after me:') + ' ' + answer1, image: answerImage1 },
             ],
-            t('Has the tutee repeated correctly?')
+            t('Has {{studentName}} repeated correctly?', {replace: {studentName: studentName}})
         );
 
         const provideFakeAnswer = new AlgorithmStage(
@@ -77,10 +72,10 @@ class TutoringAlgorithm extends Algorithm {
             StageType.provide_fake_solution,
             t('Yes'),
             [
-                { title: t('📖 Read what’s happening'), text: t('The tutee has created an exercise.') },
-                { title: t('🗣 Give your tutee a wrong answer and say'), text: t('Correct me.') },
+                { title: t('📖 Read what’s happening'), text: t('{{studentName}} has created an exercise.', {replace: {studentName: studentName}}) },
+                { title: t('🗣 Give {{studentName}} a wrong answer and say', {replace: {studentName: studentName}}), text: t('Correct me.') },
             ],
-            t('Has the tutee corrected the wrong solution?'),
+            t('Has {{studentName}} corrected the wrong solution?', {replace: {studentName: studentName}}),
             <ExampleExercisesButton skill={skill} />
         );
 
@@ -89,10 +84,10 @@ class TutoringAlgorithm extends Algorithm {
             StageType.ask_to_repeat_similar_exercise,
             t('No'),
             [
-                { title: t('📖 Read what’s happening'), text: t('The tutee has not created a similar exercise.') },
-                { title: t('🗣 Say to the tutee'), text: t('Repeat after me:') + ' ' + question2, image: exerciseImage2 },
+                { title: t('📖 Read what’s happening'), text: t('{{studentName}} has not created a similar exercise.', {replace: {studentName: studentName}}) },
+                { title: t('🗣 Say to {{studentName}}', {replace: {studentName: studentName}}), text: t('Repeat after me:') + ' ' + question2, image: exerciseImage2 },
             ],
-            t('Has the tutee repeated correctly after me?')
+            t('Has {{studentName}} repeated correctly after me?', {replace: {studentName: studentName}})
         );
 
         const skip = new AlgorithmStage(
@@ -107,22 +102,11 @@ class TutoringAlgorithm extends Algorithm {
             StageType.begin_ask_to_create_similar_exercise,
             t('Yes'),
             [
-                { title: t('📖 Read what’s happening'), text: t('You’ve refreshed your memory about the skill: {{skillName}}', { replace: { skillName: skill.h } }) },
-                { title: t('🗣 Say to the tutee'), text: t('Create an exercise similar to this:') + ' ' + question1, image: exerciseImage1 },
+                { title: t('📖 Read what’s happening'), text: t('{{studentName}} asks you to teach the skill: {{skillName}}', { replace: { studentName: studentName, skillName: skill.h } }) },
+                { title: t('🗣 Say to {{studentName}}', {replace: {studentName: studentName}}), text: t('Create an exercise similar to this:') + ' ' + question1, image: exerciseImage1 },
             ],
-            t('Has the tutee now created a similar exercise?'),
+            t('Has {{studentName}} now created a similar exercise?', {replace: {studentName: studentName}}),
             <ExampleExercisesButton skill={skill} />
-        );
-
-        const findPatterns = new AlgorithmStage(
-            1,
-            StageType.find_patterns,
-            t('Continue'),
-            [
-                { title: t('📖 Read what’s happening'), text: t('{{name}} asks you to teach the skill: {{skillName}}', { replace: { name: studentName, skillName: skill.h } }) },
-                { title: t('🧠 Don’t show it to tutee. Try to find patterns'), text: '', reactNode: <ExerciseList exercises={skill.q} location='teach' /> },
-            ],
-            t('Ready to teach this skill?')
         );
 
         //Use only if student never used Slonig
@@ -133,17 +117,8 @@ class TutoringAlgorithm extends Algorithm {
             [
                 { title: t('📖 Read what’s happening'), text: t('You are a tutor. The app will show you how to teach the student who showed you a QR code.') },
             ],
-            t('Let’s start with a simple skill. Your student will pretend not to know it.'),
+            t('Let’s start with a simple skill. {{studentName}} will pretend not to know it.', {replace: {studentName: studentName}}),
             <ExampleExercisesButton skill={skill} />
-        );
-        // Stat for users that know how to use it.
-        const stat = new AlgorithmStage(
-            0,
-            StageType.see_statistics,
-            t('Yes'),
-            [
-                { title: t('📖 Read what’s happening'), text: '', reactNode: <LessonProcessInfo lessonStat={lessonStat} /> },
-            ]
         );
 
         const askToCreateAnExerciseAfterCompletionOfExerciseOfTutor = new AlgorithmStage(
@@ -151,10 +126,10 @@ class TutoringAlgorithm extends Algorithm {
             StageType.ask_to_create_similar_exercise,
             t('Yes'),
             [
-                { title: t('📖 Read what’s happening'), text: t('The tutee has executed the exercise correctly.') },
-                { title: t('🗣 Say to the tutee'), text: t('Create an exercise similar to this:') + ' ' + question1, image: exerciseImage1 },
+                { title: t('📖 Read what’s happening'), text: t('{{studentName}} has executed the exercise correctly.', {replace: {studentName: studentName}}) },
+                { title: t('🗣 Say to {{studentName}}', {replace: {studentName: studentName}}), text: t('Create an exercise similar to this:') + ' ' + question1, image: exerciseImage1 },
             ],
-            t('Has the tutee now created a similar exercise?'),
+            t('Has {{studentName}} now created a similar exercise?', {replace: {studentName: studentName}}),
             <ExampleExercisesButton skill={skill} />
         );
 
@@ -163,10 +138,10 @@ class TutoringAlgorithm extends Algorithm {
             StageType.begin_ask_to_solve_exercise,
             t('Start'),
             [
-                { title: t('📖 Read what’s happening'), text: t('You’ve refreshed your memory about the skill: {{skillName}}', { replace: { skillName: skill.h } }) },
-                { title: t('🗣 Say to the tutee'), text: question1, image: exerciseImage1 },
+                { title: t('📖 Read what’s happening'), text: t('{{studentName}} asks you to teach the skill: {{skillName}}', { replace: { studentName: studentName, skillName: skill.h } }) },
+                { title: t('🗣 Say to {{studentName}}', {replace: {studentName: studentName}}), text: question1, image: exerciseImage1 },
             ],
-            t('Has the tutee now executed the exercise correctly?'),
+            t('Has {{studentName}} now executed the exercise correctly?', {replace: {studentName: studentName}}),
             <ExampleExercisesButton skill={skill} />
         );
 
@@ -175,10 +150,10 @@ class TutoringAlgorithm extends Algorithm {
             StageType.cycle_ask_to_create_similar_exercise,
             t('Yes'),
             [
-                { title: t('📖 Read what’s happening'), text: t('The tutee has repeated correctly after me.') },
-                { title: t('🗣 Say to the tutee'), text: t('Create an exercise similar to this:') + ' ' + question1, image: exerciseImage1 },
+                { title: t('📖 Read what’s happening'), text: t('{{studentName}} has repeated correctly after me.', {replace: {studentName: studentName}}) },
+                { title: t('🗣 Say to {{studentName}}', {replace: {studentName: studentName}}), text: t('Create an exercise similar to this:') + ' ' + question1, image: exerciseImage1 },
             ],
-            t('Has the tutee now created a similar exercise?'),
+            t('Has {{studentName}} now created a similar exercise?', {replace: {studentName: studentName}}),
             <ExampleExercisesButton skill={skill} />
         );
 
@@ -189,68 +164,34 @@ class TutoringAlgorithm extends Algorithm {
             []
         );
 
-        const tooFast = new AlgorithmStage(
-            0,
-            StageType.too_fast_warning,
-            t('Yes'),
-            [
-                { title: t('📖 Read what’s happening'), text: '', reactNode: <TooFastWarning /> },
-            ]
-        );
-
-        // Defining the first step
-
-
-        if (variation === 'with_too_fast_warning') {
-            this.begin = tooFast;
-        } else if (variation === 'tutorial') {
+        if (variation === 'tutorial') {
             this.begin = intro;
-        } else if (variation === 'with_stat') {
-            this.begin = stat;
         } else {
-            this.begin = findPatterns;
+            this.begin = askStudentToCreateASimilarExercise;
         }
-
-        // Algo linking
-        intro.setNext([skip, askStudentToSolveAnExercise]);
-        tooFast.setNext([findPatterns]);
-        stat.setNext([findPatterns]);
-
-        findPatterns.setNext([skip, askStudentToCreateASimilarExercise]);
-        askStudentToCreateASimilarExercise.setPrevious(findPatterns);
 
         askStudentToSolveAnExercise.setNext([askToCreateAnExerciseAfterCompletionOfExerciseOfTutor, askStudentToRepeatTheSolutionOfExerciseOfTutor]);
-
         askToCreateAnExerciseAfterCompletionOfExerciseOfTutor.setPrevious(askStudentToSolveAnExercise);
         askStudentToRepeatTheSolutionOfExerciseOfTutor.setPrevious(askStudentToSolveAnExercise);
-
         askToCreateAnExerciseAfterCompletionOfExerciseOfTutor.setNext([provideFakeAnswer, askToRepeatTaskAfterMe]);
-        if (!bothUsedSlonig) {
-            provideFakeAnswer.setPrevious(askToCreateAnExerciseAfterCompletionOfExerciseOfTutor);
-            askToRepeatTaskAfterMe.setPrevious(askToCreateAnExerciseAfterCompletionOfExerciseOfTutor);
-        }
-
         provideFakeAnswer.setNext([
             canIssueBadge ? issueBadge : toNextSkill,
             askStudentToRepeatTheAnswer
         ]);
         issueBadge.setNext([toNextSkill, repeatTomorrow]);
-
         askStudentToRepeatTheAnswer.setPrevious(provideFakeAnswer);
-
         askStudentToRepeatTheAnswer.setNext([repeatFromTheBeginning, askStudentToRepeatTheAnswer]);
-
         askToRepeatTaskAfterMe.setNext([repeatFromTheBeginning, askToRepeatTaskAfterMe]);
-
         repeatFromTheBeginning.setNext([provideFakeAnswer, askToRepeatTaskAfterMe]);
         repeatFromTheBeginning.setPrevious(askToRepeatTaskAfterMe);
-
         askStudentToRepeatTheSolutionOfExerciseOfTutor.setNext([repeatFromTheBeginning, askStudentToRepeatTheSolutionOfExerciseOfTutor]);
-
-        askStudentToCreateASimilarExercise.setNext([provideFakeAnswer, askToRepeatTaskAfterMe]);
+        askStudentToCreateASimilarExercise.setNext([skip, provideFakeAnswer, askToRepeatTaskAfterMe]);
         if (bothUsedSlonig) {
             provideFakeAnswer.setPrevious(askStudentToCreateASimilarExercise);
             askToRepeatTaskAfterMe.setPrevious(askStudentToCreateASimilarExercise);
+        } else {
+            provideFakeAnswer.setPrevious(askToCreateAnExerciseAfterCompletionOfExerciseOfTutor);
+            askToRepeatTaskAfterMe.setPrevious(askToCreateAnExerciseAfterCompletionOfExerciseOfTutor);
         }
     }
 }

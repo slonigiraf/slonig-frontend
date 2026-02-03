@@ -2,25 +2,16 @@ import { AlgorithmStage, StageType } from './AlgorithmStage.js';
 import { Algorithm } from './Algorithm.js';
 import type { Skill } from '@slonigiraf/slonig-components';
 import ExampleExercisesButton from './ExampleExercisesButton.js';
-import LessonProcessInfo from './LessonProcessInfo.js';
-import TooFastWarning from './TooFastWarning.js';
-import { ExerciseList } from '@slonigiraf/app-laws';
-import { LessonStat } from '../types.js';
-
-export type ValidatingAlgorithmType = 'with_too_fast_warning' | 'intro' | 'with_stat' | 'no_stat';
 export interface ValidatingAlgorithmProps {
-    variation: ValidatingAlgorithmType;
     studentName: string | null;
     stake: string;
     skill: Skill;
-    lessonStat: LessonStat;
-    anythingToLearn: boolean;
     t: (key: string, options?: {
         replace: Record<string, unknown>;
     } | undefined) => string;
 }
 class ValidatingAlgorithm extends Algorithm {
-    constructor({ lessonStat, variation, studentName, stake, skill, anythingToLearn, t }: ValidatingAlgorithmProps) {
+    constructor({ skill, studentName, stake, t }: ValidatingAlgorithmProps) {
         super();
         const questions = skill ? skill.q : [];
         let question1: string = questions.length > 0 ? questions[0].h : t('SOME EXERCISE FOR SKILL TRAINING (THE TUTOR SHOULD KNOW)');
@@ -34,7 +25,7 @@ class ValidatingAlgorithm extends Algorithm {
             StageType.validate,
             t('Yes'),
             [
-                { title: t('🗣 Say to the tutee'), text: t('Great, you remember the skill.') },
+                { title: t('🗣 Say to {{studentName}}', {replace: {studentName: studentName}}), text: t('Great, you remember the skill.') },
             ]
         );
 
@@ -43,7 +34,7 @@ class ValidatingAlgorithm extends Algorithm {
             StageType.explain_reimburse,
             t('No'),
             [
-                { title: t('🗣 Say to the tutee'), text: t('You don’t have such a skill. I will penalize the tutor which issued the badge for it.') },
+                { title: t('🗣 Say to {{studentName}}', {replace: {studentName: studentName}}), text: t('You don’t have such a skill. I will penalize the tutor which issued the badge for it.') },
             ]
         );
 
@@ -64,7 +55,7 @@ class ValidatingAlgorithm extends Algorithm {
         const reimburse = new AlgorithmStage(
             8,
             StageType.reimburse,
-            t('Get bounty'),
+            t('Next'),
             []
         );
 
@@ -73,10 +64,10 @@ class ValidatingAlgorithm extends Algorithm {
             StageType.provide_fake_solution,
             t('Yes'),
             [
-                { title: t('📖 Read what’s happening'), text: t('The tutee has created an exercise.') },
-                { title: t('🗣 Give your tutee a wrong answer and say'), text: t('Correct me.') },
+                { title: t('📖 Read what’s happening'), text: t('{{studentName}} has created an exercise.', {replace: {studentName: studentName}}) },
+                { title: t('🗣 Give {{studentName}} a wrong answer and say', {replace: {studentName: studentName}}), text: t('Correct me.') },
             ],
-            t('Has the tutee corrected the wrong solution?'),
+            t('Has {{studentName}} corrected the wrong solution?', {replace: {studentName: studentName}}),
             <ExampleExercisesButton skill={skill} />
         );
 
@@ -85,10 +76,10 @@ class ValidatingAlgorithm extends Algorithm {
             StageType.ask_to_repeat_similar_exercise,
             t('No'),
             [
-                { title: t('📖 Read what’s happening'), text: t('The tutee has not created a similar exercise.') },
-                { title: t('🗣 Say to the tutee'), text: t('Repeat after me:') + ' ' + question2, image: exerciseImage2 },
+                { title: t('📖 Read what’s happening'), text: t('{{studentName}} has not created a similar exercise.', {replace: {studentName: studentName}}) },
+                { title: t('🗣 Say to {{studentName}}', {replace: {studentName: studentName}}), text: t('Repeat after me:') + ' ' + question2, image: exerciseImage2 },
             ],
-            t('Has the tutee repeated correctly after me?')
+            t('Has {{studentName}} repeated correctly after me?', {replace: {studentName: studentName}})
         );
 
 
@@ -99,43 +90,12 @@ class ValidatingAlgorithm extends Algorithm {
             [
                 {
                     title: t('📖 Read what’s happening'),
-                    text: t('You’ve refreshed your memory about the skill: {{skillName}}', { replace: { skillName: skill.h } })
+                    text: t('Try to earn {{stake}} Slon by checking how another tutor taught {{studentName}} the skill:', { replace: { studentName: studentName, stake: stake } }) + (skill && ' ' + skill.h)
                 },
-                { title: t('🗣 Say to the tutee'), text: t('Create an exercise similar to this:') + ' ' + question1, image: exerciseImage1 },
+                { title: t('🗣 Say to {{studentName}}', {replace: {studentName: studentName}}), text: t('Create an exercise similar to this:') + ' ' + question1, image: exerciseImage1 },
             ],
-            t('Has the tutee now created a similar exercise?'),
+            t('Has {{studentName}} now created a similar exercise?', {replace: {studentName: studentName}}),
             <ExampleExercisesButton skill={skill} />
-        );
-
-        const penalizationInfo = t('Help your student identify what they have learned wrongly from bad tutors. If you find a problem, the bad tutor will automatically send you a bonus. Don’t be shy — other tutors won’t hesitate to penalize you.') ;
-
-        const intro = new AlgorithmStage(
-            0,
-            StageType.encourage_penalization,
-            t('Yes'),
-            [
-                { title: t('📖 Read what’s happening'), 
-                    text: anythingToLearn? t('Before teaching:') + ' ' + penalizationInfo : penalizationInfo
-                },
-            ]
-        );
-
-        const stat = new AlgorithmStage(
-            0,
-            StageType.see_statistics,
-            t('Yes'),
-            [
-                { title: t('📖 Read what’s happening'), text: '', reactNode: <LessonProcessInfo lessonStat={lessonStat} /> },
-            ]
-        );
-
-        const tooFast = new AlgorithmStage(
-            0,
-            StageType.too_fast_warning,
-            t('Yes'),
-            [
-                { title: t('📖 Read what’s happening'), text: '', reactNode: <TooFastWarning /> },
-            ]
         );
 
         const repeatFromTheBeginning = new AlgorithmStage(
@@ -143,55 +103,22 @@ class ValidatingAlgorithm extends Algorithm {
             StageType.cycle_ask_to_create_similar_exercise,
             t('Yes'),
             [
-                { title: t('📖 Read what’s happening'), text: t('The tutee has repeated correctly after me.') },
-                { title: t('🗣 Say to the tutee'), text: t('Create an exercise similar to this:') + ' ' + question1, image: exerciseImage1 }
+                { title: t('📖 Read what’s happening'), text: t('{{studentName}} has repeated correctly after me.', {replace: {studentName: studentName}}) },
+                { title: t('🗣 Say to {{studentName}}', {replace: {studentName: studentName}}), text: t('Create an exercise similar to this:') + ' ' + question1, image: exerciseImage1 }
             ],
-            t('Has the tutee now created a similar exercise?'),
+            t('Has {{studentName}} now created a similar exercise?', {replace: {studentName: studentName}}),
             <ExampleExercisesButton skill={skill} />
         );
 
-        const findPatterns = new AlgorithmStage(
-            1,
-            StageType.find_patterns,
-            t('Continue'),
-            [
-                {
-                    title: t('📖 Read what’s happening'),
-                    text: t('Try to earn {{stake}} Slon by checking how another tutor taught {{name}} the skill:', { replace: { name: studentName, stake: stake } }) + (skill && ' ' + skill.h)
-                },
-                { title: t('🧠 Don’t show it to tutee. Try to find patterns'), text: '', reactNode: <ExerciseList exercises={skill.q} location='reexamine'/> },
-            ],
-            t('Ready to examine this skill?')
-        );
-
-
         // Algo linking:
-        if (variation === 'with_too_fast_warning') {
-            this.begin = tooFast;
-        } else if (variation === 'intro') {
-            this.begin = intro;
-        } else if (variation === 'with_stat') {
-            this.begin = stat;
-        } else {
-            this.begin = findPatterns;
-        }
+        this.begin = askToCreateSimilarExercise;
 
-        intro.setNext([findPatterns]);
-        tooFast.setNext([findPatterns]);
-        stat.setNext([findPatterns]);
-
-        askToCreateSimilarExercise.setPrevious(findPatterns);
-
-        findPatterns.setNext([skip, askToCreateSimilarExercise]);
-
-
-        askToCreateSimilarExercise.setNext([provideFakeSolution, askToRepeatTheExerciseAfterMe]);
+        askToCreateSimilarExercise.setNext([skip, provideFakeSolution, askToRepeatTheExerciseAfterMe]);
         provideFakeSolution.setPrevious(askToCreateSimilarExercise);
         askToRepeatTheExerciseAfterMe.setPrevious(askToCreateSimilarExercise);
 
         provideFakeSolution.setNext([validateDiploma, explainReimburse]);
         validateDiploma.setPrevious(provideFakeSolution);
-        explainReimburse.setPrevious(provideFakeSolution);
 
         validateDiploma.setNext([nextToTeaching]); // Algo end (no bonus)
 

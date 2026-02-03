@@ -11,7 +11,6 @@ export enum StageType {
   ask_to_repeat_similar_exercise = 'ask_to_repeat_similar_exercise',
   skip = 'skip',
   begin_ask_to_create_similar_exercise = 'begin_ask_to_create_similar_exercise',
-  find_patterns = 'find_patterns',
   first_time_intro = 'first_time_intro',
   see_statistics = 'see_statistics',
   ask_to_create_similar_exercise = 'ask_to_create_similar_exercise',
