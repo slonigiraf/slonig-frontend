@@ -19,7 +19,7 @@ export enum StageType {
   next_skill = 'next_skill',
   too_fast_warning = 'too_fast_warning',
   validate = 'validate',
-  explain_reimburse = 'explain_reimburse',
+  revoke = 'revoke',
   success = 'success',
   reimburse = 'reimburse',
   encourage_penalization = 'encourage_penalization',

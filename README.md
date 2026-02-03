@@ -89,7 +89,6 @@ Here is a list of user actions tracked by Slonig:
 | ✅ | TUTORING | REEXAMINE_ALGO | ask_to_repeat_similar_exercise | N/A |
 | ✅ | TUTORING | REEXAMINE_ALGO | provide_fake_solution | N/A |
 | ✅ | TUTORING | REEXAMINE_ALGO | validate | N/A |
-| ✅ | TUTORING | REEXAMINE_ALGO | explain_reimburse | N/A |
 | ✅ | TUTORING | REEXAMINE_ALGO | revoke | N/A |
 | ✅ | TUTORING | REEXAMINE_ALGO | click_instant_validate | N/A |
 | ✅ | TUTORING | REEXAMINE_ALGO | click_instant_revoke | N/A |

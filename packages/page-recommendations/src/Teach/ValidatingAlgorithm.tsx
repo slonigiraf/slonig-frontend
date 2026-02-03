@@ -31,7 +31,7 @@ class ValidatingAlgorithm extends Algorithm {
 
         const explainReimburse = new AlgorithmStage(
             7,
-            StageType.explain_reimburse,
+            StageType.revoke,
             t('No'),
             [
                 { title: t('🗣 Say to {{studentName}}', {replace: {studentName: studentName}}), text: t('You don’t have such a skill. I will penalize the tutor which issued the badge for it.') },
