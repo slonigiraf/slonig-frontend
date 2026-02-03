@@ -54,14 +54,15 @@ function SkillQR({ className = '', id, cid, selectedItems, isLearningRequested, 
   // Generate tutoring request ID
   useEffect(() => {
     const generateTutoringRequestId = () => {
-      if (currentPair?.publicKey && selectedItems && selectedItems.length > 0) {
-        setLessonId(getLessonId(u8aToHex(currentPair?.publicKey), selectedItems.map(item => item.id)));
+      if (currentPair?.publicKey && (learn.length + reexamine.length) > 0) {
+        const ids: string[] = [...learn, ...reexamine].map(([, , id]) => id);
+        setLessonId(getLessonId(u8aToHex(currentPair?.publicKey), ids));
       } else {
         setLessonId('');
       }
     };
     generateTutoringRequestId();
-  }, [currentPair, selectedItems]);
+  }, [currentPair, learn, reexamine]);
 
   const studentIdentity = u8aToHex(currentPair?.publicKey);
 
