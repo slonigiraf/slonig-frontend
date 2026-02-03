@@ -23,6 +23,7 @@ export enum StageType {
   success = 'success',
   reimburse = 'reimburse',
   encourage_penalization = 'encourage_penalization',
+  close_notes = "close_notes",
 }
 
 class AlgorithmStage {

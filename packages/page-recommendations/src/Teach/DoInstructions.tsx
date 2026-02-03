@@ -5,7 +5,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { AlgorithmStage, StageType } from './AlgorithmStage.js';
 import { Button, Menu, Popup, Spinner, styled } from '@polkadot/react-components';
 import type { Skill } from '@slonigiraf/slonig-components';
-import { ValidatingAlgorithm } from './ValidatingAlgorithm.js';
+import { ValidatingAlgorithm, ValidatingAlgorithmType } from './ValidatingAlgorithm.js';
 import { useTranslation } from '../translate.js';
 import { ChatContainer, Bubble, useIpfsContext, useLog, OKBox, timeStampStringToNumber } from '@slonigiraf/slonig-components';
 import { getLetterTemplate, getSetting, Lesson, LetterTemplate, putLetterTemplate, Reexamination, SettingKey, storeSetting, TutorAction, updateReexamination } from '@slonigiraf/db';
@@ -123,12 +123,13 @@ function DoInstructions({ className = '', entity, lessonStat, anythingToLearn = 
 
   useEffect(() => {
     if (!skill) return;
+    const skipCloseNotesWarning = lessonStat.reexamineStep > 0 || lessonStat.learnStep > 0;
 
     if (isLetterTemplate(entity)) {
-      const skipStat = pageWasJustRefreshed || (lessonStat.askedForReexaminations === 0 && lessonStat.learnStep === 0);
-      const variation: TutoringAlgorithmType = tooFastWarning ? 'with_too_fast_warning' :
+      
+      const variation: TutoringAlgorithmType = 
         !hasTutorCompletedTutorial ? 'tutorial' :
-          skipStat ? 'no_stat' : 'with_stat';
+          skipCloseNotesWarning ? 'regular' : 'first_in_lesson';
 
       const newAlgorithm = new TutoringAlgorithm(
         {
@@ -143,12 +144,15 @@ function DoInstructions({ className = '', entity, lessonStat, anythingToLearn = 
 
       setAlgorithmStage(newAlgorithm.getBegin());
     } else {
+      const variation: ValidatingAlgorithmType = skipCloseNotesWarning ? 'regular' : 'first_in_lesson';
+          
       const newAlgorithm = new ValidatingAlgorithm(
         {
           t,
           studentName,
           stake,
           skill,
+          variation,
         });
       setAlgorithmStage(newAlgorithm.getBegin());
     }

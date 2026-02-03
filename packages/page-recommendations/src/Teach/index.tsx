@@ -503,6 +503,7 @@ function Teach({ className = '' }: Props): React.ReactElement<Props> {
   const clock = <ClockDiv>🕑</ClockDiv>;
 
   const isTutorial = lesson?.cid === EXAMPLE_MODULE_KNOWLEDGE_CID;
+
   const reexamAndDiplomaIssuing = <FullFindow>
     <VerticalCenterItemsContainer>
       {lesson && <Progress>

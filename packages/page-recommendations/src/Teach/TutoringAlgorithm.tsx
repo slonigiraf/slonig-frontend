@@ -3,7 +3,7 @@ import { Algorithm } from './Algorithm.js';
 import { Skill } from '@slonigiraf/slonig-components';
 import ExampleExercisesButton from './ExampleExercisesButton.js';
 
-export type TutoringAlgorithmType = 'with_too_fast_warning' | 'tutorial' | 'with_stat' | 'no_stat';
+export type TutoringAlgorithmType = 'tutorial' | 'regular' | 'first_in_lesson';
 export interface TutoringAlgorithmProps {
     variation: TutoringAlgorithmType;
     studentName: string | null;
@@ -100,7 +100,7 @@ class TutoringAlgorithm extends Algorithm {
         const askStudentToCreateASimilarExercise = new AlgorithmStage(
             1,
             StageType.begin_ask_to_create_similar_exercise,
-            t('Yes'),
+            t('Next'),
             [
                 { title: t('📖 Read what’s happening'), text: t('{{studentName}} asks you to teach the skill: {{skillName}}', { replace: { studentName: studentName, skillName: skill.h } }) },
                 { title: t('🗣 Say to {{studentName}}', {replace: {studentName: studentName}}), text: t('Create an exercise similar to this:') + ' ' + question1, image: exerciseImage1 },
@@ -110,15 +110,25 @@ class TutoringAlgorithm extends Algorithm {
         );
 
         //Use only if student never used Slonig
-        const intro = new AlgorithmStage(
+        const firstTimeIntro = new AlgorithmStage(
             0,
             StageType.first_time_intro,
             t('Yes'),
             [
-                { title: t('📖 Read what’s happening'), text: t('You are a tutor. The app will show you how to teach the student who showed you a QR code.') },
+                { title: t('📖 Read what’s happening'), text: t('You are a tutor. The app will show you how to teach {{studentName}}.', {replace: {studentName: studentName}}) },
+                { title: t('❗ Check it', {replace: {studentName: studentName}}), text: t('Make sure {{studentName}} doesn’t use notes and can’t see any written prompts when answering questions.', {replace: {studentName: studentName}}) },
             ],
             t('Let’s start with a simple skill. {{studentName}} will pretend not to know it.', {replace: {studentName: studentName}}),
             <ExampleExercisesButton skill={skill} />
+        );
+
+        const closeNotes = new AlgorithmStage(
+            0,
+            StageType.close_notes,
+            t('Yes'),
+            [
+                { title: t('❗ Check it', {replace: {studentName: studentName}}), text: t('Make sure {{studentName}} doesn’t use notes and can’t see any written prompts when answering questions.', {replace: {studentName: studentName}}) },
+            ],
         );
 
         const askToCreateAnExerciseAfterCompletionOfExerciseOfTutor = new AlgorithmStage(
@@ -165,10 +175,16 @@ class TutoringAlgorithm extends Algorithm {
         );
 
         if (variation === 'tutorial') {
-            this.begin = intro;
+            this.begin = firstTimeIntro;
+        } else if (variation === 'first_in_lesson'){
+            this.begin = closeNotes;
         } else {
             this.begin = askStudentToCreateASimilarExercise;
         }
+
+        firstTimeIntro.setNext([askStudentToSolveAnExercise]);
+
+        closeNotes.setNext([askStudentToCreateASimilarExercise])
 
         askStudentToSolveAnExercise.setNext([askToCreateAnExerciseAfterCompletionOfExerciseOfTutor, askStudentToRepeatTheSolutionOfExerciseOfTutor]);
         askToCreateAnExerciseAfterCompletionOfExerciseOfTutor.setPrevious(askStudentToSolveAnExercise);
