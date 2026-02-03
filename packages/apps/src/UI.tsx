@@ -67,12 +67,14 @@ function UI({ className = '' }: Props): React.ReactElement<Props> {
   }, [logEvent, isIncognito]);
 
   useEffect(() => {
-    const lang = (i18n.resolvedLanguage || i18n.language || 'en')
-      .slice(0, 2)
-      .toLowerCase();
+    if (currentVersion) {
+      const lang = (i18n.resolvedLanguage || i18n.language || 'en')
+        .slice(0, 2)
+        .toLowerCase();
 
-    logEvent('INFO', 'LANGUAGE', lang);
-  }, [logEvent, i18n.resolvedLanguage, i18n.language]);
+      logEvent('INFO', 'LANGUAGE', lang);
+    }
+  }, [currentVersion, logEvent, i18n.resolvedLanguage, i18n.language]);
 
   useEffect(() => {
     if (!isLoggedIn && !botInUrl) {
