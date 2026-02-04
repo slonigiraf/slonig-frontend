@@ -584,7 +584,7 @@ function Teach({ className = '' }: Props): React.ReactElement<Props> {
                   onShowResults(lesson);
                 }
                 } />
-              {lessonStat && isSendingResultsEnabled && <LessonProcessInfo lessonStat={lessonStat} showLastAction={false} />}
+              {lessonStat && isSendingResultsEnabled && hasTutorCompletedTutorial && <LessonProcessInfo lessonStat={lessonStat} showLastAction={false} />}
             </SendResults>
           }
         </Bubbles>}

@@ -139,7 +139,7 @@ function DoInstructions({ className = '', entity, lessonStat, anythingToLearn = 
     if (isLetterTemplate(entity)) {
 
       const variation: TutoringAlgorithmType =
-        !hasTutorCompletedTutorial ? 'tutorial' :
+        (!hasTutorCompletedTutorial && lessonStat.learnStep === 0) ? 'tutorial' :
           skipCloseNotesWarning ? 'regular' : 'first_in_lesson';
 
       const newAlgorithm = new TutoringAlgorithm(
