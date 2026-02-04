@@ -7,13 +7,13 @@ import { Button, Menu, Popup, Spinner, styled } from '@polkadot/react-components
 import type { Skill } from '@slonigiraf/slonig-components';
 import { ValidatingAlgorithm, ValidatingAlgorithmType } from './ValidatingAlgorithm.js';
 import { useTranslation } from '../translate.js';
-import { ChatContainer, Bubble, useIpfsContext, useLog, OKBox, timeStampStringToNumber } from '@slonigiraf/slonig-components';
+import { ChatContainer, Bubble, useIpfsContext, useLog, OKBox, timeStampStringToNumber, useNumberSettingValue } from '@slonigiraf/slonig-components';
 import { getLetterTemplate, getSetting, Lesson, LetterTemplate, putLetterTemplate, Reexamination, SettingKey, storeSetting, TutorAction, updateReexamination } from '@slonigiraf/db';
 import { getIPFSDataFromContentID, parseJson, useInfo } from '@slonigiraf/slonig-components';
 import { TutoringAlgorithm, TutoringAlgorithmType } from './TutoringAlgorithm.js';
 import ChatSimulation from './ChatSimulation.js';
 import { ErrorType } from '@polkadot/react-params';
-import { EXAMPLE_SKILL_KNOWLEDGE_CID, EXAMPLE_SKILL_KNOWLEDGE_ID, MIN_USING_HINT_MS, ONE_SUBJECT_PERIOD_MS } from '@slonigiraf/utils';
+import { EXAMPLE_SKILL_KNOWLEDGE_CID, EXAMPLE_SKILL_KNOWLEDGE_ID, MAX_COUNT_WITHOUT_CORRECT_FAKE_IN_RAW, MIN_USING_HINT_MS, ONE_SUBJECT_PERIOD_MS } from '@slonigiraf/utils';
 import { LessonStat } from '../types.js';
 
 interface Props {
@@ -64,6 +64,7 @@ function DoInstructions({ className = '', entity, lessonStat, anythingToLearn = 
   const [algorithmStage, setAlgorithmStage] = useState<AlgorithmStage>();
   const { showInfo } = useInfo();
   const { logEvent, logBan } = useLog();
+  const countOfMissedCorrectFakeSolution = useNumberSettingValue(SettingKey.COUNT_WITHOUT_CORRECT_FAKE_IN_RAW);
   const [lastPressingNextButtonTime, setLastPressingNextButtonTime] = useState((new Date()).getTime());
   const [algorithmType, setAlgorithmType] = useState<AlgorithmType>('');
   const [isButtonClicked, setIsButtonClicked] = useState(false);
@@ -73,6 +74,7 @@ function DoInstructions({ className = '', entity, lessonStat, anythingToLearn = 
   const [processedStages, setProcessedStages] = useState(0);
   const [lastStageEndTime, setLastStageEndTime] = useState<number>(Date.now());
   const [previousTeachingStagesDuration, setPreviousTeachingStagesDuration] = useState(0);
+  const [didCorrectFakeSolution, setDidCorrectFakeSolution] = useState(false);
 
   const isLetterTemplate = useCallback((entity: LetterTemplate | Reexamination) => {
     return 'knowledgeId' in entity;
@@ -176,6 +178,17 @@ function DoInstructions({ className = '', entity, lessonStat, anythingToLearn = 
       return;
     }
 
+    if (didCorrectFakeSolution) {
+      await storeSetting(SettingKey.COUNT_WITHOUT_CORRECT_FAKE_IN_RAW, '0');
+    } else {
+      const previousValue = countOfMissedCorrectFakeSolution || 0;
+      const newValue = previousValue + 1;
+      await storeSetting(SettingKey.COUNT_WITHOUT_CORRECT_FAKE_IN_RAW, newValue.toString());
+      if (newValue > MAX_COUNT_WITHOUT_CORRECT_FAKE_IN_RAW) {
+        logBan('too_many_without_correct_fake_in_raw');
+      }
+    }
+
     const valid = (template.cid === EXAMPLE_SKILL_KNOWLEDGE_CID) || (isValid ?? !template.toRepeat);
 
     const action: TutorAction = (valid ? `mark_mastered_${matureInfo}` : `mark_for_repeat_${matureInfo}`) as TutorAction;
@@ -197,7 +210,7 @@ function DoInstructions({ className = '', entity, lessonStat, anythingToLearn = 
         lastExamined: Date.now(),
       });
     }, action);
-  }, [entity, algorithmStage, isLetterTemplate, getLetterTemplate, putLetterTemplate, onResult, logEvent, lastStageEndTime, previousTeachingStagesDuration]);
+  }, [entity, countOfMissedCorrectFakeSolution, algorithmStage, isLetterTemplate, getLetterTemplate, putLetterTemplate, onResult, logEvent, lastStageEndTime, previousTeachingStagesDuration]);
 
 
   const markLetterAsNotPerfect = useCallback(async () => {
@@ -340,6 +353,9 @@ function DoInstructions({ className = '', entity, lessonStat, anythingToLearn = 
       if (hasStudenFailed(nextStage)) {
         await markLetterAsNotPerfect();
       }
+      if (nextStage.getType() === StageType.correct_fake_solution) {
+        setDidCorrectFakeSolution(true);
+      }
       if (nextStage === algorithmStage) {
         showInfo(t('Do this again'));
         refreshStageView();
@@ -387,6 +403,7 @@ function DoInstructions({ className = '', entity, lessonStat, anythingToLearn = 
     previousTeachingStagesDuration,
     t,
     showInfo,
+    setDidCorrectFakeSolution,
     refreshStageView,
     studentFailedReexamination,
     studentPassedReexamination,

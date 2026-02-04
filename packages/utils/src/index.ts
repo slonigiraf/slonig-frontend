@@ -13,6 +13,7 @@ export const MIN_USING_HINT_MS = 2_000;
 export const MIN_SKILL_DISCUSSION_MS = 10_000;
 export const FAST_SKILL_DISCUSSION_MS = 20_000;
 export const MAX_FAST_DISCUSSED_SKILLS_IN_ROW_COUNT = 1;
+export const MAX_COUNT_WITHOUT_CORRECT_FAKE_IN_RAW = 5; // 6 lessons x 60 min x 10 skills per 60 min: (60-N+1)*0.23^N < 0.01 => N=6
 
 export const BACKUP_REQUIREMENT_PERIOD_MS = 24 * 60 * 60_000; // One day
 export const ONE_SUBJECT_PERIOD_MS = 60 * 60_000; // One hour long lesson
