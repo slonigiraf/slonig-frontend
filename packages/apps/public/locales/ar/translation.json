@@ -29,6 +29,7 @@
   "Approve": "موافقة",
   "Are you a parent or a teacher?": "هل أنت والد أم معلم؟",
   "Are you sure everyone around you has tried using Slonig?": "هل أنت متأكد أن كل من حولك قد جرّب استخدام Slonig؟",
+  "Ask a teacher to scan:": "اطلب من المعلم المسح:",
   "Ask the sender to refresh the QR page and keep it open while sending data.": "اطلب من المرسل تحديث صفحة رمز QR وتركها مفتوحة أثناء إرسال البيانات.",
   "Ask {{studentName}} to scan": "اطلب من {{studentName}} المسح",
   "Assess": "تقييم",
@@ -202,6 +203,7 @@
   "Press the link to send Slon": "اضغط على الرابط لإرسال Slon",
   "Press the link to show badges": "اضغط على الرابط لعرض الشارات",
   "Press the link to start tutoring": "اضغط على الرابط لبدء التعليم",
+  "Press the link to unlock tutoring": "اضغط على الرابط لفتح الدروس الخصوصية",
   "Press this button to send the results and get your reward for tutoring": "اضغط على هذا الزر لإرسال النتائج والحصول على مكافأتك مقابل التعليم",
   "Print": "طباعة",
   "Prior locked voting": "تصويت مقفل سابق",
@@ -222,6 +224,7 @@
   "Reserve ParaId": "حجز ParaId",
   "Reset": "إعادة تعيين",
   "Reset settings to default": "إعادة الإعدادات إلى الوضع الافتراضي",
+  "Reshow the QR": "أعد عرض رمز الاستجابة السريعة",
   "Restore": "استعادة",
   "Restore Slonig Account": "استعادة حساب Slonig",
   "Restored": "تمت الاستعادة",
@@ -236,6 +239,7 @@
   "Saved": "تم الحفظ",
   "Scan": "مسح",
   "Scan a QR code": "مسح رمز QR",
+  "Scan the teacher’s QR code": "امسح رمز الاستجابة السريعة للمعلم",
   "See more about KaTeX": "تعرف أكثر على KaTeX",
   "See the solution": "عرض الحل",
   "Select": "اختيار",
@@ -360,6 +364,7 @@
   "To get Slon, ask a sender to scan:": "للحصول على Slon، اطلب من المرسل مسح:",
   "To get the lesson results, reward your tutor with {{amount}} Slon.": "للحصول على نتائج الدرس، كافئ معلمك بـ {{amount}} Slon.",
   "To learn this, ask a tutor to scan:": "لتعلم هذا، اطلب من المعلم مسح:",
+  "To start, ask {{tutorName}} to scan:": "للبدء، اطلب من {{tutorName}} المسح:",
   "Top up my balance": "شحن رصيدي",
   "Total profit": "إجمالي الأرباح",
   "Transfer failed": "فشل التحويل",
@@ -401,6 +406,7 @@
   "You are about to remove this account from your list of available accounts. Once completed, should you need to access it again, you will have to re-create the account either via seed or via a backup file.": "أنت على وشك إزالة هذا الحساب من قائمة الحسابات المتاحة لديك. بعد الإكمال، إذا احتجت إلى الوصول إليه مرة أخرى، فسيتعين عليك إعادة إنشاء الحساب إما عبر العبارة الأولية (seed) أو عبر ملف نسخة احتياطية.",
   "You are about to remove this address from your address book. Once completed, should you need to access it again, you will have to re-add the address.": "أنت على وشك إزالة هذا العنوان من دفتر العناوين. بعد الإكمال، إذا احتجت إلى الوصول إليه مرة أخرى، فسيتعين عليك إعادة إضافة العنوان.",
   "You are about to remove this contract from your list of available contracts. Once completed, should you need to access it again, you will have to manually add the contract’s address in the Instantiate tab.": "أنت على وشك إزالة هذا العقد من قائمة العقود المتاحة لديك. بعد الإكمال، إذا احتجت إلى الوصول إليه مرة أخرى، فسيتعين عليك إضافة عنوان العقد يدويًا في تبويب Instantiate.",
+  "You can continue tutoring under teacher supervision": "يمكنك متابعة الدروس الخصوصية تحت إشراف المعلم",
   "You can put your device aside": "يمكنك وضع جهازك جانبًا",
   "You can select no more than:": "يمكنك اختيار ما لا يزيد عن:",
   "You can use the KaTeX language to add formulas:": "يمكنك استخدام لغة KaTeX لإضافة الصيغ:",
@@ -635,6 +641,7 @@
   "{{studentName}} has not created a similar exercise.": "{{studentName}} لم ينشئ تمرينًا مشابهًا.",
   "{{studentName}} has not executed the exercise correctly.": "{{studentName}} لم ينفذ التمرين بشكل صحيح.",
   "{{studentName}} has repeated correctly after me.": "{{studentName}} كرر بعدي بشكل صحيح.",
+  "{{tutorName}} provided a poor tutoring session. Please observe how {{tutorName}} teaches the student": "{{tutorName}} قدمت جلسة دروس خاصة سيئة. يرجى ملاحظة كيف يدرس {{tutorName}} الطالب",
   "{{type}} copied": "تم نسخ {{type}}",
   "{{value}}x voting balance, locked for {{duration}}x duration{{period}}": "{{value}}x رصيد التصويت، مقفل لمدة {{duration}}x مدة{{period}}",
   "⚖️ Decide on the next step": "⚖️ قرر الخطوة التالية",
@@ -643,5 +650,6 @@
   "🕑 {{min}} minutes ago": "🕑 قبل {{min}} دقيقة",
   "🗣 Give {{studentName}} a wrong answer and say": "🗣 أعطي {{studentName}} إجابة خاطئة وقل",
   "🗣 Say to {{studentName}}": "🗣 قل لـ{{studentName}}",
-  "🗣 Show {{studentName}} the correct execution, and say": "🗣 أظهر لـ{{studentName}} التنفيذ الصحيح، وقل"
+  "🗣 Show {{studentName}} the correct execution, and say": "🗣 أظهر لـ{{studentName}} التنفيذ الصحيح، وقل",
+  "🚫 Your lesson is paused because it requires teacher supervision": "🚫 تم إيقاف درسك لأنه يتطلب إشراف المعلم"
 }

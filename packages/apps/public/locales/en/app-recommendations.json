@@ -176,5 +176,15 @@
   "{{studentName}} has executed the exercise correctly.": "{{studentName}} has executed the exercise correctly.",
   "Has {{studentName}} now executed the exercise correctly?": "Has {{studentName}} now executed the exercise correctly?",
   "{{studentName}} has repeated correctly after me.": "{{studentName}} has repeated correctly after me.",
-  "Try to earn {{stake}} Slon by checking how another tutor taught {{studentName}} the skill:": "Try to earn {{stake}} Slon by checking how another tutor taught {{studentName}} the skill:"
+  "Try to earn {{stake}} Slon by checking how another tutor taught {{studentName}} the skill:": "Try to earn {{stake}} Slon by checking how another tutor taught {{studentName}} the skill:",
+  "{{tutorName}} provided a poor tutoring session. Please observe how {{tutorName}} teaches the student": "{{tutorName}} provided a poor tutoring session. Please observe how {{tutorName}} teaches the student",
+  "To start, ask {{tutorName}} to scan:": "To start, ask {{tutorName}} to scan:",
+  "Press the link to unlock tutoring": "Press the link to unlock tutoring",
+  "🚫 Your lesson is paused because it requires teacher supervision": "🚫 Your lesson is paused because it requires teacher supervision",
+  "Ask a teacher to scan:": "Ask a teacher to scan:",
+  "Press the link to start tutoring": "Press the link to start tutoring",
+  "Scan the teacher’s QR code": "Scan the teacher’s QR code",
+  "Scan": "Scan",
+  "Reshow the QR": "Reshow the QR",
+  "You can continue tutoring under teacher supervision": "You can continue tutoring under teacher supervision"
 }
