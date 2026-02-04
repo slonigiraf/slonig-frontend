@@ -124,8 +124,8 @@ function DoInstructions({ className = '', entity, lessonStat, anythingToLearn = 
     const skipCloseNotesWarning = lessonStat.reexamineStep > 0 || lessonStat.learnStep > 0;
 
     if (isLetterTemplate(entity)) {
-      
-      const variation: TutoringAlgorithmType = 
+
+      const variation: TutoringAlgorithmType =
         !hasTutorCompletedTutorial ? 'tutorial' :
           skipCloseNotesWarning ? 'regular' : 'first_in_lesson';
 
@@ -143,7 +143,7 @@ function DoInstructions({ className = '', entity, lessonStat, anythingToLearn = 
       setAlgorithmStage(newAlgorithm.getBegin());
     } else {
       const variation: ValidatingAlgorithmType = skipCloseNotesWarning ? 'regular' : 'first_in_lesson';
-          
+
       const newAlgorithm = new ValidatingAlgorithm(
         {
           t,
@@ -166,7 +166,13 @@ function DoInstructions({ className = '', entity, lessonStat, anythingToLearn = 
     }
 
     const valid = (template.cid === EXAMPLE_SKILL_KNOWLEDGE_CID) || (isValid ?? !template.toRepeat);
+
     const action: TutorAction = (valid ? `mark_mastered_${matureInfo}` : `mark_for_repeat_${matureInfo}`) as TutorAction;
+
+    if (action === 'mark_for_repeat_mature') {
+      logBan('mark_for_repeat_mature');
+      return;
+    }
 
     onResult(async () => {
       const timeSpent = Math.round((Date.now() - lastStageEndTime) / 1000);
