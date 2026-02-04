@@ -508,7 +508,7 @@ function Teach({ className = '' }: Props): React.ReactElement<Props> {
 
   const isTutorial = lesson?.cid === EXAMPLE_MODULE_KNOWLEDGE_CID;
 
-  const reexamAndDiplomaIssuing = blockTutoring === true ? <UnblockTutoring onClose={onCloseTutoring} /> :
+  const reexamAndDiplomaIssuing = blockTutoring === true ? <UnblockTutoring onClose={onCloseTutoring} student={lesson?.student}/> :
     <FullFindow>
       <VerticalCenterItemsContainer>
         {lesson && <Progress>

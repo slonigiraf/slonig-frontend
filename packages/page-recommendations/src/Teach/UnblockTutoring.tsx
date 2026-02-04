@@ -1,22 +1,26 @@
 import React from 'react';
 import { useTranslation } from '../translate.js';
 import { Button, styled } from '@polkadot/react-components';
-import { CenterQRContainer, FullscreenActivity, nameFromKeyringPair, ScanQR, SenderComponent, useLoginContext } from '@slonigiraf/slonig-components';
+import { BadTutorTransfer, CenterQRContainer, FullscreenActivity, InsurancesTransfer, nameFromKeyringPair, ScanQR, SenderComponent, useLoginContext } from '@slonigiraf/slonig-components';
 import { useToggle } from '@polkadot/react-hooks';
+import { u8aToHex } from '@polkadot/util';
 
 interface Props {
   onClose: () => void;
+  student: string;
 }
 
-function UnblockTutoring({ onClose }: Props): React.ReactElement<Props> {
+function UnblockTutoring({ onClose, student }: Props): React.ReactElement<Props> {
   const { t } = useTranslation();
-  const [isQrShown, toggleIsQrShown] = useToggle();
+  const [isQrShown, toggleIsQrShown] = useToggle(true);
   const { currentPair } = useLoginContext();
   const name = nameFromKeyringPair(currentPair);
 
-  const data = JSON.stringify({
+  const data: BadTutorTransfer = {
+    identity: u8aToHex(currentPair?.publicKey),
     name,
-  })
+    student,
+  }
 
   return (
     <FullscreenActivity caption='' onClose={onClose} >
@@ -26,7 +30,7 @@ function UnblockTutoring({ onClose }: Props): React.ReactElement<Props> {
             <h1>{t('🚫 Your tutoring is paused because it was not good')}</h1>
             <SenderComponent
               caption={t('Ask a teacher to scan:')}
-              data={data}
+              data={JSON.stringify(data)}
               route={'badges/assess'}
               textShare={t('Press the link to start tutoring')}
               onDataSent={toggleIsQrShown}
@@ -36,7 +40,7 @@ function UnblockTutoring({ onClose }: Props): React.ReactElement<Props> {
           <>
             <h1>{t('Scan the teacher’s QR code')}</h1>
             <ScanQR label={t('Scan')} />
-            <Button label={t('Reshow the QR')} onClick={toggleIsQrShown}/>
+            <Button label={t('Reshow the QR')} onClick={toggleIsQrShown} />
           </>
         }
       </StyledDiv>

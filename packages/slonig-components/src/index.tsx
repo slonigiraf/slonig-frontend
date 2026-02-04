@@ -414,11 +414,21 @@ export interface LessonRequest {
   identity: string;
 }
 
+export interface EnableTutoringRequest {
+  tutor: string;
+}
+
 export interface InsurancesTransfer {
   identity: string,
   name: string,
   insurances: string[],
   employer: string,
+}
+
+export interface BadTutorTransfer {
+  identity: string,
+  name: string,
+  student: string,
 }
 
 export interface Person {
