@@ -197,7 +197,7 @@ function DoInstructions({ className = '', entity, lessonStat, anythingToLearn = 
         lastExamined: Date.now(),
       });
     }, action);
-  }, [entity, isLetterTemplate, getLetterTemplate, putLetterTemplate, onResult, logEvent, lastStageEndTime, previousTeachingStagesDuration]);
+  }, [entity, algorithmStage, isLetterTemplate, getLetterTemplate, putLetterTemplate, onResult, logEvent, lastStageEndTime, previousTeachingStagesDuration]);
 
 
   const markLetterAsNotPerfect = useCallback(async () => {
