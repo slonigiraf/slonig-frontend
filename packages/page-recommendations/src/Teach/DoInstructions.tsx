@@ -238,10 +238,7 @@ function DoInstructions({ className = '', entity, lessonStat, anythingToLearn = 
     async (opts: { valid: boolean; action: 'validate' | 'revoke' }) => {
       if (!isReexamination(entity) || !('created' in entity)) return;
 
-      const lastStageTimeSpent = Date.now() - lastStageEndTime;
-      const talkingDuration =
-        previousTeachingStagesDuration +
-        talkingDurationOrZero(lastStageTimeSpent, algorithmStage);
+      const talkingDuration = previousTeachingStagesDuration + talkingDurationOrZero(Date.now() - lastStageEndTime, algorithmStage);
 
       onResult(
         talkingDuration,
