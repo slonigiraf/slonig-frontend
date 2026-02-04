@@ -238,7 +238,10 @@ function Teach({ className = '' }: Props): React.ReactElement<Props> {
     }
 
     if (lastAction === 'skip') {
-
+      await action();
+    } else if (lastAction === 'revoke') {
+      logTime(isLearning, timeSpent);
+      await action();
     } else if (timeSpent < MIN_SKILL_DISCUSSION_MS) {
       const eventType = isLearning ? 'too_short_teach_time_sec' : 'too_short_reexamine_time_sec';
       logEvent('TUTORING',
@@ -254,12 +257,13 @@ function Teach({ className = '' }: Props): React.ReactElement<Props> {
       } else {
         setFastDiscussedSkillsCount(fastDiscussedSkillsCount + 1);
         logTime(isLearning, timeSpent);
+        await action();
       }
     } else {
       setFastDiscussedSkillsCount(0);
       logTime(isLearning, timeSpent);
+      await action();
     }
-    await action();
 
   }, [hasTutorCompletedTutorial, fastDiscussedSkillsCount, lastSkillDiscussedTime, showTooFastWarning]);
 
@@ -509,7 +513,7 @@ function Teach({ className = '' }: Props): React.ReactElement<Props> {
 
   const isTutorial = lesson?.cid === EXAMPLE_MODULE_KNOWLEDGE_CID;
 
-  const reexamAndDiplomaIssuing = blockTutoring === true ? <AskToUnblockTutoring onClose={onCloseTutoring} student={lesson?.student}/> :
+  const reexamAndDiplomaIssuing = blockTutoring === true ? <AskToUnblockTutoring onClose={onCloseTutoring} student={lesson?.student} /> :
     <FullFindow>
       <VerticalCenterItemsContainer>
         {lesson && <Progress>
@@ -570,7 +574,7 @@ function Teach({ className = '' }: Props): React.ReactElement<Props> {
                   onShowResults(lesson);
                 }
                 } />
-                <LessonProcessInfo lessonStat={lessonStat} showLastAction={false} />
+              <LessonProcessInfo lessonStat={lessonStat} showLastAction={false} />
             </SendResults>
           }
         </Bubbles>}
