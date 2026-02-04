@@ -84,7 +84,6 @@ function Teach({ className = '' }: Props): React.ReactElement<Props> {
   const [lessonStat, setLessonStat] = useState<LessonStat | null>(null);
   const [lastLessonId, setLastLessonId] = useState<null | string>(null);
 
-
   useEffect(() => {
     showHelpQRInfo && setIsHelpQRInfoShown(true);
   }, [showHelpQRInfo]);
@@ -215,7 +214,7 @@ function Teach({ className = '' }: Props): React.ReactElement<Props> {
     setTooFastConfirmationIsShown(true);
   }, [warningCount, setWarningCount, setTooFastConfirmationIsShown]);
 
-  const protectTutor = useCallback(async (isLearning: boolean, lastAction: TutorAction, action: () => Promise<void>) => {
+  const protectTutor = useCallback(async (talkDuration: number, isLearning: boolean, lastAction: TutorAction, action: () => Promise<void>) => {
     if (!lastSkillDiscussedTime) return;
 
     const now = (new Date()).getTime();
@@ -223,6 +222,7 @@ function Teach({ className = '' }: Props): React.ReactElement<Props> {
 
     if (!hasTutorCompletedTutorial) {
       logEvent('ONBOARDING', 'TUTOR_TUTORIAL_TIME', 'tutor_tutorial_time_sec', Math.round(timeSpent / 1000));
+      logEvent('ONBOARDING', 'TUTOR_TUTORIAL_TALK_TIME', 'tutor_tutorial_talk_time_sec', Math.round(talkDuration / 1000));
       await action();
       return;
     }
@@ -234,6 +234,11 @@ function Teach({ className = '' }: Props): React.ReactElement<Props> {
         isLearning ? 'TEACH_SKILL_TIME' : 'REEXAMINE_SKILL_TIME',
         isLearning ? 'teach_skill_time_sec' : 'reexamine_skill_time_sec',
         Math.round(timeSpent / 1000)
+      );
+      logEvent('TUTORING',
+        isLearning ? 'TEACH_TALK_SKILL_TIME' : 'REEXAMINE_TALK_SKILL_TIME',
+        isLearning ? 'teach_talk_skill_time_sec' : 'reexamine_talk_skill_time_sec',
+        Math.round(talkDuration / 1000)
       );
     }
 
@@ -327,12 +332,12 @@ function Teach({ className = '' }: Props): React.ReactElement<Props> {
     fetchLesson();
   }, []);
 
-  const updateReexamined = useCallback(async (updater: () => Promise<void>, lastAction: TutorAction) => {
+  const updateReexamined = useCallback(async (talkDuration: number, updater: () => Promise<void>, lastAction: TutorAction) => {
     if (lesson) {
       const nextStep = lesson.reexamineStep + 1;
       if (nextStep <= lesson.toReexamineCount) {
         const updatedLesson = { ...lesson, lastAction, reexamineStep: nextStep };
-        await protectTutor(false, lastAction, async () => {
+        await protectTutor(talkDuration, false, lastAction, async () => {
           await updater();
           await updateAndStoreLesson(updatedLesson);
         });
@@ -340,10 +345,10 @@ function Teach({ className = '' }: Props): React.ReactElement<Props> {
     }
   }, [lesson, updateAndStoreLesson, protectTutor]);
 
-  const updateLearned = useCallback(async (updater: () => Promise<void>, lastAction: TutorAction) => {
+  const updateLearned = useCallback(async (talkDuration: number, updater: () => Promise<void>, lastAction: TutorAction) => {
     if (lesson && lesson.toLearnCount > lesson.learnStep) {
       const updatedLesson = { ...lesson, lastAction, learnStep: lesson.learnStep + 1 };
-      await protectTutor(true, lastAction, async () => {
+      await protectTutor(talkDuration, true, lastAction, async () => {
         await updater();
         await updateAndStoreLesson(updatedLesson);
       });
@@ -474,10 +479,6 @@ function Teach({ className = '' }: Props): React.ReactElement<Props> {
     await storeSetting(SettingKey.LAST_PARTNER_CHANGE_TIME, now.toString());
   }, [setIsPairChangeDialogueOpen, logEvent, storeSetting]);
 
-  const resetTimer = useCallback(() => {
-    setLastSkillDiscussedTime(Date.now());
-  }, [setLastSkillDiscussedTime]);
-
   const publicKeyHex = currentPair ? u8aToHex(currentPair.publicKey) : "";
 
   // Don't do reexaminations if the tutor is a first time tutor
@@ -485,7 +486,7 @@ function Teach({ className = '' }: Props): React.ReactElement<Props> {
     if (lesson != null) {
       if (hasTutorCompletedTutorial === false && !reexamined && reexaminationToPerform) {
         if (letterTemplateToIssue) {
-          updateReexamined(async () => { }, undefined);
+          updateReexamined(0, async () => { }, undefined);
         } else {
           onCloseTutoring();
           showInfo(t('You should practice tutoring first before you can reexamine.'));
@@ -513,8 +514,9 @@ function Teach({ className = '' }: Props): React.ReactElement<Props> {
 
   const isTutorial = lesson?.cid === EXAMPLE_MODULE_KNOWLEDGE_CID;
 
-  const reexamAndDiplomaIssuing = blockTutoring === true ? <AskToUnblockTutoring onClose={onCloseTutoring} student={lesson?.student} /> :
-    <FullFindow>
+  const reexamAndDiplomaIssuing = (blockTutoring === true && lesson?.student !== undefined) ?
+    <AskToUnblockTutoring onClose={onCloseTutoring} student={lesson?.student} />
+    : <FullFindow>
       <VerticalCenterItemsContainer>
         {lesson && <Progress>
           <Spacer />
@@ -536,7 +538,6 @@ function Teach({ className = '' }: Props): React.ReactElement<Props> {
               hasTutorCompletedTutorial={hasTutorCompletedTutorial}
               onResult={updateReexamined}
               studentName={studentName ?? ''}
-              resetTimer={resetTimer}
               stake={bnToSlonString(new BN(reexaminationToPerform.amount ?? 0))}
               isTutorial={isTutorial}
               isSendingResultsEnabled={isSendingResultsEnabled}
@@ -549,7 +550,6 @@ function Teach({ className = '' }: Props): React.ReactElement<Props> {
               tooFastWarning={tooFastConfirmationIsShown}
               pageWasJustRefreshed={pageWasJustRefreshed}
               lesson={lesson}
-              resetTimer={resetTimer}
               hasTuteeUsedSlonig={hasTuteeUsedSlonig}
               hasTutorCompletedTutorial={hasTutorCompletedTutorial}
               onResult={updateLearned}
@@ -574,7 +574,7 @@ function Teach({ className = '' }: Props): React.ReactElement<Props> {
                   onShowResults(lesson);
                 }
                 } />
-              {lessonStat && <LessonProcessInfo lessonStat={lessonStat} showLastAction={false} />}
+              {lessonStat && isSendingResultsEnabled && <LessonProcessInfo lessonStat={lessonStat} showLastAction={false} />}
             </SendResults>
           }
         </Bubbles>}

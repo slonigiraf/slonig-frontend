@@ -24,30 +24,40 @@ interface Props {
   entity: LetterTemplate | Reexamination;
   tooFastWarning: boolean;
   pageWasJustRefreshed: boolean;
-  onResult: (updater: () => Promise<void>, action: TutorAction) => void;
+  onResult: (lessonDuration: number, updater: () => Promise<void>, action: TutorAction) => void;
   hasTutorCompletedTutorial: boolean | null | undefined;
   studentName: string;
   stake?: string;
   hasTuteeUsedSlonig: boolean;
   isSendingResultsEnabled: boolean | null | undefined;
   isBeforeTeaching?: boolean;
-  resetTimer: () => void;
   isTutorial: boolean;
 }
 
 type AlgorithmType = '' | 'TEACH_ALGO' | 'REEXAMINE_ALGO';
 
 const nonEssentialStageTypes = new Set([
+  StageType.decide_about_badge,
+  StageType.repeat_tomorrow,
+  StageType.skip,
   StageType.first_time_intro,
+  StageType.next_skill,
+  StageType.validate,
+  StageType.revoke,
+  StageType.success,
+  StageType.reimburse,
   StageType.close_notes,
 ]);
 
-function isNonEssentialStageType(algorithmStage: AlgorithmStage) {
-  return nonEssentialStageTypes.has(algorithmStage.getType());
+function isTalkStageType(algorithmStage: AlgorithmStage) {
+  return !nonEssentialStageTypes.has(algorithmStage.getType());
 }
 
+function talkingDurationOrZero(duration: number, algorithmStage: AlgorithmStage | undefined) {
+  return (algorithmStage && isTalkStageType(algorithmStage)) ? duration : 0;
+}
 
-function DoInstructions({ className = '', entity, lessonStat, anythingToLearn = true, resetTimer, tooFastWarning, pageWasJustRefreshed, lesson, onResult, studentName, stake = '', isSendingResultsEnabled, hasTuteeUsedSlonig, hasTutorCompletedTutorial, isTutorial }: Props): React.ReactElement<Props> {
+function DoInstructions({ className = '', entity, lessonStat, anythingToLearn = true, tooFastWarning, pageWasJustRefreshed, lesson, onResult, studentName, stake = '', isSendingResultsEnabled, hasTuteeUsedSlonig, hasTutorCompletedTutorial, isTutorial }: Props): React.ReactElement<Props> {
   const { ipfs, isIpfsReady } = useIpfsContext();
   const [skill, setSkill] = useState<Skill>();
   const { t } = useTranslation();
@@ -62,6 +72,7 @@ function DoInstructions({ className = '', entity, lessonStat, anythingToLearn = 
   const [tooFastConfirmationIsShown, setTooFastConfirmationIsShown] = useState(false);
   const [processedStages, setProcessedStages] = useState(0);
   const [lastStageEndTime, setLastStageEndTime] = useState<number>(Date.now());
+  const [previousTeachingStagesDuration, setPreviousTeachingStagesDuration] = useState(0);
 
   const isLetterTemplate = useCallback((entity: LetterTemplate | Reexamination) => {
     return 'knowledgeId' in entity;
@@ -161,7 +172,7 @@ function DoInstructions({ className = '', entity, lessonStat, anythingToLearn = 
     const { template, matureInfo } = await getMatureInfo();
 
     if (!template) {
-      onResult(async () => { }, undefined);
+      onResult(0, async () => { }, undefined);
       return;
     }
 
@@ -174,9 +185,11 @@ function DoInstructions({ className = '', entity, lessonStat, anythingToLearn = 
       return;
     }
 
-    onResult(async () => {
-      const timeSpent = Math.round((Date.now() - lastStageEndTime) / 1000);
-      logEvent('TUTORING', 'TEACH_ALGO', action, timeSpent);
+    const lastStageTimeSpent = Date.now() - lastStageEndTime;
+    const talkingDuration = previousTeachingStagesDuration + talkingDurationOrZero(lastStageTimeSpent, algorithmStage);
+
+    onResult(talkingDuration, async () => {
+      logEvent('TUTORING', 'TEACH_ALGO', action, Math.round(lastStageTimeSpent / 1000));
       await putLetterTemplate({
         ...template,
         valid,
@@ -184,7 +197,7 @@ function DoInstructions({ className = '', entity, lessonStat, anythingToLearn = 
         lastExamined: Date.now(),
       });
     }, action);
-  }, [entity, isLetterTemplate, getLetterTemplate, putLetterTemplate, onResult, logEvent, lastStageEndTime]);
+  }, [entity, isLetterTemplate, getLetterTemplate, putLetterTemplate, onResult, logEvent, lastStageEndTime, previousTeachingStagesDuration]);
 
 
   const markLetterAsNotPerfect = useCallback(async () => {
@@ -223,23 +236,28 @@ function DoInstructions({ className = '', entity, lessonStat, anythingToLearn = 
 
   const studentPassedReexamination = useCallback(async () => {
     if (isReexamination(entity) && 'created' in entity) {
-      onResult(async () => {
+      const lastStageTimeSpent = Date.now() - lastStageEndTime;
+      const talkingDuration = previousTeachingStagesDuration + talkingDurationOrZero(lastStageTimeSpent, algorithmStage);
+
+      onResult(talkingDuration, async () => {
         const now = (new Date).getTime();
         const successfulReexamination: Reexamination = { ...entity, lastExamined: now };
         await updateReexamination(successfulReexamination);
       }, 'validate');
     }
-  }, [isReexamination, entity, updateReexamination, onResult]);
+  }, [isReexamination, entity, updateReexamination, onResult, lastStageEndTime, previousTeachingStagesDuration]);
 
   const studentFailedReexamination = useCallback(async () => {
     if (isReexamination(entity) && 'created' in entity) {
-      onResult(async () => {
+      const lastStageTimeSpent = Date.now() - lastStageEndTime;
+      const talkingDuration = previousTeachingStagesDuration + talkingDurationOrZero(lastStageTimeSpent, algorithmStage);
+      onResult(talkingDuration, async () => {
         const now = (new Date).getTime();
         const failedReexamination: Reexamination = { ...entity, lastExamined: now, valid: false };
         await updateReexamination(failedReexamination);
       }, 'revoke');
     }
-  }, [isReexamination, entity, updateReexamination, onResult]);
+  }, [isReexamination, entity, updateReexamination, onResult, lastStageEndTime, previousTeachingStagesDuration]);
 
   const preserveFromNoobs = useCallback(
     (run: () => void, fallback?: () => void) => {
@@ -291,15 +309,16 @@ function DoInstructions({ className = '', entity, lessonStat, anythingToLearn = 
 
   const handleStageChange = useCallback(async (nextStage: AlgorithmStage | null) => {
     if (nextStage !== null && algorithmStage) {
-      if (isNonEssentialStageType(algorithmStage)) {
-        resetTimer();
-      }
-      const timeSpent = Math.round((Date.now() - lastStageEndTime) / 1000);
+
+      const msSpent = Date.now() - lastStageEndTime;
       setIsButtonClicked(true);
       const logStageTime = (nextStageType?: StageType) => {
-        logEvent('TUTORING', algorithmType, algorithmStage.getType(), timeSpent);
+        logEvent('TUTORING', algorithmType, algorithmStage.getType(), Math.round(msSpent / 1000));
+        if (isTalkStageType(algorithmStage)) {
+          setPreviousTeachingStagesDuration(previousTeachingStagesDuration + msSpent);
+        }
         if (nextStageType) {
-          logEvent('TUTORING', algorithmType, nextStageType, timeSpent);
+          logEvent('TUTORING', algorithmType, nextStageType, Math.round(msSpent / 1000));
         }
       }
       if (hasStudenFailed(nextStage)) {
@@ -324,7 +343,7 @@ function DoInstructions({ className = '', entity, lessonStat, anythingToLearn = 
         preserveFromNoobs(() => {
           logStageTime(StageType.skip);
           refreshStageView();
-          onResult(async () => { }, 'skip');
+          onResult(0, async () => { }, 'skip');
         }, () => setIsButtonClicked(false));
       } else if (isLetterTemplate(entity) && (nextStage.getType() === StageType.next_skill)) {
         logStageTime();
@@ -349,6 +368,7 @@ function DoInstructions({ className = '', entity, lessonStat, anythingToLearn = 
   }, [algorithmStage,
     entity,
     lastStageEndTime,
+    previousTeachingStagesDuration,
     t,
     showInfo,
     refreshStageView,
@@ -358,6 +378,7 @@ function DoInstructions({ className = '', entity, lessonStat, anythingToLearn = 
     processLetter,
     setAlgorithmStage,
     setIsButtonClicked,
+    setPreviousTeachingStagesDuration,
     onResult]);
 
   if (!skill) {
@@ -419,7 +440,7 @@ function DoInstructions({ className = '', entity, lessonStat, anythingToLearn = 
                     isDisabled={isButtonClicked}
                   />
                 ))}
-                {!isNonEssentialStageType(algorithmStage) &&
+                {isTalkStageType(algorithmStage) &&
                   (
                     <StyledPopup
                       value={

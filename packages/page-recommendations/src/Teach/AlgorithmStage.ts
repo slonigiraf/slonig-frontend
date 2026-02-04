@@ -12,17 +12,14 @@ export enum StageType {
   skip = 'skip',
   begin_ask_to_create_similar_exercise = 'begin_ask_to_create_similar_exercise',
   first_time_intro = 'first_time_intro',
-  see_statistics = 'see_statistics',
   ask_to_create_similar_exercise = 'ask_to_create_similar_exercise',
   begin_ask_to_solve_exercise = 'begin_ask_to_solve_exercise',
   cycle_ask_to_create_similar_exercise = 'cycle_ask_to_create_similar_exercise',
   next_skill = 'next_skill',
-  too_fast_warning = 'too_fast_warning',
   validate = 'validate',
   revoke = 'revoke',
   success = 'success',
   reimburse = 'reimburse',
-  encourage_penalization = 'encourage_penalization',
   close_notes = "close_notes",
 }
 

@@ -1,7 +1,7 @@
 import React from 'react';
 import { useTranslation } from '../translate.js';
 import { Button, styled } from '@polkadot/react-components';
-import { BadTutorTransfer, CenterQRContainer, FullscreenActivity, InsurancesTransfer, nameFromKeyringPair, ScanQR, SenderComponent, useLoginContext } from '@slonigiraf/slonig-components';
+import { BadTutorTransfer, CenterQRContainer, FullscreenActivity, nameFromKeyringPair, ScanQR, SenderComponent, useLoginContext } from '@slonigiraf/slonig-components';
 import { useToggle } from '@polkadot/react-hooks';
 import { u8aToHex } from '@polkadot/util';
 
