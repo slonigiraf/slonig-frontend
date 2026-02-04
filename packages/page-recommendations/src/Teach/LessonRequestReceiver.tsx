@@ -47,6 +47,7 @@ function LessonRequestReceiver({ setCurrentLesson }: Props): React.ReactElement<
 
   const unblockTutoring = useCallback(async () => {
     await deleteAllBanScheduledEvents();
+    await deleteSetting(SettingKey.COUNT_WITHOUT_CORRECT_FAKE_IN_RAW);
     await deleteSetting(SettingKey.BAN_TUTORING);
     toggleIsContinueTutoringShown();
   }, [deleteAllBanScheduledEvents]);
