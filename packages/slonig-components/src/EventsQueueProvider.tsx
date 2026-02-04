@@ -1,4 +1,4 @@
-import React, { createContext, useContext, ReactNode, useCallback, useEffect } from 'react';
+import React, { createContext, useContext, ReactNode, useEffect, useRef } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { ScheduledEvent } from 'db/src/db/ScheduledEvent.js';
 import { deserializeEventData } from './utils.js';
@@ -21,9 +21,9 @@ const shortPause = () => new Promise<void>(resolve => setTimeout(resolve, MATOMO
 
 
 export const EventsQueueProvider: React.FC<EventsQueueProviderProps> = ({ children }) => {
-
   const allLogEvents = useLiveQuery(getAllLogEvents, []);
   const allBanEvents = useLiveQuery(getAllBanEvents, []);
+  const lastEventId = useRef<number | null>(null);
 
   const scheduledLogEvent = useLiveQuery(async () => {
     return getFirstScheduledEventByType('LOG');
@@ -39,6 +39,12 @@ export const EventsQueueProvider: React.FC<EventsQueueProviderProps> = ({ childr
 
   useEffect(() => {
     const submitLogEvent = async (scheduledLogEvent: ScheduledEvent) => {
+      if(scheduledLogEvent === undefined || 
+        scheduledLogEvent.id === undefined ||
+        scheduledLogEvent.id === lastEventId.current){
+        return;
+      }
+      lastEventId.current = scheduledLogEvent.id;
 
       const [category, action, name, value] = deserializeEventData(scheduledLogEvent.data) as [
         string,
@@ -83,7 +89,7 @@ export const EventsQueueProvider: React.FC<EventsQueueProviderProps> = ({ childr
       if (scheduledLogEvent.id) deleteScheduledEvent(scheduledLogEvent.id);
     }
 
-    if (scheduledLogEvent) submitLogEvent(scheduledLogEvent);
+    submitLogEvent(scheduledLogEvent);
   }, [scheduledLogEvent]);
 
   return <EventsQueueContext.Provider value={{}}>{children}</EventsQueueContext.Provider>;
