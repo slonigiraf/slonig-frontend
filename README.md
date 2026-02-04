@@ -76,6 +76,7 @@ Here is a list of user actions tracked by Slonig:
 | ✅ | EXAMPLES | SHOW_ANSWERS | show_asnwers_at_reexamine | N/A |
 | ✅ | PROGRESS | PROGRESS_PERCENTAGE | Knowledge name | percentage |
 | ✅ | TUTORING | BAN | ban_{reason} | N/A |
+| ✅ | TUTORING | BAN | unban_after_sec | sec |
 | ✅ | TUTORING | VIEW_BADGE_TEMPLATE | KnowledgeName (skill) | N/A |
 | ✅ | TUTORING | VIEW_PENALTY | KnowledgeName (skill) | N/A |
 | ✅ | TUTORING | CLICK_RESTART_LESSON | N/A | N/A |

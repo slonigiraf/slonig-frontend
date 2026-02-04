@@ -74,6 +74,7 @@ export const SettingKey = {
     APP_VERSION: 'APP_VERSION',
     BAN_TUTORING: 'BAN_TUTORING',
     COUNT_WITHOUT_CORRECT_FAKE_IN_RAW: 'COUNT_WITHOUT_CORRECT_FAKE_IN_RAW',
+    LAST_BAN_START_TIME: 'LAST_BAN_START_TIME',
 } as const;
 
 export async function storeSetting(id: string, value: string) {

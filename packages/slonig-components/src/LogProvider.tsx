@@ -1,7 +1,7 @@
 import React, { createContext, useContext, ReactNode, useCallback } from 'react';
 import { bnToSlonFloatOrNaN, PartnersTodayResult, StoredEconomy } from './index.js';
 import BN from 'bn.js';
-import { putScheduledEvent } from '@slonigiraf/db';
+import { putScheduledEvent, SettingKey, storeSetting } from '@slonigiraf/db';
 import { serializeEventData } from './utils.js';
 interface LogContextType {
   logEvent: (category: string, action: string, name?: string, value?: number) => void;
@@ -40,13 +40,14 @@ export const LogProvider: React.FC<LogProviderProps> = ({ children }) => {
   );
 
   const logBan = useCallback(
-    (reason: string) => {
+    async (reason: string) => {
+      const now = Date.now();
       logEvent('TUTORING', 'BAN', 'ban_' + reason);
-
-      putScheduledEvent({
+      await storeSetting(SettingKey.LAST_BAN_START_TIME, now.toString())
+      await putScheduledEvent({
         type: 'BAN',
         data: serializeEventData([]),
-        deadline: Date.now()
+        deadline: now
       });
     },
     [putScheduledEvent]
