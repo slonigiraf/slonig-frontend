@@ -511,6 +511,15 @@ function Teach({ className = '' }: Props): React.ReactElement<Props> {
     }
   }, [lessonStat, lesson]);
 
+  const onNewLessonRequest = useCallback(async () => {
+    const requestedLessonId = await getSetting(SettingKey.LESSON);
+    if (requestedLessonId) {
+      await onCloseResults();
+      await storeSetting(SettingKey.LESSON, requestedLessonId);
+      await fetchLesson();
+    }
+  }, [getSetting, onCloseResults, storeSetting, fetchLesson]);
+
   const clock = <ClockDiv>🕑</ClockDiv>;
 
   const isTutorial = lesson?.cid === EXAMPLE_MODULE_KNOWLEDGE_CID;
@@ -587,7 +596,7 @@ function Teach({ className = '' }: Props): React.ReactElement<Props> {
       {
         isLoggedIn &&
         <>
-          <LessonRequestReceiver setCurrentLesson={fetchLesson} />
+          <LessonRequestReceiver setCurrentLesson={onNewLessonRequest} />
           {lesson === null ? <LessonsList tutor={publicKeyHex} onResumeTutoring={onResumeTutoring} onShowResults={onShowResults} />
             :
             <> {(areResultsShown && lessonStat) ? <LessonResults lesson={lesson} lessonStat={lessonStat} updateAndStoreLesson={updateAndStoreLesson} onClose={tryToCloseTutoring} onFinished={onCloseTutoring} /> : reexamAndDiplomaIssuing}</>
