@@ -36,7 +36,7 @@ function UseInsurance({ className = '', insurance }: Props): React.ReactElement<
     <>
       {currentPair != null && <SVGButton onClick={() => processBounty()}
         svg={<CustomSVGIcon svg={slonSVG} />}
-        label={t('Get bounty')}
+        label={t('Student forgot it')}
         isDisabled={isButtonClicked}
       />}
     </>
