@@ -574,7 +574,7 @@ function Teach({ className = '' }: Props): React.ReactElement<Props> {
                   onShowResults(lesson);
                 }
                 } />
-              <LessonProcessInfo lessonStat={lessonStat} showLastAction={false} />
+              {lessonStat && <LessonProcessInfo lessonStat={lessonStat} showLastAction={false} />}
             </SendResults>
           }
         </Bubbles>}
