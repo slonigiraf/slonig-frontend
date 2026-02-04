@@ -432,6 +432,7 @@ function Teach({ className = '' }: Props): React.ReactElement<Props> {
     setFastDiscussedSkillsCount(0);
     setTooFastConfirmationIsShown(false);
     setLesson(null);
+    setLessonStat(null);
     setLessonName(null);
     setIsExitConfirmOpen(false);
     setReexaminationToPerform(null);
