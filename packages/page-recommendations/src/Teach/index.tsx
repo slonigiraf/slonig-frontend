@@ -16,6 +16,7 @@ import BN from 'bn.js';
 import { TutorAction } from 'db/src/db/Lesson.js';
 import { LessonStat } from '../types.js';
 import AskToUnblockTutoring from './AskToUnblockTutoring.js';
+import LessonProcessInfo from './LessonProcessInfo.js';
 interface Props {
   className?: string;
 }
@@ -569,6 +570,7 @@ function Teach({ className = '' }: Props): React.ReactElement<Props> {
                   onShowResults(lesson);
                 }
                 } />
+                <LessonProcessInfo lessonStat={lessonStat} showLastAction={false} />
             </SendResults>
           }
         </Bubbles>}
