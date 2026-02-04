@@ -169,7 +169,7 @@ function DoInstructions({ className = '', entity, lessonStat, anythingToLearn = 
 
     const action: TutorAction = (valid ? `mark_mastered_${matureInfo}` : `mark_for_repeat_${matureInfo}`) as TutorAction;
 
-    if (action === 'mark_for_repeat_mature') {
+    if (action === 'mark_for_repeat_mature' && !template.toRepeat) {
       logBan('mark_for_repeat_mature');
       return;
     }
@@ -309,7 +309,14 @@ function DoInstructions({ className = '', entity, lessonStat, anythingToLearn = 
         showInfo(t('Do this again'));
         refreshStageView();
       }
-      if (isReexamination(entity) && nextStage.getType() === StageType.reimburse) {
+
+      const { template } = await getMatureInfo();
+
+      if (template && template.toRepeat && nextStage.getType() === StageType.decide_about_badge) {
+        logStageTime();
+        await processLetter(false);
+        refreshStageView();
+      } else if (isReexamination(entity) && nextStage.getType() === StageType.reimburse) {
         logStageTime();
         studentFailedReexamination();
         refreshStageView();
