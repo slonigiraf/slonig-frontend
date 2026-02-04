@@ -124,7 +124,7 @@ class TutoringAlgorithm extends Algorithm {
 
         const closeNotes = new AlgorithmStage(
             0,
-            StageType.close_notes,
+            StageType.ask_to_close_notes,
             t('Yes'),
             [
                 { title: t('👀 Make sure {{studentName}} doesn’t use notes and can’t see any written prompts when answering questions', {replace: {studentName: studentName}}), text: ''},

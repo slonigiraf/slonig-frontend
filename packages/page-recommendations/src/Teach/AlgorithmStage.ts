@@ -20,7 +20,7 @@ export enum StageType {
   revoke = 'revoke',
   success = 'success',
   reimburse = 'reimburse',
-  close_notes = "close_notes",
+  ask_to_close_notes = 'ask_to_close_notes',
 }
 
 class AlgorithmStage {

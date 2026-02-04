@@ -46,7 +46,7 @@ const nonEssentialStageTypes = new Set([
   StageType.revoke,
   StageType.success,
   StageType.reimburse,
-  StageType.close_notes,
+  StageType.ask_to_close_notes,
 ]);
 
 function isTalkStageType(algorithmStage: AlgorithmStage) {

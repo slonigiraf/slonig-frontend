@@ -32,7 +32,7 @@ function LessonResultReceiver({ webRTCPeerId, onDaysRangeChange }: Props): React
   const navigate = useNavigate();
   const { reimburse } = useBlockchainSync();
   const { logEvent, logPartners } = useLog();
-  
+
 
   const updateAgreement = useCallback(async (updatedAgreement: Agreement) => {
     await putAgreement(updatedAgreement);
@@ -44,6 +44,12 @@ function LessonResultReceiver({ webRTCPeerId, onDaysRangeChange }: Props): React
       await storePseudonym(receivedResult.referee, receivedResult.refereeName);
       await deleteLearnRequest(receivedResult.lesson);
       logPartners(await processNewPartner(receivedResult.referee));
+
+      const hasTuteeCompletedTutorial = await getSetting(SettingKey.TUTEE_TUTORIAL_COMPLETED);
+      if (hasTuteeCompletedTutorial !== 'true') {
+        logEvent('ONBOARDING', 'TUTEE_TUTORIAL_COMPLETED');
+        await setSettingToTrue(SettingKey.TUTEE_TUTORIAL_COMPLETED);
+      }
 
       setLessonResult(receivedResult);
       const dbAgreement = await getAgreement(receivedResult.agreement);
@@ -127,13 +133,6 @@ function LessonResultReceiver({ webRTCPeerId, onDaysRangeChange }: Props): React
                 await setSettingToTrue(SettingKey.NOW_IS_CLASS_ONBOARDING);
               }
             }
-
-            const hasTuteeCompletedTutorial = await getSetting(SettingKey.TUTEE_TUTORIAL_COMPLETED);
-            if (hasTuteeCompletedTutorial !== 'true') {
-              logEvent('ONBOARDING', 'TUTEE_TUTORIAL_COMPLETED');
-              await setSettingToTrue(SettingKey.TUTEE_TUTORIAL_COMPLETED);
-            }
-
             await Promise.all(
               lessonResult.letters.map(async (serializedLetter) => {
                 const letter = deserializeLetter(serializedLetter, lessonResult.workerId, lessonResult.genesis, lessonResult.amount);
@@ -159,7 +158,7 @@ function LessonResultReceiver({ webRTCPeerId, onDaysRangeChange }: Props): React
           updateAgreement(updatedAgreement);
 
           lessonResult && showLoadedResult(lessonResult);
-          
+
           navigate('', { replace: true });
         } catch (e) {
           console.log(e);
