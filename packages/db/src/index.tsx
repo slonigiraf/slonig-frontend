@@ -217,7 +217,7 @@ export async function storePseudonym(publicKey: string, pseudonym: string) {
             const newPseudonym: Pseudonym = { publicKey: publicKey, pseudonym: cleanPseudonym, altPseudonym: "" };
             await db.pseudonyms.put(newPseudonym);
         } else if (samePseudonym.pseudonym !== cleanPseudonym) {
-            await db.pseudonyms.update(publicKey, { altPseudonym: cleanPseudonym });
+            await db.pseudonyms.update(publicKey, { pseudonym: cleanPseudonym, altPseudonym: samePseudonym.pseudonym });
         }
     }
 }
