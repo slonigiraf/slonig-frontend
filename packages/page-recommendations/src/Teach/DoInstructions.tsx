@@ -234,30 +234,50 @@ function DoInstructions({ className = '', entity, lessonStat, anythingToLearn = 
     await processLetter(true);
   }, [processLetter, logEvent]);
 
-  const studentPassedReexamination = useCallback(async () => {
-    if (isReexamination(entity) && 'created' in entity) {
-      const lastStageTimeSpent = Date.now() - lastStageEndTime;
-      const talkingDuration = previousTeachingStagesDuration + talkingDurationOrZero(lastStageTimeSpent, algorithmStage);
+  const finishReexamination = useCallback(
+    async (opts: { valid: boolean; action: 'validate' | 'revoke' }) => {
+      if (!isReexamination(entity) || !('created' in entity)) return;
 
-      onResult(talkingDuration, async () => {
-        const now = (new Date).getTime();
-        const successfulReexamination: Reexamination = { ...entity, lastExamined: now };
-        await updateReexamination(successfulReexamination);
-      }, 'validate');
-    }
-  }, [isReexamination, entity, updateReexamination, onResult, lastStageEndTime, previousTeachingStagesDuration]);
-
-  const studentFailedReexamination = useCallback(async () => {
-    if (isReexamination(entity) && 'created' in entity) {
       const lastStageTimeSpent = Date.now() - lastStageEndTime;
-      const talkingDuration = previousTeachingStagesDuration + talkingDurationOrZero(lastStageTimeSpent, algorithmStage);
-      onResult(talkingDuration, async () => {
-        const now = (new Date).getTime();
-        const failedReexamination: Reexamination = { ...entity, lastExamined: now, valid: false };
-        await updateReexamination(failedReexamination);
-      }, 'revoke');
-    }
-  }, [isReexamination, entity, updateReexamination, onResult, lastStageEndTime, previousTeachingStagesDuration]);
+      const talkingDuration =
+        previousTeachingStagesDuration +
+        talkingDurationOrZero(lastStageTimeSpent, algorithmStage);
+
+      onResult(
+        talkingDuration,
+        async () => {
+          const now = Date.now();
+          const updated: Reexamination = {
+            ...entity,
+            lastExamined: now,
+            ...(opts.valid ? {} : { valid: false })
+          };
+          await updateReexamination(updated);
+        },
+        opts.action
+      );
+    },
+    [
+      isReexamination,
+      entity,
+      lastStageEndTime,
+      previousTeachingStagesDuration,
+      algorithmStage,
+      onResult,
+      updateReexamination
+    ]
+  );
+
+  const studentPassedReexamination = useCallback(
+    () => finishReexamination({ valid: true, action: 'validate' }),
+    [finishReexamination]
+  );
+
+  const studentFailedReexamination = useCallback(
+    () => finishReexamination({ valid: false, action: 'revoke' }),
+    [finishReexamination]
+  );
+
 
   const preserveFromNoobs = useCallback(
     (run: () => void, fallback?: () => void) => {
