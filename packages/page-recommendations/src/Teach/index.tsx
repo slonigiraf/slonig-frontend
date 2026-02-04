@@ -229,7 +229,7 @@ function Teach({ className = '' }: Props): React.ReactElement<Props> {
 
     setLastSkillDiscussedTime(now);
 
-    const logTime = (isLearning: boolean, timeSpent: number) => {
+    const logTime = (isLearning: boolean) => {
       logEvent('TUTORING',
         isLearning ? 'TEACH_SKILL_TIME' : 'REEXAMINE_SKILL_TIME',
         isLearning ? 'teach_skill_time_sec' : 'reexamine_skill_time_sec',
@@ -245,28 +245,28 @@ function Teach({ className = '' }: Props): React.ReactElement<Props> {
     if (lastAction === 'skip') {
       await action();
     } else if (lastAction === 'revoke') {
-      logTime(isLearning, timeSpent);
+      logTime(isLearning);
       await action();
-    } else if (timeSpent < MIN_SKILL_DISCUSSION_MS) {
+    } else if (talkDuration < MIN_SKILL_DISCUSSION_MS) {
       const eventType = isLearning ? 'too_short_teach_time_sec' : 'too_short_reexamine_time_sec';
       logEvent('TUTORING',
         isLearning ? 'TOO_SHORT_TEACH' : 'TOO_SHORT_REEXAMINE',
         eventType,
-        Math.round(timeSpent / 1000)
+        Math.round(talkDuration / 1000)
       );
       logBan(eventType);
-    } else if (timeSpent < FAST_SKILL_DISCUSSION_MS) {
+    } else if (talkDuration < FAST_SKILL_DISCUSSION_MS) {
       if (fastDiscussedSkillsCount + 1 > MAX_FAST_DISCUSSED_SKILLS_IN_ROW_COUNT) {
         logEvent('TUTORING', 'SEVERAL_FAST_DISCUSSIONS_IN_ROW');
         setFastDiscussedSkillsCount(0);
       } else {
         setFastDiscussedSkillsCount(fastDiscussedSkillsCount + 1);
-        logTime(isLearning, timeSpent);
+        logTime(isLearning);
         await action();
       }
     } else {
       setFastDiscussedSkillsCount(0);
-      logTime(isLearning, timeSpent);
+      logTime(isLearning);
       await action();
     }
 
