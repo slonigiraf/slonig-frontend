@@ -316,7 +316,6 @@ function DoInstructions({ className = '', entity, lessonStat, anythingToLearn = 
     const timeSpent = now - lastPressingNextButtonTime;
     if (timeSpent < MIN_USING_HINT_MS) {
       logEvent('ONBOARDING', 'TOO_SHORT_USING_HINT_TIME', 'too_short_using_hint_time_sec', Math.round(timeSpent / 1000));
-      logBan('too_short_using_hint_time_sec');
       setTooFastConfirmationIsShown(true);
     } else {
       setLastPressingNextButtonTime(now);
