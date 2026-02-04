@@ -1,10 +1,10 @@
 // Copyright 2021-2022 @slonigiraf/app-recommendations authors & contributors
 // SPDX-License-Identifier: Apache-2.0
 
-import { deleteSetting, getLesson, getSetting, hasSetting, Lesson, setSettingToTrue, SettingKey, storeLesson, storePseudonym, storeSetting } from '@slonigiraf/db';
+import { deleteAllBanScheduledEvents, deleteSetting, getLesson, getSetting, hasSetting, Lesson, setSettingToTrue, SettingKey, storeLesson, storePseudonym, storeSetting } from '@slonigiraf/db';
 import React, { useCallback } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
-import { LessonRequest, UrlParams, useLog, useLoginContext, useInfo } from '@slonigiraf/slonig-components';
+import { LessonRequest, UrlParams, useLog, useLoginContext, useInfo, EnableTutoringRequest } from '@slonigiraf/slonig-components';
 import { u8aToHex } from '@polkadot/util';
 import useFetchWebRTC from '../useFetchWebRTC.js';
 import { useTranslation } from '../translate.js';
@@ -43,10 +43,17 @@ function LessonRequestReceiver({ setCurrentLesson }: Props): React.ReactElement<
     return tutorialRequest;
   }
 
-  const handleData = useCallback(async (lessonRequest: LessonRequest) => {
-    if (lessonRequest) {
+  const unblockTutoring = useCallback(async () => {
+    await deleteAllBanScheduledEvents();
+    await deleteSetting(SettingKey.BAN_TUTORING);
+    showInfo(t('You can continue tutoring under teacher supervision.'));
+    navigate('', { replace: true });
+  }, [deleteAllBanScheduledEvents]);
+
+  const handleData = useCallback(async (data: LessonRequest | EnableTutoringRequest) => {
+    if ('lesson' in data) {
       const dbValueOfHasTutorCompletedTutorial = await getSetting(SettingKey.TUTOR_TUTORIAL_COMPLETED);
-      if (lessonRequest.cid === EXAMPLE_MODULE_KNOWLEDGE_CID && dbValueOfHasTutorCompletedTutorial) {
+      if (data.cid === EXAMPLE_MODULE_KNOWLEDGE_CID && dbValueOfHasTutorCompletedTutorial) {
         logEvent('ONBOARDING', 'ATTEMPT_TO_WARMUP_WRONG_TUTOR');
         await deleteSetting(SettingKey.LESSON);
         logEvent('SETTINGS', 'CLASS_ONBOARDING_ON');
@@ -54,11 +61,11 @@ function LessonRequestReceiver({ setCurrentLesson }: Props): React.ReactElement<
         showInfo(t('Please change your partner.'), 'error');
         navigate('', { replace: true });
       } else {
-        await storePseudonym(lessonRequest.identity, lessonRequest.name);
+        await storePseudonym(data.identity, data.name);
 
-        logPartners(await processNewPartner(lessonRequest.identity));
+        logPartners(await processNewPartner(data.identity));
 
-        let lessonId = lessonRequest.lesson;
+        let lessonId = data.lesson;
         const goWithNormalRequest = dbValueOfHasTutorCompletedTutorial === 'true';
 
         if (goWithNormalRequest) {
@@ -69,13 +76,13 @@ function LessonRequestReceiver({ setCurrentLesson }: Props): React.ReactElement<
               await deleteSetting(SettingKey.NOW_IS_CLASS_ONBOARDING);
             }
           }
-          await storeLesson(lessonRequest, tutorPublicKeyHex, processOnboaring);
+          await storeLesson(data, tutorPublicKeyHex, processOnboaring);
         } else {
           const processOnboaring = async () => {
             logEvent('SETTINGS', 'CLASS_ONBOARDING_ON');
             await setSettingToTrue(SettingKey.NOW_IS_CLASS_ONBOARDING);
           }
-          const tutorialRequest = changeRequestIntoTutorial(lessonRequest);
+          const tutorialRequest = changeRequestIntoTutorial(data);
           lessonId = tutorialRequest.lesson;
           await storeLesson(tutorialRequest, tutorPublicKeyHex, processOnboaring);
           if (tutorialRequest.kid !== EXAMPLE_MODULE_KNOWLEDGE_ID) {
@@ -88,6 +95,10 @@ function LessonRequestReceiver({ setCurrentLesson }: Props): React.ReactElement<
           logEvent('TUTORING', 'GET_STUDENT_REQUEST');
           setCurrentLesson(lesson);
         }
+      }
+    } else {
+      if(data.tutor === tutorPublicKeyHex){
+        unblockTutoring();
       }
     }
   }, [getSetting, navigate, setCurrentLesson, t, showInfo]);

@@ -134,6 +134,13 @@ export async function deleteScheduledEvent(id: number) {
     return db.scheduledEvents.delete(id);
 }
 
+export async function deleteAllBanScheduledEvents() {
+  return db.scheduledEvents
+    .where('type')
+    .equals('BAN')
+    .delete();
+}
+
 export async function getFirstScheduledEventByType(type: ScheduledEventType) {
   return db.scheduledEvents
     .where('[type+id]')
