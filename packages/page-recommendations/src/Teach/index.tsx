@@ -15,7 +15,7 @@ import { EXAMPLE_MODULE_KNOWLEDGE_CID, FAST_SKILL_DISCUSSION_MS, MAX_FAST_DISCUS
 import BN from 'bn.js';
 import { TutorAction } from 'db/src/db/Lesson.js';
 import { LessonStat } from '../types.js';
-import UnblockTutoring from './UnblockTutoring.js';
+import AskToUnblockTutoring from './AskToUnblockTutoring.js';
 interface Props {
   className?: string;
 }
@@ -508,7 +508,7 @@ function Teach({ className = '' }: Props): React.ReactElement<Props> {
 
   const isTutorial = lesson?.cid === EXAMPLE_MODULE_KNOWLEDGE_CID;
 
-  const reexamAndDiplomaIssuing = blockTutoring === true ? <UnblockTutoring onClose={onCloseTutoring} student={lesson?.student}/> :
+  const reexamAndDiplomaIssuing = blockTutoring === true ? <AskToUnblockTutoring onClose={onCloseTutoring} student={lesson?.student}/> :
     <FullFindow>
       <VerticalCenterItemsContainer>
         {lesson && <Progress>

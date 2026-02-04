@@ -10,7 +10,7 @@ interface Props {
   student: string;
 }
 
-function UnblockTutoring({ onClose, student }: Props): React.ReactElement<Props> {
+function AskToUnblockTutoring({ onClose, student }: Props): React.ReactElement<Props> {
   const { t } = useTranslation();
   const [isQrShown, toggleIsQrShown] = useToggle(true);
   const { currentPair } = useLoginContext();
@@ -64,4 +64,4 @@ const StyledDiv = styled.div`
   }
 `;
 
-export default React.memo(UnblockTutoring);
+export default React.memo(AskToUnblockTutoring);
