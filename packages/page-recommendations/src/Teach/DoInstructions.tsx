@@ -169,7 +169,7 @@ function DoInstructions({ className = '', entity, lessonStat, anythingToLearn = 
     }
   }, [tooFastWarning, skill, lesson, anythingToLearn, lessonStat, pageWasJustRefreshed, entity, studentName, stake, hasTuteeUsedSlonig, hasTutorCompletedTutorial]);
 
-  const processLetter = useCallback(async (isValid?: boolean) => {
+  const processLetter = useCallback(async (isValid: boolean, isFastDecision?: boolean) => {
     if (!isLetterTemplate(entity)) return;
     const { template, matureInfo } = await getMatureInfo();
 
@@ -178,14 +178,16 @@ function DoInstructions({ className = '', entity, lessonStat, anythingToLearn = 
       return;
     }
 
-    if (didCorrectFakeSolution) {
-      await storeSetting(SettingKey.COUNT_WITHOUT_CORRECT_FAKE_IN_RAW, '0');
-    } else {
-      const previousValue = countOfMissedCorrectFakeSolution || 0;
-      const newValue = previousValue + 1;
-      await storeSetting(SettingKey.COUNT_WITHOUT_CORRECT_FAKE_IN_RAW, newValue.toString());
-      if (newValue > MAX_COUNT_WITHOUT_CORRECT_FAKE_IN_RAW) {
-        logBan('too_many_without_correct_fake_in_raw');
+    if (!isFastDecision) {
+      if (didCorrectFakeSolution) {
+        await storeSetting(SettingKey.COUNT_WITHOUT_CORRECT_FAKE_IN_RAW, '0');
+      } else {
+        const previousValue = countOfMissedCorrectFakeSolution || 0;
+        const newValue = previousValue + 1;
+        await storeSetting(SettingKey.COUNT_WITHOUT_CORRECT_FAKE_IN_RAW, newValue.toString());
+        if (newValue > MAX_COUNT_WITHOUT_CORRECT_FAKE_IN_RAW) {
+          logBan('too_many_without_correct_fake_in_raw');
+        }
       }
     }
 
@@ -237,14 +239,14 @@ function DoInstructions({ className = '', entity, lessonStat, anythingToLearn = 
     const timeSpent = Math.round((Date.now() - lastStageEndTime) / 1000);
     const { matureInfo } = await getMatureInfo();
     logEvent('TUTORING', 'TEACH_ALGO', `click_instant_mark_for_repeat_${matureInfo}`, timeSpent);
-    await processLetter(false);
+    await processLetter(false, true);
   }, [processLetter, logEvent]);
 
   const issueDiploma = useCallback(async () => {
     const timeSpent = Math.round((Date.now() - lastStageEndTime) / 1000);
     const { matureInfo } = await getMatureInfo();
     logEvent('TUTORING', 'TEACH_ALGO', `click_instant_mark_mastered_${matureInfo}`, timeSpent);
-    await processLetter(true);
+    await processLetter(true, true);
   }, [processLetter, logEvent]);
 
   const finishReexamination = useCallback(
@@ -379,7 +381,7 @@ function DoInstructions({ className = '', entity, lessonStat, anythingToLearn = 
         }, () => setIsButtonClicked(false));
       } else if (isLetterTemplate(entity) && (nextStage.getType() === StageType.next_skill)) {
         logStageTime();
-        await processLetter();
+        await processLetter(true);
         refreshStageView();
       } else if (isLetterTemplate(entity) && (nextStage.getType() === StageType.repeat_tomorrow)) {
         logStageTime();
