@@ -14,7 +14,7 @@ function GoBadges(): React.ReactElement {
   return (
 
     <ButtonWithLabelBelow
-      icon='medal'
+      icon='award'
       label={t('Badges')}
       onClick={_onClick}
     />

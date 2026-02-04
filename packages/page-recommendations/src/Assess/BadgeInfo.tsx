@@ -78,7 +78,7 @@ function BadgeInfo({ className = '', badge, isSelected, onToggleSelection, isSel
             onClick={() => onToggleSelection(badge)}
           />
         )
-          : <Button className='inList' icon='medal' onClick={toggleDetailsOpen} />
+          : <Button className='inList' icon='award' onClick={toggleDetailsOpen} />
         }
         {skillNameToShow}
       </RowDiv>

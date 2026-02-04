@@ -39,7 +39,7 @@ function LessonProcessInfo({ className = '', lessonStat, showLastAction = true }
     ['mark_mastered_crude', { icon: 'rotate', comment: t('This was the student’s first time learning the skill, so it was marked for repetition.') }],
     ['mark_for_repeat_crude', { icon: 'rotate', comment: t('You’ve taught the skill and marked it for repetition to ensure the student remembers it.') }],
 
-    ['mark_mastered_mature', { icon: 'medal', comment: t('You’ve prepared a badge to your student.') }],
+    ['mark_mastered_mature', { icon: 'award', comment: t('You’ve prepared a badge to your student.') }],
     ['mark_for_repeat_mature', { icon: 'rotate', comment: t('You were unsure the student would remember the skill, so it was marked for repetition.') }],
   ]);
 
@@ -71,7 +71,7 @@ function LessonProcessInfo({ className = '', lessonStat, showLastAction = true }
         <StatElement><Icon icon={'shield'} />&nbsp;{lessonStat?.validatedBadgesCount}</StatElement>
         <StatElement><Icon icon={'shield-halved'} />&nbsp;{lessonStat?.revokedBadgesCount}</StatElement>
         <StatElement><Icon icon={'rotate'} />&nbsp;{lessonStat?.markedForRepeatCount}</StatElement>
-        <StatElement><Icon icon={'medal'} />&nbsp;{lessonStat?.issuedBadgeCount}</StatElement>
+        <StatElement><Icon icon={'award'} />&nbsp;{lessonStat?.issuedBadgeCount}</StatElement>
       </TotalStat>
       <TotalStat>
         <StatElement>{t('Total profit')}:&nbsp;{lessonStat?.totalProfit}&nbsp;Slon</StatElement>
