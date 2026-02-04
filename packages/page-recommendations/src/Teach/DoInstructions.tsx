@@ -195,7 +195,7 @@ function DoInstructions({ className = '', entity, lessonStat, anythingToLearn = 
 
     const action: TutorAction = (valid ? `mark_mastered_${matureInfo}` : `mark_for_repeat_${matureInfo}`) as TutorAction;
 
-    if (action === 'mark_for_repeat_mature' && !template.toRepeat) {
+    if (!isFastDecision && action === 'mark_for_repeat_mature' && !template.toRepeat) {
       logBan('mark_for_repeat_mature');
       return;
     }
