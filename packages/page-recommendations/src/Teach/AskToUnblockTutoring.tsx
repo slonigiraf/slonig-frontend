@@ -27,7 +27,7 @@ function AskToUnblockTutoring({ onClose, student }: Props): React.ReactElement<P
       <StyledDiv>
         {isQrShown ?
           <CenterQRContainer>
-            <h1>{t('🚫 Your tutoring is paused because it was not good')}</h1>
+            <h1>{t('🚫 Your lesson is paused because it requires teacher supervision')}</h1>
             <SenderComponent
               caption={t('Ask a teacher to scan:')}
               data={JSON.stringify(data)}

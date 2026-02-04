@@ -20,7 +20,7 @@ function EnableTutoring({ onClose, tutor }: Props): React.ReactElement<Props> {
     <FullscreenActivity caption='' onClose={onClose} >
       <StyledDiv>
         <CenterQRContainer>
-            <h1>{t('{{tutorName}} provided a poor tutoring session; please listen to how {{tutorName}} teaches', {replace: {tutorName: tutor.name}})}</h1>
+            <h1>{t('{{tutorName}} provided a poor tutoring session. Please observe how {{tutorName}} teaches the student', {replace: {tutorName: tutor.name}})}</h1>
             <SenderComponent
               caption={t('To start, ask {{tutorName}} to scan:', {replace: {tutorName: tutor.name}})}
               data={JSON.stringify(data)}

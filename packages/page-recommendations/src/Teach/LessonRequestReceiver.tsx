@@ -4,12 +4,13 @@
 import { deleteAllBanScheduledEvents, deleteSetting, getLesson, getSetting, hasSetting, Lesson, setSettingToTrue, SettingKey, storeLesson, storePseudonym, storeSetting } from '@slonigiraf/db';
 import React, { useCallback } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
-import { LessonRequest, UrlParams, useLog, useLoginContext, useInfo, EnableTutoringRequest } from '@slonigiraf/slonig-components';
+import { LessonRequest, UrlParams, useLog, useLoginContext, useInfo, EnableTutoringRequest, OKBox } from '@slonigiraf/slonig-components';
 import { u8aToHex } from '@polkadot/util';
 import useFetchWebRTC from '../useFetchWebRTC.js';
 import { useTranslation } from '../translate.js';
 import { EXAMPLE_MODULE_KNOWLEDGE_CID, EXAMPLE_MODULE_KNOWLEDGE_ID, EXAMPLE_SKILL_KNOWLEDGE_CID, EXAMPLE_SKILL_KNOWLEDGE_ID } from '@slonigiraf/utils';
 import { processNewPartner } from '../utils.js';
+import { useToggle } from '@polkadot/react-hooks';
 
 interface Props {
   setCurrentLesson: (lesson: Lesson) => void;
@@ -25,6 +26,7 @@ function LessonRequestReceiver({ setCurrentLesson }: Props): React.ReactElement<
   const navigate = useNavigate();
   const { showInfo } = useInfo();
   const { t } = useTranslation();
+  const [isContinueTutoringShown, toggleIsContinueTutoringShown] = useToggle();
 
 
   const changeRequestIntoTutorial = (lessonRequest: LessonRequest): LessonRequest => {
@@ -46,9 +48,13 @@ function LessonRequestReceiver({ setCurrentLesson }: Props): React.ReactElement<
   const unblockTutoring = useCallback(async () => {
     await deleteAllBanScheduledEvents();
     await deleteSetting(SettingKey.BAN_TUTORING);
-    showInfo(t('You can continue tutoring under teacher supervision.'));
-    navigate('', { replace: true });
+    toggleIsContinueTutoringShown();
   }, [deleteAllBanScheduledEvents]);
+
+  const onCloseContinueTutoring = useCallback(() => {
+    toggleIsContinueTutoringShown();
+    navigate('', { replace: true });
+  }, [navigate]);
 
   const handleData = useCallback(async (data: LessonRequest | EnableTutoringRequest) => {
     if ('lesson' in data) {
@@ -97,7 +103,7 @@ function LessonRequestReceiver({ setCurrentLesson }: Props): React.ReactElement<
         }
       }
     } else {
-      if(data.tutor === tutorPublicKeyHex){
+      if (data.tutor === tutorPublicKeyHex) {
         unblockTutoring();
       }
     }
@@ -105,6 +111,6 @@ function LessonRequestReceiver({ setCurrentLesson }: Props): React.ReactElement<
 
   useFetchWebRTC<LessonRequest>(webRTCPeerId, handleData);
 
-  return <></>;
+  return isContinueTutoringShown ? <OKBox info={t('You can continue tutoring under teacher supervision')} onClose={onCloseContinueTutoring} /> : <></>;
 }
 export default React.memo(LessonRequestReceiver);

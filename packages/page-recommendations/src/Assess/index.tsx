@@ -5,13 +5,14 @@ import React, { useCallback, useEffect, useState } from 'react';
 import InsurancesList from './InsurancesList.js';
 import { useTranslation } from '../translate.js';
 import { u8aToHex } from '@polkadot/util';
-import { QRWithShareAndCopy, nameFromKeyringPair, getBaseUrl, useLoginContext, CenterQRContainer, Person, StyledContentCloseButton, qrWidthPx, useLog, useBooleanSettingValue, UrlParams, BadTutorTransfer } from '@slonigiraf/slonig-components';
+import { QRWithShareAndCopy, nameFromKeyringPair, getBaseUrl, useLoginContext, CenterQRContainer, Person, StyledContentCloseButton, qrWidthPx, useLog, useBooleanSettingValue, UrlParams, BadTutorTransfer, OKBox } from '@slonigiraf/slonig-components';
 import { getPseudonym, SettingKey } from '@slonigiraf/db';
 import InsurancesReceiver from './InsurancesReceiver.js';
 import PersonSelector from '../PersonSelector.js';
 import { Button, Spinner, styled } from '@polkadot/react-components';
-import { useLocation } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 import EnableTutoring from './EnableTutoring.js';
+import { useToggle } from '@polkadot/react-hooks';
 
 interface Props {
   className?: string;
@@ -20,6 +21,7 @@ interface Props {
 function Assess({ className = '' }: Props): React.ReactElement<Props> {
   const { t } = useTranslation();
   const { logEvent } = useLog();
+  const navigate = useNavigate();
   const assessmentTutorialCompleted = useBooleanSettingValue(SettingKey.ASSESSMENT_TUTORIAL_COMPLETED);
   // Initialize account
   const { currentPair, isLoggedIn } = useLoginContext();
@@ -32,6 +34,7 @@ function Assess({ className = '' }: Props): React.ReactElement<Props> {
   const [isLoading, setIsLoading] = useState(false)
   const [isAssessmentAllowed, setIsAssessmentAllowed] = useState(false);
   const [badTutor, setBadTutor] = useState<null | BadTutorTransfer>(null);
+  const [isListenToTutorShown, toggleIsListenToTutorShown] = useToggle();
 
 
   const url: string = getBaseUrl() + `/#/badges?employer=${publicKeyHex}&name=${encodeURIComponent(name)}`;
@@ -77,43 +80,49 @@ function Assess({ className = '' }: Props): React.ReactElement<Props> {
 
   const onCloseEnableTutoring = useCallback(() => {
     setBadTutor(null);
+    toggleIsListenToTutorShown();
   }, [setBadTutor]);
 
-  console.log('badTutor', badTutor)
+  const onClosePutDeviceAsideInfo = useCallback(() => {
+    toggleIsListenToTutorShown();
+    navigate('/', { replace: true });
+  }, [setBadTutor]);
 
   return (
     <div className={`toolbox--Student ${className}`}>
       {
-        !isLoggedIn ? <></> : isLoading ? <Spinner />
-          : badTutor !== null ?
-            <EnableTutoring onClose={onCloseEnableTutoring} tutor={badTutor} />
-            : !isAssessmentAllowed ? guard : <>
-              {student ?
-                <div className='ui--row'>
-                  <StyledContentCloseButton onClick={() => setStudent(null)}
-                    icon='close'
-                  />
-                  <InsurancesList teacher={publicKeyHex} student={student.identity} studentNameFromUrl={student.name} />
-                </div>
-                :
-                <>
-                  <PersonSelector
-                    label={t('assessment history')}
-                    onChange={handleStudentSelect}
-                  />
-                  <CenterQRContainer>
-                    <h2 style={{ marginTop: '0px' }} className='prompt'>{t('To assess a student, ask them to scan:')}</h2>
-                    <QRWithShareAndCopy
-                      titleShare={t('QR code')}
-                      textShare={t('Press the link to show badges')}
-                      urlShare={url}
-                      dataCopy={url} />
-                  </CenterQRContainer>
-                </>
-              }
-            </>
+        !isLoggedIn ? <></>
+          : isLoading ? <Spinner />
+            : badTutor !== null ? <EnableTutoring onClose={onCloseEnableTutoring} tutor={badTutor} />
+              : isListenToTutorShown ? <OKBox info={'You can put your device aside'} onClose={onClosePutDeviceAsideInfo} />
+                : !isAssessmentAllowed ? guard
+                  : <>
+                    {student ?
+                      <div className='ui--row'>
+                        <StyledContentCloseButton onClick={() => setStudent(null)}
+                          icon='close'
+                        />
+                        <InsurancesList teacher={publicKeyHex} student={student.identity} studentNameFromUrl={student.name} />
+                      </div>
+                      :
+                      <>
+                        <PersonSelector
+                          label={t('assessment history')}
+                          onChange={handleStudentSelect}
+                        />
+                        <CenterQRContainer>
+                          <h2 style={{ marginTop: '0px' }} className='prompt'>{t('To assess a student, ask them to scan:')}</h2>
+                          <QRWithShareAndCopy
+                            titleShare={t('QR code')}
+                            textShare={t('Press the link to show badges')}
+                            urlShare={url}
+                            dataCopy={url} />
+                        </CenterQRContainer>
+                      </>
+                    }
+                  </>
       }
-      <InsurancesReceiver setWorker={setStudent} setBadTutor={setBadTutor} setIsLoading={setIsLoading}/>
+      <InsurancesReceiver setWorker={setStudent} setBadTutor={setBadTutor} setIsLoading={setIsLoading} />
     </div>
   );
 
