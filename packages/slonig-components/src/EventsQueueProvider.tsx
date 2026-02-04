@@ -50,7 +50,7 @@ export const EventsQueueProvider: React.FC<EventsQueueProviderProps> = ({ childr
         string,
         string,
         string?,
-        number?
+        string?
       ];
 
       // SSR/Node safety
@@ -78,8 +78,8 @@ export const EventsQueueProvider: React.FC<EventsQueueProviderProps> = ({ childr
         if (typeof name === 'string' && name.length > 0) {
           args.push(name);
 
-          if (Number.isFinite(value)) {
-            args.push(Math.round(value as number));
+          if (value !== undefined) {
+            args.push(Math.round(parseInt(value, 10)));
           }
         }
 
