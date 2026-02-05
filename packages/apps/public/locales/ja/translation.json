@@ -116,7 +116,7 @@
   "Get help and badges from classmates": "クラスメートから助けやバッジをもらおう",
   "Great, you remember the skill.": "素晴らしい、そのスキルを覚えていますね。",
   "Has {{studentName}} corrected the wrong solution on their own, without any hints and guiding questions?": "{{studentName}}は自分で間違った解答をヒントやガイドの質問なしに修正した？",
-  "Has {{studentName}} generated a similar exercise on their own, without any hints and guiding questions?": "{{studentName}}は自分でヒントやガイドの質問なしに類似の演習を生成した？",
+  "Has {{studentName}} created a similar exercise on their own, without any hints and guiding questions?": "{{studentName}}はヒントやガイディングの質問なしで、自分で似たようなエクササイズを作成したの？",
   "Has {{studentName}} now executed the exercise correctly?": "{{studentName}}は今、演習を正しく実行した？",
   "Has {{studentName}} repeated correctly?": "{{studentName}}は正しく繰り返した？",
   "Have questions?": "質問がありますか？",

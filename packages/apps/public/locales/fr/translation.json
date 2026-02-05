@@ -116,7 +116,7 @@
   "Get help and badges from classmates": "Reçois de l’aide et des badges de tes camarades",
   "Great, you remember the skill.": "Super, tu te souviens de la compétence.",
   "Has {{studentName}} corrected the wrong solution on their own, without any hints and guiding questions?": "Est-ce que {{studentName}} a corrigé la mauvaise solution tout seul, sans aucune aide ni question guide ?",
-  "Has {{studentName}} generated a similar exercise on their own, without any hints and guiding questions?": "Est-ce que {{studentName}} a généré un exercice similaire tout seul, sans aucune aide ni question guide ?",
+  "Has {{studentName}} created a similar exercise on their own, without any hints and guiding questions?": "Est-ce que {{studentName}} a créé un exercice similaire tout seul, sans aucun indice ni questions guidantes ?",
   "Has {{studentName}} now executed the exercise correctly?": "Est-ce que {{studentName}} a maintenant exécuté l'exercice correctement ?",
   "Has {{studentName}} repeated correctly?": "Est-ce que {{studentName}} a répété correctement ?",
   "Have questions?": "Des questions ?",

@@ -116,7 +116,7 @@
   "Get help and badges from classmates": "সহপাঠীদের কাছ থেকে সাহায্য ও ব্যাজ পাও",
   "Great, you remember the skill.": "দারুণ, তুমি দক্ষতাটি মনে রেখেছ।",
   "Has {{studentName}} corrected the wrong solution on their own, without any hints and guiding questions?": "{{studentName}} কি নিজেরা কোনো ঝামেলা ছাড়াই ভুল সমাধানটি সংশোধন করেছে?",
-  "Has {{studentName}} generated a similar exercise on their own, without any hints and guiding questions?": "{{studentName}} কি নিজেরাই কোনো ইঙ্গিত এবং পরিচালন প্রশ্ন ছাড়াই একটি অনুরূপ অনুশীলন তৈরি করেছে?",
+  "Has {{studentName}} created a similar exercise on their own, without any hints and guiding questions?": "{{studentName}} কি নিজের থেকে, কোন সাহায্য বা নির্দেশনার প্রশ্ন ছাড়াই, একটি অনুরূপ অনুশীলন তৈরি করেছে?",
   "Has {{studentName}} now executed the exercise correctly?": "{{studentName}} কি এখন অনুশীলনটি সঠিকভাবে সম্পন্ন করেছে?",
   "Has {{studentName}} repeated correctly?": "{{studentName}} কি সঠিকভাবে পুনরাবৃত্তি করেছে?",
   "Have questions?": "প্রশ্ন আছে?",

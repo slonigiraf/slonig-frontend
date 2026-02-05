@@ -105,7 +105,7 @@ class TutoringAlgorithm extends Algorithm {
                 { title: t('📖 Read what’s happening'), text: t('{{studentName}} asks you to teach the skill: {{skillName}}', { replace: { studentName: studentName, skillName: skill.h } }) },
                 { title: t('🗣 Say to {{studentName}}', {replace: {studentName: studentName}}), text: t('Create an exercise similar to this:') + ' ' + question1, image: exerciseImage1 },
             ],
-            t('Has {{studentName}} generated a similar exercise on their own, without any hints and guiding questions?', {replace: {studentName: studentName}}),
+            t('Has {{studentName}} created a similar exercise on their own, without any hints and guiding questions?', {replace: {studentName: studentName}}),
             <ExampleExercisesButton skill={skill} />
         );
 
@@ -139,7 +139,7 @@ class TutoringAlgorithm extends Algorithm {
                 { title: t('📖 Read what’s happening'), text: t('{{studentName}} has executed the exercise correctly.', {replace: {studentName: studentName}}) },
                 { title: t('🗣 Say to {{studentName}}', {replace: {studentName: studentName}}), text: t('Create an exercise similar to this:') + ' ' + question1, image: exerciseImage1 },
             ],
-            t('Has {{studentName}} generated a similar exercise on their own, without any hints and guiding questions?', {replace: {studentName: studentName}}),
+            t('Has {{studentName}} created a similar exercise on their own, without any hints and guiding questions?', {replace: {studentName: studentName}}),
             <ExampleExercisesButton skill={skill} />
         );
 
@@ -163,7 +163,7 @@ class TutoringAlgorithm extends Algorithm {
                 { title: t('📖 Read what’s happening'), text: t('{{studentName}} has repeated correctly after me.', {replace: {studentName: studentName}}) },
                 { title: t('🗣 Say to {{studentName}}', {replace: {studentName: studentName}}), text: t('Create an exercise similar to this:') + ' ' + question1, image: exerciseImage1 },
             ],
-            t('Has {{studentName}} generated a similar exercise on their own, without any hints and guiding questions?', {replace: {studentName: studentName}}),
+            t('Has {{studentName}} created a similar exercise on their own, without any hints and guiding questions?', {replace: {studentName: studentName}}),
             <ExampleExercisesButton skill={skill} />
         );
 

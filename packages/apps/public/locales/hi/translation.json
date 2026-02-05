@@ -116,7 +116,7 @@
   "Get help and badges from classmates": "सहपाठियों से मदद और बैज प्राप्त करें",
   "Great, you remember the skill.": "बहुत अच्छा, तुम्हें कौशल याद है।",
   "Has {{studentName}} corrected the wrong solution on their own, without any hints and guiding questions?": "क्या {{studentName}} ने बिना किसी संकेत और मार्गदर्शक प्रश्नों के अपने दम पर गलत समाधान को सही किया?",
-  "Has {{studentName}} generated a similar exercise on their own, without any hints and guiding questions?": "क्या {{studentName}} ने बिना किसी संकेत और मार्गदर्शक प्रश्नों के अपने दम पर एक समान व्यायाम तैयार किया?",
+  "Has {{studentName}} created a similar exercise on their own, without any hints and guiding questions?": "{{studentName}} ने खुद से, बिना किसी संकेत और मार्गदर्शक प्रश्नों के, एक समान अभ्यास बनाया है?",
   "Has {{studentName}} now executed the exercise correctly?": "क्या {{studentName}} ने अब व्यायाम को सही तरीके से किया?",
   "Has {{studentName}} repeated correctly?": "क्या {{studentName}} ने सही तरीके से दोहराया?",
   "Have questions?": "कोई प्रश्न हैं?",

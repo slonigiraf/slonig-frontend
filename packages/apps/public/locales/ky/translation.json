@@ -116,7 +116,7 @@
   "Get help and badges from classmates": "Классташтарыңдан жардам жана белгилерди ал",
   "Great, you remember the skill.": "Азаматсың, сен бул жөндөмдү эстепсиң.",
   "Has {{studentName}} corrected the wrong solution on their own, without any hints and guiding questions?": "{{studentName}} өз алдынча туура эмес чечимди оңдодубу, эч кандай кеңештерсиз жана жетекчилик суроолорсуз?",
-  "Has {{studentName}} generated a similar exercise on their own, without any hints and guiding questions?": "{{studentName}} өз алдынча ошондой эле көнүгүүнү түздүбү, эч кандай кеңештерсиз жана жетекчилик суроолорсуз?",
+  "Has {{studentName}} created a similar exercise on their own, without any hints and guiding questions?": "{{studentName}} өзү жатдыруучу, көрсөткүч жана суроолорсуз окшош көнүгүү түздү беле?",
   "Has {{studentName}} now executed the exercise correctly?": "{{studentName}} азыр тапшырманы туура аткарды беле?",
   "Has {{studentName}} repeated correctly?": "{{studentName}} туура кайталаба турган беле?",
   "Have questions?": "Суроолоруңуз барбы?",

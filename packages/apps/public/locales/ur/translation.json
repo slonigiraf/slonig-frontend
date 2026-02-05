@@ -116,7 +116,7 @@
   "Get help and badges from classmates": "کلاس فیلوز سے مدد اور بیجز حاصل کریں",
   "Great, you remember the skill.": "بہت اچھا، تمہیں مہارت یاد ہے۔",
   "Has {{studentName}} corrected the wrong solution on their own, without any hints and guiding questions?": "{{studentName}} نے خود ہی بغیر کسی اشارے یا رہنمائی کے سوال کا غلط جواب درست کیا ہے؟",
-  "Has {{studentName}} generated a similar exercise on their own, without any hints and guiding questions?": "{{studentName}} نے خود ہی بغیر کسی اشارے یا رہنمائی کے ایک مشابہ مشق تیار کی ہے؟",
+  "Has {{studentName}} created a similar exercise on their own, without any hints and guiding questions?": "کیا {{studentName}} نے اپنی طرف سے بغیر کسی اشارے اور رہنمائی کے سوالات کے کسی مشابہ مشق تیار کی ہے؟",
   "Has {{studentName}} now executed the exercise correctly?": "کیا {{studentName}} نے اب مشق کو درست طریقے سے انجام دیا؟",
   "Has {{studentName}} repeated correctly?": "کیا {{studentName}} نے درست طور پر دہرایا؟",
   "Have questions?": "سوال ہیں؟",

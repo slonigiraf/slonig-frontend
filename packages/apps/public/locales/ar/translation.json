@@ -116,7 +116,7 @@
   "Get help and badges from classmates": "احصل على المساعدة والشارات من زملائك في الصف",
   "Great, you remember the skill.": "رائع، ما زلت تتذكر المهارة.",
   "Has {{studentName}} corrected the wrong solution on their own, without any hints and guiding questions?": "هل صحح {{studentName}} الحل الخاطئ بمفرده، دون أي تلميحات أو أسئلة إرشادية؟",
-  "Has {{studentName}} generated a similar exercise on their own, without any hints and guiding questions?": "هل أنشأ {{studentName}} تمرينًا مشابهًا بمفرده، دون أي تلميحات أو أسئلة إرشادية؟",
+  "Has {{studentName}} created a similar exercise on their own, without any hints and guiding questions?": "هل أنشأ {{studentName}} تمرين مشابه بمفرده، دون أي تلميحات أو أسئلة إرشادية؟",
   "Has {{studentName}} now executed the exercise correctly?": "هل نفذ {{studentName}} الآن التمرين بشكل صحيح؟",
   "Has {{studentName}} repeated correctly?": "هل كرر {{studentName}} بشكل صحيح؟",
   "Have questions?": "هل لديك أسئلة؟",

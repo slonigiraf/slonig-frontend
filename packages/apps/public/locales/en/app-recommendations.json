@@ -189,5 +189,6 @@
   "You can continue tutoring under teacher supervision": "You can continue tutoring under teacher supervision",
   "Student forgot it": "Student forgot it",
   "Has {{studentName}} corrected the wrong solution on their own, without any hints and guiding questions?": "Has {{studentName}} corrected the wrong solution on their own, without any hints and guiding questions?",
-  "Has {{studentName}} generated a similar exercise on their own, without any hints and guiding questions?": "Has {{studentName}} generated a similar exercise on their own, without any hints and guiding questions?"
+  "Has {{studentName}} generated a similar exercise on their own, without any hints and guiding questions?": "Has {{studentName}} generated a similar exercise on their own, without any hints and guiding questions?",
+  "Has {{studentName}} created a similar exercise on their own, without any hints and guiding questions?": "Has {{studentName}} created a similar exercise on their own, without any hints and guiding questions?"
 }
