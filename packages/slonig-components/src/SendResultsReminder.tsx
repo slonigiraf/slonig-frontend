@@ -34,7 +34,7 @@ function SendResultsReminder({ lesson, onResult }: Props): React.ReactElement<Pr
   }, [lesson]);
 
   useEffect(() => {
-    logEvent('ALARM', 'LOAD_LESSON_RESULTS_ALARM', lessonName);
+    logEvent('ALARM', 'SEND_LESSON_RESULTS_ALARM', lessonName);
   }, [lessonName]);
 
 

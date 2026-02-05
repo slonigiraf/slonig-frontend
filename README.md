@@ -64,6 +64,7 @@ Here is a list of user actions tracked by Slonig:
 | ✅ | LEARNING | SAVE_REEXAMINATIONS | saved_reexaminations_count | count |
 | ✅ | SYNC | SUBMIT_PENALTY_EXTRINSIC | submitted_penalty_slon | N/A |
 | ✅ | ALARM | LOAD_LESSON_RESULTS_ALARM | Knowledge name | N/A |
+| ✅ | ALARM | SEND_LESSON_RESULTS_ALARM | Knowledge name | N/A |
 | ✅ | EXAMPLES | SHOW_ANSWERS | show_asnwers_at_item_preview | N/A |
 | ✅ | EXAMPLES | SHOW_ANSWERS | show_asnwers_at_skill_template_info | N/A |
 | ✅ | EXAMPLES | SHOW_ANSWERS | show_asnwers_at_view_list | N/A |
