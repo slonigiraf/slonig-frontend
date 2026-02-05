@@ -22,7 +22,6 @@ function Assess({ className = '' }: Props): React.ReactElement<Props> {
   const { t } = useTranslation();
   const { logEvent } = useLog();
   const navigate = useNavigate();
-  const assessmentTutorialCompleted = useBooleanSettingValue(SettingKey.ASSESSMENT_TUTORIAL_COMPLETED);
   // Initialize account
   const { currentPair, isLoggedIn } = useLoginContext();
   const [student, setStudent] = useState<Person | null>(null);
@@ -45,12 +44,6 @@ function Assess({ className = '' }: Props): React.ReactElement<Props> {
     }
   }, [webRTCPeerId]);
 
-  useEffect(() => {
-    if (assessmentTutorialCompleted === true) {
-      setIsAssessmentAllowed(true);
-    }
-  }, [assessmentTutorialCompleted]);
-
   const handleStudentSelect = async (selectedKey: string) => {
     if (selectedKey) {
       const pseudonym = await getPseudonym(selectedKey);
@@ -61,14 +54,14 @@ function Assess({ className = '' }: Props): React.ReactElement<Props> {
   };
 
   useEffect(() => {
-    if (isLoggedIn && isAssessmentAllowed) {
+    if (isAssessmentAllowed) {
       if (student) {
         logEvent('ASSESSMENT', 'VIEW_STUDENT_INSURANCE_LIST');
       } else {
         logEvent('ASSESSMENT', 'SHOW_ASSESSMENT_QR');
       }
     }
-  }, [isLoggedIn, isAssessmentAllowed, student]);
+  }, [isAssessmentAllowed, student]);
 
   const guard = <StyledDiv>
     <h1>{t('Are you a parent or a teacher?')}</h1>

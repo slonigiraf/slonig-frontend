@@ -1,7 +1,7 @@
-import React from 'react';
+import React, { useCallback, useEffect } from 'react';
 import { useTranslation } from '../translate.js';
 import { styled } from '@polkadot/react-components';
-import { BadTutorTransfer, CenterQRContainer, EnableTutoringRequest, FullscreenActivity, SenderComponent } from '@slonigiraf/slonig-components';
+import { BadTutorTransfer, CenterQRContainer, EnableTutoringRequest, FullscreenActivity, SenderComponent, useLog } from '@slonigiraf/slonig-components';
 
 
 interface Props {
@@ -11,24 +11,34 @@ interface Props {
 
 function EnableTutoring({ onClose, tutor }: Props): React.ReactElement<Props> {
   const { t } = useTranslation();
+  const { logEvent } = useLog();
 
   const data: EnableTutoringRequest = {
     tutor: tutor.identity,
   }
 
+  useEffect(() => {
+    logEvent('ASSESSMENT', 'GOT_BAD_TUTOR_REQUEST');
+  }, [tutor]);
+
+  const unban = useCallback(() => {
+    logEvent('ASSESSMENT', 'UNBAN_BAD_TUTOR_KEY_SENT');
+    onClose();
+  }, []);
+
   return (
     <FullscreenActivity caption='' onClose={onClose} >
       <StyledDiv>
         <CenterQRContainer>
-            <h1>{t('{{tutorName}} provided a poor tutoring session. Please observe how {{tutorName}} teaches the student', {replace: {tutorName: tutor.name}})}</h1>
-            <SenderComponent
-              caption={t('To start, ask {{tutorName}} to scan:', {replace: {tutorName: tutor.name}})}
-              data={JSON.stringify(data)}
-              route={'badges/teach'}
-              textShare={t('Press the link to unlock tutoring')}
-              onDataSent={onClose}
-            />
-          </CenterQRContainer>
+          <h1>{t('{{tutorName}} provided a poor tutoring session. Please observe how {{tutorName}} teaches the student', { replace: { tutorName: tutor.name } })}</h1>
+          <SenderComponent
+            caption={t('To start, ask {{tutorName}} to scan:', { replace: { tutorName: tutor.name } })}
+            data={JSON.stringify(data)}
+            route={'badges/teach'}
+            textShare={t('Press the link to unlock tutoring')}
+            onDataSent={unban}
+          />
+        </CenterQRContainer>
       </StyledDiv>
     </FullscreenActivity>
   );
