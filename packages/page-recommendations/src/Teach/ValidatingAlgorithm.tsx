@@ -70,7 +70,7 @@ class ValidatingAlgorithm extends Algorithm {
                 { title: t('📖 Read what’s happening'), text: t('{{studentName}} has created an exercise.', { replace: { studentName: studentName } }) },
                 { title: t('🗣 Give {{studentName}} a wrong answer and say', { replace: { studentName: studentName } }), text: t('Correct me.') },
             ],
-            t('Has {{studentName}} corrected the wrong solution?', { replace: { studentName: studentName } }),
+            t('Has {{studentName}} corrected the wrong solution on their own, without any hints and guiding questions?', { replace: { studentName: studentName } }),
             <ExampleExercisesButton skill={skill} />
         );
 
@@ -97,7 +97,7 @@ class ValidatingAlgorithm extends Algorithm {
                 },
                 { title: t('🗣 Say to {{studentName}}', { replace: { studentName: studentName } }), text: t('Create an exercise similar to this:') + ' ' + question1, image: exerciseImage1 },
             ],
-            t('Has {{studentName}} now created a similar exercise?', { replace: { studentName: studentName } }),
+            t('Has {{studentName}} generated a similar exercise on their own, without any hints and guiding questions?', { replace: { studentName: studentName } }),
             <ExampleExercisesButton skill={skill} />
         );
 
@@ -109,7 +109,7 @@ class ValidatingAlgorithm extends Algorithm {
                 { title: t('📖 Read what’s happening'), text: t('{{studentName}} has repeated correctly after me.', { replace: { studentName: studentName } }) },
                 { title: t('🗣 Say to {{studentName}}', { replace: { studentName: studentName } }), text: t('Create an exercise similar to this:') + ' ' + question1, image: exerciseImage1 }
             ],
-            t('Has {{studentName}} now created a similar exercise?', { replace: { studentName: studentName } }),
+            t('Has {{studentName}} generated a similar exercise on their own, without any hints and guiding questions?', { replace: { studentName: studentName } }),
             <ExampleExercisesButton skill={skill} />
         );
 
