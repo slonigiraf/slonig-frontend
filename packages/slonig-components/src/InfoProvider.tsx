@@ -4,12 +4,12 @@ import type { IconName } from '@fortawesome/fontawesome-svg-core';
 import OKBox from './OKBox.js';
 import PenaltyPopup from './PenaltyPopup.js';
 import LoadResultsReminder from './LoadResultsReminder.js';
-import { deleteLearnRequest, getLastNonFinishedLessonRequest, getLastNonSentLesson, LearnRequest, Lesson, putLesson, storeLesson } from '@slonigiraf/db';
+import { deleteLearnRequest, getLastNonFinishedLessonRequest, getLastNonSentLesson, LearnRequest, Lesson, SettingKey } from '@slonigiraf/db';
 import { TOO_LONG_LESSON_MS } from '@slonigiraf/utils';
 import { useLiveQuery } from 'dexie-react-hooks';
 import SendResultsReminder from './SendResultsReminder.js';
 import LessonResultInfo from './LessonResultInfo.js';
-import { LessonResult } from './index.jsx';
+import { LessonResult, useBooleanSettingValue } from './index.js';
 import { useTranslation } from './translate.js';
 interface InfoContextType {
     isInfoVisible: boolean;
@@ -38,6 +38,7 @@ interface InfoProviderProps {
 export const InfoProvider: React.FC<InfoProviderProps> = ({ children }) => {
     const defaultIcon: IconName = 'circle-info';
     const { t } = useTranslation();
+    const blockTutoring = useBooleanSettingValue(SettingKey.BAN_TUTORING);
     const [areLoadedResultsShown, setAreLoadedResultsShown] = useState(false);
     const [isInfoVisible, setInfoVisible] = useState(false);
     const [isPenaltyInfoVisible, setIsPenaltyInfoVisible] = useState(false);
@@ -130,7 +131,7 @@ export const InfoProvider: React.FC<InfoProviderProps> = ({ children }) => {
                     onClose={onCloseLastNonFinishedLessonRequest} />
             }
             {
-                isSendLessonResultsReminderVisible && lastNonSentLesson &&
+                isSendLessonResultsReminderVisible && lastNonSentLesson && blockTutoring === undefined && 
                 <SendResultsReminder lesson={lastNonSentLesson} onResult={() => setIsSendLessonResultsReminderVisible(false)} />
             }
             {areLoadedResultsShown && <OKBox info={t('Results are loaded')} decorator={loadedResultInfo} onClose={onCloseLoadedResults} />}
