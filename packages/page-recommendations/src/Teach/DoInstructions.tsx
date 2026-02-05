@@ -181,7 +181,7 @@ function DoInstructions({ className = '', entity, lessonStat, anythingToLearn = 
     if (!isFastDecision) {
       if (didCorrectFakeSolution) {
         await storeSetting(SettingKey.COUNT_WITHOUT_CORRECT_FAKE_IN_RAW, '0');
-      } else {
+      } else if (!entity.mature) {
         const previousValue = countOfMissedCorrectFakeSolution || 0;
         const newValue = previousValue + 1;
         await storeSetting(SettingKey.COUNT_WITHOUT_CORRECT_FAKE_IN_RAW, newValue.toString());
