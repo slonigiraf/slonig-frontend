@@ -196,5 +196,11 @@
   "Make sure {{studentName}} doesn’t use notes and can’t see any written prompts when answering questions.": "Make sure {{studentName}} doesn’t use notes and can’t see any written prompts when answering questions.",
   "guided tutorial": "guided tutorial",
   "training": "training",
-  "Remind the student to pretend they don’t know the skill.": "Remind the student to pretend they don’t know the skill."
+  "Remind the student to pretend they don’t know the skill.": "Remind the student to pretend they don’t know the skill.",
+  "example solutions": "example solutions",
+  "example exercises": "example exercises",
+  "🗣 Give {{studentName}} a wrong answer and ask them to correct it": "🗣 Give {{studentName}} a wrong answer and ask them to correct it",
+  "{{studentName}} asks you to teach a skill.": "{{studentName}} asks you to teach a skill.",
+  "Has {{studentName}} created a similar exercise on their own, without any additional hints and guiding questions?": "Has {{studentName}} created a similar exercise on their own, without any additional hints and guiding questions?",
+  "Try to earn {{stake}} Slon by checking how another tutor taught {{studentName}}.": "Try to earn {{stake}} Slon by checking how another tutor taught {{studentName}}."
 }

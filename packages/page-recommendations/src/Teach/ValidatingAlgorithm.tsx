@@ -97,7 +97,7 @@ class ValidatingAlgorithm extends Algorithm {
                 },
                 { title: t('🗣 Say to {{studentName}}', { replace: { studentName: studentName } }), text: t('Create an exercise similar to this:') + ' ' + question1, image: exerciseImage1 },
             ],
-            t('Has {{studentName}} created a similar exercise on their own, without any additional hints or guiding questions?', { replace: { studentName: studentName } }),
+            t('Has {{studentName}} created a similar exercise on their own, without any additional hints and guiding questions?', { replace: { studentName: studentName } }),
             <ExampleExercisesButton skill={skill} location='example_exercises' />
         );
 
@@ -109,7 +109,7 @@ class ValidatingAlgorithm extends Algorithm {
                 { title: t('📖 Read what’s happening'), text: t('{{studentName}} has repeated correctly after me.', { replace: { studentName: studentName } }) },
                 { title: t('🗣 Say to {{studentName}}', { replace: { studentName: studentName } }), text: t('Create an exercise similar to this:') + ' ' + question1, image: exerciseImage1 }
             ],
-            t('Has {{studentName}} created a similar exercise on their own, without any additional hints or guiding questions?', { replace: { studentName: studentName } }),
+            t('Has {{studentName}} created a similar exercise on their own, without any additional hints and guiding questions?', { replace: { studentName: studentName } }),
             <ExampleExercisesButton skill={skill} location='example_exercises' />
         );
 
