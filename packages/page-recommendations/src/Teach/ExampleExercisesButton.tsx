@@ -2,19 +2,20 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { Modal, Button, styled } from '@polkadot/react-components';
-import React, { useCallback, useEffect, useState } from 'react'
+import React, { useCallback } from 'react'
 import { useTranslation } from '../translate.js';
 import { useToggle } from '@polkadot/react-hooks';
-import { HintBubble, KatexSpan, Skill, useBooleanSettingValue, useLog } from '@slonigiraf/slonig-components';
-import { ExerciseList } from '@slonigiraf/app-laws';
-import { setSettingToTrue, SettingKey, storeSetting } from '@slonigiraf/db';
+import { HintBubble, Skill, useBooleanSettingValue, useLog } from '@slonigiraf/slonig-components';
+import { ExerciseList, ExerciseListLocation } from '@slonigiraf/app-laws';
+import { setSettingToTrue, SettingKey } from '@slonigiraf/db';
 
 interface Props {
   className?: string;
   skill: Skill;
+  location: ExerciseListLocation;
 }
 
-function ExampleExercisesButton({ className = '', skill }: Props): React.ReactElement<Props> {
+function ExampleExercisesButton({ className = '', skill, location}: Props): React.ReactElement<Props> {
   const { t } = useTranslation();
   const { logEvent } = useLog();
   const [areDetailsOpen, toggleDetailsOpen] = useToggle(false);
@@ -42,21 +43,19 @@ function ExampleExercisesButton({ className = '', skill }: Props): React.ReactEl
           )}
 
           <Button
-            label={t('examples')}
+            label={location === 'example_exercises_and_solutions' ? t('example solutions') : t('example exercises')}
             onClick={clickExamples}
           />
         </ButtonWrap>
 
         {areDetailsOpen && (
           <Modal
-            header={<KatexSpan content={skill.h} />}
+            header={t('Hide it from your student!')}
             onClose={toggleDetailsOpen}
             size="small"
           >
             <Modal.Content>
-              <h3>{t('Example exercises to train the skill')}</h3>
-              <Important>{t('Hide it from your student!')}</Important>
-              <ExerciseList exercises={skill.q} location='example_exercises_button'/>
+              <ExerciseList exercises={skill.q} location={location} />
             </Modal.Content>
           </Modal>
         )}

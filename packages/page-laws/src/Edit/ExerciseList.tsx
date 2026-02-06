@@ -3,11 +3,12 @@ import { Button, styled } from '@polkadot/react-components';
 import { useTranslation } from '../translate.js';
 import { Exercise, ResizableImage, KatexSpan, useLog } from '@slonigiraf/slonig-components';
 
+export type ExerciseListLocation = 'item_preview' | 'skill_template_info' | 'view_list' | 'example_exercises' | 'example_exercises_and_solutions';
 interface ExerciseListProps {
     exercises: Exercise[];
     areShownInitially?: boolean;
     isPreview?: boolean;
-    location?: string;
+    location?: ExerciseListLocation;
 }
 
 const ExerciseList: React.FC<ExerciseListProps> = ({ exercises, areShownInitially = false, isPreview = false, location = 'default' }) => {
@@ -44,7 +45,8 @@ const ExerciseList: React.FC<ExerciseListProps> = ({ exercises, areShownInitiall
                 {exercises.map((exercise, index) => (
                     <div className='ui--row' key={index}
                         style={{
-                            alignItems: 'center'
+                            alignItems: 'center',
+                            marginBottom: '10px',
                         }}
                     >
                         <div className="exercise-display">
@@ -53,7 +55,7 @@ const ExerciseList: React.FC<ExerciseListProps> = ({ exercises, areShownInitiall
                                 {exercise.p && <ExerciseDetails><ResizableImage cid={exercise.p} /></ExerciseDetails>}
                             </div>
 
-                            <Answer>
+                            {location !== 'example_exercises' && <Answer>
                                 <span>
                                     <Button
                                         icon={areAnswersShown ? 'eye-slash' : 'eye'}
@@ -67,7 +69,7 @@ const ExerciseList: React.FC<ExerciseListProps> = ({ exercises, areShownInitiall
                                         {exercise.i && <ResizableImage cid={exercise.i} />}
                                     </>
                                 )}
-                            </Answer>
+                            </Answer>}
                         </div>
                     </div>
                 ))}

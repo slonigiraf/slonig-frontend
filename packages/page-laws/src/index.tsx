@@ -13,7 +13,8 @@ import Create from './Create/index.js';
 import Edit from './Edit/index.js';
 import ItemLabel from './Edit/ItemLabel.js';
 import ExerciseList from './Edit/ExerciseList.js';
-export { useCounter, ItemLabel, ExerciseList };
+import type { ExerciseListLocation } from './Edit/ExerciseList.js';
+export { useCounter, ItemLabel, ExerciseList, type ExerciseListLocation };
 
 function LawsApp({ basePath, onStatusChange }: Props): React.ReactElement<Props> {
   const { t } = useTranslation();

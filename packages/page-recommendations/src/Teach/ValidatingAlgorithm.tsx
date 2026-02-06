@@ -71,7 +71,7 @@ class ValidatingAlgorithm extends Algorithm {
                 { title: t('🗣 Give {{studentName}} a wrong answer and say', { replace: { studentName: studentName } }), text: t('Correct me.') },
             ],
             t('Has {{studentName}} corrected the wrong solution on their own, without any hints and guiding questions?', { replace: { studentName: studentName } }),
-            <ExampleExercisesButton skill={skill} />
+            <ExampleExercisesButton skill={skill} location='example_exercises_and_solutions' />
         );
 
         const askToRepeatTheExerciseAfterMe = new AlgorithmStage(
@@ -98,7 +98,7 @@ class ValidatingAlgorithm extends Algorithm {
                 { title: t('🗣 Say to {{studentName}}', { replace: { studentName: studentName } }), text: t('Create an exercise similar to this:') + ' ' + question1, image: exerciseImage1 },
             ],
             t('Has {{studentName}} created a similar exercise on their own, without any hints and guiding questions?', { replace: { studentName: studentName } }),
-            <ExampleExercisesButton skill={skill} />
+            <ExampleExercisesButton skill={skill} location='example_exercises' />
         );
 
         const repeatFromTheBeginning = new AlgorithmStage(
@@ -110,7 +110,7 @@ class ValidatingAlgorithm extends Algorithm {
                 { title: t('🗣 Say to {{studentName}}', { replace: { studentName: studentName } }), text: t('Create an exercise similar to this:') + ' ' + question1, image: exerciseImage1 }
             ],
             t('Has {{studentName}} created a similar exercise on their own, without any hints and guiding questions?', { replace: { studentName: studentName } }),
-            <ExampleExercisesButton skill={skill} />
+            <ExampleExercisesButton skill={skill} location='example_exercises' />
         );
 
         const closeNotes = new AlgorithmStage(

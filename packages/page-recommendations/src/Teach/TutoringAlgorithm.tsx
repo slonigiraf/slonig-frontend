@@ -53,7 +53,7 @@ class TutoringAlgorithm extends Algorithm {
                 { title: t('🗣 Show {{studentName}} the correct execution, and say', {replace: {studentName: studentName}}), text: t('Repeat after me.') },
             ],
             t('Has {{studentName}} repeated correctly?', {replace: {studentName: studentName}}),
-            <ExampleExercisesButton skill={skill} />
+            <ExampleExercisesButton skill={skill} location='example_exercises_and_solutions'/>
         );
 
         const askStudentToRepeatTheSolutionOfExerciseOfTutor = new AlgorithmStage(
@@ -76,7 +76,7 @@ class TutoringAlgorithm extends Algorithm {
                 { title: t('🗣 Give {{studentName}} a wrong answer and say', {replace: {studentName: studentName}}), text: t('Correct me.') },
             ],
             t('Has {{studentName}} corrected the wrong solution on their own, without any hints and guiding questions?', {replace: {studentName: studentName}}),
-            <ExampleExercisesButton skill={skill} />
+            <ExampleExercisesButton skill={skill} location='example_exercises_and_solutions' />
         );
 
         const askToRepeatTaskAfterMe = new AlgorithmStage(
@@ -106,7 +106,7 @@ class TutoringAlgorithm extends Algorithm {
                 { title: t('🗣 Say to {{studentName}}', {replace: {studentName: studentName}}), text: t('Create an exercise similar to this:') + ' ' + question1, image: exerciseImage1 },
             ],
             t('Has {{studentName}} created a similar exercise on their own, without any hints and guiding questions?', {replace: {studentName: studentName}}),
-            <ExampleExercisesButton skill={skill} />
+            <ExampleExercisesButton skill={skill} location='example_exercises' />
         );
 
         //Use only if student never used Slonig
@@ -119,7 +119,6 @@ class TutoringAlgorithm extends Algorithm {
                 { title: t('👀 Check it'), text: t('Make sure {{studentName}} doesn’t use notes and can’t see any written prompts when answering questions.', {replace: {studentName: studentName}})},
             ],
             t('Let’s start with a simple skill. {{studentName}} will pretend not to know it.', {replace: {studentName: studentName}}),
-            <ExampleExercisesButton skill={skill} />
         );
 
         const closeNotes = new AlgorithmStage(
@@ -140,7 +139,7 @@ class TutoringAlgorithm extends Algorithm {
                 { title: t('🗣 Say to {{studentName}}', {replace: {studentName: studentName}}), text: t('Create an exercise similar to this:') + ' ' + question1, image: exerciseImage1 },
             ],
             t('Has {{studentName}} created a similar exercise on their own, without any hints and guiding questions?', {replace: {studentName: studentName}}),
-            <ExampleExercisesButton skill={skill} />
+            <ExampleExercisesButton skill={skill} location='example_exercises' />
         );
 
         const askStudentToSolveAnExercise = new AlgorithmStage(
@@ -152,7 +151,7 @@ class TutoringAlgorithm extends Algorithm {
                 { title: t('🗣 Say to {{studentName}}', {replace: {studentName: studentName}}), text: question1, image: exerciseImage1 },
             ],
             t('Has {{studentName}} now executed the exercise correctly?', {replace: {studentName: studentName}}),
-            <ExampleExercisesButton skill={skill} />
+            <ExampleExercisesButton skill={skill} location='example_exercises_and_solutions' />
         );
 
         const repeatFromTheBeginning = new AlgorithmStage(
@@ -164,7 +163,7 @@ class TutoringAlgorithm extends Algorithm {
                 { title: t('🗣 Say to {{studentName}}', {replace: {studentName: studentName}}), text: t('Create an exercise similar to this:') + ' ' + question1, image: exerciseImage1 },
             ],
             t('Has {{studentName}} created a similar exercise on their own, without any hints and guiding questions?', {replace: {studentName: studentName}}),
-            <ExampleExercisesButton skill={skill} />
+            <ExampleExercisesButton skill={skill} location='example_exercises' />
         );
 
         const toNextSkill = new AlgorithmStage(
