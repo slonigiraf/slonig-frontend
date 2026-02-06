@@ -116,7 +116,7 @@ class TutoringAlgorithm extends Algorithm {
             t('Yes'),
             [
                 { title: t('📖 Read what’s happening'), text: t('You are a tutor. The app will show you how to teach {{studentName}}.', {replace: {studentName: studentName}}) },
-                { title: t('👀 Make sure {{studentName}} doesn’t use notes and can’t see any written prompts when answering questions', {replace: {studentName: studentName}}), text: ''},
+                { title: t('👀 Check it'), text: t('Make sure {{studentName}} doesn’t use notes and can’t see any written prompts when answering questions.', {replace: {studentName: studentName}})},
             ],
             t('Let’s start with a simple skill. {{studentName}} will pretend not to know it.', {replace: {studentName: studentName}}),
             <ExampleExercisesButton skill={skill} />
@@ -127,7 +127,7 @@ class TutoringAlgorithm extends Algorithm {
             StageType.ask_to_close_notes,
             t('Yes'),
             [
-                { title: t('👀 Make sure {{studentName}} doesn’t use notes and can’t see any written prompts when answering questions', {replace: {studentName: studentName}}), text: ''},
+                { title: t('👀 Check it'), text: t('Make sure {{studentName}} doesn’t use notes and can’t see any written prompts when answering questions.', {replace: {studentName: studentName}})},
             ],
         );
 

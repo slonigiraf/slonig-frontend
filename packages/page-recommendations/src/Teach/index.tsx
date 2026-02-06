@@ -533,7 +533,7 @@ function Teach({ className = '' }: Props): React.ReactElement<Props> {
           <LinearProgress total={lesson.toLearnCount + lesson.toReexamineCount} value={lesson.learnStep + lesson.reexamineStep} />
           <CloseButton onClick={tryToCloseTutoring} icon='close' />
           <Spacer />
-          {isTutorial && <TutorialLabel><Flag label={t('tutorial')} color='green'></Flag></TutorialLabel>}
+          {isTutorial && <TutorialLabel><Flag label={t('guided tutorial')} color='green'></Flag></TutorialLabel>}
         </Progress>}
 
         {isSendingResultsEnabled !== undefined && <Bubbles>
