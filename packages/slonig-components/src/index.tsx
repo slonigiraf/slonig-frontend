@@ -240,7 +240,7 @@ export const Bubble = styled.div`
   outline: 2px solid var(--color-header);
   text-align: center;
   h2 {
-    font-size: 27px;
+    font-size: 20px;
   }
   span {
     font-size: 18px;
