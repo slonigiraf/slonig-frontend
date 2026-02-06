@@ -125,7 +125,7 @@ export const HintBubble = styled.div<{ tailLeft?: string }>`
   border: 2px solid rgba(0,0,0,0.15);
   padding: 10px 14px;
   border-radius: 16px;
-  box-shadow: 0 4px 8px #5EEAD4;
+  box-shadow: 0 2px 8px rgba(0, 128, 0, 0.5);
   max-width: 260px;
   text-align: center;
   line-height: 1.3;

@@ -1,7 +1,7 @@
 // Copyright 2021-2022 @slonigiraf/app-recommendations authors & contributors
 // SPDX-License-Identifier: Apache-2.0
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { Button, LinearProgress, styled } from '@polkadot/react-components';
+import { Button, Flag, LinearProgress, styled } from '@polkadot/react-components';
 import { u8aToHex } from '@polkadot/util';
 import { Confirmation, OKBox, FullFindow, VerticalCenterItemsContainer, useInfo, useLoginContext, HintBubble, useBooleanSettingValue, useLog, useNumberSettingValue, getIPFSDataFromContentID, parseJson, useIpfsContext, timeStampStringToNumber, bnToSlonFloatOrNaN, bnToSlonString, FullscreenActivity } from '@slonigiraf/slonig-components';
 import { LetterTemplate, Lesson, Reexamination, getPseudonym, getLesson, getLetterTemplatesByLessonId, getReexaminationsByLessonId, getSetting, storeSetting, putLesson, getLetter, SettingKey, deleteSetting, isThereAnyLessonResult, setSettingToTrue, getToRepeatLetterTemplatesByLessonId, getValidLetterTemplatesByLessonId } from '@slonigiraf/db';
@@ -533,6 +533,7 @@ function Teach({ className = '' }: Props): React.ReactElement<Props> {
           <LinearProgress total={lesson.toLearnCount + lesson.toReexamineCount} value={lesson.learnStep + lesson.reexamineStep} />
           <CloseButton onClick={tryToCloseTutoring} icon='close' />
           <Spacer />
+          {isTutorial && <TutorialLabel><Flag label={t('tutorial')} color='green'></Flag></TutorialLabel>}
         </Progress>}
 
         {isSendingResultsEnabled !== undefined && <Bubbles>
@@ -631,8 +632,7 @@ const SendResults = styled.div<{ $blur: boolean }>`
   align-items: center;
   width: 100%;
   margin-top: 10px;
-
-    transition: filter 0.3s ease, opacity 0.3s ease;
+  transition: filter 0.3s ease, opacity 0.3s ease;
   filter: ${({ $blur }) => ($blur ? 'blur(3px) brightness(0.7)' : 'none')};
   opacity: ${({ $blur }) => ($blur ? 0.5 : 1)};
   pointer-events: ${({ $blur }) => ($blur ? 'none' : 'auto')};
@@ -653,11 +653,20 @@ const Progress = styled.div`
   display: flex;
   flex-direction: row;
   align-items: center;
+  position: relative;
 `;
 const Bubbles = styled.div`
   text-align: center;
   width: 100%;
 `;
+
+const TutorialLabel = styled.span`
+  position: absolute;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 1;
+`;
+
 export const CloseButton = styled(Button)`
   position: relative;
   right: 0px;
