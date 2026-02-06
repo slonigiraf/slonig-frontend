@@ -39,6 +39,7 @@ Here is a list of user actions tracked by Slonig:
 | ✅ | ONBOARDING | PRESSING_EXAMPLES_TUTORIAL_COMPLETED | N/A | N/A |
 | ✅ | ONBOARDING | RECRUITED_OTHER_TUTOR | N/A | N/A |
 | ✅ | ONBOARDING | ATTEMPT_TO_WARMUP_WRONG_TUTOR | N/A | N/A |
+| ✅ | TUTOR_TRAINING | PRESERVE_FROM_NOOBS | preserve_{action_type}| N/A | N/A |
 | ✅ | CLASSROOM | NEW_PARTNER_FOUND | N/A | N/A |
 | ✅ | CLASSROOM | UNIQUE_PARTNERS_COUNT | unique_partners_count_# | N/A |
 | ✅ | CLASSROOM | POSTPONE_PARTNER_CHANGE | N/A | N/A |

@@ -293,11 +293,12 @@ function DoInstructions({ className = '', entity, lessonStat, anythingToLearn = 
 
 
   const preserveFromNoobs = useCallback(
-    async (run: () => Promise<void>, fallback: () => Promise<void>, info: string = t('After completing the training, you’ll be able to press it. Now try another button.')) => {
+    async (run: () => Promise<void>, fallback: () => Promise<void>, actionType: string, info: string = t('After completing the training, you’ll be able to press it. Now try another button.')) => {
       if (hasTutorCompletedTutorial) {
         await run();
       } else {
         showInfo(info);
+        logEvent('TUTOR_TRAINING', 'PRESERVE_FROM_NOOBS', 'preserve_' + actionType);
         await fallback();
       }
     },
@@ -369,8 +370,6 @@ function DoInstructions({ className = '', entity, lessonStat, anythingToLearn = 
 
       const { template } = await getMatureInfo();
 
-      console.log('nextStage.getType(): ', nextStage.getType())
-
       if (template && template.toRepeat && nextStage.getType() === StageType.decide_about_badge) {
         logStageTime();
         await processLetter(false);
@@ -384,14 +383,14 @@ function DoInstructions({ className = '', entity, lessonStat, anythingToLearn = 
           logStageTime(StageType.skip);
           refreshStageView();
           onResult(0, async () => { }, 'skip');
-        }, async () => setIsButtonClicked(false));
+        }, async () => setIsButtonClicked(false), 'skip');
       } else if (nextStage.getType() === StageType.ask_to_create_similar_exercise) { // don't allow student at training solve the first exercise
         preserveFromNoobs(async () => {
           logStageTime(StageType.ask_to_create_similar_exercise);
           setAlgorithmStage(nextStage);
           setIsButtonClicked(false);
           refreshStageView();
-        }, async () => setIsButtonClicked(false), reminderForTutorialStudent);
+        }, async () => setIsButtonClicked(false), 'solve_exercise', reminderForTutorialStudent);
       } else if (isLetterTemplate(entity) && (nextStage.getType() === StageType.next_skill)) { // don't allow tutor at training to escape correcting fake solution
         const action = async () => {
           logStageTime(StageType.decide_about_badge);
@@ -401,7 +400,7 @@ function DoInstructions({ className = '', entity, lessonStat, anythingToLearn = 
         if (didCorrectFakeSolution) {
           await action();
         } else {
-          await preserveFromNoobs(action, async () => setIsButtonClicked(false), reminderForTutorialStudent);
+          await preserveFromNoobs(action, async () => setIsButtonClicked(false), 'correct_fake', reminderForTutorialStudent);
         }
       } else if (nextStage.getType() === StageType.provide_fake_solution) { // don't allow student at training to create similar exercise from the first trial
         const action = async () => {
@@ -413,7 +412,7 @@ function DoInstructions({ className = '', entity, lessonStat, anythingToLearn = 
         if (didCorrectExercise) {
           await action();
         } else {
-          await preserveFromNoobs(action, async () => setIsButtonClicked(false), reminderForTutorialStudent);
+          await preserveFromNoobs(action, async () => setIsButtonClicked(false), 'create_similar_exercise', reminderForTutorialStudent);
         }
       } else if (isLetterTemplate(entity) && (nextStage.getType() === StageType.repeat_tomorrow)) {
         logStageTime();
@@ -544,14 +543,14 @@ function DoInstructions({ className = '', entity, lessonStat, anythingToLearn = 
                                 icon='thumbs-up'
                                 key='issueDiploma'
                                 label={t('Tutee mastered the skill')}
-                                onClick={() => preserveFromNoobs(issueDiploma, async () => { })}
+                                onClick={() => preserveFromNoobs(issueDiploma, async () => { }, 'fast_mark_mastered')}
                               />
                               <Menu.Divider />
                               <Menu.Item
                                 icon='circle-exclamation'
                                 key='repeatTomorrow'
                                 label={t('Should be repeated tomorrow')}
-                                onClick={() => preserveFromNoobs(repeatTomorrow, async () => { })}
+                                onClick={() => preserveFromNoobs(repeatTomorrow, async () => { }, 'fast_mark_repeat')}
                               />
                             </>
                           )}
