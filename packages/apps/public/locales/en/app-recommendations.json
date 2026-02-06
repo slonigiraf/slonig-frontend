@@ -195,5 +195,6 @@
   "👀 Check it": "👀 Check it",
   "Make sure {{studentName}} doesn’t use notes and can’t see any written prompts when answering questions.": "Make sure {{studentName}} doesn’t use notes and can’t see any written prompts when answering questions.",
   "guided tutorial": "guided tutorial",
-  "training": "training"
+  "training": "training",
+  "Remind the student to pretend they don’t know the skill.": "Remind the student to pretend they don’t know the skill."
 }
