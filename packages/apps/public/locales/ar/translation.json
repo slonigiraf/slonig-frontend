@@ -114,7 +114,7 @@
   "Get bonus": "احصل على مكافأة",
   "Get help and badges from classmates": "احصل على المساعدة والشارات من زملائك في الصف",
   "Great, you remember the skill.": "رائع، ما زلت تتذكر المهارة.",
-  "Has {{studentName}} corrected the wrong solution on their own, without any hints and guiding questions?": "هل صحح {{studentName}} الحل الخاطئ بمفرده، دون أي تلميحات أو أسئلة إرشادية؟",
+  "Has {{studentName}} corrected the wrong answer on their own, without any hints and guiding questions?": "هل قام {{studentName}} بتصحيح الإجابة الخاطئة بمفرده، دون أي تلميحات أو أسئلة توجيهية؟",
   "Has {{studentName}} created a similar exercise on their own, without any additional hints and guiding questions?": "هل قام {{studentName}} بإنشاء تمرين مشابه بمفرده، دون أي تلميحات إضافية أو أسئلة توجيهية؟",
   "Has {{studentName}} now executed the exercise correctly?": "هل نفذ {{studentName}} الآن التمرين بشكل صحيح؟",
   "Has {{studentName}} repeated correctly?": "هل كرر {{studentName}} بشكل صحيح؟",
@@ -651,7 +651,7 @@
   "👀 Check it": "👀 تحقق منه",
   "📖 Read what’s happening": "📖 اقرأ ما يحدث",
   "🕑 {{min}} minutes ago": "🕑 قبل {{min}} دقيقة",
-  "🗣 Give {{studentName}} a wrong answer and ask them to correct it": "🗣 أعطِ {{studentName}} إجابة خاطئة واطلب منها تصحيحها",
+  "🗣 Give {{studentName}} a wrong answer to the exercise they created and ask them to correct": "🗣 أعطِ {{studentName}} إجابة خاطئة للتمرين الذي أنشأه واطلب منه تصحيحها",
   "🗣 Say to {{studentName}}": "🗣 قل لـ{{studentName}}",
   "🗣 Show {{studentName}} the correct execution, and say": "🗣 أظهر لـ{{studentName}} التنفيذ الصحيح، وقل",
   "🚫 Your lesson is paused because it requires teacher supervision": "🚫 تم إيقاف درسك لأنه يتطلب إشراف المعلم"

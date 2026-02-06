@@ -114,7 +114,7 @@
   "Get bonus": "Ottieni bonus",
   "Get help and badges from classmates": "Ottieni aiuto e distintivi dai compagni di classe",
   "Great, you remember the skill.": "Ottimo, ricordi l’abilità.",
-  "Has {{studentName}} corrected the wrong solution on their own, without any hints and guiding questions?": "Ha {{studentName}} corretto la soluzione sbagliata da solo, senza suggerimenti e domande guida?",
+  "Has {{studentName}} corrected the wrong answer on their own, without any hints and guiding questions?": "Ha {{studentName}} corretto la risposta sbagliata da solo, senza suggerimenti e domande guida?",
   "Has {{studentName}} created a similar exercise on their own, without any additional hints and guiding questions?": "{{studentName}} ha creato un esercizio simile da solo, senza alcun suggerimento o domanda guida?",
   "Has {{studentName}} now executed the exercise correctly?": "Ha {{studentName}} ora eseguito l'esercizio correttamente?",
   "Has {{studentName}} repeated correctly?": "Ha {{studentName}} ripetuto correttamente?",
@@ -651,7 +651,7 @@
   "👀 Check it": "👀 Controllalo",
   "📖 Read what’s happening": "📖 Leggi cosa sta succedendo",
   "🕑 {{min}} minutes ago": "🕑 {{min}} minuti fa",
-  "🗣 Give {{studentName}} a wrong answer and ask them to correct it": "🗣 Dai a {{studentName}} una risposta sbagliata e chiedigli di correggerla",
+  "🗣 Give {{studentName}} a wrong answer to the exercise they created and ask them to correct": "🗣 Dai a {{studentName}} una risposta sbagliata all'esercizio che ha creato e chiedigli di correggerla",
   "🗣 Say to {{studentName}}": "🗣 Dì a {{studentName}}",
   "🗣 Show {{studentName}} the correct execution, and say": "🗣 Mostra a {{studentName}} l'esecuzione corretta e dì",
   "🚫 Your lesson is paused because it requires teacher supervision": "🚫 La tua lezione è in pausa perché richiede la supervisione dell'insegnante"

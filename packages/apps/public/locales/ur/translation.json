@@ -114,7 +114,7 @@
   "Get bonus": "بونس حاصل کریں",
   "Get help and badges from classmates": "کلاس فیلوز سے مدد اور بیجز حاصل کریں",
   "Great, you remember the skill.": "بہت اچھا، تمہیں مہارت یاد ہے۔",
-  "Has {{studentName}} corrected the wrong solution on their own, without any hints and guiding questions?": "{{studentName}} نے خود ہی بغیر کسی اشارے یا رہنمائی کے سوال کا غلط جواب درست کیا ہے؟",
+  "Has {{studentName}} corrected the wrong answer on their own, without any hints and guiding questions?": "کیا {{studentName}} نے بغیر کسی اشارے اور رہنمائی کے سوال کا غلط جواب خود درست کر لیا ہے؟",
   "Has {{studentName}} created a similar exercise on their own, without any additional hints and guiding questions?": "{{studentName}} نے بغیر کسی اضافی اشاروں اور راہنمائی کے سوالات کے اپنے طور پر ایک متبادل مشق بنائی ہے؟",
   "Has {{studentName}} now executed the exercise correctly?": "کیا {{studentName}} نے اب مشق کو درست طریقے سے انجام دیا؟",
   "Has {{studentName}} repeated correctly?": "کیا {{studentName}} نے درست طور پر دہرایا؟",
@@ -651,7 +651,7 @@
   "👀 Check it": "👀 اسے چیک کرو",
   "📖 Read what’s happening": "📖 پڑھیں کہ کیا ہو رہا ہے",
   "🕑 {{min}} minutes ago": "🕑 {{min}} منٹ پہلے",
-  "🗣 Give {{studentName}} a wrong answer and ask them to correct it": "🗣 {{studentName}} کو غلط جواب دو اور ان سے درست کرنے کے لیے کہو",
+  "🗣 Give {{studentName}} a wrong answer to the exercise they created and ask them to correct": "🗣 {{studentName}} کو ان کی بنائی ہوئی مشق کا غلط جواب دو اور ان سے درست کرنے کو کہو",
   "🗣 Say to {{studentName}}": "🗣 {{studentName}} سے کہو",
   "🗣 Show {{studentName}} the correct execution, and say": "🗣 {{studentName}} کو درست انجام دکھاؤ، اور کہو",
   "🚫 Your lesson is paused because it requires teacher supervision": "🚫 تمہارا درس معطل ہے کیونکہ اس کو استاد کی نگرانی کی ضرورت ہے"

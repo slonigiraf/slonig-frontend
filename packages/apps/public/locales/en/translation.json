@@ -114,7 +114,7 @@
   "Get bonus": "",
   "Get help and badges from classmates": "",
   "Great, you remember the skill.": "",
-  "Has {{studentName}} corrected the wrong solution on their own, without any hints and guiding questions?": "",
+  "Has {{studentName}} corrected the wrong answer on their own, without any hints and guiding questions?": "",
   "Has {{studentName}} created a similar exercise on their own, without any additional hints and guiding questions?": "",
   "Has {{studentName}} now executed the exercise correctly?": "",
   "Has {{studentName}} repeated correctly?": "",
@@ -651,7 +651,7 @@
   "👀 Check it": "",
   "📖 Read what’s happening": "",
   "🕑 {{min}} minutes ago": "",
-  "🗣 Give {{studentName}} a wrong answer and ask them to correct it": "",
+  "🗣 Give {{studentName}} a wrong answer to the exercise they created and ask them to correct": "",
   "🗣 Say to {{studentName}}": "",
   "🗣 Show {{studentName}} the correct execution, and say": "",
   "🚫 Your lesson is paused because it requires teacher supervision": ""

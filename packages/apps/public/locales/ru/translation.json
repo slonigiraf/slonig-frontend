@@ -114,7 +114,7 @@
   "Get bonus": "Получить бонус",
   "Get help and badges from classmates": "Получай помощь и значки от одноклассников",
   "Great, you remember the skill.": "Отлично, ты помнишь этот навык.",
-  "Has {{studentName}} corrected the wrong solution on their own, without any hints and guiding questions?": "Исправил(а) ли {{studentName}} неправильное решение самостоятельно, без подсказок и наводящих вопросов?",
+  "Has {{studentName}} corrected the wrong answer on their own, without any hints and guiding questions?": "Исправил(а) ли {{studentName}} неправильный ответ самостоятельно, без подсказок и наводящих вопросов?",
   "Has {{studentName}} created a similar exercise on their own, without any additional hints and guiding questions?": "Придумал(а) ли {{studentName}} похожее задание самостоятельно, без дополнительных подсказок и наводящих вопросов?",
   "Has {{studentName}} now executed the exercise correctly?": "Правильно ли {{studentName}} выполнил(а) упражнение?",
   "Has {{studentName}} repeated correctly?": "Повторил(а) ли {{studentName}} правильно?",
@@ -651,7 +651,7 @@
   "👀 Check it": "👀 Проверь это",
   "📖 Read what’s happening": "📖 Прочти, что происходит",
   "🕑 {{min}} minutes ago": "🕑 {{min}} минут назад",
-  "🗣 Give {{studentName}} a wrong answer and ask them to correct it": "🗣 Дай {{studentName}} неправильный ответ и попроси их исправить его.",
+  "🗣 Give {{studentName}} a wrong answer to the exercise they created and ask them to correct": "🗣 Дай {{studentName}} неправильный ответ на упражнение, которое он(а) создал(а), и попроси исправить",
   "🗣 Say to {{studentName}}": "🗣 Скажи {{studentName}}",
   "🗣 Show {{studentName}} the correct execution, and say": "🗣 Покажи {{studentName}} правильное решение и скажи",
   "🚫 Your lesson is paused because it requires teacher supervision": "🚫 Твой урок приостановлен, так как требуется контроль учителя"

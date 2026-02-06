@@ -114,7 +114,7 @@
   "Get bonus": "Бонус алуу",
   "Get help and badges from classmates": "Классташтарыңдан жардам жана белгилерди ал",
   "Great, you remember the skill.": "Азаматсың, сен бул жөндөмдү эстепсиң.",
-  "Has {{studentName}} corrected the wrong solution on their own, without any hints and guiding questions?": "{{studentName}} өз алдынча туура эмес чечимди оңдодубу, эч кандай кеңештерсиз жана жетекчилик суроолорсуз?",
+  "Has {{studentName}} corrected the wrong answer on their own, without any hints and guiding questions?": "{{studentName}} өз алдынча туура эмес жоопту тууралаганбы, эч кандай ишараттарсыз же жетекчилик суроолору жокпу?",
   "Has {{studentName}} created a similar exercise on their own, without any additional hints and guiding questions?": "{{studentName}} ушун ушундай көнөккө өз алдынча, кошумча кеңештерсиз жана жетекчилик суроолорсуз жасаганбы?",
   "Has {{studentName}} now executed the exercise correctly?": "{{studentName}} азыр тапшырманы туура аткарды беле?",
   "Has {{studentName}} repeated correctly?": "{{studentName}} туура кайталаба турган беле?",
@@ -651,7 +651,7 @@
   "👀 Check it": "👀 Текшер",
   "📖 Read what’s happening": "📖 Эмне болуп жатканын оку",
   "🕑 {{min}} minutes ago": "🕑 {{min}} минут мурун",
-  "🗣 Give {{studentName}} a wrong answer and ask them to correct it": "🗣 {{studentName}} ге жалган жооп бер, аларды оңдоону сура.",
+  "🗣 Give {{studentName}} a wrong answer to the exercise they created and ask them to correct": "🗣 {{studentName}} тузгон көнүгүүгө туура эмес жооп бер жана аны оңдоп берүүнү суран.",
   "🗣 Say to {{studentName}}": "🗣 {{studentName}}'га айт:",
   "🗣 Show {{studentName}} the correct execution, and say": "🗣 {{studentName}}'га туура аткарууну көрсөтүп, айт:",
   "🚫 Your lesson is paused because it requires teacher supervision": "🚫 Сенин сабагың токтото алынды, анткени муğаллимдин көзөмөлүн талап кылат."

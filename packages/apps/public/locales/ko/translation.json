@@ -114,7 +114,7 @@
   "Get bonus": "보너스 받기",
   "Get help and badges from classmates": "반 친구들에게서 도움과 배지를 받으세요",
   "Great, you remember the skill.": "좋아요, 그 기술을 기억하고 있네요.",
-  "Has {{studentName}} corrected the wrong solution on their own, without any hints and guiding questions?": "{{studentName}}가 스스로 힌트나 안내 질문 없이 잘못된 해결책을 수정했나요?",
+  "Has {{studentName}} corrected the wrong answer on their own, without any hints and guiding questions?": "{{studentName}}가 힌트나 안내 질문 없이 스스로 틀린 답안을 수정했니?",
   "Has {{studentName}} created a similar exercise on their own, without any additional hints and guiding questions?": "{{studentName}}가 추가 힌트나 안내 질문 없이 유사한 연습문제를 스스로 만들었니?",
   "Has {{studentName}} now executed the exercise correctly?": "{{studentName}}가 이제 문제를 올바르게 수행했어?",
   "Has {{studentName}} repeated correctly?": "{{studentName}}가 제대로 반복했어?",
@@ -651,7 +651,7 @@
   "👀 Check it": "👀 확인해봐",
   "📖 Read what’s happening": "📖 무슨 일이 일어나고 있는지 읽어보세요",
   "🕑 {{min}} minutes ago": "🕑 {{min}} 분 전",
-  "🗣 Give {{studentName}} a wrong answer and ask them to correct it": "🗣 {{studentName}}에게 잘못된 답변을 주고 고쳐보라고 해.",
+  "🗣 Give {{studentName}} a wrong answer to the exercise they created and ask them to correct": "🗣 {{studentName}}가 만든 연습문제에 틀린 답변을 주고 수정해 보라고 해.",
   "🗣 Say to {{studentName}}": "🗣 {{studentName}}에게 말해",
   "🗣 Show {{studentName}} the correct execution, and say": "🗣 {{studentName}}에게 올바른 수행을 보여주고 말해",
   "🚫 Your lesson is paused because it requires teacher supervision": "🚫 수업이 선생님의 감독이 필요해 중단되었어"
