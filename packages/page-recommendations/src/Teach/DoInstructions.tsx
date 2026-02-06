@@ -75,6 +75,7 @@ function DoInstructions({ className = '', entity, lessonStat, anythingToLearn = 
   const [lastStageEndTime, setLastStageEndTime] = useState<number>(Date.now());
   const [previousTeachingStagesDuration, setPreviousTeachingStagesDuration] = useState(0);
   const [didCorrectFakeSolution, setDidCorrectFakeSolution] = useState(false);
+  const [didCorrectExercise, setDidCorrectExercise] = useState(false);
 
   const isLetterTemplate = useCallback((entity: LetterTemplate | Reexamination) => {
     return 'knowledgeId' in entity;
@@ -292,14 +293,12 @@ function DoInstructions({ className = '', entity, lessonStat, anythingToLearn = 
 
 
   const preserveFromNoobs = useCallback(
-    (run: () => void, fallback?: () => void) => {
+    async (run: () => Promise<void>, fallback: () => Promise<void>, info: string = t('After completing the training, you’ll be able to press it. Now try another button.')) => {
       if (hasTutorCompletedTutorial) {
-        run();
+        await run();
       } else {
-        showInfo(
-          t('After completing the training, you’ll be able to press it. Now try another button.')
-        );
-        fallback?.();
+        showInfo(info);
+        await fallback();
       }
     },
     [hasTutorCompletedTutorial, showInfo, t]
@@ -338,6 +337,8 @@ function DoInstructions({ className = '', entity, lessonStat, anythingToLearn = 
     }
   }, [lastPressingNextButtonTime, logEvent, setTooFastConfirmationIsShown, setButtonsBlured]);
 
+  const reminderForTutorialStudent = t('Remind the student to pretend they don’t know the skill.');
+
   const handleStageChange = useCallback(async (nextStage: AlgorithmStage | null) => {
     if (nextStage !== null && algorithmStage) {
 
@@ -355,6 +356,9 @@ function DoInstructions({ className = '', entity, lessonStat, anythingToLearn = 
       if (hasStudenFailed(nextStage)) {
         await markLetterAsNotPerfect();
       }
+      if (nextStage.getType() === StageType.ask_to_repeat_similar_exercise) {
+        setDidCorrectExercise(true);
+      }
       if (nextStage.getType() === StageType.correct_fake_solution) {
         setDidCorrectFakeSolution(true);
       }
@@ -365,6 +369,8 @@ function DoInstructions({ className = '', entity, lessonStat, anythingToLearn = 
 
       const { template } = await getMatureInfo();
 
+      console.log('nextStage.getType(): ', nextStage.getType())
+
       if (template && template.toRepeat && nextStage.getType() === StageType.decide_about_badge) {
         logStageTime();
         await processLetter(false);
@@ -374,15 +380,41 @@ function DoInstructions({ className = '', entity, lessonStat, anythingToLearn = 
         studentFailedReexamination();
         refreshStageView();
       } else if (nextStage.getType() === StageType.skip) {
-        preserveFromNoobs(() => {
+        preserveFromNoobs(async () => {
           logStageTime(StageType.skip);
           refreshStageView();
           onResult(0, async () => { }, 'skip');
-        }, () => setIsButtonClicked(false));
-      } else if (isLetterTemplate(entity) && (nextStage.getType() === StageType.next_skill)) {
-        logStageTime();
-        await processLetter(true);
-        refreshStageView();
+        }, async () => setIsButtonClicked(false));
+      } else if (nextStage.getType() === StageType.ask_to_create_similar_exercise) { // don't allow student at training solve the first exercise
+        preserveFromNoobs(async () => {
+          logStageTime(StageType.ask_to_create_similar_exercise);
+          setAlgorithmStage(nextStage);
+          setIsButtonClicked(false);
+          refreshStageView();
+        }, async () => setIsButtonClicked(false), reminderForTutorialStudent);
+      } else if (isLetterTemplate(entity) && (nextStage.getType() === StageType.next_skill)) { // don't allow tutor at training to escape correcting fake solution
+        const action = async () => {
+          logStageTime(StageType.decide_about_badge);
+          await processLetter(false);
+          refreshStageView();
+        };
+        if (didCorrectFakeSolution) {
+          await action();
+        } else {
+          await preserveFromNoobs(action, async () => setIsButtonClicked(false), reminderForTutorialStudent);
+        }
+      } else if (nextStage.getType() === StageType.provide_fake_solution) { // don't allow student at training to create similar exercise from the first trial
+        const action = async () => {
+          logStageTime();
+          setAlgorithmStage(nextStage);
+          refreshStageView();
+          setIsButtonClicked(false);
+        };
+        if (didCorrectExercise) {
+          await action();
+        } else {
+          await preserveFromNoobs(action, async () => setIsButtonClicked(false), reminderForTutorialStudent);
+        }
       } else if (isLetterTemplate(entity) && (nextStage.getType() === StageType.repeat_tomorrow)) {
         logStageTime();
         await processLetter(false);
@@ -401,6 +433,8 @@ function DoInstructions({ className = '', entity, lessonStat, anythingToLearn = 
     setLastStageEndTime(Date.now());
   }, [algorithmStage,
     entity,
+    didCorrectFakeSolution,
+    didCorrectExercise,
     lastStageEndTime,
     previousTeachingStagesDuration,
     t,
@@ -510,14 +544,14 @@ function DoInstructions({ className = '', entity, lessonStat, anythingToLearn = 
                                 icon='thumbs-up'
                                 key='issueDiploma'
                                 label={t('Tutee mastered the skill')}
-                                onClick={() => preserveFromNoobs(issueDiploma)}
+                                onClick={() => preserveFromNoobs(issueDiploma, async () => { })}
                               />
                               <Menu.Divider />
                               <Menu.Item
                                 icon='circle-exclamation'
                                 key='repeatTomorrow'
                                 label={t('Should be repeated tomorrow')}
-                                onClick={() => preserveFromNoobs(repeatTomorrow)}
+                                onClick={() => preserveFromNoobs(repeatTomorrow, async () => { })}
                               />
                             </>
                           )}
