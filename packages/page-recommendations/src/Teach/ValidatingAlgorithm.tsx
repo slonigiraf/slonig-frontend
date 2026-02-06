@@ -1,6 +1,6 @@
 import { AlgorithmStage, StageType } from './AlgorithmStage.js';
 import { Algorithm } from './Algorithm.js';
-import type { Skill } from '@slonigiraf/slonig-components';
+import type { IMessage, Skill } from '@slonigiraf/slonig-components';
 import ExampleExercisesButton from './ExampleExercisesButton.js';
 import { quote } from '../utils.js';
 
@@ -24,6 +24,8 @@ class ValidatingAlgorithm extends Algorithm {
         let exerciseImage2: string | undefined = questions.length > 0 ? questions[1].p : undefined;
 
         // Initialize all stages
+        const createSimilarExerciseMessage: IMessage = { title: t('🗣 Say to {{studentName}}', { replace: { studentName: studentName } }), text: quote(t('Create an exercise similar to this:') + ' ' + question1), image: exerciseImage1 };
+        
         const validateDiploma = new AlgorithmStage(
             7,
             StageType.validate,
@@ -96,7 +98,7 @@ class ValidatingAlgorithm extends Algorithm {
                     title: t('📖 Read what’s happening'),
                     text: t('Try to earn {{stake}} Slon by checking how another tutor taught {{studentName}}.', { replace: { studentName: studentName, stake: stake } })
                 },
-                { title: t('🗣 Say to {{studentName}}', { replace: { studentName: studentName } }), text: quote(t('Create an exercise similar to this:') + ' ' + question1), image: exerciseImage1 },
+                createSimilarExerciseMessage,
             ],
             t('Has {{studentName}} created a similar exercise on their own, without any additional hints and guiding questions?', { replace: { studentName: studentName } }),
             <ExampleExercisesButton skill={skill} location='example_exercises' />
@@ -108,7 +110,7 @@ class ValidatingAlgorithm extends Algorithm {
             t('Yes'),
             [
                 { title: t('📖 Read what’s happening'), text: t('{{studentName}} has repeated correctly after me.', { replace: { studentName: studentName } }) },
-                { title: t('🗣 Say to {{studentName}}', { replace: { studentName: studentName } }), text: quote(t('Create an exercise similar to this:') + ' ' + question1), image: exerciseImage1 }
+                createSimilarExerciseMessage
             ],
             t('Has {{studentName}} created a similar exercise on their own, without any additional hints and guiding questions?', { replace: { studentName: studentName } }),
             <ExampleExercisesButton skill={skill} location='example_exercises' />
