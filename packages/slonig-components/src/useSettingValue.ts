@@ -55,7 +55,7 @@ export function useBooleanSettingValue(key: SettingId): boolean | null | undefin
   return value === 'true';
 }
 
-export function timeStampStringToNumber(value: null | undefined | string) {
+export function stringToNumber(value: null | undefined | string) {
   if (value === null) return null; // not yet loaded
   if (value === undefined) return undefined; // no stored value
 
@@ -80,5 +80,5 @@ export function timeStampStringToNumber(value: null | undefined | string) {
  */
 export function useNumberSettingValue(key: SettingId): number | null | undefined {
   const value = useSettingValue(key);
-  return timeStampStringToNumber(value);
+  return stringToNumber(value);
 }

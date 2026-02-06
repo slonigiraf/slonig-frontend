@@ -1,7 +1,7 @@
 import React, { createContext, useContext, ReactNode, useCallback } from 'react';
-import { bnToSlonFloatOrNaN, PartnersTodayResult, StoredEconomy } from './index.js';
+import { bnToSlonFloatOrNaN, PartnersTodayResult, StoredEconomy, stringToNumber } from './index.js';
 import BN from 'bn.js';
-import { putScheduledEvent, SettingKey, storeSetting } from '@slonigiraf/db';
+import { getSetting, putScheduledEvent, SettingKey, storeSetting } from '@slonigiraf/db';
 import { serializeEventData } from './utils.js';
 interface LogContextType {
   logEvent: (category: string, action: string, name?: string, value?: number) => void;
@@ -42,8 +42,14 @@ export const LogProvider: React.FC<LogProviderProps> = ({ children }) => {
   const logBan = useCallback(
     async (reason: string) => {
       const now = Date.now();
-      logEvent('TUTORING', 'BAN', 'ban_' + reason);
-      await storeSetting(SettingKey.LAST_BAN_START_TIME, now.toString())
+
+      const banCount = stringToNumber(await getSetting(SettingKey.BAN_COUNT)) || 0;
+      const currentBanCount = banCount + 1;
+      await storeSetting(SettingKey.BAN_COUNT, currentBanCount.toString());
+
+      logEvent('TUTORING', 'BAN', 'ban_' + reason, currentBanCount);
+
+      await storeSetting(SettingKey.LAST_BAN_START_TIME, now.toString());
       await putScheduledEvent({
         type: 'BAN',
         data: serializeEventData([]),

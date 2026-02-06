@@ -3,7 +3,7 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { Button, Flag, LinearProgress, styled } from '@polkadot/react-components';
 import { u8aToHex } from '@polkadot/util';
-import { Confirmation, OKBox, FullFindow, VerticalCenterItemsContainer, useInfo, useLoginContext, HintBubble, useBooleanSettingValue, useLog, useNumberSettingValue, getIPFSDataFromContentID, parseJson, useIpfsContext, timeStampStringToNumber, bnToSlonFloatOrNaN, bnToSlonString, FullscreenActivity } from '@slonigiraf/slonig-components';
+import { Confirmation, OKBox, FullFindow, VerticalCenterItemsContainer, useInfo, useLoginContext, HintBubble, useBooleanSettingValue, useLog, useNumberSettingValue, getIPFSDataFromContentID, parseJson, useIpfsContext, stringToNumber, bnToSlonFloatOrNaN, bnToSlonString, FullscreenActivity } from '@slonigiraf/slonig-components';
 import { LetterTemplate, Lesson, Reexamination, getPseudonym, getLesson, getLetterTemplatesByLessonId, getReexaminationsByLessonId, getSetting, storeSetting, putLesson, getLetter, SettingKey, deleteSetting, isThereAnyLessonResult, setSettingToTrue, getToRepeatLetterTemplatesByLessonId, getValidLetterTemplatesByLessonId } from '@slonigiraf/db';
 import DoInstructions from './DoInstructions.js';
 import LessonsList from './LessonsList.js';
@@ -169,7 +169,7 @@ function Teach({ className = '' }: Props): React.ReactElement<Props> {
           setIsPairChangeDialogueOpen(false);
 
           const lastLessonId = await getSetting(SettingKey.LAST_LESSON_ID);
-          const lastLessonStartTime = timeStampStringToNumber(await getSetting(SettingKey.LAST_LESSON_START_TIME));
+          const lastLessonStartTime = stringToNumber(await getSetting(SettingKey.LAST_LESSON_START_TIME));
           const timePassed = lastLessonStartTime ? (Date.now() - lastLessonStartTime) : Date.now();
           if (lastLessonId !== lesson.id || timePassed > ONE_SUBJECT_PERIOD_MS) {
             logEvent('TUTORING', 'LESSON_START', json.h);

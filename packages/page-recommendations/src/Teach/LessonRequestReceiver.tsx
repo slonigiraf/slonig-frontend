@@ -4,7 +4,7 @@
 import { deleteAllBanScheduledEvents, deleteSetting, getLesson, getSetting, hasSetting, Lesson, setSettingToTrue, SettingKey, storeLesson, storePseudonym, storeSetting } from '@slonigiraf/db';
 import React, { useCallback } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
-import { LessonRequest, UrlParams, useLog, useLoginContext, useInfo, EnableTutoringRequest, OKBox, timeStampStringToNumber } from '@slonigiraf/slonig-components';
+import { LessonRequest, UrlParams, useLog, useLoginContext, useInfo, EnableTutoringRequest, OKBox, stringToNumber } from '@slonigiraf/slonig-components';
 import { u8aToHex } from '@polkadot/util';
 import useFetchWebRTC from '../useFetchWebRTC.js';
 import { useTranslation } from '../translate.js';
@@ -46,7 +46,7 @@ function LessonRequestReceiver({ setCurrentLesson }: Props): React.ReactElement<
   }
 
   const unblockTutoring = useCallback(async () => {
-    const lastBanStartTime = timeStampStringToNumber(await getSetting(SettingKey.LAST_BAN_START_TIME));
+    const lastBanStartTime = stringToNumber(await getSetting(SettingKey.LAST_BAN_START_TIME));
     const timePassed = lastBanStartTime ? (Date.now() - lastBanStartTime) : 0;
     logEvent('TUTORING', 'BAN', 'unban_after_sec', Math.round(timePassed / 1000));
 

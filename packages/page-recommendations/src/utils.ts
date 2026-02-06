@@ -1,5 +1,5 @@
 import { getSetting, SettingKey, storeSetting } from "@slonigiraf/db";
-import { PartnersTodayResult, timeStampStringToNumber } from "@slonigiraf/slonig-components";
+import { PartnersTodayResult, stringToNumber } from "@slonigiraf/slonig-components";
 import { ONE_SUBJECT_PERIOD_MS } from "@slonigiraf/utils";
 import BN from 'bn.js';
 import { BN_ZERO } from "@polkadot/util";
@@ -21,7 +21,7 @@ export async function processNewPartner(identity: string): Promise<PartnersToday
   const now = Date.now();
 
   const lastTimePairChangeRaw = await getSetting(SettingKey.LAST_PARTNER_CHANGE_TIME);
-  const lastTimePairChange = timeStampStringToNumber(lastTimePairChangeRaw);
+  const lastTimePairChange = stringToNumber(lastTimePairChangeRaw);
 
   const isNewWindow =
     !lastTimePairChange || now - lastTimePairChange > ONE_SUBJECT_PERIOD_MS;

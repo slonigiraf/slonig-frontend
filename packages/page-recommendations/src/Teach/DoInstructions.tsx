@@ -7,7 +7,7 @@ import { Button, Menu, Popup, Spinner, styled } from '@polkadot/react-components
 import type { Skill } from '@slonigiraf/slonig-components';
 import { ValidatingAlgorithm, ValidatingAlgorithmType } from './ValidatingAlgorithm.js';
 import { useTranslation } from '../translate.js';
-import { ChatContainer, Bubble, useIpfsContext, useLog, OKBox, timeStampStringToNumber, useNumberSettingValue } from '@slonigiraf/slonig-components';
+import { ChatContainer, Bubble, useIpfsContext, useLog, OKBox, stringToNumber, useNumberSettingValue } from '@slonigiraf/slonig-components';
 import { getLetterTemplate, getSetting, Lesson, LetterTemplate, putLetterTemplate, Reexamination, SettingKey, storeSetting, TutorAction, updateReexamination } from '@slonigiraf/db';
 import { getIPFSDataFromContentID, parseJson, useInfo } from '@slonigiraf/slonig-components';
 import { TutoringAlgorithm, TutoringAlgorithmType } from './TutoringAlgorithm.js';
@@ -96,7 +96,7 @@ function DoInstructions({ className = '', entity, lessonStat, anythingToLearn = 
 
           const logStartEvent = async (action: string) => {
             const lastDiscussedId = await getSetting(SettingKey.LAST_SKILL_TUTORING_ID);
-            const lastDiscussedStartTime = timeStampStringToNumber(await getSetting(SettingKey.LAST_SKILL_TUTORING_START_TIME));
+            const lastDiscussedStartTime = stringToNumber(await getSetting(SettingKey.LAST_SKILL_TUTORING_START_TIME));
             const timePassed = lastDiscussedStartTime ? (Date.now() - lastDiscussedStartTime) : Date.now();
             if (lastDiscussedId !== skill.i || timePassed > ONE_SUBJECT_PERIOD_MS) {
               logEvent('TUTORING', action, skill.h);

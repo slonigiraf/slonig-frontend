@@ -46,7 +46,7 @@ export { default as DaysRangePicker } from './DaysRangePicker.js';
 export { default as OKBox } from './OKBox.js';
 export { default as RoundProgress } from './RoundProgress.js';
 export { default as NotClosableFullscreen } from './NotClosableFullscreen.js';
-export { useSettingValue, useBooleanSettingValue, useNumberSettingValue, timeStampStringToNumber } from './useSettingValue.js';
+export { useSettingValue, useBooleanSettingValue, useNumberSettingValue, stringToNumber } from './useSettingValue.js';
 export { default as ClassInstruction } from './ClassInstruction.js';
 export { default as LessonResultInfo } from './LessonResultInfo.js'
 
