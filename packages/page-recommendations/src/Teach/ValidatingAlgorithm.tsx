@@ -68,7 +68,7 @@ class ValidatingAlgorithm extends Algorithm {
             t('Yes'),
             [
                 { title: t('📖 Read what’s happening'), text: t('{{studentName}} has created an exercise.', { replace: { studentName: studentName } }) },
-                { title: t('🗣 Give {{studentName}} a wrong answer and say', { replace: { studentName: studentName } }), text: t('Correct me.') },
+                { title: t('🗣 Give {{studentName}} a wrong answer and ask them to correct it', { replace: { studentName: studentName } }), text: '' },
             ],
             t('Has {{studentName}} corrected the wrong solution on their own, without any hints and guiding questions?', { replace: { studentName: studentName } }),
             <ExampleExercisesButton skill={skill} location='example_exercises_and_solutions' />
@@ -93,11 +93,11 @@ class ValidatingAlgorithm extends Algorithm {
             [
                 {
                     title: t('📖 Read what’s happening'),
-                    text: t('Try to earn {{stake}} Slon by checking how another tutor taught {{studentName}} the skill:', { replace: { studentName: studentName, stake: stake } }) + (skill && ' ' + skill.h)
+                    text: t('Try to earn {{stake}} Slon by checking how another tutor taught {{studentName}}.', { replace: { studentName: studentName, stake: stake } })
                 },
                 { title: t('🗣 Say to {{studentName}}', { replace: { studentName: studentName } }), text: t('Create an exercise similar to this:') + ' ' + question1, image: exerciseImage1 },
             ],
-            t('Has {{studentName}} created a similar exercise on their own, without any hints and guiding questions?', { replace: { studentName: studentName } }),
+            t('Has {{studentName}} created a similar exercise on their own, without any additional hints or guiding questions?', { replace: { studentName: studentName } }),
             <ExampleExercisesButton skill={skill} location='example_exercises' />
         );
 
@@ -109,7 +109,7 @@ class ValidatingAlgorithm extends Algorithm {
                 { title: t('📖 Read what’s happening'), text: t('{{studentName}} has repeated correctly after me.', { replace: { studentName: studentName } }) },
                 { title: t('🗣 Say to {{studentName}}', { replace: { studentName: studentName } }), text: t('Create an exercise similar to this:') + ' ' + question1, image: exerciseImage1 }
             ],
-            t('Has {{studentName}} created a similar exercise on their own, without any hints and guiding questions?', { replace: { studentName: studentName } }),
+            t('Has {{studentName}} created a similar exercise on their own, without any additional hints or guiding questions?', { replace: { studentName: studentName } }),
             <ExampleExercisesButton skill={skill} location='example_exercises' />
         );
 
