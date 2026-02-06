@@ -194,5 +194,6 @@
   "tutorial": "tutorial",
   "👀 Check it": "👀 Check it",
   "Make sure {{studentName}} doesn’t use notes and can’t see any written prompts when answering questions.": "Make sure {{studentName}} doesn’t use notes and can’t see any written prompts when answering questions.",
-  "guided tutorial": "guided tutorial"
+  "guided tutorial": "guided tutorial",
+  "training": "training"
 }
