@@ -102,7 +102,7 @@ class TutoringAlgorithm extends Algorithm {
             StageType.begin_ask_to_create_similar_exercise,
             t('Next'),
             [
-                { title: t('📖 Read what’s happening'), text: t('{{studentName}} asks you to teach a skill.', { replace: { studentName: studentName } }) },
+                { title: t('📖 Read what’s happening'), text: t('{{studentName}} wants to learn a new skill.', { replace: { studentName: studentName } }) },
                 { title: t('🗣 Say to {{studentName}}', {replace: {studentName: studentName}}), text: t('Create an exercise similar to this:') + ' ' + question1, image: exerciseImage1 },
             ],
             t('Has {{studentName}} created a similar exercise on their own, without any additional hints and guiding questions?', {replace: {studentName: studentName}}),
@@ -147,7 +147,7 @@ class TutoringAlgorithm extends Algorithm {
             StageType.begin_ask_to_solve_exercise,
             t('Start'),
             [
-                { title: t('📖 Read what’s happening'), text: t('{{studentName}} asks you to teach a skill.', { replace: { studentName: studentName } }) },
+                { title: t('📖 Read what’s happening'), text: t('{{studentName}} wants to learn a new skill.', { replace: { studentName: studentName } }) },
                 { title: t('🗣 Say to {{studentName}}', {replace: {studentName: studentName}}), text: question1, image: exerciseImage1 },
             ],
             t('Has {{studentName}} now executed the exercise correctly?', {replace: {studentName: studentName}}),

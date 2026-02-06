@@ -202,5 +202,6 @@
   "🗣 Give {{studentName}} a wrong answer and ask them to correct it": "🗣 Give {{studentName}} a wrong answer and ask them to correct it",
   "{{studentName}} asks you to teach a skill.": "{{studentName}} asks you to teach a skill.",
   "Has {{studentName}} created a similar exercise on their own, without any additional hints and guiding questions?": "Has {{studentName}} created a similar exercise on their own, without any additional hints and guiding questions?",
-  "Try to earn {{stake}} Slon by checking how another tutor taught {{studentName}}.": "Try to earn {{stake}} Slon by checking how another tutor taught {{studentName}}."
+  "Try to earn {{stake}} Slon by checking how another tutor taught {{studentName}}.": "Try to earn {{stake}} Slon by checking how another tutor taught {{studentName}}.",
+  "{{studentName}} wants to learn a new skill.": "{{studentName}} wants to learn a new skill."
 }
