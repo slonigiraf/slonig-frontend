@@ -47,7 +47,8 @@ export const LogProvider: React.FC<LogProviderProps> = ({ children }) => {
       const currentBanCount = banCount + 1;
       await storeSetting(SettingKey.BAN_COUNT, currentBanCount.toString());
 
-      logEvent('TUTORING', 'BAN', 'ban_' + reason, currentBanCount);
+      logEvent('TUTORING', 'BAN', 'ban_' + reason);
+      logEvent('TUTORING', 'BAN_COUNT', `ban_count_${currentBanCount}`);
 
       await storeSetting(SettingKey.LAST_BAN_START_TIME, now.toString());
       await putScheduledEvent({
