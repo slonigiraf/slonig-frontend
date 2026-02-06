@@ -2,6 +2,7 @@ import { AlgorithmStage, StageType } from './AlgorithmStage.js';
 import { Algorithm } from './Algorithm.js';
 import type { Skill } from '@slonigiraf/slonig-components';
 import ExampleExercisesButton from './ExampleExercisesButton.js';
+import { quote } from '../utils.js';
 
 export type ValidatingAlgorithmType = 'regular' | 'first_in_lesson';
 export interface ValidatingAlgorithmProps {
@@ -28,7 +29,7 @@ class ValidatingAlgorithm extends Algorithm {
             StageType.validate,
             t('Yes'),
             [
-                { title: t('🗣 Say to {{studentName}}', { replace: { studentName: studentName } }), text: t('Great, you remember the skill.') },
+                { title: t('🗣 Say to {{studentName}}', { replace: { studentName: studentName } }), text: quote(t('Great, you remember the skill.')) },
             ]
         );
 
@@ -37,7 +38,7 @@ class ValidatingAlgorithm extends Algorithm {
             StageType.revoke,
             t('No'),
             [
-                { title: t('🗣 Say to {{studentName}}', { replace: { studentName: studentName } }), text: t('You don’t have such a skill. I will penalize the tutor which issued the badge for it.') },
+                { title: t('🗣 Say to {{studentName}}', { replace: { studentName: studentName } }), text: quote(t('You don’t have such a skill. I will penalize the tutor which issued the badge for it.')) },
             ]
         );
 
@@ -80,7 +81,7 @@ class ValidatingAlgorithm extends Algorithm {
             t('No'),
             [
                 { title: t('📖 Read what’s happening'), text: t('{{studentName}} has not created a similar exercise.', { replace: { studentName: studentName } }) },
-                { title: t('🗣 Say to {{studentName}}', { replace: { studentName: studentName } }), text: t('Repeat after me:') + ' ' + question2, image: exerciseImage2 },
+                { title: t('🗣 Say to {{studentName}}', { replace: { studentName: studentName } }), text: quote(t('Repeat after me:') + ' ' + question2), image: exerciseImage2 },
             ],
             t('Has {{studentName}} repeated correctly?', { replace: { studentName: studentName } })
         );
@@ -95,7 +96,7 @@ class ValidatingAlgorithm extends Algorithm {
                     title: t('📖 Read what’s happening'),
                     text: t('Try to earn {{stake}} Slon by checking how another tutor taught {{studentName}}.', { replace: { studentName: studentName, stake: stake } })
                 },
-                { title: t('🗣 Say to {{studentName}}', { replace: { studentName: studentName } }), text: t('Create an exercise similar to this:') + ' ' + question1, image: exerciseImage1 },
+                { title: t('🗣 Say to {{studentName}}', { replace: { studentName: studentName } }), text: quote(t('Create an exercise similar to this:') + ' ' + question1), image: exerciseImage1 },
             ],
             t('Has {{studentName}} created a similar exercise on their own, without any additional hints and guiding questions?', { replace: { studentName: studentName } }),
             <ExampleExercisesButton skill={skill} location='example_exercises' />
@@ -107,7 +108,7 @@ class ValidatingAlgorithm extends Algorithm {
             t('Yes'),
             [
                 { title: t('📖 Read what’s happening'), text: t('{{studentName}} has repeated correctly after me.', { replace: { studentName: studentName } }) },
-                { title: t('🗣 Say to {{studentName}}', { replace: { studentName: studentName } }), text: t('Create an exercise similar to this:') + ' ' + question1, image: exerciseImage1 }
+                { title: t('🗣 Say to {{studentName}}', { replace: { studentName: studentName } }), text: quote(t('Create an exercise similar to this:') + ' ' + question1), image: exerciseImage1 }
             ],
             t('Has {{studentName}} created a similar exercise on their own, without any additional hints and guiding questions?', { replace: { studentName: studentName } }),
             <ExampleExercisesButton skill={skill} location='example_exercises' />
