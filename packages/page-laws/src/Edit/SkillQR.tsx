@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useTranslation } from '../translate.js';
 import { CenterQRContainer, LessonRequest, SenderComponent, nameFromKeyringPair, qrWidthPx, useLoginContext } from '@slonigiraf/slonig-components';
 import { LearnRequest, Letter, SettingKey, getLessonId, getLettersToReexamine, storeSetting } from '@slonigiraf/db';
@@ -15,7 +15,7 @@ interface Props {
   isLearningRequested: boolean;
   isReexaminingRequested?: boolean;
   lessonInUrl?: boolean;
-  onDataSent: (learnRequest: LearnRequest) => void;
+  onDataSent: (learnRequest: LearnRequest | null) => void;
 }
 
 function SkillQR({ className = '', id, cid, selectedItems, isLearningRequested, isReexaminingRequested, lessonInUrl, onDataSent }: Props): React.ReactElement<Props> | null {
@@ -23,7 +23,7 @@ function SkillQR({ className = '', id, cid, selectedItems, isLearningRequested, 
   const { currentPair, isLoggedIn } = useLoginContext();
   const { t } = useTranslation();
   const [diplomasToReexamine, setDiplomasToReexamine] = useState<Letter[]>();
-  const [lessonId, setLessonId] = useState<string>('');
+  const learnRequestRef = useRef<LearnRequest | null>(null);
   const [learn, setLearn] = useState<string[][]>([]);
   const [reexamine, setReexamine] = useState<string[][]>([]);
   const [data, setData] = useState<string | null>(null);
@@ -51,18 +51,6 @@ function SkillQR({ className = '', id, cid, selectedItems, isLearningRequested, 
     }
   }, [currentPair, isLoggedIn, selectedItems, isLearningRequested]);
 
-  // Generate tutoring request ID
-  useEffect(() => {
-    const generateTutoringRequestId = () => {
-      if (currentPair?.publicKey && (learn.length + reexamine.length) > 0) {
-        const ids: string[] = [...learn, ...reexamine].map(([, , id]) => id);
-        setLessonId(getLessonId(u8aToHex(currentPair?.publicKey), ids));
-      } else {
-        setLessonId('');
-      }
-    };
-    generateTutoringRequestId();
-  }, [currentPair, learn, reexamine]);
 
   const studentIdentity = u8aToHex(currentPair?.publicKey);
 
@@ -97,29 +85,33 @@ function SkillQR({ className = '', id, cid, selectedItems, isLearningRequested, 
   // Initialize learn request
   useEffect(() => {
     const dataIsNotEmpty = (learn.length + reexamine.length) > 0;
-    if (dataIsNotEmpty) {
+    if (currentPair?.publicKey && dataIsNotEmpty) {
+      const ids: string[] = [...learn, ...reexamine].map(([, , id]) => id);
+      const lesson = getLessonId(u8aToHex(currentPair?.publicKey), ids);
       const lessonRequest: LessonRequest = {
         cid: cid,
         kid: id,
         learn: learn,
         reexamine: reexamine,
-        lesson: lessonId,
+        lesson,
         name: name,
         identity: studentIdentity,
       };
+
+      learnRequestRef.current = {
+        id: lesson,
+        created: Date.now(),
+        cid,
+      };
+
       setData(JSON.stringify(lessonRequest));
     } else {
       setData(null);
+      learnRequestRef.current = null;
     }
-  }, [learn, reexamine, cid, lessonId, name, studentIdentity]);
+  }, [learn, reexamine, cid, name, studentIdentity]);
 
   const showQR = isLoggedIn && shouldRender && data;
-
-  const learnRequest: LearnRequest = {
-    id: lessonId,
-    created: Date.now(),
-    cid,
-  };
 
   return (
     <>
@@ -131,7 +123,7 @@ function SkillQR({ className = '', id, cid, selectedItems, isLearningRequested, 
               data={data}
               route={route}
               textShare={t('Press the link to start tutoring')}
-              onDataSent={() => onDataSent(learnRequest)}
+              onDataSent={() => onDataSent(learnRequestRef.current)}
             />
           </CenterQRContainer>
         </StyledDiv>

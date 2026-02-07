@@ -298,7 +298,9 @@ function ViewList({ className = '', id, cidString, isClassInstructionShown, setI
 
   const onDataSent = useCallback(async (learnRequest: LearnRequest) => {
     closeQR();
-    await putLearnRequest(learnRequest);
+
+    if (learnRequest) await putLearnRequest(learnRequest);
+
     if (id === EXAMPLE_MODULE_KNOWLEDGE_ID) {
       const fallbackKnowledgeId = await getSetting(SettingKey.FALLBACK_KNOWLEDGE_ID);
       if (fallbackKnowledgeId) {
