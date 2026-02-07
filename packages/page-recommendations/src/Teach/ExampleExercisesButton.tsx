@@ -56,8 +56,11 @@ function ExampleExercisesButton({ className = '', skill, location }: Props): Rea
           >
             <Modal.Content>
               <ExerciseList exercises={skill.q} location={location} />
+              {location === 'example_exercises' || location === 'example_exercises_and_solutions' && <FlagContainer>
+                <Flag color={'green'} label={t('Hide it from your student!')} />
+              </FlagContainer>}
               {location === 'example_exercises' && <FlagContainer>
-                <Flag color={'theme'} label={t('You’ll see the answers next')} />
+                <Flag color={'green'} label={t('You’ll see the answers next')} />
               </FlagContainer>}
             </Modal.Content>
           </Modal>
@@ -88,9 +91,10 @@ const StyledHint = styled(HintBubble)`
 `;
 
 const FlagContainer = styled.span`
+  margin-top: 10px;
   width: 100%;
   display: flex;
-  justify-content: center;
+  justify-content: left;
 `;
 
 export default React.memo(ExampleExercisesButton);
