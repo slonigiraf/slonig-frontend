@@ -386,14 +386,17 @@ function DoInstructions({ className = '', entity, lessonStat, anythingToLearn = 
         }, async () => setIsButtonClicked(false), 'skip');
       } else if (nextStage.getType() === StageType.ask_to_create_similar_exercise) { // don't allow student at training solve the first exercise
         preserveFromNoobs(async () => {
-          logStageTime(StageType.ask_to_create_similar_exercise);
+          // Only for the case we will change algo. As of 20260207, this code will never run:
+          logStageTime();
           setAlgorithmStage(nextStage);
           setIsButtonClicked(false);
           refreshStageView();
         }, async () => setIsButtonClicked(false), 'solve_exercise', reminderForTutorialStudent);
-      } else if (isLetterTemplate(entity) && (nextStage.getType() === StageType.next_skill)) { // don't allow tutor at training to escape correcting fake solution
+      } else if (isLetterTemplate(entity)
+        && algorithmStage.getType() === StageType.provide_fake_solution
+        && (nextStage.getType() === StageType.next_skill)) { // don't allow tutor at training to escape correcting fake solution
         const action = async () => {
-          logStageTime(StageType.decide_about_badge);
+          logStageTime();
           await processLetter(false);
           refreshStageView();
         };
