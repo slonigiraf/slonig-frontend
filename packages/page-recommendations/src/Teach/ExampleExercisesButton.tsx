@@ -1,7 +1,7 @@
 // Copyright 2021-2022 @slonigiraf/app-recommendations authors & contributors
 // SPDX-License-Identifier: Apache-2.0
 
-import { Modal, Button, styled } from '@polkadot/react-components';
+import { Modal, Button, styled, Flag } from '@polkadot/react-components';
 import React, { useCallback } from 'react'
 import { useTranslation } from '../translate.js';
 import { useToggle } from '@polkadot/react-hooks';
@@ -15,7 +15,7 @@ interface Props {
   location: ExerciseListLocation;
 }
 
-function ExampleExercisesButton({ className = '', skill, location}: Props): React.ReactElement<Props> {
+function ExampleExercisesButton({ className = '', skill, location }: Props): React.ReactElement<Props> {
   const { t } = useTranslation();
   const { logEvent } = useLog();
   const [areDetailsOpen, toggleDetailsOpen] = useToggle(false);
@@ -56,6 +56,9 @@ function ExampleExercisesButton({ className = '', skill, location}: Props): Reac
           >
             <Modal.Content>
               <ExerciseList exercises={skill.q} location={location} />
+              {location === 'example_exercises' && <FlagContainer>
+                <Flag color={'theme'} label={t('You’ll see the answers next')} />
+              </FlagContainer>}
             </Modal.Content>
           </Modal>
         )}
@@ -84,9 +87,10 @@ const StyledHint = styled(HintBubble)`
   left: 10%;
 `;
 
-const Important = styled.span`
-  color: red;
-  font-weight: bold;
+const FlagContainer = styled.span`
+  width: 100%;
+  display: flex;
+  justify-content: center;
 `;
 
 export default React.memo(ExampleExercisesButton);

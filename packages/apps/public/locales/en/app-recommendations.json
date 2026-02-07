@@ -205,5 +205,7 @@
   "Try to earn {{stake}} Slon by checking how another tutor taught {{studentName}}.": "Try to earn {{stake}} Slon by checking how another tutor taught {{studentName}}.",
   "{{studentName}} wants to learn a new skill.": "{{studentName}} wants to learn a new skill.",
   "🗣 Give {{studentName}} a wrong answer to the exercise they created and ask them to correct": "🗣 Give {{studentName}} a wrong answer to the exercise they created and ask them to correct",
-  "Has {{studentName}} corrected the wrong answer on their own, without any hints and guiding questions?": "Has {{studentName}} corrected the wrong answer on their own, without any hints and guiding questions?"
+  "Has {{studentName}} corrected the wrong answer on their own, without any hints and guiding questions?": "Has {{studentName}} corrected the wrong answer on their own, without any hints and guiding questions?",
+  "Answers will be visible in the next steps": "Answers will be visible in the next steps",
+  "You’ll see the answers next": "You’ll see the answers next"
 }
