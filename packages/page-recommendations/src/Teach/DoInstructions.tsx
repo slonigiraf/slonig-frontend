@@ -311,14 +311,17 @@ function DoInstructions({ className = '', entity, lessonStat, anythingToLearn = 
     setIsChatFinished(false);
   }, [setProcessedStages, processedStages, setButtonsBlured, setIsChatFinished])
 
-  const hasStudenFailed = (stage: AlgorithmStage): boolean => {
-    if (!hasTutorCompletedTutorial) return false;
-    if (stage.getType() === StageType.correct_fake_solution ||
-      stage.getType() === StageType.ask_to_repeat_similar_exercise
-    ) {
+  const hasStudenFailed = (stage: AlgorithmStage, nextStage: AlgorithmStage): boolean => {
+    if (!hasTutorCompletedTutorial) {
+      return false;
+    } else if (nextStage.getType() === StageType.ask_to_repeat_similar_exercise) {
       return true;
+    } else if (stage.getType() === StageType.correct_fake_solution
+      && nextStage.getType() !== StageType.provide_fake_solution) {
+      return true;
+    } else {
+      return false;
     }
-    return false;
   }
 
   const onAllMessagesRevealed = useCallback(() => {
@@ -354,7 +357,7 @@ function DoInstructions({ className = '', entity, lessonStat, anythingToLearn = 
           logEvent('TUTORING', algorithmType, nextStageType, Math.round(msSpent / 1000));
         }
       }
-      if (hasStudenFailed(nextStage)) {
+      if (hasStudenFailed(algorithmStage, nextStage)) {
         await markLetterAsNotPerfect();
       }
       if (nextStage.getType() === StageType.ask_to_repeat_similar_exercise) {
