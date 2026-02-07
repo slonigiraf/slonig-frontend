@@ -654,6 +654,6 @@
   "🕑 {{min}} minutes ago": "🕑 {{min}} минут мурун",
   "🗣 Give {{studentName}} a wrong answer to the exercise they created and ask them to correct": "🗣 {{studentName}} тузгон көнүгүүгө туура эмес жооп бер жана аны оңдоп берүүнү суран.",
   "🗣 Say to {{studentName}}": "🗣 {{studentName}}'га айт:",
-  "🗣 Show {{studentName}} the correct execution, and say": "🗣 {{studentName}}'га туура аткарууну көрсөтүп, айт:",
+  "🗣 Show {{studentName}} the correct solution, and say": "🗣 {{studentName}}ге туура чечимди көрсөт жана айт",
   "🚫 Your lesson is paused because it requires teacher supervision": "🚫 Сенин сабагың токтото алынды, анткени муğаллимдин көзөмөлүн талап кылат."
 }

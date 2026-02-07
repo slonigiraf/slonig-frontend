@@ -654,6 +654,6 @@
   "🕑 {{min}} minutes ago": "🕑 Hace {{min}} minutos",
   "🗣 Give {{studentName}} a wrong answer to the exercise they created and ask them to correct": "🗣 Dale a {{studentName}} una respuesta incorrecta al ejercicio que creó y pídele que la corrija",
   "🗣 Say to {{studentName}}": "🗣 Di a {{studentName}}",
-  "🗣 Show {{studentName}} the correct execution, and say": "🗣 Muestra a {{studentName}} la ejecución correcta y di",
+  "🗣 Show {{studentName}} the correct solution, and say": "🗣 Muéstrale a {{studentName}} la solución correcta y di",
   "🚫 Your lesson is paused because it requires teacher supervision": "🚫 Tu lección está pausada porque requiere supervisión del profesor"
 }

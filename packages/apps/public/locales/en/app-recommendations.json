@@ -207,5 +207,6 @@
   "🗣 Give {{studentName}} a wrong answer to the exercise they created and ask them to correct": "🗣 Give {{studentName}} a wrong answer to the exercise they created and ask them to correct",
   "Has {{studentName}} corrected the wrong answer on their own, without any hints and guiding questions?": "Has {{studentName}} corrected the wrong answer on their own, without any hints and guiding questions?",
   "Answers will be visible in the next steps": "Answers will be visible in the next steps",
-  "You’ll see the answers next": "You’ll see the answers next"
+  "You’ll see the answers next": "You’ll see the answers next",
+  "🗣 Show {{studentName}} the correct solution, and say": "🗣 Show {{studentName}} the correct solution, and say"
 }

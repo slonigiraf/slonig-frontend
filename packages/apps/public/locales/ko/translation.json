@@ -654,6 +654,6 @@
   "🕑 {{min}} minutes ago": "🕑 {{min}} 분 전",
   "🗣 Give {{studentName}} a wrong answer to the exercise they created and ask them to correct": "🗣 {{studentName}}가 만든 연습문제에 틀린 답변을 주고 수정해 보라고 해.",
   "🗣 Say to {{studentName}}": "🗣 {{studentName}}에게 말해",
-  "🗣 Show {{studentName}} the correct execution, and say": "🗣 {{studentName}}에게 올바른 수행을 보여주고 말해",
+  "🗣 Show {{studentName}} the correct solution, and say": "🗣 {{studentName}}에게 올바른 해결책을 보여주고 말해",
   "🚫 Your lesson is paused because it requires teacher supervision": "🚫 수업이 선생님의 감독이 필요해 중단되었어"
 }

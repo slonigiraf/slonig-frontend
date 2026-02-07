@@ -654,6 +654,6 @@
   "🕑 {{min}} minutes ago": "🕑 {{min}} منٹ پہلے",
   "🗣 Give {{studentName}} a wrong answer to the exercise they created and ask them to correct": "🗣 {{studentName}} کو ان کی بنائی ہوئی مشق کا غلط جواب دو اور ان سے درست کرنے کو کہو",
   "🗣 Say to {{studentName}}": "🗣 {{studentName}} سے کہو",
-  "🗣 Show {{studentName}} the correct execution, and say": "🗣 {{studentName}} کو درست انجام دکھاؤ، اور کہو",
+  "🗣 Show {{studentName}} the correct solution, and say": "🗣 {{studentName}} کو درست حل دکھاؤ، اور کہو",
   "🚫 Your lesson is paused because it requires teacher supervision": "🚫 تمہارا درس معطل ہے کیونکہ اس کو استاد کی نگرانی کی ضرورت ہے"
 }

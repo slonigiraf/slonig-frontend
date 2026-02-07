@@ -654,6 +654,6 @@
   "🕑 {{min}} minutes ago": "",
   "🗣 Give {{studentName}} a wrong answer to the exercise they created and ask them to correct": "",
   "🗣 Say to {{studentName}}": "",
-  "🗣 Show {{studentName}} the correct execution, and say": "",
+  "🗣 Show {{studentName}} the correct solution, and say": "",
   "🚫 Your lesson is paused because it requires teacher supervision": ""
 }

@@ -654,6 +654,6 @@
   "🕑 {{min}} minutes ago": "🕑 {{min}} 分钟前",
   "🗣 Give {{studentName}} a wrong answer to the exercise they created and ask them to correct": "🗣 给 {{studentName}} 他们创建的练习一个错误答案，并让他们纠正",
   "🗣 Say to {{studentName}}": "🗣 对{{studentName}}说",
-  "🗣 Show {{studentName}} the correct execution, and say": "🗣 向{{studentName}}展示正确的执行，并说",
+  "🗣 Show {{studentName}} the correct solution, and say": "🗣 给{{studentName}}展示正确的解决方案，并说",
   "🚫 Your lesson is paused because it requires teacher supervision": "🚫 你的课程已暂停，因为需要老师的监督"
 }

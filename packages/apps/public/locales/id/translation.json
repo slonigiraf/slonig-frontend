@@ -654,6 +654,6 @@
   "🕑 {{min}} minutes ago": "🕑 {{min}} menit yang lalu",
   "🗣 Give {{studentName}} a wrong answer to the exercise they created and ask them to correct": "🗣 Berikan jawaban yang salah kepada {{studentName}} untuk latihan yang mereka buat dan mintalah mereka untuk memperbaiki",
   "🗣 Say to {{studentName}}": "🗣 Katakan kepada {{studentName}}",
-  "🗣 Show {{studentName}} the correct execution, and say": "🗣 Tunjukkan kepada {{studentName}} eksekusi yang benar, dan katakan",
+  "🗣 Show {{studentName}} the correct solution, and say": "🗣 Tunjukkan solusi yang benar kepada {{studentName}}, dan katakan",
   "🚫 Your lesson is paused because it requires teacher supervision": "🚫 Pelajaranmu dijeda karena memerlukan pengawasan guru"
 }

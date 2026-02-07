@@ -54,7 +54,7 @@ class TutoringAlgorithm extends Algorithm {
             t('No'),
             [
                 { title: t('📖 Read what’s happening'), text: t('{{studentName}} has not corrected me.', { replace: { studentName: studentName } }) },
-                { title: t('🗣 Show {{studentName}} the correct execution, and say', { replace: { studentName: studentName } }), text: quote(t('Repeat after me.')) },
+                { title: t('🗣 Show {{studentName}} the correct solution, and say', { replace: { studentName: studentName } }), text: quote(t('Repeat after me.')) },
             ],
             t('Has {{studentName}} repeated correctly?', { replace: { studentName: studentName } }),
             <ExampleExercisesButton skill={skill} location='example_exercises_and_solutions' />
