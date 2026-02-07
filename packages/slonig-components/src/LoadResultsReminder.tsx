@@ -37,7 +37,7 @@ function LoadResultsReminder({ learnRequest, onClose }: Props): React.ReactEleme
   }, [ipfs, learnRequest])
 
 
-  const url = getBaseUrl() + `/#/badges/teach?learnRequest=${learnRequest.id}`;
+  const url = getBaseUrl() + `/#/badges/teach?studentReminder=${learnRequest.id}`;
 
   const min = Math.round((Date.now() - learnRequest.created) / 60_000);
 
