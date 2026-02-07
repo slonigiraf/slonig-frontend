@@ -80,7 +80,6 @@ class TutoringAlgorithm extends Algorithm {
                 { title: t('🗣 Give {{studentName}} a wrong answer to the exercise they created and ask them to correct', { replace: { studentName: studentName } }), text: '' },
             ],
             t('Has {{studentName}} corrected the wrong answer on their own, without any hints and guiding questions?', { replace: { studentName: studentName } }),
-            <ExampleExercisesButton skill={skill} location='example_exercises_and_solutions' />
         );
 
         const askToRepeatTaskAfterMe = new AlgorithmStage(
