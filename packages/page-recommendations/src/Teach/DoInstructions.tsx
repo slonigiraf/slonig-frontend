@@ -424,6 +424,12 @@ function DoInstructions({ className = '', entity, lessonStat, anythingToLearn = 
         logStageTime();
         await processLetter(false);
         refreshStageView();
+      } else if (isLetterTemplate(entity)
+        && (algorithmStage.getType() === StageType.decide_about_badge)
+        && (nextStage.getType() === StageType.next_skill)) {
+        logStageTime();
+        await processLetter(true);
+        refreshStageView();
       } else if (isReexamination(entity) && nextStage.getType() === StageType.success) {
         logStageTime();
         studentPassedReexamination();
