@@ -219,7 +219,6 @@
   "Remind the student to pretend they don’t know the skill.": "학생에게 기술을 모르는 척하라고 상기시켜 줘.",
   "Remove item": "항목 제거",
   "Remove validator": "검증자 제거",
-  "Repeat after me.": "따라하세요.",
   "Repeat after me:": "따라하세요:",
   "Reserve ParaId": "ParaId 예약",
   "Reset": "재설정",
@@ -278,7 +277,6 @@
   "Slons will be deducted from your account.": "Slon이 계정에서 차감됩니다.",
   "Solution": "해답",
   "Split and find a partner that never used Slonig": "나뉘어서 Slonig를 한 번도 사용해 본 적 없는 파트너를 찾으세요",
-  "Start": "시작",
   "Start Learning with Slonig": "Slonig로 학습 시작",
   "Start Tutoring with Slonig": "Slonig로 튜터링 시작",
   "Student forgot it": "학생이 잊어버렸어",
@@ -657,6 +655,6 @@
   "🗣 Ask {{studentName}}": "🗣 {{studentName}}에게 물어봐",
   "🗣 Give {{studentName}} a wrong answer to the exercise they created and ask them to correct": "🗣 {{studentName}}가 만든 연습문제에 틀린 답변을 주고 수정해 보라고 해.",
   "🗣 Say to {{studentName}}": "🗣 {{studentName}}에게 말해",
-  "🗣 Show {{studentName}} the correct solution, and say": "🗣 {{studentName}}에게 올바른 해결책을 보여주고 말해",
+  "🗣 Show {{studentName}} the correct solution to the exercise they created and ask them to repeat it from memory": "🗣 {{studentName}}에게 그들이 만든 연습문제의 올바른 해결책을 보여주고, 기억해서 반복해보라고 해줘",
   "🚫 Your lesson is paused because it requires teacher supervision": "🚫 수업이 선생님의 감독이 필요해 중단되었어"
 }

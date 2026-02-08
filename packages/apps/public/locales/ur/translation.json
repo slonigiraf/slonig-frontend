@@ -219,7 +219,6 @@
   "Remind the student to pretend they don’t know the skill.": "طالب کو یاد دلاتے ہیں کہ وہ مہارت کو نہ جاننے کا بہانہ کرے.",
   "Remove item": "آئٹم ہٹائیں",
   "Remove validator": "ویلڈیٹر کو ہٹائیں",
-  "Repeat after me.": "میرے بعد دہرائیں۔",
   "Repeat after me:": "میرے بعد دہرائیں:",
   "Reserve ParaId": "پیرا آئی ڈی محفوظ کریں",
   "Reset": "ری سیٹ",
@@ -278,7 +277,6 @@
   "Slons will be deducted from your account.": "Slon آپ کے اکاؤنٹ سے کاٹے جائیں گے۔",
   "Solution": "حل",
   "Split and find a partner that never used Slonig": "الگ ہو جائیں اور ایسا ساتھی تلاش کریں جس نے کبھی Slonig استعمال نہ کیا ہو",
-  "Start": "شروع کریں",
   "Start Learning with Slonig": "Slonig کے ساتھ سیکھنا شروع کریں",
   "Start Tutoring with Slonig": "Slonig کے ساتھ پڑھانا شروع کریں",
   "Student forgot it": "طالب یہ بھول گیا",
@@ -657,6 +655,6 @@
   "🗣 Ask {{studentName}}": "🗣 {{studentName}} سے پوچھو",
   "🗣 Give {{studentName}} a wrong answer to the exercise they created and ask them to correct": "🗣 {{studentName}} کو ان کی بنائی ہوئی مشق کا غلط جواب دو اور ان سے درست کرنے کو کہو",
   "🗣 Say to {{studentName}}": "🗣 {{studentName}} سے کہو",
-  "🗣 Show {{studentName}} the correct solution, and say": "🗣 {{studentName}} کو درست حل دکھاؤ، اور کہو",
+  "🗣 Show {{studentName}} the correct solution to the exercise they created and ask them to repeat it from memory": "🗣 {{studentName}} کو وہ درست حل دکھاؤ جو انہوں نے بنایا ہے اور ان سے یاد سے دہرائو کہو",
   "🚫 Your lesson is paused because it requires teacher supervision": "🚫 تمہارا درس معطل ہے کیونکہ اس کو استاد کی نگرانی کی ضرورت ہے"
 }

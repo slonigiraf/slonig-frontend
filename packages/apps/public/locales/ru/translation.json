@@ -219,7 +219,6 @@
   "Remind the student to pretend they don’t know the skill.": "Напомни ученику притвориться, что он не знает этот навык.",
   "Remove item": "Убрать пункт",
   "Remove validator": "Удалить валидатор",
-  "Repeat after me.": "Повтори за мной.",
   "Repeat after me:": "Повтори за мной:",
   "Reserve ParaId": "Забронировать ParaId",
   "Reset": "Сбросить",
@@ -278,7 +277,6 @@
   "Slons will be deducted from your account.": "Slon будут списаны с твоего аккаунта.",
   "Solution": "Решение",
   "Split and find a partner that never used Slonig": "Разделитесь и найди партнёра, который никогда не пользовался Slonig",
-  "Start": "Начать",
   "Start Learning with Slonig": "Начни учиться со Slonig",
   "Start Tutoring with Slonig": "Начни учить со Slonig",
   "Student forgot it": "Ученик забыл это",
@@ -657,6 +655,6 @@
   "🗣 Ask {{studentName}}": "🗣 Спроси {{studentName}}",
   "🗣 Give {{studentName}} a wrong answer to the exercise they created and ask them to correct": "🗣 Дай {{studentName}} неправильный ответ на упражнение, которое он(а) создал(а), и попроси исправить",
   "🗣 Say to {{studentName}}": "🗣 Скажи {{studentName}}",
-  "🗣 Show {{studentName}} the correct solution, and say": "🗣 Покажи {{studentName}} правильное решение и скажи",
+  "🗣 Show {{studentName}} the correct solution to the exercise they created and ask them to repeat it from memory": "🗣 Покажи {{studentName}} правильное решение упражнения, которое он(а) придумал(а), и попроси их повторить решение по памяти",
   "🚫 Your lesson is paused because it requires teacher supervision": "🚫 Твой урок приостановлен, так как требуется контроль учителя"
 }

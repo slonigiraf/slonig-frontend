@@ -219,7 +219,6 @@
   "Remind the student to pretend they don’t know the skill.": "Lembre o aluno de fingir que não sabe a habilidade.",
   "Remove item": "Remover item",
   "Remove validator": "Remover validador",
-  "Repeat after me.": "Repita depois de mim.",
   "Repeat after me:": "Repita depois de mim:",
   "Reserve ParaId": "Reservar ParaId",
   "Reset": "Redefinir",
@@ -278,7 +277,6 @@
   "Slons will be deducted from your account.": "Os Slons serão deduzidos da sua conta.",
   "Solution": "Solução",
   "Split and find a partner that never used Slonig": "Separem-se e encontrem um parceiro que nunca tenha usado o Slonig",
-  "Start": "Iniciar",
   "Start Learning with Slonig": "Comece a aprender com o Slonig",
   "Start Tutoring with Slonig": "Comece a ensinar com o Slonig",
   "Student forgot it": "Estudante esqueceu",
@@ -657,6 +655,6 @@
   "🗣 Ask {{studentName}}": "🗣 Pergunte ao {{studentName}}",
   "🗣 Give {{studentName}} a wrong answer to the exercise they created and ask them to correct": "🗣 Dê ao {{studentName}} uma resposta errada ao exercício que ele criou e peça para corrigir",
   "🗣 Say to {{studentName}}": "🗣 Diga a {{studentName}}",
-  "🗣 Show {{studentName}} the correct solution, and say": "🗣 Mostra a solução correta para {{studentName}} e diz",
+  "🗣 Show {{studentName}} the correct solution to the exercise they created and ask them to repeat it from memory": "🗣 Mostra {{studentName}} a solução correta do exercício que ele criou e pede para repetir de memória",
   "🚫 Your lesson is paused because it requires teacher supervision": "🚫 Sua aula está pausada porque requer supervisão do professor"
 }

@@ -219,7 +219,6 @@
   "Remind the student to pretend they don’t know the skill.": "提醒学生假装他们不知道这个技能。",
   "Remove item": "删除项目",
   "Remove validator": "移除验证者",
-  "Repeat after me.": "跟我重复。",
   "Repeat after me:": "跟我重复：",
   "Reserve ParaId": "保留ParaId",
   "Reset": "重置",
@@ -278,7 +277,6 @@
   "Slons will be deducted from your account.": "你的账户将扣除 Slon。",
   "Solution": "解答",
   "Split and find a partner that never used Slonig": "分开并找到一个从未使用过 Slonig 的伙伴",
-  "Start": "开始",
   "Start Learning with Slonig": "开始使用 Slonig 学习",
   "Start Tutoring with Slonig": "开始使用 Slonig 教学",
   "Student forgot it": "学生忘记了",
@@ -657,6 +655,6 @@
   "🗣 Ask {{studentName}}": "🗣 问 {{studentName}}",
   "🗣 Give {{studentName}} a wrong answer to the exercise they created and ask them to correct": "🗣 给 {{studentName}} 他们创建的练习一个错误答案，并让他们纠正",
   "🗣 Say to {{studentName}}": "🗣 对{{studentName}}说",
-  "🗣 Show {{studentName}} the correct solution, and say": "🗣 给{{studentName}}展示正确的解决方案，并说",
+  "🗣 Show {{studentName}} the correct solution to the exercise they created and ask them to repeat it from memory": "🗣 向{{studentName}}展示他们创建的练习的正确解决方案，并让他们凭记忆重复一遍",
   "🚫 Your lesson is paused because it requires teacher supervision": "🚫 你的课程已暂停，因为需要老师的监督"
 }

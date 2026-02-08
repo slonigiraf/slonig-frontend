@@ -215,5 +215,6 @@
   "Has {{studentName}} answered correctly?": "Has {{studentName}} answered correctly?",
   "You taught incorrectly. Please redo this training with your student.": "You taught incorrectly. Please redo this training with your student.",
   "Tell the tutee to scan the same QR code": "Tell the tutee to scan the same QR code",
-  "You taught incorrectly. Please redo this training with your student": "You taught incorrectly. Please redo this training with your student"
+  "You taught incorrectly. Please redo this training with your student": "You taught incorrectly. Please redo this training with your student",
+  "🗣 Show {{studentName}} the correct solution to the exercise they created and ask them to repeat it from memory": "🗣 Show {{studentName}} the correct solution to the exercise they created and ask them to repeat it from memory"
 }

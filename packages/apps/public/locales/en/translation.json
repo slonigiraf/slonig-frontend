@@ -219,7 +219,6 @@
   "Remind the student to pretend they don’t know the skill.": "",
   "Remove item": "",
   "Remove validator": "",
-  "Repeat after me.": "",
   "Repeat after me:": "",
   "Reserve ParaId": "",
   "Reset": "",
@@ -278,7 +277,6 @@
   "Slons will be deducted from your account.": "",
   "Solution": "",
   "Split and find a partner that never used Slonig": "",
-  "Start": "",
   "Start Learning with Slonig": "",
   "Start Tutoring with Slonig": "",
   "Student forgot it": "",
@@ -657,6 +655,6 @@
   "🗣 Ask {{studentName}}": "",
   "🗣 Give {{studentName}} a wrong answer to the exercise they created and ask them to correct": "",
   "🗣 Say to {{studentName}}": "",
-  "🗣 Show {{studentName}} the correct solution, and say": "",
+  "🗣 Show {{studentName}} the correct solution to the exercise they created and ask them to repeat it from memory": "",
   "🚫 Your lesson is paused because it requires teacher supervision": ""
 }

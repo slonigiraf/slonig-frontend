@@ -219,7 +219,6 @@
   "Remind the student to pretend they don’t know the skill.": "Ingatkan siswa untuk berpura-pura tidak tahu keterampilan tersebut.",
   "Remove item": "Hapus item",
   "Remove validator": "Hapus validator",
-  "Repeat after me.": "Ulangi setelahku.",
   "Repeat after me:": "Ulangi setelahku:",
   "Reserve ParaId": "Cadangkan ParaId",
   "Reset": "Atur ulang",
@@ -278,7 +277,6 @@
   "Slons will be deducted from your account.": "Slon akan dikurangi dari akunmu.",
   "Solution": "Solusi",
   "Split and find a partner that never used Slonig": "Berpisahlah dan temukan pasangan yang belum pernah menggunakan Slonig",
-  "Start": "Mulai",
   "Start Learning with Slonig": "Mulai Belajar dengan Slonig",
   "Start Tutoring with Slonig": "Mulai Mengajar dengan Slonig",
   "Student forgot it": "Siswa lupa itu",
@@ -657,6 +655,6 @@
   "🗣 Ask {{studentName}}": "🗣 Tanya {{studentName}}",
   "🗣 Give {{studentName}} a wrong answer to the exercise they created and ask them to correct": "🗣 Berikan jawaban yang salah kepada {{studentName}} untuk latihan yang mereka buat dan mintalah mereka untuk memperbaiki",
   "🗣 Say to {{studentName}}": "🗣 Katakan kepada {{studentName}}",
-  "🗣 Show {{studentName}} the correct solution, and say": "🗣 Tunjukkan solusi yang benar kepada {{studentName}}, dan katakan",
+  "🗣 Show {{studentName}} the correct solution to the exercise they created and ask them to repeat it from memory": "🗣 Tunjukkan {{studentName}} solusi yang benar untuk latihan yang mereka buat dan minta mereka mengulangnya dari ingatan",
   "🚫 Your lesson is paused because it requires teacher supervision": "🚫 Pelajaranmu dijeda karena memerlukan pengawasan guru"
 }

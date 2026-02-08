@@ -219,7 +219,6 @@
   "Remind the student to pretend they don’t know the skill.": "学生にそのスキルを知らないふりをするように思い出させてね。",
   "Remove item": "項目を削除",
   "Remove validator": "バリデーターを削除",
-  "Repeat after me.": "私の後に繰り返してください。",
   "Repeat after me:": "私の後に繰り返してください：",
   "Reserve ParaId": "パラIDを予約する",
   "Reset": "リセット",
@@ -278,7 +277,6 @@
   "Slons will be deducted from your account.": "あなたのアカウントからSlonが差し引かれます。",
   "Solution": "解答",
   "Split and find a partner that never used Slonig": "分かれて、まだSlonigを使ったことがないパートナーを見つけてください",
-  "Start": "開始",
   "Start Learning with Slonig": "Slonigで学び始める",
   "Start Tutoring with Slonig": "Slonigで教え始める",
   "Student forgot it": "学生はそれを忘れた",
@@ -657,6 +655,6 @@
   "🗣 Ask {{studentName}}": "🗣 {{studentName}}に聞いてみて",
   "🗣 Give {{studentName}} a wrong answer to the exercise they created and ask them to correct": "🗣 {{studentName}}が作成した問題に対して間違った答えを与えて、修正するように頼んでみて",
   "🗣 Say to {{studentName}}": "🗣 {{studentName}}に言って。",
-  "🗣 Show {{studentName}} the correct solution, and say": "🗣 {{studentName}} に正しい解答を見せて、こう言って",
+  "🗣 Show {{studentName}} the correct solution to the exercise they created and ask them to repeat it from memory": "🗣 {{studentName}} に作成した演習の正しい解答を見せて、記憶から繰り返すように頼んでね",
   "🚫 Your lesson is paused because it requires teacher supervision": "🚫 あなたのレッスンは先生の監督が必要なため、一時停止されています"
 }

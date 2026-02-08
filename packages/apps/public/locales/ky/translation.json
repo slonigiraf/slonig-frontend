@@ -219,7 +219,6 @@
   "Remind the student to pretend they don’t know the skill.": "Студентке шеберчилигин билбегендей боло берүүсүн эскерт.",
   "Remove item": "Элементти алып салуу",
   "Remove validator": "Валидациячыны алып салуу",
-  "Repeat after me.": "Менин артынан кайтала.",
   "Repeat after me:": "Менин артынан кайтала:",
   "Reserve ParaId": "ПараIdды резервде сактоо",
   "Reset": "Кайра коюу",
@@ -278,7 +277,6 @@
   "Slons will be deducted from your account.": "Slon сиздин аккаунтуңуздан алынат.",
   "Solution": "Чечим",
   "Split and find a partner that never used Slonig": "Бөлүнүп, Slonig колдонбогон өнөктөш табыңыз",
-  "Start": "Баштоо",
   "Start Learning with Slonig": "Slonig менен окууну башта",
   "Start Tutoring with Slonig": "Slonig менен окутууну башта",
   "Student forgot it": "Окууучу унутту",
@@ -657,6 +655,6 @@
   "🗣 Ask {{studentName}}": "🗣 {{studentName}} сура.",
   "🗣 Give {{studentName}} a wrong answer to the exercise they created and ask them to correct": "🗣 {{studentName}} тузгон көнүгүүгө туура эмес жооп бер жана аны оңдоп берүүнү суран.",
   "🗣 Say to {{studentName}}": "🗣 {{studentName}}'га айт:",
-  "🗣 Show {{studentName}} the correct solution, and say": "🗣 {{studentName}}ге туура чечимди көрсөт жана айт",
+  "🗣 Show {{studentName}} the correct solution to the exercise they created and ask them to repeat it from memory": "🗣 {{studentName}} үчүн жараткан көнүгүүсүнүн туура чечимин көрсөт жана алардан эсимде сактап калуу үчүн кайталашын сура",
   "🚫 Your lesson is paused because it requires teacher supervision": "🚫 Сенин сабагың токтото алынды, анткени муğаллимдин көзөмөлүн талап кылат."
 }
