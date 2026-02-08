@@ -659,7 +659,7 @@ function Teach({ className = '' }: Props): React.ReactElement<Props> {
           }
           {isExitConfirmOpen && <Confirmation question={t('Sure to exit tutoring?')} onClose={() => setIsExitConfirmOpen(false)} onConfirm={logEventAndCloseTutoring} />}
           {isHelpQRInfoShown && <OKBox info={t('Tell the tutee to scan the same QR code.')} onClose={() => setIsHelpQRInfoShown(false)} />}
-          {isRedoTutorialHintShown && <OKBox info={t('You taught incorrectly. Please redo this tutorial with your student.')} onClose={toggleIsRedoTutorialHintShown} />}
+          {isRedoTutorialHintShown && <OKBox info={t('You taught incorrectly. Please redo this training with your student.')} onClose={toggleIsRedoTutorialHintShown} />}
           {
             lesson && isPairChangeDialogueOpen && !areResultsShown && requireSupervision === undefined &&
             <Confirmation
