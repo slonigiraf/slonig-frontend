@@ -359,7 +359,7 @@ function DoInstructions({ className = '', entity, eventCategory, lessonStat, any
       if (hasStudenFailed(algorithmStage, nextStage)) {
         await markLetterAsNotPerfect();
       }
-      if (nextStage.getType() === StageType.ask_to_repeat_similar_exercise) {
+      if (algorithmStage.getType() === StageType.ask_to_repeat_similar_exercise) {
         setDidCorrectExercise(true);
         if (!didCorrectExercise) {
           logEvent('TUTORING', algorithmType, 'did_correct_exercise', Math.round(msSpent / 1000));
