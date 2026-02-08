@@ -196,11 +196,6 @@ function DoInstructions({ className = '', entity, lessonStat, anythingToLearn = 
 
     const action: TutorAction = (valid ? `mark_mastered_${matureInfo}` : `mark_for_repeat_${matureInfo}`) as TutorAction;
 
-    if (!isInstantDecision && action === 'mark_for_repeat_mature' && !template.toRepeat) {
-      logBan('mark_for_repeat_mature');
-      return;
-    }
-
     const lastStageTimeSpent = Date.now() - lastStageEndTime;
     const talkingDuration = previousTeachingStagesDuration + talkingDurationOrZero(lastStageTimeSpent, algorithmStage);
 
