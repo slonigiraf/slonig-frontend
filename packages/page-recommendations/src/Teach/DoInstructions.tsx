@@ -170,7 +170,7 @@ function DoInstructions({ className = '', entity, lessonStat, anythingToLearn = 
     }
   }, [tooFastWarning, skill, lesson, anythingToLearn, lessonStat, pageWasJustRefreshed, entity, studentName, stake, hasTuteeUsedSlonig, hasTutorCompletedTutorial]);
 
-  const processLetter = useCallback(async (isValid: boolean, isFastDecision?: boolean) => {
+  const processLetter = useCallback(async (isValid: boolean, isInstantDecision?: boolean) => {
     if (!isLetterTemplate(entity)) return;
     const { template, matureInfo } = await getMatureInfo();
 
@@ -179,7 +179,7 @@ function DoInstructions({ className = '', entity, lessonStat, anythingToLearn = 
       return;
     }
 
-    if (!isFastDecision) {
+    if (!isInstantDecision) {
       if (didCorrectFakeSolution) {
         await storeSetting(SettingKey.COUNT_WITHOUT_CORRECT_FAKE_IN_RAW, '0');
       } else if (!entity.mature) {
@@ -196,7 +196,7 @@ function DoInstructions({ className = '', entity, lessonStat, anythingToLearn = 
 
     const action: TutorAction = (valid ? `mark_mastered_${matureInfo}` : `mark_for_repeat_${matureInfo}`) as TutorAction;
 
-    if (!isFastDecision && action === 'mark_for_repeat_mature' && !template.toRepeat) {
+    if (!isInstantDecision && action === 'mark_for_repeat_mature' && !template.toRepeat) {
       logBan('mark_for_repeat_mature');
       return;
     }
