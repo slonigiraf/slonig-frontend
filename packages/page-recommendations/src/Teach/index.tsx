@@ -15,8 +15,8 @@ import { EXAMPLE_MODULE_KNOWLEDGE_CID, FAST_SKILL_DISCUSSION_MS, MAX_FAST_DISCUS
 import BN from 'bn.js';
 import { TutorAction } from 'db/src/db/Lesson.js';
 import { LessonStat } from '../types.js';
-import AskToUnblockTutoring from './AskToUnblockTutoring.js';
 import LessonProcessInfo from './LessonProcessInfo.js';
+import RequestSupervision from './RequestSupervision.js';
 interface Props {
   className?: string;
 }
@@ -68,7 +68,7 @@ function Teach({ className = '' }: Props): React.ReactElement<Props> {
   const [areResultsShown, setResultsShown] = useState(false);
   const [isExitConfirmOpen, setIsExitConfirmOpen] = useState(false);
   const hasTutorCompletedTutorial = useBooleanSettingValue(SettingKey.TUTOR_TUTORIAL_COMPLETED);
-  const blockTutoring = useBooleanSettingValue(SettingKey.BAN_TUTORING);
+  const requireSupervision = useBooleanSettingValue(SettingKey.REQUIRE_SUPERVISION);
   const lastPartnerChangeTime = useNumberSettingValue(SettingKey.LAST_PARTNER_CHANGE_TIME);
   const [hasTuteeUsedSlonig, setHasTuteeUsedSlonig] = useState(false);
   const [isSendingResultsEnabled, setIsSendingResultsEnabled] = useState<boolean | undefined>(undefined);
@@ -524,8 +524,8 @@ function Teach({ className = '' }: Props): React.ReactElement<Props> {
 
   const isTutorial = lesson?.cid === EXAMPLE_MODULE_KNOWLEDGE_CID;
 
-  const reexamAndDiplomaIssuing = (blockTutoring === true && lesson?.student !== undefined) ?
-    <AskToUnblockTutoring onClose={onCloseTutoring} student={lesson?.student} />
+  const reexamAndDiplomaIssuing = (requireSupervision === true && lesson?.student !== undefined) ?
+    <RequestSupervision onClose={onCloseTutoring} student={lesson?.student} />
     : <FullFindow>
       <VerticalCenterItemsContainer>
         {lesson && <Progress>
@@ -609,7 +609,7 @@ function Teach({ className = '' }: Props): React.ReactElement<Props> {
             <OKBox info={t('Tell the tutee to scan the same QR code.')} onClose={() => setIsHelpQRInfoShown(false)} />
           )}
           {
-            lesson && isPairChangeDialogueOpen && !areResultsShown && blockTutoring === undefined &&
+            lesson && isPairChangeDialogueOpen && !areResultsShown && requireSupervision === undefined &&
             <Confirmation
               decorator={clock}
               question={t('It’s time to send the results and become a student of a new partner.')}

@@ -52,7 +52,7 @@ function LessonRequestReceiver({ setCurrentLesson }: Props): React.ReactElement<
 
     await deleteAllBanScheduledEvents();
     await deleteSetting(SettingKey.COUNT_WITHOUT_CORRECT_FAKE_IN_RAW);
-    await deleteSetting(SettingKey.BAN_TUTORING);
+    await deleteSetting(SettingKey.REQUIRE_SUPERVISION);
     await deleteSetting(SettingKey.LAST_BAN_START_TIME);
     toggleIsContinueTutoringShown();
   }, [deleteAllBanScheduledEvents]);

@@ -38,7 +38,7 @@ interface InfoProviderProps {
 export const InfoProvider: React.FC<InfoProviderProps> = ({ children }) => {
     const defaultIcon: IconName = 'circle-info';
     const { t } = useTranslation();
-    const blockTutoring = useBooleanSettingValue(SettingKey.BAN_TUTORING);
+    const blockTutoring = useBooleanSettingValue(SettingKey.REQUIRE_SUPERVISION);
     const [areLoadedResultsShown, setAreLoadedResultsShown] = useState(false);
     const [isInfoVisible, setInfoVisible] = useState(false);
     const [isPenaltyInfoVisible, setIsPenaltyInfoVisible] = useState(false);

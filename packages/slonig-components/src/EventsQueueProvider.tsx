@@ -32,16 +32,21 @@ export const EventsQueueProvider: React.FC<EventsQueueProviderProps> = ({ childr
   useEffect(() => {
     const scheduleBan = async () => {
       if (allBanEvents === undefined || allBanEvents.length === 0) return;
-      await setSettingToTrue(SettingKey.BAN_TUTORING);
+      const ban: ScheduledEvent = allBanEvents[0];
+      if (ban.data.length > 0) {
+        await setSettingToTrue(SettingKey.REDO_TUTORIAL);
+      } else {
+        await setSettingToTrue(SettingKey.REQUIRE_SUPERVISION);
+      }
     }
     scheduleBan();
   }, [allBanEvents]);
 
   useEffect(() => {
     const submitLogEvent = async (scheduledLogEvent: ScheduledEvent) => {
-      if(scheduledLogEvent === undefined || 
+      if (scheduledLogEvent === undefined ||
         scheduledLogEvent.id === undefined ||
-        scheduledLogEvent.id === lastEventId.current){
+        scheduledLogEvent.id === lastEventId.current) {
         return;
       }
       lastEventId.current = scheduledLogEvent.id;
