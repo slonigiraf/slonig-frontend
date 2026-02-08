@@ -52,7 +52,7 @@ export const LogProvider: React.FC<LogProviderProps> = ({ children }) => {
       logEvent('TUTORING', 'BAN_COUNT', `ban_count_${currentBanCount}`);
 
       await storeSetting(SettingKey.LAST_BAN_START_TIME, now.toString());
-      const requireSupervision = currentBanCount % MAX_TUTORIALS_BEFORE_TEACHER_SUPERVISION === 1;
+      const requireSupervision = currentBanCount % MAX_TUTORIALS_BEFORE_TEACHER_SUPERVISION === 0;
       await putScheduledEvent({
         type: 'BAN',
         data: serializeEventData(requireSupervision ? ['require_supervision'] : []),

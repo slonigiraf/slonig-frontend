@@ -56,7 +56,7 @@ function ExampleExercisesButton({ className = '', skill, location }: Props): Rea
           >
             <Modal.Content>
               <ExerciseList exercises={skill.q} location={location} />
-              {location === 'example_exercises' || location === 'example_solutions' && <FlagContainer>
+              {(location === 'example_exercises' || location === 'example_solutions') && <FlagContainer>
                 <Flag color={'green'} label={t('Hide it from your student!')} />
               </FlagContainer>}
               {location === 'example_exercises' && <FlagContainer>
