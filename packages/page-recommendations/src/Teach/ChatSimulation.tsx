@@ -61,7 +61,8 @@ const ChatSimulation: React.FC<ChatSimulationProps> = ({ messages, hasTutorCompl
             <MessageContainer $blur={!isVisible}>
               <Bubble>
                 <h2>{message.title}</h2>
-                <KatexSpan content={message.text} />
+                {message.text && <div><KatexSpan content={message.text} /></div>}
+                {message.exercise && <div><KatexSpan content={message.exercise} /></div>}
                 {message.image && (
                   <>
                     <br />

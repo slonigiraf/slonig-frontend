@@ -438,6 +438,7 @@ export interface Person {
 
 export interface IMessage {
   text: string;
+  exercise?: string;
   title: string | null;
   comment?: string;
   image?: string;

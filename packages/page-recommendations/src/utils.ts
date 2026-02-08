@@ -5,8 +5,18 @@ import BN from 'bn.js';
 import { BN_ZERO } from "@polkadot/util";
 
 export function quote(text: string) {
-  return `“ ${text} “`;
+  return leftQuote(rightQuote(text));
 }
+
+export function leftQuote(text: string) {
+  return `“ ${text}`;
+}
+
+export function rightQuote(text: string) {
+  return `${text} “`;
+}
+
+export const redoTutorialLessonId = 'REDO_TUTORIAL_LESSON';
 
 /**
  * Stores today's partners as a JSON array (history, can contain duplicates).

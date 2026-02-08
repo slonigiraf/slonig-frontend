@@ -2,7 +2,7 @@ import { AlgorithmStage, StageType } from './AlgorithmStage.js';
 import { Algorithm } from './Algorithm.js';
 import type { IMessage, Skill } from '@slonigiraf/slonig-components';
 import ExampleExercisesButton from './ExampleExercisesButton.js';
-import { quote } from '../utils.js';
+import { leftQuote, quote, rightQuote } from '../utils.js';
 
 export type ValidatingAlgorithmType = 'regular' | 'first_in_lesson';
 export interface ValidatingAlgorithmProps {
@@ -24,7 +24,7 @@ class ValidatingAlgorithm extends Algorithm {
         let exerciseImage2: string | undefined = questions.length > 0 ? questions[1].p : undefined;
 
         // Initialize all stages
-        const createSimilarExerciseMessage: IMessage = { title: t('🗣 Say to {{studentName}}', { replace: { studentName: studentName } }), text: quote(t('Create an exercise similar to this:') + ' ' + question1), image: exerciseImage1 };
+        const createSimilarExerciseMessage: IMessage = { title: t('🗣 Say to {{studentName}}', { replace: { studentName: studentName } }), text: leftQuote(t('Create an exercise similar to this:') + ' '), exercise: rightQuote(question1), image: exerciseImage1 };
         
         const validateDiploma = new AlgorithmStage(
             7,
@@ -82,7 +82,7 @@ class ValidatingAlgorithm extends Algorithm {
             t('No'),
             [
                 { title: t('📖 Read what’s happening'), text: t('{{studentName}} has not created a similar exercise.', { replace: { studentName: studentName } }) },
-                { title: t('🗣 Say to {{studentName}}', { replace: { studentName: studentName } }), text: quote(t('Repeat after me:') + ' ' + question2), image: exerciseImage2 },
+                { title: t('🗣 Say to {{studentName}}', { replace: { studentName: studentName } }), text: leftQuote(t('Repeat after me:') + ' '), exercise: rightQuote(question2), image: exerciseImage2 },
             ],
             t('Has {{studentName}} repeated correctly?', { replace: { studentName: studentName } })
         );

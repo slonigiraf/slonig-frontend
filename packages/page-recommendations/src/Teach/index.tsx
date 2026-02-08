@@ -3,20 +3,22 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { Button, Flag, LinearProgress, styled } from '@polkadot/react-components';
 import { u8aToHex } from '@polkadot/util';
-import { Confirmation, OKBox, FullFindow, VerticalCenterItemsContainer, useInfo, useLoginContext, HintBubble, useBooleanSettingValue, useLog, useNumberSettingValue, getIPFSDataFromContentID, parseJson, useIpfsContext, stringToNumber, bnToSlonFloatOrNaN, bnToSlonString, FullscreenActivity } from '@slonigiraf/slonig-components';
-import { LetterTemplate, Lesson, Reexamination, getPseudonym, getLesson, getLetterTemplatesByLessonId, getReexaminationsByLessonId, getSetting, storeSetting, putLesson, getLetter, SettingKey, deleteSetting, isThereAnyLessonResult, setSettingToTrue, getToRepeatLetterTemplatesByLessonId, getValidLetterTemplatesByLessonId } from '@slonigiraf/db';
+import { Confirmation, OKBox, FullFindow, VerticalCenterItemsContainer, useInfo, useLoginContext, HintBubble, useBooleanSettingValue, useLog, useNumberSettingValue, getIPFSDataFromContentID, parseJson, useIpfsContext, stringToNumber, bnToSlonFloatOrNaN, bnToSlonString, FullscreenActivity, LessonRequest } from '@slonigiraf/slonig-components';
+import { LetterTemplate, Lesson, Reexamination, getPseudonym, getLesson, getLetterTemplatesByLessonId, getReexaminationsByLessonId, getSetting, storeSetting, putLesson, getLetter, SettingKey, deleteSetting, isThereAnyLessonResult, setSettingToTrue, getToRepeatLetterTemplatesByLessonId, getValidLetterTemplatesByLessonId, deleteAllBanScheduledEvents, deleteLesson, storeLesson } from '@slonigiraf/db';
 import DoInstructions from './DoInstructions.js';
 import LessonsList from './LessonsList.js';
 import LessonResults from './LessonResults.js';
 import LessonRequestReceiver from './LessonRequestReceiver.js';
 import { useTranslation } from '../translate.js';
 import { useLocation, useNavigate } from 'react-router-dom';
-import { EXAMPLE_MODULE_KNOWLEDGE_CID, FAST_SKILL_DISCUSSION_MS, MAX_FAST_DISCUSSED_SKILLS_IN_ROW_COUNT, MAX_SAME_PARTNER_TIME_MS, MIN_SAME_PARTNER_TIME_MS, MIN_SKILL_DISCUSSION_MS, ONE_SUBJECT_PERIOD_MS } from '@slonigiraf/utils';
+import { EXAMPLE_MODULE_KNOWLEDGE_CID, EXAMPLE_MODULE_KNOWLEDGE_ID, EXAMPLE_SKILL_KNOWLEDGE_CID, EXAMPLE_SKILL_KNOWLEDGE_ID, FAST_SKILL_DISCUSSION_MS, MAX_FAST_DISCUSSED_SKILLS_IN_ROW_COUNT, MAX_SAME_PARTNER_TIME_MS, MIN_SAME_PARTNER_TIME_MS, MIN_SKILL_DISCUSSION_MS, ONE_SUBJECT_PERIOD_MS } from '@slonigiraf/utils';
 import BN from 'bn.js';
 import { TutorAction } from 'db/src/db/Lesson.js';
 import { LessonStat } from '../types.js';
 import LessonProcessInfo from './LessonProcessInfo.js';
 import RequestSupervision from './RequestSupervision.js';
+import { redoTutorialLessonId } from '../utils.js';
+import { useToggle } from '@polkadot/react-hooks';
 interface Props {
   className?: string;
 }
@@ -67,8 +69,13 @@ function Teach({ className = '' }: Props): React.ReactElement<Props> {
   const [reexaminations, setReexaminations] = useState<Reexamination[]>([]);
   const [areResultsShown, setResultsShown] = useState(false);
   const [isExitConfirmOpen, setIsExitConfirmOpen] = useState(false);
-  const hasTutorCompletedTutorial = useBooleanSettingValue(SettingKey.TUTOR_TUTORIAL_COMPLETED);
+  const tutorCompletedInitialTutorial = useBooleanSettingValue(SettingKey.TUTOR_TUTORIAL_COMPLETED);
+  const tutorShouldRedoTutorial = useBooleanSettingValue(SettingKey.REDO_TUTORIAL);
+
+  const hasTutorCompletedTutorial = tutorShouldRedoTutorial === true ? false : tutorCompletedInitialTutorial;
+
   const requireSupervision = useBooleanSettingValue(SettingKey.REQUIRE_SUPERVISION);
+  const redoTutorial = useBooleanSettingValue(SettingKey.REDO_TUTORIAL);
   const lastPartnerChangeTime = useNumberSettingValue(SettingKey.LAST_PARTNER_CHANGE_TIME);
   const [hasTuteeUsedSlonig, setHasTuteeUsedSlonig] = useState(false);
   const [isSendingResultsEnabled, setIsSendingResultsEnabled] = useState<boolean | undefined>(undefined);
@@ -83,6 +90,8 @@ function Teach({ className = '' }: Props): React.ReactElement<Props> {
   const [pageWasJustRefreshed, setPageWasJustRefreshed] = useState(true);
   const [lessonStat, setLessonStat] = useState<LessonStat | null>(null);
   const [lastLessonId, setLastLessonId] = useState<null | string>(null);
+  const [lastStudentId, setLastStudentId] = useState<null | string>(null);
+  const [isRedoTutorialHintShown, toggleIsRedoTutorialHintShown] = useToggle();
 
   useEffect(() => {
     showHelpQRInfo && setIsHelpQRInfoShown(true);
@@ -146,7 +155,9 @@ function Teach({ className = '' }: Props): React.ReactElement<Props> {
           lastBonus,
           dPrice: lesson.dPrice,
           dWarranty: lesson.dWarranty,
-        })
+        });
+
+        setLastStudentId(lesson.student);
 
       } catch (error) {
         console.error(error);
@@ -165,7 +176,9 @@ function Teach({ className = '' }: Props): React.ReactElement<Props> {
           const content = await getIPFSDataFromContentID(ipfs, lesson.cid);
           const json = parseJson(content);
           setLessonName(json.h);
-          setLastLessonId(lesson.id);
+          if (lesson.id !== redoTutorialLessonId) {
+            setLastLessonId(lesson.id);
+          }
           setIsPairChangeDialogueOpen(false);
 
           const lastLessonId = await getSetting(SettingKey.LAST_LESSON_ID);
@@ -419,7 +432,7 @@ function Teach({ className = '' }: Props): React.ReactElement<Props> {
     }
     run();
   }, [setReexamined, getLetter, setLetterTemplateToIssue,
-    setReexaminationToPerform, onShowResults, hasTutorCompletedTutorial]);
+    setReexaminationToPerform, hasTutorCompletedTutorial]);
 
   const onCloseTutoring = useCallback(async () => {
     await deleteSetting(SettingKey.LESSON);
@@ -501,12 +514,16 @@ function Teach({ className = '' }: Props): React.ReactElement<Props> {
     const sumResult = lessonStat.issuedBadgeCount + lessonStat.markedForRepeatCount + lessonStat.validatedBadgesCount + lessonStat.revokedBadgesCount;
     const ended = lessonStat.learnStep === lessonStat.askedToLearn && lessonStat.reexamineStep === lessonStat.askedForReexaminations;
     if (ended) {
-      if (sumResult) {
-        logEvent('TUTORING', 'LESSON_RESULTS', 'lesson_auto_send_opened');
-        onShowResults(lesson);
+      if (lesson.id === redoTutorialLessonId) {
+        onFinishRedoTutorial();
       } else {
-        logEvent('TUTORING', 'EXIT_LESSON_WITH_EMPTY_RESULTS');
-        onCloseTutoring();
+        if (sumResult) {
+          logEvent('TUTORING', 'LESSON_RESULTS', 'lesson_auto_send_opened');
+          onShowResults(lesson);
+        } else {
+          logEvent('TUTORING', 'EXIT_LESSON_WITH_EMPTY_RESULTS');
+          onCloseTutoring();
+        }
       }
     }
   }, [lessonStat, lesson]);
@@ -519,6 +536,45 @@ function Teach({ className = '' }: Props): React.ReactElement<Props> {
       await fetchLesson();
     }
   }, [getSetting, onCloseResults, storeSetting, fetchLesson]);
+
+  // Shows redo tutorial
+  useEffect(() => {
+    const showRedoTutorial = async () => {
+      if (!redoTutorial || !studentName || !lastStudentId) return;
+
+      if (areResultsShown) onCloseResults();
+      if (lesson) onCloseTutoring();
+
+      const lessonRequest: LessonRequest = {
+        cid: EXAMPLE_MODULE_KNOWLEDGE_CID,
+        kid: EXAMPLE_MODULE_KNOWLEDGE_ID,
+        learn: [[EXAMPLE_SKILL_KNOWLEDGE_ID, EXAMPLE_SKILL_KNOWLEDGE_CID, 'fakeDiplomaPublicKeyHex', '1']],
+        reexamine: [],
+        lesson: redoTutorialLessonId,
+        name: studentName,
+        identity: lastStudentId,
+      };
+
+      await storeLesson(lessonRequest, publicKeyHex, async () => { });
+      await fetchLesson();
+      toggleIsRedoTutorialHintShown();
+    };
+
+    showRedoTutorial();
+  }, [redoTutorial, areResultsShown, lesson, storeLesson, fetchLesson, toggleIsRedoTutorialHintShown]);
+
+  const onFinishRedoTutorial = useCallback(async () => {
+    await deleteAllBanScheduledEvents();
+    await deleteSetting(SettingKey.REDO_TUTORIAL);
+    await deleteLesson(redoTutorialLessonId);
+    if (lastLessonId) {
+      const lesson = await getLesson(lastLessonId);
+      if (lesson) {
+        setLesson(lesson);
+      }
+      showInfo(t('You can continue teaching'))
+    }
+  }, [deleteAllBanScheduledEvents, deleteSetting, lastLessonId, getLesson, setLesson, showInfo]);
 
   const clock = <ClockDiv>🕑</ClockDiv>;
 
@@ -602,12 +658,9 @@ function Teach({ className = '' }: Props): React.ReactElement<Props> {
             :
             <> {(areResultsShown && lessonStat) ? <LessonResults lesson={lesson} lessonStat={lessonStat} updateAndStoreLesson={updateAndStoreLesson} onClose={tryToCloseTutoring} onFinished={onCloseTutoring} /> : reexamAndDiplomaIssuing}</>
           }
-          {isExitConfirmOpen && (
-            <Confirmation question={t('Sure to exit tutoring?')} onClose={() => setIsExitConfirmOpen(false)} onConfirm={logEventAndCloseTutoring} />
-          )}
-          {isHelpQRInfoShown && (
-            <OKBox info={t('Tell the tutee to scan the same QR code.')} onClose={() => setIsHelpQRInfoShown(false)} />
-          )}
+          {isExitConfirmOpen && <Confirmation question={t('Sure to exit tutoring?')} onClose={() => setIsExitConfirmOpen(false)} onConfirm={logEventAndCloseTutoring} />}
+          {isHelpQRInfoShown && <OKBox info={t('Tell the tutee to scan the same QR code.')} onClose={() => setIsHelpQRInfoShown(false)} />}
+          {isRedoTutorialHintShown && <OKBox info={t('You taught incorrectly. Please redo this tutorial with your student.')} onClose={toggleIsRedoTutorialHintShown} />}
           {
             lesson && isPairChangeDialogueOpen && !areResultsShown && requireSupervision === undefined &&
             <Confirmation

@@ -2,7 +2,7 @@ import { AlgorithmStage, StageType } from './AlgorithmStage.js';
 import { Algorithm } from './Algorithm.js';
 import { IMessage, Skill } from '@slonigiraf/slonig-components';
 import ExampleExercisesButton from './ExampleExercisesButton.js';
-import { quote } from '../utils.js';
+import { leftQuote, quote, rightQuote } from '../utils.js';
 
 export type TutoringAlgorithmType = 'tutorial' | 'regular' | 'first_in_lesson';
 
@@ -31,7 +31,7 @@ class TutoringAlgorithm extends Algorithm {
         let exerciseImage2: string | undefined = questions.length > 0 ? questions[1].p : undefined;
 
         // Initialize all stages
-        const createSimilarExerciseMessage: IMessage = { title: t('🗣 Say to {{studentName}}', { replace: { studentName: studentName } }), text: quote(t('Create an exercise similar to this:') + ' ' + question1), image: exerciseImage1 };
+        const createSimilarExerciseMessage: IMessage = { title: t('🗣 Say to {{studentName}}', { replace: { studentName: studentName } }), text: leftQuote(t('Create an exercise similar to this:') + ' '), exercise: rightQuote(question1), image: exerciseImage1 };
 
         const issueBadge = new AlgorithmStage(
             5,
@@ -88,7 +88,7 @@ class TutoringAlgorithm extends Algorithm {
             t('No'),
             [
                 { title: t('📖 Read what’s happening'), text: t('{{studentName}} has not created a similar exercise.', { replace: { studentName: studentName } }) },
-                { title: t('🗣 Say to {{studentName}}', { replace: { studentName: studentName } }), text: quote(t('Repeat after me:') + ' ' + question2), image: exerciseImage2 },
+                { title: t('🗣 Say to {{studentName}}', { replace: { studentName: studentName } }), text: leftQuote(t('Repeat after me:') + ' '), exercise: rightQuote(question2), image: exerciseImage2 },
             ],
             t('Has {{studentName}} repeated correctly?', { replace: { studentName: studentName } })
         );
@@ -151,9 +151,9 @@ class TutoringAlgorithm extends Algorithm {
             t('Start'),
             [
                 { title: t('📖 Read what’s happening'), text: t('{{studentName}} wants to learn a new skill.', { replace: { studentName: studentName } }) },
-                { title: t('🗣 Say to {{studentName}}', { replace: { studentName: studentName } }), text: quote(question1), image: exerciseImage1 },
+                { title: t('🗣 Ask {{studentName}}', { replace: { studentName: studentName } }), text: '', exercise: quote(question1), image: exerciseImage1 },
             ],
-            t('Has {{studentName}} now executed the exercise correctly?', { replace: { studentName: studentName } }),
+            t('Has {{studentName}} answered correctly?', { replace: { studentName: studentName } }),
             <ExampleExercisesButton skill={skill} location='example_exercises_and_solutions' />
         );
 
