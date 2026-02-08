@@ -227,5 +227,8 @@
   "🗣 Ask {{studentName}} to repeat the correct solution from memory": "🗣 Ask {{studentName}} to repeat the correct solution from memory",
   "Try pressing the “No” button to see the example answers": "Try pressing the “No” button to see the example answers",
   "After completing the training, you’ll be able to press it. Now try another button": "After completing the training, you’ll be able to press it. Now try another button",
-  "Please teach more slowly and follow all the hints carefully": "Please teach more slowly and follow all the hints carefully"
+  "Please teach more slowly and follow all the hints carefully": "Please teach more slowly and follow all the hints carefully",
+  "Remind the student to pretend they don’t know the skill and can’t come up with a similar exercise on the first try.": "Remind the student to pretend they don’t know the skill and can’t come up with a similar exercise on the first try.",
+  "Remind the student to pretend they don’t know the skill": "Remind the student to pretend they don’t know the skill",
+  "Remind the student to pretend they don’t know the skill and can’t come up with a similar exercise on the first try": "Remind the student to pretend they don’t know the skill and can’t come up with a similar exercise on the first try"
 }

@@ -338,7 +338,7 @@ function DoInstructions({ className = '', entity, eventCategory, lessonStat, any
     }
   }, [lastPressingNextButtonTime, logEvent, showOkBoxInfo, setButtonsBlured]);
 
-  const reminderForTutorialStudent = t('Remind the student to pretend they don’t know the skill.');
+  const reminderForTutorialStudent = t('Remind the student to pretend they don’t know the skill');
 
   const handleStageChange = useCallback(async (nextStage: AlgorithmStage | null, logAction?: () => void) => {
     if (nextStage !== null && algorithmStage) {
@@ -424,7 +424,7 @@ function DoInstructions({ className = '', entity, eventCategory, lessonStat, any
         if (didCorrectExercise) {
           await action();
         } else {
-          await preserveFromNoobs(action, async () => setIsButtonClicked(false), 'create_similar_exercise', t('Remind the student to pretend they don’t know the skill, so they won’t create a similar exercise on the first attempt.'));
+          await preserveFromNoobs(action, async () => setIsButtonClicked(false), 'create_similar_exercise', t('Remind the student to pretend they don’t know the skill and can’t come up with a similar exercise on the first try'));
         }
       } else if (isLetterTemplate(entity) && (nextStage.getType() === StageType.repeat_tomorrow)) {
         logStageTime();
