@@ -15,6 +15,7 @@ import ChatSimulation from './ChatSimulation.js';
 import { ErrorType } from '@polkadot/react-params';
 import { EXAMPLE_SKILL_KNOWLEDGE_CID, MAX_COUNT_WITHOUT_CORRECT_FAKE_IN_RAW, MIN_USING_HINT_MS, ONE_SUBJECT_PERIOD_MS } from '@slonigiraf/utils';
 import { LessonStat } from '../types.js';
+import { useToggle } from '@polkadot/react-hooks';
 
 export type EventActionType = 'TEACH' | 'REEXAMINE' | 'WARM_UP' | 'RE_WARM_UP';
 interface Props {
@@ -78,6 +79,7 @@ function DoInstructions({ className = '', entity, eventCategory, lessonStat, any
   const [previousTeachingStagesDuration, setPreviousTeachingStagesDuration] = useState(0);
   const [didCorrectFakeSolution, setDidCorrectFakeSolution] = useState(false);
   const [didCorrectExercise, setDidCorrectExercise] = useState(false);
+  const [isUnsure, toggleIsUnsure] = useToggle();
 
   const isLetterTemplate = useCallback((entity: LetterTemplate | Reexamination) => {
     return 'knowledgeId' in entity;
@@ -562,6 +564,23 @@ function DoInstructions({ className = '', entity, eventCategory, lessonStat, any
                   )}
               </InstructionsButtonsGroup>
 
+              <InstructionsButtonsGroup>
+                {algorithmStage.getType() === StageType.provide_fake_solution && (
+                  <Button
+                    className='noHighlight'
+                    key={algorithmStage.getId() + 'unsure'}
+                    onClick={() => {
+                      logEvent('TUTORING', algorithmType, 'click_unsure');
+                      toggleIsUnsure();
+                    }
+                    }
+                    icon='circle-question'
+                    label={t('I’m not sure myself')}
+                    isDisabled={isButtonClicked}
+                  />
+                )}
+              </InstructionsButtonsGroup>
+
             </DecisionBubble>
             {hasTutorCompletedTutorial === false &&
               isChatFinished && areButtonsBlured && (
@@ -578,6 +597,7 @@ function DoInstructions({ className = '', entity, eventCategory, lessonStat, any
           {tooFastConfirmationIsShown && (
             <OKBox info={t('Please teach more slowly and follow all the hints carefully.')} onClose={() => setTooFastConfirmationIsShown(false)} />
           )}
+          {isUnsure && <OKBox info={t('Press “No,” see the example answers, then press “Back”')} onClose={toggleIsUnsure} /> }
         </InstructionsContainer>
       ) : (
         <div>Error: Reload the page</div>
