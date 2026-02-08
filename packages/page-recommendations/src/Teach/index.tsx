@@ -239,9 +239,6 @@ function Teach({ className = '' }: Props): React.ReactElement<Props> {
 
     const now = (new Date()).getTime();
     const timeSpent = now - lastSkillDiscussedTime;
-
-
-
     setLastSkillDiscussedTime(now);
 
     const actionNameTeachTime = `${teachingEventCategory}_SKILL_TIME`;
