@@ -32,7 +32,6 @@ Here is a list of user actions tracked by Slonig:
 | ✅ | ONBOARDING | BACKUP_ERROR | N/A | N/A |
 | ✅ | ONBOARDING | RESTORE_SUCCESS | restore_success_kb | backup file size |
 | ✅ | ONBOARDING | RESTORE_ERROR | restore_error_kb | backup file size |
-| ✅ | ONBOARDING | TOO_SHORT_USING_HINT_TIME | too_short_using_hint_time_sec | sec |
 | ✅ | ONBOARDING | TUTOR_TUTORIAL_COMPLETED | N/A | N/A |
 | ✅ | ONBOARDING | TUTEE_TUTORIAL_COMPLETED | N/A | N/A |
 | ✅ | ONBOARDING | ASSESSMENT_TUTORIAL_COMPLETED | N/A | N/A |
@@ -77,6 +76,7 @@ Here is a list of user actions tracked by Slonig:
 | ✅ | EXAMPLES | SHOW_ANSWERS | show_asnwers_at_teach | N/A |
 | ✅ | EXAMPLES | SHOW_ANSWERS | show_asnwers_at_reexamine | N/A |
 | ✅ | PROGRESS | PROGRESS_PERCENTAGE | Knowledge name | percentage |
+| ✅ | TUTORING | TOO_SHORT_USING_HINT | N/A | N/A |
 | ✅ | TUTORING | BAN | ban_{reason} | N/A |
 | ✅ | TUTORING | BAN | unban_after_sec | sec |
 | ✅ | TUTORING | BAN_COUNT | ban_count_${currentBanCount} | N/A |
