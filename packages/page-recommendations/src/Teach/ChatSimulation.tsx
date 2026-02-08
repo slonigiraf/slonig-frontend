@@ -132,6 +132,7 @@ const NextOverlay = styled.div`
   pointer-events: none;
   button {
     pointer-events: all;
+    transform: translateY(-10px);
   }
 `;
 
