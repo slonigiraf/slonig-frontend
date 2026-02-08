@@ -3,7 +3,7 @@ import { Button, styled } from '@polkadot/react-components';
 import { useTranslation } from '../translate.js';
 import { Exercise, ResizableImage, KatexSpan, useLog } from '@slonigiraf/slonig-components';
 
-export type ExerciseListLocation = 'item_preview' | 'skill_template_info' | 'view_list' | 'example_exercises' | 'example_exercises_and_solutions';
+export type ExerciseListLocation = 'item_preview' | 'skill_template_info' | 'view_list' | 'example_exercises' | 'example_solutions';
 interface ExerciseListProps {
     exercises: Exercise[];
     areShownInitially?: boolean;

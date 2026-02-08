@@ -58,7 +58,7 @@ class TutoringAlgorithm extends Algorithm {
                 { title: t('🗣 Ask {{studentName}} to repeat the correct solution from memory', { replace: { studentName: studentName } }), text: '' },
             ],
             t('Has {{studentName}} repeated correctly?', { replace: { studentName: studentName } }),
-            <ExampleExercisesButton skill={skill} location='example_exercises_and_solutions' />
+            <ExampleExercisesButton skill={skill} location='example_solutions' />
         );
 
         const askStudentToRepeatTheSolutionOfExerciseOfTutor = new AlgorithmStage(
@@ -156,7 +156,7 @@ class TutoringAlgorithm extends Algorithm {
                 { title: t('🗣 Ask {{studentName}}', { replace: { studentName: studentName } }), text: '', exercise: quote(question1), image: exerciseImage1 },
             ],
             t('Has {{studentName}} answered correctly?', { replace: { studentName: studentName } }),
-            <ExampleExercisesButton skill={skill} location='example_exercises_and_solutions' />
+            <ExampleExercisesButton skill={skill} location='example_solutions' />
         );
 
         const repeatFromTheBeginning = new AlgorithmStage(
