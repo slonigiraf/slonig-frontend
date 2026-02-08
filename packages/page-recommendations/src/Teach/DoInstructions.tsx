@@ -410,7 +410,7 @@ function DoInstructions({ className = '', entity, eventCategory, lessonStat, any
         if (didCorrectExercise) {
           await action();
         } else {
-          await preserveFromNoobs(action, async () => setIsButtonClicked(false), 'create_similar_exercise', reminderForTutorialStudent);
+          await preserveFromNoobs(action, async () => setIsButtonClicked(false), 'create_similar_exercise', t('Remind the student to pretend they don’t know the skill, so they won’t create a similar exercise on the first attempt.'));
         }
       } else if (isLetterTemplate(entity) && (nextStage.getType() === StageType.repeat_tomorrow)) {
         logStageTime();
