@@ -4,7 +4,7 @@ import { IMessage, Skill } from '@slonigiraf/slonig-components';
 import ExampleExercisesButton from './ExampleExercisesButton.js';
 import { leftQuote, quote, rightQuote } from '../utils.js';
 
-export type TutoringAlgorithmType = 'tutorial' | 'regular' | 'first_in_lesson';
+export type TutoringAlgorithmType = 'tutorial' | 'redo_tutorial' | 'regular' | 'first_in_lesson';
 
 export interface TutoringAlgorithmProps {
     variation: TutoringAlgorithmType;
@@ -148,7 +148,7 @@ class TutoringAlgorithm extends Algorithm {
         const askStudentToSolveAnExercise = new AlgorithmStage(
             1,
             StageType.begin_ask_to_solve_exercise,
-            t('Start'),
+            t('Next'),
             [
                 { title: t('📖 Read what’s happening'), text: t('{{studentName}} wants to learn a new skill.', { replace: { studentName: studentName } }) },
                 { title: t('🗣 Ask {{studentName}}', { replace: { studentName: studentName } }), text: '', exercise: quote(question1), image: exerciseImage1 },
@@ -176,7 +176,7 @@ class TutoringAlgorithm extends Algorithm {
             []
         );
 
-        if (variation === 'tutorial') {
+        if (variation === 'tutorial' || variation === 'redo_tutorial') {
             this.begin = firstTimeIntro;
         } else if (variation === 'first_in_lesson') {
             this.begin = closeNotes;
@@ -184,7 +184,12 @@ class TutoringAlgorithm extends Algorithm {
             this.begin = askStudentToCreateASimilarExercise;
         }
 
-        firstTimeIntro.setNext([askStudentToSolveAnExercise]);
+        if (variation === 'tutorial') {
+            firstTimeIntro.setNext([askStudentToSolveAnExercise]);
+        } else if (variation === 'redo_tutorial') {
+            firstTimeIntro.setNext([askStudentToCreateASimilarExercise]);
+        }
+
 
         closeNotes.setNext([askStudentToCreateASimilarExercise])
 
