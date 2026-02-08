@@ -80,8 +80,7 @@ function DoInstructions({ className = '', entity, eventCategory, lessonStat, any
   const [previousTeachingStagesDuration, setPreviousTeachingStagesDuration] = useState(0);
   const [didCorrectFakeSolution, setDidCorrectFakeSolution] = useState(false);
   const [didCorrectExercise, setDidCorrectExercise] = useState(false);
-  const [isUnsure, toggleIsUnsure] = useToggle();
-  
+
   const showOkBoxInfo = useCallback((info: string) => {
     setOkboxInfo(info);
     toggleIsOkBoxOpen();
@@ -291,7 +290,7 @@ function DoInstructions({ className = '', entity, eventCategory, lessonStat, any
 
 
   const preserveFromNoobs = useCallback(
-    async (run: () => Promise<void>, fallback: () => Promise<void>, actionType: string, info: string = t('After completing the training, you’ll be able to press it. Now try another button.')) => {
+    async (run: () => Promise<void>, fallback: () => Promise<void>, actionType: string, info: string = t('After completing the training, you’ll be able to press it. Now try another button')) => {
       if (hasTutorCompletedTutorial) {
         await run();
       } else {
@@ -332,7 +331,7 @@ function DoInstructions({ className = '', entity, eventCategory, lessonStat, any
     const timeSpent = now - lastPressingNextButtonTime;
     if (timeSpent < MIN_USING_HINT_MS) {
       logEvent('TUTORING', 'TOO_SHORT_USING_HINT');
-      showOkBoxInfo(t('Please teach more slowly and follow all the hints carefully.'));
+      showOkBoxInfo(t('Please teach more slowly and follow all the hints carefully'));
     } else {
       setLastPressingNextButtonTime(now);
       setButtonsBlured(false);
@@ -571,20 +570,20 @@ function DoInstructions({ className = '', entity, eventCategory, lessonStat, any
               </InstructionsButtonsGroup>
 
               <InstructionsButtonsGroup>
-                {algorithmStage.getType() === StageType.provide_fake_solution && (
-                  <Button
+                {hasTutorCompletedTutorial
+                  && algorithmStage.getType() === StageType.provide_fake_solution
+                  && <Button
                     className='noHighlight'
                     key={algorithmStage.getId() + 'unsure'}
                     onClick={() => {
                       logEvent('TUTORING', algorithmType, 'click_unsure');
-                      toggleIsUnsure();
-                    }
-                    }
+                      showOkBoxInfo(t('Try pressing the “No” button to see the example answers'));
+                    }}
                     icon='circle-question'
                     label={t('I’m not sure myself')}
                     isDisabled={isButtonClicked}
                   />
-                )}
+                }
               </InstructionsButtonsGroup>
 
             </DecisionBubble>

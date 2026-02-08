@@ -225,5 +225,7 @@
   "🗣 Ask {{studentName}} to correct": "🗣 Ask {{studentName}} to correct",
   "🗣 Show {{studentName}} the correct solution to the exercise they created": "🗣 Show {{studentName}} the correct solution to the exercise they created",
   "🗣 Ask {{studentName}} to repeat the correct solution from memory": "🗣 Ask {{studentName}} to repeat the correct solution from memory",
-  "Try pressing the “No” button to see the example answers": "Try pressing the “No” button to see the example answers"
+  "Try pressing the “No” button to see the example answers": "Try pressing the “No” button to see the example answers",
+  "After completing the training, you’ll be able to press it. Now try another button": "After completing the training, you’ll be able to press it. Now try another button",
+  "Please teach more slowly and follow all the hints carefully": "Please teach more slowly and follow all the hints carefully"
 }
