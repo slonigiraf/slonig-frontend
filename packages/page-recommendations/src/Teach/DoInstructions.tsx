@@ -562,7 +562,7 @@ function DoInstructions({ className = '', entity, lessonStat, anythingToLearn = 
                                 icon='circle-exclamation'
                                 key='repeatTomorrow'
                                 label={t('Should be repeated tomorrow')}
-                                onClick={() => preserveFromNoobs(repeatTomorrow, async () => { }, 'fast_mark_repeat')}
+                                onClick={() => preserveFromNoobs(repeatTomorrow, async () => { }, 'instant_mark_repeat')}
                               />
                             </>
                           )}
