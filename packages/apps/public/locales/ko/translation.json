@@ -657,8 +657,9 @@
   "🕑 {{min}} minutes ago": "🕑 {{min}} 분 전",
   "🗣 Ask {{studentName}}": "🗣 {{studentName}}에게 물어봐",
   "🗣 Ask {{studentName}} to correct": "🗣 {{studentName}}에게 수정해 달라고 해",
+  "🗣 Ask {{studentName}} to repeat the correct solution from memory": "🗣 {{studentName}}에게 기억에서 올바른 해결책을 반복해보라고 해",
   "🗣 Give {{studentName}} a wrong answer to the exercise they created": "🗣 {{studentName}}가 만든 연습 문제에 잘못된 답을 주어",
   "🗣 Say to {{studentName}}": "🗣 {{studentName}}에게 말해",
-  "🗣 Show {{studentName}} the correct solution to the exercise they created and ask them to repeat it from memory": "🗣 {{studentName}}에게 그들이 만든 연습문제의 올바른 해결책을 보여주고, 기억해서 반복해보라고 해줘",
+  "🗣 Show {{studentName}} the correct solution to the exercise they created": "🗣 {{studentName}}가 만든 연습문제의 올바른 해결책을 보여줘",
   "🚫 Your lesson is paused because it requires teacher supervision": "🚫 수업이 선생님의 감독이 필요해 중단되었어"
 }

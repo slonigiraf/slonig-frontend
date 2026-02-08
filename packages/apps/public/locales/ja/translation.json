@@ -657,8 +657,9 @@
   "🕑 {{min}} minutes ago": "🕑 {{min}} 分前",
   "🗣 Ask {{studentName}}": "🗣 {{studentName}}に聞いてみて",
   "🗣 Ask {{studentName}} to correct": "🗣 {{studentName}} に修正を頼む",
+  "🗣 Ask {{studentName}} to repeat the correct solution from memory": "🗣 {{studentName}} に正しい解答を思い出して繰り返すように頼んで",
   "🗣 Give {{studentName}} a wrong answer to the exercise they created": "🗣 {{studentName}} が作成した演習に間違った答えを与える",
   "🗣 Say to {{studentName}}": "🗣 {{studentName}}に言って。",
-  "🗣 Show {{studentName}} the correct solution to the exercise they created and ask them to repeat it from memory": "🗣 {{studentName}} に作成した演習の正しい解答を見せて、記憶から繰り返すように頼んでね",
+  "🗣 Show {{studentName}} the correct solution to the exercise they created": "🗣 {{studentName}} が作成した問題の正しい解答を見せて",
   "🚫 Your lesson is paused because it requires teacher supervision": "🚫 あなたのレッスンは先生の監督が必要なため、一時停止されています"
 }

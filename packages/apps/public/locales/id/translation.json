@@ -657,8 +657,9 @@
   "🕑 {{min}} minutes ago": "🕑 {{min}} menit yang lalu",
   "🗣 Ask {{studentName}}": "🗣 Tanya {{studentName}}",
   "🗣 Ask {{studentName}} to correct": "🗣 Minta {{studentName}} untuk memperbaiki",
+  "🗣 Ask {{studentName}} to repeat the correct solution from memory": "🗣 Minta {{studentName}} untuk mengulang solusi yang benar dari ingatan",
   "🗣 Give {{studentName}} a wrong answer to the exercise they created": "🗣 Beri {{studentName}} jawaban yang salah untuk latihan yang mereka buat",
   "🗣 Say to {{studentName}}": "🗣 Katakan kepada {{studentName}}",
-  "🗣 Show {{studentName}} the correct solution to the exercise they created and ask them to repeat it from memory": "🗣 Tunjukkan {{studentName}} solusi yang benar untuk latihan yang mereka buat dan minta mereka mengulangnya dari ingatan",
+  "🗣 Show {{studentName}} the correct solution to the exercise they created": "🗣 Tunjukkan {{studentName}} solusi yang benar untuk latihan yang mereka buat",
   "🚫 Your lesson is paused because it requires teacher supervision": "🚫 Pelajaranmu dijeda karena memerlukan pengawasan guru"
 }

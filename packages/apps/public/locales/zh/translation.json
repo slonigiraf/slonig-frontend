@@ -657,8 +657,9 @@
   "🕑 {{min}} minutes ago": "🕑 {{min}} 分钟前",
   "🗣 Ask {{studentName}}": "🗣 问 {{studentName}}",
   "🗣 Ask {{studentName}} to correct": "🗣 让{{studentName}}纠正",
+  "🗣 Ask {{studentName}} to repeat the correct solution from memory": "🗣 请{{studentName}}回忆并重复正确的答案",
   "🗣 Give {{studentName}} a wrong answer to the exercise they created": "🗣 给{{studentName}}一个错误的答案到他们创建的练习",
   "🗣 Say to {{studentName}}": "🗣 对{{studentName}}说",
-  "🗣 Show {{studentName}} the correct solution to the exercise they created and ask them to repeat it from memory": "🗣 向{{studentName}}展示他们创建的练习的正确解决方案，并让他们凭记忆重复一遍",
+  "🗣 Show {{studentName}} the correct solution to the exercise they created": "🗣 给{{studentName}}展示他们创建的练习的正确解决方案",
   "🚫 Your lesson is paused because it requires teacher supervision": "🚫 你的课程已暂停，因为需要老师的监督"
 }

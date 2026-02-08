@@ -657,8 +657,9 @@
   "🕑 {{min}} minutes ago": "🕑 {{min}} минут назад",
   "🗣 Ask {{studentName}}": "🗣 Спроси {{studentName}}",
   "🗣 Ask {{studentName}} to correct": "🗣 Попроси {{studentName}} исправить",
+  "🗣 Ask {{studentName}} to repeat the correct solution from memory": "🗣 Попроси {{studentName}} повторить правильное решение по памяти",
   "🗣 Give {{studentName}} a wrong answer to the exercise they created": "🗣 Дай {{studentName}} неправильный ответ на упражнение, которое он(а) придумал(а)",
   "🗣 Say to {{studentName}}": "🗣 Скажи {{studentName}}",
-  "🗣 Show {{studentName}} the correct solution to the exercise they created and ask them to repeat it from memory": "🗣 Покажи {{studentName}} правильное решение упражнения, которое он(а) придумал(а), и попроси их повторить решение по памяти",
+  "🗣 Show {{studentName}} the correct solution to the exercise they created": "🗣 Покажи {{studentName}} правильное решение упражнения, которое он(а) придумал(а)",
   "🚫 Your lesson is paused because it requires teacher supervision": "🚫 Твой урок приостановлен, так как требуется контроль учителя"
 }

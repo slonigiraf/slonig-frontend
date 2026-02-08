@@ -657,8 +657,9 @@
   "🕑 {{min}} minutes ago": "🕑 há {{min}} minutos",
   "🗣 Ask {{studentName}}": "🗣 Pergunte ao {{studentName}}",
   "🗣 Ask {{studentName}} to correct": "🗣 Pergunta ao {{studentName}} para corrigir",
+  "🗣 Ask {{studentName}} to repeat the correct solution from memory": "🗣 Pergunte ao {{studentName}} para repetir a solução correta de memória",
   "🗣 Give {{studentName}} a wrong answer to the exercise they created": "🗣 Dá ao {{studentName}} uma resposta errada para o exercício que ele criou",
   "🗣 Say to {{studentName}}": "🗣 Diga a {{studentName}}",
-  "🗣 Show {{studentName}} the correct solution to the exercise they created and ask them to repeat it from memory": "🗣 Mostra {{studentName}} a solução correta do exercício que ele criou e pede para repetir de memória",
+  "🗣 Show {{studentName}} the correct solution to the exercise they created": "🗣 Mostre ao {{studentName}} a solução correta do exercício que ele criou",
   "🚫 Your lesson is paused because it requires teacher supervision": "🚫 Sua aula está pausada porque requer supervisão do professor"
 }
