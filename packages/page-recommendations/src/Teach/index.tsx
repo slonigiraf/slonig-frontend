@@ -541,7 +541,11 @@ function Teach({ className = '' }: Props): React.ReactElement<Props> {
   // Shows redo tutorial
   useEffect(() => {
     const showRedoTutorial = async () => {
-      if (!redoTutorial || !studentName || !lastStudentId) return;
+      if (!redoTutorial || !studentName || !lastStudentId || (lastLessonId === redoTutorialLessonId)) return;
+
+      if (lastLessonId) {
+        await storeSetting(SettingKey.FALLBACK_LESSON_ID, lastLessonId);
+      }
 
       onCloseResults();
 
@@ -561,7 +565,7 @@ function Teach({ className = '' }: Props): React.ReactElement<Props> {
     };
 
     showRedoTutorial();
-  }, [redoTutorial, storeLesson, fetchLesson, toggleIsRedoTutorialHintShown]);
+  }, [redoTutorial, lastLessonId, storeLesson, fetchLesson, toggleIsRedoTutorialHintShown]);
 
   const onFinishRedoTutorial = useCallback(async () => {
     await deleteAllBanScheduledEvents();
@@ -569,13 +573,16 @@ function Teach({ className = '' }: Props): React.ReactElement<Props> {
     await deleteLesson(redoTutorialLessonId);
     await onCloseResults();
 
-    if (lastLessonId) {
-      await storeSetting(SettingKey.LESSON, lastLessonId);
+    const fallbackLessonId = await getSetting(SettingKey.FALLBACK_LESSON_ID);
+
+    if (fallbackLessonId) {
+      await deleteSetting(SettingKey.FALLBACK_LESSON_ID);
+      await storeSetting(SettingKey.LESSON, fallbackLessonId);
       await fetchLesson();
     }
 
     toggleIsCanContinueTeachingHintShown();
-  }, [deleteAllBanScheduledEvents, deleteSetting, lastLessonId, getLesson, setLesson, showInfo]);
+  }, [deleteAllBanScheduledEvents, deleteSetting, getLesson, setLesson, showInfo]);
 
   const clock = <ClockDiv>🕑</ClockDiv>;
 
