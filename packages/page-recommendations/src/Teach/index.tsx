@@ -92,6 +92,7 @@ function Teach({ className = '' }: Props): React.ReactElement<Props> {
   const [lastLessonId, setLastLessonId] = useState<null | string>(null);
   const [lastStudentId, setLastStudentId] = useState<null | string>(null);
   const [isRedoTutorialHintShown, toggleIsRedoTutorialHintShown] = useToggle();
+  const [isCanContinueTeachingHintShown, toggleIsCanContinueTeachingHintShown] = useToggle();
 
   useEffect(() => {
     showHelpQRInfo && setIsHelpQRInfoShown(true);
@@ -571,8 +572,9 @@ function Teach({ className = '' }: Props): React.ReactElement<Props> {
     if (lastLessonId) {
       await storeSetting(SettingKey.LESSON, lastLessonId);
       await fetchLesson();
-      showInfo(t('You can continue teaching'))
     }
+
+    toggleIsCanContinueTeachingHintShown();
   }, [deleteAllBanScheduledEvents, deleteSetting, lastLessonId, getLesson, setLesson, showInfo]);
 
   const clock = <ClockDiv>🕑</ClockDiv>;
@@ -658,8 +660,10 @@ function Teach({ className = '' }: Props): React.ReactElement<Props> {
             <> {(areResultsShown && lessonStat) ? <LessonResults lesson={lesson} lessonStat={lessonStat} updateAndStoreLesson={updateAndStoreLesson} onClose={tryToCloseTutoring} onFinished={onCloseTutoring} /> : reexamAndDiplomaIssuing}</>
           }
           {isExitConfirmOpen && <Confirmation question={t('Sure to exit tutoring?')} onClose={() => setIsExitConfirmOpen(false)} onConfirm={logEventAndCloseTutoring} />}
-          {isHelpQRInfoShown && <OKBox info={t('Tell the tutee to scan the same QR code.')} onClose={() => setIsHelpQRInfoShown(false)} />}
-          {isRedoTutorialHintShown && <OKBox info={t('You taught incorrectly. Please redo this training with your student.')} onClose={toggleIsRedoTutorialHintShown} />}
+          {isHelpQRInfoShown && <OKBox info={t('Tell the tutee to scan the same QR code')} onClose={() => setIsHelpQRInfoShown(false)} />}
+          {isRedoTutorialHintShown && <OKBox info={t('You taught incorrectly. Please redo this training with your student')} onClose={toggleIsRedoTutorialHintShown} />}
+
+          {isCanContinueTeachingHintShown && <OKBox info={t('You can continue teaching')} onClose={toggleIsCanContinueTeachingHintShown} />}
           {
             lesson && isPairChangeDialogueOpen && !areResultsShown && requireSupervision === undefined &&
             <Confirmation
