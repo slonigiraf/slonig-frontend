@@ -542,8 +542,7 @@ function Teach({ className = '' }: Props): React.ReactElement<Props> {
     const showRedoTutorial = async () => {
       if (!redoTutorial || !studentName || !lastStudentId) return;
 
-      if (areResultsShown) onCloseResults();
-      if (lesson) onCloseTutoring();
+      onCloseResults();
 
       const lessonRequest: LessonRequest = {
         cid: EXAMPLE_MODULE_KNOWLEDGE_CID,
@@ -561,17 +560,17 @@ function Teach({ className = '' }: Props): React.ReactElement<Props> {
     };
 
     showRedoTutorial();
-  }, [redoTutorial, areResultsShown, lesson, storeLesson, fetchLesson, toggleIsRedoTutorialHintShown]);
+  }, [redoTutorial, storeLesson, fetchLesson, toggleIsRedoTutorialHintShown]);
 
   const onFinishRedoTutorial = useCallback(async () => {
     await deleteAllBanScheduledEvents();
     await deleteSetting(SettingKey.REDO_TUTORIAL);
     await deleteLesson(redoTutorialLessonId);
+    await onCloseResults();
+
     if (lastLessonId) {
-      const lesson = await getLesson(lastLessonId);
-      if (lesson) {
-        setLesson(lesson);
-      }
+      await storeSetting(SettingKey.LESSON, lastLessonId);
+      await fetchLesson();
       showInfo(t('You can continue teaching'))
     }
   }, [deleteAllBanScheduledEvents, deleteSetting, lastLessonId, getLesson, setLesson, showInfo]);
