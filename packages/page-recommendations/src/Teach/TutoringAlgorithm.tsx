@@ -77,7 +77,8 @@ class TutoringAlgorithm extends Algorithm {
             t('Yes'),
             [
                 { title: t('📖 Read what’s happening'), text: t('{{studentName}} has created an exercise.', { replace: { studentName: studentName } }) },
-                { title: t('🗣 Give {{studentName}} a wrong answer to the exercise they created and ask them to correct', { replace: { studentName: studentName } }), text: '' },
+                { title: t('🗣 Give {{studentName}} a wrong answer to the exercise they created', { replace: { studentName: studentName } }), text: '' },
+                { title: t('🗣 Ask {{studentName}} to correct', { replace: { studentName: studentName } }), text: '' },
             ],
             t('Has {{studentName}} corrected the wrong answer on their own, without any hints and guiding questions?', { replace: { studentName: studentName } }),
         );

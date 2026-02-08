@@ -656,7 +656,8 @@
   "📖 Read what’s happening": "📖 Lies, was passiert",
   "🕑 {{min}} minutes ago": "🕑 Vor {{min}} Minuten",
   "🗣 Ask {{studentName}}": "🗣 Frag {{studentName}}",
-  "🗣 Give {{studentName}} a wrong answer to the exercise they created and ask them to correct": "🗣 Gib {{studentName}} eine falsche Antwort auf die Übung, die sie erstellt haben, und bitte sie, diese zu korrigieren",
+  "🗣 Ask {{studentName}} to correct": "🗣 Frag {{studentName}}, ob er/sie korrigieren kann",
+  "🗣 Give {{studentName}} a wrong answer to the exercise they created": "🗣 Gib {{studentName}} eine falsche Antwort auf die Übung, die er/sie erstellt hat",
   "🗣 Say to {{studentName}}": "🗣 Sage zu {{studentName}}",
   "🗣 Show {{studentName}} the correct solution to the exercise they created and ask them to repeat it from memory": "🗣 Zeig {{studentName}} die richtige Lösung für die Übung, die sie erstellt haben, und bitte sie, diese aus dem Gedächtnis zu wiederholen",
   "🚫 Your lesson is paused because it requires teacher supervision": "🚫 Deine Lektion ist pausiert, weil sie die Aufsicht eines Lehrers erfordert"

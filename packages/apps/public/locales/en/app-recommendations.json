@@ -220,5 +220,7 @@
   "I’m not sure myself": "I’m not sure myself",
   "Press “No,” see the example answers, then press “Back”": "Press “No,” see the example answers, then press “Back”",
   "Remind the student to pretend they don’t know the skill, so they’re unlikely to create a similar exercise on the first attempt.": "Remind the student to pretend they don’t know the skill, so they’re unlikely to create a similar exercise on the first attempt.",
-  "Remind the student to pretend they don’t know the skill, so they won’t create a similar exercise on the first attempt.": "Remind the student to pretend they don’t know the skill, so they won’t create a similar exercise on the first attempt."
+  "Remind the student to pretend they don’t know the skill, so they won’t create a similar exercise on the first attempt.": "Remind the student to pretend they don’t know the skill, so they won’t create a similar exercise on the first attempt.",
+  "🗣 Give {{studentName}} a wrong answer to the exercise they created": "🗣 Give {{studentName}} a wrong answer to the exercise they created",
+  "🗣 Ask {{studentName}} to correct": "🗣 Ask {{studentName}} to correct"
 }

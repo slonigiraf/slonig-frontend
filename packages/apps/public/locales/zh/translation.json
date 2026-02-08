@@ -656,7 +656,8 @@
   "📖 Read what’s happening": "📖 阅读正在发生的内容",
   "🕑 {{min}} minutes ago": "🕑 {{min}} 分钟前",
   "🗣 Ask {{studentName}}": "🗣 问 {{studentName}}",
-  "🗣 Give {{studentName}} a wrong answer to the exercise they created and ask them to correct": "🗣 给 {{studentName}} 他们创建的练习一个错误答案，并让他们纠正",
+  "🗣 Ask {{studentName}} to correct": "🗣 让{{studentName}}纠正",
+  "🗣 Give {{studentName}} a wrong answer to the exercise they created": "🗣 给{{studentName}}一个错误的答案到他们创建的练习",
   "🗣 Say to {{studentName}}": "🗣 对{{studentName}}说",
   "🗣 Show {{studentName}} the correct solution to the exercise they created and ask them to repeat it from memory": "🗣 向{{studentName}}展示他们创建的练习的正确解决方案，并让他们凭记忆重复一遍",
   "🚫 Your lesson is paused because it requires teacher supervision": "🚫 你的课程已暂停，因为需要老师的监督"

@@ -656,7 +656,8 @@
   "📖 Read what’s happening": "📖 پڑھیں کہ کیا ہو رہا ہے",
   "🕑 {{min}} minutes ago": "🕑 {{min}} منٹ پہلے",
   "🗣 Ask {{studentName}}": "🗣 {{studentName}} سے پوچھو",
-  "🗣 Give {{studentName}} a wrong answer to the exercise they created and ask them to correct": "🗣 {{studentName}} کو ان کی بنائی ہوئی مشق کا غلط جواب دو اور ان سے درست کرنے کو کہو",
+  "🗣 Ask {{studentName}} to correct": "🗣 {{studentName}} سے اصلاح کے لئے پوچھ",
+  "🗣 Give {{studentName}} a wrong answer to the exercise they created": "🗣 {{studentName}} کو ان کی بنائی گئی مشق کا غلط جواب دے",
   "🗣 Say to {{studentName}}": "🗣 {{studentName}} سے کہو",
   "🗣 Show {{studentName}} the correct solution to the exercise they created and ask them to repeat it from memory": "🗣 {{studentName}} کو وہ درست حل دکھاؤ جو انہوں نے بنایا ہے اور ان سے یاد سے دہرائو کہو",
   "🚫 Your lesson is paused because it requires teacher supervision": "🚫 تمہارا درس معطل ہے کیونکہ اس کو استاد کی نگرانی کی ضرورت ہے"

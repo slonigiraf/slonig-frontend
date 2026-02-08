@@ -656,7 +656,8 @@
   "📖 Read what’s happening": "📖 Lis ce qui se passe",
   "🕑 {{min}} minutes ago": "🕑 Il y a {{min}} minutes",
   "🗣 Ask {{studentName}}": "🗣 Demande à {{studentName}}",
-  "🗣 Give {{studentName}} a wrong answer to the exercise they created and ask them to correct": "🗣 Donne à {{studentName}} une mauvaise réponse à l'exercice qu'il a créé et demande-lui de corriger",
+  "🗣 Ask {{studentName}} to correct": "🗣 Demande à {{studentName}} de corriger",
+  "🗣 Give {{studentName}} a wrong answer to the exercise they created": "🗣 Donne à {{studentName}} une mauvaise réponse à l'exercice qu'ils ont créé",
   "🗣 Say to {{studentName}}": "🗣 Dis à {{studentName}}",
   "🗣 Show {{studentName}} the correct solution to the exercise they created and ask them to repeat it from memory": "🗣 Montre à {{studentName}} la solution correcte de l'exercice qu'il a créé et demande-lui de la répéter de mémoire",
   "🚫 Your lesson is paused because it requires teacher supervision": "🚫 Ta leçon est mise en pause car elle nécessite une supervision d'un enseignant"
