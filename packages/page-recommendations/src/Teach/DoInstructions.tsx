@@ -597,7 +597,7 @@ function DoInstructions({ className = '', entity, eventCategory, lessonStat, any
           {tooFastConfirmationIsShown && (
             <OKBox info={t('Please teach more slowly and follow all the hints carefully.')} onClose={() => setTooFastConfirmationIsShown(false)} />
           )}
-          {isUnsure && <OKBox info={t('Press “No,” see the example answers, then press “Back”')} onClose={toggleIsUnsure} /> }
+          {isUnsure && <OKBox info={t('Try pressing the “No” button to see the example answers')} onClose={toggleIsUnsure} /> }
         </InstructionsContainer>
       ) : (
         <div>Error: Reload the page</div>

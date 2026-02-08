@@ -224,5 +224,6 @@
   "🗣 Give {{studentName}} a wrong answer to the exercise they created": "🗣 Give {{studentName}} a wrong answer to the exercise they created",
   "🗣 Ask {{studentName}} to correct": "🗣 Ask {{studentName}} to correct",
   "🗣 Show {{studentName}} the correct solution to the exercise they created": "🗣 Show {{studentName}} the correct solution to the exercise they created",
-  "🗣 Ask {{studentName}} to repeat the correct solution from memory": "🗣 Ask {{studentName}} to repeat the correct solution from memory"
+  "🗣 Ask {{studentName}} to repeat the correct solution from memory": "🗣 Ask {{studentName}} to repeat the correct solution from memory",
+  "Try pressing the “No” button to see the example answers": "Try pressing the “No” button to see the example answers"
 }
