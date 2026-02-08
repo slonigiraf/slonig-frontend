@@ -21,7 +21,7 @@ class TutoringAlgorithm extends Algorithm {
     //get from one param of type TutoringAlgorithmType
     constructor({ variation, studentName, stake, canIssueBadge, skill, hasTuteeUsedSlonig, t }: TutoringAlgorithmProps) {
         super();
-        const bothUsedSlonig = hasTuteeUsedSlonig && variation === 'tutorial';
+        const bothUsedSlonig = hasTuteeUsedSlonig && variation !== 'tutorial';
         const questions = skill ? skill.q : [];
         let question1: string = questions.length > 0 ? questions[0].h : t('SOME TASK FOR SKILL TRAINING (THE TUTOR SHOULD KNOW)');
         let answer1: string = questions.length > 0 ? questions[0].a : '';
