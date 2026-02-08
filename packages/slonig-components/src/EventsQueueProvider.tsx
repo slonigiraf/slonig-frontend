@@ -34,7 +34,7 @@ export const EventsQueueProvider: React.FC<EventsQueueProviderProps> = ({ childr
       if (allBanEvents === undefined || allBanEvents.length === 0) return;
       const ban: ScheduledEvent = allBanEvents[0];
       const data = deserializeEventData(ban.data);
-      if (data.length > 0) {
+      if (data.length === 0) {
         await setSettingToTrue(SettingKey.REDO_TUTORIAL);
       } else {
         await setSettingToTrue(SettingKey.REQUIRE_SUPERVISION);
