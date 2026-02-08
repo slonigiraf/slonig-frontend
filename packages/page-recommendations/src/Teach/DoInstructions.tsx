@@ -340,7 +340,7 @@ function DoInstructions({ className = '', entity, eventCategory, lessonStat, any
 
   const reminderForTutorialStudent = t('Remind the student to pretend they don’t know the skill.');
 
-  const handleStageChange = useCallback(async (nextStage: AlgorithmStage | null) => {
+  const handleStageChange = useCallback(async (nextStage: AlgorithmStage | null, logAction?: () => void) => {
     if (nextStage !== null && algorithmStage) {
 
       const msSpent = Date.now() - lastStageEndTime;
@@ -353,15 +353,24 @@ function DoInstructions({ className = '', entity, eventCategory, lessonStat, any
         if (nextStageType) {
           logEvent('TUTORING', algorithmType, nextStageType, Math.round(msSpent / 1000));
         }
+
+        if (logAction) logAction();
       }
       if (hasStudenFailed(algorithmStage, nextStage)) {
         await markLetterAsNotPerfect();
       }
       if (nextStage.getType() === StageType.ask_to_repeat_similar_exercise) {
         setDidCorrectExercise(true);
+        if (!didCorrectExercise) {
+          logEvent('TUTORING', algorithmType, 'did_correct_exercise', Math.round(msSpent / 1000));
+        }
       }
-      if (nextStage.getType() === StageType.correct_fake_solution) {
+      if (algorithmStage.getType() === StageType.correct_fake_solution
+        && nextStage.getType() !== StageType.provide_fake_solution) {
         setDidCorrectFakeSolution(true);
+        if (!didCorrectFakeSolution) {
+          logEvent('TUTORING', algorithmType, 'did_correct_fake_solution', Math.round(msSpent / 1000));
+        }
       }
       if (nextStage === algorithmStage) {
         showInfo(t('Do this again'));
@@ -498,8 +507,7 @@ function DoInstructions({ className = '', entity, eventCategory, lessonStat, any
                     className='noHighlight'
                     key={algorithmStage.getId()}
                     onClick={() => {
-                      logEvent('TUTORING', algorithmType, 'click_back');
-                      handleStageChange(algorithmStage.getPrevious());
+                      handleStageChange(algorithmStage.getPrevious(), () => logEvent('TUTORING', algorithmType, 'click_back'));
                     }
                     }
                     icon='arrow-left'
