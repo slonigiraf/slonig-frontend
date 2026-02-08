@@ -46,7 +46,6 @@ export function useSettingValue(key: SettingId): string | null | undefined {
  * 
  * @returns
  * - `null` — setting is **not yet loaded** from the database
- * - `undefined` — setting has **no stored value**
  * - `boolean` — interpreted value once loaded (`true` if "true", else `false`)
  */
 export function useBooleanSettingValue(key: SettingId): boolean | null | undefined {

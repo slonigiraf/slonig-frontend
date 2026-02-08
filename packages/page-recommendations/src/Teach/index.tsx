@@ -96,7 +96,7 @@ function Teach({ className = '' }: Props): React.ReactElement<Props> {
 
   const isTutorial = lesson?.cid === EXAMPLE_MODULE_KNOWLEDGE_CID;
 
-  const teachingEventCategory: EventActionType = tutorCompletedInitialTutorial === undefined ? 'WARM_UP'
+  const teachingEventCategory: EventActionType = tutorCompletedInitialTutorial === false ? 'WARM_UP'
     : tutorShouldRedoTutorial === true ? 'RE_WARM_UP'
       : 'TEACH';
 
