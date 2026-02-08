@@ -73,13 +73,19 @@ function DoInstructions({ className = '', entity, eventCategory, lessonStat, any
   const [isButtonClicked, setIsButtonClicked] = useState(false);
   const [isChatFinished, setIsChatFinished] = useState(false);
   const [areButtonsBlured, setButtonsBlured] = useState(true);
-  const [tooFastConfirmationIsShown, setTooFastConfirmationIsShown] = useState(false);
+  const [isOkBoxOpen, toggleIsOkBoxOpen] = useToggle();
+  const [okBoxInfo, setOkboxInfo] = useState('');
   const [processedStages, setProcessedStages] = useState(0);
   const [lastStageEndTime, setLastStageEndTime] = useState<number>(Date.now());
   const [previousTeachingStagesDuration, setPreviousTeachingStagesDuration] = useState(0);
   const [didCorrectFakeSolution, setDidCorrectFakeSolution] = useState(false);
   const [didCorrectExercise, setDidCorrectExercise] = useState(false);
   const [isUnsure, toggleIsUnsure] = useToggle();
+  
+  const showOkBoxInfo = useCallback((info: string) => {
+    setOkboxInfo(info);
+    toggleIsOkBoxOpen();
+  }, [setOkboxInfo, toggleIsOkBoxOpen])
 
   const isLetterTemplate = useCallback((entity: LetterTemplate | Reexamination) => {
     return 'knowledgeId' in entity;
@@ -289,12 +295,12 @@ function DoInstructions({ className = '', entity, eventCategory, lessonStat, any
       if (hasTutorCompletedTutorial) {
         await run();
       } else {
-        showInfo(info);
+        showOkBoxInfo(info);
         logEvent('TUTORING', algorithmType, 'preserve_' + actionType);
         await fallback();
       }
     },
-    [hasTutorCompletedTutorial, showInfo, t]
+    [hasTutorCompletedTutorial, showOkBoxInfo, t]
   );
 
   const refreshStageView = useCallback(() => {
@@ -326,12 +332,12 @@ function DoInstructions({ className = '', entity, eventCategory, lessonStat, any
     const timeSpent = now - lastPressingNextButtonTime;
     if (timeSpent < MIN_USING_HINT_MS) {
       logEvent('TUTORING', 'TOO_SHORT_USING_HINT');
-      setTooFastConfirmationIsShown(true);
+      showOkBoxInfo(t('Please teach more slowly and follow all the hints carefully.'));
     } else {
       setLastPressingNextButtonTime(now);
       setButtonsBlured(false);
     }
-  }, [lastPressingNextButtonTime, logEvent, setTooFastConfirmationIsShown, setButtonsBlured]);
+  }, [lastPressingNextButtonTime, logEvent, showOkBoxInfo, setButtonsBlured]);
 
   const reminderForTutorialStudent = t('Remind the student to pretend they don’t know the skill.');
 
@@ -594,10 +600,7 @@ function DoInstructions({ className = '', entity, eventCategory, lessonStat, any
                 </NextOverlay>
               )}
           </InstructionsButtonsContainer>
-          {tooFastConfirmationIsShown && (
-            <OKBox info={t('Please teach more slowly and follow all the hints carefully.')} onClose={() => setTooFastConfirmationIsShown(false)} />
-          )}
-          {isUnsure && <OKBox info={t('Try pressing the “No” button to see the example answers')} onClose={toggleIsUnsure} /> }
+          {isOkBoxOpen && <OKBox info={okBoxInfo} onClose={toggleIsOkBoxOpen} />}
         </InstructionsContainer>
       ) : (
         <div>Error: Reload the page</div>
