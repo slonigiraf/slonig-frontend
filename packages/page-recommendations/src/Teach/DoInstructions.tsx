@@ -13,11 +13,13 @@ import { getIPFSDataFromContentID, parseJson, useInfo } from '@slonigiraf/slonig
 import { TutoringAlgorithm, TutoringAlgorithmType } from './TutoringAlgorithm.js';
 import ChatSimulation from './ChatSimulation.js';
 import { ErrorType } from '@polkadot/react-params';
-import { EXAMPLE_SKILL_KNOWLEDGE_CID, EXAMPLE_SKILL_KNOWLEDGE_ID, MAX_COUNT_WITHOUT_CORRECT_FAKE_IN_RAW, MIN_USING_HINT_MS, ONE_SUBJECT_PERIOD_MS } from '@slonigiraf/utils';
+import { EXAMPLE_SKILL_KNOWLEDGE_CID, MAX_COUNT_WITHOUT_CORRECT_FAKE_IN_RAW, MIN_USING_HINT_MS, ONE_SUBJECT_PERIOD_MS } from '@slonigiraf/utils';
 import { LessonStat } from '../types.js';
 
+export type EventActionType = 'TEACH' | 'REEXAMINE' | 'WARM_UP' | 'RE_WARM_UP';
 interface Props {
   className?: string;
+  eventCategory: EventActionType;
   lesson: Lesson;
   lessonStat: LessonStat;
   anythingToLearn?: boolean;
@@ -34,7 +36,7 @@ interface Props {
   isTutorial: boolean;
 }
 
-type AlgorithmType = '' | 'TEACH_ALGO' | 'REEXAMINE_ALGO' | 'WARM_UP_ALGO' | 'REDO_TUTORIAL_ALGO';
+
 
 const nonEssentialStageTypes = new Set([
   StageType.decide_about_badge,
@@ -57,7 +59,7 @@ function talkingDurationOrZero(duration: number, algorithmStage: AlgorithmStage 
   return (algorithmStage && isTalkStageType(algorithmStage)) ? duration : 0;
 }
 
-function DoInstructions({ className = '', entity, lessonStat, anythingToLearn = true, tooFastWarning, pageWasJustRefreshed, lesson, onResult, studentName, stake = '', isSendingResultsEnabled, hasTuteeUsedSlonig, hasTutorCompletedTutorial, isTutorial }: Props): React.ReactElement<Props> {
+function DoInstructions({ className = '', entity, eventCategory, lessonStat, anythingToLearn = true, tooFastWarning, pageWasJustRefreshed, lesson, onResult, studentName, stake = '', isSendingResultsEnabled, hasTuteeUsedSlonig, hasTutorCompletedTutorial, isTutorial }: Props): React.ReactElement<Props> {
   const { ipfs, isIpfsReady } = useIpfsContext();
   const [skill, setSkill] = useState<Skill>();
   const { t } = useTranslation();
@@ -66,7 +68,7 @@ function DoInstructions({ className = '', entity, lessonStat, anythingToLearn = 
   const { logEvent, logBan } = useLog();
   const countOfMissedCorrectFakeSolution = useNumberSettingValue(SettingKey.COUNT_WITHOUT_CORRECT_FAKE_IN_RAW);
   const [lastPressingNextButtonTime, setLastPressingNextButtonTime] = useState((new Date()).getTime());
-  const [algorithmType, setAlgorithmType] = useState<AlgorithmType>('');
+  const algorithmType = `${eventCategory}_ALGO`;
   const [isButtonClicked, setIsButtonClicked] = useState(false);
   const [isChatFinished, setIsChatFinished] = useState(false);
   const [areButtonsBlured, setButtonsBlured] = useState(true);
@@ -107,23 +109,7 @@ function DoInstructions({ className = '', entity, lessonStat, anythingToLearn = 
 
           if (isComponentMounted) {
             setSkill(skill);
-            if (isLetterTemplate(entity)) {
-              if (hasTutorCompletedTutorial) {
-                logStartEvent('TEACH_START');
-                setAlgorithmType('TEACH_ALGO');
-              } else if (skill.i === EXAMPLE_SKILL_KNOWLEDGE_ID) {
-                if (lessonStat.askedToLearn === 1) {
-                  logStartEvent('REDO_TUTORIAL_START');
-                  setAlgorithmType('REDO_TUTORIAL_ALGO');
-                } else {
-                  logStartEvent('WARM_UP_START');
-                  setAlgorithmType('WARM_UP_ALGO');
-                }
-              }
-            } else {
-              logStartEvent('REEXAMINE_START');
-              setAlgorithmType('REEXAMINE_ALGO');
-            }
+            logStartEvent(`${eventCategory}_START`);
           }
         } catch (e) {
           if ((e as Error).message === ErrorType.IPFS_CONNECTION_ERROR) {
@@ -209,7 +195,7 @@ function DoInstructions({ className = '', entity, lessonStat, anythingToLearn = 
     const talkingDuration = previousTeachingStagesDuration + talkingDurationOrZero(lastStageTimeSpent, algorithmStage);
 
     onResult(talkingDuration, async () => {
-      logEvent('TUTORING', 'TEACH_ALGO', action, Math.round(lastStageTimeSpent / 1000));
+      logEvent('TUTORING', algorithmType, action, Math.round(lastStageTimeSpent / 1000));
       await putLetterTemplate({
         ...template,
         valid,
@@ -243,14 +229,14 @@ function DoInstructions({ className = '', entity, lessonStat, anythingToLearn = 
   const repeatTomorrow = useCallback(async () => {
     const timeSpent = Math.round((Date.now() - lastStageEndTime) / 1000);
     const { matureInfo } = await getMatureInfo();
-    logEvent('TUTORING', 'TEACH_ALGO', `click_instant_mark_for_repeat_${matureInfo}`, timeSpent);
+    logEvent('TUTORING', algorithmType, `click_instant_mark_for_repeat_${matureInfo}`, timeSpent);
     await processLetter(false, true);
   }, [processLetter, logEvent]);
 
   const issueDiploma = useCallback(async () => {
     const timeSpent = Math.round((Date.now() - lastStageEndTime) / 1000);
     const { matureInfo } = await getMatureInfo();
-    logEvent('TUTORING', 'TEACH_ALGO', `click_instant_mark_mastered_${matureInfo}`, timeSpent);
+    logEvent('TUTORING', algorithmType, `click_instant_mark_mastered_${matureInfo}`, timeSpent);
     await processLetter(true, true);
   }, [processLetter, logEvent]);
 
@@ -302,7 +288,7 @@ function DoInstructions({ className = '', entity, lessonStat, anythingToLearn = 
         await run();
       } else {
         showInfo(info);
-        logEvent('TUTOR_TRAINING', 'PRESERVE_FROM_NOOBS', 'preserve_' + actionType);
+        logEvent('TUTORING', algorithmType, 'preserve_' + actionType);
         await fallback();
       }
     },
@@ -537,7 +523,7 @@ function DoInstructions({ className = '', entity, lessonStat, anythingToLearn = 
                                 label={t('Tutee has the skill')}
                                 onClick={() => {
                                   const timeSpent = Math.round((Date.now() - lastStageEndTime) / 1000);
-                                  logEvent('TUTORING', 'REEXAMINE_ALGO', 'click_instant_validate', timeSpent);
+                                  logEvent('TUTORING', algorithmType, 'click_instant_validate', timeSpent);
                                   studentPassedReexamination();
                                 }}
                               />
@@ -548,7 +534,7 @@ function DoInstructions({ className = '', entity, lessonStat, anythingToLearn = 
                                 label={t('Tutee failed the reexamination')}
                                 onClick={() => {
                                   const timeSpent = Math.round((Date.now() - lastStageEndTime) / 1000);
-                                  logEvent('TUTORING', 'REEXAMINE_ALGO', 'click_instant_revoke', timeSpent);
+                                  logEvent('TUTORING', algorithmType, 'click_instant_revoke', timeSpent);
                                   studentFailedReexamination();
                                 }}
                               />

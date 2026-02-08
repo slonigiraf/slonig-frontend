@@ -5,7 +5,7 @@ import { Button, Flag, LinearProgress, styled } from '@polkadot/react-components
 import { u8aToHex } from '@polkadot/util';
 import { Confirmation, OKBox, FullFindow, VerticalCenterItemsContainer, useInfo, useLoginContext, HintBubble, useBooleanSettingValue, useLog, useNumberSettingValue, getIPFSDataFromContentID, parseJson, useIpfsContext, stringToNumber, bnToSlonFloatOrNaN, bnToSlonString, FullscreenActivity, LessonRequest } from '@slonigiraf/slonig-components';
 import { LetterTemplate, Lesson, Reexamination, getPseudonym, getLesson, getLetterTemplatesByLessonId, getReexaminationsByLessonId, getSetting, storeSetting, putLesson, getLetter, SettingKey, deleteSetting, isThereAnyLessonResult, setSettingToTrue, getToRepeatLetterTemplatesByLessonId, getValidLetterTemplatesByLessonId, deleteAllBanScheduledEvents, deleteLesson, storeLesson } from '@slonigiraf/db';
-import DoInstructions from './DoInstructions.js';
+import DoInstructions, { EventActionType } from './DoInstructions.js';
 import LessonsList from './LessonsList.js';
 import LessonResults from './LessonResults.js';
 import LessonRequestReceiver from './LessonRequestReceiver.js';
@@ -93,6 +93,12 @@ function Teach({ className = '' }: Props): React.ReactElement<Props> {
   const [lastStudentId, setLastStudentId] = useState<null | string>(null);
   const [isRedoTutorialHintShown, toggleIsRedoTutorialHintShown] = useToggle();
   const [isCanContinueTeachingHintShown, toggleIsCanContinueTeachingHintShown] = useToggle();
+
+  const isTutorial = lesson?.cid === EXAMPLE_MODULE_KNOWLEDGE_CID;
+
+  const teachingEventCategory: EventActionType = tutorCompletedInitialTutorial === undefined ? 'WARM_UP'
+    : tutorShouldRedoTutorial === true ? 'RE_WARM_UP'
+      : 'TEACH';
 
   useEffect(() => {
     showHelpQRInfo && setIsHelpQRInfoShown(true);
@@ -234,32 +240,37 @@ function Teach({ className = '' }: Props): React.ReactElement<Props> {
     const now = (new Date()).getTime();
     const timeSpent = now - lastSkillDiscussedTime;
 
-    if (!hasTutorCompletedTutorial) {
-      logEvent('ONBOARDING', 'TUTOR_TUTORIAL_TIME', 'tutor_tutorial_time_sec', Math.round(timeSpent / 1000));
-      logEvent('ONBOARDING', 'TUTOR_TUTORIAL_TALK_TIME', 'tutor_tutorial_talk_time_sec', Math.round(talkDuration / 1000));
-      await action();
-      return;
-    }
+
 
     setLastSkillDiscussedTime(now);
 
-    const logTime = (isLearning: boolean) => {
+    const actionNameTeachTime = `${teachingEventCategory}_SKILL_TIME`;
+    const actionNameTalkTime = `${teachingEventCategory}_SKILL_TALK_TIME`;
+
+    const logTime = () => {
       logEvent('TUTORING',
-        isLearning ? 'TEACH_SKILL_TIME' : 'REEXAMINE_SKILL_TIME',
-        isLearning ? 'teach_skill_time_sec' : 'reexamine_skill_time_sec',
+        actionNameTeachTime,
+        actionNameTeachTime.toLowerCase()+'_sec',
         Math.round(timeSpent / 1000)
       );
       logEvent('TUTORING',
-        isLearning ? 'TEACH_TALK_SKILL_TIME' : 'REEXAMINE_TALK_SKILL_TIME',
-        isLearning ? 'teach_talk_skill_time_sec' : 'reexamine_talk_skill_time_sec',
+        actionNameTalkTime,
+        actionNameTalkTime.toLocaleLowerCase()+'_sec',
         Math.round(talkDuration / 1000)
       );
+    }
+
+    if (!hasTutorCompletedTutorial) {
+      logEvent('TUTORING', `${teachingEventCategory}_SKILL_TIME`, 'warm_up_time_sec', Math.round(timeSpent / 1000));
+      logEvent('TUTORING', `${teachingEventCategory}_TALK_TIME`, 'warm_up_talk_time_sec', Math.round(talkDuration / 1000));
+      await action();
+      return;
     }
 
     if (lastAction === 'skip') {
       await action();
     } else if (lastAction === 'revoke') {
-      logTime(isLearning);
+      logTime();
       await action();
     } else if (talkDuration < MIN_SKILL_DISCUSSION_MS) {
       const eventType = isLearning ? 'too_short_teach_time_sec' : 'too_short_reexamine_time_sec';
@@ -275,12 +286,12 @@ function Teach({ className = '' }: Props): React.ReactElement<Props> {
         setFastDiscussedSkillsCount(0);
       } else {
         setFastDiscussedSkillsCount(fastDiscussedSkillsCount + 1);
-        logTime(isLearning);
+        logTime();
         await action();
       }
     } else {
       setFastDiscussedSkillsCount(0);
-      logTime(isLearning);
+      logTime();
       await action();
     }
 
@@ -586,7 +597,7 @@ function Teach({ className = '' }: Props): React.ReactElement<Props> {
 
   const clock = <ClockDiv>🕑</ClockDiv>;
 
-  const isTutorial = lesson?.cid === EXAMPLE_MODULE_KNOWLEDGE_CID;
+
 
   const reexamAndDiplomaIssuing = (requireSupervision === true && lesson?.student !== undefined) ?
     <RequestSupervision onClose={onCloseTutoring} student={lesson?.student} />
@@ -604,6 +615,7 @@ function Teach({ className = '' }: Props): React.ReactElement<Props> {
           {!reexamined && reexaminationToPerform && lesson && lessonStat &&
             <DoInstructions
               entity={reexaminationToPerform}
+              eventCategory={'REEXAMINE'}
               lessonStat={lessonStat}
               tooFastWarning={tooFastConfirmationIsShown}
               pageWasJustRefreshed={pageWasJustRefreshed}
@@ -621,6 +633,7 @@ function Teach({ className = '' }: Props): React.ReactElement<Props> {
           {reexamined && letterTemplateToIssue && lesson && lessonStat &&
             <DoInstructions
               entity={letterTemplateToIssue}
+              eventCategory={teachingEventCategory}
               lessonStat={lessonStat}
               tooFastWarning={tooFastConfirmationIsShown}
               pageWasJustRefreshed={pageWasJustRefreshed}
