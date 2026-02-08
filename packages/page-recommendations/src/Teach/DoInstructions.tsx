@@ -34,7 +34,7 @@ interface Props {
   isTutorial: boolean;
 }
 
-type AlgorithmType = '' | 'TEACH_ALGO' | 'REEXAMINE_ALGO';
+type AlgorithmType = '' | 'TEACH_ALGO' | 'REEXAMINE_ALGO' | 'WARM_UP_ALGO' | 'REDO_TUTORIAL_ALGO';
 
 const nonEssentialStageTypes = new Set([
   StageType.decide_about_badge,
@@ -108,10 +108,18 @@ function DoInstructions({ className = '', entity, lessonStat, anythingToLearn = 
           if (isComponentMounted) {
             setSkill(skill);
             if (isLetterTemplate(entity)) {
-              if (hasTutorCompletedTutorial || skill.i === EXAMPLE_SKILL_KNOWLEDGE_ID) {
+              if (hasTutorCompletedTutorial) {
                 logStartEvent('TEACH_START');
+                setAlgorithmType('TEACH_ALGO');
+              } else if (skill.i === EXAMPLE_SKILL_KNOWLEDGE_ID) {
+                if (lessonStat.askedToLearn === 1) {
+                  logStartEvent('REDO_TUTORIAL_START');
+                  setAlgorithmType('REDO_TUTORIAL_ALGO');
+                } else {
+                  logStartEvent('WARM_UP_START');
+                  setAlgorithmType('WARM_UP_ALGO');
+                }
               }
-              setAlgorithmType('TEACH_ALGO');
             } else {
               logStartEvent('REEXAMINE_START');
               setAlgorithmType('REEXAMINE_ALGO');
@@ -131,7 +139,7 @@ function DoInstructions({ className = '', entity, lessonStat, anythingToLearn = 
     return () => {
       isComponentMounted = false;
     };
-  }, [ipfs, entity, hasTutorCompletedTutorial]);
+  }, [ipfs, entity, lessonStat, hasTutorCompletedTutorial]);
 
   useEffect(() => {
     if (!skill) return;
@@ -140,9 +148,9 @@ function DoInstructions({ className = '', entity, lessonStat, anythingToLearn = 
     if (isLetterTemplate(entity)) {
 
       const variation: TutoringAlgorithmType =
-      (!hasTutorCompletedTutorial && lessonStat.askedToLearn === 1) ? 'redo_tutorial' :
-        (!hasTutorCompletedTutorial && lessonStat.learnStep === 0) ? 'tutorial' :
-          skipCloseNotesWarning ? 'regular' : 'first_in_lesson';
+        (!hasTutorCompletedTutorial && lessonStat.askedToLearn === 1) ? 'redo_tutorial' :
+          (!hasTutorCompletedTutorial && lessonStat.learnStep === 0) ? 'tutorial' :
+            skipCloseNotesWarning ? 'regular' : 'first_in_lesson';
 
       const newAlgorithm = new TutoringAlgorithm(
         {
