@@ -319,6 +319,9 @@ async function main(): Promise<void> {
   const daysLetters = new Set<string>();
   addDaysFromRows(daysLetters, letters, ["created"]);
 
+  const daysRepetitionsLastExamined = new Set<string>();
+  addDaysFromRows(daysRepetitionsLastExamined, repetitions, ["lastExamined"]);
+
   const daysLetterTemplatesLastExamined = new Set<string>();
   addDaysFromRows(daysLetterTemplatesLastExamined, letterTemplates, ["lastExamined"]);
 
@@ -330,13 +333,17 @@ async function main(): Promise<void> {
     daysLessons,
     daysLetters,
     daysLetterTemplatesLastExamined,
+    daysLetterTemplatesLastExamined,
   ]) {
     for (const d of s) daysAll.add(d);
   }
 
   const daysUsedTotal = daysAll.size;
 
-   // --- Per-day timestamp counts (histograms) ---
+  // --- Per-day timestamp counts (histograms) ---
+  const countsRepetitionsLastExamined = new Map<string, number>();
+  addDayCountsFromRows(countsRepetitionsLastExamined, repetitions, ["lastExamined"]);
+
   const countsCanceledInsurances = new Map<string, number>();
   addDayCountsFromRows(countsCanceledInsurances, canceledInsurances, ["created", "canceled"]);
 
@@ -362,8 +369,12 @@ async function main(): Promise<void> {
   mergeDayCounts(countsAll, countsLessons);
   mergeDayCounts(countsAll, countsLetters);
   mergeDayCounts(countsAll, countsLetterTemplatesLastExamined);
+  mergeDayCounts(countsAll, countsRepetitionsLastExamined);
 
   // --- Minutes worked per day (min->max span) ---
+  const mmRepetitionsLastExamined: DayMinMax = new Map();
+  addDayMinMaxFromRows(mmRepetitionsLastExamined, repetitions, ["lastExamined"]);
+
   const mmCanceledInsurances: DayMinMax = new Map();
   addDayMinMaxFromRows(mmCanceledInsurances, canceledInsurances, ["created", "canceled"]);
 
@@ -389,6 +400,7 @@ async function main(): Promise<void> {
   mergeDayMinMax(mmAll, mmLessons);
   mergeDayMinMax(mmAll, mmLetters);
   mergeDayMinMax(mmAll, mmLetterTemplatesLastExamined);
+  mergeDayMinMax(mmAll, mmRepetitionsLastExamined);
 
   const results: Record<string, number> = {
     "lessons_received": agreements.length,
@@ -414,6 +426,7 @@ async function main(): Promise<void> {
     "days_used_lessons": daysLessons.size,
     "days_used_letterTemplates_lastExamined": daysLetterTemplatesLastExamined.size,
     "days_used_letters": daysLetters.size,
+    "days_used_repetitions_lastExamined": daysRepetitionsLastExamined.size,
   };
 
   printResults(results);
@@ -426,6 +439,7 @@ async function main(): Promise<void> {
   printDayCounts("timestamps_per_day: lessons (created)", countsLessons);
   printDayCounts("timestamps_per_day: letterTemplates (lastExamined)", countsLetterTemplatesLastExamined);
   printDayCounts("timestamps_per_day: letters (created)", countsLetters);
+  printDayCounts("timestamps_per_day: repetitions (lastExamined)", countsRepetitionsLastExamined);
 
   printMinutesWorked("ALL", mmAll);
   printMinutesWorked("canceledInsurances (created+canceled)", mmCanceledInsurances);
@@ -434,6 +448,7 @@ async function main(): Promise<void> {
   printMinutesWorked("lessons (created)", mmLessons);
   printMinutesWorked("letterTemplates (lastExamined)", mmLetterTemplatesLastExamined);
   printMinutesWorked("letters (created)", mmLetters);
+  printMinutesWorked("repetitions (lastExamined)", mmRepetitionsLastExamined);
 }
 
 main().catch((e: unknown) => {
