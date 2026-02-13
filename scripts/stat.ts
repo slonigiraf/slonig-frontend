@@ -298,11 +298,35 @@ function printResults(results: Record<string, number>): void {
   }
 }
 
+function csvEscape(value: unknown): string {
+  if (value == null) return "";
+  const s = String(value);
+  // Quote if contains comma, quote, newline, or leading/trailing spaces
+  if (/[",\n\r]/.test(s) || s !== s.trim()) {
+    return `"${s.replace(/"/g, '""')}"`;
+  }
+  return s;
+}
+
+function objectToCsvOneRow(obj: Record<string, unknown>): string {
+  const keys = Object.keys(obj);
+  const header = keys.map(csvEscape).join(",");
+  const row = keys.map((k) => csvEscape(obj[k])).join(",");
+  return `${header}\n${row}\n`;
+}
+
+async function writeCsvFile(filePath: string, csvText: string): Promise<void> {
+  // ensure directory exists? (optional) – for now, just write
+  await fs.promises.writeFile(filePath, csvText, "utf8");
+}
+
 async function main(): Promise<void> {
   const filePath = process.argv[2];
+  const outCsvPath = process.argv[3]; // <-- NEW: 2nd param
+
   if (!filePath) {
     console.error(
-      "Usage: node --loader ts-node/esm stats-dexie-export.ts <path/to/export.json.gz|export.json>"
+      "Usage: node --loader ts-node/esm stats-dexie-export.ts <path/to/export.json.gz|export.json> [output.csv]"
     );
     process.exit(2);
   }
@@ -519,7 +543,7 @@ async function main(): Promise<void> {
 
   const results: Record<string, number> = {
     lessons_received: agreements.length,
-    cancel_insurances: canceledInsurances.length,
+    canceled_insurances: canceledInsurances.length,
     skills_forgotten: canceledLetters.length,
     lessons_taught: lessonsTaughtReal,
     training_count: warmUps,
@@ -537,8 +561,16 @@ async function main(): Promise<void> {
   };
 
   printResults(results);
-  printMinutesWorked("", tsAll);
+  if (outCsvPath && outCsvPath.trim().length > 0) {
+    const csv = objectToCsvOneRow(results);
+    await writeCsvFile(outCsvPath, csv);
+    console.log(`Wrote CSV: ${outCsvPath}`);
+  } else {
+    printResults(results);
+  }
 
+  // Currently don't use it
+  // printMinutesWorked("", tsAll);
 }
 
 main().catch((e: unknown) => {
