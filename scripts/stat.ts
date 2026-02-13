@@ -261,7 +261,6 @@ async function main(): Promise<void> {
   const letterTemplates = getRows(tables, "letterTemplates");
   const pseudonyms = getRows(tables, "pseudonyms");
   const reexams = getRows(tables, "reexams");
-  const reimbursements = getRows(tables, "reimbursements");
   const usageRights = getRows(tables, "usageRights");
   const repetitions = getRows(tables, "repetitions");
   const learnRequests = getRows(tables, "learnRequests");
@@ -440,7 +439,6 @@ addDayMinMaxFromRows(mmReexams, reexams, ["created", "lastExamined"]);
     "marked_for_repeat": ltToRepeat,
     "persons_connected": pseudonyms.length,
     "reexams": reexams.length,
-    "badges_lost": reimbursements.length,
     "badges_shown_for_bonus": usageRights.length,
     "should_repeat": repetitions.length,
     "learning_requests": learnRequests.length,
