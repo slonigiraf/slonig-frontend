@@ -145,7 +145,7 @@ async function main(): Promise<void> {
     "reexams": reexams.length,
     "badges_lost": reimbursements.length,
     "badges_shown_for_bonus": usageRights.length,
-    "repetitions": repetitions.length,
+    "should_repeat": repetitions.length,
     "learning_requests": learnRequests.length,
   };
 
