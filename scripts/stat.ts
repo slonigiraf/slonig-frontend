@@ -58,6 +58,40 @@ function addDaysFromRows(
   }
 }
 
+type DayCounts = Map<string, number>;
+
+function addDayCountsFromRows(
+  out: DayCounts,
+  rows: AnyRow[],
+  fields: string[]
+): void {
+  for (const r of rows) {
+    for (const f of fields) {
+      const ds = toDayString(r?.[f]);
+      if (!ds) continue;
+      out.set(ds, (out.get(ds) ?? 0) + 1);
+    }
+  }
+}
+
+function mergeDayCounts(into: DayCounts, from: DayCounts): void {
+  for (const [day, cnt] of from) {
+    into.set(day, (into.get(day) ?? 0) + cnt);
+  }
+}
+
+function printDayCounts(title: string, counts: DayCounts): void {
+  const rows = Array.from(counts.entries()).sort(([a], [b]) => a.localeCompare(b));
+  console.log(`\n${title}`);
+  if (rows.length === 0) {
+    console.log("(no timestamps)");
+    return;
+  }
+  for (const [day, cnt] of rows) {
+    console.log(`${day} : ${cnt}`);
+  }
+}
+
 async function readTextMaybeGz(filePath: string): Promise<string> {
   const isGz = filePath.toLowerCase().endsWith(".gz");
 
@@ -224,6 +258,29 @@ async function main(): Promise<void> {
 
   const daysUsedTotal = daysAll.size;
 
+   // --- Per-day timestamp counts (histograms) ---
+  const countsCanceledInsurances = new Map<string, number>();
+  addDayCountsFromRows(countsCanceledInsurances, canceledInsurances, ["created", "canceled"]);
+
+  const countsCanceledLetters = new Map<string, number>();
+  addDayCountsFromRows(countsCanceledLetters, canceledLetters, ["created"]);
+
+  const countsInsurances = new Map<string, number>();
+  addDayCountsFromRows(countsInsurances, insurances, ["created"]);
+
+  const countsLessons = new Map<string, number>();
+  addDayCountsFromRows(countsLessons, lessons, ["created"]);
+
+  const countsLetters = new Map<string, number>();
+  addDayCountsFromRows(countsLetters, letters, ["created"]);
+
+  const countsAll = new Map<string, number>();
+  mergeDayCounts(countsAll, countsCanceledInsurances);
+  mergeDayCounts(countsAll, countsCanceledLetters);
+  mergeDayCounts(countsAll, countsInsurances);
+  mergeDayCounts(countsAll, countsLessons);
+  mergeDayCounts(countsAll, countsLetters);
+
   const results: Record<string, number> = {
     "lessons_received": agreements.length,
     "canceled_insurances": canceledInsurances.length,
@@ -250,6 +307,14 @@ async function main(): Promise<void> {
   };
 
   printResults(results);
+
+  // Histograms: count of timestamps per day (per group + total)
+  printDayCounts("timestamps_per_day: ALL", countsAll);
+  printDayCounts("timestamps_per_day: canceledInsurances (created+canceled)", countsCanceledInsurances);
+  printDayCounts("timestamps_per_day: canceledLetters (created)", countsCanceledLetters);
+  printDayCounts("timestamps_per_day: insurances (created)", countsInsurances);
+  printDayCounts("timestamps_per_day: lessons (created)", countsLessons);
+  printDayCounts("timestamps_per_day: letters (created)", countsLetters);
 }
 
 main().catch((e: unknown) => {
