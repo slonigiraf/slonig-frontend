@@ -441,7 +441,7 @@ async function main(): Promise<void> {
 
   const results: Record<string, number> = {
     "lessons_received": agreements.length,
-    "canceled_insurances": canceledInsurances.length,
+    "cancel_insurances": canceledInsurances.length,
     "skills_forgotten": canceledLetters.length,
     "lessons_taught": lessonsTaughtReal,
     "training_count": warmUps,
