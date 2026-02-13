@@ -58,6 +58,80 @@ function addDaysFromRows(
   }
 }
 
+type DayMinMax = Map<string, { minMs: number; maxMs: number }>;
+
+function toMs(value: unknown): number | null {
+  if (typeof value === "number" && Number.isFinite(value)) return value;
+
+  if (typeof value === "string" && value.trim().length > 0) {
+    // numeric string (ms)
+    if (/^\d+$/.test(value.trim())) {
+      const n = Number(value);
+      if (Number.isFinite(n)) return n;
+    }
+    const parsed = Date.parse(value);
+    if (!Number.isNaN(parsed)) return parsed;
+  }
+
+  if (value instanceof Date) {
+    const ms = value.getTime();
+    return Number.isNaN(ms) ? null : ms;
+  }
+
+  return null;
+}
+
+function addDayMinMaxFromRows(out: DayMinMax, rows: AnyRow[], fields: string[]): void {
+  for (const r of rows) {
+    for (const f of fields) {
+      const ms = toMs(r?.[f]);
+      if (ms == null) continue;
+
+      const day = toDayString(ms);
+      if (!day) continue;
+
+      const prev = out.get(day);
+      if (!prev) {
+        out.set(day, { minMs: ms, maxMs: ms });
+      } else {
+        if (ms < prev.minMs) prev.minMs = ms;
+        if (ms > prev.maxMs) prev.maxMs = ms;
+      }
+    }
+  }
+}
+
+function mergeDayMinMax(into: DayMinMax, from: DayMinMax): void {
+  for (const [day, mm] of from) {
+    const prev = into.get(day);
+    if (!prev) {
+      into.set(day, { minMs: mm.minMs, maxMs: mm.maxMs });
+    } else {
+      if (mm.minMs < prev.minMs) prev.minMs = mm.minMs;
+      if (mm.maxMs > prev.maxMs) prev.maxMs = mm.maxMs;
+    }
+  }
+}
+
+function toMinutesWorked(mm: { minMs: number; maxMs: number }): number {
+  const diff = mm.maxMs - mm.minMs;
+  if (!Number.isFinite(diff) || diff <= 0) return 0;
+  return Math.round(diff / 60000); // rounded minutes
+}
+
+function printMinutesWorked(title: string, mm: DayMinMax): void {
+  const rows = Array.from(mm.entries()).sort(([a], [b]) => a.localeCompare(b));
+  console.log(`\nminutes_worked_per_day: ${title}`);
+  if (rows.length === 0) {
+    console.log("(no timestamps)");
+    return;
+  }
+  for (const [day, v] of rows) {
+    console.log(`${day} : ${toMinutesWorked(v)}`);
+  }
+}
+
+
 type DayCounts = Map<string, number>;
 
 function addDayCountsFromRows(
@@ -281,6 +355,29 @@ async function main(): Promise<void> {
   mergeDayCounts(countsAll, countsLessons);
   mergeDayCounts(countsAll, countsLetters);
 
+  // --- Minutes worked per day (min->max span) ---
+  const mmCanceledInsurances: DayMinMax = new Map();
+  addDayMinMaxFromRows(mmCanceledInsurances, canceledInsurances, ["created", "canceled"]);
+
+  const mmCanceledLetters: DayMinMax = new Map();
+  addDayMinMaxFromRows(mmCanceledLetters, canceledLetters, ["created"]);
+
+  const mmInsurances: DayMinMax = new Map();
+  addDayMinMaxFromRows(mmInsurances, insurances, ["created"]);
+
+  const mmLessons: DayMinMax = new Map();
+  addDayMinMaxFromRows(mmLessons, lessons, ["created"]);
+
+  const mmLetters: DayMinMax = new Map();
+  addDayMinMaxFromRows(mmLetters, letters, ["created"]);
+
+  const mmAll: DayMinMax = new Map();
+  mergeDayMinMax(mmAll, mmCanceledInsurances);
+  mergeDayMinMax(mmAll, mmCanceledLetters);
+  mergeDayMinMax(mmAll, mmInsurances);
+  mergeDayMinMax(mmAll, mmLessons);
+  mergeDayMinMax(mmAll, mmLetters);
+
   const results: Record<string, number> = {
     "lessons_received": agreements.length,
     "canceled_insurances": canceledInsurances.length,
@@ -315,6 +412,13 @@ async function main(): Promise<void> {
   printDayCounts("timestamps_per_day: insurances (created)", countsInsurances);
   printDayCounts("timestamps_per_day: lessons (created)", countsLessons);
   printDayCounts("timestamps_per_day: letters (created)", countsLetters);
+
+  printMinutesWorked("ALL", mmAll);
+  printMinutesWorked("canceledInsurances (created+canceled)", mmCanceledInsurances);
+  printMinutesWorked("canceledLetters (created)", mmCanceledLetters);
+  printMinutesWorked("insurances (created)", mmInsurances);
+  printMinutesWorked("lessons (created)", mmLessons);
+  printMinutesWorked("letters (created)", mmLetters);
 }
 
 main().catch((e: unknown) => {
