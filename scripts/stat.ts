@@ -131,6 +131,26 @@ function printMinutesWorked(title: string, mm: DayMinMax): void {
   }
 }
 
+const FOUR_MIN_MS = 4 * 60 * 1000;
+
+function buildSyntheticLetterTemplateTimestampsFromLetters(letters: AnyRow[]): AnyRow[] {
+  const out: AnyRow[] = [];
+
+  for (const l of letters) {
+    if (l["knowledgeId"] !== EXAMPLE_SKILL_KNOWLEDGE_ID) continue;
+
+    const createdMs = toMs(l["created"]);
+    if (createdMs == null) continue;
+
+    const syntheticMs = createdMs - FOUR_MIN_MS;
+    if (!Number.isFinite(syntheticMs)) continue;
+
+    // We’ll treat it as an extra "lastExamined" timestamp for the letterTemplates group.
+    out.push({ lastExamined: syntheticMs });
+  }
+
+  return out;
+}
 
 type DayCounts = Map<string, number>;
 
@@ -342,6 +362,9 @@ async function main(): Promise<void> {
 
   const daysLetterTemplatesLastExamined = new Set<string>();
   addDaysFromRows(daysLetterTemplatesLastExamined, letterTemplates, ["lastExamined"]);
+  // Build synthetic timestamps: one per warm-up letter (knowledgeId === EXAMPLE...), 4 min before created
+  const syntheticLTFromWarmupLetters = buildSyntheticLetterTemplateTimestampsFromLetters(letters);
+  addDaysFromRows(daysLetterTemplatesLastExamined, syntheticLTFromWarmupLetters, ["lastExamined"]);
 
   const daysUsageRights = new Set<string>();
   addDaysFromRows(daysUsageRights, usageRights, ["created"]);
@@ -439,6 +462,7 @@ async function main(): Promise<void> {
   const mmUsageRights: DayMinMax = new Map();
   addDayMinMaxFromRows(mmUsageRights, usageRights, ["created"]);
 
+  addDayMinMaxFromRows(mmLetterTemplatesLastExamined, syntheticLTFromWarmupLetters, ["lastExamined"]);
 
   const mmAll: DayMinMax = new Map();
   mergeDayMinMax(mmAll, mmCanceledInsurances);
