@@ -45,11 +45,7 @@ function toDayString(value: unknown): string | null {
   return `${y}-${m}-${day}`;
 }
 
-function addDaysFromRows(
-  out: Set<string>,
-  rows: AnyRow[],
-  fields: string[]
-): void {
+function addDaysFromRows(out: Set<string>, rows: AnyRow[], fields: string[]): void {
   for (const r of rows) {
     for (const f of fields) {
       const ds = toDayString(r?.[f]);
@@ -57,8 +53,6 @@ function addDaysFromRows(
     }
   }
 }
-
-type DayMinMax = Map<string, { minMs: number; maxMs: number }>;
 
 function toMs(value: unknown): number | null {
   if (typeof value === "number" && Number.isFinite(value)) return value;
@@ -81,7 +75,11 @@ function toMs(value: unknown): number | null {
   return null;
 }
 
-function addDayMinMaxFromRows(out: DayMinMax, rows: AnyRow[], fields: string[]): void {
+// ------------------ NEW: hold all timestamps per day ------------------
+
+type DayTimestamps = Map<string, number[]>;
+
+function addDayTimestampsFromRows(out: DayTimestamps, rows: AnyRow[], fields: string[]): void {
   for (const r of rows) {
     for (const f of fields) {
       const ms = toMs(r?.[f]);
@@ -90,46 +88,85 @@ function addDayMinMaxFromRows(out: DayMinMax, rows: AnyRow[], fields: string[]):
       const day = toDayString(ms);
       if (!day) continue;
 
-      const prev = out.get(day);
-      if (!prev) {
-        out.set(day, { minMs: ms, maxMs: ms });
-      } else {
-        if (ms < prev.minMs) prev.minMs = ms;
-        if (ms > prev.maxMs) prev.maxMs = ms;
-      }
+      const arr = out.get(day);
+      if (arr) arr.push(ms);
+      else out.set(day, [ms]);
     }
   }
 }
 
-function mergeDayMinMax(into: DayMinMax, from: DayMinMax): void {
-  for (const [day, mm] of from) {
+function mergeDayTimestamps(into: DayTimestamps, from: DayTimestamps): void {
+  for (const [day, arr] of from) {
     const prev = into.get(day);
-    if (!prev) {
-      into.set(day, { minMs: mm.minMs, maxMs: mm.maxMs });
-    } else {
-      if (mm.minMs < prev.minMs) prev.minMs = mm.minMs;
-      if (mm.maxMs > prev.maxMs) prev.maxMs = mm.maxMs;
-    }
+    if (!prev) into.set(day, [...arr]);
+    else prev.push(...arr);
   }
 }
 
-function toMinutesWorked(mm: { minMs: number; maxMs: number }): number {
-  const diff = mm.maxMs - mm.minMs;
-  if (!Number.isFinite(diff) || diff <= 0) return 0;
-  return Math.round(diff / 60000); // rounded minutes
+const ONE_HOUR_MS = 60 * 60 * 1000;
+
+function toMinutesWorkedFromTimestamps(ts: number[]): number {
+  if (!Array.isArray(ts) || ts.length < 2) return 0;
+
+  const sorted = ts
+    .filter((x) => typeof x === "number" && Number.isFinite(x))
+    .slice()
+    .sort((a, b) => a - b);
+
+  if (sorted.length < 2) return 0;
+
+  const daySpan = sorted[sorted.length - 1] - sorted[0];
+  if (!Number.isFinite(daySpan) || daySpan <= 0) return 0;
+
+  // If whole-day span is under 1 hour, just take the span.
+  if (daySpan < ONE_HOUR_MS) {
+    return Math.round(daySpan / 60000);
+  }
+
+  // Otherwise split into sessions:
+  // new session when current timestamp is > 1 hour from the *session start* (your rule)
+  let totalMinutes = 0;
+
+  let sessionStart = sorted[0];
+  let sessionMin = sorted[0];
+  let sessionMax = sorted[0];
+
+  const flush = () => {
+    const diff = sessionMax - sessionMin;
+    if (Number.isFinite(diff) && diff > 0) totalMinutes += Math.round(diff / 60000);
+  };
+
+  for (let i = 1; i < sorted.length; i++) {
+    const t = sorted[i];
+
+    if (t - sessionStart > ONE_HOUR_MS) {
+      flush();
+      sessionStart = t;
+      sessionMin = t;
+      sessionMax = t;
+      continue;
+    }
+
+    sessionMax = t; // sorted => current is max
+  }
+
+  flush();
+  return totalMinutes;
 }
 
-function printMinutesWorked(title: string, mm: DayMinMax): void {
-  const rows = Array.from(mm.entries()).sort(([a], [b]) => a.localeCompare(b));
+function printMinutesWorked(title: string, byDay: DayTimestamps): void {
+  const rows = Array.from(byDay.entries()).sort(([a], [b]) => a.localeCompare(b));
   console.log(`\nminutes_worked_per_day: ${title}`);
   if (rows.length === 0) {
     console.log("(no timestamps)");
     return;
   }
-  for (const [day, v] of rows) {
-    console.log(`${day} : ${toMinutesWorked(v)}`);
+  for (const [day, ts] of rows) {
+    console.log(`${day} : ${toMinutesWorkedFromTimestamps(ts)}`);
   }
 }
+
+// ---------------------------------------------------------------------
 
 const FOUR_MIN_MS = 4 * 60 * 1000;
 
@@ -154,11 +191,7 @@ function buildSyntheticLetterTemplateTimestampsFromLetters(letters: AnyRow[]): A
 
 type DayCounts = Map<string, number>;
 
-function addDayCountsFromRows(
-  out: DayCounts,
-  rows: AnyRow[],
-  fields: string[]
-): void {
+function addDayCountsFromRows(out: DayCounts, rows: AnyRow[], fields: string[]): void {
   for (const r of rows) {
     for (const f of fields) {
       const ds = toDayString(r?.[f]);
@@ -213,9 +246,7 @@ async function readTextMaybeGz(filePath: string): Promise<string> {
 function buildTableMap(parsed: DexieExport): Map<string, AnyRow[]> {
   const tableEntries = parsed?.db?.data?.data;
   if (!Array.isArray(tableEntries)) {
-    throw new Error(
-      "Unexpected JSON structure. Expected parsed.db.data.data to be an array."
-    );
+    throw new Error("Unexpected JSON structure. Expected parsed.db.data.data to be an array.");
   }
 
   const map = new Map<string, AnyRow[]>();
@@ -285,25 +316,17 @@ async function main(): Promise<void> {
   const repetitions = getRows(tables, "repetitions");
   const learnRequests = getRows(tables, "learnRequests");
 
-  // Heuristic: adjust these field names if your schema is strict
-  const distinctStudentsFromLessons = distinctCountFromField(lessons, [
-    "student",
-  ]);
-
-  const distinctRefereesFromLetters = distinctCountFromField(letters, [
-    "referee",
-  ]);
+  const distinctStudentsFromLessons = distinctCountFromField(lessons, ["student"]);
+  const distinctRefereesFromLetters = distinctCountFromField(letters, ["referee"]);
 
   const ltValidAndMature = countWhere(
     letterTemplates,
     (r) => r["valid"] === true && r["mature"] === true
   );
-
   const ltToRepeat = countWhere(letterTemplates, (r) => r["toRepeat"] === true);
 
   // lessons_taught / warmUps:
   // A lesson is a warmUp if ANY of its letterTemplates has knowledgeId === EXAMPLE_SKILL_KNOWLEDGE_ID
-
   const warmUpLessons = new Set<string>();
   const allLessonsFromLetterTemplates = new Set<string>();
 
@@ -318,19 +341,15 @@ async function main(): Promise<void> {
     }
   }
 
-  // Count taught lessons as distinct lessons (from letterTemplates) that are NOT warmUps
   const lessonsTaughtReal = Array.from(allLessonsFromLetterTemplates).filter(
     (lesson) => !warmUpLessons.has(lesson)
   ).length;
 
-  // Warm-ups are distinct warmUp lessons
   const warmUps = warmUpLessons.size;
-
 
   const hasThatKnowledgeId = letters.some(
     (r) => typeof r["knowledgeId"] === "string" && r["knowledgeId"] === EXAMPLE_SKILL_KNOWLEDGE_ID
   );
-
   const badgesReceivedAdjusted = Math.max(0, letters.length - (hasThatKnowledgeId ? 1 : 0));
 
   // --- Days used (unique calendar days across key activity timestamps) ---
@@ -365,6 +384,7 @@ async function main(): Promise<void> {
 
   const daysLetterTemplatesLastExamined = new Set<string>();
   addDaysFromRows(daysLetterTemplatesLastExamined, letterTemplates, ["lastExamined"]);
+
   // Build synthetic timestamps: one per warm-up letter (knowledgeId === EXAMPLE...), 4 min before created
   const syntheticLTFromWarmupLetters = buildSyntheticLetterTemplateTimestampsFromLetters(letters);
   addDaysFromRows(daysLetterTemplatesLastExamined, syntheticLTFromWarmupLetters, ["lastExamined"]);
@@ -439,83 +459,82 @@ async function main(): Promise<void> {
   mergeDayCounts(countsAll, countsUsageRights);
   mergeDayCounts(countsAll, countsLearnRequests);
 
-  // --- Minutes worked per day (min->max span) ---
-  const mmLearnRequests: DayMinMax = new Map();
-  addDayMinMaxFromRows(mmLearnRequests, learnRequests, ["created"]);
+  // --- Minutes worked per day (timestamps -> session split) ---
+  const tsLearnRequests: DayTimestamps = new Map();
+  addDayTimestampsFromRows(tsLearnRequests, learnRequests, ["created"]);
 
-  const mmReexams: DayMinMax = new Map();
-  addDayMinMaxFromRows(mmReexams, reexams, ["created", "lastExamined"]);
+  const tsReexams: DayTimestamps = new Map();
+  addDayTimestampsFromRows(tsReexams, reexams, ["created", "lastExamined"]);
 
-  const mmRepetitionsLastExamined: DayMinMax = new Map();
-  addDayMinMaxFromRows(mmRepetitionsLastExamined, repetitions, ["lastExamined"]);
+  const tsRepetitionsLastExamined: DayTimestamps = new Map();
+  addDayTimestampsFromRows(tsRepetitionsLastExamined, repetitions, ["lastExamined"]);
 
-  const mmCanceledInsurances: DayMinMax = new Map();
-  addDayMinMaxFromRows(mmCanceledInsurances, canceledInsurances, ["created", "canceled"]);
+  const tsCanceledInsurances: DayTimestamps = new Map();
+  addDayTimestampsFromRows(tsCanceledInsurances, canceledInsurances, ["created", "canceled"]);
 
-  const mmCanceledLetters: DayMinMax = new Map();
-  addDayMinMaxFromRows(mmCanceledLetters, canceledLetters, ["created"]);
+  const tsCanceledLetters: DayTimestamps = new Map();
+  addDayTimestampsFromRows(tsCanceledLetters, canceledLetters, ["created"]);
 
-  const mmInsurances: DayMinMax = new Map();
-  addDayMinMaxFromRows(mmInsurances, insurances, ["created"]);
+  const tsInsurances: DayTimestamps = new Map();
+  addDayTimestampsFromRows(tsInsurances, insurances, ["created"]);
 
-  const mmLessons: DayMinMax = new Map();
-  addDayMinMaxFromRows(mmLessons, lessons, ["created"]);
+  const tsLessons: DayTimestamps = new Map();
+  addDayTimestampsFromRows(tsLessons, lessons, ["created"]);
 
-  const mmLetterTemplatesLastExamined: DayMinMax = new Map();
-  addDayMinMaxFromRows(mmLetterTemplatesLastExamined, letterTemplates, ["lastExamined"]);
+  const tsLetterTemplatesLastExamined: DayTimestamps = new Map();
+  addDayTimestampsFromRows(tsLetterTemplatesLastExamined, letterTemplates, ["lastExamined"]);
+  addDayTimestampsFromRows(tsLetterTemplatesLastExamined, syntheticLTFromWarmupLetters, ["lastExamined"]);
 
-  const mmLetters: DayMinMax = new Map();
-  addDayMinMaxFromRows(mmLetters, letters, ["created"]);
+  const tsLettersCreated: DayTimestamps = new Map();
+  addDayTimestampsFromRows(tsLettersCreated, letters, ["created"]);
 
-  const mmLettersLastExamined: DayMinMax = new Map();
-  addDayMinMaxFromRows(mmLettersLastExamined, letters, ["lastExamined"]);
+  const tsLettersLastExamined: DayTimestamps = new Map();
+  addDayTimestampsFromRows(tsLettersLastExamined, letters, ["lastExamined"]);
 
-  const mmUsageRights: DayMinMax = new Map();
-  addDayMinMaxFromRows(mmUsageRights, usageRights, ["created"]);
+  const tsUsageRights: DayTimestamps = new Map();
+  addDayTimestampsFromRows(tsUsageRights, usageRights, ["created"]);
 
-  addDayMinMaxFromRows(mmLetterTemplatesLastExamined, syntheticLTFromWarmupLetters, ["lastExamined"]);
-
-  const mmAll: DayMinMax = new Map();
-  mergeDayMinMax(mmAll, mmCanceledInsurances);
-  mergeDayMinMax(mmAll, mmCanceledLetters);
-  mergeDayMinMax(mmAll, mmInsurances);
-  mergeDayMinMax(mmAll, mmLessons);
-  mergeDayMinMax(mmAll, mmLetters);
-  mergeDayMinMax(mmAll, mmLetterTemplatesLastExamined);
-  mergeDayMinMax(mmAll, mmRepetitionsLastExamined);
-  mergeDayMinMax(mmAll, mmLettersLastExamined);
-  mergeDayMinMax(mmAll, mmReexams);
-  mergeDayMinMax(mmAll, mmUsageRights);
-  mergeDayMinMax(mmAll, mmLearnRequests);
+  const tsAll: DayTimestamps = new Map();
+  mergeDayTimestamps(tsAll, tsCanceledInsurances);
+  mergeDayTimestamps(tsAll, tsCanceledLetters);
+  mergeDayTimestamps(tsAll, tsInsurances);
+  mergeDayTimestamps(tsAll, tsLessons);
+  mergeDayTimestamps(tsAll, tsLettersCreated);
+  mergeDayTimestamps(tsAll, tsLetterTemplatesLastExamined);
+  mergeDayTimestamps(tsAll, tsRepetitionsLastExamined);
+  mergeDayTimestamps(tsAll, tsLettersLastExamined);
+  mergeDayTimestamps(tsAll, tsReexams);
+  mergeDayTimestamps(tsAll, tsUsageRights);
+  mergeDayTimestamps(tsAll, tsLearnRequests);
 
   const results: Record<string, number> = {
-    "lessons_received": agreements.length,
-    "cancel_insurances": canceledInsurances.length,
-    "skills_forgotten": canceledLetters.length,
-    "lessons_taught": lessonsTaughtReal,
-    "training_count": warmUps,
-    "tutees": distinctStudentsFromLessons,
-    "skills": badgesReceivedAdjusted,
-    "tutors": distinctRefereesFromLetters,
-    "badges_issued": ltValidAndMature,
-    "marked_for_repeat": ltToRepeat,
-    "persons_connected": pseudonyms.length,
-    "reexams": reexams.length,
-    "badges_shown_for_bonus": usageRights.length,
-    "should_repeat": repetitions.length,
-    "learning_requests": learnRequests.length,
-    "days_used_total": daysUsedTotal,
-    "days_used_canceled_insurances": daysCanceledInsurances.size,
-    "days_used_canceled_letters": daysCanceledLetters.size,
-    "days_used_insurances": daysInsurances.size,
-    "days_used_lessons": daysLessons.size,
-    "days_used_letterTemplates_lastExamined": daysLetterTemplatesLastExamined.size,
-    "days_used_letters": daysLetters.size,
-    "days_used_repetitions_lastExamined": daysRepetitionsLastExamined.size,
-    "days_used_letters_lastExamined": daysLettersLastExamined.size,
-    "days_used_reexams": daysReexams.size,
-    "days_used_usageRights_created": daysUsageRights.size,
-    "days_used_learnRequests_created": daysLearnRequests.size,
+    lessons_received: agreements.length,
+    cancel_insurances: canceledInsurances.length,
+    skills_forgotten: canceledLetters.length,
+    lessons_taught: lessonsTaughtReal,
+    training_count: warmUps,
+    tutees: distinctStudentsFromLessons,
+    skills: badgesReceivedAdjusted,
+    tutors: distinctRefereesFromLetters,
+    badges_issued: ltValidAndMature,
+    marked_for_repeat: ltToRepeat,
+    persons_connected: pseudonyms.length,
+    reexams: reexams.length,
+    badges_shown_for_bonus: usageRights.length,
+    should_repeat: repetitions.length,
+    learning_requests: learnRequests.length,
+    days_used_total: daysUsedTotal,
+    days_used_canceled_insurances: daysCanceledInsurances.size,
+    days_used_canceled_letters: daysCanceledLetters.size,
+    days_used_insurances: daysInsurances.size,
+    days_used_lessons: daysLessons.size,
+    days_used_letterTemplates_lastExamined: daysLetterTemplatesLastExamined.size,
+    days_used_letters: daysLetters.size,
+    days_used_repetitions_lastExamined: daysRepetitionsLastExamined.size,
+    days_used_letters_lastExamined: daysLettersLastExamined.size,
+    days_used_reexams: daysReexams.size,
+    days_used_usageRights_created: daysUsageRights.size,
+    days_used_learnRequests_created: daysLearnRequests.size,
   };
 
   printResults(results);
@@ -534,18 +553,19 @@ async function main(): Promise<void> {
   printDayCounts("timestamps_per_day: usageRights (created)", countsUsageRights);
   printDayCounts("timestamps_per_day: learnRequests (created)", countsLearnRequests);
 
-  printMinutesWorked("ALL", mmAll);
-  printMinutesWorked("canceledInsurances (created+canceled)", mmCanceledInsurances);
-  printMinutesWorked("canceledLetters (created)", mmCanceledLetters);
-  printMinutesWorked("insurances (created)", mmInsurances);
-  printMinutesWorked("lessons (created)", mmLessons);
-  printMinutesWorked("letters (lastExamined)", mmLettersLastExamined);
-  printMinutesWorked("letterTemplates (lastExamined)", mmLetterTemplatesLastExamined);
-  printMinutesWorked("letters (created)", mmLetters);
-  printMinutesWorked("repetitions (lastExamined)", mmRepetitionsLastExamined);
-  printMinutesWorked("reexams (created+lastExamined)", mmReexams);
-  printMinutesWorked("usageRights (created)", mmUsageRights);
-  printMinutesWorked("learnRequests (created)", mmLearnRequests);
+  // Minutes per day using timestamp-session logic
+  printMinutesWorked("ALL", tsAll);
+  printMinutesWorked("canceledInsurances (created+canceled)", tsCanceledInsurances);
+  printMinutesWorked("canceledLetters (created)", tsCanceledLetters);
+  printMinutesWorked("insurances (created)", tsInsurances);
+  printMinutesWorked("lessons (created)", tsLessons);
+  printMinutesWorked("letters (lastExamined)", tsLettersLastExamined);
+  printMinutesWorked("letterTemplates (lastExamined)", tsLetterTemplatesLastExamined);
+  printMinutesWorked("letters (created)", tsLettersCreated);
+  printMinutesWorked("repetitions (lastExamined)", tsRepetitionsLastExamined);
+  printMinutesWorked("reexams (created+lastExamined)", tsReexams);
+  printMinutesWorked("usageRights (created)", tsUsageRights);
+  printMinutesWorked("learnRequests (created)", tsLearnRequests);
 }
 
 main().catch((e: unknown) => {
