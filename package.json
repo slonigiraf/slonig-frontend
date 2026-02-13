@@ -61,6 +61,7 @@
     "start": "yarn clean && cd packages/apps && yarn polkadot-exec-webpack serve --config webpack.serve.cjs --port 3000",
     "start:electron": "yarn clean:electronBuild && concurrently 'yarn build:devElectronMain && cd packages/apps-electron && electron ./build/electron.js' 'yarn build:devElectronRenderer'",
     "test": "polkadot-dev-run-test --env browser ^typesBundle ^chainEndpoints ^chainTypes ^page- ^react- ^apps-electron",
+    "stat": "tsx scripts/stat.ts",
     "test:all": "polkadot-dev-run-test --env browser ^chainEndpoints ^chainTypes",
     "test:one": "polkadot-dev-run-test --env browser",
     "test:skipped": "echo 'tests skipped'"
@@ -93,7 +94,8 @@
     "react-dom": "^18.2.0",
     "react-is": "^18.2.0",
     "source-map-explorer": "^2.5.3",
-    "styled-components": "^5.3.11"
+    "styled-components": "^5.3.11",
+    "tsx": "^4.21.0"
   },
   "resolutions": {
     "@polkadot/api": "^10.9.1",
