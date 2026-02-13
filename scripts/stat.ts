@@ -569,8 +569,7 @@ async function main(): Promise<void> {
     printResults(results);
   }
 
-  // Currently don't use it
-  // printMinutesWorked("", tsAll);
+  printMinutesWorked("", tsAll);
 }
 
 main().catch((e: unknown) => {
