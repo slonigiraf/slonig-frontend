@@ -522,50 +522,12 @@ async function main(): Promise<void> {
     reexams: reexams.length,
     badges_shown_for_bonus: usageRights.length,
     should_repeat: repetitions.length,
-    learning_requests: learnRequests.length,
     days_used_total: daysUsedTotal,
-    days_used_canceled_insurances: daysCanceledInsurances.size,
-    days_used_canceled_letters: daysCanceledLetters.size,
-    days_used_insurances: daysInsurances.size,
-    days_used_lessons: daysLessons.size,
-    days_used_letterTemplates_lastExamined: daysLetterTemplatesLastExamined.size,
-    days_used_letters: daysLetters.size,
-    days_used_repetitions_lastExamined: daysRepetitionsLastExamined.size,
-    days_used_letters_lastExamined: daysLettersLastExamined.size,
-    days_used_reexams: daysReexams.size,
-    days_used_usageRights_created: daysUsageRights.size,
-    days_used_learnRequests_created: daysLearnRequests.size,
   };
 
   printResults(results);
-
-  // Histograms: count of timestamps per day (per group + total)
-  printDayCounts("timestamps_per_day: ALL", countsAll);
-  printDayCounts("timestamps_per_day: canceledInsurances (created+canceled)", countsCanceledInsurances);
-  printDayCounts("timestamps_per_day: canceledLetters (created)", countsCanceledLetters);
-  printDayCounts("timestamps_per_day: insurances (created)", countsInsurances);
-  printDayCounts("timestamps_per_day: lessons (created)", countsLessons);
-  printDayCounts("timestamps_per_day: letterTemplates (lastExamined)", countsLetterTemplatesLastExamined);
-  printDayCounts("timestamps_per_day: letters (created)", countsLetters);
-  printDayCounts("timestamps_per_day: letters (lastExamined)", countsLettersLastExamined);
-  printDayCounts("timestamps_per_day: repetitions (lastExamined)", countsRepetitionsLastExamined);
-  printDayCounts("timestamps_per_day: reexams (created+lastExamined)", countsReexams);
-  printDayCounts("timestamps_per_day: usageRights (created)", countsUsageRights);
-  printDayCounts("timestamps_per_day: learnRequests (created)", countsLearnRequests);
-
-  // Minutes per day using timestamp-session logic
   printMinutesWorked("ALL", tsAll);
-  printMinutesWorked("canceledInsurances (created+canceled)", tsCanceledInsurances);
-  printMinutesWorked("canceledLetters (created)", tsCanceledLetters);
-  printMinutesWorked("insurances (created)", tsInsurances);
-  printMinutesWorked("lessons (created)", tsLessons);
-  printMinutesWorked("letters (lastExamined)", tsLettersLastExamined);
-  printMinutesWorked("letterTemplates (lastExamined)", tsLetterTemplatesLastExamined);
-  printMinutesWorked("letters (created)", tsLettersCreated);
-  printMinutesWorked("repetitions (lastExamined)", tsRepetitionsLastExamined);
-  printMinutesWorked("reexams (created+lastExamined)", tsReexams);
-  printMinutesWorked("usageRights (created)", tsUsageRights);
-  printMinutesWorked("learnRequests (created)", tsLearnRequests);
+
 }
 
 main().catch((e: unknown) => {
