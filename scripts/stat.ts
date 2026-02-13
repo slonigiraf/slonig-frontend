@@ -282,6 +282,14 @@ function countWhere(rows: AnyRow[], predicate: (r: AnyRow) => boolean): number {
   return c;
 }
 
+function totalMinutesWorked(byDay: DayTimestamps): number {
+  let total = 0;
+  for (const [, ts] of byDay) {
+    total += toMinutesWorkedFromTimestamps(ts);
+  }
+  return total;
+}
+
 function printResults(results: Record<string, number>): void {
   const entries = Object.entries(results);
   const maxKey = Math.max(...entries.map(([k]) => k.length));
@@ -507,6 +515,8 @@ async function main(): Promise<void> {
   mergeDayTimestamps(tsAll, tsUsageRights);
   mergeDayTimestamps(tsAll, tsLearnRequests);
 
+  const minutesUsedTotal = totalMinutesWorked(tsAll);
+
   const results: Record<string, number> = {
     lessons_received: agreements.length,
     cancel_insurances: canceledInsurances.length,
@@ -523,10 +533,11 @@ async function main(): Promise<void> {
     badges_shown_for_bonus: usageRights.length,
     should_repeat: repetitions.length,
     days_used_total: daysUsedTotal,
+    minutes_used_total: minutesUsedTotal,
   };
 
   printResults(results);
-  printMinutesWorked("ALL", tsAll);
+  printMinutesWorked("", tsAll);
 
 }
 
