@@ -549,6 +549,7 @@ async function main(): Promise<void> {
     training_count: warmUps,
     tutees: distinctStudentsFromLessons,
     skills: badgesReceivedAdjusted,
+    saw_exercises_as_learner: badgesReceivedAdjusted + repetitions.length,
     tutors: distinctRefereesFromLetters,
     badges_issued: ltValidAndMature,
     marked_for_repeat: ltToRepeat,
@@ -558,6 +559,7 @@ async function main(): Promise<void> {
     should_repeat: repetitions.length,
     days_used_total: daysUsedTotal,
     minutes_used_total: minutesUsedTotal,
+
   };
 
   printResults(results);
