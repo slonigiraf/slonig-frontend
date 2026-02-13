@@ -348,6 +348,40 @@ async function main(): Promise<void> {
   const repetitions = getRows(tables, "repetitions");
   const learnRequests = getRows(tables, "learnRequests");
 
+  const lettersKnowledge = new Set<string>();
+  for (const l of letters) {
+    const kid = l["knowledgeId"];
+    if (typeof kid === "string" && kid.length > 0) lettersKnowledge.add(kid);
+  }
+
+  const repetitionsKnowledge = new Set<string>();
+  for (const l of repetitions) {
+    const kid = l["knowledgeId"];
+    if (typeof kid === "string" && kid.length > 0) repetitionsKnowledge.add(kid);
+  }
+
+  const letterTemplateKnowledge = new Set<string>();
+  for (const lt of letterTemplates) {
+    const include =
+      lt["shouldRepeat"] === true || lt["toRepeat"] === true || lt["valid"] === true;
+
+    if (!include) continue;
+
+    const kid = lt["knowledgeId"];
+    if (typeof kid === "string" && kid.length > 0) letterTemplateKnowledge.add(kid);
+  }
+
+  const sawExercisesAsTutor = letterTemplateKnowledge.size;
+
+  const sawExercisesAsLearnerSet = new Set<string>(lettersKnowledge);
+  for (const kid of repetitionsKnowledge) sawExercisesAsLearnerSet.add(kid);
+
+  const sawExercisesAsLearner = sawExercisesAsLearnerSet.size;
+
+  const sawExercisesTotalSet = new Set<string>(sawExercisesAsLearnerSet);
+  for (const kid of letterTemplateKnowledge) sawExercisesTotalSet.add(kid);
+  const sawExercisesTotal = sawExercisesTotalSet.size;
+
   const distinctStudentsFromLessons = distinctCountFromField(lessons, ["student"]);
   const distinctRefereesFromLetters = distinctCountFromField(letters, ["referee"]);
 
@@ -549,7 +583,9 @@ async function main(): Promise<void> {
     training_count: warmUps,
     tutees: distinctStudentsFromLessons,
     skills: badgesReceivedAdjusted,
-    saw_exercises_as_learner: badgesReceivedAdjusted + repetitions.length,
+    saw_exercises_as_learner: sawExercisesAsLearner,
+    saw_exercises_as_tutor: sawExercisesAsTutor,
+    saw_exercises_total: sawExercisesTotal,
     tutors: distinctRefereesFromLetters,
     badges_issued: ltValidAndMature,
     marked_for_repeat: ltToRepeat,
