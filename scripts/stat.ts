@@ -336,6 +336,9 @@ async function main(): Promise<void> {
   // --- Days used (unique calendar days across key activity timestamps) ---
   const daysAll = new Set<string>();
 
+  const daysLearnRequests = new Set<string>();
+  addDaysFromRows(daysLearnRequests, learnRequests, ["created"]);
+
   const daysReexams = new Set<string>();
   addDaysFromRows(daysReexams, reexams, ["created", "lastExamined"]);
 
@@ -381,6 +384,7 @@ async function main(): Promise<void> {
     daysLettersLastExamined,
     daysReexams,
     daysUsageRights,
+    daysLearnRequests,
   ]) {
     for (const d of s) daysAll.add(d);
   }
@@ -388,6 +392,9 @@ async function main(): Promise<void> {
   const daysUsedTotal = daysAll.size;
 
   // --- Per-day timestamp counts (histograms) ---
+
+  const countsLearnRequests = new Map<string, number>();
+  addDayCountsFromRows(countsLearnRequests, learnRequests, ["created"]);
 
   const countsUsageRights = new Map<string, number>();
   addDayCountsFromRows(countsUsageRights, usageRights, ["created"]);
@@ -430,8 +437,12 @@ async function main(): Promise<void> {
   mergeDayCounts(countsAll, countsLettersLastExamined);
   mergeDayCounts(countsAll, countsReexams);
   mergeDayCounts(countsAll, countsUsageRights);
+  mergeDayCounts(countsAll, countsLearnRequests);
 
   // --- Minutes worked per day (min->max span) ---
+  const mmLearnRequests: DayMinMax = new Map();
+  addDayMinMaxFromRows(mmLearnRequests, learnRequests, ["created"]);
+
   const mmReexams: DayMinMax = new Map();
   addDayMinMaxFromRows(mmReexams, reexams, ["created", "lastExamined"]);
 
@@ -475,6 +486,7 @@ async function main(): Promise<void> {
   mergeDayMinMax(mmAll, mmLettersLastExamined);
   mergeDayMinMax(mmAll, mmReexams);
   mergeDayMinMax(mmAll, mmUsageRights);
+  mergeDayMinMax(mmAll, mmLearnRequests);
 
   const results: Record<string, number> = {
     "lessons_received": agreements.length,
@@ -503,6 +515,7 @@ async function main(): Promise<void> {
     "days_used_letters_lastExamined": daysLettersLastExamined.size,
     "days_used_reexams": daysReexams.size,
     "days_used_usageRights_created": daysUsageRights.size,
+    "days_used_learnRequests_created": daysLearnRequests.size,
   };
 
   printResults(results);
@@ -519,6 +532,7 @@ async function main(): Promise<void> {
   printDayCounts("timestamps_per_day: repetitions (lastExamined)", countsRepetitionsLastExamined);
   printDayCounts("timestamps_per_day: reexams (created+lastExamined)", countsReexams);
   printDayCounts("timestamps_per_day: usageRights (created)", countsUsageRights);
+  printDayCounts("timestamps_per_day: learnRequests (created)", countsLearnRequests);
 
   printMinutesWorked("ALL", mmAll);
   printMinutesWorked("canceledInsurances (created+canceled)", mmCanceledInsurances);
@@ -531,6 +545,7 @@ async function main(): Promise<void> {
   printMinutesWorked("repetitions (lastExamined)", mmRepetitionsLastExamined);
   printMinutesWorked("reexams (created+lastExamined)", mmReexams);
   printMinutesWorked("usageRights (created)", mmUsageRights);
+  printMinutesWorked("learnRequests (created)", mmLearnRequests);
 }
 
 main().catch((e: unknown) => {
