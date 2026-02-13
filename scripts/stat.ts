@@ -17,6 +17,47 @@ type DexieExport = {
   };
 };
 
+function toDayString(value: unknown): string | null {
+  // supports: ISO string, numeric ms, numeric string, Date-ish
+  let d: Date | null = null;
+
+  if (typeof value === "number" && Number.isFinite(value)) {
+    d = new Date(value);
+  } else if (typeof value === "string" && value.trim().length > 0) {
+    // try numeric string (ms)
+    const asNum = Number(value);
+    if (Number.isFinite(asNum) && value.trim().match(/^\d+$/)) {
+      d = new Date(asNum);
+    } else {
+      const parsed = Date.parse(value);
+      if (!Number.isNaN(parsed)) d = new Date(parsed);
+    }
+  } else if (value instanceof Date) {
+    d = value;
+  }
+
+  if (!d || Number.isNaN(d.getTime())) return null;
+
+  // Use UTC day to avoid timezone surprises between machines
+  const y = d.getUTCFullYear();
+  const m = String(d.getUTCMonth() + 1).padStart(2, "0");
+  const day = String(d.getUTCDate()).padStart(2, "0");
+  return `${y}-${m}-${day}`;
+}
+
+function addDaysFromRows(
+  out: Set<string>,
+  rows: AnyRow[],
+  fields: string[]
+): void {
+  for (const r of rows) {
+    for (const f of fields) {
+      const ds = toDayString(r?.[f]);
+      if (ds) out.add(ds);
+    }
+  }
+}
+
 async function readTextMaybeGz(filePath: string): Promise<string> {
   const isGz = filePath.toLowerCase().endsWith(".gz");
 
@@ -104,6 +145,7 @@ async function main(): Promise<void> {
   const tables = buildTableMap(parsed);
 
   const agreements = getRows(tables, "agreements");
+  const insurances = getRows(tables, "insurances");
   const canceledInsurances = getRows(tables, "canceledInsurances");
   const canceledLetters = getRows(tables, "canceledLetters");
   const lessons = getRows(tables, "lessons");
@@ -151,6 +193,37 @@ async function main(): Promise<void> {
 
   const badgesReceivedAdjusted = Math.max(0, letters.length - (hasThatKnowledgeId ? 1 : 0));
 
+  // --- Days used (unique calendar days across key activity timestamps) ---
+  const daysAll = new Set<string>();
+
+  const daysCanceledInsurances = new Set<string>();
+  addDaysFromRows(daysCanceledInsurances, canceledInsurances, ["created", "canceled"]);
+
+  const daysCanceledLetters = new Set<string>();
+  addDaysFromRows(daysCanceledLetters, canceledLetters, ["created"]);
+
+  const daysInsurances = new Set<string>();
+  addDaysFromRows(daysInsurances, insurances, ["created"]);
+
+  const daysLessons = new Set<string>();
+  addDaysFromRows(daysLessons, lessons, ["created"]);
+
+  const daysLetters = new Set<string>();
+  addDaysFromRows(daysLetters, letters, ["created"]);
+
+  // Union
+  for (const s of [
+    daysCanceledInsurances,
+    daysCanceledLetters,
+    daysInsurances,
+    daysLessons,
+    daysLetters,
+  ]) {
+    for (const d of s) daysAll.add(d);
+  }
+
+  const daysUsedTotal = daysAll.size;
+
   const results: Record<string, number> = {
     "lessons_received": agreements.length,
     "canceled_insurances": canceledInsurances.length,
@@ -168,6 +241,12 @@ async function main(): Promise<void> {
     "badges_shown_for_bonus": usageRights.length,
     "should_repeat": repetitions.length,
     "learning_requests": learnRequests.length,
+    "days_used_total": daysUsedTotal,
+    "days_used_canceled_insurances": daysCanceledInsurances.size,
+    "days_used_canceled_letters": daysCanceledLetters.size,
+    "days_used_insurances": daysInsurances.size,
+    "days_used_lessons": daysLessons.size,
+    "days_used_letters": daysLetters.size,
   };
 
   printResults(results);
