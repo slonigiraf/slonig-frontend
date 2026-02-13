@@ -304,7 +304,7 @@ async function main(): Promise<void> {
   const daysAll = new Set<string>();
 
   const daysReexams = new Set<string>();
-addDaysFromRows(daysReexams, reexams, ["created", "lastExamined"]);
+  addDaysFromRows(daysReexams, reexams, ["created", "lastExamined"]);
 
   const daysCanceledInsurances = new Set<string>();
   addDaysFromRows(daysCanceledInsurances, canceledInsurances, ["created", "canceled"]);
@@ -330,6 +330,9 @@ addDaysFromRows(daysReexams, reexams, ["created", "lastExamined"]);
   const daysLetterTemplatesLastExamined = new Set<string>();
   addDaysFromRows(daysLetterTemplatesLastExamined, letterTemplates, ["lastExamined"]);
 
+  const daysUsageRights = new Set<string>();
+  addDaysFromRows(daysUsageRights, usageRights, ["created"]);
+
   // Union
   for (const s of [
     daysCanceledInsurances,
@@ -341,6 +344,7 @@ addDaysFromRows(daysReexams, reexams, ["created", "lastExamined"]);
     daysRepetitionsLastExamined,
     daysLettersLastExamined,
     daysReexams,
+    daysUsageRights,
   ]) {
     for (const d of s) daysAll.add(d);
   }
@@ -348,8 +352,12 @@ addDaysFromRows(daysReexams, reexams, ["created", "lastExamined"]);
   const daysUsedTotal = daysAll.size;
 
   // --- Per-day timestamp counts (histograms) ---
+
+  const countsUsageRights = new Map<string, number>();
+  addDayCountsFromRows(countsUsageRights, usageRights, ["created"]);
+
   const countsReexams = new Map<string, number>();
-addDayCountsFromRows(countsReexams, reexams, ["created", "lastExamined"]);
+  addDayCountsFromRows(countsReexams, reexams, ["created", "lastExamined"]);
 
   const countsLettersLastExamined = new Map<string, number>();
   addDayCountsFromRows(countsLettersLastExamined, letters, ["lastExamined"]);
@@ -385,10 +393,11 @@ addDayCountsFromRows(countsReexams, reexams, ["created", "lastExamined"]);
   mergeDayCounts(countsAll, countsRepetitionsLastExamined);
   mergeDayCounts(countsAll, countsLettersLastExamined);
   mergeDayCounts(countsAll, countsReexams);
+  mergeDayCounts(countsAll, countsUsageRights);
 
   // --- Minutes worked per day (min->max span) ---
   const mmReexams: DayMinMax = new Map();
-addDayMinMaxFromRows(mmReexams, reexams, ["created", "lastExamined"]);
+  addDayMinMaxFromRows(mmReexams, reexams, ["created", "lastExamined"]);
 
   const mmRepetitionsLastExamined: DayMinMax = new Map();
   addDayMinMaxFromRows(mmRepetitionsLastExamined, repetitions, ["lastExamined"]);
@@ -414,6 +423,9 @@ addDayMinMaxFromRows(mmReexams, reexams, ["created", "lastExamined"]);
   const mmLettersLastExamined: DayMinMax = new Map();
   addDayMinMaxFromRows(mmLettersLastExamined, letters, ["lastExamined"]);
 
+  const mmUsageRights: DayMinMax = new Map();
+  addDayMinMaxFromRows(mmUsageRights, usageRights, ["created"]);
+
 
   const mmAll: DayMinMax = new Map();
   mergeDayMinMax(mmAll, mmCanceledInsurances);
@@ -425,6 +437,7 @@ addDayMinMaxFromRows(mmReexams, reexams, ["created", "lastExamined"]);
   mergeDayMinMax(mmAll, mmRepetitionsLastExamined);
   mergeDayMinMax(mmAll, mmLettersLastExamined);
   mergeDayMinMax(mmAll, mmReexams);
+  mergeDayMinMax(mmAll, mmUsageRights);
 
   const results: Record<string, number> = {
     "lessons_received": agreements.length,
@@ -452,6 +465,7 @@ addDayMinMaxFromRows(mmReexams, reexams, ["created", "lastExamined"]);
     "days_used_repetitions_lastExamined": daysRepetitionsLastExamined.size,
     "days_used_letters_lastExamined": daysLettersLastExamined.size,
     "days_used_reexams": daysReexams.size,
+    "days_used_usageRights_created": daysUsageRights.size,
   };
 
   printResults(results);
@@ -467,6 +481,7 @@ addDayMinMaxFromRows(mmReexams, reexams, ["created", "lastExamined"]);
   printDayCounts("timestamps_per_day: letters (lastExamined)", countsLettersLastExamined);
   printDayCounts("timestamps_per_day: repetitions (lastExamined)", countsRepetitionsLastExamined);
   printDayCounts("timestamps_per_day: reexams (created+lastExamined)", countsReexams);
+  printDayCounts("timestamps_per_day: usageRights (created)", countsUsageRights);
 
   printMinutesWorked("ALL", mmAll);
   printMinutesWorked("canceledInsurances (created+canceled)", mmCanceledInsurances);
@@ -478,6 +493,7 @@ addDayMinMaxFromRows(mmReexams, reexams, ["created", "lastExamined"]);
   printMinutesWorked("letters (created)", mmLetters);
   printMinutesWorked("repetitions (lastExamined)", mmRepetitionsLastExamined);
   printMinutesWorked("reexams (created+lastExamined)", mmReexams);
+  printMinutesWorked("usageRights (created)", mmUsageRights);
 }
 
 main().catch((e: unknown) => {
