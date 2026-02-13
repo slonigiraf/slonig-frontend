@@ -281,17 +281,30 @@ async function main(): Promise<void> {
 
   const ltToRepeat = countWhere(letterTemplates, (r) => r["toRepeat"] === true);
 
-  // lessons_taught_real: number of distinct lessons that have > 2 letterTemplates
-  const ltByLesson = new Map<string, number>();
+  // lessons_taught / warmUps:
+  // A lesson is a warmUp if ANY of its letterTemplates has knowledgeId === EXAMPLE_SKILL_KNOWLEDGE_ID
+
+  const warmUpLessons = new Set<string>();
+  const allLessonsFromLetterTemplates = new Set<string>();
 
   for (const lt of letterTemplates) {
     const lesson = lt["lesson"];
     if (typeof lesson !== "string" || lesson.length === 0) continue;
-    ltByLesson.set(lesson, (ltByLesson.get(lesson) ?? 0) + 1);
+
+    allLessonsFromLetterTemplates.add(lesson);
+
+    if (lt["knowledgeId"] === EXAMPLE_SKILL_KNOWLEDGE_ID) {
+      warmUpLessons.add(lesson);
+    }
   }
 
-  const lessonsTaughtReal = Array.from(ltByLesson.values()).filter((n) => n > 2).length;
-  const warmUps = Math.max(0, lessons.length - lessonsTaughtReal);
+  // Count taught lessons as distinct lessons (from letterTemplates) that are NOT warmUps
+  const lessonsTaughtReal = Array.from(allLessonsFromLetterTemplates).filter(
+    (lesson) => !warmUpLessons.has(lesson)
+  ).length;
+
+  // Warm-ups are distinct warmUp lessons
+  const warmUps = warmUpLessons.size;
 
 
   const hasThatKnowledgeId = letters.some(
