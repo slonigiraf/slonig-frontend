@@ -1,3 +1,4 @@
+import { EXAMPLE_SKILL_KNOWLEDGE_ID } from "@slonigiraf/utils";
 import fs from "node:fs";
 import zlib from "node:zlib";
 
@@ -131,13 +132,33 @@ async function main(): Promise<void> {
 
   const ltToRepeat = countWhere(letterTemplates, (r) => r["toRepeat"] === true);
 
+  // lessons_taught_real: number of distinct lessons that have > 2 letterTemplates
+  const ltByLesson = new Map<string, number>();
+
+  for (const lt of letterTemplates) {
+    const lesson = lt["lesson"];
+    if (typeof lesson !== "string" || lesson.length === 0) continue;
+    ltByLesson.set(lesson, (ltByLesson.get(lesson) ?? 0) + 1);
+  }
+
+  const lessonsTaughtReal = Array.from(ltByLesson.values()).filter((n) => n > 2).length;
+  const warmUps = Math.max(0, lessons.length - lessonsTaughtReal);
+
+
+  const hasThatKnowledgeId = letters.some(
+    (r) => typeof r["knowledgeId"] === "string" && r["knowledgeId"] === EXAMPLE_SKILL_KNOWLEDGE_ID
+  );
+
+  const badgesReceivedAdjusted = Math.max(0, letters.length - (hasThatKnowledgeId ? 1 : 0));
+
   const results: Record<string, number> = {
     "lessons_received": agreements.length,
     "canceled_insurances": canceledInsurances.length,
     "skills_forgotten": canceledLetters.length,
-    "lessons_taught": lessons.length,
+    "lessons_taught": lessonsTaughtReal,
+    "training_count": warmUps,
     "tutees": distinctStudentsFromLessons,
-    "badges_received": letters.length,
+    "skills": badgesReceivedAdjusted,
     "tutors": distinctRefereesFromLetters,
     "badges_issued": ltValidAndMature,
     "marked_for_repeat": ltToRepeat,
