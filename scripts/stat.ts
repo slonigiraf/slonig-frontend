@@ -116,17 +116,12 @@ async function main(): Promise<void> {
   const learnRequests = getRows(tables, "learnRequests");
 
   // Heuristic: adjust these field names if your schema is strict
-  const distinctWorkersFromLessons = distinctCountFromField(lessons, [
-    "workerId",
-    "tutor",
-    "worker",
-    "workerSign",
-    "pubSign",
+  const distinctStudentsFromLessons = distinctCountFromField(lessons, [
+    "student",
   ]);
 
   const distinctRefereesFromLetters = distinctCountFromField(letters, [
     "referee",
-    "refereeId",
   ]);
 
   const ltValidAndMature = countWhere(
@@ -141,7 +136,7 @@ async function main(): Promise<void> {
     "canceledInsurances.rowCount": canceledInsurances.length,
     "canceledLetters.rowCount": canceledLetters.length,
     "lessons.rowCount": lessons.length,
-    "lessons.distinctWorkerCount": distinctWorkersFromLessons,
+    "lessons.distinctStudentCount": distinctStudentsFromLessons,
     "letters.rowCount": letters.length,
     "letters.distinctRefereeCount": distinctRefereesFromLetters,
     "letterTemplates.count(valid && mature)": ltValidAndMature,
