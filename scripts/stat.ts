@@ -132,21 +132,21 @@ async function main(): Promise<void> {
   const ltToRepeat = countWhere(letterTemplates, (r) => r["toRepeat"] === true);
 
   const results: Record<string, number> = {
-    "agreements.rowCount": agreements.length,
-    "canceledInsurances.rowCount": canceledInsurances.length,
-    "canceledLetters.rowCount": canceledLetters.length,
-    "lessons.rowCount": lessons.length,
-    "lessons.distinctStudentCount": distinctStudentsFromLessons,
-    "letters.rowCount": letters.length,
-    "letters.distinctRefereeCount": distinctRefereesFromLetters,
-    "letterTemplates.count(valid && mature)": ltValidAndMature,
-    "letterTemplates.count(toRepeat)": ltToRepeat,
-    "pseudonyms.rowCount": pseudonyms.length,
-    "reexams.rowCount": reexams.length,
-    "reimbursements.rowCount": reimbursements.length,
-    "usageRights.rowCount": usageRights.length,
-    "repetitions.rowCount": repetitions.length,
-    "learnRequests.rowCount": learnRequests.length,
+    "lessons_received": agreements.length,
+    "canceled_insurances": canceledInsurances.length,
+    "skills_forgotten": canceledLetters.length,
+    "lessons_taught": lessons.length,
+    "tutees": distinctStudentsFromLessons,
+    "badges_received": letters.length,
+    "tutors": distinctRefereesFromLetters,
+    "badges_issued": ltValidAndMature,
+    "marked_for_repeat": ltToRepeat,
+    "persons_connected": pseudonyms.length,
+    "reexams": reexams.length,
+    "badges_lost": reimbursements.length,
+    "badges_shown_for_bonus": usageRights.length,
+    "repetitions": repetitions.length,
+    "learning_requests": learnRequests.length,
   };
 
   printResults(results);
