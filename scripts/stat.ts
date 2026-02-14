@@ -328,6 +328,11 @@ async function writeCsvFile(filePath: string, csvText: string): Promise<void> {
   await fs.promises.writeFile(filePath, csvText, "utf8");
 }
 
+function safeDayKey(day: string): string {
+  // "2026-02-14" -> "2026_02_14" (avoid hyphens in column names)
+  return day.replace(/-/g, "_");
+}
+
 async function main(): Promise<void> {
   const accountPath = process.argv[2];     // gz/json
   const knowledgePath = process.argv[3];  // list of ids
@@ -581,6 +586,16 @@ async function main(): Promise<void> {
     dynamicKeys.push(sKey, lKey, tKey, aKey);
   }
 
+  // --- NEW: minutes per day columns (from tsAll) ---
+  const dayMinKeys: string[] = [];
+  const daysSorted = Array.from(tsAll.keys()).sort((a, b) => a.localeCompare(b));
+
+  for (const day of daysSorted) {
+    const key = `min_${safeDayKey(day)}`; // e.g. min_2026_02_14
+    results[key] = toMinutesWorkedFromTimestamps(tsAll.get(day) ?? []);
+    dayMinKeys.push(key);
+  }
+
   // console output (base results only)
   printResults(results);
 
@@ -607,7 +622,7 @@ async function main(): Promise<void> {
     "minutes_used_total",
   ];
 
-  const csv = objectToCsvOneRowOrdered(results, [...baseKeys, ...dynamicKeys]);
+  const csv = objectToCsvOneRowOrdered(results, [...baseKeys, ...dynamicKeys, ...dayMinKeys]);
   await writeCsvFile(outCsvPath, csv);
   console.log(`Wrote CSV: ${outCsvPath}`);
 
