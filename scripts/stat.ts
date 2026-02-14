@@ -75,7 +75,7 @@ function toMs(value: unknown): number | null {
   return null;
 }
 
-// ------------------ NEW: hold all timestamps per day ------------------
+// ------------------ hold all timestamps per day ------------------
 
 type DayTimestamps = Map<string, number[]>;
 
@@ -182,7 +182,7 @@ function buildSyntheticLetterTemplateTimestampsFromLetters(letters: AnyRow[]): A
     const syntheticMs = createdMs - FOUR_MIN_MS;
     if (!Number.isFinite(syntheticMs)) continue;
 
-    // We’ll treat it as an extra "lastExamined" timestamp for the letterTemplates group.
+    // treat as an extra "lastExamined"
     out.push({ lastExamined: syntheticMs });
   }
 
@@ -207,18 +207,6 @@ function mergeDayCounts(into: DayCounts, from: DayCounts): void {
   }
 }
 
-function printDayCounts(title: string, counts: DayCounts): void {
-  const rows = Array.from(counts.entries()).sort(([a], [b]) => a.localeCompare(b));
-  console.log(`\n${title}`);
-  if (rows.length === 0) {
-    console.log("(no timestamps)");
-    return;
-  }
-  for (const [day, cnt] of rows) {
-    console.log(`${day} : ${cnt}`);
-  }
-}
-
 async function readTextMaybeGz(filePath: string): Promise<string> {
   const isGz = filePath.toLowerCase().endsWith(".gz");
 
@@ -232,7 +220,6 @@ async function readTextMaybeGz(filePath: string): Promise<string> {
     fs.createReadStream(filePath)
       .pipe(zlib.createGunzip())
       .on("data", (c: Buffer) => {
-        // Buffer is a Uint8Array at runtime, but TS typing can be picky in newer libs
         chunks.push(new Uint8Array(c));
       })
       .on("error", reject)
@@ -241,6 +228,26 @@ async function readTextMaybeGz(filePath: string): Promise<string> {
         resolve(buf.toString("utf8"));
       });
   });
+}
+
+// NEW: read knowledge ids file (one id per line, or comma/space-separated; supports .gz too)
+async function readKnowledgeIds(filePath: string): Promise<string[]> {
+  const txt = await readTextMaybeGz(filePath);
+  const ids = txt
+    .split(/\r?\n/)
+    .flatMap((line) => line.split(/[,\t ]+/g))
+    .map((s) => s.trim())
+    .filter(Boolean);
+
+  // keep order but de-duplicate
+  const seen = new Set<string>();
+  const out: string[] = [];
+  for (const id of ids) {
+    if (seen.has(id)) continue;
+    seen.add(id);
+    out.push(id);
+  }
+  return out;
 }
 
 function buildTableMap(parsed: DexieExport): Map<string, AnyRow[]> {
@@ -301,37 +308,42 @@ function printResults(results: Record<string, number>): void {
 function csvEscape(value: unknown): string {
   if (value == null) return "";
   const s = String(value);
-  // Quote if contains comma, quote, newline, or leading/trailing spaces
   if (/[",\n\r]/.test(s) || s !== s.trim()) {
     return `"${s.replace(/"/g, '""')}"`;
   }
   return s;
 }
 
-function objectToCsvOneRow(obj: Record<string, unknown>): string {
-  const keys = Object.keys(obj);
+// NEW: stable CSV writer from explicit column order
+function objectToCsvOneRowOrdered(
+  obj: Record<string, unknown>,
+  keys: string[]
+): string {
   const header = keys.map(csvEscape).join(",");
   const row = keys.map((k) => csvEscape(obj[k])).join(",");
   return `${header}\n${row}\n`;
 }
 
 async function writeCsvFile(filePath: string, csvText: string): Promise<void> {
-  // ensure directory exists? (optional) – for now, just write
   await fs.promises.writeFile(filePath, csvText, "utf8");
 }
 
 async function main(): Promise<void> {
-  const filePath = process.argv[2];
-  const outCsvPath = process.argv[3]; // <-- NEW: 2nd param
+  const accountPath = process.argv[2];     // gz/json
+  const knowledgePath = process.argv[3];  // list of ids
+  const outCsvPath = process.argv[4];     // output csv
 
-  if (!filePath) {
+  if (!accountPath || !knowledgePath || !outCsvPath) {
     console.error(
-      "Usage: node --loader ts-node/esm stats-dexie-export.ts <path/to/export.json.gz|export.json> [output.csv]"
+      "Usage: node --loader ts-node/esm stats-dexie-export.ts <export.json.gz|export.json> <knowledge_ids.txt|.gz> <output.csv>\n" +
+      "knowledge file: ids can be one-per-line (preferred) or separated by spaces/commas."
     );
     process.exit(2);
   }
 
-  const text = await readTextMaybeGz(filePath);
+  const knowledgeIds = await readKnowledgeIds(knowledgePath);
+
+  const text = await readTextMaybeGz(accountPath);
   const parsed = JSON.parse(text) as DexieExport;
   const tables = buildTableMap(parsed);
 
@@ -348,6 +360,7 @@ async function main(): Promise<void> {
   const repetitions = getRows(tables, "repetitions");
   const learnRequests = getRows(tables, "learnRequests");
 
+  // --- knowledge sets ---
   const lettersKnowledge = new Set<string>();
   for (const l of letters) {
     const kid = l["knowledgeId"];
@@ -364,7 +377,6 @@ async function main(): Promise<void> {
   for (const lt of letterTemplates) {
     const include =
       lt["shouldRepeat"] === true || lt["toRepeat"] === true || lt["valid"] === true;
-
     if (!include) continue;
 
     const kid = lt["knowledgeId"];
@@ -375,7 +387,6 @@ async function main(): Promise<void> {
 
   const sawExercisesAsLearnerSet = new Set<string>(lettersKnowledge);
   for (const kid of repetitionsKnowledge) sawExercisesAsLearnerSet.add(kid);
-
   const sawExercisesAsLearner = sawExercisesAsLearnerSet.size;
 
   const sawExercisesTotalSet = new Set<string>(sawExercisesAsLearnerSet);
@@ -451,14 +462,13 @@ async function main(): Promise<void> {
   const daysLetterTemplatesLastExamined = new Set<string>();
   addDaysFromRows(daysLetterTemplatesLastExamined, letterTemplates, ["lastExamined"]);
 
-  // Build synthetic timestamps: one per warm-up letter (knowledgeId === EXAMPLE...), 4 min before created
+  // synthetic timestamps: one per warm-up letter, 4 min before created
   const syntheticLTFromWarmupLetters = buildSyntheticLetterTemplateTimestampsFromLetters(letters);
   addDaysFromRows(daysLetterTemplatesLastExamined, syntheticLTFromWarmupLetters, ["lastExamined"]);
 
   const daysUsageRights = new Set<string>();
   addDaysFromRows(daysUsageRights, usageRights, ["created"]);
 
-  // Union
   for (const s of [
     daysCanceledInsurances,
     daysCanceledLetters,
@@ -474,56 +484,7 @@ async function main(): Promise<void> {
   ]) {
     for (const d of s) daysAll.add(d);
   }
-
   const daysUsedTotal = daysAll.size;
-
-  // --- Per-day timestamp counts (histograms) ---
-
-  const countsLearnRequests = new Map<string, number>();
-  addDayCountsFromRows(countsLearnRequests, learnRequests, ["created"]);
-
-  const countsUsageRights = new Map<string, number>();
-  addDayCountsFromRows(countsUsageRights, usageRights, ["created"]);
-
-  const countsReexams = new Map<string, number>();
-  addDayCountsFromRows(countsReexams, reexams, ["created", "lastExamined"]);
-
-  const countsLettersLastExamined = new Map<string, number>();
-  addDayCountsFromRows(countsLettersLastExamined, letters, ["lastExamined"]);
-
-  const countsRepetitionsLastExamined = new Map<string, number>();
-  addDayCountsFromRows(countsRepetitionsLastExamined, repetitions, ["lastExamined"]);
-
-  const countsCanceledInsurances = new Map<string, number>();
-  addDayCountsFromRows(countsCanceledInsurances, canceledInsurances, ["created", "canceled"]);
-
-  const countsCanceledLetters = new Map<string, number>();
-  addDayCountsFromRows(countsCanceledLetters, canceledLetters, ["created"]);
-
-  const countsInsurances = new Map<string, number>();
-  addDayCountsFromRows(countsInsurances, insurances, ["created"]);
-
-  const countsLessons = new Map<string, number>();
-  addDayCountsFromRows(countsLessons, lessons, ["created"]);
-
-  const countsLetterTemplatesLastExamined = new Map<string, number>();
-  addDayCountsFromRows(countsLetterTemplatesLastExamined, letterTemplates, ["lastExamined"]);
-
-  const countsLetters = new Map<string, number>();
-  addDayCountsFromRows(countsLetters, letters, ["created"]);
-
-  const countsAll = new Map<string, number>();
-  mergeDayCounts(countsAll, countsCanceledInsurances);
-  mergeDayCounts(countsAll, countsCanceledLetters);
-  mergeDayCounts(countsAll, countsInsurances);
-  mergeDayCounts(countsAll, countsLessons);
-  mergeDayCounts(countsAll, countsLetters);
-  mergeDayCounts(countsAll, countsLetterTemplatesLastExamined);
-  mergeDayCounts(countsAll, countsRepetitionsLastExamined);
-  mergeDayCounts(countsAll, countsLettersLastExamined);
-  mergeDayCounts(countsAll, countsReexams);
-  mergeDayCounts(countsAll, countsUsageRights);
-  mergeDayCounts(countsAll, countsLearnRequests);
 
   // --- Minutes worked per day (timestamps -> session split) ---
   const tsLearnRequests: DayTimestamps = new Map();
@@ -549,7 +510,9 @@ async function main(): Promise<void> {
 
   const tsLetterTemplatesLastExamined: DayTimestamps = new Map();
   addDayTimestampsFromRows(tsLetterTemplatesLastExamined, letterTemplates, ["lastExamined"]);
-  addDayTimestampsFromRows(tsLetterTemplatesLastExamined, syntheticLTFromWarmupLetters, ["lastExamined"]);
+  addDayTimestampsFromRows(tsLetterTemplatesLastExamined, syntheticLTFromWarmupLetters, [
+    "lastExamined",
+  ]);
 
   const tsLettersCreated: DayTimestamps = new Map();
   addDayTimestampsFromRows(tsLettersCreated, letters, ["created"]);
@@ -575,6 +538,7 @@ async function main(): Promise<void> {
 
   const minutesUsedTotal = totalMinutesWorked(tsAll);
 
+  // --- base results ---
   const results: Record<string, number> = {
     lessons_received: agreements.length,
     canceled_insurances: canceledInsurances.length,
@@ -595,17 +559,57 @@ async function main(): Promise<void> {
     should_repeat: repetitions.length,
     days_used_total: daysUsedTotal,
     minutes_used_total: minutesUsedTotal,
-
   };
 
-  printResults(results);
-  if (outCsvPath && outCsvPath.trim().length > 0) {
-    const csv = objectToCsvOneRow(results);
-    await writeCsvFile(outCsvPath, csv);
-    console.log(`Wrote CSV: ${outCsvPath}`);
-  } else {
-    printResults(results);
+  // --- NEW: per-knowledge columns based on provided list ---
+  // s_{id}: letters contain id
+  // l_{id}: sawExercisesAsLearnerSet contain id
+  // t_{id}: sawExercisesAsTutor contain id
+  // a_{id}: sawExercisesTotalSet contain id
+  const dynamicKeys: string[] = [];
+  for (const id of knowledgeIds) {
+    const sKey = `s_${id}`;
+    const lKey = `l_${id}`;
+    const tKey = `t_${id}`;
+    const aKey = `a_${id}`;
+
+    results[sKey] = lettersKnowledge.has(id) ? 1 : 0;
+    results[lKey] = sawExercisesAsLearnerSet.has(id) ? 1 : 0;
+    results[tKey] = letterTemplateKnowledge.has(id) ? 1 : 0;
+    results[aKey] = sawExercisesTotalSet.has(id) ? 1 : 0;
+
+    dynamicKeys.push(sKey, lKey, tKey, aKey);
   }
+
+  // console output (base results only)
+  printResults(results);
+
+  // CSV with stable column order: base keys first, then dynamic keys
+  const baseKeys = [
+    "lessons_received",
+    "canceled_insurances",
+    "skills_forgotten",
+    "lessons_taught",
+    "training_count",
+    "tutees",
+    "skills",
+    "saw_exercises_as_learner",
+    "saw_exercises_as_tutor",
+    "saw_exercises_total",
+    "tutors",
+    "badges_issued",
+    "marked_for_repeat",
+    "persons_connected",
+    "reexams",
+    "badges_shown_for_bonus",
+    "should_repeat",
+    "days_used_total",
+    "minutes_used_total",
+  ];
+
+  const csv = objectToCsvOneRowOrdered(results, [...baseKeys, ...dynamicKeys]);
+  await writeCsvFile(outCsvPath, csv);
+  console.log(`Wrote CSV: ${outCsvPath}`);
 
   printMinutesWorked("", tsAll);
 }
