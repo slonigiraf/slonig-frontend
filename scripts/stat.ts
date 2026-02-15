@@ -626,7 +626,19 @@ async function main(): Promise<void> {
   await writeCsvFile(outCsvPath, csv);
   console.log(`Wrote CSV: ${outCsvPath}`);
 
-  printMinutesWorked("", tsAll);
+  // Minutes per day using timestamp-session logic
+  printMinutesWorked("ALL", tsAll);
+  printMinutesWorked("canceledInsurances (created+canceled)", tsCanceledInsurances);
+  printMinutesWorked("canceledLetters (created)", tsCanceledLetters);
+  printMinutesWorked("insurances (created)", tsInsurances);
+  printMinutesWorked("lessons (created)", tsLessons);
+  printMinutesWorked("letters (lastExamined)", tsLettersLastExamined);
+  printMinutesWorked("letterTemplates (lastExamined)", tsLetterTemplatesLastExamined);
+  printMinutesWorked("letters (created)", tsLettersCreated);
+  printMinutesWorked("repetitions (lastExamined)", tsRepetitionsLastExamined);
+  printMinutesWorked("reexams (created+lastExamined)", tsReexams);
+  printMinutesWorked("usageRights (created)", tsUsageRights);
+  printMinutesWorked("learnRequests (created)", tsLearnRequests);
 }
 
 main().catch((e: unknown) => {
