@@ -682,7 +682,7 @@ function Teach({ className = '' }: Props): React.ReactElement<Props> {
 
           {isCanContinueTeachingHintShown && <OKBox info={t('You can continue teaching')} onClose={toggleIsCanContinueTeachingHintShown} />}
           {
-            lesson && isPairChangeDialogueOpen && !areResultsShown && requireSupervision === undefined &&
+            lesson && isPairChangeDialogueOpen && !areResultsShown && !requireSupervision &&
             <Confirmation
               decorator={clock}
               question={t('It’s time to send the results and become a student of a new partner.')}
