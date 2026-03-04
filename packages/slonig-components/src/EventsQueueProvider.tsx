@@ -73,7 +73,7 @@ export const EventsQueueProvider: React.FC<EventsQueueProviderProps> = ({ childr
 
       if (isLocalhost) {
         const isValueDefined = value !== null && value !== undefined;
-        console.log(`EVENT: ${category} - ${action}${name ? ' - ' + name : ''}${isValueDefined ? ' - ' + value : ''}`)
+        console.log(`EVENT: ${category} - ${action}${name ? ' - ' + name : ''}${isValueDefined ? ' - ' + value : ''}`);
       } else {
         // Matomo allows queuing events before the tracker script is fully loaded.
         window._paq = window._paq || [];
