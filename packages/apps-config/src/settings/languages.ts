@@ -61,6 +61,10 @@ export function createLanguages(t: TFunction): Option[] {
       value: 'ru'
     },
     {
+      text: 'Crnogorski',
+      value: 'sr'
+    },
+    {
       text: '汉语',
       value: 'zh'
     },
