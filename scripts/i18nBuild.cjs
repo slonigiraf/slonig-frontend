@@ -140,6 +140,7 @@ async function translateBatch(client, lang, keys) {
     `- Return ONLY a valid JSON object mapping the ORIGINAL STRING to its translation.`,
     `- Preserve placeholders exactly: {{var}}, {var}, %s, %d, <0>...</0>, HTML tags, markdown, emojis.`,
     `- Do not add extra commentary.`,
+    `- In the case of the Serbian language, use the Latin script.`,
   ].join("\n");
 
   /** @type {import("openai/resources/chat/completions").ChatCompletionMessageParam[]} */
