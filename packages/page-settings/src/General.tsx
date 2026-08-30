@@ -26,7 +26,7 @@ function General({ className = '' }: Props): React.ReactElement<Props> {
   const { logEvent, logEconomy } = useLog();
   const currentVersion = useSettingValue(SettingKey.APP_VERSION);
   const { currentPair } = useLoginContext();
-  const [openAIToken, setOpenAIToken] = useState('');
+  const [openRouterToken, setOpenRouterToken] = useState('');
   const [isDeveloper, setDeveloper] = useState<boolean>(false);
   // tri-state: null = nothing changed, false = no reload, true = reload required
   const [changed, setChanged] = useState<boolean | null>(null);
@@ -72,11 +72,11 @@ function General({ className = '' }: Props): React.ReactElement<Props> {
   }, [state]);
 
   useEffect((): void => {
-    const loadOpenAIKey = async () => {
-      const key = await getSetting(SettingKey.OPENAI_TOKEN);
-      key && setOpenAIToken(key);
+    const loadOpenRouterKey = async () => {
+      const key = await getSetting(SettingKey.OPENROUTER_TOKEN);
+      key && setOpenRouterToken(key);
     }
-    loadOpenAIKey();
+    loadOpenRouterKey();
   }, []);
 
   const _handleChange = useCallback(
@@ -90,13 +90,13 @@ function General({ className = '' }: Props): React.ReactElement<Props> {
     [state]
   );
 
-  const saveOpenAIToken = useCallback(
+  const saveOpenRouterToken = useCallback(
     async (value: string) => {
-      setOpenAIToken(value);
-      await storeSetting(SettingKey.OPENAI_TOKEN, value)
+      setOpenRouterToken(value);
+      await storeSetting(SettingKey.OPENROUTER_TOKEN, value)
       setChanged(true);
     },
-    [setOpenAIToken]
+    [setOpenRouterToken]
   );
 
   const _resetPriceAndWarranty = useCallback(
@@ -161,9 +161,9 @@ function General({ className = '' }: Props): React.ReactElement<Props> {
         <Input
           autoFocus
           className='full'
-          label={t('OpenAI Token')}
-          onChange={saveOpenAIToken}
-          value={openAIToken}
+          label={t('OpenRouter Token')}
+          onChange={saveOpenRouterToken}
+          value={openRouterToken}
         />
       </div>}
 

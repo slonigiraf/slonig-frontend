@@ -39,7 +39,7 @@ function Edit({ className = '' }: Props): React.ReactElement<Props> {
   const [isProcessing, toggleProcessing] = useToggle(false);
   const [isDeveloper, setDeveloper] = useState<boolean>(false);
 
-  const openAIToken = useSettingValue(SettingKey.OPENAI_TOKEN);
+  const openRouterToken = useSettingValue(SettingKey.OPENROUTER_TOKEN);
 
   const location = useLocation();
   const queryParams = new URLSearchParams(location.search);
@@ -338,7 +338,7 @@ function Edit({ className = '' }: Props): React.ReactElement<Props> {
         isDisabled={isProcessing}
       />
 
-      {openAIToken && list && list.i && list.t !== null && list.t === LawType.MODULE && (
+      {openRouterToken && list && list.i && list.t !== null && list.t === LawType.MODULE && (
         <Templates>
           <GenerateSkills moduleId={list.i} />
           <SkillTemplateList moduleId={list.i} />

@@ -32,14 +32,22 @@ const GenerateSkills: React.FC<Props> = ({ className = '', moduleId }: Props) =>
       return;
     }
 
-    const key = await getSetting(SettingKey.OPENAI_TOKEN);
+    const key = await getSetting(SettingKey.OPENROUTER_TOKEN);
     if (!key) {
-      console.error('Missing OpenAI token');
-      setOutput('⚠️ No OpenAI token found. Please add it in settings.');
+      console.error('Missing OpenRouter token');
+      setOutput('⚠️ No OpenRouter token found. Please add it in settings.');
       return;
     }
 
-    const client = new OpenAI({ apiKey: key, dangerouslyAllowBrowser: true });
+    const client = new OpenAI({
+      apiKey: key,
+      baseURL: 'https://openrouter.ai/api/v1',
+      dangerouslyAllowBrowser: true,
+      defaultHeaders: {
+        'HTTP-Referer': window.location.origin,
+        'X-OpenRouter-Title': 'Slonig'
+      }
+    });
     const prompt = `${skillListPrompt}\n\nRespond strictly as a JSON array, without markdown formatting or commentary.`;
 
     try {
@@ -47,55 +55,34 @@ const GenerateSkills: React.FC<Props> = ({ className = '', moduleId }: Props) =>
 
       let text = '';
 
-      // --- Handle images with GPT-4o Vision ---
-      if (file.type.startsWith('image/')) {
-        const base64 = await new Promise<string>((resolve) => {
-          const reader = new FileReader();
-          reader.onload = () => resolve(reader.result as string);
-          reader.readAsDataURL(file);
-        });
+      const fileData = await new Promise<string>((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(reader.result as string);
+        reader.onerror = () => reject(reader.error);
+        reader.readAsDataURL(file);
+      });
+      const fileContent = file.type.startsWith('image/')
+        ? { type: 'image_url', image_url: { url: fileData } }
+        : { type: 'file', file: { filename: file.name, file_data: fileData } };
+      const response = await client.chat.completions.create({
+        model: 'openai/gpt-4o-mini',
+        messages: [
+          { role: 'system', content: 'Respond strictly as a JSON array.' },
+          {
+            role: 'user',
+            content: [
+              { type: 'text', text: prompt },
+              fileContent
+            ] as any
+          }
+        ]
+      });
 
-        const response = await client.chat.completions.create({
-          model: 'gpt-4o-mini',
-          messages: [
-            { role: 'system', content: 'You are an AI image analyst. Respond strictly as a JSON array.' },
-            {
-              role: 'user',
-              content: [
-                { type: 'text', text: prompt },
-                { type: 'image_url', image_url: { url: base64 } }
-              ]
-            }
-          ]
-        });
-
-        text = response.choices[0].message?.content ?? '';
-      } else {
-        // --- Handle PDFs, TXT, CSV, etc. ---
-        const uploaded = await client.files.create({
-          file,
-          purpose: 'assistants'
-        });
-
-        const response = await client.responses.create({
-          model: 'gpt-4.1-mini',
-          input: [
-            {
-              role: 'user',
-              content: [
-                { type: 'input_text', text: prompt },
-                { type: 'input_file', file_id: uploaded.id }
-              ]
-            }
-          ]
-        });
-
-        text = response.output_text ?? '';
-      }
+      text = response.choices[0].message?.content ?? '';
 
       // --- Parse and store ---
       if (!text) {
-        setOutput('❌ No text returned from OpenAI.');
+        setOutput('❌ No text returned from OpenRouter.');
         return;
       }
 
@@ -117,12 +104,12 @@ const GenerateSkills: React.FC<Props> = ({ className = '', moduleId }: Props) =>
         parsed = safeJSONParse(cleaned);
       } catch (e) {
         console.error('JSON parse error:', e, text);
-        setOutput('❌ Failed to parse OpenAI response as JSON.\n\n' + cleaned);
+        setOutput('❌ Failed to parse OpenRouter response as JSON.\n\n' + cleaned);
         return;
       }
 
       if (!Array.isArray(parsed)) {
-        setOutput('❌ OpenAI response is not an array.\n\n' + cleaned);
+        setOutput('❌ OpenRouter response is not an array.\n\n' + cleaned);
         return;
       }
 
@@ -136,8 +123,8 @@ const GenerateSkills: React.FC<Props> = ({ className = '', moduleId }: Props) =>
 
       setOutput(`✅ Stored ${count} skill templates.`);
     } catch (err: any) {
-      console.error('OpenAI error:', err);
-      setOutput(`❌ OpenAI error: ${err.message || 'Unknown error'}`);
+      console.error('OpenRouter error:', err);
+      setOutput(`❌ OpenRouter error: ${err.message || 'Unknown error'}`);
     } finally {
       setLoading(false);
     }
