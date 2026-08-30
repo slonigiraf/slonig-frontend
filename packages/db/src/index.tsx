@@ -178,6 +178,10 @@ export async function getSkillTemplates(moduleId: string) {
     return await db.skillTemplates.where('moduleId').equals(moduleId).toArray();
 }
 
+export async function deleteSkillTemplates(moduleId: string): Promise<void> {
+    await db.skillTemplates.where('moduleId').equals(moduleId).delete();
+}
+
 // Signer related
 
 export async function setLastUsedLetterNumber(publicKey: string, lastUsed: number) {
