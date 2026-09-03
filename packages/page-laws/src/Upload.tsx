@@ -9,6 +9,7 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Button, Dropdown, styled } from '@polkadot/react-components';
 
 import { useTranslation } from './translate.js';
+import BookReader from './BookReader.js';
 
 const BOOKS_DIRECTORY = 'books';
 
@@ -49,6 +50,7 @@ function Upload (): React.ReactElement {
   const [books, setBooks] = useState<Book[]>([]);
   const [error, setError] = useState('');
   const [isBusy, setIsBusy] = useState(false);
+  const [readerFile, setReaderFile] = useState<File>();
   const [selectedId, setSelectedId] = useState<number>();
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -67,6 +69,22 @@ function Upload (): React.ReactElement {
     () => books.find(({ id }) => id === selectedId),
     [books, selectedId]
   );
+
+  useEffect(() => {
+    let active = true;
+
+    setReaderFile(undefined);
+
+    if (selectedBook) {
+      readPdf(selectedBook.opfsName)
+        .then((file) => active && setReaderFile(file))
+        .catch(() => active && setError(t('Unable to open this PDF.')));
+    }
+
+    return () => {
+      active = false;
+    };
+  }, [selectedBook, t]);
 
   const options = useMemo(
     () => books.map(({ id, name }) => ({ key: id, text: name, value: id })),
@@ -223,13 +241,19 @@ function Upload (): React.ReactElement {
           role='alert'
         >{error}</p>
       )}
+      {selectedBook && readerFile && (
+        <BookReader
+          book={selectedBook}
+          file={readerFile}
+        />
+      )}
     </StyledSection>
   );
 }
 
 const StyledSection = styled.section`
   margin: 1.5rem auto 2rem;
-  max-width: 60rem;
+  max-width: 90rem;
 
   .bookToolbar {
     align-items: flex-end;
