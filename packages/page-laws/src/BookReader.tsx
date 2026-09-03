@@ -202,6 +202,12 @@ function BookReader ({ book, file }: Props): React.ReactElement {
           type='range'
           value={pageNumber}
         />
+        <div className='previewButton'>
+          <Button
+            icon={isMaximized ? 'compress' : 'search-plus'}
+            onClick={() => setIsMaximized((value) => !value)}
+          />
+        </div>
       </div>
       {error && <p
         className='readerError'
@@ -213,12 +219,6 @@ function BookReader ({ book, file }: Props): React.ReactElement {
           ref={pageAreaRef}
         >
           <canvas ref={canvasRef} />
-        </div>
-        <div className='previewButton'>
-          <Button
-            icon={isMaximized ? 'compress' : 'search-plus'}
-            onClick={() => setIsMaximized((value) => !value)}
-          />
         </div>
         <label className='conceptsArea'>
           <span>Concepts</span>
@@ -256,7 +256,7 @@ const StyledReader = styled.div`
     align-items: center;
     display: grid;
     gap: 0.75rem;
-    grid-template-columns: auto auto auto minmax(10rem, 1fr);
+    grid-template-columns: auto auto auto minmax(10rem, 1fr) auto;
     margin-bottom: 1rem;
   }
 
@@ -285,7 +285,7 @@ const StyledReader = styled.div`
   .readerColumns {
     display: grid;
     gap: 1rem;
-    grid-template-columns: minmax(0, 1fr) auto minmax(18rem, 1fr);
+    grid-template-columns: minmax(0, 1fr) minmax(18rem, 1fr);
     height: calc(100vh - 70px);
     height: calc(100dvh - 70px);
   }
@@ -295,11 +295,14 @@ const StyledReader = styled.div`
     border: 1px solid #dde1eb;
     border-radius: 0.5rem;
     box-sizing: border-box;
+    height: 100%;
     min-width: 0;
+    overflow: hidden;
   }
 
   .pageArea {
     box-sizing: border-box;
+    height: 100%;
     min-width: 0;
     overflow: auto;
     text-align: center;
@@ -316,6 +319,7 @@ const StyledReader = styled.div`
   .previewButton {
     align-items: center;
     display: flex;
+    justify-content: flex-end;
   }
 
   .previewButton .ui--Button {
@@ -340,7 +344,7 @@ const StyledReader = styled.div`
     box-sizing: border-box;
     color: var(--color-text);
     flex: 1;
-    min-height: 20rem;
+    min-height: 0;
     padding: 1rem;
     resize: vertical;
     width: 100%;
@@ -352,11 +356,11 @@ const StyledReader = styled.div`
 
   @media only screen and (max-width: 800px) {
     .pageNavigation {
-      grid-template-columns: auto 1fr auto;
+      grid-template-columns: auto 1fr auto auto;
     }
 
     .pageScroller {
-      grid-column: 1 / -1;
+      grid-column: 1 / 4;
     }
 
     .readerColumns {
@@ -364,13 +368,13 @@ const StyledReader = styled.div`
       height: auto;
     }
 
-    .previewButton {
-      justify-content: center;
-    }
-
     .pageArea {
       height: calc(100vh - 70px);
       height: calc(100dvh - 70px);
+    }
+
+    .conceptsArea textarea {
+      min-height: 20rem;
     }
   }
 `;
