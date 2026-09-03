@@ -27,8 +27,13 @@ import { LearnRequest } from "./db/LearnRequest.js";
 import { ScheduledEvent, ScheduledEventType } from "./db/ScheduledEvent.js";
 import Dexie from "dexie";
 import type { Book } from './db/Book.js';
+import type { BookPage } from './db/BookPage.js';
 
-export type { LearnRequest, TutorAction, CanceledInsurance, Reexamination, LetterTemplate, CanceledLetter, Reimbursement, Letter, Insurance, Lesson, Pseudonym, Setting, Signer, UsageRight, Agreement, Book };
+export type { LearnRequest, TutorAction, CanceledInsurance, Reexamination, LetterTemplate, CanceledLetter, Reimbursement, Letter, Insurance, Lesson, Pseudonym, Setting, Signer, UsageRight, Agreement, Book, BookPage };
+
+export async function createBook(book: Omit<Book, 'id'>): Promise<number> {
+    return db.books.add(book as Book);
+}
 
 export async function putBook(book: Book): Promise<void> {
     await db.books.put(book);
@@ -38,8 +43,23 @@ export async function getBooks(): Promise<Book[]> {
     return db.books.orderBy('created').reverse().toArray();
 }
 
-export async function deleteBook(id: string): Promise<void> {
-    await db.books.delete(id);
+export async function deleteBook(id: number): Promise<void> {
+    await db.transaction('rw', db.books, db.bookPages, async () => {
+        await db.books.delete(id);
+        await db.bookPages.where('bookId').equals(id).delete();
+    });
+}
+
+export async function putBookPage(bookPage: BookPage): Promise<void> {
+    await db.bookPages.put(bookPage);
+}
+
+export async function getBookPages(bookId: number): Promise<BookPage[]> {
+    return db.bookPages.where('bookId').equals(bookId).sortBy('pageNumber');
+}
+
+export async function deleteBookPage(bookId: number, pageNumber: number): Promise<void> {
+    await db.bookPages.delete([bookId, pageNumber]);
 }
 
 const DEFAULT_INSURANCE_VALIDITY = 730;//Days valid

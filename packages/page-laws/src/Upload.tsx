@@ -3,7 +3,7 @@
 
 import type { Book } from '@slonigiraf/db';
 
-import { deleteBook, getBooks, putBook } from '@slonigiraf/db';
+import { createBook, deleteBook, getBooks, putBook } from '@slonigiraf/db';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { Button, Dropdown, styled } from '@polkadot/react-components';
@@ -49,14 +49,14 @@ function Upload (): React.ReactElement {
   const [books, setBooks] = useState<Book[]>([]);
   const [error, setError] = useState('');
   const [isBusy, setIsBusy] = useState(false);
-  const [selectedId, setSelectedId] = useState('');
+  const [selectedId, setSelectedId] = useState<number>();
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const loadBooks = useCallback(async (): Promise<void> => {
     const storedBooks = await getBooks();
 
     setBooks(storedBooks);
-    setSelectedId((current) => current || storedBooks[0]?.id || '');
+    setSelectedId((current) => current ?? storedBooks[0]?.id);
   }, []);
 
   useEffect((): void => {
@@ -84,19 +84,31 @@ function Upload (): React.ReactElement {
 
     setIsBusy(true);
 
-    const id = crypto.randomUUID();
-    const opfsName = `${id}.pdf`;
+    let id: number | undefined;
+    let opfsName: string | undefined;
 
     try {
+      id = await createBook({ created: Date.now(), name, opfsName: '', size: contents.byteLength });
+      opfsName = `${id}.pdf`;
       await writePdf(opfsName, contents);
       await putBook({ created: Date.now(), id, name, opfsName, size: contents.byteLength });
       await loadBooks();
       setSelectedId(id);
     } catch {
       try {
-        await removePdf(opfsName);
+        if (opfsName) {
+          await removePdf(opfsName);
+        }
       } catch {
         // The file may not have been created yet.
+      }
+
+      if (id !== undefined) {
+        try {
+          await deleteBook(id);
+        } catch {
+          // Preserve the original upload error if cleanup also fails.
+        }
       }
 
       setError(t('Unable to store this PDF.'));
@@ -159,7 +171,7 @@ function Upload (): React.ReactElement {
       const remaining = books.filter(({ id }) => id !== selectedBook.id);
 
       setBooks(remaining);
-      setSelectedId(remaining[0]?.id || '');
+      setSelectedId(remaining[0]?.id);
     } catch {
       setError(t('Unable to delete this PDF.'));
     } finally {

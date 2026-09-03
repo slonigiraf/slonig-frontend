@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 export interface Book {
-  id: string;
+  id: number;
   name: string;
   opfsName: string;
   size: number;
