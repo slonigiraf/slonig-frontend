@@ -4,13 +4,36 @@
 import type { Book, BookPage } from '@slonigiraf/db';
 import type { PDFDocumentLoadingTask, PDFDocumentProxy, RenderTask } from 'pdfjs-dist';
 
-import { getBookPages, putBookPage } from '@slonigiraf/db';
+import { getBookPages, getSetting, putBookPage, SettingKey } from '@slonigiraf/db';
+import OpenAI from 'openai';
 import { getDocument, GlobalWorkerOptions } from 'pdfjs-dist';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 
 import { Button, styled } from '@polkadot/react-components';
 
 GlobalWorkerOptions.workerSrc = new URL('pdfjs-dist/build/pdf.worker.min.js', import.meta.url).toString();
+
+const CONCEPTS_PROMPT = `On the provided page, identify the chapter and subchapter/section.
+
+Extract only the concepts that are intentionally introduced or explained as new on this page. Do not include concepts that the page assumes the reader already knows, merely reviews, references from earlier sections, or uses only in exercises/examples without introducing them.
+
+Use this exact output format, keeping the original language of the input:
+
+◆ **[Chapter number and name, if shown] / [Subchapter or section number and name, if shown]**
+
+● [New concept]
+
+↳ [example from the page, if present]
+
+● [New concept]
+
+↳ [example from the page, if present]
+
+If no new concepts are introduced, write:
+
+● No new concepts introduced on this page.
+
+Do not add explanations, commentary, summaries, or any text outside this format.`;
 
 interface Props {
   book: Book;
@@ -21,10 +44,12 @@ function BookReader ({ book, file }: Props): React.ReactElement {
   const [concepts, setConcepts] = useState('');
   const [error, setError] = useState('');
   const [isMaximized, setIsMaximized] = useState(false);
+  const [processingPage, setProcessingPage] = useState<number>();
   const [pageInput, setPageInput] = useState('1');
   const [pageNumber, setPageNumber] = useState(1);
   const [pages, setPages] = useState<Map<number, BookPage>>(new Map());
   const [pdf, setPdf] = useState<PDFDocumentProxy>();
+  const [renderedPage, setRenderedPage] = useState<number>();
   const [totalPages, setTotalPages] = useState(0);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const pageAreaRef = useRef<HTMLDivElement>(null);
@@ -37,6 +62,7 @@ function BookReader ({ book, file }: Props): React.ReactElement {
     setPageNumber(1);
     setPageInput('1');
     setPdf(undefined);
+    setRenderedPage(undefined);
     setTotalPages(0);
 
     const load = async (): Promise<void> => {
@@ -102,6 +128,10 @@ function BookReader ({ book, file }: Props): React.ReactElement {
       canvas.height = viewport.height;
       renderTask = page.render({ canvasContext: context, viewport });
       await renderTask.promise;
+
+      if (active) {
+        setRenderedPage(pageNumber);
+      }
     };
 
     render().catch((renderError: Error) => {
@@ -115,6 +145,63 @@ function BookReader ({ book, file }: Props): React.ReactElement {
       renderTask?.cancel();
     };
   }, [isMaximized, pageNumber, pdf]);
+
+  const generateConcepts = useCallback(async (): Promise<void> => {
+    if (!canvasRef.current || renderedPage !== pageNumber || processingPage !== undefined) {
+      return;
+    }
+
+    setError('');
+    setProcessingPage(pageNumber);
+
+    try {
+      const pageImage = canvasRef.current.toDataURL('image/png');
+      const key = await getSetting(SettingKey.OPENROUTER_TOKEN);
+
+      if (!key) {
+        throw new Error('No OpenRouter token found. Add it in Settings.');
+      }
+
+      const client = new OpenAI({
+        apiKey: key,
+        baseURL: 'https://openrouter.ai/api/v1',
+        dangerouslyAllowBrowser: true,
+        defaultHeaders: {
+          'HTTP-Referer': window.location.origin,
+          'X-OpenRouter-Title': 'Slonig'
+        }
+      });
+      const response = await client.chat.completions.create({
+        messages: [{
+          content: [
+            { type: 'text', text: CONCEPTS_PROMPT },
+            { type: 'image_url', image_url: { url: pageImage } }
+          ],
+          role: 'user'
+        }] as any,
+        model: 'openai/gpt-4o-mini'
+      });
+      const generatedConcepts = response.choices[0].message?.content?.trim();
+
+      if (!generatedConcepts) {
+        throw new Error('OpenRouter returned no concepts.');
+      }
+
+      const generatedPage: BookPage = {
+        bookId: book.id,
+        concepts: generatedConcepts,
+        conceptsProcessed: true,
+        pageNumber
+      };
+
+      await putBookPage(generatedPage);
+      setPages((current) => new Map(current).set(pageNumber, generatedPage));
+    } catch (generationError) {
+      setError(generationError instanceof Error ? generationError.message : 'Unable to generate concepts.');
+    } finally {
+      setProcessingPage(undefined);
+    }
+  }, [book.id, pageNumber, processingPage, renderedPage]);
 
   useEffect(() => {
     if (!isMaximized) {
@@ -220,15 +307,24 @@ function BookReader ({ book, file }: Props): React.ReactElement {
         >
           <canvas ref={canvasRef} />
         </div>
-        <label className='conceptsArea'>
-          <span>Concepts</span>
+        <div className='conceptsArea'>
+          <div className='conceptsHeader'>
+            <span>{processingPage === pageNumber ? 'Generating concepts…' : 'Concepts'}</span>
+            <Button
+              icon='magic'
+              isDisabled={renderedPage !== pageNumber || processingPage !== undefined}
+              label='Generate concepts'
+              onClick={generateConcepts}
+            />
+          </div>
           <textarea
+            disabled={processingPage === pageNumber}
             onBlur={saveConcepts}
             onChange={({ target }) => setConcepts(target.value)}
             placeholder='Concepts for this page'
             value={concepts}
           />
-        </label>
+        </div>
       </div>
     </StyledReader>
   );
@@ -329,7 +425,10 @@ const StyledReader = styled.div`
     padding: 1rem;
   }
 
-  .conceptsArea > span {
+  .conceptsHeader {
+    align-items: center;
+    display: flex;
+    justify-content: space-between;
     font-weight: 600;
     margin-bottom: 0.75rem;
   }
