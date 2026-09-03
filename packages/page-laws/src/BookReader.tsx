@@ -283,11 +283,10 @@ const StyledReader = styled.div`
   }
 
   .readerColumns {
+    align-items: stretch;
     display: grid;
     gap: 1rem;
     grid-template-columns: minmax(0, 1fr) minmax(18rem, 1fr);
-    height: calc(100vh - 70px);
-    height: calc(100dvh - 70px);
   }
 
   .conceptsArea {
@@ -295,14 +294,12 @@ const StyledReader = styled.div`
     border: 1px solid #dde1eb;
     border-radius: 0.5rem;
     box-sizing: border-box;
-    height: 100%;
     min-width: 0;
     overflow: hidden;
   }
 
   .pageArea {
     box-sizing: border-box;
-    height: 100%;
     min-width: 0;
     overflow: auto;
     text-align: center;
