@@ -17,6 +17,7 @@ import { SkillTemplate } from './SkillTemplate.js';
 import { Repetition } from './Repetition.js';
 import { LearnRequest } from './LearnRequest.js';
 import { ScheduledEvent } from './ScheduledEvent.js';
+import type { Book } from './Book.js';
 
 class SlonigDB extends Dexie {
   agreements!: Table<Agreement>;
@@ -37,10 +38,11 @@ class SlonigDB extends Dexie {
   repetitions!: Table<Repetition>;
   learnRequests!:Table<LearnRequest>;
   scheduledEvents!:Table<ScheduledEvent>;
+  books!: Table<Book>;
 
   constructor() {
     super('slonig');
-    this.version(64).stores({
+    this.version(65).stores({
       agreements: '&id',
       canceledInsurances: '&workerSign',
       canceledLetters: '&pubSign',
@@ -60,6 +62,7 @@ class SlonigDB extends Dexie {
       repetitions: '&[workerId+knowledgeId],lastExamined',
       learnRequests:'&id,created',
       scheduledEvents: '++id,type,[type+id]',
+      books: '&id,name,created',
     });
   }
 }

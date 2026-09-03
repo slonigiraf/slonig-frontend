@@ -26,8 +26,21 @@ import { EXAMPLE_MODULE_KNOWLEDGE_CID, EXAMPLE_SKILL_KNOWLEDGE_ID } from "@sloni
 import { LearnRequest } from "./db/LearnRequest.js";
 import { ScheduledEvent, ScheduledEventType } from "./db/ScheduledEvent.js";
 import Dexie from "dexie";
+import type { Book } from './db/Book.js';
 
-export type { LearnRequest, TutorAction, CanceledInsurance, Reexamination, LetterTemplate, CanceledLetter, Reimbursement, Letter, Insurance, Lesson, Pseudonym, Setting, Signer, UsageRight, Agreement };
+export type { LearnRequest, TutorAction, CanceledInsurance, Reexamination, LetterTemplate, CanceledLetter, Reimbursement, Letter, Insurance, Lesson, Pseudonym, Setting, Signer, UsageRight, Agreement, Book };
+
+export async function putBook(book: Book): Promise<void> {
+    await db.books.put(book);
+}
+
+export async function getBooks(): Promise<Book[]> {
+    return db.books.orderBy('created').reverse().toArray();
+}
+
+export async function deleteBook(id: string): Promise<void> {
+    await db.books.delete(id);
+}
 
 const DEFAULT_INSURANCE_VALIDITY = 730;//Days valid
 const DEFAULT_WARRANTY = "573000000000000";//573 Slon for USA, 0.05688 USD in Ethiopia, 100.66*0.05688 USD in USA

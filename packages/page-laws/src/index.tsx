@@ -2,21 +2,25 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import type { AppProps as Props } from '@polkadot/react-components/types';
+import type { ExerciseListLocation } from './Edit/ExerciseList.js';
 
-import React, { useRef, useMemo } from 'react';
-import { Route, Routes } from 'react-router';
-import { Tabs } from '@polkadot/react-components';
 import { useDeveloperSetting } from '@slonigiraf/slonig-components';
-import { useTranslation } from './translate.js';
-import useCounter from './useCounter.js';
+import React, { useMemo, useRef } from 'react';
+import { Route, Routes } from 'react-router';
+
+import { Tabs } from '@polkadot/react-components';
+
 import Create from './Create/index.js';
+import ExerciseList from './Edit/ExerciseList.js';
 import Edit from './Edit/index.js';
 import ItemLabel from './Edit/ItemLabel.js';
-import ExerciseList from './Edit/ExerciseList.js';
-import type { ExerciseListLocation } from './Edit/ExerciseList.js';
-export { useCounter, ItemLabel, ExerciseList, type ExerciseListLocation };
+import { useTranslation } from './translate.js';
+import Upload from './Upload.js';
+import useCounter from './useCounter.js';
 
-function LawsApp({ basePath, onStatusChange }: Props): React.ReactElement<Props> {
+export { ExerciseList, type ExerciseListLocation, ItemLabel, useCounter };
+
+function LawsApp ({ basePath, onStatusChange }: Props): React.ReactElement<Props> {
   const { t } = useTranslation();
   const isDeveloper = useDeveloperSetting();
 
@@ -29,6 +33,10 @@ function LawsApp({ basePath, onStatusChange }: Props): React.ReactElement<Props>
     {
       name: 'create',
       text: t('Create')
+    },
+    {
+      name: 'upload',
+      text: t('Upload')
     }
   ]);
 
@@ -54,6 +62,10 @@ function LawsApp({ basePath, onStatusChange }: Props): React.ReactElement<Props>
               path='create'
             />
           )}
+          <Route
+            element={<Upload />}
+            path='upload'
+          />
           <Route
             element={
               <Edit />
