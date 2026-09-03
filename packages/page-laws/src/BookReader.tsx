@@ -35,6 +35,16 @@ If no new concepts are introduced, write:
 
 Do not add explanations, commentary, summaries, or any text outside this format.`;
 
+const OPENAI_MODELS = [
+  { text: 'GPT-4o mini', value: 'openai/gpt-4o-mini' },
+  { text: 'GPT-4o', value: 'openai/gpt-4o' },
+  { text: 'GPT-4.1 mini', value: 'openai/gpt-4.1-mini' },
+  { text: 'GPT-4.1', value: 'openai/gpt-4.1' },
+  { text: 'GPT-5 mini', value: 'openai/gpt-5-mini' },
+  { text: 'GPT-5', value: 'openai/gpt-5' },
+  { text: 'GPT-5.4', value: 'openai/gpt-5.4' }
+];
+
 interface Props {
   book: Book;
   file: File;
@@ -50,6 +60,7 @@ function BookReader ({ book, file }: Props): React.ReactElement {
   const [pages, setPages] = useState<Map<number, BookPage>>(new Map());
   const [pdf, setPdf] = useState<PDFDocumentProxy>();
   const [renderedPage, setRenderedPage] = useState<number>();
+  const [selectedModel, setSelectedModel] = useState(OPENAI_MODELS[0].value);
   const [totalPages, setTotalPages] = useState(0);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const pageAreaRef = useRef<HTMLDivElement>(null);
@@ -179,7 +190,7 @@ function BookReader ({ book, file }: Props): React.ReactElement {
           ],
           role: 'user'
         }] as any,
-        model: 'openai/gpt-4o-mini'
+        model: selectedModel
       });
       const generatedConcepts = response.choices[0].message?.content?.trim();
 
@@ -201,7 +212,7 @@ function BookReader ({ book, file }: Props): React.ReactElement {
     } finally {
       setProcessingPage(undefined);
     }
-  }, [book.id, pageNumber, processingPage, renderedPage]);
+  }, [book.id, pageNumber, processingPage, renderedPage, selectedModel]);
 
   useEffect(() => {
     if (!isMaximized) {
@@ -310,12 +321,24 @@ function BookReader ({ book, file }: Props): React.ReactElement {
         <div className='conceptsArea'>
           <div className='conceptsHeader'>
             <span>{processingPage === pageNumber ? 'Generating concepts…' : 'Concepts'}</span>
-            <Button
-              icon='magic'
-              isDisabled={renderedPage !== pageNumber || processingPage !== undefined}
-              label='Generate concepts'
-              onClick={generateConcepts}
-            />
+            <div className='generationControls'>
+              <select
+                aria-label='OpenAI model'
+                disabled={processingPage !== undefined}
+                onChange={({ target }) => setSelectedModel(target.value)}
+                value={selectedModel}
+              >
+                {OPENAI_MODELS.map(({ text, value }) => (
+                  <option key={value} value={value}>{text}</option>
+                ))}
+              </select>
+              <Button
+                icon='magic'
+                isDisabled={renderedPage !== pageNumber || processingPage !== undefined}
+                label='Generate concepts'
+                onClick={generateConcepts}
+              />
+            </div>
           </div>
           <textarea
             disabled={processingPage === pageNumber}
@@ -431,6 +454,20 @@ const StyledReader = styled.div`
     justify-content: space-between;
     font-weight: 600;
     margin-bottom: 0.75rem;
+  }
+
+  .generationControls {
+    align-items: center;
+    display: flex;
+    gap: 0.5rem;
+  }
+
+  .generationControls select {
+    background: var(--bg-input);
+    border: 1px solid #dde1eb;
+    border-radius: 0.25rem;
+    color: var(--color-text);
+    padding: 0.55rem;
   }
 
   .conceptsArea textarea {
