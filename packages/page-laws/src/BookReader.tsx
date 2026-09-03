@@ -5,7 +5,7 @@ import type { Book, BookPage } from '@slonigiraf/db';
 import type { PDFDocumentLoadingTask, PDFDocumentProxy, RenderTask } from 'pdfjs-dist';
 
 import { getBookPages, putBookPage } from '@slonigiraf/db';
-import { GlobalWorkerOptions, getDocument } from 'pdfjs-dist';
+import { getDocument, GlobalWorkerOptions } from 'pdfjs-dist';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 
 import { Button, styled } from '@polkadot/react-components';
@@ -20,6 +20,7 @@ interface Props {
 function BookReader ({ book, file }: Props): React.ReactElement {
   const [concepts, setConcepts] = useState('');
   const [error, setError] = useState('');
+  const [isMaximized, setIsMaximized] = useState(false);
   const [pageInput, setPageInput] = useState('1');
   const [pageNumber, setPageNumber] = useState(1);
   const [pages, setPages] = useState<Map<number, BookPage>>(new Map());
@@ -88,7 +89,7 @@ function BookReader ({ book, file }: Props): React.ReactElement {
     const render = async (): Promise<void> => {
       const page = await pdf.getPage(pageNumber);
       const initialViewport = page.getViewport({ scale: 1 });
-      const availableWidth = Math.max(pageArea.clientWidth - 32, 320);
+      const availableWidth = Math.max(pageArea.clientWidth, 320);
       const scale = availableWidth / initialViewport.width;
       const viewport = page.getViewport({ scale });
       const context = canvas.getContext('2d');
@@ -113,7 +114,23 @@ function BookReader ({ book, file }: Props): React.ReactElement {
       active = false;
       renderTask?.cancel();
     };
-  }, [pageNumber, pdf]);
+  }, [isMaximized, pageNumber, pdf]);
+
+  useEffect(() => {
+    if (!isMaximized) {
+      return;
+    }
+
+    const closeOnEscape = ({ key }: KeyboardEvent): void => {
+      if (key === 'Escape') {
+        setIsMaximized(false);
+      }
+    };
+
+    window.addEventListener('keydown', closeOnEscape);
+
+    return () => window.removeEventListener('keydown', closeOnEscape);
+  }, [isMaximized]);
 
   const saveConcepts = useCallback((): void => {
     const bookPage: BookPage = {
@@ -150,7 +167,7 @@ function BookReader ({ book, file }: Props): React.ReactElement {
   }, [goToPage, pageInput, pageNumber]);
 
   return (
-    <StyledReader>
+    <StyledReader className={isMaximized ? 'isMaximized' : ''}>
       <div className='pageNavigation'>
         <Button
           icon='arrow-left'
@@ -186,10 +203,22 @@ function BookReader ({ book, file }: Props): React.ReactElement {
           value={pageNumber}
         />
       </div>
-      {error && <p className='readerError' role='alert'>{error}</p>}
+      {error && <p
+        className='readerError'
+        role='alert'
+                >{error}</p>}
       <div className='readerColumns'>
-        <div className='pageArea' ref={pageAreaRef}>
+        <div
+          className='pageArea'
+          ref={pageAreaRef}
+        >
           <canvas ref={canvasRef} />
+        </div>
+        <div className='previewButton'>
+          <Button
+            icon={isMaximized ? 'compress' : 'search-plus'}
+            onClick={() => setIsMaximized((value) => !value)}
+          />
         </div>
         <label className='conceptsArea'>
           <span>Concepts</span>
@@ -206,6 +235,23 @@ function BookReader ({ book, file }: Props): React.ReactElement {
 }
 
 const StyledReader = styled.div`
+  &.isMaximized {
+    background: var(--bg-page);
+    box-sizing: border-box;
+    height: 100vh;
+    height: 100dvh;
+    inset: 0;
+    padding: 1rem;
+    position: fixed;
+    width: 100vw;
+    z-index: 1000;
+  }
+
+  &.isMaximized .readerColumns {
+    height: calc(100vh - 5rem);
+    height: calc(100dvh - 5rem);
+  }
+
   .pageNavigation {
     align-items: center;
     display: grid;
@@ -239,11 +285,11 @@ const StyledReader = styled.div`
   .readerColumns {
     display: grid;
     gap: 1rem;
-    grid-template-columns: minmax(0, 1fr) minmax(18rem, 1fr);
-    min-height: 65vh;
+    grid-template-columns: minmax(0, 1fr) auto minmax(18rem, 1fr);
+    height: calc(100vh - 70px);
+    height: calc(100dvh - 70px);
   }
 
-  .pageArea,
   .conceptsArea {
     background: var(--bg-input);
     border: 1px solid #dde1eb;
@@ -253,9 +299,9 @@ const StyledReader = styled.div`
   }
 
   .pageArea {
-    background: #e9e9e9;
+    box-sizing: border-box;
+    min-width: 0;
     overflow: auto;
-    padding: 1rem;
     text-align: center;
   }
 
@@ -265,6 +311,15 @@ const StyledReader = styled.div`
     display: inline-block;
     height: auto;
     max-width: 100%;
+  }
+
+  .previewButton {
+    align-items: center;
+    display: flex;
+  }
+
+  .previewButton .ui--Button {
+    margin: 0;
   }
 
   .conceptsArea {
@@ -306,6 +361,16 @@ const StyledReader = styled.div`
 
     .readerColumns {
       grid-template-columns: 1fr;
+      height: auto;
+    }
+
+    .previewButton {
+      justify-content: center;
+    }
+
+    .pageArea {
+      height: calc(100vh - 70px);
+      height: calc(100dvh - 70px);
     }
   }
 `;
