@@ -3,7 +3,7 @@
 
 import type { Book } from '@slonigiraf/db';
 
-import { createBook, deleteBook, getBooks, putBook } from '@slonigiraf/db';
+import { createBook, deleteBook, getBookByContentHash, getBooks, putBook } from '@slonigiraf/db';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { Button, Dropdown, styled } from '@polkadot/react-components';
@@ -45,6 +45,12 @@ async function readPdf (opfsName: string): Promise<File> {
   return handle.getFile();
 }
 
+async function getContentHash (contents: Uint8Array): Promise<string> {
+  const digest = await crypto.subtle.digest('SHA-256', contents.slice().buffer);
+
+  return Array.from(new Uint8Array(digest), (byte) => byte.toString(16).padStart(2, '0')).join('');
+}
+
 function Upload (): React.ReactElement {
   const { t } = useTranslation();
   const [books, setBooks] = useState<Book[]>([]);
@@ -55,7 +61,22 @@ function Upload (): React.ReactElement {
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const loadBooks = useCallback(async (): Promise<void> => {
-    const storedBooks = await getBooks();
+    let storedBooks = await getBooks();
+
+    for (const book of storedBooks) {
+      if (!book.contentHash) {
+        try {
+          const file = await readPdf(book.opfsName);
+          const contentHash = await getContentHash(new Uint8Array(await file.arrayBuffer()));
+
+          await putBook({ ...book, contentHash });
+        } catch {
+          // A missing file or an existing duplicate should not prevent other books from loading.
+        }
+      }
+    }
+
+    storedBooks = await getBooks();
 
     setBooks(storedBooks);
     setSelectedId((current) => current ?? storedBooks[0]?.id);
@@ -106,10 +127,19 @@ function Upload (): React.ReactElement {
     let opfsName: string | undefined;
 
     try {
-      id = await createBook({ created: Date.now(), name, opfsName: '', size: contents.byteLength });
+      const contentHash = await getContentHash(contents);
+      const existingBook = await getBookByContentHash(contentHash);
+
+      if (existingBook) {
+        setSelectedId(existingBook.id);
+
+        return;
+      }
+
+      id = await createBook({ contentHash, created: Date.now(), name, opfsName: '', size: contents.byteLength });
       opfsName = `${id}.pdf`;
       await writePdf(opfsName, contents);
-      await putBook({ created: Date.now(), id, name, opfsName, size: contents.byteLength });
+      await putBook({ contentHash, created: Date.now(), id, name, opfsName, size: contents.byteLength });
       await loadBooks();
       setSelectedId(id);
     } catch {

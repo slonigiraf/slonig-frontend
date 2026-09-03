@@ -3,6 +3,7 @@
 
 export interface Book {
   id: number;
+  contentHash: string;
   name: string;
   opfsName: string;
   size: number;

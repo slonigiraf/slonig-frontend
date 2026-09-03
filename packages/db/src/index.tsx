@@ -43,6 +43,10 @@ export async function getBooks(): Promise<Book[]> {
     return db.books.orderBy('created').reverse().toArray();
 }
 
+export async function getBookByContentHash(contentHash: string): Promise<Book | undefined> {
+    return db.books.where('contentHash').equals(contentHash).first();
+}
+
 export async function deleteBook(id: number): Promise<void> {
     await db.transaction('rw', db.books, db.bookPages, async () => {
         await db.books.delete(id);

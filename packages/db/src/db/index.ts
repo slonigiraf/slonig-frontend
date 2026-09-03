@@ -73,6 +73,9 @@ class SlonigDB extends Dexie {
       books: '++id,name,created',
       bookPages: '&[bookId+pageNumber],bookId,conceptsProcessed',
     });
+    this.version(68).stores({
+      books: '++id,name,created,&contentHash',
+    });
   }
 }
 
