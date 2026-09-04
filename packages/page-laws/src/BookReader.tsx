@@ -52,7 +52,7 @@ const OPENAI_MODELS = [
 
 const MAX_PAGES_PER_MIN = 180;
 const RATE_LIMIT_WINDOW_MS = 60_000;
-const PAGE_RECOGNITION_INTERVAL_MS = Math.ceil(RATE_LIMIT_WINDOW_MS / MAX_PAGES_PER_MIN);
+const PAGE_SPAWN_INTERVAL_MS = Math.ceil(RATE_LIMIT_WINDOW_MS / MAX_PAGES_PER_MIN);
 
 const pageSessionKey = (bookId: number): string => `knowledge-upload-book-${bookId}-page`;
 
@@ -208,16 +208,19 @@ async function recognizePageWithMathpix (apiKey: string, file: File, pageNumber:
 interface Props {
   book: Book;
   file: File;
+  generateAllConceptsRequest: number;
   recognizeAllRequest: number;
 }
 
 type ReaderTab = 'recognized' | 'concepts';
 type RecognitionTarget = 'all' | 'page';
 
-function BookReader ({ book, file, recognizeAllRequest }: Props): React.ReactElement {
+function BookReader ({ book, file, generateAllConceptsRequest, recognizeAllRequest }: Props): React.ReactElement {
   const [activeTab, setActiveTab] = useState<ReaderTab>('recognized');
   const [concepts, setConcepts] = useState('');
   const [error, setError] = useState('');
+  const [generatedConceptsPageCount, setGeneratedConceptsPageCount] = useState(0);
+  const [isGeneratingAllConcepts, setIsGeneratingAllConcepts] = useState(false);
   const [isMaximized, setIsMaximized] = useState(false);
   const [isMathpixKeyPromptOpen, setIsMathpixKeyPromptOpen] = useState(false);
   const [isRecognizingAll, setIsRecognizingAll] = useState(false);
@@ -233,6 +236,7 @@ function BookReader ({ book, file, recognizeAllRequest }: Props): React.ReactEle
   const [selectedModel, setSelectedModel] = useState(OPENAI_MODELS[0].value);
   const [totalPages, setTotalPages] = useState(0);
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  const handledGenerateAllConceptsRequestRef = useRef(generateAllConceptsRequest);
   const handledRecognizeAllRequestRef = useRef(recognizeAllRequest);
   const pageAreaRef = useRef<HTMLDivElement>(null);
 
@@ -333,7 +337,7 @@ function BookReader ({ book, file, recognizeAllRequest }: Props): React.ReactEle
   const generateConcepts = useCallback(async (): Promise<void> => {
     const pageMMDZip = pages.get(pageNumber)?.pageMMDZip;
 
-    if (!pageMMDZip || processingPage !== undefined) {
+    if (!pageMMDZip || processingPage !== undefined || isGeneratingAllConcepts || isRecognizingAll) {
       return;
     }
 
@@ -391,10 +395,102 @@ function BookReader ({ book, file, recognizeAllRequest }: Props): React.ReactEle
     } finally {
       setProcessingPage(undefined);
     }
-  }, [book.id, pageNumber, pages, processingPage, selectedModel]);
+  }, [book.id, isGeneratingAllConcepts, isRecognizingAll, pageNumber, pages, processingPage, selectedModel]);
+
+  const generateAllConcepts = useCallback(async (): Promise<void> => {
+    if (!totalPages || processingPage !== undefined || isGeneratingAllConcepts || isRecognizingAll) {
+      return;
+    }
+
+    setError('');
+
+    const key = await getSetting(SettingKey.OPENROUTER_TOKEN);
+
+    if (!key) {
+      setError('No OpenRouter token found. Add it in Settings.');
+
+      return;
+    }
+
+    setIsGeneratingAllConcepts(true);
+    setGeneratedConceptsPageCount(0);
+
+    const client = new OpenAI({
+      apiKey: key,
+      baseURL: 'https://openrouter.ai/api/v1',
+      dangerouslyAllowBrowser: true,
+      defaultHeaders: {
+        'HTTP-Referer': window.location.origin,
+        'X-OpenRouter-Title': 'Slonig'
+      }
+    });
+    const conceptTasks: Array<Promise<void>> = [];
+    const eligiblePages = Array.from({ length: totalPages }, (_, index) => index + 1)
+      .filter((currentPageNumber) => pages.get(currentPageNumber)?.pageMMDZip);
+
+    try {
+      for (const [index, currentPageNumber] of eligiblePages.entries()) {
+        if (index > 0) {
+          await delay(PAGE_SPAWN_INTERVAL_MS);
+        }
+
+        conceptTasks.push((async () => {
+          const storedPage = pages.get(currentPageNumber);
+          const pageMMDZip = storedPage?.pageMMDZip;
+
+          if (!pageMMDZip) {
+            throw new Error('Page has not been recognized.');
+          }
+
+          const mmdZipInput = await extractMMDZipInput(pageMMDZip);
+          const response = await client.chat.completions.create({
+            messages: [{
+              content: [
+                {
+                  text: `${CONCEPTS_PROMPT}\n\nThe following text and images were extracted from the Mathpix MMD ZIP:\n\n${mmdZipInput.text}`,
+                  type: 'text'
+                },
+                ...mmdZipInput.images
+              ],
+              role: 'user'
+            }],
+            model: selectedModel
+          });
+          const generatedConcepts = response.choices[0].message?.content?.trim();
+
+          if (!generatedConcepts) {
+            throw new Error('OpenRouter returned no concepts.');
+          }
+
+          const generatedPage: BookPage = {
+            ...storedPage,
+            bookId: book.id,
+            concepts: generatedConcepts,
+            conceptsProcessed: true,
+            pageNumber: currentPageNumber
+          };
+
+          await putBookPage(generatedPage);
+          setPages((current) => new Map(current).set(currentPageNumber, generatedPage));
+          setGeneratedConceptsPageCount((count) => count + 1);
+        })());
+      }
+
+      const results = await Promise.allSettled(conceptTasks);
+      const failedPages = totalPages - eligiblePages.length + results.filter(({ status }) => status === 'rejected').length;
+
+      if (failedPages) {
+        setError(`${failedPages} of ${totalPages} pages could not have concepts generated. Recognize missing pages first.`);
+      }
+    } catch (generationError) {
+      setError(generationError instanceof Error ? generationError.message : 'Unable to generate concepts for all pages.');
+    } finally {
+      setIsGeneratingAllConcepts(false);
+    }
+  }, [book.id, isGeneratingAllConcepts, isRecognizingAll, pages, processingPage, selectedModel, totalPages]);
 
   const recognizePage = useCallback(async (): Promise<void> => {
-    if (processingPage !== undefined || isRecognizingAll) {
+    if (processingPage !== undefined || isGeneratingAllConcepts || isRecognizingAll) {
       return;
     }
 
@@ -435,10 +531,10 @@ function BookReader ({ book, file, recognizeAllRequest }: Props): React.ReactEle
     } finally {
       setProcessingPage(undefined);
     }
-  }, [book.id, file, isRecognizingAll, pageNumber, pages, processingPage]);
+  }, [book.id, file, isGeneratingAllConcepts, isRecognizingAll, pageNumber, pages, processingPage]);
 
   const recognizeAllPages = useCallback(async (): Promise<void> => {
-    if (!totalPages || processingPage !== undefined || isRecognizingAll) {
+    if (!totalPages || processingPage !== undefined || isGeneratingAllConcepts || isRecognizingAll) {
       return;
     }
 
@@ -462,7 +558,7 @@ function BookReader ({ book, file, recognizeAllRequest }: Props): React.ReactEle
     try {
       for (let currentPageNumber = 1; currentPageNumber <= totalPages; currentPageNumber++) {
         if (currentPageNumber > 1) {
-          await delay(PAGE_RECOGNITION_INTERVAL_MS);
+          await delay(PAGE_SPAWN_INTERVAL_MS);
         }
 
         recognitionTasks.push((async () => {
@@ -500,7 +596,7 @@ function BookReader ({ book, file, recognizeAllRequest }: Props): React.ReactEle
     } finally {
       setIsRecognizingAll(false);
     }
-  }, [book.id, file, isRecognizingAll, pages, processingPage, totalPages]);
+  }, [book.id, file, isGeneratingAllConcepts, isRecognizingAll, pages, processingPage, totalPages]);
 
   const saveMathpixApiKey = useCallback(async (): Promise<void> => {
     const apiKey = mathpixApiKey.trim();
@@ -547,9 +643,27 @@ function BookReader ({ book, file, recognizeAllRequest }: Props): React.ReactEle
 
   useEffect((): void => {
     if (
+      generateAllConceptsRequest === handledGenerateAllConceptsRequestRef.current ||
+      !totalPages ||
+      processingPage !== undefined ||
+      isGeneratingAllConcepts ||
+      isRecognizingAll
+    ) {
+      return;
+    }
+
+    handledGenerateAllConceptsRequestRef.current = generateAllConceptsRequest;
+    generateAllConcepts().catch((generationError) => {
+      setError(generationError instanceof Error ? generationError.message : 'Unable to generate concepts for all pages.');
+    });
+  }, [generateAllConcepts, generateAllConceptsRequest, isGeneratingAllConcepts, isRecognizingAll, processingPage, totalPages]);
+
+  useEffect((): void => {
+    if (
       recognizeAllRequest === handledRecognizeAllRequestRef.current ||
       !totalPages ||
       processingPage !== undefined ||
+      isGeneratingAllConcepts ||
       isRecognizingAll
     ) {
       return;
@@ -559,7 +673,7 @@ function BookReader ({ book, file, recognizeAllRequest }: Props): React.ReactEle
     recognizeAllPages().catch((recognitionError) => {
       setError(recognitionError instanceof Error ? recognitionError.message : 'Unable to recognize all pages.');
     });
-  }, [isRecognizingAll, processingPage, recognizeAllPages, recognizeAllRequest, totalPages]);
+  }, [isGeneratingAllConcepts, isRecognizingAll, processingPage, recognizeAllPages, recognizeAllRequest, totalPages]);
 
   useEffect(() => {
     if (!isMaximized) {
@@ -748,11 +862,13 @@ function BookReader ({ book, file, recognizeAllRequest }: Props): React.ReactEle
             </div>
             : <div className='tabPanel conceptsPanel' role='tabpanel'>
               <div className='detailsHeader'>
-                <span>{processingPage === pageNumber ? 'Generating concepts…' : 'Concepts'}</span>
+                <span>{isGeneratingAllConcepts
+                  ? `Generating concepts for all pages… ${generatedConceptsPageCount}/${totalPages}`
+                  : processingPage === pageNumber ? 'Generating concepts…' : 'Concepts'}</span>
                 <div className='generationControls'>
                   <select
                     aria-label='OpenAI model'
-                    disabled={processingPage !== undefined}
+                    disabled={processingPage !== undefined || isGeneratingAllConcepts || isRecognizingAll}
                     onChange={({ target }) => setSelectedModel(target.value)}
                     value={selectedModel}
                   >
@@ -762,7 +878,7 @@ function BookReader ({ book, file, recognizeAllRequest }: Props): React.ReactEle
                   </select>
                   <Button
                     icon='magic'
-                    isDisabled={!pages.get(pageNumber)?.pageMMDZip || processingPage !== undefined}
+                    isDisabled={!pages.get(pageNumber)?.pageMMDZip || processingPage !== undefined || isGeneratingAllConcepts || isRecognizingAll}
                     label='Generate concepts'
                     onClick={generateConcepts}
                   />
@@ -770,7 +886,7 @@ function BookReader ({ book, file, recognizeAllRequest }: Props): React.ReactEle
               </div>
               {!pages.get(pageNumber)?.pageMMDZip && <p className='recognitionHint'>Recognize this page before generating concepts.</p>}
               <textarea
-                disabled={processingPage === pageNumber}
+                disabled={processingPage === pageNumber || isGeneratingAllConcepts}
                 onBlur={saveConcepts}
                 onChange={({ target }) => setConcepts(target.value)}
                 placeholder='Concepts for this page'

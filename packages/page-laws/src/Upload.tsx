@@ -67,6 +67,7 @@ function Upload (): React.ReactElement {
   const [books, setBooks] = useState<Book[]>([]);
   const [error, setError] = useState('');
   const [isBusy, setIsBusy] = useState(false);
+  const [generateAllConceptsRequest, setGenerateAllConceptsRequest] = useState(0);
   const [recognizeAllRequest, setRecognizeAllRequest] = useState(0);
   const [readerFile, setReaderFile] = useState<File>();
   const [selectedId, setSelectedId] = useState<number | undefined>(getSessionBookId);
@@ -209,6 +210,10 @@ function Upload (): React.ReactElement {
     setRecognizeAllRequest((request) => request + 1);
   }, []);
 
+  const onGenerateConcepts = useCallback((): void => {
+    setGenerateAllConceptsRequest((request) => request + 1);
+  }, []);
+
   const onDelete = useCallback(async (): Promise<void> => {
     if (!selectedBook) {
       return;
@@ -264,6 +269,12 @@ function Upload (): React.ReactElement {
           onClick={onRecognize}
         />
         <Button
+          icon='magic'
+          isDisabled={!selectedBook || !readerFile || isBusy}
+          label={t('Concepts')}
+          onClick={onGenerateConcepts}
+        />
+        <Button
           icon='trash'
           isDisabled={!selectedBook || isBusy}
           label={t('Delete')}
@@ -280,6 +291,7 @@ function Upload (): React.ReactElement {
         <BookReader
           book={selectedBook}
           file={readerFile}
+          generateAllConceptsRequest={generateAllConceptsRequest}
           recognizeAllRequest={recognizeAllRequest}
         />
       )}
@@ -295,7 +307,7 @@ const StyledSection = styled.section`
     align-items: flex-end;
     display: grid;
     gap: 0.5rem;
-    grid-template-columns: minmax(12rem, 1fr) auto auto auto;
+    grid-template-columns: minmax(12rem, 1fr) repeat(4, auto);
     margin-bottom: 2rem;
   }
 
