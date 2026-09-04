@@ -16,6 +16,8 @@ import React, { useCallback, useEffect, useRef, useState } from 'react';
 
 import { Button, Dropdown, Input, Modal, styled } from '@polkadot/react-components';
 
+import Skills from './Skills.js';
+
 GlobalWorkerOptions.workerSrc = new URL('pdfjs-dist/build/pdf.worker.min.js', import.meta.url).toString();
 
 const CONCEPTS_PROMPT = `On the provided page, identify the chapter and subchapter/section.
@@ -224,7 +226,7 @@ interface Props {
   recognizeAllRequest: number;
 }
 
-type ReaderPane = 'pdfText' | 'textConcepts';
+type ReaderPane = 'pdfText' | 'textConcepts' | 'conceptsSkills';
 type RecognitionTarget = 'all' | 'page';
 
 function BookReader ({ book, file, generateAllConceptsModel, generateAllConceptsRequest, recognizeAllRequest }: Props): React.ReactElement {
@@ -899,7 +901,8 @@ function BookReader ({ book, file, generateAllConceptsModel, generateAllConcepts
       <div className='readerTabs' role='tablist'>
         {([
           ['pdfText', 'Pdf/Text'],
-          ['textConcepts', 'Text/Concepts']
+          ['textConcepts', 'Text/Concepts'],
+          ['conceptsSkills', 'Concepts/Skills']
         ] as Array<[ReaderPane, string]>).map(([pane, label]) => (
           <button
             aria-selected={activePane === pane}
@@ -932,7 +935,8 @@ function BookReader ({ book, file, generateAllConceptsModel, generateAllConcepts
               {recognizedPane()}
             </div>
           </>
-          : <>
+          : activePane === 'textConcepts'
+            ? <>
             <div
               className={`detailsArea${renderedPageHeight ? ' hasPageHeight' : ''}`}
               style={{ '--page-height': renderedPageHeight ? `${renderedPageHeight}px` : 'auto' } as React.CSSProperties}
@@ -944,6 +948,20 @@ function BookReader ({ book, file, generateAllConceptsModel, generateAllConcepts
               style={{ '--page-height': renderedPageHeight ? `${renderedPageHeight}px` : 'auto' } as React.CSSProperties}
             >
               {conceptsPane()}
+            </div>
+          </>
+            : <>
+            <div
+              className='detailsArea'
+              style={{ '--page-height': renderedPageHeight ? `${renderedPageHeight}px` : 'auto' } as React.CSSProperties}
+            >
+              {conceptsPane()}
+            </div>
+            <div
+              className='skillsArea'
+              style={{ '--page-height': renderedPageHeight ? `${renderedPageHeight}px` : 'auto' } as React.CSSProperties}
+            >
+              <Skills book={book} />
             </div>
           </>}
       </div>
@@ -973,7 +991,7 @@ const StyledReader = styled.div`
     min-height: 0;
   }
 
-  &.isMaximized .detailsArea, &.isMaximized .pageArea {
+  &.isMaximized .detailsArea, &.isMaximized .pageArea, &.isMaximized .skillsArea {
     height: 100%;
     min-height: 0;
   }
@@ -1030,6 +1048,12 @@ const StyledReader = styled.div`
     min-width: 0;
     overflow: auto;
     text-align: center;
+  }
+
+  .skillsArea {
+    height: var(--page-height, auto);
+    min-width: 0;
+    overflow: auto;
   }
 
   .pageArea canvas {
