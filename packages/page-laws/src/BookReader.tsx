@@ -5,6 +5,7 @@ import type { Book, BookPage } from '@slonigiraf/db';
 import type { PDFDocumentLoadingTask, PDFDocumentProxy, RenderTask } from 'pdfjs-dist';
 
 import { getBookPages, getSetting, putBookPage, SettingKey, storeSetting } from '@slonigiraf/db';
+import { strFromU8, unzipSync } from 'fflate';
 import FileSaver from 'file-saver';
 import MathpixLoader from 'mathpix-markdown-it/lib/components/mathpix-loader/index.js';
 import MathpixMarkdown from 'mathpix-markdown-it/lib/components/mathpix-markdown/index.js';
@@ -70,6 +71,55 @@ function storeSessionPage (bookId: number, pageNumber: number): void {
 }
 
 const delay = (milliseconds: number): Promise<void> => new Promise((resolve) => setTimeout(resolve, milliseconds));
+
+interface MMDZipInput {
+  images: Array<{ image_url: { url: string }; type: 'image_url' }>;
+  text: string;
+}
+
+function bytesToBase64 (bytes: Uint8Array): string {
+  const chunkSize = 0x8000;
+  let binary = '';
+
+  for (let offset = 0; offset < bytes.length; offset += chunkSize) {
+    binary += String.fromCharCode(...bytes.subarray(offset, offset + chunkSize));
+  }
+
+  return window.btoa(binary);
+}
+
+async function extractMMDZipInput (blob: Blob): Promise<MMDZipInput> {
+  const entries = unzipSync(new Uint8Array(await blob.arrayBuffer()));
+  const textEntries: string[] = [];
+  const images: MMDZipInput['images'] = [];
+  const imageTypes: Record<string, string> = {
+    gif: 'image/gif',
+    jpeg: 'image/jpeg',
+    jpg: 'image/jpeg',
+    png: 'image/png',
+    webp: 'image/webp'
+  };
+
+  Object.entries(entries).forEach(([name, bytes]) => {
+    const extension = name.split('.').pop()?.toLowerCase() ?? '';
+    const imageType = imageTypes[extension];
+
+    if (imageType) {
+      images.push({
+        image_url: { url: `data:${imageType};base64,${bytesToBase64(bytes)}` },
+        type: 'image_url'
+      });
+    } else if (['html', 'json', 'md', 'mmd', 'tex', 'txt'].includes(extension)) {
+      textEntries.push(`--- ${name} ---\n${strFromU8(bytes)}`);
+    }
+  });
+
+  if (!textEntries.length) {
+    throw new Error('The MMD ZIP contains no readable text.');
+  }
+
+  return { images, text: textEntries.join('\n\n') };
+}
 
 async function createSinglePagePdf (file: File, pageNumber: number): Promise<Blob> {
   const sourcePdf = await PDFDocumentModule.default.load(await file.arrayBuffer());
@@ -271,9 +321,9 @@ function BookReader ({ book, file }: Props): React.ReactElement {
   }, [isMaximized, pageNumber, pdf]);
 
   const generateConcepts = useCallback(async (): Promise<void> => {
-    const pageMMD = pages.get(pageNumber)?.pageMMD;
+    const pageMMDZip = pages.get(pageNumber)?.pageMMDZip;
 
-    if (!pageMMD || processingPage !== undefined) {
+    if (!pageMMDZip || processingPage !== undefined) {
       return;
     }
 
@@ -296,9 +346,16 @@ function BookReader ({ book, file }: Props): React.ReactElement {
           'X-OpenRouter-Title': 'Slonig'
         }
       });
+      const mmdZipInput = await extractMMDZipInput(pageMMDZip);
       const response = await client.chat.completions.create({
         messages: [{
-          content: `${CONCEPTS_PROMPT}\n\nRecognized page in Mathpix Markdown:\n\n${pageMMD}`,
+          content: [
+            {
+              text: `${CONCEPTS_PROMPT}\n\nThe following text and images were extracted from the Mathpix MMD ZIP:\n\n${mmdZipInput.text}`,
+              type: 'text'
+            },
+            ...mmdZipInput.images
+          ],
           role: 'user'
         }],
         model: selectedModel
@@ -611,13 +668,13 @@ function BookReader ({ book, file }: Props): React.ReactElement {
                   </select>
                   <Button
                     icon='magic'
-                    isDisabled={!pages.get(pageNumber)?.pageMMD || processingPage !== undefined}
+                    isDisabled={!pages.get(pageNumber)?.pageMMDZip || processingPage !== undefined}
                     label='Generate concepts'
                     onClick={generateConcepts}
                   />
                 </div>
               </div>
-              {!pages.get(pageNumber)?.pageMMD && <p className='recognitionHint'>Recognize this page before generating concepts.</p>}
+              {!pages.get(pageNumber)?.pageMMDZip && <p className='recognitionHint'>Recognize this page before generating concepts.</p>}
               <textarea
                 disabled={processingPage === pageNumber}
                 onBlur={saveConcepts}

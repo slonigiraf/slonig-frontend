@@ -2893,6 +2893,7 @@ __metadata:
     "@slonigiraf/slonig-components": ^0.132.2-38-x
     "@types/qrcode.react": ^1.0.2
     detect-browser: ^5.3.0
+    fflate: ^0.8.0
     file-saver: ^2.0.5
     ipfs-core: ^0.14.2
     ipfs-core-types: ^0.10.1
