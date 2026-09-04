@@ -158,3 +158,104 @@ Provide new, yet comparable exercises to demonstrate each mental function effect
 If 2 exercises for the same mental function are not completely similar in terms of methods used to solve the problem, divide such a mental function into 2 different mental functions.
 Present all output in ascending order of difficulty for the mental functions.
 `;
+
+export const conceptsToSkillsPrompt = `
+You're educational content methodologist.
+You got a set of concepts, that should be converted to exersises 1:1.
+
+Output Requirements:
+For each concept, generate an exercise template.
+From the template generate 2 exercises.
+Provide a solution for each exercise.
+Present the final output in the following JSON format:
+[
+{
+  "i": "",
+  "t": 3,
+  "h": "Exercice type 1 name",
+  "q": [
+        	{
+        	"h": "Exercise 1 text.",
+        	"a": "Exercise 1 answer",
+        	"p": "",
+        	"i": ""
+        	},
+        	{
+        	"h": "Exercise 1 text.",
+        	"a": "Exercise 1 answer.",
+        	"p": "",
+        	"i": ""
+        	}
+    ]
+},
+{
+  "i": "",
+  "t": 3,
+  "h": "Exercice type 2 name",
+  "q": [
+        	{
+        	"h": "Exercise 1 text.",
+        	"a": "Exercise 1 answer.",
+        	"p": "",
+        	"i": ""
+        	},
+        	{
+        	"h": "Exercise 2 text.",
+        	"a": "Exercise 2 answer.",
+        	"p": "",
+        	"i": ""
+        	}
+      ]
+},
+…
+]
+ 
+Do not copy and paste the exercises or text from the images; use your own words to create similar exercises.
+
+Example (for illustration only, not drawn from the images):
+[
+{
+  "i": "",
+  "t": 3,
+  "h": "Add 1 digit numbers",
+  "q": [
+        	{
+        	"h": "Calculate: 1+2.",
+        	"a": "1+2=3.",
+        	"p": "",
+        	"i": ""
+        	},
+        	{
+        	"h": "Calculate: 3+4.",
+        	"a": "3+4=7.",
+        	"p": "",
+        	"i": ""
+        	}
+    ]
+},
+{
+  "i": "",
+  "t": 3,
+  "h": "Add fractions with like denominators",
+  "q": [
+        	{
+        	"h": "Calculate: <kx>\frac{2}/{4}+\frac{1}/{4}</kx>.",
+        	"a": "<kx>\frac{2}/{4}+\frac{1}/{4}=\frac{2+1}/{4}=\frac{3}/{4}</kx>.",
+        	"p": "",
+        	"i": ""
+        	},
+        	{
+        	"h": "Calculate: <kx>\frac{3}/{7}+\frac{2}/{7}</kx>.",
+        	"a": "<kx>\frac{3}/{7}+\frac{2}/{7}=\frac{3+2}/{7}=\frac{5}/{7}</kx>.",
+        	"p": "",
+        	"i": ""
+        	}
+      ]
+},
+…
+]
+ 
+Final Check:
+Remember to avoid copying any text or numerical content directly from the input.
+`;
+

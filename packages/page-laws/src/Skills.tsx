@@ -12,7 +12,7 @@ import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { Button, Dropdown, styled } from '@polkadot/react-components';
 
 import ExerciseList from './Edit/ExerciseList.js';
-import { OPENAI_MODELS, skillListPrompt } from './constants.js';
+import { OPENAI_MODELS, conceptsToSkillsPrompt } from './constants.js';
 
 // Keep one request of headroom below the provider's 20 requests/minute limit.
 const MAX_BATCH_REQUESTS_PER_MIN = 19;
@@ -233,7 +233,7 @@ function Skills ({ book }: { book: Book }): React.ReactElement {
         try {
           const response = await client.chat.completions.create({
             messages: [{
-              content: `${skillListPrompt}\n\nCreate exactly one skill template for each of the ${batch.length} concepts below. Return only one valid JSON object using this exact shape: {"templates":[{"i":"","t":3,"h":"Skill name","q":[{"h":"Exercise text","a":"Exercise answer","p":"","i":""},{"h":"Exercise text","a":"Exercise answer","p":"","i":""}]}]}. The templates array must contain exactly ${batch.length} items in the same order as the concepts. Each template must train only its matching concept, be self-contained, and contain exactly two parameterized, original exercises.\n\nConcepts:\n${conceptsPrompt}`,
+              content: `${conceptsToSkillsPrompt}\n\nCreate exactly one skill template for each of the ${batch.length} concepts below. Return only one valid JSON object using this exact shape: {"templates":[{"i":"","t":3,"h":"Skill name","q":[{"h":"Exercise text","a":"Exercise answer","p":"","i":""},{"h":"Exercise text","a":"Exercise answer","p":"","i":""}]}]}. The templates array must contain exactly ${batch.length} items in the same order as the concepts. Each template must train only its matching concept, be self-contained, and contain exactly two parameterized, original exercises.\n\nConcepts:\n${conceptsPrompt}`,
               role: 'user'
             }],
             model: selectedModel,
