@@ -31,6 +31,7 @@
     "ipfs-core": "^0.14.2",
     "ipfs-core-types": "^0.10.1",
     "mathpix-markdown-it": "^3.0.1",
+    "pdf-lib": "^1.17.1",
     "pdfjs-dist": "3.11.174",
     "qrcode.react": "^2.0.0"
   },

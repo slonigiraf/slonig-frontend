@@ -5,9 +5,11 @@ import type { Book, BookPage } from '@slonigiraf/db';
 import type { PDFDocumentLoadingTask, PDFDocumentProxy, RenderTask } from 'pdfjs-dist';
 
 import { getBookPages, getSetting, putBookPage, SettingKey, storeSetting } from '@slonigiraf/db';
+import FileSaver from 'file-saver';
 import MathpixLoader from 'mathpix-markdown-it/lib/components/mathpix-loader/index.js';
 import MathpixMarkdown from 'mathpix-markdown-it/lib/components/mathpix-markdown/index.js';
 import OpenAI from 'openai';
+import * as PDFDocumentModule from 'pdf-lib/cjs/api/PDFDocument.js';
 import { getDocument, GlobalWorkerOptions } from 'pdfjs-dist';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 
@@ -67,6 +69,88 @@ function storeSessionPage (bookId: number, pageNumber: number): void {
   }
 }
 
+const delay = (milliseconds: number): Promise<void> => new Promise((resolve) => setTimeout(resolve, milliseconds));
+
+async function createSinglePagePdf (file: File, pageNumber: number): Promise<Blob> {
+  const sourcePdf = await PDFDocumentModule.default.load(await file.arrayBuffer());
+  const pagePdf = await PDFDocumentModule.default.create();
+  const [page] = await pagePdf.copyPages(sourcePdf, [pageNumber - 1]);
+
+  pagePdf.addPage(page);
+
+  const bytes = await pagePdf.save();
+  const buffer = new ArrayBuffer(bytes.byteLength);
+
+  new Uint8Array(buffer).set(bytes);
+
+  return new Blob([buffer], { type: 'application/pdf' });
+}
+
+async function recognizePageWithMathpix (apiKey: string, file: File, pageNumber: number): Promise<Pick<BookPage, 'pageMMD' | 'pageMMDZip'>> {
+  const headers = { app_key: apiKey };
+  const body = new FormData();
+  const pagePdf = await createSinglePagePdf(file, pageNumber);
+  const fileName = `${file.name.replace(/\.pdf$/i, '')}-page-${pageNumber}.pdf`;
+
+  body.append('file', pagePdf, fileName);
+  body.append('options_json', JSON.stringify({
+    conversion_formats: { 'mmd.zip': true }
+  }));
+
+  const response = await fetch('https://api.mathpix.com/v3/pdf', {
+    body,
+    headers,
+    method: 'POST'
+  });
+  const result = await response.json() as { error?: string; pdf_id?: string };
+
+  if (!response.ok || !result.pdf_id) {
+    throw new Error(result.error || 'Mathpix could not start PDF recognition.');
+  }
+
+  for (let attempt = 0; attempt < 120; attempt++) {
+    const statusResponse = await fetch(`https://api.mathpix.com/v3/pdf/${result.pdf_id}`, { headers });
+    const statusResult = await statusResponse.json() as {
+      conversion_status?: Record<string, { error?: string; status?: string }>;
+      error?: string;
+      status?: string;
+    };
+    const zipStatus = statusResult.conversion_status?.['mmd.zip'];
+
+    if (!statusResponse.ok) {
+      throw new Error(statusResult.error || 'Unable to check Mathpix PDF recognition.');
+    }
+
+    if (statusResult.status === 'error') {
+      throw new Error(statusResult.error || 'Mathpix could not recognize the PDF page.');
+    }
+
+    if (zipStatus?.status === 'error') {
+      throw new Error(zipStatus.error || 'Mathpix could not create the MMD ZIP.');
+    }
+
+    if (statusResult.status === 'completed' && zipStatus?.status === 'completed') {
+      const [mmdResponse, zipResponse] = await Promise.all([
+        fetch(`https://api.mathpix.com/v3/pdf/${result.pdf_id}.mmd`, { headers }),
+        fetch(`https://api.mathpix.com/v3/pdf/${result.pdf_id}.mmd.zip`, { headers })
+      ]);
+
+      if (!mmdResponse.ok || !zipResponse.ok) {
+        throw new Error('Unable to download the MMD results from Mathpix.');
+      }
+
+      return {
+        pageMMD: (await mmdResponse.text()).trim(),
+        pageMMDZip: await zipResponse.blob()
+      };
+    }
+
+    await delay(1000);
+  }
+
+  throw new Error('Mathpix timed out while recognizing the PDF page.');
+}
+
 interface Props {
   book: Book;
   file: File;
@@ -86,7 +170,6 @@ function BookReader ({ book, file }: Props): React.ReactElement {
   const [pageNumber, setPageNumber] = useState(1);
   const [pages, setPages] = useState<Map<number, BookPage>>(new Map());
   const [pdf, setPdf] = useState<PDFDocumentProxy>();
-  const [renderedPage, setRenderedPage] = useState<number>();
   const [selectedModel, setSelectedModel] = useState(OPENAI_MODELS[0].value);
   const [totalPages, setTotalPages] = useState(0);
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -98,7 +181,6 @@ function BookReader ({ book, file }: Props): React.ReactElement {
 
     setError('');
     setPdf(undefined);
-    setRenderedPage(undefined);
     setTotalPages(0);
 
     const load = async (): Promise<void> => {
@@ -168,10 +250,6 @@ function BookReader ({ book, file }: Props): React.ReactElement {
       canvas.height = viewport.height;
       renderTask = page.render({ canvasContext: context, viewport });
       await renderTask.promise;
-
-      if (active) {
-        setRenderedPage(pageNumber);
-      }
     };
 
     render().catch((renderError: Error) => {
@@ -243,7 +321,7 @@ function BookReader ({ book, file }: Props): React.ReactElement {
   }, [book.id, pageNumber, pages, processingPage, selectedModel]);
 
   const recognizePage = useCallback(async (): Promise<void> => {
-    if (!canvasRef.current || renderedPage !== pageNumber || processingPage !== undefined) {
+    if (processingPage !== undefined) {
       return;
     }
 
@@ -254,41 +332,16 @@ function BookReader ({ book, file }: Props): React.ReactElement {
       const apiKey = await getSetting(SettingKey.MATHPIX_API_KEY);
 
       if (!apiKey) {
+        setMathpixApiKey(apiKey ?? '');
         setIsMathpixKeyPromptOpen(true);
 
         return;
       }
 
-      const tokenResponse = await fetch('https://api.mathpix.com/v3/app-tokens', {
-        headers: { app_key: apiKey },
-        method: 'POST'
-      });
-      const token = await tokenResponse.json() as { app_token?: string; error?: string };
+      const { pageMMD, pageMMDZip } = await recognizePageWithMathpix(apiKey, file, pageNumber);
 
-      if (!tokenResponse.ok || !token.app_token) {
-        throw new Error(token.error || 'Mathpix authentication failed.');
-      }
-
-      const image = await new Promise<Blob>((resolve, reject) => {
-        canvasRef.current?.toBlob((blob) => blob
-          ? resolve(blob)
-          : reject(new Error('Unable to prepare this page for recognition.')), 'image/png');
-      });
-      const body = new FormData();
-
-      body.append('file', image, `page-${pageNumber}.png`);
-      body.append('options_json', JSON.stringify({ enable_document_layout: true, formats: ['text'] }));
-
-      const response = await fetch('https://api.mathpix.com/v3/text', {
-        body,
-        headers: { app_token: token.app_token },
-        method: 'POST'
-      });
-      const result = await response.json() as { error?: string; text?: string };
-      const pageMMD = result.text?.trim();
-
-      if (!response.ok || !pageMMD) {
-        throw new Error(result.error || 'Mathpix returned no recognized content.');
+      if (!pageMMD) {
+        throw new Error('Mathpix returned no recognized content.');
       }
 
       const recognizedPage: BookPage = {
@@ -297,6 +350,7 @@ function BookReader ({ book, file }: Props): React.ReactElement {
         concepts: pages.get(pageNumber)?.concepts ?? '',
         conceptsProcessed: pages.get(pageNumber)?.conceptsProcessed ?? false,
         pageMMD,
+        pageMMDZip,
         pageNumber
       };
 
@@ -307,7 +361,7 @@ function BookReader ({ book, file }: Props): React.ReactElement {
     } finally {
       setProcessingPage(undefined);
     }
-  }, [book.id, pageNumber, pages, processingPage, renderedPage]);
+  }, [book.id, file, pageNumber, pages, processingPage]);
 
   const saveMathpixApiKey = useCallback(async (): Promise<void> => {
     const apiKey = mathpixApiKey.trim();
@@ -332,6 +386,25 @@ function BookReader ({ book, file }: Props): React.ReactElement {
     setIsMathpixKeyPromptOpen(false);
     setMathpixApiKey('');
   }, []);
+
+  const downloadPageMMDZip = useCallback((): void => {
+    const pageMMDZip = pages.get(pageNumber)?.pageMMDZip;
+
+    if (!pageMMDZip) {
+      return;
+    }
+
+    setError('');
+
+    try {
+      const bookName = book.name.replace(/\.pdf$/i, '');
+
+      // eslint-disable-next-line deprecation/deprecation
+      FileSaver.saveAs(pageMMDZip, `${bookName}-page-${pageNumber}-mathpix.zip`);
+    } catch {
+      setError('Unable to download the Mathpix ZIP.');
+    }
+  }, [book.name, pageNumber, pages]);
 
   useEffect(() => {
     if (!isMaximized) {
@@ -393,7 +466,7 @@ function BookReader ({ book, file }: Props): React.ReactElement {
         size='small'
       >
         <Modal.Content>
-          <p>Enter your Mathpix API key to recognize this page.</p>
+          <p>Enter your Mathpix API key to recognize this page and create its MMD ZIP.</p>
           <p>
             Get your API key from <a
               href='https://console.mathpix.com/'
@@ -490,12 +563,20 @@ function BookReader ({ book, file }: Props): React.ReactElement {
             ? <div className='tabPanel' role='tabpanel'>
               <div className='detailsHeader'>
                 <span>{processingPage === pageNumber ? 'Recognizing page…' : 'Mathpix MMD'}</span>
-                <Button
-                  icon='camera'
-                  isDisabled={renderedPage !== pageNumber || processingPage !== undefined}
-                  label={pages.get(pageNumber)?.pageMMD ? 'Recognize again' : 'Recognize page'}
-                  onClick={recognizePage}
-                />
+                <div className='recognitionControls'>
+                  <Button
+                    icon='download'
+                    isDisabled={!pages.get(pageNumber)?.pageMMDZip}
+                    label='Download ZIP'
+                    onClick={downloadPageMMDZip}
+                  />
+                  <Button
+                    icon='camera'
+                    isDisabled={processingPage !== undefined}
+                    label={pages.get(pageNumber)?.pageMMD ? 'Recognize again' : 'Recognize page'}
+                    onClick={recognizePage}
+                  />
+                </div>
               </div>
               {pages.get(pageNumber)?.pageMMD
                 ? <div className='recognizedOutput'>
@@ -673,7 +754,7 @@ const StyledReader = styled.div`
     margin-bottom: 0.75rem;
   }
 
-  .generationControls {
+  .generationControls, .recognitionControls {
     align-items: center;
     display: flex;
     gap: 0.5rem;
