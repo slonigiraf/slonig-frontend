@@ -9,9 +9,10 @@ import OpenAI from 'openai';
 import React, { useCallback, useEffect, useState } from 'react';
 
 import { Button, Dropdown, styled } from '@polkadot/react-components';
+import { KatexSpan } from '@slonigiraf/slonig-components';
 
 import { OPENAI_MODELS, skillListPrompt } from './constants.js';
-import SkillTemplateInfo from './Edit/SkillTemplateInfo.js';
+import ExerciseList from './Edit/ExerciseList.js';
 
 const MAX_CONCEPTS_PER_MIN = 180;
 const RATE_LIMIT_WINDOW_MS = 60_000;
@@ -79,12 +80,30 @@ function ConceptSkillTemplates ({ bookId, conceptId }: { bookId: number; concept
     return null;
   }
 
+  const templates: Array<{ id: string; template: GeneratedSkillTemplate }> = [];
+
+  skillTemplates.forEach(({ content, id }) => {
+    try {
+      templates.push({ id, template: parseGeneratedSkillTemplate(content) });
+    } catch {
+      // Ignore corrupt templates rather than preventing the remaining exercises from rendering.
+    }
+  });
+
+  if (!templates.length) {
+    return null;
+  }
+
   return <div className='conceptTemplates'>
     <h4>Generated exercises</h4>
-    {skillTemplates.map((skillTemplate) => <SkillTemplateInfo
-      key={skillTemplate.id}
-      skillTemplate={skillTemplate}
-    />)}
+    {templates.map(({ id, template }) => <div className='skillTemplate' key={id}>
+      <h5><KatexSpan content={template.h} /></h5>
+      <ExerciseList
+        areShownInitially
+        exercises={template.q}
+        location='skill_template_info'
+      />
+    </div>)}
   </div>;
 }
 
@@ -288,6 +307,16 @@ const StyledSkills = styled.div`
 
   .conceptTemplates h4 {
     margin: 0 0 0.4rem;
+  }
+
+  .skillTemplate + .skillTemplate {
+    border-top: 1px solid var(--border-table);
+    margin-top: 0.75rem;
+    padding-top: 0.75rem;
+  }
+
+  .skillTemplate h5 {
+    margin: 0.5rem 0;
   }
 
   @media only screen and (max-width: 700px) {
