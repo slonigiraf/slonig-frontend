@@ -50,7 +50,7 @@
     "clean:electronRelease": "cd packages/apps-electron && rm -rf release",
     "clean:i18n": "rm -rf packages/apps/public/locales/en && mkdir -p packages/apps/public/locales/en",
     "docs": "echo \"skipping docs\"",
-    "lint": "polkadot-dev-run-lint",
+    "lint": "polkadot-exec-eslint . && polkadot-exec-tsc --noEmit --emitDeclarationOnly false --pretty --project tsconfig.build.json",
     "packElectron": "yarn build:release:electron && yarn clean:electronRelease && electron-builder build -mwl",
     "packElectron:linux": "yarn build:release:electron && electron-builder build --linux --project packages/apps-electron",
     "packElectron:mac": "yarn build:release:electron && electron-builder build --mac --project packages/apps-electron",
