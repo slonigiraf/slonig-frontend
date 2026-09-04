@@ -19,6 +19,7 @@ import { LearnRequest } from './LearnRequest.js';
 import { ScheduledEvent } from './ScheduledEvent.js';
 import type { Book } from './Book.js';
 import type { BookPage } from './BookPage.js';
+import type { Concept } from './Concept.js';
 
 class SlonigDB extends Dexie {
   agreements!: Table<Agreement>;
@@ -41,6 +42,7 @@ class SlonigDB extends Dexie {
   scheduledEvents!:Table<ScheduledEvent>;
   books!: Table<Book, number>;
   bookPages!: Table<BookPage, [number, number]>;
+  concepts!: Table<Concept, number>;
 
   constructor() {
     super('slonig');
@@ -75,6 +77,10 @@ class SlonigDB extends Dexie {
     });
     this.version(68).stores({
       books: '++id,name,created,&contentHash',
+    });
+    this.version(69).stores({
+      bookPages: '&[bookId+pageNumber],bookId,conceptsProcessed',
+      concepts: '++id,bookPage',
     });
   }
 }

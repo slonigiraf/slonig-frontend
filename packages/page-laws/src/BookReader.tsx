@@ -1,10 +1,10 @@
 // Copyright 2021-2026 @polkadot/app-laws authors & contributors
 // SPDX-License-Identifier: Apache-2.0
 
-import type { Book, BookPage } from '@slonigiraf/db';
+import type { Book, BookPage, Concept } from '@slonigiraf/db';
 import type { PDFDocumentLoadingTask, PDFDocumentProxy, RenderTask } from 'pdfjs-dist';
 
-import { getBookPages, getSetting, putBookPage, SettingKey, storeSetting } from '@slonigiraf/db';
+import { getBookPages, getConceptsForBookPage, getSetting, putBookPage, replaceConceptsForBookPage, SettingKey, storeSetting } from '@slonigiraf/db';
 import { strFromU8, unzipSync } from 'fflate';
 import FileSaver from 'file-saver';
 import MathpixLoader from 'mathpix-markdown-it/lib/components/mathpix-loader/index.js';
@@ -22,23 +22,25 @@ const CONCEPTS_PROMPT = `On the provided page, identify the chapter and subchapt
 
 Extract only the concepts that are intentionally introduced or explained as new on this page. Do not include concepts that the page assumes the reader already knows, merely reviews, references from earlier sections, or uses only in exercises/examples without introducing them.
 
-Use this exact output format, keeping the original language of the input:
+Return only valid JSON in this exact shape, keeping the original language of the input:
+{"chapter":"Chapter and section name","concepts":[{"title":"New concept","description":"Explanation or example from the page"}]}
 
-◆ **[Chapter number and name, if shown] / [Subchapter or section number and name, if shown]**
+Use an empty string when the chapter is not shown. Use an empty array when no new concepts are introduced. Do not add markdown or any text outside the JSON.`;
 
-● [New concept]
+interface GeneratedConcepts {
+  chapter: string;
+  concepts: Array<{ description: string; title: string }>;
+}
 
-↳ [example from the page, if present]
+function parseGeneratedConcepts (content: string): GeneratedConcepts {
+  const parsed = JSON.parse(content.replace(/^```json\s*|\s*```$/g, '')) as Partial<GeneratedConcepts>;
 
-● [New concept]
+  if (typeof parsed.chapter !== 'string' || !Array.isArray(parsed.concepts) || parsed.concepts.some(({ description, title }) => typeof title !== 'string' || typeof description !== 'string')) {
+    throw new Error('OpenRouter returned invalid concept data.');
+  }
 
-↳ [example from the page, if present]
-
-If no new concepts are introduced, write:
-
-● No new concepts introduced on this page.
-
-Do not add explanations, commentary, summaries, or any text outside this format.`;
+  return { chapter: parsed.chapter.trim(), concepts: parsed.concepts.map(({ description, title }) => ({ description: description.trim(), title: title.trim() })).filter(({ title }) => title) };
+}
 
 const OPENAI_MODELS = [
   { text: 'GPT-4o mini', value: 'openai/gpt-4o-mini' },
@@ -217,7 +219,7 @@ type RecognitionTarget = 'all' | 'page';
 
 function BookReader ({ book, file, generateAllConceptsRequest, recognizeAllRequest }: Props): React.ReactElement {
   const [activeTab, setActiveTab] = useState<ReaderTab>('recognized');
-  const [concepts, setConcepts] = useState('');
+  const [concepts, setConcepts] = useState<Concept[]>([]);
   const [error, setError] = useState('');
   const [generatedConceptsPageCount, setGeneratedConceptsPageCount] = useState(0);
   const [isGeneratingAllConcepts, setIsGeneratingAllConcepts] = useState(false);
@@ -287,8 +289,16 @@ function BookReader ({ book, file, generateAllConceptsRequest, recognizeAllReque
   }, [book.id, file]);
 
   useEffect(() => {
-    setConcepts(pages.get(pageNumber)?.concepts ?? '');
-  }, [pageNumber, pages]);
+    let active = true;
+
+    getConceptsForBookPage(book.id, pageNumber)
+      .then((storedConcepts) => active && setConcepts(storedConcepts))
+      .catch(() => active && setError('Unable to load concepts.'));
+
+    return () => {
+      active = false;
+    };
+  }, [book.id, pageNumber]);
 
   useEffect(() => {
     if (!pdf || !canvasRef.current || !pageAreaRef.current) {
@@ -374,22 +384,27 @@ function BookReader ({ book, file, generateAllConceptsRequest, recognizeAllReque
         }],
         model: selectedModel
       });
-      const generatedConcepts = response.choices[0].message?.content?.trim();
+      const generatedContent = response.choices[0].message?.content?.trim();
 
-      if (!generatedConcepts) {
+      if (!generatedContent) {
         throw new Error('OpenRouter returned no concepts.');
       }
+
+      const generatedConcepts = parseGeneratedConcepts(generatedContent);
 
       const generatedPage: BookPage = {
         ...pages.get(pageNumber),
         bookId: book.id,
-        concepts: generatedConcepts,
+        chapter: generatedConcepts.chapter,
         conceptsProcessed: true,
         pageNumber
       };
 
+      const storedConcepts = await replaceConceptsForBookPage(book.id, pageNumber, generatedConcepts.concepts);
+
       await putBookPage(generatedPage);
       setPages((current) => new Map(current).set(pageNumber, generatedPage));
+      setConcepts(storedConcepts);
     } catch (generationError) {
       setError(generationError instanceof Error ? generationError.message : 'Unable to generate concepts.');
     } finally {
@@ -456,22 +471,31 @@ function BookReader ({ book, file, generateAllConceptsRequest, recognizeAllReque
             }],
             model: selectedModel
           });
-          const generatedConcepts = response.choices[0].message?.content?.trim();
+          const generatedContent = response.choices[0].message?.content?.trim();
 
-          if (!generatedConcepts) {
+          if (!generatedContent) {
             throw new Error('OpenRouter returned no concepts.');
           }
+
+          const generatedConcepts = parseGeneratedConcepts(generatedContent);
 
           const generatedPage: BookPage = {
             ...storedPage,
             bookId: book.id,
-            concepts: generatedConcepts,
+            chapter: generatedConcepts.chapter,
             conceptsProcessed: true,
             pageNumber: currentPageNumber
           };
 
+          const storedConcepts = await replaceConceptsForBookPage(book.id, currentPageNumber, generatedConcepts.concepts);
+
           await putBookPage(generatedPage);
           setPages((current) => new Map(current).set(currentPageNumber, generatedPage));
+
+          if (currentPageNumber === pageNumber) {
+            setConcepts(storedConcepts);
+          }
+
           setGeneratedConceptsPageCount((count) => count + 1);
         })());
       }
@@ -487,7 +511,7 @@ function BookReader ({ book, file, generateAllConceptsRequest, recognizeAllReque
     } finally {
       setIsGeneratingAllConcepts(false);
     }
-  }, [book.id, isGeneratingAllConcepts, isRecognizingAll, pages, processingPage, selectedModel, totalPages]);
+  }, [book.id, isGeneratingAllConcepts, isRecognizingAll, pageNumber, pages, processingPage, selectedModel, totalPages]);
 
   const recognizePage = useCallback(async (): Promise<void> => {
     if (processingPage !== undefined || isGeneratingAllConcepts || isRecognizingAll) {
@@ -517,7 +541,7 @@ function BookReader ({ book, file, generateAllConceptsRequest, recognizeAllReque
       const recognizedPage: BookPage = {
         ...pages.get(pageNumber),
         bookId: book.id,
-        concepts: pages.get(pageNumber)?.concepts ?? '',
+        chapter: pages.get(pageNumber)?.chapter ?? '',
         conceptsProcessed: pages.get(pageNumber)?.conceptsProcessed ?? false,
         pageMMD,
         pageMMDZip,
@@ -572,7 +596,7 @@ function BookReader ({ book, file, generateAllConceptsRequest, recognizeAllReque
           const recognizedPage: BookPage = {
             ...storedPage,
             bookId: book.id,
-            concepts: storedPage?.concepts ?? '',
+            chapter: storedPage?.chapter ?? '',
             conceptsProcessed: storedPage?.conceptsProcessed ?? false,
             pageMMD,
             pageMMDZip,
@@ -691,19 +715,6 @@ function BookReader ({ book, file, generateAllConceptsRequest, recognizeAllReque
     return () => window.removeEventListener('keydown', closeOnEscape);
   }, [isMaximized]);
 
-  const saveConcepts = useCallback((): void => {
-    const bookPage: BookPage = {
-      ...pages.get(pageNumber),
-      bookId: book.id,
-      concepts,
-      conceptsProcessed: pages.get(pageNumber)?.conceptsProcessed ?? false,
-      pageNumber
-    };
-
-    setPages((current) => new Map(current).set(pageNumber, bookPage));
-    putBookPage(bookPage).catch(() => setError('Unable to save concepts.'));
-  }, [book.id, concepts, pageNumber, pages]);
-
   const goToPage = useCallback((requestedPage: number): void => {
     if (!totalPages) {
       return;
@@ -711,11 +722,10 @@ function BookReader ({ book, file, generateAllConceptsRequest, recognizeAllReque
 
     const nextPage = Math.min(totalPages, Math.max(1, requestedPage));
 
-    saveConcepts();
     setPageNumber(nextPage);
     setPageInput(String(nextPage));
     storeSessionPage(book.id, nextPage);
-  }, [book.id, saveConcepts, totalPages]);
+  }, [book.id, totalPages]);
 
   const submitPageInput = useCallback((): void => {
     const requestedPage = Number(pageInput);
@@ -885,13 +895,15 @@ function BookReader ({ book, file, generateAllConceptsRequest, recognizeAllReque
                 </div>
               </div>
               {!pages.get(pageNumber)?.pageMMDZip && <p className='recognitionHint'>Recognize this page before generating concepts.</p>}
-              <textarea
-                disabled={processingPage === pageNumber || isGeneratingAllConcepts}
-                onBlur={saveConcepts}
-                onChange={({ target }) => setConcepts(target.value)}
-                placeholder='Concepts for this page'
-                value={concepts}
-              />
+              <div className='conceptsOutput'>
+                <h3>{pages.get(pageNumber)?.chapter || 'Chapter not identified'}</h3>
+                {concepts.length
+                  ? <ul>{concepts.map((concept) => <li key={concept.id}>
+                    <strong>{concept.title}</strong>
+                    {concept.description && <p>{concept.description}</p>}
+                  </li>)}</ul>
+                  : <p className='emptyOutput'>No concepts have been generated for this page.</p>}
+              </div>
             </div>}
         </div>
       </div>
@@ -1054,17 +1066,28 @@ const StyledReader = styled.div`
     padding: 0.55rem;
   }
 
-  .conceptsPanel textarea {
-    background: var(--bg-input);
+  .conceptsOutput {
     border: 1px solid #dde1eb;
     border-radius: 0.25rem;
     box-sizing: border-box;
     color: var(--color-text);
     flex: 1;
     min-height: 0;
+    overflow: auto;
     padding: 1rem;
-    resize: vertical;
     width: 100%;
+  }
+
+  .conceptsOutput h3 {
+    margin-top: 0;
+  }
+
+  .conceptsOutput li + li {
+    margin-top: 1rem;
+  }
+
+  .conceptsOutput p {
+    margin: 0.25rem 0 0;
   }
 
   .recognizedOutput {
@@ -1131,7 +1154,7 @@ const StyledReader = styled.div`
       height: auto;
     }
 
-    .conceptsPanel textarea {
+    .conceptsOutput {
       min-height: 20rem;
     }
 

@@ -28,8 +28,9 @@ import { ScheduledEvent, ScheduledEventType } from "./db/ScheduledEvent.js";
 import Dexie from "dexie";
 import type { Book } from './db/Book.js';
 import type { BookPage } from './db/BookPage.js';
+import type { Concept, NewConcept } from './db/Concept.js';
 
-export type { LearnRequest, TutorAction, CanceledInsurance, Reexamination, LetterTemplate, CanceledLetter, Reimbursement, Letter, Insurance, Lesson, Pseudonym, Setting, Signer, UsageRight, Agreement, Book, BookPage };
+export type { LearnRequest, TutorAction, CanceledInsurance, Reexamination, LetterTemplate, CanceledLetter, Reimbursement, Letter, Insurance, Lesson, Pseudonym, Setting, Signer, UsageRight, Agreement, Book, BookPage, Concept, NewConcept };
 
 export async function createBook(book: Omit<Book, 'id'>): Promise<number> {
     return db.books.add(book as Book);
@@ -48,9 +49,12 @@ export async function getBookByContentHash(contentHash: string): Promise<Book | 
 }
 
 export async function deleteBook(id: number): Promise<void> {
-    await db.transaction('rw', db.books, db.bookPages, async () => {
+    await db.transaction('rw', db.books, db.bookPages, db.concepts, async () => {
+        const pageKeys = await db.bookPages.where('bookId').equals(id).primaryKeys();
+
         await db.books.delete(id);
         await db.bookPages.where('bookId').equals(id).delete();
+        await Promise.all(pageKeys.map((bookPage) => db.concepts.where('bookPage').equals(bookPage).delete()));
     });
 }
 
@@ -63,7 +67,25 @@ export async function getBookPages(bookId: number): Promise<BookPage[]> {
 }
 
 export async function deleteBookPage(bookId: number, pageNumber: number): Promise<void> {
-    await db.bookPages.delete([bookId, pageNumber]);
+    await db.transaction('rw', db.bookPages, db.concepts, async () => {
+        await db.bookPages.delete([bookId, pageNumber]);
+        await db.concepts.where('bookPage').equals([bookId, pageNumber]).delete();
+    });
+}
+
+export async function getConceptsForBookPage(bookId: number, pageNumber: number): Promise<Concept[]> {
+    return db.concepts.where('bookPage').equals([bookId, pageNumber]).sortBy('id');
+}
+
+export async function replaceConceptsForBookPage(bookId: number, pageNumber: number, concepts: Array<Omit<NewConcept, 'bookPage'>>): Promise<Concept[]> {
+    const bookPage: [number, number] = [bookId, pageNumber];
+
+    return db.transaction('rw', db.concepts, async () => {
+        await db.concepts.where('bookPage').equals(bookPage).delete();
+        const ids = await db.concepts.bulkAdd(concepts.map((concept) => ({ ...concept, bookPage })), { allKeys: true });
+
+        return concepts.map((concept, index) => ({ ...concept, bookPage, id: ids[index] }));
+    });
 }
 
 const DEFAULT_INSURANCE_VALIDITY = 730;//Days valid

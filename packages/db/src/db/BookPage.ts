@@ -4,7 +4,7 @@
 export interface BookPage {
   pageNumber: number;
   bookId: number;
-  concepts: string;
+  chapter: string;
   conceptsProcessed: boolean;
   pageMMD?: string;
   pageMMDZip?: Blob;
