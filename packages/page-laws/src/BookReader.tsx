@@ -224,11 +224,11 @@ interface Props {
   recognizeAllRequest: number;
 }
 
-type ReaderTab = 'recognized' | 'concepts';
+type ReaderPane = 'pdfText' | 'textConcepts';
 type RecognitionTarget = 'all' | 'page';
 
 function BookReader ({ book, file, generateAllConceptsModel, generateAllConceptsRequest, recognizeAllRequest }: Props): React.ReactElement {
-  const [activeTab, setActiveTab] = useState<ReaderTab>('recognized');
+  const [activePane, setActivePane] = useState<ReaderPane>('pdfText');
   const [concepts, setConcepts] = useState<Concept[]>([]);
   const [error, setError] = useState('');
   const [generatedConceptsPageCount, setGeneratedConceptsPageCount] = useState(0);
@@ -352,7 +352,7 @@ function BookReader ({ book, file, generateAllConceptsModel, generateAllConcepts
       active = false;
       renderTask?.cancel();
     };
-  }, [isMaximized, pageNumber, pdf]);
+  }, [activePane, isMaximized, pageNumber, pdf]);
 
   const generateConcepts = useCallback(async (): Promise<void> => {
     const pageMMDZip = pages.get(pageNumber)?.pageMMDZip;
@@ -749,6 +749,72 @@ function BookReader ({ book, file, generateAllConceptsModel, generateAllConcepts
     }
   }, [goToPage, pageInput, pageNumber]);
 
+  const recognizedPane = (): React.ReactNode => (
+    <div className='tabPanel'>
+      <div className='detailsHeader'>
+        <span>{isRecognizingAll
+          ? `Recognizing all pages… ${recognizedPageCount}/${totalPages}`
+          : processingPage === pageNumber ? 'Recognizing page…' : 'Mathpix MMD'}</span>
+        <div className='recognitionControls'>
+          <Button
+            icon='download'
+            isDisabled={!pages.get(pageNumber)?.pageMMDZip}
+            label='Download ZIP'
+            onClick={downloadPageMMDZip}
+          />
+          <Button
+            icon='camera'
+            isDisabled={processingPage !== undefined || isRecognizingAll}
+            label={pages.get(pageNumber)?.pageMMD ? 'Recognize again' : 'Recognize page'}
+            onClick={recognizePage}
+          />
+        </div>
+      </div>
+      {pages.get(pageNumber)?.pageMMD
+        ? <div className='recognizedOutput'>
+          <MathpixLoader>
+            <MathpixMarkdown text={pages.get(pageNumber)?.pageMMD ?? ''} />
+          </MathpixLoader>
+        </div>
+        : <p className='emptyOutput'>This page has not been recognized yet.</p>}
+    </div>
+  );
+
+  const conceptsPane = (): React.ReactNode => (
+    <div className='tabPanel conceptsPanel'>
+      <div className='detailsHeader'>
+        <span>{isGeneratingAllConcepts
+          ? `Generating concepts for all pages… ${generatedConceptsPageCount}/${totalPages}`
+          : processingPage === pageNumber ? 'Generating concepts…' : 'Concepts'}</span>
+        <div className='generationControls'>
+          <Dropdown
+            className='modelSelect'
+            isDisabled={processingPage !== undefined || isGeneratingAllConcepts || isRecognizingAll}
+            onChange={setSelectedModel}
+            options={OPENAI_MODELS}
+            value={selectedModel}
+          />
+          <Button
+            icon='magic'
+            isDisabled={!pages.get(pageNumber)?.pageMMDZip || processingPage !== undefined || isGeneratingAllConcepts || isRecognizingAll}
+            label='Generate concepts'
+            onClick={generateConcepts}
+          />
+        </div>
+      </div>
+      {!pages.get(pageNumber)?.pageMMDZip && <p className='recognitionHint'>Recognize this page before generating concepts.</p>}
+      <div className='conceptsOutput'>
+        <h3>{pages.get(pageNumber)?.chapter || 'Chapter not identified'}</h3>
+        {concepts.length
+          ? <ul>{concepts.map((concept) => <li key={concept.id}>
+            <strong>{concept.title}</strong>
+            {concept.description && <p>{concept.description}</p>}
+          </li>)}</ul>
+          : <p className='emptyOutput'>No concepts have been generated for this page.</p>}
+      </div>
+    </div>
+  );
+
   return (
     <StyledReader className={isMaximized ? 'isMaximized' : ''}>
       {isMathpixKeyPromptOpen && <Modal
@@ -831,103 +897,55 @@ function BookReader ({ book, file, generateAllConceptsModel, generateAllConcepts
         role='alert'
                 >{error}</p>}
       <div className='readerTabs' role='tablist'>
-        <button
-          aria-selected
-          className='active'
-          id='pdf-text-tab'
-          role='tab'
-          type='button'
-        >Pdf/Text</button>
+        {([
+          ['pdfText', 'Pdf/Text'],
+          ['textConcepts', 'Text/Concepts']
+        ] as Array<[ReaderPane, string]>).map(([pane, label]) => (
+          <button
+            aria-selected={activePane === pane}
+            className={activePane === pane ? 'active' : ''}
+            id={`${pane}-tab`}
+            key={pane}
+            onClick={() => setActivePane(pane)}
+            role='tab'
+            type='button'
+          >{label}</button>
+        ))}
       </div>
       <div
-        aria-labelledby='pdf-text-tab'
+        aria-labelledby={`${activePane}-tab`}
         className='readerColumns'
         role='tabpanel'
       >
-        <div
-          className='pageArea'
-          ref={pageAreaRef}
-        >
-          <canvas ref={canvasRef} />
-        </div>
-        <div
-          className={`detailsArea${renderedPageHeight ? ' hasPageHeight' : ''}`}
-          style={{ '--page-height': renderedPageHeight ? `${renderedPageHeight}px` : 'auto' } as React.CSSProperties}
-        >
-          <div className='detailTabs' role='tablist'>
-            {(['recognized', 'concepts'] as ReaderTab[]).map((tab) => (
-              <button
-                aria-selected={activeTab === tab}
-                className={activeTab === tab ? 'active' : ''}
-                key={tab}
-                onClick={() => setActiveTab(tab)}
-                role='tab'
-                type='button'
-              >{tab === 'recognized' ? 'Recognized' : 'Concepts'}</button>
-            ))}
-          </div>
-          {activeTab === 'recognized'
-            ? <div className='tabPanel' role='tabpanel'>
-              <div className='detailsHeader'>
-                <span>{isRecognizingAll
-                  ? `Recognizing all pages… ${recognizedPageCount}/${totalPages}`
-                  : processingPage === pageNumber ? 'Recognizing page…' : 'Mathpix MMD'}</span>
-                <div className='recognitionControls'>
-                  <Button
-                    icon='download'
-                    isDisabled={!pages.get(pageNumber)?.pageMMDZip}
-                    label='Download ZIP'
-                    onClick={downloadPageMMDZip}
-                  />
-                  <Button
-                    icon='camera'
-                    isDisabled={processingPage !== undefined || isRecognizingAll}
-                    label={pages.get(pageNumber)?.pageMMD ? 'Recognize again' : 'Recognize page'}
-                    onClick={recognizePage}
-                  />
-                </div>
-              </div>
-              {pages.get(pageNumber)?.pageMMD
-                ? <div className='recognizedOutput'>
-                  <MathpixLoader>
-                    <MathpixMarkdown text={pages.get(pageNumber)?.pageMMD ?? ''} />
-                  </MathpixLoader>
-                </div>
-                : <p className='emptyOutput'>This page has not been recognized yet.</p>}
+        {activePane === 'pdfText'
+          ? <>
+            <div
+              className='pageArea'
+              ref={pageAreaRef}
+            >
+              <canvas ref={canvasRef} />
             </div>
-            : <div className='tabPanel conceptsPanel' role='tabpanel'>
-              <div className='detailsHeader'>
-                <span>{isGeneratingAllConcepts
-                  ? `Generating concepts for all pages… ${generatedConceptsPageCount}/${totalPages}`
-                  : processingPage === pageNumber ? 'Generating concepts…' : 'Concepts'}</span>
-                <div className='generationControls'>
-                  <Dropdown
-                    className='modelSelect'
-                    isDisabled={processingPage !== undefined || isGeneratingAllConcepts || isRecognizingAll}
-                    onChange={setSelectedModel}
-                    options={OPENAI_MODELS}
-                    value={selectedModel}
-                  />
-                  <Button
-                    icon='magic'
-                    isDisabled={!pages.get(pageNumber)?.pageMMDZip || processingPage !== undefined || isGeneratingAllConcepts || isRecognizingAll}
-                    label='Generate concepts'
-                    onClick={generateConcepts}
-                  />
-                </div>
-              </div>
-              {!pages.get(pageNumber)?.pageMMDZip && <p className='recognitionHint'>Recognize this page before generating concepts.</p>}
-              <div className='conceptsOutput'>
-                <h3>{pages.get(pageNumber)?.chapter || 'Chapter not identified'}</h3>
-                {concepts.length
-                  ? <ul>{concepts.map((concept) => <li key={concept.id}>
-                    <strong>{concept.title}</strong>
-                    {concept.description && <p>{concept.description}</p>}
-                  </li>)}</ul>
-                  : <p className='emptyOutput'>No concepts have been generated for this page.</p>}
-              </div>
-            </div>}
-        </div>
+            <div
+              className={`detailsArea${renderedPageHeight ? ' hasPageHeight' : ''}`}
+              style={{ '--page-height': renderedPageHeight ? `${renderedPageHeight}px` : 'auto' } as React.CSSProperties}
+            >
+              {recognizedPane()}
+            </div>
+          </>
+          : <>
+            <div
+              className={`detailsArea${renderedPageHeight ? ' hasPageHeight' : ''}`}
+              style={{ '--page-height': renderedPageHeight ? `${renderedPageHeight}px` : 'auto' } as React.CSSProperties}
+            >
+              {recognizedPane()}
+            </div>
+            <div
+              className='detailsArea'
+              style={{ '--page-height': renderedPageHeight ? `${renderedPageHeight}px` : 'auto' } as React.CSSProperties}
+            >
+              {conceptsPane()}
+            </div>
+          </>}
       </div>
     </StyledReader>
   );
@@ -1037,12 +1055,12 @@ const StyledReader = styled.div`
     flex-direction: column;
   }
 
-  .readerTabs, .detailTabs {
+  .readerTabs {
     border-bottom: 1px solid #dde1eb;
     display: flex;
   }
 
-  .readerTabs button, .detailTabs button {
+  .readerTabs button {
     background: transparent;
     border: 0;
     border-bottom: 2px solid transparent;
@@ -1052,7 +1070,7 @@ const StyledReader = styled.div`
     padding: 0.9rem 1.25rem;
   }
 
-  .readerTabs button.active, .detailTabs button.active {
+  .readerTabs button.active {
     border-bottom-color: var(--color-text);
     color: var(--color-text);
     font-weight: 600;
