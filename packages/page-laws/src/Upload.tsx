@@ -1,9 +1,9 @@
 // Copyright 2021-2026 @polkadot/app-laws authors & contributors
 // SPDX-License-Identifier: Apache-2.0
 
-import type { Book } from '@slonigiraf/db';
+import type { Book, BookPage, Concept } from '@slonigiraf/db';
 
-import { createBook, deleteBook, getBookByContentHash, getBooks, putBook } from '@slonigiraf/db';
+import { createBook, deleteBook, getBookByContentHash, getBookPages, getBooks, getConceptsForBookPage, putBook } from '@slonigiraf/db';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { Button, Dropdown, Modal, styled } from '@polkadot/react-components';
@@ -74,6 +74,7 @@ function Upload (): React.ReactElement {
   const [recognizeAllRequest, setRecognizeAllRequest] = useState(0);
   const [readerFile, setReaderFile] = useState<File>();
   const [selectedId, setSelectedId] = useState<number | undefined>(getSessionBookId);
+  const [showSkills, setShowSkills] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const loadBooks = useCallback(async (): Promise<void> => {
@@ -258,6 +259,10 @@ function Upload (): React.ReactElement {
     }
   }, [books, selectedBook, t]);
 
+  const toggleSkills = useCallback((): void => {
+    setShowSkills((value) => !value);
+  }, []);
+
   return (
     <StyledSection>
       {isRecognizeConfirmationOpen && <Modal
@@ -346,6 +351,12 @@ function Upload (): React.ReactElement {
           onClick={onGenerateConcepts}
         />
         <Button
+          icon={showSkills ? 'book' : 'list'}
+          isDisabled={!selectedBook || isBusy}
+          label={t(showSkills ? 'Book' : 'Skills')}
+          onClick={toggleSkills}
+        />
+        <Button
           icon='trash'
           isDisabled={!selectedBook || isBusy}
           label={t('Delete')}
@@ -358,15 +369,17 @@ function Upload (): React.ReactElement {
           role='alert'
         >{error}</p>
       )}
-      {selectedBook && readerFile && (
-        <BookReader
-          book={selectedBook}
-          file={readerFile}
-          generateAllConceptsModel={generateAllConceptsModel}
-          generateAllConceptsRequest={generateAllConceptsRequest}
-          recognizeAllRequest={recognizeAllRequest}
-        />
-      )}
+      {selectedBook && (showSkills
+        ? <Skills book={selectedBook} />
+        : readerFile && (
+          <BookReader
+            book={selectedBook}
+            file={readerFile}
+            generateAllConceptsModel={generateAllConceptsModel}
+            generateAllConceptsRequest={generateAllConceptsRequest}
+            recognizeAllRequest={recognizeAllRequest}
+          />
+        ))}
     </StyledSection>
   );
 }
@@ -379,7 +392,7 @@ const StyledSection = styled.section`
     align-items: flex-end;
     display: grid;
     gap: 0.5rem;
-    grid-template-columns: minmax(12rem, 1fr) repeat(4, auto);
+    grid-template-columns: minmax(12rem, 1fr) repeat(5, auto);
     margin-bottom: 2rem;
   }
 
@@ -409,6 +422,82 @@ const StyledSection = styled.section`
     .bookToolbar .ui--Dropdown {
       grid-column: 1 / -1;
     }
+  }
+`;
+
+interface PageSkills {
+  concepts: Concept[];
+  page: BookPage;
+}
+
+function Skills ({ book }: { book: Book }): React.ReactElement {
+  const [error, setError] = useState('');
+  const [pageSkills, setPageSkills] = useState<PageSkills[]>([]);
+
+  useEffect(() => {
+    let active = true;
+
+    setError('');
+    setPageSkills([]);
+
+    getBookPages(book.id)
+      .then(async (pages) => Promise.all(pages
+        .sort((a, b) => a.pageNumber - b.pageNumber)
+        .map(async (page) => ({
+          concepts: await getConceptsForBookPage(book.id, page.pageNumber),
+          page
+        }))))
+      .then((skills) => active && setPageSkills(skills))
+      .catch(() => active && setError('Unable to load skills for this book.'));
+
+    return () => {
+      active = false;
+    };
+  }, [book.id]);
+
+  const conceptCount = pageSkills.reduce((count, { concepts }) => count + concepts.length, 0);
+
+  return <StyledSkills>
+    <h2>Skills</h2>
+    {error
+      ? <p className='errorMessage' role='alert'>{error}</p>
+      : conceptCount
+        ? pageSkills.map(({ concepts, page }) => concepts.length > 0 && <section key={page.pageNumber}>
+          <h3>Page {page.pageNumber}{page.chapter ? ` — ${page.chapter}` : ''}</h3>
+          <ul>{concepts.map((concept) => <li key={concept.id}>
+            <strong>{concept.title}</strong>
+            {concept.description && <p>{concept.description}</p>}
+          </li>)}</ul>
+        </section>)
+        : <p className='emptyOutput'>No concepts have been generated for this book.</p>}
+  </StyledSkills>;
+}
+
+const StyledSkills = styled.div`
+  background: var(--bg-page);
+  border-radius: 0.5rem;
+  padding: 1.5rem 2rem;
+
+  > h2 {
+    margin-top: 0;
+  }
+
+  section + section {
+    border-top: 1px solid var(--border-table);
+    margin-top: 1.5rem;
+    padding-top: 1rem;
+  }
+
+  h3 {
+    margin-bottom: 0.75rem;
+  }
+
+  li + li {
+    margin-top: 1rem;
+  }
+
+  li p {
+    margin: 0.25rem 0 0;
   }
 `;
 
