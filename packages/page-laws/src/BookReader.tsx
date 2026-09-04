@@ -680,13 +680,21 @@ const StyledReader = styled.div`
   .recognizedOutput {
     border: 1px solid #dde1eb;
     border-radius: 0.25rem;
+    box-sizing: border-box;
     color: var(--color-text);
-    flex: 1;
+    flex: none;
+    height: 32rem;
     margin: 0;
     min-height: 0;
-    overflow: auto;
+    overflow-x: auto;
+    overflow-y: auto;
     padding: 1rem;
     word-break: break-word;
+  }
+
+  &.isMaximized .recognizedOutput {
+    flex: 1;
+    height: auto;
   }
 
   .recognizedOutput img, .recognizedOutput svg {
@@ -725,7 +733,16 @@ const StyledReader = styled.div`
       height: calc(100dvh - 70px);
     }
 
-    .conceptsPanel textarea, .recognizedOutput {
+    .conceptsPanel textarea {
+      min-height: 20rem;
+    }
+
+    .recognizedOutput {
+      height: 20rem;
+    }
+
+    &.isMaximized .recognizedOutput {
+      height: auto;
       min-height: 20rem;
     }
   }
