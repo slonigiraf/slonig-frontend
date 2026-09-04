@@ -1128,8 +1128,7 @@ const StyledReader = styled.div`
     }
 
     .pageArea {
-      height: calc(100vh - 70px);
-      height: calc(100dvh - 70px);
+      height: auto;
     }
 
     .conceptsPanel textarea {
