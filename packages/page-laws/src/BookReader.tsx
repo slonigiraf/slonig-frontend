@@ -50,6 +50,10 @@ const OPENAI_MODELS = [
   { text: 'GPT-5.4', value: 'openai/gpt-5.4' }
 ];
 
+const MAX_PAGES_PER_MIN = 180;
+const RATE_LIMIT_WINDOW_MS = 60_000;
+const PAGE_RECOGNITION_INTERVAL_MS = Math.ceil(RATE_LIMIT_WINDOW_MS / MAX_PAGES_PER_MIN);
+
 const pageSessionKey = (bookId: number): string => `knowledge-upload-book-${bookId}-page`;
 
 function getSessionPage (bookId: number): number {
@@ -204,17 +208,22 @@ async function recognizePageWithMathpix (apiKey: string, file: File, pageNumber:
 interface Props {
   book: Book;
   file: File;
+  recognizeAllRequest: number;
 }
 
 type ReaderTab = 'recognized' | 'concepts';
+type RecognitionTarget = 'all' | 'page';
 
-function BookReader ({ book, file }: Props): React.ReactElement {
+function BookReader ({ book, file, recognizeAllRequest }: Props): React.ReactElement {
   const [activeTab, setActiveTab] = useState<ReaderTab>('recognized');
   const [concepts, setConcepts] = useState('');
   const [error, setError] = useState('');
   const [isMaximized, setIsMaximized] = useState(false);
   const [isMathpixKeyPromptOpen, setIsMathpixKeyPromptOpen] = useState(false);
+  const [isRecognizingAll, setIsRecognizingAll] = useState(false);
   const [mathpixApiKey, setMathpixApiKey] = useState('');
+  const [recognizedPageCount, setRecognizedPageCount] = useState(0);
+  const [recognitionTarget, setRecognitionTarget] = useState<RecognitionTarget>('page');
   const [processingPage, setProcessingPage] = useState<number>();
   const [pageInput, setPageInput] = useState('1');
   const [pageNumber, setPageNumber] = useState(1);
@@ -224,6 +233,7 @@ function BookReader ({ book, file }: Props): React.ReactElement {
   const [selectedModel, setSelectedModel] = useState(OPENAI_MODELS[0].value);
   const [totalPages, setTotalPages] = useState(0);
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  const handledRecognizeAllRequestRef = useRef(recognizeAllRequest);
   const pageAreaRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -384,7 +394,7 @@ function BookReader ({ book, file }: Props): React.ReactElement {
   }, [book.id, pageNumber, pages, processingPage, selectedModel]);
 
   const recognizePage = useCallback(async (): Promise<void> => {
-    if (processingPage !== undefined) {
+    if (processingPage !== undefined || isRecognizingAll) {
       return;
     }
 
@@ -396,6 +406,7 @@ function BookReader ({ book, file }: Props): React.ReactElement {
 
       if (!apiKey) {
         setMathpixApiKey(apiKey ?? '');
+        setRecognitionTarget('page');
         setIsMathpixKeyPromptOpen(true);
 
         return;
@@ -424,7 +435,72 @@ function BookReader ({ book, file }: Props): React.ReactElement {
     } finally {
       setProcessingPage(undefined);
     }
-  }, [book.id, file, pageNumber, pages, processingPage]);
+  }, [book.id, file, isRecognizingAll, pageNumber, pages, processingPage]);
+
+  const recognizeAllPages = useCallback(async (): Promise<void> => {
+    if (!totalPages || processingPage !== undefined || isRecognizingAll) {
+      return;
+    }
+
+    setError('');
+
+    const apiKey = await getSetting(SettingKey.MATHPIX_API_KEY);
+
+    if (!apiKey) {
+      setMathpixApiKey('');
+      setRecognitionTarget('all');
+      setIsMathpixKeyPromptOpen(true);
+
+      return;
+    }
+
+    setIsRecognizingAll(true);
+    setRecognizedPageCount(0);
+
+    const recognitionTasks: Array<Promise<void>> = [];
+
+    try {
+      for (let currentPageNumber = 1; currentPageNumber <= totalPages; currentPageNumber++) {
+        if (currentPageNumber > 1) {
+          await delay(PAGE_RECOGNITION_INTERVAL_MS);
+        }
+
+        recognitionTasks.push((async () => {
+          const { pageMMD, pageMMDZip } = await recognizePageWithMathpix(apiKey, file, currentPageNumber);
+
+          if (!pageMMD) {
+            throw new Error('Mathpix returned no recognized content.');
+          }
+
+          const storedPage = pages.get(currentPageNumber);
+          const recognizedPage: BookPage = {
+            ...storedPage,
+            bookId: book.id,
+            concepts: storedPage?.concepts ?? '',
+            conceptsProcessed: storedPage?.conceptsProcessed ?? false,
+            pageMMD,
+            pageMMDZip,
+            pageNumber: currentPageNumber
+          };
+
+          await putBookPage(recognizedPage);
+          setPages((current) => new Map(current).set(currentPageNumber, recognizedPage));
+          setRecognizedPageCount((count) => count + 1);
+        })());
+      }
+
+      const results = await Promise.allSettled(recognitionTasks);
+      const failedPages = results.filter(({ status }) => status === 'rejected').length;
+
+      if (failedPages) {
+        setError(`${failedPages} of ${totalPages} pages could not be recognized.`);
+      }
+    } catch (recognitionError) {
+      setError(recognitionError instanceof Error ? recognitionError.message : 'Unable to recognize all pages.');
+    } finally {
+      setIsRecognizingAll(false);
+    }
+  }, [book.id, file, isRecognizingAll, pages, processingPage, totalPages]);
 
   const saveMathpixApiKey = useCallback(async (): Promise<void> => {
     const apiKey = mathpixApiKey.trim();
@@ -436,8 +512,8 @@ function BookReader ({ book, file }: Props): React.ReactElement {
     await storeSetting(SettingKey.MATHPIX_API_KEY, apiKey);
     setIsMathpixKeyPromptOpen(false);
     setMathpixApiKey('');
-    await recognizePage();
-  }, [mathpixApiKey, recognizePage]);
+    await (recognitionTarget === 'all' ? recognizeAllPages() : recognizePage());
+  }, [mathpixApiKey, recognitionTarget, recognizeAllPages, recognizePage]);
 
   const submitMathpixApiKey = useCallback((): void => {
     saveMathpixApiKey().catch((saveError) => {
@@ -468,6 +544,22 @@ function BookReader ({ book, file }: Props): React.ReactElement {
       setError('Unable to download the Mathpix ZIP.');
     }
   }, [book.name, pageNumber, pages]);
+
+  useEffect((): void => {
+    if (
+      recognizeAllRequest === handledRecognizeAllRequestRef.current ||
+      !totalPages ||
+      processingPage !== undefined ||
+      isRecognizingAll
+    ) {
+      return;
+    }
+
+    handledRecognizeAllRequestRef.current = recognizeAllRequest;
+    recognizeAllPages().catch((recognitionError) => {
+      setError(recognitionError instanceof Error ? recognitionError.message : 'Unable to recognize all pages.');
+    });
+  }, [isRecognizingAll, processingPage, recognizeAllPages, recognizeAllRequest, totalPages]);
 
   useEffect(() => {
     if (!isMaximized) {
@@ -529,7 +621,7 @@ function BookReader ({ book, file }: Props): React.ReactElement {
         size='small'
       >
         <Modal.Content>
-          <p>Enter your Mathpix API key to recognize this page and create its MMD ZIP.</p>
+          <p>Enter your Mathpix API key to recognize {recognitionTarget === 'all' ? 'all pages' : 'this page'} and create MMD ZIPs.</p>
           <p>
             Get your API key from <a
               href='https://console.mathpix.com/'
@@ -628,7 +720,9 @@ function BookReader ({ book, file }: Props): React.ReactElement {
           {activeTab === 'recognized'
             ? <div className='tabPanel' role='tabpanel'>
               <div className='detailsHeader'>
-                <span>{processingPage === pageNumber ? 'Recognizing page…' : 'Mathpix MMD'}</span>
+                <span>{isRecognizingAll
+                  ? `Recognizing all pages… ${recognizedPageCount}/${totalPages}`
+                  : processingPage === pageNumber ? 'Recognizing page…' : 'Mathpix MMD'}</span>
                 <div className='recognitionControls'>
                   <Button
                     icon='download'
@@ -638,7 +732,7 @@ function BookReader ({ book, file }: Props): React.ReactElement {
                   />
                   <Button
                     icon='camera'
-                    isDisabled={processingPage !== undefined}
+                    isDisabled={processingPage !== undefined || isRecognizingAll}
                     label={pages.get(pageNumber)?.pageMMD ? 'Recognize again' : 'Recognize page'}
                     onClick={recognizePage}
                   />

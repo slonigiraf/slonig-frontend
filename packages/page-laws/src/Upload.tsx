@@ -67,6 +67,7 @@ function Upload (): React.ReactElement {
   const [books, setBooks] = useState<Book[]>([]);
   const [error, setError] = useState('');
   const [isBusy, setIsBusy] = useState(false);
+  const [recognizeAllRequest, setRecognizeAllRequest] = useState(0);
   const [readerFile, setReaderFile] = useState<File>();
   const [selectedId, setSelectedId] = useState<number | undefined>(getSessionBookId);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -204,28 +205,9 @@ function Upload (): React.ReactElement {
     }
   }, [onUpload, t]);
 
-  const onDownload = useCallback(async (): Promise<void> => {
-    if (!selectedBook) {
-      return;
-    }
-
-    setError('');
-
-    try {
-      const file = await readPdf(selectedBook.opfsName);
-      const url = URL.createObjectURL(file);
-      const link = document.createElement('a');
-
-      link.download = selectedBook.name;
-      link.href = url;
-      document.body.appendChild(link);
-      link.click();
-      link.remove();
-      window.setTimeout(() => URL.revokeObjectURL(url), 0);
-    } catch {
-      setError(t('Unable to download this PDF.'));
-    }
-  }, [selectedBook, t]);
+  const onRecognize = useCallback((): void => {
+    setRecognizeAllRequest((request) => request + 1);
+  }, []);
 
   const onDelete = useCallback(async (): Promise<void> => {
     if (!selectedBook) {
@@ -276,10 +258,10 @@ function Upload (): React.ReactElement {
           onClick={onChooseFile}
         />
         <Button
-          icon='download'
-          isDisabled={!selectedBook || isBusy}
-          label={t('Download')}
-          onClick={onDownload}
+          icon='camera'
+          isDisabled={!selectedBook || !readerFile || isBusy}
+          label={t('Recognize')}
+          onClick={onRecognize}
         />
         <Button
           icon='trash'
@@ -298,6 +280,7 @@ function Upload (): React.ReactElement {
         <BookReader
           book={selectedBook}
           file={readerFile}
+          recognizeAllRequest={recognizeAllRequest}
         />
       )}
     </StyledSection>
