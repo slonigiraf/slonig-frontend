@@ -50,7 +50,10 @@ interface Props {
   file: File;
 }
 
+type ReaderTab = 'recognized' | 'concepts';
+
 function BookReader ({ book, file }: Props): React.ReactElement {
+  const [activeTab, setActiveTab] = useState<ReaderTab>('recognized');
   const [concepts, setConcepts] = useState('');
   const [error, setError] = useState('');
   const [isMaximized, setIsMaximized] = useState(false);
@@ -158,7 +161,9 @@ function BookReader ({ book, file }: Props): React.ReactElement {
   }, [isMaximized, pageNumber, pdf]);
 
   const generateConcepts = useCallback(async (): Promise<void> => {
-    if (!canvasRef.current || renderedPage !== pageNumber || processingPage !== undefined) {
+    const pageMMD = pages.get(pageNumber)?.pageMMD;
+
+    if (!pageMMD || processingPage !== undefined) {
       return;
     }
 
@@ -166,7 +171,6 @@ function BookReader ({ book, file }: Props): React.ReactElement {
     setProcessingPage(pageNumber);
 
     try {
-      const pageImage = canvasRef.current.toDataURL('image/png');
       const key = await getSetting(SettingKey.OPENROUTER_TOKEN);
 
       if (!key) {
@@ -184,12 +188,9 @@ function BookReader ({ book, file }: Props): React.ReactElement {
       });
       const response = await client.chat.completions.create({
         messages: [{
-          content: [
-            { type: 'text', text: CONCEPTS_PROMPT },
-            { type: 'image_url', image_url: { url: pageImage } }
-          ],
+          content: `${CONCEPTS_PROMPT}\n\nRecognized page in Mathpix Markdown:\n\n${pageMMD}`,
           role: 'user'
-        }] as any,
+        }],
         model: selectedModel
       });
       const generatedConcepts = response.choices[0].message?.content?.trim();
@@ -199,6 +200,7 @@ function BookReader ({ book, file }: Props): React.ReactElement {
       }
 
       const generatedPage: BookPage = {
+        ...pages.get(pageNumber),
         bookId: book.id,
         concepts: generatedConcepts,
         conceptsProcessed: true,
@@ -212,7 +214,72 @@ function BookReader ({ book, file }: Props): React.ReactElement {
     } finally {
       setProcessingPage(undefined);
     }
-  }, [book.id, pageNumber, processingPage, renderedPage, selectedModel]);
+  }, [book.id, pageNumber, pages, processingPage, selectedModel]);
+
+  const recognizePage = useCallback(async (): Promise<void> => {
+    if (!canvasRef.current || renderedPage !== pageNumber || processingPage !== undefined) {
+      return;
+    }
+
+    setError('');
+    setProcessingPage(pageNumber);
+
+    try {
+      const apiKey = await getSetting(SettingKey.MATHPIX_API_KEY);
+
+      if (!apiKey) {
+        throw new Error('No Mathpix API key found. Add it in Settings.');
+      }
+
+      const tokenResponse = await fetch('https://api.mathpix.com/v3/app-tokens', {
+        headers: { app_key: apiKey },
+        method: 'POST'
+      });
+      const token = await tokenResponse.json() as { app_token?: string; error?: string };
+
+      if (!tokenResponse.ok || !token.app_token) {
+        throw new Error(token.error || 'Mathpix authentication failed.');
+      }
+
+      const image = await new Promise<Blob>((resolve, reject) => {
+        canvasRef.current?.toBlob((blob) => blob
+          ? resolve(blob)
+          : reject(new Error('Unable to prepare this page for recognition.')), 'image/png');
+      });
+      const body = new FormData();
+
+      body.append('file', image, `page-${pageNumber}.png`);
+      body.append('options_json', JSON.stringify({ enable_document_layout: true, formats: ['text'] }));
+
+      const response = await fetch('https://api.mathpix.com/v3/text', {
+        body,
+        headers: { app_token: token.app_token },
+        method: 'POST'
+      });
+      const result = await response.json() as { error?: string; text?: string };
+      const pageMMD = result.text?.trim();
+
+      if (!response.ok || !pageMMD) {
+        throw new Error(result.error || 'Mathpix returned no recognized content.');
+      }
+
+      const recognizedPage: BookPage = {
+        ...pages.get(pageNumber),
+        bookId: book.id,
+        concepts: pages.get(pageNumber)?.concepts ?? '',
+        conceptsProcessed: pages.get(pageNumber)?.conceptsProcessed ?? false,
+        pageMMD,
+        pageNumber
+      };
+
+      await putBookPage(recognizedPage);
+      setPages((current) => new Map(current).set(pageNumber, recognizedPage));
+    } catch (recognitionError) {
+      setError(recognitionError instanceof Error ? recognitionError.message : 'Unable to recognize this page.');
+    } finally {
+      setProcessingPage(undefined);
+    }
+  }, [book.id, pageNumber, pages, processingPage, renderedPage]);
 
   useEffect(() => {
     if (!isMaximized) {
@@ -232,6 +299,7 @@ function BookReader ({ book, file }: Props): React.ReactElement {
 
   const saveConcepts = useCallback((): void => {
     const bookPage: BookPage = {
+      ...pages.get(pageNumber),
       bookId: book.id,
       concepts,
       conceptsProcessed: pages.get(pageNumber)?.conceptsProcessed ?? false,
@@ -318,35 +386,65 @@ function BookReader ({ book, file }: Props): React.ReactElement {
         >
           <canvas ref={canvasRef} />
         </div>
-        <div className='conceptsArea'>
-          <div className='conceptsHeader'>
-            <span>{processingPage === pageNumber ? 'Generating concepts…' : 'Concepts'}</span>
-            <div className='generationControls'>
-              <select
-                aria-label='OpenAI model'
-                disabled={processingPage !== undefined}
-                onChange={({ target }) => setSelectedModel(target.value)}
-                value={selectedModel}
-              >
-                {OPENAI_MODELS.map(({ text, value }) => (
-                  <option key={value} value={value}>{text}</option>
-                ))}
-              </select>
-              <Button
-                icon='magic'
-                isDisabled={renderedPage !== pageNumber || processingPage !== undefined}
-                label='Generate concepts'
-                onClick={generateConcepts}
-              />
-            </div>
+        <div className='detailsArea'>
+          <div className='detailTabs' role='tablist'>
+            {(['recognized', 'concepts'] as ReaderTab[]).map((tab) => (
+              <button
+                aria-selected={activeTab === tab}
+                className={activeTab === tab ? 'active' : ''}
+                key={tab}
+                onClick={() => setActiveTab(tab)}
+                role='tab'
+                type='button'
+              >{tab === 'recognized' ? 'Recognized' : 'Concepts'}</button>
+            ))}
           </div>
-          <textarea
-            disabled={processingPage === pageNumber}
-            onBlur={saveConcepts}
-            onChange={({ target }) => setConcepts(target.value)}
-            placeholder='Concepts for this page'
-            value={concepts}
-          />
+          {activeTab === 'recognized'
+            ? <div className='tabPanel' role='tabpanel'>
+              <div className='detailsHeader'>
+                <span>{processingPage === pageNumber ? 'Recognizing page…' : 'Mathpix MMD'}</span>
+                <Button
+                  icon='scan'
+                  isDisabled={renderedPage !== pageNumber || processingPage !== undefined}
+                  label={pages.get(pageNumber)?.pageMMD ? 'Recognize again' : 'Recognize page'}
+                  onClick={recognizePage}
+                />
+              </div>
+              {pages.get(pageNumber)?.pageMMD
+                ? <pre className='recognizedOutput'>{pages.get(pageNumber)?.pageMMD}</pre>
+                : <p className='emptyOutput'>This page has not been recognized yet.</p>}
+            </div>
+            : <div className='tabPanel conceptsPanel' role='tabpanel'>
+              <div className='detailsHeader'>
+                <span>{processingPage === pageNumber ? 'Generating concepts…' : 'Concepts'}</span>
+                <div className='generationControls'>
+                  <select
+                    aria-label='OpenAI model'
+                    disabled={processingPage !== undefined}
+                    onChange={({ target }) => setSelectedModel(target.value)}
+                    value={selectedModel}
+                  >
+                    {OPENAI_MODELS.map(({ text, value }) => (
+                      <option key={value} value={value}>{text}</option>
+                    ))}
+                  </select>
+                  <Button
+                    icon='magic'
+                    isDisabled={!pages.get(pageNumber)?.pageMMD || processingPage !== undefined}
+                    label='Generate concepts'
+                    onClick={generateConcepts}
+                  />
+                </div>
+              </div>
+              {!pages.get(pageNumber)?.pageMMD && <p className='recognitionHint'>Recognize this page before generating concepts.</p>}
+              <textarea
+                disabled={processingPage === pageNumber}
+                onBlur={saveConcepts}
+                onChange={({ target }) => setConcepts(target.value)}
+                placeholder='Concepts for this page'
+                value={concepts}
+              />
+            </div>}
         </div>
       </div>
     </StyledReader>
@@ -408,7 +506,7 @@ const StyledReader = styled.div`
     grid-template-columns: minmax(0, 1fr) minmax(18rem, 1fr);
   }
 
-  .conceptsArea {
+  .detailsArea {
     background: var(--bg-input);
     border: 1px solid #dde1eb;
     border-radius: 0.5rem;
@@ -442,13 +540,41 @@ const StyledReader = styled.div`
     margin: 0;
   }
 
-  .conceptsArea {
+  .detailsArea {
     display: flex;
     flex-direction: column;
+  }
+
+  .detailTabs {
+    border-bottom: 1px solid #dde1eb;
+    display: flex;
+  }
+
+  .detailTabs button {
+    background: transparent;
+    border: 0;
+    border-bottom: 2px solid transparent;
+    color: #8b8b8b;
+    cursor: pointer;
+    font: inherit;
+    padding: 0.9rem 1.25rem;
+  }
+
+  .detailTabs button.active {
+    border-bottom-color: var(--color-text);
+    color: var(--color-text);
+    font-weight: 600;
+  }
+
+  .tabPanel {
+    display: flex;
+    flex: 1;
+    flex-direction: column;
+    min-height: 0;
     padding: 1rem;
   }
 
-  .conceptsHeader {
+  .detailsHeader {
     align-items: center;
     display: flex;
     justify-content: space-between;
@@ -470,7 +596,7 @@ const StyledReader = styled.div`
     padding: 0.55rem;
   }
 
-  .conceptsArea textarea {
+  .conceptsPanel textarea {
     background: var(--bg-input);
     border: 1px solid #dde1eb;
     border-radius: 0.25rem;
@@ -481,6 +607,28 @@ const StyledReader = styled.div`
     padding: 1rem;
     resize: vertical;
     width: 100%;
+  }
+
+  .recognizedOutput {
+    border: 1px solid #dde1eb;
+    border-radius: 0.25rem;
+    color: var(--color-text);
+    flex: 1;
+    font-family: inherit;
+    margin: 0;
+    min-height: 0;
+    overflow: auto;
+    padding: 1rem;
+    white-space: pre-wrap;
+    word-break: break-word;
+  }
+
+  .emptyOutput, .recognitionHint {
+    color: #777;
+  }
+
+  .recognitionHint {
+    margin-top: 0;
   }
 
   .readerError {
@@ -506,7 +654,7 @@ const StyledReader = styled.div`
       height: calc(100dvh - 70px);
     }
 
-    .conceptsArea textarea {
+    .conceptsPanel textarea, .recognizedOutput {
       min-height: 20rem;
     }
   }

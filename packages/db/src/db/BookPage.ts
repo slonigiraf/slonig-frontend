@@ -6,4 +6,6 @@ export interface BookPage {
   bookId: number;
   concepts: string;
   conceptsProcessed: boolean;
+  pageMMD?: string;
+  pageMMDZip?: Blob;
 }
