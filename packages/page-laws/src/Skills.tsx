@@ -13,6 +13,11 @@ interface PageSkills {
   page: BookPage;
 }
 
+interface ChapterSkills {
+  chapter?: string;
+  concepts: Concept[];
+}
+
 function Skills ({ book }: { book: Book }): React.ReactElement {
   const [error, setError] = useState('');
   const [pageSkills, setPageSkills] = useState<PageSkills[]>([]);
@@ -39,14 +44,29 @@ function Skills ({ book }: { book: Book }): React.ReactElement {
   }, [book.id]);
 
   const conceptCount = pageSkills.reduce((count, { concepts }) => count + concepts.length, 0);
+  const chapterSkills = pageSkills.reduce<ChapterSkills[]>((groups, { concepts, page }) => {
+    if (!concepts.length) {
+      return groups;
+    }
+
+    const previous = groups[groups.length - 1];
+
+    if (previous?.chapter === page.chapter) {
+      previous.concepts.push(...concepts);
+    } else {
+      groups.push({ chapter: page.chapter, concepts: [...concepts] });
+    }
+
+    return groups;
+  }, []);
 
   return <StyledSkills>
     <h2>Skills</h2>
     {error
       ? <p className='errorMessage' role='alert'>{error}</p>
       : conceptCount
-        ? pageSkills.map(({ concepts, page }) => concepts.length > 0 && <section key={page.pageNumber}>
-          <h3>Page {page.pageNumber}{page.chapter ? ` — ${page.chapter}` : ''}</h3>
+        ? chapterSkills.map(({ chapter, concepts }, index) => <section key={`${chapter || 'skills'}-${index}`}>
+          {chapter && <h3>{chapter}</h3>}
           <ul>{concepts.map((concept) => <li key={concept.id}>
             <strong>{concept.title}</strong>
             {concept.description && <p>{concept.description}</p>}
