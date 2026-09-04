@@ -3,13 +3,13 @@
 
 import type { Book, BookPage, Concept } from '@slonigiraf/db';
 
-import { getBookPages, getConceptsForBookPage, getSetting, getSkillTemplates, SettingKey, storeSkillTemplate } from '@slonigiraf/db';
+import { deleteSkillTemplates, getBookPages, getConceptsForBookPage, getSetting, getSkillTemplates, SettingKey, storeSkillTemplate } from '@slonigiraf/db';
 import { useLiveQuery } from 'dexie-react-hooks';
 import OpenAI from 'openai';
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 
 import { Button, Dropdown, styled } from '@polkadot/react-components';
-import { KatexSpan } from '@slonigiraf/slonig-components';
+import { Confirmation, KatexSpan } from '@slonigiraf/slonig-components';
 
 import { OPENAI_MODELS, skillListPrompt } from './constants.js';
 import ExerciseList from './Edit/ExerciseList.js';
@@ -110,6 +110,8 @@ function ConceptSkillTemplates ({ bookId, conceptId }: { bookId: number; concept
 function Skills ({ book }: { book: Book }): React.ReactElement {
   const [error, setError] = useState('');
   const [generatedExerciseCount, setGeneratedExerciseCount] = useState(0);
+  const [isClearConfirmationOpen, setIsClearConfirmationOpen] = useState(false);
+  const [isDeletingTemplates, setIsDeletingTemplates] = useState(false);
   const [isGeneratingExercises, setIsGeneratingExercises] = useState(false);
   const [pageSkills, setPageSkills] = useState<PageSkills[]>([]);
   const [selectedModel, setSelectedModel] = useState(OPENAI_MODELS[0].value);
@@ -136,6 +138,16 @@ function Skills ({ book }: { book: Book }): React.ReactElement {
   }, [book.id]);
 
   const conceptCount = pageSkills.reduce((count, { concepts }) => count + concepts.length, 0);
+  const conceptModuleIds = useMemo(
+    () => pageSkills.flatMap(({ concepts }) => concepts
+      .filter(({ id }) => id !== undefined)
+      .map(({ id }) => conceptTemplateModuleId(book.id, id as number))),
+    [book.id, pageSkills]
+  );
+  const templateCount = useLiveQuery(
+    async () => (await Promise.all(conceptModuleIds.map(getSkillTemplates))).reduce((count, templates) => count + templates.length, 0),
+    [conceptModuleIds]
+  );
   const chapterSkills = pageSkills.reduce<ChapterSkills[]>((groups, { concepts, page }) => {
     if (!concepts.length) {
       return groups;
@@ -221,6 +233,19 @@ function Skills ({ book }: { book: Book }): React.ReactElement {
     }
   }, [book.id, conceptCount, isGeneratingExercises, pageSkills, selectedModel]);
 
+  const clearSkillTemplates = useCallback(async (): Promise<void> => {
+    setIsDeletingTemplates(true);
+
+    try {
+      await Promise.all(conceptModuleIds.map(deleteSkillTemplates));
+      setIsClearConfirmationOpen(false);
+    } catch (deleteError) {
+      setError(deleteError instanceof Error ? deleteError.message : 'Unable to delete skill templates.');
+    } finally {
+      setIsDeletingTemplates(false);
+    }
+  }, [conceptModuleIds]);
+
   return <StyledSkills>
     <div className='heading'>
       <h2>Skills</h2>
@@ -234,10 +259,16 @@ function Skills ({ book }: { book: Book }): React.ReactElement {
         />
         <Button
           icon='magic'
-          isDisabled={!conceptCount || isGeneratingExercises}
+          isDisabled={!conceptCount || isGeneratingExercises || isDeletingTemplates}
           label={isGeneratingExercises ? `Generating exercises… ${generatedExerciseCount}/${conceptCount}` : 'Generate exercises'}
           onClick={generateExercises}
         />
+        {!!templateCount && <Button
+          icon='trash-can'
+          isDisabled={isGeneratingExercises || isDeletingTemplates}
+          label={isDeletingTemplates ? 'Deleting templates…' : 'Delete all templates'}
+          onClick={() => setIsClearConfirmationOpen(true)}
+        />}
       </div>
     </div>
     {error && <p className='errorMessage' role='alert'>{error}</p>}
@@ -251,6 +282,11 @@ function Skills ({ book }: { book: Book }): React.ReactElement {
           </li>)}</ul>
         </section>)
       : !error && <p className='emptyOutput'>No concepts have been generated for this book.</p>}
+    {isClearConfirmationOpen && <Confirmation
+      onClose={() => setIsClearConfirmationOpen(false)}
+      onConfirm={clearSkillTemplates}
+      question='Delete all skill templates for this book?'
+    />}
   </StyledSkills>;
 }
 
