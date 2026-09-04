@@ -4,19 +4,21 @@
 import type { Book, BookPage, Concept } from '@slonigiraf/db';
 
 import { deleteSkillTemplates, getBookPages, getConceptsForBookPage, getSetting, getSkillTemplates, SettingKey, storeSkillTemplate } from '@slonigiraf/db';
+import { Confirmation, KatexSpan } from '@slonigiraf/slonig-components';
 import { useLiveQuery } from 'dexie-react-hooks';
 import OpenAI from 'openai';
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 
 import { Button, Dropdown, styled } from '@polkadot/react-components';
-import { Confirmation, KatexSpan } from '@slonigiraf/slonig-components';
 
-import { OPENAI_MODELS, skillListPrompt } from './constants.js';
 import ExerciseList from './Edit/ExerciseList.js';
+import { OPENAI_MODELS, skillListPrompt } from './constants.js';
 
-const MAX_CONCEPTS_PER_MIN = 180;
+// Keep one request of headroom below the provider's 20 requests/minute limit.
+const MAX_BATCH_REQUESTS_PER_MIN = 19;
+const CONCEPT_BATCH_SIZE = 10;
 const RATE_LIMIT_WINDOW_MS = 60_000;
-const CONCEPT_SPAWN_INTERVAL_MS = Math.ceil(RATE_LIMIT_WINDOW_MS / MAX_CONCEPTS_PER_MIN);
+const BATCH_REQUEST_INTERVAL_MS = Math.ceil(RATE_LIMIT_WINDOW_MS / MAX_BATCH_REQUESTS_PER_MIN);
 
 const delay = (milliseconds: number): Promise<void> => new Promise((resolve) => setTimeout(resolve, milliseconds));
 
@@ -37,19 +39,7 @@ interface ChapterSkills {
   concepts: Concept[];
 }
 
-function parseGeneratedSkillTemplate (content: string): GeneratedSkillTemplate {
-  const json = content.replace(/^```(?:json)?\s*|\s*```$/gi, '').trim();
-  let parsed: unknown;
-
-  try {
-    parsed = JSON.parse(json);
-  } catch {
-    // Some models leave LaTeX backslashes unescaped in an otherwise valid response.
-    parsed = JSON.parse(json.replace(/\\(?!["\\/bfnrt]|u[0-9a-fA-F]{4})/g, '\\\\'));
-  }
-
-  const template = Array.isArray(parsed) ? parsed[0] : parsed;
-
+function parseGeneratedSkillTemplateValue (template: unknown): GeneratedSkillTemplate {
   if (
     !template ||
     typeof template !== 'object' ||
@@ -64,6 +54,42 @@ function parseGeneratedSkillTemplate (content: string): GeneratedSkillTemplate {
   }
 
   return template as GeneratedSkillTemplate;
+}
+
+function parseGeneratedSkillTemplateResponse (content: string): unknown {
+  const json = content.replace(/^```(?:json)?\s*|\s*```$/gi, '').trim();
+  let parsed: unknown;
+
+  try {
+    parsed = JSON.parse(json);
+  } catch {
+    // Some models leave LaTeX backslashes unescaped in an otherwise valid response.
+    parsed = JSON.parse(json.replace(/\\(?!["\\/bfnrt]|u[0-9a-fA-F]{4})/g, '\\\\'));
+  }
+
+  return parsed;
+}
+
+function parseGeneratedSkillTemplate (content: string): GeneratedSkillTemplate {
+  const parsed = parseGeneratedSkillTemplateResponse(content);
+  const template = Array.isArray(parsed) ? parsed[0] : parsed;
+
+  return parseGeneratedSkillTemplateValue(template);
+}
+
+function parseGeneratedSkillTemplates (content: string): GeneratedSkillTemplate[] {
+  const parsed = parseGeneratedSkillTemplateResponse(content);
+  const templates = Array.isArray(parsed)
+    ? parsed
+    : typeof parsed === 'object' && parsed !== null && 'templates' in parsed
+      ? (parsed as { templates: unknown }).templates
+      : undefined;
+
+  if (!Array.isArray(templates)) {
+    throw new Error('OpenRouter returned invalid skill templates.');
+  }
+
+  return templates.map(parseGeneratedSkillTemplateValue);
 }
 
 function conceptTemplateModuleId (bookId: number, conceptId: number): string {
@@ -170,6 +196,8 @@ function Skills ({ book }: { book: Book }): React.ReactElement {
     }
 
     setError('');
+    setIsGeneratingExercises(true);
+    setGeneratedExerciseCount(0);
 
     try {
       const key = await getSetting(SettingKey.OPENROUTER_TOKEN);
@@ -187,21 +215,25 @@ function Skills ({ book }: { book: Book }): React.ReactElement {
           'X-OpenRouter-Title': 'Slonig'
         }
       });
-      const concepts = pageSkills.flatMap(({ concepts }) => concepts).filter(({ id }) => id !== undefined) as Array<Concept & { id: number }>;
-      const exerciseTasks: Array<Promise<void>> = [];
+      const allConcepts = pageSkills.flatMap(({ concepts }) => concepts).filter(({ id }) => id !== undefined) as Array<Concept & { id: number }>;
+      const existingTemplates = await Promise.all(allConcepts.map(({ id }) => getSkillTemplates(conceptTemplateModuleId(book.id, id))));
+      const concepts = allConcepts.filter((_, index) => !existingTemplates[index].length);
+      let failures = 0;
 
-      setIsGeneratingExercises(true);
-      setGeneratedExerciseCount(0);
+      setGeneratedExerciseCount(allConcepts.length - concepts.length);
 
-      for (const [index, concept] of concepts.entries()) {
-        if (index > 0) {
-          await delay(CONCEPT_SPAWN_INTERVAL_MS);
+      for (let start = 0; start < concepts.length; start += CONCEPT_BATCH_SIZE) {
+        const batch = concepts.slice(start, start + CONCEPT_BATCH_SIZE);
+        const conceptsPrompt = batch.map(({ description, title }, index) => `${index + 1}. ${JSON.stringify({ description, title })}`).join('\n');
+
+        if (start > 0) {
+          await delay(BATCH_REQUEST_INTERVAL_MS);
         }
 
-        exerciseTasks.push((async () => {
+        try {
           const response = await client.chat.completions.create({
             messages: [{
-              content: `${skillListPrompt}\n\nCreate exactly one skill template for the concept below. There are no source images: use only this concept and its description. The template must train this precise concept, be self-contained, and contain exactly two parameterized, original exercises. Return only one valid JSON object, not an array or markdown, using this exact shape: {"i":"","t":3,"h":"Skill name","q":[{"h":"Exercise text","a":"Exercise answer","p":"","i":""},{"h":"Exercise text","a":"Exercise answer","p":"","i":""}]}.\n\nConcept title: ${concept.title}\nConcept description: ${concept.description}`,
+              content: `${skillListPrompt}\n\nCreate exactly one skill template for each of the ${batch.length} concepts below. Return only one valid JSON object using this exact shape: {"templates":[{"i":"","t":3,"h":"Skill name","q":[{"h":"Exercise text","a":"Exercise answer","p":"","i":""},{"h":"Exercise text","a":"Exercise answer","p":"","i":""}]}]}. The templates array must contain exactly ${batch.length} items in the same order as the concepts. Each template must train only its matching concept, be self-contained, and contain exactly two parameterized, original exercises.\n\nConcepts:\n${conceptsPrompt}`,
               role: 'user'
             }],
             model: selectedModel,
@@ -210,21 +242,27 @@ function Skills ({ book }: { book: Book }): React.ReactElement {
           const content = response.choices[0].message?.content?.trim();
 
           if (!content) {
-            throw new Error('OpenRouter returned no skill template.');
+            throw new Error('OpenRouter returned no skill templates.');
           }
 
-          const template = parseGeneratedSkillTemplate(content);
+          const templates = parseGeneratedSkillTemplates(content);
 
-          await storeSkillTemplate(conceptTemplateModuleId(book.id, concept.id), JSON.stringify(template));
-          setGeneratedExerciseCount((count) => count + 1);
-        })());
+          if (templates.length !== batch.length) {
+            throw new Error(`OpenRouter returned ${templates.length} templates for ${batch.length} concepts.`);
+          }
+
+          await Promise.all(templates.map((template, index) => storeSkillTemplate(
+            conceptTemplateModuleId(book.id, batch[index].id),
+            JSON.stringify(template)
+          )));
+          setGeneratedExerciseCount((count) => count + batch.length);
+        } catch {
+          failures += batch.length;
+        }
       }
 
-      const results = await Promise.allSettled(exerciseTasks);
-      const failures = results.filter(({ status }) => status === 'rejected').length;
-
       if (failures) {
-        setError(`${failures} of ${concepts.length} concepts could not have exercises generated.`);
+        setError(`${failures} of ${allConcepts.length} concepts could not have exercises generated.`);
       }
     } catch (generationError) {
       setError(generationError instanceof Error ? generationError.message : 'Unable to generate exercises.');
@@ -245,6 +283,15 @@ function Skills ({ book }: { book: Book }): React.ReactElement {
       setIsDeletingTemplates(false);
     }
   }, [conceptModuleIds]);
+  const closeClearConfirmation = useCallback(() => {
+    setIsClearConfirmationOpen(false);
+  }, []);
+  const confirmClearSkillTemplates = useCallback(() => {
+    clearSkillTemplates().catch(console.error);
+  }, [clearSkillTemplates]);
+  const openClearConfirmation = useCallback(() => {
+    setIsClearConfirmationOpen(true);
+  }, []);
 
   return <StyledSkills>
     <div className='heading'>
@@ -267,7 +314,7 @@ function Skills ({ book }: { book: Book }): React.ReactElement {
           icon='trash-can'
           isDisabled={isGeneratingExercises || isDeletingTemplates}
           label={isDeletingTemplates ? 'Deleting templates…' : 'Delete all templates'}
-          onClick={() => setIsClearConfirmationOpen(true)}
+          onClick={openClearConfirmation}
         />}
       </div>
     </div>
@@ -283,8 +330,8 @@ function Skills ({ book }: { book: Book }): React.ReactElement {
         </section>)
       : !error && <p className='emptyOutput'>No concepts have been generated for this book.</p>}
     {isClearConfirmationOpen && <Confirmation
-      onClose={() => setIsClearConfirmationOpen(false)}
-      onConfirm={clearSkillTemplates}
+      onClose={closeClearConfirmation}
+      onConfirm={confirmClearSkillTemplates}
       question='Delete all skill templates for this book?'
     />}
   </StyledSkills>;
