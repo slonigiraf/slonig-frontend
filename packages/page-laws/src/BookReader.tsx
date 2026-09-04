@@ -16,7 +16,10 @@ import React, { useCallback, useEffect, useRef, useState } from 'react';
 
 import { Button, Dropdown, Input, Modal, styled } from '@polkadot/react-components';
 
+import { OPENAI_MODELS } from './constants.js';
 import Skills from './Skills.js';
+
+export { OPENAI_MODELS } from './constants.js';
 
 GlobalWorkerOptions.workerSrc = new URL('pdfjs-dist/build/pdf.worker.min.js', import.meta.url).toString();
 
@@ -52,16 +55,6 @@ function parseGeneratedConcepts (content: string): GeneratedConcepts {
 
   return { chapter: parsed.chapter.trim(), concepts: parsed.concepts.map(({ description, title }) => ({ description: description.trim(), title: title.trim() })).filter(({ title }) => title) };
 }
-
-export const OPENAI_MODELS = [
-  { text: 'GPT-4o mini', value: 'openai/gpt-4o-mini' },
-  { text: 'GPT-4o', value: 'openai/gpt-4o' },
-  { text: 'GPT-4.1 mini', value: 'openai/gpt-4.1-mini' },
-  { text: 'GPT-4.1', value: 'openai/gpt-4.1' },
-  { text: 'GPT-5 mini', value: 'openai/gpt-5-mini' },
-  { text: 'GPT-5', value: 'openai/gpt-5' },
-  { text: 'GPT-5.4', value: 'openai/gpt-5.4' }
-];
 
 const MAX_PAGES_PER_MIN = 180;
 const RATE_LIMIT_WINDOW_MS = 60_000;

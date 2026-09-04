@@ -4,6 +4,16 @@
 export const QR_CODE_SIZE = 300;
 export const sessionPrefix = 'knowledge';
 
+export const OPENAI_MODELS = [
+  { text: 'GPT-4o mini', value: 'openai/gpt-4o-mini' },
+  { text: 'GPT-4o', value: 'openai/gpt-4o' },
+  { text: 'GPT-4.1 mini', value: 'openai/gpt-4.1-mini' },
+  { text: 'GPT-4.1', value: 'openai/gpt-4.1' },
+  { text: 'GPT-5 mini', value: 'openai/gpt-5-mini' },
+  { text: 'GPT-5', value: 'openai/gpt-5' },
+  { text: 'GPT-5.4', value: 'openai/gpt-5.4' }
+];
+
 export const skillListPrompt = `Definitions:
 A mental function is a precisely stated claim about a person’s ability, where I am prepared to bet money on its truth. Because financial stakes are involved, the statement of the mental function must be both succinct and unambiguous, reducing the risk of disagreements about what the mental function entails. Formally, this mental function is validated by a set of related exercises that all derive from the same exercise template, modified through parameterization to generate multiple, equivalent task instances.
 Speaking more specifically a mental function is a function that maps an input to the output. So the input should be very strictly defined as well as an output.
