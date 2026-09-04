@@ -693,9 +693,12 @@ const StyledReader = styled.div`
   &.isMaximized {
     background: var(--bg-page);
     box-sizing: border-box;
+    display: flex;
+    flex-direction: column;
     height: 100vh;
     height: 100dvh;
     inset: 0;
+    overflow: hidden;
     padding: 1rem;
     position: fixed;
     width: 100vw;
@@ -703,8 +706,14 @@ const StyledReader = styled.div`
   }
 
   &.isMaximized .readerColumns {
-    height: calc(100vh - 5rem);
-    height: calc(100dvh - 5rem);
+    flex: 1;
+    height: auto;
+    min-height: 0;
+  }
+
+  &.isMaximized .detailsArea, &.isMaximized .pageArea {
+    height: 100%;
+    min-height: 0;
   }
 
   .pageNavigation {
