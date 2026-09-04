@@ -6,9 +6,9 @@ import type { Book } from '@slonigiraf/db';
 import { createBook, deleteBook, getBookByContentHash, getBooks, putBook } from '@slonigiraf/db';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
-import { Button, Dropdown, styled } from '@polkadot/react-components';
+import { Button, Dropdown, Modal, styled } from '@polkadot/react-components';
 
-import BookReader from './BookReader.js';
+import BookReader, { OPENAI_MODELS } from './BookReader.js';
 import { useTranslation } from './translate.js';
 
 const BOOKS_DIRECTORY = 'books';
@@ -68,6 +68,8 @@ function Upload (): React.ReactElement {
   const [error, setError] = useState('');
   const [isBusy, setIsBusy] = useState(false);
   const [generateAllConceptsRequest, setGenerateAllConceptsRequest] = useState(0);
+  const [generateAllConceptsModel, setGenerateAllConceptsModel] = useState(OPENAI_MODELS[0].value);
+  const [isGenerateConceptsConfirmationOpen, setIsGenerateConceptsConfirmationOpen] = useState(false);
   const [recognizeAllRequest, setRecognizeAllRequest] = useState(0);
   const [readerFile, setReaderFile] = useState<File>();
   const [selectedId, setSelectedId] = useState<number | undefined>(getSessionBookId);
@@ -211,6 +213,15 @@ function Upload (): React.ReactElement {
   }, []);
 
   const onGenerateConcepts = useCallback((): void => {
+    setIsGenerateConceptsConfirmationOpen(true);
+  }, []);
+
+  const closeGenerateConceptsConfirmation = useCallback((): void => {
+    setIsGenerateConceptsConfirmationOpen(false);
+  }, []);
+
+  const confirmGenerateConcepts = useCallback((): void => {
+    setIsGenerateConceptsConfirmationOpen(false);
     setGenerateAllConceptsRequest((request) => request + 1);
   }, []);
 
@@ -239,6 +250,35 @@ function Upload (): React.ReactElement {
 
   return (
     <StyledSection>
+      {isGenerateConceptsConfirmationOpen && <Modal
+        header={t('Generate concepts')}
+        onClose={closeGenerateConceptsConfirmation}
+        size='small'
+      >
+        <Modal.Content>
+          <p>{t('Generate concepts for every recognized page in this book?')}</p>
+          <Dropdown
+            className='batchModelSelect'
+            isFull
+            label={t('Model')}
+            onChange={setGenerateAllConceptsModel}
+            options={OPENAI_MODELS}
+            value={generateAllConceptsModel}
+          />
+          <Button.Group>
+            <Button
+              icon='times'
+              label={t('Cancel')}
+              onClick={closeGenerateConceptsConfirmation}
+            />
+            <Button
+              icon='magic'
+              label={t('Generate')}
+              onClick={confirmGenerateConcepts}
+            />
+          </Button.Group>
+        </Modal.Content>
+      </Modal>}
       <div className='bookToolbar'>
         <Dropdown
           isDisabled={!books.length || isBusy}
@@ -291,6 +331,7 @@ function Upload (): React.ReactElement {
         <BookReader
           book={selectedBook}
           file={readerFile}
+          generateAllConceptsModel={generateAllConceptsModel}
           generateAllConceptsRequest={generateAllConceptsRequest}
           recognizeAllRequest={recognizeAllRequest}
         />
@@ -313,6 +354,10 @@ const StyledSection = styled.section`
 
   .bookToolbar .ui--Button {
     margin-bottom: 0.25rem;
+  }
+
+  .batchModelSelect {
+    margin: 1rem 0;
   }
 
   .fileInput {

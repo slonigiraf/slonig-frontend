@@ -14,7 +14,7 @@ import * as PDFDocumentModule from 'pdf-lib/cjs/api/PDFDocument.js';
 import { getDocument, GlobalWorkerOptions } from 'pdfjs-dist';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 
-import { Button, Input, Modal, styled } from '@polkadot/react-components';
+import { Button, Dropdown, Input, Modal, styled } from '@polkadot/react-components';
 
 GlobalWorkerOptions.workerSrc = new URL('pdfjs-dist/build/pdf.worker.min.js', import.meta.url).toString();
 
@@ -42,7 +42,7 @@ function parseGeneratedConcepts (content: string): GeneratedConcepts {
   return { chapter: parsed.chapter.trim(), concepts: parsed.concepts.map(({ description, title }) => ({ description: description.trim(), title: title.trim() })).filter(({ title }) => title) };
 }
 
-const OPENAI_MODELS = [
+export const OPENAI_MODELS = [
   { text: 'GPT-4o mini', value: 'openai/gpt-4o-mini' },
   { text: 'GPT-4o', value: 'openai/gpt-4o' },
   { text: 'GPT-4.1 mini', value: 'openai/gpt-4.1-mini' },
@@ -210,6 +210,7 @@ async function recognizePageWithMathpix (apiKey: string, file: File, pageNumber:
 interface Props {
   book: Book;
   file: File;
+  generateAllConceptsModel: string;
   generateAllConceptsRequest: number;
   recognizeAllRequest: number;
 }
@@ -217,7 +218,7 @@ interface Props {
 type ReaderTab = 'recognized' | 'concepts';
 type RecognitionTarget = 'all' | 'page';
 
-function BookReader ({ book, file, generateAllConceptsRequest, recognizeAllRequest }: Props): React.ReactElement {
+function BookReader ({ book, file, generateAllConceptsModel, generateAllConceptsRequest, recognizeAllRequest }: Props): React.ReactElement {
   const [activeTab, setActiveTab] = useState<ReaderTab>('recognized');
   const [concepts, setConcepts] = useState<Concept[]>([]);
   const [error, setError] = useState('');
@@ -469,7 +470,7 @@ function BookReader ({ book, file, generateAllConceptsRequest, recognizeAllReque
               ],
               role: 'user'
             }],
-            model: selectedModel
+            model: generateAllConceptsModel
           });
           const generatedContent = response.choices[0].message?.content?.trim();
 
@@ -511,7 +512,7 @@ function BookReader ({ book, file, generateAllConceptsRequest, recognizeAllReque
     } finally {
       setIsGeneratingAllConcepts(false);
     }
-  }, [book.id, isGeneratingAllConcepts, isRecognizingAll, pageNumber, pages, processingPage, selectedModel, totalPages]);
+  }, [book.id, generateAllConceptsModel, isGeneratingAllConcepts, isRecognizingAll, pageNumber, pages, processingPage, totalPages]);
 
   const recognizePage = useCallback(async (): Promise<void> => {
     if (processingPage !== undefined || isGeneratingAllConcepts || isRecognizingAll) {
@@ -876,16 +877,13 @@ function BookReader ({ book, file, generateAllConceptsRequest, recognizeAllReque
                   ? `Generating concepts for all pages… ${generatedConceptsPageCount}/${totalPages}`
                   : processingPage === pageNumber ? 'Generating concepts…' : 'Concepts'}</span>
                 <div className='generationControls'>
-                  <select
-                    aria-label='OpenAI model'
-                    disabled={processingPage !== undefined || isGeneratingAllConcepts || isRecognizingAll}
-                    onChange={({ target }) => setSelectedModel(target.value)}
+                  <Dropdown
+                    className='modelSelect'
+                    isDisabled={processingPage !== undefined || isGeneratingAllConcepts || isRecognizingAll}
+                    onChange={setSelectedModel}
+                    options={OPENAI_MODELS}
                     value={selectedModel}
-                  >
-                    {OPENAI_MODELS.map(({ text, value }) => (
-                      <option key={value} value={value}>{text}</option>
-                    ))}
-                  </select>
+                  />
                   <Button
                     icon='magic'
                     isDisabled={!pages.get(pageNumber)?.pageMMDZip || processingPage !== undefined || isGeneratingAllConcepts || isRecognizingAll}
@@ -1058,12 +1056,8 @@ const StyledReader = styled.div`
     gap: 0.5rem;
   }
 
-  .generationControls select {
-    background: var(--bg-input);
-    border: 1px solid #dde1eb;
-    border-radius: 0.25rem;
-    color: var(--color-text);
-    padding: 0.55rem;
+  .generationControls .modelSelect {
+    min-width: 11rem;
   }
 
   .conceptsOutput {
