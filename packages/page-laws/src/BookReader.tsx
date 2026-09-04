@@ -4,12 +4,12 @@
 import type { Book, BookPage } from '@slonigiraf/db';
 import type { PDFDocumentLoadingTask, PDFDocumentProxy, RenderTask } from 'pdfjs-dist';
 
-import { getBookPages, getSetting, putBookPage, SettingKey } from '@slonigiraf/db';
+import { getBookPages, getSetting, putBookPage, SettingKey, storeSetting } from '@slonigiraf/db';
 import OpenAI from 'openai';
 import { getDocument, GlobalWorkerOptions } from 'pdfjs-dist';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 
-import { Button, styled } from '@polkadot/react-components';
+import { Button, Input, Modal, styled } from '@polkadot/react-components';
 
 GlobalWorkerOptions.workerSrc = new URL('pdfjs-dist/build/pdf.worker.min.js', import.meta.url).toString();
 
@@ -57,6 +57,8 @@ function BookReader ({ book, file }: Props): React.ReactElement {
   const [concepts, setConcepts] = useState('');
   const [error, setError] = useState('');
   const [isMaximized, setIsMaximized] = useState(false);
+  const [isMathpixKeyPromptOpen, setIsMathpixKeyPromptOpen] = useState(false);
+  const [mathpixApiKey, setMathpixApiKey] = useState('');
   const [processingPage, setProcessingPage] = useState<number>();
   const [pageInput, setPageInput] = useState('1');
   const [pageNumber, setPageNumber] = useState(1);
@@ -228,7 +230,9 @@ function BookReader ({ book, file }: Props): React.ReactElement {
       const apiKey = await getSetting(SettingKey.MATHPIX_API_KEY);
 
       if (!apiKey) {
-        throw new Error('No Mathpix API key found. Add it in Settings.');
+        setIsMathpixKeyPromptOpen(true);
+
+        return;
       }
 
       const tokenResponse = await fetch('https://api.mathpix.com/v3/app-tokens', {
@@ -280,6 +284,30 @@ function BookReader ({ book, file }: Props): React.ReactElement {
       setProcessingPage(undefined);
     }
   }, [book.id, pageNumber, pages, processingPage, renderedPage]);
+
+  const saveMathpixApiKey = useCallback(async (): Promise<void> => {
+    const apiKey = mathpixApiKey.trim();
+
+    if (!apiKey) {
+      return;
+    }
+
+    await storeSetting(SettingKey.MATHPIX_API_KEY, apiKey);
+    setIsMathpixKeyPromptOpen(false);
+    setMathpixApiKey('');
+    await recognizePage();
+  }, [mathpixApiKey, recognizePage]);
+
+  const submitMathpixApiKey = useCallback((): void => {
+    saveMathpixApiKey().catch((saveError) => {
+      setError(saveError instanceof Error ? saveError.message : 'Unable to save the Mathpix API key.');
+    });
+  }, [saveMathpixApiKey]);
+
+  const closeMathpixKeyPrompt = useCallback((): void => {
+    setIsMathpixKeyPromptOpen(false);
+    setMathpixApiKey('');
+  }, []);
 
   useEffect(() => {
     if (!isMaximized) {
@@ -334,6 +362,40 @@ function BookReader ({ book, file }: Props): React.ReactElement {
 
   return (
     <StyledReader className={isMaximized ? 'isMaximized' : ''}>
+      {isMathpixKeyPromptOpen && <Modal
+        header='Mathpix API key'
+        onClose={closeMathpixKeyPrompt}
+        size='small'
+      >
+        <Modal.Content>
+          <p>Enter your Mathpix API key to recognize this page.</p>
+          <p>
+            Get your API key from <a
+              href='https://console.mathpix.com/'
+              rel='noreferrer'
+              target='_blank'
+            >Mathpix Console</a>.
+          </p>
+          <Input
+            autoFocus
+            isFull
+            label='Mathpix API key'
+            onChange={setMathpixApiKey}
+            onEnter={submitMathpixApiKey}
+            placeholder='Enter your API key'
+            type='password'
+            value={mathpixApiKey}
+          />
+          <Button.Group>
+            <Button
+              icon='check'
+              isDisabled={!mathpixApiKey.trim()}
+              label='Save key'
+              onClick={submitMathpixApiKey}
+            />
+          </Button.Group>
+        </Modal.Content>
+      </Modal>}
       <div className='pageNavigation'>
         <Button
           icon='arrow-left'
