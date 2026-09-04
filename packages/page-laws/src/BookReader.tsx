@@ -830,7 +830,20 @@ function BookReader ({ book, file, generateAllConceptsModel, generateAllConcepts
         className='readerError'
         role='alert'
                 >{error}</p>}
-      <div className='readerColumns'>
+      <div className='readerTabs' role='tablist'>
+        <button
+          aria-selected
+          className='active'
+          id='pdf-text-tab'
+          role='tab'
+          type='button'
+        >Pdf/Text</button>
+      </div>
+      <div
+        aria-labelledby='pdf-text-tab'
+        className='readerColumns'
+        role='tabpanel'
+      >
         <div
           className='pageArea'
           ref={pageAreaRef}
@@ -1024,12 +1037,12 @@ const StyledReader = styled.div`
     flex-direction: column;
   }
 
-  .detailTabs {
+  .readerTabs, .detailTabs {
     border-bottom: 1px solid #dde1eb;
     display: flex;
   }
 
-  .detailTabs button {
+  .readerTabs button, .detailTabs button {
     background: transparent;
     border: 0;
     border-bottom: 2px solid transparent;
@@ -1039,7 +1052,7 @@ const StyledReader = styled.div`
     padding: 0.9rem 1.25rem;
   }
 
-  .detailTabs button.active {
+  .readerTabs button.active, .detailTabs button.active {
     border-bottom-color: var(--color-text);
     color: var(--color-text);
     font-weight: 600;
