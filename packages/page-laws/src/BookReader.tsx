@@ -683,7 +683,7 @@ const StyledReader = styled.div`
     box-sizing: border-box;
     color: var(--color-text);
     flex: none;
-    height: 32rem;
+    height: 31rem;
     margin: 0;
     min-height: 0;
     overflow-x: auto;
@@ -738,7 +738,7 @@ const StyledReader = styled.div`
     }
 
     .recognizedOutput {
-      height: 20rem;
+      height: 19rem;
     }
 
     &.isMaximized .recognizedOutput {
