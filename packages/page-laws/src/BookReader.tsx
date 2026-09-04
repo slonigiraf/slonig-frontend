@@ -5,6 +5,8 @@ import type { Book, BookPage } from '@slonigiraf/db';
 import type { PDFDocumentLoadingTask, PDFDocumentProxy, RenderTask } from 'pdfjs-dist';
 
 import { getBookPages, getSetting, putBookPage, SettingKey, storeSetting } from '@slonigiraf/db';
+import MathpixLoader from 'mathpix-markdown-it/lib/components/mathpix-loader/index.js';
+import MathpixMarkdown from 'mathpix-markdown-it/lib/components/mathpix-markdown/index.js';
 import OpenAI from 'openai';
 import { getDocument, GlobalWorkerOptions } from 'pdfjs-dist';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
@@ -466,14 +468,18 @@ function BookReader ({ book, file }: Props): React.ReactElement {
               <div className='detailsHeader'>
                 <span>{processingPage === pageNumber ? 'Recognizing page…' : 'Mathpix MMD'}</span>
                 <Button
-                  icon='scan'
+                  icon='camera'
                   isDisabled={renderedPage !== pageNumber || processingPage !== undefined}
                   label={pages.get(pageNumber)?.pageMMD ? 'Recognize again' : 'Recognize page'}
                   onClick={recognizePage}
                 />
               </div>
               {pages.get(pageNumber)?.pageMMD
-                ? <pre className='recognizedOutput'>{pages.get(pageNumber)?.pageMMD}</pre>
+                ? <div className='recognizedOutput'>
+                  <MathpixLoader>
+                    <MathpixMarkdown text={pages.get(pageNumber)?.pageMMD ?? ''} />
+                  </MathpixLoader>
+                </div>
                 : <p className='emptyOutput'>This page has not been recognized yet.</p>}
             </div>
             : <div className='tabPanel conceptsPanel' role='tabpanel'>
@@ -676,13 +682,16 @@ const StyledReader = styled.div`
     border-radius: 0.25rem;
     color: var(--color-text);
     flex: 1;
-    font-family: inherit;
     margin: 0;
     min-height: 0;
     overflow: auto;
     padding: 1rem;
-    white-space: pre-wrap;
     word-break: break-word;
+  }
+
+  .recognizedOutput img, .recognizedOutput svg {
+    height: auto;
+    max-width: 100%;
   }
 
   .emptyOutput, .recognitionHint {
