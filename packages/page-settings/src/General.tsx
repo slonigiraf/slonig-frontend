@@ -27,6 +27,7 @@ function General({ className = '' }: Props): React.ReactElement<Props> {
   const currentVersion = useSettingValue(SettingKey.APP_VERSION);
   const { currentPair } = useLoginContext();
   const [openRouterToken, setOpenRouterToken] = useState('');
+  const [mathpixApiKey, setMathpixApiKey] = useState('');
   const [isDeveloper, setDeveloper] = useState<boolean>(false);
   // tri-state: null = nothing changed, false = no reload, true = reload required
   const [changed, setChanged] = useState<boolean | null>(null);
@@ -79,6 +80,14 @@ function General({ className = '' }: Props): React.ReactElement<Props> {
     loadOpenRouterKey();
   }, []);
 
+  useEffect((): void => {
+    const loadMathpixApiKey = async () => {
+      const key = await getSetting(SettingKey.MATHPIX_API_KEY);
+      key && setMathpixApiKey(key);
+    }
+    loadMathpixApiKey();
+  }, []);
+
   const _handleChange = useCallback(
     (key: keyof SettingsStruct) => <T extends string | number>(value: T) =>
       setSettings((state) => ({ ...state, [key]: value })),
@@ -97,6 +106,15 @@ function General({ className = '' }: Props): React.ReactElement<Props> {
       setChanged(true);
     },
     [setOpenRouterToken]
+  );
+
+  const saveMathpixApiKey = useCallback(
+    async (value: string) => {
+      setMathpixApiKey(value);
+      await storeSetting(SettingKey.MATHPIX_API_KEY, value)
+      setChanged(true);
+    },
+    [setMathpixApiKey]
   );
 
   const _resetPriceAndWarranty = useCallback(
@@ -164,6 +182,15 @@ function General({ className = '' }: Props): React.ReactElement<Props> {
           label={t('OpenRouter Token')}
           onChange={saveOpenRouterToken}
           value={openRouterToken}
+        />
+      </div>}
+
+      {isDeveloper && <div className='ui--row'>
+        <Input
+          className='full'
+          label={t('Mathpix API Key')}
+          onChange={saveMathpixApiKey}
+          value={mathpixApiKey}
         />
       </div>}
 
