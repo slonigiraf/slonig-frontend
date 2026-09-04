@@ -170,6 +170,7 @@ function BookReader ({ book, file }: Props): React.ReactElement {
   const [pageNumber, setPageNumber] = useState(1);
   const [pages, setPages] = useState<Map<number, BookPage>>(new Map());
   const [pdf, setPdf] = useState<PDFDocumentProxy>();
+  const [renderedPageHeight, setRenderedPageHeight] = useState<number>();
   const [selectedModel, setSelectedModel] = useState(OPENAI_MODELS[0].value);
   const [totalPages, setTotalPages] = useState(0);
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -181,6 +182,7 @@ function BookReader ({ book, file }: Props): React.ReactElement {
 
     setError('');
     setPdf(undefined);
+    setRenderedPageHeight(undefined);
     setTotalPages(0);
 
     const load = async (): Promise<void> => {
@@ -250,6 +252,10 @@ function BookReader ({ book, file }: Props): React.ReactElement {
       canvas.height = viewport.height;
       renderTask = page.render({ canvasContext: context, viewport });
       await renderTask.promise;
+
+      if (active) {
+        setRenderedPageHeight(canvas.getBoundingClientRect().height);
+      }
     };
 
     render().catch((renderError: Error) => {
@@ -546,7 +552,10 @@ function BookReader ({ book, file }: Props): React.ReactElement {
         >
           <canvas ref={canvasRef} />
         </div>
-        <div className='detailsArea'>
+        <div
+          className={`detailsArea${renderedPageHeight ? ' hasPageHeight' : ''}`}
+          style={{ '--page-height': renderedPageHeight ? `${renderedPageHeight}px` : 'auto' } as React.CSSProperties}
+        >
           <div className='detailTabs' role='tablist'>
             {(['recognized', 'concepts'] as ReaderTab[]).map((tab) => (
               <button
@@ -683,6 +692,7 @@ const StyledReader = styled.div`
     border: 1px solid #dde1eb;
     border-radius: 0.5rem;
     box-sizing: border-box;
+    height: var(--page-height, auto);
     min-width: 0;
     overflow: hidden;
   }
@@ -796,6 +806,11 @@ const StyledReader = styled.div`
     word-break: break-word;
   }
 
+  .detailsArea.hasPageHeight .recognizedOutput {
+    flex: 1;
+    height: auto;
+  }
+
   &.isMaximized .recognizedOutput {
     flex: 1;
     height: auto;
@@ -829,6 +844,10 @@ const StyledReader = styled.div`
 
     .readerColumns {
       grid-template-columns: 1fr;
+      height: auto;
+    }
+
+    .detailsArea {
       height: auto;
     }
 
