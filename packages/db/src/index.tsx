@@ -28,9 +28,9 @@ import { ScheduledEvent, ScheduledEventType } from "./db/ScheduledEvent.js";
 import Dexie from "dexie";
 import type { Book } from './db/Book.js';
 import type { BookPage } from './db/BookPage.js';
-import type { Concept, NewConcept } from './db/Concept.js';
+import type { Concept } from './db/Concept.js';
 
-export type { LearnRequest, TutorAction, CanceledInsurance, Reexamination, LetterTemplate, CanceledLetter, Reimbursement, Letter, Insurance, Lesson, Pseudonym, Setting, Signer, UsageRight, Agreement, Book, BookPage, Concept, NewConcept };
+export type { LearnRequest, TutorAction, CanceledInsurance, Reexamination, LetterTemplate, CanceledLetter, Reimbursement, Letter, Insurance, Lesson, Pseudonym, Setting, Signer, UsageRight, Agreement, Book, BookPage, Concept };
 
 export async function createBook(book: Omit<Book, 'id'>): Promise<number> {
     return db.books.add(book as Book);
@@ -77,7 +77,7 @@ export async function getConceptsForBookPage(bookId: number, pageNumber: number)
     return db.concepts.where('bookPage').equals([bookId, pageNumber]).sortBy('id');
 }
 
-export async function replaceConceptsForBookPage(bookId: number, pageNumber: number, concepts: Array<Omit<NewConcept, 'bookPage'>>): Promise<Concept[]> {
+export async function replaceConceptsForBookPage(bookId: number, pageNumber: number, concepts: Array<Omit<Concept, 'bookPage' | 'id'>>): Promise<Concept[]> {
     const bookPage: [number, number] = [bookId, pageNumber];
 
     return db.transaction('rw', db.concepts, async () => {

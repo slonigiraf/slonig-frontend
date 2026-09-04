@@ -25,7 +25,7 @@ Extract only the concepts that are intentionally introduced or explained as new 
 Return only valid JSON in this exact shape, keeping the original language of the input:
 {"chapter":"Chapter and section name","concepts":[{"title":"New concept","description":"Explanation or example from the page"}]}
 
-Use an empty string when the chapter is not shown. Use an empty array when no new concepts are introduced. Do not add markdown or any text outside the JSON.`;
+Use an empty string when the chapter is not shown. Use an empty array when no new concepts are introduced. Escape every backslash in mathematical notation so the result remains valid JSON. Do not add markdown or any text outside the JSON.`;
 
 interface GeneratedConcepts {
   chapter: string;
@@ -33,7 +33,16 @@ interface GeneratedConcepts {
 }
 
 function parseGeneratedConcepts (content: string): GeneratedConcepts {
-  const parsed = JSON.parse(content.replace(/^```json\s*|\s*```$/g, '')) as Partial<GeneratedConcepts>;
+  const json = content.replace(/^```json\s*|\s*```$/g, '').trim();
+  let parsed: Partial<GeneratedConcepts>;
+
+  try {
+    parsed = JSON.parse(json) as Partial<GeneratedConcepts>;
+  } catch {
+    // Models occasionally return LaTeX commands with JSON-invalid single
+    // backslashes (for example, "\\alpha" instead of "\\\\alpha").
+    parsed = JSON.parse(json.replace(/\\(?!["\\/bfnrt]|u[0-9a-fA-F]{4})/g, '\\\\')) as Partial<GeneratedConcepts>;
+  }
 
   if (typeof parsed.chapter !== 'string' || !Array.isArray(parsed.concepts) || parsed.concepts.some(({ description, title }) => typeof title !== 'string' || typeof description !== 'string')) {
     throw new Error('OpenRouter returned invalid concept data.');
@@ -383,7 +392,8 @@ function BookReader ({ book, file, generateAllConceptsModel, generateAllConcepts
           ],
           role: 'user'
         }],
-        model: selectedModel
+        model: selectedModel,
+        response_format: { type: 'json_object' }
       });
       const generatedContent = response.choices[0].message?.content?.trim();
 
@@ -470,7 +480,8 @@ function BookReader ({ book, file, generateAllConceptsModel, generateAllConcepts
               ],
               role: 'user'
             }],
-            model: generateAllConceptsModel
+            model: generateAllConceptsModel,
+            response_format: { type: 'json_object' }
           });
           const generatedContent = response.choices[0].message?.content?.trim();
 

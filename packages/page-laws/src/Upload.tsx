@@ -70,6 +70,7 @@ function Upload (): React.ReactElement {
   const [generateAllConceptsRequest, setGenerateAllConceptsRequest] = useState(0);
   const [generateAllConceptsModel, setGenerateAllConceptsModel] = useState(OPENAI_MODELS[0].value);
   const [isGenerateConceptsConfirmationOpen, setIsGenerateConceptsConfirmationOpen] = useState(false);
+  const [isRecognizeConfirmationOpen, setIsRecognizeConfirmationOpen] = useState(false);
   const [recognizeAllRequest, setRecognizeAllRequest] = useState(0);
   const [readerFile, setReaderFile] = useState<File>();
   const [selectedId, setSelectedId] = useState<number | undefined>(getSessionBookId);
@@ -209,6 +210,15 @@ function Upload (): React.ReactElement {
   }, [onUpload, t]);
 
   const onRecognize = useCallback((): void => {
+    setIsRecognizeConfirmationOpen(true);
+  }, []);
+
+  const closeRecognizeConfirmation = useCallback((): void => {
+    setIsRecognizeConfirmationOpen(false);
+  }, []);
+
+  const confirmRecognize = useCallback((): void => {
+    setIsRecognizeConfirmationOpen(false);
     setRecognizeAllRequest((request) => request + 1);
   }, []);
 
@@ -250,6 +260,27 @@ function Upload (): React.ReactElement {
 
   return (
     <StyledSection>
+      {isRecognizeConfirmationOpen && <Modal
+        header={t('Recognize pages')}
+        onClose={closeRecognizeConfirmation}
+        size='small'
+      >
+        <Modal.Content>
+          <p>{t('Recognize every page in this book?')}</p>
+          <Button.Group>
+            <Button
+              icon='times'
+              label={t('Cancel')}
+              onClick={closeRecognizeConfirmation}
+            />
+            <Button
+              icon='camera'
+              label={t('Recognize')}
+              onClick={confirmRecognize}
+            />
+          </Button.Group>
+        </Modal.Content>
+      </Modal>}
       {isGenerateConceptsConfirmationOpen && <Modal
         header={t('Generate concepts')}
         onClose={closeGenerateConceptsConfirmation}

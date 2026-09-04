@@ -2,10 +2,8 @@
 // SPDX-License-Identifier: Apache-2.0
 
 export interface Concept {
-  id: number;
+  id?: number;
   bookPage: [number, number];
   title: string;
   description: string;
 }
-
-export type NewConcept = Omit<Concept, 'id'>;
