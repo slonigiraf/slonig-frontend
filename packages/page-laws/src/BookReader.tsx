@@ -951,16 +951,7 @@ function BookReader ({ book, file, generateAllConceptsModel, generateAllConcepts
             </div>
           </>
             : <>
-            <div
-              className='detailsArea'
-              style={{ '--page-height': renderedPageHeight ? `${renderedPageHeight}px` : 'auto' } as React.CSSProperties}
-            >
-              {conceptsPane()}
-            </div>
-            <div
-              className='skillsArea'
-              style={{ '--page-height': renderedPageHeight ? `${renderedPageHeight}px` : 'auto' } as React.CSSProperties}
-            >
+            <div className='skillsArea'>
               <Skills book={book} />
             </div>
           </>}
@@ -1051,6 +1042,7 @@ const StyledReader = styled.div`
   }
 
   .skillsArea {
+    grid-column: 1 / -1;
     height: var(--page-height, auto);
     min-width: 0;
     overflow: auto;
