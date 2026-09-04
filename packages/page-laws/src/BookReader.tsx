@@ -47,6 +47,26 @@ const OPENAI_MODELS = [
   { text: 'GPT-5.4', value: 'openai/gpt-5.4' }
 ];
 
+const pageSessionKey = (bookId: number): string => `knowledge-upload-book-${bookId}-page`;
+
+function getSessionPage (bookId: number): number {
+  try {
+    const value = Number(sessionStorage.getItem(pageSessionKey(bookId)));
+
+    return Number.isSafeInteger(value) && value > 0 ? value : 1;
+  } catch {
+    return 1;
+  }
+}
+
+function storeSessionPage (bookId: number, pageNumber: number): void {
+  try {
+    sessionStorage.setItem(pageSessionKey(bookId), String(pageNumber));
+  } catch {
+    // Session storage may be unavailable in privacy-restricted browser contexts.
+  }
+}
+
 interface Props {
   book: Book;
   file: File;
@@ -77,8 +97,6 @@ function BookReader ({ book, file }: Props): React.ReactElement {
     let loadingTask: PDFDocumentLoadingTask | undefined;
 
     setError('');
-    setPageNumber(1);
-    setPageInput('1');
     setPdf(undefined);
     setRenderedPage(undefined);
     setTotalPages(0);
@@ -106,6 +124,10 @@ function BookReader ({ book, file }: Props): React.ReactElement {
       setPdf(document);
       setTotalPages(document.numPages);
       setPages(new Map(storedPages.map((page) => [page.pageNumber, page])));
+      const restoredPage = Math.min(document.numPages, getSessionPage(book.id));
+
+      setPageNumber(restoredPage);
+      setPageInput(String(restoredPage));
     };
 
     load().catch(() => active && setError('Unable to open this PDF.'));
@@ -350,7 +372,8 @@ function BookReader ({ book, file }: Props): React.ReactElement {
     saveConcepts();
     setPageNumber(nextPage);
     setPageInput(String(nextPage));
-  }, [saveConcepts, totalPages]);
+    storeSessionPage(book.id, nextPage);
+  }, [book.id, saveConcepts, totalPages]);
 
   const submitPageInput = useCallback((): void => {
     const requestedPage = Number(pageInput);

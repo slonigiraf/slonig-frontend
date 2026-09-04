@@ -8,10 +8,21 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 
 import { Button, Dropdown, styled } from '@polkadot/react-components';
 
-import { useTranslation } from './translate.js';
 import BookReader from './BookReader.js';
+import { useTranslation } from './translate.js';
 
 const BOOKS_DIRECTORY = 'books';
+const SELECTED_BOOK_SESSION_KEY = 'knowledge-upload-selected-book';
+
+function getSessionBookId (): number | undefined {
+  try {
+    const value = Number(sessionStorage.getItem(SELECTED_BOOK_SESSION_KEY));
+
+    return Number.isSafeInteger(value) && value > 0 ? value : undefined;
+  } catch {
+    return undefined;
+  }
+}
 
 async function getBooksDirectory (): Promise<FileSystemDirectoryHandle> {
   if (!navigator.storage?.getDirectory) {
@@ -57,7 +68,7 @@ function Upload (): React.ReactElement {
   const [error, setError] = useState('');
   const [isBusy, setIsBusy] = useState(false);
   const [readerFile, setReaderFile] = useState<File>();
-  const [selectedId, setSelectedId] = useState<number>();
+  const [selectedId, setSelectedId] = useState<number | undefined>(getSessionBookId);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const loadBooks = useCallback(async (): Promise<void> => {
@@ -79,12 +90,24 @@ function Upload (): React.ReactElement {
     storedBooks = await getBooks();
 
     setBooks(storedBooks);
-    setSelectedId((current) => current ?? storedBooks[0]?.id);
+    setSelectedId((current) => storedBooks.some(({ id }) => id === current) ? current : storedBooks[0]?.id);
   }, []);
 
   useEffect((): void => {
     loadBooks().catch(() => setError(t('Unable to load uploaded books.')));
   }, [loadBooks, t]);
+
+  useEffect((): void => {
+    try {
+      if (selectedId === undefined) {
+        sessionStorage.removeItem(SELECTED_BOOK_SESSION_KEY);
+      } else {
+        sessionStorage.setItem(SELECTED_BOOK_SESSION_KEY, String(selectedId));
+      }
+    } catch {
+      // Session storage may be unavailable in privacy-restricted browser contexts.
+    }
+  }, [selectedId]);
 
   const selectedBook = useMemo(
     () => books.find(({ id }) => id === selectedId),
