@@ -18,6 +18,7 @@ import { Button, Dropdown, Input, Modal, styled } from '@polkadot/react-componen
 
 import { OPENAI_MODELS } from './constants.js';
 import Skills from './Skills.js';
+import SkillsCourse from './SkillsCourse.js';
 
 export { OPENAI_MODELS } from './constants.js';
 
@@ -226,7 +227,7 @@ interface Props {
   recognizeAllRequest: number;
 }
 
-type ReaderPane = 'pdfText' | 'textConcepts' | 'conceptsSkills';
+type ReaderPane = 'pdfText' | 'textConcepts' | 'conceptsSkills' | 'skillsCourse';
 type RecognitionTarget = 'all' | 'page';
 
 function BookReader ({ book, file, generateAllConceptsModel, generateAllConceptsRequest, recognizeAllRequest }: Props): React.ReactElement {
@@ -959,7 +960,8 @@ function BookReader ({ book, file, generateAllConceptsModel, generateAllConcepts
         {([
           ['pdfText', 'Pdf/Text'],
           ['textConcepts', 'Text/Concepts'],
-          ['conceptsSkills', 'Concepts/Skills']
+          ['conceptsSkills', 'Concepts/Skills'],
+          ['skillsCourse', 'Skills/Course']
         ] as Array<[ReaderPane, string]>).map(([pane, label]) => (
           <button
             aria-selected={activePane === pane}
@@ -1007,11 +1009,11 @@ function BookReader ({ book, file, generateAllConceptsModel, generateAllConcepts
               {conceptsPane()}
             </div>
           </>
-            : <>
+            : activePane === 'conceptsSkills' ? <>
             <div className='skillsArea'>
               <Skills book={book} />
             </div>
-          </>}
+          </> : <SkillsCourse book={book} />}
       </div>
     </StyledReader>
   );
