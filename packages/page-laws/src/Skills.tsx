@@ -1,10 +1,10 @@
 // Copyright 2021-2026 @polkadot/app-laws authors & contributors
 // SPDX-License-Identifier: Apache-2.0
 
-import type { Book, BookPage, Concept } from '@slonigiraf/db';
+import type { Book, BookExercise, BookPage, Concept } from '@slonigiraf/db';
 import type { GeneratedSkillTemplate } from './skillTemplates.js';
 
-import { deleteSkillTemplates, getBookPages, getConceptsForBookPage, getSetting, getSkillTemplates, SettingKey, storeSkillTemplate } from '@slonigiraf/db';
+import { deleteSkillTemplates, getBookExercisesForBookPage, getBookPages, getConceptsForBookPage, getSetting, getSkillTemplates, SettingKey, storeSkillTemplate } from '@slonigiraf/db';
 import { Confirmation, KatexSpan } from '@slonigiraf/slonig-components';
 import { useLiveQuery } from 'dexie-react-hooks';
 import OpenAI from 'openai';
@@ -26,12 +26,14 @@ const delay = (milliseconds: number): Promise<void> => new Promise((resolve) => 
 
 interface PageSkills {
   concepts: Concept[];
+  exercises: BookExercise[];
   page: BookPage;
 }
 
 interface ChapterSkills {
   chapter?: string;
   concepts: Concept[];
+  exercises: BookExercise[];
 }
 
 function conceptTemplateModuleId (bookId: number, conceptId: number): string {
@@ -93,10 +95,14 @@ function Skills ({ book }: { book: Book }): React.ReactElement {
     getBookPages(book.id)
       .then(async (pages) => Promise.all(pages
         .sort((a, b) => a.pageNumber - b.pageNumber)
-        .map(async (page) => ({
-          concepts: await getConceptsForBookPage(book.id, page.pageNumber),
-          page
-        }))))
+        .map(async (page) => {
+          const [concepts, exercises] = await Promise.all([
+            getConceptsForBookPage(book.id, page.pageNumber),
+            getBookExercisesForBookPage([page.pageNumber])
+          ]);
+
+          return { concepts, exercises, page };
+        })))
       .then((skills) => active && setPageSkills(skills))
       .catch(() => active && setError('Unable to load skills for this book.'));
 
@@ -106,6 +112,7 @@ function Skills ({ book }: { book: Book }): React.ReactElement {
   }, [book.id]);
 
   const conceptCount = pageSkills.reduce((count, { concepts }) => count + concepts.length, 0);
+  const exerciseCount = pageSkills.reduce((count, { exercises }) => count + exercises.length, 0);
   const conceptModuleIds = useMemo(
     () => pageSkills.flatMap(({ concepts }) => concepts
       .filter(({ id }) => id !== undefined)
@@ -116,8 +123,8 @@ function Skills ({ book }: { book: Book }): React.ReactElement {
     async () => (await Promise.all(conceptModuleIds.map(getSkillTemplates))).reduce((count, templates) => count + templates.length, 0),
     [conceptModuleIds]
   );
-  const chapterSkills = pageSkills.reduce<ChapterSkills[]>((groups, { concepts, page }) => {
-    if (!concepts.length) {
+  const chapterSkills = pageSkills.reduce<ChapterSkills[]>((groups, { concepts, exercises, page }) => {
+    if (!concepts.length && !exercises.length) {
       return groups;
     }
 
@@ -125,8 +132,9 @@ function Skills ({ book }: { book: Book }): React.ReactElement {
 
     if (previous?.chapter === page.chapter) {
       previous.concepts.push(...concepts);
+      previous.exercises.push(...exercises);
     } else {
-      groups.push({ chapter: page.chapter, concepts: [...concepts] });
+      groups.push({ chapter: page.chapter, concepts: [...concepts], exercises: [...exercises] });
     }
 
     return groups;
@@ -258,16 +266,26 @@ function Skills ({ book }: { book: Book }): React.ReactElement {
       </div>
     </div>
     {error && <p className='errorMessage' role='alert'>{error}</p>}
-    {conceptCount
-      ? chapterSkills.map(({ chapter, concepts }, index) => <section key={`${chapter || 'skills'}-${index}`}>
+    {conceptCount || exerciseCount
+      ? chapterSkills.map(({ chapter, concepts, exercises }, index) => <section key={`${chapter || 'skills'}-${index}`}>
           {chapter && <h3>{chapter}</h3>}
-          <ul>{concepts.map((concept) => <li key={concept.id}>
-            <strong>{concept.title}</strong>
-            {concept.description && <p>{concept.description}</p>}
-            <ConceptSkillTemplates bookId={book.id} conceptId={concept.id} />
-          </li>)}</ul>
+          {!!concepts.length && <>
+            <h4>Concepts</h4>
+            <ul>{concepts.map((concept) => <li key={concept.id}>
+              <strong>{concept.title}</strong>
+              {concept.description && <p>{concept.description}</p>}
+              <ConceptSkillTemplates bookId={book.id} conceptId={concept.id} />
+            </li>)}</ul>
+          </>}
+          {!!exercises.length && <>
+            <h4>Book exercises</h4>
+            <ul>{exercises.map((exercise) => <li key={exercise.id}>
+              <strong>{exercise.title}</strong>
+              {exercise.description && <p>{exercise.description}</p>}
+            </li>)}</ul>
+          </>}
         </section>)
-      : !error && <p className='emptyOutput'>No concepts have been generated for this book.</p>}
+      : !error && <p className='emptyOutput'>No concepts or book exercises have been generated for this book.</p>}
     {isClearConfirmationOpen && <Confirmation
       onClose={closeClearConfirmation}
       onConfirm={confirmClearSkillTemplates}

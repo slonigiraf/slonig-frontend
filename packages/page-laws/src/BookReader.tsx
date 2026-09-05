@@ -1,10 +1,10 @@
 // Copyright 2021-2026 @polkadot/app-laws authors & contributors
 // SPDX-License-Identifier: Apache-2.0
 
-import type { Book, BookPage, Concept } from '@slonigiraf/db';
+import type { Book, BookExercise, BookPage, Concept } from '@slonigiraf/db';
 import type { PDFDocumentLoadingTask, PDFDocumentProxy, RenderTask } from 'pdfjs-dist';
 
-import { getBookPages, getConceptsForBookPage, getSetting, putBookPage, replaceConceptsForBookPage, SettingKey, storeSetting } from '@slonigiraf/db';
+import { getBookExercisesForBookPage, getBookPages, getConceptsForBookPage, getSetting, putBookPage, replaceConceptsForBookPage, replaceParsedBookPageContent, SettingKey, storeSetting } from '@slonigiraf/db';
 import { strFromU8, unzipSync } from 'fflate';
 import FileSaver from 'file-saver';
 import MathpixLoader from 'mathpix-markdown-it/lib/components/mathpix-loader/index.js';
@@ -26,12 +26,12 @@ GlobalWorkerOptions.workerSrc = new URL('pdfjs-dist/build/pdf.worker.min.js', im
 
 const CONCEPTS_PROMPT = `On the provided page, identify the chapter and subchapter/section.
 
-Extract only the concepts that are intentionally introduced or explained as new on this page. Do not include concepts that the page assumes the reader already knows, merely reviews, references from earlier sections, or uses only in exercises/examples without introducing them.
+Extract only the concepts that are intentionally introduced or explained as new on this page. Do not include concepts that the page assumes the reader already knows, merely reviews, references from earlier sections, or uses only in exercises/examples without introducing them. Also extract every exercise, question, or problem the learner is asked to solve.
 
 Return only valid JSON in this exact shape, keeping the original language of the input:
-{"chapter":"Chapter and section name","concepts":[{"title":"New concept","description":"Explanation or example from the page"}]}
+{"chapter":"Chapter and section name","concepts":[{"title":"New concept","description":"Explanation or example from the page"}],"exercises":[{"title":"Exercise title","description":"Complete exercise question or instructions"}]}
 
-Use an empty string when the chapter is not shown. Use an empty array when no new concepts are introduced. Escape every backslash in mathematical notation so the result remains valid JSON. Do not add markdown or any text outside the JSON.`;
+Use an empty string when the chapter is not shown. Use empty arrays when no concepts or exercises are present. Escape every backslash in mathematical notation so the result remains valid JSON. Do not add markdown or any text outside the JSON.`;
 
 const SPLIT_CONCEPTS_PROMPT = `Review the identified concepts below and divide every concept that contains two or more independently learnable ideas into the smallest useful, self-contained concepts. Split named terms into individual concepts whenever they can be learned independently, even when they are introduced together in a single sentence or title. For example, a concept defining plankton and nekton becomes one concept for plankton and one for nekton; a concept describing the littoral and its supralittoral, littoral, and sublittoral subdivisions becomes four concepts. Keep a concept unchanged only when it is already atomic. Do not remove concepts or invent information that is not supported by the supplied concepts. Preserve the input language.
 
@@ -43,6 +43,7 @@ Use the supplied chapter unchanged. The concepts array must contain the resultin
 interface GeneratedConcepts {
   chapter: string;
   concepts: Array<{ description: string; title: string }>;
+  exercises?: Array<{ description: string; title: string }>;
 }
 
 function parseGeneratedConcepts (content: string): GeneratedConcepts {
@@ -57,11 +58,15 @@ function parseGeneratedConcepts (content: string): GeneratedConcepts {
     parsed = JSON.parse(json.replace(/\\(?!["\\/bfnrt]|u[0-9a-fA-F]{4})/g, '\\\\')) as Partial<GeneratedConcepts>;
   }
 
-  if (typeof parsed.chapter !== 'string' || !Array.isArray(parsed.concepts) || parsed.concepts.some(({ description, title }) => typeof title !== 'string' || typeof description !== 'string')) {
+  if (typeof parsed.chapter !== 'string' || !Array.isArray(parsed.concepts) || parsed.concepts.some(({ description, title }) => typeof title !== 'string' || typeof description !== 'string') || (parsed.exercises !== undefined && (!Array.isArray(parsed.exercises) || parsed.exercises.some(({ description, title }) => typeof title !== 'string' || typeof description !== 'string')))) {
     throw new Error('OpenRouter returned invalid concept data.');
   }
 
-  return { chapter: parsed.chapter.trim(), concepts: parsed.concepts.map(({ description, title }) => ({ description: description.trim(), title: title.trim() })).filter(({ title }) => title) };
+  return {
+    chapter: parsed.chapter.trim(),
+    concepts: parsed.concepts.map(({ description, title }) => ({ description: description.trim(), title: title.trim() })).filter(({ title }) => title),
+    exercises: (parsed.exercises ?? []).map(({ description, title }) => ({ description: description.trim(), title: title.trim() })).filter(({ title }) => title)
+  };
 }
 
 const MAX_PAGES_PER_MIN = 180;
@@ -233,6 +238,7 @@ type RecognitionTarget = 'all' | 'page';
 function BookReader ({ book, file, generateAllConceptsModel, generateAllConceptsRequest, recognizeAllRequest }: Props): React.ReactElement {
   const [activePane, setActivePane] = useState<ReaderPane>('pdfText');
   const [concepts, setConcepts] = useState<Concept[]>([]);
+  const [exercises, setExercises] = useState<BookExercise[]>([]);
   const [error, setError] = useState('');
   const [generatedConceptsPageCount, setGeneratedConceptsPageCount] = useState(0);
   const [isGeneratingAllConcepts, setIsGeneratingAllConcepts] = useState(false);
@@ -305,9 +311,17 @@ function BookReader ({ book, file, generateAllConceptsModel, generateAllConcepts
   useEffect(() => {
     let active = true;
 
-    getConceptsForBookPage(book.id, pageNumber)
-      .then((storedConcepts) => active && setConcepts(storedConcepts))
-      .catch(() => active && setError('Unable to load concepts.'));
+    Promise.all([
+      getConceptsForBookPage(book.id, pageNumber),
+      getBookExercisesForBookPage([pageNumber])
+    ])
+      .then(([storedConcepts, storedExercises]) => {
+        if (active) {
+          setConcepts(storedConcepts);
+          setExercises(storedExercises);
+        }
+      })
+      .catch(() => active && setError('Unable to load concepts and exercises.'));
 
     return () => {
       active = false;
@@ -415,11 +429,12 @@ function BookReader ({ book, file, generateAllConceptsModel, generateAllConcepts
         pageNumber
       };
 
-      const storedConcepts = await replaceConceptsForBookPage(book.id, pageNumber, generatedConcepts.concepts);
+      const stored = await replaceParsedBookPageContent(book.id, pageNumber, generatedConcepts.chapter, generatedConcepts.concepts, generatedConcepts.exercises ?? []);
 
       await putBookPage(generatedPage);
       setPages((current) => new Map(current).set(pageNumber, generatedPage));
-      setConcepts(storedConcepts);
+      setConcepts(stored.concepts);
+      setExercises(stored.exercises);
     } catch (generationError) {
       setError(generationError instanceof Error ? generationError.message : 'Unable to generate concepts.');
     } finally {
@@ -503,13 +518,14 @@ function BookReader ({ book, file, generateAllConceptsModel, generateAllConcepts
             pageNumber: currentPageNumber
           };
 
-          const storedConcepts = await replaceConceptsForBookPage(book.id, currentPageNumber, generatedConcepts.concepts);
+          const stored = await replaceParsedBookPageContent(book.id, currentPageNumber, generatedConcepts.chapter, generatedConcepts.concepts, generatedConcepts.exercises ?? []);
 
           await putBookPage(generatedPage);
           setPages((current) => new Map(current).set(currentPageNumber, generatedPage));
 
           if (currentPageNumber === pageNumber) {
-            setConcepts(storedConcepts);
+            setConcepts(stored.concepts);
+            setExercises(stored.exercises);
           }
 
           setGeneratedConceptsPageCount((count) => count + 1);
@@ -568,7 +584,8 @@ function BookReader ({ book, file, generateAllConceptsModel, generateAllConcepts
       }
 
       const splitConcepts = parseGeneratedConcepts(generatedContent);
-      const storedConcepts = await replaceConceptsForBookPage(book.id, pageNumber, splitConcepts.concepts);
+      const chapterId = concepts[0]?.chapterId;
+      const storedConcepts = await replaceConceptsForBookPage(book.id, pageNumber, splitConcepts.concepts.map((concept) => ({ ...concept, chapterId })));
 
       setConcepts(storedConcepts);
     } catch (splitError) {
@@ -839,7 +856,7 @@ function BookReader ({ book, file, generateAllConceptsModel, generateAllConcepts
         <span>{isGeneratingAllConcepts
           ? `Generating concepts for all pages… ${generatedConceptsPageCount}/${totalPages}`
           : isSplittingConcepts ? 'Splitting concepts…'
-            : processingPage === pageNumber ? 'Generating concepts…' : 'Concepts'}</span>
+            : processingPage === pageNumber ? 'Generating concepts and exercises…' : 'Concepts and exercises'}</span>
         <div className='generationControls'>
           <Dropdown
             className='modelSelect'
@@ -851,7 +868,7 @@ function BookReader ({ book, file, generateAllConceptsModel, generateAllConcepts
           <Button
             icon='magic'
             isDisabled={!pages.get(pageNumber)?.pageMMDZip || processingPage !== undefined || isGeneratingAllConcepts || isRecognizingAll || isSplittingConcepts}
-            label='Generate concepts'
+            label='Generate concepts and exercises'
             onClick={generateConcepts}
           />
           <Button
@@ -871,6 +888,13 @@ function BookReader ({ book, file, generateAllConceptsModel, generateAllConcepts
             {concept.description && <p>{concept.description}</p>}
           </li>)}</ul>
           : <p className='emptyOutput'>No concepts have been generated for this page.</p>}
+        <h3>Exercises</h3>
+        {exercises.length
+          ? <ul>{exercises.map((exercise) => <li key={exercise.id}>
+            <strong>{exercise.title}</strong>
+            {exercise.description && <p>{exercise.description}</p>}
+          </li>)}</ul>
+          : <p className='emptyOutput'>No exercises have been generated for this page.</p>}
       </div>
     </div>
   );
