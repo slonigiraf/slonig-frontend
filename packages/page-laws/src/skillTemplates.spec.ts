@@ -7,7 +7,7 @@ import type { GeneratedSkillTemplate } from './skillTemplates.js';
 
 import { strict as assert } from 'node:assert';
 
-import { conceptsToSkillsPrompt, skillListPrompt } from './constants.js';
+import { chapterToSkillsPrompt, conceptsToSkillsPrompt, skillListPrompt, skillsToExercisesPrompt } from './constants.js';
 import { parseGeneratedSkillTemplates, parseStoredSkillTemplate } from './skillTemplates.js';
 
 function createSkill (): GeneratedSkillTemplate {
@@ -140,7 +140,7 @@ describe('generated skill templates', (): void => {
     assert.deepEqual(parseGeneratedSkillTemplates(JSON.stringify([skill])), [skill]);
   });
 
-  for (const [name, prompt] of Object.entries({ conceptsToSkillsPrompt, skillListPrompt })) {
+  for (const [name, prompt] of Object.entries({ conceptsToSkillsPrompt, skillListPrompt, skillsToExercisesPrompt })) {
     it(`accepts the original JSON array example in ${name}`, (): void => {
       const example = prompt.match(/^\[[\s\S]*?^\]/m)?.[0];
 

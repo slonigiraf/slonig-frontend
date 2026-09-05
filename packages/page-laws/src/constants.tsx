@@ -64,3 +64,20 @@ ${skillTemplateGenerationInstructions}`;
 export const conceptsToSkillsPrompt = `You are an educational content methodologist. Convert the supplied concepts to skill templates one-to-one, preserving their order. For each concept, choose one specific human skill it supports, plan an exercise template internally, and generate exactly two concrete exercises from it. If a concept is broad, choose one representative narrow skill; do not combine different abilities in its two exercises. Kee original language. Return one skill template for each concept in the existing JSON array format below.
 
 ${skillTemplateGenerationInstructions}`;
+
+export const chapterToSkillsPrompt = `You are an educational content methodologist. From one chapter's concepts and book exercises, create a non-duplicated learning progression of the smallest useful skills a learner should acquire.
+
+Apply Vygotsky's Zone of Proximal Development: order skills from prerequisite abilities the learner can reach with light support toward progressively more demanding abilities enabled by earlier skills. Each skill must be one narrow, observable ability with an unambiguous input, operation, and expected output. Split skills when their method, direction, input/output mapping, or task structure differs. Do not use broad topic names, repeat equivalent skills under different wording, invent material unsupported by the chapter, or include a skill merely because a concept is mentioned.
+
+Determine the chapter's natural language from its title, concepts, and exercises. Write every generated skill title and description in that same language. Keep formulas, symbols, and proper names unchanged where appropriate.
+
+Return only valid JSON in this exact shape:
+{"skills":[{"title":"Narrow observable skill","description":"What the learner can do, including the relevant method and expected output"}]}
+
+Return an empty skills array when the chapter supports no learnable skill. Do not add markdown fences or commentary.`;
+
+export const skillsToExercisesPrompt = `You are an educational content methodologist. Generate one exercise template for each supplied target skill, preserving the supplied order. Treat each target skill as authoritative. Use its chapter concepts and book exercises only as grounding context; do not replace, broaden, merge, or duplicate the target skill. Keep the difficulty within the learner's Zone of Proximal Development: the task should be achievable using this skill and its immediate prerequisites, without requiring unrelated or more advanced abilities. Return exactly one skill template per target skill.
+
+Use the natural language of each target skill for the complete corresponding template. This includes the template heading, every exercise question, and every answer or worked solution.
+
+${skillTemplateGenerationInstructions}`;

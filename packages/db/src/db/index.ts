@@ -19,9 +19,10 @@ import { LearnRequest } from './LearnRequest.js';
 import { ScheduledEvent } from './ScheduledEvent.js';
 import type { Book } from './Book.js';
 import type { BookPage } from './BookPage.js';
-import type { Concept } from './Concept.js';
+import type { BookConcept } from './BookConcept.js';
 import type { BookChapter } from './BookChapter.js';
 import type { BookExercise } from './BookExercise.js';
+import type { Skill } from './Skill.js';
 
 class SlonigDB extends Dexie {
   agreements!: Table<Agreement>;
@@ -44,9 +45,10 @@ class SlonigDB extends Dexie {
   scheduledEvents!:Table<ScheduledEvent>;
   books!: Table<Book, number>;
   bookPages!: Table<BookPage, [number, number]>;
-  concepts!: Table<Concept, number>;
+  bookConcepts!: Table<BookConcept, number>;
   bookChapters!: Table<BookChapter, number>;
   bookExercises!: Table<BookExercise, number>;
+  skills!: Table<Skill, number>;
 
   constructor() {
     super('slonig');
@@ -101,6 +103,22 @@ class SlonigDB extends Dexie {
         transaction.table('bookChapters').clear(),
         transaction.table('bookExercises').clear(),
         transaction.table('concepts').clear()
+      ]);
+    });
+    // These book-learning tables are intentionally recreated while the feature
+    // is in development. This also completes the concepts -> bookConcepts rename.
+    this.version(73).stores({
+      bookChapters: '++id,bookId',
+      bookConcepts: '++id,bookPage,chapterId',
+      bookExercises: '++id,bookPage',
+      concepts: null,
+      skills: '++id,chapterId'
+    }).upgrade(async (transaction) => {
+      await Promise.all([
+        transaction.table('bookChapters').clear(),
+        transaction.table('bookConcepts').clear(),
+        transaction.table('bookExercises').clear(),
+        transaction.table('skills').clear()
       ]);
     });
   }

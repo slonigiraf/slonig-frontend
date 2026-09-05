@@ -1,15 +1,19 @@
-import type { Book, Concept } from '@slonigiraf/db';
+// Copyright 2021-2026 @slonig/app-laws authors & contributors
+// SPDX-License-Identifier: Apache-2.0
+
+import type { Book, Skill } from '@slonigiraf/db';
 import type { GeneratedSkillTemplate } from './skillTemplates.js';
 
-import { getBookPages, getConceptsForBookPage, getSkillTemplates } from '@slonigiraf/db';
-import { Input, styled } from '@polkadot/react-components';
+import { getBookChapters, getSkillsForChapter, getSkillTemplates } from '@slonigiraf/db';
 import { useLiveQuery } from 'dexie-react-hooks';
 import React, { useMemo, useState } from 'react';
+
+import { Input, styled } from '@polkadot/react-components';
 
 import KnowledgeTargetSelector from './KnowledgeTargetSelector.js';
 import { parseStoredSkillTemplate } from './skillTemplates.js';
 
-interface CourseConcept extends Concept {
+interface CourseSkill extends Skill {
   chapter: string;
   template?: GeneratedSkillTemplate;
 }
@@ -19,34 +23,45 @@ function SkillsCourse ({ book }: { book: Book }): React.ReactElement {
   const [modulePrice, setModulePrice] = useState('0');
   const [skillPrice, setSkillPrice] = useState('0');
   const [knowledgeId, setKnowledgeId] = useState('');
-  const concepts = useLiveQuery(async (): Promise<CourseConcept[]> => {
-    const pages = (await getBookPages(book.id)).sort((a, b) => a.pageNumber - b.pageNumber);
-    const result: CourseConcept[] = [];
+  const skills = useLiveQuery(async (): Promise<CourseSkill[]> => {
+    const chapters = await getBookChapters(book.id);
+    const result: CourseSkill[] = [];
 
-    for (const page of pages) {
-      const pageConcepts = await getConceptsForBookPage(book.id, page.pageNumber);
-      for (const concept of pageConcepts) {
-        const templates = concept.id === undefined ? [] : await getSkillTemplates(`book-${book.id}-concept-${concept.id}`);
+    for (const chapter of chapters) {
+      if (chapter.id === undefined) {
+        continue;
+      }
+
+      const chapterSkills = await getSkillsForChapter(chapter.id);
+
+      for (const skill of chapterSkills) {
+        const templates = skill.id === undefined ? [] : await getSkillTemplates(`book-${book.id}-skill-${skill.id}`);
         let template: GeneratedSkillTemplate | undefined;
+
         try {
           template = templates[0] && parseStoredSkillTemplate(templates[0].content);
         } catch {
           template = undefined;
         }
-        result.push({ ...concept, chapter: page.chapter, template });
+
+        result.push({ ...skill, chapter: chapter.title, template });
       }
     }
 
     return result;
   }, [book.id]);
-  const total = useMemo(() => Number(modulePrice || 0) + Number(skillPrice || 0) * (concepts?.filter(({ template }) => template).length || 0), [concepts, modulePrice, skillPrice]);
+  const total = useMemo(() => Number(modulePrice || 0) + Number(skillPrice || 0) * (skills?.filter(({ template }) => template).length || 0), [modulePrice, skillPrice, skills]);
 
   return <StyledSkillsCourse>
     <div className='courseColumn'>
-      <Input label='Course name' onChange={setCourseName} value={courseName} />
-      {!concepts?.length && <p>No concepts have been generated for this book.</p>}
-      {concepts?.map(({ chapter, title, description, template }, index) => <section key={`${title}-${index}`}>
-        {(index === 0 || concepts[index - 1].chapter !== chapter) && <h3>{chapter || 'Unassigned chapter'}</h3>}
+      <Input
+        label='Course name'
+        onChange={setCourseName}
+        value={courseName}
+      />
+      {!skills?.length && <p>No skills have been generated for this book.</p>}
+      {skills?.map(({ chapter, description, template, title }, index) => <section key={`${title}-${index}`}>
+        {(index === 0 || skills[index - 1].chapter !== chapter) && <h3>{chapter || 'Unassigned chapter'}</h3>}
         <div className='skillRow'>
           <strong>{template?.h || title}</strong>
           {!template && <small>{description}</small>}
@@ -55,9 +70,22 @@ function SkillsCourse ({ book }: { book: Book }): React.ReactElement {
     </div>
     <aside className='courseSettings'>
       <h3>Publish course</h3>
-      <KnowledgeTargetSelector onChange={setKnowledgeId} value={knowledgeId} />
-      <Input label='Module insertion price' onChange={setModulePrice} type='number' value={modulePrice} />
-      <Input label='Skill insertion price' onChange={setSkillPrice} type='number' value={skillPrice} />
+      <KnowledgeTargetSelector
+        onChange={setKnowledgeId}
+        value={knowledgeId}
+      />
+      <Input
+        label='Module insertion price'
+        onChange={setModulePrice}
+        type='number'
+        value={modulePrice}
+      />
+      <Input
+        label='Skill insertion price'
+        onChange={setSkillPrice}
+        type='number'
+        value={skillPrice}
+      />
       <p className='total'>Estimated total: {Number.isFinite(total) ? total : 0}</p>
     </aside>
   </StyledSkillsCourse>;

@@ -1,10 +1,10 @@
 // Copyright 2021-2026 @polkadot/app-laws authors & contributors
 // SPDX-License-Identifier: Apache-2.0
 
-import type { Book, BookExercise, BookPage, Concept } from '@slonigiraf/db';
+import type { Book, BookConcept, BookExercise, BookPage } from '@slonigiraf/db';
 import type { PDFDocumentLoadingTask, PDFDocumentProxy, RenderTask } from 'pdfjs-dist';
 
-import { getBookExercisesForBookPage, getBookPages, getConceptsForBookPage, getSetting, putBookPage, replaceConceptsForBookPage, replaceParsedBookPageContent, SettingKey, storeSetting } from '@slonigiraf/db';
+import { getBookConceptsForBookPage, getBookExercisesForBookPage, getBookPages, getSetting, putBookPage, replaceParsedBookPageContent, SettingKey, storeSetting } from '@slonigiraf/db';
 import { strFromU8, unzipSync } from 'fflate';
 import FileSaver from 'file-saver';
 import MathpixLoader from 'mathpix-markdown-it/lib/components/mathpix-loader/index.js';
@@ -33,12 +33,14 @@ Return only valid JSON in this exact shape, keeping the original language of the
 
 Use an empty string when the chapter is not shown. Use empty arrays when no concepts or exercises are present. Escape every backslash in mathematical notation so the result remains valid JSON. Do not add markdown or any text outside the JSON.`;
 
-const SPLIT_CONCEPTS_PROMPT = `Review the identified concepts below and divide every concept that contains two or more independently learnable ideas into the smallest useful, self-contained concepts. Split named terms into individual concepts whenever they can be learned independently, even when they are introduced together in a single sentence or title. For example, a concept defining plankton and nekton becomes one concept for plankton and one for nekton; a concept describing the littoral and its supralittoral, littoral, and sublittoral subdivisions becomes four concepts. Keep a concept unchanged only when it is already atomic. Do not remove concepts or invent information that is not supported by the supplied concepts. Preserve the input language.
+const SPLIT_CONCEPTS_PROMPT = `Review the identified concepts and exercises below. Divide every concept that contains two or more independently learnable ideas into the smallest useful, self-contained concepts. Split named terms into individual concepts whenever they can be learned independently, even when introduced together. Keep a concept unchanged only when it is already atomic.
+
+Also divide every exercise that practices multiple skills, contains separable tasks, or requires avoidable multi-step work into the smallest useful exercises. Each resulting exercise must target exactly one specific skill and be independently answerable from its description. Keep an exercise unchanged only when it is already atomic. Preserve all source requirements and information; do not solve the exercises, remove content, or invent unsupported content. Preserve the input language.
 
 Return only valid JSON in this exact shape:
-{"chapter":"Chapter and section name","concepts":[{"title":"Concept title","description":"Explanation or example"}]}
+{"chapter":"Chapter and section name","concepts":[{"title":"Concept title","description":"Explanation or example"}],"exercises":[{"title":"Exercise title","description":"Complete atomic exercise question or instructions"}]}
 
-Use the supplied chapter unchanged. The concepts array must contain the resulting concepts in a logical learning order. Escape every backslash in mathematical notation so the result remains valid JSON. Do not add markdown or any text outside the JSON.`;
+Use the supplied chapter unchanged. Both arrays must be in a logical learning order. Escape every backslash in mathematical notation so the result remains valid JSON. Do not add markdown or any text outside the JSON.`;
 
 interface GeneratedConcepts {
   chapter: string;
@@ -237,7 +239,7 @@ type RecognitionTarget = 'all' | 'page';
 
 function BookReader ({ book, file, generateAllConceptsModel, generateAllConceptsRequest, recognizeAllRequest }: Props): React.ReactElement {
   const [activePane, setActivePane] = useState<ReaderPane>('pdfText');
-  const [concepts, setConcepts] = useState<Concept[]>([]);
+  const [concepts, setConcepts] = useState<BookConcept[]>([]);
   const [exercises, setExercises] = useState<BookExercise[]>([]);
   const [error, setError] = useState('');
   const [generatedConceptsPageCount, setGeneratedConceptsPageCount] = useState(0);
@@ -312,8 +314,8 @@ function BookReader ({ book, file, generateAllConceptsModel, generateAllConcepts
     let active = true;
 
     Promise.all([
-      getConceptsForBookPage(book.id, pageNumber),
-      getBookExercisesForBookPage([pageNumber])
+      getBookConceptsForBookPage(book.id, pageNumber),
+      getBookExercisesForBookPage([book.id, pageNumber])
     ])
       .then(([storedConcepts, storedExercises]) => {
         if (active) {
@@ -546,7 +548,7 @@ function BookReader ({ book, file, generateAllConceptsModel, generateAllConcepts
   }, [book.id, generateAllConceptsModel, isGeneratingAllConcepts, isRecognizingAll, isSplittingConcepts, pageNumber, pages, processingPage, totalPages]);
 
   const splitConcepts = useCallback(async (): Promise<void> => {
-    if (!concepts.length || processingPage !== undefined || isGeneratingAllConcepts || isRecognizingAll || isSplittingConcepts) {
+    if ((!concepts.length && !exercises.length) || processingPage !== undefined || isGeneratingAllConcepts || isRecognizingAll || isSplittingConcepts) {
       return;
     }
 
@@ -569,31 +571,41 @@ function BookReader ({ book, file, generateAllConceptsModel, generateAllConcepts
           'X-OpenRouter-Title': 'Slonig'
         }
       });
-      const response = await client.chat.completions.create({
-        messages: [{
-          content: `${SPLIT_CONCEPTS_PROMPT}\n\nChapter:\n${pages.get(pageNumber)?.chapter ?? ''}\n\nIdentified concepts:\n${JSON.stringify(concepts.map(({ description, title }) => ({ description, title })))}\n`,
-          role: 'user'
-        }],
-        model: selectedModel,
-        response_format: { type: 'json_object' }
-      });
-      const generatedContent = response.choices[0].message?.content?.trim();
+      let splitContent: GeneratedConcepts = {
+        chapter: pages.get(pageNumber)?.chapter ?? '',
+        concepts: concepts.map(({ description, title }) => ({ description, title })),
+        exercises: exercises.map(({ description, title }) => ({ description, title }))
+      };
 
-      if (!generatedContent) {
-        throw new Error('OpenRouter returned no concepts.');
+      // A second pass catches compound items left behind by the first pass.
+      for (let pass = 0; pass < 2; pass++) {
+        const response = await client.chat.completions.create({
+          messages: [{
+            content: `${SPLIT_CONCEPTS_PROMPT}\n\nContent to atomize (pass ${pass + 1} of 2):\n${JSON.stringify(splitContent)}\n`,
+            role: 'user'
+          }],
+          model: selectedModel,
+          response_format: { type: 'json_object' }
+        });
+        const generatedContent = response.choices[0].message?.content?.trim();
+
+        if (!generatedContent) {
+          throw new Error('OpenRouter returned no concepts or exercises.');
+        }
+
+        splitContent = parseGeneratedConcepts(generatedContent);
       }
 
-      const splitConcepts = parseGeneratedConcepts(generatedContent);
-      const chapterId = concepts[0]?.chapterId;
-      const storedConcepts = await replaceConceptsForBookPage(book.id, pageNumber, splitConcepts.concepts.map((concept) => ({ ...concept, chapterId })));
+      const stored = await replaceParsedBookPageContent(book.id, pageNumber, splitContent.chapter, splitContent.concepts, splitContent.exercises ?? []);
 
-      setConcepts(storedConcepts);
+      setConcepts(stored.concepts);
+      setExercises(stored.exercises);
     } catch (splitError) {
-      setError(splitError instanceof Error ? splitError.message : 'Unable to split concepts.');
+      setError(splitError instanceof Error ? splitError.message : 'Unable to split concepts and exercises.');
     } finally {
       setIsSplittingConcepts(false);
     }
-  }, [book.id, concepts, isGeneratingAllConcepts, isRecognizingAll, isSplittingConcepts, pageNumber, pages, processingPage, selectedModel]);
+  }, [book.id, concepts, exercises, isGeneratingAllConcepts, isRecognizingAll, isSplittingConcepts, pageNumber, pages, processingPage, selectedModel]);
 
   const recognizePage = useCallback(async (): Promise<void> => {
     if (processingPage !== undefined || isGeneratingAllConcepts || isRecognizingAll || isSplittingConcepts) {
@@ -850,13 +862,17 @@ function BookReader ({ book, file, generateAllConceptsModel, generateAllConcepts
     </div>
   );
 
+  const conceptsStatus = isGeneratingAllConcepts
+    ? `Generating concepts for all pages… ${generatedConceptsPageCount}/${totalPages}`
+    : isSplittingConcepts
+      ? 'Splitting concepts and exercises twice…'
+      : processingPage === pageNumber
+        ? 'Generating concepts and exercises…'
+        : 'Concepts and exercises';
   const conceptsPane = (): React.ReactNode => (
     <div className='tabPanel conceptsPanel'>
       <div className='detailsHeader'>
-        <span>{isGeneratingAllConcepts
-          ? `Generating concepts for all pages… ${generatedConceptsPageCount}/${totalPages}`
-          : isSplittingConcepts ? 'Splitting concepts…'
-            : processingPage === pageNumber ? 'Generating concepts and exercises…' : 'Concepts and exercises'}</span>
+        <span>{conceptsStatus}</span>
         <div className='generationControls'>
           <Dropdown
             className='modelSelect'
@@ -873,8 +889,8 @@ function BookReader ({ book, file, generateAllConceptsModel, generateAllConcepts
           />
           <Button
             icon='expand'
-            isDisabled={!concepts.length || processingPage !== undefined || isGeneratingAllConcepts || isRecognizingAll || isSplittingConcepts}
-            label='Split concepts'
+            isDisabled={(!concepts.length && !exercises.length) || processingPage !== undefined || isGeneratingAllConcepts || isRecognizingAll || isSplittingConcepts}
+            label='Split concepts and exercises'
             onClick={splitConcepts}
           />
         </div>
