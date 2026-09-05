@@ -4,7 +4,7 @@ import { getSetting, SettingKey, storeSkillTemplate } from '@slonigiraf/db';
 import OpenAI from 'openai';
 import { FileUpload } from '@polkadot/react-components';
 import { skillListPrompt } from '../constants.js';
-import { safeJSONParse } from '../util.js';
+import { parseGeneratedSkillTemplates } from '../skillTemplates.js';
 
 interface Props {
   className?: string;
@@ -48,7 +48,7 @@ const GenerateSkills: React.FC<Props> = ({ className = '', moduleId }: Props) =>
         'X-OpenRouter-Title': 'Slonig'
       }
     });
-    const prompt = `${skillListPrompt}\n\nRespond strictly as a JSON array, without markdown formatting or commentary.`;
+    const prompt = skillListPrompt;
 
     try {
       setLoading(true);
@@ -86,49 +86,20 @@ const GenerateSkills: React.FC<Props> = ({ className = '', moduleId }: Props) =>
         return;
       }
 
-      // 🧹 Clean up Markdown fences or extra text
-      let cleaned = text.trim();
+      const templates = parseGeneratedSkillTemplates(text);
 
-      // Remove ```json ... ``` or ``` ... ``` wrappers
-      cleaned = cleaned.replace(/^```(?:json)?/i, '').replace(/```$/, '').trim();
-
-      // Extract JSON array portion (in case model added intro text)
-      const firstBracket = cleaned.indexOf('[');
-      const lastBracket = cleaned.lastIndexOf(']');
-      if (firstBracket !== -1 && lastBracket !== -1) {
-        cleaned = cleaned.slice(firstBracket, lastBracket + 1);
+      for (const template of templates) {
+        await storeSkillTemplate(moduleId, JSON.stringify(template));
       }
 
-      let parsed: any;
-      try {
-        parsed = safeJSONParse(cleaned);
-      } catch (e) {
-        console.error('JSON parse error:', e, text);
-        setOutput('❌ Failed to parse OpenRouter response as JSON.\n\n' + cleaned);
-        return;
-      }
-
-      if (!Array.isArray(parsed)) {
-        setOutput('❌ OpenRouter response is not an array.\n\n' + cleaned);
-        return;
-      }
-
-      let count = 0;
-      for (const item of parsed) {
-        if (item && typeof item === 'object') {
-          await storeSkillTemplate(moduleId, JSON.stringify(item));
-          count++;
-        }
-      }
-
-      setOutput(`✅ Stored ${count} skill templates.`);
+      setOutput(`✅ Stored ${templates.length} skill templates.`);
     } catch (err: any) {
       console.error('OpenRouter error:', err);
       setOutput(`❌ OpenRouter error: ${err.message || 'Unknown error'}`);
     } finally {
       setLoading(false);
     }
-  }, [file]);
+  }, [file, moduleId]);
 
   return (
     <div className='p-4 space-y-4'>

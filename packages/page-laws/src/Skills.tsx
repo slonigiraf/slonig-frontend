@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import type { Book, BookPage, Concept } from '@slonigiraf/db';
+import type { GeneratedSkillTemplate } from './skillTemplates.js';
 
 import { deleteSkillTemplates, getBookPages, getConceptsForBookPage, getSetting, getSkillTemplates, SettingKey, storeSkillTemplate } from '@slonigiraf/db';
 import { Confirmation, KatexSpan } from '@slonigiraf/slonig-components';
@@ -13,6 +14,7 @@ import { Button, Dropdown, styled } from '@polkadot/react-components';
 
 import ExerciseList from './Edit/ExerciseList.js';
 import { OPENAI_MODELS, conceptsToSkillsPrompt } from './constants.js';
+import { parseGeneratedSkillTemplates, parseStoredSkillTemplate } from './skillTemplates.js';
 
 // Keep one request of headroom below the provider's 20 requests/minute limit.
 const MAX_BATCH_REQUESTS_PER_MIN = 19;
@@ -22,13 +24,6 @@ const BATCH_REQUEST_INTERVAL_MS = Math.ceil(RATE_LIMIT_WINDOW_MS / MAX_BATCH_REQ
 
 const delay = (milliseconds: number): Promise<void> => new Promise((resolve) => setTimeout(resolve, milliseconds));
 
-interface GeneratedSkillTemplate {
-  h: string;
-  i: string;
-  q: Array<{ a: string; h: string; i: string; p: string }>;
-  t: number;
-}
-
 interface PageSkills {
   concepts: Concept[];
   page: BookPage;
@@ -37,59 +32,6 @@ interface PageSkills {
 interface ChapterSkills {
   chapter?: string;
   concepts: Concept[];
-}
-
-function parseGeneratedSkillTemplateValue (template: unknown): GeneratedSkillTemplate {
-  if (
-    !template ||
-    typeof template !== 'object' ||
-    typeof (template as GeneratedSkillTemplate).h !== 'string' ||
-    typeof (template as GeneratedSkillTemplate).i !== 'string' ||
-    (template as GeneratedSkillTemplate).t !== 3 ||
-    !Array.isArray((template as GeneratedSkillTemplate).q) ||
-    (template as GeneratedSkillTemplate).q.length !== 2 ||
-    (template as GeneratedSkillTemplate).q.some((exercise) => !exercise || typeof exercise.h !== 'string' || typeof exercise.a !== 'string' || typeof exercise.p !== 'string' || typeof exercise.i !== 'string')
-  ) {
-    throw new Error('OpenRouter returned an invalid skill template.');
-  }
-
-  return template as GeneratedSkillTemplate;
-}
-
-function parseGeneratedSkillTemplateResponse (content: string): unknown {
-  const json = content.replace(/^```(?:json)?\s*|\s*```$/gi, '').trim();
-  let parsed: unknown;
-
-  try {
-    parsed = JSON.parse(json);
-  } catch {
-    // Some models leave LaTeX backslashes unescaped in an otherwise valid response.
-    parsed = JSON.parse(json.replace(/\\(?!["\\/bfnrt]|u[0-9a-fA-F]{4})/g, '\\\\'));
-  }
-
-  return parsed;
-}
-
-function parseGeneratedSkillTemplate (content: string): GeneratedSkillTemplate {
-  const parsed = parseGeneratedSkillTemplateResponse(content);
-  const template = Array.isArray(parsed) ? parsed[0] : parsed;
-
-  return parseGeneratedSkillTemplateValue(template);
-}
-
-function parseGeneratedSkillTemplates (content: string): GeneratedSkillTemplate[] {
-  const parsed = parseGeneratedSkillTemplateResponse(content);
-  const templates = Array.isArray(parsed)
-    ? parsed
-    : typeof parsed === 'object' && parsed !== null && 'templates' in parsed
-      ? (parsed as { templates: unknown }).templates
-      : undefined;
-
-  if (!Array.isArray(templates)) {
-    throw new Error('OpenRouter returned invalid skill templates.');
-  }
-
-  return templates.map(parseGeneratedSkillTemplateValue);
 }
 
 function conceptTemplateModuleId (bookId: number, conceptId: number): string {
@@ -110,7 +52,7 @@ function ConceptSkillTemplates ({ bookId, conceptId }: { bookId: number; concept
 
   skillTemplates.forEach(({ content, id }) => {
     try {
-      templates.push({ id, template: parseGeneratedSkillTemplate(content) });
+      templates.push({ id, template: parseStoredSkillTemplate(content) });
     } catch {
       // Ignore corrupt templates rather than preventing the remaining exercises from rendering.
     }
@@ -219,6 +161,7 @@ function Skills ({ book }: { book: Book }): React.ReactElement {
       const existingTemplates = await Promise.all(allConcepts.map(({ id }) => getSkillTemplates(conceptTemplateModuleId(book.id, id))));
       const concepts = allConcepts.filter((_, index) => !existingTemplates[index].length);
       let failures = 0;
+      let lastFailure = '';
 
       setGeneratedExerciseCount(allConcepts.length - concepts.length);
 
@@ -233,11 +176,10 @@ function Skills ({ book }: { book: Book }): React.ReactElement {
         try {
           const response = await client.chat.completions.create({
             messages: [{
-              content: `${conceptsToSkillsPrompt}\n\nCreate exactly one skill template for each of the ${batch.length} concepts below. Return only one valid JSON object using this exact shape: {"templates":[{"i":"","t":3,"h":"Skill name","q":[{"h":"Exercise text","a":"Exercise answer","p":"","i":""},{"h":"Exercise text","a":"Exercise answer","p":"","i":""}]}]}. The templates array must contain exactly ${batch.length} items in the same order as the concepts. Each template must train only its matching concept, be self-contained, and contain exactly two parameterized, original exercises.\n\nConcepts:\n${conceptsPrompt}`,
+              content: `${conceptsToSkillsPrompt}\n\nReturn exactly ${batch.length} skill templates in the JSON array, in the same order as the concepts below.\n\nConcepts:\n${conceptsPrompt}`,
               role: 'user'
             }],
-            model: selectedModel,
-            response_format: { type: 'json_object' }
+            model: selectedModel
           });
           const content = response.choices[0].message?.content?.trim();
 
@@ -245,24 +187,21 @@ function Skills ({ book }: { book: Book }): React.ReactElement {
             throw new Error('OpenRouter returned no skill templates.');
           }
 
-          const templates = parseGeneratedSkillTemplates(content);
-
-          if (templates.length !== batch.length) {
-            throw new Error(`OpenRouter returned ${templates.length} templates for ${batch.length} concepts.`);
-          }
+          const templates = parseGeneratedSkillTemplates(content, batch.length);
 
           await Promise.all(templates.map((template, index) => storeSkillTemplate(
             conceptTemplateModuleId(book.id, batch[index].id),
             JSON.stringify(template)
           )));
           setGeneratedExerciseCount((count) => count + batch.length);
-        } catch {
+        } catch (batchError) {
           failures += batch.length;
+          lastFailure = batchError instanceof Error ? batchError.message : 'Unable to generate exercises.';
         }
       }
 
       if (failures) {
-        setError(`${failures} of ${allConcepts.length} concepts could not have exercises generated.`);
+        setError(`${failures} of ${allConcepts.length} concepts could not have exercises generated. ${lastFailure}`);
       }
     } catch (generationError) {
       setError(generationError instanceof Error ? generationError.message : 'Unable to generate exercises.');
