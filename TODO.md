@@ -1,3 +1,14 @@
+Usage scenario:
+Book.pdf -> Course
+
+What prevents?
+- OCR issues
+- Poor exercise generation
+- Lack of exercise definition
+
+
+TODO:
+
 - Estimate token input consumption per each request
 - Add BookExercise entity
 - Identify exercises on the page
