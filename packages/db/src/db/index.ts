@@ -20,6 +20,8 @@ import { ScheduledEvent } from './ScheduledEvent.js';
 import type { Book } from './Book.js';
 import type { BookPage } from './BookPage.js';
 import type { Concept } from './Concept.js';
+import type { BookChapter } from './BookChapter.js';
+import type { BookExercise } from './BookExercise.js';
 
 class SlonigDB extends Dexie {
   agreements!: Table<Agreement>;
@@ -43,6 +45,8 @@ class SlonigDB extends Dexie {
   books!: Table<Book, number>;
   bookPages!: Table<BookPage, [number, number]>;
   concepts!: Table<Concept, number>;
+  bookChapters!: Table<BookChapter, number>;
+  bookExercises!: Table<BookExercise, number>;
 
   constructor() {
     super('slonig');
@@ -81,6 +85,23 @@ class SlonigDB extends Dexie {
     this.version(69).stores({
       bookPages: '&[bookId+pageNumber],bookId,conceptsProcessed',
       concepts: '++id,bookPage',
+    });
+    this.version(70).stores({
+      bookChapters: '++id,bookId',
+    });
+    this.version(71).stores({
+      bookExercises: '++id,bookPage'
+    });
+    this.version(72).stores({
+      bookChapters: '++id,bookId',
+      bookExercises: '++id,bookPage',
+      concepts: '++id,bookPage,chapterId'
+    }).upgrade(async (transaction) => {
+      await Promise.all([
+        transaction.table('bookChapters').clear(),
+        transaction.table('bookExercises').clear(),
+        transaction.table('concepts').clear()
+      ]);
     });
   }
 }
