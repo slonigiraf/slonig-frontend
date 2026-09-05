@@ -5,13 +5,13 @@ export const QR_CODE_SIZE = 300;
 export const sessionPrefix = 'knowledge';
 
 export const OPENAI_MODELS = [
-  { text: 'GPT-4o mini', value: 'openai/gpt-4o-mini' },
-  { text: 'GPT-4o', value: 'openai/gpt-4o' },
-  { text: 'GPT-4.1 mini', value: 'openai/gpt-4.1-mini' },
-  { text: 'GPT-4.1', value: 'openai/gpt-4.1' },
-  { text: 'GPT-5 mini', value: 'openai/gpt-5-mini' },
-  { text: 'GPT-5', value: 'openai/gpt-5' },
-  { text: 'GPT-5.4', value: 'openai/gpt-5.4' }
+  { text: 'GPT-4o mini: $0.15/$0.60', value: 'openai/gpt-4o-mini' },
+  { text: 'GPT-4o: $2.50/$10', value: 'openai/gpt-4o' },
+  { text: 'GPT-4.1 mini: $0.40/$1.60', value: 'openai/gpt-4.1-mini' },
+  { text: 'GPT-4.1: $2/$8', value: 'openai/gpt-4.1' },
+  { text: 'GPT-5 mini: $0.25/$2', value: 'openai/gpt-5-mini' },
+  { text: 'GPT-5: $1.25/$10', value: 'openai/gpt-5' },
+  { text: 'GPT-5.4: $2.50/$15', value: 'openai/gpt-5.4' }
 ];
 
 export const skillListPrompt = `Definitions:
@@ -258,4 +258,3 @@ Example (for illustration only, not drawn from the images):
 Final Check:
 Remember to avoid copying any text or numerical content directly from the input.
 `;
-
