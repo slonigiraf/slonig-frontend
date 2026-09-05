@@ -32,6 +32,13 @@ Return only valid JSON in this exact shape, keeping the original language of the
 
 Use an empty string when the chapter is not shown. Use an empty array when no new concepts are introduced. Escape every backslash in mathematical notation so the result remains valid JSON. Do not add markdown or any text outside the JSON.`;
 
+const SPLIT_CONCEPTS_PROMPT = `Review the identified concepts below and divide every concept that contains two or more independently learnable ideas into the smallest useful, self-contained concepts. Split named terms into individual concepts whenever they can be learned independently, even when they are introduced together in a single sentence or title. For example, a concept defining plankton and nekton becomes one concept for plankton and one for nekton; a concept describing the littoral and its supralittoral, littoral, and sublittoral subdivisions becomes four concepts. Keep a concept unchanged only when it is already atomic. Do not remove concepts or invent information that is not supported by the supplied concepts. Preserve the input language.
+
+Return only valid JSON in this exact shape:
+{"chapter":"Chapter and section name","concepts":[{"title":"Concept title","description":"Explanation or example"}]}
+
+Use the supplied chapter unchanged. The concepts array must contain the resulting concepts in a logical learning order. Escape every backslash in mathematical notation so the result remains valid JSON. Do not add markdown or any text outside the JSON.`;
+
 interface GeneratedConcepts {
   chapter: string;
   concepts: Array<{ description: string; title: string }>;
@@ -228,6 +235,7 @@ function BookReader ({ book, file, generateAllConceptsModel, generateAllConcepts
   const [error, setError] = useState('');
   const [generatedConceptsPageCount, setGeneratedConceptsPageCount] = useState(0);
   const [isGeneratingAllConcepts, setIsGeneratingAllConcepts] = useState(false);
+  const [isSplittingConcepts, setIsSplittingConcepts] = useState(false);
   const [isMaximized, setIsMaximized] = useState(false);
   const [isMathpixKeyPromptOpen, setIsMathpixKeyPromptOpen] = useState(false);
   const [isRecognizingAll, setIsRecognizingAll] = useState(false);
@@ -352,7 +360,7 @@ function BookReader ({ book, file, generateAllConceptsModel, generateAllConcepts
   const generateConcepts = useCallback(async (): Promise<void> => {
     const pageMMDZip = pages.get(pageNumber)?.pageMMDZip;
 
-    if (!pageMMDZip || processingPage !== undefined || isGeneratingAllConcepts || isRecognizingAll) {
+    if (!pageMMDZip || processingPage !== undefined || isGeneratingAllConcepts || isRecognizingAll || isSplittingConcepts) {
       return;
     }
 
@@ -416,10 +424,10 @@ function BookReader ({ book, file, generateAllConceptsModel, generateAllConcepts
     } finally {
       setProcessingPage(undefined);
     }
-  }, [book.id, isGeneratingAllConcepts, isRecognizingAll, pageNumber, pages, processingPage, selectedModel]);
+  }, [book.id, isGeneratingAllConcepts, isRecognizingAll, isSplittingConcepts, pageNumber, pages, processingPage, selectedModel]);
 
   const generateAllConcepts = useCallback(async (): Promise<void> => {
-    if (!totalPages || processingPage !== undefined || isGeneratingAllConcepts || isRecognizingAll) {
+    if (!totalPages || processingPage !== undefined || isGeneratingAllConcepts || isRecognizingAll || isSplittingConcepts) {
       return;
     }
 
@@ -518,10 +526,59 @@ function BookReader ({ book, file, generateAllConceptsModel, generateAllConcepts
     } finally {
       setIsGeneratingAllConcepts(false);
     }
-  }, [book.id, generateAllConceptsModel, isGeneratingAllConcepts, isRecognizingAll, pageNumber, pages, processingPage, totalPages]);
+  }, [book.id, generateAllConceptsModel, isGeneratingAllConcepts, isRecognizingAll, isSplittingConcepts, pageNumber, pages, processingPage, totalPages]);
+
+  const splitConcepts = useCallback(async (): Promise<void> => {
+    if (!concepts.length || processingPage !== undefined || isGeneratingAllConcepts || isRecognizingAll || isSplittingConcepts) {
+      return;
+    }
+
+    setError('');
+    setIsSplittingConcepts(true);
+
+    try {
+      const key = await getSetting(SettingKey.OPENROUTER_TOKEN);
+
+      if (!key) {
+        throw new Error('No OpenRouter token found. Add it in Settings.');
+      }
+
+      const client = new OpenAI({
+        apiKey: key,
+        baseURL: 'https://openrouter.ai/api/v1',
+        dangerouslyAllowBrowser: true,
+        defaultHeaders: {
+          'HTTP-Referer': window.location.origin,
+          'X-OpenRouter-Title': 'Slonig'
+        }
+      });
+      const response = await client.chat.completions.create({
+        messages: [{
+          content: `${SPLIT_CONCEPTS_PROMPT}\n\nChapter:\n${pages.get(pageNumber)?.chapter ?? ''}\n\nIdentified concepts:\n${JSON.stringify(concepts.map(({ description, title }) => ({ description, title })))}\n`,
+          role: 'user'
+        }],
+        model: selectedModel,
+        response_format: { type: 'json_object' }
+      });
+      const generatedContent = response.choices[0].message?.content?.trim();
+
+      if (!generatedContent) {
+        throw new Error('OpenRouter returned no concepts.');
+      }
+
+      const splitConcepts = parseGeneratedConcepts(generatedContent);
+      const storedConcepts = await replaceConceptsForBookPage(book.id, pageNumber, splitConcepts.concepts);
+
+      setConcepts(storedConcepts);
+    } catch (splitError) {
+      setError(splitError instanceof Error ? splitError.message : 'Unable to split concepts.');
+    } finally {
+      setIsSplittingConcepts(false);
+    }
+  }, [book.id, concepts, isGeneratingAllConcepts, isRecognizingAll, isSplittingConcepts, pageNumber, pages, processingPage, selectedModel]);
 
   const recognizePage = useCallback(async (): Promise<void> => {
-    if (processingPage !== undefined || isGeneratingAllConcepts || isRecognizingAll) {
+    if (processingPage !== undefined || isGeneratingAllConcepts || isRecognizingAll || isSplittingConcepts) {
       return;
     }
 
@@ -562,10 +619,10 @@ function BookReader ({ book, file, generateAllConceptsModel, generateAllConcepts
     } finally {
       setProcessingPage(undefined);
     }
-  }, [book.id, file, isGeneratingAllConcepts, isRecognizingAll, pageNumber, pages, processingPage]);
+  }, [book.id, file, isGeneratingAllConcepts, isRecognizingAll, isSplittingConcepts, pageNumber, pages, processingPage]);
 
   const recognizeAllPages = useCallback(async (): Promise<void> => {
-    if (!totalPages || processingPage !== undefined || isGeneratingAllConcepts || isRecognizingAll) {
+    if (!totalPages || processingPage !== undefined || isGeneratingAllConcepts || isRecognizingAll || isSplittingConcepts) {
       return;
     }
 
@@ -627,7 +684,7 @@ function BookReader ({ book, file, generateAllConceptsModel, generateAllConcepts
     } finally {
       setIsRecognizingAll(false);
     }
-  }, [book.id, file, isGeneratingAllConcepts, isRecognizingAll, pages, processingPage, totalPages]);
+  }, [book.id, file, isGeneratingAllConcepts, isRecognizingAll, isSplittingConcepts, pages, processingPage, totalPages]);
 
   const saveMathpixApiKey = useCallback(async (): Promise<void> => {
     const apiKey = mathpixApiKey.trim();
@@ -780,20 +837,27 @@ function BookReader ({ book, file, generateAllConceptsModel, generateAllConcepts
       <div className='detailsHeader'>
         <span>{isGeneratingAllConcepts
           ? `Generating concepts for all pages… ${generatedConceptsPageCount}/${totalPages}`
-          : processingPage === pageNumber ? 'Generating concepts…' : 'Concepts'}</span>
+          : isSplittingConcepts ? 'Splitting concepts…'
+            : processingPage === pageNumber ? 'Generating concepts…' : 'Concepts'}</span>
         <div className='generationControls'>
           <Dropdown
             className='modelSelect'
-            isDisabled={processingPage !== undefined || isGeneratingAllConcepts || isRecognizingAll}
+            isDisabled={processingPage !== undefined || isGeneratingAllConcepts || isRecognizingAll || isSplittingConcepts}
             onChange={setSelectedModel}
             options={OPENAI_MODELS}
             value={selectedModel}
           />
           <Button
             icon='magic'
-            isDisabled={!pages.get(pageNumber)?.pageMMDZip || processingPage !== undefined || isGeneratingAllConcepts || isRecognizingAll}
+            isDisabled={!pages.get(pageNumber)?.pageMMDZip || processingPage !== undefined || isGeneratingAllConcepts || isRecognizingAll || isSplittingConcepts}
             label='Generate concepts'
             onClick={generateConcepts}
+          />
+          <Button
+            icon='expand'
+            isDisabled={!concepts.length || processingPage !== undefined || isGeneratingAllConcepts || isRecognizingAll || isSplittingConcepts}
+            label='Split concepts'
+            onClick={splitConcepts}
           />
         </div>
       </div>
