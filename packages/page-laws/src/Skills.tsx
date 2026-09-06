@@ -4,7 +4,7 @@
 import type { Book, BookChapter, BookConcept, BookExercise, BookPage, BookSkill, ExerciseTemplate } from '@slonigiraf/db';
 import type { GeneratedSkillTemplate } from './skillTemplates.js';
 
-import { deleteAndRankBookSkills, deleteBookConcept, deleteBookExercise, deleteBookSkill, deleteExerciseTemplate, deleteSkillTemplate, deleteSkillTemplates, getBookChapters, getBookConceptsForBookPage, getBookExercisesForBookPage, getBookPages, getBookSkillsForChapter, getExerciseTemplatesForBookSkill, getSetting, getSkillTemplates, replaceBookSkillsForChapter, replaceExerciseTemplatesForBookSkill, SettingKey, storeSkillTemplate, updateBookChapterTitle, updateBookProcessingStage } from '@slonigiraf/db';
+import { deleteAndRankBookSkills, deleteBookConcept, deleteBookExercise, deleteBookSkill, deleteExerciseTemplate, deleteSkillTemplate, deleteSkillTemplates, getBookChapters, getBookConceptsForBookPage, getBookExercisesForBookPage, getBookPages, getBookSkillsForChapter, getExerciseTemplatesForBookSkill, getSetting, getSkillTemplates, replaceBookSkillsForChapter, replaceExerciseTemplatesForBookSkill, replaceSkillTemplates, SettingKey, updateBookChapterTitle, updateBookProcessingStage } from '@slonigiraf/db';
 import { KatexSpan, RoundProgress } from '@slonigiraf/slonig-components';
 import OpenAI from 'openai';
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
@@ -13,10 +13,10 @@ import { Button, Dropdown, Input, Modal, styled } from '@polkadot/react-componen
 
 import ExerciseList from './Edit/ExerciseList.js';
 import { assertOpenRouterCredits, estimateAiInput, formatAiInputEstimate } from './aiEstimate.js';
-import { deduplicateAndSortSkillsPrompt, fixSkillTemplatesPrompt, OPENAI_MODELS, skillsToExercisesPrompt, skillsToExerciseTemplatesPrompt, sourcesToSkillsPrompt } from './constants.js';
+import { deduplicateAndSortSkillsPrompt, fixExerciseTemplatesPrompt, fixSkillTemplatesPrompt, OPENAI_MODELS, skillsToExercisesPrompt, skillsToExerciseTemplatesPrompt, sourcesToSkillsPrompt } from './constants.js';
 import { parseGeneratedSkillTemplates, parseStoredSkillTemplate } from './skillTemplates.js';
 
-const REQUEST_INTERVAL_MS = Math.ceil(60_000 / 19);
+const REQUEST_INTERVAL_MS = Math.ceil(60_000 / 9);
 const BATCH_SIZE = 5;
 const delay = (milliseconds: number): Promise<void> => new Promise((resolve) => setTimeout(resolve, milliseconds));
 
@@ -56,7 +56,7 @@ interface SkillSource {
   title: string;
 }
 
-type AiAction = 'exercises' | 'fix' | 'organize' | 'preExercises' | 'skills';
+type AiAction = 'exercises' | 'fix' | 'fixPreExercises' | 'organize' | 'preExercises' | 'skills';
 
 const skillTemplateModuleId = (bookId: number, bookSkillId: number): string => `book-${bookId}-skill-${bookSkillId}`;
 
@@ -115,11 +115,42 @@ function parseExerciseTemplates (content: string, expectedSkillIds: number[]): E
 
   const templates = values as Array<Partial<ExerciseTemplate>>;
 
-  if (templates.some(({ bookSkillId, solution, text, title }) => !Number.isSafeInteger(bookSkillId) || !expectedSkillIds.includes(bookSkillId as number) || typeof title !== 'string' || typeof text !== 'string' || typeof solution !== 'string')) {
+  if (
+    templates.some(({ bookSkillId, solution, text, title }) => !Number.isSafeInteger(bookSkillId) || !expectedSkillIds.includes(bookSkillId as number) || typeof title !== 'string' || !title.trim() || typeof text !== 'string' || !text.trim() || typeof solution !== 'string' || !solution.trim()) ||
+    expectedSkillIds.some((id) => !templates.some(({ bookSkillId }) => bookSkillId === id))
+  ) {
     throw new Error('OpenRouter returned an invalid ExerciseTemplate.');
   }
 
   return templates.map(({ bookSkillId = 0, solution = '', text = '', title = '' }) => ({ bookSkillId, solution: solution.trim(), text: text.trim(), title: title.trim() }));
+}
+
+async function requestValidatedJson<T> (client: OpenAI, model: string, systemPrompt: string, userPrompt: string, parse: (content: string) => T, jsonObject = true): Promise<T> {
+  let lastError: unknown;
+
+  for (let attempt = 0; attempt < 2; attempt++) {
+    const response = await client.chat.completions.create({
+      messages: [{ content: systemPrompt, role: 'system' }, { content: userPrompt, role: 'user' }],
+      model,
+      ...(jsonObject ? { response_format: { type: 'json_object' as const } } : {})
+    });
+    const candidate = response.choices[0].message?.content?.trim() ?? '';
+    const validationPrompt = `Act as an independent strict validator. Check the candidate against every original requirement and the supplied input. Fix every factual, structural, language, completeness, ordering, KaTeX, and count error. If it cannot be repaired safely, regenerate the complete output from the original request. Return only the final corrected output in the exact originally requested JSON shape, without commentary.\n\nORIGINAL REQUEST:\n${userPrompt}\n\nCANDIDATE OUTPUT:\n${candidate}`;
+
+    try {
+      const validation = await client.chat.completions.create({
+        messages: [{ content: systemPrompt, role: 'system' }, { content: validationPrompt, role: 'user' }],
+        model,
+        ...(jsonObject ? { response_format: { type: 'json_object' as const } } : {})
+      });
+
+      return parse(validation.choices[0].message?.content?.trim() ?? '');
+    } catch (error) {
+      lastError = error;
+    }
+  }
+
+  throw lastError instanceof Error ? lastError : new Error('AI output failed validation twice.');
 }
 
 function ChapterNavigation ({ chapters, index, onChange }: { chapters: BookChapter[]; index: number; onChange: (index: number) => void }): React.ReactElement | null {
@@ -337,7 +368,7 @@ function Skills ({ book, onAction, onBookChange, pipelineOnly = false, pipelineP
   const allExerciseTemplates = useMemo(() => chapterContent.flatMap(({ exerciseTemplates }) => exerciseTemplates), [chapterContent]);
   const allSkillTemplates = useMemo(() => chapterContent.flatMap(({ skillTemplates }) => skillTemplates), [chapterContent]);
   const skillSources = useMemo<SkillSource[]>(() => chapterContent.flatMap(({ chapter, concepts, exercises }) => chapter.id === undefined ? [] : [...concepts.map(({ description, title }) => ({ chapterId: chapter.id as number, chapterTitle: chapter.title, description, sourceType: 'concept' as const, title })), ...exercises.map(({ description, title }) => ({ chapterId: chapter.id as number, chapterTitle: chapter.title, description, sourceType: 'exercise' as const, title }))]), [chapterContent]);
-  const inferredStage = allSkillTemplates.length ? 6 : allExerciseTemplates.length ? 5 : allSkills.length ? 3 : skillSources.length ? 2 : book.processingStage ?? 0;
+  const inferredStage = allSkillTemplates.length ? 7 : allExerciseTemplates.length ? 5 : allSkills.length ? 3 : skillSources.length ? 2 : book.processingStage ?? 0;
   const stage = Math.max(book.processingStage ?? 0, inferredStage);
   const hasCompleteSkillTemplates = allExerciseTemplates.length > 0 && allSkillTemplates.length >= allExerciseTemplates.length;
 
@@ -380,10 +411,24 @@ function Skills ({ book, onAction, onBookChange, pipelineOnly = false, pipelineP
       return chapterContent.flatMap(({ chapter, skillTemplates }) => Array.from({ length: Math.ceil(skillTemplates.length / BATCH_SIZE) }, (_, index) => `${fixSkillTemplatesPrompt}\n${chapter.title}\n${JSON.stringify(skillTemplates.slice(index * BATCH_SIZE, (index + 1) * BATCH_SIZE).map(({ template }) => template))}`));
     }
 
+    if (aiAction === 'fixPreExercises') {
+      return chapterContent.flatMap(({ chapter, exerciseTemplates, skills }) => {
+        const skillIds = skills.flatMap(({ id }) => id === undefined ? [] : [id]);
+
+        return Array.from({ length: Math.ceil(skillIds.length / BATCH_SIZE) }, (_, index) => {
+          const batchIds = skillIds.slice(index * BATCH_SIZE, (index + 1) * BATCH_SIZE);
+
+          return `${fixExerciseTemplatesPrompt}\n${chapter.title}\n${JSON.stringify({ skills: skills.filter(({ id }) => id !== undefined && batchIds.includes(id)), templates: exerciseTemplates.filter(({ bookSkillId }) => batchIds.includes(bookSkillId)) })}`;
+        });
+      });
+    }
+
     return [];
   }, [aiAction, allExerciseTemplates, allSkills, chapterContent, language, skillSources]);
-  const outputTokens = aiAction === 'preExercises' ? BATCH_SIZE * 1_250 : aiAction === 'exercises' || aiAction === 'fix' ? BATCH_SIZE * 700 : aiAction === 'skills' ? BATCH_SIZE * 180 : 300;
-  const estimate = formatAiInputEstimate(estimateAiInput(selectedModel, requestInputs, outputTokens));
+  const generationOutputTokens = aiAction === 'preExercises' || aiAction === 'fixPreExercises' ? BATCH_SIZE * 1_250 : aiAction === 'exercises' || aiAction === 'fix' ? BATCH_SIZE * 700 : aiAction === 'skills' ? BATCH_SIZE * 180 : 300;
+  const validationInputs = useMemo(() => requestInputs.flatMap((input) => [input, `Validate and repair this response against the original request:\n${input}`]), [requestInputs]);
+  const outputTokens = generationOutputTokens * 2;
+  const estimate = formatAiInputEstimate(estimateAiInput(selectedModel, validationInputs, outputTokens));
   const ensureCredits = useCallback(async (inputs: string[], outputTokenCount: number): Promise<void> => {
     const key = await getSetting(SettingKey.OPENROUTER_TOKEN);
 
@@ -404,10 +449,9 @@ function Skills ({ book, onAction, onBookChange, pipelineOnly = false, pipelineP
 
     try {
       const client = await createClient();
-      await ensureCredits(requestInputs, outputTokens);
-      const generatedByChapter = new Map<number, Array<Omit<BookSkill, 'chapterId' | 'id'>>>();
 
-      await Promise.all(allSkills.flatMap(({ id }) => id === undefined ? [] : [replaceExerciseTemplatesForBookSkill(id, []), deleteSkillTemplates(skillTemplateModuleId(book.id, id))]));
+      await ensureCredits(validationInputs, outputTokens);
+      const generatedByChapter = new Map<number, Array<Omit<BookSkill, 'chapterId' | 'id'>>>();
 
       for (let start = 0; start < skillSources.length; start += BATCH_SIZE) {
         const batch = skillSources.slice(start, start + BATCH_SIZE);
@@ -416,8 +460,9 @@ function Skills ({ book, onAction, onBookChange, pipelineOnly = false, pipelineP
           await delay(REQUEST_INTERVAL_MS);
         }
 
-        const response = await client.chat.completions.create({ messages: [{ content: `Write strictly in ISO language ${language}. Use <kx>...</kx> for all formulas.`, role: 'system' }, { content: `${sourcesToSkillsPrompt}\nReturn exactly ${batch.length} skills.\n${JSON.stringify(batch)}`, role: 'user' }], model: selectedModel, response_format: { type: 'json_object' } });
-        const generated = parseGeneratedSkills(response.choices[0].message?.content ?? '', batch.length);
+        const systemPrompt = `Write strictly in ISO language ${language}. Use <kx>...</kx> for all formulas.`;
+        const userPrompt = `${sourcesToSkillsPrompt}\nReturn exactly ${batch.length} skills.\n${JSON.stringify(batch)}`;
+        const generated = await requestValidatedJson(client, selectedModel, systemPrompt, userPrompt, (content) => parseGeneratedSkills(content, batch.length));
 
         generated.forEach((skill, index) => {
           const rows = generatedByChapter.get(batch[index].chapterId) ?? [];
@@ -427,6 +472,7 @@ function Skills ({ book, onAction, onBookChange, pipelineOnly = false, pipelineP
         setProgress(Math.min(skillSources.length, start + batch.length));
       }
 
+      await Promise.all(allSkills.flatMap(({ id }) => id === undefined ? [] : [replaceExerciseTemplatesForBookSkill(id, []), deleteSkillTemplates(skillTemplateModuleId(book.id, id))]));
       await Promise.all(chapters.flatMap(({ id }) => id === undefined ? [] : [replaceBookSkillsForChapter(id, generatedByChapter.get(id) ?? [])]));
       await setStage(3); refresh();
     } catch (caught) {
@@ -434,7 +480,7 @@ function Skills ({ book, onAction, onBookChange, pipelineOnly = false, pipelineP
     } finally {
       setIsBusy(false);
     }
-  }, [allSkills, beginProgress, book.id, chapters, createClient, ensureCredits, language, outputTokens, refresh, requestInputs, selectedModel, setStage, skillSources]);
+  }, [allSkills, beginProgress, book.id, chapters, createClient, ensureCredits, language, outputTokens, refresh, selectedModel, setStage, skillSources, validationInputs]);
 
   const organizeSkills = useCallback(async (): Promise<void> => {
     const groups = chapterContent.filter(({ skills }) => skills.length);
@@ -443,7 +489,8 @@ function Skills ({ book, onAction, onBookChange, pipelineOnly = false, pipelineP
 
     try {
       const client = await createClient();
-      await ensureCredits(requestInputs, outputTokens);
+
+      await ensureCredits(validationInputs, outputTokens);
 
       for (const [index, { chapter, skills }] of groups.entries()) {
         if (index) {
@@ -451,8 +498,8 @@ function Skills ({ book, onAction, onBookChange, pipelineOnly = false, pipelineP
         }
 
         const rows = skills.filter(({ id }) => id !== undefined).map(({ description, id, title }) => ({ description, id, title }));
-        const response = await client.chat.completions.create({ messages: [{ content: `${deduplicateAndSortSkillsPrompt}\nChapter: ${chapter.title}\n${JSON.stringify(rows)}`, role: 'user' }], model: selectedModel, response_format: { type: 'json_object' } });
-        const organization = parseSkillOrganization(response.choices[0].message?.content ?? '', rows.map(({ id }) => id as number));
+        const userPrompt = `${deduplicateAndSortSkillsPrompt}\nChapter: ${chapter.title}\n${JSON.stringify(rows)}`;
+        const organization = await requestValidatedJson(client, selectedModel, `Keep ISO language ${language}.`, userPrompt, (content) => parseSkillOrganization(content, rows.map(({ id }) => id as number)));
 
         await deleteAndRankBookSkills(chapter.id as number, organization.deleteIds, organization.sortedIds);
         await Promise.all(organization.deleteIds.map((id) => deleteSkillTemplates(skillTemplateModuleId(book.id, id)))); setProgress(index + 1);
@@ -464,14 +511,16 @@ function Skills ({ book, onAction, onBookChange, pipelineOnly = false, pipelineP
     } finally {
       setIsBusy(false);
     }
-  }, [beginProgress, book.id, chapterContent, createClient, ensureCredits, outputTokens, refresh, requestInputs, selectedModel, setStage]);
+  }, [beginProgress, book.id, chapterContent, createClient, ensureCredits, language, outputTokens, refresh, selectedModel, setStage, validationInputs]);
 
   const generatePreExercises = useCallback(async (): Promise<void> => {
     beginProgress('Generating ExerciseTemplates', allSkills.length);
 
     try {
       const client = await createClient();
-      await ensureCredits(requestInputs, outputTokens);
+
+      await ensureCredits(validationInputs, outputTokens);
+      const generatedBySkill = new Map<number, Array<Omit<ExerciseTemplate, 'bookSkillId' | 'id'>>>();
 
       for (let start = 0; start < allSkills.length; start += BATCH_SIZE) {
         const batch = allSkills.slice(start, start + BATCH_SIZE).filter(({ id }) => id !== undefined) as Array<BookSkill & { id: number }>;
@@ -480,33 +529,84 @@ function Skills ({ book, onAction, onBookChange, pipelineOnly = false, pipelineP
           await delay(REQUEST_INTERVAL_MS);
         }
 
-        const response = await client.chat.completions.create({ messages: [{ content: `Write strictly in ISO language ${language}. Use <kx>...</kx> for all formulas.`, role: 'system' }, { content: `${skillsToExerciseTemplatesPrompt}\n${JSON.stringify(batch)}`, role: 'user' }], model: selectedModel, response_format: { type: 'json_object' } });
-        const generated = parseExerciseTemplates(response.choices[0].message?.content ?? '', batch.map(({ id }) => id));
+        const systemPrompt = `Write strictly in ISO language ${language}. Use <kx>...</kx> for all formulas.`;
+        const userPrompt = `${skillsToExerciseTemplatesPrompt}\n${JSON.stringify(batch)}`;
+        const generated = await requestValidatedJson(client, selectedModel, systemPrompt, userPrompt, (content) => parseExerciseTemplates(content, batch.map(({ id }) => id)));
 
-        await Promise.all(batch.map(({ id }) => replaceExerciseTemplatesForBookSkill(
-          id,
-          generated.filter(({ bookSkillId }) => bookSkillId === id).map(({ solution, text, title }) => ({ solution, text, title }))
-        )));
+        batch.forEach(({ id }) => generatedBySkill.set(id, generated.filter(({ bookSkillId }) => bookSkillId === id).map(({ solution, text, title }) => ({ solution, text, title }))));
         setProgress(Math.min(allSkills.length, start + batch.length));
       }
 
+      const expectedSkillIds = allSkills.flatMap(({ id }) => id === undefined ? [] : [id]);
+
+      if (expectedSkillIds.some((id) => !generatedBySkill.get(id)?.length)) {
+        throw new Error('AI did not generate a validated ExerciseTemplate for every BookSkill. Existing templates were preserved.');
+      }
+
+      await Promise.all(expectedSkillIds.map((id) => replaceExerciseTemplatesForBookSkill(id, generatedBySkill.get(id) ?? [])));
       await setStage(5); refresh();
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : 'Unable to generate ExerciseTemplates.');
     } finally {
       setIsBusy(false);
     }
-  }, [allSkills, beginProgress, createClient, ensureCredits, language, outputTokens, refresh, requestInputs, selectedModel, setStage]);
+  }, [allSkills, beginProgress, createClient, ensureCredits, language, outputTokens, refresh, selectedModel, setStage, validationInputs]);
+
+  const fixPreExercises = useCallback(async (): Promise<void> => {
+    beginProgress('Fixing ExerciseTemplate errors', allSkills.length);
+
+    try {
+      const client = await createClient();
+
+      await ensureCredits(validationInputs, outputTokens);
+      let completed = 0;
+      let requestIndex = 0;
+
+      for (const { chapter, exerciseTemplates, skills } of chapterContent) {
+        const skillIds = skills.flatMap(({ id }) => id === undefined ? [] : [id]);
+
+        for (let start = 0; start < skillIds.length; start += BATCH_SIZE) {
+          const expectedSkillIds = skillIds.slice(start, start + BATCH_SIZE);
+          const selectedSkills = skills.filter(({ id }) => id !== undefined && expectedSkillIds.includes(id));
+          const batch = exerciseTemplates.filter(({ bookSkillId }) => expectedSkillIds.includes(bookSkillId));
+
+          if (!selectedSkills.length) {
+            continue;
+          }
+
+          if (requestIndex++) {
+            await delay(REQUEST_INTERVAL_MS);
+          }
+
+          const systemPrompt = `Keep ISO language ${language}. Use <kx>...</kx> for every mathematical expression.`;
+          const userPrompt = `${fixExerciseTemplatesPrompt}\nChapter: ${chapter.title}\nGenerate missing templates for any supplied skill that has none.\n${JSON.stringify({ skills: selectedSkills, templates: batch })}`;
+          const corrected = await requestValidatedJson(client, selectedModel, systemPrompt, userPrompt, (content) => parseExerciseTemplates(content, expectedSkillIds));
+
+          await Promise.all(expectedSkillIds.map((bookSkillId) => replaceExerciseTemplatesForBookSkill(
+            bookSkillId,
+            corrected.filter((template) => template.bookSkillId === bookSkillId).map(({ solution, text, title }) => ({ solution, text, title }))
+          )));
+          completed += expectedSkillIds.length;
+          setProgress(Math.min(allSkills.length, completed));
+        }
+      }
+
+      await setStage(6); refresh();
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : 'Unable to fix ExerciseTemplate errors.');
+    } finally {
+      setIsBusy(false);
+    }
+  }, [allSkills.length, beginProgress, chapterContent, createClient, ensureCredits, language, outputTokens, refresh, selectedModel, setStage, validationInputs]);
 
   const generateExercises = useCallback(async (): Promise<void> => {
     beginProgress('Generating SkillTemplates', allExerciseTemplates.length);
 
     try {
       const client = await createClient();
-      await ensureCredits(requestInputs, outputTokens);
-      const moduleIds = Array.from(new Set(allExerciseTemplates.map(({ bookSkillId }) => skillTemplateModuleId(book.id, bookSkillId))));
 
-      await Promise.all(moduleIds.map(deleteSkillTemplates));
+      await ensureCredits(validationInputs, outputTokens);
+      const generatedByModule = new Map<string, string[]>();
 
       for (let start = 0; start < allExerciseTemplates.length; start += BATCH_SIZE) {
         const batch = allExerciseTemplates.slice(start, start + BATCH_SIZE);
@@ -515,26 +615,42 @@ function Skills ({ book, onAction, onBookChange, pipelineOnly = false, pipelineP
           await delay(REQUEST_INTERVAL_MS);
         }
 
-        const response = await client.chat.completions.create({ messages: [{ content: `Write strictly in ISO language ${language}. Use <kx>...</kx> for all formulas.`, role: 'system' }, { content: `${skillsToExercisesPrompt}\nReturn exactly ${batch.length} SkillTemplates.\n${JSON.stringify(batch)}`, role: 'user' }], model: selectedModel });
-        const generated = parseGeneratedSkillTemplates(response.choices[0].message?.content ?? '', batch.length);
+        const systemPrompt = `Write strictly in ISO language ${language}. Use <kx>...</kx> for all formulas.`;
+        const userPrompt = `${skillsToExercisesPrompt}\nReturn exactly ${batch.length} SkillTemplates.\n${JSON.stringify(batch)}`;
+        const generated = await requestValidatedJson(client, selectedModel, systemPrompt, userPrompt, (content) => parseGeneratedSkillTemplates(content, batch.length), false);
 
-        await Promise.all(generated.map((template, index) => storeSkillTemplate(skillTemplateModuleId(book.id, batch[index].bookSkillId), JSON.stringify(template))));
+        generated.forEach((template, index) => {
+          const moduleId = skillTemplateModuleId(book.id, batch[index].bookSkillId);
+          const contents = generatedByModule.get(moduleId) ?? [];
+
+          contents.push(JSON.stringify(template));
+          generatedByModule.set(moduleId, contents);
+        });
         setProgress(Math.min(allExerciseTemplates.length, start + batch.length));
       }
 
-      await setStage(6); refresh();
+      if (!generatedByModule.size || Array.from(generatedByModule.values()).some(({ length }) => !length)) {
+        throw new Error('No validated SkillTemplates were generated. Existing templates were preserved.');
+      }
+
+      await Promise.all(Array.from(generatedByModule, ([moduleId, contents]) => replaceSkillTemplates(moduleId, contents)));
+      await setStage(7); refresh();
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : 'Unable to generate SkillTemplates.');
     } finally {
       setIsBusy(false);
     }
-  }, [allExerciseTemplates, beginProgress, book.id, createClient, ensureCredits, language, outputTokens, refresh, requestInputs, selectedModel, setStage]);
+  }, [allExerciseTemplates, beginProgress, book.id, createClient, ensureCredits, language, outputTokens, refresh, selectedModel, setStage, validationInputs]);
 
   const fixExercises = useCallback(async (): Promise<void> => {
     beginProgress('Fixing SkillTemplate errors', allSkillTemplates.length);
 
     try {
-      const client = await createClient(); await ensureCredits(requestInputs, outputTokens); let completed = 0;
+      const client = await createClient();
+
+      await ensureCredits(validationInputs, outputTokens);
+      let completed = 0;
+      const correctedByModule = new Map<string, string[]>();
 
       for (const { skillTemplates } of chapterContent) {
         for (let start = 0; start < skillTemplates.length; start += BATCH_SIZE) {
@@ -544,22 +660,28 @@ function Skills ({ book, onAction, onBookChange, pipelineOnly = false, pipelineP
             await delay(REQUEST_INTERVAL_MS);
           }
 
-          const response = await client.chat.completions.create({ messages: [{ content: `Keep ISO language ${language}.`, role: 'system' }, { content: `${fixSkillTemplatesPrompt}\n${JSON.stringify(batch.map(({ template }) => template))}`, role: 'user' }], model: selectedModel });
-          const corrected = parseGeneratedSkillTemplates(response.choices[0].message?.content ?? '', batch.length);
+          const systemPrompt = `Keep ISO language ${language}.`;
+          const userPrompt = `${fixSkillTemplatesPrompt}\n${JSON.stringify(batch.map(({ template }) => template))}`;
+          const corrected = await requestValidatedJson(client, selectedModel, systemPrompt, userPrompt, (content) => parseGeneratedSkillTemplates(content, batch.length), false);
 
-          await Promise.all(batch.map(async ({ id, moduleId }, index) => {
-            await deleteSkillTemplate(id); await storeSkillTemplate(moduleId, JSON.stringify(corrected[index]));
-          })); completed += batch.length; setProgress(completed);
+          batch.forEach(({ moduleId }, index) => {
+            const contents = correctedByModule.get(moduleId) ?? [];
+
+            contents.push(JSON.stringify(corrected[index]));
+            correctedByModule.set(moduleId, contents);
+          });
+          completed += batch.length; setProgress(completed);
         }
       }
 
+      await Promise.all(Array.from(correctedByModule, ([moduleId, contents]) => replaceSkillTemplates(moduleId, contents)));
       refresh();
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : 'Unable to fix SkillTemplate errors.');
     } finally {
       setIsBusy(false);
     }
-  }, [allSkillTemplates.length, beginProgress, chapterContent, createClient, ensureCredits, language, outputTokens, refresh, requestInputs, selectedModel]);
+  }, [allSkillTemplates.length, beginProgress, chapterContent, createClient, ensureCredits, language, outputTokens, refresh, selectedModel, validationInputs]);
 
   const confirm = useCallback((): void => {
     if (aiAction === 'skills') {
@@ -574,6 +696,10 @@ function Skills ({ book, onAction, onBookChange, pipelineOnly = false, pipelineP
       generatePreExercises().catch(console.error);
     }
 
+    if (aiAction === 'fixPreExercises') {
+      fixPreExercises().catch(console.error);
+    }
+
     if (aiAction === 'exercises') {
       generateExercises().catch(console.error);
     }
@@ -581,13 +707,26 @@ function Skills ({ book, onAction, onBookChange, pipelineOnly = false, pipelineP
     if (aiAction === 'fix') {
       fixExercises().catch(console.error);
     }
-  }, [aiAction, fixExercises, generateExercises, generatePreExercises, generateSkills, organizeSkills]);
+  }, [aiAction, fixExercises, fixPreExercises, generateExercises, generatePreExercises, generateSkills, organizeSkills]);
   const closeConfirmation = useCallback((): void => setAiAction(undefined), []);
-  const openSkillGeneration = useCallback((): void => { setAiAction('skills'); onAction?.('conceptsSkills'); }, [onAction]);
-  const openSkillOrganization = useCallback((): void => { setAiAction('organize'); onAction?.('conceptsSkills'); }, [onAction]);
-  const openPreExerciseGeneration = useCallback((): void => { setAiAction('preExercises'); onAction?.('skillsPreExercises'); }, [onAction]);
-  const openExerciseGeneration = useCallback((): void => { setAiAction('exercises'); onAction?.('preExercisesExercises'); }, [onAction]);
-  const openExerciseFix = useCallback((): void => { setAiAction('fix'); onAction?.('preExercisesExercises'); }, [onAction]);
+  const openSkillGeneration = useCallback((): void => {
+    setAiAction('skills'); onAction?.('conceptsSkills');
+  }, [onAction]);
+  const openSkillOrganization = useCallback((): void => {
+    setAiAction('organize'); onAction?.('conceptsSkills');
+  }, [onAction]);
+  const openPreExerciseGeneration = useCallback((): void => {
+    setAiAction('preExercises'); onAction?.('skillsPreExercises');
+  }, [onAction]);
+  const openPreExerciseFix = useCallback((): void => {
+    setAiAction('fixPreExercises'); onAction?.('skillsPreExercises');
+  }, [onAction]);
+  const openExerciseGeneration = useCallback((): void => {
+    setAiAction('exercises'); onAction?.('preExercisesExercises');
+  }, [onAction]);
+  const openExerciseFix = useCallback((): void => {
+    setAiAction('fix'); onAction?.('preExercisesExercises');
+  }, [onAction]);
 
   return <StyledSkills className={pipelineOnly ? 'pipelineOnly' : undefined}>
     {aiAction && (
@@ -625,59 +764,60 @@ function Skills ({ book, onAction, onBookChange, pipelineOnly = false, pipelineP
       <span className='pipelineStep'><span>›</span><Button icon={iconForStage(3)} isDisabled={isBusy || stage < 2 || !book.language || !skillSources.length} label='Generate Skills' onClick={openSkillGeneration} /></span>
       <span className='pipelineStep'><span>›</span><Button icon={iconForStage(4)} isDisabled={isBusy || stage < 3 || !allSkills.length} label='Deduplicate and sort' onClick={openSkillOrganization} /></span>
       <span className='pipelineStep'><span>›</span><Button icon={iconForStage(5)} isDisabled={isBusy || stage < 4 || !allSkills.length} label='Exercise templates' onClick={openPreExerciseGeneration} /></span>
-      <span className='pipelineStep'><span>›</span><Button icon={iconForStage(6)} isDisabled={isBusy || stage < 5 || !allExerciseTemplates.length} label='Generate Exercises' onClick={openExerciseGeneration} /></span>
-      <span className='pipelineStep'><span>›</span><Button icon={stage >= 6 ? 'rotate-left' : 'play'} isDisabled={isBusy || stage < 6 || !hasCompleteSkillTemplates} label='Fix exercise errors' onClick={openExerciseFix} /></span>
+      <span className='pipelineStep'><span>›</span><Button icon={iconForStage(6)} isDisabled={isBusy || stage < 5 || !allExerciseTemplates.length} label='Fix PreExercise errors' onClick={openPreExerciseFix} /></span>
+      <span className='pipelineStep'><span>›</span><Button icon={iconForStage(7)} isDisabled={isBusy || stage < 6 || !allExerciseTemplates.length} label='Generate Exercises' onClick={openExerciseGeneration} /></span>
+      <span className='pipelineStep'><span>›</span><Button icon={stage >= 7 ? 'rotate-left' : 'play'} isDisabled={isBusy || stage < 7 || !hasCompleteSkillTemplates} label='Fix exercise errors' onClick={openExerciseFix} /></span>
     </div>}
     {!pipelineOnly && <>
       <ChapterNavigation chapters={chapters} index={chapterIndex} onChange={changeChapter} />
       {error && <p className='errorMessage' role='alert'>{error}</p>}
       {!current && <p>No chapters have been generated for this book.</p>}
-    {current && (
-      <>
-        <ChapterTitleEditor chapter={current.chapter} onError={setError} onSaved={refresh} />
-        {view === 'conceptsSkills' && (
-          <div className='columns'>
-            <section>
-              <h3>Book concepts and exercises</h3>
-              {!current.concepts.length && !current.exercises.length && <p>No concepts or exercises in this chapter.</p>}
-              {current.concepts.map((concept) => (
-                <BookItem description={concept.description} id={concept.id} key={`concept-${concept.id ?? 'new'}`} onDeleted={refresh} onError={setError} title={concept.title} type='concept' />
-              ))}
-              {current.exercises.map((exercise) => (
-                <BookItem description={exercise.description} id={exercise.id} key={`exercise-${exercise.id ?? 'new'}`} onDeleted={refresh} onError={setError} title={exercise.title} type='exercise' />
-              ))}
-            </section>
-            <section>
-              <h3>BookSkills</h3>
+      {current && (
+        <>
+          <ChapterTitleEditor chapter={current.chapter} onError={setError} onSaved={refresh} />
+          {view === 'conceptsSkills' && (
+            <div className='columns'>
+              <section>
+                <h3>Book concepts and exercises</h3>
+                {!current.concepts.length && !current.exercises.length && <p>No concepts or exercises in this chapter.</p>}
+                {current.concepts.map((concept) => (
+                  <BookItem description={concept.description} id={concept.id} key={`concept-${concept.id ?? 'new'}`} onDeleted={refresh} onError={setError} title={concept.title} type='concept' />
+                ))}
+                {current.exercises.map((exercise) => (
+                  <BookItem description={exercise.description} id={exercise.id} key={`exercise-${exercise.id ?? 'new'}`} onDeleted={refresh} onError={setError} title={exercise.title} type='exercise' />
+                ))}
+              </section>
+              <section>
+                <h3>BookSkills</h3>
+                {!current.skills.length && <p>No BookSkills generated.</p>}
+                {current.skills.map((skill) => <BookSkillCard bookId={book.id} key={skill.id} onDeleted={refresh} onError={setError} skill={skill} />)}
+              </section>
+            </div>
+          )}
+          {view === 'skillsPreExercises' && (
+            <div className='singlePane'>
               {!current.skills.length && <p>No BookSkills generated.</p>}
-              {current.skills.map((skill) => <BookSkillCard bookId={book.id} key={skill.id} onDeleted={refresh} onError={setError} skill={skill} />)}
-            </section>
-          </div>
-        )}
-        {view === 'skillsPreExercises' && (
-          <div className='singlePane'>
-            {!current.skills.length && <p>No BookSkills generated.</p>}
-            {current.skills.map((skill) => <div className='skillWithTemplates' key={skill.id}>
-              <BookSkillCard bookId={book.id} onDeleted={refresh} onError={setError} skill={skill} />
-              {current.exerciseTemplates.filter(({ bookSkillId }) => bookSkillId === skill.id).map((template) => <PreExerciseCard key={template.id} onDeleted={refresh} onError={setError} template={template} />)}
-            </div>)}
-          </div>
-        )}
-        {view === 'preExercisesExercises' && (
-          <div className='columns'>
-            <section>
-              <h3>ExerciseTemplates</h3>
-              {current.exerciseTemplates.map((template) => <PreExerciseCard key={template.id} onDeleted={refresh} onError={setError} template={template} />)}
-            </section>
-            <section>
-              <h3>SkillTemplates</h3>
-              {!current.skillTemplates.length && <p>No SkillTemplates generated.</p>}
-              {current.skillTemplates.map((record) => <FinalExerciseCard key={record.id} onDeleted={refresh} onError={setError} record={record} />)}
-            </section>
-          </div>
-        )}
-      </>
-    )}
+              {current.skills.map((skill) => <div className='skillWithTemplates' key={skill.id}>
+                <BookSkillCard bookId={book.id} onDeleted={refresh} onError={setError} skill={skill} />
+                {current.exerciseTemplates.filter(({ bookSkillId }) => bookSkillId === skill.id).map((template) => <PreExerciseCard key={template.id} onDeleted={refresh} onError={setError} template={template} />)}
+              </div>)}
+            </div>
+          )}
+          {view === 'preExercisesExercises' && (
+            <div className='columns'>
+              <section>
+                <h3>ExerciseTemplates</h3>
+                {current.exerciseTemplates.map((template) => <PreExerciseCard key={template.id} onDeleted={refresh} onError={setError} template={template} />)}
+              </section>
+              <section>
+                <h3>SkillTemplates</h3>
+                {!current.skillTemplates.length && <p>No SkillTemplates generated.</p>}
+                {current.skillTemplates.map((record) => <FinalExerciseCard key={record.id} onDeleted={refresh} onError={setError} record={record} />)}
+              </section>
+            </div>
+          )}
+        </>
+      )}
     </>}
   </StyledSkills>;
 }

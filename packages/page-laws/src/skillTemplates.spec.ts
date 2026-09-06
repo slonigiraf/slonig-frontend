@@ -7,7 +7,7 @@ import type { GeneratedSkillTemplate } from './skillTemplates.js';
 
 import { strict as assert } from 'node:assert';
 
-import { conceptsToSkillsPrompt, deduplicateAndSortSkillsPrompt, fixSkillTemplatesPrompt, skillListPrompt, skillsToExercisesPrompt, skillsToExerciseTemplatesPrompt, sourcesToSkillsPrompt } from './constants.js';
+import { conceptsToSkillsPrompt, deduplicateAndSortSkillsPrompt, fixExerciseTemplatesPrompt, fixSkillTemplatesPrompt, skillListPrompt, skillsToExercisesPrompt, skillsToExerciseTemplatesPrompt, sourcesToSkillsPrompt } from './constants.js';
 import { parseGeneratedSkillTemplates, parseStoredSkillTemplate } from './skillTemplates.js';
 
 function createSkill (): GeneratedSkillTemplate {
@@ -159,6 +159,8 @@ describe('generated skill templates', (): void => {
 
   it('generates one language-constrained skill per source item', (): void => {
     assert.match(sourcesToSkillsPrompt, /exactly one/i);
+    assert.match(sourcesToSkillsPrompt, /abstractly/i);
+    assert.match(sourcesToSkillsPrompt, /Do not include, copy, or depend on specific examples/i);
     assert.match(sourcesToSkillsPrompt, /ISO 639-1 language code/i);
     assert.match(sourcesToSkillsPrompt, /"skills"/);
   });
@@ -176,7 +178,16 @@ describe('generated skill templates', (): void => {
     assert.match(skillsToExerciseTemplatesPrompt, /transformation/i);
     assert.match(skillsToExerciseTemplatesPrompt, /reasoning/i);
     assert.match(skillsToExerciseTemplatesPrompt, /generation/i);
+    assert.match(skillsToExerciseTemplatesPrompt, /step by step/i);
+    assert.match(skillsToExerciseTemplatesPrompt, /divide it into separate simpler ExerciseTemplates/i);
     assert.match(skillsToExerciseTemplatesPrompt, /<kx>/i);
+  });
+
+  it('repairs and splits multistep ExerciseTemplates', (): void => {
+    assert.match(fixExerciseTemplatesPrompt, /succinct/i);
+    assert.match(fixExerciseTemplatesPrompt, /multiple substantive steps/i);
+    assert.match(fixExerciseTemplatesPrompt, /same bookSkillId/i);
+    assert.match(fixExerciseTemplatesPrompt, /<kx>/i);
   });
 
   it('requires the repair stage to preserve KaTeX and correct answers', (): void => {
@@ -189,6 +200,9 @@ describe('generated skill templates', (): void => {
     assert.match(skillsToExercisesPrompt, /Do not use BookSkills as generation input/i);
     assert.match(skillsToExercisesPrompt, /different concrete input parameters/i);
     assert.match(skillsToExercisesPrompt, /must not contain identical questions/i);
+    assert.match(skillsToExercisesPrompt, /title h must explain the concrete ability/i);
+    assert.match(skillsToExercisesPrompt, /real question or task/i);
+    assert.match(skillsToExercisesPrompt, /real answer or worked solution/i);
     assert.match(fixSkillTemplatesPrompt, /different concrete input parameters/i);
   });
 });

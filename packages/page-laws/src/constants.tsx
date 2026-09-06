@@ -67,6 +67,8 @@ ${skillTemplateGenerationInstructions}`;
 
 export const sourcesToSkillsPrompt = `You are an educational content methodologist. Convert each supplied book concept or book exercise into exactly one smallest useful, narrow, observable skill. Preserve the source-item order and return one skill for every source item, even when two source items appear similar. Each skill must state an unambiguous input, operation, and expected output. Do not merge items, omit items, generate multiple skills for one item, use broad topic names, or invent unsupported material.
 
+Formulate every skill title and description abstractly, using the subject's general terms and concepts. Describe the general input type, operation, and output type. Do not include, copy, or depend on specific examples, names, numbers, sentences, objects, or exercise parameters from the source.
+
 The request supplies the book's ISO 639-1 language code. Write every generated skill title and description strictly in that language. A ru book must produce Russian skills and a tr book must produce Turkish skills. Never infer a different output language or default to English because these instructions and JSON field names are English. Keep formulas, symbols, and proper names unchanged where appropriate.
 
 Return only valid JSON in this exact shape:
@@ -81,7 +83,9 @@ Return only valid JSON in this exact shape:
 
 Every supplied ID must appear exactly once in either deleteIds or sortedIds. Do not invent IDs. Do not add markdown fences or commentary.`;
 
-export const skillsToExerciseTemplatesPrompt = `For each supplied skill, preferably create five simple practice templates, one for each ability mode in this order: perceptual observation, perceptual discrimination, transformation, reasoning, and generation. Five templates per skill is the preferred result, but return as many useful templates as the material supports; fewer or more are acceptable. Every template must train only its supplied skill and remain within the learner's Zone of Proximal Development. The text must be a complete, self-contained exercise; the solution must be complete and correct. Preserve the supplied skill order.
+export const skillsToExerciseTemplatesPrompt = `For each supplied skill, preferably create five simple practice templates, one for each ability mode in this order: perceptual observation, perceptual discrimination, transformation, reasoning, and generation. Five templates per skill is the preferred result, but return as many useful templates as the material supports; fewer or more are acceptable. Every template must train only its supplied skill and remain within the learner's Zone of Proximal Development. The text must be a succinct, complete, self-contained exercise. The solution must be complete, correct, and written step by step.
+
+Each ExerciseTemplate must require only one independently learnable operation and one substantive solution step. If solving a proposed template requires multiple substantive steps, divide it into separate simpler ExerciseTemplates so each resulting solution teaches and explains one step. Preserve the supplied skill order.
 
 Write every title, text, and solution strictly in the supplied book language. Use <kx>...</kx> for every mathematical formula or expression, never dollar-delimited LaTeX, and escape every LaTeX backslash for valid JSON.
 
@@ -90,7 +94,18 @@ Return only valid JSON in this shape:
 
 Use only supplied bookSkillId values. Do not add markdown fences or commentary.`;
 
+export const fixExerciseTemplatesPrompt = `Review and repair every supplied ExerciseTemplate. Preserve its bookSkillId and natural language. Make the task succinct, complete, self-contained, and answerable. Make the solution correct and explicitly step by step. Use <kx>...</kx> for every mathematical formula or expression, never dollar-delimited LaTeX, and escape every LaTeX backslash for valid JSON.
+
+Each returned template must require only one independently learnable operation and one substantive solution step. When an input template's solution contains multiple substantive steps, divide it into multiple simpler ExerciseTemplates with the same bookSkillId. Each resulting solution must explicitly explain its step. Do not omit any skill's practice material.
+
+Return only valid JSON in this shape:
+{"templates":[{"bookSkillId":1,"title":"Ability mode: task","text":"Succinct complete exercise","solution":"Step-by-step solution"}]}
+
+Do not add markdown fences or commentary.`;
+
 export const skillsToExercisesPrompt = `You are an educational content methodologist. Convert each supplied ExerciseTemplate into exactly one SkillTemplate, preserving the supplied order. Treat the ExerciseTemplate title, text, and solution as authoritative. The two concrete exercises in q must be variations of that ExerciseTemplate: they must train the same ability mode and differ only in task data or parameters. The two exercises must have different concrete input parameters and must not contain identical questions. Change every input value needed to make the second task genuinely distinct while preserving the method and difficulty. Do not use BookSkills as generation input, merge ExerciseTemplates, or invent a different target skill. Keep the difficulty within the learner's Zone of Proximal Development. Return exactly one SkillTemplate per supplied ExerciseTemplate.
+
+The SkillTemplate title h must explain the concrete ability the learner can learn from its exercises. Every exercise question h must contain the real question or task with all required data, and every answer a must contain the real answer or worked solution to that exact question. Never use vague task or answer text.
 
 Use the natural language of each ExerciseTemplate for the complete corresponding SkillTemplate. This includes the heading, every exercise question, and every answer or worked solution. The supplied bookSkillId is only a storage relationship and must not affect or appear in the generated content.
 

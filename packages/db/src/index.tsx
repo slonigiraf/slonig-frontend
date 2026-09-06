@@ -128,8 +128,14 @@ export async function deleteBookExercise(id: number): Promise<void> {
 }
 
 export async function replaceParsedBookPageContent(bookId: number, pageNumber: number, chapterTitle: string, concepts: Array<Omit<BookConcept, 'bookPage' | 'chapterId' | 'id'>>, exercises: Array<Omit<BookExercise, 'bookPage' | 'id'>>): Promise<{ concepts: BookConcept[]; exercises: BookExercise[] }> {
-    return db.transaction('rw', db.bookChapters, db.bookConcepts, db.bookExercises, async () => {
-        const resolvedChapterTitle = chapterTitle.trim() || 'Unassigned chapter';
+    return db.transaction('rw', db.bookPages, db.bookChapters, db.bookConcepts, db.bookExercises, async () => {
+        const previousChapter = chapterTitle.trim()
+            ? undefined
+            : (await db.bookPages.where('bookId').equals(bookId)
+                .filter((page) => page.pageNumber < pageNumber && Boolean(page.chapter.trim()))
+                .toArray())
+                .sort((a, b) => b.pageNumber - a.pageNumber)[0]?.chapter.trim();
+        const resolvedChapterTitle = chapterTitle.trim() || previousChapter || 'Introduction';
         const existingChapter = await db.bookChapters.where('bookId').equals(bookId).filter(({ title }) => title === resolvedChapterTitle).first();
         const chapterId = existingChapter?.id ?? await db.bookChapters.add({ bookId, title: resolvedChapterTitle });
         const conceptBookPage: [number, number] = [bookId, pageNumber];
@@ -384,6 +390,21 @@ export async function getSkillTemplates(moduleId: string): Promise<SkillTemplate
 
 export async function deleteSkillTemplates(moduleId: string): Promise<void> {
     await db.skillTemplates.where('moduleId').equals(moduleId).delete();
+}
+
+export async function replaceSkillTemplates(moduleId: string, contents: string[]): Promise<string[]> {
+    return db.transaction('rw', db.skillTemplates, async () => {
+        await db.skillTemplates.where('moduleId').equals(moduleId).delete();
+        const records = contents.map((content, index) => ({
+            content,
+            id: blake2AsHex(`${moduleId}:${index}:${content}`),
+            moduleId
+        }));
+
+        await db.skillTemplates.bulkPut(records);
+
+        return records.map(({ id }) => id);
+    });
 }
 
 export async function deleteSkillTemplate(id: string): Promise<void> {
