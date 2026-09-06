@@ -5,5 +5,6 @@
 export interface BookChapter {
   id?: number;
   bookId: number;
+  knowledgeId?: string;
   title: string;
 }

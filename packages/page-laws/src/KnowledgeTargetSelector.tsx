@@ -1,10 +1,14 @@
-import BN from 'bn.js';
+// Copyright 2021-2026 @polkadot/app-laws authors & contributors
+// SPDX-License-Identifier: Apache-2.0
+
+import type BN from 'bn.js';
+
+import { getCIDFromBytes, getIPFSDataFromContentID, LawType, parseJson, useIpfsContext } from '@slonigiraf/slonig-components';
+import { DEFAULT_KNOWLEDGE_ID } from '@slonigiraf/utils';
 import React, { useCallback, useEffect, useState } from 'react';
 
 import { Button, Spinner, styled } from '@polkadot/react-components';
 import { useApi } from '@polkadot/react-hooks';
-import { getCIDFromBytes, getIPFSDataFromContentID, LawType, parseJson, useIpfsContext } from '@slonigiraf/slonig-components';
-import { DEFAULT_KNOWLEDGE_ID } from '@slonigiraf/utils';
 
 interface KnowledgeNode {
   children: string[];
@@ -18,8 +22,30 @@ interface Props {
   value: string;
 }
 
+function KnowledgeListRow ({ node, onNavigate, onSelect }: { node: KnowledgeNode; onNavigate: (id: string) => void; onSelect: (node: KnowledgeNode) => void }): React.ReactElement {
+  const navigate = useCallback((event: React.MouseEvent<HTMLAnchorElement>): void => {
+    event.preventDefault();
+    onNavigate(node.id);
+  }, [node.id, onNavigate]);
+  const select = useCallback((): void => onSelect(node), [node, onSelect]);
+
+  return <div className='listRow'>
+    <a
+      href={`/#/knowledge?id=${encodeURIComponent(node.id)}`}
+      onClick={navigate}
+    >{node.title}</a>
+    <Button
+      icon='check'
+      label='Select'
+      onClick={select}
+    />
+  </div>;
+}
+
 function KnowledgeTargetSelector ({ onChange, value }: Props): React.ReactElement {
   const { api } = useApi();
+  // kubo-rpc-client exposes part of its client tuple as `any` through the shared context.
+  // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
   const { ipfs, isIpfsReady } = useIpfsContext();
   const [currentId, setCurrentId] = useState(DEFAULT_KNOWLEDGE_ID);
   const [history, setHistory] = useState<string[]>([]);
@@ -37,15 +63,37 @@ function KnowledgeTargetSelector ({ onChange, value }: Props): React.ReactElemen
     }
 
     const cid = await getCIDFromBytes(law.unwrap()[0]);
-    const json = parseJson(await getIPFSDataFromContentID(ipfs, cid));
+    const parsed: unknown = parseJson(await getIPFSDataFromContentID(ipfs, cid));
+    const json = parsed && typeof parsed === 'object' && !Array.isArray(parsed) ? parsed as Record<string, unknown> : {};
+    const childIds = json.e;
 
     return {
-      children: Array.isArray(json?.e) ? json.e.filter((childId: unknown): childId is string => typeof childId === 'string') : [],
+      children: Array.isArray(childIds) ? childIds.filter((childId: unknown): childId is string => typeof childId === 'string') : [],
       id,
-      title: typeof json?.h === 'string' && json.h ? json.h : id,
-      type: typeof json?.t === 'number' ? json.t : -1
+      title: typeof json.h === 'string' && json.h ? json.h : id,
+      type: typeof json.t === 'number' ? json.t : -1
     };
   }, [api, ipfs]);
+
+  useEffect(() => {
+    let active = true;
+
+    if (!value) {
+      setSelectedTitle('');
+
+      return;
+    }
+
+    if (isIpfsReady) {
+      loadNode(value)
+        .then((selectedNode) => active && setSelectedTitle(selectedNode.title))
+        .catch(() => active && setSelectedTitle('Name unavailable'));
+    }
+
+    return () => {
+      active = false;
+    };
+  }, [isIpfsReady, loadNode, value]);
 
   useEffect(() => {
     let active = true;
@@ -101,6 +149,9 @@ function KnowledgeTargetSelector ({ onChange, value }: Props): React.ReactElemen
     setSelectedTitle(selectedNode.title);
     onChange(selectedNode.id);
   }, [onChange]);
+  const selectCurrentNode = useCallback((): void => {
+    node && selectNode(node);
+  }, [node, selectNode]);
   const restartSelection = useCallback((): void => {
     onChange('');
     setSelectedTitle('');
@@ -113,9 +164,14 @@ function KnowledgeTargetSelector ({ onChange, value }: Props): React.ReactElemen
       <div className='selectedRow'>
         <div>
           <h4>Selected publishing location</h4>
-          <strong>{selectedTitle || value}</strong>
+          <strong>{selectedTitle || 'Loading name…'}</strong>
+          <small>{value}</small>
         </div>
-        <Button icon='redo' label='Restart selection' onClick={restartSelection} />
+        <Button
+          icon='redo'
+          label='Restart selection'
+          onClick={restartSelection}
+        />
       </div>
     </StyledTargetSelector>;
   }
@@ -123,27 +179,40 @@ function KnowledgeTargetSelector ({ onChange, value }: Props): React.ReactElemen
   return <StyledTargetSelector>
     <div className='navigatorHeading'>
       <h4>Choose publishing location</h4>
-      {!!history.length && <Button icon='arrow-left' label='Back' onClick={navigateBack} />}
+      {!!history.length && (
+        <Button
+          icon='arrow-left'
+          label='Back'
+          onClick={navigateBack}
+        />
+      )}
     </div>
     {!isIpfsReady && <p>Connecting to IPFS…</p>}
     {isLoading && <Spinner />}
-    {error && <p className='selectorError' role='alert'>{error}</p>}
+    {error && (
+      <p
+        className='selectorError'
+        role='alert'
+      >{error}</p>
+    )}
     {node && <>
       {node.type === LawType.LIST && <div className='listRow currentNode'>
         <strong>{node.title}</strong>
-        <Button icon='check' label='Select' onClick={() => selectNode(node)} />
+        <Button
+          icon='check'
+          label='Select'
+          onClick={selectCurrentNode}
+        />
       </div>}
       {!!children.length && <nav aria-label='Knowledge children'>
-        {children.map((child) => <div className='listRow' key={child.id}>
-          <a
-            href={`/#/knowledge?id=${encodeURIComponent(child.id)}`}
-            onClick={(event) => {
-              event.preventDefault();
-              navigateTo(child.id);
-            }}
-          >{child.title}</a>
-          <Button icon='check' label='Select' onClick={() => selectNode(child)} />
-        </div>)}
+        {children.map((child) => (
+          <KnowledgeListRow
+            key={child.id}
+            node={child}
+            onNavigate={navigateTo}
+            onSelect={selectNode}
+          />
+        ))}
       </nav>}
       {!children.length && <p className='selectionHint'>This list has no child lists.</p>}
     </>}
@@ -166,7 +235,9 @@ const StyledTargetSelector = styled.div`
   .selectedRow, .listRow { align-items: center; display: grid; gap: 0.75rem; grid-template-columns: minmax(0, 1fr) auto; width: 100%; }
   .selectedRow h4 { margin: 0 0 0.25rem; }
   .selectedRow > div, .listRow a { min-width: 0; }
-  .selectedRow strong, .listRow a { overflow-wrap: anywhere; }
+  .selectedRow strong, .selectedRow small { display: block; overflow-wrap: anywhere; }
+  .selectedRow small { margin-top: 0.2rem; }
+  .listRow a { overflow-wrap: anywhere; }
   .currentNode { border-bottom: 1px solid var(--border-table); padding-bottom: 0.65rem; }
   nav { display: flex; flex-direction: column; min-width: 0; width: 100%; }
   nav .listRow { border-bottom: 1px solid var(--border-table); padding: 0.4rem 0; }
