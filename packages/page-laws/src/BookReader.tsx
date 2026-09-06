@@ -1101,8 +1101,8 @@ function BookReader ({ book, file, generateAllConceptsModel, generateAllConcepts
           ['textConcepts', 'Concepts', 2],
           ['conceptsSkills', 'Skills', 3],
           ['skillsPreExercises', 'PreExercises', 5],
-          ['preExercisesExercises', 'Exercises', 7],
-          ['skillsCourse', 'Course', 7]
+          ['preExercisesExercises', 'Exercises', 8],
+          ['skillsCourse', 'Course', 8]
         ] as Array<[ReaderPane, string, number]>).filter(([, , requiredStage]) => (book.processingStage ?? 0) >= requiredStage).map(([pane, label]) => (
           <button
             aria-selected={activePane === pane}

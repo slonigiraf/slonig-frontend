@@ -7,7 +7,7 @@ import type { GeneratedSkillTemplate } from './skillTemplates.js';
 
 import { strict as assert } from 'node:assert';
 
-import { conceptsToSkillsPrompt, deduplicateAndSortSkillsPrompt, fixExerciseTemplatesPrompt, fixSkillTemplatesPrompt, skillListPrompt, skillsToExercisesPrompt, skillsToExerciseTemplatesPrompt, sourcesToSkillsPrompt } from './constants.js';
+import { conceptsToSkillsPrompt, deduplicateAndSortSkillsPrompt, divideExerciseTemplatesPrompt, fixExerciseTemplatesPrompt, fixSkillTemplatesPrompt, skillListPrompt, skillsToExercisesPrompt, skillsToExerciseTemplatesPrompt, sourcesToSkillsPrompt } from './constants.js';
 import { parseGeneratedSkillTemplates, parseStoredSkillTemplate } from './skillTemplates.js';
 
 function createSkill (): GeneratedSkillTemplate {
@@ -169,6 +169,7 @@ describe('generated skill templates', (): void => {
     assert.match(deduplicateAndSortSkillsPrompt, /Zone of Proximal Development/i);
     assert.match(deduplicateAndSortSkillsPrompt, /deleteIds/);
     assert.match(deduplicateAndSortSkillsPrompt, /sortedIds/);
+    assert.match(deduplicateAndSortSkillsPrompt, /mergeInto/);
   });
 
   it('prefers five ability-mode ExerciseTemplates per BookSkill without requiring that count', (): void => {
@@ -179,14 +180,22 @@ describe('generated skill templates', (): void => {
     assert.match(skillsToExerciseTemplatesPrompt, /reasoning/i);
     assert.match(skillsToExerciseTemplatesPrompt, /generation/i);
     assert.match(skillsToExerciseTemplatesPrompt, /step by step/i);
-    assert.match(skillsToExerciseTemplatesPrompt, /divide it into separate simpler ExerciseTemplates/i);
+    assert.match(skillsToExerciseTemplatesPrompt, /blocks containing one BookSkill/i);
+    assert.match(skillsToExerciseTemplatesPrompt, /Match the structure, terminology, tone, and difficulty/i);
     assert.match(skillsToExerciseTemplatesPrompt, /<kx>/i);
   });
 
-  it('repairs and splits multistep ExerciseTemplates', (): void => {
+  it('divides multistep ExerciseTemplates without replacing their parents', (): void => {
+    assert.match(divideExerciseTemplatesPrompt, /Do not change or return the parent/i);
+    assert.match(divideExerciseTemplatesPrompt, /one additional, self-contained child/i);
+    assert.match(divideExerciseTemplatesPrompt, /multiple substantive steps/i);
+    assert.match(divideExerciseTemplatesPrompt, /empty templates array is valid/i);
+  });
+
+  it('repairs ExerciseTemplate grammar without splitting', (): void => {
     assert.match(fixExerciseTemplatesPrompt, /succinct/i);
-    assert.match(fixExerciseTemplatesPrompt, /multiple substantive steps/i);
-    assert.match(fixExerciseTemplatesPrompt, /same bookSkillId/i);
+    assert.match(fixExerciseTemplatesPrompt, /grammar, spelling, punctuation/i);
+    assert.match(fixExerciseTemplatesPrompt, /Do not split, merge, or omit/i);
     assert.match(fixExerciseTemplatesPrompt, /<kx>/i);
   });
 

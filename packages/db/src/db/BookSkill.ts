@@ -5,6 +5,8 @@
 export interface BookSkill {
   id?: number;
   chapterId: number;
+  bookConceptIds: number[];
+  bookExerciseIds: number[];
   rank: number;
   title: string;
   description: string;
