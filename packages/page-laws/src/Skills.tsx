@@ -4,7 +4,7 @@
 import type { Book, BookChapter, BookConcept, BookExercise, BookPage, BookSkill, ExerciseTemplate } from '@slonigiraf/db';
 import type { GeneratedSkillTemplate } from './skillTemplates.js';
 
-import { deleteAndRankBookSkills, deleteBookConcept, deleteBookExercise, deleteBookSkill, deleteExerciseTemplate, deleteSkillTemplate, deleteSkillTemplates, getBookChapters, getBookConceptsForBookPage, getBookExercisesForBookPage, getBookPages, getBookSkillsForChapter, getExerciseTemplatesForBookSkill, getSetting, getSkillTemplates, replaceBookSkillsForChapter, replaceExerciseTemplatesForBookSkill, replaceSkillTemplates, SettingKey, updateBookChapterTitle, updateBookProcessingStage } from '@slonigiraf/db';
+import { addExerciseTemplatesForBookSkill, deleteAndRankBookSkills, deleteBookConcept, deleteBookExercise, deleteBookSkill, deleteExerciseTemplate, deleteSkillTemplate, deleteSkillTemplates, getBookChapters, getBookConceptsForBookPage, getBookExercisesForBookPage, getBookPages, getBookSkillsForChapter, getExerciseTemplatesForBookSkill, getSetting, getSkillTemplates, replaceBookSkillsForChapter, replaceExerciseTemplatesForBookSkill, replaceSkillTemplates, SettingKey, updateBookChapterTitle, updateBookProcessingStage } from '@slonigiraf/db';
 import { KatexSpan, RoundProgress } from '@slonigiraf/slonig-components';
 import OpenAI from 'openai';
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
@@ -13,7 +13,7 @@ import { Button, Dropdown, Input, Modal, styled } from '@polkadot/react-componen
 
 import ExerciseList from './Edit/ExerciseList.js';
 import { assertOpenRouterCredits, estimateAiInput, formatAiInputEstimate } from './aiEstimate.js';
-import { deduplicateAndSortSkillsPrompt, fixExerciseTemplatesPrompt, fixSkillTemplatesPrompt, OPENAI_MODELS, skillsToExercisesPrompt, skillsToExerciseTemplatesPrompt, sourcesToSkillsPrompt } from './constants.js';
+import { deduplicateAndSortSkillsPrompt, divideExerciseTemplatesPrompt, fixExerciseTemplatesPrompt, fixSkillTemplatesPrompt, OPENAI_MODELS, skillsToExercisesPrompt, skillsToExerciseTemplatesPrompt, sourcesToSkillsPrompt } from './constants.js';
 import { parseGeneratedSkillTemplates, parseStoredSkillTemplate } from './skillTemplates.js';
 
 const REQUEST_INTERVAL_MS = Math.ceil(60_000 / 9);
@@ -52,11 +52,18 @@ interface SkillSource {
   chapterId: number;
   chapterTitle: string;
   description: string;
+  sourceId: number;
   sourceType: 'concept' | 'exercise';
   title: string;
 }
 
-type AiAction = 'exercises' | 'fix' | 'fixPreExercises' | 'organize' | 'preExercises' | 'skills';
+interface SkillBlock {
+  bookConcepts: BookConcept[];
+  bookExercises: BookExercise[];
+  bookSkill: BookSkill & { id: number };
+}
+
+type AiAction = 'dividePreExercises' | 'exercises' | 'fix' | 'fixPreExercises' | 'organize' | 'preExercises' | 'skills';
 
 const skillTemplateModuleId = (bookId: number, bookSkillId: number): string => `book-${bookId}-skill-${bookSkillId}`;
 
@@ -87,25 +94,30 @@ function parseGeneratedSkills (content: string, expectedCount: number): Array<{ 
   return skills.map(({ description = '', title = '' }) => ({ description: description.trim(), title: title.trim() }));
 }
 
-function parseSkillOrganization (content: string, expectedIds: number[]): { deleteIds: number[]; sortedIds: number[] } {
-  const parsed = parseJson(content) as { deleteIds?: unknown; sortedIds?: unknown };
+function parseSkillOrganization (content: string, expectedIds: number[]): { deleteIds: number[]; mergeInto: Array<{ deleteId: number; keepId: number }>; sortedIds: number[] } {
+  const parsed = parseJson(content) as { deleteIds?: unknown; mergeInto?: unknown; sortedIds?: unknown };
 
-  if (!Array.isArray(parsed.deleteIds) || !Array.isArray(parsed.sortedIds)) {
+  if (!Array.isArray(parsed.deleteIds) || !Array.isArray(parsed.sortedIds) || !Array.isArray(parsed.mergeInto)) {
     throw new Error('OpenRouter returned invalid skill organization data.');
   }
 
   const deleteIds = parsed.deleteIds as unknown[];
   const sortedIds = parsed.sortedIds as unknown[];
   const returnedIds = [...deleteIds, ...sortedIds];
+  const mergeInto = parsed.mergeInto as Array<{ deleteId?: unknown; keepId?: unknown }>;
 
-  if (returnedIds.some((id) => !Number.isSafeInteger(id)) || new Set(returnedIds).size !== expectedIds.length || expectedIds.some((id) => !returnedIds.includes(id)) || returnedIds.some((id) => !expectedIds.includes(id as number))) {
+  if (
+    returnedIds.some((id) => !Number.isSafeInteger(id)) || new Set(returnedIds).size !== expectedIds.length || expectedIds.some((id) => !returnedIds.includes(id)) || returnedIds.some((id) => !expectedIds.includes(id as number)) ||
+    mergeInto.length !== deleteIds.length || mergeInto.some(({ deleteId, keepId }) => !Number.isSafeInteger(deleteId) || !Number.isSafeInteger(keepId) || !deleteIds.includes(deleteId) || !sortedIds.includes(keepId)) ||
+    new Set(mergeInto.map(({ deleteId }) => deleteId)).size !== deleteIds.length
+  ) {
     throw new Error('OpenRouter did not organize every supplied BookSkill ID exactly once.');
   }
 
-  return { deleteIds: deleteIds as number[], sortedIds: sortedIds as number[] };
+  return { deleteIds: deleteIds as number[], mergeInto: mergeInto as Array<{ deleteId: number; keepId: number }>, sortedIds: sortedIds as number[] };
 }
 
-function parseExerciseTemplates (content: string, expectedSkillIds: number[]): ExerciseTemplate[] {
+function parseExerciseTemplates (content: string, expectedSkillIds: number[], requireCoverage = true, expectedCount?: number): ExerciseTemplate[] {
   const parsed = parseJson(content);
   const values = Array.isArray(parsed) ? parsed : (parsed as { templates?: unknown })?.templates;
 
@@ -117,12 +129,23 @@ function parseExerciseTemplates (content: string, expectedSkillIds: number[]): E
 
   if (
     templates.some(({ bookSkillId, solution, text, title }) => !Number.isSafeInteger(bookSkillId) || !expectedSkillIds.includes(bookSkillId as number) || typeof title !== 'string' || !title.trim() || typeof text !== 'string' || !text.trim() || typeof solution !== 'string' || !solution.trim()) ||
-    expectedSkillIds.some((id) => !templates.some(({ bookSkillId }) => bookSkillId === id))
+    (requireCoverage && expectedSkillIds.some((id) => !templates.some(({ bookSkillId }) => bookSkillId === id))) ||
+    (expectedCount !== undefined && templates.length !== expectedCount)
   ) {
     throw new Error('OpenRouter returned an invalid ExerciseTemplate.');
   }
 
   return templates.map(({ bookSkillId = 0, solution = '', text = '', title = '' }) => ({ bookSkillId, solution: solution.trim(), text: text.trim(), title: title.trim() }));
+}
+
+function createSkillBlocks (skills: BookSkill[], concepts: BookConcept[], exercises: BookExercise[]): SkillBlock[] {
+  return skills.flatMap((skill) => skill.id === undefined
+    ? []
+    : [{
+      bookConcepts: concepts.filter(({ id }) => id !== undefined && (skill.bookConceptIds ?? []).includes(id)),
+      bookExercises: exercises.filter(({ id }) => id !== undefined && (skill.bookExerciseIds ?? []).includes(id)),
+      bookSkill: skill as BookSkill & { id: number }
+    }]);
 }
 
 async function requestValidatedJson<T> (client: OpenAI, model: string, systemPrompt: string, userPrompt: string, parse: (content: string) => T, jsonObject = true): Promise<T> {
@@ -365,10 +388,11 @@ function Skills ({ book, onAction, onBookChange, pipelineOnly = false, pipelineP
   const chapters = useMemo(() => chapterContent.map(({ chapter }) => chapter), [chapterContent]);
   const current = chapterContent[chapterIndex];
   const allSkills = useMemo(() => chapterContent.flatMap(({ skills }) => skills), [chapterContent]);
+  const allSkillBlocks = useMemo(() => chapterContent.flatMap(({ concepts, exercises, skills }) => createSkillBlocks(skills, concepts, exercises)), [chapterContent]);
   const allExerciseTemplates = useMemo(() => chapterContent.flatMap(({ exerciseTemplates }) => exerciseTemplates), [chapterContent]);
   const allSkillTemplates = useMemo(() => chapterContent.flatMap(({ skillTemplates }) => skillTemplates), [chapterContent]);
-  const skillSources = useMemo<SkillSource[]>(() => chapterContent.flatMap(({ chapter, concepts, exercises }) => chapter.id === undefined ? [] : [...concepts.map(({ description, title }) => ({ chapterId: chapter.id as number, chapterTitle: chapter.title, description, sourceType: 'concept' as const, title })), ...exercises.map(({ description, title }) => ({ chapterId: chapter.id as number, chapterTitle: chapter.title, description, sourceType: 'exercise' as const, title }))]), [chapterContent]);
-  const inferredStage = allSkillTemplates.length ? 7 : allExerciseTemplates.length ? 5 : allSkills.length ? 3 : skillSources.length ? 2 : book.processingStage ?? 0;
+  const skillSources = useMemo<SkillSource[]>(() => chapterContent.flatMap(({ chapter, concepts, exercises }) => chapter.id === undefined ? [] : [...concepts.flatMap(({ description, id, title }) => id === undefined ? [] : [{ chapterId: chapter.id as number, chapterTitle: chapter.title, description, sourceId: id, sourceType: 'concept' as const, title }]), ...exercises.flatMap(({ description, id, title }) => id === undefined ? [] : [{ chapterId: chapter.id as number, chapterTitle: chapter.title, description, sourceId: id, sourceType: 'exercise' as const, title }])]), [chapterContent]);
+  const inferredStage = allSkillTemplates.length ? 8 : allExerciseTemplates.length ? 5 : allSkills.length ? 3 : skillSources.length ? 2 : book.processingStage ?? 0;
   const stage = Math.max(book.processingStage ?? 0, inferredStage);
   const hasCompleteSkillTemplates = allExerciseTemplates.length > 0 && allSkillTemplates.length >= allExerciseTemplates.length;
 
@@ -400,7 +424,20 @@ function Skills ({ book, onAction, onBookChange, pipelineOnly = false, pipelineP
     }
 
     if (aiAction === 'preExercises') {
-      return Array.from({ length: Math.ceil(allSkills.length / BATCH_SIZE) }, (_, index) => `${skillsToExerciseTemplatesPrompt}\n${language}\n${JSON.stringify(allSkills.slice(index * BATCH_SIZE, (index + 1) * BATCH_SIZE))}`);
+      return Array.from({ length: Math.ceil(allSkillBlocks.length / BATCH_SIZE) }, (_, index) => `${skillsToExerciseTemplatesPrompt}\n${language}\n${JSON.stringify(allSkillBlocks.slice(index * BATCH_SIZE, (index + 1) * BATCH_SIZE))}`);
+    }
+
+    if (aiAction === 'dividePreExercises') {
+      return chapterContent.flatMap(({ chapter, concepts, exerciseTemplates, exercises, skills }) => {
+        const blocks = createSkillBlocks(skills, concepts, exercises);
+
+        return Array.from({ length: Math.ceil(blocks.length / BATCH_SIZE) }, (_, index) => {
+          const batch = blocks.slice(index * BATCH_SIZE, (index + 1) * BATCH_SIZE);
+          const skillIds = batch.map(({ bookSkill }) => bookSkill.id);
+
+          return `${divideExerciseTemplatesPrompt}\nChapter: ${chapter.title}\n${JSON.stringify({ blocks: batch, templates: exerciseTemplates.filter(({ bookSkillId }) => skillIds.includes(bookSkillId)) })}`;
+        });
+      });
     }
 
     if (aiAction === 'exercises') {
@@ -424,8 +461,8 @@ function Skills ({ book, onAction, onBookChange, pipelineOnly = false, pipelineP
     }
 
     return [];
-  }, [aiAction, allExerciseTemplates, allSkills, chapterContent, language, skillSources]);
-  const generationOutputTokens = aiAction === 'preExercises' || aiAction === 'fixPreExercises' ? BATCH_SIZE * 1_250 : aiAction === 'exercises' || aiAction === 'fix' ? BATCH_SIZE * 700 : aiAction === 'skills' ? BATCH_SIZE * 180 : 300;
+  }, [aiAction, allExerciseTemplates, allSkillBlocks, chapterContent, language, skillSources]);
+  const generationOutputTokens = aiAction === 'preExercises' || aiAction === 'dividePreExercises' || aiAction === 'fixPreExercises' ? BATCH_SIZE * 1_250 : aiAction === 'exercises' || aiAction === 'fix' ? BATCH_SIZE * 700 : aiAction === 'skills' ? BATCH_SIZE * 180 : 300;
   const validationInputs = useMemo(() => requestInputs.flatMap((input) => [input, `Validate and repair this response against the original request:\n${input}`]), [requestInputs]);
   const outputTokens = generationOutputTokens * 2;
   const estimate = formatAiInputEstimate(estimateAiInput(selectedModel, validationInputs, outputTokens));
@@ -466,8 +503,15 @@ function Skills ({ book, onAction, onBookChange, pipelineOnly = false, pipelineP
 
         generated.forEach((skill, index) => {
           const rows = generatedByChapter.get(batch[index].chapterId) ?? [];
+          const source = batch[index];
 
-          rows.push({ ...skill, rank: rows.length }); generatedByChapter.set(batch[index].chapterId, rows);
+          rows.push({
+            ...skill,
+            bookConceptIds: source.sourceType === 'concept' ? [source.sourceId] : [],
+            bookExerciseIds: source.sourceType === 'exercise' ? [source.sourceId] : [],
+            rank: rows.length
+          });
+          generatedByChapter.set(source.chapterId, rows);
         });
         setProgress(Math.min(skillSources.length, start + batch.length));
       }
@@ -497,11 +541,11 @@ function Skills ({ book, onAction, onBookChange, pipelineOnly = false, pipelineP
           await delay(REQUEST_INTERVAL_MS);
         }
 
-        const rows = skills.filter(({ id }) => id !== undefined).map(({ description, id, title }) => ({ description, id, title }));
+        const rows = skills.filter(({ id }) => id !== undefined).map(({ bookConceptIds, bookExerciseIds, description, id, title }) => ({ bookConceptIds: bookConceptIds ?? [], bookExerciseIds: bookExerciseIds ?? [], description, id, title }));
         const userPrompt = `${deduplicateAndSortSkillsPrompt}\nChapter: ${chapter.title}\n${JSON.stringify(rows)}`;
         const organization = await requestValidatedJson(client, selectedModel, `Keep ISO language ${language}.`, userPrompt, (content) => parseSkillOrganization(content, rows.map(({ id }) => id as number)));
 
-        await deleteAndRankBookSkills(chapter.id as number, organization.deleteIds, organization.sortedIds);
+        await deleteAndRankBookSkills(chapter.id as number, organization.deleteIds, organization.sortedIds, organization.mergeInto);
         await Promise.all(organization.deleteIds.map((id) => deleteSkillTemplates(skillTemplateModuleId(book.id, id)))); setProgress(index + 1);
       }
 
@@ -514,7 +558,7 @@ function Skills ({ book, onAction, onBookChange, pipelineOnly = false, pipelineP
   }, [beginProgress, book.id, chapterContent, createClient, ensureCredits, language, outputTokens, refresh, selectedModel, setStage, validationInputs]);
 
   const generatePreExercises = useCallback(async (): Promise<void> => {
-    beginProgress('Generating ExerciseTemplates', allSkills.length);
+    beginProgress('Generating ExerciseTemplates', allSkillBlocks.length);
 
     try {
       const client = await createClient();
@@ -522,8 +566,9 @@ function Skills ({ book, onAction, onBookChange, pipelineOnly = false, pipelineP
       await ensureCredits(validationInputs, outputTokens);
       const generatedBySkill = new Map<number, Array<Omit<ExerciseTemplate, 'bookSkillId' | 'id'>>>();
 
-      for (let start = 0; start < allSkills.length; start += BATCH_SIZE) {
-        const batch = allSkills.slice(start, start + BATCH_SIZE).filter(({ id }) => id !== undefined) as Array<BookSkill & { id: number }>;
+      for (let start = 0; start < allSkillBlocks.length; start += BATCH_SIZE) {
+        const batch = allSkillBlocks.slice(start, start + BATCH_SIZE);
+        const expectedSkillIds = batch.map(({ bookSkill }) => bookSkill.id);
 
         if (start) {
           await delay(REQUEST_INTERVAL_MS);
@@ -531,10 +576,10 @@ function Skills ({ book, onAction, onBookChange, pipelineOnly = false, pipelineP
 
         const systemPrompt = `Write strictly in ISO language ${language}. Use <kx>...</kx> for all formulas.`;
         const userPrompt = `${skillsToExerciseTemplatesPrompt}\n${JSON.stringify(batch)}`;
-        const generated = await requestValidatedJson(client, selectedModel, systemPrompt, userPrompt, (content) => parseExerciseTemplates(content, batch.map(({ id }) => id)));
+        const generated = await requestValidatedJson(client, selectedModel, systemPrompt, userPrompt, (content) => parseExerciseTemplates(content, expectedSkillIds));
 
-        batch.forEach(({ id }) => generatedBySkill.set(id, generated.filter(({ bookSkillId }) => bookSkillId === id).map(({ solution, text, title }) => ({ solution, text, title }))));
-        setProgress(Math.min(allSkills.length, start + batch.length));
+        expectedSkillIds.forEach((id) => generatedBySkill.set(id, generated.filter(({ bookSkillId }) => bookSkillId === id).map(({ solution, text, title }) => ({ solution, text, title }))));
+        setProgress(Math.min(allSkillBlocks.length, start + batch.length));
       }
 
       const expectedSkillIds = allSkills.flatMap(({ id }) => id === undefined ? [] : [id]);
@@ -550,7 +595,66 @@ function Skills ({ book, onAction, onBookChange, pipelineOnly = false, pipelineP
     } finally {
       setIsBusy(false);
     }
-  }, [allSkills, beginProgress, createClient, ensureCredits, language, outputTokens, refresh, selectedModel, setStage, validationInputs]);
+  }, [allSkillBlocks, allSkills, beginProgress, createClient, ensureCredits, language, outputTokens, refresh, selectedModel, setStage, validationInputs]);
+
+  const dividePreExercises = useCallback(async (): Promise<void> => {
+    beginProgress('Dividing multistep ExerciseTemplates', allSkillBlocks.length);
+
+    try {
+      const client = await createClient();
+
+      await ensureCredits(validationInputs, outputTokens);
+      let completed = 0;
+      let requestIndex = 0;
+
+      for (const { chapter, concepts, exerciseTemplates, exercises, skills } of chapterContent) {
+        const blocks = createSkillBlocks(skills, concepts, exercises);
+
+        for (let start = 0; start < blocks.length; start += BATCH_SIZE) {
+          const batch = blocks.slice(start, start + BATCH_SIZE);
+          const expectedSkillIds = batch.map(({ bookSkill }) => bookSkill.id);
+          const parents = exerciseTemplates.filter(({ bookSkillId }) => expectedSkillIds.includes(bookSkillId));
+
+          if (requestIndex++) {
+            await delay(REQUEST_INTERVAL_MS);
+          }
+
+          const systemPrompt = `Keep ISO language ${language}. Use <kx>...</kx> for every mathematical expression.`;
+          const userPrompt = `${divideExerciseTemplatesPrompt}\nChapter: ${chapter.title}\n${JSON.stringify({ blocks: batch, templates: parents })}`;
+          const children = await requestValidatedJson(client, selectedModel, systemPrompt, userPrompt, (content) => parseExerciseTemplates(content, expectedSkillIds, false));
+
+          await Promise.all(expectedSkillIds.map((bookSkillId) => {
+            const existing = parents.filter((template) => template.bookSkillId === bookSkillId);
+            const signatures = new Set(existing.map(({ solution, text, title }) => JSON.stringify([title.trim(), text.trim(), solution.trim()])));
+            const additions = children
+              .filter((template) => template.bookSkillId === bookSkillId)
+              .filter(({ solution, text, title }) => {
+                const signature = JSON.stringify([title, text, solution]);
+
+                if (signatures.has(signature)) {
+                  return false;
+                }
+
+                signatures.add(signature);
+
+                return true;
+              })
+              .map(({ solution, text, title }) => ({ solution, text, title }));
+
+            return additions.length ? addExerciseTemplatesForBookSkill(bookSkillId, additions) : Promise.resolve([]);
+          }));
+          completed += batch.length;
+          setProgress(Math.min(allSkillBlocks.length, completed));
+        }
+      }
+
+      await setStage(6); refresh();
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : 'Unable to divide ExerciseTemplates.');
+    } finally {
+      setIsBusy(false);
+    }
+  }, [allSkillBlocks.length, beginProgress, chapterContent, createClient, ensureCredits, language, outputTokens, refresh, selectedModel, setStage, validationInputs]);
 
   const fixPreExercises = useCallback(async (): Promise<void> => {
     beginProgress('Fixing ExerciseTemplate errors', allSkills.length);
@@ -580,7 +684,7 @@ function Skills ({ book, onAction, onBookChange, pipelineOnly = false, pipelineP
 
           const systemPrompt = `Keep ISO language ${language}. Use <kx>...</kx> for every mathematical expression.`;
           const userPrompt = `${fixExerciseTemplatesPrompt}\nChapter: ${chapter.title}\nGenerate missing templates for any supplied skill that has none.\n${JSON.stringify({ skills: selectedSkills, templates: batch })}`;
-          const corrected = await requestValidatedJson(client, selectedModel, systemPrompt, userPrompt, (content) => parseExerciseTemplates(content, expectedSkillIds));
+          const corrected = await requestValidatedJson(client, selectedModel, systemPrompt, userPrompt, (content) => parseExerciseTemplates(content, expectedSkillIds, true, batch.length));
 
           await Promise.all(expectedSkillIds.map((bookSkillId) => replaceExerciseTemplatesForBookSkill(
             bookSkillId,
@@ -591,7 +695,7 @@ function Skills ({ book, onAction, onBookChange, pipelineOnly = false, pipelineP
         }
       }
 
-      await setStage(6); refresh();
+      await setStage(7); refresh();
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : 'Unable to fix ExerciseTemplate errors.');
     } finally {
@@ -634,7 +738,7 @@ function Skills ({ book, onAction, onBookChange, pipelineOnly = false, pipelineP
       }
 
       await Promise.all(Array.from(generatedByModule, ([moduleId, contents]) => replaceSkillTemplates(moduleId, contents)));
-      await setStage(7); refresh();
+      await setStage(8); refresh();
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : 'Unable to generate SkillTemplates.');
     } finally {
@@ -696,6 +800,10 @@ function Skills ({ book, onAction, onBookChange, pipelineOnly = false, pipelineP
       generatePreExercises().catch(console.error);
     }
 
+    if (aiAction === 'dividePreExercises') {
+      dividePreExercises().catch(console.error);
+    }
+
     if (aiAction === 'fixPreExercises') {
       fixPreExercises().catch(console.error);
     }
@@ -707,7 +815,7 @@ function Skills ({ book, onAction, onBookChange, pipelineOnly = false, pipelineP
     if (aiAction === 'fix') {
       fixExercises().catch(console.error);
     }
-  }, [aiAction, fixExercises, fixPreExercises, generateExercises, generatePreExercises, generateSkills, organizeSkills]);
+  }, [aiAction, dividePreExercises, fixExercises, fixPreExercises, generateExercises, generatePreExercises, generateSkills, organizeSkills]);
   const closeConfirmation = useCallback((): void => setAiAction(undefined), []);
   const openSkillGeneration = useCallback((): void => {
     setAiAction('skills'); onAction?.('conceptsSkills');
@@ -717,6 +825,9 @@ function Skills ({ book, onAction, onBookChange, pipelineOnly = false, pipelineP
   }, [onAction]);
   const openPreExerciseGeneration = useCallback((): void => {
     setAiAction('preExercises'); onAction?.('skillsPreExercises');
+  }, [onAction]);
+  const openPreExerciseDivision = useCallback((): void => {
+    setAiAction('dividePreExercises'); onAction?.('skillsPreExercises');
   }, [onAction]);
   const openPreExerciseFix = useCallback((): void => {
     setAiAction('fixPreExercises'); onAction?.('skillsPreExercises');
@@ -764,9 +875,10 @@ function Skills ({ book, onAction, onBookChange, pipelineOnly = false, pipelineP
       <span className='pipelineStep'><span>›</span><Button icon={iconForStage(3)} isDisabled={isBusy || stage < 2 || !book.language || !skillSources.length} label='Generate Skills' onClick={openSkillGeneration} /></span>
       <span className='pipelineStep'><span>›</span><Button icon={iconForStage(4)} isDisabled={isBusy || stage < 3 || !allSkills.length} label='Deduplicate and sort' onClick={openSkillOrganization} /></span>
       <span className='pipelineStep'><span>›</span><Button icon={iconForStage(5)} isDisabled={isBusy || stage < 4 || !allSkills.length} label='Exercise templates' onClick={openPreExerciseGeneration} /></span>
-      <span className='pipelineStep'><span>›</span><Button icon={iconForStage(6)} isDisabled={isBusy || stage < 5 || !allExerciseTemplates.length} label='Fix PreExercise errors' onClick={openPreExerciseFix} /></span>
-      <span className='pipelineStep'><span>›</span><Button icon={iconForStage(7)} isDisabled={isBusy || stage < 6 || !allExerciseTemplates.length} label='Generate Exercises' onClick={openExerciseGeneration} /></span>
-      <span className='pipelineStep'><span>›</span><Button icon={stage >= 7 ? 'rotate-left' : 'play'} isDisabled={isBusy || stage < 7 || !hasCompleteSkillTemplates} label='Fix exercise errors' onClick={openExerciseFix} /></span>
+      <span className='pipelineStep'><span>›</span><Button icon={iconForStage(6)} isDisabled={isBusy || stage < 5 || !allExerciseTemplates.length} label='Divide prexercises' onClick={openPreExerciseDivision} /></span>
+      <span className='pipelineStep'><span>›</span><Button icon={iconForStage(7)} isDisabled={isBusy || stage < 6 || !allExerciseTemplates.length} label='Fix PreExercise errors' onClick={openPreExerciseFix} /></span>
+      <span className='pipelineStep'><span>›</span><Button icon={iconForStage(8)} isDisabled={isBusy || stage < 7 || !allExerciseTemplates.length} label='Generate Exercises' onClick={openExerciseGeneration} /></span>
+      <span className='pipelineStep'><span>›</span><Button icon={stage >= 8 ? 'rotate-left' : 'play'} isDisabled={isBusy || stage < 8 || !hasCompleteSkillTemplates} label='Fix exercise errors' onClick={openExerciseFix} /></span>
     </div>}
     {!pipelineOnly && <>
       <ChapterNavigation chapters={chapters} index={chapterIndex} onChange={changeChapter} />

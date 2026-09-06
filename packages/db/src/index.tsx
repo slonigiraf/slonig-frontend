@@ -124,7 +124,12 @@ export async function getBookExercisesForBookPage(bookPage: [number, number]): P
 }
 
 export async function deleteBookExercise(id: number): Promise<void> {
-    await db.bookExercises.delete(id);
+    await db.transaction('rw', db.bookExercises, db.bookSkills, async () => {
+        await db.bookExercises.delete(id);
+        const linkedSkills = await db.bookSkills.filter(({ bookExerciseIds }) => (bookExerciseIds ?? []).includes(id)).toArray();
+
+        await Promise.all(linkedSkills.flatMap((skill) => skill.id === undefined ? [] : [db.bookSkills.update(skill.id, { bookExerciseIds: (skill.bookExerciseIds ?? []).filter((exerciseId) => exerciseId !== id) })]));
+    });
 }
 
 export async function replaceParsedBookPageContent(bookId: number, pageNumber: number, chapterTitle: string, concepts: Array<Omit<BookConcept, 'bookPage' | 'chapterId' | 'id'>>, exercises: Array<Omit<BookExercise, 'bookPage' | 'id'>>): Promise<{ concepts: BookConcept[]; exercises: BookExercise[] }> {
@@ -173,7 +178,12 @@ export async function getBookConceptsForBookPage(bookId: number, pageNumber: num
 }
 
 export async function deleteBookConcept(id: number): Promise<void> {
-    await db.bookConcepts.delete(id);
+    await db.transaction('rw', db.bookConcepts, db.bookSkills, async () => {
+        await db.bookConcepts.delete(id);
+        const linkedSkills = await db.bookSkills.filter(({ bookConceptIds }) => (bookConceptIds ?? []).includes(id)).toArray();
+
+        await Promise.all(linkedSkills.flatMap((skill) => skill.id === undefined ? [] : [db.bookSkills.update(skill.id, { bookConceptIds: (skill.bookConceptIds ?? []).filter((conceptId) => conceptId !== id) })]));
+    });
 }
 
 export async function replaceBookConceptsForBookPage(bookId: number, pageNumber: number, concepts: Array<Omit<BookConcept, 'bookPage' | 'id'>>): Promise<BookConcept[]> {
@@ -201,11 +211,26 @@ export async function replaceBookSkillsForChapter(chapterId: number, skills: Arr
     });
 }
 
-export async function deleteAndRankBookSkills(chapterId: number, deleteIds: number[], sortedIds: number[]): Promise<void> {
+export async function deleteAndRankBookSkills(chapterId: number, deleteIds: number[], sortedIds: number[], mergeInto: Array<{ deleteId: number; keepId: number }>): Promise<void> {
     await db.transaction('rw', db.bookSkills, db.exerciseTemplates, async () => {
         const chapterSkillIds = await db.bookSkills.where('chapterId').equals(chapterId).primaryKeys() as number[];
         const allowedIds = new Set(chapterSkillIds);
         const allowedDeleteIds = deleteIds.filter((id) => allowedIds.has(id));
+
+        for (const { deleteId, keepId } of mergeInto) {
+            if (!allowedDeleteIds.includes(deleteId) || !allowedIds.has(keepId)) {
+                continue;
+            }
+
+            const [deletedSkill, keptSkill] = await Promise.all([db.bookSkills.get(deleteId), db.bookSkills.get(keepId)]);
+
+            if (deletedSkill && keptSkill) {
+                await db.bookSkills.update(keepId, {
+                    bookConceptIds: Array.from(new Set([...(keptSkill.bookConceptIds ?? []), ...(deletedSkill.bookConceptIds ?? [])])),
+                    bookExerciseIds: Array.from(new Set([...(keptSkill.bookExerciseIds ?? []), ...(deletedSkill.bookExerciseIds ?? [])]))
+                });
+            }
+        }
 
         await Promise.all(allowedDeleteIds.map((bookSkillId) => db.exerciseTemplates.where('bookSkillId').equals(bookSkillId).delete()));
         await db.bookSkills.bulkDelete(allowedDeleteIds);
@@ -232,6 +257,13 @@ export async function replaceExerciseTemplatesForBookSkill(bookSkillId: number, 
 
         return rows.map((template, index) => ({ ...template, id: ids[index] }));
     });
+}
+
+export async function addExerciseTemplatesForBookSkill(bookSkillId: number, templates: Array<Omit<ExerciseTemplate, 'bookSkillId' | 'id'>>): Promise<ExerciseTemplate[]> {
+    const rows = templates.map((template) => ({ ...template, bookSkillId }));
+    const ids = await db.exerciseTemplates.bulkAdd(rows, { allKeys: true });
+
+    return rows.map((template, index) => ({ ...template, id: ids[index] }));
 }
 
 export async function deleteExerciseTemplate(id: number): Promise<void> {
