@@ -4,16 +4,17 @@
 import type { Book, BookChapter, BookConcept, BookExercise, BookPage, Skill } from '@slonigiraf/db';
 import type { GeneratedSkillTemplate } from './skillTemplates.js';
 
-import { deleteSkillTemplates, getBookChapters, getBookConceptsForBookPage, getBookExercisesForBookPage, getBookPages, getSetting, getSkillsForChapter, getSkillTemplates, replaceSkillsForChapter, SettingKey, storeSkillTemplate } from '@slonigiraf/db';
+import { deleteAndRankSkills, deleteBookConcept, deleteBookExercise, deleteSkillTemplate, deleteSkillTemplates, getBookChapters, getBookConceptsForBookPage, getBookExercisesForBookPage, getBookPages, getSetting, getSkillsForChapter, getSkillTemplates, replaceSkillsForChapter, SettingKey, storeSkillTemplate, updateBookChapterTitle } from '@slonigiraf/db';
 import { Confirmation, KatexSpan } from '@slonigiraf/slonig-components';
 import { useLiveQuery } from 'dexie-react-hooks';
 import OpenAI from 'openai';
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 
-import { Button, Dropdown, styled } from '@polkadot/react-components';
+import { Button, Dropdown, Input, Modal, styled } from '@polkadot/react-components';
 
 import ExerciseList from './Edit/ExerciseList.js';
-import { chapterToSkillsPrompt, OPENAI_MODELS, skillsToExercisesPrompt } from './constants.js';
+import { estimateAiInput, formatAiInputEstimate } from './aiEstimate.js';
+import { deduplicateAndSortSkillsPrompt, OPENAI_MODELS, skillsToExercisesPrompt, sourcesToSkillsPrompt } from './constants.js';
 import { parseGeneratedSkillTemplates, parseStoredSkillTemplate } from './skillTemplates.js';
 
 const REQUEST_INTERVAL_MS = Math.ceil(60_000 / 19);
@@ -33,7 +34,65 @@ interface ChapterContent {
   skills: Skill[];
 }
 
+interface SkillSource {
+  chapterId: number;
+  chapterTitle: string;
+  description: string;
+  sourceType: 'concept' | 'exercise';
+  title: string;
+}
+
+type AiAction = 'exercises' | 'organize' | 'skills';
+
 const skillTemplateModuleId = (bookId: number, skillId: number): string => `book-${bookId}-skill-${skillId}`;
+
+function ChapterTitleEditor ({ chapter, onError, onSaved }: { chapter: BookChapter; onError: (error: string) => void; onSaved: () => void }): React.ReactElement {
+  const [title, setTitle] = useState(chapter.title);
+  const save = useCallback((): void => {
+    if (chapter.id === undefined || !title.trim()) {
+      return;
+    }
+
+    updateBookChapterTitle(chapter.id, title.trim())
+      .then(onSaved)
+      .catch((error) => onError(error instanceof Error ? error.message : 'Unable to rename the chapter.'));
+  }, [chapter.id, onError, onSaved, title]);
+
+  return <div className='chapterEditor'>
+    <Input label='Chapter name' onChange={setTitle} onEnter={save} value={title} />
+    <Button icon='save' isDisabled={!title.trim() || title.trim() === chapter.title} label='Save chapter name' onClick={save} />
+  </div>;
+}
+
+function BookItemRow ({ description, id, onDeleted, onError, title, type }: { description: string; id?: number; onDeleted: () => void; onError: (error: string) => void; title: string; type: 'concept' | 'exercise' }): React.ReactElement {
+  const deleteItem = useCallback((): void => {
+    if (id === undefined) {
+      return;
+    }
+
+    (type === 'concept' ? deleteBookConcept(id) : deleteBookExercise(id))
+      .then(onDeleted)
+      .catch((error) => onError(error instanceof Error ? error.message : `Unable to delete the ${type}.`));
+  }, [id, onDeleted, onError, type]);
+
+  return <li>
+    <strong>{title}</strong>
+    {description && <p>{description}</p>}
+    <Button icon='trash' label={`Delete ${type}`} onClick={deleteItem} />
+  </li>;
+}
+
+function SkillTemplateCard ({ id, onError, template }: { id: string; onError: (error: string) => void; template: GeneratedSkillTemplate }): React.ReactElement {
+  const deleteTemplate = useCallback((): void => {
+    deleteSkillTemplate(id).catch((error) => onError(error instanceof Error ? error.message : 'Unable to delete the exercise template.'));
+  }, [id, onError]);
+
+  return <div className='skillTemplate'>
+    <h6><KatexSpan content={template.h} /></h6>
+    <Button icon='trash' label='Delete template' onClick={deleteTemplate} />
+    <ExerciseList areShownInitially exercises={template.q} location='skill_template_info' />
+  </div>;
+}
 
 function isGeneratedSkill (value: unknown): value is { description: string; title: string } {
   if (!value || typeof value !== 'object') {
@@ -45,7 +104,7 @@ function isGeneratedSkill (value: unknown): value is { description: string; titl
   return typeof skill.description === 'string' && typeof skill.title === 'string';
 }
 
-function parseGeneratedSkills (content: string): Array<Omit<Skill, 'chapterId' | 'id'>> {
+function parseGeneratedSkills (content: string, expectedCount: number): Array<{ description: string; title: string }> {
   const json = content.replace(/^```json\s*|\s*```$/g, '').trim();
   let parsed: unknown;
 
@@ -61,24 +120,39 @@ function parseGeneratedSkills (content: string): Array<Omit<Skill, 'chapterId' |
     throw new Error('OpenRouter returned invalid skill data.');
   }
 
-  const titles = new Set<string>();
+  const result = (skills as Array<{ description: string; title: string }>).map(({ description, title }) => ({ description: description.trim(), title: title.trim() }));
 
-  return skills
-    .map(({ description, title }) => ({ description: description.trim(), title: title.trim() }))
-    .filter(({ title }) => {
-      const normalized = title.toLocaleLowerCase().replace(/\s+/g, ' ');
+  if (result.length !== expectedCount || result.some(({ title }) => !title)) {
+    throw new Error(`OpenRouter returned ${result.length} skills for ${expectedCount} source items.`);
+  }
 
-      if (!title || titles.has(normalized)) {
-        return false;
-      }
-
-      titles.add(normalized);
-
-      return true;
-    });
+  return result;
 }
 
-function SkillTemplates ({ bookId, skillId }: { bookId: number; skillId?: number }): React.ReactElement | null {
+function parseSkillOrganization (content: string, expectedIds: number[]): { deleteIds: number[]; sortedIds: number[] } {
+  const parsed = JSON.parse(content.replace(/^```json\s*|\s*```$/g, '').trim()) as { deleteIds?: unknown; sortedIds?: unknown };
+
+  if (!Array.isArray(parsed.deleteIds) || !Array.isArray(parsed.sortedIds)) {
+    throw new Error('OpenRouter returned invalid skill organization data.');
+  }
+
+  const deleteIds = parsed.deleteIds as unknown[];
+  const sortedIds = parsed.sortedIds as unknown[];
+
+  if ([...deleteIds, ...sortedIds].some((id) => !Number.isSafeInteger(id))) {
+    throw new Error('OpenRouter returned invalid skill IDs.');
+  }
+
+  const returnedIds = [...deleteIds, ...sortedIds] as number[];
+
+  if (new Set(returnedIds).size !== expectedIds.length || expectedIds.some((id) => !returnedIds.includes(id)) || returnedIds.some((id) => !expectedIds.includes(id))) {
+    throw new Error('OpenRouter did not organize every supplied skill ID exactly once.');
+  }
+
+  return { deleteIds: deleteIds as number[], sortedIds: sortedIds as number[] };
+}
+
+function SkillTemplates ({ bookId, onError, skillId }: { bookId: number; onError: (error: string) => void; skillId?: number }): React.ReactElement | null {
   const records = useLiveQuery(
     () => skillId === undefined ? [] : getSkillTemplates(skillTemplateModuleId(bookId, skillId)),
     [bookId, skillId]
@@ -96,36 +170,27 @@ function SkillTemplates ({ bookId, skillId }: { bookId: number; skillId?: number
   return templates.length
     ? <div className='skillTemplates'>
       <h5>Generated exercises</h5>
-      {templates.map(({ id, template }) => (
-        <div
-          className='skillTemplate'
-          key={id}
-        >
-          <h6><KatexSpan content={template.h} /></h6>
-          <ExerciseList
-            areShownInitially
-            exercises={template.q}
-            location='skill_template_info'
-          />
-        </div>
-      ))}
+      {templates.map(({ id, template }) => <SkillTemplateCard id={id} key={id} onError={onError} template={template} />)}
     </div>
     : null;
 }
 
 function Skills ({ book }: { book: Book }): React.ReactElement {
   const [chapters, setChapters] = useState<BookChapter[]>([]);
+  const [aiAction, setAiAction] = useState<AiAction>();
   const [error, setError] = useState('');
   const [generatedExerciseCount, setGeneratedExerciseCount] = useState(0);
-  const [generatedSkillChapterCount, setGeneratedSkillChapterCount] = useState(0);
+  const [generatedSkillCount, setGeneratedSkillCount] = useState(0);
   const [isClearConfirmationOpen, setIsClearConfirmationOpen] = useState(false);
   const [isDeletingTemplates, setIsDeletingTemplates] = useState(false);
   const [isGeneratingExercises, setIsGeneratingExercises] = useState(false);
   const [isGeneratingSkills, setIsGeneratingSkills] = useState(false);
+  const [isOrganizingSkills, setIsOrganizingSkills] = useState(false);
   const [pageContent, setPageContent] = useState<PageContent[]>([]);
   const [refreshToken, setRefreshToken] = useState(0);
   const [selectedModel, setSelectedModel] = useState(OPENAI_MODELS[0].value);
   const [skills, setSkills] = useState<Skill[]>([]);
+  const refresh = useCallback((): void => setRefreshToken((token) => token + 1), []);
 
   useEffect(() => {
     let active = true;
@@ -171,7 +236,12 @@ function Skills ({ book }: { book: Book }): React.ReactElement {
     };
   }), [chapters, pageContent, skills]);
   const sourceCount = pageContent.reduce((count, { concepts, exercises }) => count + concepts.length + exercises.length, 0);
-  const eligibleChapterCount = chapterContent.filter(({ chapter, concepts, exercises }) => chapter.id !== undefined && (concepts.length || exercises.length)).length;
+  const skillSources = useMemo<SkillSource[]>(() => chapterContent.flatMap(({ chapter, concepts, exercises }) => chapter.id === undefined
+    ? []
+    : [
+      ...concepts.map(({ description, title }) => ({ chapterId: chapter.id as number, chapterTitle: chapter.title, description, sourceType: 'concept' as const, title })),
+      ...exercises.map(({ description, title }) => ({ chapterId: chapter.id as number, chapterTitle: chapter.title, description, sourceType: 'exercise' as const, title }))
+    ]), [chapterContent]);
   const skillCount = skills.length;
   const skillModuleIds = useMemo(
     () => skills.filter(({ id }) => id !== undefined).map(({ id }) => skillTemplateModuleId(book.id, id as number)),
@@ -181,6 +251,37 @@ function Skills ({ book }: { book: Book }): React.ReactElement {
     async () => (await Promise.all(skillModuleIds.map(getSkillTemplates))).reduce((count, templates) => count + templates.length, 0),
     [skillModuleIds]
   );
+  const aiEstimate = useMemo(() => {
+    let requestInputs: string[] = [];
+
+    if (aiAction === 'skills') {
+      requestInputs = Array.from({ length: Math.ceil(skillSources.length / SKILL_BATCH_SIZE) }, (_, index) => {
+        const batch = skillSources.slice(index * SKILL_BATCH_SIZE, (index + 1) * SKILL_BATCH_SIZE);
+
+        return `Write every generated skill strictly in language ${book.language ?? 'unknown'}.\n${sourcesToSkillsPrompt}\nReturn exactly ${batch.length} skills.\n${JSON.stringify(batch)}`;
+      });
+    } else if (aiAction === 'exercises') {
+      requestInputs = Array.from({ length: Math.ceil(skills.length / SKILL_BATCH_SIZE) }, (_, index) => {
+        const batch = skills.slice(index * SKILL_BATCH_SIZE, (index + 1) * SKILL_BATCH_SIZE);
+        const contexts = batch.map((skill) => {
+          const source = chapterContent.find(({ chapter }) => chapter.id === skill.chapterId);
+
+          return {
+            bookExercises: source?.exercises.map(({ description, title }) => ({ description, title })) ?? [],
+            chapter: source?.chapter.title ?? '',
+            concepts: source?.concepts.map(({ description, title }) => ({ description, title })) ?? [],
+            targetSkill: { description: skill.description, title: skill.title }
+          };
+        });
+
+        return `Write every exercise strictly in language ${book.language ?? 'unknown'}.\n${skillsToExercisesPrompt}\nReturn exactly ${batch.length} templates.\n${JSON.stringify(contexts)}`;
+      });
+    } else if (aiAction === 'organize') {
+      requestInputs = chapterContent.filter(({ skills }) => skills.length).map(({ chapter, skills }) => `${deduplicateAndSortSkillsPrompt}\n${chapter.title}\n${JSON.stringify(skills)}`);
+    }
+
+    return formatAiInputEstimate(estimateAiInput(selectedModel, requestInputs));
+  }, [aiAction, book.language, chapterContent, selectedModel, skillSources, skills]);
 
   const createClient = useCallback(async (): Promise<OpenAI> => {
     const key = await getSetting(SettingKey.OPENROUTER_TOKEN);
@@ -198,36 +299,34 @@ function Skills ({ book }: { book: Book }): React.ReactElement {
   }, []);
 
   const generateSkills = useCallback(async (): Promise<void> => {
-    if (!eligibleChapterCount || isGeneratingExercises || isGeneratingSkills) {
+    if (!skillSources.length || isGeneratingExercises || isGeneratingSkills || isOrganizingSkills) {
       return;
     }
 
+    setAiAction(undefined);
     setError('');
     setIsGeneratingSkills(true);
-    setGeneratedSkillChapterCount(0);
+    setGeneratedSkillCount(0);
 
     try {
       const client = await createClient();
-      const eligible = chapterContent.filter(({ chapter, concepts, exercises }) => chapter.id !== undefined && (concepts.length || exercises.length));
-      const generatedTitles = new Set<string>();
+      const generatedByChapter = new Map<number, Array<Omit<Skill, 'chapterId' | 'id'>>>();
 
-      for (const [index, { chapter, concepts, exercises }] of eligible.entries()) {
-        if (index) {
+      for (let start = 0; start < skillSources.length; start += SKILL_BATCH_SIZE) {
+        const batch = skillSources.slice(start, start + SKILL_BATCH_SIZE);
+
+        if (start) {
           await delay(REQUEST_INTERVAL_MS);
         }
 
         const response = await client.chat.completions.create({
           messages: [
             {
-              content: 'Use the natural language of the supplied book chapter for every generated skill title and description. Do not translate the result to English.',
+              content: `Write every generated skill strictly in the language identified by this ISO 639-1 code: ${book.language || 'en'}.`,
               role: 'system'
             },
             {
-              content: `${chapterToSkillsPrompt}\n\nDo not duplicate any of these skills already selected for earlier chapters:\n${JSON.stringify([...generatedTitles])}\n\nChapter content:\n${JSON.stringify({
-                chapter: chapter.title,
-                concepts: concepts.map(({ description, title }) => ({ description, title })),
-                exercises: exercises.map(({ description, title }) => ({ description, title }))
-              })}`,
+              content: `${sourcesToSkillsPrompt}\n\nBook language: ${book.language || 'en'}\nReturn exactly ${batch.length} skills.\n\nSource items:\n${JSON.stringify(batch)}`,
               role: 'user'
             }
           ],
@@ -237,32 +336,35 @@ function Skills ({ book }: { book: Book }): React.ReactElement {
         const content = response.choices[0].message?.content?.trim();
 
         if (!content) {
-          throw new Error(`OpenRouter returned no skills for “${chapter.title}”.`);
+          throw new Error('OpenRouter returned no skills.');
         }
 
-        const chapterSkills = parseGeneratedSkills(content).filter(({ title }) => !generatedTitles.has(title.toLocaleLowerCase().replace(/\s+/g, ' ')));
+        const generated = parseGeneratedSkills(content, batch.length);
 
-        await Promise.all(skills
-          .filter(({ chapterId, id }) => chapterId === chapter.id && id !== undefined)
-          .map(({ id }) => deleteSkillTemplates(skillTemplateModuleId(book.id, id as number))));
-        await replaceSkillsForChapter(chapter.id as number, chapterSkills);
-        chapterSkills.forEach(({ title }) => generatedTitles.add(title.toLocaleLowerCase().replace(/\s+/g, ' ')));
-        setGeneratedSkillChapterCount((count) => count + 1);
+        generated.forEach((skill, index) => {
+          const chapterSkills = generatedByChapter.get(batch[index].chapterId) ?? [];
+
+          chapterSkills.push({ ...skill, rank: chapterSkills.length });
+          generatedByChapter.set(batch[index].chapterId, chapterSkills);
+        });
+        setGeneratedSkillCount((count) => count + batch.length);
       }
 
+      await Promise.all(chapters.filter(({ id }) => id !== undefined).map(({ id }) => replaceSkillsForChapter(id as number, generatedByChapter.get(id as number) ?? [])));
       setRefreshToken((token) => token + 1);
     } catch (generationError) {
       setError(generationError instanceof Error ? generationError.message : 'Unable to generate skills.');
     } finally {
       setIsGeneratingSkills(false);
     }
-  }, [book.id, chapterContent, createClient, eligibleChapterCount, isGeneratingExercises, isGeneratingSkills, selectedModel, skills]);
+  }, [book.language, chapters, createClient, isGeneratingExercises, isGeneratingSkills, isOrganizingSkills, selectedModel, skillSources]);
 
   const generateExercises = useCallback(async (): Promise<void> => {
-    if (!skillCount || isGeneratingExercises || isGeneratingSkills) {
+    if (!skillCount || isGeneratingExercises || isGeneratingSkills || isOrganizingSkills) {
       return;
     }
 
+    setAiAction(undefined);
     setError('');
     setIsGeneratingExercises(true);
     setGeneratedExerciseCount(0);
@@ -298,7 +400,7 @@ function Skills ({ book }: { book: Book }): React.ReactElement {
           const response = await client.chat.completions.create({
             messages: [
               {
-                content: 'For each target skill, write the heading, questions, and answers in the natural language used by that skill and its book chapter. Do not default to English.',
+                content: `Write every exercise heading, question, and answer strictly in the language identified by this ISO 639-1 code: ${book.language || 'en'}.`,
                 role: 'system'
               },
               {
@@ -332,7 +434,54 @@ function Skills ({ book }: { book: Book }): React.ReactElement {
     } finally {
       setIsGeneratingExercises(false);
     }
-  }, [book.id, chapterContent, createClient, isGeneratingExercises, isGeneratingSkills, selectedModel, skillCount, skills]);
+  }, [book.id, book.language, chapterContent, createClient, isGeneratingExercises, isGeneratingSkills, isOrganizingSkills, selectedModel, skillCount, skills]);
+
+  const organizeSkills = useCallback(async (): Promise<void> => {
+    if (!skillCount || isGeneratingExercises || isGeneratingSkills || isOrganizingSkills) {
+      return;
+    }
+
+    setAiAction(undefined);
+    setError('');
+    setIsOrganizingSkills(true);
+
+    try {
+      const client = await createClient();
+
+      for (const [index, { chapter, skills: chapterSkills }] of chapterContent.filter(({ skills }) => skills.length).entries()) {
+        if (index) {
+          await delay(REQUEST_INTERVAL_MS);
+        }
+
+        const skillRows = chapterSkills.filter(({ id }) => id !== undefined).map(({ description, id, title }) => ({ description, id, title }));
+        const response = await client.chat.completions.create({
+          messages: [{
+            content: `${deduplicateAndSortSkillsPrompt}\n\nChapter: ${chapter.title}\nSkills:\n${JSON.stringify(skillRows)}`,
+            role: 'user'
+          }],
+          model: selectedModel,
+          response_format: { type: 'json_object' }
+        });
+        const content = response.choices[0].message?.content?.trim();
+
+        if (!content) {
+          throw new Error('OpenRouter returned no skill ordering.');
+        }
+
+        const ids = skillRows.map(({ id }) => id as number);
+        const organization = parseSkillOrganization(content, ids);
+
+        await deleteAndRankSkills(chapter.id as number, organization.deleteIds, organization.sortedIds);
+        await Promise.all(organization.deleteIds.map((id) => deleteSkillTemplates(skillTemplateModuleId(book.id, id))));
+      }
+
+      setRefreshToken((token) => token + 1);
+    } catch (organizationError) {
+      setError(organizationError instanceof Error ? organizationError.message : 'Unable to deduplicate and sort skills.');
+    } finally {
+      setIsOrganizingSkills(false);
+    }
+  }, [book.id, chapterContent, createClient, isGeneratingExercises, isGeneratingSkills, isOrganizingSkills, selectedModel, skillCount]);
 
   const clearSkillTemplates = useCallback(async (): Promise<void> => {
     setIsDeletingTemplates(true);
@@ -351,40 +500,63 @@ function Skills ({ book }: { book: Book }): React.ReactElement {
     clearSkillTemplates().catch(console.error);
   }, [clearSkillTemplates]);
   const openClearConfirmation = useCallback((): void => setIsClearConfirmationOpen(true), []);
+  const closeAiConfirmation = useCallback((): void => setAiAction(undefined), []);
+  const confirmAiAction = useCallback((): void => {
+    if (aiAction === 'skills') {
+      generateSkills().catch(console.error);
+    } else if (aiAction === 'exercises') {
+      generateExercises().catch(console.error);
+    } else if (aiAction === 'organize') {
+      organizeSkills().catch(console.error);
+    }
+  }, [aiAction, generateExercises, generateSkills, organizeSkills]);
+  const openExerciseGeneration = useCallback((): void => setAiAction('exercises'), []);
+  const openSkillGeneration = useCallback((): void => setAiAction('skills'), []);
+  const openSkillOrganization = useCallback((): void => setAiAction('organize'), []);
 
   return <StyledSkills>
     <div className='heading'>
-      <h2>Skills</h2>
+      <div>
+        <h2>Skills</h2>
+        <small>Book language: {book.language?.toUpperCase() ?? 'not detected'}</small>
+      </div>
       <div className='generationControls'>
         <Dropdown
           className='modelSelect'
-          isDisabled={!sourceCount || isGeneratingExercises || isGeneratingSkills}
+          isDisabled={!sourceCount || isGeneratingExercises || isGeneratingSkills || isOrganizingSkills}
           onChange={setSelectedModel}
           options={OPENAI_MODELS}
           value={selectedModel}
         />
         <Button
           icon='magic'
-          isDisabled={!eligibleChapterCount || isGeneratingExercises || isGeneratingSkills || isDeletingTemplates}
-          label={isGeneratingSkills ? `Generating skills… ${generatedSkillChapterCount}/${eligibleChapterCount} chapters` : 'Generate skills'}
-          onClick={generateSkills}
+          isDisabled={!book.language || !skillSources.length || isGeneratingExercises || isGeneratingSkills || isOrganizingSkills || isDeletingTemplates}
+          label={isGeneratingSkills ? `Generating skills… ${generatedSkillCount}/${skillSources.length}` : 'Generate skills'}
+          onClick={openSkillGeneration}
         />
         <Button
           icon='magic'
-          isDisabled={!skillCount || isGeneratingExercises || isGeneratingSkills || isDeletingTemplates}
+          isDisabled={!skillCount || isGeneratingExercises || isGeneratingSkills || isOrganizingSkills || isDeletingTemplates}
           label={isGeneratingExercises ? `Generating exercises… ${generatedExerciseCount}/${skillCount}` : 'Generate exercises'}
-          onClick={generateExercises}
+          onClick={openExerciseGeneration}
+        />
+        <Button
+          icon='sort-amount-down'
+          isDisabled={!skillCount || isGeneratingExercises || isGeneratingSkills || isOrganizingSkills || isDeletingTemplates}
+          label={isOrganizingSkills ? 'Deduplicating and sorting…' : 'Deduplicate and sort skills'}
+          onClick={openSkillOrganization}
         />
         {!!templateCount && (
           <Button
             icon='trash-can'
-            isDisabled={isGeneratingExercises || isGeneratingSkills || isDeletingTemplates}
+            isDisabled={isGeneratingExercises || isGeneratingSkills || isOrganizingSkills || isDeletingTemplates}
             label={isDeletingTemplates ? 'Deleting templates…' : 'Delete all templates'}
             onClick={openClearConfirmation}
           />
         )}
       </div>
     </div>
+    {!book.language && sourceCount > 0 && <p className='recognitionHint'>Recognize the first two pages to determine the book language before generating skills.</p>}
     {error && (
       <p
         className='errorMessage'
@@ -393,18 +565,19 @@ function Skills ({ book }: { book: Book }): React.ReactElement {
     )}
     {sourceCount
       ? chapterContent.filter(({ concepts, exercises, skills }) => concepts.length || exercises.length || skills.length).map(({ chapter, concepts, exercises, skills }) => <section key={chapter.id}>
-        <h3>{chapter.title}</h3>
-        {!!skills.length && <><h4>Generated skills</h4><ul>{skills.map((skill) => <li key={skill.id}>
+        <ChapterTitleEditor chapter={chapter} onError={setError} onSaved={refresh} />
+        {!!skills.length && <><h4>Generated skills</h4><ol>{skills.map((skill) => <li key={skill.id}>
           <strong>{skill.title}</strong>
           {skill.description && <p>{skill.description}</p>}
           <SkillTemplates
             bookId={book.id}
+            onError={setError}
             skillId={skill.id}
           />
-        </li>)}</ul></>}
+        </li>)}</ol></>}
         {!skills.length && <p className='emptyOutput'>No skills generated for this chapter.</p>}
-        {!!concepts.length && <><h4>Book concepts</h4><ul>{concepts.map((concept) => <li key={concept.id}><strong>{concept.title}</strong>{concept.description && <p>{concept.description}</p>}</li>)}</ul></>}
-        {!!exercises.length && <><h4>Book exercises</h4><ul>{exercises.map((exercise) => <li key={exercise.id}><strong>{exercise.title}</strong>{exercise.description && <p>{exercise.description}</p>}</li>)}</ul></>}
+        {!!concepts.length && <><h4>Book concepts</h4><ul>{concepts.map((concept) => <BookItemRow description={concept.description} id={concept.id} key={concept.id} onDeleted={refresh} onError={setError} title={concept.title} type='concept' />)}</ul></>}
+        {!!exercises.length && <><h4>Book exercises</h4><ul>{exercises.map((exercise) => <BookItemRow description={exercise.description} id={exercise.id} key={exercise.id} onDeleted={refresh} onError={setError} title={exercise.title} type='exercise' />)}</ul></>}
       </section>)
       : !error && <p className='emptyOutput'>No book concepts or exercises have been generated for this book.</p>}
     {isClearConfirmationOpen && (
@@ -413,6 +586,21 @@ function Skills ({ book }: { book: Book }): React.ReactElement {
         onConfirm={confirmClearSkillTemplates}
         question='Delete all generated exercise templates for this book?'
       />
+    )}
+    {aiAction && (
+      <Modal
+        header={aiAction === 'skills' ? 'Generate skills' : aiAction === 'exercises' ? 'Generate exercises' : 'Deduplicate and sort skills'}
+        onClose={closeAiConfirmation}
+        size='small'
+      >
+        <Modal.Content>
+          <p>{aiEstimate}</p>
+          <Button.Group>
+            <Button icon='times' label='Cancel' onClick={closeAiConfirmation} />
+            <Button icon='check' label='Continue' onClick={confirmAiAction} />
+          </Button.Group>
+        </Modal.Content>
+      </Modal>
     )}
   </StyledSkills>;
 }
@@ -423,6 +611,8 @@ const StyledSkills = styled.div`
   .heading h2 { margin: 0; }
   .generationControls { align-items: center; display: flex; gap: 0.5rem; }
   .modelSelect { min-width: 12rem; }
+  .chapterEditor { align-items: flex-end; display: flex; gap: 0.5rem; }
+  .chapterEditor > :first-child { flex: 1; }
   section + section { border-top: 1px solid var(--border-table); margin-top: 1.5rem; padding-top: 1rem; }
   h3 { margin-bottom: 0.75rem; }
   li + li { margin-top: 1rem; }
@@ -431,7 +621,7 @@ const StyledSkills = styled.div`
   .skillTemplates h5 { margin: 0 0 0.4rem; }
   .skillTemplate + .skillTemplate { border-top: 1px solid var(--border-table); margin-top: 0.75rem; padding-top: 0.75rem; }
   .skillTemplate h6 { margin: 0.5rem 0; }
-  @media only screen and (max-width: 900px) { .heading, .generationControls { align-items: stretch; flex-direction: column; } }
+  @media only screen and (max-width: 900px) { .chapterEditor, .heading, .generationControls { align-items: stretch; flex-direction: column; } }
 `;
 
 export default React.memo(Skills);

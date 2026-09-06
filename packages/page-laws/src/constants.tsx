@@ -1,4 +1,4 @@
-// Copyright 2021-2022 @slonigiraf/app-laws authors & contributors
+// Copyright 2021-2026 @polkadot/app-laws authors & contributors
 // SPDX-License-Identifier: Apache-2.0
 
 export const QR_CODE_SIZE = 300;
@@ -65,16 +65,21 @@ export const conceptsToSkillsPrompt = `You are an educational content methodolog
 
 ${skillTemplateGenerationInstructions}`;
 
-export const chapterToSkillsPrompt = `You are an educational content methodologist. From one chapter's concepts and book exercises, create a non-duplicated learning progression of the smallest useful skills a learner should acquire.
+export const sourcesToSkillsPrompt = `You are an educational content methodologist. Convert each supplied book concept or book exercise into exactly one smallest useful, narrow, observable skill. Preserve the source-item order and return one skill for every source item, even when two source items appear similar. Each skill must state an unambiguous input, operation, and expected output. Do not merge items, omit items, generate multiple skills for one item, use broad topic names, or invent unsupported material.
 
-Apply Vygotsky's Zone of Proximal Development: order skills from prerequisite abilities the learner can reach with light support toward progressively more demanding abilities enabled by earlier skills. Each skill must be one narrow, observable ability with an unambiguous input, operation, and expected output. Split skills when their method, direction, input/output mapping, or task structure differs. Do not use broad topic names, repeat equivalent skills under different wording, invent material unsupported by the chapter, or include a skill merely because a concept is mentioned.
-
-Determine the chapter's natural language from its title, concepts, and exercises. Write every generated skill title and description in that same language. Keep formulas, symbols, and proper names unchanged where appropriate.
+The request supplies the book's ISO 639-1 language code. Write every generated skill title and description strictly in that language. A ru book must produce Russian skills and a tr book must produce Turkish skills. Never infer a different output language or default to English because these instructions and JSON field names are English. Keep formulas, symbols, and proper names unchanged where appropriate.
 
 Return only valid JSON in this exact shape:
 {"skills":[{"title":"Narrow observable skill","description":"What the learner can do, including the relevant method and expected output"}]}
 
-Return an empty skills array when the chapter supports no learnable skill. Do not add markdown fences or commentary.`;
+Do not add markdown fences or commentary.`;
+
+export const deduplicateAndSortSkillsPrompt = `Review the supplied skills from one chapter. Identify semantic duplicates and keep the clearest, most atomic version of each skill. Then order the remaining skill IDs from easiest to hardest using Vygotsky's Zone of Proximal Development: immediate prerequisites first, followed by skills made reachable through those prerequisites.
+
+Return only valid JSON in this exact shape:
+{"deleteIds":[1,2],"sortedIds":[3,4,5]}
+
+Every supplied ID must appear exactly once in either deleteIds or sortedIds. Do not invent IDs. Do not add markdown fences or commentary.`;
 
 export const skillsToExercisesPrompt = `You are an educational content methodologist. Generate one exercise template for each supplied target skill, preserving the supplied order. Treat each target skill as authoritative. Use its chapter concepts and book exercises only as grounding context; do not replace, broaden, merge, or duplicate the target skill. Keep the difficulty within the learner's Zone of Proximal Development: the task should be achievable using this skill and its immediate prerequisites, without requiring unrelated or more advanced abilities. Return exactly one skill template per target skill.
 
