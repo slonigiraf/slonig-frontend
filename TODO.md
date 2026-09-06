@@ -1,65 +1,51 @@
-Usage scenario:
-Book.pdf -> Course
+GENERATION
 
-What prevents?
-- OCR issues
-- Poor exercise generation
-- Lack of exercise definition
-
-Generation:
-- After populating mmd data from the book - grab first 2 pages, and determine the book language. Put the 2 letter language code to the Book entity.
-- When transforming mmd to BookConcepts and BookExercises - run 'Split concepts' automatically twice, remove the button 'Split concepts'.
-- To Skill add a field called rank - to allow ordering the skills inside the chapter
-- Generate Skills one for each concept, and one for each exercise - not for chapter. Add the requirememnt to use specific language for skills - get the book language from the Book entity. 
-- Add button that will deduplicate exercises and sort them: ask ai to return list of Skill ids to be deleted, and sorted list of ids - from the easiest skill to the toghest one - using Zone of proximal development idea.
-- Estimate token input consumption per each request and estimated price - display at Confirmation Window.
-- At "Concepts/Skills" allow: 1. to edit chapter name. 2. to delete specific concepts, exercises and SkillTemplates.
-
-Publishing:
-- At Skills/Course left pane - display SkillTemplates under Chapter names instead of Skills under Chapter names.
-- For price inputs use crypto token number inputs as the project alreadt use
-- Add button "Publis" that will send transactions to blockchain:
--- Make sure the user has enough Slon
--- Register Skills on blockchain first - see examples how it's done in the Editor.tsx.
--- After adding skills - add Modules to blockchain with already published SkillTemplates blockchain ids inside - makes sure we user the same scheme of Knowldedge JSON coding as the project already use.
--- After publishing Modules - publish the Course with references to modules inside
--- After Course is published - edit the List object, selected at the right pane - to inclide the course object inside in alphabetical order, and save this list object to blockchain - again see how Editor.tsx does such things.
-
-
-TODO:
-Upload
+Db:
 - Rename Skill entity to BookSkill
+- Add entity ExerciseTemplate: bookSkillId, title, text, solution
+- Reorganize the way Book processing works.
+
+Currently it's:
+Pdf->MMD via "Recognize" button ->BookConcepts+BookExercises via "Concepts" button->BookSkills via "Generate Skills" button->Deduplicated and sorted skills via "Deduplicate and skills" button->SkillTemplates via "Generate Exercises" button
+
+Change it to:
+Pdf->MMD via "Recognize" button ->BookConcepts+BookExercises via "Concepts" button->BookSkills via "Generate Skills" button->Deduplicated and sorted skills via "Deduplicate and skills" button->ExerciseTemplates via "Exercise templates" button->SkillTemplates via "Generate Exercises" button
+Organize the mentioned buttons in a row or two with > simbols showing that they are sequential, don't allow to push next button before the previous done.
+Thus, the tabs should start looking like:
+1. Pdf/Text (more or less the same, but move page navigation inside the tab)
+2. Text/Concepts (more or less the same, but move page navigation inside the tab)
+3. Concepts/Skills (move navigation inside the tab)):
+Separate view on left and right pane - left pane BookConcepts+BookExercises. Right corresponding BookSkills. Make navigation at this view by chapter not by page.
+4. Add tab: Skills/PreExercises (navigation, scrolling by chapter)
+Left pane - BookSkills, right pane - ExerciseTemplates
+5. Add tab PreExercises/Exercises (navigation, scrolling by chapter)
+Left pane - BookSkills, right pane - ExerciseTemplates
+
+- Pushing "Exercise templates" should ask ai to generate simple exersices for each skill, with variations: for training Perceptual, Perceptual, Transformation, Reasoning, Generation abilities to utilize the skill, so each skill will result in 5 Exercise Templates, if possible.
+- At entities mentioned above use KatexSpan for all text elements - so formulas will be displayed properly
+- Make sure that we ask formula be generated in katex at all ai gen stages
+- When generating BookExercises make sure the the exercise text was put into exerice completely
+- When parsing BookExercise and BookConcepts - if there were no BookExercises the app doesn't show BookConcepts at Concepts/Skills - fix - it should show.
+- Make sure BookExercises are visible - they don't sometimes for unknown reason
+- Add button - fix errors in SkillTemplates that will do so with AI in batches per chapter.
+- At Concepts/Skills Allow to delete generated Skills one by one
+- When processing something how overflow with the pie chart progess bar (see the examples in the codebase of the pie chart)
+
+At Upload:
 - Don't allow uploaded books dropdown to overflow the book name to right when collapsed
-- Add price calculation for mmd generation - and show confirmation dioalogue with the price
+- Add price calculation for mmd generation - and show confirmation dialogue with the price
 - Also estimate output tokens count and total price in confirmation dialogues
 
-Text/Concepts
-- When generating Exercises make sure the the exercise text was put into exerice completely
 
-Concepts/Skills
-- Allow to delete generated Skills
-- When parsing BookExercise and BookConcepts - if there were no BookExercises the app doesn't show BookConcepts at Concepts/Skills - fix - it should show.
-- Add button - fix errors in SkillTemplates that will do so with AI in batches per chapter
-- When processing something with AI show overflow with the pie chart progess bar (see the examples in the codebase of the pie chart)
-- For each SkillTemplate - Generate a complete solution, Divide the Solution on steps - generate SkillTemplate for each step
-- Make sure BookExercises are visible - they don't sometimes for unknown reason
+PUBLISHING
 
 Skills/Course
-- Fix Chapter names with AI
-- Create course name with AI
 - Do batch sending transcations - not one by one
 - Remember the location where the book was published to
 - Along the publishing process save knowledge ids to skilltemplate, chapter,book - so the process can be resumed in a case of failure.
 - If skilltemplate or chapter were already published - don't allow to republish them - just allow to republish the book itself - the internal references to chapter (modules) stay as previous.
-- Fix typescript errors
-- Skills.tsx: allow to delete an SkillTemplate one by one
-- Skills.tsx: allow to edit chapter name, and insert chapter name between concepts
+- Make sure no typescript errors introduced, clean previous Typescipt errors in the edited files.
 
-Concepts/Skills
-- Skill name should use KatexSpan
-
-
-- At Skills/Course:
-Left pane:
-display on top - editable course name, 
-below: editable chapter names and skillTemplates between them.
+- Add button - fix Book and chapter names - that will do so by using SkillTemplates titles and ai
+- Allow to delete an SkillTemplate one by one
+- Allow to edit chapter name, and insert chapter name between SkillTemplates
