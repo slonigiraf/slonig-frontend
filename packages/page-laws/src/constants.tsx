@@ -83,16 +83,21 @@ Return only valid JSON in this exact shape:
 
 Every supplied ID must appear exactly once in either deleteIds or sortedIds. Every deleteId must appear exactly once in mergeInto, and every keepId must be present in sortedIds. Do not invent IDs. Do not add markdown fences or commentary.`;
 
-export const skillsToExerciseTemplatesPrompt = `The input is structured as blocks containing one BookSkill and all of its linked BookConcepts and BookExercises. For each block, preferably create five simple practice templates, one for each ability mode in this order: perceptual observation, perceptual discrimination, transformation, reasoning, and generation. Five templates per skill is the preferred result, but return as many useful templates as the material supports; fewer or more are acceptable. Every template must train only its supplied skill and remain within the learner's Zone of Proximal Development. Match the structure, terminology, tone, and difficulty of the linked book exercises without copying their exact parameters. The text must be a succinct, complete, self-contained exercise. The solution must be complete, correct, and written step by step.
-
-Preserve the supplied BookSkill block order. Do not mix concepts or exercises between blocks.
-
-Write every text and solution strictly in the supplied book language. Use <kx>...</kx> for every mathematical formula or expression, never dollar-delimited LaTeX, and escape every LaTeX backslash for valid JSON.
-
+export const skillsToExerciseTemplatesPrompt = `The input is structured as blocks containing one skill
+and all of its linked concepts and example exercises.
+For each block, create one exercise for ability mode transformation.
+One output exercise per skill is the preferred result. Every output exercise must train only its supplied skill.
+Match the structure, terminology, tone, and difficulty of the linked book exercises without copying their exact parameters.
+The text must be a succinct, complete, self-contained exercise.
+The solution must be complete, correct, and written step by step.
+Preserve the supplied skill block order. Do not mix concepts or exercises between blocks.
+Write every text, and solution strictly in the supplied book language.
+Use <kx>...</kx> for every mathematical formula or expression, never dollar-delimited LaTeX,
+and escape every LaTeX backslash for valid JSON.
 Return only valid JSON in this shape:
-{"templates":[{"bookSkillId":1,"text":"Complete exercise","solution":"Complete solution"}]}
+{"templates":[{"bookSkillId":number,"text":"Complete exercise","solution":"Complete solution"}]}
 
-Use only supplied bookSkillId values. Do not add markdown fences or commentary.`;
+Do not add markdown fences or commentary.`;
 
 export const divideExerciseTemplatesPrompt = `Review the supplied ExerciseTemplates grouped with their corresponding BookSkill. Do not change or return the parent ExerciseTemplates. For each parent whose solution has multiple substantive steps, create one additional, self-contained child ExerciseTemplate for every individual step. Each child must train that step alone, keep the parent's bookSkillId, contain a succinct real task, and provide a correct step-by-step solution. Return no children for a parent that already has only one substantive step.
 
