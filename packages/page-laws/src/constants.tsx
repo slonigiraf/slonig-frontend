@@ -72,7 +72,7 @@ The request supplies the book's ISO 639-1 language code. Write every generated s
 Return only valid JSON in this exact shape:
 {"skills":[{"title":"Narrow observable skill","description":"What the learner can do, including the relevant method and expected output"}]}
 
-Do not add markdown fences or commentary.`;
+Use <kx>...</kx> for every mathematical formula or mathematical expression. Do not use dollar-delimited LaTeX. Escape every LaTeX backslash for valid JSON. Do not add markdown fences or commentary.`;
 
 export const deduplicateAndSortSkillsPrompt = `Review the supplied skills from one chapter. Identify semantic duplicates and keep the clearest, most atomic version of each skill. Then order the remaining skill IDs from easiest to hardest using Vygotsky's Zone of Proximal Development: immediate prerequisites first, followed by skills made reachable through those prerequisites.
 
@@ -81,8 +81,19 @@ Return only valid JSON in this exact shape:
 
 Every supplied ID must appear exactly once in either deleteIds or sortedIds. Do not invent IDs. Do not add markdown fences or commentary.`;
 
-export const skillsToExercisesPrompt = `You are an educational content methodologist. Generate one exercise template for each supplied target skill, preserving the supplied order. Treat each target skill as authoritative. Use its chapter concepts and book exercises only as grounding context; do not replace, broaden, merge, or duplicate the target skill. Keep the difficulty within the learner's Zone of Proximal Development: the task should be achievable using this skill and its immediate prerequisites, without requiring unrelated or more advanced abilities. Return exactly one skill template per target skill.
+export const skillsToExerciseTemplatesPrompt = `For each supplied skill, preferably create five simple practice templates, one for each ability mode in this order: perceptual observation, perceptual discrimination, transformation, reasoning, and generation. Five templates per skill is the preferred result, but return as many useful templates as the material supports; fewer or more are acceptable. Every template must train only its supplied skill and remain within the learner's Zone of Proximal Development. The text must be a complete, self-contained exercise; the solution must be complete and correct. Preserve the supplied skill order.
 
-Use the natural language of each target skill for the complete corresponding template. This includes the template heading, every exercise question, and every answer or worked solution.
+Write every title, text, and solution strictly in the supplied book language. Use <kx>...</kx> for every mathematical formula or expression, never dollar-delimited LaTeX, and escape every LaTeX backslash for valid JSON.
+
+Return only valid JSON in this shape:
+{"templates":[{"bookSkillId":1,"title":"Ability mode: task","text":"Complete exercise","solution":"Complete solution"}]}
+
+Use only supplied bookSkillId values. Do not add markdown fences or commentary.`;
+
+export const skillsToExercisesPrompt = `You are an educational content methodologist. Convert each supplied ExerciseTemplate into exactly one SkillTemplate, preserving the supplied order. Treat the ExerciseTemplate title, text, and solution as authoritative. The two concrete exercises in q must be variations of that ExerciseTemplate: they must train the same ability mode and differ only in task data or parameters. The two exercises must have different concrete input parameters and must not contain identical questions. Change every input value needed to make the second task genuinely distinct while preserving the method and difficulty. Do not use BookSkills as generation input, merge ExerciseTemplates, or invent a different target skill. Keep the difficulty within the learner's Zone of Proximal Development. Return exactly one SkillTemplate per supplied ExerciseTemplate.
+
+Use the natural language of each ExerciseTemplate for the complete corresponding SkillTemplate. This includes the heading, every exercise question, and every answer or worked solution. The supplied bookSkillId is only a storage relationship and must not affect or appear in the generated content.
 
 ${skillTemplateGenerationInstructions}`;
+
+export const fixSkillTemplatesPrompt = 'Repair every supplied skill template without changing its target skill or language. Correct factual, mathematical, logical, JSON, and answer errors. Make each question self-contained and ensure every solution answers its question. The two exercises in every template must have different concrete input parameters and must not contain identical questions; revise the second exercise and its answer when necessary while preserving the same method and difficulty. Preserve the number and order of templates. Preserve the required i, t, h, and q structure. Use <kx>...</kx> for every mathematical formula or expression, never dollar-delimited LaTeX, and escape every LaTeX backslash for valid JSON. Return only the corrected JSON array without markdown fences or commentary.';

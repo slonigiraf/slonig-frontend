@@ -4,6 +4,7 @@
 export interface Book {
   id: number;
   language?: string;
+  processingStage?: number;
   contentHash: string;
   name: string;
   opfsName: string;

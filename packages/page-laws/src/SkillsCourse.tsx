@@ -8,7 +8,7 @@ import type { KeyringPair } from '@polkadot/keyring/types';
 import type { DispatchError } from '@polkadot/types/interfaces';
 import type { GeneratedSkillTemplate } from './skillTemplates.js';
 
-import { getBookChapters, getSkillsForChapter, getSkillTemplates } from '@slonigiraf/db';
+import { getBookChapters, getBookSkillsForChapter, getSkillTemplates } from '@slonigiraf/db';
 import { digestFromCIDv1, getCIDFromBytes, getIPFSContentIDAndPinIt, getIPFSDataFromContentID, LawType, parseJson, useInfo, useIpfsContext, useLoginContext } from '@slonigiraf/slonig-components';
 import BN from 'bn.js';
 import { useLiveQuery } from 'dexie-react-hooks';
@@ -116,7 +116,7 @@ function SkillsCourse ({ book }: { book: Book }): React.ReactElement {
         return { chapter, templates: [] };
       }
 
-      const skills = await getSkillsForChapter(chapter.id);
+      const skills = await getBookSkillsForChapter(chapter.id);
       const templates = (await Promise.all(skills.map(async (skill) => {
         if (skill.id === undefined) {
           return [];

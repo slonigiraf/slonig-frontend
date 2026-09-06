@@ -2,15 +2,16 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import type { Book } from '@slonigiraf/db';
+import type { PDFDocumentProxy } from 'pdfjs-dist';
 
-import { createBook, deleteBook, getBookByContentHash, getBookPages, getBooks, putBook } from '@slonigiraf/db';
+import { createBook, deleteBook, getBookByContentHash, getBookPages, getBooks, putBook, updateBookProcessingStage } from '@slonigiraf/db';
+import { getDocument } from 'pdfjs-dist';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { Button, Dropdown, Modal, styled } from '@polkadot/react-components';
 
 import { estimateAiInput, formatAiInputEstimate } from './aiEstimate.js';
 import BookReader, { OPENAI_MODELS } from './BookReader.js';
-import Skills from './Skills.js';
 import { useTranslation } from './translate.js';
 
 const BOOKS_DIRECTORY = 'books';
@@ -74,10 +75,10 @@ function Upload (): React.ReactElement {
   const [generateConceptsEstimate, setGenerateConceptsEstimate] = useState('');
   const [isGenerateConceptsConfirmationOpen, setIsGenerateConceptsConfirmationOpen] = useState(false);
   const [isRecognizeConfirmationOpen, setIsRecognizeConfirmationOpen] = useState(false);
+  const [recognizeEstimate, setRecognizeEstimate] = useState('');
   const [recognizeAllRequest, setRecognizeAllRequest] = useState(0);
   const [readerFile, setReaderFile] = useState<File>();
   const [selectedId, setSelectedId] = useState<number | undefined>(getSessionBookId);
-  const [showSkills, setShowSkills] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const loadBooks = useCallback(async (): Promise<void> => {
@@ -217,14 +218,53 @@ function Upload (): React.ReactElement {
     setIsRecognizeConfirmationOpen(true);
   }, []);
 
+  useEffect(() => {
+    if (!isRecognizeConfirmationOpen || !readerFile) {
+      return;
+    }
+
+    let active = true;
+    let document: PDFDocumentProxy | undefined;
+
+    const calculate = async (): Promise<void> => {
+      const task = getDocument({ data: new Uint8Array(await readerFile.arrayBuffer()) });
+
+      document = await task.promise;
+
+      if (active) {
+        const price = document.numPages * 0.005;
+
+        setRecognizeEstimate(`Estimated Mathpix v3/pdf cost: ${document.numPages} page${document.numPages === 1 ? '' : 's'} × $0.005 = $${price.toFixed(3)}.`);
+      }
+    };
+
+    calculate().catch(() => active && setRecognizeEstimate('Unable to estimate the Mathpix cost.'));
+
+    return () => {
+      active = false;
+      document?.destroy().catch(console.error);
+    };
+  }, [isRecognizeConfirmationOpen, readerFile]);
+
   const closeRecognizeConfirmation = useCallback((): void => {
     setIsRecognizeConfirmationOpen(false);
   }, []);
 
   const confirmRecognize = useCallback((): void => {
     setIsRecognizeConfirmationOpen(false);
-    setRecognizeAllRequest((request) => request + 1);
-  }, []);
+
+    if (!selectedBook) {
+      return;
+    }
+
+    updateBookProcessingStage(selectedBook.id, 0).then((updatedBook) => {
+      if (updatedBook) {
+        setBooks((current) => current.map((book) => book.id === updatedBook.id ? updatedBook : book));
+      }
+
+      setRecognizeAllRequest((request) => request + 1);
+    }).catch(() => setError(t('Unable to reset the book processing stage.')));
+  }, [selectedBook, t]);
 
   const onGenerateConcepts = useCallback((): void => {
     if (!selectedBook) {
@@ -247,7 +287,7 @@ function Upload (): React.ReactElement {
           return [pageMMD.padEnd(pageMMD.length + 2_000), splitInput.padEnd(splitInput.length + 2_000), splitInput.padEnd(splitInput.length + 2_000)];
         });
 
-        setGenerateConceptsEstimate(formatAiInputEstimate(estimateAiInput(generateAllConceptsModel, requestInputs)));
+        setGenerateConceptsEstimate(formatAiInputEstimate(estimateAiInput(generateAllConceptsModel, requestInputs, 1_200)));
       })
       .catch(() => setError(t('Unable to estimate concept generation cost.')));
   }, [generateAllConceptsModel, isGenerateConceptsConfirmationOpen, selectedBook, t]);
@@ -258,8 +298,19 @@ function Upload (): React.ReactElement {
 
   const confirmGenerateConcepts = useCallback((): void => {
     setIsGenerateConceptsConfirmationOpen(false);
-    setGenerateAllConceptsRequest((request) => request + 1);
-  }, []);
+
+    if (!selectedBook) {
+      return;
+    }
+
+    updateBookProcessingStage(selectedBook.id, 1).then((updatedBook) => {
+      if (updatedBook) {
+        setBooks((current) => current.map((book) => book.id === updatedBook.id ? updatedBook : book));
+      }
+
+      setGenerateAllConceptsRequest((request) => request + 1);
+    }).catch(() => setError(t('Unable to reset the book processing stage.')));
+  }, [selectedBook, t]);
 
   const onDelete = useCallback(async (): Promise<void> => {
     if (!selectedBook) {
@@ -284,9 +335,6 @@ function Upload (): React.ReactElement {
     }
   }, [books, selectedBook, t]);
 
-  const toggleSkills = useCallback((): void => {
-    setShowSkills((value) => !value);
-  }, []);
   const onBookChange = useCallback((updatedBook: Book): void => {
     setBooks((current) => current.map((book) => book.id === updatedBook.id ? updatedBook : book));
   }, []);
@@ -300,6 +348,8 @@ function Upload (): React.ReactElement {
       >
         <Modal.Content>
           <p>{t('Recognize every page in this book?')}</p>
+          <p>{recognizeEstimate}</p>
+          <p><a href='https://mathpix.com/pricing/api' rel='noreferrer' target='_blank'>Mathpix API pricing</a></p>
           <Button.Group>
             <Button
               icon='times'
@@ -346,6 +396,7 @@ function Upload (): React.ReactElement {
       </Modal>}
       <div className='bookToolbar'>
         <Dropdown
+          className='bookSelect'
           isDisabled={!books.length || isBusy}
           isFull
           label={t('Uploaded books')}
@@ -373,17 +424,12 @@ function Upload (): React.ReactElement {
           label={t('Recognize')}
           onClick={onRecognize}
         />
+        <span className='pipelineArrow'>›</span>
         <Button
           icon='magic'
-          isDisabled={!selectedBook || !readerFile || isBusy}
+          isDisabled={!selectedBook || !readerFile || isBusy || (selectedBook.processingStage ?? 0) < 1}
           label={t('Concepts')}
           onClick={onGenerateConcepts}
-        />
-        <Button
-          icon={showSkills ? 'book' : 'list'}
-          isDisabled={!selectedBook || isBusy}
-          label={t(showSkills ? 'Book' : 'Skills')}
-          onClick={toggleSkills}
         />
         <Button
           icon='trash'
@@ -398,18 +444,16 @@ function Upload (): React.ReactElement {
           role='alert'
         >{error}</p>
       )}
-      {selectedBook && (showSkills
-        ? <Skills book={selectedBook} />
-        : readerFile && (
-          <BookReader
-            book={selectedBook}
-            file={readerFile}
-            generateAllConceptsModel={generateAllConceptsModel}
-            generateAllConceptsRequest={generateAllConceptsRequest}
-            onBookChange={onBookChange}
-            recognizeAllRequest={recognizeAllRequest}
-          />
-        ))}
+      {selectedBook && readerFile && (
+        <BookReader
+          book={selectedBook}
+          file={readerFile}
+          generateAllConceptsModel={generateAllConceptsModel}
+          generateAllConceptsRequest={generateAllConceptsRequest}
+          onBookChange={onBookChange}
+          recognizeAllRequest={recognizeAllRequest}
+        />
+      )}
     </StyledSection>
   );
 }
@@ -422,13 +466,16 @@ const StyledSection = styled.section`
     align-items: flex-end;
     display: grid;
     gap: 0.5rem;
-    grid-template-columns: minmax(12rem, 1fr) repeat(5, auto);
+    grid-template-columns: minmax(12rem, 1fr) auto auto auto auto auto;
     margin-bottom: 2rem;
   }
 
   .bookToolbar .ui--Button {
     margin-bottom: 0.25rem;
   }
+
+  .bookSelect, .bookSelect .text { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .pipelineArrow { align-self: center; color: var(--color-label); font-size: 1.5rem; font-weight: 700; }
 
   .batchModelSelect {
     margin: 1rem 0;

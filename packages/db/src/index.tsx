@@ -31,9 +31,11 @@ import type { BookPage } from './db/BookPage.js';
 import type { BookConcept } from './db/BookConcept.js';
 import type { BookExercise } from './db/BookExercise.js';
 import type { BookChapter } from './db/BookChapter.js';
-import type { Skill } from './db/Skill.js';
+import type { BookSkill } from './db/BookSkill.js';
+import type { ExerciseTemplate } from './db/ExerciseTemplate.js';
+import type { SkillTemplate } from './db/SkillTemplate.js';
 
-export type { LearnRequest, TutorAction, CanceledInsurance, Reexamination, LetterTemplate, CanceledLetter, Reimbursement, Letter, Insurance, Lesson, Pseudonym, Setting, Signer, UsageRight, Agreement, Book, BookPage, BookChapter, BookConcept, BookExercise, Skill };
+export type { LearnRequest, TutorAction, CanceledInsurance, Reexamination, LetterTemplate, CanceledLetter, Reimbursement, Letter, Insurance, Lesson, Pseudonym, Setting, Signer, UsageRight, Agreement, Book, BookPage, BookChapter, BookConcept, BookExercise, BookSkill, ExerciseTemplate };
 
 export async function createBook(book: Omit<Book, 'id'>): Promise<number> {
     return db.books.add(book as Book);
@@ -47,6 +49,12 @@ export async function getBook(id: number): Promise<Book | undefined> {
     return db.books.get(id);
 }
 
+export async function updateBookProcessingStage(id: number, processingStage: number): Promise<Book | undefined> {
+    await db.books.update(id, { processingStage });
+
+    return db.books.get(id);
+}
+
 export async function getBooks(): Promise<Book[]> {
     return db.books.orderBy('created').reverse().toArray();
 }
@@ -56,16 +64,18 @@ export async function getBookByContentHash(contentHash: string): Promise<Book | 
 }
 
 export async function deleteBook(id: number): Promise<void> {
-    await db.transaction('rw', db.books, db.bookPages, db.bookChapters, db.bookConcepts, db.bookExercises, db.skills, async () => {
+    await db.transaction('rw', db.books, db.bookPages, db.bookChapters, db.bookConcepts, db.bookExercises, db.bookSkills, db.exerciseTemplates, async () => {
         const pageKeys = await db.bookPages.where('bookId').equals(id).primaryKeys();
         const chapterIds = (await db.bookChapters.where('bookId').equals(id).primaryKeys()) as number[];
+        const bookSkillIds = (await Promise.all(chapterIds.map((chapterId) => db.bookSkills.where('chapterId').equals(chapterId).primaryKeys()))).flat() as number[];
 
         await db.books.delete(id);
         await db.bookPages.where('bookId').equals(id).delete();
         await Promise.all([
             ...pageKeys.map((bookPage) => db.bookConcepts.where('bookPage').equals(bookPage).delete()),
             ...pageKeys.map((bookPage) => db.bookExercises.where('bookPage').equals(bookPage).delete()),
-            ...chapterIds.map((chapterId) => db.skills.where('chapterId').equals(chapterId).delete())
+            ...bookSkillIds.map((bookSkillId) => db.exerciseTemplates.where('bookSkillId').equals(bookSkillId).delete()),
+            ...chapterIds.map((chapterId) => db.bookSkills.where('chapterId').equals(chapterId).delete())
         ]);
         await db.bookChapters.where('bookId').equals(id).delete();
     });
@@ -119,12 +129,9 @@ export async function deleteBookExercise(id: number): Promise<void> {
 
 export async function replaceParsedBookPageContent(bookId: number, pageNumber: number, chapterTitle: string, concepts: Array<Omit<BookConcept, 'bookPage' | 'chapterId' | 'id'>>, exercises: Array<Omit<BookExercise, 'bookPage' | 'id'>>): Promise<{ concepts: BookConcept[]; exercises: BookExercise[] }> {
     return db.transaction('rw', db.bookChapters, db.bookConcepts, db.bookExercises, async () => {
-        const existingChapter = chapterTitle
-            ? await db.bookChapters.where('bookId').equals(bookId).filter(({ title }) => title === chapterTitle).first()
-            : undefined;
-        const chapterId = chapterTitle
-            ? existingChapter?.id ?? await db.bookChapters.add({ bookId, title: chapterTitle })
-            : undefined;
+        const resolvedChapterTitle = chapterTitle.trim() || 'Unassigned chapter';
+        const existingChapter = await db.bookChapters.where('bookId').equals(bookId).filter(({ title }) => title === resolvedChapterTitle).first();
+        const chapterId = existingChapter?.id ?? await db.bookChapters.add({ bookId, title: resolvedChapterTitle });
         const conceptBookPage: [number, number] = [bookId, pageNumber];
         const exerciseBookPage: [number, number] = [bookId, pageNumber];
         const conceptRows = concepts.map((concept) => ({ ...concept, bookPage: conceptBookPage, chapterId }));
@@ -174,28 +181,55 @@ export async function replaceBookConceptsForBookPage(bookId: number, pageNumber:
     });
 }
 
-export async function getSkillsForChapter(chapterId: number): Promise<Skill[]> {
-    return db.skills.where('chapterId').equals(chapterId).sortBy('rank');
+export async function getBookSkillsForChapter(chapterId: number): Promise<BookSkill[]> {
+    return db.bookSkills.where('chapterId').equals(chapterId).sortBy('rank');
 }
 
-export async function replaceSkillsForChapter(chapterId: number, skills: Array<Omit<Skill, 'chapterId' | 'id'>>): Promise<Skill[]> {
-    return db.transaction('rw', db.skills, async () => {
-        await db.skills.where('chapterId').equals(chapterId).delete();
+export async function replaceBookSkillsForChapter(chapterId: number, skills: Array<Omit<BookSkill, 'chapterId' | 'id'>>): Promise<BookSkill[]> {
+    return db.transaction('rw', db.bookSkills, async () => {
+        await db.bookSkills.where('chapterId').equals(chapterId).delete();
         const rows = skills.map((skill) => ({ ...skill, chapterId }));
-        const ids = await db.skills.bulkAdd(rows, { allKeys: true });
+        const ids = await db.bookSkills.bulkAdd(rows, { allKeys: true });
 
         return rows.map((skill, index) => ({ ...skill, id: ids[index] }));
     });
 }
 
-export async function deleteAndRankSkills(chapterId: number, deleteIds: number[], sortedIds: number[]): Promise<void> {
-    await db.transaction('rw', db.skills, async () => {
-        const chapterSkillIds = await db.skills.where('chapterId').equals(chapterId).primaryKeys() as number[];
+export async function deleteAndRankBookSkills(chapterId: number, deleteIds: number[], sortedIds: number[]): Promise<void> {
+    await db.transaction('rw', db.bookSkills, db.exerciseTemplates, async () => {
+        const chapterSkillIds = await db.bookSkills.where('chapterId').equals(chapterId).primaryKeys() as number[];
         const allowedIds = new Set(chapterSkillIds);
+        const allowedDeleteIds = deleteIds.filter((id) => allowedIds.has(id));
 
-        await db.skills.bulkDelete(deleteIds.filter((id) => allowedIds.has(id)));
-        await Promise.all(sortedIds.filter((id) => allowedIds.has(id)).map((id, rank) => db.skills.update(id, { rank })));
+        await Promise.all(allowedDeleteIds.map((bookSkillId) => db.exerciseTemplates.where('bookSkillId').equals(bookSkillId).delete()));
+        await db.bookSkills.bulkDelete(allowedDeleteIds);
+        await Promise.all(sortedIds.filter((id) => allowedIds.has(id)).map((id, rank) => db.bookSkills.update(id, { rank })));
     });
+}
+
+export async function deleteBookSkill(id: number): Promise<void> {
+    await db.transaction('rw', db.bookSkills, db.exerciseTemplates, async () => {
+        await db.exerciseTemplates.where('bookSkillId').equals(id).delete();
+        await db.bookSkills.delete(id);
+    });
+}
+
+export async function getExerciseTemplatesForBookSkill(bookSkillId: number): Promise<ExerciseTemplate[]> {
+    return db.exerciseTemplates.where('bookSkillId').equals(bookSkillId).sortBy('id');
+}
+
+export async function replaceExerciseTemplatesForBookSkill(bookSkillId: number, templates: Array<Omit<ExerciseTemplate, 'bookSkillId' | 'id'>>): Promise<ExerciseTemplate[]> {
+    return db.transaction('rw', db.exerciseTemplates, async () => {
+        await db.exerciseTemplates.where('bookSkillId').equals(bookSkillId).delete();
+        const rows = templates.map((template) => ({ ...template, bookSkillId }));
+        const ids = await db.exerciseTemplates.bulkAdd(rows, { allKeys: true });
+
+        return rows.map((template, index) => ({ ...template, id: ids[index] }));
+    });
+}
+
+export async function deleteExerciseTemplate(id: number): Promise<void> {
+    await db.exerciseTemplates.delete(id);
 }
 
 const DEFAULT_INSURANCE_VALIDITY = 730;//Days valid
@@ -344,8 +378,8 @@ export async function storeSkillTemplate(moduleId: string, content: string): Pro
     return id;
 }
 
-export async function getSkillTemplates(moduleId: string) {
-    return await db.skillTemplates.where('moduleId').equals(moduleId).toArray();
+export async function getSkillTemplates(moduleId: string): Promise<SkillTemplate[]> {
+    return db.skillTemplates.where('moduleId').equals(moduleId).toArray();
 }
 
 export async function deleteSkillTemplates(moduleId: string): Promise<void> {

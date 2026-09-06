@@ -2,35 +2,44 @@
 // SPDX-License-Identifier: Apache-2.0
 
 export interface AiInputEstimate {
-  priceUsd: number;
+  inputPriceUsd: number;
+  inputTokens: number;
+  outputPriceUsd: number;
+  outputTokens: number;
   requests: number;
-  tokens: number;
+  totalPriceUsd: number;
 }
 
-const INPUT_PRICE_PER_MILLION: Record<string, number> = {
-  'openai/gpt-4.1': 2,
-  'openai/gpt-4.1-mini': 0.4,
-  'openai/gpt-4o': 2.5,
-  'openai/gpt-4o-mini': 0.15,
-  'openai/gpt-5': 1.25,
-  'openai/gpt-5-mini': 0.25,
-  'openai/gpt-5.4': 2.5
+const MODEL_PRICE_PER_MILLION: Record<string, [number, number]> = {
+  'openai/gpt-4.1': [2, 8],
+  'openai/gpt-4.1-mini': [0.4, 1.6],
+  'openai/gpt-4o': [2.5, 10],
+  'openai/gpt-4o-mini': [0.15, 0.6],
+  'openai/gpt-5': [1.25, 10],
+  'openai/gpt-5-mini': [0.25, 2],
+  'openai/gpt-5.4': [2.5, 15]
 };
 
-export function estimateAiInput (model: string, requestInputs: string[]): AiInputEstimate {
+export function estimateAiInput (model: string, requestInputs: string[], outputTokensPerRequest = 1_000): AiInputEstimate {
   // Four characters per token is a deliberately simple pre-request estimate.
-  const tokens = requestInputs.reduce((total, input) => total + Math.ceil(input.length / 4), 0);
+  const inputTokens = requestInputs.reduce((total, input) => total + Math.ceil(input.length / 4), 0);
+  const outputTokens = requestInputs.length * outputTokensPerRequest;
+  const [inputRate, outputRate] = MODEL_PRICE_PER_MILLION[model] ?? [0, 0];
+  const inputPriceUsd = inputTokens * inputRate / 1_000_000;
+  const outputPriceUsd = outputTokens * outputRate / 1_000_000;
 
   return {
-    priceUsd: tokens * (INPUT_PRICE_PER_MILLION[model] ?? 0) / 1_000_000,
+    inputPriceUsd,
+    inputTokens,
+    outputPriceUsd,
+    outputTokens,
     requests: requestInputs.length,
-    tokens
+    totalPriceUsd: Number((inputPriceUsd + outputPriceUsd).toFixed(12))
   };
 }
 
-export function formatAiInputEstimate ({ priceUsd, requests, tokens }: AiInputEstimate): string {
-  const averageTokens = requests ? Math.ceil(tokens / requests) : 0;
-  const averagePrice = requests ? priceUsd / requests : 0;
+export function formatAiInputEstimate ({ inputPriceUsd, inputTokens, outputPriceUsd, outputTokens, requests, totalPriceUsd }: AiInputEstimate): string {
+  const requestPrice = requests ? totalPriceUsd / requests : 0;
 
-  return `Estimated AI input: ${tokens.toLocaleString()} tokens across ${requests.toLocaleString()} request${requests === 1 ? '' : 's'} (average ${averageTokens.toLocaleString()} tokens / $${averagePrice.toFixed(4)} per request; about $${priceUsd.toFixed(4)} total). Output tokens are not included.`;
+  return `Estimated usage: ${inputTokens.toLocaleString()} input tokens ($${inputPriceUsd.toFixed(4)}) + ${outputTokens.toLocaleString()} output tokens ($${outputPriceUsd.toFixed(4)}) across ${requests.toLocaleString()} request${requests === 1 ? '' : 's'}; about $${requestPrice.toFixed(4)} per request and $${totalPriceUsd.toFixed(4)} total.`;
 }
