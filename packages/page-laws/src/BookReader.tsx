@@ -17,7 +17,7 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 
 import { Button, Dropdown, Input, Modal, styled } from '@polkadot/react-components';
 
-import { estimateAiInput, formatAiInputEstimate } from './aiEstimate.js';
+import { assertOpenRouterCredits, estimateAiInput, formatAiInputEstimate } from './aiEstimate.js';
 import { detectBookLanguage } from './bookLanguage.js';
 import { OPENAI_MODELS } from './constants.js';
 import Skills from './Skills.js';
@@ -260,14 +260,27 @@ interface Props {
   generateAllConceptsModel: string;
   generateAllConceptsRequest: number;
   onBookChange: (book: Book) => void;
+  processingToolbar: React.ReactNode;
   recognizeAllRequest: number;
 }
 
 type ReaderPane = 'conceptsSkills' | 'pdfText' | 'preExercisesExercises' | 'skillsCourse' | 'skillsPreExercises' | 'textConcepts';
 type RecognitionTarget = 'all' | 'page';
 
-function BookReader ({ book, file, generateAllConceptsModel, generateAllConceptsRequest, onBookChange, recognizeAllRequest }: Props): React.ReactElement {
-  const [activePane, setActivePane] = useState<ReaderPane>('pdfText');
+const readerPaneSessionKey = (bookId: number): string => `knowledge-upload-book-${bookId}-pane`;
+
+function getSessionReaderPane (bookId: number): ReaderPane {
+  try {
+    const value = sessionStorage.getItem(readerPaneSessionKey(bookId));
+
+    return value === 'pdfText' || value === 'textConcepts' || value === 'conceptsSkills' || value === 'skillsPreExercises' || value === 'preExercisesExercises' || value === 'skillsCourse' ? value : 'pdfText';
+  } catch {
+    return 'pdfText';
+  }
+}
+
+function BookReader ({ book, file, generateAllConceptsModel, generateAllConceptsRequest, onBookChange, processingToolbar, recognizeAllRequest }: Props): React.ReactElement {
+  const [activePane, setActivePane] = useState<ReaderPane>(() => getSessionReaderPane(book.id));
   const [concepts, setConcepts] = useState<BookConcept[]>([]);
   const [exercises, setExercises] = useState<BookExercise[]>([]);
   const [error, setError] = useState('');
@@ -298,6 +311,14 @@ function BookReader ({ book, file, generateAllConceptsModel, generateAllConcepts
 
     return formatAiInputEstimate(estimateAiInput(selectedModel, [pageText.padEnd(pageText.length + 2_000), splitInput.padEnd(splitInput.length + 2_000), splitInput.padEnd(splitInput.length + 2_000)]));
   }, [pageNumber, pages, selectedModel]);
+
+  useEffect(() => {
+    try {
+      sessionStorage.setItem(readerPaneSessionKey(book.id), activePane);
+    } catch {
+      // Session storage may be unavailable in privacy-restricted contexts.
+    }
+  }, [activePane, book.id]);
   const advanceStage = useCallback(async (processingStage: number): Promise<void> => {
     if ((book.processingStage ?? 0) >= processingStage) {
       return;
@@ -455,6 +476,7 @@ function BookReader ({ book, file, generateAllConceptsModel, generateAllConcepts
         }
       });
       const mmdZipInput = await extractMMDZipInput(pageMMDZip);
+      await assertOpenRouterCredits(key, estimateAiInput(selectedModel, [mmdZipInput.text], 3_000).totalPriceUsd);
       const response = await client.chat.completions.create({
         messages: [{
           content: [
@@ -541,6 +563,8 @@ function BookReader ({ book, file, generateAllConceptsModel, generateAllConcepts
     const conceptTasks: Array<Promise<void>> = [];
     const eligiblePages = Array.from({ length: totalPages }, (_, index) => index + 1)
       .filter((currentPageNumber) => pages.get(currentPageNumber)?.pageMMDZip);
+
+    await assertOpenRouterCredits(key, estimateAiInput(generateAllConceptsModel, eligiblePages.map((currentPageNumber) => pages.get(currentPageNumber)?.pageMMD ?? ''), 3_000).totalPriceUsd);
 
     try {
       for (const [index, currentPageNumber] of eligiblePages.entries()) {
@@ -816,6 +840,7 @@ function BookReader ({ book, file, generateAllConceptsModel, generateAllConcepts
     }
 
     handledGenerateAllConceptsRequestRef.current = generateAllConceptsRequest;
+    setActivePane('textConcepts');
     generateAllConcepts().catch((generationError) => {
       setError(generationError instanceof Error ? generationError.message : 'Unable to generate concepts for all pages.');
     });
@@ -833,6 +858,7 @@ function BookReader ({ book, file, generateAllConceptsModel, generateAllConcepts
     }
 
     handledRecognizeAllRequestRef.current = recognizeAllRequest;
+    setActivePane('pdfText');
     recognizeAllPages().catch((recognitionError) => {
       setError(recognitionError instanceof Error ? recognitionError.message : 'Unable to recognize all pages.');
     });
@@ -914,16 +940,9 @@ function BookReader ({ book, file, generateAllConceptsModel, generateAllConcepts
       : 'Concepts and exercises';
   const conceptsPane = (): React.ReactNode => (
     <div className='tabPanel conceptsPanel'>
-      <div className='detailsHeader'>
-        <span>{conceptsStatus}</span>
-        <div className='generationControls'>
-          <Dropdown
-            className='modelSelect'
-            isDisabled={processingPage !== undefined || isGeneratingAllConcepts || isRecognizingAll}
-            onChange={setSelectedModel}
-            options={OPENAI_MODELS}
-            value={selectedModel}
-          />
+        <div className='detailsHeader'>
+          <span>{conceptsStatus}</span>
+          <div className='generationControls'>
           <Button
             icon='magic'
             isDisabled={!pages.get(pageNumber)?.pageMMDZip || processingPage !== undefined || isGeneratingAllConcepts || isRecognizingAll}
@@ -953,7 +972,7 @@ function BookReader ({ book, file, generateAllConceptsModel, generateAllConcepts
   );
 
   return (
-    <StyledReader className={isMaximized ? 'isMaximized' : ''}>
+    <StyledReader className={`bookReader${isMaximized ? ' isMaximized' : ''}`}>
       {isMathpixKeyPromptOpen && <Modal
         header='Mathpix API key'
         onClose={closeMathpixKeyPrompt}
@@ -996,6 +1015,14 @@ function BookReader ({ book, file, generateAllConceptsModel, generateAllConcepts
         <Modal.Content>
           <p>{pageGenerationEstimate}</p>
           <p>Concepts and book exercises will be split automatically in two additional AI passes.</p>
+          <Dropdown
+            className='modelSelect'
+            isDisabled={processingPage !== undefined || isGeneratingAllConcepts || isRecognizingAll}
+            label='Model'
+            onChange={setSelectedModel}
+            options={OPENAI_MODELS}
+            value={selectedModel}
+          />
           <Button.Group>
             <Button
               icon='times'
@@ -1018,6 +1045,14 @@ function BookReader ({ book, file, generateAllConceptsModel, generateAllConcepts
         <strong>{processingPage !== undefined ? `Processing page ${processingPage}` : isRecognizingAll ? 'Recognizing MMD pages' : 'Generating concepts and exercises'}</strong>
         {processingPage === undefined && <span>{isRecognizingAll ? recognizedPageCount : generatedConceptsPageCount} / {totalPages}</span>}
       </div>}
+      <Skills
+        book={book}
+        onAction={setActivePane}
+        onBookChange={onBookChange}
+        pipelineOnly
+        pipelinePrefix={processingToolbar}
+        view='conceptsSkills'
+      />
       {error && <p
         className='readerError'
         role='alert'
@@ -1027,12 +1062,12 @@ function BookReader ({ book, file, generateAllConceptsModel, generateAllConcepts
         role='tablist'
       >
         {([
-          ['pdfText', 'Pdf/Text'],
-          ['textConcepts', 'Text/Concepts'],
-          ['conceptsSkills', 'Concepts/Skills'],
-          ['skillsPreExercises', 'Skills/PreExercises'],
-          ['preExercisesExercises', 'PreExercises/Exercises'],
-          ['skillsCourse', 'Skills/Course']
+          ['pdfText', 'Text'],
+          ['textConcepts', 'Concepts'],
+          ['conceptsSkills', 'Skills'],
+          ['skillsPreExercises', 'PreExercises'],
+          ['preExercisesExercises', 'Exercises'],
+          ['skillsCourse', 'Course']
         ] as Array<[ReaderPane, string]>).map(([pane, label]) => (
           <button
             aria-selected={activePane === pane}
@@ -1044,6 +1079,10 @@ function BookReader ({ book, file, generateAllConceptsModel, generateAllConcepts
             type='button'
           >{label}</button>
         ))}
+        <div className='previewButton'><Button
+          icon={isMaximized ? 'compress' : 'search-plus'}
+          onClick={() => setIsMaximized((value) => !value)}
+        /></div>
       </div>
       <div
         aria-labelledby={`${activePane}-tab`}
@@ -1080,10 +1119,6 @@ function BookReader ({ book, file, generateAllConceptsModel, generateAllConcepts
             type='range'
             value={pageNumber}
           />
-          <div className='previewButton'><Button
-            icon={isMaximized ? 'compress' : 'search-plus'}
-            onClick={() => setIsMaximized((value) => !value)}
-                                         /></div>
         </div>}
         {activePane === 'pdfText'
           ? <>
@@ -1121,6 +1156,8 @@ function BookReader ({ book, file, generateAllConceptsModel, generateAllConcepts
                   <Skills
                     book={book}
                     onBookChange={onBookChange}
+                    onAction={setActivePane}
+                    showPipeline={false}
                     view='conceptsSkills'
                   />
                 </div>
@@ -1129,12 +1166,16 @@ function BookReader ({ book, file, generateAllConceptsModel, generateAllConcepts
                 ? <div className='skillsArea'><Skills
                   book={book}
                   onBookChange={onBookChange}
+                  onAction={setActivePane}
+                  showPipeline={false}
                   view='skillsPreExercises'
                 /></div>
                 : activePane === 'preExercisesExercises'
                   ? <div className='skillsArea'><Skills
                     book={book}
                     onBookChange={onBookChange}
+                    onAction={setActivePane}
+                    showPipeline={false}
                     view='preExercisesExercises'
                   /></div>
                   : <SkillsCourse book={book} />}
@@ -1180,7 +1221,7 @@ const StyledReader = styled.div`
     grid-column: 1 / -1;
   }
 
-  .processingOverlay { align-items: center; background: color-mix(in srgb, var(--bg-page) 92%, transparent); display: flex; flex-direction: column; gap: 0.75rem; inset: 0; justify-content: center; position: absolute; z-index: 6; }
+  .processingOverlay { align-items: center; background: color-mix(in srgb, var(--bg-page) 92%, transparent); display: flex; flex-direction: column; gap: 0.75rem; inset: 0; justify-content: center; position: fixed; z-index: 1000; }
 
   .pageNavigation label {
     align-items: center;
@@ -1259,8 +1300,14 @@ const StyledReader = styled.div`
   }
 
   .readerTabs {
+    align-items: center;
     border-bottom: 1px solid #dde1eb;
     display: flex;
+  }
+
+  .readerTabs .previewButton {
+    margin-left: auto;
+    padding: 0 0.5rem;
   }
 
   .readerTabs button {

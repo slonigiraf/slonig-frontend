@@ -395,6 +395,12 @@ function Upload (): React.ReactElement {
         </Modal.Content>
       </Modal>}
       <div className='bookToolbar'>
+        <Button
+          icon='upload'
+          isDisabled={isBusy}
+          label={t('Upload')}
+          onClick={onChooseFile}
+        />
         <Dropdown
           className='bookSelect'
           isDisabled={!books.length || isBusy}
@@ -413,28 +419,8 @@ function Upload (): React.ReactElement {
           type='file'
         />
         <Button
-          icon='upload'
-          isDisabled={isBusy}
-          label={t('Upload')}
-          onClick={onChooseFile}
-        />
-        <Button
-          icon='camera'
-          isDisabled={!selectedBook || !readerFile || isBusy}
-          label={t('Recognize')}
-          onClick={onRecognize}
-        />
-        <span className='pipelineArrow'>›</span>
-        <Button
-          icon='magic'
-          isDisabled={!selectedBook || !readerFile || isBusy || (selectedBook.processingStage ?? 0) < 1}
-          label={t('Concepts')}
-          onClick={onGenerateConcepts}
-        />
-        <Button
           icon='trash'
           isDisabled={!selectedBook || isBusy}
-          label={t('Delete')}
           onClick={onDelete}
         />
       </div>
@@ -451,6 +437,23 @@ function Upload (): React.ReactElement {
           generateAllConceptsModel={generateAllConceptsModel}
           generateAllConceptsRequest={generateAllConceptsRequest}
           onBookChange={onBookChange}
+          processingToolbar={<>
+            <Button
+              icon={(selectedBook?.processingStage ?? 0) >= 1 ? 'rotate-history' : 'play'}
+              isDisabled={!selectedBook || !readerFile || isBusy}
+              label={t('Recognize')}
+              onClick={onRecognize}
+            />
+            <span className='pipelineStep'>
+              <span>›</span>
+              <Button
+                icon={(selectedBook?.processingStage ?? 0) >= 2 ? 'rotate-history' : 'play'}
+                isDisabled={!selectedBook || !readerFile || isBusy || (selectedBook.processingStage ?? 0) < 1}
+                label={t('Concepts')}
+                onClick={onGenerateConcepts}
+              />
+            </span>
+          </>}
           recognizeAllRequest={recognizeAllRequest}
         />
       )}
@@ -465,18 +468,21 @@ const StyledSection = styled.section`
   .bookToolbar {
     align-items: flex-end;
     display: grid;
-    gap: 0.5rem;
-    grid-template-columns: minmax(12rem, 1fr) auto auto auto auto auto;
-    margin-bottom: 2rem;
+    gap: 1rem;
+    grid-template-columns: auto minmax(12rem, 1fr) auto;
+    margin-bottom: 0;
   }
 
   .bookToolbar .ui--Button {
     margin-bottom: 0.25rem;
   }
 
-  .bookSelect, .bookSelect .text { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-  .pipelineArrow { align-self: center; color: var(--color-label); font-size: 1.5rem; font-weight: 700; }
+  .bookToolbar > .ui--Button:first-child {
+    margin-bottom: 0;
+    margin-right: -0.5rem;
+  }
 
+  .bookSelect, .bookSelect .text { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .batchModelSelect {
     margin: 1rem 0;
   }
@@ -493,6 +499,7 @@ const StyledSection = styled.section`
   @media only screen and (max-width: 700px) {
     .bookToolbar {
       align-items: stretch;
+      gap: 0.5rem;
       grid-template-columns: 1fr 1fr;
     }
 

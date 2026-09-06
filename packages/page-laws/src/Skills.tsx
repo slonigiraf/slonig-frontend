@@ -12,7 +12,7 @@ import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { Button, Dropdown, Input, Modal, styled } from '@polkadot/react-components';
 
 import ExerciseList from './Edit/ExerciseList.js';
-import { estimateAiInput, formatAiInputEstimate } from './aiEstimate.js';
+import { assertOpenRouterCredits, estimateAiInput, formatAiInputEstimate } from './aiEstimate.js';
 import { deduplicateAndSortSkillsPrompt, fixSkillTemplatesPrompt, OPENAI_MODELS, skillsToExercisesPrompt, skillsToExerciseTemplatesPrompt, sourcesToSkillsPrompt } from './constants.js';
 import { parseGeneratedSkillTemplates, parseStoredSkillTemplate } from './skillTemplates.js';
 
@@ -25,6 +25,10 @@ export type SkillsView = 'conceptsSkills' | 'preExercisesExercises' | 'skillsPre
 interface Props {
   book: Book;
   onBookChange: (book: Book) => void;
+  onAction?: (view: SkillsView) => void;
+  pipelineOnly?: boolean;
+  pipelinePrefix?: React.ReactNode;
+  showPipeline?: boolean;
   view: SkillsView;
 }
 
@@ -137,6 +141,14 @@ function ChapterNavigation ({ chapters, index, onChange }: { chapters: BookChapt
       options={chapters.map(({ id, title }, chapterIndex) => ({ key: id ?? chapterIndex, text: title, value: chapterIndex }))}
       value={index}
     />
+    <input
+      aria-label='Navigate chapters'
+      max={Math.max(1, chapters.length - 1)}
+      min={0}
+      onChange={({ target }) => onChange(Number(target.value))}
+      type='range'
+      value={index}
+    />
     <span>{index + 1} / {chapters.length}</span>
     <Button
       icon='arrow-right'
@@ -186,7 +198,6 @@ function BookItem ({ description, id, onDeleted, onError, title, type }: { descr
     {description && <p><KatexSpan content={description} /></p>}
     <Button
       icon='trash'
-      label={`Delete ${type}`}
       onClick={remove}
     />
   </article>;
@@ -206,7 +217,6 @@ function BookSkillCard ({ bookId, onDeleted, onError, skill }: { bookId: number;
     {skill.description && <p><KatexSpan content={skill.description} /></p>}
     <Button
       icon='trash'
-      label='Delete skill'
       onClick={remove}
     />
   </article>;
@@ -227,7 +237,6 @@ function PreExerciseCard ({ onDeleted, onError, template }: { onDeleted: () => v
     <div className='solution'><KatexSpan content={template.solution} /></div>
     <Button
       icon='trash'
-      label='Delete template'
       onClick={remove}
     />
   </article>;
@@ -247,17 +256,28 @@ function FinalExerciseCard ({ onDeleted, onError, record }: { onDeleted: () => v
     />
     <Button
       icon='trash'
-      label='Delete SkillTemplate'
       onClick={remove}
     />
   </article>;
 }
 
-function Skills ({ book, onBookChange, view }: Props): React.ReactElement {
+const chapterSessionKey = (bookId: number, view: SkillsView): string => `knowledge-upload-book-${bookId}-${view}-chapter`;
+
+function getSessionChapter (bookId: number, view: SkillsView): number {
+  try {
+    const stored = Number(sessionStorage.getItem(chapterSessionKey(bookId, view)));
+
+    return Number.isSafeInteger(stored) && stored >= 0 ? stored : 0;
+  } catch {
+    return 0;
+  }
+}
+
+function Skills ({ book, onAction, onBookChange, pipelineOnly = false, pipelinePrefix, showPipeline = true, view }: Props): React.ReactElement {
   const language = book.language ?? 'en';
   const [aiAction, setAiAction] = useState<AiAction>();
   const [chapterContent, setChapterContent] = useState<ChapterContent[]>([]);
-  const [chapterIndex, setChapterIndex] = useState(0);
+  const [chapterIndex, setChapterIndex] = useState(() => getSessionChapter(book.id, view));
   const [error, setError] = useState('');
   const [isBusy, setIsBusy] = useState(false);
   const [progress, setProgress] = useState(0);
@@ -266,6 +286,15 @@ function Skills ({ book, onBookChange, view }: Props): React.ReactElement {
   const [refreshToken, setRefreshToken] = useState(0);
   const [selectedModel, setSelectedModel] = useState(OPENAI_MODELS[0].value);
   const refresh = useCallback((): void => setRefreshToken((value) => value + 1), []);
+  const changeChapter = useCallback((index: number): void => {
+    setChapterIndex(index);
+
+    try {
+      sessionStorage.setItem(chapterSessionKey(book.id, view), String(index));
+    } catch {
+      // Session storage may be unavailable in privacy-restricted contexts.
+    }
+  }, [book.id, view]);
 
   useEffect(() => {
     let active = true;
@@ -355,6 +384,16 @@ function Skills ({ book, onBookChange, view }: Props): React.ReactElement {
   }, [aiAction, allExerciseTemplates, allSkills, chapterContent, language, skillSources]);
   const outputTokens = aiAction === 'preExercises' ? BATCH_SIZE * 1_250 : aiAction === 'exercises' || aiAction === 'fix' ? BATCH_SIZE * 700 : aiAction === 'skills' ? BATCH_SIZE * 180 : 300;
   const estimate = formatAiInputEstimate(estimateAiInput(selectedModel, requestInputs, outputTokens));
+  const ensureCredits = useCallback(async (inputs: string[], outputTokenCount: number): Promise<void> => {
+    const key = await getSetting(SettingKey.OPENROUTER_TOKEN);
+
+    if (!key) {
+      throw new Error('No OpenRouter token found. Add it in Settings.');
+    }
+
+    await assertOpenRouterCredits(key, estimateAiInput(selectedModel, inputs, outputTokenCount).totalPriceUsd);
+  }, [selectedModel]);
+  const iconForStage = useCallback((requiredStage: number): 'play' | 'rotate-history' => stage >= requiredStage ? 'rotate-history' : 'play', [stage]);
 
   const beginProgress = useCallback((label: string, total: number): void => {
     setAiAction(undefined); setError(''); setIsBusy(true); setProgress(0); setProgressLabel(label); setProgressTotal(Math.max(1, total));
@@ -365,6 +404,7 @@ function Skills ({ book, onBookChange, view }: Props): React.ReactElement {
 
     try {
       const client = await createClient();
+      await ensureCredits(requestInputs, outputTokens);
       const generatedByChapter = new Map<number, Array<Omit<BookSkill, 'chapterId' | 'id'>>>();
 
       await Promise.all(allSkills.flatMap(({ id }) => id === undefined ? [] : [replaceExerciseTemplatesForBookSkill(id, []), deleteSkillTemplates(skillTemplateModuleId(book.id, id))]));
@@ -394,7 +434,7 @@ function Skills ({ book, onBookChange, view }: Props): React.ReactElement {
     } finally {
       setIsBusy(false);
     }
-  }, [allSkills, beginProgress, book.id, chapters, createClient, language, refresh, selectedModel, setStage, skillSources]);
+  }, [allSkills, beginProgress, book.id, chapters, createClient, ensureCredits, language, outputTokens, refresh, requestInputs, selectedModel, setStage, skillSources]);
 
   const organizeSkills = useCallback(async (): Promise<void> => {
     const groups = chapterContent.filter(({ skills }) => skills.length);
@@ -403,6 +443,7 @@ function Skills ({ book, onBookChange, view }: Props): React.ReactElement {
 
     try {
       const client = await createClient();
+      await ensureCredits(requestInputs, outputTokens);
 
       for (const [index, { chapter, skills }] of groups.entries()) {
         if (index) {
@@ -423,13 +464,14 @@ function Skills ({ book, onBookChange, view }: Props): React.ReactElement {
     } finally {
       setIsBusy(false);
     }
-  }, [beginProgress, book.id, chapterContent, createClient, refresh, selectedModel, setStage]);
+  }, [beginProgress, book.id, chapterContent, createClient, ensureCredits, outputTokens, refresh, requestInputs, selectedModel, setStage]);
 
   const generatePreExercises = useCallback(async (): Promise<void> => {
     beginProgress('Generating ExerciseTemplates', allSkills.length);
 
     try {
       const client = await createClient();
+      await ensureCredits(requestInputs, outputTokens);
 
       for (let start = 0; start < allSkills.length; start += BATCH_SIZE) {
         const batch = allSkills.slice(start, start + BATCH_SIZE).filter(({ id }) => id !== undefined) as Array<BookSkill & { id: number }>;
@@ -454,13 +496,14 @@ function Skills ({ book, onBookChange, view }: Props): React.ReactElement {
     } finally {
       setIsBusy(false);
     }
-  }, [allSkills, beginProgress, createClient, language, refresh, selectedModel, setStage]);
+  }, [allSkills, beginProgress, createClient, ensureCredits, language, outputTokens, refresh, requestInputs, selectedModel, setStage]);
 
   const generateExercises = useCallback(async (): Promise<void> => {
     beginProgress('Generating SkillTemplates', allExerciseTemplates.length);
 
     try {
       const client = await createClient();
+      await ensureCredits(requestInputs, outputTokens);
       const moduleIds = Array.from(new Set(allExerciseTemplates.map(({ bookSkillId }) => skillTemplateModuleId(book.id, bookSkillId))));
 
       await Promise.all(moduleIds.map(deleteSkillTemplates));
@@ -485,13 +528,13 @@ function Skills ({ book, onBookChange, view }: Props): React.ReactElement {
     } finally {
       setIsBusy(false);
     }
-  }, [allExerciseTemplates, beginProgress, book.id, createClient, language, refresh, selectedModel, setStage]);
+  }, [allExerciseTemplates, beginProgress, book.id, createClient, ensureCredits, language, outputTokens, refresh, requestInputs, selectedModel, setStage]);
 
   const fixExercises = useCallback(async (): Promise<void> => {
     beginProgress('Fixing SkillTemplate errors', allSkillTemplates.length);
 
     try {
-      const client = await createClient(); let completed = 0;
+      const client = await createClient(); await ensureCredits(requestInputs, outputTokens); let completed = 0;
 
       for (const { skillTemplates } of chapterContent) {
         for (let start = 0; start < skillTemplates.length; start += BATCH_SIZE) {
@@ -516,7 +559,7 @@ function Skills ({ book, onBookChange, view }: Props): React.ReactElement {
     } finally {
       setIsBusy(false);
     }
-  }, [allSkillTemplates.length, beginProgress, chapterContent, createClient, language, refresh, selectedModel]);
+  }, [allSkillTemplates.length, beginProgress, chapterContent, createClient, ensureCredits, language, outputTokens, refresh, requestInputs, selectedModel]);
 
   const confirm = useCallback((): void => {
     if (aiAction === 'skills') {
@@ -540,13 +583,13 @@ function Skills ({ book, onBookChange, view }: Props): React.ReactElement {
     }
   }, [aiAction, fixExercises, generateExercises, generatePreExercises, generateSkills, organizeSkills]);
   const closeConfirmation = useCallback((): void => setAiAction(undefined), []);
-  const openSkillGeneration = useCallback((): void => setAiAction('skills'), []);
-  const openSkillOrganization = useCallback((): void => setAiAction('organize'), []);
-  const openPreExerciseGeneration = useCallback((): void => setAiAction('preExercises'), []);
-  const openExerciseGeneration = useCallback((): void => setAiAction('exercises'), []);
-  const openExerciseFix = useCallback((): void => setAiAction('fix'), []);
+  const openSkillGeneration = useCallback((): void => { setAiAction('skills'); onAction?.('conceptsSkills'); }, [onAction]);
+  const openSkillOrganization = useCallback((): void => { setAiAction('organize'); onAction?.('conceptsSkills'); }, [onAction]);
+  const openPreExerciseGeneration = useCallback((): void => { setAiAction('preExercises'); onAction?.('skillsPreExercises'); }, [onAction]);
+  const openExerciseGeneration = useCallback((): void => { setAiAction('exercises'); onAction?.('preExercisesExercises'); }, [onAction]);
+  const openExerciseFix = useCallback((): void => { setAiAction('fix'); onAction?.('preExercisesExercises'); }, [onAction]);
 
-  return <StyledSkills>
+  return <StyledSkills className={pipelineOnly ? 'pipelineOnly' : undefined}>
     {aiAction && (
       <Modal
         header='Confirm AI processing'
@@ -555,6 +598,14 @@ function Skills ({ book, onBookChange, view }: Props): React.ReactElement {
       >
         <Modal.Content>
           <p>{estimate}</p>
+          <Dropdown
+            className='modelSelect'
+            isDisabled={isBusy}
+            label='Model'
+            onChange={setSelectedModel}
+            options={OPENAI_MODELS}
+            value={selectedModel}
+          />
           <Button.Group>
             <Button icon='times' label='Cancel' onClick={closeConfirmation} />
             <Button icon='check' label='Continue' onClick={confirm} />
@@ -569,21 +620,18 @@ function Skills ({ book, onBookChange, view }: Props): React.ReactElement {
         <span>{progress} / {progressTotal}</span>
       </div>
     )}
-    <div className='pipeline'>
-      <Dropdown className='modelSelect' isDisabled={isBusy} onChange={setSelectedModel} options={OPENAI_MODELS} value={selectedModel} />
-      <Button icon='magic' isDisabled={isBusy || stage < 2 || !book.language || !skillSources.length} label='Generate Skills' onClick={openSkillGeneration} />
-      <span>›</span>
-      <Button icon='sort-amount-down' isDisabled={isBusy || stage < 3 || !allSkills.length} label='Deduplicate and sort' onClick={openSkillOrganization} />
-      <span>›</span>
-      <Button icon='magic' isDisabled={isBusy || stage < 4 || !allSkills.length} label='Exercise templates' onClick={openPreExerciseGeneration} />
-      <span>›</span>
-      <Button icon='magic' isDisabled={isBusy || stage < 5 || !allExerciseTemplates.length} label='Generate Exercises' onClick={openExerciseGeneration} />
-      <span>›</span>
-      <Button icon='wrench' isDisabled={isBusy || stage < 6 || !hasCompleteSkillTemplates} label='Fix exercise errors' onClick={openExerciseFix} />
-    </div>
-    <ChapterNavigation chapters={chapters} index={chapterIndex} onChange={setChapterIndex} />
-    {error && <p className='errorMessage' role='alert'>{error}</p>}
-    {!current && <p>No chapters have been generated for this book.</p>}
+    {showPipeline && <div className='pipeline'>
+      {pipelinePrefix}
+      <span className='pipelineStep'><span>›</span><Button icon={iconForStage(3)} isDisabled={isBusy || stage < 2 || !book.language || !skillSources.length} label='Generate Skills' onClick={openSkillGeneration} /></span>
+      <span className='pipelineStep'><span>›</span><Button icon={iconForStage(4)} isDisabled={isBusy || stage < 3 || !allSkills.length} label='Deduplicate and sort' onClick={openSkillOrganization} /></span>
+      <span className='pipelineStep'><span>›</span><Button icon={iconForStage(5)} isDisabled={isBusy || stage < 4 || !allSkills.length} label='Exercise templates' onClick={openPreExerciseGeneration} /></span>
+      <span className='pipelineStep'><span>›</span><Button icon={iconForStage(6)} isDisabled={isBusy || stage < 5 || !allExerciseTemplates.length} label='Generate Exercises' onClick={openExerciseGeneration} /></span>
+      <span className='pipelineStep'><span>›</span><Button icon={stage >= 6 ? 'rotate-history' : 'play'} isDisabled={isBusy || stage < 6 || !hasCompleteSkillTemplates} label='Fix exercise errors' onClick={openExerciseFix} /></span>
+    </div>}
+    {!pipelineOnly && <>
+      <ChapterNavigation chapters={chapters} index={chapterIndex} onChange={changeChapter} />
+      {error && <p className='errorMessage' role='alert'>{error}</p>}
+      {!current && <p>No chapters have been generated for this book.</p>}
     {current && (
       <>
         <ChapterTitleEditor chapter={current.chapter} onError={setError} onSaved={refresh} />
@@ -607,16 +655,12 @@ function Skills ({ book, onBookChange, view }: Props): React.ReactElement {
           </div>
         )}
         {view === 'skillsPreExercises' && (
-          <div className='columns'>
-            <section>
-              <h3>BookSkills</h3>
-              {current.skills.map((skill) => <BookSkillCard bookId={book.id} key={skill.id} onDeleted={refresh} onError={setError} skill={skill} />)}
-            </section>
-            <section>
-              <h3>ExerciseTemplates</h3>
-              {!current.exerciseTemplates.length && <p>No ExerciseTemplates generated.</p>}
-              {current.exerciseTemplates.map((template) => <PreExerciseCard key={template.id} onDeleted={refresh} onError={setError} template={template} />)}
-            </section>
+          <div className='singlePane'>
+            {!current.skills.length && <p>No BookSkills generated.</p>}
+            {current.skills.map((skill) => <div className='skillWithTemplates' key={skill.id}>
+              <BookSkillCard bookId={book.id} onDeleted={refresh} onError={setError} skill={skill} />
+              {current.exerciseTemplates.filter(({ bookSkillId }) => bookSkillId === skill.id).map((template) => <PreExerciseCard key={template.id} onDeleted={refresh} onError={setError} template={template} />)}
+            </div>)}
           </div>
         )}
         {view === 'preExercisesExercises' && (
@@ -634,23 +678,30 @@ function Skills ({ book, onBookChange, view }: Props): React.ReactElement {
         )}
       </>
     )}
+    </>}
   </StyledSkills>;
 }
 
 const StyledSkills = styled.div`
   background: var(--bg-page); border-radius: 0.5rem; box-sizing: border-box; min-width: 0; padding: 1rem; position: relative; width: 100%;
-  .pipeline { align-items: center; display: flex; flex-wrap: wrap; gap: 0.35rem; margin-bottom: 1rem; }
-  .pipeline > span { color: var(--color-label); font-size: 1.5rem; font-weight: 700; }
+  &.pipelineOnly { background: transparent; border-radius: 0; margin-top: 0; padding: 0; }
+  .pipeline { align-items: center; display: flex; flex-wrap: wrap; gap: 0.35rem 0.75rem; margin-bottom: 0.75rem; }
+  .pipelineStep { align-items: center; display: inline-flex; gap: 0.35rem; white-space: nowrap; }
+  .pipelineStep > span { color: var(--color-label); font-size: 1.5rem; font-weight: 700; }
   .modelSelect { min-width: 11rem; }
-  .chapterNavigation { align-items: center; display: grid; gap: 0.5rem; grid-template-columns: auto minmax(14rem, 1fr) auto auto; margin-bottom: 1rem; }
+  .chapterNavigation { align-items: center; display: grid; gap: 0.5rem; grid-template-columns: auto minmax(14rem, 1fr) minmax(8rem, 1fr) auto auto; margin-bottom: 1rem; }
   .chapterEditor { align-items: flex-end; display: flex; gap: 0.5rem; margin-bottom: 1rem; }
   .chapterEditor > :first-child { flex: 1; }
   .columns { display: grid; gap: 1rem; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
-  .columns > section { border: 1px solid var(--border-table); border-radius: 0.4rem; min-width: 0; overflow: auto; padding: 1rem; }
-  .contentCard { border-bottom: 1px solid var(--border-table); padding: 0.75rem 0; }
+  .columns > section, .singlePane { border: 1px solid var(--border-table); border-radius: 0.4rem; min-width: 0; overflow: auto; padding: 1rem; }
+  .contentCard { border-bottom: 1px solid var(--border-table); min-width: 0; padding: 0.75rem 10px; position: relative; }
+  .contentCard > .ui--Button { position: absolute; right: 10px; top: 10px; }
+  .contentCard > strong { display: block; max-width: calc(100% - 3rem); overflow-wrap: anywhere; }
+  .skillWithTemplates + .skillWithTemplates { border-top: 1px solid var(--border-table); margin-top: 0.75rem; padding-top: 0.5rem; }
+  .skillWithTemplates .contentCard + .contentCard { border-left: 3px solid var(--border-table); margin-left: 1.5rem; }
   .contentCard p { margin: 0.35rem 0; }
   .contentCard .solution { border-left: 0.2rem solid var(--border-table); margin: 0.5rem 0; padding-left: 0.75rem; }
-  .processingOverlay { align-items: center; background: color-mix(in srgb, var(--bg-page) 92%, transparent); display: flex; flex-direction: column; gap: 0.75rem; inset: 0; justify-content: center; position: absolute; z-index: 5; }
+  .processingOverlay { align-items: center; background: color-mix(in srgb, var(--bg-page) 92%, transparent); display: flex; flex-direction: column; gap: 0.75rem; inset: 0; justify-content: center; position: fixed; z-index: 1000; }
   .errorMessage { color: #9f3a38; }
   @media only screen and (max-width: 900px) { .columns { grid-template-columns: 1fr; } .chapterEditor { align-items: stretch; flex-direction: column; } }
 `;
