@@ -393,7 +393,7 @@ function Skills ({ book, onAction, onBookChange, pipelineOnly = false, pipelineP
 
     await assertOpenRouterCredits(key, estimateAiInput(selectedModel, inputs, outputTokenCount).totalPriceUsd);
   }, [selectedModel]);
-  const iconForStage = useCallback((requiredStage: number): 'play' | 'rotate-history' => stage >= requiredStage ? 'rotate-history' : 'play', [stage]);
+  const iconForStage = useCallback((requiredStage: number): 'play' | 'rotate-left' => stage >= requiredStage ? 'rotate-left' : 'play', [stage]);
 
   const beginProgress = useCallback((label: string, total: number): void => {
     setAiAction(undefined); setError(''); setIsBusy(true); setProgress(0); setProgressLabel(label); setProgressTotal(Math.max(1, total));
@@ -626,7 +626,7 @@ function Skills ({ book, onAction, onBookChange, pipelineOnly = false, pipelineP
       <span className='pipelineStep'><span>›</span><Button icon={iconForStage(4)} isDisabled={isBusy || stage < 3 || !allSkills.length} label='Deduplicate and sort' onClick={openSkillOrganization} /></span>
       <span className='pipelineStep'><span>›</span><Button icon={iconForStage(5)} isDisabled={isBusy || stage < 4 || !allSkills.length} label='Exercise templates' onClick={openPreExerciseGeneration} /></span>
       <span className='pipelineStep'><span>›</span><Button icon={iconForStage(6)} isDisabled={isBusy || stage < 5 || !allExerciseTemplates.length} label='Generate Exercises' onClick={openExerciseGeneration} /></span>
-      <span className='pipelineStep'><span>›</span><Button icon={stage >= 6 ? 'rotate-history' : 'play'} isDisabled={isBusy || stage < 6 || !hasCompleteSkillTemplates} label='Fix exercise errors' onClick={openExerciseFix} /></span>
+      <span className='pipelineStep'><span>›</span><Button icon={stage >= 6 ? 'rotate-left' : 'play'} isDisabled={isBusy || stage < 6 || !hasCompleteSkillTemplates} label='Fix exercise errors' onClick={openExerciseFix} /></span>
     </div>}
     {!pipelineOnly && <>
       <ChapterNavigation chapters={chapters} index={chapterIndex} onChange={changeChapter} />

@@ -260,6 +260,8 @@ interface Props {
   generateAllConceptsModel: string;
   generateAllConceptsRequest: number;
   onBookChange: (book: Book) => void;
+  onProcessingComplete: () => void;
+  pendingProcessingAction?: 'concepts' | 'recognize';
   processingToolbar: React.ReactNode;
   recognizeAllRequest: number;
 }
@@ -279,7 +281,7 @@ function getSessionReaderPane (bookId: number): ReaderPane {
   }
 }
 
-function BookReader ({ book, file, generateAllConceptsModel, generateAllConceptsRequest, onBookChange, processingToolbar, recognizeAllRequest }: Props): React.ReactElement {
+function BookReader ({ book, file, generateAllConceptsModel, generateAllConceptsRequest, onBookChange, onProcessingComplete, pendingProcessingAction, processingToolbar, recognizeAllRequest }: Props): React.ReactElement {
   const [activePane, setActivePane] = useState<ReaderPane>(() => getSessionReaderPane(book.id));
   const [concepts, setConcepts] = useState<BookConcept[]>([]);
   const [exercises, setExercises] = useState<BookExercise[]>([]);
@@ -319,6 +321,14 @@ function BookReader ({ book, file, generateAllConceptsModel, generateAllConcepts
       // Session storage may be unavailable in privacy-restricted contexts.
     }
   }, [activePane, book.id]);
+
+  useEffect(() => {
+    if (pendingProcessingAction === 'recognize') {
+      setActivePane('pdfText');
+    } else if (pendingProcessingAction === 'concepts') {
+      setActivePane('textConcepts');
+    }
+  }, [pendingProcessingAction]);
   const advanceStage = useCallback(async (processingStage: number): Promise<void> => {
     if ((book.processingStage ?? 0) >= processingStage) {
       return;
@@ -539,17 +549,18 @@ function BookReader ({ book, file, generateAllConceptsModel, generateAllConcepts
     }
 
     setError('');
+    setIsGeneratingAllConcepts(true);
+    setGeneratedConceptsPageCount(0);
 
     const key = await getSetting(SettingKey.OPENROUTER_TOKEN);
 
     if (!key) {
       setError('No OpenRouter token found. Add it in Settings.');
+      setIsGeneratingAllConcepts(false);
+      onProcessingComplete();
 
       return;
     }
-
-    setIsGeneratingAllConcepts(true);
-    setGeneratedConceptsPageCount(0);
 
     const client = new OpenAI({
       apiKey: key,
@@ -564,9 +575,9 @@ function BookReader ({ book, file, generateAllConceptsModel, generateAllConcepts
     const eligiblePages = Array.from({ length: totalPages }, (_, index) => index + 1)
       .filter((currentPageNumber) => pages.get(currentPageNumber)?.pageMMDZip);
 
-    await assertOpenRouterCredits(key, estimateAiInput(generateAllConceptsModel, eligiblePages.map((currentPageNumber) => pages.get(currentPageNumber)?.pageMMD ?? ''), 3_000).totalPriceUsd);
-
     try {
+      await assertOpenRouterCredits(key, estimateAiInput(generateAllConceptsModel, eligiblePages.map((currentPageNumber) => pages.get(currentPageNumber)?.pageMMD ?? ''), 3_000).totalPriceUsd);
+
       for (const [index, currentPageNumber] of eligiblePages.entries()) {
         if (index > 0) {
           await delay(GENERATION_PAGE_SPAWN_INTERVAL_MS);
@@ -638,8 +649,9 @@ function BookReader ({ book, file, generateAllConceptsModel, generateAllConcepts
       setError(generationError instanceof Error ? generationError.message : 'Unable to generate concepts for all pages.');
     } finally {
       setIsGeneratingAllConcepts(false);
+      onProcessingComplete();
     }
-  }, [advanceStage, book.id, generateAllConceptsModel, isGeneratingAllConcepts, isRecognizingAll, pageNumber, pages, processingPage, totalPages]);
+  }, [advanceStage, book.id, generateAllConceptsModel, isGeneratingAllConcepts, isRecognizingAll, onProcessingComplete, pageNumber, pages, processingPage, totalPages]);
 
   const detectAndStoreBookLanguage = useCallback(async (recognizedPages: Map<number, BookPage>): Promise<void> => {
     const requiredPageCount = Math.min(2, totalPages);
@@ -720,6 +732,8 @@ function BookReader ({ book, file, generateAllConceptsModel, generateAllConcepts
     }
 
     setError('');
+    setIsRecognizingAll(true);
+    setRecognizedPageCount(0);
 
     const apiKey = await getSetting(SettingKey.MATHPIX_API_KEY);
 
@@ -727,12 +741,11 @@ function BookReader ({ book, file, generateAllConceptsModel, generateAllConcepts
       setMathpixApiKey('');
       setRecognitionTarget('all');
       setIsMathpixKeyPromptOpen(true);
+      setIsRecognizingAll(false);
+      onProcessingComplete();
 
       return;
     }
-
-    setIsRecognizingAll(true);
-    setRecognizedPageCount(0);
 
     const recognitionTasks: Array<Promise<void>> = [];
     const recognizedPages = new Map(pages);
@@ -782,8 +795,9 @@ function BookReader ({ book, file, generateAllConceptsModel, generateAllConcepts
       setError(recognitionError instanceof Error ? recognitionError.message : 'Unable to recognize all pages.');
     } finally {
       setIsRecognizingAll(false);
+      onProcessingComplete();
     }
-  }, [advanceStage, book.id, detectAndStoreBookLanguage, file, isGeneratingAllConcepts, isRecognizingAll, pages, processingPage, totalPages]);
+  }, [advanceStage, book.id, detectAndStoreBookLanguage, file, isGeneratingAllConcepts, isRecognizingAll, onProcessingComplete, pages, processingPage, totalPages]);
 
   const saveMathpixApiKey = useCallback(async (): Promise<void> => {
     const apiKey = mathpixApiKey.trim();
@@ -843,8 +857,9 @@ function BookReader ({ book, file, generateAllConceptsModel, generateAllConcepts
     setActivePane('textConcepts');
     generateAllConcepts().catch((generationError) => {
       setError(generationError instanceof Error ? generationError.message : 'Unable to generate concepts for all pages.');
+      onProcessingComplete();
     });
-  }, [generateAllConcepts, generateAllConceptsRequest, isGeneratingAllConcepts, isRecognizingAll, processingPage, totalPages]);
+  }, [generateAllConcepts, generateAllConceptsRequest, isGeneratingAllConcepts, isRecognizingAll, onProcessingComplete, processingPage, totalPages]);
 
   useEffect((): void => {
     if (
@@ -861,8 +876,9 @@ function BookReader ({ book, file, generateAllConceptsModel, generateAllConcepts
     setActivePane('pdfText');
     recognizeAllPages().catch((recognitionError) => {
       setError(recognitionError instanceof Error ? recognitionError.message : 'Unable to recognize all pages.');
+      onProcessingComplete();
     });
-  }, [isGeneratingAllConcepts, isRecognizingAll, processingPage, recognizeAllPages, recognizeAllRequest, totalPages]);
+  }, [isGeneratingAllConcepts, isRecognizingAll, onProcessingComplete, processingPage, recognizeAllPages, recognizeAllRequest, totalPages]);
 
   useEffect(() => {
     if (!isMaximized) {
@@ -1037,13 +1053,13 @@ function BookReader ({ book, file, generateAllConceptsModel, generateAllConcepts
           </Button.Group>
         </Modal.Content>
       </Modal>}
-      {(processingPage !== undefined || isRecognizingAll || isGeneratingAllConcepts) && <div className='processingOverlay'>
+      {(pendingProcessingAction || processingPage !== undefined || isRecognizingAll || isGeneratingAllConcepts) && <div className='processingOverlay'>
         <RoundProgress
           total={processingPage !== undefined ? 1 : Math.max(1, totalPages)}
-          value={processingPage !== undefined ? 0 : isRecognizingAll ? recognizedPageCount : generatedConceptsPageCount}
+          value={processingPage !== undefined ? 0 : isRecognizingAll || pendingProcessingAction === 'recognize' ? recognizedPageCount : generatedConceptsPageCount}
         />
-        <strong>{processingPage !== undefined ? `Processing page ${processingPage}` : isRecognizingAll ? 'Recognizing MMD pages' : 'Generating concepts and exercises'}</strong>
-        {processingPage === undefined && <span>{isRecognizingAll ? recognizedPageCount : generatedConceptsPageCount} / {totalPages}</span>}
+        <strong>{processingPage !== undefined ? `Processing page ${processingPage}` : isRecognizingAll || pendingProcessingAction === 'recognize' ? 'Recognizing MMD pages' : 'Generating concepts and exercises'}</strong>
+        {processingPage === undefined && <span>{isRecognizingAll || pendingProcessingAction === 'recognize' ? recognizedPageCount : generatedConceptsPageCount} / {totalPages}</span>}
       </div>}
       <Skills
         book={book}
@@ -1062,13 +1078,13 @@ function BookReader ({ book, file, generateAllConceptsModel, generateAllConcepts
         role='tablist'
       >
         {([
-          ['pdfText', 'Text'],
-          ['textConcepts', 'Concepts'],
-          ['conceptsSkills', 'Skills'],
-          ['skillsPreExercises', 'PreExercises'],
-          ['preExercisesExercises', 'Exercises'],
-          ['skillsCourse', 'Course']
-        ] as Array<[ReaderPane, string]>).map(([pane, label]) => (
+          ['pdfText', 'Text', 1],
+          ['textConcepts', 'Concepts', 2],
+          ['conceptsSkills', 'Skills', 3],
+          ['skillsPreExercises', 'PreExercises', 5],
+          ['preExercisesExercises', 'Exercises', 6],
+          ['skillsCourse', 'Course', 6]
+        ] as Array<[ReaderPane, string, number]>).filter(([, , requiredStage]) => (book.processingStage ?? 0) >= requiredStage).map(([pane, label]) => (
           <button
             aria-selected={activePane === pane}
             className={activePane === pane ? 'active' : ''}

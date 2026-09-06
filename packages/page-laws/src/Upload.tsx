@@ -75,6 +75,7 @@ function Upload (): React.ReactElement {
   const [generateConceptsEstimate, setGenerateConceptsEstimate] = useState('');
   const [isGenerateConceptsConfirmationOpen, setIsGenerateConceptsConfirmationOpen] = useState(false);
   const [isRecognizeConfirmationOpen, setIsRecognizeConfirmationOpen] = useState(false);
+  const [pendingProcessingAction, setPendingProcessingAction] = useState<'concepts' | 'recognize'>();
   const [recognizeEstimate, setRecognizeEstimate] = useState('');
   const [recognizeAllRequest, setRecognizeAllRequest] = useState(0);
   const [readerFile, setReaderFile] = useState<File>();
@@ -257,19 +258,26 @@ function Upload (): React.ReactElement {
       return;
     }
 
+    setPendingProcessingAction('recognize');
+
     updateBookProcessingStage(selectedBook.id, 0).then((updatedBook) => {
       if (updatedBook) {
         setBooks((current) => current.map((book) => book.id === updatedBook.id ? updatedBook : book));
       }
 
       setRecognizeAllRequest((request) => request + 1);
-    }).catch(() => setError(t('Unable to reset the book processing stage.')));
+    }).catch(() => {
+      setPendingProcessingAction(undefined);
+      setError(t('Unable to reset the book processing stage.'));
+    });
   }, [selectedBook, t]);
 
   const onGenerateConcepts = useCallback((): void => {
     if (!selectedBook) {
       return;
     }
+
+    setPendingProcessingAction('concepts');
 
     setIsGenerateConceptsConfirmationOpen(true);
   }, [selectedBook]);
@@ -309,7 +317,10 @@ function Upload (): React.ReactElement {
       }
 
       setGenerateAllConceptsRequest((request) => request + 1);
-    }).catch(() => setError(t('Unable to reset the book processing stage.')));
+    }).catch(() => {
+      setPendingProcessingAction(undefined);
+      setError(t('Unable to reset the book processing stage.'));
+    });
   }, [selectedBook, t]);
 
   const onDelete = useCallback(async (): Promise<void> => {
@@ -338,6 +349,7 @@ function Upload (): React.ReactElement {
   const onBookChange = useCallback((updatedBook: Book): void => {
     setBooks((current) => current.map((book) => book.id === updatedBook.id ? updatedBook : book));
   }, []);
+  const onProcessingComplete = useCallback((): void => setPendingProcessingAction(undefined), []);
 
   return (
     <StyledSection>
@@ -437,9 +449,11 @@ function Upload (): React.ReactElement {
           generateAllConceptsModel={generateAllConceptsModel}
           generateAllConceptsRequest={generateAllConceptsRequest}
           onBookChange={onBookChange}
+          onProcessingComplete={onProcessingComplete}
+          pendingProcessingAction={pendingProcessingAction}
           processingToolbar={<>
             <Button
-              icon={(selectedBook?.processingStage ?? 0) >= 1 ? 'rotate-history' : 'play'}
+              icon={(selectedBook?.processingStage ?? 0) >= 1 ? 'rotate-left' : 'play'}
               isDisabled={!selectedBook || !readerFile || isBusy}
               label={t('Recognize')}
               onClick={onRecognize}
@@ -447,7 +461,7 @@ function Upload (): React.ReactElement {
             <span className='pipelineStep'>
               <span>›</span>
               <Button
-                icon={(selectedBook?.processingStage ?? 0) >= 2 ? 'rotate-history' : 'play'}
+                icon={(selectedBook?.processingStage ?? 0) >= 2 ? 'rotate-left' : 'play'}
                 isDisabled={!selectedBook || !readerFile || isBusy || (selectedBook.processingStage ?? 0) < 1}
                 label={t('Concepts')}
                 onClick={onGenerateConcepts}
@@ -482,7 +496,8 @@ const StyledSection = styled.section`
     margin-right: -0.5rem;
   }
 
-  .bookSelect, .bookSelect .text { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .bookSelect { min-width: 0; overflow: visible; }
+  .bookSelect > .text { display: block; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .batchModelSelect {
     margin: 1rem 0;
   }
