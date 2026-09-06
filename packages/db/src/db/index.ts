@@ -199,6 +199,16 @@ class SlonigDB extends Dexie {
         })])
       ]);
     });
+    this.version(80).stores({}).upgrade(async (transaction: Transaction) => {
+      const table = transaction.table<ExerciseTemplate & { title?: string }, number>('exerciseTemplates');
+      const templates = await table.toArray();
+
+      await Promise.all(templates.map((template) => {
+        const { title: _title, ...withoutTitle } = template;
+
+        return table.put(withoutTitle as ExerciseTemplate);
+      }));
+    });
   }
 }
 

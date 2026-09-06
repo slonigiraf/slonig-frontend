@@ -87,10 +87,10 @@ export const skillsToExerciseTemplatesPrompt = `The input is structured as block
 
 Preserve the supplied BookSkill block order. Do not mix concepts or exercises between blocks.
 
-Write every title, text, and solution strictly in the supplied book language. Use <kx>...</kx> for every mathematical formula or expression, never dollar-delimited LaTeX, and escape every LaTeX backslash for valid JSON.
+Write every text and solution strictly in the supplied book language. Use <kx>...</kx> for every mathematical formula or expression, never dollar-delimited LaTeX, and escape every LaTeX backslash for valid JSON.
 
 Return only valid JSON in this shape:
-{"templates":[{"bookSkillId":1,"title":"Ability mode: task","text":"Complete exercise","solution":"Complete solution"}]}
+{"templates":[{"bookSkillId":1,"text":"Complete exercise","solution":"Complete solution"}]}
 
 Use only supplied bookSkillId values. Do not add markdown fences or commentary.`;
 
@@ -99,7 +99,7 @@ export const divideExerciseTemplatesPrompt = `Review the supplied ExerciseTempla
 Preserve the book language. Use <kx>...</kx> for every mathematical formula or expression, never dollar-delimited LaTeX, and escape every LaTeX backslash for valid JSON.
 
 Return only valid JSON in this shape; an empty templates array is valid:
-{"templates":[{"bookSkillId":1,"title":"Step-specific ability","text":"Self-contained exercise for one step","solution":"Step-by-step solution"}]}
+{"templates":[{"bookSkillId":1,"text":"Self-contained exercise for one step","solution":"Step-by-step solution"}]}
 
 Use only supplied bookSkillId values. Do not repeat any parent unchanged. Do not add markdown fences or commentary.`;
 
@@ -108,11 +108,11 @@ export const fixExerciseTemplatesPrompt = `Review and repair every supplied Exer
 Preserve the number and order of supplied templates. Do not split, merge, or omit templates; division is handled by a separate stage.
 
 Return only valid JSON in this shape:
-{"templates":[{"bookSkillId":1,"title":"Ability mode: task","text":"Succinct complete exercise","solution":"Step-by-step solution"}]}
+{"templates":[{"bookSkillId":1,"text":"Succinct complete exercise","solution":"Step-by-step solution"}]}
 
 Do not add markdown fences or commentary.`;
 
-export const skillsToExercisesPrompt = `You are an educational content methodologist. Convert each supplied ExerciseTemplate into exactly one SkillTemplate, preserving the supplied order. Treat the ExerciseTemplate title, text, and solution as authoritative. The two concrete exercises in q must be variations of that ExerciseTemplate: they must train the same ability mode and differ only in task data or parameters. The two exercises must have different concrete input parameters and must not contain identical questions. Change every input value needed to make the second task genuinely distinct while preserving the method and difficulty. Do not use BookSkills as generation input, merge ExerciseTemplates, or invent a different target skill. Keep the difficulty within the learner's Zone of Proximal Development. Return exactly one SkillTemplate per supplied ExerciseTemplate.
+export const skillsToExercisesPrompt = `You are an educational content methodologist. Convert each supplied ExerciseTemplate into exactly one SkillTemplate, preserving the supplied order. Treat the ExerciseTemplate text and solution as authoritative. The two concrete exercises in q must be variations of that ExerciseTemplate: they must train the same ability mode and differ only in task data or parameters. The two exercises must have different concrete input parameters and must not contain identical questions. Change every input value needed to make the second task genuinely distinct while preserving the method and difficulty. Do not use BookSkills as generation input, merge ExerciseTemplates, or invent a different target skill. Keep the difficulty within the learner's Zone of Proximal Development. Return exactly one SkillTemplate per supplied ExerciseTemplate.
 
 The SkillTemplate title h must explain the concrete ability the learner can learn from its exercises. Every exercise question h must contain the real question or task with all required data, and every answer a must contain the real answer or worked solution to that exact question. Never use vague task or answer text.
 

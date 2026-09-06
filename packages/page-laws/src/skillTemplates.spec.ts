@@ -183,6 +183,7 @@ describe('generated skill templates', (): void => {
     assert.match(skillsToExerciseTemplatesPrompt, /blocks containing one BookSkill/i);
     assert.match(skillsToExerciseTemplatesPrompt, /Match the structure, terminology, tone, and difficulty/i);
     assert.match(skillsToExerciseTemplatesPrompt, /<kx>/i);
+    assert.doesNotMatch(skillsToExerciseTemplatesPrompt, /"title"/i);
   });
 
   it('divides multistep ExerciseTemplates without replacing their parents', (): void => {
@@ -190,6 +191,7 @@ describe('generated skill templates', (): void => {
     assert.match(divideExerciseTemplatesPrompt, /one additional, self-contained child/i);
     assert.match(divideExerciseTemplatesPrompt, /multiple substantive steps/i);
     assert.match(divideExerciseTemplatesPrompt, /empty templates array is valid/i);
+    assert.doesNotMatch(divideExerciseTemplatesPrompt, /"title"/i);
   });
 
   it('repairs ExerciseTemplate grammar without splitting', (): void => {
@@ -197,6 +199,7 @@ describe('generated skill templates', (): void => {
     assert.match(fixExerciseTemplatesPrompt, /grammar, spelling, punctuation/i);
     assert.match(fixExerciseTemplatesPrompt, /Do not split, merge, or omit/i);
     assert.match(fixExerciseTemplatesPrompt, /<kx>/i);
+    assert.doesNotMatch(fixExerciseTemplatesPrompt, /"title"/i);
   });
 
   it('requires the repair stage to preserve KaTeX and correct answers', (): void => {
