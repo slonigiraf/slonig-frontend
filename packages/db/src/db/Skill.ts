@@ -5,6 +5,7 @@
 export interface Skill {
   id?: number;
   chapterId: number;
+  rank: number;
   title: string;
   description: string;
 }

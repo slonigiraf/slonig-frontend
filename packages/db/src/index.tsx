@@ -43,6 +43,10 @@ export async function putBook(book: Book): Promise<void> {
     await db.books.put(book);
 }
 
+export async function getBook(id: number): Promise<Book | undefined> {
+    return db.books.get(id);
+}
+
 export async function getBooks(): Promise<Book[]> {
     return db.books.orderBy('created').reverse().toArray();
 }
@@ -83,6 +87,19 @@ export async function getBookChapters(bookId: number): Promise<BookChapter[]> {
     return db.bookChapters.where('bookId').equals(bookId).sortBy('id');
 }
 
+export async function updateBookChapterTitle(chapterId: number, title: string): Promise<void> {
+    await db.transaction('rw', db.bookChapters, db.bookPages, async () => {
+        const chapter = await db.bookChapters.get(chapterId);
+
+        if (!chapter) {
+            throw new Error('Book chapter not found.');
+        }
+
+        await db.bookChapters.update(chapterId, { title });
+        await db.bookPages.where('bookId').equals(chapter.bookId).filter((page) => page.chapter === chapter.title).modify({ chapter: title });
+    });
+}
+
 export async function replaceBookExercisesForBookPage(bookPage: [number, number], exercises: Array<Omit<BookExercise, 'bookPage' | 'id'>>): Promise<BookExercise[]> {
     return db.transaction('rw', db.bookExercises, async () => {
         await db.bookExercises.where('bookPage').equals(bookPage).delete();
@@ -94,6 +111,10 @@ export async function replaceBookExercisesForBookPage(bookPage: [number, number]
 
 export async function getBookExercisesForBookPage(bookPage: [number, number]): Promise<BookExercise[]> {
     return db.bookExercises.where('bookPage').equals(bookPage).sortBy('id');
+}
+
+export async function deleteBookExercise(id: number): Promise<void> {
+    await db.bookExercises.delete(id);
 }
 
 export async function replaceParsedBookPageContent(bookId: number, pageNumber: number, chapterTitle: string, concepts: Array<Omit<BookConcept, 'bookPage' | 'chapterId' | 'id'>>, exercises: Array<Omit<BookExercise, 'bookPage' | 'id'>>): Promise<{ concepts: BookConcept[]; exercises: BookExercise[] }> {
@@ -138,6 +159,10 @@ export async function getBookConceptsForBookPage(bookId: number, pageNumber: num
     return db.bookConcepts.where('bookPage').equals([bookId, pageNumber]).sortBy('id');
 }
 
+export async function deleteBookConcept(id: number): Promise<void> {
+    await db.bookConcepts.delete(id);
+}
+
 export async function replaceBookConceptsForBookPage(bookId: number, pageNumber: number, concepts: Array<Omit<BookConcept, 'bookPage' | 'id'>>): Promise<BookConcept[]> {
     const bookPage: [number, number] = [bookId, pageNumber];
 
@@ -150,7 +175,7 @@ export async function replaceBookConceptsForBookPage(bookId: number, pageNumber:
 }
 
 export async function getSkillsForChapter(chapterId: number): Promise<Skill[]> {
-    return db.skills.where('chapterId').equals(chapterId).sortBy('id');
+    return db.skills.where('chapterId').equals(chapterId).sortBy('rank');
 }
 
 export async function replaceSkillsForChapter(chapterId: number, skills: Array<Omit<Skill, 'chapterId' | 'id'>>): Promise<Skill[]> {
@@ -160,6 +185,16 @@ export async function replaceSkillsForChapter(chapterId: number, skills: Array<O
         const ids = await db.skills.bulkAdd(rows, { allKeys: true });
 
         return rows.map((skill, index) => ({ ...skill, id: ids[index] }));
+    });
+}
+
+export async function deleteAndRankSkills(chapterId: number, deleteIds: number[], sortedIds: number[]): Promise<void> {
+    await db.transaction('rw', db.skills, async () => {
+        const chapterSkillIds = await db.skills.where('chapterId').equals(chapterId).primaryKeys() as number[];
+        const allowedIds = new Set(chapterSkillIds);
+
+        await db.skills.bulkDelete(deleteIds.filter((id) => allowedIds.has(id)));
+        await Promise.all(sortedIds.filter((id) => allowedIds.has(id)).map((id, rank) => db.skills.update(id, { rank })));
     });
 }
 
@@ -315,6 +350,10 @@ export async function getSkillTemplates(moduleId: string) {
 
 export async function deleteSkillTemplates(moduleId: string): Promise<void> {
     await db.skillTemplates.where('moduleId').equals(moduleId).delete();
+}
+
+export async function deleteSkillTemplate(id: string): Promise<void> {
+    await db.skillTemplates.delete(id);
 }
 
 // Signer related

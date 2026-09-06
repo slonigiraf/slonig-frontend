@@ -1,4 +1,6 @@
-import Dexie, { Table } from 'dexie';
+import type { Table, Transaction } from 'dexie';
+
+import Dexie from 'dexie';
 import { Agreement } from './Agreement.js';
 import { CanceledInsurance } from './CanceledInsurance.js';
 import { CanceledLetter } from './CanceledLetter.js';
@@ -120,6 +122,22 @@ class SlonigDB extends Dexie {
         transaction.table('bookExercises').clear(),
         transaction.table('skills').clear()
       ]);
+    });
+    this.version(74).stores({
+      skills: '++id,chapterId,rank,[chapterId+rank]'
+    }).upgrade(async (transaction: Transaction) => {
+      const skills = await transaction.table<Skill>('skills').toArray();
+      const chapterRanks = new Map<number, number>();
+
+      await Promise.all(skills
+        .sort((a, b) => (a.id ?? 0) - (b.id ?? 0))
+        .map((skill) => {
+          const rank = chapterRanks.get(skill.chapterId) ?? 0;
+
+          chapterRanks.set(skill.chapterId, rank + 1);
+
+          return transaction.table<Skill>('skills').update(skill.id, { rank });
+        }));
     });
   }
 }

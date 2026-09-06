@@ -3,11 +3,12 @@
 
 import type { Book } from '@slonigiraf/db';
 
-import { createBook, deleteBook, getBookByContentHash, getBooks, putBook } from '@slonigiraf/db';
+import { createBook, deleteBook, getBookByContentHash, getBookPages, getBooks, putBook } from '@slonigiraf/db';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { Button, Dropdown, Modal, styled } from '@polkadot/react-components';
 
+import { estimateAiInput, formatAiInputEstimate } from './aiEstimate.js';
 import BookReader, { OPENAI_MODELS } from './BookReader.js';
 import Skills from './Skills.js';
 import { useTranslation } from './translate.js';
@@ -70,6 +71,7 @@ function Upload (): React.ReactElement {
   const [isBusy, setIsBusy] = useState(false);
   const [generateAllConceptsRequest, setGenerateAllConceptsRequest] = useState(0);
   const [generateAllConceptsModel, setGenerateAllConceptsModel] = useState(OPENAI_MODELS[0].value);
+  const [generateConceptsEstimate, setGenerateConceptsEstimate] = useState('');
   const [isGenerateConceptsConfirmationOpen, setIsGenerateConceptsConfirmationOpen] = useState(false);
   const [isRecognizeConfirmationOpen, setIsRecognizeConfirmationOpen] = useState(false);
   const [recognizeAllRequest, setRecognizeAllRequest] = useState(0);
@@ -225,8 +227,30 @@ function Upload (): React.ReactElement {
   }, []);
 
   const onGenerateConcepts = useCallback((): void => {
+    if (!selectedBook) {
+      return;
+    }
+
     setIsGenerateConceptsConfirmationOpen(true);
-  }, []);
+  }, [selectedBook]);
+
+  useEffect(() => {
+    if (!isGenerateConceptsConfirmationOpen || !selectedBook) {
+      return;
+    }
+
+    getBookPages(selectedBook.id)
+      .then((pages) => {
+        const requestInputs = pages.filter(({ pageMMD }) => !!pageMMD).flatMap(({ pageMMD = '' }) => {
+          const splitInput = pageMMD.slice(0, Math.ceil(pageMMD.length / 3));
+
+          return [pageMMD.padEnd(pageMMD.length + 2_000), splitInput.padEnd(splitInput.length + 2_000), splitInput.padEnd(splitInput.length + 2_000)];
+        });
+
+        setGenerateConceptsEstimate(formatAiInputEstimate(estimateAiInput(generateAllConceptsModel, requestInputs)));
+      })
+      .catch(() => setError(t('Unable to estimate concept generation cost.')));
+  }, [generateAllConceptsModel, isGenerateConceptsConfirmationOpen, selectedBook, t]);
 
   const closeGenerateConceptsConfirmation = useCallback((): void => {
     setIsGenerateConceptsConfirmationOpen(false);
@@ -263,6 +287,9 @@ function Upload (): React.ReactElement {
   const toggleSkills = useCallback((): void => {
     setShowSkills((value) => !value);
   }, []);
+  const onBookChange = useCallback((updatedBook: Book): void => {
+    setBooks((current) => current.map((book) => book.id === updatedBook.id ? updatedBook : book));
+  }, []);
 
   return (
     <StyledSection>
@@ -294,6 +321,7 @@ function Upload (): React.ReactElement {
       >
         <Modal.Content>
           <p>{t('Generate concepts for every recognized page in this book?')}</p>
+          <p>{generateConceptsEstimate}</p>
           <Dropdown
             className='batchModelSelect'
             isFull
@@ -378,6 +406,7 @@ function Upload (): React.ReactElement {
             file={readerFile}
             generateAllConceptsModel={generateAllConceptsModel}
             generateAllConceptsRequest={generateAllConceptsRequest}
+            onBookChange={onBookChange}
             recognizeAllRequest={recognizeAllRequest}
           />
         ))}

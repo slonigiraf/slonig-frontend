@@ -4,7 +4,7 @@
 import type { Book, BookConcept, BookExercise, BookPage } from '@slonigiraf/db';
 import type { PDFDocumentLoadingTask, PDFDocumentProxy, RenderTask } from 'pdfjs-dist';
 
-import { getBookConceptsForBookPage, getBookExercisesForBookPage, getBookPages, getSetting, putBookPage, replaceParsedBookPageContent, SettingKey, storeSetting } from '@slonigiraf/db';
+import { getBookConceptsForBookPage, getBookExercisesForBookPage, getBookPages, getSetting, putBook, putBookPage, replaceParsedBookPageContent, SettingKey, storeSetting } from '@slonigiraf/db';
 import { strFromU8, unzipSync } from 'fflate';
 import FileSaver from 'file-saver';
 import MathpixLoader from 'mathpix-markdown-it/lib/components/mathpix-loader/index.js';
@@ -12,10 +12,12 @@ import MathpixMarkdown from 'mathpix-markdown-it/lib/components/mathpix-markdown
 import OpenAI from 'openai';
 import * as PDFDocumentModule from 'pdf-lib/cjs/api/PDFDocument.js';
 import { getDocument, GlobalWorkerOptions } from 'pdfjs-dist';
-import React, { useCallback, useEffect, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { Button, Dropdown, Input, Modal, styled } from '@polkadot/react-components';
 
+import { estimateAiInput, formatAiInputEstimate } from './aiEstimate.js';
+import { detectBookLanguage } from './bookLanguage.js';
 import { OPENAI_MODELS } from './constants.js';
 import Skills from './Skills.js';
 import SkillsCourse from './SkillsCourse.js';
@@ -71,9 +73,34 @@ function parseGeneratedConcepts (content: string): GeneratedConcepts {
   };
 }
 
-const MAX_PAGES_PER_MIN = 180;
+async function atomizeGeneratedContent (client: OpenAI, model: string, generated: GeneratedConcepts): Promise<GeneratedConcepts> {
+  let result = generated;
+
+  for (let pass = 0; pass < 2; pass++) {
+    const response = await client.chat.completions.create({
+      messages: [{
+        content: `${SPLIT_CONCEPTS_PROMPT}\n\nContent to atomize (pass ${pass + 1} of 2):\n${JSON.stringify(result)}\n`,
+        role: 'user'
+      }],
+      model,
+      response_format: { type: 'json_object' }
+    });
+    const content = response.choices[0].message?.content?.trim();
+
+    if (!content) {
+      throw new Error('OpenRouter returned no atomized concepts or exercises.');
+    }
+
+    result = parseGeneratedConcepts(content);
+  }
+
+  return result;
+}
+
+const MAX_REQUESTS_PER_MIN = 180;
 const RATE_LIMIT_WINDOW_MS = 60_000;
-const PAGE_SPAWN_INTERVAL_MS = Math.ceil(RATE_LIMIT_WINDOW_MS / MAX_PAGES_PER_MIN);
+const GENERATION_PAGE_SPAWN_INTERVAL_MS = Math.ceil(RATE_LIMIT_WINDOW_MS / (MAX_REQUESTS_PER_MIN / 3));
+const RECOGNITION_PAGE_SPAWN_INTERVAL_MS = Math.ceil(RATE_LIMIT_WINDOW_MS / MAX_REQUESTS_PER_MIN);
 
 const pageSessionKey = (bookId: number): string => `knowledge-upload-book-${bookId}-page`;
 
@@ -231,22 +258,23 @@ interface Props {
   file: File;
   generateAllConceptsModel: string;
   generateAllConceptsRequest: number;
+  onBookChange: (book: Book) => void;
   recognizeAllRequest: number;
 }
 
 type ReaderPane = 'pdfText' | 'textConcepts' | 'conceptsSkills' | 'skillsCourse';
 type RecognitionTarget = 'all' | 'page';
 
-function BookReader ({ book, file, generateAllConceptsModel, generateAllConceptsRequest, recognizeAllRequest }: Props): React.ReactElement {
+function BookReader ({ book, file, generateAllConceptsModel, generateAllConceptsRequest, onBookChange, recognizeAllRequest }: Props): React.ReactElement {
   const [activePane, setActivePane] = useState<ReaderPane>('pdfText');
   const [concepts, setConcepts] = useState<BookConcept[]>([]);
   const [exercises, setExercises] = useState<BookExercise[]>([]);
   const [error, setError] = useState('');
   const [generatedConceptsPageCount, setGeneratedConceptsPageCount] = useState(0);
   const [isGeneratingAllConcepts, setIsGeneratingAllConcepts] = useState(false);
-  const [isSplittingConcepts, setIsSplittingConcepts] = useState(false);
   const [isMaximized, setIsMaximized] = useState(false);
   const [isMathpixKeyPromptOpen, setIsMathpixKeyPromptOpen] = useState(false);
+  const [isPageGenerationConfirmationOpen, setIsPageGenerationConfirmationOpen] = useState(false);
   const [isRecognizingAll, setIsRecognizingAll] = useState(false);
   const [mathpixApiKey, setMathpixApiKey] = useState('');
   const [recognizedPageCount, setRecognizedPageCount] = useState(0);
@@ -263,6 +291,12 @@ function BookReader ({ book, file, generateAllConceptsModel, generateAllConcepts
   const handledGenerateAllConceptsRequestRef = useRef(generateAllConceptsRequest);
   const handledRecognizeAllRequestRef = useRef(recognizeAllRequest);
   const pageAreaRef = useRef<HTMLDivElement>(null);
+  const pageGenerationEstimate = useMemo(() => {
+    const pageText = pages.get(pageNumber)?.pageMMD ?? '';
+    const splitInput = pageText.slice(0, Math.ceil(pageText.length / 3));
+
+    return formatAiInputEstimate(estimateAiInput(selectedModel, [pageText.padEnd(pageText.length + 2_000), splitInput.padEnd(splitInput.length + 2_000), splitInput.padEnd(splitInput.length + 2_000)]));
+  }, [pageNumber, pages, selectedModel]);
 
   useEffect(() => {
     let active = true;
@@ -377,7 +411,7 @@ function BookReader ({ book, file, generateAllConceptsModel, generateAllConcepts
   const generateConcepts = useCallback(async (): Promise<void> => {
     const pageMMDZip = pages.get(pageNumber)?.pageMMDZip;
 
-    if (!pageMMDZip || processingPage !== undefined || isGeneratingAllConcepts || isRecognizingAll || isSplittingConcepts) {
+    if (!pageMMDZip || processingPage !== undefined || isGeneratingAllConcepts || isRecognizingAll) {
       return;
     }
 
@@ -421,7 +455,7 @@ function BookReader ({ book, file, generateAllConceptsModel, generateAllConcepts
         throw new Error('OpenRouter returned no concepts.');
       }
 
-      const generatedConcepts = parseGeneratedConcepts(generatedContent);
+      const generatedConcepts = await atomizeGeneratedContent(client, selectedModel, parseGeneratedConcepts(generatedContent));
 
       const generatedPage: BookPage = {
         ...pages.get(pageNumber),
@@ -442,10 +476,16 @@ function BookReader ({ book, file, generateAllConceptsModel, generateAllConcepts
     } finally {
       setProcessingPage(undefined);
     }
-  }, [book.id, isGeneratingAllConcepts, isRecognizingAll, isSplittingConcepts, pageNumber, pages, processingPage, selectedModel]);
+  }, [book.id, isGeneratingAllConcepts, isRecognizingAll, pageNumber, pages, processingPage, selectedModel]);
+  const closePageGenerationConfirmation = useCallback((): void => setIsPageGenerationConfirmationOpen(false), []);
+  const confirmPageGeneration = useCallback((): void => {
+    setIsPageGenerationConfirmationOpen(false);
+    generateConcepts().catch(console.error);
+  }, [generateConcepts]);
+  const openPageGenerationConfirmation = useCallback((): void => setIsPageGenerationConfirmationOpen(true), []);
 
   const generateAllConcepts = useCallback(async (): Promise<void> => {
-    if (!totalPages || processingPage !== undefined || isGeneratingAllConcepts || isRecognizingAll || isSplittingConcepts) {
+    if (!totalPages || processingPage !== undefined || isGeneratingAllConcepts || isRecognizingAll) {
       return;
     }
 
@@ -478,7 +518,7 @@ function BookReader ({ book, file, generateAllConceptsModel, generateAllConcepts
     try {
       for (const [index, currentPageNumber] of eligiblePages.entries()) {
         if (index > 0) {
-          await delay(PAGE_SPAWN_INTERVAL_MS);
+          await delay(GENERATION_PAGE_SPAWN_INTERVAL_MS);
         }
 
         conceptTasks.push((async () => {
@@ -510,7 +550,7 @@ function BookReader ({ book, file, generateAllConceptsModel, generateAllConcepts
             throw new Error('OpenRouter returned no concepts.');
           }
 
-          const generatedConcepts = parseGeneratedConcepts(generatedContent);
+          const generatedConcepts = await atomizeGeneratedContent(client, generateAllConceptsModel, parseGeneratedConcepts(generatedContent));
 
           const generatedPage: BookPage = {
             ...storedPage,
@@ -545,70 +585,32 @@ function BookReader ({ book, file, generateAllConceptsModel, generateAllConcepts
     } finally {
       setIsGeneratingAllConcepts(false);
     }
-  }, [book.id, generateAllConceptsModel, isGeneratingAllConcepts, isRecognizingAll, isSplittingConcepts, pageNumber, pages, processingPage, totalPages]);
+  }, [book.id, generateAllConceptsModel, isGeneratingAllConcepts, isRecognizingAll, pageNumber, pages, processingPage, totalPages]);
 
-  const splitConcepts = useCallback(async (): Promise<void> => {
-    if ((!concepts.length && !exercises.length) || processingPage !== undefined || isGeneratingAllConcepts || isRecognizingAll || isSplittingConcepts) {
+  const detectAndStoreBookLanguage = useCallback(async (recognizedPages: Map<number, BookPage>): Promise<void> => {
+    const requiredPageCount = Math.min(2, totalPages);
+    const pageTexts = Array.from({ length: requiredPageCount }, (_, index) => recognizedPages.get(index + 1)?.pageMMD).filter((text): text is string => !!text);
+
+    if (!requiredPageCount || pageTexts.length !== requiredPageCount) {
       return;
     }
 
-    setError('');
-    setIsSplittingConcepts(true);
+    const updatedBook = { ...book, language: detectBookLanguage(pageTexts) };
 
-    try {
-      const key = await getSetting(SettingKey.OPENROUTER_TOKEN);
+    await putBook(updatedBook);
+    onBookChange(updatedBook);
+  }, [book, onBookChange, totalPages]);
 
-      if (!key) {
-        throw new Error('No OpenRouter token found. Add it in Settings.');
-      }
-
-      const client = new OpenAI({
-        apiKey: key,
-        baseURL: 'https://openrouter.ai/api/v1',
-        dangerouslyAllowBrowser: true,
-        defaultHeaders: {
-          'HTTP-Referer': window.location.origin,
-          'X-OpenRouter-Title': 'Slonig'
-        }
+  useEffect((): void => {
+    if (!book.language) {
+      detectAndStoreBookLanguage(pages).catch((languageError) => {
+        setError(languageError instanceof Error ? languageError.message : 'Unable to determine the book language.');
       });
-      let splitContent: GeneratedConcepts = {
-        chapter: pages.get(pageNumber)?.chapter ?? '',
-        concepts: concepts.map(({ description, title }) => ({ description, title })),
-        exercises: exercises.map(({ description, title }) => ({ description, title }))
-      };
-
-      // A second pass catches compound items left behind by the first pass.
-      for (let pass = 0; pass < 2; pass++) {
-        const response = await client.chat.completions.create({
-          messages: [{
-            content: `${SPLIT_CONCEPTS_PROMPT}\n\nContent to atomize (pass ${pass + 1} of 2):\n${JSON.stringify(splitContent)}\n`,
-            role: 'user'
-          }],
-          model: selectedModel,
-          response_format: { type: 'json_object' }
-        });
-        const generatedContent = response.choices[0].message?.content?.trim();
-
-        if (!generatedContent) {
-          throw new Error('OpenRouter returned no concepts or exercises.');
-        }
-
-        splitContent = parseGeneratedConcepts(generatedContent);
-      }
-
-      const stored = await replaceParsedBookPageContent(book.id, pageNumber, splitContent.chapter, splitContent.concepts, splitContent.exercises ?? []);
-
-      setConcepts(stored.concepts);
-      setExercises(stored.exercises);
-    } catch (splitError) {
-      setError(splitError instanceof Error ? splitError.message : 'Unable to split concepts and exercises.');
-    } finally {
-      setIsSplittingConcepts(false);
     }
-  }, [book.id, concepts, exercises, isGeneratingAllConcepts, isRecognizingAll, isSplittingConcepts, pageNumber, pages, processingPage, selectedModel]);
+  }, [book.language, detectAndStoreBookLanguage, pages]);
 
   const recognizePage = useCallback(async (): Promise<void> => {
-    if (processingPage !== undefined || isGeneratingAllConcepts || isRecognizingAll || isSplittingConcepts) {
+    if (processingPage !== undefined || isGeneratingAllConcepts || isRecognizingAll) {
       return;
     }
 
@@ -643,16 +645,19 @@ function BookReader ({ book, file, generateAllConceptsModel, generateAllConcepts
       };
 
       await putBookPage(recognizedPage);
-      setPages((current) => new Map(current).set(pageNumber, recognizedPage));
+      const updatedPages = new Map(pages).set(pageNumber, recognizedPage);
+
+      setPages(updatedPages);
+      await detectAndStoreBookLanguage(updatedPages);
     } catch (recognitionError) {
       setError(recognitionError instanceof Error ? recognitionError.message : 'Unable to recognize this page.');
     } finally {
       setProcessingPage(undefined);
     }
-  }, [book.id, file, isGeneratingAllConcepts, isRecognizingAll, isSplittingConcepts, pageNumber, pages, processingPage]);
+  }, [book.id, detectAndStoreBookLanguage, file, isGeneratingAllConcepts, isRecognizingAll, pageNumber, pages, processingPage]);
 
   const recognizeAllPages = useCallback(async (): Promise<void> => {
-    if (!totalPages || processingPage !== undefined || isGeneratingAllConcepts || isRecognizingAll || isSplittingConcepts) {
+    if (!totalPages || processingPage !== undefined || isGeneratingAllConcepts || isRecognizingAll) {
       return;
     }
 
@@ -672,11 +677,12 @@ function BookReader ({ book, file, generateAllConceptsModel, generateAllConcepts
     setRecognizedPageCount(0);
 
     const recognitionTasks: Array<Promise<void>> = [];
+    const recognizedPages = new Map(pages);
 
     try {
       for (let currentPageNumber = 1; currentPageNumber <= totalPages; currentPageNumber++) {
         if (currentPageNumber > 1) {
-          await delay(PAGE_SPAWN_INTERVAL_MS);
+          await delay(RECOGNITION_PAGE_SPAWN_INTERVAL_MS);
         }
 
         recognitionTasks.push((async () => {
@@ -698,6 +704,7 @@ function BookReader ({ book, file, generateAllConceptsModel, generateAllConcepts
           };
 
           await putBookPage(recognizedPage);
+          recognizedPages.set(currentPageNumber, recognizedPage);
           setPages((current) => new Map(current).set(currentPageNumber, recognizedPage));
           setRecognizedPageCount((count) => count + 1);
         })());
@@ -709,12 +716,14 @@ function BookReader ({ book, file, generateAllConceptsModel, generateAllConcepts
       if (failedPages) {
         setError(`${failedPages} of ${totalPages} pages could not be recognized.`);
       }
+
+      await detectAndStoreBookLanguage(recognizedPages);
     } catch (recognitionError) {
       setError(recognitionError instanceof Error ? recognitionError.message : 'Unable to recognize all pages.');
     } finally {
       setIsRecognizingAll(false);
     }
-  }, [book.id, file, isGeneratingAllConcepts, isRecognizingAll, isSplittingConcepts, pages, processingPage, totalPages]);
+  }, [book.id, detectAndStoreBookLanguage, file, isGeneratingAllConcepts, isRecognizingAll, pages, processingPage, totalPages]);
 
   const saveMathpixApiKey = useCallback(async (): Promise<void> => {
     const apiKey = mathpixApiKey.trim();
@@ -864,11 +873,9 @@ function BookReader ({ book, file, generateAllConceptsModel, generateAllConcepts
 
   const conceptsStatus = isGeneratingAllConcepts
     ? `Generating concepts for all pages… ${generatedConceptsPageCount}/${totalPages}`
-    : isSplittingConcepts
-      ? 'Splitting concepts and exercises twice…'
-      : processingPage === pageNumber
-        ? 'Generating concepts and exercises…'
-        : 'Concepts and exercises';
+    : processingPage === pageNumber
+      ? 'Generating, splitting, and saving concepts and exercises…'
+      : 'Concepts and exercises';
   const conceptsPane = (): React.ReactNode => (
     <div className='tabPanel conceptsPanel'>
       <div className='detailsHeader'>
@@ -876,22 +883,16 @@ function BookReader ({ book, file, generateAllConceptsModel, generateAllConcepts
         <div className='generationControls'>
           <Dropdown
             className='modelSelect'
-            isDisabled={processingPage !== undefined || isGeneratingAllConcepts || isRecognizingAll || isSplittingConcepts}
+            isDisabled={processingPage !== undefined || isGeneratingAllConcepts || isRecognizingAll}
             onChange={setSelectedModel}
             options={OPENAI_MODELS}
             value={selectedModel}
           />
           <Button
             icon='magic'
-            isDisabled={!pages.get(pageNumber)?.pageMMDZip || processingPage !== undefined || isGeneratingAllConcepts || isRecognizingAll || isSplittingConcepts}
+            isDisabled={!pages.get(pageNumber)?.pageMMDZip || processingPage !== undefined || isGeneratingAllConcepts || isRecognizingAll}
             label='Generate concepts and exercises'
-            onClick={generateConcepts}
-          />
-          <Button
-            icon='expand'
-            isDisabled={(!concepts.length && !exercises.length) || processingPage !== undefined || isGeneratingAllConcepts || isRecognizingAll || isSplittingConcepts}
-            label='Split concepts and exercises'
-            onClick={splitConcepts}
+            onClick={openPageGenerationConfirmation}
           />
         </div>
       </div>
@@ -948,6 +949,20 @@ function BookReader ({ book, file, generateAllConceptsModel, generateAllConcepts
               label='Save key'
               onClick={submitMathpixApiKey}
             />
+          </Button.Group>
+        </Modal.Content>
+      </Modal>}
+      {isPageGenerationConfirmationOpen && <Modal
+        header='Generate concepts and exercises'
+        onClose={closePageGenerationConfirmation}
+        size='small'
+      >
+        <Modal.Content>
+          <p>{pageGenerationEstimate}</p>
+          <p>Concepts and book exercises will be split automatically in two additional AI passes.</p>
+          <Button.Group>
+            <Button icon='times' label='Cancel' onClick={closePageGenerationConfirmation} />
+            <Button icon='magic' label='Generate' onClick={confirmPageGeneration} />
           </Button.Group>
         </Modal.Content>
       </Modal>}

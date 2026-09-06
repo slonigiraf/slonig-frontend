@@ -7,7 +7,7 @@ import type { GeneratedSkillTemplate } from './skillTemplates.js';
 
 import { strict as assert } from 'node:assert';
 
-import { chapterToSkillsPrompt, conceptsToSkillsPrompt, skillListPrompt, skillsToExercisesPrompt } from './constants.js';
+import { conceptsToSkillsPrompt, deduplicateAndSortSkillsPrompt, skillListPrompt, skillsToExercisesPrompt, sourcesToSkillsPrompt } from './constants.js';
 import { parseGeneratedSkillTemplates, parseStoredSkillTemplate } from './skillTemplates.js';
 
 function createSkill (): GeneratedSkillTemplate {
@@ -156,6 +156,18 @@ describe('generated skill templates', (): void => {
       });
     });
   }
+
+  it('generates one language-constrained skill per source item', (): void => {
+    assert.match(sourcesToSkillsPrompt, /exactly one/i);
+    assert.match(sourcesToSkillsPrompt, /ISO 639-1 language code/i);
+    assert.match(sourcesToSkillsPrompt, /"skills"/);
+  });
+
+  it('deduplicates and orders skills using the Zone of Proximal Development', (): void => {
+    assert.match(deduplicateAndSortSkillsPrompt, /Zone of Proximal Development/i);
+    assert.match(deduplicateAndSortSkillsPrompt, /deleteIds/);
+    assert.match(deduplicateAndSortSkillsPrompt, /sortedIds/);
+  });
 });
 
 describe('stored skill templates', (): void => {
