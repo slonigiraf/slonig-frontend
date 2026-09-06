@@ -9,6 +9,7 @@ export interface Book {
   language?: string;
   knowledgeId?: string;
   publishingLocationId?: string;
+  processingStage?: number;
   contentHash: string;
   name: string;
   opfsName: string;

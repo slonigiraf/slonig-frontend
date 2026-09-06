@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 /** A narrow, observable ability taught within a book chapter. */
-export interface Skill {
+export interface BookSkill {
   id?: number;
   chapterId: number;
   rank: number;

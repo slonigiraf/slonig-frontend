@@ -7,7 +7,7 @@ import type { GeneratedSkillTemplate } from './skillTemplates.js';
 
 import { strict as assert } from 'node:assert';
 
-import { conceptsToSkillsPrompt, deduplicateAndSortSkillsPrompt, skillListPrompt, skillsToExercisesPrompt, sourcesToSkillsPrompt } from './constants.js';
+import { conceptsToSkillsPrompt, deduplicateAndSortSkillsPrompt, fixSkillTemplatesPrompt, skillListPrompt, skillsToExercisesPrompt, skillsToExerciseTemplatesPrompt, sourcesToSkillsPrompt } from './constants.js';
 import { parseGeneratedSkillTemplates, parseStoredSkillTemplate } from './skillTemplates.js';
 
 function createSkill (): GeneratedSkillTemplate {
@@ -167,6 +167,29 @@ describe('generated skill templates', (): void => {
     assert.match(deduplicateAndSortSkillsPrompt, /Zone of Proximal Development/i);
     assert.match(deduplicateAndSortSkillsPrompt, /deleteIds/);
     assert.match(deduplicateAndSortSkillsPrompt, /sortedIds/);
+  });
+
+  it('prefers five ability-mode ExerciseTemplates per BookSkill without requiring that count', (): void => {
+    assert.match(skillsToExerciseTemplatesPrompt, /preferably create five simple practice templates/i);
+    assert.match(skillsToExerciseTemplatesPrompt, /fewer or more are acceptable/i);
+    assert.match(skillsToExerciseTemplatesPrompt, /perceptual observation/i);
+    assert.match(skillsToExerciseTemplatesPrompt, /transformation/i);
+    assert.match(skillsToExerciseTemplatesPrompt, /reasoning/i);
+    assert.match(skillsToExerciseTemplatesPrompt, /generation/i);
+    assert.match(skillsToExerciseTemplatesPrompt, /<kx>/i);
+  });
+
+  it('requires the repair stage to preserve KaTeX and correct answers', (): void => {
+    assert.match(fixSkillTemplatesPrompt, /correct/i);
+    assert.match(fixSkillTemplatesPrompt, /<kx>/i);
+  });
+
+  it('generates SkillTemplates from ExerciseTemplates rather than BookSkills', (): void => {
+    assert.match(skillsToExercisesPrompt, /each supplied ExerciseTemplate into exactly one SkillTemplate/i);
+    assert.match(skillsToExercisesPrompt, /Do not use BookSkills as generation input/i);
+    assert.match(skillsToExercisesPrompt, /different concrete input parameters/i);
+    assert.match(skillsToExercisesPrompt, /must not contain identical questions/i);
+    assert.match(fixSkillTemplatesPrompt, /different concrete input parameters/i);
   });
 });
 

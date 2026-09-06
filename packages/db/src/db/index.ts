@@ -24,7 +24,8 @@ import type { BookPage } from './BookPage.js';
 import type { BookConcept } from './BookConcept.js';
 import type { BookChapter } from './BookChapter.js';
 import type { BookExercise } from './BookExercise.js';
-import type { Skill } from './Skill.js';
+import type { BookSkill } from './BookSkill.js';
+import type { ExerciseTemplate } from './ExerciseTemplate.js';
 
 class SlonigDB extends Dexie {
   agreements!: Table<Agreement>;
@@ -50,7 +51,8 @@ class SlonigDB extends Dexie {
   bookConcepts!: Table<BookConcept, number>;
   bookChapters!: Table<BookChapter, number>;
   bookExercises!: Table<BookExercise, number>;
-  skills!: Table<Skill, number>;
+  bookSkills!: Table<BookSkill, number>;
+  exerciseTemplates!: Table<ExerciseTemplate, number>;
 
   constructor() {
     super('slonig');
@@ -126,7 +128,7 @@ class SlonigDB extends Dexie {
     this.version(74).stores({
       skills: '++id,chapterId,rank,[chapterId+rank]'
     }).upgrade(async (transaction: Transaction) => {
-      const skills = await transaction.table<Skill>('skills').toArray();
+      const skills = await transaction.table<BookSkill>('skills').toArray();
       const chapterRanks = new Map<number, number>();
 
       await Promise.all(skills
@@ -136,8 +138,42 @@ class SlonigDB extends Dexie {
 
           chapterRanks.set(skill.chapterId, rank + 1);
 
-          return transaction.table<Skill>('skills').update(skill.id, { rank });
+          return transaction.table<BookSkill>('skills').update(skill.id, { rank });
         }));
+    });
+    this.version(75).stores({
+      bookSkills: '++id,chapterId,rank,[chapterId+rank]',
+      exerciseTemplates: '++id,bookSkillId'
+    }).upgrade(async (transaction: Transaction) => {
+      const existingSkills = await transaction.table<BookSkill>('skills').toArray();
+
+      if (existingSkills.length) {
+        await transaction.table<BookSkill>('bookSkills').bulkPut(existingSkills);
+      }
+    });
+    this.version(76).stores({
+      skills: null
+    });
+    this.version(77).stores({}).upgrade(async (transaction: Transaction) => {
+      const pagesWithoutChapter = await transaction.table<BookPage>('bookPages').filter(({ chapter }) => !chapter.trim()).toArray();
+
+      for (const page of pagesWithoutChapter) {
+        const [concepts, exerciseCount] = await Promise.all([
+          transaction.table<BookConcept>('bookConcepts').where('bookPage').equals([page.bookId, page.pageNumber]).toArray(),
+          transaction.table<BookExercise>('bookExercises').where('bookPage').equals([page.bookId, page.pageNumber]).count()
+        ]);
+
+        if (!concepts.length && !exerciseCount) {
+          continue;
+        }
+
+        const chapters = transaction.table<BookChapter, number>('bookChapters');
+        const existingChapter = await chapters.where('bookId').equals(page.bookId).filter(({ title }) => title === 'Unassigned chapter').first();
+        const chapterId = existingChapter?.id ?? await chapters.add({ bookId: page.bookId, title: 'Unassigned chapter' });
+
+        await transaction.table<BookPage>('bookPages').update([page.bookId, page.pageNumber], { chapter: 'Unassigned chapter' });
+        await Promise.all(concepts.flatMap(({ id }) => id === undefined ? [] : [transaction.table<BookConcept>('bookConcepts').update(id, { chapterId })]));
+      }
     });
   }
 }
