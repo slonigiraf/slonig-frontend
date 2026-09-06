@@ -157,7 +157,7 @@ class SlonigDB extends Dexie {
     this.version(77).stores({}).upgrade(async (transaction: Transaction) => {
       const pagesWithoutChapter = await transaction.table<BookPage>('bookPages').filter(({ chapter }) => !chapter.trim()).toArray();
 
-      for (const page of pagesWithoutChapter) {
+      for (const page of pagesWithoutChapter.sort((a, b) => a.bookId - b.bookId || a.pageNumber - b.pageNumber)) {
         const [concepts, exerciseCount] = await Promise.all([
           transaction.table<BookConcept>('bookConcepts').where('bookPage').equals([page.bookId, page.pageNumber]).toArray(),
           transaction.table<BookExercise>('bookExercises').where('bookPage').equals([page.bookId, page.pageNumber]).count()
@@ -167,13 +167,23 @@ class SlonigDB extends Dexie {
           continue;
         }
 
+        const previousPage = (await transaction.table<BookPage>('bookPages').where('bookId').equals(page.bookId)
+          .filter((candidate) => candidate.pageNumber < page.pageNumber && Boolean(candidate.chapter.trim()))
+          .toArray())
+          .sort((a, b) => b.pageNumber - a.pageNumber)[0];
+        const chapterTitle = previousPage?.chapter.trim() || 'Introduction';
         const chapters = transaction.table<BookChapter, number>('bookChapters');
-        const existingChapter = await chapters.where('bookId').equals(page.bookId).filter(({ title }) => title === 'Unassigned chapter').first();
-        const chapterId = existingChapter?.id ?? await chapters.add({ bookId: page.bookId, title: 'Unassigned chapter' });
+        const existingChapter = await chapters.where('bookId').equals(page.bookId).filter(({ title }) => title === chapterTitle).first();
+        const chapterId = existingChapter?.id ?? await chapters.add({ bookId: page.bookId, title: chapterTitle });
 
-        await transaction.table<BookPage>('bookPages').update([page.bookId, page.pageNumber], { chapter: 'Unassigned chapter' });
+        await transaction.table<BookPage>('bookPages').update([page.bookId, page.pageNumber], { chapter: chapterTitle });
         await Promise.all(concepts.flatMap(({ id }) => id === undefined ? [] : [transaction.table<BookConcept>('bookConcepts').update(id, { chapterId })]));
       }
+    });
+    this.version(78).stores({}).upgrade(async (transaction: Transaction) => {
+      const books = await transaction.table<Book>('books').filter(({ processingStage }) => (processingStage ?? 0) >= 6).toArray();
+
+      await Promise.all(books.flatMap(({ id }) => id === undefined ? [] : [transaction.table<Book>('books').update(id, { processingStage: 5 })]));
     });
   }
 }

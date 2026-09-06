@@ -292,10 +292,10 @@ function Upload (): React.ReactElement {
         const requestInputs = pages.filter(({ pageMMD }) => !!pageMMD).flatMap(({ pageMMD = '' }) => {
           const splitInput = pageMMD.slice(0, Math.ceil(pageMMD.length / 3));
 
-          return [pageMMD.padEnd(pageMMD.length + 2_000), splitInput.padEnd(splitInput.length + 2_000), splitInput.padEnd(splitInput.length + 2_000)];
+          return [pageMMD.padEnd(pageMMD.length + 2_000), splitInput.padEnd(splitInput.length + 2_000), splitInput.padEnd(splitInput.length + 2_000), splitInput.padEnd(splitInput.length + 2_000)];
         });
 
-        setGenerateConceptsEstimate(formatAiInputEstimate(estimateAiInput(generateAllConceptsModel, requestInputs, 1_200)));
+        setGenerateConceptsEstimate(formatAiInputEstimate(estimateAiInput(generateAllConceptsModel, requestInputs, pages.length * 4_800)));
       })
       .catch(() => setError(t('Unable to estimate concept generation cost.')));
   }, [generateAllConceptsModel, isGenerateConceptsConfirmationOpen, selectedBook, t]);
