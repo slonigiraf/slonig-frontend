@@ -694,9 +694,9 @@ const StyledSkills = styled.div`
   .chapterEditor > :first-child { flex: 1; }
   .columns { display: grid; gap: 1rem; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
   .columns > section, .singlePane { border: 1px solid var(--border-table); border-radius: 0.4rem; min-width: 0; overflow: auto; padding: 1rem; }
-  .contentCard { border-bottom: 1px solid var(--border-table); min-width: 0; padding: 0.75rem 10px; position: relative; }
+  .contentCard { border-bottom: 1px solid var(--border-table); box-sizing: border-box; min-width: 0; padding: 0.75rem 5rem 0.75rem 10px; position: relative; }
   .contentCard > .ui--Button { position: absolute; right: 10px; top: 10px; }
-  .contentCard > strong { display: block; max-width: calc(100% - 3rem); overflow-wrap: anywhere; }
+  .contentCard > strong { display: block; overflow-wrap: anywhere; }
   .skillWithTemplates + .skillWithTemplates { border-top: 1px solid var(--border-table); margin-top: 0.75rem; padding-top: 0.5rem; }
   .skillWithTemplates .contentCard + .contentCard { border-left: 3px solid var(--border-table); margin-left: 1.5rem; }
   .contentCard p { margin: 0.35rem 0; }
