@@ -1,3 +1,6 @@
+
+
+
 1:
 - When deduplicating BookSkills - add links to all correspodning BookConcepts and BookExercises, so one BookSkill, could reference several BookConcepts and BookExercises.
 - When generating prexercises - feed concepts, exercises along with BookSkills to make sure that generated exercise templaes look similar to exercies in the book, make them be structure in blocks with the corresponding BookSkill
