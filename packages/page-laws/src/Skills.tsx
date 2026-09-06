@@ -128,14 +128,14 @@ function parseExerciseTemplates (content: string, expectedSkillIds: number[], re
   const templates = values as Array<Partial<ExerciseTemplate>>;
 
   if (
-    templates.some(({ bookSkillId, solution, text, title }) => !Number.isSafeInteger(bookSkillId) || !expectedSkillIds.includes(bookSkillId as number) || typeof title !== 'string' || !title.trim() || typeof text !== 'string' || !text.trim() || typeof solution !== 'string' || !solution.trim()) ||
+    templates.some(({ bookSkillId, solution, text }) => !Number.isSafeInteger(bookSkillId) || !expectedSkillIds.includes(bookSkillId as number) || typeof text !== 'string' || !text.trim() || typeof solution !== 'string' || !solution.trim()) ||
     (requireCoverage && expectedSkillIds.some((id) => !templates.some(({ bookSkillId }) => bookSkillId === id))) ||
     (expectedCount !== undefined && templates.length !== expectedCount)
   ) {
     throw new Error('OpenRouter returned an invalid ExerciseTemplate.');
   }
 
-  return templates.map(({ bookSkillId = 0, solution = '', text = '', title = '' }) => ({ bookSkillId, solution: solution.trim(), text: text.trim(), title: title.trim() }));
+  return templates.map(({ bookSkillId = 0, solution = '', text = '' }) => ({ bookSkillId, solution: solution.trim(), text: text.trim() }));
 }
 
 function createSkillBlocks (skills: BookSkill[], concepts: BookConcept[], exercises: BookExercise[]): SkillBlock[] {
@@ -286,7 +286,6 @@ function PreExerciseCard ({ onDeleted, onError, template }: { onDeleted: () => v
   }, [onDeleted, onError, template.id]);
 
   return <article className='contentCard'>
-    <strong><KatexSpan content={template.title} /></strong>
     <p><KatexSpan content={template.text} /></p>
     <div className='solution'><KatexSpan content={template.solution} /></div>
     <Button
@@ -578,7 +577,7 @@ function Skills ({ book, onAction, onBookChange, pipelineOnly = false, pipelineP
         const userPrompt = `${skillsToExerciseTemplatesPrompt}\n${JSON.stringify(batch)}`;
         const generated = await requestValidatedJson(client, selectedModel, systemPrompt, userPrompt, (content) => parseExerciseTemplates(content, expectedSkillIds));
 
-        expectedSkillIds.forEach((id) => generatedBySkill.set(id, generated.filter(({ bookSkillId }) => bookSkillId === id).map(({ solution, text, title }) => ({ solution, text, title }))));
+        expectedSkillIds.forEach((id) => generatedBySkill.set(id, generated.filter(({ bookSkillId }) => bookSkillId === id).map(({ solution, text }) => ({ solution, text }))));
         setProgress(Math.min(allSkillBlocks.length, start + batch.length));
       }
 
@@ -625,11 +624,11 @@ function Skills ({ book, onAction, onBookChange, pipelineOnly = false, pipelineP
 
           await Promise.all(expectedSkillIds.map((bookSkillId) => {
             const existing = parents.filter((template) => template.bookSkillId === bookSkillId);
-            const signatures = new Set(existing.map(({ solution, text, title }) => JSON.stringify([title.trim(), text.trim(), solution.trim()])));
+            const signatures = new Set(existing.map(({ solution, text }) => JSON.stringify([text.trim(), solution.trim()])));
             const additions = children
               .filter((template) => template.bookSkillId === bookSkillId)
-              .filter(({ solution, text, title }) => {
-                const signature = JSON.stringify([title, text, solution]);
+              .filter(({ solution, text }) => {
+                const signature = JSON.stringify([text, solution]);
 
                 if (signatures.has(signature)) {
                   return false;
@@ -639,7 +638,7 @@ function Skills ({ book, onAction, onBookChange, pipelineOnly = false, pipelineP
 
                 return true;
               })
-              .map(({ solution, text, title }) => ({ solution, text, title }));
+              .map(({ solution, text }) => ({ solution, text }));
 
             return additions.length ? addExerciseTemplatesForBookSkill(bookSkillId, additions) : Promise.resolve([]);
           }));
@@ -688,7 +687,7 @@ function Skills ({ book, onAction, onBookChange, pipelineOnly = false, pipelineP
 
           await Promise.all(expectedSkillIds.map((bookSkillId) => replaceExerciseTemplatesForBookSkill(
             bookSkillId,
-            corrected.filter((template) => template.bookSkillId === bookSkillId).map(({ solution, text, title }) => ({ solution, text, title }))
+            corrected.filter((template) => template.bookSkillId === bookSkillId).map(({ solution, text }) => ({ solution, text }))
           )));
           completed += expectedSkillIds.length;
           setProgress(Math.min(allSkills.length, completed));

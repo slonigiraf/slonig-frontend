@@ -4,7 +4,6 @@
 export interface ExerciseTemplate {
   id?: number;
   bookSkillId: number;
-  title: string;
   text: string;
   solution: string;
 }
