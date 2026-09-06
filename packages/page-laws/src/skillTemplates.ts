@@ -1,12 +1,23 @@
 // Copyright 2021-2026 @polkadot/app-laws authors & contributors
 // SPDX-License-Identifier: Apache-2.0
 
+import type { ExerciseTemplate } from '@slonigiraf/db';
+
 export interface GeneratedSkillTemplate {
   h: string;
   i: string;
   q: Array<{ a: string; h: string; i: string; p: string }>;
   t: number;
 }
+
+export interface ExerciseTemplateVariation {
+  bookSkillId: number;
+  solution: string;
+  sourceExerciseTemplateId: number;
+  text: string;
+}
+
+type StoredExerciseTemplate = ExerciseTemplate & { id: number };
 
 function isRecord (value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
@@ -72,4 +83,53 @@ export function parseGeneratedSkillTemplates (content: string, expectedCount?: n
 
     return template;
   });
+}
+
+export function parseExerciseTemplateVariations (content: string, originals: StoredExerciseTemplate[]): ExerciseTemplateVariation[] {
+  const parsed = parseResponse(content);
+  const variations = Array.isArray(parsed)
+    ? parsed
+    : isRecord(parsed)
+      ? parsed.variations ?? parsed.exerciseTemplates ?? parsed.templates
+      : undefined;
+
+  if (!Array.isArray(variations) || variations.length !== originals.length) {
+    throw new Error(`OpenRouter returned ${Array.isArray(variations) ? variations.length : 0} variations for ${originals.length} ExerciseTemplates.`);
+  }
+
+  return variations.map((variation: unknown, index): ExerciseTemplateVariation => {
+    const original = originals[index];
+
+    if (
+      !isRecord(variation) ||
+      !isNonEmptyString(variation.text) ||
+      !isNonEmptyString(variation.solution) ||
+      variation.text.replace(/\s+/g, ' ').trim() === original.text.replace(/\s+/g, ' ').trim()
+    ) {
+      throw new Error('OpenRouter returned an invalid or incorrectly paired ExerciseTemplate variation.');
+    }
+
+    return {
+      bookSkillId: original.bookSkillId,
+      solution: variation.solution.trim(),
+      sourceExerciseTemplateId: original.id,
+      text: variation.text.trim()
+    };
+  });
+}
+
+export function createSkillTemplateFromExerciseVariation (bookSkillTitle: string, original: ExerciseTemplate, variation: ExerciseTemplateVariation): GeneratedSkillTemplate {
+  if (!bookSkillTitle.trim() || original.bookSkillId !== variation.bookSkillId) {
+    throw new Error('Cannot construct a SkillTemplate without its corresponding BookSkill.');
+  }
+
+  return {
+    h: bookSkillTitle.trim(),
+    i: '',
+    q: [
+      { a: original.solution.trim(), h: original.text.trim(), i: '', p: '' },
+      { a: variation.solution.trim(), h: variation.text.trim(), i: '', p: '' }
+    ],
+    t: 3
+  };
 }

@@ -76,26 +76,20 @@ Return only valid JSON in this exact shape:
 
 Use <kx>...</kx> for every mathematical formula or mathematical expression. Do not use dollar-delimited LaTeX. Escape every LaTeX backslash for valid JSON. Do not add markdown fences or commentary.`;
 
-export const deduplicateAndSortSkillsPrompt = `Review the supplied skills from one chapter. Identify semantic duplicates and keep the clearest, most atomic version of each skill. For every deleted duplicate, specify the retained skill into which its BookConcept and BookExercise references must be merged. Then order the remaining skill IDs from easiest to hardest using Vygotsky's Zone of Proximal Development: immediate prerequisites first, followed by skills made reachable through those prerequisites.
-
-Return only valid JSON in this exact shape:
-{"deleteIds":[1,2],"sortedIds":[3,4,5],"mergeInto":[{"deleteId":1,"keepId":3},{"deleteId":2,"keepId":3}]}
-
-Every supplied ID must appear exactly once in either deleteIds or sortedIds. Every deleteId must appear exactly once in mergeInto, and every keepId must be present in sortedIds. Do not invent IDs. Do not add markdown fences or commentary.`;
-
-export const skillsToExerciseTemplatesPrompt = `The input is structured as blocks containing one skill
-and all of its linked concepts and example exercises.
-For each block, create one exercise for ability mode transformation.
-One output exercise per skill is the preferred result. Every output exercise must train only its supplied skill.
+export const skillsToExerciseTemplatesPrompt = `The input is a JSON object with a bookLanguage and blocks. Each block contains one skill
+and all of its linked concepts and exampleExercises.
+For each block, create exactly one exercise for ability mode transformation.
+Return exactly one output exercise per skill. Every output exercise must train only its supplied skill.
 Match the structure, terminology, tone, and difficulty of the linked book exercises without copying their exact parameters.
 The text must be a succinct, complete, self-contained exercise.
 The solution must be complete, correct, and written step by step.
 Preserve the supplied skill block order. Do not mix concepts or exercises between blocks.
-Write every text, and solution strictly in the supplied book language.
+Write every text and solution strictly in bookLanguage.
 Use <kx>...</kx> for every mathematical formula or expression, never dollar-delimited LaTeX,
 and escape every LaTeX backslash for valid JSON.
 Return only valid JSON in this shape:
-{"templates":[{"bookSkillId":number,"text":"Complete exercise","solution":"Complete solution"}]}
+{"templates":[{"bookSkillId":1,"text":"Complete exercise","solution":"Complete solution"}]}
+Set bookSkillId to the corresponding supplied skill.id; 1 above is only an example.
 
 Do not add markdown fences or commentary.`;
 
@@ -108,21 +102,15 @@ Return only valid JSON in this shape; an empty templates array is valid:
 
 Use only supplied bookSkillId values. Do not repeat any parent unchanged. Do not add markdown fences or commentary.`;
 
-export const fixExerciseTemplatesPrompt = `Review and repair every supplied ExerciseTemplate. Preserve its bookSkillId and natural language. Correct grammar, spelling, punctuation, factual errors, and mathematical errors. Make the task succinct, complete, self-contained, and answerable. Make the solution correct and explicitly step by step. Use <kx>...</kx> for every mathematical formula or expression, never dollar-delimited LaTeX, and escape every LaTeX backslash for valid JSON.
+export const skillsToExercisesPrompt = `The input is a JSON object containing bookLanguage, chapterTitle, and exerciseTemplates from one chapter. For every supplied ExerciseTemplate, create exactly one similar ExerciseTemplate variation and preserve the supplied order.
 
-Preserve the number and order of supplied templates. Do not split, merge, or omit templates; division is handled by a separate stage.
+Vary the concrete arguments or task parameters in text while preserving the exact ability, instructions, task structure, input and output types, operation or classification rule, solution method, number of reasoning steps, and difficulty. The variation text must not be identical to the original. Recalculate the solution using the varied arguments; the variation solution must be correct for its new text and must not be identical to the original solution. Do not merge, omit, split, or reorder ExerciseTemplates.
 
-Return only valid JSON in this shape:
-{"templates":[{"bookSkillId":1,"text":"Succinct complete exercise","solution":"Step-by-step solution"}]}
+Each variations item must correspond by array position to the ExerciseTemplate at the same position in the input. Do not copy database IDs into the response; the browser will retain those relationships locally. Write text and solution strictly in bookLanguage. Both must be complete and self-contained. Use <kx>...</kx> for every mathematical formula or expression, never dollar-delimited LaTeX, and escape every LaTeX backslash for valid JSON.
 
-Do not add markdown fences or commentary.`;
+Return only valid JSON in this exact shape:
+{"variations":[{"text":"Complete varied exercise","solution":"Complete recalculated solution"}]}
 
-export const skillsToExercisesPrompt = `You are an educational content methodologist. Convert each supplied ExerciseTemplate into exactly one SkillTemplate, preserving the supplied order. Treat the ExerciseTemplate text and solution as authoritative. The two concrete exercises in q must be variations of that ExerciseTemplate: they must train the same ability mode and differ only in task data or parameters. The two exercises must have different concrete input parameters and must not contain identical questions. Change every input value needed to make the second task genuinely distinct while preserving the method and difficulty. Do not use BookSkills as generation input, merge ExerciseTemplates, or invent a different target skill. Keep the difficulty within the learner's Zone of Proximal Development. Return exactly one SkillTemplate per supplied ExerciseTemplate.
-
-The SkillTemplate title h must explain the concrete ability the learner can learn from its exercises. Every exercise question h must contain the real question or task with all required data, and every answer a must contain the real answer or worked solution to that exact question. Never use vague task or answer text.
-
-Use the natural language of each ExerciseTemplate for the complete corresponding SkillTemplate. This includes the heading, every exercise question, and every answer or worked solution. The supplied bookSkillId is only a storage relationship and must not affect or appear in the generated content.
-
-${skillTemplateGenerationInstructions}`;
+Do not return SkillTemplates, database IDs, markdown fences, or commentary. SkillTemplates and their relationships are constructed locally in the browser.`;
 
 export const fixSkillTemplatesPrompt = 'Repair every supplied skill template without changing its target skill or language. Correct factual, mathematical, logical, JSON, and answer errors. Make each question self-contained and ensure every solution answers its question. The two exercises in every template must have different concrete input parameters and must not contain identical questions; revise the second exercise and its answer when necessary while preserving the same method and difficulty. Preserve the number and order of templates. Preserve the required i, t, h, and q structure. Use <kx>...</kx> for every mathematical formula or expression, never dollar-delimited LaTeX, and escape every LaTeX backslash for valid JSON. Return only the corrected JSON array without markdown fences or commentary.';
