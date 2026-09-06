@@ -7,8 +7,8 @@ import type { GeneratedSkillTemplate } from './skillTemplates.js';
 
 import { strict as assert } from 'node:assert';
 
-import { conceptsToSkillsPrompt, deduplicateAndSortSkillsPrompt, divideExerciseTemplatesPrompt, fixExerciseTemplatesPrompt, fixSkillTemplatesPrompt, skillListPrompt, skillsToExercisesPrompt, skillsToExerciseTemplatesPrompt, sourcesToSkillsPrompt } from './constants.js';
-import { parseGeneratedSkillTemplates, parseStoredSkillTemplate } from './skillTemplates.js';
+import { conceptsToSkillsPrompt, divideExerciseTemplatesPrompt, fixSkillTemplatesPrompt, skillListPrompt, skillsToExercisesPrompt, skillsToExerciseTemplatesPrompt, sourcesToSkillsPrompt } from './constants.js';
+import { createSkillTemplateFromExerciseVariation, parseExerciseTemplateVariations, parseGeneratedSkillTemplates, parseStoredSkillTemplate } from './skillTemplates.js';
 
 function createSkill (): GeneratedSkillTemplate {
   return {
@@ -140,7 +140,7 @@ describe('generated skill templates', (): void => {
     assert.deepEqual(parseGeneratedSkillTemplates(JSON.stringify([skill])), [skill]);
   });
 
-  for (const [name, prompt] of Object.entries({ conceptsToSkillsPrompt, skillListPrompt, skillsToExercisesPrompt })) {
+  for (const [name, prompt] of Object.entries({ conceptsToSkillsPrompt, skillListPrompt })) {
     it(`accepts the original JSON array example in ${name}`, (): void => {
       const example = prompt.match(/^\[[\s\S]*?^\]/m)?.[0];
 
@@ -165,23 +165,16 @@ describe('generated skill templates', (): void => {
     assert.match(sourcesToSkillsPrompt, /"skills"/);
   });
 
-  it('deduplicates and orders skills using the Zone of Proximal Development', (): void => {
-    assert.match(deduplicateAndSortSkillsPrompt, /Zone of Proximal Development/i);
-    assert.match(deduplicateAndSortSkillsPrompt, /deleteIds/);
-    assert.match(deduplicateAndSortSkillsPrompt, /sortedIds/);
-    assert.match(deduplicateAndSortSkillsPrompt, /mergeInto/);
-  });
-
-  it('prefers five ability-mode ExerciseTemplates per BookSkill without requiring that count', (): void => {
-    assert.match(skillsToExerciseTemplatesPrompt, /preferably create five simple practice templates/i);
-    assert.match(skillsToExerciseTemplatesPrompt, /fewer or more are acceptable/i);
-    assert.match(skillsToExerciseTemplatesPrompt, /perceptual observation/i);
+  it('generates one transformation ExerciseTemplate per supplied skill block', (): void => {
+    assert.match(skillsToExerciseTemplatesPrompt, /bookLanguage and blocks/i);
+    assert.match(skillsToExerciseTemplatesPrompt, /exactly one exercise/i);
+    assert.match(skillsToExerciseTemplatesPrompt, /exactly one output exercise per skill/i);
     assert.match(skillsToExerciseTemplatesPrompt, /transformation/i);
-    assert.match(skillsToExerciseTemplatesPrompt, /reasoning/i);
-    assert.match(skillsToExerciseTemplatesPrompt, /generation/i);
     assert.match(skillsToExerciseTemplatesPrompt, /step by step/i);
-    assert.match(skillsToExerciseTemplatesPrompt, /blocks containing one BookSkill/i);
+    assert.match(skillsToExerciseTemplatesPrompt, /linked concepts and exampleExercises/i);
     assert.match(skillsToExerciseTemplatesPrompt, /Match the structure, terminology, tone, and difficulty/i);
+    assert.match(skillsToExerciseTemplatesPrompt, /strictly in bookLanguage/i);
+    assert.match(skillsToExerciseTemplatesPrompt, /corresponding supplied skill\.id/i);
     assert.match(skillsToExerciseTemplatesPrompt, /<kx>/i);
     assert.doesNotMatch(skillsToExerciseTemplatesPrompt, /"title"/i);
   });
@@ -194,28 +187,56 @@ describe('generated skill templates', (): void => {
     assert.doesNotMatch(divideExerciseTemplatesPrompt, /"title"/i);
   });
 
-  it('repairs ExerciseTemplate grammar without splitting', (): void => {
-    assert.match(fixExerciseTemplatesPrompt, /succinct/i);
-    assert.match(fixExerciseTemplatesPrompt, /grammar, spelling, punctuation/i);
-    assert.match(fixExerciseTemplatesPrompt, /Do not split, merge, or omit/i);
-    assert.match(fixExerciseTemplatesPrompt, /<kx>/i);
-    assert.doesNotMatch(fixExerciseTemplatesPrompt, /"title"/i);
-  });
-
   it('requires the repair stage to preserve KaTeX and correct answers', (): void => {
     assert.match(fixSkillTemplatesPrompt, /correct/i);
     assert.match(fixSkillTemplatesPrompt, /<kx>/i);
   });
 
-  it('generates SkillTemplates from ExerciseTemplates rather than BookSkills', (): void => {
-    assert.match(skillsToExercisesPrompt, /each supplied ExerciseTemplate into exactly one SkillTemplate/i);
-    assert.match(skillsToExercisesPrompt, /Do not use BookSkills as generation input/i);
-    assert.match(skillsToExercisesPrompt, /different concrete input parameters/i);
-    assert.match(skillsToExercisesPrompt, /must not contain identical questions/i);
-    assert.match(skillsToExercisesPrompt, /title h must explain the concrete ability/i);
-    assert.match(skillsToExercisesPrompt, /real question or task/i);
-    assert.match(skillsToExercisesPrompt, /real answer or worked solution/i);
+  it('asks AI for one recalculated variation per chapter ExerciseTemplate', (): void => {
+    assert.match(skillsToExercisesPrompt, /exerciseTemplates from one chapter/i);
+    assert.match(skillsToExercisesPrompt, /exactly one similar ExerciseTemplate variation/i);
+    assert.match(skillsToExercisesPrompt, /Vary the concrete arguments or task parameters/i);
+    assert.match(skillsToExercisesPrompt, /Recalculate the solution/i);
+    assert.match(skillsToExercisesPrompt, /correspond by array position/i);
+    assert.match(skillsToExercisesPrompt, /Do not copy database IDs/i);
+    assert.match(skillsToExercisesPrompt, /Do not return SkillTemplates/i);
+    assert.match(skillsToExercisesPrompt, /constructed locally in the browser/i);
     assert.match(fixSkillTemplatesPrompt, /different concrete input parameters/i);
+  });
+
+  it('pairs an AI variation with its original and uses the BookSkill title locally', (): void => {
+    const original = { bookSkillId: 4, id: 7, solution: '<kx>2 \\times 1000 = 2000</kx> m.', text: 'Convert <kx>2</kx> km to m.' };
+    const [variation] = parseExerciseTemplateVariations(JSON.stringify({
+      variations: [{ solution: '<kx>5 \\times 1000 = 5000</kx> m.', text: 'Convert <kx>5</kx> km to m.' }]
+    }), [original]);
+    const template = createSkillTemplateFromExerciseVariation('Convert whole kilometers to meters', original, variation);
+
+    assert.equal(template.h, 'Convert whole kilometers to meters');
+    assert.deepEqual(template.q, [
+      { a: original.solution, h: original.text, i: '', p: '' },
+      { a: variation.solution, h: variation.text, i: '', p: '' }
+    ]);
+    assert.equal(template.t, 3);
+  });
+
+  it('assigns relationships locally and rejects incomplete or unchanged variations', (): void => {
+    const original = { bookSkillId: 4, id: 7, solution: 'Answer 1', text: 'Question 1' };
+    const [variation] = parseExerciseTemplateVariations(JSON.stringify({ variations: [{ solution: 'Answer 2', text: 'Question 2' }] }), [original]);
+
+    assert.equal(variation.sourceExerciseTemplateId, original.id);
+    assert.equal(variation.bookSkillId, original.bookSkillId);
+    assert.throws(() => parseExerciseTemplateVariations(JSON.stringify({ variations: [{ solution: original.solution, text: original.text }] }), [original]));
+    assert.throws(() => parseExerciseTemplateVariations(JSON.stringify({ variations: [{ text: 'Question 2' }] }), [original]));
+    assert.equal(parseExerciseTemplateVariations(JSON.stringify({ variations: [{ solution: original.solution, text: 'Question 2' }] }), [original])[0].solution, original.solution);
+  });
+
+  it('accepts common AI envelope variants without weakening content validation', (): void => {
+    const original = { bookSkillId: 4, id: 7, solution: 'Answer 1', text: 'Question 1' };
+    const varied = { solution: 'Answer 2', text: 'Question 2' };
+
+    assert.equal(parseExerciseTemplateVariations(JSON.stringify({ exerciseTemplates: [varied] }), [original])[0].text, varied.text);
+    assert.equal(parseExerciseTemplateVariations(JSON.stringify({ templates: [varied] }), [original])[0].solution, varied.solution);
+    assert.equal(parseExerciseTemplateVariations(JSON.stringify([varied]), [original])[0].sourceExerciseTemplateId, original.id);
   });
 });
 
