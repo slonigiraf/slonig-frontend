@@ -341,11 +341,15 @@ function Upload (): React.ReactElement {
     }
 
     getBookPages(selectedBook.id).then(async (pages) => {
-      const inputs = await Promise.all(pages.map(async ({ pageNumber }) => JSON.stringify({
+      const inputs = await Promise.all(pages.map(async ({ pageNumber }) => ({
         concepts: await getBookConceptsForBookPage(selectedBook.id, pageNumber),
         exercises: await getExercisesForBookPage([selectedBook.id, pageNumber])
       })));
-      const requests = inputs.flatMap((input) => Array.from({ length: 5 }, () => input.padEnd(input.length + 2_000)));
+      const requests = inputs.flatMap((input) => {
+        const serialized = JSON.stringify(input).padEnd(JSON.stringify(input).length + 2_000);
+
+        return Array.from({ length: 4 + input.concepts.length }, () => serialized);
+      });
 
       setRefineEstimate(formatAiInputEstimate(estimateAiInput(generateAllConceptsModel, requests, pages.length * 12_000)));
     }).catch(() => setError(t('Unable to estimate refinement cost.')));
@@ -413,11 +417,13 @@ function Upload (): React.ReactElement {
         <Modal.Content>
           <p>{t('Recognize every page in this book?')}</p>
           <p>{recognizeEstimate}</p>
-          <p><a
-            href='https://mathpix.com/pricing/api'
-            rel='noreferrer'
-            target='_blank'
-             >Mathpix API pricing</a></p>
+          <p>
+            <a
+              href='https://mathpix.com/pricing/api'
+              rel='noreferrer'
+              target='_blank'
+            >Mathpix API pricing</a>
+          </p>
           <Button.Group>
             <Button
               icon='times'
