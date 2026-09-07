@@ -20,8 +20,8 @@ import { sendCreateAndEditTransaction, sendEditTransaction } from './sendTransac
 import { useInfo } from '@slonigiraf/slonig-components';
 import { getSetting, SettingKey } from '@slonigiraf/db';
 import { sessionPrefix } from '../constants.js';
-import GenerateSkills from './GenerateSkills.js';
-import SkillTemplateList from './SkillTemplateList.js';
+import GenerateAbilities from './GenerateAbilities.js';
+import AbilityList from './AbilityList.js';
 import { DEFAULT_KNOWLEDGE_ID } from '@slonigiraf/utils';
 
 interface Props {
@@ -340,8 +340,8 @@ function Edit({ className = '' }: Props): React.ReactElement<Props> {
 
       {openRouterToken && list && list.i && list.t !== null && list.t === LawType.MODULE && (
         <Templates>
-          <GenerateSkills moduleId={list.i} />
-          <SkillTemplateList moduleId={list.i} />
+          <GenerateAbilities moduleId={list.i} />
+          <AbilityList moduleId={list.i} />
         </Templates>
       )}
       {!isIpfsReady ? <div>{t('Connecting to IPFS...')}</div> : ""}

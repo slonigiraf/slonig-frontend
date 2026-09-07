@@ -3,7 +3,7 @@
 
 import type { ExerciseTemplate } from '@slonigiraf/db';
 
-export interface GeneratedSkillTemplate {
+export interface GeneratedAbility {
   h: string;
   i: string;
   q: Array<{ a: string; h: string; i: string; p: string }>;
@@ -11,7 +11,7 @@ export interface GeneratedSkillTemplate {
 }
 
 export interface ExerciseTemplateVariation {
-  bookSkillId: number;
+  skillId: number;
   solution: string;
   sourceExerciseTemplateId: number;
   text: string;
@@ -38,7 +38,7 @@ function parseResponse (content: string): unknown {
   }
 }
 
-function parseSkillTemplateValue (template: unknown): GeneratedSkillTemplate {
+function parseAbilityValue (template: unknown): GeneratedAbility {
   if (
     !isRecord(template) ||
     !isNonEmptyString(template.h) ||
@@ -48,33 +48,33 @@ function parseSkillTemplateValue (template: unknown): GeneratedSkillTemplate {
     template.q.length !== 2 ||
     !template.q.every((exercise: unknown) => isRecord(exercise) && isNonEmptyString(exercise.h) && isNonEmptyString(exercise.a) && typeof exercise.p === 'string' && typeof exercise.i === 'string')
   ) {
-    throw new Error('Each skill template must have a name and exactly two exercises with nonempty questions and answers.');
+    throw new Error('Each Ability must have a name and exactly two exercises with nonempty questions and answers.');
   }
 
-  return template as unknown as GeneratedSkillTemplate;
+  return template as unknown as GeneratedAbility;
 }
 
-export function parseStoredSkillTemplate (content: string): GeneratedSkillTemplate {
+export function parseStoredAbility (content: string): GeneratedAbility {
   const parsed = parseResponse(content);
 
-  return parseSkillTemplateValue(Array.isArray(parsed) ? parsed[0] : parsed);
+  return parseAbilityValue(Array.isArray(parsed) ? parsed[0] : parsed);
 }
 
-export function parseGeneratedSkillTemplates (content: string, expectedCount?: number): GeneratedSkillTemplate[] {
+export function parseGeneratedAbilities (content: string, expectedCount?: number): GeneratedAbility[] {
   const parsed = parseResponse(content);
-  const templates: unknown = Array.isArray(parsed) ? parsed : isRecord(parsed) ? parsed.templates : undefined;
+  const templates: unknown = Array.isArray(parsed) ? parsed : isRecord(parsed) ? parsed.abilities ?? parsed.templates : undefined;
 
   if (!Array.isArray(templates) || !templates.length) {
-    throw new Error('OpenRouter returned no valid skill templates.');
+    throw new Error('OpenRouter returned no valid Abilities.');
   }
 
   if (expectedCount !== undefined && templates.length !== expectedCount) {
-    throw new Error(`OpenRouter returned ${templates.length} templates for ${expectedCount} concepts.`);
+    throw new Error(`OpenRouter returned ${templates.length} Abilities; expected ${expectedCount}.`);
   }
 
   // Validate the entire response before callers persist any of its templates.
   return templates.map((value: unknown) => {
-    const template = parseSkillTemplateValue(value);
+    const template = parseAbilityValue(value);
     const [first, second] = template.q;
 
     if (first.h.replace(/\s+/g, ' ').trim() === second.h.replace(/\s+/g, ' ').trim()) {
@@ -110,7 +110,7 @@ export function parseExerciseTemplateVariations (content: string, originals: Sto
     }
 
     return {
-      bookSkillId: original.bookSkillId,
+      skillId: original.skillId,
       solution: variation.solution.trim(),
       sourceExerciseTemplateId: original.id,
       text: variation.text.trim()
@@ -118,13 +118,13 @@ export function parseExerciseTemplateVariations (content: string, originals: Sto
   });
 }
 
-export function createSkillTemplateFromExerciseVariation (bookSkillTitle: string, original: ExerciseTemplate, variation: ExerciseTemplateVariation): GeneratedSkillTemplate {
-  if (!bookSkillTitle.trim() || original.bookSkillId !== variation.bookSkillId) {
-    throw new Error('Cannot construct a SkillTemplate without its corresponding BookSkill.');
+export function createAbilityFromExerciseVariation (skillTitle: string, original: ExerciseTemplate, variation: ExerciseTemplateVariation): GeneratedAbility {
+  if (!skillTitle.trim() || original.skillId !== variation.skillId) {
+    throw new Error('Cannot construct an Ability without its corresponding Skill.');
   }
 
   return {
-    h: bookSkillTitle.trim(),
+    h: skillTitle.trim(),
     i: '',
     q: [
       { a: original.solution.trim(), h: original.text.trim(), i: '', p: '' },

@@ -14,7 +14,7 @@ export const OPENAI_MODELS = [
   { text: 'GPT-5.4: $2.50/$15', value: 'openai/gpt-5.4' }
 ];
 
-const skillTemplateGenerationExample = String.raw`[
+const abilityGenerationExample = String.raw`[
   {
     "i": "",
     "t": 3,
@@ -36,7 +36,7 @@ const skillTemplateGenerationExample = String.raw`[
   }
 ]`;
 
-const skillTemplateGenerationInstructions = `A mental function is an abstraction describing a real human skill: one precisely stated ability a person can demonstrate by performing a task. Define it narrowly enough that the kind of input, expected output, and method are unambiguous. Name the learner's actual ability in h so the title explains what the learner can learn and do from these exercises. Do not use generic headings such as "Expected results", "Results", "Practice", or "Exercise". A broad topic such as "metric conversion" or "grammar" is not a sufficiently specific skill.
+const abilityGenerationInstructions = `A mental function is an abstraction describing a real human skill: one precisely stated ability a person can demonstrate by performing a task. Define it narrowly enough that the kind of input, expected output, and method are unambiguous. Name the learner's actual ability in h so the title explains what the learner can learn and do from these exercises. Do not use generic headings such as "Expected results", "Results", "Practice", or "Exercise". A broad topic such as "metric conversion" or "grammar" is not a sufficiently specific skill.
 
 For each skill, plan one exercise template internally, then choose exactly two different sets of concrete parameters and fill them in to produce the two exercises in q. Both exercises must train the same skill and have identical instructions, wording, task structure, input and output types, operation or classification rule, conversion direction, solution method, number of reasoning steps, and difficulty. Only task data, such as numbers, names, words, or the sentence being analyzed, and the corresponding answer values may change. Avoid values that introduce an extra step, special case, or different strategy.
 
@@ -53,17 +53,17 @@ Provide a correct answer or concise worked solution in a for each exercise. Work
 Preserve this existing JSON array format exactly: each skill has i, t, h, and q; i is an empty string and t is 3. Each q contains exactly two exercises, each with h, a, p, and i; p and i are empty strings. Return fully written exercises and answers, with all parameter values already substituted. Do not add fields or output the internal exercise template, parameter definitions, or unresolved placeholders. Return only valid JSON without markdown fences or commentary.
 
 Example output:
-${skillTemplateGenerationExample}
+${abilityGenerationExample}
 
 Before responding, verify that each pair demonstrates the same narrow human skill, differs only in concrete parameter values, has distinct task inputs, and has correct answers obtained through the same method. Confirm that both exercises require the learner to produce an answer by performing the skill, with no yes/no, true/false, answer choices, or trivial recognition shortcuts. Revise any pair that fails these checks.`;
 
-export const skillListPrompt = `Identify the distinct human skills trained by the exercises in the supplied file or images. Split a broad skill into separate narrow skills whenever the required input/output mapping, method, direction, or task structure differs. Return one skill template for each narrow skill, ordered from easiest to hardest, with exactly two similar parameterized exercises per template.
+export const skillListPrompt = `Identify the distinct human skills trained by the exercises in the supplied file or images. Split a broad skill into separate narrow skills whenever the required input/output mapping, method, direction, or task structure differs. Return one Ability for each narrow skill, ordered from easiest to hardest, with exactly two similar parameterized exercises per Ability.
 
-${skillTemplateGenerationInstructions}`;
+${abilityGenerationInstructions}`;
 
-export const conceptsToSkillsPrompt = `You are an educational content methodologist. Convert the supplied concepts to skill templates one-to-one, preserving their order. For each concept, choose one specific human skill it supports, plan an exercise template internally, and generate exactly two concrete exercises from it. If a concept is broad, choose one representative narrow skill; do not combine different abilities in its two exercises. Kee original language. Return one skill template for each concept in the existing JSON array format below.
+export const conceptsToSkillsPrompt = `You are an educational content methodologist. Convert the supplied concepts to Abilities one-to-one, preserving their order. For each concept, choose one specific human skill it supports, plan an exercise template internally, and generate exactly two concrete exercises from it. If a concept is broad, choose one representative narrow skill; do not combine different abilities in its two exercises. Keep the original language. Return one Ability for each concept in the existing JSON array format below.
 
-${skillTemplateGenerationInstructions}`;
+${abilityGenerationInstructions}`;
 
 export const sourcesToSkillsPrompt = `You are an educational content methodologist. Convert each supplied book concept or book exercise into exactly one smallest useful, narrow, observable skill. Preserve the source-item order and return one skill for every source item, even when two source items appear similar. Each skill must state an unambiguous input, operation, and expected output. Do not merge items, omit items, generate multiple skills for one item, use broad topic names, or invent unsupported material.
 
@@ -88,19 +88,19 @@ Write every text and solution strictly in bookLanguage.
 Use <kx>...</kx> for every mathematical formula or expression, never dollar-delimited LaTeX,
 and escape every LaTeX backslash for valid JSON.
 Return only valid JSON in this shape:
-{"templates":[{"bookSkillId":1,"text":"Complete exercise","solution":"Complete solution"}]}
-Set bookSkillId to the corresponding supplied skill.id; 1 above is only an example.
+{"templates":[{"skillId":1,"text":"Complete exercise","solution":"Complete solution"}]}
+Set skillId to the corresponding supplied skill.id; 1 above is only an example.
 
 Do not add markdown fences or commentary.`;
 
-export const divideExerciseTemplatesPrompt = `Review the supplied ExerciseTemplates grouped with their corresponding BookSkill. Do not change or return the parent ExerciseTemplates. For each parent whose solution has multiple substantive steps, create one additional, self-contained child ExerciseTemplate for every individual step. Each child must train that step alone, keep the parent's bookSkillId, contain a succinct real task, and provide a correct step-by-step solution. Return no children for a parent that already has only one substantive step.
+export const divideExerciseTemplatesPrompt = `Review the supplied ExerciseTemplates grouped with their corresponding Skill. Do not change or return the parent ExerciseTemplates. For each parent whose solution has multiple substantive steps, create one additional, self-contained child ExerciseTemplate for every individual step. Each child must train that step alone, keep the parent's skillId, contain a succinct real task, and provide a correct step-by-step solution. Return no children for a parent that already has only one substantive step.
 
 Preserve the book language. Use <kx>...</kx> for every mathematical formula or expression, never dollar-delimited LaTeX, and escape every LaTeX backslash for valid JSON.
 
 Return only valid JSON in this shape; an empty templates array is valid:
-{"templates":[{"bookSkillId":1,"text":"Self-contained exercise for one step","solution":"Step-by-step solution"}]}
+{"templates":[{"skillId":1,"text":"Self-contained exercise for one step","solution":"Step-by-step solution"}]}
 
-Use only supplied bookSkillId values. Do not repeat any parent unchanged. Do not add markdown fences or commentary.`;
+Use only supplied skillId values. Do not repeat any parent unchanged. Do not add markdown fences or commentary.`;
 
 export const skillsToExercisesPrompt = `The input is a JSON object containing bookLanguage, chapterTitle, and exerciseTemplates from one chapter. For every supplied ExerciseTemplate, create exactly one similar ExerciseTemplate variation and preserve the supplied order.
 
@@ -111,6 +111,6 @@ Each variations item must correspond by array position to the ExerciseTemplate a
 Return only valid JSON in this exact shape:
 {"variations":[{"text":"Complete varied exercise","solution":"Complete recalculated solution"}]}
 
-Do not return SkillTemplates, database IDs, markdown fences, or commentary. SkillTemplates and their relationships are constructed locally in the browser.`;
+Do not return Abilities, database IDs, markdown fences, or commentary. Abilities and their relationships are constructed locally in the browser.`;
 
-export const fixSkillTemplatesPrompt = 'Repair every supplied skill template without changing its target skill or language. Correct factual, mathematical, logical, JSON, and answer errors. Make each question self-contained and ensure every solution answers its question. The two exercises in every template must have different concrete input parameters and must not contain identical questions; revise the second exercise and its answer when necessary while preserving the same method and difficulty. Preserve the number and order of templates. Preserve the required i, t, h, and q structure. Use <kx>...</kx> for every mathematical formula or expression, never dollar-delimited LaTeX, and escape every LaTeX backslash for valid JSON. Return only the corrected JSON array without markdown fences or commentary.';
+export const fixAbilitiesPrompt = 'Repair every supplied Ability without changing its target Skill or language. Correct factual, mathematical, logical, JSON, and answer errors. Make each question self-contained and ensure every solution answers its question. The two exercises in every Ability must have different concrete input parameters and must not contain identical questions; revise the second exercise and its answer when necessary while preserving the same method and difficulty. Preserve the number and order of Abilities. Preserve the required i, t, h, and q structure. Use <kx>...</kx> for every mathematical formula or expression, never dollar-delimited LaTeX, and escape every LaTeX backslash for valid JSON. Return only the corrected JSON array without markdown fences or commentary.';

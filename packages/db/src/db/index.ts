@@ -15,7 +15,7 @@ import { Reimbursement } from './Reimbursement.js';
 import { Setting } from './Setting.js';
 import { Signer } from './Signer.js';
 import { UsageRight } from './UsageRight.js';
-import { SkillTemplate } from './SkillTemplate.js';
+import { Ability } from './Ability.js';
 import { Repetition } from './Repetition.js';
 import { LearnRequest } from './LearnRequest.js';
 import { ScheduledEvent } from './ScheduledEvent.js';
@@ -23,9 +23,12 @@ import type { Book } from './Book.js';
 import type { BookPage } from './BookPage.js';
 import type { BookConcept } from './BookConcept.js';
 import type { BookChapter } from './BookChapter.js';
-import type { BookExercise } from './BookExercise.js';
-import type { BookSkill } from './BookSkill.js';
+import type { Exercise } from './Exercise.js';
+import type { Skill } from './Skill.js';
 import type { ExerciseTemplate } from './ExerciseTemplate.js';
+
+type LegacyBookSkill = Omit<Skill, 'exerciseIds'> & { bookExerciseIds?: number[] };
+type LegacyExerciseTemplate = Omit<ExerciseTemplate, 'skillId'> & { bookSkillId: number };
 
 class SlonigDB extends Dexie {
   agreements!: Table<Agreement>;
@@ -42,7 +45,7 @@ class SlonigDB extends Dexie {
   settings!: Table<Setting>;
   signers!: Table<Signer>;
   usageRights!: Table<UsageRight>;
-  skillTemplates!: Table<SkillTemplate>;
+  abilities!: Table<Ability>;
   repetitions!: Table<Repetition>;
   learnRequests!:Table<LearnRequest>;
   scheduledEvents!:Table<ScheduledEvent>;
@@ -50,8 +53,8 @@ class SlonigDB extends Dexie {
   bookPages!: Table<BookPage, [number, number]>;
   bookConcepts!: Table<BookConcept, number>;
   bookChapters!: Table<BookChapter, number>;
-  bookExercises!: Table<BookExercise, number>;
-  bookSkills!: Table<BookSkill, number>;
+  exercises!: Table<Exercise, number>;
+  skills!: Table<Skill, number>;
   exerciseTemplates!: Table<ExerciseTemplate, number>;
 
   constructor() {
@@ -128,7 +131,7 @@ class SlonigDB extends Dexie {
     this.version(74).stores({
       skills: '++id,chapterId,rank,[chapterId+rank]'
     }).upgrade(async (transaction: Transaction) => {
-      const skills = await transaction.table<BookSkill>('skills').toArray();
+      const skills = await transaction.table<LegacyBookSkill>('skills').toArray();
       const chapterRanks = new Map<number, number>();
 
       await Promise.all(skills
@@ -138,17 +141,17 @@ class SlonigDB extends Dexie {
 
           chapterRanks.set(skill.chapterId, rank + 1);
 
-          return transaction.table<BookSkill>('skills').update(skill.id, { rank });
+          return transaction.table<LegacyBookSkill>('skills').update(skill.id, { rank });
         }));
     });
     this.version(75).stores({
       bookSkills: '++id,chapterId,rank,[chapterId+rank]',
       exerciseTemplates: '++id,bookSkillId'
     }).upgrade(async (transaction: Transaction) => {
-      const existingSkills = await transaction.table<BookSkill>('skills').toArray();
+      const existingSkills = await transaction.table<LegacyBookSkill>('skills').toArray();
 
       if (existingSkills.length) {
-        await transaction.table<BookSkill>('bookSkills').bulkPut(existingSkills);
+        await transaction.table<LegacyBookSkill>('bookSkills').bulkPut(existingSkills);
       }
     });
     this.version(76).stores({
@@ -160,7 +163,7 @@ class SlonigDB extends Dexie {
       for (const page of pagesWithoutChapter.sort((a, b) => a.bookId - b.bookId || a.pageNumber - b.pageNumber)) {
         const [concepts, exerciseCount] = await Promise.all([
           transaction.table<BookConcept>('bookConcepts').where('bookPage').equals([page.bookId, page.pageNumber]).toArray(),
-          transaction.table<BookExercise>('bookExercises').where('bookPage').equals([page.bookId, page.pageNumber]).count()
+          transaction.table<Exercise>('bookExercises').where('bookPage').equals([page.bookId, page.pageNumber]).count()
         ]);
 
         if (!concepts.length && !exerciseCount) {
@@ -188,12 +191,12 @@ class SlonigDB extends Dexie {
     this.version(79).stores({}).upgrade(async (transaction: Transaction) => {
       const [books, skills] = await Promise.all([
         transaction.table<Book>('books').filter(({ processingStage }) => (processingStage ?? 0) >= 6).toArray(),
-        transaction.table<BookSkill>('bookSkills').toArray()
+        transaction.table<LegacyBookSkill>('bookSkills').toArray()
       ]);
 
       await Promise.all([
         ...books.flatMap(({ id }) => id === undefined ? [] : [transaction.table<Book>('books').update(id, { processingStage: 5 })]),
-        ...skills.flatMap((skill) => skill.id === undefined ? [] : [transaction.table<BookSkill>('bookSkills').update(skill.id, {
+        ...skills.flatMap((skill) => skill.id === undefined ? [] : [transaction.table<LegacyBookSkill>('bookSkills').update(skill.id, {
           bookConceptIds: skill.bookConceptIds ?? [],
           bookExerciseIds: skill.bookExerciseIds ?? []
         })])
@@ -208,6 +211,33 @@ class SlonigDB extends Dexie {
 
         return table.put(withoutTitle as ExerciseTemplate);
       }));
+    });
+    this.version(81).stores({
+      abilities: '&id,moduleId',
+      exercises: '++id,bookPage',
+      exerciseTemplates: '++id,skillId',
+      skills: '++id,chapterId,rank,[chapterId+rank]'
+    }).upgrade(async (transaction: Transaction) => {
+      const [legacyAbilities, legacyExercises, legacySkills, legacyTemplates] = await Promise.all([
+        transaction.table<Ability>('skillTemplates').toArray(),
+        transaction.table<Exercise>('bookExercises').toArray(),
+        transaction.table<LegacyBookSkill>('bookSkills').toArray(),
+        transaction.table<LegacyExerciseTemplate>('exerciseTemplates').toArray()
+      ]);
+      const skills = legacySkills.map(({ bookExerciseIds, ...skill }) => ({ ...skill, exerciseIds: bookExerciseIds ?? [] }));
+      const templates = legacyTemplates.map(({ bookSkillId, ...template }) => ({ ...template, skillId: bookSkillId }));
+
+      await Promise.all([
+        legacyAbilities.length ? transaction.table<Ability>('abilities').bulkPut(legacyAbilities) : Promise.resolve(),
+        legacyExercises.length ? transaction.table<Exercise>('exercises').bulkPut(legacyExercises) : Promise.resolve(),
+        skills.length ? transaction.table<Skill>('skills').bulkPut(skills) : Promise.resolve(),
+        templates.length ? transaction.table<ExerciseTemplate>('exerciseTemplates').bulkPut(templates) : Promise.resolve()
+      ]);
+    });
+    this.version(82).stores({
+      bookExercises: null,
+      bookSkills: null,
+      skillTemplates: null
     });
   }
 }

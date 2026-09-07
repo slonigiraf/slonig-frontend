@@ -6,9 +6,9 @@ import type { ApiPromise, SubmittableResult } from '@polkadot/api';
 import type { SubmittableExtrinsic } from '@polkadot/api/types';
 import type { KeyringPair } from '@polkadot/keyring/types';
 import type { DispatchError } from '@polkadot/types/interfaces';
-import type { GeneratedSkillTemplate } from './skillTemplates.js';
+import type { GeneratedAbility } from './abilities.js';
 
-import { deleteSkillTemplate, getBookChapters, getBookSkillsForChapter, getSetting, getSkillTemplates, putBook, putBookChapter, SettingKey, storeSkillTemplate, updateBookChapterTitle } from '@slonigiraf/db';
+import { deleteAbility, getBookChapters, getSkillsForChapter, getSetting, getAbilities, putBook, putBookChapter, SettingKey, storeAbility, updateBookChapterTitle } from '@slonigiraf/db';
 import { digestFromCIDv1, getCIDFromBytes, getIPFSContentIDAndPinIt, getIPFSDataFromContentID, KatexSpan, LawType, parseJson, useInfo, useIpfsContext, useLoginContext } from '@slonigiraf/slonig-components';
 import BN from 'bn.js';
 import { useLiveQuery } from 'dexie-react-hooks';
@@ -23,14 +23,14 @@ import { BN_ZERO, u8aToHex } from '@polkadot/util';
 import { OPENAI_MODELS } from './constants.js';
 import { parseNameSuggestions } from './courseNames.js';
 import KnowledgeTargetSelector from './KnowledgeTargetSelector.js';
-import { parseStoredSkillTemplate } from './skillTemplates.js';
+import { parseStoredAbility } from './abilities.js';
 import { randomIdHex } from './util.js';
 
 interface TemplateRow {
   moduleId: string;
   recordId: string;
   skillId: number;
-  template: GeneratedSkillTemplate;
+  template: GeneratedAbility;
 }
 
 interface ChapterTemplates {
@@ -48,7 +48,7 @@ type OutlineItem =
   | { chapter: BookChapter; key: string; type: 'chapter' }
   | { key: string; row: TemplateRow; type: 'template' };
 
-const skillTemplateModuleId = (bookId: number, skillId: number): string => `book-${bookId}-skill-${skillId}`;
+const abilityModuleId = (bookId: number, skillId: number): string => `book-${bookId}-skill-${skillId}`;
 const chapterOutlineKey = (id: number): string => `chapter:${id}`;
 const templateOutlineKey = (id: string): string => `template:${id}`;
 const isKnowledgeId = (value: string | undefined): value is string => !!value && /^0x[\da-f]{64}$/i.test(value);
@@ -238,18 +238,18 @@ function SkillsCourse ({ book }: { book: Book }): React.ReactElement {
         return { chapter, templates: [] };
       }
 
-      const skills = await getBookSkillsForChapter(chapter.id);
+      const skills = await getSkillsForChapter(chapter.id);
       const templates = (await Promise.all(skills.map(async ({ id }) => {
         if (id === undefined) {
           return [];
         }
 
-        const moduleId = skillTemplateModuleId(book.id, id);
-        const records = await getSkillTemplates(moduleId);
+        const moduleId = abilityModuleId(book.id, id);
+        const records = await getAbilities(moduleId);
 
         return records.flatMap(({ content, id: recordId }) => {
           try {
-            return [{ moduleId, recordId, skillId: id, template: parseStoredSkillTemplate(content) }];
+            return [{ moduleId, recordId, skillId: id, template: parseStoredAbility(content) }];
           } catch {
             return [];
           }
@@ -414,13 +414,13 @@ function SkillsCourse ({ book }: { book: Book }): React.ReactElement {
 
   const deleteTemplate = useCallback(async (recordId: string): Promise<void> => {
     try {
-      await deleteSkillTemplate(recordId);
+      await deleteAbility(recordId);
       const updatedBook = { ...storedBook, courseOrder: storedBook.courseOrder?.filter((key) => key !== templateOutlineKey(recordId)) };
 
       await putBook(updatedBook);
       setStoredBook(updatedBook);
     } catch (error) {
-      showInfo(`Unable to delete the skill template: ${errorMessage(error)}`, 'error');
+      showInfo(`Unable to delete the ability: ${errorMessage(error)}`, 'error');
     }
   }, [showInfo, storedBook]);
   const deleteChapter = useCallback(async (chapter: BookChapter): Promise<void> => {
@@ -481,7 +481,7 @@ function SkillsCourse ({ book }: { book: Book }): React.ReactElement {
 
       await putBook(updatedBook);
       setStoredBook(updatedBook);
-      setPublishStatus('Chapter inserted. Rename it or drag it between skill templates.');
+      setPublishStatus('Chapter inserted. Rename it or drag it between abilities.');
     } catch (error) {
       setPublishStatus(`Unable to insert chapter: ${errorMessage(error)}`);
     }
@@ -509,7 +509,7 @@ function SkillsCourse ({ book }: { book: Book }): React.ReactElement {
     keys.splice(targetIndex, 0, moved);
 
     if (!keys[0].startsWith('chapter:')) {
-      setPublishStatus('A chapter name must remain above the first skill template.');
+      setPublishStatus('A chapter name must remain above the first ability.');
       setDragKey(undefined);
 
       return;
@@ -557,9 +557,9 @@ function SkillsCourse ({ book }: { book: Book }): React.ReactElement {
           content: `Correct and improve the book name and each editable chapter name using only the ordered skill-template titles as evidence. Keep names concise, specific, and in the same language as the skill-template titles. Do not translate. Return exactly this JSON shape and no commentary: {"bookName":"Name","chapters":[{"id":1,"title":"Chapter name"}]}. Return one chapter entry for every supplied editable chapter ID.\n\n${JSON.stringify({
             bookName: courseName,
             chapters: courseChapters.map(({ chapter, templates }) => ({
+              abilityTitles: templates.map(({ template }) => template.h),
               editable: chapterIds.includes(chapter.id as number),
               id: chapter.id,
-              skillTemplateTitles: templates.map(({ template }) => template.h),
               title: chapter.title
             }))
           })}`,
@@ -603,7 +603,7 @@ function SkillsCourse ({ book }: { book: Book }): React.ReactElement {
     }
 
     if (!knowledgeId || !courseName.trim() || !publishableChapters.length) {
-      showInfo('Choose a publishing location, enter a course name, and add skill templates first.', 'error');
+      showInfo('Choose a publishing location, enter a course name, and add abilities first.', 'error');
 
       return;
     }
@@ -631,10 +631,10 @@ function SkillsCourse ({ book }: { book: Book }): React.ReactElement {
             let recordId = row.recordId;
 
             if (row.template.i !== skillId) {
-              const newRecordId = await storeSkillTemplate(row.moduleId, JSON.stringify(template));
+              const newRecordId = await storeAbility(row.moduleId, JSON.stringify(template));
 
               if (newRecordId !== row.recordId) {
-                await deleteSkillTemplate(row.recordId);
+                await deleteAbility(row.recordId);
                 templateRecordChanges.set(row.recordId, newRecordId);
                 recordId = newRecordId;
               }

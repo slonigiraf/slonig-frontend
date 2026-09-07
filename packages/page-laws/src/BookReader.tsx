@@ -1,10 +1,10 @@
 // Copyright 2021-2026 @polkadot/app-laws authors & contributors
 // SPDX-License-Identifier: Apache-2.0
 
-import type { Book, BookConcept, BookExercise, BookPage } from '@slonigiraf/db';
+import type { Book, BookConcept, Exercise, BookPage } from '@slonigiraf/db';
 import type { PDFDocumentLoadingTask, PDFDocumentProxy, RenderTask } from 'pdfjs-dist';
 
-import { getBookConceptsForBookPage, getBookExercisesForBookPage, getBookPages, getSetting, putBook, putBookPage, replaceParsedBookPageContent, SettingKey, storeSetting, updateBookProcessingStage } from '@slonigiraf/db';
+import { getBookConceptsForBookPage, getExercisesForBookPage, getBookPages, getSetting, putBook, putBookPage, replaceParsedBookPageContent, SettingKey, storeSetting, updateBookProcessingStage } from '@slonigiraf/db';
 import { KatexSpan, RoundProgress } from '@slonigiraf/slonig-components';
 import { strFromU8, unzipSync } from 'fflate';
 import MathpixLoader from 'mathpix-markdown-it/lib/components/mathpix-loader/index.js';
@@ -324,7 +324,7 @@ function getSessionReaderPane (bookId: number): ReaderPane {
 function BookReader ({ book, file, generateAllConceptsModel, generateAllConceptsRequest, onBookChange, onProcessingComplete, pendingProcessingAction, processingToolbar, recognizeAllRequest }: Props): React.ReactElement {
   const [activePane, setActivePane] = useState<ReaderPane>(() => getSessionReaderPane(book.id));
   const [concepts, setConcepts] = useState<BookConcept[]>([]);
-  const [exercises, setExercises] = useState<BookExercise[]>([]);
+  const [exercises, setExercises] = useState<Exercise[]>([]);
   const [error, setError] = useState('');
   const [generatedConceptsPageCount, setGeneratedConceptsPageCount] = useState(0);
   const [isGeneratingAllConcepts, setIsGeneratingAllConcepts] = useState(false);
@@ -440,7 +440,7 @@ function BookReader ({ book, file, generateAllConceptsModel, generateAllConcepts
 
     Promise.all([
       getBookConceptsForBookPage(book.id, pageNumber),
-      getBookExercisesForBookPage([book.id, pageNumber])
+      getExercisesForBookPage([book.id, pageNumber])
     ])
       .then(([storedConcepts, storedExercises]) => {
         if (active) {

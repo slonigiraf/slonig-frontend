@@ -1,17 +1,17 @@
 import React, { useCallback, useState } from 'react';
 import { useTranslation } from '../translate.js';
-import { getSetting, SettingKey, storeSkillTemplate } from '@slonigiraf/db';
+import { getSetting, SettingKey, storeAbility } from '@slonigiraf/db';
 import OpenAI from 'openai';
 import { FileUpload } from '@polkadot/react-components';
 import { skillListPrompt } from '../constants.js';
-import { parseGeneratedSkillTemplates } from '../skillTemplates.js';
+import { parseGeneratedAbilities } from '../abilities.js';
 
 interface Props {
   className?: string;
   moduleId: string;
 }
 
-const GenerateSkills: React.FC<Props> = ({ className = '', moduleId }: Props) => {
+const GenerateAbilities: React.FC<Props> = ({ className = '', moduleId }: Props) => {
   const { t } = useTranslation();
   const [file, setFile] = useState<File | null>(null);
   const [output, setOutput] = useState<string>('');
@@ -86,13 +86,13 @@ const GenerateSkills: React.FC<Props> = ({ className = '', moduleId }: Props) =>
         return;
       }
 
-      const templates = parseGeneratedSkillTemplates(text);
+      const templates = parseGeneratedAbilities(text);
 
       for (const template of templates) {
-        await storeSkillTemplate(moduleId, JSON.stringify(template));
+        await storeAbility(moduleId, JSON.stringify(template));
       }
 
-      setOutput(`✅ Stored ${templates.length} skill templates.`);
+      setOutput(`✅ Stored ${templates.length} abilities.`);
     } catch (err: any) {
       console.error('OpenRouter error:', err);
       setOutput(`❌ OpenRouter error: ${err.message || 'Unknown error'}`);
@@ -103,7 +103,7 @@ const GenerateSkills: React.FC<Props> = ({ className = '', moduleId }: Props) =>
 
   return (
     <div className='p-4 space-y-4'>
-      <h2>{t('Templates of skills:')}</h2>
+      <h2>{t('Abilities:')}</h2>
 
       <FileUpload
         accept="*/*"
@@ -134,4 +134,4 @@ const GenerateSkills: React.FC<Props> = ({ className = '', moduleId }: Props) =>
   );
 };
 
-export default GenerateSkills;
+export default GenerateAbilities;

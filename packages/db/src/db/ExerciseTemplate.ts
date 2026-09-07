@@ -3,7 +3,7 @@
 
 export interface ExerciseTemplate {
   id?: number;
-  bookSkillId: number;
+  skillId: number;
   text: string;
   solution: string;
 }

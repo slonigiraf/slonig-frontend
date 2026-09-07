@@ -7,19 +7,19 @@ import { useTranslation } from '../translate.js';
 import { useToggle } from '@polkadot/react-hooks';
 import { KatexSpan, parseJson } from '@slonigiraf/slonig-components';
 import { ExerciseList } from '@slonigiraf/app-laws';
-import { SkillTemplate } from 'db/src/db/SkillTemplate.js';
+import type { Ability } from '@slonigiraf/db';
 
 interface Props {
   className?: string;
-  skillTemplate: SkillTemplate;
+  ability: Ability;
 }
 
-function SkillTemplateInfo({ className = '', skillTemplate }: Props): React.ReactElement<Props> {
+function AbilityInfo({ className = '', ability }: Props): React.ReactElement<Props> {
   type JsonType = { [key: string]: any } | null;
   const { t } = useTranslation();
   const [areDetailsOpen, toggleDetailsOpen] = useToggle(false);
 
-  const data: JsonType = parseJson(skillTemplate.content);
+  const data: JsonType = parseJson(ability.content);
 
   const skillNameToShow = data ? <KatexSpan content={data.h} /> : <Spinner noLabel />;
 
@@ -46,7 +46,7 @@ function SkillTemplateInfo({ className = '', skillTemplate }: Props): React.Reac
                       <h3>{t('Example exercises to train the skill')}</h3>
                     </>
                   }
-                  {data.q != null && <ExerciseList exercises={data.q} location='skill_template_info' />}
+                  {data.q != null && <ExerciseList exercises={data.q} location='ability_info' />}
                 </>
             }
           </Modal.Content>
@@ -84,4 +84,4 @@ const RowDiv = styled.div`
   }
 `;
 
-export default React.memo(SkillTemplateInfo);
+export default React.memo(AbilityInfo);

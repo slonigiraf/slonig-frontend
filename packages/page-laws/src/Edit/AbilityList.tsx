@@ -1,6 +1,6 @@
-import type { SkillTemplate } from 'db/src/db/SkillTemplate.js';
+import type { Ability } from '@slonigiraf/db';
 
-import { deleteSkillTemplates, getSkillTemplates } from '@slonigiraf/db';
+import { deleteAbilities, getAbilities } from '@slonigiraf/db';
 import { Confirmation } from '@slonigiraf/slonig-components';
 import { useLiveQuery } from 'dexie-react-hooks';
 import React, { useCallback, useState } from 'react';
@@ -8,56 +8,56 @@ import React, { useCallback, useState } from 'react';
 import { Button } from '@polkadot/react-components';
 
 import { useTranslation } from '../translate.js';
-import SkillTemplateInfo from './SkillTemplateInfo.js';
+import AbilityInfo from './AbilityInfo.js';
 
 interface Props {
   className?: string;
   moduleId: string;
 }
 
-const SkillTemplateList: React.FC<Props> = ({ className = '', moduleId }: Props) => {
+const AbilityList: React.FC<Props> = ({ className = '', moduleId }: Props) => {
   const { t } = useTranslation();
   const [isClearConfirmationOpen, setIsClearConfirmationOpen] = useState(false);
-  const skillTemplates = useLiveQuery(() => getSkillTemplates(moduleId), [moduleId]);
+  const abilities = useLiveQuery(() => getAbilities(moduleId), [moduleId]);
 
   const closeClearConfirmation = useCallback(() => {
     setIsClearConfirmationOpen(false);
   }, []);
-  const clearSkillTemplates = useCallback(() => {
-    deleteSkillTemplates(moduleId).then(closeClearConfirmation).catch(console.error);
+  const clearAbilities = useCallback(() => {
+    deleteAbilities(moduleId).then(closeClearConfirmation).catch(console.error);
   }, [closeClearConfirmation, moduleId]);
   const openClearConfirmation = useCallback(() => {
     setIsClearConfirmationOpen(true);
   }, []);
 
   return (<div className={className}>
-    {skillTemplates && skillTemplates.length > 0 && (
+    {abilities && abilities.length > 0 && (
       <Button
         icon='trash-can'
-        label={t('Clear skill templates')}
+        label={t('Clear abilities')}
         onClick={openClearConfirmation}
       />
     )}
-    {skillTemplates && skillTemplates.map((skillTemplate: SkillTemplate) => (
+    {abilities && abilities.map((ability: Ability) => (
       <div
         className='ui--row'
-        key={skillTemplate.id}
+        key={ability.id}
         style={{
           alignItems: 'center'
         }}
       >
-        <SkillTemplateInfo skillTemplate={skillTemplate} />
+        <AbilityInfo ability={ability} />
       </div>
     ))}
     {isClearConfirmationOpen && (
       <Confirmation
         onClose={closeClearConfirmation}
-        onConfirm={clearSkillTemplates}
-        question={t('Clear all skill templates for this module?')}
+        onConfirm={clearAbilities}
+        question={t('Clear all abilities for this module?')}
       />
     )}
   </div>
   );
 };
 
-export default SkillTemplateList;
+export default AbilityList;

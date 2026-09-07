@@ -1,7 +1,7 @@
 // Copyright 2021-2026 @polkadot/db authors & contributors
 // SPDX-License-Identifier: Apache-2.0
 
-export interface BookExercise {
+export interface Exercise {
   id?: number;
   bookPage: [number, number];
   title: string;

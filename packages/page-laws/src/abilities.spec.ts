@@ -3,14 +3,14 @@
 
 /// <reference types="@polkadot/dev-test/globals.d.ts" />
 
-import type { GeneratedSkillTemplate } from './skillTemplates.js';
+import type { GeneratedAbility } from './abilities.js';
 
 import { strict as assert } from 'node:assert';
 
-import { conceptsToSkillsPrompt, divideExerciseTemplatesPrompt, fixSkillTemplatesPrompt, skillListPrompt, skillsToExercisesPrompt, skillsToExerciseTemplatesPrompt, sourcesToSkillsPrompt } from './constants.js';
-import { createSkillTemplateFromExerciseVariation, parseExerciseTemplateVariations, parseGeneratedSkillTemplates, parseStoredSkillTemplate } from './skillTemplates.js';
+import { createAbilityFromExerciseVariation, parseExerciseTemplateVariations, parseGeneratedAbilities, parseStoredAbility } from './abilities.js';
+import { conceptsToSkillsPrompt, divideExerciseTemplatesPrompt, fixAbilitiesPrompt, skillListPrompt, skillsToExercisesPrompt, skillsToExerciseTemplatesPrompt, sourcesToSkillsPrompt } from './constants.js';
 
-function createSkill (): GeneratedSkillTemplate {
+function createSkill (): GeneratedAbility {
   return {
     h: 'Convert whole kilometers to meters',
     i: '',
@@ -22,10 +22,10 @@ function createSkill (): GeneratedSkillTemplate {
   };
 }
 
-describe('generated skill templates', (): void => {
+describe('generated abilities', (): void => {
   it('preserves the original skill and exercise fields without adding metadata', (): void => {
     const skill = createSkill();
-    const [parsed] = parseGeneratedSkillTemplates(JSON.stringify([skill]), 1);
+    const [parsed] = parseGeneratedAbilities(JSON.stringify([skill]), 1);
 
     assert.deepEqual(parsed, skill);
     assert.deepEqual(Object.keys(parsed).sort(), ['h', 'i', 'q', 't']);
@@ -42,7 +42,7 @@ describe('generated skill templates', (): void => {
       ]
     };
 
-    assert.deepEqual(parseGeneratedSkillTemplates(JSON.stringify([skill])), [skill]);
+    assert.deepEqual(parseGeneratedAbilities(JSON.stringify([skill])), [skill]);
   });
 
   for (const length of [0, 1, 3]) {
@@ -51,7 +51,7 @@ describe('generated skill templates', (): void => {
 
       skill.q = Array.from({ length }, (_, index) => skill.q[index % 2]);
 
-      assert.throws(() => parseGeneratedSkillTemplates(JSON.stringify([skill])));
+      assert.throws(() => parseGeneratedAbilities(JSON.stringify([skill])));
     });
   }
 
@@ -70,7 +70,7 @@ describe('generated skill templates', (): void => {
       { ...skill, q: {} }
     ];
 
-    invalid.forEach((value) => assert.throws(() => parseGeneratedSkillTemplates(JSON.stringify([value]))));
+    invalid.forEach((value) => assert.throws(() => parseGeneratedAbilities(JSON.stringify([value]))));
   });
 
   it('rejects missing, blank, and incorrectly typed exercise fields', (): void => {
@@ -91,7 +91,7 @@ describe('generated skill templates', (): void => {
       { ...first, i: false }
     ];
 
-    invalid.forEach((value) => assert.throws(() => parseGeneratedSkillTemplates(JSON.stringify([{ ...skill, q: [value, second] }]))));
+    invalid.forEach((value) => assert.throws(() => parseGeneratedAbilities(JSON.stringify([{ ...skill, q: [value, second] }]))));
   });
 
   it('rejects repeated questions even when their answers differ', (): void => {
@@ -99,32 +99,32 @@ describe('generated skill templates', (): void => {
 
     skill.q[1].h = skill.q[0].h;
 
-    assert.throws(() => parseGeneratedSkillTemplates(JSON.stringify([skill])));
+    assert.throws(() => parseGeneratedAbilities(JSON.stringify([skill])));
 
     skill.q[1].h = '  Convert\n 2\t km to m.  ';
 
-    assert.throws(() => parseGeneratedSkillTemplates(JSON.stringify([skill])));
+    assert.throws(() => parseGeneratedAbilities(JSON.stringify([skill])));
   });
 
   it('accepts an array or a transport envelope and preserves concept order', (): void => {
     const skills = [createSkill(), { ...createSkill(), h: 'A second concept' }];
 
-    assert.deepEqual(parseGeneratedSkillTemplates(JSON.stringify(skills), 2), skills);
-    assert.deepEqual(parseGeneratedSkillTemplates(JSON.stringify({ templates: skills }), 2), skills);
-    assert.throws(() => parseGeneratedSkillTemplates(JSON.stringify(skills), 1));
-    assert.throws(() => parseGeneratedSkillTemplates(JSON.stringify(skills), 3));
+    assert.deepEqual(parseGeneratedAbilities(JSON.stringify(skills), 2), skills);
+    assert.deepEqual(parseGeneratedAbilities(JSON.stringify({ templates: skills }), 2), skills);
+    assert.throws(() => parseGeneratedAbilities(JSON.stringify(skills), 1));
+    assert.throws(() => parseGeneratedAbilities(JSON.stringify(skills), 3));
   });
 
   it('rejects empty, malformed, and unsupported response containers', (): void => {
     const invalid = ['', '{', 'null', '[]', '{}', '{"templates":[]}', '{"templates":{}}', JSON.stringify(createSkill())];
 
-    invalid.forEach((content) => assert.throws(() => parseGeneratedSkillTemplates(content)));
+    invalid.forEach((content) => assert.throws(() => parseGeneratedAbilities(content)));
   });
 
   it('rejects the entire batch when a later template is invalid', (): void => {
     const skills = [createSkill(), { ...createSkill(), q: [] }];
 
-    assert.throws(() => parseGeneratedSkillTemplates(JSON.stringify(skills), 2));
+    assert.throws(() => parseGeneratedAbilities(JSON.stringify(skills), 2));
   });
 
   it('preserves correctly escaped KaTeX in questions and answers', (): void => {
@@ -137,7 +137,7 @@ describe('generated skill templates', (): void => {
       ]
     };
 
-    assert.deepEqual(parseGeneratedSkillTemplates(JSON.stringify([skill])), [skill]);
+    assert.deepEqual(parseGeneratedAbilities(JSON.stringify([skill])), [skill]);
   });
 
   for (const [name, prompt] of Object.entries({ conceptsToSkillsPrompt, skillListPrompt })) {
@@ -146,7 +146,7 @@ describe('generated skill templates', (): void => {
 
       assert(example, 'The prompt should include a JSON array example.');
 
-      const templates = parseGeneratedSkillTemplates(example);
+      const templates = parseGeneratedAbilities(example);
 
       assert(templates.length > 0);
       templates.forEach((template) => {
@@ -188,8 +188,8 @@ describe('generated skill templates', (): void => {
   });
 
   it('requires the repair stage to preserve KaTeX and correct answers', (): void => {
-    assert.match(fixSkillTemplatesPrompt, /correct/i);
-    assert.match(fixSkillTemplatesPrompt, /<kx>/i);
+    assert.match(fixAbilitiesPrompt, /correct/i);
+    assert.match(fixAbilitiesPrompt, /<kx>/i);
   });
 
   it('asks AI for one recalculated variation per chapter ExerciseTemplate', (): void => {
@@ -199,17 +199,17 @@ describe('generated skill templates', (): void => {
     assert.match(skillsToExercisesPrompt, /Recalculate the solution/i);
     assert.match(skillsToExercisesPrompt, /correspond by array position/i);
     assert.match(skillsToExercisesPrompt, /Do not copy database IDs/i);
-    assert.match(skillsToExercisesPrompt, /Do not return SkillTemplates/i);
+    assert.match(skillsToExercisesPrompt, /Do not return Abilities/i);
     assert.match(skillsToExercisesPrompt, /constructed locally in the browser/i);
-    assert.match(fixSkillTemplatesPrompt, /different concrete input parameters/i);
+    assert.match(fixAbilitiesPrompt, /different concrete input parameters/i);
   });
 
-  it('pairs an AI variation with its original and uses the BookSkill title locally', (): void => {
-    const original = { bookSkillId: 4, id: 7, solution: '<kx>2 \\times 1000 = 2000</kx> m.', text: 'Convert <kx>2</kx> km to m.' };
+  it('pairs an AI variation with its original and uses the Skill title locally', (): void => {
+    const original = { id: 7, skillId: 4, solution: '<kx>2 \\times 1000 = 2000</kx> m.', text: 'Convert <kx>2</kx> km to m.' };
     const [variation] = parseExerciseTemplateVariations(JSON.stringify({
       variations: [{ solution: '<kx>5 \\times 1000 = 5000</kx> m.', text: 'Convert <kx>5</kx> km to m.' }]
     }), [original]);
-    const template = createSkillTemplateFromExerciseVariation('Convert whole kilometers to meters', original, variation);
+    const template = createAbilityFromExerciseVariation('Convert whole kilometers to meters', original, variation);
 
     assert.equal(template.h, 'Convert whole kilometers to meters');
     assert.deepEqual(template.q, [
@@ -220,18 +220,18 @@ describe('generated skill templates', (): void => {
   });
 
   it('assigns relationships locally and rejects incomplete or unchanged variations', (): void => {
-    const original = { bookSkillId: 4, id: 7, solution: 'Answer 1', text: 'Question 1' };
+    const original = { id: 7, skillId: 4, solution: 'Answer 1', text: 'Question 1' };
     const [variation] = parseExerciseTemplateVariations(JSON.stringify({ variations: [{ solution: 'Answer 2', text: 'Question 2' }] }), [original]);
 
     assert.equal(variation.sourceExerciseTemplateId, original.id);
-    assert.equal(variation.bookSkillId, original.bookSkillId);
+    assert.equal(variation.skillId, original.skillId);
     assert.throws(() => parseExerciseTemplateVariations(JSON.stringify({ variations: [{ solution: original.solution, text: original.text }] }), [original]));
     assert.throws(() => parseExerciseTemplateVariations(JSON.stringify({ variations: [{ text: 'Question 2' }] }), [original]));
     assert.equal(parseExerciseTemplateVariations(JSON.stringify({ variations: [{ solution: original.solution, text: 'Question 2' }] }), [original])[0].solution, original.solution);
   });
 
   it('accepts common AI envelope variants without weakening content validation', (): void => {
-    const original = { bookSkillId: 4, id: 7, solution: 'Answer 1', text: 'Question 1' };
+    const original = { id: 7, skillId: 4, solution: 'Answer 1', text: 'Question 1' };
     const varied = { solution: 'Answer 2', text: 'Question 2' };
 
     assert.equal(parseExerciseTemplateVariations(JSON.stringify({ exerciseTemplates: [varied] }), [original])[0].text, varied.text);
@@ -240,7 +240,7 @@ describe('generated skill templates', (): void => {
   });
 });
 
-describe('stored skill templates', (): void => {
+describe('stored abilities', (): void => {
   it('continues to display legacy object and array records', (): void => {
     const skill = createSkill();
 
@@ -249,13 +249,13 @@ describe('stored skill templates', (): void => {
     skill.q[0].i = 'legacy-answer-image';
     skill.q[1].h = skill.q[0].h;
 
-    assert.deepEqual(parseStoredSkillTemplate(JSON.stringify(skill)), skill);
-    assert.deepEqual(parseStoredSkillTemplate(JSON.stringify([skill])), skill);
-    assert.deepEqual(parseStoredSkillTemplate('```json\n' + JSON.stringify(skill) + '\n```'), skill);
+    assert.deepEqual(parseStoredAbility(JSON.stringify(skill)), skill);
+    assert.deepEqual(parseStoredAbility(JSON.stringify([skill])), skill);
+    assert.deepEqual(parseStoredAbility('```json\n' + JSON.stringify(skill) + '\n```'), skill);
   });
 
   it('rejects corrupt stored records', (): void => {
-    assert.throws(() => parseStoredSkillTemplate('not JSON'));
-    assert.throws(() => parseStoredSkillTemplate(JSON.stringify({ ...createSkill(), q: [{}] })));
+    assert.throws(() => parseStoredAbility('not JSON'));
+    assert.throws(() => parseStoredAbility(JSON.stringify({ ...createSkill(), q: [{}] })));
   });
 });
