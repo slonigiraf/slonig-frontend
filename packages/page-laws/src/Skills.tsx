@@ -350,6 +350,7 @@ function Skills ({ book, onAction, onBookChange, pipelineOnly = false, pipelineP
   const [chapterContent, setChapterContent] = useState<ChapterContent[]>([]);
   const [chapterIndex, setChapterIndex] = useState(() => getSessionChapter(book.id, view));
   const [error, setError] = useState('');
+  const [notice, setNotice] = useState('');
   const [isBusy, setIsBusy] = useState(false);
   const [progress, setProgress] = useState(0);
   const [progressLabel, setProgressLabel] = useState('');
@@ -412,8 +413,7 @@ function Skills ({ book, onAction, onBookChange, pipelineOnly = false, pipelineP
   const skillSources = useMemo<SkillSource[]>(() => chapterContent.flatMap(({ chapter, concepts, exercises }) => chapter.id === undefined ? [] : [...concepts.flatMap(({ description, id, title }) => id === undefined ? [] : [{ chapterId: chapter.id as number, chapterTitle: chapter.title, description, sourceId: id, sourceType: 'concept' as const, title }]), ...exercises.flatMap(({ description, id, title }) => id === undefined ? [] : [{ chapterId: chapter.id as number, chapterTitle: chapter.title, description, sourceId: id, sourceType: 'exercise' as const, title }])]), [chapterContent]);
   const inferredStage = allAbilities.length ? 7 : allExercises.length ? 3 : skillSources.length ? 2 : book.processingStage ?? 0;
   const stage = Math.max(book.processingStage ?? 0, inferredStage);
-  const storedExerciseCount = allExercises.filter(({ id }) => id !== undefined).length;
-  const hasCompleteAbilities = storedExerciseCount > 0 && allAbilities.length >= storedExerciseCount;
+  const hasAbilities = allAbilities.length > 0;
 
   const setStage = useCallback(async (processingStage: number): Promise<void> => {
     const updated = await updateBookProcessingStage(book.id, processingStage);
@@ -474,7 +474,7 @@ function Skills ({ book, onAction, onBookChange, pipelineOnly = false, pipelineP
   const iconForStage = useCallback((requiredStage: number): 'play' | 'rotate-left' => stage >= requiredStage ? 'rotate-left' : 'play', [stage]);
 
   const beginProgress = useCallback((label: string, total: number): void => {
-    setAiAction(undefined); setError(''); setIsBusy(true); setProgress(0); setProgressLabel(label); setProgressTotal(Math.max(1, total));
+    setAiAction(undefined); setError(''); setNotice(''); setIsBusy(true); setProgress(0); setProgressLabel(label); setProgressTotal(Math.max(1, total));
   }, []);
 
   const generateSkills = useCallback(async (): Promise<void> => {
@@ -677,23 +677,31 @@ function Skills ({ book, onAction, onBookChange, pipelineOnly = false, pipelineP
 
       await Promise.all(Array.from(generatedByExerciseId, ([exerciseId, ability]) => replaceAbilities(exerciseAbilityModuleId(book.id, exerciseId), [JSON.stringify(ability)])));
 
-      if (!pending.size) {
+      if (generatedByExerciseId.size || allAbilities.length) {
+        // Partial conversion is still a successful Ability-generation stage.
+        // Unconverted Exercises remain available in the Exercises column and do not hide generated results.
         await setStage(7);
       }
 
       refresh();
 
-      if (pending.size) {
+      if (pending.size && generatedByExerciseId.size) {
         const unresolved = Array.from(pending.values()).map(({ id, title }) => `${id}: ${title}`).join('; ');
 
-        setError(`Generated ${generatedByExerciseId.size} of ${allExercises.length} Abilities. ${pending.size} Exercise${pending.size === 1 ? '' : 's'} remained unconverted after ${maxAttempts} attempts and were left unchanged: ${unresolved}${lastAttemptError ? `. Last attempt: ${lastAttemptError}` : ''}`);
+        setNotice(`Generated ${generatedByExerciseId.size} of ${allExercises.length} Abilities. ${pending.size} Exercise${pending.size === 1 ? '' : 's'} remained unconverted and were left unchanged: ${unresolved}`);
+      } else if (!generatedByExerciseId.size && pending.size && allAbilities.length) {
+        setNotice(`No new Abilities were generated after ${maxAttempts} attempts. The existing ${allAbilities.length} Abilit${allAbilities.length === 1 ? 'y remains' : 'ies remain'} available; unconverted Exercises were left unchanged.`);
+      } else if (!generatedByExerciseId.size && pending.size) {
+        const suffix = lastAttemptError ? ` Last attempt: ${lastAttemptError}` : '';
+
+        setError(`No Abilities were generated after ${maxAttempts} attempts.${suffix}`);
       }
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : 'Unable to generate Abilities.');
     } finally {
       setIsBusy(false);
     }
-  }, [allExercises, beginProgress, book.id, createClient, language, refresh, selectedModel, setStage]);
+  }, [allAbilities.length, allExercises, beginProgress, book.id, createClient, language, refresh, selectedModel, setStage]);
 
   const fixExercises = useCallback(async (): Promise<void> => {
     beginProgress('Fixing Ability errors', allAbilities.length);
@@ -816,7 +824,7 @@ function Skills ({ book, onAction, onBookChange, pipelineOnly = false, pipelineP
                                                    /></span>
       <span className='pipelineStep'><span>›</span><Button
         icon={stage >= 7 ? 'rotate-left' : 'play'}
-        isDisabled={isBusy || stage < 7 || !hasCompleteAbilities}
+        isDisabled={isBusy || stage < 7 || !hasAbilities}
         label='Fix exercise errors'
         onClick={openExerciseFix}
                                                    /></span>
@@ -825,6 +833,10 @@ function Skills ({ book, onAction, onBookChange, pipelineOnly = false, pipelineP
       className='errorMessage'
       role='alert'
               >{error}</p>}
+    {notice && <p
+      className='noticeMessage'
+      role='status'
+               >{notice}</p>}
     {!pipelineOnly && <>
       <ChapterNavigation
         chapters={chapters}
@@ -960,6 +972,7 @@ const StyledSkills = styled.div`
   .contentCard .solution { border-left: 0.2rem solid var(--border-table); margin: 0.5rem 0; padding-left: 0.75rem; }
   .processingOverlay { align-items: center; background: color-mix(in srgb, var(--bg-page) 92%, transparent); display: flex; flex-direction: column; gap: 0.75rem; inset: 0; justify-content: center; position: fixed; z-index: 1000; }
   .errorMessage { color: #9f3a38; }
+  .noticeMessage { color: var(--color-label); }
   @media only screen and (max-width: 900px) { .columns { grid-template-columns: 1fr; } .chapterEditor { align-items: stretch; flex-direction: column; } }
 `;
 

@@ -1180,7 +1180,7 @@ function BookReader ({ book, file, generateAllConceptsModel, generateAllConcepts
           ['pdfText', 'Text', 1],
           ['textConcepts', 'Concepts', 2],
           ['conceptExercises', 'Exercises', 3],
-          ['preExercisesExercises', 'Abilities', 7],
+          ['preExercisesExercises', 'Abilities', 3],
           ['skillsCourse', 'Course', 7]
         ] as Array<[ReaderPane, string, number]>).filter(([, , requiredStage]) => (book.processingStage ?? 0) >= requiredStage).map(([pane, label]) => (
           <button
