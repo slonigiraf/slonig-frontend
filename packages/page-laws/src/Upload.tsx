@@ -560,7 +560,7 @@ function Upload (): React.ReactElement {
               <Button
                 icon={(selectedBook?.processingStage ?? 0) >= 3 ? 'rotate-left' : 'play'}
                 isDisabled={!selectedBook || !readerFile || isBusy || (selectedBook.processingStage ?? 0) < 2}
-                label={t('Refine & generate exercises')}
+                label={t('Exercises')}
                 onClick={onRefineContent}
               />
             </span>

@@ -819,7 +819,7 @@ function Skills ({ book, onAction, onBookChange, pipelineOnly = false, pipelineP
       <span className='pipelineStep'><span>›</span><Button
         icon={iconForStage(7)}
         isDisabled={isBusy || stage < 3 || !allExercises.length}
-        label='Generate Exercises'
+        label='Abilities'
         onClick={openExerciseGeneration}
                                                    /></span>
       <span className='pipelineStep'><span>›</span><Button
