@@ -5,7 +5,9 @@ export interface Exercise {
   id?: number;
   abilityMode: string;
   bookPage: [number, number];
+  conceptId?: number;
   title: string;
   description: string;
   solution: string;
+  source?: 'book' | 'generated';
 }

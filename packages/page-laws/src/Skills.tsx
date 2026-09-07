@@ -4,7 +4,7 @@
 import type { Book, BookChapter, BookConcept, BookPage, Exercise, ExerciseTemplate, Skill } from '@slonigiraf/db';
 import type { GeneratedAbility } from './abilities.js';
 
-import { addExerciseTemplatesForSkill, deleteBookConcept, deleteExercise, deleteSkill, deleteExerciseTemplate, deleteAbility, deleteAbilities, getBookChapters, getBookConceptsForBookPage, getExercisesForBookPage, getBookPages, getSkillsForChapter, getExerciseTemplatesForSkill, getSetting, getAbilities, replaceSkillsForChapter, replaceExerciseTemplatesForSkill, replaceAbilities, SettingKey, updateBookChapterTitle, updateBookProcessingStage } from '@slonigiraf/db';
+import { addExerciseTemplatesForSkill, deleteAbilities, deleteAbility, deleteBookConcept, deleteExercise, deleteExerciseTemplate, deleteSkill, getAbilities, getBookChapters, getBookConceptsForBookPage, getBookPages, getExercisesForBookPage, getExerciseTemplatesForSkill, getSetting, getSkillsForChapter, replaceAbilities, replaceExerciseTemplatesForSkill, replaceSkillsForChapter, SettingKey, updateBookChapterTitle, updateBookProcessingStage } from '@slonigiraf/db';
 import { KatexSpan, RoundProgress } from '@slonigiraf/slonig-components';
 import OpenAI from 'openai';
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
@@ -12,9 +12,9 @@ import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { Button, Dropdown, Input, Modal, styled } from '@polkadot/react-components';
 
 import ExerciseList from './Edit/ExerciseList.js';
+import { createAbilityFromExerciseVariation, parseExerciseTemplateVariations, parseGeneratedAbilities, parseStoredAbility } from './abilities.js';
 import { assertOpenRouterCredits, estimateAiInput, formatAiInputEstimate } from './aiEstimate.js';
 import { divideExerciseTemplatesPrompt, fixAbilitiesPrompt, OPENAI_MODELS, skillsToExercisesPrompt, skillsToExerciseTemplatesPrompt, sourcesToSkillsPrompt } from './constants.js';
-import { createAbilityFromExerciseVariation, parseExerciseTemplateVariations, parseGeneratedAbilities, parseStoredAbility } from './abilities.js';
 
 const REQUEST_INTERVAL_MS = Math.ceil(60_000 / 9);
 const BATCH_SIZE = 5;
@@ -405,7 +405,7 @@ function Skills ({ book, onAction, onBookChange, pipelineOnly = false, pipelineP
   const allExerciseTemplates = useMemo(() => chapterContent.flatMap(({ exerciseTemplates }) => exerciseTemplates), [chapterContent]);
   const allAbilities = useMemo(() => chapterContent.flatMap(({ abilities }) => abilities), [chapterContent]);
   const skillSources = useMemo<SkillSource[]>(() => chapterContent.flatMap(({ chapter, concepts, exercises }) => chapter.id === undefined ? [] : [...concepts.flatMap(({ description, id, title }) => id === undefined ? [] : [{ chapterId: chapter.id as number, chapterTitle: chapter.title, description, sourceId: id, sourceType: 'concept' as const, title }]), ...exercises.flatMap(({ description, id, title }) => id === undefined ? [] : [{ chapterId: chapter.id as number, chapterTitle: chapter.title, description, sourceId: id, sourceType: 'exercise' as const, title }])]), [chapterContent]);
-  const inferredStage = allAbilities.length ? 6 : allExerciseTemplates.length ? 4 : allSkills.length ? 3 : skillSources.length ? 2 : book.processingStage ?? 0;
+  const inferredStage = allAbilities.length ? 7 : allExerciseTemplates.length ? 5 : allSkills.length ? 4 : skillSources.length ? 2 : book.processingStage ?? 0;
   const stage = Math.max(book.processingStage ?? 0, inferredStage);
   const hasCompleteAbilities = allExerciseTemplates.length > 0 && allAbilities.length >= allExerciseTemplates.length;
 
@@ -519,7 +519,7 @@ function Skills ({ book, onAction, onBookChange, pipelineOnly = false, pipelineP
 
       await Promise.all(allSkills.flatMap(({ id }) => id === undefined ? [] : [replaceExerciseTemplatesForSkill(id, []), deleteAbilities(abilityModuleId(book.id, id))]));
       await Promise.all(chapters.flatMap(({ id }) => id === undefined ? [] : [replaceSkillsForChapter(id, generatedByChapter.get(id) ?? [])]));
-      await setStage(3); refresh();
+      await setStage(4); refresh();
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : 'Unable to generate Skills.');
     } finally {
@@ -559,7 +559,7 @@ function Skills ({ book, onAction, onBookChange, pipelineOnly = false, pipelineP
       }
 
       await Promise.all(expectedSkillIds.map((id) => replaceExerciseTemplatesForSkill(id, generatedBySkill.get(id) ?? [])));
-      await setStage(4); refresh();
+      await setStage(5); refresh();
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : 'Unable to generate ExerciseTemplates.');
     } finally {
@@ -618,7 +618,7 @@ function Skills ({ book, onAction, onBookChange, pipelineOnly = false, pipelineP
         }
       }
 
-      await setStage(5); refresh();
+      await setStage(6); refresh();
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : 'Unable to divide ExerciseTemplates.');
     } finally {
@@ -689,7 +689,7 @@ function Skills ({ book, onAction, onBookChange, pipelineOnly = false, pipelineP
       }
 
       await Promise.all(Array.from(generatedByModule, ([moduleId, contents]) => replaceAbilities(moduleId, contents)));
-      await setStage(6); refresh();
+      await setStage(7); refresh();
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : 'Unable to generate Abilities.');
     } finally {
@@ -794,59 +794,143 @@ function Skills ({ book, onAction, onBookChange, pipelineOnly = false, pipelineP
             value={selectedModel}
           />
           <Button.Group>
-            <Button icon='times' label='Cancel' onClick={closeConfirmation} />
-            <Button icon='check' label='Continue' onClick={confirm} />
+            <Button
+              icon='times'
+              label='Cancel'
+              onClick={closeConfirmation}
+            />
+            <Button
+              icon='check'
+              label='Continue'
+              onClick={confirm}
+            />
           </Button.Group>
         </Modal.Content>
       </Modal>
     )}
     {isBusy && (
       <div className='processingOverlay'>
-        <RoundProgress total={progressTotal} value={progress} />
+        <RoundProgress
+          total={progressTotal}
+          value={progress}
+        />
         <strong>{progressLabel}</strong>
         <span>{progress} / {progressTotal}</span>
       </div>
     )}
     {showPipeline && <div className='pipeline'>
       {pipelinePrefix}
-      <span className='pipelineStep'><span>›</span><Button icon={iconForStage(3)} isDisabled={isBusy || stage < 2 || !book.language || !skillSources.length} label='Generate Skills' onClick={openSkillGeneration} /></span>
-      <span className='pipelineStep'><span>›</span><Button icon={iconForStage(4)} isDisabled={isBusy || stage < 3 || !allSkills.length} label='Exercise templates' onClick={openPreExerciseGeneration} /></span>
-      <span className='pipelineStep'><span>›</span><Button icon={iconForStage(5)} isDisabled={isBusy || stage < 4 || !allExerciseTemplates.length} label='Divide prexercises' onClick={openPreExerciseDivision} /></span>
-      <span className='pipelineStep'><span>›</span><Button icon={iconForStage(6)} isDisabled={isBusy || stage < 5 || !allExerciseTemplates.length} label='Generate Exercises' onClick={openExerciseGeneration} /></span>
-      <span className='pipelineStep'><span>›</span><Button icon={stage >= 6 ? 'rotate-left' : 'play'} isDisabled={isBusy || stage < 6 || !hasCompleteAbilities} label='Fix exercise errors' onClick={openExerciseFix} /></span>
+      <span className='pipelineStep'><span>›</span><Button
+        icon={iconForStage(4)}
+        isDisabled={isBusy || stage < 3 || !book.language || !skillSources.length}
+        label='Generate Skills'
+        onClick={openSkillGeneration}
+                                                   /></span>
+      <span className='pipelineStep'><span>›</span><Button
+        icon={iconForStage(5)}
+        isDisabled={isBusy || stage < 4 || !allSkills.length}
+        label='Exercise templates'
+        onClick={openPreExerciseGeneration}
+                                                   /></span>
+      <span className='pipelineStep'><span>›</span><Button
+        icon={iconForStage(6)}
+        isDisabled={isBusy || stage < 5 || !allExerciseTemplates.length}
+        label='Divide prexercises'
+        onClick={openPreExerciseDivision}
+                                                   /></span>
+      <span className='pipelineStep'><span>›</span><Button
+        icon={iconForStage(7)}
+        isDisabled={isBusy || stage < 6 || !allExerciseTemplates.length}
+        label='Generate Exercises'
+        onClick={openExerciseGeneration}
+                                                   /></span>
+      <span className='pipelineStep'><span>›</span><Button
+        icon={stage >= 7 ? 'rotate-left' : 'play'}
+        isDisabled={isBusy || stage < 7 || !hasCompleteAbilities}
+        label='Fix exercise errors'
+        onClick={openExerciseFix}
+                                                   /></span>
     </div>}
-    {error && <p className='errorMessage' role='alert'>{error}</p>}
+    {error && <p
+      className='errorMessage'
+      role='alert'
+              >{error}</p>}
     {!pipelineOnly && <>
-      <ChapterNavigation chapters={chapters} index={chapterIndex} onChange={changeChapter} />
+      <ChapterNavigation
+        chapters={chapters}
+        index={chapterIndex}
+        onChange={changeChapter}
+      />
       {!current && <p>No chapters have been generated for this book.</p>}
       {current && (
         <>
-          <ChapterTitleEditor chapter={current.chapter} onError={setError} onSaved={refresh} />
+          <ChapterTitleEditor
+            chapter={current.chapter}
+            onError={setError}
+            onSaved={refresh}
+          />
           {view === 'conceptsSkills' && (
             <div className='columns'>
               <section>
                 <h3>Book concepts and exercises</h3>
                 {!current.concepts.length && !current.exercises.length && <p>No concepts or exercises in this chapter.</p>}
                 {current.concepts.map((concept) => (
-                  <BookItem description={concept.description} id={concept.id} key={`concept-${concept.id ?? 'new'}`} onDeleted={refresh} onError={setError} title={concept.title} type='concept' />
+                  <BookItem
+                    description={concept.description}
+                    id={concept.id}
+                    key={`concept-${concept.id ?? 'new'}`}
+                    onDeleted={refresh}
+                    onError={setError}
+                    title={concept.title}
+                    type='concept'
+                  />
                 ))}
                 {current.exercises.map((exercise) => (
-                  <BookItem abilityMode={exercise.abilityMode} description={exercise.description} id={exercise.id} key={`exercise-${exercise.id ?? 'new'}`} onDeleted={refresh} onError={setError} solution={exercise.solution} title={exercise.title} type='exercise' />
+                  <BookItem
+                    abilityMode={exercise.abilityMode}
+                    description={exercise.description}
+                    id={exercise.id}
+                    key={`exercise-${exercise.id ?? 'new'}`}
+                    onDeleted={refresh}
+                    onError={setError}
+                    solution={exercise.solution}
+                    title={exercise.title}
+                    type='exercise'
+                  />
                 ))}
               </section>
               <section>
                 <h3>Skills</h3>
                 {!current.skills.length && <p>No Skills generated.</p>}
-                {current.skills.map((skill) => <SkillCard bookId={book.id} key={skill.id} onDeleted={refresh} onError={setError} skill={skill} />)}
+                {current.skills.map((skill) => <SkillCard
+                  bookId={book.id}
+                  key={skill.id}
+                  onDeleted={refresh}
+                  onError={setError}
+                  skill={skill}
+                                               />)}
               </section>
             </div>
           )}
           {view === 'skillsPreExercises' && (
             <div className='singlePane'>
               {!current.skills.length && <p>No Skills generated.</p>}
-              {current.skills.map((skill) => <div className='skillWithTemplates' key={skill.id}>
-                <SkillCard bookId={book.id} onDeleted={refresh} onError={setError} skill={skill} />
-                {current.exerciseTemplates.filter(({ skillId }) => skillId === skill.id).map((template) => <PreExerciseCard key={template.id} onDeleted={refresh} onError={setError} template={template} />)}
+              {current.skills.map((skill) => <div
+                className='skillWithTemplates'
+                key={skill.id}
+                                             >
+                <SkillCard
+                  bookId={book.id}
+                  onDeleted={refresh}
+                  onError={setError}
+                  skill={skill}
+                />
+                {current.exerciseTemplates.filter(({ skillId }) => skillId === skill.id).map((template) => <PreExerciseCard
+                  key={template.id}
+                  onDeleted={refresh}
+                  onError={setError}
+                  template={template}
+                                                                                                           />)}
               </div>)}
             </div>
           )}
@@ -854,12 +938,22 @@ function Skills ({ book, onAction, onBookChange, pipelineOnly = false, pipelineP
             <div className='columns'>
               <section>
                 <h3>ExerciseTemplates</h3>
-                {current.exerciseTemplates.map((template) => <PreExerciseCard key={template.id} onDeleted={refresh} onError={setError} template={template} />)}
+                {current.exerciseTemplates.map((template) => <PreExerciseCard
+                  key={template.id}
+                  onDeleted={refresh}
+                  onError={setError}
+                  template={template}
+                                                             />)}
               </section>
               <section>
                 <h3>Abilities</h3>
                 {!current.abilities.length && <p>No Abilities generated.</p>}
-                {current.abilities.map((record) => <AbilityCard key={record.id} onDeleted={refresh} onError={setError} record={record} />)}
+                {current.abilities.map((record) => <AbilityCard
+                  key={record.id}
+                  onDeleted={refresh}
+                  onError={setError}
+                  record={record}
+                                                   />)}
               </section>
             </div>
           )}

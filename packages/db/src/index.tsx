@@ -132,7 +132,7 @@ export async function deleteExercise(id: number): Promise<void> {
     });
 }
 
-export async function replaceParsedBookPageContent(bookId: number, pageNumber: number, chapterTitle: string, concepts: Array<Omit<BookConcept, 'bookPage' | 'chapterId' | 'id'>>, exercises: Array<Omit<Exercise, 'bookPage' | 'id'>>): Promise<{ concepts: BookConcept[]; exercises: Exercise[] }> {
+export async function replaceParsedBookPageContent(bookId: number, pageNumber: number, chapterTitle: string, concepts: Array<Omit<BookConcept, 'bookPage' | 'chapterId' | 'id'>>, exercises: Array<Omit<Exercise, 'bookPage' | 'conceptId' | 'id'> & { conceptIndex?: number }>): Promise<{ concepts: BookConcept[]; exercises: Exercise[] }> {
     return db.transaction('rw', db.bookPages, db.bookChapters, db.bookConcepts, db.exercises, async () => {
         const previousChapter = chapterTitle.trim()
             ? undefined
@@ -146,12 +146,15 @@ export async function replaceParsedBookPageContent(bookId: number, pageNumber: n
         const conceptBookPage: [number, number] = [bookId, pageNumber];
         const exerciseBookPage: [number, number] = [bookId, pageNumber];
         const conceptRows = concepts.map((concept) => ({ ...concept, bookPage: conceptBookPage, chapterId }));
-        const exerciseRows = exercises.map((exercise) => ({ ...exercise, bookPage: exerciseBookPage }));
-
         await db.bookConcepts.where('bookPage').equals(conceptBookPage).delete();
         await db.exercises.where('bookPage').equals(exerciseBookPage).delete();
 
         const conceptIds = await db.bookConcepts.bulkAdd(conceptRows, { allKeys: true });
+        const exerciseRows = exercises.map(({ conceptIndex, ...exercise }) => ({
+            ...exercise,
+            bookPage: exerciseBookPage,
+            ...(conceptIndex !== undefined && conceptIds[conceptIndex] !== undefined ? { conceptId: conceptIds[conceptIndex] } : {})
+        }));
         const exerciseIds = await db.exercises.bulkAdd(exerciseRows, { allKeys: true });
 
         return {

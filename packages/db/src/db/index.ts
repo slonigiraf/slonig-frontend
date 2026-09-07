@@ -239,6 +239,17 @@ class SlonigDB extends Dexie {
       bookSkills: null,
       skillTemplates: null
     });
+    this.version(83).stores({}).upgrade(async (transaction: Transaction) => {
+      const [books, exercises] = await Promise.all([
+        transaction.table<Book>('books').filter(({ processingStage }) => (processingStage ?? 0) >= 3).toArray(),
+        transaction.table<Exercise>('exercises').toArray()
+      ]);
+
+      await Promise.all([
+        ...books.flatMap(({ id, processingStage }) => id === undefined ? [] : [transaction.table<Book>('books').update(id, { processingStage: Math.min(7, (processingStage ?? 2) + 1) })]),
+        ...exercises.flatMap((exercise) => exercise.id === undefined || exercise.source ? [] : [transaction.table<Exercise>('exercises').update(exercise.id, { source: 'book' })])
+      ]);
+    });
   }
 }
 

@@ -4,7 +4,7 @@
 import type { Book, BookConcept, BookPage, Exercise } from '@slonigiraf/db';
 import type { PDFDocumentLoadingTask, PDFDocumentProxy, RenderTask } from 'pdfjs-dist';
 
-import { getBookConceptsForBookPage, getExercisesForBookPage, getBookPages, getSetting, putBook, putBookPage, replaceParsedBookPageContent, SettingKey, storeSetting, updateBookProcessingStage } from '@slonigiraf/db';
+import { getBookConceptsForBookPage, getBookPages, getExercisesForBookPage, getSetting, putBook, putBookPage, replaceParsedBookPageContent, SettingKey, storeSetting, updateBookProcessingStage } from '@slonigiraf/db';
 import { KatexSpan, RoundProgress } from '@slonigiraf/slonig-components';
 import { strFromU8, unzipSync } from 'fflate';
 import MathpixLoader from 'mathpix-markdown-it/lib/components/mathpix-loader/index.js';
@@ -18,6 +18,7 @@ import { Button, Dropdown, Input, Modal, styled } from '@polkadot/react-componen
 
 import { assertOpenRouterCredits, estimateAiInput, formatAiInputEstimate } from './aiEstimate.js';
 import { detectBookLanguage } from './bookLanguage.js';
+import { exerciseAbilityModes, processExtractedPageContent } from './bookProcessing.js';
 import { OPENAI_MODELS } from './constants.js';
 import Skills from './Skills.js';
 import SkillsCourse from './SkillsCourse.js';
@@ -34,17 +35,6 @@ Return only valid JSON in this exact shape, keeping the original language of the
 {"chapter":"Chapter and section name","concepts":[{"title":"New concept","description":"Explanation or example from the page"}],"exercises":[{"title":"Exercise title","description":"Complete exercise question or instructions","abilityMode":"reasoning","solution":"Complete step-by-step solution"}]}
 
 Use an empty string when the chapter is not shown. Use empty arrays when no concepts or exercises are present. The exercise description must contain the entire exercise statement, all data, and every instruction required to solve it; never abbreviate it or refer to an omitted source. If the book page provides a solution, extract its complete method and answer faithfully. Otherwise, solve the exercise and generate a correct, explicit step-by-step solution in the book's language. Never leave solution empty. Use <kx>...</kx> for every mathematical formula or expression in descriptions and solutions, never dollar-delimited LaTeX. Escape every backslash in mathematical notation so the result remains valid JSON. Do not add markdown or any text outside the JSON.`;
-
-const SPLIT_CONCEPTS_PROMPT = `Review the identified concepts and exercises below. Divide every concept that contains two or more independently learnable ideas into the smallest useful, self-contained concepts. Split named terms into individual concepts whenever they can be learned independently, even when introduced together. Keep a concept unchanged only when it is already atomic.
-
-Also divide every exercise that practices multiple skills, contains separable tasks, or requires avoidable multi-step work into the smallest useful exercises. Each resulting exercise must target exactly one specific skill and be independently answerable from its description. Keep an exercise unchanged only when it is already atomic. Preserve all source requirements and information. Preserve or adapt its correct step-by-step solution so it answers precisely the resulting atomic exercise. Assign exactly one allowed abilityMode that describes the primary ability trained. Preserve the input language.
-
-Return only valid JSON in this exact shape:
-{"chapter":"Chapter and section name","concepts":[{"title":"Concept title","description":"Explanation or example"}],"exercises":[{"title":"Exercise title","description":"Complete atomic exercise question or instructions","abilityMode":"reasoning","solution":"Complete step-by-step solution"}]}
-
-Use the supplied chapter unchanged. Both arrays must be in a logical learning order. Preserve the complete text and data of every exercise. Never omit or empty abilityMode or solution. Use <kx>...</kx> for every mathematical formula or expression, never dollar-delimited LaTeX. Escape every backslash in mathematical notation so the result remains valid JSON. Do not add markdown or any text outside the JSON.`;
-
-const EXERCISE_ABILITY_MODES = ['perceptual observation', 'perceptual discrimination', 'transformation', 'reasoning', 'generation'];
 
 interface GeneratedConcepts {
   chapter: string;
@@ -64,7 +54,7 @@ function parseGeneratedConcepts (content: string): GeneratedConcepts {
     parsed = JSON.parse(json.replace(/\\(?!["\\/bfnrt]|u[0-9a-fA-F]{4})/g, '\\\\')) as Partial<GeneratedConcepts>;
   }
 
-  if (typeof parsed.chapter !== 'string' || !Array.isArray(parsed.concepts) || parsed.concepts.some(({ description, title }) => typeof title !== 'string' || typeof description !== 'string') || (parsed.exercises !== undefined && (!Array.isArray(parsed.exercises) || parsed.exercises.some(({ abilityMode, description, solution, title }) => typeof title !== 'string' || typeof description !== 'string' || typeof solution !== 'string' || !solution.trim() || typeof abilityMode !== 'string' || !EXERCISE_ABILITY_MODES.includes(abilityMode))))) {
+  if (typeof parsed.chapter !== 'string' || !Array.isArray(parsed.concepts) || parsed.concepts.some(({ description, title }) => typeof title !== 'string' || typeof description !== 'string') || (parsed.exercises !== undefined && (!Array.isArray(parsed.exercises) || parsed.exercises.some(({ abilityMode, description, solution, title }) => typeof title !== 'string' || typeof description !== 'string' || typeof solution !== 'string' || !solution.trim() || typeof abilityMode !== 'string' || !exerciseAbilityModes.includes(abilityMode as typeof exerciseAbilityModes[number]))))) {
     throw new Error('OpenRouter returned invalid concept data.');
   }
 
@@ -93,38 +83,14 @@ function resolveChapterTitle (generatedTitle: string, pageNumber: number, pages:
   return 'Introduction';
 }
 
-async function atomizeGeneratedContent (client: OpenAI, model: string, generated: GeneratedConcepts): Promise<GeneratedConcepts> {
-  let result = generated;
-
-  for (let pass = 0; pass < 2; pass++) {
-    const response = await client.chat.completions.create({
-      messages: [{
-        content: `${SPLIT_CONCEPTS_PROMPT}\n\nContent to atomize (pass ${pass + 1} of 2):\n${JSON.stringify(result)}\n`,
-        role: 'user'
-      }],
-      model,
-      response_format: { type: 'json_object' }
-    });
-    const content = response.choices[0].message?.content?.trim();
-
-    if (!content) {
-      throw new Error('OpenRouter returned no atomized concepts or exercises.');
-    }
-
-    result = parseGeneratedConcepts(content);
-  }
-
-  return result;
-}
-
-async function validateGeneratedContent (client: OpenAI, model: string, generated: GeneratedConcepts): Promise<GeneratedConcepts> {
+async function validateExtractedContent (client: OpenAI, model: string, generated: GeneratedConcepts): Promise<GeneratedConcepts> {
   let lastError: unknown;
 
   for (let attempt = 0; attempt < 2; attempt++) {
     try {
       const response = await client.chat.completions.create({
         messages: [{
-          content: `Act as an independent strict validator for parsed book content. Check that the chapter is accurate when present; every concept is atomic; every exercise contains its complete task; abilityMode is exactly one of "perceptual observation", "perceptual discrimination", "transformation", "reasoning", or "generation" and accurately describes the primary trained ability; every exercise has a correct, explicit step-by-step solution; concepts, exercises, and solutions preserve the book language; and every mathematical expression uses <kx>...</kx>. Fix every error. If the candidate cannot be repaired safely, regenerate it from the candidate's information. Return only the complete corrected JSON object in the original shape, without commentary.\n\nCandidate:\n${JSON.stringify(generated)}`,
+          content: `Act as an independent strict validator for extracted book content. Check that the chapter is accurate when present; concepts are faithfully extracted without requiring them to be atomic; every book exercise contains its complete task; abilityMode is one of the supplied supported modes and accurately describes the primary trained ability; every exercise has a correct, explicit step-by-step solution; the book language is preserved; and every mathematical expression uses <kx>...</kx>. Do not split concepts or exercises. Fix every error and return only the complete corrected JSON object in the original shape, without commentary.\n\nSupported ability modes: ${exerciseAbilityModes.join(', ')}\n\nCandidate:\n${JSON.stringify(generated)}`,
           role: 'user'
         }],
         model,
@@ -137,7 +103,7 @@ async function validateGeneratedContent (client: OpenAI, model: string, generate
     }
   }
 
-  throw lastError instanceof Error ? lastError : new Error('Concepts and exercises failed AI validation twice.');
+  throw lastError instanceof Error ? lastError : new Error('Extracted concepts and exercises failed AI validation twice.');
 }
 
 const MAX_REQUESTS_PER_MIN = 180;
@@ -303,8 +269,9 @@ interface Props {
   generateAllConceptsRequest: number;
   onBookChange: (book: Book) => void;
   onProcessingComplete: () => void;
-  pendingProcessingAction?: 'concepts' | 'recognize';
+  pendingProcessingAction?: 'concepts' | 'recognize' | 'refine';
   processingToolbar: React.ReactNode;
+  refineAllContentRequest: number;
   recognizeAllRequest: number;
 }
 
@@ -323,7 +290,7 @@ function getSessionReaderPane (bookId: number): ReaderPane {
   }
 }
 
-function BookReader ({ book, file, generateAllConceptsModel, generateAllConceptsRequest, onBookChange, onProcessingComplete, pendingProcessingAction, processingToolbar, recognizeAllRequest }: Props): React.ReactElement {
+function BookReader ({ book, file, generateAllConceptsModel, generateAllConceptsRequest, onBookChange, onProcessingComplete, pendingProcessingAction, processingToolbar, recognizeAllRequest, refineAllContentRequest }: Props): React.ReactElement {
   const [activePane, setActivePane] = useState<ReaderPane>(() => getSessionReaderPane(book.id));
   const [concepts, setConcepts] = useState<BookConcept[]>([]);
   const [exercises, setExercises] = useState<Exercise[]>([]);
@@ -333,9 +300,11 @@ function BookReader ({ book, file, generateAllConceptsModel, generateAllConcepts
   const [isMaximized, setIsMaximized] = useState(false);
   const [isMathpixKeyPromptOpen, setIsMathpixKeyPromptOpen] = useState(false);
   const [isPageGenerationConfirmationOpen, setIsPageGenerationConfirmationOpen] = useState(false);
+  const [isRefiningAllContent, setIsRefiningAllContent] = useState(false);
   const [isRecognizingAll, setIsRecognizingAll] = useState(false);
   const [mathpixApiKey, setMathpixApiKey] = useState('');
   const [recognizedPageCount, setRecognizedPageCount] = useState(0);
+  const [refinedPageCount, setRefinedPageCount] = useState(0);
   const [recognitionTarget, setRecognitionTarget] = useState<RecognitionTarget>('page');
   const [processingPage, setProcessingPage] = useState<number>();
   const [pageInput, setPageInput] = useState('1');
@@ -347,13 +316,14 @@ function BookReader ({ book, file, generateAllConceptsModel, generateAllConcepts
   const [totalPages, setTotalPages] = useState(0);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const handledGenerateAllConceptsRequestRef = useRef(generateAllConceptsRequest);
+  const handledRefineAllContentRequestRef = useRef(refineAllContentRequest);
   const handledRecognizeAllRequestRef = useRef(recognizeAllRequest);
   const pageAreaRef = useRef<HTMLDivElement>(null);
   const pageGenerationEstimate = useMemo(() => {
     const pageText = pages.get(pageNumber)?.pageMMD ?? '';
-    const splitInput = pageText.slice(0, Math.ceil(pageText.length / 3));
+    const validationInput = pageText.slice(0, Math.ceil(pageText.length / 3));
 
-    return formatAiInputEstimate(estimateAiInput(selectedModel, [pageText.padEnd(pageText.length + 2_000), splitInput.padEnd(splitInput.length + 2_000), splitInput.padEnd(splitInput.length + 2_000), splitInput.padEnd(splitInput.length + 2_000)], 4_800));
+    return formatAiInputEstimate(estimateAiInput(selectedModel, [pageText.padEnd(pageText.length + 2_000), validationInput.padEnd(validationInput.length + 2_000)], 4_800));
   }, [pageNumber, pages, selectedModel]);
 
   useEffect(() => {
@@ -367,7 +337,7 @@ function BookReader ({ book, file, generateAllConceptsModel, generateAllConcepts
   useEffect(() => {
     if (pendingProcessingAction === 'recognize') {
       setActivePane('pdfText');
-    } else if (pendingProcessingAction === 'concepts') {
+    } else if (pendingProcessingAction === 'concepts' || pendingProcessingAction === 'refine') {
       setActivePane('textConcepts');
     }
   }, [pendingProcessingAction]);
@@ -530,7 +500,7 @@ function BookReader ({ book, file, generateAllConceptsModel, generateAllConcepts
       const mmdZipInput = await extractMMDZipInput(pageMMDZip);
       const validationInput = mmdZipInput.text.slice(0, Math.ceil(mmdZipInput.text.length / 3));
 
-      await assertOpenRouterCredits(key, estimateAiInput(selectedModel, [mmdZipInput.text, validationInput, validationInput, validationInput], 4_800).totalPriceUsd);
+      await assertOpenRouterCredits(key, estimateAiInput(selectedModel, [mmdZipInput.text, validationInput], 4_800).totalPriceUsd);
       const response = await client.chat.completions.create({
         messages: [{
           content: [
@@ -551,7 +521,7 @@ function BookReader ({ book, file, generateAllConceptsModel, generateAllConcepts
         throw new Error('OpenRouter returned no concepts.');
       }
 
-      const generatedConcepts = await validateGeneratedContent(client, selectedModel, await atomizeGeneratedContent(client, selectedModel, parseGeneratedConcepts(generatedContent)));
+      const generatedConcepts = await validateExtractedContent(client, selectedModel, parseGeneratedConcepts(generatedContent));
 
       const resolvedChapter = resolveChapterTitle(generatedConcepts.chapter, pageNumber, pages);
       const generatedPage: BookPage = {
@@ -625,7 +595,7 @@ function BookReader ({ book, file, generateAllConceptsModel, generateAllConcepts
         const pageText = pages.get(currentPageNumber)?.pageMMD ?? '';
         const validationInput = pageText.slice(0, Math.ceil(pageText.length / 3));
 
-        return [pageText, validationInput, validationInput, validationInput];
+        return [pageText, validationInput];
       });
 
       await assertOpenRouterCredits(key, estimateAiInput(generateAllConceptsModel, estimatedInputs, eligiblePages.length * 4_800).totalPriceUsd);
@@ -665,7 +635,7 @@ function BookReader ({ book, file, generateAllConceptsModel, generateAllConcepts
           }
 
           return {
-            generatedConcepts: await validateGeneratedContent(client, generateAllConceptsModel, await atomizeGeneratedContent(client, generateAllConceptsModel, parseGeneratedConcepts(generatedContent))),
+            generatedConcepts: await validateExtractedContent(client, generateAllConceptsModel, parseGeneratedConcepts(generatedContent)),
             storedPage
           };
         })();
@@ -714,6 +684,76 @@ function BookReader ({ book, file, generateAllConceptsModel, generateAllConcepts
       onProcessingComplete();
     }
   }, [advanceStage, book.id, generateAllConceptsModel, isGeneratingAllConcepts, isRecognizingAll, onProcessingComplete, pageNumber, pages, processingPage, totalPages]);
+
+  const refineAllContent = useCallback(async (): Promise<void> => {
+    if (!totalPages || processingPage !== undefined || isGeneratingAllConcepts || isRecognizingAll || isRefiningAllContent) {
+      return;
+    }
+
+    setError('');
+    setIsRefiningAllContent(true);
+    setRefinedPageCount(0);
+
+    try {
+      const key = await getSetting(SettingKey.OPENROUTER_TOKEN);
+
+      if (!key) {
+        throw new Error('No OpenRouter token found. Add it in Settings.');
+      }
+
+      const client = new OpenAI({ apiKey: key, baseURL: 'https://openrouter.ai/api/v1', dangerouslyAllowBrowser: true, defaultHeaders: { 'HTTP-Referer': window.location.origin, 'X-OpenRouter-Title': 'Slonig' } });
+      const storedPages = (await getBookPages(book.id)).filter(({ conceptsProcessed }) => conceptsProcessed);
+      const pageInputs = await Promise.all(storedPages.map(async ({ pageNumber }) => ({
+        concepts: await getBookConceptsForBookPage(book.id, pageNumber),
+        exercises: await getExercisesForBookPage([book.id, pageNumber]),
+        pageNumber
+      })));
+      const estimatedInputs = pageInputs.flatMap(({ concepts: storedConcepts, exercises: storedExercises }) => {
+        const input = JSON.stringify({ concepts: storedConcepts, exercises: storedExercises });
+
+        return Array.from({ length: 5 }, () => input.padEnd(input.length + 2_000));
+      });
+
+      await assertOpenRouterCredits(key, estimateAiInput(generateAllConceptsModel, estimatedInputs, storedPages.length * 12_000).totalPriceUsd);
+
+      for (const { concepts: storedConcepts, exercises: storedExercises, pageNumber: currentPageNumber } of pageInputs) {
+        const storedPage = pages.get(currentPageNumber) ?? storedPages.find(({ pageNumber }) => pageNumber === currentPageNumber);
+
+        if (!storedPage) {
+          continue;
+        }
+
+        const processed = await processExtractedPageContent({
+          chapter: storedPage.chapter,
+          concepts: storedConcepts.map(({ description, title }) => ({ description, title })),
+          exercises: storedExercises.map(({ abilityMode = 'reasoning', description, solution = '', title }) => ({ abilityMode, description, solution, title }))
+        }, async (prompt) => {
+          const response = await client.chat.completions.create({
+            messages: [{ content: prompt, role: 'user' }],
+            model: generateAllConceptsModel,
+            response_format: { type: 'json_object' }
+          });
+
+          return response.choices[0].message?.content?.trim() ?? '{}';
+        });
+        const stored = await replaceParsedBookPageContent(book.id, currentPageNumber, processed.chapter, processed.concepts, processed.exercises);
+
+        if (currentPageNumber === pageNumber) {
+          setConcepts(stored.concepts);
+          setExercises(stored.exercises);
+        }
+
+        setRefinedPageCount((count) => count + 1);
+      }
+
+      await advanceStage(3);
+    } catch (processingError) {
+      setError(processingError instanceof Error ? processingError.message : 'Unable to refine concepts and generate exercises.');
+    } finally {
+      setIsRefiningAllContent(false);
+      onProcessingComplete();
+    }
+  }, [advanceStage, book.id, generateAllConceptsModel, isGeneratingAllConcepts, isRecognizingAll, isRefiningAllContent, onProcessingComplete, pageNumber, pages, processingPage, totalPages]);
 
   const detectAndStoreBookLanguage = useCallback(async (recognizedPages: Map<number, BookPage>): Promise<void> => {
     const requiredPageCount = Math.min(2, totalPages);
@@ -887,11 +927,32 @@ function BookReader ({ book, file, generateAllConceptsModel, generateAllConcepts
 
   useEffect((): void => {
     if (
+      refineAllContentRequest === handledRefineAllContentRequestRef.current ||
+      !totalPages ||
+      processingPage !== undefined ||
+      isGeneratingAllConcepts ||
+      isRecognizingAll ||
+      isRefiningAllContent
+    ) {
+      return;
+    }
+
+    handledRefineAllContentRequestRef.current = refineAllContentRequest;
+    setActivePane('textConcepts');
+    refineAllContent().catch((processingError) => {
+      setError(processingError instanceof Error ? processingError.message : 'Unable to refine concepts and generate exercises.');
+      onProcessingComplete();
+    });
+  }, [isGeneratingAllConcepts, isRecognizingAll, isRefiningAllContent, onProcessingComplete, processingPage, refineAllContent, refineAllContentRequest, totalPages]);
+
+  useEffect((): void => {
+    if (
       generateAllConceptsRequest === handledGenerateAllConceptsRequestRef.current ||
       !totalPages ||
       processingPage !== undefined ||
       isGeneratingAllConcepts ||
-      isRecognizingAll
+      isRecognizingAll ||
+      isRefiningAllContent
     ) {
       return;
     }
@@ -902,7 +963,7 @@ function BookReader ({ book, file, generateAllConceptsModel, generateAllConcepts
       setError(generationError instanceof Error ? generationError.message : 'Unable to generate concepts for all pages.');
       onProcessingComplete();
     });
-  }, [generateAllConcepts, generateAllConceptsRequest, isGeneratingAllConcepts, isRecognizingAll, onProcessingComplete, processingPage, totalPages]);
+  }, [generateAllConcepts, generateAllConceptsRequest, isGeneratingAllConcepts, isRecognizingAll, isRefiningAllContent, onProcessingComplete, processingPage, totalPages]);
 
   useEffect((): void => {
     if (
@@ -910,7 +971,8 @@ function BookReader ({ book, file, generateAllConceptsModel, generateAllConcepts
       !totalPages ||
       processingPage !== undefined ||
       isGeneratingAllConcepts ||
-      isRecognizingAll
+      isRecognizingAll ||
+      isRefiningAllContent
     ) {
       return;
     }
@@ -921,7 +983,7 @@ function BookReader ({ book, file, generateAllConceptsModel, generateAllConcepts
       setError(recognitionError instanceof Error ? recognitionError.message : 'Unable to recognize all pages.');
       onProcessingComplete();
     });
-  }, [isGeneratingAllConcepts, isRecognizingAll, onProcessingComplete, processingPage, recognizeAllPages, recognizeAllRequest, totalPages]);
+  }, [isGeneratingAllConcepts, isRecognizingAll, isRefiningAllContent, onProcessingComplete, processingPage, recognizeAllPages, recognizeAllRequest, totalPages]);
 
   useEffect(() => {
     if (!isMaximized) {
@@ -980,9 +1042,11 @@ function BookReader ({ book, file, generateAllConceptsModel, generateAllConcepts
 
   const conceptsStatus = isGeneratingAllConcepts
     ? `Generating concepts for all pages… ${generatedConceptsPageCount}/${totalPages}`
-    : processingPage === pageNumber
-      ? 'Generating, splitting, and saving concepts and exercises…'
-      : 'Concepts and exercises';
+    : isRefiningAllContent
+      ? `Refining concepts and exercises… ${refinedPageCount}/${totalPages}`
+      : processingPage === pageNumber
+        ? 'Generating, splitting, and saving concepts and exercises…'
+        : 'Concepts and exercises';
   const conceptsPane = (): React.ReactNode => (
     <div className='tabPanel conceptsPanel'>
       <div className='detailsHeader'>
@@ -1053,7 +1117,7 @@ function BookReader ({ book, file, generateAllConceptsModel, generateAllConcepts
       >
         <Modal.Content>
           <p>{pageGenerationEstimate}</p>
-          <p>Concepts and book exercises will be split automatically in two additional AI passes.</p>
+          <p>This extracts concepts and exercises explicitly present on the page. Refinement and generated exercises run in the next pipeline step.</p>
           <Dropdown
             className='modelSelect'
             isDisabled={processingPage !== undefined || isGeneratingAllConcepts || isRecognizingAll}
@@ -1076,13 +1140,13 @@ function BookReader ({ book, file, generateAllConceptsModel, generateAllConcepts
           </Button.Group>
         </Modal.Content>
       </Modal>}
-      {(pendingProcessingAction || processingPage !== undefined || isRecognizingAll || isGeneratingAllConcepts) && <div className='processingOverlay'>
+      {(pendingProcessingAction || processingPage !== undefined || isRecognizingAll || isGeneratingAllConcepts || isRefiningAllContent) && <div className='processingOverlay'>
         <RoundProgress
           total={processingPage !== undefined ? 1 : Math.max(1, totalPages)}
-          value={processingPage !== undefined ? 0 : isRecognizingAll || pendingProcessingAction === 'recognize' ? recognizedPageCount : generatedConceptsPageCount}
+          value={processingPage !== undefined ? 0 : isRecognizingAll || pendingProcessingAction === 'recognize' ? recognizedPageCount : isRefiningAllContent || pendingProcessingAction === 'refine' ? refinedPageCount : generatedConceptsPageCount}
         />
-        <strong>{processingPage !== undefined ? `Processing page ${processingPage}` : isRecognizingAll || pendingProcessingAction === 'recognize' ? 'Recognizing MMD pages' : 'Generating concepts and exercises'}</strong>
-        {processingPage === undefined && <span>{isRecognizingAll || pendingProcessingAction === 'recognize' ? recognizedPageCount : generatedConceptsPageCount} / {totalPages}</span>}
+        <strong>{processingPage !== undefined ? `Processing page ${processingPage}` : isRecognizingAll || pendingProcessingAction === 'recognize' ? 'Recognizing MMD pages' : isRefiningAllContent || pendingProcessingAction === 'refine' ? 'Refining concepts and generating exercises' : 'Extracting concepts and book exercises'}</strong>
+        {processingPage === undefined && <span>{isRecognizingAll || pendingProcessingAction === 'recognize' ? recognizedPageCount : isRefiningAllContent || pendingProcessingAction === 'refine' ? refinedPageCount : generatedConceptsPageCount} / {totalPages}</span>}
       </div>}
       <Skills
         book={book}
@@ -1103,10 +1167,10 @@ function BookReader ({ book, file, generateAllConceptsModel, generateAllConcepts
         {([
           ['pdfText', 'Text', 1],
           ['textConcepts', 'Concepts', 2],
-          ['conceptsSkills', 'Skills', 3],
-          ['skillsPreExercises', 'PreExercises', 4],
-          ['preExercisesExercises', 'Exercises', 6],
-          ['skillsCourse', 'Course', 6]
+          ['conceptsSkills', 'Skills', 4],
+          ['skillsPreExercises', 'PreExercises', 5],
+          ['preExercisesExercises', 'Exercises', 7],
+          ['skillsCourse', 'Course', 7]
         ] as Array<[ReaderPane, string, number]>).filter(([, , requiredStage]) => (book.processingStage ?? 0) >= requiredStage).map(([pane, label]) => (
           <button
             aria-selected={activePane === pane}
@@ -1194,8 +1258,8 @@ function BookReader ({ book, file, generateAllConceptsModel, generateAllConcepts
                 <div className='skillsArea'>
                   <Skills
                     book={book}
-                    onBookChange={onBookChange}
                     onAction={setActivePane}
+                    onBookChange={onBookChange}
                     showPipeline={false}
                     view='conceptsSkills'
                   />
@@ -1204,19 +1268,19 @@ function BookReader ({ book, file, generateAllConceptsModel, generateAllConcepts
               : activePane === 'skillsPreExercises'
                 ? <div className='skillsArea'><Skills
                   book={book}
-                  onBookChange={onBookChange}
                   onAction={setActivePane}
+                  onBookChange={onBookChange}
                   showPipeline={false}
                   view='skillsPreExercises'
-                /></div>
+                                              /></div>
                 : activePane === 'preExercisesExercises'
                   ? <div className='skillsArea'><Skills
                     book={book}
-                    onBookChange={onBookChange}
                     onAction={setActivePane}
+                    onBookChange={onBookChange}
                     showPipeline={false}
                     view='preExercisesExercises'
-                  /></div>
+                                                /></div>
                   : <SkillsCourse book={book} />}
       </div>
     </StyledReader>

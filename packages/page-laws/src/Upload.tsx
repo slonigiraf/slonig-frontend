@@ -4,7 +4,7 @@
 import type { Book } from '@slonigiraf/db';
 import type { PDFDocumentProxy } from 'pdfjs-dist';
 
-import { createBook, deleteBook, getBookByContentHash, getBookPages, getBooks, putBook, updateBookProcessingStage } from '@slonigiraf/db';
+import { createBook, deleteBook, getBookByContentHash, getBookConceptsForBookPage, getBookPages, getBooks, getExercisesForBookPage, putBook, updateBookProcessingStage } from '@slonigiraf/db';
 import { getDocument } from 'pdfjs-dist';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
@@ -74,8 +74,11 @@ function Upload (): React.ReactElement {
   const [generateAllConceptsModel, setGenerateAllConceptsModel] = useState(OPENAI_MODELS[0].value);
   const [generateConceptsEstimate, setGenerateConceptsEstimate] = useState('');
   const [isGenerateConceptsConfirmationOpen, setIsGenerateConceptsConfirmationOpen] = useState(false);
+  const [isRefineConfirmationOpen, setIsRefineConfirmationOpen] = useState(false);
   const [isRecognizeConfirmationOpen, setIsRecognizeConfirmationOpen] = useState(false);
-  const [pendingProcessingAction, setPendingProcessingAction] = useState<'concepts' | 'recognize'>();
+  const [pendingProcessingAction, setPendingProcessingAction] = useState<'concepts' | 'recognize' | 'refine'>();
+  const [refineAllContentRequest, setRefineAllContentRequest] = useState(0);
+  const [refineEstimate, setRefineEstimate] = useState('');
   const [recognizeEstimate, setRecognizeEstimate] = useState('');
   const [recognizeAllRequest, setRecognizeAllRequest] = useState(0);
   const [readerFile, setReaderFile] = useState<File>();
@@ -290,9 +293,9 @@ function Upload (): React.ReactElement {
     getBookPages(selectedBook.id)
       .then((pages) => {
         const requestInputs = pages.filter(({ pageMMD }) => !!pageMMD).flatMap(({ pageMMD = '' }) => {
-          const splitInput = pageMMD.slice(0, Math.ceil(pageMMD.length / 3));
+          const validationInput = pageMMD.slice(0, Math.ceil(pageMMD.length / 3));
 
-          return [pageMMD.padEnd(pageMMD.length + 2_000), splitInput.padEnd(splitInput.length + 2_000), splitInput.padEnd(splitInput.length + 2_000), splitInput.padEnd(splitInput.length + 2_000)];
+          return [pageMMD.padEnd(pageMMD.length + 2_000), validationInput.padEnd(validationInput.length + 2_000)];
         });
 
         setGenerateConceptsEstimate(formatAiInputEstimate(estimateAiInput(generateAllConceptsModel, requestInputs, pages.length * 4_800)));
@@ -317,6 +320,55 @@ function Upload (): React.ReactElement {
       }
 
       setGenerateAllConceptsRequest((request) => request + 1);
+    }).catch(() => {
+      setPendingProcessingAction(undefined);
+      setError(t('Unable to reset the book processing stage.'));
+    });
+  }, [selectedBook, t]);
+
+  const onRefineContent = useCallback((): void => {
+    if (!selectedBook) {
+      return;
+    }
+
+    setPendingProcessingAction('refine');
+    setIsRefineConfirmationOpen(true);
+  }, [selectedBook]);
+
+  useEffect(() => {
+    if (!isRefineConfirmationOpen || !selectedBook) {
+      return;
+    }
+
+    getBookPages(selectedBook.id).then(async (pages) => {
+      const inputs = await Promise.all(pages.map(async ({ pageNumber }) => JSON.stringify({
+        concepts: await getBookConceptsForBookPage(selectedBook.id, pageNumber),
+        exercises: await getExercisesForBookPage([selectedBook.id, pageNumber])
+      })));
+      const requests = inputs.flatMap((input) => Array.from({ length: 5 }, () => input.padEnd(input.length + 2_000)));
+
+      setRefineEstimate(formatAiInputEstimate(estimateAiInput(generateAllConceptsModel, requests, pages.length * 12_000)));
+    }).catch(() => setError(t('Unable to estimate refinement cost.')));
+  }, [generateAllConceptsModel, isRefineConfirmationOpen, selectedBook, t]);
+
+  const closeRefineConfirmation = useCallback((): void => {
+    setIsRefineConfirmationOpen(false);
+    setPendingProcessingAction(undefined);
+  }, []);
+
+  const confirmRefineContent = useCallback((): void => {
+    setIsRefineConfirmationOpen(false);
+
+    if (!selectedBook) {
+      return;
+    }
+
+    updateBookProcessingStage(selectedBook.id, 2).then((updatedBook) => {
+      if (updatedBook) {
+        setBooks((current) => current.map((book) => book.id === updatedBook.id ? updatedBook : book));
+      }
+
+      setRefineAllContentRequest((request) => request + 1);
     }).catch(() => {
       setPendingProcessingAction(undefined);
       setError(t('Unable to reset the book processing stage.'));
@@ -361,7 +413,11 @@ function Upload (): React.ReactElement {
         <Modal.Content>
           <p>{t('Recognize every page in this book?')}</p>
           <p>{recognizeEstimate}</p>
-          <p><a href='https://mathpix.com/pricing/api' rel='noreferrer' target='_blank'>Mathpix API pricing</a></p>
+          <p><a
+            href='https://mathpix.com/pricing/api'
+            rel='noreferrer'
+            target='_blank'
+             >Mathpix API pricing</a></p>
           <Button.Group>
             <Button
               icon='times'
@@ -402,6 +458,36 @@ function Upload (): React.ReactElement {
               icon='magic'
               label={t('Generate')}
               onClick={confirmGenerateConcepts}
+            />
+          </Button.Group>
+        </Modal.Content>
+      </Modal>}
+      {isRefineConfirmationOpen && <Modal
+        header={t('Refine concepts and generate exercises')}
+        onClose={closeRefineConfirmation}
+        size='small'
+      >
+        <Modal.Content>
+          <p>{t('Split concepts twice, generate four diverse exercises per refined concept, merge them with book exercises, then split the merged exercises twice?')}</p>
+          <p>{refineEstimate}</p>
+          <Dropdown
+            className='batchModelSelect'
+            isFull
+            label={t('Model')}
+            onChange={setGenerateAllConceptsModel}
+            options={OPENAI_MODELS}
+            value={generateAllConceptsModel}
+          />
+          <Button.Group>
+            <Button
+              icon='times'
+              label={t('Cancel')}
+              onClick={closeRefineConfirmation}
+            />
+            <Button
+              icon='magic'
+              label={t('Generate')}
+              onClick={confirmRefineContent}
             />
           </Button.Group>
         </Modal.Content>
@@ -467,8 +553,18 @@ function Upload (): React.ReactElement {
                 onClick={onGenerateConcepts}
               />
             </span>
+            <span className='pipelineStep'>
+              <span>›</span>
+              <Button
+                icon={(selectedBook?.processingStage ?? 0) >= 3 ? 'rotate-left' : 'play'}
+                isDisabled={!selectedBook || !readerFile || isBusy || (selectedBook.processingStage ?? 0) < 2}
+                label={t('Refine & generate exercises')}
+                onClick={onRefineContent}
+              />
+            </span>
           </>}
           recognizeAllRequest={recognizeAllRequest}
+          refineAllContentRequest={refineAllContentRequest}
         />
       )}
     </StyledSection>
