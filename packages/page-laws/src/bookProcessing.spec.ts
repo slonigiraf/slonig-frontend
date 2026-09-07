@@ -34,25 +34,17 @@ describe('book processing pipeline', (): void => {
         ] }));
       }
 
-      if (prompts.length === 3 || prompts.length === 4) {
+      if (prompts.length === 3) {
+        assert.match(prompt, /Atomic A/);
+        assert.match(prompt, /Atomic B/);
         assert.doesNotMatch(prompt, /Broad concept/);
-        const conceptIndex = prompts.length - 3;
 
-        if (conceptIndex === 0) {
-          assert.match(prompt, /Atomic A/);
-          assert.doesNotMatch(prompt, /Atomic B/);
-        } else {
-          assert.match(prompt, /Atomic B/);
-          assert.doesNotMatch(prompt, /Atomic A/);
-          assert.equal(JSON.parse(prompt.slice(prompt.lastIndexOf('\n') + 1)).concepts[0].conceptIndex, 1);
-        }
-
-        return Promise.resolve(JSON.stringify({ exercises: Array.from({ length: 4 }, (_, index) => ({
+        return Promise.resolve(JSON.stringify({ exercises: Array.from({ length: 8 }, (_, index) => ({
           abilityMode: exerciseAbilityModes[index % exerciseAbilityModes.length],
-          conceptIndex,
-          description: `Generated task ${conceptIndex}-${index}`,
-          solution: `Generated solution ${conceptIndex}-${index}`,
-          title: `Generated ${conceptIndex}-${index}`
+          conceptIndex: Math.floor(index / 4),
+          description: `Generated task ${index}`,
+          solution: `Generated solution ${index}`,
+          title: `Generated ${index}`
         })) }));
       }
 
@@ -60,7 +52,7 @@ describe('book processing pipeline', (): void => {
 
       assert.equal(parsed.exercises.length, 9);
       assert.ok(parsed.exercises.some(({ title }) => title === 'Book exercise'));
-      assert.ok(parsed.exercises.some(({ title }) => title === 'Generated 0-0'));
+      assert.ok(parsed.exercises.some(({ title }) => title === 'Generated 0'));
 
       return Promise.resolve(JSON.stringify({ exercises: parsed.exercises }));
     };
@@ -74,7 +66,7 @@ describe('book processing pipeline', (): void => {
     assert.equal(CONCEPT_SPLIT_PASSES, 2);
     assert.equal(EXERCISE_SPLIT_PASSES, 2);
     assert.equal(GENERATED_EXERCISES_PER_CONCEPT, 4);
-    assert.equal(prompts.length, 6);
+    assert.equal(prompts.length, 5);
     assert.deepEqual(result.concepts.map(({ title }) => title), ['Atomic A', 'Atomic B']);
     assert.equal(result.exercises.length, 9);
     assert.equal(result.exercises.filter(({ source }) => source === 'book').length, 1);

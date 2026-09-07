@@ -142,12 +142,9 @@ export async function processExtractedPageContent (extracted: ExtractedPageConte
     }
   }
 
-  const generatedExercises: ProcessingExercise[] = [];
-
-  for (const [conceptIndex, concept] of concepts.entries()) {
-    generatedExercises.push(...generatedExercisesResult(await runAi(`${GENERATE_EXERCISES_PROMPT}\n${JSON.stringify({ concepts: [{ ...concept, conceptIndex }] })}`), concepts));
-  }
-
+  const generatedExercises = concepts.length
+    ? generatedExercisesResult(await runAi(`${GENERATE_EXERCISES_PROMPT}\n${JSON.stringify({ concepts: concepts.map((concept, conceptIndex) => ({ ...concept, conceptIndex })) })}`), concepts)
+    : [];
   let exercises: ProcessingExercise[] = deduplicate([
     ...extracted.exercises.map((exercise) => ({ ...exercise, source: 'book' as const })),
     ...generatedExercises
