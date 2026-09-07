@@ -1,3 +1,7 @@
+Remove: assertOpenRouterCredits() calls
+Send concepts for exercise generation one by one - not in batch.
+
+First page now failes to generate conctpts and exercises in chemistry
 
 In progress:
 --
