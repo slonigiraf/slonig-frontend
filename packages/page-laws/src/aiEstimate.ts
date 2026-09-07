@@ -43,19 +43,3 @@ export function formatAiInputEstimate ({ inputPriceUsd, inputTokens, outputPrice
 
   return `Estimated usage: ${inputTokens.toLocaleString()} input tokens ($${inputPriceUsd.toFixed(4)}) + ${outputTokens.toLocaleString()} output tokens ($${outputPriceUsd.toFixed(4)}) across ${requests.toLocaleString()} request${requests === 1 ? '' : 's'}; about $${requestPrice.toFixed(4)} per request and $${totalPriceUsd.toFixed(4)} total.`;
 }
-
-export async function assertOpenRouterCredits (apiKey: string, estimatedPriceUsd: number): Promise<void> {
-  const response = await fetch('https://openrouter.ai/api/v1/credits', { headers: { Authorization: `Bearer ${apiKey}` } });
-
-  if (!response.ok) {
-    throw new Error('Unable to verify the OpenRouter credit balance before processing.');
-  }
-
-  const data = await response.json() as { data?: { total_credits?: number; total_usage?: number } };
-  const totalCredits = data.data?.total_credits;
-  const totalUsage = data.data?.total_usage;
-
-  if (typeof totalCredits === 'number' && typeof totalUsage === 'number' && totalCredits - totalUsage < estimatedPriceUsd) {
-    throw new Error(`Insufficient OpenRouter credits. Estimated cost is $${estimatedPriceUsd.toFixed(4)}.`);
-  }
-}

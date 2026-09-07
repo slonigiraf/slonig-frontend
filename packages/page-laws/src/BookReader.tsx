@@ -16,7 +16,7 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 
 import { Button, Dropdown, Input, Modal, styled } from '@polkadot/react-components';
 
-import { assertOpenRouterCredits, estimateAiInput, formatAiInputEstimate } from './aiEstimate.js';
+import { estimateAiInput, formatAiInputEstimate } from './aiEstimate.js';
 import { detectBookLanguage } from './bookLanguage.js';
 import { exerciseAbilityModes, processExtractedPageContent } from './bookProcessing.js';
 import { OPENAI_MODELS } from './constants.js';
@@ -498,9 +498,6 @@ function BookReader ({ book, file, generateAllConceptsModel, generateAllConcepts
         }
       });
       const mmdZipInput = await extractMMDZipInput(pageMMDZip);
-      const validationInput = mmdZipInput.text.slice(0, Math.ceil(mmdZipInput.text.length / 3));
-
-      await assertOpenRouterCredits(key, estimateAiInput(selectedModel, [mmdZipInput.text, validationInput], 4_800).totalPriceUsd);
       const response = await client.chat.completions.create({
         messages: [{
           content: [
@@ -591,15 +588,6 @@ function BookReader ({ book, file, generateAllConceptsModel, generateAllConcepts
     let persistenceQueue: Promise<void> = Promise.resolve();
 
     try {
-      const estimatedInputs = eligiblePages.flatMap((currentPageNumber) => {
-        const pageText = pages.get(currentPageNumber)?.pageMMD ?? '';
-        const validationInput = pageText.slice(0, Math.ceil(pageText.length / 3));
-
-        return [pageText, validationInput];
-      });
-
-      await assertOpenRouterCredits(key, estimateAiInput(generateAllConceptsModel, estimatedInputs, eligiblePages.length * 4_800).totalPriceUsd);
-
       for (const [index, currentPageNumber] of eligiblePages.entries()) {
         if (index > 0) {
           await delay(GENERATION_PAGE_SPAWN_INTERVAL_MS);
@@ -708,14 +696,6 @@ function BookReader ({ book, file, generateAllConceptsModel, generateAllConcepts
         exercises: await getExercisesForBookPage([book.id, pageNumber]),
         pageNumber
       })));
-      const estimatedInputs = pageInputs.flatMap(({ concepts: storedConcepts, exercises: storedExercises }) => {
-        const input = JSON.stringify({ concepts: storedConcepts, exercises: storedExercises });
-
-        return Array.from({ length: 5 }, () => input.padEnd(input.length + 2_000));
-      });
-
-      await assertOpenRouterCredits(key, estimateAiInput(generateAllConceptsModel, estimatedInputs, storedPages.length * 12_000).totalPriceUsd);
-
       for (const { concepts: storedConcepts, exercises: storedExercises, pageNumber: currentPageNumber } of pageInputs) {
         const storedPage = pages.get(currentPageNumber) ?? storedPages.find(({ pageNumber }) => pageNumber === currentPageNumber);
 

@@ -13,7 +13,7 @@ import { Button, Dropdown, Input, Modal, styled } from '@polkadot/react-componen
 
 import ExerciseList from './Edit/ExerciseList.js';
 import { createAbilityFromExerciseVariation, parseExerciseTemplateVariations, parseGeneratedAbilities, parseStoredAbility } from './abilities.js';
-import { assertOpenRouterCredits, estimateAiInput, formatAiInputEstimate } from './aiEstimate.js';
+import { estimateAiInput, formatAiInputEstimate } from './aiEstimate.js';
 import { divideExerciseTemplatesPrompt, fixAbilitiesPrompt, OPENAI_MODELS, skillsToExercisesPrompt, skillsToExerciseTemplatesPrompt, sourcesToSkillsPrompt } from './constants.js';
 
 const REQUEST_INTERVAL_MS = Math.ceil(60_000 / 9);
@@ -467,15 +467,6 @@ function Skills ({ book, onAction, onBookChange, pipelineOnly = false, pipelineP
   const validationInputs = useMemo(() => requestInputs.flatMap((input) => [input, `Validate and repair this response against the original request:\n${input}`]), [requestInputs]);
   const outputTokens = generationOutputTokens;
   const estimate = formatAiInputEstimate(estimateAiInput(selectedModel, validationInputs, outputTokens));
-  const ensureCredits = useCallback(async (inputs: string[], outputTokenCount: number): Promise<void> => {
-    const key = await getSetting(SettingKey.OPENROUTER_TOKEN);
-
-    if (!key) {
-      throw new Error('No OpenRouter token found. Add it in Settings.');
-    }
-
-    await assertOpenRouterCredits(key, estimateAiInput(selectedModel, inputs, outputTokenCount).totalPriceUsd);
-  }, [selectedModel]);
   const iconForStage = useCallback((requiredStage: number): 'play' | 'rotate-left' => stage >= requiredStage ? 'rotate-left' : 'play', [stage]);
 
   const beginProgress = useCallback((label: string, total: number): void => {
@@ -488,7 +479,6 @@ function Skills ({ book, onAction, onBookChange, pipelineOnly = false, pipelineP
     try {
       const client = await createClient();
 
-      await ensureCredits(validationInputs, outputTokens);
       const generatedByChapter = new Map<number, Array<Omit<Skill, 'chapterId' | 'id'>>>();
 
       for (let start = 0; start < skillSources.length; start += BATCH_SIZE) {
@@ -525,7 +515,7 @@ function Skills ({ book, onAction, onBookChange, pipelineOnly = false, pipelineP
     } finally {
       setIsBusy(false);
     }
-  }, [allSkills, beginProgress, book.id, chapters, createClient, ensureCredits, language, outputTokens, refresh, selectedModel, setStage, skillSources, validationInputs]);
+  }, [allSkills, beginProgress, book.id, chapters, createClient, language, refresh, selectedModel, setStage, skillSources]);
 
   const generatePreExercises = useCallback(async (): Promise<void> => {
     beginProgress('Generating ExerciseTemplates', allSkillBlocks.length);
@@ -533,7 +523,6 @@ function Skills ({ book, onAction, onBookChange, pipelineOnly = false, pipelineP
     try {
       const client = await createClient();
 
-      await ensureCredits(validationInputs, outputTokens);
       const generatedBySkill = new Map<number, Array<Omit<ExerciseTemplate, 'skillId' | 'id'>>>();
 
       for (let start = 0; start < allSkillBlocks.length; start += BATCH_SIZE) {
@@ -565,7 +554,7 @@ function Skills ({ book, onAction, onBookChange, pipelineOnly = false, pipelineP
     } finally {
       setIsBusy(false);
     }
-  }, [allSkillBlocks, allSkills, beginProgress, createClient, ensureCredits, language, outputTokens, refresh, selectedModel, setStage, validationInputs]);
+  }, [allSkillBlocks, allSkills, beginProgress, createClient, language, refresh, selectedModel, setStage]);
 
   const dividePreExercises = useCallback(async (): Promise<void> => {
     beginProgress('Dividing multistep ExerciseTemplates', allSkillBlocks.length);
@@ -573,7 +562,6 @@ function Skills ({ book, onAction, onBookChange, pipelineOnly = false, pipelineP
     try {
       const client = await createClient();
 
-      await ensureCredits(validationInputs, outputTokens);
       let completed = 0;
       let requestIndex = 0;
 
@@ -624,7 +612,7 @@ function Skills ({ book, onAction, onBookChange, pipelineOnly = false, pipelineP
     } finally {
       setIsBusy(false);
     }
-  }, [allSkillBlocks.length, beginProgress, chapterContent, createClient, ensureCredits, language, outputTokens, refresh, selectedModel, setStage, validationInputs]);
+  }, [allSkillBlocks.length, beginProgress, chapterContent, createClient, language, refresh, selectedModel, setStage]);
 
   const generateExercises = useCallback(async (): Promise<void> => {
     beginProgress('Generating Abilities', allExerciseTemplates.length);
@@ -638,7 +626,6 @@ function Skills ({ book, onAction, onBookChange, pipelineOnly = false, pipelineP
 
       const client = await createClient();
 
-      await ensureCredits(validationInputs, outputTokens);
       const generatedByModule = new Map<string, string[]>();
       let completed = 0;
       let requestIndex = 0;
@@ -695,7 +682,7 @@ function Skills ({ book, onAction, onBookChange, pipelineOnly = false, pipelineP
     } finally {
       setIsBusy(false);
     }
-  }, [allExerciseTemplates, allSkills, beginProgress, book.id, chapterContent, createClient, ensureCredits, language, outputTokens, refresh, selectedModel, setStage, validationInputs]);
+  }, [allExerciseTemplates, allSkills, beginProgress, book.id, chapterContent, createClient, language, refresh, selectedModel, setStage]);
 
   const fixExercises = useCallback(async (): Promise<void> => {
     beginProgress('Fixing Ability errors', allAbilities.length);
@@ -703,7 +690,6 @@ function Skills ({ book, onAction, onBookChange, pipelineOnly = false, pipelineP
     try {
       const client = await createClient();
 
-      await ensureCredits(validationInputs, outputTokens);
       let completed = 0;
       const correctedByModule = new Map<string, string[]>();
 
@@ -736,7 +722,7 @@ function Skills ({ book, onAction, onBookChange, pipelineOnly = false, pipelineP
     } finally {
       setIsBusy(false);
     }
-  }, [allAbilities.length, beginProgress, chapterContent, createClient, ensureCredits, language, outputTokens, refresh, selectedModel, validationInputs]);
+  }, [allAbilities.length, beginProgress, chapterContent, createClient, language, refresh, selectedModel]);
 
   const confirm = useCallback((): void => {
     if (aiAction === 'skills') {
