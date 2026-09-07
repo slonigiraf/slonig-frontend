@@ -39,6 +39,18 @@ interface StoredAbility {
   moduleId: string;
 }
 
+interface FixedAbilityReview {
+  ability: GeneratedAbility;
+  errors: string[];
+  exerciseTitle?: string;
+  recordId: string;
+}
+
+interface FixReviewResult {
+  checked: number;
+  items: FixedAbilityReview[];
+}
+
 interface ChapterContent {
   chapter: BookChapter;
   concepts: BookConcept[];
@@ -262,14 +274,14 @@ function ChapterTitleEditor ({ chapter, onError, onSaved }: { chapter: BookChapt
   </div>;
 }
 
-function BookItem ({ abilityMode, description, id, onDeleted, onError, solution, title, type }: { abilityMode?: Exercise['abilityMode']; description: string; id?: number; onDeleted: () => void; onError: (message: string) => void; solution?: string; title: string; type: 'concept' | 'exercise' }): React.ReactElement {
+function BookItem ({ abilityMode, description, id, onDelete, onDeleted, onError, solution, title, type }: { abilityMode?: Exercise['abilityMode']; description: string; id?: number; onDelete: (id: number) => Promise<void>; onDeleted: () => void; onError: (message: string) => void; solution?: string; title: string; type: 'concept' | 'exercise' }): React.ReactElement {
   const remove = useCallback((): void => {
     if (id === undefined) {
       return;
     }
 
-    (type === 'concept' ? deleteBookConcept(id) : deleteExercise(id)).then(onDeleted).catch((error) => onError(error instanceof Error ? error.message : `Unable to delete the ${type}.`));
-  }, [id, onDeleted, onError, type]);
+    onDelete(id).then(onDeleted).catch((error) => onError(error instanceof Error ? error.message : `Unable to delete the ${type}.`));
+  }, [id, onDelete, onDeleted, onError, type]);
 
   return <article className='contentCard'>
     <strong><KatexSpan content={title} /></strong>
@@ -365,6 +377,7 @@ function Skills ({ book, onAction, onBookChange, pipelineOnly = false, pipelineP
   const [chapterContent, setChapterContent] = useState<ChapterContent[]>([]);
   const [chapterIndex, setChapterIndex] = useState(() => getSessionChapter(book.id, view));
   const [error, setError] = useState('');
+  const [fixReview, setFixReview] = useState<FixReviewResult | null>(null);
   const [notice, setNotice] = useState('');
   const [isBusy, setIsBusy] = useState(false);
   const [progress, setProgress] = useState(0);
@@ -425,6 +438,7 @@ function Skills ({ book, onAction, onBookChange, pipelineOnly = false, pipelineP
   const allSkillBlocks = useMemo(() => chapterContent.flatMap(({ concepts, exercises, skills }) => createSkillBlocks(skills, concepts, exercises)), [chapterContent]);
   const allExercises = useMemo(() => chapterContent.flatMap(({ exercises }) => exercises), [chapterContent]);
   const allAbilities = useMemo(() => chapterContent.flatMap(({ abilities }) => abilities), [chapterContent]);
+  const exerciseTitlesByModuleId = useMemo(() => new Map(allExercises.flatMap(({ id, title }) => id === undefined ? [] : [[exerciseAbilityModuleId(book.id, id), title] as const])), [allExercises, book.id]);
   const skillSources = useMemo<SkillSource[]>(() => chapterContent.flatMap(({ chapter, concepts, exercises }) => chapter.id === undefined ? [] : [...concepts.flatMap(({ description, id, title }) => id === undefined ? [] : [{ chapterId: chapter.id as number, chapterTitle: chapter.title, description, sourceId: id, sourceType: 'concept' as const, title }]), ...exercises.flatMap(({ description, id, title }) => id === undefined ? [] : [{ chapterId: chapter.id as number, chapterTitle: chapter.title, description, sourceId: id, sourceType: 'exercise' as const, title }])]), [chapterContent]);
   const inferredStage = allAbilities.length ? 7 : allExercises.length ? 3 : skillSources.length ? 2 : book.processingStage ?? 0;
   const stage = Math.max(book.processingStage ?? 0, inferredStage);
@@ -488,8 +502,23 @@ function Skills ({ book, onAction, onBookChange, pipelineOnly = false, pipelineP
   const estimate = formatAiInputEstimate(estimateAiInput(selectedModel, validationInputs, outputTokens));
   const iconForStage = useCallback((requiredStage: number): 'play' | 'rotate-left' => stage >= requiredStage ? 'rotate-left' : 'play', [stage]);
 
+  const deleteExerciseWithAbilities = useCallback(async (exerciseId: number): Promise<void> => {
+    await deleteAbilities(exerciseAbilityModuleId(book.id, exerciseId));
+    await deleteExercise(exerciseId);
+  }, [book.id]);
+
+  const deleteConceptWithExercises = useCallback(async (conceptId: number): Promise<void> => {
+    const referencedExercises = allExercises.filter(({ conceptId: exerciseConceptId, id }) => id !== undefined && exerciseConceptId === conceptId);
+
+    for (const exercise of referencedExercises) {
+      await deleteExerciseWithAbilities(exercise.id as number);
+    }
+
+    await deleteBookConcept(conceptId);
+  }, [allExercises, deleteExerciseWithAbilities]);
+
   const beginProgress = useCallback((label: string, total: number): void => {
-    setAiAction(undefined); setError(''); setNotice(''); setIsBusy(true); setProgress(0); setProgressLabel(label); setProgressTotal(Math.max(1, total));
+    setAiAction(undefined); setError(''); setFixReview(null); setNotice(''); setIsBusy(true); setProgress(0); setProgressLabel(label); setProgressTotal(Math.max(1, total));
   }, []);
 
   const generateSkills = useCallback(async (): Promise<void> => {
@@ -725,7 +754,7 @@ function Skills ({ book, onAction, onBookChange, pipelineOnly = false, pipelineP
       const client = await createClient();
 
       let completed = 0;
-      const replacements = new Map<string, { ability: GeneratedAbility; record: StoredAbility }>();
+      const replacements = new Map<string, { ability: GeneratedAbility; errors: string[]; record: StoredAbility }>();
 
       for (const { abilities, chapter } of chapterContent) {
         for (let start = 0; start < abilities.length; start += BATCH_SIZE) {
@@ -741,7 +770,7 @@ function Skills ({ book, onAction, onBookChange, pipelineOnly = false, pipelineP
 
           reviews.forEach((review) => {
             if (review.hasErrors && review.ability) {
-              replacements.set(batch[review.index].id, { ability: review.ability, record: batch[review.index] });
+              replacements.set(batch[review.index].id, { ability: review.ability, errors: review.errors, record: batch[review.index] });
             }
           });
           completed += batch.length; setProgress(completed);
@@ -756,6 +785,15 @@ function Skills ({ book, onAction, onBookChange, pipelineOnly = false, pipelineP
         }
       }
 
+      setFixReview({
+        checked: allAbilities.length,
+        items: Array.from(replacements.values(), ({ ability, errors, record }) => ({
+          ability,
+          errors,
+          exerciseTitle: exerciseTitlesByModuleId.get(record.moduleId),
+          recordId: record.id
+        }))
+      });
       setNotice(`Checked ${allAbilities.length} Abilities. Fixed ${replacements.size} with errors; ${allAbilities.length - replacements.size} were left unchanged.`);
       refresh();
     } catch (caught) {
@@ -763,7 +801,7 @@ function Skills ({ book, onAction, onBookChange, pipelineOnly = false, pipelineP
     } finally {
       setIsBusy(false);
     }
-  }, [allAbilities.length, beginProgress, chapterContent, createClient, language, refresh, selectedModel]);
+  }, [allAbilities.length, beginProgress, chapterContent, createClient, exerciseTitlesByModuleId, language, refresh, selectedModel]);
 
   const confirm = useCallback((): void => {
     if (aiAction === 'skills') {
@@ -795,6 +833,47 @@ function Skills ({ book, onAction, onBookChange, pipelineOnly = false, pipelineP
   }, [onAction]);
 
   return <StyledSkills className={pipelineOnly ? 'pipelineOnly' : undefined}>
+    {fixReview && (
+      <Modal
+        header='Fix errors results'
+        onClose={() => setFixReview(null)}
+        size='small'
+      >
+        <Modal.Content>
+          <p>Checked {fixReview.checked} Abilities. Corrected {fixReview.items.length} with errors.</p>
+          {fixReview.items.length
+            ? <div className='fixReviewList'>
+              {fixReview.items.map(({ ability, errors, exerciseTitle, recordId }, index) => <article
+                className='fixReviewItem'
+                key={recordId}
+                                                                                               >
+                <strong>{index + 1}. <KatexSpan content={ability.h} /></strong>
+                {exerciseTitle && <p><small>Exercise: <KatexSpan content={exerciseTitle} /></small></p>}
+                <h5>Corrected errors</h5>
+                <ul>
+                  {errors.map((message, errorIndex) => <li key={`${recordId}-${errorIndex}`}>{message}</li>)}
+                </ul>
+                <h5>Corrected result</h5>
+                <div className='fixedAbilityPreview'>
+                  <ExerciseList
+                    areShownInitially
+                    exercises={ability.q}
+                    location='ability_info'
+                  />
+                </div>
+              </article>)}
+            </div>
+            : <p>No Ability errors were found.</p>}
+          <Button.Group>
+            <Button
+              icon='check'
+              label='Close'
+              onClick={() => setFixReview(null)}
+            />
+          </Button.Group>
+        </Modal.Content>
+      </Modal>
+    )}
     {aiAction && (
       <Modal
         header='Confirm AI processing'
@@ -883,6 +962,7 @@ function Skills ({ book, onAction, onBookChange, pipelineOnly = false, pipelineP
                     description={concept.description}
                     id={concept.id}
                     key={`concept-${concept.id ?? 'new'}`}
+                    onDelete={deleteConceptWithExercises}
                     onDeleted={refresh}
                     onError={setError}
                     title={concept.title}
@@ -895,6 +975,7 @@ function Skills ({ book, onAction, onBookChange, pipelineOnly = false, pipelineP
                     description={exercise.description}
                     id={exercise.id}
                     key={`exercise-${exercise.id ?? 'new'}`}
+                    onDelete={deleteExerciseWithAbilities}
                     onDeleted={refresh}
                     onError={setError}
                     solution={exercise.solution}
@@ -955,6 +1036,7 @@ function Skills ({ book, onAction, onBookChange, pipelineOnly = false, pipelineP
                     abilityMode={exercise.abilityMode}
                     description={exercise.description}
                     id={exercise.id}
+                    onDelete={deleteExerciseWithAbilities}
                     onDeleted={refresh}
                     onError={setError}
                     solution={exercise.solution}
@@ -1005,6 +1087,13 @@ const StyledSkills = styled.div`
   .contentCard { border-bottom: 1px solid var(--border-table); box-sizing: border-box; min-width: 0; padding: 0.75rem 5rem 0.75rem 10px; position: relative; }
   .contentCard > .ui--Button { position: absolute; right: 10px; top: 10px; }
   .contentCard > strong { display: block; overflow-wrap: anywhere; }
+  .fixReviewList { max-height: 60vh; overflow: auto; }
+  .fixReviewItem { border-top: 1px solid var(--border-table); padding: 0.75rem 0; }
+  .fixReviewItem:first-child { border-top: 0; }
+  .fixReviewItem p { margin: 0.35rem 0; }
+  .fixReviewItem h5 { margin: 0.75rem 0 0.35rem; }
+  .fixReviewItem ul { margin: 0.5rem 0 0; padding-left: 1.4rem; }
+  .fixedAbilityPreview { border-left: 3px solid var(--border-table); padding-left: 0.75rem; }
   .skillWithTemplates + .skillWithTemplates { border-top: 1px solid var(--border-table); margin-top: 0.75rem; padding-top: 0.5rem; }
   .skillWithTemplates .contentCard + .contentCard { border-left: 3px solid var(--border-table); margin-left: 1.5rem; }
   .abilitiesPane { width: 100%; }
