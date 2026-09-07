@@ -4,7 +4,7 @@
 import type { Book, BookChapter, BookConcept, BookPage, Exercise, ExerciseTemplate, Skill } from '@slonigiraf/db';
 import type { GeneratedAbility } from './abilities.js';
 
-import { addExerciseTemplatesForSkill, deleteAbilities, deleteAbility, deleteBookConcept, deleteExercise, deleteExerciseTemplate, deleteSkill, getAbilities, getBookChapters, getBookConceptsForBookPage, getBookPages, getExercisesForBookPage, getExerciseTemplatesForSkill, getSetting, getSkillsForChapter, replaceAbilities, replaceExerciseTemplatesForSkill, replaceSkillsForChapter, SettingKey, storeAbility, updateBookChapterTitle, updateBookProcessingStage } from '@slonigiraf/db';
+import { addExerciseTemplatesForSkill, deleteAbilities, deleteAbility, deleteBookConcept, deleteExercise, deleteExerciseTemplate, deleteSkill, getAbilities, getBookChapters, getBookConceptsForBookPage, getBookPages, getExercisesForBookPage, getExerciseTemplatesForSkill, getSetting, getSkillsForChapter, replaceAbilities, replaceExerciseTemplatesForSkill, replaceExercisesForBookPage, replaceSkillsForChapter, SettingKey, storeAbility, updateBookChapterTitle, updateBookProcessingStage } from '@slonigiraf/db';
 import { KatexSpan, RoundProgress } from '@slonigiraf/slonig-components';
 import OpenAI from 'openai';
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
@@ -13,8 +13,9 @@ import { Button, Dropdown, Input, Modal, styled } from '@polkadot/react-componen
 
 import ExerciseList from './Edit/ExerciseList.js';
 import { parseAbilityRepairResult, parseGeneratedAbilities, parseGeneratedExerciseAbilities, parseStoredAbility } from './abilities.js';
+import { parseExerciseRepairResult } from './exercises.js';
 import { estimateAiInput, formatAiInputEstimate } from './aiEstimate.js';
-import { abilityGenerationInstructions, divideExerciseTemplatesPrompt, fixAbilitiesPrompt, OPENAI_MODELS, skillsToExerciseTemplatesPrompt, sourcesToSkillsPrompt } from './constants.js';
+import { abilityGenerationInstructions, divideExerciseTemplatesPrompt, fixAbilitiesPrompt, fixExercisesPrompt, OPENAI_MODELS, skillsToExerciseTemplatesPrompt, sourcesToSkillsPrompt } from './constants.js';
 
 const REQUEST_INTERVAL_MS = Math.ceil(60_000 / 9);
 const BATCH_SIZE = 5;
@@ -213,6 +214,29 @@ interface FixReviewResult {
   items: FixedAbilityReview[];
 }
 
+interface FixedExerciseReview {
+  errors: string[];
+  exercise: Exercise;
+  exerciseId: number;
+}
+
+interface DuplicateExerciseReview {
+  chapterTitle: string;
+  deleted: Exercise;
+  kept: Exercise;
+}
+
+interface ExerciseFixReviewResult {
+  checked: number;
+  duplicatePairs: DuplicateExerciseReview[];
+  items: FixedExerciseReview[];
+}
+
+interface BookPageContent {
+  exercises: Exercise[];
+  page: BookPage;
+}
+
 interface ChapterContent {
   chapter: BookChapter;
   concepts: BookConcept[];
@@ -238,7 +262,7 @@ interface SkillBlock {
 }
 
 
-type AiAction = 'dividePreExercises' | 'exercises' | 'fix' | 'preExercises' | 'skills';
+type AiAction = 'dividePreExercises' | 'exercises' | 'fix' | 'fixExercises' | 'preExercises' | 'skills';
 
 const abilityModuleId = (bookId: number, skillId: number): string => `book-${bookId}-skill-${skillId}`;
 const exerciseAbilityModuleId = (bookId: number, exerciseId: number): string => `book-${bookId}-exercise-${exerciseId}`;
@@ -342,6 +366,18 @@ function abilityRepairRequest (language: string, batch: StoredAbility[], chapter
   return `${fixAbilitiesPrompt}\n${JSON.stringify({
     abilities: batch.map(({ ability, content, id }, index) => ({ ability: ability ?? content, id, index })),
     bookLanguage: language,
+    ...(chapterTitle ? { chapterTitle } : {})
+  })}`;
+}
+
+function exerciseRepairRequest (language: string, batch: Exercise[], chapterTitle?: string): string {
+  return `${fixExercisesPrompt}\n${JSON.stringify({
+    bookLanguage: language,
+    exercises: batch.map(({ abilityMode = 'reasoning', description, id, solution = '', title }, index) => ({
+      exercise: { abilityMode, description, solution, title },
+      id,
+      index
+    })),
     ...(chapterTitle ? { chapterTitle } : {})
   })}`;
 }
@@ -521,6 +557,17 @@ function AbilityCard ({ onDeleted, onError, record }: { onDeleted: () => void; o
   </article>;
 }
 
+function DuplicateExerciseSide ({ exercise, label }: { exercise: Exercise; label: string }): React.ReactElement {
+  return <section className='duplicateAbilitySide'>
+    <h5>{label}</h5>
+    {exercise.id !== undefined && <p><small>Exercise ID: <code>{exercise.id}</code></small></p>}
+    <strong><KatexSpan content={exercise.title} /></strong>
+    <p><KatexSpan content={exercise.description} /></p>
+    {exercise.abilityMode && <p><small>{exercise.abilityMode}</small></p>}
+    {exercise.solution && <div className='solution'><KatexSpan content={exercise.solution} /></div>}
+  </section>;
+}
+
 function DuplicateAbilitySide ({ exerciseTitle, label, record }: { exerciseTitle?: string; label: string; record: StoredAbility }): React.ReactElement {
   return <section className='duplicateAbilitySide'>
     <h5>{label}</h5>
@@ -558,9 +605,11 @@ function Skills ({ book, onAction, onBookChange, onEntityCountsChange, pipelineO
   const language = book.language ?? 'en';
   const [aiAction, setAiAction] = useState<AiAction>();
   const [chapterContent, setChapterContent] = useState<ChapterContent[]>([]);
+  const [bookPageContent, setBookPageContent] = useState<BookPageContent[]>([]);
   const [chapterIndex, setChapterIndex] = useState(() => getSessionChapter(book.id, view));
   const [error, setError] = useState('');
   const [fixReview, setFixReview] = useState<FixReviewResult | null>(null);
+  const [exerciseFixReview, setExerciseFixReview] = useState<ExerciseFixReviewResult | null>(null);
   const [notice, setNotice] = useState('');
   const [isBusy, setIsBusy] = useState(false);
   const [progress, setProgress] = useState(0);
@@ -603,6 +652,7 @@ function Skills ({ book, onAction, onBookChange, onEntityCountsChange, pipelineO
       }));
 
       if (active) {
+        setBookPageContent(pageRows.map(({ exercises, page }) => ({ exercises, page })));
         setChapterContent(result);
         setChapterIndex((current) => Math.min(current, Math.max(0, result.length - 1)));
       }
@@ -631,9 +681,12 @@ function Skills ({ book, onAction, onBookChange, onEntityCountsChange, pipelineO
   // presence of generated/extracted rows. Concepts can already extract
   // exercises from the source book, but that does not mean the Exercises
   // pipeline step has been run. Stage 3 is set explicitly only when that
-  // step completes, and only then should Abilities become available.
+  // step completes. Stage 4 records a successful Fix exercises pass; only
+  // after that should Abilities become available. Existing later stages stay
+  // numerically unchanged for backwards compatibility.
   const stage = book.processingStage ?? 0;
   const hasAbilities = allAbilities.length > 0;
+  const hasExerciseDependents = hasAbilities || allSkills.length > 0;
 
   const setStage = useCallback(async (processingStage: number): Promise<void> => {
     const updated = await updateBookProcessingStage(book.id, processingStage);
@@ -679,6 +732,10 @@ function Skills ({ book, onAction, onBookChange, onEntityCountsChange, pipelineO
       return allExercises.length ? [exerciseAbilitiesRequest(language, allExercises)] : [];
     }
 
+    if (aiAction === 'fixExercises') {
+      return chapterContent.filter(({ exercises }) => exercises.length > 0).map(({ chapter, exercises }) => exerciseRepairRequest(language, exercises, chapter.title));
+    }
+
     if (aiAction === 'fix') {
       return chapterContent.filter(({ abilities }) => abilities.length > 0).map(({ abilities, chapter }) => abilityRepairRequest(language, abilities, chapter.title));
     }
@@ -686,7 +743,8 @@ function Skills ({ book, onAction, onBookChange, onEntityCountsChange, pipelineO
     return [];
   }, [aiAction, allExercises, allSkillBlocks, chapterContent, language, skillSources]);
   const maxChapterAbilityCount = Math.max(1, ...chapterContent.map(({ abilities }) => abilities.length));
-  const generationOutputTokens = aiAction === 'preExercises' || aiAction === 'dividePreExercises' ? BATCH_SIZE * 1_250 : aiAction === 'exercises' ? Math.max(1, allExercises.length) * 700 : aiAction === 'fix' ? maxChapterAbilityCount * 700 : aiAction === 'skills' ? BATCH_SIZE * 180 : 300;
+  const maxChapterExerciseCount = Math.max(1, ...chapterContent.map(({ exercises }) => exercises.length));
+  const generationOutputTokens = aiAction === 'preExercises' || aiAction === 'dividePreExercises' ? BATCH_SIZE * 1_250 : aiAction === 'exercises' ? Math.max(1, allExercises.length) * 700 : aiAction === 'fixExercises' ? maxChapterExerciseCount * 550 : aiAction === 'fix' ? maxChapterAbilityCount * 700 : aiAction === 'skills' ? BATCH_SIZE * 180 : 300;
   const validationInputs = useMemo(() => aiAction === 'exercises'
     ? requestInputs.flatMap((input) => [input, input, input])
     : requestInputs, [aiAction, requestInputs]);
@@ -710,7 +768,7 @@ function Skills ({ book, onAction, onBookChange, onEntityCountsChange, pipelineO
   }, [allExercises, deleteExerciseWithAbilities]);
 
   const beginProgress = useCallback((label: string, total: number): void => {
-    setAiAction(undefined); setError(''); setFixReview(null); setNotice(''); setIsBusy(true); setProgress(0); setProgressLabel(label); setProgressTotal(Math.max(1, total));
+    setAiAction(undefined); setError(''); setFixReview(null); setExerciseFixReview(null); setNotice(''); setIsBusy(true); setProgress(0); setProgressLabel(label); setProgressTotal(Math.max(1, total));
   }, []);
 
   const generateSkills = useCallback(async (): Promise<void> => {
@@ -940,6 +998,143 @@ function Skills ({ book, onAction, onBookChange, onEntityCountsChange, pipelineO
   }, [allAbilities.length, allExercises, beginProgress, book.id, createClient, language, refresh, selectedModel, setStage]);
 
   const fixExercises = useCallback(async (): Promise<void> => {
+    beginProgress('Fixing Exercise errors', allExercises.length);
+
+    try {
+      if (!allExercises.length) {
+        throw new Error('No Exercises are available to fix.');
+      }
+
+      if (allExercises.some(({ id }) => id === undefined)) {
+        throw new Error('Every Exercise must have an id before Exercises can be fixed.');
+      }
+
+      // Exercise page replacement changes Exercise record ids. Run this stage
+      // before downstream Skills or Abilities exist so their Exercise links stay valid.
+      if (hasExerciseDependents) {
+        throw new Error('Fix exercises must run before downstream Skills or Abilities are generated.');
+      }
+
+      const client = await createClient();
+      const requestGate = createRequestGate(FIX_CONCURRENCY);
+      const replacements = new Map<number, { errors: string[]; exercise: Exercise }>();
+      const duplicatePairs = new Map<number, DuplicateExerciseReview>();
+      const batches = chapterContent
+        .filter(({ exercises }) => exercises.length > 0)
+        .map(({ chapter, exercises }) => ({ batch: exercises, chapterTitle: chapter.title }));
+      let completed = 0;
+      let nextBatch = 0;
+      let workerError: unknown;
+
+      const worker = async (): Promise<void> => {
+        while (workerError === undefined) {
+          const batchIndex = nextBatch++;
+
+          if (batchIndex >= batches.length) {
+            return;
+          }
+
+          const { batch, chapterTitle } = batches[batchIndex];
+          const originalIds = batch.map(({ id }) => id as number);
+          const systemPrompt = `Keep ISO language ${language}. Return only the requested JSON object.`;
+          const userPrompt = exerciseRepairRequest(language, batch, chapterTitle);
+
+          try {
+            const result = await requestValidatedJson(
+              client,
+              selectedModel,
+              systemPrompt,
+              userPrompt,
+              (content) => parseExerciseRepairResult(content, batch, originalIds),
+              true,
+              requestGate
+            );
+            const batchDuplicateIds = new Set(result.duplicatePairs.map(({ deletedExerciseId }) => deletedExerciseId));
+
+            result.duplicatePairs.forEach(({ deletedExerciseId, keptExerciseId }) => {
+              const kept = batch.find(({ id }) => id === keptExerciseId);
+              const deleted = batch.find(({ id }) => id === deletedExerciseId);
+
+              if (!kept || !deleted) {
+                throw new Error('OpenRouter returned a duplicate Exercise pair that does not exist in this chapter.');
+              }
+
+              duplicatePairs.set(deletedExerciseId, { chapterTitle, deleted, kept });
+            });
+            result.reviews.forEach((review) => {
+              if (review.hasErrors && review.exercise) {
+                const original = batch[review.index];
+                const id = original.id as number;
+
+                if (!batchDuplicateIds.has(id)) {
+                  replacements.set(id, { errors: review.errors, exercise: review.exercise });
+                }
+              }
+            });
+            completed += batch.length;
+            setProgress(Math.min(allExercises.length, completed));
+          } catch (error) {
+            workerError ??= error;
+          }
+        }
+      };
+
+      await Promise.all(Array.from({ length: Math.min(FIX_CONCURRENCY, batches.length) }, () => worker()));
+
+      if (workerError !== undefined) {
+        throw workerError;
+      }
+
+      const duplicateIds = new Set(duplicatePairs.keys());
+
+      duplicateIds.forEach((id) => replacements.delete(id));
+
+      // Preserve the all-or-nothing review phase: page writes begin only after
+      // every chapter response has passed strict local validation. Use the
+      // Exercise-specific DB operation so Concepts and Abilities are untouched.
+      for (const { exercises, page } of bookPageContent) {
+        const pageHasChanges = exercises.some(({ id }) => id !== undefined && (duplicateIds.has(id) || replacements.has(id)));
+
+        if (!pageHasChanges) {
+          continue;
+        }
+
+        const correctedExercises = exercises
+          .filter(({ id }) => id === undefined || !duplicateIds.has(id))
+          .map((exercise) => exercise.id === undefined ? exercise : replacements.get(exercise.id)?.exercise ?? exercise)
+          .map(({ abilityMode, conceptId, description, solution, source, title }) => ({
+            abilityMode,
+            conceptId,
+            description,
+            solution,
+            source,
+            title
+          }));
+
+        await replaceExercisesForBookPage([book.id, page.pageNumber], correctedExercises);
+      }
+
+      if (stage < 4) {
+        await setStage(4);
+      }
+
+      setExerciseFixReview({
+        checked: allExercises.length,
+        duplicatePairs: Array.from(duplicatePairs.values()),
+        items: Array.from(replacements, ([exerciseId, { errors, exercise }]) => ({ errors, exercise, exerciseId }))
+      });
+      const unchanged = Math.max(0, allExercises.length - replacements.size - duplicateIds.size);
+
+      setNotice(`Checked ${allExercises.length} Exercises. Fixed ${replacements.size} with errors and deleted ${duplicateIds.size} duplicate${duplicateIds.size === 1 ? '' : 's'}; ${unchanged} were left unchanged.`);
+      refresh();
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : 'Unable to fix Exercise errors.');
+    } finally {
+      setIsBusy(false);
+    }
+  }, [allExercises, beginProgress, book.id, bookPageContent, chapterContent, createClient, hasExerciseDependents, language, refresh, selectedModel, setStage, stage]);
+
+  const fixAbilities = useCallback(async (): Promise<void> => {
     beginProgress('Fixing Ability errors', allAbilities.length);
 
     try {
@@ -1087,23 +1282,94 @@ function Skills ({ book, onAction, onBookChange, onEntityCountsChange, pipelineO
       generateExercises().catch(console.error);
     }
 
-    if (aiAction === 'fix') {
+    if (aiAction === 'fixExercises') {
       fixExercises().catch(console.error);
     }
-  }, [aiAction, dividePreExercises, fixExercises, generateExercises, generatePreExercises, generateSkills]);
+
+    if (aiAction === 'fix') {
+      fixAbilities().catch(console.error);
+    }
+  }, [aiAction, dividePreExercises, fixAbilities, fixExercises, generateExercises, generatePreExercises, generateSkills]);
   const closeConfirmation = useCallback((): void => setAiAction(undefined), []);
   const closeFixReview = useCallback((): void => {
     setFixReview(null);
+    refresh();
+  }, [refresh]);
+  const closeExerciseFixReview = useCallback((): void => {
+    setExerciseFixReview(null);
     refresh();
   }, [refresh]);
   const openExerciseGeneration = useCallback((): void => {
     setAiAction('exercises'); onAction?.('preExercisesExercises');
   }, [onAction]);
   const openExerciseFix = useCallback((): void => {
+    setAiAction('fixExercises'); onAction?.('conceptExercises');
+  }, [onAction]);
+  const openAbilityFix = useCallback((): void => {
     setAiAction('fix'); onAction?.('preExercisesExercises');
   }, [onAction]);
 
   return <StyledSkills className={pipelineOnly ? 'pipelineOnly' : undefined}>
+    {exerciseFixReview && (
+      <Modal
+        header='Fix exercises results'
+        onClose={closeExerciseFixReview}
+        size='large'
+      >
+        <Modal.Content>
+          <p>Checked {exerciseFixReview.checked} Exercises. Corrected {exerciseFixReview.items.length} with errors and deleted {exerciseFixReview.duplicatePairs.length} duplicate{exerciseFixReview.duplicatePairs.length === 1 ? '' : 's'}.</p>
+          {exerciseFixReview.duplicatePairs.length > 0 && <>
+            <h4>Deleted duplicates</h4>
+            <div className='duplicateReviewList'>
+              {exerciseFixReview.duplicatePairs.map(({ chapterTitle, deleted, kept }, index) => <article
+                className='duplicateReviewItem'
+                key={deleted.id ?? `deleted-${index}`}
+              >
+                <strong>{index + 1}. Chapter: <KatexSpan content={chapterTitle} /></strong>
+                <div className='duplicatePairComparison'>
+                  <DuplicateExerciseSide
+                    exercise={kept}
+                    label='Kept'
+                  />
+                  <DuplicateExerciseSide
+                    exercise={deleted}
+                    label='Deleted duplicate'
+                  />
+                </div>
+              </article>)}
+            </div>
+          </>}
+          {exerciseFixReview.items.length
+            ? <div className='fixReviewList'>
+              {exerciseFixReview.items.map(({ errors, exercise, exerciseId }, index) => <article
+                className='fixReviewItem'
+                key={exerciseId}
+              >
+                <strong>{index + 1}. <KatexSpan content={exercise.title} /></strong>
+                <p><small>Exercise ID: <code>{exerciseId}</code></small></p>
+                <h5>Corrected errors</h5>
+                <ul>
+                  {errors.map((message, errorIndex) => <li key={`${exerciseId}-${errorIndex}`}><KatexSpan content={message} /></li>)}
+                </ul>
+                <h5>Corrected result</h5>
+                <div className='fixedExercisePreview'>
+                  <p><KatexSpan content={exercise.description} /></p>
+                  {exercise.abilityMode && <p><small>{exercise.abilityMode}</small></p>}
+                  {exercise.solution && <div className='solution'><KatexSpan content={exercise.solution} /></div>}
+                </div>
+              </article>)}
+            </div>
+            : <p>No Exercise errors were found.</p>}
+          <Button.Group>
+            <Button
+              icon='check'
+              label='Close'
+              onClick={closeExerciseFixReview}
+            />
+          </Button.Group>
+        </Modal.Content>
+      </Modal>
+    )}
     {fixReview && (
       <Modal
         header='Fix abilities results'
@@ -1212,8 +1478,14 @@ function Skills ({ book, onAction, onBookChange, onEntityCountsChange, pipelineO
     {showPipeline && <div className='pipeline'>
       {pipelinePrefix}
       <span className='pipelineStep'><span>›</span><Button
+        icon={iconForStage(4)}
+        isDisabled={isBusy || stage < 3 || !allExercises.length || hasExerciseDependents}
+        label='Fix exercises'
+        onClick={openExerciseFix}
+                                                   /></span>
+      <span className='pipelineStep'><span>›</span><Button
         icon={iconForStage(7)}
-        isDisabled={isBusy || stage < 3 || !allExercises.length}
+        isDisabled={isBusy || stage < 4 || !allExercises.length}
         label='Abilities'
         onClick={openExerciseGeneration}
                                                    /></span>
@@ -1221,7 +1493,7 @@ function Skills ({ book, onAction, onBookChange, onEntityCountsChange, pipelineO
         icon={stage >= 7 ? 'rotate-left' : 'play'}
         isDisabled={isBusy || stage < 7 || !hasAbilities}
         label='Fix abilities'
-        onClick={openExerciseFix}
+        onClick={openAbilityFix}
                                                    /></span>
     </div>}
     {error && <p

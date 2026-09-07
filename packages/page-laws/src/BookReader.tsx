@@ -1331,7 +1331,7 @@ function BookReader ({ book, file, generateAllConceptsModel, generateAllConcepts
           ['pdfText', 'Text', 1, totalPages],
           ['textConcepts', 'Concepts', 2, entityCounts.concepts],
           ['conceptExercises', 'Exercises', 3, entityCounts.exercises],
-          ['preExercisesExercises', 'Abilities', 3, entityCounts.abilities],
+          ['preExercisesExercises', 'Abilities', 4, entityCounts.abilities],
           ['skillsCourse', 'Course', 7, undefined]
         ] as Array<[ReaderPane, string, number, number | undefined]>).filter(([, , requiredStage]) => (book.processingStage ?? 0) >= requiredStage).map(([pane, label, , count]) => (
           <button
