@@ -15,6 +15,13 @@ export interface GeneratedExerciseAbility {
   exerciseId: number;
 }
 
+export interface AbilityRepairReview {
+  ability?: GeneratedAbility;
+  errors: string[];
+  hasErrors: boolean;
+  index: number;
+}
+
 export interface ExerciseTemplateVariation {
   skillId: number;
   solution: string;
@@ -90,6 +97,100 @@ export function parseGeneratedAbilities (content: string, expectedCount?: number
 
   // Validate the entire response before callers persist any of its templates.
   return templates.map(parseGeneratedAbilityValue);
+}
+
+
+function abilitySignature (ability: GeneratedAbility): string {
+  return JSON.stringify({
+    h: ability.h,
+    i: ability.i,
+    q: ability.q.map(({ a, h, i, p }) => ({ a, h, i, p })),
+    t: ability.t
+  });
+}
+
+export function parseAbilityRepairReviews (content: string, originals: Array<GeneratedAbility | null>): AbilityRepairReview[] {
+  const parsed = parseResponse(content);
+  const values: unknown = Array.isArray(parsed)
+    ? parsed
+    : isRecord(parsed)
+      ? parsed.reviews ?? parsed.abilities
+      : undefined;
+
+  if (!Array.isArray(values)) {
+    throw new Error('OpenRouter returned invalid Ability review data.');
+  }
+
+  const used = new Set<number>();
+  const reviews: AbilityRepairReview[] = [];
+
+  values.forEach((value: unknown): void => {
+    // Models occasionally append an extra review outside the requested batch.
+    // Ignore those extras: only indexes from this batch are allowed to affect the DB.
+    if (
+      isRecord(value) &&
+      typeof value.index === 'number' &&
+      Number.isSafeInteger(value.index) &&
+      (value.index < 0 || value.index >= originals.length)
+    ) {
+      return;
+    }
+
+    if (
+      !isRecord(value) ||
+      typeof value.index !== 'number' ||
+      !Number.isSafeInteger(value.index) ||
+      used.has(value.index) ||
+      typeof value.hasErrors !== 'boolean' ||
+      !Array.isArray(value.errors) ||
+      !value.errors.every((error: unknown) => isNonEmptyString(error))
+    ) {
+      throw new Error('OpenRouter returned an invalid or duplicate Ability review.');
+    }
+
+    const index = value.index;
+    const original = originals[index];
+    const errors = value.errors.map((error) => String(error).trim());
+
+    used.add(index);
+
+    if (!value.hasErrors) {
+      if (errors.length || original === null) {
+        throw new Error('OpenRouter marked an invalid Ability as error-free or returned contradictory review details.');
+      }
+
+      reviews.push({ errors: [], hasErrors: false, index });
+
+      return;
+    }
+
+    if (!errors.length) {
+      throw new Error('Every erroneous Ability review must identify at least one error.');
+    }
+
+    const parsedAbility = parseGeneratedAbilityValue(value.ability);
+    const ability = original === null
+      ? parsedAbility
+      : {
+        ...parsedAbility,
+        i: original.i,
+        q: parsedAbility.q.map((exercise, exerciseIndex) => ({
+          ...exercise,
+          i: original.q[exerciseIndex].i,
+          p: original.q[exerciseIndex].p
+        }))
+      };
+
+    if (original !== null && abilitySignature(ability) === abilitySignature(original)) {
+      throw new Error('OpenRouter identified an Ability error but did not change the Ability.');
+    }
+
+    reviews.push({ ability, errors, hasErrors: true, index });
+  });
+
+  // Missing indexes are intentional: the repair API may return only Abilities
+  // where it found an error. Omitted Abilities are therefore left unchanged.
+  return reviews.sort((a, b) => a.index - b.index);
 }
 
 export function parseGeneratedExerciseAbilities (content: string, expectedExerciseIds: number[]): GeneratedExerciseAbility[] {

@@ -4,7 +4,7 @@
 import type { Book, BookChapter, BookConcept, BookPage, Exercise, ExerciseTemplate, Skill } from '@slonigiraf/db';
 import type { GeneratedAbility } from './abilities.js';
 
-import { addExerciseTemplatesForSkill, deleteAbilities, deleteAbility, deleteBookConcept, deleteExercise, deleteExerciseTemplate, deleteSkill, getAbilities, getBookChapters, getBookConceptsForBookPage, getBookPages, getExercisesForBookPage, getExerciseTemplatesForSkill, getSetting, getSkillsForChapter, replaceAbilities, replaceExerciseTemplatesForSkill, replaceSkillsForChapter, SettingKey, updateBookChapterTitle, updateBookProcessingStage } from '@slonigiraf/db';
+import { addExerciseTemplatesForSkill, deleteAbilities, deleteAbility, deleteBookConcept, deleteExercise, deleteExerciseTemplate, deleteSkill, getAbilities, getBookChapters, getBookConceptsForBookPage, getBookPages, getExercisesForBookPage, getExerciseTemplatesForSkill, getSetting, getSkillsForChapter, replaceAbilities, replaceExerciseTemplatesForSkill, replaceSkillsForChapter, SettingKey, storeAbility, updateBookChapterTitle, updateBookProcessingStage } from '@slonigiraf/db';
 import { KatexSpan, RoundProgress } from '@slonigiraf/slonig-components';
 import OpenAI from 'openai';
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
@@ -12,7 +12,7 @@ import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { Button, Dropdown, Input, Modal, styled } from '@polkadot/react-components';
 
 import ExerciseList from './Edit/ExerciseList.js';
-import { parseGeneratedAbilities, parseGeneratedExerciseAbilities, parseStoredAbility } from './abilities.js';
+import { parseAbilityRepairReviews, parseGeneratedAbilities, parseGeneratedExerciseAbilities, parseStoredAbility } from './abilities.js';
 import { estimateAiInput, formatAiInputEstimate } from './aiEstimate.js';
 import { abilityGenerationInstructions, divideExerciseTemplatesPrompt, fixAbilitiesPrompt, OPENAI_MODELS, skillsToExerciseTemplatesPrompt, sourcesToSkillsPrompt } from './constants.js';
 
@@ -33,7 +33,7 @@ interface Props {
 }
 
 interface StoredAbility {
-  ability: GeneratedAbility;
+  ability: GeneratedAbility | null;
   content: string;
   id: string;
   moduleId: string;
@@ -162,6 +162,14 @@ For this Exercise-to-Ability conversion request only, wrap each completed Abilit
 Use only ids present in the supplied Exercises. Preserve their order. Prefer converting every Exercise, but if the response cannot fit all conversions, return every complete conversion you can and omit the rest rather than truncating or corrupting an Ability. Omitted Exercises will be retried automatically.
 
 ${JSON.stringify({ bookLanguage: language, exercises })}`;
+}
+
+function abilityRepairRequest (language: string, batch: StoredAbility[], chapterTitle?: string): string {
+  return `${fixAbilitiesPrompt}\n${JSON.stringify({
+    abilities: batch.map(({ ability, content }, index) => ({ ability: ability ?? content, index })),
+    bookLanguage: language,
+    ...(chapterTitle ? { chapterTitle } : {})
+  })}`;
 }
 
 async function requestValidatedJson<T> (client: OpenAI, model: string, systemPrompt: string, userPrompt: string, parse: (content: string) => T, jsonObject = true): Promise<T> {
@@ -319,12 +327,19 @@ function AbilityCard ({ onDeleted, onError, record }: { onDeleted: () => void; o
   }, [onDeleted, onError, record.id]);
 
   return <article className='contentCard'>
-    <strong><KatexSpan content={record.ability.h} /></strong>
-    <ExerciseList
-      areShownInitially
-      exercises={record.ability.q}
-      location='ability_info'
-    />
+    {record.ability
+      ? <>
+        <strong><KatexSpan content={record.ability.h} /></strong>
+        <ExerciseList
+          areShownInitially
+          exercises={record.ability.q}
+          location='ability_info'
+        />
+      </>
+      : <>
+        <strong>Invalid Ability JSON</strong>
+        <p>This record can be repaired with Fix errors.</p>
+      </>}
     <Button
       icon='trash'
       onClick={remove}
@@ -380,11 +395,11 @@ function Skills ({ book, onAction, onBookChange, pipelineOnly = false, pipelineP
         const exercises = matchingPages.flatMap(({ exercises }) => exercises);
         const exerciseTemplates = (await Promise.all(skills.flatMap(({ id }) => id === undefined ? [] : [getExerciseTemplatesForSkill(id)]))).flat();
         const records = (await Promise.all(exercises.flatMap(({ id }) => id === undefined ? [] : [getAbilities(exerciseAbilityModuleId(book.id, id))]))).flat() as Array<{ content: string; id: string; moduleId: string }>;
-        const abilities = records.flatMap(({ content, id, moduleId }): StoredAbility[] => {
+        const abilities = records.map(({ content, id, moduleId }): StoredAbility => {
           try {
-            return [{ ability: parseStoredAbility(content), content, id, moduleId }];
+            return { ability: parseStoredAbility(content), content, id, moduleId };
           } catch {
-            return [];
+            return { ability: null, content, id, moduleId };
           }
         });
 
@@ -460,7 +475,7 @@ function Skills ({ book, onAction, onBookChange, pipelineOnly = false, pipelineP
     }
 
     if (aiAction === 'fix') {
-      return chapterContent.flatMap(({ abilities, chapter }) => Array.from({ length: Math.ceil(abilities.length / BATCH_SIZE) }, (_, index) => `${fixAbilitiesPrompt}\n${chapter.title}\n${JSON.stringify(abilities.slice(index * BATCH_SIZE, (index + 1) * BATCH_SIZE).map(({ ability }) => ability))}`));
+      return chapterContent.flatMap(({ abilities, chapter }) => Array.from({ length: Math.ceil(abilities.length / BATCH_SIZE) }, (_, index) => abilityRepairRequest(language, abilities.slice(index * BATCH_SIZE, (index + 1) * BATCH_SIZE), chapter.title)));
     }
 
     return [];
@@ -710,9 +725,9 @@ function Skills ({ book, onAction, onBookChange, pipelineOnly = false, pipelineP
       const client = await createClient();
 
       let completed = 0;
-      const correctedByModule = new Map<string, string[]>();
+      const replacements = new Map<string, { ability: GeneratedAbility; record: StoredAbility }>();
 
-      for (const { abilities } of chapterContent) {
+      for (const { abilities, chapter } of chapterContent) {
         for (let start = 0; start < abilities.length; start += BATCH_SIZE) {
           const batch = abilities.slice(start, start + BATCH_SIZE);
 
@@ -720,21 +735,28 @@ function Skills ({ book, onAction, onBookChange, pipelineOnly = false, pipelineP
             await delay(REQUEST_INTERVAL_MS);
           }
 
-          const systemPrompt = `Keep ISO language ${language}.`;
-          const userPrompt = `${fixAbilitiesPrompt}\n${JSON.stringify(batch.map(({ ability }) => ability))}`;
-          const corrected = await requestValidatedJson(client, selectedModel, systemPrompt, userPrompt, (content) => parseGeneratedAbilities(content, batch.length), false);
+          const systemPrompt = `Keep ISO language ${language}. Return only the requested JSON object.`;
+          const userPrompt = abilityRepairRequest(language, batch, chapter.title);
+          const reviews = await requestValidatedJson(client, selectedModel, systemPrompt, userPrompt, (content) => parseAbilityRepairReviews(content, batch.map(({ ability }) => ability)));
 
-          batch.forEach(({ moduleId }, index) => {
-            const contents = correctedByModule.get(moduleId) ?? [];
-
-            contents.push(JSON.stringify(corrected[index]));
-            correctedByModule.set(moduleId, contents);
+          reviews.forEach((review) => {
+            if (review.hasErrors && review.ability) {
+              replacements.set(batch[review.index].id, { ability: review.ability, record: batch[review.index] });
+            }
           });
           completed += batch.length; setProgress(completed);
         }
       }
 
-      await Promise.all(Array.from(correctedByModule, ([moduleId, contents]) => replaceAbilities(moduleId, contents)));
+      for (const { ability, record } of replacements.values()) {
+        const newRecordId = await storeAbility(record.moduleId, JSON.stringify(ability));
+
+        if (newRecordId !== record.id) {
+          await deleteAbility(record.id);
+        }
+      }
+
+      setNotice(`Checked ${allAbilities.length} Abilities. Fixed ${replacements.size} with errors; ${allAbilities.length - replacements.size} were left unchanged.`);
       refresh();
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : 'Unable to fix Ability errors.');
@@ -825,7 +847,7 @@ function Skills ({ book, onAction, onBookChange, pipelineOnly = false, pipelineP
       <span className='pipelineStep'><span>›</span><Button
         icon={stage >= 7 ? 'rotate-left' : 'play'}
         isDisabled={isBusy || stage < 7 || !hasAbilities}
-        label='Fix exercise errors'
+        label='Fix errors'
         onClick={openExerciseFix}
                                                    /></span>
     </div>}

@@ -7,7 +7,7 @@ import type { GeneratedAbility } from './abilities.js';
 
 import { strict as assert } from 'node:assert';
 
-import { createAbilityFromExerciseVariation, parseExerciseTemplateVariations, parseGeneratedAbilities, parseGeneratedExerciseAbilities, parseStoredAbility } from './abilities.js';
+import { createAbilityFromExerciseVariation, parseAbilityRepairReviews, parseExerciseTemplateVariations, parseGeneratedAbilities, parseGeneratedExerciseAbilities, parseStoredAbility } from './abilities.js';
 import { conceptsToSkillsPrompt, divideExerciseTemplatesPrompt, fixAbilitiesPrompt, skillListPrompt, skillsToExercisesPrompt, skillsToExerciseTemplatesPrompt, sourcesToSkillsPrompt } from './constants.js';
 
 function createSkill (): GeneratedAbility {
@@ -30,6 +30,104 @@ describe('generated abilities', (): void => {
     assert.deepEqual(parsed, skill);
     assert.deepEqual(Object.keys(parsed).sort(), ['h', 'i', 'q', 't']);
     assert.deepEqual(Object.keys(parsed.q[0]).sort(), ['a', 'h', 'i', 'p']);
+  });
+
+  it('parses indexed Ability repair reviews and only returns a replacement for errors', (): void => {
+    const original = createSkill();
+    const fixed = { ...createSkill(), q: [
+      { ...createSkill().q[0], a: '2 × 1000 = 2000 m.' },
+      { ...createSkill().q[1], a: '5 × 1000 = 5000 m.' }
+    ] };
+
+    fixed.q[1].a = '5 km × 1000 = 5000 m.';
+
+    const reviews = parseAbilityRepairReviews(JSON.stringify({ reviews: [
+      { errors: [], hasErrors: false, index: 0 },
+      { ability: fixed, errors: ['The second solution omitted its source unit.'], hasErrors: true, index: 1 }
+    ] }), [original, original]);
+
+    assert.deepEqual(reviews[0], { errors: [], hasErrors: false, index: 0 });
+    assert.equal(reviews[1].hasErrors, true);
+    assert.deepEqual(reviews[1].ability, fixed);
+  });
+
+  it('accepts partial Ability repair responses and treats omitted indexes as unchanged', (): void => {
+    const original = createSkill();
+    const fixed = { ...createSkill(), q: createSkill().q.map((exercise) => ({ ...exercise })) };
+
+    fixed.q[0].a = 'Corrected answer.';
+
+    const reviews = parseAbilityRepairReviews(JSON.stringify({ reviews: [
+      { ability: fixed, errors: ['The first answer was incorrect.'], hasErrors: true, index: 2 }
+    ] }), [original, original, original, original, original]);
+
+    assert.equal(reviews.length, 1);
+    assert.equal(reviews[0].index, 2);
+    assert.equal(reviews[0].hasErrors, true);
+    assert.deepEqual(parseAbilityRepairReviews(JSON.stringify({ reviews: [] }), [original, original]), []);
+  });
+
+  it('ignores extra out-of-range Ability reviews without rejecting the requested batch', (): void => {
+    const original = createSkill();
+    const fixed = { ...createSkill(), q: createSkill().q.map((exercise) => ({ ...exercise })) };
+
+    fixed.q[1].a = 'Corrected answer.';
+
+    const reviews = parseAbilityRepairReviews(JSON.stringify({ reviews: [
+      { ability: fixed, errors: ['The second answer was incorrect.'], hasErrors: true, index: 1 },
+      { errors: [], hasErrors: false, index: 5 }
+    ] }), [original, original, original, original, original]);
+
+    assert.equal(reviews.length, 1);
+    assert.equal(reviews[0].index, 1);
+  });
+
+  it('preserves existing Ability linkage fields while applying a repair', (): void => {
+    const original = {
+      ...createSkill(),
+      i: 'ability-link',
+      q: createSkill().q.map((exercise, index) => ({ ...exercise, i: `exercise-link-${index}`, p: `prompt-link-${index}` }))
+    };
+    const candidate = {
+      ...createSkill(),
+      i: 'ai-must-not-change-this',
+      q: createSkill().q.map((exercise) => ({ ...exercise, a: `${exercise.a} Corrected.`, i: 'changed', p: 'changed' }))
+    };
+    const [review] = parseAbilityRepairReviews(JSON.stringify({ reviews: [
+      { ability: candidate, errors: ['Answers need correction.'], hasErrors: true, index: 0 }
+    ] }), [original]);
+
+    assert.equal(review.ability?.i, original.i);
+    assert.equal(review.ability?.q[0].i, original.q[0].i);
+    assert.equal(review.ability?.q[0].p, original.q[0].p);
+    assert.match(review.ability?.q[0].a ?? '', /Corrected/);
+  });
+
+  it('requires malformed stored Ability JSON to be identified and repaired', (): void => {
+    const fixed = createSkill();
+
+    assert.throws(() => parseAbilityRepairReviews(JSON.stringify({ reviews: [
+      { errors: [], hasErrors: false, index: 0 }
+    ] }), [null]));
+
+    assert.deepEqual(parseAbilityRepairReviews(JSON.stringify({ reviews: [
+      { ability: fixed, errors: ['Stored Ability JSON is malformed.'], hasErrors: true, index: 0 }
+    ] }), [null])[0].ability, fixed);
+  });
+
+  it('rejects contradictory or ineffective Ability repairs', (): void => {
+    const original = createSkill();
+
+    assert.throws(() => parseAbilityRepairReviews(JSON.stringify({ reviews: [
+      { errors: ['Problem found.'], hasErrors: false, index: 0 }
+    ] }), [original]));
+    assert.throws(() => parseAbilityRepairReviews(JSON.stringify({ reviews: [
+      { ability: original, errors: ['Problem found.'], hasErrors: true, index: 0 }
+    ] }), [original]));
+    assert.throws(() => parseAbilityRepairReviews(JSON.stringify({ reviews: [
+      { errors: [], hasErrors: false, index: 0 },
+      { errors: [], hasErrors: false, index: 0 }
+    ] }), [original, original]));
   });
 
   it('keeps valid partial Exercise-to-Ability conversions keyed by source Exercise id', (): void => {
@@ -226,8 +324,16 @@ describe('generated abilities', (): void => {
     assert.doesNotMatch(divideExerciseTemplatesPrompt, /"title"/i);
   });
 
-  it('requires the repair stage to preserve KaTeX and correct answers', (): void => {
-    assert.match(fixAbilitiesPrompt, /correct/i);
+  it('requires the repair stage to detect all error classes and return indexed fixes', (): void => {
+    assert.match(fixAbilitiesPrompt, /factual/i);
+    assert.match(fixAbilitiesPrompt, /logical/i);
+    assert.match(fixAbilitiesPrompt, /grammatical/i);
+    assert.match(fixAbilitiesPrompt, /KaTeX/i);
+    assert.match(fixAbilitiesPrompt, /hasErrors/i);
+    assert.match(fixAbilitiesPrompt, /errors/i);
+    assert.match(fixAbilitiesPrompt, /reviews/i);
+    assert.match(fixAbilitiesPrompt, /partial reviews array/i);
+    assert.match(fixAbilitiesPrompt, /omit correct Abilities/i);
     assert.match(fixAbilitiesPrompt, /<kx>/i);
   });
 
