@@ -12,13 +12,12 @@ import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { Button, Dropdown, Input, Modal, styled } from '@polkadot/react-components';
 
 import ExerciseList from './Edit/ExerciseList.js';
-import { parseAbilityRepairReviews, parseGeneratedAbilities, parseGeneratedExerciseAbilities, parseStoredAbility } from './abilities.js';
+import { parseAbilityRepairResult, parseGeneratedAbilities, parseGeneratedExerciseAbilities, parseStoredAbility } from './abilities.js';
 import { estimateAiInput, formatAiInputEstimate } from './aiEstimate.js';
 import { abilityGenerationInstructions, divideExerciseTemplatesPrompt, fixAbilitiesPrompt, OPENAI_MODELS, skillsToExerciseTemplatesPrompt, sourcesToSkillsPrompt } from './constants.js';
 
 const REQUEST_INTERVAL_MS = Math.ceil(60_000 / 9);
 const BATCH_SIZE = 5;
-const FIX_BATCH_SIZE = 10;
 const FIX_CONCURRENCY = 3;
 const MAX_REQUEST_ATTEMPTS = 4;
 const RETRY_BASE_DELAY_MS = 1_000;
@@ -201,6 +200,7 @@ interface FixedAbilityReview {
 
 interface FixReviewResult {
   checked: number;
+  deletedDuplicateIds: string[];
   items: FixedAbilityReview[];
 }
 
@@ -331,7 +331,7 @@ ${JSON.stringify({ bookLanguage: language, exercises })}`;
 
 function abilityRepairRequest (language: string, batch: StoredAbility[], chapterTitle?: string): string {
   return `${fixAbilitiesPrompt}\n${JSON.stringify({
-    abilities: batch.map(({ ability, content }, index) => ({ ability: ability ?? content, index })),
+    abilities: batch.map(({ ability, content, id }, index) => ({ ability: ability ?? content, id, index })),
     bookLanguage: language,
     ...(chapterTitle ? { chapterTitle } : {})
   })}`;
@@ -642,12 +642,13 @@ function Skills ({ book, onAction, onBookChange, pipelineOnly = false, pipelineP
     }
 
     if (aiAction === 'fix') {
-      return chapterContent.flatMap(({ abilities, chapter }) => Array.from({ length: Math.ceil(abilities.length / FIX_BATCH_SIZE) }, (_, index) => abilityRepairRequest(language, abilities.slice(index * FIX_BATCH_SIZE, (index + 1) * FIX_BATCH_SIZE), chapter.title)));
+      return chapterContent.filter(({ abilities }) => abilities.length > 0).map(({ abilities, chapter }) => abilityRepairRequest(language, abilities, chapter.title));
     }
 
     return [];
   }, [aiAction, allExercises, allSkillBlocks, chapterContent, language, skillSources]);
-  const generationOutputTokens = aiAction === 'preExercises' || aiAction === 'dividePreExercises' ? BATCH_SIZE * 1_250 : aiAction === 'exercises' ? Math.max(1, allExercises.length) * 700 : aiAction === 'fix' ? FIX_BATCH_SIZE * 700 : aiAction === 'skills' ? BATCH_SIZE * 180 : 300;
+  const maxChapterAbilityCount = Math.max(1, ...chapterContent.map(({ abilities }) => abilities.length));
+  const generationOutputTokens = aiAction === 'preExercises' || aiAction === 'dividePreExercises' ? BATCH_SIZE * 1_250 : aiAction === 'exercises' ? Math.max(1, allExercises.length) * 700 : aiAction === 'fix' ? maxChapterAbilityCount * 700 : aiAction === 'skills' ? BATCH_SIZE * 180 : 300;
   const validationInputs = useMemo(() => aiAction === 'exercises'
     ? requestInputs.flatMap((input) => [input, input, input])
     : requestInputs, [aiAction, requestInputs]);
@@ -907,12 +908,12 @@ function Skills ({ book, onAction, onBookChange, pipelineOnly = false, pipelineP
       const client = await createClient();
       const requestGate = createRequestGate(FIX_CONCURRENCY);
       const replacements = new Map<string, { ability: GeneratedAbility; errors: string[]; record: StoredAbility }>();
-      const batches = chapterContent.flatMap(({ abilities, chapter }) =>
-        Array.from({ length: Math.ceil(abilities.length / FIX_BATCH_SIZE) }, (_, index) => ({
-          batch: abilities.slice(index * FIX_BATCH_SIZE, (index + 1) * FIX_BATCH_SIZE),
-          chapterTitle: chapter.title
-        }))
-      );
+      const duplicateIds = new Set<string>();
+      // Duplicate detection needs complete chapter context, so every chapter is
+      // one AI request. Different chapters may still be reviewed concurrently.
+      const batches = chapterContent
+        .filter(({ abilities }) => abilities.length > 0)
+        .map(({ abilities, chapter }) => ({ batch: abilities, chapterTitle: chapter.title }));
       let completed = 0;
       let nextBatch = 0;
       let workerError: unknown;
@@ -930,21 +931,26 @@ function Skills ({ book, onAction, onBookChange, pipelineOnly = false, pipelineP
           const userPrompt = abilityRepairRequest(language, batch, chapterTitle);
 
           try {
-            const reviews = await requestValidatedJson(
+            const result = await requestValidatedJson(
               client,
               selectedModel,
               systemPrompt,
               userPrompt,
-              (content) => parseAbilityRepairReviews(content, batch.map(({ ability }) => ability)),
+              (content) => parseAbilityRepairResult(content, batch.map(({ ability }) => ability), batch.map(({ id }) => id)),
               true,
               requestGate
             );
 
-            reviews.forEach((review) => {
+            result.duplicateAbilityIds.forEach((id) => duplicateIds.add(id));
+            result.reviews.forEach((review) => {
               if (review.hasErrors && review.ability) {
                 const record = batch[review.index];
 
-                replacements.set(record.id, { ability: review.ability, errors: review.errors, record });
+                // Duplicate copies are deleted after the review phase, so do not
+                // spend a write replacing a record that is about to disappear.
+                if (!result.duplicateAbilityIds.includes(record.id)) {
+                  replacements.set(record.id, { ability: review.ability, errors: review.errors, record });
+                }
               }
             });
             completed += batch.length;
@@ -962,7 +968,9 @@ function Skills ({ book, onAction, onBookChange, pipelineOnly = false, pipelineP
       }
 
       // Preserve the existing all-or-nothing review phase: no Ability is
-      // persisted until every batch has completed successfully.
+      // persisted or deleted until every chapter reply has completed successfully.
+      duplicateIds.forEach((id) => replacements.delete(id));
+
       for (const { ability, record } of replacements.values()) {
         const newRecordId = await storeAbility(record.moduleId, JSON.stringify(ability));
 
@@ -971,8 +979,13 @@ function Skills ({ book, onAction, onBookChange, pipelineOnly = false, pipelineP
         }
       }
 
+      for (const id of duplicateIds) {
+        await deleteAbility(id);
+      }
+
       setFixReview({
         checked: allAbilities.length,
+        deletedDuplicateIds: Array.from(duplicateIds),
         items: Array.from(replacements.values(), ({ ability, errors, record }) => ({
           ability,
           errors,
@@ -980,7 +993,9 @@ function Skills ({ book, onAction, onBookChange, pipelineOnly = false, pipelineP
           recordId: record.id
         }))
       });
-      setNotice(`Checked ${allAbilities.length} Abilities. Fixed ${replacements.size} with errors; ${allAbilities.length - replacements.size} were left unchanged.`);
+      const unchanged = Math.max(0, allAbilities.length - replacements.size - duplicateIds.size);
+
+      setNotice(`Checked ${allAbilities.length} Abilities. Fixed ${replacements.size} with errors and deleted ${duplicateIds.size} duplicate${duplicateIds.size === 1 ? '' : 's'}; ${unchanged} were left unchanged.`);
       refresh();
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : 'Unable to fix Ability errors.');
@@ -1026,7 +1041,13 @@ function Skills ({ book, onAction, onBookChange, pipelineOnly = false, pipelineP
         size='small'
       >
         <Modal.Content>
-          <p>Checked {fixReview.checked} Abilities. Corrected {fixReview.items.length} with errors.</p>
+          <p>Checked {fixReview.checked} Abilities. Corrected {fixReview.items.length} with errors and deleted {fixReview.deletedDuplicateIds.length} duplicate{fixReview.deletedDuplicateIds.length === 1 ? '' : 's'}.</p>
+          {fixReview.deletedDuplicateIds.length > 0 && <>
+            <h5>Deleted duplicate Ability IDs</h5>
+            <ul>
+              {fixReview.deletedDuplicateIds.map((id) => <li key={id}><code>{id}</code></li>)}
+            </ul>
+          </>}
           {fixReview.items.length
             ? <div className='fixReviewList'>
               {fixReview.items.map(({ ability, errors, exerciseTitle, recordId }, index) => <article

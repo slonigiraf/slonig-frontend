@@ -22,6 +22,11 @@ export interface AbilityRepairReview {
   index: number;
 }
 
+export interface AbilityRepairResult {
+  duplicateAbilityIds: string[];
+  reviews: AbilityRepairReview[];
+}
+
 export interface ExerciseTemplateVariation {
   skillId: number;
   solution: string;
@@ -109,17 +114,30 @@ function abilitySignature (ability: GeneratedAbility): string {
   });
 }
 
-export function parseAbilityRepairReviews (content: string, originals: Array<GeneratedAbility | null>): AbilityRepairReview[] {
-  const parsed = parseResponse(content);
-  const values: unknown = Array.isArray(parsed)
-    ? parsed
-    : isRecord(parsed)
-      ? parsed.reviews ?? parsed.abilities
-      : undefined;
-
-  if (!Array.isArray(values)) {
-    throw new Error('OpenRouter returned invalid Ability review data.');
+export function parseAbilityRepairResult (content: string, originals: Array<GeneratedAbility | null>, originalIds: string[]): AbilityRepairResult {
+  if (originalIds.length !== originals.length || new Set(originalIds).size !== originalIds.length) {
+    throw new Error('Ability repair input IDs do not match the supplied Abilities.');
   }
+
+  const parsed = parseResponse(content);
+
+  if (!isRecord(parsed) || !Array.isArray(parsed.reviews) || !Array.isArray(parsed.duplicateAbilityIds)) {
+    throw new Error('OpenRouter returned invalid Ability repair data.');
+  }
+
+  const values: unknown[] = parsed.reviews;
+  const allowedIds = new Set(originalIds);
+  const duplicateAbilityIds: string[] = [];
+  const usedDuplicateIds = new Set<string>();
+
+  parsed.duplicateAbilityIds.forEach((value: unknown): void => {
+    if (typeof value !== 'string' || !value.trim() || !allowedIds.has(value) || usedDuplicateIds.has(value)) {
+      throw new Error('OpenRouter returned an invalid or duplicate Ability ID for deletion.');
+    }
+
+    usedDuplicateIds.add(value);
+    duplicateAbilityIds.push(value);
+  });
 
   const used = new Set<number>();
   const reviews: AbilityRepairReview[] = [];
@@ -190,7 +208,18 @@ export function parseAbilityRepairReviews (content: string, originals: Array<Gen
 
   // Missing indexes are intentional: the repair API may return only Abilities
   // where it found an error. Omitted Abilities are therefore left unchanged.
-  return reviews.sort((a, b) => a.index - b.index);
+  return { duplicateAbilityIds, reviews: reviews.sort((a, b) => a.index - b.index) };
+}
+
+export function parseAbilityRepairReviews (content: string, originals: Array<GeneratedAbility | null>): AbilityRepairReview[] {
+  const parsed = parseResponse(content);
+  const normalized = Array.isArray(parsed)
+    ? { duplicateAbilityIds: [], reviews: parsed }
+    : isRecord(parsed) && !Array.isArray(parsed.duplicateAbilityIds)
+      ? { ...parsed, duplicateAbilityIds: [] }
+      : parsed;
+
+  return parseAbilityRepairResult(JSON.stringify(normalized), originals, originals.map((_, index) => String(index))).reviews;
 }
 
 export function parseGeneratedExerciseAbilities (content: string, expectedExerciseIds: number[]): GeneratedExerciseAbility[] {

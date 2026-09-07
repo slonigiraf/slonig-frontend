@@ -7,7 +7,7 @@ import type { GeneratedAbility } from './abilities.js';
 
 import { strict as assert } from 'node:assert';
 
-import { createAbilityFromExerciseVariation, parseAbilityRepairReviews, parseExerciseTemplateVariations, parseGeneratedAbilities, parseGeneratedExerciseAbilities, parseStoredAbility } from './abilities.js';
+import { createAbilityFromExerciseVariation, parseAbilityRepairResult, parseAbilityRepairReviews, parseExerciseTemplateVariations, parseGeneratedAbilities, parseGeneratedExerciseAbilities, parseStoredAbility } from './abilities.js';
 import { conceptsToSkillsPrompt, divideExerciseTemplatesPrompt, fixAbilitiesPrompt, skillListPrompt, skillsToExercisesPrompt, skillsToExerciseTemplatesPrompt, sourcesToSkillsPrompt } from './constants.js';
 
 function createSkill (): GeneratedAbility {
@@ -49,6 +49,24 @@ describe('generated abilities', (): void => {
     assert.deepEqual(reviews[0], { errors: [], hasErrors: false, index: 0 });
     assert.equal(reviews[1].hasErrors, true);
     assert.deepEqual(reviews[1].ability, fixed);
+  });
+
+  it('parses chapter duplicate Ability IDs and rejects IDs outside the supplied chapter', (): void => {
+    const original = createSkill();
+    const result = parseAbilityRepairResult(JSON.stringify({
+      duplicateAbilityIds: ['ability-2'],
+      reviews: []
+    }), [original, original], ['ability-1', 'ability-2']);
+
+    assert.deepEqual(result, { duplicateAbilityIds: ['ability-2'], reviews: [] });
+    assert.throws(() => parseAbilityRepairResult(JSON.stringify({
+      duplicateAbilityIds: ['other-chapter-id'],
+      reviews: []
+    }), [original, original], ['ability-1', 'ability-2']));
+    assert.throws(() => parseAbilityRepairResult(JSON.stringify({
+      duplicateAbilityIds: ['ability-2', 'ability-2'],
+      reviews: []
+    }), [original, original], ['ability-1', 'ability-2']));
   });
 
   it('accepts partial Ability repair responses and treats omitted indexes as unchanged', (): void => {
@@ -333,6 +351,8 @@ describe('generated abilities', (): void => {
     assert.match(fixAbilitiesPrompt, /errors/i);
     assert.match(fixAbilitiesPrompt, /reviews/i);
     assert.match(fixAbilitiesPrompt, /partial reviews array/i);
+    assert.match(fixAbilitiesPrompt, /duplicateAbilityIds/i);
+    assert.match(fixAbilitiesPrompt, /earliest supplied index/i);
     assert.match(fixAbilitiesPrompt, /omit correct Abilities/i);
     assert.match(fixAbilitiesPrompt, /<kx>/i);
   });
