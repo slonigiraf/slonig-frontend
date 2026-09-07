@@ -917,32 +917,49 @@ function Skills ({ book, onAction, onBookChange, pipelineOnly = false, pipelineP
             </div>
           )}
           {view === 'preExercisesExercises' && (
-            <div className='columns'>
-              <section>
-                <h3>Exercises</h3>
-                {!current.exercises.length && <p>No Exercises in this chapter.</p>}
-                {current.exercises.map((exercise) => <BookItem
-                  abilityMode={exercise.abilityMode}
-                  description={exercise.description}
-                  id={exercise.id}
+            <div className='singlePane abilitiesPane'>
+              <h3>Exercises and Abilities</h3>
+              {!current.exercises.length && <p>No Exercises in this chapter.</p>}
+              {current.exercises.map((exercise) => {
+                const matchedAbilities = exercise.id === undefined
+                  ? []
+                  : current.abilities.filter(({ moduleId }) => moduleId === exerciseAbilityModuleId(book.id, exercise.id as number));
+
+                return <section
+                  className='exerciseWithAbilities'
                   key={`exercise-${exercise.id ?? 'new'}`}
-                  onDeleted={refresh}
-                  onError={setError}
-                  solution={exercise.solution}
-                  title={exercise.title}
-                  type='exercise'
-                                                      />)}
-              </section>
-              <section>
-                <h3>Abilities</h3>
-                {!current.abilities.length && <p>No Abilities generated.</p>}
-                {current.abilities.map((record) => <AbilityCard
+                       >
+                  <BookItem
+                    abilityMode={exercise.abilityMode}
+                    description={exercise.description}
+                    id={exercise.id}
+                    onDeleted={refresh}
+                    onError={setError}
+                    solution={exercise.solution}
+                    title={exercise.title}
+                    type='exercise'
+                  />
+                  <div className='matchedAbilities'>
+                    {matchedAbilities.length
+                      ? matchedAbilities.map((record) => <AbilityCard
+                        key={record.id}
+                        onDeleted={refresh}
+                        onError={setError}
+                        record={record}
+                                                        />)
+                      : <p className='noAbility'>No Ability generated for this Exercise.</p>}
+                  </div>
+                </section>;
+              })}
+              {current.abilities.some(({ moduleId }) => !current.exercises.some(({ id }) => id !== undefined && moduleId === exerciseAbilityModuleId(book.id, id))) && <section className='unmatchedAbilities'>
+                <h4>Unmatched Abilities</h4>
+                {current.abilities.filter(({ moduleId }) => !current.exercises.some(({ id }) => id !== undefined && moduleId === exerciseAbilityModuleId(book.id, id))).map((record) => <AbilityCard
                   key={record.id}
                   onDeleted={refresh}
                   onError={setError}
                   record={record}
-                                                   />)}
-              </section>
+                                                                                                                                                                             />)}
+              </section>}
             </div>
           )}
         </>
@@ -968,6 +985,13 @@ const StyledSkills = styled.div`
   .contentCard > strong { display: block; overflow-wrap: anywhere; }
   .skillWithTemplates + .skillWithTemplates { border-top: 1px solid var(--border-table); margin-top: 0.75rem; padding-top: 0.5rem; }
   .skillWithTemplates .contentCard + .contentCard { border-left: 3px solid var(--border-table); margin-left: 1.5rem; }
+  .abilitiesPane { width: 100%; }
+  .exerciseWithAbilities + .exerciseWithAbilities { border-top: 1px solid var(--border-table); margin-top: 1rem; padding-top: 0.5rem; }
+  .matchedAbilities { border-left: 3px solid var(--border-table); margin: 0 0 0.75rem 1.5rem; padding-left: 0.75rem; }
+  .matchedAbilities .contentCard { background: var(--bg-input); }
+  .matchedAbilities .contentCard:last-child { border-bottom: 0; }
+  .noAbility { color: var(--color-label); margin: 0; padding: 0.75rem 0; }
+  .unmatchedAbilities { border-top: 1px solid var(--border-table); margin-top: 1rem; padding-top: 1rem; }
   .contentCard p { margin: 0.35rem 0; }
   .contentCard .solution { border-left: 0.2rem solid var(--border-table); margin: 0.5rem 0; padding-left: 0.75rem; }
   .processingOverlay { align-items: center; background: color-mix(in srgb, var(--bg-page) 92%, transparent); display: flex; flex-direction: column; gap: 0.75rem; inset: 0; justify-content: center; position: fixed; z-index: 1000; }
