@@ -198,9 +198,17 @@ interface FixedAbilityReview {
   recordId: string;
 }
 
+interface DuplicateAbilityReview {
+  chapterTitle: string;
+  deleted: StoredAbility;
+  deletedExerciseTitle?: string;
+  kept: StoredAbility;
+  keptExerciseTitle?: string;
+}
+
 interface FixReviewResult {
   checked: number;
-  deletedDuplicateIds: string[];
+  duplicatePairs: DuplicateAbilityReview[];
   items: FixedAbilityReview[];
 }
 
@@ -510,6 +518,27 @@ function AbilityCard ({ onDeleted, onError, record }: { onDeleted: () => void; o
       onClick={remove}
     />
   </article>;
+}
+
+function DuplicateAbilitySide ({ exerciseTitle, label, record }: { exerciseTitle?: string; label: string; record: StoredAbility }): React.ReactElement {
+  return <section className='duplicateAbilitySide'>
+    <h5>{label}</h5>
+    {exerciseTitle && <p><small>Exercise: <KatexSpan content={exerciseTitle} /></small></p>}
+    <p><small>Record ID: <code>{record.id}</code></small></p>
+    {record.ability
+      ? <>
+        <strong><KatexSpan content={record.ability.h} /></strong>
+        <ExerciseList
+          areShownInitially
+          exercises={record.ability.q}
+          location='ability_info'
+        />
+      </>
+      : <>
+        <strong>Invalid Ability JSON</strong>
+        <pre>{record.content}</pre>
+      </>}
+  </section>;
 }
 
 const chapterSessionKey = (bookId: number, view: SkillsView): string => `knowledge-upload-book-${bookId}-${view}-chapter`;
@@ -908,7 +937,7 @@ function Skills ({ book, onAction, onBookChange, pipelineOnly = false, pipelineP
       const client = await createClient();
       const requestGate = createRequestGate(FIX_CONCURRENCY);
       const replacements = new Map<string, { ability: GeneratedAbility; errors: string[]; record: StoredAbility }>();
-      const duplicateIds = new Set<string>();
+      const duplicatePairs = new Map<string, DuplicateAbilityReview>();
       // Duplicate detection needs complete chapter context, so every chapter is
       // one AI request. Different chapters may still be reviewed concurrently.
       const batches = chapterContent
@@ -941,14 +970,31 @@ function Skills ({ book, onAction, onBookChange, pipelineOnly = false, pipelineP
               requestGate
             );
 
-            result.duplicateAbilityIds.forEach((id) => duplicateIds.add(id));
+            const batchDuplicateIds = new Set(result.duplicatePairs.map(({ deletedAbilityId }) => deletedAbilityId));
+
+            result.duplicatePairs.forEach(({ deletedAbilityId, keptAbilityId }) => {
+              const kept = batch.find(({ id }) => id === keptAbilityId);
+              const deleted = batch.find(({ id }) => id === deletedAbilityId);
+
+              if (!kept || !deleted) {
+                throw new Error('OpenRouter returned a duplicate Ability pair that does not exist in this chapter.');
+              }
+
+              duplicatePairs.set(deletedAbilityId, {
+                chapterTitle,
+                deleted,
+                deletedExerciseTitle: exerciseTitlesByModuleId.get(deleted.moduleId),
+                kept,
+                keptExerciseTitle: exerciseTitlesByModuleId.get(kept.moduleId)
+              });
+            });
             result.reviews.forEach((review) => {
               if (review.hasErrors && review.ability) {
                 const record = batch[review.index];
 
                 // Duplicate copies are deleted after the review phase, so do not
                 // spend a write replacing a record that is about to disappear.
-                if (!result.duplicateAbilityIds.includes(record.id)) {
+                if (!batchDuplicateIds.has(record.id)) {
                   replacements.set(record.id, { ability: review.ability, errors: review.errors, record });
                 }
               }
@@ -969,10 +1015,15 @@ function Skills ({ book, onAction, onBookChange, pipelineOnly = false, pipelineP
 
       // Preserve the existing all-or-nothing review phase: no Ability is
       // persisted or deleted until every chapter reply has completed successfully.
+      const duplicateIds = new Set(duplicatePairs.keys());
+      const persistedRecordIds = new Map<string, string>();
+
       duplicateIds.forEach((id) => replacements.delete(id));
 
       for (const { ability, record } of replacements.values()) {
         const newRecordId = await storeAbility(record.moduleId, JSON.stringify(ability));
+
+        persistedRecordIds.set(record.id, newRecordId);
 
         if (newRecordId !== record.id) {
           await deleteAbility(record.id);
@@ -985,7 +1036,14 @@ function Skills ({ book, onAction, onBookChange, pipelineOnly = false, pipelineP
 
       setFixReview({
         checked: allAbilities.length,
-        deletedDuplicateIds: Array.from(duplicateIds),
+        duplicatePairs: Array.from(duplicatePairs.values(), (pair) => {
+          const keptReplacement = replacements.get(pair.kept.id);
+          const keptRecordId = persistedRecordIds.get(pair.kept.id) ?? pair.kept.id;
+
+          return keptReplacement
+            ? { ...pair, kept: { ...pair.kept, ability: keptReplacement.ability, content: JSON.stringify(keptReplacement.ability), id: keptRecordId } }
+            : pair;
+        }),
         items: Array.from(replacements.values(), ({ ability, errors, record }) => ({
           ability,
           errors,
@@ -996,13 +1054,12 @@ function Skills ({ book, onAction, onBookChange, pipelineOnly = false, pipelineP
       const unchanged = Math.max(0, allAbilities.length - replacements.size - duplicateIds.size);
 
       setNotice(`Checked ${allAbilities.length} Abilities. Fixed ${replacements.size} with errors and deleted ${duplicateIds.size} duplicate${duplicateIds.size === 1 ? '' : 's'}; ${unchanged} were left unchanged.`);
-      refresh();
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : 'Unable to fix Ability errors.');
     } finally {
       setIsBusy(false);
     }
-  }, [allAbilities.length, beginProgress, chapterContent, createClient, exerciseTitlesByModuleId, language, refresh, selectedModel]);
+  }, [allAbilities.length, beginProgress, chapterContent, createClient, exerciseTitlesByModuleId, language, selectedModel]);
 
   const confirm = useCallback((): void => {
     if (aiAction === 'skills') {
@@ -1026,6 +1083,10 @@ function Skills ({ book, onAction, onBookChange, pipelineOnly = false, pipelineP
     }
   }, [aiAction, dividePreExercises, fixExercises, generateExercises, generatePreExercises, generateSkills]);
   const closeConfirmation = useCallback((): void => setAiAction(undefined), []);
+  const closeFixReview = useCallback((): void => {
+    setFixReview(null);
+    refresh();
+  }, [refresh]);
   const openExerciseGeneration = useCallback((): void => {
     setAiAction('exercises'); onAction?.('preExercisesExercises');
   }, [onAction]);
@@ -1037,16 +1098,33 @@ function Skills ({ book, onAction, onBookChange, pipelineOnly = false, pipelineP
     {fixReview && (
       <Modal
         header='Fix errors results'
-        onClose={() => setFixReview(null)}
-        size='small'
+        onClose={closeFixReview}
+        size='large'
       >
         <Modal.Content>
-          <p>Checked {fixReview.checked} Abilities. Corrected {fixReview.items.length} with errors and deleted {fixReview.deletedDuplicateIds.length} duplicate{fixReview.deletedDuplicateIds.length === 1 ? '' : 's'}.</p>
-          {fixReview.deletedDuplicateIds.length > 0 && <>
-            <h5>Deleted duplicate Ability IDs</h5>
-            <ul>
-              {fixReview.deletedDuplicateIds.map((id) => <li key={id}><code>{id}</code></li>)}
-            </ul>
+          <p>Checked {fixReview.checked} Abilities. Corrected {fixReview.items.length} with errors and deleted {fixReview.duplicatePairs.length} duplicate{fixReview.duplicatePairs.length === 1 ? '' : 's'}.</p>
+          {fixReview.duplicatePairs.length > 0 && <>
+            <h4>Deleted duplicates</h4>
+            <div className='duplicateReviewList'>
+              {fixReview.duplicatePairs.map(({ chapterTitle, deleted, deletedExerciseTitle, kept, keptExerciseTitle }, index) => <article
+                className='duplicateReviewItem'
+                key={deleted.id}
+                                                                                                                          >
+                <strong>{index + 1}. Chapter: <KatexSpan content={chapterTitle} /></strong>
+                <div className='duplicatePairComparison'>
+                  <DuplicateAbilitySide
+                    exerciseTitle={keptExerciseTitle}
+                    label='Kept'
+                    record={kept}
+                  />
+                  <DuplicateAbilitySide
+                    exerciseTitle={deletedExerciseTitle}
+                    label='Deleted duplicate'
+                    record={deleted}
+                  />
+                </div>
+              </article>)}
+            </div>
           </>}
           {fixReview.items.length
             ? <div className='fixReviewList'>
@@ -1075,7 +1153,7 @@ function Skills ({ book, onAction, onBookChange, pipelineOnly = false, pipelineP
             <Button
               icon='check'
               label='Close'
-              onClick={() => setFixReview(null)}
+              onClick={closeFixReview}
             />
           </Button.Group>
         </Modal.Content>
@@ -1301,6 +1379,15 @@ const StyledSkills = styled.div`
   .fixReviewItem h5 { margin: 0.75rem 0 0.35rem; }
   .fixReviewItem ul { margin: 0.5rem 0 0; padding-left: 1.4rem; }
   .fixedAbilityPreview { border-left: 3px solid var(--border-table); padding-left: 0.75rem; }
+  .duplicateReviewList { max-height: 60vh; overflow: auto; }
+  .duplicateReviewItem { border-top: 1px solid var(--border-table); padding: 0.9rem 0; }
+  .duplicateReviewItem:first-child { border-top: 0; }
+  .duplicatePairComparison { display: grid; gap: 1rem; grid-template-columns: repeat(2, minmax(0, 1fr)); margin-top: 0.6rem; }
+  .duplicateAbilitySide { border: 1px solid var(--border-table); border-radius: 0.4rem; min-width: 0; padding: 0.75rem; }
+  .duplicateAbilitySide h5 { margin: 0 0 0.5rem; }
+  .duplicateAbilitySide p { margin: 0.35rem 0; overflow-wrap: anywhere; }
+  .duplicateAbilitySide > strong { display: block; margin: 0.5rem 0; overflow-wrap: anywhere; }
+  .duplicateAbilitySide pre { max-height: 12rem; overflow: auto; white-space: pre-wrap; }
   .skillWithTemplates + .skillWithTemplates { border-top: 1px solid var(--border-table); margin-top: 0.75rem; padding-top: 0.5rem; }
   .skillWithTemplates .contentCard + .contentCard { border-left: 3px solid var(--border-table); margin-left: 1.5rem; }
   .abilitiesPane { width: 100%; }
@@ -1315,7 +1402,7 @@ const StyledSkills = styled.div`
   .processingOverlay { align-items: center; background: color-mix(in srgb, var(--bg-page) 92%, transparent); display: flex; flex-direction: column; gap: 0.75rem; inset: 0; justify-content: center; position: fixed; z-index: 1000; }
   .errorMessage { color: #9f3a38; }
   .noticeMessage { color: var(--color-label); }
-  @media only screen and (max-width: 900px) { .columns { grid-template-columns: 1fr; } .chapterEditor { align-items: stretch; flex-direction: column; } }
+  @media only screen and (max-width: 900px) { .columns, .duplicatePairComparison { grid-template-columns: 1fr; } .chapterEditor { align-items: stretch; flex-direction: column; } }
 `;
 
 export default React.memo(Skills);

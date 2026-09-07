@@ -22,8 +22,13 @@ export interface AbilityRepairReview {
   index: number;
 }
 
+export interface AbilityDuplicatePair {
+  deletedAbilityId: string;
+  keptAbilityId: string;
+}
+
 export interface AbilityRepairResult {
-  duplicateAbilityIds: string[];
+  duplicatePairs: AbilityDuplicatePair[];
   reviews: AbilityRepairReview[];
 }
 
@@ -121,23 +126,47 @@ export function parseAbilityRepairResult (content: string, originals: Array<Gene
 
   const parsed = parseResponse(content);
 
-  if (!isRecord(parsed) || !Array.isArray(parsed.reviews) || !Array.isArray(parsed.duplicateAbilityIds)) {
+  if (!isRecord(parsed) || !Array.isArray(parsed.reviews) || !Array.isArray(parsed.duplicatePairs)) {
     throw new Error('OpenRouter returned invalid Ability repair data.');
   }
 
   const values: unknown[] = parsed.reviews;
   const allowedIds = new Set(originalIds);
-  const duplicateAbilityIds: string[] = [];
-  const usedDuplicateIds = new Set<string>();
+  const indexesById = new Map(originalIds.map((id, index) => [id, index] as const));
+  const duplicatePairs: AbilityDuplicatePair[] = [];
+  const deletedDuplicateIds = new Set<string>();
+  const keptDuplicateIds = new Set<string>();
 
-  parsed.duplicateAbilityIds.forEach((value: unknown): void => {
-    if (typeof value !== 'string' || !value.trim() || !allowedIds.has(value) || usedDuplicateIds.has(value)) {
-      throw new Error('OpenRouter returned an invalid or duplicate Ability ID for deletion.');
+  parsed.duplicatePairs.forEach((value: unknown): void => {
+    if (
+      !isRecord(value) ||
+      typeof value.keptAbilityId !== 'string' ||
+      !value.keptAbilityId.trim() ||
+      typeof value.deletedAbilityId !== 'string' ||
+      !value.deletedAbilityId.trim() ||
+      value.keptAbilityId === value.deletedAbilityId ||
+      !allowedIds.has(value.keptAbilityId) ||
+      !allowedIds.has(value.deletedAbilityId) ||
+      deletedDuplicateIds.has(value.deletedAbilityId)
+    ) {
+      throw new Error('OpenRouter returned an invalid duplicate Ability pair.');
     }
 
-    usedDuplicateIds.add(value);
-    duplicateAbilityIds.push(value);
+    const keptIndex = indexesById.get(value.keptAbilityId);
+    const deletedIndex = indexesById.get(value.deletedAbilityId);
+
+    if (keptIndex === undefined || deletedIndex === undefined || keptIndex >= deletedIndex) {
+      throw new Error('OpenRouter must keep the earliest supplied duplicate Ability.');
+    }
+
+    keptDuplicateIds.add(value.keptAbilityId);
+    deletedDuplicateIds.add(value.deletedAbilityId);
+    duplicatePairs.push({ deletedAbilityId: value.deletedAbilityId, keptAbilityId: value.keptAbilityId });
   });
+
+  if (Array.from(keptDuplicateIds).some((id) => deletedDuplicateIds.has(id))) {
+    throw new Error('OpenRouter returned contradictory duplicate Ability pairs.');
+  }
 
   const used = new Set<number>();
   const reviews: AbilityRepairReview[] = [];
@@ -208,15 +237,15 @@ export function parseAbilityRepairResult (content: string, originals: Array<Gene
 
   // Missing indexes are intentional: the repair API may return only Abilities
   // where it found an error. Omitted Abilities are therefore left unchanged.
-  return { duplicateAbilityIds, reviews: reviews.sort((a, b) => a.index - b.index) };
+  return { duplicatePairs, reviews: reviews.sort((a, b) => a.index - b.index) };
 }
 
 export function parseAbilityRepairReviews (content: string, originals: Array<GeneratedAbility | null>): AbilityRepairReview[] {
   const parsed = parseResponse(content);
   const normalized = Array.isArray(parsed)
-    ? { duplicateAbilityIds: [], reviews: parsed }
-    : isRecord(parsed) && !Array.isArray(parsed.duplicateAbilityIds)
-      ? { ...parsed, duplicateAbilityIds: [] }
+    ? { duplicatePairs: [], reviews: parsed }
+    : isRecord(parsed) && !Array.isArray(parsed.duplicatePairs)
+      ? { ...parsed, duplicatePairs: [] }
       : parsed;
 
   return parseAbilityRepairResult(JSON.stringify(normalized), originals, originals.map((_, index) => String(index))).reviews;

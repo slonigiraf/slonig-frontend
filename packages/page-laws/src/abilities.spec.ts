@@ -51,20 +51,27 @@ describe('generated abilities', (): void => {
     assert.deepEqual(reviews[1].ability, fixed);
   });
 
-  it('parses chapter duplicate Ability IDs and rejects IDs outside the supplied chapter', (): void => {
+  it('parses chapter duplicate Ability pairs and rejects unsafe deletion pairs', (): void => {
     const original = createSkill();
     const result = parseAbilityRepairResult(JSON.stringify({
-      duplicateAbilityIds: ['ability-2'],
+      duplicatePairs: [{ deletedAbilityId: 'ability-2', keptAbilityId: 'ability-1' }],
       reviews: []
     }), [original, original], ['ability-1', 'ability-2']);
 
-    assert.deepEqual(result, { duplicateAbilityIds: ['ability-2'], reviews: [] });
+    assert.deepEqual(result, { duplicatePairs: [{ deletedAbilityId: 'ability-2', keptAbilityId: 'ability-1' }], reviews: [] });
     assert.throws(() => parseAbilityRepairResult(JSON.stringify({
-      duplicateAbilityIds: ['other-chapter-id'],
+      duplicatePairs: [{ deletedAbilityId: 'other-chapter-id', keptAbilityId: 'ability-1' }],
       reviews: []
     }), [original, original], ['ability-1', 'ability-2']));
     assert.throws(() => parseAbilityRepairResult(JSON.stringify({
-      duplicateAbilityIds: ['ability-2', 'ability-2'],
+      duplicatePairs: [
+        { deletedAbilityId: 'ability-2', keptAbilityId: 'ability-1' },
+        { deletedAbilityId: 'ability-2', keptAbilityId: 'ability-1' }
+      ],
+      reviews: []
+    }), [original, original], ['ability-1', 'ability-2']));
+    assert.throws(() => parseAbilityRepairResult(JSON.stringify({
+      duplicatePairs: [{ deletedAbilityId: 'ability-1', keptAbilityId: 'ability-2' }],
       reviews: []
     }), [original, original], ['ability-1', 'ability-2']));
   });
@@ -351,7 +358,9 @@ describe('generated abilities', (): void => {
     assert.match(fixAbilitiesPrompt, /errors/i);
     assert.match(fixAbilitiesPrompt, /reviews/i);
     assert.match(fixAbilitiesPrompt, /partial reviews array/i);
-    assert.match(fixAbilitiesPrompt, /duplicateAbilityIds/i);
+    assert.match(fixAbilitiesPrompt, /duplicatePairs/i);
+    assert.match(fixAbilitiesPrompt, /keptAbilityId/i);
+    assert.match(fixAbilitiesPrompt, /deletedAbilityId/i);
     assert.match(fixAbilitiesPrompt, /earliest supplied index/i);
     assert.match(fixAbilitiesPrompt, /omit correct Abilities/i);
     assert.match(fixAbilitiesPrompt, /<kx>/i);
