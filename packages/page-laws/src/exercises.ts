@@ -82,7 +82,6 @@ export function parseExerciseRepairResult (content: string, originals: Exercise[
   }
 
   const allowedIds = new Set(originalIds);
-  const indexesById = new Map(originalIds.map((id, index) => [id, index] as const));
   const duplicatePairs: ExerciseDuplicatePair[] = [];
   const deletedDuplicateIds = new Set<number>();
   const keptDuplicateIds = new Set<number>();
@@ -102,13 +101,6 @@ export function parseExerciseRepairResult (content: string, originals: Exercise[
       throw new Error('OpenRouter returned an invalid duplicate Exercise pair.');
     }
 
-    const keptIndex = indexesById.get(value.keptExerciseId);
-    const deletedIndex = indexesById.get(value.deletedExerciseId);
-
-    if (keptIndex === undefined || deletedIndex === undefined || keptIndex >= deletedIndex) {
-      throw new Error('OpenRouter must keep the earliest supplied duplicate Exercise.');
-    }
-
     keptDuplicateIds.add(value.keptExerciseId);
     deletedDuplicateIds.add(value.deletedExerciseId);
     duplicatePairs.push({ deletedExerciseId: value.deletedExerciseId, keptExerciseId: value.keptExerciseId });
@@ -117,6 +109,7 @@ export function parseExerciseRepairResult (content: string, originals: Exercise[
   if (Array.from(keptDuplicateIds).some((id) => deletedDuplicateIds.has(id))) {
     throw new Error('OpenRouter returned contradictory duplicate Exercise pairs.');
   }
+
 
   const used = new Set<number>();
   const reviews: ExerciseRepairReview[] = [];

@@ -48,19 +48,42 @@ describe('exercise repair', (): void => {
     assert.equal(result.reviews[0].exercise?.solution, '1 + 2 = 3.');
   });
 
-  it('accepts partial reviews and validates duplicate deletion pairs', (): void => {
+  it('accepts partial reviews and allows the highest-thinking Exercise to be kept regardless of input order', (): void => {
     const first = createExercise(1);
     const second = createExercise(2);
-    const result = parseExerciseRepairResult(JSON.stringify({
+    const keepFirst = parseExerciseRepairResult(JSON.stringify({
       duplicatePairs: [{ deletedExerciseId: 2, keptExerciseId: 1 }],
       reviews: []
     }), [first, second], [1, 2]);
-
-    assert.deepEqual(result, { duplicatePairs: [{ deletedExerciseId: 2, keptExerciseId: 1 }], reviews: [] });
-    assert.throws(() => parseExerciseRepairResult(JSON.stringify({
+    const keepSecond = parseExerciseRepairResult(JSON.stringify({
       duplicatePairs: [{ deletedExerciseId: 1, keptExerciseId: 2 }],
       reviews: []
-    }), [first, second], [1, 2]));
+    }), [first, second], [1, 2]);
+
+    assert.deepEqual(keepFirst, { duplicatePairs: [{ deletedExerciseId: 2, keptExerciseId: 1 }], reviews: [] });
+    assert.deepEqual(keepSecond, { duplicatePairs: [{ deletedExerciseId: 1, keptExerciseId: 2 }], reviews: [] });
+  });
+
+  it('accepts partial same-concept duplicate selection without requiring exactly one retained Exercise', (): void => {
+    const first = createExercise(1);
+    const second = createExercise(2);
+    const third = createExercise(3);
+
+    assert.deepEqual(parseExerciseRepairResult(JSON.stringify({
+      duplicatePairs: [{ deletedExerciseId: 1, keptExerciseId: 2 }],
+      reviews: []
+    }), [first, second, third], [1, 2, 3]), {
+      duplicatePairs: [{ deletedExerciseId: 1, keptExerciseId: 2 }],
+      reviews: []
+    });
+
+    assert.deepEqual(parseExerciseRepairResult(JSON.stringify({
+      duplicatePairs: [],
+      reviews: []
+    }), [first, second, third], [1, 2, 3]), {
+      duplicatePairs: [],
+      reviews: []
+    });
   });
 
   it('rejects a claimed repair that does not change the Exercise', (): void => {
@@ -87,10 +110,15 @@ describe('exercise repair', (): void => {
     assert.match(fixExercisesPrompt, /mathematical/i);
     assert.match(fixExercisesPrompt, /grammatical/i);
     assert.match(fixExercisesPrompt, /KaTeX/i);
+    assert.match(fixExercisesPrompt, /conceptId/i);
+    assert.match(fixExercisesPrompt, /preference rather than an absolute cardinality rule/i);
+    assert.match(fixExercisesPrompt, /most learner thinking and information transformation/i);
+    assert.match(fixExercisesPrompt, /merely asks the learner to explain/i);
+    assert.match(fixExercisesPrompt, /weaker or redundant same-concept Exercises/i);
     assert.match(fixExercisesPrompt, /duplicatePairs/i);
     assert.match(fixExercisesPrompt, /keptExerciseId/i);
     assert.match(fixExercisesPrompt, /deletedExerciseId/i);
-    assert.match(fixExercisesPrompt, /earliest supplied index/i);
+    assert.match(fixExercisesPrompt, /earliest supplied index only as a final tie-breaker/i);
     assert.match(fixExercisesPrompt, /omit correct Exercises/i);
     assert.match(fixExercisesPrompt, /Do not return or change database identity or relationship fields/i);
   });

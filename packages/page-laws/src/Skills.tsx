@@ -373,7 +373,8 @@ function abilityRepairRequest (language: string, batch: StoredAbility[], chapter
 function exerciseRepairRequest (language: string, batch: Exercise[], chapterTitle?: string): string {
   return `${fixExercisesPrompt}\n${JSON.stringify({
     bookLanguage: language,
-    exercises: batch.map(({ abilityMode = 'reasoning', description, id, solution = '', title }, index) => ({
+    exercises: batch.map(({ abilityMode = 'reasoning', conceptId, description, id, solution = '', title }, index) => ({
+      conceptId,
       exercise: { abilityMode, description, solution, title },
       id,
       index
