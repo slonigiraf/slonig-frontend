@@ -18,7 +18,160 @@ import { abilityGenerationInstructions, divideExerciseTemplatesPrompt, fixAbilit
 
 const REQUEST_INTERVAL_MS = Math.ceil(60_000 / 9);
 const BATCH_SIZE = 5;
+const FIX_BATCH_SIZE = 10;
+const FIX_CONCURRENCY = 3;
+const MAX_REQUEST_ATTEMPTS = 4;
+const RETRY_BASE_DELAY_MS = 1_000;
 const delay = (milliseconds: number): Promise<void> => new Promise((resolve) => setTimeout(resolve, milliseconds));
+
+interface RequestGate {
+  pause: (milliseconds: number) => void;
+  run: <T>(request: () => Promise<T>) => Promise<T>;
+}
+
+function createRequestGate (maxConcurrent: number): RequestGate {
+  let active = 0;
+  let pauseUntil = 0;
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  const queue: Array<() => void> = [];
+
+  const pump = (): void => {
+    if (active >= maxConcurrent || !queue.length) {
+      return;
+    }
+
+    const wait = pauseUntil - Date.now();
+
+    if (wait > 0) {
+      if (timer === undefined) {
+        timer = setTimeout(() => {
+          timer = undefined;
+          pump();
+        }, wait);
+      }
+
+      return;
+    }
+
+    while (active < maxConcurrent && queue.length) {
+      const start = queue.shift();
+
+      if (!start) {
+        break;
+      }
+
+      active++;
+      start();
+    }
+  };
+
+  return {
+    pause: (milliseconds): void => {
+      pauseUntil = Math.max(pauseUntil, Date.now() + Math.max(0, milliseconds));
+
+      if (timer !== undefined) {
+        clearTimeout(timer);
+        timer = undefined;
+      }
+
+      pump();
+    },
+    run: <T,>(request: () => Promise<T>): Promise<T> => new Promise<T>((resolve, reject) => {
+      queue.push(() => {
+        Promise.resolve()
+          .then(request)
+          .then(resolve, reject)
+          .finally(() => {
+            active--;
+            pump();
+          });
+      });
+      pump();
+    })
+  };
+}
+
+function getErrorStatus (error: unknown): number | undefined {
+  if (typeof error !== 'object' || error === null || !('status' in error)) {
+    return undefined;
+  }
+
+  const status = (error as { status?: unknown }).status;
+
+  return typeof status === 'number' ? status : undefined;
+}
+
+function getRetryAfterMs (error: unknown): number | undefined {
+  if (typeof error !== 'object' || error === null || !('headers' in error)) {
+    return undefined;
+  }
+
+  const headers = (error as { headers?: unknown }).headers;
+  let retryAfter: unknown;
+
+  if (typeof headers === 'object' && headers !== null && 'get' in headers && typeof (headers as { get?: unknown }).get === 'function') {
+    retryAfter = (headers as { get: (name: string) => unknown }).get('retry-after');
+  } else if (typeof headers === 'object' && headers !== null) {
+    const record = headers as Record<string, unknown>;
+
+    retryAfter = record['retry-after'] ?? record['Retry-After'];
+  }
+
+  if (typeof retryAfter === 'number' && Number.isFinite(retryAfter)) {
+    return Math.max(0, retryAfter * 1_000);
+  }
+
+  if (typeof retryAfter !== 'string' || !retryAfter.trim()) {
+    return undefined;
+  }
+
+  const seconds = Number(retryAfter);
+
+  if (Number.isFinite(seconds)) {
+    return Math.max(0, seconds * 1_000);
+  }
+
+  const date = Date.parse(retryAfter);
+
+  return Number.isNaN(date) ? undefined : Math.max(0, date - Date.now());
+}
+
+function isRetryableRequestError (error: unknown): boolean {
+  const status = getErrorStatus(error);
+
+  return status === 429 || (status !== undefined && status >= 500 && status <= 599);
+}
+
+async function requestChatContent (client: OpenAI, model: string, systemPrompt: string, userPrompt: string, jsonObject: boolean, requestGate?: RequestGate): Promise<string> {
+  let lastError: unknown;
+
+  for (let attempt = 0; attempt < MAX_REQUEST_ATTEMPTS; attempt++) {
+    try {
+      const makeRequest = () => client.chat.completions.create({
+        messages: [{ content: systemPrompt, role: 'system' as const }, { content: userPrompt, role: 'user' as const }],
+        model,
+        ...(jsonObject ? { response_format: { type: 'json_object' as const } } : {})
+      });
+      const response = requestGate ? await requestGate.run(makeRequest) : await makeRequest();
+
+      return response.choices[0].message?.content?.trim() ?? '';
+    } catch (error) {
+      lastError = error;
+
+      if (!isRetryableRequestError(error) || attempt === MAX_REQUEST_ATTEMPTS - 1) {
+        throw error;
+      }
+
+      const retryAfter = getRetryAfterMs(error);
+      const backoff = retryAfter ?? RETRY_BASE_DELAY_MS * (2 ** attempt);
+
+      requestGate?.pause(backoff);
+      await delay(backoff);
+    }
+  }
+
+  throw lastError instanceof Error ? lastError : new Error('OpenRouter request failed after retries.');
+}
 
 export type SkillsView = 'conceptsSkills' | 'preExercisesExercises' | 'skillsPreExercises';
 
@@ -184,32 +337,32 @@ function abilityRepairRequest (language: string, batch: StoredAbility[], chapter
   })}`;
 }
 
-async function requestValidatedJson<T> (client: OpenAI, model: string, systemPrompt: string, userPrompt: string, parse: (content: string) => T, jsonObject = true): Promise<T> {
+async function requestValidatedJson<T> (client: OpenAI, model: string, systemPrompt: string, userPrompt: string, parse: (content: string) => T, jsonObject = true, requestGate?: RequestGate): Promise<T> {
   let lastError: unknown;
 
   for (let attempt = 0; attempt < 2; attempt++) {
-    const response = await client.chat.completions.create({
-      messages: [{ content: systemPrompt, role: 'system' }, { content: userPrompt, role: 'user' }],
-      model,
-      ...(jsonObject ? { response_format: { type: 'json_object' as const } } : {})
-    });
-    const candidate = response.choices[0].message?.content?.trim() ?? '';
+    const candidate = await requestChatContent(client, model, systemPrompt, userPrompt, jsonObject, requestGate);
+
+    try {
+      // The parser is the fast local validation gate. In the normal case this
+      // avoids the old unconditional second model call entirely.
+      return parse(candidate);
+    } catch (error) {
+      lastError = error;
+    }
+
     const validationPrompt = `Act as an independent strict validator. Check the candidate against every original requirement and the supplied input. Fix every factual, structural, language, completeness, ordering, KaTeX, and count error. If it cannot be repaired safely, regenerate the complete output from the original request. Return only the final corrected output in the exact originally requested JSON shape, without commentary.\n\nORIGINAL REQUEST:\n${userPrompt}\n\nCANDIDATE OUTPUT:\n${candidate}`;
 
     try {
-      const validation = await client.chat.completions.create({
-        messages: [{ content: systemPrompt, role: 'system' }, { content: validationPrompt, role: 'user' }],
-        model,
-        ...(jsonObject ? { response_format: { type: 'json_object' as const } } : {})
-      });
+      const repaired = await requestChatContent(client, model, systemPrompt, validationPrompt, jsonObject, requestGate);
 
-      return parse(validation.choices[0].message?.content?.trim() ?? '');
+      return parse(repaired);
     } catch (error) {
       lastError = error;
     }
   }
 
-  throw lastError instanceof Error ? lastError : new Error('AI output failed validation twice.');
+  throw lastError instanceof Error ? lastError : new Error('AI output failed local validation and repair twice.');
 }
 
 function ChapterNavigation ({ chapters, index, onChange }: { chapters: BookChapter[]; index: number; onChange: (index: number) => void }): React.ReactElement | null {
@@ -459,7 +612,7 @@ function Skills ({ book, onAction, onBookChange, pipelineOnly = false, pipelineP
       throw new Error('No OpenRouter token found. Add it in Settings.');
     }
 
-    return new OpenAI({ apiKey: key, baseURL: 'https://openrouter.ai/api/v1', dangerouslyAllowBrowser: true, defaultHeaders: { 'HTTP-Referer': window.location.origin, 'X-OpenRouter-Title': 'Slonig' } });
+    return new OpenAI({ apiKey: key, baseURL: 'https://openrouter.ai/api/v1', dangerouslyAllowBrowser: true, defaultHeaders: { 'HTTP-Referer': window.location.origin, 'X-OpenRouter-Title': 'Slonig' }, maxRetries: 0 });
   }, []);
 
   const requestInputs = useMemo((): string[] => {
@@ -489,15 +642,15 @@ function Skills ({ book, onAction, onBookChange, pipelineOnly = false, pipelineP
     }
 
     if (aiAction === 'fix') {
-      return chapterContent.flatMap(({ abilities, chapter }) => Array.from({ length: Math.ceil(abilities.length / BATCH_SIZE) }, (_, index) => abilityRepairRequest(language, abilities.slice(index * BATCH_SIZE, (index + 1) * BATCH_SIZE), chapter.title)));
+      return chapterContent.flatMap(({ abilities, chapter }) => Array.from({ length: Math.ceil(abilities.length / FIX_BATCH_SIZE) }, (_, index) => abilityRepairRequest(language, abilities.slice(index * FIX_BATCH_SIZE, (index + 1) * FIX_BATCH_SIZE), chapter.title)));
     }
 
     return [];
   }, [aiAction, allExercises, allSkillBlocks, chapterContent, language, skillSources]);
-  const generationOutputTokens = aiAction === 'preExercises' || aiAction === 'dividePreExercises' ? BATCH_SIZE * 1_250 : aiAction === 'exercises' ? Math.max(1, allExercises.length) * 700 : aiAction === 'fix' ? BATCH_SIZE * 700 : aiAction === 'skills' ? BATCH_SIZE * 180 : 300;
+  const generationOutputTokens = aiAction === 'preExercises' || aiAction === 'dividePreExercises' ? BATCH_SIZE * 1_250 : aiAction === 'exercises' ? Math.max(1, allExercises.length) * 700 : aiAction === 'fix' ? FIX_BATCH_SIZE * 700 : aiAction === 'skills' ? BATCH_SIZE * 180 : 300;
   const validationInputs = useMemo(() => aiAction === 'exercises'
     ? requestInputs.flatMap((input) => [input, input, input])
-    : requestInputs.flatMap((input) => [input, `Validate and repair this response against the original request:\n${input}`]), [aiAction, requestInputs]);
+    : requestInputs, [aiAction, requestInputs]);
   const outputTokens = generationOutputTokens;
   const estimate = formatAiInputEstimate(estimateAiInput(selectedModel, validationInputs, outputTokens));
   const iconForStage = useCallback((requiredStage: number): 'play' | 'rotate-left' => stage >= requiredStage ? 'rotate-left' : 'play', [stage]);
@@ -752,31 +905,64 @@ function Skills ({ book, onAction, onBookChange, pipelineOnly = false, pipelineP
 
     try {
       const client = await createClient();
-
-      let completed = 0;
+      const requestGate = createRequestGate(FIX_CONCURRENCY);
       const replacements = new Map<string, { ability: GeneratedAbility; errors: string[]; record: StoredAbility }>();
+      const batches = chapterContent.flatMap(({ abilities, chapter }) =>
+        Array.from({ length: Math.ceil(abilities.length / FIX_BATCH_SIZE) }, (_, index) => ({
+          batch: abilities.slice(index * FIX_BATCH_SIZE, (index + 1) * FIX_BATCH_SIZE),
+          chapterTitle: chapter.title
+        }))
+      );
+      let completed = 0;
+      let nextBatch = 0;
+      let workerError: unknown;
 
-      for (const { abilities, chapter } of chapterContent) {
-        for (let start = 0; start < abilities.length; start += BATCH_SIZE) {
-          const batch = abilities.slice(start, start + BATCH_SIZE);
+      const worker = async (): Promise<void> => {
+        while (workerError === undefined) {
+          const batchIndex = nextBatch++;
 
-          if (completed) {
-            await delay(REQUEST_INTERVAL_MS);
+          if (batchIndex >= batches.length) {
+            return;
           }
 
+          const { batch, chapterTitle } = batches[batchIndex];
           const systemPrompt = `Keep ISO language ${language}. Return only the requested JSON object.`;
-          const userPrompt = abilityRepairRequest(language, batch, chapter.title);
-          const reviews = await requestValidatedJson(client, selectedModel, systemPrompt, userPrompt, (content) => parseAbilityRepairReviews(content, batch.map(({ ability }) => ability)));
+          const userPrompt = abilityRepairRequest(language, batch, chapterTitle);
 
-          reviews.forEach((review) => {
-            if (review.hasErrors && review.ability) {
-              replacements.set(batch[review.index].id, { ability: review.ability, errors: review.errors, record: batch[review.index] });
-            }
-          });
-          completed += batch.length; setProgress(completed);
+          try {
+            const reviews = await requestValidatedJson(
+              client,
+              selectedModel,
+              systemPrompt,
+              userPrompt,
+              (content) => parseAbilityRepairReviews(content, batch.map(({ ability }) => ability)),
+              true,
+              requestGate
+            );
+
+            reviews.forEach((review) => {
+              if (review.hasErrors && review.ability) {
+                const record = batch[review.index];
+
+                replacements.set(record.id, { ability: review.ability, errors: review.errors, record });
+              }
+            });
+            completed += batch.length;
+            setProgress(Math.min(allAbilities.length, completed));
+          } catch (error) {
+            workerError ??= error;
+          }
         }
+      };
+
+      await Promise.all(Array.from({ length: Math.min(FIX_CONCURRENCY, batches.length) }, () => worker()));
+
+      if (workerError !== undefined) {
+        throw workerError;
       }
 
+      // Preserve the existing all-or-nothing review phase: no Ability is
+      // persisted until every batch has completed successfully.
       for (const { ability, record } of replacements.values()) {
         const newRecordId = await storeAbility(record.moduleId, JSON.stringify(ability));
 
