@@ -1,7 +1,7 @@
 // Copyright 2021-2026 @polkadot/app-laws authors & contributors
 // SPDX-License-Identifier: Apache-2.0
 
-import type { Book, BookConcept, Exercise, BookPage } from '@slonigiraf/db';
+import type { Book, BookConcept, BookPage, Exercise } from '@slonigiraf/db';
 import type { PDFDocumentLoadingTask, PDFDocumentProxy, RenderTask } from 'pdfjs-dist';
 
 import { getBookConceptsForBookPage, getExercisesForBookPage, getBookPages, getSetting, putBook, putBookPage, replaceParsedBookPageContent, SettingKey, storeSetting, updateBookProcessingStage } from '@slonigiraf/db';
@@ -28,26 +28,28 @@ GlobalWorkerOptions.workerSrc = new URL('pdfjs-dist/build/pdf.worker.min.js', im
 
 const CONCEPTS_PROMPT = `On the provided page, identify the chapter and subchapter/section.
 
-Extract only the concepts that are intentionally introduced or explained as new on this page. Do not include concepts that the page assumes the reader already knows, merely reviews, references from earlier sections, or uses only in exercises/examples without introducing them. Also extract every exercise, question, or problem the learner is asked to solve.
+Extract only the concepts that are intentionally introduced or explained as new on this page. Do not include concepts that the page assumes the reader already knows, merely reviews, references from earlier sections, or uses only in exercises/examples without introducing them. Also extract every exercise, question, or problem the learner is asked to solve. Classify the primary ability trained by each exercise as exactly one of: "perceptual observation", "perceptual discrimination", "transformation", "reasoning", or "generation".
 
 Return only valid JSON in this exact shape, keeping the original language of the input:
-{"chapter":"Chapter and section name","concepts":[{"title":"New concept","description":"Explanation or example from the page"}],"exercises":[{"title":"Exercise title","description":"Complete exercise question or instructions"}]}
+{"chapter":"Chapter and section name","concepts":[{"title":"New concept","description":"Explanation or example from the page"}],"exercises":[{"title":"Exercise title","description":"Complete exercise question or instructions","abilityMode":"reasoning","solution":"Complete step-by-step solution"}]}
 
-Use an empty string when the chapter is not shown. Use empty arrays when no concepts or exercises are present. The exercise description must contain the entire exercise statement, all data, and every instruction required to solve it; never abbreviate it or refer to an omitted source. Use <kx>...</kx> for every mathematical formula or expression, never dollar-delimited LaTeX. Escape every backslash in mathematical notation so the result remains valid JSON. Do not add markdown or any text outside the JSON.`;
+Use an empty string when the chapter is not shown. Use empty arrays when no concepts or exercises are present. The exercise description must contain the entire exercise statement, all data, and every instruction required to solve it; never abbreviate it or refer to an omitted source. If the book page provides a solution, extract its complete method and answer faithfully. Otherwise, solve the exercise and generate a correct, explicit step-by-step solution in the book's language. Never leave solution empty. Use <kx>...</kx> for every mathematical formula or expression in descriptions and solutions, never dollar-delimited LaTeX. Escape every backslash in mathematical notation so the result remains valid JSON. Do not add markdown or any text outside the JSON.`;
 
 const SPLIT_CONCEPTS_PROMPT = `Review the identified concepts and exercises below. Divide every concept that contains two or more independently learnable ideas into the smallest useful, self-contained concepts. Split named terms into individual concepts whenever they can be learned independently, even when introduced together. Keep a concept unchanged only when it is already atomic.
 
-Also divide every exercise that practices multiple skills, contains separable tasks, or requires avoidable multi-step work into the smallest useful exercises. Each resulting exercise must target exactly one specific skill and be independently answerable from its description. Keep an exercise unchanged only when it is already atomic. Preserve all source requirements and information; do not solve the exercises, remove content, or invent unsupported content. Preserve the input language.
+Also divide every exercise that practices multiple skills, contains separable tasks, or requires avoidable multi-step work into the smallest useful exercises. Each resulting exercise must target exactly one specific skill and be independently answerable from its description. Keep an exercise unchanged only when it is already atomic. Preserve all source requirements and information. Preserve or adapt its correct step-by-step solution so it answers precisely the resulting atomic exercise. Assign exactly one allowed abilityMode that describes the primary ability trained. Preserve the input language.
 
 Return only valid JSON in this exact shape:
-{"chapter":"Chapter and section name","concepts":[{"title":"Concept title","description":"Explanation or example"}],"exercises":[{"title":"Exercise title","description":"Complete atomic exercise question or instructions"}]}
+{"chapter":"Chapter and section name","concepts":[{"title":"Concept title","description":"Explanation or example"}],"exercises":[{"title":"Exercise title","description":"Complete atomic exercise question or instructions","abilityMode":"reasoning","solution":"Complete step-by-step solution"}]}
 
-Use the supplied chapter unchanged. Both arrays must be in a logical learning order. Preserve the complete text and data of every exercise. Use <kx>...</kx> for every mathematical formula or expression, never dollar-delimited LaTeX. Escape every backslash in mathematical notation so the result remains valid JSON. Do not add markdown or any text outside the JSON.`;
+Use the supplied chapter unchanged. Both arrays must be in a logical learning order. Preserve the complete text and data of every exercise. Never omit or empty abilityMode or solution. Use <kx>...</kx> for every mathematical formula or expression, never dollar-delimited LaTeX. Escape every backslash in mathematical notation so the result remains valid JSON. Do not add markdown or any text outside the JSON.`;
+
+const EXERCISE_ABILITY_MODES = ['perceptual observation', 'perceptual discrimination', 'transformation', 'reasoning', 'generation'];
 
 interface GeneratedConcepts {
   chapter: string;
   concepts: Array<{ description: string; title: string }>;
-  exercises?: Array<{ description: string; title: string }>;
+  exercises?: Array<{ abilityMode: string; description: string; solution: string; title: string }>;
 }
 
 function parseGeneratedConcepts (content: string): GeneratedConcepts {
@@ -62,14 +64,14 @@ function parseGeneratedConcepts (content: string): GeneratedConcepts {
     parsed = JSON.parse(json.replace(/\\(?!["\\/bfnrt]|u[0-9a-fA-F]{4})/g, '\\\\')) as Partial<GeneratedConcepts>;
   }
 
-  if (typeof parsed.chapter !== 'string' || !Array.isArray(parsed.concepts) || parsed.concepts.some(({ description, title }) => typeof title !== 'string' || typeof description !== 'string') || (parsed.exercises !== undefined && (!Array.isArray(parsed.exercises) || parsed.exercises.some(({ description, title }) => typeof title !== 'string' || typeof description !== 'string')))) {
+  if (typeof parsed.chapter !== 'string' || !Array.isArray(parsed.concepts) || parsed.concepts.some(({ description, title }) => typeof title !== 'string' || typeof description !== 'string') || (parsed.exercises !== undefined && (!Array.isArray(parsed.exercises) || parsed.exercises.some(({ abilityMode, description, solution, title }) => typeof title !== 'string' || typeof description !== 'string' || typeof solution !== 'string' || !solution.trim() || typeof abilityMode !== 'string' || !EXERCISE_ABILITY_MODES.includes(abilityMode))))) {
     throw new Error('OpenRouter returned invalid concept data.');
   }
 
   return {
     chapter: parsed.chapter.trim(),
     concepts: parsed.concepts.map(({ description, title }) => ({ description: description.trim(), title: title.trim() })).filter(({ title }) => title),
-    exercises: (parsed.exercises ?? []).map(({ description, title }) => ({ description: description.trim(), title: title.trim() })).filter(({ title }) => title)
+    exercises: (parsed.exercises ?? []).map(({ abilityMode, description, solution, title }) => ({ abilityMode, description: description.trim(), solution: solution.trim(), title: title.trim() })).filter(({ title }) => title)
   };
 }
 
@@ -122,7 +124,7 @@ async function validateGeneratedContent (client: OpenAI, model: string, generate
     try {
       const response = await client.chat.completions.create({
         messages: [{
-          content: `Act as an independent strict validator for parsed book content. Check that the chapter is accurate when present; every concept is atomic; every exercise contains its complete task; concepts and exercises preserve the book language; and every mathematical expression uses <kx>...</kx>. Fix every error. If the candidate cannot be repaired safely, regenerate it from the candidate's information. Return only the complete corrected JSON object in the original shape, without commentary.\n\nCandidate:\n${JSON.stringify(generated)}`,
+          content: `Act as an independent strict validator for parsed book content. Check that the chapter is accurate when present; every concept is atomic; every exercise contains its complete task; abilityMode is exactly one of "perceptual observation", "perceptual discrimination", "transformation", "reasoning", or "generation" and accurately describes the primary trained ability; every exercise has a correct, explicit step-by-step solution; concepts, exercises, and solutions preserve the book language; and every mathematical expression uses <kx>...</kx>. Fix every error. If the candidate cannot be repaired safely, regenerate it from the candidate's information. Return only the complete corrected JSON object in the original shape, without commentary.\n\nCandidate:\n${JSON.stringify(generated)}`,
           role: 'user'
         }],
         model,
@@ -1000,6 +1002,8 @@ function BookReader ({ book, file, generateAllConceptsModel, generateAllConcepts
           ? <ul>{exercises.map((exercise) => <li key={exercise.id}>
             <strong><KatexSpan content={exercise.title} /></strong>
             {exercise.description && <p><KatexSpan content={exercise.description} /></p>}
+            <p><small>{exercise.abilityMode}</small></p>
+            {exercise.solution && <p><KatexSpan content={exercise.solution} /></p>}
           </li>)}</ul>
           : <p className='emptyOutput'>No exercises have been generated for this page.</p>}
       </div>

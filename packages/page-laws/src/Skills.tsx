@@ -250,7 +250,7 @@ function ChapterTitleEditor ({ chapter, onError, onSaved }: { chapter: BookChapt
   </div>;
 }
 
-function BookItem ({ description, id, onDeleted, onError, title, type }: { description: string; id?: number; onDeleted: () => void; onError: (message: string) => void; title: string; type: 'concept' | 'exercise' }): React.ReactElement {
+function BookItem ({ abilityMode, description, id, onDeleted, onError, solution, title, type }: { abilityMode?: Exercise['abilityMode']; description: string; id?: number; onDeleted: () => void; onError: (message: string) => void; solution?: string; title: string; type: 'concept' | 'exercise' }): React.ReactElement {
   const remove = useCallback((): void => {
     if (id === undefined) {
       return;
@@ -262,6 +262,8 @@ function BookItem ({ description, id, onDeleted, onError, title, type }: { descr
   return <article className='contentCard'>
     <strong><KatexSpan content={title} /></strong>
     {description && <p><KatexSpan content={description} /></p>}
+    {abilityMode && <p><small>{abilityMode}</small></p>}
+    {solution && <p><KatexSpan content={solution} /></p>}
     <Button
       icon='trash'
       onClick={remove}
@@ -829,7 +831,7 @@ function Skills ({ book, onAction, onBookChange, pipelineOnly = false, pipelineP
                   <BookItem description={concept.description} id={concept.id} key={`concept-${concept.id ?? 'new'}`} onDeleted={refresh} onError={setError} title={concept.title} type='concept' />
                 ))}
                 {current.exercises.map((exercise) => (
-                  <BookItem description={exercise.description} id={exercise.id} key={`exercise-${exercise.id ?? 'new'}`} onDeleted={refresh} onError={setError} title={exercise.title} type='exercise' />
+                  <BookItem abilityMode={exercise.abilityMode} description={exercise.description} id={exercise.id} key={`exercise-${exercise.id ?? 'new'}`} onDeleted={refresh} onError={setError} solution={exercise.solution} title={exercise.title} type='exercise' />
                 ))}
               </section>
               <section>
