@@ -1,5 +1,9 @@
 
-
+In progress:
+--
+Pdf->Skill - ok
+Pdf->Exercise - ok
+Add Button Skill2Exercise, that will convert Skills to Exercises using the concept of 
 
 1:
 - When deduplicating BookSkills - add links to all correspodning BookConcepts and BookExercises, so one BookSkill, could reference several BookConcepts and BookExercises.
