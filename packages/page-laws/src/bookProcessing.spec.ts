@@ -5,7 +5,7 @@
 
 import { strict as assert } from 'node:assert';
 
-import { CONCEPT_SPLIT_PASSES, EXERCISE_SPLIT_PASSES, exerciseAbilityModes, GENERATED_EXERCISES_PER_CONCEPT, processExtractedPageContent } from './bookProcessing.js';
+import { CONCEPT_SPLIT_PASSES, EXERCISE_SPLIT_PASSES, exerciseAbilityModes, GENERATED_EXERCISES_PER_CONCEPT, MAX_EXERCISE_GENERATION_RETRIES, processExtractedPageContent } from './bookProcessing.js';
 
 describe('book processing pipeline', (): void => {
   it('refines concepts, generates and merges exercises, then splits only the merged exercises', async (): Promise<void> => {
@@ -86,5 +86,50 @@ describe('book processing pipeline', (): void => {
 
     assert.deepEqual(result.concepts, [{ description: 'Atomic', title: 'Concept' }]);
     assert.deepEqual(result.exercises, []);
+  });
+
+  it('retries missing concepts together up to three times', async (): Promise<void> => {
+    const prompts: string[] = [];
+    const exercise = (conceptIndex: number): Record<string, unknown> => ({ abilityMode: 'reasoning', conceptIndex, description: `Task ${conceptIndex}`, solution: `Solution ${conceptIndex}`, title: `Exercise ${conceptIndex}` });
+
+    const runAi = (prompt: string): Promise<string> => {
+      prompts.push(prompt);
+
+      if (prompts.length <= 2) {
+        return Promise.resolve('{}');
+      }
+
+      if (prompts.length === 3) {
+        return Promise.resolve(JSON.stringify({ exercises: [exercise(0)] }));
+      }
+
+      if (prompts.length <= 5) {
+        const input = JSON.parse(prompt.slice(prompt.lastIndexOf('\n') + 1)) as { concepts: Array<{ conceptIndex: number }> };
+
+        assert.deepEqual(input.concepts.map(({ conceptIndex }) => conceptIndex), [1]);
+
+        return Promise.resolve('{"exercises":[]}');
+      }
+
+      if (prompts.length === 6) {
+        assert.match(prompt, /recovery attempt 3 of 3/i);
+
+        return Promise.resolve(JSON.stringify({ exercises: [exercise(1)] }));
+      }
+
+      const input = JSON.parse(prompt.slice(prompt.lastIndexOf('\n') + 1)) as { exercises: unknown[] };
+
+      return Promise.resolve(JSON.stringify({ exercises: input.exercises }));
+    };
+
+    const result = await processExtractedPageContent({
+      chapter: 'Chapter',
+      concepts: [{ description: 'A', title: 'Concept A' }, { description: 'B', title: 'Concept B' }],
+      exercises: []
+    }, runAi);
+
+    assert.equal(MAX_EXERCISE_GENERATION_RETRIES, 3);
+    assert.equal(prompts.length, 8);
+    assert.deepEqual(result.exercises.map(({ conceptIndex }) => conceptIndex), [0, 1]);
   });
 });

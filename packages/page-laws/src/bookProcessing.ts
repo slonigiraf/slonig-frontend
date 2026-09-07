@@ -6,6 +6,7 @@ import type { Exercise } from '@slonigiraf/db';
 export const CONCEPT_SPLIT_PASSES = 2;
 export const EXERCISE_SPLIT_PASSES = 2;
 export const GENERATED_EXERCISES_PER_CONCEPT = 4;
+export const MAX_EXERCISE_GENERATION_RETRIES = 3;
 export const exerciseAbilityModes = ['perceptual observation', 'perceptual discrimination', 'transformation', 'reasoning', 'generation'] as const;
 
 export interface ProcessingConcept {
@@ -142,9 +143,23 @@ export async function processExtractedPageContent (extracted: ExtractedPageConte
     }
   }
 
-  const generatedExercises = concepts.length
+  let generatedExercises = concepts.length
     ? generatedExercisesResult(await runAi(`${GENERATE_EXERCISES_PROMPT}\n${JSON.stringify({ concepts: concepts.map((concept, conceptIndex) => ({ ...concept, conceptIndex })) })}`), concepts)
     : [];
+
+  for (let retry = 0; retry < MAX_EXERCISE_GENERATION_RETRIES; retry++) {
+    const coveredConcepts = new Set(generatedExercises.flatMap(({ conceptIndex }) => conceptIndex === undefined ? [] : [conceptIndex]));
+    const missingConcepts = concepts.flatMap((concept, conceptIndex) => coveredConcepts.has(conceptIndex) ? [] : [{ ...concept, conceptIndex }]);
+
+    if (!missingConcepts.length) {
+      break;
+    }
+
+    const recovered = generatedExercisesResult(await runAi(`${GENERATE_EXERCISES_PROMPT}\nThis is recovery attempt ${retry + 1} of ${MAX_EXERCISE_GENERATION_RETRIES}. Generate exercises only for every supplied concept that still has no exercise.\n${JSON.stringify({ concepts: missingConcepts })}`), concepts);
+
+    generatedExercises = deduplicate([...generatedExercises, ...recovered]);
+  }
+
   let exercises: ProcessingExercise[] = deduplicate([
     ...extracted.exercises.map((exercise) => ({ ...exercise, source: 'book' as const })),
     ...generatedExercises
