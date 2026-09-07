@@ -512,7 +512,7 @@ function AbilityCard ({ onDeleted, onError, record }: { onDeleted: () => void; o
       </>
       : <>
         <strong>Invalid Ability JSON</strong>
-        <p>This record can be repaired with Fix errors.</p>
+        <p>This record can be repaired with Fix abilities.</p>
       </>}
     <Button
       icon='trash'
@@ -1106,7 +1106,7 @@ function Skills ({ book, onAction, onBookChange, onEntityCountsChange, pipelineO
   return <StyledSkills className={pipelineOnly ? 'pipelineOnly' : undefined}>
     {fixReview && (
       <Modal
-        header='Fix errors results'
+        header='Fix abilities results'
         onClose={closeFixReview}
         size='large'
       >
@@ -1220,7 +1220,7 @@ function Skills ({ book, onAction, onBookChange, onEntityCountsChange, pipelineO
       <span className='pipelineStep'><span>›</span><Button
         icon={stage >= 7 ? 'rotate-left' : 'play'}
         isDisabled={isBusy || stage < 7 || !hasAbilities}
-        label='Fix errors'
+        label='Fix abilities'
         onClick={openExerciseFix}
                                                    /></span>
     </div>}
