@@ -8,7 +8,7 @@ import type { KeyringPair } from '@polkadot/keyring/types';
 import type { DispatchError } from '@polkadot/types/interfaces';
 import type { GeneratedAbility } from './abilities.js';
 
-import { deleteAbility, getBookChapters, getSkillsForChapter, getSetting, getAbilities, putBook, putBookChapter, SettingKey, storeAbility, updateBookChapterTitle } from '@slonigiraf/db';
+import { deleteAbility, getAbilities, getBookChapters, getBookConceptsForBookPage, getBookPages, getExercisesForBookPage, getSetting, putBook, putBookChapter, SettingKey, storeAbility, updateBookChapterTitle } from '@slonigiraf/db';
 import { digestFromCIDv1, getCIDFromBytes, getIPFSContentIDAndPinIt, getIPFSDataFromContentID, KatexSpan, LawType, parseJson, useInfo, useIpfsContext, useLoginContext } from '@slonigiraf/slonig-components';
 import BN from 'bn.js';
 import { useLiveQuery } from 'dexie-react-hooks';
@@ -29,7 +29,6 @@ import { randomIdHex } from './util.js';
 interface TemplateRow {
   moduleId: string;
   recordId: string;
-  skillId: number;
   template: GeneratedAbility;
 }
 
@@ -48,7 +47,7 @@ type OutlineItem =
   | { chapter: BookChapter; key: string; type: 'chapter' }
   | { key: string; row: TemplateRow; type: 'template' };
 
-const abilityModuleId = (bookId: number, skillId: number): string => `book-${bookId}-skill-${skillId}`;
+const exerciseAbilityModuleId = (bookId: number, exerciseId: number): string => `book-${bookId}-exercise-${exerciseId}`;
 const chapterOutlineKey = (id: number): string => `chapter:${id}`;
 const templateOutlineKey = (id: string): string => `template:${id}`;
 const isKnowledgeId = (value: string | undefined): value is string => !!value && /^0x[\da-f]{64}$/i.test(value);
@@ -232,24 +231,30 @@ function SkillsCourse ({ book }: { book: Book }): React.ReactElement {
   const [onChainIds, setOnChainIds] = useState<Set<string>>(() => new Set());
   const [dragKey, setDragKey] = useState<string>();
   const chapters = useLiveQuery(async (): Promise<ChapterTemplates[]> => {
-    const storedChapters = await getBookChapters(book.id);
+    const [storedChapters, pages] = await Promise.all([getBookChapters(book.id), getBookPages(book.id)]);
+    const pageRows = await Promise.all(pages.map(async (page) => ({
+      concepts: await getBookConceptsForBookPage(book.id, page.pageNumber),
+      exercises: await getExercisesForBookPage([book.id, page.pageNumber]),
+      page
+    })));
     const loaded = await Promise.all(storedChapters.map(async (chapter): Promise<ChapterTemplates> => {
       if (chapter.id === undefined) {
         return { chapter, templates: [] };
       }
 
-      const skills = await getSkillsForChapter(chapter.id);
-      const templates = (await Promise.all(skills.map(async ({ id }) => {
+      const matchingPages = pageRows.filter(({ concepts, page }) => page.chapter === chapter.title || concepts.some(({ chapterId }) => chapterId === chapter.id));
+      const exercises = matchingPages.flatMap(({ exercises }) => exercises);
+      const templates = (await Promise.all(exercises.map(async ({ id }) => {
         if (id === undefined) {
           return [];
         }
 
-        const moduleId = abilityModuleId(book.id, id);
+        const moduleId = exerciseAbilityModuleId(book.id, id);
         const records = await getAbilities(moduleId);
 
         return records.flatMap(({ content, id: recordId }) => {
           try {
-            return [{ moduleId, recordId, skillId: id, template: parseStoredAbility(content) }];
+            return [{ moduleId, recordId, template: parseStoredAbility(content) }];
           } catch {
             return [];
           }

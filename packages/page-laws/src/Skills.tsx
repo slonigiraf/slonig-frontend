@@ -12,9 +12,9 @@ import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { Button, Dropdown, Input, Modal, styled } from '@polkadot/react-components';
 
 import ExerciseList from './Edit/ExerciseList.js';
-import { createAbilityFromExerciseVariation, parseExerciseTemplateVariations, parseGeneratedAbilities, parseStoredAbility } from './abilities.js';
+import { parseGeneratedAbilities, parseGeneratedExerciseAbilities, parseStoredAbility } from './abilities.js';
 import { estimateAiInput, formatAiInputEstimate } from './aiEstimate.js';
-import { divideExerciseTemplatesPrompt, fixAbilitiesPrompt, OPENAI_MODELS, skillsToExercisesPrompt, skillsToExerciseTemplatesPrompt, sourcesToSkillsPrompt } from './constants.js';
+import { abilityGenerationInstructions, divideExerciseTemplatesPrompt, fixAbilitiesPrompt, OPENAI_MODELS, skillsToExerciseTemplatesPrompt, sourcesToSkillsPrompt } from './constants.js';
 
 const REQUEST_INTERVAL_MS = Math.ceil(60_000 / 9);
 const BATCH_SIZE = 5;
@@ -63,11 +63,11 @@ interface SkillBlock {
   skill: Skill & { id: number };
 }
 
-type StoredExerciseTemplate = ExerciseTemplate & { id: number };
 
 type AiAction = 'dividePreExercises' | 'exercises' | 'fix' | 'preExercises' | 'skills';
 
 const abilityModuleId = (bookId: number, skillId: number): string => `book-${bookId}-skill-${skillId}`;
+const exerciseAbilityModuleId = (bookId: number, exerciseId: number): string => `book-${bookId}-exercise-${exerciseId}`;
 
 function parseJson (content: string): unknown {
   const json = content.replace(/^```json\s*|\s*```$/g, '').trim();
@@ -152,12 +152,16 @@ function exerciseTemplatesRequest (language: string, blocks: SkillBlock[]): stri
   return `${skillsToExerciseTemplatesPrompt}\n${JSON.stringify({ blocks, bookLanguage: language })}`;
 }
 
-function exerciseVariationsRequest (language: string, chapterTitle: string, exerciseTemplates: StoredExerciseTemplate[]): string {
-  return `${skillsToExercisesPrompt}\n${JSON.stringify({ bookLanguage: language, chapterTitle, exerciseTemplates })}`;
-}
+function exerciseAbilitiesRequest (language: string, exercises: Exercise[]): string {
+  return `${abilityGenerationInstructions}
 
-function hasExerciseTemplateId (template: ExerciseTemplate): template is StoredExerciseTemplate {
-  return template.id !== undefined;
+Convert every supplied book Exercise you can into exactly one Ability. Treat each source Exercise as evidence for one narrow human skill. Do not merge exercises or generate more than one Ability for a source Exercise. Use the source task and solution to identify the skill, then create the required pair of concrete practice exercises for that same skill. Write strictly in ISO language ${language}.
+
+For this Exercise-to-Ability conversion request only, wrap each completed Ability with the source Exercise id. This transport wrapper overrides the bare-array transport format above; the nested Ability object itself must still contain only i, t, h, and q exactly as specified above. Return only valid JSON in this shape:
+{"abilities":[{"exerciseId":123,"ability":{"i":"","t":3,"h":"Narrow observable skill","q":[{"h":"Question 1","a":"Answer 1","p":"","i":""},{"h":"Question 2","a":"Answer 2","p":"","i":""}]}}]}
+Use only ids present in the supplied Exercises. Preserve their order. Prefer converting every Exercise, but if the response cannot fit all conversions, return every complete conversion you can and omit the rest rather than truncating or corrupting an Ability. Omitted Exercises will be retried automatically.
+
+${JSON.stringify({ bookLanguage: language, exercises })}`;
 }
 
 async function requestValidatedJson<T> (client: OpenAI, model: string, systemPrompt: string, userPrompt: string, parse: (content: string) => T, jsonObject = true): Promise<T> {
@@ -372,8 +376,9 @@ function Skills ({ book, onAction, onBookChange, pipelineOnly = false, pipelineP
       const result = await Promise.all(chapters.map(async (chapter): Promise<ChapterContent> => {
         const skills = chapter.id === undefined ? [] : await getSkillsForChapter(chapter.id);
         const matchingPages = pageRows.filter(({ concepts, page }) => page.chapter === chapter.title || concepts.some(({ chapterId }) => chapterId === chapter.id));
+        const exercises = matchingPages.flatMap(({ exercises }) => exercises);
         const exerciseTemplates = (await Promise.all(skills.flatMap(({ id }) => id === undefined ? [] : [getExerciseTemplatesForSkill(id)]))).flat();
-        const records = (await Promise.all(skills.flatMap(({ id }) => id === undefined ? [] : [getAbilities(abilityModuleId(book.id, id))]))).flat() as Array<{ content: string; id: string; moduleId: string }>;
+        const records = (await Promise.all(exercises.flatMap(({ id }) => id === undefined ? [] : [getAbilities(exerciseAbilityModuleId(book.id, id))]))).flat() as Array<{ content: string; id: string; moduleId: string }>;
         const abilities = records.flatMap(({ content, id, moduleId }): StoredAbility[] => {
           try {
             return [{ ability: parseStoredAbility(content), content, id, moduleId }];
@@ -382,7 +387,7 @@ function Skills ({ book, onAction, onBookChange, pipelineOnly = false, pipelineP
           }
         });
 
-        return { abilities, chapter, concepts: matchingPages.flatMap(({ concepts }) => concepts.filter(({ chapterId }) => chapterId === chapter.id)), exercises: matchingPages.flatMap(({ exercises }) => exercises), exerciseTemplates, skills };
+        return { abilities, chapter, concepts: matchingPages.flatMap(({ concepts }) => concepts.filter(({ chapterId }) => chapterId === chapter.id)), exercises, exerciseTemplates, skills };
       }));
 
       if (active) {
@@ -402,12 +407,13 @@ function Skills ({ book, onAction, onBookChange, pipelineOnly = false, pipelineP
   const current = chapterContent[chapterIndex];
   const allSkills = useMemo(() => chapterContent.flatMap(({ skills }) => skills), [chapterContent]);
   const allSkillBlocks = useMemo(() => chapterContent.flatMap(({ concepts, exercises, skills }) => createSkillBlocks(skills, concepts, exercises)), [chapterContent]);
-  const allExerciseTemplates = useMemo(() => chapterContent.flatMap(({ exerciseTemplates }) => exerciseTemplates), [chapterContent]);
+  const allExercises = useMemo(() => chapterContent.flatMap(({ exercises }) => exercises), [chapterContent]);
   const allAbilities = useMemo(() => chapterContent.flatMap(({ abilities }) => abilities), [chapterContent]);
   const skillSources = useMemo<SkillSource[]>(() => chapterContent.flatMap(({ chapter, concepts, exercises }) => chapter.id === undefined ? [] : [...concepts.flatMap(({ description, id, title }) => id === undefined ? [] : [{ chapterId: chapter.id as number, chapterTitle: chapter.title, description, sourceId: id, sourceType: 'concept' as const, title }]), ...exercises.flatMap(({ description, id, title }) => id === undefined ? [] : [{ chapterId: chapter.id as number, chapterTitle: chapter.title, description, sourceId: id, sourceType: 'exercise' as const, title }])]), [chapterContent]);
-  const inferredStage = allAbilities.length ? 7 : allExerciseTemplates.length ? 5 : allSkills.length ? 4 : skillSources.length ? 2 : book.processingStage ?? 0;
+  const inferredStage = allAbilities.length ? 7 : allExercises.length ? 3 : skillSources.length ? 2 : book.processingStage ?? 0;
   const stage = Math.max(book.processingStage ?? 0, inferredStage);
-  const hasCompleteAbilities = allExerciseTemplates.length > 0 && allAbilities.length >= allExerciseTemplates.length;
+  const storedExerciseCount = allExercises.filter(({ id }) => id !== undefined).length;
+  const hasCompleteAbilities = storedExerciseCount > 0 && allAbilities.length >= storedExerciseCount;
 
   const setStage = useCallback(async (processingStage: number): Promise<void> => {
     const updated = await updateBookProcessingStage(book.id, processingStage);
@@ -450,11 +456,7 @@ function Skills ({ book, onAction, onBookChange, pipelineOnly = false, pipelineP
     }
 
     if (aiAction === 'exercises') {
-      return chapterContent.flatMap(({ chapter, exerciseTemplates }) => {
-        const storedTemplates = exerciseTemplates.filter(hasExerciseTemplateId);
-
-        return Array.from({ length: Math.ceil(storedTemplates.length / BATCH_SIZE) }, (_, index) => exerciseVariationsRequest(language, chapter.title, storedTemplates.slice(index * BATCH_SIZE, (index + 1) * BATCH_SIZE)));
-      });
+      return allExercises.length ? [exerciseAbilitiesRequest(language, allExercises)] : [];
     }
 
     if (aiAction === 'fix') {
@@ -462,9 +464,11 @@ function Skills ({ book, onAction, onBookChange, pipelineOnly = false, pipelineP
     }
 
     return [];
-  }, [aiAction, allSkillBlocks, chapterContent, language, skillSources]);
-  const generationOutputTokens = aiAction === 'preExercises' || aiAction === 'dividePreExercises' ? BATCH_SIZE * 1_250 : aiAction === 'exercises' ? BATCH_SIZE * 450 : aiAction === 'fix' ? BATCH_SIZE * 700 : aiAction === 'skills' ? BATCH_SIZE * 180 : 300;
-  const validationInputs = useMemo(() => requestInputs.flatMap((input) => [input, `Validate and repair this response against the original request:\n${input}`]), [requestInputs]);
+  }, [aiAction, allExercises, allSkillBlocks, chapterContent, language, skillSources]);
+  const generationOutputTokens = aiAction === 'preExercises' || aiAction === 'dividePreExercises' ? BATCH_SIZE * 1_250 : aiAction === 'exercises' ? Math.max(1, allExercises.length) * 700 : aiAction === 'fix' ? BATCH_SIZE * 700 : aiAction === 'skills' ? BATCH_SIZE * 180 : 300;
+  const validationInputs = useMemo(() => aiAction === 'exercises'
+    ? requestInputs.flatMap((input) => [input, input, input])
+    : requestInputs.flatMap((input) => [input, `Validate and repair this response against the original request:\n${input}`]), [aiAction, requestInputs]);
   const outputTokens = generationOutputTokens;
   const estimate = formatAiInputEstimate(estimateAiInput(selectedModel, validationInputs, outputTokens));
   const iconForStage = useCallback((requiredStage: number): 'play' | 'rotate-left' => stage >= requiredStage ? 'rotate-left' : 'play', [stage]);
@@ -615,74 +619,81 @@ function Skills ({ book, onAction, onBookChange, pipelineOnly = false, pipelineP
   }, [allSkillBlocks.length, beginProgress, chapterContent, createClient, language, refresh, selectedModel, setStage]);
 
   const generateExercises = useCallback(async (): Promise<void> => {
-    beginProgress('Generating Abilities', allExerciseTemplates.length);
+    beginProgress('Generating Abilities', allExercises.length);
 
     try {
-      const skillsById = new Map(allSkills.flatMap((skill) => skill.id === undefined ? [] : [[skill.id, skill] as const]));
+      if (!allExercises.length) {
+        throw new Error('No Exercises are available to generate Abilities from.');
+      }
 
-      if (allExerciseTemplates.some((template) => !hasExerciseTemplateId(template)) || allExerciseTemplates.some(({ skillId }) => !skillsById.has(skillId))) {
-        throw new Error('Every ExerciseTemplate must have an id and a corresponding Skill before Abilities can be generated.');
+      if (allExercises.some(({ id }) => id === undefined)) {
+        throw new Error('Every Exercise must have an id before Abilities can be generated.');
       }
 
       const client = await createClient();
+      const pending = new Map<number, Exercise>(allExercises.map((exercise) => [exercise.id as number, exercise]));
+      const generatedByExerciseId = new Map<number, GeneratedAbility>();
+      const maxAttempts = 3;
+      let lastAttemptError = '';
 
-      const generatedByModule = new Map<string, string[]>();
-      let completed = 0;
-      let requestIndex = 0;
+      for (let attempt = 1; attempt <= maxAttempts && pending.size; attempt++) {
+        if (attempt > 1) {
+          await delay(REQUEST_INTERVAL_MS);
+        }
 
-      for (const { chapter, exerciseTemplates } of chapterContent) {
-        const storedTemplates = exerciseTemplates.filter(hasExerciseTemplateId);
+        const exercises = Array.from(pending.values());
+        const expectedExerciseIds = exercises.map(({ id }) => id as number);
+        const systemPrompt = `Write strictly in ISO language ${language}. Use <kx>...</kx> for all formulas.`;
+        const userPrompt = exerciseAbilitiesRequest(language, exercises);
 
-        for (let start = 0; start < storedTemplates.length; start += BATCH_SIZE) {
-          const batch = storedTemplates.slice(start, start + BATCH_SIZE);
+        try {
+          const response = await client.chat.completions.create({
+            messages: [{ content: systemPrompt, role: 'system' }, { content: userPrompt, role: 'user' }],
+            model: selectedModel,
+            response_format: { type: 'json_object' as const }
+          });
+          const generated = parseGeneratedExerciseAbilities(response.choices[0].message?.content?.trim() ?? '', expectedExerciseIds);
 
-          if (requestIndex++) {
-            await delay(REQUEST_INTERVAL_MS);
+          if (!generated.length) {
+            lastAttemptError = 'OpenRouter returned no valid Exercise-to-Ability conversions.';
+          } else {
+            lastAttemptError = '';
           }
 
-          const systemPrompt = `Write strictly in ISO language ${language}. Use <kx>...</kx> for all formulas.`;
-          const userPrompt = exerciseVariationsRequest(language, chapter.title, batch);
-          let variations;
-
-          try {
-            variations = await requestValidatedJson(client, selectedModel, systemPrompt, userPrompt, (content) => parseExerciseTemplateVariations(content, batch));
-          } catch (caught) {
-            const details = caught instanceof Error ? caught.message : 'Unknown AI response error.';
-
-            throw new Error(`Unable to generate variations for chapter "${chapter.title}", ExerciseTemplates ${batch.map(({ id }) => id).join(', ')}: ${details}`);
-          }
-
-          variations.forEach((variation, index) => {
-            const original = batch[index];
-            const skill = skillsById.get(original.skillId);
-
-            if (!skill) {
-              throw new Error(`Skill ${original.skillId} was not found.`);
+          generated.forEach(({ ability, exerciseId }) => {
+            if (!pending.has(exerciseId)) {
+              return;
             }
 
-            const moduleId = abilityModuleId(book.id, original.skillId);
-            const contents = generatedByModule.get(moduleId) ?? [];
-
-            contents.push(JSON.stringify(createAbilityFromExerciseVariation(skill.title, original, variation)));
-            generatedByModule.set(moduleId, contents);
+            generatedByExerciseId.set(exerciseId, ability);
+            pending.delete(exerciseId);
           });
-          completed += batch.length;
-          setProgress(Math.min(allExerciseTemplates.length, completed));
+          setProgress(generatedByExerciseId.size);
+        } catch (caught) {
+          lastAttemptError = caught instanceof Error ? caught.message : 'Unknown OpenRouter error.';
+          // This attempt still counts. Retry the same unresolved Exercises on the next pass.
         }
       }
 
-      if (!generatedByModule.size || Array.from(generatedByModule.values()).some(({ length }) => !length)) {
-        throw new Error('No validated Abilities were generated. Existing templates were preserved.');
+      await Promise.all(Array.from(generatedByExerciseId, ([exerciseId, ability]) => replaceAbilities(exerciseAbilityModuleId(book.id, exerciseId), [JSON.stringify(ability)])));
+
+      if (!pending.size) {
+        await setStage(7);
       }
 
-      await Promise.all(Array.from(generatedByModule, ([moduleId, contents]) => replaceAbilities(moduleId, contents)));
-      await setStage(7); refresh();
+      refresh();
+
+      if (pending.size) {
+        const unresolved = Array.from(pending.values()).map(({ id, title }) => `${id}: ${title}`).join('; ');
+
+        setError(`Generated ${generatedByExerciseId.size} of ${allExercises.length} Abilities. ${pending.size} Exercise${pending.size === 1 ? '' : 's'} remained unconverted after ${maxAttempts} attempts and were left unchanged: ${unresolved}${lastAttemptError ? `. Last attempt: ${lastAttemptError}` : ''}`);
+      }
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : 'Unable to generate Abilities.');
     } finally {
       setIsBusy(false);
     }
-  }, [allExerciseTemplates, allSkills, beginProgress, book.id, chapterContent, createClient, language, refresh, selectedModel, setStage]);
+  }, [allExercises, beginProgress, book.id, createClient, language, refresh, selectedModel, setStage]);
 
   const fixExercises = useCallback(async (): Promise<void> => {
     beginProgress('Fixing Ability errors', allAbilities.length);
@@ -746,15 +757,6 @@ function Skills ({ book, onAction, onBookChange, pipelineOnly = false, pipelineP
     }
   }, [aiAction, dividePreExercises, fixExercises, generateExercises, generatePreExercises, generateSkills]);
   const closeConfirmation = useCallback((): void => setAiAction(undefined), []);
-  const openSkillGeneration = useCallback((): void => {
-    setAiAction('skills'); onAction?.('conceptsSkills');
-  }, [onAction]);
-  const openPreExerciseGeneration = useCallback((): void => {
-    setAiAction('preExercises'); onAction?.('skillsPreExercises');
-  }, [onAction]);
-  const openPreExerciseDivision = useCallback((): void => {
-    setAiAction('dividePreExercises'); onAction?.('skillsPreExercises');
-  }, [onAction]);
   const openExerciseGeneration = useCallback((): void => {
     setAiAction('exercises'); onAction?.('preExercisesExercises');
   }, [onAction]);
@@ -807,26 +809,8 @@ function Skills ({ book, onAction, onBookChange, pipelineOnly = false, pipelineP
     {showPipeline && <div className='pipeline'>
       {pipelinePrefix}
       <span className='pipelineStep'><span>›</span><Button
-        icon={iconForStage(4)}
-        isDisabled={isBusy || stage < 3 || !book.language || !skillSources.length}
-        label='Generate Skills'
-        onClick={openSkillGeneration}
-                                                   /></span>
-      <span className='pipelineStep'><span>›</span><Button
-        icon={iconForStage(5)}
-        isDisabled={isBusy || stage < 4 || !allSkills.length}
-        label='Exercise templates'
-        onClick={openPreExerciseGeneration}
-                                                   /></span>
-      <span className='pipelineStep'><span>›</span><Button
-        icon={iconForStage(6)}
-        isDisabled={isBusy || stage < 5 || !allExerciseTemplates.length}
-        label='Divide prexercises'
-        onClick={openPreExerciseDivision}
-                                                   /></span>
-      <span className='pipelineStep'><span>›</span><Button
         icon={iconForStage(7)}
-        isDisabled={isBusy || stage < 6 || !allExerciseTemplates.length}
+        isDisabled={isBusy || stage < 3 || !allExercises.length}
         label='Generate Exercises'
         onClick={openExerciseGeneration}
                                                    /></span>
@@ -923,13 +907,19 @@ function Skills ({ book, onAction, onBookChange, pipelineOnly = false, pipelineP
           {view === 'preExercisesExercises' && (
             <div className='columns'>
               <section>
-                <h3>ExerciseTemplates</h3>
-                {current.exerciseTemplates.map((template) => <PreExerciseCard
-                  key={template.id}
+                <h3>Exercises</h3>
+                {!current.exercises.length && <p>No Exercises in this chapter.</p>}
+                {current.exercises.map((exercise) => <BookItem
+                  abilityMode={exercise.abilityMode}
+                  description={exercise.description}
+                  id={exercise.id}
+                  key={`exercise-${exercise.id ?? 'new'}`}
                   onDeleted={refresh}
                   onError={setError}
-                  template={template}
-                                                             />)}
+                  solution={exercise.solution}
+                  title={exercise.title}
+                  type='exercise'
+                                                      />)}
               </section>
               <section>
                 <h3>Abilities</h3>

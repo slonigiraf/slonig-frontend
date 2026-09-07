@@ -284,7 +284,7 @@ function getSessionReaderPane (bookId: number): ReaderPane {
   try {
     const value = sessionStorage.getItem(readerPaneSessionKey(bookId));
 
-    return value === 'pdfText' || value === 'textConcepts' || value === 'conceptExercises' || value === 'conceptsSkills' || value === 'skillsPreExercises' || value === 'preExercisesExercises' || value === 'skillsCourse' ? value : 'pdfText';
+    return value === 'pdfText' || value === 'textConcepts' || value === 'conceptExercises' || value === 'preExercisesExercises' || value === 'skillsCourse' ? value : 'pdfText';
   } catch {
     return 'pdfText';
   }
@@ -1180,8 +1180,6 @@ function BookReader ({ book, file, generateAllConceptsModel, generateAllConcepts
           ['pdfText', 'Text', 1],
           ['textConcepts', 'Concepts', 2],
           ['conceptExercises', 'Exercises', 3],
-          ['conceptsSkills', 'Skills', 4],
-          ['skillsPreExercises', 'PreExercises', 5],
           ['preExercisesExercises', 'Abilities', 7],
           ['skillsCourse', 'Course', 7]
         ] as Array<[ReaderPane, string, number]>).filter(([, , requiredStage]) => (book.processingStage ?? 0) >= requiredStage).map(([pane, label]) => (

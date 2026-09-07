@@ -7,7 +7,7 @@ import type { GeneratedAbility } from './abilities.js';
 
 import { strict as assert } from 'node:assert';
 
-import { createAbilityFromExerciseVariation, parseExerciseTemplateVariations, parseGeneratedAbilities, parseStoredAbility } from './abilities.js';
+import { createAbilityFromExerciseVariation, parseExerciseTemplateVariations, parseGeneratedAbilities, parseGeneratedExerciseAbilities, parseStoredAbility } from './abilities.js';
 import { conceptsToSkillsPrompt, divideExerciseTemplatesPrompt, fixAbilitiesPrompt, skillListPrompt, skillsToExercisesPrompt, skillsToExerciseTemplatesPrompt, sourcesToSkillsPrompt } from './constants.js';
 
 function createSkill (): GeneratedAbility {
@@ -30,6 +30,45 @@ describe('generated abilities', (): void => {
     assert.deepEqual(parsed, skill);
     assert.deepEqual(Object.keys(parsed).sort(), ['h', 'i', 'q', 't']);
     assert.deepEqual(Object.keys(parsed.q[0]).sort(), ['a', 'h', 'i', 'p']);
+  });
+
+  it('keeps valid partial Exercise-to-Ability conversions keyed by source Exercise id', (): void => {
+    const first = createSkill();
+    const third = { ...createSkill(), h: 'A third exercise skill' };
+    const parsed = parseGeneratedExerciseAbilities(JSON.stringify({
+      abilities: [
+        { ability: first, exerciseId: 11 },
+        { ability: { ...createSkill(), q: [] }, exerciseId: 12 },
+        { ability: third, exerciseId: 13 }
+      ]
+    }), [11, 12, 13]);
+
+    assert.deepEqual(parsed, [
+      { ability: first, exerciseId: 11 },
+      { ability: third, exerciseId: 13 }
+    ]);
+  });
+
+  it('accepts positional partial legacy Ability arrays so omitted trailing Exercises can be retried', (): void => {
+    const first = createSkill();
+    const second = { ...createSkill(), h: 'A second exercise skill' };
+
+    assert.deepEqual(parseGeneratedExerciseAbilities(JSON.stringify([first, second]), [21, 22, 23]), [
+      { ability: first, exerciseId: 21 },
+      { ability: second, exerciseId: 22 }
+    ]);
+  });
+
+  it('ignores duplicate and unexpected Exercise ids instead of corrupting pairings', (): void => {
+    const first = createSkill();
+    const duplicate = { ...createSkill(), h: 'Duplicate' };
+    const unexpected = { ...createSkill(), h: 'Unexpected' };
+
+    assert.deepEqual(parseGeneratedExerciseAbilities(JSON.stringify({ abilities: [
+      { exerciseId: 31, ability: first },
+      { exerciseId: 31, ability: duplicate },
+      { exerciseId: 99, ability: unexpected }
+    ] }), [31, 32]), [{ ability: first, exerciseId: 31 }]);
   });
 
   it('accepts concrete nonmathematical exercises for one human skill', (): void => {

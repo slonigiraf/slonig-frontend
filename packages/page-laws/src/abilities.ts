@@ -10,6 +10,11 @@ export interface GeneratedAbility {
   t: number;
 }
 
+export interface GeneratedExerciseAbility {
+  ability: GeneratedAbility;
+  exerciseId: number;
+}
+
 export interface ExerciseTemplateVariation {
   skillId: number;
   solution: string;
@@ -60,6 +65,17 @@ export function parseStoredAbility (content: string): GeneratedAbility {
   return parseAbilityValue(Array.isArray(parsed) ? parsed[0] : parsed);
 }
 
+function parseGeneratedAbilityValue (value: unknown): GeneratedAbility {
+  const template = parseAbilityValue(value);
+  const [first, second] = template.q;
+
+  if (first.h.replace(/\s+/g, ' ').trim() === second.h.replace(/\s+/g, ' ').trim()) {
+    throw new Error('The two exercises must have different input parameters, not identical questions.');
+  }
+
+  return template;
+}
+
 export function parseGeneratedAbilities (content: string, expectedCount?: number): GeneratedAbility[] {
   const parsed = parseResponse(content);
   const templates: unknown = Array.isArray(parsed) ? parsed : isRecord(parsed) ? parsed.abilities ?? parsed.templates : undefined;
@@ -73,16 +89,55 @@ export function parseGeneratedAbilities (content: string, expectedCount?: number
   }
 
   // Validate the entire response before callers persist any of its templates.
-  return templates.map((value: unknown) => {
-    const template = parseAbilityValue(value);
-    const [first, second] = template.q;
+  return templates.map(parseGeneratedAbilityValue);
+}
 
-    if (first.h.replace(/\s+/g, ' ').trim() === second.h.replace(/\s+/g, ' ').trim()) {
-      throw new Error('The two exercises must have different input parameters, not identical questions.');
+export function parseGeneratedExerciseAbilities (content: string, expectedExerciseIds: number[]): GeneratedExerciseAbility[] {
+  const parsed = parseResponse(content);
+  const values: unknown = Array.isArray(parsed)
+    ? parsed
+    : isRecord(parsed)
+      ? parsed.abilities ?? parsed.conversions ?? parsed.templates
+      : undefined;
+
+  if (!Array.isArray(values)) {
+    throw new Error('OpenRouter returned invalid Exercise-to-Ability conversion data.');
+  }
+
+  const expected = new Set(expectedExerciseIds);
+  const used = new Set<number>();
+  const results: GeneratedExerciseAbility[] = [];
+
+  values.forEach((value: unknown, index): void => {
+    let abilityValue = value;
+    let exerciseId = expectedExerciseIds[index];
+
+    if (isRecord(value) && ('ability' in value || 'exerciseId' in value || 'sourceExerciseId' in value)) {
+      const candidateId = value.exerciseId ?? value.sourceExerciseId;
+
+      if (typeof candidateId !== 'number' || !Number.isSafeInteger(candidateId)) {
+        return;
+      }
+
+      exerciseId = candidateId;
+      abilityValue = value.ability ?? { h: value.h, i: value.i, q: value.q, t: value.t };
     }
 
-    return template;
+    if (exerciseId === undefined || !expected.has(exerciseId) || used.has(exerciseId)) {
+      return;
+    }
+
+    try {
+      const ability = parseGeneratedAbilityValue(abilityValue);
+
+      used.add(exerciseId);
+      results.push({ ability, exerciseId });
+    } catch {
+      // Keep valid conversions from a partial response and retry this Exercise later.
+    }
   });
+
+  return results;
 }
 
 export function parseExerciseTemplateVariations (content: string, originals: StoredExerciseTemplate[]): ExerciseTemplateVariation[] {
