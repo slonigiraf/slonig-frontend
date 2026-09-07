@@ -275,7 +275,7 @@ interface Props {
   recognizeAllRequest: number;
 }
 
-type ReaderPane = 'conceptsSkills' | 'pdfText' | 'preExercisesExercises' | 'skillsCourse' | 'skillsPreExercises' | 'textConcepts';
+type ReaderPane = 'conceptExercises' | 'conceptsSkills' | 'pdfText' | 'preExercisesExercises' | 'skillsCourse' | 'skillsPreExercises' | 'textConcepts';
 type RecognitionTarget = 'all' | 'page';
 
 const readerPaneSessionKey = (bookId: number): string => `knowledge-upload-book-${bookId}-pane`;
@@ -284,7 +284,7 @@ function getSessionReaderPane (bookId: number): ReaderPane {
   try {
     const value = sessionStorage.getItem(readerPaneSessionKey(bookId));
 
-    return value === 'pdfText' || value === 'textConcepts' || value === 'conceptsSkills' || value === 'skillsPreExercises' || value === 'preExercisesExercises' || value === 'skillsCourse' ? value : 'pdfText';
+    return value === 'pdfText' || value === 'textConcepts' || value === 'conceptExercises' || value === 'conceptsSkills' || value === 'skillsPreExercises' || value === 'preExercisesExercises' || value === 'skillsCourse' ? value : 'pdfText';
   } catch {
     return 'pdfText';
   }
@@ -696,6 +696,7 @@ function BookReader ({ book, file, generateAllConceptsModel, generateAllConcepts
         exercises: await getExercisesForBookPage([book.id, pageNumber]),
         pageNumber
       })));
+
       for (const { concepts: storedConcepts, exercises: storedExercises, pageNumber: currentPageNumber } of pageInputs) {
         const storedPage = pages.get(currentPageNumber) ?? storedPages.find(({ pageNumber }) => pageNumber === currentPageNumber);
 
@@ -727,6 +728,7 @@ function BookReader ({ book, file, generateAllConceptsModel, generateAllConcepts
       }
 
       await advanceStage(3);
+      setActivePane('conceptExercises');
     } catch (processingError) {
       setError(processingError instanceof Error ? processingError.message : 'Unable to refine concepts and generate exercises.');
     } finally {
@@ -1041,18 +1043,48 @@ function BookReader ({ book, file, generateAllConceptsModel, generateAllConcepts
             {concept.description && <p><KatexSpan content={concept.description} /></p>}
           </li>)}</ul>
           : <p className='emptyOutput'>No concepts have been generated for this page.</p>}
-        <h3>Exercises</h3>
-        {exercises.length
-          ? <ul>{exercises.map((exercise) => <li key={exercise.id}>
-            <strong><KatexSpan content={exercise.title} /></strong>
-            {exercise.description && <p><KatexSpan content={exercise.description} /></p>}
-            <p><small>{exercise.abilityMode}</small></p>
-            {exercise.solution && <p><KatexSpan content={exercise.solution} /></p>}
-          </li>)}</ul>
-          : <p className='emptyOutput'>No exercises have been generated for this page.</p>}
       </div>
     </div>
   );
+  const exerciseItem = (exercise: Exercise): React.ReactNode => <li key={exercise.id}>
+    <strong><KatexSpan content={exercise.title} /></strong>
+    {exercise.description && <p><KatexSpan content={exercise.description} /></p>}
+    {exercise.abilityMode && <p><small>{exercise.abilityMode}</small></p>}
+    {exercise.solution && <p><KatexSpan content={exercise.solution} /></p>}
+  </li>;
+
+  const exercisesPane = (): React.ReactNode => {
+    const conceptIds = new Set(concepts.flatMap(({ id }) => id === undefined ? [] : [id]));
+    const generatedWithoutConcept = exercises.filter(({ conceptId, source }) => source === 'generated' && (conceptId === undefined || !conceptIds.has(conceptId)));
+    const bookExercises = exercises.filter(({ source }) => source !== 'generated');
+
+    return <div className='tabPanel conceptsPanel'>
+      <div className='detailsHeader'><span>Exercises grouped by concept</span></div>
+      <div className='conceptsOutput'>
+        <h3>{pages.get(pageNumber)?.chapter || 'Chapter not identified'}</h3>
+        {concepts.map((concept) => {
+          const generated = exercises.filter(({ conceptId, source }) => source === 'generated' && concept.id !== undefined && conceptId === concept.id);
+
+          return <section
+            className='conceptExerciseGroup'
+            key={concept.id}
+                 >
+            <h4><KatexSpan content={concept.title} /></h4>
+            {concept.description && <p><KatexSpan content={concept.description} /></p>}
+            {generated.length ? <ul>{generated.map(exerciseItem)}</ul> : <p className='emptyOutput'>No generated exercises for this concept.</p>}
+          </section>;
+        })}
+        {!!generatedWithoutConcept.length && <section className='conceptExerciseGroup'>
+          <h4>Other generated exercises</h4>
+          <ul>{generatedWithoutConcept.map(exerciseItem)}</ul>
+        </section>}
+        <section className='conceptExerciseGroup bookExercisesGroup'>
+          <h3>Book exercises</h3>
+          {bookExercises.length ? <ul>{bookExercises.map(exerciseItem)}</ul> : <p className='emptyOutput'>No exercises were copied from this book page.</p>}
+        </section>
+      </div>
+    </div>;
+  };
 
   return (
     <StyledReader className={`bookReader${isMaximized ? ' isMaximized' : ''}`}>
@@ -1147,9 +1179,10 @@ function BookReader ({ book, file, generateAllConceptsModel, generateAllConcepts
         {([
           ['pdfText', 'Text', 1],
           ['textConcepts', 'Concepts', 2],
+          ['conceptExercises', 'Exercises', 3],
           ['conceptsSkills', 'Skills', 4],
           ['skillsPreExercises', 'PreExercises', 5],
-          ['preExercisesExercises', 'Exercises', 7],
+          ['preExercisesExercises', 'Abilities', 7],
           ['skillsCourse', 'Course', 7]
         ] as Array<[ReaderPane, string, number]>).filter(([, , requiredStage]) => (book.processingStage ?? 0) >= requiredStage).map(([pane, label]) => (
           <button
@@ -1172,7 +1205,7 @@ function BookReader ({ book, file, generateAllConceptsModel, generateAllConcepts
         className='readerColumns'
         role='tabpanel'
       >
-        {(activePane === 'pdfText' || activePane === 'textConcepts') && <div className='pageNavigation'>
+        {(activePane === 'pdfText' || activePane === 'textConcepts' || activePane === 'conceptExercises') && <div className='pageNavigation'>
           <Button
             icon='arrow-left'
             isDisabled={pageNumber <= 1}
@@ -1233,35 +1266,37 @@ function BookReader ({ book, file, generateAllConceptsModel, generateAllConcepts
                 {conceptsPane()}
               </div>
             </>
-            : activePane === 'conceptsSkills'
-              ? <>
-                <div className='skillsArea'>
-                  <Skills
-                    book={book}
-                    onAction={setActivePane}
-                    onBookChange={onBookChange}
-                    showPipeline={false}
-                    view='conceptsSkills'
-                  />
-                </div>
-              </>
-              : activePane === 'skillsPreExercises'
-                ? <div className='skillsArea'><Skills
-                  book={book}
-                  onAction={setActivePane}
-                  onBookChange={onBookChange}
-                  showPipeline={false}
-                  view='skillsPreExercises'
-                                              /></div>
-                : activePane === 'preExercisesExercises'
+            : activePane === 'conceptExercises'
+              ? <div className='detailsArea fullWidthDetails'>{exercisesPane()}</div>
+              : activePane === 'conceptsSkills'
+                ? <>
+                  <div className='skillsArea'>
+                    <Skills
+                      book={book}
+                      onAction={setActivePane}
+                      onBookChange={onBookChange}
+                      showPipeline={false}
+                      view='conceptsSkills'
+                    />
+                  </div>
+                </>
+                : activePane === 'skillsPreExercises'
                   ? <div className='skillsArea'><Skills
                     book={book}
                     onAction={setActivePane}
                     onBookChange={onBookChange}
                     showPipeline={false}
-                    view='preExercisesExercises'
+                    view='skillsPreExercises'
                                                 /></div>
-                  : <SkillsCourse book={book} />}
+                  : activePane === 'preExercisesExercises'
+                    ? <div className='skillsArea'><Skills
+                      book={book}
+                      onAction={setActivePane}
+                      onBookChange={onBookChange}
+                      showPipeline={false}
+                      view='preExercisesExercises'
+                                                  /></div>
+                    : <SkillsCourse book={book} />}
       </div>
     </StyledReader>
   );
@@ -1343,6 +1378,10 @@ const StyledReader = styled.div`
     height: var(--page-height, auto);
     min-width: 0;
     overflow: hidden;
+  }
+
+  .fullWidthDetails {
+    grid-column: 1 / -1;
   }
 
   .pageArea {
