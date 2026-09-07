@@ -851,7 +851,7 @@ function Skills ({ book, onAction, onBookChange, pipelineOnly = false, pipelineP
                 {exerciseTitle && <p><small>Exercise: <KatexSpan content={exerciseTitle} /></small></p>}
                 <h5>Corrected errors</h5>
                 <ul>
-                  {errors.map((message, errorIndex) => <li key={`${recordId}-${errorIndex}`}>{message}</li>)}
+                  {errors.map((message, errorIndex) => <li key={`${recordId}-${errorIndex}`}><KatexSpan content={message} /></li>)}
                 </ul>
                 <h5>Corrected result</h5>
                 <div className='fixedAbilityPreview'>
