@@ -33,6 +33,57 @@ export interface ProcessedPageContent {
 
 export type BookProcessingAi = (prompt: string) => Promise<string>;
 
+export interface PageSymbolStatistics {
+  mean: number;
+  standardDeviation: number;
+}
+
+export interface PageConceptProcessingState {
+  conceptsProcessed?: boolean;
+  pageNumber: number;
+}
+
+export function areAllBookPagesConceptsProcessed (totalPages: number, pages: PageConceptProcessingState[]): boolean {
+  if (!Number.isSafeInteger(totalPages) || totalPages <= 0) {
+    return false;
+  }
+
+  const processedPageNumbers = new Set(pages.flatMap(({ conceptsProcessed, pageNumber }) => conceptsProcessed && Number.isSafeInteger(pageNumber) && pageNumber >= 1 && pageNumber <= totalPages ? [pageNumber] : []));
+
+  return processedPageNumbers.size === totalPages;
+}
+
+export function countUnprocessedBookPages (totalPages: number, pages: PageConceptProcessingState[]): number {
+  if (!Number.isSafeInteger(totalPages) || totalPages <= 0) {
+    return 0;
+  }
+
+  const processedPageNumbers = new Set(pages.flatMap(({ conceptsProcessed, pageNumber }) => conceptsProcessed && Number.isSafeInteger(pageNumber) && pageNumber >= 1 && pageNumber <= totalPages ? [pageNumber] : []));
+
+  return totalPages - processedPageNumbers.size;
+}
+
+export function calculatePageSymbolStatistics (pageTexts: string[]): PageSymbolStatistics | undefined {
+  const symbolCounts = pageTexts.map((text) => text.length);
+
+  if (!symbolCounts.length) {
+    return undefined;
+  }
+
+  const mean = symbolCounts.reduce((sum, count) => sum + count, 0) / symbolCounts.length;
+  const variance = symbolCounts.reduce((sum, count) => sum + Math.pow(count - mean, 2), 0) / symbolCounts.length;
+
+  return { mean, standardDeviation: Math.sqrt(variance) };
+}
+
+export function isWithinTwoStandardDeviations (symbolCount: number, statistics?: PageSymbolStatistics): boolean {
+  if (!statistics || !Number.isFinite(symbolCount)) {
+    return false;
+  }
+
+  return Math.abs(symbolCount - statistics.mean) <= 2 * statistics.standardDeviation;
+}
+
 const CONCEPT_SPLIT_PROMPT = 'Split only the supplied concepts into the smallest useful, independently learnable concepts. Do not create, modify, split, or return exercises. Preserve the input language and all useful information. Avoid duplicate concepts. For every output item, copy inputIndex from the concept it refines. Return only JSON: {"concepts":[{"inputIndex":0,"title":"...","description":"..."}]}. Every inputIndex must have at least one output.';
 
 const GENERATE_EXERCISES_PROMPT = `For every supplied refined concept, generate exactly ${GENERATED_EXERCISES_PER_CONCEPT} complete exercises in the input language. Each exercise must train that concept and use a different abilityMode where possible. abilityMode must be one of: ${exerciseAbilityModes.join(', ')}. Include a correct explicit step-by-step solution. Use <kx>...</kx> for every mathematical expression. Copy conceptIndex exactly. Return only JSON: {"exercises":[{"conceptIndex":0,"title":"...","description":"complete task","abilityMode":"reasoning","solution":"step-by-step solution"}]}.`;

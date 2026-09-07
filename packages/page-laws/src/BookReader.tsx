@@ -4,7 +4,7 @@
 import type { Book, BookConcept, BookPage, Exercise } from '@slonigiraf/db';
 import type { PDFDocumentLoadingTask, PDFDocumentProxy, RenderTask } from 'pdfjs-dist';
 
-import { getBookConceptsForBookPage, getBookPages, getExercisesForBookPage, getSetting, putBook, putBookPage, replaceParsedBookPageContent, SettingKey, storeSetting, updateBookProcessingStage } from '@slonigiraf/db';
+import { getAbilities, getBookConceptsForBookPage, getBookPages, getExercisesForBookPage, getSetting, putBook, putBookPage, replaceParsedBookPageContent, SettingKey, storeSetting, updateBookProcessingStage } from '@slonigiraf/db';
 import { KatexSpan, RoundProgress } from '@slonigiraf/slonig-components';
 import { strFromU8, unzipSync } from 'fflate';
 import MathpixLoader from 'mathpix-markdown-it/lib/components/mathpix-loader/index.js';
@@ -18,7 +18,7 @@ import { Button, Dropdown, Input, Modal, styled } from '@polkadot/react-componen
 
 import { estimateAiInput, formatAiInputEstimate } from './aiEstimate.js';
 import { detectBookLanguage } from './bookLanguage.js';
-import { exerciseAbilityModes, processExtractedPageContent } from './bookProcessing.js';
+import { areAllBookPagesConceptsProcessed, calculatePageSymbolStatistics, countUnprocessedBookPages, exerciseAbilityModes, isWithinTwoStandardDeviations, processExtractedPageContent } from './bookProcessing.js';
 import { OPENAI_MODELS } from './constants.js';
 import Skills from './Skills.js';
 import SkillsCourse from './SkillsCourse.js';
@@ -106,6 +106,66 @@ async function validateExtractedContent (client: OpenAI, model: string, generate
   throw lastError instanceof Error ? lastError : new Error('Extracted concepts and exercises failed AI validation twice.');
 }
 
+async function requestGeneratedPageContent (client: OpenAI, model: string, mmdZipInput: MMDZipInput): Promise<GeneratedConcepts> {
+  if (!mmdZipInput.text.trim() && !mmdZipInput.images.length) {
+    return { chapter: '', concepts: [], exercises: [] };
+  }
+
+  const response = await client.chat.completions.create({
+    messages: [{
+      content: [
+        {
+          text: `${CONCEPTS_PROMPT}\n\nThe following text and images were extracted from the Mathpix MMD ZIP:\n\n${mmdZipInput.text}`,
+          type: 'text'
+        },
+        ...mmdZipInput.images
+      ],
+      role: 'user'
+    }],
+    model,
+    response_format: { type: 'json_object' }
+  });
+  const generatedContent = response.choices[0].message?.content?.trim();
+
+  if (!generatedContent) {
+    return { chapter: '', concepts: [], exercises: [] };
+  }
+
+  const generated = parseGeneratedConcepts(generatedContent);
+
+  // An empty concept list is a valid extraction result. Do not let the
+  // validator turn that case into a hard failure that blocks the next stage.
+  return generated.concepts.length ? validateExtractedContent(client, model, generated) : generated;
+}
+
+async function generatePageContentWithEmptyConceptRetry (client: OpenAI, model: string, mmdZipInput: MMDZipInput, retryEmptyConcepts: boolean): Promise<GeneratedConcepts> {
+  const firstResult = await requestGeneratedPageContent(client, model, mmdZipInput);
+
+  if (firstResult.concepts.length || !retryEmptyConcepts) {
+    return firstResult;
+  }
+
+  let secondResult: GeneratedConcepts;
+
+  try {
+    secondResult = await requestGeneratedPageContent(client, model, mmdZipInput);
+  } catch {
+    // The first result was valid but empty. A failed recovery request must not
+    // leave this page permanently blocking exercise generation.
+    return firstResult;
+  }
+
+  if (secondResult.concepts.length) {
+    return secondResult;
+  }
+
+  return {
+    chapter: secondResult.chapter || firstResult.chapter,
+    concepts: [],
+    exercises: secondResult.exercises?.length ? secondResult.exercises : firstResult.exercises ?? []
+  };
+}
+
 const MAX_REQUESTS_PER_MIN = 180;
 const RATE_LIMIT_WINDOW_MS = 60_000;
 const GENERATION_PAGE_SPAWN_INTERVAL_MS = Math.ceil(RATE_LIMIT_WINDOW_MS / (MAX_REQUESTS_PER_MIN / 4));
@@ -175,11 +235,37 @@ async function extractMMDZipInput (blob: Blob): Promise<MMDZipInput> {
     }
   });
 
-  if (!textEntries.length) {
-    throw new Error('The MMD ZIP contains no readable text.');
+  // A cover, separator, or image-only page can legitimately contain no
+  // readable text. Treat it as valid extraction input instead of failing the
+  // whole Concepts stage; images can still be sent to the model when present.
+  return { images, text: textEntries.join('\n\n') };
+}
+
+async function getPageConceptInput (page: BookPage): Promise<MMDZipInput | undefined> {
+  const recognizedText = page.pageMMD?.trim() ?? '';
+
+  if (page.pageMMDZip) {
+    try {
+      const zipInput = await extractMMDZipInput(page.pageMMDZip);
+
+      // Mathpix can return readable pageMMD while the ZIP itself contains no
+      // text entry. Keep any ZIP images, but fall back to the recognized MMD
+      // text so a real text page is never silently skipped.
+      return {
+        images: zipInput.images,
+        text: zipInput.text.trim() ? zipInput.text : recognizedText
+      };
+    } catch (error) {
+      // Older/incomplete stored recognition results can have a bad ZIP while
+      // still containing valid recognized text. The text is sufficient for
+      // concept extraction, so only fail when neither source is usable.
+      if (!recognizedText) {
+        throw error;
+      }
+    }
   }
 
-  return { images, text: textEntries.join('\n\n') };
+  return recognizedText ? { images: [], text: recognizedText } : undefined;
 }
 
 async function createSinglePagePdf (file: File, pageNumber: number): Promise<Blob> {
@@ -278,6 +364,14 @@ interface Props {
 type ReaderPane = 'conceptExercises' | 'conceptsSkills' | 'pdfText' | 'preExercisesExercises' | 'skillsCourse' | 'skillsPreExercises' | 'textConcepts';
 type RecognitionTarget = 'all' | 'page';
 
+interface ReaderEntityCounts {
+  abilities: number;
+  concepts: number;
+  exercises: number;
+}
+
+const exerciseAbilityModuleId = (bookId: number, exerciseId: number): string => `book-${bookId}-exercise-${exerciseId}`;
+
 const readerPaneSessionKey = (bookId: number): string => `knowledge-upload-book-${bookId}-pane`;
 
 function getSessionReaderPane (bookId: number): ReaderPane {
@@ -295,6 +389,7 @@ function BookReader ({ book, file, generateAllConceptsModel, generateAllConcepts
   const [concepts, setConcepts] = useState<BookConcept[]>([]);
   const [exercises, setExercises] = useState<Exercise[]>([]);
   const [error, setError] = useState('');
+  const [entityCounts, setEntityCounts] = useState<ReaderEntityCounts>({ abilities: 0, concepts: 0, exercises: 0 });
   const [generatedConceptsPageCount, setGeneratedConceptsPageCount] = useState(0);
   const [isGeneratingAllConcepts, setIsGeneratingAllConcepts] = useState(false);
   const [isMaximized, setIsMaximized] = useState(false);
@@ -326,6 +421,34 @@ function BookReader ({ book, file, generateAllConceptsModel, generateAllConcepts
     return formatAiInputEstimate(estimateAiInput(selectedModel, [pageText.padEnd(pageText.length + 2_000), validationInput.padEnd(validationInput.length + 2_000)], 4_800));
   }, [pageNumber, pages, selectedModel]);
 
+  const refreshEntityCounts = useCallback(async (): Promise<void> => {
+    const storedPages = await getBookPages(book.id);
+    const pageRows = await Promise.all(storedPages.map(async ({ pageNumber }) => {
+      const [pageConcepts, pageExercises] = await Promise.all([
+        getBookConceptsForBookPage(book.id, pageNumber),
+        getExercisesForBookPage([book.id, pageNumber])
+      ]);
+
+      return { concepts: pageConcepts, exercises: pageExercises };
+    }));
+    const allExercises = pageRows.flatMap(({ exercises }) => exercises);
+    const abilities = (await Promise.all(allExercises.flatMap(({ id }) => id === undefined ? [] : [getAbilities(exerciseAbilityModuleId(book.id, id))]))).flat();
+
+    setEntityCounts({
+      abilities: abilities.length,
+      concepts: pageRows.reduce((count, { concepts }) => count + concepts.length, 0),
+      exercises: allExercises.length
+    });
+  }, [book.id]);
+
+  const onSkillsEntityCountsChange = useCallback(({ abilities, exercises }: Pick<ReaderEntityCounts, 'abilities' | 'exercises'>): void => {
+    setEntityCounts((current) => ({ ...current, abilities, exercises }));
+  }, []);
+
+  useEffect(() => {
+    refreshEntityCounts().catch(() => undefined);
+  }, [book.processingStage, refreshEntityCounts]);
+
   useEffect(() => {
     try {
       sessionStorage.setItem(readerPaneSessionKey(book.id), activePane);
@@ -348,10 +471,10 @@ function BookReader ({ book, file, generateAllConceptsModel, generateAllConcepts
 
     const updatedBook = await updateBookProcessingStage(book.id, processingStage);
 
-    if (updatedBook) {
-      onBookChange(updatedBook);
-    }
-  }, [book.id, book.processingStage, onBookChange]);
+    // Keep the parent toolbar in sync even when the DB helper performs the
+    // update without returning the updated row.
+    onBookChange(updatedBook ?? { ...book, processingStage });
+  }, [book, onBookChange]);
 
   useEffect(() => {
     let active = true;
@@ -387,7 +510,7 @@ function BookReader ({ book, file, generateAllConceptsModel, generateAllConcepts
       setPages(new Map(storedPages.map((page) => [page.pageNumber, page])));
       const hasEveryPage = storedPages.length === document.numPages;
 
-      if (hasEveryPage && storedPages.every(({ conceptsProcessed }) => conceptsProcessed)) {
+      if (areAllBookPagesConceptsProcessed(document.numPages, storedPages)) {
         await advanceStage(2);
       } else if (hasEveryPage && storedPages.every(({ pageMMD }) => !!pageMMD)) {
         await advanceStage(1);
@@ -472,9 +595,9 @@ function BookReader ({ book, file, generateAllConceptsModel, generateAllConcepts
   }, [activePane, isMaximized, pageNumber, pdf]);
 
   const generateConcepts = useCallback(async (): Promise<void> => {
-    const pageMMDZip = pages.get(pageNumber)?.pageMMDZip;
+    const storedPage = pages.get(pageNumber);
 
-    if (!pageMMDZip || processingPage !== undefined || isGeneratingAllConcepts || isRecognizingAll) {
+    if (!storedPage || (!storedPage.pageMMDZip && !storedPage.pageMMD?.trim()) || processingPage !== undefined || isGeneratingAllConcepts || isRecognizingAll) {
       return;
     }
 
@@ -497,48 +620,57 @@ function BookReader ({ book, file, generateAllConceptsModel, generateAllConcepts
           'X-OpenRouter-Title': 'Slonig'
         }
       });
-      const mmdZipInput = await extractMMDZipInput(pageMMDZip);
-      const response = await client.chat.completions.create({
-        messages: [{
-          content: [
-            {
-              text: `${CONCEPTS_PROMPT}\n\nThe following text and images were extracted from the Mathpix MMD ZIP:\n\n${mmdZipInput.text}`,
-              type: 'text'
-            },
-            ...mmdZipInput.images
-          ],
-          role: 'user'
-        }],
-        model: selectedModel,
-        response_format: { type: 'json_object' }
-      });
-      const generatedContent = response.choices[0].message?.content?.trim();
+      const mmdZipInput = await getPageConceptInput(storedPage);
 
-      if (!generatedContent) {
-        throw new Error('OpenRouter returned no concepts.');
+      if (!mmdZipInput) {
+        throw new Error('Page has no recognized text or MMD ZIP content.');
       }
 
-      const generatedConcepts = await validateExtractedContent(client, selectedModel, parseGeneratedConcepts(generatedContent));
+      const symbolStatistics = calculatePageSymbolStatistics(Array.from(pages.values()).flatMap(({ pageMMD }) => typeof pageMMD === 'string' ? [pageMMD] : []));
+      const pageSymbolCount = storedPage.pageMMD?.length ?? mmdZipInput.text.length;
+      const generatedConcepts = await generatePageContentWithEmptyConceptRetry(client, selectedModel, mmdZipInput, isWithinTwoStandardDeviations(pageSymbolCount, symbolStatistics));
 
       const resolvedChapter = resolveChapterTitle(generatedConcepts.chapter, pageNumber, pages);
       const generatedPage: BookPage = {
-        ...pages.get(pageNumber),
+        ...storedPage,
         bookId: book.id,
         chapter: resolvedChapter,
         conceptsProcessed: true,
         pageNumber
       };
 
-      const stored = await replaceParsedBookPageContent(book.id, pageNumber, resolvedChapter, generatedConcepts.concepts, generatedConcepts.exercises ?? []);
+      let stored: Awaited<ReturnType<typeof replaceParsedBookPageContent>> | undefined;
 
-      await putBookPage(generatedPage);
+      if (generatedConcepts.concepts.length) {
+        // Normal pages are marked processed only after their generated content
+        // has been stored successfully.
+        stored = await replaceParsedBookPageContent(book.id, pageNumber, resolvedChapter, generatedConcepts.concepts, generatedConcepts.exercises ?? []);
+        await putBookPage(generatedPage);
+      } else {
+        // A valid empty result is itself a successful Concepts-stage result.
+        // Persist that state before touching concept rows so an empty-array
+        // storage edge case cannot keep Exercises disabled.
+        await putBookPage(generatedPage);
+
+        try {
+          stored = await replaceParsedBookPageContent(book.id, pageNumber, resolvedChapter, [], generatedConcepts.exercises ?? []);
+        } catch {
+          // There may be nothing to replace. The page processing result is
+          // still valid and must not block the next stage.
+        }
+
+        // Reassert the flag in case content replacement also updates BookPage.
+        await putBookPage(generatedPage);
+      }
+
       const updatedPages = new Map(pages).set(pageNumber, generatedPage);
 
       setPages(updatedPages);
-      setConcepts(stored.concepts);
-      setExercises(stored.exercises);
+      setConcepts(stored?.concepts ?? []);
+      setExercises(stored?.exercises ?? []);
+      await refreshEntityCounts();
 
-      if (totalPages && Array.from({ length: totalPages }, (_, index) => updatedPages.get(index + 1)).every((page) => page?.conceptsProcessed)) {
+      if (areAllBookPagesConceptsProcessed(totalPages, Array.from(updatedPages.values()))) {
         await advanceStage(2);
       }
     } catch (generationError) {
@@ -546,7 +678,7 @@ function BookReader ({ book, file, generateAllConceptsModel, generateAllConcepts
     } finally {
       setProcessingPage(undefined);
     }
-  }, [advanceStage, book.id, isGeneratingAllConcepts, isRecognizingAll, pageNumber, pages, processingPage, selectedModel, totalPages]);
+  }, [advanceStage, book.id, isGeneratingAllConcepts, isRecognizingAll, pageNumber, pages, processingPage, refreshEntityCounts, selectedModel, totalPages]);
   const closePageGenerationConfirmation = useCallback((): void => setIsPageGenerationConfirmationOpen(false), []);
   const confirmPageGeneration = useCallback((): void => {
     setIsPageGenerationConfirmationOpen(false);
@@ -583,8 +715,13 @@ function BookReader ({ book, file, generateAllConceptsModel, generateAllConcepts
     });
     const conceptTasks: Array<Promise<void>> = [];
     const eligiblePages = Array.from({ length: totalPages }, (_, index) => index + 1)
-      .filter((currentPageNumber) => pages.get(currentPageNumber)?.pageMMDZip);
+      .filter((currentPageNumber) => {
+        const page = pages.get(currentPageNumber);
+
+        return !!page?.pageMMDZip || !!page?.pageMMD?.trim();
+      });
     const resolvedPages = new Map(pages);
+    const symbolStatistics = calculatePageSymbolStatistics(Array.from(pages.values()).flatMap(({ pageMMD }) => typeof pageMMD === 'string' ? [pageMMD] : []));
     let persistenceQueue: Promise<void> = Promise.resolve();
 
     try {
@@ -595,35 +732,21 @@ function BookReader ({ book, file, generateAllConceptsModel, generateAllConcepts
 
         const generationTask = (async () => {
           const storedPage = pages.get(currentPageNumber);
-          const pageMMDZip = storedPage?.pageMMDZip;
 
-          if (!pageMMDZip) {
+          if (!storedPage) {
             throw new Error('Page has not been recognized.');
           }
 
-          const mmdZipInput = await extractMMDZipInput(pageMMDZip);
-          const response = await client.chat.completions.create({
-            messages: [{
-              content: [
-                {
-                  text: `${CONCEPTS_PROMPT}\n\nThe following text and images were extracted from the Mathpix MMD ZIP:\n\n${mmdZipInput.text}`,
-                  type: 'text'
-                },
-                ...mmdZipInput.images
-              ],
-              role: 'user'
-            }],
-            model: generateAllConceptsModel,
-            response_format: { type: 'json_object' }
-          });
-          const generatedContent = response.choices[0].message?.content?.trim();
+          const mmdZipInput = await getPageConceptInput(storedPage);
 
-          if (!generatedContent) {
-            throw new Error('OpenRouter returned no concepts.');
+          if (!mmdZipInput) {
+            throw new Error('Page has no recognized text or MMD ZIP content.');
           }
 
+          const pageSymbolCount = storedPage.pageMMD?.length ?? mmdZipInput.text.length;
+
           return {
-            generatedConcepts: await validateExtractedContent(client, generateAllConceptsModel, parseGeneratedConcepts(generatedContent)),
+            generatedConcepts: await generatePageContentWithEmptyConceptRetry(client, generateAllConceptsModel, mmdZipInput, isWithinTwoStandardDeviations(pageSymbolCount, symbolStatistics)),
             storedPage
           };
         })();
@@ -639,31 +762,57 @@ function BookReader ({ book, file, generateAllConceptsModel, generateAllConcepts
             pageNumber: currentPageNumber
           };
 
-          const stored = await replaceParsedBookPageContent(book.id, currentPageNumber, resolvedChapter, generatedConcepts.concepts, generatedConcepts.exercises ?? []);
+          let stored: Awaited<ReturnType<typeof replaceParsedBookPageContent>> | undefined;
 
-          await putBookPage(generatedPage);
-          resolvedPages.set(currentPageNumber, generatedPage);
-          setPages((current) => new Map(current).set(currentPageNumber, generatedPage));
+          if (generatedConcepts.concepts.length) {
+            stored = await replaceParsedBookPageContent(book.id, currentPageNumber, resolvedChapter, generatedConcepts.concepts, generatedConcepts.exercises ?? []);
+            await putBookPage(generatedPage);
+          } else {
+            // Empty concepts are a successful extraction result. Commit the
+            // page-level completion independently from concept-row storage.
+            await putBookPage(generatedPage);
 
-          if (currentPageNumber === pageNumber) {
-            setConcepts(stored.concepts);
-            setExercises(stored.exercises);
+            try {
+              stored = await replaceParsedBookPageContent(book.id, currentPageNumber, resolvedChapter, [], generatedConcepts.exercises ?? []);
+            } catch {
+              // Do not turn a valid `concepts: []` result into an unprocessed
+              // page merely because there are no concept rows to replace.
+            }
+
+            await putBookPage(generatedPage);
           }
 
+          resolvedPages.set(currentPageNumber, generatedPage);
+          setPages((current) => new Map(current).set(currentPageNumber, generatedPage));
           setGeneratedConceptsPageCount((count) => count + 1);
+
+          if (currentPageNumber === pageNumber) {
+            setConcepts(stored?.concepts ?? []);
+            setExercises(stored?.exercises ?? []);
+          }
         });
 
         persistenceQueue = persistenceTask.catch(() => undefined);
         conceptTasks.push(persistenceTask);
       }
 
-      const results = await Promise.allSettled(conceptTasks);
-      const failedPages = totalPages - eligiblePages.length + results.filter(({ status }) => status === 'rejected').length;
+      const conceptResults = await Promise.allSettled(conceptTasks);
+      const failedConceptTasks = conceptResults.filter(({ status }) => status === 'rejected').length;
+      const allPagesSuccessfullyAttempted = eligiblePages.length === totalPages && failedConceptTasks === 0;
+      const storedPagesAfterGeneration = await getBookPages(book.id);
+      const conceptsComplete = areAllBookPagesConceptsProcessed(totalPages, storedPagesAfterGeneration);
 
-      if (failedPages) {
-        setError(`${failedPages} of ${totalPages} pages could not have concepts generated. Recognize missing pages first.`);
-      } else {
+      setPages(new Map(storedPagesAfterGeneration.map((storedPage) => [storedPage.pageNumber, storedPage])));
+      await refreshEntityCounts();
+
+      if (allPagesSuccessfullyAttempted || conceptsComplete) {
+        // Do not use concept count as the gate. A text page for which the AI
+        // twice returns `concepts: []` has still completed this stage.
         await advanceStage(2);
+      } else {
+        const failedPages = Math.max(failedConceptTasks, countUnprocessedBookPages(totalPages, storedPagesAfterGeneration));
+
+        setError(`${failedPages} of ${totalPages} pages could not have concepts processed. Recognize missing pages or retry concept generation.`);
       }
     } catch (generationError) {
       setError(generationError instanceof Error ? generationError.message : 'Unable to generate concepts for all pages.');
@@ -671,7 +820,7 @@ function BookReader ({ book, file, generateAllConceptsModel, generateAllConcepts
       setIsGeneratingAllConcepts(false);
       onProcessingComplete();
     }
-  }, [advanceStage, book.id, generateAllConceptsModel, isGeneratingAllConcepts, isRecognizingAll, onProcessingComplete, pageNumber, pages, processingPage, totalPages]);
+  }, [advanceStage, book.id, generateAllConceptsModel, isGeneratingAllConcepts, isRecognizingAll, onProcessingComplete, pageNumber, pages, processingPage, refreshEntityCounts, totalPages]);
 
   const refineAllContent = useCallback(async (): Promise<void> => {
     if (!totalPages || processingPage !== undefined || isGeneratingAllConcepts || isRecognizingAll || isRefiningAllContent) {
@@ -727,6 +876,7 @@ function BookReader ({ book, file, generateAllConceptsModel, generateAllConcepts
         setRefinedPageCount((count) => count + 1);
       }
 
+      await refreshEntityCounts();
       await advanceStage(3);
       setActivePane('conceptExercises');
     } catch (processingError) {
@@ -735,7 +885,7 @@ function BookReader ({ book, file, generateAllConceptsModel, generateAllConcepts
       setIsRefiningAllContent(false);
       onProcessingComplete();
     }
-  }, [advanceStage, book.id, generateAllConceptsModel, isGeneratingAllConcepts, isRecognizingAll, isRefiningAllContent, onProcessingComplete, pageNumber, pages, processingPage, totalPages]);
+  }, [advanceStage, book.id, generateAllConceptsModel, isGeneratingAllConcepts, isRecognizingAll, isRefiningAllContent, onProcessingComplete, pageNumber, pages, processingPage, refreshEntityCounts, totalPages]);
 
   const detectAndStoreBookLanguage = useCallback(async (recognizedPages: Map<number, BookPage>): Promise<void> => {
     const requiredPageCount = Math.min(2, totalPages);
@@ -1164,6 +1314,7 @@ function BookReader ({ book, file, generateAllConceptsModel, generateAllConcepts
         book={book}
         onAction={setActivePane}
         onBookChange={onBookChange}
+        onEntityCountsChange={onSkillsEntityCountsChange}
         pipelineOnly
         pipelinePrefix={processingToolbar}
         view='conceptsSkills'
@@ -1177,12 +1328,12 @@ function BookReader ({ book, file, generateAllConceptsModel, generateAllConcepts
         role='tablist'
       >
         {([
-          ['pdfText', 'Text', 1],
-          ['textConcepts', 'Concepts', 2],
-          ['conceptExercises', 'Exercises', 3],
-          ['preExercisesExercises', 'Abilities', 3],
-          ['skillsCourse', 'Course', 7]
-        ] as Array<[ReaderPane, string, number]>).filter(([, , requiredStage]) => (book.processingStage ?? 0) >= requiredStage).map(([pane, label]) => (
+          ['pdfText', 'Text', 1, totalPages],
+          ['textConcepts', 'Concepts', 2, entityCounts.concepts],
+          ['conceptExercises', 'Exercises', 3, entityCounts.exercises],
+          ['preExercisesExercises', 'Abilities', 3, entityCounts.abilities],
+          ['skillsCourse', 'Course', 7, undefined]
+        ] as Array<[ReaderPane, string, number, number | undefined]>).filter(([, , requiredStage]) => (book.processingStage ?? 0) >= requiredStage).map(([pane, label, , count]) => (
           <button
             aria-selected={activePane === pane}
             className={activePane === pane ? 'active' : ''}
@@ -1191,7 +1342,7 @@ function BookReader ({ book, file, generateAllConceptsModel, generateAllConcepts
             onClick={() => setActivePane(pane)}
             role='tab'
             type='button'
-          >{label}</button>
+          >{label}{count === undefined ? '' : ` (${count})`}</button>
         ))}
         <div className='previewButton'><Button
           icon={isMaximized ? 'compress' : 'search-plus'}
@@ -1273,6 +1424,7 @@ function BookReader ({ book, file, generateAllConceptsModel, generateAllConcepts
                       book={book}
                       onAction={setActivePane}
                       onBookChange={onBookChange}
+                      onEntityCountsChange={onSkillsEntityCountsChange}
                       showPipeline={false}
                       view='conceptsSkills'
                     />
@@ -1283,6 +1435,7 @@ function BookReader ({ book, file, generateAllConceptsModel, generateAllConcepts
                     book={book}
                     onAction={setActivePane}
                     onBookChange={onBookChange}
+                    onEntityCountsChange={onSkillsEntityCountsChange}
                     showPipeline={false}
                     view='skillsPreExercises'
                                                 /></div>
@@ -1291,6 +1444,7 @@ function BookReader ({ book, file, generateAllConceptsModel, generateAllConcepts
                       book={book}
                       onAction={setActivePane}
                       onBookChange={onBookChange}
+                      onEntityCountsChange={onSkillsEntityCountsChange}
                       showPipeline={false}
                       view='preExercisesExercises'
                                                   /></div>

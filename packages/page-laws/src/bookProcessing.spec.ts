@@ -5,9 +5,60 @@
 
 import { strict as assert } from 'node:assert';
 
-import { CONCEPT_SPLIT_PASSES, EXERCISE_SPLIT_PASSES, exerciseAbilityModes, GENERATED_EXERCISES_PER_CONCEPT, MAX_EXERCISE_GENERATION_RETRIES, processExtractedPageContent } from './bookProcessing.js';
+import { areAllBookPagesConceptsProcessed, calculatePageSymbolStatistics, CONCEPT_SPLIT_PASSES, countUnprocessedBookPages, EXERCISE_SPLIT_PASSES, exerciseAbilityModes, GENERATED_EXERCISES_PER_CONCEPT, isWithinTwoStandardDeviations, MAX_EXERCISE_GENERATION_RETRIES, processExtractedPageContent } from './bookProcessing.js';
 
 describe('book processing pipeline', (): void => {
+
+  it('calculates book page symbol statistics and identifies pages within two standard deviations', (): void => {
+    const statistics = calculatePageSymbolStatistics(['a'.repeat(100), 'b'.repeat(100), 'c'.repeat(100), 'd'.repeat(200)]);
+
+    assert.ok(statistics);
+    assert.equal(statistics.mean, 125);
+    assert.ok(Math.abs(statistics.standardDeviation - 43.30127018922193) < 1e-10);
+    assert.equal(isWithinTwoStandardDeviations(100, statistics), true);
+    assert.equal(isWithinTwoStandardDeviations(220, statistics), false);
+  });
+
+  it('treats equal-length pages as within two standard deviations when standard deviation is zero', (): void => {
+    const statistics = calculatePageSymbolStatistics(['a'.repeat(50), 'b'.repeat(50)]);
+
+    assert.ok(statistics);
+    assert.equal(statistics.mean, 50);
+    assert.equal(statistics.standardDeviation, 0);
+    assert.equal(isWithinTwoStandardDeviations(50, statistics), true);
+    assert.equal(isWithinTwoStandardDeviations(49, statistics), false);
+  });
+
+  it('includes zero-symbol recognized pages in the book mean and standard deviation', (): void => {
+    const statistics = calculatePageSymbolStatistics(['', 'a'.repeat(100), 'b'.repeat(100)]);
+
+    assert.ok(statistics);
+    assert.ok(Math.abs(statistics.mean - (200 / 3)) < 1e-10);
+    assert.ok(statistics.standardDeviation > 0);
+  });
+
+  it('treats a processed page with zero concepts as complete for the Exercises stage', (): void => {
+    const pages = [
+      { conceptsProcessed: true, pageNumber: 1 },
+      { conceptsProcessed: true, pageNumber: 2 },
+      { conceptsProcessed: true, pageNumber: 3 }
+    ];
+
+    assert.equal(areAllBookPagesConceptsProcessed(3, pages), true);
+    assert.equal(countUnprocessedBookPages(3, pages), 0);
+  });
+
+  it('keeps Exercises locked only while a page is actually unprocessed', (): void => {
+    const pages = [
+      { conceptsProcessed: true, pageNumber: 1 },
+      { conceptsProcessed: false, pageNumber: 2 },
+      { conceptsProcessed: true, pageNumber: 3 }
+    ];
+
+    assert.equal(areAllBookPagesConceptsProcessed(3, pages), false);
+    assert.equal(countUnprocessedBookPages(3, pages), 1);
+  });
+
   it('refines concepts, generates and merges exercises, then splits only the merged exercises', async (): Promise<void> => {
     const prompts: string[] = [];
 

@@ -401,7 +401,16 @@ function Upload (): React.ReactElement {
   const onBookChange = useCallback((updatedBook: Book): void => {
     setBooks((current) => current.map((book) => book.id === updatedBook.id ? updatedBook : book));
   }, []);
-  const onProcessingComplete = useCallback((): void => setPendingProcessingAction(undefined), []);
+  const onProcessingComplete = useCallback((): void => {
+    setPendingProcessingAction(undefined);
+
+    // Re-read the persisted processing stage after a pipeline action. This is
+    // the state that enables the next toolbar button, and it must not depend
+    // on whether the current page happened to produce any concepts.
+    getBooks()
+      .then(setBooks)
+      .catch(() => setError(t('Unable to refresh the book processing stage.')));
+  }, [t]);
 
   return (
     <StyledSection>

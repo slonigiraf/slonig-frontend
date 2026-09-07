@@ -178,6 +178,7 @@ interface Props {
   book: Book;
   onBookChange: (book: Book) => void;
   onAction?: (view: SkillsView) => void;
+  onEntityCountsChange?: (counts: { abilities: number; exercises: number }) => void;
   pipelineOnly?: boolean;
   pipelinePrefix?: React.ReactNode;
   showPipeline?: boolean;
@@ -553,7 +554,7 @@ function getSessionChapter (bookId: number, view: SkillsView): number {
   }
 }
 
-function Skills ({ book, onAction, onBookChange, pipelineOnly = false, pipelinePrefix, showPipeline = true, view }: Props): React.ReactElement {
+function Skills ({ book, onAction, onBookChange, onEntityCountsChange, pipelineOnly = false, pipelinePrefix, showPipeline = true, view }: Props): React.ReactElement {
   const language = book.language ?? 'en';
   const [aiAction, setAiAction] = useState<AiAction>();
   const [chapterContent, setChapterContent] = useState<ChapterContent[]>([]);
@@ -620,10 +621,18 @@ function Skills ({ book, onAction, onBookChange, pipelineOnly = false, pipelineP
   const allSkillBlocks = useMemo(() => chapterContent.flatMap(({ concepts, exercises, skills }) => createSkillBlocks(skills, concepts, exercises)), [chapterContent]);
   const allExercises = useMemo(() => chapterContent.flatMap(({ exercises }) => exercises), [chapterContent]);
   const allAbilities = useMemo(() => chapterContent.flatMap(({ abilities }) => abilities), [chapterContent]);
+
+  useEffect(() => {
+    onEntityCountsChange?.({ abilities: allAbilities.length, exercises: allExercises.length });
+  }, [allAbilities.length, allExercises.length, onEntityCountsChange]);
   const exerciseTitlesByModuleId = useMemo(() => new Map(allExercises.flatMap(({ id, title }) => id === undefined ? [] : [[exerciseAbilityModuleId(book.id, id), title] as const])), [allExercises, book.id]);
   const skillSources = useMemo<SkillSource[]>(() => chapterContent.flatMap(({ chapter, concepts, exercises }) => chapter.id === undefined ? [] : [...concepts.flatMap(({ description, id, title }) => id === undefined ? [] : [{ chapterId: chapter.id as number, chapterTitle: chapter.title, description, sourceId: id, sourceType: 'concept' as const, title }]), ...exercises.flatMap(({ description, id, title }) => id === undefined ? [] : [{ chapterId: chapter.id as number, chapterTitle: chapter.title, description, sourceId: id, sourceType: 'exercise' as const, title }])]), [chapterContent]);
-  const inferredStage = allAbilities.length ? 7 : allExercises.length ? 3 : skillSources.length ? 2 : book.processingStage ?? 0;
-  const stage = Math.max(book.processingStage ?? 0, inferredStage);
+  // Pipeline buttons must follow the persisted processing stage, not the
+  // presence of generated/extracted rows. Concepts can already extract
+  // exercises from the source book, but that does not mean the Exercises
+  // pipeline step has been run. Stage 3 is set explicitly only when that
+  // step completes, and only then should Abilities become available.
+  const stage = book.processingStage ?? 0;
   const hasAbilities = allAbilities.length > 0;
 
   const setStage = useCallback(async (processingStage: number): Promise<void> => {
