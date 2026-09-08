@@ -21,7 +21,7 @@ import { detectBookLanguage } from './bookLanguage.js';
 import { areAllBookPagesConceptsProcessed, calculatePageSymbolStatistics, countUnprocessedBookPages, exerciseAbilityModes, isWithinTwoStandardDeviations, processExtractedPageContent } from './bookProcessing.js';
 import { OPENAI_MODELS } from './constants.js';
 import { generateOpenRouterImage } from './openRouterImages.js';
-import { exerciseDisplayImages, extractMmdZipImageAssets, resolveMarkdownImageAssets } from './bookImageRefs.js';
+import { exerciseDisplayImages, extractMmdZipImageAssets, resolveMarkdownImageAssets, stripMarkdownImageReferences } from './bookImageRefs.js';
 import Skills from './Skills.js';
 import SkillsCourse from './SkillsCourse.js';
 
@@ -588,22 +588,38 @@ function BookReader ({ book, file, generateAllConceptsModel, generateAllConcepts
   useEffect(() => {
     let active = true;
 
-    Promise.all([
-      getBookConceptsForBookPage(book.id, pageNumber),
-      getExercisesForBookPage([book.id, pageNumber])
-    ])
-      .then(([storedConcepts, storedExercises]) => {
-        if (active) {
-          setConcepts(storedConcepts);
-          setExercises(storedExercises);
-        }
-      })
-      .catch(() => active && setError('Unable to load concepts and exercises.'));
+    const loadPageLearningContent = async (): Promise<void> => {
+      const [storedConcepts, storedExercises] = await Promise.all([
+        getBookConceptsForBookPage(book.id, pageNumber),
+        getExercisesForBookPage([book.id, pageNumber])
+      ]);
+      const storedPage = pages.get(pageNumber);
+      const imageAssets = storedPage?.pageMMDZip
+        ? await extractMmdZipImageAssets(storedPage.pageMMDZip).catch(() => [])
+        : [];
+      const hydratedExercises = storedExercises.map((exercise) => {
+        const recoveredImages = resolveMarkdownImageAssets(exercise.description, imageAssets).map(({ dataUrl }) => dataUrl);
+        const displayImages = exerciseDisplayImages(exercise, recoveredImages);
+
+        return {
+          ...exercise,
+          ...(!exercise.image && displayImages[0] ? { image: displayImages[0] } : {}),
+          ...(displayImages.length ? { images: displayImages } : {})
+        };
+      });
+
+      if (active) {
+        setConcepts(storedConcepts);
+        setExercises(hydratedExercises);
+      }
+    };
+
+    loadPageLearningContent().catch(() => active && setError('Unable to load concepts and exercises.'));
 
     return () => {
       active = false;
     };
-  }, [book.id, pageNumber]);
+  }, [book.id, pageNumber, pages]);
 
   useEffect(() => {
     if (!pdf || !canvasRef.current || !pageAreaRef.current) {
@@ -1264,12 +1280,24 @@ function BookReader ({ book, file, generateAllConceptsModel, generateAllConcepts
       </div>
     </div>
   );
-  const exerciseItem = (exercise: Exercise): React.ReactNode => <li key={exercise.id}>
-    <strong><KatexSpan content={exercise.title} /></strong>
-    {exercise.description && <p><KatexSpan content={exercise.description} /></p>}
-    {exercise.abilityMode && <p><small>{exercise.abilityMode}</small></p>}
-    {exercise.solution && <p><KatexSpan content={exercise.solution} /></p>}
-  </li>;
+  const exerciseItem = (exercise: Exercise): React.ReactNode => {
+    const visibleImages = exerciseDisplayImages(exercise);
+    const description = stripMarkdownImageReferences(exercise.description);
+
+    return <li key={exercise.id}>
+      <strong><KatexSpan content={exercise.title} /></strong>
+      {description && <p><KatexSpan content={description} /></p>}
+      {exercise.abilityMode && <p><small>{exercise.abilityMode}</small></p>}
+      {visibleImages.map((source, index) => <img
+        alt={exercise.imageDescription || `${exercise.title} ${index + 1}`}
+        className='exerciseImage'
+        key={`${source.slice(0, 80)}-${index}`}
+        src={source}
+                                                       />)}
+      {exercise.imageDescription && <p><small>Image: <KatexSpan content={exercise.imageDescription} /></small></p>}
+      {exercise.solution && <p><KatexSpan content={exercise.solution} /></p>}
+    </li>;
+  };
 
   const exercisesPane = (): React.ReactNode => {
     const conceptIds = new Set(concepts.flatMap(({ id }) => id === undefined ? [] : [id]));
@@ -1716,6 +1744,16 @@ const StyledReader = styled.div`
 
   .conceptsOutput p {
     margin: 0.25rem 0 0;
+  }
+
+  .conceptsOutput .exerciseImage {
+    border: 1px solid var(--border-table);
+    border-radius: 0.35rem;
+    display: block;
+    margin-top: 0.5rem;
+    max-height: 18rem;
+    max-width: min(100%, 32rem);
+    object-fit: contain;
   }
 
   .recognizedOutput {
