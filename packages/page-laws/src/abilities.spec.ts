@@ -209,6 +209,41 @@ describe('generated abilities', (): void => {
     ] }), [20]), [{ ability, exerciseId: 20, imagePrompts }]);
   });
 
+  it('normalizes common schema drift in Exercise-to-Ability conversions', (): void => {
+    assert.deepEqual(parseGeneratedExerciseAbilities(JSON.stringify({ abilities: [{
+      ability: {
+        questions: [
+          { answer: '2 × 1000 = 2000 m.', question: 'Convert 2 km to m.' },
+          { answer: '5 × 1000 = 5000 m.', question: 'Convert 5 km to m.' }
+        ],
+        title: 'Convert whole kilometers to meters',
+        type: '3'
+      },
+      exerciseId: 24,
+      imagePrompts: [{ prompt: '' }, { prompt: '' }]
+    }] }), [24]), [{
+      ability: createSkill(),
+      exerciseId: 24,
+      imagePrompts: [{ i: '', p: '' }, { i: '', p: '' }]
+    }]);
+  });
+
+  it('salvages the first two distinct complete questions from an oversized conversion', (): void => {
+    const parsed = parseGeneratedExerciseAbilities(JSON.stringify({ abilities: [{
+      ability: {
+        h: 'Convert whole kilometers to meters',
+        q: [
+          { a: '2 × 1000 = 2000 m.', h: 'Convert 2 km to m.' },
+          { a: '2 × 1000 = 2000 m.', h: 'Convert 2 km to m.' },
+          { a: '5 × 1000 = 5000 m.', h: 'Convert 5 km to m.' }
+        ]
+      },
+      exerciseId: 25
+    }] }), [25]);
+
+    assert.deepEqual(parsed, [{ ability: createSkill(), exerciseId: 25 }]);
+  });
+
   it('accepts positional partial legacy Ability arrays so omitted trailing Exercises can be retried', (): void => {
     const first = createSkill();
     const second = { ...createSkill(), h: 'A second exercise skill' };

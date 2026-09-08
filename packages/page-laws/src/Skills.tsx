@@ -367,6 +367,23 @@ Use only ids present in the supplied Exercises. Preserve their order. Prefer con
 
 ${JSON.stringify({ bookLanguage: language, exercises: transportExercises })}`;
 }
+
+function singleExerciseAbilityRecoveryRequest (language: string, exercise: Exercise): string {
+  const { description, ...rest } = exercise;
+  const source = { ...rest, description: stripMarkdownImageReferences(description) };
+
+  return `Convert this one book Exercise into exactly one valid Ability in ISO language ${language}. Infer one narrow observable skill from the source task and solution. Then write exactly two complete, self-contained practice questions that train that same skill with the same instructions, operation, method, input/output types, reasoning steps, and difficulty. Change only concrete task parameters and recalculate each answer. The two questions must not be identical. Do not use yes/no, multiple choice, placeholders, or references to the source page. Use <kx>...</kx> for mathematical expressions.
+
+The Ability schema is strict: i must be "", t must be 3, h must be a nonempty skill name, q must contain exactly two objects, and every q object must contain nonempty h and a plus empty-string p and i fields.
+
+If source.imageDescription is empty, both imagePrompts entries must contain empty p/i strings. If it is nonempty, imagePrompts.p may describe only a genuinely task-essential visual for each concrete question; never reveal the answer. q[].p and q[].i must still remain empty.
+
+Return only this JSON object and nothing else:
+{"abilities":[{"exerciseId":${exercise.id},"ability":{"i":"","t":3,"h":"Narrow observable skill","q":[{"h":"Question 1","a":"Answer 1","p":"","i":""},{"h":"Question 2","a":"Answer 2","p":"","i":""}]},"imagePrompts":[{"p":"","i":""},{"p":"","i":""}]}]}
+
+Source Exercise:
+${JSON.stringify(source)}`;
+}
 function abilityRepairRequest (language: string, batch: StoredAbility[], chapterTitle?: string): string {
   return `${fixAbilitiesPrompt}\n${JSON.stringify({
     abilities: batch.map(({ ability, content, id }, index) => ({ ability: ability ? { ...ability, q: ability.q.map(({ a, h, i, p }) => ({ a, h, i: i ? '[answer image present]' : '', p: p ? '[question image present]' : '' })) } : content, id, index })),
@@ -977,50 +994,68 @@ function Skills ({ book, onAction, onBookChange, onEntityCountsChange, pipelineO
       const maxAttempts = 3;
       let lastAttemptError = '';
 
+      let requestCount = 0;
+
       for (let attempt = 1; attempt <= maxAttempts && pending.size; attempt++) {
-        if (attempt > 1) {
-          await delay(REQUEST_INTERVAL_MS);
-        }
+        // Large Exercise sets can make the model truncate or structurally corrupt
+        // every Ability. Start in small batches, then narrow unresolved retries
+        // down to one Exercise so at least valid partial conversions can survive.
+        const batchSize = attempt === 1 ? BATCH_SIZE : attempt === 2 ? 2 : 1;
+        const attemptExercises = Array.from(pending.values());
 
-        const exercises = Array.from(pending.values());
-        const expectedExerciseIds = exercises.map(({ id }) => id as number);
-        const systemPrompt = `Write strictly in ISO language ${language}. Use <kx>...</kx> for all formulas.`;
-        const userPrompt = exerciseAbilitiesRequest(language, exercises);
+        for (let offset = 0; offset < attemptExercises.length; offset += batchSize) {
+          if (requestCount > 0) {
+            await delay(REQUEST_INTERVAL_MS);
+          }
 
-        try {
-          const response = await client.chat.completions.create({
-            messages: [{ content: systemPrompt, role: 'system' }, { content: userPrompt, role: 'user' }],
-            model: selectedModel,
-            response_format: { type: 'json_object' as const }
-          });
-          const generated = parseGeneratedExerciseAbilities(response.choices[0].message?.content?.trim() ?? '', expectedExerciseIds);
+          requestCount++;
+          const exercises = attemptExercises.slice(offset, offset + batchSize);
+          const expectedExerciseIds = exercises.map(({ id }) => id as number);
+          const systemPrompt = `Write strictly in ISO language ${language}. Use <kx>...</kx> for all formulas. Return complete valid JSON; do not omit a conversion merely because another item is difficult.`;
+          const userPrompt = attempt === maxAttempts && exercises.length === 1
+            ? singleExerciseAbilityRecoveryRequest(language, exercises[0])
+            : exerciseAbilitiesRequest(language, exercises);
 
-          if (!generated.length) {
-            lastAttemptError = 'OpenRouter returned no valid Exercise-to-Ability conversions.';
-          } else {
+          try {
+            const generated = await requestValidatedJson(
+              client,
+              selectedModel,
+              systemPrompt,
+              userPrompt,
+              (content) => {
+                const parsed = parseGeneratedExerciseAbilities(content, expectedExerciseIds);
+
+                if (!parsed.length) {
+                  throw new Error('OpenRouter returned no valid Exercise-to-Ability conversions.');
+                }
+
+                return parsed;
+              }
+            );
+
             lastAttemptError = '';
-          }
 
-          for (const conversion of generated) {
-            const source = pending.get(conversion.exerciseId);
+            for (const conversion of generated) {
+              const source = pending.get(conversion.exerciseId);
 
-            if (!source) {
-              continue;
+              if (!source) {
+                continue;
+              }
+
+              try {
+                const ability = await materializeAbilityImages(imageApiKey, source, conversion, selectedModel);
+
+                generatedByExerciseId.set(conversion.exerciseId, ability);
+                pending.delete(conversion.exerciseId);
+              } catch (imageError) {
+                lastAttemptError = imageError instanceof Error ? imageError.message : 'Unable to generate a required Ability image.';
+              }
             }
-
-            try {
-              const ability = await materializeAbilityImages(imageApiKey, source, conversion, selectedModel);
-
-              generatedByExerciseId.set(conversion.exerciseId, ability);
-              pending.delete(conversion.exerciseId);
-            } catch (imageError) {
-              lastAttemptError = imageError instanceof Error ? imageError.message : 'Unable to generate a required Ability image.';
-            }
+            setProgress(generatedByExerciseId.size);
+          } catch (caught) {
+            lastAttemptError = caught instanceof Error ? caught.message : 'Unknown OpenRouter error.';
+            // Keep this batch unresolved; the next pass uses a smaller batch.
           }
-          setProgress(generatedByExerciseId.size);
-        } catch (caught) {
-          lastAttemptError = caught instanceof Error ? caught.message : 'Unknown OpenRouter error.';
-          // This attempt still counts. Retry the same unresolved Exercises on the next pass.
         }
       }
 

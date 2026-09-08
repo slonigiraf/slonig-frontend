@@ -295,12 +295,81 @@ export function parseAbilityRepairReviews (content: string, originals: Array<Gen
   return parseAbilityRepairResult(JSON.stringify(normalized), originals, originals.map((_, index) => String(index))).reviews;
 }
 
+function firstString (record: Record<string, unknown>, keys: string[]): string | undefined {
+  for (const key of keys) {
+    const value = record[key];
+
+    if (typeof value === 'string' && value.trim()) {
+      return value.trim();
+    }
+  }
+
+  return undefined;
+}
+
+function normalizeExerciseConversionAbility (value: unknown): unknown {
+  if (!isRecord(value)) {
+    return value;
+  }
+
+  const rawQuestions = Array.isArray(value.q)
+    ? value.q
+    : Array.isArray(value.questions)
+      ? value.questions
+      : Array.isArray(value.exercises)
+        ? value.exercises
+        : undefined;
+
+  if (!rawQuestions) {
+    return value;
+  }
+
+  const normalizedQuestions = rawQuestions.flatMap((question): Array<{ a: string; h: string; i: string; p: string }> => {
+    if (!isRecord(question)) {
+      return [];
+    }
+
+    const h = firstString(question, ['h', 'question', 'prompt', 'text']);
+    const a = firstString(question, ['a', 'answer', 'solution', 'response']);
+
+    return h && a ? [{ a, h, i: '', p: '' }] : [];
+  });
+
+  if (normalizedQuestions.length < 2) {
+    return value;
+  }
+
+  const first = normalizedQuestions[0];
+  const second = normalizedQuestions.slice(1).find(({ h }) => h.replace(/\s+/g, ' ').trim() !== first.h.replace(/\s+/g, ' ').trim()) ?? normalizedQuestions[1];
+  const h = firstString(value, ['h', 'title', 'name', 'skill', 'ability']);
+
+  return {
+    h: h ?? value.h,
+    i: typeof value.i === 'string' ? value.i : '',
+    q: [first, second],
+    t: 3
+  };
+}
+
 function parseAbilityImagePrompts (value: unknown): [AbilityExerciseImagePrompts, AbilityExerciseImagePrompts] | undefined {
-  if (!Array.isArray(value) || value.length !== 2 || !value.every((item) => isRecord(item) && typeof item.p === 'string' && typeof item.i === 'string')) {
+  if (!Array.isArray(value) || value.length !== 2) {
     return undefined;
   }
 
-  return value.map((item) => ({ i: String((item as Record<string, unknown>).i).trim(), p: String((item as Record<string, unknown>).p).trim() })) as [AbilityExerciseImagePrompts, AbilityExerciseImagePrompts];
+  const prompts = value.map((item): AbilityExerciseImagePrompts | undefined => {
+    if (!isRecord(item)) {
+      return undefined;
+    }
+
+    const p = typeof item.p === 'string' ? item.p : typeof item.prompt === 'string' ? item.prompt : typeof item.question === 'string' ? item.question : '';
+    const i = typeof item.i === 'string' ? item.i : typeof item.answer === 'string' ? item.answer : typeof item.solution === 'string' ? item.solution : '';
+
+    return { i: i.trim(), p: p.trim() };
+  });
+
+  return prompts.every((prompt): prompt is AbilityExerciseImagePrompts => prompt !== undefined)
+    ? prompts as [AbilityExerciseImagePrompts, AbilityExerciseImagePrompts]
+    : undefined;
 }
 
 export function parseGeneratedExerciseAbilities (content: string, expectedExerciseIds: number[]): GeneratedExerciseAbility[] {
@@ -341,7 +410,7 @@ export function parseGeneratedExerciseAbilities (content: string, expectedExerci
     }
 
     try {
-      const ability = parseGeneratedAbilityValue(abilityValue);
+      const ability = parseGeneratedAbilityValue(normalizeExerciseConversionAbility(abilityValue));
 
       used.add(exerciseId);
       results.push({ ability, exerciseId, ...(imagePrompts ? { imagePrompts } : {}) });

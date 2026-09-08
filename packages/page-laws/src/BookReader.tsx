@@ -17,7 +17,7 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Button, Dropdown, Input, Modal, styled } from '@polkadot/react-components';
 
 import { estimateAiInput, formatAiInputEstimate } from './aiEstimate.js';
-import { detectBookLanguage } from './bookLanguage.js';
+import { bookLanguageDetectionPrompt, bookLanguageLabel, getMiddleBookPageNumbers, parseDetectedBookLanguage } from './bookLanguage.js';
 import { areAllBookPagesConceptsProcessed, calculatePageSymbolStatistics, countUnprocessedBookPages, exerciseAbilityModes, isWithinTwoStandardDeviations, processExtractedPageContent } from './bookProcessing.js';
 import { OPENAI_MODELS } from './constants.js';
 import { stripMarkdownImageReferences } from './bookImageRefs.js';
@@ -451,6 +451,7 @@ function BookReader ({ book, file, generateAllConceptsModel, generateAllConcepts
   const [error, setError] = useState('');
   const [entityCounts, setEntityCounts] = useState<ReaderEntityCounts>({ abilities: 0, concepts: 0, exercises: 0 });
   const [generatedConceptsPageCount, setGeneratedConceptsPageCount] = useState(0);
+  const [isDetectingBookLanguage, setIsDetectingBookLanguage] = useState(false);
   const [isGeneratingAllConcepts, setIsGeneratingAllConcepts] = useState(false);
   const [isMaximized, setIsMaximized] = useState(false);
   const [isMathpixKeyPromptOpen, setIsMathpixKeyPromptOpen] = useState(false);
@@ -473,6 +474,7 @@ function BookReader ({ book, file, generateAllConceptsModel, generateAllConcepts
   const handledGenerateAllConceptsRequestRef = useRef(generateAllConceptsRequest);
   const handledRefineAllContentRequestRef = useRef(refineAllContentRequest);
   const handledRecognizeAllRequestRef = useRef(recognizeAllRequest);
+  const isDetectingBookLanguageRef = useRef(false);
   const pageAreaRef = useRef<HTMLDivElement>(null);
   const pageGenerationEstimate = useMemo(() => {
     const pageText = pages.get(pageNumber)?.pageMMD ?? '';
@@ -949,18 +951,52 @@ function BookReader ({ book, file, generateAllConceptsModel, generateAllConcepts
   }, [advanceStage, book.id, generateAllConceptsModel, isGeneratingAllConcepts, isRecognizingAll, isRefiningAllContent, onProcessingComplete, pageNumber, pages, processingPage, refreshEntityCounts, totalPages]);
 
   const detectAndStoreBookLanguage = useCallback(async (recognizedPages: Map<number, BookPage>): Promise<void> => {
-    const requiredPageCount = Math.min(2, totalPages);
-    const pageTexts = Array.from({ length: requiredPageCount }, (_, index) => recognizedPages.get(index + 1)?.pageMMD).filter((text): text is string => !!text);
-
-    if (!requiredPageCount || pageTexts.length !== requiredPageCount) {
+    if (book.language || isDetectingBookLanguageRef.current) {
       return;
     }
 
-    const updatedBook = { ...book, language: detectBookLanguage(pageTexts) };
+    const middlePageNumbers = getMiddleBookPageNumbers(totalPages);
+    const pageTexts = middlePageNumbers.flatMap((middlePageNumber) => {
+      const text = recognizedPages.get(middlePageNumber)?.pageMMD?.trim();
 
-    await putBook(updatedBook);
-    onBookChange(updatedBook);
-  }, [book, onBookChange, totalPages]);
+      return text ? [{ pageNumber: middlePageNumber, text }] : [];
+    });
+
+    if (!middlePageNumbers.length || pageTexts.length !== middlePageNumbers.length) {
+      return;
+    }
+
+    const key = await getSetting(SettingKey.OPENROUTER_TOKEN);
+
+    if (!key) {
+      return;
+    }
+
+    isDetectingBookLanguageRef.current = true;
+    setIsDetectingBookLanguage(true);
+
+    try {
+      const client = new OpenAI({
+        apiKey: key,
+        baseURL: 'https://openrouter.ai/api/v1',
+        dangerouslyAllowBrowser: true,
+        defaultHeaders: { 'HTTP-Referer': window.location.origin, 'X-OpenRouter-Title': 'Slonig' }
+      });
+      const response = await client.chat.completions.create({
+        messages: [{ content: bookLanguageDetectionPrompt(pageTexts), role: 'user' }],
+        model: selectedModel,
+        response_format: { type: 'json_object' }
+      });
+      const language = parseDetectedBookLanguage(response.choices[0].message?.content?.trim() ?? '');
+      const updatedBook = { ...book, language };
+
+      await putBook(updatedBook);
+      onBookChange(updatedBook);
+    } finally {
+      isDetectingBookLanguageRef.current = false;
+      setIsDetectingBookLanguage(false);
+    }
+  }, [book, onBookChange, selectedModel, totalPages]);
 
   useEffect((): void => {
     if (!book.language) {
@@ -1221,7 +1257,11 @@ function BookReader ({ book, file, generateAllConceptsModel, generateAllConcepts
       <div className='detailsHeader'>
         <span>{isRecognizingAll
           ? `Recognizing all pages… ${recognizedPageCount}/${totalPages}`
-          : processingPage === pageNumber ? 'Recognizing page…' : 'Mathpix MMD'}</span>
+          : processingPage === pageNumber
+            ? 'Recognizing page…'
+            : isDetectingBookLanguage
+              ? 'Detecting book language…'
+              : bookLanguageLabel(book.language)}</span>
       </div>
       {pages.get(pageNumber)?.pageMMD
         ? <div className='recognizedOutput'>
