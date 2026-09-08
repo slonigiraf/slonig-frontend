@@ -32,7 +32,6 @@ export interface ProcessedPageContent {
 }
 
 export type BookProcessingAi = (prompt: string) => Promise<string>;
-export type BookProcessingImageAi = (prompt: string) => Promise<string>;
 
 export interface PageSymbolStatistics {
   mean: number;
@@ -87,9 +86,9 @@ export function isWithinTwoStandardDeviations (symbolCount: number, statistics?:
 
 const CONCEPT_SPLIT_PROMPT = 'Split only the supplied concepts into the smallest useful, independently learnable concepts. Do not create, modify, split, or return exercises. Preserve the input language and all useful information. Avoid duplicate concepts. For every output item, copy inputIndex from the concept it refines. Return only JSON: {"concepts":[{"inputIndex":0,"title":"...","description":"..."}]}. Every inputIndex must have at least one output.';
 
-const GENERATE_EXERCISES_PROMPT = `For every supplied refined concept, generate exactly ${GENERATED_EXERCISES_PER_CONCEPT} complete exercises in the input language. Each exercise must train that concept and use a different abilityMode where possible. abilityMode must be one of: ${exerciseAbilityModes.join(', ')}. Include a correct explicit step-by-step solution. Every Exercise must also include imageDescription. Use an empty string when no image is required. When a visual is genuinely required to answer the task, imageDescription must be a complete standalone generation prompt describing exactly the educational image the learner must see; do not refer to a source page or unseen figure. Use <kx>...</kx> for every mathematical expression. Copy conceptIndex exactly. Return only JSON: {"exercises":[{"conceptIndex":0,"title":"...","description":"complete task","abilityMode":"reasoning","solution":"step-by-step solution","imageDescription":""}]}.`;
+const GENERATE_EXERCISES_PROMPT = `For every supplied refined concept, generate exactly ${GENERATED_EXERCISES_PER_CONCEPT} complete exercises in the input language. Each exercise must train that concept and use a different abilityMode where possible. abilityMode must be one of: ${exerciseAbilityModes.join(', ')}. Include a correct explicit step-by-step solution. Every Exercise must include imageDescription, normally as an empty string. Prefer a fully self-contained text-only exercise whenever the same learning objective, reasoning, transformation, or perceptual distinction can be trained without a visual. Never request a merely illustrative image for decoration, atmosphere, engagement, or to repeat information already present in the text. Use a nonempty imageDescription only when the learner must inspect spatial, geometric, diagrammatic, graphical, visual-comparison, or other visual information that cannot be stated in text without changing or giving away the task. In that exceptional case, imageDescription must be a complete standalone generation prompt describing exactly the educational visual the learner must inspect, without the answer and without referring to a source page or unseen figure. Use <kx>...</kx> for every mathematical expression. Copy conceptIndex exactly. Return only JSON: {"exercises":[{"conceptIndex":0,"title":"...","description":"complete task","abilityMode":"reasoning","solution":"step-by-step solution","imageDescription":""}]}.`;
 
-const EXERCISE_SPLIT_PROMPT = 'Split only the supplied exercises into the smallest useful, independently answerable exercises. Do not create, modify, split, or return concepts. Keep an exercise unchanged when it is already atomic. Preserve the complete task, language, abilityMode, image requirement, imageDescription, and a correct step-by-step solution. The input may contain hasImage instead of raw image bytes; preserve that image dependency and do not invent or remove an image casually. Avoid duplicates. For every output item, copy inputIndex from the exercise it refines. Return only JSON: {"exercises":[{"inputIndex":0,"title":"...","description":"complete atomic task","abilityMode":"reasoning","solution":"step-by-step solution","imageDescription":""}]}. Every inputIndex must have at least one output.';
+const EXERCISE_SPLIT_PROMPT = 'Split only the supplied exercises into the smallest useful, independently answerable exercises. Do not create, modify, split, or return concepts. Keep an exercise unchanged when it is already atomic. Preserve the complete task, language, abilityMode, and a correct step-by-step solution. imageDescription is the only Exercise image field and is a semantic requirement, not an illustration request. Prefer imageDescription:"" whenever the exercise can remain equivalent and self-contained in text. Keep or create a nonempty imageDescription only when visual information is crucial to performing the task and writing that information into the question would change the skill or reveal what the learner must infer. Never add decorative or merely illustrative visuals. Avoid duplicates. For every output item, copy inputIndex from the exercise it refines. Return only JSON: {"exercises":[{"inputIndex":0,"title":"...","description":"complete atomic task","abilityMode":"reasoning","solution":"step-by-step solution","imageDescription":""}]}. Every inputIndex must have at least one output.';
 
 
 
@@ -186,7 +185,7 @@ function splitExercisesResult (content: string, inputs: ProcessingExercise[]): P
   return deduplicate(complete);
 }
 
-export async function processExtractedPageContent (extracted: ExtractedPageContent, runAi: BookProcessingAi, generateImage?: BookProcessingImageAi): Promise<ProcessedPageContent> {
+export async function processExtractedPageContent (extracted: ExtractedPageContent, runAi: BookProcessingAi): Promise<ProcessedPageContent> {
   let concepts = deduplicate(extracted.concepts);
 
   for (let pass = 0; pass < CONCEPT_SPLIT_PASSES; pass++) {
@@ -221,23 +220,10 @@ export async function processExtractedPageContent (extracted: ExtractedPageConte
 
   for (let pass = 0; pass < EXERCISE_SPLIT_PASSES; pass++) {
     if (exercises.length) {
-      const input = exercises.map(({ image, images, ...exercise }, inputIndex) => ({ ...exercise, hasImage: Boolean(image || images?.length), inputIndex }));
+      const input = exercises.map((exercise, inputIndex) => ({ ...exercise, inputIndex }));
 
       exercises = splitExercisesResult(await runAi(`${EXERCISE_SPLIT_PROMPT}\nPass ${pass + 1} of ${EXERCISE_SPLIT_PASSES}.\n${JSON.stringify({ exercises: input })}`), exercises);
     }
   }
-
-  if (generateImage) {
-    for (let index = 0; index < exercises.length; index++) {
-      const exercise = exercises[index];
-
-      if (!exercise.image && !exercise.images?.length && exercise.imageDescription?.trim()) {
-        const image = await generateImage(exercise.imageDescription.trim());
-
-        exercises[index] = { ...exercise, image, images: [image] };
-      }
-    }
-  }
-
   return { chapter: extracted.chapter, concepts, exercises };
 }

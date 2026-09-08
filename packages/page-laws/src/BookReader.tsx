@@ -20,8 +20,7 @@ import { estimateAiInput, formatAiInputEstimate } from './aiEstimate.js';
 import { detectBookLanguage } from './bookLanguage.js';
 import { areAllBookPagesConceptsProcessed, calculatePageSymbolStatistics, countUnprocessedBookPages, exerciseAbilityModes, isWithinTwoStandardDeviations, processExtractedPageContent } from './bookProcessing.js';
 import { OPENAI_MODELS } from './constants.js';
-import { generateOpenRouterImage } from './openRouterImages.js';
-import { exerciseDisplayImages, extractMmdZipImageAssets, resolveMarkdownImageAssets, stripMarkdownImageReferences } from './bookImageRefs.js';
+import { stripMarkdownImageReferences } from './bookImageRefs.js';
 import Skills from './Skills.js';
 import SkillsCourse from './SkillsCourse.js';
 
@@ -36,17 +35,28 @@ Extract only the concepts that are intentionally introduced or explained as new 
 Return only valid JSON in this exact shape, keeping the original language of the input:
 {"chapter":"Chapter and section name","concepts":[{"title":"New concept","description":"Explanation or example from the page"}],"exercises":[{"title":"Exercise title","description":"Complete exercise question or instructions","abilityMode":"reasoning","solution":"Complete step-by-step solution","imageIndexes":[],"imageDescription":""}]}
 
-The page images are attached after the text in zero-based order. For every exercise that uses, references, or depends on one or more of those images, set imageIndexes to every required attached image's zero-based index, in source order, and provide imageDescription as a complete, precise description of the visual information the learner must use across the full image set. Preserve the real source images; do not replace an image-based task with a text-only paraphrase. When an exercise needs no image, use imageIndexes:[] and imageDescription:"".
+Exercise records must never contain image bytes, image URLs, filenames, or Markdown image syntax. imageIndexes are extraction-only pointers that let the validator inspect attached source images; they are discarded before the Exercise is stored. imageDescription is the only persisted visual field.
 
-Use an empty string when the chapter is not shown. Use empty arrays when no concepts or exercises are present. The exercise description must contain the entire exercise statement, all data, and every instruction required to solve it except information intentionally supplied by its attached image; never abbreviate it or refer to an omitted source. If the book page provides a solution, extract its complete method and answer faithfully. Otherwise, solve the exercise and generate a correct, explicit step-by-step solution in the book's language. Never leave solution empty. Use <kx>...</kx> for every mathematical formula or expression in descriptions and solutions, never dollar-delimited LaTeX. Escape every backslash in mathematical notation so the result remains valid JSON. Do not add markdown or any text outside the JSON.`;
+Prefer a text-only Exercise whenever the same learner task and learning objective can be preserved without a visual. If an attached picture is merely decorative, illustrative, motivational, or repeats information already available in the text, set imageIndexes:[] and imageDescription:"". Do not invent a visual dependency. Use a nonempty imageDescription only when the learner must actually inspect visual, spatial, geometric, diagrammatic, graphical, or comparison information and stating that information in the text would change the task or reveal what the learner is supposed to infer. For those truly image-dependent exercises, include every required attached image index and write one complete standalone imageDescription that is sufficient to regenerate the task-essential visual later. The description must specify all labels, shapes, values, relationships, layout, and other visible information needed by the learner, but must not reveal the answer.
+
+Use an empty string when the chapter is not shown. Use empty arrays when no concepts or exercises are present. The exercise description must contain the entire exercise statement, all textual data, and every instruction required to solve it except information intentionally supplied by a crucial visual; never abbreviate it or refer to an omitted source. If the book page provides a solution, extract its complete method and answer faithfully. Otherwise, solve the exercise and generate a correct, explicit step-by-step solution in the book's language. Never leave solution empty. Use <kx>...</kx> for every mathematical formula or expression in descriptions and solutions, never dollar-delimited LaTeX. Escape every backslash in mathematical notation so the result remains valid JSON. Do not add markdown or any text outside the JSON.`;
+
+interface GeneratedPageExercise {
+  abilityMode: string;
+  description: string;
+  imageDescription?: string;
+  imageIndexes?: number[];
+  solution: string;
+  title: string;
+}
 
 interface GeneratedConcepts {
   chapter: string;
   concepts: Array<{ description: string; title: string }>;
-  exercises?: Array<{ abilityMode: string; description: string; image?: string; images?: string[]; imageDescription?: string; solution: string; title: string }>;
+  exercises?: GeneratedPageExercise[];
 }
 
-function parseGeneratedConcepts (content: string, imageUrls: string[] = [], imageNames: string[] = []): GeneratedConcepts {
+function parseGeneratedConcepts (content: string, imageCount = 0): GeneratedConcepts {
   const json = content.replace(/^```json\s*|\s*```$/g, '').trim();
   let parsed: Partial<GeneratedConcepts>;
 
@@ -70,29 +80,36 @@ function parseGeneratedConcepts (content: string, imageUrls: string[] = [], imag
     chapter: parsed.chapter.trim(),
     concepts: parsed.concepts.map(({ description, title }) => ({ description: description.trim(), title: title.trim() })).filter(({ title }) => title),
     exercises: (parsed.exercises ?? []).map((exercise) => {
-      const value = exercise as { abilityMode: string; description: string; imageDescription?: unknown; imageIndex?: unknown; imageIndexes?: unknown; solution: string; title: string };
+      const value = exercise as GeneratedPageExercise & { imageIndex?: unknown; imageIndexes?: unknown };
       const legacyImageIndex = value.imageIndex === null || value.imageIndex === undefined ? undefined : Number(value.imageIndex);
       const imageIndexes = Array.isArray(value.imageIndexes)
-        ? value.imageIndexes.map(Number).filter((index) => Number.isInteger(index) && index >= 0 && index < imageUrls.length)
-        : legacyImageIndex !== undefined && Number.isInteger(legacyImageIndex) && legacyImageIndex >= 0 && legacyImageIndex < imageUrls.length
+        ? Array.from(new Set(value.imageIndexes.map(Number).filter((index) => Number.isInteger(index) && index >= 0 && index < imageCount)))
+        : legacyImageIndex !== undefined && Number.isInteger(legacyImageIndex) && legacyImageIndex >= 0 && legacyImageIndex < imageCount
           ? [legacyImageIndex]
           : [];
-      const indexedImages = imageIndexes.map((index) => imageUrls[index]);
-      const referencedImages = resolveMarkdownImageAssets(
-        value.description,
-        imageUrls.map((dataUrl, index) => ({ dataUrl, name: imageNames[index] ?? String(index) }))
-      ).map(({ dataUrl }) => dataUrl);
-      const images = Array.from(new Set([...indexedImages, ...referencedImages].filter((value): value is string => Boolean(value))));
-      const image = images[0];
 
       return {
         abilityMode: value.abilityMode,
-        description: value.description.trim(),
-        ...(image ? { image, images, imageDescription: typeof value.imageDescription === 'string' ? value.imageDescription.trim() : '' } : {}),
+        description: stripMarkdownImageReferences(value.description.trim()),
+        imageDescription: typeof value.imageDescription === 'string' ? value.imageDescription.trim() : '',
+        imageIndexes,
         solution: value.solution.trim(),
         title: value.title.trim()
       };
     }).filter(({ title }) => title)
+  };
+}
+
+function storageReadyGeneratedConcepts (generated: GeneratedConcepts): GeneratedConcepts {
+  return {
+    ...generated,
+    exercises: (generated.exercises ?? []).map(({ abilityMode, description, imageDescription = '', solution, title }) => ({
+      abilityMode,
+      description: stripMarkdownImageReferences(description),
+      imageDescription: imageDescription.trim(),
+      solution,
+      title
+    }))
   };
 }
 
@@ -119,23 +136,15 @@ async function validateExtractedContent (client: OpenAI, model: string, generate
 
   for (let attempt = 0; attempt < 2; attempt++) {
     try {
-      const imageUrls = mmdZipInput.images.map(({ image_url }) => image_url.url);
-      const imageNames = mmdZipInput.images.map(({ name }) => name);
       const indexedCandidate = {
         ...generated,
-        exercises: (generated.exercises ?? []).map(({ image, images, imageDescription = '', ...exercise }) => ({
-          ...exercise,
-          imageDescription,
-          imageIndexes: Array.from(new Set([image, ...(images ?? [])]
-            .flatMap((value) => value ? [imageUrls.indexOf(value)] : [])
-            .filter((index) => index >= 0)))
-        }))
+        exercises: (generated.exercises ?? []).map(({ imageIndexes = [], ...exercise }) => ({ ...exercise, imageIndexes }))
       };
       const response = await client.chat.completions.create({
         messages: [{
           content: [
             {
-              text: `Act as an independent strict validator for extracted book content. Check that the chapter is accurate when present; concepts are faithfully extracted without requiring them to be atomic; every book exercise contains its complete task; abilityMode is one of the supplied supported modes and accurately describes the primary trained ability; every exercise has a correct, explicit step-by-step solution; the book language is preserved; every mathematical expression uses <kx>...</kx>; and every image-dependent exercise keeps all correct attached imageIndexes plus an accurate imageDescription. Do not split concepts or exercises. Do not turn an image-based exercise into a text-only exercise. Fix every error and return only the complete corrected JSON object in the original shape, without commentary.\n\nSupported ability modes: ${exerciseAbilityModes.join(', ')}\n\nCandidate:\n${JSON.stringify(indexedCandidate)}`,
+              text: `Act as an independent strict validator for extracted book content. Check that the chapter is accurate when present; concepts are faithfully extracted without requiring them to be atomic; every book exercise contains its complete task; abilityMode is one of the supplied supported modes and accurately describes the primary trained ability; every exercise has a correct, explicit step-by-step solution; the book language is preserved; and every mathematical expression uses <kx>...</kx>. For visuals, be conservative: imageDescription must be nonempty only when the learner truly needs to inspect visual information to perform the task and putting that information in text would change or give away the task. Clear imageDescription and imageIndexes for decorative, merely illustrative, redundant, or optional pictures. For a genuinely image-dependent exercise, keep all and only the required attached imageIndexes and write a complete standalone imageDescription sufficient to regenerate the task-essential visual without revealing the answer. Exercise descriptions must not contain Markdown image syntax, filenames, URLs, or image bytes. Do not split concepts or exercises. Fix every error and return only the complete corrected JSON object in the original shape, without commentary.\n\nSupported ability modes: ${exerciseAbilityModes.join(', ')}\n\nCandidate:\n${JSON.stringify(indexedCandidate)}`,
               type: 'text' as const
             },
             ...mmdZipInput.images.map(({ image_url, type }) => ({ image_url, type }))
@@ -146,7 +155,7 @@ async function validateExtractedContent (client: OpenAI, model: string, generate
         response_format: { type: 'json_object' }
       });
 
-      return parseGeneratedConcepts(response.choices[0].message?.content?.trim() ?? '', imageUrls, imageNames);
+      return parseGeneratedConcepts(response.choices[0].message?.content?.trim() ?? '', mmdZipInput.images.length);
     } catch (error) {
       lastError = error;
     }
@@ -164,7 +173,7 @@ async function requestGeneratedPageContent (client: OpenAI, model: string, mmdZi
     messages: [{
       content: [
         {
-          text: `${CONCEPTS_PROMPT}\n\nThe following text and ${mmdZipInput.images.length} attached image(s) were extracted from the Mathpix MMD ZIP. Attached images are ordered from imageIndex 0 upward. Filename mapping: ${mmdZipInput.images.map(({ name }, index) => `${index}=${name}`).join(', ') || 'none'}. If the MMD contains Markdown such as ![](./images/file.jpg), use this mapping to include every matching image index in imageIndexes.\n\n${mmdZipInput.text}`,
+          text: `${CONCEPTS_PROMPT}\n\nThe following text and ${mmdZipInput.images.length} attached image(s) were extracted from the Mathpix MMD ZIP. Attached images are ordered from imageIndex 0 upward. Filename mapping: ${mmdZipInput.images.map(({ name }, index) => `${index}=${name}`).join(', ') || 'none'}. If the MMD contains Markdown such as ![](./images/file.jpg), use the filename mapping only to inspect the correct attached source image; do not copy that Markdown reference into the stored Exercise.\n\n${mmdZipInput.text}`,
           type: 'text'
         },
         ...mmdZipInput.images.map(({ image_url, type }) => ({ image_url, type }))
@@ -180,16 +189,12 @@ async function requestGeneratedPageContent (client: OpenAI, model: string, mmdZi
     return { chapter: '', concepts: [], exercises: [] };
   }
 
-  const imageUrls = mmdZipInput.images.map(({ image_url }) => image_url.url);
-  const imageNames = mmdZipInput.images.map(({ name }) => name);
-  const generated = parseGeneratedConcepts(generatedContent, imageUrls, imageNames);
-
-  // An empty concept list is a valid extraction result. Keep that fast path
-  // unless an extracted Exercise carries a source image that still needs its
-  // image association and description independently validated.
-  return generated.concepts.length || (generated.exercises ?? []).some(({ image }) => Boolean(image))
-    ? validateExtractedContent(client, model, generated, mmdZipInput)
+  const generated = parseGeneratedConcepts(generatedContent, mmdZipInput.images.length);
+  const validated = generated.concepts.length || (generated.exercises?.length ?? 0) > 0
+    ? await validateExtractedContent(client, model, generated, mmdZipInput)
     : generated;
+
+  return storageReadyGeneratedConcepts(validated);
 }
 
 async function generatePageContentWithEmptyConceptRetry (client: OpenAI, model: string, mmdZipInput: MMDZipInput, retryEmptyConcepts: boolean): Promise<GeneratedConcepts> {
@@ -593,24 +598,9 @@ function BookReader ({ book, file, generateAllConceptsModel, generateAllConcepts
         getBookConceptsForBookPage(book.id, pageNumber),
         getExercisesForBookPage([book.id, pageNumber])
       ]);
-      const storedPage = pages.get(pageNumber);
-      const imageAssets = storedPage?.pageMMDZip
-        ? await extractMmdZipImageAssets(storedPage.pageMMDZip).catch(() => [])
-        : [];
-      const hydratedExercises = storedExercises.map((exercise) => {
-        const recoveredImages = resolveMarkdownImageAssets(exercise.description, imageAssets).map(({ dataUrl }) => dataUrl);
-        const displayImages = exerciseDisplayImages(exercise, recoveredImages);
-
-        return {
-          ...exercise,
-          ...(!exercise.image && displayImages[0] ? { image: displayImages[0] } : {}),
-          ...(displayImages.length ? { images: displayImages } : {})
-        };
-      });
-
       if (active) {
         setConcepts(storedConcepts);
-        setExercises(hydratedExercises);
+        setExercises(storedExercises);
       }
     };
 
@@ -924,23 +914,10 @@ function BookReader ({ book, file, generateAllConceptsModel, generateAllConcepts
           continue;
         }
 
-        const imageAssets = storedPage.pageMMDZip
-          ? await extractMmdZipImageAssets(storedPage.pageMMDZip).catch(() => [])
-          : [];
-        const hydratedExercises = storedExercises.map((exercise) => {
-          const recoveredImages = resolveMarkdownImageAssets(exercise.description, imageAssets).map(({ dataUrl }) => dataUrl);
-          const images = exerciseDisplayImages(exercise, recoveredImages);
-
-          return {
-            ...exercise,
-            ...(!exercise.image && images[0] ? { image: images[0] } : {}),
-            ...(images.length ? { images } : {})
-          };
-        });
         const processed = await processExtractedPageContent({
           chapter: storedPage.chapter,
           concepts: storedConcepts.map(({ description, title }) => ({ description, title })),
-          exercises: hydratedExercises.map(({ abilityMode = 'reasoning', description, image, images, imageDescription, solution = '', title }) => ({ abilityMode, description, image, images, imageDescription, solution, title }))
+          exercises: storedExercises.map(({ abilityMode = 'reasoning', description, imageDescription, solution = '', title }) => ({ abilityMode, description: stripMarkdownImageReferences(description), imageDescription, solution, title }))
         }, async (prompt) => {
           const response = await client.chat.completions.create({
             messages: [{ content: prompt, role: 'user' }],
@@ -949,7 +926,7 @@ function BookReader ({ book, file, generateAllConceptsModel, generateAllConcepts
           });
 
           return response.choices[0].message?.content?.trim() ?? '{}';
-        }, (prompt) => generateOpenRouterImage(key, prompt));
+        });
         const stored = await replaceParsedBookPageContent(book.id, currentPageNumber, processed.chapter, processed.concepts, processed.exercises);
 
         if (currentPageNumber === pageNumber) {
@@ -1281,20 +1258,13 @@ function BookReader ({ book, file, generateAllConceptsModel, generateAllConcepts
     </div>
   );
   const exerciseItem = (exercise: Exercise): React.ReactNode => {
-    const visibleImages = exerciseDisplayImages(exercise);
     const description = stripMarkdownImageReferences(exercise.description);
 
     return <li key={exercise.id}>
       <strong><KatexSpan content={exercise.title} /></strong>
       {description && <p><KatexSpan content={description} /></p>}
       {exercise.abilityMode && <p><small>{exercise.abilityMode}</small></p>}
-      {visibleImages.map((source, index) => <img
-        alt={exercise.imageDescription || `${exercise.title} ${index + 1}`}
-        className='exerciseImage'
-        key={`${source.slice(0, 80)}-${index}`}
-        src={source}
-                                                       />)}
-      {exercise.imageDescription && <p><small>Image: <KatexSpan content={exercise.imageDescription} /></small></p>}
+      {exercise.imageDescription && <p><small>Required visual: <KatexSpan content={exercise.imageDescription} /></small></p>}
       {exercise.solution && <p><KatexSpan content={exercise.solution} /></p>}
     </li>;
   };

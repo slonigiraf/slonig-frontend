@@ -29,6 +29,7 @@ import type { ExerciseTemplate } from './ExerciseTemplate.js';
 
 type LegacyBookSkill = Omit<Skill, 'exerciseIds'> & { bookExerciseIds?: number[] };
 type LegacyExerciseTemplate = Omit<ExerciseTemplate, 'skillId'> & { bookSkillId: number };
+type LegacyExerciseWithImages = Exercise & { image?: string; images?: string[] };
 
 class SlonigDB extends Dexie {
   agreements!: Table<Agreement>;
@@ -249,6 +250,24 @@ class SlonigDB extends Dexie {
         ...books.flatMap(({ id, processingStage }) => id === undefined ? [] : [transaction.table<Book>('books').update(id, { processingStage: Math.min(7, (processingStage ?? 2) + 1) })]),
         ...exercises.flatMap((exercise) => exercise.id === undefined || exercise.source ? [] : [transaction.table<Exercise>('exercises').update(exercise.id, { source: 'book' })])
       ]);
+    });
+    this.version(84).stores({}).upgrade(async (transaction: Transaction) => {
+      // Exercise visuals are intentionally not persisted. An Exercise keeps only
+      // imageDescription as the semantic signal that a visual is essential.
+      // Ability generation materializes that visual later and stores it on the
+      // Ability until the final IPFS publishing step.
+      const table = transaction.table<LegacyExerciseWithImages, number>('exercises');
+      const exercises = await table.toArray();
+
+      await Promise.all(exercises.map((exercise) => {
+        const { image: _image, images: _images, ...withoutImages } = exercise;
+        const description = withoutImages.description
+          .replace(/!\[[^\]]*\]\s*\(\s*(?:<[^>]+>|[^\s)]+)(?:\s+["'][^"']*["'])?\s*\)/gi, ' ')
+          .replace(/[ \t]{2,}/g, ' ')
+          .trim();
+
+        return table.put({ ...withoutImages, description } as LegacyExerciseWithImages);
+      }));
     });
   }
 }

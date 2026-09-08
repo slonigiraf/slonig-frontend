@@ -126,9 +126,8 @@ describe('book processing pipeline', (): void => {
     assert.ok(result.exercises.every(({ abilityMode }) => exerciseAbilityModes.includes(abilityMode as typeof exerciseAbilityModes[number])));
   });
 
-  it('generates and stores an image for a generated Exercise that requires one', async (): Promise<void> => {
+  it('stores only imageDescription for a generated Exercise that truly requires a visual', async (): Promise<void> => {
     const prompts: string[] = [];
-    const generatedImages: string[] = [];
     const runAi = (prompt: string): Promise<string> => {
       prompts.push(prompt);
 
@@ -137,6 +136,9 @@ describe('book processing pipeline', (): void => {
       }
 
       if (prompts.length === 3) {
+        assert.match(prompt, /text-only/i);
+        assert.match(prompt, /merely illustrative/i);
+
         return Promise.resolve(JSON.stringify({ exercises: [{
           abilityMode: 'perceptual observation',
           conceptIndex: 0,
@@ -151,22 +153,16 @@ describe('book processing pipeline', (): void => {
 
       return Promise.resolve(JSON.stringify({ exercises: input.exercises }));
     };
-    const generateImage = (prompt: string): Promise<string> => {
-      generatedImages.push(prompt);
-
-      return Promise.resolve('data:image/png;base64,Z2VuZXJhdGVk');
-    };
     const result = await processExtractedPageContent({
       chapter: 'Chapter',
       concepts: [{ description: 'Atomic', title: 'Concept' }],
       exercises: []
-    }, runAi, generateImage);
+    }, runAi);
 
     assert.equal(result.exercises.length, 1);
-    assert.equal(result.exercises[0].image, 'data:image/png;base64,Z2VuZXJhdGVk');
-    assert.deepEqual(result.exercises[0].images, ['data:image/png;base64,Z2VuZXJhdGVk']);
     assert.match(result.exercises[0].imageDescription ?? '', /number line/i);
-    assert.deepEqual(generatedImages, [result.exercises[0].imageDescription]);
+    assert.equal('image' in result.exercises[0], false);
+    assert.equal('images' in result.exercises[0], false);
   });
 
   it('retains prior results when a split pass is empty', async (): Promise<void> => {

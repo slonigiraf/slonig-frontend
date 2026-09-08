@@ -54,10 +54,6 @@ function parseCorrectedExercise (value: unknown, original: Exercise): Exercise {
 
   const imageDescription = typeof value.imageDescription === 'string' ? value.imageDescription.trim() : original.imageDescription;
 
-  if ((original.image || original.images?.length) && !imageDescription) {
-    throw new Error('A corrected image-dependent Exercise must include imageDescription.');
-  }
-
   return {
     ...original,
     abilityMode: value.abilityMode as typeof exerciseAbilityModes[number],
@@ -72,8 +68,6 @@ function exerciseSignature (exercise: Exercise): string {
   return JSON.stringify({
     abilityMode: exercise.abilityMode ?? '',
     description: exercise.description.trim(),
-    image: exercise.image ?? '',
-    images: exercise.images ?? [],
     imageDescription: exercise.imageDescription?.trim() ?? '',
     solution: (exercise.solution ?? '').trim(),
     title: exercise.title.trim()

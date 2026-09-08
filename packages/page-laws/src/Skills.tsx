@@ -16,8 +16,8 @@ import { parseAbilityRepairResult, parseGeneratedAbilities, parseGeneratedExerci
 import { parseExerciseRepairResult } from './exercises.js';
 import { estimateAiInput, formatAiInputEstimate } from './aiEstimate.js';
 import { abilityGenerationInstructions, divideExerciseTemplatesPrompt, fixAbilitiesPrompt, fixExercisesPrompt, OPENAI_MODELS, skillsToExerciseTemplatesPrompt, sourcesToSkillsPrompt } from './constants.js';
-import { generateOpenRouterImage } from './openRouterImages.js';
-import { exerciseDisplayImages, extractMmdZipImageAssets, resolveMarkdownImageAssets, stripMarkdownImageReferences } from './bookImageRefs.js';
+import { generateOpenRouterVisual } from './openRouterImages.js';
+import { stripMarkdownImageReferences } from './bookImageRefs.js';
 
 const REQUEST_INTERVAL_MS = Math.ceil(60_000 / 9);
 const BATCH_SIZE = 5;
@@ -353,13 +353,13 @@ function exerciseTemplatesRequest (language: string, blocks: SkillBlock[]): stri
 }
 
 function exerciseAbilitiesRequest (language: string, exercises: Exercise[]): string {
-  const transportExercises = exercises.map(({ description, image, images, ...exercise }) => ({ ...exercise, description: stripMarkdownImageReferences(description), hasImage: Boolean(image || images?.length) }));
+  const transportExercises = exercises.map(({ description, ...exercise }) => ({ ...exercise, description: stripMarkdownImageReferences(description) }));
 
   return `${abilityGenerationInstructions}
 
 Convert every supplied book Exercise you can into exactly one Ability. Treat each source Exercise as evidence for one narrow human skill. Do not merge exercises or generate more than one Ability for a source Exercise. Use the source task and solution to identify the skill, then create the required pair of concrete practice exercises for that same skill. Write strictly in ISO language ${language}.
 
-Exercises may be image-dependent. The source JSON uses hasImage and imageDescription instead of embedding the raw image bytes. If hasImage is true, preserve the visual nature of the skill: Question 1 must remain compatible with the source image and Question 2 must use a newly generated image with the same visual/task structure but the varied concrete parameters. For any question or answer that genuinely requires an image, write a complete standalone image-generation prompt in the matching imagePrompts p (question image) or i (answer/solution image) field. Use an empty string when no image is needed. The nested Ability q[].p and q[].i fields themselves must remain empty strings at this stage; the browser generates the images and fills those fields after validating the JSON. Do not replace an image-dependent task with text that gives away the information the learner is meant to infer from the image.
+An Exercise never contains image bytes. imageDescription is the sole signal that its task genuinely requires a visual. If imageDescription is empty, the Ability MUST be entirely text-only: every imagePrompts p/i value and every nested q[].p/q[].i value must stay empty. Never create an illustrative, decorative, motivational, or optional image. If imageDescription is nonempty, preserve the visual reasoning requirement without giving the visual information away in the question text. Write a complete standalone question-image prompt in imagePrompts.p for each Ability question that requires the visual, adapting concrete parameters so both questions still train the same skill. Write imagePrompts.i only when the worked answer itself genuinely needs a separate visual; otherwise leave it empty. The nested Ability q[].p and q[].i fields themselves must remain empty strings at this stage; the browser materializes permitted visuals after validating the JSON.
 
 For this Exercise-to-Ability conversion request only, wrap each completed Ability with the source Exercise id and imagePrompts. This transport wrapper overrides the bare-array transport format above; the nested Ability object itself must still contain only i, t, h, and q exactly as specified above. Return only valid JSON in this shape:
 {"abilities":[{"exerciseId":123,"ability":{"i":"","t":3,"h":"Narrow observable skill","q":[{"h":"Question 1","a":"Answer 1","p":"","i":""},{"h":"Question 2","a":"Answer 2","p":"","i":""}]},"imagePrompts":[{"p":"","i":""},{"p":"","i":""}]}]}
@@ -367,7 +367,6 @@ Use only ids present in the supplied Exercises. Preserve their order. Prefer con
 
 ${JSON.stringify({ bookLanguage: language, exercises: transportExercises })}`;
 }
-
 function abilityRepairRequest (language: string, batch: StoredAbility[], chapterTitle?: string): string {
   return `${fixAbilitiesPrompt}\n${JSON.stringify({
     abilities: batch.map(({ ability, content, id }, index) => ({ ability: ability ? { ...ability, q: ability.q.map(({ a, h, i, p }) => ({ a, h, i: i ? '[answer image present]' : '', p: p ? '[question image present]' : '' })) } : content, id, index })),
@@ -377,44 +376,44 @@ function abilityRepairRequest (language: string, batch: StoredAbility[], chapter
 }
 
 function exerciseRepairRequest (language: string, batch: Exercise[], chapterTitle?: string): string {
-  return `${fixExercisesPrompt}\n${JSON.stringify({
+  return `${fixExercisesPrompt}
+${JSON.stringify({
     bookLanguage: language,
-    exercises: batch.map(({ abilityMode = 'reasoning', conceptId, description, id, image, images, imageDescription = '', solution = '', title }, index) => ({
+    exercises: batch.map(({ abilityMode = 'reasoning', conceptId, description, id, imageDescription = '', solution = '', title }, index) => ({
       conceptId,
-      exercise: { abilityMode, description: stripMarkdownImageReferences(description), hasImage: Boolean(image || images?.length), imageDescription, solution, title },
+      exercise: { abilityMode, description: stripMarkdownImageReferences(description), imageDescription, solution, title },
       id,
       index
     })),
     ...(chapterTitle ? { chapterTitle } : {})
   })}`;
 }
+async function materializeAbilityImages (apiKey: string, source: Exercise, conversion: { ability: GeneratedAbility; imagePrompts?: Array<{ i: string; p: string }> }, svgModel: string): Promise<GeneratedAbility> {
+  const q = conversion.ability.q.map((exercise) => ({ ...exercise, i: '', p: '' }));
+  const imageDescription = source.imageDescription?.trim() ?? '';
 
-async function materializeAbilityImages (apiKey: string, source: Exercise, conversion: { ability: GeneratedAbility; imagePrompts?: Array<{ i: string; p: string }> }): Promise<GeneratedAbility> {
-  const q = conversion.ability.q.map((exercise) => ({ ...exercise }));
+  // imageDescription is deliberately the only permission to materialize an
+  // Ability visual. Ignore accidental model image prompts for text-only Exercises.
+  if (!imageDescription) {
+    return { ...conversion.ability, q: q.map((exercise) => ({ ...exercise, i: '', p: '' })) };
+  }
 
   for (let index = 0; index < q.length; index++) {
     const prompts = conversion.imagePrompts?.[index];
-    const sourceProblemImage = index === 0 ? source.image ?? source.images?.[0] : undefined;
-    const fallbackProblemPrompt = index === 1 && source.imageDescription?.trim()
-      ? `${source.imageDescription.trim()}\nCreate a new visual with the same educational structure that exactly matches this varied task: ${q[index].h}. Do not include the answer in the image.`
-      : '';
+    const fallbackProblemPrompt = `${imageDescription}
+Create the task-essential visual for this concrete Ability question: ${q[index].h}. Preserve the educational structure, vary only the concrete task parameters, and do not reveal the answer in the visual.`;
     const problemPrompt = prompts?.p.trim() || fallbackProblemPrompt;
     const answerPrompt = prompts?.i.trim() || '';
 
-    if (sourceProblemImage) {
-      q[index].p = sourceProblemImage;
-    } else if (problemPrompt) {
-      q[index].p = await generateOpenRouterImage(apiKey, problemPrompt);
-    }
+    q[index].p = await generateOpenRouterVisual(apiKey, problemPrompt, svgModel);
 
     if (answerPrompt) {
-      q[index].i = await generateOpenRouterImage(apiKey, answerPrompt);
+      q[index].i = await generateOpenRouterVisual(apiKey, answerPrompt, svgModel);
     }
   }
 
   return { ...conversion.ability, q };
 }
-
 async function requestValidatedJson<T> (client: OpenAI, model: string, systemPrompt: string, userPrompt: string, parse: (content: string) => T, jsonObject = true, requestGate?: RequestGate): Promise<T> {
   let lastError: unknown;
 
@@ -505,7 +504,7 @@ function ChapterTitleEditor ({ chapter, onError, onSaved }: { chapter: BookChapt
   </div>;
 }
 
-function BookItem ({ abilityMode, description, id, image, imageDescription, images, onDelete, onDeleted, onError, solution, title, type }: { abilityMode?: Exercise['abilityMode']; description: string; id?: number; image?: string; imageDescription?: string; images?: string[]; onDelete: (id: number) => Promise<void>; onDeleted: () => void; onError: (message: string) => void; solution?: string; title: string; type: 'concept' | 'exercise' }): React.ReactElement {
+function BookItem ({ abilityMode, description, id, imageDescription, onDelete, onDeleted, onError, solution, title, type }: { abilityMode?: Exercise['abilityMode']; description: string; id?: number; imageDescription?: string; onDelete: (id: number) => Promise<void>; onDeleted: () => void; onError: (message: string) => void; solution?: string; title: string; type: 'concept' | 'exercise' }): React.ReactElement {
   const remove = useCallback((): void => {
     if (id === undefined) {
       return;
@@ -514,14 +513,11 @@ function BookItem ({ abilityMode, description, id, image, imageDescription, imag
     onDelete(id).then(onDeleted).catch((error) => onError(error instanceof Error ? error.message : `Unable to delete the ${type}.`));
   }, [id, onDelete, onDeleted, onError, type]);
 
-  const visibleImages = images?.length ? images : image ? [image] : [];
-
   return <article className='contentCard'>
     <strong><KatexSpan content={title} /></strong>
     {description && <p><KatexSpan content={description} /></p>}
     {abilityMode && <p><small>{abilityMode}</small></p>}
-    {visibleImages.map((source, index) => <img alt={imageDescription || `${title} ${index + 1}`} className='exerciseImage' key={`${source.slice(0, 80)}-${index}`} src={source} />)}
-    {imageDescription && <p><small>Image: <KatexSpan content={imageDescription} /></small></p>}
+    {imageDescription && <p><small>Required visual: <KatexSpan content={imageDescription} /></small></p>}
     {solution && <p><KatexSpan content={solution} /></p>}
     <Button
       icon='trash'
@@ -601,8 +597,7 @@ function DuplicateExerciseSide ({ exercise, label }: { exercise: Exercise; label
     <strong><KatexSpan content={exercise.title} /></strong>
     <p><KatexSpan content={stripMarkdownImageReferences(exercise.description)} /></p>
     {exercise.abilityMode && <p><small>{exercise.abilityMode}</small></p>}
-    {exerciseDisplayImages(exercise).map((source, index) => <img alt={exercise.imageDescription || `${exercise.title} ${index + 1}`} className='exerciseImage' key={`${source.slice(0, 80)}-${index}`} src={source} />)}
-    {exercise.imageDescription && <p><small>Image: <KatexSpan content={exercise.imageDescription} /></small></p>}
+    {exercise.imageDescription && <p><small>Required visual: <KatexSpan content={exercise.imageDescription} /></small></p>}
     {exercise.solution && <div className='solution'><KatexSpan content={exercise.solution} /></div>}
   </section>;
 }
@@ -673,21 +668,10 @@ function Skills ({ book, onAction, onBookChange, onEntityCountsChange, pipelineO
     const load = async (): Promise<void> => {
       const [chapters, pages] = await Promise.all([getBookChapters(book.id), getBookPages(book.id)]);
       const pageRows = await Promise.all(pages.map(async (page: BookPage) => {
-        const [concepts, storedExercises, imageAssets] = await Promise.all([
+        const [concepts, exercises] = await Promise.all([
           getBookConceptsForBookPage(book.id, page.pageNumber),
-          getExercisesForBookPage([book.id, page.pageNumber]),
-          page.pageMMDZip ? extractMmdZipImageAssets(page.pageMMDZip).catch(() => []) : Promise.resolve([])
+          getExercisesForBookPage([book.id, page.pageNumber])
         ]);
-        const exercises: Exercise[] = storedExercises.map((exercise) => {
-          const recoveredImages = resolveMarkdownImageAssets(exercise.description, imageAssets).map(({ dataUrl }) => dataUrl);
-          const displayImages = exerciseDisplayImages(exercise, recoveredImages);
-
-          return {
-            ...exercise,
-            ...(!exercise.image && displayImages[0] ? { image: displayImages[0] } : {}),
-            ...(displayImages.length ? { images: displayImages } : {})
-          };
-        });
 
         return { concepts, exercises, page };
       }));
@@ -1025,7 +1009,7 @@ function Skills ({ book, onAction, onBookChange, onEntityCountsChange, pipelineO
             }
 
             try {
-              const ability = await materializeAbilityImages(imageApiKey, source, conversion);
+              const ability = await materializeAbilityImages(imageApiKey, source, conversion, selectedModel);
 
               generatedByExerciseId.set(conversion.exerciseId, ability);
               pending.delete(conversion.exerciseId);
@@ -1160,25 +1144,6 @@ function Skills ({ book, onAction, onBookChange, onEntityCountsChange, pipelineO
 
       duplicateIds.forEach((id) => replacements.delete(id));
 
-      const missingImageRepairs = Array.from(replacements).filter(([, { exercise }]) => !exercise.image && !exercise.images?.length && Boolean(exercise.imageDescription?.trim()));
-
-      if (missingImageRepairs.length) {
-        const imageApiKey = await getSetting(SettingKey.OPENROUTER_TOKEN);
-
-        if (!imageApiKey) {
-          throw new Error('No OpenRouter token found. Add it in Settings.');
-        }
-
-        for (const [id, replacement] of missingImageRepairs) {
-          const image = await generateOpenRouterImage(imageApiKey, replacement.exercise.imageDescription?.trim() ?? '');
-
-          replacements.set(id, {
-            ...replacement,
-            exercise: { ...replacement.exercise, image, images: [image] }
-          });
-        }
-      }
-
       // Preserve the all-or-nothing review phase: page writes begin only after
       // every chapter response has passed strict local validation. Use the
       // Exercise-specific DB operation so Concepts and Abilities are untouched.
@@ -1192,12 +1157,10 @@ function Skills ({ book, onAction, onBookChange, onEntityCountsChange, pipelineO
         const correctedExercises = exercises
           .filter(({ id }) => id === undefined || !duplicateIds.has(id))
           .map((exercise) => exercise.id === undefined ? exercise : replacements.get(exercise.id)?.exercise ?? exercise)
-          .map(({ abilityMode, conceptId, description, image, images, imageDescription, solution, source, title }) => ({
+          .map(({ abilityMode, conceptId, description, imageDescription, solution, source, title }) => ({
             abilityMode,
             conceptId,
-            description,
-            image,
-            images,
+            description: stripMarkdownImageReferences(description),
             imageDescription,
             solution,
             source,
@@ -1448,8 +1411,7 @@ function Skills ({ book, onAction, onBookChange, onEntityCountsChange, pipelineO
                 <div className='fixedExercisePreview'>
                   <p><KatexSpan content={stripMarkdownImageReferences(exercise.description)} /></p>
                   {exercise.abilityMode && <p><small>{exercise.abilityMode}</small></p>}
-                  {exerciseDisplayImages(exercise).map((source, index) => <img alt={exercise.imageDescription || `${exercise.title} ${index + 1}`} className='exerciseImage' key={`${source.slice(0, 80)}-${index}`} src={source} />)}
-                  {exercise.imageDescription && <p><small>Image: <KatexSpan content={exercise.imageDescription} /></small></p>}
+                  {exercise.imageDescription && <p><small>Required visual: <KatexSpan content={exercise.imageDescription} /></small></p>}
                   {exercise.solution && <div className='solution'><KatexSpan content={exercise.solution} /></div>}
                 </div>
               </article>)}
@@ -1635,9 +1597,7 @@ function Skills ({ book, onAction, onBookChange, onEntityCountsChange, pipelineO
                     abilityMode={exercise.abilityMode}
                     description={stripMarkdownImageReferences(exercise.description)}
                     id={exercise.id}
-                    image={exercise.image}
                     imageDescription={exercise.imageDescription}
-                    images={exercise.images}
                     key={`exercise-${exercise.id ?? 'new'}`}
                     onDelete={deleteExerciseWithAbilities}
                     onDeleted={refresh}
@@ -1700,9 +1660,7 @@ function Skills ({ book, onAction, onBookChange, onEntityCountsChange, pipelineO
                     abilityMode={exercise.abilityMode}
                     description={stripMarkdownImageReferences(exercise.description)}
                     id={exercise.id}
-                    image={exercise.image}
                     imageDescription={exercise.imageDescription}
-                    images={exercise.images}
                     onDelete={deleteExerciseWithAbilities}
                     onDeleted={refresh}
                     onError={setError}

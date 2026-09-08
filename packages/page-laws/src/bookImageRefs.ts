@@ -120,9 +120,3 @@ export async function extractMmdZipImageAssets (blob: Blob): Promise<MmdImageAss
       : [];
   });
 }
-
-export function exerciseDisplayImages (exercise: { image?: string; images?: string[] }, recoveredImages: string[] = []): string[] {
-  const values = [exercise.image, ...(exercise.images ?? []), ...recoveredImages].filter((value): value is string => typeof value === 'string' && Boolean(value.trim()));
-
-  return Array.from(new Set(values));
-}
