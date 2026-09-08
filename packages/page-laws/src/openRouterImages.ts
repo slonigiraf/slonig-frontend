@@ -72,11 +72,13 @@ export function svgMarkupToDataUrl (value: string): string | undefined {
   return `data:image/svg+xml;base64,${globalThis.btoa(binary)}`;
 }
 
-async function generateOpenRouterSvg (apiKey: string, prompt: string, model: string): Promise<string | null | undefined> {
+type VisualPurpose = 'question' | 'solution';
+
+async function generateOpenRouterSvg (apiKey: string, prompt: string, model: string, purpose: VisualPurpose): Promise<string | null | undefined> {
   const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
     body: JSON.stringify({
       messages: [{
-        content: `Decide whether this educational Ability visual can be represented faithfully as a clean vector SVG. Prefer SVG for diagrams, geometry, graphs, charts, tables, symbols, simple objects, maps, layouts, and other task visuals whose educational information is shape/text/position/relationship based. Choose raster only when the task genuinely depends on photographic realism, natural texture, subtle material appearance, complex real-world imagery, or another property that SVG would materially lose. Never choose raster merely for aesthetics.\n\nIf SVG is suitable, create a complete standalone SVG that exactly represents the requested task-essential visual. Keep it simple and readable, include only information required by the task, do not reveal the answer, use a viewBox, and do not use scripts, external resources, embedded raster images, foreignObject, URLs, or event handlers. If SVG would break the educational logic, choose raster.\n\nReturn only JSON: {"format":"svg","svg":"<svg ...>...</svg>"} or {"format":"raster","svg":""}.\n\nVisual request:\n${prompt}`,
+        content: `Decide whether this educational Ability visual can be represented faithfully as a clean vector SVG. Prefer SVG for diagrams, geometry, graphs, charts, tables, symbols, simple objects, maps, layouts, and other task visuals whose educational information is shape/text/position/relationship based. Choose raster only when the task genuinely depends on photographic realism, natural texture, subtle material appearance, complex real-world imagery, or another property that SVG would materially lose. Never choose raster merely for aesthetics.\n\nIf SVG is suitable, create a complete standalone SVG that exactly represents the requested task-essential visual. Keep it simple and readable, include only information required by the task, ${purpose === 'solution' ? 'this is a worked-solution visual, so show the complete correct constructed/drawn/plotted/modified result requested by the prompt and do not suppress answer information that the solution itself must display; when the task changes a question visual, preserve the same base objects, labels, scale, coordinate system, and layout and apply only the requested changes' : 'this is a question visual, so do not reveal or encode the answer'}, use a viewBox, and do not use scripts, external resources, embedded raster images, foreignObject, URLs, or event handlers. If SVG would break the educational logic, choose raster.\n\nReturn only JSON: {"format":"svg","svg":"<svg ...>...</svg>"} or {"format":"raster","svg":""}.\n\nVisual request:\n${prompt}`,
         role: 'user'
       }],
       model,
@@ -135,20 +137,23 @@ export async function generateOpenRouterImage (apiKey: string, prompt: string): 
   return `data:${image.media_type || 'image/png'};base64,${image.b64_json}`;
 }
 
-export async function generateOpenRouterVisual (apiKey: string, prompt: string, svgModel: string): Promise<string> {
+export async function generateOpenRouterVisual (apiKey: string, prompt: string, svgModel: string, purpose: VisualPurpose = 'question'): Promise<string> {
   // Prefer a safe, self-contained SVG for Ability visuals. SVGs stay crisp at
   // every size, preserve diagram/text geometry, and avoid unnecessary raster
-  // payloads. If the selected model cannot produce a valid safe SVG (or decides
-  // the visual genuinely requires raster detail), fall back to the dedicated
-  // image endpoint instead of failing Ability generation.
-  const svg = await generateOpenRouterSvg(apiKey, prompt, svgModel).catch(() => undefined);
+  // payloads. Question visuals must not leak the answer; solution visuals are
+  // explicitly allowed to show the completed answer/result.
+  const svg = await generateOpenRouterSvg(apiKey, prompt, svgModel, purpose).catch(() => undefined);
 
   if (svg) {
     return svg;
   }
 
+  const rasterPrompt = purpose === 'solution'
+    ? `Create the complete worked-solution visual. Show the correct constructed, drawn, labeled, shaded, plotted, graphed, marked, or modified result required by the solution. If this is an updated version of a question visual, preserve all unchanged base objects, labels, scale, coordinate system, and layout and apply only the requested change.\n\n${prompt}`
+    : prompt;
+
   try {
-    return await generateOpenRouterImage(apiKey, prompt);
+    return await generateOpenRouterImage(apiKey, rasterPrompt);
   } catch (caught) {
     const message = caught instanceof Error ? caught.message : 'Unknown image generation error.';
 

@@ -150,4 +150,84 @@ describe('Ability visual generation', (): void => {
     }
   });
 
+  it('allows SVG solution visuals to show the completed answer', async (): Promise<void> => {
+    const originalFetch = globalThis.fetch;
+    const originalWindow = Object.getOwnPropertyDescriptor(globalThis, 'window');
+    let svgInstruction = '';
+
+    Object.defineProperty(globalThis, 'window', { configurable: true, value: { location: { origin: 'https://slonig.test' } } });
+    globalThis.fetch = (async (_input: Parameters<typeof fetch>[0], init?: Parameters<typeof fetch>[1]) => {
+      const body = JSON.parse(String(init?.body ?? '{}')) as { messages?: Array<{ content?: string }> };
+
+      svgInstruction = body.messages?.[0]?.content ?? '';
+
+      return {
+        json: async () => ({ choices: [{ message: { content: JSON.stringify({
+          format: 'svg',
+          svg: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 10 10"><line x1="1" y1="9" x2="9" y2="1" /></svg>'
+        }) } }] }),
+        ok: true
+      } as Response;
+    }) as typeof fetch;
+
+    try {
+      const result = await generateOpenRouterVisual('test-key', 'Draw the completed construction.', 'some/text-model', 'solution');
+
+      assert.match(result, /^data:image\/svg\+xml;base64,/);
+      assert.match(svgInstruction, /worked-solution visual/i);
+      assert.match(svgInstruction, /show the complete correct/i);
+      assert.doesNotMatch(svgInstruction, /do not reveal or encode the answer/i);
+    } finally {
+      globalThis.fetch = originalFetch;
+
+      if (originalWindow) {
+        Object.defineProperty(globalThis, 'window', originalWindow);
+      } else {
+        Reflect.deleteProperty(globalThis, 'window');
+      }
+    }
+  });
+
+  it('marks raster fallback prompts as worked-solution visuals', async (): Promise<void> => {
+    const originalFetch = globalThis.fetch;
+    const originalWindow = Object.getOwnPropertyDescriptor(globalThis, 'window');
+    let rasterPrompt = '';
+
+    Object.defineProperty(globalThis, 'window', { configurable: true, value: { location: { origin: 'https://slonig.test' } } });
+    globalThis.fetch = (async (input: Parameters<typeof fetch>[0], init?: Parameters<typeof fetch>[1]) => {
+      const url = String(input);
+      const body = JSON.parse(String(init?.body ?? '{}')) as { prompt?: string };
+
+      if (url.endsWith('/chat/completions')) {
+        return {
+          json: async () => ({ choices: [{ message: { content: JSON.stringify({ format: 'raster', svg: '' }) } }] }),
+          ok: true
+        } as Response;
+      }
+
+      rasterPrompt = body.prompt ?? '';
+
+      return {
+        json: async () => ({ data: [{ b64_json: 'ZmFrZS1wbmc=', media_type: 'image/png' }] }),
+        ok: true
+      } as Response;
+    }) as typeof fetch;
+
+    try {
+      const result = await generateOpenRouterVisual('test-key', 'Draw the completed construction.', 'some/text-model', 'solution');
+
+      assert.equal(result, 'data:image/png;base64,ZmFrZS1wbmc=');
+      assert.match(rasterPrompt, /complete worked-solution visual/i);
+      assert.match(rasterPrompt, /Draw the completed construction\./);
+    } finally {
+      globalThis.fetch = originalFetch;
+
+      if (originalWindow) {
+        Object.defineProperty(globalThis, 'window', originalWindow);
+      } else {
+        Reflect.deleteProperty(globalThis, 'window');
+      }
+    }
+  });
+
 });

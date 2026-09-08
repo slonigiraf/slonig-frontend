@@ -11,6 +11,7 @@ export interface GeneratedAbility {
 }
 
 export interface AbilityExerciseImagePrompts {
+  changesImage: boolean;
   i: string;
   p: string;
 }
@@ -363,8 +364,19 @@ function parseAbilityImagePrompts (value: unknown): [AbilityExerciseImagePrompts
 
     const p = typeof item.p === 'string' ? item.p : typeof item.prompt === 'string' ? item.prompt : typeof item.question === 'string' ? item.question : '';
     const i = typeof item.i === 'string' ? item.i : typeof item.answer === 'string' ? item.answer : typeof item.solution === 'string' ? item.solution : '';
+    const changesImage = typeof item.changesImage === 'boolean'
+      ? item.changesImage
+      : typeof item.modifiesImage === 'boolean'
+        ? item.modifiesImage
+        : typeof item.editsImage === 'boolean'
+          ? item.editsImage
+          : undefined;
 
-    return { i: i.trim(), p: p.trim() };
+    if (changesImage === undefined) {
+      return undefined;
+    }
+
+    return { changesImage, i: i.trim(), p: p.trim() };
   });
 
   return prompts.every((prompt): prompt is AbilityExerciseImagePrompts => prompt !== undefined)
@@ -372,7 +384,7 @@ function parseAbilityImagePrompts (value: unknown): [AbilityExerciseImagePrompts
     : undefined;
 }
 
-export function parseGeneratedExerciseAbilities (content: string, expectedExerciseIds: number[]): GeneratedExerciseAbility[] {
+export function parseGeneratedExerciseAbilities (content: string, expectedExerciseIds: number[], requireImagePrompts = false): GeneratedExerciseAbility[] {
   const parsed = parseResponse(content);
   const values: unknown = Array.isArray(parsed)
     ? parsed
@@ -392,8 +404,13 @@ export function parseGeneratedExerciseAbilities (content: string, expectedExerci
     let abilityValue = value;
     let exerciseId = expectedExerciseIds[index];
     let imagePrompts: [AbilityExerciseImagePrompts, AbilityExerciseImagePrompts] | undefined;
+    const isWrappedConversion = isRecord(value) && ('ability' in value || 'exerciseId' in value || 'sourceExerciseId' in value);
 
-    if (isRecord(value) && ('ability' in value || 'exerciseId' in value || 'sourceExerciseId' in value)) {
+    if (requireImagePrompts && !isWrappedConversion) {
+      return;
+    }
+
+    if (isWrappedConversion) {
       const candidateId = value.exerciseId ?? value.sourceExerciseId;
 
       if (typeof candidateId !== 'number' || !Number.isSafeInteger(candidateId)) {
@@ -402,6 +419,16 @@ export function parseGeneratedExerciseAbilities (content: string, expectedExerci
 
       exerciseId = candidateId;
       imagePrompts = parseAbilityImagePrompts(value.imagePrompts);
+
+      // Exercise-to-Ability generation uses imagePrompts as a required visual
+      // decision record. Requiring it means the AI must explicitly decide for
+      // every question whether the learner is being asked to change a visual;
+      // otherwise the conversion is retried instead of silently losing a
+      // required worked-solution image.
+      if (!imagePrompts) {
+        return;
+      }
+
       abilityValue = value.ability ?? { h: value.h, i: value.i, q: value.q, t: value.t };
     }
 

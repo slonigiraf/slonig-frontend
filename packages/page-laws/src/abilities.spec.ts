@@ -22,6 +22,13 @@ function createSkill (): GeneratedAbility {
   };
 }
 
+function noImagePrompts (): Array<{ changesImage: boolean; i: string; p: string }> {
+  return [
+    { changesImage: false, i: '', p: '' },
+    { changesImage: false, i: '', p: '' }
+  ];
+}
+
 describe('generated abilities', (): void => {
   it('preserves the original skill and exercise fields without adding metadata', (): void => {
     const skill = createSkill();
@@ -185,28 +192,50 @@ describe('generated abilities', (): void => {
     const third = { ...createSkill(), h: 'A third exercise skill' };
     const parsed = parseGeneratedExerciseAbilities(JSON.stringify({
       abilities: [
-        { ability: first, exerciseId: 11 },
-        { ability: { ...createSkill(), q: [] }, exerciseId: 12 },
-        { ability: third, exerciseId: 13 }
+        { ability: first, exerciseId: 11, imagePrompts: noImagePrompts() },
+        { ability: { ...createSkill(), q: [] }, exerciseId: 12, imagePrompts: noImagePrompts() },
+        { ability: third, exerciseId: 13, imagePrompts: noImagePrompts() }
       ]
     }), [11, 12, 13]);
 
     assert.deepEqual(parsed, [
-      { ability: first, exerciseId: 11 },
-      { ability: third, exerciseId: 13 }
+      { ability: first, exerciseId: 11, imagePrompts: noImagePrompts() },
+      { ability: third, exerciseId: 13, imagePrompts: noImagePrompts() }
     ]);
   });
 
   it('preserves validated image-generation prompts for Exercise-to-Ability conversion', (): void => {
     const ability = createSkill();
     const imagePrompts = [
-      { i: '', p: 'A number line from 0 to 10 with a point at 4.' },
-      { i: 'The completed number line with the answer highlighted.', p: 'A number line from 0 to 12 with a point at 7.' }
+      { changesImage: false, i: '', p: 'A number line from 0 to 10 with a point at 4.' },
+      { changesImage: true, i: 'The completed number line with the answer highlighted.', p: 'A number line from 0 to 12 with a point at 7.' }
     ];
 
     assert.deepEqual(parseGeneratedExerciseAbilities(JSON.stringify({ abilities: [
       { ability, exerciseId: 20, imagePrompts }
     ] }), [20]), [{ ability, exerciseId: 20, imagePrompts }]);
+  });
+
+  it('requires the AI to classify whether each Ability question changes an image', (): void => {
+    const ability = createSkill();
+
+    assert.deepEqual(parseGeneratedExerciseAbilities(JSON.stringify({ abilities: [{
+      ability,
+      exerciseId: 23,
+      imagePrompts: [{ i: '', p: '' }, { i: '', p: '' }]
+    }] }), [23]), []);
+
+    assert.deepEqual(parseGeneratedExerciseAbilities(JSON.stringify({ abilities: [{
+      ability,
+      exerciseId: 23,
+      imagePrompts: [
+        { changesImage: true, i: '', p: 'A triangle with a missing altitude.' },
+        { changesImage: false, i: '', p: 'A triangle to inspect.' }
+      ]
+    }] }), [23])[0]?.imagePrompts, [
+      { changesImage: true, i: '', p: 'A triangle with a missing altitude.' },
+      { changesImage: false, i: '', p: 'A triangle to inspect.' }
+    ]);
   });
 
   it('normalizes common schema drift in Exercise-to-Ability conversions', (): void => {
@@ -220,11 +249,11 @@ describe('generated abilities', (): void => {
         type: '3'
       },
       exerciseId: 24,
-      imagePrompts: [{ prompt: '' }, { prompt: '' }]
+      imagePrompts: [{ modifiesImage: false, prompt: '' }, { editsImage: false, prompt: '' }]
     }] }), [24]), [{
       ability: createSkill(),
       exerciseId: 24,
-      imagePrompts: [{ i: '', p: '' }, { i: '', p: '' }]
+      imagePrompts: [{ changesImage: false, i: '', p: '' }, { changesImage: false, i: '', p: '' }]
     }]);
   });
 
@@ -238,10 +267,22 @@ describe('generated abilities', (): void => {
           { a: '5 × 1000 = 5000 m.', h: 'Convert 5 km to m.' }
         ]
       },
-      exerciseId: 25
+      exerciseId: 25,
+      imagePrompts: noImagePrompts()
     }] }), [25]);
 
-    assert.deepEqual(parsed, [{ ability: createSkill(), exerciseId: 25 }]);
+    assert.deepEqual(parsed, [{ ability: createSkill(), exerciseId: 25, imagePrompts: noImagePrompts() }]);
+  });
+
+  it('rejects positional legacy conversions when visual decisions are required', (): void => {
+    const first = createSkill();
+
+    assert.deepEqual(parseGeneratedExerciseAbilities(JSON.stringify([first]), [21], true), []);
+    assert.equal(parseGeneratedExerciseAbilities(JSON.stringify([{
+      ability: first,
+      exerciseId: 21,
+      imagePrompts: noImagePrompts()
+    }]), [21], true).length, 1);
   });
 
   it('accepts positional partial legacy Ability arrays so omitted trailing Exercises can be retried', (): void => {
@@ -260,10 +301,10 @@ describe('generated abilities', (): void => {
     const unexpected = { ...createSkill(), h: 'Unexpected' };
 
     assert.deepEqual(parseGeneratedExerciseAbilities(JSON.stringify({ abilities: [
-      { exerciseId: 31, ability: first },
-      { exerciseId: 31, ability: duplicate },
-      { exerciseId: 99, ability: unexpected }
-    ] }), [31, 32]), [{ ability: first, exerciseId: 31 }]);
+      { exerciseId: 31, ability: first, imagePrompts: noImagePrompts() },
+      { exerciseId: 31, ability: duplicate, imagePrompts: noImagePrompts() },
+      { exerciseId: 99, ability: unexpected, imagePrompts: noImagePrompts() }
+    ] }), [31, 32]), [{ ability: first, exerciseId: 31, imagePrompts: noImagePrompts() }]);
   });
 
   it('accepts concrete nonmathematical exercises for one human skill', (): void => {
