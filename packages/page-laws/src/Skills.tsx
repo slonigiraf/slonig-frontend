@@ -363,11 +363,11 @@ Every supplied Exercise in this request belongs to this chapter. Do not mix, mer
 
 Convert every supplied book Exercise you can into exactly one Ability. Treat each source Exercise as evidence for one narrow human skill. Do not merge exercises or generate more than one Ability for a source Exercise. Use the source task and solution to identify the skill, then create the required pair of concrete practice exercises for that same skill. Write strictly in ISO language ${language}.
 
-An Exercise never contains image bytes. imageDescription is the sole signal that the learner must inspect a visual in order to solve the task. If imageDescription is empty, every imagePrompts.p value must stay empty and no question image may be invented. If imageDescription is nonempty, preserve the visual reasoning requirement without giving the visual information away in the question text. Write a complete standalone question-image prompt in imagePrompts.p for each Ability question that requires the visual, adapting concrete parameters so both questions still train the same skill.
+An Exercise never contains image bytes. imageDescription describes task-essential visual INPUT, while solutionImageDescription describes a required worked-solution visual OUTPUT. If imageDescription is empty, every imagePrompts.p value must stay empty and no question image may be invented. If imageDescription is nonempty, preserve the visual reasoning requirement without giving the visual information away in the question text. Write a complete standalone question-image prompt in imagePrompts.p for each Ability question that requires the visual, adapting concrete parameters so both questions still train the same skill. If solutionImageDescription is nonempty, every Ability question must receive a nonempty imagePrompts.i adapted to that question's concrete parameters and correct answer. Use solutionImageDescription as the structural/semantic source for the solution visual; do not blindly copy source values that were changed in the Ability variation. If solutionImageDescription is empty, imagePrompts.i should normally stay empty unless changesImage:true requires the completed version of the starting visual.
 
 For EACH Ability question you MUST explicitly decide changesImage:true or changesImage:false. Set changesImage:true when the learner is asked to CHANGE, MODIFY, COMPLETE, EDIT, DRAW ON, MARK, LABEL, SHADE, COLOR, CONNECT, MOVE, ROTATE, REFLECT, RESIZE, REARRANGE, CORRECT, ADD TO, REMOVE FROM, or otherwise produce an UPDATED VERSION of the question visual. Examples include drawing a missing line on a diagram, shading a requested region, plotting a point on the shown graph, labeling parts of the shown image, moving/rotating a shown shape, completing a chart/table/number line, circling or crossing out objects, or correcting a visual. Merely looking at a visual and replying with text/number is changesImage:false. A request to create a new drawing from text, with no question visual being changed, is also changesImage:false.
 
-Whenever changesImage:true, imagePrompts.p must describe the starting visual and imagePrompts.i must describe the COMPLETE CORRECT UPDATED VERSION OF THAT SAME VISUAL after applying the requested change. Preserve the same base objects, labels, coordinate system, scale, layout, and unchanged details; only make the changes required by the question. Never omit imagePrompts.i for changesImage:true. Independently, even when changesImage:false, write imagePrompts.i when the worked answer genuinely requires a new drawing or other visual result—for example constructing, plotting, graphing, or creating something whose essential spatial information would be lost in text alone. Otherwise leave imagePrompts.i empty. Never create decorative, motivational, merely illustrative, or optional images. The nested Ability q[].p and q[].i fields themselves must remain empty strings at this stage; the browser materializes permitted visuals after validating the JSON.
+Whenever changesImage:true, imagePrompts.p must describe the starting visual and imagePrompts.i must describe the COMPLETE CORRECT UPDATED VERSION OF THAT SAME VISUAL after applying the requested change. Preserve the same base objects, labels, coordinate system, scale, layout, and unchanged details; only make the changes required by the question. Never omit imagePrompts.i for changesImage:true. When source.solutionImageDescription is nonempty, it is an explicit requirement for a worked-solution image: adapt it into imagePrompts.i for both Ability questions, whether changesImage is true or false. When it is empty and changesImage is false, leave imagePrompts.i empty. Never create decorative, motivational, merely illustrative, or optional images. The nested Ability q[].p and q[].i fields themselves must remain empty strings at this stage; the browser materializes permitted visuals after validating the JSON.
 
 For this Exercise-to-Ability conversion request only, wrap each completed Ability with the source Exercise id and imagePrompts. This transport wrapper overrides the bare-array transport format above; the nested Ability object itself must still contain only i, t, h, and q exactly as specified above. Return only valid JSON in this shape:
 {"abilities":[{"exerciseId":123,"ability":{"i":"","t":3,"h":"Narrow observable skill","q":[{"h":"Question 1","a":"Answer 1","p":"","i":""},{"h":"Question 2","a":"Answer 2","p":"","i":""}]},"imagePrompts":[{"changesImage":false,"p":"","i":""},{"changesImage":true,"p":"Starting visual...","i":"Same visual after the required correct change..."}]}]}
@@ -387,7 +387,7 @@ Convert this one book Exercise into exactly one valid Ability in ISO language ${
 
 The Ability schema is strict: i must be "", t must be 3, h must be a nonempty skill name, q must contain exactly two objects, and every q object must contain nonempty h and a plus empty-string p and i fields.
 
-If source.imageDescription is empty, both imagePrompts.p values must be empty. For EACH question, imagePrompts must contain changesImage:true or false. changesImage is true exactly when the learner must modify/update the provided question visual (for example add/remove/mark/label/shade/color/connect/move/rotate/reflect/rearrange/correct/complete something on it), not when the learner only inspects the visual and answers in text. If source.imageDescription is empty, changesImage must be false. Whenever changesImage is true, imagePrompts.i MUST describe the complete correct updated version of the SAME starting visual, preserving unchanged objects/layout and applying the requested change. Independently, when changesImage is false, imagePrompts.i must still describe a complete correct solution visual if the answer genuinely requires creating a new drawing, construction, plot, graph, or other visual result that cannot be represented adequately by text alone; otherwise it must be empty. q[].p and q[].i must still remain empty.
+If source.imageDescription is empty, both imagePrompts.p values must be empty. For EACH question, imagePrompts must contain changesImage:true or false. changesImage is true exactly when the learner must modify/update the provided question visual (for example add/remove/mark/label/shade/color/connect/move/rotate/reflect/rearrange/correct/complete something on it), not when the learner only inspects the visual and answers in text. If source.imageDescription is empty, changesImage must be false. Whenever changesImage is true, imagePrompts.i MUST describe the complete correct updated version of the SAME starting visual, preserving unchanged objects/layout and applying the requested change. If source.solutionImageDescription is nonempty, both imagePrompts.i values MUST also be nonempty and must adapt that source solution-visual description to each Ability question's concrete parameters and correct answer. If source.solutionImageDescription is empty and changesImage is false, imagePrompts.i must be empty. q[].p and q[].i must still remain empty.
 
 Return only this JSON object and nothing else:
 {"abilities":[{"exerciseId":${exercise.id},"ability":{"i":"","t":3,"h":"Narrow observable skill","q":[{"h":"Question 1","a":"Answer 1","p":"","i":""},{"h":"Question 2","a":"Answer 2","p":"","i":""}]},"imagePrompts":[{"changesImage":false,"p":"","i":""},{"changesImage":false,"p":"","i":""}]}]}
@@ -407,9 +407,9 @@ function exerciseRepairRequest (language: string, batch: Exercise[], chapterTitl
   return `${fixExercisesPrompt}
 ${JSON.stringify({
     bookLanguage: language,
-    exercises: batch.map(({ abilityMode = 'reasoning', conceptId, description, id, imageDescription = '', solution = '', title }, index) => ({
+    exercises: batch.map(({ abilityMode = 'reasoning', conceptId, description, id, imageDescription = '', solution = '', solutionImageDescription = '', title }, index) => ({
       conceptId,
-      exercise: { abilityMode, description: stripMarkdownImageReferences(description), imageDescription, solution, title },
+      exercise: { abilityMode, description: stripMarkdownImageReferences(description), imageDescription, solution, solutionImageDescription, title },
       id,
       index
     })),
@@ -419,6 +419,7 @@ ${JSON.stringify({
 async function materializeAbilityImages (apiKey: string, source: Exercise, conversion: { ability: GeneratedAbility; imagePrompts?: Array<{ changesImage: boolean; i: string; p: string }> }, svgModel: string): Promise<GeneratedAbility> {
   const q = conversion.ability.q.map((exercise) => ({ ...exercise, i: '', p: '' }));
   const imageDescription = source.imageDescription?.trim() ?? '';
+  const solutionImageDescription = source.solutionImageDescription?.trim() ?? '';
 
   for (let index = 0; index < q.length; index++) {
     const prompts = conversion.imagePrompts?.[index];
@@ -432,6 +433,31 @@ Create the task-essential STARTING visual for this concrete Ability question: ${
     const problemPrompt = imageDescription ? (prompts?.p.trim() || fallbackProblemPrompt) : '';
     const changesImage = prompts?.changesImage === true && Boolean(problemPrompt);
     const suppliedAnswerPrompt = prompts?.i.trim() || '';
+    const fallbackSolutionPrompt = solutionImageDescription
+      ? `${solutionImageDescription}
+Use the source description as the required visual structure, but adapt all concrete values, labels, geometry, plotted data, markings, and answer details to this Ability variation. The image must show the complete correct worked-solution result for the question below and must not retain source-Exercise values that conflict with it.
+
+Ability question:
+${q[index].h}
+
+Correct answer / worked solution:
+${q[index].a}${suppliedAnswerPrompt ? `
+
+Additional solution-visual specification from the Ability generator:
+${suppliedAnswerPrompt}` : ''}`
+      : '';
+    const sourceSolutionSpecification = solutionImageDescription
+      ? `
+
+Required solution-visual specification from the source Exercise:
+${solutionImageDescription}`
+      : '';
+    const generatorSolutionSpecification = suppliedAnswerPrompt
+      ? `
+
+Additional solution-visual specification from the Ability generator:
+${suppliedAnswerPrompt}`
+      : '';
     const changedImageAnswerPrompt = changesImage
       ? `Create the COMPLETE CORRECT UPDATED VERSION of the SAME visual used in the question. Recreate the same base objects, labels, coordinate system, dimensions, scale, layout, and all unchanged details, then apply only the modification requested by the Ability question. The final image must visibly contain the answer/result, not merely explain it.
 
@@ -442,11 +468,8 @@ Ability question:
 ${q[index].h}
 
 Correct answer / worked solution:
-${q[index].a}${suppliedAnswerPrompt ? `
-
-Additional solution-visual specification from the Ability generator:
-${suppliedAnswerPrompt}` : ''}`
-      : suppliedAnswerPrompt;
+${q[index].a}${sourceSolutionSpecification}${generatorSolutionSpecification}`
+      : fallbackSolutionPrompt;
 
     if (problemPrompt) {
       q[index].p = await generateOpenRouterVisual(apiKey, problemPrompt, svgModel, 'question');
@@ -552,7 +575,7 @@ function ChapterTitleEditor ({ chapter, onError, onSaved }: { chapter: BookChapt
   </div>;
 }
 
-function BookItem ({ abilityMode, description, id, imageDescription, onDelete, onDeleted, onError, solution, title, type }: { abilityMode?: Exercise['abilityMode']; description: string; id?: number; imageDescription?: string; onDelete: (id: number) => Promise<void>; onDeleted: () => void; onError: (message: string) => void; solution?: string; title: string; type: 'concept' | 'exercise' }): React.ReactElement {
+function BookItem ({ abilityMode, description, id, imageDescription, onDelete, onDeleted, onError, solution, solutionImageDescription, title, type }: { abilityMode?: Exercise['abilityMode']; description: string; id?: number; imageDescription?: string; onDelete: (id: number) => Promise<void>; onDeleted: () => void; onError: (message: string) => void; solution?: string; solutionImageDescription?: string; title: string; type: 'concept' | 'exercise' }): React.ReactElement {
   const remove = useCallback((): void => {
     if (id === undefined) {
       return;
@@ -567,6 +590,7 @@ function BookItem ({ abilityMode, description, id, imageDescription, onDelete, o
     {abilityMode && <p><small>{abilityMode}</small></p>}
     {imageDescription && <p><small>Required visual: <KatexSpan content={imageDescription} /></small></p>}
     {solution && <p><KatexSpan content={solution} /></p>}
+    {solutionImageDescription && <p><small>Solution visual: <KatexSpan content={solutionImageDescription} /></small></p>}
     <Button
       icon='trash'
       onClick={remove}
@@ -647,6 +671,7 @@ function DuplicateExerciseSide ({ exercise, label }: { exercise: Exercise; label
     {exercise.abilityMode && <p><small>{exercise.abilityMode}</small></p>}
     {exercise.imageDescription && <p><small>Required visual: <KatexSpan content={exercise.imageDescription} /></small></p>}
     {exercise.solution && <div className='solution'><KatexSpan content={exercise.solution} /></div>}
+    {exercise.solutionImageDescription && <p><small>Solution visual: <KatexSpan content={exercise.solutionImageDescription} /></small></p>}
   </section>;
 }
 
@@ -1228,12 +1253,13 @@ function Skills ({ book, onAction, onBookChange, onEntityCountsChange, pipelineO
         const correctedExercises = exercises
           .filter(({ id }) => id === undefined || !duplicateIds.has(id))
           .map((exercise) => exercise.id === undefined ? exercise : replacements.get(exercise.id)?.exercise ?? exercise)
-          .map(({ abilityMode, conceptId, description, imageDescription, solution, source, title }) => ({
+          .map(({ abilityMode, conceptId, description, imageDescription, solution, solutionImageDescription, source, title }) => ({
             abilityMode,
             conceptId,
             description: stripMarkdownImageReferences(description),
             imageDescription,
             solution,
+            solutionImageDescription,
             source,
             title
           }));
@@ -1483,6 +1509,7 @@ function Skills ({ book, onAction, onBookChange, onEntityCountsChange, pipelineO
                   <p><KatexSpan content={stripMarkdownImageReferences(exercise.description)} /></p>
                   {exercise.abilityMode && <p><small>{exercise.abilityMode}</small></p>}
                   {exercise.imageDescription && <p><small>Required visual: <KatexSpan content={exercise.imageDescription} /></small></p>}
+                  {exercise.solutionImageDescription && <p><small>Solution visual: <KatexSpan content={exercise.solutionImageDescription} /></small></p>}
                   {exercise.solution && <div className='solution'><KatexSpan content={exercise.solution} /></div>}
                 </div>
               </article>)}
@@ -1674,6 +1701,7 @@ function Skills ({ book, onAction, onBookChange, onEntityCountsChange, pipelineO
                     onDeleted={refresh}
                     onError={setError}
                     solution={exercise.solution}
+                    solutionImageDescription={exercise.solutionImageDescription}
                     title={exercise.title}
                     type='exercise'
                   />
@@ -1736,6 +1764,7 @@ function Skills ({ book, onAction, onBookChange, onEntityCountsChange, pipelineO
                     onDeleted={refresh}
                     onError={setError}
                     solution={exercise.solution}
+                    solutionImageDescription={exercise.solutionImageDescription}
                     title={exercise.title}
                     type='exercise'
                   />

@@ -53,6 +53,7 @@ function parseCorrectedExercise (value: unknown, original: Exercise): Exercise {
   }
 
   const imageDescription = typeof value.imageDescription === 'string' ? value.imageDescription.trim() : original.imageDescription;
+  const solutionImageDescription = typeof value.solutionImageDescription === 'string' && value.solutionImageDescription.trim() ? value.solutionImageDescription.trim() : original.solutionImageDescription?.trim() ?? '';
 
   return {
     ...original,
@@ -60,6 +61,7 @@ function parseCorrectedExercise (value: unknown, original: Exercise): Exercise {
     description: value.description.trim(),
     imageDescription,
     solution: value.solution.trim(),
+    solutionImageDescription,
     title: value.title.trim()
   };
 }
@@ -70,6 +72,7 @@ function exerciseSignature (exercise: Exercise): string {
     description: exercise.description.trim(),
     imageDescription: exercise.imageDescription?.trim() ?? '',
     solution: (exercise.solution ?? '').trim(),
+    solutionImageDescription: exercise.solutionImageDescription?.trim() ?? '',
     title: exercise.title.trim()
   });
 }

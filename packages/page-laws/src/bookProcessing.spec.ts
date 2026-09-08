@@ -117,7 +117,7 @@ describe('book processing pipeline', (): void => {
     assert.equal(CONCEPT_SPLIT_PASSES, 2);
     assert.equal(EXERCISE_SPLIT_PASSES, 2);
     assert.equal(GENERATED_EXERCISES_PER_CONCEPT, 4);
-    assert.equal(prompts.length, 5);
+    assert.equal(prompts.length, 6);
     assert.deepEqual(result.concepts.map(({ title }) => title), ['Atomic A', 'Atomic B']);
     assert.equal(result.exercises.length, 9);
     assert.equal(result.exercises.filter(({ source }) => source === 'book').length, 1);
@@ -126,7 +126,7 @@ describe('book processing pipeline', (): void => {
     assert.ok(result.exercises.every(({ abilityMode }) => exerciseAbilityModes.includes(abilityMode as typeof exerciseAbilityModes[number])));
   });
 
-  it('stores only imageDescription for a generated Exercise that truly requires a visual', async (): Promise<void> => {
+  it('stores Exercise visual descriptions without storing image bytes', async (): Promise<void> => {
     const prompts: string[] = [];
     const runAi = (prompt: string): Promise<string> => {
       prompts.push(prompt);
@@ -145,6 +145,7 @@ describe('book processing pipeline', (): void => {
           description: 'Read the marked value from the number line.',
           imageDescription: 'A horizontal number line from 0 to 10 with a single unlabeled point at 6.',
           solution: 'The marked value is 6.',
+          solutionImageDescription: '',
           title: 'Read the number line'
         }] }));
       }
@@ -161,8 +162,178 @@ describe('book processing pipeline', (): void => {
 
     assert.equal(result.exercises.length, 1);
     assert.match(result.exercises[0].imageDescription ?? '', /number line/i);
+    assert.equal(result.exercises[0].solutionImageDescription, '');
     assert.equal('image' in result.exercises[0], false);
     assert.equal('images' in result.exercises[0], false);
+  });
+
+  it('preserves a required solution-image description for a drawing result', async (): Promise<void> => {
+    let request = 0;
+    const result = await processExtractedPageContent({
+      chapter: 'Chapter',
+      concepts: [{ description: 'Plot ordered pairs', title: 'Coordinate plotting' }],
+      exercises: []
+    }, (prompt) => {
+      request++;
+
+      if (request <= 2) {
+        return Promise.resolve(JSON.stringify({ concepts: [{ description: 'Plot ordered pairs', inputIndex: 0, title: 'Coordinate plotting' }] }));
+      }
+
+      if (request === 3) {
+        assert.match(prompt, /solutionImageDescription/);
+        assert.match(prompt, /draw, sketch, plot, graph, construct/i);
+
+        return Promise.resolve(JSON.stringify({ exercises: [{
+          abilityMode: 'generation',
+          conceptIndex: 0,
+          description: 'Plot the point <kx>(2,3)</kx> on a coordinate plane.',
+          imageDescription: '',
+          solution: 'Place the point two units right and three units up from the origin.',
+          solutionImageDescription: 'A coordinate plane with x- and y-axes and the point (2,3) correctly plotted and labeled.',
+          title: 'Plot an ordered pair'
+        }] }));
+      }
+
+      const input = JSON.parse(prompt.slice(prompt.lastIndexOf('\n') + 1)) as { exercises: unknown[] };
+
+      return Promise.resolve(JSON.stringify({ exercises: input.exercises }));
+    });
+
+    assert.equal(result.exercises[0].imageDescription, '');
+    assert.match(result.exercises[0].solutionImageDescription ?? '', /point \(2,3\)/i);
+    assert.equal('image' in result.exercises[0], false);
+    assert.equal('images' in result.exercises[0], false);
+  });
+
+  it('does not let split/refinement erase an existing required solution image description', async (): Promise<void> => {
+    let request = 0;
+    const result = await processExtractedPageContent({
+      chapter: 'Chapter',
+      concepts: [{ description: 'Plot ordered pairs', title: 'Coordinate plotting' }],
+      exercises: []
+    }, (prompt) => {
+      request++;
+
+      if (request <= 2) {
+        return Promise.resolve(JSON.stringify({ concepts: [{ description: 'Plot ordered pairs', inputIndex: 0, title: 'Coordinate plotting' }] }));
+      }
+
+      if (request === 3) {
+        return Promise.resolve(JSON.stringify({ exercises: [{
+          abilityMode: 'generation',
+          conceptIndex: 0,
+          description: 'Plot the point <kx>(4,-2)</kx> on a coordinate plane.',
+          imageDescription: '',
+          solution: 'Move four units right and two units down, then plot the point.',
+          solutionImageDescription: 'A coordinate plane with the point (4,-2) plotted and labeled.',
+          title: 'Plot a point'
+        }] }));
+      }
+
+      const input = JSON.parse(prompt.slice(prompt.lastIndexOf('\n') + 1)) as { exercises: Array<Record<string, unknown>> };
+
+      if (request <= 5) {
+        assert.match(prompt, /NEVER erase an existing nonempty solutionImageDescription/i);
+
+        return Promise.resolve(JSON.stringify({ exercises: input.exercises.map((exercise) => ({ ...exercise, solutionImageDescription: '' })) }));
+      }
+
+      assert.match(prompt, /dedicated solution-visual audit/i);
+      assert.match(prompt, /NEVER return an empty replacement/i);
+
+      return Promise.resolve(JSON.stringify({ reviews: [{ inputIndex: 0, requiresSolutionImage: true, solutionImageDescription: '' }] }));
+    });
+
+    assert.match(result.exercises[0].solutionImageDescription ?? '', /\(4,-2\)/);
+  });
+
+  it('requires generation and refinement prompts to classify visual-output answers', async (): Promise<void> => {
+    const prompts: string[] = [];
+
+    await processExtractedPageContent({
+      chapter: 'Chapter',
+      concepts: [{ description: 'Geometric construction', title: 'Construct a perpendicular bisector' }],
+      exercises: []
+    }, (prompt) => {
+      prompts.push(prompt);
+
+      if (prompts.length <= 2) {
+        return Promise.resolve(JSON.stringify({ concepts: [{ description: 'Geometric construction', inputIndex: 0, title: 'Construct a perpendicular bisector' }] }));
+      }
+
+      if (prompts.length === 3) {
+        assert.match(prompt, /EXPECTED ANSWER FORMAT/i);
+        assert.match(prompt, /draw, sketch, plot, graph, construct/i);
+        assert.match(prompt, /solutionImageDescription MUST be nonempty/i);
+
+        return Promise.resolve(JSON.stringify({ exercises: [{
+          abilityMode: 'generation',
+          conceptIndex: 0,
+          description: 'Construct the perpendicular bisector of segment AB.',
+          imageDescription: '',
+          solution: 'Use equal-radius arcs from A and B and connect their intersections.',
+          solutionImageDescription: 'Segment AB with equal-radius construction arcs and the completed perpendicular bisector through the two arc intersections.',
+          title: 'Construct a perpendicular bisector'
+        }] }));
+      }
+
+      const input = JSON.parse(prompt.slice(prompt.lastIndexOf('\n') + 1)) as { exercises: unknown[] };
+
+      if (prompts.length <= 5) {
+        assert.match(prompt, /visual-output exercise/i);
+
+        return Promise.resolve(JSON.stringify({ exercises: input.exercises }));
+      }
+
+      assert.match(prompt, /dedicated solution-visual audit/i);
+      assert.match(prompt, /requiresSolutionImage MUST be true/i);
+
+      return Promise.resolve(JSON.stringify({ reviews: [{ inputIndex: 0, requiresSolutionImage: true, solutionImageDescription: 'Segment AB with equal-radius construction arcs and the completed perpendicular bisector through the two arc intersections.' }] }));
+    });
+  });
+
+  it('fills a missing solution image description in the dedicated final visual audit', async (): Promise<void> => {
+    let request = 0;
+    const result = await processExtractedPageContent({
+      chapter: 'Chapter',
+      concepts: [{ description: 'Graph linear functions', title: 'Graphing' }],
+      exercises: []
+    }, (prompt) => {
+      request++;
+
+      if (request <= 2) {
+        return Promise.resolve(JSON.stringify({ concepts: [{ description: 'Graph linear functions', inputIndex: 0, title: 'Graphing' }] }));
+      }
+
+      if (request === 3) {
+        return Promise.resolve(JSON.stringify({ exercises: [{
+          abilityMode: 'generation',
+          conceptIndex: 0,
+          description: 'Graph <kx>y=2x+1</kx>.',
+          imageDescription: '',
+          solution: 'Plot the intercept (0,1), use slope 2 to plot (1,3), and draw the line through the points.',
+          solutionImageDescription: '',
+          title: 'Graph a line'
+        }] }));
+      }
+
+      const input = JSON.parse(prompt.slice(prompt.lastIndexOf('\n') + 1)) as { exercises: unknown[] };
+
+      if (request <= 5) {
+        return Promise.resolve(JSON.stringify({ exercises: input.exercises }));
+      }
+
+      assert.match(prompt, /dedicated solution-visual audit/i);
+
+      return Promise.resolve(JSON.stringify({ reviews: [{
+        inputIndex: 0,
+        requiresSolutionImage: true,
+        solutionImageDescription: 'A coordinate plane with the completed line y=2x+1 passing through the labeled points (0,1) and (1,3).'
+      }] }));
+    });
+
+    assert.match(result.exercises[0].solutionImageDescription ?? '', /y=2x\+1/i);
   });
 
   it('retains prior results when a split pass is empty', async (): Promise<void> => {
@@ -219,7 +390,7 @@ describe('book processing pipeline', (): void => {
     }, runAi);
 
     assert.equal(MAX_EXERCISE_GENERATION_RETRIES, 3);
-    assert.equal(prompts.length, 8);
+    assert.equal(prompts.length, 9);
     assert.deepEqual(result.exercises.map(({ conceptIndex }) => conceptIndex), [0, 1]);
   });
 });

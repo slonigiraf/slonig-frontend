@@ -33,11 +33,11 @@ const CONCEPTS_PROMPT = `On the provided page, identify the chapter and subchapt
 Extract only the concepts that are intentionally introduced or explained as new on this page. Do not include concepts that the page assumes the reader already knows, merely reviews, references from earlier sections, or uses only in exercises/examples without introducing them. Also extract every exercise, question, or problem the learner is asked to solve. Classify the primary ability trained by each exercise as exactly one of: "perceptual observation", "perceptual discrimination", "transformation", "reasoning", or "generation".
 
 Return only valid JSON in this exact shape, keeping the original language of the input:
-{"chapter":"Chapter and section name","concepts":[{"title":"New concept","description":"Explanation or example from the page"}],"exercises":[{"title":"Exercise title","description":"Complete exercise question or instructions","abilityMode":"reasoning","solution":"Complete step-by-step solution","imageIndexes":[],"imageDescription":""}]}
+{"chapter":"Chapter and section name","concepts":[{"title":"New concept","description":"Explanation or example from the page"}],"exercises":[{"title":"Exercise title","description":"Complete exercise question or instructions","abilityMode":"reasoning","solution":"Complete step-by-step solution","imageIndexes":[],"imageDescription":"","solutionImageDescription":""}]}
 
-Exercise records must never contain image bytes, image URLs, filenames, or Markdown image syntax. imageIndexes are extraction-only pointers that let the validator inspect attached source images; they are discarded before the Exercise is stored. imageDescription is the only persisted visual field.
+Exercise records must never contain image bytes, image URLs, filenames, or Markdown image syntax. imageIndexes are extraction-only pointers that let the validator inspect attached source images; they are discarded before the Exercise is stored. imageDescription and solutionImageDescription are the only persisted visual-description fields.
 
-Prefer a text-only Exercise whenever the same learner task and learning objective can be preserved without a visual. If an attached picture is merely decorative, illustrative, motivational, or repeats information already available in the text, set imageIndexes:[] and imageDescription:"". Do not invent a visual dependency. Use a nonempty imageDescription only when the learner must actually inspect visual, spatial, geometric, diagrammatic, graphical, or comparison information and stating that information in the text would change the task or reveal what the learner is supposed to infer. For those truly image-dependent exercises, include every required attached image index and write one complete standalone imageDescription that is sufficient to regenerate the task-essential visual later. The description must specify all labels, shapes, values, relationships, layout, and other visible information needed by the learner, but must not reveal the answer.
+Prefer a text-only Exercise whenever the same learner task and learning objective can be preserved without a visual. If an attached picture is merely decorative, illustrative, motivational, or repeats information already available in the text, set imageIndexes:[] and imageDescription:"". Do not invent a visual dependency. Use a nonempty imageDescription only when the learner must actually inspect visual, spatial, geometric, diagrammatic, graphical, or comparison information and stating that information in the text would change the task or reveal what the learner is supposed to infer. For those truly image-dependent exercises, include every required attached image index and write one complete standalone imageDescription that is sufficient to regenerate the task-essential visual later. The description must specify all labels, shapes, values, relationships, layout, and other visible information needed by the learner, but must not reveal the answer. Independently, set solutionImageDescription to a complete standalone description of the CORRECT worked-solution visual only when solving the exercise genuinely requires a drawing, construction, plot, graph, completed or modified diagram, marked image, or other visual result whose essential spatial information cannot be adequately represented by text. It may reveal answer information. If the task modifies the question visual, describe the complete correct updated version of that same visual while preserving unchanged details. Otherwise set solutionImageDescription:""; never add an optional or decorative solution illustration.
 
 Use an empty string when the chapter is not shown. Use empty arrays when no concepts or exercises are present. The exercise description must contain the entire exercise statement, all textual data, and every instruction required to solve it except information intentionally supplied by a crucial visual; never abbreviate it or refer to an omitted source. If the book page provides a solution, extract its complete method and answer faithfully. Otherwise, solve the exercise and generate a correct, explicit step-by-step solution in the book's language. Never leave solution empty. Use <kx>...</kx> for every mathematical formula or expression in descriptions and solutions, never dollar-delimited LaTeX. Escape every backslash in mathematical notation so the result remains valid JSON. Do not add markdown or any text outside the JSON.`;
 
@@ -47,6 +47,7 @@ interface GeneratedPageExercise {
   imageDescription?: string;
   imageIndexes?: number[];
   solution: string;
+  solutionImageDescription?: string;
   title: string;
 }
 
@@ -94,6 +95,7 @@ function parseGeneratedConcepts (content: string, imageCount = 0): GeneratedConc
         imageDescription: typeof value.imageDescription === 'string' ? value.imageDescription.trim() : '',
         imageIndexes,
         solution: value.solution.trim(),
+        solutionImageDescription: typeof value.solutionImageDescription === 'string' ? value.solutionImageDescription.trim() : '',
         title: value.title.trim()
       };
     }).filter(({ title }) => title)
@@ -103,11 +105,12 @@ function parseGeneratedConcepts (content: string, imageCount = 0): GeneratedConc
 function storageReadyGeneratedConcepts (generated: GeneratedConcepts): GeneratedConcepts {
   return {
     ...generated,
-    exercises: (generated.exercises ?? []).map(({ abilityMode, description, imageDescription = '', solution, title }) => ({
+    exercises: (generated.exercises ?? []).map(({ abilityMode, description, imageDescription = '', solution, solutionImageDescription = '', title }) => ({
       abilityMode,
       description: stripMarkdownImageReferences(description),
       imageDescription: imageDescription.trim(),
       solution,
+      solutionImageDescription: solutionImageDescription.trim(),
       title
     }))
   };
@@ -144,7 +147,7 @@ async function validateExtractedContent (client: OpenAI, model: string, generate
         messages: [{
           content: [
             {
-              text: `Act as an independent strict validator for extracted book content. Check that the chapter is accurate when present; concepts are faithfully extracted without requiring them to be atomic; every book exercise contains its complete task; abilityMode is one of the supplied supported modes and accurately describes the primary trained ability; every exercise has a correct, explicit step-by-step solution; the book language is preserved; and every mathematical expression uses <kx>...</kx>. For visuals, be conservative: imageDescription must be nonempty only when the learner truly needs to inspect visual information to perform the task and putting that information in text would change or give away the task. Clear imageDescription and imageIndexes for decorative, merely illustrative, redundant, or optional pictures. For a genuinely image-dependent exercise, keep all and only the required attached imageIndexes and write a complete standalone imageDescription sufficient to regenerate the task-essential visual without revealing the answer. Exercise descriptions must not contain Markdown image syntax, filenames, URLs, or image bytes. Do not split concepts or exercises. Fix every error and return only the complete corrected JSON object in the original shape, without commentary.\n\nSupported ability modes: ${exerciseAbilityModes.join(', ')}\n\nCandidate:\n${JSON.stringify(indexedCandidate)}`,
+              text: `Act as an independent strict validator for extracted book content. Check that the chapter is accurate when present; concepts are faithfully extracted without requiring them to be atomic; every book exercise contains its complete task; abilityMode is one of the supplied supported modes and accurately describes the primary trained ability; every exercise has a correct, explicit step-by-step solution; the book language is preserved; and every mathematical expression uses <kx>...</kx>. For visuals, be conservative: imageDescription must be nonempty only when the learner truly needs to inspect visual information to perform the task and putting that information in text would change or give away the task. Clear imageDescription and imageIndexes for decorative, merely illustrative, redundant, or optional pictures. For a genuinely image-dependent exercise, keep all and only the required attached imageIndexes and write a complete standalone imageDescription sufficient to regenerate the task-essential visual without revealing the answer. Independently, solutionImageDescription must be nonempty only when the correct worked solution genuinely requires a drawing, construction, plot, graph, completed/modified diagram, marked image, or another visual result that text cannot adequately preserve; it must fully describe the correct result and may contain answer information. If the task modifies the question visual, it must describe the completed correct version of that same visual. Clear it for optional or merely illustrative solution images. Exercise descriptions must not contain Markdown image syntax, filenames, URLs, or image bytes. Do not split concepts or exercises. Fix every error and return only the complete corrected JSON object in the original shape, without commentary.\n\nSupported ability modes: ${exerciseAbilityModes.join(', ')}\n\nCandidate:\n${JSON.stringify(indexedCandidate)}`,
               type: 'text' as const
             },
             ...mmdZipInput.images.map(({ image_url, type }) => ({ image_url, type }))
@@ -919,7 +922,7 @@ function BookReader ({ book, file, generateAllConceptsModel, generateAllConcepts
         const processed = await processExtractedPageContent({
           chapter: storedPage.chapter,
           concepts: storedConcepts.map(({ description, title }) => ({ description, title })),
-          exercises: storedExercises.map(({ abilityMode = 'reasoning', description, imageDescription, solution = '', title }) => ({ abilityMode, description: stripMarkdownImageReferences(description), imageDescription, solution, title }))
+          exercises: storedExercises.map(({ abilityMode = 'reasoning', description, imageDescription, solution = '', solutionImageDescription, title }) => ({ abilityMode, description: stripMarkdownImageReferences(description), imageDescription, solution, solutionImageDescription, title }))
         }, async (prompt) => {
           const response = await client.chat.completions.create({
             messages: [{ content: prompt, role: 'user' }],
@@ -1316,6 +1319,7 @@ function BookReader ({ book, file, generateAllConceptsModel, generateAllConcepts
       {exercise.abilityMode && <p><small>{exercise.abilityMode}</small></p>}
       {exercise.imageDescription && <p><small>Required visual: <KatexSpan content={exercise.imageDescription} /></small></p>}
       {exercise.solution && <p><KatexSpan content={exercise.solution} /></p>}
+      {exercise.solutionImageDescription && <p><small>Solution visual: <KatexSpan content={exercise.solutionImageDescription} /></small></p>}
     </li>;
   };
 

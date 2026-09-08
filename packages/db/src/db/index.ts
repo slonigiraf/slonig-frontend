@@ -252,10 +252,10 @@ class SlonigDB extends Dexie {
       ]);
     });
     this.version(84).stores({}).upgrade(async (transaction: Transaction) => {
-      // Exercise visuals are intentionally not persisted. An Exercise keeps only
-      // imageDescription as the semantic signal that a visual is essential.
-      // Ability generation materializes that visual later and stores it on the
-      // Ability until the final IPFS publishing step.
+      // Exercise image bytes are intentionally not persisted. Exercises keep only
+      // imageDescription and solutionImageDescription as semantic descriptions of
+      // task-essential and worked-solution visuals. Ability generation materializes
+      // those visuals later and stores them on the Ability until publishing.
       const table = transaction.table<LegacyExerciseWithImages, number>('exercises');
       const exercises = await table.toArray();
 

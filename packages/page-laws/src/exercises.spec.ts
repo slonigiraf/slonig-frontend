@@ -48,10 +48,11 @@ describe('exercise repair', (): void => {
     assert.equal(result.reviews[0].exercise?.solution, '1 + 2 = 3.');
   });
 
-  it('repairs imageDescription without storing any Exercise image bytes', (): void => {
+  it('repairs question and solution visual descriptions without storing Exercise image bytes', (): void => {
     const original = {
       ...createExercise(1),
-      imageDescription: 'An inaccurate description.'
+      imageDescription: 'An inaccurate description.',
+      solutionImageDescription: 'An inaccurate solution visual.'
     };
     const [review] = parseExerciseRepairResult(JSON.stringify({
       duplicatePairs: [],
@@ -62,6 +63,7 @@ describe('exercise repair', (): void => {
           description: original.description,
           imageDescription: 'A triangle with side lengths 3, 4, and 5.',
           solution: original.solution,
+          solutionImageDescription: 'The same triangle with the correct altitude drawn from the top vertex to the base.',
           title: original.title
         },
         hasErrors: true,
@@ -70,8 +72,63 @@ describe('exercise repair', (): void => {
     }), [original], [1]).reviews;
 
     assert.equal(review.exercise?.imageDescription, 'A triangle with side lengths 3, 4, and 5.');
+    assert.match(review.exercise?.solutionImageDescription ?? '', /correct altitude/i);
     assert.equal('image' in (review.exercise ?? {}), false);
     assert.equal('images' in (review.exercise ?? {}), false);
+  });
+
+  it('never lets Fix Exercises erase an existing solution image description with an empty replacement', (): void => {
+    const original = {
+      ...createExercise(1),
+      description: 'Plot the point <kx>(2,3)</kx> on the coordinate plane.',
+      solution: 'Move two units right and three units up and plot the point.',
+      solutionImageDescription: 'A coordinate plane with the point (2,3) plotted and labeled.'
+    };
+    const [review] = parseExerciseRepairResult(JSON.stringify({
+      duplicatePairs: [],
+      reviews: [{
+        errors: ['Improve wording.'],
+        exercise: {
+          abilityMode: original.abilityMode,
+          description: 'Plot <kx>(2,3)</kx> on a coordinate plane.',
+          imageDescription: '',
+          solution: original.solution,
+          solutionImageDescription: '',
+          title: original.title
+        },
+        hasErrors: true,
+        index: 0
+      }]
+    }), [original], [1]).reviews;
+
+    assert.equal(review.exercise?.solutionImageDescription, original.solutionImageDescription);
+  });
+
+  it('allows Fix Exercises to add a missing solution image description', (): void => {
+    const original = {
+      ...createExercise(1),
+      description: 'Sketch the graph of <kx>y=x+1</kx>.',
+      solution: 'Plot two points and draw the straight line through them.',
+      solutionImageDescription: ''
+    };
+    const [review] = parseExerciseRepairResult(JSON.stringify({
+      duplicatePairs: [],
+      reviews: [{
+        errors: ['The required solution image description is missing.'],
+        exercise: {
+          abilityMode: original.abilityMode,
+          description: original.description,
+          imageDescription: '',
+          solution: original.solution,
+          solutionImageDescription: 'A coordinate plane showing the completed straight line y=x+1 through correctly plotted points such as (0,1) and (1,2).',
+          title: original.title
+        },
+        hasErrors: true,
+        index: 0
+      }]
+    }), [original], [1]).reviews;
+
+    assert.match(review.exercise?.solutionImageDescription ?? '', /y=x\+1/i);
   });
 
   it('accepts partial reviews and allows the highest-thinking Exercise to be kept regardless of input order', (): void => {
@@ -137,8 +194,12 @@ describe('exercise repair', (): void => {
     assert.match(fixExercisesPrompt, /grammatical/i);
     assert.match(fixExercisesPrompt, /KaTeX/i);
     assert.match(fixExercisesPrompt, /imageDescription/i);
-    assert.match(fixExercisesPrompt, /only visual field/i);
+    assert.match(fixExercisesPrompt, /only visual-description fields/i);
     assert.match(fixExercisesPrompt, /decorative, illustrative/i);
+    assert.match(fixExercisesPrompt, /solutionImageDescription/i);
+    assert.match(fixExercisesPrompt, /EXPECTED ANSWER FORMAT/i);
+    assert.match(fixExercisesPrompt, /draw, sketch, plot, graph, construct/i);
+    assert.match(fixExercisesPrompt, /never clear an existing nonempty solutionImageDescription/i);
     assert.match(fixExercisesPrompt, /conceptId/i);
     assert.match(fixExercisesPrompt, /preference rather than an absolute cardinality rule/i);
     assert.match(fixExercisesPrompt, /most learner thinking and information transformation/i);

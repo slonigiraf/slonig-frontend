@@ -10,5 +10,6 @@ export interface Exercise {
   description: string;
   imageDescription?: string;
   solution: string;
+  solutionImageDescription?: string;
   source?: 'book' | 'generated';
 }
