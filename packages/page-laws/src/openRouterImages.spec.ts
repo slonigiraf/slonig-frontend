@@ -25,7 +25,7 @@ describe('Ability visual generation', (): void => {
     assert.equal(svgMarkupToDataUrl('<svg><image href="https://example.com/a.png" /></svg>'), undefined);
   });
 
-  it('uses the dedicated image endpoint before the selected text model', async (): Promise<void> => {
+  it('prefers a safe SVG before using the raster image endpoint', async (): Promise<void> => {
     const originalFetch = globalThis.fetch;
     const originalWindow = Object.getOwnPropertyDescriptor(globalThis, 'window');
     const requests: Array<{ body: Record<string, unknown>; url: string }> = [];
@@ -33,47 +33,6 @@ describe('Ability visual generation', (): void => {
     Object.defineProperty(globalThis, 'window', { configurable: true, value: { location: { origin: 'https://slonig.test' } } });
     globalThis.fetch = (async (input: Parameters<typeof fetch>[0], init?: Parameters<typeof fetch>[1]) => {
       requests.push({ body: JSON.parse(String(init?.body ?? '{}')) as Record<string, unknown>, url: String(input) });
-
-      return {
-        json: async () => ({ data: [{ b64_json: 'ZmFrZS1wbmc=', media_type: 'image/png' }] }),
-        ok: true
-      } as Response;
-    }) as typeof fetch;
-
-    try {
-      const result = await generateOpenRouterVisual('test-key', 'Draw the task visual.', 'some/text-model');
-
-      assert.equal(result, 'data:image/png;base64,ZmFrZS1wbmc=');
-      assert.equal(requests.length, 1);
-      assert.equal(requests[0].url, 'https://openrouter.ai/api/v1/images');
-      assert.equal(requests[0].body.model, OPENROUTER_IMAGE_MODEL);
-    } finally {
-      globalThis.fetch = originalFetch;
-
-      if (originalWindow) {
-        Object.defineProperty(globalThis, 'window', originalWindow);
-      } else {
-        Reflect.deleteProperty(globalThis, 'window');
-      }
-    }
-  });
-
-  it('falls back to safe SVG when the dedicated image endpoint fails', async (): Promise<void> => {
-    const originalFetch = globalThis.fetch;
-    const originalWindow = Object.getOwnPropertyDescriptor(globalThis, 'window');
-    const requests: string[] = [];
-
-    Object.defineProperty(globalThis, 'window', { configurable: true, value: { location: { origin: 'https://slonig.test' } } });
-    globalThis.fetch = (async (input: Parameters<typeof fetch>[0]) => {
-      const url = String(input);
-      requests.push(url);
-
-      if (url.endsWith('/images')) {
-        return {
-          json: async () => ({ error: { message: 'temporary image failure' } }),
-          ok: false
-        } as Response;
-      }
 
       return {
         json: async () => ({ choices: [{ message: { content: JSON.stringify({
@@ -88,9 +47,97 @@ describe('Ability visual generation', (): void => {
       const result = await generateOpenRouterVisual('test-key', 'Draw the task visual.', 'some/text-model');
 
       assert.match(result, /^data:image\/svg\+xml;base64,/);
+      assert.equal(requests.length, 1);
+      assert.equal(requests[0].url, 'https://openrouter.ai/api/v1/chat/completions');
+      assert.equal(requests[0].body.model, 'some/text-model');
+    } finally {
+      globalThis.fetch = originalFetch;
+
+      if (originalWindow) {
+        Object.defineProperty(globalThis, 'window', originalWindow);
+      } else {
+        Reflect.deleteProperty(globalThis, 'window');
+      }
+    }
+  });
+
+  it('falls back to the dedicated raster image endpoint when SVG is unavailable', async (): Promise<void> => {
+    const originalFetch = globalThis.fetch;
+    const originalWindow = Object.getOwnPropertyDescriptor(globalThis, 'window');
+    const requests: Array<{ body: Record<string, unknown>; url: string }> = [];
+
+    Object.defineProperty(globalThis, 'window', { configurable: true, value: { location: { origin: 'https://slonig.test' } } });
+    globalThis.fetch = (async (input: Parameters<typeof fetch>[0], init?: Parameters<typeof fetch>[1]) => {
+      const url = String(input);
+      const body = JSON.parse(String(init?.body ?? '{}')) as Record<string, unknown>;
+      requests.push({ body, url });
+
+      if (url.endsWith('/chat/completions')) {
+        return {
+          json: async () => ({ choices: [{ message: { content: JSON.stringify({ format: 'raster', svg: '' }) } }] }),
+          ok: true
+        } as Response;
+      }
+
+      return {
+        json: async () => ({ data: [{ b64_json: 'ZmFrZS1wbmc=', media_type: 'image/png' }] }),
+        ok: true
+      } as Response;
+    }) as typeof fetch;
+
+    try {
+      const result = await generateOpenRouterVisual('test-key', 'Draw the task visual.', 'some/text-model');
+
+      assert.equal(result, 'data:image/png;base64,ZmFrZS1wbmc=');
+      assert.deepEqual(requests.map(({ url }) => url), [
+        'https://openrouter.ai/api/v1/chat/completions',
+        'https://openrouter.ai/api/v1/images'
+      ]);
+      assert.equal(requests[1].body.model, OPENROUTER_IMAGE_MODEL);
+    } finally {
+      globalThis.fetch = originalFetch;
+
+      if (originalWindow) {
+        Object.defineProperty(globalThis, 'window', originalWindow);
+      } else {
+        Reflect.deleteProperty(globalThis, 'window');
+      }
+    }
+  });
+
+  it('falls back to raster when generated SVG is unsafe or malformed', async (): Promise<void> => {
+    const originalFetch = globalThis.fetch;
+    const originalWindow = Object.getOwnPropertyDescriptor(globalThis, 'window');
+    const requests: string[] = [];
+
+    Object.defineProperty(globalThis, 'window', { configurable: true, value: { location: { origin: 'https://slonig.test' } } });
+    globalThis.fetch = (async (input: Parameters<typeof fetch>[0]) => {
+      const url = String(input);
+      requests.push(url);
+
+      if (url.endsWith('/chat/completions')) {
+        return {
+          json: async () => ({ choices: [{ message: { content: JSON.stringify({
+            format: 'svg',
+            svg: '<svg xmlns="http://www.w3.org/2000/svg"><script>alert(1)</script></svg>'
+          }) } }] }),
+          ok: true
+        } as Response;
+      }
+
+      return {
+        json: async () => ({ data: [{ b64_json: 'ZmFrZS1qcGVn', media_type: 'image/jpeg' }] }),
+        ok: true
+      } as Response;
+    }) as typeof fetch;
+
+    try {
+      const result = await generateOpenRouterVisual('test-key', 'Draw the task visual.', 'some/text-model');
+
+      assert.equal(result, 'data:image/jpeg;base64,ZmFrZS1qcGVn');
       assert.deepEqual(requests, [
-        'https://openrouter.ai/api/v1/images',
-        'https://openrouter.ai/api/v1/chat/completions'
+        'https://openrouter.ai/api/v1/chat/completions',
+        'https://openrouter.ai/api/v1/images'
       ]);
     } finally {
       globalThis.fetch = originalFetch;
@@ -102,4 +149,5 @@ describe('Ability visual generation', (): void => {
       }
     }
   });
+
 });

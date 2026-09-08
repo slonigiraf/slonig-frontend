@@ -136,24 +136,22 @@ export async function generateOpenRouterImage (apiKey: string, prompt: string): 
 }
 
 export async function generateOpenRouterVisual (apiKey: string, prompt: string, svgModel: string): Promise<string> {
-  // Required Ability visuals must not depend on the user-selected text model.
-  // Use the dedicated image-capable endpoint/model first. SVG generation through
-  // the selected chat model is only a fallback for transient image-endpoint errors.
-  let imageError: unknown;
-
-  try {
-    return await generateOpenRouterImage(apiKey, prompt);
-  } catch (caught) {
-    imageError = caught;
-  }
-
+  // Prefer a safe, self-contained SVG for Ability visuals. SVGs stay crisp at
+  // every size, preserve diagram/text geometry, and avoid unnecessary raster
+  // payloads. If the selected model cannot produce a valid safe SVG (or decides
+  // the visual genuinely requires raster detail), fall back to the dedicated
+  // image endpoint instead of failing Ability generation.
   const svg = await generateOpenRouterSvg(apiKey, prompt, svgModel).catch(() => undefined);
 
   if (svg) {
     return svg;
   }
 
-  const message = imageError instanceof Error ? imageError.message : 'Unknown image generation error.';
+  try {
+    return await generateOpenRouterImage(apiKey, prompt);
+  } catch (caught) {
+    const message = caught instanceof Error ? caught.message : 'Unknown image generation error.';
 
-  throw new Error(`Unable to generate the required Ability visual with the dedicated image model. ${message}`);
+    throw new Error(`Unable to generate the required Ability visual as SVG or raster. ${message}`);
+  }
 }
