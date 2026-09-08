@@ -1,7 +1,8 @@
 import React, { useState, ChangeEvent, FC } from 'react';
 import { Button, FileUpload, styled } from '@polkadot/react-components';
 import { useTranslation } from '../translate.js';
-import { Exercise, ResizableImage, Skill, useIpfsContext } from '@slonigiraf/slonig-components';
+import { Exercise, Skill, useIpfsContext } from '@slonigiraf/slonig-components';
+import ExerciseImage from './ExerciseImage.js';
 import { getIPFSContentIDForBytesAndPinIt } from '@slonigiraf/slonig-components';
 import TextAreaWithPreview from './TextAreaWithPreview.js';
 
@@ -80,7 +81,7 @@ const ExerciseEditor: FC<Props> = ({ className = '', exercise, index, skill, onS
       <ImageUploadContainer>
         {exerciseImageCid && (
           <ImageContainer>
-            <ResizableImage cid={exerciseImageCid} alt="Exercise" />
+            <ExerciseImage value={exerciseImageCid} alt="Exercise" />
             <StyledDeleteButton label="" icon="trash" onClick={() => handleDeleteImage('exercise')} />
           </ImageContainer>
         )}
@@ -102,7 +103,7 @@ const ExerciseEditor: FC<Props> = ({ className = '', exercise, index, skill, onS
       <ImageUploadContainer>
         {solutionImageCid && (
           <ImageContainer>
-            <ResizableImage cid={solutionImageCid} alt="Solution" />
+            <ExerciseImage value={solutionImageCid} alt="Solution" />
             <StyledDeleteButton label="" icon="trash" onClick={() => handleDeleteImage('solution')} />
           </ImageContainer>
         )}

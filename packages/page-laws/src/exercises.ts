@@ -52,10 +52,17 @@ function parseCorrectedExercise (value: unknown, original: Exercise): Exercise {
     throw new Error('Every corrected Exercise must include a title, complete task, valid abilityMode, and complete solution.');
   }
 
+  const imageDescription = typeof value.imageDescription === 'string' ? value.imageDescription.trim() : original.imageDescription;
+
+  if ((original.image || original.images?.length) && !imageDescription) {
+    throw new Error('A corrected image-dependent Exercise must include imageDescription.');
+  }
+
   return {
     ...original,
     abilityMode: value.abilityMode as typeof exerciseAbilityModes[number],
     description: value.description.trim(),
+    imageDescription,
     solution: value.solution.trim(),
     title: value.title.trim()
   };
@@ -65,6 +72,9 @@ function exerciseSignature (exercise: Exercise): string {
   return JSON.stringify({
     abilityMode: exercise.abilityMode ?? '',
     description: exercise.description.trim(),
+    image: exercise.image ?? '',
+    images: exercise.images ?? [],
+    imageDescription: exercise.imageDescription?.trim() ?? '',
     solution: (exercise.solution ?? '').trim(),
     title: exercise.title.trim()
   });

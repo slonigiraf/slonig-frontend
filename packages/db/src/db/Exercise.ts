@@ -8,6 +8,9 @@ export interface Exercise {
   conceptId?: number;
   title: string;
   description: string;
+  image?: string;
+  images?: string[];
+  imageDescription?: string;
   solution: string;
   source?: 'book' | 'generated';
 }

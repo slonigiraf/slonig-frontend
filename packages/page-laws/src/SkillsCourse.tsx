@@ -7,9 +7,10 @@ import type { SubmittableExtrinsic } from '@polkadot/api/types';
 import type { KeyringPair } from '@polkadot/keyring/types';
 import type { DispatchError } from '@polkadot/types/interfaces';
 import type { GeneratedAbility } from './abilities.js';
+import { prepareAbilityForPublishing } from './abilities.js';
 
 import { deleteAbility, getAbilities, getBookChapters, getBookConceptsForBookPage, getBookPages, getExercisesForBookPage, getSetting, putBook, putBookChapter, SettingKey, storeAbility, updateBookChapterTitle } from '@slonigiraf/db';
-import { digestFromCIDv1, getCIDFromBytes, getIPFSContentIDAndPinIt, getIPFSDataFromContentID, KatexSpan, LawType, parseJson, useInfo, useIpfsContext, useLoginContext } from '@slonigiraf/slonig-components';
+import { digestFromCIDv1, getCIDFromBytes, getIPFSContentIDAndPinIt, getIPFSContentIDForBytesAndPinIt, getIPFSDataFromContentID, KatexSpan, LawType, parseJson, useInfo, useIpfsContext, useLoginContext } from '@slonigiraf/slonig-components';
 import BN from 'bn.js';
 import { useLiveQuery } from 'dexie-react-hooks';
 import OpenAI from 'openai';
@@ -51,6 +52,23 @@ const exerciseAbilityModuleId = (bookId: number, exerciseId: number): string => 
 const chapterOutlineKey = (id: number): string => `chapter:${id}`;
 const templateOutlineKey = (id: string): string => `template:${id}`;
 const isKnowledgeId = (value: string | undefined): value is string => !!value && /^0x[\da-f]{64}$/i.test(value);
+
+function imageDataUrlToBytes (value: string): Uint8Array | undefined {
+  const match = /^data:image\/[a-z0-9.+-]+;base64,(.+)$/i.exec(value.trim());
+
+  if (!match) {
+    return undefined;
+  }
+
+  const binary = window.atob(match[1]);
+  const bytes = new Uint8Array(binary.length);
+
+  for (let index = 0; index < binary.length; index++) {
+    bytes[index] = binary.charCodeAt(index);
+  }
+
+  return bytes;
+}
 
 function errorMessage (error: unknown): string {
   return error instanceof Error ? error.message : String(error);
@@ -390,6 +408,18 @@ function SkillsCourse ({ book }: { book: Book }): React.ReactElement {
     return u8aToHex(await digestFromCIDv1(cid));
   }, [ipfs]);
 
+  const preparePublishedAbility = useCallback(async (template: GeneratedAbility, skillId: string) => prepareAbilityForPublishing(
+    template,
+    skillId,
+    async (value) => {
+      const bytes = imageDataUrlToBytes(value);
+
+      return bytes
+        ? String(await getIPFSContentIDForBytesAndPinIt(ipfs, bytes))
+        : value;
+    }
+  ), [ipfs]);
+
   const rememberLocation = useCallback((id: string): void => {
     const updatedBook = { ...storedBook, publishingLocationId: id || undefined };
 
@@ -632,11 +662,15 @@ function SkillsCourse ({ book }: { book: Book }): React.ReactElement {
           const moduleId = isKnowledgeId(chapter.knowledgeId) ? chapter.knowledgeId : randomIdHex();
           const preparedTemplates = await Promise.all(templates.map(async (row) => {
             const skillId = isKnowledgeId(row.template.i) ? row.template.i : randomIdHex();
-            const template = { ...row.template, i: skillId };
+            const { localAbility, publishAbility } = await preparePublishedAbility(row.template, skillId);
+            const didLocalTemplateChange = JSON.stringify(localAbility) !== JSON.stringify(row.template);
             let recordId = row.recordId;
 
-            if (row.template.i !== skillId) {
-              const newRecordId = await storeAbility(row.moduleId, JSON.stringify(template));
+            // Persist only the local representation. In particular, q[].p/q[].i
+            // remain the IndexedDB image data URLs; the IPFS CID substitutions in
+            // publishAbility exist only for this final publishing operation.
+            if (didLocalTemplateChange) {
+              const newRecordId = await storeAbility(row.moduleId, JSON.stringify(localAbility));
 
               if (newRecordId !== row.recordId) {
                 await deleteAbility(row.recordId);
@@ -645,7 +679,7 @@ function SkillsCourse ({ book }: { book: Book }): React.ReactElement {
               }
             }
 
-            return { ...row, recordId, template };
+            return { ...row, recordId, template: publishAbility };
           }));
 
           if (chapter.knowledgeId !== moduleId) {
@@ -788,7 +822,7 @@ function SkillsCourse ({ book }: { book: Book }): React.ReactElement {
     } finally {
       setIsPublishing(false);
     }
-  }, [api, courseName, currentPair, isIpfsReady, isLoggedIn, knowledgeId, loadKnowledgeItem, modulePrice, pinKnowledgeItem, publishableChapters, setLoginIsRequired, showInfo, skillPrice, storedBook]);
+  }, [api, courseName, currentPair, isIpfsReady, isLoggedIn, knowledgeId, loadKnowledgeItem, modulePrice, pinKnowledgeItem, preparePublishedAbility, publishableChapters, setLoginIsRequired, showInfo, skillPrice, storedBook]);
 
   return <StyledSkillsCourse>
     <div className='courseColumn'>

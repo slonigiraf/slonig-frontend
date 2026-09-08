@@ -126,6 +126,49 @@ describe('book processing pipeline', (): void => {
     assert.ok(result.exercises.every(({ abilityMode }) => exerciseAbilityModes.includes(abilityMode as typeof exerciseAbilityModes[number])));
   });
 
+  it('generates and stores an image for a generated Exercise that requires one', async (): Promise<void> => {
+    const prompts: string[] = [];
+    const generatedImages: string[] = [];
+    const runAi = (prompt: string): Promise<string> => {
+      prompts.push(prompt);
+
+      if (prompts.length <= 2) {
+        return Promise.resolve(JSON.stringify({ concepts: [{ description: 'Atomic', inputIndex: 0, title: 'Concept' }] }));
+      }
+
+      if (prompts.length === 3) {
+        return Promise.resolve(JSON.stringify({ exercises: [{
+          abilityMode: 'perceptual observation',
+          conceptIndex: 0,
+          description: 'Read the marked value from the number line.',
+          imageDescription: 'A horizontal number line from 0 to 10 with a single unlabeled point at 6.',
+          solution: 'The marked value is 6.',
+          title: 'Read the number line'
+        }] }));
+      }
+
+      const input = JSON.parse(prompt.slice(prompt.lastIndexOf('\n') + 1)) as { exercises: unknown[] };
+
+      return Promise.resolve(JSON.stringify({ exercises: input.exercises }));
+    };
+    const generateImage = (prompt: string): Promise<string> => {
+      generatedImages.push(prompt);
+
+      return Promise.resolve('data:image/png;base64,Z2VuZXJhdGVk');
+    };
+    const result = await processExtractedPageContent({
+      chapter: 'Chapter',
+      concepts: [{ description: 'Atomic', title: 'Concept' }],
+      exercises: []
+    }, runAi, generateImage);
+
+    assert.equal(result.exercises.length, 1);
+    assert.equal(result.exercises[0].image, 'data:image/png;base64,Z2VuZXJhdGVk');
+    assert.deepEqual(result.exercises[0].images, ['data:image/png;base64,Z2VuZXJhdGVk']);
+    assert.match(result.exercises[0].imageDescription ?? '', /number line/i);
+    assert.deepEqual(generatedImages, [result.exercises[0].imageDescription]);
+  });
+
   it('retains prior results when a split pass is empty', async (): Promise<void> => {
     let request = 0;
 

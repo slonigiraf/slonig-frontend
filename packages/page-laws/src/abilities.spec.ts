@@ -7,7 +7,7 @@ import type { GeneratedAbility } from './abilities.js';
 
 import { strict as assert } from 'node:assert';
 
-import { createAbilityFromExerciseVariation, parseAbilityRepairResult, parseAbilityRepairReviews, parseExerciseTemplateVariations, parseGeneratedAbilities, parseGeneratedExerciseAbilities, parseStoredAbility } from './abilities.js';
+import { createAbilityFromExerciseVariation, parseAbilityRepairResult, parseAbilityRepairReviews, parseExerciseTemplateVariations, parseGeneratedAbilities, parseGeneratedExerciseAbilities, parseStoredAbility, prepareAbilityForPublishing } from './abilities.js';
 import { conceptsToSkillsPrompt, divideExerciseTemplatesPrompt, fixAbilitiesPrompt, skillListPrompt, skillsToExercisesPrompt, skillsToExerciseTemplatesPrompt, sourcesToSkillsPrompt } from './constants.js';
 
 function createSkill (): GeneratedAbility {
@@ -107,6 +107,31 @@ describe('generated abilities', (): void => {
     assert.equal(reviews[0].index, 1);
   });
 
+  it('keeps Ability images local while preparing an IPFS-only publish copy', async (): Promise<void> => {
+    const ability = createSkill();
+
+    ability.q[0].p = 'data:image/png;base64,cXVlc3Rpb24=';
+    ability.q[0].i = 'data:image/png;base64,YW5zd2Vy';
+    const pinned: string[] = [];
+    const { localAbility, publishAbility } = await prepareAbilityForPublishing(ability, `0x${'12'.repeat(32)}`, async (value) => {
+      if (!value.startsWith('data:image/')) {
+        return value;
+      }
+
+      pinned.push(value);
+
+      return value.includes('cXVlc3Rpb24=') ? 'bafy-question' : 'bafy-answer';
+    });
+
+    assert.equal(localAbility.q[0].p, 'data:image/png;base64,cXVlc3Rpb24=');
+    assert.equal(localAbility.q[0].i, 'data:image/png;base64,YW5zd2Vy');
+    assert.equal(publishAbility.q[0].p, 'bafy-question');
+    assert.equal(publishAbility.q[0].i, 'bafy-answer');
+    assert.equal(ability.q[0].p, 'data:image/png;base64,cXVlc3Rpb24=');
+    assert.equal(ability.q[0].i, 'data:image/png;base64,YW5zd2Vy');
+    assert.deepEqual(pinned.sort(), [ability.q[0].i, ability.q[0].p].sort());
+  });
+
   it('preserves existing Ability linkage fields while applying a repair', (): void => {
     const original = {
       ...createSkill(),
@@ -170,6 +195,18 @@ describe('generated abilities', (): void => {
       { ability: first, exerciseId: 11 },
       { ability: third, exerciseId: 13 }
     ]);
+  });
+
+  it('preserves validated image-generation prompts for Exercise-to-Ability conversion', (): void => {
+    const ability = createSkill();
+    const imagePrompts = [
+      { i: '', p: 'A number line from 0 to 10 with a point at 4.' },
+      { i: 'The completed number line with the answer highlighted.', p: 'A number line from 0 to 12 with a point at 7.' }
+    ];
+
+    assert.deepEqual(parseGeneratedExerciseAbilities(JSON.stringify({ abilities: [
+      { ability, exerciseId: 20, imagePrompts }
+    ] }), [20]), [{ ability, exerciseId: 20, imagePrompts }]);
   });
 
   it('accepts positional partial legacy Ability arrays so omitted trailing Exercises can be retried', (): void => {
@@ -354,6 +391,8 @@ describe('generated abilities', (): void => {
     assert.match(fixAbilitiesPrompt, /logical/i);
     assert.match(fixAbilitiesPrompt, /grammatical/i);
     assert.match(fixAbilitiesPrompt, /KaTeX/i);
+    assert.match(fixAbilitiesPrompt, /question image present/i);
+    assert.match(fixAbilitiesPrompt, /preserve the image dependency/i);
     assert.match(fixAbilitiesPrompt, /hasErrors/i);
     assert.match(fixAbilitiesPrompt, /errors/i);
     assert.match(fixAbilitiesPrompt, /reviews/i);

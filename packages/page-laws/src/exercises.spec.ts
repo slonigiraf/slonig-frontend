@@ -48,6 +48,34 @@ describe('exercise repair', (): void => {
     assert.equal(result.reviews[0].exercise?.solution, '1 + 2 = 3.');
   });
 
+  it('preserves an existing Exercise image while allowing its image description to be fixed', (): void => {
+    const original = {
+      ...createExercise(1),
+      image: 'data:image/png;base64,c291cmNlLWltYWdl',
+      images: ['data:image/png;base64,c291cmNlLWltYWdl', 'data:image/png;base64,c2Vjb25kLWltYWdl'],
+      imageDescription: 'An inaccurate description.'
+    };
+    const [review] = parseExerciseRepairResult(JSON.stringify({
+      duplicatePairs: [],
+      reviews: [{
+        errors: ['The image description is inaccurate.'],
+        exercise: {
+          abilityMode: original.abilityMode,
+          description: original.description,
+          imageDescription: 'A triangle with side lengths 3, 4, and 5.',
+          solution: original.solution,
+          title: original.title
+        },
+        hasErrors: true,
+        index: 0
+      }]
+    }), [original], [1]).reviews;
+
+    assert.equal(review.exercise?.image, original.image);
+    assert.deepEqual(review.exercise?.images, original.images);
+    assert.equal(review.exercise?.imageDescription, 'A triangle with side lengths 3, 4, and 5.');
+  });
+
   it('accepts partial reviews and allows the highest-thinking Exercise to be kept regardless of input order', (): void => {
     const first = createExercise(1);
     const second = createExercise(2);
@@ -110,6 +138,8 @@ describe('exercise repair', (): void => {
     assert.match(fixExercisesPrompt, /mathematical/i);
     assert.match(fixExercisesPrompt, /grammatical/i);
     assert.match(fixExercisesPrompt, /KaTeX/i);
+    assert.match(fixExercisesPrompt, /imageDescription/i);
+    assert.match(fixExercisesPrompt, /hasImage/i);
     assert.match(fixExercisesPrompt, /conceptId/i);
     assert.match(fixExercisesPrompt, /preference rather than an absolute cardinality rule/i);
     assert.match(fixExercisesPrompt, /most learner thinking and information transformation/i);

@@ -10,9 +10,15 @@ export interface GeneratedAbility {
   t: number;
 }
 
+export interface AbilityExerciseImagePrompts {
+  i: string;
+  p: string;
+}
+
 export interface GeneratedExerciseAbility {
   ability: GeneratedAbility;
   exerciseId: number;
+  imagePrompts?: [AbilityExerciseImagePrompts, AbilityExerciseImagePrompts];
 }
 
 export interface AbilityRepairReview {
@@ -30,6 +36,35 @@ export interface AbilityDuplicatePair {
 export interface AbilityRepairResult {
   duplicatePairs: AbilityDuplicatePair[];
   reviews: AbilityRepairReview[];
+}
+
+export interface PreparedAbilityForPublishing {
+  localAbility: GeneratedAbility;
+  publishAbility: GeneratedAbility;
+}
+
+export async function prepareAbilityForPublishing (
+  ability: GeneratedAbility,
+  abilityId: string,
+  publishImage: (value: string) => Promise<string>
+): Promise<PreparedAbilityForPublishing> {
+  // Keep the locally stored representation image-complete. Only the ephemeral
+  // publish copy replaces local image data with IPFS CIDs.
+  const localAbility: GeneratedAbility = {
+    ...ability,
+    i: abilityId,
+    q: ability.q.map((exercise) => ({ ...exercise }))
+  };
+  const q = await Promise.all(localAbility.q.map(async (exercise) => ({
+    ...exercise,
+    i: await publishImage(exercise.i),
+    p: await publishImage(exercise.p)
+  })));
+
+  return {
+    localAbility,
+    publishAbility: { ...localAbility, q }
+  };
 }
 
 export interface ExerciseTemplateVariation {
@@ -73,7 +108,16 @@ function parseAbilityValue (template: unknown): GeneratedAbility {
     throw new Error('Each Ability must have a name and exactly two exercises with nonempty questions and answers.');
   }
 
-  return template as unknown as GeneratedAbility;
+  return {
+    h: template.h.trim(),
+    i: template.i,
+    q: template.q.map((exercise) => {
+      const value = exercise as Record<string, unknown>;
+
+      return { a: String(value.a).trim(), h: String(value.h).trim(), i: String(value.i), p: String(value.p) };
+    }),
+    t: 3
+  };
 }
 
 export function parseStoredAbility (content: string): GeneratedAbility {
@@ -251,6 +295,14 @@ export function parseAbilityRepairReviews (content: string, originals: Array<Gen
   return parseAbilityRepairResult(JSON.stringify(normalized), originals, originals.map((_, index) => String(index))).reviews;
 }
 
+function parseAbilityImagePrompts (value: unknown): [AbilityExerciseImagePrompts, AbilityExerciseImagePrompts] | undefined {
+  if (!Array.isArray(value) || value.length !== 2 || !value.every((item) => isRecord(item) && typeof item.p === 'string' && typeof item.i === 'string')) {
+    return undefined;
+  }
+
+  return value.map((item) => ({ i: String((item as Record<string, unknown>).i).trim(), p: String((item as Record<string, unknown>).p).trim() })) as [AbilityExerciseImagePrompts, AbilityExerciseImagePrompts];
+}
+
 export function parseGeneratedExerciseAbilities (content: string, expectedExerciseIds: number[]): GeneratedExerciseAbility[] {
   const parsed = parseResponse(content);
   const values: unknown = Array.isArray(parsed)
@@ -270,6 +322,7 @@ export function parseGeneratedExerciseAbilities (content: string, expectedExerci
   values.forEach((value: unknown, index): void => {
     let abilityValue = value;
     let exerciseId = expectedExerciseIds[index];
+    let imagePrompts: [AbilityExerciseImagePrompts, AbilityExerciseImagePrompts] | undefined;
 
     if (isRecord(value) && ('ability' in value || 'exerciseId' in value || 'sourceExerciseId' in value)) {
       const candidateId = value.exerciseId ?? value.sourceExerciseId;
@@ -279,6 +332,7 @@ export function parseGeneratedExerciseAbilities (content: string, expectedExerci
       }
 
       exerciseId = candidateId;
+      imagePrompts = parseAbilityImagePrompts(value.imagePrompts);
       abilityValue = value.ability ?? { h: value.h, i: value.i, q: value.q, t: value.t };
     }
 
@@ -290,7 +344,7 @@ export function parseGeneratedExerciseAbilities (content: string, expectedExerci
       const ability = parseGeneratedAbilityValue(abilityValue);
 
       used.add(exerciseId);
-      results.push({ ability, exerciseId });
+      results.push({ ability, exerciseId, ...(imagePrompts ? { imagePrompts } : {}) });
     } catch {
       // Keep valid conversions from a partial response and retry this Exercise later.
     }

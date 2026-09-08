@@ -1,7 +1,8 @@
 import React, { useCallback, useState } from 'react';
 import { Button, styled } from '@polkadot/react-components';
 import { useTranslation } from '../translate.js';
-import { Exercise, ResizableImage, KatexSpan, useLog } from '@slonigiraf/slonig-components';
+import { Exercise, KatexSpan, useLog } from '@slonigiraf/slonig-components';
+import ExerciseImage from './ExerciseImage.js';
 
 export type ExerciseListLocation = 'ability_info' | 'item_preview' | 'view_list' | 'example_exercises' | 'example_solutions';
 interface ExerciseListProps {
@@ -36,7 +37,7 @@ const ExerciseList: React.FC<ExerciseListProps> = ({ exercises, areShownInitiall
                 <div className="exercise-display">
                     <div className="exercise-header">
                         <span><KatexSpan content={exercise.h} /></span>
-                        {exercise.p && <ExerciseDetails><ResizableImage cid={exercise.p} /></ExerciseDetails>}
+                        {exercise.p && <ExerciseDetails><ExerciseImage alt='Question' value={exercise.p} /></ExerciseDetails>}
                     </div>
                 </div>
             </div>
@@ -52,7 +53,7 @@ const ExerciseList: React.FC<ExerciseListProps> = ({ exercises, areShownInitiall
                         <div className="exercise-display">
                             <div className="exercise-header">
                                 <span><KatexSpan content={` ${index + 1}. ` + exercise.h} /></span>
-                                {exercise.p && <ExerciseDetails><ResizableImage cid={exercise.p} /></ExerciseDetails>}
+                                {exercise.p && <ExerciseDetails><ExerciseImage alt='Question' value={exercise.p} /></ExerciseDetails>}
                             </div>
 
                             {location !== 'example_exercises' && <Answer>
@@ -66,7 +67,7 @@ const ExerciseList: React.FC<ExerciseListProps> = ({ exercises, areShownInitiall
                                 {areAnswersShown && (
                                     <>
                                         <KatexSpan content={exercise.a} />
-                                        {exercise.i && <ResizableImage cid={exercise.i} />}
+                                        {exercise.i && <ExerciseImage alt='Solution' value={exercise.i} />}
                                     </>
                                 )}
                             </Answer>}
