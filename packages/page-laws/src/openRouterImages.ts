@@ -37,7 +37,13 @@ function normalizeSafeSvg (value: string): string | undefined {
   // Ability images are rendered from local data URLs before publishing. Keep
   // generated SVG self-contained and inert: no scripts, external resources,
   // embedded HTML, event handlers, or URL-based references.
-  if (/<(?:script|foreignObject|iframe|object|embed|image)\b/i.test(svg) || /\son[a-z]+\s*=/i.test(svg) || /(?:javascript:|https?:\/\/|data:)/i.test(svg) || /\b(?:href|xlink:href)\s*=/i.test(svg)) {
+  //
+  // A valid standalone SVG normally contains xmlns="http://www.w3.org/2000/svg".
+  // That namespace declaration is metadata, not an external fetch. Exclude only
+  // this exact declaration from URL checks so ordinary generated SVG remains safe.
+  const svgWithoutSafeNamespace = svg.replace(/\sxmlns\s*=\s*(["'])http:\/\/www\.w3\.org\/2000\/svg\1/gi, '');
+
+  if (/<(?:script|foreignObject|iframe|object|embed|image)\b/i.test(svg) || /\son[a-z]+\s*=/i.test(svg) || /(?:javascript:|https?:\/\/|data:)/i.test(svgWithoutSafeNamespace) || /\b(?:href|xlink:href)\s*=/i.test(svg)) {
     return undefined;
   }
 
@@ -130,19 +136,24 @@ export async function generateOpenRouterImage (apiKey: string, prompt: string): 
 }
 
 export async function generateOpenRouterVisual (apiKey: string, prompt: string, svgModel: string): Promise<string> {
-  // SVG is preferred because Ability visuals are mostly educational diagrams and
-  // it stays sharp, compact, editable, and safe to keep in IndexedDB as a data URL.
-  // Raster generation is allowed only when the planning model explicitly decides
-  // that vector output would lose task-essential visual information.
-  const svg = await generateOpenRouterSvg(apiKey, prompt, svgModel).catch(() => undefined);
+  // Required Ability visuals must not depend on the user-selected text model.
+  // Use the dedicated image-capable endpoint/model first. SVG generation through
+  // the selected chat model is only a fallback for transient image-endpoint errors.
+  let imageError: unknown;
 
-  if (svg === null) {
-    return generateOpenRouterImage(apiKey, prompt);
+  try {
+    return await generateOpenRouterImage(apiKey, prompt);
+  } catch (caught) {
+    imageError = caught;
   }
+
+  const svg = await generateOpenRouterSvg(apiKey, prompt, svgModel).catch(() => undefined);
 
   if (svg) {
     return svg;
   }
 
-  throw new Error('Unable to generate a safe SVG for this Ability visual.');
+  const message = imageError instanceof Error ? imageError.message : 'Unknown image generation error.';
+
+  throw new Error(`Unable to generate the required Ability visual with the dedicated image model. ${message}`);
 }

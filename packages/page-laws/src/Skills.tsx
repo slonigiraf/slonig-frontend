@@ -18,6 +18,7 @@ import { estimateAiInput, formatAiInputEstimate } from './aiEstimate.js';
 import { abilityGenerationInstructions, divideExerciseTemplatesPrompt, fixAbilitiesPrompt, fixExercisesPrompt, OPENAI_MODELS, skillsToExerciseTemplatesPrompt, sourcesToSkillsPrompt } from './constants.js';
 import { generateOpenRouterVisual } from './openRouterImages.js';
 import { stripMarkdownImageReferences } from './bookImageRefs.js';
+import { batchItemsByChapter } from './chapterBatching.js';
 
 const REQUEST_INTERVAL_MS = Math.ceil(60_000 / 9);
 const BATCH_SIZE = 5;
@@ -352,10 +353,13 @@ function exerciseTemplatesRequest (language: string, blocks: SkillBlock[]): stri
   return `${skillsToExerciseTemplatesPrompt}\n${JSON.stringify({ blocks, bookLanguage: language })}`;
 }
 
-function exerciseAbilitiesRequest (language: string, exercises: Exercise[]): string {
+function exerciseAbilitiesRequest (language: string, exercises: Exercise[], chapterTitle: string): string {
   const transportExercises = exercises.map(({ description, ...exercise }) => ({ ...exercise, description: stripMarkdownImageReferences(description) }));
 
   return `${abilityGenerationInstructions}
+
+Chapter: ${chapterTitle}
+Every supplied Exercise in this request belongs to this chapter. Do not mix, merge, or infer skills across chapter boundaries.
 
 Convert every supplied book Exercise you can into exactly one Ability. Treat each source Exercise as evidence for one narrow human skill. Do not merge exercises or generate more than one Ability for a source Exercise. Use the source task and solution to identify the skill, then create the required pair of concrete practice exercises for that same skill. Write strictly in ISO language ${language}.
 
@@ -365,14 +369,17 @@ For this Exercise-to-Ability conversion request only, wrap each completed Abilit
 {"abilities":[{"exerciseId":123,"ability":{"i":"","t":3,"h":"Narrow observable skill","q":[{"h":"Question 1","a":"Answer 1","p":"","i":""},{"h":"Question 2","a":"Answer 2","p":"","i":""}]},"imagePrompts":[{"p":"","i":""},{"p":"","i":""}]}]}
 Use only ids present in the supplied Exercises. Preserve their order. Prefer converting every Exercise, but if the response cannot fit all conversions, return every complete conversion you can and omit the rest rather than truncating or corrupting an Ability. Omitted Exercises will be retried automatically.
 
-${JSON.stringify({ bookLanguage: language, exercises: transportExercises })}`;
+${JSON.stringify({ bookLanguage: language, chapterTitle, exercises: transportExercises })}`;
 }
 
-function singleExerciseAbilityRecoveryRequest (language: string, exercise: Exercise): string {
+function singleExerciseAbilityRecoveryRequest (language: string, exercise: Exercise, chapterTitle: string): string {
   const { description, ...rest } = exercise;
   const source = { ...rest, description: stripMarkdownImageReferences(description) };
 
-  return `Convert this one book Exercise into exactly one valid Ability in ISO language ${language}. Infer one narrow observable skill from the source task and solution. Then write exactly two complete, self-contained practice questions that train that same skill with the same instructions, operation, method, input/output types, reasoning steps, and difficulty. Change only concrete task parameters and recalculate each answer. The two questions must not be identical. Do not use yes/no, multiple choice, placeholders, or references to the source page. Use <kx>...</kx> for mathematical expressions.
+  return `Chapter: ${chapterTitle}
+This Exercise belongs only to this chapter. Do not use context from any other chapter.
+
+Convert this one book Exercise into exactly one valid Ability in ISO language ${language}. Infer one narrow observable skill from the source task and solution. Then write exactly two complete, self-contained practice questions that train that same skill with the same instructions, operation, method, input/output types, reasoning steps, and difficulty. Change only concrete task parameters and recalculate each answer. The two questions must not be identical. Do not use yes/no, multiple choice, placeholders, or references to the source page. Use <kx>...</kx> for mathematical expressions.
 
 The Ability schema is strict: i must be "", t must be 3, h must be a nonempty skill name, q must contain exactly two objects, and every q object must contain nonempty h and a plus empty-string p and i fields.
 
@@ -787,7 +794,8 @@ function Skills ({ book, onAction, onBookChange, onEntityCountsChange, pipelineO
     }
 
     if (aiAction === 'exercises') {
-      return allExercises.length ? [exerciseAbilitiesRequest(language, allExercises)] : [];
+      return batchItemsByChapter(chapterContent.map(({ chapter, exercises }) => ({ chapterTitle: chapter.title, items: exercises })), BATCH_SIZE)
+        .map(({ chapterTitle, items }) => exerciseAbilitiesRequest(language, items, chapterTitle));
     }
 
     if (aiAction === 'fixExercises') {
@@ -802,7 +810,7 @@ function Skills ({ book, onAction, onBookChange, onEntityCountsChange, pipelineO
   }, [aiAction, allExercises, allSkillBlocks, chapterContent, language, skillSources]);
   const maxChapterAbilityCount = Math.max(1, ...chapterContent.map(({ abilities }) => abilities.length));
   const maxChapterExerciseCount = Math.max(1, ...chapterContent.map(({ exercises }) => exercises.length));
-  const generationOutputTokens = aiAction === 'preExercises' || aiAction === 'dividePreExercises' ? BATCH_SIZE * 1_250 : aiAction === 'exercises' ? Math.max(1, allExercises.length) * 700 : aiAction === 'fixExercises' ? maxChapterExerciseCount * 550 : aiAction === 'fix' ? maxChapterAbilityCount * 700 : aiAction === 'skills' ? BATCH_SIZE * 180 : 300;
+  const generationOutputTokens = aiAction === 'preExercises' || aiAction === 'dividePreExercises' ? BATCH_SIZE * 1_250 : aiAction === 'exercises' ? BATCH_SIZE * 700 : aiAction === 'fixExercises' ? maxChapterExerciseCount * 550 : aiAction === 'fix' ? maxChapterAbilityCount * 700 : aiAction === 'skills' ? BATCH_SIZE * 180 : 300;
   const validationInputs = useMemo(() => aiAction === 'exercises'
     ? requestInputs.flatMap((input) => [input, input, input])
     : requestInputs, [aiAction, requestInputs]);
@@ -997,64 +1005,68 @@ function Skills ({ book, onAction, onBookChange, onEntityCountsChange, pipelineO
       let requestCount = 0;
 
       for (let attempt = 1; attempt <= maxAttempts && pending.size; attempt++) {
-        // Large Exercise sets can make the model truncate or structurally corrupt
-        // every Ability. Start in small batches, then narrow unresolved retries
-        // down to one Exercise so at least valid partial conversions can survive.
+        // Ability generation is chapter-scoped. Large chapters are split into
+        // size-limited sub-batches, but a request can never contain Exercises
+        // from two different chapters. Retries narrow only unresolved Exercises
+        // inside their original chapter.
         const batchSize = attempt === 1 ? BATCH_SIZE : attempt === 2 ? 2 : 1;
-        const attemptExercises = Array.from(pending.values());
 
-        for (let offset = 0; offset < attemptExercises.length; offset += batchSize) {
-          if (requestCount > 0) {
-            await delay(REQUEST_INTERVAL_MS);
-          }
+        for (const { chapter, exercises: chapterExercises } of chapterContent) {
+          const unresolvedInChapter = chapterExercises.filter(({ id }) => id !== undefined && pending.has(id));
+          const chapterBatches = batchItemsByChapter([{ chapterTitle: chapter.title, items: unresolvedInChapter }], batchSize);
 
-          requestCount++;
-          const exercises = attemptExercises.slice(offset, offset + batchSize);
-          const expectedExerciseIds = exercises.map(({ id }) => id as number);
-          const systemPrompt = `Write strictly in ISO language ${language}. Use <kx>...</kx> for all formulas. Return complete valid JSON; do not omit a conversion merely because another item is difficult.`;
-          const userPrompt = attempt === maxAttempts && exercises.length === 1
-            ? singleExerciseAbilityRecoveryRequest(language, exercises[0])
-            : exerciseAbilitiesRequest(language, exercises);
+          for (const { chapterTitle, items: exercises } of chapterBatches) {
+            if (requestCount > 0) {
+              await delay(REQUEST_INTERVAL_MS);
+            }
 
-          try {
-            const generated = await requestValidatedJson(
-              client,
-              selectedModel,
-              systemPrompt,
-              userPrompt,
-              (content) => {
-                const parsed = parseGeneratedExerciseAbilities(content, expectedExerciseIds);
+            requestCount++;
+            const expectedExerciseIds = exercises.map(({ id }) => id as number);
+            const systemPrompt = `Write strictly in ISO language ${language}. Use <kx>...</kx> for all formulas. Return complete valid JSON; do not omit a conversion merely because another item is difficult. Every Exercise in this request belongs to chapter ${chapterTitle}; do not use or combine context from another chapter.`;
+            const userPrompt = attempt === maxAttempts && exercises.length === 1
+              ? singleExerciseAbilityRecoveryRequest(language, exercises[0], chapterTitle)
+              : exerciseAbilitiesRequest(language, exercises, chapterTitle);
 
-                if (!parsed.length) {
-                  throw new Error('OpenRouter returned no valid Exercise-to-Ability conversions.');
+            try {
+              const generated = await requestValidatedJson(
+                client,
+                selectedModel,
+                systemPrompt,
+                userPrompt,
+                (content) => {
+                  const parsed = parseGeneratedExerciseAbilities(content, expectedExerciseIds);
+
+                  if (!parsed.length) {
+                    throw new Error('OpenRouter returned no valid Exercise-to-Ability conversions.');
+                  }
+
+                  return parsed;
+                }
+              );
+
+              lastAttemptError = '';
+
+              for (const conversion of generated) {
+                const source = pending.get(conversion.exerciseId);
+
+                if (!source) {
+                  continue;
                 }
 
-                return parsed;
+                try {
+                  const ability = await materializeAbilityImages(imageApiKey, source, conversion, selectedModel);
+
+                  generatedByExerciseId.set(conversion.exerciseId, ability);
+                  pending.delete(conversion.exerciseId);
+                } catch (imageError) {
+                  lastAttemptError = imageError instanceof Error ? imageError.message : 'Unable to generate a required Ability image.';
+                }
               }
-            );
-
-            lastAttemptError = '';
-
-            for (const conversion of generated) {
-              const source = pending.get(conversion.exerciseId);
-
-              if (!source) {
-                continue;
-              }
-
-              try {
-                const ability = await materializeAbilityImages(imageApiKey, source, conversion, selectedModel);
-
-                generatedByExerciseId.set(conversion.exerciseId, ability);
-                pending.delete(conversion.exerciseId);
-              } catch (imageError) {
-                lastAttemptError = imageError instanceof Error ? imageError.message : 'Unable to generate a required Ability image.';
-              }
+              setProgress(generatedByExerciseId.size);
+            } catch (caught) {
+              lastAttemptError = caught instanceof Error ? caught.message : 'Unknown OpenRouter error.';
+              // Keep only this chapter batch unresolved; the next pass uses a smaller batch.
             }
-            setProgress(generatedByExerciseId.size);
-          } catch (caught) {
-            lastAttemptError = caught instanceof Error ? caught.message : 'Unknown OpenRouter error.';
-            // Keep this batch unresolved; the next pass uses a smaller batch.
           }
         }
       }
@@ -1085,7 +1097,7 @@ function Skills ({ book, onAction, onBookChange, onEntityCountsChange, pipelineO
     } finally {
       setIsBusy(false);
     }
-  }, [allAbilities.length, allExercises, beginProgress, book.id, createClient, language, refresh, selectedModel, setStage]);
+  }, [allAbilities.length, allExercises, beginProgress, book.id, chapterContent, createClient, language, refresh, selectedModel, setStage]);
 
   const fixExercises = useCallback(async (): Promise<void> => {
     beginProgress('Fixing Exercise errors', allExercises.length);
