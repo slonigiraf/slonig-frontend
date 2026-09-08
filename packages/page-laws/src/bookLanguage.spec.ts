@@ -24,6 +24,7 @@ describe('book language detection', (): void => {
     ]);
 
     assert.match(prompt, /primary natural language/i);
+    assert.match(prompt, /Mathpix MMD text/i);
     assert.match(prompt, /ISO 639-1/i);
     assert.match(prompt, /--- page 4 ---/);
     assert.match(prompt, /--- page 6 ---/);

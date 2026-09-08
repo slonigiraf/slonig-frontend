@@ -998,13 +998,28 @@ function BookReader ({ book, file, generateAllConceptsModel, generateAllConcepts
     }
   }, [book, onBookChange, selectedModel, totalPages]);
 
-  useEffect((): void => {
-    if (!book.language) {
-      detectAndStoreBookLanguage(pages).catch((languageError) => {
-        setError(languageError instanceof Error ? languageError.message : 'Unable to determine the book language.');
-      });
+  const isMmdConversionComplete = useMemo((): boolean => {
+    if (!totalPages) {
+      return false;
     }
-  }, [book.language, detectAndStoreBookLanguage, pages]);
+
+    return Array.from({ length: totalPages }, (_, index) => pages.get(index + 1)?.pageMMD?.trim()).every(Boolean);
+  }, [pages, totalPages]);
+
+  useEffect((): void => {
+    if (
+      book.language ||
+      !isMmdConversionComplete ||
+      isRecognizingAll ||
+      processingPage !== undefined
+    ) {
+      return;
+    }
+
+    detectAndStoreBookLanguage(pages).catch((languageError) => {
+      setError(languageError instanceof Error ? languageError.message : 'Unable to determine the book language from MMD text.');
+    });
+  }, [book.language, detectAndStoreBookLanguage, isMmdConversionComplete, isRecognizingAll, pages, processingPage]);
 
   const recognizePage = useCallback(async (): Promise<void> => {
     if (processingPage !== undefined || isGeneratingAllConcepts || isRecognizingAll) {
@@ -1045,8 +1060,6 @@ function BookReader ({ book, file, generateAllConceptsModel, generateAllConcepts
       const updatedPages = new Map(pages).set(pageNumber, recognizedPage);
 
       setPages(updatedPages);
-      await detectAndStoreBookLanguage(updatedPages);
-
       if (totalPages && Array.from({ length: totalPages }, (_, index) => updatedPages.get(index + 1)).every((page) => !!page?.pageMMD)) {
         await advanceStage(1);
       }
@@ -1055,7 +1068,7 @@ function BookReader ({ book, file, generateAllConceptsModel, generateAllConcepts
     } finally {
       setProcessingPage(undefined);
     }
-  }, [advanceStage, book.id, detectAndStoreBookLanguage, file, isGeneratingAllConcepts, isRecognizingAll, pageNumber, pages, processingPage, totalPages]);
+  }, [advanceStage, book.id, file, isGeneratingAllConcepts, isRecognizingAll, pageNumber, pages, processingPage, totalPages]);
 
   const recognizeAllPages = useCallback(async (): Promise<void> => {
     if (!totalPages || processingPage !== undefined || isGeneratingAllConcepts || isRecognizingAll) {
@@ -1079,7 +1092,6 @@ function BookReader ({ book, file, generateAllConceptsModel, generateAllConcepts
     }
 
     const recognitionTasks: Array<Promise<void>> = [];
-    const recognizedPages = new Map(pages);
 
     try {
       for (let currentPageNumber = 1; currentPageNumber <= totalPages; currentPageNumber++) {
@@ -1106,7 +1118,6 @@ function BookReader ({ book, file, generateAllConceptsModel, generateAllConcepts
           };
 
           await putBookPage(recognizedPage);
-          recognizedPages.set(currentPageNumber, recognizedPage);
           setPages((current) => new Map(current).set(currentPageNumber, recognizedPage));
           setRecognizedPageCount((count) => count + 1);
         })());
@@ -1121,14 +1132,13 @@ function BookReader ({ book, file, generateAllConceptsModel, generateAllConcepts
         await advanceStage(1);
       }
 
-      await detectAndStoreBookLanguage(recognizedPages);
     } catch (recognitionError) {
       setError(recognitionError instanceof Error ? recognitionError.message : 'Unable to recognize all pages.');
     } finally {
       setIsRecognizingAll(false);
       onProcessingComplete();
     }
-  }, [advanceStage, book.id, detectAndStoreBookLanguage, file, isGeneratingAllConcepts, isRecognizingAll, onProcessingComplete, pages, processingPage, totalPages]);
+  }, [advanceStage, book.id, file, isGeneratingAllConcepts, isRecognizingAll, onProcessingComplete, pages, processingPage, totalPages]);
 
   const saveMathpixApiKey = useCallback(async (): Promise<void> => {
     const apiKey = mathpixApiKey.trim();
