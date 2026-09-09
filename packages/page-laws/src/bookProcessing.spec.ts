@@ -5,7 +5,7 @@
 
 import { strict as assert } from 'node:assert';
 
-import { areAllBookPagesConceptsProcessed, calculatePageSymbolStatistics, CONCEPT_SPLIT_PASSES, countUnprocessedBookPages, EXERCISE_SPLIT_PASSES, exerciseAbilityModes, GENERATED_EXERCISES_PER_CONCEPT, isWithinTwoStandardDeviations, MAX_EXERCISE_GENERATION_RETRIES, processExtractedPageContent } from './bookProcessing.js';
+import { areAllBookPagesConceptsProcessed, calculatePageSymbolStatistics, countUnprocessedBookPages, exerciseAbilityModes, GENERATED_EXERCISES_PER_CONCEPT, isWithinTwoStandardDeviations, MAX_EXERCISE_GENERATION_RETRIES, processExtractedPageContent } from './bookProcessing.js';
 
 describe('book processing pipeline', (): void => {
 
@@ -114,8 +114,6 @@ describe('book processing pipeline', (): void => {
       exercises: [{ abilityMode: 'reasoning', description: 'Complete book task', solution: 'Book solution', title: 'Book exercise' }]
     }, runAi);
 
-    assert.equal(CONCEPT_SPLIT_PASSES, 2);
-    assert.equal(EXERCISE_SPLIT_PASSES, 2);
     assert.equal(GENERATED_EXERCISES_PER_CONCEPT, 4);
     assert.equal(prompts.length, 6);
     assert.deepEqual(result.concepts.map(({ title }) => title), ['Atomic A', 'Atomic B']);

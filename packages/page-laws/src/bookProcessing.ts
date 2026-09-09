@@ -3,8 +3,6 @@
 
 import type { Exercise } from '@slonigiraf/db';
 
-export const CONCEPT_SPLIT_PASSES = 2;
-export const EXERCISE_SPLIT_PASSES = 2;
 export const GENERATED_EXERCISES_PER_CONCEPT = 4;
 export const MAX_EXERCISE_GENERATION_RETRIES = 3;
 export const exerciseAbilityModes = ['perceptual observation', 'perceptual discrimination', 'transformation', 'reasoning', 'generation'] as const;
@@ -221,14 +219,6 @@ function auditSolutionVisualsResult (content: string, inputs: ProcessingExercise
 export async function processExtractedPageContent (extracted: ExtractedPageContent, runAi: BookProcessingAi): Promise<ProcessedPageContent> {
   let concepts = deduplicate(extracted.concepts);
 
-  for (let pass = 0; pass < CONCEPT_SPLIT_PASSES; pass++) {
-    if (concepts.length) {
-      const input = concepts.map((concept, inputIndex) => ({ ...concept, inputIndex }));
-
-      concepts = splitConceptsResult(await runAi(`${CONCEPT_SPLIT_PROMPT}\nPass ${pass + 1} of ${CONCEPT_SPLIT_PASSES}.\n${JSON.stringify({ concepts: input })}`), concepts);
-    }
-  }
-
   let generatedExercises = concepts.length
     ? generatedExercisesResult(await runAi(`${GENERATE_EXERCISES_PROMPT}\n${JSON.stringify({ concepts: concepts.map((concept, conceptIndex) => ({ ...concept, conceptIndex })) })}`), concepts)
     : [];
@@ -250,14 +240,6 @@ export async function processExtractedPageContent (extracted: ExtractedPageConte
     ...extracted.exercises.map((exercise) => ({ ...exercise, source: 'book' as const })),
     ...generatedExercises
   ]);
-
-  for (let pass = 0; pass < EXERCISE_SPLIT_PASSES; pass++) {
-    if (exercises.length) {
-      const input = exercises.map((exercise, inputIndex) => ({ ...exercise, inputIndex }));
-
-      exercises = splitExercisesResult(await runAi(`${EXERCISE_SPLIT_PROMPT}\nPass ${pass + 1} of ${EXERCISE_SPLIT_PASSES}.\n${JSON.stringify({ exercises: input })}`), exercises);
-    }
-  }
 
   if (exercises.length) {
     const input = exercises.map((exercise, inputIndex) => ({ ...exercise, inputIndex }));
