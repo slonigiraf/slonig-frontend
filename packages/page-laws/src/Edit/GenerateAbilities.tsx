@@ -5,6 +5,7 @@ import OpenAI from 'openai';
 import { FileUpload } from '@polkadot/react-components';
 import { skillListPrompt } from '../constants.js';
 import { parseGeneratedAbilities } from '../abilities.js';
+import { openRouterRequestGate } from '../openRouterConcurrency.js';
 
 interface Props {
   className?: string;
@@ -64,7 +65,7 @@ const GenerateAbilities: React.FC<Props> = ({ className = '', moduleId }: Props)
       const fileContent = file.type.startsWith('image/')
         ? { type: 'image_url', image_url: { url: fileData } }
         : { type: 'file', file: { filename: file.name, file_data: fileData } };
-      const response = await client.chat.completions.create({
+      const response = await openRouterRequestGate.run(() => client.chat.completions.create({
         model: 'openai/gpt-4o-mini',
         messages: [
           { role: 'system', content: 'Respond strictly as a JSON array.' },
@@ -76,7 +77,7 @@ const GenerateAbilities: React.FC<Props> = ({ className = '', moduleId }: Props)
             ] as any
           }
         ]
-      });
+      }));
 
       text = response.choices[0].message?.content ?? '';
 

@@ -1,6 +1,8 @@
 // Copyright 2021-2026 @polkadot/app-laws authors & contributors
 // SPDX-License-Identifier: Apache-2.0
 
+import { openRouterRequestGate } from './openRouterConcurrency.js';
+
 export const OPENROUTER_IMAGE_MODEL = 'bytedance-seed/seedream-4.5';
 
 interface OpenRouterImageResponse {
@@ -75,7 +77,7 @@ export function svgMarkupToDataUrl (value: string): string | undefined {
 type VisualPurpose = 'question' | 'solution';
 
 async function generateOpenRouterSvg (apiKey: string, prompt: string, model: string, purpose: VisualPurpose): Promise<string | null | undefined> {
-  const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
+  const response = await openRouterRequestGate.run(() => fetch('https://openrouter.ai/api/v1/chat/completions', {
     body: JSON.stringify({
       messages: [{
         content: `Decide whether this educational Ability visual can be represented faithfully as a clean vector SVG. Prefer SVG for diagrams, geometry, graphs, charts, tables, symbols, simple objects, maps, layouts, and other task visuals whose educational information is shape/text/position/relationship based. Choose raster only when the task genuinely depends on photographic realism, natural texture, subtle material appearance, complex real-world imagery, or another property that SVG would materially lose. Never choose raster merely for aesthetics.\n\nIf SVG is suitable, create a complete standalone SVG that exactly represents the requested task-essential visual. Keep it simple and readable, include only information required by the task, ${purpose === 'solution' ? 'this is a worked-solution visual, so show the complete correct constructed/drawn/plotted/modified result requested by the prompt and do not suppress answer information that the solution itself must display; when the task changes a question visual, preserve the same base objects, labels, scale, coordinate system, and layout and apply only the requested changes' : 'this is a question visual, so do not reveal or encode the answer'}, use a viewBox, and do not use scripts, external resources, embedded raster images, foreignObject, URLs, or event handlers. If SVG would break the educational logic, choose raster.\n\nReturn only JSON: {"format":"svg","svg":"<svg ...>...</svg>"} or {"format":"raster","svg":""}.\n\nVisual request:\n${prompt}`,
@@ -91,7 +93,7 @@ async function generateOpenRouterSvg (apiKey: string, prompt: string, model: str
       'X-OpenRouter-Title': 'Slonig'
     },
     method: 'POST'
-  });
+  }));
   const result = await response.json() as OpenRouterSvgResponse;
   const content = result.choices?.[0]?.message?.content?.trim();
 
@@ -117,7 +119,7 @@ async function generateOpenRouterSvg (apiKey: string, prompt: string, model: str
 }
 
 export async function generateOpenRouterImage (apiKey: string, prompt: string): Promise<string> {
-  const response = await fetch('https://openrouter.ai/api/v1/images', {
+  const response = await openRouterRequestGate.run(() => fetch('https://openrouter.ai/api/v1/images', {
     body: JSON.stringify({ model: OPENROUTER_IMAGE_MODEL, n: 1, prompt }),
     headers: {
       Authorization: `Bearer ${apiKey}`,
@@ -126,7 +128,7 @@ export async function generateOpenRouterImage (apiKey: string, prompt: string): 
       'X-OpenRouter-Title': 'Slonig'
     },
     method: 'POST'
-  });
+  }));
   const result = await response.json() as OpenRouterImageResponse;
   const image = result.data?.[0];
 

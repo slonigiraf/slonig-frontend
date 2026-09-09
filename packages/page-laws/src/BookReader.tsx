@@ -19,6 +19,8 @@ import { Button, Dropdown, Input, Modal, styled } from '@polkadot/react-componen
 import { estimateAiInput, formatAiInputEstimate } from './aiEstimate.js';
 import { bookLanguageDetectionPrompt, bookLanguageLabel, getMiddleBookPageNumbers, parseDetectedBookLanguage } from './bookLanguage.js';
 import { areAllBookPagesConceptsProcessed, calculatePageSymbolStatistics, countUnprocessedBookPages, exerciseAbilityModes, isWithinTwoStandardDeviations, processExtractedPageContent } from './bookProcessing.js';
+import { mapConcurrent } from './concurrency.js';
+import { OPENROUTER_CONCURRENCY, openRouterRequestGate } from './openRouterConcurrency.js';
 import { OPENAI_MODELS } from './constants.js';
 import { stripMarkdownImageReferences } from './bookImageRefs.js';
 import Skills from './Skills.js';
@@ -139,7 +141,7 @@ async function requestGeneratedPageContent (client: OpenAI, model: string, mmdZi
     return { chapter: '', concepts: [], exercises: [] };
   }
 
-  const response = await client.chat.completions.create({
+  const response = await openRouterRequestGate.run(() => client.chat.completions.create({
     messages: [{
       content: [
         {
@@ -152,7 +154,7 @@ async function requestGeneratedPageContent (client: OpenAI, model: string, mmdZi
     }],
     model,
     response_format: { type: 'json_object' }
-  });
+  }));
   const generatedContent = response.choices[0].message?.content?.trim();
 
   if (!generatedContent) {
@@ -193,7 +195,6 @@ async function generatePageContentWithEmptyConceptRetry (client: OpenAI, model: 
 
 const MAX_REQUESTS_PER_MIN = 180;
 const RATE_LIMIT_WINDOW_MS = 60_000;
-const GENERATION_PAGE_SPAWN_INTERVAL_MS = Math.ceil(RATE_LIMIT_WINDOW_MS / (MAX_REQUESTS_PER_MIN / 4));
 const RECOGNITION_PAGE_SPAWN_INTERVAL_MS = Math.ceil(RATE_LIMIT_WINDOW_MS / MAX_REQUESTS_PER_MIN);
 
 const pageSessionKey = (bookId: number): string => `knowledge-upload-book-${bookId}-page`;
@@ -742,7 +743,6 @@ function BookReader ({ book, file, generateAllConceptsModel, generateAllConcepts
         'X-OpenRouter-Title': 'Slonig'
       }
     });
-    const conceptTasks: Array<Promise<void>> = [];
     const eligiblePages = Array.from({ length: totalPages }, (_, index) => index + 1)
       .filter((currentPageNumber) => {
         const page = pages.get(currentPageNumber);
@@ -751,15 +751,10 @@ function BookReader ({ book, file, generateAllConceptsModel, generateAllConcepts
       });
     const resolvedPages = new Map(pages);
     const symbolStatistics = calculatePageSymbolStatistics(Array.from(pages.values()).flatMap(({ pageMMD }) => typeof pageMMD === 'string' ? [pageMMD] : []));
-    let persistenceQueue: Promise<void> = Promise.resolve();
 
     try {
-      for (const [index, currentPageNumber] of eligiblePages.entries()) {
-        if (index > 0) {
-          await delay(GENERATION_PAGE_SPAWN_INTERVAL_MS);
-        }
-
-        const generationTask = (async () => {
+      const generationResults = await mapConcurrent(eligiblePages, OPENROUTER_CONCURRENCY, async (currentPageNumber) => {
+        try {
           const storedPage = pages.get(currentPageNumber);
 
           if (!storedPage) {
@@ -776,11 +771,28 @@ function BookReader ({ book, file, generateAllConceptsModel, generateAllConcepts
 
           return {
             generatedConcepts: await generatePageContentWithEmptyConceptRetry(client, generateAllConceptsModel, mmdZipInput, isWithinTwoStandardDeviations(pageSymbolCount, symbolStatistics)),
+            status: 'fulfilled' as const,
             storedPage
           };
-        })();
-        const persistenceTask = persistenceQueue.then(async () => {
-          const { generatedConcepts, storedPage } = await generationTask;
+        } catch (reason) {
+          return { reason, status: 'rejected' as const };
+        }
+      });
+      let failedConceptTasks = 0;
+
+      // Persist in page order so blank chapter titles still inherit from the
+      // nearest preceding page exactly as they did before parallel generation.
+      for (let index = 0; index < generationResults.length; index++) {
+        const result = generationResults[index];
+        const currentPageNumber = eligiblePages[index];
+
+        if (result.status === 'rejected') {
+          failedConceptTasks++;
+          continue;
+        }
+
+        try {
+          const { generatedConcepts, storedPage } = result;
 
           const resolvedChapter = resolveChapterTitle(generatedConcepts.chapter, currentPageNumber, resolvedPages);
           const generatedPage: BookPage = {
@@ -819,14 +831,11 @@ function BookReader ({ book, file, generateAllConceptsModel, generateAllConcepts
             setConcepts(stored?.concepts ?? []);
             setExercises(stored?.exercises ?? []);
           }
-        });
-
-        persistenceQueue = persistenceTask.catch(() => undefined);
-        conceptTasks.push(persistenceTask);
+        } catch {
+          failedConceptTasks++;
+        }
       }
 
-      const conceptResults = await Promise.allSettled(conceptTasks);
-      const failedConceptTasks = conceptResults.filter(({ status }) => status === 'rejected').length;
       const allPagesSuccessfullyAttempted = eligiblePages.length === totalPages && failedConceptTasks === 0;
       const storedPagesAfterGeneration = await getBookPages(book.id);
       const conceptsComplete = areAllBookPagesConceptsProcessed(totalPages, storedPagesAfterGeneration);
@@ -875,11 +884,11 @@ function BookReader ({ book, file, generateAllConceptsModel, generateAllConcepts
         pageNumber
       })));
 
-      for (const { concepts: storedConcepts, exercises: storedExercises, pageNumber: currentPageNumber } of pageInputs) {
+      await mapConcurrent(pageInputs, OPENROUTER_CONCURRENCY, async ({ concepts: storedConcepts, exercises: storedExercises, pageNumber: currentPageNumber }) => {
         const storedPage = pages.get(currentPageNumber) ?? storedPages.find(({ pageNumber }) => pageNumber === currentPageNumber);
 
         if (!storedPage) {
-          continue;
+          return;
         }
 
         const processed = await processExtractedPageContent({
@@ -887,11 +896,11 @@ function BookReader ({ book, file, generateAllConceptsModel, generateAllConcepts
           concepts: storedConcepts.map(({ description, title }) => ({ description, title })),
           exercises: storedExercises.map(({ abilityMode = 'reasoning', description, imageDescription, solution = '', solutionImageDescription, title }) => ({ abilityMode, description: stripMarkdownImageReferences(description), imageDescription, solution, solutionImageDescription, title }))
         }, async (prompt) => {
-          const response = await client.chat.completions.create({
+          const response = await openRouterRequestGate.run(() => client.chat.completions.create({
             messages: [{ content: prompt, role: 'user' }],
             model: generateAllConceptsModel,
             response_format: { type: 'json_object' }
-          });
+          }));
 
           return response.choices[0].message?.content?.trim() ?? '{}';
         });
@@ -903,7 +912,7 @@ function BookReader ({ book, file, generateAllConceptsModel, generateAllConcepts
         }
 
         setRefinedPageCount((count) => count + 1);
-      }
+      });
 
       await refreshEntityCounts();
       await advanceStage(3);
@@ -948,11 +957,11 @@ function BookReader ({ book, file, generateAllConceptsModel, generateAllConcepts
         dangerouslyAllowBrowser: true,
         defaultHeaders: { 'HTTP-Referer': window.location.origin, 'X-OpenRouter-Title': 'Slonig' }
       });
-      const response = await client.chat.completions.create({
+      const response = await openRouterRequestGate.run(() => client.chat.completions.create({
         messages: [{ content: bookLanguageDetectionPrompt(pageTexts), role: 'user' }],
         model: selectedModel,
         response_format: { type: 'json_object' }
-      });
+      }));
       const language = parseDetectedBookLanguage(response.choices[0].message?.content?.trim() ?? '');
       const updatedBook = { ...book, language };
 

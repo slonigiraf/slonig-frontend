@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import type { Book, BookChapter, BookConcept, BookPage, Exercise, ExerciseTemplate, Skill } from '@slonigiraf/db';
-import type { GeneratedAbility } from './abilities.js';
+import type { GeneratedAbility, GeneratedExerciseAbility } from './abilities.js';
 
 import { addExerciseTemplatesForSkill, deleteAbilities, deleteAbility, deleteBookConcept, deleteExercise, deleteExerciseTemplate, deleteSkill, getAbilities, getBookChapters, getBookConceptsForBookPage, getBookPages, getExercisesForBookPage, getExerciseTemplatesForSkill, getSetting, getSkillsForChapter, replaceAbilities, replaceExerciseTemplatesForSkill, replaceExercisesForBookPage, replaceSkillsForChapter, SettingKey, storeAbility, updateBookChapterTitle, updateBookProcessingStage } from '@slonigiraf/db';
 import { KatexSpan, RoundProgress } from '@slonigiraf/slonig-components';
@@ -16,83 +16,16 @@ import { parseAbilityRepairResult, parseGeneratedAbilities, parseGeneratedExerci
 import { parseExerciseRepairResult } from './exercises.js';
 import { estimateAiInput, formatAiInputEstimate } from './aiEstimate.js';
 import { abilityGenerationInstructions, divideExerciseTemplatesPrompt, fixAbilitiesPrompt, fixExercisesPrompt, OPENAI_MODELS, skillsToExerciseTemplatesPrompt, sourcesToSkillsPrompt } from './constants.js';
+import { mapConcurrent } from './concurrency.js';
+import { OPENROUTER_CONCURRENCY, openRouterRequestGate } from './openRouterConcurrency.js';
 import { generateOpenRouterVisual } from './openRouterImages.js';
 import { stripMarkdownImageReferences } from './bookImageRefs.js';
 import { batchItemsByChapter } from './chapterBatching.js';
 
-const REQUEST_INTERVAL_MS = Math.ceil(60_000 / 9);
 const BATCH_SIZE = 5;
-const FIX_CONCURRENCY = 3;
 const MAX_REQUEST_ATTEMPTS = 4;
 const RETRY_BASE_DELAY_MS = 1_000;
 const delay = (milliseconds: number): Promise<void> => new Promise((resolve) => setTimeout(resolve, milliseconds));
-
-interface RequestGate {
-  pause: (milliseconds: number) => void;
-  run: <T>(request: () => Promise<T>) => Promise<T>;
-}
-
-function createRequestGate (maxConcurrent: number): RequestGate {
-  let active = 0;
-  let pauseUntil = 0;
-  let timer: ReturnType<typeof setTimeout> | undefined;
-  const queue: Array<() => void> = [];
-
-  const pump = (): void => {
-    if (active >= maxConcurrent || !queue.length) {
-      return;
-    }
-
-    const wait = pauseUntil - Date.now();
-
-    if (wait > 0) {
-      if (timer === undefined) {
-        timer = setTimeout(() => {
-          timer = undefined;
-          pump();
-        }, wait);
-      }
-
-      return;
-    }
-
-    while (active < maxConcurrent && queue.length) {
-      const start = queue.shift();
-
-      if (!start) {
-        break;
-      }
-
-      active++;
-      start();
-    }
-  };
-
-  return {
-    pause: (milliseconds): void => {
-      pauseUntil = Math.max(pauseUntil, Date.now() + Math.max(0, milliseconds));
-
-      if (timer !== undefined) {
-        clearTimeout(timer);
-        timer = undefined;
-      }
-
-      pump();
-    },
-    run: <T,>(request: () => Promise<T>): Promise<T> => new Promise<T>((resolve, reject) => {
-      queue.push(() => {
-        Promise.resolve()
-          .then(request)
-          .then(resolve, reject)
-          .finally(() => {
-            active--;
-            pump();
-          });
-      });
-      pump();
-    })
-  };
-}
 
 function getErrorStatus (error: unknown): number | undefined {
   if (typeof error !== 'object' || error === null || !('status' in error)) {
@@ -145,7 +78,7 @@ function isRetryableRequestError (error: unknown): boolean {
   return status === 429 || (status !== undefined && status >= 500 && status <= 599);
 }
 
-async function requestChatContent (client: OpenAI, model: string, systemPrompt: string, userPrompt: string, jsonObject: boolean, requestGate?: RequestGate): Promise<string> {
+async function requestChatContent (client: OpenAI, model: string, systemPrompt: string, userPrompt: string, jsonObject: boolean): Promise<string> {
   let lastError: unknown;
 
   for (let attempt = 0; attempt < MAX_REQUEST_ATTEMPTS; attempt++) {
@@ -155,7 +88,7 @@ async function requestChatContent (client: OpenAI, model: string, systemPrompt: 
         model,
         ...(jsonObject ? { response_format: { type: 'json_object' as const } } : {})
       });
-      const response = requestGate ? await requestGate.run(makeRequest) : await makeRequest();
+      const response = await openRouterRequestGate.run(makeRequest);
 
       return response.choices[0].message?.content?.trim() ?? '';
     } catch (error) {
@@ -168,7 +101,7 @@ async function requestChatContent (client: OpenAI, model: string, systemPrompt: 
       const retryAfter = getRetryAfterMs(error);
       const backoff = retryAfter ?? RETRY_BASE_DELAY_MS * (2 ** attempt);
 
-      requestGate?.pause(backoff);
+      openRouterRequestGate.pause(backoff);
       await delay(backoff);
     }
   }
@@ -485,11 +418,11 @@ ${q[index].a}${sourceSolutionSpecification}${generatorSolutionSpecification}`
 
   return { ...conversion.ability, q };
 }
-async function requestValidatedJson<T> (client: OpenAI, model: string, systemPrompt: string, userPrompt: string, parse: (content: string) => T, jsonObject = true, requestGate?: RequestGate): Promise<T> {
+async function requestValidatedJson<T> (client: OpenAI, model: string, systemPrompt: string, userPrompt: string, parse: (content: string) => T, jsonObject = true): Promise<T> {
   let lastError: unknown;
 
   for (let attempt = 0; attempt < 2; attempt++) {
-    const candidate = await requestChatContent(client, model, systemPrompt, userPrompt, jsonObject, requestGate);
+    const candidate = await requestChatContent(client, model, systemPrompt, userPrompt, jsonObject);
 
     try {
       // The parser is the fast local validation gate. In the normal case this
@@ -502,7 +435,7 @@ async function requestValidatedJson<T> (client: OpenAI, model: string, systemPro
     const validationPrompt = `Act as an independent strict validator. Check the candidate against every original requirement and the supplied input. Fix every factual, structural, language, completeness, ordering, KaTeX, and count error. If it cannot be repaired safely, regenerate the complete output from the original request. Return only the final corrected output in the exact originally requested JSON shape, without commentary.\n\nORIGINAL REQUEST:\n${userPrompt}\n\nCANDIDATE OUTPUT:\n${candidate}`;
 
     try {
-      const repaired = await requestChatContent(client, model, systemPrompt, validationPrompt, jsonObject, requestGate);
+      const repaired = await requestChatContent(client, model, systemPrompt, validationPrompt, jsonObject);
 
       return parse(repaired);
     } catch (error) {
@@ -891,20 +824,23 @@ function Skills ({ book, onAction, onBookChange, onEntityCountsChange, pipelineO
 
     try {
       const client = await createClient();
-
       const generatedByChapter = new Map<number, Array<Omit<Skill, 'chapterId' | 'id'>>>();
-
-      for (let start = 0; start < skillSources.length; start += BATCH_SIZE) {
-        const batch = skillSources.slice(start, start + BATCH_SIZE);
-
-        if (start) {
-          await delay(REQUEST_INTERVAL_MS);
-        }
-
+      const batches = Array.from({ length: Math.ceil(skillSources.length / BATCH_SIZE) }, (_, index) => skillSources.slice(index * BATCH_SIZE, (index + 1) * BATCH_SIZE));
+      let completed = 0;
+      const results = await mapConcurrent(batches, OPENROUTER_CONCURRENCY, async (batch) => {
         const systemPrompt = `Write strictly in ISO language ${language}. Use <kx>...</kx> for all formulas.`;
         const userPrompt = `${sourcesToSkillsPrompt}\nReturn exactly ${batch.length} skills.\n${JSON.stringify(batch)}`;
-        const generated = await requestValidatedJson(client, selectedModel, systemPrompt, userPrompt, (content) => parseGeneratedSkills(content, batch.length));
+        const generated = await requestValidatedJson(client, selectedModel, systemPrompt, userPrompt, (content) => parseGeneratedSkills(content, batch.length), true);
 
+        completed += batch.length;
+        setProgress(Math.min(skillSources.length, completed));
+
+        return { batch, generated };
+      });
+
+      // mapConcurrent preserves input order, so ranks remain deterministic even
+      // when later OpenRouter requests finish before earlier ones.
+      for (const { batch, generated } of results) {
         generated.forEach((skill, index) => {
           const rows = generatedByChapter.get(batch[index].chapterId) ?? [];
           const source = batch[index];
@@ -917,7 +853,6 @@ function Skills ({ book, onAction, onBookChange, onEntityCountsChange, pipelineO
           });
           generatedByChapter.set(source.chapterId, rows);
         });
-        setProgress(Math.min(skillSources.length, start + batch.length));
       }
 
       await Promise.all(allSkills.flatMap(({ id }) => id === undefined ? [] : [replaceExerciseTemplatesForSkill(id, []), deleteAbilities(abilityModuleId(book.id, id))]));
@@ -935,24 +870,20 @@ function Skills ({ book, onAction, onBookChange, onEntityCountsChange, pipelineO
 
     try {
       const client = await createClient();
-
       const generatedBySkill = new Map<number, Array<Omit<ExerciseTemplate, 'skillId' | 'id'>>>();
+      const batches = Array.from({ length: Math.ceil(allSkillBlocks.length / BATCH_SIZE) }, (_, index) => allSkillBlocks.slice(index * BATCH_SIZE, (index + 1) * BATCH_SIZE));
+      let completed = 0;
 
-      for (let start = 0; start < allSkillBlocks.length; start += BATCH_SIZE) {
-        const batch = allSkillBlocks.slice(start, start + BATCH_SIZE);
+      await mapConcurrent(batches, OPENROUTER_CONCURRENCY, async (batch) => {
         const expectedSkillIds = batch.map(({ skill }) => skill.id);
-
-        if (start) {
-          await delay(REQUEST_INTERVAL_MS);
-        }
-
         const systemPrompt = `Write strictly in ISO language ${language}. Use <kx>...</kx> for all formulas.`;
         const userPrompt = exerciseTemplatesRequest(language, batch);
-        const generated = await requestValidatedJson(client, selectedModel, systemPrompt, userPrompt, (content) => parseGeneratedExerciseTemplates(content, expectedSkillIds));
+        const generated = await requestValidatedJson(client, selectedModel, systemPrompt, userPrompt, (content) => parseGeneratedExerciseTemplates(content, expectedSkillIds), true);
 
         expectedSkillIds.forEach((id) => generatedBySkill.set(id, generated.filter(({ skillId }) => skillId === id).map(({ solution, text }) => ({ solution, text }))));
-        setProgress(Math.min(allSkillBlocks.length, start + batch.length));
-      }
+        completed += batch.length;
+        setProgress(Math.min(allSkillBlocks.length, completed));
+      });
 
       const expectedSkillIds = allSkills.flatMap(({ id }) => id === undefined ? [] : [id]);
 
@@ -974,50 +905,53 @@ function Skills ({ book, onAction, onBookChange, onEntityCountsChange, pipelineO
 
     try {
       const client = await createClient();
-
-      let completed = 0;
-      let requestIndex = 0;
-
-      for (const { chapter, concepts, exerciseTemplates, exercises, skills } of chapterContent) {
+      const requests = chapterContent.flatMap(({ chapter, concepts, exerciseTemplates, exercises, skills }) => {
         const blocks = createSkillBlocks(skills, concepts, exercises);
 
-        for (let start = 0; start < blocks.length; start += BATCH_SIZE) {
-          const batch = blocks.slice(start, start + BATCH_SIZE);
+        return Array.from({ length: Math.ceil(blocks.length / BATCH_SIZE) }, (_, index) => {
+          const batch = blocks.slice(index * BATCH_SIZE, (index + 1) * BATCH_SIZE);
           const expectedSkillIds = batch.map(({ skill }) => skill.id);
-          const parents = exerciseTemplates.filter(({ skillId }) => expectedSkillIds.includes(skillId));
 
-          if (requestIndex++) {
-            await delay(REQUEST_INTERVAL_MS);
-          }
+          return {
+            batch,
+            chapterTitle: chapter.title,
+            expectedSkillIds,
+            parents: exerciseTemplates.filter(({ skillId }) => expectedSkillIds.includes(skillId))
+          };
+        });
+      });
+      let completed = 0;
+      const results = await mapConcurrent(requests, OPENROUTER_CONCURRENCY, async ({ batch, chapterTitle, expectedSkillIds, parents }) => {
+        const systemPrompt = `Keep ISO language ${language}. Use <kx>...</kx> for every mathematical expression.`;
+        const userPrompt = `${divideExerciseTemplatesPrompt}\nChapter: ${chapterTitle}\n${JSON.stringify({ blocks: batch, templates: parents })}`;
+        const children = await requestValidatedJson(client, selectedModel, systemPrompt, userPrompt, (content) => parseExerciseTemplates(content, expectedSkillIds, false), true);
 
-          const systemPrompt = `Keep ISO language ${language}. Use <kx>...</kx> for every mathematical expression.`;
-          const userPrompt = `${divideExerciseTemplatesPrompt}\nChapter: ${chapter.title}\n${JSON.stringify({ blocks: batch, templates: parents })}`;
-          const children = await requestValidatedJson(client, selectedModel, systemPrompt, userPrompt, (content) => parseExerciseTemplates(content, expectedSkillIds, false));
+        completed += batch.length;
+        setProgress(Math.min(allSkillBlocks.length, completed));
 
-          await Promise.all(expectedSkillIds.map((skillId) => {
-            const existing = parents.filter((template) => template.skillId === skillId);
-            const signatures = new Set(existing.map(({ solution, text }) => JSON.stringify([text.trim(), solution.trim()])));
-            const additions = children
-              .filter((template) => template.skillId === skillId)
-              .filter(({ solution, text }) => {
-                const signature = JSON.stringify([text, solution]);
+        return { children, expectedSkillIds, parents };
+      });
 
-                if (signatures.has(signature)) {
-                  return false;
-                }
+      await Promise.all(results.flatMap(({ children, expectedSkillIds, parents }) => expectedSkillIds.map((skillId) => {
+        const existing = parents.filter((template) => template.skillId === skillId);
+        const signatures = new Set(existing.map(({ solution, text }) => JSON.stringify([text.trim(), solution.trim()])));
+        const additions = children
+          .filter((template) => template.skillId === skillId)
+          .filter(({ solution, text }) => {
+            const signature = JSON.stringify([text, solution]);
 
-                signatures.add(signature);
+            if (signatures.has(signature)) {
+              return false;
+            }
 
-                return true;
-              })
-              .map(({ solution, text }) => ({ solution, text }));
+            signatures.add(signature);
 
-            return additions.length ? addExerciseTemplatesForSkill(skillId, additions) : Promise.resolve([]);
-          }));
-          completed += batch.length;
-          setProgress(Math.min(allSkillBlocks.length, completed));
-        }
-      }
+            return true;
+          })
+          .map(({ solution, text }) => ({ solution, text }));
+
+        return additions.length ? addExerciseTemplatesForSkill(skillId, additions) : Promise.resolve([]);
+      })));
 
       await setStage(6); refresh();
     } catch (caught) {
@@ -1051,25 +985,18 @@ function Skills ({ book, onAction, onBookChange, onEntityCountsChange, pipelineO
       const maxAttempts = 3;
       let lastAttemptError = '';
 
-      let requestCount = 0;
-
       for (let attempt = 1; attempt <= maxAttempts && pending.size; attempt++) {
         // Ability generation is chapter-scoped. Large chapters are split into
         // size-limited sub-batches, but a request can never contain Exercises
         // from two different chapters. Retries narrow only unresolved Exercises
         // inside their original chapter.
         const batchSize = attempt === 1 ? BATCH_SIZE : attempt === 2 ? 2 : 1;
-
-        for (const { chapter, exercises: chapterExercises } of chapterContent) {
+        const attemptBatches = chapterContent.flatMap(({ chapter, exercises: chapterExercises }) => {
           const unresolvedInChapter = chapterExercises.filter(({ id }) => id !== undefined && pending.has(id));
-          const chapterBatches = batchItemsByChapter([{ chapterTitle: chapter.title, items: unresolvedInChapter }], batchSize);
 
-          for (const { chapterTitle, items: exercises } of chapterBatches) {
-            if (requestCount > 0) {
-              await delay(REQUEST_INTERVAL_MS);
-            }
-
-            requestCount++;
+          return batchItemsByChapter([{ chapterTitle: chapter.title, items: unresolvedInChapter }], batchSize);
+        });
+        const generatedBatches = await mapConcurrent(attemptBatches, OPENROUTER_CONCURRENCY, async ({ chapterTitle, items: exercises }): Promise<GeneratedExerciseAbility[]> => {
             const expectedExerciseIds = exercises.map(({ id }) => id as number);
             const systemPrompt = `Write strictly in ISO language ${language}. Use <kx>...</kx> for all formulas. Return complete valid JSON; do not omit a conversion merely because another item is difficult. Every Exercise in this request belongs to chapter ${chapterTitle}; do not use or combine context from another chapter.`;
             const userPrompt = attempt === maxAttempts && exercises.length === 1
@@ -1090,34 +1017,39 @@ function Skills ({ book, onAction, onBookChange, onEntityCountsChange, pipelineO
                   }
 
                   return parsed;
-                }
+                },
+                true
               );
 
               lastAttemptError = '';
 
-              for (const conversion of generated) {
-                const source = pending.get(conversion.exerciseId);
-
-                if (!source) {
-                  continue;
-                }
-
-                try {
-                  const ability = await materializeAbilityImages(imageApiKey, source, conversion, selectedModel);
-
-                  generatedByExerciseId.set(conversion.exerciseId, ability);
-                  pending.delete(conversion.exerciseId);
-                } catch (imageError) {
-                  lastAttemptError = imageError instanceof Error ? imageError.message : 'Unable to generate a required Ability image.';
-                }
-              }
-              setProgress(generatedByExerciseId.size);
+              return generated;
             } catch (caught) {
               lastAttemptError = caught instanceof Error ? caught.message : 'Unknown OpenRouter error.';
               // Keep only this chapter batch unresolved; the next pass uses a smaller batch.
+
+              return [];
             }
+        });
+        const conversions = generatedBatches.flat();
+
+        await mapConcurrent(conversions, OPENROUTER_CONCURRENCY, async (conversion) => {
+          const source = pending.get(conversion.exerciseId);
+
+          if (!source) {
+            return;
           }
-        }
+
+          try {
+            const ability = await materializeAbilityImages(imageApiKey, source, conversion, selectedModel);
+
+            generatedByExerciseId.set(conversion.exerciseId, ability);
+            pending.delete(conversion.exerciseId);
+            setProgress(generatedByExerciseId.size);
+          } catch (imageError) {
+            lastAttemptError = imageError instanceof Error ? imageError.message : 'Unable to generate a required Ability image.';
+          }
+        });
       }
 
       await Promise.all(Array.from(generatedByExerciseId, ([exerciseId, ability]) => replaceAbilities(exerciseAbilityModuleId(book.id, exerciseId), [JSON.stringify(ability)])));
@@ -1167,74 +1099,50 @@ function Skills ({ book, onAction, onBookChange, onEntityCountsChange, pipelineO
       }
 
       const client = await createClient();
-      const requestGate = createRequestGate(FIX_CONCURRENCY);
       const replacements = new Map<number, { errors: string[]; exercise: Exercise }>();
       const duplicatePairs = new Map<number, DuplicateExerciseReview>();
       const batches = chapterContent
         .filter(({ exercises }) => exercises.length > 0)
         .map(({ chapter, exercises }) => ({ batch: exercises, chapterTitle: chapter.title }));
       let completed = 0;
-      let nextBatch = 0;
-      let workerError: unknown;
 
-      const worker = async (): Promise<void> => {
-        while (workerError === undefined) {
-          const batchIndex = nextBatch++;
+      await mapConcurrent(batches, OPENROUTER_CONCURRENCY, async ({ batch, chapterTitle }) => {
+        const originalIds = batch.map(({ id }) => id as number);
+        const systemPrompt = `Keep ISO language ${language}. Return only the requested JSON object.`;
+        const userPrompt = exerciseRepairRequest(language, batch, chapterTitle);
+        const result = await requestValidatedJson(
+          client,
+          selectedModel,
+          systemPrompt,
+          userPrompt,
+          (content) => parseExerciseRepairResult(content, batch, originalIds),
+          true
+        );
+        const batchDuplicateIds = new Set(result.duplicatePairs.map(({ deletedExerciseId }) => deletedExerciseId));
 
-          if (batchIndex >= batches.length) {
-            return;
+        result.duplicatePairs.forEach(({ deletedExerciseId, keptExerciseId }) => {
+          const kept = batch.find(({ id }) => id === keptExerciseId);
+          const deleted = batch.find(({ id }) => id === deletedExerciseId);
+
+          if (!kept || !deleted) {
+            throw new Error('OpenRouter returned a duplicate Exercise pair that does not exist in this chapter.');
           }
 
-          const { batch, chapterTitle } = batches[batchIndex];
-          const originalIds = batch.map(({ id }) => id as number);
-          const systemPrompt = `Keep ISO language ${language}. Return only the requested JSON object.`;
-          const userPrompt = exerciseRepairRequest(language, batch, chapterTitle);
+          duplicatePairs.set(deletedExerciseId, { chapterTitle, deleted, kept });
+        });
+        result.reviews.forEach((review) => {
+          if (review.hasErrors && review.exercise) {
+            const original = batch[review.index];
+            const id = original.id as number;
 
-          try {
-            const result = await requestValidatedJson(
-              client,
-              selectedModel,
-              systemPrompt,
-              userPrompt,
-              (content) => parseExerciseRepairResult(content, batch, originalIds),
-              true,
-              requestGate
-            );
-            const batchDuplicateIds = new Set(result.duplicatePairs.map(({ deletedExerciseId }) => deletedExerciseId));
-
-            result.duplicatePairs.forEach(({ deletedExerciseId, keptExerciseId }) => {
-              const kept = batch.find(({ id }) => id === keptExerciseId);
-              const deleted = batch.find(({ id }) => id === deletedExerciseId);
-
-              if (!kept || !deleted) {
-                throw new Error('OpenRouter returned a duplicate Exercise pair that does not exist in this chapter.');
-              }
-
-              duplicatePairs.set(deletedExerciseId, { chapterTitle, deleted, kept });
-            });
-            result.reviews.forEach((review) => {
-              if (review.hasErrors && review.exercise) {
-                const original = batch[review.index];
-                const id = original.id as number;
-
-                if (!batchDuplicateIds.has(id)) {
-                  replacements.set(id, { errors: review.errors, exercise: review.exercise });
-                }
-              }
-            });
-            completed += batch.length;
-            setProgress(Math.min(allExercises.length, completed));
-          } catch (error) {
-            workerError ??= error;
+            if (!batchDuplicateIds.has(id)) {
+              replacements.set(id, { errors: review.errors, exercise: review.exercise });
+            }
           }
-        }
-      };
-
-      await Promise.all(Array.from({ length: Math.min(FIX_CONCURRENCY, batches.length) }, () => worker()));
-
-      if (workerError !== undefined) {
-        throw workerError;
-      }
+        });
+        completed += batch.length;
+        setProgress(Math.min(allExercises.length, completed));
+      });
 
       const duplicateIds = new Set(duplicatePairs.keys());
 
@@ -1292,7 +1200,6 @@ function Skills ({ book, onAction, onBookChange, onEntityCountsChange, pipelineO
 
     try {
       const client = await createClient();
-      const requestGate = createRequestGate(FIX_CONCURRENCY);
       const replacements = new Map<string, { ability: GeneratedAbility; errors: string[]; record: StoredAbility }>();
       const duplicatePairs = new Map<string, DuplicateAbilityReview>();
       // Duplicate detection needs complete chapter context, so every chapter is
@@ -1301,74 +1208,50 @@ function Skills ({ book, onAction, onBookChange, onEntityCountsChange, pipelineO
         .filter(({ abilities }) => abilities.length > 0)
         .map(({ abilities, chapter }) => ({ batch: abilities, chapterTitle: chapter.title }));
       let completed = 0;
-      let nextBatch = 0;
-      let workerError: unknown;
 
-      const worker = async (): Promise<void> => {
-        while (workerError === undefined) {
-          const batchIndex = nextBatch++;
+      await mapConcurrent(batches, OPENROUTER_CONCURRENCY, async ({ batch, chapterTitle }) => {
+        const systemPrompt = `Keep ISO language ${language}. Return only the requested JSON object.`;
+        const userPrompt = abilityRepairRequest(language, batch, chapterTitle);
+        const result = await requestValidatedJson(
+          client,
+          selectedModel,
+          systemPrompt,
+          userPrompt,
+          (content) => parseAbilityRepairResult(content, batch.map(({ ability }) => ability), batch.map(({ id }) => id)),
+          true
+        );
+        const batchDuplicateIds = new Set(result.duplicatePairs.map(({ deletedAbilityId }) => deletedAbilityId));
 
-          if (batchIndex >= batches.length) {
-            return;
+        result.duplicatePairs.forEach(({ deletedAbilityId, keptAbilityId }) => {
+          const kept = batch.find(({ id }) => id === keptAbilityId);
+          const deleted = batch.find(({ id }) => id === deletedAbilityId);
+
+          if (!kept || !deleted) {
+            throw new Error('OpenRouter returned a duplicate Ability pair that does not exist in this chapter.');
           }
 
-          const { batch, chapterTitle } = batches[batchIndex];
-          const systemPrompt = `Keep ISO language ${language}. Return only the requested JSON object.`;
-          const userPrompt = abilityRepairRequest(language, batch, chapterTitle);
+          duplicatePairs.set(deletedAbilityId, {
+            chapterTitle,
+            deleted,
+            deletedExerciseTitle: exerciseTitlesByModuleId.get(deleted.moduleId),
+            kept,
+            keptExerciseTitle: exerciseTitlesByModuleId.get(kept.moduleId)
+          });
+        });
+        result.reviews.forEach((review) => {
+          if (review.hasErrors && review.ability) {
+            const record = batch[review.index];
 
-          try {
-            const result = await requestValidatedJson(
-              client,
-              selectedModel,
-              systemPrompt,
-              userPrompt,
-              (content) => parseAbilityRepairResult(content, batch.map(({ ability }) => ability), batch.map(({ id }) => id)),
-              true,
-              requestGate
-            );
-
-            const batchDuplicateIds = new Set(result.duplicatePairs.map(({ deletedAbilityId }) => deletedAbilityId));
-
-            result.duplicatePairs.forEach(({ deletedAbilityId, keptAbilityId }) => {
-              const kept = batch.find(({ id }) => id === keptAbilityId);
-              const deleted = batch.find(({ id }) => id === deletedAbilityId);
-
-              if (!kept || !deleted) {
-                throw new Error('OpenRouter returned a duplicate Ability pair that does not exist in this chapter.');
-              }
-
-              duplicatePairs.set(deletedAbilityId, {
-                chapterTitle,
-                deleted,
-                deletedExerciseTitle: exerciseTitlesByModuleId.get(deleted.moduleId),
-                kept,
-                keptExerciseTitle: exerciseTitlesByModuleId.get(kept.moduleId)
-              });
-            });
-            result.reviews.forEach((review) => {
-              if (review.hasErrors && review.ability) {
-                const record = batch[review.index];
-
-                // Duplicate copies are deleted after the review phase, so do not
-                // spend a write replacing a record that is about to disappear.
-                if (!batchDuplicateIds.has(record.id)) {
-                  replacements.set(record.id, { ability: review.ability, errors: review.errors, record });
-                }
-              }
-            });
-            completed += batch.length;
-            setProgress(Math.min(allAbilities.length, completed));
-          } catch (error) {
-            workerError ??= error;
+            // Duplicate copies are deleted after the review phase, so do not
+            // spend a write replacing a record that is about to disappear.
+            if (!batchDuplicateIds.has(record.id)) {
+              replacements.set(record.id, { ability: review.ability, errors: review.errors, record });
+            }
           }
-        }
-      };
-
-      await Promise.all(Array.from({ length: Math.min(FIX_CONCURRENCY, batches.length) }, () => worker()));
-
-      if (workerError !== undefined) {
-        throw workerError;
-      }
+        });
+        completed += batch.length;
+        setProgress(Math.min(allAbilities.length, completed));
+      });
 
       // Preserve the existing all-or-nothing review phase: no Ability is
       // persisted or deleted until every chapter reply has completed successfully.
