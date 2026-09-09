@@ -134,39 +134,6 @@ function resolveChapterTitle (generatedTitle: string, pageNumber: number, pages:
   return 'Introduction';
 }
 
-async function validateExtractedContent (client: OpenAI, model: string, generated: GeneratedConcepts, mmdZipInput: MMDZipInput): Promise<GeneratedConcepts> {
-  let lastError: unknown;
-
-  for (let attempt = 0; attempt < 2; attempt++) {
-    try {
-      const indexedCandidate = {
-        ...generated,
-        exercises: (generated.exercises ?? []).map(({ imageIndexes = [], ...exercise }) => ({ ...exercise, imageIndexes }))
-      };
-      const response = await client.chat.completions.create({
-        messages: [{
-          content: [
-            {
-              text: `Act as an independent strict validator for extracted book content. Check that the chapter is accurate when present; concepts are faithfully extracted without requiring them to be atomic; every book exercise contains its complete task; abilityMode is one of the supplied supported modes and accurately describes the primary trained ability; every exercise has a correct, explicit step-by-step solution; the book language is preserved; and every mathematical expression uses <kx>...</kx>. For visuals, be conservative: imageDescription must be nonempty only when the learner truly needs to inspect visual information to perform the task and putting that information in text would change or give away the task. Clear imageDescription and imageIndexes for decorative, merely illustrative, redundant, or optional pictures. For a genuinely image-dependent exercise, keep all and only the required attached imageIndexes and write a complete standalone imageDescription sufficient to regenerate the task-essential visual without revealing the answer. Independently, solutionImageDescription must be nonempty only when the correct worked solution genuinely requires a drawing, construction, plot, graph, completed/modified diagram, marked image, or another visual result that text cannot adequately preserve; it must fully describe the correct result and may contain answer information. If the task modifies the question visual, it must describe the completed correct version of that same visual. Clear it for optional or merely illustrative solution images. Exercise descriptions must not contain Markdown image syntax, filenames, URLs, or image bytes. Do not split concepts or exercises. Fix every error and return only the complete corrected JSON object in the original shape, without commentary.\n\nSupported ability modes: ${exerciseAbilityModes.join(', ')}\n\nCandidate:\n${JSON.stringify(indexedCandidate)}`,
-              type: 'text' as const
-            },
-            ...mmdZipInput.images.map(({ image_url, type }) => ({ image_url, type }))
-          ],
-          role: 'user'
-        }],
-        model,
-        response_format: { type: 'json_object' }
-      });
-
-      return parseGeneratedConcepts(response.choices[0].message?.content?.trim() ?? '', mmdZipInput.images.length);
-    } catch (error) {
-      lastError = error;
-    }
-  }
-
-  throw lastError instanceof Error ? lastError : new Error('Extracted concepts and exercises failed AI validation twice.');
-}
-
 async function requestGeneratedPageContent (client: OpenAI, model: string, mmdZipInput: MMDZipInput): Promise<GeneratedConcepts> {
   if (!mmdZipInput.text.trim() && !mmdZipInput.images.length) {
     return { chapter: '', concepts: [], exercises: [] };
@@ -193,11 +160,7 @@ async function requestGeneratedPageContent (client: OpenAI, model: string, mmdZi
   }
 
   const generated = parseGeneratedConcepts(generatedContent, mmdZipInput.images.length);
-  const validated = generated.concepts.length || (generated.exercises?.length ?? 0) > 0
-    ? await validateExtractedContent(client, model, generated, mmdZipInput)
-    : generated;
-
-  return storageReadyGeneratedConcepts(validated);
+  return storageReadyGeneratedConcepts(generated);
 }
 
 async function generatePageContentWithEmptyConceptRetry (client: OpenAI, model: string, mmdZipInput: MMDZipInput, retryEmptyConcepts: boolean): Promise<GeneratedConcepts> {
