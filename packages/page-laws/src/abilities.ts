@@ -1,8 +1,6 @@
 // Copyright 2021-2026 @polkadot/app-laws authors & contributors
 // SPDX-License-Identifier: Apache-2.0
 
-import type { ExerciseTemplate } from '@slonigiraf/db';
-
 export interface GeneratedAbility {
   h: string;
   i: string;
@@ -67,15 +65,6 @@ export async function prepareAbilityForPublishing (
     publishAbility: { ...localAbility, q }
   };
 }
-
-export interface ExerciseTemplateVariation {
-  skillId: number;
-  solution: string;
-  sourceExerciseTemplateId: number;
-  text: string;
-}
-
-type StoredExerciseTemplate = ExerciseTemplate & { id: number };
 
 function isRecord (value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
@@ -449,51 +438,3 @@ export function parseGeneratedExerciseAbilities (content: string, expectedExerci
   return results;
 }
 
-export function parseExerciseTemplateVariations (content: string, originals: StoredExerciseTemplate[]): ExerciseTemplateVariation[] {
-  const parsed = parseResponse(content);
-  const variations = Array.isArray(parsed)
-    ? parsed
-    : isRecord(parsed)
-      ? parsed.variations ?? parsed.exerciseTemplates ?? parsed.templates
-      : undefined;
-
-  if (!Array.isArray(variations) || variations.length !== originals.length) {
-    throw new Error(`OpenRouter returned ${Array.isArray(variations) ? variations.length : 0} variations for ${originals.length} ExerciseTemplates.`);
-  }
-
-  return variations.map((variation: unknown, index): ExerciseTemplateVariation => {
-    const original = originals[index];
-
-    if (
-      !isRecord(variation) ||
-      !isNonEmptyString(variation.text) ||
-      !isNonEmptyString(variation.solution) ||
-      variation.text.replace(/\s+/g, ' ').trim() === original.text.replace(/\s+/g, ' ').trim()
-    ) {
-      throw new Error('OpenRouter returned an invalid or incorrectly paired ExerciseTemplate variation.');
-    }
-
-    return {
-      skillId: original.skillId,
-      solution: variation.solution.trim(),
-      sourceExerciseTemplateId: original.id,
-      text: variation.text.trim()
-    };
-  });
-}
-
-export function createAbilityFromExerciseVariation (skillTitle: string, original: ExerciseTemplate, variation: ExerciseTemplateVariation): GeneratedAbility {
-  if (!skillTitle.trim() || original.skillId !== variation.skillId) {
-    throw new Error('Cannot construct an Ability without its corresponding Skill.');
-  }
-
-  return {
-    h: skillTitle.trim(),
-    i: '',
-    q: [
-      { a: original.solution.trim(), h: original.text.trim(), i: '', p: '' },
-      { a: variation.solution.trim(), h: variation.text.trim(), i: '', p: '' }
-    ],
-    t: 3
-  };
-}

@@ -5,7 +5,8 @@
 
 import { strict as assert } from 'node:assert';
 
-import { bookLanguageDetectionPrompt, bookLanguageLabel, getMiddleBookPageNumbers, parseDetectedBookLanguage } from './bookLanguage.js';
+import { bookLanguageLabel, getMiddleBookPageNumbers, parseDetectedBookLanguage } from './bookLanguage.js';
+import { BOOK_LANGUAGE_DETECTION_PROMPT } from './constants.js';
 
 describe('book language detection', (): void => {
   it('selects the middle three pages', (): void => {
@@ -17,7 +18,7 @@ describe('book language detection', (): void => {
   });
 
   it('builds an AI prompt from middle-page text', (): void => {
-    const prompt = bookLanguageDetectionPrompt([
+    const prompt = BOOK_LANGUAGE_DETECTION_PROMPT([
       { pageNumber: 4, text: 'Some text' },
       { pageNumber: 5, text: 'More text' },
       { pageNumber: 6, text: 'Final text' }

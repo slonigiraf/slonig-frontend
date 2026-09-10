@@ -77,16 +77,6 @@ export function getMiddleBookPageNumbers (totalPages: number): number[] {
   return Array.from({ length: count }, (_, index) => start + index);
 }
 
-export function bookLanguageDetectionPrompt (pageTexts: Array<{ pageNumber: number; text: string }>): string {
-  return `Identify the primary natural language of this book using only the supplied Mathpix MMD text from its middle pages. Ignore formulas, code, proper names, citations, isolated foreign phrases, and bilingual glossary fragments when deciding the main prose language. If the pages contain multiple languages, choose the language used for the majority of explanatory or instructional prose.
-
-Return only valid JSON in this exact shape using a lowercase ISO 639-1 two-letter code:
-{"language":"en"}
-
-Middle-page MMD text:
-${pageTexts.map(({ pageNumber, text }) => `--- page ${pageNumber} ---\n${text}`).join('\n\n')}`;
-}
-
 export function parseDetectedBookLanguage (content: string): string {
   const parsed = parseJsonResponse(content);
   let value: unknown = parsed;

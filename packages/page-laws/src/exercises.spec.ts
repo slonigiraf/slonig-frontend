@@ -7,7 +7,7 @@ import type { Exercise } from '@slonigiraf/db';
 
 import { strict as assert } from 'node:assert';
 
-import { fixExercisesPrompt } from './constants.js';
+import { FIX_EXERCISES_PROMPT } from './constants.js';
 import { parseExerciseRepairResult } from './exercises.js';
 
 function createExercise (id: number, title = `Exercise ${id}`): Exercise {
@@ -189,27 +189,27 @@ describe('exercise repair', (): void => {
   });
 
   it('requires the prompt to repair Exercises without changing relationships', (): void => {
-    assert.match(fixExercisesPrompt, /factual/i);
-    assert.match(fixExercisesPrompt, /mathematical/i);
-    assert.match(fixExercisesPrompt, /grammatical/i);
-    assert.match(fixExercisesPrompt, /KaTeX/i);
-    assert.match(fixExercisesPrompt, /imageDescription/i);
-    assert.match(fixExercisesPrompt, /only visual-description fields/i);
-    assert.match(fixExercisesPrompt, /decorative, illustrative/i);
-    assert.match(fixExercisesPrompt, /solutionImageDescription/i);
-    assert.match(fixExercisesPrompt, /EXPECTED ANSWER FORMAT/i);
-    assert.match(fixExercisesPrompt, /draw, sketch, plot, graph, construct/i);
-    assert.match(fixExercisesPrompt, /never clear an existing nonempty solutionImageDescription/i);
-    assert.match(fixExercisesPrompt, /conceptId/i);
-    assert.match(fixExercisesPrompt, /preference rather than an absolute cardinality rule/i);
-    assert.match(fixExercisesPrompt, /most learner thinking and information transformation/i);
-    assert.match(fixExercisesPrompt, /merely asks the learner to explain/i);
-    assert.match(fixExercisesPrompt, /weaker or redundant same-concept Exercises/i);
-    assert.match(fixExercisesPrompt, /duplicatePairs/i);
-    assert.match(fixExercisesPrompt, /keptExerciseId/i);
-    assert.match(fixExercisesPrompt, /deletedExerciseId/i);
-    assert.match(fixExercisesPrompt, /earliest supplied index only as a final tie-breaker/i);
-    assert.match(fixExercisesPrompt, /omit correct Exercises/i);
-    assert.match(fixExercisesPrompt, /Do not return or change database identity or relationship fields/i);
+    assert.match(FIX_EXERCISES_PROMPT, /factual/i);
+    assert.match(FIX_EXERCISES_PROMPT, /mathematical/i);
+    assert.match(FIX_EXERCISES_PROMPT, /grammatical/i);
+    assert.match(FIX_EXERCISES_PROMPT, /KaTeX/i);
+    assert.match(FIX_EXERCISES_PROMPT, /imageDescription/i);
+    assert.match(FIX_EXERCISES_PROMPT, /only visual-description fields/i);
+    assert.match(FIX_EXERCISES_PROMPT, /decorative, illustrative/i);
+    assert.match(FIX_EXERCISES_PROMPT, /solutionImageDescription/i);
+    assert.match(FIX_EXERCISES_PROMPT, /EXPECTED ANSWER FORMAT/i);
+    assert.match(FIX_EXERCISES_PROMPT, /draw, sketch, plot, graph, construct/i);
+    assert.match(FIX_EXERCISES_PROMPT, /never clear an existing nonempty solutionImageDescription/i);
+    assert.match(FIX_EXERCISES_PROMPT, /conceptId/i);
+    assert.match(FIX_EXERCISES_PROMPT, /preference rather than an absolute cardinality rule/i);
+    assert.match(FIX_EXERCISES_PROMPT, /most learner thinking and information transformation/i);
+    assert.match(FIX_EXERCISES_PROMPT, /merely asks the learner to explain/i);
+    assert.match(FIX_EXERCISES_PROMPT, /weaker or redundant same-concept Exercises/i);
+    assert.match(FIX_EXERCISES_PROMPT, /duplicatePairs/i);
+    assert.match(FIX_EXERCISES_PROMPT, /keptExerciseId/i);
+    assert.match(FIX_EXERCISES_PROMPT, /deletedExerciseId/i);
+    assert.match(FIX_EXERCISES_PROMPT, /earliest supplied index only as a final tie-breaker/i);
+    assert.match(FIX_EXERCISES_PROMPT, /omit correct Exercises/i);
+    assert.match(FIX_EXERCISES_PROMPT, /Do not return or change database identity or relationship fields/i);
   });
 });

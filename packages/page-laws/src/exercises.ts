@@ -3,7 +3,7 @@
 
 import type { Exercise } from '@slonigiraf/db';
 
-import { exerciseAbilityModes } from './bookProcessing.js';
+import { exerciseAbilityModes } from './constants.js';
 
 export interface ExerciseRepairReview {
   errors: string[];

@@ -21,7 +21,7 @@ import { useApi } from '@polkadot/react-hooks';
 import { FormatBalance } from '@polkadot/react-query';
 import { BN_ZERO, u8aToHex } from '@polkadot/util';
 
-import { OPENAI_MODELS } from './constants.js';
+import { COURSE_NAMES_PROMPT, OPENAI_MODELS } from './constants.js';
 import { openRouterRequestGate } from './openRouterConcurrency.js';
 import { parseNameSuggestions } from './courseNames.js';
 import KnowledgeTargetSelector from './KnowledgeTargetSelector.js';
@@ -590,7 +590,7 @@ function SkillsCourse ({ book }: { book: Book }): React.ReactElement {
       });
       const response = await openRouterRequestGate.run(() => client.chat.completions.create({
         messages: [{
-          content: `Correct and improve the book name and each editable chapter name using only the ordered skill-template titles as evidence. Keep names concise, specific, and in the same language as the skill-template titles. Do not translate. Return exactly this JSON shape and no commentary: {"bookName":"Name","chapters":[{"id":1,"title":"Chapter name"}]}. Return one chapter entry for every supplied editable chapter ID.\n\n${JSON.stringify({
+          content: COURSE_NAMES_PROMPT({
             bookName: courseName,
             chapters: courseChapters.map(({ chapter, templates }) => ({
               abilityTitles: templates.map(({ template }) => template.h),
@@ -598,7 +598,7 @@ function SkillsCourse ({ book }: { book: Book }): React.ReactElement {
               id: chapter.id,
               title: chapter.title
             }))
-          })}`,
+          }),
           role: 'user'
         }],
         model: OPENAI_MODELS[0].value,

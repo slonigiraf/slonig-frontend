@@ -3,7 +3,7 @@ import { useTranslation } from '../translate.js';
 import { getSetting, SettingKey, storeAbility } from '@slonigiraf/db';
 import OpenAI from 'openai';
 import { FileUpload } from '@polkadot/react-components';
-import { skillListPrompt } from '../constants.js';
+import { SKILL_LIST_PROMPT, STRICT_JSON_ARRAY_SYSTEM_PROMPT } from '../constants.js';
 import { parseGeneratedAbilities } from '../abilities.js';
 import { openRouterRequestGate } from '../openRouterConcurrency.js';
 
@@ -49,8 +49,6 @@ const GenerateAbilities: React.FC<Props> = ({ className = '', moduleId }: Props)
         'X-OpenRouter-Title': 'Slonig'
       }
     });
-    const prompt = skillListPrompt;
-
     try {
       setLoading(true);
 
@@ -68,11 +66,11 @@ const GenerateAbilities: React.FC<Props> = ({ className = '', moduleId }: Props)
       const response = await openRouterRequestGate.run(() => client.chat.completions.create({
         model: 'openai/gpt-4o-mini',
         messages: [
-          { role: 'system', content: 'Respond strictly as a JSON array.' },
+          { role: 'system', content: STRICT_JSON_ARRAY_SYSTEM_PROMPT },
           {
             role: 'user',
             content: [
-              { type: 'text', text: prompt },
+              { type: 'text', text: SKILL_LIST_PROMPT },
               fileContent
             ] as any
           }

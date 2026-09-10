@@ -1,6 +1,7 @@
 // Copyright 2021-2026 @polkadot/app-laws authors & contributors
 // SPDX-License-Identifier: Apache-2.0
 
+import { OPEN_ROUTER_SOLUTION_RASTER_PROMPT, OPEN_ROUTER_SVG_PROMPT } from './constants.js';
 import { openRouterRequestGate } from './openRouterConcurrency.js';
 
 export const OPENROUTER_IMAGE_MODEL = 'bytedance-seed/seedream-4.5';
@@ -80,7 +81,7 @@ async function generateOpenRouterSvg (apiKey: string, prompt: string, model: str
   const response = await openRouterRequestGate.run(() => fetch('https://openrouter.ai/api/v1/chat/completions', {
     body: JSON.stringify({
       messages: [{
-        content: `Decide whether this educational Ability visual can be represented faithfully as a clean vector SVG. Prefer SVG for diagrams, geometry, graphs, charts, tables, symbols, simple objects, maps, layouts, and other task visuals whose educational information is shape/text/position/relationship based. Choose raster only when the task genuinely depends on photographic realism, natural texture, subtle material appearance, complex real-world imagery, or another property that SVG would materially lose. Never choose raster merely for aesthetics.\n\nIf SVG is suitable, create a complete standalone SVG that exactly represents the requested task-essential visual. Keep it simple and readable, include only information required by the task, ${purpose === 'solution' ? 'this is a worked-solution visual, so show the complete correct constructed/drawn/plotted/modified result requested by the prompt and do not suppress answer information that the solution itself must display; when the task changes a question visual, preserve the same base objects, labels, scale, coordinate system, and layout and apply only the requested changes' : 'this is a question visual, so do not reveal or encode the answer'}, use a viewBox, and do not use scripts, external resources, embedded raster images, foreignObject, URLs, or event handlers. If SVG would break the educational logic, choose raster.\n\nReturn only JSON: {"format":"svg","svg":"<svg ...>...</svg>"} or {"format":"raster","svg":""}.\n\nVisual request:\n${prompt}`,
+        content: OPEN_ROUTER_SVG_PROMPT(prompt, purpose),
         role: 'user'
       }],
       model,
@@ -151,7 +152,7 @@ export async function generateOpenRouterVisual (apiKey: string, prompt: string, 
   }
 
   const rasterPrompt = purpose === 'solution'
-    ? `Create the complete worked-solution visual. Show the correct constructed, drawn, labeled, shaded, plotted, graphed, marked, or modified result required by the solution. If this is an updated version of a question visual, preserve all unchanged base objects, labels, scale, coordinate system, and layout and apply only the requested change.\n\n${prompt}`
+    ? OPEN_ROUTER_SOLUTION_RASTER_PROMPT(prompt)
     : prompt;
 
   try {

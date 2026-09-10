@@ -7,8 +7,8 @@ import type { GeneratedAbility } from './abilities.js';
 
 import { strict as assert } from 'node:assert';
 
-import { createAbilityFromExerciseVariation, parseAbilityRepairResult, parseAbilityRepairReviews, parseExerciseTemplateVariations, parseGeneratedAbilities, parseGeneratedExerciseAbilities, parseStoredAbility, prepareAbilityForPublishing } from './abilities.js';
-import { conceptsToSkillsPrompt, divideExerciseTemplatesPrompt, fixAbilitiesPrompt, skillListPrompt, skillsToExercisesPrompt, skillsToExerciseTemplatesPrompt, sourcesToSkillsPrompt } from './constants.js';
+import { parseAbilityRepairResult, parseAbilityRepairReviews, parseGeneratedAbilities, parseGeneratedExerciseAbilities, parseStoredAbility, prepareAbilityForPublishing } from './abilities.js';
+import { FIX_ABILITIES_PROMPT, SKILL_LIST_PROMPT, SOURCES_TO_SKILLS_PROMPT } from './constants.js';
 
 function createSkill (): GeneratedAbility {
   return {
@@ -415,7 +415,7 @@ describe('generated abilities', (): void => {
     assert.deepEqual(parseGeneratedAbilities(JSON.stringify([skill])), [skill]);
   });
 
-  for (const [name, prompt] of Object.entries({ conceptsToSkillsPrompt, skillListPrompt })) {
+  for (const [name, prompt] of Object.entries({ SKILL_LIST_PROMPT })) {
     it(`accepts the original JSON array example in ${name}`, (): void => {
       const example = prompt.match(/^\[[\s\S]*?^\]/m)?.[0];
 
@@ -432,101 +432,41 @@ describe('generated abilities', (): void => {
     });
   }
 
+  it('requires compact reusable exercise templates', (): void => {
+    assert.match(SKILL_LIST_PROMPT, /reusable template pattern/i);
+    assert.match(SKILL_LIST_PROMPT, /later be reused by changing 1-3 data-bearing words or values/i);
+    assert.match(SKILL_LIST_PROMPT, /do not generate, propose, compare, or output extra alternate/i);
+    assert.match(SKILL_LIST_PROMPT, /fewer than 7 words/i);
+    assert.match(SKILL_LIST_PROMPT, /Templatability, self-containment/i);
+  });
+
   it('generates one language-constrained skill per source item', (): void => {
-    assert.match(sourcesToSkillsPrompt, /exactly one/i);
-    assert.match(sourcesToSkillsPrompt, /abstractly/i);
-    assert.match(sourcesToSkillsPrompt, /Do not include, copy, or depend on specific examples/i);
-    assert.match(sourcesToSkillsPrompt, /ISO 639-1 language code/i);
-    assert.match(sourcesToSkillsPrompt, /"skills"/);
-  });
-
-  it('generates one transformation ExerciseTemplate per supplied skill block', (): void => {
-    assert.match(skillsToExerciseTemplatesPrompt, /bookLanguage and blocks/i);
-    assert.match(skillsToExerciseTemplatesPrompt, /exactly one exercise/i);
-    assert.match(skillsToExerciseTemplatesPrompt, /exactly one output exercise per skill/i);
-    assert.match(skillsToExerciseTemplatesPrompt, /transformation/i);
-    assert.match(skillsToExerciseTemplatesPrompt, /step by step/i);
-    assert.match(skillsToExerciseTemplatesPrompt, /linked concepts and exampleExercises/i);
-    assert.match(skillsToExerciseTemplatesPrompt, /Match the structure, terminology, tone, and difficulty/i);
-    assert.match(skillsToExerciseTemplatesPrompt, /strictly in bookLanguage/i);
-    assert.match(skillsToExerciseTemplatesPrompt, /corresponding supplied skill\.id/i);
-    assert.match(skillsToExerciseTemplatesPrompt, /<kx>/i);
-    assert.doesNotMatch(skillsToExerciseTemplatesPrompt, /"title"/i);
-  });
-
-  it('divides multistep ExerciseTemplates without replacing their parents', (): void => {
-    assert.match(divideExerciseTemplatesPrompt, /Do not change or return the parent/i);
-    assert.match(divideExerciseTemplatesPrompt, /one additional, self-contained child/i);
-    assert.match(divideExerciseTemplatesPrompt, /multiple substantive steps/i);
-    assert.match(divideExerciseTemplatesPrompt, /empty templates array is valid/i);
-    assert.doesNotMatch(divideExerciseTemplatesPrompt, /"title"/i);
+    assert.match(SOURCES_TO_SKILLS_PROMPT, /exactly one/i);
+    assert.match(SOURCES_TO_SKILLS_PROMPT, /abstractly/i);
+    assert.match(SOURCES_TO_SKILLS_PROMPT, /Do not include, copy, or depend on specific examples/i);
+    assert.match(SOURCES_TO_SKILLS_PROMPT, /ISO 639-1 language code/i);
+    assert.match(SOURCES_TO_SKILLS_PROMPT, /"skills"/);
   });
 
   it('requires the repair stage to detect all error classes and return indexed fixes', (): void => {
-    assert.match(fixAbilitiesPrompt, /factual/i);
-    assert.match(fixAbilitiesPrompt, /logical/i);
-    assert.match(fixAbilitiesPrompt, /grammatical/i);
-    assert.match(fixAbilitiesPrompt, /KaTeX/i);
-    assert.match(fixAbilitiesPrompt, /question image present/i);
-    assert.match(fixAbilitiesPrompt, /preserve the image dependency/i);
-    assert.match(fixAbilitiesPrompt, /hasErrors/i);
-    assert.match(fixAbilitiesPrompt, /errors/i);
-    assert.match(fixAbilitiesPrompt, /reviews/i);
-    assert.match(fixAbilitiesPrompt, /partial reviews array/i);
-    assert.match(fixAbilitiesPrompt, /duplicatePairs/i);
-    assert.match(fixAbilitiesPrompt, /keptAbilityId/i);
-    assert.match(fixAbilitiesPrompt, /deletedAbilityId/i);
-    assert.match(fixAbilitiesPrompt, /earliest supplied index/i);
-    assert.match(fixAbilitiesPrompt, /omit correct Abilities/i);
-    assert.match(fixAbilitiesPrompt, /<kx>/i);
+    assert.match(FIX_ABILITIES_PROMPT, /factual/i);
+    assert.match(FIX_ABILITIES_PROMPT, /logical/i);
+    assert.match(FIX_ABILITIES_PROMPT, /grammatical/i);
+    assert.match(FIX_ABILITIES_PROMPT, /KaTeX/i);
+    assert.match(FIX_ABILITIES_PROMPT, /question image present/i);
+    assert.match(FIX_ABILITIES_PROMPT, /preserve the image dependency/i);
+    assert.match(FIX_ABILITIES_PROMPT, /hasErrors/i);
+    assert.match(FIX_ABILITIES_PROMPT, /errors/i);
+    assert.match(FIX_ABILITIES_PROMPT, /reviews/i);
+    assert.match(FIX_ABILITIES_PROMPT, /partial reviews array/i);
+    assert.match(FIX_ABILITIES_PROMPT, /duplicatePairs/i);
+    assert.match(FIX_ABILITIES_PROMPT, /keptAbilityId/i);
+    assert.match(FIX_ABILITIES_PROMPT, /deletedAbilityId/i);
+    assert.match(FIX_ABILITIES_PROMPT, /earliest supplied index/i);
+    assert.match(FIX_ABILITIES_PROMPT, /omit correct Abilities/i);
+    assert.match(FIX_ABILITIES_PROMPT, /<kx>/i);
   });
 
-  it('asks AI for one recalculated variation per chapter ExerciseTemplate', (): void => {
-    assert.match(skillsToExercisesPrompt, /exerciseTemplates from one chapter/i);
-    assert.match(skillsToExercisesPrompt, /exactly one similar ExerciseTemplate variation/i);
-    assert.match(skillsToExercisesPrompt, /Vary the concrete arguments or task parameters/i);
-    assert.match(skillsToExercisesPrompt, /Recalculate the solution/i);
-    assert.match(skillsToExercisesPrompt, /correspond by array position/i);
-    assert.match(skillsToExercisesPrompt, /Do not copy database IDs/i);
-    assert.match(skillsToExercisesPrompt, /Do not return Abilities/i);
-    assert.match(skillsToExercisesPrompt, /constructed locally in the browser/i);
-    assert.match(fixAbilitiesPrompt, /different concrete input parameters/i);
-  });
-
-  it('pairs an AI variation with its original and uses the Skill title locally', (): void => {
-    const original = { id: 7, skillId: 4, solution: '<kx>2 \\times 1000 = 2000</kx> m.', text: 'Convert <kx>2</kx> km to m.' };
-    const [variation] = parseExerciseTemplateVariations(JSON.stringify({
-      variations: [{ solution: '<kx>5 \\times 1000 = 5000</kx> m.', text: 'Convert <kx>5</kx> km to m.' }]
-    }), [original]);
-    const template = createAbilityFromExerciseVariation('Convert whole kilometers to meters', original, variation);
-
-    assert.equal(template.h, 'Convert whole kilometers to meters');
-    assert.deepEqual(template.q, [
-      { a: original.solution, h: original.text, i: '', p: '' },
-      { a: variation.solution, h: variation.text, i: '', p: '' }
-    ]);
-    assert.equal(template.t, 3);
-  });
-
-  it('assigns relationships locally and rejects incomplete or unchanged variations', (): void => {
-    const original = { id: 7, skillId: 4, solution: 'Answer 1', text: 'Question 1' };
-    const [variation] = parseExerciseTemplateVariations(JSON.stringify({ variations: [{ solution: 'Answer 2', text: 'Question 2' }] }), [original]);
-
-    assert.equal(variation.sourceExerciseTemplateId, original.id);
-    assert.equal(variation.skillId, original.skillId);
-    assert.throws(() => parseExerciseTemplateVariations(JSON.stringify({ variations: [{ solution: original.solution, text: original.text }] }), [original]));
-    assert.throws(() => parseExerciseTemplateVariations(JSON.stringify({ variations: [{ text: 'Question 2' }] }), [original]));
-    assert.equal(parseExerciseTemplateVariations(JSON.stringify({ variations: [{ solution: original.solution, text: 'Question 2' }] }), [original])[0].solution, original.solution);
-  });
-
-  it('accepts common AI envelope variants without weakening content validation', (): void => {
-    const original = { id: 7, skillId: 4, solution: 'Answer 1', text: 'Question 1' };
-    const varied = { solution: 'Answer 2', text: 'Question 2' };
-
-    assert.equal(parseExerciseTemplateVariations(JSON.stringify({ exerciseTemplates: [varied] }), [original])[0].text, varied.text);
-    assert.equal(parseExerciseTemplateVariations(JSON.stringify({ templates: [varied] }), [original])[0].solution, varied.solution);
-    assert.equal(parseExerciseTemplateVariations(JSON.stringify([varied]), [original])[0].sourceExerciseTemplateId, original.id);
-  });
 });
 
 describe('stored abilities', (): void => {

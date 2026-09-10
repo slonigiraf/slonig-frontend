@@ -74,11 +74,11 @@ function Upload (): React.ReactElement {
   const [generateAllConceptsModel, setGenerateAllConceptsModel] = useState(OPENAI_MODELS[0].value);
   const [generateConceptsEstimate, setGenerateConceptsEstimate] = useState('');
   const [isGenerateConceptsConfirmationOpen, setIsGenerateConceptsConfirmationOpen] = useState(false);
-  const [isRefineConfirmationOpen, setIsRefineConfirmationOpen] = useState(false);
+  const [isGenerateExercisesConfirmationOpen, setIsGenerateExercisesConfirmationOpen] = useState(false);
   const [isRecognizeConfirmationOpen, setIsRecognizeConfirmationOpen] = useState(false);
-  const [pendingProcessingAction, setPendingProcessingAction] = useState<'concepts' | 'recognize' | 'refine'>();
-  const [refineAllContentRequest, setRefineAllContentRequest] = useState(0);
-  const [refineEstimate, setRefineEstimate] = useState('');
+  const [pendingProcessingAction, setPendingProcessingAction] = useState<'concepts' | 'recognize' | 'exercises'>();
+  const [generateAllExercisesRequest, setGenerateAllExercisesRequest] = useState(0);
+  const [generateExercisesEstimate, setGenerateExercisesEstimate] = useState('');
   const [recognizeEstimate, setRecognizeEstimate] = useState('');
   const [recognizeAllRequest, setRecognizeAllRequest] = useState(0);
   const [readerFile, setReaderFile] = useState<File>();
@@ -326,17 +326,17 @@ function Upload (): React.ReactElement {
     });
   }, [selectedBook, t]);
 
-  const onRefineContent = useCallback((): void => {
+  const onGenerateExercises = useCallback((): void => {
     if (!selectedBook) {
       return;
     }
 
-    setPendingProcessingAction('refine');
-    setIsRefineConfirmationOpen(true);
+    setPendingProcessingAction('exercises');
+    setIsGenerateExercisesConfirmationOpen(true);
   }, [selectedBook]);
 
   useEffect(() => {
-    if (!isRefineConfirmationOpen || !selectedBook) {
+    if (!isGenerateExercisesConfirmationOpen || !selectedBook) {
       return;
     }
 
@@ -347,17 +347,17 @@ function Upload (): React.ReactElement {
       })));
       const requests = inputs.flatMap((input) => Array.from({ length: 8 }, () => input.padEnd(input.length + 2_000)));
 
-      setRefineEstimate(formatAiInputEstimate(estimateAiInput(generateAllConceptsModel, requests, pages.length * 12_000)));
-    }).catch(() => setError(t('Unable to estimate refinement cost.')));
-  }, [generateAllConceptsModel, isRefineConfirmationOpen, selectedBook, t]);
+      setGenerateExercisesEstimate(formatAiInputEstimate(estimateAiInput(generateAllConceptsModel, requests, pages.length * 12_000)));
+    }).catch(() => setError(t('Unable to estimate exercise generation cost.')));
+  }, [generateAllConceptsModel, isGenerateExercisesConfirmationOpen, selectedBook, t]);
 
-  const closeRefineConfirmation = useCallback((): void => {
-    setIsRefineConfirmationOpen(false);
+  const closeGenerateExercisesConfirmation = useCallback((): void => {
+    setIsGenerateExercisesConfirmationOpen(false);
     setPendingProcessingAction(undefined);
   }, []);
 
-  const confirmRefineContent = useCallback((): void => {
-    setIsRefineConfirmationOpen(false);
+  const confirmGenerateExercises = useCallback((): void => {
+    setIsGenerateExercisesConfirmationOpen(false);
 
     if (!selectedBook) {
       return;
@@ -368,7 +368,7 @@ function Upload (): React.ReactElement {
         setBooks((current) => current.map((book) => book.id === updatedBook.id ? updatedBook : book));
       }
 
-      setRefineAllContentRequest((request) => request + 1);
+      setGenerateAllExercisesRequest((request) => request + 1);
     }).catch(() => {
       setPendingProcessingAction(undefined);
       setError(t('Unable to reset the book processing stage.'));
@@ -473,14 +473,14 @@ function Upload (): React.ReactElement {
           </Button.Group>
         </Modal.Content>
       </Modal>}
-      {isRefineConfirmationOpen && <Modal
-        header={t('Refine concepts and generate exercises')}
-        onClose={closeRefineConfirmation}
+      {isGenerateExercisesConfirmationOpen && <Modal
+        header={t('Generate exercises')}
+        onClose={closeGenerateExercisesConfirmation}
         size='small'
       >
         <Modal.Content>
-          <p>{t('Split concepts twice, generate four diverse exercises per refined concept, merge them with book exercises, then split the merged exercises twice?')}</p>
-          <p>{refineEstimate}</p>
+          <p>{t('Generate one succinct, transformation-first exercise per concept, keep one per non-overlapping book exercise, and skip book exercises already covered by concepts?')}</p>
+          <p>{generateExercisesEstimate}</p>
           <Dropdown
             className='batchModelSelect'
             isFull
@@ -493,12 +493,12 @@ function Upload (): React.ReactElement {
             <Button
               icon='times'
               label={t('Cancel')}
-              onClick={closeRefineConfirmation}
+              onClick={closeGenerateExercisesConfirmation}
             />
             <Button
               icon='magic'
               label={t('Generate')}
-              onClick={confirmRefineContent}
+              onClick={confirmGenerateExercises}
             />
           </Button.Group>
         </Modal.Content>
@@ -570,12 +570,12 @@ function Upload (): React.ReactElement {
                 icon={(selectedBook?.processingStage ?? 0) >= 3 ? 'rotate-left' : 'play'}
                 isDisabled={!selectedBook || !readerFile || isBusy || (selectedBook.processingStage ?? 0) < 2}
                 label={t('Exercises')}
-                onClick={onRefineContent}
+                onClick={onGenerateExercises}
               />
             </span>
           </>}
           recognizeAllRequest={recognizeAllRequest}
-          refineAllContentRequest={refineAllContentRequest}
+          generateAllExercisesRequest={generateAllExercisesRequest}
         />
       )}
     </StyledSection>
