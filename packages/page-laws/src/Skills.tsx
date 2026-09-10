@@ -115,7 +115,7 @@ interface Props {
   book: Book;
   onBookChange: (book: Book) => void;
   onAction?: (view: SkillsView) => void;
-  onEntityCountsChange?: (counts: { abilities: number; exercises: number }) => void;
+  onEntityCountsChange?: (counts: { abilities: number; bookExercises: number; exercises: number }) => void;
   pipelineOnly?: boolean;
   pipelinePrefix?: React.ReactNode;
   showPipeline?: boolean;
@@ -717,11 +717,12 @@ function Skills ({ book, onAction, onBookChange, onEntityCountsChange, pipelineO
   const allSkills = useMemo(() => chapterContent.flatMap(({ skills }) => skills), [chapterContent]);
   const allSkillBlocks = useMemo(() => chapterContent.flatMap(({ concepts, exercises, skills }) => createSkillBlocks(skills, concepts, exercises)), [chapterContent]);
   const allExercises = useMemo(() => chapterContent.flatMap(({ exercises }) => exercises), [chapterContent]);
+  const allBookExercises = useMemo(() => allExercises.filter(({ source }) => source !== 'generated'), [allExercises]);
   const allAbilities = useMemo(() => chapterContent.flatMap(({ abilities }) => abilities), [chapterContent]);
 
   useEffect(() => {
-    onEntityCountsChange?.({ abilities: allAbilities.length, exercises: allExercises.length });
-  }, [allAbilities.length, allExercises.length, onEntityCountsChange]);
+    onEntityCountsChange?.({ abilities: allAbilities.length, bookExercises: allBookExercises.length, exercises: allExercises.length });
+  }, [allAbilities.length, allBookExercises.length, allExercises.length, onEntityCountsChange]);
   const exerciseTitlesByModuleId = useMemo(() => new Map(allExercises.flatMap(({ id, title }) => id === undefined ? [] : [[exerciseAbilityModuleId(book.id, id), title] as const])), [allExercises, book.id]);
   const skillSources = useMemo<SkillSource[]>(() => chapterContent.flatMap(({ chapter, concepts, exercises }) => chapter.id === undefined ? [] : [...concepts.flatMap(({ description, id, title }) => id === undefined ? [] : [{ chapterId: chapter.id as number, chapterTitle: chapter.title, description, sourceId: id, sourceType: 'concept' as const, title }]), ...exercises.flatMap(({ description, id, title }) => id === undefined ? [] : [{ chapterId: chapter.id as number, chapterTitle: chapter.title, description: stripMarkdownImageReferences(description), sourceId: id, sourceType: 'exercise' as const, title }])]), [chapterContent]);
   // Pipeline buttons must follow the persisted processing stage, not the

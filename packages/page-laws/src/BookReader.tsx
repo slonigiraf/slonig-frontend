@@ -393,6 +393,7 @@ type RecognitionTarget = 'all' | 'page';
 
 interface ReaderEntityCounts {
   abilities: number;
+  bookExercises: number;
   concepts: number;
   exercises: number;
 }
@@ -416,7 +417,7 @@ function BookReader ({ book, file, generateAllConceptsModel, generateAllConcepts
   const [concepts, setConcepts] = useState<BookConcept[]>([]);
   const [exercises, setExercises] = useState<Exercise[]>([]);
   const [error, setError] = useState('');
-  const [entityCounts, setEntityCounts] = useState<ReaderEntityCounts>({ abilities: 0, concepts: 0, exercises: 0 });
+  const [entityCounts, setEntityCounts] = useState<ReaderEntityCounts>({ abilities: 0, bookExercises: 0, concepts: 0, exercises: 0 });
   const [generatedConceptsPageCount, setGeneratedConceptsPageCount] = useState(0);
   const [isDetectingBookLanguage, setIsDetectingBookLanguage] = useState(false);
   const [isGeneratingAllConcepts, setIsGeneratingAllConcepts] = useState(false);
@@ -465,13 +466,14 @@ function BookReader ({ book, file, generateAllConceptsModel, generateAllConcepts
 
     setEntityCounts({
       abilities: abilities.length,
+      bookExercises: allExercises.filter(({ source }) => source !== 'generated').length,
       concepts: pageRows.reduce((count, { concepts }) => count + concepts.length, 0),
       exercises: allExercises.length
     });
   }, [book.id]);
 
-  const onSkillsEntityCountsChange = useCallback(({ abilities, exercises }: Pick<ReaderEntityCounts, 'abilities' | 'exercises'>): void => {
-    setEntityCounts((current) => ({ ...current, abilities, exercises }));
+  const onSkillsEntityCountsChange = useCallback(({ abilities, bookExercises, exercises }: Pick<ReaderEntityCounts, 'abilities' | 'bookExercises' | 'exercises'>): void => {
+    setEntityCounts((current) => ({ ...current, abilities, bookExercises, exercises }));
   }, []);
 
   useEffect(() => {
@@ -1265,23 +1267,6 @@ function BookReader ({ book, file, generateAllConceptsModel, generateAllConcepts
       : processingPage === pageNumber
         ? 'Generating, splitting, and saving concepts and exercises…'
         : 'Concepts and exercises';
-  const conceptsPane = (): React.ReactNode => (
-    <div className='tabPanel conceptsPanel'>
-      <div className='detailsHeader'>
-        <span>{conceptsStatus}</span>
-      </div>
-      {!pages.get(pageNumber)?.pageMMDZip && <p className='recognitionHint'>Recognize this page before generating concepts.</p>}
-      <div className='conceptsOutput'>
-        <h3>{pages.get(pageNumber)?.chapter || 'Chapter not identified'}</h3>
-        {concepts.length
-          ? <ul>{concepts.map((concept) => <li key={concept.id}>
-            <strong><KatexSpan content={concept.title} /></strong>
-            {concept.description && <p><KatexSpan content={concept.description} /></p>}
-          </li>)}</ul>
-          : <p className='emptyOutput'>No concepts have been generated for this page.</p>}
-      </div>
-    </div>
-  );
   const exerciseItem = (exercise: Exercise): React.ReactNode => {
     const description = stripMarkdownImageReferences(exercise.description);
 
@@ -1293,6 +1278,32 @@ function BookReader ({ book, file, generateAllConceptsModel, generateAllConcepts
       {exercise.solution && <p><KatexSpan content={exercise.solution} /></p>}
       {exercise.solutionImageDescription && <p><small>Solution visual: <KatexSpan content={exercise.solutionImageDescription} /></small></p>}
     </li>;
+  };
+  const conceptsPane = (): React.ReactNode => {
+    const bookExercises = exercises.filter(({ source }) => source !== 'generated');
+
+    return <div className='tabPanel conceptsPanel'>
+      <div className='detailsHeader'>
+        <span>{conceptsStatus}</span>
+      </div>
+      {!pages.get(pageNumber)?.pageMMDZip && <p className='recognitionHint'>Recognize this page before generating concepts.</p>}
+      <div className='conceptsOutput'>
+        <h3>{pages.get(pageNumber)?.chapter || 'Chapter not identified'}</h3>
+        <section className='conceptExerciseGroup'>
+          <h3>Concepts</h3>
+          {concepts.length
+            ? <ul>{concepts.map((concept) => <li key={concept.id}>
+              <strong><KatexSpan content={concept.title} /></strong>
+              {concept.description && <p><KatexSpan content={concept.description} /></p>}
+            </li>)}</ul>
+            : <p className='emptyOutput'>No concepts were parsed from this book page.</p>}
+        </section>
+        <section className='conceptExerciseGroup bookExercisesGroup'>
+          <h3>Book exercises</h3>
+          {bookExercises.length ? <ul>{bookExercises.map(exerciseItem)}</ul> : <p className='emptyOutput'>No exercises were parsed from this book page.</p>}
+        </section>
+      </div>
+    </div>;
   };
 
   const exercisesPane = (): React.ReactNode => {
@@ -1421,7 +1432,7 @@ function BookReader ({ book, file, generateAllConceptsModel, generateAllConcepts
       >
         {([
           ['pdfText', 'Text', 1, totalPages],
-          ['textConcepts', 'Concepts', 2, entityCounts.concepts],
+          ['textConcepts', `Concepts/Exercises (${entityCounts.concepts}/${entityCounts.bookExercises})`, 2, undefined],
           ['conceptExercises', 'Exercises', 3, entityCounts.exercises],
           ['preExercisesExercises', 'Abilities', 4, entityCounts.abilities],
           ['skillsCourse', 'Course', 7, undefined]
