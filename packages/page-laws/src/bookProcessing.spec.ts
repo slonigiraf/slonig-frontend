@@ -5,7 +5,7 @@
 
 import { strict as assert } from 'node:assert';
 
-import { areAllBookPagesConceptsProcessed, calculatePageSymbolStatistics, countUnprocessedBookPages, exerciseAbilityModes, GENERATED_EXERCISES_PER_CONCEPT, isWithinTwoStandardDeviations, MAX_EXERCISE_GENERATION_RETRIES, processExtractedPageContent } from './bookProcessing.js';
+import { areAllBookPagesConceptsProcessed, calculatePageSymbolStatistics, countUnprocessedBookPages, exerciseAbilityModes, GENERATED_EXERCISES_PER_CONCEPT, isWithinTwoStandardDeviations, MAX_EXERCISE_GENERATION_RETRIES, processExtractedChapterContent } from './bookProcessing.js';
 
 describe('book processing pipeline', (): void => {
 
@@ -108,20 +108,23 @@ describe('book processing pipeline', (): void => {
       return Promise.resolve(JSON.stringify({ exercises: parsed.exercises }));
     };
 
-    const result = await processExtractedPageContent({
+    const result = await processExtractedChapterContent({
       chapter: 'Chapter',
-      concepts: [{ description: 'Broad description', title: 'Broad concept' }],
-      exercises: [{ abilityMode: 'reasoning', description: 'Complete book task', solution: 'Book solution', title: 'Book exercise' }]
+      pages: [{
+        concepts: [{ description: 'Broad description', title: 'Broad concept' }],
+        exercises: [{ abilityMode: 'reasoning', description: 'Complete book task', solution: 'Book solution', title: 'Book exercise' }],
+        pageNumber: 1
+      }]
     }, runAi);
 
     assert.equal(GENERATED_EXERCISES_PER_CONCEPT, 4);
     assert.equal(prompts.length, 6);
-    assert.deepEqual(result.concepts.map(({ title }) => title), ['Atomic A', 'Atomic B']);
-    assert.equal(result.exercises.length, 9);
-    assert.equal(result.exercises.filter(({ source }) => source === 'book').length, 1);
-    assert.equal(result.exercises.filter(({ source }) => source === 'generated').length, 8);
-    assert.deepEqual(new Set(result.exercises.filter(({ source }) => source === 'generated').map(({ conceptIndex }) => conceptIndex)), new Set([0, 1]));
-    assert.ok(result.exercises.every(({ abilityMode }) => exerciseAbilityModes.includes(abilityMode as typeof exerciseAbilityModes[number])));
+    assert.deepEqual(result.pages[0].concepts.map(({ title }) => title), ['Atomic A', 'Atomic B']);
+    assert.equal(result.pages[0].exercises.length, 9);
+    assert.equal(result.pages[0].exercises.filter(({ source }) => source === 'book').length, 1);
+    assert.equal(result.pages[0].exercises.filter(({ source }) => source === 'generated').length, 8);
+    assert.deepEqual(new Set(result.pages[0].exercises.filter(({ source }) => source === 'generated').map(({ conceptIndex }) => conceptIndex)), new Set([0, 1]));
+    assert.ok(result.pages[0].exercises.every(({ abilityMode }) => exerciseAbilityModes.includes(abilityMode as typeof exerciseAbilityModes[number])));
   });
 
   it('stores Exercise visual descriptions without storing image bytes', async (): Promise<void> => {
@@ -152,25 +155,31 @@ describe('book processing pipeline', (): void => {
 
       return Promise.resolve(JSON.stringify({ exercises: input.exercises }));
     };
-    const result = await processExtractedPageContent({
+    const result = await processExtractedChapterContent({
       chapter: 'Chapter',
-      concepts: [{ description: 'Atomic', title: 'Concept' }],
-      exercises: []
+      pages: [{
+        concepts: [{ description: 'Atomic', title: 'Concept' }],
+        exercises: [],
+        pageNumber: 1
+      }]
     }, runAi);
 
-    assert.equal(result.exercises.length, 1);
-    assert.match(result.exercises[0].imageDescription ?? '', /number line/i);
-    assert.equal(result.exercises[0].solutionImageDescription, '');
-    assert.equal('image' in result.exercises[0], false);
-    assert.equal('images' in result.exercises[0], false);
+    assert.equal(result.pages[0].exercises.length, 1);
+    assert.match(result.pages[0].exercises[0].imageDescription ?? '', /number line/i);
+    assert.equal(result.pages[0].exercises[0].solutionImageDescription, '');
+    assert.equal('image' in result.pages[0].exercises[0], false);
+    assert.equal('images' in result.pages[0].exercises[0], false);
   });
 
   it('preserves a required solution-image description for a drawing result', async (): Promise<void> => {
     let request = 0;
-    const result = await processExtractedPageContent({
+    const result = await processExtractedChapterContent({
       chapter: 'Chapter',
-      concepts: [{ description: 'Plot ordered pairs', title: 'Coordinate plotting' }],
-      exercises: []
+      pages: [{
+        concepts: [{ description: 'Plot ordered pairs', title: 'Coordinate plotting' }],
+        exercises: [],
+        pageNumber: 1
+      }]
     }, (prompt) => {
       request++;
 
@@ -198,18 +207,21 @@ describe('book processing pipeline', (): void => {
       return Promise.resolve(JSON.stringify({ exercises: input.exercises }));
     });
 
-    assert.equal(result.exercises[0].imageDescription, '');
-    assert.match(result.exercises[0].solutionImageDescription ?? '', /point \(2,3\)/i);
-    assert.equal('image' in result.exercises[0], false);
-    assert.equal('images' in result.exercises[0], false);
+    assert.equal(result.pages[0].exercises[0].imageDescription, '');
+    assert.match(result.pages[0].exercises[0].solutionImageDescription ?? '', /point \(2,3\)/i);
+    assert.equal('image' in result.pages[0].exercises[0], false);
+    assert.equal('images' in result.pages[0].exercises[0], false);
   });
 
   it('does not let split/refinement erase an existing required solution image description', async (): Promise<void> => {
     let request = 0;
-    const result = await processExtractedPageContent({
+    const result = await processExtractedChapterContent({
       chapter: 'Chapter',
-      concepts: [{ description: 'Plot ordered pairs', title: 'Coordinate plotting' }],
-      exercises: []
+      pages: [{
+        concepts: [{ description: 'Plot ordered pairs', title: 'Coordinate plotting' }],
+        exercises: [],
+        pageNumber: 1
+      }]
     }, (prompt) => {
       request++;
 
@@ -243,16 +255,19 @@ describe('book processing pipeline', (): void => {
       return Promise.resolve(JSON.stringify({ reviews: [{ inputIndex: 0, requiresSolutionImage: true, solutionImageDescription: '' }] }));
     });
 
-    assert.match(result.exercises[0].solutionImageDescription ?? '', /\(4,-2\)/);
+    assert.match(result.pages[0].exercises[0].solutionImageDescription ?? '', /\(4,-2\)/);
   });
 
   it('requires generation and refinement prompts to classify visual-output answers', async (): Promise<void> => {
     const prompts: string[] = [];
 
-    await processExtractedPageContent({
+    await processExtractedChapterContent({
       chapter: 'Chapter',
-      concepts: [{ description: 'Geometric construction', title: 'Construct a perpendicular bisector' }],
-      exercises: []
+      pages: [{
+        concepts: [{ description: 'Geometric construction', title: 'Construct a perpendicular bisector' }],
+        exercises: [],
+        pageNumber: 1
+      }]
     }, (prompt) => {
       prompts.push(prompt);
 
@@ -293,10 +308,13 @@ describe('book processing pipeline', (): void => {
 
   it('fills a missing solution image description in the dedicated final visual audit', async (): Promise<void> => {
     let request = 0;
-    const result = await processExtractedPageContent({
+    const result = await processExtractedChapterContent({
       chapter: 'Chapter',
-      concepts: [{ description: 'Graph linear functions', title: 'Graphing' }],
-      exercises: []
+      pages: [{
+        concepts: [{ description: 'Graph linear functions', title: 'Graphing' }],
+        exercises: [],
+        pageNumber: 1
+      }]
     }, (prompt) => {
       request++;
 
@@ -331,20 +349,23 @@ describe('book processing pipeline', (): void => {
       }] }));
     });
 
-    assert.match(result.exercises[0].solutionImageDescription ?? '', /y=2x\+1/i);
+    assert.match(result.pages[0].exercises[0].solutionImageDescription ?? '', /y=2x\+1/i);
   });
 
   it('retains prior results when a split pass is empty', async (): Promise<void> => {
     let request = 0;
 
-    const result = await processExtractedPageContent({
+    const result = await processExtractedChapterContent({
       chapter: 'Chapter',
-      concepts: [{ description: 'Atomic', title: 'Concept' }],
-      exercises: []
+      pages: [{
+        concepts: [{ description: 'Atomic', title: 'Concept' }],
+        exercises: [],
+        pageNumber: 1
+      }]
     }, () => Promise.resolve(request++ < 2 ? '{}' : JSON.stringify({ exercises: [] })));
 
-    assert.deepEqual(result.concepts, [{ description: 'Atomic', title: 'Concept' }]);
-    assert.deepEqual(result.exercises, []);
+    assert.deepEqual(result.pages[0].concepts, [{ description: 'Atomic', title: 'Concept' }]);
+    assert.deepEqual(result.pages[0].exercises, []);
   });
 
   it('retries missing concepts together up to three times', async (): Promise<void> => {
@@ -381,14 +402,17 @@ describe('book processing pipeline', (): void => {
       return Promise.resolve(JSON.stringify({ exercises: input.exercises }));
     };
 
-    const result = await processExtractedPageContent({
+    const result = await processExtractedChapterContent({
       chapter: 'Chapter',
-      concepts: [{ description: 'A', title: 'Concept A' }, { description: 'B', title: 'Concept B' }],
-      exercises: []
+      pages: [{
+        concepts: [{ description: 'A', title: 'Concept A' }, { description: 'B', title: 'Concept B' }],
+        exercises: [],
+        pageNumber: 1
+      }]
     }, runAi);
 
     assert.equal(MAX_EXERCISE_GENERATION_RETRIES, 3);
     assert.equal(prompts.length, 9);
-    assert.deepEqual(result.exercises.map(({ conceptIndex }) => conceptIndex), [0, 1]);
+    assert.deepEqual(result.pages[0].exercises.map(({ conceptIndex }) => conceptIndex), [0, 1]);
   });
 });

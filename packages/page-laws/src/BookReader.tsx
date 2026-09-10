@@ -18,7 +18,7 @@ import { Button, Dropdown, Input, Modal, styled } from '@polkadot/react-componen
 
 import { estimateAiInput, formatAiInputEstimate } from './aiEstimate.js';
 import { bookLanguageDetectionPrompt, bookLanguageLabel, getMiddleBookPageNumbers, parseDetectedBookLanguage } from './bookLanguage.js';
-import { areAllBookPagesConceptsProcessed, calculatePageSymbolStatistics, countUnprocessedBookPages, exerciseAbilityModes, isWithinTwoStandardDeviations, processExtractedPageContent } from './bookProcessing.js';
+import { areAllBookPagesConceptsProcessed, calculatePageSymbolStatistics, countUnprocessedBookPages, exerciseAbilityModes, isWithinTwoStandardDeviations, processExtractedChapterContent } from './bookProcessing.js';
 import { mapConcurrent } from './concurrency.js';
 import { OPENROUTER_CONCURRENCY, openRouterRequestGate } from './openRouterConcurrency.js';
 import { OPENAI_MODELS } from './constants.js';
@@ -398,9 +398,25 @@ interface ReaderEntityCounts {
   exercises: number;
 }
 
+interface ExerciseChapterNavigationItem {
+  pageNumbers: number[];
+  title: string;
+}
+
 const exerciseAbilityModuleId = (bookId: number, exerciseId: number): string => `book-${bookId}-exercise-${exerciseId}`;
 
 const readerPaneSessionKey = (bookId: number): string => `knowledge-upload-book-${bookId}-pane`;
+const exerciseChapterSessionKey = (bookId: number): string => `knowledge-upload-book-${bookId}-exercises-chapter`;
+
+function getSessionExerciseChapter (bookId: number): number {
+  try {
+    const stored = Number(sessionStorage.getItem(exerciseChapterSessionKey(bookId)));
+
+    return Number.isSafeInteger(stored) && stored >= 0 ? stored : 0;
+  } catch {
+    return 0;
+  }
+}
 
 function getSessionReaderPane (bookId: number): ReaderPane {
   try {
@@ -416,6 +432,10 @@ function BookReader ({ book, file, generateAllConceptsModel, generateAllConcepts
   const [activePane, setActivePane] = useState<ReaderPane>(() => getSessionReaderPane(book.id));
   const [concepts, setConcepts] = useState<BookConcept[]>([]);
   const [exercises, setExercises] = useState<Exercise[]>([]);
+  const [exerciseChapterConcepts, setExerciseChapterConcepts] = useState<BookConcept[]>([]);
+  const [exerciseChapterExercises, setExerciseChapterExercises] = useState<Exercise[]>([]);
+  const [exerciseChapterIndex, setExerciseChapterIndex] = useState(() => getSessionExerciseChapter(book.id));
+  const [isExerciseChapterLoading, setIsExerciseChapterLoading] = useState(false);
   const [error, setError] = useState('');
   const [entityCounts, setEntityCounts] = useState<ReaderEntityCounts>({ abilities: 0, bookExercises: 0, concepts: 0, exercises: 0 });
   const [generatedConceptsPageCount, setGeneratedConceptsPageCount] = useState(0);
@@ -450,6 +470,26 @@ function BookReader ({ book, file, generateAllConceptsModel, generateAllConcepts
 
     return formatAiInputEstimate(estimateAiInput(selectedModel, [pageText.padEnd(pageText.length + 2_000), validationInput.padEnd(validationInput.length + 2_000)], 4_800));
   }, [pageNumber, pages, selectedModel]);
+  const exerciseChapters = useMemo<ExerciseChapterNavigationItem[]>(() => {
+    const grouped = new Map<string, ExerciseChapterNavigationItem>();
+
+    Array.from(pages.values())
+      .filter(({ conceptsProcessed }) => conceptsProcessed)
+      .sort((a, b) => a.pageNumber - b.pageNumber)
+      .forEach(({ chapter, pageNumber }) => {
+        const title = chapter.trim();
+        const current = grouped.get(title);
+
+        if (current) {
+          current.pageNumbers.push(pageNumber);
+        } else {
+          grouped.set(title, { pageNumbers: [pageNumber], title });
+        }
+      });
+
+    return Array.from(grouped.values());
+  }, [pages]);
+  const currentExerciseChapter = exerciseChapters[exerciseChapterIndex];
 
   const refreshEntityCounts = useCallback(async (): Promise<void> => {
     const storedPages = await getBookPages(book.id);
@@ -475,10 +515,33 @@ function BookReader ({ book, file, generateAllConceptsModel, generateAllConcepts
   const onSkillsEntityCountsChange = useCallback(({ abilities, bookExercises, exercises }: Pick<ReaderEntityCounts, 'abilities' | 'bookExercises' | 'exercises'>): void => {
     setEntityCounts((current) => ({ ...current, abilities, bookExercises, exercises }));
   }, []);
+  const changeExerciseChapter = useCallback((index: number): void => {
+    const nextIndex = Math.max(0, Math.min(index, Math.max(0, exerciseChapters.length - 1)));
+
+    setExerciseChapterIndex(nextIndex);
+
+    try {
+      sessionStorage.setItem(exerciseChapterSessionKey(book.id), String(nextIndex));
+    } catch {
+      // Session storage may be unavailable in privacy-restricted contexts.
+    }
+  }, [book.id, exerciseChapters.length]);
 
   useEffect(() => {
     refreshEntityCounts().catch(() => undefined);
   }, [book.processingStage, refreshEntityCounts]);
+
+  useEffect((): void => {
+    if (!exerciseChapters.length) {
+      setExerciseChapterIndex(0);
+
+      return;
+    }
+
+    if (exerciseChapterIndex >= exerciseChapters.length) {
+      changeExerciseChapter(exerciseChapters.length - 1);
+    }
+  }, [changeExerciseChapter, exerciseChapterIndex, exerciseChapters.length]);
 
   useEffect(() => {
     try {
@@ -581,6 +644,49 @@ function BookReader ({ book, file, generateAllConceptsModel, generateAllConcepts
       active = false;
     };
   }, [book.id, pageNumber, pages]);
+
+  useEffect(() => {
+    if (activePane !== 'conceptExercises') {
+      return;
+    }
+
+    let active = true;
+
+    const loadChapterLearningContent = async (): Promise<void> => {
+      if (!currentExerciseChapter) {
+        setExerciseChapterConcepts([]);
+        setExerciseChapterExercises([]);
+        setIsExerciseChapterLoading(false);
+
+        return;
+      }
+
+      setExerciseChapterConcepts([]);
+      setExerciseChapterExercises([]);
+      setIsExerciseChapterLoading(true);
+      const pageRows = await Promise.all(currentExerciseChapter.pageNumbers.map(async (chapterPageNumber) => {
+        const [storedConcepts, storedExercises] = await Promise.all([
+          getBookConceptsForBookPage(book.id, chapterPageNumber),
+          getExercisesForBookPage([book.id, chapterPageNumber])
+        ]);
+
+        return { concepts: storedConcepts, exercises: storedExercises };
+      }));
+
+      if (active) {
+        setExerciseChapterConcepts(pageRows.flatMap(({ concepts }) => concepts));
+        setExerciseChapterExercises(pageRows.flatMap(({ exercises }) => exercises));
+      }
+    };
+
+    loadChapterLearningContent()
+      .catch(() => active && setError('Unable to load this chapter’s exercises.'))
+      .finally(() => active && setIsExerciseChapterLoading(false));
+
+    return () => {
+      active = false;
+    };
+  }, [activePane, book.id, currentExerciseChapter]);
 
   useEffect(() => {
     if (!pdf || !canvasRef.current || !pageAreaRef.current) {
@@ -879,25 +985,27 @@ function BookReader ({ book, file, generateAllConceptsModel, generateAllConcepts
       }
 
       const client = new OpenAI({ apiKey: key, baseURL: 'https://openrouter.ai/api/v1', dangerouslyAllowBrowser: true, defaultHeaders: { 'HTTP-Referer': window.location.origin, 'X-OpenRouter-Title': 'Slonig' } });
-      const storedPages = (await getBookPages(book.id)).filter(({ conceptsProcessed }) => conceptsProcessed);
-      const pageInputs = await Promise.all(storedPages.map(async ({ pageNumber }) => ({
-        concepts: await getBookConceptsForBookPage(book.id, pageNumber),
-        exercises: await getExercisesForBookPage([book.id, pageNumber]),
-        pageNumber
+      const storedPages = (await getBookPages(book.id))
+        .filter(({ conceptsProcessed }) => conceptsProcessed)
+        .sort((a, b) => a.pageNumber - b.pageNumber);
+      const pageInputs = await Promise.all(storedPages.map(async (storedPage) => ({
+        chapter: storedPage.chapter,
+        concepts: (await getBookConceptsForBookPage(book.id, storedPage.pageNumber)).map(({ description, title }) => ({ description, title })),
+        exercises: (await getExercisesForBookPage([book.id, storedPage.pageNumber])).map(({ abilityMode = 'reasoning', description, imageDescription, solution = '', solutionImageDescription, title }) => ({ abilityMode, description: stripMarkdownImageReferences(description), imageDescription, solution, solutionImageDescription, title })),
+        pageNumber: storedPage.pageNumber
       })));
+      const groupedPages = pageInputs.reduce((grouped, { chapter, ...page }) => {
+        const chapterPages = grouped.get(chapter) ?? [];
 
-      await mapConcurrent(pageInputs, OPENROUTER_CONCURRENCY, async ({ concepts: storedConcepts, exercises: storedExercises, pageNumber: currentPageNumber }) => {
-        const storedPage = pages.get(currentPageNumber) ?? storedPages.find(({ pageNumber }) => pageNumber === currentPageNumber);
+        chapterPages.push(page);
+        grouped.set(chapter, chapterPages);
 
-        if (!storedPage) {
-          return;
-        }
+        return grouped;
+      }, new Map<string, Array<Omit<typeof pageInputs[number], 'chapter'>>>());
+      const chapterInputs = Array.from(groupedPages, ([chapter, pages]) => ({ chapter, pages }));
 
-        const processed = await processExtractedPageContent({
-          chapter: storedPage.chapter,
-          concepts: storedConcepts.map(({ description, title }) => ({ description, title })),
-          exercises: storedExercises.map(({ abilityMode = 'reasoning', description, imageDescription, solution = '', solutionImageDescription, title }) => ({ abilityMode, description: stripMarkdownImageReferences(description), imageDescription, solution, solutionImageDescription, title }))
-        }, async (prompt) => {
+      await mapConcurrent(chapterInputs, OPENROUTER_CONCURRENCY, async (chapterInput) => {
+        const processedChapter = await processExtractedChapterContent(chapterInput, async (prompt) => {
           const response = await openRouterRequestGate.run(() => client.chat.completions.create({
             messages: [{ content: prompt, role: 'user' }],
             model: generateAllConceptsModel,
@@ -906,14 +1014,17 @@ function BookReader ({ book, file, generateAllConceptsModel, generateAllConcepts
 
           return response.choices[0].message?.content?.trim() ?? '{}';
         });
-        const stored = await replaceParsedBookPageContent(book.id, currentPageNumber, processed.chapter, processed.concepts, processed.exercises);
 
-        if (currentPageNumber === pageNumber) {
-          setConcepts(stored.concepts);
-          setExercises(stored.exercises);
+        for (const processed of processedChapter.pages) {
+          const stored = await replaceParsedBookPageContent(book.id, processed.pageNumber, processedChapter.chapter, processed.concepts, processed.exercises);
+
+          if (processed.pageNumber === pageNumber) {
+            setConcepts(stored.concepts);
+            setExercises(stored.exercises);
+          }
+
+          setRefinedPageCount((count) => count + 1);
         }
-
-        setRefinedPageCount((count) => count + 1);
       });
 
       await refreshEntityCounts();
@@ -1307,34 +1418,38 @@ function BookReader ({ book, file, generateAllConceptsModel, generateAllConcepts
   };
 
   const exercisesPane = (): React.ReactNode => {
-    const conceptIds = new Set(concepts.flatMap(({ id }) => id === undefined ? [] : [id]));
-    const generatedWithoutConcept = exercises.filter(({ conceptId, source }) => source === 'generated' && (conceptId === undefined || !conceptIds.has(conceptId)));
-    const bookExercises = exercises.filter(({ source }) => source !== 'generated');
+    const conceptIds = new Set(exerciseChapterConcepts.flatMap(({ id }) => id === undefined ? [] : [id]));
+    const generatedWithoutConcept = exerciseChapterExercises.filter(({ conceptId, source }) => source === 'generated' && (conceptId === undefined || !conceptIds.has(conceptId)));
+    const bookExercises = exerciseChapterExercises.filter(({ source }) => source !== 'generated');
 
     return <div className='tabPanel conceptsPanel'>
-      <div className='detailsHeader'><span>Exercises grouped by concept</span></div>
+      <div className='detailsHeader'><span>{isExerciseChapterLoading ? 'Loading chapter exercises…' : 'Exercises grouped by concept'}</span></div>
       <div className='conceptsOutput'>
-        <h3>{pages.get(pageNumber)?.chapter || 'Chapter not identified'}</h3>
-        {concepts.map((concept) => {
-          const generated = exercises.filter(({ conceptId, source }) => source === 'generated' && concept.id !== undefined && conceptId === concept.id);
+        <h3>{currentExerciseChapter?.title || 'Chapter not identified'}</h3>
+        {!currentExerciseChapter
+          ? <p className='emptyOutput'>No processed chapters are available.</p>
+          : <>
+            {exerciseChapterConcepts.map((concept) => {
+              const generated = exerciseChapterExercises.filter(({ conceptId, source }) => source === 'generated' && concept.id !== undefined && conceptId === concept.id);
 
-          return <section
-            className='conceptExerciseGroup'
-            key={concept.id}
-                 >
-            <h4><KatexSpan content={concept.title} /></h4>
-            {concept.description && <p><KatexSpan content={concept.description} /></p>}
-            {generated.length ? <ul>{generated.map(exerciseItem)}</ul> : <p className='emptyOutput'>No generated exercises for this concept.</p>}
-          </section>;
-        })}
-        {!!generatedWithoutConcept.length && <section className='conceptExerciseGroup'>
-          <h4>Other generated exercises</h4>
-          <ul>{generatedWithoutConcept.map(exerciseItem)}</ul>
-        </section>}
-        <section className='conceptExerciseGroup bookExercisesGroup'>
-          <h3>Book exercises</h3>
-          {bookExercises.length ? <ul>{bookExercises.map(exerciseItem)}</ul> : <p className='emptyOutput'>No exercises were copied from this book page.</p>}
-        </section>
+              return <section
+                className='conceptExerciseGroup'
+                key={concept.id}
+                     >
+                <h4><KatexSpan content={concept.title} /></h4>
+                {concept.description && <p><KatexSpan content={concept.description} /></p>}
+                {generated.length ? <ul>{generated.map(exerciseItem)}</ul> : <p className='emptyOutput'>No generated exercises for this concept.</p>}
+              </section>;
+            })}
+            {!!generatedWithoutConcept.length && <section className='conceptExerciseGroup'>
+              <h4>Other generated exercises</h4>
+              <ul>{generatedWithoutConcept.map(exerciseItem)}</ul>
+            </section>}
+            <section className='conceptExerciseGroup bookExercisesGroup'>
+              <h3>Book exercises</h3>
+              {bookExercises.length ? <ul>{bookExercises.map(exerciseItem)}</ul> : <p className='emptyOutput'>No exercises were copied from this chapter.</p>}
+            </section>
+          </>}
       </div>
     </div>;
   };
@@ -1457,7 +1572,7 @@ function BookReader ({ book, file, generateAllConceptsModel, generateAllConcepts
         className='readerColumns'
         role='tabpanel'
       >
-        {(activePane === 'pdfText' || activePane === 'textConcepts' || activePane === 'conceptExercises') && <div className='pageNavigation'>
+        {(activePane === 'pdfText' || activePane === 'textConcepts') && <div className='pageNavigation'>
           <Button
             icon='arrow-left'
             isDisabled={pageNumber <= 1}
@@ -1486,6 +1601,29 @@ function BookReader ({ book, file, generateAllConceptsModel, generateAllConcepts
             onChange={({ target }) => goToPage(Number(target.value))}
             type='range'
             value={pageNumber}
+          />
+        </div>}
+        {activePane === 'conceptExercises' && <div className='chapterNavigation'>
+          <Button
+            icon='arrow-left'
+            isDisabled={exerciseChapterIndex <= 0}
+            onClick={() => changeExerciseChapter(exerciseChapterIndex - 1)}
+          />
+          <label>Chapter <select
+            aria-label='Navigate chapters'
+            disabled={!exerciseChapters.length}
+            onChange={({ target }) => changeExerciseChapter(Number(target.value))}
+            value={exerciseChapters.length ? exerciseChapterIndex : ''}
+                         >
+            {exerciseChapters.map(({ title }, index) => <option
+              key={`${title}:${index}`}
+              value={index}
+                                                        >{title || 'Chapter not identified'}</option>)}
+          </select><span>{exerciseChapters.length ? `${exerciseChapterIndex + 1} of ${exerciseChapters.length}` : 'No chapters'}</span></label>
+          <Button
+            icon='arrow-right'
+            isDisabled={!exerciseChapters.length || exerciseChapterIndex >= exerciseChapters.length - 1}
+            onClick={() => changeExerciseChapter(exerciseChapterIndex + 1)}
           />
         </div>}
         {activePane === 'pdfText'
@@ -1592,6 +1730,36 @@ const StyledReader = styled.div`
     grid-template-columns: auto auto auto minmax(10rem, 1fr) auto;
     margin-bottom: 1rem;
     grid-column: 1 / -1;
+  }
+
+  .chapterNavigation {
+    align-items: center;
+    display: flex;
+    gap: 0.75rem;
+    grid-column: 1 / -1;
+    margin-bottom: 1rem;
+  }
+
+  .chapterNavigation label {
+    align-items: center;
+    display: flex;
+    flex: 1;
+    gap: 0.5rem;
+    min-width: 0;
+  }
+
+  .chapterNavigation select {
+    background: var(--bg-input);
+    border: 1px solid #dde1eb;
+    border-radius: 0.25rem;
+    color: var(--color-text);
+    flex: 1;
+    min-width: 0;
+    padding: 0.55rem;
+  }
+
+  .chapterNavigation span {
+    white-space: nowrap;
   }
 
   .processingOverlay { align-items: center; background: color-mix(in srgb, var(--bg-page) 92%, transparent); display: flex; flex-direction: column; gap: 0.75rem; inset: 0; justify-content: center; position: fixed; z-index: 1000; }

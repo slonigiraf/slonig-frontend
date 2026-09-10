@@ -17,17 +17,30 @@ export type ProcessingExercise = Omit<Exercise, 'bookPage' | 'conceptId' | 'id'>
   source: 'book' | 'generated';
 };
 
-export interface ExtractedPageContent {
-  chapter: string;
+export interface ExtractedChapterPageContent {
   concepts: ProcessingConcept[];
   exercises: Array<Omit<ProcessingExercise, 'source'>>;
+  pageNumber: number;
 }
 
-export interface ProcessedPageContent {
+export interface ExtractedChapterContent {
   chapter: string;
+  pages: ExtractedChapterPageContent[];
+}
+
+export interface ProcessedChapterPageContent {
   concepts: ProcessingConcept[];
   exercises: ProcessingExercise[];
+  pageNumber: number;
 }
+
+export interface ProcessedChapterContent {
+  chapter: string;
+  pages: ProcessedChapterPageContent[];
+}
+
+type LocatedProcessingConcept = ProcessingConcept & { sourcePageNumber: number };
+type LocatedProcessingExercise = ProcessingExercise & { sourcePageNumber: number };
 
 export type BookProcessingAi = (prompt: string) => Promise<string>;
 
@@ -138,7 +151,7 @@ function splitConceptsResult (content: string, inputs: ProcessingConcept[]): Pro
       : [];
   });
   const complete = inputs.flatMap((input, inputIndex) => {
-    const replacements = parsed.filter((item) => item.inputIndex === inputIndex).map(({ description, title }) => ({ description, title }));
+    const replacements = parsed.filter((item) => item.inputIndex === inputIndex).map(({ description, title }) => ({ ...input, description, title }));
 
     return replacements.length ? replacements : [input];
   });
@@ -146,19 +159,19 @@ function splitConceptsResult (content: string, inputs: ProcessingConcept[]): Pro
   return deduplicate(complete);
 }
 
-function generatedExercisesResult (content: string, concepts: ProcessingConcept[]): ProcessingExercise[] {
+function generatedExercisesResult (content: string, concepts: LocatedProcessingConcept[]): LocatedProcessingExercise[] {
   const values = parseJsonObject(content).exercises;
 
   if (!Array.isArray(values)) {
     return [];
   }
 
-  return deduplicate(values.flatMap((value): ProcessingExercise[] => {
+  return deduplicate(values.flatMap((value): LocatedProcessingExercise[] => {
     const item = value as Partial<ProcessingExercise> & { conceptIndex?: unknown };
     const conceptIndex = Number(item.conceptIndex);
 
     return Number.isInteger(conceptIndex) && conceptIndex >= 0 && conceptIndex < concepts.length && typeof item.title === 'string' && item.title.trim() && typeof item.description === 'string' && item.description.trim() && typeof item.solution === 'string' && item.solution.trim() && typeof item.abilityMode === 'string' && exerciseAbilityModes.includes(item.abilityMode as typeof exerciseAbilityModes[number])
-      ? [{ abilityMode: item.abilityMode, conceptIndex, description: item.description.trim(), imageDescription: typeof item.imageDescription === 'string' ? item.imageDescription.trim() : '', solution: item.solution.trim(), solutionImageDescription: typeof item.solutionImageDescription === 'string' ? item.solutionImageDescription.trim() : '', source: 'generated', title: item.title.trim() }]
+      ? [{ abilityMode: item.abilityMode, conceptIndex, description: item.description.trim(), imageDescription: typeof item.imageDescription === 'string' ? item.imageDescription.trim() : '', solution: item.solution.trim(), solutionImageDescription: typeof item.solutionImageDescription === 'string' ? item.solutionImageDescription.trim() : '', source: 'generated', sourcePageNumber: concepts[conceptIndex].sourcePageNumber, title: item.title.trim() }]
       : [];
   }));
 }
@@ -216,16 +229,34 @@ function auditSolutionVisualsResult (content: string, inputs: ProcessingExercise
   }));
 }
 
-export async function processExtractedPageContent (extracted: ExtractedPageContent, runAi: BookProcessingAi): Promise<ProcessedPageContent> {
-  let concepts = deduplicate(extracted.concepts);
+export async function processExtractedChapterContent (extracted: ExtractedChapterContent, runAi: BookProcessingAi): Promise<ProcessedChapterContent> {
+  const { chapter, pages } = extracted;
 
-  let generatedExercises = concepts.length
-    ? generatedExercisesResult(await runAi(`${GENERATE_EXERCISES_PROMPT}\n${JSON.stringify({ concepts: concepts.map((concept, conceptIndex) => ({ ...concept, conceptIndex })) })}`), concepts)
+  if (!pages.length) {
+    return { chapter, pages: [] };
+  }
+
+  const pageNumbers = new Set<number>();
+
+  for (const { pageNumber } of pages) {
+    if (pageNumbers.has(pageNumber)) {
+      throw new Error(`Chapter processing batch contains duplicate page number ${pageNumber}.`);
+    }
+
+    pageNumbers.add(pageNumber);
+  }
+
+  const concepts: LocatedProcessingConcept[] = deduplicate(pages.flatMap(({ concepts, pageNumber }) =>
+    concepts.map((concept) => ({ ...concept, sourcePageNumber: pageNumber }))
+  ));
+
+  let generatedExercises: LocatedProcessingExercise[] = concepts.length
+    ? generatedExercisesResult(await runAi(`${GENERATE_EXERCISES_PROMPT}\n${JSON.stringify({ concepts: concepts.map(({ sourcePageNumber: _sourcePageNumber, ...concept }, conceptIndex) => ({ ...concept, conceptIndex })) })}`), concepts)
     : [];
 
   for (let retry = 0; retry < MAX_EXERCISE_GENERATION_RETRIES; retry++) {
     const coveredConcepts = new Set(generatedExercises.flatMap(({ conceptIndex }) => conceptIndex === undefined ? [] : [conceptIndex]));
-    const missingConcepts = concepts.flatMap((concept, conceptIndex) => coveredConcepts.has(conceptIndex) ? [] : [{ ...concept, conceptIndex }]);
+    const missingConcepts = concepts.flatMap(({ sourcePageNumber: _sourcePageNumber, ...concept }, conceptIndex) => coveredConcepts.has(conceptIndex) ? [] : [{ ...concept, conceptIndex }]);
 
     if (!missingConcepts.length) {
       break;
@@ -236,16 +267,42 @@ export async function processExtractedPageContent (extracted: ExtractedPageConte
     generatedExercises = deduplicate([...generatedExercises, ...recovered]);
   }
 
-  let exercises: ProcessingExercise[] = deduplicate([
-    ...extracted.exercises.map((exercise) => ({ ...exercise, source: 'book' as const })),
+  let exercises: LocatedProcessingExercise[] = deduplicate([
+    ...pages.flatMap(({ exercises, pageNumber }) => exercises.map((exercise) => ({ ...exercise, source: 'book' as const, sourcePageNumber: pageNumber }))),
     ...generatedExercises
   ]);
 
   if (exercises.length) {
-    const input = exercises.map((exercise, inputIndex) => ({ ...exercise, inputIndex }));
+    const input = exercises.map(({ sourcePageNumber: _sourcePageNumber, ...exercise }, inputIndex) => ({ ...exercise, inputIndex }));
 
-    exercises = auditSolutionVisualsResult(await runAi(`${EXERCISE_SOLUTION_VISUAL_AUDIT_PROMPT}\n${JSON.stringify({ exercises: input })}`), exercises);
+    exercises = auditSolutionVisualsResult(await runAi(`${EXERCISE_SOLUTION_VISUAL_AUDIT_PROMPT}\n${JSON.stringify({ exercises: input })}`), exercises) as LocatedProcessingExercise[];
   }
 
-  return { chapter: extracted.chapter, concepts, exercises };
+  const localConceptIndexes = new Map<number, Map<number, number>>();
+
+  concepts.forEach(({ sourcePageNumber }, chapterConceptIndex) => {
+    const pageIndexes = localConceptIndexes.get(sourcePageNumber) ?? new Map<number, number>();
+
+    pageIndexes.set(chapterConceptIndex, pageIndexes.size);
+    localConceptIndexes.set(sourcePageNumber, pageIndexes);
+  });
+
+  return {
+    chapter,
+    pages: pages.map(({ pageNumber }) => ({
+      concepts: concepts
+        .filter(({ sourcePageNumber }) => sourcePageNumber === pageNumber)
+        .map(({ sourcePageNumber: _sourcePageNumber, ...concept }) => concept),
+      exercises: exercises
+        .filter(({ sourcePageNumber }) => sourcePageNumber === pageNumber)
+        .map(({ sourcePageNumber: _sourcePageNumber, ...exercise }) => ({
+          ...exercise,
+          conceptIndex: exercise.conceptIndex === undefined
+            ? undefined
+            : localConceptIndexes.get(pageNumber)?.get(exercise.conceptIndex)
+        })),
+      pageNumber
+    }))
+  };
 }
+
