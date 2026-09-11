@@ -258,11 +258,7 @@ export async function processExtractedChapterContent (extracted: ExtractedChapte
     ...generatedExercises
   ];
 
-  if (exercises.length) {
-    const input = exercises.map(({ sourcePageNumber: _sourcePageNumber, ...exercise }, inputIndex) => ({ ...exercise, inputIndex }));
-
-    exercises = auditSolutionVisualsResult(await runAi(EXERCISE_SOLUTION_VISUAL_AUDIT_REQUEST_PROMPT({ exercises: input })), exercises) as LocatedProcessingExercise[];
-  }
+  
 
   const localConceptIndexes = new Map<number, Map<number, number>>();
 
