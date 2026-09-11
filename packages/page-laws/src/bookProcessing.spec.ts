@@ -94,7 +94,7 @@ describe('book processing pipeline', (): void => {
         }));
       }
 
-      assert.match(prompt, /dedicated solution-visual audit/i);
+      assert.match(prompt, /dedicated visual-necessity audit/i);
       const input = JSON.parse(prompt.slice(prompt.lastIndexOf('\n') + 1)) as { exercises: Array<{ title: string }> };
 
       assert.equal(input.exercises.length, 2);
@@ -167,7 +167,8 @@ describe('book processing pipeline', (): void => {
 
     assert.equal(result.pages[0].exercises.length, 1);
     assert.match(result.pages[0].exercises[0].imageDescription ?? '', /number line/i);
-    assert.equal(result.pages[0].exercises[0].solutionImageDescription, '');
+    assert.equal(result.pages[0].exercises[0].solutionImageDescription ?? '', '');
+    assert.equal('solutionImageDescription' in result.pages[0].exercises[0], false);
     assert.equal('image' in result.pages[0].exercises[0], false);
     assert.equal('images' in result.pages[0].exercises[0], false);
   });
@@ -201,8 +202,8 @@ describe('book processing pipeline', (): void => {
         }));
       }
 
-      assert.match(prompt, /dedicated solution-visual audit/i);
-      assert.match(prompt, /NEVER return an empty replacement/i);
+      assert.match(prompt, /dedicated visual-necessity audit/i);
+      assert.match(prompt, /existing nonempty description is already correct/i);
 
       return Promise.resolve(JSON.stringify({ reviews: [{ inputIndex: 0, requiresSolutionImage: true, solutionImageDescription: '' }] }));
     });
@@ -236,7 +237,7 @@ describe('book processing pipeline', (): void => {
         }));
       }
 
-      assert.match(prompt, /dedicated solution-visual audit/i);
+      assert.match(prompt, /dedicated visual-necessity audit/i);
 
       return Promise.resolve(JSON.stringify({ reviews: [{
         inputIndex: 0,
@@ -246,6 +247,56 @@ describe('book processing pipeline', (): void => {
     });
 
     assert.match(result.pages[0].exercises[0].solutionImageDescription ?? '', /y=2x\+1/i);
+  });
+
+  it('removes unnecessary question and solution visuals in the final visual audit', async (): Promise<void> => {
+    let request = 0;
+    const result = await processExtractedChapterContent({
+      chapter: 'Chapter',
+      pages: [{
+        concepts: [{ description: 'Convert kilometers to meters', title: 'Metric conversion' }],
+        exercises: [],
+        pageNumber: 1
+      }]
+    }, (prompt) => {
+      request++;
+
+      if (request === 1) {
+        assert.match(prompt, /Visuals are exceptional/i);
+        assert.match(prompt, /leave imageDescription empty/i);
+        assert.match(prompt, /leave solutionImageDescription empty/i);
+
+        return Promise.resolve(JSON.stringify({
+          exercises: [{
+            abilityMode: 'transformation',
+            conceptIndex: 0,
+            description: 'Convert <kx>3</kx> km to m.',
+            imageDescription: 'A decorative road sign showing 3 km.',
+            solution: '<kx>3\\times1000=3000</kx> m.',
+            solutionImageDescription: 'A decorative conversion diagram showing 3000 m.',
+            title: 'Convert distance'
+          }]
+        }));
+      }
+
+      assert.match(prompt, /default requiresQuestionImage=false and requiresSolutionImage=false/i);
+      assert.match(prompt, /false explicitly means remove that unnecessary visual/i);
+
+      return Promise.resolve(JSON.stringify({ reviews: [{
+        imageDescription: '',
+        inputIndex: 0,
+        requiresQuestionImage: false,
+        requiresSolutionImage: false,
+        solutionImageDescription: ''
+      }] }));
+    });
+
+    const generated = result.pages[0].exercises[0];
+
+    assert.equal(generated.imageDescription ?? '', '');
+    assert.equal(generated.solutionImageDescription ?? '', '');
+    assert.equal('imageDescription' in generated, false);
+    assert.equal('solutionImageDescription' in generated, false);
   });
 
   it('retries missing concepts together up to three times', async (): Promise<void> => {
@@ -279,7 +330,7 @@ describe('book processing pipeline', (): void => {
         return Promise.resolve(JSON.stringify({ exercises: [exercise(1)] }));
       }
 
-      assert.match(prompt, /dedicated solution-visual audit/i);
+      assert.match(prompt, /dedicated visual-necessity audit/i);
 
       return Promise.resolve('{"reviews":[]}');
     });

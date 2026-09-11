@@ -52,16 +52,17 @@ function parseCorrectedExercise (value: unknown, original: Exercise): Exercise {
     throw new Error('Every corrected Exercise must include a title, complete task, valid abilityMode, and complete solution.');
   }
 
-  const imageDescription = typeof value.imageDescription === 'string' ? value.imageDescription.trim() : original.imageDescription;
-  const solutionImageDescription = typeof value.solutionImageDescription === 'string' && value.solutionImageDescription.trim() ? value.solutionImageDescription.trim() : original.solutionImageDescription?.trim() ?? '';
+  const imageDescription = typeof value.imageDescription === 'string' ? value.imageDescription.trim() : original.imageDescription?.trim() ?? '';
+  const solutionImageDescription = typeof value.solutionImageDescription === 'string' ? value.solutionImageDescription.trim() : original.solutionImageDescription?.trim() ?? '';
+  const { imageDescription: _imageDescription, solutionImageDescription: _solutionImageDescription, ...originalWithoutVisualDescriptions } = original;
 
   return {
-    ...original,
+    ...originalWithoutVisualDescriptions,
     abilityMode: value.abilityMode as typeof exerciseAbilityModes[number],
     description: value.description.trim(),
-    imageDescription,
+    ...(imageDescription ? { imageDescription } : {}),
     solution: value.solution.trim(),
-    solutionImageDescription,
+    ...(solutionImageDescription ? { solutionImageDescription } : {}),
     title: value.title.trim()
   };
 }

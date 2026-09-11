@@ -77,20 +77,20 @@ describe('exercise repair', (): void => {
     assert.equal('images' in (review.exercise ?? {}), false);
   });
 
-  it('never lets Fix Exercises erase an existing solution image description with an empty replacement', (): void => {
+  it('allows Fix Exercises to remove an unnecessary solution image description', (): void => {
     const original = {
       ...createExercise(1),
-      description: 'Plot the point <kx>(2,3)</kx> on the coordinate plane.',
-      solution: 'Move two units right and three units up and plot the point.',
+      description: 'Calculate the x-coordinate of the point <kx>(2,3)</kx>.',
+      solution: 'The x-coordinate is <kx>2</kx>.',
       solutionImageDescription: 'A coordinate plane with the point (2,3) plotted and labeled.'
     };
     const [review] = parseExerciseRepairResult(JSON.stringify({
       duplicatePairs: [],
       reviews: [{
-        errors: ['Improve wording.'],
+        errors: ['The solution visual is unnecessary.'],
         exercise: {
           abilityMode: original.abilityMode,
-          description: 'Plot <kx>(2,3)</kx> on a coordinate plane.',
+          description: original.description,
           imageDescription: '',
           solution: original.solution,
           solutionImageDescription: '',
@@ -101,7 +101,8 @@ describe('exercise repair', (): void => {
       }]
     }), [original], [1]).reviews;
 
-    assert.equal(review.exercise?.solutionImageDescription, original.solutionImageDescription);
+    assert.equal(review.exercise?.solutionImageDescription ?? '', '');
+    assert.equal('solutionImageDescription' in (review.exercise ?? {}), false);
   });
 
   it('allows Fix Exercises to add a missing solution image description', (): void => {
@@ -199,7 +200,8 @@ describe('exercise repair', (): void => {
     assert.match(FIX_EXERCISES_PROMPT, /solutionImageDescription/i);
     assert.match(FIX_EXERCISES_PROMPT, /EXPECTED ANSWER FORMAT/i);
     assert.match(FIX_EXERCISES_PROMPT, /draw, sketch, plot, graph, construct/i);
-    assert.match(FIX_EXERCISES_PROMPT, /never clear an existing nonempty solutionImageDescription/i);
+    assert.match(FIX_EXERCISES_PROMPT, /existing nonempty solutionImageDescription is not proof/i);
+    assert.match(FIX_EXERCISES_PROMPT, /Clear it when this answer-format audit/i);
     assert.match(FIX_EXERCISES_PROMPT, /conceptId/i);
     assert.match(FIX_EXERCISES_PROMPT, /preference rather than an absolute cardinality rule/i);
     assert.match(FIX_EXERCISES_PROMPT, /most learner thinking and information transformation/i);
