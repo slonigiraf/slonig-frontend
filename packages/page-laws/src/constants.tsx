@@ -33,7 +33,7 @@ export const EXERCISE_TEMPLATE_STYLE_PROMPT = `Write every generated exercise as
 
 Aim for fewer words in the task and in the answer when the language and subject permit, while still makes sure to include steps by step instructions to solve the exercise. Templatability, self-containment, and an unambiguous learner operation take priority over the word target.`;
 
-export const GENERATE_EXERCISES_PROMPT = `For every supplied concept, generate exactly one complete exercise in the input language. Generate no more than one exercise for any conceptIndex. Prefer abilityMode "transformation" whenever the concept can naturally be trained by transforming, applying, calculating, rewriting, constructing, converting, rearranging, or otherwise changing supplied information into an output. Use another abilityMode only when transformation would be unnatural or would change the learning target. abilityMode must be one of: ${exerciseAbilityModes.join(', ')}.
+export const GENERATE_EXERCISES_PROMPT = (bookDetectedLanguage: string): string => `For every supplied concept, generate exactly one complete exercise using ${bookDetectedLanguage} language. Generate no more than one exercise for any conceptIndex. Prefer abilityMode "transformation" whenever the concept can naturally be trained by transforming, applying, calculating, rewriting, constructing, converting, rearranging, or otherwise changing supplied information into an output. Use another abilityMode only when transformation would be unnatural or would change the learning target. abilityMode must be one of: ${exerciseAbilityModes.join(', ')}.
 
 ${EXERCISE_TEMPLATE_STYLE_PROMPT}
 
@@ -63,12 +63,12 @@ Middle-page MMD text:
 ${pageTexts.map(({ pageNumber, text }) => `--- page ${pageNumber} ---\n${text}`).join('\n\n')}`;
 };
 
-export const GENERATE_EXERCISES_REQUEST_PROMPT = (input: unknown): string => {
-  return `${GENERATE_EXERCISES_PROMPT}\n${JSON.stringify(input)}`;
+export const GENERATE_EXERCISES_REQUEST_PROMPT = (bookDetectedLanguage: string, input: unknown): string => {
+  return `${GENERATE_EXERCISES_PROMPT(bookDetectedLanguage)}\n${JSON.stringify(input)}`;
 };
 
-export const GENERATE_EXERCISES_RECOVERY_PROMPT = (input: unknown, retry: number, maxRetries: number): string => {
-  return `${GENERATE_EXERCISES_PROMPT}
+export const GENERATE_EXERCISES_RECOVERY_PROMPT = (bookDetectedLanguage: string, input: unknown, retry: number, maxRetries: number): string => {
+  return `${GENERATE_EXERCISES_PROMPT(bookDetectedLanguage)}
 This is recovery attempt ${retry} of ${maxRetries}. Generate exactly one exercise only for every supplied concept that still has no exercise. Do not review book-exercise overlap again.
 ${JSON.stringify(input)}`;
 };

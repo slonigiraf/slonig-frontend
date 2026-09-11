@@ -200,7 +200,7 @@ function auditSolutionVisualsResult (content: string, inputs: ProcessingExercise
   }));
 }
 
-export async function processExtractedChapterContent (extracted: ExtractedChapterContent, runAi: BookProcessingAi): Promise<ProcessedChapterContent> {
+export async function processExtractedChapterContent (extracted: ExtractedChapterContent, runAi: BookProcessingAi, bookDetectedLanguage = 'English'): Promise<ProcessedChapterContent> {
   const { chapter, pages } = extracted;
 
   if (!pages.length) {
@@ -228,7 +228,7 @@ export async function processExtractedChapterContent (extracted: ExtractedChapte
     concepts: concepts.map(({ sourcePageNumber: _sourcePageNumber, ...concept }, conceptIndex) => ({ ...concept, conceptIndex }))
   };
   const initialGeneration = concepts.length
-    ? generatedExercisesResult(await runAi(GENERATE_EXERCISES_REQUEST_PROMPT(generationInput)), concepts, bookExercises.length)
+    ? generatedExercisesResult(await runAi(GENERATE_EXERCISES_REQUEST_PROMPT(bookDetectedLanguage, generationInput)), concepts, bookExercises.length)
     : { exercises: [], overlappingBookExerciseIndexes: [] };
   let generatedExercises = initialGeneration.exercises;
   const overlappingBookExerciseIndexes = new Set(initialGeneration.overlappingBookExerciseIndexes);
@@ -241,7 +241,7 @@ export async function processExtractedChapterContent (extracted: ExtractedChapte
       break;
     }
 
-    const recovered = generatedExercisesResult(await runAi(GENERATE_EXERCISES_RECOVERY_PROMPT({ concepts: missingConcepts }, retry + 1, MAX_EXERCISE_GENERATION_RETRIES)), concepts).exercises;
+    const recovered = generatedExercisesResult(await runAi(GENERATE_EXERCISES_RECOVERY_PROMPT(bookDetectedLanguage, { concepts: missingConcepts }, retry + 1, MAX_EXERCISE_GENERATION_RETRIES)), concepts).exercises;
 
     const generatedByConcept = new Map(generatedExercises.flatMap((exercise) => exercise.conceptIndex === undefined ? [] : [[exercise.conceptIndex, exercise] as const]));
 

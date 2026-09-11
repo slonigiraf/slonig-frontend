@@ -992,6 +992,7 @@ function BookReader ({ book, file, generateAllConceptsModel, generateAllConcepts
       const chapterInputs = Array.from(groupedPages, ([chapter, pages]) => ({ chapter, pages }));
 
       await mapConcurrent(chapterInputs, OPENROUTER_CONCURRENCY, async (chapterInput) => {
+        const bookDetectedLanguage = bookLanguageLabel(book.language);
         const processedChapter = await processExtractedChapterContent(chapterInput, async (prompt) => {
           const response = await openRouterRequestGate.run(() => client.chat.completions.create({
             messages: [{ content: prompt, role: 'user' }],
@@ -1000,7 +1001,7 @@ function BookReader ({ book, file, generateAllConceptsModel, generateAllConcepts
           }));
 
           return response.choices[0].message?.content?.trim() ?? '{}';
-        });
+        }, bookDetectedLanguage);
 
         for (const processed of processedChapter.pages) {
           const stored = await replaceParsedBookPageContent(book.id, processed.pageNumber, processedChapter.chapter, processed.concepts, processed.exercises);
@@ -1023,7 +1024,7 @@ function BookReader ({ book, file, generateAllConceptsModel, generateAllConcepts
       setIsGeneratingAllExercises(false);
       onProcessingComplete();
     }
-  }, [advanceStage, book.id, generateAllConceptsModel, isGeneratingAllConcepts, isRecognizingAll, isGeneratingAllExercises, onProcessingComplete, pageNumber, pages, processingPage, refreshEntityCounts, totalPages]);
+  }, [advanceStage, book.id, book.language, generateAllConceptsModel, isGeneratingAllConcepts, isRecognizingAll, isGeneratingAllExercises, onProcessingComplete, pageNumber, pages, processingPage, refreshEntityCounts, totalPages]);
 
   const detectAndStoreBookLanguage = useCallback(async (recognizedPages: Map<number, BookPage>): Promise<void> => {
     if (book.language || isDetectingBookLanguageRef.current) {
