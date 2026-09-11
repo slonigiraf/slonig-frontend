@@ -978,7 +978,9 @@ function BookReader ({ book, file, generateAllConceptsModel, generateAllConcepts
       const pageInputs = await Promise.all(storedPages.map(async (storedPage) => ({
         chapter: storedPage.chapter,
         concepts: (await getBookConceptsForBookPage(book.id, storedPage.pageNumber)).map(({ description, title }) => ({ description, title })),
-        exercises: (await getExercisesForBookPage([book.id, storedPage.pageNumber])).map(({ abilityMode = 'reasoning', description, imageDescription, solution = '', solutionImageDescription, title }) => ({ abilityMode, description: stripMarkdownImageReferences(description), imageDescription, solution, solutionImageDescription, title })),
+        exercises: (await getExercisesForBookPage([book.id, storedPage.pageNumber]))
+          .filter(({ source }) => source !== 'generated')
+          .map(({ abilityMode = 'reasoning', description, imageDescription, solution = '', solutionImageDescription, title }) => ({ abilityMode, description: stripMarkdownImageReferences(description), imageDescription, solution, solutionImageDescription, title })),
         pageNumber: storedPage.pageNumber
       })));
       const groupedPages = pageInputs.reduce((grouped, { chapter, ...page }) => {

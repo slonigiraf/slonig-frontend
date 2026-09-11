@@ -6,7 +6,6 @@
 import { strict as assert } from 'node:assert';
 
 import { areAllBookPagesConceptsProcessed, calculatePageSymbolStatistics, countUnprocessedBookPages, isWithinTwoStandardDeviations, MAX_EXERCISE_GENERATION_RETRIES, processExtractedChapterContent } from './bookProcessing.js';
-import { GENERATED_EXERCISES_PER_CONCEPT } from './constants.js';
 
 describe('book processing pipeline', (): void => {
 
@@ -60,15 +59,15 @@ describe('book processing pipeline', (): void => {
     assert.equal(countUnprocessedBookPages(3, pages), 1);
   });
 
-  it('generates one exercise per concept and skips overlapping book exercises', async (): Promise<void> => {
+  it('generates one exercise per concept without sending or reconciling book exercises', async (): Promise<void> => {
     const prompts: string[] = [];
     const result = await processExtractedChapterContent({
       chapter: 'Chapter',
       pages: [{
         concepts: [{ description: 'Convert units', title: 'Conversion' }, { description: 'Compare fractions', title: 'Comparison' }],
         exercises: [
-          { abilityMode: 'reasoning', description: 'Convert 2 km to m.', solution: '2000 m', title: 'Book overlap' },
-          { abilityMode: 'reasoning', description: 'Find the missing angle.', solution: '60 degrees', title: 'Distinct book exercise' }
+          { abilityMode: 'reasoning', description: 'Convert 2 km to m.', solution: '2000 m', title: 'Book exercise 1' },
+          { abilityMode: 'reasoning', description: 'Find the missing angle.', solution: '60 degrees', title: 'Book exercise 2' }
         ],
         pageNumber: 1
       }]
@@ -76,41 +75,37 @@ describe('book processing pipeline', (): void => {
       prompts.push(prompt);
 
       if (prompts.length === 1) {
-        assert.match(prompt, /exactly 1 complete exercise/i);
+        assert.match(prompt, /exactly one complete exercise/i);
         assert.match(prompt, /Prefer abilityMode "transformation"/i);
-        assert.match(prompt, /fewer than 7 words/i);
         assert.match(prompt, /later be reused by changing 1-3 data-bearing words or values/i);
-        assert.match(prompt, /do not generate alternate, variant/i);
-        assert.match(prompt, /Templatability, self-containment/i);
-        assert.match(prompt, /overlappingBookExerciseIndexes/i);
+        assert.doesNotMatch(prompt, /bookExercises|bookExerciseIndex|overlappingBookExerciseIndexes/i);
 
-        const input = JSON.parse(prompt.slice(prompt.lastIndexOf('\n') + 1)) as { bookExercises: Array<{ bookExerciseIndex: number }>; concepts: Array<{ conceptIndex: number }> };
+        const input = JSON.parse(prompt.slice(prompt.lastIndexOf('\n') + 1)) as { concepts: Array<{ conceptIndex: number }> };
 
+        assert.deepEqual(Object.keys(input), ['concepts']);
         assert.deepEqual(input.concepts.map(({ conceptIndex }) => conceptIndex), [0, 1]);
-        assert.deepEqual(input.bookExercises.map(({ bookExerciseIndex }) => bookExerciseIndex), [0, 1]);
 
         return Promise.resolve(JSON.stringify({
           exercises: [
             { abilityMode: 'reasoning', conceptIndex: 0, description: 'Convert 3 km.', solution: '3000 m', title: 'Weaker candidate' },
             { abilityMode: 'transformation', conceptIndex: 0, description: 'Convert 3 km to m.', solution: '3000 m', title: 'Preferred candidate' },
             { abilityMode: 'transformation', conceptIndex: 1, description: 'Order <kx>1/2, 3/4</kx>.', solution: '<kx>1/2 < 3/4</kx>', title: 'Order fractions' }
-          ],
-          overlappingBookExerciseIndexes: [0]
+          ]
         }));
       }
 
       assert.match(prompt, /dedicated solution-visual audit/i);
-      const input = JSON.parse(prompt.slice(prompt.lastIndexOf('\n') + 1)) as { exercises: unknown[] };
+      const input = JSON.parse(prompt.slice(prompt.lastIndexOf('\n') + 1)) as { exercises: Array<{ title: string }> };
 
-      assert.equal(input.exercises.length, 3);
+      assert.equal(input.exercises.length, 2);
+      assert.deepEqual(input.exercises.map(({ title }) => title), ['Preferred candidate', 'Order fractions']);
 
       return Promise.resolve('{"reviews":[]}');
     });
 
-    assert.equal(GENERATED_EXERCISES_PER_CONCEPT, 1);
     assert.equal(prompts.length, 2);
-    assert.equal(result.pages[0].exercises.length, 3);
-    assert.deepEqual(result.pages[0].exercises.filter(({ source }) => source === 'book').map(({ title }) => title), ['Distinct book exercise']);
+    assert.equal(result.pages[0].exercises.length, 4);
+    assert.deepEqual(result.pages[0].exercises.filter(({ source }) => source === 'book').map(({ title }) => title), ['Book exercise 1', 'Book exercise 2']);
     assert.equal(result.pages[0].exercises.filter(({ source }) => source === 'generated').length, 2);
     assert.deepEqual(result.pages[0].exercises.filter(({ source }) => source === 'generated').map(({ conceptIndex }) => conceptIndex), [0, 1]);
     assert.equal(result.pages[0].exercises.find(({ conceptIndex, source }) => source === 'generated' && conceptIndex === 0)?.abilityMode, 'transformation');
@@ -125,17 +120,13 @@ describe('book processing pipeline', (): void => {
         { concepts: [], exercises: [duplicateBookExercise], pageNumber: 1 },
         { concepts: [], exercises: [duplicateBookExercise], pageNumber: 2 }
       ]
-    }, (prompt) => {
+    }, () => {
       calls++;
-      assert.match(prompt, /dedicated solution-visual audit/i);
-      const input = JSON.parse(prompt.slice(prompt.lastIndexOf('\n') + 1)) as { exercises: unknown[] };
 
-      assert.equal(input.exercises.length, 2);
-
-      return Promise.resolve('{"reviews":[]}');
+      return Promise.resolve('{}');
     });
 
-    assert.equal(calls, 1);
+    assert.equal(calls, 0);
     assert.equal(result.pages[0].exercises.length, 1);
     assert.equal(result.pages[1].exercises.length, 1);
     assert.equal(result.pages[0].exercises[0].source, 'book');
@@ -167,8 +158,7 @@ describe('book processing pipeline', (): void => {
             solution: '6',
             solutionImageDescription: '',
             title: 'Read number line'
-          }],
-          overlappingBookExerciseIndexes: []
+          }]
         }));
       }
 
@@ -207,8 +197,7 @@ describe('book processing pipeline', (): void => {
             solution: 'Plot right 4, down 2.',
             solutionImageDescription: 'A coordinate plane with the point (4,-2) plotted and labeled.',
             title: 'Plot point'
-          }],
-          overlappingBookExerciseIndexes: []
+          }]
         }));
       }
 
@@ -243,8 +232,7 @@ describe('book processing pipeline', (): void => {
             solution: 'Plot intercept, apply slope.',
             solutionImageDescription: '',
             title: 'Graph line'
-          }],
-          overlappingBookExerciseIndexes: []
+          }]
         }));
       }
 
@@ -274,7 +262,7 @@ describe('book processing pipeline', (): void => {
       prompts.push(prompt);
 
       if (prompts.length === 1) {
-        return Promise.resolve(JSON.stringify({ exercises: [exercise(0)], overlappingBookExerciseIndexes: [] }));
+        return Promise.resolve(JSON.stringify({ exercises: [exercise(0)] }));
       }
 
       if (prompts.length <= 3) {

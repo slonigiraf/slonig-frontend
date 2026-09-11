@@ -37,7 +37,6 @@ export const GENERATE_EXERCISES_PROMPT = (bookDetectedLanguage: string): string 
 
 ${EXERCISE_TEMPLATE_STYLE_PROMPT}
 
-The request may also contain bookExercises. Use such bookExercises as a context what concepts are about if a concept is not fully understandable, do not generate new exercises for bookExercises.
 
 Every generated Exercise must include both imageDescription and solutionImageDescription. Prefer a fully self-contained text-only exercise whenever the learning objective can be trained without a visual. 
 
@@ -77,7 +76,7 @@ export const GENERATE_EXERCISES_REQUEST_PROMPT = (bookDetectedLanguage: string, 
 
 export const GENERATE_EXERCISES_RECOVERY_PROMPT = (bookDetectedLanguage: string, input: unknown, retry: number, maxRetries: number): string => {
   return `${GENERATE_EXERCISES_PROMPT(bookDetectedLanguage)}
-This is recovery attempt ${retry} of ${maxRetries}. Generate exactly one exercise only for every supplied concept that still has no exercise. Do not review book-exercise overlap again.
+This is recovery attempt ${retry} of ${maxRetries}. Generate exactly one exercise only for every supplied concept that still has no exercise.
 ${JSON.stringify(input)}`;
 };
 

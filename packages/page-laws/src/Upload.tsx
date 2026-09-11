@@ -4,7 +4,7 @@
 import type { Book } from '@slonigiraf/db';
 import type { PDFDocumentProxy } from 'pdfjs-dist';
 
-import { createBook, deleteBook, getBookByContentHash, getBookConceptsForBookPage, getBookPages, getBooks, getExercisesForBookPage, putBook, updateBookProcessingStage } from '@slonigiraf/db';
+import { createBook, deleteBook, getBookByContentHash, getBookConceptsForBookPage, getBookPages, getBooks, putBook, updateBookProcessingStage } from '@slonigiraf/db';
 import { getDocument } from 'pdfjs-dist';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
@@ -342,8 +342,7 @@ function Upload (): React.ReactElement {
 
     getBookPages(selectedBook.id).then(async (pages) => {
       const inputs = await Promise.all(pages.map(async ({ pageNumber }) => JSON.stringify({
-        concepts: await getBookConceptsForBookPage(selectedBook.id, pageNumber),
-        exercises: await getExercisesForBookPage([selectedBook.id, pageNumber])
+        concepts: await getBookConceptsForBookPage(selectedBook.id, pageNumber)
       })));
       const requests = inputs.flatMap((input) => Array.from({ length: 8 }, () => input.padEnd(input.length + 2_000)));
 
