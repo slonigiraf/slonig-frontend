@@ -196,7 +196,7 @@ describe('atomic Ability workflow', (): void => {
     assert.throws(() => validateAbilityBlueprintEvidence(blueprints, [source]), /invented a question visual/i);
   });
 
-  it('runs planning and text through separate generation and audit passes before returning atomic conversions', async (): Promise<void> => {
+  it('uses two bounded semantic requests per source Exercise', async (): Promise<void> => {
     const source = {
       abilityMode: 'reasoning',
       description: 'Read a plotted point, then calculate the horizontal distance to x = 5.',
@@ -214,39 +214,84 @@ describe('atomic Ability workflow', (): void => {
         ]
       }]
     });
-    const abilities = JSON.stringify({
+    const materialized = JSON.stringify({
       abilities: [
-        { exerciseId: 12, skillIndex: 0, ability: { h: 'Read an x-coordinate', i: '', q: [{ a: '<kx>2</kx>', h: 'Read the x-coordinate of point A.', i: '', p: '' }, { a: '<kx>-3</kx>', h: 'Read the x-coordinate of point B.', i: '', p: '' }], t: 3 } },
-        { exerciseId: 12, skillIndex: 1, ability: { h: 'Calculate horizontal distance', i: '', q: [{ a: '<kx>3</kx>', h: 'Find the horizontal distance between <kx>x=2</kx> and <kx>x=5</kx>.', i: '', p: '' }, { a: '<kx>4</kx>', h: 'Find the horizontal distance between <kx>x=-1</kx> and <kx>x=3</kx>.', i: '', p: '' }], t: 3 } }
+        {
+          exerciseId: 12,
+          skillIndex: 0,
+          ability: { h: 'Read an x-coordinate', i: '', q: [{ a: '<kx>2</kx>', h: 'Read the x-coordinate of point A.', i: '', p: '' }, { a: '<kx>-3</kx>', h: 'Read the x-coordinate of point B.', i: '', p: '' }], t: 3 },
+          imagePrompts: [
+            { changesImage: false, i: '', p: 'Coordinate plane from -5 to 5 with point A at (2,1), labeled A.' },
+            { changesImage: false, i: '', p: 'Coordinate plane from -5 to 5 with point B at (-3,2), labeled B.' }
+          ]
+        },
+        {
+          exerciseId: 12,
+          skillIndex: 1,
+          ability: { h: 'Calculate horizontal distance', i: '', q: [{ a: '<kx>3</kx>', h: 'Find the horizontal distance between <kx>x=2</kx> and <kx>x=5</kx>.', i: '', p: '' }, { a: '<kx>4</kx>', h: 'Find the horizontal distance between <kx>x=-1</kx> and <kx>x=3</kx>.', i: '', p: '' }], t: 3 },
+          imagePrompts: [
+            { changesImage: false, i: '', p: '' },
+            { changesImage: false, i: '', p: '' }
+          ]
+        }
       ]
     });
-    const visualPlan = JSON.stringify({
-      plans: [{
-        exerciseId: 12,
-        imagePrompts: [
-          { changesImage: false, i: '', p: 'Coordinate plane from -5 to 5 with point A at (2,1), labeled A.' },
-          { changesImage: false, i: '', p: 'Coordinate plane from -5 to 5 with point B at (-3,2), labeled B.' }
-        ],
-        skillIndex: 0
-      }]
-    });
-    const outputs = [plan, plan, abilities, abilities, visualPlan, visualPlan];
+    const outputs = [plan, materialized];
     const prompts: string[] = [];
+    const options: Array<{ maxOutputTokens?: number; repairContext?: string; validationCycles?: number } | undefined> = [];
     let index = 0;
-    const result = await runAtomicAbilityWorkflow('en', 'Coordinates', [source], async (prompt, parse) => {
+    const result = await runAtomicAbilityWorkflow('en', 'Coordinates', [source], async (prompt, parse, runOptions) => {
       prompts.push(prompt);
+      options.push(runOptions);
 
       return parse(outputs[index++]);
     });
 
-    assert.equal(index, 6);
+    assert.equal(index, 2);
     assert.equal(result.length, 2);
     assert.equal(result[0].imagePrompts?.[0].p.includes('(2,1)'), true);
     assert.equal(result[1].imagePrompts, undefined);
-    assert.match(prompts[0], /planning stage only/i);
-    assert.match(prompts[1], /Audit an internal Ability plan/i);
-    assert.match(prompts[3], /semantic quality gate/i);
-    assert.match(prompts[5], /Audit the visual specifications/i);
+    assert.match(prompts[0], /Planning only/i);
+    assert.match(prompts[1], /Materialize the exact atomic plan/i);
+    assert.equal(prompts[1].includes('then calculate the horizontal distance'), false);
+    assert.equal(prompts.some((prompt) => /Draft plan:|Candidates:|Draft visual plans:/i.test(prompt)), false);
+    assert.equal(options[0]?.validationCycles, 1);
+    assert.equal(options[1]?.validationCycles, 1);
+    assert.equal(options[0]?.maxOutputTokens, 1_800);
+    assert.equal(options[1]?.maxOutputTokens, 4_500);
+  });
+
+  it('keeps multi-source workflow requests source-bounded', async (): Promise<void> => {
+    const sources = [21, 22].map((id) => ({
+      abilityMode: 'reasoning',
+      description: `Convert ${id} centimeters to meters.`,
+      id,
+      solution: `Divide ${id} by 100.`,
+      title: `Conversion ${id}`
+    })) as Exercise[];
+    const prompts: string[] = [];
+    let call = 0;
+
+    const result = await runAtomicAbilityWorkflow('en', 'Units', sources, async (prompt, parse) => {
+      prompts.push(prompt);
+      const id = call < 2 ? 21 : 22;
+      const isPlan = call % 2 === 0;
+
+      call++;
+
+      if (isPlan) {
+        return parse(JSON.stringify({ plans: [{ exerciseId: id, skills: [{ input: 'centimeters', method: 'divide by 100', operation: 'convert centimeters to meters', output: 'meters', questionVisual: 'none', solutionVisual: 'none', title: 'Convert centimeters to meters' }] }] }));
+      }
+
+      return parse(JSON.stringify({ abilities: [{ exerciseId: id, skillIndex: 0, ability: { h: 'Convert centimeters to meters', i: '', q: [{ a: '<kx>0.25</kx> m', h: 'Convert <kx>25</kx> cm to m.', i: '', p: '' }, { a: '<kx>0.8</kx> m', h: 'Convert <kx>80</kx> cm to m.', i: '', p: '' }], t: 3 }, imagePrompts: [{ changesImage: false, i: '', p: '' }, { changesImage: false, i: '', p: '' }] }] }));
+    });
+
+    assert.equal(result.length, 2);
+    assert.equal(prompts.length, 4);
+    assert.equal(prompts[0].includes('"id":22'), false);
+    assert.equal(prompts[1].includes('"id":22'), false);
+    assert.equal(prompts[2].includes('"id":21'), false);
+    assert.equal(prompts[3].includes('"id":21'), false);
   });
 
 });

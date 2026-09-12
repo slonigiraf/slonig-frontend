@@ -3,7 +3,7 @@
 
 import type { Book, BookChapter, BookConcept, BookPage, Exercise, Skill } from '@slonigiraf/db';
 import type { GeneratedAbility } from './abilities.js';
-import type { AtomicAbilityConversion, AbilityWorkflowJsonRunner } from './abilityWorkflow.js';
+import type { AbilityBlueprint, AtomicAbilityConversion, AbilityWorkflowJsonRunner } from './abilityWorkflow.js';
 
 import { deleteAbilities, deleteAbility, deleteBookConcept, deleteExercise, deleteSkill, getAbilities, getBookChapters, getBookConceptsForBookPage, getBookPages, getExercisesForBookPage, getSetting, getSkillsForChapter, replaceAbilities, replaceExercisesForBookPage, replaceSkillsForChapter, SettingKey, storeAbility, updateBookChapterTitle, updateBookProcessingStage } from '@slonigiraf/db';
 import { KatexSpan, RoundProgress } from '@slonigiraf/slonig-components';
@@ -17,7 +17,7 @@ import { parseAbilityRepairResult, parseStoredAbility } from './abilities.js';
 import { parseExerciseRepairResult } from './exercises.js';
 import { estimateAiInput, formatAiInputEstimate } from './aiEstimate.js';
 import { ATOMIC_ABILITY_WORKFLOW_SYSTEM_PROMPT, FIX_ABILITIES_REQUEST_PROMPT, FIX_EXERCISES_REQUEST_PROMPT, JSON_VALIDATION_PROMPT, OPENAI_MODELS, REPAIR_SYSTEM_PROMPT, SKILLS_GENERATION_SYSTEM_PROMPT, SOURCES_TO_SKILLS_REQUEST_PROMPT } from './constants.js';
-import { abilityBlueprintRequestPrompt, runAtomicAbilityWorkflow } from './abilityWorkflow.js';
+import { abilityBlueprintRequestPrompt, materializeAtomicAbilityExercise, planAtomicAbilityExercise, transportCompactAbilitySourceExercise } from './abilityWorkflow.js';
 import { mapConcurrent } from './concurrency.js';
 import { OPENROUTER_CONCURRENCY, openRouterRequestGate } from './openRouterConcurrency.js';
 import { generateOpenRouterVisual } from './openRouterImages.js';
@@ -29,6 +29,10 @@ const ABILITIES_STAGE = 7;
 const FIX_ABILITIES_STAGE = 8;
 const MAX_REQUEST_ATTEMPTS = 4;
 const RETRY_BASE_DELAY_MS = 1_000;
+const AI_REQUEST_TIMEOUT_MS = 60_000;
+const ABILITY_GENERATION_CONCURRENCY = 5;
+const VISUAL_MATERIALIZATION_CONCURRENCY = 3;
+const VISUALS_PER_EXERCISE_CONCURRENCY = 2;
 const delay = (milliseconds: number): Promise<void> => new Promise((resolve) => setTimeout(resolve, milliseconds));
 
 function getErrorStatus (error: unknown): number | undefined {
@@ -82,7 +86,7 @@ function isRetryableRequestError (error: unknown): boolean {
   return status === 429 || (status !== undefined && status >= 500 && status <= 599);
 }
 
-async function requestChatContent (client: OpenAI, model: string, systemPrompt: string, userPrompt: string, jsonObject: boolean): Promise<string> {
+async function requestChatContent (client: OpenAI, model: string, systemPrompt: string, userPrompt: string, jsonObject: boolean, maxOutputTokens?: number): Promise<string> {
   let lastError: unknown;
 
   for (let attempt = 0; attempt < MAX_REQUEST_ATTEMPTS; attempt++) {
@@ -90,8 +94,9 @@ async function requestChatContent (client: OpenAI, model: string, systemPrompt: 
       const makeRequest = () => client.chat.completions.create({
         messages: [{ content: systemPrompt, role: 'system' as const }, { content: userPrompt, role: 'user' as const }],
         model,
+        ...(maxOutputTokens ? { max_completion_tokens: maxOutputTokens } : {}),
         ...(jsonObject ? { response_format: { type: 'json_object' as const } } : {})
-      });
+      }, { timeout: AI_REQUEST_TIMEOUT_MS });
       const response = await openRouterRequestGate.run(makeRequest);
 
       return response.choices[0].message?.content?.trim() ?? '';
@@ -289,11 +294,24 @@ async function materializeAbilityImages (apiKey: string, conversion: AtomicAbili
 
   return { ...conversion.ability, q };
 }
-async function requestValidatedJson<T> (client: OpenAI, model: string, systemPrompt: string, userPrompt: string, parse: (content: string) => T, jsonObject = true): Promise<T> {
+function compactJsonRepairPrompt (candidate: string, validationError: string, repairContext: string): string {
+  return `Repair the rejected JSON candidate. Preserve every correct semantic detail and make only the changes required by the parser error and compact contract. Return only the corrected JSON object; no commentary.
+
+COMPACT CONTRACT:
+${repairContext}
+
+PARSER ERROR:
+${validationError}
+
+REJECTED CANDIDATE:
+${candidate}`;
+}
+
+async function requestValidatedJson<T> (client: OpenAI, model: string, systemPrompt: string, userPrompt: string, parse: (content: string) => T, jsonObject = true, maxOutputTokens?: number, repairContext?: string, validationCycles = 2): Promise<T> {
   let lastError: unknown;
 
-  for (let attempt = 0; attempt < 2; attempt++) {
-    const candidate = await requestChatContent(client, model, systemPrompt, userPrompt, jsonObject);
+  for (let attempt = 0; attempt < validationCycles; attempt++) {
+    const candidate = await requestChatContent(client, model, systemPrompt, userPrompt, jsonObject, maxOutputTokens);
 
     try {
       // The parser is the fast local validation gate. In the normal case this
@@ -303,10 +321,13 @@ async function requestValidatedJson<T> (client: OpenAI, model: string, systemPro
       lastError = error;
     }
 
-    const validationPrompt = JSON_VALIDATION_PROMPT(userPrompt, candidate, lastError instanceof Error ? lastError.message : String(lastError ?? 'Local validation failed.'));
+    const validationError = lastError instanceof Error ? lastError.message : String(lastError ?? 'Local validation failed.');
+    const validationPrompt = repairContext
+      ? compactJsonRepairPrompt(candidate, validationError, repairContext)
+      : JSON_VALIDATION_PROMPT(userPrompt, candidate, validationError);
 
     try {
-      const repaired = await requestChatContent(client, model, systemPrompt, validationPrompt, jsonObject);
+      const repaired = await requestChatContent(client, model, systemPrompt, validationPrompt, jsonObject, maxOutputTokens);
 
       return parse(repaired);
     } catch (error) {
@@ -314,7 +335,7 @@ async function requestValidatedJson<T> (client: OpenAI, model: string, systemPro
     }
   }
 
-  throw lastError instanceof Error ? lastError : new Error('AI output failed local validation and repair twice.');
+  throw lastError instanceof Error ? lastError : new Error('AI output failed local validation and repair.');
 }
 
 function ChapterNavigation ({ chapters, index, onChange }: { chapters: BookChapter[]; index: number; onChange: (index: number) => void }): React.ReactElement | null {
@@ -607,8 +628,9 @@ function Skills ({ book, onAction, onBookChange, onEntityCountsChange, pipelineO
     }
 
     if (aiAction === 'exercises') {
-      return batchItemsByChapter(chapterContent.map(({ chapter, exercises }) => ({ chapterTitle: chapter.title, items: exercises })), BATCH_SIZE)
-        .map(({ chapterTitle, items }) => abilityBlueprintRequestPrompt(language, chapterTitle, transportExercises(items)));
+      // Ability generation is source-bounded: each semantic request contains
+      // exactly one Exercise instead of a chapter/batch plus accumulated drafts.
+      return chapterContent.flatMap(({ chapter, exercises }) => exercises.map((exercise) => abilityBlueprintRequestPrompt(language, chapter.title, [transportCompactAbilitySourceExercise(exercise)])));
     }
 
     if (aiAction === 'fixExercises') {
@@ -623,11 +645,11 @@ function Skills ({ book, onAction, onBookChange, onEntityCountsChange, pipelineO
   }, [aiAction, chapterContent, language, skillSources]);
   const maxChapterAbilityCount = Math.max(1, ...chapterContent.map(({ abilities }) => abilities.length));
   const maxChapterExerciseCount = Math.max(1, ...chapterContent.map(({ exercises }) => exercises.length));
-  const generationOutputTokens = aiAction === 'exercises' ? BATCH_SIZE * 1_800 : aiAction === 'fixExercises' ? maxChapterExerciseCount * 550 : aiAction === 'fix' ? maxChapterAbilityCount * 700 : aiAction === 'skills' ? BATCH_SIZE * 180 : 300;
+  const generationOutputTokens = aiAction === 'exercises' ? 3_200 : aiAction === 'fixExercises' ? maxChapterExerciseCount * 550 : aiAction === 'fix' ? maxChapterAbilityCount * 700 : aiAction === 'skills' ? BATCH_SIZE * 180 : 300;
   const validationInputs = useMemo(() => aiAction === 'exercises'
-    // Atomic Ability generation is a multi-pass workflow: blueprint, blueprint
-    // audit, text generation, text audit, visual planning, and visual audit.
-    ? requestInputs.flatMap((input) => [input, input, input, input, input, input])
+    // The live workflow now has two bounded semantic calls per source:
+    // atomic planning, then final materialization (including visual specs).
+    ? requestInputs.flatMap((input) => [input, input])
     : requestInputs, [aiAction, requestInputs]);
   const outputTokens = generationOutputTokens;
   const estimate = formatAiInputEstimate(estimateAiInput(selectedModel, validationInputs, outputTokens));
@@ -719,69 +741,99 @@ function Skills ({ book, onAction, onBookChange, onEntityCountsChange, pipelineO
 
       const pending = new Map<number, Exercise>(allExercises.map((exercise) => [exercise.id as number, exercise]));
       // Keep each source Exercise atomic at persistence time: either every
-      // audited sub-Ability for that source is ready (including required
+      // locally validated sub-Ability for that source is ready (including required
       // visuals), or its existing DB records are left untouched for retry.
       const generatedByExerciseId = new Map<number, GeneratedAbility[]>();
+      // Once the semantic workflow has produced a locally valid conversion,
+      // keep it across retries. A transient visual timeout/QA failure should
+      // retry only visual materialization, not regenerate the whole Ability.
+      const conversionsByExerciseIdCache = new Map<number, AtomicAbilityConversion[]>();
+      // Planning is a separate cached semantic stage. If final Ability JSON is
+      // rejected or a request times out, retry materialization from this plan
+      // instead of asking the model to decompose the source Exercise again.
+      const blueprintsByExerciseIdCache = new Map<number, AbilityBlueprint[]>();
       const maxAttempts = 3;
       let lastAttemptError = '';
 
       for (let attempt = 1; attempt <= maxAttempts && pending.size; attempt++) {
-        const batchSize = attempt === 1 ? BATCH_SIZE : attempt === 2 ? 2 : 1;
-        const attemptBatches = chapterContent.flatMap(({ chapter, exercises: chapterExercises }) => {
-          const unresolvedInChapter = chapterExercises.filter(({ id }) => id !== undefined && pending.has(id));
-
-          return batchItemsByChapter([{ chapterTitle: chapter.title, items: unresolvedInChapter }], batchSize);
-        });
-        const generatedBatches = await mapConcurrent(attemptBatches, OPENROUTER_CONCURRENCY, async ({ chapterTitle, items: exercises }): Promise<{ conversions: AtomicAbilityConversion[]; exercises: Exercise[] }> => {
+        const sourcesNeedingPlan = chapterContent.flatMap(({ chapter, exercises: chapterExercises }) => chapterExercises
+          .filter(({ id }) => id !== undefined && pending.has(id) && !blueprintsByExerciseIdCache.has(id))
+          .map((exercise) => ({ chapterTitle: chapter.title, exercise })));
+        const plannedSources = await mapConcurrent(sourcesNeedingPlan, ABILITY_GENERATION_CONCURRENCY, async ({ chapterTitle, exercise }): Promise<{ blueprints: AbilityBlueprint[]; exercise: Exercise }> => {
           const systemPrompt = ATOMIC_ABILITY_WORKFLOW_SYSTEM_PROMPT(language, chapterTitle);
-          const runJson: AbilityWorkflowJsonRunner = (prompt, parse) => requestValidatedJson(client, selectedModel, systemPrompt, prompt, parse, true);
+          const runJson: AbilityWorkflowJsonRunner = (prompt, parse, options) => requestValidatedJson(client, selectedModel, systemPrompt, prompt, parse, true, options?.maxOutputTokens, options?.repairContext, options?.validationCycles ?? 1);
 
           try {
-            const conversions = await runAtomicAbilityWorkflow(language, chapterTitle, exercises, runJson);
+            const blueprints = await planAtomicAbilityExercise(language, chapterTitle, exercise, runJson);
 
             lastAttemptError = '';
 
-            return { conversions, exercises };
+            return { blueprints, exercise };
           } catch (caught) {
-            lastAttemptError = caught instanceof Error ? caught.message : 'Unknown OpenRouter error.';
+            lastAttemptError = caught instanceof Error ? caught.message : 'Unknown OpenRouter planning error.';
 
-            return { conversions: [] as AtomicAbilityConversion[], exercises };
+            return { blueprints: [], exercise };
           }
         });
 
-        for (const { conversions, exercises } of generatedBatches) {
-          if (!conversions.length) {
-            continue;
+        for (const { blueprints, exercise } of plannedSources) {
+          if (blueprints.length && exercise.id !== undefined) {
+            blueprintsByExerciseIdCache.set(exercise.id, blueprints);
+          }
+        }
+
+        const sourcesNeedingMaterialization = chapterContent.flatMap(({ chapter, exercises: chapterExercises }) => chapterExercises
+          .filter(({ id }) => id !== undefined && pending.has(id) && blueprintsByExerciseIdCache.has(id) && !conversionsByExerciseIdCache.has(id))
+          .map((exercise) => ({ chapterTitle: chapter.title, exercise })));
+        const materializedSources = await mapConcurrent(sourcesNeedingMaterialization, ABILITY_GENERATION_CONCURRENCY, async ({ chapterTitle, exercise }): Promise<{ conversions: AtomicAbilityConversion[]; exercise: Exercise }> => {
+          const exerciseId = exercise.id as number;
+          const blueprints = blueprintsByExerciseIdCache.get(exerciseId) ?? [];
+          const systemPrompt = ATOMIC_ABILITY_WORKFLOW_SYSTEM_PROMPT(language, chapterTitle);
+          const runJson: AbilityWorkflowJsonRunner = (prompt, parse, options) => requestValidatedJson(client, selectedModel, systemPrompt, prompt, parse, true, options?.maxOutputTokens, options?.repairContext, options?.validationCycles ?? 1);
+
+          try {
+            const conversions = await materializeAtomicAbilityExercise(language, chapterTitle, exercise, blueprints, runJson);
+
+            lastAttemptError = '';
+
+            return { conversions, exercise };
+          } catch (caught) {
+            lastAttemptError = caught instanceof Error ? caught.message : 'Unknown OpenRouter materialization error.';
+
+            return { conversions: [], exercise };
+          }
+        });
+
+        for (const { conversions, exercise } of materializedSources) {
+          if (conversions.length && exercise.id !== undefined) {
+            conversionsByExerciseIdCache.set(exercise.id, conversions.sort((a, b) => a.skillIndex - b.skillIndex));
+          }
+        }
+
+        // Retry materialization for every pending Exercise whose semantic
+        // conversion is already valid, including conversions cached from an
+        // earlier attempt. This prevents image-only failures from triggering
+        // another expensive Ability workflow pass.
+        const sourcesToMaterialize = allExercises.filter(({ id }) => id !== undefined && pending.has(id) && conversionsByExerciseIdCache.has(id));
+
+        await mapConcurrent(sourcesToMaterialize, VISUAL_MATERIALIZATION_CONCURRENCY, async (source) => {
+          const exerciseId = source.id as number;
+          const sourceConversions = conversionsByExerciseIdCache.get(exerciseId) ?? [];
+
+          if (!pending.has(exerciseId) || !sourceConversions.length) {
+            return;
           }
 
-          const conversionsByExerciseId = new Map<number, AtomicAbilityConversion[]>();
+          try {
+            const abilities = await mapConcurrent(sourceConversions, VISUALS_PER_EXERCISE_CONCURRENCY, (conversion) => materializeAbilityImages(imageApiKey, conversion, selectedModel));
 
-          conversions.forEach((conversion) => {
-            const rows = conversionsByExerciseId.get(conversion.exerciseId) ?? [];
-
-            rows.push(conversion);
-            conversionsByExerciseId.set(conversion.exerciseId, rows);
-          });
-
-          await mapConcurrent(exercises, OPENROUTER_CONCURRENCY, async (source) => {
-            const exerciseId = source.id as number;
-            const sourceConversions = conversionsByExerciseId.get(exerciseId)?.sort((a, b) => a.skillIndex - b.skillIndex) ?? [];
-
-            if (!pending.has(exerciseId) || !sourceConversions.length) {
-              return;
-            }
-
-            try {
-              const abilities = await Promise.all(sourceConversions.map((conversion) => materializeAbilityImages(imageApiKey, conversion, selectedModel)));
-
-              generatedByExerciseId.set(exerciseId, abilities);
-              pending.delete(exerciseId);
-              setProgress(generatedByExerciseId.size);
-            } catch (imageError) {
-              lastAttemptError = imageError instanceof Error ? imageError.message : 'Unable to generate or validate a required Ability image.';
-            }
-          });
-        }
+            generatedByExerciseId.set(exerciseId, abilities);
+            pending.delete(exerciseId);
+            setProgress(generatedByExerciseId.size);
+          } catch (imageError) {
+            lastAttemptError = imageError instanceof Error ? imageError.message : 'Unable to generate or validate a required Ability image.';
+          }
+        });
       }
 
       await Promise.all(Array.from(generatedByExerciseId, ([exerciseId, abilities]) => replaceAbilities(exerciseAbilityModuleId(book.id, exerciseId), abilities.map((ability) => JSON.stringify(ability)))));

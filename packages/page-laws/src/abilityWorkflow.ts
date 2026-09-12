@@ -38,7 +38,13 @@ export interface AtomicAbilityConversion extends BlueprintAbility {
   imagePrompts?: [AbilityExerciseImagePrompts, AbilityExerciseImagePrompts];
 }
 
-export type AbilityWorkflowJsonRunner = <T>(prompt: string, parse: (content: string) => T) => Promise<T>;
+export interface AbilityWorkflowRunOptions {
+  maxOutputTokens?: number;
+  repairContext?: string;
+  validationCycles?: number;
+}
+
+export type AbilityWorkflowJsonRunner = <T>(prompt: string, parse: (content: string) => T, options?: AbilityWorkflowRunOptions) => Promise<T>;
 
 function isRecord (value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
@@ -77,6 +83,28 @@ export function transportAbilitySourceExercises (exercises: Exercise[]): unknown
     solutionImageDescription,
     title
   }));
+}
+
+export function transportCompactAbilitySourceExercise ({ abilityMode = 'reasoning', description, id, imageDescription = '', solution = '', solutionImageDescription = '', title }: Exercise): unknown {
+  return {
+    id,
+    title,
+    mode: abilityMode,
+    task: stripMarkdownImageReferences(description),
+    solution,
+    questionVisual: imageDescription,
+    solutionVisual: solutionImageDescription
+  };
+}
+
+export function transportAbilityMaterializationEvidence ({ abilityMode = 'reasoning', id, imageDescription = '', solutionImageDescription = '', title }: Exercise): unknown {
+  return {
+    id,
+    title,
+    mode: abilityMode,
+    questionVisual: imageDescription,
+    solutionVisual: solutionImageDescription
+  };
 }
 
 export function parseAbilityBlueprints (content: string, expectedExerciseIds: number[]): AbilityBlueprint[] {
@@ -276,6 +304,52 @@ export function parseBlueprintVisualPlans (content: string, blueprints: AbilityB
   return result.sort((a, b) => a.exerciseId - b.exerciseId || a.skillIndex - b.skillIndex);
 }
 
+export function parseAtomicAbilityMaterialization (content: string, blueprints: AbilityBlueprint[]): AtomicAbilityConversion[] {
+  const parsed = parseJson(content);
+  const values = isRecord(parsed) ? parsed.abilities : undefined;
+
+  if (!Array.isArray(values) || values.length !== blueprints.length) {
+    throw new Error(`OpenRouter returned ${Array.isArray(values) ? values.length : 0} materialized Abilities for ${blueprints.length} blueprints.`);
+  }
+
+  const abilities = parseBlueprintAbilities(JSON.stringify({ abilities: values }), blueprints);
+  const expectedByKey = new Map(blueprints.map((blueprint) => [expectedBlueprintKey(blueprint.exerciseId, blueprint.skillIndex), blueprint] as const));
+  const visualRows: unknown[] = [];
+
+  for (const value of values) {
+    if (!isRecord(value) || typeof value.exerciseId !== 'number' || typeof value.skillIndex !== 'number') {
+      continue; // parseBlueprintAbilities reports the precise structural failure.
+    }
+
+    const blueprint = expectedByKey.get(expectedBlueprintKey(value.exerciseId, value.skillIndex));
+
+    if (!blueprint) {
+      continue;
+    }
+
+    const requiresVisual = blueprint.questionVisual === 'required' || blueprint.solutionVisual !== 'none';
+
+    if (requiresVisual) {
+      visualRows.push({ exerciseId: value.exerciseId, imagePrompts: value.imagePrompts, skillIndex: value.skillIndex });
+      continue;
+    }
+
+    if ('imagePrompts' in value) {
+      const pair = parseImagePromptPair(value.imagePrompts);
+
+      if (pair.some(({ changesImage, i, p }) => changesImage || i || p)) {
+        throw new Error('A text-only Ability must not create visual prompts.');
+      }
+    }
+  }
+
+  const visualPlans = visualRows.length
+    ? parseBlueprintVisualPlans(JSON.stringify({ plans: visualRows }), blueprints)
+    : [];
+
+  return assembleAtomicAbilityConversions(blueprints, abilities, visualPlans);
+}
+
 export function validateAbilityBlueprintEvidence (blueprints: AbilityBlueprint[], exercises: Exercise[]): void {
   const sourceById = new Map(exercises.flatMap((exercise) => exercise.id === undefined ? [] : [[exercise.id, exercise] as const]));
   const blueprintsByExerciseId = new Map<number, AbilityBlueprint[]>();
@@ -366,6 +440,62 @@ export function assembleAtomicAbilityConversions (blueprints: AbilityBlueprint[]
   });
 }
 
+export async function planAtomicAbilityExercise (
+  language: string,
+  chapterTitle: string,
+  exercise: Exercise,
+  runJson: AbilityWorkflowJsonRunner
+): Promise<AbilityBlueprint[]> {
+  if (exercise.id === undefined) {
+    throw new Error('Every source Exercise must have one unique id before Ability generation.');
+  }
+
+  const exerciseId = exercise.id;
+  const source = transportCompactAbilitySourceExercise(exercise);
+  const parseBlueprintStage = (content: string): AbilityBlueprint[] => {
+    const blueprints = parseAbilityBlueprints(content, [exerciseId]);
+
+    validateAbilityBlueprintEvidence(blueprints, [exercise]);
+
+    return blueprints;
+  };
+
+  return runJson(
+    abilityBlueprintRequestPrompt(language, chapterTitle, [source]),
+    parseBlueprintStage,
+    {
+      maxOutputTokens: 1_800,
+      repairContext: `Expected exerciseId=${exerciseId}. Return one plans[] entry with 1-8 skills. Source question visual present=${Boolean(exercise.imageDescription?.trim())}; source solution visual present=${Boolean(exercise.solutionImageDescription?.trim())}.`,
+      validationCycles: 1
+    }
+  );
+}
+
+export async function materializeAtomicAbilityExercise (
+  language: string,
+  chapterTitle: string,
+  exercise: Exercise,
+  blueprints: AbilityBlueprint[],
+  runJson: AbilityWorkflowJsonRunner
+): Promise<AtomicAbilityConversion[]> {
+  if (exercise.id === undefined || !blueprints.length || blueprints.some(({ exerciseId }) => exerciseId !== exercise.id)) {
+    throw new Error('Ability materialization requires a nonempty blueprint set for exactly one source Exercise.');
+  }
+
+  const exerciseId = exercise.id;
+  const materializationEvidence = transportAbilityMaterializationEvidence(exercise);
+
+  return runJson(
+    abilityMaterializationPrompt(language, chapterTitle, blueprints, materializationEvidence),
+    (content) => parseAtomicAbilityMaterialization(content, blueprints),
+    {
+      maxOutputTokens: 4_500,
+      repairContext: `Return exactly ${blueprints.length} abilities[] entries for exerciseId=${exerciseId}, with skillIndex values ${blueprints.map(({ skillIndex }) => skillIndex).join(',')}. Keep each ability title identical to its blueprint title and honor each blueprint visual mode.`,
+      validationCycles: 1
+    }
+  );
+}
+
 export async function runAtomicAbilityWorkflow (
   language: string,
   chapterTitle: string,
@@ -378,59 +508,56 @@ export async function runAtomicAbilityWorkflow (
     throw new Error('Every source Exercise must have one unique id before Ability generation.');
   }
 
-  const sources = transportAbilitySourceExercises(exercises);
-  const parseBlueprintStage = (content: string): AbilityBlueprint[] => {
-    const blueprints = parseAbilityBlueprints(content, expectedExerciseIds);
+  // Compatibility composition for callers that still want a one-function
+  // workflow. The live UI calls the two stages separately and caches their
+  // outputs so a materialization retry never regenerates the blueprint.
+  const results: AtomicAbilityConversion[] = [];
 
-    validateAbilityBlueprintEvidence(blueprints, exercises);
+  for (const exercise of exercises) {
+    const blueprints = await planAtomicAbilityExercise(language, chapterTitle, exercise, runJson);
+    const conversions = await materializeAtomicAbilityExercise(language, chapterTitle, exercise, blueprints, runJson);
 
-    return blueprints;
-  };
-  const draftBlueprints = await runJson(abilityBlueprintRequestPrompt(language, chapterTitle, sources), parseBlueprintStage);
-  const auditedBlueprints = await runJson(abilityBlueprintAuditPrompt(language, chapterTitle, sources, draftBlueprints), parseBlueprintStage);
-  const draftAbilities = await runJson(
-    abilityTextGenerationPrompt(language, chapterTitle, auditedBlueprints, sources),
-    (content) => parseBlueprintAbilities(content, auditedBlueprints)
-  );
-  const auditedAbilities = await runJson(
-    abilityTextAuditPrompt(language, chapterTitle, auditedBlueprints, sources, draftAbilities),
-    (content) => parseBlueprintAbilities(content, auditedBlueprints)
-  );
-  const needsVisuals = auditedBlueprints.some(({ questionVisual, solutionVisual }) => questionVisual === 'required' || solutionVisual !== 'none');
-  let visualPlans: BlueprintVisualPlan[] = [];
-
-  if (needsVisuals) {
-    const draftVisualPlans = await runJson(
-      abilityVisualPlanningPrompt(language, chapterTitle, auditedBlueprints, auditedAbilities, sources),
-      (content) => parseBlueprintVisualPlans(content, auditedBlueprints)
-    );
-
-    visualPlans = await runJson(
-      abilityVisualAuditPrompt(language, chapterTitle, auditedBlueprints, auditedAbilities, sources, draftVisualPlans),
-      (content) => parseBlueprintVisualPlans(content, auditedBlueprints)
-    );
+    results.push(...conversions);
   }
 
-  return assembleAtomicAbilityConversions(auditedBlueprints, auditedAbilities, visualPlans);
+  return results;
 }
 
 export function abilityBlueprintRequestPrompt (language: string, chapterTitle: string, exercises: unknown[]): string {
-  return `Design the internal plan for converting each supplied book Exercise into atomic learner Abilities. This is a planning stage only: do not write practice questions yet.
+  return `Plan atomic practice skills for the supplied source Exercise. Planning only; do not write learner questions.
 
 Chapter: ${chapterTitle}
 Language: ${language}
 
-For every source Exercise, identify 1-8 independently practicable atomic skills that the Exercise actually trains. Split a multi-operation source task when its operations can be practiced and assessed independently. For example, "read a value from a graph, calculate a difference, then interpret the result" normally contains separate atomic skills. Do not split a single indivisible operation into artificial micro-steps, and do not invent prerequisite skills merely mentioned by the source.
+Create 1-8 independently practicable skills actually trained by the source. Each skill must have exactly one stable input type, one learner operation, one output type, and one stable method. Split independently variable operations/methods; do not invent prerequisites or artificial micro-steps. Keep titles short and observable.
 
-Each skill must have exactly one stable input type, one learner operation, one output type, and one stable method. The eventual two practice instances must be able to differ only in data while keeping the operation, direction, method, reasoning depth, and difficulty fixed. Keep the title short and observable.
+Visual contract: questionVisual="required" only when the learner must inspect task-essential visual/spatial information that cannot be moved into text without changing or revealing the task. solutionVisual="new" only for a newly created visual answer, "modify-question" only when the answer changes the supplied question visual, otherwise "none". A modify-question solution requires questionVisual="required". Never request decorative visuals.
 
-Decide visual semantics here, before question generation. questionVisual is "required" only if performing this atomic skill requires inspecting visual/spatial information that cannot be moved into text without changing the skill or revealing what must be inferred. solutionVisual is "new" only when the learner must create an inherently visual output from text, "modify-question" only when the learner must change the supplied question visual, and otherwise "none". Decorative or explanatory illustrations are never required.
+Return only JSON:
+{"plans":[{"exerciseId":123,"skills":[{"title":"Short skill","input":"input type","operation":"one operation","output":"output type","method":"stable method","questionVisual":"none","solutionVisual":"none"}]}]}
 
-Return exactly one plan per supplied Exercise and preserve source order. Return only JSON:
-{"plans":[{"exerciseId":123,"skills":[{"title":"Short observable skill","input":"general input type","operation":"one learner operation","output":"general output type","method":"stable method/rule","questionVisual":"none","solutionVisual":"none"}]}]}
-
-Source Exercises:
+SOURCE (normally exactly one Exercise):
 ${JSON.stringify(exercises)}`;
+}
+
+export function abilityMaterializationPrompt (language: string, chapterTitle: string, blueprints: AbilityBlueprint[], source: unknown): string {
+  return `Materialize the exact atomic plan into final learner Abilities. Do not add, remove, merge, split, rename, or broaden planned skills.
+
+Chapter: ${chapterTitle}
+Language: ${language}
+
+For every blueprint create exactly one Ability with exactly two concrete practice instances. Copy blueprint.title to ability.h unchanged. Both instances must use the same input type, operation, output type, method, direction, reasoning depth, and difficulty; vary only concrete data and independently recalculate each answer. Keep tasks direct (normally <=32 words), answers compact (normally <=38 words), and titles <=12 words. No hints, tutorial prose, answer choices, book references, or redundant explanation. Use <kx>...</kx> for mathematical notation. ability.i="", t=3, and q[].p/q[].i remain empty because images are materialized later.
+
+For every item also return two imagePrompts entries, one per question. For text-only blueprints all p/i must be "" and changesImage=false. If questionVisual="required", p must be a complete standalone starting-visual specification with the concrete values/labels/geometry for that question and no answer leakage. If solutionVisual="new", i must be the complete correct finished visual and changesImage=false. If solutionVisual="modify-question", p and i must both be complete specifications of the same visual, changesImage=true, and i must preserve every unchanged object/layout while applying only the correct answer change. Do not create optional/decorative visuals.
+
+Return only JSON:
+{"abilities":[{"exerciseId":123,"skillIndex":0,"ability":{"i":"","t":3,"h":"Short skill","q":[{"h":"Task 1","a":"Answer 1","p":"","i":""},{"h":"Task 2","a":"Answer 2","p":"","i":""}]},"imagePrompts":[{"changesImage":false,"p":"","i":""},{"changesImage":false,"p":"","i":""}]}]}
+
+ATOMIC PLAN:
+${JSON.stringify(blueprints)}
+
+SOURCE VISUAL EVIDENCE (single Exercise; the atomic plan already carries the semantic contract):
+${JSON.stringify(source)}`;
 }
 
 export function abilityBlueprintAuditPrompt (language: string, chapterTitle: string, exercises: unknown[], draft: AbilityBlueprint[]): string {

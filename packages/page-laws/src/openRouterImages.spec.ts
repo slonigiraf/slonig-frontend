@@ -5,7 +5,23 @@
 
 import { strict as assert } from 'node:assert';
 
+import { renderMathVisualSvg } from './mathVisuals.js';
 import { generateOpenRouterVisual, OPENROUTER_IMAGE_MODEL, svgMarkupToDataUrl } from './openRouterImages.js';
+
+function vectorPlan (label = 'A'): string {
+  return JSON.stringify({
+    format: 'vector',
+    scene: {
+      background: 'white',
+      elements: [
+        { id: 'axis', stroke: 'black', strokeWidth: 2, type: 'line', x1: 0, x2: 100, y1: 50, y2: 50 },
+        { anchor: 'middle', fill: 'black', fontSize: 24, id: 'label', text: label, type: 'text', x: 50, y: 40 }
+      ],
+      height: 640,
+      width: 960
+    }
+  });
+}
 
 describe('Ability visual generation', (): void => {
   it('encodes a self-contained SVG as an image data URL', (): void => {
@@ -25,7 +41,7 @@ describe('Ability visual generation', (): void => {
     assert.equal(svgMarkupToDataUrl('<svg><image href="https://example.com/a.png" /></svg>'), undefined);
   });
 
-  it('prefers a safe SVG and verifies it before returning', async (): Promise<void> => {
+  it('generates a structured vector scene, renders it deterministically, and verifies it', async (): Promise<void> => {
     const originalFetch = globalThis.fetch;
     const originalWindow = Object.getOwnPropertyDescriptor(globalThis, 'window');
     const requests: Array<{ body: Record<string, unknown>; url: string }> = [];
@@ -40,9 +56,7 @@ describe('Ability visual generation', (): void => {
       chatCall++;
 
       return {
-        json: async () => ({ choices: [{ message: { content: chatCall === 1
-          ? JSON.stringify({ format: 'svg', svg: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 10 10"><circle cx="5" cy="5" r="4" /></svg>' })
-          : JSON.stringify({ errors: [], ok: true }) } }] }),
+        json: async () => ({ choices: [{ message: { content: chatCall === 1 ? vectorPlan() : JSON.stringify({ errors: [], ok: true }) } }] }),
         ok: true
       } as Response;
     }) as typeof fetch;
@@ -50,6 +64,8 @@ describe('Ability visual generation', (): void => {
     try {
       const result = await generateOpenRouterVisual('test-key', 'Draw the task visual.', 'some/text-model');
 
+      // Node has no canvas, so tests exercise the SVG fallback. Production
+      // browsers rasterize this deterministic SVG to PNG before returning it.
       assert.match(result, /^data:image\/svg\+xml;base64,/);
       assert.equal(requests.length, 2);
       assert.deepEqual(requests.map(({ url }) => url), [
@@ -58,6 +74,10 @@ describe('Ability visual generation', (): void => {
       ]);
       assert.equal(requests[0].body.model, 'some/text-model');
       assert.equal(requests[1].body.model, 'some/text-model');
+      const firstMessages = requests[0].body.messages as Array<{ content?: string }>;
+
+      assert.match(firstMessages[0].content ?? '', /DO NOT write SVG\/XML/i);
+      assert.match(firstMessages[0].content ?? '', /structured vector/i);
     } finally {
       globalThis.fetch = originalFetch;
 
@@ -69,7 +89,7 @@ describe('Ability visual generation', (): void => {
     }
   });
 
-  it('falls back to the dedicated raster image endpoint and verifies the raster result', async (): Promise<void> => {
+  it('uses the raster endpoint only when the planner explicitly requires photographic imagery', async (): Promise<void> => {
     const originalFetch = globalThis.fetch;
     const originalWindow = Object.getOwnPropertyDescriptor(globalThis, 'window');
     const requests: Array<{ body: Record<string, unknown>; url: string }> = [];
@@ -87,7 +107,7 @@ describe('Ability visual generation', (): void => {
 
         return {
           json: async () => ({ choices: [{ message: { content: chatCall === 1
-            ? JSON.stringify({ format: 'raster', svg: '' })
+            ? JSON.stringify({ format: 'raster' })
             : JSON.stringify({ errors: [], ok: true }) } }] }),
           ok: true
         } as Response;
@@ -100,7 +120,7 @@ describe('Ability visual generation', (): void => {
     }) as typeof fetch;
 
     try {
-      const result = await generateOpenRouterVisual('test-key', 'Draw the task visual.', 'some/text-model');
+      const result = await generateOpenRouterVisual('test-key', 'Show a realistic photograph of the object.', 'some/text-model');
 
       assert.equal(result, 'data:image/png;base64,ZmFrZS1wbmc=');
       assert.deepEqual(requests.map(({ url }) => url), [
@@ -109,9 +129,6 @@ describe('Ability visual generation', (): void => {
         'https://openrouter.ai/api/v1/chat/completions'
       ]);
       assert.equal(requests[1].body.model, OPENROUTER_IMAGE_MODEL);
-      const qaMessages = requests[2].body.messages as Array<{ content?: Array<{ image_url?: { url?: string }; type?: string }> }>;
-
-      assert.equal(qaMessages[0].content?.find(({ type }) => type === 'image_url')?.image_url?.url, result);
     } finally {
       globalThis.fetch = originalFetch;
 
@@ -123,44 +140,83 @@ describe('Ability visual generation', (): void => {
     }
   });
 
-  it('falls back to raster when generated SVG is unsafe or malformed', async (): Promise<void> => {
+  it('retries invalid structured math output instead of silently falling back to raster', async (): Promise<void> => {
     const originalFetch = globalThis.fetch;
     const originalWindow = Object.getOwnPropertyDescriptor(globalThis, 'window');
     const requests: string[] = [];
+    const generationPrompts: string[] = [];
     let chatCall = 0;
 
     Object.defineProperty(globalThis, 'window', { configurable: true, value: { location: { origin: 'https://slonig.test' } } });
-    globalThis.fetch = (async (input: Parameters<typeof fetch>[0]) => {
+    globalThis.fetch = (async (input: Parameters<typeof fetch>[0], init?: Parameters<typeof fetch>[1]) => {
       const url = String(input);
 
       requests.push(url);
+      assert.ok(url.endsWith('/chat/completions'));
+      chatCall++;
+      const body = JSON.parse(String(init?.body ?? '{}')) as { messages?: Array<{ content?: string | Array<unknown> }> };
 
-      if (url.endsWith('/chat/completions')) {
-        chatCall++;
-
-        return {
-          json: async () => ({ choices: [{ message: { content: chatCall === 1
-            ? JSON.stringify({ format: 'svg', svg: '<svg xmlns="http://www.w3.org/2000/svg"><script>alert(1)</script></svg>' })
-            : JSON.stringify({ errors: [], ok: true }) } }] }),
-          ok: true
-        } as Response;
+      if (typeof body.messages?.[0]?.content === 'string') {
+        generationPrompts.push(body.messages[0].content);
       }
 
       return {
-        json: async () => ({ data: [{ b64_json: 'ZmFrZS1qcGVn', media_type: 'image/jpeg' }] }),
+        json: async () => ({ choices: [{ message: { content: chatCall === 1
+          ? JSON.stringify({ format: 'vector', scene: { elements: [{ id: 'bad', type: 'path', d: 'M 0 0' }] } })
+          : chatCall === 2
+            ? vectorPlan()
+            : JSON.stringify({ errors: [], ok: true }) } }] }),
         ok: true
       } as Response;
     }) as typeof fetch;
 
     try {
-      const result = await generateOpenRouterVisual('test-key', 'Draw the task visual.', 'some/text-model');
+      const result = await generateOpenRouterVisual('test-key', 'Draw a number line.', 'some/text-model');
 
-      assert.equal(result, 'data:image/jpeg;base64,ZmFrZS1qcGVn');
-      assert.deepEqual(requests, [
-        'https://openrouter.ai/api/v1/chat/completions',
-        'https://openrouter.ai/api/v1/images',
-        'https://openrouter.ai/api/v1/chat/completions'
-      ]);
+      assert.match(result, /^data:image\/svg\+xml;base64,/);
+      assert.equal(chatCall, 3);
+      assert.equal(requests.filter((url) => url.endsWith('/images')).length, 0);
+      assert.match(generationPrompts[1], /unsupported/i);
+    } finally {
+      globalThis.fetch = originalFetch;
+
+      if (originalWindow) {
+        Object.defineProperty(globalThis, 'window', originalWindow);
+      } else {
+        Reflect.deleteProperty(globalThis, 'window');
+      }
+    }
+  });
+
+  it('does not fail a correct diagram for an unrequested line-style preference', async (): Promise<void> => {
+    const originalFetch = globalThis.fetch;
+    const originalWindow = Object.getOwnPropertyDescriptor(globalThis, 'window');
+    let chatCall = 0;
+
+    Object.defineProperty(globalThis, 'window', { configurable: true, value: { location: { origin: 'https://slonig.test' } } });
+    globalThis.fetch = (async (_input: Parameters<typeof fetch>[0], _init?: Parameters<typeof fetch>[1]) => {
+      chatCall++;
+
+      return {
+        json: async () => ({ choices: [{ message: { content: chatCall === 1
+          ? vectorPlan()
+          : JSON.stringify({
+            errors: ['Horizontal dividing lines are dashed; solid lines would better represent equal partitioning.'],
+            ok: false
+          }) } }] }),
+        ok: true
+      } as Response;
+    }) as typeof fetch;
+
+    try {
+      const result = await generateOpenRouterVisual(
+        'test-key',
+        'Draw a rectangle divided horizontally into three equal parts.',
+        'some/text-model'
+      );
+
+      assert.match(result, /^data:image\/svg\+xml;base64,/);
+      assert.equal(chatCall, 2);
     } finally {
       globalThis.fetch = originalFetch;
 
@@ -189,11 +245,11 @@ describe('Ability visual generation', (): void => {
       }
 
       const content = chatCall === 1
-        ? JSON.stringify({ format: 'svg', svg: '<svg xmlns="http://www.w3.org/2000/svg"><text>7</text></svg>' })
+        ? vectorPlan('7')
         : chatCall === 2
           ? JSON.stringify({ errors: ['The required label is 8, not 7.'], ok: false })
           : chatCall === 3
-            ? JSON.stringify({ format: 'svg', svg: '<svg xmlns="http://www.w3.org/2000/svg"><text>8</text></svg>' })
+            ? vectorPlan('8')
             : JSON.stringify({ errors: [], ok: true });
 
       return {
@@ -219,52 +275,20 @@ describe('Ability visual generation', (): void => {
     }
   });
 
-  it('allows SVG solution visuals to show the completed answer', async (): Promise<void> => {
+  it('patches the exact structured question scene for a changed solution visual', async (): Promise<void> => {
     const originalFetch = globalThis.fetch;
     const originalWindow = Object.getOwnPropertyDescriptor(globalThis, 'window');
-    let svgInstruction = '';
-    let chatCall = 0;
-
-    Object.defineProperty(globalThis, 'window', { configurable: true, value: { location: { origin: 'https://slonig.test' } } });
-    globalThis.fetch = (async (_input: Parameters<typeof fetch>[0], init?: Parameters<typeof fetch>[1]) => {
-      const body = JSON.parse(String(init?.body ?? '{}')) as { messages?: Array<{ content?: string | Array<unknown> }> };
-
-      chatCall++;
-
-      if (chatCall === 1 && typeof body.messages?.[0]?.content === 'string') {
-        svgInstruction = body.messages[0].content;
-      }
-
-      return {
-        json: async () => ({ choices: [{ message: { content: chatCall === 1
-          ? JSON.stringify({ format: 'svg', svg: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 10 10"><line x1="1" y1="9" x2="9" y2="1" /></svg>' })
-          : JSON.stringify({ errors: [], ok: true }) } }] }),
-        ok: true
-      } as Response;
-    }) as typeof fetch;
-
-    try {
-      const result = await generateOpenRouterVisual('test-key', 'Draw the completed construction.', 'some/text-model', 'solution');
-
-      assert.match(result, /^data:image\/svg\+xml;base64,/);
-      assert.match(svgInstruction, /worked-solution visual/i);
-      assert.match(svgInstruction, /show the complete correct/i);
-      assert.doesNotMatch(svgInstruction, /do not reveal or encode the answer/i);
-    } finally {
-      globalThis.fetch = originalFetch;
-
-      if (originalWindow) {
-        Object.defineProperty(globalThis, 'window', originalWindow);
-      } else {
-        Reflect.deleteProperty(globalThis, 'window');
-      }
-    }
-  });
-
-  it('uses the exact SVG question visual as the base for modified solution generation and QA', async (): Promise<void> => {
-    const originalFetch = globalThis.fetch;
-    const originalWindow = Object.getOwnPropertyDescriptor(globalThis, 'window');
-    const base = svgMarkupToDataUrl('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 10 10"><text>A</text></svg>') as string;
+    const baseScene = {
+      background: 'white',
+      elements: [
+        { id: 'baseLine', stroke: 'black', strokeWidth: 2, type: 'line' as const, x1: 0, x2: 100, y1: 50, y2: 50 },
+        { anchor: 'middle' as const, fill: 'black', fontSize: 24, id: 'labelA', text: 'A', type: 'text' as const, x: 50, y: 40 }
+      ],
+      height: 640,
+      width: 960
+    };
+    const rendered = renderMathVisualSvg(baseScene);
+    const base = svgMarkupToDataUrl(rendered.svg) as string;
     let generationInstruction = '';
     let qaInstruction = '';
     let chatCall = 0;
@@ -284,19 +308,23 @@ describe('Ability visual generation', (): void => {
 
       return {
         json: async () => ({ choices: [{ message: { content: chatCall === 1
-          ? JSON.stringify({ format: 'svg', svg: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 10 10"><text>A</text><circle cx="5" cy="5" r="1" /></svg>' })
+          ? JSON.stringify({ format: 'vector-patch', operations: [{ element: { fill: 'red', id: 'answerPoint', r: 4, stroke: 'red', strokeWidth: 2, type: 'circle', cx: 50, cy: 50 }, op: 'add' }] })
           : JSON.stringify({ errors: [], ok: true }) } }] }),
         ok: true
       } as Response;
     }) as typeof fetch;
 
     try {
-      await generateOpenRouterVisual('test-key', 'Add the required point.', 'some/text-model', 'solution', base);
+      const result = await generateOpenRouterVisual('test-key', 'Add the required point.', 'some/text-model', 'solution', base);
 
-      assert.match(generationInstruction, /STARTING SVG/);
-      assert.match(generationInstruction, /<text>A<\/text>/);
-      assert.match(qaInstruction, /REFERENCE QUESTION SVG/);
-      assert.match(qaInstruction, /<text>A<\/text>/);
+      assert.match(result, /^data:image\/svg\+xml;base64,/);
+      assert.match(generationInstruction, /vector-patch/i);
+      assert.match(generationInstruction, /baseLine/);
+      assert.match(generationInstruction, /labelA/);
+      assert.match(qaInstruction, /REFERENCE QUESTION SCENE JSON/);
+      assert.match(qaInstruction, /baseLine/);
+      assert.match(qaInstruction, /GENERATED CANDIDATE SCENE JSON/);
+      assert.match(qaInstruction, /answerPoint/);
     } finally {
       globalThis.fetch = originalFetch;
 
@@ -308,7 +336,7 @@ describe('Ability visual generation', (): void => {
     }
   });
 
-  it('marks raster fallback prompts as worked-solution visuals', async (): Promise<void> => {
+  it('marks explicit raster solution prompts as worked-solution visuals', async (): Promise<void> => {
     const originalFetch = globalThis.fetch;
     const originalWindow = Object.getOwnPropertyDescriptor(globalThis, 'window');
     let rasterPrompt = '';
@@ -324,7 +352,7 @@ describe('Ability visual generation', (): void => {
 
         return {
           json: async () => ({ choices: [{ message: { content: chatCall === 1
-            ? JSON.stringify({ format: 'raster', svg: '' })
+            ? JSON.stringify({ format: 'raster' })
             : JSON.stringify({ errors: [], ok: true }) } }] }),
           ok: true
         } as Response;
@@ -339,11 +367,11 @@ describe('Ability visual generation', (): void => {
     }) as typeof fetch;
 
     try {
-      const result = await generateOpenRouterVisual('test-key', 'Draw the completed construction.', 'some/text-model', 'solution');
+      const result = await generateOpenRouterVisual('test-key', 'Draw the completed realistic object.', 'some/text-model', 'solution');
 
       assert.equal(result, 'data:image/png;base64,ZmFrZS1wbmc=');
       assert.match(rasterPrompt, /complete worked-solution visual/i);
-      assert.match(rasterPrompt, /Draw the completed construction\./);
+      assert.match(rasterPrompt, /Draw the completed realistic object\./);
     } finally {
       globalThis.fetch = originalFetch;
 
