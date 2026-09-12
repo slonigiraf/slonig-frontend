@@ -146,18 +146,19 @@ export function validateGeneratedAbilityText (ability: GeneratedAbility): void {
 
 function parseGeneratedAbilityValue (value: unknown): GeneratedAbility {
   const template = parseAbilityValue(value);
-  const [first, second] = template.q;
 
-  if (first.h.replace(/\s+/g, ' ').trim() === second.h.replace(/\s+/g, ' ').trim()) {
-    throw new Error('The two exercises must have different input parameters, not identical questions.');
-  }
-
+  // Distinct concrete inputs are a quality requirement, not a schema
+  // requirement. Do not make the whole Ability-generation workflow fail just
+  // because a model duplicated the two practice questions. The generation and
+  // audit prompts still require distinct inputs, and Fix abilities can repair a
+  // duplicate pair afterwards. Keeping this parser structural prevents one
+  // imperfect pair from discarding every Ability for the source Exercise.
   validateGeneratedAbilityText(template);
 
   return template;
 }
 
-export function parseGeneratedAbilities (content: string, expectedCount?: number): GeneratedAbility[] {
+export function parseGeneratedAbilities (content: string, expectedCount?: number, _options?: { allowIdenticalQuestionText?: boolean }): GeneratedAbility[] {
   const parsed = parseResponse(content);
   const templates: unknown = Array.isArray(parsed) ? parsed : isRecord(parsed) ? parsed.abilities ?? parsed.templates : undefined;
 
@@ -170,7 +171,7 @@ export function parseGeneratedAbilities (content: string, expectedCount?: number
   }
 
   // Validate the entire response before callers persist any of its templates.
-  return templates.map(parseGeneratedAbilityValue);
+  return templates.map((template) => parseGeneratedAbilityValue(template));
 }
 
 

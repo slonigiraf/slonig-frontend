@@ -307,6 +307,20 @@ describe('generated abilities', (): void => {
     ] }), [31, 32]), [{ ability: first, exerciseId: 31, imagePrompts: noImagePrompts() }]);
   });
 
+  it('does not discard an otherwise valid Ability solely because its two question texts are identical', (): void => {
+    const duplicatedPair = {
+      ...createSkill(),
+      h: 'Read a value from a diagram',
+      q: [
+        { a: '<kx>3</kx>', h: 'Read the value shown.', i: '', p: '' },
+        { a: '<kx>7</kx>', h: 'Read the value shown.', i: '', p: '' }
+      ]
+    };
+
+    assert.deepEqual(parseGeneratedAbilities(JSON.stringify([duplicatedPair])), [duplicatedPair]);
+    assert.deepEqual(parseGeneratedAbilities(JSON.stringify([duplicatedPair]), 1, { allowIdenticalQuestionText: true }), [duplicatedPair]);
+  });
+
   it('accepts concrete nonmathematical exercises for one human skill', (): void => {
     const skill = {
       ...createSkill(),

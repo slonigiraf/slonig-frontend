@@ -218,8 +218,8 @@ export const FIX_EXERCISES_REQUEST_PROMPT = (input: unknown): string => {
   return `${FIX_EXERCISES_PROMPT}\n${JSON.stringify(input)}`;
 };
 
-export const JSON_VALIDATION_PROMPT = (originalRequest: string, candidate: string): string => {
-  return `Act as an independent strict validator. Check the candidate against every original requirement and the supplied input. Fix every factual, structural, language, completeness, ordering, KaTeX, and count error. If it cannot be repaired safely, regenerate the complete output from the original request. Return only the final corrected output in the exact originally requested JSON shape, without commentary.
+export const JSON_VALIDATION_PROMPT = (originalRequest: string, candidate: string, validationError = ''): string => {
+  return `Act as an independent strict validator. Check the candidate against every original requirement and the supplied input. Fix every factual, structural, language, completeness, ordering, KaTeX, and count error. If it cannot be repaired safely, regenerate the complete output from the original request. Return only the final corrected output in the exact originally requested JSON shape, without commentary.${validationError ? `\n\nThe application rejected the candidate for this exact reason. You MUST correct this failure as well as any other issue:\n${validationError}` : ''}
 
 ORIGINAL REQUEST:
 ${originalRequest}

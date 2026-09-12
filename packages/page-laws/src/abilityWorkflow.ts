@@ -164,8 +164,8 @@ export function parseBlueprintAbilities (content: string, blueprints: AbilityBlu
       throw new Error('OpenRouter returned an unknown or duplicate Ability blueprint key.');
     }
 
-    const [ability] = parseGeneratedAbilities(JSON.stringify([value.ability]), 1);
     const blueprint = expected.get(key) as AbilityBlueprint;
+    const [ability] = parseGeneratedAbilities(JSON.stringify([value.ability]), 1, { allowIdenticalQuestionText: blueprint.questionVisual === 'required' });
 
     if (normalized(ability.h) !== normalized(blueprint.title)) {
       throw new Error('Generated Ability title must match its audited atomic blueprint.');
@@ -237,15 +237,27 @@ export function parseBlueprintVisualPlans (content: string, blueprints: AbilityB
       throw new Error('OpenRouter returned an unknown or duplicate Ability visual plan.');
     }
 
-    const imagePrompts = parseImagePromptPair(value.imagePrompts);
+    const imagePrompts = parseImagePromptPair(value.imagePrompts).map((prompt) => {
+      // The audited blueprint is the source of truth. Models occasionally add
+      // an explanatory solution image to an otherwise text-answer Ability.
+      // Treat that as harmless over-generation and strip it locally instead of
+      // failing the whole atomic Ability attempt (and all of its retries).
+      const p = blueprint.questionVisual === 'none' ? '' : prompt.p;
+
+      if (blueprint.solutionVisual === 'none') {
+        return { changesImage: false, i: '', p };
+      }
+
+      if (blueprint.solutionVisual === 'new') {
+        return { changesImage: false, i: prompt.i, p };
+      }
+
+      return { ...prompt, p };
+    }) as [AbilityExerciseImagePrompts, AbilityExerciseImagePrompts];
 
     imagePrompts.forEach(({ changesImage, i, p }) => {
       if ((blueprint.questionVisual === 'required') !== Boolean(p)) {
         throw new Error('Question visual prompt does not match the Ability blueprint.');
-      }
-
-      if (blueprint.solutionVisual === 'none' && (changesImage || i)) {
-        throw new Error('A text-answer Ability received an unnecessary solution visual.');
       }
 
       if (blueprint.solutionVisual === 'new' && (changesImage || !i)) {
@@ -333,6 +345,21 @@ export function assembleAtomicAbilityConversions (blueprints: AbilityBlueprint[]
 
     if (blueprint.questionVisual === 'none' && blueprint.solutionVisual === 'none' && visualPlan) {
       throw new Error('A text-only Ability received an unexpected visual plan.');
+    }
+
+    if (blueprint.questionVisual === 'required') {
+      const [firstQuestion, secondQuestion] = candidate.ability.q;
+      const sameQuestionText = normalized(firstQuestion.h) === normalized(secondQuestion.h);
+      const firstVisual = visualPlan?.imagePrompts[0].p ?? '';
+      const secondVisual = visualPlan?.imagePrompts[1].p ?? '';
+
+      // A visual Ability may intentionally use the same instruction twice
+      // (for example, "Read the value shown") as long as each question carries
+      // different concrete data in its required visual. Validate the complete
+      // learner input rather than question text alone.
+      if (sameQuestionText && normalized(firstVisual) === normalized(secondVisual)) {
+        throw new Error('The two Ability exercises must use different concrete input parameters in their text or question visuals.');
+      }
     }
 
     return { ...candidate, ...(visualPlan ? { imagePrompts: visualPlan.imagePrompts } : {}) };
@@ -430,7 +457,7 @@ export function abilityTextGenerationPrompt (language: string, chapterTitle: str
 Chapter: ${chapterTitle}
 Language: ${language}
 
-For each blueprint, create exactly one Ability with exactly two concrete practice instances. Copy the blueprint title into Ability h unchanged. Both instances must implement the blueprint's same input type, operation, output type, method, direction, reasoning depth, and difficulty; vary only task data. Recalculate each answer independently.
+For each blueprint, create exactly one Ability with exactly two concrete practice instances. Copy the blueprint title into Ability h unchanged. Both instances must implement the blueprint's same input type, operation, output type, method, direction, reasoning depth, and difficulty; vary only task data. Recalculate each answer independently. For text-input tasks, the two q[].h strings must contain different concrete parameters and must not be identical. When questionVisual=\"required\", the instruction wording may be identical only if the later two question visuals will carry different concrete task data.
 
 Make the wording economical. A task should normally be one direct imperative sentence plus only the data needed to perform it. Do not add teaching context, motivational text, hints, definitions, answer choices, "explain your answer" unless explanation is itself the atomic operation, or references to the book. The answer should be the shortest correct response that demonstrates the target operation: usually the result, or the result plus one compact derivation when the method must be checkable. Do not restate the question, teach the rule, narrate obvious steps, or write tutorial-style prose for an atomic task. Keep all essential information; brevity must never make the task ambiguous.
 
@@ -454,7 +481,7 @@ export function abilityTextAuditPrompt (language: string, chapterTitle: string, 
 Chapter: ${chapterTitle}
 Language: ${language}
 
-For every candidate verify against its exact blueprint and source evidence: atomicity; same operation/method/direction in both questions; distinct data; factual and mathematical correctness; self-containment; no answer leakage; correct language; and strict visual dependence. Most importantly, enforce the learner-facing size budget: titles should fit in about 12 words, tasks in about 32 words, and answers in about 38 words. Keep each task direct and concrete and each answer as short as correctness permits. Delete explanations, restatements, teaching prose, and redundant intermediate steps that are not needed to demonstrate the atomic skill. Do not remove data, conditions, units, or reasoning that is genuinely required.
+For every candidate verify against its exact blueprint and source evidence: atomicity; same operation/method/direction in both questions; distinct data; factual and mathematical correctness; self-containment; no answer leakage; correct language; and strict visual dependence. For text-input tasks, never leave the two q[].h strings identical; change the concrete parameters. When questionVisual=\"required\", identical instruction wording is allowed only when the two later question visuals will contain different concrete inputs. Most importantly, enforce the learner-facing size budget: titles should fit in about 12 words, tasks in about 32 words, and answers in about 38 words. Keep each task direct and concrete and each answer as short as correctness permits. Delete explanations, restatements, teaching prose, and redundant intermediate steps that are not needed to demonstrate the atomic skill. Do not remove data, conditions, units, or reasoning that is genuinely required.
 
 If a candidate accidentally combines multiple operations, repair it to the single operation specified by its blueprint rather than broadening the blueprint. Visual bytes and prompts are not created in this stage; p and i stay empty.
 

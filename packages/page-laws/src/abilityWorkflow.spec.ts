@@ -7,7 +7,7 @@ import { strict as assert } from 'node:assert';
 
 import type { Exercise } from '@slonigiraf/db';
 
-import { parseAbilityBlueprints, parseBlueprintAbilities, parseBlueprintVisualPlans, runAtomicAbilityWorkflow, validateAbilityBlueprintEvidence } from './abilityWorkflow.js';
+import { assembleAtomicAbilityConversions, parseAbilityBlueprints, parseBlueprintAbilities, parseBlueprintVisualPlans, runAtomicAbilityWorkflow, validateAbilityBlueprintEvidence } from './abilityWorkflow.js';
 
 describe('atomic Ability workflow', (): void => {
   it('allows one source Exercise to split into multiple atomic Ability blueprints', (): void => {
@@ -100,6 +100,82 @@ describe('atomic Ability workflow', (): void => {
 
     assert.equal(result[0].imagePrompts[0].changesImage, true);
     assert.match(result[0].imagePrompts[0].i, /same plane/i);
+  });
+
+  it('discards an unnecessary solution visual instead of failing a text-answer Ability', (): void => {
+    const blueprints = parseAbilityBlueprints(JSON.stringify({
+      plans: [{
+        exerciseId: 101,
+        skills: [{ input: 'a shown graph', method: 'read the plotted value', operation: 'read a graph value', output: 'a number', questionVisual: 'required', solutionVisual: 'none', title: 'Read a graph value' }]
+      }]
+    }), [101]);
+    const result = parseBlueprintVisualPlans(JSON.stringify({
+      plans: [{
+        exerciseId: 101,
+        imagePrompts: [
+          { changesImage: false, i: 'Decorative solution highlighting the answer.', p: 'Graph with the required plotted value.' },
+          { changesImage: true, i: 'Another unnecessary answer image.', p: 'Graph with a different plotted value.' }
+        ],
+        skillIndex: 0
+      }]
+    }), blueprints);
+
+    assert.deepEqual(result[0].imagePrompts, [
+      { changesImage: false, i: '', p: 'Graph with the required plotted value.' },
+      { changesImage: false, i: '', p: 'Graph with a different plotted value.' }
+    ]);
+  });
+
+  it('accepts repeated visual-task wording when the two required visuals contain different concrete inputs', (): void => {
+    const blueprints = parseAbilityBlueprints(JSON.stringify({
+      plans: [{
+        exerciseId: 102,
+        skills: [{ input: 'a shown gauge', method: 'read the marked value', operation: 'read a gauge value', output: 'a number', questionVisual: 'required', solutionVisual: 'none', title: 'Read a gauge value' }]
+      }]
+    }), [102]);
+    const abilities = parseBlueprintAbilities(JSON.stringify({
+      abilities: [{
+        exerciseId: 102,
+        skillIndex: 0,
+        ability: {
+          h: 'Read a gauge value',
+          i: '',
+          q: [
+            { a: '<kx>3</kx>', h: 'Read the value shown.', i: '', p: '' },
+            { a: '<kx>7</kx>', h: 'Read the value shown.', i: '', p: '' }
+          ],
+          t: 3
+        }
+      }]
+    }), blueprints);
+    const distinctPlans = parseBlueprintVisualPlans(JSON.stringify({
+      plans: [{
+        exerciseId: 102,
+        imagePrompts: [
+          { changesImage: false, i: '', p: 'Gauge from 0 to 10 with the needle pointing at 3.' },
+          { changesImage: false, i: '', p: 'Gauge from 0 to 10 with the needle pointing at 7.' }
+        ],
+        skillIndex: 0
+      }]
+    }), blueprints);
+
+    assert.equal(assembleAtomicAbilityConversions(blueprints, abilities, distinctPlans).length, 1);
+
+    const duplicatePlans = parseBlueprintVisualPlans(JSON.stringify({
+      plans: [{
+        exerciseId: 102,
+        imagePrompts: [
+          { changesImage: false, i: '', p: 'Gauge from 0 to 10 with the needle pointing at 3.' },
+          { changesImage: false, i: '', p: 'Gauge from 0 to 10 with the needle pointing at 3.' }
+        ],
+        skillIndex: 0
+      }]
+    }), blueprints);
+
+    assert.throws(
+      () => assembleAtomicAbilityConversions(blueprints, abilities, duplicatePlans),
+      /different concrete input parameters/i
+    );
   });
 
   it('rejects invented visual dependencies that are not supported by the repaired source Exercise', (): void => {
