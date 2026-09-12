@@ -26,25 +26,19 @@ describe('chapter content processing', (): void => {
       ]
     }, (prompt) => {
       prompts.push(prompt);
-
-      if (prompts.length === 1) {
-        assert.match(prompt, /Concept A/);
-        assert.match(prompt, /Concept B/);
-        assert.doesNotMatch(prompt, /sourcePageNumber/);
-
-        return Promise.resolve(JSON.stringify({ exercises: [
-          { abilityMode: 'reasoning', conceptIndex: 0, description: 'Generated A', solution: 'Solution A', title: 'Exercise A' },
-          { abilityMode: 'reasoning', conceptIndex: 1, description: 'Generated B', solution: 'Solution B', title: 'Exercise B' }
-        ] }));
-      }
-
+      assert.match(prompt, /Concept A/);
+      assert.match(prompt, /Concept B/);
+      assert.match(prompt, /single generation pass/i);
       assert.doesNotMatch(prompt, /sourcePageNumber/);
 
-      return Promise.resolve('{"reviews":[]}');
+      return Promise.resolve(JSON.stringify({ exercises: [
+        { abilityMode: 'reasoning', conceptIndex: 0, description: 'Generated A', solution: 'Solution A', title: 'Exercise A' },
+        { abilityMode: 'reasoning', conceptIndex: 1, description: 'Generated B', solution: 'Solution B', title: 'Exercise B' }
+      ] }));
     });
 
     assert.equal(processed.chapter, 'Chapter 1');
-    assert.equal(prompts.length, 2);
+    assert.equal(prompts.length, 1);
     assert.deepEqual(processed.pages.map(({ pageNumber }) => pageNumber), [4, 5]);
     assert.deepEqual(processed.pages[0].concepts.map(({ title }) => title), ['Concept A']);
     assert.deepEqual(processed.pages[1].concepts.map(({ title }) => title), ['Concept B']);

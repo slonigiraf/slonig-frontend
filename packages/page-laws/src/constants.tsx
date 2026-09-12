@@ -37,6 +37,7 @@ export const GENERATE_EXERCISES_PROMPT = (bookDetectedLanguage: string): string 
 
 ${EXERCISE_TEMPLATE_STYLE_PROMPT}
 
+Design each Exercise completely in this single generation pass. Compose the task text, solution, and any necessary question/solution visual descriptions together as one coherent final artifact. Do not draft a text-only exercise first and rely on a later visual audit, correction, or retrofit; no second visual-design pass will run. Before returning each Exercise, internally verify that the wording and visual requirements agree and that any required visual description is already final.
 
 Visuals are exceptional, not a default part of an Exercise. Prefer a fully self-contained text-only Exercise (including formulas when needed). For each generated Exercise, default both imageDescription and solutionImageDescription to absent or an empty string. A nonempty visual description is allowed only when it is genuinely necessary for the learner task or required answer. Do not add a visual because it would be helpful, attractive, merely illustrative, conventional for the topic, or useful as an optional explanation.
 
@@ -47,8 +48,6 @@ Use a nonempty solutionImageDescription only when the requested answer itself is
 If the answer modifies a required question visual, describe the completed correct version of that same visual and preserve all unchanged objects, labels, scale, coordinate system, and layout. Never create a question or solution visual solely to make an Exercise more engaging or easier to understand.
 
 Use <kx>...</kx> to surround every mathematical expression that uses KaTeX. Copy conceptIndex. Return only JSON: {"exercises":[{"conceptIndex":0,"title":"...","description":"complete task","abilityMode":"transformation","solution":"concise correct solution","imageDescription":"","solutionImageDescription":""}]}`;
-
-export const EXERCISE_SOLUTION_VISUAL_AUDIT_PROMPT = 'Perform a dedicated visual-necessity audit for EVERY supplied Exercise. Visuals are exceptional: default requiresQuestionImage=false and requiresSolutionImage=false. Judge question and solution visuals independently. Set requiresQuestionImage=true only when the learner must inspect task-essential visual/spatial information and expressing that information in text/formulas would materially change the task or reveal the intended inference; otherwise false, even if an illustration could be helpful. Set requiresSolutionImage=true only when the requested answer itself is visual, the learner must create or modify a visual artifact, or essential spatial answer information cannot be fully represented in text/formulas. Do not require a solution image merely because a diagram, graph, or illustration could explain the answer. Topic alone (for example geometry, coordinates, graphs, maps, or shapes) never makes an image mandatory. When either requirement is false, return the corresponding description as an empty string even if the input currently contains a nonempty description; false explicitly means remove that unnecessary visual. When a requirement is true, its description MUST be nonempty and must completely specify the required visual. For a required question image, do not reveal the answer. For a required solution image, describe the CORRECT finished visual and include all answer-bearing geometry, coordinates, labels, marks, lines, regions, transformations, and spatial relationships. If the Exercise modifies a question visual, the solution description must describe the complete correctly updated version of that same visual while preserving unchanged objects, labels, scale, coordinate system, and layout. When a requirement is true and an existing nonempty description is already correct, preserve it rather than replacing it with an empty value. Return one review for every input Exercise, preserving inputIndex exactly. Return only JSON: {"reviews":[{"inputIndex":0,"requiresQuestionImage":false,"imageDescription":"","requiresSolutionImage":false,"solutionImageDescription":""}]}. Do not return image bytes, URLs, filenames, markdown, or commentary.';
 
 export const STRICT_JSON_ARRAY_SYSTEM_PROMPT = 'Respond strictly as a JSON array.';
 
@@ -78,10 +77,6 @@ export const GENERATE_EXERCISES_RECOVERY_PROMPT = (bookDetectedLanguage: string,
   return `${GENERATE_EXERCISES_PROMPT(bookDetectedLanguage)}
 This is recovery attempt ${retry} of ${maxRetries}. Generate exactly one exercise only for every supplied concept that still has no exercise.
 ${JSON.stringify(input)}`;
-};
-
-export const EXERCISE_SOLUTION_VISUAL_AUDIT_REQUEST_PROMPT = (input: unknown): string => {
-  return `${EXERCISE_SOLUTION_VISUAL_AUDIT_PROMPT}\n${JSON.stringify(input)}`;
 };
 
 export const COURSE_NAMES_PROMPT = (input: unknown): string => {

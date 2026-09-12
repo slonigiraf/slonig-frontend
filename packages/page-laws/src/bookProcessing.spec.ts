@@ -94,16 +94,10 @@ describe('book processing pipeline', (): void => {
         }));
       }
 
-      assert.match(prompt, /dedicated visual-necessity audit/i);
-      const input = JSON.parse(prompt.slice(prompt.lastIndexOf('\n') + 1)) as { exercises: Array<{ title: string }> };
-
-      assert.equal(input.exercises.length, 2);
-      assert.deepEqual(input.exercises.map(({ title }) => title), ['Preferred candidate', 'Order fractions']);
-
-      return Promise.resolve('{"reviews":[]}');
+      throw new Error('Exercise generation must not make a second visual-correction request.');
     });
 
-    assert.equal(prompts.length, 2);
+    assert.equal(prompts.length, 1);
     assert.equal(result.pages[0].exercises.length, 4);
     assert.deepEqual(result.pages[0].exercises.filter(({ source }) => source === 'book').map(({ title }) => title), ['Book exercise 1', 'Book exercise 2']);
     assert.equal(result.pages[0].exercises.filter(({ source }) => source === 'generated').length, 2);
@@ -144,27 +138,24 @@ describe('book processing pipeline', (): void => {
       }]
     }, (prompt) => {
       request++;
+      assert.match(prompt, /single generation pass/i);
+      assert.match(prompt, /text-only/i);
+      assert.match(prompt, /merely illustrative/i);
 
-      if (request === 1) {
-        assert.match(prompt, /text-only/i);
-        assert.match(prompt, /merely illustrative/i);
-
-        return Promise.resolve(JSON.stringify({
-          exercises: [{
-            abilityMode: 'perceptual observation',
-            conceptIndex: 0,
-            description: 'Read the marked value.',
-            imageDescription: 'A horizontal number line from 0 to 10 with a single unlabeled point at 6.',
-            solution: '6',
-            solutionImageDescription: '',
-            title: 'Read number line'
-          }]
-        }));
-      }
-
-      return Promise.resolve('{"reviews":[]}');
+      return Promise.resolve(JSON.stringify({
+        exercises: [{
+          abilityMode: 'perceptual observation',
+          conceptIndex: 0,
+          description: 'Read the marked value.',
+          imageDescription: 'A horizontal number line from 0 to 10 with a single unlabeled point at 6.',
+          solution: '6',
+          solutionImageDescription: '',
+          title: 'Read number line'
+        }]
+      }));
     });
 
+    assert.equal(request, 1);
     assert.equal(result.pages[0].exercises.length, 1);
     assert.match(result.pages[0].exercises[0].imageDescription ?? '', /number line/i);
     assert.equal(result.pages[0].exercises[0].solutionImageDescription ?? '', '');
@@ -173,8 +164,8 @@ describe('book processing pipeline', (): void => {
     assert.equal('images' in result.pages[0].exercises[0], false);
   });
 
-  it('preserves an existing required solution image description', async (): Promise<void> => {
-    let request = 0;
+  it('designs a required solution visual in the same generation pass', async (): Promise<void> => {
+    let requests = 0;
     const result = await processExtractedChapterContent({
       chapter: 'Chapter',
       pages: [{
@@ -183,74 +174,31 @@ describe('book processing pipeline', (): void => {
         pageNumber: 1
       }]
     }, (prompt) => {
-      request++;
+      requests++;
+      assert.match(prompt, /single generation pass/i);
+      assert.match(prompt, /no second visual-design pass will run/i);
+      assert.match(prompt, /solutionImageDescription/);
+      assert.match(prompt, /draw, sketch, plot, graph, construct/i);
 
-      if (request === 1) {
-        assert.match(prompt, /solutionImageDescription/);
-        assert.match(prompt, /draw, sketch, plot, graph, construct/i);
-
-        return Promise.resolve(JSON.stringify({
-          exercises: [{
-            abilityMode: 'transformation',
-            conceptIndex: 0,
-            description: 'Plot <kx>(4,-2)</kx>.',
-            imageDescription: '',
-            solution: 'Plot right 4, down 2.',
-            solutionImageDescription: 'A coordinate plane with the point (4,-2) plotted and labeled.',
-            title: 'Plot point'
-          }]
-        }));
-      }
-
-      assert.match(prompt, /dedicated visual-necessity audit/i);
-      assert.match(prompt, /existing nonempty description is already correct/i);
-
-      return Promise.resolve(JSON.stringify({ reviews: [{ inputIndex: 0, requiresSolutionImage: true, solutionImageDescription: '' }] }));
+      return Promise.resolve(JSON.stringify({
+        exercises: [{
+          abilityMode: 'transformation',
+          conceptIndex: 0,
+          description: 'Plot <kx>(4,-2)</kx>.',
+          imageDescription: '',
+          solution: 'Plot right 4, down 2.',
+          solutionImageDescription: 'A coordinate plane with the point (4,-2) plotted and labeled.',
+          title: 'Plot point'
+        }]
+      }));
     });
 
+    assert.equal(requests, 1);
     assert.match(result.pages[0].exercises[0].solutionImageDescription ?? '', /\(4,-2\)/);
   });
 
-  it('fills a missing solution image description in the final visual audit', async (): Promise<void> => {
-    let request = 0;
-    const result = await processExtractedChapterContent({
-      chapter: 'Chapter',
-      pages: [{
-        concepts: [{ description: 'Graph linear functions', title: 'Graphing' }],
-        exercises: [],
-        pageNumber: 1
-      }]
-    }, (prompt) => {
-      request++;
-
-      if (request === 1) {
-        return Promise.resolve(JSON.stringify({
-          exercises: [{
-            abilityMode: 'transformation',
-            conceptIndex: 0,
-            description: 'Graph <kx>y=2x+1</kx>.',
-            imageDescription: '',
-            solution: 'Plot intercept, apply slope.',
-            solutionImageDescription: '',
-            title: 'Graph line'
-          }]
-        }));
-      }
-
-      assert.match(prompt, /dedicated visual-necessity audit/i);
-
-      return Promise.resolve(JSON.stringify({ reviews: [{
-        inputIndex: 0,
-        requiresSolutionImage: true,
-        solutionImageDescription: 'A coordinate plane with the completed line y=2x+1 passing through (0,1) and (1,3).'
-      }] }));
-    });
-
-    assert.match(result.pages[0].exercises[0].solutionImageDescription ?? '', /y=2x\+1/i);
-  });
-
-  it('removes unnecessary question and solution visuals in the final visual audit', async (): Promise<void> => {
-    let request = 0;
+  it('keeps a text-only exercise text-only without a later visual correction pass', async (): Promise<void> => {
+    let requests = 0;
     const result = await processExtractedChapterContent({
       chapter: 'Chapter',
       pages: [{
@@ -259,40 +207,28 @@ describe('book processing pipeline', (): void => {
         pageNumber: 1
       }]
     }, (prompt) => {
-      request++;
+      requests++;
+      assert.match(prompt, /Visuals are exceptional/i);
+      assert.match(prompt, /leave imageDescription empty/i);
+      assert.match(prompt, /leave solutionImageDescription empty/i);
+      assert.match(prompt, /no second visual-design pass will run/i);
 
-      if (request === 1) {
-        assert.match(prompt, /Visuals are exceptional/i);
-        assert.match(prompt, /leave imageDescription empty/i);
-        assert.match(prompt, /leave solutionImageDescription empty/i);
-
-        return Promise.resolve(JSON.stringify({
-          exercises: [{
-            abilityMode: 'transformation',
-            conceptIndex: 0,
-            description: 'Convert <kx>3</kx> km to m.',
-            imageDescription: 'A decorative road sign showing 3 km.',
-            solution: '<kx>3\\times1000=3000</kx> m.',
-            solutionImageDescription: 'A decorative conversion diagram showing 3000 m.',
-            title: 'Convert distance'
-          }]
-        }));
-      }
-
-      assert.match(prompt, /default requiresQuestionImage=false and requiresSolutionImage=false/i);
-      assert.match(prompt, /false explicitly means remove that unnecessary visual/i);
-
-      return Promise.resolve(JSON.stringify({ reviews: [{
-        imageDescription: '',
-        inputIndex: 0,
-        requiresQuestionImage: false,
-        requiresSolutionImage: false,
-        solutionImageDescription: ''
-      }] }));
+      return Promise.resolve(JSON.stringify({
+        exercises: [{
+          abilityMode: 'transformation',
+          conceptIndex: 0,
+          description: 'Convert <kx>3</kx> km to m.',
+          imageDescription: '',
+          solution: '<kx>3\\times1000=3000</kx> m.',
+          solutionImageDescription: '',
+          title: 'Convert distance'
+        }]
+      }));
     });
 
     const generated = result.pages[0].exercises[0];
 
+    assert.equal(requests, 1);
     assert.equal(generated.imageDescription ?? '', '');
     assert.equal(generated.solutionImageDescription ?? '', '');
     assert.equal('imageDescription' in generated, false);
@@ -330,13 +266,11 @@ describe('book processing pipeline', (): void => {
         return Promise.resolve(JSON.stringify({ exercises: [exercise(1)] }));
       }
 
-      assert.match(prompt, /dedicated visual-necessity audit/i);
-
-      return Promise.resolve('{"reviews":[]}');
+      throw new Error('Unexpected exercise-generation request.');
     });
 
     assert.equal(MAX_EXERCISE_GENERATION_RETRIES, 3);
-    assert.equal(prompts.length, 5);
+    assert.equal(prompts.length, 4);
     assert.deepEqual(result.pages[0].exercises.map(({ conceptIndex }) => conceptIndex), [0, 1]);
   });
 });

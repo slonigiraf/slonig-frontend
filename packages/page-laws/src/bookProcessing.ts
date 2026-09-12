@@ -3,7 +3,7 @@
 
 import type { Exercise } from '@slonigiraf/db';
 
-import { exerciseAbilityModes, EXERCISE_SOLUTION_VISUAL_AUDIT_REQUEST_PROMPT, GENERATE_EXERCISES_RECOVERY_PROMPT, GENERATE_EXERCISES_REQUEST_PROMPT } from './constants.js';
+import { exerciseAbilityModes, GENERATE_EXERCISES_RECOVERY_PROMPT, GENERATE_EXERCISES_REQUEST_PROMPT } from './constants.js';
 
 export const MAX_EXERCISE_GENERATION_RETRIES = 3;
 
@@ -159,67 +159,6 @@ function generatedExercisesResult (content: string, concepts: LocatedProcessingC
   return Array.from(exercisesByConcept.entries()).sort(([a], [b]) => a - b).map(([, exercise]) => exercise);
 }
 
-function auditExerciseVisualsResult<T extends ProcessingExercise> (content: string, inputs: T[]): T[] {
-  const values = parseJsonObject(content).reviews;
-
-  if (!Array.isArray(values) || !values.length) {
-    return inputs;
-  }
-
-  const updates = new Map<number, { imageDescription?: string; requiresQuestionImage?: boolean; requiresSolutionImage?: boolean; solutionImageDescription?: string }>();
-
-  values.forEach((value): void => {
-    if (!value || typeof value !== 'object' || Array.isArray(value)) {
-      return;
-    }
-
-    const item = value as { imageDescription?: unknown; inputIndex?: unknown; requiresQuestionImage?: unknown; requiresSolutionImage?: unknown; solutionImageDescription?: unknown };
-    const inputIndex = Number(item.inputIndex);
-
-    if (!Number.isInteger(inputIndex) || inputIndex < 0 || inputIndex >= inputs.length) {
-      return;
-    }
-
-    updates.set(inputIndex, {
-      ...(typeof item.requiresQuestionImage === 'boolean' ? { requiresQuestionImage: item.requiresQuestionImage } : {}),
-      ...(typeof item.imageDescription === 'string' ? { imageDescription: item.imageDescription.trim() } : {}),
-      ...(typeof item.requiresSolutionImage === 'boolean' ? { requiresSolutionImage: item.requiresSolutionImage } : {}),
-      ...(typeof item.solutionImageDescription === 'string' ? { solutionImageDescription: item.solutionImageDescription.trim() } : {})
-    });
-  });
-
-  return inputs.map((exercise, inputIndex) => {
-    const update = updates.get(inputIndex);
-
-    if (!update) {
-      return exercise;
-    }
-
-    let imageDescription = exercise.imageDescription?.trim() ?? '';
-    let solutionImageDescription = exercise.solutionImageDescription?.trim() ?? '';
-
-    if (update.requiresQuestionImage === false) {
-      imageDescription = '';
-    } else if (update.requiresQuestionImage === true && update.imageDescription) {
-      imageDescription = update.imageDescription;
-    }
-
-    if (update.requiresSolutionImage === false) {
-      solutionImageDescription = '';
-    } else if (update.requiresSolutionImage === true && update.solutionImageDescription) {
-      solutionImageDescription = update.solutionImageDescription;
-    }
-
-    const { imageDescription: _imageDescription, solutionImageDescription: _solutionImageDescription, ...withoutVisualDescriptions } = exercise;
-
-    return {
-      ...withoutVisualDescriptions,
-      ...(imageDescription ? { imageDescription } : {}),
-      ...(solutionImageDescription ? { solutionImageDescription } : {})
-    } as T;
-  });
-}
-
 export async function processExtractedChapterContent (extracted: ExtractedChapterContent, runAi: BookProcessingAi, bookDetectedLanguage = 'English'): Promise<ProcessedChapterContent> {
   const { chapter, pages } = extracted;
 
@@ -268,17 +207,6 @@ export async function processExtractedChapterContent (extracted: ExtractedChapte
       }
     });
     generatedExercises = Array.from(generatedByConcept.entries()).sort(([a], [b]) => a - b).map(([, exercise]) => exercise);
-  }
-
-  if (generatedExercises.length) {
-    const auditInput = {
-      exercises: generatedExercises.map(({ sourcePageNumber: _sourcePageNumber, ...exercise }, inputIndex) => ({ ...exercise, inputIndex }))
-    };
-
-    generatedExercises = auditExerciseVisualsResult(
-      await runAi(EXERCISE_SOLUTION_VISUAL_AUDIT_REQUEST_PROMPT(auditInput)),
-      generatedExercises
-    );
   }
 
   const exercises: LocatedProcessingExercise[] = [
