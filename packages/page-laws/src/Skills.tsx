@@ -118,7 +118,7 @@ export type SkillsView = 'conceptsSkills' | 'preExercisesExercises';
 interface Props {
   book: Book;
   onBookChange: (book: Book) => void;
-  onAction?: (view: SkillsView) => void;
+  onAction?: (view: SkillsView | 'conceptExercises') => void;
   onEntityCountsChange?: (counts: { abilities: number; bookExercises: number; exercises: number }) => void;
   pipelineOnly?: boolean;
   pipelinePrefix?: React.ReactNode;
@@ -137,6 +137,7 @@ interface FixedAbilityReview {
   ability: GeneratedAbility;
   errors: string[];
   exerciseTitle?: string;
+  record: StoredAbility;
   recordId: string;
 }
 
@@ -170,21 +171,6 @@ interface ExerciseFixReviewResult {
   checked: number;
   duplicatePairs: DuplicateExerciseReview[];
   items: FixedExerciseReview[];
-}
-
-interface ExerciseFixRollbackPage extends BookPageContent {
-  abilityContents: Array<{ contents: string[]; exerciseId: number }>;
-}
-
-interface ExerciseFixRollback {
-  pages: ExerciseFixRollbackPage[];
-  processingStage: number;
-}
-
-interface AbilityFixRollback {
-  currentRecordIds: string[];
-  processingStage: number;
-  records: StoredAbility[];
 }
 
 interface BookPageContent {
@@ -516,8 +502,6 @@ function Skills ({ book, onAction, onBookChange, onEntityCountsChange, pipelineO
   const [error, setError] = useState('');
   const [fixReview, setFixReview] = useState<FixReviewResult | null>(null);
   const [exerciseFixReview, setExerciseFixReview] = useState<ExerciseFixReviewResult | null>(null);
-  const [abilityFixRollback, setAbilityFixRollback] = useState<AbilityFixRollback | null>(null);
-  const [exerciseFixRollback, setExerciseFixRollback] = useState<ExerciseFixRollback | null>(null);
   const [notice, setNotice] = useState('');
   const [isBusy, setIsBusy] = useState(false);
   const [progress, setProgress] = useState(0);
@@ -665,7 +649,7 @@ function Skills ({ book, onAction, onBookChange, onEntityCountsChange, pipelineO
   }, [allExercises, deleteExerciseWithAbilities]);
 
   const beginProgress = useCallback((label: string, total: number): void => {
-    setAiAction(undefined); setError(''); setFixReview(null); setExerciseFixReview(null); setAbilityFixRollback(null); setExerciseFixRollback(null); setNotice(''); setIsBusy(true); setProgress(0); setProgressLabel(label); setProgressTotal(Math.max(1, total));
+    setAiAction(undefined); setError(''); setFixReview(null); setExerciseFixReview(null); setNotice(''); setIsBusy(true); setProgress(0); setProgressLabel(label); setProgressTotal(Math.max(1, total));
   }, []);
 
   const generateSkills = useCallback(async (): Promise<void> => {
@@ -897,104 +881,24 @@ function Skills ({ book, onAction, onBookChange, onEntityCountsChange, pipelineO
       const duplicateIds = new Set(duplicatePairs.keys());
 
       duplicateIds.forEach((id) => replacements.delete(id));
-
-      const abilityContentsByExerciseId = new Map<number, string[]>();
-
-      allExercises.forEach(({ id }) => {
-        if (id === undefined) {
-          return;
-        }
-
-        const moduleId = exerciseAbilityModuleId(book.id, id);
-
-        abilityContentsByExerciseId.set(id, allAbilities.filter((record) => record.moduleId === moduleId).map(({ content }) => content));
-      });
-      const rollbackPages: ExerciseFixRollbackPage[] = [];
-
-      // Preserve the all-or-nothing review phase: page writes begin only after
-      // every chapter response has passed strict local validation. Replacing a
-      // page assigns fresh Exercise ids, so unchanged Ability modules are moved
-      // to the new ids and Abilities for corrected/deleted Exercises are cleared.
-      for (const { exercises, page } of bookPageContent) {
-        const pageHasChanges = exercises.some(({ id }) => id !== undefined && (duplicateIds.has(id) || replacements.has(id)));
-
-        if (!pageHasChanges) {
-          continue;
-        }
-
-        rollbackPages.push({
-          abilityContents: exercises.flatMap(({ id }) => id === undefined ? [] : [{ contents: abilityContentsByExerciseId.get(id) ?? [], exerciseId: id }]),
-          exercises: exercises.map((exercise) => ({ ...exercise })),
-          page: { ...page }
-        });
-
-        const keptEntries = exercises
-          .filter(({ id }) => id === undefined || !duplicateIds.has(id))
-          .map((original) => ({
-            corrected: original.id === undefined ? original : replacements.get(original.id)?.exercise ?? original,
-            original
-          }));
-
-        await replaceExercisesForBookPage([book.id, page.pageNumber], keptEntries.map(({ corrected }) => exerciseForPageReplacement(corrected)));
-
-        const storedExercises = await getExercisesForBookPage([book.id, page.pageNumber]);
-
-        if (storedExercises.length !== keptEntries.length || storedExercises.some(({ id }) => id === undefined)) {
-          throw new Error('Unable to remap Exercises after applying fixes.');
-        }
-
-        for (let index = 0; index < keptEntries.length; index++) {
-          const oldId = keptEntries[index].original.id;
-          const newId = storedExercises[index].id as number;
-
-          if (oldId === undefined) {
-            continue;
-          }
-
-          const oldModuleId = exerciseAbilityModuleId(book.id, oldId);
-          const wasCorrected = replacements.has(oldId);
-
-          if (!wasCorrected && oldId !== newId) {
-            const contents = abilityContentsByExerciseId.get(oldId) ?? [];
-
-            if (contents.length) {
-              await replaceAbilities(exerciseAbilityModuleId(book.id, newId), contents);
-            }
-          }
-
-          if (wasCorrected || oldId !== newId) {
-            await deleteAbilities(oldModuleId);
-          }
-        }
-
-        for (const deletedId of exercises.flatMap(({ id }) => id !== undefined && duplicateIds.has(id) ? [id] : [])) {
-          await deleteAbilities(exerciseAbilityModuleId(book.id, deletedId));
-        }
-      }
-
-      if (rollbackPages.length) {
-        await setStage(4);
-      } else if (stage < 4) {
-        await setStage(4);
-      }
-
-      setExerciseFixRollback(rollbackPages.length ? { pages: rollbackPages, processingStage: stage } : null);
-
-      setExerciseFixReview({
+      const review: ExerciseFixReviewResult = {
         checked: allExercises.length,
         duplicatePairs: Array.from(duplicatePairs.values()),
         items: Array.from(replacements, ([exerciseId, { errors, exercise }]) => ({ errors, exercise, exerciseId }))
-      });
+      };
       const unchanged = Math.max(0, allExercises.length - replacements.size - duplicateIds.size);
 
-      setNotice(`Checked ${allExercises.length} Exercises. Fixed ${replacements.size} with errors and deleted ${duplicateIds.size} duplicate${duplicateIds.size === 1 ? '' : 's'}; ${unchanged} were left unchanged.`);
-      refresh();
+      // This is intentionally only a proposal. The database and processing
+      // stage are not touched until the user explicitly accepts the review
+      // popup below.
+      setExerciseFixReview(review);
+      setNotice(`Review ready: ${replacements.size} Exercise fix${replacements.size === 1 ? '' : 'es'}, ${duplicateIds.size} duplicate deletion${duplicateIds.size === 1 ? '' : 's'}, ${unchanged} unchanged. No database changes have been made.`);
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : 'Unable to fix Exercise errors.');
     } finally {
       setIsBusy(false);
     }
-  }, [allAbilities, allExercises, beginProgress, book.id, bookPageContent, chapterContent, createClient, language, refresh, selectedModel, setStage, stage]);
+  }, [allExercises, beginProgress, chapterContent, createClient, language, selectedModel]);
 
   const fixAbilities = useCallback(async (): Promise<void> => {
     beginProgress('Fixing Ability errors', allAbilities.length);
@@ -1054,69 +958,38 @@ function Skills ({ book, onAction, onBookChange, onEntityCountsChange, pipelineO
         setProgress(Math.min(allAbilities.length, completed));
       });
 
-      // Preserve the existing all-or-nothing review phase: no Ability is
-      // persisted or deleted until every chapter reply has completed successfully.
       const duplicateIds = new Set(duplicatePairs.keys());
-      const persistedRecordIds = new Map<string, string>();
 
       duplicateIds.forEach((id) => replacements.delete(id));
-      const rollbackRecords = new Map<string, StoredAbility>();
-
-      replacements.forEach(({ record }) => rollbackRecords.set(record.id, record));
-      duplicatePairs.forEach(({ deleted }) => rollbackRecords.set(deleted.id, deleted));
-
-      for (const { ability, record } of replacements.values()) {
-        const newRecordId = await storeAbility(record.moduleId, JSON.stringify(ability));
-
-        persistedRecordIds.set(record.id, newRecordId);
-
-        if (newRecordId !== record.id) {
-          await deleteAbility(record.id);
-        }
-      }
-
-      for (const id of duplicateIds) {
-        await deleteAbility(id);
-      }
-
-      if (stage < FIX_ABILITIES_STAGE) {
-        await setStage(FIX_ABILITIES_STAGE);
-      }
-
-      setAbilityFixRollback(rollbackRecords.size
-        ? {
-          currentRecordIds: Array.from(persistedRecordIds.values()),
-          processingStage: stage,
-          records: Array.from(rollbackRecords.values())
-        }
-        : null);
 
       setFixReview({
         checked: allAbilities.length,
         duplicatePairs: Array.from(duplicatePairs.values(), (pair) => {
           const keptReplacement = replacements.get(pair.kept.id);
-          const keptRecordId = persistedRecordIds.get(pair.kept.id) ?? pair.kept.id;
 
           return keptReplacement
-            ? { ...pair, kept: { ...pair.kept, ability: keptReplacement.ability, content: JSON.stringify(keptReplacement.ability), id: keptRecordId } }
+            ? { ...pair, kept: { ...pair.kept, ability: keptReplacement.ability, content: JSON.stringify(keptReplacement.ability) } }
             : pair;
         }),
         items: Array.from(replacements.values(), ({ ability, errors, record }) => ({
           ability,
           errors,
           exerciseTitle: exerciseTitlesByModuleId.get(record.moduleId),
+          record,
           recordId: record.id
         }))
       });
       const unchanged = Math.max(0, allAbilities.length - replacements.size - duplicateIds.size);
 
-      setNotice(`Checked ${allAbilities.length} Abilities. Fixed ${replacements.size} with errors and deleted ${duplicateIds.size} duplicate${duplicateIds.size === 1 ? '' : 's'}; ${unchanged} were left unchanged.`);
+      // Keep the review side-effect free. Applying the proposal is a separate,
+      // explicit action in the results popup.
+      setNotice(`Review ready: ${replacements.size} Ability fix${replacements.size === 1 ? '' : 'es'}, ${duplicateIds.size} duplicate deletion${duplicateIds.size === 1 ? '' : 's'}, ${unchanged} unchanged. No database changes have been made.`);
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : 'Unable to fix Ability errors.');
     } finally {
       setIsBusy(false);
     }
-  }, [allAbilities.length, beginProgress, chapterContent, createClient, exerciseTitlesByModuleId, language, selectedModel, setStage, stage]);
+  }, [allAbilities.length, beginProgress, chapterContent, createClient, exerciseTitlesByModuleId, language, selectedModel]);
 
   const confirm = useCallback((): void => {
     if (aiAction === 'skills') {
@@ -1129,28 +1002,24 @@ function Skills ({ book, onAction, onBookChange, onEntityCountsChange, pipelineO
     }
 
     if (aiAction === 'fixExercises') {
-      onAction?.('conceptExercises');
       fixExercises().catch(console.error);
     }
 
     if (aiAction === 'fix') {
-      onAction?.('preExercisesExercises');
       fixAbilities().catch(console.error);
     }
   }, [aiAction, fixAbilities, fixExercises, generateExercises, generateSkills, onAction]);
   const closeConfirmation = useCallback((): void => setAiAction(undefined), []);
   const closeFixReview = useCallback((): void => {
     setFixReview(null);
-    setAbilityFixRollback(null);
-    refresh();
-  }, [refresh]);
+    setNotice('Proposed Ability changes were discarded. No database changes were made.');
+  }, []);
   const closeExerciseFixReview = useCallback((): void => {
     setExerciseFixReview(null);
-    setExerciseFixRollback(null);
-    refresh();
-  }, [refresh]);
-  const rollbackAbilityFix = useCallback(async (): Promise<void> => {
-    if (!abilityFixRollback) {
+    setNotice('Proposed Exercise changes were discarded. No database changes were made.');
+  }, []);
+  const applyAbilityFixReview = useCallback(async (): Promise<void> => {
+    if (!fixReview) {
       return;
     }
 
@@ -1158,28 +1027,37 @@ function Skills ({ book, onAction, onBookChange, onEntityCountsChange, pipelineO
     setError('');
 
     try {
-      for (const id of new Set(abilityFixRollback.currentRecordIds)) {
-        await deleteAbility(id);
+      for (const { ability, record } of fixReview.items) {
+        const newRecordId = await storeAbility(record.moduleId, JSON.stringify(ability));
+
+        if (newRecordId !== record.id) {
+          await deleteAbility(record.id);
+        }
       }
 
-      for (const record of abilityFixRollback.records) {
-        await deleteAbility(record.id);
-        await storeAbility(record.moduleId, record.content);
+      for (const { deleted } of fixReview.duplicatePairs) {
+        await deleteAbility(deleted.id);
       }
 
-      await setStage(abilityFixRollback.processingStage);
+      if (stage < FIX_ABILITIES_STAGE) {
+        await setStage(FIX_ABILITIES_STAGE);
+      }
+
+      const fixed = fixReview.items.length;
+      const deleted = fixReview.duplicatePairs.length;
+
       setFixReview(null);
-      setAbilityFixRollback(null);
-      setNotice('Fix abilities changes were rolled back.');
+      setNotice(`Applied Fix abilities review: ${fixed} corrected, ${deleted} duplicate${deleted === 1 ? '' : 's'} deleted.`);
       refresh();
+      onAction?.('preExercisesExercises');
     } catch (caught) {
-      setError(caught instanceof Error ? caught.message : 'Unable to roll back Fix abilities changes.');
+      setError(caught instanceof Error ? caught.message : 'Unable to apply Fix abilities changes.');
     } finally {
       setIsBusy(false);
     }
-  }, [abilityFixRollback, refresh, setStage]);
-  const rollbackExerciseFix = useCallback(async (): Promise<void> => {
-    if (!exerciseFixRollback) {
+  }, [fixReview, onAction, refresh, setStage, stage]);
+  const applyExerciseFixReview = useCallback(async (): Promise<void> => {
+    if (!exerciseFixReview) {
       return;
     }
 
@@ -1187,47 +1065,93 @@ function Skills ({ book, onAction, onBookChange, onEntityCountsChange, pipelineO
     setError('');
 
     try {
-      for (const { abilityContents, exercises, page } of exerciseFixRollback.pages) {
-        const currentExercises = await getExercisesForBookPage([book.id, page.pageNumber]);
+      const replacements = new Map(exerciseFixReview.items.map(({ exercise, exerciseId }) => [exerciseId, exercise] as const));
+      const duplicateIds = new Set(exerciseFixReview.duplicatePairs.flatMap(({ deleted }) => deleted.id === undefined ? [] : [deleted.id]));
+      const abilityContentsByExerciseId = new Map<number, string[]>();
 
-        for (const { id } of currentExercises) {
-          if (id !== undefined) {
-            await deleteAbilities(exerciseAbilityModuleId(book.id, id));
+      allExercises.forEach(({ id }) => {
+        if (id === undefined) {
+          return;
+        }
+
+        const moduleId = exerciseAbilityModuleId(book.id, id);
+
+        abilityContentsByExerciseId.set(id, allAbilities.filter((record) => record.moduleId === moduleId).map(({ content }) => content));
+      });
+
+      for (const { exercises, page } of bookPageContent) {
+        const pageHasChanges = exercises.some(({ id }) => id !== undefined && (duplicateIds.has(id) || replacements.has(id)));
+
+        if (!pageHasChanges) {
+          continue;
+        }
+
+        const keptEntries = exercises
+          .filter(({ id }) => id === undefined || !duplicateIds.has(id))
+          .map((original) => ({
+            corrected: original.id === undefined ? original : replacements.get(original.id) ?? original,
+            original
+          }));
+
+        await replaceExercisesForBookPage([book.id, page.pageNumber], keptEntries.map(({ corrected }) => exerciseForPageReplacement(corrected)));
+
+        const storedExercises = await getExercisesForBookPage([book.id, page.pageNumber]);
+
+        if (storedExercises.length !== keptEntries.length || storedExercises.some(({ id }) => id === undefined)) {
+          throw new Error('Unable to remap Exercises after applying fixes.');
+        }
+
+        for (let index = 0; index < keptEntries.length; index++) {
+          const oldId = keptEntries[index].original.id;
+          const newId = storedExercises[index].id as number;
+
+          if (oldId === undefined) {
+            continue;
+          }
+
+          const oldModuleId = exerciseAbilityModuleId(book.id, oldId);
+          const wasCorrected = replacements.has(oldId);
+
+          if (!wasCorrected && oldId !== newId) {
+            const contents = abilityContentsByExerciseId.get(oldId) ?? [];
+
+            if (contents.length) {
+              await replaceAbilities(exerciseAbilityModuleId(book.id, newId), contents);
+            }
+          }
+
+          if (wasCorrected || oldId !== newId) {
+            await deleteAbilities(oldModuleId);
           }
         }
 
-        await replaceExercisesForBookPage([book.id, page.pageNumber], exercises.map(exerciseForPageReplacement));
-
-        const restoredExercises = await getExercisesForBookPage([book.id, page.pageNumber]);
-
-        if (restoredExercises.length !== exercises.length || restoredExercises.some(({ id }) => id === undefined)) {
-          throw new Error('Unable to remap Exercises while rolling back fixes.');
-        }
-
-        const contentsByExerciseId = new Map(abilityContents.map(({ contents, exerciseId }) => [exerciseId, contents] as const));
-
-        for (let index = 0; index < exercises.length; index++) {
-          const originalId = exercises[index].id;
-          const restoredId = restoredExercises[index].id as number;
-          const contents: string[] = originalId === undefined ? [] : contentsByExerciseId.get(originalId) ?? [];
-
-          if (contents.length) {
-            await replaceAbilities(exerciseAbilityModuleId(book.id, restoredId), contents);
-          }
+        for (const deletedId of exercises.flatMap(({ id }) => id !== undefined && duplicateIds.has(id) ? [id] : [])) {
+          await deleteAbilities(exerciseAbilityModuleId(book.id, deletedId));
         }
       }
 
-      await setStage(exerciseFixRollback.processingStage);
+      const hasChanges = replacements.size > 0 || duplicateIds.size > 0;
+
+      // Correcting Exercises invalidates generated Abilities, so a committed
+      // change intentionally returns the pipeline to stage 4. A no-op review
+      // only advances to stage 4 when this step had not yet been completed.
+      if (hasChanges || stage < 4) {
+        await setStage(4);
+      }
+
+      const fixed = replacements.size;
+      const deleted = duplicateIds.size;
+
       setExerciseFixReview(null);
-      setExerciseFixRollback(null);
-      setNotice('Fix exercises changes were rolled back.');
+      setNotice(`Applied Fix exercises review: ${fixed} corrected, ${deleted} duplicate${deleted === 1 ? '' : 's'} deleted.`);
       refresh();
+      onAction?.('conceptExercises');
     } catch (caught) {
-      setError(caught instanceof Error ? caught.message : 'Unable to roll back Fix exercises changes.');
+      setError(caught instanceof Error ? caught.message : 'Unable to apply Fix exercises changes.');
     } finally {
       setIsBusy(false);
     }
-  }, [book.id, exerciseFixRollback, refresh, setStage]);
+  }, [allAbilities, allExercises, book.id, bookPageContent, exerciseFixReview, onAction, refresh, setStage, stage]);
   const openExerciseGeneration = useCallback((): void => {
     setAiAction('exercises');
   }, []);
@@ -1235,7 +1159,7 @@ function Skills ({ book, onAction, onBookChange, onEntityCountsChange, pipelineO
     // Opening the confirmation must be a purely local state change. Switching
     // the parent pane here can remount/re-render the surrounding reader before
     // the modal is used, which made this action appear one-shot in some flows.
-    // Move pane navigation to confirm() after the user actually starts the run.
+    // Keep pane navigation deferred until the review popup is explicitly applied.
     setAiAction('fixExercises');
   }, []);
   const openAbilityFix = useCallback((): void => {
@@ -1250,7 +1174,7 @@ function Skills ({ book, onAction, onBookChange, onEntityCountsChange, pipelineO
         size='large'
       >
         <Modal.Content>
-          <p>Checked {exerciseFixReview.checked} Exercises. Corrected {exerciseFixReview.items.length} with errors and deleted {exerciseFixReview.duplicatePairs.length} duplicate{exerciseFixReview.duplicatePairs.length === 1 ? '' : 's'}.</p>
+          <p>Checked {exerciseFixReview.checked} Exercises. Proposed {exerciseFixReview.items.length} correction{exerciseFixReview.items.length === 1 ? '' : 's'} and {exerciseFixReview.duplicatePairs.length} duplicate deletion{exerciseFixReview.duplicatePairs.length === 1 ? '' : 's'}. No database changes have been made yet.</p>
           {exerciseFixReview.duplicatePairs.length > 0 && <>
             <h4>Deleted duplicates</h4>
             <div className='duplicateReviewList'>
@@ -1296,15 +1220,17 @@ function Skills ({ book, onAction, onBookChange, onEntityCountsChange, pipelineO
             </div>
             : <p>No Exercise errors were found.</p>}
           <Button.Group>
-            {exerciseFixRollback && <Button
-              icon='rotate-left'
-              label='Rollback changes'
-              onClick={() => rollbackExerciseFix().catch(console.error)}
-            />}
+            <Button
+              icon='times'
+              isDisabled={isBusy}
+              label='Discard'
+              onClick={closeExerciseFixReview}
+            />
             <Button
               icon='check'
-              label={exerciseFixRollback ? 'Keep changes' : 'Close'}
-              onClick={closeExerciseFixReview}
+              isDisabled={isBusy}
+              label={exerciseFixReview.items.length || exerciseFixReview.duplicatePairs.length ? 'Apply changes' : 'Confirm review'}
+              onClick={() => applyExerciseFixReview().catch(console.error)}
             />
           </Button.Group>
         </Modal.Content>
@@ -1317,7 +1243,7 @@ function Skills ({ book, onAction, onBookChange, onEntityCountsChange, pipelineO
         size='large'
       >
         <Modal.Content>
-          <p>Checked {fixReview.checked} Abilities. Corrected {fixReview.items.length} with errors and deleted {fixReview.duplicatePairs.length} duplicate{fixReview.duplicatePairs.length === 1 ? '' : 's'}.</p>
+          <p>Checked {fixReview.checked} Abilities. Proposed {fixReview.items.length} correction{fixReview.items.length === 1 ? '' : 's'} and {fixReview.duplicatePairs.length} duplicate deletion{fixReview.duplicatePairs.length === 1 ? '' : 's'}. No database changes have been made yet.</p>
           {fixReview.duplicatePairs.length > 0 && <>
             <h4>Deleted duplicates</h4>
             <div className='duplicateReviewList'>
@@ -1365,15 +1291,17 @@ function Skills ({ book, onAction, onBookChange, onEntityCountsChange, pipelineO
             </div>
             : <p>No Ability errors were found.</p>}
           <Button.Group>
-            {abilityFixRollback && <Button
-              icon='rotate-left'
-              label='Rollback changes'
-              onClick={() => rollbackAbilityFix().catch(console.error)}
-            />}
+            <Button
+              icon='times'
+              isDisabled={isBusy}
+              label='Discard'
+              onClick={closeFixReview}
+            />
             <Button
               icon='check'
-              label={abilityFixRollback ? 'Keep changes' : 'Close'}
-              onClick={closeFixReview}
+              isDisabled={isBusy}
+              label={fixReview.items.length || fixReview.duplicatePairs.length ? 'Apply changes' : 'Confirm review'}
+              onClick={() => applyAbilityFixReview().catch(console.error)}
             />
           </Button.Group>
         </Modal.Content>
@@ -1424,7 +1352,7 @@ function Skills ({ book, onAction, onBookChange, onEntityCountsChange, pipelineO
       {pipelinePrefix}
       <span className='pipelineStep'><span>›</span><Button
         icon={iconForStage(4)}
-        isDisabled={isBusy || (stage < 3 && !allExercises.length)}
+        isDisabled={isBusy || stage < 3 || !allExercises.length}
         label='Fix exercises'
         onClick={openExerciseFix}
                                                    /></span>
