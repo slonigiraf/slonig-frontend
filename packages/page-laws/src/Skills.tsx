@@ -2,7 +2,8 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import type { Book, BookChapter, BookConcept, BookPage, Exercise, Skill } from '@slonigiraf/db';
-import type { GeneratedAbility, GeneratedExerciseAbility } from './abilities.js';
+import type { GeneratedAbility } from './abilities.js';
+import type { AtomicAbilityConversion, AbilityWorkflowJsonRunner } from './abilityWorkflow.js';
 
 import { deleteAbilities, deleteAbility, deleteBookConcept, deleteExercise, deleteSkill, getAbilities, getBookChapters, getBookConceptsForBookPage, getBookPages, getExercisesForBookPage, getSetting, getSkillsForChapter, replaceAbilities, replaceExercisesForBookPage, replaceSkillsForChapter, SettingKey, storeAbility, updateBookChapterTitle, updateBookProcessingStage } from '@slonigiraf/db';
 import { KatexSpan, RoundProgress } from '@slonigiraf/slonig-components';
@@ -12,10 +13,11 @@ import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { Button, Dropdown, Input, Modal, styled } from '@polkadot/react-components';
 
 import ExerciseList from './Edit/ExerciseList.js';
-import { parseAbilityRepairResult, parseGeneratedAbilities, parseGeneratedExerciseAbilities, parseStoredAbility } from './abilities.js';
+import { parseAbilityRepairResult, parseStoredAbility } from './abilities.js';
 import { parseExerciseRepairResult } from './exercises.js';
 import { estimateAiInput, formatAiInputEstimate } from './aiEstimate.js';
-import { ABILITY_CHANGED_IMAGE_SOLUTION_PROMPT, ABILITY_QUESTION_IMAGE_PROMPT, ABILITY_SOLUTION_IMAGE_PROMPT, EXERCISE_ABILITIES_PROMPT, EXERCISE_ABILITIES_SYSTEM_PROMPT, FIX_ABILITIES_REQUEST_PROMPT, FIX_EXERCISES_REQUEST_PROMPT, JSON_VALIDATION_PROMPT, OPENAI_MODELS, REPAIR_SYSTEM_PROMPT, SINGLE_EXERCISE_ABILITY_RECOVERY_PROMPT, SKILLS_GENERATION_SYSTEM_PROMPT, SOURCES_TO_SKILLS_REQUEST_PROMPT } from './constants.js';
+import { ATOMIC_ABILITY_WORKFLOW_SYSTEM_PROMPT, FIX_ABILITIES_REQUEST_PROMPT, FIX_EXERCISES_REQUEST_PROMPT, JSON_VALIDATION_PROMPT, OPENAI_MODELS, REPAIR_SYSTEM_PROMPT, SKILLS_GENERATION_SYSTEM_PROMPT, SOURCES_TO_SKILLS_REQUEST_PROMPT } from './constants.js';
+import { abilityBlueprintRequestPrompt, runAtomicAbilityWorkflow } from './abilityWorkflow.js';
 import { mapConcurrent } from './concurrency.js';
 import { OPENROUTER_CONCURRENCY, openRouterRequestGate } from './openRouterConcurrency.js';
 import { generateOpenRouterVisual } from './openRouterImages.js';
@@ -246,34 +248,26 @@ function exerciseRepairInput (language: string, batch: Exercise[], chapterTitle?
     ...(chapterTitle ? { chapterTitle } : {})
   };
 }
-async function materializeAbilityImages (apiKey: string, source: Exercise, conversion: { ability: GeneratedAbility; imagePrompts?: Array<{ changesImage: boolean; i: string; p: string }> }, svgModel: string): Promise<GeneratedAbility> {
+async function materializeAbilityImages (apiKey: string, conversion: AtomicAbilityConversion, svgModel: string): Promise<GeneratedAbility> {
   const q = conversion.ability.q.map((exercise) => ({ ...exercise, i: '', p: '' }));
-  const imageDescription = source.imageDescription?.trim() ?? '';
-  const solutionImageDescription = source.solutionImageDescription?.trim() ?? '';
+
+  if (!conversion.imagePrompts) {
+    return { ...conversion.ability, q };
+  }
 
   for (let index = 0; index < q.length; index++) {
-    const prompts = conversion.imagePrompts?.[index];
-    const fallbackProblemPrompt = ABILITY_QUESTION_IMAGE_PROMPT(imageDescription, q[index].h);
-    // A question image is permitted only when the source Exercise explicitly
-    // requires visual input. A solution image is independent: a text-only
-    // question can still require the learner to construct/draw/plot an answer.
-    const problemPrompt = imageDescription ? (prompts?.p.trim() || fallbackProblemPrompt) : '';
-    const changesImage = prompts?.changesImage === true && Boolean(problemPrompt);
-    const suppliedAnswerPrompt = prompts?.i.trim() || '';
-    const fallbackSolutionPrompt = ABILITY_SOLUTION_IMAGE_PROMPT(solutionImageDescription, q[index].h, q[index].a, suppliedAnswerPrompt);
-    const changedImageAnswerPrompt = changesImage
-      ? ABILITY_CHANGED_IMAGE_SOLUTION_PROMPT(problemPrompt, q[index].h, q[index].a, solutionImageDescription, suppliedAnswerPrompt)
-      : fallbackSolutionPrompt;
+    const prompts = conversion.imagePrompts[index];
 
-    if (problemPrompt) {
-      q[index].p = await generateOpenRouterVisual(apiKey, problemPrompt, svgModel, 'question');
+    if (prompts.changesImage && (!prompts.p || !prompts.i)) {
+      throw new Error('A visual-modification Ability must define both starting and completed visual specifications.');
     }
 
-    // changesImage:true is a hard guarantee: even if the generation model
-    // forgot to provide imagePrompts.i, synthesize a solution prompt from the
-    // starting visual + question + correct answer and materialize q[index].i.
-    if (changedImageAnswerPrompt) {
-      q[index].i = await generateOpenRouterVisual(apiKey, changedImageAnswerPrompt, svgModel, 'solution');
+    if (prompts.p) {
+      q[index].p = await generateOpenRouterVisual(apiKey, prompts.p, svgModel, 'question', undefined, `Learner task: ${q[index].h}\nThis is a question visual. Reject any visible completion, highlighting, or cue that is not required by the starting-visual contract.`);
+    }
+
+    if (prompts.i) {
+      q[index].i = await generateOpenRouterVisual(apiKey, prompts.i, svgModel, 'solution', prompts.changesImage ? q[index].p : undefined, `Learner task: ${q[index].h}\nCorrect answer: ${q[index].a}. The solution visual must agree with this answer.`);
     }
   }
 
@@ -601,7 +595,7 @@ function Skills ({ book, onAction, onBookChange, onEntityCountsChange, pipelineO
 
     if (aiAction === 'exercises') {
       return batchItemsByChapter(chapterContent.map(({ chapter, exercises }) => ({ chapterTitle: chapter.title, items: exercises })), BATCH_SIZE)
-        .map(({ chapterTitle, items }) => EXERCISE_ABILITIES_PROMPT(language, chapterTitle, transportExercises(items)));
+        .map(({ chapterTitle, items }) => abilityBlueprintRequestPrompt(language, chapterTitle, transportExercises(items)));
     }
 
     if (aiAction === 'fixExercises') {
@@ -616,9 +610,11 @@ function Skills ({ book, onAction, onBookChange, onEntityCountsChange, pipelineO
   }, [aiAction, chapterContent, language, skillSources]);
   const maxChapterAbilityCount = Math.max(1, ...chapterContent.map(({ abilities }) => abilities.length));
   const maxChapterExerciseCount = Math.max(1, ...chapterContent.map(({ exercises }) => exercises.length));
-  const generationOutputTokens = aiAction === 'exercises' ? BATCH_SIZE * 700 : aiAction === 'fixExercises' ? maxChapterExerciseCount * 550 : aiAction === 'fix' ? maxChapterAbilityCount * 700 : aiAction === 'skills' ? BATCH_SIZE * 180 : 300;
+  const generationOutputTokens = aiAction === 'exercises' ? BATCH_SIZE * 1_800 : aiAction === 'fixExercises' ? maxChapterExerciseCount * 550 : aiAction === 'fix' ? maxChapterAbilityCount * 700 : aiAction === 'skills' ? BATCH_SIZE * 180 : 300;
   const validationInputs = useMemo(() => aiAction === 'exercises'
-    ? requestInputs.flatMap((input) => [input, input, input])
+    // Atomic Ability generation is a multi-pass workflow: blueprint, blueprint
+    // audit, text generation, text audit, visual planning, and visual audit.
+    ? requestInputs.flatMap((input) => [input, input, input, input, input, input])
     : requestInputs, [aiAction, requestInputs]);
   const outputTokens = generationOutputTokens;
   const estimate = formatAiInputEstimate(estimateAiInput(selectedModel, validationInputs, outputTokens));
@@ -690,7 +686,7 @@ function Skills ({ book, onAction, onBookChange, onEntityCountsChange, pipelineO
   }, [allSkills, beginProgress, book.id, chapters, createClient, language, refresh, selectedModel, setStage, skillSources]);
 
   const generateExercises = useCallback(async (): Promise<void> => {
-    beginProgress('Generating Abilities', allExercises.length);
+    beginProgress('Generating atomic Abilities', allExercises.length);
 
     try {
       if (!allExercises.length) {
@@ -709,97 +705,96 @@ function Skills ({ book, onAction, onBookChange, onEntityCountsChange, pipelineO
       }
 
       const pending = new Map<number, Exercise>(allExercises.map((exercise) => [exercise.id as number, exercise]));
-      const generatedByExerciseId = new Map<number, GeneratedAbility>();
+      // Keep each source Exercise atomic at persistence time: either every
+      // audited sub-Ability for that source is ready (including required
+      // visuals), or its existing DB records are left untouched for retry.
+      const generatedByExerciseId = new Map<number, GeneratedAbility[]>();
       const maxAttempts = 3;
       let lastAttemptError = '';
 
       for (let attempt = 1; attempt <= maxAttempts && pending.size; attempt++) {
-        // Ability generation is chapter-scoped. Large chapters are split into
-        // size-limited sub-batches, but a request can never contain Exercises
-        // from two different chapters. Retries narrow only unresolved Exercises
-        // inside their original chapter.
         const batchSize = attempt === 1 ? BATCH_SIZE : attempt === 2 ? 2 : 1;
         const attemptBatches = chapterContent.flatMap(({ chapter, exercises: chapterExercises }) => {
           const unresolvedInChapter = chapterExercises.filter(({ id }) => id !== undefined && pending.has(id));
 
           return batchItemsByChapter([{ chapterTitle: chapter.title, items: unresolvedInChapter }], batchSize);
         });
-        const generatedBatches = await mapConcurrent(attemptBatches, OPENROUTER_CONCURRENCY, async ({ chapterTitle, items: exercises }): Promise<GeneratedExerciseAbility[]> => {
-            const expectedExerciseIds = exercises.map(({ id }) => id as number);
-            const systemPrompt = EXERCISE_ABILITIES_SYSTEM_PROMPT(language, chapterTitle);
-            const userPrompt = attempt === maxAttempts && exercises.length === 1
-              ? SINGLE_EXERCISE_ABILITY_RECOVERY_PROMPT(language, chapterTitle, exercises[0].id, transportExercises([exercises[0]])[0])
-              : EXERCISE_ABILITIES_PROMPT(language, chapterTitle, transportExercises(exercises));
-
-            try {
-              const generated = await requestValidatedJson(
-                client,
-                selectedModel,
-                systemPrompt,
-                userPrompt,
-                (content) => {
-                  const parsed = parseGeneratedExerciseAbilities(content, expectedExerciseIds, true);
-
-                  if (!parsed.length) {
-                    throw new Error('OpenRouter returned no valid Exercise-to-Ability conversions.');
-                  }
-
-                  return parsed;
-                },
-                true
-              );
-
-              lastAttemptError = '';
-
-              return generated;
-            } catch (caught) {
-              lastAttemptError = caught instanceof Error ? caught.message : 'Unknown OpenRouter error.';
-              // Keep only this chapter batch unresolved; the next pass uses a smaller batch.
-
-              return [];
-            }
-        });
-        const conversions = generatedBatches.flat();
-
-        await mapConcurrent(conversions, OPENROUTER_CONCURRENCY, async (conversion) => {
-          const source = pending.get(conversion.exerciseId);
-
-          if (!source) {
-            return;
-          }
+        const generatedBatches = await mapConcurrent(attemptBatches, OPENROUTER_CONCURRENCY, async ({ chapterTitle, items: exercises }): Promise<{ conversions: AtomicAbilityConversion[]; exercises: Exercise[] }> => {
+          const systemPrompt = ATOMIC_ABILITY_WORKFLOW_SYSTEM_PROMPT(language, chapterTitle);
+          const runJson: AbilityWorkflowJsonRunner = (prompt, parse) => requestValidatedJson(client, selectedModel, systemPrompt, prompt, parse, true);
 
           try {
-            const ability = await materializeAbilityImages(imageApiKey, source, conversion, selectedModel);
+            const conversions = await runAtomicAbilityWorkflow(language, chapterTitle, exercises, runJson);
 
-            generatedByExerciseId.set(conversion.exerciseId, ability);
-            pending.delete(conversion.exerciseId);
-            setProgress(generatedByExerciseId.size);
-          } catch (imageError) {
-            lastAttemptError = imageError instanceof Error ? imageError.message : 'Unable to generate a required Ability image.';
+            lastAttemptError = '';
+
+            return { conversions, exercises };
+          } catch (caught) {
+            lastAttemptError = caught instanceof Error ? caught.message : 'Unknown OpenRouter error.';
+
+            return { conversions: [] as AtomicAbilityConversion[], exercises };
           }
         });
+
+        for (const { conversions, exercises } of generatedBatches) {
+          if (!conversions.length) {
+            continue;
+          }
+
+          const conversionsByExerciseId = new Map<number, AtomicAbilityConversion[]>();
+
+          conversions.forEach((conversion) => {
+            const rows = conversionsByExerciseId.get(conversion.exerciseId) ?? [];
+
+            rows.push(conversion);
+            conversionsByExerciseId.set(conversion.exerciseId, rows);
+          });
+
+          await mapConcurrent(exercises, OPENROUTER_CONCURRENCY, async (source) => {
+            const exerciseId = source.id as number;
+            const sourceConversions = conversionsByExerciseId.get(exerciseId)?.sort((a, b) => a.skillIndex - b.skillIndex) ?? [];
+
+            if (!pending.has(exerciseId) || !sourceConversions.length) {
+              return;
+            }
+
+            try {
+              const abilities = await Promise.all(sourceConversions.map((conversion) => materializeAbilityImages(imageApiKey, conversion, selectedModel)));
+
+              generatedByExerciseId.set(exerciseId, abilities);
+              pending.delete(exerciseId);
+              setProgress(generatedByExerciseId.size);
+            } catch (imageError) {
+              lastAttemptError = imageError instanceof Error ? imageError.message : 'Unable to generate or validate a required Ability image.';
+            }
+          });
+        }
       }
 
-      await Promise.all(Array.from(generatedByExerciseId, ([exerciseId, ability]) => replaceAbilities(exerciseAbilityModuleId(book.id, exerciseId), [JSON.stringify(ability)])));
+      await Promise.all(Array.from(generatedByExerciseId, ([exerciseId, abilities]) => replaceAbilities(exerciseAbilityModuleId(book.id, exerciseId), abilities.map((ability) => JSON.stringify(ability)))));
 
       if (generatedByExerciseId.size || allAbilities.length) {
         // Partial conversion is still a successful Ability-generation stage.
-        // Unconverted Exercises remain available in the Exercises column and do not hide generated results.
+        // Unconverted Exercises keep their existing Ability records unchanged.
         await setStage(7);
       }
 
       refresh();
 
+      const generatedAbilityCount = Array.from(generatedByExerciseId.values()).reduce((count, abilities) => count + abilities.length, 0);
+
       if (pending.size && generatedByExerciseId.size) {
         const unresolved = Array.from(pending.values()).map(({ id, title }) => `${id}: ${title}`).join('; ');
 
-        setNotice(`Generated ${generatedByExerciseId.size} of ${allExercises.length} Abilities. ${pending.size} Exercise${pending.size === 1 ? '' : 's'} remained unconverted and were left unchanged: ${unresolved}`);
+        setNotice(`Generated ${generatedAbilityCount} atomic Abilities from ${generatedByExerciseId.size} of ${allExercises.length} Exercises. ${pending.size} Exercise${pending.size === 1 ? '' : 's'} remained unchanged: ${unresolved}`);
       } else if (!generatedByExerciseId.size && pending.size && allAbilities.length) {
-        setNotice(`No new Abilities were generated after ${maxAttempts} attempts. The existing ${allAbilities.length} Abilit${allAbilities.length === 1 ? 'y remains' : 'ies remain'} available; unconverted Exercises were left unchanged.`);
+        setNotice(`No new Abilities were generated after ${maxAttempts} attempts. The existing ${allAbilities.length} Abilit${allAbilities.length === 1 ? 'y remains' : 'ies remain'} available; unresolved Exercises were left unchanged.`);
       } else if (!generatedByExerciseId.size && pending.size) {
         const suffix = lastAttemptError ? ` Last attempt: ${lastAttemptError}` : '';
 
         setError(`No Abilities were generated after ${maxAttempts} attempts.${suffix}`);
+      } else {
+        setNotice(`Generated ${generatedAbilityCount} atomic Abilities from ${generatedByExerciseId.size} Exercises.`);
       }
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : 'Unable to generate Abilities.');

@@ -5,6 +5,7 @@ import { OPEN_ROUTER_SOLUTION_RASTER_PROMPT, OPEN_ROUTER_SVG_PROMPT } from './co
 import { openRouterRequestGate } from './openRouterConcurrency.js';
 
 export const OPENROUTER_IMAGE_MODEL = 'bytedance-seed/seedream-4.5';
+const MAX_VISUAL_ATTEMPTS = 3;
 
 interface OpenRouterImageResponse {
   data?: Array<{ b64_json?: string; media_type?: string }>;
@@ -19,6 +20,16 @@ interface OpenRouterSvgResponse {
 interface SvgPlan {
   format?: unknown;
   svg?: unknown;
+}
+
+interface SvgCandidate {
+  dataUrl: string;
+  svg: string;
+}
+
+interface VisualQaResult {
+  errors: string[];
+  ok: boolean;
 }
 
 function parseJsonObject (content: string): Record<string, unknown> {
@@ -77,7 +88,34 @@ export function svgMarkupToDataUrl (value: string): string | undefined {
 
 type VisualPurpose = 'question' | 'solution';
 
-async function generateOpenRouterSvg (apiKey: string, prompt: string, model: string, purpose: VisualPurpose): Promise<string | null | undefined> {
+function svgDataUrlToMarkup (value: string): string | undefined {
+  const prefix = 'data:image/svg+xml;base64,';
+
+  if (!value.startsWith(prefix)) {
+    return undefined;
+  }
+
+  try {
+    const binary = globalThis.atob(value.slice(prefix.length));
+    const bytes = Uint8Array.from(binary, (character) => character.charCodeAt(0));
+
+    return new TextDecoder().decode(bytes);
+  } catch {
+    return undefined;
+  }
+}
+
+function promptWithReferenceSvg (prompt: string, referenceVisual?: string): string {
+  const referenceSvg = referenceVisual ? svgDataUrlToMarkup(referenceVisual) : undefined;
+
+  if (!referenceSvg) {
+    return prompt;
+  }
+
+  return `${prompt}\n\nThis solution modifies an already generated question visual. Use the following exact starting SVG as the base. Preserve its viewBox, dimensions, coordinate system, positions, labels, styles, and every unchanged object. Apply only the required answer change.\n\nSTARTING SVG:\n${referenceSvg}`;
+}
+
+async function generateOpenRouterSvg (apiKey: string, prompt: string, model: string, purpose: VisualPurpose): Promise<SvgCandidate | null | undefined> {
   const response = await openRouterRequestGate.run(() => fetch('https://openrouter.ai/api/v1/chat/completions', {
     body: JSON.stringify({
       messages: [{
@@ -113,7 +151,10 @@ async function generateOpenRouterSvg (apiKey: string, prompt: string, model: str
       return undefined;
     }
 
-    return svgMarkupToDataUrl(plan.svg);
+    const svg = normalizeSafeSvg(plan.svg);
+    const dataUrl = svg ? svgMarkupToDataUrl(svg) : undefined;
+
+    return svg && dataUrl ? { dataUrl, svg } : undefined;
   } catch {
     return undefined;
   }
@@ -140,26 +181,140 @@ export async function generateOpenRouterImage (apiKey: string, prompt: string): 
   return `data:${image.media_type || 'image/png'};base64,${image.b64_json}`;
 }
 
-export async function generateOpenRouterVisual (apiKey: string, prompt: string, svgModel: string, purpose: VisualPurpose = 'question'): Promise<string> {
-  // Prefer a safe, self-contained SVG for Ability visuals. SVGs stay crisp at
-  // every size, preserve diagram/text geometry, and avoid unnecessary raster
-  // payloads. Question visuals must not leak the answer; solution visuals are
-  // explicitly allowed to show the completed answer/result.
-  const svg = await generateOpenRouterSvg(apiKey, prompt, svgModel, purpose).catch(() => undefined);
+function visualQaInstruction (contract: string, purpose: VisualPurpose): string {
+  return `Audit this generated educational visual against the exact visual contract. This is a hard semantic check, not an aesthetics review.
 
-  if (svg) {
-    return svg;
+Verify every answer-relevant label, number, symbol, object, coordinate, scale, relationship, region, line, mark, and spatial placement required by the contract. Reject missing, extra, contradictory, unreadable, or incorrect task data. ${purpose === 'question' ? 'This is a QUESTION visual: reject any answer leakage, completed construction, solution-only mark, or cue that gives away what the learner must infer.' : 'This is a SOLUTION visual: require the complete correct result. If a reference question visual is supplied, reject changes to any base object, label, scale, coordinate system, or layout that the requested answer did not require.'}
+
+Return only JSON: {"ok":true,"errors":[]} when every educational detail is correct. Otherwise return {"ok":false,"errors":["specific discrepancy", "..."]}. Keep errors concrete enough to drive regeneration.
+
+VISUAL CONTRACT:
+${contract}`;
+}
+
+function parseVisualQaResult (content: string): VisualQaResult {
+  const parsed = parseJsonObject(content);
+  const ok = parsed.ok;
+  const errors = parsed.errors;
+
+  if (typeof ok !== 'boolean' || !Array.isArray(errors) || !errors.every((error) => typeof error === 'string' && error.trim())) {
+    throw new Error('Visual QA returned invalid JSON.');
   }
 
-  const rasterPrompt = purpose === 'solution'
-    ? OPEN_ROUTER_SOLUTION_RASTER_PROMPT(prompt)
-    : prompt;
+  const normalizedErrors = errors.map((error) => String(error).trim());
 
-  try {
-    return await generateOpenRouterImage(apiKey, rasterPrompt);
-  } catch (caught) {
-    const message = caught instanceof Error ? caught.message : 'Unknown image generation error.';
-
-    throw new Error(`Unable to generate the required Ability visual as SVG or raster. ${message}`);
+  if (ok && normalizedErrors.length) {
+    throw new Error('Visual QA returned contradictory results.');
   }
+
+  if (!ok && !normalizedErrors.length) {
+    throw new Error('Visual QA rejected an image without identifying an error.');
+  }
+
+  return { errors: normalizedErrors, ok };
+}
+
+async function verifyOpenRouterVisual (
+  apiKey: string,
+  contract: string,
+  candidate: string,
+  model: string,
+  purpose: VisualPurpose,
+  referenceVisual?: string,
+  candidateSvg?: string,
+  qaContext?: string
+): Promise<VisualQaResult> {
+  const instruction = visualQaInstruction(`${contract}${qaContext ? `\n\nABILITY CONTEXT FOR QA ONLY:\n${qaContext}` : ''}`, purpose);
+  const referenceSvg = referenceVisual ? svgDataUrlToMarkup(referenceVisual) : undefined;
+  const content: Array<Record<string, unknown>> = [{ text: instruction, type: 'text' }];
+
+  if (referenceSvg) {
+    content.push({ text: `REFERENCE QUESTION SVG:\n${referenceSvg}`, type: 'text' });
+  } else if (referenceVisual) {
+    content.push({ text: 'REFERENCE QUESTION VISUAL:', type: 'text' });
+    content.push({ image_url: { url: referenceVisual }, type: 'image_url' });
+  }
+
+  if (candidateSvg) {
+    content.push({ text: `GENERATED CANDIDATE SVG:\n${candidateSvg}`, type: 'text' });
+  } else {
+    content.push({ text: 'GENERATED CANDIDATE VISUAL:', type: 'text' });
+    content.push({ image_url: { url: candidate }, type: 'image_url' });
+  }
+
+  const response = await openRouterRequestGate.run(() => fetch('https://openrouter.ai/api/v1/chat/completions', {
+    body: JSON.stringify({
+      messages: [{ content, role: 'user' }],
+      model,
+      response_format: { type: 'json_object' }
+    }),
+    headers: {
+      Authorization: `Bearer ${apiKey}`,
+      'Content-Type': 'application/json',
+      'HTTP-Referer': window.location.origin,
+      'X-OpenRouter-Title': 'Slonig'
+    },
+    method: 'POST'
+  }));
+  const result = await response.json() as OpenRouterSvgResponse;
+  const responseContent = result.choices?.[0]?.message?.content?.trim();
+
+  if (!response.ok || !responseContent) {
+    throw new Error(result.error?.message || 'OpenRouter visual QA returned no result.');
+  }
+
+  return parseVisualQaResult(responseContent);
+}
+
+export async function generateOpenRouterVisual (
+  apiKey: string,
+  prompt: string,
+  svgModel: string,
+  purpose: VisualPurpose = 'question',
+  referenceVisual?: string,
+  qaContext?: string
+): Promise<string> {
+  let lastError = '';
+  let correction = '';
+
+  for (let attempt = 0; attempt < MAX_VISUAL_ATTEMPTS; attempt++) {
+    const contractedPrompt = `${prompt}${correction ? `\n\nREGENERATION REQUIREMENTS FROM THE PREVIOUS QA FAILURE:\n${correction}` : ''}`;
+    const svgPrompt = purpose === 'solution' ? promptWithReferenceSvg(contractedPrompt, referenceVisual) : contractedPrompt;
+    const svg = await generateOpenRouterSvg(apiKey, svgPrompt, svgModel, purpose).catch(() => undefined);
+    let candidate: string;
+    let candidateSvg: string | undefined;
+
+    if (svg) {
+      candidate = svg.dataUrl;
+      candidateSvg = svg.svg;
+    } else {
+      const rasterPrompt = purpose === 'solution'
+        ? OPEN_ROUTER_SOLUTION_RASTER_PROMPT(contractedPrompt)
+        : contractedPrompt;
+
+      try {
+        candidate = await generateOpenRouterImage(apiKey, rasterPrompt);
+      } catch (caught) {
+        lastError = caught instanceof Error ? caught.message : 'Unknown image generation error.';
+        correction = lastError;
+        continue;
+      }
+    }
+
+    try {
+      const qa = await verifyOpenRouterVisual(apiKey, prompt, candidate, svgModel, purpose, referenceVisual, candidateSvg, qaContext);
+
+      if (qa.ok) {
+        return candidate;
+      }
+
+      lastError = qa.errors.join('; ');
+      correction = qa.errors.map((error, index) => `${index + 1}. ${error}`).join('\n');
+    } catch (caught) {
+      lastError = caught instanceof Error ? caught.message : 'Visual QA failed.';
+      correction = lastError;
+    }
+  }
+
+  throw new Error(`Unable to generate a verified required Ability visual after ${MAX_VISUAL_ATTEMPTS} attempts.${lastError ? ` Last visual QA error: ${lastError}` : ''}`);
 }

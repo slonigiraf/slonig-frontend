@@ -369,6 +369,21 @@ describe('generated abilities', (): void => {
     invalid.forEach((value) => assert.throws(() => parseGeneratedAbilities(JSON.stringify([{ ...skill, q: [value, second] }]))));
   });
 
+  it('rejects generated or repaired Ability text that exceeds the atomic learner-facing size budget', (): void => {
+    const verbose = createSkill();
+
+    verbose.q[0].a = Array.from({ length: 39 }, () => 'word').join(' ');
+    assert.throws(() => parseGeneratedAbilities(JSON.stringify([verbose])), /too verbose/i);
+
+    const original = createSkill();
+    assert.throws(() => parseAbilityRepairReviews(JSON.stringify({ reviews: [{
+      ability: verbose,
+      errors: ['Answer is too verbose.'],
+      hasErrors: true,
+      index: 0
+    }] }), [original]), /too verbose/i);
+  });
+
   it('rejects repeated questions even when their answers differ', (): void => {
     const skill = createSkill();
 
@@ -436,7 +451,7 @@ describe('generated abilities', (): void => {
     assert.match(SKILL_LIST_PROMPT, /reusable template pattern/i);
     assert.match(SKILL_LIST_PROMPT, /later be reused by changing 1-3 data-bearing words or values/i);
     assert.match(SKILL_LIST_PROMPT, /do not generate, propose, compare, or output extra alternate/i);
-    assert.match(SKILL_LIST_PROMPT, /fewer than 7 words/i);
+    assert.match(SKILL_LIST_PROMPT, /fewer words/i);
     assert.match(SKILL_LIST_PROMPT, /Templatability, self-containment/i);
   });
 
@@ -458,6 +473,8 @@ describe('generated abilities', (): void => {
     assert.match(FIX_ABILITIES_PROMPT, /hasErrors/i);
     assert.match(FIX_ABILITIES_PROMPT, /errors/i);
     assert.match(FIX_ABILITIES_PROMPT, /reviews/i);
+    assert.match(FIX_ABILITIES_PROMPT, /non-atomic scope/i);
+    assert.match(FIX_ABILITIES_PROMPT, /within 32 words/i);
     assert.match(FIX_ABILITIES_PROMPT, /partial reviews array/i);
     assert.match(FIX_ABILITIES_PROMPT, /duplicatePairs/i);
     assert.match(FIX_ABILITIES_PROMPT, /keptAbilityId/i);

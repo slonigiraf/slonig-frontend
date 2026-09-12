@@ -116,6 +116,34 @@ export function parseStoredAbility (content: string): GeneratedAbility {
   return parseAbilityValue(Array.isArray(parsed) ? parsed[0] : parsed);
 }
 
+
+function wordCount (value: string): number {
+  return value.trim().split(/\s+/).filter(Boolean).length;
+}
+
+function isSuccinct (value: string, maxWords: number, maxCharacters: number): boolean {
+  return value.length <= maxCharacters && wordCount(value) <= maxWords;
+}
+
+export function validateGeneratedAbilityText (ability: GeneratedAbility): void {
+  // Learner-facing Abilities are intentionally much smaller than source-book
+  // exercises. Keep this as a parser gate so later repair/regeneration stages
+  // cannot silently reintroduce tutorial prose.
+  if (!isSuccinct(ability.h, 12, 90)) {
+    throw new Error('Ability title is too verbose.');
+  }
+
+  for (const exercise of ability.q) {
+    if (!isSuccinct(exercise.h, 32, 220)) {
+      throw new Error('Ability task is too verbose for an atomic skill.');
+    }
+
+    if (!isSuccinct(exercise.a, 38, 260)) {
+      throw new Error('Ability answer is too verbose for an atomic skill.');
+    }
+  }
+}
+
 function parseGeneratedAbilityValue (value: unknown): GeneratedAbility {
   const template = parseAbilityValue(value);
   const [first, second] = template.q;
@@ -123,6 +151,8 @@ function parseGeneratedAbilityValue (value: unknown): GeneratedAbility {
   if (first.h.replace(/\s+/g, ' ').trim() === second.h.replace(/\s+/g, ' ').trim()) {
     throw new Error('The two exercises must have different input parameters, not identical questions.');
   }
+
+  validateGeneratedAbilityText(template);
 
   return template;
 }
