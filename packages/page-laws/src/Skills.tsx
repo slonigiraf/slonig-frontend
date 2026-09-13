@@ -13,6 +13,7 @@ import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { Button, Dropdown, Input, Modal, styled } from '@polkadot/react-components';
 
 import ExerciseList from './Edit/ExerciseList.js';
+import TikzDisplay, { preRenderTikz, type TikzPreRenderResult } from './Edit/TikzDisplay.js';
 import { isTikzCode } from './Edit/TikzVisual.js';
 import { parseAbilityRepairResult, parseStoredAbility } from './abilities.js';
 import { parseExerciseRepairResult } from './exercises.js';
@@ -181,6 +182,39 @@ interface ExerciseFixReviewResult {
   items: FixedExerciseReview[];
 }
 
+interface ImageFixTarget {
+  ability: GeneratedAbility;
+  exerciseIndex: number;
+  field: 'p' | 'i';
+  originalTikz: string;
+  prompt: string;
+  record: StoredAbility;
+}
+
+interface FixedImageReview {
+  errors: string[];
+  exerciseIndex: number;
+  field: 'p' | 'i';
+  fixedPreRender: TikzPreRenderResult;
+  fixedTikz: string;
+  originalPreRender: TikzPreRenderResult;
+  originalTikz: string;
+  prompt: string;
+  record: StoredAbility;
+}
+
+interface ImageFixReviewResult {
+  checked: number;
+  compileFailures: number;
+  items: FixedImageReview[];
+}
+
+interface TikzAiReview {
+  errors: string[];
+  hasErrors: boolean;
+  tikz: string;
+}
+
 interface BookPageContent {
   exercises: Exercise[];
   page: BookPage;
@@ -203,7 +237,7 @@ interface SkillSource {
   title: string;
 }
 
-type AiAction = 'exercises' | 'fix' | 'fixExercises' | 'skills';
+type AiAction = 'exercises' | 'fix' | 'fixExercises' | 'fixImages' | 'skills';
 
 const abilityModuleId = (bookId: number, skillId: number): string => `book-${bookId}-skill-${skillId}`;
 const exerciseAbilityModuleId = (bookId: number, exerciseId: number): string => `book-${bookId}-exercise-${exerciseId}`;
@@ -323,6 +357,116 @@ Ability: ${ability.h}
 Question: ${exercise.h}
 Answer: ${exercise.a}
 Visual description: ${visualPrompt}`;
+}
+
+function parseTikzAiReview (content: string): TikzAiReview {
+  const parsed = parseJson(content);
+
+  if (
+    typeof parsed !== 'object' ||
+    parsed === null ||
+    Array.isArray(parsed) ||
+    typeof (parsed as { hasErrors?: unknown }).hasErrors !== 'boolean' ||
+    !Array.isArray((parsed as { errors?: unknown }).errors) ||
+    !(parsed as { errors: unknown[] }).errors.every((error) => typeof error === 'string' && error.trim()) ||
+    typeof (parsed as { tikz?: unknown }).tikz !== 'string'
+  ) {
+    throw new Error('OpenRouter returned invalid TikZ review data.');
+  }
+
+  const value = parsed as { errors: string[]; hasErrors: boolean; tikz: string };
+  const errors = value.errors.map((error) => error.trim());
+  const tikz = cleanTikzResponse(value.tikz);
+
+  if (value.hasErrors !== (errors.length > 0)) {
+    throw new Error('OpenRouter returned contradictory TikZ review details.');
+  }
+
+  return { errors, hasErrors: value.hasErrors, tikz };
+}
+
+function compactPreRenderForPrompt (result: TikzPreRenderResult): unknown {
+  return {
+    compiled: result.compiled,
+    diagnostics: result.diagnostics.slice(-30),
+    renderedSvg: result.renderedSvg.slice(0, 28_000),
+    texInput: result.texInput.slice(0, 12_000)
+  };
+}
+
+function tikzFixReviewPrompt (language: string, target: ImageFixTarget, preRender: TikzPreRenderResult): string {
+  const exercise = target.ability.q[target.exerciseIndex];
+  const purpose = target.field === 'p' ? 'question visual' : 'solution visual';
+
+  return `Strictly review this learner-facing TikZ ${purpose}. The goal is not merely valid code: the rendered diagram must accurately realize the ORIGINAL VISUAL PROMPT for this concrete Ability exercise and must be clean and readable.
+
+You MUST inspect all of these classes of failure:
+- TikZ/TeX compile or TikZJax render failure. A successful compile is mandatory.
+- Semantic mismatch with the original visual prompt, concrete question, or correct answer.
+- Wrong values, labels, geometry, axes, markings, regions, arrows, ordering, or missing required objects.
+- For a question visual, accidental answer leakage or solved-state markings that the learner should infer.
+- For a solution visual, missing or incorrect final answer/result.
+- Visual mess: overlapping text, labels printed on top of unrelated labels/objects, clipped text, illegible density, lines/arrows passing through labels, badly placed annotations, ambiguous association between labels and objects, or excessive unused/competing content.
+- Poor composition that makes the intended educational relationship hard to read.
+
+Use the pre-render evidence below. The SVG is the actual browser rendering when compilation succeeded. If compilation failed, use the diagnostics/TeX input to repair the source. Preserve correct content and change only what is needed.
+
+Return ONLY JSON in this exact shape:
+{"hasErrors":true,"errors":["Specific problem 1"],"tikz":"\\begin{tikzpicture}...\\end{tikzpicture}"}
+If there are genuinely no problems, return hasErrors:false, errors:[], and the original TikZ unchanged in tikz.
+
+Book language: ${language}
+Ability: ${target.ability.h}
+Exercise: ${exercise.h}
+Correct answer: ${exercise.a}
+Visual role: ${purpose}
+Original visual prompt: ${target.prompt || '(No stored visual prompt is available; use the exercise and answer as the semantic source.)'}
+
+ORIGINAL TIKZ:
+${target.originalTikz}
+
+PRE-RENDER RESULT:
+${JSON.stringify(compactPreRenderForPrompt(preRender))}`;
+}
+
+function tikzCompileRepairPrompt (language: string, target: ImageFixTarget, review: TikzAiReview, failedPreRender: TikzPreRenderResult): string {
+  const exercise = target.ability.q[target.exerciseIndex];
+
+  return `The proposed TikZ correction still failed the application's real TikZJax pre-render. Repair the TikZ so it compiles in TikZJax AND still satisfies the original visual specification. Keep all valid semantic/layout corrections already made.
+
+Return ONLY JSON in this exact shape:
+{"hasErrors":true,"errors":["..."],"tikz":"\\begin{tikzpicture}...\\end{tikzpicture}"}
+The errors array must include the original visual problems and the compile/render failure you fixed.
+
+Book language: ${language}
+Ability: ${target.ability.h}
+Exercise: ${exercise.h}
+Correct answer: ${exercise.a}
+Original visual prompt: ${target.prompt || '(missing)'}
+Original TikZ: ${target.originalTikz}
+Previously detected problems: ${JSON.stringify(review.errors)}
+Rejected proposed TikZ: ${review.tikz}
+Failed pre-render: ${JSON.stringify(compactPreRenderForPrompt(failedPreRender))}`;
+}
+
+function tikzDetectedProblemsRepairPrompt (language: string, target: ImageFixTarget, review: TikzAiReview, preRender: TikzPreRenderResult): string {
+  const exercise = target.ability.q[target.exerciseIndex];
+
+  return `You identified real problems in this TikZ visual but returned the original TikZ unchanged. Apply the required corrections now. The corrected TikZ must compile in TikZJax, match the original visual prompt and concrete exercise, and resolve every listed layout/semantic problem.
+
+Return ONLY JSON in this exact shape:
+{"hasErrors":true,"errors":["..."],"tikz":"\\begin{tikzpicture}...\\end{tikzpicture}"}
+Keep the errors list specific. tikz MUST contain an actual corrected source different from the rejected original.
+
+Book language: ${language}
+Ability: ${target.ability.h}
+Exercise: ${exercise.h}
+Correct answer: ${exercise.a}
+Original visual prompt: ${target.prompt || '(missing)'}
+Detected problems: ${JSON.stringify(review.errors)}
+Pre-render: ${JSON.stringify(compactPreRenderForPrompt(preRender))}
+Original/rejected TikZ:
+${target.originalTikz}`;
 }
 
 function compactJsonRepairPrompt (candidate: string, validationError: string, repairContext: string): string {
@@ -572,6 +716,7 @@ function Skills ({ book, onAction, onBookChange, onEntityCountsChange, pipelineO
   const [error, setError] = useState('');
   const [fixReview, setFixReview] = useState<FixReviewResult | null>(null);
   const [exerciseFixReview, setExerciseFixReview] = useState<ExerciseFixReviewResult | null>(null);
+  const [imageFixReview, setImageFixReview] = useState<ImageFixReviewResult | null>(null);
   const [notice, setNotice] = useState('');
   const [isBusy, setIsBusy] = useState(false);
   const [openRouterSpent, setOpenRouterSpent] = useState(0);
@@ -653,6 +798,19 @@ function Skills ({ book, onAction, onBookChange, onEntityCountsChange, pipelineO
     onEntityCountsChange?.({ abilities: allAbilities.length, bookExercises: allBookExercises.length, exercises: allExercises.length });
   }, [allAbilities.length, allBookExercises.length, allExercises.length, onEntityCountsChange]);
   const exerciseTitlesByModuleId = useMemo(() => new Map(allExercises.flatMap(({ id, title }) => id === undefined ? [] : [[exerciseAbilityModuleId(book.id, id), title] as const])), [allExercises, book.id]);
+  const imageFixTargets = useMemo<ImageFixTarget[]>(() => allAbilities.flatMap((record) => record.ability
+    ? record.ability.q.flatMap((exercise, exerciseIndex) => (['p', 'i'] as const).flatMap((field) => {
+      const value = exercise[field].trim();
+
+      if (!value || !isTikzCode(value)) {
+        return [];
+      }
+
+      const promptField = field === 'p' ? 'pPrompt' : 'iPrompt';
+
+      return [{ ability: record.ability as GeneratedAbility, exerciseIndex, field, originalTikz: value, prompt: exercise[promptField]?.trim() ?? '', record }];
+    }))
+    : []), [allAbilities]);
   const skillSources = useMemo<SkillSource[]>(() => chapterContent.flatMap(({ chapter, concepts, exercises }) => chapter.id === undefined ? [] : [...concepts.flatMap(({ description, id, title }) => id === undefined ? [] : [{ chapterId: chapter.id as number, chapterTitle: chapter.title, description, sourceId: id, sourceType: 'concept' as const, title }]), ...exercises.flatMap(({ description, id, title }) => id === undefined ? [] : [{ chapterId: chapter.id as number, chapterTitle: chapter.title, description: stripMarkdownImageReferences(description), sourceId: id, sourceType: 'exercise' as const, title }])]), [chapterContent]);
   // Pipeline buttons must follow the persisted processing stage, not the
   // presence of generated/extracted rows. Concepts can already extract
@@ -700,11 +858,17 @@ function Skills ({ book, onAction, onBookChange, onEntityCountsChange, pipelineO
       return chapterContent.filter(({ abilities }) => abilities.length > 0).map(({ abilities, chapter }) => FIX_ABILITIES_REQUEST_PROMPT(abilityRepairInput(language, abilities, chapter.title)));
     }
 
+    if (aiAction === 'fixImages') {
+      const pendingPreRender: TikzPreRenderResult = { compiled: true, diagnostics: [], renderedSvg: '', texInput: '' };
+
+      return imageFixTargets.map((target) => tikzFixReviewPrompt(language, target, pendingPreRender));
+    }
+
     return [];
-  }, [aiAction, chapterContent, language, skillSources]);
+  }, [aiAction, chapterContent, imageFixTargets, language, skillSources]);
   const maxChapterAbilityCount = Math.max(1, ...chapterContent.map(({ abilities }) => abilities.length));
   const maxChapterExerciseCount = Math.max(1, ...chapterContent.map(({ exercises }) => exercises.length));
-  const generationOutputTokens = aiAction === 'exercises' ? 3_200 : aiAction === 'fixExercises' ? maxChapterExerciseCount * 550 : aiAction === 'fix' ? maxChapterAbilityCount * 700 : aiAction === 'skills' ? BATCH_SIZE * 180 : 300;
+  const generationOutputTokens = aiAction === 'exercises' ? 3_200 : aiAction === 'fixExercises' ? maxChapterExerciseCount * 550 : aiAction === 'fix' ? maxChapterAbilityCount * 700 : aiAction === 'fixImages' ? 2_600 : aiAction === 'skills' ? BATCH_SIZE * 180 : 300;
   const validationInputs = useMemo(() => aiAction === 'exercises'
     // The live workflow now has two bounded semantic calls per source:
     // atomic planning, then final materialization (including visual specs).
@@ -730,7 +894,7 @@ function Skills ({ book, onAction, onBookChange, onEntityCountsChange, pipelineO
   }, [allExercises, deleteExerciseWithAbilities]);
 
   const beginProgress = useCallback((label: string, total: number): void => {
-    setAiAction(undefined); setError(''); setFixReview(null); setExerciseFixReview(null); setNotice(''); setIsBusy(true); setOpenRouterSpent(0); setProgress(0); setProgressLabel(label); setProgressTotal(Math.max(1, total));
+    setAiAction(undefined); setError(''); setFixReview(null); setExerciseFixReview(null); setImageFixReview(null); setNotice(''); setIsBusy(true); setOpenRouterSpent(0); setProgress(0); setProgressLabel(label); setProgressTotal(Math.max(1, total));
   }, []);
 
   const generateSkills = useCallback(async (): Promise<void> => {
@@ -1090,25 +1254,6 @@ function Skills ({ book, onAction, onBookChange, onEntityCountsChange, pipelineO
     }
   }, [addFixAbilitiesCost, allAbilities.length, beginProgress, chapterContent, createClient, exerciseTitlesByModuleId, language, selectedModel]);
 
-  const confirm = useCallback((): void => {
-    if (aiAction === 'skills') {
-      generateSkills().catch(console.error);
-    }
-
-    if (aiAction === 'exercises') {
-      onAction?.('preExercisesExercises');
-      generateExercises().catch(console.error);
-    }
-
-    if (aiAction === 'fixExercises') {
-      fixExercises().catch(console.error);
-    }
-
-    if (aiAction === 'fix') {
-      fixAbilities().catch(console.error);
-    }
-  }, [aiAction, fixAbilities, fixExercises, generateExercises, generateSkills, onAction]);
-  const closeConfirmation = useCallback((): void => setAiAction(undefined), []);
   const closeFixReview = useCallback((): void => {
     setFixReview(null);
     setNotice('Proposed Ability changes were discarded. No database changes were made.');
@@ -1336,11 +1481,219 @@ function Skills ({ book, onAction, onBookChange, onEntityCountsChange, pipelineO
       setError(caught instanceof Error ? caught.message : 'Unable to convert Ability visuals to TikZ.');
     }).finally(() => setIsBusy(false));
   }, [addOpenRouterCost, allAbilities, beginProgress, createClient, language, onAction, refresh, selectedModel, setStage]);
-  const completeFixImagesStage = useCallback((): void => {
-    setStage(FIX_IMAGES_STAGE).then(() => {
-      setNotice('Fix images stage marked complete.');
-    }).catch((caught) => setError(caught instanceof Error ? caught.message : 'Unable to complete Fix images stage.'));
-  }, [setStage]);
+  const fixImages = useCallback(async (): Promise<void> => {
+    beginProgress('Reviewing TikZ visuals', imageFixTargets.length);
+
+    try {
+      if (!imageFixTargets.length) {
+        setImageFixReview({ checked: 0, compileFailures: 0, items: [] });
+        setNotice('Fix images review ready. There are no TikZ visuals to check. No database changes have been made.');
+        return;
+      }
+
+      const client = await createClient();
+      const items: FixedImageReview[] = [];
+      let compileFailures = 0;
+      let completed = 0;
+
+      // Pre-render checks are intentionally serialized. TikZJax emits TeX
+      // diagnostics through the global console when data-show-console is on,
+      // so concurrent pre-renders could mix diagnostics between diagrams.
+      for (const target of imageFixTargets) {
+        const originalPreRender = await preRenderTikz(target.originalTikz);
+
+        if (!originalPreRender.compiled) {
+          compileFailures += 1;
+        }
+
+        const review = await requestValidatedJson(
+          client,
+          selectedModel,
+          'You are a strict educational diagram QA reviewer and TikZ repair expert. Return only the requested JSON object.',
+          tikzFixReviewPrompt(language, target, originalPreRender),
+          parseTikzAiReview,
+          true,
+          addOpenRouterCost,
+          2_600
+        );
+        let effectiveReview: TikzAiReview = review;
+
+        // Compilation is a hard local invariant. The AI is not allowed to mark
+        // a diagram error-free when the real browser renderer rejected it.
+        if (!originalPreRender.compiled && !effectiveReview.hasErrors) {
+          effectiveReview = {
+            errors: ['TikZJax pre-render failed; the TikZ must be repaired before this visual can be accepted.'],
+            hasErrors: true,
+            tikz: effectiveReview.tikz
+          };
+        }
+
+        if (effectiveReview.hasErrors && effectiveReview.tikz.trim() === target.originalTikz.trim()) {
+          effectiveReview = await requestValidatedJson(
+            client,
+            selectedModel,
+            'You must apply the TikZ corrections you identified. Return only the requested JSON object.',
+            tikzDetectedProblemsRepairPrompt(language, target, effectiveReview, originalPreRender),
+            parseTikzAiReview,
+            true,
+            addOpenRouterCost,
+            2_600
+          );
+
+          if (!effectiveReview.hasErrors || effectiveReview.tikz.trim() === target.originalTikz.trim()) {
+            throw new Error(`AI identified problems in ${target.ability.h}, exercise ${target.exerciseIndex + 1} ${target.field === 'p' ? 'question' : 'solution'} visual but did not return a corrected TikZ diff.`);
+          }
+        }
+
+        let fixedPreRender = effectiveReview.hasErrors
+          ? await preRenderTikz(effectiveReview.tikz)
+          : originalPreRender;
+
+        // Re-feed real renderer diagnostics to the model until the proposed
+        // correction compiles. This is the second guard after semantic/layout QA.
+        for (let repairAttempt = 0; effectiveReview.hasErrors && !fixedPreRender.compiled && repairAttempt < 2; repairAttempt++) {
+          const previousErrors = effectiveReview.errors;
+          const repaired = await requestValidatedJson(
+            client,
+            selectedModel,
+            'You repair rejected TikZ using real TikZJax pre-render diagnostics. Return only the requested JSON object.',
+            tikzCompileRepairPrompt(language, target, effectiveReview, fixedPreRender),
+            parseTikzAiReview,
+            true,
+            addOpenRouterCost,
+            2_600
+          );
+
+          effectiveReview = repaired.hasErrors
+            ? repaired
+            : { errors: previousErrors.length ? previousErrors : ['TikZJax pre-render failure was repaired.'], hasErrors: true, tikz: repaired.tikz };
+          fixedPreRender = await preRenderTikz(effectiveReview.tikz);
+        }
+
+        if (effectiveReview.hasErrors && !fixedPreRender.compiled) {
+          const details = fixedPreRender.diagnostics.slice(-6).join(' | ');
+
+          throw new Error(`Unable to produce compiling TikZ for ${target.ability.h}, exercise ${target.exerciseIndex + 1} ${target.field === 'p' ? 'question' : 'solution'} visual.${details ? ` ${details}` : ''}`);
+        }
+
+        const changed = effectiveReview.tikz.trim() !== target.originalTikz.trim();
+
+        if (effectiveReview.hasErrors && changed) {
+          items.push({
+            errors: effectiveReview.errors,
+            exerciseIndex: target.exerciseIndex,
+            field: target.field,
+            fixedPreRender,
+            fixedTikz: effectiveReview.tikz,
+            originalPreRender,
+            originalTikz: target.originalTikz,
+            prompt: target.prompt,
+            record: target.record
+          });
+        }
+
+        completed += 1;
+        setProgress(completed);
+      }
+
+      setImageFixReview({ checked: imageFixTargets.length, compileFailures, items });
+      const unchanged = Math.max(0, imageFixTargets.length - items.length);
+
+      setNotice(`Fix images review ready: ${items.length} TikZ correction${items.length === 1 ? '' : 's'}, ${compileFailures} original compile failure${compileFailures === 1 ? '' : 's'}, ${unchanged} unchanged. No database changes have been made.`);
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : 'Unable to review and fix TikZ visuals.');
+    } finally {
+      setIsBusy(false);
+    }
+  }, [addOpenRouterCost, beginProgress, createClient, imageFixTargets, language, selectedModel]);
+
+  const closeImageFixReview = useCallback((): void => {
+    setImageFixReview(null);
+    setNotice('Proposed TikZ changes were discarded. No database changes were made.');
+  }, []);
+
+  const applyImageFixReview = useCallback(async (): Promise<void> => {
+    if (!imageFixReview) {
+      return;
+    }
+
+    setIsBusy(true);
+    setError('');
+
+    try {
+      const updates = new Map<string, GeneratedAbility>();
+
+      imageFixReview.items.forEach(({ exerciseIndex, field, fixedTikz, record }) => {
+        if (!record.ability) {
+          return;
+        }
+
+        const ability = updates.get(record.id) ?? {
+          ...record.ability,
+          q: record.ability.q.map((exercise) => ({ ...exercise }))
+        };
+
+        ability.q[exerciseIndex] = { ...ability.q[exerciseIndex], [field]: fixedTikz };
+        updates.set(record.id, ability);
+      });
+
+      for (const record of allAbilities) {
+        const ability = updates.get(record.id);
+
+        if (!ability) {
+          continue;
+        }
+
+        const newRecordId = await storeAbility(record.moduleId, JSON.stringify(ability));
+
+        if (newRecordId !== record.id) {
+          await deleteAbility(record.id);
+        }
+      }
+
+      if (stage < FIX_IMAGES_STAGE) {
+        await setStage(FIX_IMAGES_STAGE);
+      }
+
+      const fixed = imageFixReview.items.length;
+
+      setImageFixReview(null);
+      setNotice(`Applied Fix images review: ${fixed} TikZ visual${fixed === 1 ? '' : 's'} corrected and pre-render verified.`);
+      refresh();
+      onAction?.('preExercisesExercises');
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : 'Unable to apply Fix images changes.');
+    } finally {
+      setIsBusy(false);
+    }
+  }, [allAbilities, imageFixReview, onAction, refresh, setStage, stage]);
+
+  const openImageFix = useCallback((): void => {
+    setAiAction('fixImages');
+  }, []);
+  const confirm = useCallback((): void => {
+    if (aiAction === 'skills') {
+      generateSkills().catch(console.error);
+    }
+
+    if (aiAction === 'exercises') {
+      onAction?.('preExercisesExercises');
+      generateExercises().catch(console.error);
+    }
+
+    if (aiAction === 'fixExercises') {
+      fixExercises().catch(console.error);
+    }
+
+    if (aiAction === 'fix') {
+      fixAbilities().catch(console.error);
+    }
+
+    if (aiAction === 'fixImages') {
+      fixImages().catch(console.error);
+    }
+  }, [aiAction, fixAbilities, fixExercises, fixImages, generateExercises, generateSkills, onAction]);
+  const closeConfirmation = useCallback((): void => setAiAction(undefined), []);
 
   return <StyledSkills className={pipelineOnly ? 'pipelineOnly' : undefined}>
     {exerciseFixReview && (
@@ -1483,6 +1836,67 @@ function Skills ({ book, onAction, onBookChange, onEntityCountsChange, pipelineO
         </Modal.Content>
       </Modal>
     )}
+    {imageFixReview && (
+      <Modal
+        header='Fix images results'
+        onClose={closeImageFixReview}
+        size='large'
+      >
+        <Modal.Content>
+          <p>Checked {imageFixReview.checked} TikZ visual{imageFixReview.checked === 1 ? '' : 's'}. The pre-render found {imageFixReview.compileFailures} original compile failure{imageFixReview.compileFailures === 1 ? '' : 's'}, and AI proposed {imageFixReview.items.length} correction{imageFixReview.items.length === 1 ? '' : 's'}. No database changes have been made yet.</p>
+          {imageFixReview.items.length
+            ? <div className='fixReviewList'>
+              {imageFixReview.items.map(({ errors, exerciseIndex, field, fixedPreRender, fixedTikz, originalPreRender, originalTikz, prompt, record }, index) => {
+                const exercise = record.ability?.q[exerciseIndex];
+                const role = field === 'p' ? 'Question' : 'Solution';
+
+                return <article
+                  className='fixReviewItem imageFixReviewItem'
+                  key={`${record.id}-${exerciseIndex}-${field}`}
+                >
+                  <strong>{index + 1}. {record.ability?.h ? <KatexSpan content={record.ability.h} /> : 'Ability'} — exercise {exerciseIndex + 1} {role.toLowerCase()} visual</strong>
+                  {exercise && <p><small>Exercise: <KatexSpan content={exercise.h} /></small></p>}
+                  {prompt && <p className='visualPrompt'><small>Original visual prompt: <KatexSpan content={prompt} /></small></p>}
+                  <h5>Detected problems</h5>
+                  <ul>
+                    {errors.map((message, errorIndex) => <li key={`${record.id}-${exerciseIndex}-${field}-${errorIndex}`}><KatexSpan content={message} /></li>)}
+                  </ul>
+                  <div className='tikzDiffGrid'>
+                    <section>
+                      <h5>Before</h5>
+                      <p><small>Pre-render: {originalPreRender.compiled ? 'compiled successfully' : 'FAILED to compile/render'}</small></p>
+                      {!originalPreRender.compiled && originalPreRender.diagnostics.length > 0 && <pre className='tikzDiagnostics'>{originalPreRender.diagnostics.slice(-8).join('\n')}</pre>}
+                      <pre className='tikzCodeDiff'>{originalTikz}</pre>
+                      {originalPreRender.compiled && <TikzDisplay alt={`Original ${role} visual`} value={originalTikz} />}
+                    </section>
+                    <section>
+                      <h5>Corrected</h5>
+                      <p><small>Pre-render: {fixedPreRender.compiled ? 'compiled successfully' : 'FAILED'}</small></p>
+                      <pre className='tikzCodeDiff'>{fixedTikz}</pre>
+                      <TikzDisplay alt={`Corrected ${role} visual`} value={fixedTikz} />
+                    </section>
+                  </div>
+                </article>;
+              })}
+            </div>
+            : <p>No TikZ compile, semantic, or visual-layout problems were found.</p>}
+          <Button.Group>
+            <Button
+              icon='times'
+              isDisabled={isBusy}
+              label='Discard'
+              onClick={closeImageFixReview}
+            />
+            <Button
+              icon='check'
+              isDisabled={isBusy}
+              label={imageFixReview.items.length ? 'Apply changes' : 'Confirm review'}
+              onClick={() => applyImageFixReview().catch(console.error)}
+            />
+          </Button.Group>
+        </Modal.Content>
+      </Modal>
+    )}
     {aiAction && (
       <Modal
         header='Confirm AI processing'
@@ -1555,7 +1969,7 @@ function Skills ({ book, onAction, onBookChange, onEntityCountsChange, pipelineO
         icon={iconForStage(FIX_IMAGES_STAGE)}
         isDisabled={isBusy || stage < IMAGES_STAGE || !hasAbilities}
         label='Fix images'
-        onClick={completeFixImagesStage}
+        onClick={openImageFix}
                                                    /></span>
     </div>}
     {error && <p
@@ -1727,7 +2141,13 @@ const StyledSkills = styled.div`
   .openRouterSpend { font-variant-numeric: tabular-nums; opacity: 0.85; }
   .errorMessage { color: #9f3a38; }
   .noticeMessage { color: var(--color-label); }
-  @media only screen and (max-width: 900px) { .columns, .duplicatePairComparison { grid-template-columns: 1fr; } .chapterEditor { align-items: stretch; flex-direction: column; } }
+  .visualPrompt { border-left: 3px solid var(--border-table); padding-left: 0.65rem; }
+  .tikzDiffGrid { display: grid; gap: 1rem; grid-template-columns: repeat(2, minmax(0, 1fr)); margin-top: 0.75rem; }
+  .tikzDiffGrid > section { border: 1px solid var(--border-table); border-radius: 0.4rem; min-width: 0; padding: 0.75rem; }
+  .tikzDiffGrid > section > h5 { margin-top: 0; }
+  .tikzCodeDiff, .tikzDiagnostics { background: var(--bg-input); border: 1px solid var(--border-table); border-radius: 0.3rem; box-sizing: border-box; font-size: 0.78rem; max-height: 16rem; overflow: auto; padding: 0.6rem; white-space: pre-wrap; word-break: break-word; }
+  .tikzDiagnostics { color: #9f3a38; max-height: 8rem; }
+  @media only screen and (max-width: 900px) { .columns, .duplicatePairComparison, .tikzDiffGrid { grid-template-columns: 1fr; } .chapterEditor { align-items: stretch; flex-direction: column; } }
 `;
 
 export default React.memo(Skills);
