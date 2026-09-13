@@ -128,10 +128,13 @@
     "typescript": "^5.1.6"
   },
   "dependencies": {
+    "@rod2ik/tikzjax": "^1.6.0",
     "detectincognitojs": "^1.6.2",
     "dexie": "^4.0.9",
     "dexie-react-hooks": "^1.1.7",
+    "i": "^0.3.7",
     "katex": "^0.16.10",
+    "npm": "^12.0.2",
     "openai": "^6.16.0",
     "peerjs": "^1.5.4",
     "qr-scanner": "^1.4.2",
