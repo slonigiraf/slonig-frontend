@@ -1,11 +1,11 @@
 // Copyright 2021-2026 @polkadot/app-laws authors & contributors
 // SPDX-License-Identifier: Apache-2.0
 
-import type { Book, BookChapter, BookConcept, BookPage, Exercise, Skill } from '@slonigiraf/db';
+import type { Book, BookChapter, BookConcept, BookPage, BookStageSpendKey, Exercise, Skill } from '@slonigiraf/db';
 import type { GeneratedAbility } from './abilities.js';
 import type { AbilityBlueprint, AtomicAbilityConversion, AbilityWorkflowJsonRunner } from './abilityWorkflow.js';
 
-import { deleteAbilities, deleteAbility, deleteBookConcept, deleteExercise, deleteSkill, getAbilities, getBookChapters, getBookConceptsForBookPage, getBookPages, getExercisesForBookPage, getSetting, getSkillsForChapter, replaceAbilities, replaceExercisesForBookPage, replaceSkillsForChapter, SettingKey, storeAbility, updateBookChapterTitle, updateBookProcessingStage } from '@slonigiraf/db';
+import { addBookStageSpend, deleteAbilities, deleteAbility, deleteBookConcept, deleteExercise, deleteSkill, getAbilities, getBookChapters, getBookConceptsForBookPage, getBookPages, getExercisesForBookPage, getSetting, getSkillsForChapter, replaceAbilities, replaceExercisesForBookPage, replaceSkillsForChapter, SettingKey, storeAbility, updateBookChapterTitle, updateBookProcessingStage } from '@slonigiraf/db';
 import { KatexSpan, RoundProgress } from '@slonigiraf/slonig-components';
 import OpenAI from 'openai';
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
@@ -536,6 +536,13 @@ function Skills ({ book, onAction, onBookChange, onEntityCountsChange, pipelineO
   const [selectedModel, setSelectedModel] = useState(OPENAI_MODELS[0].value);
   const refresh = useCallback((): void => setRefreshToken((value) => value + 1), []);
   const addOpenRouterCost = useCallback((costUsd: number): void => setOpenRouterSpent((current) => current + costUsd), []);
+  const addStageCost = useCallback((stage: BookStageSpendKey, costUsd: number): void => {
+    setOpenRouterSpent((current) => current + costUsd);
+    void addBookStageSpend(book.id, stage, costUsd).catch(console.error);
+  }, [book.id]);
+  const addFixExercisesCost = useCallback((costUsd: number): void => addStageCost('fixExercises', costUsd), [addStageCost]);
+  const addAbilitiesCost = useCallback((costUsd: number): void => addStageCost('abilities', costUsd), [addStageCost]);
+  const addFixAbilitiesCost = useCallback((costUsd: number): void => addStageCost('fixAbilities', costUsd), [addStageCost]);
   const changeChapter = useCallback((index: number): void => {
     setChapterIndex(index);
 
@@ -766,7 +773,7 @@ function Skills ({ book, onAction, onBookChange, onEntityCountsChange, pipelineO
           .map((exercise) => ({ chapterTitle: chapter.title, exercise })));
         const plannedSources = await mapConcurrent(sourcesNeedingPlan, ABILITY_GENERATION_CONCURRENCY, async ({ chapterTitle, exercise }): Promise<{ blueprints: AbilityBlueprint[]; exercise: Exercise }> => {
           const systemPrompt = ATOMIC_ABILITY_WORKFLOW_SYSTEM_PROMPT(language, chapterTitle);
-          const runJson: AbilityWorkflowJsonRunner = (prompt, parse, options) => requestValidatedJson(client, selectedModel, systemPrompt, prompt, parse, true, addOpenRouterCost, options?.maxOutputTokens, options?.repairContext, options?.validationCycles ?? 1);
+          const runJson: AbilityWorkflowJsonRunner = (prompt, parse, options) => requestValidatedJson(client, selectedModel, systemPrompt, prompt, parse, true, addAbilitiesCost, options?.maxOutputTokens, options?.repairContext, options?.validationCycles ?? 1);
 
           try {
             const blueprints = await planAtomicAbilityExercise(language, chapterTitle, exercise, runJson);
@@ -794,7 +801,7 @@ function Skills ({ book, onAction, onBookChange, onEntityCountsChange, pipelineO
           const exerciseId = exercise.id as number;
           const blueprints = blueprintsByExerciseIdCache.get(exerciseId) ?? [];
           const systemPrompt = ATOMIC_ABILITY_WORKFLOW_SYSTEM_PROMPT(language, chapterTitle);
-          const runJson: AbilityWorkflowJsonRunner = (prompt, parse, options) => requestValidatedJson(client, selectedModel, systemPrompt, prompt, parse, true, addOpenRouterCost, options?.maxOutputTokens, options?.repairContext, options?.validationCycles ?? 1);
+          const runJson: AbilityWorkflowJsonRunner = (prompt, parse, options) => requestValidatedJson(client, selectedModel, systemPrompt, prompt, parse, true, addAbilitiesCost, options?.maxOutputTokens, options?.repairContext, options?.validationCycles ?? 1);
 
           try {
             const conversions = await materializeAtomicAbilityExercise(language, chapterTitle, exercise, blueprints, runJson);
@@ -830,7 +837,7 @@ function Skills ({ book, onAction, onBookChange, onEntityCountsChange, pipelineO
           }
 
           try {
-            const abilities = await mapConcurrent(sourceConversions, VISUALS_PER_EXERCISE_CONCURRENCY, (conversion) => materializeAbilityImages(imageApiKey, conversion, selectedModel, addOpenRouterCost));
+            const abilities = await mapConcurrent(sourceConversions, VISUALS_PER_EXERCISE_CONCURRENCY, (conversion) => materializeAbilityImages(imageApiKey, conversion, selectedModel, addAbilitiesCost));
 
             generatedByExerciseId.set(exerciseId, abilities);
             pending.delete(exerciseId);
@@ -875,7 +882,7 @@ function Skills ({ book, onAction, onBookChange, onEntityCountsChange, pipelineO
     } finally {
       setIsBusy(false);
     }
-  }, [addOpenRouterCost, allAbilities.length, allExercises, beginProgress, book.id, chapterContent, createClient, language, refresh, selectedModel, setStage, stage]);
+  }, [addAbilitiesCost, allAbilities.length, allExercises, beginProgress, book.id, chapterContent, createClient, language, refresh, selectedModel, setStage, stage]);
 
   const fixExercises = useCallback(async (): Promise<void> => {
     beginProgress('Fixing Exercise errors', allExercises.length);
@@ -908,7 +915,7 @@ function Skills ({ book, onAction, onBookChange, onEntityCountsChange, pipelineO
           userPrompt,
           (content) => parseExerciseRepairResult(content, batch, originalIds),
           true,
-          addOpenRouterCost
+          addFixExercisesCost
         );
         const batchDuplicateIds = new Set(result.duplicatePairs.map(({ deletedExerciseId }) => deletedExerciseId));
 
@@ -956,7 +963,7 @@ function Skills ({ book, onAction, onBookChange, onEntityCountsChange, pipelineO
     } finally {
       setIsBusy(false);
     }
-  }, [addOpenRouterCost, allExercises, beginProgress, chapterContent, createClient, language, selectedModel]);
+  }, [addFixExercisesCost, allExercises, beginProgress, chapterContent, createClient, language, selectedModel]);
 
   const fixAbilities = useCallback(async (): Promise<void> => {
     beginProgress('Fixing Ability errors', allAbilities.length);
@@ -982,7 +989,7 @@ function Skills ({ book, onAction, onBookChange, onEntityCountsChange, pipelineO
           userPrompt,
           (content) => parseAbilityRepairResult(content, batch.map(({ ability }) => ability), batch.map(({ id }) => id)),
           true,
-          addOpenRouterCost
+          addFixAbilitiesCost
         );
         const batchDuplicateIds = new Set(result.duplicatePairs.map(({ deletedAbilityId }) => deletedAbilityId));
 
@@ -1048,7 +1055,7 @@ function Skills ({ book, onAction, onBookChange, onEntityCountsChange, pipelineO
     } finally {
       setIsBusy(false);
     }
-  }, [addOpenRouterCost, allAbilities.length, beginProgress, chapterContent, createClient, exerciseTitlesByModuleId, language, selectedModel]);
+  }, [addFixAbilitiesCost, allAbilities.length, beginProgress, chapterContent, createClient, exerciseTitlesByModuleId, language, selectedModel]);
 
   const confirm = useCallback((): void => {
     if (aiAction === 'skills') {
@@ -1405,7 +1412,7 @@ function Skills ({ book, onAction, onBookChange, onEntityCountsChange, pipelineO
         />
         <strong>{progressLabel}</strong>
         <span>{progress} / {progressTotal}</span>
-        <span className='openRouterSpend'>OpenRouter spent this stage: {formatOpenRouterSpend(openRouterSpent)}</span>
+        <span className='openRouterSpend'>Spent this stage: {formatOpenRouterSpend(openRouterSpent)}</span>
       </div>
     )}
     {showPipeline && <div className='pipeline'>

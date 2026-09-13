@@ -1,6 +1,10 @@
 // Copyright 2021-2026 @polkadot/db authors & contributors
 // SPDX-License-Identifier: Apache-2.0
 
+export type BookStageSpendKey = 'recognize' | 'concepts' | 'exercises' | 'fixExercises' | 'abilities' | 'fixAbilities';
+
+export type BookStageSpend = Partial<Record<BookStageSpendKey, number>>;
+
 export interface Book {
   id: number;
   chapterOrder?: number[];
@@ -10,6 +14,7 @@ export interface Book {
   knowledgeId?: string;
   publishingLocationId?: string;
   processingStage?: number;
+  stageSpend?: BookStageSpend;
   contentHash: string;
   name: string;
   opfsName: string;

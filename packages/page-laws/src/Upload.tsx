@@ -1,21 +1,31 @@
 // Copyright 2021-2026 @polkadot/app-laws authors & contributors
 // SPDX-License-Identifier: Apache-2.0
 
-import type { Book } from '@slonigiraf/db';
+import type { Book, BookStageSpendKey } from '@slonigiraf/db';
 import type { PDFDocumentProxy } from 'pdfjs-dist';
 
-import { createBook, deleteBook, getBookByContentHash, getBookConceptsForBookPage, getBookPages, getBooks, putBook, updateBookProcessingStage } from '@slonigiraf/db';
+import { createBook, deleteBook, getBook, getBookByContentHash, getBookConceptsForBookPage, getBookPages, getBooks, putBook, updateBookProcessingStage } from '@slonigiraf/db';
 import { getDocument } from 'pdfjs-dist';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { Button, Dropdown, Modal, styled } from '@polkadot/react-components';
 
 import { estimateAiInput, formatAiInputEstimate } from './aiEstimate.js';
+import { MATHPIX_PDF_PAGE_PRICE_USD } from './constants.js';
+import { formatOpenRouterSpend } from './openRouterCost.js';
 import BookReader, { OPENAI_MODELS } from './BookReader.js';
 import { useTranslation } from './translate.js';
 
 const BOOKS_DIRECTORY = 'books';
 const SELECTED_BOOK_SESSION_KEY = 'knowledge-upload-selected-book';
+const PRICE_STAGES: Array<{ key: BookStageSpendKey; label: string }> = [
+  { key: 'recognize', label: 'Recognize' },
+  { key: 'concepts', label: 'Concepts' },
+  { key: 'exercises', label: 'Exercises' },
+  { key: 'fixExercises', label: 'Fix exercises' },
+  { key: 'abilities', label: 'Abilities' },
+  { key: 'fixAbilities', label: 'Fix abilities' }
+];
 
 function getSessionBookId (): number | undefined {
   try {
@@ -76,6 +86,8 @@ function Upload (): React.ReactElement {
   const [isGenerateConceptsConfirmationOpen, setIsGenerateConceptsConfirmationOpen] = useState(false);
   const [isGenerateExercisesConfirmationOpen, setIsGenerateExercisesConfirmationOpen] = useState(false);
   const [isRecognizeConfirmationOpen, setIsRecognizeConfirmationOpen] = useState(false);
+  const [isPriceOpen, setIsPriceOpen] = useState(false);
+  const [priceBook, setPriceBook] = useState<Book>();
   const [pendingProcessingAction, setPendingProcessingAction] = useState<'concepts' | 'recognize' | 'exercises'>();
   const [generateAllExercisesRequest, setGenerateAllExercisesRequest] = useState(0);
   const [generateExercisesEstimate, setGenerateExercisesEstimate] = useState('');
@@ -127,6 +139,10 @@ function Upload (): React.ReactElement {
     () => books.find(({ id }) => id === selectedId),
     [books, selectedId]
   );
+  const totalSpend = useMemo(
+    () => PRICE_STAGES.reduce((total, { key }) => total + (priceBook?.stageSpend?.[key] ?? 0), 0),
+    [priceBook]
+  );
 
   useEffect(() => {
     let active = true;
@@ -148,6 +164,27 @@ function Upload (): React.ReactElement {
     () => books.map(({ id, name }) => ({ key: id, text: name, value: id })),
     [books]
   );
+
+  const onPrice = useCallback((): void => {
+    if (!selectedBook) {
+      return;
+    }
+
+    setPriceBook(selectedBook);
+    setIsPriceOpen(true);
+    getBook(selectedBook.id)
+      .then((storedBook) => {
+        if (storedBook) {
+          setPriceBook(storedBook);
+        }
+      })
+      .catch(() => setError(t('Unable to load book spending.')));
+  }, [selectedBook, t]);
+
+  const closePrice = useCallback((): void => {
+    setIsPriceOpen(false);
+    setPriceBook(undefined);
+  }, []);
 
   const onUpload = useCallback(async (contents: Uint8Array, name: string): Promise<void> => {
     setError('');
@@ -236,9 +273,9 @@ function Upload (): React.ReactElement {
       document = await task.promise;
 
       if (active) {
-        const price = document.numPages * 0.005;
+        const price = document.numPages * MATHPIX_PDF_PAGE_PRICE_USD;
 
-        setRecognizeEstimate(`Estimated Mathpix v3/pdf cost: ${document.numPages} page${document.numPages === 1 ? '' : 's'} × $0.005 = $${price.toFixed(3)}.`);
+        setRecognizeEstimate(`Estimated Mathpix v3/pdf cost: ${document.numPages} page${document.numPages === 1 ? '' : 's'} × $${MATHPIX_PDF_PAGE_PRICE_USD.toFixed(3)} = $${price.toFixed(3)}.`);
       }
     };
 
@@ -413,6 +450,36 @@ function Upload (): React.ReactElement {
 
   return (
     <StyledSection>
+      {isPriceOpen && <Modal
+        header={t('Price')}
+        onClose={closePrice}
+        size='small'
+      >
+        <Modal.Content>
+          <p>{t('Cumulative spending for this book, including reruns.')}</p>
+          <table className='priceTable'>
+            <tbody>
+              {PRICE_STAGES.map(({ key, label }) => <tr key={key}>
+                <th>{t(label)}</th>
+                <td>{formatOpenRouterSpend(priceBook?.stageSpend?.[key] ?? 0)}</td>
+              </tr>)}
+            </tbody>
+            <tfoot>
+              <tr>
+                <th>{t('Total')}</th>
+                <td>{formatOpenRouterSpend(totalSpend)}</td>
+              </tr>
+            </tfoot>
+          </table>
+          <Button.Group>
+            <Button
+              icon='times'
+              label={t('Close')}
+              onClick={closePrice}
+            />
+          </Button.Group>
+        </Modal.Content>
+      </Modal>}
       {isRecognizeConfirmationOpen && <Modal
         header={t('Recognize pages')}
         onClose={closeRecognizeConfirmation}
@@ -504,6 +571,13 @@ function Upload (): React.ReactElement {
       </Modal>}
       <div className='bookToolbar'>
         <Button
+          className='priceButton'
+          isDisabled={!selectedBook}
+          label={t('Price')}
+          onClick={onPrice}
+        />
+        <Button
+          className='uploadButton'
           icon='upload'
           isDisabled={isBusy}
           label={t('Upload')}
@@ -589,7 +663,7 @@ const StyledSection = styled.section`
     align-items: flex-end;
     display: grid;
     gap: 1rem;
-    grid-template-columns: auto minmax(12rem, 1fr) auto;
+    grid-template-columns: auto auto minmax(12rem, 1fr) auto;
     margin-bottom: 0;
   }
 
@@ -597,7 +671,7 @@ const StyledSection = styled.section`
     margin-bottom: 0.25rem;
   }
 
-  .bookToolbar > .ui--Button:first-child {
+  .bookToolbar > .uploadButton {
     margin-bottom: 0;
     margin-right: -0.5rem;
   }
@@ -606,6 +680,35 @@ const StyledSection = styled.section`
   .bookSelect > .text { display: block; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .batchModelSelect {
     margin: 1rem 0;
+  }
+
+  .priceTable {
+    border-collapse: collapse;
+    margin: 1rem 0;
+    width: 100%;
+  }
+
+  .priceTable th,
+  .priceTable td {
+    border-bottom: 1px solid rgba(127, 127, 127, 0.25);
+    padding: 0.6rem 0;
+  }
+
+  .priceTable th {
+    font-weight: 500;
+    text-align: left;
+  }
+
+  .priceTable td {
+    font-variant-numeric: tabular-nums;
+    text-align: right;
+  }
+
+  .priceTable tfoot th,
+  .priceTable tfoot td {
+    border-bottom: 0;
+    font-weight: 700;
+    padding-top: 0.8rem;
   }
 
   .fileInput {

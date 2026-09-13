@@ -3,6 +3,7 @@
 
 export const QR_CODE_SIZE = 300;
 export const sessionPrefix = 'knowledge';
+export const MATHPIX_PDF_PAGE_PRICE_USD = 0.005;
 
 export const exerciseAbilityModes = ['perceptual observation', 'perceptual discrimination', 'transformation', 'reasoning', 'generation'] as const;
 

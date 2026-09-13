@@ -26,7 +26,7 @@ import { EXAMPLE_MODULE_KNOWLEDGE_CID, EXAMPLE_SKILL_KNOWLEDGE_ID } from "@sloni
 import { LearnRequest } from "./db/LearnRequest.js";
 import { ScheduledEvent, ScheduledEventType } from "./db/ScheduledEvent.js";
 import Dexie from "dexie";
-import type { Book } from './db/Book.js';
+import type { Book, BookStageSpend, BookStageSpendKey } from './db/Book.js';
 import type { BookPage } from './db/BookPage.js';
 import type { BookConcept } from './db/BookConcept.js';
 import type { Exercise } from './db/Exercise.js';
@@ -35,14 +35,30 @@ import type { Skill } from './db/Skill.js';
 import type { ExerciseTemplate } from './db/ExerciseTemplate.js';
 import type { Ability } from './db/Ability.js';
 
-export type { LearnRequest, TutorAction, CanceledInsurance, Reexamination, LetterTemplate, CanceledLetter, Reimbursement, Letter, Insurance, Lesson, Pseudonym, Setting, Signer, UsageRight, Agreement, Ability, Book, BookPage, BookChapter, BookConcept, Exercise, Skill, ExerciseTemplate };
+export type { LearnRequest, TutorAction, CanceledInsurance, Reexamination, LetterTemplate, CanceledLetter, Reimbursement, Letter, Insurance, Lesson, Pseudonym, Setting, Signer, UsageRight, Agreement, Ability, Book, BookStageSpend, BookStageSpendKey, BookPage, BookChapter, BookConcept, Exercise, Skill, ExerciseTemplate };
 
 export async function createBook(book: Omit<Book, 'id'>): Promise<number> {
     return db.books.add(book as Book);
 }
 
 export async function putBook(book: Book): Promise<void> {
-    await db.books.put(book);
+    await db.transaction('rw', db.books, async () => {
+        const storedBook = await db.books.get(book.id);
+        const storedSpend = storedBook?.stageSpend;
+        const incomingSpend = book.stageSpend;
+        const stageSpend = storedSpend || incomingSpend
+            ? {
+                recognize: Math.max(storedSpend?.recognize ?? 0, incomingSpend?.recognize ?? 0),
+                concepts: Math.max(storedSpend?.concepts ?? 0, incomingSpend?.concepts ?? 0),
+                exercises: Math.max(storedSpend?.exercises ?? 0, incomingSpend?.exercises ?? 0),
+                fixExercises: Math.max(storedSpend?.fixExercises ?? 0, incomingSpend?.fixExercises ?? 0),
+                abilities: Math.max(storedSpend?.abilities ?? 0, incomingSpend?.abilities ?? 0),
+                fixAbilities: Math.max(storedSpend?.fixAbilities ?? 0, incomingSpend?.fixAbilities ?? 0)
+            }
+            : undefined;
+
+        await db.books.put({ ...book, ...(stageSpend ? { stageSpend } : {}) });
+    });
 }
 
 export async function getBook(id: number): Promise<Book | undefined> {
@@ -53,6 +69,27 @@ export async function updateBookProcessingStage(id: number, processingStage: num
     await db.books.update(id, { processingStage });
 
     return db.books.get(id);
+}
+
+export async function addBookStageSpend(id: number, stage: BookStageSpendKey, costUsd: number): Promise<void> {
+    if (!Number.isFinite(costUsd) || costUsd <= 0) {
+        return;
+    }
+
+    await db.transaction('rw', db.books, async () => {
+        const book = await db.books.get(id);
+
+        if (!book) {
+            return;
+        }
+
+        await db.books.update(id, {
+            stageSpend: {
+                ...book.stageSpend,
+                [stage]: (book.stageSpend?.[stage] ?? 0) + costUsd
+            }
+        });
+    });
 }
 
 export async function getBooks(): Promise<Book[]> {
