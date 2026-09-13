@@ -2,9 +2,27 @@ import React, { useCallback, useState } from 'react';
 import { Button, styled } from '@polkadot/react-components';
 import { useTranslation } from '../translate.js';
 import { Exercise, KatexSpan, useLog } from '@slonigiraf/slonig-components';
-import ExerciseImage from './ExerciseImage.js';
+import ExerciseImage, { isLocalOrRemoteImageUrl } from './ExerciseImage.js';
 
 export type ExerciseListLocation = 'ability_info' | 'item_preview' | 'view_list' | 'example_exercises' | 'example_solutions';
+
+
+const isGeneratedAbilityVisual = (value: string): boolean => {
+    const trimmed = value.trim();
+
+    return isLocalOrRemoteImageUrl(trimmed) || /^(?:Qm[1-9A-HJ-NP-Za-km-z]{44}|b[a-z2-7]{20,})$/i.test(trimmed);
+};
+
+const AbilityVisual: React.FC<{ alt: string; label: string; value: string }> = ({ alt, label, value }) => {
+    if (!value.trim()) {
+        return null;
+    }
+
+    return isGeneratedAbilityVisual(value)
+        ? <ExerciseImage alt={alt} value={value} />
+        : <small>{label}: <KatexSpan content={value} /></small>;
+};
+
 interface ExerciseListProps {
     exercises: Exercise[];
     areShownInitially?: boolean;
@@ -37,7 +55,7 @@ const ExerciseList: React.FC<ExerciseListProps> = ({ exercises, areShownInitiall
                 <div className="exercise-display">
                     <div className="exercise-header">
                         <span><KatexSpan content={exercise.h} /></span>
-                        {exercise.p && <ExerciseDetails><ExerciseImage alt='Question' value={exercise.p} /></ExerciseDetails>}
+                        {exercise.p && <ExerciseDetails>{location === 'ability_info' ? <AbilityVisual alt='Question' label='Question visual prompt' value={exercise.p} /> : <ExerciseImage alt='Question' value={exercise.p} />}</ExerciseDetails>}
                     </div>
                 </div>
             </div>
@@ -53,7 +71,7 @@ const ExerciseList: React.FC<ExerciseListProps> = ({ exercises, areShownInitiall
                         <div className="exercise-display">
                             <div className="exercise-header">
                                 <span><KatexSpan content={` ${index + 1}. ` + exercise.h} /></span>
-                                {exercise.p && <ExerciseDetails><ExerciseImage alt='Question' value={exercise.p} /></ExerciseDetails>}
+                                {exercise.p && <ExerciseDetails>{location === 'ability_info' ? <AbilityVisual alt='Question' label='Question visual prompt' value={exercise.p} /> : <ExerciseImage alt='Question' value={exercise.p} />}</ExerciseDetails>}
                             </div>
 
                             {location !== 'example_exercises' && <Answer>
@@ -67,7 +85,7 @@ const ExerciseList: React.FC<ExerciseListProps> = ({ exercises, areShownInitiall
                                 {areAnswersShown && (
                                     <>
                                         <KatexSpan content={exercise.a} />
-                                        {exercise.i && <ExerciseImage alt='Solution' value={exercise.i} />}
+                                        {exercise.i && (location === 'ability_info' ? <AbilityVisual alt='Solution' label='Answer visual prompt' value={exercise.i} /> : <ExerciseImage alt='Solution' value={exercise.i} />)}
                                     </>
                                 )}
                             </Answer>}

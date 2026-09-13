@@ -21,19 +21,18 @@ import { abilityBlueprintRequestPrompt, materializeAtomicAbilityExercise, planAt
 import { mapConcurrent } from './concurrency.js';
 import { OPENROUTER_CONCURRENCY, openRouterRequestGate } from './openRouterConcurrency.js';
 import { formatOpenRouterSpend, reportOpenRouterCost, type OpenRouterCostReporter } from './openRouterCost.js';
-import { generateOpenRouterVisual } from './openRouterImages.js';
 import { stripMarkdownImageReferences } from './bookImageRefs.js';
 import { batchItemsByChapter } from './chapterBatching.js';
 
 const BATCH_SIZE = 5;
 const ABILITIES_STAGE = 7;
 const FIX_ABILITIES_STAGE = 8;
+const IMAGES_STAGE = 9;
+const FIX_IMAGES_STAGE = 10;
 const MAX_REQUEST_ATTEMPTS = 4;
 const RETRY_BASE_DELAY_MS = 1_000;
 const AI_REQUEST_TIMEOUT_MS = 60_000;
 const ABILITY_GENERATION_CONCURRENCY = 5;
-const VISUAL_MATERIALIZATION_CONCURRENCY = 3;
-const VISUALS_PER_EXERCISE_CONCURRENCY = 2;
 const delay = (milliseconds: number): Promise<void> => new Promise((resolve) => setTimeout(resolve, milliseconds));
 
 function getErrorStatus (error: unknown): number | undefined {
@@ -241,7 +240,7 @@ function transportExercises (exercises: Exercise[]): unknown[] {
 
 function abilityRepairInput (language: string, batch: StoredAbility[], chapterTitle?: string): unknown {
   return {
-    abilities: batch.map(({ ability, content, id }, index) => ({ ability: ability ? { ...ability, q: ability.q.map(({ a, h, i, p }) => ({ a, h, i: i ? '[answer image present]' : '', p: p ? '[question image present]' : '' })) } : content, id, index })),
+    abilities: batch.map(({ ability, content, id }, index) => ({ ability: ability ? { ...ability, q: ability.q.map(({ a, h, i, p }) => ({ a, h, i, p })) } : content, id, index })),
     bookLanguage: language,
     ...(chapterTitle ? { chapterTitle } : {})
   };
@@ -272,28 +271,18 @@ function exerciseForPageReplacement ({ abilityMode, conceptId, description, imag
     title
   };
 }
-async function materializeAbilityImages (apiKey: string, conversion: AtomicAbilityConversion, svgModel: string, onCost?: OpenRouterCostReporter): Promise<GeneratedAbility> {
-  const q = conversion.ability.q.map((exercise) => ({ ...exercise, i: '', p: '' }));
+function abilityWithImageDescriptions (conversion: AtomicAbilityConversion): GeneratedAbility {
+  const q = conversion.ability.q.map((exercise, index) => {
+    const prompts = conversion.imagePrompts?.[index];
 
-  if (!conversion.imagePrompts) {
-    return { ...conversion.ability, q };
-  }
-
-  for (let index = 0; index < q.length; index++) {
-    const prompts = conversion.imagePrompts[index];
-
-    if (prompts.changesImage && (!prompts.p || !prompts.i)) {
-      throw new Error('A visual-modification Ability must define both starting and completed visual specifications.');
-    }
-
-    if (prompts.p) {
-      q[index].p = await generateOpenRouterVisual(apiKey, prompts.p, svgModel, 'question', undefined, `Learner task: ${q[index].h}\nThis is a question visual. Reject any visible completion, highlighting, or cue that is not required by the starting-visual contract.`, onCost);
-    }
-
-    if (prompts.i) {
-      q[index].i = await generateOpenRouterVisual(apiKey, prompts.i, svgModel, 'solution', prompts.changesImage ? q[index].p : undefined, `Learner task: ${q[index].h}\nCorrect answer: ${q[index].a}. The solution visual must agree with this answer.`, onCost);
-    }
-  }
+    return {
+      ...exercise,
+      // Ability stages persist semantic image descriptions only. Actual image
+      // materialization belongs to the separate Images pipeline stages.
+      i: prompts?.i ?? '',
+      p: prompts?.p ?? ''
+    };
+  });
 
   return { ...conversion.ability, q };
 }
@@ -614,7 +603,8 @@ function Skills ({ book, onAction, onBookChange, onEntityCountsChange, pipelineO
   // pipeline step has been run. Stage 3 is set explicitly only when that
   // step completes. Stage 4 records a successful Fix exercises pass; only
   // after that should Abilities become available. Stage 7 means Abilities
-  // have been generated; stage 8 independently records Fix abilities.
+  // have been generated; stage 8 independently records Fix abilities. Stages
+  // 9 and 10 are the Images and Fix images pipeline checkpoints.
   const stage = book.processingStage ?? 0;
   const hasAbilities = allAbilities.length > 0;
 
@@ -745,20 +735,14 @@ function Skills ({ book, onAction, onBookChange, onEntityCountsChange, pipelineO
       }
 
       const client = await createClient();
-      const imageApiKey = await getSetting(SettingKey.OPENROUTER_TOKEN);
-
-      if (!imageApiKey) {
-        throw new Error('No OpenRouter token found. Add it in Settings.');
-      }
 
       const pending = new Map<number, Exercise>(allExercises.map((exercise) => [exercise.id as number, exercise]));
       // Keep each source Exercise atomic at persistence time: either every
-      // locally validated sub-Ability for that source is ready (including required
-      // visuals), or its existing DB records are left untouched for retry.
+      // locally validated sub-Ability for that source is ready, including any
+      // required visual descriptions, or its existing DB records are untouched.
       const generatedByExerciseId = new Map<number, GeneratedAbility[]>();
       // Once the semantic workflow has produced a locally valid conversion,
-      // keep it across retries. A transient visual timeout/QA failure should
-      // retry only visual materialization, not regenerate the whole Ability.
+      // keep it across retries without generating image bytes at this stage.
       const conversionsByExerciseIdCache = new Map<number, AtomicAbilityConversion[]>();
       // Planning is a separate cached semantic stage. If final Ability JSON is
       // rejected or a request times out, retry materialization from this plan
@@ -822,37 +806,29 @@ function Skills ({ book, onAction, onBookChange, onEntityCountsChange, pipelineO
           }
         }
 
-        // Retry materialization for every pending Exercise whose semantic
-        // conversion is already valid, including conversions cached from an
-        // earlier attempt. This prevents image-only failures from triggering
-        // another expensive Ability workflow pass.
-        const sourcesToMaterialize = allExercises.filter(({ id }) => id !== undefined && pending.has(id) && conversionsByExerciseIdCache.has(id));
+        // Persist visual requirements as text descriptions only. Actual image
+        // generation is deliberately not part of Abilities/Fix abilities.
+        const readySources = allExercises.filter(({ id }) => id !== undefined && pending.has(id) && conversionsByExerciseIdCache.has(id));
 
-        await mapConcurrent(sourcesToMaterialize, VISUAL_MATERIALIZATION_CONCURRENCY, async (source) => {
+        for (const source of readySources) {
           const exerciseId = source.id as number;
           const sourceConversions = conversionsByExerciseIdCache.get(exerciseId) ?? [];
 
-          if (!pending.has(exerciseId) || !sourceConversions.length) {
-            return;
+          if (!sourceConversions.length) {
+            continue;
           }
 
-          try {
-            const abilities = await mapConcurrent(sourceConversions, VISUALS_PER_EXERCISE_CONCURRENCY, (conversion) => materializeAbilityImages(imageApiKey, conversion, selectedModel, addAbilitiesCost));
-
-            generatedByExerciseId.set(exerciseId, abilities);
-            pending.delete(exerciseId);
-            setProgress(generatedByExerciseId.size);
-          } catch (imageError) {
-            lastAttemptError = imageError instanceof Error ? imageError.message : 'Unable to generate or validate a required Ability image.';
-          }
-        });
+          generatedByExerciseId.set(exerciseId, sourceConversions.map(abilityWithImageDescriptions));
+          pending.delete(exerciseId);
+          setProgress(generatedByExerciseId.size);
+        }
       }
 
       await Promise.all(Array.from(generatedByExerciseId, ([exerciseId, abilities]) => replaceAbilities(exerciseAbilityModuleId(book.id, exerciseId), abilities.map((ability) => JSON.stringify(ability)))));
 
       if (generatedByExerciseId.size) {
         // Any newly generated Ability invalidates a prior Fix abilities pass.
-        // Stage 7 means Abilities exist; stage 8 is reserved for Fix abilities.
+        // Stage 7 means Abilities exist; later image checkpoints are invalidated.
         await setStage(ABILITIES_STAGE);
       } else if (allAbilities.length && stage < ABILITIES_STAGE) {
         // Existing Abilities can still make this pipeline stage available even
@@ -1232,6 +1208,17 @@ function Skills ({ book, onAction, onBookChange, onEntityCountsChange, pipelineO
     setAiAction('fix');
   }, []);
 
+  const completeImagesStage = useCallback((): void => {
+    setStage(IMAGES_STAGE).then(() => {
+      setNotice('Images stage marked complete.');
+    }).catch((caught) => setError(caught instanceof Error ? caught.message : 'Unable to complete Images stage.'));
+  }, [setStage]);
+  const completeFixImagesStage = useCallback((): void => {
+    setStage(FIX_IMAGES_STAGE).then(() => {
+      setNotice('Fix images stage marked complete.');
+    }).catch((caught) => setError(caught instanceof Error ? caught.message : 'Unable to complete Fix images stage.'));
+  }, [setStage]);
+
   return <StyledSkills className={pipelineOnly ? 'pipelineOnly' : undefined}>
     {exerciseFixReview && (
       <Modal
@@ -1434,6 +1421,18 @@ function Skills ({ book, onAction, onBookChange, onEntityCountsChange, pipelineO
         isDisabled={isBusy || stage < ABILITIES_STAGE || !hasAbilities}
         label='Fix abilities'
         onClick={openAbilityFix}
+                                                   /></span>
+      <span className='pipelineStep'><span>›</span><Button
+        icon={iconForStage(IMAGES_STAGE)}
+        isDisabled={isBusy || stage < FIX_ABILITIES_STAGE || !hasAbilities}
+        label='Images'
+        onClick={completeImagesStage}
+                                                   /></span>
+      <span className='pipelineStep'><span>›</span><Button
+        icon={iconForStage(FIX_IMAGES_STAGE)}
+        isDisabled={isBusy || stage < IMAGES_STAGE || !hasAbilities}
+        label='Fix images'
+        onClick={completeFixImagesStage}
                                                    /></span>
     </div>}
     {error && <p
