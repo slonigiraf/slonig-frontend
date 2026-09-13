@@ -10,6 +10,7 @@ import {
   type MathVisualSpec
 } from './mathVisuals.js';
 import { openRouterRequestGate } from './openRouterConcurrency.js';
+import { reportOpenRouterCost, type OpenRouterCostReporter } from './openRouterCost.js';
 
 export const OPENROUTER_IMAGE_MODEL = 'bytedance-seed/seedream-4.5';
 const MAX_VISUAL_ATTEMPTS = 2;
@@ -184,7 +185,8 @@ async function generateOpenRouterVector (
   prompt: string,
   model: string,
   purpose: VisualPurpose,
-  referenceScene?: MathVisualSpec
+  referenceScene?: MathVisualSpec,
+  onCost?: OpenRouterCostReporter
 ): Promise<VectorCandidate | null> {
   const response = await openRouterRequestGate.run(() => fetchWithTimeout('https://openrouter.ai/api/v1/chat/completions', {
     body: JSON.stringify({
@@ -204,6 +206,9 @@ async function generateOpenRouterVector (
     method: 'POST'
   }));
   const result = await response.json() as OpenRouterChatResponse;
+
+  reportOpenRouterCost(result, onCost);
+
   const content = result.choices?.[0]?.message?.content?.trim();
 
   if (!response.ok || !content) {
@@ -229,7 +234,7 @@ async function generateOpenRouterVector (
   return { dataUrl, scene: rendered.scene, svg: rendered.svg };
 }
 
-export async function generateOpenRouterImage (apiKey: string, prompt: string): Promise<string> {
+export async function generateOpenRouterImage (apiKey: string, prompt: string, onCost?: OpenRouterCostReporter): Promise<string> {
   const response = await openRouterRequestGate.run(() => fetchWithTimeout('https://openrouter.ai/api/v1/images', {
     body: JSON.stringify({ model: OPENROUTER_IMAGE_MODEL, n: 1, prompt }),
     headers: {
@@ -241,6 +246,9 @@ export async function generateOpenRouterImage (apiKey: string, prompt: string): 
     method: 'POST'
   }));
   const result = await response.json() as OpenRouterImageResponse;
+
+  reportOpenRouterCost(result, onCost);
+
   const image = result.data?.[0];
 
   if (!response.ok || !image?.b64_json) {
@@ -387,7 +395,8 @@ async function verifyOpenRouterVisual (
   referenceVisual?: string,
   candidateSvg?: string,
   candidateScene?: MathVisualSpec,
-  qaContext?: string
+  qaContext?: string,
+  onCost?: OpenRouterCostReporter
 ): Promise<VisualQaResult> {
   const instruction = visualQaInstruction(`${contract}${qaContext ? `\n\nABILITY CONTEXT FOR QA ONLY:\n${qaContext}` : ''}`, purpose);
   const referenceScene = sceneFromVisual(referenceVisual);
@@ -444,6 +453,9 @@ async function verifyOpenRouterVisual (
     method: 'POST'
   }));
   const result = await response.json() as OpenRouterChatResponse;
+
+  reportOpenRouterCost(result, onCost);
+
   const responseContent = result.choices?.[0]?.message?.content?.trim();
 
   if (!response.ok || !responseContent) {
@@ -459,7 +471,8 @@ export async function generateOpenRouterVisual (
   svgModel: string,
   purpose: VisualPurpose = 'question',
   referenceVisual?: string,
-  qaContext?: string
+  qaContext?: string,
+  onCost?: OpenRouterCostReporter
 ): Promise<string> {
   let lastError = '';
   let correction = '';
@@ -470,7 +483,7 @@ export async function generateOpenRouterVisual (
     let vector: VectorCandidate | null;
 
     try {
-      vector = await generateOpenRouterVector(apiKey, contractedPrompt, svgModel, purpose, referenceScene);
+      vector = await generateOpenRouterVector(apiKey, contractedPrompt, svgModel, purpose, referenceScene, onCost);
     } catch (caught) {
       lastError = caught instanceof Error ? caught.message : 'Invalid structured vector scene.';
       correction = lastError;
@@ -501,7 +514,7 @@ export async function generateOpenRouterVisual (
         : contractedPrompt;
 
       try {
-        candidate = await generateOpenRouterImage(apiKey, rasterPrompt);
+        candidate = await generateOpenRouterImage(apiKey, rasterPrompt, onCost);
       } catch (caught) {
         lastError = caught instanceof Error ? caught.message : 'Unknown image generation error.';
         correction = lastError;
@@ -510,7 +523,7 @@ export async function generateOpenRouterVisual (
     }
 
     try {
-      const qa = await verifyOpenRouterVisual(apiKey, prompt, candidate, svgModel, purpose, referenceVisual, candidateSvg, candidateScene, qaContext);
+      const qa = await verifyOpenRouterVisual(apiKey, prompt, candidate, svgModel, purpose, referenceVisual, candidateSvg, candidateScene, qaContext, onCost);
 
       if (qa.ok) {
         return candidate;

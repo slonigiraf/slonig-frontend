@@ -20,6 +20,7 @@ import { ATOMIC_ABILITY_WORKFLOW_SYSTEM_PROMPT, FIX_ABILITIES_REQUEST_PROMPT, FI
 import { abilityBlueprintRequestPrompt, materializeAtomicAbilityExercise, planAtomicAbilityExercise, transportCompactAbilitySourceExercise } from './abilityWorkflow.js';
 import { mapConcurrent } from './concurrency.js';
 import { OPENROUTER_CONCURRENCY, openRouterRequestGate } from './openRouterConcurrency.js';
+import { formatOpenRouterSpend, reportOpenRouterCost, type OpenRouterCostReporter } from './openRouterCost.js';
 import { generateOpenRouterVisual } from './openRouterImages.js';
 import { stripMarkdownImageReferences } from './bookImageRefs.js';
 import { batchItemsByChapter } from './chapterBatching.js';
@@ -86,7 +87,7 @@ function isRetryableRequestError (error: unknown): boolean {
   return status === 429 || (status !== undefined && status >= 500 && status <= 599);
 }
 
-async function requestChatContent (client: OpenAI, model: string, systemPrompt: string, userPrompt: string, jsonObject: boolean, maxOutputTokens?: number): Promise<string> {
+async function requestChatContent (client: OpenAI, model: string, systemPrompt: string, userPrompt: string, jsonObject: boolean, onCost?: OpenRouterCostReporter, maxOutputTokens?: number): Promise<string> {
   let lastError: unknown;
 
   for (let attempt = 0; attempt < MAX_REQUEST_ATTEMPTS; attempt++) {
@@ -98,6 +99,8 @@ async function requestChatContent (client: OpenAI, model: string, systemPrompt: 
         ...(jsonObject ? { response_format: { type: 'json_object' as const } } : {})
       }, { timeout: AI_REQUEST_TIMEOUT_MS });
       const response = await openRouterRequestGate.run(makeRequest);
+
+      reportOpenRouterCost(response, onCost);
 
       return response.choices[0].message?.content?.trim() ?? '';
     } catch (error) {
@@ -269,7 +272,7 @@ function exerciseForPageReplacement ({ abilityMode, conceptId, description, imag
     title
   };
 }
-async function materializeAbilityImages (apiKey: string, conversion: AtomicAbilityConversion, svgModel: string): Promise<GeneratedAbility> {
+async function materializeAbilityImages (apiKey: string, conversion: AtomicAbilityConversion, svgModel: string, onCost?: OpenRouterCostReporter): Promise<GeneratedAbility> {
   const q = conversion.ability.q.map((exercise) => ({ ...exercise, i: '', p: '' }));
 
   if (!conversion.imagePrompts) {
@@ -284,11 +287,11 @@ async function materializeAbilityImages (apiKey: string, conversion: AtomicAbili
     }
 
     if (prompts.p) {
-      q[index].p = await generateOpenRouterVisual(apiKey, prompts.p, svgModel, 'question', undefined, `Learner task: ${q[index].h}\nThis is a question visual. Reject any visible completion, highlighting, or cue that is not required by the starting-visual contract.`);
+      q[index].p = await generateOpenRouterVisual(apiKey, prompts.p, svgModel, 'question', undefined, `Learner task: ${q[index].h}\nThis is a question visual. Reject any visible completion, highlighting, or cue that is not required by the starting-visual contract.`, onCost);
     }
 
     if (prompts.i) {
-      q[index].i = await generateOpenRouterVisual(apiKey, prompts.i, svgModel, 'solution', prompts.changesImage ? q[index].p : undefined, `Learner task: ${q[index].h}\nCorrect answer: ${q[index].a}. The solution visual must agree with this answer.`);
+      q[index].i = await generateOpenRouterVisual(apiKey, prompts.i, svgModel, 'solution', prompts.changesImage ? q[index].p : undefined, `Learner task: ${q[index].h}\nCorrect answer: ${q[index].a}. The solution visual must agree with this answer.`, onCost);
     }
   }
 
@@ -307,11 +310,11 @@ REJECTED CANDIDATE:
 ${candidate}`;
 }
 
-async function requestValidatedJson<T> (client: OpenAI, model: string, systemPrompt: string, userPrompt: string, parse: (content: string) => T, jsonObject = true, maxOutputTokens?: number, repairContext?: string, validationCycles = 2): Promise<T> {
+async function requestValidatedJson<T> (client: OpenAI, model: string, systemPrompt: string, userPrompt: string, parse: (content: string) => T, jsonObject = true, onCost?: OpenRouterCostReporter, maxOutputTokens?: number, repairContext?: string, validationCycles = 2): Promise<T> {
   let lastError: unknown;
 
   for (let attempt = 0; attempt < validationCycles; attempt++) {
-    const candidate = await requestChatContent(client, model, systemPrompt, userPrompt, jsonObject, maxOutputTokens);
+    const candidate = await requestChatContent(client, model, systemPrompt, userPrompt, jsonObject, onCost, maxOutputTokens);
 
     try {
       // The parser is the fast local validation gate. In the normal case this
@@ -327,7 +330,7 @@ async function requestValidatedJson<T> (client: OpenAI, model: string, systemPro
       : JSON_VALIDATION_PROMPT(userPrompt, candidate, validationError);
 
     try {
-      const repaired = await requestChatContent(client, model, systemPrompt, validationPrompt, jsonObject, maxOutputTokens);
+      const repaired = await requestChatContent(client, model, systemPrompt, validationPrompt, jsonObject, onCost, maxOutputTokens);
 
       return parse(repaired);
     } catch (error) {
@@ -525,12 +528,14 @@ function Skills ({ book, onAction, onBookChange, onEntityCountsChange, pipelineO
   const [exerciseFixReview, setExerciseFixReview] = useState<ExerciseFixReviewResult | null>(null);
   const [notice, setNotice] = useState('');
   const [isBusy, setIsBusy] = useState(false);
+  const [openRouterSpent, setOpenRouterSpent] = useState(0);
   const [progress, setProgress] = useState(0);
   const [progressLabel, setProgressLabel] = useState('');
   const [progressTotal, setProgressTotal] = useState(1);
   const [refreshToken, setRefreshToken] = useState(0);
   const [selectedModel, setSelectedModel] = useState(OPENAI_MODELS[0].value);
   const refresh = useCallback((): void => setRefreshToken((value) => value + 1), []);
+  const addOpenRouterCost = useCallback((costUsd: number): void => setOpenRouterSpent((current) => current + costUsd), []);
   const changeChapter = useCallback((index: number): void => {
     setChapterIndex(index);
 
@@ -671,7 +676,7 @@ function Skills ({ book, onAction, onBookChange, onEntityCountsChange, pipelineO
   }, [allExercises, deleteExerciseWithAbilities]);
 
   const beginProgress = useCallback((label: string, total: number): void => {
-    setAiAction(undefined); setError(''); setFixReview(null); setExerciseFixReview(null); setNotice(''); setIsBusy(true); setProgress(0); setProgressLabel(label); setProgressTotal(Math.max(1, total));
+    setAiAction(undefined); setError(''); setFixReview(null); setExerciseFixReview(null); setNotice(''); setIsBusy(true); setOpenRouterSpent(0); setProgress(0); setProgressLabel(label); setProgressTotal(Math.max(1, total));
   }, []);
 
   const generateSkills = useCallback(async (): Promise<void> => {
@@ -685,7 +690,7 @@ function Skills ({ book, onAction, onBookChange, onEntityCountsChange, pipelineO
       const results = await mapConcurrent(batches, OPENROUTER_CONCURRENCY, async (batch) => {
         const systemPrompt = SKILLS_GENERATION_SYSTEM_PROMPT(language);
         const userPrompt = SOURCES_TO_SKILLS_REQUEST_PROMPT(language, batch);
-        const generated = await requestValidatedJson(client, selectedModel, systemPrompt, userPrompt, (content) => parseGeneratedSkills(content, batch.length), true);
+        const generated = await requestValidatedJson(client, selectedModel, systemPrompt, userPrompt, (content) => parseGeneratedSkills(content, batch.length), true, addOpenRouterCost);
 
         completed += batch.length;
         setProgress(Math.min(skillSources.length, completed));
@@ -718,7 +723,7 @@ function Skills ({ book, onAction, onBookChange, onEntityCountsChange, pipelineO
     } finally {
       setIsBusy(false);
     }
-  }, [allSkills, beginProgress, book.id, chapters, createClient, language, refresh, selectedModel, setStage, skillSources]);
+  }, [addOpenRouterCost, allSkills, beginProgress, book.id, chapters, createClient, language, refresh, selectedModel, setStage, skillSources]);
 
   const generateExercises = useCallback(async (): Promise<void> => {
     beginProgress('Generating atomic Abilities', allExercises.length);
@@ -761,7 +766,7 @@ function Skills ({ book, onAction, onBookChange, onEntityCountsChange, pipelineO
           .map((exercise) => ({ chapterTitle: chapter.title, exercise })));
         const plannedSources = await mapConcurrent(sourcesNeedingPlan, ABILITY_GENERATION_CONCURRENCY, async ({ chapterTitle, exercise }): Promise<{ blueprints: AbilityBlueprint[]; exercise: Exercise }> => {
           const systemPrompt = ATOMIC_ABILITY_WORKFLOW_SYSTEM_PROMPT(language, chapterTitle);
-          const runJson: AbilityWorkflowJsonRunner = (prompt, parse, options) => requestValidatedJson(client, selectedModel, systemPrompt, prompt, parse, true, options?.maxOutputTokens, options?.repairContext, options?.validationCycles ?? 1);
+          const runJson: AbilityWorkflowJsonRunner = (prompt, parse, options) => requestValidatedJson(client, selectedModel, systemPrompt, prompt, parse, true, addOpenRouterCost, options?.maxOutputTokens, options?.repairContext, options?.validationCycles ?? 1);
 
           try {
             const blueprints = await planAtomicAbilityExercise(language, chapterTitle, exercise, runJson);
@@ -789,7 +794,7 @@ function Skills ({ book, onAction, onBookChange, onEntityCountsChange, pipelineO
           const exerciseId = exercise.id as number;
           const blueprints = blueprintsByExerciseIdCache.get(exerciseId) ?? [];
           const systemPrompt = ATOMIC_ABILITY_WORKFLOW_SYSTEM_PROMPT(language, chapterTitle);
-          const runJson: AbilityWorkflowJsonRunner = (prompt, parse, options) => requestValidatedJson(client, selectedModel, systemPrompt, prompt, parse, true, options?.maxOutputTokens, options?.repairContext, options?.validationCycles ?? 1);
+          const runJson: AbilityWorkflowJsonRunner = (prompt, parse, options) => requestValidatedJson(client, selectedModel, systemPrompt, prompt, parse, true, addOpenRouterCost, options?.maxOutputTokens, options?.repairContext, options?.validationCycles ?? 1);
 
           try {
             const conversions = await materializeAtomicAbilityExercise(language, chapterTitle, exercise, blueprints, runJson);
@@ -825,7 +830,7 @@ function Skills ({ book, onAction, onBookChange, onEntityCountsChange, pipelineO
           }
 
           try {
-            const abilities = await mapConcurrent(sourceConversions, VISUALS_PER_EXERCISE_CONCURRENCY, (conversion) => materializeAbilityImages(imageApiKey, conversion, selectedModel));
+            const abilities = await mapConcurrent(sourceConversions, VISUALS_PER_EXERCISE_CONCURRENCY, (conversion) => materializeAbilityImages(imageApiKey, conversion, selectedModel, addOpenRouterCost));
 
             generatedByExerciseId.set(exerciseId, abilities);
             pending.delete(exerciseId);
@@ -870,7 +875,7 @@ function Skills ({ book, onAction, onBookChange, onEntityCountsChange, pipelineO
     } finally {
       setIsBusy(false);
     }
-  }, [allAbilities.length, allExercises, beginProgress, book.id, chapterContent, createClient, language, refresh, selectedModel, setStage, stage]);
+  }, [addOpenRouterCost, allAbilities.length, allExercises, beginProgress, book.id, chapterContent, createClient, language, refresh, selectedModel, setStage, stage]);
 
   const fixExercises = useCallback(async (): Promise<void> => {
     beginProgress('Fixing Exercise errors', allExercises.length);
@@ -902,7 +907,8 @@ function Skills ({ book, onAction, onBookChange, onEntityCountsChange, pipelineO
           systemPrompt,
           userPrompt,
           (content) => parseExerciseRepairResult(content, batch, originalIds),
-          true
+          true,
+          addOpenRouterCost
         );
         const batchDuplicateIds = new Set(result.duplicatePairs.map(({ deletedExerciseId }) => deletedExerciseId));
 
@@ -950,7 +956,7 @@ function Skills ({ book, onAction, onBookChange, onEntityCountsChange, pipelineO
     } finally {
       setIsBusy(false);
     }
-  }, [allExercises, beginProgress, chapterContent, createClient, language, selectedModel]);
+  }, [addOpenRouterCost, allExercises, beginProgress, chapterContent, createClient, language, selectedModel]);
 
   const fixAbilities = useCallback(async (): Promise<void> => {
     beginProgress('Fixing Ability errors', allAbilities.length);
@@ -975,7 +981,8 @@ function Skills ({ book, onAction, onBookChange, onEntityCountsChange, pipelineO
           systemPrompt,
           userPrompt,
           (content) => parseAbilityRepairResult(content, batch.map(({ ability }) => ability), batch.map(({ id }) => id)),
-          true
+          true,
+          addOpenRouterCost
         );
         const batchDuplicateIds = new Set(result.duplicatePairs.map(({ deletedAbilityId }) => deletedAbilityId));
 
@@ -1041,7 +1048,7 @@ function Skills ({ book, onAction, onBookChange, onEntityCountsChange, pipelineO
     } finally {
       setIsBusy(false);
     }
-  }, [allAbilities.length, beginProgress, chapterContent, createClient, exerciseTitlesByModuleId, language, selectedModel]);
+  }, [addOpenRouterCost, allAbilities.length, beginProgress, chapterContent, createClient, exerciseTitlesByModuleId, language, selectedModel]);
 
   const confirm = useCallback((): void => {
     if (aiAction === 'skills') {
@@ -1398,6 +1405,7 @@ function Skills ({ book, onAction, onBookChange, onEntityCountsChange, pipelineO
         />
         <strong>{progressLabel}</strong>
         <span>{progress} / {progressTotal}</span>
+        <span className='openRouterSpend'>OpenRouter spent this stage: {formatOpenRouterSpend(openRouterSpent)}</span>
       </div>
     )}
     {showPipeline && <div className='pipeline'>
@@ -1587,6 +1595,7 @@ const StyledSkills = styled.div`
   .contentCard .solution { border-left: 0.2rem solid var(--border-table); margin: 0.5rem 0; padding-left: 0.75rem; }
   .exerciseImage { border: 1px solid var(--border-table); border-radius: 0.35rem; display: block; max-height: 18rem; max-width: min(100%, 32rem); object-fit: contain; }
   .processingOverlay { align-items: center; background: color-mix(in srgb, var(--bg-page) 92%, transparent); display: flex; flex-direction: column; gap: 0.75rem; inset: 0; justify-content: center; position: fixed; z-index: 1000; }
+  .openRouterSpend { font-variant-numeric: tabular-nums; opacity: 0.85; }
   .errorMessage { color: #9f3a38; }
   .noticeMessage { color: var(--color-label); }
   @media only screen and (max-width: 900px) { .columns, .duplicatePairComparison { grid-template-columns: 1fr; } .chapterEditor { align-items: stretch; flex-direction: column; } }

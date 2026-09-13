@@ -45,6 +45,7 @@ describe('Ability visual generation', (): void => {
     const originalFetch = globalThis.fetch;
     const originalWindow = Object.getOwnPropertyDescriptor(globalThis, 'window');
     const requests: Array<{ body: Record<string, unknown>; url: string }> = [];
+    const costs: number[] = [];
     let chatCall = 0;
 
     Object.defineProperty(globalThis, 'window', { configurable: true, value: { location: { origin: 'https://slonig.test' } } });
@@ -56,13 +57,13 @@ describe('Ability visual generation', (): void => {
       chatCall++;
 
       return {
-        json: async () => ({ choices: [{ message: { content: chatCall === 1 ? vectorPlan() : JSON.stringify({ errors: [], ok: true }) } }] }),
+        json: async () => ({ choices: [{ message: { content: chatCall === 1 ? vectorPlan() : JSON.stringify({ errors: [], ok: true }) } }], usage: { cost: chatCall === 1 ? 0.001 : 0.002 } }),
         ok: true
       } as Response;
     }) as typeof fetch;
 
     try {
-      const result = await generateOpenRouterVisual('test-key', 'Draw the task visual.', 'some/text-model');
+      const result = await generateOpenRouterVisual('test-key', 'Draw the task visual.', 'some/text-model', 'question', undefined, undefined, (cost) => costs.push(cost));
 
       // Node has no canvas, so tests exercise the SVG fallback. Production
       // browsers rasterize this deterministic SVG to PNG before returning it.
@@ -74,6 +75,7 @@ describe('Ability visual generation', (): void => {
       ]);
       assert.equal(requests[0].body.model, 'some/text-model');
       assert.equal(requests[1].body.model, 'some/text-model');
+      assert.deepEqual(costs, [0.001, 0.002]);
       const firstMessages = requests[0].body.messages as Array<{ content?: string }>;
 
       assert.match(firstMessages[0].content ?? '', /DO NOT write SVG\/XML/i);

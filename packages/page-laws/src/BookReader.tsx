@@ -21,6 +21,7 @@ import { bookLanguageLabel, getMiddleBookPageNumbers, parseDetectedBookLanguage 
 import { areAllBookPagesConceptsProcessed, calculatePageSymbolStatistics, countUnprocessedBookPages, isWithinTwoStandardDeviations, processExtractedChapterContent } from './bookProcessing.js';
 import { mapConcurrent } from './concurrency.js';
 import { OPENROUTER_CONCURRENCY, openRouterRequestGate } from './openRouterConcurrency.js';
+import { formatOpenRouterSpend, reportOpenRouterCost, type OpenRouterCostReporter } from './openRouterCost.js';
 import { BOOK_LANGUAGE_DETECTION_PROMPT, BOOK_PAGE_EXTRACTION_REQUEST_PROMPT, exerciseAbilityModes, OPENAI_MODELS } from './constants.js';
 import { stripMarkdownImageReferences } from './bookImageRefs.js';
 import Skills from './Skills.js';
@@ -123,7 +124,7 @@ function resolveChapterTitle (generatedTitle: string, pageNumber: number, pages:
   return 'Introduction';
 }
 
-async function requestGeneratedPageContent (client: OpenAI, model: string, mmdZipInput: MMDZipInput): Promise<GeneratedConcepts> {
+async function requestGeneratedPageContent (client: OpenAI, model: string, mmdZipInput: MMDZipInput, onCost?: OpenRouterCostReporter): Promise<GeneratedConcepts> {
   if (!mmdZipInput.text.trim() && !mmdZipInput.images.length) {
     return { chapter: '', concepts: [], exercises: [] };
   }
@@ -142,6 +143,8 @@ async function requestGeneratedPageContent (client: OpenAI, model: string, mmdZi
     model,
     response_format: { type: 'json_object' }
   }));
+  reportOpenRouterCost(response, onCost);
+
   const generatedContent = response.choices[0].message?.content?.trim();
 
   if (!generatedContent) {
@@ -152,8 +155,8 @@ async function requestGeneratedPageContent (client: OpenAI, model: string, mmdZi
   return storageReadyGeneratedConcepts(generated);
 }
 
-async function generatePageContentWithEmptyConceptRetry (client: OpenAI, model: string, mmdZipInput: MMDZipInput, retryEmptyConcepts: boolean): Promise<GeneratedConcepts> {
-  const firstResult = await requestGeneratedPageContent(client, model, mmdZipInput);
+async function generatePageContentWithEmptyConceptRetry (client: OpenAI, model: string, mmdZipInput: MMDZipInput, retryEmptyConcepts: boolean, onCost?: OpenRouterCostReporter): Promise<GeneratedConcepts> {
+  const firstResult = await requestGeneratedPageContent(client, model, mmdZipInput, onCost);
 
   if (firstResult.concepts.length || !retryEmptyConcepts) {
     return firstResult;
@@ -162,7 +165,7 @@ async function generatePageContentWithEmptyConceptRetry (client: OpenAI, model: 
   let secondResult: GeneratedConcepts;
 
   try {
-    secondResult = await requestGeneratedPageContent(client, model, mmdZipInput);
+    secondResult = await requestGeneratedPageContent(client, model, mmdZipInput, onCost);
   } catch {
     // The first result was valid but empty. A failed recovery request must not
     // leave this page permanently blocking exercise generation.
@@ -434,6 +437,7 @@ function BookReader ({ book, file, generateAllConceptsModel, generateAllConcepts
   const [isGeneratingAllExercises, setIsGeneratingAllExercises] = useState(false);
   const [isRecognizingAll, setIsRecognizingAll] = useState(false);
   const [mathpixApiKey, setMathpixApiKey] = useState('');
+  const [openRouterSpent, setOpenRouterSpent] = useState(0);
   const [recognizedPageCount, setRecognizedPageCount] = useState(0);
   const [generatedExercisesPageCount, setGeneratedExercisesPageCount] = useState(0);
   const [recognitionTarget, setRecognitionTarget] = useState<RecognitionTarget>('page');
@@ -451,6 +455,7 @@ function BookReader ({ book, file, generateAllConceptsModel, generateAllConcepts
   const handledRecognizeAllRequestRef = useRef(recognizeAllRequest);
   const isDetectingBookLanguageRef = useRef(false);
   const pageAreaRef = useRef<HTMLDivElement>(null);
+  const addOpenRouterCost = useCallback((costUsd: number): void => setOpenRouterSpent((current) => current + costUsd), []);
   const pageGenerationEstimate = useMemo(() => {
     const pageText = pages.get(pageNumber)?.pageMMD ?? '';
     const validationInput = pageText.slice(0, Math.ceil(pageText.length / 3));
@@ -539,6 +544,10 @@ function BookReader ({ book, file, generateAllConceptsModel, generateAllConcepts
   }, [activePane, book.id]);
 
   useEffect(() => {
+    if (pendingProcessingAction) {
+      setOpenRouterSpent(0);
+    }
+
     if (pendingProcessingAction === 'recognize') {
       setActivePane('pdfText');
     } else if (pendingProcessingAction === 'concepts' || pendingProcessingAction === 'exercises') {
@@ -727,6 +736,7 @@ function BookReader ({ book, file, generateAllConceptsModel, generateAllConcepts
     }
 
     setError('');
+    setOpenRouterSpent(0);
     setProcessingPage(pageNumber);
 
     try {
@@ -753,7 +763,7 @@ function BookReader ({ book, file, generateAllConceptsModel, generateAllConcepts
 
       const symbolStatistics = calculatePageSymbolStatistics(Array.from(pages.values()).flatMap(({ pageMMD }) => typeof pageMMD === 'string' ? [pageMMD] : []));
       const pageSymbolCount = storedPage.pageMMD?.length ?? mmdZipInput.text.length;
-      const generatedConcepts = await generatePageContentWithEmptyConceptRetry(client, selectedModel, mmdZipInput, isWithinTwoStandardDeviations(pageSymbolCount, symbolStatistics));
+      const generatedConcepts = await generatePageContentWithEmptyConceptRetry(client, selectedModel, mmdZipInput, isWithinTwoStandardDeviations(pageSymbolCount, symbolStatistics), addOpenRouterCost);
 
       const resolvedChapter = resolveChapterTitle(generatedConcepts.chapter, pageNumber, pages);
       const generatedPage: BookPage = {
@@ -803,7 +813,7 @@ function BookReader ({ book, file, generateAllConceptsModel, generateAllConcepts
     } finally {
       setProcessingPage(undefined);
     }
-  }, [advanceStage, book.id, isGeneratingAllConcepts, isRecognizingAll, pageNumber, pages, processingPage, refreshEntityCounts, selectedModel, totalPages]);
+  }, [addOpenRouterCost, advanceStage, book.id, isGeneratingAllConcepts, isRecognizingAll, pageNumber, pages, processingPage, refreshEntityCounts, selectedModel, totalPages]);
   const closePageGenerationConfirmation = useCallback((): void => setIsPageGenerationConfirmationOpen(false), []);
   const confirmPageGeneration = useCallback((): void => {
     setIsPageGenerationConfirmationOpen(false);
@@ -816,6 +826,7 @@ function BookReader ({ book, file, generateAllConceptsModel, generateAllConcepts
     }
 
     setError('');
+    setOpenRouterSpent(0);
     setIsGeneratingAllConcepts(true);
     setGeneratedConceptsPageCount(0);
 
@@ -865,7 +876,7 @@ function BookReader ({ book, file, generateAllConceptsModel, generateAllConcepts
           const pageSymbolCount = storedPage.pageMMD?.length ?? mmdZipInput.text.length;
 
           return {
-            generatedConcepts: await generatePageContentWithEmptyConceptRetry(client, generateAllConceptsModel, mmdZipInput, isWithinTwoStandardDeviations(pageSymbolCount, symbolStatistics)),
+            generatedConcepts: await generatePageContentWithEmptyConceptRetry(client, generateAllConceptsModel, mmdZipInput, isWithinTwoStandardDeviations(pageSymbolCount, symbolStatistics), addOpenRouterCost),
             status: 'fulfilled' as const,
             storedPage
           };
@@ -953,7 +964,7 @@ function BookReader ({ book, file, generateAllConceptsModel, generateAllConcepts
       setIsGeneratingAllConcepts(false);
       onProcessingComplete();
     }
-  }, [advanceStage, book.id, generateAllConceptsModel, isGeneratingAllConcepts, isRecognizingAll, onProcessingComplete, pageNumber, pages, processingPage, refreshEntityCounts, totalPages]);
+  }, [addOpenRouterCost, advanceStage, book.id, generateAllConceptsModel, isGeneratingAllConcepts, isRecognizingAll, onProcessingComplete, pageNumber, pages, processingPage, refreshEntityCounts, totalPages]);
 
   const generateAllExercises = useCallback(async (): Promise<void> => {
     if (!totalPages || processingPage !== undefined || isGeneratingAllConcepts || isRecognizingAll || isGeneratingAllExercises) {
@@ -961,6 +972,7 @@ function BookReader ({ book, file, generateAllConceptsModel, generateAllConcepts
     }
 
     setError('');
+    setOpenRouterSpent(0);
     setIsGeneratingAllExercises(true);
     setGeneratedExercisesPageCount(0);
 
@@ -1002,6 +1014,8 @@ function BookReader ({ book, file, generateAllConceptsModel, generateAllConcepts
             response_format: { type: 'json_object' }
           }));
 
+          reportOpenRouterCost(response, addOpenRouterCost);
+
           return response.choices[0].message?.content?.trim() ?? '{}';
         }, bookDetectedLanguage);
 
@@ -1026,7 +1040,7 @@ function BookReader ({ book, file, generateAllConceptsModel, generateAllConcepts
       setIsGeneratingAllExercises(false);
       onProcessingComplete();
     }
-  }, [advanceStage, book.id, book.language, generateAllConceptsModel, isGeneratingAllConcepts, isRecognizingAll, isGeneratingAllExercises, onProcessingComplete, pageNumber, pages, processingPage, refreshEntityCounts, totalPages]);
+  }, [addOpenRouterCost, advanceStage, book.id, book.language, generateAllConceptsModel, isGeneratingAllConcepts, isRecognizingAll, isGeneratingAllExercises, onProcessingComplete, pageNumber, pages, processingPage, refreshEntityCounts, totalPages]);
 
   const detectAndStoreBookLanguage = useCallback(async (recognizedPages: Map<number, BookPage>): Promise<void> => {
     if (book.language || isDetectingBookLanguageRef.current) {
@@ -1065,6 +1079,9 @@ function BookReader ({ book, file, generateAllConceptsModel, generateAllConcepts
         model: selectedModel,
         response_format: { type: 'json_object' }
       }));
+
+      reportOpenRouterCost(response, addOpenRouterCost);
+
       const language = parseDetectedBookLanguage(response.choices[0].message?.content?.trim() ?? '');
       const updatedBook = { ...book, language };
 
@@ -1074,7 +1091,7 @@ function BookReader ({ book, file, generateAllConceptsModel, generateAllConcepts
       isDetectingBookLanguageRef.current = false;
       setIsDetectingBookLanguage(false);
     }
-  }, [book, onBookChange, selectedModel, totalPages]);
+  }, [addOpenRouterCost, book, onBookChange, selectedModel, totalPages]);
 
   const isMmdConversionComplete = useMemo((): boolean => {
     if (!totalPages) {
@@ -1105,6 +1122,7 @@ function BookReader ({ book, file, generateAllConceptsModel, generateAllConcepts
     }
 
     setError('');
+    setOpenRouterSpent(0);
     setProcessingPage(pageNumber);
 
     try {
@@ -1154,6 +1172,7 @@ function BookReader ({ book, file, generateAllConceptsModel, generateAllConcepts
     }
 
     setError('');
+    setOpenRouterSpent(0);
     setIsRecognizingAll(true);
     setRecognizedPageCount(0);
 
@@ -1517,6 +1536,7 @@ function BookReader ({ book, file, generateAllConceptsModel, generateAllConcepts
         />
         <strong>{processingPage !== undefined ? `Processing page ${processingPage}` : isRecognizingAll || pendingProcessingAction === 'recognize' ? 'Recognizing MMD pages' : isGeneratingAllExercises || pendingProcessingAction === 'exercises' ? 'Generating exercises' : 'Extracting concepts and book exercises'}</strong>
         {processingPage === undefined && <span>{isRecognizingAll || pendingProcessingAction === 'recognize' ? recognizedPageCount : isGeneratingAllExercises || pendingProcessingAction === 'exercises' ? generatedExercisesPageCount : generatedConceptsPageCount} / {totalPages}</span>}
+        <span className='openRouterSpend'>OpenRouter spent this stage: {formatOpenRouterSpend(openRouterSpent)}</span>
       </div>}
       <Skills
         book={book}
@@ -1744,6 +1764,7 @@ const StyledReader = styled.div`
   }
 
   .processingOverlay { align-items: center; background: color-mix(in srgb, var(--bg-page) 92%, transparent); display: flex; flex-direction: column; gap: 0.75rem; inset: 0; justify-content: center; position: fixed; z-index: 1000; }
+  .openRouterSpend { font-variant-numeric: tabular-nums; opacity: 0.85; }
 
   .pageNavigation label {
     align-items: center;
