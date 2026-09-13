@@ -3,6 +3,7 @@ import { Button, styled } from '@polkadot/react-components';
 import { useTranslation } from '../translate.js';
 import { Exercise, KatexSpan, useLog } from '@slonigiraf/slonig-components';
 import ExerciseImage, { isLocalOrRemoteImageUrl } from './ExerciseImage.js';
+import TikzVisual, { isTikzCode } from './TikzVisual.js';
 
 export type ExerciseListLocation = 'ability_info' | 'item_preview' | 'view_list' | 'example_exercises' | 'example_solutions';
 
@@ -13,9 +14,13 @@ const isGeneratedAbilityVisual = (value: string): boolean => {
     return isLocalOrRemoteImageUrl(trimmed) || /^(?:Qm[1-9A-HJ-NP-Za-km-z]{44}|b[a-z2-7]{20,})$/i.test(trimmed);
 };
 
-const AbilityVisual: React.FC<{ alt: string; label: string; value: string }> = ({ alt, label, value }) => {
+const AbilityVisual: React.FC<{ alt: string; label: string; onSave?: (value: string) => Promise<void>; value: string }> = ({ alt, label, onSave, value }) => {
     if (!value.trim()) {
         return null;
+    }
+
+    if (isTikzCode(value)) {
+        return <TikzVisual alt={alt} onSave={onSave} value={value} />;
     }
 
     return isGeneratedAbilityVisual(value)
@@ -28,9 +33,10 @@ interface ExerciseListProps {
     areShownInitially?: boolean;
     isPreview?: boolean;
     location?: ExerciseListLocation;
+    onAbilityVisualSave?: (exerciseIndex: number, field: 'p' | 'i', value: string) => Promise<void>;
 }
 
-const ExerciseList: React.FC<ExerciseListProps> = ({ exercises, areShownInitially = false, isPreview = false, location = 'default' }) => {
+const ExerciseList: React.FC<ExerciseListProps> = ({ exercises, areShownInitially = false, isPreview = false, location = 'default', onAbilityVisualSave }) => {
     const [areAnswersShown, setAreAnswersShown] = useState(areShownInitially);
     const { t } = useTranslation();
     const { logEvent } = useLog();
@@ -55,7 +61,7 @@ const ExerciseList: React.FC<ExerciseListProps> = ({ exercises, areShownInitiall
                 <div className="exercise-display">
                     <div className="exercise-header">
                         <span><KatexSpan content={exercise.h} /></span>
-                        {exercise.p && <ExerciseDetails>{location === 'ability_info' ? <AbilityVisual alt='Question' label='Question visual prompt' value={exercise.p} /> : <ExerciseImage alt='Question' value={exercise.p} />}</ExerciseDetails>}
+                        {exercise.p && <ExerciseDetails>{location === 'ability_info' ? <AbilityVisual alt='Question' label='Question visual prompt' onSave={onAbilityVisualSave ? (value) => onAbilityVisualSave(0, 'p', value) : undefined} value={exercise.p} /> : <ExerciseImage alt='Question' value={exercise.p} />}</ExerciseDetails>}
                     </div>
                 </div>
             </div>
@@ -71,7 +77,7 @@ const ExerciseList: React.FC<ExerciseListProps> = ({ exercises, areShownInitiall
                         <div className="exercise-display">
                             <div className="exercise-header">
                                 <span><KatexSpan content={` ${index + 1}. ` + exercise.h} /></span>
-                                {exercise.p && <ExerciseDetails>{location === 'ability_info' ? <AbilityVisual alt='Question' label='Question visual prompt' value={exercise.p} /> : <ExerciseImage alt='Question' value={exercise.p} />}</ExerciseDetails>}
+                                {exercise.p && <ExerciseDetails>{location === 'ability_info' ? <AbilityVisual alt='Question' label='Question visual prompt' onSave={onAbilityVisualSave ? (value) => onAbilityVisualSave(index, 'p', value) : undefined} value={exercise.p} /> : <ExerciseImage alt='Question' value={exercise.p} />}</ExerciseDetails>}
                             </div>
 
                             {location !== 'example_exercises' && <Answer>
@@ -85,7 +91,7 @@ const ExerciseList: React.FC<ExerciseListProps> = ({ exercises, areShownInitiall
                                 {areAnswersShown && (
                                     <>
                                         <KatexSpan content={exercise.a} />
-                                        {exercise.i && (location === 'ability_info' ? <AbilityVisual alt='Solution' label='Answer visual prompt' value={exercise.i} /> : <ExerciseImage alt='Solution' value={exercise.i} />)}
+                                        {exercise.i && (location === 'ability_info' ? <AbilityVisual alt='Solution' label='Answer visual prompt' onSave={onAbilityVisualSave ? (value) => onAbilityVisualSave(index, 'i', value) : undefined} value={exercise.i} /> : <ExerciseImage alt='Solution' value={exercise.i} />)}
                                     </>
                                 )}
                             </Answer>}

@@ -13,6 +13,7 @@ import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { Button, Dropdown, Input, Modal, styled } from '@polkadot/react-components';
 
 import ExerciseList from './Edit/ExerciseList.js';
+import { isTikzCode } from './Edit/TikzVisual.js';
 import { parseAbilityRepairResult, parseStoredAbility } from './abilities.js';
 import { parseExerciseRepairResult } from './exercises.js';
 import { estimateAiInput, formatAiInputEstimate } from './aiEstimate.js';
@@ -286,6 +287,44 @@ function abilityWithImageDescriptions (conversion: AtomicAbilityConversion): Gen
 
   return { ...conversion.ability, q };
 }
+function cleanTikzResponse (content: string): string {
+  const cleaned = content.trim().replace(/^```(?:latex|tex|tikz)?\s*/i, '').replace(/\s*```$/i, '').trim();
+  const start = cleaned.search(/\\begin\s*\{tikzpicture\}/);
+  const endMatch = /\\end\s*\{tikzpicture\}/g;
+  let end = -1;
+  let match: RegExpExecArray | null;
+
+  while ((match = endMatch.exec(cleaned)) !== null) {
+    end = match.index + match[0].length;
+  }
+
+  if (start < 0 || end <= start) {
+    throw new Error('OpenRouter returned invalid TikZ code.');
+  }
+
+  return cleaned.slice(start, end).trim();
+}
+
+function tikzRequestPrompt (language: string, ability: GeneratedAbility, exerciseIndex: number, field: 'p' | 'i', visualPrompt: string): string {
+  const exercise = ability.q[exerciseIndex];
+  const purpose = field === 'p' ? 'question visual' : 'answer visual';
+
+  return `Convert the supplied semantic visual description into a compact TikZ diagram for a learner-facing ${purpose}.
+
+Rules:
+- Return ONLY one \\begin{tikzpicture}...\\end{tikzpicture} block. No markdown fences, prose, documentclass, packages, or external files.
+- Use only standard TikZ constructs and common built-in libraries where possible. Keep the drawing browser-renderable with TikZJax.
+- Preserve the exact mathematical/semantic information in the visual description. Do not add hints or facts that would reveal an answer in a question visual.
+- Keep labels concise and in the book language (${language}).
+- Prefer a clean educational diagram with sensible coordinates and readable labels.
+- Do not embed raster images, URLs, SVG, HTML, or base64 data.
+
+Ability: ${ability.h}
+Question: ${exercise.h}
+Answer: ${exercise.a}
+Visual description: ${visualPrompt}`;
+}
+
 function compactJsonRepairPrompt (candidate: string, validationError: string, repairContext: string): string {
   return `Repair the rejected JSON candidate. Preserve every correct semantic detail and make only the changes required by the parser error and compact contract. Return only the corrected JSON object; no commentary.
 
@@ -438,6 +477,23 @@ function AbilityCard ({ onDeleted, onError, record }: { onDeleted: () => void; o
   const remove = useCallback((): void => {
     deleteAbility(record.id).then(onDeleted).catch((error) => onError(error instanceof Error ? error.message : 'Unable to delete the Ability.'));
   }, [onDeleted, onError, record.id]);
+  const saveVisual = useCallback(async (exerciseIndex: number, field: 'p' | 'i', value: string): Promise<void> => {
+    if (!record.ability) {
+      throw new Error('Unable to save TikZ for invalid Ability JSON.');
+    }
+
+    const ability: GeneratedAbility = {
+      ...record.ability,
+      q: record.ability.q.map((exercise, index) => index === exerciseIndex ? { ...exercise, [field]: value } : { ...exercise })
+    };
+    const newRecordId = await storeAbility(record.moduleId, JSON.stringify(ability));
+
+    if (newRecordId !== record.id) {
+      await deleteAbility(record.id);
+    }
+
+    onDeleted();
+  }, [onDeleted, record]);
 
   return <article className='contentCard'>
     {record.ability
@@ -447,6 +503,7 @@ function AbilityCard ({ onDeleted, onError, record }: { onDeleted: () => void; o
           areShownInitially
           exercises={record.ability.q}
           location='ability_info'
+          onAbilityVisualSave={saveVisual}
         />
       </>
       : <>
@@ -1209,10 +1266,74 @@ function Skills ({ book, onAction, onBookChange, onEntityCountsChange, pipelineO
   }, []);
 
   const completeImagesStage = useCallback((): void => {
-    setStage(IMAGES_STAGE).then(() => {
-      setNotice('Images stage marked complete.');
-    }).catch((caught) => setError(caught instanceof Error ? caught.message : 'Unable to complete Images stage.'));
-  }, [setStage]);
+    const work = allAbilities.flatMap((record) => record.ability
+      ? record.ability.q.flatMap((exercise, exerciseIndex) => (['p', 'i'] as const).flatMap((field) => {
+        const value = exercise[field].trim();
+
+        return value && !isTikzCode(value) ? [{ exerciseIndex, field, record, visualPrompt: value }] : [];
+      }))
+      : []);
+
+    if (!work.length) {
+      setStage(IMAGES_STAGE).then(() => {
+        setNotice('Images complete. There were no visual prompts requiring TikZ conversion.');
+      }).catch((caught) => setError(caught instanceof Error ? caught.message : 'Unable to complete Images stage.'));
+      return;
+    }
+
+    beginProgress('Converting visual prompts to TikZ', work.length);
+    createClient().then(async (client) => {
+      const updates = new Map<string, GeneratedAbility>();
+      let completed = 0;
+
+      await mapConcurrent(work, OPENROUTER_CONCURRENCY, async ({ exerciseIndex, field, record, visualPrompt }) => {
+        if (!record.ability) {
+          return;
+        }
+
+        const content = await requestChatContent(
+          client,
+          selectedModel,
+          'You convert precise educational visual specifications into valid, compact TikZ code. Follow the requested output contract exactly.',
+          tikzRequestPrompt(language, record.ability, exerciseIndex, field, visualPrompt),
+          false,
+          addOpenRouterCost,
+          2_400
+        );
+        const tikz = cleanTikzResponse(content);
+        const current = updates.get(record.id) ?? {
+          ...record.ability,
+          q: record.ability.q.map((exercise) => ({ ...exercise }))
+        };
+
+        current.q[exerciseIndex] = { ...current.q[exerciseIndex], [field]: tikz };
+        updates.set(record.id, current);
+        completed += 1;
+        setProgress(completed);
+      });
+
+      for (const record of allAbilities) {
+        const ability = updates.get(record.id);
+
+        if (!ability) {
+          continue;
+        }
+
+        const newRecordId = await storeAbility(record.moduleId, JSON.stringify(ability));
+
+        if (newRecordId !== record.id) {
+          await deleteAbility(record.id);
+        }
+      }
+
+      await setStage(IMAGES_STAGE);
+      setNotice(`Images complete: converted ${work.length} visual prompt${work.length === 1 ? '' : 's'} to TikZ.`);
+      refresh();
+      onAction?.('preExercisesExercises');
+    }).catch((caught) => {
+      setError(caught instanceof Error ? caught.message : 'Unable to convert Ability visuals to TikZ.');
+    }).finally(() => setIsBusy(false));
+  }, [addOpenRouterCost, allAbilities, beginProgress, createClient, language, onAction, refresh, selectedModel, setStage]);
   const completeFixImagesStage = useCallback((): void => {
     setStage(FIX_IMAGES_STAGE).then(() => {
       setNotice('Fix images stage marked complete.');
