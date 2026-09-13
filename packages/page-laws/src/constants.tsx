@@ -80,6 +80,18 @@ This is recovery attempt ${retry} of ${maxRetries}. Generate exactly one exercis
 ${JSON.stringify(input)}`;
 };
 
+export const SPLIT_EXERCISE_PROMPT = `Audit exactly one supplied Exercise for concept scope. The purpose of this stage is to ensure that one Exercise trains or assesses one coherent concept at a time. Split only when the learner is being asked to demonstrate two or more distinct concepts or independently practicable operations that could reasonably be assessed as separate Exercises. Do NOT split merely because a correct solution has multiple steps, uses prerequisite arithmetic or notation, has several givens, asks for a result plus a brief justification, or follows one coherent method from input to output. A multi-step task is still one concept when all steps are inseparable parts of the same target skill.
+
+When the Exercise is already concept-atomic, return {"split":false,"reason":"...","exercises":[]}. When it combines distinct concepts, return {"split":true,"reason":"...","exercises":[...]} with at least two replacement Exercises. Each replacement must be a complete, self-contained Exercise that trains exactly one of the concepts present in the original task, preserves the book language, source meaning, approximate difficulty, and all data needed to solve it, and does not introduce new subject matter. Keep each replacement as close as possible to the corresponding part of the original Exercise instead of redesigning the lesson.
+
+The input may contain chapterConcepts with real stored concept ids. When a replacement clearly matches one of them, set conceptId to that id. Never invent a conceptId. If no supplied concept is a confident match, use the original Exercise conceptId (or null if the original has none). Different replacements may map to different supplied concept ids. Do not split solely because multiple related chapter concepts are listed.
+
+Every replacement Exercise must include title, description, abilityMode, solution, imageDescription, solutionImageDescription, and conceptId. abilityMode must be exactly one of: ${exerciseAbilityModes.join(', ')}. Preserve a required visual description only on the replacement that genuinely needs that visual; do not create decorative visuals. Use <kx>...</kx> for mathematical expressions and valid JSON escaping for LaTeX backslashes. Do not return database identity fields such as id or bookPage. Return only valid JSON with no markdown fences or commentary.`;
+
+export const SPLIT_EXERCISE_REQUEST_PROMPT = (input: unknown): string => {
+  return `${SPLIT_EXERCISE_PROMPT}\n${JSON.stringify(input)}`;
+};
+
 export const COURSE_NAMES_PROMPT = (input: unknown): string => {
   return `Correct and improve the book name and each editable chapter name using only the ordered skill-template titles as evidence. Keep names concise, specific, and in the same language as the skill-template titles. Do not translate. Return exactly this JSON shape and no commentary: {"bookName":"Name","chapters":[{"id":1,"title":"Chapter name"}]}. Return one chapter entry for every supplied editable chapter ID.
 

@@ -7,8 +7,8 @@ import type { Exercise } from '@slonigiraf/db';
 
 import { strict as assert } from 'node:assert';
 
-import { FIX_EXERCISES_PROMPT } from './constants.js';
-import { parseExerciseRepairResult } from './exercises.js';
+import { FIX_EXERCISES_PROMPT, SPLIT_EXERCISE_PROMPT } from './constants.js';
+import { parseExerciseRepairResult, parseExerciseSplitResult } from './exercises.js';
 
 function createExercise (id: number, title = `Exercise ${id}`): Exercise {
   return {
@@ -213,5 +213,93 @@ describe('exercise repair', (): void => {
     assert.match(FIX_EXERCISES_PROMPT, /earliest supplied index only as a final tie-breaker/i);
     assert.match(FIX_EXERCISES_PROMPT, /omit correct Exercises/i);
     assert.match(FIX_EXERCISES_PROMPT, /Do not return or change database identity or relationship fields/i);
+  });
+});
+
+
+describe('exercise splitting', (): void => {
+  it('keeps an atomic Exercise unchanged', (): void => {
+    const original = createExercise(1);
+
+    assert.deepEqual(parseExerciseSplitResult(JSON.stringify({
+      exercises: [],
+      reason: 'The calculation is one coherent addition skill.',
+      split: false
+    }), original, [10]), {
+      exercises: [],
+      reason: 'The calculation is one coherent addition skill.',
+      split: false
+    });
+  });
+
+  it('splits a multi-concept Exercise while preserving storage context and using supplied concept ids', (): void => {
+    const original = createExercise(1, 'Mixed task');
+    const result = parseExerciseSplitResult(JSON.stringify({
+      exercises: [
+        {
+          abilityMode: 'transformation',
+          conceptId: 10,
+          description: 'Convert <kx>2</kx> m to cm.',
+          imageDescription: '',
+          solution: '<kx>2\\times100=200</kx> cm.',
+          solutionImageDescription: '',
+          title: 'Convert metres to centimetres'
+        },
+        {
+          abilityMode: 'reasoning',
+          conceptId: 11,
+          description: 'A rectangle is <kx>2</kx> m by <kx>3</kx> m. Calculate its area.',
+          imageDescription: '',
+          solution: '<kx>2\\times3=6</kx> m².',
+          solutionImageDescription: '',
+          title: 'Calculate rectangle area'
+        }
+      ],
+      reason: 'The original independently assesses unit conversion and rectangle area.',
+      split: true
+    }), original, [10, 11]);
+
+    assert.equal(result.split, true);
+    assert.equal(result.exercises.length, 2);
+    assert.equal(result.exercises[0].id, undefined);
+    assert.deepEqual(result.exercises[0].bookPage, original.bookPage);
+    assert.equal(result.exercises[0].source, original.source);
+    assert.equal(result.exercises[0].conceptId, 10);
+    assert.equal(result.exercises[1].conceptId, 11);
+  });
+
+  it('rejects invalid split output', (): void => {
+    const original = createExercise(1);
+
+    assert.throws(() => parseExerciseSplitResult(JSON.stringify({
+      exercises: [{
+        abilityMode: 'reasoning',
+        conceptId: 99,
+        description: 'One part.',
+        imageDescription: '',
+        solution: 'One answer.',
+        solutionImageDescription: '',
+        title: 'One part'
+      }, {
+        abilityMode: 'reasoning',
+        conceptId: 10,
+        description: 'Another part.',
+        imageDescription: '',
+        solution: 'Another answer.',
+        solutionImageDescription: '',
+        title: 'Another part'
+      }],
+      reason: 'Claims a split.',
+      split: true
+    }), original, [10, 11]));
+  });
+
+  it('defines concept atomicity without splitting ordinary multi-step work', (): void => {
+    assert.match(SPLIT_EXERCISE_PROMPT, /two or more distinct concepts/i);
+    assert.match(SPLIT_EXERCISE_PROMPT, /Do NOT split merely because/i);
+    assert.match(SPLIT_EXERCISE_PROMPT, /multiple steps/i);
+    assert.match(SPLIT_EXERCISE_PROMPT, /one coherent method/i);
+    assert.match(SPLIT_EXERCISE_PROMPT, /at least two replacement Exercises/i);
+    assert.match(SPLIT_EXERCISE_PROMPT, /Never invent a conceptId/i);
   });
 });

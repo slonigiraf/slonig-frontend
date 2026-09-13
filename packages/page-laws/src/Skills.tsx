@@ -16,9 +16,9 @@ import ExerciseList from './Edit/ExerciseList.js';
 import TikzDisplay, { preRenderTikz, type TikzPreRenderResult } from './Edit/TikzDisplay.js';
 import { isTikzCode } from './Edit/TikzVisual.js';
 import { parseAbilityRepairResult, parseStoredAbility } from './abilities.js';
-import { parseExerciseRepairResult } from './exercises.js';
+import { parseExerciseRepairResult, parseExerciseSplitResult } from './exercises.js';
 import { estimateAiInput, formatAiInputEstimate } from './aiEstimate.js';
-import { ATOMIC_ABILITY_WORKFLOW_SYSTEM_PROMPT, FIX_ABILITIES_REQUEST_PROMPT, FIX_EXERCISES_REQUEST_PROMPT, JSON_VALIDATION_PROMPT, OPENAI_MODELS, REPAIR_SYSTEM_PROMPT, SKILLS_GENERATION_SYSTEM_PROMPT, SOURCES_TO_SKILLS_REQUEST_PROMPT } from './constants.js';
+import { ATOMIC_ABILITY_WORKFLOW_SYSTEM_PROMPT, FIX_ABILITIES_REQUEST_PROMPT, FIX_EXERCISES_REQUEST_PROMPT, JSON_VALIDATION_PROMPT, OPENAI_MODELS, REPAIR_SYSTEM_PROMPT, SKILLS_GENERATION_SYSTEM_PROMPT, SOURCES_TO_SKILLS_REQUEST_PROMPT, SPLIT_EXERCISE_REQUEST_PROMPT } from './constants.js';
 import { abilityBlueprintRequestPrompt, materializeAtomicAbilityExercise, planAtomicAbilityExercise, transportCompactAbilitySourceExercise } from './abilityWorkflow.js';
 import { mapConcurrent } from './concurrency.js';
 import { OPENROUTER_CONCURRENCY, openRouterRequestGate } from './openRouterConcurrency.js';
@@ -27,6 +27,8 @@ import { stripMarkdownImageReferences } from './bookImageRefs.js';
 import { batchItemsByChapter } from './chapterBatching.js';
 
 const BATCH_SIZE = 5;
+const SPLIT_EXERCISES_STAGE = 4;
+const FIX_EXERCISES_STAGE = 5;
 const ABILITIES_STAGE = 7;
 const FIX_ABILITIES_STAGE = 8;
 const IMAGES_STAGE = 9;
@@ -237,7 +239,7 @@ interface SkillSource {
   title: string;
 }
 
-type AiAction = 'exercises' | 'fix' | 'fixExercises' | 'fixImages' | 'skills';
+type AiAction = 'exercises' | 'fix' | 'fixExercises' | 'fixImages' | 'skills' | 'splitExercises';
 
 const abilityModuleId = (bookId: number, skillId: number): string => `book-${bookId}-skill-${skillId}`;
 const exerciseAbilityModuleId = (bookId: number, exerciseId: number): string => `book-${bookId}-exercise-${exerciseId}`;
@@ -291,6 +293,26 @@ function exerciseRepairInput (language: string, batch: Exercise[], chapterTitle?
       index
     })),
     ...(chapterTitle ? { chapterTitle } : {})
+  };
+}
+
+function exerciseSplitInput (language: string, exercise: Exercise, chapterTitle: string, concepts: BookConcept[]): unknown {
+  const { abilityMode = 'reasoning', conceptId, description, id, imageDescription = '', solution = '', solutionImageDescription = '', title } = exercise;
+
+  return {
+    bookLanguage: language,
+    chapterConcepts: concepts.flatMap(({ description: conceptDescription, id: conceptIdValue, title: conceptTitle }) => conceptIdValue === undefined ? [] : [{ description: conceptDescription, id: conceptIdValue, title: conceptTitle }]),
+    chapterTitle,
+    exercise: {
+      abilityMode,
+      conceptId: conceptId ?? null,
+      description: stripMarkdownImageReferences(description),
+      id,
+      imageDescription,
+      solution,
+      solutionImageDescription,
+      title
+    }
   };
 }
 
@@ -816,8 +838,9 @@ function Skills ({ book, onAction, onBookChange, onEntityCountsChange, pipelineO
   // presence of generated/extracted rows. Concepts can already extract
   // exercises from the source book, but that does not mean the Exercises
   // pipeline step has been run. Stage 3 is set explicitly only when that
-  // step completes. Stage 4 records a successful Fix exercises pass; only
-  // after that should Abilities become available. Stage 7 means Abilities
+  // step completes. Stage 4 records the Split Exercise concept-scope audit,
+  // and stage 5 records a successful Fix exercises pass; only after that
+  // should Abilities become available. Stage 7 means Abilities
   // have been generated; stage 8 independently records Fix abilities. Stages
   // 9 and 10 are the Images and Fix images pipeline checkpoints.
   const stage = book.processingStage ?? 0;
@@ -850,6 +873,10 @@ function Skills ({ book, onAction, onBookChange, onEntityCountsChange, pipelineO
       return chapterContent.flatMap(({ chapter, exercises }) => exercises.map((exercise) => abilityBlueprintRequestPrompt(language, chapter.title, [transportCompactAbilitySourceExercise(exercise)])));
     }
 
+    if (aiAction === 'splitExercises') {
+      return chapterContent.flatMap(({ chapter, concepts, exercises }) => exercises.map((exercise) => SPLIT_EXERCISE_REQUEST_PROMPT(exerciseSplitInput(language, exercise, chapter.title, concepts))));
+    }
+
     if (aiAction === 'fixExercises') {
       return chapterContent.filter(({ exercises }) => exercises.length > 0).map(({ chapter, exercises }) => FIX_EXERCISES_REQUEST_PROMPT(exerciseRepairInput(language, exercises, chapter.title)));
     }
@@ -868,7 +895,7 @@ function Skills ({ book, onAction, onBookChange, onEntityCountsChange, pipelineO
   }, [aiAction, chapterContent, imageFixTargets, language, skillSources]);
   const maxChapterAbilityCount = Math.max(1, ...chapterContent.map(({ abilities }) => abilities.length));
   const maxChapterExerciseCount = Math.max(1, ...chapterContent.map(({ exercises }) => exercises.length));
-  const generationOutputTokens = aiAction === 'exercises' ? 3_200 : aiAction === 'fixExercises' ? maxChapterExerciseCount * 550 : aiAction === 'fix' ? maxChapterAbilityCount * 700 : aiAction === 'fixImages' ? 2_600 : aiAction === 'skills' ? BATCH_SIZE * 180 : 300;
+  const generationOutputTokens = aiAction === 'exercises' ? 3_200 : aiAction === 'splitExercises' ? 1_800 : aiAction === 'fixExercises' ? maxChapterExerciseCount * 550 : aiAction === 'fix' ? maxChapterAbilityCount * 700 : aiAction === 'fixImages' ? 2_600 : aiAction === 'skills' ? BATCH_SIZE * 180 : 300;
   const validationInputs = useMemo(() => aiAction === 'exercises'
     // The live workflow now has two bounded semantic calls per source:
     // atomic planning, then final materialization (including visual specs).
@@ -1080,6 +1107,128 @@ function Skills ({ book, onAction, onBookChange, onEntityCountsChange, pipelineO
       setIsBusy(false);
     }
   }, [addAbilitiesCost, allAbilities.length, allExercises, beginProgress, book.id, chapterContent, createClient, language, refresh, selectedModel, setStage, stage]);
+
+  const splitExercises = useCallback(async (): Promise<void> => {
+    beginProgress('Checking Exercise concept scope', allExercises.length);
+
+    try {
+      if (!allExercises.length) {
+        throw new Error('No Exercises are available to split.');
+      }
+
+      if (allExercises.some(({ id }) => id === undefined)) {
+        throw new Error('Every Exercise must have an id before Exercise scope can be checked.');
+      }
+
+      const client = await createClient();
+      const sources = chapterContent.flatMap(({ chapter, concepts, exercises }) => exercises.map((exercise) => ({ chapterTitle: chapter.title, concepts, exercise })));
+      const splitByExerciseId = new Map<number, Exercise[]>();
+      let completed = 0;
+
+      await mapConcurrent(sources, OPENROUTER_CONCURRENCY, async ({ chapterTitle, concepts, exercise }) => {
+        const allowedConceptIds = concepts.flatMap(({ id }) => id === undefined ? [] : [id]);
+        const result = await requestValidatedJson(
+          client,
+          selectedModel,
+          REPAIR_SYSTEM_PROMPT(language),
+          SPLIT_EXERCISE_REQUEST_PROMPT(exerciseSplitInput(language, exercise, chapterTitle, concepts)),
+          (content) => parseExerciseSplitResult(content, exercise, allowedConceptIds),
+          true,
+          addOpenRouterCost,
+          1_800
+        );
+
+        if (result.split) {
+          splitByExerciseId.set(exercise.id as number, result.exercises);
+        }
+
+        completed += 1;
+        setProgress(completed);
+      });
+
+      if (splitByExerciseId.size) {
+        const abilityContentsByExerciseId = new Map<number, string[]>();
+
+        allExercises.forEach(({ id }) => {
+          if (id !== undefined) {
+            const moduleId = exerciseAbilityModuleId(book.id, id);
+
+            abilityContentsByExerciseId.set(id, allAbilities.filter((record) => record.moduleId === moduleId).map(({ content }) => content));
+          }
+        });
+
+        for (const { exercises, page } of bookPageContent) {
+          if (!exercises.some(({ id }) => id !== undefined && splitByExerciseId.has(id))) {
+            continue;
+          }
+
+          const expanded = exercises.flatMap((original) => {
+            const replacements = original.id === undefined ? undefined : splitByExerciseId.get(original.id);
+
+            return replacements?.length
+              ? replacements.map((replacement) => ({ original, replacement, wasSplit: true }))
+              : [{ original, replacement: original, wasSplit: false }];
+          });
+
+          await replaceExercisesForBookPage([book.id, page.pageNumber], expanded.map(({ replacement }) => exerciseForPageReplacement(replacement)));
+
+          const storedExercises = await getExercisesForBookPage([book.id, page.pageNumber]);
+
+          if (storedExercises.length !== expanded.length || storedExercises.some(({ id }) => id === undefined)) {
+            throw new Error('Unable to remap Exercises after splitting multi-concept Exercises.');
+          }
+
+          const oldAbilityModuleIdsToDelete = new Set<string>();
+
+          for (let index = 0; index < expanded.length; index++) {
+            const { original, wasSplit } = expanded[index];
+            const oldId = original.id;
+            const newId = storedExercises[index].id as number;
+
+            if (oldId === undefined) {
+              continue;
+            }
+
+            const oldModuleId = exerciseAbilityModuleId(book.id, oldId);
+
+            if (!wasSplit && oldId !== newId) {
+              const contents = abilityContentsByExerciseId.get(oldId) ?? [];
+
+              if (contents.length) {
+                await replaceAbilities(exerciseAbilityModuleId(book.id, newId), contents);
+              }
+            }
+
+            if (wasSplit || oldId !== newId) {
+              oldAbilityModuleIdsToDelete.add(oldModuleId);
+            }
+          }
+
+          for (const moduleId of oldAbilityModuleIdsToDelete) {
+            await deleteAbilities(moduleId);
+          }
+        }
+
+        // A structural Exercise split invalidates Fix exercises and every
+        // downstream Ability/image stage, so return to the split checkpoint.
+        await setStage(SPLIT_EXERCISES_STAGE);
+      } else if (stage < SPLIT_EXERCISES_STAGE) {
+        await setStage(SPLIT_EXERCISES_STAGE);
+      }
+
+      const replacementCount = Array.from(splitByExerciseId.values()).reduce((total, replacements) => total + replacements.length, 0);
+
+      refresh();
+      setNotice(splitByExerciseId.size
+        ? `Split ${splitByExerciseId.size} multi-concept Exercise${splitByExerciseId.size === 1 ? '' : 's'} into ${replacementCount} single-concept Exercises.`
+        : `Checked ${allExercises.length} Exercise${allExercises.length === 1 ? '' : 's'}; no multi-concept Exercises needed splitting.`);
+      onAction?.('conceptExercises');
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : 'Unable to split multi-concept Exercises.');
+    } finally {
+      setIsBusy(false);
+    }
+  }, [addOpenRouterCost, allAbilities, allExercises, beginProgress, book.id, bookPageContent, chapterContent, createClient, language, onAction, refresh, selectedModel, setStage, stage]);
 
   const fixExercises = useCallback(async (): Promise<void> => {
     beginProgress('Fixing Exercise errors', allExercises.length);
@@ -1377,10 +1526,10 @@ function Skills ({ book, onAction, onBookChange, onEntityCountsChange, pipelineO
       const hasChanges = replacements.size > 0 || duplicateIds.size > 0;
 
       // Correcting Exercises invalidates generated Abilities, so a committed
-      // change intentionally returns the pipeline to stage 4. A no-op review
-      // only advances to stage 4 when this step had not yet been completed.
-      if (hasChanges || stage < 4) {
-        await setStage(4);
+      // change intentionally returns the pipeline to the Fix exercises checkpoint.
+      // A no-op review only advances when this step had not yet been completed.
+      if (hasChanges || stage < FIX_EXERCISES_STAGE) {
+        await setStage(FIX_EXERCISES_STAGE);
       }
 
       const fixed = replacements.size;
@@ -1398,6 +1547,9 @@ function Skills ({ book, onAction, onBookChange, onEntityCountsChange, pipelineO
   }, [allAbilities, allExercises, book.id, bookPageContent, exerciseFixReview, onAction, refresh, setStage, stage]);
   const openExerciseGeneration = useCallback((): void => {
     setAiAction('exercises');
+  }, []);
+  const openExerciseSplit = useCallback((): void => {
+    setAiAction('splitExercises');
   }, []);
   const openExerciseFix = useCallback((): void => {
     // Opening the confirmation must be a purely local state change. Switching
@@ -1681,6 +1833,10 @@ function Skills ({ book, onAction, onBookChange, onEntityCountsChange, pipelineO
       generateExercises().catch(console.error);
     }
 
+    if (aiAction === 'splitExercises') {
+      splitExercises().catch(console.error);
+    }
+
     if (aiAction === 'fixExercises') {
       fixExercises().catch(console.error);
     }
@@ -1692,7 +1848,7 @@ function Skills ({ book, onAction, onBookChange, onEntityCountsChange, pipelineO
     if (aiAction === 'fixImages') {
       fixImages().catch(console.error);
     }
-  }, [aiAction, fixAbilities, fixExercises, fixImages, generateExercises, generateSkills, onAction]);
+  }, [aiAction, fixAbilities, fixExercises, fixImages, generateExercises, generateSkills, onAction, splitExercises]);
   const closeConfirmation = useCallback((): void => setAiAction(undefined), []);
 
   return <StyledSkills className={pipelineOnly ? 'pipelineOnly' : undefined}>
@@ -1942,14 +2098,20 @@ function Skills ({ book, onAction, onBookChange, onEntityCountsChange, pipelineO
     {showPipeline && <div className='pipeline'>
       {pipelinePrefix}
       <span className='pipelineStep'><span>›</span><Button
-        icon={iconForStage(4)}
+        icon={iconForStage(SPLIT_EXERCISES_STAGE)}
         isDisabled={isBusy || stage < 3 || !allExercises.length}
+        label='Split Exercise'
+        onClick={openExerciseSplit}
+                                                   /></span>
+      <span className='pipelineStep'><span>›</span><Button
+        icon={iconForStage(FIX_EXERCISES_STAGE)}
+        isDisabled={isBusy || stage < SPLIT_EXERCISES_STAGE || !allExercises.length}
         label='Fix exercises'
         onClick={openExerciseFix}
                                                    /></span>
       <span className='pipelineStep'><span>›</span><Button
         icon={iconForStage(ABILITIES_STAGE)}
-        isDisabled={isBusy || stage < 4 || !allExercises.length}
+        isDisabled={isBusy || stage < FIX_EXERCISES_STAGE || !allExercises.length}
         label='Abilities'
         onClick={openExerciseGeneration}
                                                    /></span>
