@@ -27,6 +27,8 @@ import { parseNameSuggestions } from './courseNames.js';
 import KnowledgeTargetSelector from './KnowledgeTargetSelector.js';
 import { parseStoredAbility } from './abilities.js';
 import { randomIdHex } from './util.js';
+import { isTikzCode } from './Edit/TikzVisual.js';
+import { renderTikzToSvg } from './Edit/TikzDisplay.js';
 
 interface TemplateRow {
   moduleId: string;
@@ -413,6 +415,13 @@ function SkillsCourse ({ book }: { book: Book }): React.ReactElement {
     template,
     skillId,
     async (value) => {
+      if (isTikzCode(value)) {
+        const svg = await renderTikzToSvg(value);
+        const bytes = new TextEncoder().encode(svg);
+
+        return String(await getIPFSContentIDForBytesAndPinIt(ipfs, bytes));
+      }
+
       const bytes = imageDataUrlToBytes(value);
 
       return bytes
@@ -668,8 +677,9 @@ function SkillsCourse ({ book }: { book: Book }): React.ReactElement {
             let recordId = row.recordId;
 
             // Persist only the local representation. In particular, q[].p/q[].i
-            // remain the IndexedDB image data URLs; the IPFS CID substitutions in
-            // publishAbility exist only for this final publishing operation.
+            // remain the IndexedDB image data URLs or editable TikZ source; the IPFS
+            // CID substitutions (including rendered SVG for TikZ) in publishAbility
+            // exist only for this final publishing operation.
             if (didLocalTemplateChange) {
               const newRecordId = await storeAbility(row.moduleId, JSON.stringify(localAbility));
 

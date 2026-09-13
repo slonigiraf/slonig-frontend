@@ -204,7 +204,7 @@ async function runTikzPreRender (value: string): Promise<TikzPreRenderResult> {
       const svg = target.matches('svg') ? target : target.querySelector('svg');
 
       if (svg instanceof SVGElement) {
-        finish(true, svg.outerHTML.slice(0, 40_000));
+        finish(true, svg.outerHTML);
       }
     };
     const observer = new MutationObserver(() => {
@@ -239,7 +239,7 @@ async function runTikzPreRender (value: string): Promise<TikzPreRenderResult> {
       const svg = host.querySelector('svg');
 
       if (svg instanceof SVGElement) {
-        finish(true, svg.outerHTML.slice(0, 40_000));
+        finish(true, svg.outerHTML);
       } else {
         diagnostics.push('TikZJax pre-render timed out before a successful SVG was produced.');
         finish(false);
@@ -259,6 +259,30 @@ export function preRenderTikz (value: string): Promise<TikzPreRenderResult> {
   preRenderQueue = run.then(() => undefined, () => undefined);
 
   return run;
+}
+
+/**
+ * Compile TikZ into a complete standalone SVG suitable for persistence. Unlike
+ * the AI-review prompt, publication must never truncate the rendered markup.
+ */
+export async function renderTikzToSvg (value: string): Promise<string> {
+  const result = await preRenderTikz(value);
+
+  if (!result.compiled || !result.renderedSvg.trim()) {
+    const detail = result.diagnostics.slice(-3).join(' | ');
+
+    throw new Error(detail ? `Unable to compile TikZ for publishing: ${detail}` : 'Unable to compile TikZ for publishing.');
+  }
+
+  const svg = result.renderedSvg.trim();
+
+  if (!/^<svg\b/i.test(svg) || !/<\/svg>$/i.test(svg)) {
+    throw new Error('TikZ renderer returned invalid SVG markup.');
+  }
+
+  return /<svg\b[^>]*\sxmlns\s*=/i.test(svg)
+    ? svg
+    : svg.replace(/^<svg\b/i, '<svg xmlns="http://www.w3.org/2000/svg"');
 }
 
 export default function TikzDisplay ({ alt, value }: Props): React.ReactElement {
