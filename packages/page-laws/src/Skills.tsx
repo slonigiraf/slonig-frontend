@@ -1306,7 +1306,9 @@ function Skills ({ book, onAction, onBookChange, onEntityCountsChange, pipelineO
           q: record.ability.q.map((exercise) => ({ ...exercise }))
         };
 
-        current.q[exerciseIndex] = { ...current.q[exerciseIndex], [field]: tikz };
+        const promptField = field === 'p' ? 'pPrompt' : 'iPrompt';
+
+        current.q[exerciseIndex] = { ...current.q[exerciseIndex], [field]: tikz, [promptField]: visualPrompt };
         updates.set(record.id, current);
         completed += 1;
         setProgress(completed);

@@ -7,6 +7,7 @@ import { Button, styled } from '@polkadot/react-components';
 interface Props {
   alt: string;
   onSave?: (value: string) => Promise<void>;
+  prompt?: string;
   value: string;
 }
 
@@ -30,7 +31,7 @@ function tikzDocument (value: string, alt: string): string {
   return `<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><link rel="stylesheet" href="https://tikzjax.com/v1/fonts.css"><style>html,body{margin:0;padding:0;background:transparent}body{display:flex;align-items:center;justify-content:center;min-height:160px;padding:12px;box-sizing:border-box}svg{max-width:100%;height:auto}</style><script src="https://tikzjax.com/v1/tikzjax.js"></script></head><body><script type="text/tikz" data-aria-label="${safeAlt}">${safeTikz}</script></body></html>`;
 }
 
-export default function TikzVisual ({ alt, onSave, value }: Props): React.ReactElement {
+export default function TikzVisual ({ alt, onSave, prompt, value }: Props): React.ReactElement {
   const [draft, setDraft] = useState(value);
   const [rendered, setRendered] = useState(value);
   const [isSaving, setIsSaving] = useState(false);
@@ -59,6 +60,10 @@ export default function TikzVisual ({ alt, onSave, value }: Props): React.ReactE
   }, [draft, onSave]);
 
   return <TikzEditor>
+    {prompt?.trim() && <PromptBlock>
+      <strong>{alt} visual prompt</strong>
+      <div>{prompt}</div>
+    </PromptBlock>}
     <strong>{alt} TikZ</strong>
     <textarea
       aria-label={`${alt} TikZ source`}
@@ -104,6 +109,18 @@ const TikzEditor = styled.div`
     min-height: 9rem;
     resize: vertical;
     width: 100%;
+  }
+`;
+
+const PromptBlock = styled.div`
+  background: rgba(127, 127, 127, 0.08);
+  border: 1px solid rgba(127, 127, 127, 0.22);
+  border-radius: 0.35rem;
+  padding: 0.65rem 0.75rem;
+
+  strong {
+    display: block;
+    margin-bottom: 0.25rem;
   }
 `;
 

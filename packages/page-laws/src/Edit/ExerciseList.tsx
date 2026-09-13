@@ -14,13 +14,15 @@ const isGeneratedAbilityVisual = (value: string): boolean => {
     return isLocalOrRemoteImageUrl(trimmed) || /^(?:Qm[1-9A-HJ-NP-Za-km-z]{44}|b[a-z2-7]{20,})$/i.test(trimmed);
 };
 
-const AbilityVisual: React.FC<{ alt: string; label: string; onSave?: (value: string) => Promise<void>; value: string }> = ({ alt, label, onSave, value }) => {
+type AbilityExerciseWithPrompts = Exercise & { iPrompt?: string; pPrompt?: string };
+
+const AbilityVisual: React.FC<{ alt: string; label: string; onSave?: (value: string) => Promise<void>; prompt?: string; value: string }> = ({ alt, label, onSave, prompt, value }) => {
     if (!value.trim()) {
         return null;
     }
 
     if (isTikzCode(value)) {
-        return <TikzVisual alt={alt} onSave={onSave} value={value} />;
+        return <TikzVisual alt={alt} onSave={onSave} prompt={prompt} value={value} />;
     }
 
     return isGeneratedAbilityVisual(value)
@@ -61,7 +63,7 @@ const ExerciseList: React.FC<ExerciseListProps> = ({ exercises, areShownInitiall
                 <div className="exercise-display">
                     <div className="exercise-header">
                         <span><KatexSpan content={exercise.h} /></span>
-                        {exercise.p && <ExerciseDetails>{location === 'ability_info' ? <AbilityVisual alt='Question' label='Question visual prompt' onSave={onAbilityVisualSave ? (value) => onAbilityVisualSave(0, 'p', value) : undefined} value={exercise.p} /> : <ExerciseImage alt='Question' value={exercise.p} />}</ExerciseDetails>}
+                        {exercise.p && <ExerciseDetails>{location === 'ability_info' ? <AbilityVisual alt='Question' label='Question visual prompt' onSave={onAbilityVisualSave ? (value) => onAbilityVisualSave(0, 'p', value) : undefined} prompt={(exercise as AbilityExerciseWithPrompts).pPrompt} value={exercise.p} /> : <ExerciseImage alt='Question' value={exercise.p} />}</ExerciseDetails>}
                     </div>
                 </div>
             </div>
@@ -77,7 +79,7 @@ const ExerciseList: React.FC<ExerciseListProps> = ({ exercises, areShownInitiall
                         <div className="exercise-display">
                             <div className="exercise-header">
                                 <span><KatexSpan content={` ${index + 1}. ` + exercise.h} /></span>
-                                {exercise.p && <ExerciseDetails>{location === 'ability_info' ? <AbilityVisual alt='Question' label='Question visual prompt' onSave={onAbilityVisualSave ? (value) => onAbilityVisualSave(index, 'p', value) : undefined} value={exercise.p} /> : <ExerciseImage alt='Question' value={exercise.p} />}</ExerciseDetails>}
+                                {exercise.p && <ExerciseDetails>{location === 'ability_info' ? <AbilityVisual alt='Question' label='Question visual prompt' onSave={onAbilityVisualSave ? (value) => onAbilityVisualSave(index, 'p', value) : undefined} prompt={(exercise as AbilityExerciseWithPrompts).pPrompt} value={exercise.p} /> : <ExerciseImage alt='Question' value={exercise.p} />}</ExerciseDetails>}
                             </div>
 
                             {location !== 'example_exercises' && <Answer>
@@ -91,7 +93,7 @@ const ExerciseList: React.FC<ExerciseListProps> = ({ exercises, areShownInitiall
                                 {areAnswersShown && (
                                     <>
                                         <KatexSpan content={exercise.a} />
-                                        {exercise.i && (location === 'ability_info' ? <AbilityVisual alt='Solution' label='Answer visual prompt' onSave={onAbilityVisualSave ? (value) => onAbilityVisualSave(index, 'i', value) : undefined} value={exercise.i} /> : <ExerciseImage alt='Solution' value={exercise.i} />)}
+                                        {exercise.i && (location === 'ability_info' ? <AbilityVisual alt='Solution' label='Answer visual prompt' onSave={onAbilityVisualSave ? (value) => onAbilityVisualSave(index, 'i', value) : undefined} prompt={(exercise as AbilityExerciseWithPrompts).iPrompt} value={exercise.i} /> : <ExerciseImage alt='Solution' value={exercise.i} />)}
                                     </>
                                 )}
                             </Answer>}

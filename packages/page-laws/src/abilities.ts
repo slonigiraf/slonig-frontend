@@ -4,7 +4,7 @@
 export interface GeneratedAbility {
   h: string;
   i: string;
-  q: Array<{ a: string; h: string; i: string; p: string }>;
+  q: Array<{ a: string; h: string; i: string; iPrompt?: string; p: string; pPrompt?: string }>;
   t: number;
 }
 
@@ -104,7 +104,14 @@ function parseAbilityValue (template: unknown): GeneratedAbility {
     q: template.q.map((exercise) => {
       const value = exercise as Record<string, unknown>;
 
-      return { a: String(value.a).trim(), h: String(value.h).trim(), i: String(value.i), p: String(value.p) };
+      return {
+        a: String(value.a).trim(),
+        h: String(value.h).trim(),
+        i: String(value.i),
+        ...(typeof value.iPrompt === 'string' ? { iPrompt: value.iPrompt } : {}),
+        p: String(value.p),
+        ...(typeof value.pPrompt === 'string' ? { pPrompt: value.pPrompt } : {})
+      };
     }),
     t: 3
   };
@@ -179,7 +186,7 @@ function abilitySignature (ability: GeneratedAbility): string {
   return JSON.stringify({
     h: ability.h,
     i: ability.i,
-    q: ability.q.map(({ a, h, i, p }) => ({ a, h, i, p })),
+    q: ability.q.map(({ a, h, i, iPrompt, p, pPrompt }) => ({ a, h, i, iPrompt, p, pPrompt })),
     t: ability.t
   });
 }
@@ -289,7 +296,9 @@ export function parseAbilityRepairResult (content: string, originals: Array<Gene
         q: parsedAbility.q.map((exercise, exerciseIndex) => ({
           ...exercise,
           i: original.q[exerciseIndex].i,
-          p: original.q[exerciseIndex].p
+          ...(original.q[exerciseIndex].iPrompt !== undefined ? { iPrompt: original.q[exerciseIndex].iPrompt } : {}),
+          p: original.q[exerciseIndex].p,
+          ...(original.q[exerciseIndex].pPrompt !== undefined ? { pPrompt: original.q[exerciseIndex].pPrompt } : {})
         }))
       };
 
