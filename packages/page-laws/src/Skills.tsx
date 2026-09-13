@@ -239,7 +239,7 @@ interface SkillSource {
   title: string;
 }
 
-type AiAction = 'exercises' | 'fix' | 'fixExercises' | 'fixImages' | 'skills' | 'splitExercises';
+type AiAction = 'exercises' | 'fix' | 'fixExercises' | 'fixImages' | 'images' | 'skills' | 'splitExercises';
 
 const abilityModuleId = (bookId: number, skillId: number): string => `book-${bookId}-skill-${skillId}`;
 const exerciseAbilityModuleId = (bookId: number, exerciseId: number): string => `book-${bookId}-exercise-${exerciseId}`;
@@ -820,6 +820,20 @@ function Skills ({ book, onAction, onBookChange, onEntityCountsChange, pipelineO
     onEntityCountsChange?.({ abilities: allAbilities.length, bookExercises: allBookExercises.length, exercises: allExercises.length });
   }, [allAbilities.length, allBookExercises.length, allExercises.length, onEntityCountsChange]);
   const exerciseTitlesByModuleId = useMemo(() => new Map(allExercises.flatMap(({ id, title }) => id === undefined ? [] : [[exerciseAbilityModuleId(book.id, id), title] as const])), [allExercises, book.id]);
+  const imageGenerationTargets = useMemo(() => allAbilities.flatMap((record) => record.ability
+    ? record.ability.q.flatMap((exercise, exerciseIndex) => (['p', 'i'] as const).flatMap((field) => {
+      const value = exercise[field].trim();
+
+      if (!value) {
+        return [];
+      }
+
+      const promptField = field === 'p' ? 'pPrompt' : 'iPrompt';
+      const visualPrompt = isTikzCode(value) ? exercise[promptField]?.trim() ?? '' : value;
+
+      return visualPrompt ? [{ exerciseIndex, field, record, visualPrompt }] : [];
+    }))
+    : []), [allAbilities]);
   const imageFixTargets = useMemo<ImageFixTarget[]>(() => allAbilities.flatMap((record) => record.ability
     ? record.ability.q.flatMap((exercise, exerciseIndex) => (['p', 'i'] as const).flatMap((field) => {
       const value = exercise[field].trim();
@@ -885,6 +899,12 @@ function Skills ({ book, onAction, onBookChange, onEntityCountsChange, pipelineO
       return chapterContent.filter(({ abilities }) => abilities.length > 0).map(({ abilities, chapter }) => FIX_ABILITIES_REQUEST_PROMPT(abilityRepairInput(language, abilities, chapter.title)));
     }
 
+    if (aiAction === 'images') {
+      return imageGenerationTargets.flatMap(({ exerciseIndex, field, record, visualPrompt }) => record.ability
+        ? [tikzRequestPrompt(language, record.ability, exerciseIndex, field, visualPrompt)]
+        : []);
+    }
+
     if (aiAction === 'fixImages') {
       const pendingPreRender: TikzPreRenderResult = { compiled: true, diagnostics: [], renderedSvg: '', texInput: '' };
 
@@ -892,10 +912,10 @@ function Skills ({ book, onAction, onBookChange, onEntityCountsChange, pipelineO
     }
 
     return [];
-  }, [aiAction, chapterContent, imageFixTargets, language, skillSources]);
+  }, [aiAction, chapterContent, imageFixTargets, imageGenerationTargets, language, skillSources]);
   const maxChapterAbilityCount = Math.max(1, ...chapterContent.map(({ abilities }) => abilities.length));
   const maxChapterExerciseCount = Math.max(1, ...chapterContent.map(({ exercises }) => exercises.length));
-  const generationOutputTokens = aiAction === 'exercises' ? 3_200 : aiAction === 'splitExercises' ? 1_800 : aiAction === 'fixExercises' ? maxChapterExerciseCount * 550 : aiAction === 'fix' ? maxChapterAbilityCount * 700 : aiAction === 'fixImages' ? 2_600 : aiAction === 'skills' ? BATCH_SIZE * 180 : 300;
+  const generationOutputTokens = aiAction === 'exercises' ? 3_200 : aiAction === 'splitExercises' ? 1_800 : aiAction === 'fixExercises' ? maxChapterExerciseCount * 550 : aiAction === 'fix' ? maxChapterAbilityCount * 700 : aiAction === 'images' ? 2_400 : aiAction === 'fixImages' ? 2_600 : aiAction === 'skills' ? BATCH_SIZE * 180 : 300;
   const validationInputs = useMemo(() => aiAction === 'exercises'
     // The live workflow now has two bounded semantic calls per source:
     // atomic planning, then final materialization (including visual specs).
@@ -1562,28 +1582,24 @@ function Skills ({ book, onAction, onBookChange, onEntityCountsChange, pipelineO
     setAiAction('fix');
   }, []);
 
-  const completeImagesStage = useCallback((): void => {
-    const work = allAbilities.flatMap((record) => record.ability
-      ? record.ability.q.flatMap((exercise, exerciseIndex) => (['p', 'i'] as const).flatMap((field) => {
-        const value = exercise[field].trim();
+  const openImages = useCallback((): void => {
+    setAiAction('images');
+  }, []);
+  const completeImagesStage = useCallback(async (): Promise<void> => {
+    beginProgress('Converting visual prompts to TikZ', imageGenerationTargets.length);
 
-        return value && !isTikzCode(value) ? [{ exerciseIndex, field, record, visualPrompt: value }] : [];
-      }))
-      : []);
+    try {
+      if (!imageGenerationTargets.length) {
+        await setStage(IMAGES_STAGE);
+        setNotice('Images complete. There were no visual prompts requiring TikZ conversion or regeneration.');
+        return;
+      }
 
-    if (!work.length) {
-      setStage(IMAGES_STAGE).then(() => {
-        setNotice('Images complete. There were no visual prompts requiring TikZ conversion.');
-      }).catch((caught) => setError(caught instanceof Error ? caught.message : 'Unable to complete Images stage.'));
-      return;
-    }
-
-    beginProgress('Converting visual prompts to TikZ', work.length);
-    createClient().then(async (client) => {
+      const client = await createClient();
       const updates = new Map<string, GeneratedAbility>();
       let completed = 0;
 
-      await mapConcurrent(work, OPENROUTER_CONCURRENCY, async ({ exerciseIndex, field, record, visualPrompt }) => {
+      await mapConcurrent(imageGenerationTargets, OPENROUTER_CONCURRENCY, async ({ exerciseIndex, field, record, visualPrompt }) => {
         if (!record.ability) {
           return;
         }
@@ -1626,13 +1642,15 @@ function Skills ({ book, onAction, onBookChange, onEntityCountsChange, pipelineO
       }
 
       await setStage(IMAGES_STAGE);
-      setNotice(`Images complete: converted ${work.length} visual prompt${work.length === 1 ? '' : 's'} to TikZ.`);
+      setNotice(`Images complete: converted ${imageGenerationTargets.length} visual prompt${imageGenerationTargets.length === 1 ? '' : 's'} to TikZ.`);
       refresh();
       onAction?.('preExercisesExercises');
-    }).catch((caught) => {
+    } catch (caught) {
       setError(caught instanceof Error ? caught.message : 'Unable to convert Ability visuals to TikZ.');
-    }).finally(() => setIsBusy(false));
-  }, [addOpenRouterCost, allAbilities, beginProgress, createClient, language, onAction, refresh, selectedModel, setStage]);
+    } finally {
+      setIsBusy(false);
+    }
+  }, [addOpenRouterCost, allAbilities, beginProgress, createClient, imageGenerationTargets, language, onAction, refresh, selectedModel, setStage]);
   const fixImages = useCallback(async (): Promise<void> => {
     beginProgress('Reviewing TikZ visuals', imageFixTargets.length);
 
@@ -1845,10 +1863,14 @@ function Skills ({ book, onAction, onBookChange, onEntityCountsChange, pipelineO
       fixAbilities().catch(console.error);
     }
 
+    if (aiAction === 'images') {
+      completeImagesStage().catch(console.error);
+    }
+
     if (aiAction === 'fixImages') {
       fixImages().catch(console.error);
     }
-  }, [aiAction, fixAbilities, fixExercises, fixImages, generateExercises, generateSkills, onAction, splitExercises]);
+  }, [aiAction, completeImagesStage, fixAbilities, fixExercises, fixImages, generateExercises, generateSkills, onAction, splitExercises]);
   const closeConfirmation = useCallback((): void => setAiAction(undefined), []);
 
   return <StyledSkills className={pipelineOnly ? 'pipelineOnly' : undefined}>
@@ -2125,7 +2147,7 @@ function Skills ({ book, onAction, onBookChange, onEntityCountsChange, pipelineO
         icon={iconForStage(IMAGES_STAGE)}
         isDisabled={isBusy || stage < FIX_ABILITIES_STAGE || !hasAbilities}
         label='Images'
-        onClick={completeImagesStage}
+        onClick={openImages}
                                                    /></span>
       <span className='pipelineStep'><span>›</span><Button
         icon={iconForStage(FIX_IMAGES_STAGE)}
