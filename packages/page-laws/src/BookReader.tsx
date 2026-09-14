@@ -354,6 +354,7 @@ interface ExerciseChapterNavigationItem {
 const exerciseAbilityModuleId = (bookId: number, exerciseId: number): string => `book-${bookId}-exercise-${exerciseId}`;
 
 const readerPaneSessionKey = (bookId: number): string => `knowledge-upload-book-${bookId}-pane`;
+const readerMaximizedSessionKey = (bookId: number): string => `knowledge-upload-book-${bookId}-maximized`;
 const exerciseChapterSessionKey = (bookId: number): string => `knowledge-upload-book-${bookId}-exercises-chapter`;
 
 function getSessionExerciseChapter (bookId: number): number {
@@ -363,6 +364,14 @@ function getSessionExerciseChapter (bookId: number): number {
     return Number.isSafeInteger(stored) && stored >= 0 ? stored : 0;
   } catch {
     return 0;
+  }
+}
+
+function getSessionReaderMaximized (bookId: number): boolean {
+  try {
+    return sessionStorage.getItem(readerMaximizedSessionKey(bookId)) === 'true';
+  } catch {
+    return false;
   }
 }
 
@@ -397,7 +406,7 @@ function BookReader ({ book, file, generateAllConceptsModel, generateAllConcepts
   const [isIdentifyingChapters, setIsIdentifyingChapters] = useState(false);
   const [isDetectingBookLanguage, setIsDetectingBookLanguage] = useState(false);
   const [isGeneratingAllConcepts, setIsGeneratingAllConcepts] = useState(false);
-  const [isMaximized, setIsMaximized] = useState(false);
+  const [isMaximized, setIsMaximized] = useState(() => getSessionReaderMaximized(book.id));
   const [isMathpixKeyPromptOpen, setIsMathpixKeyPromptOpen] = useState(false);
   const [isPageGenerationConfirmationOpen, setIsPageGenerationConfirmationOpen] = useState(false);
   const [isGeneratingAllExercises, setIsGeneratingAllExercises] = useState(false);
@@ -517,6 +526,14 @@ function BookReader ({ book, file, generateAllConceptsModel, generateAllConcepts
       // Session storage may be unavailable in privacy-restricted contexts.
     }
   }, [activePane, book.id]);
+
+  useEffect(() => {
+    try {
+      sessionStorage.setItem(readerMaximizedSessionKey(book.id), String(isMaximized));
+    } catch {
+      // Session storage may be unavailable in privacy-restricted contexts.
+    }
+  }, [book.id, isMaximized]);
 
   useEffect(() => {
     const recognitionIsComplete = totalPages > 0 && Array.from(
