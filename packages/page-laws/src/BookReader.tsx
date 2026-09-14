@@ -379,18 +379,18 @@ function getSessionReaderPane (bookId: number): ReaderPane {
   try {
     const value = sessionStorage.getItem(readerPaneSessionKey(bookId));
 
-    if (value === 'pdfText') {
-      return 'pdf';
+    if (value === 'pdfText' || value === 'pdf') {
+      return 'text';
     }
 
-    return value === 'pdf' || value === 'text' || value === 'language' || value === 'chapters' || value === 'textConcepts' || value === 'conceptExercises' || value === 'preExercisesExercises' || value === 'skillsCourse' ? value : 'pdf';
+    return value === 'text' || value === 'language' || value === 'chapters' || value === 'textConcepts' || value === 'conceptExercises' || value === 'preExercisesExercises' || value === 'skillsCourse' ? value : 'text';
   } catch {
-    return 'pdf';
+    return 'text';
   }
 }
 
 function BookReader ({ book, file, generateAllConceptsModel, generateAllConceptsRequest, identifyChaptersRequest, languageTabRequest, onBookChange, onProcessingComplete, pendingProcessingAction, processingToolbar, recognizeAllRequest, generateAllExercisesRequest }: Props): React.ReactElement {
-  const [activePane, setActivePane] = useState<ReaderPane>(() => (book.processingStage ?? 0) < 1 ? 'pdf' : getSessionReaderPane(book.id));
+  const [activePane, setActivePane] = useState<ReaderPane>(() => (book.processingStage ?? 0) < 1 ? 'text' : getSessionReaderPane(book.id));
   const [chapters, setChapters] = useState<BookChapter[]>([]);
   const [chapterTitleDraft, setChapterTitleDraft] = useState('');
   const [newChapterTitle, setNewChapterTitle] = useState('');
@@ -437,6 +437,7 @@ function BookReader ({ book, file, generateAllConceptsModel, generateAllConcepts
     void addBookStageSpend(book.id, stage, costUsd).catch(console.error);
   }, [book.id]);
   const addRecognizeCost = useCallback((costUsd: number): void => addStageCost('recognize', costUsd), [addStageCost]);
+  const addLanguageCost = useCallback((costUsd: number): void => addStageCost('language', costUsd), [addStageCost]);
   const addChaptersCost = useCallback((costUsd: number): void => addStageCost('chapters', costUsd), [addStageCost]);
   const addConceptsCost = useCallback((costUsd: number): void => addStageCost('concepts', costUsd), [addStageCost]);
   const addExercisesCost = useCallback((costUsd: number): void => addStageCost('exercises', costUsd), [addStageCost]);
@@ -541,11 +542,11 @@ function BookReader ({ book, file, generateAllConceptsModel, generateAllConcepts
       (_, index) => pages.get(index + 1)?.pageMMD !== undefined
     ).every(Boolean);
 
-    // While the persisted processingStage update is propagating after
-    // recognition, do not let the initial-stage guard overwrite the Text tab
-    // that recognition completion selected.
-    if ((book.processingStage ?? 0) < 1 && !recognitionIsComplete && activePane !== 'pdf') {
-      setActivePane('pdf');
+    // Keep the combined PDF/Text pane available from the initial stage so
+    // recognition can be watched with the source PDF on the left and OCR text
+    // on the right.
+    if ((book.processingStage ?? 0) < 1 && !recognitionIsComplete && activePane !== 'text') {
+      setActivePane('text');
     }
   }, [activePane, book.processingStage, pages, totalPages]);
 
@@ -555,7 +556,7 @@ function BookReader ({ book, file, generateAllConceptsModel, generateAllConcepts
     }
 
     if (pendingProcessingAction === 'recognize') {
-      setActivePane('pdf');
+      setActivePane('text');
     } else if (pendingProcessingAction === 'chapters') {
       setActivePane('chapters');
     } else if (pendingProcessingAction === 'concepts' || pendingProcessingAction === 'exercises') {
@@ -1265,9 +1266,7 @@ function BookReader ({ book, file, generateAllConceptsModel, generateAllConcepts
         response_format: { type: 'json_object' }
       }));
 
-      // The database currently has no separate language spend bucket, so keep
-      // this small OpenRouter cost in the existing recognize bucket.
-      reportOpenRouterCost(response, addRecognizeCost);
+      reportOpenRouterCost(response, addLanguageCost);
 
       const language = parseDetectedBookLanguage(response.choices[0].message?.content?.trim() ?? '');
       const languageChanged = normalizeLanguageCode(book.language) !== language;
@@ -1280,7 +1279,7 @@ function BookReader ({ book, file, generateAllConceptsModel, generateAllConcepts
       isDetectingBookLanguageRef.current = false;
       setIsDetectingBookLanguage(false);
     }
-  }, [addRecognizeCost, book, onBookChange, selectedModel, totalPages]);
+  }, [addLanguageCost, book, onBookChange, selectedModel, totalPages]);
 
   const saveManualBookLanguage = useCallback(async (languageValue: string): Promise<void> => {
     const language = normalizeLanguageCode(languageValue);
@@ -1567,7 +1566,7 @@ function BookReader ({ book, file, generateAllConceptsModel, generateAllConcepts
     }
 
     handledRecognizeAllRequestRef.current = recognizeAllRequest;
-    setActivePane('pdf');
+    setActivePane('text');
     recognizeAllPages().catch((recognitionError) => {
       setError(recognitionError instanceof Error ? recognitionError.message : 'Unable to recognize all pages.');
       onProcessingComplete();
@@ -1909,8 +1908,7 @@ function BookReader ({ book, file, generateAllConceptsModel, generateAllConcepts
         role='tablist'
       >
         {([
-          ['pdf', 'PDF', 0, undefined],
-          ['text', 'Text', 1, undefined],
+          ['text', 'PDF/Text', 0, undefined],
           ['language', 'Language', 1, undefined],
           ['chapters', 'Chapters', 1, chapters.length],
           ['textConcepts', 'Concepts', 3, entityCounts.concepts],

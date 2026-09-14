@@ -19,8 +19,9 @@ const BookReader = React.lazy(() => import('./BookReader.js'));
 
 const BOOKS_DIRECTORY = 'books';
 const SELECTED_BOOK_SESSION_KEY = 'knowledge-upload-selected-book';
-const PRICE_STAGES: Array<{ key: BookStageSpendKey; label: string }> = [
-  { key: 'recognize', label: 'Recognize' },
+const PRICE_STAGES: Array<{ detail?: string; key: BookStageSpendKey; label: string }> = [
+  { detail: `Mathpix v3/pdf · $${MATHPIX_PDF_PAGE_PRICE_USD.toFixed(3)}/page`, key: 'recognize', label: 'Recognize' },
+  { key: 'language', label: 'Language' },
   { key: 'chapters', label: 'Chapters' },
   { key: 'concepts', label: 'Concepts' },
   { key: 'exercises', label: 'Exercises' },
@@ -551,8 +552,8 @@ function Upload (): React.ReactElement {
           <p>{t('Cumulative spending for this book, including reruns.')}</p>
           <table className='priceTable'>
             <tbody>
-              {PRICE_STAGES.map(({ key, label }) => <tr key={key}>
-                <th>{t(label)}</th>
+              {PRICE_STAGES.map(({ detail, key, label }) => <tr key={key}>
+                <th>{t(label)}{detail && <small className='priceSource'>{detail}</small>}</th>
                 <td>{formatOpenRouterSpend(priceBook?.stageSpend?.[key] ?? 0)}</td>
               </tr>)}
             </tbody>
@@ -844,6 +845,13 @@ const StyledSection = styled.section`
   .priceTable th {
     font-weight: 500;
     text-align: left;
+  }
+
+  .priceSource {
+    display: block;
+    font-size: 0.78rem;
+    font-weight: 400;
+    opacity: 0.7;
   }
 
   .priceTable td {
