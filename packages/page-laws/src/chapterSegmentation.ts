@@ -55,37 +55,79 @@ export interface ChapterBoundaryProposal {
 
 export interface ChapterPageEvidence {
   excerpt: string;
-  headings: Array<{ confidence?: number; line?: number; source: 'mathpix' | 'mmd'; text: string; type: 'section_header' | 'title' }>;
+  headings: Array<{ confidence?: number; line?: number; signal?: 'section-sign' | 'uppercase-caption'; source: 'mathpix' | 'mmd'; text: string; type: 'section_header' | 'title' }>;
   pageNumber: number;
 }
 
 const cleanHeading = (value: string): string => value.replace(/\s+/g, ' ').replace(/^#+\s*/, '').trim();
 
+function isUppercaseCaption (value: string): boolean {
+  const cleaned = cleanHeading(value);
+
+  if (!cleaned || cleaned.length > 140 || cleaned.split(/\s+/).length > 16 || /^(?:!\[|[-*_`>|]|\\)/.test(cleaned)) {
+    return false;
+  }
+
+  const letters = [...cleaned].filter((character) => character.toLocaleLowerCase() !== character.toLocaleUpperCase());
+
+  return letters.length >= 3 && letters.every((character) => character === character.toLocaleUpperCase());
+}
+
 export function extractMmdHeadings (mmd: string): ChapterPageEvidence['headings'] {
   const result: ChapterPageEvidence['headings'] = [];
   const seen = new Set<string>();
-  const add = (text: string, type: 'section_header' | 'title'): void => {
+  const add = (text: string, type: 'section_header' | 'title', signal?: 'section-sign' | 'uppercase-caption'): void => {
     const cleaned = cleanHeading(text);
     const key = `${type}:${cleaned.toLocaleLowerCase()}`;
 
     if (cleaned && !seen.has(key)) {
       seen.add(key);
-      result.push({ source: 'mmd', text: cleaned, type });
+      result.push({ ...(signal === undefined ? {} : { signal }), source: 'mmd', text: cleaned, type });
     }
   };
 
+  let sectionSignPending = false;
+
   for (const line of mmd.split(/\r?\n/)) {
+    const trimmed = line.trim();
+
+    if (/^§+\s*$/.test(trimmed)) {
+      sectionSignPending = true;
+      continue;
+    }
+
+    const sectionSign = /^§+\s*(.+?)\s*$/.exec(trimmed);
+
+    if (sectionSign) {
+      add(sectionSign[1], 'section_header', 'section-sign');
+      sectionSignPending = false;
+      continue;
+    }
+
     const markdown = /^(#{1,3})\s+(.+?)\s*$/.exec(line);
 
     if (markdown) {
       add(markdown[2], markdown[1].length === 1 ? 'title' : 'section_header');
+      sectionSignPending = false;
       continue;
     }
 
-    const latex = /^\\(chapter|section|subsection)\*?\{(.+?)\}\s*$/.exec(line.trim());
+    const latex = /^\\(chapter|section|subsection)\*?\{(.+?)\}\s*$/.exec(trimmed);
 
     if (latex) {
       add(latex[2], latex[1] === 'chapter' ? 'title' : 'section_header');
+      sectionSignPending = false;
+      continue;
+    }
+
+    if (sectionSignPending && trimmed) {
+      add(trimmed, 'section_header', 'section-sign');
+      sectionSignPending = false;
+      continue;
+    }
+
+    if (isUppercaseCaption(trimmed)) {
+      add(trimmed, 'section_header', 'uppercase-caption');
     }
   }
 
@@ -409,10 +451,10 @@ export function chapterEvidenceWindows (pages: BookPage[], windowSize = 36, over
 }
 
 export function chapterWindowPrompt (evidence: ChapterPageEvidence[]): string {
-  return `Identify only TOP-LEVEL chapter boundaries in this consecutive run of book pages. Mathpix structural labels are supplied when available: title is strong evidence for a major heading; section_header may be a chapter or a subsection and must NOT create a boundary unless the surrounding numbering/text clearly shows that it is top-level. IMPORTANT numbering rule: a first section such as "3.1 ..." is strong evidence that chapter 3 has begun on that page or on a nearby immediately preceding title page. Track the major number across pages (1.x, 2.x, 3.x, ...); do not silently skip a chapter when numbering advances. A split heading such as "CHAPTER" + "3" + "One-Variable Linear Equations" on one page is a single chapter heading. If numbered anchors jump from chapter 3 to chapter 5, inspect the pages between them for a standalone major heading that plausibly starts chapter 4. Ignore table-of-contents listings, running headers, footers, exercise headings, examples, lessons, subsections and repeated chapter names in body text. A chapter continues until there is strong evidence for another top-level chapter. Return only boundaries that START inside the supplied page range. Keep titles in the book's original language. confidence must be 0..1. Return JSON only: {"chapters":[{"startPage":12,"title":"Chapter 2: Fractions","confidence":0.94}]}.
+  return `Identify only TOP-LEVEL chapter boundaries in this consecutive run of book pages. Mathpix structural labels are supplied when available: title is strong evidence for a major heading; section_header may be a chapter or a subsection and must NOT create a boundary unless the surrounding numbering/text clearly shows that it is top-level. MMD headings tagged signal=section-sign come from a "§" marker, and signal=uppercase-caption comes from a standalone all-uppercase caption. Treat either signal as a useful clue to the chapter NAME when it appears in chapter-level context, but not as sufficient evidence by itself to create a boundary. IMPORTANT numbering rule: a first section such as "3.1 ..." is strong evidence that chapter 3 has begun on that page or on a nearby immediately preceding title page. Track the major number across pages (1.x, 2.x, 3.x, ...); do not silently skip a chapter when numbering advances. A split heading such as "CHAPTER" + "3" + "One-Variable Linear Equations" on one page is a single chapter heading. If numbered anchors jump from chapter 3 to chapter 5, inspect the pages between them for a standalone major heading that plausibly starts chapter 4. Ignore table-of-contents listings, running headers, footers, exercise headings, examples, lessons, subsections and repeated chapter names in body text. A chapter continues until there is strong evidence for another top-level chapter. Return only boundaries that START inside the supplied page range. Keep titles in the book's original language. confidence must be 0..1. Return JSON only: {"chapters":[{"startPage":12,"title":"Chapter 2: Fractions","confidence":0.94}]}.
 
 Pages:
-${evidence.map(({ excerpt, headings, pageNumber }) => `--- page ${pageNumber} ---\nMathpix/MMD headings: ${headings.length ? headings.map(({ confidence, source, text, type }) => `[${source}:${type}${confidence === undefined ? '' : ` confidence=${confidence.toFixed(2)}`}] ${text}`).join(' | ') : '(none)'}\nOpening text: ${excerpt || '(no text)'}`).join('\n\n')}`;
+${evidence.map(({ excerpt, headings, pageNumber }) => `--- page ${pageNumber} ---\nMathpix/MMD headings: ${headings.length ? headings.map(({ confidence, signal, source, text, type }) => `[${source}:${type}${signal === undefined ? '' : ` signal=${signal}`}${confidence === undefined ? '' : ` confidence=${confidence.toFixed(2)}`}] ${text}`).join(' | ') : '(none)'}\nOpening text: ${excerpt || '(no text)'}`).join('\n\n')}`;
 }
 
 export function chapterReconciliationPrompt (proposals: ChapterBoundaryProposal[], evidence: ChapterPageEvidence[], totalPages: number, structural: ChapterBoundaryProposal[] = []): string {
@@ -426,7 +468,7 @@ export function chapterReconciliationPrompt (proposals: ChapterBoundaryProposal[
   evidence.filter(({ headings }) => headings.some(({ type }) => type === 'title')).forEach(({ pageNumber }) => relevantPages.add(pageNumber));
   const context = evidence.filter(({ pageNumber }) => relevantPages.has(pageNumber));
 
-  return `Reconcile candidate chapter boundaries for one ${totalPages}-page book into a single stable chapter segmentation. Return TOP-LEVEL chapters only. Remove duplicate/overlapping candidates from window overlap. Do not promote sections, subsections, lessons, exercises, examples, running headers, or table-of-contents rows to chapters. Mathpix title labels are strong structural evidence, while section_header labels require chapter-level context. Use section-number continuity as a cross-check: first sections like 1.1, 2.1, 3.1 strongly anchor their corresponding chapters, even when the chapter title is on the preceding page. Split headings such as "CHAPTER" + number + title are one chapter heading. Do not drop a structurally anchored chapter merely because one window missed it. If chapter numbers jump (for example 3 -> 5), inspect intervening standalone major headings for the missing chapter. Deterministic structural candidates below are conservative and should be preserved unless the supplied page evidence directly contradicts them. Preserve the best original-language chapter title. The result must be sorted by startPage and each startPage must be unique and between 1 and ${totalPages}. It is valid for the first real chapter to start after page 1; do not invent an Introduction chapter. Return JSON only: {"chapters":[{"startPage":12,"title":"Chapter 2: Fractions","confidence":0.96}]}.
+  return `Reconcile candidate chapter boundaries for one ${totalPages}-page book into a single stable chapter segmentation. Return TOP-LEVEL chapters only. Remove duplicate/overlapping candidates from window overlap. Do not promote sections, subsections, lessons, exercises, examples, running headers, or table-of-contents rows to chapters. Mathpix title labels are strong structural evidence, while section_header labels require chapter-level context. MMD signal=section-sign (from "§") and signal=uppercase-caption are useful clues for choosing the chapter NAME when supported by chapter-level context; neither signal alone proves a new chapter boundary. Use section-number continuity as a cross-check: first sections like 1.1, 2.1, 3.1 strongly anchor their corresponding chapters, even when the chapter title is on the preceding page. Split headings such as "CHAPTER" + number + title are one chapter heading. Do not drop a structurally anchored chapter merely because one window missed it. If chapter numbers jump (for example 3 -> 5), inspect intervening standalone major headings for the missing chapter. Deterministic structural candidates below are conservative and should be preserved unless the supplied page evidence directly contradicts them. Preserve the best original-language chapter title. The result must be sorted by startPage and each startPage must be unique and between 1 and ${totalPages}. It is valid for the first real chapter to start after page 1; do not invent an Introduction chapter. Return JSON only: {"chapters":[{"startPage":12,"title":"Chapter 2: Fractions","confidence":0.96}]}.
 
 Candidate boundaries:
 ${JSON.stringify(proposals)}
@@ -435,7 +477,7 @@ Deterministic structural candidates:
 ${JSON.stringify(structural)}
 
 Structural context near candidates:
-${context.map(({ excerpt, headings, pageNumber }) => `--- page ${pageNumber} ---\nHeadings: ${headings.map(({ confidence, source, text, type }) => `[${source}:${type}${confidence === undefined ? '' : ` confidence=${confidence.toFixed(2)}`}] ${text}`).join(' | ') || '(none)'}\nOpening: ${excerpt || '(no text)'}`).join('\n\n')}`;
+${context.map(({ excerpt, headings, pageNumber }) => `--- page ${pageNumber} ---\nHeadings: ${headings.map(({ confidence, signal, source, text, type }) => `[${source}:${type}${signal === undefined ? '' : ` signal=${signal}`}${confidence === undefined ? '' : ` confidence=${confidence.toFixed(2)}`}] ${text}`).join(' | ') || '(none)'}\nOpening: ${excerpt || '(no text)'}`).join('\n\n')}`;
 }
 
 export function parseChapterBoundaries (content: string, totalPages: number): ChapterBoundaryProposal[] {

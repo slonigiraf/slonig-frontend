@@ -4,7 +4,7 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 
-import { chapterAssignmentsFromBoundaries, chapterEvidenceWindows, deriveStructuralChapterCandidates, extractMathpixHeadingsFromLines, extractMmdHeadings, parseChapterBoundaries, stabilizeChapterBoundaries, type ChapterPageEvidence } from './chapterSegmentation.js';
+import { chapterAssignmentsFromBoundaries, chapterEvidenceWindows, chapterWindowPrompt, deriveStructuralChapterCandidates, extractMathpixHeadingsFromLines, extractMmdHeadings, parseChapterBoundaries, stabilizeChapterBoundaries, type ChapterPageEvidence } from './chapterSegmentation.js';
 
 describe('chapter segmentation', (): void => {
   it('keeps only usable Mathpix title and section-header line evidence', (): void => {
@@ -24,6 +24,31 @@ describe('chapter segmentation', (): void => {
       { source: 'mmd', text: 'Chapter 2', type: 'title' },
       { source: 'mmd', text: '2.1 Fractions', type: 'section_header' },
       { source: 'mmd', text: 'Another section', type: 'section_header' }
+    ]);
+  });
+
+  it('surfaces section-sign and uppercase-caption chapter-name signals from MMD', (): void => {
+    assert.deepEqual(extractMmdHeadings('§ Foundations\nALGEBRAIC STRUCTURES\nMixed case body text\n§\nLINEAR EQUATIONS'), [
+      { signal: 'section-sign', source: 'mmd', text: 'Foundations', type: 'section_header' },
+      { signal: 'uppercase-caption', source: 'mmd', text: 'ALGEBRAIC STRUCTURES', type: 'section_header' },
+      { signal: 'section-sign', source: 'mmd', text: 'LINEAR EQUATIONS', type: 'section_header' }
+    ]);
+
+    const prompt = chapterWindowPrompt([{ excerpt: '', headings: extractMmdHeadings('§ Foundations\nALGEBRAIC STRUCTURES'), pageNumber: 7 }]);
+
+    assert.match(prompt, /signal=section-sign/);
+    assert.match(prompt, /signal=uppercase-caption/);
+    assert.match(prompt, /useful clue to the chapter NAME/);
+  });
+
+  it('uses a section-sign caption as the chapter name beside a numbered section anchor', (): void => {
+    const evidence: ChapterPageEvidence[] = [
+      { excerpt: '', headings: extractMmdHeadings('§ FOUNDATIONS'), pageNumber: 4 },
+      { excerpt: '', headings: [{ confidence: 1, source: 'mathpix', text: '1.1 Numbers', type: 'section_header' }], pageNumber: 5 }
+    ];
+
+    assert.deepEqual(deriveStructuralChapterCandidates(evidence), [
+      { confidence: 0.97, startPage: 4, title: 'FOUNDATIONS' }
     ]);
   });
 
