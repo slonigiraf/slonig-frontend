@@ -1367,8 +1367,9 @@ function BookReader ({ book, file, generateAllConceptsModel, generateAllConcepts
       setPages(updatedPages);
       if (totalPages && Array.from({ length: totalPages }, (_, index) => updatedPages.get(index + 1)).every((page) => page?.pageMMD !== undefined)) {
         await advanceStage(1);
-        setActivePane('text');
       }
+
+      setActivePane('text');
     } catch (recognitionError) {
       setError(recognitionError instanceof Error ? recognitionError.message : 'Unable to recognize this page.');
     } finally {
@@ -1400,6 +1401,7 @@ function BookReader ({ book, file, generateAllConceptsModel, generateAllConcepts
 
     const recognitionTasks: Array<Promise<void>> = [];
     const recognizedPages = new Map(pages);
+    let recognitionCompleted = false;
 
     try {
       for (let currentPageNumber = 1; currentPageNumber <= totalPages; currentPageNumber++) {
@@ -1438,7 +1440,7 @@ function BookReader ({ book, file, generateAllConceptsModel, generateAllConcepts
         setError(`${failedPages} of ${totalPages} pages could not be recognized.`);
       } else {
         await advanceStage(1);
-        setActivePane('text');
+        recognitionCompleted = true;
       }
 
     } catch (recognitionError) {
@@ -1446,6 +1448,10 @@ function BookReader ({ book, file, generateAllConceptsModel, generateAllConcepts
     } finally {
       setIsRecognizingAll(false);
       onProcessingComplete();
+
+      if (recognitionCompleted) {
+        setActivePane('text');
+      }
     }
   }, [addRecognizeCost, advanceStage, book.id, file, isGeneratingAllConcepts, isIdentifyingChapters, isRecognizingAll, onProcessingComplete, pages, processingPage, totalPages]);
 
@@ -1724,7 +1730,7 @@ function BookReader ({ book, file, generateAllConceptsModel, generateAllConcepts
         </section>
         <section className='chapterList'>
           <h4>Book chapters</h4>
-          <ol>{chapters.map((chapter) => {
+          <ol start={chapters[0]?.title.trim().toLocaleLowerCase().replace(/[\s-]+/g, '') === 'frontmatter' ? 0 : 1}>{chapters.map((chapter) => {
             const chapterPages = chapter.id === undefined ? [] : Array.from(pages.values()).filter(({ chapterId }) => chapterId === chapter.id).map(({ pageNumber }) => pageNumber).sort((a, b) => a - b);
             const first = chapterPages[0];
             const last = chapterPages[chapterPages.length - 1];
