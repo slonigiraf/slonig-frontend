@@ -27,8 +27,7 @@ import { parseNameSuggestions } from './courseNames.js';
 import KnowledgeTargetSelector from './KnowledgeTargetSelector.js';
 import { parseStoredAbility } from './abilities.js';
 import { randomIdHex } from './util.js';
-import { isTikzCode } from './Edit/TikzVisual.js';
-import { renderTikzToSvg } from './Edit/TikzDisplay.js';
+import { isTikzCode } from './Edit/tikz.js';
 
 interface TemplateRow {
   moduleId: string;
@@ -416,6 +415,7 @@ function SkillsCourse ({ book }: { book: Book }): React.ReactElement {
     skillId,
     async (value) => {
       if (isTikzCode(value)) {
+        const { renderTikzToSvg } = await import('./Edit/TikzDisplay.js');
         const svg = await renderTikzToSvg(value);
         const bytes = new TextEncoder().encode(svg);
 

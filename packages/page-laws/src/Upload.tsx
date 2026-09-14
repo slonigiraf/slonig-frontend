@@ -5,16 +5,17 @@ import type { Book, BookStageSpendKey } from '@slonigiraf/db';
 import type { PDFDocumentProxy } from 'pdfjs-dist';
 
 import { createBook, deleteBook, getBook, getBookByContentHash, getBookConceptsForBookPage, getBookPages, getBooks, putBook, updateBookProcessingStage } from '@slonigiraf/db';
-import { getDocument } from 'pdfjs-dist';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { Button, Dropdown, Modal, styled } from '@polkadot/react-components';
 
 import { estimateAiInput, formatAiInputEstimate } from './aiEstimate.js';
-import { MATHPIX_PDF_PAGE_PRICE_USD } from './constants.js';
+import { MATHPIX_PDF_PAGE_PRICE_USD, OPENAI_MODELS } from './constants.js';
 import { formatOpenRouterSpend } from './openRouterCost.js';
-import BookReader, { OPENAI_MODELS } from './BookReader.js';
+import { loadPdfJs } from './pdf.js';
 import { useTranslation } from './translate.js';
+
+const BookReader = React.lazy(() => import('./BookReader.js'));
 
 const BOOKS_DIRECTORY = 'books';
 const SELECTED_BOOK_SESSION_KEY = 'knowledge-upload-selected-book';
@@ -268,6 +269,7 @@ function Upload (): React.ReactElement {
     let document: PDFDocumentProxy | undefined;
 
     const calculate = async (): Promise<void> => {
+      const { getDocument } = await loadPdfJs();
       const task = getDocument({ data: new Uint8Array(await readerFile.arrayBuffer()) });
 
       document = await task.promise;
@@ -613,15 +615,16 @@ function Upload (): React.ReactElement {
         >{error}</p>
       )}
       {selectedBook && readerFile && (
-        <BookReader
-          book={selectedBook}
-          file={readerFile}
-          generateAllConceptsModel={generateAllConceptsModel}
-          generateAllConceptsRequest={generateAllConceptsRequest}
-          onBookChange={onBookChange}
-          onProcessingComplete={onProcessingComplete}
-          pendingProcessingAction={pendingProcessingAction}
-          processingToolbar={<>
+        <React.Suspense fallback={<p>{t('Loading PDF reader…')}</p>}>
+          <BookReader
+            book={selectedBook}
+            file={readerFile}
+            generateAllConceptsModel={generateAllConceptsModel}
+            generateAllConceptsRequest={generateAllConceptsRequest}
+            onBookChange={onBookChange}
+            onProcessingComplete={onProcessingComplete}
+            pendingProcessingAction={pendingProcessingAction}
+            processingToolbar={<>
             <Button
               icon={(selectedBook?.processingStage ?? 0) >= 1 ? 'rotate-left' : 'play'}
               isDisabled={!selectedBook || !readerFile || isBusy}
@@ -646,10 +649,11 @@ function Upload (): React.ReactElement {
                 onClick={onGenerateExercises}
               />
             </span>
-          </>}
-          recognizeAllRequest={recognizeAllRequest}
-          generateAllExercisesRequest={generateAllExercisesRequest}
-        />
+            </>}
+            recognizeAllRequest={recognizeAllRequest}
+            generateAllExercisesRequest={generateAllExercisesRequest}
+          />
+        </React.Suspense>
       )}
     </StyledSection>
   );

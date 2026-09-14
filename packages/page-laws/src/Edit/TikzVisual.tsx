@@ -12,12 +12,6 @@ interface Props {
   value: string;
 }
 
-export function isTikzCode (value: string): boolean {
-  const trimmed = value.trim();
-
-  return /\\begin\s*\{tikzpicture\}/.test(trimmed) && /\\end\s*\{tikzpicture\}/.test(trimmed);
-}
-
 export default function TikzVisual ({ alt, onSave, prompt, value }: Props): React.ReactElement {
   const [draft, setDraft] = useState(value);
   const [rendered, setRendered] = useState(value);

@@ -13,8 +13,8 @@ import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { Button, Dropdown, Input, Modal, styled } from '@polkadot/react-components';
 
 import ExerciseList from './Edit/ExerciseList.js';
-import TikzDisplay, { preRenderTikz, type TikzPreRenderResult } from './Edit/TikzDisplay.js';
-import { isTikzCode } from './Edit/TikzVisual.js';
+import type { TikzPreRenderResult } from './Edit/TikzDisplay.js';
+import { isTikzCode } from './Edit/tikz.js';
 import { parseAbilityRepairResult, parseStoredAbility } from './abilities.js';
 import { parseExerciseRepairResult, parseExerciseSplitResult } from './exercises.js';
 import { estimateAiInput, formatAiInputEstimate } from './aiEstimate.js';
@@ -25,6 +25,14 @@ import { OPENROUTER_CONCURRENCY, openRouterRequestGate } from './openRouterConcu
 import { formatOpenRouterSpend, reportOpenRouterCost, type OpenRouterCostReporter } from './openRouterCost.js';
 import { stripMarkdownImageReferences } from './bookImageRefs.js';
 import { batchItemsByChapter } from './chapterBatching.js';
+
+const TikzDisplay = React.lazy(() => import('./Edit/TikzDisplay.js'));
+
+async function preRenderTikzLazy (value: string): Promise<TikzPreRenderResult> {
+  const { preRenderTikz } = await import('./Edit/TikzDisplay.js');
+
+  return preRenderTikz(value);
+}
 
 const BATCH_SIZE = 5;
 const SPLIT_EXERCISES_STAGE = 4;
@@ -1670,7 +1678,7 @@ function Skills ({ book, onAction, onBookChange, onEntityCountsChange, pipelineO
       // diagnostics through the global console when data-show-console is on,
       // so concurrent pre-renders could mix diagnostics between diagrams.
       for (const target of imageFixTargets) {
-        const originalPreRender = await preRenderTikz(target.originalTikz);
+        const originalPreRender = await preRenderTikzLazy(target.originalTikz);
 
         if (!originalPreRender.compiled) {
           compileFailures += 1;
@@ -1716,7 +1724,7 @@ function Skills ({ book, onAction, onBookChange, onEntityCountsChange, pipelineO
         }
 
         let fixedPreRender = effectiveReview.hasErrors
-          ? await preRenderTikz(effectiveReview.tikz)
+          ? await preRenderTikzLazy(effectiveReview.tikz)
           : originalPreRender;
 
         // Re-feed real renderer diagnostics to the model until the proposed
@@ -1737,7 +1745,7 @@ function Skills ({ book, onAction, onBookChange, onEntityCountsChange, pipelineO
           effectiveReview = repaired.hasErrors
             ? repaired
             : { errors: previousErrors.length ? previousErrors : ['TikZJax pre-render failure was repaired.'], hasErrors: true, tikz: repaired.tikz };
-          fixedPreRender = await preRenderTikz(effectiveReview.tikz);
+          fixedPreRender = await preRenderTikzLazy(effectiveReview.tikz);
         }
 
         if (effectiveReview.hasErrors && !fixedPreRender.compiled) {
@@ -2045,13 +2053,13 @@ function Skills ({ book, onAction, onBookChange, onEntityCountsChange, pipelineO
                       <p><small>Pre-render: {originalPreRender.compiled ? 'compiled successfully' : 'FAILED to compile/render'}</small></p>
                       {!originalPreRender.compiled && originalPreRender.diagnostics.length > 0 && <pre className='tikzDiagnostics'>{originalPreRender.diagnostics.slice(-8).join('\n')}</pre>}
                       <pre className='tikzCodeDiff'>{originalTikz}</pre>
-                      {originalPreRender.compiled && <TikzDisplay alt={`Original ${role} visual`} value={originalTikz} />}
+                      {originalPreRender.compiled && <React.Suspense fallback={<small>Loading TikZ renderer…</small>}><TikzDisplay alt={`Original ${role} visual`} value={originalTikz} /></React.Suspense>}
                     </section>
                     <section>
                       <h5>Corrected</h5>
                       <p><small>Pre-render: {fixedPreRender.compiled ? 'compiled successfully' : 'FAILED'}</small></p>
                       <pre className='tikzCodeDiff'>{fixedTikz}</pre>
-                      <TikzDisplay alt={`Corrected ${role} visual`} value={fixedTikz} />
+                      <React.Suspense fallback={<small>Loading TikZ renderer…</small>}><TikzDisplay alt={`Corrected ${role} visual`} value={fixedTikz} /></React.Suspense>
                     </section>
                   </div>
                 </article>;

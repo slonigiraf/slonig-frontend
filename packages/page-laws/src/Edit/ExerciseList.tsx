@@ -3,8 +3,10 @@ import { Button, styled } from '@polkadot/react-components';
 import { useTranslation } from '../translate.js';
 import { Exercise, KatexSpan, useLog } from '@slonigiraf/slonig-components';
 import ExerciseImage, { isLocalOrRemoteImageUrl } from './ExerciseImage.js';
-import TikzDisplay from './TikzDisplay.js';
-import TikzVisual, { isTikzCode } from './TikzVisual.js';
+import { isTikzCode } from './tikz.js';
+
+const TikzDisplay = React.lazy(() => import('./TikzDisplay.js'));
+const TikzVisual = React.lazy(() => import('./TikzVisual.js'));
 
 export type ExerciseListLocation = 'ability_info' | 'item_preview' | 'view_list' | 'example_exercises' | 'example_solutions';
 
@@ -23,9 +25,11 @@ const ExerciseVisual: React.FC<{ alt: string; isAbilityInfo: boolean; label: str
     }
 
     if (isTikzCode(value)) {
-        return isAbilityInfo
-            ? <TikzVisual alt={alt} onSave={onSave} prompt={prompt} value={value} />
-            : <TikzDisplay alt={alt} value={value} />;
+        return <React.Suspense fallback={<small>Loading TikZ renderer…</small>}>
+            {isAbilityInfo
+                ? <TikzVisual alt={alt} onSave={onSave} prompt={prompt} value={value} />
+                : <TikzDisplay alt={alt} value={value} />}
+        </React.Suspense>;
     }
 
     if (!isAbilityInfo) {

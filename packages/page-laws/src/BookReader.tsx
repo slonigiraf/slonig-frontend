@@ -10,8 +10,6 @@ import { strFromU8, unzipSync } from 'fflate';
 import MathpixLoader from 'mathpix-markdown-it/lib/components/mathpix-loader/index.js';
 import MathpixMarkdown from 'mathpix-markdown-it/lib/components/mathpix-markdown/index.js';
 import OpenAI from 'openai';
-import * as PDFDocumentModule from 'pdf-lib/cjs/api/PDFDocument.js';
-import { getDocument, GlobalWorkerOptions } from 'pdfjs-dist';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { Button, Dropdown, Input, Modal, styled } from '@polkadot/react-components';
@@ -26,10 +24,10 @@ import { BOOK_LANGUAGE_DETECTION_PROMPT, BOOK_PAGE_EXTRACTION_REQUEST_PROMPT, ex
 import { stripMarkdownImageReferences } from './bookImageRefs.js';
 import Skills from './Skills.js';
 import SkillsCourse from './SkillsCourse.js';
+import { loadPdfJs } from './pdf.js';
 
 export { OPENAI_MODELS } from './constants.js';
 
-GlobalWorkerOptions.workerSrc = new URL('pdfjs-dist/build/pdf.worker.min.js', import.meta.url).toString();
 
 interface GeneratedPageExercise {
   abilityMode: string;
@@ -286,6 +284,7 @@ async function getPageConceptInput (page: BookPage): Promise<MMDZipInput | undef
 }
 
 async function createSinglePagePdf (file: File, pageNumber: number): Promise<Blob> {
+  const PDFDocumentModule = await import('pdf-lib/cjs/api/PDFDocument.js');
   const sourcePdf = await PDFDocumentModule.default.load(await file.arrayBuffer());
   const pagePdf = await PDFDocumentModule.default.create();
   const [page] = await pagePdf.copyPages(sourcePdf, [pageNumber - 1]);
@@ -583,6 +582,12 @@ function BookReader ({ book, file, generateAllConceptsModel, generateAllConcepts
 
     const load = async (): Promise<void> => {
       const data = new Uint8Array(await file.arrayBuffer());
+
+      if (!active) {
+        return;
+      }
+
+      const { getDocument } = await loadPdfJs();
 
       if (!active) {
         return;
