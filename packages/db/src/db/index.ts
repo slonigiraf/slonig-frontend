@@ -269,6 +269,29 @@ class SlonigDB extends Dexie {
         return table.put({ ...withoutImages, description } as LegacyExerciseWithImages);
       }));
     });
+    this.version(85).stores({
+      bookPages: '&[bookId+pageNumber],bookId,chapterId,conceptsProcessed'
+    }).upgrade(async (transaction: Transaction) => {
+      const [books, chapters, pages] = await Promise.all([
+        transaction.table<Book>('books').toArray(),
+        transaction.table<BookChapter>('bookChapters').toArray(),
+        transaction.table<BookPage>('bookPages').toArray()
+      ]);
+      const chaptersByBookAndTitle = new Map(chapters.flatMap((chapter) => chapter.id === undefined ? [] : [[`${chapter.bookId}:${chapter.title.trim().toLocaleLowerCase()}`, chapter.id] as const]));
+
+      await Promise.all([
+        ...books.flatMap(({ id, processingStage }) => id === undefined || (processingStage ?? 0) < 2 ? [] : [transaction.table<Book>('books').update(id, { processingStage: (processingStage ?? 0) + 1 })]),
+        ...pages.map((page) => {
+          if (page.chapterId !== undefined || !page.chapter.trim()) {
+            return Promise.resolve(0);
+          }
+
+          const chapterId = chaptersByBookAndTitle.get(`${page.bookId}:${page.chapter.trim().toLocaleLowerCase()}`);
+
+          return chapterId === undefined ? Promise.resolve(0) : transaction.table<BookPage>('bookPages').update([page.bookId, page.pageNumber], { chapterId });
+        })
+      ]);
+    });
   }
 }
 

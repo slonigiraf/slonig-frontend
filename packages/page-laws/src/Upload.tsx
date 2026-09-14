@@ -21,6 +21,7 @@ const BOOKS_DIRECTORY = 'books';
 const SELECTED_BOOK_SESSION_KEY = 'knowledge-upload-selected-book';
 const PRICE_STAGES: Array<{ key: BookStageSpendKey; label: string }> = [
   { key: 'recognize', label: 'Recognize' },
+  { key: 'chapters', label: 'Chapters' },
   { key: 'concepts', label: 'Concepts' },
   { key: 'exercises', label: 'Exercises' },
   { key: 'splitExercises', label: 'Split Exercise' },
@@ -85,6 +86,9 @@ function Upload (): React.ReactElement {
   const [error, setError] = useState('');
   const [isBusy, setIsBusy] = useState(false);
   const [generateAllConceptsRequest, setGenerateAllConceptsRequest] = useState(0);
+  const [identifyChaptersRequest, setIdentifyChaptersRequest] = useState(0);
+  const [identifyChaptersEstimate, setIdentifyChaptersEstimate] = useState('');
+  const [isIdentifyChaptersConfirmationOpen, setIsIdentifyChaptersConfirmationOpen] = useState(false);
   const [generateAllConceptsModel, setGenerateAllConceptsModel] = useState(OPENAI_MODELS[0].value);
   const [generateConceptsEstimate, setGenerateConceptsEstimate] = useState('');
   const [isGenerateConceptsConfirmationOpen, setIsGenerateConceptsConfirmationOpen] = useState(false);
@@ -92,7 +96,7 @@ function Upload (): React.ReactElement {
   const [isRecognizeConfirmationOpen, setIsRecognizeConfirmationOpen] = useState(false);
   const [isPriceOpen, setIsPriceOpen] = useState(false);
   const [priceBook, setPriceBook] = useState<Book>();
-  const [pendingProcessingAction, setPendingProcessingAction] = useState<'concepts' | 'recognize' | 'exercises'>();
+  const [pendingProcessingAction, setPendingProcessingAction] = useState<'chapters' | 'concepts' | 'recognize' | 'exercises'>();
   const [generateAllExercisesRequest, setGenerateAllExercisesRequest] = useState(0);
   const [generateExercisesEstimate, setGenerateExercisesEstimate] = useState('');
   const [recognizeEstimate, setRecognizeEstimate] = useState('');
@@ -305,12 +309,75 @@ function Upload (): React.ReactElement {
 
     setPendingProcessingAction('recognize');
 
-    updateBookProcessingStage(selectedBook.id, 0).then((updatedBook) => {
+    const resetBook: Book = { ...selectedBook, language: undefined, processingStage: 0 };
+
+    putBook(resetBook).then(() => {
+      setBooks((current) => current.map((book) => book.id === resetBook.id ? resetBook : book));
+      setRecognizeAllRequest((request) => request + 1);
+    }).catch(() => {
+      setPendingProcessingAction(undefined);
+      setError(t('Unable to reset recognition and language.'));
+    });
+  }, [selectedBook, t]);
+
+  const onIdentifyChapters = useCallback((): void => {
+    if (!selectedBook) {
+      return;
+    }
+
+    if (!selectedBook.language) {
+      setError(t('Book language has not been detected yet. Recognition auto-detects it when all pages finish; you can also set it manually in Text / Language.'));
+      return;
+    }
+
+    setIsIdentifyChaptersConfirmationOpen(true);
+  }, [selectedBook, t]);
+
+  useEffect(() => {
+    if (!isIdentifyChaptersConfirmationOpen || !selectedBook) {
+      return;
+    }
+
+    getBookPages(selectedBook.id).then((pages) => {
+      const compactPages = pages.map(({ mathpixHeadings, pageMMD = '', pageNumber }) => `Page ${pageNumber}\n${(mathpixHeadings ?? []).map(({ text, type }) => `[${type}] ${text}`).join(' | ')}\n${pageMMD.replace(/\s+/g, ' ').slice(0, 650)}`);
+      const windowSize = 36;
+      const overlap = 3;
+      const step = windowSize - overlap;
+      const requests: string[] = [];
+
+      for (let start = 0; start < compactPages.length; start += step) {
+        requests.push(compactPages.slice(start, start + windowSize).join('\n\n').padEnd(compactPages.slice(start, start + windowSize).join('\n\n').length + 1_500));
+
+        if (start + windowSize >= compactPages.length) {
+          break;
+        }
+      }
+
+      requests.push(compactPages.filter((_, index) => (pages[index]?.mathpixHeadings?.length ?? 0) > 0).join('\n').padEnd(2_000));
+      setIdentifyChaptersEstimate(formatAiInputEstimate(estimateAiInput(generateAllConceptsModel, requests, Math.max(2_000, pages.length * 12))));
+    }).catch(() => setError(t('Unable to estimate chapter identification cost.')));
+  }, [generateAllConceptsModel, isIdentifyChaptersConfirmationOpen, selectedBook, t]);
+
+  const closeIdentifyChaptersConfirmation = useCallback((): void => {
+    setIsIdentifyChaptersConfirmationOpen(false);
+    setPendingProcessingAction(undefined);
+  }, []);
+
+  const confirmIdentifyChapters = useCallback((): void => {
+    setIsIdentifyChaptersConfirmationOpen(false);
+
+    if (!selectedBook) {
+      return;
+    }
+
+    setPendingProcessingAction('chapters');
+
+    updateBookProcessingStage(selectedBook.id, 1).then((updatedBook) => {
       if (updatedBook) {
         setBooks((current) => current.map((book) => book.id === updatedBook.id ? updatedBook : book));
       }
 
-      setRecognizeAllRequest((request) => request + 1);
+      setIdentifyChaptersRequest((request) => request + 1);
     }).catch(() => {
       setPendingProcessingAction(undefined);
       setError(t('Unable to reset the book processing stage.'));
@@ -322,10 +389,14 @@ function Upload (): React.ReactElement {
       return;
     }
 
-    setPendingProcessingAction('concepts');
+    if (!selectedBook.language) {
+      setError(t('Book language has not been detected yet. Recognition auto-detects it when all pages finish; you can also set it manually in Text / Language.'));
+      return;
+    }
 
+    setPendingProcessingAction('concepts');
     setIsGenerateConceptsConfirmationOpen(true);
-  }, [selectedBook]);
+  }, [selectedBook, t]);
 
   useEffect(() => {
     if (!isGenerateConceptsConfirmationOpen || !selectedBook) {
@@ -347,6 +418,7 @@ function Upload (): React.ReactElement {
 
   const closeGenerateConceptsConfirmation = useCallback((): void => {
     setIsGenerateConceptsConfirmationOpen(false);
+    setPendingProcessingAction(undefined);
   }, []);
 
   const confirmGenerateConcepts = useCallback((): void => {
@@ -356,7 +428,7 @@ function Upload (): React.ReactElement {
       return;
     }
 
-    updateBookProcessingStage(selectedBook.id, 1).then((updatedBook) => {
+    updateBookProcessingStage(selectedBook.id, 2).then((updatedBook) => {
       if (updatedBook) {
         setBooks((current) => current.map((book) => book.id === updatedBook.id ? updatedBook : book));
       }
@@ -373,9 +445,14 @@ function Upload (): React.ReactElement {
       return;
     }
 
+    if (!selectedBook.language) {
+      setError(t('Book language has not been detected yet. Recognition auto-detects it when all pages finish; you can also set it manually in Text / Language.'));
+      return;
+    }
+
     setPendingProcessingAction('exercises');
     setIsGenerateExercisesConfirmationOpen(true);
-  }, [selectedBook]);
+  }, [selectedBook, t]);
 
   useEffect(() => {
     if (!isGenerateExercisesConfirmationOpen || !selectedBook) {
@@ -404,7 +481,7 @@ function Upload (): React.ReactElement {
       return;
     }
 
-    updateBookProcessingStage(selectedBook.id, 2).then((updatedBook) => {
+    updateBookProcessingStage(selectedBook.id, 3).then((updatedBook) => {
       if (updatedBook) {
         setBooks((current) => current.map((book) => book.id === updatedBook.id ? updatedBook : book));
       }
@@ -493,6 +570,7 @@ function Upload (): React.ReactElement {
         <Modal.Content>
           <p>{t('Recognize every page in this book?')}</p>
           <p>{recognizeEstimate}</p>
+          <p>{t('Book language is detected only after recognition finishes, and can then be changed manually.')}</p>
           <p>
             <a
               href='https://mathpix.com/pricing/api'
@@ -510,6 +588,37 @@ function Upload (): React.ReactElement {
               icon='camera'
               label={t('Recognize')}
               onClick={confirmRecognize}
+            />
+          </Button.Group>
+        </Modal.Content>
+      </Modal>}
+      {isIdentifyChaptersConfirmationOpen && <Modal
+        header={t('Identify chapters')}
+        onClose={closeIdentifyChaptersConfirmation}
+        size='small'
+      >
+        <Modal.Content>
+          <p>{t('Identify top-level chapter boundaries from Mathpix title/section-header evidence and reconcile them across the whole book?')}</p>
+          <p>{identifyChaptersEstimate}</p>
+          <p>{t('You can manually rename chapters, start a chapter on any page, merge chapters, or assign individual pages afterward.')}</p>
+          <Dropdown
+            className='batchModelSelect'
+            isFull
+            label={t('Model')}
+            onChange={setGenerateAllConceptsModel}
+            options={OPENAI_MODELS}
+            value={generateAllConceptsModel}
+          />
+          <Button.Group>
+            <Button
+              icon='times'
+              label={t('Cancel')}
+              onClick={closeIdentifyChaptersConfirmation}
+            />
+            <Button
+              icon='magic'
+              label={t('Identify')}
+              onClick={confirmIdentifyChapters}
             />
           </Button.Group>
         </Modal.Content>
@@ -624,6 +733,7 @@ function Upload (): React.ReactElement {
             file={readerFile}
             generateAllConceptsModel={generateAllConceptsModel}
             generateAllConceptsRequest={generateAllConceptsRequest}
+            identifyChaptersRequest={identifyChaptersRequest}
             onBookChange={onBookChange}
             onProcessingComplete={onProcessingComplete}
             pendingProcessingAction={pendingProcessingAction}
@@ -638,7 +748,16 @@ function Upload (): React.ReactElement {
               <span>›</span>
               <Button
                 icon={(selectedBook?.processingStage ?? 0) >= 2 ? 'rotate-left' : 'play'}
-                isDisabled={!selectedBook || !readerFile || isBusy || (selectedBook.processingStage ?? 0) < 1}
+                isDisabled={!selectedBook || !readerFile || isBusy || (selectedBook.processingStage ?? 0) < 1 || !selectedBook.language}
+                label={t('Chapters')}
+                onClick={onIdentifyChapters}
+              />
+            </span>
+            <span className='pipelineStep'>
+              <span>›</span>
+              <Button
+                icon={(selectedBook?.processingStage ?? 0) >= 3 ? 'rotate-left' : 'play'}
+                isDisabled={!selectedBook || !readerFile || isBusy || (selectedBook.processingStage ?? 0) < 2 || !selectedBook.language}
                 label={t('Concepts')}
                 onClick={onGenerateConcepts}
               />
@@ -646,8 +765,8 @@ function Upload (): React.ReactElement {
             <span className='pipelineStep'>
               <span>›</span>
               <Button
-                icon={(selectedBook?.processingStage ?? 0) >= 3 ? 'rotate-left' : 'play'}
-                isDisabled={!selectedBook || !readerFile || isBusy || (selectedBook.processingStage ?? 0) < 2}
+                icon={(selectedBook?.processingStage ?? 0) >= 4 ? 'rotate-left' : 'play'}
+                isDisabled={!selectedBook || !readerFile || isBusy || (selectedBook.processingStage ?? 0) < 3 || !selectedBook.language}
                 label={t('Exercises')}
                 onClick={onGenerateExercises}
               />

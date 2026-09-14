@@ -5,6 +5,8 @@
 export interface BookChapter {
   id?: number;
   bookId: number;
+  confidence?: number;
   knowledgeId?: string;
+  source?: 'ai' | 'legacy' | 'manual';
   title: string;
 }

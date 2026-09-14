@@ -17,14 +17,14 @@ export const OPENAI_MODELS = [
   { text: 'GPT-5.4: $2.50/$15', value: 'openai/gpt-5.4' }
 ];
 
-export const BOOK_PAGE_EXTRACTION_PROMPT = `On the provided page, identify the chapter and subchapter/section.
+export const BOOK_PAGE_EXTRACTION_PROMPT = `Extract only the concepts that are intentionally introduced or explained as new on this page. Chapter assignment is handled in a separate structural stage, so do not identify, infer, or return a chapter or section.
 
-Extract only the concepts that are intentionally introduced or explained as new on this page. Do not include concepts that the page assumes the reader already knows, merely reviews, references from earlier sections, or uses only in exercises/examples without introducing them. Ignore exercises, questions, problems, drills, review tasks, and their solutions completely: do not parse, solve, summarize, or return them.
+Do not include concepts that the page assumes the reader already knows, merely reviews, references from earlier sections, or uses only in exercises/examples without introducing them. Ignore exercises, questions, problems, drills, review tasks, and their solutions completely: do not parse, solve, summarize, or return them.
 
 Return only valid JSON in this exact shape, keeping the original language of the input:
-{"chapter":"Chapter and section name","concepts":[{"title":"New concept","description":"Explanation or example from the page"}]}
+{"concepts":[{"title":"New concept","description":"Explanation or example from the page"}]}
 
-Use an empty string when the chapter is not shown. Use an empty array when no new concepts are present. Keep each concept description focused on the explanation of the concept itself; do not turn an exercise statement into a concept description. Use <kx>...</kx> to surround KaTeX for every mathematical formula or expression, never dollar-delimited LaTeX. Escape every backslash in mathematical notation so the result remains valid JSON. Do not add markdown or any text outside the JSON.`;
+Use an empty array when no new concepts are present. Keep each concept description focused on the explanation of the concept itself; do not turn an exercise statement into a concept description. Use <kx>...</kx> to surround KaTeX for every mathematical formula or expression, never dollar-delimited LaTeX. Escape every backslash in mathematical notation so the result remains valid JSON. Do not add markdown or any text outside the JSON.`;
 
 export const EXERCISE_TEMPLATE_STYLE_PROMPT = `Write every generated exercise as the short concrete instance of a reusable template pattern. Include only enough concrete variable context so the same wording pattern can later be reused by changing 1-3 data-bearing words or values while keeping the instruction, operation, structure, input/output types, and solution method unchanged. Make those replaceable data slots obvious from the concrete wording. This is a structural requirement only: do not generate, propose, compare, or output extra alternate or variant exercises to demonstrate the pattern; output only the exercise or exercises explicitly required by the calling prompt.
 

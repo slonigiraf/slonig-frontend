@@ -1,10 +1,10 @@
 // Copyright 2021-2026 @polkadot/app-laws authors & contributors
 // SPDX-License-Identifier: Apache-2.0
 
-import type { Book, BookConcept, BookPage, BookStageSpendKey, Exercise } from '@slonigiraf/db';
+import type { Book, BookChapter, BookConcept, BookPage, BookStageSpendKey, Exercise } from '@slonigiraf/db';
 import type { PDFDocumentLoadingTask, PDFDocumentProxy, RenderTask } from 'pdfjs-dist';
 
-import { addBookStageSpend, getAbilities, getBookConceptsForBookPage, getBookPages, getExercisesForBookPage, getSetting, putBook, putBookPage, replaceParsedBookPageContent, SettingKey, storeSetting, updateBookProcessingStage } from '@slonigiraf/db';
+import { addBookStageSpend, assignBookPageChapter, getAbilities, getBookChapters, getBookConceptsForBookPage, getBookPages, getExercisesForBookPage, getSetting, mergeBookChapterWithPrevious, putBook, putBookPage, replaceBookChapterAssignments, replaceParsedBookPageContent, SettingKey, splitBookChapterAtPage, storeSetting, updateBookChapterTitle, updateBookProcessingStage } from '@slonigiraf/db';
 import { KatexSpan, RoundProgress } from '@slonigiraf/slonig-components';
 import { strFromU8, unzipSync } from 'fflate';
 import MathpixLoader from 'mathpix-markdown-it/lib/components/mathpix-loader/index.js';
@@ -15,13 +15,14 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Button, Dropdown, Input, Modal, styled } from '@polkadot/react-components';
 
 import { estimateAiInput, formatAiInputEstimate } from './aiEstimate.js';
-import { bookLanguageLabel, getMiddleBookPageNumbers, parseDetectedBookLanguage } from './bookLanguage.js';
+import { BOOK_LANGUAGE_OPTIONS, bookLanguageLabel, getMiddleBookPageNumbers, normalizeLanguageCode, parseDetectedBookLanguage } from './bookLanguage.js';
 import { areAllBookPagesConceptsProcessed, calculatePageSymbolStatistics, countUnprocessedBookPages, isWithinTwoStandardDeviations, processExtractedChapterContent } from './bookProcessing.js';
 import { mapConcurrent } from './concurrency.js';
 import { OPENROUTER_CONCURRENCY, openRouterRequestGate } from './openRouterConcurrency.js';
 import { formatOpenRouterSpend, reportOpenRouterCost, type OpenRouterCostReporter } from './openRouterCost.js';
 import { BOOK_LANGUAGE_DETECTION_PROMPT, BOOK_PAGE_EXTRACTION_REQUEST_PROMPT, MATHPIX_PDF_PAGE_PRICE_USD, OPENAI_MODELS } from './constants.js';
 import { stripMarkdownImageReferences } from './bookImageRefs.js';
+import { chapterAssignmentsFromBoundaries, chapterEvidenceWindows, chapterReconciliationPrompt, chapterWindowPrompt, extractMathpixHeadingsFromLines, pageChapterEvidence, parseChapterBoundaries, type ChapterBoundaryProposal } from './chapterSegmentation.js';
 import Skills from './Skills.js';
 import SkillsCourse from './SkillsCourse.js';
 import { loadPdfJs } from './pdf.js';
@@ -30,7 +31,6 @@ export { OPENAI_MODELS } from './constants.js';
 
 
 interface GeneratedConcepts {
-  chapter: string;
   concepts: Array<{ description: string; title: string }>;
 }
 
@@ -46,37 +46,18 @@ function parseGeneratedConcepts (content: string): GeneratedConcepts {
     parsed = JSON.parse(json.replace(/\\(?!["\\/bfnrt]|u[0-9a-fA-F]{4})/g, '\\\\')) as Partial<GeneratedConcepts>;
   }
 
-  if (typeof parsed.chapter !== 'string' || !Array.isArray(parsed.concepts) || parsed.concepts.some(({ description, title }) => typeof title !== 'string' || typeof description !== 'string')) {
+  if (!Array.isArray(parsed.concepts) || parsed.concepts.some(({ description, title }) => typeof title !== 'string' || typeof description !== 'string')) {
     throw new Error('OpenRouter returned invalid concept data.');
   }
 
   return {
-    chapter: parsed.chapter.trim(),
     concepts: parsed.concepts.map(({ description, title }) => ({ description: description.trim(), title: title.trim() })).filter(({ title }) => title)
   };
 }
 
-function resolveChapterTitle (generatedTitle: string, pageNumber: number, pages: Map<number, BookPage>): string {
-  const title = generatedTitle.trim();
-
-  if (title) {
-    return title;
-  }
-
-  for (let previousPage = pageNumber - 1; previousPage >= 1; previousPage--) {
-    const previousChapter = pages.get(previousPage)?.chapter.trim();
-
-    if (previousChapter) {
-      return previousChapter;
-    }
-  }
-
-  return 'Introduction';
-}
-
 async function requestGeneratedPageContent (client: OpenAI, model: string, mmdZipInput: MMDZipInput, onCost?: OpenRouterCostReporter): Promise<GeneratedConcepts> {
   if (!mmdZipInput.text.trim() && !mmdZipInput.images.length) {
-    return { chapter: '', concepts: [] };
+    return { concepts: [] };
   }
 
   const response = await openRouterRequestGate.run(() => client.chat.completions.create({
@@ -98,7 +79,7 @@ async function requestGeneratedPageContent (client: OpenAI, model: string, mmdZi
   const generatedContent = response.choices[0].message?.content?.trim();
 
   if (!generatedContent) {
-    return { chapter: '', concepts: [] };
+    return { concepts: [] };
   }
 
   return parseGeneratedConcepts(generatedContent);
@@ -125,10 +106,7 @@ async function generatePageContentWithEmptyConceptRetry (client: OpenAI, model: 
     return secondResult;
   }
 
-  return {
-    chapter: secondResult.chapter || firstResult.chapter,
-    concepts: []
-  };
+  return { concepts: [] };
 }
 
 const MAX_REQUESTS_PER_MIN = 180;
@@ -249,7 +227,24 @@ async function createSinglePagePdf (file: File, pageNumber: number): Promise<Blo
   return new Blob([buffer], { type: 'application/pdf' });
 }
 
-async function recognizePageWithMathpix (apiKey: string, file: File, pageNumber: number): Promise<Pick<BookPage, 'pageMMD' | 'pageMMDZip'>> {
+async function requestChapterBoundaries (client: OpenAI, model: string, prompt: string, totalPages: number, onCost?: OpenRouterCostReporter): Promise<ChapterBoundaryProposal[]> {
+  const response = await openRouterRequestGate.run(() => client.chat.completions.create({
+    messages: [{ content: prompt, role: 'user' }],
+    model,
+    response_format: { type: 'json_object' }
+  }));
+
+  reportOpenRouterCost(response, onCost);
+  const content = response.choices[0].message?.content?.trim();
+
+  if (!content) {
+    return [];
+  }
+
+  return parseChapterBoundaries(content, totalPages);
+}
+
+async function recognizePageWithMathpix (apiKey: string, file: File, pageNumber: number): Promise<Pick<BookPage, 'mathpixHeadings' | 'pageMMD' | 'pageMMDZip'>> {
   const headers = { app_key: apiKey };
   const body = new FormData();
   const pagePdf = await createSinglePagePdf(file, pageNumber);
@@ -293,16 +288,28 @@ async function recognizePageWithMathpix (apiKey: string, file: File, pageNumber:
     }
 
     if (statusResult.status === 'completed' && zipStatus?.status === 'completed') {
-      const [mmdResponse, zipResponse] = await Promise.all([
+      const [mmdResponse, zipResponse, linesResponse] = await Promise.all([
         fetch(`https://api.mathpix.com/v3/pdf/${result.pdf_id}.mmd`, { headers }),
-        fetch(`https://api.mathpix.com/v3/pdf/${result.pdf_id}.mmd.zip`, { headers })
+        fetch(`https://api.mathpix.com/v3/pdf/${result.pdf_id}.mmd.zip`, { headers }),
+        fetch(`https://api.mathpix.com/v3/pdf/${result.pdf_id}.lines.json`, { headers })
       ]);
 
       if (!mmdResponse.ok || !zipResponse.ok) {
         throw new Error('Unable to download the MMD results from Mathpix.');
       }
 
+      let mathpixHeadings: MathpixHeading[] = [];
+
+      if (linesResponse.ok) {
+        try {
+          mathpixHeadings = extractMathpixHeadingsFromLines(await linesResponse.json());
+        } catch {
+          // The normal MMD result is still usable when optional line metadata fails.
+        }
+      }
+
       return {
+        mathpixHeadings,
         pageMMD: (await mmdResponse.text()).trim(),
         pageMMDZip: await zipResponse.blob()
       };
@@ -319,15 +326,16 @@ interface Props {
   file: File;
   generateAllConceptsModel: string;
   generateAllConceptsRequest: number;
+  identifyChaptersRequest: number;
   onBookChange: (book: Book) => void;
   onProcessingComplete: () => void;
-  pendingProcessingAction?: 'concepts' | 'recognize' | 'exercises';
+  pendingProcessingAction?: 'chapters' | 'concepts' | 'recognize' | 'exercises';
   processingToolbar: React.ReactNode;
   generateAllExercisesRequest: number;
   recognizeAllRequest: number;
 }
 
-type ReaderPane = 'conceptExercises' | 'conceptsSkills' | 'pdfText' | 'preExercisesExercises' | 'skillsCourse' | 'textConcepts';
+type ReaderPane = 'chapters' | 'conceptExercises' | 'conceptsSkills' | 'pdfText' | 'preExercisesExercises' | 'skillsCourse' | 'textConcepts';
 type RecognitionTarget = 'all' | 'page';
 
 interface ReaderEntityCounts {
@@ -361,14 +369,17 @@ function getSessionReaderPane (bookId: number): ReaderPane {
   try {
     const value = sessionStorage.getItem(readerPaneSessionKey(bookId));
 
-    return value === 'pdfText' || value === 'textConcepts' || value === 'conceptExercises' || value === 'preExercisesExercises' || value === 'skillsCourse' ? value : 'pdfText';
+    return value === 'pdfText' || value === 'chapters' || value === 'textConcepts' || value === 'conceptExercises' || value === 'preExercisesExercises' || value === 'skillsCourse' ? value : 'pdfText';
   } catch {
     return 'pdfText';
   }
 }
 
-function BookReader ({ book, file, generateAllConceptsModel, generateAllConceptsRequest, onBookChange, onProcessingComplete, pendingProcessingAction, processingToolbar, recognizeAllRequest, generateAllExercisesRequest }: Props): React.ReactElement {
+function BookReader ({ book, file, generateAllConceptsModel, generateAllConceptsRequest, identifyChaptersRequest, onBookChange, onProcessingComplete, pendingProcessingAction, processingToolbar, recognizeAllRequest, generateAllExercisesRequest }: Props): React.ReactElement {
   const [activePane, setActivePane] = useState<ReaderPane>(() => getSessionReaderPane(book.id));
+  const [chapters, setChapters] = useState<BookChapter[]>([]);
+  const [chapterTitleDraft, setChapterTitleDraft] = useState('');
+  const [newChapterTitle, setNewChapterTitle] = useState('');
   const [concepts, setConcepts] = useState<BookConcept[]>([]);
   const [exerciseChapterConcepts, setExerciseChapterConcepts] = useState<BookConcept[]>([]);
   const [exerciseChapterExercises, setExerciseChapterExercises] = useState<Exercise[]>([]);
@@ -377,6 +388,8 @@ function BookReader ({ book, file, generateAllConceptsModel, generateAllConcepts
   const [error, setError] = useState('');
   const [entityCounts, setEntityCounts] = useState<ReaderEntityCounts>({ abilities: 0, bookExercises: 0, concepts: 0, exercises: 0 });
   const [generatedConceptsPageCount, setGeneratedConceptsPageCount] = useState(0);
+  const [identifiedChapterPageCount, setIdentifiedChapterPageCount] = useState(0);
+  const [isIdentifyingChapters, setIsIdentifyingChapters] = useState(false);
   const [isDetectingBookLanguage, setIsDetectingBookLanguage] = useState(false);
   const [isGeneratingAllConcepts, setIsGeneratingAllConcepts] = useState(false);
   const [isMaximized, setIsMaximized] = useState(false);
@@ -385,6 +398,7 @@ function BookReader ({ book, file, generateAllConceptsModel, generateAllConcepts
   const [isGeneratingAllExercises, setIsGeneratingAllExercises] = useState(false);
   const [isRecognizingAll, setIsRecognizingAll] = useState(false);
   const [mathpixApiKey, setMathpixApiKey] = useState('');
+  const [languageDraft, setLanguageDraft] = useState(book.language ?? '');
   const [openRouterSpent, setOpenRouterSpent] = useState(0);
   const [recognizedPageCount, setRecognizedPageCount] = useState(0);
   const [generatedExercisesPageCount, setGeneratedExercisesPageCount] = useState(0);
@@ -399,6 +413,7 @@ function BookReader ({ book, file, generateAllConceptsModel, generateAllConcepts
   const [totalPages, setTotalPages] = useState(0);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const handledGenerateAllConceptsRequestRef = useRef(generateAllConceptsRequest);
+  const handledIdentifyChaptersRequestRef = useRef(identifyChaptersRequest);
   const handledGenerateAllExercisesRequestRef = useRef(generateAllExercisesRequest);
   const handledRecognizeAllRequestRef = useRef(recognizeAllRequest);
   const isDetectingBookLanguageRef = useRef(false);
@@ -408,6 +423,7 @@ function BookReader ({ book, file, generateAllConceptsModel, generateAllConcepts
     void addBookStageSpend(book.id, stage, costUsd).catch(console.error);
   }, [book.id]);
   const addRecognizeCost = useCallback((costUsd: number): void => addStageCost('recognize', costUsd), [addStageCost]);
+  const addChaptersCost = useCallback((costUsd: number): void => addStageCost('chapters', costUsd), [addStageCost]);
   const addConceptsCost = useCallback((costUsd: number): void => addStageCost('concepts', costUsd), [addStageCost]);
   const addExercisesCost = useCallback((costUsd: number): void => addStageCost('exercises', costUsd), [addStageCost]);
   const pageGenerationEstimate = useMemo(() => {
@@ -504,10 +520,17 @@ function BookReader ({ book, file, generateAllConceptsModel, generateAllConcepts
 
     if (pendingProcessingAction === 'recognize') {
       setActivePane('pdfText');
+    } else if (pendingProcessingAction === 'chapters') {
+      setActivePane('chapters');
     } else if (pendingProcessingAction === 'concepts' || pendingProcessingAction === 'exercises') {
       setActivePane('textConcepts');
     }
   }, [pendingProcessingAction]);
+
+  useEffect(() => {
+    setLanguageDraft(book.language ?? '');
+  }, [book.language]);
+
   const advanceStage = useCallback(async (processingStage: number): Promise<void> => {
     if ((book.processingStage ?? 0) >= processingStage) {
       return;
@@ -544,9 +567,10 @@ function BookReader ({ book, file, generateAllConceptsModel, generateAllConcepts
 
       loadingTask = getDocument({ data });
 
-      const [document, storedPages] = await Promise.all([
+      const [document, storedPages, storedChapters] = await Promise.all([
         loadingTask.promise,
-        getBookPages(book.id)
+        getBookPages(book.id),
+        getBookChapters(book.id)
       ]);
 
       if (!active) {
@@ -558,11 +582,14 @@ function BookReader ({ book, file, generateAllConceptsModel, generateAllConcepts
       setPdf(document);
       setTotalPages(document.numPages);
       setPages(new Map(storedPages.map((page) => [page.pageNumber, page])));
+      setChapters(storedChapters);
       const hasEveryPage = storedPages.length === document.numPages;
 
       if (areAllBookPagesConceptsProcessed(document.numPages, storedPages)) {
+        await advanceStage(3);
+      } else if (hasEveryPage && storedPages.every(({ chapterId, chapter }) => chapterId !== undefined || Boolean(chapter.trim()))) {
         await advanceStage(2);
-      } else if (hasEveryPage && storedPages.every(({ pageMMD }) => !!pageMMD)) {
+      } else if (hasEveryPage && storedPages.every(({ pageMMD }) => pageMMD !== undefined)) {
         await advanceStage(1);
       }
 
@@ -685,10 +712,168 @@ function BookReader ({ book, file, generateAllConceptsModel, generateAllConcepts
     };
   }, [activePane, isMaximized, pageNumber, pdf]);
 
+  const currentBookPage = pages.get(pageNumber);
+  const currentChapter = useMemo(() => {
+    if (!currentBookPage) {
+      return undefined;
+    }
+
+    return chapters.find(({ id }) => id !== undefined && id === currentBookPage.chapterId) ?? chapters.find(({ title }) => title === currentBookPage.chapter);
+  }, [chapters, currentBookPage]);
+
+  useEffect(() => {
+    setChapterTitleDraft(currentChapter?.title ?? '');
+  }, [currentChapter?.id, currentChapter?.title]);
+
+  const refreshChapterAssignments = useCallback(async (): Promise<void> => {
+    const [storedPages, storedChapters] = await Promise.all([getBookPages(book.id), getBookChapters(book.id)]);
+
+    setPages(new Map(storedPages.map((page) => [page.pageNumber, page])));
+    setChapters(storedChapters);
+  }, [book.id]);
+
+  const synchronizeChapterProcessingStage = useCallback(async (): Promise<void> => {
+    const storedPages = await getBookPages(book.id);
+    const complete = totalPages > 0 && storedPages.length === totalPages && storedPages.every(({ chapterId, chapter }) => chapterId !== undefined || Boolean(chapter.trim()));
+    const processingStage = complete ? Math.max(book.processingStage ?? 0, 2) : 1;
+    const updated = await updateBookProcessingStage(book.id, processingStage);
+
+    onBookChange(updated ?? { ...book, processingStage });
+  }, [book, onBookChange, totalPages]);
+
+  const saveCurrentChapterTitle = useCallback(async (): Promise<void> => {
+    const title = chapterTitleDraft.trim();
+
+    if (currentChapter?.id === undefined || !title) {
+      return;
+    }
+
+    setError('');
+
+    try {
+      await updateBookChapterTitle(currentChapter.id, title);
+      await refreshChapterAssignments();
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : 'Unable to rename chapter.');
+    }
+  }, [chapterTitleDraft, currentChapter?.id, refreshChapterAssignments]);
+
+  const assignCurrentPageToChapter = useCallback(async (chapterId: number): Promise<void> => {
+    setError('');
+
+    try {
+      await assignBookPageChapter(book.id, pageNumber, chapterId);
+      await refreshChapterAssignments();
+      await synchronizeChapterProcessingStage();
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : 'Unable to assign this page to the chapter.');
+    }
+  }, [book.id, pageNumber, refreshChapterAssignments, synchronizeChapterProcessingStage]);
+
+  const startChapterHere = useCallback(async (): Promise<void> => {
+    const title = newChapterTitle.trim();
+
+    if (!title) {
+      setError('Enter a chapter title first.');
+      return;
+    }
+
+    setError('');
+
+    try {
+      await splitBookChapterAtPage(book.id, pageNumber, title);
+      setNewChapterTitle('');
+      await refreshChapterAssignments();
+      await synchronizeChapterProcessingStage();
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : 'Unable to start a chapter here.');
+    }
+  }, [book.id, newChapterTitle, pageNumber, refreshChapterAssignments, synchronizeChapterProcessingStage]);
+
+  const mergeCurrentChapterWithPrevious = useCallback(async (): Promise<void> => {
+    if (currentChapter?.id === undefined) {
+      return;
+    }
+
+    setError('');
+
+    try {
+      await mergeBookChapterWithPrevious(book.id, currentChapter.id);
+      await refreshChapterAssignments();
+      await synchronizeChapterProcessingStage();
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : 'Unable to merge this chapter with the previous chapter.');
+    }
+  }, [book.id, currentChapter?.id, refreshChapterAssignments, synchronizeChapterProcessingStage]);
+
+  const identifyChapters = useCallback(async (): Promise<void> => {
+    if (!totalPages || processingPage !== undefined || isGeneratingAllConcepts || isRecognizingAll || isGeneratingAllExercises || isIdentifyingChapters) {
+      return;
+    }
+
+    if (!book.language) {
+      setError('Set the book language after recognition before identifying chapters.');
+      onProcessingComplete();
+      return;
+    }
+
+    const recognizedPages = Array.from(pages.values()).sort((a, b) => a.pageNumber - b.pageNumber);
+
+    if (recognizedPages.length !== totalPages || recognizedPages.some(({ pageMMD }) => pageMMD === undefined)) {
+      setError('Recognize every page before identifying chapters.');
+      onProcessingComplete();
+      return;
+    }
+
+    setError('');
+    setOpenRouterSpent(0);
+    setIdentifiedChapterPageCount(0);
+    setIsIdentifyingChapters(true);
+
+    try {
+      const key = await getSetting(SettingKey.OPENROUTER_TOKEN);
+
+      if (!key) {
+        throw new Error('No OpenRouter token found. Add it in Settings.');
+      }
+
+      const client = new OpenAI({
+        apiKey: key,
+        baseURL: 'https://openrouter.ai/api/v1',
+        dangerouslyAllowBrowser: true,
+        defaultHeaders: {
+          'HTTP-Referer': window.location.origin,
+          'X-OpenRouter-Title': 'Slonig'
+        }
+      });
+      const windows = chapterEvidenceWindows(recognizedPages);
+      const windowResults = await mapConcurrent(windows, Math.min(3, OPENROUTER_CONCURRENCY), async (window) => {
+        const result = await requestChapterBoundaries(client, generateAllConceptsModel, chapterWindowPrompt(window), totalPages, addChaptersCost);
+        setIdentifiedChapterPageCount((current) => Math.max(current, window[window.length - 1]?.pageNumber ?? current));
+
+        return result;
+      });
+      const proposals = windowResults.flat();
+      const evidence = recognizedPages.map(pageChapterEvidence);
+      const reconciled = await requestChapterBoundaries(client, generateAllConceptsModel, chapterReconciliationPrompt(proposals, evidence, totalPages), totalPages, addChaptersCost);
+      const boundaries = chapterAssignmentsFromBoundaries(reconciled.length ? reconciled : proposals, totalPages);
+
+      await replaceBookChapterAssignments(book.id, boundaries);
+      await refreshChapterAssignments();
+      await advanceStage(2);
+      setIdentifiedChapterPageCount(totalPages);
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : 'Unable to identify chapters.');
+    } finally {
+      setIsIdentifyingChapters(false);
+      onProcessingComplete();
+    }
+  }, [addChaptersCost, advanceStage, book.id, book.language, generateAllConceptsModel, isGeneratingAllConcepts, isGeneratingAllExercises, isIdentifyingChapters, isRecognizingAll, onProcessingComplete, pages, processingPage, refreshChapterAssignments, totalPages]);
+
   const generateConcepts = useCallback(async (): Promise<void> => {
     const storedPage = pages.get(pageNumber);
 
-    if (!storedPage || (!storedPage.pageMMDZip && !storedPage.pageMMD?.trim()) || processingPage !== undefined || isGeneratingAllConcepts || isRecognizingAll) {
+    if (!storedPage || (!storedPage.pageMMDZip && !storedPage.pageMMD?.trim()) || processingPage !== undefined || isGeneratingAllConcepts || isRecognizingAll || isIdentifyingChapters) {
       return;
     }
 
@@ -722,11 +907,13 @@ function BookReader ({ book, file, generateAllConceptsModel, generateAllConcepts
       const pageSymbolCount = storedPage.pageMMD?.length ?? mmdZipInput.text.length;
       const generatedConcepts = await generatePageContentWithEmptyConceptRetry(client, selectedModel, mmdZipInput, isWithinTwoStandardDeviations(pageSymbolCount, symbolStatistics), addConceptsCost);
 
-      const resolvedChapter = resolveChapterTitle(generatedConcepts.chapter, pageNumber, pages);
+      if (storedPage.chapterId === undefined && !storedPage.chapter.trim()) {
+        throw new Error('Assign this page to a chapter before generating concepts.');
+      }
+
       const generatedPage: BookPage = {
         ...storedPage,
         bookId: book.id,
-        chapter: resolvedChapter,
         conceptsProcessed: true,
         pageNumber
       };
@@ -736,7 +923,7 @@ function BookReader ({ book, file, generateAllConceptsModel, generateAllConcepts
       if (generatedConcepts.concepts.length) {
         // Normal pages are marked processed only after their generated content
         // has been stored successfully.
-        stored = await replaceParsedBookPageContent(book.id, pageNumber, resolvedChapter, generatedConcepts.concepts, []);
+        stored = await replaceParsedBookPageContent(book.id, pageNumber, storedPage.chapter, generatedConcepts.concepts, []);
         await putBookPage(generatedPage);
       } else {
         // A valid empty result is itself a successful Concepts-stage result.
@@ -745,7 +932,7 @@ function BookReader ({ book, file, generateAllConceptsModel, generateAllConcepts
         await putBookPage(generatedPage);
 
         try {
-          stored = await replaceParsedBookPageContent(book.id, pageNumber, resolvedChapter, [], []);
+          stored = await replaceParsedBookPageContent(book.id, pageNumber, storedPage.chapter, [], []);
         } catch {
           // There may be nothing to replace. The page processing result is
           // still valid and must not block the next stage.
@@ -762,14 +949,14 @@ function BookReader ({ book, file, generateAllConceptsModel, generateAllConcepts
       await refreshEntityCounts();
 
       if (areAllBookPagesConceptsProcessed(totalPages, Array.from(updatedPages.values()))) {
-        await advanceStage(2);
+        await advanceStage(3);
       }
     } catch (generationError) {
       setError(generationError instanceof Error ? generationError.message : 'Unable to generate concepts.');
     } finally {
       setProcessingPage(undefined);
     }
-  }, [addConceptsCost, advanceStage, book.id, isGeneratingAllConcepts, isRecognizingAll, pageNumber, pages, processingPage, refreshEntityCounts, selectedModel, totalPages]);
+  }, [addConceptsCost, advanceStage, book.id, isGeneratingAllConcepts, isIdentifyingChapters, isRecognizingAll, pageNumber, pages, processingPage, refreshEntityCounts, selectedModel, totalPages]);
   const closePageGenerationConfirmation = useCallback((): void => setIsPageGenerationConfirmationOpen(false), []);
   const confirmPageGeneration = useCallback((): void => {
     setIsPageGenerationConfirmationOpen(false);
@@ -777,7 +964,7 @@ function BookReader ({ book, file, generateAllConceptsModel, generateAllConcepts
   }, [generateConcepts]);
 
   const generateAllConcepts = useCallback(async (): Promise<void> => {
-    if (!totalPages || processingPage !== undefined || isGeneratingAllConcepts || isRecognizingAll) {
+    if (!totalPages || processingPage !== undefined || isGeneratingAllConcepts || isRecognizingAll || isIdentifyingChapters) {
       return;
     }
 
@@ -811,7 +998,6 @@ function BookReader ({ book, file, generateAllConceptsModel, generateAllConcepts
 
         return !!page?.pageMMDZip || !!page?.pageMMD?.trim();
       });
-    const resolvedPages = new Map(pages);
     const symbolStatistics = calculatePageSymbolStatistics(Array.from(pages.values()).flatMap(({ pageMMD }) => typeof pageMMD === 'string' ? [pageMMD] : []));
 
     try {
@@ -842,8 +1028,7 @@ function BookReader ({ book, file, generateAllConceptsModel, generateAllConcepts
       });
       let failedConceptTasks = 0;
 
-      // Persist in page order so blank chapter titles still inherit from the
-      // nearest preceding page exactly as they did before parallel generation.
+      // Persist in page order. Chapter ownership was fixed by the preceding Chapters stage.
       for (let index = 0; index < generationResults.length; index++) {
         const result = generationResults[index];
         const currentPageNumber = eligiblePages[index];
@@ -856,11 +1041,13 @@ function BookReader ({ book, file, generateAllConceptsModel, generateAllConcepts
         try {
           const { generatedConcepts, storedPage } = result;
 
-          const resolvedChapter = resolveChapterTitle(generatedConcepts.chapter, currentPageNumber, resolvedPages);
+          if (storedPage.chapterId === undefined && !storedPage.chapter.trim()) {
+            throw new Error('Page has no chapter assignment.');
+          }
+
           const generatedPage: BookPage = {
             ...storedPage,
             bookId: book.id,
-            chapter: resolvedChapter,
             conceptsProcessed: true,
             pageNumber: currentPageNumber
           };
@@ -868,7 +1055,7 @@ function BookReader ({ book, file, generateAllConceptsModel, generateAllConcepts
           let stored: Awaited<ReturnType<typeof replaceParsedBookPageContent>> | undefined;
 
           if (generatedConcepts.concepts.length) {
-            stored = await replaceParsedBookPageContent(book.id, currentPageNumber, resolvedChapter, generatedConcepts.concepts, []);
+            stored = await replaceParsedBookPageContent(book.id, currentPageNumber, storedPage.chapter, generatedConcepts.concepts, []);
             await putBookPage(generatedPage);
           } else {
             // Empty concepts are a successful extraction result. Commit the
@@ -876,7 +1063,7 @@ function BookReader ({ book, file, generateAllConceptsModel, generateAllConcepts
             await putBookPage(generatedPage);
 
             try {
-              stored = await replaceParsedBookPageContent(book.id, currentPageNumber, resolvedChapter, [], []);
+              stored = await replaceParsedBookPageContent(book.id, currentPageNumber, storedPage.chapter, [], []);
             } catch {
               // Do not turn a valid `concepts: []` result into an unprocessed
               // page merely because there are no concept rows to replace.
@@ -885,7 +1072,6 @@ function BookReader ({ book, file, generateAllConceptsModel, generateAllConcepts
             await putBookPage(generatedPage);
           }
 
-          resolvedPages.set(currentPageNumber, generatedPage);
           setPages((current) => new Map(current).set(currentPageNumber, generatedPage));
           setGeneratedConceptsPageCount((count) => count + 1);
 
@@ -907,7 +1093,7 @@ function BookReader ({ book, file, generateAllConceptsModel, generateAllConcepts
       if (allPagesSuccessfullyAttempted || conceptsComplete) {
         // Do not use concept count as the gate. A text page for which the AI
         // twice returns `concepts: []` has still completed this stage.
-        await advanceStage(2);
+        await advanceStage(3);
       } else {
         const failedPages = Math.max(failedConceptTasks, countUnprocessedBookPages(totalPages, storedPagesAfterGeneration));
 
@@ -919,10 +1105,16 @@ function BookReader ({ book, file, generateAllConceptsModel, generateAllConcepts
       setIsGeneratingAllConcepts(false);
       onProcessingComplete();
     }
-  }, [addConceptsCost, advanceStage, book.id, generateAllConceptsModel, isGeneratingAllConcepts, isRecognizingAll, onProcessingComplete, pageNumber, pages, processingPage, refreshEntityCounts, totalPages]);
+  }, [addConceptsCost, advanceStage, book.id, generateAllConceptsModel, isGeneratingAllConcepts, isIdentifyingChapters, isRecognizingAll, onProcessingComplete, pageNumber, pages, processingPage, refreshEntityCounts, totalPages]);
 
   const generateAllExercises = useCallback(async (): Promise<void> => {
-    if (!totalPages || processingPage !== undefined || isGeneratingAllConcepts || isRecognizingAll || isGeneratingAllExercises) {
+    if (!totalPages || processingPage !== undefined || isGeneratingAllConcepts || isRecognizingAll || isGeneratingAllExercises || isIdentifyingChapters) {
+      return;
+    }
+
+    if (!book.language) {
+      setError('Set the book language before generating exercises.');
+      onProcessingComplete();
       return;
     }
 
@@ -983,7 +1175,7 @@ function BookReader ({ book, file, generateAllConceptsModel, generateAllConcepts
       });
 
       await refreshEntityCounts();
-      await advanceStage(3);
+      await advanceStage(4);
       setActivePane('conceptExercises');
     } catch (processingError) {
       setError(processingError instanceof Error ? processingError.message : 'Unable to generate exercises.');
@@ -991,10 +1183,10 @@ function BookReader ({ book, file, generateAllConceptsModel, generateAllConcepts
       setIsGeneratingAllExercises(false);
       onProcessingComplete();
     }
-  }, [addExercisesCost, advanceStage, book.id, book.language, generateAllConceptsModel, isGeneratingAllConcepts, isRecognizingAll, isGeneratingAllExercises, onProcessingComplete, pageNumber, pages, processingPage, refreshEntityCounts, totalPages]);
+  }, [addExercisesCost, advanceStage, book.id, book.language, generateAllConceptsModel, isGeneratingAllConcepts, isIdentifyingChapters, isRecognizingAll, isGeneratingAllExercises, onProcessingComplete, pageNumber, pages, processingPage, refreshEntityCounts, totalPages]);
 
-  const detectAndStoreBookLanguage = useCallback(async (recognizedPages: Map<number, BookPage>): Promise<void> => {
-    if (book.language || isDetectingBookLanguageRef.current) {
+  const detectAndStoreBookLanguage = useCallback(async (recognizedPages: Map<number, BookPage>, force = false): Promise<void> => {
+    if ((!force && book.language) || isDetectingBookLanguageRef.current) {
       return;
     }
 
@@ -1006,12 +1198,20 @@ function BookReader ({ book, file, generateAllConceptsModel, generateAllConcepts
     });
 
     if (!middlePageNumbers.length || pageTexts.length !== middlePageNumbers.length) {
+      if (force) {
+        throw new Error('The middle recognized pages do not contain enough text to detect a language. Choose the language manually.');
+      }
+
       return;
     }
 
     const key = await getSetting(SettingKey.OPENROUTER_TOKEN);
 
     if (!key) {
+      if (force) {
+        throw new Error('No OpenRouter token found. Add it in Settings or choose the language manually.');
+      }
+
       return;
     }
 
@@ -1031,10 +1231,13 @@ function BookReader ({ book, file, generateAllConceptsModel, generateAllConcepts
         response_format: { type: 'json_object' }
       }));
 
+      // Language detection is part of recognition, so account for it under Recognize.
       reportOpenRouterCost(response, addRecognizeCost);
 
       const language = parseDetectedBookLanguage(response.choices[0].message?.content?.trim() ?? '');
-      const updatedBook = { ...book, language };
+      const languageChanged = normalizeLanguageCode(book.language) !== language;
+      const processingStage = languageChanged && (book.processingStage ?? 0) >= 4 ? 3 : book.processingStage;
+      const updatedBook = { ...book, language, processingStage };
 
       await putBook(updatedBook);
       onBookChange(updatedBook);
@@ -1044,31 +1247,53 @@ function BookReader ({ book, file, generateAllConceptsModel, generateAllConcepts
     }
   }, [addRecognizeCost, book, onBookChange, selectedModel, totalPages]);
 
+  const saveManualBookLanguage = useCallback(async (): Promise<void> => {
+    const language = normalizeLanguageCode(languageDraft);
+
+    if (!language) {
+      setError('Choose a valid ISO 639-1 book language.');
+      return;
+    }
+
+    setError('');
+
+    try {
+      const languageChanged = normalizeLanguageCode(book.language) !== language;
+      const processingStage = languageChanged && (book.processingStage ?? 0) >= 4 ? 3 : book.processingStage;
+      const updatedBook = { ...book, language, processingStage };
+
+      await putBook(updatedBook);
+      onBookChange(updatedBook);
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : 'Unable to save the book language.');
+    }
+  }, [book, languageDraft, onBookChange]);
+
   const isMmdConversionComplete = useMemo((): boolean => {
     if (!totalPages) {
       return false;
     }
 
-    return Array.from({ length: totalPages }, (_, index) => pages.get(index + 1)?.pageMMD?.trim()).every(Boolean);
+    return Array.from({ length: totalPages }, (_, index) => pages.get(index + 1)?.pageMMD !== undefined).every(Boolean);
   }, [pages, totalPages]);
 
-  useEffect((): void => {
-    if (
-      book.language ||
-      !isMmdConversionComplete ||
-      isRecognizingAll ||
-      processingPage !== undefined
-    ) {
+  const redetectBookLanguage = useCallback(async (): Promise<void> => {
+    if (!isMmdConversionComplete) {
+      setError('Recognize every page before detecting the book language.');
       return;
     }
 
-    detectAndStoreBookLanguage(pages).catch((languageError) => {
-      setError(languageError instanceof Error ? languageError.message : 'Unable to determine the book language from MMD text.');
-    });
-  }, [book.language, detectAndStoreBookLanguage, isMmdConversionComplete, isRecognizingAll, pages, processingPage]);
+    setError('');
+
+    try {
+      await detectAndStoreBookLanguage(pages, true);
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : 'Unable to determine the book language from MMD text.');
+    }
+  }, [detectAndStoreBookLanguage, isMmdConversionComplete, pages]);
 
   const recognizePage = useCallback(async (): Promise<void> => {
-    if (processingPage !== undefined || isGeneratingAllConcepts || isRecognizingAll) {
+    if (processingPage !== undefined || isGeneratingAllConcepts || isRecognizingAll || isIdentifyingChapters) {
       return;
     }
 
@@ -1087,19 +1312,16 @@ function BookReader ({ book, file, generateAllConceptsModel, generateAllConcepts
         return;
       }
 
-      const { pageMMD, pageMMDZip } = await recognizePageWithMathpix(apiKey, file, pageNumber);
+      const { mathpixHeadings, pageMMD, pageMMDZip } = await recognizePageWithMathpix(apiKey, file, pageNumber);
 
       addRecognizeCost(MATHPIX_PDF_PAGE_PRICE_USD);
-
-      if (!pageMMD) {
-        throw new Error('Mathpix returned no recognized content.');
-      }
 
       const recognizedPage: BookPage = {
         ...pages.get(pageNumber),
         bookId: book.id,
         chapter: pages.get(pageNumber)?.chapter ?? '',
         conceptsProcessed: pages.get(pageNumber)?.conceptsProcessed ?? false,
+        mathpixHeadings,
         pageMMD,
         pageMMDZip,
         pageNumber
@@ -1109,7 +1331,15 @@ function BookReader ({ book, file, generateAllConceptsModel, generateAllConcepts
       const updatedPages = new Map(pages).set(pageNumber, recognizedPage);
 
       setPages(updatedPages);
-      if (totalPages && Array.from({ length: totalPages }, (_, index) => updatedPages.get(index + 1)).every((page) => !!page?.pageMMD)) {
+      if (totalPages && Array.from({ length: totalPages }, (_, index) => updatedPages.get(index + 1)).every((page) => page?.pageMMD !== undefined)) {
+        try {
+          await detectAndStoreBookLanguage(updatedPages);
+        } catch (languageError) {
+          setError(languageError instanceof Error
+            ? `Recognition completed, but language detection failed: ${languageError.message}`
+            : 'Recognition completed, but the book language could not be detected. Set it manually in Text / Language.');
+        }
+
         await advanceStage(1);
       }
     } catch (recognitionError) {
@@ -1117,10 +1347,10 @@ function BookReader ({ book, file, generateAllConceptsModel, generateAllConcepts
     } finally {
       setProcessingPage(undefined);
     }
-  }, [addRecognizeCost, advanceStage, book.id, file, isGeneratingAllConcepts, isRecognizingAll, pageNumber, pages, processingPage, totalPages]);
+  }, [addRecognizeCost, advanceStage, book.id, detectAndStoreBookLanguage, file, isGeneratingAllConcepts, isIdentifyingChapters, isRecognizingAll, pageNumber, pages, processingPage, totalPages]);
 
   const recognizeAllPages = useCallback(async (): Promise<void> => {
-    if (!totalPages || processingPage !== undefined || isGeneratingAllConcepts || isRecognizingAll) {
+    if (!totalPages || processingPage !== undefined || isGeneratingAllConcepts || isRecognizingAll || isIdentifyingChapters) {
       return;
     }
 
@@ -1142,6 +1372,7 @@ function BookReader ({ book, file, generateAllConceptsModel, generateAllConcepts
     }
 
     const recognitionTasks: Array<Promise<void>> = [];
+    const recognizedPages = new Map(pages);
 
     try {
       for (let currentPageNumber = 1; currentPageNumber <= totalPages; currentPageNumber++) {
@@ -1150,13 +1381,9 @@ function BookReader ({ book, file, generateAllConceptsModel, generateAllConcepts
         }
 
         recognitionTasks.push((async () => {
-          const { pageMMD, pageMMDZip } = await recognizePageWithMathpix(apiKey, file, currentPageNumber);
+          const { mathpixHeadings, pageMMD, pageMMDZip } = await recognizePageWithMathpix(apiKey, file, currentPageNumber);
 
           addRecognizeCost(MATHPIX_PDF_PAGE_PRICE_USD);
-
-          if (!pageMMD) {
-            throw new Error('Mathpix returned no recognized content.');
-          }
 
           const storedPage = pages.get(currentPageNumber);
           const recognizedPage: BookPage = {
@@ -1164,12 +1391,14 @@ function BookReader ({ book, file, generateAllConceptsModel, generateAllConcepts
             bookId: book.id,
             chapter: storedPage?.chapter ?? '',
             conceptsProcessed: storedPage?.conceptsProcessed ?? false,
+            mathpixHeadings,
             pageMMD,
             pageMMDZip,
             pageNumber: currentPageNumber
           };
 
           await putBookPage(recognizedPage);
+          recognizedPages.set(currentPageNumber, recognizedPage);
           setPages((current) => new Map(current).set(currentPageNumber, recognizedPage));
           setRecognizedPageCount((count) => count + 1);
         })());
@@ -1181,6 +1410,14 @@ function BookReader ({ book, file, generateAllConceptsModel, generateAllConcepts
       if (failedPages) {
         setError(`${failedPages} of ${totalPages} pages could not be recognized.`);
       } else {
+        try {
+          await detectAndStoreBookLanguage(recognizedPages);
+        } catch (languageError) {
+          setError(languageError instanceof Error
+            ? `Recognition completed, but language detection failed: ${languageError.message}`
+            : 'Recognition completed, but the book language could not be detected. Set it manually in Text / Language.');
+        }
+
         await advanceStage(1);
       }
 
@@ -1190,7 +1427,7 @@ function BookReader ({ book, file, generateAllConceptsModel, generateAllConcepts
       setIsRecognizingAll(false);
       onProcessingComplete();
     }
-  }, [addRecognizeCost, advanceStage, book.id, file, isGeneratingAllConcepts, isRecognizingAll, onProcessingComplete, pages, processingPage, totalPages]);
+  }, [addRecognizeCost, advanceStage, book.id, detectAndStoreBookLanguage, file, isGeneratingAllConcepts, isIdentifyingChapters, isRecognizingAll, onProcessingComplete, pages, processingPage, totalPages]);
 
   const saveMathpixApiKey = useCallback(async (): Promise<void> => {
     const apiKey = mathpixApiKey.trim();
@@ -1223,7 +1460,8 @@ function BookReader ({ book, file, generateAllConceptsModel, generateAllConcepts
       processingPage !== undefined ||
       isGeneratingAllConcepts ||
       isRecognizingAll ||
-      isGeneratingAllExercises
+      isGeneratingAllExercises ||
+      isIdentifyingChapters
     ) {
       return;
     }
@@ -1234,7 +1472,7 @@ function BookReader ({ book, file, generateAllConceptsModel, generateAllConcepts
       setError(processingError instanceof Error ? processingError.message : 'Unable to generate exercises.');
       onProcessingComplete();
     });
-  }, [isGeneratingAllConcepts, isRecognizingAll, isGeneratingAllExercises, onProcessingComplete, processingPage, generateAllExercises, generateAllExercisesRequest, totalPages]);
+  }, [isGeneratingAllConcepts, isIdentifyingChapters, isRecognizingAll, isGeneratingAllExercises, onProcessingComplete, processingPage, generateAllExercises, generateAllExercisesRequest, totalPages]);
 
   useEffect((): void => {
     if (
@@ -1243,7 +1481,8 @@ function BookReader ({ book, file, generateAllConceptsModel, generateAllConcepts
       processingPage !== undefined ||
       isGeneratingAllConcepts ||
       isRecognizingAll ||
-      isGeneratingAllExercises
+      isGeneratingAllExercises ||
+      isIdentifyingChapters
     ) {
       return;
     }
@@ -1254,7 +1493,28 @@ function BookReader ({ book, file, generateAllConceptsModel, generateAllConcepts
       setError(generationError instanceof Error ? generationError.message : 'Unable to generate concepts for all pages.');
       onProcessingComplete();
     });
-  }, [generateAllConcepts, generateAllConceptsRequest, isGeneratingAllConcepts, isRecognizingAll, isGeneratingAllExercises, onProcessingComplete, processingPage, totalPages]);
+  }, [generateAllConcepts, generateAllConceptsRequest, isGeneratingAllConcepts, isGeneratingAllExercises, isIdentifyingChapters, isRecognizingAll, onProcessingComplete, processingPage, totalPages]);
+
+  useEffect((): void => {
+    if (
+      identifyChaptersRequest === handledIdentifyChaptersRequestRef.current ||
+      !totalPages ||
+      processingPage !== undefined ||
+      isGeneratingAllConcepts ||
+      isRecognizingAll ||
+      isGeneratingAllExercises ||
+      isIdentifyingChapters
+    ) {
+      return;
+    }
+
+    handledIdentifyChaptersRequestRef.current = identifyChaptersRequest;
+    setActivePane('chapters');
+    identifyChapters().catch((chapterError) => {
+      setError(chapterError instanceof Error ? chapterError.message : 'Unable to identify chapters.');
+      onProcessingComplete();
+    });
+  }, [identifyChapters, identifyChaptersRequest, isGeneratingAllConcepts, isGeneratingAllExercises, isIdentifyingChapters, isRecognizingAll, onProcessingComplete, processingPage, totalPages]);
 
   useEffect((): void => {
     if (
@@ -1263,7 +1523,8 @@ function BookReader ({ book, file, generateAllConceptsModel, generateAllConcepts
       processingPage !== undefined ||
       isGeneratingAllConcepts ||
       isRecognizingAll ||
-      isGeneratingAllExercises
+      isGeneratingAllExercises ||
+      isIdentifyingChapters
     ) {
       return;
     }
@@ -1274,7 +1535,7 @@ function BookReader ({ book, file, generateAllConceptsModel, generateAllConcepts
       setError(recognitionError instanceof Error ? recognitionError.message : 'Unable to recognize all pages.');
       onProcessingComplete();
     });
-  }, [isGeneratingAllConcepts, isRecognizingAll, isGeneratingAllExercises, onProcessingComplete, processingPage, recognizeAllPages, recognizeAllRequest, totalPages]);
+  }, [isGeneratingAllConcepts, isIdentifyingChapters, isRecognizingAll, isGeneratingAllExercises, onProcessingComplete, processingPage, recognizeAllPages, recognizeAllRequest, totalPages]);
 
   useEffect(() => {
     if (!isMaximized) {
@@ -1317,15 +1578,54 @@ function BookReader ({ book, file, generateAllConceptsModel, generateAllConcepts
   const recognizedPane = (): React.ReactNode => (
     <div className='tabPanel'>
       <div className='detailsHeader'>
-        <span>{isRecognizingAll
-          ? `Recognizing all pages… ${recognizedPageCount}/${totalPages}`
+        <span>{isDetectingBookLanguage
+          ? 'Detecting book language…'
+          : isRecognizingAll
+            ? `Recognizing all pages… ${recognizedPageCount}/${totalPages}`
           : processingPage === pageNumber
             ? 'Recognizing page…'
-            : isDetectingBookLanguage
-              ? 'Detecting book language…'
-              : bookLanguageLabel(book.language)}</span>
+            : 'Recognized text'}</span>
       </div>
-      {pages.get(pageNumber)?.pageMMD
+      <div className='languageEditor'>
+        <div className='languageEditorSummary'>
+          <div>
+            <strong>Book language</strong>
+            <span>Language is auto-detected at the end of recognition. You can override it manually at any time; changing it after Exercises were generated marks Exercises and later stages for rerun; existing generated content is not translated automatically.</span>
+          </div>
+          <span>{isDetectingBookLanguage ? 'Detecting…' : bookLanguageLabel(book.language)}</span>
+        </div>
+        <div className='languageEditRow'>
+          <Dropdown
+            isDisabled={!isMmdConversionComplete || isDetectingBookLanguage}
+            isFull
+            label='Common language'
+            onChange={setLanguageDraft}
+            options={BOOK_LANGUAGE_OPTIONS}
+            value={BOOK_LANGUAGE_OPTIONS.some(({ value }) => value === normalizeLanguageCode(languageDraft)) ? (normalizeLanguageCode(languageDraft) ?? '') : ''}
+          />
+          <Input
+            isDisabled={!isMmdConversionComplete || isDetectingBookLanguage}
+            isFull
+            label='ISO 639-1 code'
+            onChange={setLanguageDraft}
+            onEnter={() => saveManualBookLanguage().catch(console.error)}
+            value={languageDraft}
+          />
+          <Button
+            icon='save'
+            isDisabled={!isMmdConversionComplete || isDetectingBookLanguage || !normalizeLanguageCode(languageDraft) || normalizeLanguageCode(languageDraft) === normalizeLanguageCode(book.language)}
+            label='Save language'
+            onClick={() => saveManualBookLanguage().catch(console.error)}
+          />
+          <Button
+            icon='magic'
+            isDisabled={!isMmdConversionComplete || isDetectingBookLanguage}
+            label='Detect from text'
+            onClick={() => redetectBookLanguage().catch(console.error)}
+          />
+        </div>
+      </div>
+      {pages.get(pageNumber)?.pageMMD !== undefined
         ? <div className='recognizedOutput'>
           <MathpixLoader>
             <MathpixMarkdown text={pages.get(pageNumber)?.pageMMD ?? ''} />
@@ -1334,6 +1634,87 @@ function BookReader ({ book, file, generateAllConceptsModel, generateAllConcepts
         : <p className='emptyOutput'>This page has not been recognized yet.</p>}
     </div>
   );
+
+  const chaptersPane = (): React.ReactNode => {
+    const evidence = currentBookPage ? pageChapterEvidence(currentBookPage) : undefined;
+    const currentChapterPages = currentChapter?.id === undefined
+      ? []
+      : Array.from(pages.values()).filter(({ chapterId }) => chapterId === currentChapter.id).sort((a, b) => a.pageNumber - b.pageNumber);
+    const isChapterStart = currentChapterPages[0]?.pageNumber === pageNumber;
+
+    return <div className='tabPanel chaptersPanel'>
+      <div className='detailsHeader'>
+        <span>{isIdentifyingChapters ? `Identifying chapters… ${identifiedChapterPageCount}/${totalPages}` : 'Chapter assignment'}</span>
+      </div>
+      <div className='chapterEditor'>
+        <h3>{currentChapter?.title || 'Unassigned page'}</h3>
+        <p>Page {pageNumber} of {totalPages}. Automatic detection uses Mathpix title/section-header evidence plus a book-level AI reconciliation pass.</p>
+        <label>Assign this page
+          <select
+            disabled={!chapters.length || isIdentifyingChapters}
+            onChange={({ target }) => assignCurrentPageToChapter(Number(target.value)).catch(console.error)}
+            value={currentChapter?.id ?? ''}
+          >
+            <option disabled value=''>Choose chapter</option>
+            {chapters.flatMap((chapter) => chapter.id === undefined ? [] : [<option key={chapter.id} value={chapter.id}>{chapter.title}</option>])}
+          </select>
+        </label>
+        <div className='chapterEditRow'>
+          <Input
+            isFull
+            label='Chapter title'
+            onChange={setChapterTitleDraft}
+            onEnter={() => saveCurrentChapterTitle().catch(console.error)}
+            value={chapterTitleDraft}
+          />
+          <Button
+            icon='save'
+            isDisabled={currentChapter?.id === undefined || !chapterTitleDraft.trim() || isIdentifyingChapters}
+            label='Rename'
+            onClick={() => saveCurrentChapterTitle().catch(console.error)}
+          />
+        </div>
+        <div className='chapterEditRow'>
+          <Input
+            isFull
+            label='New chapter starting on this page'
+            onChange={setNewChapterTitle}
+            onEnter={() => startChapterHere().catch(console.error)}
+            placeholder='Chapter title'
+            value={newChapterTitle}
+          />
+          <Button
+            icon='plus'
+            isDisabled={!newChapterTitle.trim() || isIdentifyingChapters}
+            label='Start here'
+            onClick={() => startChapterHere().catch(console.error)}
+          />
+        </div>
+        <Button
+          icon='link'
+          isDisabled={!isChapterStart || chapters.findIndex(({ id }) => id === currentChapter?.id) <= 0 || isIdentifyingChapters}
+          label='Merge with previous chapter'
+          onClick={() => mergeCurrentChapterWithPrevious().catch(console.error)}
+        />
+        <section className='headingEvidence'>
+          <h4>Mathpix heading evidence</h4>
+          {evidence?.headings.length
+            ? <ul>{evidence.headings.map(({ confidence, source, text, type }, index) => <li key={`${source}:${type}:${index}`}><strong>{type}</strong> ({source}{confidence === undefined ? '' : `, ${(confidence * 100).toFixed(0)}%`}): {text}</li>)}</ul>
+            : <p className='emptyOutput'>No title or section header was detected on this page.</p>}
+        </section>
+        <section className='chapterList'>
+          <h4>Book chapters</h4>
+          <ol>{chapters.map((chapter) => {
+            const chapterPages = chapter.id === undefined ? [] : Array.from(pages.values()).filter(({ chapterId }) => chapterId === chapter.id).map(({ pageNumber }) => pageNumber).sort((a, b) => a - b);
+            const first = chapterPages[0];
+            const last = chapterPages[chapterPages.length - 1];
+
+            return <li key={chapter.id ?? chapter.title}><button onClick={() => first && goToPage(first)} type='button'>{chapter.title}</button>{first ? ` — pages ${first}${last !== first ? `–${last}` : ''}` : ''}{chapter.source === 'manual' ? ' · manual' : chapter.confidence === undefined ? '' : ` · ${(chapter.confidence * 100).toFixed(0)}%`}</li>;
+          })}</ol>
+        </section>
+      </div>
+    </div>;
+  };
 
   const conceptsStatus = isGeneratingAllConcepts
     ? `Generating concepts for all pages… ${generatedConceptsPageCount}/${totalPages}`
@@ -1453,7 +1834,7 @@ function BookReader ({ book, file, generateAllConceptsModel, generateAllConcepts
           <p>This extracts and saves only concepts introduced on the page. Exercises in the book are ignored; generated exercises run in the next pipeline step.</p>
           <Dropdown
             className='modelSelect'
-            isDisabled={processingPage !== undefined || isGeneratingAllConcepts || isRecognizingAll}
+            isDisabled={processingPage !== undefined || isGeneratingAllConcepts || isIdentifyingChapters || isRecognizingAll}
             label='Model'
             onChange={setSelectedModel}
             options={OPENAI_MODELS}
@@ -1473,13 +1854,13 @@ function BookReader ({ book, file, generateAllConceptsModel, generateAllConcepts
           </Button.Group>
         </Modal.Content>
       </Modal>}
-      {(pendingProcessingAction || processingPage !== undefined || isRecognizingAll || isGeneratingAllConcepts || isGeneratingAllExercises) && <div className='processingOverlay'>
+      {(pendingProcessingAction || processingPage !== undefined || isRecognizingAll || isIdentifyingChapters || isGeneratingAllConcepts || isGeneratingAllExercises) && <div className='processingOverlay'>
         <RoundProgress
           total={processingPage !== undefined ? 1 : Math.max(1, totalPages)}
-          value={processingPage !== undefined ? 0 : isRecognizingAll || pendingProcessingAction === 'recognize' ? recognizedPageCount : isGeneratingAllExercises || pendingProcessingAction === 'exercises' ? generatedExercisesPageCount : generatedConceptsPageCount}
+          value={processingPage !== undefined ? 0 : isRecognizingAll || pendingProcessingAction === 'recognize' ? recognizedPageCount : isIdentifyingChapters || pendingProcessingAction === 'chapters' ? identifiedChapterPageCount : isGeneratingAllExercises || pendingProcessingAction === 'exercises' ? generatedExercisesPageCount : generatedConceptsPageCount}
         />
-        <strong>{processingPage !== undefined ? `Processing page ${processingPage}` : isRecognizingAll || pendingProcessingAction === 'recognize' ? 'Recognizing MMD pages' : isGeneratingAllExercises || pendingProcessingAction === 'exercises' ? 'Generating exercises' : 'Extracting concepts'}</strong>
-        {processingPage === undefined && <span>{isRecognizingAll || pendingProcessingAction === 'recognize' ? recognizedPageCount : isGeneratingAllExercises || pendingProcessingAction === 'exercises' ? generatedExercisesPageCount : generatedConceptsPageCount} / {totalPages}</span>}
+        <strong>{processingPage !== undefined ? `Processing page ${processingPage}` : isDetectingBookLanguage ? 'Detecting book language' : isRecognizingAll || pendingProcessingAction === 'recognize' ? 'Recognizing MMD pages' : isIdentifyingChapters || pendingProcessingAction === 'chapters' ? 'Identifying chapters' : isGeneratingAllExercises || pendingProcessingAction === 'exercises' ? 'Generating exercises' : 'Extracting concepts'}</strong>
+        {processingPage === undefined && <span>{isDetectingBookLanguage ? totalPages : isRecognizingAll || pendingProcessingAction === 'recognize' ? recognizedPageCount : isIdentifyingChapters || pendingProcessingAction === 'chapters' ? identifiedChapterPageCount : isGeneratingAllExercises || pendingProcessingAction === 'exercises' ? generatedExercisesPageCount : generatedConceptsPageCount} / {totalPages}</span>}
         <span className='openRouterSpend'>Spent this stage: {formatOpenRouterSpend(openRouterSpent)}</span>
       </div>}
       <Skills
@@ -1500,11 +1881,12 @@ function BookReader ({ book, file, generateAllConceptsModel, generateAllConcepts
         role='tablist'
       >
         {([
-          ['pdfText', 'Text', 1, totalPages],
-          ['textConcepts', 'Concepts', 2, entityCounts.concepts],
-          ['conceptExercises', 'Exercises', 3, entityCounts.exercises],
-          ['preExercisesExercises', 'Abilities', 5, entityCounts.abilities],
-          ['skillsCourse', 'Course', 7, undefined]
+          ['pdfText', 'Text / Language', 1, totalPages],
+          ['chapters', 'Chapters', 1, chapters.length],
+          ['textConcepts', 'Concepts', 3, entityCounts.concepts],
+          ['conceptExercises', 'Exercises', 4, entityCounts.exercises],
+          ['preExercisesExercises', 'Abilities', 6, entityCounts.abilities],
+          ['skillsCourse', 'Course', 8, undefined]
         ] as Array<[ReaderPane, string, number, number | undefined]>).filter(([, , requiredStage]) => (book.processingStage ?? 0) >= requiredStage).map(([pane, label, , count]) => (
           <button
             aria-selected={activePane === pane}
@@ -1526,7 +1908,7 @@ function BookReader ({ book, file, generateAllConceptsModel, generateAllConcepts
         className='readerColumns'
         role='tabpanel'
       >
-        {(activePane === 'pdfText' || activePane === 'textConcepts') && <div className='pageNavigation'>
+        {(activePane === 'pdfText' || activePane === 'chapters' || activePane === 'textConcepts') && <div className='pageNavigation'>
           <Button
             icon='arrow-left'
             isDisabled={pageNumber <= 1}
@@ -1595,6 +1977,16 @@ function BookReader ({ book, file, generateAllConceptsModel, generateAllConcepts
               {recognizedPane()}
             </div>
           </>
+          : activePane === 'chapters'
+            ? <>
+              <div
+                className={`detailsArea${renderedPageHeight ? ' hasPageHeight' : ''}`}
+                style={{ '--page-height': renderedPageHeight ? `${renderedPageHeight}px` : 'auto' } as React.CSSProperties}
+              >
+                {recognizedPane()}
+              </div>
+              <div className='detailsArea'>{chaptersPane()}</div>
+            </>
           : activePane === 'textConcepts'
             ? <>
               <div
@@ -1706,6 +2098,24 @@ const StyledReader = styled.div`
   .chapterNavigation span {
     white-space: nowrap;
   }
+
+  .languageEditor { border-bottom: 1px solid #dde1eb; display: flex; flex-direction: column; gap: 0.75rem; margin-bottom: 1rem; padding-bottom: 1rem; }
+  .languageEditorSummary { align-items: flex-start; display: flex; gap: 1rem; justify-content: space-between; }
+  .languageEditorSummary > div { display: flex; flex-direction: column; gap: 0.2rem; }
+  .languageEditorSummary > div span { font-size: 0.9rem; opacity: 0.75; }
+  .languageEditorSummary > span { font-weight: 600; white-space: nowrap; }
+  .languageEditRow { align-items: flex-end; display: grid; gap: 0.5rem; grid-template-columns: minmax(10rem, 1fr) minmax(8rem, 0.6fr) auto auto; }
+
+  .chaptersPanel .chapterEditor { display: flex; flex-direction: column; gap: 1rem; }
+  .chaptersPanel .chapterEditor > h3, .chaptersPanel .chapterEditor > p { margin: 0; }
+  .chaptersPanel .chapterEditor label { display: flex; flex-direction: column; gap: 0.4rem; }
+  .chaptersPanel .chapterEditor select { background: var(--bg-input); border: 1px solid #dde1eb; border-radius: 0.25rem; color: var(--color-text); padding: 0.55rem; width: 100%; }
+  .chapterEditRow { align-items: flex-end; display: grid; gap: 0.5rem; grid-template-columns: minmax(0, 1fr) auto; }
+  .headingEvidence, .chapterList { border-top: 1px solid #dde1eb; padding-top: 0.75rem; }
+  .headingEvidence h4, .chapterList h4 { margin: 0 0 0.5rem; }
+  .headingEvidence ul, .chapterList ol { margin: 0; padding-left: 1.4rem; }
+  .chapterList li { margin: 0.35rem 0; }
+  .chapterList button { background: none; border: 0; color: var(--color-link, #2f6feb); cursor: pointer; padding: 0; text-align: left; }
 
   .processingOverlay { align-items: center; background: color-mix(in srgb, var(--bg-page) 92%, transparent); display: flex; flex-direction: column; gap: 0.75rem; inset: 0; justify-content: center; position: fixed; z-index: 1000; }
   .openRouterSpend { font-variant-numeric: tabular-nums; opacity: 0.85; }
@@ -1917,6 +2327,11 @@ const StyledReader = styled.div`
 
   .readerError {
     color: #9f3a38;
+  }
+
+  @media (max-width: 900px) {
+    .languageEditRow { grid-template-columns: 1fr; }
+    .languageEditorSummary { flex-direction: column; }
   }
 
   @media only screen and (max-width: 800px) {

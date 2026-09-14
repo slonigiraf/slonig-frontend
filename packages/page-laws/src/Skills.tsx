@@ -35,12 +35,12 @@ async function preRenderTikzLazy (value: string): Promise<TikzPreRenderResult> {
 }
 
 const BATCH_SIZE = 5;
-const SPLIT_EXERCISES_STAGE = 4;
-const FIX_EXERCISES_STAGE = 5;
-const ABILITIES_STAGE = 7;
-const FIX_ABILITIES_STAGE = 8;
-const IMAGES_STAGE = 9;
-const FIX_IMAGES_STAGE = 10;
+const SPLIT_EXERCISES_STAGE = 5;
+const FIX_EXERCISES_STAGE = 6;
+const ABILITIES_STAGE = 8;
+const FIX_ABILITIES_STAGE = 9;
+const IMAGES_STAGE = 10;
+const FIX_IMAGES_STAGE = 11;
 const MAX_REQUEST_ATTEMPTS = 4;
 const RETRY_BASE_DELAY_MS = 1_000;
 const AI_REQUEST_TIMEOUT_MS = 60_000;
@@ -763,7 +763,8 @@ function getSessionChapter (bookId: number, view: SkillsView): number {
 }
 
 function Skills ({ book, onAction, onBookChange, onEntityCountsChange, pipelineOnly = false, pipelinePrefix, showPipeline = true, view }: Props): React.ReactElement {
-  const language = book.language ?? 'en';
+  const language = book.language ?? '';
+  const hasBookLanguage = Boolean(language);
   const [aiAction, setAiAction] = useState<AiAction>();
   const [chapterContent, setChapterContent] = useState<ChapterContent[]>([]);
   const [bookPageContent, setBookPageContent] = useState<BookPageContent[]>([]);
@@ -887,12 +888,12 @@ function Skills ({ book, onAction, onBookChange, onEntityCountsChange, pipelineO
   // Pipeline buttons must follow the persisted processing stage, not the
   // presence of generated/extracted rows. Concepts can already extract
   // exercises from the source book, but that does not mean the Exercises
-  // pipeline step has been run. Stage 3 is set explicitly only when that
-  // step completes. Stage 4 records the Split Exercise concept-scope audit,
-  // and stage 5 records a successful Fix exercises pass; only after that
-  // should Abilities become available. Stage 7 means Abilities
-  // have been generated; stage 8 independently records Fix abilities. Stages
-  // 9 and 10 are the Images and Fix images pipeline checkpoints.
+  // pipeline step has been run. With Chapters inserted after recognition, Stage 4
+  // is Exercises, Stage 5 records the Split Exercise concept-scope audit,
+  // and Stage 6 records a successful Fix exercises pass; only after that
+  // should Abilities become available. Stage 8 means Abilities
+  // have been generated; Stage 9 independently records Fix abilities. Stages
+  // 10 and 11 are the Images and Fix images pipeline checkpoints.
   const stage = book.processingStage ?? 0;
   const hasAbilities = allAbilities.length > 0;
 
@@ -1018,7 +1019,7 @@ function Skills ({ book, onAction, onBookChange, onEntityCountsChange, pipelineO
 
       await Promise.all(allSkills.flatMap(({ id }) => id === undefined ? [] : [deleteAbilities(abilityModuleId(book.id, id))]));
       await Promise.all(chapters.flatMap(({ id }) => id === undefined ? [] : [replaceSkillsForChapter(id, generatedByChapter.get(id) ?? [])]));
-      await setStage(4); refresh();
+      await setStage(5); refresh();
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : 'Unable to generate Skills.');
     } finally {
@@ -2157,37 +2158,37 @@ function Skills ({ book, onAction, onBookChange, onEntityCountsChange, pipelineO
       {pipelinePrefix}
       <span className='pipelineStep'><span>›</span><Button
         icon={iconForStage(SPLIT_EXERCISES_STAGE)}
-        isDisabled={isBusy || stage < 3 || !allExercises.length}
+        isDisabled={isBusy || !hasBookLanguage || stage < 4 || !allExercises.length}
         label='Split Exercise'
         onClick={openExerciseSplit}
                                                    /></span>
       <span className='pipelineStep'><span>›</span><Button
         icon={iconForStage(FIX_EXERCISES_STAGE)}
-        isDisabled={isBusy || stage < SPLIT_EXERCISES_STAGE || !allExercises.length}
+        isDisabled={isBusy || !hasBookLanguage || stage < SPLIT_EXERCISES_STAGE || !allExercises.length}
         label='Fix exercises'
         onClick={openExerciseFix}
                                                    /></span>
       <span className='pipelineStep'><span>›</span><Button
         icon={iconForStage(ABILITIES_STAGE)}
-        isDisabled={isBusy || stage < FIX_EXERCISES_STAGE || !allExercises.length}
+        isDisabled={isBusy || !hasBookLanguage || stage < FIX_EXERCISES_STAGE || !allExercises.length}
         label='Abilities'
         onClick={openExerciseGeneration}
                                                    /></span>
       <span className='pipelineStep'><span>›</span><Button
         icon={iconForStage(FIX_ABILITIES_STAGE)}
-        isDisabled={isBusy || stage < ABILITIES_STAGE || !hasAbilities}
+        isDisabled={isBusy || !hasBookLanguage || stage < ABILITIES_STAGE || !hasAbilities}
         label='Fix abilities'
         onClick={openAbilityFix}
                                                    /></span>
       <span className='pipelineStep'><span>›</span><Button
         icon={iconForStage(IMAGES_STAGE)}
-        isDisabled={isBusy || stage < FIX_ABILITIES_STAGE || !hasAbilities}
+        isDisabled={isBusy || !hasBookLanguage || stage < FIX_ABILITIES_STAGE || !hasAbilities}
         label='Images'
         onClick={openImages}
                                                    /></span>
       <span className='pipelineStep'><span>›</span><Button
         icon={iconForStage(FIX_IMAGES_STAGE)}
-        isDisabled={isBusy || stage < IMAGES_STAGE || !hasAbilities}
+        isDisabled={isBusy || !hasBookLanguage || stage < IMAGES_STAGE || !hasAbilities}
         label='Fix images'
         onClick={openImageFix}
                                                    /></span>

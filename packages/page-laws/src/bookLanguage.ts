@@ -1,7 +1,7 @@
 // Copyright 2021-2026 @polkadot/app-laws authors & contributors
 // SPDX-License-Identifier: Apache-2.0
 
-const LANGUAGE_NAMES: Record<string, string> = {
+export const LANGUAGE_NAMES: Record<string, string> = {
   ar: 'Arabic',
   bg: 'Bulgarian',
   ca: 'Catalan',
@@ -46,6 +46,10 @@ const LANGUAGE_NAMES: Record<string, string> = {
   zh: 'Chinese'
 };
 
+export const BOOK_LANGUAGE_OPTIONS = Object.entries(LANGUAGE_NAMES)
+  .sort(([, left], [, right]) => left.localeCompare(right))
+  .map(([value, name]) => ({ text: `${name} (${value})`, value }));
+
 function parseJsonResponse (content: string): unknown {
   const json = content.trim().replace(/^```(?:json)?\s*|\s*```$/gi, '').trim();
 
@@ -56,7 +60,7 @@ function parseJsonResponse (content: string): unknown {
   }
 }
 
-function normalizeLanguageCode (value: unknown): string | undefined {
+export function normalizeLanguageCode (value: unknown): string | undefined {
   if (typeof value !== 'string') {
     return undefined;
   }

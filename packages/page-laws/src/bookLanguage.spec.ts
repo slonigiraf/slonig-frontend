@@ -5,7 +5,7 @@
 
 import { strict as assert } from 'node:assert';
 
-import { bookLanguageLabel, getMiddleBookPageNumbers, parseDetectedBookLanguage } from './bookLanguage.js';
+import { BOOK_LANGUAGE_OPTIONS, bookLanguageLabel, getMiddleBookPageNumbers, normalizeLanguageCode, parseDetectedBookLanguage } from './bookLanguage.js';
 import { BOOK_LANGUAGE_DETECTION_PROMPT } from './constants.js';
 
 describe('book language detection', (): void => {
@@ -36,6 +36,20 @@ describe('book language detection', (): void => {
     assert.equal(parseDetectedBookLanguage('{"languageCode":"tr-TR"}'), 'tr');
     assert.equal(parseDetectedBookLanguage('```json\n{"code":"EN"}\n```'), 'en');
     assert.throws(() => parseDetectedBookLanguage('{"language":"english"}'));
+  });
+
+  it('normalizes manual ISO language overrides', (): void => {
+    assert.equal(normalizeLanguageCode('EN'), 'en');
+    assert.equal(normalizeLanguageCode('tr-TR'), 'tr');
+    assert.equal(normalizeLanguageCode(' sr '), 'sr');
+    assert.equal(normalizeLanguageCode('english'), undefined);
+    assert.equal(normalizeLanguageCode('e'), undefined);
+  });
+
+  it('offers common languages for manual selection', (): void => {
+    assert.equal(BOOK_LANGUAGE_OPTIONS.some(({ value }) => value === 'en'), true);
+    assert.equal(BOOK_LANGUAGE_OPTIONS.some(({ value }) => value === 'ru'), true);
+    assert.equal(BOOK_LANGUAGE_OPTIONS.some(({ value }) => value === 'tr'), true);
   });
 
   it('formats common language codes for the reader header', (): void => {
