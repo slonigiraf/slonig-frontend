@@ -86,6 +86,7 @@ function Upload (): React.ReactElement {
   const [error, setError] = useState('');
   const [isBusy, setIsBusy] = useState(false);
   const [generateAllConceptsRequest, setGenerateAllConceptsRequest] = useState(0);
+  const [detectLanguageRequest, setDetectLanguageRequest] = useState(0);
   const [identifyChaptersRequest, setIdentifyChaptersRequest] = useState(0);
   const [identifyChaptersEstimate, setIdentifyChaptersEstimate] = useState('');
   const [isIdentifyChaptersConfirmationOpen, setIsIdentifyChaptersConfirmationOpen] = useState(false);
@@ -96,7 +97,7 @@ function Upload (): React.ReactElement {
   const [isRecognizeConfirmationOpen, setIsRecognizeConfirmationOpen] = useState(false);
   const [isPriceOpen, setIsPriceOpen] = useState(false);
   const [priceBook, setPriceBook] = useState<Book>();
-  const [pendingProcessingAction, setPendingProcessingAction] = useState<'chapters' | 'concepts' | 'recognize' | 'exercises'>();
+  const [pendingProcessingAction, setPendingProcessingAction] = useState<'chapters' | 'concepts' | 'language' | 'recognize' | 'exercises'>();
   const [generateAllExercisesRequest, setGenerateAllExercisesRequest] = useState(0);
   const [generateExercisesEstimate, setGenerateExercisesEstimate] = useState('');
   const [recognizeEstimate, setRecognizeEstimate] = useState('');
@@ -320,13 +321,23 @@ function Upload (): React.ReactElement {
     });
   }, [selectedBook, t]);
 
+  const onDetectLanguage = useCallback((): void => {
+    if (!selectedBook || (selectedBook.processingStage ?? 0) < 1) {
+      return;
+    }
+
+    setError('');
+    setPendingProcessingAction('language');
+    setDetectLanguageRequest((request) => request + 1);
+  }, [selectedBook]);
+
   const onIdentifyChapters = useCallback((): void => {
     if (!selectedBook) {
       return;
     }
 
     if (!selectedBook.language) {
-      setError(t('Book language has not been detected yet. Recognition auto-detects it when all pages finish; you can also set it manually in Text / Language.'));
+      setError(t('Book language has not been set yet. Run the Language step or choose it manually in the Language tab.'));
       return;
     }
 
@@ -390,7 +401,7 @@ function Upload (): React.ReactElement {
     }
 
     if (!selectedBook.language) {
-      setError(t('Book language has not been detected yet. Recognition auto-detects it when all pages finish; you can also set it manually in Text / Language.'));
+      setError(t('Book language has not been set yet. Run the Language step or choose it manually in the Language tab.'));
       return;
     }
 
@@ -446,7 +457,7 @@ function Upload (): React.ReactElement {
     }
 
     if (!selectedBook.language) {
-      setError(t('Book language has not been detected yet. Recognition auto-detects it when all pages finish; you can also set it manually in Text / Language.'));
+      setError(t('Book language has not been set yet. Run the Language step or choose it manually in the Language tab.'));
       return;
     }
 
@@ -570,7 +581,7 @@ function Upload (): React.ReactElement {
         <Modal.Content>
           <p>{t('Recognize every page in this book?')}</p>
           <p>{recognizeEstimate}</p>
-          <p>{t('Book language is detected only after recognition finishes, and can then be changed manually.')}</p>
+          <p>{t('Language detection is a separate step after recognition.')}</p>
           <p>
             <a
               href='https://mathpix.com/pricing/api'
@@ -732,6 +743,7 @@ function Upload (): React.ReactElement {
             book={selectedBook}
             file={readerFile}
             generateAllConceptsModel={generateAllConceptsModel}
+            detectLanguageRequest={detectLanguageRequest}
             generateAllConceptsRequest={generateAllConceptsRequest}
             identifyChaptersRequest={identifyChaptersRequest}
             onBookChange={onBookChange}
@@ -744,6 +756,15 @@ function Upload (): React.ReactElement {
               label={t('Recognize')}
               onClick={onRecognize}
             />
+            <span className='pipelineStep'>
+              <span>›</span>
+              <Button
+                icon={selectedBook?.language ? 'rotate-left' : 'play'}
+                isDisabled={!selectedBook || !readerFile || isBusy || (selectedBook.processingStage ?? 0) < 1}
+                label={t('Language')}
+                onClick={onDetectLanguage}
+              />
+            </span>
             <span className='pipelineStep'>
               <span>›</span>
               <Button
