@@ -86,7 +86,7 @@ function Upload (): React.ReactElement {
   const [error, setError] = useState('');
   const [isBusy, setIsBusy] = useState(false);
   const [generateAllConceptsRequest, setGenerateAllConceptsRequest] = useState(0);
-  const [detectLanguageRequest, setDetectLanguageRequest] = useState(0);
+  const [languageTabRequest, setLanguageTabRequest] = useState(0);
   const [identifyChaptersRequest, setIdentifyChaptersRequest] = useState(0);
   const [identifyChaptersEstimate, setIdentifyChaptersEstimate] = useState('');
   const [isIdentifyChaptersConfirmationOpen, setIsIdentifyChaptersConfirmationOpen] = useState(false);
@@ -97,7 +97,7 @@ function Upload (): React.ReactElement {
   const [isRecognizeConfirmationOpen, setIsRecognizeConfirmationOpen] = useState(false);
   const [isPriceOpen, setIsPriceOpen] = useState(false);
   const [priceBook, setPriceBook] = useState<Book>();
-  const [pendingProcessingAction, setPendingProcessingAction] = useState<'chapters' | 'concepts' | 'language' | 'recognize' | 'exercises'>();
+  const [pendingProcessingAction, setPendingProcessingAction] = useState<'chapters' | 'concepts' | 'recognize' | 'exercises'>();
   const [generateAllExercisesRequest, setGenerateAllExercisesRequest] = useState(0);
   const [generateExercisesEstimate, setGenerateExercisesEstimate] = useState('');
   const [recognizeEstimate, setRecognizeEstimate] = useState('');
@@ -321,14 +321,13 @@ function Upload (): React.ReactElement {
     });
   }, [selectedBook, t]);
 
-  const onDetectLanguage = useCallback((): void => {
+  const onShowLanguage = useCallback((): void => {
     if (!selectedBook || (selectedBook.processingStage ?? 0) < 1) {
       return;
     }
 
     setError('');
-    setPendingProcessingAction('language');
-    setDetectLanguageRequest((request) => request + 1);
+    setLanguageTabRequest((request) => request + 1);
   }, [selectedBook]);
 
   const onIdentifyChapters = useCallback((): void => {
@@ -337,7 +336,7 @@ function Upload (): React.ReactElement {
     }
 
     if (!selectedBook.language) {
-      setError(t('Book language has not been set yet. Run the Language step or choose it manually in the Language tab.'));
+      setError(t('Book language has not been set yet. Open the Language step, then detect it from text or choose it manually.'));
       return;
     }
 
@@ -401,7 +400,7 @@ function Upload (): React.ReactElement {
     }
 
     if (!selectedBook.language) {
-      setError(t('Book language has not been set yet. Run the Language step or choose it manually in the Language tab.'));
+      setError(t('Book language has not been set yet. Open the Language step, then detect it from text or choose it manually.'));
       return;
     }
 
@@ -457,7 +456,7 @@ function Upload (): React.ReactElement {
     }
 
     if (!selectedBook.language) {
-      setError(t('Book language has not been set yet. Run the Language step or choose it manually in the Language tab.'));
+      setError(t('Book language has not been set yet. Open the Language step, then detect it from text or choose it manually.'));
       return;
     }
 
@@ -741,9 +740,10 @@ function Upload (): React.ReactElement {
         <React.Suspense fallback={<p>{t('Loading PDF reader…')}</p>}>
           <BookReader
             book={selectedBook}
+            key={selectedBook.id}
             file={readerFile}
             generateAllConceptsModel={generateAllConceptsModel}
-            detectLanguageRequest={detectLanguageRequest}
+            languageTabRequest={languageTabRequest}
             generateAllConceptsRequest={generateAllConceptsRequest}
             identifyChaptersRequest={identifyChaptersRequest}
             onBookChange={onBookChange}
@@ -762,7 +762,7 @@ function Upload (): React.ReactElement {
                 icon={selectedBook?.language ? 'rotate-left' : 'play'}
                 isDisabled={!selectedBook || !readerFile || isBusy || (selectedBook.processingStage ?? 0) < 1}
                 label={t('Language')}
-                onClick={onDetectLanguage}
+                onClick={onShowLanguage}
               />
             </span>
             <span className='pipelineStep'>

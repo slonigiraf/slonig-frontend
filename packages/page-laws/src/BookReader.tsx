@@ -327,16 +327,16 @@ interface Props {
   generateAllConceptsModel: string;
   generateAllConceptsRequest: number;
   identifyChaptersRequest: number;
-  detectLanguageRequest: number;
+  languageTabRequest: number;
   onBookChange: (book: Book) => void;
   onProcessingComplete: () => void;
-  pendingProcessingAction?: 'chapters' | 'concepts' | 'language' | 'recognize' | 'exercises';
+  pendingProcessingAction?: 'chapters' | 'concepts' | 'recognize' | 'exercises';
   processingToolbar: React.ReactNode;
   generateAllExercisesRequest: number;
   recognizeAllRequest: number;
 }
 
-type ReaderPane = 'chapters' | 'conceptExercises' | 'conceptsSkills' | 'pdfText' | 'preExercisesExercises' | 'skillsCourse' | 'textConcepts';
+type ReaderPane = 'chapters' | 'conceptExercises' | 'conceptsSkills' | 'language' | 'pdf' | 'preExercisesExercises' | 'skillsCourse' | 'text' | 'textConcepts';
 type RecognitionTarget = 'all' | 'page';
 
 interface ReaderEntityCounts {
@@ -370,14 +370,18 @@ function getSessionReaderPane (bookId: number): ReaderPane {
   try {
     const value = sessionStorage.getItem(readerPaneSessionKey(bookId));
 
-    return value === 'pdfText' || value === 'chapters' || value === 'textConcepts' || value === 'conceptExercises' || value === 'preExercisesExercises' || value === 'skillsCourse' ? value : 'pdfText';
+    if (value === 'pdfText') {
+      return 'pdf';
+    }
+
+    return value === 'pdf' || value === 'text' || value === 'language' || value === 'chapters' || value === 'textConcepts' || value === 'conceptExercises' || value === 'preExercisesExercises' || value === 'skillsCourse' ? value : 'pdf';
   } catch {
-    return 'pdfText';
+    return 'pdf';
   }
 }
 
-function BookReader ({ book, file, generateAllConceptsModel, generateAllConceptsRequest, identifyChaptersRequest, detectLanguageRequest, onBookChange, onProcessingComplete, pendingProcessingAction, processingToolbar, recognizeAllRequest, generateAllExercisesRequest }: Props): React.ReactElement {
-  const [activePane, setActivePane] = useState<ReaderPane>(() => getSessionReaderPane(book.id));
+function BookReader ({ book, file, generateAllConceptsModel, generateAllConceptsRequest, identifyChaptersRequest, languageTabRequest, onBookChange, onProcessingComplete, pendingProcessingAction, processingToolbar, recognizeAllRequest, generateAllExercisesRequest }: Props): React.ReactElement {
+  const [activePane, setActivePane] = useState<ReaderPane>(() => (book.processingStage ?? 0) < 1 ? 'pdf' : getSessionReaderPane(book.id));
   const [chapters, setChapters] = useState<BookChapter[]>([]);
   const [chapterTitleDraft, setChapterTitleDraft] = useState('');
   const [newChapterTitle, setNewChapterTitle] = useState('');
@@ -413,7 +417,7 @@ function BookReader ({ book, file, generateAllConceptsModel, generateAllConcepts
   const [totalPages, setTotalPages] = useState(0);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const handledGenerateAllConceptsRequestRef = useRef(generateAllConceptsRequest);
-  const handledDetectLanguageRequestRef = useRef(detectLanguageRequest);
+  const handledLanguageTabRequestRef = useRef(languageTabRequest);
   const handledIdentifyChaptersRequestRef = useRef(identifyChaptersRequest);
   const handledGenerateAllExercisesRequestRef = useRef(generateAllExercisesRequest);
   const handledRecognizeAllRequestRef = useRef(recognizeAllRequest);
@@ -515,12 +519,26 @@ function BookReader ({ book, file, generateAllConceptsModel, generateAllConcepts
   }, [activePane, book.id]);
 
   useEffect(() => {
+    const recognitionIsComplete = totalPages > 0 && Array.from(
+      { length: totalPages },
+      (_, index) => pages.get(index + 1)?.pageMMD !== undefined
+    ).every(Boolean);
+
+    // While the persisted processingStage update is propagating after
+    // recognition, do not let the initial-stage guard overwrite the Text tab
+    // that recognition completion selected.
+    if ((book.processingStage ?? 0) < 1 && !recognitionIsComplete && activePane !== 'pdf') {
+      setActivePane('pdf');
+    }
+  }, [activePane, book.processingStage, pages, totalPages]);
+
+  useEffect(() => {
     if (pendingProcessingAction) {
       setOpenRouterSpent(0);
     }
 
-    if (pendingProcessingAction === 'recognize' || pendingProcessingAction === 'language') {
-      setActivePane('pdfText');
+    if (pendingProcessingAction === 'recognize') {
+      setActivePane('pdf');
     } else if (pendingProcessingAction === 'chapters') {
       setActivePane('chapters');
     } else if (pendingProcessingAction === 'concepts' || pendingProcessingAction === 'exercises') {
@@ -1332,6 +1350,7 @@ function BookReader ({ book, file, generateAllConceptsModel, generateAllConcepts
       setPages(updatedPages);
       if (totalPages && Array.from({ length: totalPages }, (_, index) => updatedPages.get(index + 1)).every((page) => page?.pageMMD !== undefined)) {
         await advanceStage(1);
+        setActivePane('text');
       }
     } catch (recognitionError) {
       setError(recognitionError instanceof Error ? recognitionError.message : 'Unable to recognize this page.');
@@ -1402,6 +1421,7 @@ function BookReader ({ book, file, generateAllConceptsModel, generateAllConcepts
         setError(`${failedPages} of ${totalPages} pages could not be recognized.`);
       } else {
         await advanceStage(1);
+        setActivePane('text');
       }
 
     } catch (recognitionError) {
@@ -1437,26 +1457,13 @@ function BookReader ({ book, file, generateAllConceptsModel, generateAllConcepts
   }, []);
 
   useEffect((): void => {
-    if (
-      detectLanguageRequest === handledDetectLanguageRequestRef.current ||
-      !totalPages ||
-      processingPage !== undefined ||
-      isGeneratingAllConcepts ||
-      isRecognizingAll ||
-      isGeneratingAllExercises ||
-      isIdentifyingChapters ||
-      isDetectingBookLanguage
-    ) {
+    if (languageTabRequest === handledLanguageTabRequestRef.current) {
       return;
     }
 
-    handledDetectLanguageRequestRef.current = detectLanguageRequest;
-    setActivePane('pdfText');
-    setOpenRouterSpent(0);
-    redetectBookLanguage()
-      .catch((languageError) => setError(languageError instanceof Error ? languageError.message : 'Unable to detect the book language.'))
-      .finally(onProcessingComplete);
-  }, [detectLanguageRequest, isDetectingBookLanguage, isGeneratingAllConcepts, isGeneratingAllExercises, isIdentifyingChapters, isRecognizingAll, onProcessingComplete, processingPage, redetectBookLanguage, totalPages]);
+    handledLanguageTabRequestRef.current = languageTabRequest;
+    setActivePane('language');
+  }, [languageTabRequest]);
 
   useEffect((): void => {
     if (
@@ -1535,7 +1542,7 @@ function BookReader ({ book, file, generateAllConceptsModel, generateAllConcepts
     }
 
     handledRecognizeAllRequestRef.current = recognizeAllRequest;
-    setActivePane('pdfText');
+    setActivePane('pdf');
     recognizeAllPages().catch((recognitionError) => {
       setError(recognitionError instanceof Error ? recognitionError.message : 'Unable to recognize all pages.');
       onProcessingComplete();
@@ -1852,11 +1859,11 @@ function BookReader ({ book, file, generateAllConceptsModel, generateAllConcepts
       </Modal>}
       {(pendingProcessingAction || processingPage !== undefined || isDetectingBookLanguage || isRecognizingAll || isIdentifyingChapters || isGeneratingAllConcepts || isGeneratingAllExercises) && <div className='processingOverlay'>
         <RoundProgress
-          total={isDetectingBookLanguage || pendingProcessingAction === 'language' || processingPage !== undefined ? 1 : Math.max(1, totalPages)}
-          value={isDetectingBookLanguage || pendingProcessingAction === 'language' || processingPage !== undefined ? 0 : isRecognizingAll || pendingProcessingAction === 'recognize' ? recognizedPageCount : isIdentifyingChapters || pendingProcessingAction === 'chapters' ? identifiedChapterPageCount : isGeneratingAllExercises || pendingProcessingAction === 'exercises' ? generatedExercisesPageCount : generatedConceptsPageCount}
+          total={isDetectingBookLanguage || processingPage !== undefined ? 1 : Math.max(1, totalPages)}
+          value={isDetectingBookLanguage || processingPage !== undefined ? 0 : isRecognizingAll || pendingProcessingAction === 'recognize' ? recognizedPageCount : isIdentifyingChapters || pendingProcessingAction === 'chapters' ? identifiedChapterPageCount : isGeneratingAllExercises || pendingProcessingAction === 'exercises' ? generatedExercisesPageCount : generatedConceptsPageCount}
         />
-        <strong>{processingPage !== undefined ? `Processing page ${processingPage}` : isDetectingBookLanguage || pendingProcessingAction === 'language' ? 'Detecting book language' : isRecognizingAll || pendingProcessingAction === 'recognize' ? 'Recognizing MMD pages' : isIdentifyingChapters || pendingProcessingAction === 'chapters' ? 'Identifying chapters' : isGeneratingAllExercises || pendingProcessingAction === 'exercises' ? 'Generating exercises' : 'Extracting concepts'}</strong>
-        {processingPage === undefined && !isDetectingBookLanguage && pendingProcessingAction !== 'language' && <span>{isRecognizingAll || pendingProcessingAction === 'recognize' ? recognizedPageCount : isIdentifyingChapters || pendingProcessingAction === 'chapters' ? identifiedChapterPageCount : isGeneratingAllExercises || pendingProcessingAction === 'exercises' ? generatedExercisesPageCount : generatedConceptsPageCount} / {totalPages}</span>}
+        <strong>{processingPage !== undefined ? `Processing page ${processingPage}` : isDetectingBookLanguage ? 'Detecting book language' : isRecognizingAll || pendingProcessingAction === 'recognize' ? 'Recognizing MMD pages' : isIdentifyingChapters || pendingProcessingAction === 'chapters' ? 'Identifying chapters' : isGeneratingAllExercises || pendingProcessingAction === 'exercises' ? 'Generating exercises' : 'Extracting concepts'}</strong>
+        {processingPage === undefined && !isDetectingBookLanguage && <span>{isRecognizingAll || pendingProcessingAction === 'recognize' ? recognizedPageCount : isIdentifyingChapters || pendingProcessingAction === 'chapters' ? identifiedChapterPageCount : isGeneratingAllExercises || pendingProcessingAction === 'exercises' ? generatedExercisesPageCount : generatedConceptsPageCount} / {totalPages}</span>}
         <span className='openRouterSpend'>Spent this stage: {formatOpenRouterSpend(openRouterSpent)}</span>
       </div>}
       <Skills
@@ -1877,7 +1884,9 @@ function BookReader ({ book, file, generateAllConceptsModel, generateAllConcepts
         role='tablist'
       >
         {([
-          ['pdfText', 'Language', 1, undefined],
+          ['pdf', 'PDF', 0, undefined],
+          ['text', 'Text', 1, undefined],
+          ['language', 'Language', 1, undefined],
           ['chapters', 'Chapters', 1, chapters.length],
           ['textConcepts', 'Concepts', 3, entityCounts.concepts],
           ['conceptExercises', 'Exercises', 4, entityCounts.exercises],
@@ -1904,7 +1913,7 @@ function BookReader ({ book, file, generateAllConceptsModel, generateAllConcepts
         className='readerColumns'
         role='tabpanel'
       >
-        {(activePane === 'chapters' || activePane === 'textConcepts') && <div className='pageNavigation'>
+        {(activePane === 'pdf' || activePane === 'text' || activePane === 'chapters' || activePane === 'textConcepts') && <div className='pageNavigation'>
           <Button
             icon='arrow-left'
             isDisabled={pageNumber <= 1}
@@ -1958,16 +1967,32 @@ function BookReader ({ book, file, generateAllConceptsModel, generateAllConcepts
             onClick={() => changeExerciseChapter(exerciseChapterIndex + 1)}
           />
         </div>}
-        {activePane === 'pdfText'
-          ? <div className='detailsArea fullWidthDetails languageDetails'>{languagePane()}</div>
-          : activePane === 'chapters'
+        {activePane === 'pdf'
+          ? <div
+            className='pageArea fullWidthPage'
+            ref={pageAreaRef}
+          ><canvas ref={canvasRef} /></div>
+          : activePane === 'text'
             ? <>
+              <div
+                className='pageArea'
+                ref={pageAreaRef}
+              ><canvas ref={canvasRef} /></div>
               <div
                 className={`detailsArea${renderedPageHeight ? ' hasPageHeight' : ''}`}
                 style={{ '--page-height': renderedPageHeight ? `${renderedPageHeight}px` : 'auto' } as React.CSSProperties}
               >
                 {recognizedTextPane()}
               </div>
+            </>
+            : activePane === 'language'
+              ? <div className='detailsArea fullWidthDetails languageDetails'>{languagePane()}</div>
+              : activePane === 'chapters'
+            ? <>
+              <div
+                className='pageArea'
+                ref={pageAreaRef}
+              ><canvas ref={canvasRef} /></div>
               <div className='detailsArea'>{chaptersPane()}</div>
             </>
           : activePane === 'textConcepts'
@@ -2034,6 +2059,7 @@ const StyledReader = styled.div`
 
   &.isMaximized .readerColumns {
     flex: 1;
+    grid-template-rows: auto minmax(0, 1fr);
     height: auto;
     min-height: 0;
   }
@@ -2092,6 +2118,7 @@ const StyledReader = styled.div`
   .languageButtonGrid button:disabled { cursor: default; opacity: 0.5; }
 
   .chaptersPanel .chapterEditor { display: flex; flex-direction: column; gap: 1rem; }
+  &.isMaximized .chaptersPanel .chapterEditor { flex: 1; min-height: 0; overflow-y: auto; padding-right: 0.25rem; }
   .chaptersPanel .chapterEditor > h3, .chaptersPanel .chapterEditor > p { margin: 0; }
   .chaptersPanel .chapterEditor label { display: flex; flex-direction: column; gap: 0.4rem; }
   .chaptersPanel .chapterEditor select { background: var(--bg-input); border: 1px solid #dde1eb; border-radius: 0.25rem; color: var(--color-text); padding: 0.55rem; width: 100%; }
@@ -2144,7 +2171,7 @@ const StyledReader = styled.div`
     overflow: hidden;
   }
 
-  .fullWidthDetails {
+  .fullWidthDetails, .fullWidthPage {
     grid-column: 1 / -1;
   }
 
