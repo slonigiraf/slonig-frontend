@@ -39,6 +39,7 @@ describe('chapter segmentation', (): void => {
     assert.match(prompt, /signal=section-sign/);
     assert.match(prompt, /signal=uppercase-caption/);
     assert.match(prompt, /strong chapter-name evidence/);
+    assert.match(prompt, /ONLY section_header entries/);
   });
 
   it('uses a section-sign caption as the chapter name beside a numbered section anchor', (): void => {
@@ -48,7 +49,7 @@ describe('chapter segmentation', (): void => {
     ];
 
     assert.deepEqual(deriveStructuralChapterCandidates(evidence), [
-      { confidence: 0.97, startPage: 4, title: 'FOUNDATIONS' }
+      { confidence: 0.995, startPage: 4, title: 'FOUNDATIONS' }
     ]);
   });
 
@@ -125,7 +126,7 @@ describe('chapter segmentation', (): void => {
     assert.deepEqual(stabilizeChapterBoundaries(model, structural, 15).map(({ startPage }) => startPage), [5, 8, 10, 12, 14]);
   });
 
-  it('stabilizes Russian textbook § paragraphs using activities, uppercase captions and OCR-lost section signs', (): void => {
+  it('does not infer chapters from OCR-lost § markers once § section_headers define chapters', (): void => {
     const page = (pageNumber: number, headings: ChapterPageEvidence['headings']): ChapterPageEvidence => ({ excerpt: '', headings, pageNumber });
     const mathpix = (text: string, line = 1): ChapterPageEvidence['headings'][number] => ({ confidence: 1, line, source: 'mathpix', text, type: 'section_header' });
     const mmd = (text: string): ChapterPageEvidence['headings'] => extractMmdHeadings(text);
@@ -152,11 +153,7 @@ describe('chapter segmentation', (): void => {
     ];
 
     assert.deepEqual(deriveStructuralChapterCandidates(evidence).map(({ startPage, title }) => ({ startPage, title })), [
-      { startPage: 4, title: 'РОССИЯ И МИР НА РУБЕЖЕ XVIII-XIX вв.' },
-      { startPage: 6, title: 'АЛЕКСАНДР І: НАЧАЛО ПРАВЛЕНИЯ. РЕФОРМЫ М. М. СПЕРАНСКОГО' },
-      { startPage: 9, title: 'СОЦИАЛЬНО-ЭКОНОМИЧЕСКОЕ РАЗВИТИЕ РОССИИ В ПЕРВОЙ ЧЕТВЕРТИ XIX в.' },
-      { startPage: 10, title: 'ОТЕЧЕСТВЕННАЯ ВОЙНА 1812 г.' },
-      { startPage: 12, title: 'ЗАГРАНИЧНЫЕ ПОХОДЫ РУССКОЙ АРМИИ. ВНЕШНЯЯ ПОЛИТИКА АЛЕКСАНДРА I В 1813-1825 гг.' }
+      { startPage: 4, title: 'РОССИЯ И МИР НА РУБЕЖЕ XVIII-XIX вв.' }
     ]);
   });
 
@@ -168,7 +165,7 @@ describe('chapter segmentation', (): void => {
   });
 
 
-  it('uses structural ambiguity instead of wording blacklists inside a § sequence', (): void => {
+  it('does not promote non-§ captions inside a §-delimited sequence', (): void => {
     const page = (pageNumber: number, headings: ChapterPageEvidence['headings']): ChapterPageEvidence => ({ excerpt: '', headings, pageNumber });
     const section = (text: string): ChapterPageEvidence['headings'][number] => ({ confidence: 1, source: 'mathpix', text, type: 'section_header' });
     const evidence: ChapterPageEvidence[] = [
@@ -181,10 +178,27 @@ describe('chapter segmentation', (): void => {
     ];
 
     assert.deepEqual(deriveStructuralChapterCandidates(evidence).map(({ startPage, title }) => ({ startPage, title })), [
+      { startPage: 1, title: 'FIRST TOPIC' }
+    ]);
+  });
+
+  it('allows only explicit § section_headers once § is the chapter delimiter', (): void => {
+    const evidence: ChapterPageEvidence[] = [
+      { excerpt: '', headings: [{ confidence: 1, source: 'mathpix', text: '§ 1 FIRST TOPIC', type: 'section_header' }], pageNumber: 1 },
+      { excerpt: '', headings: [{ confidence: 1, source: 'mathpix', text: 'SECOND TOPIC', type: 'title' }], pageNumber: 2 },
+      { excerpt: '', headings: [{ confidence: 1, source: 'mathpix', text: '2.1 Internal section', type: 'section_header' }], pageNumber: 3 },
+      { excerpt: '', headings: [{ confidence: 1, source: 'mathpix', text: '§ 2 SECOND CHAPTER', type: 'section_header' }], pageNumber: 4 }
+    ];
+    const model = [
+      { confidence: 0.999, startPage: 1, title: 'Model title 1' },
+      { confidence: 0.999, startPage: 2, title: 'Wrong title chapter' },
+      { confidence: 0.999, startPage: 3, title: 'Wrong numbered chapter' },
+      { confidence: 0.999, startPage: 4, title: 'Model title 2' }
+    ];
+
+    assert.deepEqual(stabilizeChapterBoundaries(model, [], 4, evidence).map(({ startPage, title }) => ({ startPage, title })), [
       { startPage: 1, title: 'FIRST TOPIC' },
-      { startPage: 2, title: 'SECOND TOPIC' },
-      { startPage: 5, title: 'THIRD TOPIC' },
-      { startPage: 6, title: 'FOURTH TOPIC' }
+      { startPage: 4, title: 'SECOND CHAPTER' }
     ]);
   });
 

@@ -192,7 +192,7 @@ export function pageChapterEvidence (page: BookPage): ChapterPageEvidence {
     }
   };
 
-  (page.mathpixHeadings ?? []).forEach(({ confidence, line, text, type }) => add({ ...(confidence === undefined ? {} : { confidence }), ...(line === undefined ? {} : { line }), source: 'mathpix', text, type }));
+  (page.mathpixHeadings ?? []).forEach(({ confidence, line, text, type }) => add({ ...(confidence === undefined ? {} : { confidence }), ...(line === undefined ? {} : { line }), ...(type === 'section_header' && /^§+/.test(cleanHeading(text)) ? { signal: 'section-sign' as const } : {}), source: 'mathpix', text, type }));
   extractMmdHeadings(page.pageMMD ?? '').forEach(add);
 
   const excerpt = (page.pageMMD ?? '')
@@ -273,12 +273,17 @@ function localItemNumber (text: string): number | undefined {
   return result > 0 ? result : undefined;
 }
 
+function isSectionSignSectionHeader (heading: ChapterPageEvidence['headings'][number]): boolean {
+  return heading.type === 'section_header' && (heading.signal === 'section-sign' || /^§+/.test(cleanHeading(heading.text)));
+}
+
 function paragraphNumberFromHeading (heading: ChapterPageEvidence['headings'][number]): number | undefined {
-  if (heading.signal !== 'section-sign') {
+  if (!isSectionSignSectionHeader(heading)) {
     return undefined;
   }
 
-  const match = /^(\d{1,3})(?:\s*[.):\-–—]?\s+|\s*[.):\-–—](?=\S)|(?=\p{L}))/u.exec(cleanHeading(heading.text));
+  const cleaned = cleanHeading(heading.text).replace(/^§+\s*/, '');
+  const match = /^(\d{1,3})(?:\s*[.):\-–—]?\s+|\s*[.):\-–—](?=\S)|(?=\p{L}))/u.exec(cleaned);
 
   return match ? Number(match[1]) : undefined;
 }
@@ -304,12 +309,44 @@ function paragraphTitleFromHeading (heading: ChapterPageEvidence['headings'][num
     return undefined;
   }
 
-  const cleaned = cleanHeading(heading.text);
+  const cleaned = cleanHeading(heading.text).replace(/^§+\s*/, '');
   const title = explicitNumber !== undefined
     ? cleaned.replace(/^\d{1,3}\s*[.):\-–—]?\s*/, '').trim()
     : cleaned.replace(/^\d{1,3}(?=\p{L})/u, '').trim();
 
   return title || undefined;
+}
+
+function sectionSignBoundaryCandidate (page: ChapterPageEvidence): ChapterBoundaryProposal | undefined {
+  for (const heading of orderedHeadings(page)) {
+    if (!isSectionSignSectionHeader(heading)) {
+      continue;
+    }
+
+    const cleaned = cleanHeading(heading.text).replace(/^§+\s*/, '');
+    const number = paragraphNumberFromHeading(heading);
+    const title = number === undefined ? cleaned : cleaned.replace(/^\d{1,3}\s*[.):\-–—]?\s*/, '').trim();
+
+    if (title) {
+      return { confidence: 0.995, startPage: page.pageNumber, title };
+    }
+  }
+
+  return undefined;
+}
+
+function usesSectionSignChapterDelimiter (evidence: ChapterPageEvidence[]): boolean {
+  return evidence.some(({ headings }) => headings.some(isSectionSignSectionHeader));
+}
+
+function sectionSignChapterCandidates (evidence: ChapterPageEvidence[]): ChapterBoundaryProposal[] {
+  return [...evidence]
+    .sort((a, b) => a.pageNumber - b.pageNumber)
+    .flatMap((page) => {
+      const candidate = sectionSignBoundaryCandidate(page);
+
+      return candidate === undefined ? [] : [candidate];
+    });
 }
 
 function isBareChapterMarker (text: string): boolean {
@@ -568,6 +605,14 @@ function transitionChapterTitle (pages: ChapterPageEvidence[], pageIndex: number
  */
 export function deriveStructuralChapterCandidates (evidence: ChapterPageEvidence[]): ChapterBoundaryProposal[] {
   const pages = [...evidence].sort((a, b) => a.pageNumber - b.pageNumber);
+
+  // When section_header entries explicitly use § as the delimiter, that marker
+  // defines chapter eligibility. Do not infer replacement chapters from titles,
+  // numbering continuity, uppercase captions, or OCR-lost section signs.
+  if (usesSectionSignChapterDelimiter(pages)) {
+    return sectionSignChapterCandidates(pages);
+  }
+
   const numbered = new Map<number, NumberedChapterCandidate>();
   const transitions: ChapterBoundaryProposal[] = [];
 
@@ -774,6 +819,10 @@ function isRedundantSubchapterBoundary (candidate: ChapterBoundaryProposal, evid
 }
 
 export function stabilizeChapterBoundaries (model: ChapterBoundaryProposal[], structural: ChapterBoundaryProposal[], totalPages: number, evidence: ChapterPageEvidence[] = []): ChapterBoundaryProposal[] {
+  if (usesSectionSignChapterDelimiter(evidence)) {
+    return parseChapterBoundaries(JSON.stringify({ chapters: sectionSignChapterCandidates(evidence) }), totalPages);
+  }
+
   const starts = establishedChapterStarts(evidence);
   const combined = model.filter((candidate) => !isRedundantSubchapterBoundary(candidate, evidence, starts));
 
@@ -827,7 +876,7 @@ export function chapterEvidenceWindows (pages: BookPage[], windowSize = 36, over
 }
 
 export function chapterWindowPrompt (evidence: ChapterPageEvidence[]): string {
-  return `Identify only TOP-LEVEL chapter boundaries in this consecutive run of book pages. Use structural evidence rather than vocabulary-specific rules. Mathpix title is strong evidence for a major heading; section_header may be a chapter or a subsection and must not create a boundary unless numbering, placement, and neighboring pages support a top-level transition. MMD signal=section-sign comes from a "§" marker and is strong structural evidence. signal=uppercase-caption comes from a standalone all-uppercase caption and is strong chapter-name evidence when the surrounding structure supports it, but uppercase alone is not enough. In a §-numbered book, preserve the demonstrated § sequence. OCR can lose the § marker and leave the number glued to an uppercase caption; accept that only when an explicit § elsewhere establishes the same numbering scheme. Local headings of the form "1. ...", "2. ...", "3. ..." are usually items inside the current §. A standalone integer heading such as "1" followed by a substantial title is strong evidence for chapter 1. First sections such as "3.1 ..." anchor chapter 3 only if chapter 3 has not already been established; once chapter N is anchored, a later "N.1 ..." is a subchapter and must not create another top-level boundary. Infer the role of unnumbered uppercase captions from topology: a unique caption between the tail of one local-number sequence and the body of the next is stronger than a page containing several independent uppercase captions; repeated captions across pages are more likely running material. If a broad banner is immediately followed by a stronger explicit boundary, prefer the explicit boundary. Track major-number continuity and inspect intervening unique major captions when numbered anchors skip a value. Split headings such as "CHAPTER" + number + title on one page are one heading. Ignore table-of-contents listings, running headers, footers, side material, exercises, subsections, and repeated body headings. Do not decide from specific words or phrases; decide from hierarchy, numbering, repetition, and neighboring-page structure. A chapter continues until there is strong evidence for another top-level chapter. Return only boundaries that START inside the supplied page range. Keep titles in the book's original language. confidence must be 0..1. Return JSON only: {"chapters":[{"startPage":12,"title":"Chapter 2: Fractions","confidence":0.94}]}.
+  return `Identify only TOP-LEVEL chapter boundaries in this consecutive run of book pages. Use structural evidence rather than vocabulary-specific rules. Mathpix title is strong evidence for a major heading; section_header may be a chapter or a subsection and must not create a boundary unless numbering, placement, and neighboring pages support a top-level transition. MMD signal=section-sign comes from a "§" marker and is strong structural evidence. signal=uppercase-caption comes from a standalone all-uppercase caption and is strong chapter-name evidence when the surrounding structure supports it, but uppercase alone is not enough. IMPORTANT: if § is used in section_header entries as the chapter delimiter, ONLY section_header entries that explicitly contain/represent § may become chapters. Do not add § to titles, do not infer a missing § chapter from numbering or uppercase captions, and do not promote non-§ titles/section_headers in that mode. Local headings of the form "1. ...", "2. ...", "3. ..." are usually items inside the current §. A standalone integer heading such as "1" followed by a substantial title is strong evidence for chapter 1. First sections such as "3.1 ..." anchor chapter 3 only if chapter 3 has not already been established; once chapter N is anchored, a later "N.1 ..." is a subchapter and must not create another top-level boundary. Infer the role of unnumbered uppercase captions from topology: a unique caption between the tail of one local-number sequence and the body of the next is stronger than a page containing several independent uppercase captions; repeated captions across pages are more likely running material. If a broad banner is immediately followed by a stronger explicit boundary, prefer the explicit boundary. Track major-number continuity and inspect intervening unique major captions when numbered anchors skip a value. Split headings such as "CHAPTER" + number + title on one page are one heading. Ignore table-of-contents listings, running headers, footers, side material, exercises, subsections, and repeated body headings. Do not decide from specific words or phrases; decide from hierarchy, numbering, repetition, and neighboring-page structure. A chapter continues until there is strong evidence for another top-level chapter. Return only boundaries that START inside the supplied page range. Keep titles in the book's original language. confidence must be 0..1. Return JSON only: {"chapters":[{"startPage":12,"title":"Chapter 2: Fractions","confidence":0.94}]}.
 
 Pages:
 ${evidence.map(({ excerpt, headings, pageNumber }) => `--- page ${pageNumber} ---\nMathpix/MMD headings: ${headings.length ? headings.map(({ confidence, signal, source, text, type }) => `[${source}:${type}${signal === undefined ? '' : ` signal=${signal}`}${confidence === undefined ? '' : ` confidence=${confidence.toFixed(2)}`}] ${text}`).join(' | ') : '(none)'}\nOpening text: ${excerpt || '(no text)'}`).join('\n\n')}`;
@@ -844,7 +893,7 @@ export function chapterReconciliationPrompt (proposals: ChapterBoundaryProposal[
   evidence.filter(({ headings }) => headings.some(({ type }) => type === 'title')).forEach(({ pageNumber }) => relevantPages.add(pageNumber));
   const context = evidence.filter(({ pageNumber }) => relevantPages.has(pageNumber));
 
-  return `Reconcile candidate chapter boundaries for one ${totalPages}-page book into a single stable TOP-LEVEL segmentation. Use hierarchy and cross-page structure rather than phrase-specific allow/deny rules. Remove duplicate/overlapping candidates from window overlap. Mathpix title labels are strong evidence; section_header labels require chapter-level context. signal=section-sign is an explicit § cue. signal=uppercase-caption is only a caption cue: promote it when it is unique and structurally positioned like a boundary, not merely because it is uppercase. If the book demonstrates § numbering, preserve that sequence and permit OCR-lost glued number+caption forms only when they fit the established sequence. Internal "1. ...", "2. ...", "3. ..." items normally remain inside the current §. Use neighboring local-number sequences, repeated-heading frequency, unique-vs-multiple captions on a page, and explicit anchors on adjacent pages to distinguish real boundaries from side material. A page with several unrelated uppercase captions is weak top-level evidence; a unique caption followed by local numbered body items is stronger. A broad banner immediately before a stronger explicit boundary should not create an extra chapter. A standalone integer heading followed by a substantial title is strong chapter evidence. First sections such as 1.1, 2.1, 3.1 anchor their corresponding chapters only when that major chapter number has not already been established; if chapter N is already anchored earlier, N.1 is a subchapter and must not create another top-level boundary. Split chapter marker + number + title headings are one heading. Do not drop a structurally anchored chapter merely because one model window missed it. If chapter numbers jump, inspect intervening unique major captions for missing boundaries. Deterministic structural candidates below are conservative and should be preserved unless page evidence directly contradicts them. Preserve the best original-language title. The result must be sorted by startPage and each startPage must be unique and between 1 and ${totalPages}. It is valid for the first real chapter to start after page 1; do not invent an Introduction chapter. Return JSON only: {"chapters":[{"startPage":12,"title":"Chapter 2: Fractions","confidence":0.96}]}.
+  return `Reconcile candidate chapter boundaries for one ${totalPages}-page book into a single stable TOP-LEVEL segmentation. Use hierarchy and cross-page structure rather than phrase-specific allow/deny rules. Remove duplicate/overlapping candidates from window overlap. Mathpix title labels are strong evidence; section_header labels require chapter-level context. signal=section-sign is an explicit § cue. signal=uppercase-caption is only a caption cue: promote it when it is unique and structurally positioned like a boundary, not merely because it is uppercase. IMPORTANT: if § is used in section_header entries as the chapter delimiter, ONLY boundaries backed by section_header entries that explicitly contain/represent § are valid chapters. Do not add § to titles and do not infer missing § boundaries from numbering, titles, or uppercase captions. Internal "1. ...", "2. ...", "3. ..." items normally remain inside the current §. Use neighboring local-number sequences, repeated-heading frequency, unique-vs-multiple captions on a page, and explicit anchors on adjacent pages to distinguish real boundaries from side material. A page with several unrelated uppercase captions is weak top-level evidence; a unique caption followed by local numbered body items is stronger. A broad banner immediately before a stronger explicit boundary should not create an extra chapter. A standalone integer heading followed by a substantial title is strong chapter evidence. First sections such as 1.1, 2.1, 3.1 anchor their corresponding chapters only when that major chapter number has not already been established; if chapter N is already anchored earlier, N.1 is a subchapter and must not create another top-level boundary. Split chapter marker + number + title headings are one heading. Do not drop a structurally anchored chapter merely because one model window missed it. If chapter numbers jump, inspect intervening unique major captions for missing boundaries. Deterministic structural candidates below are conservative and should be preserved unless page evidence directly contradicts them. Preserve the best original-language title. The result must be sorted by startPage and each startPage must be unique and between 1 and ${totalPages}. It is valid for the first real chapter to start after page 1; do not invent an Introduction chapter. Return JSON only: {"chapters":[{"startPage":12,"title":"Chapter 2: Fractions","confidence":0.96}]}.
 
 Candidate boundaries:
 ${JSON.stringify(proposals)}
