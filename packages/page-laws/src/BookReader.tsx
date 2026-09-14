@@ -1485,9 +1485,21 @@ function BookReader ({ book, file, generateAllConceptsModel, generateAllConcepts
       return;
     }
 
-    handledLanguageTabRequestRef.current = languageTabRequest;
+    // Open the Language pane immediately, but keep the request pending until
+    // the stored recognized pages have finished loading into the reader.
     setActivePane('language');
-  }, [languageTabRequest]);
+
+    if (!isMmdConversionComplete) {
+      return;
+    }
+
+    handledLanguageTabRequestRef.current = languageTabRequest;
+
+    // The pipeline Language button is an action, not only navigation: start a
+    // fresh detection automatically. The pane shows progress/result and keeps
+    // the manual language override available if detection cannot complete.
+    redetectBookLanguage().catch(console.error);
+  }, [isMmdConversionComplete, languageTabRequest, redetectBookLanguage]);
 
   useEffect((): void => {
     if (
