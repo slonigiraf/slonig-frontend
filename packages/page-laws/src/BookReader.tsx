@@ -890,7 +890,7 @@ function BookReader ({ book, file, generateAllConceptsModel, generateAllConcepts
       const evidence = recognizedPages.map(pageChapterEvidence);
       const structural = deriveStructuralChapterCandidates(evidence);
       const reconciled = await requestChapterBoundaries(client, generateAllConceptsModel, chapterReconciliationPrompt(proposals, evidence, totalPages, structural), totalPages, addChaptersCost);
-      const stable = stabilizeChapterBoundaries(reconciled.length ? reconciled : proposals, structural, totalPages);
+      const stable = stabilizeChapterBoundaries(reconciled.length ? reconciled : proposals, structural, totalPages, evidence);
       const boundaries = chapterAssignmentsFromBoundaries(stable, totalPages);
 
       await replaceBookChapterAssignments(book.id, boundaries);

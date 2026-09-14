@@ -214,4 +214,63 @@ describe('chapter segmentation', (): void => {
     assert.deepEqual(stabilizeChapterBoundaries(model, structural, 20), structural);
   });
 
+
+  it('anchors a chapter from a standalone number and does not promote its 1.1 subsection', (): void => {
+    const evidence: ChapterPageEvidence[] = [
+      {
+        excerpt: '',
+        headings: [
+          { confidence: 1, line: 1, source: 'mathpix', text: '1', type: 'section_header' },
+          { confidence: 0.31, line: 2, source: 'mathpix', text: 'TEMbI Γ∧AB bl', type: 'section_header' },
+          { confidence: 1, line: 3, source: 'mathpix', text: 'Познавая жизнь', type: 'section_header' },
+          { source: 'mmd', text: 'Эволюция, ОСНОВНЫЕ Темы биологии методы научного исследования', type: 'section_header' }
+        ],
+        pageNumber: 4
+      },
+      {
+        excerpt: '',
+        headings: [{ source: 'mmd', text: '1.1. Изучая жизнь, мы выявляем ее основные признаки', type: 'section_header' }],
+        pageNumber: 7
+      }
+    ];
+    const structural = deriveStructuralChapterCandidates(evidence);
+
+    assert.deepEqual(structural.map(({ startPage, title }) => ({ startPage, title })), [
+      { startPage: 4, title: '1 Эволюция, ОСНОВНЫЕ Темы биологии методы научного исследования' }
+    ]);
+    assert.deepEqual(stabilizeChapterBoundaries([
+      { confidence: 0.99, startPage: 7, title: '1.1. Изучая жизнь, мы выявляем ее основные признаки' }
+    ], structural, 20, evidence).map(({ startPage, title }) => ({ startPage, title })), [
+      { startPage: 4, title: '1 Эволюция, ОСНОВНЫЕ Темы биологии методы научного исследования' }
+    ]);
+  });
+
+  it('does not create another chapter from an N.1 subsection after chapter N is already anchored', (): void => {
+    const evidence: ChapterPageEvidence[] = [
+      {
+        excerpt: '',
+        headings: [
+          { confidence: 1, line: 1, source: 'mathpix', text: '2', type: 'section_header' },
+          { source: 'mmd', text: 'Химическая основа жизни', type: 'section_header' }
+        ],
+        pageNumber: 10
+      },
+      {
+        excerpt: '',
+        headings: [
+          { confidence: 1, source: 'mathpix', text: 'Элементы и соединения', type: 'section_header' },
+          { source: 'mmd', text: '2.1. Вещество состоит из химических элементов в чистом виде и их сочетаний, называемых соединениями', type: 'section_header' }
+        ],
+        pageNumber: 13
+      }
+    ];
+    const structural = deriveStructuralChapterCandidates(evidence);
+
+    assert.deepEqual(stabilizeChapterBoundaries([
+      { confidence: 0.99, startPage: 13, title: 'Элементы и соединения' }
+    ], structural, 20, evidence).map(({ startPage, title }) => ({ startPage, title })), [
+      { startPage: 10, title: '2 Химическая основа жизни' }
+    ]);
+  });
+
 });
