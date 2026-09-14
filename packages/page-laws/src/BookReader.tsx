@@ -22,7 +22,7 @@ import { OPENROUTER_CONCURRENCY, openRouterRequestGate } from './openRouterConcu
 import { formatOpenRouterSpend, reportOpenRouterCost, type OpenRouterCostReporter } from './openRouterCost.js';
 import { BOOK_LANGUAGE_DETECTION_PROMPT, BOOK_PAGE_EXTRACTION_REQUEST_PROMPT, MATHPIX_PDF_PAGE_PRICE_USD, OPENAI_MODELS } from './constants.js';
 import { stripMarkdownImageReferences } from './bookImageRefs.js';
-import { chapterAssignmentsFromBoundaries, chapterEvidenceWindows, chapterReconciliationPrompt, chapterWindowPrompt, extractMathpixHeadingsFromLines, pageChapterEvidence, parseChapterBoundaries, type ChapterBoundaryProposal } from './chapterSegmentation.js';
+import { chapterAssignmentsFromBoundaries, chapterEvidenceWindows, chapterReconciliationPrompt, chapterWindowPrompt, deriveStructuralChapterCandidates, extractMathpixHeadingsFromLines, pageChapterEvidence, parseChapterBoundaries, stabilizeChapterBoundaries, type ChapterBoundaryProposal } from './chapterSegmentation.js';
 import Skills from './Skills.js';
 import SkillsCourse from './SkillsCourse.js';
 import { loadPdfJs } from './pdf.js';
@@ -887,8 +887,10 @@ function BookReader ({ book, file, generateAllConceptsModel, generateAllConcepts
       });
       const proposals = windowResults.flat();
       const evidence = recognizedPages.map(pageChapterEvidence);
-      const reconciled = await requestChapterBoundaries(client, generateAllConceptsModel, chapterReconciliationPrompt(proposals, evidence, totalPages), totalPages, addChaptersCost);
-      const boundaries = chapterAssignmentsFromBoundaries(reconciled.length ? reconciled : proposals, totalPages);
+      const structural = deriveStructuralChapterCandidates(evidence);
+      const reconciled = await requestChapterBoundaries(client, generateAllConceptsModel, chapterReconciliationPrompt(proposals, evidence, totalPages, structural), totalPages, addChaptersCost);
+      const stable = stabilizeChapterBoundaries(reconciled.length ? reconciled : proposals, structural, totalPages);
+      const boundaries = chapterAssignmentsFromBoundaries(stable, totalPages);
 
       await replaceBookChapterAssignments(book.id, boundaries);
       await refreshChapterAssignments();

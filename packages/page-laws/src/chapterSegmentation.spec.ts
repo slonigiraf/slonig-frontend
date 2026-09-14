@@ -4,7 +4,7 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 
-import { chapterAssignmentsFromBoundaries, chapterEvidenceWindows, extractMathpixHeadingsFromLines, extractMmdHeadings, parseChapterBoundaries } from './chapterSegmentation.js';
+import { chapterAssignmentsFromBoundaries, chapterEvidenceWindows, deriveStructuralChapterCandidates, extractMathpixHeadingsFromLines, extractMmdHeadings, parseChapterBoundaries, stabilizeChapterBoundaries, type ChapterPageEvidence } from './chapterSegmentation.js';
 
 describe('chapter segmentation', (): void => {
   it('keeps only usable Mathpix title and section-header line evidence', (): void => {
@@ -50,5 +50,53 @@ describe('chapter segmentation', (): void => {
       { confidence: 0.9, startPage: 8, title: 'Chapter One' },
       { confidence: 0.8, startPage: 40, title: 'Chapter 2' }
     ]);
+  });
+
+  it('uses section-number continuity and split chapter headings to recover missed chapters', (): void => {
+    const page = (pageNumber: number, headings: ChapterPageEvidence['headings']): ChapterPageEvidence => ({ excerpt: '', headings, pageNumber });
+    const section = (text: string, line = 1): ChapterPageEvidence['headings'][number] => ({ confidence: 1, line, source: 'mathpix', text, type: 'section_header' });
+    const evidence: ChapterPageEvidence[] = [
+      page(1, [section('the Art of Problem Solving')]),
+      page(2, []),
+      page(3, [section('Acknowledgements'), section('Contests', 2)]),
+      page(4, [section('Contents')]),
+      page(5, [section('Follow the Rules')]),
+      page(6, [section('1.1 Numbers')]),
+      page(7, [section('1.2 Order of Operations')]),
+      page(8, [section('x Marks the Spot')]),
+      page(9, [section('2.1 Expressions')]),
+      page(10, [section('CHAPTER'), section('3', 2), section('One-Variable Linear Equations', 3), section('3.1 Solving Linear Equations I', 4)]),
+      page(11, []),
+      page(12, [section('More Variables')]),
+      page(13, []),
+      page(14, [section('Multi-Variable Linear Equations'), section('5.1 Introduction to Two-Variable Linear Equations', 2)]),
+      page(15, [])
+    ];
+
+    assert.deepEqual(deriveStructuralChapterCandidates(evidence).map(({ startPage, title }) => ({ startPage, title })), [
+      { startPage: 5, title: 'Follow the Rules' },
+      { startPage: 8, title: 'x Marks the Spot' },
+      { startPage: 10, title: 'Chapter 3: One-Variable Linear Equations' },
+      { startPage: 12, title: 'More Variables' },
+      { startPage: 14, title: 'Multi-Variable Linear Equations' }
+    ]);
+  });
+
+  it('keeps strong structural boundaries when model reconciliation skips them', (): void => {
+    const structural = [
+      { confidence: 0.97, startPage: 5, title: 'Follow the Rules' },
+      { confidence: 0.97, startPage: 8, title: 'x Marks the Spot' },
+      { confidence: 0.995, startPage: 10, title: 'Chapter 3: One-Variable Linear Equations' },
+      { confidence: 0.94, startPage: 12, title: 'More Variables' },
+      { confidence: 0.97, startPage: 14, title: 'Multi-Variable Linear Equations' }
+    ];
+    const model = [
+      { confidence: 0.99, startPage: 5, title: 'Follow the Rules' },
+      { confidence: 0.99, startPage: 8, title: 'x Marks the Spot' },
+      { confidence: 0.99, startPage: 10, title: 'One-Variable Linear Equations' },
+      { confidence: 0.99, startPage: 14, title: 'Multi-Variable Linear Equations' }
+    ];
+
+    assert.deepEqual(stabilizeChapterBoundaries(model, structural, 15).map(({ startPage }) => startPage), [5, 8, 10, 12, 14]);
   });
 });
