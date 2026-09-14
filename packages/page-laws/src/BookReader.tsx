@@ -20,7 +20,7 @@ import { areAllBookPagesConceptsProcessed, calculatePageSymbolStatistics, countU
 import { mapConcurrent } from './concurrency.js';
 import { OPENROUTER_CONCURRENCY, openRouterRequestGate } from './openRouterConcurrency.js';
 import { formatOpenRouterSpend, reportOpenRouterCost, type OpenRouterCostReporter } from './openRouterCost.js';
-import { BOOK_LANGUAGE_DETECTION_PROMPT, BOOK_PAGE_EXTRACTION_REQUEST_PROMPT, exerciseAbilityModes, MATHPIX_PDF_PAGE_PRICE_USD, OPENAI_MODELS } from './constants.js';
+import { BOOK_LANGUAGE_DETECTION_PROMPT, BOOK_PAGE_EXTRACTION_REQUEST_PROMPT, MATHPIX_PDF_PAGE_PRICE_USD, OPENAI_MODELS } from './constants.js';
 import { stripMarkdownImageReferences } from './bookImageRefs.js';
 import Skills from './Skills.js';
 import SkillsCourse from './SkillsCourse.js';
@@ -29,23 +29,12 @@ import { loadPdfJs } from './pdf.js';
 export { OPENAI_MODELS } from './constants.js';
 
 
-interface GeneratedPageExercise {
-  abilityMode: string;
-  description: string;
-  imageDescription?: string;
-  imageIndexes?: number[];
-  solution: string;
-  solutionImageDescription?: string;
-  title: string;
-}
-
 interface GeneratedConcepts {
   chapter: string;
   concepts: Array<{ description: string; title: string }>;
-  exercises?: GeneratedPageExercise[];
 }
 
-function parseGeneratedConcepts (content: string, imageCount = 0): GeneratedConcepts {
+function parseGeneratedConcepts (content: string): GeneratedConcepts {
   const json = content.replace(/^```json\s*|\s*```$/g, '').trim();
   let parsed: Partial<GeneratedConcepts>;
 
@@ -57,50 +46,13 @@ function parseGeneratedConcepts (content: string, imageCount = 0): GeneratedConc
     parsed = JSON.parse(json.replace(/\\(?!["\\/bfnrt]|u[0-9a-fA-F]{4})/g, '\\\\')) as Partial<GeneratedConcepts>;
   }
 
-  if (typeof parsed.chapter !== 'string' || !Array.isArray(parsed.concepts) || parsed.concepts.some(({ description, title }) => typeof title !== 'string' || typeof description !== 'string') || (parsed.exercises !== undefined && (!Array.isArray(parsed.exercises) || parsed.exercises.some((exercise) => {
-    const { abilityMode, description, solution, title } = exercise as { abilityMode?: unknown; description?: unknown; solution?: unknown; title?: unknown };
-
-    return typeof title !== 'string' || typeof description !== 'string' || typeof solution !== 'string' || !solution.trim() || typeof abilityMode !== 'string' || !exerciseAbilityModes.includes(abilityMode as typeof exerciseAbilityModes[number]);
-  })))) {
+  if (typeof parsed.chapter !== 'string' || !Array.isArray(parsed.concepts) || parsed.concepts.some(({ description, title }) => typeof title !== 'string' || typeof description !== 'string')) {
     throw new Error('OpenRouter returned invalid concept data.');
   }
 
   return {
     chapter: parsed.chapter.trim(),
-    concepts: parsed.concepts.map(({ description, title }) => ({ description: description.trim(), title: title.trim() })).filter(({ title }) => title),
-    exercises: (parsed.exercises ?? []).map((exercise) => {
-      const value = exercise as GeneratedPageExercise & { imageIndex?: unknown; imageIndexes?: unknown };
-      const legacyImageIndex = value.imageIndex === null || value.imageIndex === undefined ? undefined : Number(value.imageIndex);
-      const imageIndexes = Array.isArray(value.imageIndexes)
-        ? Array.from(new Set(value.imageIndexes.map(Number).filter((index) => Number.isInteger(index) && index >= 0 && index < imageCount)))
-        : legacyImageIndex !== undefined && Number.isInteger(legacyImageIndex) && legacyImageIndex >= 0 && legacyImageIndex < imageCount
-          ? [legacyImageIndex]
-          : [];
-
-      return {
-        abilityMode: value.abilityMode,
-        description: stripMarkdownImageReferences(value.description.trim()),
-        imageDescription: typeof value.imageDescription === 'string' ? value.imageDescription.trim() : '',
-        imageIndexes,
-        solution: value.solution.trim(),
-        solutionImageDescription: typeof value.solutionImageDescription === 'string' ? value.solutionImageDescription.trim() : '',
-        title: value.title.trim()
-      };
-    }).filter(({ title }) => title)
-  };
-}
-
-function storageReadyGeneratedConcepts (generated: GeneratedConcepts): GeneratedConcepts {
-  return {
-    ...generated,
-    exercises: (generated.exercises ?? []).map(({ abilityMode, description, imageDescription = '', solution, solutionImageDescription = '', title }) => ({
-      abilityMode,
-      description: stripMarkdownImageReferences(description),
-      imageDescription: imageDescription.trim(),
-      solution,
-      solutionImageDescription: solutionImageDescription.trim(),
-      title
-    }))
+    concepts: parsed.concepts.map(({ description, title }) => ({ description: description.trim(), title: title.trim() })).filter(({ title }) => title)
   };
 }
 
@@ -124,7 +76,7 @@ function resolveChapterTitle (generatedTitle: string, pageNumber: number, pages:
 
 async function requestGeneratedPageContent (client: OpenAI, model: string, mmdZipInput: MMDZipInput, onCost?: OpenRouterCostReporter): Promise<GeneratedConcepts> {
   if (!mmdZipInput.text.trim() && !mmdZipInput.images.length) {
-    return { chapter: '', concepts: [], exercises: [] };
+    return { chapter: '', concepts: [] };
   }
 
   const response = await openRouterRequestGate.run(() => client.chat.completions.create({
@@ -146,11 +98,10 @@ async function requestGeneratedPageContent (client: OpenAI, model: string, mmdZi
   const generatedContent = response.choices[0].message?.content?.trim();
 
   if (!generatedContent) {
-    return { chapter: '', concepts: [], exercises: [] };
+    return { chapter: '', concepts: [] };
   }
 
-  const generated = parseGeneratedConcepts(generatedContent, mmdZipInput.images.length);
-  return storageReadyGeneratedConcepts(generated);
+  return parseGeneratedConcepts(generatedContent);
 }
 
 async function generatePageContentWithEmptyConceptRetry (client: OpenAI, model: string, mmdZipInput: MMDZipInput, retryEmptyConcepts: boolean, onCost?: OpenRouterCostReporter): Promise<GeneratedConcepts> {
@@ -176,8 +127,7 @@ async function generatePageContentWithEmptyConceptRetry (client: OpenAI, model: 
 
   return {
     chapter: secondResult.chapter || firstResult.chapter,
-    concepts: [],
-    exercises: secondResult.exercises?.length ? secondResult.exercises : firstResult.exercises ?? []
+    concepts: []
   };
 }
 
@@ -420,7 +370,6 @@ function getSessionReaderPane (bookId: number): ReaderPane {
 function BookReader ({ book, file, generateAllConceptsModel, generateAllConceptsRequest, onBookChange, onProcessingComplete, pendingProcessingAction, processingToolbar, recognizeAllRequest, generateAllExercisesRequest }: Props): React.ReactElement {
   const [activePane, setActivePane] = useState<ReaderPane>(() => getSessionReaderPane(book.id));
   const [concepts, setConcepts] = useState<BookConcept[]>([]);
-  const [exercises, setExercises] = useState<Exercise[]>([]);
   const [exerciseChapterConcepts, setExerciseChapterConcepts] = useState<BookConcept[]>([]);
   const [exerciseChapterExercises, setExerciseChapterExercises] = useState<Exercise[]>([]);
   const [exerciseChapterIndex, setExerciseChapterIndex] = useState(() => getSessionExerciseChapter(book.id));
@@ -635,17 +584,14 @@ function BookReader ({ book, file, generateAllConceptsModel, generateAllConcepts
     let active = true;
 
     const loadPageLearningContent = async (): Promise<void> => {
-      const [storedConcepts, storedExercises] = await Promise.all([
-        getBookConceptsForBookPage(book.id, pageNumber),
-        getExercisesForBookPage([book.id, pageNumber])
-      ]);
+      const storedConcepts = await getBookConceptsForBookPage(book.id, pageNumber);
+
       if (active) {
         setConcepts(storedConcepts);
-        setExercises(storedExercises);
       }
     };
 
-    loadPageLearningContent().catch(() => active && setError('Unable to load concepts and exercises.'));
+    loadPageLearningContent().catch(() => active && setError('Unable to load concepts.'));
 
     return () => {
       active = false;
@@ -790,7 +736,7 @@ function BookReader ({ book, file, generateAllConceptsModel, generateAllConcepts
       if (generatedConcepts.concepts.length) {
         // Normal pages are marked processed only after their generated content
         // has been stored successfully.
-        stored = await replaceParsedBookPageContent(book.id, pageNumber, resolvedChapter, generatedConcepts.concepts, generatedConcepts.exercises ?? []);
+        stored = await replaceParsedBookPageContent(book.id, pageNumber, resolvedChapter, generatedConcepts.concepts, []);
         await putBookPage(generatedPage);
       } else {
         // A valid empty result is itself a successful Concepts-stage result.
@@ -799,7 +745,7 @@ function BookReader ({ book, file, generateAllConceptsModel, generateAllConcepts
         await putBookPage(generatedPage);
 
         try {
-          stored = await replaceParsedBookPageContent(book.id, pageNumber, resolvedChapter, [], generatedConcepts.exercises ?? []);
+          stored = await replaceParsedBookPageContent(book.id, pageNumber, resolvedChapter, [], []);
         } catch {
           // There may be nothing to replace. The page processing result is
           // still valid and must not block the next stage.
@@ -813,7 +759,6 @@ function BookReader ({ book, file, generateAllConceptsModel, generateAllConcepts
 
       setPages(updatedPages);
       setConcepts(stored?.concepts ?? []);
-      setExercises(stored?.exercises ?? []);
       await refreshEntityCounts();
 
       if (areAllBookPagesConceptsProcessed(totalPages, Array.from(updatedPages.values()))) {
@@ -923,7 +868,7 @@ function BookReader ({ book, file, generateAllConceptsModel, generateAllConcepts
           let stored: Awaited<ReturnType<typeof replaceParsedBookPageContent>> | undefined;
 
           if (generatedConcepts.concepts.length) {
-            stored = await replaceParsedBookPageContent(book.id, currentPageNumber, resolvedChapter, generatedConcepts.concepts, generatedConcepts.exercises ?? []);
+            stored = await replaceParsedBookPageContent(book.id, currentPageNumber, resolvedChapter, generatedConcepts.concepts, []);
             await putBookPage(generatedPage);
           } else {
             // Empty concepts are a successful extraction result. Commit the
@@ -931,7 +876,7 @@ function BookReader ({ book, file, generateAllConceptsModel, generateAllConcepts
             await putBookPage(generatedPage);
 
             try {
-              stored = await replaceParsedBookPageContent(book.id, currentPageNumber, resolvedChapter, [], generatedConcepts.exercises ?? []);
+              stored = await replaceParsedBookPageContent(book.id, currentPageNumber, resolvedChapter, [], []);
             } catch {
               // Do not turn a valid `concepts: []` result into an unprocessed
               // page merely because there are no concept rows to replace.
@@ -946,7 +891,6 @@ function BookReader ({ book, file, generateAllConceptsModel, generateAllConcepts
 
           if (currentPageNumber === pageNumber) {
             setConcepts(stored?.concepts ?? []);
-            setExercises(stored?.exercises ?? []);
           }
         } catch {
           failedConceptTasks++;
@@ -1001,9 +945,6 @@ function BookReader ({ book, file, generateAllConceptsModel, generateAllConcepts
       const pageInputs = await Promise.all(storedPages.map(async (storedPage) => ({
         chapter: storedPage.chapter,
         concepts: (await getBookConceptsForBookPage(book.id, storedPage.pageNumber)).map(({ description, title }) => ({ description, title })),
-        exercises: (await getExercisesForBookPage([book.id, storedPage.pageNumber]))
-          .filter(({ source }) => source !== 'generated')
-          .map(({ abilityMode = 'reasoning', description, imageDescription, solution = '', solutionImageDescription, title }) => ({ abilityMode, description: stripMarkdownImageReferences(description), imageDescription, solution, solutionImageDescription, title })),
         pageNumber: storedPage.pageNumber
       })));
       const groupedPages = pageInputs.reduce((grouped, { chapter, ...page }) => {
@@ -1035,7 +976,6 @@ function BookReader ({ book, file, generateAllConceptsModel, generateAllConcepts
 
           if (processed.pageNumber === pageNumber) {
             setConcepts(stored.concepts);
-            setExercises(stored.exercises);
           }
 
           setGeneratedExercisesPageCount((count) => count + 1);
@@ -1400,8 +1340,8 @@ function BookReader ({ book, file, generateAllConceptsModel, generateAllConcepts
     : isGeneratingAllExercises
       ? `Generating exercises… ${generatedExercisesPageCount}/${totalPages}`
       : processingPage === pageNumber
-        ? 'Extracting and saving concepts and book exercises…'
-        : 'Concepts and exercises';
+        ? 'Extracting and saving concepts…'
+        : 'Concepts';
   const exerciseItem = (exercise: Exercise): React.ReactNode => {
     const description = stripMarkdownImageReferences(exercise.description);
 
@@ -1415,8 +1355,6 @@ function BookReader ({ book, file, generateAllConceptsModel, generateAllConcepts
     </li>;
   };
   const conceptsPane = (): React.ReactNode => {
-    const bookExercises = exercises.filter(({ source }) => source !== 'generated');
-
     return <div className='tabPanel conceptsPanel'>
       <div className='detailsHeader'>
         <span>{conceptsStatus}</span>
@@ -1433,10 +1371,6 @@ function BookReader ({ book, file, generateAllConceptsModel, generateAllConcepts
             </li>)}</ul>
             : <p className='emptyOutput'>No concepts were parsed from this book page.</p>}
         </section>
-        <section className='conceptExerciseGroup bookExercisesGroup'>
-          <h3>Book exercises</h3>
-          {bookExercises.length ? <ul>{bookExercises.map(exerciseItem)}</ul> : <p className='emptyOutput'>No exercises were parsed from this book page.</p>}
-        </section>
       </div>
     </div>;
   };
@@ -1444,7 +1378,6 @@ function BookReader ({ book, file, generateAllConceptsModel, generateAllConcepts
   const exercisesPane = (): React.ReactNode => {
     const conceptIds = new Set(exerciseChapterConcepts.flatMap(({ id }) => id === undefined ? [] : [id]));
     const generatedWithoutConcept = exerciseChapterExercises.filter(({ conceptId, source }) => source === 'generated' && (conceptId === undefined || !conceptIds.has(conceptId)));
-    const bookExercises = exerciseChapterExercises.filter(({ source }) => source !== 'generated');
 
     return <div className='tabPanel conceptsPanel'>
       <div className='detailsHeader'><span>{isExerciseChapterLoading ? 'Loading chapter exercises…' : 'Exercises grouped by concept'}</span></div>
@@ -1469,10 +1402,6 @@ function BookReader ({ book, file, generateAllConceptsModel, generateAllConcepts
               <h4>Other generated exercises</h4>
               <ul>{generatedWithoutConcept.map(exerciseItem)}</ul>
             </section>}
-            <section className='conceptExerciseGroup bookExercisesGroup'>
-              <h3>Book exercises</h3>
-              {bookExercises.length ? <ul>{bookExercises.map(exerciseItem)}</ul> : <p className='emptyOutput'>No exercises were copied from this chapter.</p>}
-            </section>
           </>}
       </div>
     </div>;
@@ -1515,13 +1444,13 @@ function BookReader ({ book, file, generateAllConceptsModel, generateAllConcepts
         </Modal.Content>
       </Modal>}
       {isPageGenerationConfirmationOpen && <Modal
-        header='Generate concepts and exercises'
+        header='Generate concepts'
         onClose={closePageGenerationConfirmation}
         size='small'
       >
         <Modal.Content>
           <p>{pageGenerationEstimate}</p>
-          <p>This extracts concepts and book exercises explicitly present on the page. Generated exercises run in the next pipeline step.</p>
+          <p>This extracts and saves only concepts introduced on the page. Exercises in the book are ignored; generated exercises run in the next pipeline step.</p>
           <Dropdown
             className='modelSelect'
             isDisabled={processingPage !== undefined || isGeneratingAllConcepts || isRecognizingAll}
@@ -1549,7 +1478,7 @@ function BookReader ({ book, file, generateAllConceptsModel, generateAllConcepts
           total={processingPage !== undefined ? 1 : Math.max(1, totalPages)}
           value={processingPage !== undefined ? 0 : isRecognizingAll || pendingProcessingAction === 'recognize' ? recognizedPageCount : isGeneratingAllExercises || pendingProcessingAction === 'exercises' ? generatedExercisesPageCount : generatedConceptsPageCount}
         />
-        <strong>{processingPage !== undefined ? `Processing page ${processingPage}` : isRecognizingAll || pendingProcessingAction === 'recognize' ? 'Recognizing MMD pages' : isGeneratingAllExercises || pendingProcessingAction === 'exercises' ? 'Generating exercises' : 'Extracting concepts and book exercises'}</strong>
+        <strong>{processingPage !== undefined ? `Processing page ${processingPage}` : isRecognizingAll || pendingProcessingAction === 'recognize' ? 'Recognizing MMD pages' : isGeneratingAllExercises || pendingProcessingAction === 'exercises' ? 'Generating exercises' : 'Extracting concepts'}</strong>
         {processingPage === undefined && <span>{isRecognizingAll || pendingProcessingAction === 'recognize' ? recognizedPageCount : isGeneratingAllExercises || pendingProcessingAction === 'exercises' ? generatedExercisesPageCount : generatedConceptsPageCount} / {totalPages}</span>}
         <span className='openRouterSpend'>Spent this stage: {formatOpenRouterSpend(openRouterSpent)}</span>
       </div>}
@@ -1572,7 +1501,7 @@ function BookReader ({ book, file, generateAllConceptsModel, generateAllConcepts
       >
         {([
           ['pdfText', 'Text', 1, totalPages],
-          ['textConcepts', `Concepts/Exercises (${entityCounts.concepts}/${entityCounts.bookExercises})`, 2, undefined],
+          ['textConcepts', 'Concepts', 2, entityCounts.concepts],
           ['conceptExercises', 'Exercises', 3, entityCounts.exercises],
           ['preExercisesExercises', 'Abilities', 5, entityCounts.abilities],
           ['skillsCourse', 'Course', 7, undefined]

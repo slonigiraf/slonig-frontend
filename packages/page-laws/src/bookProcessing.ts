@@ -19,7 +19,8 @@ export type ProcessingExercise = Omit<Exercise, 'bookPage' | 'conceptId' | 'id'>
 
 export interface ExtractedChapterPageContent {
   concepts: ProcessingConcept[];
-  exercises: Array<Omit<ProcessingExercise, 'source'>>;
+  /** @deprecated Book exercises are ignored; book ingestion stores concepts only. */
+  exercises?: Array<Omit<ProcessingExercise, 'source'>>;
   pageNumber: number;
 }
 
@@ -179,9 +180,6 @@ export async function processExtractedChapterContent (extracted: ExtractedChapte
   const concepts: LocatedProcessingConcept[] = deduplicate(pages.flatMap(({ concepts, pageNumber }) =>
     concepts.map((concept) => ({ ...concept, sourcePageNumber: pageNumber }))
   ));
-  const bookExercises: LocatedProcessingExercise[] = pages.flatMap(({ exercises, pageNumber }) =>
-    exercises.map((exercise) => ({ ...exercise, source: 'book' as const, sourcePageNumber: pageNumber }))
-  );
   const generationInput = {
     concepts: concepts.map(({ sourcePageNumber: _sourcePageNumber, ...concept }, conceptIndex) => ({ ...concept, conceptIndex }))
   };
@@ -209,10 +207,7 @@ export async function processExtractedChapterContent (extracted: ExtractedChapte
     generatedExercises = Array.from(generatedByConcept.entries()).sort(([a], [b]) => a - b).map(([, exercise]) => exercise);
   }
 
-  const exercises: LocatedProcessingExercise[] = [
-    ...bookExercises,
-    ...generatedExercises
-  ];
+  const exercises: LocatedProcessingExercise[] = generatedExercises;
 
 
   const localConceptIndexes = new Map<number, Map<number, number>>();

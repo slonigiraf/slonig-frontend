@@ -42,7 +42,7 @@ describe('chapter content processing', (): void => {
     assert.deepEqual(processed.pages.map(({ pageNumber }) => pageNumber), [4, 5]);
     assert.deepEqual(processed.pages[0].concepts.map(({ title }) => title), ['Concept A']);
     assert.deepEqual(processed.pages[1].concepts.map(({ title }) => title), ['Concept B']);
-    assert.deepEqual(processed.pages[0].exercises.map(({ title }) => title), ['Book exercise', 'Exercise A']);
+    assert.deepEqual(processed.pages[0].exercises.map(({ title }) => title), ['Exercise A']);
     assert.deepEqual(processed.pages[1].exercises.map(({ title }) => title), ['Exercise B']);
     assert.equal(processed.pages[0].exercises.find(({ title }) => title === 'Exercise A')?.conceptIndex, 0);
     assert.equal(processed.pages[1].exercises[0].conceptIndex, 0);

@@ -59,7 +59,7 @@ describe('book processing pipeline', (): void => {
     assert.equal(countUnprocessedBookPages(3, pages), 1);
   });
 
-  it('generates one exercise per concept without sending or reconciling book exercises', async (): Promise<void> => {
+  it('generates one exercise per concept while ignoring legacy book exercises', async (): Promise<void> => {
     const prompts: string[] = [];
     const result = await processExtractedChapterContent({
       chapter: 'Chapter',
@@ -98,14 +98,14 @@ describe('book processing pipeline', (): void => {
     });
 
     assert.equal(prompts.length, 1);
-    assert.equal(result.pages[0].exercises.length, 4);
-    assert.deepEqual(result.pages[0].exercises.filter(({ source }) => source === 'book').map(({ title }) => title), ['Book exercise 1', 'Book exercise 2']);
+    assert.equal(result.pages[0].exercises.length, 2);
+    assert.equal(result.pages[0].exercises.filter(({ source }) => source === 'book').length, 0);
     assert.equal(result.pages[0].exercises.filter(({ source }) => source === 'generated').length, 2);
     assert.deepEqual(result.pages[0].exercises.filter(({ source }) => source === 'generated').map(({ conceptIndex }) => conceptIndex), [0, 1]);
     assert.equal(result.pages[0].exercises.find(({ conceptIndex, source }) => source === 'generated' && conceptIndex === 0)?.abilityMode, 'transformation');
   });
 
-  it('keeps every distinct source book exercise when there are no concepts', async (): Promise<void> => {
+  it('does not carry source book exercises forward when there are no concepts', async (): Promise<void> => {
     let calls = 0;
     const duplicateBookExercise = { abilityMode: 'reasoning' as const, description: 'Compute <kx>2+2</kx>.', solution: '<kx>4</kx>', title: 'Compute' };
     const result = await processExtractedChapterContent({
@@ -121,10 +121,8 @@ describe('book processing pipeline', (): void => {
     });
 
     assert.equal(calls, 0);
-    assert.equal(result.pages[0].exercises.length, 1);
-    assert.equal(result.pages[1].exercises.length, 1);
-    assert.equal(result.pages[0].exercises[0].source, 'book');
-    assert.equal(result.pages[1].exercises[0].source, 'book');
+    assert.equal(result.pages[0].exercises.length, 0);
+    assert.equal(result.pages[1].exercises.length, 0);
   });
 
   it('stores Exercise visual descriptions without storing image bytes', async (): Promise<void> => {
