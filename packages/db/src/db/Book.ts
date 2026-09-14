@@ -1,7 +1,7 @@
 // Copyright 2021-2026 @polkadot/db authors & contributors
 // SPDX-License-Identifier: Apache-2.0
 
-export type BookStageSpendKey = 'recognize' | 'concepts' | 'exercises' | 'fixExercises' | 'abilities' | 'fixAbilities';
+export type BookStageSpendKey = 'recognize' | 'concepts' | 'exercises' | 'splitExercises' | 'fixExercises' | 'abilities' | 'fixAbilities' | 'images' | 'fixImages';
 
 export type BookStageSpend = Partial<Record<BookStageSpendKey, number>>;
 

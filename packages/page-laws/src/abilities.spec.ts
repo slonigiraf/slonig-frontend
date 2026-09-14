@@ -383,7 +383,7 @@ describe('generated abilities', (): void => {
     invalid.forEach((value) => assert.throws(() => parseGeneratedAbilities(JSON.stringify([{ ...skill, q: [value, second] }]))));
   });
 
-  it('rejects generated or repaired Ability text that exceeds the atomic learner-facing size budget', (): void => {
+  it('rejects generated or repaired Ability text that exceeds the learner-facing size budget', (): void => {
     const verbose = createSkill();
 
     verbose.q[0].a = Array.from({ length: 39 }, () => 'word').join(' ');
@@ -487,7 +487,8 @@ describe('generated abilities', (): void => {
     assert.match(FIX_ABILITIES_PROMPT, /hasErrors/i);
     assert.match(FIX_ABILITIES_PROMPT, /errors/i);
     assert.match(FIX_ABILITIES_PROMPT, /reviews/i);
-    assert.match(FIX_ABILITIES_PROMPT, /non-atomic scope/i);
+    assert.match(FIX_ABILITIES_PROMPT, /one source Exercise/i);
+    assert.match(FIX_ABILITIES_PROMPT, /Do not split a coherent multi-step Ability/i);
     assert.match(FIX_ABILITIES_PROMPT, /within 32 words/i);
     assert.match(FIX_ABILITIES_PROMPT, /partial reviews array/i);
     assert.match(FIX_ABILITIES_PROMPT, /duplicatePairs/i);

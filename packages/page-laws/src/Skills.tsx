@@ -3,7 +3,7 @@
 
 import type { Book, BookChapter, BookConcept, BookPage, BookStageSpendKey, Exercise, Skill } from '@slonigiraf/db';
 import type { GeneratedAbility } from './abilities.js';
-import type { AbilityBlueprint, AtomicAbilityConversion, AbilityWorkflowJsonRunner } from './abilityWorkflow.js';
+import type { AbilityBlueprint, AbilityWorkflowJsonRunner, ExerciseAbilityConversion } from './abilityWorkflow.js';
 
 import { addBookStageSpend, deleteAbilities, deleteAbility, deleteBookConcept, deleteExercise, deleteSkill, getAbilities, getBookChapters, getBookConceptsForBookPage, getBookPages, getExercisesForBookPage, getSetting, getSkillsForChapter, replaceAbilities, replaceExercisesForBookPage, replaceSkillsForChapter, SettingKey, storeAbility, updateBookChapterTitle, updateBookProcessingStage } from '@slonigiraf/db';
 import { KatexSpan, RoundProgress } from '@slonigiraf/slonig-components';
@@ -18,8 +18,8 @@ import { isTikzCode } from './Edit/tikz.js';
 import { parseAbilityRepairResult, parseStoredAbility } from './abilities.js';
 import { parseExerciseRepairResult, parseExerciseSplitResult } from './exercises.js';
 import { estimateAiInput, formatAiInputEstimate } from './aiEstimate.js';
-import { ATOMIC_ABILITY_WORKFLOW_SYSTEM_PROMPT, FIX_ABILITIES_REQUEST_PROMPT, FIX_EXERCISES_REQUEST_PROMPT, JSON_VALIDATION_PROMPT, OPENAI_MODELS, REPAIR_SYSTEM_PROMPT, SKILLS_GENERATION_SYSTEM_PROMPT, SOURCES_TO_SKILLS_REQUEST_PROMPT, SPLIT_EXERCISE_REQUEST_PROMPT } from './constants.js';
-import { abilityBlueprintRequestPrompt, materializeAtomicAbilityExercise, planAtomicAbilityExercise, transportCompactAbilitySourceExercise } from './abilityWorkflow.js';
+import { ABILITY_WORKFLOW_SYSTEM_PROMPT, FIX_ABILITIES_REQUEST_PROMPT, FIX_EXERCISES_REQUEST_PROMPT, JSON_VALIDATION_PROMPT, OPENAI_MODELS, REPAIR_SYSTEM_PROMPT, SKILLS_GENERATION_SYSTEM_PROMPT, SOURCES_TO_SKILLS_REQUEST_PROMPT, SPLIT_EXERCISE_REQUEST_PROMPT } from './constants.js';
+import { abilityBlueprintRequestPrompt, materializeExerciseAbility, planExerciseAbility, transportCompactAbilitySourceExercise } from './abilityWorkflow.js';
 import { mapConcurrent } from './concurrency.js';
 import { OPENROUTER_CONCURRENCY, openRouterRequestGate } from './openRouterConcurrency.js';
 import { formatOpenRouterSpend, reportOpenRouterCost, type OpenRouterCostReporter } from './openRouterCost.js';
@@ -336,7 +336,7 @@ function exerciseForPageReplacement ({ abilityMode, conceptId, description, imag
     title
   };
 }
-function abilityWithImageDescriptions (conversion: AtomicAbilityConversion): GeneratedAbility {
+function abilityWithImageDescriptions (conversion: ExerciseAbilityConversion): GeneratedAbility {
   const q = conversion.ability.q.map((exercise, index) => {
     const prompts = conversion.imagePrompts?.[index];
 
@@ -761,9 +761,12 @@ function Skills ({ book, onAction, onBookChange, onEntityCountsChange, pipelineO
     setOpenRouterSpent((current) => current + costUsd);
     void addBookStageSpend(book.id, stage, costUsd).catch(console.error);
   }, [book.id]);
+  const addSplitExercisesCost = useCallback((costUsd: number): void => addStageCost('splitExercises', costUsd), [addStageCost]);
   const addFixExercisesCost = useCallback((costUsd: number): void => addStageCost('fixExercises', costUsd), [addStageCost]);
   const addAbilitiesCost = useCallback((costUsd: number): void => addStageCost('abilities', costUsd), [addStageCost]);
   const addFixAbilitiesCost = useCallback((costUsd: number): void => addStageCost('fixAbilities', costUsd), [addStageCost]);
+  const addImagesCost = useCallback((costUsd: number): void => addStageCost('images', costUsd), [addStageCost]);
+  const addFixImagesCost = useCallback((costUsd: number): void => addStageCost('fixImages', costUsd), [addStageCost]);
   const changeChapter = useCallback((index: number): void => {
     setChapterIndex(index);
 
@@ -926,7 +929,7 @@ function Skills ({ book, onAction, onBookChange, onEntityCountsChange, pipelineO
   const generationOutputTokens = aiAction === 'exercises' ? 3_200 : aiAction === 'splitExercises' ? 1_800 : aiAction === 'fixExercises' ? maxChapterExerciseCount * 550 : aiAction === 'fix' ? maxChapterAbilityCount * 700 : aiAction === 'images' ? 2_400 : aiAction === 'fixImages' ? 2_600 : aiAction === 'skills' ? BATCH_SIZE * 180 : 300;
   const validationInputs = useMemo(() => aiAction === 'exercises'
     // The live workflow now has two bounded semantic calls per source:
-    // atomic planning, then final materialization (including visual specs).
+    // one-per-Exercise planning, then final materialization (including visual specs).
     ? requestInputs.flatMap((input) => [input, input])
     : requestInputs, [aiAction, requestInputs]);
   const outputTokens = generationOutputTokens;
@@ -999,7 +1002,7 @@ function Skills ({ book, onAction, onBookChange, onEntityCountsChange, pipelineO
   }, [addOpenRouterCost, allSkills, beginProgress, book.id, chapters, createClient, language, refresh, selectedModel, setStage, skillSources]);
 
   const generateExercises = useCallback(async (): Promise<void> => {
-    beginProgress('Generating atomic Abilities', allExercises.length);
+    beginProgress('Generating Abilities', allExercises.length);
 
     try {
       if (!allExercises.length) {
@@ -1013,13 +1016,13 @@ function Skills ({ book, onAction, onBookChange, onEntityCountsChange, pipelineO
       const client = await createClient();
 
       const pending = new Map<number, Exercise>(allExercises.map((exercise) => [exercise.id as number, exercise]));
-      // Keep each source Exercise atomic at persistence time: either every
-      // locally validated sub-Ability for that source is ready, including any
-      // required visual descriptions, or its existing DB records are untouched.
+      // Keep each source Exercise one-to-one at persistence time: either its
+      // single locally validated Ability is ready, including any required visual
+      // descriptions, or its existing DB records are untouched.
       const generatedByExerciseId = new Map<number, GeneratedAbility[]>();
       // Once the semantic workflow has produced a locally valid conversion,
       // keep it across retries without generating image bytes at this stage.
-      const conversionsByExerciseIdCache = new Map<number, AtomicAbilityConversion[]>();
+      const conversionsByExerciseIdCache = new Map<number, ExerciseAbilityConversion[]>();
       // Planning is a separate cached semantic stage. If final Ability JSON is
       // rejected or a request times out, retry materialization from this plan
       // instead of asking the model to decompose the source Exercise again.
@@ -1032,11 +1035,11 @@ function Skills ({ book, onAction, onBookChange, onEntityCountsChange, pipelineO
           .filter(({ id }) => id !== undefined && pending.has(id) && !blueprintsByExerciseIdCache.has(id))
           .map((exercise) => ({ chapterTitle: chapter.title, exercise })));
         const plannedSources = await mapConcurrent(sourcesNeedingPlan, ABILITY_GENERATION_CONCURRENCY, async ({ chapterTitle, exercise }): Promise<{ blueprints: AbilityBlueprint[]; exercise: Exercise }> => {
-          const systemPrompt = ATOMIC_ABILITY_WORKFLOW_SYSTEM_PROMPT(language, chapterTitle);
+          const systemPrompt = ABILITY_WORKFLOW_SYSTEM_PROMPT(language, chapterTitle);
           const runJson: AbilityWorkflowJsonRunner = (prompt, parse, options) => requestValidatedJson(client, selectedModel, systemPrompt, prompt, parse, true, addAbilitiesCost, options?.maxOutputTokens, options?.repairContext, options?.validationCycles ?? 1);
 
           try {
-            const blueprints = await planAtomicAbilityExercise(language, chapterTitle, exercise, runJson);
+            const blueprints = await planExerciseAbility(language, chapterTitle, exercise, runJson);
 
             lastAttemptError = '';
 
@@ -1057,14 +1060,14 @@ function Skills ({ book, onAction, onBookChange, onEntityCountsChange, pipelineO
         const sourcesNeedingMaterialization = chapterContent.flatMap(({ chapter, exercises: chapterExercises }) => chapterExercises
           .filter(({ id }) => id !== undefined && pending.has(id) && blueprintsByExerciseIdCache.has(id) && !conversionsByExerciseIdCache.has(id))
           .map((exercise) => ({ chapterTitle: chapter.title, exercise })));
-        const materializedSources = await mapConcurrent(sourcesNeedingMaterialization, ABILITY_GENERATION_CONCURRENCY, async ({ chapterTitle, exercise }): Promise<{ conversions: AtomicAbilityConversion[]; exercise: Exercise }> => {
+        const materializedSources = await mapConcurrent(sourcesNeedingMaterialization, ABILITY_GENERATION_CONCURRENCY, async ({ chapterTitle, exercise }): Promise<{ conversions: ExerciseAbilityConversion[]; exercise: Exercise }> => {
           const exerciseId = exercise.id as number;
           const blueprints = blueprintsByExerciseIdCache.get(exerciseId) ?? [];
-          const systemPrompt = ATOMIC_ABILITY_WORKFLOW_SYSTEM_PROMPT(language, chapterTitle);
+          const systemPrompt = ABILITY_WORKFLOW_SYSTEM_PROMPT(language, chapterTitle);
           const runJson: AbilityWorkflowJsonRunner = (prompt, parse, options) => requestValidatedJson(client, selectedModel, systemPrompt, prompt, parse, true, addAbilitiesCost, options?.maxOutputTokens, options?.repairContext, options?.validationCycles ?? 1);
 
           try {
-            const conversions = await materializeAtomicAbilityExercise(language, chapterTitle, exercise, blueprints, runJson);
+            const conversions = await materializeExerciseAbility(language, chapterTitle, exercise, blueprints, runJson);
 
             lastAttemptError = '';
 
@@ -1119,7 +1122,7 @@ function Skills ({ book, onAction, onBookChange, onEntityCountsChange, pipelineO
       if (pending.size && generatedByExerciseId.size) {
         const unresolved = Array.from(pending.values()).map(({ id, title }) => `${id}: ${title}`).join('; ');
 
-        setNotice(`Generated ${generatedAbilityCount} atomic Abilities from ${generatedByExerciseId.size} of ${allExercises.length} Exercises. ${pending.size} Exercise${pending.size === 1 ? '' : 's'} remained unchanged: ${unresolved}`);
+        setNotice(`Generated ${generatedAbilityCount} Abilities for ${generatedByExerciseId.size} of ${allExercises.length} Exercises. ${pending.size} Exercise${pending.size === 1 ? '' : 's'} remained unchanged: ${unresolved}`);
       } else if (!generatedByExerciseId.size && pending.size && allAbilities.length) {
         setNotice(`No new Abilities were generated after ${maxAttempts} attempts. The existing ${allAbilities.length} Abilit${allAbilities.length === 1 ? 'y remains' : 'ies remain'} available; unresolved Exercises were left unchanged.`);
       } else if (!generatedByExerciseId.size && pending.size) {
@@ -1127,7 +1130,7 @@ function Skills ({ book, onAction, onBookChange, onEntityCountsChange, pipelineO
 
         setError(`No Abilities were generated after ${maxAttempts} attempts.${suffix}`);
       } else {
-        setNotice(`Generated ${generatedAbilityCount} atomic Abilities from ${generatedByExerciseId.size} Exercises.`);
+        setNotice(`Generated ${generatedAbilityCount} Abilities for ${generatedByExerciseId.size} Exercises.`);
       }
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : 'Unable to generate Abilities.');
@@ -1162,7 +1165,7 @@ function Skills ({ book, onAction, onBookChange, onEntityCountsChange, pipelineO
           SPLIT_EXERCISE_REQUEST_PROMPT(exerciseSplitInput(language, exercise, chapterTitle, concepts)),
           (content) => parseExerciseSplitResult(content, exercise, allowedConceptIds),
           true,
-          addOpenRouterCost,
+          addSplitExercisesCost,
           1_800
         );
 
@@ -1256,7 +1259,7 @@ function Skills ({ book, onAction, onBookChange, onEntityCountsChange, pipelineO
     } finally {
       setIsBusy(false);
     }
-  }, [addOpenRouterCost, allAbilities, allExercises, beginProgress, book.id, bookPageContent, chapterContent, createClient, language, onAction, refresh, selectedModel, setStage, stage]);
+  }, [addSplitExercisesCost, allAbilities, allExercises, beginProgress, book.id, bookPageContent, chapterContent, createClient, language, onAction, refresh, selectedModel, setStage, stage]);
 
   const fixExercises = useCallback(async (): Promise<void> => {
     beginProgress('Fixing Exercise errors', allExercises.length);
@@ -1618,7 +1621,7 @@ function Skills ({ book, onAction, onBookChange, onEntityCountsChange, pipelineO
           'You convert precise educational visual specifications into valid, compact TikZ code. Follow the requested output contract exactly.',
           tikzRequestPrompt(language, record.ability, exerciseIndex, field, visualPrompt),
           false,
-          addOpenRouterCost,
+          addImagesCost,
           2_400
         );
         const tikz = cleanTikzResponse(content);
@@ -1658,7 +1661,7 @@ function Skills ({ book, onAction, onBookChange, onEntityCountsChange, pipelineO
     } finally {
       setIsBusy(false);
     }
-  }, [addOpenRouterCost, allAbilities, beginProgress, createClient, imageGenerationTargets, language, onAction, refresh, selectedModel, setStage]);
+  }, [addImagesCost, allAbilities, beginProgress, createClient, imageGenerationTargets, language, onAction, refresh, selectedModel, setStage]);
   const fixImages = useCallback(async (): Promise<void> => {
     beginProgress('Reviewing TikZ visuals', imageFixTargets.length);
 
@@ -1691,7 +1694,7 @@ function Skills ({ book, onAction, onBookChange, onEntityCountsChange, pipelineO
           tikzFixReviewPrompt(language, target, originalPreRender),
           parseTikzAiReview,
           true,
-          addOpenRouterCost,
+          addFixImagesCost,
           2_600
         );
         let effectiveReview: TikzAiReview = review;
@@ -1714,7 +1717,7 @@ function Skills ({ book, onAction, onBookChange, onEntityCountsChange, pipelineO
             tikzDetectedProblemsRepairPrompt(language, target, effectiveReview, originalPreRender),
             parseTikzAiReview,
             true,
-            addOpenRouterCost,
+            addFixImagesCost,
             2_600
           );
 
@@ -1738,7 +1741,7 @@ function Skills ({ book, onAction, onBookChange, onEntityCountsChange, pipelineO
             tikzCompileRepairPrompt(language, target, effectiveReview, fixedPreRender),
             parseTikzAiReview,
             true,
-            addOpenRouterCost,
+            addFixImagesCost,
             2_600
           );
 
@@ -1783,7 +1786,7 @@ function Skills ({ book, onAction, onBookChange, onEntityCountsChange, pipelineO
     } finally {
       setIsBusy(false);
     }
-  }, [addOpenRouterCost, beginProgress, createClient, imageFixTargets, language, selectedModel]);
+  }, [addFixImagesCost, beginProgress, createClient, imageFixTargets, language, selectedModel]);
 
   const closeImageFixReview = useCallback((): void => {
     setImageFixReview(null);

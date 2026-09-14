@@ -51,9 +51,12 @@ export async function putBook(book: Book): Promise<void> {
                 recognize: Math.max(storedSpend?.recognize ?? 0, incomingSpend?.recognize ?? 0),
                 concepts: Math.max(storedSpend?.concepts ?? 0, incomingSpend?.concepts ?? 0),
                 exercises: Math.max(storedSpend?.exercises ?? 0, incomingSpend?.exercises ?? 0),
+                splitExercises: Math.max(storedSpend?.splitExercises ?? 0, incomingSpend?.splitExercises ?? 0),
                 fixExercises: Math.max(storedSpend?.fixExercises ?? 0, incomingSpend?.fixExercises ?? 0),
                 abilities: Math.max(storedSpend?.abilities ?? 0, incomingSpend?.abilities ?? 0),
-                fixAbilities: Math.max(storedSpend?.fixAbilities ?? 0, incomingSpend?.fixAbilities ?? 0)
+                fixAbilities: Math.max(storedSpend?.fixAbilities ?? 0, incomingSpend?.fixAbilities ?? 0),
+                images: Math.max(storedSpend?.images ?? 0, incomingSpend?.images ?? 0),
+                fixImages: Math.max(storedSpend?.fixImages ?? 0, incomingSpend?.fixImages ?? 0)
             }
             : undefined;
 

@@ -38,6 +38,10 @@ export interface AtomicAbilityConversion extends BlueprintAbility {
   imagePrompts?: [AbilityExerciseImagePrompts, AbilityExerciseImagePrompts];
 }
 
+// Preferred live name. AtomicAbilityConversion is kept for compatibility with
+// older callers, but generation now creates exactly one Ability per Exercise.
+export type ExerciseAbilityConversion = AtomicAbilityConversion;
+
 export interface AbilityWorkflowRunOptions {
   maxOutputTokens?: number;
   repairContext?: string;
@@ -97,11 +101,13 @@ export function transportCompactAbilitySourceExercise ({ abilityMode = 'reasonin
   };
 }
 
-export function transportAbilityMaterializationEvidence ({ abilityMode = 'reasoning', id, imageDescription = '', solutionImageDescription = '', title }: Exercise): unknown {
+export function transportAbilityMaterializationEvidence ({ abilityMode = 'reasoning', description, id, imageDescription = '', solution = '', solutionImageDescription = '', title }: Exercise): unknown {
   return {
     id,
     title,
     mode: abilityMode,
+    task: stripMarkdownImageReferences(description),
+    solution,
     questionVisual: imageDescription,
     solutionVisual: solutionImageDescription
   };
@@ -120,8 +126,8 @@ export function parseAbilityBlueprints (content: string, expectedExerciseIds: nu
   const result: AbilityBlueprint[] = [];
 
   for (const plan of plans) {
-    if (!isRecord(plan) || typeof plan.exerciseId !== 'number' || !Number.isSafeInteger(plan.exerciseId) || !expected.has(plan.exerciseId) || usedExercises.has(plan.exerciseId) || !Array.isArray(plan.skills) || plan.skills.length < 1 || plan.skills.length > 8) {
-      throw new Error('Every source Exercise must have one blueprint plan with 1-8 atomic skills.');
+    if (!isRecord(plan) || typeof plan.exerciseId !== 'number' || !Number.isSafeInteger(plan.exerciseId) || !expected.has(plan.exerciseId) || usedExercises.has(plan.exerciseId) || !Array.isArray(plan.skills) || plan.skills.length !== 1) {
+      throw new Error('Every source Exercise must have one blueprint plan with exactly one Ability definition.');
     }
 
     const exerciseId = plan.exerciseId;
@@ -143,7 +149,7 @@ export function parseAbilityBlueprints (content: string, expectedExerciseIds: nu
       const solutionVisual = skill.solutionVisual;
 
       if (!title || !input || !operation || !output || !method || (questionVisual !== 'none' && questionVisual !== 'required') || (solutionVisual !== 'none' && solutionVisual !== 'new' && solutionVisual !== 'modify-question')) {
-        throw new Error('Every Ability blueprint must define title, input, one operation, output, method, and visual modes.');
+        throw new Error('Every Ability blueprint must define title, input, operation, output, method, and visual modes.');
       }
 
       if (solutionVisual === 'modify-question' && questionVisual !== 'required') {
@@ -153,7 +159,7 @@ export function parseAbilityBlueprints (content: string, expectedExerciseIds: nu
       const signature = [title, input, operation, output, method].map(normalized).join('|');
 
       if (signatures.has(signature)) {
-        throw new Error('An Exercise blueprint contains duplicate atomic skills.');
+        throw new Error('An Exercise blueprint contains duplicate Ability definitions.');
       }
 
       signatures.add(signature);
@@ -196,14 +202,14 @@ export function parseBlueprintAbilities (content: string, blueprints: AbilityBlu
     const [ability] = parseGeneratedAbilities(JSON.stringify([value.ability]), 1, { allowIdenticalQuestionText: blueprint.questionVisual === 'required' });
 
     if (normalized(ability.h) !== normalized(blueprint.title)) {
-      throw new Error('Generated Ability title must match its audited atomic blueprint.');
+      throw new Error('Generated Ability title must match its audited Exercise blueprint.');
     }
 
     const exerciseTitles = titlesByExercise.get(value.exerciseId) ?? new Set<string>();
     const normalizedTitle = normalized(ability.h);
 
     if (exerciseTitles.has(normalizedTitle)) {
-      throw new Error('Two atomic Abilities from the same source Exercise have the same skill title.');
+      throw new Error('Two Abilities from the same source Exercise have the same title.');
     }
 
     exerciseTitles.add(normalizedTitle);
@@ -269,7 +275,7 @@ export function parseBlueprintVisualPlans (content: string, blueprints: AbilityB
       // The audited blueprint is the source of truth. Models occasionally add
       // an explanatory solution image to an otherwise text-answer Ability.
       // Treat that as harmless over-generation and strip it locally instead of
-      // failing the whole atomic Ability attempt (and all of its retries).
+      // failing the whole Ability attempt (and all of its retries).
       const p = blueprint.questionVisual === 'none' ? '' : prompt.p;
 
       if (blueprint.solutionVisual === 'none') {
@@ -389,8 +395,8 @@ export function validateAbilityBlueprintEvidence (blueprints: AbilityBlueprint[]
     const rows = blueprintsByExerciseId.get(source.id) ?? [];
 
     // The reverse check is equally important: a required source visual must not
-    // disappear during atomic decomposition. It may belong to only one of the
-    // split skills, but at least one skill must carry each required visual role.
+    // disappear when the Exercise is converted to its single Ability. The one
+    // Ability must preserve every required source visual role.
     if (source.imageDescription?.trim() && !rows.some(({ questionVisual }) => questionVisual === 'required')) {
       throw new Error(`Ability blueprint plan for Exercise ${source.id} dropped its required question visual.`);
     }
@@ -440,6 +446,8 @@ export function assembleAtomicAbilityConversions (blueprints: AbilityBlueprint[]
   });
 }
 
+export const assembleExerciseAbilityConversions = assembleAtomicAbilityConversions;
+
 export async function planAtomicAbilityExercise (
   language: string,
   chapterTitle: string,
@@ -465,7 +473,7 @@ export async function planAtomicAbilityExercise (
     parseBlueprintStage,
     {
       maxOutputTokens: 1_800,
-      repairContext: `Expected exerciseId=${exerciseId}. Return one plans[] entry with 1-8 skills. Source question visual present=${Boolean(exercise.imageDescription?.trim())}; source solution visual present=${Boolean(exercise.solutionImageDescription?.trim())}.`,
+      repairContext: `Expected exerciseId=${exerciseId}. Return one plans[] entry with exactly one skills[] item. Source question visual present=${Boolean(exercise.imageDescription?.trim())}; source solution visual present=${Boolean(exercise.solutionImageDescription?.trim())}.`,
       validationCycles: 1
     }
   );
@@ -478,8 +486,8 @@ export async function materializeAtomicAbilityExercise (
   blueprints: AbilityBlueprint[],
   runJson: AbilityWorkflowJsonRunner
 ): Promise<AtomicAbilityConversion[]> {
-  if (exercise.id === undefined || !blueprints.length || blueprints.some(({ exerciseId }) => exerciseId !== exercise.id)) {
-    throw new Error('Ability materialization requires a nonempty blueprint set for exactly one source Exercise.');
+  if (exercise.id === undefined || blueprints.length !== 1 || blueprints.some(({ exerciseId }) => exerciseId !== exercise.id)) {
+    throw new Error('Ability materialization requires exactly one blueprint for one source Exercise.');
   }
 
   const exerciseId = exercise.id;
@@ -495,6 +503,9 @@ export async function materializeAtomicAbilityExercise (
     }
   );
 }
+
+export const planExerciseAbility = planAtomicAbilityExercise;
+export const materializeExerciseAbility = materializeAtomicAbilityExercise;
 
 export async function runAtomicAbilityWorkflow (
   language: string,
@@ -523,53 +534,57 @@ export async function runAtomicAbilityWorkflow (
   return results;
 }
 
+export const runExerciseAbilityWorkflow = runAtomicAbilityWorkflow;
+
 export function abilityBlueprintRequestPrompt (language: string, chapterTitle: string, exercises: unknown[]): string {
-  return `Plan atomic practice skills for the supplied source Exercise. Planning only; do not write learner questions.
+  return `Plan exactly one reusable Ability for the supplied source Exercise. Planning only; do not write learner questions.
 
 Chapter: ${chapterTitle}
 Language: ${language}
 
-Create 1-8 independently practicable skills actually trained by the source. Each skill must have exactly one stable input type, one learner operation, one output type, and one stable method. Split independently variable operations/methods; do not invent prerequisites or artificial micro-steps. Keep titles short and observable.
+Create exactly one Ability definition that represents the complete coherent skill trained by the source Exercise. Do not decompose it into atomic sub-skills. If the Exercise uses several inseparable steps or operations to reach its requested output, keep that sequence together in the same Ability. The earlier Split Exercise stage is responsible for separating genuinely distinct concepts, so this stage must preserve each supplied Exercise as one Ability.
+
+Describe the general input, the complete learner operation or operation sequence, the expected output, and the stable method. Keep the title short and observable. The two learner-facing practice instances generated later must exercise this same complete contract with different concrete data.
 
 Visual contract: questionVisual="required" only when the learner must inspect task-essential visual/spatial information that cannot be moved into text without changing or revealing the task. solutionVisual="new" only for a newly created visual answer, "modify-question" only when the answer changes the supplied question visual, otherwise "none". A modify-question solution requires questionVisual="required". Never request decorative visuals.
 
-Return only JSON:
-{"plans":[{"exerciseId":123,"skills":[{"title":"Short skill","input":"input type","operation":"one operation","output":"output type","method":"stable method","questionVisual":"none","solutionVisual":"none"}]}]}
+Return only JSON with exactly one skills[] item:
+{"plans":[{"exerciseId":123,"skills":[{"title":"Short Exercise-level ability","input":"general input type","operation":"complete learner operation or operation sequence","output":"general output type","method":"stable method/rule","questionVisual":"none","solutionVisual":"none"}]}]}
 
 SOURCE (normally exactly one Exercise):
 ${JSON.stringify(exercises)}`;
 }
 
 export function abilityMaterializationPrompt (language: string, chapterTitle: string, blueprints: AbilityBlueprint[], source: unknown): string {
-  return `Materialize the exact atomic plan into final learner Abilities. Do not add, remove, merge, split, rename, or broaden planned skills.
+  return `Materialize the one-per-Exercise plan into exactly one final learner Ability. Do not split the source Exercise into multiple Abilities or narrow it to only one of its inseparable steps.
 
 Chapter: ${chapterTitle}
 Language: ${language}
 
-For every blueprint create exactly one Ability with exactly two concrete practice instances. Copy blueprint.title to ability.h unchanged. Both instances must use the same input type, operation, output type, method, direction, reasoning depth, and difficulty; vary only concrete data and independently recalculate each answer. Keep tasks direct (normally <=32 words), answers compact (normally <=38 words), and titles <=12 words. No hints, tutorial prose, answer choices, book references, or redundant explanation. Use <kx>...</kx> for mathematical notation. ability.i="", t=3, and q[].p/q[].i remain empty because images are materialized later.
+Create exactly one Ability with exactly two concrete practice instances. Copy blueprint.title to ability.h unchanged. Both instances must train the same complete Exercise-level input, operation or operation sequence, output, method, direction, reasoning depth, and difficulty; vary only concrete task data and independently recalculate each answer. Keep tasks direct (normally <=32 words), answers compact (normally <=38 words), and titles <=12 words. No hints, tutorial prose, answer choices, book references, or redundant explanation. Use <kx>...</kx> for mathematical notation. ability.i="", t=3, and q[].p/q[].i remain empty because images are materialized later.
 
-For every item also return two imagePrompts entries, one per question. For text-only blueprints all p/i must be "" and changesImage=false. If questionVisual="required", p must be a complete standalone starting-visual specification with the concrete values/labels/geometry for that question and no answer leakage. If solutionVisual="new", i must be the complete correct finished visual and changesImage=false. If solutionVisual="modify-question", p and i must both be complete specifications of the same visual, changesImage=true, and i must preserve every unchanged object/layout while applying only the correct answer change. Do not create optional/decorative visuals.
+For the one Ability also return two imagePrompts entries, one per question. For a text-only blueprint all p/i must be "" and changesImage=false. If questionVisual="required", p must be a complete standalone starting-visual specification with the concrete values/labels/geometry for that question and no answer leakage. If solutionVisual="new", i must be the complete correct finished visual and changesImage=false. If solutionVisual="modify-question", p and i must both be complete specifications of the same visual, changesImage=true, and i must preserve every unchanged object/layout while applying only the correct answer change. Do not create optional/decorative visuals.
 
-Return only JSON:
-{"abilities":[{"exerciseId":123,"skillIndex":0,"ability":{"i":"","t":3,"h":"Short skill","q":[{"h":"Task 1","a":"Answer 1","p":"","i":""},{"h":"Task 2","a":"Answer 2","p":"","i":""}]},"imagePrompts":[{"changesImage":false,"p":"","i":""},{"changesImage":false,"p":"","i":""}]}]}
+Return only JSON with one abilities[] entry:
+{"abilities":[{"exerciseId":123,"skillIndex":0,"ability":{"i":"","t":3,"h":"Short ability title","q":[{"h":"Task 1","a":"Answer 1","p":"","i":""},{"h":"Task 2","a":"Answer 2","p":"","i":""}]},"imagePrompts":[{"changesImage":false,"p":"","i":""},{"changesImage":false,"p":"","i":""}]}]}
 
-ATOMIC PLAN:
+ONE-PER-EXERCISE PLAN:
 ${JSON.stringify(blueprints)}
 
-SOURCE VISUAL EVIDENCE (single Exercise; the atomic plan already carries the semantic contract):
+SOURCE EXERCISE EVIDENCE:
 ${JSON.stringify(source)}`;
 }
 
 export function abilityBlueprintAuditPrompt (language: string, chapterTitle: string, exercises: unknown[], draft: AbilityBlueprint[]): string {
-  return `Audit an internal Ability plan before any learner-facing content is generated. Rewrite the complete plan where necessary.
+  return `Audit an internal one-per-Exercise Ability plan before learner-facing content is generated. Rewrite the complete plan where necessary.
 
 Chapter: ${chapterTitle}
 Language: ${language}
 
-The main failure to prevent is a non-atomic Ability. For each source Exercise, verify that every planned skill contains one observable operation with one input/output contract and one stable method. Split a skill if different operations, directions, methods, output forms, or reasoning depths could vary independently. Merge only artificial micro-steps that are not meaningful standalone practice. Remove skills not supported by the source. Preserve visual dependence only when it belongs to that exact atomic skill.
+For each source Exercise keep exactly one Ability definition. Do not split a coherent multi-step Exercise into atomic sub-skills. Verify that the single definition preserves the Exercise's complete input, requested learner operation or operation sequence, expected output, stable method, difficulty, and any required visual dependence. Remove unsupported additions, but do not discard an inseparable step merely to make the Ability narrower.
 
-Keep 1-8 useful atomic skills per source Exercise; do not merge independent operations merely to stay below a preferred count. Return exactly the same JSON shape as a fresh plan and no commentary:
-{"plans":[{"exerciseId":123,"skills":[{"title":"Short observable skill","input":"general input type","operation":"one learner operation","output":"general output type","method":"stable method/rule","questionVisual":"none","solutionVisual":"none"}]}]}
+Return exactly the same JSON shape as a fresh plan with one skills[] item per source Exercise and no commentary:
+{"plans":[{"exerciseId":123,"skills":[{"title":"Short observable ability","input":"general input type","operation":"complete learner operation or operation sequence","output":"general output type","method":"stable method/rule","questionVisual":"none","solutionVisual":"none"}]}]}
 
 Source Exercises:
 ${JSON.stringify(exercises)}
@@ -579,14 +594,14 @@ ${JSON.stringify(draft)}`;
 }
 
 export function abilityTextGenerationPrompt (language: string, chapterTitle: string, blueprints: AbilityBlueprint[], exercises: unknown[]): string {
-  return `Generate learner-facing Ability text from the audited atomic blueprints below. Visuals are handled later; q[].p and q[].i must remain empty strings.
+  return `Generate learner-facing Ability text from the audited one-per-Exercise blueprints below. Visuals are handled later; q[].p and q[].i must remain empty strings.
 
 Chapter: ${chapterTitle}
 Language: ${language}
 
-For each blueprint, create exactly one Ability with exactly two concrete practice instances. Copy the blueprint title into Ability h unchanged. Both instances must implement the blueprint's same input type, operation, output type, method, direction, reasoning depth, and difficulty; vary only task data. Recalculate each answer independently. For text-input tasks, the two q[].h strings must contain different concrete parameters and must not be identical. When questionVisual=\"required\", the instruction wording may be identical only if the later two question visuals will carry different concrete task data.
+For each Exercise blueprint, create exactly one Ability with exactly two concrete practice instances. Copy the blueprint title into Ability h unchanged. Both instances must implement the blueprint's same input type, operation, output type, method, direction, reasoning depth, and difficulty; vary only task data. Recalculate each answer independently. For text-input tasks, the two q[].h strings must contain different concrete parameters and must not be identical. When questionVisual=\"required\", the instruction wording may be identical only if the later two question visuals will carry different concrete task data.
 
-Make the wording economical. A task should normally be one direct imperative sentence plus only the data needed to perform it. Do not add teaching context, motivational text, hints, definitions, answer choices, "explain your answer" unless explanation is itself the atomic operation, or references to the book. The answer should be the shortest correct response that demonstrates the target operation: usually the result, or the result plus one compact derivation when the method must be checkable. Do not restate the question, teach the rule, narrate obvious steps, or write tutorial-style prose for an atomic task. Keep all essential information; brevity must never make the task ambiguous.
+Make the wording economical. A task should normally be one direct imperative sentence plus only the data needed to perform it. Do not add teaching context, motivational text, hints, definitions, answer choices, or references to the book unless they are required by the Exercise-level operation. The answer should be the shortest correct response that demonstrates the target operation: usually the result, or the result plus one compact derivation when the method must be checkable. Do not restate the question, teach the rule, narrate obvious steps, or write tutorial-style prose for the task. Keep all essential information; brevity must never make the task ambiguous.
 
 Do not encode visual facts in text when questionVisual is required. If solutionVisual is new or modify-question, the textual answer may state a concise result, but do not replace the required visual output with a verbose verbal description.
 
@@ -603,14 +618,14 @@ ${JSON.stringify(exercises)}`;
 }
 
 export function abilityTextAuditPrompt (language: string, chapterTitle: string, blueprints: AbilityBlueprint[], exercises: unknown[], candidates: BlueprintAbility[]): string {
-  return `Act as the semantic quality gate for generated atomic Abilities. Return the complete corrected set, not a review report.
+  return `Act as the semantic quality gate for generated one-per-Exercise Abilities. Return the complete corrected set, not a review report.
 
 Chapter: ${chapterTitle}
 Language: ${language}
 
-For every candidate verify against its exact blueprint and source evidence: atomicity; same operation/method/direction in both questions; distinct data; factual and mathematical correctness; self-containment; no answer leakage; correct language; and strict visual dependence. For text-input tasks, never leave the two q[].h strings identical; change the concrete parameters. When questionVisual=\"required\", identical instruction wording is allowed only when the two later question visuals will contain different concrete inputs. Most importantly, enforce the learner-facing size budget: titles should fit in about 12 words, tasks in about 32 words, and answers in about 38 words. Keep each task direct and concrete and each answer as short as correctness permits. Delete explanations, restatements, teaching prose, and redundant intermediate steps that are not needed to demonstrate the atomic skill. Do not remove data, conditions, units, or reasoning that is genuinely required.
+For every candidate verify against its exact blueprint and source evidence: preservation of the complete Exercise-level operation or operation sequence; same method/direction in both questions; distinct data; factual and mathematical correctness; self-containment; no answer leakage; correct language; and strict visual dependence. For text-input tasks, never leave the two q[].h strings identical; change the concrete parameters. When questionVisual=\"required\", identical instruction wording is allowed only when the two later question visuals will contain different concrete inputs. Most importantly, enforce the learner-facing size budget: titles should fit in about 12 words, tasks in about 32 words, and answers in about 38 words. Keep each task direct and concrete and each answer as short as correctness permits. Delete explanations, restatements, teaching prose, and redundant intermediate steps that are not needed to demonstrate the Exercise-level skill. Do not remove data, conditions, units, or reasoning that is genuinely required.
 
-If a candidate accidentally combines multiple operations, repair it to the single operation specified by its blueprint rather than broadening the blueprint. Visual bytes and prompts are not created in this stage; p and i stay empty.
+Do not split a candidate into narrower sub-Abilities. Preserve every inseparable operation represented by its one-per-Exercise blueprint. Visual bytes and prompts are not created in this stage; p and i stay empty.
 
 Return only JSON in exactly this shape and preserve every exerciseId/skillIndex pair:
 {"abilities":[{"exerciseId":123,"skillIndex":0,"ability":{"i":"","t":3,"h":"Short skill title","q":[{"h":"Task 1","a":"Answer 1","p":"","i":""},{"h":"Task 2","a":"Answer 2","p":"","i":""}]}}]}
@@ -666,7 +681,7 @@ export function abilityVisualAuditPrompt (
   const visualKeys = new Set(visualBlueprints.map(({ exerciseId, skillIndex }) => expectedBlueprintKey(exerciseId, skillIndex)));
   const visualAbilities = abilities.filter(({ exerciseId, skillIndex }) => visualKeys.has(expectedBlueprintKey(exerciseId, skillIndex)));
 
-  return `Audit the visual specifications for final atomic Abilities before any image is generated. Return the complete corrected visual plan, not a review report.
+  return `Audit the visual specifications for final one-per-Exercise Abilities before any image is generated. Return the complete corrected visual plan, not a review report.
 
 Chapter: ${chapterTitle}
 Language: ${language}

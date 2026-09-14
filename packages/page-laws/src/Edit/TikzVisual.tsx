@@ -15,6 +15,7 @@ interface Props {
 export default function TikzVisual ({ alt, onSave, prompt, value }: Props): React.ReactElement {
   const [draft, setDraft] = useState(value);
   const [rendered, setRendered] = useState(value);
+  const [isDetailsShown, setIsDetailsShown] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [message, setMessage] = useState('');
 
@@ -22,6 +23,9 @@ export default function TikzVisual ({ alt, onSave, prompt, value }: Props): Reac
     setRendered(draft);
     setMessage('');
   }, [draft]);
+  const toggleDetails = useCallback((): void => {
+    setIsDetailsShown((shown) => !shown);
+  }, []);
 
   const save = useCallback((): void => {
     if (!onSave) {
@@ -40,33 +44,40 @@ export default function TikzVisual ({ alt, onSave, prompt, value }: Props): Reac
   }, [draft, onSave]);
 
   return <TikzEditor>
-    {prompt?.trim() && <PromptBlock>
-      <strong>{alt} visual prompt</strong>
-      <div>{prompt}</div>
-    </PromptBlock>}
-    <strong>{alt} TikZ</strong>
-    <textarea
-      aria-label={`${alt} TikZ source`}
-      onChange={(event) => setDraft(event.target.value)}
-      rows={8}
-      spellCheck={false}
-      value={draft}
-    />
-    <Button.Group>
-      <Button
-        icon='eye'
-        label='Render'
-        onClick={render}
-      />
-      {onSave && <Button
-        icon='save'
-        isDisabled={isSaving || !draft.trim()}
-        label={isSaving ? 'Saving…' : 'Save TikZ'}
-        onClick={save}
-      />}
-    </Button.Group>
-    {message && <small>{message}</small>}
     <TikzDisplay alt={`${alt} TikZ preview`} value={rendered} />
+    <Button
+      icon={isDetailsShown ? 'eye-slash' : 'eye'}
+      label={isDetailsShown ? 'Hide visual details' : 'Show visual details'}
+      onClick={toggleDetails}
+    />
+    {isDetailsShown && <>
+      {prompt?.trim() && <PromptBlock>
+        <strong>{alt} visual prompt</strong>
+        <div>{prompt}</div>
+      </PromptBlock>}
+      <strong>{alt} TikZ</strong>
+      <textarea
+        aria-label={`${alt} TikZ source`}
+        onChange={(event) => setDraft(event.target.value)}
+        rows={8}
+        spellCheck={false}
+        value={draft}
+      />
+      <Button.Group>
+        <Button
+          icon='eye'
+          label='Render'
+          onClick={render}
+        />
+        {onSave && <Button
+          icon='save'
+          isDisabled={isSaving || !draft.trim()}
+          label={isSaving ? 'Saving…' : 'Save TikZ'}
+          onClick={save}
+        />}
+      </Button.Group>
+      {message && <small>{message}</small>}
+    </>}
   </TikzEditor>;
 }
 

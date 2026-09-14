@@ -20,6 +20,9 @@ const isGeneratedAbilityVisual = (value: string): boolean => {
 type AbilityExerciseWithPrompts = Exercise & { iPrompt?: string; pPrompt?: string };
 
 const ExerciseVisual: React.FC<{ alt: string; isAbilityInfo: boolean; label: string; onSave?: (value: string) => Promise<void>; prompt?: string; value: string }> = ({ alt, isAbilityInfo, label, onSave, prompt, value }) => {
+    const [areDetailsShown, setAreDetailsShown] = useState(false);
+    const toggleDetails = useCallback((): void => setAreDetailsShown((shown) => !shown), []);
+
     if (!value.trim()) {
         return null;
     }
@@ -36,9 +39,28 @@ const ExerciseVisual: React.FC<{ alt: string; isAbilityInfo: boolean; label: str
         return <ExerciseImage alt={alt} value={value} />;
     }
 
-    return isGeneratedAbilityVisual(value)
-        ? <ExerciseImage alt={alt} value={value} />
-        : <small>{label}: <KatexSpan content={value} /></small>;
+    if (isGeneratedAbilityVisual(value)) {
+        return <>
+            <ExerciseImage alt={alt} value={value} />
+            {prompt?.trim() && <>
+                <Button
+                    icon={areDetailsShown ? 'eye-slash' : 'eye'}
+                    label={areDetailsShown ? 'Hide visual prompt' : 'Show visual prompt'}
+                    onClick={toggleDetails}
+                />
+                {areDetailsShown && <small>{label}: <KatexSpan content={prompt} /></small>}
+            </>}
+        </>;
+    }
+
+    return <>
+        <Button
+            icon={areDetailsShown ? 'eye-slash' : 'eye'}
+            label={areDetailsShown ? 'Hide visual prompt' : 'Show visual prompt'}
+            onClick={toggleDetails}
+        />
+        {areDetailsShown && <small>{label}: <KatexSpan content={value} /></small>}
+    </>;
 };
 
 interface ExerciseListProps {

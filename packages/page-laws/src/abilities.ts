@@ -142,11 +142,11 @@ export function validateGeneratedAbilityText (ability: GeneratedAbility): void {
 
   for (const exercise of ability.q) {
     if (!isSuccinct(exercise.h, 32, 220)) {
-      throw new Error('Ability task is too verbose for an atomic skill.');
+      throw new Error('Ability task is too verbose.');
     }
 
     if (!isSuccinct(exercise.a, 38, 260)) {
-      throw new Error('Ability answer is too verbose for an atomic skill.');
+      throw new Error('Ability answer is too verbose.');
     }
   }
 }

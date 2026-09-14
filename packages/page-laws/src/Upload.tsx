@@ -23,9 +23,12 @@ const PRICE_STAGES: Array<{ key: BookStageSpendKey; label: string }> = [
   { key: 'recognize', label: 'Recognize' },
   { key: 'concepts', label: 'Concepts' },
   { key: 'exercises', label: 'Exercises' },
+  { key: 'splitExercises', label: 'Split Exercise' },
   { key: 'fixExercises', label: 'Fix exercises' },
   { key: 'abilities', label: 'Abilities' },
-  { key: 'fixAbilities', label: 'Fix abilities' }
+  { key: 'fixAbilities', label: 'Fix abilities' },
+  { key: 'images', label: 'Images' },
+  { key: 'fixImages', label: 'Fix images' }
 ];
 
 function getSessionBookId (): number | undefined {

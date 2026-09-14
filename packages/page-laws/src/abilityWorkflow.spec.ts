@@ -7,11 +7,11 @@ import { strict as assert } from 'node:assert';
 
 import type { Exercise } from '@slonigiraf/db';
 
-import { assembleAtomicAbilityConversions, parseAbilityBlueprints, parseBlueprintAbilities, parseBlueprintVisualPlans, runAtomicAbilityWorkflow, validateAbilityBlueprintEvidence } from './abilityWorkflow.js';
+import { assembleExerciseAbilityConversions, parseAbilityBlueprints, parseBlueprintAbilities, parseBlueprintVisualPlans, runExerciseAbilityWorkflow, validateAbilityBlueprintEvidence } from './abilityWorkflow.js';
 
-describe('atomic Ability workflow', (): void => {
-  it('allows one source Exercise to split into multiple atomic Ability blueprints', (): void => {
-    const result = parseAbilityBlueprints(JSON.stringify({
+describe('one-Ability-per-Exercise workflow', (): void => {
+  it('requires exactly one Ability blueprint for each source Exercise', (): void => {
+    assert.throws(() => parseAbilityBlueprints(JSON.stringify({
       plans: [{
         exerciseId: 7,
         skills: [
@@ -19,12 +19,18 @@ describe('atomic Ability workflow', (): void => {
           { input: 'two ordered pairs', method: 'subtract corresponding coordinates', operation: 'calculate coordinate differences', output: 'horizontal and vertical differences', questionVisual: 'none', solutionVisual: 'none', title: 'Calculate coordinate differences' }
         ]
       }]
+    }), [7]), /exactly one Ability definition/i);
+
+    const result = parseAbilityBlueprints(JSON.stringify({
+      plans: [{
+        exerciseId: 7,
+        skills: [{ input: 'a plotted point and target x-value', method: 'read the point and compute the requested distance', operation: 'read coordinates and calculate horizontal distance', output: 'the requested coordinate-derived result', questionVisual: 'required', solutionVisual: 'none', title: 'Read a point and calculate horizontal distance' }]
+      }]
     }), [7]);
 
-    assert.equal(result.length, 2);
-    assert.deepEqual(result.map(({ exerciseId, skillIndex }) => [exerciseId, skillIndex]), [[7, 0], [7, 1]]);
+    assert.equal(result.length, 1);
+    assert.deepEqual(result.map(({ exerciseId, skillIndex }) => [exerciseId, skillIndex]), [[7, 0]]);
     assert.equal(result[0].questionVisual, 'required');
-    assert.equal(result[1].questionVisual, 'none');
   });
 
   it('rejects a modified solution visual when there is no question visual to modify', (): void => {
@@ -159,7 +165,7 @@ describe('atomic Ability workflow', (): void => {
       }]
     }), blueprints);
 
-    assert.equal(assembleAtomicAbilityConversions(blueprints, abilities, distinctPlans).length, 1);
+    assert.equal(assembleExerciseAbilityConversions(blueprints, abilities, distinctPlans).length, 1);
 
     const duplicatePlans = parseBlueprintVisualPlans(JSON.stringify({
       plans: [{
@@ -173,7 +179,7 @@ describe('atomic Ability workflow', (): void => {
     }), blueprints);
 
     assert.throws(
-      () => assembleAtomicAbilityConversions(blueprints, abilities, duplicatePlans),
+      () => assembleExerciseAbilityConversions(blueprints, abilities, duplicatePlans),
       /different concrete input parameters/i
     );
   });
@@ -196,7 +202,7 @@ describe('atomic Ability workflow', (): void => {
     assert.throws(() => validateAbilityBlueprintEvidence(blueprints, [source]), /invented a question visual/i);
   });
 
-  it('uses two bounded semantic requests per source Exercise', async (): Promise<void> => {
+  it('uses two bounded semantic requests per source Exercise without decomposing it', async (): Promise<void> => {
     const source = {
       abilityMode: 'reasoning',
       description: 'Read a plotted point, then calculate the horizontal distance to x = 5.',
@@ -209,8 +215,7 @@ describe('atomic Ability workflow', (): void => {
       plans: [{
         exerciseId: 12,
         skills: [
-          { input: 'a coordinate plane with one plotted point', method: 'read x from the horizontal axis', operation: 'read an x-coordinate', output: 'an x-coordinate', questionVisual: 'required', solutionVisual: 'none', title: 'Read an x-coordinate' },
-          { input: 'two x-coordinates', method: 'subtract the smaller x-value from the larger', operation: 'calculate horizontal distance', output: 'a distance', questionVisual: 'none', solutionVisual: 'none', title: 'Calculate horizontal distance' }
+          { input: 'a coordinate plane with one plotted point and a target x-value', method: 'read the x-coordinate and subtract it from the target x-value', operation: 'read a plotted x-coordinate and calculate horizontal distance', output: 'a horizontal distance', questionVisual: 'required', solutionVisual: 'none', title: 'Read a point and calculate horizontal distance' }
         ]
       }]
     });
@@ -219,19 +224,10 @@ describe('atomic Ability workflow', (): void => {
         {
           exerciseId: 12,
           skillIndex: 0,
-          ability: { h: 'Read an x-coordinate', i: '', q: [{ a: '<kx>2</kx>', h: 'Read the x-coordinate of point A.', i: '', p: '' }, { a: '<kx>-3</kx>', h: 'Read the x-coordinate of point B.', i: '', p: '' }], t: 3 },
+          ability: { h: 'Read a point and calculate horizontal distance', i: '', q: [{ a: '<kx>3</kx>', h: 'Read point A, then find its horizontal distance to <kx>x=5</kx>.', i: '', p: '' }, { a: '<kx>6</kx>', h: 'Read point B, then find its horizontal distance to <kx>x=3</kx>.', i: '', p: '' }], t: 3 },
           imagePrompts: [
             { changesImage: false, i: '', p: 'Coordinate plane from -5 to 5 with point A at (2,1), labeled A.' },
             { changesImage: false, i: '', p: 'Coordinate plane from -5 to 5 with point B at (-3,2), labeled B.' }
-          ]
-        },
-        {
-          exerciseId: 12,
-          skillIndex: 1,
-          ability: { h: 'Calculate horizontal distance', i: '', q: [{ a: '<kx>3</kx>', h: 'Find the horizontal distance between <kx>x=2</kx> and <kx>x=5</kx>.', i: '', p: '' }, { a: '<kx>4</kx>', h: 'Find the horizontal distance between <kx>x=-1</kx> and <kx>x=3</kx>.', i: '', p: '' }], t: 3 },
-          imagePrompts: [
-            { changesImage: false, i: '', p: '' },
-            { changesImage: false, i: '', p: '' }
           ]
         }
       ]
@@ -240,7 +236,7 @@ describe('atomic Ability workflow', (): void => {
     const prompts: string[] = [];
     const options: Array<{ maxOutputTokens?: number; repairContext?: string; validationCycles?: number } | undefined> = [];
     let index = 0;
-    const result = await runAtomicAbilityWorkflow('en', 'Coordinates', [source], async (prompt, parse, runOptions) => {
+    const result = await runExerciseAbilityWorkflow('en', 'Coordinates', [source], async (prompt, parse, runOptions) => {
       prompts.push(prompt);
       options.push(runOptions);
 
@@ -248,12 +244,11 @@ describe('atomic Ability workflow', (): void => {
     });
 
     assert.equal(index, 2);
-    assert.equal(result.length, 2);
+    assert.equal(result.length, 1);
     assert.equal(result[0].imagePrompts?.[0].p.includes('(2,1)'), true);
-    assert.equal(result[1].imagePrompts, undefined);
-    assert.match(prompts[0], /Planning only/i);
-    assert.match(prompts[1], /Materialize the exact atomic plan/i);
-    assert.equal(prompts[1].includes('then calculate the horizontal distance'), false);
+    assert.match(prompts[0], /exactly one reusable Ability/i);
+    assert.match(prompts[1], /one-per-Exercise plan/i);
+    assert.equal(prompts[1].includes('then calculate the horizontal distance'), true);
     assert.equal(prompts.some((prompt) => /Draft plan:|Candidates:|Draft visual plans:/i.test(prompt)), false);
     assert.equal(options[0]?.validationCycles, 1);
     assert.equal(options[1]?.validationCycles, 1);
@@ -272,7 +267,7 @@ describe('atomic Ability workflow', (): void => {
     const prompts: string[] = [];
     let call = 0;
 
-    const result = await runAtomicAbilityWorkflow('en', 'Units', sources, async (prompt, parse) => {
+    const result = await runExerciseAbilityWorkflow('en', 'Units', sources, async (prompt, parse) => {
       prompts.push(prompt);
       const id = call < 2 ? 21 : 22;
       const isPlan = call % 2 === 0;
