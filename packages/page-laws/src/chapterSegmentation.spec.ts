@@ -38,7 +38,7 @@ describe('chapter segmentation', (): void => {
 
     assert.match(prompt, /signal=section-sign/);
     assert.match(prompt, /signal=uppercase-caption/);
-    assert.match(prompt, /useful clue to the chapter NAME/);
+    assert.match(prompt, /strong chapter-name evidence/);
   });
 
   it('uses a section-sign caption as the chapter name beside a numbered section anchor', (): void => {
@@ -124,4 +124,94 @@ describe('chapter segmentation', (): void => {
 
     assert.deepEqual(stabilizeChapterBoundaries(model, structural, 15).map(({ startPage }) => startPage), [5, 8, 10, 12, 14]);
   });
+
+  it('stabilizes Russian textbook § paragraphs using activities, uppercase captions and OCR-lost section signs', (): void => {
+    const page = (pageNumber: number, headings: ChapterPageEvidence['headings']): ChapterPageEvidence => ({ excerpt: '', headings, pageNumber });
+    const mathpix = (text: string, line = 1): ChapterPageEvidence['headings'][number] => ({ confidence: 1, line, source: 'mathpix', text, type: 'section_header' });
+    const mmd = (text: string): ChapterPageEvidence['headings'] => extractMmdHeadings(text);
+    const evidence: ChapterPageEvidence[] = [
+      page(3, [{ source: 'mmd', text: 'Россия в эпоху правления Александра 1', type: 'section_header' }]),
+      page(4, [mathpix('1. Начало промышленного переворота'), ...mmd('§1 РОССИЯ И МИР НА РУБЕЖЕ XVIII-XIX вв.')]),
+      page(5, [mathpix('2. Изменения в финансовой системе'), mathpix('3. Перемены в сельском хозяйстве', 2)]),
+      page(6, [
+        mathpix('Вопросы и задания для работы с текстом параграфа'),
+        mathpix('Работаем с картой', 2),
+        mathpix('Думаем, сравниваем, размышляем', 3),
+        ...mmd('АЛЕКСАНДР І: НАЧАЛО ПРАВЛЕНИЯ. РЕФОРМЫ М. М. СПЕРАНСКОГО')
+      ]),
+      page(7, [mathpix('2. Негласный комитет')]),
+      page(8, [
+        mathpix('Думаем, сравниваем, размышляем'),
+        ...mmd('ИЗ ПИСЬМА НАСЛЕДНИКА ПРЕСТОЛА (БУДУШЕГО ИМПЕРАТОРА АЛЕКСАНДРА І). 1797 г.\n\nИЗ ВОСПОМИНАНИЙ ПОПЕЧИТЕЛЯ САНКТ-ПЕТЕРБУРГСКОГО УЧЕБНОГО ОКРУГА Д. П. РУНИЧА')
+      ]),
+      page(9, mmd('**СОЦИАЛЬНО-ЭКОНОМИЧЕСКОЕ РАЗВИТИЕ РОССИИ В ПЕРВОЙ ЧЕТВЕРТИ XIX в.**')),
+      page(10, mmd('4ОТЕЧЕСТВЕННАЯ ВОЙНА 1812 г.')),
+      page(11, [mathpix('2. Начало войны. Планы и силы сторон'), mathpix('Какие государства были покорены Наполеоном до вторжения в Россию?', 2)]),
+      page(12, [mathpix('Думаем, сравниваем, размышляем'), ...mmd('ЗАГРАНИЧНЫЕ ПОХОДЫ РУССКОЙ АРМИИ. ВНЕШНЯЯ ПОЛИТИКА АЛЕКСАНДРА I В 1813-1825 гг.')]),
+      page(13, [mathpix('2. Смерть М. И. Кутузова'), mathpix('3. Завершение разгрома Наполеона', 2)])
+    ];
+
+    assert.deepEqual(deriveStructuralChapterCandidates(evidence).map(({ startPage, title }) => ({ startPage, title })), [
+      { startPage: 4, title: 'РОССИЯ И МИР НА РУБЕЖЕ XVIII-XIX вв.' },
+      { startPage: 6, title: 'АЛЕКСАНДР І: НАЧАЛО ПРАВЛЕНИЯ. РЕФОРМЫ М. М. СПЕРАНСКОГО' },
+      { startPage: 9, title: 'СОЦИАЛЬНО-ЭКОНОМИЧЕСКОЕ РАЗВИТИЕ РОССИИ В ПЕРВОЙ ЧЕТВЕРТИ XIX в.' },
+      { startPage: 10, title: 'ОТЕЧЕСТВЕННАЯ ВОЙНА 1812 г.' },
+      { startPage: 12, title: 'ЗАГРАНИЧНЫЕ ПОХОДЫ РУССКОЙ АРМИИ. ВНЕШНЯЯ ПОЛИТИКА АЛЕКСАНДРА I В 1813-1825 гг.' }
+    ]);
+  });
+
+  it('joins split § number/title lines and wrapped uppercase captions', (): void => {
+    assert.deepEqual(extractMmdHeadings('§ 3\nСОЦИАЛЬНО-ЭКОНОМИЧЕСКОЕ РАЗВИТИЕ\n\n**ЗАГРАНИЧНЫЕ ПОХОДЫ**\n**РУССКОЙ АРМИИ**'), [
+      { signal: 'section-sign', source: 'mmd', text: '3 СОЦИАЛЬНО-ЭКОНОМИЧЕСКОЕ РАЗВИТИЕ', type: 'section_header' },
+      { signal: 'uppercase-caption', source: 'mmd', text: 'ЗАГРАНИЧНЫЕ ПОХОДЫ РУССКОЙ АРМИИ', type: 'section_header' }
+    ]);
+  });
+
+
+  it('uses structural ambiguity instead of wording blacklists inside a § sequence', (): void => {
+    const page = (pageNumber: number, headings: ChapterPageEvidence['headings']): ChapterPageEvidence => ({ excerpt: '', headings, pageNumber });
+    const section = (text: string): ChapterPageEvidence['headings'][number] => ({ confidence: 1, source: 'mathpix', text, type: 'section_header' });
+    const evidence: ChapterPageEvidence[] = [
+      page(1, extractMmdHeadings('§1 FIRST TOPIC')),
+      page(2, extractMmdHeadings('SECOND TOPIC')),
+      page(3, [section('2. Local item')]),
+      page(4, extractMmdHeadings('ARCHIVE NOTE\n\nLETTER FROM AN AUTHOR')),
+      page(5, extractMmdHeadings('THIRD TOPIC')),
+      page(6, extractMmdHeadings('4FOURTH TOPIC'))
+    ];
+
+    assert.deepEqual(deriveStructuralChapterCandidates(evidence).map(({ startPage, title }) => ({ startPage, title })), [
+      { startPage: 1, title: 'FIRST TOPIC' },
+      { startPage: 2, title: 'SECOND TOPIC' },
+      { startPage: 5, title: 'THIRD TOPIC' },
+      { startPage: 6, title: 'FOURTH TOPIC' }
+    ]);
+  });
+
+  it('does not infer an OCR-lost § marker before the book establishes a § scheme', (): void => {
+    const evidence: ChapterPageEvidence[] = [
+      { excerpt: '', headings: extractMmdHeadings('4FOURTH TOPIC'), pageNumber: 1 },
+      { excerpt: '', headings: [{ confidence: 1, source: 'mathpix', text: '2. Local item', type: 'section_header' }], pageNumber: 2 }
+    ];
+
+    assert.deepEqual(deriveStructuralChapterCandidates(evidence), []);
+  });
+
+  it('keeps distinct structural chapters on adjacent pages', (): void => {
+    const structural = [
+      { confidence: 0.965, startPage: 9, title: 'Chapter Three' },
+      { confidence: 0.985, startPage: 10, title: 'Chapter Four' }
+    ];
+    const model = [{ confidence: 0.99, startPage: 10, title: 'Chapter Four' }];
+
+    assert.deepEqual(stabilizeChapterBoundaries(model, structural, 20).map(({ startPage }) => startPage), [9, 10]);
+  });
+
+  it('prefers a specific structural caption over a generic model title on the same page', (): void => {
+    const structural = [{ confidence: 0.985, startPage: 10, title: 'ОТЕЧЕСТВЕННАЯ ВОЙНА 1812 г.' }];
+    const model = [{ confidence: 0.99, startPage: 10, title: 'Chapter 4' }];
+
+    assert.deepEqual(stabilizeChapterBoundaries(model, structural, 20), structural);
+  });
+
 });

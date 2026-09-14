@@ -59,7 +59,13 @@ export interface ChapterPageEvidence {
   pageNumber: number;
 }
 
-const cleanHeading = (value: string): string => value.replace(/\s+/g, ' ').replace(/^#+\s*/, '').trim();
+const cleanHeading = (value: string): string => value
+  .replace(/\s+/g, ' ')
+  .replace(/^#+\s*/, '')
+  .replace(/^\*\*(.+)\*\*$/, '$1')
+  .replace(/^__(.+)__$/, '$1')
+  .replace(/^\\textbf\{(.+)\}$/, '$1')
+  .trim();
 
 function isUppercaseCaption (value: string): boolean {
   const cleaned = cleanHeading(value);
@@ -69,8 +75,13 @@ function isUppercaseCaption (value: string): boolean {
   }
 
   const letters = [...cleaned].filter((character) => character.toLocaleLowerCase() !== character.toLocaleUpperCase());
+  const uppercaseCount = letters.filter((character) => character === character.toLocaleUpperCase()).length;
+  const lowercaseCount = letters.length - uppercaseCount;
 
-  return letters.length >= 3 && letters.every((character) => character === character.toLocaleUpperCase());
+  // Printed all-caps textbook headings often retain lowercase abbreviations
+  // such as "в.", "г." and "гг.". Allow only a tiny lowercase residue so
+  // ordinary sentence-case body text is still rejected.
+  return letters.length >= 3 && lowercaseCount <= 3 && uppercaseCount / letters.length >= 0.9;
 }
 
 export function extractMmdHeadings (mmd: string): ChapterPageEvidence['headings'] {
@@ -86,50 +97,84 @@ export function extractMmdHeadings (mmd: string): ChapterPageEvidence['headings'
     }
   };
 
-  let sectionSignPending = false;
+  let sectionSignPending: string | undefined;
+  let uppercasePending: string[] = [];
+  const flushUppercase = (): void => {
+    if (uppercasePending.length) {
+      add(uppercasePending.join(' '), 'section_header', 'uppercase-caption');
+      uppercasePending = [];
+    }
+  };
 
   for (const line of mmd.split(/\r?\n/)) {
     const trimmed = line.trim();
 
     if (/^§+\s*$/.test(trimmed)) {
-      sectionSignPending = true;
+      flushUppercase();
+      sectionSignPending = '';
       continue;
     }
 
     const sectionSign = /^§+\s*(.+?)\s*$/.exec(trimmed);
 
     if (sectionSign) {
-      add(sectionSign[1], 'section_header', 'section-sign');
-      sectionSignPending = false;
+      flushUppercase();
+      const rest = cleanHeading(sectionSign[1]);
+
+      // OCR/MMD sometimes puts only "§ 3" on one line and the caption on
+      // the next. Preserve the number and join it to that caption.
+      if (/^\d{1,3}[.):\-–—]?$/.test(rest)) {
+        sectionSignPending = rest.replace(/[.):\-–—]+$/, '');
+      } else {
+        add(rest, 'section_header', 'section-sign');
+        sectionSignPending = undefined;
+      }
       continue;
     }
 
     const markdown = /^(#{1,3})\s+(.+?)\s*$/.exec(line);
 
     if (markdown) {
+      flushUppercase();
       add(markdown[2], markdown[1].length === 1 ? 'title' : 'section_header');
-      sectionSignPending = false;
+      sectionSignPending = undefined;
       continue;
     }
 
     const latex = /^\\(chapter|section|subsection)\*?\{(.+?)\}\s*$/.exec(trimmed);
 
     if (latex) {
+      flushUppercase();
       add(latex[2], latex[1] === 'chapter' ? 'title' : 'section_header');
-      sectionSignPending = false;
+      sectionSignPending = undefined;
       continue;
     }
 
-    if (sectionSignPending && trimmed) {
-      add(trimmed, 'section_header', 'section-sign');
-      sectionSignPending = false;
+    if (sectionSignPending !== undefined && trimmed) {
+      flushUppercase();
+      add(`${sectionSignPending}${sectionSignPending ? ' ' : ''}${cleanHeading(trimmed)}`, 'section_header', 'section-sign');
+      sectionSignPending = undefined;
       continue;
     }
 
     if (isUppercaseCaption(trimmed)) {
-      add(trimmed, 'section_header', 'uppercase-caption');
+      const cleaned = cleanHeading(trimmed);
+      const combined = [...uppercasePending, cleaned].join(' ');
+
+      // Consecutive uppercase lines are commonly one wrapped textbook title.
+      if (combined.length <= 180 && combined.split(/\s+/).length <= 22) {
+        uppercasePending.push(cleaned);
+      } else {
+        flushUppercase();
+        uppercasePending.push(cleaned);
+      }
+      continue;
     }
+
+    flushUppercase();
   }
+
+  flushUppercase();
 
   return result;
 }
@@ -161,10 +206,10 @@ export function pageChapterEvidence (page: BookPage): ChapterPageEvidence {
 
 interface NumberedChapterCandidate extends ChapterBoundaryProposal {
   chapterNumber: number;
+  scheme: 'chapter' | 'paragraph' | 'section';
 }
 
 const FRONT_MATTER_HEADING = /^(?:acknowledg(?:e)?ments?|appendix|bibliography|contents?|copyright|dedication|foreword|glossary|index|preface|references?)$/i;
-const GENERIC_SECTION_HEADING = /^(?:activities|examples?|exercises?|lesson|practice|problems?|review|solutions?|summary|test|warm[ -]?up)$/i;
 const ROMAN_VALUE: Record<string, number> = { I: 1, V: 5, X: 10, L: 50, C: 100, D: 500, M: 1000 };
 
 function romanToNumber (value: string): number | undefined {
@@ -216,6 +261,57 @@ function sectionChapterNumber (text: string): number | undefined {
   return result > 0 ? result : undefined;
 }
 
+function localItemNumber (text: string): number | undefined {
+  const match = /^(\d{1,3})\s*\.\s+\S/.exec(cleanHeading(text));
+
+  if (!match) {
+    return undefined;
+  }
+
+  const result = Number(match[1]);
+
+  return result > 0 ? result : undefined;
+}
+
+function paragraphNumberFromHeading (heading: ChapterPageEvidence['headings'][number]): number | undefined {
+  if (heading.signal !== 'section-sign') {
+    return undefined;
+  }
+
+  const match = /^(\d{1,3})(?:\s*[.):\-–—]?\s+|\s*[.):\-–—](?=\S)|(?=\p{L}))/u.exec(cleanHeading(heading.text));
+
+  return match ? Number(match[1]) : undefined;
+}
+
+function inferredParagraphNumberFromHeading (heading: ChapterPageEvidence['headings'][number]): number | undefined {
+  if (heading.signal === 'section-sign' || !isUppercaseCaption(heading.text)) {
+    return undefined;
+  }
+
+  // OCR can lose a structural marker while retaining a chapter number glued
+  // to the caption. Treat that as a paragraph number only after the book has
+  // already demonstrated a §-numbered scheme; never infer it in isolation.
+  const match = /^(\d{1,3})(?=\p{L})/u.exec(cleanHeading(heading.text));
+
+  return match ? Number(match[1]) : undefined;
+}
+
+function paragraphTitleFromHeading (heading: ChapterPageEvidence['headings'][number], allowInferred = false): string | undefined {
+  const explicitNumber = paragraphNumberFromHeading(heading);
+  const inferredNumber = allowInferred ? inferredParagraphNumberFromHeading(heading) : undefined;
+
+  if (explicitNumber === undefined && inferredNumber === undefined) {
+    return undefined;
+  }
+
+  const cleaned = cleanHeading(heading.text);
+  const title = explicitNumber !== undefined
+    ? cleaned.replace(/^\d{1,3}\s*[.):\-–—]?\s*/, '').trim()
+    : cleaned.replace(/^\d{1,3}(?=\p{L})/u, '').trim();
+
+  return title || undefined;
+}
+
 function isBareChapterMarker (text: string): boolean {
   return /^(?:chapter|chap\.?)$/i.test(cleanHeading(text));
 }
@@ -227,7 +323,11 @@ function isBareNumber (text: string): boolean {
 function isPlausibleChapterTitle (text: string): boolean {
   const cleaned = cleanHeading(text);
 
-  return Boolean(cleaned) && !FRONT_MATTER_HEADING.test(cleaned) && !GENERIC_SECTION_HEADING.test(cleaned) && !isBareChapterMarker(cleaned) && !isBareNumber(cleaned) && chapterNumberFromHeading(cleaned) === undefined && sectionChapterNumber(cleaned) === undefined;
+  return Boolean(cleaned) && !FRONT_MATTER_HEADING.test(cleaned) && !cleaned.endsWith('?') && !isBareChapterMarker(cleaned) && !isBareNumber(cleaned) && chapterNumberFromHeading(cleaned) === undefined && sectionChapterNumber(cleaned) === undefined && localItemNumber(cleaned) === undefined;
+}
+
+function isStrongStandaloneChapterTitle (heading: ChapterPageEvidence['headings'][number]): boolean {
+  return isPlausibleChapterTitle(heading.text) && (heading.type === 'title' || heading.signal === 'section-sign' || heading.signal === 'uppercase-caption' || isUppercaseCaption(heading.text));
 }
 
 function orderedHeadings (page: ChapterPageEvidence): ChapterPageEvidence['headings'] {
@@ -289,6 +389,7 @@ function explicitChapterCandidate (page: ChapterPageEvidence): NumberedChapterCa
       return {
         chapterNumber: directNumber,
         confidence: 0.995,
+        scheme: 'chapter',
         startPage: page.pageNumber,
         title: title ? `Chapter ${directNumber}: ${title}` : `Chapter ${directNumber}`
       };
@@ -305,6 +406,7 @@ function explicitChapterCandidate (page: ChapterPageEvidence): NumberedChapterCa
         return {
           chapterNumber: number,
           confidence: 0.995,
+          scheme: 'chapter',
           startPage: page.pageNumber,
           title: followingTitle ? `Chapter ${number}: ${followingTitle}` : `Chapter ${number}`
         };
@@ -313,6 +415,119 @@ function explicitChapterCandidate (page: ChapterPageEvidence): NumberedChapterCa
   }
 
   return undefined;
+}
+
+function explicitParagraphCandidate (page: ChapterPageEvidence, allowInferred = false): NumberedChapterCandidate | undefined {
+  for (const heading of orderedHeadings(page)) {
+    const explicitNumber = paragraphNumberFromHeading(heading);
+    const inferredNumber = allowInferred ? inferredParagraphNumberFromHeading(heading) : undefined;
+    const chapterNumber = explicitNumber ?? inferredNumber;
+    const title = paragraphTitleFromHeading(heading, allowInferred);
+
+    if (chapterNumber !== undefined && title && isPlausibleChapterTitle(title)) {
+      return {
+        chapterNumber,
+        confidence: explicitNumber !== undefined ? 0.995 : 0.985,
+        scheme: 'paragraph',
+        startPage: page.pageNumber,
+        title
+      };
+    }
+  }
+
+  return undefined;
+}
+
+function normalizedHeadingIdentity (text: string): string {
+  return cleanHeading(text)
+    .toLocaleLowerCase()
+    .replace(/[^\p{L}\p{N}]+/gu, ' ')
+    .trim();
+}
+
+function strongStandaloneHeadings (page: ChapterPageEvidence, beforeText?: string): ChapterPageEvidence['headings'] {
+  const headings = orderedHeadings(page);
+  const beforeIndex = beforeText === undefined ? headings.length : headings.findIndex(({ text }) => cleanHeading(text) === cleanHeading(beforeText));
+
+  return headings.slice(0, beforeIndex < 0 ? headings.length : beforeIndex).filter(isStrongStandaloneChapterTitle);
+}
+
+function headingPageFrequency (pages: ChapterPageEvidence[]): Map<string, number> {
+  const pagesByHeading = new Map<string, Set<number>>();
+
+  pages.forEach((page) => {
+    page.headings.forEach(({ text }) => {
+      const key = normalizedHeadingIdentity(text);
+
+      if (!key) {
+        return;
+      }
+
+      const pageNumbers = pagesByHeading.get(key) ?? new Set<number>();
+
+      pageNumbers.add(page.pageNumber);
+      pagesByHeading.set(key, pageNumbers);
+    });
+  });
+
+  return new Map([...pagesByHeading].map(([key, pageNumbers]) => [key, pageNumbers.size]));
+}
+
+function unambiguousStandaloneTitle (page: ChapterPageEvidence, frequency: Map<string, number>, beforeText?: string): ChapterPageEvidence['headings'][number] | undefined {
+  const candidates = strongStandaloneHeadings(page, beforeText);
+
+  if (candidates.length !== 1) {
+    return undefined;
+  }
+
+  const candidate = candidates[0];
+  const repeatedAcrossPages = (frequency.get(normalizedHeadingIdentity(candidate.text)) ?? 0) > 1;
+
+  // Explicit structural labels may legitimately repeat in running material; an
+  // inferred all-caps caption may not. This prevents recurring headers from
+  // becoming deterministic chapter anchors without relying on their wording.
+  if (repeatedAcrossPages && candidate.type !== 'title' && candidate.signal !== 'section-sign') {
+    return undefined;
+  }
+
+  return candidate;
+}
+
+function localItemNumbersOnPage (page: ChapterPageEvidence | undefined): number[] {
+  return page === undefined
+    ? []
+    : orderedHeadings(page).flatMap(({ text }) => {
+      const number = localItemNumber(text);
+
+      return number === undefined ? [] : [number];
+    });
+}
+
+function transitionChapterTitle (pages: ChapterPageEvidence[], pageIndex: number, frequency: Map<string, number>, allowInferredParagraphs: boolean): string | undefined {
+  const page = pages[pageIndex];
+  const titleHeading = unambiguousStandaloneTitle(page, frequency);
+
+  if (!titleHeading || explicitChapterCandidate(page) || explicitParagraphCandidate(page, allowInferredParagraphs)) {
+    return undefined;
+  }
+
+  const previousNumbers = localItemNumbersOnPage(pages[pageIndex - 1]);
+  const nextPage = pages[pageIndex + 1];
+  const nextNumbers = localItemNumbersOnPage(nextPage);
+  const previousLooksLikeSectionTail = previousNumbers.some((number) => number >= 2);
+  const nextLooksLikeSectionBody = nextNumbers.some((number) => number <= 3);
+  const nextHasExplicitBoundary = nextPage !== undefined && Boolean(explicitChapterCandidate(nextPage) || explicitParagraphCandidate(nextPage, allowInferredParagraphs));
+
+  // Infer a boundary from topology, not vocabulary: a unique major caption is
+  // credible when it sits between the tail/body numbering of adjacent sections.
+  // If the next page already has an explicit boundary, do not promote a broad
+  // banner immediately before it unless the preceding page independently shows
+  // that the old section was ending.
+  if ((!previousLooksLikeSectionTail && !nextLooksLikeSectionBody) || (nextHasExplicitBoundary && !previousLooksLikeSectionTail)) {
+    return undefined;
+  }
+
+  return titleHeading.text;
 }
 
 /**
@@ -324,14 +539,40 @@ function explicitChapterCandidate (page: ChapterPageEvidence): NumberedChapterCa
 export function deriveStructuralChapterCandidates (evidence: ChapterPageEvidence[]): ChapterBoundaryProposal[] {
   const pages = [...evidence].sort((a, b) => a.pageNumber - b.pageNumber);
   const numbered = new Map<number, NumberedChapterCandidate>();
+  const transitions: ChapterBoundaryProposal[] = [];
 
   pages.forEach((page) => {
-    const explicit = explicitChapterCandidate(page);
+    const paragraph = explicitParagraphCandidate(page);
+    const explicit = paragraph ?? explicitChapterCandidate(page);
 
     if (explicit) {
-      numbered.set(explicit.chapterNumber, explicit);
+      const previous = numbered.get(explicit.chapterNumber);
+
+      if (!previous || explicit.confidence > previous.confidence || explicit.scheme === 'paragraph') {
+        numbered.set(explicit.chapterNumber, explicit);
+      }
     }
   });
+
+  // OCR-lost § markers are inferred only after at least one explicit § anchor
+  // establishes that this book actually uses that numbering scheme.
+  const hasParagraphScheme = [...numbered.values()].some(({ scheme }) => scheme === 'paragraph');
+
+  if (hasParagraphScheme) {
+    pages.forEach((page) => {
+      const inferred = explicitParagraphCandidate(page, true);
+
+      if (!inferred) {
+        return;
+      }
+
+      const previous = numbered.get(inferred.chapterNumber);
+
+      if (!previous || inferred.scheme === 'paragraph' && inferred.confidence > previous.confidence) {
+        numbered.set(inferred.chapterNumber, inferred);
+      }
+    });
+  }
 
   pages.forEach((page, pageIndex) => {
     for (const heading of orderedHeadings(page)) {
@@ -346,6 +587,7 @@ export function deriveStructuralChapterCandidates (evidence: ChapterPageEvidence
       numbered.set(chapterNumber, {
         chapterNumber,
         confidence: start.title ? 0.97 : 0.91,
+        scheme: 'section',
         startPage: start.pageNumber,
         title: start.title ?? `Chapter ${chapterNumber}`
       });
@@ -353,32 +595,40 @@ export function deriveStructuralChapterCandidates (evidence: ChapterPageEvidence
     }
   });
 
+  const frequency = headingPageFrequency(pages);
   const anchors = [...numbered.values()].sort((a, b) => a.chapterNumber - b.chapterNumber || a.startPage - b.startPage);
 
   for (let anchorIndex = 0; anchorIndex < anchors.length - 1; anchorIndex++) {
     const left = anchors[anchorIndex];
     const right = anchors[anchorIndex + 1];
     const missingCount = right.chapterNumber - left.chapterNumber - 1;
+    const canFillRun = missingCount === 1 || (missingCount > 1 && left.scheme === 'paragraph' && right.scheme === 'paragraph');
 
-    if (missingCount !== 1 || right.startPage <= left.startPage + 1) {
+    if (!canFillRun || right.startPage <= left.startPage + missingCount) {
       continue;
     }
 
-    const missingNumber = left.chapterNumber + 1;
     const candidates = pages.flatMap((page) => {
       if (page.pageNumber <= left.startPage || page.pageNumber >= right.startPage) {
         return [];
       }
 
-      const structuralNumbers = page.headings.flatMap(({ text }) => {
-        const section = sectionChapterNumber(text);
-        const chapter = chapterNumberFromHeading(text);
+      const structuralNumbers = page.headings.flatMap((heading) => {
+        const section = sectionChapterNumber(heading.text);
+        const chapter = chapterNumberFromHeading(heading.text);
+        const paragraph = paragraphNumberFromHeading(heading);
 
-        return [...(section === undefined ? [] : [section]), ...(chapter === undefined ? [] : [chapter])];
+        return [...(section === undefined ? [] : [section]), ...(chapter === undefined ? [] : [chapter]), ...(paragraph === undefined ? [] : [paragraph])];
       });
 
-      if (structuralNumbers.some((number) => number !== missingNumber)) {
+      if (structuralNumbers.some((number) => number <= left.chapterNumber || number >= right.chapterNumber)) {
         return [];
+      }
+
+      if (left.scheme === 'paragraph' && right.scheme === 'paragraph') {
+        const titleHeading = unambiguousStandaloneTitle(page, frequency);
+
+        return titleHeading ? [{ pageNumber: page.pageNumber, title: titleHeading.text }] : [];
       }
 
       const title = titleOnPage(page);
@@ -386,45 +636,97 @@ export function deriveStructuralChapterCandidates (evidence: ChapterPageEvidence
       return title ? [{ pageNumber: page.pageNumber, title }] : [];
     });
 
-    // Requiring a single unambiguous standalone heading keeps this fallback
-    // from turning ordinary subsections into chapters.
-    if (candidates.length === 1) {
-      const candidate = candidates[0];
+    // In §-style textbooks several paragraph numbers can be missed by OCR at
+    // once. Fill the run only when the exact number of strong standalone
+    // captions appears between two numbered § anchors.
+    if (candidates.length === missingCount) {
+      candidates.forEach((candidate, index) => {
+        const missingNumber = left.chapterNumber + index + 1;
 
-      numbered.set(missingNumber, {
-        chapterNumber: missingNumber,
-        confidence: 0.94,
-        startPage: candidate.pageNumber,
-        title: candidate.title
+        if (!numbered.has(missingNumber)) {
+          numbered.set(missingNumber, {
+            chapterNumber: missingNumber,
+            confidence: left.scheme === 'paragraph' && right.scheme === 'paragraph' ? 0.965 : 0.94,
+            scheme: left.scheme === 'paragraph' && right.scheme === 'paragraph' ? 'paragraph' : 'section',
+            startPage: candidate.pageNumber,
+            title: candidate.title
+          });
+        }
       });
     }
   }
 
-  return [...numbered.values()]
-    .sort((a, b) => a.startPage - b.startPage || a.chapterNumber - b.chapterNumber)
-    .map(({ chapterNumber: _chapterNumber, ...candidate }) => candidate);
+  pages.forEach((page, pageIndex) => {
+    const title = hasParagraphScheme ? transitionChapterTitle(pages, pageIndex, frequency, true) : undefined;
+
+    if (title) {
+      transitions.push({ confidence: 0.965, startPage: page.pageNumber, title });
+    }
+  });
+
+  const byPage = new Map<number, ChapterBoundaryProposal>();
+  const structural = [
+    ...[...numbered.values()].map(({ chapterNumber: _chapterNumber, scheme: _scheme, ...candidate }) => candidate),
+    ...transitions
+  ];
+
+  structural.forEach((candidate) => {
+    const previous = byPage.get(candidate.startPage);
+
+    if (!previous || candidate.confidence > previous.confidence) {
+      byPage.set(candidate.startPage, candidate);
+    }
+  });
+
+  return [...byPage.values()].sort((a, b) => a.startPage - b.startPage);
 }
 
 /**
  * Keeps strong deterministic anchors even if an LLM reconciliation drops one.
  * At the same page the higher-confidence/better-titled proposal wins.
  */
+function normalizedBoundaryTitle (title: string): string {
+  return cleanHeading(title)
+    .toLocaleLowerCase()
+    .replace(/^(?:chapter|chap\.?)\s*(?:\d{1,3}|[ivxlcdm]+)\s*[:.\-–—]?\s*/i, '')
+    .replace(/^\d{1,3}\s*[.):\-–—]?\s*/, '')
+    .replace(/[^\p{L}\p{N}]+/gu, ' ')
+    .trim();
+}
+
+function isGenericBoundaryTitle (title: string): boolean {
+  const cleaned = cleanHeading(title);
+
+  return /^(?:chapter|chap\.?)\s*(?:\d{1,3}|[ivxlcdm]+)$/i.test(cleaned) || /^chapter\s+(?:one|two|three|four|five|six|seven|eight|nine|ten)$/i.test(cleaned);
+}
+
 export function stabilizeChapterBoundaries (model: ChapterBoundaryProposal[], structural: ChapterBoundaryProposal[], totalPages: number): ChapterBoundaryProposal[] {
   const combined = [...model];
 
   structural.filter(({ confidence }) => confidence >= 0.94).forEach((candidate) => {
-    const nearbyIndex = combined.findIndex(({ startPage }) => Math.abs(startPage - candidate.startPage) <= 1);
+    const exactIndex = combined.findIndex(({ startPage }) => startPage === candidate.startPage);
 
-    if (nearbyIndex === -1) {
-      combined.push(candidate);
+    if (exactIndex !== -1) {
+      if (candidate.confidence > combined[exactIndex].confidence || (isGenericBoundaryTitle(combined[exactIndex].title) && !isGenericBoundaryTitle(candidate.title))) {
+        combined[exactIndex] = candidate;
+      }
       return;
     }
 
-    const nearby = combined[nearbyIndex];
+    // An LLM can place the same boundary one page early/late. Only collapse
+    // adjacent proposals when their normalized titles agree; two different
+    // textbook § paragraphs can legitimately start on consecutive pages.
+    const normalizedTitle = normalizedBoundaryTitle(candidate.title);
+    const nearbySameTitle = combined.findIndex(({ startPage, title }) => Math.abs(startPage - candidate.startPage) === 1 && normalizedTitle && normalizedBoundaryTitle(title) === normalizedTitle);
 
-    if ((nearby.startPage === candidate.startPage && candidate.confidence > nearby.confidence) || (nearby.startPage !== candidate.startPage && candidate.confidence >= 0.97)) {
-      combined[nearbyIndex] = candidate;
+    if (nearbySameTitle !== -1) {
+      if (candidate.confidence >= combined[nearbySameTitle].confidence) {
+        combined[nearbySameTitle] = candidate;
+      }
+      return;
     }
+
+    combined.push(candidate);
   });
 
   return parseChapterBoundaries(JSON.stringify({ chapters: combined }), totalPages);
@@ -451,7 +753,7 @@ export function chapterEvidenceWindows (pages: BookPage[], windowSize = 36, over
 }
 
 export function chapterWindowPrompt (evidence: ChapterPageEvidence[]): string {
-  return `Identify only TOP-LEVEL chapter boundaries in this consecutive run of book pages. Mathpix structural labels are supplied when available: title is strong evidence for a major heading; section_header may be a chapter or a subsection and must NOT create a boundary unless the surrounding numbering/text clearly shows that it is top-level. MMD headings tagged signal=section-sign come from a "§" marker, and signal=uppercase-caption comes from a standalone all-uppercase caption. Treat either signal as a useful clue to the chapter NAME when it appears in chapter-level context, but not as sufficient evidence by itself to create a boundary. IMPORTANT numbering rule: a first section such as "3.1 ..." is strong evidence that chapter 3 has begun on that page or on a nearby immediately preceding title page. Track the major number across pages (1.x, 2.x, 3.x, ...); do not silently skip a chapter when numbering advances. A split heading such as "CHAPTER" + "3" + "One-Variable Linear Equations" on one page is a single chapter heading. If numbered anchors jump from chapter 3 to chapter 5, inspect the pages between them for a standalone major heading that plausibly starts chapter 4. Ignore table-of-contents listings, running headers, footers, exercise headings, examples, lessons, subsections and repeated chapter names in body text. A chapter continues until there is strong evidence for another top-level chapter. Return only boundaries that START inside the supplied page range. Keep titles in the book's original language. confidence must be 0..1. Return JSON only: {"chapters":[{"startPage":12,"title":"Chapter 2: Fractions","confidence":0.94}]}.
+  return `Identify only TOP-LEVEL chapter boundaries in this consecutive run of book pages. Use structural evidence rather than vocabulary-specific rules. Mathpix title is strong evidence for a major heading; section_header may be a chapter or a subsection and must not create a boundary unless numbering, placement, and neighboring pages support a top-level transition. MMD signal=section-sign comes from a "§" marker and is strong structural evidence. signal=uppercase-caption comes from a standalone all-uppercase caption and is strong chapter-name evidence when the surrounding structure supports it, but uppercase alone is not enough. In a §-numbered book, preserve the demonstrated § sequence. OCR can lose the § marker and leave the number glued to an uppercase caption; accept that only when an explicit § elsewhere establishes the same numbering scheme. Local headings of the form "1. ...", "2. ...", "3. ..." are usually items inside the current §, while first sections such as "3.1 ..." strongly anchor chapter 3 on that page or on a nearby preceding title page. Infer the role of unnumbered uppercase captions from topology: a unique caption between the tail of one local-number sequence and the body of the next is stronger than a page containing several independent uppercase captions; repeated captions across pages are more likely running material. If a broad banner is immediately followed by a stronger explicit boundary, prefer the explicit boundary. Track major-number continuity and inspect intervening unique major captions when numbered anchors skip a value. Split headings such as "CHAPTER" + number + title on one page are one heading. Ignore table-of-contents listings, running headers, footers, side material, exercises, subsections, and repeated body headings. Do not decide from specific words or phrases; decide from hierarchy, numbering, repetition, and neighboring-page structure. A chapter continues until there is strong evidence for another top-level chapter. Return only boundaries that START inside the supplied page range. Keep titles in the book's original language. confidence must be 0..1. Return JSON only: {"chapters":[{"startPage":12,"title":"Chapter 2: Fractions","confidence":0.94}]}.
 
 Pages:
 ${evidence.map(({ excerpt, headings, pageNumber }) => `--- page ${pageNumber} ---\nMathpix/MMD headings: ${headings.length ? headings.map(({ confidence, signal, source, text, type }) => `[${source}:${type}${signal === undefined ? '' : ` signal=${signal}`}${confidence === undefined ? '' : ` confidence=${confidence.toFixed(2)}`}] ${text}`).join(' | ') : '(none)'}\nOpening text: ${excerpt || '(no text)'}`).join('\n\n')}`;
@@ -468,7 +770,7 @@ export function chapterReconciliationPrompt (proposals: ChapterBoundaryProposal[
   evidence.filter(({ headings }) => headings.some(({ type }) => type === 'title')).forEach(({ pageNumber }) => relevantPages.add(pageNumber));
   const context = evidence.filter(({ pageNumber }) => relevantPages.has(pageNumber));
 
-  return `Reconcile candidate chapter boundaries for one ${totalPages}-page book into a single stable chapter segmentation. Return TOP-LEVEL chapters only. Remove duplicate/overlapping candidates from window overlap. Do not promote sections, subsections, lessons, exercises, examples, running headers, or table-of-contents rows to chapters. Mathpix title labels are strong structural evidence, while section_header labels require chapter-level context. MMD signal=section-sign (from "§") and signal=uppercase-caption are useful clues for choosing the chapter NAME when supported by chapter-level context; neither signal alone proves a new chapter boundary. Use section-number continuity as a cross-check: first sections like 1.1, 2.1, 3.1 strongly anchor their corresponding chapters, even when the chapter title is on the preceding page. Split headings such as "CHAPTER" + number + title are one chapter heading. Do not drop a structurally anchored chapter merely because one window missed it. If chapter numbers jump (for example 3 -> 5), inspect intervening standalone major headings for the missing chapter. Deterministic structural candidates below are conservative and should be preserved unless the supplied page evidence directly contradicts them. Preserve the best original-language chapter title. The result must be sorted by startPage and each startPage must be unique and between 1 and ${totalPages}. It is valid for the first real chapter to start after page 1; do not invent an Introduction chapter. Return JSON only: {"chapters":[{"startPage":12,"title":"Chapter 2: Fractions","confidence":0.96}]}.
+  return `Reconcile candidate chapter boundaries for one ${totalPages}-page book into a single stable TOP-LEVEL segmentation. Use hierarchy and cross-page structure rather than phrase-specific allow/deny rules. Remove duplicate/overlapping candidates from window overlap. Mathpix title labels are strong evidence; section_header labels require chapter-level context. signal=section-sign is an explicit § cue. signal=uppercase-caption is only a caption cue: promote it when it is unique and structurally positioned like a boundary, not merely because it is uppercase. If the book demonstrates § numbering, preserve that sequence and permit OCR-lost glued number+caption forms only when they fit the established sequence. Internal "1. ...", "2. ...", "3. ..." items normally remain inside the current §. Use neighboring local-number sequences, repeated-heading frequency, unique-vs-multiple captions on a page, and explicit anchors on adjacent pages to distinguish real boundaries from side material. A page with several unrelated uppercase captions is weak top-level evidence; a unique caption followed by local numbered body items is stronger. A broad banner immediately before a stronger explicit boundary should not create an extra chapter. First sections such as 1.1, 2.1, 3.1 strongly anchor their corresponding chapters, even when the title is on the preceding page. Split chapter marker + number + title headings are one heading. Do not drop a structurally anchored chapter merely because one model window missed it. If chapter numbers jump, inspect intervening unique major captions for missing boundaries. Deterministic structural candidates below are conservative and should be preserved unless page evidence directly contradicts them. Preserve the best original-language title. The result must be sorted by startPage and each startPage must be unique and between 1 and ${totalPages}. It is valid for the first real chapter to start after page 1; do not invent an Introduction chapter. Return JSON only: {"chapters":[{"startPage":12,"title":"Chapter 2: Fractions","confidence":0.96}]}.
 
 Candidate boundaries:
 ${JSON.stringify(proposals)}
