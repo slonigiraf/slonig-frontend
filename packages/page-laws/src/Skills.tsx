@@ -543,12 +543,37 @@ async function requestValidatedJson<T> (client: OpenAI, model: string, systemPro
   throw lastError instanceof Error ? lastError : new Error('AI output failed local validation and repair.');
 }
 
-function ChapterNavigation ({ chapters, index, onChange }: { chapters: BookChapter[]; index: number; onChange: (index: number) => void }): React.ReactElement | null {
+function ChapterNavigation ({ chapters, index, matchExercises = false, onChange }: { chapters: BookChapter[]; index: number; matchExercises?: boolean; onChange: (index: number) => void }): React.ReactElement | null {
   const previous = useCallback((): void => onChange(index - 1), [index, onChange]);
   const next = useCallback((): void => onChange(index + 1), [index, onChange]);
 
   if (!chapters.length) {
     return null;
+  }
+
+  if (matchExercises) {
+    return <div className='chapterNavigation exercisesChapterNavigation'>
+      <Button
+        icon='arrow-left'
+        isDisabled={index <= 0}
+        onClick={previous}
+      />
+      <label>Chapter <select
+        aria-label='Navigate chapters'
+        onChange={({ target }) => onChange(Number(target.value))}
+        value={index}
+                     >
+        {chapters.map(({ id, title }, chapterIndex) => <option
+          key={id ?? `${title}:${chapterIndex}`}
+          value={chapterIndex}
+                                                       >{title || 'Chapter not identified'}</option>)}
+      </select><span>{index + 1} of {chapters.length}</span></label>
+      <Button
+        icon='arrow-right'
+        isDisabled={index >= chapters.length - 1}
+        onClick={next}
+      />
+    </div>;
   }
 
   return <div className='chapterNavigation'>
@@ -2179,6 +2204,7 @@ function Skills ({ book, onAction, onBookChange, onEntityCountsChange, pipelineO
       <ChapterNavigation
         chapters={chapters}
         index={chapterIndex}
+        matchExercises={view === 'preExercisesExercises'}
         onChange={changeChapter}
       />
       {!current && <p>No chapters have been generated for this book.</p>}
@@ -2299,6 +2325,10 @@ const StyledSkills = styled.div`
   .pipelineStep > span { color: var(--color-label); font-size: 1.5rem; font-weight: 700; }
   .modelSelect { min-width: 11rem; }
   .chapterNavigation { align-items: center; display: grid; gap: 0.5rem; grid-template-columns: auto minmax(14rem, 1fr) minmax(8rem, 1fr) auto auto; margin-bottom: 1rem; }
+  .exercisesChapterNavigation { display: flex; gap: 0.75rem; }
+  .exercisesChapterNavigation label { align-items: center; display: flex; flex: 1; gap: 0.5rem; min-width: 0; }
+  .exercisesChapterNavigation select { background: var(--bg-input); border: 1px solid #dde1eb; border-radius: 0.25rem; color: var(--color-text); flex: 1; min-width: 0; padding: 0.55rem; }
+  .exercisesChapterNavigation span { white-space: nowrap; }
   .chapterEditor { align-items: flex-end; display: flex; gap: 0.5rem; margin-bottom: 1rem; }
   .chapterEditor > :first-child { flex: 1; }
   .columns { display: grid; gap: 1rem; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
