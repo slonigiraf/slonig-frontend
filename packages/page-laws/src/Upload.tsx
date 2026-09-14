@@ -25,7 +25,6 @@ const PRICE_STAGES: Array<{ detail?: string; key: BookStageSpendKey; label: stri
   { key: 'chapters', label: 'Chapters' },
   { key: 'concepts', label: 'Concepts' },
   { key: 'exercises', label: 'Exercises' },
-  { key: 'splitExercises', label: 'Split Exercise' },
   { key: 'fixExercises', label: 'Fix exercises' },
   { key: 'abilities', label: 'Abilities' },
   { key: 'fixAbilities', label: 'Fix abilities' },

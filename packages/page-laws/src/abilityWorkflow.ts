@@ -542,7 +542,7 @@ export function abilityBlueprintRequestPrompt (language: string, chapterTitle: s
 Chapter: ${chapterTitle}
 Language: ${language}
 
-Create exactly one Ability definition that represents the complete coherent skill trained by the source Exercise. Do not decompose it into atomic sub-skills. If the Exercise uses several inseparable steps or operations to reach its requested output, keep that sequence together in the same Ability. The earlier Split Exercise stage is responsible for separating genuinely distinct concepts, so this stage must preserve each supplied Exercise as one Ability.
+Create exactly one Ability definition that represents the complete coherent skill trained by the source Exercise. Do not decompose it into atomic sub-skills. If the Exercise uses several inseparable steps or operations to reach its requested output, keep that sequence together in the same Ability. Preserve each supplied Exercise as one Ability.
 
 Describe the general input, the complete learner operation or operation sequence, the expected output, and the stable method. Keep the title short and observable. The two learner-facing practice instances generated later must exercise this same complete contract with different concrete data.
 

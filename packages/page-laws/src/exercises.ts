@@ -22,12 +22,6 @@ export interface ExerciseRepairResult {
   reviews: ExerciseRepairReview[];
 }
 
-export interface ExerciseSplitResult {
-  exercises: Exercise[];
-  reason: string;
-  split: boolean;
-}
-
 function isRecord (value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
 }
@@ -124,7 +118,6 @@ export function parseExerciseRepairResult (content: string, originals: Exercise[
     throw new Error('OpenRouter returned contradictory duplicate Exercise pairs.');
   }
 
-
   const used = new Set<number>();
   const reviews: ExerciseRepairReview[] = [];
 
@@ -184,70 +177,3 @@ export function parseExerciseRepairResult (content: string, originals: Exercise[
   return { duplicatePairs, reviews: reviews.sort((a, b) => a.index - b.index) };
 }
 
-
-export function parseExerciseSplitResult (content: string, original: Exercise, allowedConceptIds: number[]): ExerciseSplitResult {
-  const parsed = parseResponse(content);
-
-  if (!isRecord(parsed) || typeof parsed.split !== 'boolean' || !isNonEmptyString(parsed.reason) || !Array.isArray(parsed.exercises)) {
-    throw new Error('OpenRouter returned invalid Exercise split data.');
-  }
-
-  if (!parsed.split) {
-    if (parsed.exercises.length) {
-      throw new Error('An atomic Exercise split result must not include replacement Exercises.');
-    }
-
-    return { exercises: [], reason: parsed.reason.trim(), split: false };
-  }
-
-  if (parsed.exercises.length < 2) {
-    throw new Error('A split Exercise must produce at least two replacement Exercises.');
-  }
-
-  const allowed = new Set(allowedConceptIds);
-  const exercises = parsed.exercises.map((value: unknown): Exercise => {
-    if (
-      !isRecord(value) ||
-      !isNonEmptyString(value.title) ||
-      !isNonEmptyString(value.description) ||
-      !isNonEmptyString(value.solution) ||
-      typeof value.abilityMode !== 'string' ||
-      !exerciseAbilityModes.includes(value.abilityMode as typeof exerciseAbilityModes[number]) ||
-      typeof value.imageDescription !== 'string' ||
-      typeof value.solutionImageDescription !== 'string' ||
-      !('conceptId' in value) ||
-      !(value.conceptId === null || (typeof value.conceptId === 'number' && Number.isSafeInteger(value.conceptId)))
-    ) {
-      throw new Error('Every split Exercise must include complete editable Exercise fields and a valid conceptId.');
-    }
-
-    const requestedConceptId = typeof value.conceptId === 'number' ? value.conceptId : original.conceptId;
-
-    if (requestedConceptId !== undefined && requestedConceptId !== original.conceptId && !allowed.has(requestedConceptId)) {
-      throw new Error('A split Exercise referenced a conceptId outside the supplied chapter.');
-    }
-
-    const { id: _id, imageDescription: _oldImageDescription, solutionImageDescription: _oldSolutionImageDescription, ...originalWithoutIdAndVisuals } = original;
-    const imageDescription = value.imageDescription.trim();
-    const solutionImageDescription = value.solutionImageDescription.trim();
-
-    return {
-      ...originalWithoutIdAndVisuals,
-      abilityMode: value.abilityMode as typeof exerciseAbilityModes[number],
-      conceptId: requestedConceptId,
-      description: value.description.trim(),
-      ...(imageDescription ? { imageDescription } : {}),
-      solution: value.solution.trim(),
-      ...(solutionImageDescription ? { solutionImageDescription } : {}),
-      title: value.title.trim()
-    } as Exercise;
-  });
-
-  const signatures = exercises.map(exerciseSignature);
-
-  if (new Set(signatures).size !== signatures.length) {
-    throw new Error('A split Exercise result contains duplicate replacement Exercises.');
-  }
-
-  return { exercises, reason: parsed.reason.trim(), split: true };
-}
