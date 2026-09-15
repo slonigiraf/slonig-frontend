@@ -6,7 +6,6 @@
     "rootDir": "./src"
   },
   "references": [
-    { "path": "../slonig-components/tsconfig.build.json" },
     { "path": "../react-api/tsconfig.build.json" },
     { "path": "../react-components/tsconfig.build.json" },
     { "path": "../db/tsconfig.build.json" }
