@@ -27,6 +27,7 @@ import { conceptChaptersFromPages, parseGeneratedChapterConcepts, type ConceptCh
 import Skills from './Skills.js';
 import SkillsCourse from './SkillsCourse.js';
 import { loadPdfJs } from './pdf.js';
+import { useTranslation } from './translate.js';
 
 export { OPENAI_MODELS } from './constants.js';
 
@@ -36,7 +37,7 @@ interface ChapterConceptInputPage {
   pageNumber: number;
 }
 
-async function requestGeneratedChapterContent (client: OpenAI, model: string, chapterTitle: string, pages: ChapterConceptInputPage[], onCost?: OpenRouterCostReporter): Promise<GeneratedChapterConcepts> {
+async function requestGeneratedChapterContent(client: OpenAI, model: string, chapterTitle: string, pages: ChapterConceptInputPage[], onCost?: OpenRouterCostReporter): Promise<GeneratedChapterConcepts> {
   const usablePages = pages.filter(({ input }) => input.text.trim() || input.images.length);
 
   if (!usablePages.length) {
@@ -70,7 +71,7 @@ async function requestGeneratedChapterContent (client: OpenAI, model: string, ch
   return parseGeneratedChapterConcepts(generatedContent, new Set(usablePages.map(({ pageNumber }) => pageNumber)));
 }
 
-async function generateChapterContentWithEmptyConceptRetry (client: OpenAI, model: string, chapterTitle: string, pages: ChapterConceptInputPage[], retryEmptyConcepts: boolean, onCost?: OpenRouterCostReporter): Promise<GeneratedChapterConcepts> {
+async function generateChapterContentWithEmptyConceptRetry(client: OpenAI, model: string, chapterTitle: string, pages: ChapterConceptInputPage[], retryEmptyConcepts: boolean, onCost?: OpenRouterCostReporter): Promise<GeneratedChapterConcepts> {
   const firstResult = await requestGeneratedChapterContent(client, model, chapterTitle, pages, onCost);
 
   if (firstResult.concepts.length || !retryEmptyConcepts) {
@@ -94,7 +95,7 @@ const RECOGNITION_PAGE_SPAWN_INTERVAL_MS = Math.ceil(RATE_LIMIT_WINDOW_MS / MAX_
 
 const pageSessionKey = (bookId: number): string => `knowledge-upload-book-${bookId}-page`;
 
-function getSessionPage (bookId: number): number {
+function getSessionPage(bookId: number): number {
   try {
     const value = Number(sessionStorage.getItem(pageSessionKey(bookId)));
 
@@ -104,7 +105,7 @@ function getSessionPage (bookId: number): number {
   }
 }
 
-function storeSessionPage (bookId: number, pageNumber: number): void {
+function storeSessionPage(bookId: number, pageNumber: number): void {
   try {
     sessionStorage.setItem(pageSessionKey(bookId), String(pageNumber));
   } catch {
@@ -119,7 +120,7 @@ interface MMDZipInput {
   text: string;
 }
 
-function bytesToBase64 (bytes: Uint8Array): string {
+function bytesToBase64(bytes: Uint8Array): string {
   const chunkSize = 0x8000;
   let binary = '';
 
@@ -130,7 +131,7 @@ function bytesToBase64 (bytes: Uint8Array): string {
   return window.btoa(binary);
 }
 
-async function extractMMDZipInput (blob: Blob): Promise<MMDZipInput> {
+async function extractMMDZipInput(blob: Blob): Promise<MMDZipInput> {
   const entries = unzipSync(new Uint8Array(await blob.arrayBuffer()));
   const textEntries: string[] = [];
   const images: MMDZipInput['images'] = [];
@@ -163,7 +164,7 @@ async function extractMMDZipInput (blob: Blob): Promise<MMDZipInput> {
   return { images, text: textEntries.join('\n\n') };
 }
 
-async function getPageConceptInput (page: BookPage): Promise<MMDZipInput | undefined> {
+async function getPageConceptInput(page: BookPage): Promise<MMDZipInput | undefined> {
   const recognizedText = page.pageMMD?.trim() ?? '';
 
   if (page.pageMMDZip) {
@@ -190,7 +191,7 @@ async function getPageConceptInput (page: BookPage): Promise<MMDZipInput | undef
   return recognizedText ? { images: [], text: recognizedText } : undefined;
 }
 
-async function getChapterConceptInputs (chapterPages: BookPage[]): Promise<ChapterConceptInputPage[]> {
+async function getChapterConceptInputs(chapterPages: BookPage[]): Promise<ChapterConceptInputPage[]> {
   const inputs = await Promise.all(chapterPages.map(async (page) => {
     const input = await getPageConceptInput(page);
 
@@ -205,7 +206,7 @@ interface StoredChapterConcepts {
   pages: BookPage[];
 }
 
-async function storeGeneratedChapterConcepts (bookId: number, chapterPages: BookPage[], generatedConcepts: GeneratedChapterConcepts): Promise<StoredChapterConcepts> {
+async function storeGeneratedChapterConcepts(bookId: number, chapterPages: BookPage[], generatedConcepts: GeneratedChapterConcepts): Promise<StoredChapterConcepts> {
   const conceptsByPageInput = new Map<number, Array<{ description: string; title: string }>>();
 
   generatedConcepts.concepts.forEach(({ description, pageNumber, title }) => {
@@ -248,7 +249,7 @@ async function storeGeneratedChapterConcepts (bookId: number, chapterPages: Book
   return { conceptsByPage, pages: storedPages };
 }
 
-async function createSinglePagePdf (file: File, pageNumber: number): Promise<Blob> {
+async function createSinglePagePdf(file: File, pageNumber: number): Promise<Blob> {
   const PDFDocumentModule = await import('pdf-lib/cjs/api/PDFDocument.js');
   const sourcePdf = await PDFDocumentModule.default.load(await file.arrayBuffer());
   const pagePdf = await PDFDocumentModule.default.create();
@@ -264,7 +265,7 @@ async function createSinglePagePdf (file: File, pageNumber: number): Promise<Blo
   return new Blob([buffer], { type: 'application/pdf' });
 }
 
-async function requestChapterBoundaries (client: OpenAI, model: string, prompt: string, totalPages: number, onCost?: OpenRouterCostReporter): Promise<ChapterBoundaryProposal[]> {
+async function requestChapterBoundaries(client: OpenAI, model: string, prompt: string, totalPages: number, onCost?: OpenRouterCostReporter): Promise<ChapterBoundaryProposal[]> {
   const response = await openRouterRequestGate.run(() => client.chat.completions.create({
     messages: [{ content: prompt, role: 'user' }],
     model,
@@ -281,7 +282,7 @@ async function requestChapterBoundaries (client: OpenAI, model: string, prompt: 
   return parseChapterBoundaries(content, totalPages);
 }
 
-async function recognizePageWithMathpix (apiKey: string, file: File, pageNumber: number): Promise<Pick<BookPage, 'mathpixHeadings' | 'pageMMD' | 'pageMMDZip'>> {
+async function recognizePageWithMathpix(apiKey: string, file: File, pageNumber: number): Promise<Pick<BookPage, 'mathpixHeadings' | 'pageMMD' | 'pageMMDZip'>> {
   const headers = { app_key: apiKey };
   const body = new FormData();
   const pagePdf = await createSinglePagePdf(file, pageNumber);
@@ -388,7 +389,7 @@ interface ExerciseChapterNavigationItem {
   title: string;
 }
 
-function conceptReferenceKey ({ description, id, title }: Pick<BookConcept, 'description' | 'id' | 'title'>): string {
+function conceptReferenceKey({ description, id, title }: Pick<BookConcept, 'description' | 'id' | 'title'>): string {
   return id === undefined ? `content:${title}\n${description}` : `id:${id}`;
 }
 
@@ -398,7 +399,7 @@ const readerPaneSessionKey = (bookId: number): string => `knowledge-upload-book-
 const readerMaximizedSessionKey = (bookId: number): string => `knowledge-upload-book-${bookId}-maximized`;
 const exerciseChapterSessionKey = (bookId: number): string => `knowledge-upload-book-${bookId}-exercises-chapter`;
 
-function getSessionExerciseChapter (bookId: number): number {
+function getSessionExerciseChapter(bookId: number): number {
   try {
     const stored = Number(sessionStorage.getItem(exerciseChapterSessionKey(bookId)));
 
@@ -408,7 +409,7 @@ function getSessionExerciseChapter (bookId: number): number {
   }
 }
 
-function getSessionReaderMaximized (bookId: number): boolean {
+function getSessionReaderMaximized(bookId: number): boolean {
   try {
     return sessionStorage.getItem(readerMaximizedSessionKey(bookId)) === 'true';
   } catch {
@@ -416,7 +417,7 @@ function getSessionReaderMaximized (bookId: number): boolean {
   }
 }
 
-function getSessionReaderPane (bookId: number): ReaderPane {
+function getSessionReaderPane(bookId: number): ReaderPane {
   try {
     const value = sessionStorage.getItem(readerPaneSessionKey(bookId));
 
@@ -430,7 +431,8 @@ function getSessionReaderPane (bookId: number): ReaderPane {
   }
 }
 
-function BookReader ({ book, file, generateAllConceptsModel, generateAllConceptsRequest, identifyChaptersRequest, languageTabRequest, onBookChange, onProcessingComplete, pendingProcessingAction, processingToolbar, recognizeAllRequest, generateAllExercisesRequest }: Props): React.ReactElement {
+function BookReader({ book, file, generateAllConceptsModel, generateAllConceptsRequest, identifyChaptersRequest, languageTabRequest, onBookChange, onProcessingComplete, pendingProcessingAction, processingToolbar, recognizeAllRequest, generateAllExercisesRequest }: Props): React.ReactElement {
+  const { t } = useTranslation();
   const [activePane, setActivePane] = useState<ReaderPane>(() => (book.processingStage ?? 0) < 1 ? 'text' : getSessionReaderPane(book.id));
   const [chapters, setChapters] = useState<BookChapter[]>([]);
   const [chapterTitleDraft, setChapterTitleDraft] = useState('');
@@ -1789,14 +1791,16 @@ function BookReader ({ book, file, generateAllConceptsModel, generateAllConcepts
         : 'Concepts';
   const exerciseItem = (exercise: Exercise): React.ReactNode => {
     const description = stripMarkdownImageReferences(exercise.description);
+    const n_a = t('N/A');
 
     return <li key={exercise.id}>
-      <strong><KatexSpan content={exercise.title} /></strong>
-      {description && <p><KatexSpan content={description} /></p>}
-      {exercise.abilityMode && <p><small>{exercise.abilityMode}</small></p>}
-      {exercise.imageDescription && <p><small>Required visual: <KatexSpan content={exercise.imageDescription} /></small></p>}
-      {exercise.solution && <p><KatexSpan content={exercise.solution} /></p>}
-      {exercise.solutionImageDescription && <p><small>Solution visual: <KatexSpan content={exercise.solutionImageDescription} /></small></p>}
+      <p><b>{t('Mode:')} </b>{exercise.abilityMode ? exercise.abilityMode: n_a}</p>
+      <p><b>{t('Title:')} </b><KatexSpan content={exercise.title} /></p>
+      
+      <p><b>{t('Question:')} </b>{description ? <KatexSpan content={description} /> : n_a}</p>
+      <p><b>{t('Question image:')} </b>{exercise.imageDescription ? <KatexSpan content={exercise.imageDescription} />: n_a}</p>
+      <p><b>{t('Solution:')} </b>{exercise.solution ? <KatexSpan content={exercise.solution} />: n_a}</p>
+      <p><b>{t('Answer image:')} </b>{exercise.solutionImageDescription ? <KatexSpan content={exercise.solutionImageDescription} /> : n_a}</p>
     </li>;
   };
   const conceptsPane = (): React.ReactNode => {
@@ -1842,7 +1846,7 @@ function BookReader ({ book, file, generateAllConceptsModel, generateAllConcepts
               return <section
                 className='conceptExerciseGroup'
                 key={concept.id}
-                     >
+              >
                 <h4><KatexSpan content={concept.title} /></h4>
                 {concept.description && <p><KatexSpan content={concept.description} /></p>}
                 {generated.length ? <ul>{generated.map(exerciseItem)}</ul> : <p className='emptyOutput'>No generated exercises for this concept.</p>}
@@ -1944,7 +1948,7 @@ function BookReader ({ book, file, generateAllConceptsModel, generateAllConcepts
       {error && <p
         className='readerError'
         role='alert'
-                >{error}</p>}
+      >{error}</p>}
       <div
         className='readerTabs'
         role='tablist'
@@ -1992,7 +1996,7 @@ function BookReader ({ book, file, generateAllConceptsModel, generateAllConcepts
             onKeyDown={({ key }) => key === 'Enter' && submitPageInput()}
             type='number'
             value={pageInput}
-                      /><span>of {totalPages || '…'}</span></label>
+          /><span>of {totalPages || '…'}</span></label>
           <Button
             icon='arrow-right'
             isDisabled={!totalPages || pageNumber >= totalPages}
@@ -2020,11 +2024,11 @@ function BookReader ({ book, file, generateAllConceptsModel, generateAllConcepts
             disabled={!exerciseChapters.length}
             onChange={({ target }) => changeExerciseChapter(Number(target.value))}
             value={exerciseChapters.length ? exerciseChapterIndex : ''}
-                         >
+          >
             {exerciseChapters.map(({ title }, index) => <option
               key={`${title}:${index}`}
               value={index}
-                                                        >{title || 'Chapter not identified'}</option>)}
+            >{title || 'Chapter not identified'}</option>)}
           </select><span>{exerciseChapters.length ? `${exerciseChapterIndex + 1} of ${exerciseChapters.length}` : 'No chapters'}</span></label>
           <Button
             icon='arrow-right'
@@ -2053,53 +2057,53 @@ function BookReader ({ book, file, generateAllConceptsModel, generateAllConcepts
             : activePane === 'language'
               ? <div className='detailsArea fullWidthDetails languageDetails'>{languagePane()}</div>
               : activePane === 'chapters'
-            ? <>
-              <div
-                className='pageArea'
-                ref={pageAreaRef}
-              ><canvas ref={canvasRef} /></div>
-              <div className='detailsArea'>{chaptersPane()}</div>
-            </>
-          : activePane === 'textConcepts'
-            ? <>
-              <div
-                className={`detailsArea${renderedPageHeight ? ' hasPageHeight' : ''}`}
-                style={{ '--page-height': renderedPageHeight ? `${renderedPageHeight}px` : 'auto' } as React.CSSProperties}
-              >
-                {recognizedTextPane()}
-              </div>
-              <div
-                className='detailsArea'
-                style={{ '--page-height': renderedPageHeight ? `${renderedPageHeight}px` : 'auto' } as React.CSSProperties}
-              >
-                {conceptsPane()}
-              </div>
-            </>
-            : activePane === 'conceptExercises'
-              ? <div className='detailsArea fullWidthDetails'>{exercisesPane()}</div>
-              : activePane === 'conceptsSkills'
                 ? <>
-                  <div className='skillsArea'>
-                    <Skills
-                      book={book}
-                      onAction={setActivePane}
-                      onBookChange={onBookChange}
-                      onEntityCountsChange={onSkillsEntityCountsChange}
-                      showPipeline={false}
-                      view='conceptsSkills'
-                    />
-                  </div>
+                  <div
+                    className='pageArea'
+                    ref={pageAreaRef}
+                  ><canvas ref={canvasRef} /></div>
+                  <div className='detailsArea'>{chaptersPane()}</div>
                 </>
-                : activePane === 'preExercisesExercises'
-                  ? <div className='skillsArea'><Skills
-                      book={book}
-                      onAction={setActivePane}
-                      onBookChange={onBookChange}
-                      onEntityCountsChange={onSkillsEntityCountsChange}
-                      showPipeline={false}
-                      view='preExercisesExercises'
-                                                /></div>
-                  : <SkillsCourse book={book} />}
+                : activePane === 'textConcepts'
+                  ? <>
+                    <div
+                      className={`detailsArea${renderedPageHeight ? ' hasPageHeight' : ''}`}
+                      style={{ '--page-height': renderedPageHeight ? `${renderedPageHeight}px` : 'auto' } as React.CSSProperties}
+                    >
+                      {recognizedTextPane()}
+                    </div>
+                    <div
+                      className='detailsArea'
+                      style={{ '--page-height': renderedPageHeight ? `${renderedPageHeight}px` : 'auto' } as React.CSSProperties}
+                    >
+                      {conceptsPane()}
+                    </div>
+                  </>
+                  : activePane === 'conceptExercises'
+                    ? <div className='detailsArea fullWidthDetails'>{exercisesPane()}</div>
+                    : activePane === 'conceptsSkills'
+                      ? <>
+                        <div className='skillsArea'>
+                          <Skills
+                            book={book}
+                            onAction={setActivePane}
+                            onBookChange={onBookChange}
+                            onEntityCountsChange={onSkillsEntityCountsChange}
+                            showPipeline={false}
+                            view='conceptsSkills'
+                          />
+                        </div>
+                      </>
+                      : activePane === 'preExercisesExercises'
+                        ? <div className='skillsArea'><Skills
+                          book={book}
+                          onAction={setActivePane}
+                          onBookChange={onBookChange}
+                          onEntityCountsChange={onSkillsEntityCountsChange}
+                          showPipeline={false}
+                          view='preExercisesExercises'
+                        /></div>
+                        : <SkillsCourse book={book} />}
       </div>
     </StyledReader>
   );
