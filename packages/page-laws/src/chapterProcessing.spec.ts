@@ -15,7 +15,7 @@ describe('chapter content processing', (): void => {
       pages: [
         {
           concepts: [{ description: 'A description', title: 'Concept A' }],
-          exercises: [{ abilityMode: 'reasoning', description: 'Book task', solution: 'Book solution', title: 'Book exercise' }],
+          exercises: [{ description: 'Book task', solution: 'Book solution', title: 'Book exercise' }],
           pageNumber: 4
         },
         {
@@ -32,8 +32,8 @@ describe('chapter content processing', (): void => {
       assert.doesNotMatch(prompt, /sourcePageNumber/);
 
       return Promise.resolve(JSON.stringify({ exercises: [
-        { abilityMode: 'reasoning', conceptIndex: 0, description: 'Generated A', solution: 'Solution A', title: 'Exercise A' },
-        { abilityMode: 'reasoning', conceptIndex: 1, description: 'Generated B', solution: 'Solution B', title: 'Exercise B' }
+        { conceptIndex: 0, description: 'Generated A', solution: 'Solution A', title: 'Exercise A' },
+        { conceptIndex: 1, description: 'Generated B', solution: 'Solution B', title: 'Exercise B' }
       ] }));
     });
 

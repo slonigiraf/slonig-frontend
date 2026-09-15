@@ -78,8 +78,7 @@ function expectedBlueprintKey (exerciseId: number, skillIndex: number): string {
 }
 
 export function transportAbilitySourceExercises (exercises: Exercise[]): unknown[] {
-  return exercises.map(({ abilityMode = 'reasoning', description, id, imageDescription = '', solution = '', solutionImageDescription = '', title }) => ({
-    abilityMode,
+  return exercises.map(({ description, id, imageDescription = '', solution = '', solutionImageDescription = '', title }) => ({
     description: stripMarkdownImageReferences(description),
     id,
     imageDescription,
@@ -89,11 +88,10 @@ export function transportAbilitySourceExercises (exercises: Exercise[]): unknown
   }));
 }
 
-export function transportCompactAbilitySourceExercise ({ abilityMode = 'reasoning', description, id, imageDescription = '', solution = '', solutionImageDescription = '', title }: Exercise): unknown {
+export function transportCompactAbilitySourceExercise ({ description, id, imageDescription = '', solution = '', solutionImageDescription = '', title }: Exercise): unknown {
   return {
     id,
     title,
-    mode: abilityMode,
     task: stripMarkdownImageReferences(description),
     solution,
     questionVisual: imageDescription,
@@ -101,11 +99,10 @@ export function transportCompactAbilitySourceExercise ({ abilityMode = 'reasonin
   };
 }
 
-export function transportAbilityMaterializationEvidence ({ abilityMode = 'reasoning', description, id, imageDescription = '', solution = '', solutionImageDescription = '', title }: Exercise): unknown {
+export function transportAbilityMaterializationEvidence ({ description, id, imageDescription = '', solution = '', solutionImageDescription = '', title }: Exercise): unknown {
   return {
     id,
     title,
-    mode: abilityMode,
     task: stripMarkdownImageReferences(description),
     solution,
     questionVisual: imageDescription,

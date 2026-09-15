@@ -192,7 +192,6 @@ describe('one-Ability-per-Exercise workflow', (): void => {
       }]
     }), [11]);
     const source = {
-      abilityMode: 'reasoning',
       description: 'Read the supplied value.',
       id: 11,
       solution: '4',
@@ -204,7 +203,6 @@ describe('one-Ability-per-Exercise workflow', (): void => {
 
   it('uses two bounded semantic requests per source Exercise without decomposing it', async (): Promise<void> => {
     const source = {
-      abilityMode: 'reasoning',
       description: 'Read a plotted point, then calculate the horizontal distance to x = 5.',
       id: 12,
       imageDescription: 'A coordinate plane with point A plotted.',
@@ -258,7 +256,6 @@ describe('one-Ability-per-Exercise workflow', (): void => {
 
   it('keeps multi-source workflow requests source-bounded', async (): Promise<void> => {
     const sources = [21, 22].map((id) => ({
-      abilityMode: 'reasoning',
       description: `Convert ${id} centimeters to meters.`,
       id,
       solution: `Divide ${id} by 100.`,

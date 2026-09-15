@@ -149,6 +149,7 @@ function Upload (): React.ReactElement {
     () => books.find(({ id }) => id === selectedId),
     [books, selectedId]
   );
+  const selectedBookOpfsName = selectedBook?.opfsName;
   const totalSpend = useMemo(
     () => PRICE_STAGES.reduce((total, { key }) => total + (priceBook?.stageSpend?.[key] ?? 0), 0),
     [priceBook]
@@ -156,11 +157,12 @@ function Upload (): React.ReactElement {
 
   useEffect(() => {
     let active = true;
+    const opfsName = selectedBookOpfsName;
 
     setReaderFile(undefined);
 
-    if (selectedBook) {
-      readPdf(selectedBook.opfsName)
+    if (opfsName) {
+      readPdf(opfsName)
         .then((file) => active && setReaderFile(file))
         .catch(() => active && setError(t('Unable to open this PDF.')));
     }
@@ -168,7 +170,7 @@ function Upload (): React.ReactElement {
     return () => {
       active = false;
     };
-  }, [selectedBook, t]);
+  }, [selectedBookOpfsName, t]);
 
   const options = useMemo(
     () => books.map(({ id, name }) => ({ key: id, text: name, value: id })),

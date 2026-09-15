@@ -137,7 +137,9 @@ interface Props {
   book: Book;
   onBookChange: (book: Book) => void;
   onAction?: (view: SkillsView | 'conceptExercises') => void;
+  onContentChange?: () => void;
   onEntityCountsChange?: (counts: { abilities: number; bookExercises: number; exercises: number }) => void;
+  externalRefreshToken?: number;
   pipelineOnly?: boolean;
   pipelinePrefix?: React.ReactNode;
   showPipeline?: boolean;
@@ -293,9 +295,9 @@ function abilityRepairInput (language: string, batch: StoredAbility[], chapterTi
 function exerciseRepairInput (language: string, batch: Exercise[], chapterTitle?: string): unknown {
   return {
     bookLanguage: language,
-    exercises: batch.map(({ abilityMode = 'reasoning', conceptId, description, id, imageDescription = '', solution = '', solutionImageDescription = '', title }, index) => ({
+    exercises: batch.map(({ conceptId, description, id, imageDescription = '', solution = '', solutionImageDescription = '', title }, index) => ({
       conceptId,
-      exercise: { abilityMode, description: stripMarkdownImageReferences(description), imageDescription, solution, solutionImageDescription, title },
+      exercise: { description: stripMarkdownImageReferences(description), imageDescription, solution, solutionImageDescription, title },
       id,
       index
     })),
@@ -303,9 +305,8 @@ function exerciseRepairInput (language: string, batch: Exercise[], chapterTitle?
   };
 }
 
-function exerciseForPageReplacement ({ abilityMode, conceptId, description, imageDescription, solution, solutionImageDescription, source, title }: Exercise): Omit<Exercise, 'bookPage' | 'id'> {
+function exerciseForPageReplacement ({ conceptId, description, imageDescription, solution, solutionImageDescription, source, title }: Exercise): Omit<Exercise, 'bookPage' | 'id'> {
   return {
-    abilityMode,
     conceptId,
     description: stripMarkdownImageReferences(description),
     imageDescription,
@@ -609,7 +610,7 @@ function ChapterTitleEditor ({ chapter, onError, onSaved }: { chapter: BookChapt
   </div>;
 }
 
-function BookItem ({ abilityMode, description, id, imageDescription, onDelete, onDeleted, onError, solution, solutionImageDescription, title, type }: { abilityMode?: Exercise['abilityMode']; description: string; id?: number; imageDescription?: string; onDelete: (id: number) => Promise<void>; onDeleted: () => void; onError: (message: string) => void; solution?: string; solutionImageDescription?: string; title: string; type: 'concept' | 'exercise' }): React.ReactElement {
+function BookItem ({ description, id, imageDescription, onDelete, onDeleted, onError, solution, solutionImageDescription, title, type }: { description: string; id?: number; imageDescription?: string; onDelete: (id: number) => Promise<void>; onDeleted: () => void; onError: (message: string) => void; solution?: string; solutionImageDescription?: string; title: string; type: 'concept' | 'exercise' }): React.ReactElement {
   const remove = useCallback((): void => {
     if (id === undefined) {
       return;
@@ -621,7 +622,6 @@ function BookItem ({ abilityMode, description, id, imageDescription, onDelete, o
   return <article className='contentCard'>
     <strong><KatexSpan content={title} /></strong>
     {description && <p><KatexSpan content={description} /></p>}
-    {abilityMode && <p><small>{abilityMode}</small></p>}
     {imageDescription && <p><small>Required visual: <KatexSpan content={imageDescription} /></small></p>}
     {solution && <p><KatexSpan content={solution} /></p>}
     {solutionImageDescription && <p><small>Solution visual: <KatexSpan content={solutionImageDescription} /></small></p>}
@@ -701,7 +701,6 @@ function DuplicateExerciseSide ({ exercise, label }: { exercise: Exercise; label
     {exercise.id !== undefined && <p><small>Exercise ID: <code>{exercise.id}</code></small></p>}
     <strong><KatexSpan content={exercise.title} /></strong>
     <p><KatexSpan content={stripMarkdownImageReferences(exercise.description)} /></p>
-    {exercise.abilityMode && <p><small>{exercise.abilityMode}</small></p>}
     {exercise.imageDescription && <p><small>Required visual: <KatexSpan content={exercise.imageDescription} /></small></p>}
     {exercise.solution && <div className='solution'><KatexSpan content={exercise.solution} /></div>}
     {exercise.solutionImageDescription && <p><small>Solution visual: <KatexSpan content={exercise.solutionImageDescription} /></small></p>}
@@ -741,7 +740,7 @@ function getSessionChapter (bookId: number, view: SkillsView): number {
   }
 }
 
-function Skills ({ book, onAction, onBookChange, onEntityCountsChange, pipelineOnly = false, pipelinePrefix, showPipeline = true, view }: Props): React.ReactElement {
+function Skills ({ book, externalRefreshToken = 0, onAction, onBookChange, onContentChange, onEntityCountsChange, pipelineOnly = false, pipelinePrefix, showPipeline = true, view }: Props): React.ReactElement {
   const language = book.language ?? '';
   const hasBookLanguage = Boolean(language);
   const [aiAction, setAiAction] = useState<AiAction>();
@@ -822,7 +821,7 @@ function Skills ({ book, onAction, onBookChange, onEntityCountsChange, pipelineO
     return () => {
       active = false;
     };
-  }, [book.id, refreshToken]);
+  }, [book.id, externalRefreshToken, refreshToken]);
 
   const chapters = useMemo(() => chapterContent.map(({ chapter }) => chapter), [chapterContent]);
   const current = chapterContent[chapterIndex];
@@ -1116,6 +1115,7 @@ function Skills ({ book, onAction, onBookChange, onEntityCountsChange, pipelineO
       }
 
       refresh();
+      onContentChange?.();
 
       const generatedAbilityCount = Array.from(generatedByExerciseId.values()).reduce((count, abilities) => count + abilities.length, 0);
 
@@ -1137,7 +1137,7 @@ function Skills ({ book, onAction, onBookChange, onEntityCountsChange, pipelineO
     } finally {
       setIsBusy(false);
     }
-  }, [addAbilitiesCost, allAbilities.length, allExercises, beginProgress, book.id, chapterContent, createClient, language, refresh, selectedModel, setStage, stage]);
+  }, [addAbilitiesCost, allAbilities.length, allExercises, beginProgress, book.id, chapterContent, createClient, language, onContentChange, refresh, selectedModel, setStage, stage]);
 
   const fixExercises = useCallback(async (): Promise<void> => {
     beginProgress('Fixing Exercise errors', allExercises.length);
@@ -1351,13 +1351,14 @@ function Skills ({ book, onAction, onBookChange, onEntityCountsChange, pipelineO
       setFixReview(null);
       setNotice(`Applied Fix abilities review: ${fixed} corrected, ${deleted} duplicate${deleted === 1 ? '' : 's'} deleted.`);
       refresh();
+      onContentChange?.();
       onAction?.('preExercisesExercises');
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : 'Unable to apply Fix abilities changes.');
     } finally {
       setIsBusy(false);
     }
-  }, [fixReview, onAction, refresh, setStage, stage]);
+  }, [fixReview, onAction, onContentChange, refresh, setStage, stage]);
   const applyExerciseFixReview = useCallback(async (): Promise<void> => {
     if (!exerciseFixReview) {
       return;
@@ -1447,13 +1448,14 @@ function Skills ({ book, onAction, onBookChange, onEntityCountsChange, pipelineO
       setExerciseFixReview(null);
       setNotice(`Applied Fix exercises review: ${fixed} corrected, ${deleted} duplicate${deleted === 1 ? '' : 's'} deleted.`);
       refresh();
+      onContentChange?.();
       onAction?.('conceptExercises');
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : 'Unable to apply Fix exercises changes.');
     } finally {
       setIsBusy(false);
     }
-  }, [allAbilities, allExercises, book.id, bookPageContent, exerciseFixReview, onAction, refresh, setStage, stage]);
+  }, [allAbilities, allExercises, book.id, bookPageContent, exerciseFixReview, onAction, onContentChange, refresh, setStage, stage]);
   const openExerciseGeneration = useCallback((): void => {
     setAiAction('exercises');
   }, []);
@@ -1716,13 +1718,14 @@ function Skills ({ book, onAction, onBookChange, onEntityCountsChange, pipelineO
       setImageFixReview(null);
       setNotice(`Applied Fix images review: ${fixed} TikZ visual${fixed === 1 ? '' : 's'} corrected and pre-render verified.`);
       refresh();
+      onContentChange?.();
       onAction?.('preExercisesExercises');
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : 'Unable to apply Fix images changes.');
     } finally {
       setIsBusy(false);
     }
-  }, [allAbilities, imageFixReview, onAction, refresh, setStage, stage]);
+  }, [allAbilities, imageFixReview, onAction, onContentChange, refresh, setStage, stage]);
 
   const openImageFix = useCallback((): void => {
     setAiAction('fixImages');
@@ -1800,7 +1803,6 @@ function Skills ({ book, onAction, onBookChange, onEntityCountsChange, pipelineO
                 <h5>Corrected result</h5>
                 <div className='fixedExercisePreview'>
                   <p><KatexSpan content={stripMarkdownImageReferences(exercise.description)} /></p>
-                  {exercise.abilityMode && <p><small>{exercise.abilityMode}</small></p>}
                   {exercise.imageDescription && <p><small>Required visual: <KatexSpan content={exercise.imageDescription} /></small></p>}
                   {exercise.solutionImageDescription && <p><small>Solution visual: <KatexSpan content={exercise.solutionImageDescription} /></small></p>}
                   {exercise.solution && <div className='solution'><KatexSpan content={exercise.solution} /></div>}
@@ -2074,7 +2076,6 @@ function Skills ({ book, onAction, onBookChange, onEntityCountsChange, pipelineO
                 ))}
                 {current.exercises.map((exercise) => (
                   <BookItem
-                    abilityMode={exercise.abilityMode}
                     description={stripMarkdownImageReferences(exercise.description)}
                     id={exercise.id}
                     imageDescription={exercise.imageDescription}
@@ -2116,7 +2117,6 @@ function Skills ({ book, onAction, onBookChange, onEntityCountsChange, pipelineO
                   key={`exercise-${exercise.id ?? 'new'}`}
                        >
                   <BookItem
-                    abilityMode={exercise.abilityMode}
                     description={stripMarkdownImageReferences(exercise.description)}
                     id={exercise.id}
                     imageDescription={exercise.imageDescription}

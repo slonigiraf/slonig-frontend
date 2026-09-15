@@ -3,7 +3,6 @@
 
 export interface Exercise {
   id?: number;
-  abilityMode: string;
   bookPage: [number, number];
   conceptId?: number;
   title: string;

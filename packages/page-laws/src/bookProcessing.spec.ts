@@ -66,8 +66,8 @@ describe('book processing pipeline', (): void => {
       pages: [{
         concepts: [{ description: 'Read a value encoded by a marked gauge', title: 'Reading a gauge' }, { description: 'Convert units', title: 'Conversion' }],
         exercises: [
-          { abilityMode: 'reasoning', description: 'Convert 2 km to m.', solution: '2000 m', title: 'Book exercise 1' },
-          { abilityMode: 'reasoning', description: 'Find the missing angle.', solution: '60 degrees', title: 'Book exercise 2' }
+          { description: 'Convert 2 km to m.', solution: '2000 m', title: 'Book exercise 1' },
+          { description: 'Find the missing angle.', solution: '60 degrees', title: 'Book exercise 2' }
         ],
         pageNumber: 1
       }]
@@ -77,7 +77,7 @@ describe('book processing pipeline', (): void => {
       if (prompts.length === 1) {
         assert.match(prompt, /exactly one complete exercise/i);
         assert.match(prompt, /Preserve the concept's learner modality/i);
-        assert.match(prompt, /no globally preferred mode/i);
+        assert.doesNotMatch(prompt, /abilityMode/i);
         assert.match(prompt, /Preserve the task's represented form/i);
         assert.match(prompt, /Prefer one short sentence/i);
         assert.match(prompt, /6-16 words/i);
@@ -93,9 +93,9 @@ describe('book processing pipeline', (): void => {
 
         return Promise.resolve(JSON.stringify({
           exercises: [
-            { abilityMode: 'generation', conceptIndex: 0, description: 'What value does the gauge show?', imageDescription: 'A gauge with an unlabeled pointer positioned at 60 on a 0 to 100 scale.', solution: '60', title: 'Read a gauge value' },
-            { abilityMode: 'transformation', conceptIndex: 0, description: 'Use the scale markings to calculate the value 60.', solution: '60', title: 'Later textual surrogate' },
-            { abilityMode: 'transformation', conceptIndex: 1, description: 'Convert <kx>3</kx> km to m.', solution: '<kx>3000</kx> m', title: 'Convert distance' }
+            { conceptIndex: 0, description: 'What value does the gauge show?', imageDescription: 'A gauge with an unlabeled pointer positioned at 60 on a 0 to 100 scale.', solution: '60', title: 'Read a gauge value' },
+            { conceptIndex: 0, description: 'Use the scale markings to calculate the value 60.', solution: '60', title: 'Later textual surrogate' },
+            { conceptIndex: 1, description: 'Convert <kx>3</kx> km to m.', solution: '<kx>3000</kx> m', title: 'Convert distance' }
           ]
         }));
       }
@@ -108,13 +108,12 @@ describe('book processing pipeline', (): void => {
     assert.equal(result.pages[0].exercises.filter(({ source }) => source === 'book').length, 0);
     assert.equal(result.pages[0].exercises.filter(({ source }) => source === 'generated').length, 2);
     assert.deepEqual(result.pages[0].exercises.filter(({ source }) => source === 'generated').map(({ conceptIndex }) => conceptIndex), [0, 1]);
-    assert.equal(result.pages[0].exercises.find(({ conceptIndex, source }) => source === 'generated' && conceptIndex === 0)?.abilityMode, 'generation');
     assert.match(result.pages[0].exercises.find(({ conceptIndex, source }) => source === 'generated' && conceptIndex === 0)?.imageDescription ?? '', /gauge/i);
   });
 
   it('does not carry source book exercises forward when there are no concepts', async (): Promise<void> => {
     let calls = 0;
-    const duplicateBookExercise = { abilityMode: 'reasoning' as const, description: 'Compute <kx>2+2</kx>.', solution: '<kx>4</kx>', title: 'Compute' };
+    const duplicateBookExercise = { description: 'Compute <kx>2+2</kx>.', solution: '<kx>4</kx>', title: 'Compute' };
     const result = await processExtractedChapterContent({
       chapter: 'Chapter',
       pages: [
@@ -149,7 +148,6 @@ describe('book processing pipeline', (): void => {
 
       return Promise.resolve(JSON.stringify({
         exercises: [{
-          abilityMode: 'generation',
           conceptIndex: 0,
           description: 'Read the marked value.',
           imageDescription: 'A horizontal number line from 0 to 10 with a single unlabeled point at 6.',
@@ -187,7 +185,6 @@ describe('book processing pipeline', (): void => {
 
       return Promise.resolve(JSON.stringify({
         exercises: [{
-          abilityMode: 'generation',
           conceptIndex: 0,
           description: 'Plot <kx>(4,-2)</kx>.',
           imageDescription: '',
@@ -220,7 +217,6 @@ describe('book processing pipeline', (): void => {
 
       return Promise.resolve(JSON.stringify({
         exercises: [{
-          abilityMode: 'transformation',
           conceptIndex: 0,
           description: 'Convert <kx>3</kx> km to m.',
           imageDescription: '',
@@ -242,7 +238,7 @@ describe('book processing pipeline', (): void => {
 
   it('retries missing concepts together up to three times', async (): Promise<void> => {
     const prompts: string[] = [];
-    const exercise = (conceptIndex: number): Record<string, unknown> => ({ abilityMode: 'transformation', conceptIndex, description: `Task ${conceptIndex}`, solution: `Solution ${conceptIndex}`, title: `Exercise ${conceptIndex}` });
+    const exercise = (conceptIndex: number): Record<string, unknown> => ({ conceptIndex, description: `Task ${conceptIndex}`, solution: `Solution ${conceptIndex}`, title: `Exercise ${conceptIndex}` });
     const result = await processExtractedChapterContent({
       chapter: 'Chapter',
       pages: [{

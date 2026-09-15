@@ -3,7 +3,7 @@
 
 import type { Exercise } from '@slonigiraf/db';
 
-import { exerciseAbilityModes, GENERATE_EXERCISES_RECOVERY_PROMPT, GENERATE_EXERCISES_REQUEST_PROMPT } from './constants.js';
+import { GENERATE_EXERCISES_RECOVERY_PROMPT, GENERATE_EXERCISES_REQUEST_PROMPT } from './constants.js';
 
 export const MAX_EXERCISE_GENERATION_RETRIES = 3;
 
@@ -142,8 +142,8 @@ function generatedExercisesResult (content: string, concepts: LocatedProcessingC
     const imageDescription = typeof item.imageDescription === 'string' ? item.imageDescription.trim() : '';
     const solutionImageDescription = typeof item.solutionImageDescription === 'string' ? item.solutionImageDescription.trim() : '';
 
-    return Number.isInteger(conceptIndex) && conceptIndex >= 0 && conceptIndex < concepts.length && typeof item.title === 'string' && item.title.trim() && typeof item.description === 'string' && item.description.trim() && typeof item.solution === 'string' && item.solution.trim() && typeof item.abilityMode === 'string' && exerciseAbilityModes.includes(item.abilityMode as typeof exerciseAbilityModes[number])
-      ? [{ abilityMode: item.abilityMode, conceptIndex, description: item.description.trim(), ...(imageDescription ? { imageDescription } : {}), solution: item.solution.trim(), ...(solutionImageDescription ? { solutionImageDescription } : {}), source: 'generated', sourcePageNumber: concepts[conceptIndex].sourcePageNumber, title: item.title.trim() }]
+    return Number.isInteger(conceptIndex) && conceptIndex >= 0 && conceptIndex < concepts.length && typeof item.title === 'string' && item.title.trim() && typeof item.description === 'string' && item.description.trim() && typeof item.solution === 'string' && item.solution.trim()
+      ? [{ conceptIndex, description: item.description.trim(), ...(imageDescription ? { imageDescription } : {}), solution: item.solution.trim(), ...(solutionImageDescription ? { solutionImageDescription } : {}), source: 'generated', sourcePageNumber: concepts[conceptIndex].sourcePageNumber, title: item.title.trim() }]
       : [];
   });
   const exercisesByConcept = new Map<number, LocatedProcessingExercise>();
@@ -153,7 +153,7 @@ function generatedExercisesResult (content: string, concepts: LocatedProcessingC
 
     // The model is asked for exactly one exercise per concept. If it still
     // returns duplicates, keep the first valid candidate rather than imposing
-    // an unrelated ability-mode preference in the parser.
+    // an unrelated parser preference.
     if (!exercisesByConcept.has(conceptIndex)) {
       exercisesByConcept.set(conceptIndex, exercise);
     }

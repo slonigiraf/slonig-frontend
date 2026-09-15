@@ -3,7 +3,6 @@
 
 import type { Exercise } from '@slonigiraf/db';
 
-import { exerciseAbilityModes } from './constants.js';
 
 export interface ExerciseRepairReview {
   errors: string[];
@@ -45,11 +44,9 @@ function parseCorrectedExercise (value: unknown, original: Exercise): Exercise {
     !isRecord(value) ||
     !isNonEmptyString(value.title) ||
     !isNonEmptyString(value.description) ||
-    !isNonEmptyString(value.solution) ||
-    typeof value.abilityMode !== 'string' ||
-    !exerciseAbilityModes.includes(value.abilityMode as typeof exerciseAbilityModes[number])
+    !isNonEmptyString(value.solution)
   ) {
-    throw new Error('Every corrected Exercise must include a title, complete task, valid abilityMode, and complete solution.');
+    throw new Error('Every corrected Exercise must include a title, complete task, and complete solution.');
   }
 
   const imageDescription = typeof value.imageDescription === 'string' ? value.imageDescription.trim() : original.imageDescription?.trim() ?? '';
@@ -58,7 +55,6 @@ function parseCorrectedExercise (value: unknown, original: Exercise): Exercise {
 
   return {
     ...originalWithoutVisualDescriptions,
-    abilityMode: value.abilityMode as typeof exerciseAbilityModes[number],
     description: value.description.trim(),
     ...(imageDescription ? { imageDescription } : {}),
     solution: value.solution.trim(),
@@ -69,7 +65,6 @@ function parseCorrectedExercise (value: unknown, original: Exercise): Exercise {
 
 function exerciseSignature (exercise: Exercise): string {
   return JSON.stringify({
-    abilityMode: exercise.abilityMode ?? '',
     description: exercise.description.trim(),
     imageDescription: exercise.imageDescription?.trim() ?? '',
     solution: (exercise.solution ?? '').trim(),

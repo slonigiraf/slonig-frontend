@@ -30,6 +30,7 @@ import type { ExerciseTemplate } from './ExerciseTemplate.js';
 type LegacyBookSkill = Omit<Skill, 'exerciseIds'> & { bookExerciseIds?: number[] };
 type LegacyExerciseTemplate = Omit<ExerciseTemplate, 'skillId'> & { bookSkillId: number };
 type LegacyExerciseWithImages = Exercise & { image?: string; images?: string[] };
+type LegacyExerciseWithAbilityMode = Exercise & { abilityMode?: string };
 
 class SlonigDB extends Dexie {
   agreements!: Table<Agreement>;
@@ -292,6 +293,17 @@ class SlonigDB extends Dexie {
         })
       ]);
     });
+    this.version(86).stores({}).upgrade(async (transaction: Transaction) => {
+      const table = transaction.table<LegacyExerciseWithAbilityMode, number>('exercises');
+      const exercises = await table.toArray();
+
+      await Promise.all(exercises.map((exercise) => {
+        const { abilityMode: _abilityMode, ...withoutAbilityMode } = exercise;
+
+        return table.put(withoutAbilityMode as LegacyExerciseWithAbilityMode);
+      }));
+    });
+
   }
 }
 

@@ -468,6 +468,7 @@ function BookReader({ book, file, generateAllConceptsModel, generateAllConceptsR
   const [pdf, setPdf] = useState<PDFDocumentProxy>();
   const [renderedPageHeight, setRenderedPageHeight] = useState<number>();
   const [selectedModel, setSelectedModel] = useState(OPENAI_MODELS[0].value);
+  const [skillsRefreshToken, setSkillsRefreshToken] = useState(0);
   const [totalPages, setTotalPages] = useState(0);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const handledGenerateAllConceptsRequestRef = useRef(generateAllConceptsRequest);
@@ -540,6 +541,9 @@ function BookReader({ book, file, generateAllConceptsModel, generateAllConceptsR
 
   const onSkillsEntityCountsChange = useCallback(({ abilities, bookExercises, exercises }: Pick<ReaderEntityCounts, 'abilities' | 'bookExercises' | 'exercises'>): void => {
     setEntityCounts((current) => ({ ...current, abilities, bookExercises, exercises }));
+  }, []);
+  const onSkillsContentChange = useCallback((): void => {
+    setSkillsRefreshToken((value) => value + 1);
   }, []);
   const changeExerciseChapter = useCallback((index: number): void => {
     const nextIndex = Math.max(0, Math.min(index, Math.max(0, exerciseChapters.length - 1)));
@@ -1794,7 +1798,6 @@ function BookReader({ book, file, generateAllConceptsModel, generateAllConceptsR
     const n_a = t('N/A');
 
     return <li key={exercise.id}>
-      <p><b>{t('Mode:')} </b>{exercise.abilityMode ? exercise.abilityMode: n_a}</p>
       <p><b>{t('Title:')} </b><KatexSpan content={exercise.title} /></p>
       
       <p><b>{t('Question:')} </b>{description ? <KatexSpan content={description} /> : n_a}</p>
@@ -1940,6 +1943,7 @@ function BookReader({ book, file, generateAllConceptsModel, generateAllConceptsR
         book={book}
         onAction={setActivePane}
         onBookChange={onBookChange}
+        onContentChange={onSkillsContentChange}
         onEntityCountsChange={onSkillsEntityCountsChange}
         pipelineOnly
         pipelinePrefix={processingToolbar}
@@ -2086,6 +2090,7 @@ function BookReader({ book, file, generateAllConceptsModel, generateAllConceptsR
                         <div className='skillsArea'>
                           <Skills
                             book={book}
+                            externalRefreshToken={skillsRefreshToken}
                             onAction={setActivePane}
                             onBookChange={onBookChange}
                             onEntityCountsChange={onSkillsEntityCountsChange}
@@ -2097,6 +2102,7 @@ function BookReader({ book, file, generateAllConceptsModel, generateAllConceptsR
                       : activePane === 'preExercisesExercises'
                         ? <div className='skillsArea'><Skills
                           book={book}
+                          externalRefreshToken={skillsRefreshToken}
                           onAction={setActivePane}
                           onBookChange={onBookChange}
                           onEntityCountsChange={onSkillsEntityCountsChange}

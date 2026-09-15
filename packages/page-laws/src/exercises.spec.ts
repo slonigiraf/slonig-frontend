@@ -12,7 +12,6 @@ import { parseExerciseRepairResult } from './exercises.js';
 
 function createExercise (id: number, title = `Exercise ${id}`): Exercise {
   return {
-    abilityMode: 'reasoning',
     bookPage: [1, 1],
     conceptId: 10,
     description: `Calculate ${id} + 1.`,
@@ -31,7 +30,6 @@ describe('exercise repair', (): void => {
       reviews: [{
         errors: ['The solution was incorrect.'],
         exercise: {
-          abilityMode: 'reasoning',
           description: 'Calculate 1 + 2.',
           solution: '1 + 2 = 3.',
           title: 'Add two small integers'
@@ -59,7 +57,6 @@ describe('exercise repair', (): void => {
       reviews: [{
         errors: ['The image description is inaccurate.'],
         exercise: {
-          abilityMode: original.abilityMode,
           description: original.description,
           imageDescription: 'A triangle with side lengths 3, 4, and 5.',
           solution: original.solution,
@@ -89,7 +86,6 @@ describe('exercise repair', (): void => {
       reviews: [{
         errors: ['The solution visual is unnecessary.'],
         exercise: {
-          abilityMode: original.abilityMode,
           description: original.description,
           imageDescription: '',
           solution: original.solution,
@@ -117,7 +113,6 @@ describe('exercise repair', (): void => {
       reviews: [{
         errors: ['The required solution image description is missing.'],
         exercise: {
-          abilityMode: original.abilityMode,
           description: original.description,
           imageDescription: '',
           solution: original.solution,
@@ -178,7 +173,6 @@ describe('exercise repair', (): void => {
       reviews: [{
         errors: ['Claimed error'],
         exercise: {
-          abilityMode: original.abilityMode,
           description: original.description,
           solution: original.solution,
           title: original.title
@@ -198,7 +192,7 @@ describe('exercise repair', (): void => {
     assert.match(FIX_EXERCISES_PROMPT, /only visual-description fields/i);
     assert.match(FIX_EXERCISES_PROMPT, /decorative, illustrative/i);
     assert.match(FIX_EXERCISES_PROMPT, /Preserve the Exercise's learner modality/i);
-    assert.match(FIX_EXERCISES_PROMPT, /no globally preferred mode/i);
+    assert.doesNotMatch(FIX_EXERCISES_PROMPT, /abilityMode/i);
     assert.match(FIX_EXERCISES_PROMPT, /Preserve the represented form/i);
     assert.match(FIX_EXERCISES_PROMPT, /Prefer one short sentence/i);
     assert.match(FIX_EXERCISES_PROMPT, /6-16 words/i);
