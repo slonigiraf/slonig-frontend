@@ -17,14 +17,21 @@ export const OPENAI_MODELS = [
   { text: 'GPT-5.4: $2.50/$15', value: 'openai/gpt-5.4' }
 ];
 
-export const BOOK_PAGE_EXTRACTION_PROMPT = `Extract only the concepts that are intentionally introduced or explained as new on this page. Chapter assignment is handled in a separate structural stage, so do not identify, infer, or return a chapter or section.
+export const BOOK_CHAPTER_EXTRACTION_PROMPT = `Read the complete supplied chapter as one unit and extract only the distinct concepts that are intentionally introduced or explained as new anywhere in this chapter. Chapter assignment is already known; do not identify, infer, or return a different chapter or section.
 
-Do not include concepts that the page assumes the reader already knows, merely reviews, references from earlier sections, or uses only in exercises/examples without introducing them. Ignore exercises, questions, problems, drills, review tasks, and their solutions completely: do not parse, solve, summarize, or return them.
+Deduplicate concepts across the whole chapter. If the same concept is introduced, restated, expanded, exemplified, or referenced on multiple pages, return it exactly once. Set pageNumber to the earliest supplied page where that concept is actually introduced as new, not the page with the longest or clearest later explanation. Do not split one concept into duplicates merely because wording, notation, examples, or level of detail changes on later pages.
+
+Do not include concepts that the chapter assumes the reader already knows, merely reviews, references from earlier chapters, or uses only in exercises/examples without introducing them. Ignore exercises, questions, problems, drills, review tasks, and their solutions completely: do not parse, solve, summarize, or return them.
 
 Return only valid JSON in this exact shape, keeping the original language of the input:
-{"concepts":[{"title":"New concept","description":"Explanation or example from the page"}]}
+{"concepts":[{"title":"New concept","description":"Explanation or example from the chapter","pageNumber":12}]}
 
-Use an empty array when no new concepts are present. Keep each concept description focused on the explanation of the concept itself; do not turn an exercise statement into a concept description. Use <kx>...</kx> to surround KaTeX for every mathematical formula or expression, never dollar-delimited LaTeX. Escape every backslash in mathematical notation so the result remains valid JSON. Do not add markdown or any text outside the JSON.`;
+Every pageNumber must be one of the supplied page numbers. Use an empty array when no new concepts are present. Keep each concept description focused on the explanation of the concept itself; do not turn an exercise statement into a concept description. Use <kx>...</kx> to surround KaTeX for every mathematical formula or expression, never dollar-delimited LaTeX. Escape every backslash in mathematical notation so the result remains valid JSON. Do not add markdown or any text outside the JSON.`;
+
+// Compatibility alias for callers that still import the older name. Concept
+// extraction itself is chapter-scoped; the request prompt below supplies all
+// pages from one chapter together.
+export const BOOK_PAGE_EXTRACTION_PROMPT = BOOK_CHAPTER_EXTRACTION_PROMPT;
 
 export const EXERCISE_TEMPLATE_STYLE_PROMPT = `Write every generated exercise as the short concrete instance of a reusable template pattern. Include only enough concrete variable context so the same wording pattern can later be reused by changing 1-3 data-bearing words or values while keeping the instruction, operation, structure, input/output types, and solution method unchanged. Make those replaceable data slots obvious from the concrete wording. This is a structural requirement only: do not generate, propose, compare, or output extra alternate or variant exercises to demonstrate the pattern; output only the exercise or exercises explicitly required by the calling prompt.
 
@@ -48,13 +55,18 @@ Use <kx>...</kx> to surround every mathematical expression that uses KaTeX. Copy
 
 export const STRICT_JSON_ARRAY_SYSTEM_PROMPT = 'Respond strictly as a JSON array.';
 
-export const BOOK_PAGE_EXTRACTION_REQUEST_PROMPT = (text: string, imageNames: string[]): string => {
-  return `${BOOK_PAGE_EXTRACTION_PROMPT}
+export const BOOK_CHAPTER_EXTRACTION_REQUEST_PROMPT = (chapterTitle: string, pages: Array<{ imageNames: string[]; pageNumber: number; text: string }>): string => {
+  return `${BOOK_CHAPTER_EXTRACTION_PROMPT}
 
-The following text and ${imageNames.length} attached image(s) were extracted from the Mathpix MMD ZIP. Use attached images only when they contain information needed to understand a concept introduced on the page. Ignore exercise-only images and exercise/solution content.
+Chapter: ${chapterTitle}
 
-${text}`;
+The following ordered pages and ${pages.reduce((count, { imageNames }) => count + imageNames.length, 0)} attached image(s) were extracted from Mathpix MMD ZIPs. Treat all supplied pages as one chapter-wide context. Use attached images only when they contain information needed to understand a concept introduced in this chapter. Ignore exercise-only images and exercise/solution content.
+
+${pages.map(({ imageNames, pageNumber, text }) => `--- page ${pageNumber} ---\nAttached page images: ${imageNames.length ? imageNames.join(', ') : 'none'}\n${text}`).join('\n\n')}`;
 };
+
+export const BOOK_PAGE_EXTRACTION_REQUEST_PROMPT = (text: string, imageNames: string[]): string =>
+  BOOK_CHAPTER_EXTRACTION_REQUEST_PROMPT('', [{ imageNames, pageNumber: 1, text }]);
 
 export const BOOK_LANGUAGE_DETECTION_PROMPT = (pageTexts: Array<{ pageNumber: number; text: string }>): string => {
   return `Identify the primary natural language of this book using only the supplied Mathpix MMD text from its middle pages. Ignore formulas, code, proper names, citations, isolated foreign phrases, and bilingual glossary fragments when deciding the main prose language. If the pages contain multiple languages, choose the language used for the majority of explanatory or instructional prose.

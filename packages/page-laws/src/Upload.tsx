@@ -11,6 +11,7 @@ import { Button, Dropdown, Modal, styled } from '@polkadot/react-components';
 
 import { estimateAiInput, formatAiInputEstimate } from './aiEstimate.js';
 import { MATHPIX_PDF_PAGE_PRICE_USD, OPENAI_MODELS } from './constants.js';
+import { conceptChaptersFromPages } from './conceptRecognition.js';
 import { formatOpenRouterSpend } from './openRouterCost.js';
 import { loadPdfJs } from './pdf.js';
 import { useTranslation } from './translate.js';
@@ -415,13 +416,17 @@ function Upload (): React.ReactElement {
 
     getBookPages(selectedBook.id)
       .then((pages) => {
-        const requestInputs = pages.filter(({ pageMMD }) => !!pageMMD).flatMap(({ pageMMD = '' }) => {
-          const validationInput = pageMMD.slice(0, Math.ceil(pageMMD.length / 3));
+        const pageByNumber = new Map(pages.map((page) => [page.pageNumber, page]));
+        const requestInputs = conceptChaptersFromPages(pages).flatMap(({ pageNumbers }) => {
+          const chapterText = pageNumbers.map((pageNumber) => `--- page ${pageNumber} ---\n${pageByNumber.get(pageNumber)?.pageMMD ?? ''}`).join('\n\n');
+          const estimatedRequest = chapterText.padEnd(chapterText.length + 2_000);
 
-          return [pageMMD.padEnd(pageMMD.length + 2_000), validationInput.padEnd(validationInput.length + 2_000)];
+          // Concept extraction can retry an empty chapter response once, so
+          // estimate two whole-chapter requests per chapter conservatively.
+          return [estimatedRequest, estimatedRequest];
         });
 
-        setGenerateConceptsEstimate(formatAiInputEstimate(estimateAiInput(generateAllConceptsModel, requestInputs, pages.length * 4_800)));
+        setGenerateConceptsEstimate(formatAiInputEstimate(estimateAiInput(generateAllConceptsModel, requestInputs, 4_800)));
       })
       .catch(() => setError(t('Unable to estimate concept generation cost.')));
   }, [generateAllConceptsModel, isGenerateConceptsConfirmationOpen, selectedBook, t]);
@@ -639,7 +644,7 @@ function Upload (): React.ReactElement {
         size='small'
       >
         <Modal.Content>
-          <p>{t('Generate concepts for every recognized page in this book?')}</p>
+          <p>{t('Generate concepts chapter-by-chapter for this book? Each concept will be stored on the page where it is first introduced.')}</p>
           <p>{generateConceptsEstimate}</p>
           <Dropdown
             className='batchModelSelect'
