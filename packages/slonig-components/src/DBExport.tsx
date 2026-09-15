@@ -2,21 +2,23 @@ import pako from 'pako';
 import FileSaver from 'file-saver';
 import React, { useCallback, useState } from 'react';
 import { styled } from '@polkadot/react-components';
-import { exportDB } from '@slonigiraf/db';
+import { exportDB, getBooks } from '@slonigiraf/db';
 import { nextTick } from '@polkadot/util';
 import { keyring } from '@polkadot/ui-keyring';
 import { useLoginContext } from './LoginContext.js';
 import { ButtonWithLabelBelow, getFormattedTimestamp, RoundProgress, useLog } from '@slonigiraf/slonig-components';
 import { useTranslation } from './translate.js';
+import { exportBookPdfs } from './bookBackup.js';
 
 interface Props {
   className?: string;
   caption?: string;
+  includeEverything?: boolean;
   onSuccess: () => void;
 }
 
 const compressionDeceleration = 0.8;
-function DBExport({ className = '', caption, onSuccess }: Props): React.ReactElement<Props> {
+function DBExport({ className = '', caption, includeEverything = false, onSuccess }: Props): React.ReactElement<Props> {
   const { t } = useTranslation();
   const { currentPair } = useLoginContext();
   const [isBusy, setIsBusy] = useState(false);
@@ -58,7 +60,7 @@ function DBExport({ className = '', caption, onSuccess }: Props): React.ReactEle
           }
 
           // Export database
-          const dbBlob = await exportDB(progressCallback);
+          const dbBlob = await exportDB(progressCallback, includeEverything);
 
           if (!dbBlob) {
             throw new Error('No database data available to export');
@@ -68,6 +70,7 @@ function DBExport({ className = '', caption, onSuccess }: Props): React.ReactEle
           const combinedData = {
             keys: allKeyPairsJson,
             db: JSON.parse(await dbBlob.text()),
+            ...(includeEverything ? { bookPdfs: await exportBookPdfs(await getBooks()) } : {})
           };
 
           // Gzip the combined data
@@ -93,7 +96,7 @@ function DBExport({ className = '', caption, onSuccess }: Props): React.ReactEle
         }
       });
     },
-    [currentPair]
+    [currentPair, includeEverything, logEvent, onSuccess]
   );
 
   return (

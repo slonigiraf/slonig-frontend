@@ -29,6 +29,7 @@ function General({ className = '' }: Props): React.ReactElement<Props> {
   const [openRouterToken, setOpenRouterToken] = useState('');
   const [mathpixApiKey, setMathpixApiKey] = useState('');
   const [isDeveloper, setDeveloper] = useState<boolean>(false);
+  const [includeEverythingInBackup, setIncludeEverythingInBackup] = useState(false);
   // tri-state: null = nothing changed, false = no reload, true = reload required
   const [changed, setChanged] = useState<boolean | null>(null);
   const [exportSucceded, setExportSucceded] = useState(false);
@@ -230,7 +231,17 @@ function General({ className = '' }: Props): React.ReactElement<Props> {
       {currentPair && <>
         <h2>{t('Backup')}</h2>
         <div className='ui--row'>
-          <DBExport onSuccess={() => setExportSucceded(true)} />
+          <Toggle
+            label={t('Include everything (parsed book data and PDFs)')}
+            onChange={setIncludeEverythingInBackup}
+            value={includeEverythingInBackup}
+          />
+        </div>
+        <div className='ui--row'>
+          <DBExport
+            includeEverything={includeEverythingInBackup}
+            onSuccess={() => setExportSucceded(true)}
+          />
         </div>
         <h2>{t('Delete all data')}</h2>
         <div className='ui--row'>

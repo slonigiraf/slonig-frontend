@@ -1,11 +1,12 @@
 import React, { useCallback } from 'react';
 import { InputFile } from '@polkadot/react-components';
 import { useTranslation } from './translate.js';
-import { replaceDB, SettingKey, storeSetting } from '@slonigiraf/db';
+import { getBooks, replaceDB, SettingKey, storeSetting } from '@slonigiraf/db';
 import { keyring } from '@polkadot/ui-keyring';
 import pako from 'pako';
 import { useInfo } from './InfoProvider.js';
 import { useLoginContext, useLog } from '@slonigiraf/slonig-components';
+import { importBookPdfs } from './bookBackup.js';
 
 interface Props {
   className?: string;
@@ -26,7 +27,7 @@ function DBImport({ className = '', onFileSelect, onRestoreResult }: Props): Rea
       const backupFileSizeKb = Math.round(file.byteLength / 1024);
       try {
         const decompressedData = new TextDecoder().decode(pako.ungzip(file));
-        const { keys, db } = JSON.parse(decompressedData);
+        const { bookPdfs, keys, db } = JSON.parse(decompressedData);
         if (keys && Array.isArray(keys)) {
           keys.forEach((keyJson: any) => {
             keyring.restoreAccount(keyJson, 'password');
@@ -37,6 +38,10 @@ function DBImport({ className = '', onFileSelect, onRestoreResult }: Props): Rea
         }
         if (db) {
           await replaceDB(db);
+
+          if (bookPdfs !== undefined) {
+            await importBookPdfs(await getBooks(), bookPdfs);
+          }
         } else {
           throw new Error('No valid database content found in the file.');
         }

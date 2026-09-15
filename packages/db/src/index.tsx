@@ -34,6 +34,7 @@ import type { BookChapter } from './db/BookChapter.js';
 import type { Skill } from './db/Skill.js';
 import type { ExerciseTemplate } from './db/ExerciseTemplate.js';
 import type { Ability } from './db/Ability.js';
+import { shouldExportDatabaseRow } from './backup.js';
 
 export type { LearnRequest, TutorAction, CanceledInsurance, Reexamination, LetterTemplate, CanceledLetter, Reimbursement, Letter, Insurance, Lesson, Pseudonym, Setting, Signer, UsageRight, Agreement, Ability, Book, BookStageSpend, BookStageSpendKey, BookPage, MathpixHeading, BookChapter, BookConcept, Exercise, Skill, ExerciseTemplate };
 
@@ -1538,12 +1539,12 @@ export function insuranceToUsageRight(insurance: Insurance): UsageRight {
 
 // Export DB
 
-export async function exportDB(progressCallback?: (progress: number) => void): Promise<Blob> {
+export async function exportDB(progressCallback?: (progress: number) => void, includeEverything = false): Promise<Blob> {
     try {
         const blob = await dexieExport(db, {
             prettyJson: true,
             progressCallback,
-            filter: (tableName: string) => tableName !== 'cidCache',
+            filter: (tableName: string, value: unknown) => shouldExportDatabaseRow(tableName, value, includeEverything),
         });
         return blob;
     } catch (error) {

@@ -1,7 +1,7 @@
 // Copyright 2021-2022 @slonigiraf/apps authors & contributors
 // SPDX-License-Identifier: Apache-2.0
 import React, { useCallback, useEffect, useState } from 'react';
-import { Spinner, styled } from '@polkadot/react-components';
+import { Spinner, styled, Toggle } from '@polkadot/react-components';
 import { DBExport, FullscreenActivity, useLog } from '@slonigiraf/slonig-components';
 import { useTranslation } from './translate.js';
 
@@ -13,6 +13,7 @@ interface Props {
 function BackupReminder({ className = '', onResult }: Props): React.ReactElement<Props> {
   const { t } = useTranslation();
   const { logEvent } = useLog();
+  const [includeEverything, setIncludeEverything] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
 
   const onBackup = useCallback(async () => {
@@ -33,7 +34,15 @@ function BackupReminder({ className = '', onResult }: Props): React.ReactElement
         <StyledDiv>
           {isLoading ? <Spinner label={t('Loading')} /> : <>
             <h1 className='prompt' style={{ width: '70%', maxWidth: 430, textAlign: 'center' }}>{t('Download your backup in case you erase your browser history')}</h1>
-            <DBExport onSuccess={() => onBackup()} />
+            <Toggle
+              label={t('Include everything (parsed book data and PDFs)')}
+              onChange={setIncludeEverything}
+              value={includeEverything}
+            />
+            <DBExport
+              includeEverything={includeEverything}
+              onSuccess={() => onBackup()}
+            />
           </>
           }
         </StyledDiv>
