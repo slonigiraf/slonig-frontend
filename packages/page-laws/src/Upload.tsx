@@ -13,6 +13,7 @@ import { estimateAiInput, formatAiInputEstimate } from './aiEstimate.js';
 import { MATHPIX_PDF_PAGE_PRICE_USD, OPENAI_MODELS } from './constants.js';
 import { conceptChaptersFromPages } from './conceptRecognition.js';
 import { formatOpenRouterSpend } from './openRouterCost.js';
+import { loadStoredBookStandards, STANDARD_FRAMEWORKS, standardsAssignmentPrompt, standardsCompatibilityPrompt } from './standards.js';
 import { loadPdfJs } from './pdf.js';
 import { useTranslation } from './translate.js';
 
@@ -86,6 +87,7 @@ function Upload (): React.ReactElement {
   const [books, setBooks] = useState<Book[]>([]);
   const [error, setError] = useState('');
   const [isBusy, setIsBusy] = useState(false);
+  const [assignAllStandardsRequest, setAssignAllStandardsRequest] = useState(0);
   const [generateAllConceptsRequest, setGenerateAllConceptsRequest] = useState(0);
   const [languageTabRequest, setLanguageTabRequest] = useState(0);
   const [identifyChaptersRequest, setIdentifyChaptersRequest] = useState(0);
@@ -95,13 +97,15 @@ function Upload (): React.ReactElement {
   const [generateConceptsEstimate, setGenerateConceptsEstimate] = useState('');
   const [isGenerateConceptsConfirmationOpen, setIsGenerateConceptsConfirmationOpen] = useState(false);
   const [isGenerateExercisesConfirmationOpen, setIsGenerateExercisesConfirmationOpen] = useState(false);
+  const [isStandardsConfirmationOpen, setIsStandardsConfirmationOpen] = useState(false);
   const [isRecognizeConfirmationOpen, setIsRecognizeConfirmationOpen] = useState(false);
   const [isPriceOpen, setIsPriceOpen] = useState(false);
   const [priceBook, setPriceBook] = useState<Book>();
-  const [pendingProcessingAction, setPendingProcessingAction] = useState<'chapters' | 'concepts' | 'recognize' | 'exercises'>();
+  const [pendingProcessingAction, setPendingProcessingAction] = useState<'chapters' | 'concepts' | 'recognize' | 'standards' | 'exercises'>();
   const [generateAllExercisesRequest, setGenerateAllExercisesRequest] = useState(0);
   const [generateExercisesEstimate, setGenerateExercisesEstimate] = useState('');
   const [recognizeEstimate, setRecognizeEstimate] = useState('');
+  const [standardsEstimate, setStandardsEstimate] = useState('');
   const [recognizeAllRequest, setRecognizeAllRequest] = useState(0);
   const [readerFile, setReaderFile] = useState<File>();
   const [selectedId, setSelectedId] = useState<number | undefined>(getSessionBookId);
@@ -153,6 +157,10 @@ function Upload (): React.ReactElement {
   const totalSpend = useMemo(
     () => PRICE_STAGES.reduce((total, { key }) => total + (priceBook?.stageSpend?.[key] ?? 0), 0),
     [priceBook]
+  );
+  const standardsAssigned = useMemo(
+    () => selectedBook ? Object.keys(loadStoredBookStandards(selectedBook.id)).length > 0 : false,
+    [selectedBook]
   );
 
   useEffect(() => {
@@ -457,6 +465,59 @@ function Upload (): React.ReactElement {
     });
   }, [selectedBook, t]);
 
+  const onAssignStandards = useCallback((): void => {
+    if (!selectedBook) {
+      return;
+    }
+
+    setPendingProcessingAction('standards');
+    setIsStandardsConfirmationOpen(true);
+  }, [selectedBook]);
+
+  useEffect(() => {
+    if (!isStandardsConfirmationOpen || !selectedBook) {
+      return;
+    }
+
+    getBookPages(selectedBook.id).then(async (pages) => {
+      const requests: string[] = [];
+
+      for (const chapter of conceptChaptersFromPages(pages)) {
+        const concepts = (await Promise.all(chapter.pageNumbers.map((pageNumber) => getBookConceptsForBookPage(selectedBook.id, pageNumber))))
+          .flat()
+          .map(({ description, title }) => ({ description, title }));
+        const uniqueConcepts = Array.from(new Map(concepts.map((concept) => [`${concept.title}\u001f${concept.description}`, concept])).values());
+
+        if (!uniqueConcepts.length) {
+          continue;
+        }
+
+        requests.push(standardsCompatibilityPrompt(chapter.title, uniqueConcepts));
+        requests.push(standardsAssignmentPrompt(chapter.title, uniqueConcepts, STANDARD_FRAMEWORKS.map(({ key }) => key)));
+      }
+
+      setStandardsEstimate(requests.length
+        ? formatAiInputEstimate(estimateAiInput(generateAllConceptsModel, requests, Math.max(2_000, requests.length * 1_200)))
+        : t('No chapter concepts are available for standards assignment.'));
+    }).catch(() => setError(t('Unable to estimate standards assignment cost.')));
+  }, [generateAllConceptsModel, isStandardsConfirmationOpen, selectedBook, t]);
+
+  const closeStandardsConfirmation = useCallback((): void => {
+    setIsStandardsConfirmationOpen(false);
+    setPendingProcessingAction(undefined);
+  }, []);
+
+  const confirmAssignStandards = useCallback((): void => {
+    setIsStandardsConfirmationOpen(false);
+
+    if (!selectedBook) {
+      setPendingProcessingAction(undefined);
+      return;
+    }
+
+    setAssignAllStandardsRequest((request) => request + 1);
+  }, [selectedBook]);
+
   const onGenerateExercises = useCallback((): void => {
     if (!selectedBook) {
       return;
@@ -670,6 +731,36 @@ function Upload (): React.ReactElement {
           </Button.Group>
         </Modal.Content>
       </Modal>}
+      {isStandardsConfirmationOpen && <Modal
+        header={t('Standards')}
+        onClose={closeStandardsConfirmation}
+        size='small'
+      >
+        <Modal.Content>
+          <p>{t('Assign standards to every chapter from its concepts? Each chapter first detects which standards frameworks are compatible, then assigns all directly applicable codes only from those frameworks.')}</p>
+          <p>{standardsEstimate}</p>
+          <Dropdown
+            className='batchModelSelect'
+            isFull
+            label={t('Model')}
+            onChange={setGenerateAllConceptsModel}
+            options={OPENAI_MODELS}
+            value={generateAllConceptsModel}
+          />
+          <Button.Group>
+            <Button
+              icon='times'
+              label={t('Cancel')}
+              onClick={closeStandardsConfirmation}
+            />
+            <Button
+              icon='magic'
+              label={t('Assign')}
+              onClick={confirmAssignStandards}
+            />
+          </Button.Group>
+        </Modal.Content>
+      </Modal>}
       {isGenerateExercisesConfirmationOpen && <Modal
         header={t('Generate exercises')}
         onClose={closeGenerateExercisesConfirmation}
@@ -746,6 +837,7 @@ function Upload (): React.ReactElement {
       {selectedBook && readerFile && (
         <React.Suspense fallback={<p>{t('Loading PDF reader…')}</p>}>
           <BookReader
+            assignAllStandardsRequest={assignAllStandardsRequest}
             book={selectedBook}
             key={selectedBook.id}
             file={readerFile}
@@ -788,6 +880,15 @@ function Upload (): React.ReactElement {
                 isDisabled={!selectedBook || !readerFile || isBusy || (selectedBook.processingStage ?? 0) < 2 || !selectedBook.language}
                 label={t('Concepts')}
                 onClick={onGenerateConcepts}
+              />
+            </span>
+            <span className='pipelineStep'>
+              <span>›</span>
+              <Button
+                icon={standardsAssigned ? 'rotate-left' : 'play'}
+                isDisabled={!selectedBook || !readerFile || isBusy || (selectedBook.processingStage ?? 0) < 3 || !selectedBook.language}
+                label={t('Standards')}
+                onClick={onAssignStandards}
               />
             </span>
             <span className='pipelineStep'>

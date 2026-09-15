@@ -24,6 +24,7 @@ import { BOOK_CHAPTER_EXTRACTION_REQUEST_PROMPT, BOOK_LANGUAGE_DETECTION_PROMPT,
 import { stripMarkdownImageReferences } from './bookImageRefs.js';
 import { chapterAssignmentsFromBoundaries, chapterEvidenceWindows, chapterReconciliationPrompt, chapterWindowPrompt, deriveStructuralChapterCandidates, extractMathpixHeadingsFromLines, pageChapterEvidence, parseChapterBoundaries, stabilizeChapterBoundaries, type ChapterBoundaryProposal } from './chapterSegmentation.js';
 import { conceptChaptersFromPages, parseGeneratedChapterConcepts, type ConceptChapterNavigationItem, type GeneratedChapterConcepts } from './conceptRecognition.js';
+import { completeStandardsCompatibility, conceptFingerprint, loadStoredBookStandards, parseStandardsAssignment, parseStandardsCompatibility, STANDARD_FRAMEWORKS, standardsAssignmentPrompt, standardsChapterKey, standardsCompatibilityPrompt, storeBookStandards, type CurriculumStandard, type StandardsFramework, type StoredBookStandards } from './standards.js';
 import Skills from './Skills.js';
 import SkillsCourse from './SkillsCourse.js';
 import { loadPdfJs } from './pdf.js';
@@ -69,6 +70,59 @@ async function requestGeneratedChapterContent(client: OpenAI, model: string, cha
   }
 
   return parseGeneratedChapterConcepts(generatedContent, new Set(usablePages.map(({ pageNumber }) => pageNumber)));
+}
+
+async function requestChapterStandards(client: OpenAI, model: string, chapterTitle: string, concepts: Array<Pick<BookConcept, 'description' | 'title'>>, onCost?: OpenRouterCostReporter): Promise<CurriculumStandard[]> {
+  if (!concepts.length) {
+    return [];
+  }
+
+  const compatibilityResponse = await openRouterRequestGate.run(() => client.chat.completions.create({
+    messages: [{
+      content: standardsCompatibilityPrompt(chapterTitle, concepts),
+      role: 'user'
+    }],
+    model,
+    response_format: { type: 'json_object' }
+  }));
+
+  reportOpenRouterCost(compatibilityResponse, onCost);
+  const compatibilityContent = compatibilityResponse.choices[0].message?.content?.trim();
+
+  if (!compatibilityContent) {
+    throw new Error('OpenRouter returned no standards compatibility data.');
+  }
+
+  const compatibleFrameworks = completeStandardsCompatibility(parseStandardsCompatibility(compatibilityContent));
+
+  if (!compatibleFrameworks.length) {
+    return [];
+  }
+
+  // Query each compatible framework separately. This makes the selected model
+  // actually attempt TEKS and Virginia SOL instead of concentrating on CCSS and
+  // returning empty arrays for the remaining frameworks in a combined response.
+  const assignments = await Promise.all(compatibleFrameworks.map(async (framework: StandardsFramework): Promise<CurriculumStandard[]> => {
+    const assignmentResponse = await openRouterRequestGate.run(() => client.chat.completions.create({
+      messages: [{
+        content: standardsAssignmentPrompt(chapterTitle, concepts, [framework]),
+        role: 'user'
+      }],
+      model,
+      response_format: { type: 'json_object' }
+    }));
+
+    reportOpenRouterCost(assignmentResponse, onCost);
+    const assignmentContent = assignmentResponse.choices[0].message?.content?.trim();
+
+    if (!assignmentContent) {
+      throw new Error(`OpenRouter returned no ${framework} standards data.`);
+    }
+
+    return parseStandardsAssignment(assignmentContent).filter(({ framework: assignedFramework }) => assignedFramework === framework);
+  }));
+
+  return assignments.flat();
 }
 
 async function generateChapterContentWithEmptyConceptRetry(client: OpenAI, model: string, chapterTitle: string, pages: ChapterConceptInputPage[], retryEmptyConcepts: boolean, onCost?: OpenRouterCostReporter): Promise<GeneratedChapterConcepts> {
@@ -360,6 +414,7 @@ async function recognizePageWithMathpix(apiKey: string, file: File, pageNumber: 
 }
 
 interface Props {
+  assignAllStandardsRequest: number;
   book: Book;
   file: File;
   generateAllConceptsModel: string;
@@ -368,13 +423,13 @@ interface Props {
   languageTabRequest: number;
   onBookChange: (book: Book) => void;
   onProcessingComplete: () => void;
-  pendingProcessingAction?: 'chapters' | 'concepts' | 'recognize' | 'exercises';
+  pendingProcessingAction?: 'chapters' | 'concepts' | 'recognize' | 'standards' | 'exercises';
   processingToolbar: React.ReactNode;
   generateAllExercisesRequest: number;
   recognizeAllRequest: number;
 }
 
-type ReaderPane = 'chapters' | 'conceptExercises' | 'conceptsSkills' | 'language' | 'pdf' | 'preExercisesExercises' | 'skillsCourse' | 'text' | 'textConcepts';
+type ReaderPane = 'chapters' | 'conceptExercises' | 'conceptsSkills' | 'language' | 'pdf' | 'preExercisesExercises' | 'skillsCourse' | 'standards' | 'text' | 'textConcepts';
 type RecognitionTarget = 'all' | 'page';
 
 interface ReaderEntityCounts {
@@ -425,19 +480,23 @@ function getSessionReaderPane(bookId: number): ReaderPane {
       return 'text';
     }
 
-    return value === 'text' || value === 'language' || value === 'chapters' || value === 'textConcepts' || value === 'conceptExercises' || value === 'preExercisesExercises' || value === 'skillsCourse' ? value : 'text';
+    return value === 'text' || value === 'language' || value === 'chapters' || value === 'textConcepts' || value === 'standards' || value === 'conceptExercises' || value === 'preExercisesExercises' || value === 'skillsCourse' ? value : 'text';
   } catch {
     return 'text';
   }
 }
 
-function BookReader({ book, file, generateAllConceptsModel, generateAllConceptsRequest, identifyChaptersRequest, languageTabRequest, onBookChange, onProcessingComplete, pendingProcessingAction, processingToolbar, recognizeAllRequest, generateAllExercisesRequest }: Props): React.ReactElement {
+function BookReader({ assignAllStandardsRequest, book, file, generateAllConceptsModel, generateAllConceptsRequest, identifyChaptersRequest, languageTabRequest, onBookChange, onProcessingComplete, pendingProcessingAction, processingToolbar, recognizeAllRequest, generateAllExercisesRequest }: Props): React.ReactElement {
   const { t } = useTranslation();
   const [activePane, setActivePane] = useState<ReaderPane>(() => (book.processingStage ?? 0) < 1 ? 'text' : getSessionReaderPane(book.id));
   const [chapters, setChapters] = useState<BookChapter[]>([]);
   const [chapterTitleDraft, setChapterTitleDraft] = useState('');
   const [newChapterTitle, setNewChapterTitle] = useState('');
   const [concepts, setConcepts] = useState<BookConcept[]>([]);
+  const [standardsByChapter, setStandardsByChapter] = useState<StoredBookStandards>(() => loadStoredBookStandards(book.id));
+  const [standardsChapterIndex, setStandardsChapterIndex] = useState(0);
+  const [standardsAssignedChapterCount, setStandardsAssignedChapterCount] = useState(0);
+  const [isAssigningStandards, setIsAssigningStandards] = useState(false);
   const [conceptFirstPageByKey, setConceptFirstPageByKey] = useState<Map<string, number>>(new Map());
   const [exerciseChapterConcepts, setExerciseChapterConcepts] = useState<BookConcept[]>([]);
   const [exerciseChapterExercises, setExerciseChapterExercises] = useState<Exercise[]>([]);
@@ -471,6 +530,7 @@ function BookReader({ book, file, generateAllConceptsModel, generateAllConceptsR
   const [skillsRefreshToken, setSkillsRefreshToken] = useState(0);
   const [totalPages, setTotalPages] = useState(0);
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  const handledAssignAllStandardsRequestRef = useRef(assignAllStandardsRequest);
   const handledGenerateAllConceptsRequestRef = useRef(generateAllConceptsRequest);
   const handledLanguageTabRequestRef = useRef(languageTabRequest);
   const handledIdentifyChaptersRequestRef = useRef(identifyChaptersRequest);
@@ -489,6 +549,8 @@ function BookReader({ book, file, generateAllConceptsModel, generateAllConceptsR
   const addExercisesCost = useCallback((costUsd: number): void => addStageCost('exercises', costUsd), [addStageCost]);
   const conceptChapters = useMemo<ConceptChapterNavigationItem[]>(() => conceptChaptersFromPages(Array.from(pages.values())), [pages]);
   const currentConceptChapter = useMemo(() => conceptChapters.find(({ pageNumbers }) => pageNumbers.includes(pageNumber)), [conceptChapters, pageNumber]);
+  const currentStandardsChapter = conceptChapters[standardsChapterIndex];
+  const currentStandardsChapterKey = currentStandardsChapter ? standardsChapterKey(currentStandardsChapter.chapterId, currentStandardsChapter.title, currentStandardsChapter.pageNumbers) : undefined;
   const chapterGenerationEstimate = useMemo(() => {
     const chapterText = currentConceptChapter?.pageNumbers.map((chapterPageNumber) => `--- page ${chapterPageNumber} ---\n${pages.get(chapterPageNumber)?.pageMMD ?? ''}`).join('\n\n') ?? '';
     const estimatedRequest = chapterText.padEnd(chapterText.length + 2_000);
@@ -556,6 +618,9 @@ function BookReader({ book, file, generateAllConceptsModel, generateAllConceptsR
       // Session storage may be unavailable in privacy-restricted contexts.
     }
   }, [book.id, exerciseChapters.length]);
+  const changeStandardsChapter = useCallback((index: number): void => {
+    setStandardsChapterIndex(Math.max(0, Math.min(index, Math.max(0, conceptChapters.length - 1))));
+  }, [conceptChapters.length]);
 
   useEffect(() => {
     refreshEntityCounts().catch(() => undefined);
@@ -572,6 +637,23 @@ function BookReader({ book, file, generateAllConceptsModel, generateAllConceptsR
       changeExerciseChapter(exerciseChapters.length - 1);
     }
   }, [changeExerciseChapter, exerciseChapterIndex, exerciseChapters.length]);
+
+  useEffect((): void => {
+    if (!conceptChapters.length) {
+      setStandardsChapterIndex(0);
+
+      return;
+    }
+
+    if (standardsChapterIndex >= conceptChapters.length) {
+      changeStandardsChapter(conceptChapters.length - 1);
+    }
+  }, [changeStandardsChapter, conceptChapters.length, standardsChapterIndex]);
+
+  useEffect((): void => {
+    setStandardsByChapter(loadStoredBookStandards(book.id));
+    setStandardsChapterIndex(0);
+  }, [book.id]);
 
   useEffect(() => {
     try {
@@ -1617,6 +1699,99 @@ function BookReader({ book, file, generateAllConceptsModel, generateAllConceptsR
     });
   }, [isGeneratingAllConcepts, isIdentifyingChapters, isRecognizingAll, isGeneratingAllExercises, onProcessingComplete, processingPage, recognizeAllPages, recognizeAllRequest, totalPages]);
 
+  const assignStandards = useCallback(async (force = false, model = selectedModel): Promise<void> => {
+    if (!conceptChapters.length || isAssigningStandards) {
+      return;
+    }
+
+    setError('');
+    setIsAssigningStandards(true);
+    setStandardsAssignedChapterCount(0);
+    setOpenRouterSpent(0);
+
+    try {
+      const key = await getSetting(SettingKey.OPENROUTER_TOKEN);
+
+      if (!key) {
+        throw new Error('No OpenRouter token found. Add it in Settings.');
+      }
+
+      const client = new OpenAI({
+        apiKey: key,
+        baseURL: 'https://openrouter.ai/api/v1',
+        dangerouslyAllowBrowser: true,
+        defaultHeaders: {
+          'HTTP-Referer': window.location.origin,
+          'X-OpenRouter-Title': 'Slonig'
+        },
+        maxRetries: 0
+      });
+      const results = await mapConcurrent(conceptChapters, OPENROUTER_CONCURRENCY, async (chapter: ConceptChapterNavigationItem) => {
+        const pageConcepts = (await Promise.all(chapter.pageNumbers.map((chapterPageNumber) => getBookConceptsForBookPage(book.id, chapterPageNumber)))).flat() as BookConcept[];
+        const uniqueConcepts = Array.from(new Map(pageConcepts.map((concept) => [conceptReferenceKey(concept), concept])).values());
+        const fingerprint = conceptFingerprint(uniqueConcepts);
+        const chapterKey = standardsChapterKey(chapter.chapterId, chapter.title, chapter.pageNumbers);
+        const existing = standardsByChapter[chapterKey];
+
+        if (!force && existing?.conceptFingerprint === fingerprint) {
+          setStandardsAssignedChapterCount((count) => count + 1);
+
+          return { chapterKey, entry: existing, status: 'fulfilled' as const };
+        }
+
+        try {
+          const standards = await requestChapterStandards(client, model, chapter.title, uniqueConcepts, (costUsd) => setOpenRouterSpent((current) => current + costUsd));
+
+          setStandardsAssignedChapterCount((count) => count + 1);
+
+          return { chapterKey, entry: { conceptFingerprint: fingerprint, standards }, status: 'fulfilled' as const };
+        } catch (reason) {
+          return { chapterKey, reason, status: 'rejected' as const };
+        }
+      });
+      const next = { ...standardsByChapter };
+      let failures = 0;
+
+      results.forEach((result) => {
+        if (result.status === 'rejected') {
+          failures++;
+        } else {
+          next[result.chapterKey] = result.entry;
+        }
+      });
+
+      setStandardsByChapter(next);
+      storeBookStandards(book.id, next);
+
+      if (failures) {
+        setError(`${failures} of ${conceptChapters.length} chapters could not have standards assigned. Retry the Standards assignment.`);
+      }
+    } finally {
+      setIsAssigningStandards(false);
+    }
+  }, [book.id, conceptChapters, isAssigningStandards, selectedModel, standardsByChapter]);
+
+  useEffect((): void => {
+    if (
+      assignAllStandardsRequest === handledAssignAllStandardsRequestRef.current ||
+      !conceptChapters.length ||
+      processingPage !== undefined ||
+      isGeneratingAllConcepts ||
+      isRecognizingAll ||
+      isGeneratingAllExercises ||
+      isIdentifyingChapters ||
+      isAssigningStandards
+    ) {
+      return;
+    }
+
+    handledAssignAllStandardsRequestRef.current = assignAllStandardsRequest;
+    setActivePane('standards');
+    assignStandards(true, generateAllConceptsModel)
+      .catch((assignmentError) => setError(assignmentError instanceof Error ? assignmentError.message : 'Unable to assign chapter standards.'))
+      .finally(onProcessingComplete);
+  }, [assignAllStandardsRequest, assignStandards, conceptChapters.length, generateAllConceptsModel, isAssigningStandards, isGeneratingAllConcepts, isGeneratingAllExercises, isIdentifyingChapters, isRecognizingAll, onProcessingComplete, processingPage]);
+
   useEffect(() => {
     if (!isMaximized) {
       return;
@@ -1833,6 +2008,39 @@ function BookReader({ book, file, generateAllConceptsModel, generateAllConceptsR
     </div>;
   };
 
+  const standardsPane = (): React.ReactNode => {
+    const assignment = currentStandardsChapterKey === undefined ? undefined : standardsByChapter[currentStandardsChapterKey];
+    const applicableFrameworks = STANDARD_FRAMEWORKS.map((framework) => ({
+      ...framework,
+      standards: assignment?.standards.filter(({ framework: standardFramework }) => standardFramework === framework.key) ?? []
+    })).filter(({ standards }) => standards.length);
+
+    return <div className='tabPanel standardsPanel'>
+      <div className='detailsHeader'>
+        <span>{isAssigningStandards ? `Assigning standards… ${standardsAssignedChapterCount}/${conceptChapters.length}` : 'Standards assigned from chapter concepts'}</span>
+      </div>
+      <div className='conceptsOutput standardsOutput'>
+        <h3>{currentStandardsChapter?.title || 'Chapter not identified'}</h3>
+        {!currentStandardsChapter
+          ? <p className='emptyOutput'>No processed chapters are available.</p>
+          : isAssigningStandards && !assignment
+            ? <p className='emptyOutput'>Standards for this chapter are being assigned from its concepts.</p>
+            : !assignment
+              ? <p className='emptyOutput'>Standards have not been assigned to this chapter yet.</p>
+              : applicableFrameworks.length
+                ? applicableFrameworks.map(({ key, label, standards }) => <section
+                  className='standardsFramework'
+                  key={key}
+                >
+                  <h4>{label}</h4>
+                  <ul>{standards.map(({ code }) => <li key={code}><code>{code}</code></li>)}</ul>
+                </section>)
+                : <p className='emptyOutput'>No applicable standards were identified for this chapter.</p>}
+      </div>
+      {isAssigningStandards && <small className='standardsSpend'>OpenRouter spend: {formatOpenRouterSpend(openRouterSpent)}</small>}
+    </div>;
+  };
+
   const exercisesPane = (): React.ReactNode => {
     const conceptIds = new Set(exerciseChapterConcepts.flatMap(({ id }) => id === undefined ? [] : [id]));
     const generatedWithoutConcept = exerciseChapterExercises.filter(({ conceptId, source }) => source === 'generated' && (conceptId === undefined || !conceptIds.has(conceptId)));
@@ -1931,13 +2139,13 @@ function BookReader({ book, file, generateAllConceptsModel, generateAllConceptsR
           </Button.Group>
         </Modal.Content>
       </Modal>}
-      {(pendingProcessingAction || processingPage !== undefined || isDetectingBookLanguage || isRecognizingAll || isIdentifyingChapters || isGeneratingAllConcepts || isGeneratingAllExercises) && <div className='processingOverlay'>
+      {(pendingProcessingAction || processingPage !== undefined || isDetectingBookLanguage || isRecognizingAll || isIdentifyingChapters || isGeneratingAllConcepts || isAssigningStandards || isGeneratingAllExercises) && <div className='processingOverlay'>
         <RoundProgress
-          total={isDetectingBookLanguage || processingPage !== undefined ? 1 : isGeneratingAllConcepts || pendingProcessingAction === 'concepts' ? Math.max(1, conceptChapters.length) : Math.max(1, totalPages)}
-          value={isDetectingBookLanguage || processingPage !== undefined ? 0 : isRecognizingAll || pendingProcessingAction === 'recognize' ? recognizedPageCount : isIdentifyingChapters || pendingProcessingAction === 'chapters' ? identifiedChapterPageCount : isGeneratingAllExercises || pendingProcessingAction === 'exercises' ? generatedExercisesPageCount : generatedConceptsChapterCount}
+          total={isDetectingBookLanguage || processingPage !== undefined ? 1 : isGeneratingAllConcepts || pendingProcessingAction === 'concepts' || isAssigningStandards || pendingProcessingAction === 'standards' ? Math.max(1, conceptChapters.length) : Math.max(1, totalPages)}
+          value={isDetectingBookLanguage || processingPage !== undefined ? 0 : isRecognizingAll || pendingProcessingAction === 'recognize' ? recognizedPageCount : isIdentifyingChapters || pendingProcessingAction === 'chapters' ? identifiedChapterPageCount : isAssigningStandards || pendingProcessingAction === 'standards' ? standardsAssignedChapterCount : isGeneratingAllExercises || pendingProcessingAction === 'exercises' ? generatedExercisesPageCount : generatedConceptsChapterCount}
         />
-        <strong>{isGeneratingChapterConcepts ? `Processing chapter ${currentConceptChapter?.title || ''}` : processingPage !== undefined ? `Processing page ${processingPage}` : isDetectingBookLanguage ? 'Detecting book language' : isRecognizingAll || pendingProcessingAction === 'recognize' ? 'Recognizing MMD pages' : isIdentifyingChapters || pendingProcessingAction === 'chapters' ? 'Identifying chapters' : isGeneratingAllExercises || pendingProcessingAction === 'exercises' ? 'Generating exercises' : 'Extracting concepts by chapter'}</strong>
-        {processingPage === undefined && !isDetectingBookLanguage && <span>{isRecognizingAll || pendingProcessingAction === 'recognize' ? recognizedPageCount : isIdentifyingChapters || pendingProcessingAction === 'chapters' ? identifiedChapterPageCount : isGeneratingAllExercises || pendingProcessingAction === 'exercises' ? generatedExercisesPageCount : generatedConceptsChapterCount} / {isGeneratingAllConcepts || pendingProcessingAction === 'concepts' ? conceptChapters.length : totalPages}</span>}
+        <strong>{isGeneratingChapterConcepts ? `Processing chapter ${currentConceptChapter?.title || ''}` : processingPage !== undefined ? `Processing page ${processingPage}` : isDetectingBookLanguage ? 'Detecting book language' : isRecognizingAll || pendingProcessingAction === 'recognize' ? 'Recognizing MMD pages' : isIdentifyingChapters || pendingProcessingAction === 'chapters' ? 'Identifying chapters' : isAssigningStandards || pendingProcessingAction === 'standards' ? 'Detecting compatible standards and assigning codes' : isGeneratingAllExercises || pendingProcessingAction === 'exercises' ? 'Generating exercises' : 'Extracting concepts by chapter'}</strong>
+        {processingPage === undefined && !isDetectingBookLanguage && <span>{isRecognizingAll || pendingProcessingAction === 'recognize' ? recognizedPageCount : isIdentifyingChapters || pendingProcessingAction === 'chapters' ? identifiedChapterPageCount : isAssigningStandards || pendingProcessingAction === 'standards' ? standardsAssignedChapterCount : isGeneratingAllExercises || pendingProcessingAction === 'exercises' ? generatedExercisesPageCount : generatedConceptsChapterCount} / {isGeneratingAllConcepts || pendingProcessingAction === 'concepts' || isAssigningStandards || pendingProcessingAction === 'standards' ? conceptChapters.length : totalPages}</span>}
         <span className='openRouterSpend'>Spent this stage: {formatOpenRouterSpend(openRouterSpent)}</span>
       </div>}
       <Skills
@@ -1964,6 +2172,7 @@ function BookReader({ book, file, generateAllConceptsModel, generateAllConceptsR
           ['language', 'Language', 1, undefined],
           ['chapters', 'Chapters', 1, chapters.length],
           ['textConcepts', 'Concepts', 3, entityCounts.concepts],
+          ['standards', 'Standards', 3, undefined],
           ['conceptExercises', 'Exercises', 4, entityCounts.exercises],
           ['preExercisesExercises', 'Abilities', 6, entityCounts.abilities],
           ['skillsCourse', 'Course', 8, undefined]
@@ -2017,6 +2226,29 @@ function BookReader({ book, file, generateAllConceptsModel, generateAllConceptsR
             onChange={({ target }) => goToPage(Number(target.value))}
             type='range'
             value={pageNumber}
+          />
+        </div>}
+        {activePane === 'standards' && <div className='chapterNavigation'>
+          <Button
+            icon='arrow-left'
+            isDisabled={standardsChapterIndex <= 0}
+            onClick={() => changeStandardsChapter(standardsChapterIndex - 1)}
+          />
+          <label>Chapter <select
+            aria-label='Navigate standards chapters'
+            disabled={!conceptChapters.length}
+            onChange={({ target }) => changeStandardsChapter(Number(target.value))}
+            value={conceptChapters.length ? standardsChapterIndex : ''}
+          >
+            {conceptChapters.map(({ chapterId, pageNumbers, title }, index) => <option
+              key={standardsChapterKey(chapterId, title, pageNumbers)}
+              value={index}
+            >{title || 'Chapter not identified'}</option>)}
+          </select><span>{conceptChapters.length ? `${standardsChapterIndex + 1} of ${conceptChapters.length}` : 'No chapters'}</span></label>
+          <Button
+            icon='arrow-right'
+            isDisabled={!conceptChapters.length || standardsChapterIndex >= conceptChapters.length - 1}
+            onClick={() => changeStandardsChapter(standardsChapterIndex + 1)}
           />
         </div>}
         {activePane === 'conceptExercises' && <div className='chapterNavigation'>
@@ -2085,9 +2317,11 @@ function BookReader({ book, file, generateAllConceptsModel, generateAllConceptsR
                       {conceptsPane()}
                     </div>
                   </>
-                  : activePane === 'conceptExercises'
-                    ? <div className='detailsArea fullWidthDetails'>{exercisesPane()}</div>
-                    : activePane === 'conceptsSkills'
+                  : activePane === 'standards'
+                    ? <div className='detailsArea fullWidthDetails'>{standardsPane()}</div>
+                    : activePane === 'conceptExercises'
+                      ? <div className='detailsArea fullWidthDetails'>{exercisesPane()}</div>
+                      : activePane === 'conceptsSkills'
                       ? <>
                         <div className='skillsArea'>
                           <Skills
@@ -2293,6 +2527,8 @@ const StyledReader = styled.div`
     align-items: center;
     border-bottom: 1px solid #dde1eb;
     display: flex;
+    flex-wrap: wrap;
+    row-gap: 0;
   }
 
   .readerTabs .previewButton {
@@ -2308,6 +2544,7 @@ const StyledReader = styled.div`
     cursor: pointer;
     font: inherit;
     padding: 0.9rem 1.25rem;
+    white-space: nowrap;
   }
 
   .readerTabs button.active {
@@ -2356,6 +2593,39 @@ const StyledReader = styled.div`
 
   .conceptsOutput h3 {
     margin-top: 0;
+  }
+
+  .standardsPanel .detailsHeader {
+    gap: 1rem;
+  }
+
+  .standardsPanel .generationControls {
+    flex-wrap: wrap;
+    justify-content: flex-end;
+  }
+
+  .standardsFramework + .standardsFramework {
+    border-top: 1px solid #dde1eb;
+    margin-top: 1rem;
+    padding-top: 1rem;
+  }
+
+  .standardsFramework h4 {
+    margin: 0 0 0.5rem;
+  }
+
+  .standardsFramework ul {
+    margin: 0;
+    padding-left: 1.4rem;
+  }
+
+  .standardsFramework code {
+    font-size: 0.95em;
+  }
+
+  .standardsSpend {
+    margin-top: 0.6rem;
+    opacity: 0.8;
   }
 
   .conceptsOutput li + li {
