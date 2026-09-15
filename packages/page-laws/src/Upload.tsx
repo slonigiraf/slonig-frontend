@@ -21,7 +21,7 @@ const BookReader = React.lazy(() => import('./BookReader.js'));
 const BOOKS_DIRECTORY = 'books';
 const SELECTED_BOOK_SESSION_KEY = 'knowledge-upload-selected-book';
 const PRICE_STAGES: Array<{ detail?: string; key: BookStageSpendKey; label: string }> = [
-  { detail: `Mathpix v3/pdf · $${MATHPIX_PDF_PAGE_PRICE_USD.toFixed(3)}/page`, key: 'recognize', label: 'Recognize' },
+  { key: 'recognize', label: 'Recognize' },
   { key: 'language', label: 'Language' },
   { key: 'chapters', label: 'Chapters' },
   { key: 'concepts', label: 'Concepts' },

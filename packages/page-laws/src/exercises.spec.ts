@@ -197,6 +197,13 @@ describe('exercise repair', (): void => {
     assert.match(FIX_EXERCISES_PROMPT, /imageDescription/i);
     assert.match(FIX_EXERCISES_PROMPT, /only visual-description fields/i);
     assert.match(FIX_EXERCISES_PROMPT, /decorative, illustrative/i);
+    assert.match(FIX_EXERCISES_PROMPT, /Preserve the Exercise's learner modality/i);
+    assert.match(FIX_EXERCISES_PROMPT, /no globally preferred mode/i);
+    assert.match(FIX_EXERCISES_PROMPT, /Preserve the represented form/i);
+    assert.match(FIX_EXERCISES_PROMPT, /Prefer one short sentence/i);
+    assert.match(FIX_EXERCISES_PROMPT, /6-16 words/i);
+    assert.match(FIX_EXERCISES_PROMPT, /needless verbosity/i);
+    assert.doesNotMatch(FIX_EXERCISES_PROMPT, /fraction-representation concepts|fraction strip|number line/i);
     assert.match(FIX_EXERCISES_PROMPT, /solutionImageDescription/i);
     assert.match(FIX_EXERCISES_PROMPT, /EXPECTED ANSWER FORMAT/i);
     assert.match(FIX_EXERCISES_PROMPT, /draw, sketch, plot, graph, construct/i);

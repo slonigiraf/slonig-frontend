@@ -150,9 +150,11 @@ function generatedExercisesResult (content: string, concepts: LocatedProcessingC
 
   validExercises.forEach((exercise) => {
     const conceptIndex = exercise.conceptIndex as number;
-    const existing = exercisesByConcept.get(conceptIndex);
 
-    if (!existing || (existing.abilityMode !== 'transformation' && exercise.abilityMode === 'transformation')) {
+    // The model is asked for exactly one exercise per concept. If it still
+    // returns duplicates, keep the first valid candidate rather than imposing
+    // an unrelated ability-mode preference in the parser.
+    if (!exercisesByConcept.has(conceptIndex)) {
       exercisesByConcept.set(conceptIndex, exercise);
     }
   });

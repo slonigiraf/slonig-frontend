@@ -64,7 +64,7 @@ describe('book processing pipeline', (): void => {
     const result = await processExtractedChapterContent({
       chapter: 'Chapter',
       pages: [{
-        concepts: [{ description: 'Convert units', title: 'Conversion' }, { description: 'Compare fractions', title: 'Comparison' }],
+        concepts: [{ description: 'Read a value encoded by a marked gauge', title: 'Reading a gauge' }, { description: 'Convert units', title: 'Conversion' }],
         exercises: [
           { abilityMode: 'reasoning', description: 'Convert 2 km to m.', solution: '2000 m', title: 'Book exercise 1' },
           { abilityMode: 'reasoning', description: 'Find the missing angle.', solution: '60 degrees', title: 'Book exercise 2' }
@@ -76,7 +76,13 @@ describe('book processing pipeline', (): void => {
 
       if (prompts.length === 1) {
         assert.match(prompt, /exactly one complete exercise/i);
-        assert.match(prompt, /Prefer abilityMode "transformation"/i);
+        assert.match(prompt, /Preserve the concept's learner modality/i);
+        assert.match(prompt, /no globally preferred mode/i);
+        assert.match(prompt, /Preserve the task's represented form/i);
+        assert.match(prompt, /Prefer one short sentence/i);
+        assert.match(prompt, /6-16 words/i);
+        assert.match(prompt, /no more than about 20 words/i);
+        assert.doesNotMatch(prompt, /fraction-representation concepts|fraction strip|number line/i);
         assert.match(prompt, /later be reused by changing 1-3 data-bearing words or values/i);
         assert.doesNotMatch(prompt, /bookExercises|bookExerciseIndex|overlappingBookExerciseIndexes/i);
 
@@ -87,9 +93,9 @@ describe('book processing pipeline', (): void => {
 
         return Promise.resolve(JSON.stringify({
           exercises: [
-            { abilityMode: 'reasoning', conceptIndex: 0, description: 'Convert 3 km.', solution: '3000 m', title: 'Weaker candidate' },
-            { abilityMode: 'transformation', conceptIndex: 0, description: 'Convert 3 km to m.', solution: '3000 m', title: 'Preferred candidate' },
-            { abilityMode: 'transformation', conceptIndex: 1, description: 'Order <kx>1/2, 3/4</kx>.', solution: '<kx>1/2 < 3/4</kx>', title: 'Order fractions' }
+            { abilityMode: 'generation', conceptIndex: 0, description: 'What value does the gauge show?', imageDescription: 'A gauge with an unlabeled pointer positioned at 60 on a 0 to 100 scale.', solution: '60', title: 'Read a gauge value' },
+            { abilityMode: 'transformation', conceptIndex: 0, description: 'Use the scale markings to calculate the value 60.', solution: '60', title: 'Later textual surrogate' },
+            { abilityMode: 'transformation', conceptIndex: 1, description: 'Convert <kx>3</kx> km to m.', solution: '<kx>3000</kx> m', title: 'Convert distance' }
           ]
         }));
       }
@@ -102,7 +108,8 @@ describe('book processing pipeline', (): void => {
     assert.equal(result.pages[0].exercises.filter(({ source }) => source === 'book').length, 0);
     assert.equal(result.pages[0].exercises.filter(({ source }) => source === 'generated').length, 2);
     assert.deepEqual(result.pages[0].exercises.filter(({ source }) => source === 'generated').map(({ conceptIndex }) => conceptIndex), [0, 1]);
-    assert.equal(result.pages[0].exercises.find(({ conceptIndex, source }) => source === 'generated' && conceptIndex === 0)?.abilityMode, 'transformation');
+    assert.equal(result.pages[0].exercises.find(({ conceptIndex, source }) => source === 'generated' && conceptIndex === 0)?.abilityMode, 'generation');
+    assert.match(result.pages[0].exercises.find(({ conceptIndex, source }) => source === 'generated' && conceptIndex === 0)?.imageDescription ?? '', /gauge/i);
   });
 
   it('does not carry source book exercises forward when there are no concepts', async (): Promise<void> => {
@@ -137,12 +144,12 @@ describe('book processing pipeline', (): void => {
     }, (prompt) => {
       request++;
       assert.match(prompt, /single generation pass/i);
-      assert.match(prompt, /text-only/i);
-      assert.match(prompt, /merely illustrative/i);
+      assert.match(prompt, /learner's required input and output/i);
+      assert.match(prompt, /answer-bearing visual facts/i);
 
       return Promise.resolve(JSON.stringify({
         exercises: [{
-          abilityMode: 'perceptual observation',
+          abilityMode: 'generation',
           conceptIndex: 0,
           description: 'Read the marked value.',
           imageDescription: 'A horizontal number line from 0 to 10 with a single unlabeled point at 6.',
@@ -176,11 +183,11 @@ describe('book processing pipeline', (): void => {
       assert.match(prompt, /single generation pass/i);
       assert.match(prompt, /no second visual-design pass will run/i);
       assert.match(prompt, /solutionImageDescription/);
-      assert.match(prompt, /draw, sketch, plot, graph, construct/i);
+      assert.match(prompt, /create, complete, mark, label, plot, draw, arrange/i);
 
       return Promise.resolve(JSON.stringify({
         exercises: [{
-          abilityMode: 'transformation',
+          abilityMode: 'generation',
           conceptIndex: 0,
           description: 'Plot <kx>(4,-2)</kx>.',
           imageDescription: '',
@@ -206,9 +213,9 @@ describe('book processing pipeline', (): void => {
       }]
     }, (prompt) => {
       requests++;
-      assert.match(prompt, /Visuals are exceptional/i);
-      assert.match(prompt, /leave imageDescription empty/i);
-      assert.match(prompt, /leave solutionImageDescription empty/i);
+      assert.match(prompt, /When neither the target input nor target output is representational/i);
+      assert.match(prompt, /keep both visual-description fields empty/i);
+      assert.match(prompt, /Never add a visual for decoration/i);
       assert.match(prompt, /no second visual-design pass will run/i);
 
       return Promise.resolve(JSON.stringify({
