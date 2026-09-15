@@ -4,22 +4,24 @@
 import type { Book, BookStageSpendKey } from '@slonigiraf/db';
 import type { PDFDocumentProxy } from 'pdfjs-dist';
 
-import { createBook, deleteBook, getBook, getBookByContentHash, getBookConceptsForBookPage, getBookPages, getBooks, putBook, updateBookProcessingStage } from '@slonigiraf/db';
+import { createBook, deleteBook, getAbilities, getBook, getBookByContentHash, getBookConceptsForBookPage, getBookPages, getBooks, getExercisesForBookPage, putBook, updateBookProcessingStage } from '@slonigiraf/db';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { Button, Dropdown, Modal, styled } from '@polkadot/react-components';
 
+import { parseStoredAbility } from './abilities.js';
 import { estimateAiInput, formatAiInputEstimate } from './aiEstimate.js';
 import { MATHPIX_PDF_PAGE_PRICE_USD, OPENAI_MODELS } from './constants.js';
 import { conceptChaptersFromPages } from './conceptRecognition.js';
 import { formatOpenRouterSpend } from './openRouterCost.js';
-import { loadStoredBookStandards, STANDARD_FRAMEWORKS, standardsAssignmentPrompt, standardsCompatibilityPrompt } from './standards.js';
+import { loadStoredBookStandards, representativeAbilityQuestions, STANDARD_FRAMEWORKS, standardsAssignmentPrompt, standardsCompatibilityPrompt } from './standards.js';
 import { loadPdfJs } from './pdf.js';
 import { useTranslation } from './translate.js';
 
 const BookReader = React.lazy(() => import('./BookReader.js'));
 
 const BOOKS_DIRECTORY = 'books';
+const exerciseAbilityModuleId = (bookId: number, exerciseId: number): string => `book-${bookId}-exercise-${exerciseId}`;
 const SELECTED_BOOK_SESSION_KEY = 'knowledge-upload-selected-book';
 const PRICE_STAGES: Array<{ detail?: string; key: BookStageSpendKey; label: string }> = [
   { key: 'recognize', label: 'Recognize' },
@@ -483,22 +485,22 @@ function Upload (): React.ReactElement {
       const requests: string[] = [];
 
       for (const chapter of conceptChaptersFromPages(pages)) {
-        const concepts = (await Promise.all(chapter.pageNumbers.map((pageNumber) => getBookConceptsForBookPage(selectedBook.id, pageNumber))))
-          .flat()
-          .map(({ description, title }) => ({ description, title }));
-        const uniqueConcepts = Array.from(new Map(concepts.map((concept) => [`${concept.title}\u001f${concept.description}`, concept])).values());
+        const exercises = (await Promise.all(chapter.pageNumbers.map((pageNumber) => getExercisesForBookPage([selectedBook.id, pageNumber])))).flat();
+        const records = (await Promise.all(exercises.flatMap(({ id }) => id === undefined ? [] : [getAbilities(exerciseAbilityModuleId(selectedBook.id, id))]))).flat() as Array<{ content: string }>;
+        const abilities = records.map(({ content }) => parseStoredAbility(content));
+        const questions = representativeAbilityQuestions(abilities);
 
-        if (!uniqueConcepts.length) {
+        if (!questions.length) {
           continue;
         }
 
-        requests.push(standardsCompatibilityPrompt(chapter.title, uniqueConcepts));
-        requests.push(standardsAssignmentPrompt(chapter.title, uniqueConcepts, STANDARD_FRAMEWORKS.map(({ key }) => key)));
+        requests.push(standardsCompatibilityPrompt(chapter.title, questions));
+        requests.push(standardsAssignmentPrompt(chapter.title, questions, STANDARD_FRAMEWORKS.map(({ key }) => key)));
       }
 
       setStandardsEstimate(requests.length
         ? formatAiInputEstimate(estimateAiInput(generateAllConceptsModel, requests, Math.max(2_000, requests.length * 1_200)))
-        : t('No chapter concepts are available for standards assignment.'));
+        : t('No finalized Ability questions are available for standards identification.'));
     }).catch(() => setError(t('Unable to estimate standards assignment cost.')));
   }, [generateAllConceptsModel, isStandardsConfirmationOpen, selectedBook, t]);
 
@@ -737,7 +739,7 @@ function Upload (): React.ReactElement {
         size='small'
       >
         <Modal.Content>
-          <p>{t('Assign standards to every chapter from its concepts? Each chapter first detects which standards frameworks are compatible, then assigns all directly applicable codes only from those frameworks.')}</p>
+          <p>{t('Identify standards for every chapter from one representative question in each finalized Ability pair? Each chapter first detects compatible standards frameworks, then assigns all directly applicable codes only from those frameworks.')}</p>
           <p>{standardsEstimate}</p>
           <Dropdown
             className='batchModelSelect'
@@ -755,7 +757,7 @@ function Upload (): React.ReactElement {
             />
             <Button
               icon='magic'
-              label={t('Assign')}
+              label={t('Identify')}
               onClick={confirmAssignStandards}
             />
           </Button.Group>
@@ -885,15 +887,6 @@ function Upload (): React.ReactElement {
             <span className='pipelineStep'>
               <span>›</span>
               <Button
-                icon={standardsAssigned ? 'rotate-left' : 'play'}
-                isDisabled={!selectedBook || !readerFile || isBusy || (selectedBook.processingStage ?? 0) < 3 || !selectedBook.language}
-                label={t('Standards')}
-                onClick={onAssignStandards}
-              />
-            </span>
-            <span className='pipelineStep'>
-              <span>›</span>
-              <Button
                 icon={(selectedBook?.processingStage ?? 0) >= 4 ? 'rotate-left' : 'play'}
                 isDisabled={!selectedBook || !readerFile || isBusy || (selectedBook.processingStage ?? 0) < 3 || !selectedBook.language}
                 label={t('Exercises')}
@@ -901,6 +894,12 @@ function Upload (): React.ReactElement {
               />
             </span>
             </>}
+            processingToolbarAfterFixImages={(pipelineStage) => <span className='pipelineStep'><span>›</span><Button
+              icon={standardsAssigned ? 'rotate-left' : 'play'}
+              isDisabled={!selectedBook || !readerFile || isBusy || pipelineStage < 11 || !selectedBook.language}
+              label={t('Standards')}
+              onClick={onAssignStandards}
+            /></span>}
             recognizeAllRequest={recognizeAllRequest}
             generateAllExercisesRequest={generateAllExercisesRequest}
           />

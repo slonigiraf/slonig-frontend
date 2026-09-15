@@ -142,6 +142,7 @@ interface Props {
   externalRefreshToken?: number;
   pipelineOnly?: boolean;
   pipelinePrefix?: React.ReactNode;
+  pipelineSuffix?: (stage: number) => React.ReactNode;
   showPipeline?: boolean;
   view: SkillsView;
 }
@@ -740,7 +741,7 @@ function getSessionChapter (bookId: number, view: SkillsView): number {
   }
 }
 
-function Skills ({ book, externalRefreshToken = 0, onAction, onBookChange, onContentChange, onEntityCountsChange, pipelineOnly = false, pipelinePrefix, showPipeline = true, view }: Props): React.ReactElement {
+function Skills ({ book, externalRefreshToken = 0, onAction, onBookChange, onContentChange, onEntityCountsChange, pipelineOnly = false, pipelinePrefix, pipelineSuffix, showPipeline = true, view }: Props): React.ReactElement {
   const language = book.language ?? '';
   const hasBookLanguage = Boolean(language);
   const [aiAction, setAiAction] = useState<AiAction>();
@@ -759,6 +760,7 @@ function Skills ({ book, externalRefreshToken = 0, onAction, onBookChange, onCon
   const [progressTotal, setProgressTotal] = useState(1);
   const [refreshToken, setRefreshToken] = useState(0);
   const [selectedModel, setSelectedModel] = useState(OPENAI_MODELS[0].value);
+  const [effectiveStage, setEffectiveStage] = useState(book.processingStage ?? 0);
   const refresh = useCallback((): void => setRefreshToken((value) => value + 1), []);
   const addOpenRouterCost = useCallback((costUsd: number): void => setOpenRouterSpent((current) => current + costUsd), []);
   const addStageCost = useCallback((stage: BookStageSpendKey, costUsd: number): void => {
@@ -862,6 +864,10 @@ function Skills ({ book, externalRefreshToken = 0, onAction, onBookChange, onCon
     }))
     : []), [allAbilities]);
   const skillSources = useMemo<SkillSource[]>(() => chapterContent.flatMap(({ chapter, concepts, exercises }) => chapter.id === undefined ? [] : [...concepts.flatMap(({ description, id, title }) => id === undefined ? [] : [{ chapterId: chapter.id as number, chapterTitle: chapter.title, description, sourceId: id, sourceType: 'concept' as const, title }]), ...exercises.flatMap(({ description, id, title }) => id === undefined ? [] : [{ chapterId: chapter.id as number, chapterTitle: chapter.title, description: stripMarkdownImageReferences(description), sourceId: id, sourceType: 'exercise' as const, title }])]), [chapterContent]);
+  useEffect(() => {
+    setEffectiveStage(book.processingStage ?? 0);
+  }, [book.id, book.processingStage]);
+
   // Pipeline buttons must follow the persisted processing stage, not the
   // presence of generated/extracted rows. Concepts can already extract
   // exercises from the source book, but that does not mean the Exercises
@@ -871,13 +877,17 @@ function Skills ({ book, externalRefreshToken = 0, onAction, onBookChange, onCon
   // generated; Stage 9 independently records Fix abilities. Stages 10 and 11 are
   // the Images and Fix images pipeline checkpoints. Stage numbering remains
   // unchanged for persisted-book compatibility.
-  const stage = book.processingStage ?? 0;
+  const stage = effectiveStage;
   const hasAbilities = allAbilities.length > 0;
 
   const setStage = useCallback(async (processingStage: number): Promise<void> => {
     const updated = await updateBookProcessingStage(book.id, processingStage);
 
-    onBookChange(updated ?? { ...book, processingStage });
+    // The DB helper can return a book object whose in-memory processingStage is
+    // not yet refreshed. The requested stage is authoritative after the write
+    // succeeds, so update both this pipeline and the parent book immediately.
+    setEffectiveStage(processingStage);
+    onBookChange({ ...(updated ?? book), processingStage });
   }, [book, onBookChange]);
 
   const createClient = useCallback(async (): Promise<OpenAI> => {
@@ -2033,6 +2043,7 @@ function Skills ({ book, externalRefreshToken = 0, onAction, onBookChange, onCon
         label='Fix images'
         onClick={openImageFix}
                                                    /></span>
+      {pipelineSuffix?.(stage)}
     </div>}
     {error && <p
       className='errorMessage'

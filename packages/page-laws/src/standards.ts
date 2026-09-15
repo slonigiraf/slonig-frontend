@@ -9,15 +9,28 @@ export interface CurriculumStandard {
 }
 
 export interface StoredChapterStandards {
-  conceptFingerprint: string;
+  abilityQuestionFingerprint: string;
   standards: CurriculumStandard[];
 }
 
 export type StoredBookStandards = Record<string, StoredChapterStandards>;
 
-export interface StandardsConceptInput {
-  description: string;
-  title: string;
+export interface StandardsQuestionInput {
+  question: string;
+}
+
+export interface StandardsAbilityQuestionSource {
+  q: Array<{ h: string }>;
+}
+
+export function representativeAbilityQuestions (abilities: StandardsAbilityQuestionSource[]): StandardsQuestionInput[] {
+  return abilities.map(({ q }) => {
+    if (q.length !== 2 || !q[0]?.h.trim() || !q[1]?.h.trim()) {
+      throw new Error('Every Ability used for standards identification must contain exactly two nonempty questions.');
+    }
+
+    return { question: q[0].h.trim() };
+  });
 }
 
 export const STANDARD_FRAMEWORKS: ReadonlyArray<{ key: StandardsFramework; label: string }> = [
@@ -44,9 +57,24 @@ function normalizedCode (value: unknown): string | undefined {
   return code || undefined;
 }
 
-export function conceptFingerprint (concepts: StandardsConceptInput[]): string {
-  const source = concepts
-    .map(({ description, title }) => `${title.trim()}\u001e${description.trim()}`)
+function normalizedStandardCode (framework: StandardsFramework, value: unknown): string | undefined {
+  const code = normalizedCode(value);
+
+  if (!code) {
+    return undefined;
+  }
+
+  // OpenAI models and standards references often use the official long-form
+  // Common Core math namespace (for example CCSS.MATH.CONTENT.6.EE.A.1).
+  // The app's canonical CCSS format intentionally omits MATH.CONTENT.
+  return framework === 'ccss'
+    ? code.replace(/^CCSS\.MATH\.CONTENT\./, 'CCSS.')
+    : code;
+}
+
+export function abilityQuestionFingerprint (questions: StandardsQuestionInput[]): string {
+  const source = questions
+    .map(({ question }) => question.trim())
     .join('\u001f');
   let hash = 2166136261;
 
@@ -54,7 +82,7 @@ export function conceptFingerprint (concepts: StandardsConceptInput[]): string {
     hash = Math.imul(hash ^ source.charCodeAt(index), 16777619);
   }
 
-  return `${concepts.length}:${(hash >>> 0).toString(16)}`;
+  return `${questions.length}:${(hash >>> 0).toString(16)}`;
 }
 
 export function standardsChapterKey (chapterId: number | undefined, title: string, pageNumbers: number[]): string {
@@ -171,7 +199,7 @@ export function parseStandardsAssignment (content: string): CurriculumStandard[]
     }
 
     values.forEach((value) => {
-      const code = normalizedCode(value);
+      const code = normalizedStandardCode(key, value);
 
       if (!code || !STANDARD_CODE_PATTERNS[key].test(code)) {
         throw new Error(`OpenRouter returned an invalid ${key} standard code.`);
@@ -189,13 +217,15 @@ export function parseStandardsAssignment (content: string): CurriculumStandard[]
   return result;
 }
 
-export function standardsCompatibilityPrompt (chapterTitle: string, concepts: StandardsConceptInput[]): string {
-  return `Evaluate EACH United States education standards framework below independently against the supplied chapter concepts. This is only a compatibility pass: do not return standard codes yet.
+export function standardsCompatibilityPrompt (chapterTitle: string, questions: StandardsQuestionInput[]): string {
+  return `Evaluate EACH United States education standards framework below independently against the supplied representative Ability questions. This is only a compatibility pass: do not return standard codes yet.
 
 IMPORTANT:
+- The input contains exactly one representative question from each finalized two-question Ability pair in the chapter.
+- Infer the assessed academic content from what learners are actually asked to do in these questions. Do not rely on unavailable concept summaries.
 - This is NOT a single-choice classification. Multiple frameworks can and often should be compatible with the same chapter.
-- A framework is compatible when it contains standards for the same academic subject and approximate grade/band represented by the concepts.
-- Do NOT reject TEKS because the source material is not from Texas, and do NOT reject Virginia SOL because the source material is not from Virginia. We are mapping concepts across standards systems, not determining the learner's jurisdiction.
+- A framework is compatible when it contains standards for the same academic subject and approximate grade/band represented by the questions.
+- Do NOT reject TEKS because the source material is not from Texas, and do NOT reject Virginia SOL because the source material is not from Virginia. We are mapping learner tasks across standards systems, not determining the learner's jurisdiction.
 - For mathematics/ELA chapters, CCSS, TEKS, and Virginia SOL may all be compatible when their subject/grade scope matches.
 - For science chapters, NGSS, TEKS, and Virginia SOL may all be compatible when their subject/grade scope matches.
 - Judge every framework separately even if you already marked another framework true.
@@ -210,16 +240,18 @@ Return only valid JSON in exactly this shape, with ALL four keys present:
 {"compatibility":{"ccss":true,"ngss":false,"teks":true,"vaSol":true}}
 
 Chapter: ${chapterTitle}
-Concepts: ${JSON.stringify(concepts.map(({ description, title }) => ({ description, title })))}`;
+Representative Ability questions: ${JSON.stringify(questions.map(({ question }) => ({ question })))}`;
 }
 
-export function standardsAssignmentPrompt (chapterTitle: string, concepts: StandardsConceptInput[], compatibleFrameworks: StandardsFramework[] = STANDARD_FRAMEWORKS.map(({ key }) => key)): string {
+export function standardsAssignmentPrompt (chapterTitle: string, questions: StandardsQuestionInput[], compatibleFrameworks: StandardsFramework[] = STANDARD_FRAMEWORKS.map(({ key }) => key)): string {
   const selected = STANDARD_FRAMEWORKS.filter(({ key }) => compatibleFrameworks.includes(key));
   const selectedLines = selected.map(({ key, label }, index) => `${index + 1}. ${label} (${key})`).join('\n');
 
-  return `Assign every directly applicable standard you can identify for this chapter, based strictly on the supplied chapter concepts, but ONLY from the compatible frameworks selected by the prior compatibility pass. Do not invent codes, approximate codes, or return standards merely because they are adjacent to the topic.
+  return `Assign every directly applicable standard you can identify for this chapter, based strictly on the supplied representative Ability questions, but ONLY from the compatible frameworks selected by the prior compatibility pass. Do not invent codes, approximate codes, or return standards merely because they are adjacent to the assessed task.
 
 IMPORTANT:
+- The input contains exactly one representative question from each finalized two-question Ability pair in the chapter.
+- Match standards to what learners are actually required to demonstrate in these questions. Do not infer extra content from unavailable concept summaries.
 - Search EACH compatible framework independently. Finding CCSS codes does not satisfy the request for TEKS or Virginia SOL.
 - Do not stop after the first framework with matches.
 - TEKS and Virginia SOL are crosswalk targets here; do not omit them merely because the source book is not from Texas or Virginia.
@@ -229,7 +261,7 @@ Compatible frameworks to search, in this exact order:
 ${selectedLines || '(none)'}
 
 Required code formats:
-- Common Core State Standards — CCSS.6.NS.B.3
+- Common Core State Standards — CCSS.6.NS.B.3 (compact form only; never include MATH.CONTENT, e.g. return CCSS.6.EE.A.1 rather than CCSS.MATH.CONTENT.6.EE.A.1)
 - Next Generation Science Standards — NGSS.4-ESS3-1
 - Texas Essential Knowledge and Skills — TEKS.MA.6.3.D
 - Virginia Standards of Learning — VA SOL.CE.6.6.a
@@ -239,10 +271,10 @@ Return only valid JSON in exactly this shape:
 Frameworks not listed as compatible above MUST remain empty arrays. Return all directly applicable codes from the compatible frameworks, deduplicated.
 
 Chapter: ${chapterTitle}
-Concepts: ${JSON.stringify(concepts.map(({ description, title }) => ({ description, title })))}`;
+Representative Ability questions: ${JSON.stringify(questions.map(({ question }) => ({ question })))}`;
 }
 
-const storageKey = (bookId: number): string => `knowledge-upload-book-${bookId}-standards-v1`;
+const storageKey = (bookId: number): string => `knowledge-upload-book-${bookId}-standards-v2`;
 
 export function loadStoredBookStandards (bookId: number): StoredBookStandards {
   try {
@@ -254,7 +286,24 @@ export function loadStoredBookStandards (bookId: number): StoredBookStandards {
 
     const parsed = JSON.parse(raw) as unknown;
 
-    return parsed && typeof parsed === 'object' && !Array.isArray(parsed) ? parsed as StoredBookStandards : {};
+    if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
+      return {};
+    }
+
+    // Migrate previously stored long-form CCSS math identifiers to the compact
+    // format used everywhere else in the app without forcing standards to rerun.
+    return Object.fromEntries(Object.entries(parsed as StoredBookStandards).map(([chapterKey, entry]) => [
+      chapterKey,
+      {
+        ...entry,
+        standards: Array.isArray(entry?.standards)
+          ? entry.standards.map((standard) => ({
+            ...standard,
+            code: normalizedStandardCode(standard.framework, standard.code) || standard.code
+          }))
+          : []
+      }
+    ]));
   } catch {
     return {};
   }
