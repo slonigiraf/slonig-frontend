@@ -1241,6 +1241,7 @@ function BookReader({ book, file, generateAllConceptsModel, generateAllConceptsR
       });
 
       await refreshEntityCounts();
+      setSkillsRefreshToken((value) => value + 1);
       await advanceStage(4);
       setActivePane('conceptExercises');
     } catch (processingError) {
@@ -1941,6 +1942,7 @@ function BookReader({ book, file, generateAllConceptsModel, generateAllConceptsR
       </div>}
       <Skills
         book={book}
+        externalRefreshToken={skillsRefreshToken}
         onAction={setActivePane}
         onBookChange={onBookChange}
         onContentChange={onSkillsContentChange}
