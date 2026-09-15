@@ -7,7 +7,7 @@ import type { Exercise } from '@slonigiraf/db';
 
 import { strict as assert } from 'node:assert';
 
-import { FIX_EXERCISES_PROMPT } from './constants.js';
+import { FIX_EXERCISES_PROMPT, GENERATE_EXERCISES_PROMPT } from './constants.js';
 import { parseExerciseRepairResult } from './exercises.js';
 
 function createExercise (id: number, title = `Exercise ${id}`): Exercise {
@@ -203,6 +203,8 @@ describe('exercise repair', (): void => {
     assert.match(FIX_EXERCISES_PROMPT, /Prefer one short sentence/i);
     assert.match(FIX_EXERCISES_PROMPT, /6-16 words/i);
     assert.match(FIX_EXERCISES_PROMPT, /needless verbosity/i);
+    assert.match(FIX_EXERCISES_PROMPT, /non-obvious solution that omits essential solving steps/i);
+    assert.match(FIX_EXERCISES_PROMPT, /essential steps in logical order/i);
     assert.doesNotMatch(FIX_EXERCISES_PROMPT, /fraction-representation concepts|fraction strip|number line/i);
     assert.match(FIX_EXERCISES_PROMPT, /solutionImageDescription/i);
     assert.match(FIX_EXERCISES_PROMPT, /EXPECTED ANSWER FORMAT/i);
@@ -220,6 +222,16 @@ describe('exercise repair', (): void => {
     assert.match(FIX_EXERCISES_PROMPT, /earliest supplied index only as a final tie-breaker/i);
     assert.match(FIX_EXERCISES_PROMPT, /omit correct Exercises/i);
     assert.match(FIX_EXERCISES_PROMPT, /Do not return or change database identity or relationship fields/i);
+  });
+
+  it('asks generated Exercise solutions to show non-obvious solving steps', (): void => {
+    const prompt = GENERATE_EXERCISES_PROMPT('English');
+
+    assert.match(prompt, /make the solving method visible whenever the answer is not immediately obvious/i);
+    assert.match(prompt, /non-obvious or multi-step task/i);
+    assert.match(prompt, /essential steps in logical order/i);
+    assert.match(prompt, /intermediate calculations, transformations, or reasons/i);
+    assert.match(prompt, /do not skip a meaningful transition/i);
   });
 });
 
