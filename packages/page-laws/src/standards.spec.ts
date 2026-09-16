@@ -4,37 +4,134 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 
-import { abilityQuestionFingerprint, completeStandardsCompatibility, loadStoredBookStandards, parseStandardsAssignment, parseStandardsCompatibility, representativeAbilityQuestions, standardsAssignmentPrompt, standardsCompatibilityPrompt } from './standards.js';
+import { loadStandardsCatalogsForBookSubject, loadStoredBookStandards, parseStandardsMatches, standardsConceptFingerprint, standardsConceptInputs, standardsMatchingPrompt, standardsPathForBookSubject, type StandardsCatalog } from './standards.js';
+
+const catalog: StandardsCatalog = {
+  framework: 'ccss',
+  label: 'Common Core State Standards',
+  path: 'data/standards/en/math/common-core.json',
+  standards: [
+    { code: 'CCSS.6.RP.A.2', context: '6 > Understand ratio concepts', description: 'Understand the concept of a unit rate.' },
+    { code: 'CCSS.6.EE.A.1', context: '6 > Apply and extend arithmetic', description: 'Write and evaluate numerical expressions involving whole-number exponents.' }
+  ]
+};
 
 describe('chapter standards', (): void => {
-  it('keeps only valid codes and preserves the requested framework order', (): void => {
-    assert.deepEqual(parseStandardsAssignment(JSON.stringify({ standards: {
-      ccss: ['CCSS.6.NS.B.3', 'CCSS.6.NS.B.3'],
-      ngss: ['NGSS.4-ESS3-1'],
-      teks: ['TEKS.MA.6.3.D'],
-      vaSol: ['VA SOL.CE.6.6.a']
-    } })), [
-      { code: 'CCSS.6.NS.B.3', framework: 'ccss' },
-      { code: 'NGSS.4-ESS3-1', framework: 'ngss' },
-      { code: 'TEKS.MA.6.3.D', framework: 'teks' },
-      { code: 'VA SOL.CE.6.6.a', framework: 'vaSol' }
+  it('derives the standards directory from the detected book subject', (): void => {
+    assert.equal(standardsPathForBookSubject('en-math'), 'data/standards/en/math');
+    assert.equal(standardsPathForBookSubject('en-ela'), 'data/standards/en/ela');
+    assert.equal(standardsPathForBookSubject('en-science'), 'data/standards/en/science');
+    assert.equal(standardsPathForBookSubject('na'), undefined);
+    assert.equal(standardsPathForBookSubject(undefined), undefined);
+  });
+
+  it('loads and flattens the standards files selected by the book subject', async (): Promise<void> => {
+    const originalFetch = globalThis.fetch;
+    const requested: string[] = [];
+
+    globalThis.fetch = (async (input: RequestInfo | URL): Promise<Response> => {
+      const url = String(input);
+
+      requested.push(url);
+
+      if (url.includes('common-core.json')) {
+        return new Response(JSON.stringify([{
+          a: [{
+            s: [{ d: 'Understand the concept of a unit rate.', i: '6.RP.A.2' }],
+            t: 'Understand ratio concepts'
+          }],
+          g: '6'
+        }]), { status: 200 });
+      }
+
+      return new Response('{}', { status: 200 });
+    }) as typeof fetch;
+
+    try {
+      const catalogs = await loadStandardsCatalogsForBookSubject('en-math');
+      const commonCore = catalogs.find(({ framework }) => framework === 'ccss');
+
+      assert.equal(catalogs.length, 3);
+      assert.ok(requested.some((url) => url.includes('data/standards/en/math/common-core.json')));
+      assert.deepEqual(commonCore?.standards, [{
+        code: 'CCSS.6.RP.A.2',
+        context: '6 > Understand ratio concepts',
+        description: 'Understand the concept of a unit rate.'
+      }]);
+    } finally {
+      globalThis.fetch = originalFetch;
+    }
+  });
+
+  it('normalizes and deduplicates chapter concepts before matching', (): void => {
+    assert.deepEqual(standardsConceptInputs([
+      { description: '  Description  ', title: '  Concept  ' },
+      { description: 'Description', title: 'Concept' },
+      { description: 'Ignored', title: '   ' }
+    ]), [{ description: 'Description', title: 'Concept' }]);
+  });
+
+  it('builds a matching prompt from chapter concepts and the authoritative standards catalog', (): void => {
+    const prompt = standardsMatchingPrompt('Ratios', [{
+      description: 'A unit rate compares two quantities with a second quantity of one.',
+      title: 'Unit rates'
+    }], catalog);
+
+    assert.match(prompt, /chapter concepts/i);
+    assert.match(prompt, /complete source of truth/i);
+    assert.match(prompt, /Never invent/i);
+    assert.match(prompt, /Unit rates/);
+    assert.match(prompt, /CCSS\.6\.RP\.A\.2/);
+    assert.match(prompt, /data\/standards\/en\/math\/common-core\.json/);
+    assert.doesNotMatch(prompt, /Ability questions/i);
+  });
+
+  it('accepts only standard codes that were supplied in the catalog', (): void => {
+    assert.deepEqual(parseStandardsMatches('{"codes":["CCSS.6.RP.A.2","CCSS.6.RP.A.2"]}', catalog), [
+      { code: 'CCSS.6.RP.A.2', framework: 'ccss' }
+    ]);
+
+    assert.throws(
+      () => parseStandardsMatches('{"codes":["CCSS.7.RP.A.1"]}', catalog),
+      /not present in data\/standards\/en\/math\/common-core\.json/i
+    );
+  });
+
+  it('normalizes a long-form Common Core response only when the normalized code exists in the supplied catalog', (): void => {
+    const expressionCatalog: StandardsCatalog = {
+      ...catalog,
+      standards: [{ code: 'CCSS.6.EE.A.1', context: '6', description: 'Expressions' }]
+    };
+
+    assert.deepEqual(parseStandardsMatches('{"codes":["CCSS.MATH.CONTENT.6.EE.A.1"]}', expressionCatalog), [
+      { code: 'CCSS.6.EE.A.1', framework: 'ccss' }
     ]);
   });
 
-  it('normalizes long-form Common Core math codes to the compact CCSS format', (): void => {
-    assert.deepEqual(parseStandardsAssignment(JSON.stringify({ standards: {
-      ccss: ['CCSS.MATH.CONTENT.6.EE.A.1'], ngss: [], teks: [], vaSol: []
-    } })), [{ code: 'CCSS.6.EE.A.1', framework: 'ccss' }]);
+  it('changes the cache fingerprint when chapter concepts change', (): void => {
+    assert.notEqual(
+      standardsConceptFingerprint([{ description: 'First description', title: 'First' }], 'data/standards/en/math'),
+      standardsConceptFingerprint([{ description: 'Second description', title: 'Second' }], 'data/standards/en/math')
+    );
   });
 
-  it('normalizes previously stored long-form Common Core math codes on load', (): void => {
+  it('changes the cache fingerprint when the book subject selects a different standards path', (): void => {
+    const concepts = [{ description: 'Description', title: 'Concept' }];
+
+    assert.notEqual(
+      standardsConceptFingerprint(concepts, 'data/standards/en/math'),
+      standardsConceptFingerprint(concepts, 'data/standards/en/ela')
+    );
+  });
+
+  it('loads v3 concept-based stored standards and normalizes old long-form CCSS codes inside them', (): void => {
     const originalLocalStorage = globalThis.localStorage;
 
     globalThis.localStorage = {
       length: 1,
       clear: () => undefined,
       getItem: () => JSON.stringify({ chapter: {
-        abilityQuestionFingerprint: '1:abc',
+        conceptFingerprint: '1:abc',
         standards: [{ code: 'CCSS.MATH.CONTENT.6.EE.A.1', framework: 'ccss' }]
       } }),
       key: () => null,
@@ -43,80 +140,12 @@ describe('chapter standards', (): void => {
     };
 
     try {
-      assert.equal(loadStoredBookStandards(1).chapter?.standards[0]?.code, 'CCSS.6.EE.A.1');
+      assert.deepEqual(loadStoredBookStandards(1).chapter, {
+        conceptFingerprint: '1:abc',
+        standards: [{ code: 'CCSS.6.EE.A.1', framework: 'ccss' }]
+      });
     } finally {
       globalThis.localStorage = originalLocalStorage;
     }
-  });
-
-  it('rejects malformed codes instead of storing invented formats', (): void => {
-    assert.throws(() => parseStandardsAssignment(JSON.stringify({ standards: {
-      ccss: ['6.NS.B.3'], ngss: [], teks: [], vaSol: []
-    } })), /invalid ccss standard code/i);
-  });
-
-  it('allows a framework to have no applicable standards', (): void => {
-    assert.deepEqual(parseStandardsAssignment(JSON.stringify({ standards: {
-      ccss: [], ngss: ['NGSS.MS-ESS3-3'], teks: [], vaSol: []
-    } })), [{ code: 'NGSS.MS-ESS3-3', framework: 'ngss' }]);
-  });
-
-  it('parses compatibility in canonical framework order', (): void => {
-    assert.deepEqual(parseStandardsCompatibility('{"compatible":["vaSol","ccss","ngss"]}'), ['ccss', 'ngss', 'vaSol']);
-  });
-
-
-  it('parses explicit compatibility decisions for every framework', (): void => {
-    assert.deepEqual(parseStandardsCompatibility('{"compatibility":{"ccss":true,"ngss":false,"teks":true,"vaSol":true}}'), ['ccss', 'teks', 'vaSol']);
-  });
-
-  it('keeps TEKS and Virginia SOL as crosswalk targets when CCSS or NGSS is compatible', (): void => {
-    assert.deepEqual(completeStandardsCompatibility(['ccss']), ['ccss', 'teks', 'vaSol']);
-    assert.deepEqual(completeStandardsCompatibility(['ngss']), ['ngss', 'teks', 'vaSol']);
-  });
-
-  it('rejects unknown compatibility framework keys', (): void => {
-    assert.throws(() => parseStandardsCompatibility('{"compatible":["ccss","unknown"]}'), /unknown standards framework/i);
-  });
-
-  it('builds a separate compatibility pass before code assignment', (): void => {
-    const compatibilityPrompt = standardsCompatibilityPrompt('Ratios', [{ question: 'Find the unit rate for 12 miles in 3 hours.' }]);
-    const assignmentPrompt = standardsAssignmentPrompt('Ratios', [{ question: 'Find the unit rate for 12 miles in 3 hours.' }], ['ccss', 'teks']);
-
-    assert.match(compatibilityPrompt, /compatibility pass/i);
-    assert.match(compatibilityPrompt, /do not return standard codes yet/i);
-    assert.match(compatibilityPrompt, /ALL four keys present/i);
-    assert.match(compatibilityPrompt, /not a single-choice classification/i);
-    assert.match(compatibilityPrompt, /one representative question from each finalized two-question Ability pair/i);
-    assert.match(compatibilityPrompt, /Representative Ability questions:/i);
-    assert.doesNotMatch(compatibilityPrompt, /Concepts:/i);
-    assert.match(assignmentPrompt, /ONLY from the compatible frameworks/i);
-    assert.match(assignmentPrompt, /Common Core State Standards \(ccss\)/);
-    assert.match(assignmentPrompt, /Texas Essential Knowledge and Skills \(teks\)/);
-    assert.match(assignmentPrompt, /Search EACH compatible framework independently/i);
-    assert.match(assignmentPrompt, /Representative Ability questions:/i);
-    assert.doesNotMatch(assignmentPrompt, /Concepts:/i);
-    assert.match(assignmentPrompt, /CCSS\.6\.EE\.A\.1 rather than CCSS\.MATH\.CONTENT\.6\.EE\.A\.1/);
-    assert.match(assignmentPrompt, /NGSS\.4-ESS3-1/);
-    assert.match(assignmentPrompt, /TEKS\.MA\.6\.3\.D/);
-    assert.match(assignmentPrompt, /VA SOL\.CE\.6\.6\.a/);
-  });
-
-  it('takes exactly the first question from each Ability pair', (): void => {
-    assert.deepEqual(representativeAbilityQuestions([
-      { q: [{ h: 'First A' }, { h: 'Second A' }] },
-      { q: [{ h: 'First B' }, { h: 'Second B' }] }
-    ]), [{ question: 'First A' }, { question: 'First B' }]);
-  });
-
-  it('rejects an Ability that is not a complete two-question pair', (): void => {
-    assert.throws(() => representativeAbilityQuestions([{ q: [{ h: 'Only one' }] }]), /exactly two nonempty questions/i);
-  });
-
-  it('changes the fingerprint when representative Ability questions change', (): void => {
-    assert.notEqual(
-      abilityQuestionFingerprint([{ question: 'First' }]),
-      abilityQuestionFingerprint([{ question: 'Second' }])
-    );
   });
 });

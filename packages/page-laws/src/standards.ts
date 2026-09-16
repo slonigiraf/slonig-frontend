@@ -1,6 +1,10 @@
 // Copyright 2021-2026 @polkadot/app-laws authors & contributors
 // SPDX-License-Identifier: Apache-2.0
 
+import type { BookSubject } from '@slonigiraf/db';
+
+import { normalizeBookSubject } from './bookSubject.js';
+
 export type StandardsFramework = 'ccss' | 'ngss' | 'teks' | 'vaSol';
 
 export interface CurriculumStandard {
@@ -8,29 +12,36 @@ export interface CurriculumStandard {
   framework: StandardsFramework;
 }
 
+export interface StandardsConceptInput {
+  description: string;
+  title: string;
+}
+
+export interface StandardsCandidate {
+  code: string;
+  context: string;
+  description: string;
+}
+
+export interface StandardsCatalog {
+  framework: StandardsFramework;
+  label: string;
+  path: string;
+  standards: StandardsCandidate[];
+}
+
 export interface StoredChapterStandards {
-  abilityQuestionFingerprint: string;
+  conceptFingerprint: string;
   standards: CurriculumStandard[];
 }
 
 export type StoredBookStandards = Record<string, StoredChapterStandards>;
 
-export interface StandardsQuestionInput {
-  question: string;
-}
-
-export interface StandardsAbilityQuestionSource {
-  q: Array<{ h: string }>;
-}
-
-export function representativeAbilityQuestions (abilities: StandardsAbilityQuestionSource[]): StandardsQuestionInput[] {
-  return abilities.map(({ q }) => {
-    if (q.length !== 2 || !q[0]?.h.trim() || !q[1]?.h.trim()) {
-      throw new Error('Every Ability used for standards identification must contain exactly two nonempty questions.');
-    }
-
-    return { question: q[0].h.trim() };
-  });
+interface StandardsSource {
+  framework: StandardsFramework;
+  label: string;
+  path: string;
+  url: URL;
 }
 
 export const STANDARD_FRAMEWORKS: ReadonlyArray<{ key: StandardsFramework; label: string }> = [
@@ -40,241 +51,269 @@ export const STANDARD_FRAMEWORKS: ReadonlyArray<{ key: StandardsFramework; label
   { key: 'vaSol', label: 'Virginia Standards of Learning' }
 ];
 
-const STANDARD_CODE_PATTERNS: Record<StandardsFramework, RegExp> = {
-  ccss: /^CCSS\.[A-Za-z0-9-]+(?:\.[A-Za-z0-9-]+){2,}$/,
-  ngss: /^NGSS\.(?:K|[1-9]|1[0-2]|MS|HS)-[A-Z]+\d*-[A-Za-z0-9-]+$/,
-  teks: /^TEKS\.[A-Z]+\.[A-Za-z0-9-]+\.\d+(?:\.[A-Za-z0-9]+)+$/,
-  vaSol: /^VA SOL\.[A-Z]+(?:\.[A-Za-z0-9-]+){2,}$/
-};
-
-function normalizedCode (value: unknown): string | undefined {
-  if (typeof value !== 'string') {
-    return undefined;
+const MATH_STANDARDS_SOURCES: ReadonlyArray<StandardsSource> = [
+  {
+    framework: 'ccss',
+    label: 'Common Core State Standards',
+    path: 'data/standards/en/math/common-core.json',
+    url: new URL('./data/standards/en/math/common-core.json', import.meta.url)
+  },
+  {
+    framework: 'teks',
+    label: 'Texas Essential Knowledge and Skills',
+    path: 'data/standards/en/math/teks.json',
+    url: new URL('./data/standards/en/math/teks.json', import.meta.url)
+  },
+  {
+    framework: 'vaSol',
+    label: 'Virginia Standards of Learning',
+    path: 'data/standards/en/math/virginia.json',
+    url: new URL('./data/standards/en/math/virginia.json', import.meta.url)
   }
+];
 
+const catalogCache = new Map<string, Promise<StandardsCatalog>>();
+
+function parseJsonResponse (content: string): unknown {
+  const json = content.trim().replace(/^```(?:json)?\s*|\s*```$/gi, '').trim();
+
+  try {
+    return JSON.parse(json) as unknown;
+  } catch {
+    return JSON.parse(json.replace(/\\(?!["\\/bfnrt]|u[0-9a-fA-F]{4})/g, '\\\\')) as unknown;
+  }
+}
+
+function canonicalStandardCode (framework: StandardsFramework, value: string): string {
   const code = value.replace(/\s+/g, ' ').trim();
 
-  return code || undefined;
+  if (!code) {
+    return '';
+  }
+
+  if (framework === 'ccss') {
+    const compact = code.replace(/^CCSS\.MATH\.CONTENT\./i, 'CCSS.');
+
+    return /^CCSS\./i.test(compact) ? compact : `CCSS.${compact}`;
+  }
+
+  if (framework === 'ngss') {
+    return /^NGSS\./i.test(code) ? code : `NGSS.${code}`;
+  }
+
+  if (framework === 'teks') {
+    return /^TEKS\./i.test(code) ? code : `TEKS.${code}`;
+  }
+
+  return /^VA SOL\./i.test(code) ? code : `VA SOL.${code}`;
 }
 
-function normalizedStandardCode (framework: StandardsFramework, value: unknown): string | undefined {
-  const code = normalizedCode(value);
+function flattenStandards (framework: StandardsFramework, raw: unknown): StandardsCandidate[] {
+  const result: StandardsCandidate[] = [];
+  const seen = new Set<string>();
 
-  if (!code) {
+  const visit = (value: unknown, context: string[]): void => {
+    if (Array.isArray(value)) {
+      value.forEach((entry) => visit(entry, context));
+      return;
+    }
+
+    if (!value || typeof value !== 'object') {
+      return;
+    }
+
+    const record = value as Record<string, unknown>;
+    const nextContext = [...context];
+
+    if (typeof record.g === 'string' && record.g.trim()) {
+      nextContext.push(record.g.trim());
+    }
+
+    if (typeof record.t === 'string' && record.t.trim()) {
+      nextContext.push(record.t.trim());
+    }
+
+    if (typeof record.i === 'string' && typeof record.d === 'string') {
+      const code = canonicalStandardCode(framework, record.i);
+
+      if (code && !seen.has(code)) {
+        seen.add(code);
+        result.push({
+          code,
+          context: nextContext.join(' > '),
+          description: record.d.trim()
+        });
+      }
+
+      return;
+    }
+
+    Object.entries(record).forEach(([key, child]) => {
+      if (key !== 'g' && key !== 't' && key !== 'i' && key !== 'd') {
+        visit(child, nextContext);
+      }
+    });
+  };
+
+  visit(raw, []);
+
+  return result;
+}
+
+export function standardsPathForBookSubject (subject: BookSubject | undefined): string | undefined {
+  const normalized = normalizeBookSubject(subject);
+
+  if (!normalized || normalized === 'na') {
     return undefined;
   }
 
-  // OpenAI models and standards references often use the official long-form
-  // Common Core math namespace (for example CCSS.MATH.CONTENT.6.EE.A.1).
-  // The app's canonical CCSS format intentionally omits MATH.CONTENT.
-  return framework === 'ccss'
-    ? code.replace(/^CCSS\.MATH\.CONTENT\./, 'CCSS.')
-    : code;
+  const [language, subjectName] = normalized.split('-');
+
+  return `data/standards/${language}/${subjectName}`;
 }
 
-export function abilityQuestionFingerprint (questions: StandardsQuestionInput[]): string {
-  const source = questions
-    .map(({ question }) => question.trim())
-    .join('\u001f');
+function standardsSourcesForBookSubject (subject: BookSubject | undefined): ReadonlyArray<StandardsSource> {
+  // Only register files that actually exist in the bundle. Add subject directories
+  // here as their standards JSON files are populated.
+  switch (standardsPathForBookSubject(subject)) {
+    case 'data/standards/en/math':
+      return MATH_STANDARDS_SOURCES;
+    default:
+      return [];
+  }
+}
+
+async function loadStandardsCatalog (source: StandardsSource): Promise<StandardsCatalog> {
+  const cached = catalogCache.get(source.path);
+
+  if (cached) {
+    return cached;
+  }
+
+  const pending = (async (): Promise<StandardsCatalog> => {
+    const response = await fetch(source.url);
+
+    if (!response.ok) {
+      throw new Error(`Unable to load standards from ${source.path}.`);
+    }
+
+    const raw = await response.json() as unknown;
+
+    return {
+      framework: source.framework,
+      label: source.label,
+      path: source.path,
+      standards: flattenStandards(source.framework, raw)
+    };
+  })();
+
+  catalogCache.set(source.path, pending);
+
+  try {
+    return await pending;
+  } catch (error) {
+    catalogCache.delete(source.path);
+    throw error;
+  }
+}
+
+export async function loadStandardsCatalogsForBookSubject (subject: BookSubject | undefined): Promise<StandardsCatalog[]> {
+  return Promise.all(standardsSourcesForBookSubject(subject).map(loadStandardsCatalog));
+}
+
+
+export function standardsConceptInputs (concepts: StandardsConceptInput[]): StandardsConceptInput[] {
+  const seen = new Set<string>();
+
+  return concepts.flatMap(({ description, title }) => {
+    const normalizedTitle = title.trim();
+    const normalizedDescription = description.trim();
+    const key = `${normalizedTitle}\u001f${normalizedDescription}`;
+
+    if (!normalizedTitle || seen.has(key)) {
+      return [];
+    }
+
+    seen.add(key);
+
+    return [{ description: normalizedDescription, title: normalizedTitle }];
+  });
+}
+
+export function standardsConceptFingerprint (concepts: StandardsConceptInput[], standardsPath = ''): string {
+  const source = `${standardsPath}\u001d${concepts
+    .map(({ description, title }) => `${title.trim()}\u001e${description.trim()}`)
+    .join('\u001f')}`;
   let hash = 2166136261;
 
   for (let index = 0; index < source.length; index++) {
     hash = Math.imul(hash ^ source.charCodeAt(index), 16777619);
   }
 
-  return `${questions.length}:${(hash >>> 0).toString(16)}`;
+  return `${concepts.length}:${(hash >>> 0).toString(16)}`;
 }
 
 export function standardsChapterKey (chapterId: number | undefined, title: string, pageNumbers: number[]): string {
   return chapterId === undefined ? `pages:${pageNumbers.join(',')}:${title.trim()}` : `id:${chapterId}`;
 }
 
-export function parseStandardsCompatibility (content: string): StandardsFramework[] {
-  const json = content.replace(/^```json\s*|\s*```$/g, '').trim();
-  let parsed: unknown;
+export function standardsMatchingPrompt (chapterTitle: string, concepts: StandardsConceptInput[], catalog: StandardsCatalog): string {
+  return `Select the strongest directly matching ${catalog.label} standards for this chapter from the authoritative candidate list supplied below.
 
-  try {
-    parsed = JSON.parse(json);
-  } catch {
-    parsed = JSON.parse(json.replace(/\\(?!["\\/bfnrt]|u[0-9a-fA-F]{4})/g, '\\\\'));
-  }
+IMPORTANT:
+- Match against the supplied chapter concepts: use both each concept title and description.
+- The candidate standards below are the complete source of truth for this request. Never invent, rewrite, approximate, or complete a standard code from memory.
+- Return only codes that appear verbatim in the candidate list.
+- Choose the smallest useful set of strongest matches. Include multiple standards when distinct chapter concepts genuinely require them, but exclude standards that are merely related, prerequisite, broader, narrower, or keyword-similar.
+- Prefer a specific content standard over a broad practice/process standard when both could describe the same concept, unless the practice/process standard is itself directly taught by the concepts.
+- If no candidate directly matches the concepts, return an empty array.
 
-  if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
-    throw new Error('OpenRouter returned invalid standards compatibility data.');
-  }
+Return only valid JSON in exactly this shape:
+{"codes":[]}
 
-  const root = parsed as Record<string, unknown>;
-  const validKeys = new Set<StandardsFramework>(STANDARD_FRAMEWORKS.map(({ key }) => key));
-  const requested = new Set<StandardsFramework>();
-  const compatibility = root.compatibility;
-
-  // Preferred shape: an explicit yes/no decision for every framework. This prevents
-  // a model from treating compatibility as a single-choice classification and
-  // accidentally dropping TEKS or Virginia SOL after finding a CCSS match.
-  if (compatibility && typeof compatibility === 'object' && !Array.isArray(compatibility)) {
-    const compatibilityMap = compatibility as Record<string, unknown>;
-
-    for (const { key } of STANDARD_FRAMEWORKS) {
-      const value = compatibilityMap[key];
-
-      if (typeof value !== 'boolean') {
-        throw new Error(`OpenRouter did not return a compatibility decision for ${key}.`);
-      }
-
-      if (value) {
-        requested.add(key);
-      }
-    }
-
-    return STANDARD_FRAMEWORKS.flatMap(({ key }) => requested.has(key) ? [key] : []);
-  }
-
-  // Backward-compatible parser for responses produced by older prompts.
-  const compatible = root.compatible;
-
-  if (!Array.isArray(compatible)) {
-    throw new Error('OpenRouter returned invalid standards compatibility data.');
-  }
-
-  for (const value of compatible) {
-    if (typeof value !== 'string' || !validKeys.has(value as StandardsFramework)) {
-      throw new Error('OpenRouter returned an unknown standards framework.');
-    }
-
-    requested.add(value as StandardsFramework);
-  }
-
-  return STANDARD_FRAMEWORKS.flatMap(({ key }) => requested.has(key) ? [key] : []);
+Chapter: ${chapterTitle}
+Concepts: ${JSON.stringify(concepts.map(({ description, title }) => ({ description, title })))}
+Candidate standards (${catalog.framework}) from ${catalog.path}: ${JSON.stringify(catalog.standards)}`;
 }
 
-export function completeStandardsCompatibility (frameworks: StandardsFramework[]): StandardsFramework[] {
-  const compatible = new Set<StandardsFramework>(frameworks);
-
-  // CCSS covers mathematics and ELA/literacy, while NGSS covers science. TEKS and
-  // Virginia SOL both contain corresponding K-12 subject standards, so either a
-  // CCSS or NGSS match is enough to make those two state frameworks valid
-  // crosswalk targets even when the model's compatibility pass under-selects.
-  if (compatible.has('ccss') || compatible.has('ngss')) {
-    compatible.add('teks');
-    compatible.add('vaSol');
-  }
-
-  return STANDARD_FRAMEWORKS.flatMap(({ key }) => compatible.has(key) ? [key] : []);
-}
-
-export function parseStandardsAssignment (content: string): CurriculumStandard[] {
-  const json = content.replace(/^```json\s*|\s*```$/g, '').trim();
-  let parsed: unknown;
-
-  try {
-    parsed = JSON.parse(json);
-  } catch {
-    parsed = JSON.parse(json.replace(/\\(?!["\\/bfnrt]|u[0-9a-fA-F]{4})/g, '\\\\'));
-  }
+export function parseStandardsMatches (content: string, catalog: StandardsCatalog): CurriculumStandard[] {
+  const parsed = parseJsonResponse(content);
 
   if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
-    throw new Error('OpenRouter returned invalid standards data.');
+    throw new Error(`OpenRouter returned invalid ${catalog.framework} standards matching data.`);
   }
 
-  const root = parsed as Record<string, unknown>;
-  const standards = root.standards;
+  const codes = (parsed as Record<string, unknown>).codes;
 
-  if (!standards || typeof standards !== 'object' || Array.isArray(standards)) {
-    throw new Error('OpenRouter returned invalid standards data.');
+  if (!Array.isArray(codes)) {
+    throw new Error(`OpenRouter returned invalid ${catalog.framework} standards matching data.`);
   }
 
-  const source = standards as Record<string, unknown>;
-  const result: CurriculumStandard[] = [];
+  const allowed = new Set(catalog.standards.map(({ code }) => code));
   const seen = new Set<string>();
+  const result: CurriculumStandard[] = [];
 
-  for (const { key } of STANDARD_FRAMEWORKS) {
-    const values = source[key];
-
-    if (values === undefined) {
-      continue;
+  codes.forEach((value) => {
+    if (typeof value !== 'string') {
+      throw new Error(`OpenRouter returned an invalid ${catalog.framework} standard code.`);
     }
 
-    if (!Array.isArray(values)) {
-      throw new Error('OpenRouter returned invalid standards data.');
+    const code = canonicalStandardCode(catalog.framework, value);
+
+    if (!allowed.has(code)) {
+      throw new Error(`OpenRouter returned ${code || 'an empty code'}, which is not present in ${catalog.path}.`);
     }
 
-    values.forEach((value) => {
-      const code = normalizedStandardCode(key, value);
-
-      if (!code || !STANDARD_CODE_PATTERNS[key].test(code)) {
-        throw new Error(`OpenRouter returned an invalid ${key} standard code.`);
-      }
-
-      const uniqueKey = `${key}:${code}`;
-
-      if (!seen.has(uniqueKey)) {
-        seen.add(uniqueKey);
-        result.push({ code, framework: key });
-      }
-    });
-  }
+    if (!seen.has(code)) {
+      seen.add(code);
+      result.push({ code, framework: catalog.framework });
+    }
+  });
 
   return result;
 }
 
-export function standardsCompatibilityPrompt (chapterTitle: string, questions: StandardsQuestionInput[]): string {
-  return `Evaluate EACH United States education standards framework below independently against the supplied representative Ability questions. This is only a compatibility pass: do not return standard codes yet.
-
-IMPORTANT:
-- The input contains exactly one representative question from each finalized two-question Ability pair in the chapter.
-- Infer the assessed academic content from what learners are actually asked to do in these questions. Do not rely on unavailable concept summaries.
-- This is NOT a single-choice classification. Multiple frameworks can and often should be compatible with the same chapter.
-- A framework is compatible when it contains standards for the same academic subject and approximate grade/band represented by the questions.
-- Do NOT reject TEKS because the source material is not from Texas, and do NOT reject Virginia SOL because the source material is not from Virginia. We are mapping learner tasks across standards systems, not determining the learner's jurisdiction.
-- For mathematics/ELA chapters, CCSS, TEKS, and Virginia SOL may all be compatible when their subject/grade scope matches.
-- For science chapters, NGSS, TEKS, and Virginia SOL may all be compatible when their subject/grade scope matches.
-- Judge every framework separately even if you already marked another framework true.
-
-Framework keys, in required order:
-1. ccss — Common Core State Standards
-2. ngss — Next Generation Science Standards
-3. teks — Texas Essential Knowledge and Skills
-4. vaSol — Virginia Standards of Learning
-
-Return only valid JSON in exactly this shape, with ALL four keys present:
-{"compatibility":{"ccss":true,"ngss":false,"teks":true,"vaSol":true}}
-
-Chapter: ${chapterTitle}
-Representative Ability questions: ${JSON.stringify(questions.map(({ question }) => ({ question })))}`;
-}
-
-export function standardsAssignmentPrompt (chapterTitle: string, questions: StandardsQuestionInput[], compatibleFrameworks: StandardsFramework[] = STANDARD_FRAMEWORKS.map(({ key }) => key)): string {
-  const selected = STANDARD_FRAMEWORKS.filter(({ key }) => compatibleFrameworks.includes(key));
-  const selectedLines = selected.map(({ key, label }, index) => `${index + 1}. ${label} (${key})`).join('\n');
-
-  return `Assign every directly applicable standard you can identify for this chapter, based strictly on the supplied representative Ability questions, but ONLY from the compatible frameworks selected by the prior compatibility pass. Do not invent codes, approximate codes, or return standards merely because they are adjacent to the assessed task.
-
-IMPORTANT:
-- The input contains exactly one representative question from each finalized two-question Ability pair in the chapter.
-- Match standards to what learners are actually required to demonstrate in these questions. Do not infer extra content from unavailable concept summaries.
-- Search EACH compatible framework independently. Finding CCSS codes does not satisfy the request for TEKS or Virginia SOL.
-- Do not stop after the first framework with matches.
-- TEKS and Virginia SOL are crosswalk targets here; do not omit them merely because the source book is not from Texas or Virginia.
-- For every compatible framework, make a genuine attempt to return all directly matching codes. Use an empty array only after independently checking that framework and finding no direct match you can identify confidently.
-
-Compatible frameworks to search, in this exact order:
-${selectedLines || '(none)'}
-
-Required code formats:
-- Common Core State Standards — CCSS.6.NS.B.3 (compact form only; never include MATH.CONTENT, e.g. return CCSS.6.EE.A.1 rather than CCSS.MATH.CONTENT.6.EE.A.1)
-- Next Generation Science Standards — NGSS.4-ESS3-1
-- Texas Essential Knowledge and Skills — TEKS.MA.6.3.D
-- Virginia Standards of Learning — VA SOL.CE.6.6.a
-
-Return only valid JSON in exactly this shape:
-{"standards":{"ccss":[],"ngss":[],"teks":[],"vaSol":[]}}
-Frameworks not listed as compatible above MUST remain empty arrays. Return all directly applicable codes from the compatible frameworks, deduplicated.
-
-Chapter: ${chapterTitle}
-Representative Ability questions: ${JSON.stringify(questions.map(({ question }) => ({ question })))}`;
-}
-
-const storageKey = (bookId: number): string => `knowledge-upload-book-${bookId}-standards-v2`;
+const storageKey = (bookId: number): string => `knowledge-upload-book-${bookId}-standards-v3`;
 
 export function loadStoredBookStandards (bookId: number): StoredBookStandards {
   try {
@@ -290,20 +329,40 @@ export function loadStoredBookStandards (bookId: number): StoredBookStandards {
       return {};
     }
 
-    // Migrate previously stored long-form CCSS math identifiers to the compact
-    // format used everywhere else in the app without forcing standards to rerun.
-    return Object.fromEntries(Object.entries(parsed as StoredBookStandards).map(([chapterKey, entry]) => [
-      chapterKey,
-      {
-        ...entry,
-        standards: Array.isArray(entry?.standards)
-          ? entry.standards.map((standard) => ({
-            ...standard,
-            code: normalizedStandardCode(standard.framework, standard.code) || standard.code
-          }))
-          : []
+    const result: StoredBookStandards = {};
+
+    Object.entries(parsed as Record<string, unknown>).forEach(([chapterKey, value]) => {
+      if (!value || typeof value !== 'object' || Array.isArray(value)) {
+        return;
       }
-    ]));
+
+      const entry = value as Partial<StoredChapterStandards>;
+
+      if (typeof entry.conceptFingerprint !== 'string' || !Array.isArray(entry.standards)) {
+        return;
+      }
+
+      result[chapterKey] = {
+        conceptFingerprint: entry.conceptFingerprint,
+        standards: entry.standards.flatMap((standard) => {
+          if (!standard || typeof standard !== 'object') {
+            return [];
+          }
+
+          const candidate = standard as CurriculumStandard;
+
+          if (!STANDARD_FRAMEWORKS.some(({ key }) => key === candidate.framework) || typeof candidate.code !== 'string') {
+            return [];
+          }
+
+          const code = canonicalStandardCode(candidate.framework, candidate.code);
+
+          return code ? [{ code, framework: candidate.framework }] : [];
+        })
+      };
+    });
+
+    return result;
   } catch {
     return {};
   }

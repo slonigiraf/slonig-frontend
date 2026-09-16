@@ -4,24 +4,22 @@
 import type { Book, BookStageSpendKey } from '@slonigiraf/db';
 import type { PDFDocumentProxy } from 'pdfjs-dist';
 
-import { createBook, deleteBook, getAbilities, getBook, getBookByContentHash, getBookConceptsForBookPage, getBookPages, getBooks, getExercisesForBookPage, putBook, updateBookProcessingStage } from '@slonigiraf/db';
+import { createBook, deleteBook, getBook, getBookByContentHash, getBookConceptsForBookPage, getBookPages, getBooks, putBook, updateBookProcessingStage } from '@slonigiraf/db';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { Button, Dropdown, Modal, styled } from '@polkadot/react-components';
 
-import { parseStoredAbility } from './abilities.js';
 import { estimateAiInput, formatAiInputEstimate } from './aiEstimate.js';
 import { MATHPIX_PDF_PAGE_PRICE_USD, OPENAI_MODELS } from './constants.js';
 import { conceptChaptersFromPages } from './conceptRecognition.js';
 import { formatOpenRouterSpend } from './openRouterCost.js';
-import { loadStoredBookStandards, representativeAbilityQuestions, STANDARD_FRAMEWORKS, standardsAssignmentPrompt, standardsCompatibilityPrompt } from './standards.js';
+import { loadStandardsCatalogsForBookSubject, loadStoredBookStandards, standardsConceptInputs, standardsMatchingPrompt } from './standards.js';
 import { loadPdfJs } from './pdf.js';
 import { useTranslation } from './translate.js';
 
 const BookReader = React.lazy(() => import('./BookReader.js'));
 
 const BOOKS_DIRECTORY = 'books';
-const exerciseAbilityModuleId = (bookId: number, exerciseId: number): string => `book-${bookId}-exercise-${exerciseId}`;
 const SELECTED_BOOK_SESSION_KEY = 'knowledge-upload-selected-book';
 const PRICE_STAGES: Array<{ detail?: string; key: BookStageSpendKey; label: string }> = [
   { key: 'recognize', label: 'Recognize' },
@@ -519,24 +517,21 @@ function Upload (): React.ReactElement {
 
     getBookPages(selectedBook.id).then(async (pages) => {
       const requests: string[] = [];
+      const catalogs = (await loadStandardsCatalogsForBookSubject(selectedBook.subject)).filter(({ standards }) => standards.length);
 
       for (const chapter of conceptChaptersFromPages(pages)) {
-        const exercises = (await Promise.all(chapter.pageNumbers.map((pageNumber) => getExercisesForBookPage([selectedBook.id, pageNumber])))).flat();
-        const records = (await Promise.all(exercises.flatMap(({ id }) => id === undefined ? [] : [getAbilities(exerciseAbilityModuleId(selectedBook.id, id))]))).flat() as Array<{ content: string }>;
-        const abilities = records.map(({ content }) => parseStoredAbility(content));
-        const questions = representativeAbilityQuestions(abilities);
+        const concepts = standardsConceptInputs((await Promise.all(chapter.pageNumbers.map((pageNumber) => getBookConceptsForBookPage(selectedBook.id, pageNumber)))).flat());
 
-        if (!questions.length) {
+        if (!concepts.length) {
           continue;
         }
 
-        requests.push(standardsCompatibilityPrompt(chapter.title, questions));
-        requests.push(standardsAssignmentPrompt(chapter.title, questions, STANDARD_FRAMEWORKS.map(({ key }) => key)));
+        catalogs.forEach((catalog) => requests.push(standardsMatchingPrompt(chapter.title, concepts, catalog)));
       }
 
       setStandardsEstimate(requests.length
-        ? formatAiInputEstimate(estimateAiInput(generateAllConceptsModel, requests, Math.max(2_000, requests.length * 1_200)))
-        : t('No finalized Ability questions are available for standards identification.'));
+        ? formatAiInputEstimate(estimateAiInput(generateAllConceptsModel, requests, 600))
+        : t(catalogs.length ? 'No extracted chapter concepts are available for standards matching.' : 'No standards catalogs are available for this book subject.'));
     }).catch(() => setError(t('Unable to estimate standards assignment cost.')));
   }, [generateAllConceptsModel, isStandardsConfirmationOpen, selectedBook, t]);
 
@@ -780,7 +775,7 @@ function Upload (): React.ReactElement {
         size='small'
       >
         <Modal.Content>
-          <p>{t('Identify standards for every chapter from one representative question in each finalized Ability pair? Each chapter first detects compatible standards frameworks, then assigns all directly applicable codes only from those frameworks.')}</p>
+          <p>{t('Match standards for every chapter from its extracted concepts? The detected book subject selects the standards catalog path, then each available standards catalog is sent with the chapter concepts so AI can choose the strongest direct matches. Only codes present in the supplied catalog can be stored.')}</p>
           <p>{standardsEstimate}</p>
           <Dropdown
             className='batchModelSelect'
