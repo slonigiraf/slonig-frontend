@@ -26,7 +26,7 @@ import { EXAMPLE_MODULE_KNOWLEDGE_CID, EXAMPLE_SKILL_KNOWLEDGE_ID } from "@sloni
 import { LearnRequest } from "./db/LearnRequest.js";
 import { ScheduledEvent, ScheduledEventType } from "./db/ScheduledEvent.js";
 import Dexie from "dexie";
-import type { Book, BookStageSpend, BookStageSpendKey } from './db/Book.js';
+import type { Book, BookStageSpend, BookStageSpendKey, BookSubject } from './db/Book.js';
 import type { BookPage, MathpixHeading } from './db/BookPage.js';
 import type { BookConcept } from './db/BookConcept.js';
 import type { Exercise } from './db/Exercise.js';
@@ -36,7 +36,7 @@ import type { ExerciseTemplate } from './db/ExerciseTemplate.js';
 import type { Ability } from './db/Ability.js';
 import { shouldExportDatabaseRow } from './backup.js';
 
-export type { LearnRequest, TutorAction, CanceledInsurance, Reexamination, LetterTemplate, CanceledLetter, Reimbursement, Letter, Insurance, Lesson, Pseudonym, Setting, Signer, UsageRight, Agreement, Ability, Book, BookStageSpend, BookStageSpendKey, BookPage, MathpixHeading, BookChapter, BookConcept, Exercise, Skill, ExerciseTemplate };
+export type { LearnRequest, TutorAction, CanceledInsurance, Reexamination, LetterTemplate, CanceledLetter, Reimbursement, Letter, Insurance, Lesson, Pseudonym, Setting, Signer, UsageRight, Agreement, Ability, Book, BookStageSpend, BookStageSpendKey, BookSubject, BookPage, MathpixHeading, BookChapter, BookConcept, Exercise, Skill, ExerciseTemplate };
 
 export async function createBook(book: Omit<Book, 'id'>): Promise<number> {
     return db.books.add(book as Book);
@@ -51,6 +51,7 @@ export async function putBook(book: Book): Promise<void> {
             ? {
                 recognize: Math.max(storedSpend?.recognize ?? 0, incomingSpend?.recognize ?? 0),
                 language: Math.max(storedSpend?.language ?? 0, incomingSpend?.language ?? 0),
+                subject: Math.max(storedSpend?.subject ?? 0, incomingSpend?.subject ?? 0),
                 chapters: Math.max(storedSpend?.chapters ?? 0, incomingSpend?.chapters ?? 0),
                 concepts: Math.max(storedSpend?.concepts ?? 0, incomingSpend?.concepts ?? 0),
                 exercises: Math.max(storedSpend?.exercises ?? 0, incomingSpend?.exercises ?? 0),

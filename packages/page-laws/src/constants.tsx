@@ -82,6 +82,26 @@ Middle-page MMD text:
 ${pageTexts.map(({ pageNumber, text }) => `--- page ${pageNumber} ---\n${text}`).join('\n\n')}`;
 };
 
+export const BOOK_SUBJECT_DETECTION_PROMPT = (bookLanguage: string, pageTexts: Array<{ pageNumber: number; text: string }>): string => {
+  return `Classify the primary school-book category using only the supplied Mathpix MMD text from the book's middle pages. Choose exactly one of these stored values: en-math, en-ela, en-science, na.
+
+The already-detected primary natural language of the book is ${bookLanguage}. Subject model classification is only used for English books; non-English books are assigned na before this prompt is called.
+
+Classification rules for English books:
+- en-math: mathematics instruction or mathematical problem solving.
+- en-ela: English Language Arts, including English reading, literature, grammar, vocabulary, or writing instruction.
+- en-science: natural or physical science such as biology, chemistry, physics, earth science, or general science.
+- na: every subject outside those categories, including social studies, history, geography, computing, arts, business, and mixed/general material without a clear en-math, en-ela, or en-science majority.
+
+Judge the dominant instructional subject, not isolated examples, formulas, passages, or chapter titles.
+
+Return only valid JSON in this exact shape:
+{"subject":"en-math"}
+
+Middle-page MMD text:
+${pageTexts.map(({ pageNumber, text }) => `--- page ${pageNumber} ---\n${text}`).join('\n\n')}`;
+};
+
 export const GENERATE_EXERCISES_REQUEST_PROMPT = (bookDetectedLanguage: string, input: unknown): string => {
   return `${GENERATE_EXERCISES_PROMPT(bookDetectedLanguage)}\n${JSON.stringify(input)}`;
 };

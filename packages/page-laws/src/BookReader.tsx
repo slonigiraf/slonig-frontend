@@ -17,11 +17,12 @@ import { Button, Dropdown, Input, Modal, styled } from '@polkadot/react-componen
 import { parseStoredAbility } from './abilities.js';
 import { estimateAiInput, formatAiInputEstimate } from './aiEstimate.js';
 import { BOOK_LANGUAGE_OPTIONS, bookLanguageLabel, getMiddleBookPageNumbers, normalizeLanguageCode, parseDetectedBookLanguage } from './bookLanguage.js';
+import { BOOK_SUBJECT_OPTIONS, automaticBookSubjectForLanguage, bookSubjectLabel, normalizeBookSubject, parseDetectedBookSubject } from './bookSubject.js';
 import { areAllBookPagesConceptsProcessed, countUnprocessedBookPages, processExtractedChapterContent } from './bookProcessing.js';
 import { mapConcurrent } from './concurrency.js';
 import { OPENROUTER_CONCURRENCY, openRouterRequestGate } from './openRouterConcurrency.js';
 import { formatOpenRouterSpend, reportOpenRouterCost, type OpenRouterCostReporter } from './openRouterCost.js';
-import { BOOK_CHAPTER_EXTRACTION_REQUEST_PROMPT, BOOK_LANGUAGE_DETECTION_PROMPT, MATHPIX_PDF_PAGE_PRICE_USD, OPENAI_MODELS } from './constants.js';
+import { BOOK_CHAPTER_EXTRACTION_REQUEST_PROMPT, BOOK_LANGUAGE_DETECTION_PROMPT, BOOK_SUBJECT_DETECTION_PROMPT, MATHPIX_PDF_PAGE_PRICE_USD, OPENAI_MODELS } from './constants.js';
 import { stripMarkdownImageReferences } from './bookImageRefs.js';
 import { chapterAssignmentsFromBoundaries, chapterEvidenceWindows, chapterReconciliationPrompt, chapterWindowPrompt, deriveStructuralChapterCandidates, extractMathpixHeadingsFromLines, pageChapterEvidence, parseChapterBoundaries, stabilizeChapterBoundaries, type ChapterBoundaryProposal } from './chapterSegmentation.js';
 import { conceptChaptersFromPages, parseGeneratedChapterConcepts, type ConceptChapterNavigationItem, type GeneratedChapterConcepts } from './conceptRecognition.js';
@@ -431,6 +432,7 @@ interface Props {
   generateAllConceptsRequest: number;
   identifyChaptersRequest: number;
   languageTabRequest: number;
+  subjectTabRequest: number;
   onBookChange: (book: Book) => void;
   onProcessingComplete: () => void;
   pendingProcessingAction?: 'chapters' | 'concepts' | 'recognize' | 'standards' | 'exercises';
@@ -440,7 +442,7 @@ interface Props {
   recognizeAllRequest: number;
 }
 
-type ReaderPane = 'chapters' | 'conceptExercises' | 'conceptsSkills' | 'language' | 'pdf' | 'preExercisesExercises' | 'skillsCourse' | 'standards' | 'text' | 'textConcepts';
+type ReaderPane = 'chapters' | 'conceptExercises' | 'conceptsSkills' | 'language' | 'subject' | 'pdf' | 'preExercisesExercises' | 'skillsCourse' | 'standards' | 'text' | 'textConcepts';
 type RecognitionTarget = 'all' | 'page';
 
 interface ReaderEntityCounts {
@@ -491,13 +493,13 @@ function getSessionReaderPane(bookId: number): ReaderPane {
       return 'text';
     }
 
-    return value === 'text' || value === 'language' || value === 'chapters' || value === 'textConcepts' || value === 'standards' || value === 'conceptExercises' || value === 'preExercisesExercises' || value === 'skillsCourse' ? value : 'text';
+    return value === 'text' || value === 'language' || value === 'subject' || value === 'chapters' || value === 'textConcepts' || value === 'standards' || value === 'conceptExercises' || value === 'preExercisesExercises' || value === 'skillsCourse' ? value : 'text';
   } catch {
     return 'text';
   }
 }
 
-function BookReader({ assignAllStandardsRequest, book, file, generateAllConceptsModel, generateAllConceptsRequest, identifyChaptersRequest, languageTabRequest, onBookChange, onProcessingComplete, pendingProcessingAction, processingToolbar, processingToolbarAfterFixImages, recognizeAllRequest, generateAllExercisesRequest }: Props): React.ReactElement {
+function BookReader({ assignAllStandardsRequest, book, file, generateAllConceptsModel, generateAllConceptsRequest, identifyChaptersRequest, languageTabRequest, subjectTabRequest, onBookChange, onProcessingComplete, pendingProcessingAction, processingToolbar, processingToolbarAfterFixImages, recognizeAllRequest, generateAllExercisesRequest }: Props): React.ReactElement {
   const { t } = useTranslation();
   const [activePane, setActivePane] = useState<ReaderPane>(() => {
     const stage = book.processingStage ?? 0;
@@ -528,6 +530,8 @@ function BookReader({ assignAllStandardsRequest, book, file, generateAllConcepts
   const [identifiedChapterPageCount, setIdentifiedChapterPageCount] = useState(0);
   const [isIdentifyingChapters, setIsIdentifyingChapters] = useState(false);
   const [isDetectingBookLanguage, setIsDetectingBookLanguage] = useState(false);
+  const [isDetectingBookSubject, setIsDetectingBookSubject] = useState(false);
+  const [isSubjectDetectionConfirmationOpen, setIsSubjectDetectionConfirmationOpen] = useState(false);
   const [isGeneratingAllConcepts, setIsGeneratingAllConcepts] = useState(false);
   const [isGeneratingChapterConcepts, setIsGeneratingChapterConcepts] = useState(false);
   const [isMaximized, setIsMaximized] = useState(() => getSessionReaderMaximized(book.id));
@@ -547,16 +551,19 @@ function BookReader({ assignAllStandardsRequest, book, file, generateAllConcepts
   const [pdf, setPdf] = useState<PDFDocumentProxy>();
   const [renderedPageHeight, setRenderedPageHeight] = useState<number>();
   const [selectedModel, setSelectedModel] = useState(OPENAI_MODELS[0].value);
+  const [selectedSubjectModel, setSelectedSubjectModel] = useState(OPENAI_MODELS[0].value);
   const [skillsRefreshToken, setSkillsRefreshToken] = useState(0);
   const [totalPages, setTotalPages] = useState(0);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const handledAssignAllStandardsRequestRef = useRef(assignAllStandardsRequest);
   const handledGenerateAllConceptsRequestRef = useRef(generateAllConceptsRequest);
   const handledLanguageTabRequestRef = useRef(languageTabRequest);
+  const handledSubjectTabRequestRef = useRef(subjectTabRequest);
   const handledIdentifyChaptersRequestRef = useRef(identifyChaptersRequest);
   const handledGenerateAllExercisesRequestRef = useRef(generateAllExercisesRequest);
   const handledRecognizeAllRequestRef = useRef(recognizeAllRequest);
   const isDetectingBookLanguageRef = useRef(false);
+  const isDetectingBookSubjectRef = useRef(false);
   const pageAreaRef = useRef<HTMLDivElement>(null);
   const addStageCost = useCallback((stage: BookStageSpendKey, costUsd: number): void => {
     setOpenRouterSpent((current) => current + costUsd);
@@ -564,6 +571,7 @@ function BookReader({ assignAllStandardsRequest, book, file, generateAllConcepts
   }, [book.id]);
   const addRecognizeCost = useCallback((costUsd: number): void => addStageCost('recognize', costUsd), [addStageCost]);
   const addLanguageCost = useCallback((costUsd: number): void => addStageCost('language', costUsd), [addStageCost]);
+  const addSubjectCost = useCallback((costUsd: number): void => addStageCost('subject', costUsd), [addStageCost]);
   const addChaptersCost = useCallback((costUsd: number): void => addStageCost('chapters', costUsd), [addStageCost]);
   const addConceptsCost = useCallback((costUsd: number): void => addStageCost('concepts', costUsd), [addStageCost]);
   const addExercisesCost = useCallback((costUsd: number): void => addStageCost('exercises', costUsd), [addStageCost]);
@@ -579,6 +587,24 @@ function BookReader({ assignAllStandardsRequest, book, file, generateAllConcepts
     // input, so show the conservative two-request estimate.
     return formatAiInputEstimate(estimateAiInput(selectedModel, [estimatedRequest, estimatedRequest], 4_800));
   }, [currentConceptChapter, pages, selectedModel]);
+  const subjectDetectionEstimate = useMemo(() => {
+    if (automaticBookSubjectForLanguage(book.language)) {
+      return 'Non-English books are classified as na automatically. No OpenRouter request or model cost is needed.';
+    }
+
+    const middlePageNumbers = getMiddleBookPageNumbers(totalPages);
+    const pageTexts = middlePageNumbers.flatMap((middlePageNumber) => {
+      const text = pages.get(middlePageNumber)?.pageMMD?.trim();
+
+      return text ? [{ pageNumber: middlePageNumber, text }] : [];
+    });
+
+    if (!middlePageNumbers.length || pageTexts.length !== middlePageNumbers.length) {
+      return 'Recognition text is incomplete; subject detection cannot be estimated yet.';
+    }
+
+    return formatAiInputEstimate(estimateAiInput(selectedSubjectModel, [BOOK_SUBJECT_DETECTION_PROMPT(book.language ?? 'unknown', pageTexts)], 64));
+  }, [book.language, pages, selectedSubjectModel, totalPages]);
   const exerciseChapters = useMemo<ExerciseChapterNavigationItem[]>(() => {
     const grouped = new Map<string, ExerciseChapterNavigationItem>();
 
@@ -1413,7 +1439,8 @@ function BookReader({ assignAllStandardsRequest, book, file, generateAllConcepts
       const language = parseDetectedBookLanguage(response.choices[0].message?.content?.trim() ?? '');
       const languageChanged = normalizeLanguageCode(book.language) !== language;
       const processingStage = languageChanged && (book.processingStage ?? 0) >= 4 ? 3 : book.processingStage;
-      const updatedBook = { ...book, language, processingStage };
+      const automaticSubject = automaticBookSubjectForLanguage(language);
+      const updatedBook = { ...book, language, subject: automaticSubject ?? (languageChanged ? undefined : book.subject), processingStage };
 
       await putBook(updatedBook);
       onBookChange(updatedBook);
@@ -1436,7 +1463,8 @@ function BookReader({ assignAllStandardsRequest, book, file, generateAllConcepts
     try {
       const languageChanged = normalizeLanguageCode(book.language) !== language;
       const processingStage = languageChanged && (book.processingStage ?? 0) >= 4 ? 3 : book.processingStage;
-      const updatedBook = { ...book, language, processingStage };
+      const automaticSubject = automaticBookSubjectForLanguage(language);
+      const updatedBook = { ...book, language, subject: automaticSubject ?? (languageChanged ? undefined : book.subject), processingStage };
 
       await putBook(updatedBook);
       onBookChange(updatedBook);
@@ -1468,6 +1496,153 @@ function BookReader({ assignAllStandardsRequest, book, file, generateAllConcepts
       setError(caught instanceof Error ? caught.message : 'Unable to determine the book language from MMD text.');
     }
   }, [detectAndStoreBookLanguage, isMmdConversionComplete, pages]);
+
+  const detectAndStoreBookSubject = useCallback(async (recognizedPages: Map<number, BookPage>, force = false): Promise<void> => {
+    if ((!force && book.subject) || isDetectingBookSubjectRef.current) {
+      return;
+    }
+
+    if (!book.language) {
+      if (force) {
+        throw new Error('Set the book language before detecting its subject.');
+      }
+
+      return;
+    }
+
+    const automaticSubject = automaticBookSubjectForLanguage(book.language);
+
+    if (automaticSubject) {
+      const updatedBook: Book = { ...book, subject: automaticSubject };
+
+      await putBook(updatedBook);
+      onBookChange(updatedBook);
+      return;
+    }
+
+    const middlePageNumbers = getMiddleBookPageNumbers(totalPages);
+    const pageTexts = middlePageNumbers.flatMap((middlePageNumber) => {
+      const text = recognizedPages.get(middlePageNumber)?.pageMMD?.trim();
+
+      return text ? [{ pageNumber: middlePageNumber, text }] : [];
+    });
+
+    if (!middlePageNumbers.length || pageTexts.length !== middlePageNumbers.length) {
+      if (force) {
+        throw new Error('The middle recognized pages do not contain enough text to detect a subject. Choose the subject manually.');
+      }
+
+      return;
+    }
+
+    const key = await getSetting(SettingKey.OPENROUTER_TOKEN);
+
+    if (!key) {
+      if (force) {
+        throw new Error('No OpenRouter token found. Add it in Settings or choose the subject manually.');
+      }
+
+      return;
+    }
+
+    isDetectingBookSubjectRef.current = true;
+    setIsDetectingBookSubject(true);
+
+    try {
+      const client = new OpenAI({
+        apiKey: key,
+        baseURL: 'https://openrouter.ai/api/v1',
+        dangerouslyAllowBrowser: true,
+        defaultHeaders: { 'HTTP-Referer': window.location.origin, 'X-OpenRouter-Title': 'Slonig' }
+      });
+      const response = await openRouterRequestGate.run(() => client.chat.completions.create({
+        messages: [{ content: BOOK_SUBJECT_DETECTION_PROMPT(book.language ?? 'unknown', pageTexts), role: 'user' }],
+        model: selectedSubjectModel,
+        response_format: { type: 'json_object' }
+      }));
+
+      reportOpenRouterCost(response, addSubjectCost);
+
+      const subject = parseDetectedBookSubject(response.choices[0].message?.content?.trim() ?? '');
+      const updatedBook: Book = { ...book, subject };
+
+      await putBook(updatedBook);
+      onBookChange(updatedBook);
+    } finally {
+      isDetectingBookSubjectRef.current = false;
+      setIsDetectingBookSubject(false);
+    }
+  }, [addSubjectCost, book, onBookChange, selectedSubjectModel, totalPages]);
+
+  const saveManualBookSubject = useCallback(async (subjectValue: string): Promise<void> => {
+    const subject = normalizeBookSubject(subjectValue);
+
+    if (!subject) {
+      setError('Choose a valid book subject.');
+      return;
+    }
+
+    if (!book.language) {
+      setError('Set the book language before setting its subject.');
+      return;
+    }
+
+    setError('');
+
+    try {
+      const updatedBook: Book = { ...book, subject };
+
+      await putBook(updatedBook);
+      onBookChange(updatedBook);
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : 'Unable to save the book subject.');
+    }
+  }, [book, onBookChange]);
+
+  const redetectBookSubject = useCallback(async (): Promise<void> => {
+    if (!isMmdConversionComplete) {
+      setError('Recognize every page before detecting the book subject.');
+      return;
+    }
+
+    if (!book.language) {
+      setError('Set the book language before detecting its subject.');
+      return;
+    }
+
+    setError('');
+    setOpenRouterSpent(0);
+
+    try {
+      await detectAndStoreBookSubject(pages, true);
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : 'Unable to determine the book subject from MMD text.');
+    }
+  }, [book.language, detectAndStoreBookSubject, isMmdConversionComplete, pages]);
+
+  const openSubjectDetectionConfirmation = useCallback((): void => {
+    if (!isMmdConversionComplete) {
+      setError('Recognize every page before detecting the book subject.');
+      return;
+    }
+
+    if (!book.language) {
+      setError('Set the book language before detecting its subject.');
+      return;
+    }
+
+    setError('');
+    setIsSubjectDetectionConfirmationOpen(true);
+  }, [book.language, isMmdConversionComplete]);
+
+  const closeSubjectDetectionConfirmation = useCallback((): void => {
+    setIsSubjectDetectionConfirmationOpen(false);
+  }, []);
+
+  const confirmSubjectDetection = useCallback((): void => {
+    setIsSubjectDetectionConfirmationOpen(false);
+    redetectBookSubject().catch(console.error);
+  }, [redetectBookSubject]);
 
   const recognizePage = useCallback(async (): Promise<void> => {
     if (processingPage !== undefined || isGeneratingAllConcepts || isRecognizingAll || isIdentifyingChapters) {
@@ -1642,6 +1817,23 @@ function BookReader({ assignAllStandardsRequest, book, file, generateAllConcepts
     // the manual language override available if detection cannot complete.
     redetectBookLanguage().catch(console.error);
   }, [isMmdConversionComplete, languageTabRequest, redetectBookLanguage]);
+
+  useEffect((): void => {
+    if (subjectTabRequest === handledSubjectTabRequestRef.current) {
+      return;
+    }
+
+    // Subject is a separate pipeline action after language. Open its pane now,
+    // then show the confirmation/model picker once recognized text is loaded.
+    setActivePane('subject');
+
+    if (!isMmdConversionComplete) {
+      return;
+    }
+
+    handledSubjectTabRequestRef.current = subjectTabRequest;
+    openSubjectDetectionConfirmation();
+  }, [isMmdConversionComplete, openSubjectDetectionConfirmation, subjectTabRequest]);
 
   useEffect((): void => {
     if (
@@ -1913,6 +2105,38 @@ function BookReader({ assignAllStandardsRequest, book, file, generateAllConcepts
     </div>;
   };
 
+  const subjectPane = (): React.ReactNode => {
+    const selectedSubject = normalizeBookSubject(book.subject);
+
+    return <div className='tabPanel languagePanel'>
+      <div className='detailsHeader'>
+        <span>{isDetectingBookSubject ? 'Detecting book subject…' : `Book subject: ${bookSubjectLabel(book.subject)}`}</span>
+      </div>
+      <div className='languageActions'>
+        <Button
+          icon='magic'
+          isDisabled={!book.language || !isMmdConversionComplete || isDetectingBookSubject}
+          label={isDetectingBookSubject ? 'Detecting…' : 'Detect from text'}
+          onClick={openSubjectDetectionConfirmation}
+        />
+        <div
+          aria-label='Choose book subject'
+          className='languageButtonGrid'
+          role='group'
+        >
+          {BOOK_SUBJECT_OPTIONS.map(({ text, value }) => <button
+            aria-pressed={selectedSubject === value}
+            className={selectedSubject === value ? 'selected' : ''}
+            disabled={!book.language || !isMmdConversionComplete || isDetectingBookSubject}
+            key={value}
+            onClick={() => saveManualBookSubject(value).catch(console.error)}
+            type='button'
+          >{text}</button>)}
+        </div>
+      </div>
+    </div>;
+  };
+
   const chaptersPane = (): React.ReactNode => {
     const evidence = currentBookPage ? pageChapterEvidence(currentBookPage) : undefined;
     const currentChapterPages = currentChapter?.id === undefined
@@ -2141,6 +2365,38 @@ function BookReader({ assignAllStandardsRequest, book, file, generateAllConcepts
           </Button.Group>
         </Modal.Content>
       </Modal>}
+      {isSubjectDetectionConfirmationOpen && <Modal
+        header='Detect book subject'
+        onClose={closeSubjectDetectionConfirmation}
+        size='small'
+      >
+        <Modal.Content>
+          <p>{automaticBookSubjectForLanguage(book.language)
+            ? 'This book is not in English, so its subject will be set to na automatically. You can change the stored subject manually afterward.'
+            : 'Detect the primary subject from the middle recognized pages? You can change the result manually afterward.'}</p>
+          <p>{subjectDetectionEstimate}</p>
+          {!automaticBookSubjectForLanguage(book.language) && <Dropdown
+            className='modelSelect'
+            isFull
+            label='Model'
+            onChange={setSelectedSubjectModel}
+            options={OPENAI_MODELS}
+            value={selectedSubjectModel}
+          />}
+          <Button.Group>
+            <Button
+              icon='times'
+              label='Cancel'
+              onClick={closeSubjectDetectionConfirmation}
+            />
+            <Button
+              icon='magic'
+              label='Detect'
+              onClick={confirmSubjectDetection}
+            />
+          </Button.Group>
+        </Modal.Content>
+      </Modal>}
       {isPageGenerationConfirmationOpen && <Modal
         header='Generate concepts'
         onClose={closePageGenerationConfirmation}
@@ -2171,13 +2427,13 @@ function BookReader({ assignAllStandardsRequest, book, file, generateAllConcepts
           </Button.Group>
         </Modal.Content>
       </Modal>}
-      {(pendingProcessingAction || processingPage !== undefined || isDetectingBookLanguage || isRecognizingAll || isIdentifyingChapters || isGeneratingAllConcepts || isAssigningStandards || isGeneratingAllExercises) && <div className='processingOverlay'>
+      {(pendingProcessingAction || processingPage !== undefined || isDetectingBookLanguage || isDetectingBookSubject || isRecognizingAll || isIdentifyingChapters || isGeneratingAllConcepts || isAssigningStandards || isGeneratingAllExercises) && <div className='processingOverlay'>
         <RoundProgress
-          total={isDetectingBookLanguage || processingPage !== undefined ? 1 : isGeneratingAllConcepts || pendingProcessingAction === 'concepts' || isAssigningStandards || pendingProcessingAction === 'standards' ? Math.max(1, conceptChapters.length) : Math.max(1, totalPages)}
-          value={isDetectingBookLanguage || processingPage !== undefined ? 0 : isRecognizingAll || pendingProcessingAction === 'recognize' ? recognizedPageCount : isIdentifyingChapters || pendingProcessingAction === 'chapters' ? identifiedChapterPageCount : isAssigningStandards || pendingProcessingAction === 'standards' ? standardsAssignedChapterCount : isGeneratingAllExercises || pendingProcessingAction === 'exercises' ? generatedExercisesPageCount : generatedConceptsChapterCount}
+          total={isDetectingBookLanguage || isDetectingBookSubject || processingPage !== undefined ? 1 : isGeneratingAllConcepts || pendingProcessingAction === 'concepts' || isAssigningStandards || pendingProcessingAction === 'standards' ? Math.max(1, conceptChapters.length) : Math.max(1, totalPages)}
+          value={isDetectingBookLanguage || isDetectingBookSubject || processingPage !== undefined ? 0 : isRecognizingAll || pendingProcessingAction === 'recognize' ? recognizedPageCount : isIdentifyingChapters || pendingProcessingAction === 'chapters' ? identifiedChapterPageCount : isAssigningStandards || pendingProcessingAction === 'standards' ? standardsAssignedChapterCount : isGeneratingAllExercises || pendingProcessingAction === 'exercises' ? generatedExercisesPageCount : generatedConceptsChapterCount}
         />
-        <strong>{isGeneratingChapterConcepts ? `Processing chapter ${currentConceptChapter?.title || ''}` : processingPage !== undefined ? `Processing page ${processingPage}` : isDetectingBookLanguage ? 'Detecting book language' : isRecognizingAll || pendingProcessingAction === 'recognize' ? 'Recognizing MMD pages' : isIdentifyingChapters || pendingProcessingAction === 'chapters' ? 'Identifying chapters' : isAssigningStandards || pendingProcessingAction === 'standards' ? 'Identifying standards from representative Ability questions' : isGeneratingAllExercises || pendingProcessingAction === 'exercises' ? 'Generating exercises' : 'Extracting concepts by chapter'}</strong>
-        {processingPage === undefined && !isDetectingBookLanguage && <span>{isRecognizingAll || pendingProcessingAction === 'recognize' ? recognizedPageCount : isIdentifyingChapters || pendingProcessingAction === 'chapters' ? identifiedChapterPageCount : isAssigningStandards || pendingProcessingAction === 'standards' ? standardsAssignedChapterCount : isGeneratingAllExercises || pendingProcessingAction === 'exercises' ? generatedExercisesPageCount : generatedConceptsChapterCount} / {isGeneratingAllConcepts || pendingProcessingAction === 'concepts' || isAssigningStandards || pendingProcessingAction === 'standards' ? conceptChapters.length : totalPages}</span>}
+        <strong>{isGeneratingChapterConcepts ? `Processing chapter ${currentConceptChapter?.title || ''}` : processingPage !== undefined ? `Processing page ${processingPage}` : isDetectingBookLanguage ? 'Detecting book language' : isDetectingBookSubject ? 'Detecting book subject' : isRecognizingAll || pendingProcessingAction === 'recognize' ? 'Recognizing MMD pages' : isIdentifyingChapters || pendingProcessingAction === 'chapters' ? 'Identifying chapters' : isAssigningStandards || pendingProcessingAction === 'standards' ? 'Identifying standards from representative Ability questions' : isGeneratingAllExercises || pendingProcessingAction === 'exercises' ? 'Generating exercises' : 'Extracting concepts by chapter'}</strong>
+        {processingPage === undefined && !isDetectingBookLanguage && !isDetectingBookSubject && <span>{isRecognizingAll || pendingProcessingAction === 'recognize' ? recognizedPageCount : isIdentifyingChapters || pendingProcessingAction === 'chapters' ? identifiedChapterPageCount : isAssigningStandards || pendingProcessingAction === 'standards' ? standardsAssignedChapterCount : isGeneratingAllExercises || pendingProcessingAction === 'exercises' ? generatedExercisesPageCount : generatedConceptsChapterCount} / {isGeneratingAllConcepts || pendingProcessingAction === 'concepts' || isAssigningStandards || pendingProcessingAction === 'standards' ? conceptChapters.length : totalPages}</span>}
         <span className='openRouterSpend'>Spent this stage: {formatOpenRouterSpend(openRouterSpent)}</span>
       </div>}
       <Skills
@@ -2203,6 +2459,7 @@ function BookReader({ assignAllStandardsRequest, book, file, generateAllConcepts
         {([
           ['text', 'PDF/Text', 0, undefined],
           ['language', 'Language', 1, undefined],
+          ['subject', 'Subject', 1, undefined],
           ['chapters', 'Chapters', 1, chapters.length],
           ['textConcepts', 'Concepts', 3, entityCounts.concepts],
           ['conceptExercises', 'Exercises', 4, entityCounts.exercises],
@@ -2327,6 +2584,8 @@ function BookReader({ assignAllStandardsRequest, book, file, generateAllConcepts
             </>
             : activePane === 'language'
               ? <div className='detailsArea fullWidthDetails languageDetails'>{languagePane()}</div>
+              : activePane === 'subject'
+                ? <div className='detailsArea fullWidthDetails languageDetails'>{subjectPane()}</div>
               : activePane === 'chapters'
                 ? <>
                   <div

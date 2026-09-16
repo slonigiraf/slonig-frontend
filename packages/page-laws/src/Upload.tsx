@@ -26,6 +26,7 @@ const SELECTED_BOOK_SESSION_KEY = 'knowledge-upload-selected-book';
 const PRICE_STAGES: Array<{ detail?: string; key: BookStageSpendKey; label: string }> = [
   { key: 'recognize', label: 'Recognize' },
   { key: 'language', label: 'Language' },
+  { key: 'subject', label: 'Subject' },
   { key: 'chapters', label: 'Chapters' },
   { key: 'concepts', label: 'Concepts' },
   { key: 'exercises', label: 'Exercises' },
@@ -92,6 +93,7 @@ function Upload (): React.ReactElement {
   const [assignAllStandardsRequest, setAssignAllStandardsRequest] = useState(0);
   const [generateAllConceptsRequest, setGenerateAllConceptsRequest] = useState(0);
   const [languageTabRequest, setLanguageTabRequest] = useState(0);
+  const [subjectTabRequest, setSubjectTabRequest] = useState(0);
   const [identifyChaptersRequest, setIdentifyChaptersRequest] = useState(0);
   const [identifyChaptersEstimate, setIdentifyChaptersEstimate] = useState('');
   const [isIdentifyChaptersConfirmationOpen, setIsIdentifyChaptersConfirmationOpen] = useState(false);
@@ -323,14 +325,14 @@ function Upload (): React.ReactElement {
 
     setPendingProcessingAction('recognize');
 
-    const resetBook: Book = { ...selectedBook, language: undefined, processingStage: 0 };
+    const resetBook: Book = { ...selectedBook, language: undefined, subject: undefined, processingStage: 0 };
 
     putBook(resetBook).then(() => {
       setBooks((current) => current.map((book) => book.id === resetBook.id ? resetBook : book));
       setRecognizeAllRequest((request) => request + 1);
     }).catch(() => {
       setPendingProcessingAction(undefined);
-      setError(t('Unable to reset recognition and language.'));
+      setError(t('Unable to reset recognition, language, and subject.'));
     });
   }, [selectedBook, t]);
 
@@ -343,6 +345,20 @@ function Upload (): React.ReactElement {
     setLanguageTabRequest((request) => request + 1);
   }, [selectedBook]);
 
+  const onShowSubject = useCallback((): void => {
+    if (!selectedBook || (selectedBook.processingStage ?? 0) < 1) {
+      return;
+    }
+
+    if (!selectedBook.language) {
+      setError(t('Book language has not been set yet. Open the Language step, then detect it from text or choose it manually.'));
+      return;
+    }
+
+    setError('');
+    setSubjectTabRequest((request) => request + 1);
+  }, [selectedBook, t]);
+
   const onIdentifyChapters = useCallback((): void => {
     if (!selectedBook) {
       return;
@@ -350,6 +366,11 @@ function Upload (): React.ReactElement {
 
     if (!selectedBook.language) {
       setError(t('Book language has not been set yet. Open the Language step, then detect it from text or choose it manually.'));
+      return;
+    }
+
+    if (!selectedBook.subject) {
+      setError(t('Book subject has not been set yet. Open the Subject step, then detect it from text or choose it manually.'));
       return;
     }
 
@@ -417,6 +438,11 @@ function Upload (): React.ReactElement {
       return;
     }
 
+    if (!selectedBook.subject) {
+      setError(t('Book subject has not been set yet. Open the Subject step, then detect it from text or choose it manually.'));
+      return;
+    }
+
     setPendingProcessingAction('concepts');
     setIsGenerateConceptsConfirmationOpen(true);
   }, [selectedBook, t]);
@@ -472,9 +498,19 @@ function Upload (): React.ReactElement {
       return;
     }
 
+    if (!selectedBook.language) {
+      setError(t('Book language has not been set yet. Open the Language step, then detect it from text or choose it manually.'));
+      return;
+    }
+
+    if (!selectedBook.subject) {
+      setError(t('Book subject has not been set yet. Open the Subject step, then detect it from text or choose it manually.'));
+      return;
+    }
+
     setPendingProcessingAction('standards');
     setIsStandardsConfirmationOpen(true);
-  }, [selectedBook]);
+  }, [selectedBook, t]);
 
   useEffect(() => {
     if (!isStandardsConfirmationOpen || !selectedBook) {
@@ -527,6 +563,11 @@ function Upload (): React.ReactElement {
 
     if (!selectedBook.language) {
       setError(t('Book language has not been set yet. Open the Language step, then detect it from text or choose it manually.'));
+      return;
+    }
+
+    if (!selectedBook.subject) {
+      setError(t('Book subject has not been set yet. Open the Subject step, then detect it from text or choose it manually.'));
       return;
     }
 
@@ -650,7 +691,7 @@ function Upload (): React.ReactElement {
         <Modal.Content>
           <p>{t('Recognize every page in this book?')}</p>
           <p>{recognizeEstimate}</p>
-          <p>{t('Language detection is a separate step after recognition.')}</p>
+          <p>{t('Language and subject detection are separate steps after recognition.')}</p>
           <p>
             <a
               href='https://mathpix.com/pricing/api'
@@ -845,6 +886,7 @@ function Upload (): React.ReactElement {
             file={readerFile}
             generateAllConceptsModel={generateAllConceptsModel}
             languageTabRequest={languageTabRequest}
+            subjectTabRequest={subjectTabRequest}
             generateAllConceptsRequest={generateAllConceptsRequest}
             identifyChaptersRequest={identifyChaptersRequest}
             onBookChange={onBookChange}
@@ -869,8 +911,17 @@ function Upload (): React.ReactElement {
             <span className='pipelineStep'>
               <span>›</span>
               <Button
-                icon={(selectedBook?.processingStage ?? 0) >= 2 ? 'rotate-left' : 'play'}
+                icon={selectedBook?.subject ? 'rotate-left' : 'play'}
                 isDisabled={!selectedBook || !readerFile || isBusy || (selectedBook.processingStage ?? 0) < 1 || !selectedBook.language}
+                label={t('Subject')}
+                onClick={onShowSubject}
+              />
+            </span>
+            <span className='pipelineStep'>
+              <span>›</span>
+              <Button
+                icon={(selectedBook?.processingStage ?? 0) >= 2 ? 'rotate-left' : 'play'}
+                isDisabled={!selectedBook || !readerFile || isBusy || (selectedBook.processingStage ?? 0) < 1 || !selectedBook.language || !selectedBook.subject}
                 label={t('Chapters')}
                 onClick={onIdentifyChapters}
               />
@@ -879,7 +930,7 @@ function Upload (): React.ReactElement {
               <span>›</span>
               <Button
                 icon={(selectedBook?.processingStage ?? 0) >= 3 ? 'rotate-left' : 'play'}
-                isDisabled={!selectedBook || !readerFile || isBusy || (selectedBook.processingStage ?? 0) < 2 || !selectedBook.language}
+                isDisabled={!selectedBook || !readerFile || isBusy || (selectedBook.processingStage ?? 0) < 2 || !selectedBook.language || !selectedBook.subject}
                 label={t('Concepts')}
                 onClick={onGenerateConcepts}
               />
@@ -888,7 +939,7 @@ function Upload (): React.ReactElement {
               <span>›</span>
               <Button
                 icon={(selectedBook?.processingStage ?? 0) >= 4 ? 'rotate-left' : 'play'}
-                isDisabled={!selectedBook || !readerFile || isBusy || (selectedBook.processingStage ?? 0) < 3 || !selectedBook.language}
+                isDisabled={!selectedBook || !readerFile || isBusy || (selectedBook.processingStage ?? 0) < 3 || !selectedBook.language || !selectedBook.subject}
                 label={t('Exercises')}
                 onClick={onGenerateExercises}
               />
@@ -896,7 +947,7 @@ function Upload (): React.ReactElement {
             </>}
             processingToolbarAfterFixImages={(pipelineStage) => <span className='pipelineStep'><span>›</span><Button
               icon={standardsAssigned ? 'rotate-left' : 'play'}
-              isDisabled={!selectedBook || !readerFile || isBusy || pipelineStage < 11 || !selectedBook.language}
+              isDisabled={!selectedBook || !readerFile || isBusy || pipelineStage < 11 || !selectedBook.language || !selectedBook.subject}
               label={t('Standards')}
               onClick={onAssignStandards}
             /></span>}

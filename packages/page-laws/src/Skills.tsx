@@ -744,6 +744,7 @@ function getSessionChapter (bookId: number, view: SkillsView): number {
 function Skills ({ book, externalRefreshToken = 0, onAction, onBookChange, onContentChange, onEntityCountsChange, pipelineOnly = false, pipelinePrefix, pipelineSuffix, showPipeline = true, view }: Props): React.ReactElement {
   const language = book.language ?? '';
   const hasBookLanguage = Boolean(language);
+  const hasBookSubject = Boolean(book.subject);
   const [aiAction, setAiAction] = useState<AiAction>();
   const [chapterContent, setChapterContent] = useState<ChapterContent[]>([]);
   const [bookPageContent, setBookPageContent] = useState<BookPageContent[]>([]);
@@ -2015,31 +2016,31 @@ function Skills ({ book, externalRefreshToken = 0, onAction, onBookChange, onCon
       {pipelinePrefix}
       <span className='pipelineStep'><span>›</span><Button
         icon={iconForStage(FIX_EXERCISES_STAGE)}
-        isDisabled={isBusy || !hasBookLanguage || stage < 4 || !allExercises.length}
+        isDisabled={isBusy || !hasBookLanguage || !hasBookSubject || stage < 4 || !allExercises.length}
         label='Fix exercises'
         onClick={openExerciseFix}
                                                    /></span>
       <span className='pipelineStep'><span>›</span><Button
         icon={iconForStage(ABILITIES_STAGE)}
-        isDisabled={isBusy || !hasBookLanguage || stage < FIX_EXERCISES_STAGE || !allExercises.length}
+        isDisabled={isBusy || !hasBookLanguage || !hasBookSubject || stage < FIX_EXERCISES_STAGE || !allExercises.length}
         label='Abilities'
         onClick={openExerciseGeneration}
                                                    /></span>
       <span className='pipelineStep'><span>›</span><Button
         icon={iconForStage(FIX_ABILITIES_STAGE)}
-        isDisabled={isBusy || !hasBookLanguage || stage < ABILITIES_STAGE || !hasAbilities}
+        isDisabled={isBusy || !hasBookLanguage || !hasBookSubject || stage < ABILITIES_STAGE || !hasAbilities}
         label='Fix abilities'
         onClick={openAbilityFix}
                                                    /></span>
       <span className='pipelineStep'><span>›</span><Button
         icon={iconForStage(IMAGES_STAGE)}
-        isDisabled={isBusy || !hasBookLanguage || stage < FIX_ABILITIES_STAGE || !hasAbilities}
+        isDisabled={isBusy || !hasBookLanguage || !hasBookSubject || stage < FIX_ABILITIES_STAGE || !hasAbilities}
         label='Images'
         onClick={openImages}
                                                    /></span>
       <span className='pipelineStep'><span>›</span><Button
         icon={iconForStage(FIX_IMAGES_STAGE)}
-        isDisabled={isBusy || !hasBookLanguage || stage < IMAGES_STAGE || !hasAbilities}
+        isDisabled={isBusy || !hasBookLanguage || !hasBookSubject || stage < IMAGES_STAGE || !hasAbilities}
         label='Fix images'
         onClick={openImageFix}
                                                    /></span>
