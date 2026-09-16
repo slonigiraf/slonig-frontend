@@ -26,7 +26,7 @@ import { BOOK_CHAPTER_EXTRACTION_REQUEST_PROMPT, BOOK_LANGUAGE_DETECTION_PROMPT,
 import { stripMarkdownImageReferences } from './bookImageRefs.js';
 import { chapterAssignmentsFromBoundaries, chapterEvidenceWindows, chapterReconciliationPrompt, chapterWindowPrompt, deriveStructuralChapterCandidates, extractMathpixHeadingsFromLines, pageChapterEvidence, parseChapterBoundaries, stabilizeChapterBoundaries, type ChapterBoundaryProposal } from './chapterSegmentation.js';
 import { conceptChaptersFromPages, parseGeneratedChapterConcepts, type ConceptChapterNavigationItem, type GeneratedChapterConcepts } from './conceptRecognition.js';
-import { loadStandardsCatalogsForBookSubject, loadStoredBookStandards, mergeStandardsMatches, parseStandardsFixResult, parseStandardsMatches, STANDARD_FRAMEWORKS, STANDARDS_MATCH_RUNS, standardsChapterKey, standardsConceptFingerprint, standardsConceptInputs, standardsFixInputs, standardsFixPrompt, standardsMatchingPrompt, standardsPathForBookSubject, storeBookStandards, type CurriculumStandard, type StandardsCatalog, type StandardsConceptInput, type StoredBookStandards } from './standards.js';
+import { loadStandardsCatalogsForBookSubject, loadStoredBookStandards, mergeStandardsMatches, parseStandardsFixResult, parseStandardsMatches, STANDARD_FRAMEWORKS, STANDARDS_FIX_RUNS, STANDARDS_MATCH_RUNS, standardsChapterKey, standardsConceptFingerprint, standardsConceptInputs, standardsFixInputs, standardsFixPrompt, standardsMatchingPrompt, standardsPathForBookSubject, storeBookStandards, type CurriculumStandard, type StandardsCatalog, type StandardsConceptInput, type StoredBookStandards } from './standards.js';
 import Skills from './Skills.js';
 import SkillsCourse from './SkillsCourse.js';
 import { loadPdfJs } from './pdf.js';
@@ -85,8 +85,8 @@ async function requestChapterStandards(client: OpenAI, model: string, chapterTit
     return [];
   }
 
-  const assignments = await Promise.all(populatedCatalogs.flatMap((catalog) =>
-    Array.from({ length: STANDARDS_MATCH_RUNS }, async (): Promise<CurriculumStandard[]> => {
+  const assignments = await Promise.all(populatedCatalogs.map(async (catalog): Promise<CurriculumStandard[]> => {
+    const runs = await Promise.all(Array.from({ length: STANDARDS_MATCH_RUNS }, async (): Promise<CurriculumStandard[]> => {
       const response = await openRouterRequestGate.run(() => client.chat.completions.create({
         messages: [{
           content: standardsMatchingPrompt(chapterTitle, concepts, catalog),
@@ -104,8 +104,10 @@ async function requestChapterStandards(client: OpenAI, model: string, chapterTit
       }
 
       return parseStandardsMatches(content, catalog);
-    })
-  ));
+    }));
+
+    return mergeStandardsMatches(runs, Math.floor(STANDARDS_MATCH_RUNS / 2) + 1);
+  }));
 
   return mergeStandardsMatches(assignments);
 }
@@ -117,23 +119,27 @@ async function requestFixedChapterStandards(client: OpenAI, model: string, chapt
     return [];
   }
 
-  const response = await openRouterRequestGate.run(() => client.chat.completions.create({
-    messages: [{
-      content: standardsFixPrompt(chapterTitle, concepts, inputs),
-      role: 'user'
-    }],
-    model,
-    response_format: { type: 'json_object' }
+  const reviews = await Promise.all(Array.from({ length: STANDARDS_FIX_RUNS }, async (): Promise<CurriculumStandard[]> => {
+    const response = await openRouterRequestGate.run(() => client.chat.completions.create({
+      messages: [{
+        content: standardsFixPrompt(chapterTitle, concepts, inputs),
+        role: 'user'
+      }],
+      model,
+      response_format: { type: 'json_object' }
+    }));
+
+    reportOpenRouterCost(response, onCost);
+    const content = response.choices[0].message?.content?.trim();
+
+    if (!content) {
+      throw new Error('OpenRouter returned no fixed standards data.');
+    }
+
+    return parseStandardsFixResult(content, inputs);
   }));
 
-  reportOpenRouterCost(response, onCost);
-  const content = response.choices[0].message?.content?.trim();
-
-  if (!content) {
-    throw new Error('OpenRouter returned no fixed standards data.');
-  }
-
-  return parseStandardsFixResult(content, inputs);
+  return mergeStandardsMatches(reviews, Math.floor(STANDARDS_FIX_RUNS / 2) + 1);
 }
 
 async function getChapterStandardsConcepts(bookId: number, pageNumbers: number[]): Promise<StandardsConceptInput[]> {

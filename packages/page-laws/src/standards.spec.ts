@@ -4,7 +4,7 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 
-import { loadStandardsCatalogsForBookSubject, loadStoredBookStandards, mergeStandardsMatches, parseStandardsFixResult, parseStandardsMatches, STANDARDS_MATCH_RUNS, standardsConceptFingerprint, standardsConceptInputs, standardsFixInputs, standardsFixPrompt, standardsMatchingPrompt, standardsPathForBookSubject, type StandardsCatalog } from './standards.js';
+import { loadStandardsCatalogsForBookSubject, loadStoredBookStandards, mergeStandardsMatches, parseStandardsFixResult, parseStandardsMatches, STANDARDS_FIX_RUNS, STANDARDS_MATCH_RUNS, standardsCandidateShortlist, standardsConceptFingerprint, standardsConceptInputs, standardsFixInputs, standardsFixPrompt, standardsMatchingPrompt, standardsPathForBookSubject, type StandardsCatalog } from './standards.js';
 
 const catalog: StandardsCatalog = {
   framework: 'ccss',
@@ -19,6 +19,7 @@ const catalog: StandardsCatalog = {
 describe('chapter standards', (): void => {
   it('runs standards matching three times', (): void => {
     assert.equal(STANDARDS_MATCH_RUNS, 3);
+    assert.equal(STANDARDS_FIX_RUNS, 3);
   });
 
   it('derives the standards directory from the detected book subject', (): void => {
@@ -82,7 +83,7 @@ describe('chapter standards', (): void => {
     }], catalog);
 
     assert.match(prompt, /chapter concepts/i);
-    assert.match(prompt, /complete source of truth/i);
+    assert.match(prompt, /complete set of codes/i);
     assert.match(prompt, /Never invent/i);
     assert.match(prompt, /Unit rates/);
     assert.match(prompt, /CCSS\.6\.RP\.A\.2/);
@@ -90,7 +91,32 @@ describe('chapter standards', (): void => {
     assert.doesNotMatch(prompt, /Ability questions/i);
   });
 
-  it('builds a deletion-only Fix standards prompt from concepts and assigned standards JSON', (): void => {
+  it('retrieves a small relevant candidate set instead of sending a whole large catalog to matching', (): void => {
+    const largeCatalog: StandardsCatalog = {
+      ...catalog,
+      standards: [
+        ...Array.from({ length: 100 }, (_, index) => ({
+          code: `CCSS.K.CC.A.${index}`,
+          context: 'Kindergarten > Counting',
+          description: `Count objects in an unrelated counting task number ${index}.`
+        })),
+        {
+          code: 'CCSS.6.EE.A.2b',
+          context: '6 > Apply and extend previous understandings of arithmetic to algebraic expressions',
+          description: 'Identify parts of an expression using mathematical terms (sum, term, product, factor, quotient, coefficient).'
+        }
+      ]
+    };
+    const candidates = standardsCandidateShortlist([{
+      description: 'A coefficient is a constant multiplied by a variable, and a term is a product in an expression.',
+      title: 'Coefficient'
+    }], largeCatalog, 20);
+
+    assert.ok(candidates.some(({ code }) => code === 'CCSS.6.EE.A.2b'));
+    assert.ok(candidates.length < largeCatalog.standards.length);
+  });
+
+  it('builds an independent deletion-only Fix standards prompt from concepts and assigned standards JSON', (): void => {
     const concepts = [{ description: 'A unit rate compares two quantities with a second quantity of one.', title: 'Unit rates' }];
     const inputs = standardsFixInputs([{ code: 'CCSS.6.RP.A.2', framework: 'ccss' }], [catalog]);
     const prompt = standardsFixPrompt('Ratios', concepts, inputs);
@@ -103,26 +129,30 @@ describe('chapter standards', (): void => {
     }]);
     assert.match(prompt, /Concepts JSON/);
     assert.match(prompt, /Standards JSON/);
-    assert.match(prompt, /too vague/i);
-    assert.match(prompt, /not actually introduced/i);
+    assert.match(prompt, /independently/i);
+    assert.match(prompt, /exactly one decision/i);
+    assert.match(prompt, /required actions/i);
     assert.match(prompt, /deletion-only/i);
     assert.match(prompt, /Unit rates/);
     assert.match(prompt, /CCSS\.6\.RP\.A\.2/);
   });
 
-  it('allows Fix standards to remove assigned standards but never add new ones', (): void => {
+  it('requires Fix standards to decide every assigned standard and never add new ones', (): void => {
     const inputs = standardsFixInputs([
       { code: 'CCSS.6.RP.A.2', framework: 'ccss' },
       { code: 'CCSS.6.EE.A.1', framework: 'ccss' }
     ], [catalog]);
 
-    assert.deepEqual(parseStandardsFixResult('{"standards":[{"framework":"ccss","code":"CCSS.6.RP.A.2"}]}', inputs), [
+    assert.deepEqual(parseStandardsFixResult('{"decisions":[{"framework":"ccss","code":"CCSS.6.RP.A.2","keep":true},{"framework":"ccss","code":"CCSS.6.EE.A.1","keep":false}]}', inputs), [
       { code: 'CCSS.6.RP.A.2', framework: 'ccss' }
     ]);
-    assert.deepEqual(parseStandardsFixResult('{"standards":[]}', inputs), []);
     assert.throws(
-      () => parseStandardsFixResult('{"standards":[{"framework":"ccss","code":"CCSS.7.RP.A.1"}]}', inputs),
+      () => parseStandardsFixResult('{"decisions":[{"framework":"ccss","code":"CCSS.7.RP.A.1","keep":true},{"framework":"ccss","code":"CCSS.6.EE.A.1","keep":false}]}', inputs),
       /not present in the assigned standards/i
+    );
+    assert.throws(
+      () => parseStandardsFixResult('{"decisions":[{"framework":"ccss","code":"CCSS.6.RP.A.2","keep":true}]}', inputs),
+      /did not return a decision/i
     );
   });
 
@@ -139,6 +169,25 @@ describe('chapter standards', (): void => {
       { code: 'CCSS.6.EE.A.1', framework: 'ccss' },
       { code: '6.4A', framework: 'teks' }
     ]);
+  });
+
+  it('can require repeated matching runs to agree before a standard survives', (): void => {
+    assert.deepEqual(mergeStandardsMatches([
+      [
+        { code: 'CCSS.6.RP.A.2', framework: 'ccss' },
+        { code: 'CCSS.6.EE.A.1', framework: 'ccss' }
+      ],
+      [{ code: 'CCSS.6.RP.A.2', framework: 'ccss' }],
+      []
+    ], 2), [{ code: 'CCSS.6.RP.A.2', framework: 'ccss' }]);
+
+    assert.deepEqual(mergeStandardsMatches([
+      [
+        { code: 'CCSS.6.RP.A.2', framework: 'ccss' },
+        { code: 'CCSS.6.RP.A.2', framework: 'ccss' }
+      ],
+      []
+    ], 2), []);
   });
 
   it('accepts only standard codes that were supplied in the catalog', (): void => {
@@ -179,7 +228,7 @@ describe('chapter standards', (): void => {
     );
   });
 
-  it('loads v3 concept-based stored standards and normalizes old long-form CCSS codes inside them', (): void => {
+  it('loads current concept-based stored standards and normalizes old long-form CCSS codes inside them', (): void => {
     const originalLocalStorage = globalThis.localStorage;
 
     globalThis.localStorage = {

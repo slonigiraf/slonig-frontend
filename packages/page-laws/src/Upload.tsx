@@ -13,7 +13,7 @@ import { estimateAiInput, formatAiInputEstimate } from './aiEstimate.js';
 import { MATHPIX_PDF_PAGE_PRICE_USD, OPENAI_MODELS } from './constants.js';
 import { conceptChaptersFromPages } from './conceptRecognition.js';
 import { formatOpenRouterSpend } from './openRouterCost.js';
-import { loadStandardsCatalogsForBookSubject, loadStoredBookStandards, STANDARDS_MATCH_RUNS, standardsChapterKey, standardsConceptInputs, standardsFixInputs, standardsFixPrompt, standardsMatchingPrompt } from './standards.js';
+import { loadStandardsCatalogsForBookSubject, loadStoredBookStandards, STANDARDS_FIX_RUNS, STANDARDS_MATCH_RUNS, standardsChapterKey, standardsConceptInputs, standardsFixInputs, standardsFixPrompt, standardsMatchingPrompt } from './standards.js';
 import { loadPdfJs } from './pdf.js';
 import { useTranslation } from './translate.js';
 
@@ -610,7 +610,11 @@ function Upload (): React.ReactElement {
         const standards = standardsFixInputs(assignment.standards, catalogs);
 
         if (standards.length) {
-          requests.push(standardsFixPrompt(chapter.title, concepts, standards));
+          const prompt = standardsFixPrompt(chapter.title, concepts, standards);
+
+          for (let run = 0; run < STANDARDS_FIX_RUNS; run++) {
+            requests.push(prompt);
+          }
         }
       }
 
