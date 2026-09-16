@@ -29,7 +29,7 @@ import { conceptChaptersFromPages, parseGeneratedChapterConcepts, type ConceptCh
 import { loadStandardsCatalogsForBookSubject, loadStoredBookStandards, mergeStandardsMatches, parseStandardsFixResult, parseStandardsMatches, STANDARD_FRAMEWORKS, STANDARDS_FIX_RUNS, STANDARDS_MATCH_RUNS, standardsChapterKey, standardsConceptFingerprint, standardsConceptInputs, standardsFixInputs, standardsFixPrompt, standardsMatchingPrompt, standardsPathForBookSubject, storeBookStandards, type CurriculumStandard, type StandardsCatalog, type StandardsConceptInput, type StoredBookStandards } from './standards.js';
 import Skills from './Skills.js';
 import SkillsCourse from './SkillsCourse.js';
-import { loadPdfJs } from './pdf.js';
+import { extractPdfOutlineChapterBoundaries, loadPdfJs } from './pdf.js';
 import { useTranslation } from './translate.js';
 
 export { OPENAI_MODELS } from './constants.js';
@@ -571,7 +571,13 @@ function BookReader({ assignAllStandardsRequest, book, file, fixAllStandardsRequ
   const [entityCounts, setEntityCounts] = useState<ReaderEntityCounts>({ abilities: 0, bookExercises: 0, concepts: 0, exercises: 0 });
   const [generatedConceptsChapterCount, setGeneratedConceptsChapterCount] = useState(0);
   const [identifiedChapterPageCount, setIdentifiedChapterPageCount] = useState(0);
+  const [chapterIdentificationPhase, setChapterIdentificationPhase] = useState<'bookmarks' | 'saving' | 'text'>('bookmarks');
   const [isIdentifyingChapters, setIsIdentifyingChapters] = useState(false);
+  const chapterIdentificationLabel = chapterIdentificationPhase === 'bookmarks'
+    ? 'Reading PDF bookmarks'
+    : chapterIdentificationPhase === 'saving'
+      ? 'Saving chapter assignments'
+      : 'Identifying chapters from page text';
   const [isDetectingBookLanguage, setIsDetectingBookLanguage] = useState(false);
   const [isDetectingBookSubject, setIsDetectingBookSubject] = useState(false);
   const [isSubjectDetectionConfirmationOpen, setIsSubjectDetectionConfirmationOpen] = useState(false);
@@ -855,6 +861,9 @@ function BookReader({ assignAllStandardsRequest, book, file, fixAllStandardsRequ
     // update without returning the updated row.
     onBookChange(updatedBook ?? { ...book, processingStage });
   }, [book, onBookChange]);
+  const advanceStageRef = useRef(advanceStage);
+
+  advanceStageRef.current = advanceStage;
 
   useEffect(() => {
     let active = true;
@@ -899,11 +908,11 @@ function BookReader({ assignAllStandardsRequest, book, file, fixAllStandardsRequ
       const hasEveryPage = storedPages.length === document.numPages;
 
       if (areAllBookPagesConceptsProcessed(document.numPages, storedPages)) {
-        await advanceStage(3);
+        await advanceStageRef.current(3);
       } else if (hasEveryPage && storedPages.every(({ chapterId, chapter }) => chapterId !== undefined || Boolean(chapter.trim()))) {
-        await advanceStage(2);
+        await advanceStageRef.current(2);
       } else if (hasEveryPage && storedPages.every(({ pageMMD }) => pageMMD !== undefined)) {
-        await advanceStage(1);
+        await advanceStageRef.current(1);
       }
 
       const restoredPage = Math.min(document.numPages, getSessionPage(book.id));
@@ -918,7 +927,7 @@ function BookReader({ assignAllStandardsRequest, book, file, fixAllStandardsRequ
       active = false;
       void loadingTask?.destroy();
     };
-  }, [advanceStage, book.id, file]);
+  }, [book.id, file]);
 
   useEffect(() => {
     let active = true;
@@ -1141,12 +1150,6 @@ function BookReader({ assignAllStandardsRequest, book, file, fixAllStandardsRequ
       return;
     }
 
-    if (!book.language) {
-      setError('Set the book language after recognition before identifying chapters.');
-      onProcessingComplete();
-      return;
-    }
-
     const recognizedPages = Array.from(pages.values()).sort((a, b) => a.pageNumber - b.pageNumber);
 
     if (recognizedPages.length !== totalPages || recognizedPages.some(({ pageMMD }) => pageMMD === undefined)) {
@@ -1158,9 +1161,35 @@ function BookReader({ assignAllStandardsRequest, book, file, fixAllStandardsRequ
     setError('');
     setOpenRouterSpent(0);
     setIdentifiedChapterPageCount(0);
+    setChapterIdentificationPhase('bookmarks');
     setIsIdentifyingChapters(true);
 
     try {
+      // The document outline/bookmarks are author-provided PDF metadata, so
+      // prefer them over inferred headings and AI reconciliation whenever they
+      // contain usable destinations.
+      if (!pdf) {
+        throw new Error('The PDF is still loading. Try identifying chapters again.');
+      }
+
+      const outlineBoundaries = await extractPdfOutlineChapterBoundaries(pdf);
+
+      if (outlineBoundaries.length) {
+        const boundaries = chapterAssignmentsFromBoundaries(outlineBoundaries, totalPages);
+
+        setChapterIdentificationPhase('saving');
+        await replaceBookChapterAssignments(book.id, boundaries);
+        await refreshChapterAssignments();
+        await advanceStage(2);
+        setIdentifiedChapterPageCount(totalPages);
+        return;
+      }
+
+      if (!book.language) {
+        throw new Error('Set the book language after recognition before identifying chapters without PDF bookmarks.');
+      }
+
+      setChapterIdentificationPhase('text');
       const key = await getSetting(SettingKey.OPENROUTER_TOKEN);
 
       if (!key) {
@@ -1190,6 +1219,7 @@ function BookReader({ assignAllStandardsRequest, book, file, fixAllStandardsRequ
       const stable = stabilizeChapterBoundaries(reconciled.length ? reconciled : proposals, structural, totalPages, evidence);
       const boundaries = chapterAssignmentsFromBoundaries(stable, totalPages);
 
+      setChapterIdentificationPhase('saving');
       await replaceBookChapterAssignments(book.id, boundaries);
       await refreshChapterAssignments();
       await advanceStage(2);
@@ -1200,7 +1230,7 @@ function BookReader({ assignAllStandardsRequest, book, file, fixAllStandardsRequ
       setIsIdentifyingChapters(false);
       onProcessingComplete();
     }
-  }, [addChaptersCost, advanceStage, book.id, book.language, generateAllConceptsModel, isGeneratingAllConcepts, isGeneratingAllExercises, isIdentifyingChapters, isRecognizingAll, onProcessingComplete, pages, processingPage, refreshChapterAssignments, totalPages]);
+  }, [addChaptersCost, advanceStage, book.id, book.language, generateAllConceptsModel, isGeneratingAllConcepts, isGeneratingAllExercises, isIdentifyingChapters, isRecognizingAll, onProcessingComplete, pages, pdf, processingPage, refreshChapterAssignments, totalPages]);
 
   const generateConcepts = useCallback(async (): Promise<void> => {
     const storedPage = pages.get(pageNumber);
@@ -2359,7 +2389,7 @@ function BookReader({ assignAllStandardsRequest, book, file, fixAllStandardsRequ
 
     return <div className='tabPanel chaptersPanel'>
       <div className='detailsHeader'>
-        <span>{isIdentifyingChapters ? `Identifying chapters… ${identifiedChapterPageCount}/${totalPages}` : 'Chapter assignment'}</span>
+        <span>{isIdentifyingChapters ? `${chapterIdentificationLabel}… ${identifiedChapterPageCount}/${totalPages}` : 'Chapter assignment'}</span>
       </div>
       <div className='chapterEditor'>
         <h3>{currentChapter?.title || 'Unassigned page'}</h3>
@@ -2652,7 +2682,7 @@ function BookReader({ assignAllStandardsRequest, book, file, fixAllStandardsRequ
           total={isDetectingBookLanguage || isDetectingBookSubject || processingPage !== undefined ? 1 : isGeneratingAllConcepts || pendingProcessingAction === 'concepts' || isAssigningStandards || pendingProcessingAction === 'standards' || isFixingStandards || pendingProcessingAction === 'fixStandards' ? Math.max(1, conceptChapters.length) : Math.max(1, totalPages)}
           value={isDetectingBookLanguage || isDetectingBookSubject || processingPage !== undefined ? 0 : isRecognizingAll || pendingProcessingAction === 'recognize' ? recognizedPageCount : isIdentifyingChapters || pendingProcessingAction === 'chapters' ? identifiedChapterPageCount : isAssigningStandards || pendingProcessingAction === 'standards' ? standardsAssignedChapterCount : isFixingStandards || pendingProcessingAction === 'fixStandards' ? standardsFixedChapterCount : isGeneratingAllExercises || pendingProcessingAction === 'exercises' ? generatedExercisesPageCount : generatedConceptsChapterCount}
         />
-        <strong>{isGeneratingChapterConcepts ? `Processing chapter ${currentConceptChapter?.title || ''}` : processingPage !== undefined ? `Processing page ${processingPage}` : isDetectingBookLanguage ? 'Detecting book language' : isDetectingBookSubject ? 'Detecting book subject' : isRecognizingAll || pendingProcessingAction === 'recognize' ? 'Recognizing MMD pages' : isIdentifyingChapters || pendingProcessingAction === 'chapters' ? 'Identifying chapters' : isAssigningStandards || pendingProcessingAction === 'standards' ? 'Matching standards to chapter concepts' : isFixingStandards || pendingProcessingAction === 'fixStandards' ? 'Fixing standards from chapter concepts' : isGeneratingAllExercises || pendingProcessingAction === 'exercises' ? 'Generating exercises' : 'Extracting concepts by chapter'}</strong>
+        <strong>{isGeneratingChapterConcepts ? `Processing chapter ${currentConceptChapter?.title || ''}` : processingPage !== undefined ? `Processing page ${processingPage}` : isDetectingBookLanguage ? 'Detecting book language' : isDetectingBookSubject ? 'Detecting book subject' : isRecognizingAll || pendingProcessingAction === 'recognize' ? 'Recognizing MMD pages' : isIdentifyingChapters || pendingProcessingAction === 'chapters' ? chapterIdentificationLabel : isAssigningStandards || pendingProcessingAction === 'standards' ? 'Matching standards to chapter concepts' : isFixingStandards || pendingProcessingAction === 'fixStandards' ? 'Fixing standards from chapter concepts' : isGeneratingAllExercises || pendingProcessingAction === 'exercises' ? 'Generating exercises' : 'Extracting concepts by chapter'}</strong>
         {processingPage === undefined && !isDetectingBookLanguage && !isDetectingBookSubject && <span>{isRecognizingAll || pendingProcessingAction === 'recognize' ? recognizedPageCount : isIdentifyingChapters || pendingProcessingAction === 'chapters' ? identifiedChapterPageCount : isAssigningStandards || pendingProcessingAction === 'standards' ? standardsAssignedChapterCount : isFixingStandards || pendingProcessingAction === 'fixStandards' ? standardsFixedChapterCount : isGeneratingAllExercises || pendingProcessingAction === 'exercises' ? generatedExercisesPageCount : generatedConceptsChapterCount} / {isGeneratingAllConcepts || pendingProcessingAction === 'concepts' || isAssigningStandards || pendingProcessingAction === 'standards' || isFixingStandards || pendingProcessingAction === 'fixStandards' ? conceptChapters.length : totalPages}</span>}
         <span className='openRouterSpend'>Spent this stage: {formatOpenRouterSpend(openRouterSpent)}</span>
       </div>}

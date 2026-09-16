@@ -370,25 +370,19 @@ function Upload (): React.ReactElement {
       return;
     }
 
-    if (!selectedBook.language) {
-      setError(t('Book language has not been set yet. Open the Language step, then detect it from text or choose it manually.'));
-      return;
-    }
-
-    if (!selectedBook.subject) {
-      setError(t('Book subject has not been set yet. Open the Subject step, then detect it from text or choose it manually.'));
-      return;
-    }
-
+    setError('');
     setIsIdentifyChaptersConfirmationOpen(true);
-  }, [selectedBook, t]);
+  }, [selectedBook]);
 
   useEffect(() => {
     if (!isIdentifyChaptersConfirmationOpen || !selectedBook) {
       return;
     }
 
-    getBookPages(selectedBook.id).then((pages) => {
+    let active = true;
+
+    const calculate = async (): Promise<void> => {
+      const pages = await getBookPages(selectedBook.id);
       const compactPages = pages.map(({ mathpixHeadings, pageMMD = '', pageNumber }) => `Page ${pageNumber}\n${(mathpixHeadings ?? []).map(({ text, type }) => `[${type}] ${text}`).join(' | ')}\n${pageMMD.replace(/\s+/g, ' ').slice(0, 650)}`);
       const windowSize = 36;
       const overlap = 3;
@@ -404,8 +398,21 @@ function Upload (): React.ReactElement {
       }
 
       requests.push(compactPages.filter((_, index) => (pages[index]?.mathpixHeadings?.length ?? 0) > 0).join('\n').padEnd(2_000));
-      setIdentifyChaptersEstimate(formatAiInputEstimate(estimateAiInput(generateAllConceptsModel, requests, Math.max(2_000, pages.length * 12))));
-    }).catch(() => setError(t('Unable to estimate chapter identification cost.')));
+
+      if (active) {
+        setIdentifyChaptersEstimate(formatAiInputEstimate(estimateAiInput(generateAllConceptsModel, requests, Math.max(2_000, pages.length * 12))));
+      }
+    };
+
+    calculate().catch(() => {
+      if (active) {
+        setError(t('Unable to estimate chapter identification cost.'));
+      }
+    });
+
+    return () => {
+      active = false;
+    };
   }, [generateAllConceptsModel, isIdentifyChaptersConfirmationOpen, selectedBook, t]);
 
   const closeIdentifyChaptersConfirmation = useCallback((): void => {
@@ -812,8 +819,9 @@ function Upload (): React.ReactElement {
         size='small'
       >
         <Modal.Content>
-          <p>{t('Identify top-level chapter boundaries from Mathpix title/section-header evidence and reconcile them across the whole book?')}</p>
-          <p>{identifyChaptersEstimate}</p>
+          <p>{t('Use PDF bookmarks as chapter boundaries when available. Otherwise identify chapters from recognized page text.')}</p>
+          <p>{t('If bookmarks are unavailable, page-text detection needs a book language and may use AI.')}</p>
+          <p>{t('Estimated AI cost if page-text detection is needed:')} {identifyChaptersEstimate}</p>
           <p>{t('You can manually rename chapters, start a chapter on any page, merge chapters, or assign individual pages afterward.')}</p>
           <Dropdown
             className='batchModelSelect'
@@ -1045,7 +1053,7 @@ function Upload (): React.ReactElement {
               <span>›</span>
               <Button
                 icon={(selectedBook?.processingStage ?? 0) >= 2 ? 'rotate-left' : 'play'}
-                isDisabled={!selectedBook || !readerFile || isBusy || (selectedBook.processingStage ?? 0) < 1 || !selectedBook.language || !selectedBook.subject}
+                isDisabled={!selectedBook || !readerFile || isBusy || (selectedBook.processingStage ?? 0) < 1}
                 label={t('Chapters')}
                 onClick={onIdentifyChapters}
               />
