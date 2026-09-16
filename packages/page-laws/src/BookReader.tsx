@@ -553,6 +553,7 @@ function BookReader({ assignAllStandardsRequest, book, file, generateAllConcepts
   const addChaptersCost = useCallback((costUsd: number): void => addStageCost('chapters', costUsd), [addStageCost]);
   const addConceptsCost = useCallback((costUsd: number): void => addStageCost('concepts', costUsd), [addStageCost]);
   const addExercisesCost = useCallback((costUsd: number): void => addStageCost('exercises', costUsd), [addStageCost]);
+  const addStandardsCost = useCallback((costUsd: number): void => addStageCost('standards', costUsd), [addStageCost]);
   const conceptChapters = useMemo<ConceptChapterNavigationItem[]>(() => conceptChaptersFromPages(Array.from(pages.values())), [pages]);
   const currentConceptChapter = useMemo(() => conceptChapters.find(({ pageNumbers }) => pageNumbers.includes(pageNumber)), [conceptChapters, pageNumber]);
   const currentStandardsChapter = conceptChapters[standardsChapterIndex];
@@ -1943,7 +1944,7 @@ function BookReader({ assignAllStandardsRequest, book, file, generateAllConcepts
         }
 
         try {
-          const standards = await requestChapterStandards(client, model, chapter.title, concepts, catalogs, (costUsd) => setOpenRouterSpent((current) => current + costUsd));
+          const standards = await requestChapterStandards(client, model, chapter.title, concepts, catalogs, addStandardsCost);
 
           setStandardsAssignedChapterCount((count) => count + 1);
 
@@ -1972,7 +1973,7 @@ function BookReader({ assignAllStandardsRequest, book, file, generateAllConcepts
     } finally {
       setIsAssigningStandards(false);
     }
-  }, [book.id, book.processingStage, book.subject, conceptChapters, isAssigningStandards, selectedModel, standardsByChapter]);
+  }, [addStandardsCost, book.id, book.processingStage, book.subject, conceptChapters, isAssigningStandards, selectedModel, standardsByChapter]);
 
   useEffect((): void => {
     if (

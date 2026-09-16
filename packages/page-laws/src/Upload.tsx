@@ -32,7 +32,8 @@ const PRICE_STAGES: Array<{ detail?: string; key: BookStageSpendKey; label: stri
   { key: 'abilities', label: 'Abilities' },
   { key: 'fixAbilities', label: 'Fix abilities' },
   { key: 'images', label: 'Images' },
-  { key: 'fixImages', label: 'Fix images' }
+  { key: 'fixImages', label: 'Fix images' },
+  { key: 'standards', label: 'Standards' }
 ];
 
 function getSessionBookId (): number | undefined {
