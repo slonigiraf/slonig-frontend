@@ -61,7 +61,8 @@ export async function putBook(book: Book): Promise<void> {
                 fixAbilities: Math.max(storedSpend?.fixAbilities ?? 0, incomingSpend?.fixAbilities ?? 0),
                 images: Math.max(storedSpend?.images ?? 0, incomingSpend?.images ?? 0),
                 fixImages: Math.max(storedSpend?.fixImages ?? 0, incomingSpend?.fixImages ?? 0),
-                standards: Math.max(storedSpend?.standards ?? 0, incomingSpend?.standards ?? 0)
+                standards: Math.max(storedSpend?.standards ?? 0, incomingSpend?.standards ?? 0),
+                fixStandards: Math.max(storedSpend?.fixStandards ?? 0, incomingSpend?.fixStandards ?? 0)
             }
             : undefined;
 

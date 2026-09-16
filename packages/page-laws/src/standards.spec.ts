@@ -4,7 +4,7 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 
-import { loadStandardsCatalogsForBookSubject, loadStoredBookStandards, mergeStandardsMatches, parseStandardsMatches, STANDARDS_MATCH_RUNS, standardsConceptFingerprint, standardsConceptInputs, standardsMatchingPrompt, standardsPathForBookSubject, type StandardsCatalog } from './standards.js';
+import { loadStandardsCatalogsForBookSubject, loadStoredBookStandards, mergeStandardsMatches, parseStandardsFixResult, parseStandardsMatches, STANDARDS_MATCH_RUNS, standardsConceptFingerprint, standardsConceptInputs, standardsFixInputs, standardsFixPrompt, standardsMatchingPrompt, standardsPathForBookSubject, type StandardsCatalog } from './standards.js';
 
 const catalog: StandardsCatalog = {
   framework: 'ccss',
@@ -88,6 +88,42 @@ describe('chapter standards', (): void => {
     assert.match(prompt, /CCSS\.6\.RP\.A\.2/);
     assert.match(prompt, /data\/standards\/en\/math\/common-core\.json/);
     assert.doesNotMatch(prompt, /Ability questions/i);
+  });
+
+  it('builds a deletion-only Fix standards prompt from concepts and assigned standards JSON', (): void => {
+    const concepts = [{ description: 'A unit rate compares two quantities with a second quantity of one.', title: 'Unit rates' }];
+    const inputs = standardsFixInputs([{ code: 'CCSS.6.RP.A.2', framework: 'ccss' }], [catalog]);
+    const prompt = standardsFixPrompt('Ratios', concepts, inputs);
+
+    assert.deepEqual(inputs, [{
+      code: 'CCSS.6.RP.A.2',
+      context: '6 > Understand ratio concepts',
+      description: 'Understand the concept of a unit rate.',
+      framework: 'ccss'
+    }]);
+    assert.match(prompt, /Concepts JSON/);
+    assert.match(prompt, /Standards JSON/);
+    assert.match(prompt, /too vague/i);
+    assert.match(prompt, /not actually introduced/i);
+    assert.match(prompt, /deletion-only/i);
+    assert.match(prompt, /Unit rates/);
+    assert.match(prompt, /CCSS\.6\.RP\.A\.2/);
+  });
+
+  it('allows Fix standards to remove assigned standards but never add new ones', (): void => {
+    const inputs = standardsFixInputs([
+      { code: 'CCSS.6.RP.A.2', framework: 'ccss' },
+      { code: 'CCSS.6.EE.A.1', framework: 'ccss' }
+    ], [catalog]);
+
+    assert.deepEqual(parseStandardsFixResult('{"standards":[{"framework":"ccss","code":"CCSS.6.RP.A.2"}]}', inputs), [
+      { code: 'CCSS.6.RP.A.2', framework: 'ccss' }
+    ]);
+    assert.deepEqual(parseStandardsFixResult('{"standards":[]}', inputs), []);
+    assert.throws(
+      () => parseStandardsFixResult('{"standards":[{"framework":"ccss","code":"CCSS.7.RP.A.1"}]}', inputs),
+      /not present in the assigned standards/i
+    );
   });
 
   it('joins standards detected across repeated matching runs without duplicates', (): void => {

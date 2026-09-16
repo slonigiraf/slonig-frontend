@@ -23,6 +23,11 @@ export interface StandardsCandidate {
   description: string;
 }
 
+export interface StandardsFixInput extends CurriculumStandard {
+  context: string;
+  description: string;
+}
+
 export interface StandardsCatalog {
   framework: StandardsFramework;
   label: string;
@@ -276,6 +281,91 @@ Return only valid JSON in exactly this shape:
 Chapter: ${chapterTitle}
 Concepts: ${JSON.stringify(concepts.map(({ description, title }) => ({ description, title })))}
 Candidate standards (${catalog.framework}) from ${catalog.path}: ${JSON.stringify(catalog.standards)}`;
+}
+
+export function standardsFixInputs (standards: CurriculumStandard[], catalogs: StandardsCatalog[]): StandardsFixInput[] {
+  const candidates = new Map<string, StandardsCandidate>();
+
+  catalogs.forEach(({ framework, standards: catalogStandards }) => {
+    catalogStandards.forEach((standard) => candidates.set(`${framework}:${standard.code}`, standard));
+  });
+
+  return standards.map(({ code, framework }) => {
+    const candidate = candidates.get(`${framework}:${code}`);
+
+    return {
+      code,
+      context: candidate?.context ?? '',
+      description: candidate?.description ?? '',
+      framework
+    };
+  });
+}
+
+export function standardsFixPrompt (chapterTitle: string, concepts: StandardsConceptInput[], standards: StandardsFixInput[]): string {
+  return `Review the standards currently assigned to this chapter and remove standards that are too vague or are not actually introduced in this chapter.
+
+IMPORTANT:
+- Use the supplied Concepts JSON as the only evidence for what this chapter introduces or teaches.
+- Use the supplied Standards JSON as the complete set of standards you are allowed to keep.
+- Remove a standard when it is broad, vague, generic, practice/process-oriented, or only loosely related and the concepts do not directly introduce the specific knowledge or skill it names.
+- Remove a standard when the chapter merely assumes it as prerequisite knowledge, mentions it incidentally, or could be described by it only through a broad interpretation.
+- Keep a standard only when at least one supplied concept title or description directly shows that the chapter introduces or teaches the standard's specific content or skill.
+- This is a deletion-only review. Never add, invent, rewrite, substitute, broaden, narrow, or change a framework or code.
+- It is valid to remove every standard.
+
+Return only valid JSON in exactly this shape:
+{"standards":[{"framework":"ccss","code":"CCSS.6.RP.A.2"}]}
+
+Chapter: ${chapterTitle}
+Concepts JSON: ${JSON.stringify(concepts.map(({ description, title }) => ({ description, title })))}
+Standards JSON: ${JSON.stringify(standards)}`;
+}
+
+export function parseStandardsFixResult (content: string, standards: StandardsFixInput[]): CurriculumStandard[] {
+  const parsed = parseJsonResponse(content);
+
+  if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
+    throw new Error('OpenRouter returned invalid fixed standards data.');
+  }
+
+  const values = (parsed as Record<string, unknown>).standards;
+
+  if (!Array.isArray(values)) {
+    throw new Error('OpenRouter returned invalid fixed standards data.');
+  }
+
+  const allowed = new Map<string, CurriculumStandard>(standards.map(({ code, framework }) => [`${framework}:${code}`, { code, framework }]));
+  const seen = new Set<string>();
+  const result: CurriculumStandard[] = [];
+
+  values.forEach((value) => {
+    if (!value || typeof value !== 'object' || Array.isArray(value)) {
+      throw new Error('OpenRouter returned an invalid fixed standard.');
+    }
+
+    const { code: rawCode, framework } = value as Partial<CurriculumStandard>;
+    const validFramework = STANDARD_FRAMEWORKS.find(({ key }) => key === framework)?.key;
+
+    if (typeof rawCode !== 'string' || !validFramework) {
+      throw new Error('OpenRouter returned an invalid fixed standard.');
+    }
+
+    const code = canonicalStandardCode(validFramework, rawCode);
+    const key = `${validFramework}:${code}`;
+    const standard = allowed.get(key);
+
+    if (!standard) {
+      throw new Error(`OpenRouter returned ${code || 'an empty code'}, which was not present in the assigned standards.`);
+    }
+
+    if (!seen.has(key)) {
+      seen.add(key);
+      result.push(standard);
+    }
+  });
+
+  return result;
 }
 
 export function mergeStandardsMatches (assignments: CurriculumStandard[][]): CurriculumStandard[] {
