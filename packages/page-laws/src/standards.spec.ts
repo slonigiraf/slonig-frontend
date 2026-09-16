@@ -4,7 +4,7 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 
-import { loadStandardsCatalogsForBookSubject, loadStoredBookStandards, mergeStandardsMatches, parseStandardsFixResult, parseStandardsMatches, STANDARDS_FIX_RUNS, STANDARDS_MATCH_RUNS, standardsCandidateShortlist, standardsConceptFingerprint, standardsConceptInputs, standardsFixInputs, standardsFixPrompt, standardsMatchingPrompt, standardsPathForBookSubject, type StandardsCatalog } from './standards.js';
+import { loadStandardsCatalogsForBookSubject, loadStoredBookStandards, mergeStandardsMatches, moduleStandardsText, parseStandardsFixResult, parseStandardsMatches, STANDARDS_FIX_RUNS, STANDARDS_MATCH_RUNS, standardsCandidateShortlist, standardsConceptFingerprint, standardsConceptInputs, standardsFixInputs, standardsFixPrompt, standardsMatchingPrompt, standardsPathForBookSubject, type StandardsCatalog } from './standards.js';
 
 const catalog: StandardsCatalog = {
   framework: 'ccss',
@@ -212,6 +212,14 @@ describe('chapter standards', (): void => {
     ]);
   });
 
+  it('writes Virginia standards with the SOL prefix and normalizes the old VA SOL prefix', (): void => {
+    assert.equal(moduleStandardsText([
+      { code: 'VA SOL.6.1.a', framework: 'vaSol' },
+      { code: 'SOL.6.2', framework: 'vaSol' },
+      { code: '6.3', framework: 'vaSol' }
+    ]), 'SOL.6.1.a, SOL.6.2, SOL.6.3');
+  });
+
   it('changes the cache fingerprint when chapter concepts change', (): void => {
     assert.notEqual(
       standardsConceptFingerprint([{ description: 'First description', title: 'First' }], 'data/standards/en/math'),
@@ -236,7 +244,10 @@ describe('chapter standards', (): void => {
       clear: () => undefined,
       getItem: () => JSON.stringify({ chapter: {
         conceptFingerprint: '1:abc',
-        standards: [{ code: 'CCSS.MATH.CONTENT.6.EE.A.1', framework: 'ccss' }]
+        standards: [
+          { code: 'CCSS.MATH.CONTENT.6.EE.A.1', framework: 'ccss' },
+          { code: 'VA SOL.6.1.a', framework: 'vaSol' }
+        ]
       } }),
       key: () => null,
       removeItem: () => undefined,
@@ -246,7 +257,10 @@ describe('chapter standards', (): void => {
     try {
       assert.deepEqual(loadStoredBookStandards(1).chapter, {
         conceptFingerprint: '1:abc',
-        standards: [{ code: 'CCSS.6.EE.A.1', framework: 'ccss' }]
+        standards: [
+          { code: 'CCSS.6.EE.A.1', framework: 'ccss' },
+          { code: 'SOL.6.1.a', framework: 'vaSol' }
+        ]
       });
     } finally {
       globalThis.localStorage = originalLocalStorage;

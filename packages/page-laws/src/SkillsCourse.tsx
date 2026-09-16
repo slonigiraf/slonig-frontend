@@ -28,6 +28,7 @@ import KnowledgeTargetSelector from './KnowledgeTargetSelector.js';
 import { parseStoredAbility } from './abilities.js';
 import { randomIdHex } from './util.js';
 import { isTikzCode } from './Edit/tikz.js';
+import { loadStoredBookStandards, moduleStandardsText, standardsChapterKey } from './standards.js';
 
 interface TemplateRow {
   moduleId: string;
@@ -665,6 +666,7 @@ function SkillsCourse ({ book }: { book: Book }): React.ReactElement {
 
       const savedCourseId = isKnowledgeId(storedBook.knowledgeId) ? storedBook.knowledgeId : randomIdHex();
       const savedCourse = await loadKnowledgeItem(savedCourseId);
+      const standardsByChapter = loadStoredBookStandards(book.id);
       const templateRecordChanges = new Map<string, string>();
       const preparedChapters = savedCourse
         ? publishableChapters
@@ -734,35 +736,49 @@ function SkillsCourse ({ book }: { book: Book }): React.ReactElement {
               insertionTotal = insertionTotal.add(skillPrice || BN_ZERO);
             }
           }
-
-          const moduleId = chapter.knowledgeId;
-
-          if (!isKnowledgeId(moduleId)) {
-            throw new Error(`Chapter “${chapter.title}” has no valid saved module ID.`);
-          }
-
-          const existingModule = await loadKnowledgeItem(moduleId);
-
-          if (existingModule) {
-            if (existingModule.json.t !== LawType.MODULE) {
-              throw new Error(`Saved module ID ${moduleId} belongs to another knowledge type.`);
-            }
-          } else {
-            const moduleJson = {
-              e: templates.map(({ template }) => template.i),
-              h: chapter.title,
-              i: moduleId,
-              p: savedCourseId,
-              t: LawType.MODULE
-            };
-            const digest = await pinKnowledgeItem(moduleJson);
-
-            moduleTransactions.push(api.tx.laws.create(moduleId, digest, modulePrice || BN_ZERO));
-            insertionTotal = insertionTotal.add(modulePrice || BN_ZERO);
-          }
         }
       } else if (savedCourse.json.t !== LawType.COURSE) {
         throw new Error(`Saved course ID ${savedCourseId} belongs to another knowledge type.`);
+      }
+
+      for (const { chapter, templates } of preparedChapters) {
+        const moduleId = chapter.knowledgeId;
+
+        if (!isKnowledgeId(moduleId)) {
+          throw new Error(`Chapter “${chapter.title}” has no valid saved module ID.`);
+        }
+
+        const chapterStandards = chapter.id === undefined
+          ? ''
+          : moduleStandardsText(standardsByChapter[standardsChapterKey(chapter.id, chapter.title, [])]?.standards ?? []);
+        const existingModule = await loadKnowledgeItem(moduleId);
+
+        if (existingModule) {
+          if (existingModule.json.t !== LawType.MODULE) {
+            throw new Error(`Saved module ID ${moduleId} belongs to another knowledge type.`);
+          }
+
+          if (chapterStandards && existingModule.json.s !== chapterStandards) {
+            const digest = await pinKnowledgeItem({ ...existingModule.json, s: chapterStandards });
+
+            moduleTransactions.push(api.tx.laws.edit(moduleId, existingModule.digestHex, digest, existingModule.amount));
+          }
+        } else if (!savedCourse) {
+          const moduleJson = {
+            e: templates.map(({ template }) => template.i),
+            h: chapter.title,
+            i: moduleId,
+            p: savedCourseId,
+            ...(chapterStandards ? { s: chapterStandards } : {}),
+            t: LawType.MODULE
+          };
+          const digest = await pinKnowledgeItem(moduleJson);
+
+          moduleTransactions.push(api.tx.laws.create(moduleId, digest, modulePrice || BN_ZERO));
+          insertionTotal = insertionTotal.add(modulePrice || BN_ZERO);
+        } else {
+          throw new Error(`Published course module ${moduleId} could not be loaded.`);
+        }
       }
 
       setPublishStatus('Preparing the course and selected list…');
@@ -833,7 +849,7 @@ function SkillsCourse ({ book }: { book: Book }): React.ReactElement {
     } finally {
       setIsPublishing(false);
     }
-  }, [api, courseName, currentPair, isIpfsReady, isLoggedIn, knowledgeId, loadKnowledgeItem, modulePrice, pinKnowledgeItem, preparePublishedAbility, publishableChapters, setLoginIsRequired, showInfo, skillPrice, storedBook]);
+  }, [api, book.id, courseName, currentPair, isIpfsReady, isLoggedIn, knowledgeId, loadKnowledgeItem, modulePrice, pinKnowledgeItem, preparePublishedAbility, publishableChapters, setLoginIsRequired, showInfo, skillPrice, storedBook]);
 
   return <StyledSkillsCourse>
     <div className='courseColumn'>

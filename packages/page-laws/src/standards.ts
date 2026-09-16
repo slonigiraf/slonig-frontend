@@ -124,7 +124,9 @@ function canonicalStandardCode (framework: StandardsFramework, value: string): s
     return /^TEKS\./i.test(code) ? code : `TEKS.${code}`;
   }
 
-  return /^VA SOL\./i.test(code) ? code : `VA SOL.${code}`;
+  const compact = code.replace(/^(?:VA\s+)?SOL\./i, '');
+
+  return `SOL.${compact}`;
 }
 
 function flattenStandards (framework: StandardsFramework, raw: unknown): StandardsCandidate[] {
@@ -276,6 +278,22 @@ export function standardsChapterKey (chapterId: number | undefined, title: strin
   return chapterId === undefined ? `pages:${pageNumbers.join(',')}:${title.trim()}` : `id:${chapterId}`;
 }
 
+export function moduleStandardsText (standards: CurriculumStandard[]): string {
+  const seen = new Set<string>();
+
+  return standards.flatMap(({ code, framework }) => {
+    const canonicalCode = canonicalStandardCode(framework, code);
+
+    if (!canonicalCode || seen.has(canonicalCode)) {
+      return [];
+    }
+
+    seen.add(canonicalCode);
+
+    return [canonicalCode];
+  }).join(', ');
+}
+
 function standardsRetrievalToken (value: string): string {
   if (value.length > 4 && value.endsWith('ies')) {
     return `${value.slice(0, -3)}y`;
@@ -302,7 +320,7 @@ function parentStandardCode (framework: StandardsFramework, code: string): strin
   }
 
   if (framework === 'vaSol') {
-    const match = /^(VA SOL\..+\.\d+)\.[a-z]$/i.exec(code);
+    const match = /^(SOL\..+\.\d+)\.[a-z]$/i.exec(code);
 
     return match?.[1];
   }
