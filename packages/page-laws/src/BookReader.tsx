@@ -523,6 +523,7 @@ function BookReader({ assignAllStandardsRequest, book, file, fixAllStandardsRequ
   const [newChapterTitle, setNewChapterTitle] = useState('');
   const [concepts, setConcepts] = useState<BookConcept[]>([]);
   const [standardsByChapter, setStandardsByChapter] = useState<StoredBookStandards>(() => loadStoredBookStandards(book.id));
+  const [standardsCatalogs, setStandardsCatalogs] = useState<StandardsCatalog[]>([]);
   const [standardsChapterIndex, setStandardsChapterIndex] = useState(0);
   const [standardsAssignedChapterCount, setStandardsAssignedChapterCount] = useState(0);
   const [standardsFixedChapterCount, setStandardsFixedChapterCount] = useState(0);
@@ -591,6 +592,15 @@ function BookReader({ assignAllStandardsRequest, book, file, fixAllStandardsRequ
   const currentConceptChapter = useMemo(() => conceptChapters.find(({ pageNumbers }) => pageNumbers.includes(pageNumber)), [conceptChapters, pageNumber]);
   const currentStandardsChapter = conceptChapters[standardsChapterIndex];
   const currentStandardsChapterKey = currentStandardsChapter ? standardsChapterKey(currentStandardsChapter.chapterId, currentStandardsChapter.title, currentStandardsChapter.pageNumbers) : undefined;
+  const standardDescriptions = useMemo(() => {
+    const descriptions = new Map<string, string>();
+
+    standardsCatalogs.forEach(({ framework, standards }) => {
+      standards.forEach(({ code, description }) => descriptions.set(`${framework}:${code}`, description));
+    });
+
+    return descriptions;
+  }, [standardsCatalogs]);
   const chapterGenerationEstimate = useMemo(() => {
     const chapterText = currentConceptChapter?.pageNumbers.map((chapterPageNumber) => `--- page ${chapterPageNumber} ---\n${pages.get(chapterPageNumber)?.pageMMD ?? ''}`).join('\n\n') ?? '';
     const estimatedRequest = chapterText.padEnd(chapterText.length + 2_000);
@@ -712,6 +722,27 @@ function BookReader({ assignAllStandardsRequest, book, file, fixAllStandardsRequ
     setStandardsByChapter(loadStoredBookStandards(book.id));
     setStandardsChapterIndex(0);
   }, [book.id]);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    setStandardsCatalogs([]);
+    loadStandardsCatalogsForBookSubject(book.subject)
+      .then((catalogs) => {
+        if (!cancelled) {
+          setStandardsCatalogs(catalogs);
+        }
+      })
+      .catch(() => {
+        if (!cancelled) {
+          setStandardsCatalogs([]);
+        }
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [book.subject]);
 
   useEffect(() => {
     const stage = book.processingStage ?? 0;
@@ -2404,7 +2435,14 @@ function BookReader({ assignAllStandardsRequest, book, file, fixAllStandardsRequ
                   key={key}
                 >
                   <h4>{label}</h4>
-                  <ul>{standards.map(({ code }) => <li key={code}><code>{code}</code></li>)}</ul>
+                  <ul>{standards.map(({ code, framework }) => {
+                    const description = standardDescriptions.get(`${framework}:${code}`);
+
+                    return <li key={code}>
+                      <code>{code}</code>
+                      {description && <p>{description}</p>}
+                    </li>;
+                  })}</ul>
                 </section>)
                 : <p className='emptyOutput'>No applicable standards were identified for this chapter.</p>}
       </div>
