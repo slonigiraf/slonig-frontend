@@ -44,6 +44,8 @@ interface StandardsSource {
   url: URL;
 }
 
+export const STANDARDS_MATCH_RUNS = 3;
+
 export const STANDARD_FRAMEWORKS: ReadonlyArray<{ key: StandardsFramework; label: string }> = [
   { key: 'ccss', label: 'Common Core State Standards' },
   { key: 'ngss', label: 'Next Generation Science Standards' },
@@ -274,6 +276,22 @@ Return only valid JSON in exactly this shape:
 Chapter: ${chapterTitle}
 Concepts: ${JSON.stringify(concepts.map(({ description, title }) => ({ description, title })))}
 Candidate standards (${catalog.framework}) from ${catalog.path}: ${JSON.stringify(catalog.standards)}`;
+}
+
+export function mergeStandardsMatches (assignments: CurriculumStandard[][]): CurriculumStandard[] {
+  const seen = new Set<string>();
+  const result: CurriculumStandard[] = [];
+
+  assignments.flat().forEach((standard) => {
+    const key = `${standard.framework}:${standard.code}`;
+
+    if (!seen.has(key)) {
+      seen.add(key);
+      result.push(standard);
+    }
+  });
+
+  return result;
 }
 
 export function parseStandardsMatches (content: string, catalog: StandardsCatalog): CurriculumStandard[] {

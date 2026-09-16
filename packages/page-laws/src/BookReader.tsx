@@ -26,7 +26,7 @@ import { BOOK_CHAPTER_EXTRACTION_REQUEST_PROMPT, BOOK_LANGUAGE_DETECTION_PROMPT,
 import { stripMarkdownImageReferences } from './bookImageRefs.js';
 import { chapterAssignmentsFromBoundaries, chapterEvidenceWindows, chapterReconciliationPrompt, chapterWindowPrompt, deriveStructuralChapterCandidates, extractMathpixHeadingsFromLines, pageChapterEvidence, parseChapterBoundaries, stabilizeChapterBoundaries, type ChapterBoundaryProposal } from './chapterSegmentation.js';
 import { conceptChaptersFromPages, parseGeneratedChapterConcepts, type ConceptChapterNavigationItem, type GeneratedChapterConcepts } from './conceptRecognition.js';
-import { loadStandardsCatalogsForBookSubject, loadStoredBookStandards, parseStandardsMatches, STANDARD_FRAMEWORKS, standardsChapterKey, standardsConceptFingerprint, standardsConceptInputs, standardsMatchingPrompt, standardsPathForBookSubject, storeBookStandards, type CurriculumStandard, type StandardsCatalog, type StandardsConceptInput, type StoredBookStandards } from './standards.js';
+import { loadStandardsCatalogsForBookSubject, loadStoredBookStandards, mergeStandardsMatches, parseStandardsMatches, STANDARD_FRAMEWORKS, STANDARDS_MATCH_RUNS, standardsChapterKey, standardsConceptFingerprint, standardsConceptInputs, standardsMatchingPrompt, standardsPathForBookSubject, storeBookStandards, type CurriculumStandard, type StandardsCatalog, type StandardsConceptInput, type StoredBookStandards } from './standards.js';
 import Skills from './Skills.js';
 import SkillsCourse from './SkillsCourse.js';
 import { loadPdfJs } from './pdf.js';
@@ -85,27 +85,29 @@ async function requestChapterStandards(client: OpenAI, model: string, chapterTit
     return [];
   }
 
-  const assignments = await Promise.all(populatedCatalogs.map(async (catalog): Promise<CurriculumStandard[]> => {
-    const response = await openRouterRequestGate.run(() => client.chat.completions.create({
-      messages: [{
-        content: standardsMatchingPrompt(chapterTitle, concepts, catalog),
-        role: 'user'
-      }],
-      model,
-      response_format: { type: 'json_object' }
-    }));
+  const assignments = await Promise.all(populatedCatalogs.flatMap((catalog) =>
+    Array.from({ length: STANDARDS_MATCH_RUNS }, async (): Promise<CurriculumStandard[]> => {
+      const response = await openRouterRequestGate.run(() => client.chat.completions.create({
+        messages: [{
+          content: standardsMatchingPrompt(chapterTitle, concepts, catalog),
+          role: 'user'
+        }],
+        model,
+        response_format: { type: 'json_object' }
+      }));
 
-    reportOpenRouterCost(response, onCost);
-    const content = response.choices[0].message?.content?.trim();
+      reportOpenRouterCost(response, onCost);
+      const content = response.choices[0].message?.content?.trim();
 
-    if (!content) {
-      throw new Error(`OpenRouter returned no ${catalog.framework} standards matching data.`);
-    }
+      if (!content) {
+        throw new Error(`OpenRouter returned no ${catalog.framework} standards matching data.`);
+      }
 
-    return parseStandardsMatches(content, catalog);
-  }));
+      return parseStandardsMatches(content, catalog);
+    })
+  ));
 
-  return assignments.flat();
+  return mergeStandardsMatches(assignments);
 }
 
 async function getChapterStandardsConcepts(bookId: number, pageNumbers: number[]): Promise<StandardsConceptInput[]> {

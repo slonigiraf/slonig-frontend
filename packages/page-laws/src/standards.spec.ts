@@ -4,7 +4,7 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 
-import { loadStandardsCatalogsForBookSubject, loadStoredBookStandards, parseStandardsMatches, standardsConceptFingerprint, standardsConceptInputs, standardsMatchingPrompt, standardsPathForBookSubject, type StandardsCatalog } from './standards.js';
+import { loadStandardsCatalogsForBookSubject, loadStoredBookStandards, mergeStandardsMatches, parseStandardsMatches, STANDARDS_MATCH_RUNS, standardsConceptFingerprint, standardsConceptInputs, standardsMatchingPrompt, standardsPathForBookSubject, type StandardsCatalog } from './standards.js';
 
 const catalog: StandardsCatalog = {
   framework: 'ccss',
@@ -17,6 +17,10 @@ const catalog: StandardsCatalog = {
 };
 
 describe('chapter standards', (): void => {
+  it('runs standards matching three times', (): void => {
+    assert.equal(STANDARDS_MATCH_RUNS, 3);
+  });
+
   it('derives the standards directory from the detected book subject', (): void => {
     assert.equal(standardsPathForBookSubject('en-math'), 'data/standards/en/math');
     assert.equal(standardsPathForBookSubject('en-ela'), 'data/standards/en/ela');
@@ -84,6 +88,21 @@ describe('chapter standards', (): void => {
     assert.match(prompt, /CCSS\.6\.RP\.A\.2/);
     assert.match(prompt, /data\/standards\/en\/math\/common-core\.json/);
     assert.doesNotMatch(prompt, /Ability questions/i);
+  });
+
+  it('joins standards detected across repeated matching runs without duplicates', (): void => {
+    assert.deepEqual(mergeStandardsMatches([
+      [{ code: 'CCSS.6.RP.A.2', framework: 'ccss' }],
+      [{ code: 'CCSS.6.EE.A.1', framework: 'ccss' }],
+      [
+        { code: 'CCSS.6.RP.A.2', framework: 'ccss' },
+        { code: '6.4A', framework: 'teks' }
+      ]
+    ]), [
+      { code: 'CCSS.6.RP.A.2', framework: 'ccss' },
+      { code: 'CCSS.6.EE.A.1', framework: 'ccss' },
+      { code: '6.4A', framework: 'teks' }
+    ]);
   });
 
   it('accepts only standard codes that were supplied in the catalog', (): void => {

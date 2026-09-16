@@ -13,7 +13,7 @@ import { estimateAiInput, formatAiInputEstimate } from './aiEstimate.js';
 import { MATHPIX_PDF_PAGE_PRICE_USD, OPENAI_MODELS } from './constants.js';
 import { conceptChaptersFromPages } from './conceptRecognition.js';
 import { formatOpenRouterSpend } from './openRouterCost.js';
-import { loadStandardsCatalogsForBookSubject, loadStoredBookStandards, standardsConceptInputs, standardsMatchingPrompt } from './standards.js';
+import { loadStandardsCatalogsForBookSubject, loadStoredBookStandards, STANDARDS_MATCH_RUNS, standardsConceptInputs, standardsMatchingPrompt } from './standards.js';
 import { loadPdfJs } from './pdf.js';
 import { useTranslation } from './translate.js';
 
@@ -527,7 +527,13 @@ function Upload (): React.ReactElement {
           continue;
         }
 
-        catalogs.forEach((catalog) => requests.push(standardsMatchingPrompt(chapter.title, concepts, catalog)));
+        catalogs.forEach((catalog) => {
+          const prompt = standardsMatchingPrompt(chapter.title, concepts, catalog);
+
+          for (let run = 0; run < STANDARDS_MATCH_RUNS; run++) {
+            requests.push(prompt);
+          }
+        });
       }
 
       setStandardsEstimate(requests.length
@@ -776,7 +782,7 @@ function Upload (): React.ReactElement {
         size='small'
       >
         <Modal.Content>
-          <p>{t('Match standards for every chapter from its extracted concepts? The detected book subject selects the standards catalog path, then each available standards catalog is sent with the chapter concepts so AI can choose the strongest direct matches. Only codes present in the supplied catalog can be stored.')}</p>
+          <p>{t('Match standards for every chapter from its extracted concepts? The detected book subject selects the standards catalog path, then each available standards catalog is checked three times against the chapter concepts and the detected standards are combined. Only codes present in the supplied catalog can be stored.')}</p>
           <p>{standardsEstimate}</p>
           <Dropdown
             className='batchModelSelect'
