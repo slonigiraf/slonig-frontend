@@ -190,6 +190,24 @@ function storeSessionPage(bookId: number, pageNumber: number): void {
   }
 }
 
+const recognitionAttemptSessionKey = (bookId: number): string => `knowledge-upload-book-${bookId}-recognition-attempted`;
+
+function getSessionRecognitionAttempted(bookId: number): boolean {
+  try {
+    return sessionStorage.getItem(recognitionAttemptSessionKey(bookId)) === 'true';
+  } catch {
+    return false;
+  }
+}
+
+function storeSessionRecognitionAttempted(bookId: number): void {
+  try {
+    sessionStorage.setItem(recognitionAttemptSessionKey(bookId), 'true');
+  } catch {
+    // Session storage may be unavailable in privacy-restricted browser contexts.
+  }
+}
+
 const delay = (milliseconds: number): Promise<void> => new Promise((resolve) => setTimeout(resolve, milliseconds));
 
 interface MMDZipInput {
@@ -398,22 +416,20 @@ async function recognizePageWithMathpix(apiKey: string, file: File, pageNumber: 
       throw new Error(statusResult.error || 'Mathpix could not recognize the PDF page.');
     }
 
-    if (zipStatus?.status === 'error') {
-      throw new Error(zipStatus.error || 'Mathpix could not create the MMD ZIP.');
-    }
+    const zipConversionFinished = !zipStatus || zipStatus.status === 'completed' || zipStatus.status === 'error';
 
-    if (statusResult.status === 'completed' && zipStatus?.status === 'completed') {
-      const [mmdResponse, zipResponse, linesResponse] = await Promise.all([
+    if (statusResult.status === 'completed' && zipConversionFinished) {
+      const [mmdResponse, linesResponse] = await Promise.all([
         fetch(`https://api.mathpix.com/v3/pdf/${result.pdf_id}.mmd`, { headers }),
-        fetch(`https://api.mathpix.com/v3/pdf/${result.pdf_id}.mmd.zip`, { headers }),
         fetch(`https://api.mathpix.com/v3/pdf/${result.pdf_id}.lines.json`, { headers })
       ]);
 
-      if (!mmdResponse.ok || !zipResponse.ok) {
-        throw new Error('Unable to download the MMD results from Mathpix.');
+      if (!mmdResponse.ok) {
+        throw new Error('Unable to download the MMD text from Mathpix.');
       }
 
       let mathpixHeadings: MathpixHeading[] = [];
+      let pageMMDZip: Blob | undefined;
 
       if (linesResponse.ok) {
         try {
@@ -423,10 +439,21 @@ async function recognizePageWithMathpix(apiKey: string, file: File, pageNumber: 
         }
       }
 
+      // mmd.zip is useful for embedded page images, but it is not required to
+      // consider the page recognized. Mathpix can fail this optional conversion
+      // for genuinely blank pages even though the normal MMD result is valid.
+      if (zipStatus?.status === 'completed') {
+        const zipResponse = await fetch(`https://api.mathpix.com/v3/pdf/${result.pdf_id}.mmd.zip`, { headers });
+
+        if (zipResponse.ok) {
+          pageMMDZip = await zipResponse.blob();
+        }
+      }
+
       return {
         mathpixHeadings,
         pageMMD: (await mmdResponse.text()).trim(),
-        pageMMDZip: await zipResponse.blob()
+        pageMMDZip
       };
     }
 
@@ -558,6 +585,7 @@ function BookReader({ assignAllStandardsRequest, book, file, fixAllStandardsRequ
   const [mathpixApiKey, setMathpixApiKey] = useState('');
   const [openRouterSpent, setOpenRouterSpent] = useState(0);
   const [recognizedPageCount, setRecognizedPageCount] = useState(0);
+  const [hasRecognitionBeenAttempted, setHasRecognitionBeenAttempted] = useState(() => getSessionRecognitionAttempted(book.id));
   const [generatedExercisesPageCount, setGeneratedExercisesPageCount] = useState(0);
   const [recognitionTarget, setRecognitionTarget] = useState<RecognitionTarget>('page');
   const [processingPage, setProcessingPage] = useState<number>();
@@ -582,6 +610,20 @@ function BookReader({ assignAllStandardsRequest, book, file, fixAllStandardsRequ
   const isDetectingBookLanguageRef = useRef(false);
   const isDetectingBookSubjectRef = useRef(false);
   const pageAreaRef = useRef<HTMLDivElement>(null);
+
+  useEffect((): void => {
+    setHasRecognitionBeenAttempted(getSessionRecognitionAttempted(book.id));
+  }, [book.id]);
+
+  useEffect((): void => {
+    if (pendingProcessingAction !== 'recognize') {
+      return;
+    }
+
+    setHasRecognitionBeenAttempted(true);
+    storeSessionRecognitionAttempted(book.id);
+  }, [book.id, pendingProcessingAction]);
+
   const addStageCost = useCallback((stage: BookStageSpendKey, costUsd: number): void => {
     setOpenRouterSpent((current) => current + costUsd);
     void addBookStageSpend(book.id, stage, costUsd).catch(console.error);
@@ -2206,6 +2248,13 @@ function BookReader({ assignAllStandardsRequest, book, file, fixAllStandardsRequ
     }
   }, [goToPage, pageInput, pageNumber]);
 
+  const unrecognizedPageNumbers = useMemo(() => Array.from(
+    { length: totalPages },
+    (_, index) => index + 1
+  ).filter((candidatePageNumber) => pages.get(candidatePageNumber)?.pageMMD === undefined), [pages, totalPages]);
+  const isCurrentPageUnrecognized = unrecognizedPageNumbers.includes(pageNumber);
+  const showUnrecognizedPages = hasRecognitionBeenAttempted && unrecognizedPageNumbers.length > 0;
+
   const recognizedTextPane = (): React.ReactNode => (
     <div className='tabPanel'>
       <div className='detailsHeader'>
@@ -2217,11 +2266,23 @@ function BookReader({ assignAllStandardsRequest, book, file, fixAllStandardsRequ
       </div>
       {pages.get(pageNumber)?.pageMMD !== undefined
         ? <div className='recognizedOutput'>
-          <MathpixLoader>
-            <MathpixMarkdown text={pages.get(pageNumber)?.pageMMD ?? ''} />
-          </MathpixLoader>
+          {pages.get(pageNumber)?.pageMMD?.trim()
+            ? <MathpixLoader>
+              <MathpixMarkdown text={pages.get(pageNumber)?.pageMMD ?? ''} />
+            </MathpixLoader>
+            : <p className='emptyOutput'>No recognizable text was found on this page.</p>}
         </div>
-        : <p className='emptyOutput'>This page has not been recognized yet.</p>}
+        : <>
+          <p className='emptyOutput'>This page has not been recognized yet.</p>
+          {activePane === 'text' && hasRecognitionBeenAttempted && isCurrentPageUnrecognized && <div className='rerecognizePage'>
+            <Button
+              icon='rotate-left'
+              isDisabled={processingPage !== undefined || isRecognizingAll || isGeneratingAllConcepts || isIdentifyingChapters}
+              label={processingPage === pageNumber ? 'Recognizing…' : 'Rerecognize'}
+              onClick={() => recognizePage().catch(console.error)}
+            />
+          </div>}
+        </>}
     </div>
   );
 
@@ -2666,6 +2727,24 @@ function BookReader({ assignAllStandardsRequest, book, file, fixAllStandardsRequ
             isDisabled={!totalPages || pageNumber >= totalPages}
             onClick={() => goToPage(pageNumber + 1)}
           />
+          {activePane === 'text' && showUnrecognizedPages && <select
+            aria-label='Unrecognized pages'
+            className='unrecognizedPages'
+            onChange={({ target }) => {
+              const requestedPage = Number(target.value);
+
+              if (Number.isInteger(requestedPage) && requestedPage > 0) {
+                goToPage(requestedPage);
+              }
+            }}
+            value={unrecognizedPageNumbers.includes(pageNumber) ? pageNumber : ''}
+          >
+            <option value=''>Unrecognized pages ({unrecognizedPageNumbers.length})</option>
+            {unrecognizedPageNumbers.map((unrecognizedPageNumber) => <option
+              key={unrecognizedPageNumber}
+              value={unrecognizedPageNumber}
+            >Page {unrecognizedPageNumber}</option>)}
+          </select>}
           <input
             aria-label='Navigate pages'
             className='pageScroller'
@@ -2835,7 +2914,7 @@ const StyledReader = styled.div`
     align-items: center;
     display: grid;
     gap: 0.75rem;
-    grid-template-columns: auto auto auto minmax(10rem, 1fr) auto;
+    grid-template-columns: auto auto auto minmax(10rem, 1fr);
     margin-bottom: 1rem;
     grid-column: 1 / -1;
   }
@@ -2910,8 +2989,28 @@ const StyledReader = styled.div`
     width: 5rem;
   }
 
+  .unrecognizedPages {
+    background: var(--bg-input);
+    border: 1px solid #dde1eb;
+    border-radius: 0.25rem;
+    color: var(--color-text);
+    grid-column: 4;
+    grid-row: 2;
+    justify-self: start;
+    max-width: 14rem;
+    padding: 0.55rem;
+  }
+
+  .rerecognizePage {
+    display: flex;
+    justify-content: flex-start;
+    padding-top: 0.75rem;
+  }
+
   .pageScroller {
     cursor: pointer;
+    grid-column: 4;
+    grid-row: 1;
     min-width: 0;
     width: 100%;
   }
@@ -3141,11 +3240,17 @@ const StyledReader = styled.div`
 
   @media only screen and (max-width: 800px) {
     .pageNavigation {
-      grid-template-columns: auto 1fr auto auto;
+      grid-template-columns: auto 1fr auto;
     }
 
     .pageScroller {
-      grid-column: 1 / 4;
+      grid-column: 1 / -1;
+      grid-row: auto;
+    }
+
+    .unrecognizedPages {
+      grid-column: 1 / -1;
+      grid-row: auto;
     }
 
     .readerColumns {
