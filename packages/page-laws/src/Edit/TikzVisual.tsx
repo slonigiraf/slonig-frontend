@@ -46,6 +46,7 @@ export default function TikzVisual ({ alt, onSave, prompt, value }: Props): Reac
   const [message, setMessage] = useState('');
   const editorRef = useRef<HTMLIFrameElement>(null);
   const draftRef = useRef(draft);
+  const editStartValueRef = useRef(draft);
 
   useEffect(() => {
     draftRef.current = draft;
@@ -61,7 +62,13 @@ export default function TikzVisual ({ alt, onSave, prompt, value }: Props): Reac
     document.body.style.overflow = 'hidden';
 
     const onKeyDown = (event: KeyboardEvent): void => {
-      if (event.key === 'Escape') {
+      if (event.key === 'Escape' && !isSaving) {
+        const original = editStartValueRef.current;
+
+        draftRef.current = original;
+        setDraft(original);
+        setRendered(original);
+        setMessage('');
         setIsVisualEditorShown(false);
       }
     };
@@ -72,30 +79,36 @@ export default function TikzVisual ({ alt, onSave, prompt, value }: Props): Reac
       document.body.style.overflow = previousOverflow;
       window.removeEventListener('keydown', onKeyDown);
     };
-  }, [isVisualEditorShown]);
+  }, [isSaving, isVisualEditorShown]);
 
   const sendToEditor = useCallback((payload: object): void => {
     editorRef.current?.contentWindow?.postMessage(JSON.stringify(payload), TIKZ_EDITOR_ORIGIN);
   }, []);
 
-  const saveValue = useCallback((source: string): void => {
+  const saveAndExit = useCallback(async (): Promise<void> => {
     if (!onSave) {
       return;
     }
 
-    const nextValue = source.trim();
+    const nextValue = draftRef.current.trim();
 
     setIsSaving(true);
     setMessage('');
-    onSave(nextValue)
-      .then(() => {
-        setDraft(nextValue);
-        setRendered(nextValue);
-        sendToEditor({ action: 'status', modified: false });
-        setMessage('Saved.');
-      })
-      .catch((error) => setMessage(error instanceof Error ? error.message : 'Unable to save TikZ.'))
-      .finally(() => setIsSaving(false));
+
+    try {
+      await onSave(nextValue);
+      draftRef.current = nextValue;
+      setDraft(nextValue);
+      setRendered(nextValue);
+      editStartValueRef.current = nextValue;
+      sendToEditor({ action: 'status', modified: false });
+      setIsVisualEditorShown(false);
+      setMessage('Saved.');
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : 'Unable to save TikZ.');
+    } finally {
+      setIsSaving(false);
+    }
   }, [onSave, sendToEditor]);
 
   useEffect(() => {
@@ -120,6 +133,7 @@ export default function TikzVisual ({ alt, onSave, prompt, value }: Props): Reac
       }
 
       if ((data.event === 'change' || data.event === 'autosave') && typeof data.source === 'string') {
+        draftRef.current = data.source;
         setDraft(data.source);
         setRendered(data.source);
         setMessage('');
@@ -127,30 +141,35 @@ export default function TikzVisual ({ alt, onSave, prompt, value }: Props): Reac
       }
 
       if (data.event === 'save' && typeof data.source === 'string') {
+        draftRef.current = data.source;
         setDraft(data.source);
         setRendered(data.source);
-        saveValue(data.source);
+        setMessage('');
       }
     };
 
     window.addEventListener('message', onMessage);
 
     return () => window.removeEventListener('message', onMessage);
-  }, [isVisualEditorShown, saveValue, sendToEditor]);
+  }, [isVisualEditorShown, sendToEditor]);
 
   const toggleDetails = useCallback((): void => {
     setIsDetailsShown((shown) => !shown);
   }, []);
   const openVisualEditor = useCallback((): void => {
+    editStartValueRef.current = draftRef.current;
     setIsVisualEditorShown(true);
     setMessage('');
   }, []);
-  const closeVisualEditor = useCallback((): void => {
+  const cancelVisualEditor = useCallback((): void => {
+    const original = editStartValueRef.current;
+
+    draftRef.current = original;
+    setDraft(original);
+    setRendered(original);
+    setMessage('');
     setIsVisualEditorShown(false);
   }, []);
-  const save = useCallback((): void => {
-    saveValue(draft);
-  }, [draft, saveValue]);
 
   return <TikzEditor>
     <TikzDisplay alt={`${alt} TikZ preview`} value={rendered} />
@@ -158,7 +177,7 @@ export default function TikzVisual ({ alt, onSave, prompt, value }: Props): Reac
       {onSave && <Button
         icon='edit'
         isDisabled={isSaving || !draft.trim()}
-        label='Edit visually'
+        label='Edit'
         onClick={openVisualEditor}
       />}
       {prompt?.trim() && <Button
@@ -166,23 +185,27 @@ export default function TikzVisual ({ alt, onSave, prompt, value }: Props): Reac
         label={isDetailsShown ? 'Hide visual prompt' : 'Show visual prompt'}
         onClick={toggleDetails}
       />}
-      {onSave && <Button
-        icon='save'
-        isDisabled={isSaving || !draft.trim()}
-        label={isSaving ? 'Saving…' : 'Save TikZ'}
-        onClick={save}
-      />}
     </Button.Group>
-    {message && <EditorMessage>{message}</EditorMessage>}
+    {!isVisualEditorShown && message && <EditorMessage>{message}</EditorMessage>}
     {isVisualEditorShown && createPortal(
       <VisualEditorOverlay role='dialog' aria-label={`${alt} visual TikZ editor`} aria-modal='true'>
         <VisualEditorHeader>
           <strong>Edit {alt}</strong>
-          <Button
-            icon='times'
-            label='Close'
-            onClick={closeVisualEditor}
-          />
+          <VisualEditorHeaderActions>
+            {message && <EditorMessage>{message}</EditorMessage>}
+            <Button
+              icon='times'
+              isDisabled={isSaving}
+              label='Cancel'
+              onClick={cancelVisualEditor}
+            />
+            <Button
+              icon='save'
+              isDisabled={isSaving || !draft.trim()}
+              label={isSaving ? 'Saving…' : 'Save and exit'}
+              onClick={saveAndExit}
+            />
+          </VisualEditorHeaderActions>
         </VisualEditorHeader>
         <VisualEditorBody>
           <iframe
@@ -231,6 +254,16 @@ const VisualEditorHeader = styled.div`
   justify-content: space-between;
   min-height: 3.5rem;
   padding: 0.5rem 0.75rem 0.5rem 1rem;
+`;
+
+const VisualEditorHeaderActions = styled.div`
+  align-items: center;
+  display: flex;
+  gap: 0.5rem;
+
+  small {
+    margin-right: 0.5rem;
+  }
 `;
 
 const VisualEditorBody = styled.div`
