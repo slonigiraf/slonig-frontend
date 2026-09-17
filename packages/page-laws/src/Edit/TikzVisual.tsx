@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import React, { useCallback, useEffect, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { Button, styled } from '@polkadot/react-components';
 import TikzDisplay from './TikzDisplay.js';
 
@@ -49,6 +50,29 @@ export default function TikzVisual ({ alt, onSave, prompt, value }: Props): Reac
   useEffect(() => {
     draftRef.current = draft;
   }, [draft]);
+
+  useEffect(() => {
+    if (!isVisualEditorShown) {
+      return undefined;
+    }
+
+    const previousOverflow = document.body.style.overflow;
+
+    document.body.style.overflow = 'hidden';
+
+    const onKeyDown = (event: KeyboardEvent): void => {
+      if (event.key === 'Escape') {
+        setIsVisualEditorShown(false);
+      }
+    };
+
+    window.addEventListener('keydown', onKeyDown);
+
+    return () => {
+      document.body.style.overflow = previousOverflow;
+      window.removeEventListener('keydown', onKeyDown);
+    };
+  }, [isVisualEditorShown]);
 
   const sendToEditor = useCallback((payload: object): void => {
     editorRef.current?.contentWindow?.postMessage(JSON.stringify(payload), TIKZ_EDITOR_ORIGIN);
@@ -114,16 +138,15 @@ export default function TikzVisual ({ alt, onSave, prompt, value }: Props): Reac
     return () => window.removeEventListener('message', onMessage);
   }, [isVisualEditorShown, saveValue, sendToEditor]);
 
-  const render = useCallback((): void => {
-    setRendered(draft);
-    setMessage('');
-  }, [draft]);
   const toggleDetails = useCallback((): void => {
     setIsDetailsShown((shown) => !shown);
   }, []);
-  const toggleVisualEditor = useCallback((): void => {
-    setIsVisualEditorShown((shown) => !shown);
+  const openVisualEditor = useCallback((): void => {
+    setIsVisualEditorShown(true);
     setMessage('');
+  }, []);
+  const closeVisualEditor = useCallback((): void => {
+    setIsVisualEditorShown(false);
   }, []);
   const save = useCallback((): void => {
     saveValue(draft);
@@ -135,14 +158,14 @@ export default function TikzVisual ({ alt, onSave, prompt, value }: Props): Reac
       {onSave && <Button
         icon='edit'
         isDisabled={isSaving || !draft.trim()}
-        label={isVisualEditorShown ? 'Close visual editor' : 'Edit visually'}
-        onClick={toggleVisualEditor}
+        label='Edit visually'
+        onClick={openVisualEditor}
       />}
-      <Button
+      {prompt?.trim() && <Button
         icon={isDetailsShown ? 'eye-slash' : 'eye'}
-        label={isDetailsShown ? 'Hide visual details' : 'Show visual details'}
+        label={isDetailsShown ? 'Hide visual prompt' : 'Show visual prompt'}
         onClick={toggleDetails}
-      />
+      />}
       {onSave && <Button
         icon='save'
         isDisabled={isSaving || !draft.trim()}
@@ -151,35 +174,31 @@ export default function TikzVisual ({ alt, onSave, prompt, value }: Props): Reac
       />}
     </Button.Group>
     {message && <EditorMessage>{message}</EditorMessage>}
-    {isVisualEditorShown && <VisualEditorPanel>
-      <iframe
-        allow='clipboard-read; clipboard-write'
-        ref={editorRef}
-        src={TIKZ_EDITOR_URL}
-        title={`${alt} visual TikZ editor`}
-      />
-    </VisualEditorPanel>}
-    {isDetailsShown && <>
-      {prompt?.trim() && <PromptBlock>
-        <strong>{alt} visual prompt</strong>
-        <div>{prompt}</div>
-      </PromptBlock>}
-      <strong>{alt} TikZ</strong>
-      <textarea
-        aria-label={`${alt} TikZ source`}
-        onChange={(event) => setDraft(event.target.value)}
-        rows={8}
-        spellCheck={false}
-        value={draft}
-      />
-      <Button.Group>
-        <Button
-          icon='eye'
-          label='Render'
-          onClick={render}
-        />
-      </Button.Group>
-    </>}
+    {isVisualEditorShown && createPortal(
+      <VisualEditorOverlay role='dialog' aria-label={`${alt} visual TikZ editor`} aria-modal='true'>
+        <VisualEditorHeader>
+          <strong>Edit {alt}</strong>
+          <Button
+            icon='times'
+            label='Close'
+            onClick={closeVisualEditor}
+          />
+        </VisualEditorHeader>
+        <VisualEditorBody>
+          <iframe
+            allow='clipboard-read; clipboard-write'
+            ref={editorRef}
+            src={TIKZ_EDITOR_URL}
+            title={`${alt} visual TikZ editor`}
+          />
+        </VisualEditorBody>
+      </VisualEditorOverlay>,
+      document.body
+    )}
+    {isDetailsShown && prompt?.trim() && <PromptBlock>
+      <strong>{alt} visual prompt</strong>
+      <div>{prompt}</div>
+    </PromptBlock>}
   </TikzEditor>;
 }
 
@@ -190,27 +209,38 @@ const TikzEditor = styled.div`
   margin-top: 0.5rem;
   max-width: 72rem;
   width: 100%;
-
-  textarea {
-    box-sizing: border-box;
-    font-family: monospace;
-    font-size: 0.9rem;
-    min-height: 9rem;
-    resize: vertical;
-    width: 100%;
-  }
 `;
 
-const VisualEditorPanel = styled.div`
-  border: 1px solid rgba(127, 127, 127, 0.3);
-  border-radius: 0.5rem;
-  height: min(70vh, 52rem);
-  min-height: 32rem;
+const VisualEditorOverlay = styled.div`
+  background: var(--bg-page, #fff);
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  inset: 0;
+  position: fixed;
+  width: 100vw;
+  z-index: 100000;
+`;
+
+const VisualEditorHeader = styled.div`
+  align-items: center;
+  border-bottom: 1px solid rgba(127, 127, 127, 0.3);
+  display: flex;
+  flex: 0 0 auto;
+  gap: 1rem;
+  justify-content: space-between;
+  min-height: 3.5rem;
+  padding: 0.5rem 0.75rem 0.5rem 1rem;
+`;
+
+const VisualEditorBody = styled.div`
+  flex: 1 1 auto;
+  min-height: 0;
   overflow: hidden;
-  width: 100%;
 
   iframe {
     border: 0;
+    display: block;
     height: 100%;
     width: 100%;
   }
