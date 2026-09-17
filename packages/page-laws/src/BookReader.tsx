@@ -4,7 +4,7 @@
 import type { Book, BookChapter, BookConcept, BookPage, BookStageSpendKey, Exercise, MathpixHeading } from '@slonigiraf/db';
 import type { PDFDocumentLoadingTask, PDFDocumentProxy, RenderTask } from 'pdfjs-dist';
 
-import { addBookStageSpend, assignBookPageChapter, getAbilities, getBookChapters, getBookConceptsForBookPage, getBookPages, getExercisesForBookPage, getSetting, mergeBookChapterWithPrevious, putBook, putBookPage, replaceBookChapterAssignments, replaceParsedBookPageContent, SettingKey, splitBookChapterAtPage, storeSetting, updateBookChapterTitle, updateBookProcessingStage } from '@slonigiraf/db';
+import { addBookStageSpend, assignBookPageChapter, deleteAbilities, deleteBookConcept, deleteExercise, getAbilities, getBookChapters, getBookConceptsForBookPage, getBookPages, getExercisesForBookPage, getSetting, mergeBookChapterWithPrevious, putBook, putBookPage, replaceBookChapterAssignments, replaceParsedBookPageContent, SettingKey, splitBookChapterAtPage, storeSetting, updateBookChapterTitle, updateBookProcessingStage } from '@slonigiraf/db';
 import { KatexSpan, RoundProgress } from '@slonigiraf/slonig-components';
 import { strFromU8, unzipSync } from 'fflate';
 import MathpixLoader from 'mathpix-markdown-it/lib/components/mathpix-loader/index.js';
@@ -38,6 +38,164 @@ export { OPENAI_MODELS } from './constants.js';
 interface ChapterConceptInputPage {
   input: MMDZipInput;
   pageNumber: number;
+}
+
+
+type BookConceptWriteApi = {
+  putBookConcept?: (concept: BookConcept) => Promise<unknown>;
+  updateBookConcept?: (id: number, changes: Pick<BookConcept, 'description' | 'title'>) => Promise<unknown>;
+};
+
+async function saveBookConceptRecord (concept: BookConcept, title: string, description: string): Promise<void> {
+  if (concept.id === undefined) {
+    throw new Error('Unable to edit a concept without an id.');
+  }
+
+  // Keep concept ids stable so generated exercises that reference conceptId do
+  // not become orphaned. Current DB builds expose putBookConcept; the update
+  // branch keeps this compatible with DB builds that expose a patch helper.
+  const database = await import('@slonigiraf/db') as unknown as BookConceptWriteApi;
+  const updated = { ...concept, description, title };
+
+  if (database.putBookConcept) {
+    await database.putBookConcept(updated);
+
+    return;
+  }
+
+  if (database.updateBookConcept) {
+    await database.updateBookConcept(concept.id, { description, title });
+
+    return;
+  }
+
+  throw new Error('This database build does not expose a concept update method.');
+}
+
+function ConceptItem ({ concept, firstPage, onDelete, onGoToPage, onSave }: { concept: BookConcept; firstPage?: number; onDelete: (concept: BookConcept) => Promise<void>; onGoToPage: (pageNumber: number) => void; onSave: (concept: BookConcept, title: string, description: string) => Promise<void> }): React.ReactElement {
+  const [description, setDescription] = useState(concept.description);
+  const [isBusy, setIsBusy] = useState(false);
+  const [isDeleteConfirmationOpen, setIsDeleteConfirmationOpen] = useState(false);
+  const [isEditing, setIsEditing] = useState(false);
+  const [title, setTitle] = useState(concept.title);
+
+  useEffect(() => {
+    if (!isEditing) {
+      setTitle(concept.title);
+      setDescription(concept.description);
+    }
+  }, [concept.description, concept.title, isEditing]);
+
+  const cancel = useCallback((): void => {
+    setTitle(concept.title);
+    setDescription(concept.description);
+    setIsEditing(false);
+  }, [concept.description, concept.title]);
+  const remove = useCallback((): void => setIsDeleteConfirmationOpen(true), []);
+  const confirmRemove = useCallback((): void => {
+    setIsBusy(true);
+    onDelete(concept)
+      .then(() => setIsDeleteConfirmationOpen(false))
+      .catch(console.error)
+      .finally(() => setIsBusy(false));
+  }, [concept, onDelete]);
+  const save = useCallback((): void => {
+    const nextTitle = title.trim();
+
+    if (!nextTitle) {
+      return;
+    }
+
+    setIsBusy(true);
+    onSave(concept, nextTitle, description.trim())
+      .then(() => setIsEditing(false))
+      .catch(console.error)
+      .finally(() => setIsBusy(false));
+  }, [concept, description, onSave, title]);
+
+  return <li className='conceptItem'>
+    {isDeleteConfirmationOpen && <Modal
+      header='Delete concept'
+      onClose={() => !isBusy && setIsDeleteConfirmationOpen(false)}
+      size='small'
+    >
+      <Modal.Content>
+        <p>Delete <strong><KatexSpan content={concept.title} /></strong>?</p>
+        <p>Exercises and abilities linked to this concept will also be deleted.</p>
+        <Button.Group>
+          <Button
+            icon='times'
+            isDisabled={isBusy}
+            label='Cancel'
+            onClick={() => setIsDeleteConfirmationOpen(false)}
+          />
+          <Button
+            icon='trash'
+            isDisabled={isBusy}
+            label='Delete'
+            onClick={confirmRemove}
+          />
+        </Button.Group>
+      </Modal.Content>
+    </Modal>}
+    {isEditing
+      ? <div className='conceptEditForm'>
+        <Input
+          isFull
+          label='Concept title'
+          onChange={setTitle}
+          onEnter={save}
+          value={title}
+        />
+        <label>Description
+          <textarea
+            disabled={isBusy}
+            onChange={({ target }) => setDescription(target.value)}
+            rows={5}
+            value={description}
+          />
+        </label>
+        <div className='conceptActions'>
+          <Button
+            icon='times'
+            isDisabled={isBusy}
+            label='Cancel'
+            onClick={cancel}
+          />
+          <Button
+            icon='save'
+            isDisabled={isBusy || !title.trim() || (title.trim() === concept.title && description.trim() === concept.description)}
+            label='Save'
+            onClick={save}
+          />
+        </div>
+      </div>
+      : <>
+        <div className='conceptHeading'>
+          <div className='conceptActions'>
+            <Button
+              icon='edit'
+              isDisabled={concept.id === undefined || isBusy}
+              onClick={() => setIsEditing(true)}
+            />
+          </div>
+          <strong><KatexSpan content={concept.title} /></strong>
+          <div className='conceptActions'>
+            <Button
+              icon='trash'
+              isDisabled={concept.id === undefined || isBusy}
+              onClick={remove}
+            />
+          </div>
+        </div>
+        {firstPage !== undefined && <p><small><button
+          className='conceptPageLink'
+          onClick={() => onGoToPage(firstPage)}
+          type='button'
+        >First introduced on page {firstPage}</button></small></p>}
+        {concept.description && <p><KatexSpan content={concept.description} /></p>}
+      </>}
+  </li>;
 }
 
 async function requestGeneratedChapterContent(client: OpenAI, model: string, chapterTitle: string, pages: ChapterConceptInputPage[], onCost?: OpenRouterCostReporter): Promise<GeneratedChapterConcepts> {
@@ -644,6 +802,7 @@ function BookReader({ assignAllStandardsRequest, book, file, fixAllStandardsRequ
   const addFixStandardsCost = useCallback((costUsd: number): void => addStageCost('fixStandards', costUsd), [addStageCost]);
   const conceptChapters = useMemo<ConceptChapterNavigationItem[]>(() => conceptChaptersFromPages(Array.from(pages.values())), [pages]);
   const currentConceptChapter = useMemo(() => conceptChapters.find(({ pageNumbers }) => pageNumbers.includes(pageNumber)), [conceptChapters, pageNumber]);
+  const conceptChapterIndex = useMemo(() => Math.max(0, conceptChapters.findIndex(({ pageNumbers }) => pageNumbers.includes(pageNumber))), [conceptChapters, pageNumber]);
   const currentStandardsChapter = conceptChapters[standardsChapterIndex];
   const currentStandardsChapterKey = currentStandardsChapter ? standardsChapterKey(currentStandardsChapter.chapterId, currentStandardsChapter.title, currentStandardsChapter.pageNumbers) : undefined;
   const standardDescriptions = useMemo(() => {
@@ -2268,6 +2427,83 @@ function BookReader({ assignAllStandardsRequest, book, file, fixAllStandardsRequ
     storeSessionPage(book.id, nextPage);
   }, [book.id, totalPages]);
 
+  const changeConceptChapter = useCallback((index: number): void => {
+    if (!conceptChapters.length) {
+      return;
+    }
+
+    const nextIndex = Math.max(0, Math.min(index, conceptChapters.length - 1));
+    const firstPage = conceptChapters[nextIndex]?.pageNumbers[0];
+
+    if (firstPage !== undefined) {
+      goToPage(firstPage);
+    }
+  }, [conceptChapters, goToPage]);
+  const saveConcept = useCallback(async (concept: BookConcept, title: string, description: string): Promise<void> => {
+    try {
+      await saveBookConceptRecord(concept, title, description);
+      const updated = { ...concept, description, title };
+      const oldKey = conceptReferenceKey(concept);
+      const firstPage = conceptFirstPageByKey.get(oldKey);
+
+      setConcepts((current) => current.map((item) => item.id === concept.id ? updated : item));
+      setConceptFirstPageByKey((current) => {
+        const next = new Map(current);
+
+        next.delete(oldKey);
+
+        if (firstPage !== undefined) {
+          next.set(conceptReferenceKey(updated), firstPage);
+        }
+
+        return next;
+      });
+      setSkillsRefreshToken((value) => value + 1);
+      setError('');
+    } catch (caught) {
+      const message = caught instanceof Error ? caught.message : 'Unable to save the concept.';
+
+      setError(message);
+      throw caught;
+    }
+  }, [conceptFirstPageByKey]);
+  const deleteConcept = useCallback(async (concept: BookConcept): Promise<void> => {
+    if (concept.id === undefined) {
+      return;
+    }
+
+    try {
+      const pageNumbers = Array.from(pages.keys());
+      const exercises = (await Promise.all(pageNumbers.map((conceptPageNumber) => getExercisesForBookPage([book.id, conceptPageNumber])))).flat();
+      const referencedExercises = exercises.filter(({ conceptId, id }) => id !== undefined && conceptId === concept.id);
+
+      for (const exercise of referencedExercises) {
+        await deleteAbilities(exerciseAbilityModuleId(book.id, exercise.id as number));
+        await deleteExercise(exercise.id as number);
+      }
+
+      await deleteBookConcept(concept.id);
+      const referenceKey = conceptReferenceKey(concept);
+
+      setConcepts((current) => current.filter(({ id }) => id !== concept.id));
+      setConceptFirstPageByKey((current) => {
+        const next = new Map(current);
+
+        next.delete(referenceKey);
+
+        return next;
+      });
+      setSkillsRefreshToken((value) => value + 1);
+      await refreshEntityCounts();
+      setError('');
+    } catch (caught) {
+      const message = caught instanceof Error ? caught.message : 'Unable to delete the concept.';
+
+      setError(message);
+      throw caught;
+    }
+  }, [book.id, pages, refreshEntityCounts]);
+
   const submitPageInput = useCallback((): void => {
     const requestedPage = Number(pageInput);
 
@@ -2495,11 +2731,14 @@ function BookReader({ assignAllStandardsRequest, book, file, fixAllStandardsRequ
             ? <ul>{concepts.map((concept) => {
               const firstPage = conceptFirstPageByKey.get(conceptReferenceKey(concept));
 
-              return <li key={concept.id ?? conceptReferenceKey(concept)}>
-                <strong><KatexSpan content={concept.title} /></strong>
-                {firstPage !== undefined && <p><small>First introduced on page {firstPage}</small></p>}
-                {concept.description && <p><KatexSpan content={concept.description} /></p>}
-              </li>;
+              return <ConceptItem
+                concept={concept}
+                firstPage={firstPage}
+                key={concept.id ?? conceptReferenceKey(concept)}
+                onDelete={deleteConcept}
+                onGoToPage={goToPage}
+                onSave={saveConcept}
+              />;
             })}</ul>
             : <p className='emptyOutput'>No concepts were parsed from this chapter.</p>}
         </section>
@@ -2734,10 +2973,10 @@ function BookReader({ assignAllStandardsRequest, book, file, fixAllStandardsRequ
       </div>
       <div
         aria-labelledby={`${activePane}-tab`}
-        className='readerColumns'
+        className={`readerColumns${activePane === 'textConcepts' ? ' conceptColumns' : ''}`}
         role='tabpanel'
       >
-        {(activePane === 'pdf' || activePane === 'text' || activePane === 'chapters' || activePane === 'textConcepts') && <div className='pageNavigation'>
+        {(activePane === 'pdf' || activePane === 'text' || activePane === 'chapters') && <div className='pageNavigation'>
           <Button
             icon='arrow-left'
             isDisabled={pageNumber <= 1}
@@ -2864,17 +3103,65 @@ function BookReader({ assignAllStandardsRequest, book, file, fixAllStandardsRequ
                 </>
                 : activePane === 'textConcepts'
                   ? <>
-                    <div
-                      className={`detailsArea${renderedPageHeight ? ' hasPageHeight' : ''}`}
-                      style={{ '--page-height': renderedPageHeight ? `${renderedPageHeight}px` : 'auto' } as React.CSSProperties}
-                    >
-                      {recognizedTextPane()}
+                    <div className='conceptPaneColumn'>
+                      <div className='pageNavigation compactPageNavigation conceptPaneNavigation'>
+                        <Button
+                          icon='arrow-left'
+                          isDisabled={pageNumber <= 1}
+                          onClick={() => goToPage(pageNumber - 1)}
+                        />
+                        <label>Page <input
+                          max={totalPages || 1}
+                          min={1}
+                          onBlur={submitPageInput}
+                          onChange={({ target }) => setPageInput(target.value)}
+                          onKeyDown={({ key }) => key === 'Enter' && submitPageInput()}
+                          type='number'
+                          value={pageInput}
+                        /><span>of {totalPages || '…'}</span></label>
+                        <Button
+                          icon='arrow-right'
+                          isDisabled={!totalPages || pageNumber >= totalPages}
+                          onClick={() => goToPage(pageNumber + 1)}
+                        />
+                      </div>
+                      <div
+                        className={`detailsArea${renderedPageHeight ? ' hasPageHeight' : ''}`}
+                        style={{ '--page-height': renderedPageHeight ? `${renderedPageHeight}px` : 'auto' } as React.CSSProperties}
+                      >
+                        {recognizedTextPane()}
+                      </div>
                     </div>
-                    <div
-                      className='detailsArea'
-                      style={{ '--page-height': renderedPageHeight ? `${renderedPageHeight}px` : 'auto' } as React.CSSProperties}
-                    >
-                      {conceptsPane()}
+                    <div className='conceptPaneColumn'>
+                      <div className='chapterNavigation conceptPaneNavigation'>
+                        <Button
+                          icon='arrow-left'
+                          isDisabled={!conceptChapters.length || conceptChapterIndex <= 0}
+                          onClick={() => changeConceptChapter(conceptChapterIndex - 1)}
+                        />
+                        <label>Chapter <select
+                          aria-label='Navigate chapters'
+                          disabled={!conceptChapters.length}
+                          onChange={({ target }) => changeConceptChapter(Number(target.value))}
+                          value={conceptChapters.length ? conceptChapterIndex : ''}
+                        >
+                          {conceptChapters.map(({ chapterId, pageNumbers, title }, index) => <option
+                            key={standardsChapterKey(chapterId, title, pageNumbers)}
+                            value={index}
+                          >{title || 'Chapter not identified'}</option>)}
+                        </select><span>{conceptChapters.length ? `${conceptChapterIndex + 1} of ${conceptChapters.length}` : 'No chapters'}</span></label>
+                        <Button
+                          icon='arrow-right'
+                          isDisabled={!conceptChapters.length || conceptChapterIndex >= conceptChapters.length - 1}
+                          onClick={() => changeConceptChapter(conceptChapterIndex + 1)}
+                        />
+                      </div>
+                      <div
+                        className='detailsArea'
+                        style={{ '--page-height': renderedPageHeight ? `${renderedPageHeight}px` : 'auto' } as React.CSSProperties}
+                      >
+                        {conceptsPane()}
+                      </div>
                     </div>
                   </>
                   : activePane === 'standards'
@@ -2935,6 +3222,15 @@ const StyledReader = styled.div`
     min-height: 0;
   }
 
+  &.isMaximized .readerColumns.conceptColumns {
+    grid-template-rows: minmax(0, 1fr);
+  }
+
+  &.isMaximized .conceptPaneColumn {
+    height: 100%;
+    min-height: 0;
+  }
+
   &.isMaximized .detailsArea, &.isMaximized .pageArea, &.isMaximized .skillsArea {
     height: 100%;
     min-height: 0;
@@ -2955,6 +3251,25 @@ const StyledReader = styled.div`
     gap: 0.75rem;
     grid-column: 1 / -1;
     margin-bottom: 1rem;
+  }
+
+  .conceptPaneColumn {
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+    min-width: 0;
+  }
+
+  .conceptPaneColumn > .detailsArea {
+    flex: 1;
+  }
+
+  .conceptPaneNavigation {
+    grid-column: auto;
+  }
+
+  .compactPageNavigation {
+    grid-template-columns: auto auto auto;
   }
 
   .chapterNavigation label {
@@ -3215,6 +3530,18 @@ const StyledReader = styled.div`
   .conceptsOutput p {
     margin: 0.25rem 0 0;
   }
+
+
+  .conceptItem { position: relative; }
+  .conceptHeading { align-items: flex-start; display: flex; gap: 0.75rem; justify-content: space-between; }
+  .conceptHeading > strong { flex: 1; min-width: 0; overflow-wrap: anywhere; text-align: left; }
+  .conceptActions { align-items: center; display: flex; flex-shrink: 0; gap: 0.35rem; }
+  .conceptPageLink { background: none; border: 0; color: var(--color-link, #2f6feb); cursor: pointer; font: inherit; padding: 0; text-decoration: underline; }
+  .conceptPageLink:hover { text-decoration-thickness: 2px; }
+  .conceptEditForm { display: flex; flex-direction: column; gap: 0.65rem; }
+  .conceptEditForm > label { display: flex; flex-direction: column; gap: 0.35rem; }
+  .conceptEditForm textarea { background: var(--bg-input); border: 1px solid #dde1eb; border-radius: 0.25rem; box-sizing: border-box; color: var(--color-text); font: inherit; padding: 0.55rem; resize: vertical; width: 100%; }
+  .conceptEditForm .conceptActions { justify-content: flex-end; }
 
   .conceptsOutput .exerciseImage {
     border: 1px solid var(--border-table);
