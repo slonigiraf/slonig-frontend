@@ -4,7 +4,7 @@
 import type { Book, BookChapter, BookConcept, BookPage, BookStageSpendKey, Exercise, MathpixHeading } from '@slonigiraf/db';
 import type { PDFDocumentLoadingTask, PDFDocumentProxy, RenderTask } from 'pdfjs-dist';
 
-import { addBookStageSpend, assignBookPageChapter, deleteAbilities, deleteBookConcept, deleteExercise, getAbilities, getBookChapters, getBookConceptsForBookPage, getBookPages, getExercisesForBookPage, getSetting, mergeBookChapterWithPrevious, putBook, putBookPage, replaceBookChapterAssignments, replaceParsedBookPageContent, SettingKey, splitBookChapterAtPage, storeSetting, updateBookChapterTitle, updateBookProcessingStage } from '@slonigiraf/db';
+import { addBookStageSpend, assignBookPageChapter, deleteAbilities, deleteBookConcept, deleteExercise, getAbilities, getBookChapters, getBookConceptsForBookPage, getBookPages, getExercisesForBookPage, getSetting, mergeBookChapterWithPrevious, putBook, putBookPage, replaceAbilities, replaceBookChapterAssignments, replaceExercisesForBookPage, replaceParsedBookPageContent, SettingKey, splitBookChapterAtPage, storeSetting, updateBookChapterTitle, updateBookProcessingStage } from '@slonigiraf/db';
 import { KatexSpan, RoundProgress } from '@slonigiraf/slonig-components';
 import { strFromU8, unzipSync } from 'fflate';
 import MathpixLoader from 'mathpix-markdown-it/lib/components/mathpix-loader/index.js';
@@ -367,6 +367,229 @@ function storeSessionRecognitionAttempted(bookId: number): void {
 }
 
 const delay = (milliseconds: number): Promise<void> => new Promise((resolve) => setTimeout(resolve, milliseconds));
+
+type ExerciseEditableFields = Pick<Exercise, 'description' | 'imageDescription' | 'solution' | 'solutionImageDescription' | 'title'>;
+
+function exerciseForPageReplacement ({ conceptId, description, imageDescription, solution, solutionImageDescription, source, title }: Exercise): Omit<Exercise, 'bookPage' | 'id'> {
+  return {
+    conceptId,
+    description: stripMarkdownImageReferences(description),
+    imageDescription,
+    solution,
+    solutionImageDescription,
+    source,
+    title
+  };
+}
+
+function EditableExerciseItem ({ exercise, onError, onSave }: { exercise: Exercise; onError: (message: string) => void; onSave: (exerciseId: number, value: ExerciseEditableFields) => Promise<void> }): React.ReactElement {
+  const { t } = useTranslation();
+  const [isEditing, setIsEditing] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
+  const [draftTitle, setDraftTitle] = useState(exercise.title);
+  const [draftDescription, setDraftDescription] = useState(stripMarkdownImageReferences(exercise.description));
+  const [draftImageDescription, setDraftImageDescription] = useState(exercise.imageDescription ?? '');
+  const [draftSolution, setDraftSolution] = useState(exercise.solution ?? '');
+  const [draftSolutionImageDescription, setDraftSolutionImageDescription] = useState(exercise.solutionImageDescription ?? '');
+  const n_a = t('N/A');
+
+  const openEdit = useCallback((): void => {
+    setDraftTitle(exercise.title);
+    setDraftDescription(stripMarkdownImageReferences(exercise.description));
+    setDraftImageDescription(exercise.imageDescription ?? '');
+    setDraftSolution(exercise.solution ?? '');
+    setDraftSolutionImageDescription(exercise.solutionImageDescription ?? '');
+    setIsEditing(true);
+  }, [exercise.description, exercise.imageDescription, exercise.solution, exercise.solutionImageDescription, exercise.title]);
+  const closeEdit = useCallback((): void => {
+    if (!isSaving) {
+      setIsEditing(false);
+    }
+  }, [isSaving]);
+  const save = useCallback((): void => {
+    if (exercise.id === undefined || !draftTitle.trim()) {
+      return;
+    }
+
+    setIsSaving(true);
+    onSave(exercise.id, {
+      description: draftDescription.trim(),
+      imageDescription: draftImageDescription.trim(),
+      solution: draftSolution.trim(),
+      solutionImageDescription: draftSolutionImageDescription.trim(),
+      title: draftTitle.trim()
+    })
+      .then(() => setIsEditing(false))
+      .catch((error) => onError(error instanceof Error ? error.message : 'Unable to save the Exercise.'))
+      .finally(() => setIsSaving(false));
+  }, [draftDescription, draftImageDescription, draftSolution, draftSolutionImageDescription, draftTitle, exercise.id, onError, onSave]);
+
+  const description = stripMarkdownImageReferences(exercise.description);
+
+  return <li className='exerciseItem'>
+    <div className='exerciseHeading'>
+      <p><b>{t('Title:')} </b><KatexSpan content={exercise.title} /></p>
+      <Button
+        icon='edit'
+        isDisabled={exercise.id === undefined}
+        label='Edit'
+        onClick={openEdit}
+      />
+    </div>
+    <p><b>{t('Question:')} </b>{description ? <KatexSpan content={description} /> : n_a}</p>
+    <p><b>{t('Question image:')} </b>{exercise.imageDescription ? <KatexSpan content={exercise.imageDescription} /> : n_a}</p>
+    <p><b>{t('Solution:')} </b>{exercise.solution ? <KatexSpan content={exercise.solution} /> : n_a}</p>
+    <p><b>{t('Answer image:')} </b>{exercise.solutionImageDescription ? <KatexSpan content={exercise.solutionImageDescription} /> : n_a}</p>
+    {isEditing && <Modal
+      header='Edit Exercise'
+      onClose={closeEdit}
+      size='small'
+    >
+      <Modal.Content>
+        <ExerciseEditForm>
+          <label>
+            <span>Title</span>
+            <input
+              disabled={isSaving}
+              onChange={({ target }) => setDraftTitle(target.value)}
+              type='text'
+              value={draftTitle}
+            />
+          </label>
+          <label>
+            <span>Task</span>
+            <textarea
+              disabled={isSaving}
+              onChange={({ target }) => setDraftDescription(target.value)}
+              rows={5}
+              value={draftDescription}
+            />
+          </label>
+          <label>
+            <span>Required visual description</span>
+            <textarea
+              disabled={isSaving}
+              onChange={({ target }) => setDraftImageDescription(target.value)}
+              rows={3}
+              value={draftImageDescription}
+            />
+          </label>
+          <label>
+            <span>Solution</span>
+            <textarea
+              disabled={isSaving}
+              onChange={({ target }) => setDraftSolution(target.value)}
+              rows={5}
+              value={draftSolution}
+            />
+          </label>
+          <label>
+            <span>Solution visual description</span>
+            <textarea
+              disabled={isSaving}
+              onChange={({ target }) => setDraftSolutionImageDescription(target.value)}
+              rows={3}
+              value={draftSolutionImageDescription}
+            />
+          </label>
+          <div className='exerciseEditActions'>
+            <Button
+              icon='times'
+              isDisabled={isSaving}
+              label='Cancel'
+              onClick={closeEdit}
+            />
+            <Button
+              icon='save'
+              isDisabled={isSaving || !draftTitle.trim()}
+              label={isSaving ? 'Saving…' : 'Save'}
+              onClick={save}
+            />
+          </div>
+        </ExerciseEditForm>
+      </Modal.Content>
+    </Modal>}
+  </li>;
+}
+
+
+const ExerciseEditForm = styled.div`
+  box-sizing: border-box;
+  display: grid;
+  gap: 1rem;
+  margin: 0 auto;
+  max-width: 48rem;
+  padding: 0.25rem 0;
+  width: 100%;
+
+  > label {
+    color: var(--color-text);
+    display: grid;
+    font-weight: 600;
+    gap: 0.4rem;
+    margin: 0;
+    text-align: left;
+    text-transform: none;
+    width: 100%;
+  }
+
+  > label > span {
+    line-height: 1.25;
+    text-transform: none;
+  }
+
+  input, textarea {
+    background: var(--bg-input, #fff);
+    border: 1px solid var(--border-table, #cfd5e1);
+    border-radius: 0.45rem;
+    box-sizing: border-box;
+    color: var(--color-text);
+    font: inherit;
+    font-weight: 400;
+    line-height: 1.45;
+    margin: 0;
+    outline: none;
+    padding: 0.65rem 0.75rem;
+    text-align: left;
+    text-transform: none;
+    width: 100%;
+  }
+
+  input {
+    min-height: 2.75rem;
+  }
+
+  textarea {
+    min-height: 5.5rem;
+    resize: vertical;
+  }
+
+  input:focus, textarea:focus {
+    border-color: var(--color-primary, #1682d4);
+    box-shadow: 0 0 0 2px rgba(22, 130, 212, 0.12);
+  }
+
+  input:disabled, textarea:disabled {
+    cursor: not-allowed;
+    opacity: 0.65;
+  }
+
+  .exerciseEditActions {
+    align-items: center;
+    display: flex;
+    gap: 0.65rem;
+    justify-content: flex-end;
+    padding-top: 0.25rem;
+  }
+
+  @media only screen and (max-width: 600px) {
+    gap: 0.8rem;
+
+    .exerciseEditActions {
+      flex-wrap: wrap;
+    }
+  }
+`;
 
 interface MMDZipInput {
   images: Array<{ image_url: { url: string }; name: string; type: 'image_url' }>;
@@ -2504,6 +2727,71 @@ function BookReader({ assignAllStandardsRequest, book, file, fixAllStandardsRequ
     }
   }, [book.id, pages, refreshEntityCounts]);
 
+  const saveExercise = useCallback(async (exerciseId: number, value: ExerciseEditableFields): Promise<void> => {
+    if (!currentExerciseChapter) {
+      throw new Error('Unable to find the chapter containing this Exercise.');
+    }
+
+    try {
+      const pageRows = await Promise.all(currentExerciseChapter.pageNumbers.map(async (chapterPageNumber) => ({
+        exercises: await getExercisesForBookPage([book.id, chapterPageNumber]),
+        pageNumber: chapterPageNumber
+      })));
+      const row = pageRows.find(({ exercises }) => exercises.some(({ id }) => id === exerciseId));
+
+      if (!row) {
+        throw new Error('Unable to find the page containing this Exercise.');
+      }
+
+      const originalExercises = row.exercises;
+      const updatedExercises = originalExercises.map((exercise) => exercise.id === exerciseId ? { ...exercise, ...value } : exercise);
+      const abilityContentsByExerciseId = new Map<number, string[]>();
+
+      await Promise.all(originalExercises.map(async ({ id }) => {
+        if (id !== undefined) {
+          abilityContentsByExerciseId.set(id, (await getAbilities(exerciseAbilityModuleId(book.id, id))).map(({ content }) => content));
+        }
+      }));
+
+      await replaceExercisesForBookPage([book.id, row.pageNumber], updatedExercises.map(exerciseForPageReplacement));
+
+      const storedExercises = await getExercisesForBookPage([book.id, row.pageNumber]);
+
+      if (storedExercises.length !== originalExercises.length || storedExercises.some(({ id }) => id === undefined)) {
+        throw new Error('Unable to remap Exercises after saving the edit.');
+      }
+
+      for (let index = 0; index < originalExercises.length; index++) {
+        const oldId = originalExercises[index].id;
+        const newId = storedExercises[index].id as number;
+
+        if (oldId === undefined || oldId === newId) {
+          continue;
+        }
+
+        const contents = abilityContentsByExerciseId.get(oldId) ?? [];
+
+        if (contents.length) {
+          await replaceAbilities(exerciseAbilityModuleId(book.id, newId), contents);
+        }
+
+        await deleteAbilities(exerciseAbilityModuleId(book.id, oldId));
+      }
+
+      const refreshedExercises = (await Promise.all(currentExerciseChapter.pageNumbers.map((chapterPageNumber) => getExercisesForBookPage([book.id, chapterPageNumber])))).flat();
+
+      setExerciseChapterExercises(refreshedExercises);
+      setSkillsRefreshToken((token) => token + 1);
+      await refreshEntityCounts();
+      setError('');
+    } catch (caught) {
+      const message = caught instanceof Error ? caught.message : 'Unable to save the Exercise.';
+
+      setError(message);
+      throw caught;
+    }
+  }, [book.id, currentExerciseChapter, refreshEntityCounts]);
+
   const submitPageInput = useCallback((): void => {
     const requestedPage = Number(pageInput);
 
@@ -2704,19 +2992,12 @@ function BookReader({ assignAllStandardsRequest, book, file, fixAllStandardsRequ
       : isGeneratingChapterConcepts
         ? 'Extracting and saving concepts for this chapter…'
         : 'Concepts';
-  const exerciseItem = (exercise: Exercise): React.ReactNode => {
-    const description = stripMarkdownImageReferences(exercise.description);
-    const n_a = t('N/A');
-
-    return <li key={exercise.id}>
-      <p><b>{t('Title:')} </b><KatexSpan content={exercise.title} /></p>
-      
-      <p><b>{t('Question:')} </b>{description ? <KatexSpan content={description} /> : n_a}</p>
-      <p><b>{t('Question image:')} </b>{exercise.imageDescription ? <KatexSpan content={exercise.imageDescription} />: n_a}</p>
-      <p><b>{t('Solution:')} </b>{exercise.solution ? <KatexSpan content={exercise.solution} />: n_a}</p>
-      <p><b>{t('Answer image:')} </b>{exercise.solutionImageDescription ? <KatexSpan content={exercise.solutionImageDescription} /> : n_a}</p>
-    </li>;
-  };
+  const exerciseItem = (exercise: Exercise): React.ReactNode => <EditableExerciseItem
+    exercise={exercise}
+    key={exercise.id}
+    onError={setError}
+    onSave={saveExercise}
+  />;
   const conceptsPane = (): React.ReactNode => {
     return <div className='tabPanel conceptsPanel'>
       <div className='detailsHeader'>
@@ -3542,6 +3823,13 @@ const StyledReader = styled.div`
   .conceptEditForm > label { display: flex; flex-direction: column; gap: 0.35rem; }
   .conceptEditForm textarea { background: var(--bg-input); border: 1px solid #dde1eb; border-radius: 0.25rem; box-sizing: border-box; color: var(--color-text); font: inherit; padding: 0.55rem; resize: vertical; width: 100%; }
   .conceptEditForm .conceptActions { justify-content: flex-end; }
+
+  .exerciseItem { position: relative; }
+  .exerciseHeading { align-items: flex-start; display: flex; gap: 0.75rem; justify-content: space-between; }
+  .exerciseHeading > p { flex: 1; min-width: 0; }
+  .exerciseEditForm { display: flex; flex-direction: column; gap: 0.65rem; }
+  .exerciseEditForm > label { display: flex; flex-direction: column; gap: 0.35rem; }
+  .exerciseEditForm textarea { background: var(--bg-input); border: 1px solid #dde1eb; border-radius: 0.25rem; box-sizing: border-box; color: var(--color-text); font: inherit; padding: 0.55rem; resize: vertical; width: 100%; }
 
   .conceptsOutput .exerciseImage {
     border: 1px solid var(--border-table);
