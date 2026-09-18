@@ -35,9 +35,16 @@ export const EXERCISE_TEMPLATE_STYLE_PROMPT = `Write every generated exercise as
 
 Keep learner-facing task text short and direct. Do not include solution steps, construction details that disclose answer-bearing information, or tutorial prose in the question unless carrying out that procedure is itself the target skill. Keep the solution concise, but make the solving method visible whenever the answer is not immediately obvious. For a one-step or self-evident task, the result plus the direct substitution, rule application, or calculation is enough. For a non-obvious or multi-step task, include the essential steps in logical order, with the intermediate calculations, transformations, or reasons needed to understand how the final answer is reached. Do not skip a meaningful transition merely to shorten the solution, and do not add tutorial filler beyond the steps needed to solve the specific exercise. Templatability, self-containment, and an unambiguous learner operation take priority over the word target.`;
 
+export const LEARNER_AGE_PROMPT = (learnerAge?: number): string => Number.isSafeInteger(learnerAge)
+  ? `The current learner age is ${learnerAge} years. Keep vocabulary, sentence complexity, assumed background knowledge, cognitive load, examples, task difficulty, answer expectations, and any visual content appropriate for a ${learnerAge}-year-old learner. Preserve the intended learning target and required method; age-appropriateness must not simplify away the skill being taught or assessed.`
+  : '';
+
 const EXERCISE_QUESTION_BREVITY_PROMPT = `Make each Exercise description a succinct learner-facing question or command. Prefer one short sentence. Aim for about 6-16 words and normally no more than about 20 words; exceed that only when essential task data or constraints cannot be omitted without making the task ambiguous or incomplete. Remove scene-setting, repeated directions, procedural coaching, definitions, and facts already supplied by the concept or a required visual. If a question visual carries task data, refer to it briefly (for example, "the figure" or "the visual") instead of restating its contents. Brevity must never remove values, conditions, units, or other information the learner actually needs to answer.`;
 
-export const GENERATE_EXERCISES_PROMPT = (bookDetectedLanguage: string): string => `For every supplied concept, generate exactly one complete exercise using ${bookDetectedLanguage} language. Preserve the concept's learner modality: the generated task must exercise the same kind of input, operation, and output implied by the concept instead of replacing it with an easier textual surrogate. In particular, when interpreting, locating, constructing, completing, comparing, or otherwise using a representation is part of the target skill, keep that representational operation in the exercise rather than describing the procedure in prose.
+export const GENERATE_EXERCISES_PROMPT = (bookDetectedLanguage: string, learnerAge?: number): string => `For every supplied concept, generate exactly one complete exercise using ${bookDetectedLanguage} language.
+
+${LEARNER_AGE_PROMPT(learnerAge)}
+Preserve the concept's learner modality: the generated task must exercise the same kind of input, operation, and output implied by the concept instead of replacing it with an easier textual surrogate. In particular, when interpreting, locating, constructing, completing, comparing, or otherwise using a representation is part of the target skill, keep that representational operation in the exercise rather than describing the procedure in prose.
 
 ${EXERCISE_TEMPLATE_STYLE_PROMPT}
 
@@ -117,12 +124,12 @@ Representative MMD text pages:
 ${pageTexts.map(({ pageNumber, text }) => `--- page ${pageNumber} ---\n${text}`).join('\n\n')}`;
 };
 
-export const GENERATE_EXERCISES_REQUEST_PROMPT = (bookDetectedLanguage: string, input: unknown): string => {
-  return `${GENERATE_EXERCISES_PROMPT(bookDetectedLanguage)}\n${JSON.stringify(input)}`;
+export const GENERATE_EXERCISES_REQUEST_PROMPT = (bookDetectedLanguage: string, input: unknown, learnerAge?: number): string => {
+  return `${GENERATE_EXERCISES_PROMPT(bookDetectedLanguage, learnerAge)}\n${JSON.stringify(input)}`;
 };
 
-export const GENERATE_EXERCISES_RECOVERY_PROMPT = (bookDetectedLanguage: string, input: unknown, retry: number, maxRetries: number): string => {
-  return `${GENERATE_EXERCISES_PROMPT(bookDetectedLanguage)}
+export const GENERATE_EXERCISES_RECOVERY_PROMPT = (bookDetectedLanguage: string, input: unknown, retry: number, maxRetries: number, learnerAge?: number): string => {
+  return `${GENERATE_EXERCISES_PROMPT(bookDetectedLanguage, learnerAge)}
 This is recovery attempt ${retry} of ${maxRetries}. Generate exactly one exercise only for every supplied concept that still has no exercise.
 ${JSON.stringify(input)}`;
 };
@@ -204,16 +211,16 @@ export const SKILLS_GENERATION_SYSTEM_PROMPT = (language: string): string => {
   return `Write strictly in ISO language ${language}. Use <kx>...</kx> for all formulas.`;
 };
 
-export const ABILITY_WORKFLOW_SYSTEM_PROMPT = (language: string, chapterTitle: string): string => {
-  return `Write strictly in ISO language ${language}. Use <kx>...</kx> for all formulas. Return complete valid JSON in the exact shape requested by the current workflow stage. Every source Exercise in this request belongs to chapter ${chapterTitle}; do not use or combine context from another chapter.`;
+export const ABILITY_WORKFLOW_SYSTEM_PROMPT = (language: string, chapterTitle: string, learnerAge?: number): string => {
+  return `Write strictly in ISO language ${language}. Use <kx>...</kx> for all formulas. Return complete valid JSON in the exact shape requested by the current workflow stage. Every source Exercise in this request belongs to chapter ${chapterTitle}; do not use or combine context from another chapter. ${LEARNER_AGE_PROMPT(learnerAge)}`;
 };
 
 // Compatibility aliases for callers outside this source bundle.
 export const ATOMIC_ABILITY_WORKFLOW_SYSTEM_PROMPT = ABILITY_WORKFLOW_SYSTEM_PROMPT;
 export const EXERCISE_ABILITIES_SYSTEM_PROMPT = ABILITY_WORKFLOW_SYSTEM_PROMPT;
 
-export const REPAIR_SYSTEM_PROMPT = (language: string): string => {
-  return `Keep ISO language ${language}. Return only the requested JSON object.`;
+export const REPAIR_SYSTEM_PROMPT = (language: string, learnerAge?: number): string => {
+  return `Keep ISO language ${language}. Return only the requested JSON object. ${LEARNER_AGE_PROMPT(learnerAge)}`;
 };
 
 export const EXERCISE_ABILITIES_PROMPT = (language: string, chapterTitle: string, exercises: unknown): string => {

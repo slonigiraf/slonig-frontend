@@ -18,7 +18,7 @@ import { isTikzCode } from './Edit/tikz.js';
 import { parseAbilityRepairResult, parseStoredAbility } from './abilities.js';
 import { parseExerciseRepairResult } from './exercises.js';
 import { estimateAiInput, formatAiInputEstimate } from './aiEstimate.js';
-import { ABILITY_WORKFLOW_SYSTEM_PROMPT, FIX_ABILITIES_REQUEST_PROMPT, FIX_EXERCISES_REQUEST_PROMPT, JSON_VALIDATION_PROMPT, OPENAI_MODELS, REPAIR_SYSTEM_PROMPT, SKILLS_GENERATION_SYSTEM_PROMPT, SOURCES_TO_SKILLS_REQUEST_PROMPT } from './constants.js';
+import { ABILITY_WORKFLOW_SYSTEM_PROMPT, FIX_ABILITIES_REQUEST_PROMPT, FIX_EXERCISES_REQUEST_PROMPT, JSON_VALIDATION_PROMPT, LEARNER_AGE_PROMPT, OPENAI_MODELS, REPAIR_SYSTEM_PROMPT, SKILLS_GENERATION_SYSTEM_PROMPT, SOURCES_TO_SKILLS_REQUEST_PROMPT } from './constants.js';
 import { abilityBlueprintRequestPrompt, materializeExerciseAbility, planExerciseAbility, transportCompactAbilitySourceExercise } from './abilityWorkflow.js';
 import { mapConcurrent } from './concurrency.js';
 import { OPENROUTER_CONCURRENCY, openRouterRequestGate } from './openRouterConcurrency.js';
@@ -285,17 +285,19 @@ function transportExercises (exercises: Exercise[]): unknown[] {
   return exercises.map(({ description, ...exercise }) => ({ ...exercise, description: stripMarkdownImageReferences(description) }));
 }
 
-function abilityRepairInput (language: string, batch: StoredAbility[], chapterTitle?: string): unknown {
+function abilityRepairInput (language: string, batch: StoredAbility[], chapterTitle?: string, learnerAge?: number): unknown {
   return {
     abilities: batch.map(({ ability, content, id }, index) => ({ ability: ability ? { ...ability, q: ability.q.map(({ a, h, i, p }) => ({ a, h, i, p })) } : content, id, index })),
     bookLanguage: language,
+    ...(learnerAge === undefined ? {} : { learnerAge }),
     ...(chapterTitle ? { chapterTitle } : {})
   };
 }
 
-function exerciseRepairInput (language: string, batch: Exercise[], chapterTitle?: string): unknown {
+function exerciseRepairInput (language: string, batch: Exercise[], chapterTitle?: string, learnerAge?: number): unknown {
   return {
     bookLanguage: language,
+    ...(learnerAge === undefined ? {} : { learnerAge }),
     exercises: batch.map(({ conceptId, description, id, imageDescription = '', solution = '', solutionImageDescription = '', title }, index) => ({
       conceptId,
       exercise: { description: stripMarkdownImageReferences(description), imageDescription, solution, solutionImageDescription, title },
@@ -350,7 +352,7 @@ function cleanTikzResponse (content: string): string {
   return cleaned.slice(start, end).trim();
 }
 
-function tikzRequestPrompt (language: string, ability: GeneratedAbility, exerciseIndex: number, field: 'p' | 'i', visualPrompt: string): string {
+function tikzRequestPrompt (language: string, ability: GeneratedAbility, exerciseIndex: number, field: 'p' | 'i', visualPrompt: string, learnerAge?: number): string {
   const exercise = ability.q[exerciseIndex];
   const purpose = field === 'p' ? 'question visual' : 'answer visual';
 
@@ -363,6 +365,7 @@ Rules:
 - Keep labels concise and in the book language (${language}).
 - Prefer a clean educational diagram with sensible coordinates and readable labels.
 - Do not embed raster images, URLs, SVG, HTML, or base64 data.
+- ${LEARNER_AGE_PROMPT(learnerAge) || 'No learner age is available; do not make age-specific assumptions beyond the supplied educational content.'}
 
 Ability: ${ability.h}
 Question: ${exercise.h}
@@ -405,7 +408,7 @@ function compactPreRenderForPrompt (result: TikzPreRenderResult): unknown {
   };
 }
 
-function tikzFixReviewPrompt (language: string, target: ImageFixTarget, preRender: TikzPreRenderResult): string {
+function tikzFixReviewPrompt (language: string, target: ImageFixTarget, preRender: TikzPreRenderResult, learnerAge?: number): string {
   const exercise = target.ability.q[target.exerciseIndex];
   const purpose = target.field === 'p' ? 'question visual' : 'solution visual';
 
@@ -421,6 +424,8 @@ You MUST inspect all of these classes of failure:
 - Poor composition that makes the intended educational relationship hard to read.
 
 Use the pre-render evidence below. The SVG is the actual browser rendering when compilation succeeded. If compilation failed, use the diagnostics/TeX input to repair the source. Preserve correct content and change only what is needed.
+
+${LEARNER_AGE_PROMPT(learnerAge)}
 
 Return ONLY JSON in this exact shape:
 {"hasErrors":true,"errors":["Specific problem 1"],"tikz":"\\begin{tikzpicture}...\\end{tikzpicture}"}
@@ -440,7 +445,7 @@ PRE-RENDER RESULT:
 ${JSON.stringify(compactPreRenderForPrompt(preRender))}`;
 }
 
-function tikzCompileRepairPrompt (language: string, target: ImageFixTarget, review: TikzAiReview, failedPreRender: TikzPreRenderResult): string {
+function tikzCompileRepairPrompt (language: string, target: ImageFixTarget, review: TikzAiReview, failedPreRender: TikzPreRenderResult, learnerAge?: number): string {
   const exercise = target.ability.q[target.exerciseIndex];
 
   return `The proposed TikZ correction still failed the application's real TikZJax pre-render. Repair the TikZ so it compiles in TikZJax AND still satisfies the original visual specification. Keep all valid semantic/layout corrections already made.
@@ -448,6 +453,8 @@ function tikzCompileRepairPrompt (language: string, target: ImageFixTarget, revi
 Return ONLY JSON in this exact shape:
 {"hasErrors":true,"errors":["..."],"tikz":"\\begin{tikzpicture}...\\end{tikzpicture}"}
 The errors array must include the original visual problems and the compile/render failure you fixed.
+
+${LEARNER_AGE_PROMPT(learnerAge)}
 
 Book language: ${language}
 Ability: ${target.ability.h}
@@ -460,7 +467,7 @@ Rejected proposed TikZ: ${review.tikz}
 Failed pre-render: ${JSON.stringify(compactPreRenderForPrompt(failedPreRender))}`;
 }
 
-function tikzDetectedProblemsRepairPrompt (language: string, target: ImageFixTarget, review: TikzAiReview, preRender: TikzPreRenderResult): string {
+function tikzDetectedProblemsRepairPrompt (language: string, target: ImageFixTarget, review: TikzAiReview, preRender: TikzPreRenderResult, learnerAge?: number): string {
   const exercise = target.ability.q[target.exerciseIndex];
 
   return `You identified real problems in this TikZ visual but returned the original TikZ unchanged. Apply the required corrections now. The corrected TikZ must compile in TikZJax, match the original visual prompt and concrete exercise, and resolve every listed layout/semantic problem.
@@ -468,6 +475,8 @@ function tikzDetectedProblemsRepairPrompt (language: string, target: ImageFixTar
 Return ONLY JSON in this exact shape:
 {"hasErrors":true,"errors":["..."],"tikz":"\\begin{tikzpicture}...\\end{tikzpicture}"}
 Keep the errors list specific. tikz MUST contain an actual corrected source different from the rejected original.
+
+${LEARNER_AGE_PROMPT(learnerAge)}
 
 Book language: ${language}
 Ability: ${target.ability.h}
@@ -1183,31 +1192,31 @@ function Skills ({ book, externalRefreshToken = 0, onAction, onBookChange, onCon
     if (aiAction === 'exercises') {
       // Ability generation is source-bounded: each semantic request contains
       // exactly one Exercise instead of a chapter/batch plus accumulated drafts.
-      return chapterContent.flatMap(({ chapter, exercises }) => exercises.map((exercise) => abilityBlueprintRequestPrompt(language, chapter.title, [transportCompactAbilitySourceExercise(exercise)])));
+      return chapterContent.flatMap(({ chapter, exercises }) => exercises.map((exercise) => `${LEARNER_AGE_PROMPT(book.age)}\n${abilityBlueprintRequestPrompt(language, chapter.title, [transportCompactAbilitySourceExercise(exercise)])}`));
     }
 
     if (aiAction === 'fixExercises') {
-      return chapterContent.filter(({ exercises }) => exercises.length > 0).map(({ chapter, exercises }) => FIX_EXERCISES_REQUEST_PROMPT(exerciseRepairInput(language, exercises, chapter.title)));
+      return chapterContent.filter(({ exercises }) => exercises.length > 0).map(({ chapter, exercises }) => FIX_EXERCISES_REQUEST_PROMPT(exerciseRepairInput(language, exercises, chapter.title, book.age)));
     }
 
     if (aiAction === 'fix') {
-      return chapterContent.filter(({ abilities }) => abilities.length > 0).map(({ abilities, chapter }) => FIX_ABILITIES_REQUEST_PROMPT(abilityRepairInput(language, abilities, chapter.title)));
+      return chapterContent.filter(({ abilities }) => abilities.length > 0).map(({ abilities, chapter }) => FIX_ABILITIES_REQUEST_PROMPT(abilityRepairInput(language, abilities, chapter.title, book.age)));
     }
 
     if (aiAction === 'images') {
       return imageGenerationTargets.flatMap(({ exerciseIndex, field, record, visualPrompt }) => record.ability
-        ? [tikzRequestPrompt(language, record.ability, exerciseIndex, field, visualPrompt)]
+        ? [tikzRequestPrompt(language, record.ability, exerciseIndex, field, visualPrompt, book.age)]
         : []);
     }
 
     if (aiAction === 'fixImages') {
       const pendingPreRender: TikzPreRenderResult = { compiled: true, diagnostics: [], renderedSvg: '', texInput: '' };
 
-      return imageFixTargets.map((target) => tikzFixReviewPrompt(language, target, pendingPreRender));
+      return imageFixTargets.map((target) => tikzFixReviewPrompt(language, target, pendingPreRender, book.age));
     }
 
     return [];
-  }, [aiAction, chapterContent, imageFixTargets, imageGenerationTargets, language, skillSources]);
+  }, [aiAction, book.age, chapterContent, imageFixTargets, imageGenerationTargets, language, skillSources]);
   const maxChapterAbilityCount = Math.max(1, ...chapterContent.map(({ abilities }) => abilities.length));
   const maxChapterExerciseCount = Math.max(1, ...chapterContent.map(({ exercises }) => exercises.length));
   const generationOutputTokens = aiAction === 'exercises' ? 3_200 : aiAction === 'fixExercises' ? maxChapterExerciseCount * 550 : aiAction === 'fix' ? maxChapterAbilityCount * 700 : aiAction === 'images' ? 2_400 : aiAction === 'fixImages' ? 2_600 : aiAction === 'skills' ? BATCH_SIZE * 180 : 300;
@@ -1365,7 +1374,7 @@ function Skills ({ book, externalRefreshToken = 0, onAction, onBookChange, onCon
           .filter(({ id }) => id !== undefined && pending.has(id) && !blueprintsByExerciseIdCache.has(id))
           .map((exercise) => ({ chapterTitle: chapter.title, exercise })));
         const plannedSources = await mapConcurrent(sourcesNeedingPlan, ABILITY_GENERATION_CONCURRENCY, async ({ chapterTitle, exercise }): Promise<{ blueprints: AbilityBlueprint[]; exercise: Exercise }> => {
-          const systemPrompt = ABILITY_WORKFLOW_SYSTEM_PROMPT(language, chapterTitle);
+          const systemPrompt = ABILITY_WORKFLOW_SYSTEM_PROMPT(language, chapterTitle, book.age);
           const runJson: AbilityWorkflowJsonRunner = (prompt, parse, options) => requestValidatedJson(client, selectedModel, systemPrompt, prompt, parse, true, addAbilitiesCost, options?.maxOutputTokens, options?.repairContext, options?.validationCycles ?? 1);
 
           try {
@@ -1393,7 +1402,7 @@ function Skills ({ book, externalRefreshToken = 0, onAction, onBookChange, onCon
         const materializedSources = await mapConcurrent(sourcesNeedingMaterialization, ABILITY_GENERATION_CONCURRENCY, async ({ chapterTitle, exercise }): Promise<{ conversions: ExerciseAbilityConversion[]; exercise: Exercise }> => {
           const exerciseId = exercise.id as number;
           const blueprints = blueprintsByExerciseIdCache.get(exerciseId) ?? [];
-          const systemPrompt = ABILITY_WORKFLOW_SYSTEM_PROMPT(language, chapterTitle);
+          const systemPrompt = ABILITY_WORKFLOW_SYSTEM_PROMPT(language, chapterTitle, book.age);
           const runJson: AbilityWorkflowJsonRunner = (prompt, parse, options) => requestValidatedJson(client, selectedModel, systemPrompt, prompt, parse, true, addAbilitiesCost, options?.maxOutputTokens, options?.repairContext, options?.validationCycles ?? 1);
 
           try {
@@ -1468,7 +1477,7 @@ function Skills ({ book, externalRefreshToken = 0, onAction, onBookChange, onCon
     } finally {
       setIsBusy(false);
     }
-  }, [addAbilitiesCost, allAbilities.length, allExercises, beginProgress, book.id, chapterContent, createClient, language, onContentChange, refresh, selectedModel, setStage, stage]);
+  }, [addAbilitiesCost, allAbilities.length, allExercises, beginProgress, book.age, book.id, chapterContent, createClient, language, onContentChange, refresh, selectedModel, setStage, stage]);
 
   const fixExercises = useCallback(async (): Promise<void> => {
     beginProgress('Fixing Exercise errors', allExercises.length);
@@ -1492,8 +1501,8 @@ function Skills ({ book, externalRefreshToken = 0, onAction, onBookChange, onCon
 
       await mapConcurrent(batches, OPENROUTER_CONCURRENCY, async ({ batch, chapterTitle }) => {
         const originalIds = batch.map(({ id }) => id as number);
-        const systemPrompt = REPAIR_SYSTEM_PROMPT(language);
-        const userPrompt = FIX_EXERCISES_REQUEST_PROMPT(exerciseRepairInput(language, batch, chapterTitle));
+        const systemPrompt = REPAIR_SYSTEM_PROMPT(language, book.age);
+        const userPrompt = FIX_EXERCISES_REQUEST_PROMPT(exerciseRepairInput(language, batch, chapterTitle, book.age));
         const result = await requestValidatedJson(
           client,
           selectedModel,
@@ -1549,7 +1558,7 @@ function Skills ({ book, externalRefreshToken = 0, onAction, onBookChange, onCon
     } finally {
       setIsBusy(false);
     }
-  }, [addFixExercisesCost, allExercises, beginProgress, chapterContent, createClient, language, selectedModel]);
+  }, [addFixExercisesCost, allExercises, beginProgress, book.age, chapterContent, createClient, language, selectedModel]);
 
   const fixAbilities = useCallback(async (): Promise<void> => {
     beginProgress('Fixing Ability errors', allAbilities.length);
@@ -1566,8 +1575,8 @@ function Skills ({ book, externalRefreshToken = 0, onAction, onBookChange, onCon
       let completed = 0;
 
       await mapConcurrent(batches, OPENROUTER_CONCURRENCY, async ({ batch, chapterTitle }) => {
-        const systemPrompt = REPAIR_SYSTEM_PROMPT(language);
-        const userPrompt = FIX_ABILITIES_REQUEST_PROMPT(abilityRepairInput(language, batch, chapterTitle));
+        const systemPrompt = REPAIR_SYSTEM_PROMPT(language, book.age);
+        const userPrompt = FIX_ABILITIES_REQUEST_PROMPT(abilityRepairInput(language, batch, chapterTitle, book.age));
         const result = await requestValidatedJson(
           client,
           selectedModel,
@@ -1641,7 +1650,7 @@ function Skills ({ book, externalRefreshToken = 0, onAction, onBookChange, onCon
     } finally {
       setIsBusy(false);
     }
-  }, [addFixAbilitiesCost, allAbilities.length, beginProgress, chapterContent, createClient, exerciseTitlesByModuleId, language, selectedModel]);
+  }, [addFixAbilitiesCost, allAbilities.length, beginProgress, book.age, chapterContent, createClient, exerciseTitlesByModuleId, language, selectedModel]);
 
   const closeFixReview = useCallback((): void => {
     setFixReview(null);
@@ -1827,7 +1836,7 @@ function Skills ({ book, externalRefreshToken = 0, onAction, onBookChange, onCon
           client,
           selectedModel,
           'You convert precise educational visual specifications into valid, compact TikZ code. Follow the requested output contract exactly.',
-          tikzRequestPrompt(language, record.ability, exerciseIndex, field, visualPrompt),
+          tikzRequestPrompt(language, record.ability, exerciseIndex, field, visualPrompt, book.age),
           false,
           addImagesCost,
           2_400
@@ -1869,7 +1878,7 @@ function Skills ({ book, externalRefreshToken = 0, onAction, onBookChange, onCon
     } finally {
       setIsBusy(false);
     }
-  }, [addImagesCost, allAbilities, beginProgress, createClient, imageGenerationTargets, language, onAction, refresh, selectedModel, setStage]);
+  }, [addImagesCost, allAbilities, beginProgress, book.age, createClient, imageGenerationTargets, language, onAction, refresh, selectedModel, setStage]);
   const fixImages = useCallback(async (): Promise<void> => {
     beginProgress('Reviewing TikZ visuals', imageFixTargets.length);
 
@@ -1899,7 +1908,7 @@ function Skills ({ book, externalRefreshToken = 0, onAction, onBookChange, onCon
           client,
           selectedModel,
           'You are a strict educational diagram QA reviewer and TikZ repair expert. Return only the requested JSON object.',
-          tikzFixReviewPrompt(language, target, originalPreRender),
+          tikzFixReviewPrompt(language, target, originalPreRender, book.age),
           parseTikzAiReview,
           true,
           addFixImagesCost,
@@ -1922,7 +1931,7 @@ function Skills ({ book, externalRefreshToken = 0, onAction, onBookChange, onCon
             client,
             selectedModel,
             'You must apply the TikZ corrections you identified. Return only the requested JSON object.',
-            tikzDetectedProblemsRepairPrompt(language, target, effectiveReview, originalPreRender),
+            tikzDetectedProblemsRepairPrompt(language, target, effectiveReview, originalPreRender, book.age),
             parseTikzAiReview,
             true,
             addFixImagesCost,
@@ -1946,7 +1955,7 @@ function Skills ({ book, externalRefreshToken = 0, onAction, onBookChange, onCon
             client,
             selectedModel,
             'You repair rejected TikZ using real TikZJax pre-render diagnostics. Return only the requested JSON object.',
-            tikzCompileRepairPrompt(language, target, effectiveReview, fixedPreRender),
+            tikzCompileRepairPrompt(language, target, effectiveReview, fixedPreRender, book.age),
             parseTikzAiReview,
             true,
             addFixImagesCost,
@@ -1994,7 +2003,7 @@ function Skills ({ book, externalRefreshToken = 0, onAction, onBookChange, onCon
     } finally {
       setIsBusy(false);
     }
-  }, [addFixImagesCost, beginProgress, createClient, imageFixTargets, language, selectedModel]);
+  }, [addFixImagesCost, beginProgress, book.age, createClient, imageFixTargets, language, selectedModel]);
 
   const closeImageFixReview = useCallback((): void => {
     setImageFixReview(null);

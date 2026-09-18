@@ -162,7 +162,7 @@ function generatedExercisesResult (content: string, concepts: LocatedProcessingC
   return Array.from(exercisesByConcept.entries()).sort(([a], [b]) => a - b).map(([, exercise]) => exercise);
 }
 
-export async function processExtractedChapterContent (extracted: ExtractedChapterContent, runAi: BookProcessingAi, bookDetectedLanguage = 'English'): Promise<ProcessedChapterContent> {
+export async function processExtractedChapterContent (extracted: ExtractedChapterContent, runAi: BookProcessingAi, bookDetectedLanguage = 'English', learnerAge?: number): Promise<ProcessedChapterContent> {
   const { chapter, pages } = extracted;
 
   if (!pages.length) {
@@ -186,7 +186,7 @@ export async function processExtractedChapterContent (extracted: ExtractedChapte
     concepts: concepts.map(({ sourcePageNumber: _sourcePageNumber, ...concept }, conceptIndex) => ({ ...concept, conceptIndex }))
   };
   let generatedExercises = concepts.length
-    ? generatedExercisesResult(await runAi(GENERATE_EXERCISES_REQUEST_PROMPT(bookDetectedLanguage, generationInput)), concepts)
+    ? generatedExercisesResult(await runAi(GENERATE_EXERCISES_REQUEST_PROMPT(bookDetectedLanguage, generationInput, learnerAge)), concepts)
     : [];
 
   for (let retry = 0; retry < MAX_EXERCISE_GENERATION_RETRIES; retry++) {
@@ -197,7 +197,7 @@ export async function processExtractedChapterContent (extracted: ExtractedChapte
       break;
     }
 
-    const recovered = generatedExercisesResult(await runAi(GENERATE_EXERCISES_RECOVERY_PROMPT(bookDetectedLanguage, { concepts: missingConcepts }, retry + 1, MAX_EXERCISE_GENERATION_RETRIES)), concepts);
+    const recovered = generatedExercisesResult(await runAi(GENERATE_EXERCISES_RECOVERY_PROMPT(bookDetectedLanguage, { concepts: missingConcepts }, retry + 1, MAX_EXERCISE_GENERATION_RETRIES, learnerAge)), concepts);
 
     const generatedByConcept = new Map(generatedExercises.flatMap((exercise) => exercise.conceptIndex === undefined ? [] : [[exercise.conceptIndex, exercise] as const]));
 

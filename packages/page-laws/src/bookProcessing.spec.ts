@@ -236,6 +236,27 @@ describe('book processing pipeline', (): void => {
     assert.equal('solutionImageDescription' in generated, false);
   });
 
+  it('passes learner age into Exercise generation and recovery prompts', async (): Promise<void> => {
+    const prompts: string[] = [];
+
+    await processExtractedChapterContent({
+      chapter: 'Chapter',
+      pages: [{ concepts: [{ description: 'Add within 20', title: 'Addition' }], exercises: [], pageNumber: 1 }]
+    }, (prompt) => {
+      prompts.push(prompt);
+
+      if (prompts.length === 1) {
+        assert.match(prompt, /current learner age is 8 years/i);
+        return Promise.resolve('{"exercises":[]}');
+      }
+
+      assert.match(prompt, /current learner age is 8 years/i);
+      return Promise.resolve('{"exercises":[{"conceptIndex":0,"title":"Add","description":"Add <kx>7+5</kx>.","solution":"<kx>7+5=12</kx>"}]}');
+    }, 'English', 8);
+
+    assert.equal(prompts.length, 2);
+  });
+
   it('retries missing concepts together up to three times', async (): Promise<void> => {
     const prompts: string[] = [];
     const exercise = (conceptIndex: number): Record<string, unknown> => ({ conceptIndex, description: `Task ${conceptIndex}`, solution: `Solution ${conceptIndex}`, title: `Exercise ${conceptIndex}` });

@@ -1897,7 +1897,7 @@ function BookReader({ ageTabRequest, assignAllStandardsRequest, book, file, fixA
           reportOpenRouterCost(response, addExercisesCost);
 
           return response.choices[0].message?.content?.trim() ?? '{}';
-        }, bookDetectedLanguage);
+        }, bookDetectedLanguage, book.age);
 
         for (const processed of processedChapter.pages) {
           await replaceParsedBookPageContent(book.id, processed.pageNumber, processedChapter.chapter, processed.concepts, processed.exercises);
@@ -1915,7 +1915,7 @@ function BookReader({ ageTabRequest, assignAllStandardsRequest, book, file, fixA
       setIsGeneratingAllExercises(false);
       onProcessingComplete();
     }
-  }, [addExercisesCost, advanceStage, book.id, book.language, generateAllConceptsModel, isGeneratingAllConcepts, isIdentifyingChapters, isRecognizingAll, isGeneratingAllExercises, onProcessingComplete, pageNumber, pages, processingPage, refreshEntityCounts, totalPages]);
+  }, [addExercisesCost, advanceStage, book.age, book.id, book.language, generateAllConceptsModel, isGeneratingAllConcepts, isIdentifyingChapters, isRecognizingAll, isGeneratingAllExercises, onProcessingComplete, pageNumber, pages, processingPage, refreshEntityCounts, totalPages]);
 
   const detectAndStoreBookLanguage = useCallback(async (recognizedPages: Map<number, BookPage>, force = false): Promise<void> => {
     if ((!force && book.language) || isDetectingBookLanguageRef.current) {

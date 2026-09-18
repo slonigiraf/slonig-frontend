@@ -7,7 +7,7 @@ import type { Exercise } from '@slonigiraf/db';
 
 import { strict as assert } from 'node:assert';
 
-import { FIX_EXERCISES_PROMPT, GENERATE_EXERCISES_PROMPT } from './constants.js';
+import { ABILITY_WORKFLOW_SYSTEM_PROMPT, FIX_EXERCISES_PROMPT, GENERATE_EXERCISES_PROMPT, REPAIR_SYSTEM_PROMPT } from './constants.js';
 import { parseExerciseRepairResult } from './exercises.js';
 
 function createExercise (id: number, title = `Exercise ${id}`): Exercise {
@@ -216,6 +216,18 @@ describe('exercise repair', (): void => {
     assert.match(FIX_EXERCISES_PROMPT, /earliest supplied index only as a final tie-breaker/i);
     assert.match(FIX_EXERCISES_PROMPT, /omit correct Exercises/i);
     assert.match(FIX_EXERCISES_PROMPT, /Do not return or change database identity or relationship fields/i);
+  });
+
+  it('includes learner age in Exercise, Ability, and repair prompt context', (): void => {
+    const learnerAge = 9;
+    const exercisePrompt = GENERATE_EXERCISES_PROMPT('English', learnerAge);
+    const abilityPrompt = ABILITY_WORKFLOW_SYSTEM_PROMPT('en', 'Fractions', learnerAge);
+    const repairPrompt = REPAIR_SYSTEM_PROMPT('en', learnerAge);
+
+    assert.match(exercisePrompt, /current learner age is 9 years/i);
+    assert.match(exercisePrompt, /visual content appropriate for a 9-year-old learner/i);
+    assert.match(abilityPrompt, /current learner age is 9 years/i);
+    assert.match(repairPrompt, /current learner age is 9 years/i);
   });
 
   it('asks generated Exercise solutions to show non-obvious solving steps', (): void => {
