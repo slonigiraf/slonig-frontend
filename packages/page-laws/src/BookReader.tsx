@@ -4,7 +4,7 @@
 import type { Book, BookChapter, BookConcept, BookPage, BookStageSpendKey, Exercise, MathpixHeading } from '@slonigiraf/db';
 import type { PDFDocumentLoadingTask, PDFDocumentProxy, RenderTask } from 'pdfjs-dist';
 
-import { addBookStageSpend, assignBookPageChapter, deleteAbilities, deleteBookConcept, deleteExercise, getAbilities, getBookChapters, getBookConceptsForBookPage, getBookPages, getExercisesForBookPage, getSetting, mergeBookChapterWithPrevious, putBook, putBookPage, replaceAbilities, replaceBookChapterAssignments, replaceExercisesForBookPage, replaceParsedBookPageContent, SettingKey, splitBookChapterAtPage, storeSetting, updateBookChapterTitle, updateBookProcessingStage } from '@slonigiraf/db';
+import { addBookStageSpend, assignBookPageChapter, createBookConcept, deleteAbilities, deleteBookConcept, deleteExercise, getAbilities, getBookChapters, getBookConceptsForBookPage, getBookPages, getExercisesForBookPage, getSetting, mergeBookChapterWithPrevious, putBook, putBookPage, reorderBookConcepts, replaceAbilities, replaceBookChapterAssignments, replaceExercisesForBookPage, replaceParsedBookPageContent, SettingKey, splitBookChapterAtPage, storeSetting, updateBookChapterTitle, updateBookConcept, updateBookProcessingStage } from '@slonigiraf/db';
 import { KatexSpan, RoundProgress } from '@slonigiraf/slonig-components';
 import { strFromU8, unzipSync } from 'fflate';
 import MathpixLoader from 'mathpix-markdown-it/lib/components/mathpix-loader/index.js';
@@ -42,38 +42,24 @@ interface ChapterConceptInputPage {
 }
 
 
-type BookConceptWriteApi = {
-  putBookConcept?: (concept: BookConcept) => Promise<unknown>;
-  updateBookConcept?: (id: number, changes: Pick<BookConcept, 'description' | 'title'>) => Promise<unknown>;
-};
-
-async function saveBookConceptRecord (concept: BookConcept, title: string, description: string): Promise<void> {
-  if (concept.id === undefined) {
-    throw new Error('Unable to edit a concept without an id.');
-  }
-
-  // Keep concept ids stable so generated exercises that reference conceptId do
-  // not become orphaned. Current DB builds expose putBookConcept; the update
-  // branch keeps this compatible with DB builds that expose a patch helper.
-  const database = await import('@slonigiraf/db') as unknown as BookConceptWriteApi;
-  const updated = { ...concept, description, title };
-
-  if (database.putBookConcept) {
-    await database.putBookConcept(updated);
-
-    return;
-  }
-
-  if (database.updateBookConcept) {
-    await database.updateBookConcept(concept.id, { description, title });
-
-    return;
-  }
-
-  throw new Error('This database build does not expose a concept update method.');
+function conceptDisplayOrder (concept: BookConcept): number | undefined {
+  return Number.isFinite(concept.displayOrder) ? concept.displayOrder : undefined;
 }
 
-function ConceptItem ({ concept, firstPage, onDelete, onGoToPage, onSave }: { concept: BookConcept; firstPage?: number; onDelete: (concept: BookConcept) => Promise<void>; onGoToPage: (pageNumber: number) => void; onSave: (concept: BookConcept, title: string, description: string) => Promise<void> }): React.ReactElement {
+function sortConceptsForDisplay (concepts: BookConcept[]): BookConcept[] {
+  return concepts
+    .map((concept, index) => ({ concept, index, order: conceptDisplayOrder(concept) }))
+    .sort((a, b) => (a.order ?? a.index) - (b.order ?? b.index) || a.index - b.index)
+    .map(({ concept }) => concept);
+}
+
+function conceptDisplayPage (concept: BookConcept): number | undefined {
+  const pageNumber = concept.bookPage[1];
+
+  return pageNumber > 0 ? pageNumber : undefined;
+}
+
+function ConceptItem ({ concept, firstPage, isDragging = false, onDelete, onDragEnd, onDragOver, onDragStart, onDrop, onGoToPage, onSave }: { concept: BookConcept; firstPage?: number; isDragging?: boolean; onDelete: (concept: BookConcept) => Promise<void>; onDragEnd?: (event: React.DragEvent<HTMLSpanElement>) => void; onDragOver?: (event: React.DragEvent<HTMLLIElement>) => void; onDragStart?: (event: React.DragEvent<HTMLSpanElement>) => void; onDrop?: (event: React.DragEvent<HTMLLIElement>) => void; onGoToPage: (pageNumber: number) => void; onSave: (concept: BookConcept, title: string, description: string) => Promise<void> }): React.ReactElement {
   const [description, setDescription] = useState(concept.description);
   const [isBusy, setIsBusy] = useState(false);
   const [isDeleteConfirmationOpen, setIsDeleteConfirmationOpen] = useState(false);
@@ -114,7 +100,11 @@ function ConceptItem ({ concept, firstPage, onDelete, onGoToPage, onSave }: { co
       .finally(() => setIsBusy(false));
   }, [concept, description, onSave, title]);
 
-  return <li className='conceptItem'>
+  return <li
+    className={`conceptItem${isDragging ? ' dragging' : ''}`}
+    onDragOver={onDragOver}
+    onDrop={onDrop}
+  >
     {isDeleteConfirmationOpen && <Modal
       header='Delete concept'
       onClose={() => !isBusy && setIsDeleteConfirmationOpen(false)}
@@ -173,6 +163,13 @@ function ConceptItem ({ concept, firstPage, onDelete, onGoToPage, onSave }: { co
       </div>
       : <>
         <div className='conceptHeading'>
+          <span
+            className='conceptDragHandle'
+            draggable={concept.id !== undefined && !isBusy}
+            onDragEnd={onDragEnd}
+            onDragStart={onDragStart}
+            title='Drag to reorder'
+          >⋮⋮</span>
           <strong><KatexSpan content={concept.title} /></strong>
           <div className='conceptActions'>
             <Button
@@ -191,7 +188,7 @@ function ConceptItem ({ concept, firstPage, onDelete, onGoToPage, onSave }: { co
           className='conceptPageLink'
           onClick={() => onGoToPage(firstPage)}
           type='button'
-        >Introduced on page {firstPage}</button></div>}
+        >{concept.manuallyAdded ? `Page ${firstPage}` : `Introduced on page ${firstPage}`}</button></div>}
         {concept.description && <p className='conceptDescription'><KatexSpan content={concept.description} /></p>}
       </>}
   </li>;
@@ -936,6 +933,13 @@ function BookReader({ ageTabRequest, assignAllStandardsRequest, book, file, fixA
   const [chapterTitleDraft, setChapterTitleDraft] = useState('');
   const [newChapterTitle, setNewChapterTitle] = useState('');
   const [concepts, setConcepts] = useState<BookConcept[]>([]);
+  const [draggedConceptIndex, setDraggedConceptIndex] = useState<number>();
+  const [isAddingConcept, setIsAddingConcept] = useState(false);
+  const [isReorderingConcepts, setIsReorderingConcepts] = useState(false);
+  const [isSavingNewConcept, setIsSavingNewConcept] = useState(false);
+  const [newConceptDescription, setNewConceptDescription] = useState('');
+  const [newConceptPage, setNewConceptPage] = useState('');
+  const [newConceptTitle, setNewConceptTitle] = useState('');
   const [standardsByChapter, setStandardsByChapter] = useState<StoredBookStandards>(() => loadStoredBookStandards(book.id));
   const [standardsCatalogs, setStandardsCatalogs] = useState<StandardsCatalog[]>([]);
   const [standardsChapterIndex, setStandardsChapterIndex] = useState(0);
@@ -1037,6 +1041,12 @@ function BookReader({ ageTabRequest, assignAllStandardsRequest, book, file, fixA
   const conceptChapters = useMemo<ConceptChapterNavigationItem[]>(() => conceptChaptersFromPages(Array.from(pages.values())), [pages]);
   const currentConceptChapter = useMemo(() => conceptChapters.find(({ pageNumbers }) => pageNumbers.includes(pageNumber)), [conceptChapters, pageNumber]);
   const conceptChapterIndex = useMemo(() => Math.max(0, conceptChapters.findIndex(({ pageNumbers }) => pageNumbers.includes(pageNumber))), [conceptChapters, pageNumber]);
+  useEffect(() => {
+    setIsAddingConcept(false);
+    setNewConceptDescription('');
+    setNewConceptPage('');
+    setNewConceptTitle('');
+  }, [currentConceptChapter?.chapterId, currentConceptChapter?.title]);
   const currentStandardsChapter = conceptChapters[standardsChapterIndex];
   const currentStandardsChapterKey = currentStandardsChapter ? standardsChapterKey(currentStandardsChapter.chapterId, currentStandardsChapter.title, currentStandardsChapter.pageNumbers) : undefined;
   const standardDescriptions = useMemo(() => {
@@ -1348,13 +1358,23 @@ function BookReader({ ageTabRequest, assignAllStandardsRequest, book, file, fixA
         return;
       }
 
-      const rows = await Promise.all(currentConceptChapter.pageNumbers.map(async (chapterPageNumber) => ({
-        concepts: await getBookConceptsForBookPage(book.id, chapterPageNumber),
-        pageNumber: chapterPageNumber
-      })));
+      const [pageRows, pageLessConcepts] = await Promise.all([
+        Promise.all(currentConceptChapter.pageNumbers.map(async (chapterPageNumber) => ({
+          concepts: await getBookConceptsForBookPage(book.id, chapterPageNumber),
+          pageNumber: chapterPageNumber
+        }))),
+        getBookConceptsForBookPage(book.id, 0)
+      ]);
+      const rows = [
+        ...pageRows,
+        {
+          concepts: pageLessConcepts.filter(({ chapterId }) => chapterId === currentConceptChapter.chapterId),
+          pageNumber: 0
+        }
+      ];
 
       if (active) {
-        const storedConcepts = rows.flatMap(({ concepts }) => concepts);
+        const storedConcepts = sortConceptsForDisplay(rows.flatMap(({ concepts }) => concepts));
         const references = new Map<string, number>();
 
         rows.forEach(({ concepts, pageNumber: conceptPageNumber }) => concepts.forEach((concept) => references.set(conceptReferenceKey(concept), conceptPageNumber)));
@@ -2832,9 +2852,123 @@ function BookReader({ ageTabRequest, assignAllStandardsRequest, book, file, fixA
       goToPage(firstPage);
     }
   }, [conceptChapters, goToPage]);
-  const saveConcept = useCallback(async (concept: BookConcept, title: string, description: string): Promise<void> => {
+  const reloadCurrentChapterConcepts = useCallback(async (): Promise<void> => {
+    if (!currentConceptChapter) {
+      setConcepts([]);
+      setConceptFirstPageByKey(new Map());
+
+      return;
+    }
+
+    const [pageRows, pageLessConcepts] = await Promise.all([
+      Promise.all(currentConceptChapter.pageNumbers.map(async (chapterPageNumber) => ({
+        concepts: await getBookConceptsForBookPage(book.id, chapterPageNumber),
+        pageNumber: chapterPageNumber
+      }))),
+      getBookConceptsForBookPage(book.id, 0)
+    ]);
+    const rows = [
+      ...pageRows,
+      {
+        concepts: pageLessConcepts.filter(({ chapterId }) => chapterId === currentConceptChapter.chapterId),
+        pageNumber: 0
+      }
+    ];
+    const references = new Map<string, number>();
+
+    rows.forEach(({ concepts: pageConcepts, pageNumber: conceptPageNumber }) => pageConcepts.forEach((concept) => references.set(conceptReferenceKey(concept), conceptPageNumber)));
+    setConcepts(sortConceptsForDisplay(rows.flatMap(({ concepts: pageConcepts }) => pageConcepts)));
+    setConceptFirstPageByKey(references);
+  }, [book.id, currentConceptChapter]);
+
+  const addConcept = useCallback(async (): Promise<void> => {
+    const title = newConceptTitle.trim();
+
+    if (!title || !currentConceptChapter || isSavingNewConcept) {
+      return;
+    }
+
+    const selectedPage = newConceptPage ? Number(newConceptPage) : undefined;
+
+    if (selectedPage !== undefined && !currentConceptChapter.pageNumbers.includes(selectedPage)) {
+      setError('Choose a page from the current chapter or leave Page empty.');
+
+      return;
+    }
+
+    const chapterPage = pages.get(selectedPage ?? currentConceptChapter.pageNumbers[0]);
+    const concept: Omit<BookConcept, 'id'> = {
+      bookPage: [book.id, selectedPage ?? 0],
+      chapterId: chapterPage?.chapterId ?? currentConceptChapter.chapterId,
+      description: newConceptDescription.trim(),
+      displayOrder: Math.max(concepts.length - 1, ...concepts.flatMap(({ displayOrder }) => Number.isFinite(displayOrder) ? [displayOrder as number] : [])) + 1,
+      manuallyAdded: true,
+      title
+    };
+
+    setIsSavingNewConcept(true);
+
     try {
-      await saveBookConceptRecord(concept, title, description);
+      await createBookConcept(concept);
+      await reloadCurrentChapterConcepts();
+      await refreshEntityCounts();
+      setNewConceptDescription('');
+      setNewConceptPage('');
+      setNewConceptTitle('');
+      setIsAddingConcept(false);
+      setSkillsRefreshToken((value) => value + 1);
+      setError('');
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : 'Unable to add the concept.');
+      throw caught;
+    } finally {
+      setIsSavingNewConcept(false);
+    }
+  }, [book.id, concepts, currentConceptChapter, isSavingNewConcept, newConceptDescription, newConceptPage, newConceptTitle, pages, refreshEntityCounts, reloadCurrentChapterConcepts]);
+
+  const reorderConcepts = useCallback(async (fromIndex: number, toIndex: number): Promise<void> => {
+    if (fromIndex === toIndex || fromIndex < 0 || toIndex < 0 || fromIndex >= concepts.length || toIndex >= concepts.length || isReorderingConcepts) {
+      return;
+    }
+
+    const previous = concepts;
+    const reordered = [...concepts];
+    const [moved] = reordered.splice(fromIndex, 1);
+
+    reordered.splice(toIndex, 0, moved);
+
+    const orderedConcepts = reordered.map((concept, index) => ({ ...concept, displayOrder: index }));
+    const sortedIds = orderedConcepts.flatMap(({ id }) => id === undefined ? [] : [id]);
+
+    if (sortedIds.length !== orderedConcepts.length) {
+      setError('Unable to reorder a concept without an id.');
+
+      return;
+    }
+
+    setConcepts(orderedConcepts);
+    setIsReorderingConcepts(true);
+
+    try {
+      await reorderBookConcepts(sortedIds);
+      setSkillsRefreshToken((value) => value + 1);
+      setError('');
+    } catch (caught) {
+      setConcepts(previous);
+      setError(caught instanceof Error ? caught.message : 'Unable to reorder concepts.');
+    } finally {
+      setIsReorderingConcepts(false);
+    }
+  }, [concepts, isReorderingConcepts]);
+  const saveConcept = useCallback(async (concept: BookConcept, title: string, description: string): Promise<void> => {
+    if (concept.id === undefined) {
+      setError('Unable to edit a concept without an id.');
+
+      return;
+    }
+
+    try {
+      await updateBookConcept(concept.id, { description, title });
       const updated = { ...concept, description, title };
       const oldKey = conceptReferenceKey(concept);
       const firstPage = conceptFirstPageByKey.get(oldKey);
@@ -3213,24 +3347,108 @@ function BookReader({ ageTabRequest, assignAllStandardsRequest, book, file, fixA
     return <div className='tabPanel conceptsPanel'>
       <div className='detailsHeader'>
         <span>{conceptsStatus}</span>
+        <Button
+          icon='plus'
+          isDisabled={!currentConceptChapter || isAddingConcept || isReorderingConcepts || isSavingNewConcept}
+          label='Add concept'
+          onClick={() => setIsAddingConcept(true)}
+        />
       </div>
       {!currentConceptChapter && <p className='recognitionHint'>Identify or assign this page to a chapter before generating concepts.</p>}
       <div className='conceptsOutput'>
         <section className='conceptExerciseGroup'>
+          {isAddingConcept && currentConceptChapter && <div className='conceptAddForm'>
+            <Input
+              isDisabled={isSavingNewConcept}
+              isFull
+              label='Concept title'
+              onChange={setNewConceptTitle}
+              onEnter={() => addConcept().catch(console.error)}
+              value={newConceptTitle}
+            />
+            <label>Description
+              <textarea
+                disabled={isSavingNewConcept}
+                onChange={({ target }) => setNewConceptDescription(target.value)}
+                rows={5}
+                value={newConceptDescription}
+              />
+            </label>
+            <label>Page <span className='optionalLabel'>(optional)</span>
+              <select
+                disabled={isSavingNewConcept}
+                onChange={({ target }) => setNewConceptPage(target.value)}
+                value={newConceptPage}
+              >
+                <option value=''>No page</option>
+                {currentConceptChapter.pageNumbers.map((chapterPageNumber) => <option
+                  key={chapterPageNumber}
+                  value={chapterPageNumber}
+                >Page {chapterPageNumber}</option>)}
+              </select>
+            </label>
+            <div className='conceptActions'>
+              <Button
+                icon='times'
+                isDisabled={isSavingNewConcept}
+                label='Cancel'
+                onClick={() => {
+                  setIsAddingConcept(false);
+                  setNewConceptDescription('');
+                  setNewConceptPage('');
+                  setNewConceptTitle('');
+                }}
+              />
+              <Button
+                icon='save'
+                isDisabled={isSavingNewConcept || !newConceptTitle.trim()}
+                label='Add'
+                onClick={() => addConcept().catch(console.error)}
+              />
+            </div>
+          </div>}
           {concepts.length
-            ? <ul className='conceptList'>{concepts.map((concept) => {
-              const firstPage = conceptFirstPageByKey.get(conceptReferenceKey(concept));
+            ? <ul className='conceptList'>{concepts.map((concept, index) => {
+              const displayPage = conceptDisplayPage(concept);
 
               return <ConceptItem
                 concept={concept}
-                firstPage={firstPage}
+                firstPage={displayPage}
+                isDragging={draggedConceptIndex === index}
                 key={concept.id ?? conceptReferenceKey(concept)}
                 onDelete={deleteConcept}
+                onDragEnd={() => setDraggedConceptIndex(undefined)}
+                onDragOver={(event) => {
+                  if (draggedConceptIndex !== undefined && draggedConceptIndex !== index) {
+                    event.preventDefault();
+                    event.dataTransfer.dropEffect = 'move';
+                  }
+                }}
+                onDragStart={(event) => {
+                  if (isReorderingConcepts) {
+                    event.preventDefault();
+
+                    return;
+                  }
+
+                  setDraggedConceptIndex(index);
+                  event.dataTransfer.effectAllowed = 'move';
+                  event.dataTransfer.setData('text/plain', String(concept.id ?? index));
+                }}
+                onDrop={(event) => {
+                  event.preventDefault();
+
+                  if (draggedConceptIndex !== undefined) {
+                    void reorderConcepts(draggedConceptIndex, index);
+                  }
+
+                  setDraggedConceptIndex(undefined);
+                }}
                 onGoToPage={goToPage}
                 onSave={saveConcept}
               />;
             })}</ul>
-            : <p className='emptyOutput'>No concepts were parsed from this chapter.</p>}
+            : !isAddingConcept && <p className='emptyOutput'>No concepts in this chapter.</p>}
         </section>
       </div>
     </div>;
@@ -4081,6 +4299,12 @@ const StyledReader = styled.div`
     box-shadow: 0 1px 2px rgba(24, 39, 75, 0.04);
     padding: 0.95rem 1rem 1rem;
     position: relative;
+    transition: opacity 120ms ease, transform 120ms ease;
+  }
+
+  .conceptItem.dragging {
+    opacity: 0.55;
+    transform: scale(0.995);
   }
 
   .conceptHeading {
@@ -4088,6 +4312,20 @@ const StyledReader = styled.div`
     display: flex;
     gap: 0.8rem;
     justify-content: space-between;
+  }
+
+  .conceptDragHandle {
+    color: #777;
+    cursor: grab;
+    flex: 0 0 auto;
+    font-size: 1.25rem;
+    line-height: 1;
+    padding: 0.25rem 0.15rem;
+    user-select: none;
+  }
+
+  .conceptDragHandle:active {
+    cursor: grabbing;
   }
 
   .conceptHeading > strong {
@@ -4145,19 +4383,27 @@ const StyledReader = styled.div`
     opacity: 0.9;
   }
 
-  .conceptEditForm {
+  .conceptAddForm, .conceptEditForm {
     display: flex;
     flex-direction: column;
     gap: 0.65rem;
   }
 
-  .conceptEditForm > label {
+  .conceptAddForm {
+    background: var(--bg-input);
+    border: 1px solid #dde1eb;
+    border-radius: 0.7rem;
+    margin: 0.8rem 0;
+    padding: 0.95rem 1rem 1rem;
+  }
+
+  .conceptAddForm > label, .conceptEditForm > label {
     display: flex;
     flex-direction: column;
     gap: 0.35rem;
   }
 
-  .conceptEditForm textarea {
+  .conceptAddForm textarea, .conceptAddForm select, .conceptEditForm textarea {
     background: var(--bg-input);
     border: 1px solid #dde1eb;
     border-radius: 0.5rem;
@@ -4166,12 +4412,21 @@ const StyledReader = styled.div`
     font: inherit;
     line-height: 1.45;
     padding: 0.65rem 0.75rem;
-    resize: vertical;
     width: 100%;
   }
 
-  .conceptEditForm .conceptActions {
+  .conceptAddForm textarea, .conceptEditForm textarea {
+    resize: vertical;
+  }
+
+  .conceptAddForm .conceptActions, .conceptEditForm .conceptActions {
     justify-content: flex-end;
+  }
+
+  .optionalLabel {
+    font-size: 0.88em;
+    font-weight: 400;
+    opacity: 0.7;
   }
 
   @media (max-width: 640px) {

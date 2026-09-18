@@ -119,6 +119,7 @@ export async function deleteBook(id: number): Promise<void> {
         await db.books.delete(id);
         await db.bookPages.where('bookId').equals(id).delete();
         await Promise.all([
+            db.bookConcepts.where('bookPage').equals([id, 0]).delete(),
             ...pageKeys.map((bookPage) => db.bookConcepts.where('bookPage').equals(bookPage).delete()),
             ...pageKeys.map((bookPage) => db.exercises.where('bookPage').equals(bookPage).delete()),
             ...skillIds.map((skillId) => db.exerciseTemplates.where('skillId').equals(skillId).delete()),
@@ -399,6 +400,47 @@ export async function deleteBookPage(bookId: number, pageNumber: number): Promis
 
 export async function getBookConceptsForBookPage(bookId: number, pageNumber: number): Promise<BookConcept[]> {
     return db.bookConcepts.where('bookPage').equals([bookId, pageNumber]).sortBy('id');
+}
+
+export async function createBookConcept(concept: Omit<BookConcept, 'id'>): Promise<BookConcept> {
+    return db.transaction('rw', db.bookConcepts, async () => {
+        const siblings = concept.chapterId === undefined
+            ? await db.bookConcepts.where('bookPage').equals(concept.bookPage).sortBy('id')
+            : await db.bookConcepts.where('chapterId').equals(concept.chapterId).sortBy('id');
+        const displayOrder = concept.displayOrder ?? siblings.reduce((max, sibling, index) => Math.max(max, sibling.displayOrder ?? index), -1) + 1;
+        const row: BookConcept = { ...concept, displayOrder };
+        const id = await db.bookConcepts.add(row);
+
+        return { ...row, id };
+    });
+}
+
+export async function updateBookConcept(id: number, changes: Partial<Omit<BookConcept, 'id'>>): Promise<BookConcept | undefined> {
+    await db.bookConcepts.update(id, changes);
+
+    return db.bookConcepts.get(id);
+}
+
+export async function reorderBookConcepts(sortedIds: number[]): Promise<void> {
+    if (new Set(sortedIds).size !== sortedIds.length) {
+        throw new Error('Concept reorder contains duplicate ids.');
+    }
+
+    await db.transaction('rw', db.bookConcepts, async () => {
+        const concepts = await db.bookConcepts.bulkGet(sortedIds);
+
+        if (concepts.some((concept) => !concept)) {
+            throw new Error('Concept reorder contains an unknown id.');
+        }
+
+        const chapterIds = new Set(concepts.flatMap((concept) => concept?.chapterId === undefined ? [] : [concept.chapterId]));
+
+        if (chapterIds.size > 1) {
+            throw new Error('Concepts from different chapters cannot be reordered together.');
+        }
+
+        await Promise.all(sortedIds.map((id, displayOrder) => db.bookConcepts.update(id, { displayOrder })));
+    });
 }
 
 export async function deleteBookConcept(id: number): Promise<void> {
