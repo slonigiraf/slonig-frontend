@@ -3653,11 +3653,9 @@ function BookReader({ ageTabRequest, assignAllStandardsRequest, book, file, fixA
                         />
                       </div>
                       <div
-                        className={`detailsArea${renderedPageHeight ? ' hasPageHeight' : ''}`}
-                        style={{ '--page-height': renderedPageHeight ? `${renderedPageHeight}px` : 'auto' } as React.CSSProperties}
-                      >
-                        {recognizedTextPane()}
-                      </div>
+                        className='pageArea'
+                        ref={pageAreaRef}
+                      ><canvas ref={canvasRef} /></div>
                     </div>
                     <div className='conceptPaneColumn'>
                       <div className='chapterNavigation conceptPaneNavigation'>
@@ -3789,6 +3787,11 @@ const StyledReader = styled.div`
 
   .conceptPaneColumn > .detailsArea {
     flex: 1;
+  }
+
+  .conceptPaneColumn > .pageArea {
+    flex: 1;
+    min-height: 0;
   }
 
   .conceptPaneNavigation {
