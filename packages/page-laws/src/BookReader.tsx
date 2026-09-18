@@ -173,15 +173,13 @@ function ConceptItem ({ concept, firstPage, onDelete, onGoToPage, onSave }: { co
       </div>
       : <>
         <div className='conceptHeading'>
+          <strong><KatexSpan content={concept.title} /></strong>
           <div className='conceptActions'>
             <Button
               icon='edit'
               isDisabled={concept.id === undefined || isBusy}
               onClick={() => setIsEditing(true)}
             />
-          </div>
-          <strong><KatexSpan content={concept.title} /></strong>
-          <div className='conceptActions'>
             <Button
               icon='trash'
               isDisabled={concept.id === undefined || isBusy}
@@ -189,12 +187,12 @@ function ConceptItem ({ concept, firstPage, onDelete, onGoToPage, onSave }: { co
             />
           </div>
         </div>
-        {firstPage !== undefined && <p><small><button
+        {firstPage !== undefined && <div className='conceptMeta'><button
           className='conceptPageLink'
           onClick={() => onGoToPage(firstPage)}
           type='button'
-        >First introduced on page {firstPage}</button></small></p>}
-        {concept.description && <p><KatexSpan content={concept.description} /></p>}
+        >Introduced on page {firstPage}</button></div>}
+        {concept.description && <p className='conceptDescription'><KatexSpan content={concept.description} /></p>}
       </>}
   </li>;
 }
@@ -3218,11 +3216,9 @@ function BookReader({ ageTabRequest, assignAllStandardsRequest, book, file, fixA
       </div>
       {!currentConceptChapter && <p className='recognitionHint'>Identify or assign this page to a chapter before generating concepts.</p>}
       <div className='conceptsOutput'>
-        <h3>{currentConceptChapter?.title || pages.get(pageNumber)?.chapter || 'Chapter not identified'}</h3>
         <section className='conceptExerciseGroup'>
-          <h3>Concepts</h3>
           {concepts.length
-            ? <ul>{concepts.map((concept) => {
+            ? <ul className='conceptList'>{concepts.map((concept) => {
               const firstPage = conceptFirstPageByKey.get(conceptReferenceKey(concept));
 
               return <ConceptItem
@@ -4066,17 +4062,131 @@ const StyledReader = styled.div`
     margin: 0.25rem 0 0;
   }
 
+  .conceptList {
+    display: grid;
+    gap: 0.8rem;
+    list-style: none;
+    margin: 0.8rem 0 0;
+    padding: 0;
+  }
 
-  .conceptItem { position: relative; }
-  .conceptHeading { align-items: flex-start; display: flex; gap: 0.75rem; justify-content: space-between; }
-  .conceptHeading > strong { flex: 1; min-width: 0; overflow-wrap: anywhere; text-align: left; }
-  .conceptActions { align-items: center; display: flex; flex-shrink: 0; gap: 0.35rem; }
-  .conceptPageLink { background: none; border: 0; color: var(--color-link, #2f6feb); cursor: pointer; font: inherit; padding: 0; text-decoration: underline; }
-  .conceptPageLink:hover { text-decoration-thickness: 2px; }
-  .conceptEditForm { display: flex; flex-direction: column; gap: 0.65rem; }
-  .conceptEditForm > label { display: flex; flex-direction: column; gap: 0.35rem; }
-  .conceptEditForm textarea { background: var(--bg-input); border: 1px solid #dde1eb; border-radius: 0.25rem; box-sizing: border-box; color: var(--color-text); font: inherit; padding: 0.55rem; resize: vertical; width: 100%; }
-  .conceptEditForm .conceptActions { justify-content: flex-end; }
+  .conceptList > li + li {
+    margin-top: 0;
+  }
+
+  .conceptItem {
+    background: var(--bg-input);
+    border: 1px solid #dde1eb;
+    border-radius: 0.7rem;
+    box-shadow: 0 1px 2px rgba(24, 39, 75, 0.04);
+    padding: 0.95rem 1rem 1rem;
+    position: relative;
+  }
+
+  .conceptHeading {
+    align-items: center;
+    display: flex;
+    gap: 0.8rem;
+    justify-content: space-between;
+  }
+
+  .conceptHeading > strong {
+    flex: 1;
+    font-size: 1.05em;
+    line-height: 1.35;
+    min-width: 0;
+    overflow-wrap: anywhere;
+    text-align: left;
+  }
+
+  .conceptActions {
+    align-items: center;
+    display: flex;
+    flex-shrink: 0;
+    gap: 0.4rem;
+  }
+
+  .conceptItem > .conceptHeading .conceptActions button {
+    height: 2.25rem !important;
+    min-height: 2.25rem !important;
+    min-width: 2.25rem !important;
+    padding: 0.45rem !important;
+    width: 2.25rem !important;
+  }
+
+  .conceptMeta {
+    align-items: center;
+    display: flex;
+    margin-top: 0.5rem;
+  }
+
+  .conceptPageLink {
+    background: rgba(47, 111, 235, 0.08);
+    border: 1px solid rgba(47, 111, 235, 0.18);
+    border-radius: 999px;
+    color: var(--color-link, #2f6feb);
+    cursor: pointer;
+    font: inherit;
+    font-size: 0.82em;
+    line-height: 1.2;
+    padding: 0.28rem 0.55rem;
+    text-decoration: none;
+  }
+
+  .conceptPageLink:hover {
+    background: rgba(47, 111, 235, 0.14);
+    border-color: rgba(47, 111, 235, 0.28);
+  }
+
+  .conceptDescription {
+    line-height: 1.55;
+    margin-top: 0.65rem !important;
+    max-width: 80ch;
+    opacity: 0.9;
+  }
+
+  .conceptEditForm {
+    display: flex;
+    flex-direction: column;
+    gap: 0.65rem;
+  }
+
+  .conceptEditForm > label {
+    display: flex;
+    flex-direction: column;
+    gap: 0.35rem;
+  }
+
+  .conceptEditForm textarea {
+    background: var(--bg-input);
+    border: 1px solid #dde1eb;
+    border-radius: 0.5rem;
+    box-sizing: border-box;
+    color: var(--color-text);
+    font: inherit;
+    line-height: 1.45;
+    padding: 0.65rem 0.75rem;
+    resize: vertical;
+    width: 100%;
+  }
+
+  .conceptEditForm .conceptActions {
+    justify-content: flex-end;
+  }
+
+  @media (max-width: 640px) {
+    .conceptItem {
+      padding: 0.85rem;
+    }
+
+    .conceptHeading {
+      align-items: flex-start;
+    }
+
+    .conceptDescription {
+      max-width: none;
+    }
+  }
 
   .exerciseItem { position: relative; }
   .exerciseHeading { align-items: flex-start; display: flex; gap: 0.75rem; justify-content: space-between; }
