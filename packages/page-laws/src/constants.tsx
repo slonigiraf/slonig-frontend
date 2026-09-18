@@ -102,6 +102,21 @@ Middle-page MMD text:
 ${pageTexts.map(({ pageNumber, text }) => `--- page ${pageNumber} ---\n${text}`).join('\n\n')}`;
 };
 
+export const BOOK_AGE_DETECTION_PROMPT = (bookLanguage: string, bookSubject: string, pageTexts: Array<{ pageNumber: number; text: string }>): string => {
+  return `Determine the single most appropriate typical learner age, in whole years, for learning the supplied educational material. Use the actual prerequisite knowledge, conceptual difficulty, abstraction, vocabulary, reading complexity, mathematical/scientific sophistication, and expected learner independence shown by the material. Do not infer age from visual design, topic popularity, publication metadata, or isolated mature/child-friendly subject matter alone.
+
+The already-detected primary language is ${bookLanguage} and the stored subject category is ${bookSubject}. The supplied pages are representative samples from different parts of the book, not necessarily one continuous section.
+
+Return valid JSON containing exactly one property named "age". Its value must be one integer from 3 through 30.
+
+Choose the age based only on the demonstrated prerequisite knowledge and difficulty. Do not default to a common school age when the evidence is ambiguous, and do not copy a number from these instructions.
+
+Do not return an age range, grade, explanation, confidence score, additional properties, or any text outside the JSON.
+
+Representative MMD text pages:
+${pageTexts.map(({ pageNumber, text }) => `--- page ${pageNumber} ---\n${text}`).join('\n\n')}`;
+};
+
 export const GENERATE_EXERCISES_REQUEST_PROMPT = (bookDetectedLanguage: string, input: unknown): string => {
   return `${GENERATE_EXERCISES_PROMPT(bookDetectedLanguage)}\n${JSON.stringify(input)}`;
 };

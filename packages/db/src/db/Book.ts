@@ -1,7 +1,7 @@
 // Copyright 2021-2026 @polkadot/db authors & contributors
 // SPDX-License-Identifier: Apache-2.0
 
-export type BookStageSpendKey = 'recognize' | 'language' | 'subject' | 'chapters' | 'concepts' | 'exercises' | 'splitExercises' | 'fixExercises' | 'abilities' | 'fixAbilities' | 'images' | 'fixImages' | 'standards' | 'fixStandards';
+export type BookStageSpendKey = 'recognize' | 'language' | 'subject' | 'age' | 'chapters' | 'concepts' | 'exercises' | 'splitExercises' | 'fixExercises' | 'abilities' | 'fixAbilities' | 'images' | 'fixImages' | 'standards' | 'fixStandards';
 
 export type BookStageSpend = Partial<Record<BookStageSpendKey, number>>;
 
@@ -14,6 +14,7 @@ export interface Book {
   excludedCourseChapterIds?: number[];
   language?: string;
   subject?: BookSubject;
+  age?: number;
   knowledgeId?: string;
   publishingLocationId?: string;
   processingStage?: number;

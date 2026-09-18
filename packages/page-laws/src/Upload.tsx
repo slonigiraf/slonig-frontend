@@ -25,6 +25,7 @@ const PRICE_STAGES: Array<{ detail?: string; key: BookStageSpendKey; label: stri
   { key: 'recognize', label: 'Recognize' },
   { key: 'language', label: 'Language' },
   { key: 'subject', label: 'Subject' },
+  { key: 'age', label: 'Age' },
   { key: 'chapters', label: 'Chapters' },
   { key: 'concepts', label: 'Concepts' },
   { key: 'exercises', label: 'Exercises' },
@@ -95,6 +96,7 @@ function Upload (): React.ReactElement {
   const [generateAllConceptsRequest, setGenerateAllConceptsRequest] = useState(0);
   const [languageTabRequest, setLanguageTabRequest] = useState(0);
   const [subjectTabRequest, setSubjectTabRequest] = useState(0);
+  const [ageTabRequest, setAgeTabRequest] = useState(0);
   const [identifyChaptersRequest, setIdentifyChaptersRequest] = useState(0);
   const [identifyChaptersEstimate, setIdentifyChaptersEstimate] = useState('');
   const [isIdentifyChaptersConfirmationOpen, setIsIdentifyChaptersConfirmationOpen] = useState(false);
@@ -331,14 +333,14 @@ function Upload (): React.ReactElement {
 
     setPendingProcessingAction('recognize');
 
-    const resetBook: Book = { ...selectedBook, language: undefined, subject: undefined, processingStage: 0 };
+    const resetBook: Book = { ...selectedBook, age: undefined, language: undefined, subject: undefined, processingStage: 0 };
 
     putBook(resetBook).then(() => {
       setBooks((current) => current.map((book) => book.id === resetBook.id ? resetBook : book));
       setRecognizeAllRequest((request) => request + 1);
     }).catch(() => {
       setPendingProcessingAction(undefined);
-      setError(t('Unable to reset recognition, language, and subject.'));
+      setError(t('Unable to reset recognition, language, subject, and age.'));
     });
   }, [selectedBook, t]);
 
@@ -363,6 +365,25 @@ function Upload (): React.ReactElement {
 
     setError('');
     setSubjectTabRequest((request) => request + 1);
+  }, [selectedBook, t]);
+
+  const onShowAge = useCallback((): void => {
+    if (!selectedBook || (selectedBook.processingStage ?? 0) < 1) {
+      return;
+    }
+
+    if (!selectedBook.language) {
+      setError(t('Book language has not been set yet. Open the Language step, then detect it from text or choose it manually.'));
+      return;
+    }
+
+    if (!selectedBook.subject) {
+      setError(t('Book subject has not been set yet. Open the Subject step, then detect it from text or choose it manually.'));
+      return;
+    }
+
+    setError('');
+    setAgeTabRequest((request) => request + 1);
   }, [selectedBook, t]);
 
   const onIdentifyChapters = useCallback((): void => {
@@ -1019,6 +1040,7 @@ function Upload (): React.ReactElement {
             generateAllConceptsModel={generateAllConceptsModel}
             languageTabRequest={languageTabRequest}
             subjectTabRequest={subjectTabRequest}
+            ageTabRequest={ageTabRequest}
             generateAllConceptsRequest={generateAllConceptsRequest}
             identifyChaptersRequest={identifyChaptersRequest}
             onBookChange={onBookChange}
@@ -1047,6 +1069,15 @@ function Upload (): React.ReactElement {
                 isDisabled={!selectedBook || !readerFile || isBusy || (selectedBook.processingStage ?? 0) < 1 || !selectedBook.language}
                 label={t('Subject')}
                 onClick={onShowSubject}
+              />
+            </span>
+            <span className='pipelineStep'>
+              <span>›</span>
+              <Button
+                icon={selectedBook?.age !== undefined ? 'rotate-left' : 'play'}
+                isDisabled={!selectedBook || !readerFile || isBusy || (selectedBook.processingStage ?? 0) < 1 || !selectedBook.language || !selectedBook.subject}
+                label={t('Age')}
+                onClick={onShowAge}
               />
             </span>
             <span className='pipelineStep'>
