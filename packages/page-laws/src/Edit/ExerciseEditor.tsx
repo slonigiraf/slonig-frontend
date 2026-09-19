@@ -1,5 +1,5 @@
-import React, { useEffect, useState, ChangeEvent, FC } from 'react';
-import { Button, FileUpload, styled } from '@polkadot/react-components';
+import React, { useEffect, useRef, useState, ChangeEvent, FC } from 'react';
+import { Button, styled } from '@polkadot/react-components';
 import { useTranslation } from '../translate.js';
 import { Exercise, Skill, useIpfsContext } from '@slonigiraf/slonig-components';
 import ExerciseImage, { isLocalOrRemoteImageUrl } from './ExerciseImage.js';
@@ -36,6 +36,8 @@ const ExerciseEditor: FC<Props> = ({ className = '', exercise, index, skill, onS
   const [exerciseTikzSource, setExerciseTikzSource] = useState<TikzSourceState>(exercise.p ? undefined : null);
   const [solutionTikzSource, setSolutionTikzSource] = useState<TikzSourceState>(exercise.i ? undefined : null);
   const [tikzEditor, setTikzEditor] = useState<TikzEditorState>();
+  const exerciseFileInputRef = useRef<HTMLInputElement>(null);
+  const solutionFileInputRef = useRef<HTMLInputElement>(null);
 
   const uploadFileToIPFS = async (file: File): Promise<string> => {
     try {
@@ -221,12 +223,18 @@ const ExerciseEditor: FC<Props> = ({ className = '', exercise, index, skill, onS
           </ImageContainer>
         )}
         <UploadActions>
-          <FileUpload
-            key={exerciseImageCid}
-            onChange={(e) => handleImageChange(e, 'exercise')}
-            accept="image/*"
-            disabled={!isIpfsReady}
+          <Button
+            icon='upload'
+            isDisabled={!isIpfsReady}
             label={t('Choose File')}
+            onClick={() => exerciseFileInputRef.current?.click()}
+          />
+          <HiddenFileInput
+            key={exerciseImageCid}
+            accept='image/*'
+            onChange={(e) => handleImageChange(e, 'exercise')}
+            ref={exerciseFileInputRef}
+            type='file'
           />
           {tikzButton('exercise', exerciseTikzSource)}
         </UploadActions>
@@ -246,12 +254,18 @@ const ExerciseEditor: FC<Props> = ({ className = '', exercise, index, skill, onS
           </ImageContainer>
         )}
         <UploadActions>
-          <FileUpload
-            key={solutionImageCid}
-            onChange={(e) => handleImageChange(e, 'solution')}
-            accept="image/*"
-            disabled={!isIpfsReady}
+          <Button
+            icon='upload'
+            isDisabled={!isIpfsReady}
             label={t('Choose File')}
+            onClick={() => solutionFileInputRef.current?.click()}
+          />
+          <HiddenFileInput
+            key={solutionImageCid}
+            accept='image/*'
+            onChange={(e) => handleImageChange(e, 'solution')}
+            ref={solutionFileInputRef}
+            type='file'
           />
           {tikzButton('solution', solutionTikzSource)}
         </UploadActions>
@@ -296,6 +310,10 @@ const UploadActions = styled.div`
   display: flex;
   flex-wrap: wrap;
   gap: 0.5rem;
+`;
+
+const HiddenFileInput = styled.input`
+  display: none;
 `;
 
 const ErrorMessage = styled.div`
