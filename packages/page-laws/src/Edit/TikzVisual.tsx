@@ -8,8 +8,12 @@ import TikzDisplay from './TikzDisplay.js';
 
 interface Props {
   alt: string;
+  editorTitle?: string;
+  isEditorShownInitially?: boolean;
+  onEditorClose?: () => void;
   onSave?: (value: string) => Promise<void>;
   prompt?: string;
+  showPreview?: boolean;
   value: string;
 }
 
@@ -37,12 +41,12 @@ function parseEditorMessage (value: unknown): TikzEditorMessage | undefined {
   return undefined;
 }
 
-export default function TikzVisual ({ alt, onSave, prompt, value }: Props): React.ReactElement {
+export default function TikzVisual ({ alt, editorTitle, isEditorShownInitially = false, onEditorClose, onSave, prompt, showPreview = true, value }: Props): React.ReactElement {
   const [draft, setDraft] = useState(value);
   const [rendered, setRendered] = useState(value);
   const [isDetailsShown, setIsDetailsShown] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
-  const [isVisualEditorShown, setIsVisualEditorShown] = useState(false);
+  const [isVisualEditorShown, setIsVisualEditorShown] = useState(isEditorShownInitially);
   const [message, setMessage] = useState('');
   const editorRef = useRef<HTMLIFrameElement>(null);
   const draftRef = useRef(draft);
@@ -70,6 +74,7 @@ export default function TikzVisual ({ alt, onSave, prompt, value }: Props): Reac
         setRendered(original);
         setMessage('');
         setIsVisualEditorShown(false);
+        onEditorClose?.();
       }
     };
 
@@ -79,7 +84,7 @@ export default function TikzVisual ({ alt, onSave, prompt, value }: Props): Reac
       document.body.style.overflow = previousOverflow;
       window.removeEventListener('keydown', onKeyDown);
     };
-  }, [isSaving, isVisualEditorShown]);
+  }, [isSaving, isVisualEditorShown, onEditorClose]);
 
   const sendToEditor = useCallback((payload: object): void => {
     editorRef.current?.contentWindow?.postMessage(JSON.stringify(payload), TIKZ_EDITOR_ORIGIN);
@@ -104,12 +109,13 @@ export default function TikzVisual ({ alt, onSave, prompt, value }: Props): Reac
       sendToEditor({ action: 'status', modified: false });
       setIsVisualEditorShown(false);
       setMessage('Saved.');
+      onEditorClose?.();
     } catch (error) {
       setMessage(error instanceof Error ? error.message : 'Unable to save TikZ.');
     } finally {
       setIsSaving(false);
     }
-  }, [onSave, sendToEditor]);
+  }, [onEditorClose, onSave, sendToEditor]);
 
   useEffect(() => {
     if (!isVisualEditorShown) {
@@ -169,11 +175,12 @@ export default function TikzVisual ({ alt, onSave, prompt, value }: Props): Reac
     setRendered(original);
     setMessage('');
     setIsVisualEditorShown(false);
-  }, []);
+    onEditorClose?.();
+  }, [onEditorClose]);
 
   return <TikzEditor>
-    <TikzDisplay alt={`${alt} TikZ preview`} value={rendered} />
-    <Button.Group>
+    {showPreview && <TikzDisplay alt={`${alt} TikZ preview`} value={rendered} />}
+    {showPreview && <Button.Group>
       {onSave && <Button
         icon='edit'
         isDisabled={isSaving || !draft.trim()}
@@ -185,12 +192,12 @@ export default function TikzVisual ({ alt, onSave, prompt, value }: Props): Reac
         label={isDetailsShown ? 'Hide visual prompt' : 'Show visual prompt'}
         onClick={toggleDetails}
       />}
-    </Button.Group>
-    {!isVisualEditorShown && message && <EditorMessage>{message}</EditorMessage>}
+    </Button.Group>}
+    {showPreview && !isVisualEditorShown && message && <EditorMessage>{message}</EditorMessage>}
     {isVisualEditorShown && createPortal(
       <VisualEditorOverlay role='dialog' aria-label={`${alt} visual TikZ editor`} aria-modal='true'>
         <VisualEditorHeader>
-          <strong>Edit {alt}</strong>
+          <strong>{editorTitle ?? `Edit ${alt}`}</strong>
           <VisualEditorHeaderActions>
             {message && <EditorMessage>{message}</EditorMessage>}
             <Button
@@ -218,7 +225,7 @@ export default function TikzVisual ({ alt, onSave, prompt, value }: Props): Reac
       </VisualEditorOverlay>,
       document.body
     )}
-    {isDetailsShown && prompt?.trim() && <PromptBlock>
+    {showPreview && isDetailsShown && prompt?.trim() && <PromptBlock>
       <strong>{alt} visual prompt</strong>
       <div>{prompt}</div>
     </PromptBlock>}

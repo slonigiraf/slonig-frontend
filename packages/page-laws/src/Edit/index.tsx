@@ -20,7 +20,6 @@ import { sendCreateAndEditTransaction, sendEditTransaction } from './sendTransac
 import { useInfo } from '@slonigiraf/slonig-components';
 import { getSetting, SettingKey } from '@slonigiraf/db';
 import { sessionPrefix } from '../constants.js';
-import GenerateAbilities from './GenerateAbilities.js';
 import AbilityList from './AbilityList.js';
 import { DEFAULT_KNOWLEDGE_ID } from '@slonigiraf/utils';
 
@@ -340,7 +339,6 @@ function Edit({ className = '' }: Props): React.ReactElement<Props> {
 
       {openRouterToken && list && list.i && list.t !== null && list.t === LawType.MODULE && (
         <Templates>
-          <GenerateAbilities moduleId={list.i} />
           <AbilityList moduleId={list.i} />
         </Templates>
       )}

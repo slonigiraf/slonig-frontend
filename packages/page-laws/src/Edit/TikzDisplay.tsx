@@ -3,6 +3,7 @@
 
 import React, { useEffect, useRef, useState } from 'react';
 import { styled } from '@polkadot/react-components';
+import { embedTikzSourceInSvg } from './tikz.js';
 
 interface Props {
   alt: string;
@@ -280,9 +281,11 @@ export async function renderTikzToSvg (value: string): Promise<string> {
     throw new Error('TikZ renderer returned invalid SVG markup.');
   }
 
-  return /<svg\b[^>]*\sxmlns\s*=/i.test(svg)
+  const standaloneSvg = /<svg\b[^>]*\sxmlns\s*=/i.test(svg)
     ? svg
     : svg.replace(/^<svg\b/i, '<svg xmlns="http://www.w3.org/2000/svg"');
+
+  return embedTikzSourceInSvg(standaloneSvg, value);
 }
 
 export default function TikzDisplay ({ alt, value }: Props): React.ReactElement {
