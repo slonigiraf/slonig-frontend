@@ -26,6 +26,7 @@ import { formatOpenRouterSpend, reportOpenRouterCost, type OpenRouterCostReporte
 import { BOOK_AGE_DETECTION_PROMPT, BOOK_CHAPTER_EXTRACTION_REQUEST_PROMPT, BOOK_LANGUAGE_DETECTION_PROMPT, BOOK_SUBJECT_DETECTION_PROMPT, MATHPIX_PDF_PAGE_PRICE_USD, OPENAI_MODELS } from './constants.js';
 import { stripMarkdownImageReferences } from './bookImageRefs.js';
 import { chapterAssignmentsFromBoundaries, chapterEvidenceWindows, chapterReconciliationPrompt, chapterWindowPrompt, deriveStructuralChapterCandidates, extractMathpixHeadingsFromLines, pageChapterEvidence, parseChapterBoundaries, stabilizeChapterBoundaries, type ChapterBoundaryProposal } from './chapterSegmentation.js';
+import { getSharedChapterSelection, resolveSharedChapterIndex, storeSharedChapterSelection, subscribeSharedChapterSelection, type SharedChapterSelection } from './chapterSelection.js';
 import { conceptChaptersFromPages, parseGeneratedChapterConcepts, type ConceptChapterNavigationItem, type GeneratedChapterConcepts } from './conceptRecognition.js';
 import { loadStandardsCatalogsForBookSubject, loadStoredBookStandards, mergeStandardsMatches, parseStandardsFixResult, parseStandardsMatches, STANDARD_FRAMEWORKS, STANDARDS_FIX_RUNS, STANDARDS_MATCH_RUNS, standardsChapterKey, standardsConceptFingerprint, standardsConceptInputs, standardsFixInputs, standardsFixPrompt, standardsMatchingPrompt, standardsPathForBookSubject, storeBookStandards, type CurriculumStandard, type StandardsCatalog, type StandardsConceptInput, type StoredBookStandards } from './standards.js';
 import Skills from './Skills.js';
@@ -1147,6 +1148,11 @@ function BookReader({ ageTabRequest, assignAllStandardsRequest, book, file, fixA
   }, []);
   const changeExerciseChapter = useCallback((index: number): void => {
     const nextIndex = Math.max(0, Math.min(index, Math.max(0, exerciseChapters.length - 1)));
+    const chapter = exerciseChapters[nextIndex];
+    const conceptChapterIndex = chapter
+      ? conceptChapters.findIndex(({ title }) => title.trim() === chapter.title.trim())
+      : -1;
+    const conceptChapter = conceptChapterIndex >= 0 ? conceptChapters[conceptChapterIndex] : undefined;
 
     setExerciseChapterIndex(nextIndex);
 
@@ -1155,10 +1161,20 @@ function BookReader({ ageTabRequest, assignAllStandardsRequest, book, file, fixA
     } catch {
       // Session storage may be unavailable in privacy-restricted contexts.
     }
-  }, [book.id, exerciseChapters.length]);
+
+    storeSharedChapterSelection(book.id, {
+      chapterId: conceptChapter?.chapterId,
+      index: conceptChapterIndex >= 0 ? conceptChapterIndex : nextIndex,
+      title: chapter?.title
+    });
+  }, [book.id, conceptChapters, exerciseChapters]);
   const changeStandardsChapter = useCallback((index: number): void => {
-    setStandardsChapterIndex(Math.max(0, Math.min(index, Math.max(0, conceptChapters.length - 1))));
-  }, [conceptChapters.length]);
+    const nextIndex = Math.max(0, Math.min(index, Math.max(0, conceptChapters.length - 1)));
+    const chapter = conceptChapters[nextIndex];
+
+    setStandardsChapterIndex(nextIndex);
+    storeSharedChapterSelection(book.id, { chapterId: chapter?.chapterId, index: nextIndex, title: chapter?.title });
+  }, [book.id, conceptChapters]);
 
   useEffect(() => {
     refreshEntityCounts().catch(() => undefined);
@@ -1172,9 +1188,17 @@ function BookReader({ ageTabRequest, assignAllStandardsRequest, book, file, fixA
     }
 
     if (exerciseChapterIndex >= exerciseChapters.length) {
-      changeExerciseChapter(exerciseChapters.length - 1);
+      const nextIndex = exerciseChapters.length - 1;
+
+      setExerciseChapterIndex(nextIndex);
+
+      try {
+        sessionStorage.setItem(exerciseChapterSessionKey(book.id), String(nextIndex));
+      } catch {
+        // Session storage may be unavailable in privacy-restricted contexts.
+      }
     }
-  }, [changeExerciseChapter, exerciseChapterIndex, exerciseChapters.length]);
+  }, [book.id, exerciseChapterIndex, exerciseChapters.length]);
 
   useEffect((): void => {
     if (!conceptChapters.length) {
@@ -1184,9 +1208,36 @@ function BookReader({ ageTabRequest, assignAllStandardsRequest, book, file, fixA
     }
 
     if (standardsChapterIndex >= conceptChapters.length) {
-      changeStandardsChapter(conceptChapters.length - 1);
+      setStandardsChapterIndex(conceptChapters.length - 1);
     }
-  }, [changeStandardsChapter, conceptChapters.length, standardsChapterIndex]);
+  }, [conceptChapters.length, standardsChapterIndex]);
+
+  useEffect(() => {
+    const applySelection = (selection: SharedChapterSelection): void => {
+      if (conceptChapters.length) {
+        setStandardsChapterIndex(resolveSharedChapterIndex(selection, conceptChapters.map(({ chapterId, title }) => ({ id: chapterId, title }))));
+      }
+
+      if (exerciseChapters.length) {
+        const nextExerciseIndex = resolveSharedChapterIndex(selection, exerciseChapters);
+
+        setExerciseChapterIndex(nextExerciseIndex);
+
+        try {
+          sessionStorage.setItem(exerciseChapterSessionKey(book.id), String(nextExerciseIndex));
+        } catch {
+          // Session storage may be unavailable in privacy-restricted contexts.
+        }
+      }
+    };
+    const storedSelection = getSharedChapterSelection(book.id);
+
+    if (storedSelection) {
+      applySelection(storedSelection);
+    }
+
+    return subscribeSharedChapterSelection(book.id, applySelection);
+  }, [book.id, conceptChapters, exerciseChapters]);
 
   useEffect((): void => {
     setStandardsByChapter(loadStoredBookStandards(book.id));
@@ -2840,6 +2891,17 @@ function BookReader({ ageTabRequest, assignAllStandardsRequest, book, file, fixA
     storeSessionPage(book.id, nextPage);
   }, [book.id, totalPages]);
 
+  const goToConceptPage = useCallback((requestedPage: number): void => {
+    goToPage(requestedPage);
+
+    const chapterIndex = conceptChapters.findIndex(({ pageNumbers }) => pageNumbers.includes(requestedPage));
+    const chapter = chapterIndex >= 0 ? conceptChapters[chapterIndex] : undefined;
+
+    if (chapter) {
+      storeSharedChapterSelection(book.id, { chapterId: chapter.chapterId, index: chapterIndex, title: chapter.title });
+    }
+  }, [book.id, conceptChapters, goToPage]);
+
   const changeConceptChapter = useCallback((index: number): void => {
     if (!conceptChapters.length) {
       return;
@@ -2849,9 +2911,35 @@ function BookReader({ ageTabRequest, assignAllStandardsRequest, book, file, fixA
     const firstPage = conceptChapters[nextIndex]?.pageNumbers[0];
 
     if (firstPage !== undefined) {
-      goToPage(firstPage);
+      goToConceptPage(firstPage);
     }
-  }, [conceptChapters, goToPage]);
+  }, [conceptChapters, goToConceptPage]);
+
+  useEffect(() => {
+    if (activePane !== 'textConcepts' || !conceptChapters.length) {
+      return;
+    }
+
+    const applySelection = (selection: SharedChapterSelection): void => {
+      const nextIndex = resolveSharedChapterIndex(selection, conceptChapters.map(({ chapterId, title }) => ({ id: chapterId, title })));
+      const chapter = conceptChapters[nextIndex];
+
+      if (chapter && !chapter.pageNumbers.includes(pageNumber)) {
+        const firstPage = chapter.pageNumbers[0];
+
+        if (firstPage !== undefined) {
+          goToPage(firstPage);
+        }
+      }
+    };
+    const storedSelection = getSharedChapterSelection(book.id);
+
+    if (storedSelection) {
+      applySelection(storedSelection);
+    }
+
+    return subscribeSharedChapterSelection(book.id, applySelection);
+  }, [activePane, book.id, conceptChapters, goToPage, pageNumber]);
   const reloadCurrentChapterConcepts = useCallback(async (): Promise<void> => {
     if (!currentConceptChapter) {
       setConcepts([]);
@@ -3100,11 +3188,15 @@ function BookReader({ ageTabRequest, assignAllStandardsRequest, book, file, fixA
     const requestedPage = Number(pageInput);
 
     if (Number.isInteger(requestedPage)) {
-      goToPage(requestedPage);
+      if (activePane === 'textConcepts') {
+        goToConceptPage(requestedPage);
+      } else {
+        goToPage(requestedPage);
+      }
     } else {
       setPageInput(String(pageNumber));
     }
-  }, [goToPage, pageInput, pageNumber]);
+  }, [activePane, goToConceptPage, goToPage, pageInput, pageNumber]);
 
   const unrecognizedPageNumbers = useMemo(() => Array.from(
     { length: totalPages },
@@ -3444,7 +3536,7 @@ function BookReader({ ageTabRequest, assignAllStandardsRequest, book, file, fixA
 
                   setDraggedConceptIndex(undefined);
                 }}
-                onGoToPage={goToPage}
+                onGoToPage={goToConceptPage}
                 onSave={saveConcept}
               />;
             })}</ul>
@@ -3849,7 +3941,7 @@ function BookReader({ ageTabRequest, assignAllStandardsRequest, book, file, fixA
                         <Button
                           icon='arrow-left'
                           isDisabled={pageNumber <= 1}
-                          onClick={() => goToPage(pageNumber - 1)}
+                          onClick={() => goToConceptPage(pageNumber - 1)}
                         />
                         <label>Page <input
                           max={totalPages || 1}
@@ -3863,7 +3955,7 @@ function BookReader({ ageTabRequest, assignAllStandardsRequest, book, file, fixA
                         <Button
                           icon='arrow-right'
                           isDisabled={!totalPages || pageNumber >= totalPages}
-                          onClick={() => goToPage(pageNumber + 1)}
+                          onClick={() => goToConceptPage(pageNumber + 1)}
                         />
                       </div>
                       <div

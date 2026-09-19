@@ -25,6 +25,7 @@ import { OPENROUTER_CONCURRENCY, openRouterRequestGate } from './openRouterConcu
 import { formatOpenRouterSpend, reportOpenRouterCost, type OpenRouterCostReporter } from './openRouterCost.js';
 import { stripMarkdownImageReferences } from './bookImageRefs.js';
 import { batchItemsByChapter } from './chapterBatching.js';
+import { getSharedChapterSelection, resolveSharedChapterIndex, storeSharedChapterSelection, subscribeSharedChapterSelection } from './chapterSelection.js';
 
 const TikzDisplay = React.lazy(() => import('./Edit/TikzDisplay.js'));
 
@@ -1057,14 +1058,19 @@ function Skills ({ book, externalRefreshToken = 0, onAction, onBookChange, onCon
   const addImagesCost = useCallback((costUsd: number): void => addStageCost('images', costUsd), [addStageCost]);
   const addFixImagesCost = useCallback((costUsd: number): void => addStageCost('fixImages', costUsd), [addStageCost]);
   const changeChapter = useCallback((index: number): void => {
-    setChapterIndex(index);
+    const nextIndex = Math.max(0, Math.min(index, Math.max(0, chapterContent.length - 1)));
+    const chapter = chapterContent[nextIndex]?.chapter;
+
+    setChapterIndex(nextIndex);
 
     try {
-      sessionStorage.setItem(chapterSessionKey(book.id, view), String(index));
+      sessionStorage.setItem(chapterSessionKey(book.id, view), String(nextIndex));
     } catch {
       // Session storage may be unavailable in privacy-restricted contexts.
     }
-  }, [book.id, view]);
+
+    storeSharedChapterSelection(book.id, { chapterId: chapter?.id, index: nextIndex, title: chapter?.title });
+  }, [book.id, chapterContent, view]);
 
   useEffect(() => {
     let active = true;
@@ -1096,9 +1102,13 @@ function Skills ({ book, externalRefreshToken = 0, onAction, onBookChange, onCon
       }));
 
       if (active) {
+        const sharedSelection = getSharedChapterSelection(book.id);
+
         setBookPageContent(pageRows.map(({ exercises, page }) => ({ exercises, page })));
         setChapterContent(result);
-        setChapterIndex((current) => Math.min(current, Math.max(0, result.length - 1)));
+        setChapterIndex((current) => sharedSelection
+          ? resolveSharedChapterIndex(sharedSelection, result.map(({ chapter }) => chapter))
+          : Math.min(current, Math.max(0, result.length - 1)));
       }
     };
 
@@ -1110,6 +1120,11 @@ function Skills ({ book, externalRefreshToken = 0, onAction, onBookChange, onCon
   }, [book.id, externalRefreshToken, refreshToken]);
 
   const chapters = useMemo(() => chapterContent.map(({ chapter }) => chapter), [chapterContent]);
+
+  useEffect(() => subscribeSharedChapterSelection(book.id, (selection) => {
+    setChapterIndex(resolveSharedChapterIndex(selection, chapters));
+  }), [book.id, chapters]);
+
   const current = chapterContent[chapterIndex];
   const allSkills = useMemo(() => chapterContent.flatMap(({ skills }) => skills), [chapterContent]);
   const allExercises = useMemo(() => chapterContent.flatMap(({ exercises }) => exercises), [chapterContent]);
