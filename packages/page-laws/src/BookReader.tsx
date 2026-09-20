@@ -3353,12 +3353,6 @@ function BookReader({ ageTabRequest, assignAllStandardsRequest, book, file, fixA
         <span>{isDetectingBookAge ? 'Detecting learner age…' : `Learner age: ${bookAgeLabel(book.age)}`}</span>
       </div>
       <div className='languageActions'>
-        <Button
-          icon='magic'
-          isDisabled={!book.language || !book.subject || isDetectingBookAge}
-          label={isDetectingBookAge ? 'Detecting…' : 'Detect from text'}
-          onClick={openAgeDetectionConfirmation}
-        />
         <div className='ageManualEditor'>
           <label>
             <span>Age in years</span>
@@ -3381,7 +3375,6 @@ function BookReader({ ageTabRequest, assignAllStandardsRequest, book, file, fixA
             onClick={() => saveManualBookAge().catch(console.error)}
           />
         </div>
-        <p className='ageSampleNote'>AI detection uses {ageSamplePageNumbers.length} representative text page{ageSamplePageNumbers.length === 1 ? '' : 's'}{ageSamplePageNumbers.length ? `: ${ageSamplePageNumbers.join(', ')}` : ''}. The stored value is one whole-number age and can always be changed manually.</p>
       </div>
     </div>;
   };
