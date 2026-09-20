@@ -3759,7 +3759,7 @@ function BookReader({ ageTabRequest, assignAllStandardsRequest, book, file, fixA
               onClick={closeSubjectDetectionConfirmation}
             />
             <Button
-              icon='magic'
+              icon='play'
               label='Detect'
               onClick={confirmSubjectDetection}
             />
@@ -3789,7 +3789,7 @@ function BookReader({ ageTabRequest, assignAllStandardsRequest, book, file, fixA
               onClick={closeAgeDetectionConfirmation}
             />
             <Button
-              icon='magic'
+              icon='play'
               label='Detect'
               onClick={confirmAgeDetection}
             />
