@@ -1480,6 +1480,10 @@ function Skills ({ book, externalRefreshToken = 0, onAction, onBookChange, onCon
       refresh();
       onContentChange?.();
 
+      if (generatedByExerciseId.size || allAbilities.length) {
+        onAction?.('preExercisesExercises');
+      }
+
       const generatedAbilityCount = Array.from(generatedByExerciseId.values()).reduce((count, abilities) => count + abilities.length, 0);
 
       if (pending.size && generatedByExerciseId.size) {
@@ -1500,7 +1504,7 @@ function Skills ({ book, externalRefreshToken = 0, onAction, onBookChange, onCon
     } finally {
       setIsBusy(false);
     }
-  }, [addAbilitiesCost, allAbilities.length, allExercises, beginProgress, book.age, book.id, chapterContent, createClient, language, onContentChange, refresh, selectedModel, setStage, stage]);
+  }, [addAbilitiesCost, allAbilities.length, allExercises, beginProgress, book.age, book.id, chapterContent, createClient, language, onAction, onContentChange, refresh, selectedModel, setStage, stage]);
 
   const fixExercises = useCallback(async (): Promise<void> => {
     beginProgress('Fixing Exercise errors', allExercises.length);
@@ -2099,7 +2103,6 @@ function Skills ({ book, externalRefreshToken = 0, onAction, onBookChange, onCon
     }
 
     if (aiAction === 'exercises') {
-      onAction?.('preExercisesExercises');
       generateExercises().catch(console.error);
     }
 
@@ -2118,7 +2121,7 @@ function Skills ({ book, externalRefreshToken = 0, onAction, onBookChange, onCon
     if (aiAction === 'fixImages') {
       fixImages().catch(console.error);
     }
-  }, [aiAction, completeImagesStage, fixAbilities, fixExercises, fixImages, generateExercises, generateSkills, onAction]);
+  }, [aiAction, completeImagesStage, fixAbilities, fixExercises, fixImages, generateExercises, generateSkills]);
   const closeConfirmation = useCallback((): void => setAiAction(undefined), []);
 
   const pipelineActions = useMemo<PipelineAction[]>(() => [

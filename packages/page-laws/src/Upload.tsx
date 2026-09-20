@@ -477,7 +477,6 @@ function Upload (): React.ReactElement {
       return;
     }
 
-    setPendingProcessingAction('concepts');
     setIsGenerateConceptsConfirmationOpen(true);
   }, [selectedBook, t]);
 
@@ -515,6 +514,8 @@ function Upload (): React.ReactElement {
       return;
     }
 
+    setPendingProcessingAction('concepts');
+
     updateBookProcessingStage(selectedBook.id, 2).then((updatedBook) => {
       if (updatedBook) {
         setBooks((current) => current.map((book) => book.id === updatedBook.id ? updatedBook : book));
@@ -542,7 +543,6 @@ function Upload (): React.ReactElement {
       return;
     }
 
-    setPendingProcessingAction('standards');
     setIsStandardsConfirmationOpen(true);
   }, [selectedBook, t]);
 
@@ -590,6 +590,8 @@ function Upload (): React.ReactElement {
       return;
     }
 
+    setPendingProcessingAction('standards');
+
     updateBookProcessingStage(selectedBook.id, 11).then((updatedBook) => {
       if (updatedBook) {
         setBooks((current) => current.map((book) => book.id === updatedBook.id ? updatedBook : book));
@@ -612,7 +614,6 @@ function Upload (): React.ReactElement {
       return;
     }
 
-    setPendingProcessingAction('fixStandards');
     setIsFixStandardsConfirmationOpen(true);
   }, [selectedBook, standardsAssigned, t]);
 
@@ -665,6 +666,8 @@ function Upload (): React.ReactElement {
       return;
     }
 
+    setPendingProcessingAction('fixStandards');
+
     updateBookProcessingStage(selectedBook.id, 12).then((updatedBook) => {
       if (updatedBook) {
         setBooks((current) => current.map((book) => book.id === updatedBook.id ? updatedBook : book));
@@ -692,7 +695,6 @@ function Upload (): React.ReactElement {
       return;
     }
 
-    setPendingProcessingAction('exercises');
     setIsGenerateExercisesConfirmationOpen(true);
   }, [selectedBook, t]);
 
@@ -722,6 +724,8 @@ function Upload (): React.ReactElement {
     if (!selectedBook) {
       return;
     }
+
+    setPendingProcessingAction('exercises');
 
     updateBookProcessingStage(selectedBook.id, 3).then((updatedBook) => {
       if (updatedBook) {

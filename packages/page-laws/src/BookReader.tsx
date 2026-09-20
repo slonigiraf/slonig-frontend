@@ -1346,14 +1346,8 @@ function BookReader({ ageTabRequest, assignAllStandardsRequest, book, file, fixA
       // tab should remain exposed from an earlier run.
       setRevealedPanes(new Set());
       setActivePane('text');
-    } else if (pendingProcessingAction === 'chapters') {
-      revealPane('chapters');
-    } else if (pendingProcessingAction === 'concepts' || pendingProcessingAction === 'exercises') {
-      revealPane('textConcepts');
-    } else if (pendingProcessingAction === 'standards') {
-      revealPane('standards');
     }
-  }, [pendingProcessingAction, revealPane]);
+  }, [pendingProcessingAction]);
 
   const advanceStage = useCallback(async (processingStage: number): Promise<void> => {
     if ((book.processingStage ?? 0) >= processingStage) {
@@ -1696,6 +1690,7 @@ function BookReader({ ageTabRequest, assignAllStandardsRequest, book, file, fixA
         await replaceBookChapterAssignments(book.id, boundaries);
         await refreshChapterAssignments();
         await advanceStage(2);
+        revealPane('chapters');
         setIdentifiedChapterPageCount(totalPages);
         return;
       }
@@ -1738,6 +1733,7 @@ function BookReader({ ageTabRequest, assignAllStandardsRequest, book, file, fixA
       await replaceBookChapterAssignments(book.id, boundaries);
       await refreshChapterAssignments();
       await advanceStage(2);
+      revealPane('chapters');
       setIdentifiedChapterPageCount(totalPages);
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : 'Unable to identify chapters.');
@@ -1745,7 +1741,7 @@ function BookReader({ ageTabRequest, assignAllStandardsRequest, book, file, fixA
       setIsIdentifyingChapters(false);
       onProcessingComplete();
     }
-  }, [addChaptersCost, advanceStage, book.id, book.language, generateAllConceptsModel, isGeneratingAllConcepts, isGeneratingAllExercises, isIdentifyingChapters, isRecognizingAll, onProcessingComplete, pages, pdf, processingPage, refreshChapterAssignments, totalPages]);
+  }, [addChaptersCost, advanceStage, book.id, book.language, generateAllConceptsModel, isGeneratingAllConcepts, isGeneratingAllExercises, isIdentifyingChapters, isRecognizingAll, onProcessingComplete, pages, pdf, processingPage, refreshChapterAssignments, revealPane, totalPages]);
 
   const generateConcepts = useCallback(async (): Promise<void> => {
     const storedPage = pages.get(pageNumber);
@@ -1811,6 +1807,7 @@ function BookReader({ ageTabRequest, assignAllStandardsRequest, book, file, fixA
 
       if (areAllBookPagesConceptsProcessed(totalPages, Array.from(updatedPages.values()))) {
         await advanceStage(3);
+        revealPane('textConcepts');
       }
     } catch (generationError) {
       setError(generationError instanceof Error ? generationError.message : 'Unable to generate concepts for this chapter.');
@@ -1818,7 +1815,7 @@ function BookReader({ ageTabRequest, assignAllStandardsRequest, book, file, fixA
       setIsGeneratingChapterConcepts(false);
       setProcessingPage(undefined);
     }
-  }, [addConceptsCost, advanceStage, book.id, currentConceptChapter, isGeneratingAllConcepts, isIdentifyingChapters, isRecognizingAll, pageNumber, pages, processingPage, refreshEntityCounts, selectedModel, totalPages]);
+  }, [addConceptsCost, advanceStage, book.id, currentConceptChapter, isGeneratingAllConcepts, isIdentifyingChapters, isRecognizingAll, pageNumber, pages, processingPage, refreshEntityCounts, revealPane, selectedModel, totalPages]);
   const closePageGenerationConfirmation = useCallback((): void => setIsPageGenerationConfirmationOpen(false), []);
   const confirmPageGeneration = useCallback((): void => {
     setIsPageGenerationConfirmationOpen(false);
@@ -1937,6 +1934,7 @@ function BookReader({ ageTabRequest, assignAllStandardsRequest, book, file, fixA
 
       if (failedConceptTasks === 0 && conceptsComplete) {
         await advanceStage(3);
+        revealPane('textConcepts');
       } else {
         const unprocessedPages = countUnprocessedBookPages(totalPages, storedPagesAfterGeneration);
 
@@ -1948,7 +1946,7 @@ function BookReader({ ageTabRequest, assignAllStandardsRequest, book, file, fixA
       setIsGeneratingAllConcepts(false);
       onProcessingComplete();
     }
-  }, [addConceptsCost, advanceStage, book.id, conceptChapters, generateAllConceptsModel, isGeneratingAllConcepts, isIdentifyingChapters, isRecognizingAll, onProcessingComplete, pageNumber, pages, processingPage, refreshEntityCounts, totalPages]);
+  }, [addConceptsCost, advanceStage, book.id, conceptChapters, generateAllConceptsModel, isGeneratingAllConcepts, isIdentifyingChapters, isRecognizingAll, onProcessingComplete, pageNumber, pages, processingPage, refreshEntityCounts, revealPane, totalPages]);
 
   const generateAllExercises = useCallback(async (): Promise<void> => {
     if (!totalPages || processingPage !== undefined || isGeneratingAllConcepts || isRecognizingAll || isGeneratingAllExercises || isIdentifyingChapters) {
@@ -2015,14 +2013,14 @@ function BookReader({ ageTabRequest, assignAllStandardsRequest, book, file, fixA
       await refreshEntityCounts();
       setSkillsRefreshToken((value) => value + 1);
       await advanceStage(4);
-      setActivePane('conceptExercises');
+      revealPane('conceptExercises');
     } catch (processingError) {
       setError(processingError instanceof Error ? processingError.message : 'Unable to generate exercises.');
     } finally {
       setIsGeneratingAllExercises(false);
       onProcessingComplete();
     }
-  }, [addExercisesCost, advanceStage, book.age, book.id, book.language, generateAllConceptsModel, isGeneratingAllConcepts, isIdentifyingChapters, isRecognizingAll, isGeneratingAllExercises, onProcessingComplete, pageNumber, pages, processingPage, refreshEntityCounts, totalPages]);
+  }, [addExercisesCost, advanceStage, book.age, book.id, book.language, generateAllConceptsModel, isGeneratingAllConcepts, isIdentifyingChapters, isRecognizingAll, isGeneratingAllExercises, onProcessingComplete, pageNumber, pages, processingPage, refreshEntityCounts, revealPane, totalPages]);
 
   const detectAndStoreBookLanguage = useCallback(async (recognizedPages: Map<number, BookPage>, force = false): Promise<void> => {
     if ((!force && book.language) || isDetectingBookLanguageRef.current) {
@@ -2080,11 +2078,12 @@ function BookReader({ ageTabRequest, assignAllStandardsRequest, book, file, fixA
 
       await putBook(updatedBook);
       onBookChange(updatedBook);
+      revealPane('language');
     } finally {
       isDetectingBookLanguageRef.current = false;
       setIsDetectingBookLanguage(false);
     }
-  }, [addLanguageCost, book, onBookChange, selectedLanguageModel, totalPages]);
+  }, [addLanguageCost, book, onBookChange, revealPane, selectedLanguageModel, totalPages]);
 
   const saveManualBookLanguage = useCallback(async (languageValue: string): Promise<void> => {
     const language = normalizeLanguageCode(languageValue);
@@ -2104,10 +2103,11 @@ function BookReader({ ageTabRequest, assignAllStandardsRequest, book, file, fixA
 
       await putBook(updatedBook);
       onBookChange(updatedBook);
+      revealPane('language');
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : 'Unable to save the book language.');
     }
-  }, [book, onBookChange]);
+  }, [book, onBookChange, revealPane]);
 
   const isMmdConversionComplete = useMemo((): boolean => {
     if (!totalPages) {
@@ -2180,6 +2180,7 @@ function BookReader({ ageTabRequest, assignAllStandardsRequest, book, file, fixA
 
       await putBook(updatedBook);
       onBookChange(updatedBook);
+      revealPane('subject');
       return;
     }
 
@@ -2231,11 +2232,12 @@ function BookReader({ ageTabRequest, assignAllStandardsRequest, book, file, fixA
 
       await putBook(updatedBook);
       onBookChange(updatedBook);
+      revealPane('subject');
     } finally {
       isDetectingBookSubjectRef.current = false;
       setIsDetectingBookSubject(false);
     }
-  }, [addSubjectCost, book, onBookChange, selectedSubjectModel, totalPages]);
+  }, [addSubjectCost, book, onBookChange, revealPane, selectedSubjectModel, totalPages]);
 
   const saveManualBookSubject = useCallback(async (subjectValue: string): Promise<void> => {
     const subject = normalizeBookSubject(subjectValue);
@@ -2257,10 +2259,11 @@ function BookReader({ ageTabRequest, assignAllStandardsRequest, book, file, fixA
 
       await putBook(updatedBook);
       onBookChange(updatedBook);
+      revealPane('subject');
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : 'Unable to save the book subject.');
     }
-  }, [book, onBookChange]);
+  }, [book, onBookChange, revealPane]);
 
   const redetectBookSubject = useCallback(async (): Promise<void> => {
     if (!isMmdConversionComplete) {
@@ -2368,11 +2371,12 @@ function BookReader({ ageTabRequest, assignAllStandardsRequest, book, file, fixA
 
       await putBook(updatedBook);
       onBookChange(updatedBook);
+      revealPane('age');
     } finally {
       isDetectingBookAgeRef.current = false;
       setIsDetectingBookAge(false);
     }
-  }, [addAgeCost, book, onBookChange, selectedAgeModel, totalPages]);
+  }, [addAgeCost, book, onBookChange, revealPane, selectedAgeModel, totalPages]);
 
   const saveManualBookAge = useCallback(async (): Promise<void> => {
     const age = normalizeBookAge(ageInput);
@@ -2389,10 +2393,11 @@ function BookReader({ ageTabRequest, assignAllStandardsRequest, book, file, fixA
 
       await putBook(updatedBook);
       onBookChange(updatedBook);
+      revealPane('age');
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : 'Unable to save the learner age.');
     }
-  }, [ageInput, book, onBookChange]);
+  }, [ageInput, book, onBookChange, revealPane]);
 
   const redetectBookAge = useCallback(async (): Promise<void> => {
     if (!book.language || !book.subject) {
@@ -2594,10 +2599,6 @@ function BookReader({ ageTabRequest, assignAllStandardsRequest, book, file, fixA
       return;
     }
 
-    // Open the Language pane immediately, but keep the request pending until
-    // the stored recognized pages have finished loading into the reader.
-    revealPane('language');
-
     if (!isMmdConversionComplete) {
       return;
     }
@@ -2607,16 +2608,12 @@ function BookReader({ ageTabRequest, assignAllStandardsRequest, book, file, fixA
     // Language uses OpenRouter, so the pipeline action must stop at the same
     // estimate/model confirmation gate as the other AI-backed stages.
     openLanguageDetectionConfirmation();
-  }, [isMmdConversionComplete, languageTabRequest, openLanguageDetectionConfirmation, revealPane]);
+  }, [isMmdConversionComplete, languageTabRequest, openLanguageDetectionConfirmation]);
 
   useEffect((): void => {
     if (subjectTabRequest === handledSubjectTabRequestRef.current) {
       return;
     }
-
-    // Subject is a separate pipeline action after language. Open its pane now,
-    // then show the confirmation/model picker once recognized text is loaded.
-    revealPane('subject');
 
     if (!isMmdConversionComplete) {
       return;
@@ -2624,14 +2621,12 @@ function BookReader({ ageTabRequest, assignAllStandardsRequest, book, file, fixA
 
     handledSubjectTabRequestRef.current = subjectTabRequest;
     openSubjectDetectionConfirmation();
-  }, [isMmdConversionComplete, openSubjectDetectionConfirmation, revealPane, subjectTabRequest]);
+  }, [isMmdConversionComplete, openSubjectDetectionConfirmation, subjectTabRequest]);
 
   useEffect((): void => {
     if (ageTabRequest === handledAgeTabRequestRef.current) {
       return;
     }
-
-    revealPane('age');
 
     const hasAllSampleText = ageSamplePageNumbers.length === Math.min(3, totalPages) && ageSamplePageTexts.length === ageSamplePageNumbers.length;
 
@@ -2641,7 +2636,7 @@ function BookReader({ ageTabRequest, assignAllStandardsRequest, book, file, fixA
 
     handledAgeTabRequestRef.current = ageTabRequest;
     openAgeDetectionConfirmation();
-  }, [ageSamplePageNumbers, ageSamplePageTexts, ageTabRequest, openAgeDetectionConfirmation, revealPane, totalPages]);
+  }, [ageSamplePageNumbers, ageSamplePageTexts, ageTabRequest, openAgeDetectionConfirmation, totalPages]);
 
   useEffect((): void => {
     if (
@@ -2657,7 +2652,6 @@ function BookReader({ ageTabRequest, assignAllStandardsRequest, book, file, fixA
     }
 
     handledGenerateAllExercisesRequestRef.current = generateAllExercisesRequest;
-    setActivePane('textConcepts');
     generateAllExercises().catch((processingError) => {
       setError(processingError instanceof Error ? processingError.message : 'Unable to generate exercises.');
       onProcessingComplete();
@@ -2678,7 +2672,6 @@ function BookReader({ ageTabRequest, assignAllStandardsRequest, book, file, fixA
     }
 
     handledGenerateAllConceptsRequestRef.current = generateAllConceptsRequest;
-    setActivePane('textConcepts');
     generateAllConcepts().catch((generationError) => {
       setError(generationError instanceof Error ? generationError.message : 'Unable to generate concepts for all chapters.');
       onProcessingComplete();
@@ -2699,7 +2692,6 @@ function BookReader({ ageTabRequest, assignAllStandardsRequest, book, file, fixA
     }
 
     handledIdentifyChaptersRequestRef.current = identifyChaptersRequest;
-    setActivePane('chapters');
     identifyChapters().catch((chapterError) => {
       setError(chapterError instanceof Error ? chapterError.message : 'Unable to identify chapters.');
       onProcessingComplete();
@@ -2800,11 +2792,12 @@ function BookReader({ ageTabRequest, assignAllStandardsRequest, book, file, fixA
         setError(`${failures} of ${conceptChapters.length} chapters could not have standards identified. Retry Standards identification.`);
       } else {
         await advanceStage(12);
+        revealPane('standards');
       }
     } finally {
       setIsAssigningStandards(false);
     }
-  }, [addStandardsCost, advanceStage, book.id, book.processingStage, book.subject, conceptChapters, isAssigningStandards, isFixingStandards, selectedModel, standardsByChapter]);
+  }, [addStandardsCost, advanceStage, book.id, book.processingStage, book.subject, conceptChapters, isAssigningStandards, isFixingStandards, revealPane, selectedModel, standardsByChapter]);
 
   const fixStandards = useCallback(async (model = selectedModel): Promise<void> => {
     if (!conceptChapters.length || isAssigningStandards || isFixingStandards) {
@@ -2877,11 +2870,12 @@ function BookReader({ ageTabRequest, assignAllStandardsRequest, book, file, fixA
         setError(`${failures} of ${conceptChapters.length} chapters could not have standards fixed. Retry Fix standards.`);
       } else {
         await advanceStage(13);
+        revealPane('standards');
       }
     } finally {
       setIsFixingStandards(false);
     }
-  }, [addFixStandardsCost, advanceStage, book.id, book.processingStage, book.subject, conceptChapters, isAssigningStandards, isFixingStandards, selectedModel, standardsByChapter]);
+  }, [addFixStandardsCost, advanceStage, book.id, book.processingStage, book.subject, conceptChapters, isAssigningStandards, isFixingStandards, revealPane, selectedModel, standardsByChapter]);
 
   useEffect((): void => {
     if (
@@ -2899,7 +2893,6 @@ function BookReader({ ageTabRequest, assignAllStandardsRequest, book, file, fixA
     }
 
     handledAssignAllStandardsRequestRef.current = assignAllStandardsRequest;
-    setActivePane('standards');
     assignStandards(true, generateAllConceptsModel)
       .catch((assignmentError) => setError(assignmentError instanceof Error ? assignmentError.message : 'Unable to assign chapter standards.'))
       .finally(onProcessingComplete);
@@ -2921,7 +2914,6 @@ function BookReader({ ageTabRequest, assignAllStandardsRequest, book, file, fixA
     }
 
     handledFixAllStandardsRequestRef.current = fixAllStandardsRequest;
-    setActivePane('standards');
     fixStandards(generateAllConceptsModel)
       .catch((fixError) => setError(fixError instanceof Error ? fixError.message : 'Unable to fix chapter standards.'))
       .finally(onProcessingComplete);
