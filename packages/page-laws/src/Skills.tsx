@@ -2834,20 +2834,11 @@ const StyledSkills = styled.div`
     white-space: nowrap;
   }
 
-  /* Price and zoom should stay as the app's normal button treatment. Do not
-     put an extra white card behind them. */
+  /* Keep pipeline controls on the shared app button treatment. Only normalize
+     their sizing here so the normal background/text hover styles still apply. */
   .pipelineControls .ui--Button {
-    background: transparent !important;
-    border: 0 !important;
-    box-shadow: none !important;
-    margin: 0;
-    min-height: 0;
-    padding: 0 !important;
-  }
-
-  .pipelineControls .ui--Button > button {
     height: var(--pipeline-control-height);
-    margin: 0 !important;
+    margin: 0;
     min-height: var(--pipeline-control-height);
   }
 
