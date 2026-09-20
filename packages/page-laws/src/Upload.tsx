@@ -778,29 +778,37 @@ function Upload (): React.ReactElement {
 
   return (
     <StyledSection>
-      {isPriceOpen && <Modal
+      {isPriceOpen && <PriceModal
         header={t('Price')}
         onClose={closePrice}
         size='small'
       >
         <Modal.Content>
-          <p>{t('Cumulative spending for this book, including reruns.')}</p>
-          <table className='priceTable'>
-            <tbody>
-              {PRICE_STAGES.map(({ detail, key, label }) => <tr key={key}>
-                <th>{t(label)}{detail && <small className='priceSource'>{detail}</small>}</th>
-                <td>{formatOpenRouterSpend(priceBook?.stageSpend?.[key] ?? 0)}</td>
-              </tr>)}
-            </tbody>
-            <tfoot>
-              <tr>
-                <th>{t('Total')}</th>
-                <td>{formatOpenRouterSpend(totalSpend)}</td>
-              </tr>
-            </tfoot>
-          </table>
+          <PriceContent>
+            <p className='priceIntro'>{t('Cumulative spending for this book, including reruns.')}</p>
+            <div className='priceTableFrame'>
+              <table className='priceTable'>
+                <tbody>
+                  {PRICE_STAGES.map(({ detail, key, label }) => {
+                    const value = priceBook?.stageSpend?.[key] ?? 0;
+
+                    return <tr className={value === 0 ? 'isZero' : undefined} key={key}>
+                      <th scope='row'>{t(label)}{detail && <small className='priceSource'>{detail}</small>}</th>
+                      <td>{formatOpenRouterSpend(value)}</td>
+                    </tr>;
+                  })}
+                </tbody>
+                <tfoot>
+                  <tr>
+                    <th scope='row'>{t('Total')}</th>
+                    <td>{formatOpenRouterSpend(totalSpend)}</td>
+                  </tr>
+                </tfoot>
+              </table>
+            </div>
+          </PriceContent>
         </Modal.Content>
-      </Modal>}
+      </PriceModal>}
       {isRecognizeConfirmationOpen && <Modal
         header={t('Recognize pages')}
         onClose={closeRecognizeConfirmation}
@@ -1110,6 +1118,92 @@ function Upload (): React.ReactElement {
   );
 }
 
+
+const PriceModal = styled(Modal)`
+  .ui--Modal__body {
+    max-width: 34rem;
+    width: calc(100vw - 2rem);
+  }
+`;
+
+const PriceContent = styled.div`
+  padding: 0.15rem 0 0.35rem;
+
+  .priceIntro {
+    line-height: 1.5;
+    margin: 0 0 1rem;
+    opacity: 0.72;
+  }
+
+  .priceTableFrame {
+    border: 1px solid rgba(127, 127, 127, 0.22);
+    border-radius: 0.65rem;
+    overflow: hidden;
+  }
+
+  .priceTable {
+    border-collapse: collapse;
+    table-layout: fixed;
+    width: 100%;
+  }
+
+  .priceTable th,
+  .priceTable td {
+    border-bottom: 1px solid rgba(127, 127, 127, 0.16);
+    padding: 0.68rem 0.9rem;
+    vertical-align: middle;
+  }
+
+  .priceTable th {
+    font-weight: 550;
+    text-align: left;
+    width: 62%;
+  }
+
+  .priceTable td {
+    font-variant-numeric: tabular-nums;
+    font-weight: 500;
+    letter-spacing: 0.01em;
+    text-align: right;
+    white-space: nowrap;
+  }
+
+  .priceTable tbody tr:last-child th,
+  .priceTable tbody tr:last-child td {
+    border-bottom: 0;
+  }
+
+  .priceTable tbody tr.isZero {
+    opacity: 0.56;
+  }
+
+  .priceSource {
+    display: block;
+    font-size: 0.78rem;
+    font-weight: 400;
+    margin-top: 0.1rem;
+    opacity: 0.68;
+  }
+
+  .priceTable tfoot th,
+  .priceTable tfoot td {
+    background: rgba(127, 127, 127, 0.08);
+    border-bottom: 0;
+    border-top: 1px solid rgba(127, 127, 127, 0.24);
+    font-weight: 700;
+    padding-bottom: 0.78rem;
+    padding-top: 0.78rem;
+  }
+
+  @media only screen and (max-width: 480px) {
+    .priceTable th,
+    .priceTable td {
+      padding-left: 0.7rem;
+      padding-right: 0.7rem;
+    }
+  }
+`;
+
 const StyledSection = styled.section`
   margin: 1.5rem auto 2rem;
   max-width: 90rem;
@@ -1141,42 +1235,6 @@ const StyledSection = styled.section`
   }
   .batchModelSelect {
     margin: 1rem 0;
-  }
-
-  .priceTable {
-    border-collapse: collapse;
-    margin: 1rem 0;
-    width: 100%;
-  }
-
-  .priceTable th,
-  .priceTable td {
-    border-bottom: 1px solid rgba(127, 127, 127, 0.25);
-    padding: 0.6rem 0;
-  }
-
-  .priceTable th {
-    font-weight: 500;
-    text-align: left;
-  }
-
-  .priceSource {
-    display: block;
-    font-size: 0.78rem;
-    font-weight: 400;
-    opacity: 0.7;
-  }
-
-  .priceTable td {
-    font-variant-numeric: tabular-nums;
-    text-align: right;
-  }
-
-  .priceTable tfoot th,
-  .priceTable tfoot td {
-    border-bottom: 0;
-    font-weight: 700;
-    padding-top: 0.8rem;
   }
 
   .fileInput {
