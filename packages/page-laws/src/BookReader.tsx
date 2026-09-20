@@ -15,7 +15,7 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Button, Dropdown, Input, Modal, styled } from '@polkadot/react-components';
 
 import { parseStoredAbility } from './abilities.js';
-import { estimateAiInput, formatAiInputEstimate } from './aiEstimate.js';
+import { estimateAiInput } from './aiEstimate.js';
 import { bookAgeLabel, getBookAgeSamplePageNumbers, MAX_BOOK_LEARNER_AGE, MIN_BOOK_LEARNER_AGE, normalizeBookAge, parseDetectedBookAge } from './bookAge.js';
 import { BOOK_LANGUAGE_OPTIONS, bookLanguageLabel, getMiddleBookPageNumbers, normalizeLanguageCode, parseDetectedBookLanguage } from './bookLanguage.js';
 import { BOOK_SUBJECT_OPTIONS, automaticBookSubjectForLanguage, bookSubjectLabel, normalizeBookSubject, parseDetectedBookSubject } from './bookSubject.js';
@@ -32,6 +32,7 @@ import { loadStandardsCatalogsForBookSubject, loadStoredBookStandards, mergeStan
 import Skills, { type PipelineAction } from './Skills.js';
 import SkillsCourse from './SkillsCourse.js';
 import { extractPdfOutlineChapterBoundaries, loadPdfJs } from './pdf.js';
+import { AiPriceEstimate } from './PriceEstimate.js';
 import { useTranslation } from './translate.js';
 
 export { OPENAI_MODELS } from './constants.js';
@@ -1070,7 +1071,7 @@ function BookReader({ ageTabRequest, assignAllStandardsRequest, book, file, fixA
 
     // Empty concept responses can be retried once with the same whole-chapter
     // input, so show the conservative two-request estimate.
-    return formatAiInputEstimate(estimateAiInput(selectedModel, [estimatedRequest, estimatedRequest], 4_800));
+    return estimateAiInput(selectedModel, [estimatedRequest, estimatedRequest], 4_800);
   }, [currentConceptChapter, pages, selectedModel]);
   const languageDetectionEstimate = useMemo(() => {
     const middlePageNumbers = getMiddleBookPageNumbers(totalPages);
@@ -1084,7 +1085,7 @@ function BookReader({ ageTabRequest, assignAllStandardsRequest, book, file, fixA
       return 'Recognition text is incomplete; language detection cannot be estimated yet.';
     }
 
-    return formatAiInputEstimate(estimateAiInput(selectedLanguageModel, [BOOK_LANGUAGE_DETECTION_PROMPT(pageTexts)], 32));
+    return estimateAiInput(selectedLanguageModel, [BOOK_LANGUAGE_DETECTION_PROMPT(pageTexts)], 32);
   }, [pages, selectedLanguageModel, totalPages]);
   const subjectDetectionEstimate = useMemo(() => {
     if (automaticBookSubjectForLanguage(book.language)) {
@@ -1102,7 +1103,7 @@ function BookReader({ ageTabRequest, assignAllStandardsRequest, book, file, fixA
       return 'Recognition text is incomplete; subject detection cannot be estimated yet.';
     }
 
-    return formatAiInputEstimate(estimateAiInput(selectedSubjectModel, [BOOK_SUBJECT_DETECTION_PROMPT(book.language ?? 'unknown', pageTexts)], 64));
+    return estimateAiInput(selectedSubjectModel, [BOOK_SUBJECT_DETECTION_PROMPT(book.language ?? 'unknown', pageTexts)], 64);
   }, [book.language, pages, selectedSubjectModel, totalPages]);
   const ageSamplePageNumbers = useMemo(() => getBookAgeSamplePageNumbers(totalPages, Array.from(pages.values()).flatMap(({ pageMMD, pageNumber }) => pageMMD?.trim() ? [pageNumber] : [])), [pages, totalPages]);
   const ageSamplePageTexts = useMemo(() => ageSamplePageNumbers.flatMap((samplePageNumber) => {
@@ -1115,7 +1116,7 @@ function BookReader({ ageTabRequest, assignAllStandardsRequest, book, file, fixA
       return 'Representative recognition text is incomplete; age detection cannot be estimated yet.';
     }
 
-    return formatAiInputEstimate(estimateAiInput(selectedAgeModel, [BOOK_AGE_DETECTION_PROMPT(book.language ?? 'unknown', book.subject ?? 'unknown', ageSamplePageTexts)], 32));
+    return estimateAiInput(selectedAgeModel, [BOOK_AGE_DETECTION_PROMPT(book.language ?? 'unknown', book.subject ?? 'unknown', ageSamplePageTexts)], 32);
   }, [ageSamplePageNumbers, ageSamplePageTexts, book.language, book.subject, selectedAgeModel, totalPages]);
   const exerciseChapters = useMemo<ExerciseChapterNavigationItem[]>(() => {
     const grouped = new Map<string, ExerciseChapterNavigationItem>();
@@ -3705,7 +3706,7 @@ function BookReader({ ageTabRequest, assignAllStandardsRequest, book, file, fixA
       >
         <Modal.Content>
           <p>Detect the primary language? You can change the result manually afterward.</p>
-          <p>{languageDetectionEstimate}</p>
+          <AiPriceEstimate estimate={languageDetectionEstimate} />
           <Dropdown
             className='modelSelect'
             isFull
@@ -3737,7 +3738,7 @@ function BookReader({ ageTabRequest, assignAllStandardsRequest, book, file, fixA
           <p>{automaticBookSubjectForLanguage(book.language)
             ? 'This book is not in English, so its subject will be set to na automatically. You can change the stored subject manually afterward.'
             : 'Detect the primary subject? You can change the result manually afterward.'}</p>
-          <p>{subjectDetectionEstimate}</p>
+          <AiPriceEstimate estimate={subjectDetectionEstimate} />
           {!automaticBookSubjectForLanguage(book.language) && <Dropdown
             className='modelSelect'
             isFull
@@ -3767,7 +3768,7 @@ function BookReader({ ageTabRequest, assignAllStandardsRequest, book, file, fixA
       >
         <Modal.Content>
           <p>Detect one typical learner age? The result can be changed manually afterward.</p>
-          <p>{ageDetectionEstimate}</p>
+          <AiPriceEstimate estimate={ageDetectionEstimate} />
           <Dropdown
             className='modelSelect'
             isFull
@@ -3796,7 +3797,7 @@ function BookReader({ ageTabRequest, assignAllStandardsRequest, book, file, fixA
         size='small'
       >
         <Modal.Content>
-          <p>{chapterGenerationEstimate}</p>
+          <AiPriceEstimate estimate={chapterGenerationEstimate} />
           <p>This sends the whole chapter to the AI in one request, deduplicates concepts across its pages, and saves each concept on the page where it was first introduced. Exercises in the book are ignored; generated exercises run in the next pipeline step.</p>
           <Dropdown
             className='modelSelect'

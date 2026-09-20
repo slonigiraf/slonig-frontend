@@ -17,12 +17,13 @@ import type { TikzPreRenderResult } from './Edit/TikzDisplay.js';
 import { isTikzCode } from './Edit/tikz.js';
 import { parseAbilityRepairResult, parseStoredAbility } from './abilities.js';
 import { parseExerciseRepairResult } from './exercises.js';
-import { estimateAiInput, formatAiInputEstimate } from './aiEstimate.js';
+import { estimateAiInput } from './aiEstimate.js';
 import { ABILITY_WORKFLOW_SYSTEM_PROMPT, FIX_ABILITIES_REQUEST_PROMPT, FIX_EXERCISES_REQUEST_PROMPT, JSON_VALIDATION_PROMPT, LEARNER_AGE_PROMPT, OPENAI_MODELS, REPAIR_SYSTEM_PROMPT, SKILLS_GENERATION_SYSTEM_PROMPT, SOURCES_TO_SKILLS_REQUEST_PROMPT } from './constants.js';
 import { abilityBlueprintRequestPrompt, materializeExerciseAbility, planExerciseAbility, transportCompactAbilitySourceExercise } from './abilityWorkflow.js';
 import { mapConcurrent } from './concurrency.js';
 import { OPENROUTER_CONCURRENCY, openRouterRequestGate } from './openRouterConcurrency.js';
 import { formatOpenRouterSpend, reportOpenRouterCost, type OpenRouterCostReporter } from './openRouterCost.js';
+import { AiPriceEstimate } from './PriceEstimate.js';
 import { stripMarkdownImageReferences } from './bookImageRefs.js';
 import { batchItemsByChapter } from './chapterBatching.js';
 import { getSharedChapterSelection, resolveSharedChapterIndex, storeSharedChapterSelection, subscribeSharedChapterSelection } from './chapterSelection.js';
@@ -1250,7 +1251,7 @@ function Skills ({ book, externalRefreshToken = 0, onAction, onBookChange, onCon
     ? requestInputs.flatMap((input) => [input, input])
     : requestInputs, [aiAction, requestInputs]);
   const outputTokens = generationOutputTokens;
-  const estimate = formatAiInputEstimate(estimateAiInput(selectedModel, validationInputs, outputTokens));
+  const estimate = estimateAiInput(selectedModel, validationInputs, outputTokens);
 
   const deleteExerciseWithAbilities = useCallback(async (exerciseId: number): Promise<void> => {
     await deleteAbilities(exerciseAbilityModuleId(book.id, exerciseId));
@@ -2428,7 +2429,7 @@ function Skills ({ book, externalRefreshToken = 0, onAction, onBookChange, onCon
         size='small'
       >
         <Modal.Content>
-          <p>{estimate}</p>
+          <AiPriceEstimate estimate={estimate} />
           <Dropdown
             className='modelSelect'
             isDisabled={isBusy}

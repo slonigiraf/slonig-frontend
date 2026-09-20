@@ -9,11 +9,14 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 
 import { Button, Dropdown, Modal, styled } from '@polkadot/react-components';
 
-import { estimateAiInput, formatAiInputEstimate } from './aiEstimate.js';
+import type { AiInputEstimate } from './aiEstimate.js';
+
+import { estimateAiInput } from './aiEstimate.js';
 import { MATHPIX_PDF_PAGE_PRICE_USD, OPENAI_MODELS } from './constants.js';
 import { conceptChaptersFromPages } from './conceptRecognition.js';
 import { formatOpenRouterSpend } from './openRouterCost.js';
 import { loadStandardsCatalogsForBookSubject, loadStoredBookStandards, STANDARDS_FIX_RUNS, STANDARDS_MATCH_RUNS, standardsChapterKey, standardsConceptInputs, standardsFixInputs, standardsFixPrompt, standardsMatchingPrompt } from './standards.js';
+import { AiPriceEstimate, UnitPriceEstimate } from './PriceEstimate.js';
 import { loadPdfJs } from './pdf.js';
 import { useTranslation } from './translate.js';
 
@@ -98,10 +101,10 @@ function Upload (): React.ReactElement {
   const [subjectTabRequest, setSubjectTabRequest] = useState(0);
   const [ageTabRequest, setAgeTabRequest] = useState(0);
   const [identifyChaptersRequest, setIdentifyChaptersRequest] = useState(0);
-  const [identifyChaptersEstimate, setIdentifyChaptersEstimate] = useState('');
+  const [identifyChaptersEstimate, setIdentifyChaptersEstimate] = useState<AiInputEstimate>();
   const [isIdentifyChaptersConfirmationOpen, setIsIdentifyChaptersConfirmationOpen] = useState(false);
   const [generateAllConceptsModel, setGenerateAllConceptsModel] = useState(OPENAI_MODELS[0].value);
-  const [generateConceptsEstimate, setGenerateConceptsEstimate] = useState('');
+  const [generateConceptsEstimate, setGenerateConceptsEstimate] = useState<AiInputEstimate>();
   const [isGenerateConceptsConfirmationOpen, setIsGenerateConceptsConfirmationOpen] = useState(false);
   const [isGenerateExercisesConfirmationOpen, setIsGenerateExercisesConfirmationOpen] = useState(false);
   const [isStandardsConfirmationOpen, setIsStandardsConfirmationOpen] = useState(false);
@@ -111,10 +114,10 @@ function Upload (): React.ReactElement {
   const [priceBook, setPriceBook] = useState<Book>();
   const [pendingProcessingAction, setPendingProcessingAction] = useState<'chapters' | 'concepts' | 'recognize' | 'standards' | 'fixStandards' | 'exercises'>();
   const [generateAllExercisesRequest, setGenerateAllExercisesRequest] = useState(0);
-  const [generateExercisesEstimate, setGenerateExercisesEstimate] = useState('');
-  const [recognizeEstimate, setRecognizeEstimate] = useState('');
-  const [standardsEstimate, setStandardsEstimate] = useState('');
-  const [fixStandardsEstimate, setFixStandardsEstimate] = useState('');
+  const [generateExercisesEstimate, setGenerateExercisesEstimate] = useState<AiInputEstimate>();
+  const [recognizePageCount, setRecognizePageCount] = useState<number>();
+  const [standardsEstimate, setStandardsEstimate] = useState<AiInputEstimate | string>();
+  const [fixStandardsEstimate, setFixStandardsEstimate] = useState<AiInputEstimate | string>();
   const [recognizeAllRequest, setRecognizeAllRequest] = useState(0);
   const [readerFile, setReaderFile] = useState<File>();
   const [selectedId, setSelectedId] = useState<number | undefined>(getSessionBookId);
@@ -288,6 +291,7 @@ function Upload (): React.ReactElement {
   }, [onUpload, t]);
 
   const onRecognize = useCallback((): void => {
+    setRecognizePageCount(undefined);
     setIsRecognizeConfirmationOpen(true);
   }, []);
 
@@ -306,19 +310,22 @@ function Upload (): React.ReactElement {
       document = await task.promise;
 
       if (active) {
-        const price = document.numPages * MATHPIX_PDF_PAGE_PRICE_USD;
-
-        setRecognizeEstimate(`Estimated Mathpix v3/pdf cost: ${document.numPages} page${document.numPages === 1 ? '' : 's'} × $${MATHPIX_PDF_PAGE_PRICE_USD.toFixed(3)} = $${price.toFixed(3)}.`);
+        setRecognizePageCount(document.numPages);
       }
     };
 
-    calculate().catch(() => active && setRecognizeEstimate('Unable to estimate the Mathpix cost.'));
+    calculate().catch(() => {
+      if (active) {
+        setRecognizePageCount(undefined);
+        setError(t('Unable to estimate the Mathpix cost.'));
+      }
+    });
 
     return () => {
       active = false;
       document?.destroy().catch(console.error);
     };
-  }, [isRecognizeConfirmationOpen, readerFile]);
+  }, [isRecognizeConfirmationOpen, readerFile, t]);
 
   const closeRecognizeConfirmation = useCallback((): void => {
     setIsRecognizeConfirmationOpen(false);
@@ -392,6 +399,7 @@ function Upload (): React.ReactElement {
     }
 
     setError('');
+    setIdentifyChaptersEstimate(undefined);
     setIsIdentifyChaptersConfirmationOpen(true);
   }, [selectedBook]);
 
@@ -421,7 +429,7 @@ function Upload (): React.ReactElement {
       requests.push(compactPages.filter((_, index) => (pages[index]?.mathpixHeadings?.length ?? 0) > 0).join('\n').padEnd(2_000));
 
       if (active) {
-        setIdentifyChaptersEstimate(formatAiInputEstimate(estimateAiInput(generateAllConceptsModel, requests, Math.max(2_000, pages.length * 12))));
+        setIdentifyChaptersEstimate(estimateAiInput(generateAllConceptsModel, requests, Math.max(2_000, pages.length * 12)));
       }
     };
 
@@ -477,6 +485,7 @@ function Upload (): React.ReactElement {
       return;
     }
 
+    setGenerateConceptsEstimate(undefined);
     setIsGenerateConceptsConfirmationOpen(true);
   }, [selectedBook, t]);
 
@@ -497,7 +506,7 @@ function Upload (): React.ReactElement {
           return [estimatedRequest, estimatedRequest];
         });
 
-        setGenerateConceptsEstimate(formatAiInputEstimate(estimateAiInput(generateAllConceptsModel, requestInputs, 4_800)));
+        setGenerateConceptsEstimate(estimateAiInput(generateAllConceptsModel, requestInputs, 4_800));
       })
       .catch(() => setError(t('Unable to estimate concept generation cost.')));
   }, [generateAllConceptsModel, isGenerateConceptsConfirmationOpen, selectedBook, t]);
@@ -543,6 +552,7 @@ function Upload (): React.ReactElement {
       return;
     }
 
+    setStandardsEstimate(undefined);
     setIsStandardsConfirmationOpen(true);
   }, [selectedBook, t]);
 
@@ -572,7 +582,7 @@ function Upload (): React.ReactElement {
       }
 
       setStandardsEstimate(requests.length
-        ? formatAiInputEstimate(estimateAiInput(generateAllConceptsModel, requests, 600))
+        ? estimateAiInput(generateAllConceptsModel, requests, 600)
         : t(catalogs.length ? 'No extracted chapter concepts are available for standards matching.' : 'No standards catalogs are available for this book subject.'));
     }).catch(() => setError(t('Unable to estimate standards assignment cost.')));
   }, [generateAllConceptsModel, isStandardsConfirmationOpen, selectedBook, t]);
@@ -614,6 +624,7 @@ function Upload (): React.ReactElement {
       return;
     }
 
+    setFixStandardsEstimate(undefined);
     setIsFixStandardsConfirmationOpen(true);
   }, [selectedBook, standardsAssigned, t]);
 
@@ -648,7 +659,7 @@ function Upload (): React.ReactElement {
       }
 
       setFixStandardsEstimate(requests.length
-        ? formatAiInputEstimate(estimateAiInput(generateAllConceptsModel, requests, 600))
+        ? estimateAiInput(generateAllConceptsModel, requests, 600)
         : t('No assigned chapter standards require review.'));
     }).catch(() => setError(t('Unable to estimate Fix standards cost.')));
   }, [generateAllConceptsModel, isFixStandardsConfirmationOpen, selectedBook, t]);
@@ -695,6 +706,7 @@ function Upload (): React.ReactElement {
       return;
     }
 
+    setGenerateExercisesEstimate(undefined);
     setIsGenerateExercisesConfirmationOpen(true);
   }, [selectedBook, t]);
 
@@ -709,7 +721,7 @@ function Upload (): React.ReactElement {
       })));
       const requests = inputs.flatMap((input) => Array.from({ length: 8 }, () => input.padEnd(input.length + 2_000)));
 
-      setGenerateExercisesEstimate(formatAiInputEstimate(estimateAiInput(generateAllConceptsModel, requests, pages.length * 12_000)));
+      setGenerateExercisesEstimate(estimateAiInput(generateAllConceptsModel, requests, pages.length * 12_000));
     }).catch(() => setError(t('Unable to estimate exercise generation cost.')));
   }, [generateAllConceptsModel, isGenerateExercisesConfirmationOpen, selectedBook, t]);
 
@@ -816,7 +828,13 @@ function Upload (): React.ReactElement {
       >
         <Modal.Content>
           <p>{t('Recognize every page in this book?')}</p>
-          <p>{recognizeEstimate}</p>
+          <UnitPriceEstimate
+            count={recognizePageCount}
+            lineLabel='Mathpix v3/pdf'
+            title={t('Estimated Mathpix cost')}
+            unitLabel='page'
+            unitPriceUsd={MATHPIX_PDF_PAGE_PRICE_USD}
+          />
           <Button.Group>
             <Button
               icon='times'
@@ -839,7 +857,10 @@ function Upload (): React.ReactElement {
         <Modal.Content>
           <p>{t('Use PDF bookmarks as chapter boundaries when available. Otherwise identify chapters from recognized page text.')}</p>
           <p>{t('If bookmarks are unavailable, page-text detection needs a book language and may use AI.')}</p>
-          <p>{t('Estimated AI cost if page-text detection is needed:')} {identifyChaptersEstimate}</p>
+          <AiPriceEstimate
+            estimate={identifyChaptersEstimate}
+            title={t('Estimated AI cost if page-text detection is needed')}
+          />
           <p>{t('You can manually rename chapters, start a chapter on any page, merge chapters, or assign individual pages afterward.')}</p>
           <Dropdown
             className='batchModelSelect'
@@ -870,7 +891,7 @@ function Upload (): React.ReactElement {
       >
         <Modal.Content>
           <p>{t('Generate concepts chapter-by-chapter for this book? Each concept will be stored on the page where it is first introduced.')}</p>
-          <p>{generateConceptsEstimate}</p>
+          <AiPriceEstimate estimate={generateConceptsEstimate} />
           <Dropdown
             className='batchModelSelect'
             isFull
@@ -900,7 +921,7 @@ function Upload (): React.ReactElement {
       >
         <Modal.Content>
           <p>{t('Match standards for every chapter from its extracted concepts? The detected book subject selects the standards catalog path, then each available standards catalog is checked three times against the chapter concepts and the detected standards are combined. Only codes present in the supplied catalog can be stored.')}</p>
-          <p>{standardsEstimate}</p>
+          <AiPriceEstimate estimate={standardsEstimate} />
           <Dropdown
             className='batchModelSelect'
             isFull
@@ -930,7 +951,7 @@ function Upload (): React.ReactElement {
       >
         <Modal.Content>
           <p>{t('Review each chapter’s assigned standards against its concepts and remove standards that are too vague or are not actually introduced in the chapter. This pass can only remove existing standards; it cannot add or rewrite codes.')}</p>
-          <p>{fixStandardsEstimate}</p>
+          <AiPriceEstimate estimate={fixStandardsEstimate} />
           <Dropdown
             className='batchModelSelect'
             isFull
@@ -960,7 +981,7 @@ function Upload (): React.ReactElement {
       >
         <Modal.Content>
           <p>{t('Generate one succinct, transformation-first exercise per concept, keep one per non-overlapping book exercise, and skip book exercises already covered by concepts?')}</p>
-          <p>{generateExercisesEstimate}</p>
+          <AiPriceEstimate estimate={generateExercisesEstimate} />
           <Dropdown
             className='batchModelSelect'
             isFull
