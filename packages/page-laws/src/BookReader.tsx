@@ -982,6 +982,7 @@ function BookReader({ ageTabRequest, assignAllStandardsRequest, book, file, fixA
   const [openRouterSpent, setOpenRouterSpent] = useState(0);
   const [recognizedPageCount, setRecognizedPageCount] = useState(0);
   const [hasRecognitionBeenAttempted, setHasRecognitionBeenAttempted] = useState(() => getSessionRecognitionAttempted(book.id));
+  const [revealedPanes, setRevealedPanes] = useState<Set<ReaderPane>>(new Set());
   const [generatedExercisesPageCount, setGeneratedExercisesPageCount] = useState(0);
   const [recognitionTarget, setRecognitionTarget] = useState<RecognitionTarget>('page');
   const [processingPage, setProcessingPage] = useState<number>();
@@ -1305,19 +1306,38 @@ function BookReader({ ageTabRequest, assignAllStandardsRequest, book, file, fixA
     }
   }, [activePane, book.processingStage, pages, totalPages]);
 
+  const revealPane = useCallback((pane: ReaderPane): void => {
+    setRevealedPanes((current) => {
+      if (current.has(pane)) {
+        return current;
+      }
+
+      const next = new Set(current);
+
+      next.add(pane);
+      return next;
+    });
+    setActivePane(pane);
+  }, []);
+
   useEffect(() => {
     if (pendingProcessingAction) {
       setOpenRouterSpent(0);
     }
 
     if (pendingProcessingAction === 'recognize') {
+      // Recognition resets the conversion pipeline, so no downstream result
+      // tab should remain exposed from an earlier run.
+      setRevealedPanes(new Set());
       setActivePane('text');
     } else if (pendingProcessingAction === 'chapters') {
-      setActivePane('chapters');
+      revealPane('chapters');
     } else if (pendingProcessingAction === 'concepts' || pendingProcessingAction === 'exercises') {
-      setActivePane('textConcepts');
+      revealPane('textConcepts');
+    } else if (pendingProcessingAction === 'standards') {
+      revealPane('standards');
     }
-  }, [pendingProcessingAction]);
+  }, [pendingProcessingAction, revealPane]);
 
   const advanceStage = useCallback(async (processingStage: number): Promise<void> => {
     if ((book.processingStage ?? 0) >= processingStage) {
@@ -2533,7 +2553,7 @@ function BookReader({ ageTabRequest, assignAllStandardsRequest, book, file, fixA
 
     // Open the Language pane immediately, but keep the request pending until
     // the stored recognized pages have finished loading into the reader.
-    setActivePane('language');
+    revealPane('language');
 
     if (!isMmdConversionComplete) {
       return;
@@ -2545,7 +2565,7 @@ function BookReader({ ageTabRequest, assignAllStandardsRequest, book, file, fixA
     // fresh detection automatically. The pane shows progress/result and keeps
     // the manual language override available if detection cannot complete.
     redetectBookLanguage().catch(console.error);
-  }, [isMmdConversionComplete, languageTabRequest, redetectBookLanguage]);
+  }, [isMmdConversionComplete, languageTabRequest, redetectBookLanguage, revealPane]);
 
   useEffect((): void => {
     if (subjectTabRequest === handledSubjectTabRequestRef.current) {
@@ -2554,7 +2574,7 @@ function BookReader({ ageTabRequest, assignAllStandardsRequest, book, file, fixA
 
     // Subject is a separate pipeline action after language. Open its pane now,
     // then show the confirmation/model picker once recognized text is loaded.
-    setActivePane('subject');
+    revealPane('subject');
 
     if (!isMmdConversionComplete) {
       return;
@@ -2562,14 +2582,14 @@ function BookReader({ ageTabRequest, assignAllStandardsRequest, book, file, fixA
 
     handledSubjectTabRequestRef.current = subjectTabRequest;
     openSubjectDetectionConfirmation();
-  }, [isMmdConversionComplete, openSubjectDetectionConfirmation, subjectTabRequest]);
+  }, [isMmdConversionComplete, openSubjectDetectionConfirmation, revealPane, subjectTabRequest]);
 
   useEffect((): void => {
     if (ageTabRequest === handledAgeTabRequestRef.current) {
       return;
     }
 
-    setActivePane('age');
+    revealPane('age');
 
     const hasAllSampleText = ageSamplePageNumbers.length === Math.min(3, totalPages) && ageSamplePageTexts.length === ageSamplePageNumbers.length;
 
@@ -2579,7 +2599,7 @@ function BookReader({ ageTabRequest, assignAllStandardsRequest, book, file, fixA
 
     handledAgeTabRequestRef.current = ageTabRequest;
     openAgeDetectionConfirmation();
-  }, [ageSamplePageNumbers, ageSamplePageTexts, ageTabRequest, openAgeDetectionConfirmation, totalPages]);
+  }, [ageSamplePageNumbers, ageSamplePageTexts, ageTabRequest, openAgeDetectionConfirmation, revealPane, totalPages]);
 
   useEffect((): void => {
     if (
@@ -3760,7 +3780,7 @@ function BookReader({ ageTabRequest, assignAllStandardsRequest, book, file, fixA
       <Skills
         book={book}
         externalRefreshToken={skillsRefreshToken}
-        onAction={setActivePane}
+        onAction={revealPane}
         onBookChange={onBookChange}
         onContentChange={onSkillsContentChange}
         onEntityCountsChange={onSkillsEntityCountsChange}
@@ -3792,17 +3812,17 @@ function BookReader({ ageTabRequest, assignAllStandardsRequest, book, file, fixA
         role='tablist'
       >
         {([
-          ['text', 'PDF/Text', 0, undefined],
-          ['language', 'Language', 1, undefined],
-          ['subject', 'Subject', 1, undefined],
-          ['age', 'Age', 1, undefined],
-          ['chapters', 'Chapters', 1, chapters.length],
-          ['textConcepts', 'Concepts', 3, entityCounts.concepts],
-          ['conceptExercises', 'Exercises', 4, entityCounts.exercises],
-          ['preExercisesExercises', 'Abilities', 6, entityCounts.abilities],
-          ['standards', 'Standards', 11, undefined],
-          ['skillsCourse', 'Course', 8, undefined]
-        ] as Array<[ReaderPane, string, number, number | undefined]>).filter(([, , requiredStage]) => (book.processingStage ?? 0) >= requiredStage).map(([pane, label, , count]) => (
+          ['text', 'PDF/Text', true, undefined],
+          ['language', 'Language', revealedPanes.has('language') || Boolean(book.language), undefined],
+          ['subject', 'Subject', revealedPanes.has('subject') || Boolean(book.subject), undefined],
+          ['age', 'Age', revealedPanes.has('age') || book.age !== undefined, undefined],
+          ['chapters', 'Chapters', revealedPanes.has('chapters') || (book.processingStage ?? 0) >= 2, chapters.length],
+          ['textConcepts', 'Concepts', revealedPanes.has('textConcepts') || (book.processingStage ?? 0) >= 3, entityCounts.concepts],
+          ['conceptExercises', 'Exercises', revealedPanes.has('conceptExercises') || (book.processingStage ?? 0) >= 4, entityCounts.exercises],
+          ['preExercisesExercises', 'Abilities', revealedPanes.has('preExercisesExercises') || (book.processingStage ?? 0) >= 8, entityCounts.abilities],
+          ['standards', 'Standards', revealedPanes.has('standards') || (book.processingStage ?? 0) >= 12, undefined],
+          ['skillsCourse', 'Course', revealedPanes.has('skillsCourse') || (book.processingStage ?? 0) >= 8, undefined]
+        ] as Array<[ReaderPane, string, boolean, number | undefined]>).filter(([, , isVisible]) => isVisible).map(([pane, label, , count]) => (
           <button
             aria-selected={activePane === pane}
             className={activePane === pane ? 'active' : ''}
@@ -4017,7 +4037,7 @@ function BookReader({ ageTabRequest, assignAllStandardsRequest, book, file, fixA
                           <Skills
                             book={book}
                             externalRefreshToken={skillsRefreshToken}
-                            onAction={setActivePane}
+                            onAction={revealPane}
                             onBookChange={onBookChange}
                             onEntityCountsChange={onSkillsEntityCountsChange}
                             showPipeline={false}
@@ -4029,7 +4049,7 @@ function BookReader({ ageTabRequest, assignAllStandardsRequest, book, file, fixA
                         ? <div className='skillsArea'><Skills
                           book={book}
                           externalRefreshToken={skillsRefreshToken}
-                          onAction={setActivePane}
+                          onAction={revealPane}
                           onBookChange={onBookChange}
                           onEntityCountsChange={onSkillsEntityCountsChange}
                           showPipeline={false}
