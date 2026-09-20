@@ -967,6 +967,7 @@ function BookReader({ ageTabRequest, assignAllStandardsRequest, book, file, fixA
       ? 'Saving chapter assignments'
       : 'Identifying chapters from page text';
   const [isDetectingBookLanguage, setIsDetectingBookLanguage] = useState(false);
+  const [isLanguageDetectionConfirmationOpen, setIsLanguageDetectionConfirmationOpen] = useState(false);
   const [isDetectingBookSubject, setIsDetectingBookSubject] = useState(false);
   const [isDetectingBookAge, setIsDetectingBookAge] = useState(false);
   const [isSubjectDetectionConfirmationOpen, setIsSubjectDetectionConfirmationOpen] = useState(false);
@@ -992,6 +993,7 @@ function BookReader({ ageTabRequest, assignAllStandardsRequest, book, file, fixA
   const [pdf, setPdf] = useState<PDFDocumentProxy>();
   const [renderedPageHeight, setRenderedPageHeight] = useState<number>();
   const [selectedModel, setSelectedModel] = useState(OPENAI_MODELS[0].value);
+  const [selectedLanguageModel, setSelectedLanguageModel] = useState(OPENAI_MODELS[0].value);
   const [selectedSubjectModel, setSelectedSubjectModel] = useState(OPENAI_MODELS[0].value);
   const [selectedAgeModel, setSelectedAgeModel] = useState(OPENAI_MODELS[0].value);
   const [ageInput, setAgeInput] = useState(book.age === undefined ? '' : String(book.age));
@@ -1070,6 +1072,20 @@ function BookReader({ ageTabRequest, assignAllStandardsRequest, book, file, fixA
     // input, so show the conservative two-request estimate.
     return formatAiInputEstimate(estimateAiInput(selectedModel, [estimatedRequest, estimatedRequest], 4_800));
   }, [currentConceptChapter, pages, selectedModel]);
+  const languageDetectionEstimate = useMemo(() => {
+    const middlePageNumbers = getMiddleBookPageNumbers(totalPages);
+    const pageTexts = middlePageNumbers.flatMap((middlePageNumber) => {
+      const text = pages.get(middlePageNumber)?.pageMMD?.trim();
+
+      return text ? [{ pageNumber: middlePageNumber, text }] : [];
+    });
+
+    if (!middlePageNumbers.length || pageTexts.length !== middlePageNumbers.length) {
+      return 'Recognition text is incomplete; language detection cannot be estimated yet.';
+    }
+
+    return formatAiInputEstimate(estimateAiInput(selectedLanguageModel, [BOOK_LANGUAGE_DETECTION_PROMPT(pageTexts)], 32));
+  }, [pages, selectedLanguageModel, totalPages]);
   const subjectDetectionEstimate = useMemo(() => {
     if (automaticBookSubjectForLanguage(book.language)) {
       return 'Non-English books are classified as na automatically. No OpenRouter request or model cost is needed.';
@@ -2050,7 +2066,7 @@ function BookReader({ ageTabRequest, assignAllStandardsRequest, book, file, fixA
       });
       const response = await openRouterRequestGate.run(() => client.chat.completions.create({
         messages: [{ content: BOOK_LANGUAGE_DETECTION_PROMPT(pageTexts), role: 'user' }],
-        model: selectedModel,
+        model: selectedLanguageModel,
         response_format: { type: 'json_object' }
       }));
 
@@ -2068,7 +2084,7 @@ function BookReader({ ageTabRequest, assignAllStandardsRequest, book, file, fixA
       isDetectingBookLanguageRef.current = false;
       setIsDetectingBookLanguage(false);
     }
-  }, [addLanguageCost, book, onBookChange, selectedModel, totalPages]);
+  }, [addLanguageCost, book, onBookChange, selectedLanguageModel, totalPages]);
 
   const saveManualBookLanguage = useCallback(async (languageValue: string): Promise<void> => {
     const language = normalizeLanguageCode(languageValue);
@@ -2116,6 +2132,33 @@ function BookReader({ ageTabRequest, assignAllStandardsRequest, book, file, fixA
       setError(caught instanceof Error ? caught.message : 'Unable to determine the book language from MMD text.');
     }
   }, [detectAndStoreBookLanguage, isMmdConversionComplete, pages]);
+
+  const openLanguageDetectionConfirmation = useCallback((): void => {
+    if (!isMmdConversionComplete) {
+      setError('Recognize every page before detecting the book language.');
+      return;
+    }
+
+    const middlePageNumbers = getMiddleBookPageNumbers(totalPages);
+    const hasAllMiddleText = middlePageNumbers.length > 0 && middlePageNumbers.every((middlePageNumber) => Boolean(pages.get(middlePageNumber)?.pageMMD?.trim()));
+
+    if (!hasAllMiddleText) {
+      setError('The middle recognized pages do not contain enough text to detect a language. Choose the language manually.');
+      return;
+    }
+
+    setError('');
+    setIsLanguageDetectionConfirmationOpen(true);
+  }, [isMmdConversionComplete, pages, totalPages]);
+
+  const closeLanguageDetectionConfirmation = useCallback((): void => {
+    setIsLanguageDetectionConfirmationOpen(false);
+  }, []);
+
+  const confirmLanguageDetection = useCallback((): void => {
+    setIsLanguageDetectionConfirmationOpen(false);
+    redetectBookLanguage().catch(console.error);
+  }, [redetectBookLanguage]);
 
   const detectAndStoreBookSubject = useCallback(async (recognizedPages: Map<number, BookPage>, force = false): Promise<void> => {
     if ((!force && book.subject) || isDetectingBookSubjectRef.current) {
@@ -2561,11 +2604,10 @@ function BookReader({ ageTabRequest, assignAllStandardsRequest, book, file, fixA
 
     handledLanguageTabRequestRef.current = languageTabRequest;
 
-    // The pipeline Language button is an action, not only navigation: start a
-    // fresh detection automatically. The pane shows progress/result and keeps
-    // the manual language override available if detection cannot complete.
-    redetectBookLanguage().catch(console.error);
-  }, [isMmdConversionComplete, languageTabRequest, redetectBookLanguage, revealPane]);
+    // Language uses OpenRouter, so the pipeline action must stop at the same
+    // estimate/model confirmation gate as the other AI-backed stages.
+    openLanguageDetectionConfirmation();
+  }, [isMmdConversionComplete, languageTabRequest, openLanguageDetectionConfirmation, revealPane]);
 
   useEffect((): void => {
     if (subjectTabRequest === handledSubjectTabRequestRef.current) {
@@ -3270,7 +3312,7 @@ function BookReader({ ageTabRequest, assignAllStandardsRequest, book, file, fixA
           icon='magic'
           isDisabled={!isMmdConversionComplete || isDetectingBookLanguage}
           label={isDetectingBookLanguage ? 'Detecting…' : 'Detect from text'}
-          onClick={() => redetectBookLanguage().catch(console.error)}
+          onClick={openLanguageDetectionConfirmation}
         />
         <div
           aria-label='Choose book language'
@@ -3676,6 +3718,36 @@ function BookReader({ ageTabRequest, assignAllStandardsRequest, book, file, fixA
           </Button.Group>
         </Modal.Content>
       </Modal>}
+      {isLanguageDetectionConfirmationOpen && <Modal
+        header='Detect book language'
+        onClose={closeLanguageDetectionConfirmation}
+        size='small'
+      >
+        <Modal.Content>
+          <p>Detect the primary language? You can change the result manually afterward.</p>
+          <p>{languageDetectionEstimate}</p>
+          <Dropdown
+            className='modelSelect'
+            isFull
+            label='Model'
+            onChange={setSelectedLanguageModel}
+            options={OPENAI_MODELS}
+            value={selectedLanguageModel}
+          />
+          <Button.Group>
+            <Button
+              icon='times'
+              label='Cancel'
+              onClick={closeLanguageDetectionConfirmation}
+            />
+            <Button
+              icon='magic'
+              label='Detect'
+              onClick={confirmLanguageDetection}
+            />
+          </Button.Group>
+        </Modal.Content>
+      </Modal>}
       {isSubjectDetectionConfirmationOpen && <Modal
         header='Detect book subject'
         onClose={closeSubjectDetectionConfirmation}
@@ -3684,7 +3756,7 @@ function BookReader({ ageTabRequest, assignAllStandardsRequest, book, file, fixA
         <Modal.Content>
           <p>{automaticBookSubjectForLanguage(book.language)
             ? 'This book is not in English, so its subject will be set to na automatically. You can change the stored subject manually afterward.'
-            : 'Detect the primary subject from the middle recognized pages? You can change the result manually afterward.'}</p>
+            : 'Detect the primary subject? You can change the result manually afterward.'}</p>
           <p>{subjectDetectionEstimate}</p>
           {!automaticBookSubjectForLanguage(book.language) && <Dropdown
             className='modelSelect'
