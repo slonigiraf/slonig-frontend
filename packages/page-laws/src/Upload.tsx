@@ -877,7 +877,7 @@ function Upload (): React.ReactElement {
               onClick={closeIdentifyChaptersConfirmation}
             />
             <Button
-              icon='magic'
+              icon='play'
               label={t('Identify')}
               onClick={confirmIdentifyChapters}
             />
@@ -937,7 +937,7 @@ function Upload (): React.ReactElement {
               onClick={closeStandardsConfirmation}
             />
             <Button
-              icon='magic'
+              icon='play'
               label={t('Identify')}
               onClick={confirmAssignStandards}
             />
