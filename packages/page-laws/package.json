@@ -29,6 +29,7 @@
     "detect-browser": "^5.3.0",
     "fflate": "^0.8.0",
     "file-saver": "^2.0.5",
+    "fontkit": "^2.0.4",
     "ipfs-core": "^0.14.2",
     "ipfs-core-types": "^0.10.1",
     "mathpix-markdown-it": "^3.0.1",

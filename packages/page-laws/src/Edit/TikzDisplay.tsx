@@ -4,6 +4,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { styled } from '@polkadot/react-components';
 import { embedTikzSourceInSvg } from './tikz.js';
+import { convertTikzTextToPaths } from './tikzGlyphPaths.js';
 
 interface Props {
   alt: string;
@@ -39,6 +40,7 @@ export interface TikzPreRenderResult {
 // TikZJax needs these files at runtime in addition to its JavaScript bundle.
 const TIKZJAX_ASSET_BASE = 'https://cdn.jsdelivr.net/npm/@rod2ik/tikzjax@1.6.0/dist';
 const TIKZJAX_FONT_STYLESHEET = `${TIKZJAX_ASSET_BASE}/fonts.min.css`;
+const TIKZJAX_FONT_BASE = `${TIKZJAX_ASSET_BASE}/fonts`;
 const PRERENDER_TIMEOUT_MS = 35_000;
 let tikzJaxPromise: Promise<void> | undefined;
 let preRenderQueue: Promise<void> = Promise.resolve();
@@ -285,7 +287,9 @@ export async function renderTikzToSvg (value: string): Promise<string> {
     ? svg
     : svg.replace(/^<svg\b/i, '<svg xmlns="http://www.w3.org/2000/svg"');
 
-  return embedTikzSourceInSvg(standaloneSvg, value);
+  const outlinedSvg = await convertTikzTextToPaths(standaloneSvg, TIKZJAX_FONT_BASE);
+
+  return embedTikzSourceInSvg(outlinedSvg, value);
 }
 
 export default function TikzDisplay ({ alt, value }: Props): React.ReactElement {
