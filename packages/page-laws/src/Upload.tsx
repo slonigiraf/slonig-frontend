@@ -1009,7 +1009,6 @@ function Upload (): React.ReactElement {
             className='deleteButton'
             icon='trash'
             isDisabled={!selectedBook || isBusy}
-            label={t('Delete')}
             onClick={onDelete}
           />
         </div>
@@ -1141,8 +1140,16 @@ const StyledSection = styled.section`
     margin: 0;
   }
 
-  .bookSelect { min-width: 0; overflow: visible; }
-  .bookSelect > .text { display: block; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .bookSelect.ui--Dropdown { min-width: 0; overflow: visible; }
+  .bookSelect.ui--Dropdown .ui.selection.dropdown { box-sizing: border-box; min-width: 0 !important; width: 100%; }
+  .bookSelect.ui--Dropdown .ui.selection.dropdown > .text {
+    display: block !important;
+    max-width: 100%;
+    min-width: 0;
+    overflow: hidden !important;
+    text-overflow: ellipsis;
+    white-space: nowrap !important;
+  }
   .batchModelSelect {
     margin: 1rem 0;
   }

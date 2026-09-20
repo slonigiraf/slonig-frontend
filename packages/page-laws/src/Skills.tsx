@@ -2805,6 +2805,8 @@ const StyledSkills = styled.div`
     height: var(--pipeline-control-height) !important;
     margin: 0 !important;
     min-height: var(--pipeline-control-height) !important;
+    min-width: 0 !important;
+    max-width: 100%;
     padding: 0 2.35rem 0 0.95rem !important;
     width: 100%;
   }
@@ -2828,9 +2830,11 @@ const StyledSkills = styled.div`
 
   .pipelineControls {
     align-items: stretch;
+    box-sizing: border-box;
     display: flex;
     gap: 0.9rem;
     min-width: max-content;
+    padding-left: 0.35rem;
     white-space: nowrap;
   }
 
@@ -2849,6 +2853,7 @@ const StyledSkills = styled.div`
   }
 
   .pipelinePriceButton {
+    margin-left: 0.75rem !important;
     margin-right: 0.25rem !important;
   }
   .modelSelect { min-width: 11rem; }
