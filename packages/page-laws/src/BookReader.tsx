@@ -29,7 +29,7 @@ import { chapterAssignmentsFromBoundaries, chapterEvidenceWindows, chapterReconc
 import { getSharedChapterSelection, resolveSharedChapterIndex, storeSharedChapterSelection, subscribeSharedChapterSelection, type SharedChapterSelection } from './chapterSelection.js';
 import { conceptChaptersFromPages, parseGeneratedChapterConcepts, type ConceptChapterNavigationItem, type GeneratedChapterConcepts } from './conceptRecognition.js';
 import { loadStandardsCatalogsForBookSubject, loadStoredBookStandards, mergeStandardsMatches, parseStandardsFixResult, parseStandardsMatches, STANDARD_FRAMEWORKS, STANDARDS_FIX_RUNS, STANDARDS_MATCH_RUNS, standardsChapterKey, standardsConceptFingerprint, standardsConceptInputs, standardsFixInputs, standardsFixPrompt, standardsMatchingPrompt, standardsPathForBookSubject, storeBookStandards, type CurriculumStandard, type StandardsCatalog, type StandardsConceptInput, type StoredBookStandards } from './standards.js';
-import Skills from './Skills.js';
+import Skills, { type PipelineAction } from './Skills.js';
 import SkillsCourse from './SkillsCourse.js';
 import { extractPdfOutlineChapterBoundaries, loadPdfJs } from './pdf.js';
 import { useTranslation } from './translate.js';
@@ -853,10 +853,12 @@ interface Props {
   languageTabRequest: number;
   subjectTabRequest: number;
   onBookChange: (book: Book) => void;
+  onPrice: () => void;
   onProcessingComplete: () => void;
+  isPriceDisabled?: boolean;
   pendingProcessingAction?: 'chapters' | 'concepts' | 'recognize' | 'standards' | 'fixStandards' | 'exercises';
-  processingToolbar: React.ReactNode;
-  processingToolbarAfterFixImages?: (stage: number) => React.ReactNode;
+  processingToolbar: PipelineAction[];
+  processingToolbarAfterFixImages?: (stage: number) => PipelineAction[];
   generateAllExercisesRequest: number;
   recognizeAllRequest: number;
 }
@@ -918,7 +920,7 @@ function getSessionReaderPane(bookId: number): ReaderPane {
   }
 }
 
-function BookReader({ ageTabRequest, assignAllStandardsRequest, book, file, fixAllStandardsRequest, generateAllConceptsModel, generateAllConceptsRequest, identifyChaptersRequest, languageTabRequest, subjectTabRequest, onBookChange, onProcessingComplete, pendingProcessingAction, processingToolbar, processingToolbarAfterFixImages, recognizeAllRequest, generateAllExercisesRequest }: Props): React.ReactElement {
+function BookReader({ ageTabRequest, assignAllStandardsRequest, book, file, fixAllStandardsRequest, generateAllConceptsModel, generateAllConceptsRequest, identifyChaptersRequest, isPriceDisabled = false, languageTabRequest, subjectTabRequest, onBookChange, onPrice, onProcessingComplete, pendingProcessingAction, processingToolbar, processingToolbarAfterFixImages, recognizeAllRequest, generateAllExercisesRequest }: Props): React.ReactElement {
   const { t } = useTranslation();
   const [activePane, setActivePane] = useState<ReaderPane>(() => {
     const stage = book.processingStage ?? 0;
@@ -3762,6 +3764,20 @@ function BookReader({ ageTabRequest, assignAllStandardsRequest, book, file, fixA
         onBookChange={onBookChange}
         onContentChange={onSkillsContentChange}
         onEntityCountsChange={onSkillsEntityCountsChange}
+        pipelineControls={<>
+          <Button
+            className='pipelinePriceButton'
+            icon='dollar-sign'
+            isDisabled={isPriceDisabled}
+            label={t('Price')}
+            onClick={onPrice}
+          />
+          <Button
+            className='pipelineZoomButton'
+            icon={isMaximized ? 'compress' : 'search-plus'}
+            onClick={() => setIsMaximized((value) => !value)}
+          />
+        </>}
         pipelineOnly
         pipelinePrefix={processingToolbar}
         pipelineSuffix={processingToolbarAfterFixImages}
@@ -3797,10 +3813,6 @@ function BookReader({ ageTabRequest, assignAllStandardsRequest, book, file, fixA
             type='button'
           >{label}{count === undefined ? '' : ` (${count})`}</button>
         ))}
-        <div className='previewButton'><Button
-          icon={isMaximized ? 'compress' : 'search-plus'}
-          onClick={() => setIsMaximized((value) => !value)}
-        /></div>
       </div>
       <div
         aria-labelledby={`${activePane}-tab`}
@@ -4244,16 +4256,6 @@ const StyledReader = styled.div`
     max-width: 100%;
   }
 
-  .previewButton {
-    align-items: center;
-    display: flex;
-    justify-content: flex-end;
-  }
-
-  .previewButton .ui--Button {
-    margin: 0;
-  }
-
   .detailsArea {
     display: flex;
     flex-direction: column;
@@ -4265,11 +4267,6 @@ const StyledReader = styled.div`
     display: flex;
     flex-wrap: wrap;
     row-gap: 0;
-  }
-
-  .readerTabs .previewButton {
-    margin-left: auto;
-    padding: 0 0.5rem;
   }
 
   .readerTabs button {

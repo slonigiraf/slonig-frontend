@@ -8,7 +8,7 @@ import type { AbilityBlueprint, AbilityWorkflowJsonRunner, ExerciseAbilityConver
 import { addBookStageSpend, deleteAbilities, deleteAbility, deleteBookConcept, deleteExercise, deleteSkill, getAbilities, getBookChapters, getBookConceptsForBookPage, getBookPages, getExercisesForBookPage, getSetting, getSkillsForChapter, replaceAbilities, replaceExercisesForBookPage, replaceSkillsForChapter, SettingKey, storeAbility, updateBookChapterTitle, updateBookProcessingStage } from '@slonigiraf/db';
 import { KatexSpan, RoundProgress } from '@slonigiraf/slonig-components';
 import OpenAI from 'openai';
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { Button, Dropdown, Input, Modal, styled } from '@polkadot/react-components';
 
@@ -134,6 +134,14 @@ async function requestChatContent (client: OpenAI, model: string, systemPrompt: 
 
 export type SkillsView = 'conceptsSkills' | 'preExercisesExercises';
 
+export interface PipelineAction {
+  key: string;
+  label: string;
+  isDone: boolean;
+  isDisabled: boolean;
+  onClick: () => void;
+}
+
 interface Props {
   book: Book;
   onBookChange: (book: Book) => void;
@@ -142,8 +150,9 @@ interface Props {
   onEntityCountsChange?: (counts: { abilities: number; bookExercises: number; exercises: number }) => void;
   externalRefreshToken?: number;
   pipelineOnly?: boolean;
-  pipelinePrefix?: React.ReactNode;
-  pipelineSuffix?: (stage: number) => React.ReactNode;
+  pipelineControls?: React.ReactNode;
+  pipelinePrefix?: PipelineAction[];
+  pipelineSuffix?: (stage: number) => PipelineAction[];
   showPipeline?: boolean;
   view: SkillsView;
 }
@@ -1021,7 +1030,7 @@ function getSessionChapter (bookId: number, view: SkillsView): number {
   }
 }
 
-function Skills ({ book, externalRefreshToken = 0, onAction, onBookChange, onContentChange, onEntityCountsChange, pipelineOnly = false, pipelinePrefix, pipelineSuffix, showPipeline = true, view }: Props): React.ReactElement {
+function Skills ({ book, externalRefreshToken = 0, onAction, onBookChange, onContentChange, onEntityCountsChange, pipelineOnly = false, pipelineControls, pipelinePrefix, pipelineSuffix, showPipeline = true, view }: Props): React.ReactElement {
   const language = book.language ?? '';
   const hasBookLanguage = Boolean(language);
   const hasBookSubject = Boolean(book.subject);
@@ -1242,7 +1251,6 @@ function Skills ({ book, externalRefreshToken = 0, onAction, onBookChange, onCon
     : requestInputs, [aiAction, requestInputs]);
   const outputTokens = generationOutputTokens;
   const estimate = formatAiInputEstimate(estimateAiInput(selectedModel, validationInputs, outputTokens));
-  const iconForStage = useCallback((requiredStage: number): 'play' | 'rotate-left' => stage >= requiredStage ? 'rotate-left' : 'play', [stage]);
 
   const deleteExerciseWithAbilities = useCallback(async (exerciseId: number): Promise<void> => {
     await deleteAbilities(exerciseAbilityModuleId(book.id, exerciseId));
@@ -2113,6 +2121,102 @@ function Skills ({ book, externalRefreshToken = 0, onAction, onBookChange, onCon
   }, [aiAction, completeImagesStage, fixAbilities, fixExercises, fixImages, generateExercises, generateSkills, onAction]);
   const closeConfirmation = useCallback((): void => setAiAction(undefined), []);
 
+  const pipelineActions = useMemo<PipelineAction[]>(() => [
+    ...(pipelinePrefix ?? []),
+    {
+      key: 'fixExercises',
+      label: 'Fix exercises',
+      isDone: stage >= FIX_EXERCISES_STAGE,
+      isDisabled: isBusy || !hasBookLanguage || !hasBookSubject || stage < 4 || !allExercises.length,
+      onClick: openExerciseFix
+    },
+    {
+      key: 'abilities',
+      label: 'Abilities',
+      isDone: stage >= ABILITIES_STAGE,
+      isDisabled: isBusy || !hasBookLanguage || !hasBookSubject || stage < FIX_EXERCISES_STAGE || !allExercises.length,
+      onClick: openExerciseGeneration
+    },
+    {
+      key: 'fixAbilities',
+      label: 'Fix abilities',
+      isDone: stage >= FIX_ABILITIES_STAGE,
+      isDisabled: isBusy || !hasBookLanguage || !hasBookSubject || stage < ABILITIES_STAGE || !hasAbilities,
+      onClick: openAbilityFix
+    },
+    {
+      key: 'images',
+      label: 'Images',
+      isDone: stage >= IMAGES_STAGE,
+      isDisabled: isBusy || !hasBookLanguage || !hasBookSubject || stage < FIX_ABILITIES_STAGE || !hasAbilities,
+      onClick: openImages
+    },
+    {
+      key: 'fixImages',
+      label: 'Fix images',
+      isDone: stage >= FIX_IMAGES_STAGE,
+      isDisabled: isBusy || !hasBookLanguage || !hasBookSubject || stage < IMAGES_STAGE || !hasAbilities,
+      onClick: openImageFix
+    },
+    ...(pipelineSuffix?.(stage) ?? [])
+  ], [allExercises.length, hasAbilities, hasBookLanguage, hasBookSubject, isBusy, openAbilityFix, openExerciseFix, openExerciseGeneration, openImageFix, openImages, pipelinePrefix, pipelineSuffix, stage]);
+  const visiblePipelineActions = useMemo(() => {
+    const firstIncompleteIndex = pipelineActions.findIndex(({ isDone }) => !isDone);
+
+    // A stage is only selectable once every stage before it is complete. Keep
+    // completed stages available for re-runs, plus exactly the next stage.
+    return firstIncompleteIndex === -1
+      ? pipelineActions
+      : pipelineActions.slice(0, firstIncompleteIndex + 1);
+  }, [pipelineActions]);
+  const [selectedPipelineKey, setSelectedPipelineKey] = useState('');
+  const previousPipelineDoneRef = useRef<Map<string, boolean>>(new Map());
+  const pipelineBookIdRef = useRef(book.id);
+
+  useEffect(() => {
+    if (!visiblePipelineActions.length) {
+      setSelectedPipelineKey('');
+      previousPipelineDoneRef.current = new Map();
+      return;
+    }
+
+    if (pipelineBookIdRef.current !== book.id) {
+      pipelineBookIdRef.current = book.id;
+      previousPipelineDoneRef.current = new Map(pipelineActions.map(({ isDone, key }) => [key, isDone] as const));
+      const next = visiblePipelineActions.find(({ isDone }) => !isDone)
+        ?? visiblePipelineActions[visiblePipelineActions.length - 1];
+
+      setSelectedPipelineKey(next?.key ?? '');
+      return;
+    }
+
+    const previousDone = previousPipelineDoneRef.current;
+    const currentAction = visiblePipelineActions.find(({ key }) => key === selectedPipelineKey);
+    const previousCurrentAction = pipelineActions.find(({ key }) => key === selectedPipelineKey);
+    const justCompleted = previousCurrentAction
+      && previousDone.get(previousCurrentAction.key) === false
+      && previousCurrentAction.isDone;
+
+    if (!currentAction || justCompleted) {
+      const next = visiblePipelineActions.find(({ isDone }) => !isDone)
+        ?? visiblePipelineActions[visiblePipelineActions.length - 1];
+
+      setSelectedPipelineKey(next?.key ?? '');
+    }
+
+    previousPipelineDoneRef.current = new Map(pipelineActions.map(({ isDone, key }) => [key, isDone] as const));
+  }, [book.id, pipelineActions, selectedPipelineKey, visiblePipelineActions]);
+
+  const selectedPipelineAction = visiblePipelineActions.find(({ key }) => key === selectedPipelineKey);
+
+  const runSelectedPipelineAction = useCallback((): void => {
+    if (!selectedPipelineAction || selectedPipelineAction.isDisabled) {
+      return;
+    }
+
+    selectedPipelineAction.onClick();
+  }, [selectedPipelineAction]);
+
   return <StyledSkills className={pipelineOnly ? 'pipelineOnly' : undefined}>
     {exerciseFixReview && (
       <Modal
@@ -2357,38 +2461,31 @@ function Skills ({ book, externalRefreshToken = 0, onAction, onBookChange, onCon
       </div>
     )}
     {showPipeline && <div className='pipeline'>
-      {pipelinePrefix}
-      <span className='pipelineStep'><span>›</span><Button
-        icon={iconForStage(FIX_EXERCISES_STAGE)}
-        isDisabled={isBusy || !hasBookLanguage || !hasBookSubject || stage < 4 || !allExercises.length}
-        label='Fix exercises'
-        onClick={openExerciseFix}
-                                                   /></span>
-      <span className='pipelineStep'><span>›</span><Button
-        icon={iconForStage(ABILITIES_STAGE)}
-        isDisabled={isBusy || !hasBookLanguage || !hasBookSubject || stage < FIX_EXERCISES_STAGE || !allExercises.length}
-        label='Abilities'
-        onClick={openExerciseGeneration}
-                                                   /></span>
-      <span className='pipelineStep'><span>›</span><Button
-        icon={iconForStage(FIX_ABILITIES_STAGE)}
-        isDisabled={isBusy || !hasBookLanguage || !hasBookSubject || stage < ABILITIES_STAGE || !hasAbilities}
-        label='Fix abilities'
-        onClick={openAbilityFix}
-                                                   /></span>
-      <span className='pipelineStep'><span>›</span><Button
-        icon={iconForStage(IMAGES_STAGE)}
-        isDisabled={isBusy || !hasBookLanguage || !hasBookSubject || stage < FIX_ABILITIES_STAGE || !hasAbilities}
-        label='Images'
-        onClick={openImages}
-                                                   /></span>
-      <span className='pipelineStep'><span>›</span><Button
-        icon={iconForStage(FIX_IMAGES_STAGE)}
-        isDisabled={isBusy || !hasBookLanguage || !hasBookSubject || stage < IMAGES_STAGE || !hasAbilities}
-        label='Fix images'
-        onClick={openImageFix}
-                                                   /></span>
-      {pipelineSuffix?.(stage)}
+      <div className='pipelineRunGroup'>
+        <button
+          aria-label='Run selected stage'
+          className='pipelineRunButton'
+          disabled={!selectedPipelineAction || selectedPipelineAction.isDisabled}
+          onClick={runSelectedPipelineAction}
+          type='button'
+        >
+          <span aria-hidden='true'>▶</span>
+        </button>
+        <Dropdown
+          className='pipelineStageDropdown'
+          isDisabled={isBusy || !visiblePipelineActions.length}
+          isFull
+          withLabel={false}
+          onChange={setSelectedPipelineKey}
+          options={visiblePipelineActions.map(({ isDone, key, label }) => ({
+            key,
+            text: `${isDone ? '✓ ' : ''}${label}`,
+            value: key
+          }))}
+          value={selectedPipelineKey}
+        />
+      </div>
+      {pipelineControls && <div className='pipelineControls'>{pipelineControls}</div>}
     </div>}
     {error && <p
       className='errorMessage'
@@ -2581,7 +2678,7 @@ const EditForm = styled.div`
     border-radius: 0.55rem;
     box-sizing: border-box;
     display: grid;
-    gap: 0.9rem;
+    gap: 1.1rem;
     margin: 0;
     min-width: 0;
     padding: 1rem;
@@ -2619,9 +2716,150 @@ const EditForm = styled.div`
 const StyledSkills = styled.div`
   background: var(--bg-page); border-radius: 0.5rem; box-sizing: border-box; min-width: 0; padding: 1rem; position: relative; width: 100%;
   &.pipelineOnly { background: transparent; border-radius: 0; margin-top: 0; padding: 0; }
-  .pipeline { align-items: center; display: flex; flex-wrap: wrap; gap: 0.35rem 0.75rem; margin-bottom: 0.75rem; }
-  .pipelineStep { align-items: center; display: inline-flex; gap: 0.35rem; white-space: nowrap; }
-  .pipelineStep > span { color: var(--color-label); font-size: 1.5rem; font-weight: 700; }
+  .pipeline {
+    --pipeline-control-height: 3.125rem;
+    align-items: center;
+    display: grid;
+    gap: 0.65rem;
+    grid-template-columns: minmax(0, 1fr) auto;
+    margin-bottom: 0.75rem;
+    width: 100%;
+  }
+
+  /* Keep the run button visually attached to the same Dropdown component used
+     elsewhere in the app. This means the opened menu inherits the app's normal
+     dropdown styling instead of maintaining a second, custom menu implementation. */
+  .pipelineRunGroup {
+    align-items: stretch;
+    display: grid;
+    gap: 0;
+    grid-template-columns: var(--pipeline-control-height) minmax(0, 1fr);
+    height: var(--pipeline-control-height);
+    min-height: var(--pipeline-control-height);
+    min-width: 0;
+    width: 100%;
+  }
+
+  .pipelineRunButton {
+    align-items: center;
+    align-self: stretch;
+    background: var(--color-primary, #f28c00);
+    border: 1px solid var(--color-primary, #f28c00);
+    border-radius: 0.5rem 0 0 0.5rem;
+    color: #fff;
+    cursor: pointer;
+    display: flex;
+    font: inherit;
+    height: var(--pipeline-control-height);
+    justify-content: center;
+    margin: 0;
+    min-height: var(--pipeline-control-height);
+    min-width: 0;
+    padding: 0;
+    position: relative;
+    z-index: 1;
+  }
+
+  .pipelineRunButton span {
+    display: block;
+    font-size: 1.05rem;
+    line-height: 1;
+    transform: translateX(0.04rem);
+  }
+
+  .pipelineRunButton:hover:not(:disabled) {
+    filter: brightness(0.96);
+  }
+
+  .pipelineRunButton:focus-visible {
+    outline: 2px solid color-mix(in srgb, var(--color-primary, #f28c00) 40%, white);
+    outline-offset: -4px;
+  }
+
+  .pipelineRunButton:disabled {
+    cursor: default;
+    opacity: 0.48;
+  }
+
+  .pipelineStageDropdown.ui--Dropdown {
+    align-self: stretch;
+    box-sizing: border-box;
+    height: var(--pipeline-control-height);
+    margin: 0 !important;
+    min-height: var(--pipeline-control-height);
+    min-width: 0;
+    padding: 0 !important;
+    width: 100%;
+  }
+
+  /* Keep the app's normal Semantic/Polkadot dropdown menu, but remove the
+     Labelled component's empty-label spacing from this toolbar-sized control. */
+  .pipelineStageDropdown.ui--Dropdown > .ui.dropdown,
+  .pipelineStageDropdown.ui--Dropdown .ui.selection.dropdown {
+    align-items: center !important;
+    border-bottom-left-radius: 0 !important;
+    border-left-width: 0 !important;
+    border-top-left-radius: 0 !important;
+    box-sizing: border-box;
+    display: flex !important;
+    height: var(--pipeline-control-height) !important;
+    margin: 0 !important;
+    min-height: var(--pipeline-control-height) !important;
+    padding: 0 2.35rem 0 0.95rem !important;
+    width: 100%;
+  }
+
+  .pipelineStageDropdown.ui--Dropdown .ui.selection.dropdown > .text {
+    display: block !important;
+    line-height: 1.2 !important;
+    margin: 0 !important;
+    min-height: 0 !important;
+    padding: 0 !important;
+    position: static !important;
+    transform: none !important;
+  }
+
+  .pipelineStageDropdown.ui--Dropdown .ui.selection.dropdown > .dropdown.icon {
+    margin: 0 !important;
+    right: 0.9rem !important;
+    top: 50% !important;
+    transform: translateY(-50%) !important;
+  }
+
+  .pipelineControls {
+    align-items: stretch;
+    display: flex;
+    gap: 0.9rem;
+    min-width: max-content;
+    white-space: nowrap;
+  }
+
+  /* Price and zoom should stay as the app's normal button treatment. Do not
+     put an extra white card behind them. */
+  .pipelineControls .ui--Button {
+    background: transparent !important;
+    border: 0 !important;
+    box-shadow: none !important;
+    margin: 0;
+    min-height: 0;
+    padding: 0 !important;
+  }
+
+  .pipelineControls .ui--Button > button {
+    height: var(--pipeline-control-height);
+    margin: 0 !important;
+    min-height: var(--pipeline-control-height);
+  }
+
+  .pipelinePriceButton,
+  .pipelineZoomButton {
+    flex: 0 0 auto;
+    min-width: 0;
+  }
+
+  .pipelinePriceButton {
+    margin-right: 0.25rem !important;
+  }
   .modelSelect { min-width: 11rem; }
   .chapterNavigation { align-items: center; display: grid; gap: 0.5rem; grid-template-columns: auto minmax(14rem, 1fr) minmax(8rem, 1fr) auto auto; margin-bottom: 1rem; }
   .exercisesChapterNavigation { display: flex; gap: 0.75rem; }

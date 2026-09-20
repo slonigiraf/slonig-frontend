@@ -987,40 +987,38 @@ function Upload (): React.ReactElement {
         </Modal.Content>
       </Modal>}
       <div className='bookToolbar'>
-        <Button
-          className='priceButton'
-          isDisabled={!selectedBook}
-          label={t('Price')}
-          onClick={onPrice}
-        />
-        <Button
-          className='uploadButton'
-          icon='upload'
-          isDisabled={isBusy}
-          label={t('Upload')}
-          onClick={onChooseFile}
-        />
-        <Dropdown
-          className='bookSelect'
-          isDisabled={!books.length || isBusy}
-          isFull
-          label={t('Uploaded books')}
-          onChange={setSelectedId}
-          options={options}
-          placeholder={t('No books uploaded')}
-          value={selectedId}
-        />
+        <div className='bookToolbarPrimary'>
+          <Button
+            className='uploadButton'
+            icon='upload'
+            isDisabled={isBusy}
+            label={t('Upload')}
+            onClick={onChooseFile}
+          />
+          <Dropdown
+            className='bookSelect'
+            isDisabled={!books.length || isBusy}
+            isFull
+            label={t('Uploaded books')}
+            onChange={setSelectedId}
+            options={options}
+            placeholder={t('No books uploaded')}
+            value={selectedId}
+          />
+          <Button
+            className='deleteButton'
+            icon='trash'
+            isDisabled={!selectedBook || isBusy}
+            label={t('Delete')}
+            onClick={onDelete}
+          />
+        </div>
         <input
           accept='application/pdf,.pdf'
           className='fileInput'
           onChange={onFileChange}
           ref={fileInputRef}
           type='file'
-        />
-        <Button
-          icon='trash'
-          isDisabled={!selectedBook || isBusy}
-          onClick={onDelete}
         />
       </div>
       {error && (
@@ -1043,85 +1041,78 @@ function Upload (): React.ReactElement {
             ageTabRequest={ageTabRequest}
             generateAllConceptsRequest={generateAllConceptsRequest}
             identifyChaptersRequest={identifyChaptersRequest}
+            isPriceDisabled={!selectedBook || isBusy}
             onBookChange={onBookChange}
+            onPrice={onPrice}
             onProcessingComplete={onProcessingComplete}
             pendingProcessingAction={pendingProcessingAction}
-            processingToolbar={<>
-            <Button
-              icon={(selectedBook?.processingStage ?? 0) >= 1 ? 'rotate-left' : 'play'}
-              isDisabled={!selectedBook || !readerFile || isBusy}
-              label={t('Recognize')}
-              onClick={onRecognize}
-            />
-            <span className='pipelineStep'>
-              <span>›</span>
-              <Button
-                icon={selectedBook?.language ? 'rotate-left' : 'play'}
-                isDisabled={!selectedBook || !readerFile || isBusy || (selectedBook.processingStage ?? 0) < 1}
-                label={t('Language')}
-                onClick={onShowLanguage}
-              />
-            </span>
-            <span className='pipelineStep'>
-              <span>›</span>
-              <Button
-                icon={selectedBook?.subject ? 'rotate-left' : 'play'}
-                isDisabled={!selectedBook || !readerFile || isBusy || (selectedBook.processingStage ?? 0) < 1 || !selectedBook.language}
-                label={t('Subject')}
-                onClick={onShowSubject}
-              />
-            </span>
-            <span className='pipelineStep'>
-              <span>›</span>
-              <Button
-                icon={selectedBook?.age !== undefined ? 'rotate-left' : 'play'}
-                isDisabled={!selectedBook || !readerFile || isBusy || (selectedBook.processingStage ?? 0) < 1 || !selectedBook.language || !selectedBook.subject}
-                label={t('Age')}
-                onClick={onShowAge}
-              />
-            </span>
-            <span className='pipelineStep'>
-              <span>›</span>
-              <Button
-                icon={(selectedBook?.processingStage ?? 0) >= 2 ? 'rotate-left' : 'play'}
-                isDisabled={!selectedBook || !readerFile || isBusy || (selectedBook.processingStage ?? 0) < 1}
-                label={t('Chapters')}
-                onClick={onIdentifyChapters}
-              />
-            </span>
-            <span className='pipelineStep'>
-              <span>›</span>
-              <Button
-                icon={(selectedBook?.processingStage ?? 0) >= 3 ? 'rotate-left' : 'play'}
-                isDisabled={!selectedBook || !readerFile || isBusy || (selectedBook.processingStage ?? 0) < 2 || !selectedBook.language || !selectedBook.subject}
-                label={t('Concepts')}
-                onClick={onGenerateConcepts}
-              />
-            </span>
-            <span className='pipelineStep'>
-              <span>›</span>
-              <Button
-                icon={(selectedBook?.processingStage ?? 0) >= 4 ? 'rotate-left' : 'play'}
-                isDisabled={!selectedBook || !readerFile || isBusy || (selectedBook.processingStage ?? 0) < 3 || !selectedBook.language || !selectedBook.subject}
-                label={t('Exercises')}
-                onClick={onGenerateExercises}
-              />
-            </span>
-            </>}
-            processingToolbarAfterFixImages={(pipelineStage) => <>
-              <span className='pipelineStep'><span>›</span><Button
-                icon={pipelineStage >= 12 || standardsAssigned ? 'rotate-left' : 'play'}
-                isDisabled={!selectedBook || !readerFile || isBusy || pipelineStage < 11 || !selectedBook.language || !selectedBook.subject}
-                label={t('Standards')}
-                onClick={onAssignStandards}
-              /></span>
-              <span className='pipelineStep'><span>›</span><Button
-                icon={pipelineStage >= 13 ? 'rotate-left' : 'play'}
-                isDisabled={!selectedBook || !readerFile || isBusy || (pipelineStage < 12 && !standardsAssigned) || !selectedBook.language || !selectedBook.subject}
-                label={t('Fix standards')}
-                onClick={onFixStandards}
-              /></span>
-            </>}
+            processingToolbar={[
+              {
+                key: 'recognize',
+                label: t('Recognize'),
+                isDone: (selectedBook?.processingStage ?? 0) >= 1,
+                isDisabled: !selectedBook || !readerFile || isBusy,
+                onClick: onRecognize
+              },
+              {
+                key: 'language',
+                label: t('Language'),
+                isDone: Boolean(selectedBook?.language),
+                isDisabled: !selectedBook || !readerFile || isBusy || (selectedBook.processingStage ?? 0) < 1,
+                onClick: onShowLanguage
+              },
+              {
+                key: 'subject',
+                label: t('Subject'),
+                isDone: Boolean(selectedBook?.subject),
+                isDisabled: !selectedBook || !readerFile || isBusy || (selectedBook.processingStage ?? 0) < 1 || !selectedBook.language,
+                onClick: onShowSubject
+              },
+              {
+                key: 'age',
+                label: t('Age'),
+                isDone: selectedBook?.age !== undefined,
+                isDisabled: !selectedBook || !readerFile || isBusy || (selectedBook.processingStage ?? 0) < 1 || !selectedBook.language || !selectedBook.subject,
+                onClick: onShowAge
+              },
+              {
+                key: 'chapters',
+                label: t('Chapters'),
+                isDone: (selectedBook?.processingStage ?? 0) >= 2,
+                isDisabled: !selectedBook || !readerFile || isBusy || (selectedBook.processingStage ?? 0) < 1,
+                onClick: onIdentifyChapters
+              },
+              {
+                key: 'concepts',
+                label: t('Concepts'),
+                isDone: (selectedBook?.processingStage ?? 0) >= 3,
+                isDisabled: !selectedBook || !readerFile || isBusy || (selectedBook.processingStage ?? 0) < 2 || !selectedBook.language || !selectedBook.subject,
+                onClick: onGenerateConcepts
+              },
+              {
+                key: 'exercises',
+                label: t('Exercises'),
+                isDone: (selectedBook?.processingStage ?? 0) >= 4,
+                isDisabled: !selectedBook || !readerFile || isBusy || (selectedBook.processingStage ?? 0) < 3 || !selectedBook.language || !selectedBook.subject,
+                onClick: onGenerateExercises
+              }
+            ]}
+            processingToolbarAfterFixImages={(pipelineStage) => [
+              {
+                key: 'standards',
+                label: t('Standards'),
+                isDone: pipelineStage >= 12 || standardsAssigned,
+                isDisabled: !selectedBook || !readerFile || isBusy || pipelineStage < 11 || !selectedBook.language || !selectedBook.subject,
+                onClick: onAssignStandards
+              },
+              {
+                key: 'fixStandards',
+                label: t('Fix standards'),
+                isDone: pipelineStage >= 13,
+                isDisabled: !selectedBook || !readerFile || isBusy || (pipelineStage < 12 && !standardsAssigned) || !selectedBook.language || !selectedBook.subject,
+                onClick: onFixStandards
+              }
+            ]}
             recognizeAllRequest={recognizeAllRequest}
             generateAllExercisesRequest={generateAllExercisesRequest}
           />
@@ -1136,20 +1127,18 @@ const StyledSection = styled.section`
   max-width: 90rem;
 
   .bookToolbar {
-    align-items: flex-end;
+    margin-bottom: 0.75rem;
+  }
+
+  .bookToolbarPrimary {
+    align-items: center;
     display: grid;
-    gap: 1rem;
-    grid-template-columns: auto auto minmax(12rem, 1fr) auto;
-    margin-bottom: 0;
+    gap: 0.5rem;
+    grid-template-columns: auto minmax(0, 1fr) auto;
   }
 
-  .bookToolbar .ui--Button {
-    margin-bottom: 0.25rem;
-  }
-
-  .bookToolbar > .uploadButton {
-    margin-bottom: 0;
-    margin-right: -0.5rem;
+  .bookToolbarPrimary .ui--Button {
+    margin: 0;
   }
 
   .bookSelect { min-width: 0; overflow: visible; }
@@ -1204,14 +1193,12 @@ const StyledSection = styled.section`
   }
 
   @media only screen and (max-width: 700px) {
-    .bookToolbar {
-      align-items: stretch;
-      gap: 0.5rem;
-      grid-template-columns: 1fr 1fr;
+    .bookToolbarPrimary {
+      gap: 0.35rem;
     }
 
-    .bookToolbar .ui--Dropdown {
-      grid-column: 1 / -1;
+    .bookToolbarPrimary .ui--Button {
+      min-width: 0;
     }
   }
 `;
