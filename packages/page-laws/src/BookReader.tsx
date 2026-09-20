@@ -3326,12 +3326,6 @@ function BookReader({ ageTabRequest, assignAllStandardsRequest, book, file, fixA
         <span>{isDetectingBookSubject ? 'Detecting book subject…' : `Book subject: ${bookSubjectLabel(book.subject)}`}</span>
       </div>
       <div className='languageActions'>
-        <Button
-          icon='magic'
-          isDisabled={!book.language || !isMmdConversionComplete || isDetectingBookSubject}
-          label={isDetectingBookSubject ? 'Detecting…' : 'Detect from text'}
-          onClick={openSubjectDetectionConfirmation}
-        />
         <div
           aria-label='Choose book subject'
           className='languageButtonGrid'
