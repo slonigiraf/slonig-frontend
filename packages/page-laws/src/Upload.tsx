@@ -799,13 +799,6 @@ function Upload (): React.ReactElement {
               </tr>
             </tfoot>
           </table>
-          <Button.Group>
-            <Button
-              icon='times'
-              label={t('Close')}
-              onClick={closePrice}
-            />
-          </Button.Group>
         </Modal.Content>
       </Modal>}
       {isRecognizeConfirmationOpen && <Modal
