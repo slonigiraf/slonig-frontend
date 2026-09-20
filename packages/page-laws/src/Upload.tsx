@@ -812,14 +812,6 @@ function Upload (): React.ReactElement {
         <Modal.Content>
           <p>{t('Recognize every page in this book?')}</p>
           <p>{recognizeEstimate}</p>
-          <p>{t('Language and subject detection are separate steps after recognition.')}</p>
-          <p>
-            <a
-              href='https://mathpix.com/pricing/api'
-              rel='noreferrer'
-              target='_blank'
-            >Mathpix API pricing</a>
-          </p>
           <Button.Group>
             <Button
               icon='times'
@@ -827,7 +819,7 @@ function Upload (): React.ReactElement {
               onClick={closeRecognizeConfirmation}
             />
             <Button
-              icon='camera'
+              icon='play'
               label={t('Recognize')}
               onClick={confirmRecognize}
             />
