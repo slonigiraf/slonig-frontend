@@ -3766,7 +3766,7 @@ function BookReader({ ageTabRequest, assignAllStandardsRequest, book, file, fixA
         size='small'
       >
         <Modal.Content>
-          <p>Detect one typical learner age from {ageSamplePageNumbers.length} representative recognized text page{ageSamplePageNumbers.length === 1 ? '' : 's'}? The result is stored as a single whole number and can be changed manually afterward.</p>
+          <p>Detect one typical learner age? The result can be changed manually afterward.</p>
           <p>{ageDetectionEstimate}</p>
           <Dropdown
             className='modelSelect'
