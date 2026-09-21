@@ -55,13 +55,33 @@ function sortConceptsForDisplay (concepts: BookConcept[]): BookConcept[] {
     .map(({ concept }) => concept);
 }
 
+function conceptInsertionDisplayOrder (concepts: BookConcept[], insertionIndex: number): number {
+  const previousIndex = insertionIndex - 1;
+  const previousOrder = previousIndex >= 0
+    ? conceptDisplayOrder(concepts[previousIndex]) ?? previousIndex
+    : undefined;
+  const nextOrder = insertionIndex < concepts.length
+    ? conceptDisplayOrder(concepts[insertionIndex]) ?? insertionIndex
+    : undefined;
+
+  if (previousOrder === undefined) {
+    return (nextOrder ?? 0) - 1;
+  }
+
+  if (nextOrder === undefined) {
+    return previousOrder + 1;
+  }
+
+  return previousOrder + ((nextOrder - previousOrder) / 2);
+}
+
 function conceptDisplayPage (concept: BookConcept): number | undefined {
   const pageNumber = concept.bookPage[1];
 
   return pageNumber > 0 ? pageNumber : undefined;
 }
 
-function ConceptItem ({ concept, firstPage, isDragging = false, onDelete, onDragEnd, onDragOver, onDragStart, onDrop, onGoToPage, onSave }: { concept: BookConcept; firstPage?: number; isDragging?: boolean; onDelete: (concept: BookConcept) => Promise<void>; onDragEnd?: (event: React.DragEvent<HTMLSpanElement>) => void; onDragOver?: (event: React.DragEvent<HTMLLIElement>) => void; onDragStart?: (event: React.DragEvent<HTMLSpanElement>) => void; onDrop?: (event: React.DragEvent<HTMLLIElement>) => void; onGoToPage: (pageNumber: number) => void; onSave: (concept: BookConcept, title: string, description: string) => Promise<void> }): React.ReactElement {
+function ConceptItem ({ concept, firstPage, onDelete, onGoToPage, onReorderPointerCancel, onReorderPointerDown, onReorderPointerMove, onReorderPointerUp, onSave }: { concept: BookConcept; firstPage?: number; onDelete: (concept: BookConcept) => Promise<void>; onGoToPage: (pageNumber: number) => void; onReorderPointerCancel?: (event: React.PointerEvent<HTMLLIElement>) => void; onReorderPointerDown?: (event: React.PointerEvent<HTMLLIElement>) => void; onReorderPointerMove?: (event: React.PointerEvent<HTMLLIElement>) => void; onReorderPointerUp?: (event: React.PointerEvent<HTMLLIElement>) => void; onSave: (concept: BookConcept, title: string, description: string) => Promise<void> }): React.ReactElement {
   const [description, setDescription] = useState(concept.description);
   const [isBusy, setIsBusy] = useState(false);
   const [isDeleteConfirmationOpen, setIsDeleteConfirmationOpen] = useState(false);
@@ -102,11 +122,17 @@ function ConceptItem ({ concept, firstPage, isDragging = false, onDelete, onDrag
       .finally(() => setIsBusy(false));
   }, [concept, description, onSave, title]);
 
+  const canReorder = concept.id !== undefined && !isBusy && !isEditing;
+
   return <li
-    className={`conceptItem${isDragging ? ' dragging' : ''}`}
-    onDragOver={onDragOver}
-    onDrop={onDrop}
+    className='conceptItem'
+    onLostPointerCapture={canReorder ? onReorderPointerCancel : undefined}
+    onPointerCancel={canReorder ? onReorderPointerCancel : undefined}
+    onPointerDown={canReorder ? onReorderPointerDown : undefined}
+    onPointerMove={canReorder ? onReorderPointerMove : undefined}
+    onPointerUp={canReorder ? onReorderPointerUp : undefined}
   >
+    <strong className='conceptDragTitle'><KatexSpan content={concept.title} /></strong>
     {isDeleteConfirmationOpen && <Modal
       header='Delete concept'
       onClose={() => !isBusy && setIsDeleteConfirmationOpen(false)}
@@ -167,9 +193,6 @@ function ConceptItem ({ concept, firstPage, isDragging = false, onDelete, onDrag
         <div className='conceptHeading'>
           <span
             className='conceptDragHandle'
-            draggable={concept.id !== undefined && !isBusy}
-            onDragEnd={onDragEnd}
-            onDragStart={onDragStart}
             title='Drag to reorder'
           >⋮⋮</span>
           <strong><KatexSpan content={concept.title} /></strong>
@@ -195,6 +218,88 @@ function ConceptItem ({ concept, firstPage, isDragging = false, onDelete, onDrag
       </>}
   </li>;
 }
+
+
+const ConceptInsertionForm = styled.div`
+  box-sizing: border-box;
+  display: grid;
+  gap: 1rem;
+  margin: 0 auto;
+  max-width: 42rem;
+  padding: 0.25rem 0;
+  width: 100%;
+
+  > label {
+    color: var(--color-text);
+    display: grid;
+    font-weight: 600;
+    gap: 0.4rem;
+    margin: 0;
+    text-align: left;
+    text-transform: none;
+    width: 100%;
+  }
+
+  > label > span {
+    line-height: 1.25;
+    text-transform: none;
+  }
+
+  > label small {
+    font-size: 0.88em;
+    font-weight: 400;
+    opacity: 0.7;
+  }
+
+  input, textarea, select {
+    background: var(--bg-input, #fff);
+    border: 1px solid var(--border-table, #cfd5e1);
+    border-radius: 0.45rem;
+    box-sizing: border-box;
+    color: var(--color-text);
+    font: inherit;
+    font-weight: 400;
+    line-height: 1.45;
+    margin: 0;
+    outline: none;
+    padding: 0.65rem 0.75rem;
+    text-align: left;
+    text-transform: none;
+    width: 100%;
+  }
+
+  input, select {
+    min-height: 2.75rem;
+  }
+
+  textarea {
+    min-height: 6.5rem;
+    resize: vertical;
+  }
+
+  input:focus, textarea:focus, select:focus {
+    border-color: var(--color-primary, #1682d4);
+    box-shadow: 0 0 0 2px rgba(22, 130, 212, 0.12);
+  }
+
+  input:disabled, textarea:disabled, select:disabled {
+    cursor: not-allowed;
+    opacity: 0.65;
+  }
+
+  .conceptInsertionActions {
+    align-items: center;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.65rem;
+    justify-content: flex-end;
+    padding-top: 0.25rem;
+  }
+
+  @media only screen and (max-width: 600px) {
+    gap: 0.8rem;
+  }
+`;
 
 const CONCEPT_REQUEST_MAX_ATTEMPTS = 4;
 const CONCEPT_RETRY_BASE_DELAY_MS = 1_000;
@@ -1067,10 +1172,10 @@ function BookReader({ ageTabRequest, assignAllStandardsRequest, book, file, fixA
   const [chapterTitleDraft, setChapterTitleDraft] = useState('');
   const [newChapterTitle, setNewChapterTitle] = useState('');
   const [concepts, setConcepts] = useState<BookConcept[]>([]);
-  const [draggedConceptIndex, setDraggedConceptIndex] = useState<number>();
   const [isAddingConcept, setIsAddingConcept] = useState(false);
   const [isReorderingConcepts, setIsReorderingConcepts] = useState(false);
   const [isSavingNewConcept, setIsSavingNewConcept] = useState(false);
+  const [newConceptAfterIndex, setNewConceptAfterIndex] = useState(-1);
   const [newConceptDescription, setNewConceptDescription] = useState('');
   const [newConceptPage, setNewConceptPage] = useState('');
   const [newConceptTitle, setNewConceptTitle] = useState('');
@@ -1144,6 +1249,12 @@ function BookReader({ ageTabRequest, assignAllStandardsRequest, book, file, fixA
   const isDetectingBookSubjectRef = useRef(false);
   const isDetectingBookAgeRef = useRef(false);
   const pageAreaRef = useRef<HTMLDivElement>(null);
+  const conceptsOutputRef = useRef<HTMLDivElement>(null);
+  const draggedConceptIndexRef = useRef<number | undefined>(undefined);
+  const conceptDropTargetIndexRef = useRef<number | undefined>(undefined);
+  const conceptDragPointerIdRef = useRef<number | undefined>(undefined);
+  const conceptDragPointerYRef = useRef<number | undefined>(undefined);
+  const conceptAutoScrollFrameRef = useRef<number | undefined>(undefined);
 
   useEffect((): void => {
     setHasRecognitionBeenAttempted(getSessionRecognitionAttempted(book.id));
@@ -1180,6 +1291,7 @@ function BookReader({ ageTabRequest, assignAllStandardsRequest, book, file, fixA
   const conceptChapterIndex = useMemo(() => Math.max(0, conceptChapters.findIndex(({ pageNumbers }) => pageNumbers.includes(pageNumber))), [conceptChapters, pageNumber]);
   useEffect(() => {
     setIsAddingConcept(false);
+    setNewConceptAfterIndex(-1);
     setNewConceptDescription('');
     setNewConceptPage('');
     setNewConceptTitle('');
@@ -3138,12 +3250,9 @@ function BookReader({ ageTabRequest, assignAllStandardsRequest, book, file, fixA
 
     return subscribeSharedChapterSelection(book.id, applySelection);
   }, [activePane, book.id, conceptChapters, goToPage, pageNumber]);
-  const reloadCurrentChapterConcepts = useCallback(async (): Promise<void> => {
+  const loadCurrentChapterConcepts = useCallback(async (): Promise<{ concepts: BookConcept[]; references: Map<string, number> }> => {
     if (!currentConceptChapter) {
-      setConcepts([]);
-      setConceptFirstPageByKey(new Map());
-
-      return;
+      return { concepts: [], references: new Map() };
     }
 
     const [pageRows, pageLessConcepts] = await Promise.all([
@@ -3163,9 +3272,19 @@ function BookReader({ ageTabRequest, assignAllStandardsRequest, book, file, fixA
     const references = new Map<string, number>();
 
     rows.forEach(({ concepts: pageConcepts, pageNumber: conceptPageNumber }) => pageConcepts.forEach((concept) => references.set(conceptReferenceKey(concept), conceptPageNumber)));
-    setConcepts(sortConceptsForDisplay(rows.flatMap(({ concepts: pageConcepts }) => pageConcepts)));
-    setConceptFirstPageByKey(references);
+
+    return {
+      concepts: sortConceptsForDisplay(rows.flatMap(({ concepts: pageConcepts }) => pageConcepts)),
+      references
+    };
   }, [book.id, currentConceptChapter]);
+
+  const reloadCurrentChapterConcepts = useCallback(async (): Promise<void> => {
+    const loaded = await loadCurrentChapterConcepts();
+
+    setConcepts(loaded.concepts);
+    setConceptFirstPageByKey(loaded.references);
+  }, [loadCurrentChapterConcepts]);
 
   const addConcept = useCallback(async (): Promise<void> => {
     const title = newConceptTitle.trim();
@@ -3182,22 +3301,53 @@ function BookReader({ ageTabRequest, assignAllStandardsRequest, book, file, fixA
       return;
     }
 
+    if (!Number.isInteger(newConceptAfterIndex) || newConceptAfterIndex < -1 || newConceptAfterIndex >= concepts.length) {
+      setError('Choose where the new concept should be inserted.');
+
+      return;
+    }
+
+    const insertionIndex = newConceptAfterIndex + 1;
     const chapterPage = pages.get(selectedPage ?? currentConceptChapter.pageNumbers[0]);
     const concept: Omit<BookConcept, 'id'> = {
       bookPage: [book.id, selectedPage ?? 0],
       chapterId: chapterPage?.chapterId ?? currentConceptChapter.chapterId,
       description: newConceptDescription.trim(),
-      displayOrder: Math.max(concepts.length - 1, ...concepts.flatMap(({ displayOrder }) => Number.isFinite(displayOrder) ? [displayOrder as number] : [])) + 1,
+      displayOrder: conceptInsertionDisplayOrder(concepts, insertionIndex),
       manuallyAdded: true,
       title
     };
+    const existingIds = new Set(concepts.flatMap(({ id }) => id === undefined ? [] : [id]));
 
     setIsSavingNewConcept(true);
 
     try {
       await createBookConcept(concept);
+
+      // Normalize displayOrder after insertion so future drag-and-drop operations
+      // start from a simple 0..n order. The preliminary fractional order above
+      // still puts the new row in the requested position if normalization cannot
+      // run for an unexpected row without an id.
+      const loaded = await loadCurrentChapterConcepts();
+      const created = loaded.concepts.find(({ description, id, manuallyAdded, title: loadedTitle }) =>
+        id !== undefined &&
+        !existingIds.has(id) &&
+        manuallyAdded === true &&
+        loadedTitle === title &&
+        description === newConceptDescription.trim()
+      ) ?? loaded.concepts.find(({ id }) => id !== undefined && !existingIds.has(id));
+      const existingConceptIds = concepts.flatMap(({ id }) => id === undefined ? [] : [id]);
+
+      if (created?.id !== undefined && existingConceptIds.length === concepts.length) {
+        const orderedIds = [...existingConceptIds];
+
+        orderedIds.splice(insertionIndex, 0, created.id);
+        await reorderBookConcepts(orderedIds);
+      }
+
       await reloadCurrentChapterConcepts();
       await refreshEntityCounts();
+      setNewConceptAfterIndex(-1);
       setNewConceptDescription('');
       setNewConceptPage('');
       setNewConceptTitle('');
@@ -3210,7 +3360,7 @@ function BookReader({ ageTabRequest, assignAllStandardsRequest, book, file, fixA
     } finally {
       setIsSavingNewConcept(false);
     }
-  }, [book.id, concepts, currentConceptChapter, isSavingNewConcept, newConceptDescription, newConceptPage, newConceptTitle, pages, refreshEntityCounts, reloadCurrentChapterConcepts]);
+  }, [book.id, concepts, currentConceptChapter, isSavingNewConcept, loadCurrentChapterConcepts, newConceptAfterIndex, newConceptDescription, newConceptPage, newConceptTitle, pages, refreshEntityCounts, reloadCurrentChapterConcepts]);
 
   const reorderConcepts = useCallback(async (fromIndex: number, toIndex: number): Promise<void> => {
     if (fromIndex === toIndex || fromIndex < 0 || toIndex < 0 || fromIndex >= concepts.length || toIndex >= concepts.length || isReorderingConcepts) {
@@ -3246,6 +3396,216 @@ function BookReader({ ageTabRequest, assignAllStandardsRequest, book, file, fixA
       setIsReorderingConcepts(false);
     }
   }, [concepts, isReorderingConcepts]);
+  const clearConceptDropMarker = useCallback((): void => {
+    const scroller = conceptsOutputRef.current;
+
+    scroller?.querySelector('.conceptItem.conceptDropBefore')?.classList.remove('conceptDropBefore');
+    scroller?.querySelector('.conceptItem.conceptDropAfter')?.classList.remove('conceptDropAfter');
+  }, []);
+
+  const updateConceptDropTarget = useCallback((pointerY: number): void => {
+    const scroller = conceptsOutputRef.current;
+    const sourceIndex = draggedConceptIndexRef.current;
+
+    if (!scroller || sourceIndex === undefined) {
+      return;
+    }
+
+    const rows = Array.from(scroller.querySelectorAll<HTMLElement>('.conceptItem'));
+    const otherRows = rows.filter((_, index) => index !== sourceIndex);
+
+    clearConceptDropMarker();
+
+    if (!otherRows.length) {
+      conceptDropTargetIndexRef.current = sourceIndex;
+
+      return;
+    }
+
+    let insertionIndex = otherRows.length;
+
+    for (let index = 0; index < otherRows.length; index++) {
+      const bounds = otherRows[index].getBoundingClientRect();
+
+      if (pointerY < bounds.top + (bounds.height / 2)) {
+        insertionIndex = index;
+        break;
+      }
+    }
+
+    conceptDropTargetIndexRef.current = insertionIndex;
+
+    if (insertionIndex < otherRows.length) {
+      otherRows[insertionIndex].classList.add('conceptDropBefore');
+    } else {
+      otherRows[otherRows.length - 1].classList.add('conceptDropAfter');
+    }
+  }, [clearConceptDropMarker]);
+
+  const stopConceptAutoScroll = useCallback((): void => {
+    conceptDragPointerYRef.current = undefined;
+
+    if (conceptAutoScrollFrameRef.current !== undefined) {
+      window.cancelAnimationFrame(conceptAutoScrollFrameRef.current);
+      conceptAutoScrollFrameRef.current = undefined;
+    }
+  }, []);
+
+  const startConceptAutoScroll = useCallback((): void => {
+    if (conceptAutoScrollFrameRef.current !== undefined) {
+      return;
+    }
+
+    const scroll = (): void => {
+      conceptAutoScrollFrameRef.current = undefined;
+
+      const scroller = conceptsOutputRef.current;
+      const pointerY = conceptDragPointerYRef.current;
+
+      if (!scroller || pointerY === undefined) {
+        return;
+      }
+
+      const bounds = scroller.getBoundingClientRect();
+      const edgeSize = Math.min(96, Math.max(48, bounds.height * 0.22));
+      const topDistance = pointerY - bounds.top;
+      const bottomDistance = bounds.bottom - pointerY;
+      let scrollAmount = 0;
+
+      if (topDistance < edgeSize && scroller.scrollTop > 0) {
+        const strength = Math.max(0, Math.min(1, (edgeSize - Math.max(0, topDistance)) / edgeSize));
+
+        scrollAmount = -(4 + (20 * strength));
+      } else if (bottomDistance < edgeSize && scroller.scrollTop + scroller.clientHeight < scroller.scrollHeight) {
+        const strength = Math.max(0, Math.min(1, (edgeSize - Math.max(0, bottomDistance)) / edgeSize));
+
+        scrollAmount = 4 + (20 * strength);
+      }
+
+      if (scrollAmount !== 0) {
+        scroller.scrollTop += scrollAmount;
+        updateConceptDropTarget(pointerY);
+      }
+
+      conceptAutoScrollFrameRef.current = window.requestAnimationFrame(scroll);
+    };
+
+    conceptAutoScrollFrameRef.current = window.requestAnimationFrame(scroll);
+  }, [updateConceptDropTarget]);
+
+  const finishConceptDrag = useCallback((): void => {
+    stopConceptAutoScroll();
+    draggedConceptIndexRef.current = undefined;
+    conceptDropTargetIndexRef.current = undefined;
+    conceptDragPointerIdRef.current = undefined;
+    clearConceptDropMarker();
+    conceptsOutputRef.current?.classList.remove('conceptDragging');
+    conceptsOutputRef.current?.querySelector('.conceptItem.dragging')?.classList.remove('dragging');
+  }, [clearConceptDropMarker, stopConceptAutoScroll]);
+
+  const beginConceptPointerDrag = useCallback((index: number, event: React.PointerEvent<HTMLLIElement>): void => {
+    if (isReorderingConcepts || (event.pointerType === 'mouse' && event.button !== 0)) {
+      return;
+    }
+
+    const target = event.target as HTMLElement;
+
+    // Keep edit/delete/page controls usable. On touch/pen, require the dedicated
+    // handle so vertical swipes elsewhere can continue to scroll the list.
+    if (target.closest('button, input, textarea, select, a') || (event.pointerType !== 'mouse' && !target.closest('.conceptDragHandle'))) {
+      return;
+    }
+
+    event.preventDefault();
+    event.stopPropagation();
+
+    try {
+      event.currentTarget.setPointerCapture(event.pointerId);
+    } catch {
+      // Pointer capture can fail if the browser has already cancelled the pointer.
+    }
+
+    draggedConceptIndexRef.current = index;
+    conceptDropTargetIndexRef.current = index;
+    conceptDragPointerIdRef.current = event.pointerId;
+    conceptDragPointerYRef.current = event.clientY;
+    event.currentTarget.classList.add('dragging');
+    conceptsOutputRef.current?.classList.add('conceptDragging');
+    updateConceptDropTarget(event.clientY);
+    startConceptAutoScroll();
+  }, [isReorderingConcepts, startConceptAutoScroll, updateConceptDropTarget]);
+
+  const moveConceptPointerDrag = useCallback((event: React.PointerEvent<HTMLLIElement>): void => {
+    if (conceptDragPointerIdRef.current !== event.pointerId || draggedConceptIndexRef.current === undefined) {
+      return;
+    }
+
+    event.preventDefault();
+    conceptDragPointerYRef.current = event.clientY;
+    updateConceptDropTarget(event.clientY);
+    startConceptAutoScroll();
+  }, [startConceptAutoScroll, updateConceptDropTarget]);
+
+  const cancelConceptPointerDrag = useCallback((event: React.PointerEvent<HTMLLIElement>): void => {
+    if (conceptDragPointerIdRef.current !== event.pointerId) {
+      return;
+    }
+
+    finishConceptDrag();
+  }, [finishConceptDrag]);
+
+  const endConceptPointerDrag = useCallback((event: React.PointerEvent<HTMLLIElement>): void => {
+    if (conceptDragPointerIdRef.current !== event.pointerId) {
+      return;
+    }
+
+    event.preventDefault();
+
+    const sourceIndex = draggedConceptIndexRef.current;
+    const targetIndex = conceptDropTargetIndexRef.current;
+
+    try {
+      if (event.currentTarget.hasPointerCapture(event.pointerId)) {
+        event.currentTarget.releasePointerCapture(event.pointerId);
+      }
+    } catch {
+      // Ignore browsers that release capture automatically before pointerup.
+    }
+
+    finishConceptDrag();
+
+    if (sourceIndex !== undefined && targetIndex !== undefined && sourceIndex !== targetIndex) {
+      void reorderConcepts(sourceIndex, targetIndex);
+    }
+  }, [finishConceptDrag, reorderConcepts]);
+
+  useEffect(() => finishConceptDrag, [finishConceptDrag]);
+
+  const openConceptInsertion = useCallback((): void => {
+    setNewConceptAfterIndex(concepts.length - 1);
+    setIsAddingConcept(true);
+  }, [concepts.length]);
+
+  const closeConceptInsertion = useCallback((): void => {
+    if (isSavingNewConcept) {
+      return;
+    }
+
+    setIsAddingConcept(false);
+    setNewConceptAfterIndex(-1);
+    setNewConceptDescription('');
+    setNewConceptPage('');
+    setNewConceptTitle('');
+  }, [isSavingNewConcept]);
+
+  const conceptInsertionOptions = useMemo(() => [
+    { text: 'Beginning of chapter', value: -1 },
+    ...concepts.map((concept, index) => ({
+      text: concept.title || `Concept ${index + 1}`,
+      value: index
+    }))
+  ], [concepts]);
+
   const saveConcept = useCallback(async (concept: BookConcept, title: string, description: string): Promise<void> => {
     if (concept.id === undefined) {
       setError('Unable to edit a concept without an id.');
@@ -3622,22 +3982,34 @@ function BookReader({ ageTabRequest, assignAllStandardsRequest, book, file, fixA
           icon='plus'
           isDisabled={!currentConceptChapter || isAddingConcept || isReorderingConcepts || isSavingNewConcept}
           label='Add concept'
-          onClick={() => setIsAddingConcept(true)}
+          onClick={openConceptInsertion}
         />
       </div>
-      {!currentConceptChapter && <p className='recognitionHint'>Identify or assign this page to a chapter before generating concepts.</p>}
-      <div className='conceptsOutput'>
-        <section className='conceptExerciseGroup'>
-          {isAddingConcept && currentConceptChapter && <div className='conceptAddForm'>
-            <Input
-              isDisabled={isSavingNewConcept}
-              isFull
-              label='Concept title'
-              onChange={setNewConceptTitle}
-              onEnter={() => addConcept().catch(console.error)}
-              value={newConceptTitle}
-            />
-            <label>Description
+      {isAddingConcept && currentConceptChapter && <Modal
+        header='Concept insertion'
+        onClose={closeConceptInsertion}
+        size='small'
+      >
+        <Modal.Content>
+          <ConceptInsertionForm>
+            <label>
+              <span>Concept title</span>
+              <input
+                autoFocus
+                disabled={isSavingNewConcept}
+                onChange={({ target }) => setNewConceptTitle(target.value)}
+                onKeyDown={(event) => {
+                  if (event.key === 'Enter' && newConceptTitle.trim() && !isSavingNewConcept) {
+                    event.preventDefault();
+                    void addConcept().catch(console.error);
+                  }
+                }}
+                type='text'
+                value={newConceptTitle}
+              />
+            </label>
+            <label>
+              <span>Description</span>
               <textarea
                 disabled={isSavingNewConcept}
                 onChange={({ target }) => setNewConceptDescription(target.value)}
@@ -3645,7 +4017,8 @@ function BookReader({ ageTabRequest, assignAllStandardsRequest, book, file, fixA
                 value={newConceptDescription}
               />
             </label>
-            <label>Page <span className='optionalLabel'>(optional)</span>
+            <label>
+              <span>Page <small>(optional)</small></span>
               <select
                 disabled={isSavingNewConcept}
                 onChange={({ target }) => setNewConceptPage(target.value)}
@@ -3655,29 +4028,45 @@ function BookReader({ ageTabRequest, assignAllStandardsRequest, book, file, fixA
                 {currentConceptChapter.pageNumbers.map((chapterPageNumber) => <option
                   key={chapterPageNumber}
                   value={chapterPageNumber}
-                >Page {chapterPageNumber}</option>)}
+                >{chapterPageNumber}</option>)}
               </select>
             </label>
-            <div className='conceptActions'>
+            <label>
+              <span>Insert after concept</span>
+              <select
+                disabled={isSavingNewConcept}
+                onChange={({ target }) => setNewConceptAfterIndex(Number(target.value))}
+                value={newConceptAfterIndex}
+              >
+                {conceptInsertionOptions.map(({ text, value }) => <option
+                  key={value}
+                  value={value}
+                >{text}</option>)}
+              </select>
+            </label>
+            <div className='conceptInsertionActions'>
               <Button
                 icon='times'
                 isDisabled={isSavingNewConcept}
                 label='Cancel'
-                onClick={() => {
-                  setIsAddingConcept(false);
-                  setNewConceptDescription('');
-                  setNewConceptPage('');
-                  setNewConceptTitle('');
-                }}
+                onClick={closeConceptInsertion}
               />
               <Button
                 icon='save'
                 isDisabled={isSavingNewConcept || !newConceptTitle.trim()}
-                label='Add'
+                label={isSavingNewConcept ? 'Inserting…' : 'Insert'}
                 onClick={() => addConcept().catch(console.error)}
               />
             </div>
-          </div>}
+          </ConceptInsertionForm>
+        </Modal.Content>
+      </Modal>}
+      {!currentConceptChapter && <p className='recognitionHint'>Identify or assign this page to a chapter before generating concepts.</p>}
+      <div
+        className='conceptsOutput'
+        ref={conceptsOutputRef}
+      >
+        <section className='conceptExerciseGroup'>
           {concepts.length
             ? <ul className='conceptList'>{concepts.map((concept, index) => {
               const displayPage = conceptDisplayPage(concept);
@@ -3685,41 +4074,17 @@ function BookReader({ ageTabRequest, assignAllStandardsRequest, book, file, fixA
               return <ConceptItem
                 concept={concept}
                 firstPage={displayPage}
-                isDragging={draggedConceptIndex === index}
                 key={concept.id ?? conceptReferenceKey(concept)}
                 onDelete={deleteConcept}
-                onDragEnd={() => setDraggedConceptIndex(undefined)}
-                onDragOver={(event) => {
-                  if (draggedConceptIndex !== undefined && draggedConceptIndex !== index) {
-                    event.preventDefault();
-                    event.dataTransfer.dropEffect = 'move';
-                  }
-                }}
-                onDragStart={(event) => {
-                  if (isReorderingConcepts) {
-                    event.preventDefault();
-
-                    return;
-                  }
-
-                  setDraggedConceptIndex(index);
-                  event.dataTransfer.effectAllowed = 'move';
-                  event.dataTransfer.setData('text/plain', String(concept.id ?? index));
-                }}
-                onDrop={(event) => {
-                  event.preventDefault();
-
-                  if (draggedConceptIndex !== undefined) {
-                    void reorderConcepts(draggedConceptIndex, index);
-                  }
-
-                  setDraggedConceptIndex(undefined);
-                }}
+                onReorderPointerCancel={cancelConceptPointerDrag}
+                onReorderPointerDown={(event) => beginConceptPointerDrag(index, event)}
+                onReorderPointerMove={moveConceptPointerDrag}
+                onReorderPointerUp={endConceptPointerDrag}
                 onGoToPage={goToConceptPage}
                 onSave={saveConcept}
               />;
             })}</ul>
-            : !isAddingConcept && <p className='emptyOutput'>No concepts in this chapter.</p>}
+            : <p className='emptyOutput'>No concepts in this chapter.</p>}
         </section>
       </div>
     </div>;
@@ -4527,6 +4892,7 @@ const StyledReader = styled.div`
     flex: 1;
     min-height: 0;
     overflow: auto;
+    overscroll-behavior: contain;
     padding: 1rem;
     width: 100%;
   }
@@ -4599,8 +4965,60 @@ const StyledReader = styled.div`
   }
 
   .conceptItem.dragging {
+    cursor: grabbing;
     opacity: 0.55;
     transform: scale(0.995);
+  }
+
+  .conceptItem.conceptDropBefore::before,
+  .conceptItem.conceptDropAfter::after {
+    background: var(--color-primary, #1682d4);
+    border-radius: 999px;
+    content: '';
+    height: 3px;
+    left: 0.35rem;
+    pointer-events: none;
+    position: absolute;
+    right: 0.35rem;
+    z-index: 2;
+  }
+
+  .conceptItem.conceptDropBefore::before {
+    top: -0.55rem;
+  }
+
+  .conceptItem.conceptDropAfter::after {
+    bottom: -0.55rem;
+  }
+
+  .conceptDragTitle {
+    display: none;
+    font-size: 0.98em;
+    line-height: 1.3;
+    overflow-wrap: anywhere;
+    text-align: left;
+  }
+
+  .conceptsOutput.conceptDragging {
+    cursor: grabbing;
+    user-select: none;
+  }
+
+  .conceptsOutput.conceptDragging .conceptItem {
+    transition: none;
+  }
+
+  .conceptsOutput.conceptDragging .conceptItem:not(.dragging) {
+    min-height: 0;
+    padding: 0.5rem 0.75rem;
+  }
+
+  .conceptsOutput.conceptDragging .conceptItem:not(.dragging) > .conceptDragTitle {
+    display: block;
+  }
+
+  .conceptsOutput.conceptDragging .conceptItem:not(.dragging) > :not(.conceptDragTitle) {
+    display: none;
   }
 
   .conceptHeading {
@@ -4617,6 +5035,7 @@ const StyledReader = styled.div`
     font-size: 1.25rem;
     line-height: 1;
     padding: 0.25rem 0.15rem;
+    touch-action: none;
     user-select: none;
   }
 
@@ -4691,6 +5110,13 @@ const StyledReader = styled.div`
     border-radius: 0.7rem;
     margin: 0.8rem 0;
     padding: 0.95rem 1rem 1rem;
+  }
+
+  .conceptInsertionForm {
+    background: transparent;
+    border: 0;
+    margin: 0;
+    padding: 0;
   }
 
   .conceptAddForm > label, .conceptEditForm > label {
