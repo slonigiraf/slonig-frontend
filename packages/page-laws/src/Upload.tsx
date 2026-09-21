@@ -554,6 +554,7 @@ function Upload (): React.ReactElement {
     }
 
     getBookPages(selectedBook.id).then(async (pages) => {
+      const pageByNumber = new Map(pages.map((page) => [page.pageNumber, page]));
       const pageLessConcepts = await getBookConceptsForBookPage(selectedBook.id, 0);
       const requests: string[] = [];
 
@@ -563,7 +564,9 @@ function Upload (): React.ReactElement {
           ...pageLessConcepts.filter(({ chapterId }) => chapterId !== undefined && chapterId === chapter.chapterId)
         ];
 
-        requests.push(fixChapterConceptsPrompt(chapter.title, concepts, selectedBook.subject, selectedBook.language, selectedBook.age));
+        const chapterMmd = chapter.pageNumbers.map((pageNumber) => `--- page ${pageNumber} ---\n${pageByNumber.get(pageNumber)?.pageMMD ?? ''}`).join('\n\n');
+
+        requests.push(fixChapterConceptsPrompt(chapter.title, chapterMmd, concepts, selectedBook.subject, selectedBook.language, selectedBook.age));
       }
 
       setFixConceptsEstimate(requests.length

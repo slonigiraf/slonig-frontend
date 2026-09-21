@@ -20,13 +20,14 @@ describe('fix concepts', (): void => {
   });
 
   it('builds a conservative chapter-level prompt from metadata and existing concepts', (): void => {
-    const prompt = fixChapterConceptsPrompt('Fractions', [{ title: 'Numerator', description: 'The top number in a fraction.' }], 'en-math', 'en', 10);
+    const prompt = fixChapterConceptsPrompt('Fractions', '# Fractions\n\nA fraction has a numerator and denominator.', [{ title: 'Numerator', description: 'The top number in a fraction.' }], 'en-math', 'en', 10);
 
     assert.match(prompt, /Fractions/);
     assert.match(prompt, /en-math/);
     assert.match(prompt, /learner age 10/);
     assert.match(prompt, /Numerator/);
-    assert.match(prompt, /strongly implied/);
+    assert.match(prompt, /A fraction has a numerator and denominator/);
+    assert.match(prompt, /primary evidence/);
   });
 
   it('keeps only complete missing concepts and removes exact title duplicates', (): void => {

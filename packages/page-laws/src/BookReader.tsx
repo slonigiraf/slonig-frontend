@@ -442,8 +442,8 @@ async function requestGeneratedChapterContent(client: OpenAI, model: string, cha
   return parseGeneratedChapterConcepts(generatedContent, new Set(usablePages.map(({ pageNumber }) => pageNumber)));
 }
 
-async function requestMissingChapterConcepts(client: OpenAI, model: string, chapterTitle: string, concepts: BookConcept[], book: Pick<Book, 'age' | 'language' | 'subject'>, onCost?: OpenRouterCostReporter) {
-  const prompt = fixChapterConceptsPrompt(chapterTitle, concepts, book.subject, book.language, book.age);
+async function requestMissingChapterConcepts(client: OpenAI, model: string, chapterTitle: string, chapterMmd: string, concepts: BookConcept[], book: Pick<Book, 'age' | 'language' | 'subject'>, onCost?: OpenRouterCostReporter) {
+  const prompt = fixChapterConceptsPrompt(chapterTitle, chapterMmd, concepts, book.subject, book.language, book.age);
   const response = await runConceptRequestWithRetry(() => client.chat.completions.create({
     messages: [{ content: prompt, role: 'user' }],
     model,
@@ -2264,7 +2264,8 @@ function BookReader({ ageTabRequest, assignAllStandardsRequest, book, file, fixA
             ...(await Promise.all(chapter.pageNumbers.map((chapterPageNumber) => getBookConceptsForBookPage(book.id, chapterPageNumber)))).flat(),
             ...pageLessConcepts.filter(({ chapterId }) => chapterId !== undefined && chapterId === chapter.chapterId)
           ];
-          const missing = await requestMissingChapterConcepts(client, model, chapter.title, concepts, book, addFixConceptsCost);
+          const chapterMmd = chapter.pageNumbers.map((chapterPageNumber) => `--- page ${chapterPageNumber} ---\n${pages.get(chapterPageNumber)?.pageMMD ?? ''}`).join('\n\n');
+          const missing = await requestMissingChapterConcepts(client, model, chapter.title, chapterMmd, concepts, book, addFixConceptsCost);
 
           return { chapter, missing, status: 'fulfilled' as const };
         } catch (reason) {
@@ -2327,7 +2328,7 @@ function BookReader({ ageTabRequest, assignAllStandardsRequest, book, file, fixA
     } finally {
       setIsFixingConcepts(false);
     }
-  }, [addFixConceptsCost, book, completeStage, conceptChapters, currentConceptChapter, generateAllConceptsModel, isFixingConcepts, isGeneratingAllConcepts, isGeneratingAllExercises, isIdentifyingChapters, isRecognizingAll, refreshEntityCounts, revealPane]);
+  }, [addFixConceptsCost, book, completeStage, conceptChapters, currentConceptChapter, generateAllConceptsModel, isFixingConcepts, isGeneratingAllConcepts, isGeneratingAllExercises, isIdentifyingChapters, isRecognizingAll, pages, refreshEntityCounts, revealPane]);
 
   const generateAllExercises = useCallback(async (): Promise<void> => {
     if (!totalPages || processingPage !== undefined || isGeneratingAllConcepts || isRecognizingAll || isGeneratingAllExercises || isIdentifyingChapters) {
