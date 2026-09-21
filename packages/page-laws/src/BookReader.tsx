@@ -96,10 +96,14 @@ function ConceptItem ({ concept, firstPage, onDelete, onGoToPage, onReorderPoint
   }, [concept.description, concept.title, isEditing]);
 
   const cancel = useCallback((): void => {
+    if (isBusy) {
+      return;
+    }
+
     setTitle(concept.title);
     setDescription(concept.description);
     setIsEditing(false);
-  }, [concept.description, concept.title]);
+  }, [concept.description, concept.title, isBusy]);
   const remove = useCallback((): void => setIsDeleteConfirmationOpen(true), []);
   const confirmRemove = useCallback((): void => {
     setIsBusy(true);
@@ -157,70 +161,77 @@ function ConceptItem ({ concept, firstPage, onDelete, onGoToPage, onReorderPoint
         </Button.Group>
       </Modal.Content>
     </Modal>}
-    {isEditing
-      ? <div className='conceptEditForm'>
-        <Input
-          isFull
-          label='Concept title'
-          onChange={setTitle}
-          onEnter={save}
-          value={title}
-        />
-        <label>Description
-          <textarea
-            disabled={isBusy}
-            onChange={({ target }) => setDescription(target.value)}
-            rows={5}
-            value={description}
-          />
-        </label>
-        <div className='conceptActions'>
-          <Button
-            icon='times'
+    {isEditing && <Modal
+      header='Edit concept'
+      onClose={cancel}
+      size='small'
+    >
+      <Modal.Content>
+        <ConceptForm>
+          <Input
+            autoFocus
             isDisabled={isBusy}
-            label='Cancel'
-            onClick={cancel}
+            isFull
+            label='Concept title'
+            onChange={setTitle}
+            onEnter={save}
+            value={title}
           />
-          <Button
-            icon='save'
-            isDisabled={isBusy || !title.trim() || (title.trim() === concept.title && description.trim() === concept.description)}
-            label='Save'
-            onClick={save}
-          />
-        </div>
+          <label>
+            <span>Description</span>
+            <textarea
+              disabled={isBusy}
+              onChange={({ target }) => setDescription(target.value)}
+              rows={5}
+              value={description}
+            />
+          </label>
+          <Button.Group>
+            <Button
+              icon='times'
+              isDisabled={isBusy}
+              label='Cancel'
+              onClick={cancel}
+            />
+            <Button
+              icon='save'
+              isDisabled={isBusy || !title.trim() || (title.trim() === concept.title && description.trim() === concept.description)}
+              label={isBusy ? 'Saving…' : 'Save'}
+              onClick={save}
+            />
+          </Button.Group>
+        </ConceptForm>
+      </Modal.Content>
+    </Modal>}
+    <div className='conceptHeading'>
+      <span
+        className='conceptDragHandle'
+        title='Drag to reorder'
+      >⋮⋮</span>
+      <strong><KatexSpan content={concept.title} /></strong>
+      <div className='conceptActions'>
+        <Button
+          icon='edit'
+          isDisabled={concept.id === undefined || isBusy}
+          onClick={() => setIsEditing(true)}
+        />
+        <Button
+          icon='trash'
+          isDisabled={concept.id === undefined || isBusy}
+          onClick={remove}
+        />
       </div>
-      : <>
-        <div className='conceptHeading'>
-          <span
-            className='conceptDragHandle'
-            title='Drag to reorder'
-          >⋮⋮</span>
-          <strong><KatexSpan content={concept.title} /></strong>
-          <div className='conceptActions'>
-            <Button
-              icon='edit'
-              isDisabled={concept.id === undefined || isBusy}
-              onClick={() => setIsEditing(true)}
-            />
-            <Button
-              icon='trash'
-              isDisabled={concept.id === undefined || isBusy}
-              onClick={remove}
-            />
-          </div>
-        </div>
-        {firstPage !== undefined && <div className='conceptMeta'><button
-          className='conceptPageLink'
-          onClick={() => onGoToPage(firstPage)}
-          type='button'
-        >{concept.manuallyAdded ? `Page ${firstPage}` : `Introduced on page ${firstPage}`}</button></div>}
-        {concept.description && <p className='conceptDescription'><KatexSpan content={concept.description} /></p>}
-      </>}
+    </div>
+    {firstPage !== undefined && <div className='conceptMeta'><button
+      className='conceptPageLink'
+      onClick={() => onGoToPage(firstPage)}
+      type='button'
+    >{concept.manuallyAdded ? `Page ${firstPage}` : `Introduced on page ${firstPage}`}</button></div>}
+    {concept.description && <p className='conceptDescription'><KatexSpan content={concept.description} /></p>}
   </li>;
 }
 
-
-const ConceptInsertionForm = styled.div`
+const ConceptForm = styled.div`
   box-sizing: border-box;
   display: grid;
   gap: 1rem;
@@ -229,15 +240,20 @@ const ConceptInsertionForm = styled.div`
   padding: 0.25rem 0;
   width: 100%;
 
+  > .ui--Labelled,
+  > .ui--Dropdown,
+  > label {
+    margin: 0;
+    width: 100%;
+  }
+
   > label {
     color: var(--color-text);
     display: grid;
     font-weight: 600;
     gap: 0.4rem;
-    margin: 0;
     text-align: left;
     text-transform: none;
-    width: 100%;
   }
 
   > label > span {
@@ -245,13 +261,7 @@ const ConceptInsertionForm = styled.div`
     text-transform: none;
   }
 
-  > label small {
-    font-size: 0.88em;
-    font-weight: 400;
-    opacity: 0.7;
-  }
-
-  input, textarea, select {
+  textarea {
     background: var(--bg-input, #fff);
     border: 1px solid var(--border-table, #cfd5e1);
     border-radius: 0.45rem;
@@ -261,45 +271,30 @@ const ConceptInsertionForm = styled.div`
     font-weight: 400;
     line-height: 1.45;
     margin: 0;
+    min-height: 6.5rem;
     outline: none;
     padding: 0.65rem 0.75rem;
+    resize: vertical;
     text-align: left;
     text-transform: none;
     width: 100%;
   }
 
-  input, select {
-    min-height: 2.75rem;
-  }
-
-  textarea {
-    min-height: 6.5rem;
-    resize: vertical;
-  }
-
-  input:focus, textarea:focus, select:focus {
+  textarea:focus {
     border-color: var(--color-primary, #1682d4);
     box-shadow: 0 0 0 2px rgba(22, 130, 212, 0.12);
   }
 
-  input:disabled, textarea:disabled, select:disabled {
+  textarea:disabled {
     cursor: not-allowed;
     opacity: 0.65;
-  }
-
-  .conceptInsertionActions {
-    align-items: center;
-    display: flex;
-    flex-wrap: wrap;
-    gap: 0.65rem;
-    justify-content: flex-end;
-    padding-top: 0.25rem;
   }
 
   @media only screen and (max-width: 600px) {
     gap: 0.8rem;
   }
 `;
+
 
 const CONCEPT_REQUEST_MAX_ATTEMPTS = 4;
 const CONCEPT_RETRY_BASE_DELAY_MS = 1_000;
@@ -3986,28 +3981,21 @@ function BookReader({ ageTabRequest, assignAllStandardsRequest, book, file, fixA
         />
       </div>
       {isAddingConcept && currentConceptChapter && <Modal
-        header='Concept insertion'
+        header='Add concept'
         onClose={closeConceptInsertion}
         size='small'
       >
         <Modal.Content>
-          <ConceptInsertionForm>
-            <label>
-              <span>Concept title</span>
-              <input
-                autoFocus
-                disabled={isSavingNewConcept}
-                onChange={({ target }) => setNewConceptTitle(target.value)}
-                onKeyDown={(event) => {
-                  if (event.key === 'Enter' && newConceptTitle.trim() && !isSavingNewConcept) {
-                    event.preventDefault();
-                    void addConcept().catch(console.error);
-                  }
-                }}
-                type='text'
-                value={newConceptTitle}
-              />
-            </label>
+          <ConceptForm>
+            <Input
+              autoFocus
+              isDisabled={isSavingNewConcept}
+              isFull
+              label='Concept title'
+              onChange={setNewConceptTitle}
+              onEnter={() => { void addConcept().catch(console.error); }}
+              value={newConceptTitle}
+            />
             <label>
               <span>Description</span>
               <textarea
@@ -4017,34 +4005,26 @@ function BookReader({ ageTabRequest, assignAllStandardsRequest, book, file, fixA
                 value={newConceptDescription}
               />
             </label>
-            <label>
-              <span>Page <small>(optional)</small></span>
-              <select
-                disabled={isSavingNewConcept}
-                onChange={({ target }) => setNewConceptPage(target.value)}
-                value={newConceptPage}
-              >
-                <option value=''>No page</option>
-                {currentConceptChapter.pageNumbers.map((chapterPageNumber) => <option
-                  key={chapterPageNumber}
-                  value={chapterPageNumber}
-                >{chapterPageNumber}</option>)}
-              </select>
-            </label>
-            <label>
-              <span>Insert after concept</span>
-              <select
-                disabled={isSavingNewConcept}
-                onChange={({ target }) => setNewConceptAfterIndex(Number(target.value))}
-                value={newConceptAfterIndex}
-              >
-                {conceptInsertionOptions.map(({ text, value }) => <option
-                  key={value}
-                  value={value}
-                >{text}</option>)}
-              </select>
-            </label>
-            <div className='conceptInsertionActions'>
+            <Dropdown
+              isDisabled={isSavingNewConcept}
+              isFull
+              label='Page (optional)'
+              onChange={setNewConceptPage}
+              options={[
+                { text: 'No page', value: '' },
+                ...currentConceptChapter.pageNumbers.map((chapterPageNumber) => ({ text: String(chapterPageNumber), value: String(chapterPageNumber) }))
+              ]}
+              value={newConceptPage}
+            />
+            <Dropdown
+              isDisabled={isSavingNewConcept}
+              isFull
+              label='Insert after concept'
+              onChange={setNewConceptAfterIndex}
+              options={conceptInsertionOptions}
+              value={newConceptAfterIndex}
+            />
+            <Button.Group>
               <Button
                 icon='times'
                 isDisabled={isSavingNewConcept}
@@ -4054,11 +4034,11 @@ function BookReader({ ageTabRequest, assignAllStandardsRequest, book, file, fixA
               <Button
                 icon='save'
                 isDisabled={isSavingNewConcept || !newConceptTitle.trim()}
-                label={isSavingNewConcept ? 'Inserting…' : 'Insert'}
+                label={isSavingNewConcept ? 'Adding…' : 'Add'}
                 onClick={() => addConcept().catch(console.error)}
               />
-            </div>
-          </ConceptInsertionForm>
+            </Button.Group>
+          </ConceptForm>
         </Modal.Content>
       </Modal>}
       {!currentConceptChapter && <p className='recognitionHint'>Identify or assign this page to a chapter before generating concepts.</p>}
@@ -5096,59 +5076,6 @@ const StyledReader = styled.div`
     margin-top: 0.65rem !important;
     max-width: 80ch;
     opacity: 0.9;
-  }
-
-  .conceptAddForm, .conceptEditForm {
-    display: flex;
-    flex-direction: column;
-    gap: 0.65rem;
-  }
-
-  .conceptAddForm {
-    background: var(--bg-input);
-    border: 1px solid #dde1eb;
-    border-radius: 0.7rem;
-    margin: 0.8rem 0;
-    padding: 0.95rem 1rem 1rem;
-  }
-
-  .conceptInsertionForm {
-    background: transparent;
-    border: 0;
-    margin: 0;
-    padding: 0;
-  }
-
-  .conceptAddForm > label, .conceptEditForm > label {
-    display: flex;
-    flex-direction: column;
-    gap: 0.35rem;
-  }
-
-  .conceptAddForm textarea, .conceptAddForm select, .conceptEditForm textarea {
-    background: var(--bg-input);
-    border: 1px solid #dde1eb;
-    border-radius: 0.5rem;
-    box-sizing: border-box;
-    color: var(--color-text);
-    font: inherit;
-    line-height: 1.45;
-    padding: 0.65rem 0.75rem;
-    width: 100%;
-  }
-
-  .conceptAddForm textarea, .conceptEditForm textarea {
-    resize: vertical;
-  }
-
-  .conceptAddForm .conceptActions, .conceptEditForm .conceptActions {
-    justify-content: flex-end;
-  }
-
-  .optionalLabel {
-    font-size: 0.88em;
-    font-weight: 400;
-    opacity: 0.7;
   }
 
   @media (max-width: 640px) {
