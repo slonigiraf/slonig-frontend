@@ -12,6 +12,19 @@ export interface FixChapterConceptsResult {
   concepts: MissingChapterConcept[];
 }
 
+export function chapterLevelMissingConcept (
+  bookId: BookConcept['bookPage'][0],
+  chapterId: BookConcept['chapterId'],
+  concept: MissingChapterConcept
+): Pick<BookConcept, 'bookPage' | 'chapterId' | 'description' | 'title'> {
+  return {
+    bookPage: [bookId, 0],
+    chapterId,
+    description: concept.description,
+    title: concept.title
+  };
+}
+
 function normalizeConceptText (value: string): string {
   return value.toLocaleLowerCase().replace(/\s+/g, ' ').trim();
 }

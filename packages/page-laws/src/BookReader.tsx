@@ -22,7 +22,7 @@ import { BOOK_SUBJECT_OPTIONS, automaticBookSubjectForLanguage, bookSubjectLabel
 import { areAllBookPagesConceptsProcessed, countUnprocessedBookPages, processExtractedChapterContent } from './bookProcessing.js';
 import { mapConcurrent } from './concurrency.js';
 import { OPENROUTER_CONCURRENCY, openRouterRequestGate } from './openRouterConcurrency.js';
-import { fixChapterConceptsPrompt, parseMissingChapterConcepts } from './fixConcepts.js';
+import { chapterLevelMissingConcept, fixChapterConceptsPrompt, parseMissingChapterConcepts } from './fixConcepts.js';
 import { formatOpenRouterSpend, reportOpenRouterCost, type OpenRouterCostReporter } from './openRouterCost.js';
 import { BOOK_AGE_DETECTION_PROMPT, BOOK_CHAPTER_EXTRACTION_REQUEST_PROMPT, BOOK_LANGUAGE_DETECTION_PROMPT, BOOK_SUBJECT_DETECTION_PROMPT, MATHPIX_PDF_PAGE_PRICE_USD, OPENAI_MODELS } from './constants.js';
 import { stripMarkdownImageReferences } from './bookImageRefs.js';
@@ -2282,21 +2282,8 @@ function BookReader({ ageTabRequest, assignAllStandardsRequest, book, file, fixA
           continue;
         }
 
-        const firstPageNumber = result.chapter.pageNumbers[0];
-
-        if (firstPageNumber === undefined) {
-          failures++;
-          failureDetails.push(`${result.chapter.title || 'Untitled chapter'}: chapter has no pages.`);
-          continue;
-        }
-
         for (const concept of result.missing) {
-          await createBookConcept({
-            bookPage: [book.id, firstPageNumber],
-            chapterId: result.chapter.chapterId,
-            description: concept.description,
-            title: concept.title
-          });
+          await createBookConcept(chapterLevelMissingConcept(book.id, result.chapter.chapterId, concept));
           added++;
         }
 

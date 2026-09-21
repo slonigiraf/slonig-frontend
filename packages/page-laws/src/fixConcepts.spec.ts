@@ -4,9 +4,21 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 
-import { fixChapterConceptsPrompt, parseMissingChapterConcepts } from './fixConcepts.js';
+import { chapterLevelMissingConcept, fixChapterConceptsPrompt, parseMissingChapterConcepts } from './fixConcepts.js';
 
 describe('fix concepts', (): void => {
+  it('stores Fix-generated concepts at chapter scope on page 0', (): void => {
+    assert.deepEqual(chapterLevelMissingConcept(42, 7, {
+      description: 'The bottom number in a fraction.',
+      title: 'Denominator'
+    }), {
+      bookPage: [42, 0],
+      chapterId: 7,
+      description: 'The bottom number in a fraction.',
+      title: 'Denominator'
+    });
+  });
+
   it('builds a conservative chapter-level prompt from metadata and existing concepts', (): void => {
     const prompt = fixChapterConceptsPrompt('Fractions', [{ title: 'Numerator', description: 'The top number in a fraction.' }], 'en-math', 'en', 10);
 
