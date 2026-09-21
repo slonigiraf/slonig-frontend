@@ -10,7 +10,7 @@ import { strFromU8, unzipSync } from 'fflate';
 import MathpixLoader from 'mathpix-markdown-it/lib/components/mathpix-loader/index.js';
 import MathpixMarkdown from 'mathpix-markdown-it/lib/components/mathpix-markdown/index.js';
 import OpenAI from 'openai';
-import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 
 import { Button, Dropdown, Input, Modal, styled } from '@polkadot/react-components';
 
@@ -130,11 +130,13 @@ function ConceptItem ({ concept, firstPage, onDelete, onGoToPage, onReorderPoint
 
   return <li
     className='conceptItem'
+    data-concept-id={concept.id}
     onLostPointerCapture={canReorder ? onReorderPointerCancel : undefined}
     onPointerCancel={canReorder ? onReorderPointerCancel : undefined}
     onPointerDown={canReorder ? onReorderPointerDown : undefined}
     onPointerMove={canReorder ? onReorderPointerMove : undefined}
     onPointerUp={canReorder ? onReorderPointerUp : undefined}
+    tabIndex={-1}
   >
     <strong className='conceptDragTitle'><KatexSpan content={concept.title} /></strong>
     {isDeleteConfirmationOpen && <Modal
@@ -1250,6 +1252,7 @@ function BookReader({ ageTabRequest, assignAllStandardsRequest, book, file, fixA
   const conceptDragPointerIdRef = useRef<number | undefined>(undefined);
   const conceptDragPointerYRef = useRef<number | undefined>(undefined);
   const conceptAutoScrollFrameRef = useRef<number | undefined>(undefined);
+  const reorderedConceptFocusIdRef = useRef<BookConcept['id']>(undefined);
 
   useEffect((): void => {
     setHasRecognitionBeenAttempted(getSessionRecognitionAttempted(book.id));
@@ -3377,6 +3380,7 @@ function BookReader({ ageTabRequest, assignAllStandardsRequest, book, file, fixA
       return;
     }
 
+    reorderedConceptFocusIdRef.current = moved.id;
     setConcepts(orderedConcepts);
     setIsReorderingConcepts(true);
 
@@ -3391,6 +3395,26 @@ function BookReader({ ageTabRequest, assignAllStandardsRequest, book, file, fixA
       setIsReorderingConcepts(false);
     }
   }, [concepts, isReorderingConcepts]);
+
+  useLayoutEffect((): void => {
+    const conceptId = reorderedConceptFocusIdRef.current;
+    const scroller = conceptsOutputRef.current;
+
+    if (conceptId === undefined || !scroller) {
+      return;
+    }
+
+    const movedRow = Array.from(scroller.querySelectorAll<HTMLElement>('.conceptItem'))
+      .find((row) => row.dataset.conceptId === String(conceptId));
+
+    if (!movedRow) {
+      return;
+    }
+
+    reorderedConceptFocusIdRef.current = undefined;
+    movedRow.scrollIntoView({ block: 'nearest' });
+    movedRow.focus({ preventScroll: true });
+  }, [concepts]);
   const clearConceptDropMarker = useCallback((): void => {
     const scroller = conceptsOutputRef.current;
 
@@ -4942,6 +4966,11 @@ const StyledReader = styled.div`
     padding: 0.95rem 1rem 1rem;
     position: relative;
     transition: opacity 120ms ease, transform 120ms ease;
+  }
+
+  .conceptItem:focus {
+    outline: 2px solid var(--color-primary, #1682d4);
+    outline-offset: 2px;
   }
 
   .conceptItem.dragging {
