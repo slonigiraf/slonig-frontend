@@ -3529,9 +3529,9 @@ function BookReader({ ageTabRequest, assignAllStandardsRequest, book, file, fixA
 
     const target = event.target as HTMLElement;
 
-    // Keep edit/delete/page controls usable. On touch/pen, require the dedicated
-    // handle so vertical swipes elsewhere can continue to scroll the list.
-    if (target.closest('button, input, textarea, select, a') || (event.pointerType !== 'mouse' && !target.closest('.conceptDragHandle'))) {
+    // Only start reordering from the dedicated drag handle. This keeps clicks,
+    // text selection, and scrolling on the title/description from starting a drag.
+    if (!target.closest('.conceptDragHandle')) {
       return;
     }
 
