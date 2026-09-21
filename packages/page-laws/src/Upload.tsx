@@ -4,7 +4,7 @@
 import type { Book, BookStageSpendKey } from '@slonigiraf/db';
 import type { PDFDocumentProxy } from 'pdfjs-dist';
 
-import { createBook, deleteBook, getBook, getBookByContentHash, getBookConceptsForBookPage, getBookPages, getBooks, putBook, updateBookProcessingStage } from '@slonigiraf/db';
+import { createBook, deleteBook, getBook, getBookByContentHash, getBookConceptsForBookPage, getBookPages, getBooks, isBookProcessingStageComplete, putBook, resetBookProcessingStagesFrom } from '@slonigiraf/db';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { Button, Dropdown, Modal, styled } from '@polkadot/react-components';
@@ -14,6 +14,7 @@ import type { AiInputEstimate } from './aiEstimate.js';
 import { estimateAiInput } from './aiEstimate.js';
 import { MATHPIX_PDF_PAGE_PRICE_USD, OPENAI_MODELS } from './constants.js';
 import { conceptChaptersFromPages } from './conceptRecognition.js';
+import { fixChapterConceptsPrompt } from './fixConcepts.js';
 import { formatOpenRouterSpend } from './openRouterCost.js';
 import { loadStandardsCatalogsForBookSubject, loadStoredBookStandards, STANDARDS_FIX_RUNS, STANDARDS_MATCH_RUNS, standardsChapterKey, standardsConceptInputs, standardsFixInputs, standardsFixPrompt, standardsMatchingPrompt } from './standards.js';
 import { AiPriceEstimate, UnitPriceEstimate } from './PriceEstimate.js';
@@ -31,6 +32,7 @@ const PRICE_STAGES: Array<{ detail?: string; key: BookStageSpendKey; label: stri
   { key: 'age', label: 'Age' },
   { key: 'chapters', label: 'Chapters' },
   { key: 'concepts', label: 'Concepts' },
+  { key: 'fixConcepts', label: 'Fix concepts' },
   { key: 'exercises', label: 'Exercises' },
   { key: 'fixExercises', label: 'Fix exercises' },
   { key: 'abilities', label: 'Abilities' },
@@ -96,6 +98,7 @@ function Upload (): React.ReactElement {
   const [isBusy, setIsBusy] = useState(false);
   const [assignAllStandardsRequest, setAssignAllStandardsRequest] = useState(0);
   const [fixAllStandardsRequest, setFixAllStandardsRequest] = useState(0);
+  const [fixAllConceptsRequest, setFixAllConceptsRequest] = useState(0);
   const [generateAllConceptsRequest, setGenerateAllConceptsRequest] = useState(0);
   const [languageTabRequest, setLanguageTabRequest] = useState(0);
   const [subjectTabRequest, setSubjectTabRequest] = useState(0);
@@ -105,14 +108,16 @@ function Upload (): React.ReactElement {
   const [isIdentifyChaptersConfirmationOpen, setIsIdentifyChaptersConfirmationOpen] = useState(false);
   const [generateAllConceptsModel, setGenerateAllConceptsModel] = useState(OPENAI_MODELS[0].value);
   const [generateConceptsEstimate, setGenerateConceptsEstimate] = useState<AiInputEstimate>();
+  const [fixConceptsEstimate, setFixConceptsEstimate] = useState<AiInputEstimate | string>();
   const [isGenerateConceptsConfirmationOpen, setIsGenerateConceptsConfirmationOpen] = useState(false);
+  const [isFixConceptsConfirmationOpen, setIsFixConceptsConfirmationOpen] = useState(false);
   const [isGenerateExercisesConfirmationOpen, setIsGenerateExercisesConfirmationOpen] = useState(false);
   const [isStandardsConfirmationOpen, setIsStandardsConfirmationOpen] = useState(false);
   const [isFixStandardsConfirmationOpen, setIsFixStandardsConfirmationOpen] = useState(false);
   const [isRecognizeConfirmationOpen, setIsRecognizeConfirmationOpen] = useState(false);
   const [isPriceOpen, setIsPriceOpen] = useState(false);
   const [priceBook, setPriceBook] = useState<Book>();
-  const [pendingProcessingAction, setPendingProcessingAction] = useState<'chapters' | 'concepts' | 'recognize' | 'standards' | 'fixStandards' | 'exercises'>();
+  const [pendingProcessingAction, setPendingProcessingAction] = useState<'chapters' | 'concepts' | 'fixConcepts' | 'recognize' | 'standards' | 'fixStandards' | 'exercises'>();
   const [generateAllExercisesRequest, setGenerateAllExercisesRequest] = useState(0);
   const [generateExercisesEstimate, setGenerateExercisesEstimate] = useState<AiInputEstimate>();
   const [recognizePageCount, setRecognizePageCount] = useState<number>();
@@ -170,14 +175,6 @@ function Upload (): React.ReactElement {
     () => PRICE_STAGES.reduce((total, { key }) => total + (priceBook?.stageSpend?.[key] ?? 0), 0),
     [priceBook]
   );
-  // Standards are stored outside the book row, so recompute this on every render.
-  // This lets the next pipeline action become available immediately after the
-  // Standards pass persists chapter assignments, even if the parent has not yet
-  // observed the processingStage=12 refresh.
-  const standardsAssigned = selectedBook
-    ? Object.keys(loadStoredBookStandards(selectedBook.id)).length > 0
-    : false;
-
   useEffect(() => {
     let active = true;
     const opfsName = selectedBookOpfsName;
@@ -340,7 +337,7 @@ function Upload (): React.ReactElement {
 
     setPendingProcessingAction('recognize');
 
-    const resetBook: Book = { ...selectedBook, age: undefined, language: undefined, subject: undefined, processingStage: 0 };
+    const resetBook: Book = { ...selectedBook, age: undefined, completedStages: [], language: undefined, subject: undefined };
 
     putBook(resetBook).then(() => {
       setBooks((current) => current.map((book) => book.id === resetBook.id ? resetBook : book));
@@ -352,7 +349,7 @@ function Upload (): React.ReactElement {
   }, [selectedBook, t]);
 
   const onShowLanguage = useCallback((): void => {
-    if (!selectedBook || (selectedBook.processingStage ?? 0) < 1) {
+    if (!selectedBook || !isBookProcessingStageComplete(selectedBook, 'recognize')) {
       return;
     }
 
@@ -361,7 +358,7 @@ function Upload (): React.ReactElement {
   }, [selectedBook]);
 
   const onShowSubject = useCallback((): void => {
-    if (!selectedBook || (selectedBook.processingStage ?? 0) < 1) {
+    if (!selectedBook || !isBookProcessingStageComplete(selectedBook, 'recognize')) {
       return;
     }
 
@@ -375,7 +372,7 @@ function Upload (): React.ReactElement {
   }, [selectedBook, t]);
 
   const onShowAge = useCallback((): void => {
-    if (!selectedBook || (selectedBook.processingStage ?? 0) < 1) {
+    if (!selectedBook || !isBookProcessingStageComplete(selectedBook, 'recognize')) {
       return;
     }
 
@@ -458,7 +455,7 @@ function Upload (): React.ReactElement {
 
     setPendingProcessingAction('chapters');
 
-    updateBookProcessingStage(selectedBook.id, 1).then((updatedBook) => {
+    resetBookProcessingStagesFrom(selectedBook.id, 'chapters').then((updatedBook) => {
       if (updatedBook) {
         setBooks((current) => current.map((book) => book.id === updatedBook.id ? updatedBook : book));
       }
@@ -525,7 +522,7 @@ function Upload (): React.ReactElement {
 
     setPendingProcessingAction('concepts');
 
-    updateBookProcessingStage(selectedBook.id, 2).then((updatedBook) => {
+    resetBookProcessingStagesFrom(selectedBook.id, 'concepts').then((updatedBook) => {
       if (updatedBook) {
         setBooks((current) => current.map((book) => book.id === updatedBook.id ? updatedBook : book));
       }
@@ -534,6 +531,70 @@ function Upload (): React.ReactElement {
     }).catch(() => {
       setPendingProcessingAction(undefined);
       setError(t('Unable to reset the book processing stage.'));
+    });
+  }, [selectedBook, t]);
+
+  const onFixConcepts = useCallback((): void => {
+    if (!selectedBook) {
+      return;
+    }
+
+    if (!selectedBook.language || !selectedBook.subject || selectedBook.age === undefined) {
+      setError(t('Set the book language, subject, and learner age before running Fix concepts.'));
+      return;
+    }
+
+    setFixConceptsEstimate(undefined);
+    setIsFixConceptsConfirmationOpen(true);
+  }, [selectedBook, t]);
+
+  useEffect(() => {
+    if (!isFixConceptsConfirmationOpen || !selectedBook) {
+      return;
+    }
+
+    getBookPages(selectedBook.id).then(async (pages) => {
+      const pageLessConcepts = await getBookConceptsForBookPage(selectedBook.id, 0);
+      const requests: string[] = [];
+
+      for (const chapter of conceptChaptersFromPages(pages)) {
+        const concepts = [
+          ...(await Promise.all(chapter.pageNumbers.map((pageNumber) => getBookConceptsForBookPage(selectedBook.id, pageNumber)))).flat(),
+          ...pageLessConcepts.filter(({ chapterId }) => chapterId !== undefined && chapterId === chapter.chapterId)
+        ];
+
+        requests.push(fixChapterConceptsPrompt(chapter.title, concepts, selectedBook.subject, selectedBook.language, selectedBook.age));
+      }
+
+      setFixConceptsEstimate(requests.length
+        ? estimateAiInput(generateAllConceptsModel, requests, 1_200)
+        : t('No chapters are available for Fix concepts.'));
+    }).catch(() => setError(t('Unable to estimate Fix concepts cost.')));
+  }, [generateAllConceptsModel, isFixConceptsConfirmationOpen, selectedBook, t]);
+
+  const closeFixConceptsConfirmation = useCallback((): void => {
+    setIsFixConceptsConfirmationOpen(false);
+    setPendingProcessingAction(undefined);
+  }, []);
+
+  const confirmFixConcepts = useCallback((): void => {
+    setIsFixConceptsConfirmationOpen(false);
+
+    if (!selectedBook) {
+      return;
+    }
+
+    setPendingProcessingAction('fixConcepts');
+
+    resetBookProcessingStagesFrom(selectedBook.id, 'fixConcepts').then((updatedBook) => {
+      if (updatedBook) {
+        setBooks((current) => current.map((book) => book.id === updatedBook.id ? updatedBook : book));
+      }
+
+      setFixAllConceptsRequest((request) => request + 1);
+    }).catch(() => {
+      setPendingProcessingAction(undefined);
+      setError(t('Unable to reset the Fix concepts stage.'));
     });
   }, [selectedBook, t]);
 
@@ -602,7 +663,7 @@ function Upload (): React.ReactElement {
 
     setPendingProcessingAction('standards');
 
-    updateBookProcessingStage(selectedBook.id, 11).then((updatedBook) => {
+    resetBookProcessingStagesFrom(selectedBook.id, 'standards').then((updatedBook) => {
       if (updatedBook) {
         setBooks((current) => current.map((book) => book.id === updatedBook.id ? updatedBook : book));
       }
@@ -619,14 +680,14 @@ function Upload (): React.ReactElement {
       return;
     }
 
-    if ((selectedBook.processingStage ?? 0) < 12 && !standardsAssigned) {
+    if (!isBookProcessingStageComplete(selectedBook, 'standards')) {
       setError(t('Run Standards before Fix standards.'));
       return;
     }
 
     setFixStandardsEstimate(undefined);
     setIsFixStandardsConfirmationOpen(true);
-  }, [selectedBook, standardsAssigned, t]);
+  }, [selectedBook, t]);
 
   useEffect(() => {
     if (!isFixStandardsConfirmationOpen || !selectedBook) {
@@ -679,7 +740,7 @@ function Upload (): React.ReactElement {
 
     setPendingProcessingAction('fixStandards');
 
-    updateBookProcessingStage(selectedBook.id, 12).then((updatedBook) => {
+    resetBookProcessingStagesFrom(selectedBook.id, 'fixStandards').then((updatedBook) => {
       if (updatedBook) {
         setBooks((current) => current.map((book) => book.id === updatedBook.id ? updatedBook : book));
       }
@@ -739,7 +800,7 @@ function Upload (): React.ReactElement {
 
     setPendingProcessingAction('exercises');
 
-    updateBookProcessingStage(selectedBook.id, 3).then((updatedBook) => {
+    resetBookProcessingStagesFrom(selectedBook.id, 'exercises').then((updatedBook) => {
       if (updatedBook) {
         setBooks((current) => current.map((book) => book.id === updatedBook.id ? updatedBook : book));
       }
@@ -780,12 +841,12 @@ function Upload (): React.ReactElement {
   const onProcessingComplete = useCallback((): void => {
     setPendingProcessingAction(undefined);
 
-    // Re-read the persisted processing stage after a pipeline action. This is
+    // Re-read persisted named stage completion after a pipeline action. This is
     // the state that enables the next toolbar button, and it must not depend
     // on whether the current page happened to produce any concepts.
     getBooks()
       .then(setBooks)
-      .catch(() => setError(t('Unable to refresh the book processing stage.')));
+      .catch(() => setError(t('Unable to refresh book processing stages.')));
   }, [t]);
 
   return (
@@ -910,6 +971,36 @@ function Upload (): React.ReactElement {
               icon='play'
               label={t('Generate')}
               onClick={confirmGenerateConcepts}
+            />
+          </Button.Group>
+        </Modal.Content>
+      </Modal>}
+      {isFixConceptsConfirmationOpen && <Modal
+        header={t('Fix concepts')}
+        onClose={closeFixConceptsConfirmation}
+        size='small'
+      >
+        <Modal.Content>
+          <p>{t('Review each chapter’s current concept list using the book topic, language, and learner age, then add only strongly implied concepts that are missing. This stage does not reread the chapter text.')}</p>
+          <AiPriceEstimate estimate={fixConceptsEstimate} />
+          <Dropdown
+            className='batchModelSelect'
+            isFull
+            label={t('Model')}
+            onChange={setGenerateAllConceptsModel}
+            options={OPENAI_MODELS}
+            value={generateAllConceptsModel}
+          />
+          <Button.Group>
+            <Button
+              icon='times'
+              label={t('Cancel')}
+              onClick={closeFixConceptsConfirmation}
+            />
+            <Button
+              icon='play'
+              label={t('Fix')}
+              onClick={confirmFixConcepts}
             />
           </Button.Group>
         </Modal.Content>
@@ -1050,6 +1141,7 @@ function Upload (): React.ReactElement {
             assignAllStandardsRequest={assignAllStandardsRequest}
             book={selectedBook}
             fixAllStandardsRequest={fixAllStandardsRequest}
+            fixAllConceptsRequest={fixAllConceptsRequest}
             key={selectedBook.id}
             file={readerFile}
             generateAllConceptsModel={generateAllConceptsModel}
@@ -1067,66 +1159,73 @@ function Upload (): React.ReactElement {
               {
                 key: 'recognize',
                 label: t('Recognize'),
-                isDone: (selectedBook?.processingStage ?? 0) >= 1,
-                isDisabled: !selectedBook || !readerFile || isBusy,
+                isDone: isBookProcessingStageComplete(selectedBook, 'recognize'),
+                isDisabled: !readerFile || isBusy,
                 onClick: onRecognize
               },
               {
                 key: 'language',
                 label: t('Language'),
-                isDone: Boolean(selectedBook?.language),
-                isDisabled: !selectedBook || !readerFile || isBusy || (selectedBook.processingStage ?? 0) < 1,
+                isDone: isBookProcessingStageComplete(selectedBook, 'language'),
+                isDisabled: !readerFile || isBusy || !isBookProcessingStageComplete(selectedBook, 'recognize'),
                 onClick: onShowLanguage
               },
               {
                 key: 'subject',
                 label: t('Subject'),
-                isDone: Boolean(selectedBook?.subject),
-                isDisabled: !selectedBook || !readerFile || isBusy || (selectedBook.processingStage ?? 0) < 1 || !selectedBook.language,
+                isDone: isBookProcessingStageComplete(selectedBook, 'subject'),
+                isDisabled: !readerFile || isBusy || !isBookProcessingStageComplete(selectedBook, 'language') || !selectedBook.language,
                 onClick: onShowSubject
               },
               {
                 key: 'age',
                 label: t('Age'),
-                isDone: selectedBook?.age !== undefined,
-                isDisabled: !selectedBook || !readerFile || isBusy || (selectedBook.processingStage ?? 0) < 1 || !selectedBook.language || !selectedBook.subject,
+                isDone: isBookProcessingStageComplete(selectedBook, 'age'),
+                isDisabled: !readerFile || isBusy || !isBookProcessingStageComplete(selectedBook, 'subject') || !selectedBook.subject,
                 onClick: onShowAge
               },
               {
                 key: 'chapters',
                 label: t('Chapters'),
-                isDone: (selectedBook?.processingStage ?? 0) >= 2,
-                isDisabled: !selectedBook || !readerFile || isBusy || (selectedBook.processingStage ?? 0) < 1,
+                isDone: isBookProcessingStageComplete(selectedBook, 'chapters'),
+                isDisabled: !readerFile || isBusy || !isBookProcessingStageComplete(selectedBook, 'age'),
                 onClick: onIdentifyChapters
               },
               {
                 key: 'concepts',
                 label: t('Concepts'),
-                isDone: (selectedBook?.processingStage ?? 0) >= 3,
-                isDisabled: !selectedBook || !readerFile || isBusy || (selectedBook.processingStage ?? 0) < 2 || !selectedBook.language || !selectedBook.subject,
+                isDone: isBookProcessingStageComplete(selectedBook, 'concepts'),
+                isDisabled: !readerFile || isBusy || !isBookProcessingStageComplete(selectedBook, 'chapters') || !selectedBook.language || !selectedBook.subject,
                 onClick: onGenerateConcepts
+              },
+              {
+                key: 'fixConcepts',
+                label: t('Fix concepts'),
+                isDone: isBookProcessingStageComplete(selectedBook, 'fixConcepts'),
+                isDisabled: !readerFile || isBusy || !isBookProcessingStageComplete(selectedBook, 'concepts') || !selectedBook.language || !selectedBook.subject || selectedBook.age === undefined,
+                onClick: onFixConcepts
               },
               {
                 key: 'exercises',
                 label: t('Exercises'),
-                isDone: (selectedBook?.processingStage ?? 0) >= 4,
-                isDisabled: !selectedBook || !readerFile || isBusy || (selectedBook.processingStage ?? 0) < 3 || !selectedBook.language || !selectedBook.subject,
+                isDone: isBookProcessingStageComplete(selectedBook, 'exercises'),
+                isDisabled: !readerFile || isBusy || !isBookProcessingStageComplete(selectedBook, 'fixConcepts') || !selectedBook.language || !selectedBook.subject,
                 onClick: onGenerateExercises
               }
             ]}
-            processingToolbarAfterFixImages={(pipelineStage) => [
+            processingToolbarAfterFixImages={[
               {
                 key: 'standards',
                 label: t('Standards'),
-                isDone: pipelineStage >= 12 || standardsAssigned,
-                isDisabled: !selectedBook || !readerFile || isBusy || pipelineStage < 11 || !selectedBook.language || !selectedBook.subject,
+                isDone: isBookProcessingStageComplete(selectedBook, 'standards'),
+                isDisabled: !readerFile || isBusy || !isBookProcessingStageComplete(selectedBook, 'fixImages') || !selectedBook.language || !selectedBook.subject,
                 onClick: onAssignStandards
               },
               {
                 key: 'fixStandards',
                 label: t('Fix standards'),
-                isDone: pipelineStage >= 13,
-                isDisabled: !selectedBook || !readerFile || isBusy || (pipelineStage < 12 && !standardsAssigned) || !selectedBook.language || !selectedBook.subject,
+                isDone: isBookProcessingStageComplete(selectedBook, 'fixStandards'),
+                isDisabled: !readerFile || isBusy || !isBookProcessingStageComplete(selectedBook, 'standards') || !selectedBook.language || !selectedBook.subject,
                 onClick: onFixStandards
               }
             ]}

@@ -1,11 +1,11 @@
 // Copyright 2021-2026 @polkadot/app-laws authors & contributors
 // SPDX-License-Identifier: Apache-2.0
 
-import type { Book, BookChapter, BookConcept, BookPage, BookStageSpendKey, Exercise, Skill } from '@slonigiraf/db';
+import type { Book, BookChapter, BookConcept, BookPage, BookProcessingStageKey, BookStageSpendKey, Exercise, Skill } from '@slonigiraf/db';
 import type { GeneratedAbility } from './abilities.js';
 import type { AbilityBlueprint, AbilityWorkflowJsonRunner, ExerciseAbilityConversion } from './abilityWorkflow.js';
 
-import { addBookStageSpend, deleteAbilities, deleteAbility, deleteBookConcept, deleteExercise, deleteSkill, getAbilities, getBookChapters, getBookConceptsForBookPage, getBookPages, getExercisesForBookPage, getSetting, getSkillsForChapter, replaceAbilities, replaceExercisesForBookPage, replaceSkillsForChapter, SettingKey, storeAbility, updateBookChapterTitle, updateBookProcessingStage } from '@slonigiraf/db';
+import { addBookStageSpend, completeBookProcessingStage, deleteAbilities, deleteAbility, deleteBookConcept, deleteExercise, deleteSkill, getAbilities, getBookChapters, getBookCompletedStages, getBookConceptsForBookPage, getBookPages, getExercisesForBookPage, getSetting, getSkillsForChapter, replaceAbilities, replaceExercisesForBookPage, replaceSkillsForChapter, resetBookProcessingStagesFrom, SettingKey, storeAbility, updateBookChapterTitle } from '@slonigiraf/db';
 import { KatexSpan, RoundProgress } from '@slonigiraf/slonig-components';
 import OpenAI from 'openai';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
@@ -37,11 +37,11 @@ async function preRenderTikzLazy (value: string): Promise<TikzPreRenderResult> {
 }
 
 const BATCH_SIZE = 5;
-const FIX_EXERCISES_STAGE = 6;
-const ABILITIES_STAGE = 8;
-const FIX_ABILITIES_STAGE = 9;
-const IMAGES_STAGE = 10;
-const FIX_IMAGES_STAGE = 11;
+const FIX_EXERCISES_STAGE: BookProcessingStageKey = 'fixExercises';
+const ABILITIES_STAGE: BookProcessingStageKey = 'abilities';
+const FIX_ABILITIES_STAGE: BookProcessingStageKey = 'fixAbilities';
+const IMAGES_STAGE: BookProcessingStageKey = 'images';
+const FIX_IMAGES_STAGE: BookProcessingStageKey = 'fixImages';
 const MAX_REQUEST_ATTEMPTS = 4;
 const RETRY_BASE_DELAY_MS = 1_000;
 const AI_REQUEST_TIMEOUT_MS = 60_000;
@@ -153,7 +153,7 @@ interface Props {
   pipelineOnly?: boolean;
   pipelineControls?: React.ReactNode;
   pipelinePrefix?: PipelineAction[];
-  pipelineSuffix?: (stage: number) => PipelineAction[];
+  pipelineSuffix?: PipelineAction[];
   showPipeline?: boolean;
   view: SkillsView;
 }
@@ -1051,7 +1051,7 @@ function Skills ({ book, externalRefreshToken = 0, onAction, onBookChange, onCon
   const [progressTotal, setProgressTotal] = useState(1);
   const [refreshToken, setRefreshToken] = useState(0);
   const [selectedModel, setSelectedModel] = useState(OPENAI_MODELS[0].value);
-  const [effectiveStage, setEffectiveStage] = useState(book.processingStage ?? 0);
+  const [effectiveCompletedStages, setEffectiveCompletedStages] = useState<BookProcessingStageKey[]>(() => getBookCompletedStages(book));
   const refresh = useCallback((): void => setRefreshToken((value) => value + 1), []);
   const refreshContent = useCallback((): void => {
     refresh();
@@ -1174,30 +1174,24 @@ function Skills ({ book, externalRefreshToken = 0, onAction, onBookChange, onCon
     : []), [allAbilities]);
   const skillSources = useMemo<SkillSource[]>(() => chapterContent.flatMap(({ chapter, concepts, exercises }) => chapter.id === undefined ? [] : [...concepts.flatMap(({ description, id, title }) => id === undefined ? [] : [{ chapterId: chapter.id as number, chapterTitle: chapter.title, description, sourceId: id, sourceType: 'concept' as const, title }]), ...exercises.flatMap(({ description, id, title }) => id === undefined ? [] : [{ chapterId: chapter.id as number, chapterTitle: chapter.title, description: stripMarkdownImageReferences(description), sourceId: id, sourceType: 'exercise' as const, title }])]), [chapterContent]);
   useEffect(() => {
-    setEffectiveStage(book.processingStage ?? 0);
-  }, [book.id, book.processingStage]);
+    setEffectiveCompletedStages(getBookCompletedStages(book));
+  }, [book]);
 
-  // Pipeline buttons must follow the persisted processing stage, not the
-  // presence of generated/extracted rows. Concepts can already extract
-  // exercises from the source book, but that does not mean the Exercises
-  // pipeline step has been run. With Chapters inserted after recognition, Stage 4
-  // is Exercises and Stage 6 records a successful Fix exercises pass; only after
-  // that should Abilities become available. Stage 8 means Abilities have been
-  // generated; Stage 9 independently records Fix abilities. Stages 10 and 11 are
-  // the Images and Fix images pipeline checkpoints. Stage numbering remains
-  // unchanged for persisted-book compatibility.
-  const stage = effectiveStage;
+  const stageDone = useCallback((stage: BookProcessingStageKey): boolean => effectiveCompletedStages.includes(stage), [effectiveCompletedStages]);
   const hasAbilities = allAbilities.length > 0;
 
-  const setStage = useCallback(async (processingStage: number): Promise<void> => {
-    const updated = await updateBookProcessingStage(book.id, processingStage);
+  const completeStage = useCallback(async (stage: BookProcessingStageKey, invalidateDownstream = false): Promise<void> => {
+    if (invalidateDownstream) {
+      await resetBookProcessingStagesFrom(book.id, stage);
+    }
 
-    // The DB helper can return a book object whose in-memory processingStage is
-    // not yet refreshed. The requested stage is authoritative after the write
-    // succeeds, so update both this pipeline and the parent book immediately.
-    setEffectiveStage(processingStage);
-    onBookChange({ ...(updated ?? book), processingStage });
-  }, [book, onBookChange]);
+    const updated = await completeBookProcessingStage(book.id, stage);
+    const completedStages = updated ? getBookCompletedStages(updated) : Array.from(new Set([...effectiveCompletedStages, stage]));
+    const nextBook: Book = updated ?? { ...book, completedStages };
+
+    setEffectiveCompletedStages(completedStages);
+    onBookChange(nextBook);
+  }, [book, effectiveCompletedStages, onBookChange]);
 
   const createClient = useCallback(async (): Promise<OpenAI> => {
     const key = await getSetting(SettingKey.OPENROUTER_TOKEN);
@@ -1356,13 +1350,13 @@ function Skills ({ book, externalRefreshToken = 0, onAction, onBookChange, onCon
 
       await Promise.all(allSkills.flatMap(({ id }) => id === undefined ? [] : [deleteAbilities(abilityModuleId(book.id, id))]));
       await Promise.all(chapters.flatMap(({ id }) => id === undefined ? [] : [replaceSkillsForChapter(id, generatedByChapter.get(id) ?? [])]));
-      await setStage(5); refresh();
+      refresh();
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : 'Unable to generate Skills.');
     } finally {
       setIsBusy(false);
     }
-  }, [addOpenRouterCost, allSkills, beginProgress, book.id, chapters, createClient, language, refresh, selectedModel, setStage, skillSources]);
+  }, [addOpenRouterCost, allSkills, beginProgress, book.id, chapters, createClient, language, refresh, selectedModel, skillSources]);
 
   const generateExercises = useCallback(async (): Promise<void> => {
     beginProgress('Generating Abilities', allExercises.length);
@@ -1469,13 +1463,12 @@ function Skills ({ book, externalRefreshToken = 0, onAction, onBookChange, onCon
       await Promise.all(Array.from(generatedByExerciseId, ([exerciseId, abilities]) => replaceAbilities(exerciseAbilityModuleId(book.id, exerciseId), abilities.map((ability) => JSON.stringify(ability)))));
 
       if (generatedByExerciseId.size) {
-        // Any newly generated Ability invalidates a prior Fix abilities pass.
-        // Stage 7 means Abilities exist; later image checkpoints are invalidated.
-        await setStage(ABILITIES_STAGE);
-      } else if (allAbilities.length && stage < ABILITIES_STAGE) {
+        // Any newly generated Ability invalidates Fix abilities and every later stage.
+        await completeStage(ABILITIES_STAGE, true);
+      } else if (allAbilities.length && !stageDone(ABILITIES_STAGE)) {
         // Existing Abilities can still make this pipeline stage available even
         // when this attempt produced no replacement rows.
-        await setStage(ABILITIES_STAGE);
+        await completeStage(ABILITIES_STAGE);
       }
 
       refresh();
@@ -1505,7 +1498,7 @@ function Skills ({ book, externalRefreshToken = 0, onAction, onBookChange, onCon
     } finally {
       setIsBusy(false);
     }
-  }, [addAbilitiesCost, allAbilities.length, allExercises, beginProgress, book.age, book.id, chapterContent, createClient, language, onAction, onContentChange, refresh, selectedModel, setStage, stage]);
+  }, [addAbilitiesCost, allAbilities.length, allExercises, beginProgress, book.age, book.id, chapterContent, createClient, language, onAction, onContentChange, refresh, selectedModel, completeStage, stageDone]);
 
   const fixExercises = useCallback(async (): Promise<void> => {
     beginProgress('Fixing Exercise errors', allExercises.length);
@@ -1709,8 +1702,10 @@ function Skills ({ book, externalRefreshToken = 0, onAction, onBookChange, onCon
         await deleteAbility(deleted.id);
       }
 
-      if (stage < FIX_ABILITIES_STAGE) {
-        await setStage(FIX_ABILITIES_STAGE);
+      const hasChanges = fixReview.items.length > 0 || fixReview.duplicatePairs.length > 0;
+
+      if (hasChanges || !stageDone(FIX_ABILITIES_STAGE)) {
+        await completeStage(FIX_ABILITIES_STAGE, hasChanges);
       }
 
       const fixed = fixReview.items.length;
@@ -1726,7 +1721,7 @@ function Skills ({ book, externalRefreshToken = 0, onAction, onBookChange, onCon
     } finally {
       setIsBusy(false);
     }
-  }, [fixReview, onAction, onContentChange, refresh, setStage, stage]);
+  }, [fixReview, onAction, onContentChange, refresh, completeStage, stageDone]);
   const applyExerciseFixReview = useCallback(async (): Promise<void> => {
     if (!exerciseFixReview) {
       return;
@@ -1806,8 +1801,8 @@ function Skills ({ book, externalRefreshToken = 0, onAction, onBookChange, onCon
       // Correcting Exercises invalidates generated Abilities, so a committed
       // change intentionally returns the pipeline to the Fix exercises checkpoint.
       // A no-op review only advances when this step had not yet been completed.
-      if (hasChanges || stage < FIX_EXERCISES_STAGE) {
-        await setStage(FIX_EXERCISES_STAGE);
+      if (hasChanges || !stageDone(FIX_EXERCISES_STAGE)) {
+        await completeStage(FIX_EXERCISES_STAGE, hasChanges);
       }
 
       const fixed = replacements.size;
@@ -1823,7 +1818,7 @@ function Skills ({ book, externalRefreshToken = 0, onAction, onBookChange, onCon
     } finally {
       setIsBusy(false);
     }
-  }, [allAbilities, allExercises, book.id, bookPageContent, exerciseFixReview, onAction, onContentChange, refresh, setStage, stage]);
+  }, [allAbilities, allExercises, book.id, bookPageContent, exerciseFixReview, onAction, onContentChange, refresh, completeStage, stageDone]);
   const openExerciseGeneration = useCallback((): void => {
     setAiAction('exercises');
   }, []);
@@ -1846,7 +1841,7 @@ function Skills ({ book, externalRefreshToken = 0, onAction, onBookChange, onCon
 
     try {
       if (!imageGenerationTargets.length) {
-        await setStage(IMAGES_STAGE);
+        await completeStage(IMAGES_STAGE, true);
         setNotice('Images complete. There were no visual prompts requiring TikZ conversion or regeneration.');
         return;
       }
@@ -1897,7 +1892,7 @@ function Skills ({ book, externalRefreshToken = 0, onAction, onBookChange, onCon
         }
       }
 
-      await setStage(IMAGES_STAGE);
+      await completeStage(IMAGES_STAGE, true);
       setNotice(`Images complete: converted ${imageGenerationTargets.length} visual prompt${imageGenerationTargets.length === 1 ? '' : 's'} to TikZ.`);
       refresh();
       onAction?.('preExercisesExercises');
@@ -1906,7 +1901,7 @@ function Skills ({ book, externalRefreshToken = 0, onAction, onBookChange, onCon
     } finally {
       setIsBusy(false);
     }
-  }, [addImagesCost, allAbilities, beginProgress, book.age, createClient, imageGenerationTargets, language, onAction, refresh, selectedModel, setStage]);
+  }, [addImagesCost, allAbilities, beginProgress, book.age, createClient, imageGenerationTargets, language, onAction, refresh, selectedModel, completeStage]);
   const fixImages = useCallback(async (): Promise<void> => {
     beginProgress('Reviewing TikZ visuals', imageFixTargets.length);
 
@@ -2077,8 +2072,10 @@ function Skills ({ book, externalRefreshToken = 0, onAction, onBookChange, onCon
         }
       }
 
-      if (stage < FIX_IMAGES_STAGE) {
-        await setStage(FIX_IMAGES_STAGE);
+      const hasChanges = imageFixReview.items.length > 0;
+
+      if (hasChanges || !stageDone(FIX_IMAGES_STAGE)) {
+        await completeStage(FIX_IMAGES_STAGE, hasChanges);
       }
 
       const fixed = imageFixReview.items.length;
@@ -2093,7 +2090,7 @@ function Skills ({ book, externalRefreshToken = 0, onAction, onBookChange, onCon
     } finally {
       setIsBusy(false);
     }
-  }, [allAbilities, imageFixReview, onAction, onContentChange, refresh, setStage, stage]);
+  }, [allAbilities, imageFixReview, onAction, onContentChange, refresh, completeStage, stageDone]);
 
   const openImageFix = useCallback((): void => {
     setAiAction('fixImages');
@@ -2130,40 +2127,40 @@ function Skills ({ book, externalRefreshToken = 0, onAction, onBookChange, onCon
     {
       key: 'fixExercises',
       label: 'Fix exercises',
-      isDone: stage >= FIX_EXERCISES_STAGE,
-      isDisabled: isBusy || !hasBookLanguage || !hasBookSubject || stage < 4 || !allExercises.length,
+      isDone: stageDone(FIX_EXERCISES_STAGE),
+      isDisabled: isBusy || !hasBookLanguage || !hasBookSubject || !stageDone('exercises') || !allExercises.length,
       onClick: openExerciseFix
     },
     {
       key: 'abilities',
       label: 'Abilities',
-      isDone: stage >= ABILITIES_STAGE,
-      isDisabled: isBusy || !hasBookLanguage || !hasBookSubject || stage < FIX_EXERCISES_STAGE || !allExercises.length,
+      isDone: stageDone(ABILITIES_STAGE),
+      isDisabled: isBusy || !hasBookLanguage || !hasBookSubject || !stageDone(FIX_EXERCISES_STAGE) || !allExercises.length,
       onClick: openExerciseGeneration
     },
     {
       key: 'fixAbilities',
       label: 'Fix abilities',
-      isDone: stage >= FIX_ABILITIES_STAGE,
-      isDisabled: isBusy || !hasBookLanguage || !hasBookSubject || stage < ABILITIES_STAGE || !hasAbilities,
+      isDone: stageDone(FIX_ABILITIES_STAGE),
+      isDisabled: isBusy || !hasBookLanguage || !hasBookSubject || !stageDone(ABILITIES_STAGE) || !hasAbilities,
       onClick: openAbilityFix
     },
     {
       key: 'images',
       label: 'Images',
-      isDone: stage >= IMAGES_STAGE,
-      isDisabled: isBusy || !hasBookLanguage || !hasBookSubject || stage < FIX_ABILITIES_STAGE || !hasAbilities,
+      isDone: stageDone(IMAGES_STAGE),
+      isDisabled: isBusy || !hasBookLanguage || !hasBookSubject || !stageDone(FIX_ABILITIES_STAGE) || !hasAbilities,
       onClick: openImages
     },
     {
       key: 'fixImages',
       label: 'Fix images',
-      isDone: stage >= FIX_IMAGES_STAGE,
-      isDisabled: isBusy || !hasBookLanguage || !hasBookSubject || stage < IMAGES_STAGE || !hasAbilities,
+      isDone: stageDone(FIX_IMAGES_STAGE),
+      isDisabled: isBusy || !hasBookLanguage || !hasBookSubject || !stageDone(IMAGES_STAGE) || !hasAbilities,
       onClick: openImageFix
     },
-    ...(pipelineSuffix?.(stage) ?? [])
-  ], [allExercises.length, hasAbilities, hasBookLanguage, hasBookSubject, isBusy, openAbilityFix, openExerciseFix, openExerciseGeneration, openImageFix, openImages, pipelinePrefix, pipelineSuffix, stage]);
+    ...(pipelineSuffix ?? [])
+  ], [allExercises.length, hasAbilities, hasBookLanguage, hasBookSubject, isBusy, openAbilityFix, openExerciseFix, openExerciseGeneration, openImageFix, openImages, pipelinePrefix, pipelineSuffix, stageDone]);
   const visiblePipelineActions = useMemo(() => {
     const firstIncompleteIndex = pipelineActions.findIndex(({ isDone }) => !isDone);
 

@@ -19,6 +19,7 @@ import { Ability } from './Ability.js';
 import { Repetition } from './Repetition.js';
 import { LearnRequest } from './LearnRequest.js';
 import { ScheduledEvent } from './ScheduledEvent.js';
+import { getBookCompletedStages } from './Book.js';
 import type { Book } from './Book.js';
 import type { BookPage } from './BookPage.js';
 import type { BookConcept } from './BookConcept.js';
@@ -302,6 +303,12 @@ class SlonigDB extends Dexie {
 
         return table.put(withoutAbilityMode as LegacyExerciseWithAbilityMode);
       }));
+    });
+    this.version(87).stores({}).upgrade(async (transaction: Transaction) => {
+      const table = transaction.table<Book, number>('books');
+      const books = await table.toArray();
+
+      await Promise.all(books.flatMap((book) => book.id === undefined ? [] : [table.update(book.id, { completedStages: getBookCompletedStages(book) })]));
     });
 
   }

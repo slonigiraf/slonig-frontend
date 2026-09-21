@@ -26,7 +26,8 @@ import { EXAMPLE_MODULE_KNOWLEDGE_CID, EXAMPLE_SKILL_KNOWLEDGE_ID } from "@sloni
 import { LearnRequest } from "./db/LearnRequest.js";
 import { ScheduledEvent, ScheduledEventType } from "./db/ScheduledEvent.js";
 import Dexie from "dexie";
-import type { Book, BookStageSpend, BookStageSpendKey, BookSubject } from './db/Book.js';
+import { getBookCompletedStages, withBookProcessingStagesResetFrom, withCompletedBookProcessingStage } from './db/Book.js';
+import type { Book, BookProcessingStageKey, BookStageSpend, BookStageSpendKey, BookSubject } from './db/Book.js';
 import type { BookPage, MathpixHeading } from './db/BookPage.js';
 import type { BookConcept } from './db/BookConcept.js';
 import type { Exercise } from './db/Exercise.js';
@@ -36,7 +37,8 @@ import type { ExerciseTemplate } from './db/ExerciseTemplate.js';
 import type { Ability } from './db/Ability.js';
 import { shouldExportDatabaseRow } from './backup.js';
 
-export type { LearnRequest, TutorAction, CanceledInsurance, Reexamination, LetterTemplate, CanceledLetter, Reimbursement, Letter, Insurance, Lesson, Pseudonym, Setting, Signer, UsageRight, Agreement, Ability, Book, BookStageSpend, BookStageSpendKey, BookSubject, BookPage, MathpixHeading, BookChapter, BookConcept, Exercise, Skill, ExerciseTemplate };
+export { BOOK_PROCESSING_STAGES, getBookCompletedStages, isBookProcessingStageComplete, withBookProcessingStagesResetFrom, withCompletedBookProcessingStage } from './db/Book.js';
+export type { LearnRequest, TutorAction, CanceledInsurance, Reexamination, LetterTemplate, CanceledLetter, Reimbursement, Letter, Insurance, Lesson, Pseudonym, Setting, Signer, UsageRight, Agreement, Ability, Book, BookProcessingStageKey, BookStageSpend, BookStageSpendKey, BookSubject, BookPage, MathpixHeading, BookChapter, BookConcept, Exercise, Skill, ExerciseTemplate };
 
 export async function createBook(book: Omit<Book, 'id'>): Promise<number> {
     return db.books.add(book as Book);
@@ -55,6 +57,7 @@ export async function putBook(book: Book): Promise<void> {
                 age: Math.max(storedSpend?.age ?? 0, incomingSpend?.age ?? 0),
                 chapters: Math.max(storedSpend?.chapters ?? 0, incomingSpend?.chapters ?? 0),
                 concepts: Math.max(storedSpend?.concepts ?? 0, incomingSpend?.concepts ?? 0),
+                fixConcepts: Math.max(storedSpend?.fixConcepts ?? 0, incomingSpend?.fixConcepts ?? 0),
                 exercises: Math.max(storedSpend?.exercises ?? 0, incomingSpend?.exercises ?? 0),
                 splitExercises: Math.max(storedSpend?.splitExercises ?? 0, incomingSpend?.splitExercises ?? 0),
                 fixExercises: Math.max(storedSpend?.fixExercises ?? 0, incomingSpend?.fixExercises ?? 0),
@@ -67,18 +70,61 @@ export async function putBook(book: Book): Promise<void> {
             }
             : undefined;
 
-        await db.books.put({ ...book, ...(stageSpend ? { stageSpend } : {}) });
+        const completedStages = book.completedStages ?? storedBook?.completedStages ?? getBookCompletedStages(book);
+
+        await db.books.put({ ...book, completedStages, ...(stageSpend ? { stageSpend } : {}) });
     });
 }
 
-export async function getBook(id: number): Promise<Book | undefined> {
-    return db.books.get(id);
+function withNamedBookStages (book: Book | undefined): Book | undefined {
+    return book ? { ...book, completedStages: getBookCompletedStages(book) } : undefined;
 }
 
-export async function updateBookProcessingStage(id: number, processingStage: number): Promise<Book | undefined> {
-    await db.books.update(id, { processingStage });
+export async function getBook(id: number): Promise<Book | undefined> {
+    return withNamedBookStages(await db.books.get(id));
+}
 
-    return db.books.get(id);
+/** @deprecated Use completeBookProcessingStage/resetBookProcessingStagesFrom. */
+export async function updateBookProcessingStage(id: number, processingStage: number): Promise<Book | undefined> {
+    const book = await db.books.get(id);
+
+    if (!book) {
+        return undefined;
+    }
+
+    const legacyBook = { ...book, completedStages: undefined, processingStage };
+
+    await db.books.update(id, { completedStages: getBookCompletedStages(legacyBook), processingStage });
+
+    return getBook(id);
+}
+
+export async function completeBookProcessingStage(id: number, stage: BookProcessingStageKey): Promise<Book | undefined> {
+    const book = await db.books.get(id);
+
+    if (!book) {
+        return undefined;
+    }
+
+    const updated = withCompletedBookProcessingStage({ ...book, completedStages: getBookCompletedStages(book) }, stage);
+
+    await db.books.update(id, { completedStages: updated.completedStages });
+
+    return getBook(id);
+}
+
+export async function resetBookProcessingStagesFrom(id: number, stage: BookProcessingStageKey): Promise<Book | undefined> {
+    const book = await db.books.get(id);
+
+    if (!book) {
+        return undefined;
+    }
+
+    const updated = withBookProcessingStagesResetFrom({ ...book, completedStages: getBookCompletedStages(book) }, stage);
+
+    await db.books.update(id, { completedStages: updated.completedStages });
+
+    return getBook(id);
 }
 
 export async function addBookStageSpend(id: number, stage: BookStageSpendKey, costUsd: number): Promise<void> {
@@ -103,11 +149,11 @@ export async function addBookStageSpend(id: number, stage: BookStageSpendKey, co
 }
 
 export async function getBooks(): Promise<Book[]> {
-    return db.books.orderBy('created').reverse().toArray();
+    return (await db.books.orderBy('created').reverse().toArray()).map((book) => ({ ...book, completedStages: getBookCompletedStages(book) }));
 }
 
 export async function getBookByContentHash(contentHash: string): Promise<Book | undefined> {
-    return db.books.where('contentHash').equals(contentHash).first();
+    return withNamedBookStages(await db.books.where('contentHash').equals(contentHash).first());
 }
 
 export async function deleteBook(id: number): Promise<void> {
