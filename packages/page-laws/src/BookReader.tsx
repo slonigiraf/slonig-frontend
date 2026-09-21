@@ -196,6 +196,115 @@ function ConceptItem ({ concept, firstPage, isDragging = false, onDelete, onDrag
   </li>;
 }
 
+const CONCEPT_REQUEST_MAX_ATTEMPTS = 4;
+const CONCEPT_RETRY_BASE_DELAY_MS = 1_000;
+
+function conceptRequestErrorStatus (error: unknown): number | undefined {
+  if (typeof error !== 'object' || error === null || !('status' in error)) {
+    return undefined;
+  }
+
+  const status = (error as { status?: unknown }).status;
+
+  return typeof status === 'number' ? status : undefined;
+}
+
+function conceptRetryAfterMs (error: unknown): number | undefined {
+  if (typeof error !== 'object' || error === null || !('headers' in error)) {
+    return undefined;
+  }
+
+  const headers = (error as { headers?: unknown }).headers;
+  let retryAfter: unknown;
+
+  if (typeof headers === 'object' && headers !== null && 'get' in headers && typeof (headers as { get?: unknown }).get === 'function') {
+    retryAfter = (headers as { get: (name: string) => unknown }).get('retry-after');
+  } else if (typeof headers === 'object' && headers !== null) {
+    const record = headers as Record<string, unknown>;
+
+    retryAfter = record['retry-after'] ?? record['Retry-After'];
+  }
+
+  if (typeof retryAfter === 'number' && Number.isFinite(retryAfter)) {
+    return Math.max(0, retryAfter * 1_000);
+  }
+
+  if (typeof retryAfter !== 'string' || !retryAfter.trim()) {
+    return undefined;
+  }
+
+  const seconds = Number(retryAfter);
+
+  if (Number.isFinite(seconds)) {
+    return Math.max(0, seconds * 1_000);
+  }
+
+  const date = Date.parse(retryAfter);
+
+  return Number.isNaN(date) ? undefined : Math.max(0, date - Date.now());
+}
+
+function isRetryableConceptRequestError (error: unknown): boolean {
+  const status = conceptRequestErrorStatus(error);
+
+  if (status !== undefined) {
+    return status === 408 || status === 409 || status === 429 || (status >= 500 && status <= 599);
+  }
+
+  if (typeof error !== 'object' || error === null || !('name' in error)) {
+    return false;
+  }
+
+  const name = (error as { name?: unknown }).name;
+
+  return name === 'APIConnectionError' || name === 'APITimeoutError';
+}
+
+function conceptGenerationErrorMessage (error: unknown): string {
+  const message = error instanceof Error
+    ? error.message
+    : typeof error === 'string'
+      ? error
+      : 'Unknown concept-generation error.';
+
+  return message.replace(/\s+/g, ' ').trim().slice(0, 320) || 'Unknown concept-generation error.';
+}
+
+function isRetryableConceptContentError (error: unknown): boolean {
+  if (error instanceof SyntaxError) {
+    return true;
+  }
+
+  return error instanceof Error && error.message === 'OpenRouter returned invalid chapter concept data.';
+}
+
+async function waitForConceptRetry (milliseconds: number): Promise<void> {
+  await new Promise((resolve) => setTimeout(resolve, milliseconds));
+}
+
+async function runConceptRequestWithRetry<T>(request: () => Promise<T>): Promise<T> {
+  let lastError: unknown;
+
+  for (let attempt = 0; attempt < CONCEPT_REQUEST_MAX_ATTEMPTS; attempt++) {
+    try {
+      return await openRouterRequestGate.run(request);
+    } catch (error) {
+      lastError = error;
+
+      if (!isRetryableConceptRequestError(error) || attempt === CONCEPT_REQUEST_MAX_ATTEMPTS - 1) {
+        throw error;
+      }
+
+      const backoff = conceptRetryAfterMs(error) ?? CONCEPT_RETRY_BASE_DELAY_MS * (2 ** attempt);
+
+      openRouterRequestGate.pause(backoff);
+      await waitForConceptRetry(backoff);
+    }
+  }
+
+  throw lastError instanceof Error ? lastError : new Error('OpenRouter concept request failed after retries.');
+}
+
 async function requestGeneratedChapterContent(client: OpenAI, model: string, chapterTitle: string, pages: ChapterConceptInputPage[], onCost?: OpenRouterCostReporter): Promise<GeneratedChapterConcepts> {
   const usablePages = pages.filter(({ input }) => input.text.trim() || input.images.length);
 
@@ -203,7 +312,7 @@ async function requestGeneratedChapterContent(client: OpenAI, model: string, cha
     return { concepts: [] };
   }
 
-  const response = await openRouterRequestGate.run(() => client.chat.completions.create({
+  const response = await runConceptRequestWithRetry(() => client.chat.completions.create({
     messages: [{
       content: [
         {
@@ -305,7 +414,20 @@ async function getChapterStandardsConcepts(bookId: number, pageNumbers: number[]
 }
 
 async function generateChapterContentWithEmptyConceptRetry(client: OpenAI, model: string, chapterTitle: string, pages: ChapterConceptInputPage[], retryEmptyConcepts: boolean, onCost?: OpenRouterCostReporter): Promise<GeneratedChapterConcepts> {
-  const firstResult = await requestGeneratedChapterContent(client, model, chapterTitle, pages, onCost);
+  let firstResult: GeneratedChapterConcepts;
+
+  try {
+    firstResult = await requestGeneratedChapterContent(client, model, chapterTitle, pages, onCost);
+  } catch (error) {
+    // A structurally invalid model response is nondeterministic and worth one
+    // fresh attempt. API transport/provider failures are already retried inside
+    // requestGeneratedChapterContent, while non-retryable 4xx errors propagate.
+    if (!isRetryableConceptContentError(error)) {
+      throw error;
+    }
+
+    return requestGeneratedChapterContent(client, model, chapterTitle, pages, onCost);
+  }
 
   if (firstResult.concepts.length || !retryEmptyConcepts) {
     return firstResult;
@@ -315,7 +437,11 @@ async function generateChapterContentWithEmptyConceptRetry(client: OpenAI, model
     const secondResult = await requestGeneratedChapterContent(client, model, chapterTitle, pages, onCost);
 
     return secondResult.concepts.length ? secondResult : firstResult;
-  } catch {
+  } catch (error) {
+    if (isRetryableConceptContentError(error)) {
+      return firstResult;
+    }
+
     // The first result was valid but empty. A failed recovery request must not
     // leave the whole chapter permanently blocking exercise generation.
     return firstResult;
@@ -590,7 +716,7 @@ const ExerciseEditForm = styled.div`
 `;
 
 interface MMDZipInput {
-  images: Array<{ image_url: { url: string }; name: string; type: 'image_url' }>;
+  images: Array<{ image_url: { detail: 'low'; url: string }; name: string; type: 'image_url' }>;
   text: string;
 }
 
@@ -623,7 +749,11 @@ async function extractMMDZipInput(blob: Blob): Promise<MMDZipInput> {
 
     if (imageType) {
       images.push({
-        image_url: { url: `data:${imageType};base64,${bytesToBase64(bytes)}` },
+        // Mathpix text is the primary concept signal. Images supplement diagrams
+        // and other visual-only information, so low-detail vision is sufficient
+        // here and greatly reduces the risk that chapter-wide requests exhaust
+        // the model's context window with high-resolution image tokens.
+        image_url: { detail: 'low', url: `data:${imageType};base64,${bytesToBase64(bytes)}` },
         name,
         type: 'image_url'
       });
@@ -1852,6 +1982,10 @@ function BookReader({ ageTabRequest, assignAllStandardsRequest, book, file, fixA
       return;
     }
 
+    // An explicit Concepts action is a regeneration request, not merely a
+    // completion check. Re-run every chapter even when its persisted
+    // conceptsProcessed flag is already true; otherwise a manual rerun can
+    // return immediately without sending any concept request.
     setError('');
     setOpenRouterSpent(0);
     setIsGeneratingAllConcepts(true);
@@ -1897,12 +2031,16 @@ function BookReader({ ageTabRequest, assignAllStandardsRequest, book, file, fixA
         }
       });
       let failedConceptTasks = 0;
+      const failedConceptDetails: string[] = [];
 
       // Persist chapter-by-chapter. A concept is written only to the page where
       // the chapter-wide AI response says it was first introduced.
       for (const result of generationResults) {
+        const chapterLabel = result.chapter.title.trim() || `pages ${result.chapter.pageNumbers[0]}-${result.chapter.pageNumbers[result.chapter.pageNumbers.length - 1]}`;
+
         if (result.status === 'rejected') {
           failedConceptTasks++;
+          failedConceptDetails.push(`${chapterLabel}: ${conceptGenerationErrorMessage(result.reason)}`);
           continue;
         }
 
@@ -1922,8 +2060,9 @@ function BookReader({ ageTabRequest, assignAllStandardsRequest, book, file, fixA
             setConcepts(currentConcepts);
             setConceptFirstPageByKey(references);
           }
-        } catch {
+        } catch (reason) {
           failedConceptTasks++;
+          failedConceptDetails.push(`${chapterLabel}: saving generated concepts failed (${conceptGenerationErrorMessage(reason)})`);
         }
       }
 
@@ -1939,7 +2078,9 @@ function BookReader({ ageTabRequest, assignAllStandardsRequest, book, file, fixA
       } else {
         const unprocessedPages = countUnprocessedBookPages(totalPages, storedPagesAfterGeneration);
 
-        setError(`${failedConceptTasks} of ${recognitionChapters.length} chapters could not have concepts processed; ${unprocessedPages} pages remain unprocessed. Retry concept generation.`);
+        const failureDetails = failedConceptDetails.length ? ` ${failedConceptDetails.join(' | ')}` : '';
+
+        setError(`${failedConceptTasks} of ${chapterTasks.length} chapters could not have concepts processed; ${unprocessedPages} pages remain unprocessed. Retry concept generation.${failureDetails}`);
       }
     } catch (generationError) {
       setError(generationError instanceof Error ? generationError.message : 'Unable to generate concepts for all chapters.');
