@@ -44,7 +44,17 @@ describe('chapter concept recognition', (): void => {
     ]);
 
     assert.match(prompt, /complete supplied chapter/i);
-    assert.match(prompt, /Deduplicate concepts across the whole chapter/i);
+    assert.match(prompt, /smallest useful knowledge unit/i);
+    assert.match(prompt, /minimal independently teachable/i);
+    assert.match(prompt, /prefer producing several small concepts/i);
+    assert.match(prompt, /A and B/i);
+    assert.match(prompt, /Mean, median, and mode/i);
+    assert.match(prompt, /Slope and y-intercept/i);
+    assert.match(prompt, /definition together with a separate property/i);
+    assert.match(prompt, /Do not emit a broad parent concept/i);
+    assert.match(prompt, /Granularity comes before deduplication/i);
+    assert.match(prompt, /Could a learner know one meaningful part/i);
+    assert.match(prompt, /Favor over-splitting over under-splitting/i);
     assert.match(prompt, /earliest supplied page/i);
     assert.match(prompt, /--- page 6 ---/);
     assert.match(prompt, /--- page 7 ---/);
