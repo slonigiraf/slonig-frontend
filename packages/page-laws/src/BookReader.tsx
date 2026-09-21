@@ -3807,7 +3807,7 @@ function BookReader({ ageTabRequest, assignAllStandardsRequest, book, file, fixA
               onClick={closePageGenerationConfirmation}
             />
             <Button
-              icon='magic'
+              icon='play'
               label='Generate'
               onClick={confirmPageGeneration}
             />

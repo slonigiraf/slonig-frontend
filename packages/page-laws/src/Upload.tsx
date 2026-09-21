@@ -907,7 +907,7 @@ function Upload (): React.ReactElement {
               onClick={closeGenerateConceptsConfirmation}
             />
             <Button
-              icon='magic'
+              icon='play'
               label={t('Generate')}
               onClick={confirmGenerateConcepts}
             />
@@ -967,7 +967,7 @@ function Upload (): React.ReactElement {
               onClick={closeFixStandardsConfirmation}
             />
             <Button
-              icon='magic'
+              icon='play'
               label={t('Fix')}
               onClick={confirmFixStandards}
             />
@@ -997,7 +997,7 @@ function Upload (): React.ReactElement {
               onClick={closeGenerateExercisesConfirmation}
             />
             <Button
-              icon='magic'
+              icon='play'
               label={t('Generate')}
               onClick={confirmGenerateExercises}
             />

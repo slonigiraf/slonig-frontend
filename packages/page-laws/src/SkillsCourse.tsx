@@ -854,7 +854,7 @@ function SkillsCourse ({ book }: { book: Book }): React.ReactElement {
   return <StyledSkillsCourse>
     <div className='courseColumn'>
       <Button
-        icon='magic'
+        icon='play'
         isDisabled={isFixingNames || isPublishing || !templateCount}
         label={isFixingNames ? 'Fixing names…' : 'Fix book and Chapter names'}
         onClick={fixNames}
