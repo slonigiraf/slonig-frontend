@@ -5,7 +5,7 @@ import type { Book, BookChapter, BookConcept, BookPage, BookProcessingStageKey, 
 import type { PDFDocumentLoadingTask, PDFDocumentProxy, RenderTask } from 'pdfjs-dist';
 
 import { addBookStageSpend, assignBookPageChapter, completeBookProcessingStage, createBookConcept, deleteAbilities, deleteBookChapters, deleteBookConcept, deleteExercise, getAbilities, getBookChapters, getBookConceptsForBookPage, getBookPages, getExercisesForBookPage, getSetting, incrementBookFixConceptsAttempts, isBookProcessingStageComplete, mergeBookChapterWithPrevious, putBook, putBookPage, reorderBookConcepts, replaceAbilities, replaceBookChapterAssignments, replaceExercisesForBookPage, replaceParsedBookPageContent, resetBookProcessingStagesFrom, SettingKey, splitBookChapterAtPage, storeSetting, updateBookChapterTitle, updateBookConcept, withBookProcessingStagesResetFrom, withCompletedBookProcessingStage } from '@slonigiraf/db';
-import { KatexSpan, RoundProgress } from '@slonigiraf/slonig-components';
+import { Confirmation, KatexSpan, RoundProgress, SelectableList } from '@slonigiraf/slonig-components';
 import { strFromU8, unzipSync } from 'fflate';
 import MathpixLoader from 'mathpix-markdown-it/lib/components/mathpix-loader/index.js';
 import MathpixMarkdown from 'mathpix-markdown-it/lib/components/mathpix-markdown/index.js';
@@ -1204,6 +1204,7 @@ function BookReader({ ageTabRequest, assignAllStandardsRequest, book, file, fixA
   const [chapters, setChapters] = useState<BookChapter[]>([]);
   const [selectedChapterIds, setSelectedChapterIds] = useState<Set<number>>(new Set());
   const [isDeletingChapters, setIsDeletingChapters] = useState(false);
+  const [isDeleteChaptersConfirmationOpen, setIsDeleteChaptersConfirmationOpen] = useState(false);
   const [chapterTitleDraft, setChapterTitleDraft] = useState('');
   const [newChapterTitle, setNewChapterTitle] = useState('');
   const [concepts, setConcepts] = useState<BookConcept[]>([]);
@@ -1866,6 +1867,20 @@ function BookReader({ ageTabRequest, assignAllStandardsRequest, book, file, fixA
 
     setSelectedChapterIds((current) => new Set(Array.from(current).filter((id) => availableIds.has(id))));
   }, [chapters]);
+
+  const toggleChapterSelection = useCallback((chapterId: number): void => {
+    setSelectedChapterIds((current) => {
+      const next = new Set(current);
+
+      if (next.has(chapterId)) {
+        next.delete(chapterId);
+      } else {
+        next.add(chapterId);
+      }
+
+      return next;
+    });
+  }, []);
 
   const synchronizeChapterProcessingStage = useCallback(async (): Promise<void> => {
     const storedPages = await getBookPages(book.id);
@@ -4220,39 +4235,49 @@ function BookReader({ ageTabRequest, assignAllStandardsRequest, book, file, fixA
           <div className='chapterListHeader'>
             <h4>Book chapters</h4>
             <Button
-              icon='trash'
+              icon='trash-can'
               isDisabled={!selectedChapterIds.size || isDeletingChapters || isIdentifyingChapters}
               label={isDeletingChapters ? 'Deleting…' : `Delete selected${selectedChapterIds.size ? ` (${selectedChapterIds.size})` : ''}`}
-              onClick={() => deleteSelectedChapters().catch(console.error)}
+              onClick={() => setIsDeleteChaptersConfirmationOpen(true)}
             />
           </div>
           <p className='chapterListHint'>Deleting a chapter excludes its pages from Concepts and later analysis. The recognized page text stays in the book.</p>
-          <ol start={chapters[0]?.title.trim().toLocaleLowerCase().replace(/[\s-]+/g, '') === 'frontmatter' ? 0 : 1}>{chapters.map((chapter) => {
-            const chapterPages = chapter.id === undefined ? [] : Array.from(pages.values()).filter(({ chapterId }) => chapterId === chapter.id).map(({ pageNumber }) => pageNumber).sort((a, b) => a - b);
-            const first = chapterPages[0];
-            const last = chapterPages[chapterPages.length - 1];
+          <div className='chapterRows'>
+            <SelectableList<BookChapter>
+              items={chapters}
+              allSelected={false}
+              renderItem={(chapter, _isSelected, isSelectionAllowed) => {
+                const chapterPages = chapter.id === undefined ? [] : Array.from(pages.values()).filter(({ chapterId }) => chapterId === chapter.id).map(({ pageNumber }) => pageNumber).sort((a, b) => a - b);
+                const first = chapterPages[0];
+                const last = chapterPages[chapterPages.length - 1];
+                const chapterNumber = chapters.indexOf(chapter) + (chapters[0]?.title.trim().toLocaleLowerCase().replace(/[\s-]+/g, '') === 'frontmatter' ? 0 : 1);
+                const isSelected = chapter.id !== undefined && selectedChapterIds.has(chapter.id);
 
-            return <li key={chapter.id ?? chapter.title}><div className='chapterListRow'>
-              {chapter.id !== undefined && <input
-                aria-label={`Select ${chapter.title} for deletion`}
-                checked={selectedChapterIds.has(chapter.id)}
-                disabled={isDeletingChapters || isIdentifyingChapters}
-                onChange={({ target }) => setSelectedChapterIds((current) => {
-                  const next = new Set(current);
-
-                  if (target.checked) {
-                    next.add(chapter.id as number);
-                  } else {
-                    next.delete(chapter.id as number);
-                  }
-
-                  return next;
-                })}
-                type='checkbox'
-              />}
-              <span><button onClick={() => first && goToPage(first)} type='button'>{chapter.title}</button>{first ? ` — pages ${first}${last !== first ? `–${last}` : ''}` : ''}{chapter.source === 'manual' ? ' · manual' : chapter.confidence === undefined ? '' : ` · ${(chapter.confidence * 100).toFixed(0)}%`}</span>
-            </div></li>;
-          })}</ol>
+                return <div className='chapterListRow' key={chapter.id ?? chapter.title}>
+                  {chapter.id !== undefined && <Button
+                    className='inList'
+                    icon={isSelected ? 'check' : 'square'}
+                    isDisabled={!isSelectionAllowed}
+                    onClick={() => toggleChapterSelection(chapter.id!)}
+                  />}
+                  <span className='chapterNumber'>{chapterNumber}.</span>
+                  <span><button className='chapterLink' onClick={() => first && goToPage(first)} type='button'>{chapter.title}</button>{first ? ` — pages ${first}${last !== first ? `–${last}` : ''}` : ''}{chapter.source === 'manual' ? ' · manual' : chapter.confidence === undefined ? '' : ` · ${(chapter.confidence * 100).toFixed(0)}%`}</span>
+                </div>;
+              }}
+              onSelectionChange={() => {}}
+              isSelectionAllowed={!isDeletingChapters && !isIdentifyingChapters}
+              keyExtractor={(chapter) => String(chapter.id ?? chapter.title)}
+              key={chapters.map(({ id, title }) => String(id ?? title)).join(':')}
+            />
+          </div>
+          {isDeleteChaptersConfirmationOpen && <Confirmation
+            onClose={() => !isDeletingChapters && setIsDeleteChaptersConfirmationOpen(false)}
+            onConfirm={() => {
+              setIsDeleteChaptersConfirmationOpen(false);
+              deleteSelectedChapters().catch(console.error);
+            }}
+            question={`Delete ${selectedChapterIds.size} selected chapter${selectedChapterIds.size === 1 ? '' : 's'}?`}
+          />}
         </section>
       </div>
     </div>;
@@ -5021,13 +5046,14 @@ const StyledReader = styled.div`
   .headingEvidence, .chapterList { border-top: 1px solid #dde1eb; padding-top: 0.75rem; }
   .headingEvidence h4 { margin: 0 0 0.5rem; }
   .chapterList h4 { margin: 0; }
-  .headingEvidence ul, .chapterList ol { margin: 0; padding-left: 1.4rem; }
+  .headingEvidence ul { margin: 0; padding-left: 1.4rem; }
   .chapterListHeader { align-items: center; display: flex; gap: 0.75rem; justify-content: space-between; margin-bottom: 0.35rem; }
   .chapterListHint { margin: 0 0 0.65rem; opacity: 0.75; }
-  .chapterList li { margin: 0.35rem 0; }
-  .chapterListRow { align-items: baseline; display: flex; gap: 0.5rem; }
-  .chapterListRow > input[type='checkbox'] { flex: 0 0 auto; }
-  .chapterList button { background: none; border: 0; color: var(--color-link, #2f6feb); cursor: pointer; padding: 0; text-align: left; }
+  .chapterRows { display: flex; flex-direction: column; gap: 0.35rem; }
+  .chapterListRow { align-items: center; display: flex; gap: 0.5rem; min-height: 2rem; }
+  .chapterListRow .inList { flex: 0 0 auto; margin: 0; }
+  .chapterNumber { flex: 0 0 auto; font-variant-numeric: tabular-nums; text-align: right; width: 1.75rem; }
+  .chapterList .chapterLink { background: none; border: 0; color: var(--color-link, #2f6feb); cursor: pointer; padding: 0; text-align: left; }
 
   .processingOverlay { align-items: center; background: color-mix(in srgb, var(--bg-page) 92%, transparent); display: flex; flex-direction: column; gap: 0.75rem; inset: 0; justify-content: center; position: fixed; z-index: 1000; }
   .openRouterSpend { font-variant-numeric: tabular-nums; opacity: 0.85; }
