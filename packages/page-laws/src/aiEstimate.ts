@@ -20,10 +20,15 @@ const MODEL_PRICE_PER_MILLION: Record<string, [number, number]> = {
   'openai/gpt-5.4': [2.5, 15]
 };
 
-export function estimateAiInput (model: string, requestInputs: string[], outputTokensPerRequest = 1_000): AiInputEstimate {
+export interface AiRequestEstimate {
+  input: string;
+  outputTokens: number;
+}
+
+export function estimateAiRequests (model: string, requests: AiRequestEstimate[]): AiInputEstimate {
   // Four characters per token is a deliberately simple pre-request estimate.
-  const inputTokens = requestInputs.reduce((total, input) => total + Math.ceil(input.length / 4), 0);
-  const outputTokens = requestInputs.length * outputTokensPerRequest;
+  const inputTokens = requests.reduce((total, { input }) => total + Math.ceil(input.length / 4), 0);
+  const outputTokens = requests.reduce((total, { outputTokens: requestOutputTokens }) => total + Math.max(0, Math.ceil(requestOutputTokens)), 0);
   const [inputRate, outputRate] = MODEL_PRICE_PER_MILLION[model] ?? [0, 0];
   const inputPriceUsd = inputTokens * inputRate / 1_000_000;
   const outputPriceUsd = outputTokens * outputRate / 1_000_000;
@@ -33,9 +38,13 @@ export function estimateAiInput (model: string, requestInputs: string[], outputT
     inputTokens,
     outputPriceUsd,
     outputTokens,
-    requests: requestInputs.length,
+    requests: requests.length,
     totalPriceUsd: Number((inputPriceUsd + outputPriceUsd).toFixed(12))
   };
+}
+
+export function estimateAiInput (model: string, requestInputs: string[], outputTokensPerRequest = 1_000): AiInputEstimate {
+  return estimateAiRequests(model, requestInputs.map((input) => ({ input, outputTokens: outputTokensPerRequest })));
 }
 
 export function formatAiInputEstimate ({ inputPriceUsd, inputTokens, outputPriceUsd, outputTokens, requests, totalPriceUsd }: AiInputEstimate): string {

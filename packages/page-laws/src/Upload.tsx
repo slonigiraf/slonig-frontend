@@ -11,8 +11,10 @@ import { Button, Dropdown, Modal, styled } from '@polkadot/react-components';
 
 import type { AiInputEstimate } from './aiEstimate.js';
 
-import { estimateAiInput } from './aiEstimate.js';
+import { estimateAiInput, estimateAiRequests } from './aiEstimate.js';
 import { MATHPIX_PDF_PAGE_PRICE_USD, OPENAI_MODELS } from './constants.js';
+import { bookLanguageLabel } from './bookLanguage.js';
+import { exerciseGenerationRequestEstimate } from './bookProcessing.js';
 import { conceptChaptersFromPages } from './conceptRecognition.js';
 import { fixChapterConceptsPrompt } from './fixConcepts.js';
 import { formatOpenRouterSpend } from './openRouterCost.js';
@@ -780,12 +782,28 @@ function Upload (): React.ReactElement {
     }
 
     getBookPages(selectedBook.id).then(async (pages) => {
-      const inputs = await Promise.all(pages.map(async ({ pageNumber }) => JSON.stringify({
-        concepts: await getBookConceptsForBookPage(selectedBook.id, pageNumber)
+      const storedPages = pages
+        .filter(({ chapter, chapterId, conceptsProcessed, excludedFromAnalysis }) => conceptsProcessed && !excludedFromAnalysis && (chapterId !== undefined || Boolean(chapter.trim())))
+        .sort((a, b) => a.pageNumber - b.pageNumber);
+      const pageInputs = await Promise.all(storedPages.map(async (storedPage) => ({
+        chapter: storedPage.chapter,
+        concepts: (await getBookConceptsForBookPage(selectedBook.id, storedPage.pageNumber)).map(({ description, title }) => ({ description, title })),
+        pageNumber: storedPage.pageNumber
       })));
-      const requests = inputs.flatMap((input) => Array.from({ length: 8 }, () => input.padEnd(input.length + 2_000)));
+      const groupedPages = pageInputs.reduce((grouped, { chapter, ...page }) => {
+        const chapterPages = grouped.get(chapter) ?? [];
 
-      setGenerateExercisesEstimate(estimateAiInput(generateAllConceptsModel, requests, pages.length * 12_000));
+        chapterPages.push(page);
+        grouped.set(chapter, chapterPages);
+
+        return grouped;
+      }, new Map<string, Array<Omit<typeof pageInputs[number], 'chapter'>>>());
+      const bookDetectedLanguage = bookLanguageLabel(selectedBook.language);
+      const requests = Array.from(groupedPages, ([chapter, chapterPages]) =>
+        exerciseGenerationRequestEstimate({ chapter, pages: chapterPages }, bookDetectedLanguage, selectedBook.age)
+      ).flatMap((request) => request ? [request] : []);
+
+      setGenerateExercisesEstimate(estimateAiRequests(generateAllConceptsModel, requests));
     }).catch(() => setError(t('Unable to estimate exercise generation cost.')));
   }, [generateAllConceptsModel, isGenerateExercisesConfirmationOpen, selectedBook, t]);
 

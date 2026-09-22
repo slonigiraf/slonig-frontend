@@ -7,6 +7,14 @@ import { GENERATE_EXERCISES_RECOVERY_PROMPT, GENERATE_EXERCISES_REQUEST_PROMPT }
 
 export const MAX_EXERCISE_GENERATION_RETRIES = 3;
 
+const ESTIMATED_EXERCISE_OUTPUT_TOKENS_PER_CONCEPT = 320;
+const MIN_ESTIMATED_EXERCISE_OUTPUT_TOKENS = 256;
+
+export interface ExerciseGenerationRequestEstimate {
+  input: string;
+  outputTokens: number;
+}
+
 export interface ProcessingConcept {
   description: string;
   title: string;
@@ -139,6 +147,31 @@ function deduplicate<T extends ProcessingConcept> (items: T[]): T[] {
   });
 }
 
+function locatedConceptsForPages (pages: ExtractedChapterPageContent[]): LocatedProcessingConcept[] {
+  return deduplicate(pages.flatMap(({ concepts, pageNumber }) =>
+    concepts.map((concept) => ({ ...concept, sourcePageNumber: pageNumber }))
+  ));
+}
+
+function exerciseGenerationInput (concepts: LocatedProcessingConcept[]): { concepts: Array<ProcessingConcept & { conceptIndex: number }> } {
+  return {
+    concepts: concepts.map(({ sourcePageNumber: _sourcePageNumber, ...concept }, conceptIndex) => ({ ...concept, conceptIndex }))
+  };
+}
+
+export function exerciseGenerationRequestEstimate (extracted: ExtractedChapterContent, bookDetectedLanguage = 'English', learnerAge?: number): ExerciseGenerationRequestEstimate | undefined {
+  const concepts = locatedConceptsForPages(extracted.pages);
+
+  if (!concepts.length) {
+    return undefined;
+  }
+
+  return {
+    input: GENERATE_EXERCISES_REQUEST_PROMPT(bookDetectedLanguage, exerciseGenerationInput(concepts), learnerAge),
+    outputTokens: Math.max(MIN_ESTIMATED_EXERCISE_OUTPUT_TOKENS, concepts.length * ESTIMATED_EXERCISE_OUTPUT_TOKENS_PER_CONCEPT)
+  };
+}
+
 function generatedExercisesResult (content: string, concepts: LocatedProcessingConcept[]): LocatedProcessingExercise[] {
   const values = parseJsonObject(content).exercises;
 
@@ -190,12 +223,8 @@ export async function processExtractedChapterContent (extracted: ExtractedChapte
     pageNumbers.add(pageNumber);
   }
 
-  const concepts: LocatedProcessingConcept[] = deduplicate(pages.flatMap(({ concepts, pageNumber }) =>
-    concepts.map((concept) => ({ ...concept, sourcePageNumber: pageNumber }))
-  ));
-  const generationInput = {
-    concepts: concepts.map(({ sourcePageNumber: _sourcePageNumber, ...concept }, conceptIndex) => ({ ...concept, conceptIndex }))
-  };
+  const concepts = locatedConceptsForPages(pages);
+  const generationInput = exerciseGenerationInput(concepts);
   let generatedExercises = concepts.length
     ? generatedExercisesResult(await runAi(GENERATE_EXERCISES_REQUEST_PROMPT(bookDetectedLanguage, generationInput, learnerAge)), concepts)
     : [];
