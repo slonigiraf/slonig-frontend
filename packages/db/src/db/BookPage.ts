@@ -14,6 +14,8 @@ export interface BookPage {
   chapter: string;
   chapterId?: number;
   conceptsProcessed: boolean;
+  /** Intentionally excluded from chapter-based analysis after its chapter is deleted. */
+  excludedFromAnalysis?: boolean;
   mathpixHeadings?: MathpixHeading[];
   pageMMD?: string;
   pageMMDZip?: Blob;

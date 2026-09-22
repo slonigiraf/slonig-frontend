@@ -71,8 +71,9 @@ export async function putBook(book: Book): Promise<void> {
             : undefined;
 
         const completedStages = book.completedStages ?? storedBook?.completedStages ?? getBookCompletedStages(book);
+        const fixConceptsAttempts = Math.max(storedBook?.fixConceptsAttempts ?? 0, book.fixConceptsAttempts ?? 0);
 
-        await db.books.put({ ...book, completedStages, ...(stageSpend ? { stageSpend } : {}) });
+        await db.books.put({ ...book, completedStages, fixConceptsAttempts, ...(stageSpend ? { stageSpend } : {}) });
     });
 }
 
@@ -125,6 +126,22 @@ export async function resetBookProcessingStagesFrom(id: number, stage: BookProce
     await db.books.update(id, { completedStages: updated.completedStages });
 
     return getBook(id);
+}
+
+export async function incrementBookFixConceptsAttempts(id: number): Promise<number> {
+    return db.transaction('rw', db.books, async () => {
+        const book = await db.books.get(id);
+
+        if (!book) {
+            throw new Error('Book not found.');
+        }
+
+        const attempt = (book.fixConceptsAttempts ?? 0) + 1;
+
+        await db.books.update(id, { fixConceptsAttempts: attempt });
+
+        return attempt;
+    });
 }
 
 export async function addBookStageSpend(id: number, stage: BookStageSpendKey, costUsd: number): Promise<void> {
@@ -278,7 +295,7 @@ export async function replaceBookChapterAssignments(bookId: number, boundaries: 
                 continue;
             }
 
-            await db.bookPages.update([bookId, page.pageNumber], { chapter: chapter.title, chapterId: chapter.id });
+            await db.bookPages.update([bookId, page.pageNumber], { chapter: chapter.title, chapterId: chapter.id, excludedFromAnalysis: false });
             await db.bookConcepts.where('bookPage').equals([bookId, page.pageNumber]).modify({ chapterId: chapter.id });
         }
 
@@ -300,7 +317,7 @@ export async function assignBookPageChapter(bookId: number, pageNumber: number, 
             throw new Error('Book chapter not found.');
         }
 
-        await db.bookPages.update([bookId, pageNumber], { chapter: chapter.title, chapterId });
+        await db.bookPages.update([bookId, pageNumber], { chapter: chapter.title, chapterId, excludedFromAnalysis: false });
         await db.bookConcepts.where('bookPage').equals([bookId, pageNumber]).modify({ chapterId });
     });
 }
@@ -331,7 +348,7 @@ export async function splitBookChapterAtPage(bookId: number, pageNumber: number,
                 break;
             }
 
-            await db.bookPages.update([bookId, page.pageNumber], { chapter: cleanedTitle, chapterId });
+            await db.bookPages.update([bookId, page.pageNumber], { chapter: cleanedTitle, chapterId, excludedFromAnalysis: false });
             await db.bookConcepts.where('bookPage').equals([bookId, page.pageNumber]).modify({ chapterId });
         }
 
@@ -363,7 +380,7 @@ export async function mergeBookChapterWithPrevious(bookId: number, chapterId: nu
         }
 
         for (const page of pages.filter((page) => page.chapterId === chapterId)) {
-            await db.bookPages.update([bookId, page.pageNumber], { chapter: previousChapter.title, chapterId: previousChapter.id });
+            await db.bookPages.update([bookId, page.pageNumber], { chapter: previousChapter.title, chapterId: previousChapter.id, excludedFromAnalysis: false });
             await db.bookConcepts.where('bookPage').equals([bookId, page.pageNumber]).modify({ chapterId: previousChapter.id });
         }
 
@@ -371,6 +388,54 @@ export async function mergeBookChapterWithPrevious(bookId: number, chapterId: nu
 
         if (book?.chapterOrder) {
             await db.books.update(bookId, { chapterOrder: book.chapterOrder.filter((id) => id !== chapterId) });
+        }
+    });
+}
+
+export async function deleteBookChapters(bookId: number, chapterIds: number[]): Promise<void> {
+    const uniqueIds = Array.from(new Set(chapterIds.filter((id) => Number.isSafeInteger(id) && id > 0)));
+
+    if (!uniqueIds.length) {
+        return;
+    }
+
+    await db.transaction('rw', db.books, db.bookPages, db.bookChapters, db.bookConcepts, db.exercises, db.skills, db.exerciseTemplates, async () => {
+        const chapters = await db.bookChapters.bulkGet(uniqueIds);
+
+        if (chapters.some((chapter) => !chapter || chapter.bookId !== bookId)) {
+            throw new Error('One or more book chapters were not found.');
+        }
+
+        const selected = new Set(uniqueIds);
+        const pages = await db.bookPages.where('bookId').equals(bookId).filter(({ chapterId }) => chapterId !== undefined && selected.has(chapterId)).toArray();
+        const skillIds = (await Promise.all(uniqueIds.map((chapterId) => db.skills.where('chapterId').equals(chapterId).primaryKeys()))).flat() as number[];
+
+        for (const page of pages) {
+            await db.bookPages.update([bookId, page.pageNumber], {
+                chapter: '',
+                chapterId: undefined,
+                conceptsProcessed: false,
+                excludedFromAnalysis: true
+            });
+            await db.bookConcepts.where('bookPage').equals([bookId, page.pageNumber]).delete();
+            await db.exercises.where('bookPage').equals([bookId, page.pageNumber]).delete();
+        }
+
+        const pageLessConcepts = await db.bookConcepts.where('bookPage').equals([bookId, 0]).toArray();
+        await Promise.all(pageLessConcepts.flatMap(({ chapterId, id }) => id !== undefined && chapterId !== undefined && selected.has(chapterId) ? [db.bookConcepts.delete(id)] : []));
+        await Promise.all(skillIds.map((skillId) => db.exerciseTemplates.where('skillId').equals(skillId).delete()));
+        await Promise.all(uniqueIds.map((chapterId) => db.skills.where('chapterId').equals(chapterId).delete()));
+        await db.bookChapters.bulkDelete(uniqueIds);
+
+        const book = await db.books.get(bookId);
+
+        if (book) {
+            const updated = withBookProcessingStagesResetFrom({ ...book, completedStages: getBookCompletedStages(book) }, 'concepts');
+
+            await db.books.update(bookId, {
+                chapterOrder: (book.chapterOrder ?? []).filter((chapterId) => !selected.has(chapterId)),
+                completedStages: updated.completedStages
+            });
         }
     });
 }
@@ -413,7 +478,7 @@ export async function replaceParsedBookPageContent(bookId: number, pageNumber: n
         const chapterId = existingChapter?.id ?? await db.bookChapters.add({ bookId, source: 'legacy', title: resolvedChapterTitle });
         const conceptBookPage: [number, number] = [bookId, pageNumber];
         const exerciseBookPage: [number, number] = [bookId, pageNumber];
-        const conceptRows = concepts.map((concept) => ({ ...concept, bookPage: conceptBookPage, chapterId }));
+        const conceptRows = concepts.map((concept) => ({ ...concept, attempt: concept.attempt ?? 0, bookPage: conceptBookPage, chapterId }));
         await db.bookConcepts.where('bookPage').equals(conceptBookPage).delete();
         await db.exercises.where('bookPage').equals(exerciseBookPage).delete();
 
@@ -454,7 +519,7 @@ export async function createBookConcept(concept: Omit<BookConcept, 'id'>): Promi
             ? await db.bookConcepts.where('bookPage').equals(concept.bookPage).sortBy('id')
             : await db.bookConcepts.where('chapterId').equals(concept.chapterId).sortBy('id');
         const displayOrder = concept.displayOrder ?? siblings.reduce((max, sibling, index) => Math.max(max, sibling.displayOrder ?? index), -1) + 1;
-        const row: BookConcept = { ...concept, displayOrder };
+        const row: BookConcept = { ...concept, attempt: concept.attempt ?? 0, displayOrder };
         const id = await db.bookConcepts.add(row);
 
         return { ...row, id };
@@ -503,9 +568,9 @@ export async function replaceBookConceptsForBookPage(bookId: number, pageNumber:
 
     return db.transaction('rw', db.bookConcepts, async () => {
         await db.bookConcepts.where('bookPage').equals(bookPage).delete();
-        const ids = await db.bookConcepts.bulkAdd(concepts.map((concept) => ({ ...concept, bookPage })), { allKeys: true });
+        const ids = await db.bookConcepts.bulkAdd(concepts.map((concept) => ({ ...concept, attempt: concept.attempt ?? 0, bookPage })), { allKeys: true });
 
-        return concepts.map((concept, index) => ({ ...concept, bookPage, id: ids[index] }));
+        return concepts.map((concept, index) => ({ ...concept, attempt: concept.attempt ?? 0, bookPage, id: ids[index] }));
     });
 }
 

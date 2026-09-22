@@ -5,6 +5,7 @@ import type { BookConcept, BookSubject } from '@slonigiraf/db';
 
 export interface MissingChapterConcept {
   description: string;
+  pageNumber: number;
   title: string;
 }
 
@@ -15,10 +16,12 @@ export interface FixChapterConceptsResult {
 export function chapterLevelMissingConcept (
   bookId: BookConcept['bookPage'][0],
   chapterId: BookConcept['chapterId'],
-  concept: MissingChapterConcept
-): Pick<BookConcept, 'bookPage' | 'chapterId' | 'description' | 'title'> {
+  concept: MissingChapterConcept,
+  attempt = 0
+): Pick<BookConcept, 'attempt' | 'bookPage' | 'chapterId' | 'description' | 'title'> {
   return {
-    bookPage: [bookId, 0],
+    attempt,
+    bookPage: [bookId, concept.pageNumber],
     chapterId,
     description: concept.description,
     title: concept.title
@@ -54,13 +57,15 @@ ${chapterMmd.trim() || '(empty)'}
 Existing concepts:
 ${JSON.stringify(concepts.map(({ description, title }) => ({ title, description })))}
 
+For each missing concept, set pageNumber to the book page in this chapter where that concept is most directly introduced or taught. Use only page numbers shown in the <chapter_mmd> page delimiters; do not use a chapter-level or synthetic page.
+
 Return only valid JSON in this exact shape:
-{"concepts":[{"title":"Missing concept","description":"One focused explanation of that concept"}]}
+{"concepts":[{"title":"Missing concept","description":"One focused explanation of that concept","pageNumber":12}]}
 
 Return {"concepts":[]} when the existing inventory is already complete enough to proceed. Use <kx>...</kx> for mathematical expressions and escape backslashes for valid JSON.`;
 }
 
-export function parseMissingChapterConcepts (content: string, existingConcepts: Array<Pick<BookConcept, 'description' | 'title'>> = []): FixChapterConceptsResult {
+export function parseMissingChapterConcepts (content: string, existingConcepts: Array<Pick<BookConcept, 'description' | 'title'>> = [], allowedPageNumbers?: Set<number>): FixChapterConceptsResult {
   const json = content.replace(/^```json\s*|\s*```$/gi, '').trim();
   let parsed: Partial<FixChapterConceptsResult>;
 
@@ -83,9 +88,9 @@ export function parseMissingChapterConcepts (content: string, existingConcepts: 
       return [];
     }
 
-    const { description, title } = value as Partial<MissingChapterConcept>;
+    const { description, pageNumber, title } = value as Partial<MissingChapterConcept>;
 
-    if (typeof title !== 'string' || typeof description !== 'string') {
+    if (typeof title !== 'string' || typeof description !== 'string' || typeof pageNumber !== 'number' || !Number.isSafeInteger(pageNumber) || (allowedPageNumbers && !allowedPageNumbers.has(pageNumber))) {
       return [];
     }
 
@@ -101,7 +106,7 @@ export function parseMissingChapterConcepts (content: string, existingConcepts: 
     seenTitles.add(titleKey);
     seenPairs.add(pairKey);
 
-    return [{ description: trimmedDescription, title: trimmedTitle }];
+    return [{ description: trimmedDescription, pageNumber, title: trimmedTitle }];
   });
 
   return { concepts };

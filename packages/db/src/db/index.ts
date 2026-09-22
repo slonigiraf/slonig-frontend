@@ -310,6 +310,17 @@ class SlonigDB extends Dexie {
 
       await Promise.all(books.flatMap((book) => book.id === undefined ? [] : [table.update(book.id, { completedStages: getBookCompletedStages(book) })]));
     });
+    this.version(88).stores({}).upgrade(async (transaction: Transaction) => {
+      const [books, concepts] = await Promise.all([
+        transaction.table<Book, number>('books').toArray(),
+        transaction.table<BookConcept, number>('bookConcepts').toArray()
+      ]);
+
+      await Promise.all([
+        ...books.flatMap((book) => book.id === undefined ? [] : [transaction.table<Book, number>('books').update(book.id, { fixConceptsAttempts: book.fixConceptsAttempts ?? 0 })]),
+        ...concepts.flatMap((concept) => concept.id === undefined ? [] : [transaction.table<BookConcept, number>('bookConcepts').update(concept.id, { attempt: concept.attempt ?? 0 })])
+      ]);
+    });
 
   }
 }

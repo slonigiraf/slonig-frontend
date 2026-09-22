@@ -13,6 +13,7 @@ export interface GeneratedChapterConcepts {
 
 export interface ChapterPageIdentity {
   chapter: string;
+  excludedFromAnalysis?: boolean;
   chapterId?: number;
   pageNumber: number;
 }
@@ -65,7 +66,7 @@ export function conceptChaptersFromPages (bookPages: ChapterPageIdentity[]): Con
   const grouped = new Map<string, ConceptChapterNavigationItem>();
   const titleToChapterId = new Map<string, number>();
 
-  bookPages.forEach(({ chapter, chapterId }) => {
+  bookPages.filter(({ excludedFromAnalysis }) => !excludedFromAnalysis).forEach(({ chapter, chapterId }) => {
     const title = chapter.trim();
 
     if (chapterId !== undefined && title) {
@@ -73,7 +74,7 @@ export function conceptChaptersFromPages (bookPages: ChapterPageIdentity[]): Con
     }
   });
 
-  [...bookPages].sort((a, b) => a.pageNumber - b.pageNumber).forEach(({ chapter, chapterId, pageNumber }) => {
+  [...bookPages].filter(({ excludedFromAnalysis }) => !excludedFromAnalysis).sort((a, b) => a.pageNumber - b.pageNumber).forEach(({ chapter, chapterId, pageNumber }) => {
     const title = chapter.trim();
     const resolvedChapterId = chapterId ?? titleToChapterId.get(title);
 

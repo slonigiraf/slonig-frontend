@@ -32,6 +32,8 @@ export interface Book {
   chapterOrder?: number[];
   courseOrder?: string[];
   excludedCourseChapterIds?: number[];
+  /** Number of Fix Concepts runs started for this book. */
+  fixConceptsAttempts?: number;
   language?: string;
   subject?: BookSubject;
   age?: number;

@@ -4,7 +4,7 @@
 import type { Book, BookChapter, BookConcept, BookPage, BookProcessingStageKey, BookStageSpendKey, Exercise, MathpixHeading } from '@slonigiraf/db';
 import type { PDFDocumentLoadingTask, PDFDocumentProxy, RenderTask } from 'pdfjs-dist';
 
-import { addBookStageSpend, assignBookPageChapter, completeBookProcessingStage, createBookConcept, deleteAbilities, deleteBookConcept, deleteExercise, getAbilities, getBookChapters, getBookConceptsForBookPage, getBookPages, getExercisesForBookPage, getSetting, isBookProcessingStageComplete, mergeBookChapterWithPrevious, putBook, putBookPage, reorderBookConcepts, replaceAbilities, replaceBookChapterAssignments, replaceExercisesForBookPage, replaceParsedBookPageContent, resetBookProcessingStagesFrom, SettingKey, splitBookChapterAtPage, storeSetting, updateBookChapterTitle, updateBookConcept, withBookProcessingStagesResetFrom, withCompletedBookProcessingStage } from '@slonigiraf/db';
+import { addBookStageSpend, assignBookPageChapter, completeBookProcessingStage, createBookConcept, deleteAbilities, deleteBookChapters, deleteBookConcept, deleteExercise, getAbilities, getBookChapters, getBookConceptsForBookPage, getBookPages, getExercisesForBookPage, getSetting, incrementBookFixConceptsAttempts, isBookProcessingStageComplete, mergeBookChapterWithPrevious, putBook, putBookPage, reorderBookConcepts, replaceAbilities, replaceBookChapterAssignments, replaceExercisesForBookPage, replaceParsedBookPageContent, resetBookProcessingStagesFrom, SettingKey, splitBookChapterAtPage, storeSetting, updateBookChapterTitle, updateBookConcept, withBookProcessingStagesResetFrom, withCompletedBookProcessingStage } from '@slonigiraf/db';
 import { KatexSpan, RoundProgress } from '@slonigiraf/slonig-components';
 import { strFromU8, unzipSync } from 'fflate';
 import MathpixLoader from 'mathpix-markdown-it/lib/components/mathpix-loader/index.js';
@@ -80,6 +80,10 @@ function conceptDisplayPage (concept: BookConcept): number | undefined {
   const pageNumber = concept.bookPage[1];
 
   return pageNumber > 0 ? pageNumber : undefined;
+}
+
+function analysisPageNumbers (pages: BookPage[]): number[] {
+  return pages.flatMap(({ excludedFromAnalysis, pageNumber }) => excludedFromAnalysis ? [] : [pageNumber]);
 }
 
 function ConceptItem ({ concept, firstPage, onDelete, onGoToPage, onReorderPointerCancel, onReorderPointerDown, onReorderPointerMove, onReorderPointerUp, onSave }: { concept: BookConcept; firstPage?: number; onDelete: (concept: BookConcept) => Promise<void>; onGoToPage: (pageNumber: number) => void; onReorderPointerCancel?: (event: React.PointerEvent<HTMLLIElement>) => void; onReorderPointerDown?: (event: React.PointerEvent<HTMLLIElement>) => void; onReorderPointerMove?: (event: React.PointerEvent<HTMLLIElement>) => void; onReorderPointerUp?: (event: React.PointerEvent<HTMLLIElement>) => void; onSave: (concept: BookConcept, title: string, description: string) => Promise<void> }): React.ReactElement {
@@ -225,11 +229,18 @@ function ConceptItem ({ concept, firstPage, onDelete, onGoToPage, onReorderPoint
         />
       </div>
     </div>
-    {firstPage !== undefined && <div className='conceptMeta'><button
-      className='conceptPageLink'
-      onClick={() => onGoToPage(firstPage)}
-      type='button'
-    >{concept.manuallyAdded ? `Page ${firstPage}` : `Introduced on page ${firstPage}`}</button></div>}
+    <div className='conceptMeta'>
+      <span
+        aria-label={`Fix Concepts attempt ${concept.attempt ?? 0}`}
+        className='conceptAttemptLabel'
+        title={`Fix Concepts attempt ${concept.attempt ?? 0}`}
+      >{concept.attempt ?? 0} attempt</span>
+      {firstPage !== undefined && <button
+        className='conceptPageLink'
+        onClick={() => onGoToPage(firstPage)}
+        type='button'
+      >{concept.manuallyAdded ? `Page ${firstPage}` : `Introduced at page ${firstPage}`}</button>}
+    </div>
     {concept.description && <p className='conceptDescription'><KatexSpan content={concept.description} /></p>}
   </li>;
 }
@@ -442,7 +453,7 @@ async function requestGeneratedChapterContent(client: OpenAI, model: string, cha
   return parseGeneratedChapterConcepts(generatedContent, new Set(usablePages.map(({ pageNumber }) => pageNumber)));
 }
 
-async function requestMissingChapterConcepts(client: OpenAI, model: string, chapterTitle: string, chapterMmd: string, concepts: BookConcept[], book: Pick<Book, 'age' | 'language' | 'subject'>, onCost?: OpenRouterCostReporter) {
+async function requestMissingChapterConcepts(client: OpenAI, model: string, chapterTitle: string, chapterMmd: string, concepts: BookConcept[], allowedPageNumbers: number[], book: Pick<Book, 'age' | 'language' | 'subject'>, onCost?: OpenRouterCostReporter) {
   const prompt = fixChapterConceptsPrompt(chapterTitle, chapterMmd, concepts, book.subject, book.language, book.age);
   const response = await runConceptRequestWithRetry(() => client.chat.completions.create({
     messages: [{ content: prompt, role: 'user' }],
@@ -457,7 +468,7 @@ async function requestMissingChapterConcepts(client: OpenAI, model: string, chap
     throw new Error('OpenRouter returned no Fix Concepts data.');
   }
 
-  return parseMissingChapterConcepts(content, concepts).concepts;
+  return parseMissingChapterConcepts(content, concepts, new Set(allowedPageNumbers)).concepts;
 }
 
 async function requestChapterStandards(client: OpenAI, model: string, chapterTitle: string, concepts: StandardsConceptInput[], catalogs: StandardsCatalog[], onCost?: OpenRouterCostReporter): Promise<CurriculumStandard[]> {
@@ -1191,6 +1202,8 @@ function BookReader({ ageTabRequest, assignAllStandardsRequest, book, file, fixA
     return storedPane;
   });
   const [chapters, setChapters] = useState<BookChapter[]>([]);
+  const [selectedChapterIds, setSelectedChapterIds] = useState<Set<number>>(new Set());
+  const [isDeletingChapters, setIsDeletingChapters] = useState(false);
   const [chapterTitleDraft, setChapterTitleDraft] = useState('');
   const [newChapterTitle, setNewChapterTitle] = useState('');
   const [concepts, setConcepts] = useState<BookConcept[]>([]);
@@ -1391,7 +1404,7 @@ function BookReader({ ageTabRequest, assignAllStandardsRequest, book, file, fixA
     const grouped = new Map<string, ExerciseChapterNavigationItem>();
 
     Array.from(pages.values())
-      .filter(({ conceptsProcessed }) => conceptsProcessed)
+      .filter(({ chapter, chapterId, conceptsProcessed, excludedFromAnalysis }) => conceptsProcessed && !excludedFromAnalysis && (chapterId !== undefined || Boolean(chapter.trim())))
       .sort((a, b) => a.pageNumber - b.pageNumber)
       .forEach(({ chapter, pageNumber }) => {
         const title = chapter.trim();
@@ -1674,9 +1687,9 @@ function BookReader({ ageTabRequest, assignAllStandardsRequest, book, file, fixA
       setChapters(storedChapters);
       const hasEveryPage = storedPages.length === document.numPages;
 
-      if (areAllBookPagesConceptsProcessed(document.numPages, storedPages)) {
+      if (areAllBookPagesConceptsProcessed(document.numPages, storedPages, analysisPageNumbers(storedPages))) {
         await completeStageRef.current('concepts');
-      } else if (hasEveryPage && storedPages.every(({ chapterId, chapter }) => chapterId !== undefined || Boolean(chapter.trim()))) {
+      } else if (hasEveryPage && storedPages.every(({ chapterId, chapter, excludedFromAnalysis }) => excludedFromAnalysis || chapterId !== undefined || Boolean(chapter.trim()))) {
         await completeStageRef.current('chapters');
       } else if (hasEveryPage && storedPages.every(({ pageMMD }) => pageMMD !== undefined)) {
         await completeStageRef.current('recognize');
@@ -1848,15 +1861,50 @@ function BookReader({ ageTabRequest, assignAllStandardsRequest, book, file, fixA
     setChapters(storedChapters);
   }, [book.id]);
 
+  useEffect(() => {
+    const availableIds = new Set(chapters.flatMap(({ id }) => id === undefined ? [] : [id]));
+
+    setSelectedChapterIds((current) => new Set(Array.from(current).filter((id) => availableIds.has(id))));
+  }, [chapters]);
+
   const synchronizeChapterProcessingStage = useCallback(async (): Promise<void> => {
     const storedPages = await getBookPages(book.id);
-    const complete = totalPages > 0 && storedPages.length === totalPages && storedPages.every(({ chapterId, chapter }) => chapterId !== undefined || Boolean(chapter.trim()));
+    const complete = totalPages > 0 && storedPages.length === totalPages && storedPages.every(({ chapterId, chapter, excludedFromAnalysis }) => excludedFromAnalysis || chapterId !== undefined || Boolean(chapter.trim()));
     const updated = complete
       ? await completeBookProcessingStage(book.id, 'chapters')
       : await resetBookProcessingStagesFrom(book.id, 'chapters');
 
     onBookChange(updated ?? (complete ? withCompletedBookProcessingStage(book, 'chapters') : withBookProcessingStagesResetFrom(book, 'chapters')));
   }, [book, onBookChange, totalPages]);
+
+  const deleteSelectedChapters = useCallback(async (): Promise<void> => {
+    const chapterIds = Array.from(selectedChapterIds);
+
+    if (!chapterIds.length || isDeletingChapters) {
+      return;
+    }
+
+    setError('');
+    setIsDeletingChapters(true);
+
+    try {
+      const selected = new Set(chapterIds);
+      const selectedPageNumbers = Array.from(pages.values()).flatMap(({ chapterId, pageNumber }) => chapterId !== undefined && selected.has(chapterId) ? [pageNumber] : []);
+      const selectedExercises = (await Promise.all(selectedPageNumbers.map((selectedPageNumber) => getExercisesForBookPage([book.id, selectedPageNumber])))).flat();
+
+      await Promise.all(selectedExercises.flatMap(({ id }) => id === undefined ? [] : [deleteAbilities(exerciseAbilityModuleId(book.id, id))]));
+      await deleteBookChapters(book.id, chapterIds);
+      setSelectedChapterIds(new Set());
+      await refreshChapterAssignments();
+      await synchronizeChapterProcessingStage();
+      await refreshEntityCounts();
+      setSkillsRefreshToken((value) => value + 1);
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : 'Unable to delete the selected chapters.');
+    } finally {
+      setIsDeletingChapters(false);
+    }
+  }, [book.id, isDeletingChapters, pages, refreshChapterAssignments, refreshEntityCounts, selectedChapterIds, synchronizeChapterProcessingStage]);
 
   const saveCurrentChapterTitle = useCallback(async (): Promise<void> => {
     const title = chapterTitleDraft.trim();
@@ -2074,7 +2122,7 @@ function BookReader({ ageTabRequest, assignAllStandardsRequest, book, file, fixA
       setConceptFirstPageByKey(references);
       await refreshEntityCounts();
 
-      if (areAllBookPagesConceptsProcessed(totalPages, Array.from(updatedPages.values()))) {
+      if (areAllBookPagesConceptsProcessed(totalPages, Array.from(updatedPages.values()), analysisPageNumbers(Array.from(updatedPages.values())))) {
         await completeStage('concepts');
         revealPane('textConcepts');
       }
@@ -2106,16 +2154,18 @@ function BookReader({ ageTabRequest, assignAllStandardsRequest, book, file, fixA
 
     const bookPages = orderedPages as BookPage[];
 
-    if (bookPages.some(({ chapter, chapterId }) => chapterId === undefined && !chapter.trim())) {
-      setError('Assign every page to a chapter before generating concepts.');
+    const activePages = bookPages.filter(({ excludedFromAnalysis }) => !excludedFromAnalysis);
+
+    if (activePages.some(({ chapter, chapterId }) => chapterId === undefined && !chapter.trim())) {
+      setError('Assign every included page to a chapter before generating concepts. Deleted chapters stay excluded from analysis.');
       onProcessingComplete();
       return;
     }
 
     const recognitionChapters = conceptChaptersFromPages(bookPages);
 
-    if (!recognitionChapters.length || recognitionChapters.reduce((count, chapter) => count + chapter.pageNumbers.length, 0) !== totalPages) {
-      setError('Every page must belong to exactly one chapter before generating concepts.');
+    if (!recognitionChapters.length || recognitionChapters.reduce((count, chapter) => count + chapter.pageNumbers.length, 0) !== activePages.length) {
+      setError('Every included page must belong to exactly one chapter before generating concepts.');
       onProcessingComplete();
       return;
     }
@@ -2205,7 +2255,8 @@ function BookReader({ ageTabRequest, assignAllStandardsRequest, book, file, fixA
       }
 
       const storedPagesAfterGeneration = await getBookPages(book.id);
-      const conceptsComplete = areAllBookPagesConceptsProcessed(totalPages, storedPagesAfterGeneration);
+      const analyzedPageNumbers = analysisPageNumbers(storedPagesAfterGeneration);
+      const conceptsComplete = areAllBookPagesConceptsProcessed(totalPages, storedPagesAfterGeneration, analyzedPageNumbers);
 
       setPages(new Map(storedPagesAfterGeneration.map((storedPage) => [storedPage.pageNumber, storedPage])));
       await refreshEntityCounts();
@@ -2214,7 +2265,7 @@ function BookReader({ ageTabRequest, assignAllStandardsRequest, book, file, fixA
         await completeStage('concepts');
         revealPane('textConcepts');
       } else {
-        const unprocessedPages = countUnprocessedBookPages(totalPages, storedPagesAfterGeneration);
+        const unprocessedPages = countUnprocessedBookPages(totalPages, storedPagesAfterGeneration, analyzedPageNumbers);
 
         const failureDetails = failedConceptDetails.length ? ` ${failedConceptDetails.join(' | ')}` : '';
 
@@ -2244,6 +2295,7 @@ function BookReader({ ageTabRequest, assignAllStandardsRequest, book, file, fixA
     setFixedConceptsChapterCount(0);
 
     try {
+      const attempt = await incrementBookFixConceptsAttempts(book.id);
       const key = await getSetting(SettingKey.OPENROUTER_TOKEN);
 
       if (!key) {
@@ -2265,7 +2317,7 @@ function BookReader({ ageTabRequest, assignAllStandardsRequest, book, file, fixA
             ...pageLessConcepts.filter(({ chapterId }) => chapterId !== undefined && chapterId === chapter.chapterId)
           ];
           const chapterMmd = chapter.pageNumbers.map((chapterPageNumber) => `--- page ${chapterPageNumber} ---\n${pages.get(chapterPageNumber)?.pageMMD ?? ''}`).join('\n\n');
-          const missing = await requestMissingChapterConcepts(client, model, chapter.title, chapterMmd, concepts, book, addFixConceptsCost);
+          const missing = await requestMissingChapterConcepts(client, model, chapter.title, chapterMmd, concepts, chapter.pageNumbers, book, addFixConceptsCost);
 
           return { chapter, missing, status: 'fulfilled' as const };
         } catch (reason) {
@@ -2284,7 +2336,7 @@ function BookReader({ ageTabRequest, assignAllStandardsRequest, book, file, fixA
         }
 
         for (const concept of result.missing) {
-          await createBookConcept(chapterLevelMissingConcept(book.id, result.chapter.chapterId, concept));
+          await createBookConcept(chapterLevelMissingConcept(book.id, result.chapter.chapterId, concept, attempt));
           added++;
         }
 
@@ -2355,7 +2407,7 @@ function BookReader({ ageTabRequest, assignAllStandardsRequest, book, file, fixA
 
       const client = new OpenAI({ apiKey: key, baseURL: 'https://openrouter.ai/api/v1', dangerouslyAllowBrowser: true, defaultHeaders: { 'HTTP-Referer': window.location.origin, 'X-OpenRouter-Title': 'Slonig' } });
       const storedPages = (await getBookPages(book.id))
-        .filter(({ conceptsProcessed }) => conceptsProcessed)
+        .filter(({ chapter, chapterId, conceptsProcessed, excludedFromAnalysis }) => conceptsProcessed && !excludedFromAnalysis && (chapterId !== undefined || Boolean(chapter.trim())))
         .sort((a, b) => a.pageNumber - b.pageNumber);
       const pageInputs = await Promise.all(storedPages.map(async (storedPage) => ({
         chapter: storedPage.chapter,
@@ -4165,13 +4217,41 @@ function BookReader({ ageTabRequest, assignAllStandardsRequest, book, file, fixA
             : <p className='emptyOutput'>No title or section header was detected on this page.</p>}
         </section>
         <section className='chapterList'>
-          <h4>Book chapters</h4>
+          <div className='chapterListHeader'>
+            <h4>Book chapters</h4>
+            <Button
+              icon='trash'
+              isDisabled={!selectedChapterIds.size || isDeletingChapters || isIdentifyingChapters}
+              label={isDeletingChapters ? 'Deleting…' : `Delete selected${selectedChapterIds.size ? ` (${selectedChapterIds.size})` : ''}`}
+              onClick={() => deleteSelectedChapters().catch(console.error)}
+            />
+          </div>
+          <p className='chapterListHint'>Deleting a chapter excludes its pages from Concepts and later analysis. The recognized page text stays in the book.</p>
           <ol start={chapters[0]?.title.trim().toLocaleLowerCase().replace(/[\s-]+/g, '') === 'frontmatter' ? 0 : 1}>{chapters.map((chapter) => {
             const chapterPages = chapter.id === undefined ? [] : Array.from(pages.values()).filter(({ chapterId }) => chapterId === chapter.id).map(({ pageNumber }) => pageNumber).sort((a, b) => a - b);
             const first = chapterPages[0];
             const last = chapterPages[chapterPages.length - 1];
 
-            return <li key={chapter.id ?? chapter.title}><button onClick={() => first && goToPage(first)} type='button'>{chapter.title}</button>{first ? ` — pages ${first}${last !== first ? `–${last}` : ''}` : ''}{chapter.source === 'manual' ? ' · manual' : chapter.confidence === undefined ? '' : ` · ${(chapter.confidence * 100).toFixed(0)}%`}</li>;
+            return <li key={chapter.id ?? chapter.title}><div className='chapterListRow'>
+              {chapter.id !== undefined && <input
+                aria-label={`Select ${chapter.title} for deletion`}
+                checked={selectedChapterIds.has(chapter.id)}
+                disabled={isDeletingChapters || isIdentifyingChapters}
+                onChange={({ target }) => setSelectedChapterIds((current) => {
+                  const next = new Set(current);
+
+                  if (target.checked) {
+                    next.add(chapter.id as number);
+                  } else {
+                    next.delete(chapter.id as number);
+                  }
+
+                  return next;
+                })}
+                type='checkbox'
+              />}
+              <span><button onClick={() => first && goToPage(first)} type='button'>{chapter.title}</button>{first ? ` — pages ${first}${last !== first ? `–${last}` : ''}` : ''}{chapter.source === 'manual' ? ' · manual' : chapter.confidence === undefined ? '' : ` · ${(chapter.confidence * 100).toFixed(0)}%`}</span>
+            </div></li>;
           })}</ol>
         </section>
       </div>
@@ -4939,9 +5019,14 @@ const StyledReader = styled.div`
   .chaptersPanel .chapterEditor select { background: var(--bg-input); border: 1px solid #dde1eb; border-radius: 0.25rem; color: var(--color-text); padding: 0.55rem; width: 100%; }
   .chapterEditRow { align-items: flex-end; display: grid; gap: 0.5rem; grid-template-columns: minmax(0, 1fr) auto; }
   .headingEvidence, .chapterList { border-top: 1px solid #dde1eb; padding-top: 0.75rem; }
-  .headingEvidence h4, .chapterList h4 { margin: 0 0 0.5rem; }
+  .headingEvidence h4 { margin: 0 0 0.5rem; }
+  .chapterList h4 { margin: 0; }
   .headingEvidence ul, .chapterList ol { margin: 0; padding-left: 1.4rem; }
+  .chapterListHeader { align-items: center; display: flex; gap: 0.75rem; justify-content: space-between; margin-bottom: 0.35rem; }
+  .chapterListHint { margin: 0 0 0.65rem; opacity: 0.75; }
   .chapterList li { margin: 0.35rem 0; }
+  .chapterListRow { align-items: baseline; display: flex; gap: 0.5rem; }
+  .chapterListRow > input[type='checkbox'] { flex: 0 0 auto; }
   .chapterList button { background: none; border: 0; color: var(--color-link, #2f6feb); cursor: pointer; padding: 0; text-align: left; }
 
   .processingOverlay { align-items: center; background: color-mix(in srgb, var(--bg-page) 92%, transparent); display: flex; flex-direction: column; gap: 0.75rem; inset: 0; justify-content: center; position: fixed; z-index: 1000; }
@@ -5261,6 +5346,14 @@ const StyledReader = styled.div`
     text-align: left;
   }
 
+  .conceptAttemptLabel {
+    color: var(--color-text-secondary, #777);
+    flex: 0 0 auto;
+    font-size: 0.82em;
+    font-variant-numeric: tabular-nums;
+    line-height: 1.2;
+    white-space: nowrap;
+  }
   .conceptActions {
     align-items: center;
     display: flex;
@@ -5279,6 +5372,7 @@ const StyledReader = styled.div`
   .conceptMeta {
     align-items: center;
     display: flex;
+    gap: 0.5rem;
     margin-top: 0.5rem;
   }
 

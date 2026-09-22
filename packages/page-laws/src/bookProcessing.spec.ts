@@ -48,6 +48,17 @@ describe('book processing pipeline', (): void => {
     assert.equal(countUnprocessedBookPages(3, pages), 0);
   });
 
+  it('can ignore intentionally excluded pages when checking concept completion', (): void => {
+    const pages = [
+      { conceptsProcessed: true, pageNumber: 1 },
+      { conceptsProcessed: false, pageNumber: 2 },
+      { conceptsProcessed: true, pageNumber: 3 }
+    ];
+
+    assert.equal(areAllBookPagesConceptsProcessed(3, pages, [1, 3]), true);
+    assert.equal(countUnprocessedBookPages(3, pages, [1, 3]), 0);
+  });
+
   it('keeps Exercises locked only while a page is actually unprocessed', (): void => {
     const pages = [
       { conceptsProcessed: true, pageNumber: 1 },

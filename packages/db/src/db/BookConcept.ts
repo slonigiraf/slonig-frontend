@@ -8,6 +8,8 @@ export interface BookConcept {
   chapterId?: number;
   title: string;
   description: string;
+  /** Fix Concepts run that created this concept. Non-Fix concepts use attempt 0. */
+  attempt?: number;
   /** Chapter-local display order. Older/generated rows may omit it. */
   displayOrder?: number;
   /** True when the concept was added manually rather than generated. */

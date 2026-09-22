@@ -19,6 +19,16 @@ describe('chapter concept recognition', (): void => {
     ]);
   });
 
+  it('excludes pages whose deleted chapter was removed from later analysis', (): void => {
+    assert.deepEqual(conceptChaptersFromPages([
+      { chapter: 'Keep', chapterId: 10, pageNumber: 1 },
+      { chapter: '', excludedFromAnalysis: true, pageNumber: 2 },
+      { chapter: 'Keep', chapterId: 10, pageNumber: 3 }
+    ]), [
+      { chapterId: 10, pageNumbers: [1, 3], title: 'Keep' }
+    ]);
+  });
+
   it('keeps the earliest page when the model repeats a concept within a chapter', (): void => {
     const result = parseGeneratedChapterConcepts(JSON.stringify({ concepts: [
       { description: 'Later explanation', pageNumber: 8, title: 'Linear equation' },

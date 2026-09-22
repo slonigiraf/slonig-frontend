@@ -7,12 +7,14 @@ import { describe, it } from 'node:test';
 import { chapterLevelMissingConcept, fixChapterConceptsPrompt, parseMissingChapterConcepts } from './fixConcepts.js';
 
 describe('fix concepts', (): void => {
-  it('stores Fix-generated concepts at chapter scope on page 0', (): void => {
+  it('stores Fix-generated concepts on their source page with the Fix attempt', (): void => {
     assert.deepEqual(chapterLevelMissingConcept(42, 7, {
       description: 'The bottom number in a fraction.',
+      pageNumber: 12,
       title: 'Denominator'
-    }), {
-      bookPage: [42, 0],
+    }, 2), {
+      attempt: 2,
+      bookPage: [42, 12],
       chapterId: 7,
       description: 'The bottom number in a fraction.',
       title: 'Denominator'
@@ -28,19 +30,22 @@ describe('fix concepts', (): void => {
     assert.match(prompt, /Numerator/);
     assert.match(prompt, /A fraction has a numerator and denominator/);
     assert.match(prompt, /primary evidence/);
+    assert.match(prompt, /pageNumber/);
+    assert.match(prompt, /page delimiters/);
   });
 
   it('keeps only complete missing concepts and removes exact title duplicates', (): void => {
     const result = parseMissingChapterConcepts(JSON.stringify({
       concepts: [
-        { title: 'Numerator', description: 'A renamed duplicate.' },
-        { title: 'Denominator', description: 'The bottom number in a fraction.' },
-        { title: 'Denominator', description: 'Duplicate candidate.' },
-        { title: '', description: 'Invalid.' }
+        { title: 'Numerator', description: 'A renamed duplicate.', pageNumber: 4 },
+        { title: 'Denominator', description: 'The bottom number in a fraction.', pageNumber: 5 },
+        { title: 'Denominator', description: 'Duplicate candidate.', pageNumber: 5 },
+        { title: '', description: 'Invalid.', pageNumber: 5 },
+        { title: 'Outside', description: 'Wrong page.', pageNumber: 99 }
       ]
-    }), [{ title: 'Numerator', description: 'The top number in a fraction.' }]);
+    }), [{ title: 'Numerator', description: 'The top number in a fraction.' }], new Set([4, 5]));
 
-    assert.deepEqual(result, { concepts: [{ title: 'Denominator', description: 'The bottom number in a fraction.' }] });
+    assert.deepEqual(result, { concepts: [{ title: 'Denominator', description: 'The bottom number in a fraction.', pageNumber: 5 }] });
   });
 
   it('rejects malformed response shapes', (): void => {

@@ -55,24 +55,35 @@ export interface PageConceptProcessingState {
   pageNumber: number;
 }
 
-export function areAllBookPagesConceptsProcessed (totalPages: number, pages: PageConceptProcessingState[]): boolean {
+function conceptProcessingTargetPages (totalPages: number, includedPageNumbers?: Iterable<number>): Set<number> {
   if (!Number.isSafeInteger(totalPages) || totalPages <= 0) {
+    return new Set();
+  }
+
+  if (includedPageNumbers) {
+    return new Set(Array.from(includedPageNumbers).filter((pageNumber) => Number.isSafeInteger(pageNumber) && pageNumber >= 1 && pageNumber <= totalPages));
+  }
+
+  return new Set(Array.from({ length: totalPages }, (_, index) => index + 1));
+}
+
+export function areAllBookPagesConceptsProcessed (totalPages: number, pages: PageConceptProcessingState[], includedPageNumbers?: Iterable<number>): boolean {
+  const targetPageNumbers = conceptProcessingTargetPages(totalPages, includedPageNumbers);
+
+  if (!targetPageNumbers.size) {
     return false;
   }
 
-  const processedPageNumbers = new Set(pages.flatMap(({ conceptsProcessed, pageNumber }) => conceptsProcessed && Number.isSafeInteger(pageNumber) && pageNumber >= 1 && pageNumber <= totalPages ? [pageNumber] : []));
+  const processedPageNumbers = new Set(pages.flatMap(({ conceptsProcessed, pageNumber }) => conceptsProcessed && targetPageNumbers.has(pageNumber) ? [pageNumber] : []));
 
-  return processedPageNumbers.size === totalPages;
+  return processedPageNumbers.size === targetPageNumbers.size;
 }
 
-export function countUnprocessedBookPages (totalPages: number, pages: PageConceptProcessingState[]): number {
-  if (!Number.isSafeInteger(totalPages) || totalPages <= 0) {
-    return 0;
-  }
+export function countUnprocessedBookPages (totalPages: number, pages: PageConceptProcessingState[], includedPageNumbers?: Iterable<number>): number {
+  const targetPageNumbers = conceptProcessingTargetPages(totalPages, includedPageNumbers);
+  const processedPageNumbers = new Set(pages.flatMap(({ conceptsProcessed, pageNumber }) => conceptsProcessed && targetPageNumbers.has(pageNumber) ? [pageNumber] : []));
 
-  const processedPageNumbers = new Set(pages.flatMap(({ conceptsProcessed, pageNumber }) => conceptsProcessed && Number.isSafeInteger(pageNumber) && pageNumber >= 1 && pageNumber <= totalPages ? [pageNumber] : []));
-
-  return totalPages - processedPageNumbers.size;
+  return Math.max(0, targetPageNumbers.size - processedPageNumbers.size);
 }
 
 export function calculatePageSymbolStatistics (pageTexts: string[]): PageSymbolStatistics | undefined {
