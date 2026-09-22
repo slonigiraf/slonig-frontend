@@ -187,6 +187,11 @@ describe('exercise repair', (): void => {
     assert.match(FIX_EXERCISES_PROMPT, /factual/i);
     assert.match(FIX_EXERCISES_PROMPT, /mathematical/i);
     assert.match(FIX_EXERCISES_PROMPT, /grammatical/i);
+    assert.match(FIX_EXERCISES_PROMPT, /age-level mismatch/i);
+    assert.match(FIX_EXERCISES_PROMPT, /AGE-LEVEL AUDIT/i);
+    assert.match(FIX_EXERCISES_PROMPT, /learnerAge/i);
+    assert.match(FIX_EXERCISES_PROMPT, /vocabulary, sentence complexity, assumed prerequisite knowledge, cognitive load/i);
+    assert.match(FIX_EXERCISES_PROMPT, /same learning target, required method, represented form, and learner modality/i);
     assert.match(FIX_EXERCISES_PROMPT, /KaTeX/i);
     assert.match(FIX_EXERCISES_PROMPT, /imageDescription/i);
     assert.match(FIX_EXERCISES_PROMPT, /only visual-description fields/i);
@@ -208,6 +213,9 @@ describe('exercise repair', (): void => {
     assert.match(FIX_EXERCISES_PROMPT, /conceptId/i);
     assert.match(FIX_EXERCISES_PROMPT, /preference rather than an absolute cardinality rule/i);
     assert.match(FIX_EXERCISES_PROMPT, /most learner thinking and information transformation/i);
+    assert.match(FIX_EXERCISES_PROMPT, /strongest age-appropriate Exercise/i);
+    assert.match(FIX_EXERCISES_PROMPT, /without exceeding that learner age/i);
+    assert.match(FIX_EXERCISES_PROMPT, /age-appropriateness overrides preserving an incompatible original difficulty/i);
     assert.match(FIX_EXERCISES_PROMPT, /merely asks the learner to explain/i);
     assert.match(FIX_EXERCISES_PROMPT, /weaker or redundant same-concept Exercises/i);
     assert.match(FIX_EXERCISES_PROMPT, /duplicatePairs/i);
