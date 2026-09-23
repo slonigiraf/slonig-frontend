@@ -4,6 +4,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { styled } from '@polkadot/react-components';
 import { embedTikzSourceInSvg } from './tikz.js';
+import { getTikzRenderConcurrency } from './tikzConcurrency.js';
 import { convertTikzTextToPaths } from './tikzGlyphPaths.js';
 
 interface Props {
@@ -44,8 +45,10 @@ const TIKZJAX_ASSET_BASE = 'https://cdn.jsdelivr.net/npm/@rod2ik/tikzjax@1.6.0/d
 const TIKZJAX_FONT_STYLESHEET = `${TIKZJAX_ASSET_BASE}/fonts.min.css`;
 const TIKZJAX_FONT_BASE = `${TIKZJAX_ASSET_BASE}/fonts`;
 const TIKZ_COMPILE_TIMEOUT_MS = 3_000;
+const TIKZ_RENDER_CONCURRENCY = getTikzRenderConcurrency();
 let tikzJaxPromise: Promise<void> | undefined;
-let preRenderQueue: Promise<void> = Promise.resolve();
+let activePreRenders = 0;
+const pendingPreRenders: Array<{ reject: (reason?: unknown) => void; resolve: (result: TikzPreRenderResult) => void; value: string }> = [];
 
 function ensureFontStylesheet (): void {
   if (document.querySelector('link[data-tikzjax-fonts]')) {
@@ -79,7 +82,7 @@ export function ensureTikzJax (): Promise<void> {
     workerPool: {
       enabled: current.workerPool?.enabled ?? true,
       initializationRetries: current.workerPool?.initializationRetries ?? 1,
-      maxWorkers: current.workerPool?.maxWorkers ?? 3,
+      maxWorkers: current.workerPool?.maxWorkers ?? TIKZ_RENDER_CONCURRENCY,
       reserveCpuCores: current.workerPool?.reserveCpuCores ?? 1,
       useDeviceMemory: current.workerPool?.useDeviceMemory ?? true
     }
@@ -111,19 +114,6 @@ function eventDetailText (event: Event): string {
   return '';
 }
 
-function logText (values: unknown[]): string {
-  return values.map((value) => {
-    if (typeof value === 'string') {
-      return value;
-    }
-
-    try {
-      return JSON.stringify(value);
-    } catch {
-      return String(value);
-    }
-  }).join(' ');
-}
 
 function findTikzFallbackImage (root: ParentNode): HTMLImageElement | undefined {
   return Array.from(root.querySelectorAll('img')).find((image) => /(?:broken|error|fallback)/i.test(`${image.src} ${image.alt} ${image.title}`));
@@ -154,17 +144,6 @@ async function runTikzPreRender (value: string): Promise<TikzPreRenderResult> {
   return new Promise<TikzPreRenderResult>((resolve) => {
     let settled = false;
     let timer: ReturnType<typeof setTimeout> | undefined;
-    const originals = {
-      error: console.error,
-      log: console.log,
-      warn: console.warn
-    };
-
-    const restoreConsole = (): void => {
-      console.error = originals.error;
-      console.log = originals.log;
-      console.warn = originals.warn;
-    };
     const cleanup = (): void => {
       if (timer) {
         clearTimeout(timer);
@@ -173,7 +152,6 @@ async function runTikzPreRender (value: string): Promise<TikzPreRenderResult> {
       document.removeEventListener('tikzjax-load-finished', onFinished as EventListener, true);
       document.removeEventListener('tikzjax-tex-input', onTexInput as EventListener, true);
       observer.disconnect();
-      restoreConsole();
       host.remove();
     };
     const finish = (compiled: boolean, renderedSvg = ''): void => {
@@ -184,17 +162,6 @@ async function runTikzPreRender (value: string): Promise<TikzPreRenderResult> {
       settled = true;
       cleanup();
       resolve({ compiled, diagnostics: Array.from(new Set(diagnostics)).slice(-80), renderedSvg, texInput });
-    };
-    const captureConsole = (method: 'error' | 'log' | 'warn') => (...values: unknown[]): void => {
-      originals[method](...values);
-      const message = logText(values).trim();
-
-      // data-show-console makes TeX diagnostics available through the console.
-      // Keep only likely renderer/TeX lines so unrelated application logging does
-      // not get sent to the AI review.
-      if (message && /(?:tikz|tex|latex|pgf|error|undefined|missing|fatal|!\s)/i.test(message)) {
-        diagnostics.push(message.slice(0, 4_000));
-      }
     };
     const onTexInput = (event: Event): void => {
       const target = event.target;
@@ -228,9 +195,6 @@ async function runTikzPreRender (value: string): Promise<TikzPreRenderResult> {
       }
     });
 
-    console.error = captureConsole('error');
-    console.log = captureConsole('log');
-    console.warn = captureConsole('warn');
     document.addEventListener('tikzjax-load-finished', onFinished as EventListener, true);
     document.addEventListener('tikzjax-tex-input', onTexInput as EventListener, true);
     observer.observe(host, { childList: true, subtree: true });
@@ -239,35 +203,49 @@ async function runTikzPreRender (value: string): Promise<TikzPreRenderResult> {
 
     script.type = 'text/tikz';
     script.dataset.disableCache = 'true';
-    script.dataset.showConsole = 'true';
-    script.dataset.debugTimings = 'true';
     script.textContent = value;
-    host.appendChild(script);
 
+    // Arm the timeout before insertion so even an immediately completed render
+    // can cancel it from the authoritative completion event.
     timer = setTimeout(() => {
-      const svg = host.querySelector('svg');
-
-      if (svg instanceof SVGElement) {
-        finish(true, svg.outerHTML);
-      } else {
-        diagnostics.push('TikZJax pre-render timed out after 3 seconds before a successful SVG was produced.');
-        finish(false);
-      }
+      // Do not treat arbitrary SVG markup as success here. TikZJax may insert
+      // transient/loader SVG before TeX compilation has actually completed.
+      // Only tikzjax-load-finished is authoritative for a successful render.
+      diagnostics.push('TikZJax pre-render timed out after 3 seconds before compilation finished.');
+      finish(false);
     }, TIKZ_COMPILE_TIMEOUT_MS);
+    host.appendChild(script);
   });
+}
+
+function drainPreRenderQueue (): void {
+  while (activePreRenders < TIKZ_RENDER_CONCURRENCY && pendingPreRenders.length) {
+    const next = pendingPreRenders.shift();
+
+    if (!next) {
+      return;
+    }
+
+    activePreRenders += 1;
+    runTikzPreRender(next.value)
+      .then(next.resolve, next.reject)
+      .finally(() => {
+        activePreRenders -= 1;
+        drainPreRenderQueue();
+      });
+  }
 }
 
 /**
  * Compile one diagram through the same TikZJax runtime used by the UI before AI
- * review. Calls are serialized because data-show-console reports diagnostics via
- * the global console and otherwise concurrent validation could mix messages.
+ * review. Work is bounded by the current computer's reported CPU capacity so a
+ * batch can render in parallel without flooding the browser with hidden hosts.
  */
 export function preRenderTikz (value: string): Promise<TikzPreRenderResult> {
-  const run = preRenderQueue.then(() => runTikzPreRender(value), () => runTikzPreRender(value));
-
-  preRenderQueue = run.then(() => undefined, () => undefined);
-
-  return run;
+  return new Promise<TikzPreRenderResult>((resolve, reject) => {
+    pendingPreRenders.push({ reject, resolve, value });
+    drainPreRenderQueue();
+  });
 }
 
 /**
@@ -341,23 +319,41 @@ export default function TikzDisplay ({ alt, hasCompileError = false, onCompileSt
         console.error('Unable to persist TikZ compile state.', reason);
       });
     };
+    const onFinished = (event: Event): void => {
+      const target = event.target;
+
+      if (!(target instanceof Element) || !host.contains(target)) {
+        return;
+      }
+
+      const svg = target.matches('svg') ? target : target.querySelector('svg');
+
+      if (!(svg instanceof SVGElement)) {
+        return;
+      }
+
+      if (compileTimer) {
+        clearTimeout(compileTimer);
+        compileTimer = undefined;
+      }
+
+      reportCompileState(false);
+    };
     const observer = new MutationObserver(() => {
-      if (host.querySelector('svg')) {
+      // A fallback image is authoritative failure. Do not use the mere presence
+      // of an SVG as success: TikZJax can insert transient/loader SVG while the
+      // actual TeX compile is still running.
+      if (findTikzFallbackImage(host)) {
         if (compileTimer) {
           clearTimeout(compileTimer);
           compileTimer = undefined;
         }
 
-        reportCompileState(false);
-
-        return;
-      }
-
-      if (findTikzFallbackImage(host)) {
         reportCompileState(true, 'TikZ compilation failed. Edit the TikZ code to retry.');
       }
     });
 
+    document.addEventListener('tikzjax-load-finished', onFinished as EventListener, true);
     observer.observe(host, { childList: true, subtree: true });
 
     ensureTikzJax()
@@ -371,14 +367,16 @@ export default function TikzDisplay ({ alt, hasCompileError = false, onCompileSt
         script.type = 'text/tikz';
         script.dataset.ariaLabel = alt;
         script.textContent = value;
-        hostRef.current.replaceChildren(script);
 
+        // Arm the timeout before insertion so an immediate completion event can
+        // clear it and cannot be followed by a stale timeout that removes the SVG.
         compileTimer = setTimeout(() => {
-          if (!host.querySelector('svg')) {
-            host.replaceChildren();
-            reportCompileState(true, 'TikZ compilation timed out after 3 seconds. Edit the TikZ code to retry.');
-          }
+          // If the authoritative completion event did not arrive within 3s, the
+          // exact current source is invalid. Transient SVG children do not count.
+          host.replaceChildren();
+          reportCompileState(true, 'TikZ compilation timed out after 3 seconds. Edit the TikZ code to retry.');
         }, TIKZ_COMPILE_TIMEOUT_MS);
+        hostRef.current.replaceChildren(script);
       })
       .catch((reason: unknown) => {
         if (!isCancelled) {
@@ -393,6 +391,7 @@ export default function TikzDisplay ({ alt, hasCompileError = false, onCompileSt
         clearTimeout(compileTimer);
       }
 
+      document.removeEventListener('tikzjax-load-finished', onFinished as EventListener, true);
       observer.disconnect();
       host.replaceChildren();
     };

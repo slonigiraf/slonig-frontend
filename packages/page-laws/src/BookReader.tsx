@@ -5068,6 +5068,7 @@ function BookReader({ ageTabRequest, assignAllStandardsRequest, book, file, fixA
                         ? <div className='skillsArea'><Skills
                           book={book}
                           externalRefreshToken={skillsRefreshToken}
+                          key={`abilities-${book.id}-${skillsRefreshToken}`}
                           onAction={revealPane}
                           onBookChange={onBookChange}
                           onEntityCountsChange={onSkillsEntityCountsChange}

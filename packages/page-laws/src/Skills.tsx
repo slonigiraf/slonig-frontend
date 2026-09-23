@@ -15,6 +15,8 @@ import { Button, Dropdown, Input, Modal, Toggle, styled } from '@polkadot/react-
 import ExerciseList from './Edit/ExerciseList.js';
 import type { TikzPreRenderResult } from './Edit/TikzDisplay.js';
 import { isTikzCode } from './Edit/tikz.js';
+import { nextStoredTikzValidity, shouldSkipStoredTikzCompile } from './Edit/tikzValidation.js';
+import { getTikzRenderConcurrency } from './Edit/tikzConcurrency.js';
 import { parseAbilityRepairResult, parseStoredAbility, withAbilityVisualSource } from './abilities.js';
 import { parseExerciseRepairResult } from './exercises.js';
 import { estimateAiInput } from './aiEstimate.js';
@@ -36,6 +38,44 @@ async function preRenderTikzLazy (value: string): Promise<TikzPreRenderResult> {
   return preRenderTikz(value);
 }
 
+function skippedInvalidTikzPreRender (): TikzPreRenderResult {
+  return {
+    compiled: false,
+    diagnostics: ['Skipped TikZJax pre-render because this unchanged Image is already marked valid:false. Edit the TikZ data to retry.'],
+    renderedSvg: '',
+    texInput: ''
+  };
+}
+
+async function preRenderStoredTikz (imageId: number, value: string): Promise<TikzPreRenderResult> {
+  const image = await getImage(imageId);
+
+  if (!image) {
+    throw new Error(`Image ${imageId} was not found while validating TikZ.`);
+  }
+
+  // Image.valid belongs to the exact data currently stored in the row. A failed
+  // source must not be sent through TikZJax again until a write changes Image.data;
+  // every data-changing path below clears `valid`, making the new source eligible.
+  if (shouldSkipStoredTikzCompile(image.data, image.valid, value)) {
+    return skippedInvalidTikzPreRender();
+  }
+
+  const result = await preRenderTikzLazy(value);
+
+  if (!result.compiled) {
+    // The Ability list may refresh while a parallel render is running. Never stamp
+    // a failure onto newer TikZ data that replaced the source we actually tested.
+    const currentImage = await getImage(imageId);
+
+    if (currentImage && currentImage.data === value && currentImage.valid !== false) {
+      await putImage({ ...currentImage, valid: false });
+    }
+  }
+
+  return result;
+}
+
 const BATCH_SIZE = 5;
 const FIX_EXERCISES_STAGE: BookProcessingStageKey = 'fixExercises';
 const ABILITIES_STAGE: BookProcessingStageKey = 'abilities';
@@ -46,6 +86,7 @@ const MAX_REQUEST_ATTEMPTS = 4;
 const RETRY_BASE_DELAY_MS = 1_000;
 const AI_REQUEST_TIMEOUT_MS = 60_000;
 const ABILITY_GENERATION_CONCURRENCY = 5;
+const TIKZ_RENDER_CONCURRENCY = getTikzRenderConcurrency();
 const delay = (milliseconds: number): Promise<void> => new Promise((resolve) => setTimeout(resolve, milliseconds));
 
 function getErrorStatus (error: unknown): number | undefined {
@@ -862,14 +903,14 @@ function AbilityCard ({ onDeleted, onError, record }: { onDeleted: () => void; o
     await putImage({ ...image, data: tikz ? value : null, prompt, type: tikz ? 'tikz' : 'prompt', valid: undefined });
     onDeleted();
   }, [onDeleted, record]);
-  const saveVisualError = useCallback(async (exerciseIndex: number, field: 'p' | 'i', hasError: boolean): Promise<void> => {
+  const saveVisualError = useCallback(async (exerciseIndex: number, field: 'p' | 'i', hasError: boolean, renderedValue: string): Promise<void> => {
     if (!record.ability) {
       throw new Error('Unable to save TikZ error state for invalid Ability JSON.');
     }
 
     const exercise = record.ability.q[exerciseIndex];
 
-    if (!exercise || (field === 'p' ? exercise.pError === hasError : exercise.iError === hasError)) {
+    if (!exercise) {
       return;
     }
 
@@ -880,8 +921,12 @@ function AbilityCard ({ onDeleted, onError, record }: { onDeleted: () => void; o
       throw new Error('Unable to find the Image referenced by this Ability visual.');
     }
 
-    await putImage({ ...image, valid: !hasError });
-    onDeleted();
+    const nextValid = nextStoredTikzValidity(image.data, image.valid, renderedValue, hasError);
+
+    if (nextValid !== undefined) {
+      await putImage({ ...image, valid: nextValid });
+      onDeleted();
+    }
   }, [onDeleted, record]);
   const openEdit = useCallback((): void => {
     setDraft(record.ability ? cloneAbility(record.ability) : null);
@@ -1252,9 +1297,9 @@ function Skills ({ book, externalRefreshToken = 0, onAction, onBookChange, onCon
     : []), [allAbilities]);
   const imageFixTargets = useMemo<ImageFixTarget[]>(() => allAbilities.flatMap((record) => record.ability
     ? record.ability.q.flatMap((exercise, exerciseIndex) => (['p', 'i'] as const).flatMap((field) => {
-      const value = exercise[field].trim();
+      const value = exercise[field];
 
-      if (!value || !isTikzCode(value)) {
+      if (!value.trim() || !isTikzCode(value)) {
         return [];
       }
 
@@ -2031,24 +2076,15 @@ function Skills ({ book, externalRefreshToken = 0, onAction, onBookChange, onCon
     try {
       if (!imageFixTargets.length) {
         setImageFixReview({ checked: 0, compileFailures: 0, items: [] });
-        setNotice('Fix images review ready. There are no TikZ visuals to check. No database changes have been made.');
+        setNotice('Fix images review ready. There are no TikZ visuals to check. No TikZ source changes have been made.');
         return;
       }
 
       const client = await createClient();
-      const items: FixedImageReview[] = [];
-      let compileFailures = 0;
       let completed = 0;
 
-      // Pre-render checks are intentionally serialized. TikZJax emits TeX
-      // diagnostics through the global console when data-show-console is on,
-      // so concurrent pre-renders could mix diagnostics between diagrams.
-      for (const target of imageFixTargets) {
-        const originalPreRender = await preRenderTikzLazy(target.originalTikz);
-
-        if (!originalPreRender.compiled) {
-          compileFailures += 1;
-        }
+      const reviewResults = await mapConcurrent(imageFixTargets, TIKZ_RENDER_CONCURRENCY, async (target): Promise<{ compileFailure: boolean; item?: FixedImageReview }> => {
+        const originalPreRender = await preRenderStoredTikz(target.imageId, target.originalTikz);
 
         const review = await requestValidatedJson(
           client,
@@ -2097,6 +2133,7 @@ function Skills ({ book, externalRefreshToken = 0, onAction, onBookChange, onCon
         // correction compiles. This is the second guard after semantic/layout QA.
         for (let repairAttempt = 0; effectiveReview.hasErrors && !fixedPreRender.compiled && repairAttempt < 2; repairAttempt++) {
           const previousErrors = effectiveReview.errors;
+          const rejectedTikz = effectiveReview.tikz;
           const repaired = await requestValidatedJson(
             client,
             selectedModel,
@@ -2111,7 +2148,15 @@ function Skills ({ book, externalRefreshToken = 0, onAction, onBookChange, onCon
           effectiveReview = repaired.hasErrors
             ? repaired
             : { errors: previousErrors.length ? previousErrors : ['TikZJax pre-render failure was repaired.'], hasErrors: true, tikz: repaired.tikz };
-          fixedPreRender = await preRenderTikzLazy(effectiveReview.tikz);
+
+          if (effectiveReview.tikz === rejectedTikz) {
+            fixedPreRender = {
+              ...fixedPreRender,
+              diagnostics: Array.from(new Set([...fixedPreRender.diagnostics, 'Skipped repeated TikZJax compile because the rejected TikZ data did not change.']))
+            };
+          } else {
+            fixedPreRender = await preRenderTikzLazy(effectiveReview.tikz);
+          }
         }
 
         if (effectiveReview.hasErrors && !fixedPreRender.compiled) {
@@ -2122,29 +2167,36 @@ function Skills ({ book, externalRefreshToken = 0, onAction, onBookChange, onCon
 
         const changed = effectiveReview.tikz.trim() !== target.originalTikz.trim();
 
-        if (effectiveReview.hasErrors && changed) {
-          items.push({
-            errors: effectiveReview.errors,
-            exerciseIndex: target.exerciseIndex,
-            field: target.field,
-            imageId: target.imageId,
-            fixedPreRender,
-            fixedTikz: effectiveReview.tikz,
-            originalPreRender,
-            originalTikz: target.originalTikz,
-            prompt: target.prompt,
-            record: target.record
-          });
-        }
-
         completed += 1;
         setProgress(completed);
-      }
+
+        return {
+          compileFailure: !originalPreRender.compiled,
+          ...(effectiveReview.hasErrors && changed
+            ? {
+              item: {
+                errors: effectiveReview.errors,
+                exerciseIndex: target.exerciseIndex,
+                field: target.field,
+                imageId: target.imageId,
+                fixedPreRender,
+                fixedTikz: effectiveReview.tikz,
+                originalPreRender,
+                originalTikz: target.originalTikz,
+                prompt: target.prompt,
+                record: target.record
+              }
+            }
+            : {})
+        };
+      });
+      const compileFailures = reviewResults.filter(({ compileFailure }) => compileFailure).length;
+      const items = reviewResults.flatMap(({ item }) => item ? [item] : []);
 
       setImageFixReview({ checked: imageFixTargets.length, compileFailures, items });
       const unchanged = Math.max(0, imageFixTargets.length - items.length);
 
-      setNotice(`Fix images review ready: ${items.length} TikZ correction${items.length === 1 ? '' : 's'}, ${compileFailures} original compile failure${compileFailures === 1 ? '' : 's'}, ${unchanged} unchanged. No database changes have been made.`);
+      setNotice(`Fix images review ready: ${items.length} TikZ correction${items.length === 1 ? '' : 's'}, ${compileFailures} original compile failure${compileFailures === 1 ? '' : 's'}, ${unchanged} unchanged. No TikZ source changes have been applied.`);
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : 'Unable to review and fix TikZ visuals.');
     } finally {
@@ -2154,7 +2206,7 @@ function Skills ({ book, externalRefreshToken = 0, onAction, onBookChange, onCon
 
   const closeImageFixReview = useCallback((): void => {
     setImageFixReview(null);
-    setNotice('Proposed TikZ changes were discarded. No database changes were made.');
+    setNotice('Proposed TikZ source changes were discarded. Compile-failure validation flags are kept so unchanged invalid TikZ is not compiled again.');
   }, []);
 
   const applyImageFixReview = useCallback(async (): Promise<void> => {
@@ -2186,15 +2238,14 @@ function Skills ({ book, externalRefreshToken = 0, onAction, onBookChange, onCon
 
       setImageFixReview(null);
       setNotice(`Applied Fix images review: ${fixed} TikZ visual${fixed === 1 ? '' : 's'} corrected and pre-render verified.`);
-      refresh();
-      onContentChange?.();
+      refreshContent();
       onAction?.('preExercisesExercises');
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : 'Unable to apply Fix images changes.');
     } finally {
       setIsBusy(false);
     }
-  }, [imageFixReview, onAction, onContentChange, refresh, completeStage, stageDone]);
+  }, [imageFixReview, onAction, refreshContent, completeStage, stageDone]);
 
   const openImageFix = useCallback((): void => {
     setAiAction('fixImages');
@@ -2473,7 +2524,7 @@ function Skills ({ book, externalRefreshToken = 0, onAction, onBookChange, onCon
         size='large'
       >
         <Modal.Content>
-          <p>Checked {imageFixReview.checked} TikZ visual{imageFixReview.checked === 1 ? '' : 's'}. The pre-render found {imageFixReview.compileFailures} original compile failure{imageFixReview.compileFailures === 1 ? '' : 's'}, and AI proposed {imageFixReview.items.length} correction{imageFixReview.items.length === 1 ? '' : 's'}. No database changes have been made yet.</p>
+          <p>Checked {imageFixReview.checked} TikZ visual{imageFixReview.checked === 1 ? '' : 's'}. The pre-render found {imageFixReview.compileFailures} original compile failure{imageFixReview.compileFailures === 1 ? '' : 's'}, and AI proposed {imageFixReview.items.length} correction{imageFixReview.items.length === 1 ? '' : 's'}. Compile failures are saved as validation metadata; no TikZ source changes are applied until approval.</p>
           {imageFixReview.items.length
             ? <div className='fixReviewList'>
               {imageFixReview.items.map(({ errors, exerciseIndex, field, fixedPreRender, fixedTikz, originalPreRender, originalTikz, prompt, record }, index) => {

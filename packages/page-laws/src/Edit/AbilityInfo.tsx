@@ -10,6 +10,7 @@ import { KatexSpan, parseJson } from '@slonigiraf/slonig-components';
 import { getImage, hydrateAbilityContent, putImage } from '@slonigiraf/db';
 import type { Ability } from '@slonigiraf/db';
 import ExerciseList from './ExerciseList.js';
+import { nextStoredTikzValidity } from './tikzValidation.js';
 
 interface Props {
   className?: string;
@@ -23,15 +24,8 @@ function AbilityInfo({ className = '', ability }: Props): React.ReactElement<Pro
 
   const hydratedContent = useLiveQuery(() => hydrateAbilityContent(ability.content), [ability.id, ability.content]);
   const data: JsonType = hydratedContent === undefined ? null : parseJson(hydratedContent);
-  const saveVisualError = async (exerciseIndex: number, field: 'p' | 'i', hasError: boolean): Promise<void> => {
+  const saveVisualError = async (exerciseIndex: number, field: 'p' | 'i', hasError: boolean, renderedValue: string): Promise<void> => {
     if (!data || !Array.isArray(data.q) || !data.q[exerciseIndex] || typeof data.q[exerciseIndex] !== 'object') {
-      return;
-    }
-
-    const errorField = field === 'p' ? 'pError' : 'iError';
-    const exercise = data.q[exerciseIndex] as Record<string, unknown>;
-
-    if (exercise[errorField] === hasError) {
       return;
     }
 
@@ -48,7 +42,11 @@ function AbilityInfo({ className = '', ability }: Props): React.ReactElement<Pro
     const image = await getImage(imageId);
 
     if (image) {
-      await putImage({ ...image, valid: !hasError });
+      const nextValid = nextStoredTikzValidity(image.data, image.valid, renderedValue, hasError);
+
+      if (nextValid !== undefined) {
+        await putImage({ ...image, valid: nextValid });
+      }
     }
   };
 
