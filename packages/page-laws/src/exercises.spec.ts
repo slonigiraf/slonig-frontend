@@ -187,6 +187,9 @@ describe('exercise repair', (): void => {
     assert.match(FIX_EXERCISES_PROMPT, /factual/i);
     assert.match(FIX_EXERCISES_PROMPT, /mathematical/i);
     assert.match(FIX_EXERCISES_PROMPT, /grammatical/i);
+    assert.match(FIX_EXERCISES_PROMPT, /yes\/no or equivalent binary-response task/i);
+    assert.match(FIX_EXERCISES_PROMPT, /treat every existing yes\/no or equivalent binary-response Exercise as erroneous/i);
+    assert.match(FIX_EXERCISES_PROMPT, /do not merely swap yes\/no for true\/false or another two-choice format/i);
     assert.match(FIX_EXERCISES_PROMPT, /age-level mismatch/i);
     assert.match(FIX_EXERCISES_PROMPT, /AGE-LEVEL AUDIT/i);
     assert.match(FIX_EXERCISES_PROMPT, /learnerAge/i);
@@ -236,6 +239,15 @@ describe('exercise repair', (): void => {
     assert.match(exercisePrompt, /visual content appropriate for a 9-year-old learner/i);
     assert.match(abilityPrompt, /current learner age is 9 years/i);
     assert.match(repairPrompt, /current learner age is 9 years/i);
+  });
+
+  it('prohibits yes/no and equivalent binary-response generated Exercises', (): void => {
+    const prompt = GENERATE_EXERCISES_PROMPT('English');
+
+    assert.match(prompt, /Never generate a yes\/no Exercise or any equivalent binary-response task/i);
+    assert.match(prompt, /true\/false, correct\/incorrect, right\/wrong, does\/does not, can\/cannot/i);
+    assert.match(prompt, /substantive answer content beyond a binary judgment/i);
+    assert.match(prompt, /Do not evade this rule by replacing yes\/no with another two-option wording/i);
   });
 
   it('asks generated Exercise solutions to show non-obvious solving steps', (): void => {
