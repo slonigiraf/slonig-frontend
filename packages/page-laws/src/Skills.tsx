@@ -176,6 +176,9 @@ interface FixedAbilityReview {
 interface DuplicateAbilityReview {
   chapterTitle: string;
   deleted: StoredAbility;
+  deletedConceptId?: number;
+  deletedConceptTitle?: string;
+  deletedExerciseId?: number;
   deletedExerciseTitle?: string;
   kept: StoredAbility;
   keptExerciseTitle?: string;
@@ -1002,10 +1005,11 @@ function DuplicateExerciseSide ({ exercise, label }: { exercise: Exercise; label
   </section>;
 }
 
-function DuplicateAbilitySide ({ exerciseTitle, label, record }: { exerciseTitle?: string; label: string; record: StoredAbility }): React.ReactElement {
+function DuplicateAbilitySide ({ conceptTitle, exerciseTitle, label, record }: { conceptTitle?: string; exerciseTitle?: string; label: string; record: StoredAbility }): React.ReactElement {
   return <section className='duplicateAbilitySide'>
     <h5>{label}</h5>
     {exerciseTitle && <p><small>Exercise: <KatexSpan content={exerciseTitle} /></small></p>}
+    {conceptTitle && <p><small>Concept: <KatexSpan content={conceptTitle} /></small></p>}
     <p><small>Record ID: <code>{record.id}</code></small></p>
     {record.ability
       ? <>
@@ -1170,7 +1174,9 @@ function Skills ({ book, externalRefreshToken = 0, onAction, onBookChange, onCon
       setGenerateOnlyMissingAbilities(false);
     }
   }, [exercisesMissingAbilities.length, generateOnlyMissingAbilities]);
-  const exerciseTitlesByModuleId = useMemo(() => new Map(allExercises.flatMap(({ id, title }) => id === undefined ? [] : [[exerciseAbilityModuleId(book.id, id), title] as const])), [allExercises, book.id]);
+  const exercisesByModuleId = useMemo(() => new Map(allExercises.flatMap((exercise) => exercise.id === undefined ? [] : [[exerciseAbilityModuleId(book.id, exercise.id), exercise] as const])), [allExercises, book.id]);
+  const exerciseTitlesByModuleId = useMemo(() => new Map(Array.from(exercisesByModuleId, ([moduleId, exercise]) => [moduleId, exercise.title] as const)), [exercisesByModuleId]);
+  const conceptsById = useMemo(() => new Map(chapterContent.flatMap(({ concepts }) => concepts.flatMap((concept) => concept.id === undefined ? [] : [[concept.id, concept] as const]))), [chapterContent]);
   const imageGenerationTargets = useMemo(() => allAbilities.flatMap((record) => record.ability
     ? record.ability.q.flatMap((exercise, exerciseIndex) => (['p', 'i'] as const).flatMap((field) => {
       const value = exercise[field].trim();
@@ -1649,10 +1655,16 @@ function Skills ({ book, externalRefreshToken = 0, onAction, onBookChange, onCon
             throw new Error('OpenRouter returned a duplicate Ability pair that does not exist in this chapter.');
           }
 
+          const deletedExercise = exercisesByModuleId.get(deleted.moduleId);
+          const deletedConcept = deletedExercise?.conceptId === undefined ? undefined : conceptsById.get(deletedExercise.conceptId);
+
           duplicatePairs.set(deletedAbilityId, {
             chapterTitle,
             deleted,
-            deletedExerciseTitle: exerciseTitlesByModuleId.get(deleted.moduleId),
+            deletedConceptId: deletedExercise?.conceptId,
+            deletedConceptTitle: deletedConcept?.title,
+            deletedExerciseId: deletedExercise?.id,
+            deletedExerciseTitle: deletedExercise?.title,
             kept,
             keptExerciseTitle: exerciseTitlesByModuleId.get(kept.moduleId)
           });
@@ -1703,7 +1715,7 @@ function Skills ({ book, externalRefreshToken = 0, onAction, onBookChange, onCon
     } finally {
       setIsBusy(false);
     }
-  }, [addFixAbilitiesCost, allAbilities.length, beginProgress, book.age, chapterContent, createClient, exerciseTitlesByModuleId, language, selectedModel]);
+  }, [addFixAbilitiesCost, allAbilities.length, beginProgress, book.age, chapterContent, conceptsById, createClient, exerciseTitlesByModuleId, exercisesByModuleId, language, selectedModel]);
 
   const closeFixReview = useCallback((): void => {
     setFixReview(null);
@@ -1722,16 +1734,52 @@ function Skills ({ book, externalRefreshToken = 0, onAction, onBookChange, onCon
     setError('');
 
     try {
+      const duplicateConceptIds = new Set(fixReview.duplicatePairs.flatMap(({ deletedConceptId }) => deletedConceptId === undefined ? [] : [deletedConceptId]));
+      const duplicateExerciseIds = new Set(fixReview.duplicatePairs.flatMap(({ deletedExerciseId }) => deletedExerciseId === undefined ? [] : [deletedExerciseId]));
+      let fixed = 0;
+
       for (const { ability, record } of fixReview.items) {
+        const sourceExercise = exercisesByModuleId.get(record.moduleId);
+
+        // Do not rewrite an Ability whose upstream Exercise/Concept is about to
+        // be removed by a duplicate cascade.
+        if (sourceExercise?.id !== undefined && (duplicateExerciseIds.has(sourceExercise.id) || (sourceExercise.conceptId !== undefined && duplicateConceptIds.has(sourceExercise.conceptId)))) {
+          continue;
+        }
+
         const newRecordId = await storeAbility(record.moduleId, JSON.stringify(ability));
 
         if (newRecordId !== record.id) {
           await deleteAbility(record.id);
         }
+
+        fixed += 1;
       }
 
-      for (const { deleted } of fixReview.duplicatePairs) {
-        await deleteAbility(deleted.id);
+      // A duplicate Ability represents duplicate upstream learning content. Remove
+      // its source Exercise and Concept as one cascade so no orphaned source rows
+      // remain. Deleting a Concept also removes every Exercise/Ability linked to it.
+      for (const conceptId of duplicateConceptIds) {
+        await deleteConceptWithExercises(conceptId);
+      }
+
+      // Exercises without a linked Concept still need to disappear with their
+      // duplicate Ability. This is a fallback for legacy/unmatched source data.
+      for (const exerciseId of duplicateExerciseIds) {
+        const exercise = allExercises.find(({ id }) => id === exerciseId);
+
+        if (exercise?.conceptId === undefined) {
+          await deleteExerciseWithAbilities(exerciseId);
+        }
+      }
+
+      // Preserve the old cleanup behavior for an Ability record whose source
+      // Exercise can no longer be resolved. Matched records were already removed
+      // by the Exercise/Concept cascades above.
+      for (const { deleted, deletedExerciseId } of fixReview.duplicatePairs) {
+        if (deletedExerciseId === undefined) {
+          await deleteAbility(deleted.id);
+        }
       }
 
       const hasChanges = fixReview.items.length > 0 || fixReview.duplicatePairs.length > 0;
@@ -1740,11 +1788,10 @@ function Skills ({ book, externalRefreshToken = 0, onAction, onBookChange, onCon
         await completeStage(FIX_ABILITIES_STAGE, hasChanges);
       }
 
-      const fixed = fixReview.items.length;
       const deleted = fixReview.duplicatePairs.length;
 
       setFixReview(null);
-      setNotice(`Applied Fix abilities review: ${fixed} corrected, ${deleted} duplicate${deleted === 1 ? '' : 's'} deleted.`);
+      setNotice(`Applied Fix abilities review: ${fixed} corrected, ${deleted} duplicate${deleted === 1 ? '' : 's'} deleted with their source Exercise${deleted === 1 ? '' : 's'} and linked Concept${deleted === 1 ? '' : 's'}.`);
       refresh();
       onContentChange?.();
       onAction?.('preExercisesExercises');
@@ -1753,7 +1800,7 @@ function Skills ({ book, externalRefreshToken = 0, onAction, onBookChange, onCon
     } finally {
       setIsBusy(false);
     }
-  }, [fixReview, onAction, onContentChange, refresh, completeStage, stageDone]);
+  }, [allExercises, deleteConceptWithExercises, deleteExerciseWithAbilities, exercisesByModuleId, fixReview, onAction, onContentChange, refresh, completeStage, stageDone]);
   const applyExerciseFixReview = useCallback(async (): Promise<void> => {
     if (!exerciseFixReview) {
       return;
@@ -2330,11 +2377,11 @@ function Skills ({ book, externalRefreshToken = 0, onAction, onBookChange, onCon
         size='large'
       >
         <Modal.Content>
-          <p>Checked {fixReview.checked} Abilities. Proposed {fixReview.items.length} correction{fixReview.items.length === 1 ? '' : 's'} and {fixReview.duplicatePairs.length} duplicate deletion{fixReview.duplicatePairs.length === 1 ? '' : 's'}. No database changes have been made yet.</p>
+          <p>Checked {fixReview.checked} Abilities. Proposed {fixReview.items.length} correction{fixReview.items.length === 1 ? '' : 's'} and {fixReview.duplicatePairs.length} duplicate deletion{fixReview.duplicatePairs.length === 1 ? '' : 's'}. Applying a duplicate deletion also removes its source Exercise and linked Concept. No database changes have been made yet.</p>
           {fixReview.duplicatePairs.length > 0 && <>
             <h4>Deleted duplicates</h4>
             <div className='duplicateReviewList'>
-              {fixReview.duplicatePairs.map(({ chapterTitle, deleted, deletedExerciseTitle, kept, keptExerciseTitle }, index) => <article
+              {fixReview.duplicatePairs.map(({ chapterTitle, deleted, deletedConceptTitle, deletedExerciseTitle, kept, keptExerciseTitle }, index) => <article
                 className='duplicateReviewItem'
                 key={deleted.id}
                                                                                                                           >
@@ -2346,6 +2393,7 @@ function Skills ({ book, externalRefreshToken = 0, onAction, onBookChange, onCon
                     record={kept}
                   />
                   <DuplicateAbilitySide
+                    conceptTitle={deletedConceptTitle}
                     exerciseTitle={deletedExerciseTitle}
                     label='Deleted duplicate'
                     record={deleted}
