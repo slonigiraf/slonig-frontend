@@ -25,7 +25,7 @@ import { Repetition } from "./db/Repetition.js";
 import { EXAMPLE_MODULE_KNOWLEDGE_CID, EXAMPLE_SKILL_KNOWLEDGE_ID } from "@slonigiraf/utils";
 import { LearnRequest } from "./db/LearnRequest.js";
 import { ScheduledEvent, ScheduledEventType } from "./db/ScheduledEvent.js";
-import Dexie from "dexie";
+import Dexie, { type Table } from "dexie";
 import { getBookCompletedStages, withBookProcessingStagesResetFrom, withCompletedBookProcessingStage } from './db/Book.js';
 import type { Book, BookProcessingStageKey, BookStageSpend, BookStageSpendKey, BookSubject } from './db/Book.js';
 import type { BookPage, MathpixHeading } from './db/BookPage.js';
@@ -34,11 +34,13 @@ import type { Exercise } from './db/Exercise.js';
 import type { BookChapter } from './db/BookChapter.js';
 import type { Skill } from './db/Skill.js';
 import type { ExerciseTemplate } from './db/ExerciseTemplate.js';
-import type { Ability } from './db/Ability.js';
+import type { Ability, AbilityExercise, AbilityValue } from './db/Ability.js';
+import type { Image } from './db/Image.js';
 import { shouldExportDatabaseRow } from './backup.js';
 
 export { BOOK_PROCESSING_STAGES, getBookCompletedStages, isBookProcessingStageComplete, withBookProcessingStagesResetFrom, withCompletedBookProcessingStage } from './db/Book.js';
-export type { LearnRequest, TutorAction, CanceledInsurance, Reexamination, LetterTemplate, CanceledLetter, Reimbursement, Letter, Insurance, Lesson, Pseudonym, Setting, Signer, UsageRight, Agreement, Ability, Book, BookProcessingStageKey, BookStageSpend, BookStageSpendKey, BookSubject, BookPage, MathpixHeading, BookChapter, BookConcept, Exercise, Skill, ExerciseTemplate };
+export type { LearnRequest, TutorAction, CanceledInsurance, Reexamination, LetterTemplate, CanceledLetter, Reimbursement, Letter, Insurance, Lesson, Pseudonym, Setting, Signer, UsageRight, Agreement, Ability, AbilityExercise, AbilityValue, Image, Book, BookProcessingStageKey, BookStageSpend, BookStageSpendKey, BookSubject, BookPage, MathpixHeading, BookChapter, BookConcept, Exercise, Skill, ExerciseTemplate };
+export type { ImageType } from './db/Image.js';
 
 export async function createBook(book: Omit<Book, 'id'>): Promise<number> {
     return db.books.add(book as Book);
@@ -782,15 +784,232 @@ export async function getAllBanEvents() {
 
 // Ability related
 
+type AbilityJsonRoot = Record<string, unknown> & { q: unknown[] };
+
+function parseAbilityJson(content: string): { parsed: unknown; root: AbilityJsonRoot } | undefined {
+    const json = content.trim().replace(/^```(?:json)?\s*|\s*```$/gi, '').trim();
+    let parsed: unknown;
+
+    try {
+        parsed = JSON.parse(json) as unknown;
+    } catch {
+        return undefined;
+    }
+
+    const root = Array.isArray(parsed) ? parsed[0] : parsed;
+
+    if (!root || typeof root !== 'object' || !Array.isArray((root as { q?: unknown }).q)) {
+        return undefined;
+    }
+
+    return { parsed, root: root as AbilityJsonRoot };
+}
+
+function abilityImageIds(content: string): number[] {
+    const value = parseAbilityJson(content);
+
+    if (!value) {
+        return [];
+    }
+
+    return Array.from(new Set(value.root.q.flatMap((exercise) => {
+        if (!exercise || typeof exercise !== 'object') {
+            return [];
+        }
+
+        const row = exercise as Record<string, unknown>;
+
+        return ['p', 'i'].flatMap((field) => typeof row[field] === 'number' && Number.isSafeInteger(row[field]) && (row[field] as number) > 0 ? [row[field] as number] : []);
+    })));
+}
+
+function isTikzImageSource(value: string): boolean {
+    return /\\begin\s*\{tikzpicture\}/.test(value);
+}
+
+async function normalizeAbilityImages(content: string, images: Table<Image, number>): Promise<string> {
+    const value = parseAbilityJson(content);
+
+    if (!value) {
+        return content;
+    }
+
+    for (const exercise of value.root.q) {
+        if (!exercise || typeof exercise !== 'object') {
+            continue;
+        }
+
+        const row = exercise as Record<string, unknown>;
+
+        for (const field of ['p', 'i'] as const) {
+            const visual = row[field];
+            const errorField = field === 'p' ? 'pError' : 'iError';
+            const promptField = field === 'p' ? 'pPrompt' : 'iPrompt';
+            const explicitPrompt = typeof row[promptField] === 'string' ? (row[promptField] as string).trim() : '';
+            const valid = typeof row[errorField] === 'boolean' ? !(row[errorField] as boolean) : undefined;
+            let image: Omit<Image, 'id'> | undefined;
+
+            if (typeof visual === 'string' && visual.trim()) {
+                const tikz = isTikzImageSource(visual);
+
+                image = {
+                    data: tikz ? visual : null,
+                    prompt: explicitPrompt || (tikz ? '' : visual),
+                    type: tikz ? 'tikz' : 'prompt',
+                    valid
+                };
+            } else if (explicitPrompt) {
+                // A prompt-only visual is still a valid Image and remains eligible
+                // for the Images generation stage. Generated data does not exist yet.
+                image = { data: null, prompt: explicitPrompt, type: 'prompt', valid };
+            } else if (typeof visual === 'number' && Number.isSafeInteger(visual) && visual > 0) {
+                const source = await images.get(visual);
+
+                if (source) {
+                    row[field] = visual;
+
+                    if (valid !== undefined && source.valid !== valid) {
+                        await images.update(visual, { valid });
+                    }
+                } else {
+                    row[field] = null;
+                }
+
+                delete row[errorField];
+                delete row[promptField];
+                continue;
+            }
+
+            row[field] = image ? await images.add(image as Image) : null;
+            delete row[errorField];
+            delete row[promptField];
+        }
+    }
+
+    return JSON.stringify(value.parsed);
+}
+
+async function deleteUnreferencedAbilityImages(candidateIds: number[]): Promise<void> {
+    const candidates = new Set(candidateIds);
+
+    if (!candidates.size) {
+        return;
+    }
+
+    const rows = await db.abilities.toArray();
+    const referenced = new Set(rows.flatMap(({ content }) => abilityImageIds(content)));
+    const orphanIds = Array.from(candidates).filter((id) => !referenced.has(id));
+
+    if (orphanIds.length) {
+        await db.images.bulkDelete(orphanIds);
+    }
+}
+
+export async function hydrateAbilityContent(content: string): Promise<string> {
+    const value = parseAbilityJson(content);
+
+    if (!value) {
+        return content;
+    }
+
+    const ids = abilityImageIds(content);
+    const loaded = ids.length ? await db.images.bulkGet(ids) : [];
+    const images = new Map(ids.flatMap((id, index) => loaded[index] ? [[id, loaded[index] as Image] as const] : []));
+
+    for (const exercise of value.root.q) {
+        if (!exercise || typeof exercise !== 'object') {
+            continue;
+        }
+
+        const row = exercise as Record<string, unknown>;
+
+        for (const field of ['p', 'i'] as const) {
+            const id = row[field];
+
+            // Persisted Ability visuals are nullable Image foreign keys. The app
+            // works with a hydrated compatibility shape where an absent visual is
+            // the empty string, so convert null back before runtime validation.
+            if (id === null) {
+                row[field] = '';
+                continue;
+            }
+
+            if (typeof id !== 'number') {
+                continue;
+            }
+
+            const image = images.get(id);
+            const errorField = field === 'p' ? 'pError' : 'iError';
+            const promptField = field === 'p' ? 'pPrompt' : 'iPrompt';
+
+            row[field] = image?.data ?? '';
+
+            if (image?.prompt) {
+                row[promptField] = image.prompt;
+            } else {
+                delete row[promptField];
+            }
+
+            if (image?.valid !== undefined) {
+                row[errorField] = !image.valid;
+            } else {
+                delete row[errorField];
+            }
+        }
+    }
+
+    return JSON.stringify(value.parsed);
+}
+
+export async function getImage(id: number): Promise<Image | undefined> {
+    return db.images.get(id);
+}
+
+export async function getImages(ids: number[]): Promise<Image[]> {
+    const uniqueIds = Array.from(new Set(ids.filter((id) => Number.isSafeInteger(id) && id > 0)));
+    const values = await db.images.bulkGet(uniqueIds);
+
+    return values.filter((value): value is Image => value !== undefined);
+}
+
+export async function createImage(image: Omit<Image, 'id'>): Promise<number> {
+    return db.images.add(image as Image);
+}
+
+export async function putImage(image: Image): Promise<number> {
+    return db.images.put(image);
+}
+
+export async function deleteImage(id: number): Promise<void> {
+    await db.transaction('rw', db.abilities, db.images, async () => {
+        const isReferenced = (await db.abilities.toArray()).some(({ content }) => abilityImageIds(content).includes(id));
+
+        if (isReferenced) {
+            throw new Error('Cannot delete an Image that is referenced by an Ability.');
+        }
+
+        await db.images.delete(id);
+    });
+}
+
 export async function storeAbility(moduleId: string, content: string): Promise<string> {
     const id = blake2AsHex(content);
-    const record = {
-        id,
-        moduleId,
-        content: content
-    };
-    await db.abilities.put(record);
-    return id;
+
+    return db.transaction('rw', db.abilities, db.images, async () => {
+        const existing = await db.abilities.get(id);
+        const oldImageIds = existing ? abilityImageIds(existing.content) : [];
+        const normalizedContent = await normalizeAbilityImages(content, db.images);
+        const record: Ability = { id, moduleId, content: normalizedContent };
+
+        await db.abilities.put(record);
+
+        const nextImageIds = new Set(abilityImageIds(normalizedContent));
+        const staleImageIds = oldImageIds.filter((imageId) => !nextImageIds.has(imageId));
+
+        await deleteUnreferencedAbilityImages(staleImageIds);
+
+        return id;
+    });
 }
 
 export async function getAbilities(moduleId: string): Promise<Ability[]> {
@@ -798,26 +1017,58 @@ export async function getAbilities(moduleId: string): Promise<Ability[]> {
 }
 
 export async function deleteAbilities(moduleId: string): Promise<void> {
-    await db.abilities.where('moduleId').equals(moduleId).delete();
+    await db.transaction('rw', db.abilities, db.images, async () => {
+        const rows = await db.abilities.where('moduleId').equals(moduleId).toArray() as Ability[];
+        const imageIds: number[] = Array.from(new Set<number>(rows.flatMap(({ content }) => abilityImageIds(content))));
+
+        await db.abilities.where('moduleId').equals(moduleId).delete();
+
+        await deleteUnreferencedAbilityImages(imageIds);
+    });
 }
 
 export async function replaceAbilities(moduleId: string, contents: string[]): Promise<string[]> {
-    return db.transaction('rw', db.abilities, async () => {
-        await db.abilities.where('moduleId').equals(moduleId).delete();
-        const records = contents.map((content, index) => ({
-            content,
-            id: blake2AsHex(`${moduleId}:${index}:${content}`),
-            moduleId
-        }));
+    return db.transaction('rw', db.abilities, db.images, async () => {
+        const oldRows = await db.abilities.where('moduleId').equals(moduleId).toArray() as Ability[];
+        const oldImageIds: number[] = Array.from(new Set<number>(oldRows.flatMap(({ content }) => abilityImageIds(content))));
+        const records: Ability[] = [];
 
-        await db.abilities.bulkPut(records);
+        for (let index = 0; index < contents.length; index++) {
+            const content = contents[index];
+            const normalizedContent = await normalizeAbilityImages(content, db.images);
+
+            records.push({
+                content: normalizedContent,
+                id: blake2AsHex(`${moduleId}:${index}:${content}`),
+                moduleId
+            });
+        }
+
+        await db.abilities.where('moduleId').equals(moduleId).delete();
+
+        if (records.length) {
+            await db.abilities.bulkPut(records);
+        }
+
+        const nextImageIds = new Set<number>(records.flatMap(({ content }) => abilityImageIds(content)));
+        const staleImageIds = oldImageIds.filter((imageId) => !nextImageIds.has(imageId));
+
+        await deleteUnreferencedAbilityImages(staleImageIds);
 
         return records.map(({ id }) => id);
     });
 }
 
 export async function deleteAbility(id: string): Promise<void> {
-    await db.abilities.delete(id);
+    await db.transaction('rw', db.abilities, db.images, async () => {
+        const row = await db.abilities.get(id);
+
+        await db.abilities.delete(id);
+
+        const imageIds = row ? abilityImageIds(row.content) : [];
+
+        await deleteUnreferencedAbilityImages(imageIds);
+    });
 }
 
 // Signer related

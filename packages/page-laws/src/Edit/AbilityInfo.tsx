@@ -3,10 +3,11 @@
 
 import { Modal, Button, Spinner, styled } from '@polkadot/react-components';
 import React from 'react'
+import { useLiveQuery } from 'dexie-react-hooks';
 import { useTranslation } from '../translate.js';
 import { useToggle } from '@polkadot/react-hooks';
 import { KatexSpan, parseJson } from '@slonigiraf/slonig-components';
-import { deleteAbility, storeAbility } from '@slonigiraf/db';
+import { getImage, hydrateAbilityContent, putImage } from '@slonigiraf/db';
 import type { Ability } from '@slonigiraf/db';
 import ExerciseList from './ExerciseList.js';
 
@@ -20,7 +21,8 @@ function AbilityInfo({ className = '', ability }: Props): React.ReactElement<Pro
   const { t } = useTranslation();
   const [areDetailsOpen, toggleDetailsOpen] = useToggle(false);
 
-  const data: JsonType = parseJson(ability.content);
+  const hydratedContent = useLiveQuery(() => hydrateAbilityContent(ability.content), [ability.id, ability.content]);
+  const data: JsonType = hydratedContent === undefined ? null : parseJson(hydratedContent);
   const saveVisualError = async (exerciseIndex: number, field: 'p' | 'i', hasError: boolean): Promise<void> => {
     if (!data || !Array.isArray(data.q) || !data.q[exerciseIndex] || typeof data.q[exerciseIndex] !== 'object') {
       return;
@@ -33,13 +35,20 @@ function AbilityInfo({ className = '', ability }: Props): React.ReactElement<Pro
       return;
     }
 
-    const q = data.q.map((value: unknown, index: number) => index === exerciseIndex
-      ? { ...(value as Record<string, unknown>), [errorField]: hasError || undefined }
-      : value);
-    const newRecordId = await storeAbility(ability.moduleId, JSON.stringify({ ...data, q }));
+    const stored = parseJson(ability.content) as { q?: unknown[] } | null;
+    const storedExercise = stored && Array.isArray(stored.q) ? stored.q[exerciseIndex] : undefined;
+    const imageId = storedExercise && typeof storedExercise === 'object'
+      ? (storedExercise as Record<string, unknown>)[field]
+      : undefined;
 
-    if (newRecordId !== ability.id) {
-      await deleteAbility(ability.id);
+    if (typeof imageId !== 'number' || !Number.isSafeInteger(imageId) || imageId <= 0) {
+      return;
+    }
+
+    const image = await getImage(imageId);
+
+    if (image) {
+      await putImage({ ...image, valid: !hasError });
     }
   };
 

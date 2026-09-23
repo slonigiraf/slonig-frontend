@@ -5,7 +5,7 @@ import type { Book, BookChapter, BookConcept, BookPage, BookProcessingStageKey, 
 import type { GeneratedAbility } from './abilities.js';
 import type { AbilityBlueprint, AbilityWorkflowJsonRunner, ExerciseAbilityConversion } from './abilityWorkflow.js';
 
-import { addBookStageSpend, completeBookProcessingStage, deleteAbilities, deleteAbility, deleteBookConcept, deleteExercise, deleteSkill, getAbilities, getBookChapters, getBookCompletedStages, getBookConceptsForBookPage, getBookPages, getExercisesForBookPage, getSetting, getSkillsForChapter, replaceAbilities, replaceExercisesForBookPage, replaceSkillsForChapter, resetBookProcessingStagesFrom, SettingKey, storeAbility, updateBookChapterTitle } from '@slonigiraf/db';
+import { addBookStageSpend, completeBookProcessingStage, deleteAbilities, deleteAbility, deleteBookConcept, deleteExercise, deleteSkill, getAbilities, getBookChapters, getBookCompletedStages, getBookConceptsForBookPage, getBookPages, getExercisesForBookPage, getSetting, getSkillsForChapter, getImage, hydrateAbilityContent, putImage, replaceAbilities, replaceExercisesForBookPage, replaceSkillsForChapter, resetBookProcessingStagesFrom, SettingKey, storeAbility, updateBookChapterTitle } from '@slonigiraf/db';
 import { KatexSpan, RoundProgress } from '@slonigiraf/slonig-components';
 import OpenAI from 'openai';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
@@ -15,7 +15,7 @@ import { Button, Dropdown, Input, Modal, Toggle, styled } from '@polkadot/react-
 import ExerciseList from './Edit/ExerciseList.js';
 import type { TikzPreRenderResult } from './Edit/TikzDisplay.js';
 import { isTikzCode } from './Edit/tikz.js';
-import { parseAbilityRepairResult, parseStoredAbility, withAbilityVisualError, withAbilityVisualSource } from './abilities.js';
+import { parseAbilityRepairResult, parseStoredAbility, withAbilityVisualSource } from './abilities.js';
 import { parseExerciseRepairResult } from './exercises.js';
 import { estimateAiInput } from './aiEstimate.js';
 import { ABILITY_WORKFLOW_SYSTEM_PROMPT, FIX_ABILITIES_REQUEST_PROMPT, FIX_EXERCISES_REQUEST_PROMPT, JSON_VALIDATION_PROMPT, LEARNER_AGE_PROMPT, OPENAI_MODELS, REPAIR_SYSTEM_PROMPT, SKILLS_GENERATION_SYSTEM_PROMPT, SOURCES_TO_SKILLS_REQUEST_PROMPT } from './constants.js';
@@ -211,6 +211,7 @@ interface ExerciseFixReviewResult {
 interface ImageFixTarget {
   ability: GeneratedAbility;
   exerciseIndex: number;
+  imageId: number;
   field: 'p' | 'i';
   originalTikz: string;
   prompt: string;
@@ -220,6 +221,7 @@ interface ImageFixTarget {
 interface FixedImageReview {
   errors: string[];
   exerciseIndex: number;
+  imageId: number;
   field: 'p' | 'i';
   fixedPreRender: TikzPreRenderResult;
   fixedTikz: string;
@@ -333,14 +335,37 @@ function exerciseForPageReplacement ({ conceptId, description, imageDescription,
     title
   };
 }
+function storedAbilityImageId (record: StoredAbility, exerciseIndex: number, field: 'p' | 'i'): number | undefined {
+  try {
+    const parsed = JSON.parse(record.content) as unknown;
+    const root = Array.isArray(parsed) ? parsed[0] : parsed;
+
+    if (!root || typeof root !== 'object') {
+      return undefined;
+    }
+
+    const exercises = (root as { q?: unknown }).q;
+
+    if (!Array.isArray(exercises) || !exercises[exerciseIndex] || typeof exercises[exerciseIndex] !== 'object') {
+      return undefined;
+    }
+
+    const id = (exercises[exerciseIndex] as Record<string, unknown>)[field];
+
+    return typeof id === 'number' && Number.isSafeInteger(id) && id > 0 ? id : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
 function abilityWithImageDescriptions (conversion: ExerciseAbilityConversion): GeneratedAbility {
   const q = conversion.ability.q.map((exercise, index) => {
     const prompts = conversion.imagePrompts?.[index];
 
     return {
       ...exercise,
-      // Ability stages persist semantic image descriptions only. Actual image
-      // materialization belongs to the separate Images pipeline stages.
+      // Ability stages start with semantic image descriptions. storeAbility
+      // normalizes each description into an Image row referenced by q[].p/q[].i.
       i: prompts?.i ?? '',
       p: prompts?.p ?? ''
     };
@@ -822,11 +847,21 @@ function AbilityCard ({ onDeleted, onError, record }: { onDeleted: () => void; o
       throw new Error('Unable to save TikZ for invalid Ability JSON.');
     }
 
-    await persistAbility({
-      ...record.ability,
-      q: record.ability.q.map((exercise, index) => index === exerciseIndex ? withAbilityVisualSource(exercise, field, value) : { ...exercise })
-    });
-  }, [persistAbility, record.ability]);
+    const imageId = storedAbilityImageId(record, exerciseIndex, field);
+    const image = imageId === undefined ? undefined : await getImage(imageId);
+    const exercise = record.ability.q[exerciseIndex];
+
+    if (!image || !exercise) {
+      throw new Error('Unable to find the Image referenced by this Ability visual.');
+    }
+
+    const promptField = field === 'p' ? 'pPrompt' : 'iPrompt';
+    const tikz = isTikzCode(value);
+    const prompt = exercise[promptField]?.trim() || (tikz ? image.prompt : value.trim());
+
+    await putImage({ ...image, data: tikz ? value : null, prompt, type: tikz ? 'tikz' : 'prompt', valid: undefined });
+    onDeleted();
+  }, [onDeleted, record]);
   const saveVisualError = useCallback(async (exerciseIndex: number, field: 'p' | 'i', hasError: boolean): Promise<void> => {
     if (!record.ability) {
       throw new Error('Unable to save TikZ error state for invalid Ability JSON.');
@@ -838,11 +873,16 @@ function AbilityCard ({ onDeleted, onError, record }: { onDeleted: () => void; o
       return;
     }
 
-    await persistAbility({
-      ...record.ability,
-      q: record.ability.q.map((value, index) => index === exerciseIndex ? withAbilityVisualError(value, field, hasError) : { ...value })
-    });
-  }, [persistAbility, record.ability]);
+    const imageId = storedAbilityImageId(record, exerciseIndex, field);
+    const image = imageId === undefined ? undefined : await getImage(imageId);
+
+    if (!image) {
+      throw new Error('Unable to find the Image referenced by this Ability visual.');
+    }
+
+    await putImage({ ...image, valid: !hasError });
+    onDeleted();
+  }, [onDeleted, record]);
   const openEdit = useCallback((): void => {
     setDraft(record.ability ? cloneAbility(record.ability) : null);
     setRawDraft(record.content);
@@ -1127,13 +1167,15 @@ function Skills ({ book, externalRefreshToken = 0, onAction, onBookChange, onCon
         const matchingPages = pageRows.filter(({ concepts, page }) => page.chapter === chapter.title || concepts.some(({ chapterId }) => chapterId === chapter.id));
         const exercises = matchingPages.flatMap(({ exercises }) => exercises);
         const records = (await Promise.all(exercises.flatMap(({ id }) => id === undefined ? [] : [getAbilities(exerciseAbilityModuleId(book.id, id))]))).flat() as Array<{ content: string; id: string; moduleId: string }>;
-        const abilities = records.map(({ content, id, moduleId }): StoredAbility => {
+        const abilities = await Promise.all(records.map(async ({ content, id, moduleId }): Promise<StoredAbility> => {
           try {
-            return { ability: parseStoredAbility(content), content, id, moduleId };
+            const hydratedContent = await hydrateAbilityContent(content);
+
+            return { ability: parseStoredAbility(hydratedContent), content, id, moduleId };
           } catch {
             return { ability: null, content, id, moduleId };
           }
-        });
+        }));
 
         return { abilities, chapter, concepts: matchingPages.flatMap(({ concepts }) => concepts.filter(({ chapterId }) => chapterId === chapter.id)), exercises, skills };
       }));
@@ -1197,15 +1239,15 @@ function Skills ({ book, externalRefreshToken = 0, onAction, onBookChange, onCon
   const imageGenerationTargets = useMemo(() => allAbilities.flatMap((record) => record.ability
     ? record.ability.q.flatMap((exercise, exerciseIndex) => (['p', 'i'] as const).flatMap((field) => {
       const value = exercise[field].trim();
-
-      if (!value) {
-        return [];
-      }
-
       const promptField = field === 'p' ? 'pPrompt' : 'iPrompt';
-      const visualPrompt = isTikzCode(value) ? exercise[promptField]?.trim() ?? '' : value;
+      const storedPrompt = exercise[promptField]?.trim() ?? '';
+      // Prompt-only Image rows hydrate with an empty visual value because
+      // Image.data is null until generation. Always source generation from the
+      // semantic prompt when it exists; keep the old fallback for legacy input.
+      const visualPrompt = storedPrompt || (!isTikzCode(value) ? value : '');
+      const imageId = storedAbilityImageId(record, exerciseIndex, field);
 
-      return visualPrompt ? [{ exerciseIndex, field, record, visualPrompt }] : [];
+      return visualPrompt && imageId !== undefined ? [{ exerciseIndex, field, imageId, record, visualPrompt }] : [];
     }))
     : []), [allAbilities]);
   const imageFixTargets = useMemo<ImageFixTarget[]>(() => allAbilities.flatMap((record) => record.ability
@@ -1217,8 +1259,9 @@ function Skills ({ book, externalRefreshToken = 0, onAction, onBookChange, onCon
       }
 
       const promptField = field === 'p' ? 'pPrompt' : 'iPrompt';
+      const imageId = storedAbilityImageId(record, exerciseIndex, field);
 
-      return [{ ability: record.ability as GeneratedAbility, exerciseIndex, field, originalTikz: value, prompt: exercise[promptField]?.trim() ?? '', record }];
+      return imageId === undefined ? [] : [{ ability: record.ability as GeneratedAbility, exerciseIndex, field, imageId, originalTikz: value, prompt: exercise[promptField]?.trim() ?? '', record }];
     }))
     : []), [allAbilities]);
   const skillSources = useMemo<SkillSource[]>(() => chapterContent.flatMap(({ chapter, concepts, exercises }) => chapter.id === undefined ? [] : [...concepts.flatMap(({ description, id, title }) => id === undefined ? [] : [{ chapterId: chapter.id as number, chapterTitle: chapter.title, description, sourceId: id, sourceType: 'concept' as const, title }]), ...exercises.flatMap(({ description, id, title }) => id === undefined ? [] : [{ chapterId: chapter.id as number, chapterTitle: chapter.title, description: stripMarkdownImageReferences(description), sourceId: id, sourceType: 'exercise' as const, title }])]), [chapterContent]);
@@ -1944,10 +1987,9 @@ function Skills ({ book, externalRefreshToken = 0, onAction, onBookChange, onCon
       }
 
       const client = await createClient();
-      const updates = new Map<string, GeneratedAbility>();
       let completed = 0;
 
-      await mapConcurrent(imageGenerationTargets, OPENROUTER_CONCURRENCY, async ({ exerciseIndex, field, record, visualPrompt }) => {
+      await mapConcurrent(imageGenerationTargets, OPENROUTER_CONCURRENCY, async ({ exerciseIndex, field, imageId, record, visualPrompt }) => {
         if (!record.ability) {
           return;
         }
@@ -1962,32 +2004,16 @@ function Skills ({ book, externalRefreshToken = 0, onAction, onBookChange, onCon
           2_400
         );
         const tikz = cleanTikzResponse(content);
-        const current = updates.get(record.id) ?? {
-          ...record.ability,
-          q: record.ability.q.map((exercise) => ({ ...exercise }))
-        };
+        const image = await getImage(imageId);
 
-        const promptField = field === 'p' ? 'pPrompt' : 'iPrompt';
+        if (!image) {
+          throw new Error(`Image ${imageId} referenced by Ability ${record.id} was not found.`);
+        }
 
-        current.q[exerciseIndex] = { ...withAbilityVisualSource(current.q[exerciseIndex], field, tikz), [promptField]: visualPrompt };
-        updates.set(record.id, current);
+        await putImage({ ...image, data: tikz, prompt: visualPrompt, type: 'tikz', valid: undefined });
         completed += 1;
         setProgress(completed);
       });
-
-      for (const record of allAbilities) {
-        const ability = updates.get(record.id);
-
-        if (!ability) {
-          continue;
-        }
-
-        const newRecordId = await storeAbility(record.moduleId, JSON.stringify(ability));
-
-        if (newRecordId !== record.id) {
-          await deleteAbility(record.id);
-        }
-      }
 
       await completeStage(IMAGES_STAGE, true);
       setNotice(`Images complete: converted ${imageGenerationTargets.length} visual prompt${imageGenerationTargets.length === 1 ? '' : 's'} to TikZ.`);
@@ -1998,7 +2024,7 @@ function Skills ({ book, externalRefreshToken = 0, onAction, onBookChange, onCon
     } finally {
       setIsBusy(false);
     }
-  }, [addImagesCost, allAbilities, beginProgress, book.age, createClient, imageGenerationTargets, language, onAction, refreshContent, selectedModel, completeStage]);
+  }, [addImagesCost, beginProgress, book.age, createClient, imageGenerationTargets, language, onAction, refreshContent, selectedModel, completeStage]);
   const fixImages = useCallback(async (): Promise<void> => {
     beginProgress('Reviewing TikZ visuals', imageFixTargets.length);
 
@@ -2101,6 +2127,7 @@ function Skills ({ book, externalRefreshToken = 0, onAction, onBookChange, onCon
             errors: effectiveReview.errors,
             exerciseIndex: target.exerciseIndex,
             field: target.field,
+            imageId: target.imageId,
             fixedPreRender,
             fixedTikz: effectiveReview.tikz,
             originalPreRender,
@@ -2139,35 +2166,15 @@ function Skills ({ book, externalRefreshToken = 0, onAction, onBookChange, onCon
     setError('');
 
     try {
-      const updates = new Map<string, GeneratedAbility>();
+      await Promise.all(imageFixReview.items.map(async ({ fixedTikz, imageId, prompt, record }) => {
+        const image = await getImage(imageId);
 
-      imageFixReview.items.forEach(({ exerciseIndex, field, fixedTikz, record }) => {
-        if (!record.ability) {
-          return;
+        if (!image) {
+          throw new Error(`Image ${imageId} referenced by Ability ${record.id} was not found.`);
         }
 
-        const ability = updates.get(record.id) ?? {
-          ...record.ability,
-          q: record.ability.q.map((exercise) => ({ ...exercise }))
-        };
-
-        ability.q[exerciseIndex] = withAbilityVisualSource(ability.q[exerciseIndex], field, fixedTikz);
-        updates.set(record.id, ability);
-      });
-
-      for (const record of allAbilities) {
-        const ability = updates.get(record.id);
-
-        if (!ability) {
-          continue;
-        }
-
-        const newRecordId = await storeAbility(record.moduleId, JSON.stringify(ability));
-
-        if (newRecordId !== record.id) {
-          await deleteAbility(record.id);
-        }
-      }
+        await putImage({ ...image, data: fixedTikz, prompt: prompt || image.prompt, type: 'tikz', valid: true });
+      }));
 
       const hasChanges = imageFixReview.items.length > 0;
 
@@ -2187,7 +2194,7 @@ function Skills ({ book, externalRefreshToken = 0, onAction, onBookChange, onCon
     } finally {
       setIsBusy(false);
     }
-  }, [allAbilities, imageFixReview, onAction, onContentChange, refresh, completeStage, stageDone]);
+  }, [imageFixReview, onAction, onContentChange, refresh, completeStage, stageDone]);
 
   const openImageFix = useCallback((): void => {
     setAiAction('fixImages');

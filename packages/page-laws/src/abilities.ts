@@ -76,8 +76,9 @@ export async function prepareAbilityForPublishing (
   abilityId: string,
   publishImage: (value: string) => Promise<string>
 ): Promise<PreparedAbilityForPublishing> {
-  // Keep the locally stored representation image-complete. Only the ephemeral
-  // publish copy replaces local image data with IPFS CIDs.
+  // Keep the hydrated local representation image-complete. The DB layer stores
+  // q[].p/q[].i as Image ids; only this ephemeral publish copy swaps hydrated
+  // visual data for IPFS CIDs.
   const localAbility: GeneratedAbility = {
     ...ability,
     i: abilityId,
@@ -91,7 +92,9 @@ export async function prepareAbilityForPublishing (
     };
 
     delete publishedExercise.iError;
+    delete publishedExercise.iPrompt;
     delete publishedExercise.pError;
+    delete publishedExercise.pPrompt;
 
     return publishedExercise;
   }));

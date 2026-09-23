@@ -145,6 +145,8 @@ describe('generated abilities', (): void => {
     ability.q[0].i = 'data:image/png;base64,YW5zd2Vy';
     ability.q[0].pError = true;
     ability.q[0].iError = true;
+    ability.q[0].pPrompt = 'Question image prompt';
+    ability.q[0].iPrompt = 'Answer image prompt';
     const pinned: string[] = [];
     const { localAbility, publishAbility } = await prepareAbilityForPublishing(ability, `0x${'12'.repeat(32)}`, async (value) => {
       if (!value.startsWith('data:image/')) {
@@ -160,10 +162,14 @@ describe('generated abilities', (): void => {
     assert.equal(localAbility.q[0].i, 'data:image/png;base64,YW5zd2Vy');
     assert.equal(localAbility.q[0].pError, true);
     assert.equal(localAbility.q[0].iError, true);
+    assert.equal(localAbility.q[0].pPrompt, 'Question image prompt');
+    assert.equal(localAbility.q[0].iPrompt, 'Answer image prompt');
     assert.equal(publishAbility.q[0].p, 'bafy-question');
     assert.equal(publishAbility.q[0].i, 'bafy-answer');
     assert.equal(publishAbility.q[0].pError, undefined);
     assert.equal(publishAbility.q[0].iError, undefined);
+    assert.equal(publishAbility.q[0].pPrompt, undefined);
+    assert.equal(publishAbility.q[0].iPrompt, undefined);
     assert.equal(ability.q[0].p, 'data:image/png;base64,cXVlc3Rpb24=');
     assert.equal(ability.q[0].i, 'data:image/png;base64,YW5zd2Vy');
     assert.deepEqual(pinned.sort(), [ability.q[0].i, ability.q[0].p].sort());

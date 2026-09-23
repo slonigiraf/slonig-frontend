@@ -16,6 +16,7 @@ import { Setting } from './Setting.js';
 import { Signer } from './Signer.js';
 import { UsageRight } from './UsageRight.js';
 import { Ability } from './Ability.js';
+import type { Image } from './Image.js';
 import { Repetition } from './Repetition.js';
 import { LearnRequest } from './LearnRequest.js';
 import { ScheduledEvent } from './ScheduledEvent.js';
@@ -49,6 +50,7 @@ class SlonigDB extends Dexie {
   signers!: Table<Signer>;
   usageRights!: Table<UsageRight>;
   abilities!: Table<Ability>;
+  images!: Table<Image, number>;
   repetitions!: Table<Repetition>;
   learnRequests!:Table<LearnRequest>;
   scheduledEvents!:Table<ScheduledEvent>;
@@ -320,6 +322,107 @@ class SlonigDB extends Dexie {
         ...books.flatMap((book) => book.id === undefined ? [] : [transaction.table<Book, number>('books').update(book.id, { fixConceptsAttempts: book.fixConceptsAttempts ?? 0 })]),
         ...concepts.flatMap((concept) => concept.id === undefined ? [] : [transaction.table<BookConcept, number>('bookConcepts').update(concept.id, { attempt: concept.attempt ?? 0 })])
       ]);
+    });
+
+    this.version(89).stores({
+      images: '++id,type'
+    }).upgrade(async (transaction: Transaction) => {
+      const abilities = transaction.table<Ability>('abilities');
+      const images = transaction.table<Image, number>('images');
+      const rows = await abilities.toArray();
+      const isTikz = (value: string): boolean => /\\begin\s*\{tikzpicture\}/.test(value);
+
+      for (const row of rows) {
+        let parsed: unknown;
+
+        try {
+          parsed = JSON.parse(row.content.trim().replace(/^```(?:json)?\s*|\s*```$/gi, '').trim());
+        } catch {
+          continue;
+        }
+
+        const root = Array.isArray(parsed) ? parsed[0] : parsed;
+
+        if (!root || typeof root !== 'object' || !Array.isArray((root as { q?: unknown }).q)) {
+          continue;
+        }
+
+        for (const exercise of (root as { q: unknown[] }).q) {
+          if (!exercise || typeof exercise !== 'object') {
+            continue;
+          }
+
+          const value = exercise as Record<string, unknown>;
+
+          for (const field of ['p', 'i'] as const) {
+            const visual = value[field];
+            const errorField = field === 'p' ? 'pError' : 'iError';
+            const promptField = field === 'p' ? 'pPrompt' : 'iPrompt';
+            const storedPrompt = typeof value[promptField] === 'string' ? (value[promptField] as string).trim() : '';
+            const valid = typeof value[errorField] === 'boolean' ? !(value[errorField] as boolean) : undefined;
+            let image: Omit<Image, 'id'> | undefined;
+
+            if (typeof visual === 'string' && visual.trim()) {
+              const tikz = isTikz(visual);
+
+              image = {
+                data: tikz ? visual : null,
+                prompt: storedPrompt || (tikz ? '' : visual),
+                type: tikz ? 'tikz' : 'prompt',
+                valid
+              };
+            } else if (storedPrompt) {
+              image = { data: null, prompt: storedPrompt, type: 'prompt', valid };
+            }
+
+            if (image) {
+              value[field] = await images.add(image as Image);
+            } else if (typeof visual !== 'number') {
+              value[field] = null;
+            }
+
+            delete value[errorField];
+            delete value[promptField];
+          }
+        }
+
+        await abilities.update(row.id, { content: JSON.stringify(parsed) });
+      }
+    });
+
+    // Compatibility migration for databases that briefly used Image.svg and
+    // discarded pPrompt/iPrompt in version 89 during development.
+    this.version(90).stores({}).upgrade(async (transaction: Transaction) => {
+      type LegacyImage = Partial<Image> & { id: number; svg?: string | null };
+      const images = transaction.table<LegacyImage, number>('images');
+      const rows = await images.toArray();
+
+      await Promise.all(rows.map(async (image) => {
+        const type = image.type === 'tikz' ? 'tikz' as const : 'prompt' as const;
+        const legacyData = image.data ?? image.svg ?? null;
+        const prompt = image.prompt ?? (type === 'prompt' ? legacyData ?? '' : '');
+        const migrated: Image = {
+          data: type === 'prompt' && legacyData === prompt ? null : legacyData,
+          id: image.id,
+          prompt,
+          type,
+          valid: image.valid
+        };
+
+        await images.put(migrated);
+      }));
+    });
+
+    // Prompt-only images created by the first normalized Image implementation
+    // duplicated their semantic prompt into data. Keep the prompt only in
+    // Image.prompt; Image.data stays null until visual generation succeeds.
+    this.version(91).stores({}).upgrade(async (transaction: Transaction) => {
+      const images = transaction.table<Image, number>('images');
+      const rows = await images.toArray();
+
+      await Promise.all(rows.flatMap((image) => image.type === 'prompt' && image.data === image.prompt
+        ? [images.update(image.id, { data: null })]
+        : []));
     });
 
   }

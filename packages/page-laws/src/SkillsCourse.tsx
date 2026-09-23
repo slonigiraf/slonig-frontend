@@ -9,7 +9,7 @@ import type { DispatchError } from '@polkadot/types/interfaces';
 import type { GeneratedAbility } from './abilities.js';
 import { prepareAbilityForPublishing } from './abilities.js';
 
-import { deleteAbility, getAbilities, getBookChapters, getBookConceptsForBookPage, getBookPages, getExercisesForBookPage, getSetting, putBook, putBookChapter, SettingKey, storeAbility, updateBookChapterTitle } from '@slonigiraf/db';
+import { deleteAbility, getAbilities, getBookChapters, getBookConceptsForBookPage, getBookPages, getExercisesForBookPage, getSetting, hydrateAbilityContent, putBook, putBookChapter, SettingKey, storeAbility, updateBookChapterTitle } from '@slonigiraf/db';
 import { digestFromCIDv1, getCIDFromBytes, getIPFSContentIDAndPinIt, getIPFSContentIDForBytesAndPinIt, getIPFSDataFromContentID, KatexSpan, LawType, parseJson, useInfo, useIpfsContext, useLoginContext } from '@slonigiraf/slonig-components';
 import BN from 'bn.js';
 import { useLiveQuery } from 'dexie-react-hooks';
@@ -273,13 +273,17 @@ function SkillsCourse ({ book }: { book: Book }): React.ReactElement {
         const moduleId = exerciseAbilityModuleId(book.id, id);
         const records = await getAbilities(moduleId);
 
-        return records.flatMap(({ content, id: recordId }) => {
+        const hydratedRecords = await Promise.all(records.map(async ({ content, id: recordId }) => {
           try {
-            return [{ moduleId, recordId, template: parseStoredAbility(content) }];
+            const hydratedContent = await hydrateAbilityContent(content);
+
+            return { moduleId, recordId, template: parseStoredAbility(hydratedContent) };
           } catch {
-            return [];
+            return undefined;
           }
-        });
+        }));
+
+        return hydratedRecords.filter((value): value is TemplateRow => value !== undefined);
       }))).flat();
 
       return { chapter, templates };
@@ -678,10 +682,10 @@ function SkillsCourse ({ book }: { book: Book }): React.ReactElement {
             const didLocalTemplateChange = JSON.stringify(localAbility) !== JSON.stringify(row.template);
             let recordId = row.recordId;
 
-            // Persist only the local representation. In particular, q[].p/q[].i
-            // remain the IndexedDB image data URLs or editable TikZ source; the IPFS
-            // CID substitutions (including rendered SVG for TikZ) in publishAbility
-            // exist only for this final publishing operation.
+            // Persist only the local representation. storeAbility moves q[].p/q[].i
+            // visual payloads into Image rows and leaves image ids in the stored
+            // Ability. The IPFS CID substitutions in publishAbility exist only for
+            // this final publishing operation.
             if (didLocalTemplateChange) {
               const newRecordId = await storeAbility(row.moduleId, JSON.stringify(localAbility));
 
