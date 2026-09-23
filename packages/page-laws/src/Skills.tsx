@@ -1991,14 +1991,14 @@ function Skills ({ book, externalRefreshToken = 0, onAction, onBookChange, onCon
 
       await completeStage(IMAGES_STAGE, true);
       setNotice(`Images complete: converted ${imageGenerationTargets.length} visual prompt${imageGenerationTargets.length === 1 ? '' : 's'} to TikZ.`);
-      refresh();
+      refreshContent();
       onAction?.('preExercisesExercises');
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : 'Unable to convert Ability visuals to TikZ.');
     } finally {
       setIsBusy(false);
     }
-  }, [addImagesCost, allAbilities, beginProgress, book.age, createClient, imageGenerationTargets, language, onAction, refresh, selectedModel, completeStage]);
+  }, [addImagesCost, allAbilities, beginProgress, book.age, createClient, imageGenerationTargets, language, onAction, refreshContent, selectedModel, completeStage]);
   const fixImages = useCallback(async (): Promise<void> => {
     beginProgress('Reviewing TikZ visuals', imageFixTargets.length);
 
