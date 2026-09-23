@@ -398,6 +398,28 @@ describe('generated abilities', (): void => {
     }] }), [original]), /too verbose/i);
   });
 
+  it('rejects Task 1/Task 2 placeholders during generation and requires Fix abilities to replace them', (): void => {
+    for (const placeholder of ['Task 1', ' task   2 ']) {
+      const generated = createSkill();
+
+      generated.q[0].h = placeholder;
+      assert.throws(() => parseGeneratedAbilities(JSON.stringify([generated])), /placeholder/i);
+    }
+
+    const original = createSkill();
+
+    original.q[0].h = 'Task 1';
+    assert.throws(() => parseAbilityRepairResult(JSON.stringify({ duplicatePairs: [], reviews: [] }), [original], ['ability-1']), /must replace placeholder/i);
+
+    const fixed = createSkill();
+    const repaired = parseAbilityRepairResult(JSON.stringify({
+      duplicatePairs: [],
+      reviews: [{ ability: fixed, errors: ['Placeholder task title.'], hasErrors: true, index: 0 }]
+    }), [original], ['ability-1']);
+
+    assert.equal(repaired.reviews[0].ability?.q[0].h, fixed.q[0].h);
+  });
+
   it('rejects repeated questions even when their answers differ', (): void => {
     const skill = createSkill();
 
@@ -496,6 +518,8 @@ describe('generated abilities', (): void => {
     assert.match(FIX_ABILITIES_PROMPT, /deletedAbilityId/i);
     assert.match(FIX_ABILITIES_PROMPT, /earliest supplied index/i);
     assert.match(FIX_ABILITIES_PROMPT, /omit correct Abilities/i);
+    assert.match(FIX_ABILITIES_PROMPT, /Task 1/);
+    assert.match(FIX_ABILITIES_PROMPT, /Task 2/);
     assert.match(FIX_ABILITIES_PROMPT, /<kx>/i);
   });
 

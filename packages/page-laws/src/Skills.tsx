@@ -637,7 +637,7 @@ function ChapterTitleEditor ({ chapter, onError, onSaved }: { chapter: BookChapt
 
 type ExerciseEditableFields = Pick<Exercise, 'description' | 'imageDescription' | 'solution' | 'solutionImageDescription' | 'title'>;
 
-function BookItem ({ description, id, imageDescription, onDelete, onDeleted, onError, onSave, solution, solutionImageDescription, title, type }: { description: string; id?: number; imageDescription?: string; onDelete: (id: number) => Promise<void>; onDeleted: () => void; onError: (message: string) => void; onSave?: (id: number, value: ExerciseEditableFields) => Promise<void>; solution?: string; solutionImageDescription?: string; title: string; type: 'concept' | 'exercise' }): React.ReactElement {
+function BookItem ({ description, id, imageDescription, onDelete, onDeleted, onError, onSave, rank, solution, solutionImageDescription, title, type }: { description: string; id?: number; imageDescription?: string; onDelete: (id: number) => Promise<void>; onDeleted: () => void; onError: (message: string) => void; onSave?: (id: number, value: ExerciseEditableFields) => Promise<void>; rank?: number; solution?: string; solutionImageDescription?: string; title: string; type: 'concept' | 'exercise' }): React.ReactElement {
   const [isEditing, setIsEditing] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [draftTitle, setDraftTitle] = useState(title);
@@ -684,7 +684,7 @@ function BookItem ({ description, id, imageDescription, onDelete, onDeleted, onE
   }, [draftDescription, draftImageDescription, draftSolution, draftSolutionImageDescription, draftTitle, id, onError, onSave]);
 
   return <article className='contentCard'>
-    <strong><KatexSpan content={title} /></strong>
+    <strong>{rank !== undefined && <span>{rank}. </span>}<KatexSpan content={title} /></strong>
     {description && <p><KatexSpan content={description} /></p>}
     {imageDescription && <p><small>Required visual: <KatexSpan content={imageDescription} /></small></p>}
     {solution && <p><KatexSpan content={solution} /></p>}
@@ -1524,8 +1524,6 @@ function Skills ({ book, externalRefreshToken = 0, onAction, onBookChange, onCon
         const suffix = lastAttemptError ? ` Last attempt: ${lastAttemptError}` : '';
 
         setError(`No Abilities were generated after ${maxAttempts} attempts.${suffix}`);
-      } else {
-        setNotice(`Generated ${generatedAbilityCount} Abilities for ${generatedByExerciseId.size} Exercises.`);
       }
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : 'Unable to generate Abilities.');
@@ -2640,6 +2638,7 @@ function Skills ({ book, externalRefreshToken = 0, onAction, onBookChange, onCon
                     onDeleted={refresh}
                     onError={setError}
                     onSave={saveExercise}
+                    rank={exerciseIndex + 1}
                     solution={exercise.solution}
                     solutionImageDescription={exercise.solutionImageDescription}
                     title={exercise.title}

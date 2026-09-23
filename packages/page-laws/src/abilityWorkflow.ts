@@ -560,10 +560,12 @@ Language: ${language}
 
 Create exactly one Ability with exactly two concrete practice instances. Copy blueprint.title to ability.h unchanged. Both instances must train the same complete Exercise-level input, operation or operation sequence, output, method, direction, reasoning depth, and difficulty; vary only concrete task data and independently recalculate each answer. Keep tasks direct (normally <=32 words), answers compact (normally <=38 words), and titles <=12 words. No hints, tutorial prose, answer choices, book references, or redundant explanation. Use <kx>...</kx> for mathematical notation. ability.i="", t=3, and q[].p/q[].i remain empty because images are materialized later.
 
+Every q[].h must contain the actual learner-facing task. Never use placeholder task titles/text equal to "Task 1" or "Task 2" (ignoring case or surrounding whitespace).
+
 For the one Ability also return two imagePrompts entries, one per question. For a text-only blueprint all p/i must be "" and changesImage=false. If questionVisual="required", p must be a complete standalone starting-visual specification with the concrete values/labels/geometry for that question and no answer leakage. If solutionVisual="new", i must be the complete correct finished visual and changesImage=false. If solutionVisual="modify-question", p and i must both be complete specifications of the same visual, changesImage=true, and i must preserve every unchanged object/layout while applying only the correct answer change. Do not create optional/decorative visuals.
 
 Return only JSON with one abilities[] entry:
-{"abilities":[{"exerciseId":123,"skillIndex":0,"ability":{"i":"","t":3,"h":"Short ability title","q":[{"h":"Task 1","a":"Answer 1","p":"","i":""},{"h":"Task 2","a":"Answer 2","p":"","i":""}]},"imagePrompts":[{"changesImage":false,"p":"","i":""},{"changesImage":false,"p":"","i":""}]}]}
+{"abilities":[{"exerciseId":123,"skillIndex":0,"ability":{"i":"","t":3,"h":"Convert kilometers to meters","q":[{"h":"Convert <kx>3</kx> km to m.","a":"<kx>3000</kx> m","p":"","i":""},{"h":"Convert <kx>7</kx> km to m.","a":"<kx>7000</kx> m","p":"","i":""}]},"imagePrompts":[{"changesImage":false,"p":"","i":""},{"changesImage":false,"p":"","i":""}]}]}
 
 ONE-PER-EXERCISE PLAN:
 ${JSON.stringify(blueprints)}
@@ -598,6 +600,8 @@ Language: ${language}
 
 For each Exercise blueprint, create exactly one Ability with exactly two concrete practice instances. Copy the blueprint title into Ability h unchanged. Both instances must implement the blueprint's same input type, operation, output type, method, direction, reasoning depth, and difficulty; vary only task data. Recalculate each answer independently. For text-input tasks, the two q[].h strings must contain different concrete parameters and must not be identical. When questionVisual=\"required\", the instruction wording may be identical only if the later two question visuals will carry different concrete task data.
 
+Every q[].h must be the real learner-facing task. Never output the placeholder text "Task 1" or "Task 2" as a q[].h value, including case/whitespace variants.
+
 Make the wording economical. A task should normally be one direct imperative sentence plus only the data needed to perform it. Do not add teaching context, motivational text, hints, definitions, answer choices, or references to the book unless they are required by the Exercise-level operation. The answer should be the shortest correct response that demonstrates the target operation: usually the result, or the result plus one compact derivation when the method must be checkable. Do not restate the question, teach the rule, narrate obvious steps, or write tutorial-style prose for the task. Keep all essential information; brevity must never make the task ambiguous.
 
 Do not encode visual facts in text when questionVisual is required. If solutionVisual is new or modify-question, the textual answer may state a concise result, but do not replace the required visual output with a verbose verbal description.
@@ -605,7 +609,7 @@ Do not encode visual facts in text when questionVisual is required. If solutionV
 Use <kx>...</kx> for mathematical notation and valid JSON escaping. i="", t=3, and every q has h, a, p="", i="".
 
 Return only JSON:
-{"abilities":[{"exerciseId":123,"skillIndex":0,"ability":{"i":"","t":3,"h":"Short skill title","q":[{"h":"Task 1","a":"Answer 1","p":"","i":""},{"h":"Task 2","a":"Answer 2","p":"","i":""}]}}]}
+{"abilities":[{"exerciseId":123,"skillIndex":0,"ability":{"i":"","t":3,"h":"Convert kilometers to meters","q":[{"h":"Convert <kx>3</kx> km to m.","a":"<kx>3000</kx> m","p":"","i":""},{"h":"Convert <kx>7</kx> km to m.","a":"<kx>7000</kx> m","p":"","i":""}]}}]}
 
 Audited blueprints:
 ${JSON.stringify(blueprints)}
@@ -622,10 +626,12 @@ Language: ${language}
 
 For every candidate verify against its exact blueprint and source evidence: preservation of the complete Exercise-level operation or operation sequence; same method/direction in both questions; distinct data; factual and mathematical correctness; self-containment; no answer leakage; correct language; and strict visual dependence. For text-input tasks, never leave the two q[].h strings identical; change the concrete parameters. When questionVisual=\"required\", identical instruction wording is allowed only when the two later question visuals will contain different concrete inputs. Most importantly, enforce the learner-facing size budget: titles should fit in about 12 words, tasks in about 32 words, and answers in about 38 words. Keep each task direct and concrete and each answer as short as correctness permits. Delete explanations, restatements, teaching prose, and redundant intermediate steps that are not needed to demonstrate the Exercise-level skill. Do not remove data, conditions, units, or reasoning that is genuinely required.
 
+Reject placeholder q[].h values. In particular, "Task 1" and "Task 2" (including case/whitespace variants) are invalid and must be replaced with the actual learner-facing task text.
+
 Do not split a candidate into narrower sub-Abilities. Preserve every inseparable operation represented by its one-per-Exercise blueprint. Visual bytes and prompts are not created in this stage; p and i stay empty.
 
 Return only JSON in exactly this shape and preserve every exerciseId/skillIndex pair:
-{"abilities":[{"exerciseId":123,"skillIndex":0,"ability":{"i":"","t":3,"h":"Short skill title","q":[{"h":"Task 1","a":"Answer 1","p":"","i":""},{"h":"Task 2","a":"Answer 2","p":"","i":""}]}}]}
+{"abilities":[{"exerciseId":123,"skillIndex":0,"ability":{"i":"","t":3,"h":"Convert kilometers to meters","q":[{"h":"Convert <kx>3</kx> km to m.","a":"<kx>3000</kx> m","p":"","i":""},{"h":"Convert <kx>7</kx> km to m.","a":"<kx>7000</kx> m","p":"","i":""}]}}]}
 
 Blueprints:
 ${JSON.stringify(blueprints)}

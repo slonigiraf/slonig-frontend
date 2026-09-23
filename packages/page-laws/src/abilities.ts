@@ -132,6 +132,16 @@ function isSuccinct (value: string, maxWords: number, maxCharacters: number): bo
   return value.length <= maxCharacters && wordCount(value) <= maxWords;
 }
 
+function isForbiddenAbilityTaskTitle (value: string): boolean {
+  const normalized = value.trim().replace(/\s+/g, ' ').toLowerCase();
+
+  return normalized === 'task 1' || normalized === 'task 2';
+}
+
+function hasForbiddenAbilityTaskTitle (ability: GeneratedAbility): boolean {
+  return ability.q.some(({ h }) => isForbiddenAbilityTaskTitle(h));
+}
+
 export function validateGeneratedAbilityText (ability: GeneratedAbility): void {
   // Learner-facing Abilities are intentionally much smaller than source-book
   // exercises. Keep this as a parser gate so later repair/regeneration stages
@@ -141,6 +151,10 @@ export function validateGeneratedAbilityText (ability: GeneratedAbility): void {
   }
 
   for (const exercise of ability.q) {
+    if (isForbiddenAbilityTaskTitle(exercise.h)) {
+      throw new Error('Ability task titles must be meaningful learner-facing tasks, not the placeholders "Task 1" or "Task 2".');
+    }
+
     if (!isSuccinct(exercise.h, 32, 220)) {
       throw new Error('Ability task is too verbose.');
     }
@@ -308,6 +322,19 @@ export function parseAbilityRepairResult (content: string, originals: Array<Gene
 
     reviews.push({ ability, errors, hasErrors: true, index });
   });
+
+  const reviewedIndexes = new Set(reviews.filter(({ ability, hasErrors }) => hasErrors && ability).map(({ index }) => index));
+  const missingRequiredPlaceholderRepairs = originals.flatMap((original, index) => {
+    if (!original || !hasForbiddenAbilityTaskTitle(original) || deletedDuplicateIds.has(originalIds[index]) || reviewedIndexes.has(index)) {
+      return [];
+    }
+
+    return [index];
+  });
+
+  if (missingRequiredPlaceholderRepairs.length) {
+    throw new Error(`Fix abilities must replace placeholder task titles "Task 1"/"Task 2" for Ability index${missingRequiredPlaceholderRepairs.length === 1 ? '' : 'es'} ${missingRequiredPlaceholderRepairs.join(', ')}.`);
+  }
 
   // Missing indexes are intentional: the repair API may return only Abilities
   // where it found an error. Omitted Abilities are therefore left unchanged.

@@ -20,19 +20,23 @@ const isGeneratedAbilityVisual = (value: string): boolean => {
 type AbilityExerciseWithPrompts = Exercise & { iPrompt?: string; pPrompt?: string };
 
 const ExerciseVisual: React.FC<{ alt: string; isAbilityInfo: boolean; label: string; onSave?: (value: string) => Promise<void>; prompt?: string; value: string }> = ({ alt, isAbilityInfo, label, onSave, prompt, value }) => {
-    const [areDetailsShown, setAreDetailsShown] = useState(false);
-    const toggleDetails = useCallback((): void => setAreDetailsShown((shown) => !shown), []);
-
     if (!value.trim()) {
         return null;
     }
 
+    const visiblePrompt = isAbilityInfo
+        ? (prompt?.trim() || (!isTikzCode(value) && !isGeneratedAbilityVisual(value) ? value.trim() : ''))
+        : '';
+
     if (isTikzCode(value)) {
-        return <React.Suspense fallback={<small>Loading TikZ renderer…</small>}>
-            {isAbilityInfo
-                ? <TikzVisual alt={alt} onSave={onSave} prompt={prompt} value={value} />
-                : <TikzDisplay alt={alt} value={value} />}
-        </React.Suspense>;
+        return <>
+            <React.Suspense fallback={<small>Loading TikZ renderer…</small>}>
+                {isAbilityInfo
+                    ? <TikzVisual alt={alt} onSave={onSave} value={value} />
+                    : <TikzDisplay alt={alt} value={value} />}
+            </React.Suspense>
+            {visiblePrompt && <VisualPrompt><strong>{label}:</strong> <KatexSpan content={visiblePrompt} /></VisualPrompt>}
+        </>;
     }
 
     if (!isAbilityInfo) {
@@ -42,25 +46,11 @@ const ExerciseVisual: React.FC<{ alt: string; isAbilityInfo: boolean; label: str
     if (isGeneratedAbilityVisual(value)) {
         return <>
             <ExerciseImage alt={alt} value={value} />
-            {prompt?.trim() && <>
-                <Button
-                    icon={areDetailsShown ? 'eye-slash' : 'eye'}
-                    label={areDetailsShown ? 'Hide visual prompt' : 'Show visual prompt'}
-                    onClick={toggleDetails}
-                />
-                {areDetailsShown && <small>{label}: <KatexSpan content={prompt} /></small>}
-            </>}
+            {visiblePrompt && <VisualPrompt><strong>{label}:</strong> <KatexSpan content={visiblePrompt} /></VisualPrompt>}
         </>;
     }
 
-    return <>
-        <Button
-            icon={areDetailsShown ? 'eye-slash' : 'eye'}
-            label={areDetailsShown ? 'Hide visual prompt' : 'Show visual prompt'}
-            onClick={toggleDetails}
-        />
-        {areDetailsShown && <small>{label}: <KatexSpan content={value} /></small>}
-    </>;
+    return <VisualPrompt><strong>{label}:</strong> <KatexSpan content={visiblePrompt || value} /></VisualPrompt>;
 };
 
 interface ExerciseListProps {
@@ -142,6 +132,10 @@ const ExerciseDetails = styled.div`
   flex-direction: column;
   align-items: left;
   padding-left: 0.75rem;
+`;
+const VisualPrompt = styled.small`
+  display: block;
+  margin-top: 0.35rem;
 `;
 const Answer = styled.div`
   display: flex;
