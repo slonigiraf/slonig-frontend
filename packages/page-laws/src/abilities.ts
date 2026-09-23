@@ -33,8 +33,8 @@ export function withAbilityVisualSource (exercise: GeneratedAbilityExercise, fie
 
 export function withAbilityVisualError (exercise: GeneratedAbilityExercise, field: AbilityVisualField, hasError: boolean): GeneratedAbilityExercise {
   return field === 'p'
-    ? { ...exercise, pError: hasError || undefined }
-    : { ...exercise, iError: hasError || undefined };
+    ? { ...exercise, pError: hasError }
+    : { ...exercise, iError: hasError };
 }
 
 export interface AbilityExerciseImagePrompts {

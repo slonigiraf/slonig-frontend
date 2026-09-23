@@ -9,7 +9,7 @@ import { convertTikzTextToPaths } from './tikzGlyphPaths.js';
 interface Props {
   alt: string;
   hasCompileError?: boolean;
-  onCompileError?: () => Promise<void> | void;
+  onCompileStateChange?: (hasError: boolean) => Promise<void> | void;
   value: string;
 }
 
@@ -43,7 +43,7 @@ export interface TikzPreRenderResult {
 const TIKZJAX_ASSET_BASE = 'https://cdn.jsdelivr.net/npm/@rod2ik/tikzjax@1.6.0/dist';
 const TIKZJAX_FONT_STYLESHEET = `${TIKZJAX_ASSET_BASE}/fonts.min.css`;
 const TIKZJAX_FONT_BASE = `${TIKZJAX_ASSET_BASE}/fonts`;
-const PRERENDER_TIMEOUT_MS = 35_000;
+const TIKZ_COMPILE_TIMEOUT_MS = 3_000;
 let tikzJaxPromise: Promise<void> | undefined;
 let preRenderQueue: Promise<void> = Promise.resolve();
 
@@ -74,7 +74,7 @@ export function ensureTikzJax (): Promise<void> {
     ...current,
     assetBaseUrl: current.assetBaseUrl ?? TIKZJAX_ASSET_BASE,
     maxRetries: current.maxRetries ?? 1,
-    renderTimeout: current.renderTimeout ?? 30000,
+    renderTimeout: TIKZ_COMPILE_TIMEOUT_MS,
     restartWorkerOnFail: current.restartWorkerOnFail ?? true,
     workerPool: {
       enabled: current.workerPool?.enabled ?? true,
@@ -250,10 +250,10 @@ async function runTikzPreRender (value: string): Promise<TikzPreRenderResult> {
       if (svg instanceof SVGElement) {
         finish(true, svg.outerHTML);
       } else {
-        diagnostics.push('TikZJax pre-render timed out before a successful SVG was produced.');
+        diagnostics.push('TikZJax pre-render timed out after 3 seconds before a successful SVG was produced.');
         finish(false);
       }
-    }, PRERENDER_TIMEOUT_MS);
+    }, TIKZ_COMPILE_TIMEOUT_MS);
   });
 }
 
@@ -298,18 +298,19 @@ export async function renderTikzToSvg (value: string): Promise<string> {
   return embedTikzSourceInSvg(outlinedSvg, value);
 }
 
-export default function TikzDisplay ({ alt, hasCompileError = false, onCompileError, value }: Props): React.ReactElement {
+export default function TikzDisplay ({ alt, hasCompileError = false, onCompileStateChange, value }: Props): React.ReactElement {
   const hostRef = useRef<HTMLDivElement>(null);
-  const onCompileErrorRef = useRef(onCompileError);
+  const onCompileStateChangeRef = useRef(onCompileStateChange);
   const [error, setError] = useState('');
 
   useEffect(() => {
-    onCompileErrorRef.current = onCompileError;
-  }, [onCompileError]);
+    onCompileStateChangeRef.current = onCompileStateChange;
+  }, [onCompileStateChange]);
 
   useEffect(() => {
     let isCancelled = false;
-    let didReportFailure = false;
+    let didReportCompileState = false;
+    let compileTimer: ReturnType<typeof setTimeout> | undefined;
     const host = hostRef.current;
 
     if (!host) {
@@ -324,18 +325,36 @@ export default function TikzDisplay ({ alt, hasCompileError = false, onCompileEr
 
       return;
     }
-    const observer = new MutationObserver(() => {
-      if (didReportFailure || !findTikzFallbackImage(host)) {
+
+    const reportCompileState = (hasError: boolean, message = ''): void => {
+      if (didReportCompileState || isCancelled) {
         return;
       }
 
-      didReportFailure = true;
+      didReportCompileState = true;
 
-      if (!isCancelled) {
-        setError('TikZ compilation failed. Edit the TikZ code to retry.');
-        Promise.resolve(onCompileErrorRef.current?.()).catch((reason: unknown) => {
-          console.error('Unable to persist TikZ compile-error state.', reason);
-        });
+      if (hasError) {
+        setError(message);
+      }
+
+      Promise.resolve(onCompileStateChangeRef.current?.(hasError)).catch((reason: unknown) => {
+        console.error('Unable to persist TikZ compile state.', reason);
+      });
+    };
+    const observer = new MutationObserver(() => {
+      if (host.querySelector('svg')) {
+        if (compileTimer) {
+          clearTimeout(compileTimer);
+          compileTimer = undefined;
+        }
+
+        reportCompileState(false);
+
+        return;
+      }
+
+      if (findTikzFallbackImage(host)) {
+        reportCompileState(true, 'TikZ compilation failed. Edit the TikZ code to retry.');
       }
     });
 
@@ -353,6 +372,13 @@ export default function TikzDisplay ({ alt, hasCompileError = false, onCompileEr
         script.dataset.ariaLabel = alt;
         script.textContent = value;
         hostRef.current.replaceChildren(script);
+
+        compileTimer = setTimeout(() => {
+          if (!host.querySelector('svg')) {
+            host.replaceChildren();
+            reportCompileState(true, 'TikZ compilation timed out after 3 seconds. Edit the TikZ code to retry.');
+          }
+        }, TIKZ_COMPILE_TIMEOUT_MS);
       })
       .catch((reason: unknown) => {
         if (!isCancelled) {
@@ -362,6 +388,11 @@ export default function TikzDisplay ({ alt, hasCompileError = false, onCompileEr
 
     return () => {
       isCancelled = true;
+
+      if (compileTimer) {
+        clearTimeout(compileTimer);
+      }
+
       observer.disconnect();
       host.replaceChildren();
     };

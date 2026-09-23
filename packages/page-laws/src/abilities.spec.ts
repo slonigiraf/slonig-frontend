@@ -39,7 +39,7 @@ describe('generated abilities', (): void => {
     assert.deepEqual(Object.keys(parsed.q[0]).sort(), ['a', 'h', 'i', 'p']);
   });
 
-  it('persists TikZ compile-error state with the visual and clears it only when the source changes', (): void => {
+  it('persists explicit TikZ compile state with the visual and clears it only when the source changes', (): void => {
     const original = createSkill().q[0];
     const failed = withAbilityVisualError({ ...original, p: '\\begin{tikzpicture}bad\\end{tikzpicture}' }, 'p', true);
     const unchanged = withAbilityVisualSource(failed, 'p', failed.p);
@@ -48,18 +48,18 @@ describe('generated abilities', (): void => {
     assert.equal(failed.pError, true);
     assert.equal(unchanged.pError, true);
     assert.equal(changed.pError, undefined);
-    assert.equal(withAbilityVisualError(failed, 'p', false).pError, undefined);
+    assert.equal(withAbilityVisualError(failed, 'p', false).pError, false);
   });
 
-  it('reads persisted TikZ error flags from stored Ability JSON', (): void => {
+  it('reads persisted TikZ success and error states from stored Ability JSON', (): void => {
     const ability = createSkill();
 
-    ability.q[0].pError = true;
+    ability.q[0].pError = false;
     ability.q[1].iError = true;
 
     const parsed = parseStoredAbility(JSON.stringify(ability));
 
-    assert.equal(parsed.q[0].pError, true);
+    assert.equal(parsed.q[0].pError, false);
     assert.equal(parsed.q[1].iError, true);
   });
 
