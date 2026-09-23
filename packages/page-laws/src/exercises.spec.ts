@@ -8,7 +8,7 @@ import type { Exercise } from '@slonigiraf/db';
 import { strict as assert } from 'node:assert';
 
 import { ABILITY_WORKFLOW_SYSTEM_PROMPT, FIX_EXERCISES_PROMPT, GENERATE_EXERCISES_PROMPT, REPAIR_SYSTEM_PROMPT } from './constants.js';
-import { parseExerciseRepairResult } from './exercises.js';
+import { missingGeneratedExerciseConceptIndexes, parseExerciseRepairResult } from './exercises.js';
 
 function createExercise (id: number, title = `Exercise ${id}`): Exercise {
   return {
@@ -258,6 +258,32 @@ describe('exercise repair', (): void => {
     assert.match(prompt, /essential steps in logical order/i);
     assert.match(prompt, /intermediate calculations, transformations, or reasons/i);
     assert.match(prompt, /do not skip a meaningful transition/i);
+  });
+});
+
+describe('missing generated exercises', (): void => {
+  it('returns zero-based concept ranks that have no generated exercise', (): void => {
+    const concepts = [{ id: 10 }, { id: 11 }, { id: 12 }, { id: 13 }, { id: 14 }];
+    const exercises = [
+      { conceptId: 10, source: 'generated' },
+      { conceptId: 12, source: 'generated' }
+    ] as Array<Pick<Exercise, 'conceptId' | 'source'>>;
+
+    assert.deepEqual(missingGeneratedExerciseConceptIndexes(concepts, exercises), [1, 3, 4]);
+  });
+
+  it('does not count a non-generated exercise as the generated exercise shown in the Exercise tab', (): void => {
+    const concepts = [{ id: 10 }, { id: 11 }];
+    const exercises = [
+      { conceptId: 10, source: 'book' },
+      { conceptId: 11, source: 'generated' }
+    ] as Array<Pick<Exercise, 'conceptId' | 'source'>>;
+
+    assert.deepEqual(missingGeneratedExerciseConceptIndexes(concepts, exercises), [0]);
+  });
+
+  it('treats concepts without an id as missing because no exercise can link to them', (): void => {
+    assert.deepEqual(missingGeneratedExerciseConceptIndexes([{ id: undefined }], []), [0]);
   });
 });
 

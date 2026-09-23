@@ -29,6 +29,7 @@ import { stripMarkdownImageReferences } from './bookImageRefs.js';
 import { chapterAssignmentsFromBoundaries, chapterEvidenceWindows, chapterReconciliationPrompt, chapterWindowPrompt, deriveStructuralChapterCandidates, extractMathpixHeadingsFromLines, pageChapterEvidence, parseChapterBoundaries, stabilizeChapterBoundaries, type ChapterBoundaryProposal } from './chapterSegmentation.js';
 import { getSharedChapterSelection, resolveSharedChapterIndex, storeSharedChapterSelection, subscribeSharedChapterSelection, type SharedChapterSelection } from './chapterSelection.js';
 import { conceptChaptersFromPages, parseGeneratedChapterConcepts, type ConceptChapterNavigationItem, type GeneratedChapterConcepts } from './conceptRecognition.js';
+import { missingGeneratedExerciseConceptIndexes } from './exercises.js';
 import { loadStandardsCatalogsForBookSubject, loadStoredBookStandards, mergeStandardsMatches, parseStandardsFixResult, parseStandardsMatches, STANDARD_FRAMEWORKS, STANDARDS_FIX_RUNS, STANDARDS_MATCH_RUNS, standardsChapterKey, standardsConceptFingerprint, standardsConceptInputs, standardsFixInputs, standardsFixPrompt, standardsMatchingPrompt, standardsPathForBookSubject, storeBookStandards, type CurriculumStandard, type StandardsCatalog, type StandardsConceptInput, type StoredBookStandards } from './standards.js';
 import Skills, { type PipelineAction } from './Skills.js';
 import SkillsCourse from './SkillsCourse.js';
@@ -1143,6 +1144,10 @@ interface ExerciseChapterNavigationItem {
   title: string;
 }
 
+function exerciseChapterNavigationKey ({ pageNumbers, title }: ExerciseChapterNavigationItem): string {
+  return `${title}\n${pageNumbers.join(',')}`;
+}
+
 function conceptReferenceKey({ description, id, title }: Pick<BookConcept, 'description' | 'id' | 'title'>): string {
   return id === undefined ? `content:${title}\n${description}` : `id:${id}`;
 }
@@ -1226,6 +1231,7 @@ function BookReader({ ageTabRequest, assignAllStandardsRequest, book, file, fixA
   const [conceptFirstPageByKey, setConceptFirstPageByKey] = useState<Map<string, number>>(new Map());
   const [exerciseChapterConcepts, setExerciseChapterConcepts] = useState<BookConcept[]>([]);
   const [exerciseChapterExercises, setExerciseChapterExercises] = useState<Exercise[]>([]);
+  const [exerciseChapterMissingCounts, setExerciseChapterMissingCounts] = useState<Map<string, number>>(new Map());
   const [exerciseChapterIndex, setExerciseChapterIndex] = useState(() => getSessionExerciseChapter(book.id));
   const [isExerciseChapterLoading, setIsExerciseChapterLoading] = useState(false);
   const [error, setError] = useState('');
@@ -1290,6 +1296,7 @@ function BookReader({ ageTabRequest, assignAllStandardsRequest, book, file, fixA
   const isDetectingBookAgeRef = useRef(false);
   const pageAreaRef = useRef<HTMLDivElement>(null);
   const conceptsOutputRef = useRef<HTMLDivElement>(null);
+  const exerciseConceptsOutputRef = useRef<HTMLDivElement>(null);
   const draggedConceptIndexRef = useRef<number | undefined>(undefined);
   const conceptDropTargetIndexRef = useRef<number | undefined>(undefined);
   const conceptDragPointerIdRef = useRef<number | undefined>(undefined);
@@ -1785,7 +1792,7 @@ function BookReader({ ageTabRequest, assignAllStandardsRequest, book, file, fixA
       }));
 
       if (active) {
-        setExerciseChapterConcepts(pageRows.flatMap(({ concepts }) => concepts));
+        setExerciseChapterConcepts(sortConceptsForDisplay(pageRows.flatMap(({ concepts }) => concepts)));
         setExerciseChapterExercises(pageRows.flatMap(({ exercises }) => exercises));
       }
     };
@@ -1797,7 +1804,38 @@ function BookReader({ ageTabRequest, assignAllStandardsRequest, book, file, fixA
     return () => {
       active = false;
     };
-  }, [activePane, book.id, currentExerciseChapter]);
+  }, [activePane, book.id, currentExerciseChapter, skillsRefreshToken]);
+
+  useEffect(() => {
+    if (activePane !== 'conceptExercises') {
+      return;
+    }
+
+    let active = true;
+
+    setExerciseChapterMissingCounts(new Map());
+
+    Promise.all(exerciseChapters.map(async (chapter) => {
+      const pageRows = await Promise.all(chapter.pageNumbers.map(async (chapterPageNumber) => {
+        const [storedConcepts, storedExercises] = await Promise.all([
+          getBookConceptsForBookPage(book.id, chapterPageNumber),
+          getExercisesForBookPage([book.id, chapterPageNumber])
+        ]);
+
+        return { concepts: storedConcepts, exercises: storedExercises };
+      }));
+      const concepts = sortConceptsForDisplay(pageRows.flatMap(({ concepts: pageConcepts }) => pageConcepts));
+      const exercises = pageRows.flatMap(({ exercises: pageExercises }) => pageExercises);
+
+      return [exerciseChapterNavigationKey(chapter), missingGeneratedExerciseConceptIndexes(concepts, exercises).length] as const;
+    }))
+      .then((counts) => active && setExerciseChapterMissingCounts(new Map(counts)))
+      .catch(() => active && setExerciseChapterMissingCounts(new Map()));
+
+    return () => {
+      active = false;
+    };
+  }, [activePane, book.id, exerciseChapters, skillsRefreshToken]);
 
   useEffect(() => {
     if (!pdf || !canvasRef.current || !pageAreaRef.current) {
@@ -4385,6 +4423,16 @@ function BookReader({ ageTabRequest, assignAllStandardsRequest, book, file, fixA
     onError={setError}
     onSave={saveExercise}
   />;
+  const focusExerciseConcept = (conceptIndex: number): void => {
+    const conceptSection = exerciseConceptsOutputRef.current?.querySelector<HTMLElement>(`[data-concept-rank="${conceptIndex + 1}"]`);
+
+    if (!conceptSection) {
+      return;
+    }
+
+    conceptSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    conceptSection.focus({ preventScroll: true });
+  };
   const conceptsPane = (): React.ReactNode => {
     return <div className='tabPanel conceptsPanel'>
       <div className='detailsHeader'>
@@ -4529,22 +4577,39 @@ function BookReader({ ageTabRequest, assignAllStandardsRequest, book, file, fixA
   const exercisesPane = (): React.ReactNode => {
     const conceptIds = new Set(exerciseChapterConcepts.flatMap(({ id }) => id === undefined ? [] : [id]));
     const generatedWithoutConcept = exerciseChapterExercises.filter(({ conceptId, source }) => source === 'generated' && (conceptId === undefined || !conceptIds.has(conceptId)));
+    const missingConceptIndexes = missingGeneratedExerciseConceptIndexes(exerciseChapterConcepts, exerciseChapterExercises);
 
     return <div className='tabPanel conceptsPanel'>
       <div className='detailsHeader'><span>{isExerciseChapterLoading ? 'Loading chapter exercises…' : 'Exercises grouped by concept'}</span></div>
-      <div className='conceptsOutput'>
+      {!isExerciseChapterLoading && !!missingConceptIndexes.length && <div className='missingExerciseNavigation'>
+        <span>Missing exercises for concepts:</span>
+        <span className='missingExerciseLinks'>{missingConceptIndexes.map((conceptIndex, missingIndex) => <React.Fragment key={conceptReferenceKey(exerciseChapterConcepts[conceptIndex])}>
+          {missingIndex > 0 && <span aria-hidden='true'>, </span>}
+          <button
+            aria-label={`Go to concept ${conceptIndex + 1}, missing an exercise`}
+            onClick={() => focusExerciseConcept(conceptIndex)}
+            type='button'
+          >{conceptIndex + 1}</button>
+        </React.Fragment>)}</span>
+      </div>}
+      <div
+        className='conceptsOutput'
+        ref={exerciseConceptsOutputRef}
+      >
         <h3>{currentExerciseChapter?.title || 'Chapter not identified'}</h3>
         {!currentExerciseChapter
           ? <p className='emptyOutput'>No processed chapters are available.</p>
           : <>
-            {exerciseChapterConcepts.map((concept) => {
+            {exerciseChapterConcepts.map((concept, conceptIndex) => {
               const generated = exerciseChapterExercises.filter(({ conceptId, source }) => source === 'generated' && concept.id !== undefined && conceptId === concept.id);
 
               return <section
                 className='conceptExerciseGroup'
-                key={concept.id}
+                data-concept-rank={conceptIndex + 1}
+                key={conceptReferenceKey(concept)}
+                tabIndex={-1}
               >
-                <h4><KatexSpan content={concept.title} /></h4>
+                <h4><span className='conceptExerciseRank'>{conceptIndex + 1}.</span> <KatexSpan content={concept.title} /></h4>
                 {concept.description && <p><KatexSpan content={concept.description} /></p>}
                 {generated.length ? <ul>{generated.map(exerciseItem)}</ul> : <p className='emptyOutput'>No generated exercises for this concept.</p>}
               </section>;
@@ -4871,10 +4936,15 @@ function BookReader({ ageTabRequest, assignAllStandardsRequest, book, file, fixA
             onChange={({ target }) => changeExerciseChapter(Number(target.value))}
             value={exerciseChapters.length ? exerciseChapterIndex : ''}
           >
-            {exerciseChapters.map(({ title }, index) => <option
-              key={`${title}:${index}`}
+            {exerciseChapters.map((chapter, index) => {
+              const missingCount = exerciseChapterMissingCounts.get(exerciseChapterNavigationKey(chapter));
+              const title = chapter.title || 'Chapter not identified';
+
+              return <option
+              key={`${chapter.title}:${index}`}
               value={index}
-            >{title || 'Chapter not identified'}</option>)}
+            >{title}{missingCount ? ` (${missingCount} exercise${missingCount === 1 ? '' : 's'} missing)` : ''}</option>;
+            })}
           </select><span>{exerciseChapters.length ? `${exerciseChapterIndex + 1} of ${exerciseChapters.length}` : 'No chapters'}</span></label>
           <Button
             icon='arrow-right'
@@ -5274,6 +5344,37 @@ const StyledReader = styled.div`
     justify-content: space-between;
     font-weight: 600;
     margin-bottom: 0.75rem;
+  }
+
+  .missingExerciseNavigation {
+    align-items: baseline;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.35rem;
+    margin: -0.2rem 0 0.75rem;
+  }
+
+  .missingExerciseLinks button {
+    background: none;
+    border: 0;
+    color: var(--color-primary, #2f6feb);
+    cursor: pointer;
+    font: inherit;
+    padding: 0;
+    text-decoration: underline;
+  }
+
+  .missingExerciseLinks button:hover, .missingExerciseLinks button:focus-visible {
+    text-decoration-thickness: 2px;
+  }
+
+  .conceptExerciseGroup:focus {
+    outline: 2px solid var(--color-primary, #2f6feb);
+    outline-offset: 0.25rem;
+  }
+
+  .conceptExerciseRank {
+    font-variant-numeric: tabular-nums;
   }
 
   .generationControls, .recognitionControls {

@@ -1,7 +1,7 @@
 // Copyright 2021-2026 @polkadot/app-laws authors & contributors
 // SPDX-License-Identifier: Apache-2.0
 
-import type { Exercise } from '@slonigiraf/db';
+import type { BookConcept, Exercise } from '@slonigiraf/db';
 
 
 export interface ExerciseRepairReview {
@@ -14,6 +14,15 @@ export interface ExerciseRepairReview {
 export interface ExerciseDuplicatePair {
   deletedExerciseId: number;
   keptExerciseId: number;
+}
+
+export function missingGeneratedExerciseConceptIndexes (
+  concepts: Array<Pick<BookConcept, 'id'>>,
+  exercises: Array<Pick<Exercise, 'conceptId' | 'source'>>
+): number[] {
+  const generatedConceptIds = new Set(exercises.flatMap(({ conceptId, source }) => source === 'generated' && conceptId !== undefined ? [conceptId] : []));
+
+  return concepts.flatMap(({ id }, index) => id !== undefined && generatedConceptIds.has(id) ? [] : [index]);
 }
 
 export interface ExerciseRepairResult {
