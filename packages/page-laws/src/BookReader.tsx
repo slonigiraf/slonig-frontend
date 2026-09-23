@@ -87,7 +87,7 @@ function analysisPageNumbers (pages: BookPage[]): number[] {
   return pages.flatMap(({ excludedFromAnalysis, pageNumber }) => excludedFromAnalysis ? [] : [pageNumber]);
 }
 
-function ConceptItem ({ concept, firstPage, onDelete, onGoToPage, onReorderPointerCancel, onReorderPointerDown, onReorderPointerMove, onReorderPointerUp, onSave }: { concept: BookConcept; firstPage?: number; onDelete: (concept: BookConcept) => Promise<void>; onGoToPage: (pageNumber: number) => void; onReorderPointerCancel?: (event: React.PointerEvent<HTMLLIElement>) => void; onReorderPointerDown?: (event: React.PointerEvent<HTMLLIElement>) => void; onReorderPointerMove?: (event: React.PointerEvent<HTMLLIElement>) => void; onReorderPointerUp?: (event: React.PointerEvent<HTMLLIElement>) => void; onSave: (concept: BookConcept, title: string, description: string) => Promise<void> }): React.ReactElement {
+function ConceptItem ({ concept, conceptNumber, firstPage, onDelete, onGoToPage, onReorderPointerCancel, onReorderPointerDown, onReorderPointerMove, onReorderPointerUp, onSave }: { concept: BookConcept; conceptNumber: number; firstPage?: number; onDelete: (concept: BookConcept) => Promise<void>; onGoToPage: (pageNumber: number) => void; onReorderPointerCancel?: (event: React.PointerEvent<HTMLLIElement>) => void; onReorderPointerDown?: (event: React.PointerEvent<HTMLLIElement>) => void; onReorderPointerMove?: (event: React.PointerEvent<HTMLLIElement>) => void; onReorderPointerUp?: (event: React.PointerEvent<HTMLLIElement>) => void; onSave: (concept: BookConcept, title: string, description: string) => Promise<void> }): React.ReactElement {
   const [description, setDescription] = useState(concept.description);
   const [isBusy, setIsBusy] = useState(false);
   const [isDeleteConfirmationOpen, setIsDeleteConfirmationOpen] = useState(false);
@@ -144,7 +144,7 @@ function ConceptItem ({ concept, firstPage, onDelete, onGoToPage, onReorderPoint
     onPointerUp={canReorder ? onReorderPointerUp : undefined}
     tabIndex={-1}
   >
-    <strong className='conceptDragTitle'><KatexSpan content={concept.title} /></strong>
+    <strong className='conceptDragTitle'><span className='conceptNumber'>{conceptNumber}.</span> <KatexSpan content={concept.title} /></strong>
     {isDeleteConfirmationOpen && <Modal
       header='Delete concept'
       onClose={() => !isBusy && setIsDeleteConfirmationOpen(false)}
@@ -216,7 +216,7 @@ function ConceptItem ({ concept, firstPage, onDelete, onGoToPage, onReorderPoint
         className='conceptDragHandle'
         title='Drag to reorder'
       >⋮⋮</span>
-      <strong><KatexSpan content={concept.title} /></strong>
+      <strong><span className='conceptNumber'>{conceptNumber}.</span> <KatexSpan content={concept.title} /></strong>
       <div className='conceptActions'>
         <Button
           icon='edit'
@@ -4517,6 +4517,7 @@ function BookReader({ ageTabRequest, assignAllStandardsRequest, book, file, fixA
 
               return <ConceptItem
                 concept={concept}
+                conceptNumber={index + 1}
                 firstPage={displayPage}
                 key={concept.id ?? conceptReferenceKey(concept)}
                 onDelete={deleteConcept}
@@ -4604,7 +4605,7 @@ function BookReader({ ageTabRequest, assignAllStandardsRequest, book, file, fixA
               const generated = exerciseChapterExercises.filter(({ conceptId, source }) => source === 'generated' && concept.id !== undefined && conceptId === concept.id);
 
               return <section
-                className='conceptExerciseGroup'
+                className='conceptExerciseGroup exerciseConceptCard'
                 data-concept-rank={conceptIndex + 1}
                 key={conceptReferenceKey(concept)}
                 tabIndex={-1}
@@ -4614,7 +4615,7 @@ function BookReader({ ageTabRequest, assignAllStandardsRequest, book, file, fixA
                 {generated.length ? <ul>{generated.map(exerciseItem)}</ul> : <p className='emptyOutput'>No generated exercises for this concept.</p>}
               </section>;
             })}
-            {!!generatedWithoutConcept.length && <section className='conceptExerciseGroup'>
+            {!!generatedWithoutConcept.length && <section className='conceptExerciseGroup exerciseConceptCard'>
               <h4>Other generated exercises</h4>
               <ul>{generatedWithoutConcept.map(exerciseItem)}</ul>
             </section>}
@@ -5368,9 +5369,18 @@ const StyledReader = styled.div`
     text-decoration-thickness: 2px;
   }
 
-  .conceptExerciseGroup:focus {
-    outline: 2px solid var(--color-primary, #2f6feb);
-    outline-offset: 0.25rem;
+  .exerciseConceptCard {
+    background: var(--bg-input);
+    border: 1px solid #dde1eb;
+    border-radius: 0.7rem;
+    box-shadow: 0 1px 2px rgba(24, 39, 75, 0.04);
+    box-sizing: border-box;
+    margin-bottom: 1rem;
+    padding: 0.95rem 1rem 1rem;
+  }
+
+  .exerciseConceptCard:focus {
+    outline: none;
   }
 
   .conceptExerciseRank {
@@ -5558,6 +5568,10 @@ const StyledReader = styled.div`
     min-width: 0;
     overflow-wrap: anywhere;
     text-align: left;
+  }
+
+  .conceptNumber {
+    font-variant-numeric: tabular-nums;
   }
 
   .conceptAttemptLabel {

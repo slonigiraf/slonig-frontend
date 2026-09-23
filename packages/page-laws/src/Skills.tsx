@@ -10,7 +10,7 @@ import { KatexSpan, RoundProgress } from '@slonigiraf/slonig-components';
 import OpenAI from 'openai';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
-import { Button, Dropdown, Input, Modal, styled } from '@polkadot/react-components';
+import { Button, Dropdown, Input, Modal, Toggle, styled } from '@polkadot/react-components';
 
 import ExerciseList from './Edit/ExerciseList.js';
 import type { TikzPreRenderResult } from './Edit/TikzDisplay.js';
@@ -544,7 +544,7 @@ async function requestValidatedJson<T> (client: OpenAI, model: string, systemPro
   throw lastError instanceof Error ? lastError : new Error('AI output failed local validation and repair.');
 }
 
-function ChapterNavigation ({ chapters, index, matchExercises = false, onChange }: { chapters: BookChapter[]; index: number; matchExercises?: boolean; onChange: (index: number) => void }): React.ReactElement | null {
+function ChapterNavigation ({ chapters, index, matchExercises = false, missingAbilityCounts, onChange }: { chapters: BookChapter[]; index: number; matchExercises?: boolean; missingAbilityCounts?: number[]; onChange: (index: number) => void }): React.ReactElement | null {
   const previous = useCallback((): void => onChange(index - 1), [index, onChange]);
   const next = useCallback((): void => onChange(index + 1), [index, onChange]);
 
@@ -564,10 +564,14 @@ function ChapterNavigation ({ chapters, index, matchExercises = false, onChange 
         onChange={({ target }) => onChange(Number(target.value))}
         value={index}
                      >
-        {chapters.map(({ id, title }, chapterIndex) => <option
-          key={id ?? `${title}:${chapterIndex}`}
-          value={chapterIndex}
-                                                       >{title || 'Chapter not identified'}</option>)}
+        {chapters.map(({ id, title }, chapterIndex) => {
+          const missingCount = missingAbilityCounts?.[chapterIndex] ?? 0;
+
+          return <option
+            key={id ?? `${title}:${chapterIndex}`}
+            value={chapterIndex}
+          >{title || 'Chapter not identified'}{missingCount ? ` (${missingCount} exercise${missingCount === 1 ? '' : 's'} missing abilities)` : ''}</option>;
+        })}
       </select><span>{index + 1} of {chapters.length}</span></label>
       <Button
         icon='arrow-right'
@@ -1043,6 +1047,7 @@ function Skills ({ book, externalRefreshToken = 0, onAction, onBookChange, onCon
   const [fixReview, setFixReview] = useState<FixReviewResult | null>(null);
   const [exerciseFixReview, setExerciseFixReview] = useState<ExerciseFixReviewResult | null>(null);
   const [imageFixReview, setImageFixReview] = useState<ImageFixReviewResult | null>(null);
+  const [generateOnlyMissingAbilities, setGenerateOnlyMissingAbilities] = useState(false);
   const [notice, setNotice] = useState('');
   const [isBusy, setIsBusy] = useState(false);
   const [openRouterSpent, setOpenRouterSpent] = useState(0);
@@ -1052,6 +1057,7 @@ function Skills ({ book, externalRefreshToken = 0, onAction, onBookChange, onCon
   const [refreshToken, setRefreshToken] = useState(0);
   const [selectedModel, setSelectedModel] = useState(OPENAI_MODELS[0].value);
   const [effectiveCompletedStages, setEffectiveCompletedStages] = useState<BookProcessingStageKey[]>(() => getBookCompletedStages(book));
+  const abilitiesOutputRef = useRef<HTMLDivElement>(null);
   const refresh = useCallback((): void => setRefreshToken((value) => value + 1), []);
   const refreshContent = useCallback((): void => {
     refresh();
@@ -1140,10 +1146,30 @@ function Skills ({ book, externalRefreshToken = 0, onAction, onBookChange, onCon
   const allExercises = useMemo(() => chapterContent.flatMap(({ exercises }) => exercises), [chapterContent]);
   const allBookExercises = useMemo(() => allExercises.filter(({ source }) => source !== 'generated'), [allExercises]);
   const allAbilities = useMemo(() => chapterContent.flatMap(({ abilities }) => abilities), [chapterContent]);
+  const abilityModuleIds = useMemo(() => new Set(allAbilities.map(({ moduleId }) => moduleId)), [allAbilities]);
+  const exercisesMissingAbilities = useMemo(() => allExercises.filter(({ id }) => id === undefined || !abilityModuleIds.has(exerciseAbilityModuleId(book.id, id))), [abilityModuleIds, allExercises, book.id]);
+  const missingAbilityIndexesByChapter = useMemo(() => chapterContent.map(({ exercises }) => exercises.flatMap(({ id }, exerciseIndex) => id === undefined || !abilityModuleIds.has(exerciseAbilityModuleId(book.id, id)) ? [exerciseIndex] : [])), [abilityModuleIds, book.id, chapterContent]);
+  const missingAbilityCountsByChapter = useMemo(() => missingAbilityIndexesByChapter.map((indexes) => indexes.length), [missingAbilityIndexesByChapter]);
+  const currentMissingAbilityIndexes = missingAbilityIndexesByChapter[chapterIndex] ?? [];
+  const focusAbilityExercise = useCallback((exerciseIndex: number): void => {
+    const exerciseSection = abilitiesOutputRef.current?.querySelector<HTMLElement>(`[data-exercise-rank="${exerciseIndex + 1}"]`);
+
+    if (!exerciseSection) {
+      return;
+    }
+
+    exerciseSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    exerciseSection.focus({ preventScroll: true });
+  }, []);
 
   useEffect(() => {
     onEntityCountsChange?.({ abilities: allAbilities.length, bookExercises: allBookExercises.length, exercises: allExercises.length });
   }, [allAbilities.length, allBookExercises.length, allExercises.length, onEntityCountsChange]);
+  useEffect(() => {
+    if (!exercisesMissingAbilities.length && generateOnlyMissingAbilities) {
+      setGenerateOnlyMissingAbilities(false);
+    }
+  }, [exercisesMissingAbilities.length, generateOnlyMissingAbilities]);
   const exerciseTitlesByModuleId = useMemo(() => new Map(allExercises.flatMap(({ id, title }) => id === undefined ? [] : [[exerciseAbilityModuleId(book.id, id), title] as const])), [allExercises, book.id]);
   const imageGenerationTargets = useMemo(() => allAbilities.flatMap((record) => record.ability
     ? record.ability.q.flatMap((exercise, exerciseIndex) => (['p', 'i'] as const).flatMap((field) => {
@@ -1211,7 +1237,9 @@ function Skills ({ book, externalRefreshToken = 0, onAction, onBookChange, onCon
     if (aiAction === 'exercises') {
       // Ability generation is source-bounded: each semantic request contains
       // exactly one Exercise instead of a chapter/batch plus accumulated drafts.
-      return chapterContent.flatMap(({ chapter, exercises }) => exercises.map((exercise) => `${LEARNER_AGE_PROMPT(book.age)}\n${abilityBlueprintRequestPrompt(language, chapter.title, [transportCompactAbilitySourceExercise(exercise)])}`));
+      return chapterContent.flatMap(({ chapter, exercises }) => exercises
+        .filter(({ id }) => !generateOnlyMissingAbilities || id === undefined || !abilityModuleIds.has(exerciseAbilityModuleId(book.id, id)))
+        .map((exercise) => `${LEARNER_AGE_PROMPT(book.age)}\n${abilityBlueprintRequestPrompt(language, chapter.title, [transportCompactAbilitySourceExercise(exercise)])}`));
     }
 
     if (aiAction === 'fixExercises') {
@@ -1235,7 +1263,7 @@ function Skills ({ book, externalRefreshToken = 0, onAction, onBookChange, onCon
     }
 
     return [];
-  }, [aiAction, book.age, chapterContent, imageFixTargets, imageGenerationTargets, language, skillSources]);
+  }, [abilityModuleIds, aiAction, book.age, book.id, chapterContent, generateOnlyMissingAbilities, imageFixTargets, imageGenerationTargets, language, skillSources]);
   const maxChapterAbilityCount = Math.max(1, ...chapterContent.map(({ abilities }) => abilities.length));
   const maxChapterExerciseCount = Math.max(1, ...chapterContent.map(({ exercises }) => exercises.length));
   const generationOutputTokens = aiAction === 'exercises' ? 3_200 : aiAction === 'fixExercises' ? maxChapterExerciseCount * 550 : aiAction === 'fix' ? maxChapterAbilityCount * 700 : aiAction === 'images' ? 2_400 : aiAction === 'fixImages' ? 2_600 : aiAction === 'skills' ? BATCH_SIZE * 180 : 300;
@@ -1359,20 +1387,26 @@ function Skills ({ book, externalRefreshToken = 0, onAction, onBookChange, onCon
   }, [addOpenRouterCost, allSkills, beginProgress, book.id, chapters, createClient, language, refresh, selectedModel, skillSources]);
 
   const generateExercises = useCallback(async (): Promise<void> => {
-    beginProgress('Generating Abilities', allExercises.length);
+    const targetExercises = generateOnlyMissingAbilities ? exercisesMissingAbilities : allExercises;
+
+    beginProgress('Generating Abilities', targetExercises.length);
 
     try {
       if (!allExercises.length) {
         throw new Error('No Exercises are available to generate Abilities from.');
       }
 
-      if (allExercises.some(({ id }) => id === undefined)) {
+      if (!targetExercises.length) {
+        throw new Error('No Exercises are missing Abilities.');
+      }
+
+      if (targetExercises.some(({ id }) => id === undefined)) {
         throw new Error('Every Exercise must have an id before Abilities can be generated.');
       }
 
       const client = await createClient();
 
-      const pending = new Map<number, Exercise>(allExercises.map((exercise) => [exercise.id as number, exercise]));
+      const pending = new Map<number, Exercise>(targetExercises.map((exercise) => [exercise.id as number, exercise]));
       // Keep each source Exercise one-to-one at persistence time: either its
       // single locally validated Ability is ready, including any required visual
       // descriptions, or its existing DB records are untouched.
@@ -1444,7 +1478,7 @@ function Skills ({ book, externalRefreshToken = 0, onAction, onBookChange, onCon
 
         // Persist visual requirements as text descriptions only. Actual image
         // generation is deliberately not part of Abilities/Fix abilities.
-        const readySources = allExercises.filter(({ id }) => id !== undefined && pending.has(id) && conversionsByExerciseIdCache.has(id));
+        const readySources = targetExercises.filter(({ id }) => id !== undefined && pending.has(id) && conversionsByExerciseIdCache.has(id));
 
         for (const source of readySources) {
           const exerciseId = source.id as number;
@@ -1483,7 +1517,7 @@ function Skills ({ book, externalRefreshToken = 0, onAction, onBookChange, onCon
       if (pending.size && generatedByExerciseId.size) {
         const unresolved = Array.from(pending.values()).map(({ id, title }) => `${id}: ${title}`).join('; ');
 
-        setNotice(`Generated ${generatedAbilityCount} Abilities for ${generatedByExerciseId.size} of ${allExercises.length} Exercises. ${pending.size} Exercise${pending.size === 1 ? '' : 's'} remained unchanged: ${unresolved}`);
+        setNotice(`Generated ${generatedAbilityCount} Abilities for ${generatedByExerciseId.size} of ${targetExercises.length} Exercises. ${pending.size} Exercise${pending.size === 1 ? '' : 's'} remained unchanged: ${unresolved}`);
       } else if (!generatedByExerciseId.size && pending.size && allAbilities.length) {
         setNotice(`No new Abilities were generated after ${maxAttempts} attempts. The existing ${allAbilities.length} Abilit${allAbilities.length === 1 ? 'y remains' : 'ies remain'} available; unresolved Exercises were left unchanged.`);
       } else if (!generatedByExerciseId.size && pending.size) {
@@ -1498,7 +1532,7 @@ function Skills ({ book, externalRefreshToken = 0, onAction, onBookChange, onCon
     } finally {
       setIsBusy(false);
     }
-  }, [addAbilitiesCost, allAbilities.length, allExercises, beginProgress, book.age, book.id, chapterContent, createClient, language, onAction, onContentChange, refresh, selectedModel, completeStage, stageDone]);
+  }, [addAbilitiesCost, allAbilities.length, allExercises, beginProgress, book.age, book.id, chapterContent, createClient, exercisesMissingAbilities, generateOnlyMissingAbilities, language, onAction, onContentChange, refresh, selectedModel, completeStage, stageDone]);
 
   const fixExercises = useCallback(async (): Promise<void> => {
     beginProgress('Fixing Exercise errors', allExercises.length);
@@ -1820,6 +1854,7 @@ function Skills ({ book, externalRefreshToken = 0, onAction, onBookChange, onCon
     }
   }, [allAbilities, allExercises, book.id, bookPageContent, exerciseFixReview, onAction, onContentChange, refresh, completeStage, stageDone]);
   const openExerciseGeneration = useCallback((): void => {
+    setGenerateOnlyMissingAbilities(false);
     setAiAction('exercises');
   }, []);
   const openExerciseFix = useCallback((): void => {
@@ -2120,7 +2155,10 @@ function Skills ({ book, externalRefreshToken = 0, onAction, onBookChange, onCon
       fixImages().catch(console.error);
     }
   }, [aiAction, completeImagesStage, fixAbilities, fixExercises, fixImages, generateExercises, generateSkills]);
-  const closeConfirmation = useCallback((): void => setAiAction(undefined), []);
+  const closeConfirmation = useCallback((): void => {
+    setAiAction(undefined);
+    setGenerateOnlyMissingAbilities(false);
+  }, []);
 
   const pipelineActions = useMemo<PipelineAction[]>(() => [
     ...(pipelinePrefix ?? []),
@@ -2427,6 +2465,12 @@ function Skills ({ book, externalRefreshToken = 0, onAction, onBookChange, onCon
       >
         <Modal.Content>
           <AiPriceEstimate estimate={estimate} />
+          {aiAction === 'exercises' && <Toggle
+            isDisabled={!exercisesMissingAbilities.length}
+            label='Only for Exercises, missing an Ability'
+            onChange={setGenerateOnlyMissingAbilities}
+            value={generateOnlyMissingAbilities}
+          />}
           <Dropdown
             className='modelSelect'
             isDisabled={isBusy}
@@ -2501,6 +2545,7 @@ function Skills ({ book, externalRefreshToken = 0, onAction, onBookChange, onCon
         chapters={chapters}
         index={chapterIndex}
         matchExercises={view === 'preExercisesExercises'}
+        missingAbilityCounts={view === 'preExercisesExercises' ? missingAbilityCountsByChapter : undefined}
         onChange={changeChapter}
       />
       {!current && <p>No chapters have been generated for this book.</p>}
@@ -2559,17 +2604,33 @@ function Skills ({ book, externalRefreshToken = 0, onAction, onBookChange, onCon
             </div>
           )}
           {view === 'preExercisesExercises' && (
-            <div className='singlePane abilitiesPane'>
+            <div
+              className='singlePane abilitiesPane'
+              ref={abilitiesOutputRef}
+            >
               <h3>Exercises and Abilities</h3>
               {!current.exercises.length && <p>No Exercises in this chapter.</p>}
-              {current.exercises.map((exercise) => {
+              {!!currentMissingAbilityIndexes.length && <div className='missingAbilityNavigation'>
+                <span>Missing Abilities for Exercises:</span>
+                <span className='missingAbilityLinks'>{currentMissingAbilityIndexes.map((exerciseIndex, missingIndex) => <React.Fragment key={current.exercises[exerciseIndex].id ?? `exercise-${exerciseIndex}`}>
+                  {missingIndex > 0 && <span aria-hidden='true'>, </span>}
+                  <button
+                    aria-label={`Go to Exercise ${exerciseIndex + 1}, missing an Ability`}
+                    onClick={() => focusAbilityExercise(exerciseIndex)}
+                    type='button'
+                  >{exerciseIndex + 1}</button>
+                </React.Fragment>)}</span>
+              </div>}
+              {current.exercises.map((exercise, exerciseIndex) => {
                 const matchedAbilities = exercise.id === undefined
                   ? []
                   : current.abilities.filter(({ moduleId }) => moduleId === exerciseAbilityModuleId(book.id, exercise.id as number));
 
                 return <section
-                  className='exerciseWithAbilities'
+                  className='exerciseWithAbilities abilityExerciseCard'
+                  data-exercise-rank={exerciseIndex + 1}
                   key={`exercise-${exercise.id ?? 'new'}`}
+                  tabIndex={-1}
                        >
                   <BookItem
                     description={stripMarkdownImageReferences(exercise.description)}
@@ -2888,7 +2949,11 @@ const StyledSkills = styled.div`
   .duplicateAbilitySide > strong { display: block; margin: 0.5rem 0; overflow-wrap: anywhere; }
   .duplicateAbilitySide pre { max-height: 12rem; overflow: auto; white-space: pre-wrap; }
   .abilitiesPane { width: 100%; }
-  .exerciseWithAbilities + .exerciseWithAbilities { border-top: 1px solid var(--border-table); margin-top: 1rem; padding-top: 0.5rem; }
+  .missingAbilityNavigation { align-items: baseline; display: flex; flex-wrap: wrap; gap: 0.35rem; margin: -0.2rem 0 0.75rem; }
+  .missingAbilityLinks button { background: none; border: 0; color: var(--color-primary, #2f6feb); cursor: pointer; font: inherit; padding: 0; text-decoration: underline; }
+  .missingAbilityLinks button:hover, .missingAbilityLinks button:focus-visible { text-decoration-thickness: 2px; }
+  .abilityExerciseCard { background: var(--bg-input); border: 1px solid #dde1eb; border-radius: 0.7rem; box-shadow: 0 1px 2px rgba(24, 39, 75, 0.04); box-sizing: border-box; margin-bottom: 1rem; padding: 0.95rem 1rem 1rem; }
+  .abilityExerciseCard:focus { outline: none; }
   .matchedAbilities { border-left: 3px solid var(--border-table); margin: 0 0 0.75rem 1.5rem; padding-left: 0.75rem; }
   .matchedAbilities .contentCard { background: var(--bg-input); }
   .matchedAbilities .contentCard:last-child { border-bottom: 0; }
