@@ -17,6 +17,7 @@ export interface ExerciseGenerationRequestEstimate {
 
 export interface ProcessingConcept {
   description: string;
+  sourceId?: number;
   title: string;
 }
 
@@ -155,7 +156,7 @@ function locatedConceptsForPages (pages: ExtractedChapterPageContent[]): Located
 
 function exerciseGenerationInput (concepts: LocatedProcessingConcept[]): { concepts: Array<ProcessingConcept & { conceptIndex: number }> } {
   return {
-    concepts: concepts.map(({ sourcePageNumber: _sourcePageNumber, ...concept }, conceptIndex) => ({ ...concept, conceptIndex }))
+    concepts: concepts.map(({ sourceId: _sourceId, sourcePageNumber: _sourcePageNumber, ...concept }, conceptIndex) => ({ ...concept, conceptIndex }))
   };
 }
 
@@ -231,7 +232,7 @@ export async function processExtractedChapterContent (extracted: ExtractedChapte
 
   for (let retry = 0; retry < MAX_EXERCISE_GENERATION_RETRIES; retry++) {
     const coveredConcepts = new Set(generatedExercises.flatMap(({ conceptIndex }) => conceptIndex === undefined ? [] : [conceptIndex]));
-    const missingConcepts = concepts.flatMap(({ sourcePageNumber: _sourcePageNumber, ...concept }, conceptIndex) => coveredConcepts.has(conceptIndex) ? [] : [{ ...concept, conceptIndex }]);
+    const missingConcepts = concepts.flatMap(({ sourceId: _sourceId, sourcePageNumber: _sourcePageNumber, ...concept }, conceptIndex) => coveredConcepts.has(conceptIndex) ? [] : [{ ...concept, conceptIndex }]);
 
     if (!missingConcepts.length) {
       break;

@@ -4,10 +4,10 @@
 import type { Book, BookStageSpendKey } from '@slonigiraf/db';
 import type { PDFDocumentProxy } from 'pdfjs-dist';
 
-import { createBook, deleteBook, getBook, getBookByContentHash, getBookConceptsForBookPage, getBookPages, getBooks, isBookProcessingStageComplete, putBook, resetBookProcessingStagesFrom } from '@slonigiraf/db';
+import { createBook, deleteBook, getBook, getBookByContentHash, getBookConceptsForBookPage, getBookPages, getBooks, getExercisesForBookPage, isBookProcessingStageComplete, putBook, resetBookProcessingStagesFrom } from '@slonigiraf/db';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
-import { Button, Dropdown, Modal, styled } from '@polkadot/react-components';
+import { Button, Dropdown, Modal, Toggle, styled } from '@polkadot/react-components';
 
 import type { AiInputEstimate } from './aiEstimate.js';
 
@@ -122,6 +122,8 @@ function Upload (): React.ReactElement {
   const [pendingProcessingAction, setPendingProcessingAction] = useState<'chapters' | 'concepts' | 'fixConcepts' | 'recognize' | 'standards' | 'fixStandards' | 'exercises'>();
   const [generateAllExercisesRequest, setGenerateAllExercisesRequest] = useState(0);
   const [generateExercisesEstimate, setGenerateExercisesEstimate] = useState<AiInputEstimate>();
+  const [generateOnlyMissingExercises, setGenerateOnlyMissingExercises] = useState(false);
+  const [hasConceptsMissingExercise, setHasConceptsMissingExercise] = useState(false);
   const [recognizePageCount, setRecognizePageCount] = useState<number>();
   const [standardsEstimate, setStandardsEstimate] = useState<AiInputEstimate | string>();
   const [fixStandardsEstimate, setFixStandardsEstimate] = useState<AiInputEstimate | string>();
@@ -773,6 +775,8 @@ function Upload (): React.ReactElement {
     }
 
     setGenerateExercisesEstimate(undefined);
+    setGenerateOnlyMissingExercises(false);
+    setHasConceptsMissingExercise(false);
     setIsGenerateExercisesConfirmationOpen(true);
   }, [selectedBook, t]);
 
@@ -785,11 +789,26 @@ function Upload (): React.ReactElement {
       const storedPages = pages
         .filter(({ chapter, chapterId, conceptsProcessed, excludedFromAnalysis }) => conceptsProcessed && !excludedFromAnalysis && (chapterId !== undefined || Boolean(chapter.trim())))
         .sort((a, b) => a.pageNumber - b.pageNumber);
-      const pageInputs = await Promise.all(storedPages.map(async (storedPage) => ({
-        chapter: storedPage.chapter,
-        concepts: (await getBookConceptsForBookPage(selectedBook.id, storedPage.pageNumber)).map(({ description, title }) => ({ description, title })),
-        pageNumber: storedPage.pageNumber
+      const pageRows = await Promise.all(storedPages.map(async (storedPage) => ({
+        concepts: await getBookConceptsForBookPage(selectedBook.id, storedPage.pageNumber),
+        exercises: await getExercisesForBookPage([selectedBook.id, storedPage.pageNumber]),
+        storedPage
       })));
+      const exerciseConceptIds = new Set(pageRows.flatMap(({ exercises }) => exercises.flatMap(({ conceptId }) => conceptId === undefined ? [] : [conceptId])));
+      const hasMissingExercise = pageRows.some(({ concepts }) => concepts.some(({ id }) => id === undefined || !exerciseConceptIds.has(id)));
+
+      setHasConceptsMissingExercise(hasMissingExercise);
+      if (!hasMissingExercise && generateOnlyMissingExercises) {
+        setGenerateOnlyMissingExercises(false);
+      }
+
+      const pageInputs = pageRows.map(({ concepts, storedPage }) => ({
+        chapter: storedPage.chapter,
+        concepts: concepts.flatMap(({ description, id, title }) => generateOnlyMissingExercises && id !== undefined && exerciseConceptIds.has(id)
+          ? []
+          : [{ description, sourceId: id, title }]),
+        pageNumber: storedPage.pageNumber
+      }));
       const groupedPages = pageInputs.reduce((grouped, { chapter, ...page }) => {
         const chapterPages = grouped.get(chapter) ?? [];
 
@@ -805,10 +824,12 @@ function Upload (): React.ReactElement {
 
       setGenerateExercisesEstimate(estimateAiRequests(generateAllConceptsModel, requests));
     }).catch(() => setError(t('Unable to estimate exercise generation cost.')));
-  }, [generateAllConceptsModel, isGenerateExercisesConfirmationOpen, selectedBook, t]);
+  }, [generateAllConceptsModel, generateOnlyMissingExercises, isGenerateExercisesConfirmationOpen, selectedBook, t]);
 
   const closeGenerateExercisesConfirmation = useCallback((): void => {
     setIsGenerateExercisesConfirmationOpen(false);
+    setGenerateOnlyMissingExercises(false);
+    setHasConceptsMissingExercise(false);
     setPendingProcessingAction(undefined);
   }, []);
 
@@ -821,7 +842,7 @@ function Upload (): React.ReactElement {
 
     setPendingProcessingAction('exercises');
 
-    resetBookProcessingStagesFrom(selectedBook.id, 'exercises').then((updatedBook) => {
+    resetBookProcessingStagesFrom(selectedBook.id, generateOnlyMissingExercises ? 'fixExercises' : 'exercises').then((updatedBook) => {
       if (updatedBook) {
         setBooks((current) => current.map((book) => book.id === updatedBook.id ? updatedBook : book));
       }
@@ -831,7 +852,7 @@ function Upload (): React.ReactElement {
       setPendingProcessingAction(undefined);
       setError(t('Unable to reset the book processing stage.'));
     });
-  }, [selectedBook, t]);
+  }, [generateOnlyMissingExercises, selectedBook, t]);
 
   const onDelete = useCallback(async (): Promise<void> => {
     if (!selectedBook) {
@@ -1093,6 +1114,12 @@ function Upload (): React.ReactElement {
       >
         <Modal.Content>
           <p>{t('Generate one succinct, transformation-first exercise per concept, keep one per non-overlapping book exercise, and skip book exercises already covered by concepts?')}</p>
+          <Toggle
+            isDisabled={!hasConceptsMissingExercise}
+            label={t('Only for concepts, missing an exercise')}
+            onChange={setGenerateOnlyMissingExercises}
+            value={generateOnlyMissingExercises}
+          />
           <AiPriceEstimate estimate={generateExercisesEstimate} />
           <Dropdown
             className='batchModelSelect'
@@ -1252,6 +1279,7 @@ function Upload (): React.ReactElement {
             ]}
             recognizeAllRequest={recognizeAllRequest}
             generateAllExercisesRequest={generateAllExercisesRequest}
+            generateOnlyMissingExercises={generateOnlyMissingExercises}
           />
         </React.Suspense>
       )}

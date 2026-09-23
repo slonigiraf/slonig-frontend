@@ -122,6 +122,27 @@ describe('book processing pipeline', (): void => {
     assert.match(result.pages[0].exercises.find(({ conceptIndex, source }) => source === 'generated' && conceptIndex === 0)?.imageDescription ?? '', /gauge/i);
   });
 
+  it('keeps source concept ids for local persistence without exposing them to the AI prompt', async (): Promise<void> => {
+    const result = await processExtractedChapterContent({
+      chapter: 'Chapter',
+      pages: [{
+        concepts: [{ description: 'Convert units', sourceId: 42, title: 'Conversion' }],
+        pageNumber: 1
+      }]
+    }, (prompt) => {
+      const input = JSON.parse(prompt.slice(prompt.lastIndexOf('\n') + 1)) as { concepts: Array<Record<string, unknown>> };
+
+      assert.equal(input.concepts[0].sourceId, undefined);
+
+      return Promise.resolve(JSON.stringify({
+        exercises: [{ conceptIndex: 0, description: 'Convert <kx>3</kx> km to m.', solution: '<kx>3000</kx> m', title: 'Convert distance' }]
+      }));
+    });
+
+    assert.equal(result.pages[0].concepts[0].sourceId, 42);
+    assert.equal(result.pages[0].exercises[0].conceptIndex, 0);
+  });
+
   it('does not carry source book exercises forward when there are no concepts', async (): Promise<void> => {
     let calls = 0;
     const duplicateBookExercise = { description: 'Compute <kx>2+2</kx>.', solution: '<kx>4</kx>', title: 'Compute' };

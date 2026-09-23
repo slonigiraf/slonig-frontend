@@ -1124,6 +1124,7 @@ interface Props {
   processingToolbar: PipelineAction[];
   processingToolbarAfterFixImages?: PipelineAction[];
   generateAllExercisesRequest: number;
+  generateOnlyMissingExercises: boolean;
   recognizeAllRequest: number;
 }
 
@@ -1184,7 +1185,7 @@ function getSessionReaderPane(bookId: number): ReaderPane {
   }
 }
 
-function BookReader({ ageTabRequest, assignAllStandardsRequest, book, file, fixAllConceptsRequest, fixAllStandardsRequest, generateAllConceptsModel, generateAllConceptsRequest, identifyChaptersRequest, isPriceDisabled = false, languageTabRequest, subjectTabRequest, onBookChange, onPrice, onProcessingComplete, pendingProcessingAction, processingToolbar, processingToolbarAfterFixImages, recognizeAllRequest, generateAllExercisesRequest }: Props): React.ReactElement {
+function BookReader({ ageTabRequest, assignAllStandardsRequest, book, file, fixAllConceptsRequest, fixAllStandardsRequest, generateAllConceptsModel, generateAllConceptsRequest, generateAllExercisesRequest, generateOnlyMissingExercises, identifyChaptersRequest, isPriceDisabled = false, languageTabRequest, subjectTabRequest, onBookChange, onPrice, onProcessingComplete, pendingProcessingAction, processingToolbar, processingToolbarAfterFixImages, recognizeAllRequest }: Props): React.ReactElement {
   const { t } = useTranslation();
   const [activePane, setActivePane] = useState<ReaderPane>(() => {
     const storedPane = getSessionReaderPane(book.id);
@@ -2424,20 +2425,41 @@ function BookReader({ ageTabRequest, assignAllStandardsRequest, book, file, fixA
       const storedPages = (await getBookPages(book.id))
         .filter(({ chapter, chapterId, conceptsProcessed, excludedFromAnalysis }) => conceptsProcessed && !excludedFromAnalysis && (chapterId !== undefined || Boolean(chapter.trim())))
         .sort((a, b) => a.pageNumber - b.pageNumber);
-      const pageInputs = await Promise.all(storedPages.map(async (storedPage) => ({
+      const pageRows = await Promise.all(storedPages.map(async (storedPage) => {
+        const [concepts, exercises] = await Promise.all([
+          getBookConceptsForBookPage(book.id, storedPage.pageNumber),
+          generateOnlyMissingExercises ? getExercisesForBookPage([book.id, storedPage.pageNumber]) : Promise.resolve([] as Exercise[])
+        ]);
+
+        if (generateOnlyMissingExercises && concepts.some(({ id }) => id === undefined)) {
+          throw new Error(`Every Concept must have an id before missing Exercises can be generated (page ${storedPage.pageNumber}).`);
+        }
+
+        return { concepts, exercises, storedPage };
+      }));
+      const exerciseConceptIds = new Set(pageRows.flatMap(({ exercises }) => exercises.flatMap(({ conceptId }) => conceptId === undefined ? [] : [conceptId])));
+      const existingExercisesByPage = new Map(pageRows.map(({ exercises, storedPage }) => [storedPage.pageNumber, exercises] as const));
+      const pageInputs = pageRows.map(({ concepts, storedPage }) => ({
         chapter: storedPage.chapter,
-        concepts: (await getBookConceptsForBookPage(book.id, storedPage.pageNumber)).map(({ description, title }) => ({ description, title })),
+        concepts: concepts.flatMap(({ description, id, title }) => generateOnlyMissingExercises && id !== undefined && exerciseConceptIds.has(id)
+          ? []
+          : [{ description, ...(generateOnlyMissingExercises ? { sourceId: id } : {}), title }]),
         pageNumber: storedPage.pageNumber
-      })));
-      const groupedPages = pageInputs.reduce((grouped, { chapter, ...page }) => {
+      }));
+      const generationPages = generateOnlyMissingExercises ? pageInputs.filter(({ concepts }) => concepts.length > 0) : pageInputs;
+      const groupedPages = generationPages.reduce((grouped, { chapter, ...page }) => {
         const chapterPages = grouped.get(chapter) ?? [];
 
         chapterPages.push(page);
         grouped.set(chapter, chapterPages);
 
         return grouped;
-      }, new Map<string, Array<Omit<typeof pageInputs[number], 'chapter'>>>());
-      const chapterInputs = Array.from(groupedPages, ([chapter, pages]) => ({ chapter, pages }));
+      }, new Map<string, Array<Omit<typeof generationPages[number], 'chapter'>>>());
+      const chapterInputs = Array.from(groupedPages, ([chapter, chapterPages]) => ({ chapter, pages: chapterPages }));
+
+      if (generateOnlyMissingExercises) {
+        setGeneratedExercisesPageCount(Math.max(0, totalPages - generationPages.length));
+      }
 
       await mapConcurrent(chapterInputs, OPENROUTER_CONCURRENCY, async (chapterInput) => {
         const bookDetectedLanguage = bookLanguageLabel(book.language);
@@ -2454,7 +2476,72 @@ function BookReader({ ageTabRequest, assignAllStandardsRequest, book, file, fixA
         }, bookDetectedLanguage, book.age);
 
         for (const processed of processedChapter.pages) {
-          await replaceParsedBookPageContent(book.id, processed.pageNumber, processedChapter.chapter, processed.concepts, processed.exercises);
+          if (!generateOnlyMissingExercises) {
+            await replaceParsedBookPageContent(book.id, processed.pageNumber, processedChapter.chapter, processed.concepts, processed.exercises);
+            setGeneratedExercisesPageCount((count) => count + 1);
+            continue;
+          }
+
+          const generatedExercises = processed.exercises.flatMap((exercise): Array<Omit<Exercise, 'bookPage' | 'id'>> => {
+            const sourceConcept = exercise.conceptIndex === undefined ? undefined : processed.concepts[exercise.conceptIndex];
+            const conceptId = sourceConcept?.sourceId;
+
+            if (conceptId === undefined) {
+              return [];
+            }
+
+            return [{
+              conceptId,
+              description: stripMarkdownImageReferences(exercise.description),
+              imageDescription: exercise.imageDescription,
+              solution: exercise.solution,
+              solutionImageDescription: exercise.solutionImageDescription,
+              source: exercise.source,
+              title: exercise.title
+            }];
+          });
+
+          if (generatedExercises.length) {
+            const originalExercises = existingExercisesByPage.get(processed.pageNumber) ?? [];
+            const abilityContentsByExerciseId = new Map<number, string[]>();
+
+            await Promise.all(originalExercises.map(async ({ id }) => {
+              if (id !== undefined) {
+                abilityContentsByExerciseId.set(id, (await getAbilities(exerciseAbilityModuleId(book.id, id))).map(({ content }) => content));
+              }
+            }));
+
+            await replaceExercisesForBookPage(
+              [book.id, processed.pageNumber],
+              [...originalExercises.map(exerciseForPageReplacement), ...generatedExercises]
+            );
+
+            const storedExercises = await getExercisesForBookPage([book.id, processed.pageNumber]);
+
+            if (storedExercises.length !== originalExercises.length + generatedExercises.length || storedExercises.some(({ id }) => id === undefined)) {
+              throw new Error(`Unable to preserve existing Exercises while adding missing Exercises on page ${processed.pageNumber}.`);
+            }
+
+            for (let index = 0; index < originalExercises.length; index++) {
+              const oldId = originalExercises[index].id;
+              const newId = storedExercises[index].id as number;
+
+              if (oldId === undefined || oldId === newId) {
+                continue;
+              }
+
+              const contents = abilityContentsByExerciseId.get(oldId) ?? [];
+
+              if (contents.length) {
+                await replaceAbilities(exerciseAbilityModuleId(book.id, newId), contents);
+              }
+
+              await deleteAbilities(exerciseAbilityModuleId(book.id, oldId));
+            }
+
+            existingExercisesByPage.set(processed.pageNumber, storedExercises);
+          }
+
           setGeneratedExercisesPageCount((count) => count + 1);
         }
       });
@@ -2469,7 +2556,7 @@ function BookReader({ ageTabRequest, assignAllStandardsRequest, book, file, fixA
       setIsGeneratingAllExercises(false);
       onProcessingComplete();
     }
-  }, [addExercisesCost, completeStage, book.age, book.id, book.language, generateAllConceptsModel, isGeneratingAllConcepts, isIdentifyingChapters, isRecognizingAll, isGeneratingAllExercises, onProcessingComplete, pageNumber, pages, processingPage, refreshEntityCounts, revealPane, totalPages]);
+  }, [addExercisesCost, completeStage, book.age, book.id, book.language, generateAllConceptsModel, generateOnlyMissingExercises, isGeneratingAllConcepts, isIdentifyingChapters, isRecognizingAll, isGeneratingAllExercises, onProcessingComplete, pages, processingPage, refreshEntityCounts, revealPane, totalPages]);
 
   const detectAndStoreBookLanguage = useCallback(async (recognizedPages: Map<number, BookPage>, force = false): Promise<void> => {
     if ((!force && book.language) || isDetectingBookLanguageRef.current) {
