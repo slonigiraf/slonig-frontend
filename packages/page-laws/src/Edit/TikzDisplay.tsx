@@ -8,6 +8,8 @@ import { convertTikzTextToPaths } from './tikzGlyphPaths.js';
 
 interface Props {
   alt: string;
+  hasCompileError?: boolean;
+  onCompileError?: () => Promise<void> | void;
   value: string;
 }
 
@@ -123,6 +125,10 @@ function logText (values: unknown[]): string {
   }).join(' ');
 }
 
+function findTikzFallbackImage (root: ParentNode): HTMLImageElement | undefined {
+  return Array.from(root.querySelectorAll('img')).find((image) => /(?:broken|error|fallback)/i.test(`${image.src} ${image.alt} ${image.title}`));
+}
+
 async function runTikzPreRender (value: string): Promise<TikzPreRenderResult> {
   await ensureTikzJax();
 
@@ -214,7 +220,7 @@ async function runTikzPreRender (value: string): Promise<TikzPreRenderResult> {
       // A failed TikZJax render is replaced by a configured broken/fallback image.
       // Success is finalized by tikzjax-load-finished instead, so ordinary loader
       // elements do not produce a false positive.
-      const fallback = Array.from(host.querySelectorAll('img')).find((image) => /(?:broken|error|fallback)/i.test(`${image.src} ${image.alt} ${image.title}`));
+      const fallback = findTikzFallbackImage(host);
 
       if (fallback) {
         diagnostics.push(`TikZJax produced a fallback image: ${fallback.src || fallback.alt || 'render failure'}`);
@@ -292,12 +298,18 @@ export async function renderTikzToSvg (value: string): Promise<string> {
   return embedTikzSourceInSvg(outlinedSvg, value);
 }
 
-export default function TikzDisplay ({ alt, value }: Props): React.ReactElement {
+export default function TikzDisplay ({ alt, hasCompileError = false, onCompileError, value }: Props): React.ReactElement {
   const hostRef = useRef<HTMLDivElement>(null);
+  const onCompileErrorRef = useRef(onCompileError);
   const [error, setError] = useState('');
 
   useEffect(() => {
+    onCompileErrorRef.current = onCompileError;
+  }, [onCompileError]);
+
+  useEffect(() => {
     let isCancelled = false;
+    let didReportFailure = false;
     const host = hostRef.current;
 
     if (!host) {
@@ -306,6 +318,28 @@ export default function TikzDisplay ({ alt, value }: Props): React.ReactElement 
 
     host.replaceChildren();
     setError('');
+
+    if (hasCompileError) {
+      setError('TikZ compilation previously failed for this code. Edit the TikZ code to retry.');
+
+      return;
+    }
+    const observer = new MutationObserver(() => {
+      if (didReportFailure || !findTikzFallbackImage(host)) {
+        return;
+      }
+
+      didReportFailure = true;
+
+      if (!isCancelled) {
+        setError('TikZ compilation failed. Edit the TikZ code to retry.');
+        Promise.resolve(onCompileErrorRef.current?.()).catch((reason: unknown) => {
+          console.error('Unable to persist TikZ compile-error state.', reason);
+        });
+      }
+    });
+
+    observer.observe(host, { childList: true, subtree: true });
 
     ensureTikzJax()
       .then(() => {
@@ -328,9 +362,10 @@ export default function TikzDisplay ({ alt, value }: Props): React.ReactElement 
 
     return () => {
       isCancelled = true;
+      observer.disconnect();
       host.replaceChildren();
     };
-  }, [alt, value]);
+  }, [alt, hasCompileError, value]);
 
   return <>
     <TikzHost

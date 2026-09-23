@@ -1,11 +1,40 @@
 // Copyright 2021-2026 @polkadot/app-laws authors & contributors
 // SPDX-License-Identifier: Apache-2.0
 
+export interface GeneratedAbilityExercise {
+  a: string;
+  h: string;
+  i: string;
+  iError?: boolean;
+  iPrompt?: string;
+  p: string;
+  pError?: boolean;
+  pPrompt?: string;
+}
+
 export interface GeneratedAbility {
   h: string;
   i: string;
-  q: Array<{ a: string; h: string; i: string; iPrompt?: string; p: string; pPrompt?: string }>;
+  q: GeneratedAbilityExercise[];
   t: number;
+}
+
+export type AbilityVisualField = 'p' | 'i';
+
+export function withAbilityVisualSource (exercise: GeneratedAbilityExercise, field: AbilityVisualField, value: string): GeneratedAbilityExercise {
+  if (exercise[field] === value) {
+    return { ...exercise };
+  }
+
+  return field === 'p'
+    ? { ...exercise, p: value, pError: undefined }
+    : { ...exercise, i: value, iError: undefined };
+}
+
+export function withAbilityVisualError (exercise: GeneratedAbilityExercise, field: AbilityVisualField, hasError: boolean): GeneratedAbilityExercise {
+  return field === 'p'
+    ? { ...exercise, pError: hasError || undefined }
+    : { ...exercise, iError: hasError || undefined };
 }
 
 export interface AbilityExerciseImagePrompts {
@@ -54,11 +83,18 @@ export async function prepareAbilityForPublishing (
     i: abilityId,
     q: ability.q.map((exercise) => ({ ...exercise }))
   };
-  const q = await Promise.all(localAbility.q.map(async (exercise) => ({
-    ...exercise,
-    i: await publishImage(exercise.i),
-    p: await publishImage(exercise.p)
-  })));
+  const q = await Promise.all(localAbility.q.map(async (exercise) => {
+    const publishedExercise = {
+      ...exercise,
+      i: await publishImage(exercise.i),
+      p: await publishImage(exercise.p)
+    };
+
+    delete publishedExercise.iError;
+    delete publishedExercise.pError;
+
+    return publishedExercise;
+  }));
 
   return {
     localAbility,
@@ -108,8 +144,10 @@ function parseAbilityValue (template: unknown): GeneratedAbility {
         a: String(value.a).trim(),
         h: String(value.h).trim(),
         i: String(value.i),
+        ...(typeof value.iError === 'boolean' ? { iError: value.iError } : {}),
         ...(typeof value.iPrompt === 'string' ? { iPrompt: value.iPrompt } : {}),
         p: String(value.p),
+        ...(typeof value.pError === 'boolean' ? { pError: value.pError } : {}),
         ...(typeof value.pPrompt === 'string' ? { pPrompt: value.pPrompt } : {})
       };
     }),
@@ -310,8 +348,10 @@ export function parseAbilityRepairResult (content: string, originals: Array<Gene
         q: parsedAbility.q.map((exercise, exerciseIndex) => ({
           ...exercise,
           i: original.q[exerciseIndex].i,
+          ...(original.q[exerciseIndex].iError !== undefined ? { iError: original.q[exerciseIndex].iError } : {}),
           ...(original.q[exerciseIndex].iPrompt !== undefined ? { iPrompt: original.q[exerciseIndex].iPrompt } : {}),
           p: original.q[exerciseIndex].p,
+          ...(original.q[exerciseIndex].pError !== undefined ? { pError: original.q[exerciseIndex].pError } : {}),
           ...(original.q[exerciseIndex].pPrompt !== undefined ? { pPrompt: original.q[exerciseIndex].pPrompt } : {})
         }))
       };

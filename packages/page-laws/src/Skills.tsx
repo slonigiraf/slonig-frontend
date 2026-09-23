@@ -15,7 +15,7 @@ import { Button, Dropdown, Input, Modal, Toggle, styled } from '@polkadot/react-
 import ExerciseList from './Edit/ExerciseList.js';
 import type { TikzPreRenderResult } from './Edit/TikzDisplay.js';
 import { isTikzCode } from './Edit/tikz.js';
-import { parseAbilityRepairResult, parseStoredAbility } from './abilities.js';
+import { parseAbilityRepairResult, parseStoredAbility, withAbilityVisualError, withAbilityVisualSource } from './abilities.js';
 import { parseExerciseRepairResult } from './exercises.js';
 import { estimateAiInput } from './aiEstimate.js';
 import { ABILITY_WORKFLOW_SYSTEM_PROMPT, FIX_ABILITIES_REQUEST_PROMPT, FIX_EXERCISES_REQUEST_PROMPT, JSON_VALIDATION_PROMPT, LEARNER_AGE_PROMPT, OPENAI_MODELS, REPAIR_SYSTEM_PROMPT, SKILLS_GENERATION_SYSTEM_PROMPT, SOURCES_TO_SKILLS_REQUEST_PROMPT } from './constants.js';
@@ -824,7 +824,23 @@ function AbilityCard ({ onDeleted, onError, record }: { onDeleted: () => void; o
 
     await persistAbility({
       ...record.ability,
-      q: record.ability.q.map((exercise, index) => index === exerciseIndex ? { ...exercise, [field]: value } : { ...exercise })
+      q: record.ability.q.map((exercise, index) => index === exerciseIndex ? withAbilityVisualSource(exercise, field, value) : { ...exercise })
+    });
+  }, [persistAbility, record.ability]);
+  const saveVisualError = useCallback(async (exerciseIndex: number, field: 'p' | 'i', hasError: boolean): Promise<void> => {
+    if (!record.ability) {
+      throw new Error('Unable to save TikZ error state for invalid Ability JSON.');
+    }
+
+    const exercise = record.ability.q[exerciseIndex];
+
+    if (!exercise || (field === 'p' ? exercise.pError === hasError : exercise.iError === hasError)) {
+      return;
+    }
+
+    await persistAbility({
+      ...record.ability,
+      q: record.ability.q.map((value, index) => index === exerciseIndex ? withAbilityVisualError(value, field, hasError) : { ...value })
     });
   }, [persistAbility, record.ability]);
   const openEdit = useCallback((): void => {
@@ -839,7 +855,7 @@ function AbilityCard ({ onDeleted, onError, record }: { onDeleted: () => void; o
   }, [isSaving]);
   const updateDraftExercise = useCallback((exerciseIndex: number, field: 'a' | 'h' | 'i' | 'iPrompt' | 'p' | 'pPrompt', value: string): void => {
     setDraft((current) => current
-      ? { ...current, q: current.q.map((exercise, index) => index === exerciseIndex ? { ...exercise, [field]: value } : exercise) }
+      ? { ...current, q: current.q.map((exercise, index) => index === exerciseIndex ? (field === 'p' || field === 'i' ? withAbilityVisualSource(exercise, field, value) : { ...exercise, [field]: value }) : exercise) }
       : current);
   }, []);
   const save = useCallback((): void => {
@@ -870,6 +886,7 @@ function AbilityCard ({ onDeleted, onError, record }: { onDeleted: () => void; o
           areShownInitially
           exercises={record.ability.q}
           location='ability_info'
+          onAbilityVisualErrorChange={saveVisualError}
           onAbilityVisualSave={saveVisual}
         />
       </>
@@ -1952,7 +1969,7 @@ function Skills ({ book, externalRefreshToken = 0, onAction, onBookChange, onCon
 
         const promptField = field === 'p' ? 'pPrompt' : 'iPrompt';
 
-        current.q[exerciseIndex] = { ...current.q[exerciseIndex], [field]: tikz, [promptField]: visualPrompt };
+        current.q[exerciseIndex] = { ...withAbilityVisualSource(current.q[exerciseIndex], field, tikz), [promptField]: visualPrompt };
         updates.set(record.id, current);
         completed += 1;
         setProgress(completed);
@@ -2134,7 +2151,7 @@ function Skills ({ book, externalRefreshToken = 0, onAction, onBookChange, onCon
           q: record.ability.q.map((exercise) => ({ ...exercise }))
         };
 
-        ability.q[exerciseIndex] = { ...ability.q[exerciseIndex], [field]: fixedTikz };
+        ability.q[exerciseIndex] = withAbilityVisualSource(ability.q[exerciseIndex], field, fixedTikz);
         updates.set(record.id, ability);
       });
 

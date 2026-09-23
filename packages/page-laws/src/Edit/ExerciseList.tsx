@@ -17,9 +17,9 @@ const isGeneratedAbilityVisual = (value: string): boolean => {
     return isLocalOrRemoteImageUrl(trimmed) || /^(?:Qm[1-9A-HJ-NP-Za-km-z]{44}|b[a-z2-7]{20,})$/i.test(trimmed);
 };
 
-type AbilityExerciseWithPrompts = Exercise & { iPrompt?: string; pPrompt?: string };
+type AbilityExerciseWithPrompts = Exercise & { iError?: boolean; iPrompt?: string; pError?: boolean; pPrompt?: string };
 
-const ExerciseVisual: React.FC<{ alt: string; isAbilityInfo: boolean; label: string; onSave?: (value: string) => Promise<void>; prompt?: string; value: string }> = ({ alt, isAbilityInfo, label, onSave, prompt, value }) => {
+const ExerciseVisual: React.FC<{ alt: string; hasCompileError?: boolean; isAbilityInfo: boolean; label: string; onCompileError?: () => Promise<void> | void; onSave?: (value: string) => Promise<void>; prompt?: string; value: string }> = ({ alt, hasCompileError = false, isAbilityInfo, label, onCompileError, onSave, prompt, value }) => {
     if (!value.trim()) {
         return null;
     }
@@ -32,8 +32,8 @@ const ExerciseVisual: React.FC<{ alt: string; isAbilityInfo: boolean; label: str
         return <>
             <React.Suspense fallback={<small>Loading TikZ renderer…</small>}>
                 {isAbilityInfo
-                    ? <TikzVisual alt={alt} onSave={onSave} value={value} />
-                    : <TikzDisplay alt={alt} value={value} />}
+                    ? <TikzVisual alt={alt} hasCompileError={hasCompileError} onCompileError={onCompileError} onSave={onSave} value={value} />
+                    : <TikzDisplay alt={alt} hasCompileError={hasCompileError} onCompileError={onCompileError} value={value} />}
             </React.Suspense>
             {visiblePrompt && <VisualPrompt><strong>{label}:</strong> <KatexSpan content={visiblePrompt} /></VisualPrompt>}
         </>;
@@ -58,10 +58,11 @@ interface ExerciseListProps {
     areShownInitially?: boolean;
     isPreview?: boolean;
     location?: ExerciseListLocation;
+    onAbilityVisualErrorChange?: (exerciseIndex: number, field: 'p' | 'i', hasError: boolean) => Promise<void> | void;
     onAbilityVisualSave?: (exerciseIndex: number, field: 'p' | 'i', value: string) => Promise<void>;
 }
 
-const ExerciseList: React.FC<ExerciseListProps> = ({ exercises, areShownInitially = false, isPreview = false, location = 'default', onAbilityVisualSave }) => {
+const ExerciseList: React.FC<ExerciseListProps> = ({ exercises, areShownInitially = false, isPreview = false, location = 'default', onAbilityVisualErrorChange, onAbilityVisualSave }) => {
     const [areAnswersShown, setAreAnswersShown] = useState(areShownInitially);
     const { t } = useTranslation();
     const { logEvent } = useLog();
@@ -86,7 +87,7 @@ const ExerciseList: React.FC<ExerciseListProps> = ({ exercises, areShownInitiall
                 <div className="exercise-display">
                     <div className="exercise-header">
                         <span><KatexSpan content={exercise.h} /></span>
-                        {exercise.p && <ExerciseDetails><ExerciseVisual alt='Question' isAbilityInfo={location === 'ability_info'} label='Question visual prompt' onSave={onAbilityVisualSave ? (value) => onAbilityVisualSave(0, 'p', value) : undefined} prompt={(exercise as AbilityExerciseWithPrompts).pPrompt} value={exercise.p} /></ExerciseDetails>}
+                        {exercise.p && <ExerciseDetails><ExerciseVisual alt='Question' hasCompileError={(exercise as AbilityExerciseWithPrompts).pError === true} isAbilityInfo={location === 'ability_info'} label='Question visual prompt' onCompileError={onAbilityVisualErrorChange ? () => onAbilityVisualErrorChange(0, 'p', true) : undefined} onSave={onAbilityVisualSave ? (value) => onAbilityVisualSave(0, 'p', value) : undefined} prompt={(exercise as AbilityExerciseWithPrompts).pPrompt} value={exercise.p} /></ExerciseDetails>}
                     </div>
                 </div>
             </div>
@@ -102,7 +103,7 @@ const ExerciseList: React.FC<ExerciseListProps> = ({ exercises, areShownInitiall
                         <div className="exercise-display">
                             <div className="exercise-header">
                                 <span><KatexSpan content={` ${index + 1}. ` + exercise.h} /></span>
-                                {exercise.p && <ExerciseDetails><ExerciseVisual alt='Question' isAbilityInfo={location === 'ability_info'} label='Question visual prompt' onSave={onAbilityVisualSave ? (value) => onAbilityVisualSave(index, 'p', value) : undefined} prompt={(exercise as AbilityExerciseWithPrompts).pPrompt} value={exercise.p} /></ExerciseDetails>}
+                                {exercise.p && <ExerciseDetails><ExerciseVisual alt='Question' hasCompileError={(exercise as AbilityExerciseWithPrompts).pError === true} isAbilityInfo={location === 'ability_info'} label='Question visual prompt' onCompileError={onAbilityVisualErrorChange ? () => onAbilityVisualErrorChange(index, 'p', true) : undefined} onSave={onAbilityVisualSave ? (value) => onAbilityVisualSave(index, 'p', value) : undefined} prompt={(exercise as AbilityExerciseWithPrompts).pPrompt} value={exercise.p} /></ExerciseDetails>}
                             </div>
 
                             {location !== 'example_exercises' && <Answer>
@@ -116,7 +117,7 @@ const ExerciseList: React.FC<ExerciseListProps> = ({ exercises, areShownInitiall
                                 {areAnswersShown && (
                                     <>
                                         <KatexSpan content={exercise.a} />
-                                        {exercise.i && <ExerciseVisual alt='Solution' isAbilityInfo={location === 'ability_info'} label='Answer visual prompt' onSave={onAbilityVisualSave ? (value) => onAbilityVisualSave(index, 'i', value) : undefined} prompt={(exercise as AbilityExerciseWithPrompts).iPrompt} value={exercise.i} />}
+                                        {exercise.i && <ExerciseVisual alt='Solution' hasCompileError={(exercise as AbilityExerciseWithPrompts).iError === true} isAbilityInfo={location === 'ability_info'} label='Answer visual prompt' onCompileError={onAbilityVisualErrorChange ? () => onAbilityVisualErrorChange(index, 'i', true) : undefined} onSave={onAbilityVisualSave ? (value) => onAbilityVisualSave(index, 'i', value) : undefined} prompt={(exercise as AbilityExerciseWithPrompts).iPrompt} value={exercise.i} />}
                                     </>
                                 )}
                             </Answer>}

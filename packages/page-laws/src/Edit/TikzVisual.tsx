@@ -9,7 +9,9 @@ import TikzDisplay from './TikzDisplay.js';
 interface Props {
   alt: string;
   editorTitle?: string;
+  hasCompileError?: boolean;
   isEditorShownInitially?: boolean;
+  onCompileError?: () => Promise<void> | void;
   onEditorClose?: () => void;
   onSave?: (value: string) => Promise<void>;
   prompt?: string;
@@ -41,7 +43,7 @@ function parseEditorMessage (value: unknown): TikzEditorMessage | undefined {
   return undefined;
 }
 
-export default function TikzVisual ({ alt, editorTitle, isEditorShownInitially = false, onEditorClose, onSave, prompt, showPreview = true, value }: Props): React.ReactElement {
+export default function TikzVisual ({ alt, editorTitle, hasCompileError = false, isEditorShownInitially = false, onCompileError, onEditorClose, onSave, prompt, showPreview = true, value }: Props): React.ReactElement {
   const [draft, setDraft] = useState(value);
   const [rendered, setRendered] = useState(value);
   const [isDetailsShown, setIsDetailsShown] = useState(false);
@@ -179,7 +181,12 @@ export default function TikzVisual ({ alt, editorTitle, isEditorShownInitially =
   }, [onEditorClose]);
 
   return <TikzEditor>
-    {showPreview && <TikzDisplay alt={`${alt} TikZ preview`} value={rendered} />}
+    {showPreview && <TikzDisplay
+      alt={`${alt} TikZ preview`}
+      hasCompileError={hasCompileError && rendered === value}
+      onCompileError={rendered === value ? onCompileError : undefined}
+      value={rendered}
+    />}
     {showPreview && <Button.Group>
       {onSave && <Button
         icon='edit'

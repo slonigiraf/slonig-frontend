@@ -7,7 +7,7 @@ import type { GeneratedAbility } from './abilities.js';
 
 import { strict as assert } from 'node:assert';
 
-import { parseAbilityRepairResult, parseAbilityRepairReviews, parseGeneratedAbilities, parseGeneratedExerciseAbilities, parseStoredAbility, prepareAbilityForPublishing } from './abilities.js';
+import { parseAbilityRepairResult, parseAbilityRepairReviews, parseGeneratedAbilities, parseGeneratedExerciseAbilities, parseStoredAbility, prepareAbilityForPublishing, withAbilityVisualError, withAbilityVisualSource } from './abilities.js';
 import { FIX_ABILITIES_PROMPT, SKILL_LIST_PROMPT, SOURCES_TO_SKILLS_PROMPT } from './constants.js';
 
 function createSkill (): GeneratedAbility {
@@ -37,6 +37,30 @@ describe('generated abilities', (): void => {
     assert.deepEqual(parsed, skill);
     assert.deepEqual(Object.keys(parsed).sort(), ['h', 'i', 'q', 't']);
     assert.deepEqual(Object.keys(parsed.q[0]).sort(), ['a', 'h', 'i', 'p']);
+  });
+
+  it('persists TikZ compile-error state with the visual and clears it only when the source changes', (): void => {
+    const original = createSkill().q[0];
+    const failed = withAbilityVisualError({ ...original, p: '\\begin{tikzpicture}bad\\end{tikzpicture}' }, 'p', true);
+    const unchanged = withAbilityVisualSource(failed, 'p', failed.p);
+    const changed = withAbilityVisualSource(failed, 'p', '\\begin{tikzpicture}fixed\\end{tikzpicture}');
+
+    assert.equal(failed.pError, true);
+    assert.equal(unchanged.pError, true);
+    assert.equal(changed.pError, undefined);
+    assert.equal(withAbilityVisualError(failed, 'p', false).pError, undefined);
+  });
+
+  it('reads persisted TikZ error flags from stored Ability JSON', (): void => {
+    const ability = createSkill();
+
+    ability.q[0].pError = true;
+    ability.q[1].iError = true;
+
+    const parsed = parseStoredAbility(JSON.stringify(ability));
+
+    assert.equal(parsed.q[0].pError, true);
+    assert.equal(parsed.q[1].iError, true);
   });
 
   it('parses indexed Ability repair reviews and only returns a replacement for errors', (): void => {
@@ -119,6 +143,8 @@ describe('generated abilities', (): void => {
 
     ability.q[0].p = 'data:image/png;base64,cXVlc3Rpb24=';
     ability.q[0].i = 'data:image/png;base64,YW5zd2Vy';
+    ability.q[0].pError = true;
+    ability.q[0].iError = true;
     const pinned: string[] = [];
     const { localAbility, publishAbility } = await prepareAbilityForPublishing(ability, `0x${'12'.repeat(32)}`, async (value) => {
       if (!value.startsWith('data:image/')) {
@@ -132,8 +158,12 @@ describe('generated abilities', (): void => {
 
     assert.equal(localAbility.q[0].p, 'data:image/png;base64,cXVlc3Rpb24=');
     assert.equal(localAbility.q[0].i, 'data:image/png;base64,YW5zd2Vy');
+    assert.equal(localAbility.q[0].pError, true);
+    assert.equal(localAbility.q[0].iError, true);
     assert.equal(publishAbility.q[0].p, 'bafy-question');
     assert.equal(publishAbility.q[0].i, 'bafy-answer');
+    assert.equal(publishAbility.q[0].pError, undefined);
+    assert.equal(publishAbility.q[0].iError, undefined);
     assert.equal(ability.q[0].p, 'data:image/png;base64,cXVlc3Rpb24=');
     assert.equal(ability.q[0].i, 'data:image/png;base64,YW5zd2Vy');
     assert.deepEqual(pinned.sort(), [ability.q[0].i, ability.q[0].p].sort());
@@ -143,7 +173,7 @@ describe('generated abilities', (): void => {
     const original = {
       ...createSkill(),
       i: 'ability-link',
-      q: createSkill().q.map((exercise, index) => ({ ...exercise, i: `exercise-link-${index}`, p: `prompt-link-${index}` }))
+      q: createSkill().q.map((exercise, index) => ({ ...exercise, i: `exercise-link-${index}`, iError: index === 1, p: `prompt-link-${index}`, pError: index === 0 }))
     };
     const candidate = {
       ...createSkill(),
@@ -157,6 +187,8 @@ describe('generated abilities', (): void => {
     assert.equal(review.ability?.i, original.i);
     assert.equal(review.ability?.q[0].i, original.q[0].i);
     assert.equal(review.ability?.q[0].p, original.q[0].p);
+    assert.equal(review.ability?.q[0].pError, true);
+    assert.equal(review.ability?.q[1].iError, true);
     assert.match(review.ability?.q[0].a ?? '', /Corrected/);
   });
 
