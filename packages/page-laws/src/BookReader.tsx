@@ -23,8 +23,8 @@ import { areAllBookPagesConceptsProcessed, countUnprocessedBookPages, processExt
 import { mapConcurrent } from './concurrency.js';
 import { OPENROUTER_CONCURRENCY, openRouterRequestGate } from './openRouterConcurrency.js';
 import OpenRouterModelSelector from './OpenRouterModelSelector.js';
-import { chapterLevelMissingConcept, fixChapterConceptsPrompt, parseMissingChapterConcepts } from './fixConcepts.js';
-import { clearFixConceptsChapterStatuses, fixConceptsChapterKey, loadFixConceptsChapterStatuses, setFixConceptsChapterStatus, storeFixConceptsChapterStatuses, type FixConceptsChapterStatuses } from './fixConceptsProgress.js';
+import { chapterLevelMissingConcept, fixChapterConceptsPrompt, parseMissingChapterConcepts, type MissingChapterConcept } from './fixConcepts.js';
+import { clearFixConceptsChapterStatuses, fixConceptsChapterKey, loadFixConceptsChapterStatuses, storeFixConceptsChapterStatuses, type FixConceptsChapterStatuses } from './fixConceptsProgress.js';
 import { formatOpenRouterSpend, reportOpenRouterCost, type OpenRouterCostReporter } from './openRouterCost.js';
 import { BOOK_AGE_DETECTION_PROMPT, BOOK_CHAPTER_EXTRACTION_REQUEST_PROMPT, BOOK_LANGUAGE_DETECTION_PROMPT, BOOK_SUBJECT_DETECTION_PROMPT, MATHPIX_PDF_PAGE_PRICE_USD, OPENAI_MODELS } from './constants.js';
 import { stripMarkdownImageReferences } from './bookImageRefs.js';
@@ -310,6 +310,224 @@ const ConceptForm = styled.div`
   @media only screen and (max-width: 600px) {
     gap: 0.8rem;
   }
+`;
+
+const FixConceptsReviewContent = styled.div`
+  .fixConceptsReviewIntro {
+    align-items: flex-end;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.75rem 1rem;
+    justify-content: space-between;
+    margin-bottom: 1rem;
+  }
+
+  .fixConceptsReviewIntro > p {
+    flex: 1 1 28rem;
+    margin: 0;
+  }
+
+  .fixConceptsReviewIntro > label {
+    align-items: center;
+    display: flex;
+    gap: 0.5rem;
+    white-space: nowrap;
+  }
+
+  .fixConceptsReviewIntro select {
+    background: var(--bg-input);
+    border: 1px solid #dde1eb;
+    border-radius: 0.25rem;
+    color: var(--color-text);
+    font: inherit;
+    max-width: 24rem;
+    padding: 0.5rem;
+  }
+
+  .fixConceptsReviewComparison {
+    min-width: 0;
+  }
+
+  .fixConceptsReviewRow {
+    display: grid;
+    gap: 1rem;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  }
+
+  .fixConceptsReviewRow.isUnchanged {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .fixConceptsReviewChangeLabel {
+    display: block;
+    font-size: 0.82rem;
+    font-weight: 600;
+    line-height: 1.2;
+    margin: 0;
+    opacity: 0.72;
+    padding-left: 0.1rem;
+  }
+
+  .fixConceptsDifference h3 {
+    margin: 0 0 0.6rem;
+  }
+
+  .fixConceptsReviewConcepts {
+    border: 1px solid #dde1eb;
+    border-radius: 0.5rem;
+    box-sizing: border-box;
+    display: grid;
+    gap: 0.7rem;
+    max-height: min(48vh, 36rem);
+    min-height: 14rem;
+    overflow: auto;
+    padding: 0.75rem;
+  }
+
+  .fixConceptsReviewRow {
+    align-items: stretch;
+  }
+
+  .fixConceptsReviewCell {
+    min-width: 0;
+  }
+
+  .fixConceptsReviewCell.isBefore,
+  .fixConceptsReviewCell.isAfter {
+    display: flex;
+    flex-direction: column;
+    gap: 0.45rem;
+  }
+
+  .fixConceptsReviewCell.isBefore > .fixConceptsReviewCard,
+  .fixConceptsReviewCell.isAfter > .fixConceptsReviewCard,
+  .fixConceptsReviewCell.isBefore > .fixConceptsReviewMissingBefore,
+  .fixConceptsReviewCell.isAfter > .fixConceptsReviewMissingBefore {
+    flex: 1 1 auto;
+  }
+
+  .fixConceptsReviewCard {
+    background: var(--bg-input);
+    border: 1px solid #dde1eb;
+    border-radius: 0.6rem;
+    box-sizing: border-box;
+    padding: 0.8rem 0.9rem;
+  }
+
+  .fixConceptsReviewCard.isProposed {
+    border-color: var(--color-primary, #1682d4);
+    box-shadow: inset 3px 0 0 var(--color-primary, #1682d4);
+  }
+
+  .fixConceptsReviewCard p {
+    line-height: 1.5;
+    margin: 0.45rem 0 0;
+  }
+
+  .fixConceptsReviewMissingBefore {
+    align-items: center;
+    border: 1px dashed #dde1eb;
+    border-radius: 0.6rem;
+    box-sizing: border-box;
+    display: flex;
+    justify-content: center;
+    min-height: 4.5rem;
+    opacity: 0.65;
+    padding: 0.8rem 0.9rem;
+    text-align: center;
+  }
+
+  .fixConceptsReviewConceptHeading {
+    align-items: flex-start;
+    display: flex;
+    gap: 0.75rem;
+    justify-content: space-between;
+  }
+
+  .fixConceptsReviewConceptHeading > strong {
+    line-height: 1.35;
+    min-width: 0;
+    overflow-wrap: anywhere;
+  }
+
+  .fixConceptsReviewMeta {
+    align-items: center;
+    display: flex;
+    flex-shrink: 0;
+    gap: 0.35rem;
+  }
+
+  .fixConceptsReviewPage,
+  .fixConceptsReviewProposed {
+    border-radius: 999px;
+    font-size: 0.78em;
+    line-height: 1.2;
+    padding: 0.25rem 0.5rem;
+    white-space: nowrap;
+  }
+
+  .fixConceptsReviewPage {
+    background: rgba(47, 111, 235, 0.08);
+    border: 1px solid rgba(47, 111, 235, 0.18);
+  }
+
+  .fixConceptsReviewProposed {
+    background: rgba(22, 130, 212, 0.12);
+    border: 1px solid rgba(22, 130, 212, 0.28);
+    font-weight: 600;
+  }
+
+  .fixConceptsReviewEmpty {
+    margin: 0;
+    opacity: 0.7;
+  }
+
+  .fixConceptsDifference {
+    border-top: 1px solid #dde1eb;
+    margin-top: 1rem;
+    padding-top: 1rem;
+  }
+
+  .fixConceptsDifference p {
+    margin: 0.25rem 0;
+  }
+
+  .fixConceptsDifference ul {
+    margin: 0.6rem 0 0;
+    padding-left: 1.4rem;
+  }
+
+  .fixConceptsReviewWarning {
+    border: 1px solid rgba(180, 120, 20, 0.35);
+    border-radius: 0.5rem;
+    margin: 1rem 0 0;
+    padding: 0.7rem 0.8rem;
+  }
+
+  @media (max-width: 760px) {
+    .fixConceptsReviewRow {
+      gap: 0.6rem;
+      grid-template-columns: 1fr;
+    }
+
+    .fixConceptsReviewConcepts {
+      max-height: 44vh;
+    }
+
+    .fixConceptsReviewIntro > label {
+      align-items: stretch;
+      flex: 1 1 100%;
+      flex-wrap: wrap;
+      white-space: normal;
+    }
+
+    .fixConceptsReviewIntro select {
+      flex: 1;
+      max-width: none;
+      min-width: 12rem;
+    }
+  }
+
 `;
 
 
@@ -1143,6 +1361,19 @@ interface ReaderEntityCounts {
   exercises: number;
 }
 
+interface FixConceptsReviewChapter {
+  before: BookConcept[];
+  chapter: ConceptChapterNavigationItem;
+  missing: MissingChapterConcept[];
+}
+
+interface FixConceptsReview {
+  baseStatuses: FixConceptsChapterStatuses;
+  chapters: FixConceptsReviewChapter[];
+  failedChapters: Array<{ chapter: ConceptChapterNavigationItem; reason: string }>;
+  targetChapterCount: number;
+}
+
 interface ExerciseChapterNavigationItem {
   pageNumbers: number[];
   title: string;
@@ -1228,6 +1459,9 @@ function BookReader({ ageTabRequest, assignAllStandardsRequest, book, file, fixA
   const [conceptCountsByChapter, setConceptCountsByChapter] = useState<Map<string, number>>(new Map());
   const [standardsByChapter, setStandardsByChapter] = useState<StoredBookStandards>(() => loadStoredBookStandards(book.id));
   const [fixConceptsChapterStatuses, setFixConceptsChapterStatuses] = useState<FixConceptsChapterStatuses>(() => loadFixConceptsChapterStatuses(book.id));
+  const [fixConceptsReview, setFixConceptsReview] = useState<FixConceptsReview>();
+  const [fixConceptsReviewChapterIndex, setFixConceptsReviewChapterIndex] = useState(0);
+  const [isApplyingFixConceptsReview, setIsApplyingFixConceptsReview] = useState(false);
   const [standardsCatalogs, setStandardsCatalogs] = useState<StandardsCatalog[]>([]);
   const [standardsChapterIndex, setStandardsChapterIndex] = useState(0);
   const [standardsAssignedChapterCount, setStandardsAssignedChapterCount] = useState(0);
@@ -2413,7 +2647,7 @@ function BookReader({ ageTabRequest, assignAllStandardsRequest, book, file, fixA
   }, [addConceptsCost, completeStage, book.id, conceptChapters, generateAllConceptsModel, generateOnlyMissingConcepts, isGeneratingAllConcepts, isIdentifyingChapters, isRecognizingAll, loadConceptCountsByChapter, onProcessingComplete, pageNumber, pages, processingPage, refreshConceptCounts, refreshEntityCounts, revealPane, totalPages]);
 
   const fixAllConcepts = useCallback(async (model = generateAllConceptsModel, onlyFailed = false): Promise<void> => {
-    if (!conceptChapters.length || isFixingConcepts || isGeneratingAllConcepts || isRecognizingAll || isIdentifyingChapters || isGeneratingAllExercises) {
+    if (!conceptChapters.length || isFixingConcepts || isGeneratingAllConcepts || isRecognizingAll || isIdentifyingChapters || isGeneratingAllExercises || fixConceptsReview) {
       return;
     }
 
@@ -2437,14 +2671,8 @@ function BookReader({ ageTabRequest, assignAllStandardsRequest, book, file, fixA
     setIsFixingConcepts(true);
     setFixedConceptsChapterCount(0);
     setFixConceptsTargetChapterCount(targetChapters.length);
-    if (!onlyFailed) {
-      setFixConceptsChapterStatuses(clearFixConceptsChapterStatuses(book.id));
-    } else {
-      setFixConceptsChapterStatuses(previousStatuses);
-    }
 
     try {
-      const attempt = await incrementBookFixConceptsAttempts(book.id);
       const key = await getSetting(SettingKey.OPENROUTER_TOKEN);
 
       if (!key) {
@@ -2461,47 +2689,120 @@ function BookReader({ ageTabRequest, assignAllStandardsRequest, book, file, fixA
       const pageLessConcepts = await getBookConceptsForBookPage(book.id, 0);
       const results = await mapConcurrent(targetChapters, OPENROUTER_CONCURRENCY, async (chapter) => {
         try {
-          const concepts = [
+          const before = sortConceptsForDisplay([
             ...(await Promise.all(chapter.pageNumbers.map((chapterPageNumber) => getBookConceptsForBookPage(book.id, chapterPageNumber)))).flat(),
             ...pageLessConcepts.filter(({ chapterId }) => chapterId !== undefined && chapterId === chapter.chapterId)
-          ];
+          ]);
           const chapterMmd = chapter.pageNumbers.map((chapterPageNumber) => `--- page ${chapterPageNumber} ---\n${pages.get(chapterPageNumber)?.pageMMD ?? ''}`).join('\n\n');
-          const missing = await requestMissingChapterConcepts(client, model, chapter.title, chapterMmd, concepts, chapter.pageNumbers, book, addFixConceptsCost);
+          const missing = await requestMissingChapterConcepts(client, model, chapter.title, chapterMmd, before, chapter.pageNumbers, book, addFixConceptsCost);
 
-          return { chapter, missing, status: 'fulfilled' as const };
+          return { before, chapter, missing, status: 'fulfilled' as const };
         } catch (reason) {
           return { chapter, reason, status: 'rejected' as const };
+        } finally {
+          setFixedConceptsChapterCount((count) => count + 1);
         }
       });
-      let failures = 0;
+      const successfulChapters = results.flatMap((result): FixConceptsReviewChapter[] => result.status === 'fulfilled'
+        ? [{ before: result.before, chapter: result.chapter, missing: result.missing }]
+        : []);
+      const failedChapters = results.flatMap((result): FixConceptsReview['failedChapters'] => result.status === 'rejected'
+        ? [{ chapter: result.chapter, reason: conceptGenerationErrorMessage(result.reason) }]
+        : []);
+
+      if (!successfulChapters.length) {
+        const failureDetails = failedChapters.map(({ chapter, reason }) => `${chapter.title || 'Untitled chapter'}: ${reason}`);
+
+        setError(`Fix concepts could not prepare any changes for review.${failureDetails.length ? ` ${failureDetails.join(' | ')}` : ''}`);
+        return;
+      }
+
+      setFixConceptsReviewChapterIndex(0);
+      setFixConceptsReview({
+        baseStatuses: onlyFailed ? previousStatuses : {},
+        chapters: successfulChapters,
+        failedChapters,
+        targetChapterCount: targetChapters.length
+      });
+      revealPane('textConcepts');
+    } finally {
+      setIsFixingConcepts(false);
+    }
+  }, [addFixConceptsCost, book, conceptChapters, fixConceptsReview, generateAllConceptsModel, isFixingConcepts, isGeneratingAllConcepts, isGeneratingAllExercises, isIdentifyingChapters, isRecognizingAll, pages, revealPane]);
+
+  const discardFixConceptsReview = useCallback((): void => {
+    if (isApplyingFixConceptsReview) {
+      return;
+    }
+
+    setFixConceptsReview(undefined);
+    setFixConceptsReviewChapterIndex(0);
+  }, [isApplyingFixConceptsReview]);
+
+  const removeFixConceptsReviewConcept = useCallback((chapterIndex: number, missingIndex: number): void => {
+    if (isApplyingFixConceptsReview) {
+      return;
+    }
+
+    setFixConceptsReview((review) => {
+      if (!review || !review.chapters[chapterIndex]?.missing[missingIndex]) {
+        return review;
+      }
+
+      return {
+        ...review,
+        chapters: review.chapters.map((reviewChapter, reviewChapterIndex) => reviewChapterIndex === chapterIndex
+          ? { ...reviewChapter, missing: reviewChapter.missing.filter((_, index) => index !== missingIndex) }
+          : reviewChapter)
+      };
+    });
+  }, [isApplyingFixConceptsReview]);
+
+  const applyFixConceptsReview = useCallback(async (): Promise<void> => {
+    if (!fixConceptsReview || isApplyingFixConceptsReview) {
+      return;
+    }
+
+    setIsApplyingFixConceptsReview(true);
+    setError('');
+
+    try {
+      const resetBook = await resetBookProcessingStagesFrom(book.id, 'fixConcepts');
+      const bookAfterReset = resetBook ?? withBookProcessingStagesResetFrom(book, 'fixConcepts');
+
+      onBookChange(bookAfterReset);
+
+      const attempt = await incrementBookFixConceptsAttempts(book.id);
+      const nextStatuses: FixConceptsChapterStatuses = { ...fixConceptsReview.baseStatuses };
+      const failureDetails = fixConceptsReview.failedChapters.map(({ chapter, reason }) => {
+        nextStatuses[fixConceptsChapterKey(chapter)] = 'failed';
+        return `${chapter.title || 'Untitled chapter'}: ${reason}`;
+      });
       let added = 0;
-      const failureDetails: string[] = [];
 
-      for (const result of results) {
-        if (result.status === 'rejected') {
-          failures++;
-          failureDetails.push(`${result.chapter.title || 'Untitled chapter'}: ${conceptGenerationErrorMessage(result.reason)}`);
-          setFixConceptsChapterStatuses(setFixConceptsChapterStatus(book.id, result.chapter, 'failed'));
-          continue;
-        }
-
+      for (const { chapter, missing } of fixConceptsReview.chapters) {
         try {
-          for (const concept of result.missing) {
-            await createBookConcept(chapterLevelMissingConcept(book.id, result.chapter.chapterId, concept, attempt));
+          for (const concept of missing) {
+            await createBookConcept(chapterLevelMissingConcept(book.id, chapter.chapterId, concept, attempt));
             added++;
           }
 
-          setFixConceptsChapterStatuses(setFixConceptsChapterStatus(book.id, result.chapter, 'fixed'));
-          setFixedConceptsChapterCount((count) => count + 1);
+          nextStatuses[fixConceptsChapterKey(chapter)] = 'fixed';
         } catch (reason) {
-          failures++;
-          failureDetails.push(`${result.chapter.title || 'Untitled chapter'}: saving missing concepts failed (${conceptGenerationErrorMessage(reason)})`);
-          setFixConceptsChapterStatuses(setFixConceptsChapterStatus(book.id, result.chapter, 'failed'));
+          nextStatuses[fixConceptsChapterKey(chapter)] = 'failed';
+          failureDetails.push(`${chapter.title || 'Untitled chapter'}: saving proposed concepts failed (${conceptGenerationErrorMessage(reason)})`);
         }
       }
 
-      const latestStatuses = loadFixConceptsChapterStatuses(book.id);
-      const allChaptersFixed = conceptChapters.every((chapter) => latestStatuses[fixConceptsChapterKey(chapter)] === 'fixed');
+      storeFixConceptsChapterStatuses(book.id, nextStatuses);
+      setFixConceptsChapterStatuses(nextStatuses);
+      // The reviewed proposal has now been consumed. Close it before any
+      // post-save refresh work so a refresh failure cannot cause duplicate
+      // concept inserts if the user retries the same review.
+      setFixConceptsReview(undefined);
+      setFixConceptsReviewChapterIndex(0);
+
+      const allChaptersFixed = conceptChapters.every((chapter) => nextStatuses[fixConceptsChapterKey(chapter)] === 'fixed');
 
       await Promise.all([refreshEntityCounts(), refreshConceptCounts()]);
       setSkillsRefreshToken((value) => value + 1);
@@ -2522,26 +2823,24 @@ function BookReader({ ageTabRequest, assignAllStandardsRequest, book, file, fixA
         setConceptFirstPageByKey(references);
       }
 
-      if (failures === 0 && allChaptersFixed) {
-        await completeStage('fixConcepts');
-        revealPane('textConcepts');
+      if (allChaptersFixed) {
+        const completedBook = await completeBookProcessingStage(book.id, 'fixConcepts');
+
+        onBookChange(completedBook ?? withCompletedBookProcessingStage(bookAfterReset, 'fixConcepts'));
         setError('');
-      } else if (failures > 0) {
-        const runLabel = onlyFailed ? 'retry' : 'run';
-
-        setError(`${failures} of ${targetChapters.length} chapters failed during this Fix concepts ${runLabel}. Successful chapters were kept and marked ✓. Retry only failed chapters to continue.${failureDetails.length ? ` ${failureDetails.join(' | ')}` : ''}`);
       } else {
-        setError('Fix concepts finished, but not every chapter has a successful Fix concepts result yet. Retry the failed chapters.');
+        const failureCount = conceptChapters.filter((chapter) => nextStatuses[fixConceptsChapterKey(chapter)] === 'failed').length;
+
+        setError(`${failureCount} chapter${failureCount === 1 ? '' : 's'} still need Fix concepts attention. Approved changes were saved${added ? ` (${added} concept${added === 1 ? '' : 's'} added)` : ''}.${failureDetails.length ? ` ${failureDetails.join(' | ')}` : ''}`);
       }
 
-      if (added === 0 && failures === 0) {
-        // Completing with no additions is still a successful quality gate.
-        setFixedConceptsChapterCount(targetChapters.length);
-      }
+    } catch (applyError) {
+      setError(applyError instanceof Error ? applyError.message : 'Unable to apply the reviewed Fix concepts changes.');
     } finally {
-      setIsFixingConcepts(false);
+      setIsApplyingFixConceptsReview(false);
+      onProcessingComplete();
     }
-  }, [addFixConceptsCost, book, completeStage, conceptChapters, currentConceptChapter, generateAllConceptsModel, isFixingConcepts, isGeneratingAllConcepts, isGeneratingAllExercises, isIdentifyingChapters, isRecognizingAll, pages, refreshConceptCounts, refreshEntityCounts, revealPane]);
+  }, [book, conceptChapters, currentConceptChapter, fixConceptsReview, isApplyingFixConceptsReview, onBookChange, onProcessingComplete, refreshConceptCounts, refreshEntityCounts]);
 
   const generateAllExercises = useCallback(async (): Promise<void> => {
     if (!totalPages || processingPage !== undefined || isGeneratingAllConcepts || isRecognizingAll || isGeneratingAllExercises || isIdentifyingChapters) {
@@ -4731,8 +5030,116 @@ function BookReader({ ageTabRequest, assignAllStandardsRequest, book, file, fixA
     </div>;
   };
 
+  const currentFixConceptsReviewChapter = fixConceptsReview?.chapters[Math.min(fixConceptsReviewChapterIndex, Math.max(0, fixConceptsReview.chapters.length - 1))];
+  const fixConceptsReviewConceptCard = (concept: BookConcept, conceptNumber: number): React.ReactNode => {
+    const displayPage = conceptDisplayPage(concept);
+
+    return <div className='fixConceptsReviewCard'>
+      <div className='fixConceptsReviewConceptHeading'>
+        <strong><span className='conceptNumber'>{conceptNumber}.</span> <KatexSpan content={concept.title} /></strong>
+        {displayPage !== undefined && <span className='fixConceptsReviewPage'>Page {displayPage}</span>}
+      </div>
+      {concept.description && <p><KatexSpan content={concept.description} /></p>}
+    </div>;
+  };
+  const fixConceptsReviewRows = (reviewChapter: FixConceptsReviewChapter): React.ReactNode => {
+    if (!reviewChapter.before.length && !reviewChapter.missing.length) {
+      return <p className='fixConceptsReviewEmpty'>No concepts in this chapter.</p>;
+    }
+
+    return <>
+      {reviewChapter.before.map((concept, index) => <div
+        className='fixConceptsReviewRow isUnchanged'
+        key={`existing-${conceptReferenceKey(concept)}`}
+      >
+        <div className='fixConceptsReviewCell'>{fixConceptsReviewConceptCard(concept, index + 1)}</div>
+      </div>)}
+      {reviewChapter.missing.map((concept, missingIndex) => <div
+        className='fixConceptsReviewRow'
+        key={`proposed-${concept.pageNumber}-${concept.title}-${missingIndex}`}
+      >
+        <div className='fixConceptsReviewCell isBefore'>
+          <span className='fixConceptsReviewChangeLabel'>Before</span>
+          <div className='fixConceptsReviewMissingBefore'>Not present before</div>
+        </div>
+        <div className='fixConceptsReviewCell isAfter'>
+          <span className='fixConceptsReviewChangeLabel'>After</span>
+          <div className='fixConceptsReviewCard isProposed'>
+            <div className='fixConceptsReviewConceptHeading'>
+              <strong><span className='conceptNumber'>{reviewChapter.before.length + missingIndex + 1}.</span> <KatexSpan content={concept.title} /></strong>
+              <span className='fixConceptsReviewMeta'>
+                <span className='fixConceptsReviewProposed'>Proposed</span>
+                <span className='fixConceptsReviewPage'>Page {concept.pageNumber}</span>
+                <Button
+                  icon='trash'
+                  isDisabled={isApplyingFixConceptsReview}
+                  label='Remove'
+                  onClick={() => removeFixConceptsReviewConcept(fixConceptsReviewChapterIndex, missingIndex)}
+                />
+              </span>
+            </div>
+            <p><KatexSpan content={concept.description} /></p>
+          </div>
+        </div>
+      </div>)}
+    </>;
+  };
+
   return (
     <StyledReader className={`bookReader${isMaximized ? ' isMaximized' : ''}`}>
+      {fixConceptsReview && currentFixConceptsReviewChapter && <Modal
+        header='Review Fix concepts changes'
+        onClose={discardFixConceptsReview}
+        size='large'
+      >
+        <Modal.Content>
+          <FixConceptsReviewContent>
+          <div className='fixConceptsReviewIntro'>
+            <p><strong>No concept changes have been saved yet.</strong></p>
+            <label>Chapter <select
+              aria-label='Review Fix concepts chapter'
+              disabled={isApplyingFixConceptsReview}
+              onChange={({ target }) => setFixConceptsReviewChapterIndex(Number(target.value))}
+              value={fixConceptsReviewChapterIndex}
+            >
+              {fixConceptsReview.chapters.map(({ chapter, missing }, index) => <option
+                key={fixConceptsChapterKey(chapter)}
+                value={index}
+              >{chapter.title || 'Chapter not identified'} ({missing.length} proposed)</option>)}
+            </select><span>{fixConceptsReviewChapterIndex + 1} of {fixConceptsReview.chapters.length}</span></label>
+          </div>
+          <div className='fixConceptsReviewComparison'>
+            <div className='fixConceptsReviewConcepts'>{fixConceptsReviewRows(currentFixConceptsReviewChapter)}</div>
+          </div>
+          <section className='fixConceptsDifference'>
+            <h3>Difference</h3>
+            {currentFixConceptsReviewChapter.missing.length
+              ? <>
+                <p>{currentFixConceptsReviewChapter.missing.length} proposed concept{currentFixConceptsReviewChapter.missing.length === 1 ? '' : 's'} selected to add. Remove any proposal you do not want saved. Existing concepts are not edited or removed.</p>
+                <ul>{currentFixConceptsReviewChapter.missing.map((concept) => <li key={`${concept.pageNumber}-${concept.title}`}><strong><KatexSpan content={concept.title} /></strong> — page {concept.pageNumber}</li>)}</ul>
+              </>
+              : <p>No changes are proposed for this chapter. The before and after concept lists are identical.</p>}
+          </section>
+          {!!fixConceptsReview.failedChapters.length && <p className='fixConceptsReviewWarning'>
+            {fixConceptsReview.failedChapters.length} of {fixConceptsReview.targetChapterCount} chapter{fixConceptsReview.failedChapters.length === 1 ? '' : 's'} could not be prepared and will remain marked for retry if you apply the reviewed changes.
+          </p>}
+          <Button.Group>
+            <Button
+              icon='times'
+              isDisabled={isApplyingFixConceptsReview}
+              label='Discard proposals'
+              onClick={discardFixConceptsReview}
+            />
+            <Button
+              icon='check'
+              isDisabled={isApplyingFixConceptsReview}
+              label={isApplyingFixConceptsReview ? 'Applying…' : 'Apply changes'}
+              onClick={() => { void applyFixConceptsReview(); }}
+            />
+          </Button.Group>
+          </FixConceptsReviewContent>
+        </Modal.Content>
+      </Modal>}
       {isMathpixKeyPromptOpen && <Modal
         header='Mathpix API key'
         onClose={closeMathpixKeyPrompt}

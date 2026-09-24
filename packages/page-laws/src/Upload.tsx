@@ -641,18 +641,8 @@ function Upload (): React.ReactElement {
     }
 
     setPendingProcessingAction('fixConcepts');
-
-    resetBookProcessingStagesFrom(selectedBook.id, 'fixConcepts').then((updatedBook) => {
-      if (updatedBook) {
-        setBooks((current) => current.map((book) => book.id === updatedBook.id ? updatedBook : book));
-      }
-
-      setFixAllConceptsRequest((request) => request + 1);
-    }).catch(() => {
-      setPendingProcessingAction(undefined);
-      setError(t('Unable to reset the Fix concepts stage.'));
-    });
-  }, [selectedBook, t]);
+    setFixAllConceptsRequest((request) => request + 1);
+  }, [selectedBook]);
 
   const onAssignStandards = useCallback((): void => {
     if (!selectedBook) {
@@ -1077,7 +1067,7 @@ function Upload (): React.ReactElement {
         size='small'
       >
         <Modal.Content>
-          <p>{t('Review each chapter’s source text and current concept list using the book topic, language, and learner age, then add only strongly implied concepts that are missing.')}</p>
+          <p>{t('Review each chapter’s source text and current concept list using the book topic, language, and learner age, then propose only strongly implied concepts that are missing. You will review the before/after concept lists before anything is saved.')}</p>
           <Toggle
             isDisabled={!hasFailedFixConceptChapters}
             label={t('Only retry chapters that failed the last Fix concepts run')}
