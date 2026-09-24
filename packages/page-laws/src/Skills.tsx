@@ -24,6 +24,7 @@ import { ABILITY_WORKFLOW_SYSTEM_PROMPT, FIX_ABILITIES_REQUEST_PROMPT, FIX_EXERC
 import { abilityBlueprintRequestPrompt, materializeExerciseAbility, planExerciseAbility, transportCompactAbilitySourceExercise } from './abilityWorkflow.js';
 import { mapConcurrent } from './concurrency.js';
 import { OPENROUTER_CONCURRENCY, openRouterRequestGate } from './openRouterConcurrency.js';
+import OpenRouterModelSelector from './OpenRouterModelSelector.js';
 import { formatOpenRouterSpend, reportOpenRouterCost, type OpenRouterCostReporter } from './openRouterCost.js';
 import { AiPriceEstimate } from './PriceEstimate.js';
 import { stripMarkdownImageReferences } from './bookImageRefs.js';
@@ -2592,12 +2593,10 @@ function Skills ({ book, externalRefreshToken = 0, onAction, onBookChange, onCon
             onChange={setGenerateOnlyMissingAbilities}
             value={generateOnlyMissingAbilities}
           />}
-          <Dropdown
+          <OpenRouterModelSelector
             className='modelSelect'
             isDisabled={isBusy}
-            label='Model'
             onChange={setSelectedModel}
-            options={OPENAI_MODELS}
             value={selectedModel}
           />
           <Button.Group>

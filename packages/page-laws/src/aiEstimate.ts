@@ -1,6 +1,8 @@
 // Copyright 2021-2026 @polkadot/app-laws authors & contributors
 // SPDX-License-Identifier: Apache-2.0
 
+import { getOpenRouterModelPricePerMillion } from './openRouterModels.js';
+
 export interface AiInputEstimate {
   inputPriceUsd: number;
   inputTokens: number;
@@ -29,7 +31,7 @@ export function estimateAiRequests (model: string, requests: AiRequestEstimate[]
   // Four characters per token is a deliberately simple pre-request estimate.
   const inputTokens = requests.reduce((total, { input }) => total + Math.ceil(input.length / 4), 0);
   const outputTokens = requests.reduce((total, { outputTokens: requestOutputTokens }) => total + Math.max(0, Math.ceil(requestOutputTokens)), 0);
-  const [inputRate, outputRate] = MODEL_PRICE_PER_MILLION[model] ?? [0, 0];
+  const [inputRate, outputRate] = getOpenRouterModelPricePerMillion(model) ?? MODEL_PRICE_PER_MILLION[model] ?? [0, 0];
   const inputPriceUsd = inputTokens * inputRate / 1_000_000;
   const outputPriceUsd = outputTokens * outputRate / 1_000_000;
 

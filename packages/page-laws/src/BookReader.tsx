@@ -22,6 +22,7 @@ import { BOOK_SUBJECT_OPTIONS, automaticBookSubjectForLanguage, bookSubjectLabel
 import { areAllBookPagesConceptsProcessed, countUnprocessedBookPages, processExtractedChapterContent } from './bookProcessing.js';
 import { mapConcurrent } from './concurrency.js';
 import { OPENROUTER_CONCURRENCY, openRouterRequestGate } from './openRouterConcurrency.js';
+import OpenRouterModelSelector from './OpenRouterModelSelector.js';
 import { chapterLevelMissingConcept, fixChapterConceptsPrompt, parseMissingChapterConcepts } from './fixConcepts.js';
 import { formatOpenRouterSpend, reportOpenRouterCost, type OpenRouterCostReporter } from './openRouterCost.js';
 import { BOOK_AGE_DETECTION_PROMPT, BOOK_CHAPTER_EXTRACTION_REQUEST_PROMPT, BOOK_LANGUAGE_DETECTION_PROMPT, BOOK_SUBJECT_DETECTION_PROMPT, MATHPIX_PDF_PAGE_PRICE_USD, OPENAI_MODELS } from './constants.js';
@@ -4668,12 +4669,9 @@ function BookReader({ ageTabRequest, assignAllStandardsRequest, book, file, fixA
         <Modal.Content>
           <p>Detect the primary language? You can change the result manually afterward.</p>
           <AiPriceEstimate estimate={languageDetectionEstimate} />
-          <Dropdown
+          <OpenRouterModelSelector
             className='modelSelect'
-            isFull
-            label='Model'
             onChange={setSelectedLanguageModel}
-            options={OPENAI_MODELS}
             value={selectedLanguageModel}
           />
           <Button.Group>
@@ -4700,12 +4698,9 @@ function BookReader({ ageTabRequest, assignAllStandardsRequest, book, file, fixA
             ? 'This book is not in English, so its subject will be set to na automatically. You can change the stored subject manually afterward.'
             : 'Detect the primary subject? You can change the result manually afterward.'}</p>
           <AiPriceEstimate estimate={subjectDetectionEstimate} />
-          {!automaticBookSubjectForLanguage(book.language) && <Dropdown
+          {!automaticBookSubjectForLanguage(book.language) && <OpenRouterModelSelector
             className='modelSelect'
-            isFull
-            label='Model'
             onChange={setSelectedSubjectModel}
-            options={OPENAI_MODELS}
             value={selectedSubjectModel}
           />}
           <Button.Group>
@@ -4730,12 +4725,9 @@ function BookReader({ ageTabRequest, assignAllStandardsRequest, book, file, fixA
         <Modal.Content>
           <p>Detect one typical learner age? The result can be changed manually afterward.</p>
           <AiPriceEstimate estimate={ageDetectionEstimate} />
-          <Dropdown
+          <OpenRouterModelSelector
             className='modelSelect'
-            isFull
-            label='Model'
             onChange={setSelectedAgeModel}
-            options={OPENAI_MODELS}
             value={selectedAgeModel}
           />
           <Button.Group>
@@ -4760,12 +4752,10 @@ function BookReader({ ageTabRequest, assignAllStandardsRequest, book, file, fixA
         <Modal.Content>
           <AiPriceEstimate estimate={chapterGenerationEstimate} />
           <p>This sends the whole chapter to the AI in one request, deduplicates concepts across its pages, and saves each concept on the page where it was first introduced. Exercises in the book are ignored; generated exercises run in the next pipeline step.</p>
-          <Dropdown
+          <OpenRouterModelSelector
             className='modelSelect'
             isDisabled={processingPage !== undefined || isGeneratingAllConcepts || isIdentifyingChapters || isRecognizingAll}
-            label='Model'
             onChange={setSelectedModel}
-            options={OPENAI_MODELS}
             value={selectedModel}
           />
           <Button.Group>

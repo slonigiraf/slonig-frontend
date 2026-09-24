@@ -13,6 +13,7 @@ import type { AiInputEstimate } from './aiEstimate.js';
 
 import { estimateAiInput, estimateAiRequests } from './aiEstimate.js';
 import { MATHPIX_PDF_PAGE_PRICE_USD, OPENAI_MODELS } from './constants.js';
+import OpenRouterModelSelector from './OpenRouterModelSelector.js';
 import { bookLanguageLabel } from './bookLanguage.js';
 import { exerciseGenerationRequestEstimate } from './bookProcessing.js';
 import { conceptChaptersFromPages } from './conceptRecognition.js';
@@ -965,12 +966,11 @@ function Upload (): React.ReactElement {
             title={t('Estimated AI cost if page-text detection is needed')}
           />
           <p>{t('You can manually rename chapters, start a chapter on any page, merge chapters, or assign individual pages afterward.')}</p>
-          <Dropdown
+          <OpenRouterModelSelector
             className='batchModelSelect'
-            isFull
-            label={t('Model')}
+            modelLabel={t('Model')}
             onChange={setGenerateAllConceptsModel}
-            options={OPENAI_MODELS}
+            providerLabel={t('Provider')}
             value={generateAllConceptsModel}
           />
           <Button.Group>
@@ -995,12 +995,11 @@ function Upload (): React.ReactElement {
         <Modal.Content>
           <p>{t('Generate concepts chapter-by-chapter for this book? Each concept will be stored on the page where it is first introduced.')}</p>
           <AiPriceEstimate estimate={generateConceptsEstimate} />
-          <Dropdown
+          <OpenRouterModelSelector
             className='batchModelSelect'
-            isFull
-            label={t('Model')}
+            modelLabel={t('Model')}
             onChange={setGenerateAllConceptsModel}
-            options={OPENAI_MODELS}
+            providerLabel={t('Provider')}
             value={generateAllConceptsModel}
           />
           <Button.Group>
@@ -1025,12 +1024,11 @@ function Upload (): React.ReactElement {
         <Modal.Content>
           <p>{t('Review each chapter’s current concept list using the book topic, language, and learner age, then add only strongly implied concepts that are missing. This stage does not reread the chapter text.')}</p>
           <AiPriceEstimate estimate={fixConceptsEstimate} />
-          <Dropdown
+          <OpenRouterModelSelector
             className='batchModelSelect'
-            isFull
-            label={t('Model')}
+            modelLabel={t('Model')}
             onChange={setGenerateAllConceptsModel}
-            options={OPENAI_MODELS}
+            providerLabel={t('Provider')}
             value={generateAllConceptsModel}
           />
           <Button.Group>
@@ -1055,12 +1053,11 @@ function Upload (): React.ReactElement {
         <Modal.Content>
           <p>{t('Match standards for every chapter from its extracted concepts? The detected book subject selects the standards catalog path, then each available standards catalog is checked three times against the chapter concepts and the detected standards are combined. Only codes present in the supplied catalog can be stored.')}</p>
           <AiPriceEstimate estimate={standardsEstimate} />
-          <Dropdown
+          <OpenRouterModelSelector
             className='batchModelSelect'
-            isFull
-            label={t('Model')}
+            modelLabel={t('Model')}
             onChange={setGenerateAllConceptsModel}
-            options={OPENAI_MODELS}
+            providerLabel={t('Provider')}
             value={generateAllConceptsModel}
           />
           <Button.Group>
@@ -1085,12 +1082,11 @@ function Upload (): React.ReactElement {
         <Modal.Content>
           <p>{t('Review each chapter’s assigned standards against its concepts and remove standards that are too vague or are not actually introduced in the chapter. This pass can only remove existing standards; it cannot add or rewrite codes.')}</p>
           <AiPriceEstimate estimate={fixStandardsEstimate} />
-          <Dropdown
+          <OpenRouterModelSelector
             className='batchModelSelect'
-            isFull
-            label={t('Model')}
+            modelLabel={t('Model')}
             onChange={setGenerateAllConceptsModel}
-            options={OPENAI_MODELS}
+            providerLabel={t('Provider')}
             value={generateAllConceptsModel}
           />
           <Button.Group>
@@ -1121,12 +1117,11 @@ function Upload (): React.ReactElement {
             value={generateOnlyMissingExercises}
           />
           <AiPriceEstimate estimate={generateExercisesEstimate} />
-          <Dropdown
+          <OpenRouterModelSelector
             className='batchModelSelect'
-            isFull
-            label={t('Model')}
+            modelLabel={t('Model')}
             onChange={setGenerateAllConceptsModel}
-            options={OPENAI_MODELS}
+            providerLabel={t('Provider')}
             value={generateAllConceptsModel}
           />
           <Button.Group>
