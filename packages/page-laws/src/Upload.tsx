@@ -18,6 +18,7 @@ import { bookLanguageLabel } from './bookLanguage.js';
 import { exerciseGenerationRequestEstimate } from './bookProcessing.js';
 import { conceptChaptersFromPages } from './conceptRecognition.js';
 import { fixChapterConceptsPrompt } from './fixConcepts.js';
+import { clearFixConceptsChapterStatuses, failedFixConceptChapterKeys, fixConceptsChapterKey } from './fixConceptsProgress.js';
 import { formatOpenRouterSpend } from './openRouterCost.js';
 import { loadStandardsCatalogsForBookSubject, loadStoredBookStandards, STANDARDS_FIX_RUNS, STANDARDS_MATCH_RUNS, standardsChapterKey, standardsConceptInputs, standardsFixInputs, standardsFixPrompt, standardsMatchingPrompt } from './standards.js';
 import { AiPriceEstimate, UnitPriceEstimate } from './PriceEstimate.js';
@@ -114,6 +115,8 @@ function Upload (): React.ReactElement {
   const [generateOnlyMissingConcepts, setGenerateOnlyMissingConcepts] = useState(false);
   const [hasChaptersMissingConcepts, setHasChaptersMissingConcepts] = useState(false);
   const [fixConceptsEstimate, setFixConceptsEstimate] = useState<AiInputEstimate | string>();
+  const [fixOnlyFailedConcepts, setFixOnlyFailedConcepts] = useState(false);
+  const [hasFailedFixConceptChapters, setHasFailedFixConceptChapters] = useState(false);
   const [isGenerateConceptsConfirmationOpen, setIsGenerateConceptsConfirmationOpen] = useState(false);
   const [isFixConceptsConfirmationOpen, setIsFixConceptsConfirmationOpen] = useState(false);
   const [isGenerateExercisesConfirmationOpen, setIsGenerateExercisesConfirmationOpen] = useState(false);
@@ -463,6 +466,7 @@ function Upload (): React.ReactElement {
     setPendingProcessingAction('chapters');
 
     resetBookProcessingStagesFrom(selectedBook.id, 'chapters').then((updatedBook) => {
+      clearFixConceptsChapterStatuses(selectedBook.id);
       if (updatedBook) {
         setBooks((current) => current.map((book) => book.id === updatedBook.id ? updatedBook : book));
       }
@@ -557,6 +561,7 @@ function Upload (): React.ReactElement {
     setPendingProcessingAction('concepts');
 
     resetBookProcessingStagesFrom(selectedBook.id, 'concepts').then((updatedBook) => {
+      clearFixConceptsChapterStatuses(selectedBook.id);
       if (updatedBook) {
         setBooks((current) => current.map((book) => book.id === updatedBook.id ? updatedBook : book));
       }
@@ -579,6 +584,8 @@ function Upload (): React.ReactElement {
     }
 
     setFixConceptsEstimate(undefined);
+    setFixOnlyFailedConcepts(false);
+    setHasFailedFixConceptChapters(false);
     setIsFixConceptsConfirmationOpen(true);
   }, [selectedBook, t]);
 
@@ -590,9 +597,19 @@ function Upload (): React.ReactElement {
     getBookPages(selectedBook.id).then(async (pages) => {
       const pageByNumber = new Map(pages.map((page) => [page.pageNumber, page]));
       const pageLessConcepts = await getBookConceptsForBookPage(selectedBook.id, 0);
+      const chapters = conceptChaptersFromPages(pages);
+      const failedChapterKeys = failedFixConceptChapterKeys(selectedBook.id, chapters);
+      const targetChapters = fixOnlyFailedConcepts
+        ? chapters.filter((chapter) => failedChapterKeys.has(fixConceptsChapterKey(chapter)))
+        : chapters;
       const requests: string[] = [];
 
-      for (const chapter of conceptChaptersFromPages(pages)) {
+      setHasFailedFixConceptChapters(failedChapterKeys.size > 0);
+      if (!failedChapterKeys.size && fixOnlyFailedConcepts) {
+        setFixOnlyFailedConcepts(false);
+      }
+
+      for (const chapter of targetChapters) {
         const concepts = [
           ...(await Promise.all(chapter.pageNumbers.map((pageNumber) => getBookConceptsForBookPage(selectedBook.id, pageNumber)))).flat(),
           ...pageLessConcepts.filter(({ chapterId }) => chapterId !== undefined && chapterId === chapter.chapterId)
@@ -607,10 +624,12 @@ function Upload (): React.ReactElement {
         ? estimateAiInput(generateAllConceptsModel, requests, 1_200)
         : t('No chapters are available for Fix concepts.'));
     }).catch(() => setError(t('Unable to estimate Fix concepts cost.')));
-  }, [generateAllConceptsModel, isFixConceptsConfirmationOpen, selectedBook, t]);
+  }, [fixOnlyFailedConcepts, generateAllConceptsModel, isFixConceptsConfirmationOpen, selectedBook, t]);
 
   const closeFixConceptsConfirmation = useCallback((): void => {
     setIsFixConceptsConfirmationOpen(false);
+    setFixOnlyFailedConcepts(false);
+    setHasFailedFixConceptChapters(false);
     setPendingProcessingAction(undefined);
   }, []);
 
@@ -895,6 +914,7 @@ function Upload (): React.ReactElement {
     try {
       await removePdf(selectedBook.opfsName);
       await deleteBook(selectedBook.id);
+      clearFixConceptsChapterStatuses(selectedBook.id);
 
       const remaining = books.filter(({ id }) => id !== selectedBook.id);
 
@@ -1057,7 +1077,13 @@ function Upload (): React.ReactElement {
         size='small'
       >
         <Modal.Content>
-          <p>{t('Review each chapter’s current concept list using the book topic, language, and learner age, then add only strongly implied concepts that are missing. This stage does not reread the chapter text.')}</p>
+          <p>{t('Review each chapter’s source text and current concept list using the book topic, language, and learner age, then add only strongly implied concepts that are missing.')}</p>
+          <Toggle
+            isDisabled={!hasFailedFixConceptChapters}
+            label={t('Only retry chapters that failed the last Fix concepts run')}
+            onChange={setFixOnlyFailedConcepts}
+            value={fixOnlyFailedConcepts}
+          />
           <AiPriceEstimate estimate={fixConceptsEstimate} />
           <OpenRouterModelSelector
             className='batchModelSelect'
@@ -1220,6 +1246,7 @@ function Upload (): React.ReactElement {
             book={selectedBook}
             fixAllStandardsRequest={fixAllStandardsRequest}
             fixAllConceptsRequest={fixAllConceptsRequest}
+            fixOnlyFailedConcepts={fixOnlyFailedConcepts}
             key={selectedBook.id}
             file={readerFile}
             generateAllConceptsModel={generateAllConceptsModel}

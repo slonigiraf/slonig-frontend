@@ -24,6 +24,7 @@ import { mapConcurrent } from './concurrency.js';
 import { OPENROUTER_CONCURRENCY, openRouterRequestGate } from './openRouterConcurrency.js';
 import OpenRouterModelSelector from './OpenRouterModelSelector.js';
 import { chapterLevelMissingConcept, fixChapterConceptsPrompt, parseMissingChapterConcepts } from './fixConcepts.js';
+import { clearFixConceptsChapterStatuses, fixConceptsChapterKey, loadFixConceptsChapterStatuses, setFixConceptsChapterStatus, storeFixConceptsChapterStatuses, type FixConceptsChapterStatuses } from './fixConceptsProgress.js';
 import { formatOpenRouterSpend, reportOpenRouterCost, type OpenRouterCostReporter } from './openRouterCost.js';
 import { BOOK_AGE_DETECTION_PROMPT, BOOK_CHAPTER_EXTRACTION_REQUEST_PROMPT, BOOK_LANGUAGE_DETECTION_PROMPT, BOOK_SUBJECT_DETECTION_PROMPT, MATHPIX_PDF_PAGE_PRICE_USD, OPENAI_MODELS } from './constants.js';
 import { stripMarkdownImageReferences } from './bookImageRefs.js';
@@ -1111,6 +1112,7 @@ interface Props {
   assignAllStandardsRequest: number;
   fixAllStandardsRequest: number;
   fixAllConceptsRequest: number;
+  fixOnlyFailedConcepts: boolean;
   book: Book;
   file: File;
   generateAllConceptsModel: string;
@@ -1192,7 +1194,7 @@ function getSessionReaderPane(bookId: number): ReaderPane {
   }
 }
 
-function BookReader({ ageTabRequest, assignAllStandardsRequest, book, file, fixAllConceptsRequest, fixAllStandardsRequest, generateAllConceptsModel, generateAllConceptsRequest, generateAllExercisesRequest, generateOnlyMissingConcepts, generateOnlyMissingExercises, identifyChaptersRequest, isPriceDisabled = false, languageTabRequest, subjectTabRequest, onBookChange, onPrice, onProcessingComplete, pendingProcessingAction, processingToolbar, processingToolbarAfterFixImages, recognizeAllRequest }: Props): React.ReactElement {
+function BookReader({ ageTabRequest, assignAllStandardsRequest, book, file, fixAllConceptsRequest, fixOnlyFailedConcepts, fixAllStandardsRequest, generateAllConceptsModel, generateAllConceptsRequest, generateAllExercisesRequest, generateOnlyMissingConcepts, generateOnlyMissingExercises, identifyChaptersRequest, isPriceDisabled = false, languageTabRequest, subjectTabRequest, onBookChange, onPrice, onProcessingComplete, pendingProcessingAction, processingToolbar, processingToolbarAfterFixImages, recognizeAllRequest }: Props): React.ReactElement {
   const { t } = useTranslation();
   const [activePane, setActivePane] = useState<ReaderPane>(() => {
     const storedPane = getSessionReaderPane(book.id);
@@ -1225,10 +1227,12 @@ function BookReader({ ageTabRequest, assignAllStandardsRequest, book, file, fixA
   const [newConceptTitle, setNewConceptTitle] = useState('');
   const [conceptCountsByChapter, setConceptCountsByChapter] = useState<Map<string, number>>(new Map());
   const [standardsByChapter, setStandardsByChapter] = useState<StoredBookStandards>(() => loadStoredBookStandards(book.id));
+  const [fixConceptsChapterStatuses, setFixConceptsChapterStatuses] = useState<FixConceptsChapterStatuses>(() => loadFixConceptsChapterStatuses(book.id));
   const [standardsCatalogs, setStandardsCatalogs] = useState<StandardsCatalog[]>([]);
   const [standardsChapterIndex, setStandardsChapterIndex] = useState(0);
   const [standardsAssignedChapterCount, setStandardsAssignedChapterCount] = useState(0);
   const [standardsFixedChapterCount, setStandardsFixedChapterCount] = useState(0);
+  const [fixConceptsTargetChapterCount, setFixConceptsTargetChapterCount] = useState(0);
   const [isAssigningStandards, setIsAssigningStandards] = useState(false);
   const [isFixingStandards, setIsFixingStandards] = useState(false);
   const [conceptFirstPageByKey, setConceptFirstPageByKey] = useState<Map<string, number>>(new Map());
@@ -1339,6 +1343,22 @@ function BookReader({ ageTabRequest, assignAllStandardsRequest, book, file, fixA
   const addStandardsCost = useCallback((costUsd: number): void => addStageCost('standards', costUsd), [addStageCost]);
   const addFixStandardsCost = useCallback((costUsd: number): void => addStageCost('fixStandards', costUsd), [addStageCost]);
   const conceptChapters = useMemo<ConceptChapterNavigationItem[]>(() => conceptChaptersFromPages(Array.from(pages.values())), [pages]);
+  useEffect(() => {
+    if (!isBookProcessingStageComplete(book, 'concepts')) {
+      setFixConceptsChapterStatuses(clearFixConceptsChapterStatuses(book.id));
+      return;
+    }
+
+    // Existing books may already have a completed Fix concepts stage from
+    // before per-chapter progress was recorded. Treat that persisted stage as
+    // authoritative and backfill chapter checkmarks.
+    if (isBookProcessingStageComplete(book, 'fixConcepts') && conceptChapters.length) {
+      const completedStatuses = Object.fromEntries(conceptChapters.map((chapter) => [fixConceptsChapterKey(chapter), 'fixed' as const]));
+
+      storeFixConceptsChapterStatuses(book.id, completedStatuses);
+      setFixConceptsChapterStatuses(completedStatuses);
+    }
+  }, [book, conceptChapters]);
   const loadConceptCountsByChapter = useCallback(async (targetChapters: ConceptChapterNavigationItem[]): Promise<Map<string, number>> => {
     const pageNumbers = Array.from(new Set(targetChapters.flatMap(({ pageNumbers: chapterPageNumbers }) => chapterPageNumbers)));
     const [pageConceptRows, pageLessConcepts] = await Promise.all([
@@ -2392,8 +2412,18 @@ function BookReader({ ageTabRequest, assignAllStandardsRequest, book, file, fixA
     }
   }, [addConceptsCost, completeStage, book.id, conceptChapters, generateAllConceptsModel, generateOnlyMissingConcepts, isGeneratingAllConcepts, isIdentifyingChapters, isRecognizingAll, loadConceptCountsByChapter, onProcessingComplete, pageNumber, pages, processingPage, refreshConceptCounts, refreshEntityCounts, revealPane, totalPages]);
 
-  const fixAllConcepts = useCallback(async (model = generateAllConceptsModel): Promise<void> => {
+  const fixAllConcepts = useCallback(async (model = generateAllConceptsModel, onlyFailed = false): Promise<void> => {
     if (!conceptChapters.length || isFixingConcepts || isGeneratingAllConcepts || isRecognizingAll || isIdentifyingChapters || isGeneratingAllExercises) {
+      return;
+    }
+
+    const previousStatuses = loadFixConceptsChapterStatuses(book.id);
+    const targetChapters = onlyFailed
+      ? conceptChapters.filter((chapter) => previousStatuses[fixConceptsChapterKey(chapter)] === 'failed')
+      : conceptChapters;
+
+    if (!targetChapters.length) {
+      setError(onlyFailed ? 'There are no failed Fix concepts chapters to retry.' : 'No chapters are available for Fix concepts.');
       return;
     }
 
@@ -2406,6 +2436,12 @@ function BookReader({ ageTabRequest, assignAllStandardsRequest, book, file, fixA
     setOpenRouterSpent(0);
     setIsFixingConcepts(true);
     setFixedConceptsChapterCount(0);
+    setFixConceptsTargetChapterCount(targetChapters.length);
+    if (!onlyFailed) {
+      setFixConceptsChapterStatuses(clearFixConceptsChapterStatuses(book.id));
+    } else {
+      setFixConceptsChapterStatuses(previousStatuses);
+    }
 
     try {
       const attempt = await incrementBookFixConceptsAttempts(book.id);
@@ -2423,7 +2459,7 @@ function BookReader({ ageTabRequest, assignAllStandardsRequest, book, file, fixA
         maxRetries: 0
       });
       const pageLessConcepts = await getBookConceptsForBookPage(book.id, 0);
-      const results = await mapConcurrent(conceptChapters, OPENROUTER_CONCURRENCY, async (chapter) => {
+      const results = await mapConcurrent(targetChapters, OPENROUTER_CONCURRENCY, async (chapter) => {
         try {
           const concepts = [
             ...(await Promise.all(chapter.pageNumbers.map((chapterPageNumber) => getBookConceptsForBookPage(book.id, chapterPageNumber)))).flat(),
@@ -2445,16 +2481,27 @@ function BookReader({ ageTabRequest, assignAllStandardsRequest, book, file, fixA
         if (result.status === 'rejected') {
           failures++;
           failureDetails.push(`${result.chapter.title || 'Untitled chapter'}: ${conceptGenerationErrorMessage(result.reason)}`);
+          setFixConceptsChapterStatuses(setFixConceptsChapterStatus(book.id, result.chapter, 'failed'));
           continue;
         }
 
-        for (const concept of result.missing) {
-          await createBookConcept(chapterLevelMissingConcept(book.id, result.chapter.chapterId, concept, attempt));
-          added++;
-        }
+        try {
+          for (const concept of result.missing) {
+            await createBookConcept(chapterLevelMissingConcept(book.id, result.chapter.chapterId, concept, attempt));
+            added++;
+          }
 
-        setFixedConceptsChapterCount((count) => count + 1);
+          setFixConceptsChapterStatuses(setFixConceptsChapterStatus(book.id, result.chapter, 'fixed'));
+          setFixedConceptsChapterCount((count) => count + 1);
+        } catch (reason) {
+          failures++;
+          failureDetails.push(`${result.chapter.title || 'Untitled chapter'}: saving missing concepts failed (${conceptGenerationErrorMessage(reason)})`);
+          setFixConceptsChapterStatuses(setFixConceptsChapterStatus(book.id, result.chapter, 'failed'));
+        }
       }
+
+      const latestStatuses = loadFixConceptsChapterStatuses(book.id);
+      const allChaptersFixed = conceptChapters.every((chapter) => latestStatuses[fixConceptsChapterKey(chapter)] === 'fixed');
 
       await Promise.all([refreshEntityCounts(), refreshConceptCounts()]);
       setSkillsRefreshToken((value) => value + 1);
@@ -2475,20 +2522,21 @@ function BookReader({ ageTabRequest, assignAllStandardsRequest, book, file, fixA
         setConceptFirstPageByKey(references);
       }
 
-      if (failures === 0) {
+      if (failures === 0 && allChaptersFixed) {
         await completeStage('fixConcepts');
         revealPane('textConcepts');
-      } else {
-        setError(`${failures} of ${conceptChapters.length} chapters could not be checked by Fix concepts. Retry the stage.${failureDetails.length ? ` ${failureDetails.join(' | ')}` : ''}`);
-      }
-
-      if (!failures) {
         setError('');
+      } else if (failures > 0) {
+        const runLabel = onlyFailed ? 'retry' : 'run';
+
+        setError(`${failures} of ${targetChapters.length} chapters failed during this Fix concepts ${runLabel}. Successful chapters were kept and marked ✓. Retry only failed chapters to continue.${failureDetails.length ? ` ${failureDetails.join(' | ')}` : ''}`);
+      } else {
+        setError('Fix concepts finished, but not every chapter has a successful Fix concepts result yet. Retry the failed chapters.');
       }
 
       if (added === 0 && failures === 0) {
         // Completing with no additions is still a successful quality gate.
-        setFixedConceptsChapterCount(conceptChapters.length);
+        setFixedConceptsChapterCount(targetChapters.length);
       }
     } finally {
       setIsFixingConcepts(false);
@@ -3374,10 +3422,10 @@ function BookReader({ ageTabRequest, assignAllStandardsRequest, book, file, fixA
     }
 
     handledFixAllConceptsRequestRef.current = fixAllConceptsRequest;
-    fixAllConcepts(generateAllConceptsModel)
+    fixAllConcepts(generateAllConceptsModel, fixOnlyFailedConcepts)
       .catch((fixError) => setError(fixError instanceof Error ? fixError.message : 'Unable to fix chapter concepts.'))
       .finally(onProcessingComplete);
-  }, [conceptChapters.length, fixAllConcepts, fixAllConceptsRequest, generateAllConceptsModel, isFixingConcepts, isGeneratingAllConcepts, isGeneratingAllExercises, isIdentifyingChapters, isRecognizingAll, onProcessingComplete, processingPage]);
+  }, [conceptChapters.length, fixAllConcepts, fixAllConceptsRequest, fixOnlyFailedConcepts, generateAllConceptsModel, isFixingConcepts, isGeneratingAllConcepts, isGeneratingAllExercises, isIdentifyingChapters, isRecognizingAll, onProcessingComplete, processingPage]);
 
   useEffect((): void => {
     if (
@@ -4832,11 +4880,11 @@ function BookReader({ ageTabRequest, assignAllStandardsRequest, book, file, fixA
       </Modal>}
       {(pendingProcessingAction || processingPage !== undefined || isDetectingBookLanguage || isDetectingBookSubject || isDetectingBookAge || isRecognizingAll || isIdentifyingChapters || isGeneratingAllConcepts || isFixingConcepts || isAssigningStandards || isFixingStandards || isGeneratingAllExercises) && <div className='processingOverlay'>
         <RoundProgress
-          total={isDetectingBookLanguage || isDetectingBookSubject || isDetectingBookAge || processingPage !== undefined ? 1 : isGeneratingAllConcepts || pendingProcessingAction === 'concepts' || isFixingConcepts || pendingProcessingAction === 'fixConcepts' || isAssigningStandards || pendingProcessingAction === 'standards' || isFixingStandards || pendingProcessingAction === 'fixStandards' ? Math.max(1, conceptChapters.length) : Math.max(1, totalPages)}
+          total={isDetectingBookLanguage || isDetectingBookSubject || isDetectingBookAge || processingPage !== undefined ? 1 : isFixingConcepts || pendingProcessingAction === 'fixConcepts' ? Math.max(1, fixConceptsTargetChapterCount || conceptChapters.length) : isGeneratingAllConcepts || pendingProcessingAction === 'concepts' || isAssigningStandards || pendingProcessingAction === 'standards' || isFixingStandards || pendingProcessingAction === 'fixStandards' ? Math.max(1, conceptChapters.length) : Math.max(1, totalPages)}
           value={isDetectingBookLanguage || isDetectingBookSubject || isDetectingBookAge || processingPage !== undefined ? 0 : isRecognizingAll || pendingProcessingAction === 'recognize' ? recognizedPageCount : isIdentifyingChapters || pendingProcessingAction === 'chapters' ? identifiedChapterPageCount : isFixingConcepts || pendingProcessingAction === 'fixConcepts' ? fixedConceptsChapterCount : isAssigningStandards || pendingProcessingAction === 'standards' ? standardsAssignedChapterCount : isFixingStandards || pendingProcessingAction === 'fixStandards' ? standardsFixedChapterCount : isGeneratingAllExercises || pendingProcessingAction === 'exercises' ? generatedExercisesPageCount : generatedConceptsChapterCount}
         />
         <strong>{isGeneratingChapterConcepts ? `Processing chapter ${currentConceptChapter?.title || ''}` : processingPage !== undefined ? `Processing page ${processingPage}` : isDetectingBookLanguage ? 'Detecting book language' : isDetectingBookSubject ? 'Detecting book subject' : isDetectingBookAge ? 'Detecting learner age' : isRecognizingAll || pendingProcessingAction === 'recognize' ? 'Recognizing pages' : isIdentifyingChapters || pendingProcessingAction === 'chapters' ? chapterIdentificationLabel : isFixingConcepts || pendingProcessingAction === 'fixConcepts' ? 'Finding missing chapter concepts' : isAssigningStandards || pendingProcessingAction === 'standards' ? 'Matching standards to chapter concepts' : isFixingStandards || pendingProcessingAction === 'fixStandards' ? 'Fixing standards from chapter concepts' : isGeneratingAllExercises || pendingProcessingAction === 'exercises' ? 'Generating exercises' : 'Extracting concepts by chapter'}</strong>
-        {processingPage === undefined && !isDetectingBookLanguage && !isDetectingBookSubject && !isDetectingBookAge && <span>{isRecognizingAll || pendingProcessingAction === 'recognize' ? recognizedPageCount : isIdentifyingChapters || pendingProcessingAction === 'chapters' ? identifiedChapterPageCount : isFixingConcepts || pendingProcessingAction === 'fixConcepts' ? fixedConceptsChapterCount : isAssigningStandards || pendingProcessingAction === 'standards' ? standardsAssignedChapterCount : isFixingStandards || pendingProcessingAction === 'fixStandards' ? standardsFixedChapterCount : isGeneratingAllExercises || pendingProcessingAction === 'exercises' ? generatedExercisesPageCount : generatedConceptsChapterCount} / {isGeneratingAllConcepts || pendingProcessingAction === 'concepts' || isFixingConcepts || pendingProcessingAction === 'fixConcepts' || isAssigningStandards || pendingProcessingAction === 'standards' || isFixingStandards || pendingProcessingAction === 'fixStandards' ? conceptChapters.length : totalPages}</span>}
+        {processingPage === undefined && !isDetectingBookLanguage && !isDetectingBookSubject && !isDetectingBookAge && <span>{isRecognizingAll || pendingProcessingAction === 'recognize' ? recognizedPageCount : isIdentifyingChapters || pendingProcessingAction === 'chapters' ? identifiedChapterPageCount : isFixingConcepts || pendingProcessingAction === 'fixConcepts' ? fixedConceptsChapterCount : isAssigningStandards || pendingProcessingAction === 'standards' ? standardsAssignedChapterCount : isFixingStandards || pendingProcessingAction === 'fixStandards' ? standardsFixedChapterCount : isGeneratingAllExercises || pendingProcessingAction === 'exercises' ? generatedExercisesPageCount : generatedConceptsChapterCount} / {isFixingConcepts || pendingProcessingAction === 'fixConcepts' ? (fixConceptsTargetChapterCount || conceptChapters.length) : isGeneratingAllConcepts || pendingProcessingAction === 'concepts' || isAssigningStandards || pendingProcessingAction === 'standards' || isFixingStandards || pendingProcessingAction === 'fixStandards' ? conceptChapters.length : totalPages}</span>}
         <span className='openRouterSpend'>Spent this stage: {formatOpenRouterSpend(openRouterSpent)}</span>
       </div>}
       <Skills
@@ -5082,7 +5130,7 @@ function BookReader({ ageTabRequest, assignAllStandardsRequest, book, file, fixA
                             return <option
                               key={chapterKey}
                               value={index}
-                            >{title || 'Chapter not identified'} {'('}{conceptCount}{')'}</option>;
+                            >{fixConceptsChapterStatuses[fixConceptsChapterKey({ chapterId, pageNumbers, title })] === 'fixed' ? '✓ ' : ''}{title || 'Chapter not identified'} {'('}{conceptCount}{')'}</option>;
                           })}
                         </select><span>{conceptChapters.length ? `${conceptChapterIndex + 1} of ${conceptChapters.length}` : 'No chapters'}</span></label>
                         <Button
