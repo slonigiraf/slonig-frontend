@@ -44,7 +44,7 @@ export interface TikzPreRenderResult {
 const TIKZJAX_ASSET_BASE = 'https://cdn.jsdelivr.net/npm/@rod2ik/tikzjax@1.6.0/dist';
 const TIKZJAX_FONT_STYLESHEET = `${TIKZJAX_ASSET_BASE}/fonts.min.css`;
 const TIKZJAX_FONT_BASE = `${TIKZJAX_ASSET_BASE}/fonts`;
-const TIKZ_COMPILE_TIMEOUT_MS = 3_000;
+const TIKZ_COMPILE_TIMEOUT_MS = 5_000;
 const TIKZ_RENDER_CONCURRENCY = getTikzRenderConcurrency();
 let tikzJaxPromise: Promise<void> | undefined;
 let activePreRenders = 0;
