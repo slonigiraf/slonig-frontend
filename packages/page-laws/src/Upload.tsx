@@ -111,6 +111,8 @@ function Upload (): React.ReactElement {
   const [isIdentifyChaptersConfirmationOpen, setIsIdentifyChaptersConfirmationOpen] = useState(false);
   const [generateAllConceptsModel, setGenerateAllConceptsModel] = useState(OPENAI_MODELS[0].value);
   const [generateConceptsEstimate, setGenerateConceptsEstimate] = useState<AiInputEstimate>();
+  const [generateOnlyMissingConcepts, setGenerateOnlyMissingConcepts] = useState(false);
+  const [hasChaptersMissingConcepts, setHasChaptersMissingConcepts] = useState(false);
   const [fixConceptsEstimate, setFixConceptsEstimate] = useState<AiInputEstimate | string>();
   const [isGenerateConceptsConfirmationOpen, setIsGenerateConceptsConfirmationOpen] = useState(false);
   const [isFixConceptsConfirmationOpen, setIsFixConceptsConfirmationOpen] = useState(false);
@@ -488,6 +490,8 @@ function Upload (): React.ReactElement {
     }
 
     setGenerateConceptsEstimate(undefined);
+    setGenerateOnlyMissingConcepts(false);
+    setHasChaptersMissingConcepts(false);
     setIsGenerateConceptsConfirmationOpen(true);
   }, [selectedBook, t]);
 
@@ -497,10 +501,33 @@ function Upload (): React.ReactElement {
     }
 
     getBookPages(selectedBook.id)
-      .then((pages) => {
+      .then(async (pages) => {
         const pageByNumber = new Map(pages.map((page) => [page.pageNumber, page]));
-        const requestInputs = conceptChaptersFromPages(pages).flatMap(({ pageNumbers }) => {
-          const chapterText = pageNumbers.map((pageNumber) => `--- page ${pageNumber} ---\n${pageByNumber.get(pageNumber)?.pageMMD ?? ''}`).join('\n\n');
+        const chapters = conceptChaptersFromPages(pages);
+        const pageNumbers = Array.from(new Set(chapters.flatMap(({ pageNumbers: chapterPageNumbers }) => chapterPageNumbers)));
+        const [pageConceptRows, pageLessConcepts] = await Promise.all([
+          Promise.all(pageNumbers.map(async (pageNumber) => [pageNumber, await getBookConceptsForBookPage(selectedBook.id, pageNumber)] as const)),
+          getBookConceptsForBookPage(selectedBook.id, 0)
+        ]);
+        const conceptsByPage = new Map(pageConceptRows);
+        const conceptCountByChapter = new Map(chapters.map((chapter) => {
+          const pageConceptCount = chapter.pageNumbers.reduce((count, pageNumber) => count + (conceptsByPage.get(pageNumber)?.length ?? 0), 0);
+          const pageLessConceptCount = chapter.chapterId === undefined ? 0 : pageLessConcepts.filter(({ chapterId }) => chapterId === chapter.chapterId).length;
+
+          return [standardsChapterKey(chapter.chapterId, chapter.title, chapter.pageNumbers), pageConceptCount + pageLessConceptCount] as const;
+        }));
+        const hasMissingConcepts = chapters.some((chapter) => (conceptCountByChapter.get(standardsChapterKey(chapter.chapterId, chapter.title, chapter.pageNumbers)) ?? 0) === 0);
+
+        setHasChaptersMissingConcepts(hasMissingConcepts);
+        if (!hasMissingConcepts && generateOnlyMissingConcepts) {
+          setGenerateOnlyMissingConcepts(false);
+        }
+
+        const estimationChapters = generateOnlyMissingConcepts
+          ? chapters.filter((chapter) => (conceptCountByChapter.get(standardsChapterKey(chapter.chapterId, chapter.title, chapter.pageNumbers)) ?? 0) === 0)
+          : chapters;
+        const requestInputs = estimationChapters.flatMap(({ pageNumbers: chapterPageNumbers }) => {
+          const chapterText = chapterPageNumbers.map((pageNumber) => `--- page ${pageNumber} ---\n${pageByNumber.get(pageNumber)?.pageMMD ?? ''}`).join('\n\n');
           const estimatedRequest = chapterText.padEnd(chapterText.length + 2_000);
 
           // Concept extraction can retry an empty chapter response once, so
@@ -511,10 +538,12 @@ function Upload (): React.ReactElement {
         setGenerateConceptsEstimate(estimateAiInput(generateAllConceptsModel, requestInputs, 4_800));
       })
       .catch(() => setError(t('Unable to estimate concept generation cost.')));
-  }, [generateAllConceptsModel, isGenerateConceptsConfirmationOpen, selectedBook, t]);
+  }, [generateAllConceptsModel, generateOnlyMissingConcepts, isGenerateConceptsConfirmationOpen, selectedBook, t]);
 
   const closeGenerateConceptsConfirmation = useCallback((): void => {
     setIsGenerateConceptsConfirmationOpen(false);
+    setGenerateOnlyMissingConcepts(false);
+    setHasChaptersMissingConcepts(false);
     setPendingProcessingAction(undefined);
   }, []);
 
@@ -994,6 +1023,12 @@ function Upload (): React.ReactElement {
       >
         <Modal.Content>
           <p>{t('Generate concepts chapter-by-chapter for this book? Each concept will be stored on the page where it is first introduced.')}</p>
+          <Toggle
+            isDisabled={!selectedBook || !isBookProcessingStageComplete(selectedBook, 'concepts') || !hasChaptersMissingConcepts}
+            label={t('Only for chapters missing concepts')}
+            onChange={setGenerateOnlyMissingConcepts}
+            value={generateOnlyMissingConcepts}
+          />
           <AiPriceEstimate estimate={generateConceptsEstimate} />
           <OpenRouterModelSelector
             className='batchModelSelect'
@@ -1192,6 +1227,7 @@ function Upload (): React.ReactElement {
             subjectTabRequest={subjectTabRequest}
             ageTabRequest={ageTabRequest}
             generateAllConceptsRequest={generateAllConceptsRequest}
+            generateOnlyMissingConcepts={generateOnlyMissingConcepts}
             identifyChaptersRequest={identifyChaptersRequest}
             isPriceDisabled={!selectedBook || isBusy}
             onBookChange={onBookChange}

@@ -1115,6 +1115,7 @@ interface Props {
   file: File;
   generateAllConceptsModel: string;
   generateAllConceptsRequest: number;
+  generateOnlyMissingConcepts: boolean;
   identifyChaptersRequest: number;
   languageTabRequest: number;
   subjectTabRequest: number;
@@ -1191,7 +1192,7 @@ function getSessionReaderPane(bookId: number): ReaderPane {
   }
 }
 
-function BookReader({ ageTabRequest, assignAllStandardsRequest, book, file, fixAllConceptsRequest, fixAllStandardsRequest, generateAllConceptsModel, generateAllConceptsRequest, generateAllExercisesRequest, generateOnlyMissingExercises, identifyChaptersRequest, isPriceDisabled = false, languageTabRequest, subjectTabRequest, onBookChange, onPrice, onProcessingComplete, pendingProcessingAction, processingToolbar, processingToolbarAfterFixImages, recognizeAllRequest }: Props): React.ReactElement {
+function BookReader({ ageTabRequest, assignAllStandardsRequest, book, file, fixAllConceptsRequest, fixAllStandardsRequest, generateAllConceptsModel, generateAllConceptsRequest, generateAllExercisesRequest, generateOnlyMissingConcepts, generateOnlyMissingExercises, identifyChaptersRequest, isPriceDisabled = false, languageTabRequest, subjectTabRequest, onBookChange, onPrice, onProcessingComplete, pendingProcessingAction, processingToolbar, processingToolbarAfterFixImages, recognizeAllRequest }: Props): React.ReactElement {
   const { t } = useTranslation();
   const [activePane, setActivePane] = useState<ReaderPane>(() => {
     const storedPane = getSessionReaderPane(book.id);
@@ -1222,6 +1223,7 @@ function BookReader({ ageTabRequest, assignAllStandardsRequest, book, file, fixA
   const [newConceptDescription, setNewConceptDescription] = useState('');
   const [newConceptPage, setNewConceptPage] = useState('');
   const [newConceptTitle, setNewConceptTitle] = useState('');
+  const [conceptCountsByChapter, setConceptCountsByChapter] = useState<Map<string, number>>(new Map());
   const [standardsByChapter, setStandardsByChapter] = useState<StoredBookStandards>(() => loadStoredBookStandards(book.id));
   const [standardsCatalogs, setStandardsCatalogs] = useState<StandardsCatalog[]>([]);
   const [standardsChapterIndex, setStandardsChapterIndex] = useState(0);
@@ -1337,8 +1339,29 @@ function BookReader({ ageTabRequest, assignAllStandardsRequest, book, file, fixA
   const addStandardsCost = useCallback((costUsd: number): void => addStageCost('standards', costUsd), [addStageCost]);
   const addFixStandardsCost = useCallback((costUsd: number): void => addStageCost('fixStandards', costUsd), [addStageCost]);
   const conceptChapters = useMemo<ConceptChapterNavigationItem[]>(() => conceptChaptersFromPages(Array.from(pages.values())), [pages]);
+  const loadConceptCountsByChapter = useCallback(async (targetChapters: ConceptChapterNavigationItem[]): Promise<Map<string, number>> => {
+    const pageNumbers = Array.from(new Set(targetChapters.flatMap(({ pageNumbers: chapterPageNumbers }) => chapterPageNumbers)));
+    const [pageConceptRows, pageLessConcepts] = await Promise.all([
+      Promise.all(pageNumbers.map(async (chapterPageNumber) => [chapterPageNumber, await getBookConceptsForBookPage(book.id, chapterPageNumber)] as const)),
+      getBookConceptsForBookPage(book.id, 0)
+    ]);
+    const conceptsByPage = new Map(pageConceptRows);
+
+    return new Map(targetChapters.map((chapter) => {
+      const pageConceptCount = chapter.pageNumbers.reduce((count, chapterPageNumber) => count + (conceptsByPage.get(chapterPageNumber)?.length ?? 0), 0);
+      const pageLessConceptCount = chapter.chapterId === undefined ? 0 : pageLessConcepts.filter(({ chapterId }) => chapterId === chapter.chapterId).length;
+
+      return [standardsChapterKey(chapter.chapterId, chapter.title, chapter.pageNumbers), pageConceptCount + pageLessConceptCount] as const;
+    }));
+  }, [book.id]);
+  const refreshConceptCounts = useCallback(async (): Promise<void> => {
+    setConceptCountsByChapter(await loadConceptCountsByChapter(conceptChapters));
+  }, [conceptChapters, loadConceptCountsByChapter]);
   const currentConceptChapter = useMemo(() => conceptChapters.find(({ pageNumbers }) => pageNumbers.includes(pageNumber)), [conceptChapters, pageNumber]);
   const conceptChapterIndex = useMemo(() => Math.max(0, conceptChapters.findIndex(({ pageNumbers }) => pageNumbers.includes(pageNumber))), [conceptChapters, pageNumber]);
+  useEffect(() => {
+    refreshConceptCounts().catch(() => setConceptCountsByChapter(new Map()));
+  }, [refreshConceptCounts]);
   useEffect(() => {
     setIsAddingConcept(false);
     setNewConceptAfterIndex(-1);
@@ -1457,7 +1480,8 @@ function BookReader({ ageTabRequest, assignAllStandardsRequest, book, file, fixA
   }, []);
   const onSkillsContentChange = useCallback((): void => {
     setSkillsRefreshToken((value) => value + 1);
-  }, []);
+    refreshConceptCounts().catch(() => undefined);
+  }, [refreshConceptCounts]);
   const changeExerciseChapter = useCallback((index: number): void => {
     const nextIndex = Math.max(0, Math.min(index, Math.max(0, exerciseChapters.length - 1)));
     const chapter = exerciseChapters[nextIndex];
@@ -1952,14 +1976,14 @@ function BookReader({ ageTabRequest, assignAllStandardsRequest, book, file, fixA
       setSelectedChapterIds(new Set());
       await refreshChapterAssignments();
       await synchronizeChapterProcessingStage();
-      await refreshEntityCounts();
+      await Promise.all([refreshEntityCounts(), refreshConceptCounts()]);
       setSkillsRefreshToken((value) => value + 1);
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : 'Unable to delete the selected chapters.');
     } finally {
       setIsDeletingChapters(false);
     }
-  }, [book.id, isDeletingChapters, pages, refreshChapterAssignments, refreshEntityCounts, selectedChapterIds, synchronizeChapterProcessingStage]);
+  }, [book.id, isDeletingChapters, pages, refreshChapterAssignments, refreshConceptCounts, refreshEntityCounts, selectedChapterIds, synchronizeChapterProcessingStage]);
 
   const saveCurrentChapterTitle = useCallback(async (): Promise<void> => {
     const title = chapterTitleDraft.trim();
@@ -2175,7 +2199,7 @@ function BookReader({ ageTabRequest, assignAllStandardsRequest, book, file, fixA
       setPages(updatedPages);
       setConcepts(storedConcepts);
       setConceptFirstPageByKey(references);
-      await refreshEntityCounts();
+      await Promise.all([refreshEntityCounts(), refreshConceptCounts()]);
 
       if (areAllBookPagesConceptsProcessed(totalPages, Array.from(updatedPages.values()), analysisPageNumbers(Array.from(updatedPages.values())))) {
         await completeStage('concepts');
@@ -2187,7 +2211,7 @@ function BookReader({ ageTabRequest, assignAllStandardsRequest, book, file, fixA
       setIsGeneratingChapterConcepts(false);
       setProcessingPage(undefined);
     }
-  }, [addConceptsCost, completeStage, book.id, currentConceptChapter, isGeneratingAllConcepts, isIdentifyingChapters, isRecognizingAll, pageNumber, pages, processingPage, refreshEntityCounts, revealPane, selectedModel, totalPages]);
+  }, [addConceptsCost, completeStage, book.id, currentConceptChapter, isGeneratingAllConcepts, isIdentifyingChapters, isRecognizingAll, pageNumber, pages, processingPage, refreshConceptCounts, refreshEntityCounts, revealPane, selectedModel, totalPages]);
   const closePageGenerationConfirmation = useCallback((): void => setIsPageGenerationConfirmationOpen(false), []);
   const confirmPageGeneration = useCallback((): void => {
     setIsPageGenerationConfirmationOpen(false);
@@ -2234,6 +2258,35 @@ function BookReader({ ageTabRequest, assignAllStandardsRequest, book, file, fixA
     setIsGeneratingAllConcepts(true);
     setGeneratedConceptsChapterCount(0);
 
+    const allChapterTasks = recognitionChapters.map((chapter) => ({
+      chapter,
+      pages: chapter.pageNumbers.map((chapterPageNumber) => pages.get(chapterPageNumber) as BookPage)
+    }));
+    let chapterTasks = allChapterTasks;
+
+    if (generateOnlyMissingConcepts) {
+      try {
+        const conceptCounts = await loadConceptCountsByChapter(recognitionChapters);
+
+        chapterTasks = allChapterTasks.filter(({ chapter }) => (conceptCounts.get(standardsChapterKey(chapter.chapterId, chapter.title, chapter.pageNumbers)) ?? 0) === 0);
+      } catch {
+        setError('Unable to determine which chapters are missing concepts.');
+        setIsGeneratingAllConcepts(false);
+        onProcessingComplete();
+
+        return;
+      }
+    }
+
+    if (!chapterTasks.length) {
+      await completeStage('concepts');
+      revealPane('textConcepts');
+      setIsGeneratingAllConcepts(false);
+      onProcessingComplete();
+
+      return;
+    }
+
     const key = await getSetting(SettingKey.OPENROUTER_TOKEN);
 
     if (!key) {
@@ -2253,10 +2306,6 @@ function BookReader({ ageTabRequest, assignAllStandardsRequest, book, file, fixA
         'X-OpenRouter-Title': 'Slonig'
       }
     });
-    const chapterTasks = recognitionChapters.map((chapter) => ({
-      chapter,
-      pages: chapter.pageNumbers.map((chapterPageNumber) => pages.get(chapterPageNumber) as BookPage)
-    }));
 
     try {
       const generationResults = await mapConcurrent(chapterTasks, OPENROUTER_CONCURRENCY, async ({ chapter, pages: chapterPages }) => {
@@ -2314,17 +2363,26 @@ function BookReader({ ageTabRequest, assignAllStandardsRequest, book, file, fixA
       const conceptsComplete = areAllBookPagesConceptsProcessed(totalPages, storedPagesAfterGeneration, analyzedPageNumbers);
 
       setPages(new Map(storedPagesAfterGeneration.map((storedPage) => [storedPage.pageNumber, storedPage])));
-      await refreshEntityCounts();
+      await Promise.all([refreshEntityCounts(), refreshConceptCounts()]);
 
-      if (failedConceptTasks === 0 && conceptsComplete) {
+      // Keep successful chapter results and let the pipeline continue even if
+      // individual chapters failed. Chapters with no stored concepts remain
+      // eligible for the "missing concepts only" rerun from the Concepts popup.
+      const successfulConceptTasks = chapterTasks.length - failedConceptTasks;
+
+      if (successfulConceptTasks > 0) {
         await completeStage('concepts');
         revealPane('textConcepts');
-      } else {
+      }
+
+      if (failedConceptTasks > 0 || !conceptsComplete) {
         const unprocessedPages = countUnprocessedBookPages(totalPages, storedPagesAfterGeneration, analyzedPageNumbers);
 
         const failureDetails = failedConceptDetails.length ? ` ${failedConceptDetails.join(' | ')}` : '';
 
-        setError(`${failedConceptTasks} of ${chapterTasks.length} chapters could not have concepts processed; ${unprocessedPages} pages remain unprocessed. Retry concept generation.${failureDetails}`);
+        setError(successfulConceptTasks > 0
+          ? `Concept generation completed with ${failedConceptTasks} of ${chapterTasks.length} attempted chapters failing; ${unprocessedPages} pages remain unprocessed. Successful chapter results were kept. Rerun Concepts to retry, optionally only for chapters missing concepts.${failureDetails}`
+          : `Concept generation failed for all ${chapterTasks.length} attempted chapters; ${unprocessedPages} pages remain unprocessed. The Concepts stage remains incomplete. Retry concept generation.${failureDetails}`);
       }
     } catch (generationError) {
       setError(generationError instanceof Error ? generationError.message : 'Unable to generate concepts for all chapters.');
@@ -2332,7 +2390,7 @@ function BookReader({ ageTabRequest, assignAllStandardsRequest, book, file, fixA
       setIsGeneratingAllConcepts(false);
       onProcessingComplete();
     }
-  }, [addConceptsCost, completeStage, book.id, conceptChapters, generateAllConceptsModel, isGeneratingAllConcepts, isIdentifyingChapters, isRecognizingAll, onProcessingComplete, pageNumber, pages, processingPage, refreshEntityCounts, revealPane, totalPages]);
+  }, [addConceptsCost, completeStage, book.id, conceptChapters, generateAllConceptsModel, generateOnlyMissingConcepts, isGeneratingAllConcepts, isIdentifyingChapters, isRecognizingAll, loadConceptCountsByChapter, onProcessingComplete, pageNumber, pages, processingPage, refreshConceptCounts, refreshEntityCounts, revealPane, totalPages]);
 
   const fixAllConcepts = useCallback(async (model = generateAllConceptsModel): Promise<void> => {
     if (!conceptChapters.length || isFixingConcepts || isGeneratingAllConcepts || isRecognizingAll || isIdentifyingChapters || isGeneratingAllExercises) {
@@ -2398,7 +2456,7 @@ function BookReader({ ageTabRequest, assignAllStandardsRequest, book, file, fixA
         setFixedConceptsChapterCount((count) => count + 1);
       }
 
-      await refreshEntityCounts();
+      await Promise.all([refreshEntityCounts(), refreshConceptCounts()]);
       setSkillsRefreshToken((value) => value + 1);
 
       if (currentConceptChapter) {
@@ -2435,7 +2493,7 @@ function BookReader({ ageTabRequest, assignAllStandardsRequest, book, file, fixA
     } finally {
       setIsFixingConcepts(false);
     }
-  }, [addFixConceptsCost, book, completeStage, conceptChapters, currentConceptChapter, generateAllConceptsModel, isFixingConcepts, isGeneratingAllConcepts, isGeneratingAllExercises, isIdentifyingChapters, isRecognizingAll, pages, refreshEntityCounts, revealPane]);
+  }, [addFixConceptsCost, book, completeStage, conceptChapters, currentConceptChapter, generateAllConceptsModel, isFixingConcepts, isGeneratingAllConcepts, isGeneratingAllExercises, isIdentifyingChapters, isRecognizingAll, pages, refreshConceptCounts, refreshEntityCounts, revealPane]);
 
   const generateAllExercises = useCallback(async (): Promise<void> => {
     if (!totalPages || processingPage !== undefined || isGeneratingAllConcepts || isRecognizingAll || isGeneratingAllExercises || isIdentifyingChapters) {
@@ -3735,7 +3793,7 @@ function BookReader({ ageTabRequest, assignAllStandardsRequest, book, file, fixA
       }
 
       await reloadCurrentChapterConcepts();
-      await refreshEntityCounts();
+      await Promise.all([refreshEntityCounts(), refreshConceptCounts()]);
       setNewConceptAfterIndex(-1);
       setNewConceptDescription('');
       setNewConceptPage('');
@@ -3749,7 +3807,7 @@ function BookReader({ ageTabRequest, assignAllStandardsRequest, book, file, fixA
     } finally {
       setIsSavingNewConcept(false);
     }
-  }, [book.id, concepts, currentConceptChapter, isSavingNewConcept, loadCurrentChapterConcepts, newConceptAfterIndex, newConceptDescription, newConceptPage, newConceptTitle, pages, refreshEntityCounts, reloadCurrentChapterConcepts]);
+  }, [book.id, concepts, currentConceptChapter, isSavingNewConcept, loadCurrentChapterConcepts, newConceptAfterIndex, newConceptDescription, newConceptPage, newConceptTitle, pages, refreshConceptCounts, refreshEntityCounts, reloadCurrentChapterConcepts]);
 
   const reorderConcepts = useCallback(async (fromIndex: number, toIndex: number): Promise<void> => {
     if (fromIndex === toIndex || fromIndex < 0 || toIndex < 0 || fromIndex >= concepts.length || toIndex >= concepts.length || isReorderingConcepts) {
@@ -4077,7 +4135,7 @@ function BookReader({ ageTabRequest, assignAllStandardsRequest, book, file, fixA
         return next;
       });
       setSkillsRefreshToken((value) => value + 1);
-      await refreshEntityCounts();
+      await Promise.all([refreshEntityCounts(), refreshConceptCounts()]);
       setError('');
     } catch (caught) {
       const message = caught instanceof Error ? caught.message : 'Unable to delete the concept.';
@@ -4085,7 +4143,7 @@ function BookReader({ ageTabRequest, assignAllStandardsRequest, book, file, fixA
       setError(message);
       throw caught;
     }
-  }, [book.id, pages, refreshEntityCounts]);
+  }, [book.id, pages, refreshConceptCounts, refreshEntityCounts]);
 
   const saveExercise = useCallback(async (exerciseId: number, value: ExerciseEditableFields): Promise<void> => {
     if (!currentExerciseChapter) {
@@ -5017,10 +5075,15 @@ function BookReader({ ageTabRequest, assignAllStandardsRequest, book, file, fixA
                           onChange={({ target }) => changeConceptChapter(Number(target.value))}
                           value={conceptChapters.length ? conceptChapterIndex : ''}
                         >
-                          {conceptChapters.map(({ chapterId, pageNumbers, title }, index) => <option
-                            key={standardsChapterKey(chapterId, title, pageNumbers)}
-                            value={index}
-                          >{title || 'Chapter not identified'}</option>)}
+                          {conceptChapters.map(({ chapterId, pageNumbers, title }, index) => {
+                            const chapterKey = standardsChapterKey(chapterId, title, pageNumbers);
+                            const conceptCount = conceptCountsByChapter.get(chapterKey) ?? 0;
+
+                            return <option
+                              key={chapterKey}
+                              value={index}
+                            >{title || 'Chapter not identified'} {'('}{conceptCount}{')'}</option>;
+                          })}
                         </select><span>{conceptChapters.length ? `${conceptChapterIndex + 1} of ${conceptChapters.length}` : 'No chapters'}</span></label>
                         <Button
                           icon='arrow-right'
