@@ -7,22 +7,20 @@ import { describe, it } from 'node:test';
 import { getTikzRenderConcurrency } from './tikzConcurrency.js';
 
 describe('TikZ render concurrency', (): void => {
-  it('keeps low-core machines conservative', (): void => {
-    assert.equal(getTikzRenderConcurrency(1), 1);
-    assert.equal(getTikzRenderConcurrency(2), 1);
+  it('uses two renders per reported logical CPU', (): void => {
+    assert.equal(getTikzRenderConcurrency(1), 2);
+    assert.equal(getTikzRenderConcurrency(2), 4);
+    assert.equal(getTikzRenderConcurrency(4), 8);
+    assert.equal(getTikzRenderConcurrency(8), 16);
+    assert.equal(getTikzRenderConcurrency(16), 32);
+    assert.equal(getTikzRenderConcurrency(64), 128);
   });
 
-  it('keeps one core free on ordinary multi-core machines', (): void => {
-    assert.equal(getTikzRenderConcurrency(4), 3);
-    assert.equal(getTikzRenderConcurrency(8), 7);
-  });
-
-  it('caps very large machines to avoid flooding the browser', (): void => {
-    assert.equal(getTikzRenderConcurrency(16), 8);
-    assert.equal(getTikzRenderConcurrency(64), 8);
+  it('floors fractional reported CPU values before doubling', (): void => {
+    assert.equal(getTikzRenderConcurrency(3.9), 6);
   });
 
   it('falls back safely when the browser does not report CPU capacity', (): void => {
-    assert.equal(getTikzRenderConcurrency(Number.NaN), 3);
+    assert.equal(getTikzRenderConcurrency(Number.NaN), 8);
   });
 });

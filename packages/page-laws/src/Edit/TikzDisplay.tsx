@@ -80,11 +80,14 @@ export function ensureTikzJax (): Promise<void> {
     renderTimeout: TIKZ_COMPILE_TIMEOUT_MS,
     restartWorkerOnFail: current.restartWorkerOnFail ?? true,
     workerPool: {
-      enabled: current.workerPool?.enabled ?? true,
+      // The application deliberately allows two TikZ renders per logical CPU.
+      // Do not apply a second CPU or memory reservation inside TikZJax, otherwise
+      // its effective worker pool could be smaller than the app-level queue.
+      enabled: true,
       initializationRetries: current.workerPool?.initializationRetries ?? 1,
-      maxWorkers: current.workerPool?.maxWorkers ?? TIKZ_RENDER_CONCURRENCY,
-      reserveCpuCores: current.workerPool?.reserveCpuCores ?? 1,
-      useDeviceMemory: current.workerPool?.useDeviceMemory ?? true
+      maxWorkers: TIKZ_RENDER_CONCURRENCY,
+      reserveCpuCores: 0,
+      useDeviceMemory: false
     }
   };
 

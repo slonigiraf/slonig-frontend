@@ -2,11 +2,10 @@
 // SPDX-License-Identifier: Apache-2.0
 
 const DEFAULT_HARDWARE_CONCURRENCY = 4;
-const MAX_TIKZ_RENDER_CONCURRENCY = 8;
 
 /**
- * Keep one logical CPU available for the UI on machines with more than two
- * cores, while still using the machine aggressively for TikZ compilation.
+ * Run two TikZ renders per logical CPU reported by the browser.
+ *
  * Browsers may intentionally report an approximate hardwareConcurrency; that
  * value is still the best local signal available for sizing the worker pool.
  */
@@ -15,7 +14,6 @@ export function getTikzRenderConcurrency (hardwareConcurrency?: number): number 
   const cores = typeof reported === 'number' && Number.isFinite(reported) && reported > 0
     ? Math.max(1, Math.floor(reported))
     : DEFAULT_HARDWARE_CONCURRENCY;
-  const usable = cores > 2 ? cores - 1 : 1;
 
-  return Math.min(MAX_TIKZ_RENDER_CONCURRENCY, usable);
+  return cores * 2;
 }
