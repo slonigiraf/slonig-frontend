@@ -236,6 +236,7 @@ interface FixedExerciseReview {
   errors: string[];
   exercise: Exercise;
   exerciseId: number;
+  original: Exercise;
 }
 
 interface DuplicateExerciseReview {
@@ -1096,39 +1097,252 @@ function AbilityCard ({ onDeleted, onError, record }: { onDeleted: () => void; o
   </article>;
 }
 
-function DuplicateExerciseSide ({ exercise, label }: { exercise: Exercise; label: string }): React.ReactElement {
-  return <section className='duplicateAbilitySide'>
-    <h5>{label}</h5>
-    {exercise.id !== undefined && <p><small>Exercise ID: <code>{exercise.id}</code></small></p>}
-    <strong><KatexSpan content={exercise.title} /></strong>
+function ExerciseReviewCard ({ exercise, isProposed = false }: { exercise: Exercise; isProposed?: boolean }): React.ReactElement {
+  return <div className={`fixResultsReviewCard${isProposed ? ' isProposed' : ''}`}>
+    <div className='fixResultsReviewHeading'>
+      <strong><KatexSpan content={exercise.title} /></strong>
+      <span className='fixResultsReviewMeta'>
+        {isProposed && <span className='fixResultsReviewProposed'>Proposed</span>}
+        {exercise.id !== undefined && <span className='fixResultsReviewId'>ID {exercise.id}</span>}
+      </span>
+    </div>
     <p><KatexSpan content={stripMarkdownImageReferences(exercise.description)} /></p>
     {exercise.imageDescription && <p><small>Required visual: <KatexSpan content={exercise.imageDescription} /></small></p>}
     {exercise.solution && <div className='solution'><KatexSpan content={exercise.solution} /></div>}
     {exercise.solutionImageDescription && <p><small>Solution visual: <KatexSpan content={exercise.solutionImageDescription} /></small></p>}
-  </section>;
+  </div>;
 }
 
-function DuplicateAbilitySide ({ conceptTitle, exerciseTitle, label, record }: { conceptTitle?: string; exerciseTitle?: string; label: string; record: StoredAbility }): React.ReactElement {
-  return <section className='duplicateAbilitySide'>
-    <h5>{label}</h5>
-    {exerciseTitle && <p><small>Exercise: <KatexSpan content={exerciseTitle} /></small></p>}
-    {conceptTitle && <p><small>Concept: <KatexSpan content={conceptTitle} /></small></p>}
-    <p><small>Record ID: <code>{record.id}</code></small></p>
-    {record.ability
-      ? <>
-        <strong><KatexSpan content={record.ability.h} /></strong>
-        <ExerciseList
-          areShownInitially
-          exercises={record.ability.q}
-          location='ability_info'
-        />
-      </>
-      : <>
-        <strong>Invalid Ability JSON</strong>
-        <pre>{record.content}</pre>
-      </>}
-  </section>;
+function AbilityReviewCard ({ ability, content, isProposed = false, recordId }: { ability: GeneratedAbility | null; content?: string; isProposed?: boolean; recordId?: string }): React.ReactElement {
+  return <div className={`fixResultsReviewCard${isProposed ? ' isProposed' : ''}`}>
+    <div className='fixResultsReviewHeading'>
+      <strong>{ability ? <KatexSpan content={ability.h} /> : 'Invalid Ability JSON'}</strong>
+      <span className='fixResultsReviewMeta'>
+        {isProposed && <span className='fixResultsReviewProposed'>Proposed</span>}
+        {recordId && <span className='fixResultsReviewId'>ID {recordId}</span>}
+      </span>
+    </div>
+    {ability
+      ? <ExerciseList
+        areShownInitially
+        exercises={ability.q}
+        location='ability_info'
+      />
+      : <pre>{content}</pre>}
+  </div>;
 }
+
+function RemovedReviewCard ({ label }: { label: string }): React.ReactElement {
+  return <div className='fixResultsReviewRemoved'>{label}</div>;
+}
+
+const FixResultsReviewContent = styled.div`
+  .fixResultsReviewIntro {
+    margin-bottom: 1rem;
+  }
+
+  .fixResultsReviewIntro p {
+    margin: 0.25rem 0;
+  }
+
+  .fixResultsReviewComparison {
+    border: 1px solid #dde1eb;
+    border-radius: 0.5rem;
+    box-sizing: border-box;
+    display: grid;
+    gap: 0.9rem;
+    max-height: min(52vh, 38rem);
+    min-height: 10rem;
+    overflow: auto;
+    padding: 0.75rem;
+  }
+
+  .fixResultsReviewItem {
+    border-top: 1px solid var(--border-table);
+    padding-top: 0.9rem;
+  }
+
+  .fixResultsReviewItem:first-child {
+    border-top: 0;
+    padding-top: 0;
+  }
+
+  .fixResultsReviewItem > strong {
+    display: block;
+    margin-bottom: 0.55rem;
+    overflow-wrap: anywhere;
+  }
+
+  .fixResultsReviewContext {
+    margin: -0.25rem 0 0.6rem;
+  }
+
+  .fixResultsReviewRow {
+    align-items: stretch;
+    display: grid;
+    gap: 1rem;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  }
+
+  .fixResultsReviewCell {
+    display: flex;
+    flex-direction: column;
+    gap: 0.45rem;
+    min-width: 0;
+  }
+
+  .fixResultsReviewChangeLabel {
+    display: block;
+    font-size: 0.82rem;
+    font-weight: 600;
+    line-height: 1.2;
+    margin: 0;
+    opacity: 0.72;
+    padding-left: 0.1rem;
+  }
+
+  .fixResultsReviewCard {
+    background: var(--bg-input);
+    border: 1px solid #dde1eb;
+    border-radius: 0.6rem;
+    box-sizing: border-box;
+    flex: 1 1 auto;
+    min-width: 0;
+    padding: 0.8rem 0.9rem;
+  }
+
+  .fixResultsReviewCard.isProposed {
+    border-color: var(--color-primary, #1682d4);
+    box-shadow: inset 3px 0 0 var(--color-primary, #1682d4);
+  }
+
+  .fixResultsReviewCard p {
+    line-height: 1.5;
+    margin: 0.45rem 0 0;
+    overflow-wrap: anywhere;
+  }
+
+  .fixResultsReviewCard .solution {
+    border-left: 0.2rem solid var(--border-table);
+    margin: 0.55rem 0 0;
+    padding-left: 0.75rem;
+  }
+
+  .fixResultsReviewCard pre {
+    max-height: 14rem;
+    overflow: auto;
+    white-space: pre-wrap;
+    word-break: break-word;
+  }
+
+  .fixResultsReviewHeading {
+    align-items: flex-start;
+    display: flex;
+    gap: 0.75rem;
+    justify-content: space-between;
+  }
+
+  .fixResultsReviewHeading > strong {
+    line-height: 1.35;
+    min-width: 0;
+    overflow-wrap: anywhere;
+  }
+
+  .fixResultsReviewMeta {
+    align-items: center;
+    display: flex;
+    flex-shrink: 0;
+    gap: 0.35rem;
+  }
+
+  .fixResultsReviewId,
+  .fixResultsReviewProposed {
+    border-radius: 999px;
+    font-size: 0.78em;
+    line-height: 1.2;
+    padding: 0.25rem 0.5rem;
+    white-space: nowrap;
+  }
+
+  .fixResultsReviewId {
+    background: rgba(47, 111, 235, 0.08);
+    border: 1px solid rgba(47, 111, 235, 0.18);
+  }
+
+  .fixResultsReviewProposed {
+    background: rgba(22, 130, 212, 0.12);
+    border: 1px solid rgba(22, 130, 212, 0.28);
+    font-weight: 600;
+  }
+
+  .fixResultsReviewRemoved {
+    align-items: center;
+    border: 1px dashed #dde1eb;
+    border-radius: 0.6rem;
+    box-sizing: border-box;
+    display: flex;
+    flex: 1 1 auto;
+    justify-content: center;
+    min-height: 4.5rem;
+    opacity: 0.65;
+    padding: 0.8rem 0.9rem;
+    text-align: center;
+  }
+
+  .fixResultsDifference {
+    border-top: 1px solid #dde1eb;
+    margin-top: 1rem;
+    padding-top: 1rem;
+  }
+
+  .fixResultsDifference h3 {
+    margin: 0 0 0.6rem;
+  }
+
+  .fixResultsDifference p {
+    margin: 0.25rem 0;
+  }
+
+  .fixResultsDifference ul,
+  .fixResultsDifference ol {
+    margin: 0.6rem 0 0;
+    padding-left: 1.4rem;
+  }
+
+  .fixResultsDifference li + li {
+    margin-top: 0.35rem;
+  }
+
+  .fixResultsReviewCard .tikzDiagnostics,
+  .fixResultsReviewCard .tikzCodeDiff {
+    background: var(--bg-input);
+    border: 1px solid var(--border-table);
+    border-radius: 0.3rem;
+    box-sizing: border-box;
+    font-size: 0.78rem;
+    max-height: 16rem;
+    overflow: auto;
+    padding: 0.6rem;
+    white-space: pre-wrap;
+    word-break: break-word;
+  }
+
+  .fixResultsReviewCard .tikzDiagnostics {
+    color: #9f3a38;
+    max-height: 8rem;
+  }
+
+  @media (max-width: 760px) {
+    .fixResultsReviewRow {
+      gap: 0.6rem;
+      grid-template-columns: 1fr;
+    }
+
+    .fixResultsReviewComparison {
+      max-height: 48vh;
+    }
+  }
+`;
 
 const chapterSessionKey = (bookId: number, view: SkillsView): string => `knowledge-upload-book-${bookId}-${view}-chapter`;
 
@@ -1709,7 +1923,12 @@ function Skills ({ book, externalRefreshToken = 0, onAction, onBookChange, onCon
       const review: ExerciseFixReviewResult = {
         checked: allExercises.length,
         duplicatePairs: Array.from(duplicatePairs.values()),
-        items: Array.from(replacements, ([exerciseId, { errors, exercise }]) => ({ errors, exercise, exerciseId }))
+        items: Array.from(replacements, ([exerciseId, { errors, exercise }]) => ({
+          errors,
+          exercise,
+          exerciseId,
+          original: allExercises.find(({ id }) => id === exerciseId) ?? exercise
+        }))
       };
       const unchanged = Math.max(0, allExercises.length - replacements.size - duplicateIds.size);
 
@@ -2385,64 +2604,81 @@ function Skills ({ book, externalRefreshToken = 0, onAction, onBookChange, onCon
         size='large'
       >
         <Modal.Content>
-          <p>Checked {exerciseFixReview.checked} Exercises. Proposed {exerciseFixReview.items.length} correction{exerciseFixReview.items.length === 1 ? '' : 's'} and {exerciseFixReview.duplicatePairs.length} duplicate deletion{exerciseFixReview.duplicatePairs.length === 1 ? '' : 's'}. No database changes have been made yet.</p>
-          {exerciseFixReview.duplicatePairs.length > 0 && <>
-            <h4>Deleted duplicates</h4>
-            <div className='duplicateReviewList'>
-              {exerciseFixReview.duplicatePairs.map(({ chapterTitle, deleted, kept }, index) => <article
-                className='duplicateReviewItem'
-                key={deleted.id ?? `deleted-${index}`}
-              >
-                <strong>{index + 1}. Chapter: <KatexSpan content={chapterTitle} /></strong>
-                <div className='duplicatePairComparison'>
-                  <DuplicateExerciseSide
-                    exercise={kept}
-                    label='Kept'
-                  />
-                  <DuplicateExerciseSide
-                    exercise={deleted}
-                    label='Deleted duplicate'
-                  />
-                </div>
-              </article>)}
+          <FixResultsReviewContent>
+            <div className='fixResultsReviewIntro'>
+              <p><strong>No Exercise changes have been saved yet.</strong></p>
+              <p>Checked {exerciseFixReview.checked} Exercises. Proposed {exerciseFixReview.items.length} correction{exerciseFixReview.items.length === 1 ? '' : 's'} and {exerciseFixReview.duplicatePairs.length} duplicate deletion{exerciseFixReview.duplicatePairs.length === 1 ? '' : 's'}.</p>
             </div>
-          </>}
-          {exerciseFixReview.items.length
-            ? <div className='fixReviewList'>
-              {exerciseFixReview.items.map(({ errors, exercise, exerciseId }, index) => <article
-                className='fixReviewItem'
+            {(exerciseFixReview.items.length > 0 || exerciseFixReview.duplicatePairs.length > 0) && <div className='fixResultsReviewComparison'>
+              {exerciseFixReview.items.map(({ exercise, exerciseId, original }, index) => <article
+                className='fixResultsReviewItem'
                 key={exerciseId}
               >
-                <strong>{index + 1}. <KatexSpan content={exercise.title} /></strong>
-                <p><small>Exercise ID: <code>{exerciseId}</code></small></p>
-                <h5>Corrected errors</h5>
-                <ul>
-                  {errors.map((message, errorIndex) => <li key={`${exerciseId}-${errorIndex}`}><KatexSpan content={message} /></li>)}
-                </ul>
-                <h5>Corrected result</h5>
-                <div className='fixedExercisePreview'>
-                  <p><KatexSpan content={stripMarkdownImageReferences(exercise.description)} /></p>
-                  {exercise.imageDescription && <p><small>Required visual: <KatexSpan content={exercise.imageDescription} /></small></p>}
-                  {exercise.solutionImageDescription && <p><small>Solution visual: <KatexSpan content={exercise.solutionImageDescription} /></small></p>}
-                  {exercise.solution && <div className='solution'><KatexSpan content={exercise.solution} /></div>}
+                <strong>{index + 1}. <KatexSpan content={original.title} /></strong>
+                <div className='fixResultsReviewRow'>
+                  <div className='fixResultsReviewCell'>
+                    <span className='fixResultsReviewChangeLabel'>Before</span>
+                    <ExerciseReviewCard exercise={original} />
+                  </div>
+                  <div className='fixResultsReviewCell'>
+                    <span className='fixResultsReviewChangeLabel'>After</span>
+                    <ExerciseReviewCard
+                      exercise={exercise}
+                      isProposed
+                    />
+                  </div>
                 </div>
               </article>)}
-            </div>
-            : <p>No Exercise errors were found.</p>}
-          <Button.Group>
-            <Button
-              icon='times'
-              isDisabled={isBusy}
-              label='Discard'
-              onClick={closeExerciseFixReview}
-            />
-            <Button
-              icon='check'
-              isDisabled={isBusy}
-              label={exerciseFixReview.items.length || exerciseFixReview.duplicatePairs.length ? 'Apply changes' : 'Confirm review'}
-              onClick={() => applyExerciseFixReview().catch(console.error)}
-            />
-          </Button.Group>
+              {exerciseFixReview.duplicatePairs.map(({ chapterTitle, deleted, kept }, duplicateIndex) => <article
+                className='fixResultsReviewItem'
+                key={deleted.id ?? `deleted-${duplicateIndex}`}
+              >
+                <strong>{exerciseFixReview.items.length + duplicateIndex + 1}. <KatexSpan content={deleted.title} /> — duplicate deletion</strong>
+                <p className='fixResultsReviewContext'><small>Chapter: <KatexSpan content={chapterTitle} /> · Keeping: <KatexSpan content={kept.title} /></small></p>
+                <div className='fixResultsReviewRow'>
+                  <div className='fixResultsReviewCell'>
+                    <span className='fixResultsReviewChangeLabel'>Before</span>
+                    <ExerciseReviewCard exercise={deleted} />
+                  </div>
+                  <div className='fixResultsReviewCell'>
+                    <span className='fixResultsReviewChangeLabel'>After</span>
+                    <RemovedReviewCard label='Removed as duplicate' />
+                  </div>
+                </div>
+              </article>)}
+            </div>}
+            <section className='fixResultsDifference'>
+              <h3>Difference</h3>
+              {exerciseFixReview.items.length || exerciseFixReview.duplicatePairs.length
+                ? <>
+                  <p>{exerciseFixReview.items.length} Exercise correction{exerciseFixReview.items.length === 1 ? '' : 's'} and {exerciseFixReview.duplicatePairs.length} duplicate deletion{exerciseFixReview.duplicatePairs.length === 1 ? '' : 's'} will be applied if you approve these changes.</p>
+                  {exerciseFixReview.items.length > 0 && <ol>
+                    {exerciseFixReview.items.map(({ errors, exerciseId, original }) => <li key={`difference-${exerciseId}`}>
+                      <strong><KatexSpan content={original.title} /></strong>
+                      <ul>{errors.map((message, errorIndex) => <li key={`${exerciseId}-${errorIndex}`}><KatexSpan content={message} /></li>)}</ul>
+                    </li>)}
+                  </ol>}
+                  {exerciseFixReview.duplicatePairs.length > 0 && <ul>
+                    {exerciseFixReview.duplicatePairs.map(({ deleted, kept }, index) => <li key={`duplicate-difference-${deleted.id ?? index}`}><strong><KatexSpan content={deleted.title} /></strong> will be deleted; <KatexSpan content={kept.title} /> will be kept.</li>)}
+                  </ul>}
+                </>
+                : <p>No changes are proposed. The reviewed Exercises remain unchanged.</p>}
+            </section>
+            <Button.Group>
+              <Button
+                icon='times'
+                isDisabled={isBusy}
+                label='Discard'
+                onClick={closeExerciseFixReview}
+              />
+              <Button
+                icon='check'
+                isDisabled={isBusy}
+                label={exerciseFixReview.items.length || exerciseFixReview.duplicatePairs.length ? 'Apply changes' : 'Confirm review'}
+                onClick={() => applyExerciseFixReview().catch(console.error)}
+              />
+            </Button.Group>
+          </FixResultsReviewContent>
         </Modal.Content>
       </Modal>
     )}
@@ -2453,68 +2689,93 @@ function Skills ({ book, externalRefreshToken = 0, onAction, onBookChange, onCon
         size='large'
       >
         <Modal.Content>
-          <p>Checked {fixReview.checked} Abilities. Proposed {fixReview.items.length} correction{fixReview.items.length === 1 ? '' : 's'} and {fixReview.duplicatePairs.length} duplicate deletion{fixReview.duplicatePairs.length === 1 ? '' : 's'}. Applying a duplicate deletion also removes its source Exercise and linked Concept. No database changes have been made yet.</p>
-          {fixReview.duplicatePairs.length > 0 && <>
-            <h4>Deleted duplicates</h4>
-            <div className='duplicateReviewList'>
-              {fixReview.duplicatePairs.map(({ chapterTitle, deleted, deletedConceptTitle, deletedExerciseTitle, kept, keptExerciseTitle }, index) => <article
-                className='duplicateReviewItem'
-                key={deleted.id}
-                                                                                                                          >
-                <strong>{index + 1}. Chapter: <KatexSpan content={chapterTitle} /></strong>
-                <div className='duplicatePairComparison'>
-                  <DuplicateAbilitySide
-                    exerciseTitle={keptExerciseTitle}
-                    label='Kept'
-                    record={kept}
-                  />
-                  <DuplicateAbilitySide
-                    conceptTitle={deletedConceptTitle}
-                    exerciseTitle={deletedExerciseTitle}
-                    label='Deleted duplicate'
-                    record={deleted}
-                  />
-                </div>
-              </article>)}
+          <FixResultsReviewContent>
+            <div className='fixResultsReviewIntro'>
+              <p><strong>No Ability changes have been saved yet.</strong></p>
+              <p>Checked {fixReview.checked} Abilities. Proposed {fixReview.items.length} correction{fixReview.items.length === 1 ? '' : 's'} and {fixReview.duplicatePairs.length} duplicate deletion{fixReview.duplicatePairs.length === 1 ? '' : 's'}. A duplicate deletion also removes its source Exercise and linked Concept.</p>
             </div>
-          </>}
-          {fixReview.items.length
-            ? <div className='fixReviewList'>
-              {fixReview.items.map(({ ability, errors, exerciseTitle, recordId }, index) => <article
-                className='fixReviewItem'
+            {(fixReview.items.length > 0 || fixReview.duplicatePairs.length > 0) && <div className='fixResultsReviewComparison'>
+              {fixReview.items.map(({ ability, exerciseTitle, record, recordId }, index) => <article
+                className='fixResultsReviewItem'
                 key={recordId}
-                                                                                               >
-                <strong>{index + 1}. <KatexSpan content={ability.h} /></strong>
-                {exerciseTitle && <p><small>Exercise: <KatexSpan content={exerciseTitle} /></small></p>}
-                <h5>Corrected errors</h5>
-                <ul>
-                  {errors.map((message, errorIndex) => <li key={`${recordId}-${errorIndex}`}><KatexSpan content={message} /></li>)}
-                </ul>
-                <h5>Corrected result</h5>
-                <div className='fixedAbilityPreview'>
-                  <ExerciseList
-                    areShownInitially
-                    exercises={ability.q}
-                    location='ability_info'
-                  />
+              >
+                <strong>{index + 1}. {record.ability ? <KatexSpan content={record.ability.h} /> : <KatexSpan content={ability.h} />}</strong>
+                {exerciseTitle && <p className='fixResultsReviewContext'><small>Exercise: <KatexSpan content={exerciseTitle} /></small></p>}
+                <div className='fixResultsReviewRow'>
+                  <div className='fixResultsReviewCell'>
+                    <span className='fixResultsReviewChangeLabel'>Before</span>
+                    <AbilityReviewCard
+                      ability={record.ability}
+                      content={record.content}
+                      recordId={recordId}
+                    />
+                  </div>
+                  <div className='fixResultsReviewCell'>
+                    <span className='fixResultsReviewChangeLabel'>After</span>
+                    <AbilityReviewCard
+                      ability={ability}
+                      isProposed
+                      recordId={recordId}
+                    />
+                  </div>
                 </div>
               </article>)}
-            </div>
-            : <p>No Ability errors were found.</p>}
-          <Button.Group>
-            <Button
-              icon='times'
-              isDisabled={isBusy}
-              label='Discard'
-              onClick={closeFixReview}
-            />
-            <Button
-              icon='check'
-              isDisabled={isBusy}
-              label={fixReview.items.length || fixReview.duplicatePairs.length ? 'Apply changes' : 'Confirm review'}
-              onClick={() => applyAbilityFixReview().catch(console.error)}
-            />
-          </Button.Group>
+              {fixReview.duplicatePairs.map(({ chapterTitle, deleted, deletedConceptTitle, deletedExerciseTitle, keptExerciseTitle }, duplicateIndex) => <article
+                className='fixResultsReviewItem'
+                key={deleted.id}
+              >
+                <strong>{fixReview.items.length + duplicateIndex + 1}. {deleted.ability ? <KatexSpan content={deleted.ability.h} /> : 'Invalid Ability JSON'} — duplicate deletion</strong>
+                <p className='fixResultsReviewContext'><small>Chapter: <KatexSpan content={chapterTitle} />{deletedExerciseTitle && <> · Exercise: <KatexSpan content={deletedExerciseTitle} /></>}{deletedConceptTitle && <> · Concept: <KatexSpan content={deletedConceptTitle} /></>}{keptExerciseTitle && <> · Keeping Ability for: <KatexSpan content={keptExerciseTitle} /></>}</small></p>
+                <div className='fixResultsReviewRow'>
+                  <div className='fixResultsReviewCell'>
+                    <span className='fixResultsReviewChangeLabel'>Before</span>
+                    <AbilityReviewCard
+                      ability={deleted.ability}
+                      content={deleted.content}
+                      recordId={deleted.id}
+                    />
+                  </div>
+                  <div className='fixResultsReviewCell'>
+                    <span className='fixResultsReviewChangeLabel'>After</span>
+                    <RemovedReviewCard label='Removed as duplicate with its source Exercise and linked Concept' />
+                  </div>
+                </div>
+              </article>)}
+            </div>}
+            <section className='fixResultsDifference'>
+              <h3>Difference</h3>
+              {fixReview.items.length || fixReview.duplicatePairs.length
+                ? <>
+                  <p>{fixReview.items.length} Ability correction{fixReview.items.length === 1 ? '' : 's'} and {fixReview.duplicatePairs.length} duplicate deletion{fixReview.duplicatePairs.length === 1 ? '' : 's'} will be applied if you approve these changes.</p>
+                  {fixReview.items.length > 0 && <ol>
+                    {fixReview.items.map(({ ability, errors, recordId }) => <li key={`difference-${recordId}`}>
+                      <strong><KatexSpan content={ability.h} /></strong>
+                      <ul>{errors.map((message, errorIndex) => <li key={`${recordId}-${errorIndex}`}><KatexSpan content={message} /></li>)}</ul>
+                    </li>)}
+                  </ol>}
+                  {fixReview.duplicatePairs.length > 0 && <ul>
+                    {fixReview.duplicatePairs.map(({ deleted, deletedExerciseTitle, keptExerciseTitle }) => <li key={`duplicate-difference-${deleted.id}`}>
+                      {deleted.ability ? <strong><KatexSpan content={deleted.ability.h} /></strong> : <strong>Ability {deleted.id}</strong>} will be deleted{deletedExerciseTitle ? <> with source Exercise <KatexSpan content={deletedExerciseTitle} /></> : null}{keptExerciseTitle ? <>; the Ability for <KatexSpan content={keptExerciseTitle} /> will be kept</> : null}.
+                    </li>)}
+                  </ul>}
+                </>
+                : <p>No changes are proposed. The reviewed Abilities remain unchanged.</p>}
+            </section>
+            <Button.Group>
+              <Button
+                icon='times'
+                isDisabled={isBusy}
+                label='Discard'
+                onClick={closeFixReview}
+              />
+              <Button
+                icon='check'
+                isDisabled={isBusy}
+                label={fixReview.items.length || fixReview.duplicatePairs.length ? 'Apply changes' : 'Confirm review'}
+                onClick={() => applyAbilityFixReview().catch(console.error)}
+              />
+            </Button.Group>
+          </FixResultsReviewContent>
         </Modal.Content>
       </Modal>
     )}
@@ -2525,57 +2786,89 @@ function Skills ({ book, externalRefreshToken = 0, onAction, onBookChange, onCon
         size='large'
       >
         <Modal.Content>
-          <p>Checked {imageFixReview.checked} TikZ visual{imageFixReview.checked === 1 ? '' : 's'}. The pre-render found {imageFixReview.compileFailures} original compile failure{imageFixReview.compileFailures === 1 ? '' : 's'}, and AI proposed {imageFixReview.items.length} correction{imageFixReview.items.length === 1 ? '' : 's'}. Compile failures are saved as validation metadata; no TikZ source changes are applied until approval.</p>
-          {imageFixReview.items.length
-            ? <div className='fixReviewList'>
-              {imageFixReview.items.map(({ errors, exerciseIndex, field, fixedPreRender, fixedTikz, originalPreRender, originalTikz, prompt, record }, index) => {
+          <FixResultsReviewContent>
+            <div className='fixResultsReviewIntro'>
+              <p><strong>No TikZ source changes have been saved yet.</strong></p>
+              <p>Checked {imageFixReview.checked} TikZ visual{imageFixReview.checked === 1 ? '' : 's'}. The pre-render found {imageFixReview.compileFailures} original compile failure{imageFixReview.compileFailures === 1 ? '' : 's'}, and AI proposed {imageFixReview.items.length} correction{imageFixReview.items.length === 1 ? '' : 's'}. Compile failures are saved as validation metadata.</p>
+            </div>
+            {imageFixReview.items.length > 0 && <div className='fixResultsReviewComparison'>
+              {imageFixReview.items.map(({ exerciseIndex, field, fixedPreRender, fixedTikz, originalPreRender, originalTikz, prompt, record }, index) => {
                 const exercise = record.ability?.q[exerciseIndex];
                 const role = field === 'p' ? 'Question' : 'Solution';
 
                 return <article
-                  className='fixReviewItem imageFixReviewItem'
+                  className='fixResultsReviewItem'
                   key={`${record.id}-${exerciseIndex}-${field}`}
                 >
                   <strong>{index + 1}. {record.ability?.h ? <KatexSpan content={record.ability.h} /> : 'Ability'} — exercise {exerciseIndex + 1} {role.toLowerCase()} visual</strong>
-                  {exercise && <p><small>Exercise: <KatexSpan content={exercise.h} /></small></p>}
-                  {prompt && <p className='visualPrompt'><small>Original visual prompt: <KatexSpan content={prompt} /></small></p>}
-                  <h5>Detected problems</h5>
-                  <ul>
-                    {errors.map((message, errorIndex) => <li key={`${record.id}-${exerciseIndex}-${field}-${errorIndex}`}><KatexSpan content={message} /></li>)}
-                  </ul>
-                  <div className='tikzDiffGrid'>
-                    <section>
-                      <h5>Before</h5>
-                      <p><small>Pre-render: {originalPreRender.compiled ? 'compiled successfully' : 'FAILED to compile/render'}</small></p>
-                      {!originalPreRender.compiled && originalPreRender.diagnostics.length > 0 && <pre className='tikzDiagnostics'>{originalPreRender.diagnostics.slice(-8).join('\n')}</pre>}
-                      <pre className='tikzCodeDiff'>{originalTikz}</pre>
-                      {originalPreRender.compiled && <React.Suspense fallback={<small>Loading TikZ renderer…</small>}><TikzDisplay alt={`Original ${role} visual`} value={originalTikz} /></React.Suspense>}
-                    </section>
-                    <section>
-                      <h5>Corrected</h5>
-                      <p><small>Pre-render: {fixedPreRender.compiled ? 'compiled successfully' : 'FAILED'}</small></p>
-                      <pre className='tikzCodeDiff'>{fixedTikz}</pre>
-                      <React.Suspense fallback={<small>Loading TikZ renderer…</small>}><TikzDisplay alt={`Corrected ${role} visual`} value={fixedTikz} /></React.Suspense>
-                    </section>
+                  {exercise && <p className='fixResultsReviewContext'><small>Exercise: <KatexSpan content={exercise.h} /></small></p>}
+                  {prompt && <p className='fixResultsReviewContext'><small>Original visual prompt: <KatexSpan content={prompt} /></small></p>}
+                  <div className='fixResultsReviewRow'>
+                    <div className='fixResultsReviewCell'>
+                      <span className='fixResultsReviewChangeLabel'>Before</span>
+                      <div className='fixResultsReviewCard'>
+                        <div className='fixResultsReviewHeading'>
+                          <strong>{role} visual</strong>
+                          <span className='fixResultsReviewMeta'><span className='fixResultsReviewId'>ID {record.id}</span></span>
+                        </div>
+                        <p><small>Pre-render: {originalPreRender.compiled ? 'compiled successfully' : 'FAILED to compile/render'}</small></p>
+                        {!originalPreRender.compiled && originalPreRender.diagnostics.length > 0 && <pre className='tikzDiagnostics'>{originalPreRender.diagnostics.slice(-8).join('\n')}</pre>}
+                        <pre className='tikzCodeDiff'>{originalTikz}</pre>
+                        {originalPreRender.compiled && <React.Suspense fallback={<small>Loading TikZ renderer…</small>}><TikzDisplay alt={`Original ${role} visual`} value={originalTikz} /></React.Suspense>}
+                      </div>
+                    </div>
+                    <div className='fixResultsReviewCell'>
+                      <span className='fixResultsReviewChangeLabel'>After</span>
+                      <div className='fixResultsReviewCard isProposed'>
+                        <div className='fixResultsReviewHeading'>
+                          <strong>{role} visual</strong>
+                          <span className='fixResultsReviewMeta'>
+                            <span className='fixResultsReviewProposed'>Proposed</span>
+                            <span className='fixResultsReviewId'>ID {record.id}</span>
+                          </span>
+                        </div>
+                        <p><small>Pre-render: {fixedPreRender.compiled ? 'compiled successfully' : 'FAILED'}</small></p>
+                        {!fixedPreRender.compiled && fixedPreRender.diagnostics.length > 0 && <pre className='tikzDiagnostics'>{fixedPreRender.diagnostics.slice(-8).join('\n')}</pre>}
+                        <pre className='tikzCodeDiff'>{fixedTikz}</pre>
+                        <React.Suspense fallback={<small>Loading TikZ renderer…</small>}><TikzDisplay alt={`Corrected ${role} visual`} value={fixedTikz} /></React.Suspense>
+                      </div>
+                    </div>
                   </div>
                 </article>;
               })}
-            </div>
-            : <p>No TikZ compile, semantic, or visual-layout problems were found.</p>}
-          <Button.Group>
-            <Button
-              icon='times'
-              isDisabled={isBusy}
-              label='Discard'
-              onClick={closeImageFixReview}
-            />
-            <Button
-              icon='check'
-              isDisabled={isBusy}
-              label={imageFixReview.items.length ? 'Apply changes' : 'Confirm review'}
-              onClick={() => applyImageFixReview().catch(console.error)}
-            />
-          </Button.Group>
+            </div>}
+            <section className='fixResultsDifference'>
+              <h3>Difference</h3>
+              {imageFixReview.items.length
+                ? <>
+                  <p>{imageFixReview.items.length} TikZ correction{imageFixReview.items.length === 1 ? '' : 's'} will replace the current source if you approve these changes.</p>
+                  <ol>{imageFixReview.items.map(({ errors, exerciseIndex, field, record }) => {
+                    const exercise = record.ability?.q[exerciseIndex];
+                    const role = field === 'p' ? 'Question' : 'Solution';
+
+                    return <li key={`difference-${record.id}-${exerciseIndex}-${field}`}>
+                      <strong>{exercise ? <KatexSpan content={exercise.h} /> : `Exercise ${exerciseIndex + 1}`} — {role.toLowerCase()} visual</strong>
+                      <ul>{errors.map((message, errorIndex) => <li key={`${record.id}-${exerciseIndex}-${field}-${errorIndex}`}><KatexSpan content={message} /></li>)}</ul>
+                    </li>;
+                  })}</ol>
+                </>
+                : <p>No TikZ source changes are proposed. No compile, semantic, or visual-layout problems were found.</p>}
+            </section>
+            <Button.Group>
+              <Button
+                icon='times'
+                isDisabled={isBusy}
+                label='Discard'
+                onClick={closeImageFixReview}
+              />
+              <Button
+                icon='check'
+                isDisabled={isBusy}
+                label={imageFixReview.items.length ? 'Apply changes' : 'Confirm review'}
+                onClick={() => applyImageFixReview().catch(console.error)}
+              />
+            </Button.Group>
+          </FixResultsReviewContent>
         </Modal.Content>
       </Modal>
     )}
