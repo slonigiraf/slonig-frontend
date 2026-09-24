@@ -58,10 +58,10 @@ function emptyCatalog (): OpenRouterModelCatalog {
 }
 
 function fallbackCatalog (): OpenRouterModelCatalog {
-  return {
+  return sortCatalogByPriceAndName({
     ...emptyCatalog(),
     openai: OPENAI_MODELS.map(({ text, value }) => ({ text, value }))
-  };
+  });
 }
 
 function isModelOption (value: unknown): value is OpenRouterModelOption {
@@ -92,27 +92,40 @@ function isBatchModelId (modelId: string): boolean {
   return modelId.toLowerCase().endsWith(':batch');
 }
 
-function sortCatalogByInputPrice (catalog: OpenRouterModelCatalog): OpenRouterModelCatalog {
+function compareOptionalPrice (aPrice: number | undefined, bPrice: number | undefined): number {
+  if (aPrice === undefined && bPrice === undefined) {
+    return 0;
+  }
+
+  if (aPrice === undefined) {
+    return 1;
+  }
+
+  if (bPrice === undefined) {
+    return -1;
+  }
+
+  return aPrice - bPrice;
+}
+
+function sortCatalogByPriceAndName (catalog: OpenRouterModelCatalog): OpenRouterModelCatalog {
   for (const { value: provider } of OPENROUTER_MODEL_PROVIDERS) {
     catalog[provider] = catalog[provider]
       .filter(({ value }) => !isBatchModelId(value))
       .sort((a, b) => {
-        const aPrice = a.inputPricePerMillion;
-        const bPrice = b.inputPricePerMillion;
+        const inputPriceOrder = compareOptionalPrice(a.inputPricePerMillion, b.inputPricePerMillion);
 
-        if (aPrice === undefined && bPrice === undefined) {
-          return 0;
+        if (inputPriceOrder !== 0) {
+          return inputPriceOrder;
         }
 
-        if (aPrice === undefined) {
-          return 1;
+        const outputPriceOrder = compareOptionalPrice(a.outputPricePerMillion, b.outputPricePerMillion);
+
+        if (outputPriceOrder !== 0) {
+          return outputPriceOrder;
         }
 
-        if (bPrice === undefined) {
-          return -1;
-        }
-
-        return aPrice - bPrice;
+        return a.text.localeCompare(b.text);
       });
   }
 
@@ -154,7 +167,7 @@ function readSessionCatalog (): OpenRouterModelCatalog | undefined {
       return undefined;
     }
 
-    const sortedCatalog = sortCatalogByInputPrice(parsed);
+    const sortedCatalog = sortCatalogByPriceAndName(parsed);
 
     cachedCatalog = sortedCatalog;
     cachePrices(sortedCatalog);
@@ -278,7 +291,7 @@ export function normalizeOpenRouterModelCatalog (response: OpenRouterModelsRespo
     }
   }
 
-  return sortCatalogByInputPrice(catalog);
+  return sortCatalogByPriceAndName(catalog);
 }
 
 export function getOpenRouterModelPricePerMillion (modelId: string): [number, number] | undefined {

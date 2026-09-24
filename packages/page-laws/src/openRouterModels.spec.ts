@@ -56,7 +56,7 @@ describe('OpenRouter model catalog', (): void => {
     expect(getOpenRouterModelPricePerMillion('anthropic/claude-test')).toEqual([2, 10]);
   });
 
-  it('sorts each provider model list by input price from lowest to highest', (): void => {
+  it('sorts each provider model list by input price, output price, then name', (): void => {
     const catalog = normalizeOpenRouterModelCatalog({
       data: [
         {
@@ -65,27 +65,44 @@ describe('OpenRouter model catalog', (): void => {
           pricing: { completion: '0.00002', prompt: '0.00001' }
         },
         {
-          id: 'openai/free',
-          name: 'Free',
+          id: 'openai/free-zulu',
+          name: 'Zulu Free',
           pricing: { completion: '0', prompt: '0' }
         },
         {
-          id: 'openai/cheap',
-          name: 'Cheap',
+          id: 'openai/cheap-output',
+          name: 'Cheap Output',
+          pricing: { completion: '0.000004', prompt: '0.000001' }
+        },
+        {
+          id: 'openai/free-alpha',
+          name: 'Alpha Free',
+          pricing: { completion: '0', prompt: '0' }
+        },
+        {
+          id: 'openai/expensive-output',
+          name: 'Expensive Output',
           pricing: { completion: '0.000005', prompt: '0.000001' }
         },
         {
-          id: 'openai/unpriced',
-          name: 'Unpriced'
+          id: 'openai/unpriced-zulu',
+          name: 'Zulu Unpriced'
+        },
+        {
+          id: 'openai/unpriced-alpha',
+          name: 'Alpha Unpriced'
         }
       ]
     });
 
     expect(catalog.openai.map(({ value }) => value)).toEqual([
-      'openai/free',
-      'openai/cheap',
+      'openai/free-alpha',
+      'openai/free-zulu',
+      'openai/cheap-output',
+      'openai/expensive-output',
       'openai/expensive',
-      'openai/unpriced'
+      'openai/unpriced-alpha',
+      'openai/unpriced-zulu'
     ]);
   });
 });
