@@ -33,6 +33,12 @@ describe('OpenRouter model catalog', (): void => {
         },
         {
           architecture: { input_modalities: ['text'], output_modalities: ['text'] },
+          id: 'anthropic/claude-test:batch',
+          name: 'Claude Test (batch)',
+          pricing: { completion: '0.000005', prompt: '0.000001' }
+        },
+        {
+          architecture: { input_modalities: ['text'], output_modalities: ['text'] },
           id: 'google/gemini-test',
           name: 'Gemini Test',
           pricing: { completion: '0.000003', prompt: '0.000001' }

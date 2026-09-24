@@ -88,26 +88,32 @@ function isCatalog (value: unknown): value is OpenRouterModelCatalog {
   return OPENROUTER_MODEL_PROVIDERS.every(({ value: provider }) => Array.isArray(candidate[provider]) && candidate[provider]!.every(isModelOption));
 }
 
+function isBatchModelId (modelId: string): boolean {
+  return modelId.toLowerCase().endsWith(':batch');
+}
+
 function sortCatalogByInputPrice (catalog: OpenRouterModelCatalog): OpenRouterModelCatalog {
   for (const { value: provider } of OPENROUTER_MODEL_PROVIDERS) {
-    catalog[provider].sort((a, b) => {
-      const aPrice = a.inputPricePerMillion;
-      const bPrice = b.inputPricePerMillion;
+    catalog[provider] = catalog[provider]
+      .filter(({ value }) => !isBatchModelId(value))
+      .sort((a, b) => {
+        const aPrice = a.inputPricePerMillion;
+        const bPrice = b.inputPricePerMillion;
 
-      if (aPrice === undefined && bPrice === undefined) {
-        return 0;
-      }
+        if (aPrice === undefined && bPrice === undefined) {
+          return 0;
+        }
 
-      if (aPrice === undefined) {
-        return 1;
-      }
+        if (aPrice === undefined) {
+          return 1;
+        }
 
-      if (bPrice === undefined) {
-        return -1;
-      }
+        if (bPrice === undefined) {
+          return -1;
+        }
 
-      return aPrice - bPrice;
-    });
+        return aPrice - bPrice;
+      });
   }
 
   return catalog;
@@ -211,7 +217,7 @@ function stringArray (value: unknown): string[] | undefined {
 }
 
 function normalizeModel (model: OpenRouterApiModel): { option: OpenRouterModelOption; provider: OpenRouterProviderId } | undefined {
-  if (typeof model.id !== 'string' || !model.id) {
+  if (typeof model.id !== 'string' || !model.id || isBatchModelId(model.id)) {
     return undefined;
   }
 
