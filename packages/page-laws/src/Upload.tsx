@@ -1045,6 +1045,7 @@ function Upload (): React.ReactElement {
             modelLabel={t('Model')}
             onChange={setGenerateAllConceptsModel}
             providerLabel={t('Provider')}
+            requiredInputModalities={['image']}
             value={generateAllConceptsModel}
           />
           <Button.Group>

@@ -5269,6 +5269,7 @@ function BookReader({ ageTabRequest, assignAllStandardsRequest, book, file, fixA
             className='modelSelect'
             isDisabled={processingPage !== undefined || isGeneratingAllConcepts || isIdentifyingChapters || isRecognizingAll}
             onChange={setSelectedModel}
+            requiredInputModalities={['image']}
             value={selectedModel}
           />
           <Button.Group>

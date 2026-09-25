@@ -6,7 +6,7 @@ import React, { useCallback, useEffect, useMemo, useState } from 'react';
 
 import { Dropdown } from '@polkadot/react-components';
 
-import { getCachedOpenRouterModelCatalog, getFallbackOpenRouterModelCatalog, loadOpenRouterModelCatalog, OPENROUTER_MODEL_PROVIDERS, openRouterProviderForModel, type OpenRouterModelCatalog, type OpenRouterProviderId } from './openRouterModels.js';
+import { getCachedOpenRouterModelCatalog, getFallbackOpenRouterModelCatalog, loadOpenRouterModelCatalog, OPENROUTER_MODEL_PROVIDERS, openRouterModelSupportsInputModalities, openRouterProviderForModel, type OpenRouterModelCatalog, type OpenRouterProviderId } from './openRouterModels.js';
 
 interface Props {
   className?: string;
@@ -14,6 +14,7 @@ interface Props {
   modelLabel?: string;
   onChange: (value: string) => void;
   providerLabel?: string;
+  requiredInputModalities?: readonly string[];
   value: string;
 }
 
@@ -21,7 +22,7 @@ function isProviderId (value: string): value is OpenRouterProviderId {
   return OPENROUTER_MODEL_PROVIDERS.some((provider) => provider.value === value);
 }
 
-export default function OpenRouterModelSelector ({ className, isDisabled = false, modelLabel = 'Model', onChange, providerLabel = 'Provider', value }: Props): React.ReactElement {
+export default function OpenRouterModelSelector ({ className, isDisabled = false, modelLabel = 'Model', onChange, providerLabel = 'Provider', requiredInputModalities = [], value }: Props): React.ReactElement {
   const [catalog, setCatalog] = useState<OpenRouterModelCatalog>(() => getCachedOpenRouterModelCatalog() ?? getFallbackOpenRouterModelCatalog());
   const [hasLiveCatalog, setHasLiveCatalog] = useState(() => Boolean(getCachedOpenRouterModelCatalog()));
   const [provider, setProvider] = useState<OpenRouterProviderId>(() => openRouterProviderForModel(value) ?? 'openai');
@@ -68,15 +69,17 @@ export default function OpenRouterModelSelector ({ className, isDisabled = false
     }
   }, [provider, value]);
 
-  const modelOptions = useMemo(() => catalog[provider], [catalog, provider]);
+  const modelOptions = useMemo(() => catalog[provider].filter((option) => openRouterModelSupportsInputModalities(option, requiredInputModalities)), [catalog, provider, requiredInputModalities]);
 
   useEffect(() => {
-    if (!hasLiveCatalog || !modelOptions.length || modelOptions.some((option) => option.value === value)) {
+    if (!modelOptions.length || modelOptions.some((option) => option.value === value)) {
       return;
     }
 
-    onChange(modelOptions[0].value);
-  }, [hasLiveCatalog, modelOptions, onChange, value]);
+    if (hasLiveCatalog || requiredInputModalities.length) {
+      onChange(modelOptions[0].value);
+    }
+  }, [hasLiveCatalog, modelOptions, onChange, requiredInputModalities.length, value]);
 
   const changeProvider = useCallback((nextValue: string): void => {
     if (!isProviderId(nextValue)) {
@@ -85,12 +88,12 @@ export default function OpenRouterModelSelector ({ className, isDisabled = false
 
     setProvider(nextValue);
 
-    const firstModel = catalog[nextValue][0];
+    const firstModel = catalog[nextValue].find((option) => openRouterModelSupportsInputModalities(option, requiredInputModalities));
 
     if (firstModel) {
       onChange(firstModel.value);
     }
-  }, [catalog, onChange]);
+  }, [catalog, onChange, requiredInputModalities]);
 
   return <>
     <Dropdown
@@ -109,7 +112,7 @@ export default function OpenRouterModelSelector ({ className, isDisabled = false
       label={modelLabel}
       onChange={onChange}
       options={modelOptions}
-      placeholder={modelOptions.length ? undefined : 'No models available'}
+      placeholder={modelOptions.length ? undefined : requiredInputModalities.length ? 'No compatible models available' : 'No models available'}
       value={modelOptions.some((option) => option.value === value) ? value : undefined}
     />
   </>;

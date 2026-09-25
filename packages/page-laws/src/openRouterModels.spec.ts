@@ -1,7 +1,7 @@
 // Copyright 2021-2026 @polkadot/app-laws authors & contributors
 // SPDX-License-Identifier: Apache-2.0
 
-import { getOpenRouterModelPricePerMillion, normalizeOpenRouterModelCatalog, openRouterProviderForModel } from './openRouterModels.js';
+import { getOpenRouterModelPricePerMillion, normalizeOpenRouterModelCatalog, openRouterModelSupportsInputModalities, openRouterProviderForModel } from './openRouterModels.js';
 
 describe('OpenRouter model catalog', (): void => {
   it('maps the requested model authors to provider dropdown values', (): void => {
@@ -47,6 +47,7 @@ describe('OpenRouter model catalog', (): void => {
     });
 
     expect(catalog.anthropic).toEqual([{
+      inputModalities: ['text', 'image'],
       inputPricePerMillion: 2,
       outputPricePerMillion: 10,
       text: 'Claude Test — $2/M in · $10/M out',
@@ -54,6 +55,12 @@ describe('OpenRouter model catalog', (): void => {
     }]);
     expect(catalog.openai).toEqual([]);
     expect(getOpenRouterModelPricePerMillion('anthropic/claude-test')).toEqual([2, 10]);
+  });
+
+  it('can filter models by required input modality while retaining models with unknown metadata', (): void => {
+    expect(openRouterModelSupportsInputModalities({ inputModalities: ['text'], text: 'Text only', value: 'openai/text-only' }, ['image'])).toEqual(false);
+    expect(openRouterModelSupportsInputModalities({ inputModalities: ['text', 'image'], text: 'Vision', value: 'openai/vision' }, ['image'])).toEqual(true);
+    expect(openRouterModelSupportsInputModalities({ text: 'Unknown', value: 'openai/unknown' }, ['image'])).toEqual(true);
   });
 
   it('sorts each provider model list by input price, output price, then name', (): void => {

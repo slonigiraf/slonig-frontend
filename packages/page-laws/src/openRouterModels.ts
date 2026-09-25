@@ -15,6 +15,7 @@ export const OPENROUTER_MODEL_PROVIDERS = [
 export type OpenRouterProviderId = typeof OPENROUTER_MODEL_PROVIDERS[number]['value'];
 
 export interface OpenRouterModelOption {
+  inputModalities?: string[];
   inputPricePerMillion?: number;
   outputPricePerMillion?: number;
   text: string;
@@ -40,7 +41,7 @@ interface OpenRouterModelsResponse {
   data?: unknown;
 }
 
-const SESSION_CATALOG_KEY = 'slonig.openrouter.modelCatalog.v1';
+const SESSION_CATALOG_KEY = 'slonig.openrouter.modelCatalog.v2';
 const livePricesPerMillion = new Map<string, [number, number]>();
 let catalogPromise: Promise<OpenRouterModelCatalog> | undefined;
 let cachedCatalog: OpenRouterModelCatalog | undefined;
@@ -74,6 +75,7 @@ function isModelOption (value: unknown): value is OpenRouterModelOption {
 
   return typeof option.text === 'string' &&
     typeof option.value === 'string' &&
+    (option.inputModalities === undefined || (Array.isArray(option.inputModalities) && option.inputModalities.every((modality) => typeof modality === 'string'))) &&
     validPrice(option.inputPricePerMillion) &&
     validPrice(option.outputPricePerMillion);
 }
@@ -260,6 +262,7 @@ function normalizeModel (model: OpenRouterApiModel): { option: OpenRouterModelOp
 
   return {
     option: {
+      inputModalities,
       inputPricePerMillion,
       outputPricePerMillion,
       text: `${name} — ${priceLabel}`,
@@ -292,6 +295,14 @@ export function normalizeOpenRouterModelCatalog (response: OpenRouterModelsRespo
   }
 
   return sortCatalogByPriceAndName(catalog);
+}
+
+export function openRouterModelSupportsInputModalities (option: OpenRouterModelOption, requiredInputModalities: readonly string[]): boolean {
+  if (!requiredInputModalities.length || option.inputModalities === undefined) {
+    return true;
+  }
+
+  return requiredInputModalities.every((modality) => option.inputModalities!.includes(modality));
 }
 
 export function getOpenRouterModelPricePerMillion (modelId: string): [number, number] | undefined {
