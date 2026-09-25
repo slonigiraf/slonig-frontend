@@ -372,6 +372,10 @@ const FixConceptsReviewContent = styled.div`
     margin: 0 0 0.6rem;
   }
 
+  .fixConceptsDifference h4 {
+    margin: 0.8rem 0 0.2rem;
+  }
+
   .fixConceptsReviewConcepts {
     border: 1px solid #dde1eb;
     border-radius: 0.5rem;
@@ -435,6 +439,23 @@ const FixConceptsReviewContent = styled.div`
     opacity: 0.65;
     padding: 0.8rem 0.9rem;
     text-align: center;
+  }
+
+  .fixConceptsReviewRemovedAfter {
+    align-items: center;
+    border: 1px dashed rgba(180, 70, 70, 0.45);
+    border-radius: 0.6rem;
+    box-sizing: border-box;
+    display: flex;
+    gap: 0.75rem;
+    justify-content: space-between;
+    min-height: 4.5rem;
+    padding: 0.8rem 0.9rem;
+  }
+
+  .fixConceptsReviewRemovedAfter > span:first-child {
+    font-weight: 600;
+    opacity: 0.75;
   }
 
   .fixConceptsReviewConceptHeading {
@@ -689,7 +710,7 @@ async function requestMissingChapterConcepts(client: OpenAI, model: string, chap
     throw new Error('OpenRouter returned no Fix Concepts data.');
   }
 
-  return parseMissingChapterConcepts(content, concepts, new Set(allowedPageNumbers)).concepts;
+  return parseMissingChapterConcepts(content, concepts, new Set(allowedPageNumbers));
 }
 
 async function requestChapterStandards(client: OpenAI, model: string, chapterTitle: string, concepts: StandardsConceptInput[], catalogs: StandardsCatalog[], onCost?: OpenRouterCostReporter): Promise<CurriculumStandard[]> {
@@ -1365,6 +1386,7 @@ interface FixConceptsReviewChapter {
   before: BookConcept[];
   chapter: ConceptChapterNavigationItem;
   missing: MissingChapterConcept[];
+  removed: BookConcept[];
 }
 
 interface FixConceptsReview {
@@ -1388,6 +1410,22 @@ function conceptReferenceKey({ description, id, title }: Pick<BookConcept, 'desc
 }
 
 const exerciseAbilityModuleId = (bookId: number, exerciseId: number): string => `book-${bookId}-exercise-${exerciseId}`;
+
+async function deleteConceptAndDependencies (bookId: number, concept: BookConcept, pageNumbers: number[]): Promise<void> {
+  if (concept.id === undefined) {
+    throw new Error('Unable to delete a concept without an id.');
+  }
+
+  const exercises = (await Promise.all(pageNumbers.map((conceptPageNumber) => getExercisesForBookPage([bookId, conceptPageNumber])))).flat();
+  const referencedExercises = exercises.filter(({ conceptId, id }) => id !== undefined && conceptId === concept.id);
+
+  for (const exercise of referencedExercises) {
+    await deleteAbilities(exerciseAbilityModuleId(bookId, exercise.id as number));
+    await deleteExercise(exercise.id as number);
+  }
+
+  await deleteBookConcept(concept.id);
+}
 
 const readerPaneSessionKey = (bookId: number): string => `knowledge-upload-book-${bookId}-pane`;
 const readerMaximizedSessionKey = (bookId: number): string => `knowledge-upload-book-${bookId}-maximized`;
@@ -2694,9 +2732,14 @@ function BookReader({ ageTabRequest, assignAllStandardsRequest, book, file, fixA
             ...pageLessConcepts.filter(({ chapterId }) => chapterId !== undefined && chapterId === chapter.chapterId)
           ]);
           const chapterMmd = chapter.pageNumbers.map((chapterPageNumber) => `--- page ${chapterPageNumber} ---\n${pages.get(chapterPageNumber)?.pageMMD ?? ''}`).join('\n\n');
-          const missing = await requestMissingChapterConcepts(client, model, chapter.title, chapterMmd, before, chapter.pageNumbers, book, addFixConceptsCost);
+          const fixes = await requestMissingChapterConcepts(client, model, chapter.title, chapterMmd, before, chapter.pageNumbers, book, addFixConceptsCost);
+          const removed = fixes.removeConceptIndexes.flatMap((conceptIndex): BookConcept[] => {
+            const concept = before[conceptIndex];
 
-          return { before, chapter, missing, status: 'fulfilled' as const };
+            return concept?.id === undefined ? [] : [concept];
+          });
+
+          return { before, chapter, missing: fixes.concepts, removed, status: 'fulfilled' as const };
         } catch (reason) {
           return { chapter, reason, status: 'rejected' as const };
         } finally {
@@ -2704,7 +2747,7 @@ function BookReader({ ageTabRequest, assignAllStandardsRequest, book, file, fixA
         }
       });
       const successfulChapters = results.flatMap((result): FixConceptsReviewChapter[] => result.status === 'fulfilled'
-        ? [{ before: result.before, chapter: result.chapter, missing: result.missing }]
+        ? [{ before: result.before, chapter: result.chapter, missing: result.missing, removed: result.removed }]
         : []);
       const failedChapters = results.flatMap((result): FixConceptsReview['failedChapters'] => result.status === 'rejected'
         ? [{ chapter: result.chapter, reason: conceptGenerationErrorMessage(result.reason) }]
@@ -2758,6 +2801,35 @@ function BookReader({ ageTabRequest, assignAllStandardsRequest, book, file, fixA
     });
   }, [isApplyingFixConceptsReview]);
 
+  const toggleFixConceptsReviewRemoval = useCallback((chapterIndex: number, concept: BookConcept): void => {
+    if (isApplyingFixConceptsReview || concept.id === undefined) {
+      return;
+    }
+
+    setFixConceptsReview((review) => {
+      const reviewChapter = review?.chapters[chapterIndex];
+
+      if (!review || !reviewChapter) {
+        return review;
+      }
+
+      const conceptKey = conceptReferenceKey(concept);
+      const isRemoved = reviewChapter.removed.some((candidate) => conceptReferenceKey(candidate) === conceptKey);
+
+      return {
+        ...review,
+        chapters: review.chapters.map((chapter, reviewChapterIndex) => reviewChapterIndex === chapterIndex
+          ? {
+            ...chapter,
+            removed: isRemoved
+              ? chapter.removed.filter((candidate) => conceptReferenceKey(candidate) !== conceptKey)
+              : [...chapter.removed, concept]
+          }
+          : chapter)
+      };
+    });
+  }, [isApplyingFixConceptsReview]);
+
   const applyFixConceptsReview = useCallback(async (): Promise<void> => {
     if (!fixConceptsReview || isApplyingFixConceptsReview) {
       return;
@@ -2779,9 +2851,16 @@ function BookReader({ ageTabRequest, assignAllStandardsRequest, book, file, fixA
         return `${chapter.title || 'Untitled chapter'}: ${reason}`;
       });
       let added = 0;
+      let removed = 0;
+      const pageNumbers = Array.from(pages.keys());
 
-      for (const { chapter, missing } of fixConceptsReview.chapters) {
+      for (const { chapter, missing, removed: conceptsToRemove } of fixConceptsReview.chapters) {
         try {
+          for (const concept of conceptsToRemove) {
+            await deleteConceptAndDependencies(book.id, concept, pageNumbers);
+            removed++;
+          }
+
           for (const concept of missing) {
             await createBookConcept(chapterLevelMissingConcept(book.id, chapter.chapterId, concept, attempt));
             added++;
@@ -2790,7 +2869,7 @@ function BookReader({ ageTabRequest, assignAllStandardsRequest, book, file, fixA
           nextStatuses[fixConceptsChapterKey(chapter)] = 'fixed';
         } catch (reason) {
           nextStatuses[fixConceptsChapterKey(chapter)] = 'failed';
-          failureDetails.push(`${chapter.title || 'Untitled chapter'}: saving proposed concepts failed (${conceptGenerationErrorMessage(reason)})`);
+          failureDetails.push(`${chapter.title || 'Untitled chapter'}: saving reviewed concept changes failed (${conceptGenerationErrorMessage(reason)})`);
         }
       }
 
@@ -2831,7 +2910,9 @@ function BookReader({ ageTabRequest, assignAllStandardsRequest, book, file, fixA
       } else {
         const failureCount = conceptChapters.filter((chapter) => nextStatuses[fixConceptsChapterKey(chapter)] === 'failed').length;
 
-        setError(`${failureCount} chapter${failureCount === 1 ? '' : 's'} still need Fix concepts attention. Approved changes were saved${added ? ` (${added} concept${added === 1 ? '' : 's'} added)` : ''}.${failureDetails.length ? ` ${failureDetails.join(' | ')}` : ''}`);
+        const savedSummary = [added ? `${added} concept${added === 1 ? '' : 's'} added` : '', removed ? `${removed} concept${removed === 1 ? '' : 's'} removed` : ''].filter(Boolean).join(', ');
+
+        setError(`${failureCount} chapter${failureCount === 1 ? '' : 's'} still need Fix concepts attention. Approved changes were saved${savedSummary ? ` (${savedSummary})` : ''}.${failureDetails.length ? ` ${failureDetails.join(' | ')}` : ''}`);
       }
 
     } catch (applyError) {
@@ -2840,7 +2921,7 @@ function BookReader({ ageTabRequest, assignAllStandardsRequest, book, file, fixA
       setIsApplyingFixConceptsReview(false);
       onProcessingComplete();
     }
-  }, [book, conceptChapters, currentConceptChapter, fixConceptsReview, isApplyingFixConceptsReview, onBookChange, onProcessingComplete, refreshConceptCounts, refreshEntityCounts]);
+  }, [book, conceptChapters, currentConceptChapter, fixConceptsReview, isApplyingFixConceptsReview, onBookChange, onProcessingComplete, pages, refreshConceptCounts, refreshEntityCounts]);
 
   const generateAllExercises = useCallback(async (): Promise<void> => {
     if (!totalPages || processingPage !== undefined || isGeneratingAllConcepts || isRecognizingAll || isGeneratingAllExercises || isIdentifyingChapters) {
@@ -4461,16 +4542,7 @@ function BookReader({ ageTabRequest, assignAllStandardsRequest, book, file, fixA
     }
 
     try {
-      const pageNumbers = Array.from(pages.keys());
-      const exercises = (await Promise.all(pageNumbers.map((conceptPageNumber) => getExercisesForBookPage([book.id, conceptPageNumber])))).flat();
-      const referencedExercises = exercises.filter(({ conceptId, id }) => id !== undefined && conceptId === concept.id);
-
-      for (const exercise of referencedExercises) {
-        await deleteAbilities(exerciseAbilityModuleId(book.id, exercise.id as number));
-        await deleteExercise(exercise.id as number);
-      }
-
-      await deleteBookConcept(concept.id);
+      await deleteConceptAndDependencies(book.id, concept, Array.from(pages.keys()));
       const referenceKey = conceptReferenceKey(concept);
 
       setConcepts((current) => current.filter(({ id }) => id !== concept.id));
@@ -5031,13 +5103,16 @@ function BookReader({ ageTabRequest, assignAllStandardsRequest, book, file, fixA
   };
 
   const currentFixConceptsReviewChapter = fixConceptsReview?.chapters[Math.min(fixConceptsReviewChapterIndex, Math.max(0, fixConceptsReview.chapters.length - 1))];
-  const fixConceptsReviewConceptCard = (concept: BookConcept, conceptNumber: number): React.ReactNode => {
+  const fixConceptsReviewConceptCard = (concept: BookConcept, conceptNumber: number, action?: React.ReactNode): React.ReactNode => {
     const displayPage = conceptDisplayPage(concept);
 
     return <div className='fixConceptsReviewCard'>
       <div className='fixConceptsReviewConceptHeading'>
         <strong><span className='conceptNumber'>{conceptNumber}.</span> <KatexSpan content={concept.title} /></strong>
-        {displayPage !== undefined && <span className='fixConceptsReviewPage'>Page {displayPage}</span>}
+        {(displayPage !== undefined || action) && <span className='fixConceptsReviewMeta'>
+          {displayPage !== undefined && <span className='fixConceptsReviewPage'>Page {displayPage}</span>}
+          {action}
+        </span>}
       </div>
       {concept.description && <p><KatexSpan content={concept.description} /></p>}
     </div>;
@@ -5047,13 +5122,45 @@ function BookReader({ ageTabRequest, assignAllStandardsRequest, book, file, fixA
       return <p className='fixConceptsReviewEmpty'>No concepts in this chapter.</p>;
     }
 
+    const removedKeys = new Set(reviewChapter.removed.map(conceptReferenceKey));
+
     return <>
-      {reviewChapter.before.map((concept, index) => <div
-        className='fixConceptsReviewRow isUnchanged'
-        key={`existing-${conceptReferenceKey(concept)}`}
-      >
-        <div className='fixConceptsReviewCell'>{fixConceptsReviewConceptCard(concept, index + 1)}</div>
-      </div>)}
+      {reviewChapter.before.map((concept, index) => {
+        const isRemoved = removedKeys.has(conceptReferenceKey(concept));
+
+        return isRemoved
+          ? <div
+            className='fixConceptsReviewRow isRemoval'
+            key={`existing-${conceptReferenceKey(concept)}`}
+          >
+            <div className='fixConceptsReviewCell isBefore'>
+              <span className='fixConceptsReviewChangeLabel'>Before</span>
+              {fixConceptsReviewConceptCard(concept, index + 1)}
+            </div>
+            <div className='fixConceptsReviewCell isAfter'>
+              <span className='fixConceptsReviewChangeLabel'>After</span>
+              <div className='fixConceptsReviewRemovedAfter'>
+                <span>Concept will be removed</span>
+                <Button
+                  isDisabled={isApplyingFixConceptsReview}
+                  label='Keep'
+                  onClick={() => toggleFixConceptsReviewRemoval(fixConceptsReviewChapterIndex, concept)}
+                />
+              </div>
+            </div>
+          </div>
+          : <div
+            className='fixConceptsReviewRow isUnchanged'
+            key={`existing-${conceptReferenceKey(concept)}`}
+          >
+            <div className='fixConceptsReviewCell'>{fixConceptsReviewConceptCard(concept, index + 1, <Button
+              icon='trash'
+              isDisabled={isApplyingFixConceptsReview || concept.id === undefined}
+              label='Delete'
+              onClick={() => toggleFixConceptsReviewRemoval(fixConceptsReviewChapterIndex, concept)}
+            />)}</div>
+          </div>;
+      })}
       {reviewChapter.missing.map((concept, missingIndex) => <div
         className='fixConceptsReviewRow'
         key={`proposed-${concept.pageNumber}-${concept.title}-${missingIndex}`}
@@ -5102,10 +5209,10 @@ function BookReader({ ageTabRequest, assignAllStandardsRequest, book, file, fixA
               onChange={({ target }) => setFixConceptsReviewChapterIndex(Number(target.value))}
               value={fixConceptsReviewChapterIndex}
             >
-              {fixConceptsReview.chapters.map(({ chapter, missing }, index) => <option
+              {fixConceptsReview.chapters.map(({ chapter, missing, removed }, index) => <option
                 key={fixConceptsChapterKey(chapter)}
                 value={index}
-              >{chapter.title || 'Chapter not identified'} ({missing.length} proposed)</option>)}
+              >{chapter.title || 'Chapter not identified'} ({missing.length} add, {removed.length} remove)</option>)}
             </select><span>{fixConceptsReviewChapterIndex + 1} of {fixConceptsReview.chapters.length}</span></label>
           </div>
           <div className='fixConceptsReviewComparison'>
@@ -5113,12 +5220,19 @@ function BookReader({ ageTabRequest, assignAllStandardsRequest, book, file, fixA
           </div>
           <section className='fixConceptsDifference'>
             <h3>Difference</h3>
-            {currentFixConceptsReviewChapter.missing.length
+            {currentFixConceptsReviewChapter.missing.length || currentFixConceptsReviewChapter.removed.length
               ? <>
-                <p>{currentFixConceptsReviewChapter.missing.length} proposed concept{currentFixConceptsReviewChapter.missing.length === 1 ? '' : 's'} selected to add. Remove any proposal you do not want saved. Existing concepts are not edited or removed.</p>
-                <ul>{currentFixConceptsReviewChapter.missing.map((concept) => <li key={`${concept.pageNumber}-${concept.title}`}><strong><KatexSpan content={concept.title} /></strong> — page {concept.pageNumber}</li>)}</ul>
+                <p>{currentFixConceptsReviewChapter.missing.length} concept{currentFixConceptsReviewChapter.missing.length === 1 ? '' : 's'} selected to add and {currentFixConceptsReviewChapter.removed.length} existing concept{currentFixConceptsReviewChapter.removed.length === 1 ? '' : 's'} selected to remove. Use Remove/Delete or Keep above to adjust the final changes before saving.</p>
+                {!!currentFixConceptsReviewChapter.missing.length && <>
+                  <h4>Add</h4>
+                  <ul>{currentFixConceptsReviewChapter.missing.map((concept) => <li key={`add-${concept.pageNumber}-${concept.title}`}><strong><KatexSpan content={concept.title} /></strong> — page {concept.pageNumber}</li>)}</ul>
+                </>}
+                {!!currentFixConceptsReviewChapter.removed.length && <>
+                  <h4>Remove</h4>
+                  <ul>{currentFixConceptsReviewChapter.removed.map((concept) => <li key={`remove-${conceptReferenceKey(concept)}`}><strong><KatexSpan content={concept.title} /></strong>{conceptDisplayPage(concept) !== undefined ? ` — page ${conceptDisplayPage(concept)}` : ''}</li>)}</ul>
+                </>}
               </>
-              : <p>No changes are proposed for this chapter. The before and after concept lists are identical.</p>}
+              : <p>No changes are proposed for this chapter. You can still mark an existing concept for deletion if it does not belong here.</p>}
           </section>
           {!!fixConceptsReview.failedChapters.length && <p className='fixConceptsReviewWarning'>
             {fixConceptsReview.failedChapters.length} of {fixConceptsReview.targetChapterCount} chapter{fixConceptsReview.failedChapters.length === 1 ? '' : 's'} could not be prepared and will remain marked for retry if you apply the reviewed changes.
@@ -5127,7 +5241,7 @@ function BookReader({ ageTabRequest, assignAllStandardsRequest, book, file, fixA
             <Button
               icon='times'
               isDisabled={isApplyingFixConceptsReview}
-              label='Discard proposals'
+              label='Discard changes'
               onClick={discardFixConceptsReview}
             />
             <Button

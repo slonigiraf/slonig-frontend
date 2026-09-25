@@ -1068,7 +1068,7 @@ function Upload (): React.ReactElement {
         size='small'
       >
         <Modal.Content>
-          <p>{t('Review each chapter’s source text and current concept list using the book topic, language, and learner age, then propose only strongly implied concepts that are missing. You will review the before/after concept lists before anything is saved.')}</p>
+          <p>{t('Review each chapter’s source text and current concept list using the book topic, language, and learner age. Fix concepts can propose strongly implied missing concepts and flag existing concepts that clearly do not belong to the chapter. You can add or remove concepts in the review before anything is saved.')}</p>
           <Toggle
             isDisabled={!hasFailedFixConceptChapters}
             label={t('Only retry chapters that failed the last Fix concepts run')}

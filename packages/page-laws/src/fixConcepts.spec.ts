@@ -32,6 +32,9 @@ describe('fix concepts', (): void => {
     assert.match(prompt, /primary evidence/);
     assert.match(prompt, /pageNumber/);
     assert.match(prompt, /page delimiters/);
+    assert.match(prompt, /clearly do not belong/);
+    assert.match(prompt, /removeConceptIndexes/);
+    assert.match(prompt, /conceptIndex/);
   });
 
   it('keeps only complete missing concepts and removes exact title duplicates', (): void => {
@@ -45,10 +48,28 @@ describe('fix concepts', (): void => {
       ]
     }), [{ title: 'Numerator', description: 'The top number in a fraction.' }], new Set([4, 5]));
 
-    assert.deepEqual(result, { concepts: [{ title: 'Denominator', description: 'The bottom number in a fraction.', pageNumber: 5 }] });
+    assert.deepEqual(result, { concepts: [{ title: 'Denominator', description: 'The bottom number in a fraction.', pageNumber: 5 }], removeConceptIndexes: [] });
+  });
+
+  it('keeps only valid unique existing-concept removal indexes', (): void => {
+    const result = parseMissingChapterConcepts(JSON.stringify({
+      concepts: [],
+      removeConceptIndexes: [2, 0, 2, -1, 3, 1.5, '1']
+    }), [
+      { title: 'Numerator', description: 'The top number in a fraction.' },
+      { title: 'Denominator', description: 'The bottom number in a fraction.' },
+      { title: 'Unrelated', description: 'This belongs to another chapter.' }
+    ]);
+
+    assert.deepEqual(result, { concepts: [], removeConceptIndexes: [0, 2] });
+  });
+
+  it('accepts older Fix concepts responses without removals', (): void => {
+    assert.deepEqual(parseMissingChapterConcepts('{"concepts":[]}'), { concepts: [], removeConceptIndexes: [] });
   });
 
   it('rejects malformed response shapes', (): void => {
     assert.throws(() => parseMissingChapterConcepts('{"items":[]}'), /invalid Fix Concepts data/);
+    assert.throws(() => parseMissingChapterConcepts('{"concepts":[],"removeConceptIndexes":"bad"}'), /invalid Fix Concepts data/);
   });
 });
