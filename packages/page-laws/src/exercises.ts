@@ -38,6 +38,14 @@ function isNonEmptyString (value: unknown): value is string {
   return typeof value === 'string' && value.trim().length > 0;
 }
 
+function hasLearnerFacingNumberOutsideKatex (value: string): boolean {
+  return /[0-9]/.test(value.replace(/<kx>[\s\S]*?<\/kx>/gi, ''));
+}
+
+function exerciseHasLearnerFacingNumberOutsideKatex (exercise: Pick<Exercise, 'description' | 'solution' | 'title'>): boolean {
+  return [exercise.title, exercise.description, exercise.solution ?? ''].some(hasLearnerFacingNumberOutsideKatex);
+}
+
 function parseResponse (content: string): unknown {
   const json = content.trim().replace(/^```(?:json)?\s*|\s*```$/gi, '').trim();
 
@@ -171,12 +179,29 @@ export function parseExerciseRepairResult (content: string, originals: Exercise[
 
     const exercise = parseCorrectedExercise(value.exercise, original);
 
+    if (exerciseHasLearnerFacingNumberOutsideKatex(exercise)) {
+      throw new Error('Corrected Exercise contains a learner-facing number outside <kx>...</kx>.');
+    }
+
     if (exerciseSignature(exercise) === exerciseSignature(original)) {
       throw new Error('OpenRouter identified an Exercise error but did not change the Exercise.');
     }
 
     reviews.push({ errors, exercise, hasErrors: true, index });
   });
+
+  const repairedIndexes = new Set(reviews.flatMap(({ exercise, hasErrors, index }) => hasErrors && exercise ? [index] : []));
+  const missingRequiredNumberMarkupRepairs = originals.flatMap((original, index) => {
+    if (!exerciseHasLearnerFacingNumberOutsideKatex(original) || deletedDuplicateIds.has(originalIds[index]) || repairedIndexes.has(index)) {
+      return [];
+    }
+
+    return [index];
+  });
+
+  if (missingRequiredNumberMarkupRepairs.length) {
+    throw new Error(`Fix exercises must wrap learner-facing numbers in <kx>...</kx> for Exercise index${missingRequiredNumberMarkupRepairs.length === 1 ? '' : 'es'} ${missingRequiredNumberMarkupRepairs.join(', ')}.`);
+  }
 
   return { duplicatePairs, reviews: reviews.sort((a, b) => a.index - b.index) };
 }

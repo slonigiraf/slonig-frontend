@@ -10,13 +10,13 @@ import { strict as assert } from 'node:assert';
 import { ABILITY_WORKFLOW_SYSTEM_PROMPT, FIX_EXERCISES_PROMPT, GENERATE_EXERCISES_PROMPT, REPAIR_SYSTEM_PROMPT } from './constants.js';
 import { missingGeneratedExerciseConceptIndexes, parseExerciseRepairResult } from './exercises.js';
 
-function createExercise (id: number, title = `Exercise ${id}`): Exercise {
+function createExercise (id: number, title = `Exercise <kx>${id}</kx>`): Exercise {
   return {
     bookPage: [1, 1],
     conceptId: 10,
-    description: `Calculate ${id} + 1.`,
+    description: `Calculate <kx>${id} + 1</kx>.`,
     id,
-    solution: `${id} + 1 = ${id + 1}.`,
+    solution: `<kx>${id} + 1 = ${id + 1}</kx>.`,
     source: 'generated',
     title
   } as Exercise;
@@ -30,8 +30,8 @@ describe('exercise repair', (): void => {
       reviews: [{
         errors: ['The solution was incorrect.'],
         exercise: {
-          description: 'Calculate 1 + 2.',
-          solution: '1 + 2 = 3.',
+          description: 'Calculate <kx>1 + 2</kx>.',
+          solution: '<kx>1 + 2 = 3</kx>.',
           title: 'Add two small integers'
         },
         hasErrors: true,
@@ -43,7 +43,35 @@ describe('exercise repair', (): void => {
     assert.deepEqual(result.reviews[0].exercise?.bookPage, original.bookPage);
     assert.equal(result.reviews[0].exercise?.conceptId, original.conceptId);
     assert.equal(result.reviews[0].exercise?.source, original.source);
-    assert.equal(result.reviews[0].exercise?.solution, '1 + 2 = 3.');
+    assert.equal(result.reviews[0].exercise?.solution, '<kx>1 + 2 = 3</kx>.');
+  });
+
+  it('requires Fix Exercises to repair learner-facing numbers outside KaTeX', (): void => {
+    const original = {
+      ...createExercise(1),
+      description: 'Calculate 3 + 4.'
+    };
+
+    assert.throws(() => parseExerciseRepairResult(JSON.stringify({
+      duplicatePairs: [],
+      reviews: []
+    }), [original], [1]), /wrap learner-facing numbers in <kx>/i);
+
+    const [review] = parseExerciseRepairResult(JSON.stringify({
+      duplicatePairs: [],
+      reviews: [{
+        errors: ['The learner-facing numbers are not marked as KaTeX.'],
+        exercise: {
+          description: 'Calculate <kx>3 + 4</kx>.',
+          solution: original.solution,
+          title: original.title
+        },
+        hasErrors: true,
+        index: 0
+      }]
+    }), [original], [1]).reviews;
+
+    assert.equal(review.exercise?.description, 'Calculate <kx>3 + 4</kx>.');
   });
 
   it('repairs question and solution visual descriptions without storing Exercise image bytes', (): void => {
@@ -196,6 +224,10 @@ describe('exercise repair', (): void => {
     assert.match(FIX_EXERCISES_PROMPT, /vocabulary, sentence complexity, assumed prerequisite knowledge, cognitive load/i);
     assert.match(FIX_EXERCISES_PROMPT, /same learning target, required method, represented form, and learner modality/i);
     assert.match(FIX_EXERCISES_PROMPT, /KaTeX/i);
+    assert.match(FIX_EXERCISES_PROMPT, /Every learner-facing numeric literal in title, description, and solution/i);
+    assert.match(FIX_EXERCISES_PROMPT, /enclosed in <kx>\.\.\.<\/kx>/i);
+    assert.match(FIX_EXERCISES_PROMPT, /learner-facing number outside <kx>\.\.\.<\/kx> as an error/i);
+    assert.match(FIX_EXERCISES_PROMPT, /Do not apply this number-markup rule to imageDescription or solutionImageDescription/i);
     assert.match(FIX_EXERCISES_PROMPT, /imageDescription/i);
     assert.match(FIX_EXERCISES_PROMPT, /only visual-description fields/i);
     assert.match(FIX_EXERCISES_PROMPT, /decorative, illustrative/i);
@@ -239,6 +271,16 @@ describe('exercise repair', (): void => {
     assert.match(exercisePrompt, /visual content appropriate for a 9-year-old learner/i);
     assert.match(abilityPrompt, /current learner age is 9 years/i);
     assert.match(repairPrompt, /current learner age is 9 years/i);
+  });
+
+  it('requires learner-facing numbers in generated Exercises to use kx markup', (): void => {
+    const prompt = GENERATE_EXERCISES_PROMPT('English');
+
+    assert.match(prompt, /Every learner-facing numeric literal in title, description, and solution/i);
+    assert.match(prompt, /enclosed in <kx>\.\.\.<\/kx>/i);
+    assert.match(prompt, /standalone counts and numbers next to units/i);
+    assert.match(prompt, /Do not leave learner-facing numbers as plain text/i);
+    assert.match(prompt, /Do not apply this number-markup rule to imageDescription or solutionImageDescription/i);
   });
 
   it('prohibits yes/no and equivalent binary-response generated Exercises', (): void => {

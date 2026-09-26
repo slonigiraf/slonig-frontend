@@ -15,8 +15,8 @@ function createSkill (): GeneratedAbility {
     h: 'Convert whole kilometers to meters',
     i: '',
     q: [
-      { a: '2 × 1000 = 2000 m.', h: 'Convert 2 km to m.', i: '', p: '' },
-      { a: '5 × 1000 = 5000 m.', h: 'Convert 5 km to m.', i: '', p: '' }
+      { a: '<kx>2 \\times 1000 = 2000</kx> m.', h: 'Convert <kx>2</kx> km to m.', i: '', p: '' },
+      { a: '<kx>5 \\times 1000 = 5000</kx> m.', h: 'Convert <kx>5</kx> km to m.', i: '', p: '' }
     ],
     t: 3
   };
@@ -66,11 +66,11 @@ describe('generated abilities', (): void => {
   it('parses indexed Ability repair reviews and only returns a replacement for errors', (): void => {
     const original = createSkill();
     const fixed = { ...createSkill(), q: [
-      { ...createSkill().q[0], a: '2 × 1000 = 2000 m.' },
-      { ...createSkill().q[1], a: '5 × 1000 = 5000 m.' }
+      { ...createSkill().q[0], a: '<kx>2 \\times 1000 = 2000</kx> m.' },
+      { ...createSkill().q[1], a: '<kx>5 \\times 1000 = 5000</kx> m.' }
     ] };
 
-    fixed.q[1].a = '5 km × 1000 = 5000 m.';
+    fixed.q[1].a = '<kx>5 \\times 1000 = 5000</kx> m from <kx>5</kx> km.';
 
     const reviews = parseAbilityRepairReviews(JSON.stringify({ reviews: [
       { errors: [], hasErrors: false, index: 0 },
@@ -80,6 +80,33 @@ describe('generated abilities', (): void => {
     assert.deepEqual(reviews[0], { errors: [], hasErrors: false, index: 0 });
     assert.equal(reviews[1].hasErrors, true);
     assert.deepEqual(reviews[1].ability, fixed);
+  });
+
+  it('requires Fix Abilities to repair learner-facing numbers outside KaTeX', (): void => {
+    const original = createSkill();
+
+    original.q[0].h = 'Convert 2 km to m.';
+
+    assert.throws(() => parseAbilityRepairResult(JSON.stringify({
+      duplicatePairs: [],
+      reviews: []
+    }), [original], ['ability-1']), /wrap learner-facing numbers in <kx>/i);
+
+    const fixed = { ...original, q: original.q.map((exercise) => ({ ...exercise })) };
+
+    fixed.q[0].h = 'Convert <kx>2</kx> km to m.';
+
+    const [review] = parseAbilityRepairResult(JSON.stringify({
+      duplicatePairs: [],
+      reviews: [{
+        ability: fixed,
+        errors: ['The learner-facing number is not marked as KaTeX.'],
+        hasErrors: true,
+        index: 0
+      }]
+    }), [original], ['ability-1']).reviews;
+
+    assert.equal(review.ability?.q[0].h, 'Convert <kx>2</kx> km to m.');
   });
 
   it('parses chapter duplicate Ability pairs and rejects unsafe deletion pairs', (): void => {
@@ -280,8 +307,8 @@ describe('generated abilities', (): void => {
     assert.deepEqual(parseGeneratedExerciseAbilities(JSON.stringify({ abilities: [{
       ability: {
         questions: [
-          { answer: '2 × 1000 = 2000 m.', question: 'Convert 2 km to m.' },
-          { answer: '5 × 1000 = 5000 m.', question: 'Convert 5 km to m.' }
+          { answer: '<kx>2 \\times 1000 = 2000</kx> m.', question: 'Convert <kx>2</kx> km to m.' },
+          { answer: '<kx>5 \\times 1000 = 5000</kx> m.', question: 'Convert <kx>5</kx> km to m.' }
         ],
         title: 'Convert whole kilometers to meters',
         type: '3'
@@ -300,9 +327,9 @@ describe('generated abilities', (): void => {
       ability: {
         h: 'Convert whole kilometers to meters',
         q: [
-          { a: '2 × 1000 = 2000 m.', h: 'Convert 2 km to m.' },
-          { a: '2 × 1000 = 2000 m.', h: 'Convert 2 km to m.' },
-          { a: '5 × 1000 = 5000 m.', h: 'Convert 5 km to m.' }
+          { a: '<kx>2 \\times 1000 = 2000</kx> m.', h: 'Convert <kx>2</kx> km to m.' },
+          { a: '<kx>2 \\times 1000 = 2000</kx> m.', h: 'Convert <kx>2</kx> km to m.' },
+          { a: '<kx>5 \\times 1000 = 5000</kx> m.', h: 'Convert <kx>5</kx> km to m.' }
         ]
       },
       exerciseId: 25,
@@ -542,6 +569,10 @@ describe('generated abilities', (): void => {
     assert.match(FIX_ABILITIES_PROMPT, /logical/i);
     assert.match(FIX_ABILITIES_PROMPT, /grammatical/i);
     assert.match(FIX_ABILITIES_PROMPT, /KaTeX/i);
+    assert.match(FIX_ABILITIES_PROMPT, /Every learner-facing numeric literal in Ability h, q\[\]\.h, and q\[\]\.a/i);
+    assert.match(FIX_ABILITIES_PROMPT, /enclosed in <kx>\.\.\.<\/kx>/i);
+    assert.match(FIX_ABILITIES_PROMPT, /learner-facing number outside <kx>\.\.\.<\/kx> as an error/i);
+    assert.match(FIX_ABILITIES_PROMPT, /Do not apply this number-markup rule to semantic visual-description fields/i);
     assert.match(FIX_ABILITIES_PROMPT, /question image present/i);
     assert.match(FIX_ABILITIES_PROMPT, /preserve the image dependency/i);
     assert.match(FIX_ABILITIES_PROMPT, /hasErrors/i);

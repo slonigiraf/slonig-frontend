@@ -113,6 +113,14 @@ function isNonEmptyString (value: unknown): value is string {
   return typeof value === 'string' && value.trim().length > 0;
 }
 
+function hasLearnerFacingNumberOutsideKatex (value: string): boolean {
+  return /[0-9]/.test(value.replace(/<kx>[\s\S]*?<\/kx>/gi, ''));
+}
+
+function abilityHasLearnerFacingNumberOutsideKatex (ability: GeneratedAbility): boolean {
+  return [ability.h, ...ability.q.flatMap(({ a, h }) => [h, a])].some(hasLearnerFacingNumberOutsideKatex);
+}
+
 function parseResponse (content: string): unknown {
   const json = content.trim().replace(/^```(?:json)?\s*|\s*```$/gi, '').trim();
 
@@ -359,6 +367,10 @@ export function parseAbilityRepairResult (content: string, originals: Array<Gene
         }))
       };
 
+    if (abilityHasLearnerFacingNumberOutsideKatex(ability)) {
+      throw new Error('Corrected Ability contains a learner-facing number outside <kx>...</kx>.');
+    }
+
     if (original !== null && abilitySignature(ability) === abilitySignature(original)) {
       throw new Error('OpenRouter identified an Ability error but did not change the Ability.');
     }
@@ -377,6 +389,18 @@ export function parseAbilityRepairResult (content: string, originals: Array<Gene
 
   if (missingRequiredPlaceholderRepairs.length) {
     throw new Error(`Fix abilities must replace placeholder task titles "Task 1"/"Task 2" for Ability index${missingRequiredPlaceholderRepairs.length === 1 ? '' : 'es'} ${missingRequiredPlaceholderRepairs.join(', ')}.`);
+  }
+
+  const missingRequiredNumberMarkupRepairs = originals.flatMap((original, index) => {
+    if (!original || !abilityHasLearnerFacingNumberOutsideKatex(original) || deletedDuplicateIds.has(originalIds[index]) || reviewedIndexes.has(index)) {
+      return [];
+    }
+
+    return [index];
+  });
+
+  if (missingRequiredNumberMarkupRepairs.length) {
+    throw new Error(`Fix abilities must wrap learner-facing numbers in <kx>...</kx> for Ability index${missingRequiredNumberMarkupRepairs.length === 1 ? '' : 'es'} ${missingRequiredNumberMarkupRepairs.join(', ')}.`);
   }
 
   // Missing indexes are intentional: the repair API may return only Abilities
