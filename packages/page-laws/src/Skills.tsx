@@ -346,7 +346,22 @@ function transportExercises (exercises: Exercise[]): unknown[] {
 
 function abilityRepairInput (language: string, batch: StoredAbility[], chapterTitle?: string, learnerAge?: number): unknown {
   return {
-    abilities: batch.map(({ ability, content, id }, index) => ({ ability: ability ? { ...ability, q: ability.q.map(({ a, h, i, p }) => ({ a, h, i, p })) } : content, id, index })),
+    abilities: batch.map(({ ability, content, id }, index) => ({
+      ability: ability
+        ? {
+          ...ability,
+          q: ability.q.map(({ a, h, i, p, pPrompt }) => ({
+            a,
+            h,
+            i,
+            p,
+            ...(pPrompt !== undefined ? { pPrompt } : {})
+          }))
+        }
+        : content,
+      id,
+      index
+    })),
     bookLanguage: language,
     ...(learnerAge === undefined ? {} : { learnerAge }),
     ...(chapterTitle ? { chapterTitle } : {})
@@ -1113,14 +1128,11 @@ function ExerciseReviewCard ({ exercise, isProposed = false }: { exercise: Exerc
   </div>;
 }
 
-function AbilityReviewCard ({ ability, content, isProposed = false, recordId }: { ability: GeneratedAbility | null; content?: string; isProposed?: boolean; recordId?: string }): React.ReactElement {
+function AbilityReviewCard ({ ability, content, isProposed = false }: { ability: GeneratedAbility | null; content?: string; isProposed?: boolean }): React.ReactElement {
   return <div className={`fixResultsReviewCard${isProposed ? ' isProposed' : ''}`}>
     <div className='fixResultsReviewHeading'>
       <strong>{ability ? <KatexSpan content={ability.h} /> : 'Invalid Ability JSON'}</strong>
-      <span className='fixResultsReviewMeta'>
-        {isProposed && <span className='fixResultsReviewProposed'>Proposed</span>}
-        {recordId && <span className='fixResultsReviewId'>ID {recordId}</span>}
-      </span>
+      {isProposed && <span className='fixResultsReviewMeta'><span className='fixResultsReviewProposed'>Proposed</span></span>}
     </div>
     {ability
       ? <ExerciseList
@@ -2700,7 +2712,6 @@ function Skills ({ book, externalRefreshToken = 0, onAction, onBookChange, onCon
                     <AbilityReviewCard
                       ability={record.ability}
                       content={record.content}
-                      recordId={recordId}
                     />
                   </div>
                   <div className='fixResultsReviewCell'>
@@ -2708,7 +2719,6 @@ function Skills ({ book, externalRefreshToken = 0, onAction, onBookChange, onCon
                     <AbilityReviewCard
                       ability={ability}
                       isProposed
-                      recordId={recordId}
                     />
                   </div>
                 </div>
@@ -2731,7 +2741,6 @@ function Skills ({ book, externalRefreshToken = 0, onAction, onBookChange, onCon
                     <AbilityReviewCard
                       ability={deleted.ability}
                       content={deleted.content}
-                      recordId={deleted.id}
                     />
                   </div>
                   <div className='fixResultsReviewCell'>
@@ -2741,7 +2750,7 @@ function Skills ({ book, externalRefreshToken = 0, onAction, onBookChange, onCon
                 </div>
                 <section className='fixResultsDifference'>
                   <h3>Difference</h3>
-                  <p>{deleted.ability ? <strong><KatexSpan content={deleted.ability.h} /></strong> : <strong>Ability {deleted.id}</strong>} will be deleted as a duplicate{deletedExerciseTitle ? <> together with source Exercise <KatexSpan content={deletedExerciseTitle} /></> : null}{deletedConceptTitle ? <> and linked Concept <KatexSpan content={deletedConceptTitle} /></> : null}{keptExerciseTitle ? <>; the Ability for <KatexSpan content={keptExerciseTitle} /> will be kept</> : null}.</p>
+                  <p>{deleted.ability ? <strong><KatexSpan content={deleted.ability.h} /></strong> : <strong>Invalid Ability JSON</strong>} will be deleted as a duplicate{deletedExerciseTitle ? <> together with source Exercise <KatexSpan content={deletedExerciseTitle} /></> : null}{deletedConceptTitle ? <> and linked Concept <KatexSpan content={deletedConceptTitle} /></> : null}{keptExerciseTitle ? <>; the Ability for <KatexSpan content={keptExerciseTitle} /> will be kept</> : null}.</p>
                 </section>
               </article>)}
             </div>}

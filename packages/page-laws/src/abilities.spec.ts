@@ -558,6 +558,10 @@ describe('generated abilities', (): void => {
     assert.match(FIX_ABILITIES_PROMPT, /omit correct Abilities/i);
     assert.match(FIX_ABILITIES_PROMPT, /Task 1/);
     assert.match(FIX_ABILITIES_PROMPT, /Task 2/);
+    assert.match(FIX_ABILITIES_PROMPT, /q\[\]\.h and its question visual prompt in q\[\]\.pPrompt/i);
+    assert.match(FIX_ABILITIES_PROMPT, /Do not use q\[\]\.p as a fallback or substitute for q\[\]\.pPrompt/i);
+    assert.doesNotMatch(FIX_ABILITIES_PROMPT, /falling back to the semantic q\[\]\.p/i);
+    assert.match(FIX_ABILITIES_PROMPT, /combined text-plus-visual task/i);
     assert.match(FIX_ABILITIES_PROMPT, /<kx>/i);
   });
 
