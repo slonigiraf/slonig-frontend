@@ -16,7 +16,7 @@ import { useLiveQuery } from 'dexie-react-hooks';
 import OpenAI from 'openai';
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 
-import { Button, Input, InputBalance, styled } from '@polkadot/react-components';
+import { Button, Input, InputBalance, Modal, styled } from '@polkadot/react-components';
 import { useApi } from '@polkadot/react-hooks';
 import { FormatBalance } from '@polkadot/react-query';
 import { BN_ZERO, u8aToHex } from '@polkadot/util';
@@ -249,6 +249,7 @@ function SkillsCourse ({ book }: { book: Book }): React.ReactElement {
   const [skillPrice, setSkillPrice] = useState<BN | undefined>(BN_ZERO);
   const [knowledgeId, setKnowledgeId] = useState(book.publishingLocationId || '');
   const [isPublishing, setIsPublishing] = useState(false);
+  const [isPublishOpen, setIsPublishOpen] = useState(false);
   const [isFixingNames, setIsFixingNames] = useState(false);
   const [publishStatus, setPublishStatus] = useState('');
   const [onChainIds, setOnChainIds] = useState<Set<string>>(() => new Set());
@@ -397,6 +398,7 @@ function SkillsCourse ({ book }: { book: Book }): React.ReactElement {
 
     return (modulePrice || BN_ZERO).muln(unpublishedModules).add((skillPrice || BN_ZERO).muln(unpublishedSkills));
   }, [modulePrice, onChainIds, publishableChapters, skillPrice]);
+  const isCoursePublished = isKnowledgeId(storedBook.knowledgeId) && onChainIds.has(storedBook.knowledgeId);
   const isOrganizationLocked = isPublishing || courseChapters.some(({ chapter }) => isKnowledgeId(chapter.knowledgeId) && onChainIds.has(chapter.knowledgeId));
 
   useEffect((): void => {
@@ -922,6 +924,13 @@ function SkillsCourse ({ book }: { book: Book }): React.ReactElement {
         label={isFixingNames ? 'Fixing names…' : 'Fix book and Chapter names'}
         onClick={fixNames}
       />
+      <Button
+        className={`publishTrigger${isCoursePublished ? ' isPublished' : ''}`}
+        icon={isCoursePublished ? 'check' : 'save'}
+        isDisabled={isPublishing}
+        label={isPublishing ? 'Publishing…' : isCoursePublished ? 'Published' : 'Publish'}
+        onClick={() => setIsPublishOpen(true)}
+      />
       <Input
         label='Course name'
         onChange={setCourseName}
@@ -965,40 +974,47 @@ function SkillsCourse ({ book }: { book: Book }): React.ReactElement {
           ))}
       </div>
     </div>
-    <aside className='courseSettings'>
-      <h3>Publish course</h3>
-      <KnowledgeTargetSelector
-        onChange={rememberLocation}
-        value={knowledgeId}
-      />
-      <InputBalance
-        isDisabled={isPublishing}
-        isZeroable
-        label='Module insertion price'
-        onChange={setModulePrice}
-        value={modulePrice}
-      />
-      <InputBalance
-        isDisabled={isPublishing}
-        isZeroable
-        label='Skill insertion price'
-        onChange={setSkillPrice}
-        value={skillPrice}
-      />
-      <p className='total'>Maximum remaining insertion total: <FormatBalance value={maximumBurnTotal} /></p>
-      <Button
-        icon='save'
-        isDisabled={isPublishing || !isIpfsReady || !knowledgeId || !publishableChapters.length}
-        label={isPublishing ? 'Publishing batch…' : storedBook.knowledgeId && onChainIds.has(storedBook.knowledgeId) ? 'Republish course' : 'Publish'}
-        onClick={publish}
-      />
-      {publishStatus && (
-        <p
-          className='publishStatus'
-          role='status'
-        >{publishStatus}</p>
-      )}
-    </aside>
+    {isPublishOpen && <Modal
+      header='Publish course'
+      onClose={() => !isPublishing && setIsPublishOpen(false)}
+      size='small'
+    >
+      <Modal.Content>
+        <PublishCourseContent>
+          <KnowledgeTargetSelector
+            onChange={rememberLocation}
+            value={knowledgeId}
+          />
+          <InputBalance
+            isDisabled={isPublishing}
+            isZeroable
+            label='Module insertion price'
+            onChange={setModulePrice}
+            value={modulePrice}
+          />
+          <InputBalance
+            isDisabled={isPublishing}
+            isZeroable
+            label='Skill insertion price'
+            onChange={setSkillPrice}
+            value={skillPrice}
+          />
+          <p className='total'>Maximum remaining insertion total: <FormatBalance value={maximumBurnTotal} /></p>
+          <Button
+            icon={isCoursePublished ? 'redo' : 'save'}
+            isDisabled={isPublishing || !isIpfsReady || !knowledgeId || !publishableChapters.length}
+            label={isPublishing ? 'Publishing batch…' : isCoursePublished ? 'Republish course' : 'Publish'}
+            onClick={publish}
+          />
+          {publishStatus && (
+            <p
+              className='publishStatus'
+              role='status'
+            >{publishStatus}</p>
+          )}
+        </PublishCourseContent>
+      </Modal.Content>
+    </Modal>}
   </StyledSkillsCourse>;
 }
 
@@ -1006,13 +1022,13 @@ const StyledSkillsCourse = styled.div`
   background: var(--bg-page);
   border-radius: 0.5rem;
   box-sizing: border-box;
-  display: grid;
-  gap: 1.5rem;
-  grid-template-columns: minmax(22rem, 0.9fr) minmax(28rem, 1.1fr);
+  grid-column: 1 / -1;
+  min-width: 0;
   padding: 1.5rem 2rem;
   width: 100%;
 
   .courseColumn > .ui--Button { margin: 0 0 0.75rem; }
+  .publishTrigger.isPublished { font-weight: 700; }
   .courseOutline { margin-top: 0.5rem; }
   .outlineRow { align-items: center; display: flex; gap: 0.5rem; }
   .chapterNameContent, .skillRow > div:last-child { flex: 1; min-width: 0; }
@@ -1021,12 +1037,17 @@ const StyledSkillsCourse = styled.div`
   .dragHandle { cursor: grab; font-size: 2rem; line-height: 1; user-select: none; }
   .skillRow { border-bottom: 1px solid var(--border-table); padding: 0.5rem 0; }
   .skillRow small { display: block; margin-top: 0.2rem; }
-  .courseColumn, .courseSettings { min-width: 0; }
-  .courseSettings { display: flex; flex-direction: column; gap: 1rem; width: 100%; }
-  .courseSettings h3 { margin-bottom: 0; }
-  .courseSettings > .ui--Button { align-self: flex-start; margin: 0; }
+  .courseColumn { min-width: 0; }
+`;
+
+const PublishCourseContent = styled.div`
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  width: 100%;
+
+  > .ui--Button { align-self: flex-start; margin: 0; }
   .total, .publishStatus { font-weight: 600; margin: 0; }
-  @media only screen and (max-width: 900px) { grid-template-columns: 1fr; }
 `;
 
 export default React.memo(SkillsCourse);
