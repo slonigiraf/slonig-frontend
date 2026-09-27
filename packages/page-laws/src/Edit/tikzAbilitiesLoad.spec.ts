@@ -44,6 +44,7 @@ interface BrowserRenderStatus {
 }
 
 interface BrowserLoadResult {
+  maxActiveRenders: number;
   maxWorkers: number;
   statuses: BrowserRenderStatus[];
   submittedInMs: number;
@@ -122,7 +123,10 @@ function createHarnessHtml (maxWorkers: number): string {
   <script>
     const sources = ${sourcesJson};
     const statuses = Array.from({ length: sources.length }, () => undefined);
+    const pendingRenders = [];
     const startedAt = performance.now();
+    let activeRenders = 0;
+    let maxActiveRenders = 0;
     let submittedAt = startedAt;
     let didPost = false;
 
@@ -154,6 +158,7 @@ function createHarnessHtml (maxWorkers: number): string {
       didPost = true;
       fetch('/result', {
         body: JSON.stringify({
+          maxActiveRenders,
           maxWorkers: ${maxWorkers},
           statuses,
           submittedInMs: submittedAt - startedAt
@@ -161,6 +166,29 @@ function createHarnessHtml (maxWorkers: number): string {
         headers: { 'content-type': 'application/json' },
         method: 'POST'
       }).catch(() => undefined);
+    }
+
+    function scheduleRender(start) {
+      if (activeRenders < ${maxWorkers}) {
+        activeRenders += 1;
+        maxActiveRenders = Math.max(maxActiveRenders, activeRenders);
+        start();
+        return;
+      }
+
+      pendingRenders.push(start);
+    }
+
+    function releaseRenderSlot() {
+      activeRenders -= 1;
+
+      const next = pendingRenders.shift();
+
+      if (next) {
+        activeRenders += 1;
+        maxActiveRenders = Math.max(maxActiveRenders, activeRenders);
+        next();
+      }
     }
 
     function mountAbilityVisual(value, index) {
@@ -171,6 +199,7 @@ function createHarnessHtml (maxWorkers: number): string {
       const visualStartedAt = performance.now();
       let compileTimer;
       let didReportCompileState = false;
+      let ownsRenderSlot = false;
 
       const reportCompileState = (hasError, reason) => {
         if (didReportCompileState) {
@@ -185,6 +214,12 @@ function createHarnessHtml (maxWorkers: number): string {
           reason: reason || ''
         };
         cleanup();
+
+        if (ownsRenderSlot) {
+          ownsRenderSlot = false;
+          releaseRenderSlot();
+        }
+
         postResult();
       };
 
@@ -232,21 +267,26 @@ function createHarnessHtml (maxWorkers: number): string {
       document.addEventListener('tikzjax-load-finished', onFinished, true);
       observer.observe(host, { childList: true, subtree: true });
 
-      const script = document.createElement('script');
-      script.type = 'text/tikz';
-      script.dataset.ariaLabel = 'Ability visual ' + (index + 1);
-      // A fresh browser profile is used for every test run, and this also makes
-      // the intent explicit: all ten diagrams must really compile in this run.
-      script.dataset.disableCache = 'true';
-      script.textContent = value;
+      scheduleRender(() => {
+        ownsRenderSlot = true;
 
-      // This mirrors TikzDisplay: every mounted Ability visual gets its own timer
-      // immediately before being submitted to TikZJax's shared worker queue.
-      compileTimer = setTimeout(() => {
-        host.replaceChildren();
-        reportCompileState(true, 'Ability TikZ render timed out after ${ABILITY_TIKZ_TIMEOUT_MS}ms');
-      }, ${ABILITY_TIKZ_TIMEOUT_MS});
-      host.replaceChildren(script);
+        const script = document.createElement('script');
+        script.type = 'text/tikz';
+        script.dataset.ariaLabel = 'Ability visual ' + (index + 1);
+        // A fresh browser profile is used for every test run, and this also makes
+        // the intent explicit: all ten diagrams must really compile in this run.
+        script.dataset.disableCache = 'true';
+        script.textContent = value;
+
+        // This mirrors TikzDisplay after the regression fix: the compilation
+        // deadline starts only when this visual owns one of the application-level
+        // slots that match TikZJax's worker-pool capacity. Queue wait is harmless.
+        compileTimer = setTimeout(() => {
+          host.replaceChildren();
+          reportCompileState(true, 'Ability TikZ render timed out after ${ABILITY_TIKZ_TIMEOUT_MS}ms of active rendering');
+        }, ${ABILITY_TIKZ_TIMEOUT_MS});
+        host.replaceChildren(script);
+      });
     }
 
     if (window.__tikzLoadHarnessErrors.length) {
@@ -257,7 +297,8 @@ function createHarnessHtml (maxWorkers: number): string {
     window.addEventListener('unhandledrejection', (event) => failHarness('Browser harness rejection: ' + String(event.reason || 'unknown rejection')));
 
     // Mount synchronously, as React does when an Ability view reveals a batch of
-    // visuals in one commit. Completion events may then arrive in any order.
+    // visuals in one commit. The application queue then feeds TikZJax at its
+    // worker-pool capacity, and completion events may arrive in any order.
     sources.forEach(mountAbilityVisual);
     submittedAt = performance.now();
 
@@ -412,6 +453,7 @@ describe('Abilities TikZ parallel rendering load', (): void => {
       const result = await browserResult.finally(() => clearTimeout(watchdog));
 
       assert.equal(result.maxWorkers, maxWorkers);
+      assert.equal(result.maxActiveRenders, maxWorkers, 'Expected the load burst to saturate the configured TikZ render slots.');
       assert.equal(result.statuses.length, ABILITY_VISUAL_COUNT);
       assert.ok(result.submittedInMs < 250, `Expected all Ability visuals to be submitted as one load burst, but submission took ${result.submittedInMs.toFixed(1)}ms.`);
 

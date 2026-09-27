@@ -4,7 +4,7 @@
 import { strict as assert } from 'node:assert';
 import { describe, it } from 'node:test';
 
-import { getTikzRenderConcurrency } from './tikzConcurrency.js';
+import { createTikzRenderQueue, getTikzRenderConcurrency } from './tikzConcurrency.js';
 
 describe('TikZ render concurrency', (): void => {
   it('uses two renders per reported logical CPU', (): void => {
@@ -22,5 +22,35 @@ describe('TikZ render concurrency', (): void => {
 
   it('falls back safely when the browser does not report CPU capacity', (): void => {
     assert.equal(getTikzRenderConcurrency(Number.NaN), 8);
+  });
+
+  it('queues renders beyond the configured limit and releases them FIFO', async (): Promise<void> => {
+    const queue = createTikzRenderQueue(2);
+    const started: number[] = [];
+    const finished: number[] = [];
+    let active = 0;
+    let maxActive = 0;
+
+    const work = Array.from({ length: 5 }, async (_, index) => {
+      const release = await queue.acquire();
+
+      active += 1;
+      maxActive = Math.max(maxActive, active);
+      started.push(index);
+
+      await new Promise<void>((resolve) => setTimeout(resolve, 5));
+
+      finished.push(index);
+      active -= 1;
+      release();
+      // A duplicate release must not consume another slot.
+      release();
+    });
+
+    await Promise.all(work);
+
+    assert.equal(maxActive, 2);
+    assert.deepEqual(started, [0, 1, 2, 3, 4]);
+    assert.deepEqual(finished.sort((a, b) => a - b), [0, 1, 2, 3, 4]);
   });
 });

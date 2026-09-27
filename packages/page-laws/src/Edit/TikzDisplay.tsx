@@ -4,7 +4,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { styled } from '@polkadot/react-components';
 import { embedTikzSourceInSvg } from './tikz.js';
-import { getTikzRenderConcurrency } from './tikzConcurrency.js';
+import { acquireTikzRenderSlot, getTikzRenderConcurrency } from './tikzConcurrency.js';
 import { convertTikzTextToPaths } from './tikzGlyphPaths.js';
 
 interface Props {
@@ -47,8 +47,6 @@ const TIKZJAX_FONT_BASE = `${TIKZJAX_ASSET_BASE}/fonts`;
 const TIKZ_COMPILE_TIMEOUT_MS = 5_000;
 const TIKZ_RENDER_CONCURRENCY = getTikzRenderConcurrency();
 let tikzJaxPromise: Promise<void> | undefined;
-let activePreRenders = 0;
-const pendingPreRenders: Array<{ reject: (reason?: unknown) => void; resolve: (result: TikzPreRenderResult) => void; value: string }> = [];
 
 function ensureFontStylesheet (): void {
   if (document.querySelector('link[data-tikzjax-fonts]')) {
@@ -214,41 +212,29 @@ async function runTikzPreRender (value: string): Promise<TikzPreRenderResult> {
       // Do not treat arbitrary SVG markup as success here. TikZJax may insert
       // transient/loader SVG before TeX compilation has actually completed.
       // Only tikzjax-load-finished is authoritative for a successful render.
-      diagnostics.push('TikZJax pre-render timed out after 3 seconds before compilation finished.');
+      diagnostics.push('TikZJax pre-render timed out after 5 seconds before compilation finished.');
       finish(false);
     }, TIKZ_COMPILE_TIMEOUT_MS);
     host.appendChild(script);
   });
 }
 
-function drainPreRenderQueue (): void {
-  while (activePreRenders < TIKZ_RENDER_CONCURRENCY && pendingPreRenders.length) {
-    const next = pendingPreRenders.shift();
-
-    if (!next) {
-      return;
-    }
-
-    activePreRenders += 1;
-    runTikzPreRender(next.value)
-      .then(next.resolve, next.reject)
-      .finally(() => {
-        activePreRenders -= 1;
-        drainPreRenderQueue();
-      });
-  }
-}
-
 /**
  * Compile one diagram through the same TikZJax runtime used by the UI before AI
- * review. Work is bounded by the current computer's reported CPU capacity so a
- * batch can render in parallel without flooding the browser with hidden hosts.
+ * review. The shared application queue matches TikZJax's worker-pool size, so
+ * time spent waiting behind other diagrams does not consume this render's
+ * compilation timeout.
  */
-export function preRenderTikz (value: string): Promise<TikzPreRenderResult> {
-  return new Promise<TikzPreRenderResult>((resolve, reject) => {
-    pendingPreRenders.push({ reject, resolve, value });
-    drainPreRenderQueue();
-  });
+export async function preRenderTikz (value: string): Promise<TikzPreRenderResult> {
+  await ensureTikzJax();
+
+  const releaseRenderSlot = await acquireTikzRenderSlot();
+
+  try {
+    return await runTikzPreRender(value);
+  } finally {
+    releaseRenderSlot();
+  }
 }
 
 /**
@@ -292,6 +278,7 @@ export default function TikzDisplay ({ alt, hasCompileError = false, onCompileSt
     let isCancelled = false;
     let didReportCompileState = false;
     let compileTimer: ReturnType<typeof setTimeout> | undefined;
+    let releaseRenderSlot: (() => void) | undefined;
     const host = hostRef.current;
 
     if (!host) {
@@ -307,12 +294,19 @@ export default function TikzDisplay ({ alt, hasCompileError = false, onCompileSt
       return;
     }
 
+    const releaseActiveRenderSlot = (): void => {
+      if (releaseRenderSlot) {
+        releaseRenderSlot();
+        releaseRenderSlot = undefined;
+      }
+    };
     const reportCompileState = (hasError: boolean, message = ''): void => {
       if (didReportCompileState || isCancelled) {
         return;
       }
 
       didReportCompileState = true;
+      releaseActiveRenderSlot();
 
       if (hasError) {
         setError(message);
@@ -360,10 +354,15 @@ export default function TikzDisplay ({ alt, hasCompileError = false, onCompileSt
     observer.observe(host, { childList: true, subtree: true });
 
     ensureTikzJax()
-      .then(() => {
+      .then(async () => {
+        const release = await acquireTikzRenderSlot();
+
         if (isCancelled || !hostRef.current) {
+          release();
           return;
         }
+
+        releaseRenderSlot = release;
 
         const script = document.createElement('script');
 
@@ -371,13 +370,14 @@ export default function TikzDisplay ({ alt, hasCompileError = false, onCompileSt
         script.dataset.ariaLabel = alt;
         script.textContent = value;
 
-        // Arm the timeout before insertion so an immediate completion event can
-        // clear it and cannot be followed by a stale timeout that removes the SVG.
+        // Start the timeout only after this display owns an application render
+        // slot. Waiting behind other Ability visuals must not make valid TikZ
+        // look invalid merely because TikZJax's worker pool is already busy.
         compileTimer = setTimeout(() => {
-          // If the authoritative completion event did not arrive within 3s, the
-          // exact current source is invalid. Transient SVG children do not count.
+          // If the authoritative completion event did not arrive in time after
+          // submission, treat this exact source as an actual render timeout.
           host.replaceChildren();
-          reportCompileState(true, 'TikZ compilation timed out after 3 seconds. Edit the TikZ code to retry.');
+          reportCompileState(true, 'TikZ compilation timed out after 5 seconds. Edit the TikZ code to retry.');
         }, TIKZ_COMPILE_TIMEOUT_MS);
         hostRef.current.replaceChildren(script);
       })
@@ -394,6 +394,7 @@ export default function TikzDisplay ({ alt, hasCompileError = false, onCompileSt
         clearTimeout(compileTimer);
       }
 
+      releaseActiveRenderSlot();
       document.removeEventListener('tikzjax-load-finished', onFinished as EventListener, true);
       observer.disconnect();
       host.replaceChildren();

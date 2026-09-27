@@ -17,3 +17,67 @@ export function getTikzRenderConcurrency (hardwareConcurrency?: number): number 
 
   return cores * 2;
 }
+
+export interface TikzRenderQueue {
+  acquire: () => Promise<() => void>;
+}
+
+/**
+ * Create a small FIFO semaphore for work that ultimately consumes a TikZJax
+ * worker. A caller owns a slot from acquire() until it invokes the returned
+ * release function. release() is intentionally idempotent so React cleanup and
+ * renderer completion can safely race without corrupting the queue.
+ */
+export function createTikzRenderQueue (maxConcurrent: number): TikzRenderQueue {
+  const concurrency = Number.isFinite(maxConcurrent) && maxConcurrent > 0
+    ? Math.max(1, Math.floor(maxConcurrent))
+    : 1;
+  const waiters: Array<(release: () => void) => void> = [];
+  let active = 0;
+
+  const makeRelease = (): (() => void) => {
+    let released = false;
+
+    return (): void => {
+      if (released) {
+        return;
+      }
+
+      released = true;
+      active -= 1;
+
+      const next = waiters.shift();
+
+      if (next) {
+        active += 1;
+        next(makeRelease());
+      }
+    };
+  };
+
+  return {
+    acquire: (): Promise<() => void> => {
+      if (active < concurrency) {
+        active += 1;
+
+        return Promise.resolve(makeRelease());
+      }
+
+      return new Promise<() => void>((resolve) => {
+        waiters.push(resolve);
+      });
+    }
+  };
+}
+
+const sharedTikzRenderQueue = createTikzRenderQueue(getTikzRenderConcurrency());
+
+/**
+ * Acquire one application-level TikZ render slot. This queue mirrors the
+ * TikZJax worker-pool size, so a render's compile timeout starts only after it
+ * can actually be submitted to a worker instead of while it waits behind other
+ * Ability visuals.
+ */
+export function acquireTikzRenderSlot (): Promise<() => void> {
+  return sharedTikzRenderQueue.acquire();
+}
