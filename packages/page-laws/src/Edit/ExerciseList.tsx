@@ -34,12 +34,12 @@ const ExerciseVisual: React.FC<{ alt: string; hasCompileError?: boolean; isAbili
 
     if (isTikzCode(value)) {
         return <>
+            {visiblePrompt && <VisualPrompt><strong>{label}:</strong> <KatexSpan content={visiblePrompt} /></VisualPrompt>}
             <React.Suspense fallback={<small>Loading TikZ renderer…</small>}>
                 {isAbilityInfo
                     ? <TikzVisual alt={alt} hasCompileError={hasCompileError} onCompileStateChange={onCompileStateChange} onSave={onSave} value={value} />
                     : <TikzDisplay alt={alt} hasCompileError={hasCompileError} onCompileStateChange={onCompileStateChange} value={value} />}
             </React.Suspense>
-            {visiblePrompt && <VisualPrompt><strong>{label}:</strong> <KatexSpan content={visiblePrompt} /></VisualPrompt>}
         </>;
     }
 
