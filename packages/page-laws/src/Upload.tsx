@@ -18,6 +18,7 @@ import { bookLanguageLabel } from './bookLanguage.js';
 import { exerciseGenerationRequestEstimate } from './bookProcessing.js';
 import { conceptChaptersFromPages } from './conceptRecognition.js';
 import { fixChapterConceptsPrompt } from './fixConcepts.js';
+import { sortChapterConceptsPrompt } from './sortConcepts.js';
 import { clearFixConceptsChapterStatuses, failedFixConceptChapterKeys, fixConceptsChapterKey } from './fixConceptsProgress.js';
 import { formatOpenRouterSpend } from './openRouterCost.js';
 import { loadStandardsCatalogsForBookSubject, STANDARDS_MATCH_RUNS, standardsConceptInputs, standardsMatchingPrompt } from './standards.js';
@@ -37,6 +38,7 @@ const PRICE_STAGES: Array<{ detail?: string; key: BookStageSpendKey; label: stri
   { key: 'chapters', label: 'Chapters' },
   { key: 'concepts', label: 'Concepts' },
   { key: 'fixConcepts', label: 'Fix concepts' },
+  { key: 'sortConcepts', label: 'Sort concepts' },
   { key: 'exercises', label: 'Exercises' },
   { key: 'fixExercises', label: 'Fix exercises' },
   { key: 'abilities', label: 'Abilities' },
@@ -101,6 +103,7 @@ function Upload (): React.ReactElement {
   const [isBusy, setIsBusy] = useState(false);
   const [assignAllStandardsRequest, setAssignAllStandardsRequest] = useState(0);
   const [fixAllConceptsRequest, setFixAllConceptsRequest] = useState(0);
+  const [sortAllConceptsRequest, setSortAllConceptsRequest] = useState(0);
   const [generateAllConceptsRequest, setGenerateAllConceptsRequest] = useState(0);
   const [languageTabRequest, setLanguageTabRequest] = useState(0);
   const [subjectTabRequest, setSubjectTabRequest] = useState(0);
@@ -113,16 +116,18 @@ function Upload (): React.ReactElement {
   const [generateOnlyMissingConcepts, setGenerateOnlyMissingConcepts] = useState(false);
   const [hasChaptersMissingConcepts, setHasChaptersMissingConcepts] = useState(false);
   const [fixConceptsEstimate, setFixConceptsEstimate] = useState<AiInputEstimate | string>();
+  const [sortConceptsEstimate, setSortConceptsEstimate] = useState<AiInputEstimate | string>();
   const [fixOnlyFailedConcepts, setFixOnlyFailedConcepts] = useState(false);
   const [hasFailedFixConceptChapters, setHasFailedFixConceptChapters] = useState(false);
   const [isGenerateConceptsConfirmationOpen, setIsGenerateConceptsConfirmationOpen] = useState(false);
   const [isFixConceptsConfirmationOpen, setIsFixConceptsConfirmationOpen] = useState(false);
+  const [isSortConceptsConfirmationOpen, setIsSortConceptsConfirmationOpen] = useState(false);
   const [isGenerateExercisesConfirmationOpen, setIsGenerateExercisesConfirmationOpen] = useState(false);
   const [isStandardsConfirmationOpen, setIsStandardsConfirmationOpen] = useState(false);
   const [isRecognizeConfirmationOpen, setIsRecognizeConfirmationOpen] = useState(false);
   const [isPriceOpen, setIsPriceOpen] = useState(false);
   const [priceBook, setPriceBook] = useState<Book>();
-  const [pendingProcessingAction, setPendingProcessingAction] = useState<'chapters' | 'concepts' | 'fixConcepts' | 'recognize' | 'standards' | 'exercises'>();
+  const [pendingProcessingAction, setPendingProcessingAction] = useState<'chapters' | 'concepts' | 'fixConcepts' | 'sortConcepts' | 'recognize' | 'standards' | 'exercises'>();
   const [generateAllExercisesRequest, setGenerateAllExercisesRequest] = useState(0);
   const [generateExercisesEstimate, setGenerateExercisesEstimate] = useState<AiInputEstimate>();
   const [generateOnlyMissingExercises, setGenerateOnlyMissingExercises] = useState(false);
@@ -640,6 +645,65 @@ function Upload (): React.ReactElement {
     setFixAllConceptsRequest((request) => request + 1);
   }, [selectedBook]);
 
+  const onSortConcepts = useCallback((): void => {
+    if (!selectedBook) {
+      return;
+    }
+
+    if (!selectedBook.language || !selectedBook.subject || selectedBook.age === undefined) {
+      setError(t('Set the book language, subject, and learner age before running Sort concepts.'));
+      return;
+    }
+
+    setSortConceptsEstimate(undefined);
+    setIsSortConceptsConfirmationOpen(true);
+  }, [selectedBook, t]);
+
+  useEffect(() => {
+    if (!isSortConceptsConfirmationOpen || !selectedBook) {
+      return;
+    }
+
+    getBookPages(selectedBook.id).then(async (pages) => {
+      const pageLessConcepts = await getBookConceptsForBookPage(selectedBook.id, 0);
+      const requests: string[] = [];
+
+      for (const chapter of conceptChaptersFromPages(pages)) {
+        const concepts = [
+          ...(await Promise.all(chapter.pageNumbers.map((pageNumber) => getBookConceptsForBookPage(selectedBook.id, pageNumber)))).flat(),
+          ...pageLessConcepts.filter(({ chapterId }) => chapterId !== undefined && chapterId === chapter.chapterId)
+        ];
+
+        if (concepts.length > 1) {
+          requests.push(sortChapterConceptsPrompt(chapter.title, concepts, selectedBook.subject, selectedBook.language, selectedBook.age));
+        }
+      }
+
+      setSortConceptsEstimate(requests.length
+        ? estimateAiInput(generateAllConceptsModel, requests, 800)
+        : t('No chapters contain multiple concepts that need ZPD sorting.'));
+    }).catch(() => setError(t('Unable to estimate Sort concepts cost.')));
+  }, [generateAllConceptsModel, isSortConceptsConfirmationOpen, selectedBook, t]);
+
+  const closeSortConceptsConfirmation = useCallback((): void => {
+    setIsSortConceptsConfirmationOpen(false);
+    setPendingProcessingAction(undefined);
+  }, []);
+
+  const confirmSortConcepts = useCallback((): void => {
+    setIsSortConceptsConfirmationOpen(false);
+
+    if (!selectedBook) {
+      return;
+    }
+
+    // Sort Concepts changes only display/learning order. Re-running it must not
+    // erase the history of downstream stages that have already completed. The
+    // DB propagates the new order through Exercise/Ability displayOrder in place.
+    setPendingProcessingAction('sortConcepts');
+    setSortAllConceptsRequest((request) => request + 1);
+  }, [selectedBook]);
+
   const onAssignStandards = useCallback((): void => {
     if (!selectedBook) {
       return;
@@ -1016,6 +1080,35 @@ function Upload (): React.ReactElement {
           </Button.Group>
         </Modal.Content>
       </Modal>}
+      {isSortConceptsConfirmationOpen && <Modal
+        header={t('Sort concepts')}
+        onClose={closeSortConceptsConfirmation}
+        size='small'
+      >
+        <Modal.Content>
+          <p>{t('Sort each chapter’s finalized Concepts into a Zone of Proximal Development progression for the configured learner age. The model will prioritize prerequisite readiness rather than source-page order, and the resulting order will be saved in BookConcept.displayOrder.')}</p>
+          <AiPriceEstimate estimate={sortConceptsEstimate} />
+          <OpenRouterModelSelector
+            className='batchModelSelect'
+            modelLabel={t('Model')}
+            onChange={setGenerateAllConceptsModel}
+            providerLabel={t('Provider')}
+            value={generateAllConceptsModel}
+          />
+          <Button.Group>
+            <Button
+              icon='times'
+              label={t('Cancel')}
+              onClick={closeSortConceptsConfirmation}
+            />
+            <Button
+              icon='arrow-down'
+              label={t('Sort')}
+              onClick={confirmSortConcepts}
+            />
+          </Button.Group>
+        </Modal.Content>
+      </Modal>}
       {isStandardsConfirmationOpen && <Modal
         header={t('Standards')}
         onClose={closeStandardsConfirmation}
@@ -1127,6 +1220,7 @@ function Upload (): React.ReactElement {
             book={selectedBook}
             fixAllConceptsRequest={fixAllConceptsRequest}
             fixOnlyFailedConcepts={fixOnlyFailedConcepts}
+            sortAllConceptsRequest={sortAllConceptsRequest}
             key={selectedBook.id}
             file={readerFile}
             generateAllConceptsModel={generateAllConceptsModel}
@@ -1192,10 +1286,17 @@ function Upload (): React.ReactElement {
                 onClick: onFixConcepts
               },
               {
+                key: 'sortConcepts',
+                label: t('Sort concepts'),
+                isDone: isBookProcessingStageComplete(selectedBook, 'sortConcepts'),
+                isDisabled: !readerFile || isBusy || !isBookProcessingStageComplete(selectedBook, 'fixConcepts') || !selectedBook.language || !selectedBook.subject || selectedBook.age === undefined,
+                onClick: onSortConcepts
+              },
+              {
                 key: 'exercises',
                 label: t('Exercises'),
                 isDone: isBookProcessingStageComplete(selectedBook, 'exercises'),
-                isDisabled: !readerFile || isBusy || !isBookProcessingStageComplete(selectedBook, 'fixConcepts') || !selectedBook.language || !selectedBook.subject,
+                isDisabled: !readerFile || isBusy || !isBookProcessingStageComplete(selectedBook, 'sortConcepts') || !selectedBook.language || !selectedBook.subject,
                 onClick: onGenerateExercises
               }
             ]}

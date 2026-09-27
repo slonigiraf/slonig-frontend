@@ -18,6 +18,8 @@ export interface AbilityValue {
 export interface Ability {
   id: string;
   moduleId: string;
+  /** Chapter-local learning order. Reordering an Ability back-propagates through Exercise to BookConcept. */
+  displayOrder?: number;
   /** Serialized AbilityValue. Visual payloads live in Image rows referenced by q[].p/q[].i. */
   content: string;
 }

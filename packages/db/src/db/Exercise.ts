@@ -5,6 +5,8 @@ export interface Exercise {
   id?: number;
   bookPage: [number, number];
   conceptId?: number;
+  /** Chapter-local learning order. Reordering an Exercise also back-propagates to its parent BookConcept. */
+  displayOrder?: number;
   title: string;
   description: string;
   imageDescription?: string;

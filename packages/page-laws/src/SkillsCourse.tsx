@@ -29,8 +29,10 @@ import { parseStoredAbility } from './abilities.js';
 import { randomIdHex } from './util.js';
 import { isTikzCode } from './Edit/tikz.js';
 import { loadStoredBookStandards, moduleStandardsText, standardsChapterKey } from './standards.js';
+import { sortExercisesForDisplay } from './learningOrder.js';
 
 interface TemplateRow {
+  displayOrder?: number;
   moduleId: string;
   recordId: string;
   template: GeneratedAbility;
@@ -264,7 +266,7 @@ function SkillsCourse ({ book }: { book: Book }): React.ReactElement {
       }
 
       const matchingPages = pageRows.filter(({ concepts, page }) => page.chapter === chapter.title || concepts.some(({ chapterId }) => chapterId === chapter.id));
-      const exercises = matchingPages.flatMap(({ exercises }) => exercises);
+      const exercises = sortExercisesForDisplay(matchingPages.flatMap(({ exercises }) => exercises));
       const templates = (await Promise.all(exercises.map(async ({ id }) => {
         if (id === undefined) {
           return [];
@@ -273,18 +275,18 @@ function SkillsCourse ({ book }: { book: Book }): React.ReactElement {
         const moduleId = exerciseAbilityModuleId(book.id, id);
         const records = await getAbilities(moduleId);
 
-        const hydratedRecords = await Promise.all(records.map(async ({ content, id: recordId }) => {
+        const hydratedRecords = await Promise.all(records.map(async ({ content, displayOrder, id: recordId }) => {
           try {
             const hydratedContent = await hydrateAbilityContent(content);
 
-            return { moduleId, recordId, template: parseStoredAbility(hydratedContent) };
+            return { displayOrder, moduleId, recordId, template: parseStoredAbility(hydratedContent) };
           } catch {
             return undefined;
           }
         }));
 
         return hydratedRecords.filter((value): value is TemplateRow => value !== undefined);
-      }))).flat();
+      }))).flat().sort((a, b) => (a.displayOrder ?? Number.MAX_SAFE_INTEGER) - (b.displayOrder ?? Number.MAX_SAFE_INTEGER) || a.recordId.localeCompare(b.recordId));
 
       return { chapter, templates };
     }));
@@ -327,7 +329,40 @@ function SkillsCourse ({ book }: { book: Book }): React.ReactElement {
       keys.splice(insertionIndex, 0, ...missingTemplateKeys);
     }
 
-    return keys.flatMap((key) => {
+    const originalRanks = new Map(keys.map((key, rank) => [key, rank]));
+    const zpdKeys: string[] = [];
+    let templateSegment: string[] = [];
+    const flushTemplates = (): void => {
+      templateSegment.sort((a, b) => {
+        const aItem = byKey.get(a);
+        const bItem = byKey.get(b);
+        const aOrder = aItem?.type === 'template' ? aItem.row.displayOrder : undefined;
+        const bOrder = bItem?.type === 'template' ? bItem.row.displayOrder : undefined;
+
+        if (aOrder !== undefined || bOrder !== undefined) {
+          if (aOrder === undefined) return 1;
+          if (bOrder === undefined) return -1;
+          if (aOrder !== bOrder) return aOrder - bOrder;
+        }
+
+        return (originalRanks.get(a) ?? Number.MAX_SAFE_INTEGER) - (originalRanks.get(b) ?? Number.MAX_SAFE_INTEGER);
+      });
+      zpdKeys.push(...templateSegment);
+      templateSegment = [];
+    };
+
+    for (const key of keys) {
+      if (key.startsWith('chapter:')) {
+        flushTemplates();
+        zpdKeys.push(key);
+      } else {
+        templateSegment.push(key);
+      }
+    }
+
+    flushTemplates();
+
+    return zpdKeys.flatMap((key) => {
       const item = byKey.get(key);
 
       return item ? [item] : [];
@@ -687,7 +722,7 @@ function SkillsCourse ({ book }: { book: Book }): React.ReactElement {
             // Ability. The IPFS CID substitutions in publishAbility exist only for
             // this final publishing operation.
             if (didLocalTemplateChange) {
-              const newRecordId = await storeAbility(row.moduleId, JSON.stringify(localAbility));
+              const newRecordId = await storeAbility(row.moduleId, JSON.stringify(localAbility), row.displayOrder);
 
               if (newRecordId !== row.recordId) {
                 await deleteAbility(row.recordId);
@@ -762,8 +797,24 @@ function SkillsCourse ({ book }: { book: Book }): React.ReactElement {
             throw new Error(`Saved module ID ${moduleId} belongs to another knowledge type.`);
           }
 
-          if (chapterStandards && existingModule.json.s !== chapterStandards) {
-            const digest = await pinKnowledgeItem({ ...existingModule.json, s: chapterStandards });
+          const orderedSkillIds = templates.map(({ template }) => template.i);
+
+          if (orderedSkillIds.some((id) => !isKnowledgeId(id))) {
+            throw new Error(`Published module “${chapter.title}” contains an Ability without a valid saved skill ID.`);
+          }
+
+          const existingSkillIds = Array.isArray(existingModule.json.e)
+            ? existingModule.json.e.filter((id): id is string => typeof id === 'string')
+            : [];
+          const orderChanged = JSON.stringify(existingSkillIds) !== JSON.stringify(orderedSkillIds);
+          const standardsChanged = Boolean(chapterStandards) && existingModule.json.s !== chapterStandards;
+
+          if (orderChanged || standardsChanged) {
+            const digest = await pinKnowledgeItem({
+              ...existingModule.json,
+              e: orderedSkillIds,
+              ...(chapterStandards ? { s: chapterStandards } : {})
+            });
 
             moduleTransactions.push(api.tx.laws.edit(moduleId, existingModule.digestHex, digest, existingModule.amount));
           }

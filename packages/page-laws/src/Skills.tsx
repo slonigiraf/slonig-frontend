@@ -28,6 +28,7 @@ import OpenRouterModelSelector from './OpenRouterModelSelector.js';
 import { formatOpenRouterSpend, reportOpenRouterCost, type OpenRouterCostReporter } from './openRouterCost.js';
 import { AiPriceEstimate } from './PriceEstimate.js';
 import { stripMarkdownImageReferences } from './bookImageRefs.js';
+import { sortAbilitiesForDisplay, sortExercisesForDisplay } from './learningOrder.js';
 import { batchItemsByChapter } from './chapterBatching.js';
 import { getSharedChapterSelection, resolveSharedChapterIndex, storeSharedChapterSelection, subscribeSharedChapterSelection } from './chapterSelection.js';
 
@@ -203,6 +204,7 @@ interface Props {
 interface StoredAbility {
   ability: GeneratedAbility | null;
   content: string;
+  displayOrder?: number;
   id: string;
   moduleId: string;
 }
@@ -382,9 +384,10 @@ function exerciseRepairInput (language: string, batch: Exercise[], chapterTitle?
   };
 }
 
-function exerciseForPageReplacement ({ conceptId, description, imageDescription, solution, solutionImageDescription, source, title }: Exercise): Omit<Exercise, 'bookPage' | 'id'> {
+function exerciseForPageReplacement ({ conceptId, description, displayOrder, imageDescription, solution, solutionImageDescription, source, title }: Exercise): Omit<Exercise, 'bookPage' | 'id'> {
   return {
     conceptId,
+    displayOrder,
     description: stripMarkdownImageReferences(description),
     imageDescription,
     solution,
@@ -905,7 +908,7 @@ function AbilityCard ({ onDeleted, onError, record }: { onDeleted: () => void; o
   }, [onDeleted, onError, record.id]);
   const persistAbility = useCallback(async (ability: GeneratedAbility): Promise<void> => {
     const validated = parseStoredAbility(JSON.stringify(ability));
-    const newRecordId = await storeAbility(record.moduleId, JSON.stringify(validated));
+    const newRecordId = await storeAbility(record.moduleId, JSON.stringify(validated), record.displayOrder);
 
     if (newRecordId !== record.id) {
       await deleteAbility(record.id);
@@ -1450,17 +1453,17 @@ function Skills ({ book, externalRefreshToken = 0, onAction, onBookChange, onCon
       const result = await Promise.all(chapters.map(async (chapter): Promise<ChapterContent> => {
         const skills = chapter.id === undefined ? [] : await getSkillsForChapter(chapter.id);
         const matchingPages = pageRows.filter(({ concepts, page }) => page.chapter === chapter.title || concepts.some(({ chapterId }) => chapterId === chapter.id));
-        const exercises = matchingPages.flatMap(({ exercises }) => exercises);
-        const records = (await Promise.all(exercises.flatMap(({ id }) => id === undefined ? [] : [getAbilities(exerciseAbilityModuleId(book.id, id))]))).flat() as Array<{ content: string; id: string; moduleId: string }>;
-        const abilities = await Promise.all(records.map(async ({ content, id, moduleId }): Promise<StoredAbility> => {
+        const exercises = sortExercisesForDisplay(matchingPages.flatMap(({ exercises }) => exercises));
+        const records = (await Promise.all(exercises.flatMap(({ id }) => id === undefined ? [] : [getAbilities(exerciseAbilityModuleId(book.id, id))]))).flat() as Array<{ content: string; displayOrder?: number; id: string; moduleId: string }>;
+        const abilities = sortAbilitiesForDisplay(await Promise.all(records.map(async ({ content, displayOrder, id, moduleId }): Promise<StoredAbility> => {
           try {
             const hydratedContent = await hydrateAbilityContent(content);
 
-            return { ability: parseStoredAbility(hydratedContent), content, id, moduleId };
+            return { ability: parseStoredAbility(hydratedContent), content, displayOrder, id, moduleId };
           } catch {
-            return { ability: null, content, id, moduleId };
+            return { ability: null, content, displayOrder, id, moduleId };
           }
-        }));
+        })));
 
         return { abilities, chapter, concepts: matchingPages.flatMap(({ concepts }) => concepts.filter(({ chapterId }) => chapterId === chapter.id)), exercises, skills };
       }));
@@ -2097,7 +2100,7 @@ function Skills ({ book, externalRefreshToken = 0, onAction, onBookChange, onCon
           continue;
         }
 
-        const newRecordId = await storeAbility(record.moduleId, JSON.stringify(ability));
+        const newRecordId = await storeAbility(record.moduleId, JSON.stringify(ability), record.displayOrder);
 
         if (newRecordId !== record.id) {
           await deleteAbility(record.id);

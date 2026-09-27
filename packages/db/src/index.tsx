@@ -42,6 +42,373 @@ export { BOOK_PROCESSING_STAGES, getBookCompletedStages, isBookProcessingStageCo
 export type { LearnRequest, TutorAction, CanceledInsurance, Reexamination, LetterTemplate, CanceledLetter, Reimbursement, Letter, Insurance, Lesson, Pseudonym, Setting, Signer, UsageRight, Agreement, Ability, AbilityExercise, AbilityValue, Image, Book, BookProcessingStageKey, BookStageSpend, BookStageSpendKey, BookSubject, BookPage, MathpixHeading, BookChapter, BookConcept, Exercise, Skill, ExerciseTemplate };
 export type { ImageType } from './db/Image.js';
 
+const EXERCISE_ABILITY_MODULE = /^book-(\d+)-exercise-(\d+)$/;
+
+function finiteDisplayOrder(value: number | undefined): number | undefined {
+    return typeof value === 'number' && Number.isFinite(value) ? value : undefined;
+}
+
+function exerciseAbilityModuleId(bookId: number, exerciseId: number): string {
+    return `book-${bookId}-exercise-${exerciseId}`;
+}
+
+function exerciseIdFromAbilityModule(moduleId: string): number | undefined {
+    const match = EXERCISE_ABILITY_MODULE.exec(moduleId);
+
+    if (!match) {
+        return undefined;
+    }
+
+    const exerciseId = Number(match[2]);
+
+    return Number.isSafeInteger(exerciseId) ? exerciseId : undefined;
+}
+
+async function chapterIdForExercise(exercise: Exercise | undefined): Promise<number | undefined> {
+    if (!exercise) {
+        return undefined;
+    }
+
+    if (exercise.conceptId !== undefined) {
+        const concept = await db.bookConcepts.get(exercise.conceptId);
+
+        if (concept?.chapterId !== undefined) {
+            return concept.chapterId;
+        }
+    }
+
+    return (await db.bookPages.get(exercise.bookPage))?.chapterId;
+}
+
+/**
+ * Learning order is persisted at every layer. Concept order is the canonical
+ * forward hierarchy, while explicit Exercise/Ability reorders may first flow
+ * upward to their parents and are then normalized back down:
+ *
+ *   Ability -> Exercise -> BookConcept -> Exercise -> Ability
+ *
+ * The upward pass uses the first child occurrence as the parent's position.
+ * Parents/children without rows at a lower layer keep their existing slots.
+ */
+type LearningOrderSource = 'concept' | 'exercise' | 'ability';
+
+function orderedByDisplayOrder<T extends { displayOrder?: number }>(rows: T[], tieBreak: (a: T, b: T) => number): T[] {
+    return [...rows].sort((a, b) => {
+        const aOrder = finiteDisplayOrder(a.displayOrder);
+        const bOrder = finiteDisplayOrder(b.displayOrder);
+
+        if (aOrder !== undefined || bOrder !== undefined) {
+            if (aOrder === undefined) return 1;
+            if (bOrder === undefined) return -1;
+            if (aOrder !== bOrder) return aOrder - bOrder;
+        }
+
+        return tieBreak(a, b);
+    });
+}
+
+function reorderSubsetInExistingSlots<T, K>(baseline: T[], preferredIds: K[], idOf: (row: T) => K | undefined): T[] {
+    const preferredSet = new Set(preferredIds);
+    const rowsById = new Map<K, T>();
+
+    for (const row of baseline) {
+        const id = idOf(row);
+
+        if (id !== undefined) {
+            rowsById.set(id, row);
+        }
+    }
+
+    const preferredRows = preferredIds.flatMap((id) => {
+        const row = rowsById.get(id);
+
+        return row === undefined ? [] : [row];
+    });
+    let preferredIndex = 0;
+
+    return baseline.map((row) => {
+        const id = idOf(row);
+
+        if (id === undefined || !preferredSet.has(id)) {
+            return row;
+        }
+
+        return preferredRows[preferredIndex++] ?? row;
+    });
+}
+
+function uniqueIdsInOrder<K>(ids: Array<K | undefined>): K[] {
+    const seen = new Set<K>();
+    const ordered: K[] = [];
+
+    for (const id of ids) {
+        if (id === undefined || seen.has(id)) {
+            continue;
+        }
+
+        seen.add(id);
+        ordered.push(id);
+    }
+
+    return ordered;
+}
+
+function validateDisplayOrderIndex(displayOrder: number, entity: 'Exercise' | 'Ability'): void {
+    if (!Number.isSafeInteger(displayOrder) || displayOrder < 0) {
+        throw new Error(`${entity} displayOrder must be a non-negative integer.`);
+    }
+}
+
+function moveToIndex<T>(rows: T[], target: T, requestedIndex: number): T[] {
+    const remaining = rows.filter((row) => row !== target);
+    const targetIndex = Math.min(requestedIndex, remaining.length);
+
+    return [...remaining.slice(0, targetIndex), target, ...remaining.slice(targetIndex)];
+}
+
+async function chapterConceptsForLearningOrder(chapterId: number): Promise<{ concepts: BookConcept[]; pages: BookPage[] }> {
+    const pages = await db.bookPages.where('chapterId').equals(chapterId).toArray();
+    const pageConceptLists = await Promise.all(pages.map(({ bookId, pageNumber }) => db.bookConcepts.where('bookPage').equals([bookId, pageNumber]).toArray()));
+    const pageKeys = new Set(pages.map(({ bookId, pageNumber }) => `${bookId}:${pageNumber}`));
+    const explicitConcepts = (await db.bookConcepts.where('chapterId').equals(chapterId).toArray())
+        // For page-bound Concepts the BookPage assignment is authoritative. A
+        // stale denormalized chapterId must not make one Concept belong to two
+        // chapters during bidirectional normalization.
+        .filter((concept) => concept.bookPage[1] === 0 || pageKeys.has(`${concept.bookPage[0]}:${concept.bookPage[1]}`));
+    const conceptsById = new Map<number, BookConcept>();
+    const conceptsWithoutId: BookConcept[] = [];
+
+    for (const concept of [...explicitConcepts, ...pageConceptLists.flat()]) {
+        if (concept.id === undefined) {
+            conceptsWithoutId.push(concept);
+        } else {
+            conceptsById.set(concept.id, concept);
+        }
+    }
+
+    const concepts = [...conceptsById.values(), ...conceptsWithoutId];
+
+    // Older/imported databases can have page-bound Concepts without chapterId.
+    // The BookPage assignment is authoritative for page-bound Concepts, so repair
+    // those rows while they are already being touched by learning-order sync.
+    const pageChapterByKey = new Map(pages.map(({ bookId, pageNumber }) => [`${bookId}:${pageNumber}`, chapterId] as const));
+
+    await Promise.all(concepts.flatMap((concept) => {
+        if (concept.id === undefined || concept.bookPage[1] === 0) {
+            return [];
+        }
+
+        const pageChapterId = pageChapterByKey.get(`${concept.bookPage[0]}:${concept.bookPage[1]}`);
+
+        if (pageChapterId === undefined || concept.chapterId === pageChapterId) {
+            return [];
+        }
+
+        concept.chapterId = pageChapterId;
+        return [db.bookConcepts.update(concept.id, { chapterId: pageChapterId })];
+    }));
+
+    return { concepts, pages };
+}
+
+async function chapterIdForConcept(concept: BookConcept | undefined): Promise<number | undefined> {
+    if (!concept) {
+        return undefined;
+    }
+
+    if (concept.bookPage[1] !== 0) {
+        const pageChapterId = (await db.bookPages.get(concept.bookPage))?.chapterId;
+
+        if (pageChapterId !== undefined) {
+            return pageChapterId;
+        }
+    }
+
+    return concept.chapterId;
+}
+
+async function chapterExercisesForLearningOrder(chapterId: number): Promise<Exercise[]> {
+    const { concepts, pages } = await chapterConceptsForLearningOrder(chapterId);
+    const conceptIds = new Set(concepts.flatMap(({ id }) => id === undefined ? [] : [id]));
+    const pageKeys = new Set(pages.map(({ bookId, pageNumber }) => `${bookId}:${pageNumber}`));
+
+    return db.exercises.filter(({ bookPage, conceptId }) => (conceptId !== undefined && conceptIds.has(conceptId)) || pageKeys.has(`${bookPage[0]}:${bookPage[1]}`)).toArray();
+}
+
+async function moveExerciseToDisplayOrder(exerciseId: number, requestedIndex: number): Promise<Exercise | undefined> {
+    const exercise = await db.exercises.get(exerciseId);
+
+    if (!exercise) {
+        return undefined;
+    }
+
+    const chapterId = await chapterIdForExercise(exercise);
+
+    if (chapterId === undefined) {
+        await db.exercises.update(exerciseId, { displayOrder: requestedIndex });
+        return db.exercises.get(exerciseId);
+    }
+
+    const rows = orderedByDisplayOrder(await chapterExercisesForLearningOrder(chapterId), (a, b) => a.bookPage[1] - b.bookPage[1] || (a.id ?? Number.MAX_SAFE_INTEGER) - (b.id ?? Number.MAX_SAFE_INTEGER));
+    const target = rows.find(({ id }) => id === exerciseId);
+
+    if (!target) {
+        return exercise;
+    }
+
+    const reordered = moveToIndex(rows, target, requestedIndex);
+
+    await Promise.all(reordered.flatMap((row, index) => row.id === undefined ? [] : [db.exercises.update(row.id, { displayOrder: index })]));
+    await syncChapterLearningDisplayOrder(chapterId, 'exercise');
+
+    return db.exercises.get(exerciseId);
+}
+
+async function moveAbilityToDisplayOrder(abilityId: string, requestedIndex: number): Promise<Ability | undefined> {
+    const ability = await db.abilities.get(abilityId);
+
+    if (!ability) {
+        return undefined;
+    }
+
+    const exerciseId = exerciseIdFromAbilityModule(ability.moduleId);
+    const exercise = exerciseId === undefined ? undefined : await db.exercises.get(exerciseId);
+    const chapterId = await chapterIdForExercise(exercise);
+
+    if (chapterId === undefined) {
+        await db.abilities.update(abilityId, { displayOrder: requestedIndex });
+        return db.abilities.get(abilityId);
+    }
+
+    const exercises = await chapterExercisesForLearningOrder(chapterId);
+    const rows = (await Promise.all(exercises.flatMap((row) => row.id === undefined
+        ? []
+        : [db.abilities.where('moduleId').equals(exerciseAbilityModuleId(row.bookPage[0], row.id)).toArray()])))
+        .flat();
+    const ordered = orderedByDisplayOrder(rows, (a, b) => a.id.localeCompare(b.id));
+    const target = ordered.find(({ id }) => id === abilityId);
+
+    if (!target) {
+        return ability;
+    }
+
+    const reordered = moveToIndex(ordered, target, requestedIndex);
+
+    await Promise.all(reordered.map((row, index) => db.abilities.update(row.id, { displayOrder: index })));
+    await syncChapterLearningDisplayOrder(chapterId, 'ability');
+
+    return db.abilities.get(abilityId);
+}
+
+async function syncChapterLearningDisplayOrder(chapterId: number, source: LearningOrderSource = 'concept'): Promise<void> {
+    const { concepts, pages } = await chapterConceptsForLearningOrder(chapterId);
+    const baselineConcepts = orderedByDisplayOrder(concepts, (a, b) => a.bookPage[1] - b.bookPage[1] || (a.id ?? Number.MAX_SAFE_INTEGER) - (b.id ?? Number.MAX_SAFE_INTEGER));
+    const conceptIds = new Set(baselineConcepts.flatMap(({ id }) => id === undefined ? [] : [id]));
+    const pageKeys = new Set(pages.map(({ bookId, pageNumber }) => `${bookId}:${pageNumber}`));
+    const exercises = await db.exercises.filter(({ bookPage, conceptId }) => (conceptId !== undefined && conceptIds.has(conceptId)) || pageKeys.has(`${bookPage[0]}:${bookPage[1]}`)).toArray();
+    const baselineExercises = orderedByDisplayOrder(exercises, (a, b) => a.bookPage[1] - b.bookPage[1] || (a.id ?? Number.MAX_SAFE_INTEGER) - (b.id ?? Number.MAX_SAFE_INTEGER));
+    const exerciseById = new Map(baselineExercises.flatMap((exercise) => exercise.id === undefined ? [] : [[exercise.id, exercise] as const]));
+    const abilitiesByExerciseId = new Map<number, Ability[]>();
+
+    await Promise.all([...exerciseById].map(async ([exerciseId, exercise]) => {
+        const records = await db.abilities.where('moduleId').equals(exerciseAbilityModuleId(exercise.bookPage[0], exerciseId)).toArray();
+
+        abilitiesByExerciseId.set(exerciseId, records);
+    }));
+
+    let orderedExercises = baselineExercises;
+
+    if (source === 'ability') {
+        const orderedAbilities = orderedByDisplayOrder(
+            [...abilitiesByExerciseId].flatMap(([exerciseId, records]) => records.map((record) => ({ ...record, exerciseId }))),
+            (a, b) => a.id.localeCompare(b.id)
+        );
+        const preferredExerciseIds = uniqueIdsInOrder(orderedAbilities.map(({ exerciseId }) => exerciseId));
+
+        orderedExercises = reorderSubsetInExistingSlots(baselineExercises, preferredExerciseIds, ({ id }) => id);
+    }
+
+    let orderedConcepts = baselineConcepts;
+
+    if (source === 'exercise' || source === 'ability') {
+        const preferredConceptIds = uniqueIdsInOrder(orderedExercises.map(({ conceptId }) => conceptId));
+
+        orderedConcepts = reorderSubsetInExistingSlots(baselineConcepts, preferredConceptIds, ({ id }) => id);
+    }
+
+    for (let conceptRank = 0; conceptRank < orderedConcepts.length; conceptRank++) {
+        const concept = orderedConcepts[conceptRank];
+
+        if (concept.id !== undefined && concept.displayOrder !== conceptRank) {
+            await db.bookConcepts.update(concept.id, { displayOrder: conceptRank });
+        }
+    }
+
+    const conceptRanks = new Map(orderedConcepts.flatMap((concept, rank) => concept.id === undefined ? [] : [[concept.id, rank] as const]));
+    const desiredExerciseIndex = new Map(orderedExercises.flatMap((exercise, index) => exercise.id === undefined ? [] : [[exercise.id, index] as const]));
+    const finalExercises = [...exercises].sort((a, b) => {
+        const aConceptRank = a.conceptId === undefined ? undefined : conceptRanks.get(a.conceptId);
+        const bConceptRank = b.conceptId === undefined ? undefined : conceptRanks.get(b.conceptId);
+
+        if (aConceptRank !== undefined || bConceptRank !== undefined) {
+            if (aConceptRank === undefined) return 1;
+            if (bConceptRank === undefined) return -1;
+            if (aConceptRank !== bConceptRank) return aConceptRank - bConceptRank;
+        }
+
+        const aDesired = a.id === undefined ? undefined : desiredExerciseIndex.get(a.id);
+        const bDesired = b.id === undefined ? undefined : desiredExerciseIndex.get(b.id);
+
+        if (aDesired !== undefined || bDesired !== undefined) {
+            if (aDesired === undefined) return 1;
+            if (bDesired === undefined) return -1;
+            if (aDesired !== bDesired) return aDesired - bDesired;
+        }
+
+        return a.bookPage[1] - b.bookPage[1] || (a.id ?? Number.MAX_SAFE_INTEGER) - (b.id ?? Number.MAX_SAFE_INTEGER);
+    });
+
+    for (let exerciseRank = 0; exerciseRank < finalExercises.length; exerciseRank++) {
+        const exercise = finalExercises[exerciseRank];
+
+        if (exercise.id !== undefined && exercise.displayOrder !== exerciseRank) {
+            await db.exercises.update(exercise.id, { displayOrder: exerciseRank });
+        }
+    }
+
+    let abilityRank = 0;
+
+    for (const exercise of finalExercises) {
+        if (exercise.id === undefined) {
+            continue;
+        }
+
+        const records = orderedByDisplayOrder(abilitiesByExerciseId.get(exercise.id) ?? [], (a, b) => a.id.localeCompare(b.id));
+
+        for (const record of records) {
+            if (record.displayOrder !== abilityRank) {
+                await db.abilities.update(record.id, { displayOrder: abilityRank });
+            }
+
+            abilityRank++;
+        }
+    }
+}
+
+async function syncLearningDisplayOrderForAbilityModule(moduleId: string, source: LearningOrderSource = 'concept'): Promise<void> {
+    const exerciseId = exerciseIdFromAbilityModule(moduleId);
+
+    if (exerciseId === undefined) {
+        return;
+    }
+
+    const chapterId = await chapterIdForExercise(await db.exercises.get(exerciseId));
+
+    if (chapterId !== undefined) {
+        await syncChapterLearningDisplayOrder(chapterId, source);
+    }
+}
+
 export async function createBook(book: Omit<Book, 'id'>): Promise<number> {
     return db.books.add(book as Book);
 }
@@ -443,29 +810,79 @@ export async function deleteBookChapters(bookId: number, chapterIds: number[]): 
 }
 
 export async function replaceExercisesForBookPage(bookPage: [number, number], exercises: Array<Omit<Exercise, 'bookPage' | 'id'>>): Promise<Exercise[]> {
-    return db.transaction('rw', db.exercises, async () => {
+    return db.transaction('rw', db.exercises, db.bookConcepts, db.bookPages, db.abilities, async () => {
         await db.exercises.where('bookPage').equals(bookPage).delete();
         const rows = exercises.map((exercise) => ({ ...exercise, bookPage }));
         const ids = await db.exercises.bulkAdd(rows, { allKeys: true });
-        return rows.map((exercise, index) => ({ ...exercise, id: ids[index] }));
+        const chapterIds = new Set<number>();
+        const pageChapterId = (await db.bookPages.get(bookPage))?.chapterId;
+
+        if (pageChapterId !== undefined) {
+            chapterIds.add(pageChapterId);
+        }
+
+        const conceptIds = [...new Set(rows.flatMap(({ conceptId }) => conceptId === undefined ? [] : [conceptId]))];
+        const concepts = conceptIds.length ? await db.bookConcepts.bulkGet(conceptIds) : [];
+
+        concepts.forEach((concept) => {
+            if (concept?.chapterId !== undefined) {
+                chapterIds.add(concept.chapterId);
+            }
+        });
+
+        const hasExplicitDisplayOrder = rows.some(({ displayOrder }) => finiteDisplayOrder(displayOrder) !== undefined);
+
+        for (const chapterId of chapterIds) {
+            await syncChapterLearningDisplayOrder(chapterId, hasExplicitDisplayOrder ? 'exercise' : 'concept');
+        }
+
+        const stored = await db.exercises.bulkGet(ids);
+
+        return stored.map((exercise, index) => exercise ?? { ...rows[index], id: ids[index] });
     });
 }
 
+export async function updateExerciseDisplayOrder(id: number, displayOrder: number): Promise<Exercise | undefined> {
+    validateDisplayOrderIndex(displayOrder, 'Exercise');
+
+    return db.transaction('rw', db.exercises, db.bookConcepts, db.bookPages, db.abilities, async () => moveExerciseToDisplayOrder(id, displayOrder));
+}
+
 export async function getExercisesForBookPage(bookPage: [number, number]): Promise<Exercise[]> {
-    return db.exercises.where('bookPage').equals(bookPage).sortBy('id');
+    const rows = await db.exercises.where('bookPage').equals(bookPage).toArray();
+
+    return rows.sort((a, b) => {
+        const aOrder = finiteDisplayOrder(a.displayOrder);
+        const bOrder = finiteDisplayOrder(b.displayOrder);
+
+        if (aOrder !== undefined || bOrder !== undefined) {
+            if (aOrder === undefined) return 1;
+            if (bOrder === undefined) return -1;
+            if (aOrder !== bOrder) return aOrder - bOrder;
+        }
+
+        return (a.id ?? Number.MAX_SAFE_INTEGER) - (b.id ?? Number.MAX_SAFE_INTEGER);
+    });
 }
 
 export async function deleteExercise(id: number): Promise<void> {
-    await db.transaction('rw', db.exercises, db.skills, async () => {
+    await db.transaction('rw', db.exercises, db.skills, db.bookConcepts, db.bookPages, db.abilities, async () => {
+        const exercise = await db.exercises.get(id);
+        const chapterId = await chapterIdForExercise(exercise);
+
         await db.exercises.delete(id);
         const linkedSkills = await db.skills.filter(({ exerciseIds }) => (exerciseIds ?? []).includes(id)).toArray();
 
         await Promise.all(linkedSkills.flatMap((skill) => skill.id === undefined ? [] : [db.skills.update(skill.id, { exerciseIds: (skill.exerciseIds ?? []).filter((exerciseId) => exerciseId !== id) })]));
+
+        if (chapterId !== undefined) {
+            await syncChapterLearningDisplayOrder(chapterId);
+        }
     });
 }
 
 export async function replaceParsedBookPageContent(bookId: number, pageNumber: number, chapterTitle: string, concepts: Array<Omit<BookConcept, 'bookPage' | 'chapterId' | 'id'>>, exercises: Array<Omit<Exercise, 'bookPage' | 'conceptId' | 'id'> & { conceptIndex?: number }>): Promise<{ concepts: BookConcept[]; exercises: Exercise[] }> {
-    return db.transaction('rw', db.bookPages, db.bookChapters, db.bookConcepts, db.exercises, async () => {
+    return db.transaction('rw', db.bookPages, db.bookChapters, db.bookConcepts, db.exercises, db.abilities, async () => {
         const storedPage = await db.bookPages.get([bookId, pageNumber]);
         const previousPage = storedPage?.chapterId !== undefined || storedPage?.chapter.trim()
             ? undefined
@@ -492,9 +909,13 @@ export async function replaceParsedBookPageContent(bookId: number, pageNumber: n
         }));
         const exerciseIds = await db.exercises.bulkAdd(exerciseRows, { allKeys: true });
 
+        await syncChapterLearningDisplayOrder(chapterId);
+
+        const storedExercises = await db.exercises.bulkGet(exerciseIds);
+
         return {
             concepts: conceptRows.map((concept, index) => ({ ...concept, id: conceptIds[index] })),
-            exercises: exerciseRows.map((exercise, index) => ({ ...exercise, id: exerciseIds[index] }))
+            exercises: storedExercises.map((exercise, index) => exercise ?? { ...exerciseRows[index], id: exerciseIds[index] })
         };
     });
 }
@@ -516,12 +937,15 @@ export async function getBookConceptsForBookPage(bookId: number, pageNumber: num
 }
 
 export async function createBookConcept(concept: Omit<BookConcept, 'id'>): Promise<BookConcept> {
-    return db.transaction('rw', db.bookConcepts, async () => {
-        const siblings = concept.chapterId === undefined
+    return db.transaction('rw', db.bookConcepts, db.bookPages, async () => {
+        const pageChapterId = concept.bookPage[1] === 0 ? undefined : (await db.bookPages.get(concept.bookPage))?.chapterId;
+        const chapterId = pageChapterId ?? concept.chapterId;
+        const normalizedConcept: Omit<BookConcept, 'id'> = chapterId === undefined ? concept : { ...concept, chapterId };
+        const siblings = chapterId === undefined
             ? await db.bookConcepts.where('bookPage').equals(concept.bookPage).sortBy('id')
-            : await db.bookConcepts.where('chapterId').equals(concept.chapterId).sortBy('id');
+            : (await chapterConceptsForLearningOrder(chapterId)).concepts;
         const displayOrder = concept.displayOrder ?? siblings.reduce((max, sibling, index) => Math.max(max, sibling.displayOrder ?? index), -1) + 1;
-        const row: BookConcept = { ...concept, attempt: concept.attempt ?? 0, displayOrder };
+        const row: BookConcept = { ...normalizedConcept, attempt: concept.attempt ?? 0, displayOrder };
         const id = await db.bookConcepts.add(row);
 
         return { ...row, id };
@@ -529,27 +953,89 @@ export async function createBookConcept(concept: Omit<BookConcept, 'id'>): Promi
 }
 
 export async function updateBookConcept(id: number, changes: Partial<Omit<BookConcept, 'id'>>): Promise<BookConcept | undefined> {
-    await db.bookConcepts.update(id, changes);
+    return db.transaction('rw', db.bookConcepts, db.bookPages, db.exercises, db.abilities, async () => {
+        await db.bookConcepts.update(id, changes);
+        const concept = await db.bookConcepts.get(id);
 
-    return db.bookConcepts.get(id);
+        if (Object.prototype.hasOwnProperty.call(changes, 'displayOrder')) {
+            const chapterId = await chapterIdForConcept(concept);
+
+            if (chapterId !== undefined) {
+                await syncChapterLearningDisplayOrder(chapterId);
+            }
+        }
+
+        return concept;
+    });
 }
 
-export async function reorderBookConcepts(sortedIds: number[]): Promise<void> {
+export async function reorderBookConcepts(sortedIds: number[], explicitChapterId?: number): Promise<void> {
     if (new Set(sortedIds).size !== sortedIds.length) {
         throw new Error('Concept reorder contains duplicate ids.');
     }
 
-    await db.transaction('rw', db.bookConcepts, async () => {
-        const concepts = await db.bookConcepts.bulkGet(sortedIds);
+    if (!sortedIds.length) {
+        return;
+    }
 
-        if (concepts.some((concept) => !concept)) {
-            throw new Error('Concept reorder contains an unknown id.');
+    await db.transaction('rw', db.bookConcepts, db.bookPages, db.exercises, db.abilities, async () => {
+        const requestedConcepts = await db.bookConcepts.bulkGet(sortedIds);
+        const existingRequestedConcepts = requestedConcepts.filter((concept): concept is BookConcept => concept !== undefined);
+        const inferredChapterIds = new Set<number>();
+
+        for (const concept of existingRequestedConcepts) {
+            const chapterId = await chapterIdForConcept(concept);
+
+            if (chapterId !== undefined) {
+                inferredChapterIds.add(chapterId);
+            }
         }
 
-        const chapterIds = new Set(concepts.flatMap((concept) => concept?.chapterId === undefined ? [] : [concept.chapterId]));
+        if (explicitChapterId !== undefined) {
+            if (inferredChapterIds.size > 1 || (inferredChapterIds.size === 1 && !inferredChapterIds.has(explicitChapterId))) {
+                throw new Error('Concepts from different chapters cannot be reordered together.');
+            }
 
-        if (chapterIds.size > 1) {
+            inferredChapterIds.clear();
+            inferredChapterIds.add(explicitChapterId);
+        }
+
+        if (inferredChapterIds.size > 1) {
             throw new Error('Concepts from different chapters cannot be reordered together.');
+        }
+
+        // Chapter membership is defined by BookPage assignment as well as the
+        // denormalized BookConcept.chapterId. This matters for legacy/imported
+        // rows and for Fix Concepts, which can mix old page-bound rows with newly
+        // created rows carrying chapterId.
+        if (inferredChapterIds.size === 1) {
+            const chapterId = [...inferredChapterIds][0];
+            const { concepts: currentChapterConcepts } = await chapterConceptsForLearningOrder(chapterId);
+            const currentConcepts = orderedByDisplayOrder(
+                currentChapterConcepts,
+                (a, b) => a.bookPage[1] - b.bookPage[1] || (a.id ?? Number.MAX_SAFE_INTEGER) - (b.id ?? Number.MAX_SAFE_INTEGER)
+            );
+            const currentIds = new Set(currentConcepts.flatMap(({ id }) => id === undefined ? [] : [id]));
+            const requestedCurrentIds = sortedIds.filter((id) => currentIds.has(id));
+
+            // A Fix Concepts pass can replace every row in the chapter between
+            // the UI snapshot and this transaction. With an explicit/inferred
+            // chapter scope we can still recover safely: a zero-overlap request
+            // simply preserves the live chapter order, while a partial-overlap
+            // request reorders the surviving rows in their existing slots. The
+            // caller reloads the canonical rows after the transaction.
+            const reconciled = reorderSubsetInExistingSlots(currentConcepts, requestedCurrentIds, ({ id }) => id);
+
+            await Promise.all(reconciled.flatMap((concept, displayOrder) => concept.id === undefined ? [] : [db.bookConcepts.update(concept.id, { displayOrder, chapterId })]));
+            await syncChapterLearningDisplayOrder(chapterId);
+
+            return;
+        }
+
+        // Legacy page-less Concepts have no chapter information at all, so there
+        // is no safe scope against which stale IDs can be reconciled.
+        if (requestedConcepts.some((concept) => !concept)) {
+            throw new Error('Concept reorder contains an unknown id.');
         }
 
         await Promise.all(sortedIds.map((id, displayOrder) => db.bookConcepts.update(id, { displayOrder })));
@@ -557,11 +1043,18 @@ export async function reorderBookConcepts(sortedIds: number[]): Promise<void> {
 }
 
 export async function deleteBookConcept(id: number): Promise<void> {
-    await db.transaction('rw', db.bookConcepts, db.skills, async () => {
+    await db.transaction('rw', db.bookConcepts, db.skills, db.bookPages, db.exercises, db.abilities, async () => {
+        const concept = await db.bookConcepts.get(id);
+        const chapterId = await chapterIdForConcept(concept);
+
         await db.bookConcepts.delete(id);
         const linkedSkills = await db.skills.filter(({ bookConceptIds }) => (bookConceptIds ?? []).includes(id)).toArray();
 
         await Promise.all(linkedSkills.flatMap((skill) => skill.id === undefined ? [] : [db.skills.update(skill.id, { bookConceptIds: (skill.bookConceptIds ?? []).filter((conceptId) => conceptId !== id) })]));
+
+        if (chapterId !== undefined) {
+            await syncChapterLearningDisplayOrder(chapterId);
+        }
     });
 }
 
@@ -992,14 +1485,25 @@ export async function deleteImage(id: number): Promise<void> {
     });
 }
 
-export async function storeAbility(moduleId: string, content: string): Promise<string> {
+export async function storeAbility(moduleId: string, content: string, displayOrder?: number): Promise<string> {
     const id = blake2AsHex(content);
 
-    return db.transaction('rw', db.abilities, db.images, async () => {
+    return db.transaction('rw', db.abilities, db.images, db.exercises, db.bookConcepts, db.bookPages, async () => {
         const existing = await db.abilities.get(id);
         const oldImageIds = existing ? abilityImageIds(existing.content) : [];
         const normalizedContent = await normalizeAbilityImages(content, db.images);
-        const record: Ability = { id, moduleId, content: normalizedContent };
+        const displayOrderChanged = existing?.moduleId === moduleId
+            && displayOrder !== undefined
+            && finiteDisplayOrder(existing.displayOrder) !== finiteDisplayOrder(displayOrder);
+        const inheritedDisplayOrder = displayOrderChanged
+            ? existing.displayOrder
+            : displayOrder ?? (existing?.moduleId === moduleId ? existing.displayOrder : undefined);
+        const record: Ability = {
+            id,
+            moduleId,
+            content: normalizedContent,
+            ...(inheritedDisplayOrder === undefined ? {} : { displayOrder: inheritedDisplayOrder })
+        };
 
         await db.abilities.put(record);
 
@@ -1008,27 +1512,58 @@ export async function storeAbility(moduleId: string, content: string): Promise<s
 
         await deleteUnreferencedAbilityImages(staleImageIds);
 
+        if (existing?.moduleId && existing.moduleId !== moduleId) {
+            await syncLearningDisplayOrderForAbilityModule(existing.moduleId);
+        }
+
+        if (displayOrderChanged && displayOrder !== undefined) {
+            validateDisplayOrderIndex(displayOrder, 'Ability');
+            await moveAbilityToDisplayOrder(id, displayOrder);
+        } else {
+            await syncLearningDisplayOrderForAbilityModule(moduleId);
+        }
+
         return id;
     });
 }
 
+export async function updateAbilityDisplayOrder(id: string, displayOrder: number): Promise<Ability | undefined> {
+    validateDisplayOrderIndex(displayOrder, 'Ability');
+
+    return db.transaction('rw', db.abilities, db.exercises, db.bookConcepts, db.bookPages, async () => moveAbilityToDisplayOrder(id, displayOrder));
+}
+
 export async function getAbilities(moduleId: string): Promise<Ability[]> {
-    return db.abilities.where('moduleId').equals(moduleId).toArray();
+    const rows = await db.abilities.where('moduleId').equals(moduleId).toArray();
+
+    return rows.sort((a, b) => {
+        const aOrder = finiteDisplayOrder(a.displayOrder);
+        const bOrder = finiteDisplayOrder(b.displayOrder);
+
+        if (aOrder !== undefined || bOrder !== undefined) {
+            if (aOrder === undefined) return 1;
+            if (bOrder === undefined) return -1;
+            if (aOrder !== bOrder) return aOrder - bOrder;
+        }
+
+        return a.id.localeCompare(b.id);
+    });
 }
 
 export async function deleteAbilities(moduleId: string): Promise<void> {
-    await db.transaction('rw', db.abilities, db.images, async () => {
+    await db.transaction('rw', db.abilities, db.images, db.exercises, db.bookConcepts, db.bookPages, async () => {
         const rows = await db.abilities.where('moduleId').equals(moduleId).toArray() as Ability[];
         const imageIds: number[] = Array.from(new Set<number>(rows.flatMap(({ content }) => abilityImageIds(content))));
 
         await db.abilities.where('moduleId').equals(moduleId).delete();
 
         await deleteUnreferencedAbilityImages(imageIds);
+        await syncLearningDisplayOrderForAbilityModule(moduleId);
     });
 }
 
 export async function replaceAbilities(moduleId: string, contents: string[]): Promise<string[]> {
-    return db.transaction('rw', db.abilities, db.images, async () => {
+    return db.transaction('rw', db.abilities, db.images, db.exercises, db.bookConcepts, db.bookPages, async () => {
         const oldRows = await db.abilities.where('moduleId').equals(moduleId).toArray() as Ability[];
         const oldImageIds: number[] = Array.from(new Set<number>(oldRows.flatMap(({ content }) => abilityImageIds(content))));
         const records: Ability[] = [];
@@ -1039,6 +1574,7 @@ export async function replaceAbilities(moduleId: string, contents: string[]): Pr
 
             records.push({
                 content: normalizedContent,
+                displayOrder: index,
                 id: blake2AsHex(`${moduleId}:${index}:${content}`),
                 moduleId
             });
@@ -1054,13 +1590,16 @@ export async function replaceAbilities(moduleId: string, contents: string[]): Pr
         const staleImageIds = oldImageIds.filter((imageId) => !nextImageIds.has(imageId));
 
         await deleteUnreferencedAbilityImages(staleImageIds);
+        await syncLearningDisplayOrderForAbilityModule(moduleId);
 
-        return records.map(({ id }) => id);
+        const stored = await db.abilities.bulkGet(records.map(({ id }) => id));
+
+        return stored.flatMap((record) => record ? [record.id] : []);
     });
 }
 
 export async function deleteAbility(id: string): Promise<void> {
-    await db.transaction('rw', db.abilities, db.images, async () => {
+    await db.transaction('rw', db.abilities, db.images, db.exercises, db.bookConcepts, db.bookPages, async () => {
         const row = await db.abilities.get(id);
 
         await db.abilities.delete(id);
@@ -1068,6 +1607,10 @@ export async function deleteAbility(id: string): Promise<void> {
         const imageIds = row ? abilityImageIds(row.content) : [];
 
         await deleteUnreferencedAbilityImages(imageIds);
+
+        if (row) {
+            await syncLearningDisplayOrderForAbilityModule(row.moduleId);
+        }
     });
 }
 

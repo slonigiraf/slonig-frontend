@@ -425,6 +425,112 @@ class SlonigDB extends Dexie {
         : []));
     });
 
+    // Persist the ZPD-derived order through the complete learning entity chain.
+    // Concepts already carry displayOrder; derive dense chapter-local ranks for
+    // Exercises and then Abilities so existing databases immediately render in
+    // the same order as newly generated content.
+    this.version(92).stores({
+      abilities: '&id,moduleId,displayOrder',
+      exercises: '++id,bookPage,displayOrder'
+    }).upgrade(async (transaction: Transaction) => {
+      const conceptsTable = transaction.table<BookConcept, number>('bookConcepts');
+      const exercisesTable = transaction.table<Exercise, number>('exercises');
+      const abilitiesTable = transaction.table<Ability, string>('abilities');
+      const pagesTable = transaction.table<BookPage, [number, number]>('bookPages');
+      const [concepts, exercises, abilities, pages] = await Promise.all([
+        conceptsTable.toArray(),
+        exercisesTable.toArray(),
+        abilitiesTable.toArray(),
+        pagesTable.toArray()
+      ]);
+      const finiteOrder = (value: number | undefined): number | undefined => typeof value === 'number' && Number.isFinite(value) ? value : undefined;
+      const conceptById = new Map(concepts.flatMap((concept) => concept.id === undefined ? [] : [[concept.id, concept] as const]));
+      const pageChapter = new Map(pages.flatMap(({ bookId, chapterId, pageNumber }) => chapterId === undefined ? [] : [[`${bookId}:${pageNumber}`, chapterId] as const]));
+      const chapterIds = new Set<number>([
+        ...concepts.flatMap(({ chapterId }) => chapterId === undefined ? [] : [chapterId]),
+        ...pages.flatMap(({ chapterId }) => chapterId === undefined ? [] : [chapterId])
+      ]);
+      const abilitiesByExerciseId = new Map<number, Ability[]>();
+
+      for (const ability of abilities) {
+        const match = /^book-(\d+)-exercise-(\d+)$/.exec(ability.moduleId);
+        const exerciseId = match ? Number(match[2]) : NaN;
+
+        if (!Number.isSafeInteger(exerciseId)) {
+          continue;
+        }
+
+        const rows = abilitiesByExerciseId.get(exerciseId) ?? [];
+
+        rows.push(ability);
+        abilitiesByExerciseId.set(exerciseId, rows);
+      }
+
+      for (const chapterId of chapterIds) {
+        const chapterConcepts = concepts
+          .filter((concept) => concept.chapterId === chapterId)
+          .sort((a, b) => {
+            const aOrder = finiteOrder(a.displayOrder);
+            const bOrder = finiteOrder(b.displayOrder);
+
+            if (aOrder !== undefined || bOrder !== undefined) {
+              if (aOrder === undefined) return 1;
+              if (bOrder === undefined) return -1;
+              if (aOrder !== bOrder) return aOrder - bOrder;
+            }
+
+            return a.bookPage[1] - b.bookPage[1] || (a.id ?? Number.MAX_SAFE_INTEGER) - (b.id ?? Number.MAX_SAFE_INTEGER);
+          });
+        const conceptRanks = new Map(chapterConcepts.flatMap((concept, rank) => concept.id === undefined ? [] : [[concept.id, rank] as const]));
+        const chapterExercises = exercises
+          .filter((exercise) => {
+            const conceptChapterId = exercise.conceptId === undefined ? undefined : conceptById.get(exercise.conceptId)?.chapterId;
+
+            return conceptChapterId === chapterId || pageChapter.get(`${exercise.bookPage[0]}:${exercise.bookPage[1]}`) === chapterId;
+          })
+          .sort((a, b) => {
+            const aRank = a.conceptId === undefined ? undefined : conceptRanks.get(a.conceptId);
+            const bRank = b.conceptId === undefined ? undefined : conceptRanks.get(b.conceptId);
+
+            if (aRank !== undefined || bRank !== undefined) {
+              if (aRank === undefined) return 1;
+              if (bRank === undefined) return -1;
+              if (aRank !== bRank) return aRank - bRank;
+            }
+
+            return a.bookPage[1] - b.bookPage[1] || (a.id ?? Number.MAX_SAFE_INTEGER) - (b.id ?? Number.MAX_SAFE_INTEGER);
+          });
+        let abilityRank = 0;
+
+        for (let exerciseRank = 0; exerciseRank < chapterExercises.length; exerciseRank++) {
+          const exercise = chapterExercises[exerciseRank];
+
+          if (exercise.id === undefined) {
+            continue;
+          }
+
+          await exercisesTable.update(exercise.id, { displayOrder: exerciseRank });
+
+          const exerciseAbilities = [...(abilitiesByExerciseId.get(exercise.id) ?? [])].sort((a, b) => {
+            const aOrder = finiteOrder(a.displayOrder);
+            const bOrder = finiteOrder(b.displayOrder);
+
+            if (aOrder !== undefined || bOrder !== undefined) {
+              if (aOrder === undefined) return 1;
+              if (bOrder === undefined) return -1;
+              if (aOrder !== bOrder) return aOrder - bOrder;
+            }
+
+            return a.id.localeCompare(b.id);
+          });
+
+          for (const ability of exerciseAbilities) {
+            await abilitiesTable.update(ability.id, { displayOrder: abilityRank++ });
+          }
+        }
+      }
+    });
+
   }
 }
 

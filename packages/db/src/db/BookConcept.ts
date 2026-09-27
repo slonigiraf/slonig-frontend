@@ -10,7 +10,7 @@ export interface BookConcept {
   description: string;
   /** Fix Concepts run that created this concept. Non-Fix concepts use attempt 0. */
   attempt?: number;
-  /** Chapter-local display order. Older/generated rows may omit it. */
+  /** Chapter-local pedagogical/display order. Sort Concepts writes ZPD order; child Exercise/Ability reorders may back-propagate and override it. */
   displayOrder?: number;
   /** True when the concept was added manually rather than generated. */
   manuallyAdded?: boolean;
