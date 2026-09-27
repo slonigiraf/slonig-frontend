@@ -203,8 +203,8 @@ function UI({ className = '' }: Props): React.ReactElement<Props> {
             <Menu />
             <BlockchainSyncProvider>
               {showOnboarding && <ClassOnboarding />}
-              {shouldBackup && <BackupReminder onResult={onBackup} />}
-              {updateAvailable && <AskToReload reload={reloadNow} />}
+              {!botInUrl && shouldBackup && <BackupReminder onResult={onBackup} />}
+              {!botInUrl && updateAvailable && <AskToReload reload={reloadNow} />}
               <>
                 <Content />
                 {!botInUrl && <BottomMenu />}
