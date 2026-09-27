@@ -14,7 +14,7 @@ import { digestFromCIDv1, getCIDFromBytes, getIPFSContentIDAndPinIt, getIPFSCont
 import BN from 'bn.js';
 import { useLiveQuery } from 'dexie-react-hooks';
 import OpenAI from 'openai';
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { Button, Input, InputBalance, Modal, styled } from '@polkadot/react-components';
 import { useApi } from '@polkadot/react-hooks';
@@ -136,21 +136,24 @@ interface DraggableRowProps {
   onDrop: (key: string) => void;
 }
 
-interface TemplateRowViewProps extends DraggableRowProps {
+interface TemplateRowViewProps {
+  dragKey: string;
+  isDraggingDisabled: boolean;
   isPublishing: boolean;
   isPublished: boolean;
   onDelete: (recordId: string) => Promise<void>;
+  onDrop: (key: string) => void;
+  onReorderPointerCancel: (event: React.PointerEvent<HTMLDivElement>) => void;
+  onReorderPointerDown: (event: React.PointerEvent<HTMLDivElement>) => void;
+  onReorderPointerMove: (event: React.PointerEvent<HTMLDivElement>) => void;
+  onReorderPointerUp: (event: React.PointerEvent<HTMLDivElement>) => void;
   row: TemplateRow;
 }
 
-function TemplateRowView ({ dragKey, isDraggingDisabled, isPublished, isPublishing, onDelete, onDragStart, onDrop, row }: TemplateRowViewProps): React.ReactElement {
+function TemplateRowView ({ dragKey, isDraggingDisabled, isPublished, isPublishing, onDelete, onDrop, onReorderPointerCancel, onReorderPointerDown, onReorderPointerMove, onReorderPointerUp, row }: TemplateRowViewProps): React.ReactElement {
   const deleteTemplate = useCallback((): void => {
     onDelete(row.recordId).catch(console.error);
   }, [onDelete, row.recordId]);
-  const dragStart = useCallback((event: React.DragEvent<HTMLDivElement>): void => {
-    event.dataTransfer.effectAllowed = 'move';
-    onDragStart(dragKey);
-  }, [dragKey, onDragStart]);
   const dragOver = useCallback((event: React.DragEvent<HTMLDivElement>): void => event.preventDefault(), []);
   const drop = useCallback((event: React.DragEvent<HTMLDivElement>): void => {
     event.preventDefault();
@@ -160,17 +163,26 @@ function TemplateRowView ({ dragKey, isDraggingDisabled, isPublished, isPublishi
   return (
     <div
       className='outlineRow skillRow'
-      draggable={!isDraggingDisabled}
+      data-outline-key={dragKey}
+      data-outline-type='template'
       onDragOver={dragOver}
-      onDragStart={dragStart}
       onDrop={drop}
+      onLostPointerCapture={isDraggingDisabled ? undefined : onReorderPointerCancel}
+      onPointerCancel={isDraggingDisabled ? undefined : onReorderPointerCancel}
+      onPointerDown={isDraggingDisabled ? undefined : onReorderPointerDown}
+      onPointerMove={isDraggingDisabled ? undefined : onReorderPointerMove}
+      onPointerUp={isDraggingDisabled ? undefined : onReorderPointerUp}
+      tabIndex={-1}
     >
       <Button
         icon='times'
         isDisabled={isPublishing}
         onClick={deleteTemplate}
       />
-      <span className='dragHandle'>⋮⋮</span>
+      <span
+        className='dragHandle abilityDragHandle'
+        title='Drag to reorder or move to another chapter'
+      >⋮⋮</span>
       <div>
         <strong><KatexSpan content={row.template.h} /></strong>
         {isPublished && <small>published</small>}
@@ -210,6 +222,8 @@ function ChapterView ({ chapter, dragKey, isDraggingDisabled, isPublished, isPub
   return (
     <div
       className='chapterNameRow outlineRow'
+      data-outline-key={dragKey}
+      data-outline-type='chapter'
       draggable={!isDraggingDisabled}
       onDragOver={dragOver}
       onDragStart={dragStart}
@@ -254,6 +268,13 @@ function SkillsCourse ({ book }: { book: Book }): React.ReactElement {
   const [publishStatus, setPublishStatus] = useState('');
   const [onChainIds, setOnChainIds] = useState<Set<string>>(() => new Set());
   const [dragKey, setDragKey] = useState<string>();
+  const [isReorderingAbilities, setIsReorderingAbilities] = useState(false);
+  const courseOutlineRef = useRef<HTMLDivElement>(null);
+  const draggedAbilityKeyRef = useRef<string | undefined>(undefined);
+  const abilityDropTargetIndexRef = useRef<number | undefined>(undefined);
+  const abilityDragPointerIdRef = useRef<number | undefined>(undefined);
+  const abilityDragPointerYRef = useRef<number | undefined>(undefined);
+  const abilityAutoScrollFrameRef = useRef<number | undefined>(undefined);
   const chapters = useLiveQuery(async (): Promise<ChapterTemplates[]> => {
     const [storedChapters, pages] = await Promise.all([getBookChapters(book.id), getBookPages(book.id)]);
     const pageRows = await Promise.all(pages.map(async (page) => ({
@@ -338,40 +359,11 @@ function SkillsCourse ({ book }: { book: Book }): React.ReactElement {
       keys.splice(insertionIndex, 0, ...missingTemplateKeys);
     }
 
-    const originalRanks = new Map(keys.map((key, rank) => [key, rank]));
-    const zpdKeys: string[] = [];
-    let templateSegment: string[] = [];
-    const flushTemplates = (): void => {
-      templateSegment.sort((a, b) => {
-        const aItem = byKey.get(a);
-        const bItem = byKey.get(b);
-        const aOrder = aItem?.type === 'template' ? aItem.row.displayOrder : undefined;
-        const bOrder = bItem?.type === 'template' ? bItem.row.displayOrder : undefined;
-
-        if (aOrder !== undefined || bOrder !== undefined) {
-          if (aOrder === undefined) return 1;
-          if (bOrder === undefined) return -1;
-          if (aOrder !== bOrder) return aOrder - bOrder;
-        }
-
-        return (originalRanks.get(a) ?? Number.MAX_SAFE_INTEGER) - (originalRanks.get(b) ?? Number.MAX_SAFE_INTEGER);
-      });
-      zpdKeys.push(...templateSegment);
-      templateSegment = [];
-    };
-
-    for (const key of keys) {
-      if (key.startsWith('chapter:')) {
-        flushTemplates();
-        zpdKeys.push(key);
-      } else {
-        templateSegment.push(key);
-      }
-    }
-
-    flushTemplates();
-
-    return zpdKeys.flatMap((key) => {
+    // `courseOrder` is the authoritative Course-tab order. The source Ability
+    // displayOrder is used above only to build the initial/default order. Do not
+    // sort each chapter segment again here: doing so silently undoes a user's
+    // drag as soon as the optimistic `courseOrder` update re-renders.
+    return keys.flatMap((key) => {
       const item = byKey.get(key);
 
       return item ? [item] : [];
@@ -623,6 +615,239 @@ function SkillsCourse ({ book }: { book: Book }): React.ReactElement {
         showInfo(`Unable to save the course order: ${errorMessage(error)}`, 'error');
       });
   }, [dragKey, isOrganizationLocked, outline, showInfo, storedBook]);
+
+  const clearAbilityDropMarker = useCallback((): void => {
+    const outlineElement = courseOutlineRef.current;
+
+    outlineElement?.querySelector('.outlineRow.courseDropBefore')?.classList.remove('courseDropBefore');
+    outlineElement?.querySelector('.outlineRow.courseDropAfter')?.classList.remove('courseDropAfter');
+  }, []);
+
+  const updateAbilityDropTarget = useCallback((pointerY: number): void => {
+    const outlineElement = courseOutlineRef.current;
+    const sourceKey = draggedAbilityKeyRef.current;
+
+    if (!outlineElement || !sourceKey) {
+      return;
+    }
+
+    const rows = Array.from(outlineElement.querySelectorAll<HTMLElement>('.outlineRow'));
+    const otherRows = rows.filter((row) => row.dataset.outlineKey !== sourceKey);
+
+    clearAbilityDropMarker();
+
+    if (!otherRows.length) {
+      abilityDropTargetIndexRef.current = 0;
+
+      return;
+    }
+
+    let insertionIndex = otherRows.length;
+
+    for (let index = 0; index < otherRows.length; index++) {
+      const bounds = otherRows[index].getBoundingClientRect();
+
+      if (pointerY < bounds.top + (bounds.height / 2)) {
+        insertionIndex = index;
+        break;
+      }
+    }
+
+    // A Course must start with a chapter heading. Abilities can cross any later
+    // chapter boundary, including into an empty chapter, but cannot be placed
+    // above the first chapter.
+    if (otherRows[0]?.dataset.outlineType === 'chapter') {
+      insertionIndex = Math.max(1, insertionIndex);
+    }
+
+    abilityDropTargetIndexRef.current = insertionIndex;
+
+    if (insertionIndex < otherRows.length) {
+      otherRows[insertionIndex].classList.add('courseDropBefore');
+    } else {
+      otherRows[otherRows.length - 1].classList.add('courseDropAfter');
+    }
+  }, [clearAbilityDropMarker]);
+
+  const stopAbilityAutoScroll = useCallback((): void => {
+    abilityDragPointerYRef.current = undefined;
+
+    if (abilityAutoScrollFrameRef.current !== undefined) {
+      window.cancelAnimationFrame(abilityAutoScrollFrameRef.current);
+      abilityAutoScrollFrameRef.current = undefined;
+    }
+  }, []);
+
+  const startAbilityAutoScroll = useCallback((): void => {
+    if (abilityAutoScrollFrameRef.current !== undefined) {
+      return;
+    }
+
+    const scroll = (): void => {
+      abilityAutoScrollFrameRef.current = undefined;
+
+      const pointerY = abilityDragPointerYRef.current;
+
+      if (pointerY === undefined) {
+        return;
+      }
+
+      const viewportHeight = window.innerHeight;
+      const edgeSize = Math.min(96, Math.max(48, viewportHeight * 0.12));
+      const topDistance = pointerY;
+      const bottomDistance = viewportHeight - pointerY;
+      let scrollAmount = 0;
+
+      if (topDistance < edgeSize && window.scrollY > 0) {
+        const strength = Math.max(0, Math.min(1, (edgeSize - Math.max(0, topDistance)) / edgeSize));
+
+        scrollAmount = -(4 + (20 * strength));
+      } else if (bottomDistance < edgeSize && window.scrollY + viewportHeight < document.documentElement.scrollHeight) {
+        const strength = Math.max(0, Math.min(1, (edgeSize - Math.max(0, bottomDistance)) / edgeSize));
+
+        scrollAmount = 4 + (20 * strength);
+      }
+
+      if (scrollAmount !== 0) {
+        window.scrollBy(0, scrollAmount);
+        updateAbilityDropTarget(pointerY);
+      }
+
+      abilityAutoScrollFrameRef.current = window.requestAnimationFrame(scroll);
+    };
+
+    abilityAutoScrollFrameRef.current = window.requestAnimationFrame(scroll);
+  }, [updateAbilityDropTarget]);
+
+  const finishAbilityDrag = useCallback((): void => {
+    stopAbilityAutoScroll();
+    draggedAbilityKeyRef.current = undefined;
+    abilityDropTargetIndexRef.current = undefined;
+    abilityDragPointerIdRef.current = undefined;
+    clearAbilityDropMarker();
+    courseOutlineRef.current?.classList.remove('reorderingAbility');
+    courseOutlineRef.current?.querySelector('.skillRow.abilityDragging')?.classList.remove('abilityDragging');
+  }, [clearAbilityDropMarker, stopAbilityAutoScroll]);
+
+  const moveAbilityInCourse = useCallback(async (sourceKey: string, insertionIndex: number): Promise<void> => {
+    if (isPublishing || isReorderingAbilities || !sourceKey.startsWith('template:')) {
+      return;
+    }
+
+    const originalKeys = outline.map(({ key }) => key);
+    const keys = [...originalKeys];
+    const sourceIndex = keys.indexOf(sourceKey);
+
+    if (sourceIndex < 0) {
+      return;
+    }
+
+    const [moved] = keys.splice(sourceIndex, 1);
+    const boundedInsertionIndex = Math.max(0, Math.min(insertionIndex, keys.length));
+
+    keys.splice(boundedInsertionIndex, 0, moved);
+
+    if (!keys[0]?.startsWith('chapter:')) {
+      setPublishStatus('A chapter name must remain above the first ability.');
+
+      return;
+    }
+
+    if (keys.every((key, index) => key === originalKeys[index])) {
+      return;
+    }
+
+    const previousBook = storedBook;
+    const updatedBook = { ...storedBook, courseOrder: keys };
+
+    setIsReorderingAbilities(true);
+    setStoredBook(updatedBook);
+
+    try {
+      await putBook(updatedBook);
+      setPublishStatus('Course order saved.');
+    } catch (error) {
+      setStoredBook(previousBook);
+      showInfo(`Unable to save the course order: ${errorMessage(error)}`, 'error');
+    } finally {
+      setIsReorderingAbilities(false);
+    }
+  }, [isPublishing, isReorderingAbilities, outline, showInfo, storedBook]);
+
+  const beginAbilityPointerDrag = useCallback((key: string, event: React.PointerEvent<HTMLDivElement>): void => {
+    if (isPublishing || isReorderingAbilities || (event.pointerType === 'mouse' && event.button !== 0)) {
+      return;
+    }
+
+    const target = event.target as HTMLElement;
+
+    if (!target.closest('.abilityDragHandle')) {
+      return;
+    }
+
+    event.preventDefault();
+    event.stopPropagation();
+
+    try {
+      event.currentTarget.setPointerCapture(event.pointerId);
+    } catch {
+      // Pointer capture can fail if the browser has already cancelled it.
+    }
+
+    draggedAbilityKeyRef.current = key;
+    abilityDragPointerIdRef.current = event.pointerId;
+    abilityDragPointerYRef.current = event.clientY;
+    event.currentTarget.classList.add('abilityDragging');
+    courseOutlineRef.current?.classList.add('reorderingAbility');
+    updateAbilityDropTarget(event.clientY);
+    startAbilityAutoScroll();
+  }, [isPublishing, isReorderingAbilities, startAbilityAutoScroll, updateAbilityDropTarget]);
+
+  const moveAbilityPointerDrag = useCallback((event: React.PointerEvent<HTMLDivElement>): void => {
+    if (abilityDragPointerIdRef.current !== event.pointerId || !draggedAbilityKeyRef.current) {
+      return;
+    }
+
+    event.preventDefault();
+    abilityDragPointerYRef.current = event.clientY;
+    updateAbilityDropTarget(event.clientY);
+    startAbilityAutoScroll();
+  }, [startAbilityAutoScroll, updateAbilityDropTarget]);
+
+  const cancelAbilityPointerDrag = useCallback((event: React.PointerEvent<HTMLDivElement>): void => {
+    if (abilityDragPointerIdRef.current !== event.pointerId) {
+      return;
+    }
+
+    finishAbilityDrag();
+  }, [finishAbilityDrag]);
+
+  const endAbilityPointerDrag = useCallback((event: React.PointerEvent<HTMLDivElement>): void => {
+    if (abilityDragPointerIdRef.current !== event.pointerId) {
+      return;
+    }
+
+    event.preventDefault();
+
+    const sourceKey = draggedAbilityKeyRef.current;
+    const targetIndex = abilityDropTargetIndexRef.current;
+
+    try {
+      if (event.currentTarget.hasPointerCapture(event.pointerId)) {
+        event.currentTarget.releasePointerCapture(event.pointerId);
+      }
+    } catch {
+      // Ignore browsers that release capture automatically before pointerup.
+    }
+
+    finishAbilityDrag();
+
+    if (sourceKey && targetIndex !== undefined) {
+      void moveAbilityInCourse(sourceKey, targetIndex);
+    }
+  }, [finishAbilityDrag, moveAbilityInCourse]);
+
+  useEffect(() => finishAbilityDrag, [finishAbilityDrag]);
 
   const fixNames = useCallback(async (): Promise<void> => {
     if (isFixingNames || !courseChapters.length || !templateCount) {
@@ -943,13 +1168,16 @@ function SkillsCourse ({ book }: { book: Book }): React.ReactElement {
         onClick={insertChapter}
       />
       {!courseChapters.length && <p>No chapters are included in this course.</p>}
-      <div className='courseOutline'>
+      <div
+        className='courseOutline'
+        ref={courseOutlineRef}
+      >
         {outline.map((item) => item.type === 'chapter'
           ? (
             <ChapterView
               chapter={item.chapter}
               dragKey={item.key}
-              isDraggingDisabled={isOrganizationLocked}
+              isDraggingDisabled={isOrganizationLocked || isReorderingAbilities}
               isPublished={isKnowledgeId(item.chapter.knowledgeId) && onChainIds.has(item.chapter.knowledgeId)}
               isPublishing={isPublishing}
               key={item.key}
@@ -962,13 +1190,16 @@ function SkillsCourse ({ book }: { book: Book }): React.ReactElement {
           : (
             <TemplateRowView
               dragKey={item.key}
-              isDraggingDisabled={isOrganizationLocked}
+              isDraggingDisabled={isPublishing || isReorderingAbilities}
               isPublished={isKnowledgeId(item.row.template.i) && onChainIds.has(item.row.template.i)}
               isPublishing={isPublishing}
               key={item.key}
               onDelete={deleteTemplate}
-              onDragStart={startDrag}
               onDrop={dropOutlineItem}
+              onReorderPointerCancel={cancelAbilityPointerDrag}
+              onReorderPointerDown={(event) => beginAbilityPointerDrag(item.key, event)}
+              onReorderPointerMove={moveAbilityPointerDrag}
+              onReorderPointerUp={endAbilityPointerDrag}
               row={item.row}
             />
           ))}
@@ -1030,13 +1261,30 @@ const StyledSkillsCourse = styled.div`
   .courseColumn > .ui--Button { margin: 0 0 0.75rem; }
   .publishTrigger.isPublished { font-weight: 700; }
   .courseOutline { margin-top: 0.5rem; }
-  .outlineRow { align-items: center; display: flex; gap: 0.5rem; }
+  .outlineRow { align-items: center; display: flex; gap: 0.5rem; position: relative; }
   .chapterNameContent, .skillRow > div:last-child { flex: 1; min-width: 0; }
   h3 { margin: 0 0 0.75rem; }
   .chapterNameRow { background: var(--bg-table); border-radius: 0.25rem; margin-top: 0.65rem; padding: 0.35rem 0.5rem; }
   .dragHandle { cursor: grab; font-size: 2rem; line-height: 1; user-select: none; }
+  .abilityDragHandle { touch-action: none; }
   .skillRow { border-bottom: 1px solid var(--border-table); padding: 0.5rem 0; }
+  .skillRow.abilityDragging { cursor: grabbing; opacity: 0.55; }
   .skillRow small { display: block; margin-top: 0.2rem; }
+  .courseOutline.reorderingAbility { cursor: grabbing; user-select: none; }
+  .outlineRow.courseDropBefore::before,
+  .outlineRow.courseDropAfter::after {
+    background: var(--color-primary, #1682d4);
+    border-radius: 999px;
+    content: '';
+    height: 3px;
+    left: 0.35rem;
+    pointer-events: none;
+    position: absolute;
+    right: 0.35rem;
+    z-index: 2;
+  }
+  .outlineRow.courseDropBefore::before { top: -0.15rem; }
+  .outlineRow.courseDropAfter::after { bottom: -0.15rem; }
   .courseColumn { min-width: 0; }
 `;
 
