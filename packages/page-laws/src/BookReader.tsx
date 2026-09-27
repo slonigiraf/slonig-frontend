@@ -1596,6 +1596,7 @@ function BookReader({ ageTabRequest, assignAllStandardsRequest, book, deduplicat
   const [isApplyingDeduplicateConceptsReview, setIsApplyingDeduplicateConceptsReview] = useState(false);
   const [standardsCatalogs, setStandardsCatalogs] = useState<StandardsCatalog[]>([]);
   const [standardsChapterIndex, setStandardsChapterIndex] = useState(0);
+  const [conceptChapterIndex, setConceptChapterIndex] = useState(0);
   const [standardsAssignedChapterCount, setStandardsAssignedChapterCount] = useState(0);
   const [fixConceptsTargetChapterCount, setFixConceptsTargetChapterCount] = useState(0);
   const [isAssigningStandards, setIsAssigningStandards] = useState(false);
@@ -1769,8 +1770,19 @@ function BookReader({ ageTabRequest, assignAllStandardsRequest, book, deduplicat
   const refreshConceptCounts = useCallback(async (): Promise<void> => {
     setConceptCountsByChapter(await loadConceptCountsByChapter(conceptChapters));
   }, [conceptChapters, loadConceptCountsByChapter]);
-  const currentConceptChapter = useMemo(() => conceptChapters.find(({ pageNumbers }) => pageNumbers.includes(pageNumber)), [conceptChapters, pageNumber]);
-  const conceptChapterIndex = useMemo(() => Math.max(0, conceptChapters.findIndex(({ pageNumbers }) => pageNumbers.includes(pageNumber))), [conceptChapters, pageNumber]);
+  // Keep the selected concept chapter independent from PDF page navigation. A
+  // concept may point at a page outside the refined chapter's page boundary,
+  // and visiting that page must not silently select another chapter.
+  const currentConceptChapter = conceptChapters[conceptChapterIndex];
+  useEffect((): void => {
+    if (!conceptChapters.length) {
+      setConceptChapterIndex(0);
+
+      return;
+    }
+
+    setConceptChapterIndex((current) => Math.min(current, conceptChapters.length - 1));
+  }, [conceptChapters.length]);
   useEffect(() => {
     refreshConceptCounts().catch(() => setConceptCountsByChapter(new Map()));
   }, [refreshConceptCounts]);
@@ -1949,7 +1961,10 @@ function BookReader({ ageTabRequest, assignAllStandardsRequest, book, deduplicat
   useEffect(() => {
     const applySelection = (selection: SharedChapterSelection): void => {
       if (conceptChapters.length) {
-        setStandardsChapterIndex(resolveSharedChapterIndex(selection, conceptChapters.map(({ chapterId, title }) => ({ id: chapterId, title }))));
+        const nextConceptChapterIndex = resolveSharedChapterIndex(selection, conceptChapters.map(({ chapterId, title }) => ({ id: chapterId, title })));
+
+        setConceptChapterIndex(nextConceptChapterIndex);
+        setStandardsChapterIndex(nextConceptChapterIndex);
       }
 
       if (exerciseChapters.length) {
@@ -4559,55 +4574,22 @@ function BookReader({ ageTabRequest, assignAllStandardsRequest, book, deduplicat
     storeSessionPage(book.id, nextPage);
   }, [book.id, totalPages]);
 
-  const goToConceptPage = useCallback((requestedPage: number): void => {
-    goToPage(requestedPage);
-
-    const chapterIndex = conceptChapters.findIndex(({ pageNumbers }) => pageNumbers.includes(requestedPage));
-    const chapter = chapterIndex >= 0 ? conceptChapters[chapterIndex] : undefined;
-
-    if (chapter) {
-      storeSharedChapterSelection(book.id, { chapterId: chapter.chapterId, index: chapterIndex, title: chapter.title });
-    }
-  }, [book.id, conceptChapters, goToPage]);
-
   const changeConceptChapter = useCallback((index: number): void => {
     if (!conceptChapters.length) {
       return;
     }
 
     const nextIndex = Math.max(0, Math.min(index, conceptChapters.length - 1));
-    const firstPage = conceptChapters[nextIndex]?.pageNumbers[0];
+    const chapter = conceptChapters[nextIndex];
+    const firstPage = chapter?.pageNumbers[0];
+
+    setConceptChapterIndex(nextIndex);
+    storeSharedChapterSelection(book.id, { chapterId: chapter?.chapterId, index: nextIndex, title: chapter?.title });
 
     if (firstPage !== undefined) {
-      goToConceptPage(firstPage);
+      goToPage(firstPage);
     }
-  }, [conceptChapters, goToConceptPage]);
-
-  useEffect(() => {
-    if (activePane !== 'textConcepts' || !conceptChapters.length) {
-      return;
-    }
-
-    const applySelection = (selection: SharedChapterSelection): void => {
-      const nextIndex = resolveSharedChapterIndex(selection, conceptChapters.map(({ chapterId, title }) => ({ id: chapterId, title })));
-      const chapter = conceptChapters[nextIndex];
-
-      if (chapter && !chapter.pageNumbers.includes(pageNumber)) {
-        const firstPage = chapter.pageNumbers[0];
-
-        if (firstPage !== undefined) {
-          goToPage(firstPage);
-        }
-      }
-    };
-    const storedSelection = getSharedChapterSelection(book.id);
-
-    if (storedSelection) {
-      applySelection(storedSelection);
-    }
-
-    return subscribeSharedChapterSelection(book.id, applySelection);
-  }, [activePane, book.id, conceptChapters, goToPage, pageNumber]);
+  }, [book.id, conceptChapters, goToPage]);
   const loadCurrentChapterConcepts = useCallback(async (): Promise<{ concepts: BookConcept[]; references: Map<string, number> }> => {
     if (!currentConceptChapter) {
       return { concepts: [], references: new Map() };
@@ -5149,15 +5131,11 @@ function BookReader({ ageTabRequest, assignAllStandardsRequest, book, deduplicat
     const requestedPage = Number(pageInput);
 
     if (Number.isInteger(requestedPage)) {
-      if (activePane === 'textConcepts') {
-        goToConceptPage(requestedPage);
-      } else {
-        goToPage(requestedPage);
-      }
+      goToPage(requestedPage);
     } else {
       setPageInput(String(pageNumber));
     }
-  }, [activePane, goToConceptPage, goToPage, pageInput, pageNumber]);
+  }, [goToPage, pageInput, pageNumber]);
 
   const unrecognizedPageNumbers = useMemo(() => Array.from(
     { length: totalPages },
@@ -5525,7 +5503,7 @@ function BookReader({ ageTabRequest, assignAllStandardsRequest, book, deduplicat
                 onReorderPointerDown={(event) => beginConceptPointerDrag(index, event)}
                 onReorderPointerMove={moveConceptPointerDrag}
                 onReorderPointerUp={endConceptPointerDrag}
-                onGoToPage={goToConceptPage}
+                onGoToPage={goToPage}
                 onSave={saveConcept}
               />;
             })}</ul>
@@ -6150,7 +6128,7 @@ function BookReader({ ageTabRequest, assignAllStandardsRequest, book, deduplicat
                         <Button
                           icon='arrow-left'
                           isDisabled={pageNumber <= 1}
-                          onClick={() => goToConceptPage(pageNumber - 1)}
+                          onClick={() => goToPage(pageNumber - 1)}
                         />
                         <label>Page <input
                           max={totalPages || 1}
@@ -6164,7 +6142,7 @@ function BookReader({ ageTabRequest, assignAllStandardsRequest, book, deduplicat
                         <Button
                           icon='arrow-right'
                           isDisabled={!totalPages || pageNumber >= totalPages}
-                          onClick={() => goToConceptPage(pageNumber + 1)}
+                          onClick={() => goToPage(pageNumber + 1)}
                         />
                       </div>
                       <div
