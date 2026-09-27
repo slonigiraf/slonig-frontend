@@ -5,7 +5,7 @@
 
 import { strict as assert } from 'node:assert';
 
-import { assignBookConceptsToChapters, createBook, createBookConcept, deleteAbilities, deleteBook, deleteBookConcept, getAbilities, getBookConceptsForBookPage, getExercisesForBookPage, putBookChapter, putBookPage, reorderBookConcepts, replaceAbilities, replaceExercisesForBookPage, updateAbilityDisplayOrder, updateExerciseDisplayOrder } from './index.js';
+import { assignBookConceptsToChapters, createBook, createBookConcept, deleteAbilities, deleteBook, deleteBookConcept, getAbilities, getBookConceptsForBookPage, getExercisesForBookPage, putBookChapter, putBookPage, reorderBookConcepts, replaceAbilities, replaceExercisesForBookPage, splitBookChapterAtPage, updateAbilityDisplayOrder, updateExerciseDisplayOrder } from './index.js';
 import { db } from './db/index.js';
 
 const ability = (title: string): string => JSON.stringify({ h: title, i: '', q: [{ a: 'ok', h: 'Question', i: null, p: null }], t: 3 });
@@ -293,6 +293,28 @@ describe('ZPD learning display order', (): void => {
         ['Third', 0, chapterId],
         ['First', 1, chapterId]
       ]);
+    } finally {
+      await deleteBook(bookId);
+    }
+  });
+
+  it('preserves foreign thematic Concept membership when splitting a source chapter again', async (): Promise<void> => {
+    const bookId = await createBook({ contentHash: `repeat-refine-split-${Date.now()}`, created: Date.now(), name: 'Repeat refine split', opfsName: 'repeat-refine-split.pdf', size: 1 });
+
+    try {
+      const sourceChapterId = await putBookChapter({ bookId, title: 'Source chapter' });
+      const thematicChapterId = await putBookChapter({ bookId, title: 'Existing thematic chapter' });
+
+      await putBookPage({ bookId, chapter: 'Source chapter', chapterId: sourceChapterId, conceptsProcessed: true, pageNumber: 1 });
+      await putBookPage({ bookId, chapter: 'Source chapter', chapterId: sourceChapterId, conceptsProcessed: true, pageNumber: 2 });
+
+      const sourceConcept = await createBookConcept({ bookPage: [bookId, 2], chapterId: sourceChapterId, description: '', displayOrder: 0, title: 'Still source' });
+      const foreignThematicConcept = await createBookConcept({ bookPage: [bookId, 2], chapterId: thematicChapterId, description: '', displayOrder: 0, title: 'Already thematic' });
+      const newChapterId = await splitBookChapterAtPage(bookId, 2, 'Second refinement child');
+      const stored = await getBookConceptsForBookPage(bookId, 2);
+
+      assert.equal(stored.find(({ id }) => id === sourceConcept.id)?.chapterId, newChapterId);
+      assert.equal(stored.find(({ id }) => id === foreignThematicConcept.id)?.chapterId, thematicChapterId);
     } finally {
       await deleteBook(bookId);
     }

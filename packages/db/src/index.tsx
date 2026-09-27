@@ -731,7 +731,16 @@ export async function splitBookChapterAtPage(bookId: number, pageNumber: number,
             }
 
             await db.bookPages.update([bookId, page.pageNumber], { chapter: cleanedTitle, chapterId, excludedFromAnalysis: false });
-            await db.bookConcepts.where('bookPage').equals([bookId, page.pageNumber]).modify({ chapterId });
+            // Preserve explicit thematic memberships created by Refine Chapters.
+            // A Concept whose source page happens to move during a later split may
+            // intentionally belong to another learning chapter. Only Concepts that
+            // still belong to the chapter being split (or legacy rows without an
+            // explicit chapterId) should follow the page into the new chapter.
+            await db.bookConcepts
+                .where('bookPage')
+                .equals([bookId, page.pageNumber])
+                .filter(({ chapterId: conceptChapterId }) => conceptChapterId === undefined || conceptChapterId === originalChapterId)
+                .modify({ chapterId });
         }
 
         const book = await db.books.get(bookId);
