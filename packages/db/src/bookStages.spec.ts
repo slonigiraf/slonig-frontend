@@ -22,16 +22,16 @@ function book (overrides: Partial<Book> = {}): Book {
 
 describe('named book processing stages', (): void => {
   it('keeps completion separate from ordering so a stage can be inserted without renumbering later stages', (): void => {
-    assert.deepEqual(BOOK_PROCESSING_STAGES.slice(4, 11), ['chapters', 'concepts', 'fixConcepts', 'deduplicateConcepts', 'sortConcepts', 'exercises', 'fixExercises']);
+    assert.deepEqual(BOOK_PROCESSING_STAGES.slice(4, 12), ['chapters', 'concepts', 'fixConcepts', 'deduplicateConcepts', 'sortConcepts', 'refineChapters', 'exercises', 'fixExercises']);
 
-    const completed = withCompletedBookProcessingStage(book({ completedStages: ['concepts', 'exercises'] }), 'sortConcepts');
+    const completed = withCompletedBookProcessingStage(book({ completedStages: ['concepts', 'exercises'] }), 'refineChapters');
 
-    assert.deepEqual(completed.completedStages, ['concepts', 'sortConcepts', 'exercises']);
+    assert.deepEqual(completed.completedStages, ['concepts', 'refineChapters', 'exercises']);
   });
 
   it('resets the selected stage and every stage after it while preserving earlier completion', (): void => {
     const reset = withBookProcessingStagesResetFrom(book({
-      completedStages: ['recognize', 'language', 'subject', 'age', 'chapters', 'concepts', 'fixConcepts', 'deduplicateConcepts', 'sortConcepts', 'exercises', 'fixExercises', 'abilities']
+      completedStages: ['recognize', 'language', 'subject', 'age', 'chapters', 'concepts', 'fixConcepts', 'deduplicateConcepts', 'sortConcepts', 'refineChapters', 'exercises', 'fixExercises', 'abilities']
     }), 'fixConcepts');
 
     assert.deepEqual(reset.completedStages, ['recognize', 'language', 'subject', 'age', 'chapters', 'concepts']);
@@ -44,6 +44,7 @@ describe('named book processing stages', (): void => {
     assert.equal(completed.includes('fixConcepts'), false);
     assert.equal(completed.includes('deduplicateConcepts'), false);
     assert.equal(completed.includes('sortConcepts'), false);
+    assert.equal(completed.includes('refineChapters'), false);
     assert.equal(completed.includes('exercises'), true);
     assert.equal(completed.includes('fixStandards'), true);
   });

@@ -11,6 +11,7 @@ export const BOOK_PROCESSING_STAGES = [
   'fixConcepts',
   'deduplicateConcepts',
   'sortConcepts',
+  'refineChapters',
   'exercises',
   'fixExercises',
   'abilities',

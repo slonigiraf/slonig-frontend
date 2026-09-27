@@ -46,15 +46,15 @@ export function deduplicateConceptsPrompt (
   bookLanguage: string | undefined,
   learnerAge: number | undefined
 ): string {
-  return `Find only clear cross-chapter duplicate concepts in one book.
+  return `Find clear duplicate concepts across the entire book.
 
 The book language is ${bookLanguage || 'unknown'}, the book topic/subject is ${bookSubject || 'unknown'}, and the learner age is ${Number.isSafeInteger(learnerAge) ? learnerAge : 'unknown'}.
 
-A duplicate means two concepts from DIFFERENT chapters that teach essentially the same independently learnable knowledge unit. Be conservative. Report a pair only when the concepts are near-equivalent in meaning, not merely related, prerequisite/dependent, examples of one another, broader/narrower versions, neighboring skills, or concepts that share vocabulary. Different mathematical procedures, cases, properties, representations, or levels of generality are not duplicates unless they truly express the same learning target.
+A duplicate means two concepts anywhere in the book that teach essentially the same independently learnable knowledge unit. They may be in the same chapter or in different chapters. Be conservative. Report a pair only when the concepts are near-equivalent in meaning, not merely related, prerequisite/dependent, examples of one another, broader/narrower versions, neighboring skills, or concepts that share vocabulary. Different mathematical procedures, cases, properties, representations, or levels of generality are not duplicates unless they truly express the same learning target.
 
-Compare title AND description. Ignore superficial wording differences. Never report two concepts from the same chapter. Do not rewrite, merge, add, or otherwise modify concepts.
+Compare title AND description. Ignore superficial wording differences. Do not rewrite, merge, add, or otherwise modify concepts.
 
-The application, not you, decides which duplicate is deleted: for every duplicate set, the concept belonging to the chapter with the GREATER chapterId will be deleted and the concept from the lower chapterId will be kept. Your job is only to identify duplicate pairs.
+The application, not you, decides which duplicate is deleted. For every connected duplicate set, it keeps one canonical concept: the concept with the LOWEST chapterId, breaking ties by the LOWEST conceptId. Every other concept in that duplicate set is proposed for deletion. Your job is only to identify duplicate pairs.
 
 Concept inventory:
 ${JSON.stringify(concepts.map(({ chapterId, chapterTitle, conceptId, description, pageNumber, title }) => ({ chapterId, chapterTitle, conceptId, pageNumber: pageNumber ?? null, title, description })))}
@@ -62,7 +62,7 @@ ${JSON.stringify(concepts.map(({ chapterId, chapterTitle, conceptId, description
 Return only valid JSON in this exact shape:
 {"duplicatePairs":[{"conceptIdA":12,"conceptIdB":45}]}
 
-Return {"duplicatePairs":[]} when no clear cross-chapter duplicates exist. Each id must be a conceptId from the supplied inventory.`;
+Return {"duplicatePairs":[]} when no clear duplicates exist. Each id must be a conceptId from the supplied inventory.`;
 }
 
 export function parseDeduplicateConceptPairs (content: string, concepts: DeduplicateConceptInput[]): DeduplicateConceptPair[] {
@@ -83,7 +83,6 @@ export function parseDeduplicateConceptPairs (content: string, concepts: Dedupli
   });
 
   const adjacency = new Map<number, Set<number>>();
-  const seenPairs = new Set<string>();
 
   parsed.duplicatePairs.forEach((value: unknown): void => {
     if (
@@ -100,19 +99,10 @@ export function parseDeduplicateConceptPairs (content: string, concepts: Dedupli
     const conceptA = byId.get(value.conceptIdA);
     const conceptB = byId.get(value.conceptIdB);
 
-    if (!conceptA || !conceptB || conceptA.chapterId === conceptB.chapterId) {
-      throw new Error('OpenRouter returned a duplicate Concept pair outside the supplied cross-chapter inventory.');
+    if (!conceptA || !conceptB) {
+      throw new Error('OpenRouter returned a duplicate Concept pair containing a concept outside the supplied inventory.');
     }
 
-    const lowerId = Math.min(value.conceptIdA, value.conceptIdB);
-    const higherId = Math.max(value.conceptIdA, value.conceptIdB);
-    const pairKey = `${lowerId}:${higherId}`;
-
-    if (seenPairs.has(pairKey)) {
-      return;
-    }
-
-    seenPairs.add(pairKey);
     adjacency.set(value.conceptIdA, new Set([...(adjacency.get(value.conceptIdA) ?? []), value.conceptIdB]));
     adjacency.set(value.conceptIdB, new Set([...(adjacency.get(value.conceptIdB) ?? []), value.conceptIdA]));
   });
@@ -154,10 +144,9 @@ export function parseDeduplicateConceptPairs (content: string, concepts: Dedupli
     }
 
     component.sort((a, b) => a.chapterId - b.chapterId || a.conceptId - b.conceptId);
-    const minimumChapterId = component[0].chapterId;
-    const kept = component.find(({ chapterId }) => chapterId === minimumChapterId) as DeduplicateConceptInput;
+    const kept = component[0];
 
-    component.filter(({ chapterId }) => chapterId > minimumChapterId).forEach((deleted) => {
+    component.slice(1).forEach((deleted) => {
       result.push({ deletedConceptId: deleted.conceptId, keptConceptId: kept.conceptId });
     });
   }

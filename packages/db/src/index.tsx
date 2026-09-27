@@ -168,13 +168,12 @@ function moveToIndex<T>(rows: T[], target: T, requestedIndex: number): T[] {
 
 async function chapterConceptsForLearningOrder(chapterId: number): Promise<{ concepts: BookConcept[]; pages: BookPage[] }> {
     const pages = await db.bookPages.where('chapterId').equals(chapterId).toArray();
-    const pageConceptLists = await Promise.all(pages.map(({ bookId, pageNumber }) => db.bookConcepts.where('bookPage').equals([bookId, pageNumber]).toArray()));
-    const pageKeys = new Set(pages.map(({ bookId, pageNumber }) => `${bookId}:${pageNumber}`));
-    const explicitConcepts = (await db.bookConcepts.where('chapterId').equals(chapterId).toArray())
-        // For page-bound Concepts the BookPage assignment is authoritative. A
-        // stale denormalized chapterId must not make one Concept belong to two
-        // chapters during bidirectional normalization.
-        .filter((concept) => concept.bookPage[1] === 0 || pageKeys.has(`${concept.bookPage[0]}:${concept.bookPage[1]}`));
+    const pageConceptLists = await Promise.all(pages.map(async ({ bookId, pageNumber }) =>
+        (await db.bookConcepts.where('bookPage').equals([bookId, pageNumber]).toArray())
+            // BookConcept.chapterId is authoritative when present. The source page
+            // is only a fallback for legacy/imported Concepts without chapterId.
+            .filter(({ chapterId: conceptChapterId }) => conceptChapterId === undefined)));
+    const explicitConcepts = await db.bookConcepts.where('chapterId').equals(chapterId).toArray();
     const conceptsById = new Map<number, BookConcept>();
     const conceptsWithoutId: BookConcept[] = [];
 
@@ -188,24 +187,16 @@ async function chapterConceptsForLearningOrder(chapterId: number): Promise<{ con
 
     const concepts = [...conceptsById.values(), ...conceptsWithoutId];
 
-    // Older/imported databases can have page-bound Concepts without chapterId.
-    // The BookPage assignment is authoritative for page-bound Concepts, so repair
-    // those rows while they are already being touched by learning-order sync.
-    const pageChapterByKey = new Map(pages.map(({ bookId, pageNumber }) => [`${bookId}:${pageNumber}`, chapterId] as const));
-
+    // Repair only legacy page-backed Concepts whose chapterId is missing. Never
+    // overwrite an explicit thematic assignment merely because its source page
+    // belongs to a different chapter.
     await Promise.all(concepts.flatMap((concept) => {
-        if (concept.id === undefined || concept.bookPage[1] === 0) {
+        if (concept.id === undefined || concept.chapterId !== undefined || concept.bookPage[1] === 0) {
             return [];
         }
 
-        const pageChapterId = pageChapterByKey.get(`${concept.bookPage[0]}:${concept.bookPage[1]}`);
-
-        if (pageChapterId === undefined || concept.chapterId === pageChapterId) {
-            return [];
-        }
-
-        concept.chapterId = pageChapterId;
-        return [db.bookConcepts.update(concept.id, { chapterId: pageChapterId })];
+        concept.chapterId = chapterId;
+        return [db.bookConcepts.update(concept.id, { chapterId })];
     }));
 
     return { concepts, pages };
@@ -216,23 +207,43 @@ async function chapterIdForConcept(concept: BookConcept | undefined): Promise<nu
         return undefined;
     }
 
-    if (concept.bookPage[1] !== 0) {
-        const pageChapterId = (await db.bookPages.get(concept.bookPage))?.chapterId;
-
-        if (pageChapterId !== undefined) {
-            return pageChapterId;
-        }
+    if (concept.chapterId !== undefined) {
+        return concept.chapterId;
     }
 
-    return concept.chapterId;
+    return concept.bookPage[1] === 0 ? undefined : (await db.bookPages.get(concept.bookPage))?.chapterId;
 }
 
 async function chapterExercisesForLearningOrder(chapterId: number): Promise<Exercise[]> {
     const { concepts, pages } = await chapterConceptsForLearningOrder(chapterId);
     const conceptIds = new Set(concepts.flatMap(({ id }) => id === undefined ? [] : [id]));
     const pageKeys = new Set(pages.map(({ bookId, pageNumber }) => `${bookId}:${pageNumber}`));
+    const candidates = await db.exercises.filter(({ bookPage, conceptId }) =>
+        (conceptId !== undefined && conceptIds.has(conceptId)) || pageKeys.has(`${bookPage[0]}:${bookPage[1]}`)).toArray();
+    const otherConceptIds = Array.from(new Set(candidates.flatMap(({ conceptId }) => conceptId !== undefined && !conceptIds.has(conceptId) ? [conceptId] : [])));
+    const otherConcepts = otherConceptIds.length ? await db.bookConcepts.bulkGet(otherConceptIds) : [];
+    const otherConceptById = new Map(otherConceptIds.flatMap((id, index) => {
+        const concept = otherConcepts[index];
 
-    return db.exercises.filter(({ bookPage, conceptId }) => (conceptId !== undefined && conceptIds.has(conceptId)) || pageKeys.has(`${bookPage[0]}:${bookPage[1]}`)).toArray();
+        return concept ? [[id, concept] as const] : [];
+    }));
+
+    return candidates.filter(({ bookPage, conceptId }) => {
+        if (conceptId === undefined) {
+            return pageKeys.has(`${bookPage[0]}:${bookPage[1]}`);
+        }
+
+        if (conceptIds.has(conceptId)) {
+            return true;
+        }
+
+        const linkedConcept = otherConceptById.get(conceptId);
+
+        // A linked Concept with explicit chapter membership belongs only to that
+        // chapter, even when its source page belongs here. Missing/legacy links
+        // retain the historical page-based fallback.
+        return linkedConcept?.chapterId === undefined && pageKeys.has(`${bookPage[0]}:${bookPage[1]}`);
+    });
 }
 
 async function moveExerciseToDisplayOrder(exerciseId: number, requestedIndex: number): Promise<Exercise | undefined> {
@@ -301,11 +312,10 @@ async function moveAbilityToDisplayOrder(abilityId: string, requestedIndex: numb
 }
 
 async function syncChapterLearningDisplayOrder(chapterId: number, source: LearningOrderSource = 'concept'): Promise<void> {
-    const { concepts, pages } = await chapterConceptsForLearningOrder(chapterId);
+    const { concepts } = await chapterConceptsForLearningOrder(chapterId);
     const baselineConcepts = orderedByDisplayOrder(concepts, (a, b) => a.bookPage[1] - b.bookPage[1] || (a.id ?? Number.MAX_SAFE_INTEGER) - (b.id ?? Number.MAX_SAFE_INTEGER));
     const conceptIds = new Set(baselineConcepts.flatMap(({ id }) => id === undefined ? [] : [id]));
-    const pageKeys = new Set(pages.map(({ bookId, pageNumber }) => `${bookId}:${pageNumber}`));
-    const exercises = await db.exercises.filter(({ bookPage, conceptId }) => (conceptId !== undefined && conceptIds.has(conceptId)) || pageKeys.has(`${bookPage[0]}:${bookPage[1]}`)).toArray();
+    const exercises = await chapterExercisesForLearningOrder(chapterId);
     const baselineExercises = orderedByDisplayOrder(exercises, (a, b) => a.bookPage[1] - b.bookPage[1] || (a.id ?? Number.MAX_SAFE_INTEGER) - (b.id ?? Number.MAX_SAFE_INTEGER));
     const exerciseById = new Map(baselineExercises.flatMap((exercise) => exercise.id === undefined ? [] : [[exercise.id, exercise] as const]));
     const abilitiesByExerciseId = new Map<number, Ability[]>();
@@ -429,6 +439,7 @@ export async function putBook(book: Book): Promise<void> {
                 fixConcepts: Math.max(storedSpend?.fixConcepts ?? 0, incomingSpend?.fixConcepts ?? 0),
                 deduplicateConcepts: Math.max(storedSpend?.deduplicateConcepts ?? 0, incomingSpend?.deduplicateConcepts ?? 0),
                 sortConcepts: Math.max(storedSpend?.sortConcepts ?? 0, incomingSpend?.sortConcepts ?? 0),
+                refineChapters: Math.max(storedSpend?.refineChapters ?? 0, incomingSpend?.refineChapters ?? 0),
                 exercises: Math.max(storedSpend?.exercises ?? 0, incomingSpend?.exercises ?? 0),
                 splitExercises: Math.max(storedSpend?.splitExercises ?? 0, incomingSpend?.splitExercises ?? 0),
                 fixExercises: Math.max(storedSpend?.fixExercises ?? 0, incomingSpend?.fixExercises ?? 0),
@@ -941,7 +952,7 @@ export async function getBookConceptsForBookPage(bookId: number, pageNumber: num
 export async function createBookConcept(concept: Omit<BookConcept, 'id'>): Promise<BookConcept> {
     return db.transaction('rw', db.bookConcepts, db.bookPages, async () => {
         const pageChapterId = concept.bookPage[1] === 0 ? undefined : (await db.bookPages.get(concept.bookPage))?.chapterId;
-        const chapterId = pageChapterId ?? concept.chapterId;
+        const chapterId = concept.chapterId ?? pageChapterId;
         const normalizedConcept: Omit<BookConcept, 'id'> = chapterId === undefined ? concept : { ...concept, chapterId };
         const siblings = chapterId === undefined
             ? await db.bookConcepts.where('bookPage').equals(concept.bookPage).sortBy('id')
@@ -956,18 +967,85 @@ export async function createBookConcept(concept: Omit<BookConcept, 'id'>): Promi
 
 export async function updateBookConcept(id: number, changes: Partial<Omit<BookConcept, 'id'>>): Promise<BookConcept | undefined> {
     return db.transaction('rw', db.bookConcepts, db.bookPages, db.exercises, db.abilities, async () => {
+        const previous = await db.bookConcepts.get(id);
+        const previousChapterId = await chapterIdForConcept(previous);
+
         await db.bookConcepts.update(id, changes);
         const concept = await db.bookConcepts.get(id);
+        const nextChapterId = await chapterIdForConcept(concept);
+        const chapterMembershipChanged = Object.prototype.hasOwnProperty.call(changes, 'chapterId') && previousChapterId !== nextChapterId;
 
-        if (Object.prototype.hasOwnProperty.call(changes, 'displayOrder')) {
-            const chapterId = await chapterIdForConcept(concept);
+        if (Object.prototype.hasOwnProperty.call(changes, 'displayOrder') || chapterMembershipChanged) {
+            const affectedChapterIds = new Set([previousChapterId, nextChapterId].filter((chapterId): chapterId is number => chapterId !== undefined));
 
-            if (chapterId !== undefined) {
+            for (const chapterId of affectedChapterIds) {
                 await syncChapterLearningDisplayOrder(chapterId);
             }
         }
 
-        return concept;
+        return db.bookConcepts.get(id);
+    });
+}
+
+export async function assignBookConceptsToChapters(assignments: Array<{ chapterId: number; displayOrder: number; id: number }>): Promise<void> {
+    if (!assignments.length) {
+        return;
+    }
+
+    const conceptIds = assignments.map(({ id }) => id);
+
+    if (new Set(conceptIds).size !== conceptIds.length) {
+        throw new Error('Concept chapter assignments contain duplicate ids.');
+    }
+
+    if (assignments.some(({ chapterId, displayOrder, id }) => !Number.isSafeInteger(id) || id <= 0 || !Number.isSafeInteger(chapterId) || chapterId <= 0 || !Number.isSafeInteger(displayOrder) || displayOrder < 0)) {
+        throw new Error('Concept chapter assignments are invalid.');
+    }
+
+    await db.transaction('rw', db.bookConcepts, db.bookPages, db.bookChapters, db.exercises, db.abilities, async () => {
+        const concepts = await db.bookConcepts.bulkGet(conceptIds);
+
+        if (concepts.some((concept) => !concept)) {
+            throw new Error('Concept chapter assignments contain an unknown concept id.');
+        }
+
+        const targetChapterIds = Array.from(new Set(assignments.map(({ chapterId }) => chapterId)));
+        const targetChapters = await db.bookChapters.bulkGet(targetChapterIds);
+        const targetChapterById = new Map(targetChapterIds.flatMap((chapterId, index) => {
+            const chapter = targetChapters[index];
+
+            return chapter ? [[chapterId, chapter] as const] : [];
+        }));
+
+        if (targetChapterById.size !== targetChapterIds.length) {
+            throw new Error('Concept chapter assignments contain an unknown chapter id.');
+        }
+
+        const affectedChapterIds = new Set<number>();
+
+        for (let index = 0; index < assignments.length; index++) {
+            const assignment = assignments[index];
+            const concept = concepts[index] as BookConcept;
+            const targetChapter = targetChapterById.get(assignment.chapterId);
+
+            if (!targetChapter || targetChapter.bookId !== concept.bookPage[0]) {
+                throw new Error('Concept chapter assignment targets a chapter from another book.');
+            }
+
+            const previousChapterId = await chapterIdForConcept(concept);
+
+            if (previousChapterId !== undefined) {
+                affectedChapterIds.add(previousChapterId);
+            }
+
+            affectedChapterIds.add(assignment.chapterId);
+        }
+
+        await Promise.all(assignments.map(({ chapterId, displayOrder, id }) => db.bookConcepts.update(id, { chapterId, displayOrder })));
+
+        for (const chapterId of affectedChapterIds) {
+            await syncChapterLearningDisplayOrder(chapterId);
+        }
     });
 }
 
@@ -1006,10 +1084,8 @@ export async function reorderBookConcepts(sortedIds: number[], explicitChapterId
             throw new Error('Concepts from different chapters cannot be reordered together.');
         }
 
-        // Chapter membership is defined by BookPage assignment as well as the
-        // denormalized BookConcept.chapterId. This matters for legacy/imported
-        // rows and for Fix Concepts, which can mix old page-bound rows with newly
-        // created rows carrying chapterId.
+        // Explicit BookConcept.chapterId is authoritative. BookPage assignment
+        // remains a fallback for legacy/imported Concepts without chapterId.
         if (inferredChapterIds.size === 1) {
             const chapterId = [...inferredChapterIds][0];
             const { concepts: currentChapterConcepts } = await chapterConceptsForLearningOrder(chapterId);

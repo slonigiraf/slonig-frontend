@@ -5,7 +5,7 @@
 
 import { strict as assert } from 'node:assert';
 
-import { createBook, createBookConcept, deleteAbilities, deleteBook, deleteBookConcept, getAbilities, getBookConceptsForBookPage, getExercisesForBookPage, putBookChapter, putBookPage, reorderBookConcepts, replaceAbilities, replaceExercisesForBookPage, updateAbilityDisplayOrder, updateExerciseDisplayOrder } from './index.js';
+import { assignBookConceptsToChapters, createBook, createBookConcept, deleteAbilities, deleteBook, deleteBookConcept, getAbilities, getBookConceptsForBookPage, getExercisesForBookPage, putBookChapter, putBookPage, reorderBookConcepts, replaceAbilities, replaceExercisesForBookPage, updateAbilityDisplayOrder, updateExerciseDisplayOrder } from './index.js';
 import { db } from './db/index.js';
 
 const ability = (title: string): string => JSON.stringify({ h: title, i: '', q: [{ a: 'ok', h: 'Question', i: null, p: null }], t: 3 });
@@ -293,6 +293,48 @@ describe('ZPD learning display order', (): void => {
         ['Third', 0, chapterId],
         ['First', 1, chapterId]
       ]);
+    } finally {
+      await deleteBook(bookId);
+    }
+  });
+
+  it('keeps explicit thematic Concept membership authoritative over its source page chapter', async (): Promise<void> => {
+    const bookId = await createBook({ contentHash: `thematic-concept-membership-${Date.now()}`, created: Date.now(), name: 'Thematic membership', opfsName: 'thematic-membership.pdf', size: 1 });
+
+    try {
+      const sourceChapterId = await putBookChapter({ bookId, title: 'Source chapter' });
+      const thematicChapterId = await putBookChapter({ bookId, title: 'Thematic chapter' });
+
+      await putBookPage({ bookId, chapter: 'Source chapter', chapterId: sourceChapterId, conceptsProcessed: true, pageNumber: 1 });
+      await putBookPage({ bookId, chapter: 'Thematic chapter', chapterId: thematicChapterId, conceptsProcessed: true, pageNumber: 2 });
+
+      const sourceConcept = await createBookConcept({ bookPage: [bookId, 1], chapterId: sourceChapterId, description: '', displayOrder: 0, title: 'Source' });
+      const movedConcept = await createBookConcept({ bookPage: [bookId, 1], chapterId: sourceChapterId, description: '', displayOrder: 1, title: 'Moved' });
+
+      await assignBookConceptsToChapters([
+        { chapterId: sourceChapterId, displayOrder: 0, id: sourceConcept.id as number },
+        { chapterId: thematicChapterId, displayOrder: 0, id: movedConcept.id as number }
+      ]);
+
+      const stored = await getBookConceptsForBookPage(bookId, 1);
+      const storedSource = stored.find(({ id }) => id === sourceConcept.id);
+      const storedMoved = stored.find(({ id }) => id === movedConcept.id);
+
+      assert.equal(storedSource?.chapterId, sourceChapterId);
+      assert.equal(storedMoved?.chapterId, thematicChapterId);
+      assert.deepEqual(storedMoved?.bookPage, [bookId, 1]);
+
+      // Reordering either chapter must use explicit Concept membership, not the
+      // moved Concept's source page assignment.
+      await reorderBookConcepts([sourceConcept.id as number], sourceChapterId);
+      await reorderBookConcepts([movedConcept.id as number], thematicChapterId);
+
+      assert.equal((await getBookConceptsForBookPage(bookId, 1)).find(({ id }) => id === movedConcept.id)?.chapterId, thematicChapterId);
+
+      const explicitlyCreated = await createBookConcept({ bookPage: [bookId, 1], chapterId: thematicChapterId, description: '', displayOrder: 1, title: 'Explicit target' });
+
+      assert.equal(explicitlyCreated.chapterId, thematicChapterId);
+      assert.deepEqual(explicitlyCreated.bookPage, [bookId, 1]);
     } finally {
       await deleteBook(bookId);
     }

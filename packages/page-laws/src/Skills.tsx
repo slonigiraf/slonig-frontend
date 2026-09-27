@@ -1452,8 +1452,13 @@ function Skills ({ book, externalRefreshToken = 0, onAction, onBookChange, onCon
       }));
       const result = await Promise.all(chapters.map(async (chapter): Promise<ChapterContent> => {
         const skills = chapter.id === undefined ? [] : await getSkillsForChapter(chapter.id);
-        const matchingPages = pageRows.filter(({ concepts, page }) => page.chapter === chapter.title || concepts.some(({ chapterId }) => chapterId === chapter.id));
-        const exercises = sortExercisesForDisplay(matchingPages.flatMap(({ exercises }) => exercises));
+        const chapterConcepts = pageRows.flatMap(({ concepts, page }) => concepts.filter((concept) => concept.chapterId !== undefined
+          ? concept.chapterId === chapter.id
+          : page.chapter === chapter.title));
+        const chapterConceptIds = new Set(chapterConcepts.flatMap(({ id }) => id === undefined ? [] : [id]));
+        const exercises = sortExercisesForDisplay(pageRows.flatMap(({ exercises, page }) => exercises.filter(({ conceptId }) => conceptId !== undefined
+          ? chapterConceptIds.has(conceptId)
+          : page.chapter === chapter.title)));
         const records = (await Promise.all(exercises.flatMap(({ id }) => id === undefined ? [] : [getAbilities(exerciseAbilityModuleId(book.id, id))]))).flat() as Array<{ content: string; displayOrder?: number; id: string; moduleId: string }>;
         const abilities = sortAbilitiesForDisplay(await Promise.all(records.map(async ({ content, displayOrder, id, moduleId }): Promise<StoredAbility> => {
           try {
@@ -1465,7 +1470,7 @@ function Skills ({ book, externalRefreshToken = 0, onAction, onBookChange, onCon
           }
         })));
 
-        return { abilities, chapter, concepts: matchingPages.flatMap(({ concepts }) => concepts.filter(({ chapterId }) => chapterId === chapter.id)), exercises, skills };
+        return { abilities, chapter, concepts: chapterConcepts, exercises, skills };
       }));
 
       if (active) {

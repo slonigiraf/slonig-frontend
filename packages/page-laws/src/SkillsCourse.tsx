@@ -265,8 +265,16 @@ function SkillsCourse ({ book }: { book: Book }): React.ReactElement {
         return { chapter, templates: [] };
       }
 
-      const matchingPages = pageRows.filter(({ concepts, page }) => page.chapter === chapter.title || concepts.some(({ chapterId }) => chapterId === chapter.id));
-      const exercises = sortExercisesForDisplay(matchingPages.flatMap(({ exercises }) => exercises));
+      const chapterConceptIds = new Set(pageRows.flatMap(({ concepts, page }) => concepts.flatMap((concept) => {
+        const belongsToChapter = concept.chapterId !== undefined
+          ? concept.chapterId === chapter.id
+          : page.chapter === chapter.title;
+
+        return belongsToChapter && concept.id !== undefined ? [concept.id] : [];
+      })));
+      const exercises = sortExercisesForDisplay(pageRows.flatMap(({ exercises, page }) => exercises.filter(({ conceptId }) => conceptId !== undefined
+        ? chapterConceptIds.has(conceptId)
+        : page.chapter === chapter.title)));
       const templates = (await Promise.all(exercises.map(async ({ id }) => {
         if (id === undefined) {
           return [];

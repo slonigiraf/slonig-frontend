@@ -19,7 +19,8 @@ import { exerciseGenerationRequestEstimate } from './bookProcessing.js';
 import { conceptChaptersFromPages } from './conceptRecognition.js';
 import { conceptDeduplicationInput, deduplicateConceptsPrompt, type DeduplicateConceptInput } from './deduplicateConcepts.js';
 import { fixChapterConceptsPrompt } from './fixConcepts.js';
-import { sortChapterConceptsPrompt } from './sortConcepts.js';
+import { conceptsForSortChapter, sortChapterConceptsPrompt } from './sortConcepts.js';
+import { conceptBelongsToChapter, conceptsForRefinementChapter, isRefineChaptersComplete, REFINE_CHAPTERS_SPEND_STAGE, refineChapterPrompt, sortConceptsByDisplayOrder, withRefineChaptersIncomplete } from './refineChapters.js';
 import { clearFixConceptsChapterStatuses, failedFixConceptChapterKeys, fixConceptsChapterKey } from './fixConceptsProgress.js';
 import { formatOpenRouterSpend } from './openRouterCost.js';
 import { loadStandardsCatalogsForBookSubject, STANDARDS_MATCH_RUNS, standardsConceptInputs, standardsMatchingPrompt } from './standards.js';
@@ -42,6 +43,7 @@ const PRICE_STAGES: Array<{ detail?: string; key: BookStageSpendKey; label: stri
   { key: 'fixConcepts', label: 'Fix concepts' },
   { key: 'deduplicateConcepts', label: 'Deduplicate concepts' },
   { key: 'sortConcepts', label: 'Sort concepts' },
+  { key: REFINE_CHAPTERS_SPEND_STAGE, label: 'Refine chapters' },
   { key: 'exercises', label: 'Exercises' },
   { key: 'fixExercises', label: 'Fix exercises' },
   { key: 'abilities', label: 'Abilities' },
@@ -131,6 +133,7 @@ function Upload (): React.ReactElement {
   const [fixAllConceptsRequest, setFixAllConceptsRequest] = useState(0);
   const [deduplicateAllConceptsRequest, setDeduplicateAllConceptsRequest] = useState(0);
   const [sortAllConceptsRequest, setSortAllConceptsRequest] = useState(0);
+  const [refineAllChaptersRequest, setRefineAllChaptersRequest] = useState(0);
   const [generateAllConceptsRequest, setGenerateAllConceptsRequest] = useState(0);
   const [languageTabRequest, setLanguageTabRequest] = useState(0);
   const [subjectTabRequest, setSubjectTabRequest] = useState(0);
@@ -146,18 +149,20 @@ function Upload (): React.ReactElement {
   const [fixConceptsEstimate, setFixConceptsEstimate] = useState<AiInputEstimate | string>();
   const [deduplicateConceptsEstimate, setDeduplicateConceptsEstimate] = useState<AiInputEstimate | string>();
   const [sortConceptsEstimate, setSortConceptsEstimate] = useState<AiInputEstimate | string>();
+  const [refineChaptersEstimate, setRefineChaptersEstimate] = useState<AiInputEstimate | string>();
   const [fixOnlyFailedConcepts, setFixOnlyFailedConcepts] = useState(false);
   const [hasFailedFixConceptChapters, setHasFailedFixConceptChapters] = useState(false);
   const [isGenerateConceptsConfirmationOpen, setIsGenerateConceptsConfirmationOpen] = useState(false);
   const [isFixConceptsConfirmationOpen, setIsFixConceptsConfirmationOpen] = useState(false);
   const [isDeduplicateConceptsConfirmationOpen, setIsDeduplicateConceptsConfirmationOpen] = useState(false);
   const [isSortConceptsConfirmationOpen, setIsSortConceptsConfirmationOpen] = useState(false);
+  const [isRefineChaptersConfirmationOpen, setIsRefineChaptersConfirmationOpen] = useState(false);
   const [isGenerateExercisesConfirmationOpen, setIsGenerateExercisesConfirmationOpen] = useState(false);
   const [isStandardsConfirmationOpen, setIsStandardsConfirmationOpen] = useState(false);
   const [isRecognizeConfirmationOpen, setIsRecognizeConfirmationOpen] = useState(false);
   const [isPriceOpen, setIsPriceOpen] = useState(false);
   const [priceBook, setPriceBook] = useState<Book>();
-  const [pendingProcessingAction, setPendingProcessingAction] = useState<'chapters' | 'concepts' | 'fixConcepts' | 'deduplicateConcepts' | 'sortConcepts' | 'recognize' | 'standards' | 'exercises'>();
+  const [pendingProcessingAction, setPendingProcessingAction] = useState<'chapters' | 'concepts' | 'fixConcepts' | 'deduplicateConcepts' | 'sortConcepts' | 'refineChapters' | 'recognize' | 'standards' | 'exercises'>();
   const [generateAllExercisesRequest, setGenerateAllExercisesRequest] = useState(0);
   const [generateExercisesEstimate, setGenerateExercisesEstimate] = useState<AiInputEstimate>();
   const [generateOnlyMissingExercises, setGenerateOnlyMissingExercises] = useState(false);
@@ -764,11 +769,9 @@ function Upload (): React.ReactElement {
 
     getBookPages(selectedBook.id).then(async (pages) => {
       const concepts = await loadDeduplicateConceptInputs(selectedBook.id, pages);
-      const chapterCount = new Set(concepts.map(({ chapterId }) => chapterId)).size;
-
-      setDeduplicateConceptsEstimate(concepts.length > 1 && chapterCount > 1
+      setDeduplicateConceptsEstimate(concepts.length > 1
         ? estimateAiInput(generateAllConceptsModel, [deduplicateConceptsPrompt(concepts, selectedBook.subject, selectedBook.language, selectedBook.age)], 1_600)
-        : t('Concepts from at least two chapters are required for cross-chapter deduplication.'));
+        : t('At least two concepts are required for deduplication.'));
     }).catch(() => setError(t('Unable to estimate Deduplicate concepts cost.')));
   }, [generateAllConceptsModel, isDeduplicateConceptsConfirmationOpen, selectedBook, t]);
 
@@ -808,14 +811,17 @@ function Upload (): React.ReactElement {
     }
 
     getBookPages(selectedBook.id).then(async (pages) => {
-      const pageLessConcepts = await getBookConceptsForBookPage(selectedBook.id, 0);
+      const chapters = conceptChaptersFromPages(pages);
+      const inventory = [
+        ...(await Promise.all(pages.map(({ pageNumber }) => getBookConceptsForBookPage(selectedBook.id, pageNumber)))).flat(),
+        ...await getBookConceptsForBookPage(selectedBook.id, 0)
+      ];
       const requests: string[] = [];
 
-      for (const chapter of conceptChaptersFromPages(pages)) {
-        const concepts = [
-          ...(await Promise.all(chapter.pageNumbers.map((pageNumber) => getBookConceptsForBookPage(selectedBook.id, pageNumber)))).flat(),
-          ...pageLessConcepts.filter(({ chapterId }) => chapterId !== undefined && chapterId === chapter.chapterId)
-        ];
+      for (const chapter of chapters) {
+        // Match execution semantics exactly: isolate one source chapter first,
+        // then build the sorting request from that chapter only.
+        const concepts = conceptsForSortChapter(inventory, chapter);
 
         if (concepts.length > 1) {
           requests.push(sortChapterConceptsPrompt(chapter.title, concepts, selectedBook.subject, selectedBook.language, selectedBook.age));
@@ -840,11 +846,75 @@ function Upload (): React.ReactElement {
       return;
     }
 
-    // Sort Concepts changes only display/learning order. Re-running it must not
-    // erase the history of downstream stages that have already completed. The
-    // DB propagates the new order through Exercise/Ability displayOrder in place.
+    // Sort Concepts changes only display/learning order, but Refine Chapters
+    // depends on that exact order. A rerun therefore invalidates only the
+    // refinement marker; downstream data is left intact until Refine Chapters
+    // actually changes chapter membership.
+    const invalidatedBook = withRefineChaptersIncomplete(selectedBook);
+
+    setBooks((current) => current.map((book) => book.id === invalidatedBook.id ? invalidatedBook : book));
     setPendingProcessingAction('sortConcepts');
-    setSortAllConceptsRequest((request) => request + 1);
+    putBook(invalidatedBook)
+      .then(() => setSortAllConceptsRequest((request) => request + 1))
+      .catch(() => {
+        setPendingProcessingAction(undefined);
+        setError(t('Unable to invalidate the Refine chapters stage before sorting.'));
+      });
+  }, [selectedBook, t]);
+
+  const onRefineChapters = useCallback((): void => {
+    if (!selectedBook) {
+      return;
+    }
+
+    if (!selectedBook.language || !selectedBook.subject || selectedBook.age === undefined) {
+      setError(t('Set the book language, subject, and learner age before running Refine chapters.'));
+      return;
+    }
+
+    setRefineChaptersEstimate(undefined);
+    setIsRefineChaptersConfirmationOpen(true);
+  }, [selectedBook, t]);
+
+  useEffect(() => {
+    if (!isRefineChaptersConfirmationOpen || !selectedBook) {
+      return;
+    }
+
+    getBookPages(selectedBook.id).then(async (pages) => {
+      const chapters = conceptChaptersFromPages(pages);
+      const inventory = [
+        ...(await Promise.all(pages.map(({ pageNumber }) => getBookConceptsForBookPage(selectedBook.id, pageNumber)))).flat(),
+        ...await getBookConceptsForBookPage(selectedBook.id, 0)
+      ];
+      const requests = chapters.flatMap((chapter) => {
+        const concepts = conceptsForRefinementChapter(inventory, chapter);
+
+        return concepts.length
+          ? [refineChapterPrompt(chapter.title, concepts, chapter.pageNumbers.length, selectedBook.subject, selectedBook.language, selectedBook.age)]
+          : [];
+      });
+
+      setRefineChaptersEstimate(requests.length
+        ? estimateAiInput(generateAllConceptsModel, requests, 700)
+        : t('No chapters contain concepts that can be refined.'));
+    }).catch(() => setError(t('Unable to estimate Refine chapters cost.')));
+  }, [generateAllConceptsModel, isRefineChaptersConfirmationOpen, selectedBook, t]);
+
+  const closeRefineChaptersConfirmation = useCallback((): void => {
+    setIsRefineChaptersConfirmationOpen(false);
+    setPendingProcessingAction(undefined);
+  }, []);
+
+  const confirmRefineChapters = useCallback((): void => {
+    setIsRefineChaptersConfirmationOpen(false);
+
+    if (!selectedBook) {
+      return;
+    }
+
+    setPendingProcessingAction('refineChapters');
+    setRefineAllChaptersRequest((request) => request + 1);
   }, [selectedBook]);
 
   const onAssignStandards = useCallback((): void => {
@@ -967,25 +1037,31 @@ function Upload (): React.ReactElement {
         setGenerateOnlyMissingExercises(false);
       }
 
-      const pageInputs = pageRows.map(({ concepts, storedPage }) => ({
-        chapter: storedPage.chapter,
-        concepts: concepts.flatMap(({ description, id, title }) => generateOnlyMissingExercises && id !== undefined && exerciseConceptIds.has(id)
-          ? []
-          : [{ description, sourceId: id, title }]),
-        pageNumber: storedPage.pageNumber
-      }));
-      const groupedPages = pageInputs.reduce((grouped, { chapter, ...page }) => {
-        const chapterPages = grouped.get(chapter) ?? [];
+      const conceptInventory = pageRows.flatMap(({ concepts }) => concepts);
+      const chapterInputs = conceptChaptersFromPages(pages).flatMap((chapter) => {
+        const targetConcepts = sortConceptsByDisplayOrder(conceptInventory.filter((concept) => conceptBelongsToChapter(concept, chapter)))
+          .filter(({ id }) => !generateOnlyMissingExercises || id === undefined || !exerciseConceptIds.has(id));
+        const conceptsByPage = new Map<number, typeof targetConcepts>();
 
-        chapterPages.push(page);
-        grouped.set(chapter, chapterPages);
+        targetConcepts.forEach((concept) => {
+          const pageConcepts = conceptsByPage.get(concept.bookPage[1]) ?? [];
 
-        return grouped;
-      }, new Map<string, Array<Omit<typeof pageInputs[number], 'chapter'>>>());
+          pageConcepts.push(concept);
+          conceptsByPage.set(concept.bookPage[1], pageConcepts);
+        });
+        const chapterPages = Array.from(conceptsByPage.entries())
+          .sort(([a], [b]) => a - b)
+          .map(([pageNumber, concepts]) => ({
+            concepts: concepts.map(({ description, id, title }) => ({ description, sourceId: id, title })),
+            pageNumber
+          }));
+
+        return chapterPages.length ? [{ chapter: chapter.title, pages: chapterPages }] : [];
+      });
       const bookDetectedLanguage = bookLanguageLabel(selectedBook.language);
-      const requests = Array.from(groupedPages, ([chapter, chapterPages]) =>
-        exerciseGenerationRequestEstimate({ chapter, pages: chapterPages }, bookDetectedLanguage, selectedBook.age)
-      ).flatMap((request) => request ? [request] : []);
+      const requests = chapterInputs
+        .map((chapterInput) => exerciseGenerationRequestEstimate(chapterInput, bookDetectedLanguage, selectedBook.age))
+        .flatMap((request) => request ? [request] : []);
 
       setGenerateExercisesEstimate(estimateAiRequests(generateAllConceptsModel, requests));
     }).catch(() => setError(t('Unable to estimate exercise generation cost.')));
@@ -1177,7 +1253,7 @@ function Upload (): React.ReactElement {
         onRun={confirmDeduplicateConcepts}
         runLabel={t('Run')}
       >
-        <p>{t('Compare concepts across different chapters and identify only very close semantic duplicates. Nothing is deleted until you review the proposed duplicate pairs. For every accepted pair or duplicate cluster, the concept from the higher chapter id is deleted and the concept from the lower chapter id is kept.')}</p>
+        <p>{t('Compare concepts across the entire book and identify only very close semantic duplicates, whether they occur in the same chapter or different chapters. Nothing is deleted until you review the proposed duplicate groups. For every duplicate group, the concept with the lowest chapter id is kept; ties inside the same chapter are broken by the lowest concept id, and every other concept in the group is proposed for deletion.')}</p>
         <AiPriceEstimate estimate={deduplicateConceptsEstimate} />
         <OpenRouterModelSelector
           className='batchModelSelect'
@@ -1193,8 +1269,24 @@ function Upload (): React.ReactElement {
         onRun={confirmSortConcepts}
         runLabel={t('Run')}
       >
-        <p>{t('Sort each chapter’s finalized Concepts into a Zone of Proximal Development progression for the configured learner age. The model will prioritize prerequisite readiness rather than source-page order, and the resulting order will be saved in BookConcept.displayOrder.')}</p>
+        <p>{t('Sort each original chapter independently into a Zone of Proximal Development progression for the configured learner age. Concepts from different chapters are never included in the same sorting request or saved in the same reorder operation. Only the relative order inside each chapter may change; chapter boundaries stay fixed.')}</p>
         <AiPriceEstimate estimate={sortConceptsEstimate} />
+        <OpenRouterModelSelector
+          className='batchModelSelect'
+          modelLabel={t('Model')}
+          onChange={setGenerateAllConceptsModel}
+          providerLabel={t('Provider')}
+          value={generateAllConceptsModel}
+        />
+      </StageRunPricePopup>}
+      {isRefineChaptersConfirmationOpen && <StageRunPricePopup
+        header={t('Refine chapters')}
+        onClose={closeRefineChaptersConfirmation}
+        onRun={confirmRefineChapters}
+        runLabel={t('Run')}
+      >
+        <p>{t('Process each original chapter independently, clustering only the concepts that already belong to that chapter. Concepts from different original chapters are never placed in the same clustering request and can never be reordered together. Within each original chapter, Refine chapters may cut the already-sorted concept sequence into one, two, or three contiguous thematic groups, targeting roughly 7–10 concepts per resulting chapter when the themes support it.')}</p>
+        <AiPriceEstimate estimate={refineChaptersEstimate} />
         <OpenRouterModelSelector
           className='batchModelSelect'
           modelLabel={t('Model')}
@@ -1290,6 +1382,7 @@ function Upload (): React.ReactElement {
             fixAllConceptsRequest={fixAllConceptsRequest}
             fixOnlyFailedConcepts={fixOnlyFailedConcepts}
             sortAllConceptsRequest={sortAllConceptsRequest}
+            refineAllChaptersRequest={refineAllChaptersRequest}
             key={selectedBook.id}
             file={readerFile}
             generateAllConceptsModel={generateAllConceptsModel}
@@ -1370,10 +1463,17 @@ function Upload (): React.ReactElement {
                 onClick: onSortConcepts
               },
               {
+                key: 'refineChapters',
+                label: t('Refine chapters'),
+                isDone: isBookProcessingStageComplete(selectedBook, 'sortConcepts') && isRefineChaptersComplete(selectedBook),
+                isDisabled: !readerFile || isBusy || !isBookProcessingStageComplete(selectedBook, 'sortConcepts') || !selectedBook.language || !selectedBook.subject || selectedBook.age === undefined,
+                onClick: onRefineChapters
+              },
+              {
                 key: 'exercises',
                 label: t('Exercises'),
                 isDone: isBookProcessingStageComplete(selectedBook, 'exercises'),
-                isDisabled: !readerFile || isBusy || !isBookProcessingStageComplete(selectedBook, 'sortConcepts') || !selectedBook.language || !selectedBook.subject,
+                isDisabled: !readerFile || isBusy || !isRefineChaptersComplete(selectedBook) || !selectedBook.language || !selectedBook.subject,
                 onClick: onGenerateExercises
               }
             ]}

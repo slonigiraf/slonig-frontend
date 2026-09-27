@@ -3,8 +3,73 @@
 
 import type { BookConcept, BookSubject } from '@slonigiraf/db';
 
+export interface SortConceptsSourceChapter {
+  chapterId?: number;
+  pageNumbers: number[];
+  title?: string;
+}
+
 export interface SortedChapterConceptIndexes {
   conceptIndexes: number[];
+}
+
+function finiteDisplayOrder (concept: Pick<BookConcept, 'displayOrder'>): number | undefined {
+  return typeof concept.displayOrder === 'number' && Number.isFinite(concept.displayOrder)
+    ? concept.displayOrder
+    : undefined;
+}
+
+export function conceptBelongsToSortChapter (
+  concept: Pick<BookConcept, 'bookPage' | 'chapterId'>,
+  chapter: Pick<SortConceptsSourceChapter, 'chapterId' | 'pageNumbers'>
+): boolean {
+  if (concept.chapterId !== undefined && chapter.chapterId !== undefined) {
+    return concept.chapterId === chapter.chapterId;
+  }
+
+  return chapter.pageNumbers.includes(concept.bookPage[1]);
+}
+
+export function conceptsForSortChapter (
+  concepts: BookConcept[],
+  sourceChapter: Pick<SortConceptsSourceChapter, 'chapterId' | 'pageNumbers'>
+): BookConcept[] {
+  // Chapter isolation is the first operation. Never globally order the inventory
+  // and then slice it into chapters: concepts from different source chapters are
+  // not allowed to participate in the same ordering operation at any point.
+  return concepts
+    .filter((concept) => conceptBelongsToSortChapter(concept, sourceChapter))
+    .map((concept, index) => ({ concept, index, order: finiteDisplayOrder(concept) }))
+    .sort((a, b) => (a.order ?? a.index) - (b.order ?? b.index) || a.index - b.index)
+    .map(({ concept }) => concept);
+}
+
+export function assertDisjointSortChapterConcepts (
+  chapters: Array<{ chapter: SortConceptsSourceChapter; concepts: BookConcept[] }>
+): void {
+  const ownerByConceptId = new Map<number, number>();
+
+  chapters.forEach(({ chapter, concepts }, chapterIndex) => {
+    if (concepts.length && chapter.chapterId === undefined) {
+      throw new Error(`Sort Concepts requires a stable chapter id for ${chapter.title || 'each chapter'} so its reorder cannot affect another chapter.`);
+    }
+
+    const ids = concepts.flatMap(({ id }) => id === undefined ? [] : [id]);
+
+    if (ids.length !== concepts.length) {
+      throw new Error(`Unable to sort ${chapter.title || 'a chapter'} because one or more concepts do not have ids.`);
+    }
+
+    ids.forEach((id) => {
+      const existingOwner = ownerByConceptId.get(id);
+
+      if (existingOwner !== undefined && existingOwner !== chapterIndex) {
+        throw new Error('Sort Concepts found a concept in more than one source chapter. Concepts from different chapters cannot be reordered together.');
+      }
+
+      ownerByConceptId.set(id, chapterIndex);
+    });
+  });
 }
 
 export function sortChapterConceptsPrompt (
@@ -14,7 +79,9 @@ export function sortChapterConceptsPrompt (
   bookLanguage: string | undefined,
   learnerAge: number | undefined
 ): string {
-  return `Order one chapter's existing concepts into a pedagogical progression based on the learner's zone of proximal development (ZPD).
+  return `Order the existing concepts from exactly ONE chapter into a pedagogical progression based on the learner's zone of proximal development (ZPD).
+
+This request is chapter-local. Never compare, interleave, or reorder these concepts together with concepts from another chapter. The chapter boundary is fixed; only the relative order INSIDE this chapter may change.
 
 The learner is age ${Number.isSafeInteger(learnerAge) ? learnerAge : 'unknown'}. The book language is ${bookLanguage || 'unknown'} and the book topic/subject is ${bookSubject || 'unknown'}. Chapter: ${chapterTitle || '(untitled)'}.
 
@@ -28,8 +95,9 @@ Ordering rules, in priority order:
 5. Do not sort by source page, title alphabetically, or the current order merely because it is the current order. Source page is evidence about where the book introduces a concept, not evidence of ideal teaching order.
 6. Do not add, remove, merge, split, rename, or rewrite concepts. Return every conceptIndex exactly once.
 7. When two concepts are genuinely independent and equally appropriate, preserve their current relative order to avoid arbitrary churn.
+8. This output must describe only this chapter. It must never include an index from another chapter.
 
-Existing concepts (conceptIndex is zero-based; sourcePage is informational only):
+Existing concepts from this chapter only (conceptIndex is zero-based; sourcePage is informational only):
 ${JSON.stringify(concepts.map(({ bookPage, description, title }, conceptIndex) => ({ conceptIndex, sourcePage: bookPage[1] || null, title, description })))}
 
 Return only valid JSON in this exact shape:

@@ -5,6 +5,7 @@ export interface BookConcept {
   id?: number;
   /** [bookId, pageNumber]; pageNumber 0 means a manually added concept has no page. */
   bookPage: [number, number];
+  /** Learning chapter membership. When present, this is authoritative even if bookPage points at a page assigned to another chapter. */
   chapterId?: number;
   title: string;
   description: string;
