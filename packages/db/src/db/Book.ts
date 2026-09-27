@@ -9,6 +9,7 @@ export const BOOK_PROCESSING_STAGES = [
   'chapters',
   'concepts',
   'fixConcepts',
+  'deduplicateConcepts',
   'sortConcepts',
   'exercises',
   'fixExercises',

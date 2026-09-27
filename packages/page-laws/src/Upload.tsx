@@ -1,7 +1,7 @@
 // Copyright 2021-2026 @polkadot/app-laws authors & contributors
 // SPDX-License-Identifier: Apache-2.0
 
-import type { Book, BookStageSpendKey } from '@slonigiraf/db';
+import type { Book, BookPage, BookStageSpendKey } from '@slonigiraf/db';
 import type { PDFDocumentProxy } from 'pdfjs-dist';
 
 import { createBook, deleteBook, getBook, getBookByContentHash, getBookConceptsForBookPage, getBookPages, getBooks, getExercisesForBookPage, isBookProcessingStageComplete, putBook, resetBookProcessingStagesFrom } from '@slonigiraf/db';
@@ -17,6 +17,7 @@ import OpenRouterModelSelector from './OpenRouterModelSelector.js';
 import { bookLanguageLabel } from './bookLanguage.js';
 import { exerciseGenerationRequestEstimate } from './bookProcessing.js';
 import { conceptChaptersFromPages } from './conceptRecognition.js';
+import { conceptDeduplicationInput, deduplicateConceptsPrompt, type DeduplicateConceptInput } from './deduplicateConcepts.js';
 import { fixChapterConceptsPrompt } from './fixConcepts.js';
 import { sortChapterConceptsPrompt } from './sortConcepts.js';
 import { clearFixConceptsChapterStatuses, failedFixConceptChapterKeys, fixConceptsChapterKey } from './fixConceptsProgress.js';
@@ -38,6 +39,7 @@ const PRICE_STAGES: Array<{ detail?: string; key: BookStageSpendKey; label: stri
   { key: 'chapters', label: 'Chapters' },
   { key: 'concepts', label: 'Concepts' },
   { key: 'fixConcepts', label: 'Fix concepts' },
+  { key: 'deduplicateConcepts', label: 'Deduplicate concepts' },
   { key: 'sortConcepts', label: 'Sort concepts' },
   { key: 'exercises', label: 'Exercises' },
   { key: 'fixExercises', label: 'Fix exercises' },
@@ -96,6 +98,29 @@ async function getContentHash (contents: Uint8Array): Promise<string> {
   return Array.from(new Uint8Array(digest), (byte) => byte.toString(16).padStart(2, '0')).join('');
 }
 
+async function loadDeduplicateConceptInputs (bookId: number, pages: BookPage[]): Promise<DeduplicateConceptInput[]> {
+  const chapters = conceptChaptersFromPages(pages);
+  const chapterById = new Map(chapters.flatMap((chapter) => chapter.chapterId === undefined ? [] : [[chapter.chapterId, chapter] as const]));
+  const chapterByPage = new Map(chapters.flatMap((chapter) => chapter.pageNumbers.map((pageNumber) => [pageNumber, chapter] as const)));
+  const pageNumbers = Array.from(new Set(pages.map(({ pageNumber }) => pageNumber)));
+  const rows = [
+    ...(await Promise.all(pageNumbers.map((pageNumber) => getBookConceptsForBookPage(bookId, pageNumber)))).flat(),
+    ...await getBookConceptsForBookPage(bookId, 0)
+  ];
+  const byId = new Map<number, DeduplicateConceptInput>();
+
+  rows.forEach((concept) => {
+    const chapter = concept.chapterId === undefined ? chapterByPage.get(concept.bookPage[1]) : chapterById.get(concept.chapterId);
+    const input = chapter ? conceptDeduplicationInput(concept, chapter) : undefined;
+
+    if (input) {
+      byId.set(input.conceptId, input);
+    }
+  });
+
+  return Array.from(byId.values()).sort((a, b) => a.chapterId - b.chapterId || a.conceptId - b.conceptId);
+}
+
 function Upload (): React.ReactElement {
   const { t } = useTranslation();
   const [books, setBooks] = useState<Book[]>([]);
@@ -103,6 +128,7 @@ function Upload (): React.ReactElement {
   const [isBusy, setIsBusy] = useState(false);
   const [assignAllStandardsRequest, setAssignAllStandardsRequest] = useState(0);
   const [fixAllConceptsRequest, setFixAllConceptsRequest] = useState(0);
+  const [deduplicateAllConceptsRequest, setDeduplicateAllConceptsRequest] = useState(0);
   const [sortAllConceptsRequest, setSortAllConceptsRequest] = useState(0);
   const [generateAllConceptsRequest, setGenerateAllConceptsRequest] = useState(0);
   const [languageTabRequest, setLanguageTabRequest] = useState(0);
@@ -116,18 +142,20 @@ function Upload (): React.ReactElement {
   const [generateOnlyMissingConcepts, setGenerateOnlyMissingConcepts] = useState(false);
   const [hasChaptersMissingConcepts, setHasChaptersMissingConcepts] = useState(false);
   const [fixConceptsEstimate, setFixConceptsEstimate] = useState<AiInputEstimate | string>();
+  const [deduplicateConceptsEstimate, setDeduplicateConceptsEstimate] = useState<AiInputEstimate | string>();
   const [sortConceptsEstimate, setSortConceptsEstimate] = useState<AiInputEstimate | string>();
   const [fixOnlyFailedConcepts, setFixOnlyFailedConcepts] = useState(false);
   const [hasFailedFixConceptChapters, setHasFailedFixConceptChapters] = useState(false);
   const [isGenerateConceptsConfirmationOpen, setIsGenerateConceptsConfirmationOpen] = useState(false);
   const [isFixConceptsConfirmationOpen, setIsFixConceptsConfirmationOpen] = useState(false);
+  const [isDeduplicateConceptsConfirmationOpen, setIsDeduplicateConceptsConfirmationOpen] = useState(false);
   const [isSortConceptsConfirmationOpen, setIsSortConceptsConfirmationOpen] = useState(false);
   const [isGenerateExercisesConfirmationOpen, setIsGenerateExercisesConfirmationOpen] = useState(false);
   const [isStandardsConfirmationOpen, setIsStandardsConfirmationOpen] = useState(false);
   const [isRecognizeConfirmationOpen, setIsRecognizeConfirmationOpen] = useState(false);
   const [isPriceOpen, setIsPriceOpen] = useState(false);
   const [priceBook, setPriceBook] = useState<Book>();
-  const [pendingProcessingAction, setPendingProcessingAction] = useState<'chapters' | 'concepts' | 'fixConcepts' | 'sortConcepts' | 'recognize' | 'standards' | 'exercises'>();
+  const [pendingProcessingAction, setPendingProcessingAction] = useState<'chapters' | 'concepts' | 'fixConcepts' | 'deduplicateConcepts' | 'sortConcepts' | 'recognize' | 'standards' | 'exercises'>();
   const [generateAllExercisesRequest, setGenerateAllExercisesRequest] = useState(0);
   const [generateExercisesEstimate, setGenerateExercisesEstimate] = useState<AiInputEstimate>();
   const [generateOnlyMissingExercises, setGenerateOnlyMissingExercises] = useState(false);
@@ -645,6 +673,51 @@ function Upload (): React.ReactElement {
     setFixAllConceptsRequest((request) => request + 1);
   }, [selectedBook]);
 
+  const onDeduplicateConcepts = useCallback((): void => {
+    if (!selectedBook) {
+      return;
+    }
+
+    if (!selectedBook.language || !selectedBook.subject || selectedBook.age === undefined) {
+      setError(t('Set the book language, subject, and learner age before running Deduplicate concepts.'));
+      return;
+    }
+
+    setDeduplicateConceptsEstimate(undefined);
+    setIsDeduplicateConceptsConfirmationOpen(true);
+  }, [selectedBook, t]);
+
+  useEffect(() => {
+    if (!isDeduplicateConceptsConfirmationOpen || !selectedBook) {
+      return;
+    }
+
+    getBookPages(selectedBook.id).then(async (pages) => {
+      const concepts = await loadDeduplicateConceptInputs(selectedBook.id, pages);
+      const chapterCount = new Set(concepts.map(({ chapterId }) => chapterId)).size;
+
+      setDeduplicateConceptsEstimate(concepts.length > 1 && chapterCount > 1
+        ? estimateAiInput(generateAllConceptsModel, [deduplicateConceptsPrompt(concepts, selectedBook.subject, selectedBook.language, selectedBook.age)], 1_600)
+        : t('Concepts from at least two chapters are required for cross-chapter deduplication.'));
+    }).catch(() => setError(t('Unable to estimate Deduplicate concepts cost.')));
+  }, [generateAllConceptsModel, isDeduplicateConceptsConfirmationOpen, selectedBook, t]);
+
+  const closeDeduplicateConceptsConfirmation = useCallback((): void => {
+    setIsDeduplicateConceptsConfirmationOpen(false);
+    setPendingProcessingAction(undefined);
+  }, []);
+
+  const confirmDeduplicateConcepts = useCallback((): void => {
+    setIsDeduplicateConceptsConfirmationOpen(false);
+
+    if (!selectedBook) {
+      return;
+    }
+
+    setPendingProcessingAction('deduplicateConcepts');
+    setDeduplicateAllConceptsRequest((request) => request + 1);
+  }, [selectedBook]);
+
   const onSortConcepts = useCallback((): void => {
     if (!selectedBook) {
       return;
@@ -1080,6 +1153,35 @@ function Upload (): React.ReactElement {
           </Button.Group>
         </Modal.Content>
       </Modal>}
+      {isDeduplicateConceptsConfirmationOpen && <Modal
+        header={t('Deduplicate concepts')}
+        onClose={closeDeduplicateConceptsConfirmation}
+        size='small'
+      >
+        <Modal.Content>
+          <p>{t('Compare concepts across different chapters and identify only very close semantic duplicates. Nothing is deleted until you review the proposed duplicate pairs. For every accepted pair or duplicate cluster, the concept from the higher chapter id is deleted and the concept from the lower chapter id is kept.')}</p>
+          <AiPriceEstimate estimate={deduplicateConceptsEstimate} />
+          <OpenRouterModelSelector
+            className='batchModelSelect'
+            modelLabel={t('Model')}
+            onChange={setGenerateAllConceptsModel}
+            providerLabel={t('Provider')}
+            value={generateAllConceptsModel}
+          />
+          <Button.Group>
+            <Button
+              icon='times'
+              label={t('Cancel')}
+              onClick={closeDeduplicateConceptsConfirmation}
+            />
+            <Button
+              icon='filter'
+              label={t('Deduplicate')}
+              onClick={confirmDeduplicateConcepts}
+            />
+          </Button.Group>
+        </Modal.Content>
+      </Modal>}
       {isSortConceptsConfirmationOpen && <Modal
         header={t('Sort concepts')}
         onClose={closeSortConceptsConfirmation}
@@ -1218,6 +1320,7 @@ function Upload (): React.ReactElement {
           <BookReader
             assignAllStandardsRequest={assignAllStandardsRequest}
             book={selectedBook}
+            deduplicateAllConceptsRequest={deduplicateAllConceptsRequest}
             fixAllConceptsRequest={fixAllConceptsRequest}
             fixOnlyFailedConcepts={fixOnlyFailedConcepts}
             sortAllConceptsRequest={sortAllConceptsRequest}
@@ -1286,10 +1389,17 @@ function Upload (): React.ReactElement {
                 onClick: onFixConcepts
               },
               {
+                key: 'deduplicateConcepts',
+                label: t('Deduplicate concepts'),
+                isDone: isBookProcessingStageComplete(selectedBook, 'deduplicateConcepts'),
+                isDisabled: !readerFile || isBusy || !isBookProcessingStageComplete(selectedBook, 'fixConcepts') || !selectedBook.language || !selectedBook.subject || selectedBook.age === undefined,
+                onClick: onDeduplicateConcepts
+              },
+              {
                 key: 'sortConcepts',
                 label: t('Sort concepts'),
                 isDone: isBookProcessingStageComplete(selectedBook, 'sortConcepts'),
-                isDisabled: !readerFile || isBusy || !isBookProcessingStageComplete(selectedBook, 'fixConcepts') || !selectedBook.language || !selectedBook.subject || selectedBook.age === undefined,
+                isDisabled: !readerFile || isBusy || !isBookProcessingStageComplete(selectedBook, 'deduplicateConcepts') || !selectedBook.language || !selectedBook.subject || selectedBook.age === undefined,
                 onClick: onSortConcepts
               },
               {

@@ -22,7 +22,7 @@ function book (overrides: Partial<Book> = {}): Book {
 
 describe('named book processing stages', (): void => {
   it('keeps completion separate from ordering so a stage can be inserted without renumbering later stages', (): void => {
-    assert.deepEqual(BOOK_PROCESSING_STAGES.slice(4, 10), ['chapters', 'concepts', 'fixConcepts', 'sortConcepts', 'exercises', 'fixExercises']);
+    assert.deepEqual(BOOK_PROCESSING_STAGES.slice(4, 11), ['chapters', 'concepts', 'fixConcepts', 'deduplicateConcepts', 'sortConcepts', 'exercises', 'fixExercises']);
 
     const completed = withCompletedBookProcessingStage(book({ completedStages: ['concepts', 'exercises'] }), 'sortConcepts');
 
@@ -31,7 +31,7 @@ describe('named book processing stages', (): void => {
 
   it('resets the selected stage and every stage after it while preserving earlier completion', (): void => {
     const reset = withBookProcessingStagesResetFrom(book({
-      completedStages: ['recognize', 'language', 'subject', 'age', 'chapters', 'concepts', 'fixConcepts', 'sortConcepts', 'exercises', 'fixExercises', 'abilities']
+      completedStages: ['recognize', 'language', 'subject', 'age', 'chapters', 'concepts', 'fixConcepts', 'deduplicateConcepts', 'sortConcepts', 'exercises', 'fixExercises', 'abilities']
     }), 'fixConcepts');
 
     assert.deepEqual(reset.completedStages, ['recognize', 'language', 'subject', 'age', 'chapters', 'concepts']);
@@ -42,6 +42,7 @@ describe('named book processing stages', (): void => {
 
     assert.equal(completed.includes('concepts'), true);
     assert.equal(completed.includes('fixConcepts'), false);
+    assert.equal(completed.includes('deduplicateConcepts'), false);
     assert.equal(completed.includes('sortConcepts'), false);
     assert.equal(completed.includes('exercises'), true);
     assert.equal(completed.includes('fixStandards'), true);
