@@ -138,7 +138,7 @@ function Upload (): React.ReactElement {
   const [identifyChaptersEstimate, setIdentifyChaptersEstimate] = useState<AiInputEstimate>();
   const [isIdentifyChaptersConfirmationOpen, setIsIdentifyChaptersConfirmationOpen] = useState(false);
   const [generateAllConceptsModel, setGenerateAllConceptsModel] = useState(OPENAI_MODELS[0].value);
-  const [generateConceptsEstimate, setGenerateConceptsEstimate] = useState<AiInputEstimate>();
+  const [generateConceptsEstimate, setGenerateConceptsEstimate] = useState<AiInputEstimate | string>();
   const [generateOnlyMissingConcepts, setGenerateOnlyMissingConcepts] = useState(false);
   const [hasChaptersMissingConcepts, setHasChaptersMissingConcepts] = useState(false);
   const [fixConceptsEstimate, setFixConceptsEstimate] = useState<AiInputEstimate | string>();
@@ -533,44 +533,112 @@ function Upload (): React.ReactElement {
       return;
     }
 
+    let isCurrent = true;
+
+    setGenerateConceptsEstimate(undefined);
+
+    const estimateChapters = (pages: Awaited<ReturnType<typeof getBookPages>>, chapters: ReturnType<typeof conceptChaptersFromPages>): void => {
+      const pageByNumber = new Map(pages.map((page) => [page.pageNumber, page]));
+      const requestInputs = chapters.flatMap(({ pageNumbers: chapterPageNumbers }) => {
+        const chapterText = chapterPageNumbers.map((pageNumber) => `--- page ${pageNumber} ---\n${pageByNumber.get(pageNumber)?.pageMMD ?? ''}`).join('\n\n');
+        const estimatedRequest = chapterText.padEnd(chapterText.length + 2_000);
+
+        // Concept extraction can retry an empty chapter response once, so
+        // estimate two whole-chapter requests per chapter conservatively.
+        return [estimatedRequest, estimatedRequest];
+      });
+
+      if (isCurrent) {
+        setGenerateConceptsEstimate(estimateAiInput(generateAllConceptsModel, requestInputs, 4_800));
+      }
+    };
+
+    const loadConceptCountByChapter = async (chapters: ReturnType<typeof conceptChaptersFromPages>): Promise<Map<string, number>> => {
+      const pageNumbers = Array.from(new Set(chapters.flatMap(({ pageNumbers: chapterPageNumbers }) => chapterPageNumbers)));
+      const [pageConceptRows, pageLessConcepts] = await Promise.all([
+        Promise.all(pageNumbers.map(async (pageNumber) => [pageNumber, await getBookConceptsForBookPage(selectedBook.id, pageNumber)] as const)),
+        getBookConceptsForBookPage(selectedBook.id, 0)
+      ]);
+      const conceptsByPage = new Map(pageConceptRows);
+
+      return new Map(chapters.map((chapter) => {
+        const pageConceptCount = chapter.pageNumbers.reduce((count, pageNumber) => count + (conceptsByPage.get(pageNumber)?.length ?? 0), 0);
+        const pageLessConceptCount = chapter.chapterId === undefined ? 0 : pageLessConcepts.filter(({ chapterId }) => chapterId === chapter.chapterId).length;
+
+        return [standardsChapterKey(chapter.chapterId, chapter.title, chapter.pageNumbers), pageConceptCount + pageLessConceptCount] as const;
+      }));
+    };
+
     getBookPages(selectedBook.id)
       .then(async (pages) => {
-        const pageByNumber = new Map(pages.map((page) => [page.pageNumber, page]));
-        const chapters = conceptChaptersFromPages(pages);
-        const pageNumbers = Array.from(new Set(chapters.flatMap(({ pageNumbers: chapterPageNumbers }) => chapterPageNumbers)));
-        const [pageConceptRows, pageLessConcepts] = await Promise.all([
-          Promise.all(pageNumbers.map(async (pageNumber) => [pageNumber, await getBookConceptsForBookPage(selectedBook.id, pageNumber)] as const)),
-          getBookConceptsForBookPage(selectedBook.id, 0)
-        ]);
-        const conceptsByPage = new Map(pageConceptRows);
-        const conceptCountByChapter = new Map(chapters.map((chapter) => {
-          const pageConceptCount = chapter.pageNumbers.reduce((count, pageNumber) => count + (conceptsByPage.get(pageNumber)?.length ?? 0), 0);
-          const pageLessConceptCount = chapter.chapterId === undefined ? 0 : pageLessConcepts.filter(({ chapterId }) => chapterId === chapter.chapterId).length;
-
-          return [standardsChapterKey(chapter.chapterId, chapter.title, chapter.pageNumbers), pageConceptCount + pageLessConceptCount] as const;
-        }));
-        const hasMissingConcepts = chapters.some((chapter) => (conceptCountByChapter.get(standardsChapterKey(chapter.chapterId, chapter.title, chapter.pageNumbers)) ?? 0) === 0);
-
-        setHasChaptersMissingConcepts(hasMissingConcepts);
-        if (!hasMissingConcepts && generateOnlyMissingConcepts) {
-          setGenerateOnlyMissingConcepts(false);
+        if (!isCurrent) {
+          return;
         }
 
-        const estimationChapters = generateOnlyMissingConcepts
-          ? chapters.filter((chapter) => (conceptCountByChapter.get(standardsChapterKey(chapter.chapterId, chapter.title, chapter.pageNumbers)) ?? 0) === 0)
-          : chapters;
-        const requestInputs = estimationChapters.flatMap(({ pageNumbers: chapterPageNumbers }) => {
-          const chapterText = chapterPageNumbers.map((pageNumber) => `--- page ${pageNumber} ---\n${pageByNumber.get(pageNumber)?.pageMMD ?? ''}`).join('\n\n');
-          const estimatedRequest = chapterText.padEnd(chapterText.length + 2_000);
+        const chapters = conceptChaptersFromPages(pages);
 
-          // Concept extraction can retry an empty chapter response once, so
-          // estimate two whole-chapter requests per chapter conservatively.
-          return [estimatedRequest, estimatedRequest];
-        });
+        if (!generateOnlyMissingConcepts) {
+          // The normal estimate needs only page text and chapter assignments.
+          // Render it before touching the concept inventory so a slow/stuck
+          // IndexedDB concept query cannot leave the popup calculating forever.
+          estimateChapters(pages, chapters);
 
-        setGenerateConceptsEstimate(estimateAiInput(generateAllConceptsModel, requestInputs, 4_800));
+          // This inventory lookup exists only to decide whether the optional
+          // "only missing" toggle should be enabled. It must never block cost.
+          void loadConceptCountByChapter(chapters)
+            .then((conceptCountByChapter) => {
+              if (!isCurrent) {
+                return;
+              }
+
+              setHasChaptersMissingConcepts(chapters.some((chapter) => (conceptCountByChapter.get(standardsChapterKey(chapter.chapterId, chapter.title, chapter.pageNumbers)) ?? 0) === 0));
+            })
+            .catch((conceptInventoryError) => {
+              console.error('Unable to load concept inventory for cost estimation.', conceptInventoryError);
+
+              if (isCurrent) {
+                setHasChaptersMissingConcepts(false);
+              }
+            });
+
+          return;
+        }
+
+        // If the user explicitly requests only missing chapters, inventory is
+        // required to know which requests should be included in the estimate.
+        const conceptCountByChapter = await loadConceptCountByChapter(chapters);
+
+        if (!isCurrent) {
+          return;
+        }
+
+        const missingChapters = chapters.filter((chapter) => (conceptCountByChapter.get(standardsChapterKey(chapter.chapterId, chapter.title, chapter.pageNumbers)) ?? 0) === 0);
+        const hasMissingConcepts = missingChapters.length > 0;
+
+        setHasChaptersMissingConcepts(hasMissingConcepts);
+
+        if (!hasMissingConcepts) {
+          setGenerateOnlyMissingConcepts(false);
+          return;
+        }
+
+        estimateChapters(pages, missingChapters);
       })
-      .catch(() => setError(t('Unable to estimate concept generation cost.')));
+      .catch((estimationError) => {
+        if (!isCurrent) {
+          return;
+        }
+
+        console.error('Unable to estimate concept generation cost.', estimationError);
+        const message = estimationError instanceof Error ? estimationError.message : t('Unable to estimate concept generation cost.');
+
+        setGenerateConceptsEstimate(message);
+        setError(message);
+      });
+
+    return () => {
+      isCurrent = false;
+    };
   }, [generateAllConceptsModel, generateOnlyMissingConcepts, isGenerateConceptsConfirmationOpen, selectedBook, t]);
 
   const closeGenerateConceptsConfirmation = useCallback((): void => {
