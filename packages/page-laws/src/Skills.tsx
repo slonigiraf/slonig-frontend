@@ -2802,7 +2802,6 @@ function Skills ({ book, externalRefreshToken = 0, onAction, onBookChange, onCon
                       <div className='fixResultsReviewCard'>
                         <div className='fixResultsReviewHeading'>
                           <strong>{role} visual</strong>
-                          <span className='fixResultsReviewMeta'><span className='fixResultsReviewId'>ID {record.id}</span></span>
                         </div>
                         <p><small>Pre-render: {originalPreRender.compiled ? 'compiled successfully' : 'FAILED to compile/render'}</small></p>
                         {!originalPreRender.compiled && originalPreRender.diagnostics.length > 0 && <pre className='tikzDiagnostics'>{originalPreRender.diagnostics.slice(-8).join('\n')}</pre>}
@@ -2817,7 +2816,6 @@ function Skills ({ book, externalRefreshToken = 0, onAction, onBookChange, onCon
                           <strong>{role} visual</strong>
                           <span className='fixResultsReviewMeta'>
                             <span className='fixResultsReviewProposed'>Proposed</span>
-                            <span className='fixResultsReviewId'>ID {record.id}</span>
                           </span>
                         </div>
                         <p><small>Pre-render: {fixedPreRender.compiled ? 'compiled successfully' : 'FAILED'}</small></p>
