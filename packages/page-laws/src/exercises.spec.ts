@@ -239,7 +239,9 @@ describe('exercise repair', (): void => {
     assert.match(FIX_EXERCISES_PROMPT, /needless verbosity/i);
     assert.match(FIX_EXERCISES_PROMPT, /non-obvious solution that omits essential solving steps/i);
     assert.match(FIX_EXERCISES_PROMPT, /essential steps in logical order/i);
-    assert.doesNotMatch(FIX_EXERCISES_PROMPT, /fraction-representation concepts|fraction strip|number line/i);
+    assert.doesNotMatch(FIX_EXERCISES_PROMPT, /fraction-representation concepts|fraction strip/i);
+    assert.match(FIX_EXERCISES_PROMPT, /slash-form mathematical fractions are errors/i);
+    assert.match(FIX_EXERCISES_PROMPT, /number line that violates any of these requirements is an error/i);
     assert.match(FIX_EXERCISES_PROMPT, /solutionImageDescription/i);
     assert.match(FIX_EXERCISES_PROMPT, /EXPECTED ANSWER FORMAT/i);
     assert.match(FIX_EXERCISES_PROMPT, /draw, sketch, plot, graph, construct/i);

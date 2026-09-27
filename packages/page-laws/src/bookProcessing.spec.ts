@@ -93,7 +93,9 @@ describe('book processing pipeline', (): void => {
         assert.match(prompt, /Prefer one short sentence/i);
         assert.match(prompt, /6-16 words/i);
         assert.match(prompt, /no more than about 20 words/i);
-        assert.doesNotMatch(prompt, /fraction-representation concepts|fraction strip|number line/i);
+        assert.doesNotMatch(prompt, /fraction-representation concepts|fraction strip/i);
+        assert.match(prompt, /LaTeX fraction notation/i);
+        assert.match(prompt, /straight line with equally spaced ticks/i);
         assert.match(prompt, /later be reused by changing 1-3 data-bearing words or values/i);
         assert.doesNotMatch(prompt, /bookExercises|bookExerciseIndex|overlappingBookExerciseIndexes/i);
 

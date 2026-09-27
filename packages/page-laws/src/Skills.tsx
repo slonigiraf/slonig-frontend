@@ -20,7 +20,7 @@ import { getTikzRenderConcurrency } from './Edit/tikzConcurrency.js';
 import { parseAbilityRepairResult, parseStoredAbility, withAbilityVisualSource } from './abilities.js';
 import { parseExerciseRepairResult } from './exercises.js';
 import { estimateAiInput } from './aiEstimate.js';
-import { ABILITY_WORKFLOW_SYSTEM_PROMPT, FIX_ABILITIES_REQUEST_PROMPT, FIX_EXERCISES_REQUEST_PROMPT, JSON_VALIDATION_PROMPT, LEARNER_AGE_PROMPT, OPENAI_MODELS, REPAIR_SYSTEM_PROMPT, SKILLS_GENERATION_SYSTEM_PROMPT, SOURCES_TO_SKILLS_REQUEST_PROMPT } from './constants.js';
+import { ABILITY_WORKFLOW_SYSTEM_PROMPT, FIX_ABILITIES_REQUEST_PROMPT, FIX_EXERCISES_REQUEST_PROMPT, JSON_VALIDATION_PROMPT, LEARNER_AGE_PROMPT, MATH_DISPLAY_REQUIREMENTS_PROMPT, OPENAI_MODELS, REPAIR_SYSTEM_PROMPT, SKILLS_GENERATION_SYSTEM_PROMPT, SOURCES_TO_SKILLS_REQUEST_PROMPT } from './constants.js';
 import { abilityBlueprintRequestPrompt, materializeExerciseAbility, planExerciseAbility, transportCompactAbilitySourceExercise } from './abilityWorkflow.js';
 import { mapConcurrent } from './concurrency.js';
 import { OPENROUTER_CONCURRENCY, openRouterRequestGate } from './openRouterConcurrency.js';
@@ -456,6 +456,7 @@ function tikzRequestPrompt (language: string, ability: GeneratedAbility, exercis
   return `Convert the supplied semantic visual description into a compact TikZ diagram for a learner-facing ${purpose}.
 
 Rules:
+${MATH_DISPLAY_REQUIREMENTS_PROMPT}
 - Return ONLY one \\begin{tikzpicture}...\\end{tikzpicture} block. No markdown fences, prose, documentclass, packages, or external files.
 - Use only standard TikZ constructs and common built-in libraries where possible. Keep the drawing browser-renderable with TikZJax.
 - Preserve the exact mathematical/semantic information in the visual description. Do not add hints or facts that would reveal an answer in a question visual.
@@ -511,6 +512,10 @@ function tikzFixReviewPrompt (language: string, target: ImageFixTarget, preRende
 
   return `Strictly review this learner-facing TikZ ${purpose}. The goal is not merely valid code: the rendered diagram must accurately realize the ORIGINAL VISUAL PROMPT for this concrete Ability exercise and must be clean and readable.
 
+${MATH_DISPLAY_REQUIREMENTS_PROMPT}
+
+During review or repair, slash-form mathematical fractions are errors and must be corrected. During review or repair, any number line that violates any of these requirements is an error and must be corrected.
+
 You MUST inspect all of these classes of failure:
 - TikZ/TeX compile or TikZJax render failure. A successful compile is mandatory.
 - Semantic mismatch with the original visual prompt, concrete question, or correct answer.
@@ -547,6 +552,10 @@ function tikzCompileRepairPrompt (language: string, target: ImageFixTarget, revi
 
   return `The proposed TikZ correction still failed the application's real TikZJax pre-render. Repair the TikZ so it compiles in TikZJax AND still satisfies the original visual specification. Keep all valid semantic/layout corrections already made.
 
+${MATH_DISPLAY_REQUIREMENTS_PROMPT}
+
+During review or repair, slash-form mathematical fractions are errors and must be corrected. During review or repair, any number line that violates any of these requirements is an error and must be corrected.
+
 Return ONLY JSON in this exact shape:
 {"hasErrors":true,"errors":["..."],"tikz":"\\begin{tikzpicture}...\\end{tikzpicture}"}
 The errors array must include the original visual problems and the compile/render failure you fixed.
@@ -568,6 +577,10 @@ function tikzDetectedProblemsRepairPrompt (language: string, target: ImageFixTar
   const exercise = target.ability.q[target.exerciseIndex];
 
   return `You identified real problems in this TikZ visual but returned the original TikZ unchanged. Apply the required corrections now. The corrected TikZ must compile in TikZJax, match the original visual prompt and concrete exercise, and resolve every listed layout/semantic problem.
+
+${MATH_DISPLAY_REQUIREMENTS_PROMPT}
+
+During review or repair, slash-form mathematical fractions are errors and must be corrected. During review or repair, any number line that violates any of these requirements is an error and must be corrected.
 
 Return ONLY JSON in this exact shape:
 {"hasErrors":true,"errors":["..."],"tikz":"\\begin{tikzpicture}...\\end{tikzpicture}"}
