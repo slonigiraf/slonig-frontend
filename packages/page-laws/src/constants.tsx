@@ -8,7 +8,7 @@ export const MATHPIX_PDF_PAGE_PRICE_USD = 0.005;
 
 export const MATH_DISPLAY_REQUIREMENTS_PROMPT = String.raw`Math display requirements:
 - Fractions: whenever a mathematical fraction is written or displayed, use LaTeX fraction notation \frac{a}{b} (with the actual numerator and denominator substituted), never slash notation such as a/b. In JSON strings, escape the LaTeX backslash so the JSON remains valid (for example, \\frac{a}{b}); in TikZ labels, render \frac{...}{...} in TeX math mode.
-- Number lines: a number line is a straight line with equally spaced ticks, with numbers shown below the ticks, 0 and 1 always labeled, and exactly one arrow indicating the positive direction. Do not use arrowheads at both ends and do not omit the positive-direction arrow.`;
+- Number lines: a number line is a straight line with equally spaced ticks, with numbers shown below the ticks, 0 and 1 always labeled, and exactly one arrow indicating the positive direction. The number line always has one extra step between the last tick mark and the arrow. Do not use arrowheads at both ends and do not omit the positive-direction arrow.`;
 
 export const OPENAI_MODELS = [
   { text: 'GPT-4o mini: $0.15/$0.60', value: 'openai/gpt-4o-mini' },
