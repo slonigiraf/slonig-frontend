@@ -25,6 +25,7 @@ import { formatOpenRouterSpend } from './openRouterCost.js';
 import { loadStandardsCatalogsForBookSubject, STANDARDS_MATCH_RUNS, standardsConceptInputs, standardsMatchingPrompt } from './standards.js';
 import { AiPriceEstimate, UnitPriceEstimate } from './PriceEstimate.js';
 import { loadPdfJs } from './pdf.js';
+import StageRunPricePopup from './StageRunPricePopup.js';
 import { useTranslation } from './translate.js';
 
 const BookReader = React.lazy(() => import('./BookReader.js'));
@@ -1088,261 +1089,157 @@ function Upload (): React.ReactElement {
           </PriceContent>
         </Modal.Content>
       </PriceModal>}
-      {isRecognizeConfirmationOpen && <Modal
+      {isRecognizeConfirmationOpen && <StageRunPricePopup
         header={t('Recognize pages')}
         onClose={closeRecognizeConfirmation}
-        size='small'
+        onRun={confirmRecognize}
+        runLabel={t('Run')}
       >
-        <Modal.Content>
-          <p>{t('Recognize every page in this book?')}</p>
-          <UnitPriceEstimate
-            count={recognizePageCount}
-            lineLabel='Mathpix v3/pdf'
-            title={t('Estimated Mathpix cost')}
-            unitLabel='page'
-            unitPriceUsd={MATHPIX_PDF_PAGE_PRICE_USD}
-          />
-          <Button.Group>
-            <Button
-              icon='times'
-              label={t('Cancel')}
-              onClick={closeRecognizeConfirmation}
-            />
-            <Button
-              icon='play'
-              label={t('Recognize')}
-              onClick={confirmRecognize}
-            />
-          </Button.Group>
-        </Modal.Content>
-      </Modal>}
-      {isIdentifyChaptersConfirmationOpen && <Modal
+        <p>{t('Recognize every page in this book?')}</p>
+        <UnitPriceEstimate
+          count={recognizePageCount}
+          lineLabel='Mathpix v3/pdf'
+          title={t('Estimated Mathpix cost')}
+          unitLabel='page'
+          unitPriceUsd={MATHPIX_PDF_PAGE_PRICE_USD}
+        />
+      </StageRunPricePopup>}
+      {isIdentifyChaptersConfirmationOpen && <StageRunPricePopup
         header={t('Identify chapters')}
         onClose={closeIdentifyChaptersConfirmation}
-        size='small'
+        onRun={confirmIdentifyChapters}
+        runLabel={t('Run')}
       >
-        <Modal.Content>
-          <p>{t('Use PDF bookmarks as chapter boundaries when available. Otherwise identify chapters from recognized page text.')}</p>
-          <p>{t('If bookmarks are unavailable, page-text detection needs a book language and may use AI.')}</p>
-          <AiPriceEstimate
-            estimate={identifyChaptersEstimate}
-            title={t('Estimated AI cost if page-text detection is needed')}
-          />
-          <p>{t('You can manually rename chapters, start a chapter on any page, merge chapters, or assign individual pages afterward.')}</p>
-          <OpenRouterModelSelector
-            className='batchModelSelect'
-            modelLabel={t('Model')}
-            onChange={setGenerateAllConceptsModel}
-            providerLabel={t('Provider')}
-            value={generateAllConceptsModel}
-          />
-          <Button.Group>
-            <Button
-              icon='times'
-              label={t('Cancel')}
-              onClick={closeIdentifyChaptersConfirmation}
-            />
-            <Button
-              icon='play'
-              label={t('Identify')}
-              onClick={confirmIdentifyChapters}
-            />
-          </Button.Group>
-        </Modal.Content>
-      </Modal>}
-      {isGenerateConceptsConfirmationOpen && <Modal
+        <p>{t('Use PDF bookmarks as chapter boundaries when available. Otherwise identify chapters from recognized page text.')}</p>
+        <p>{t('If bookmarks are unavailable, page-text detection needs a book language and may use AI.')}</p>
+        <AiPriceEstimate
+          estimate={identifyChaptersEstimate}
+          title={t('Estimated AI cost if page-text detection is needed')}
+        />
+        <p>{t('You can manually rename chapters, start a chapter on any page, merge chapters, or assign individual pages afterward.')}</p>
+        <OpenRouterModelSelector
+          className='batchModelSelect'
+          modelLabel={t('Model')}
+          onChange={setGenerateAllConceptsModel}
+          providerLabel={t('Provider')}
+          value={generateAllConceptsModel}
+        />
+      </StageRunPricePopup>}
+      {isGenerateConceptsConfirmationOpen && <StageRunPricePopup
         header={t('Generate concepts')}
         onClose={closeGenerateConceptsConfirmation}
-        size='small'
+        onRun={confirmGenerateConcepts}
+        runLabel={t('Run')}
       >
-        <Modal.Content>
-          <p>{t('Generate concepts chapter-by-chapter for this book? Each concept will be stored on the page where it is first introduced.')}</p>
-          <Toggle
-            isDisabled={!selectedBook || !isBookProcessingStageComplete(selectedBook, 'concepts') || !hasChaptersMissingConcepts}
-            label={t('Only for chapters missing concepts')}
-            onChange={setGenerateOnlyMissingConcepts}
-            value={generateOnlyMissingConcepts}
-          />
-          <AiPriceEstimate estimate={generateConceptsEstimate} />
-          <OpenRouterModelSelector
-            className='batchModelSelect'
-            modelLabel={t('Model')}
-            onChange={setGenerateAllConceptsModel}
-            providerLabel={t('Provider')}
-            requiredInputModalities={['image']}
-            value={generateAllConceptsModel}
-          />
-          <Button.Group>
-            <Button
-              icon='times'
-              label={t('Cancel')}
-              onClick={closeGenerateConceptsConfirmation}
-            />
-            <Button
-              icon='play'
-              label={t('Generate')}
-              onClick={confirmGenerateConcepts}
-            />
-          </Button.Group>
-        </Modal.Content>
-      </Modal>}
-      {isFixConceptsConfirmationOpen && <Modal
+        <p>{t('Generate concepts chapter-by-chapter for this book? Each concept will be stored on the page where it is first introduced.')}</p>
+        <Toggle
+          isDisabled={!selectedBook || !isBookProcessingStageComplete(selectedBook, 'concepts') || !hasChaptersMissingConcepts}
+          label={t('Only for chapters missing concepts')}
+          onChange={setGenerateOnlyMissingConcepts}
+          value={generateOnlyMissingConcepts}
+        />
+        <AiPriceEstimate estimate={generateConceptsEstimate} />
+        <OpenRouterModelSelector
+          className='batchModelSelect'
+          modelLabel={t('Model')}
+          onChange={setGenerateAllConceptsModel}
+          providerLabel={t('Provider')}
+          requiredInputModalities={['image']}
+          value={generateAllConceptsModel}
+        />
+      </StageRunPricePopup>}
+      {isFixConceptsConfirmationOpen && <StageRunPricePopup
         header={t('Fix concepts')}
         onClose={closeFixConceptsConfirmation}
-        size='small'
+        onRun={confirmFixConcepts}
+        runLabel={t('Run')}
       >
-        <Modal.Content>
-          <p>{t('Review each chapter’s source text and current concept list using the book topic, language, and learner age. Fix concepts can propose strongly implied missing concepts and flag existing concepts that clearly do not belong to the chapter. You can add or remove concepts in the review before anything is saved.')}</p>
-          <Toggle
-            isDisabled={!hasFailedFixConceptChapters}
-            label={t('Only retry chapters that failed the last Fix concepts run')}
-            onChange={setFixOnlyFailedConcepts}
-            value={fixOnlyFailedConcepts}
-          />
-          <AiPriceEstimate estimate={fixConceptsEstimate} />
-          <OpenRouterModelSelector
-            className='batchModelSelect'
-            modelLabel={t('Model')}
-            onChange={setGenerateAllConceptsModel}
-            providerLabel={t('Provider')}
-            value={generateAllConceptsModel}
-          />
-          <Button.Group>
-            <Button
-              icon='times'
-              label={t('Cancel')}
-              onClick={closeFixConceptsConfirmation}
-            />
-            <Button
-              icon='play'
-              label={t('Fix')}
-              onClick={confirmFixConcepts}
-            />
-          </Button.Group>
-        </Modal.Content>
-      </Modal>}
-      {isDeduplicateConceptsConfirmationOpen && <Modal
+        <p>{t('Review each chapter’s source text and current concept list using the book topic, language, and learner age. Fix concepts can propose strongly implied missing concepts and flag existing concepts that clearly do not belong to the chapter. You can add or remove concepts in the review before anything is saved.')}</p>
+        <Toggle
+          isDisabled={!hasFailedFixConceptChapters}
+          label={t('Only retry chapters that failed the last Fix concepts run')}
+          onChange={setFixOnlyFailedConcepts}
+          value={fixOnlyFailedConcepts}
+        />
+        <AiPriceEstimate estimate={fixConceptsEstimate} />
+        <OpenRouterModelSelector
+          className='batchModelSelect'
+          modelLabel={t('Model')}
+          onChange={setGenerateAllConceptsModel}
+          providerLabel={t('Provider')}
+          value={generateAllConceptsModel}
+        />
+      </StageRunPricePopup>}
+      {isDeduplicateConceptsConfirmationOpen && <StageRunPricePopup
         header={t('Deduplicate concepts')}
         onClose={closeDeduplicateConceptsConfirmation}
-        size='small'
+        onRun={confirmDeduplicateConcepts}
+        runLabel={t('Run')}
       >
-        <Modal.Content>
-          <p>{t('Compare concepts across different chapters and identify only very close semantic duplicates. Nothing is deleted until you review the proposed duplicate pairs. For every accepted pair or duplicate cluster, the concept from the higher chapter id is deleted and the concept from the lower chapter id is kept.')}</p>
-          <AiPriceEstimate estimate={deduplicateConceptsEstimate} />
-          <OpenRouterModelSelector
-            className='batchModelSelect'
-            modelLabel={t('Model')}
-            onChange={setGenerateAllConceptsModel}
-            providerLabel={t('Provider')}
-            value={generateAllConceptsModel}
-          />
-          <Button.Group>
-            <Button
-              icon='times'
-              label={t('Cancel')}
-              onClick={closeDeduplicateConceptsConfirmation}
-            />
-            <Button
-              icon='filter'
-              label={t('Deduplicate')}
-              onClick={confirmDeduplicateConcepts}
-            />
-          </Button.Group>
-        </Modal.Content>
-      </Modal>}
-      {isSortConceptsConfirmationOpen && <Modal
+        <p>{t('Compare concepts across different chapters and identify only very close semantic duplicates. Nothing is deleted until you review the proposed duplicate pairs. For every accepted pair or duplicate cluster, the concept from the higher chapter id is deleted and the concept from the lower chapter id is kept.')}</p>
+        <AiPriceEstimate estimate={deduplicateConceptsEstimate} />
+        <OpenRouterModelSelector
+          className='batchModelSelect'
+          modelLabel={t('Model')}
+          onChange={setGenerateAllConceptsModel}
+          providerLabel={t('Provider')}
+          value={generateAllConceptsModel}
+        />
+      </StageRunPricePopup>}
+      {isSortConceptsConfirmationOpen && <StageRunPricePopup
         header={t('Sort concepts')}
         onClose={closeSortConceptsConfirmation}
-        size='small'
+        onRun={confirmSortConcepts}
+        runLabel={t('Run')}
       >
-        <Modal.Content>
-          <p>{t('Sort each chapter’s finalized Concepts into a Zone of Proximal Development progression for the configured learner age. The model will prioritize prerequisite readiness rather than source-page order, and the resulting order will be saved in BookConcept.displayOrder.')}</p>
-          <AiPriceEstimate estimate={sortConceptsEstimate} />
-          <OpenRouterModelSelector
-            className='batchModelSelect'
-            modelLabel={t('Model')}
-            onChange={setGenerateAllConceptsModel}
-            providerLabel={t('Provider')}
-            value={generateAllConceptsModel}
-          />
-          <Button.Group>
-            <Button
-              icon='times'
-              label={t('Cancel')}
-              onClick={closeSortConceptsConfirmation}
-            />
-            <Button
-              icon='arrow-down'
-              label={t('Sort')}
-              onClick={confirmSortConcepts}
-            />
-          </Button.Group>
-        </Modal.Content>
-      </Modal>}
-      {isStandardsConfirmationOpen && <Modal
+        <p>{t('Sort each chapter’s finalized Concepts into a Zone of Proximal Development progression for the configured learner age. The model will prioritize prerequisite readiness rather than source-page order, and the resulting order will be saved in BookConcept.displayOrder.')}</p>
+        <AiPriceEstimate estimate={sortConceptsEstimate} />
+        <OpenRouterModelSelector
+          className='batchModelSelect'
+          modelLabel={t('Model')}
+          onChange={setGenerateAllConceptsModel}
+          providerLabel={t('Provider')}
+          value={generateAllConceptsModel}
+        />
+      </StageRunPricePopup>}
+      {isStandardsConfirmationOpen && <StageRunPricePopup
         header={t('Standards')}
         onClose={closeStandardsConfirmation}
-        size='small'
+        onRun={confirmAssignStandards}
+        runLabel={t('Run')}
       >
-        <Modal.Content>
-          <p>{t('Match standards for every chapter from its extracted concepts? The detected book subject selects the standards catalog path, then each available standards catalog is checked three times against the chapter concepts and the detected standards are combined. Only codes present in the supplied catalog can be stored.')}</p>
-          <AiPriceEstimate estimate={standardsEstimate} />
-          <OpenRouterModelSelector
-            className='batchModelSelect'
-            modelLabel={t('Model')}
-            onChange={setGenerateAllConceptsModel}
-            providerLabel={t('Provider')}
-            value={generateAllConceptsModel}
-          />
-          <Button.Group>
-            <Button
-              icon='times'
-              label={t('Cancel')}
-              onClick={closeStandardsConfirmation}
-            />
-            <Button
-              icon='play'
-              label={t('Identify')}
-              onClick={confirmAssignStandards}
-            />
-          </Button.Group>
-        </Modal.Content>
-      </Modal>}
-      {isGenerateExercisesConfirmationOpen && <Modal
+        <p>{t('Match standards for every chapter from its extracted concepts? The detected book subject selects the standards catalog path, then each available standards catalog is checked three times against the chapter concepts and the detected standards are combined. Only codes present in the supplied catalog can be stored.')}</p>
+        <AiPriceEstimate estimate={standardsEstimate} />
+        <OpenRouterModelSelector
+          className='batchModelSelect'
+          modelLabel={t('Model')}
+          onChange={setGenerateAllConceptsModel}
+          providerLabel={t('Provider')}
+          value={generateAllConceptsModel}
+        />
+      </StageRunPricePopup>}
+      {isGenerateExercisesConfirmationOpen && <StageRunPricePopup
         header={t('Generate exercises')}
         onClose={closeGenerateExercisesConfirmation}
-        size='small'
+        onRun={confirmGenerateExercises}
+        runLabel={t('Run')}
       >
-        <Modal.Content>
-          <p>{t('Generate one succinct, transformation-first exercise per concept, keep one per non-overlapping book exercise, and skip book exercises already covered by concepts?')}</p>
-          <Toggle
-            isDisabled={!hasConceptsMissingExercise}
-            label={t('Only for concepts, missing an exercise')}
-            onChange={setGenerateOnlyMissingExercises}
-            value={generateOnlyMissingExercises}
-          />
-          <AiPriceEstimate estimate={generateExercisesEstimate} />
-          <OpenRouterModelSelector
-            className='batchModelSelect'
-            modelLabel={t('Model')}
-            onChange={setGenerateAllConceptsModel}
-            providerLabel={t('Provider')}
-            value={generateAllConceptsModel}
-          />
-          <Button.Group>
-            <Button
-              icon='times'
-              label={t('Cancel')}
-              onClick={closeGenerateExercisesConfirmation}
-            />
-            <Button
-              icon='play'
-              label={t('Generate')}
-              onClick={confirmGenerateExercises}
-            />
-          </Button.Group>
-        </Modal.Content>
-      </Modal>}
+        <p>{t('Generate one succinct, transformation-first exercise per concept, keep one per non-overlapping book exercise, and skip book exercises already covered by concepts?')}</p>
+        <Toggle
+          isDisabled={!hasConceptsMissingExercise}
+          label={t('Only for concepts, missing an exercise')}
+          onChange={setGenerateOnlyMissingExercises}
+          value={generateOnlyMissingExercises}
+        />
+        <AiPriceEstimate estimate={generateExercisesEstimate} />
+        <OpenRouterModelSelector
+          className='batchModelSelect'
+          modelLabel={t('Model')}
+          onChange={setGenerateAllConceptsModel}
+          providerLabel={t('Provider')}
+          value={generateAllConceptsModel}
+        />
+      </StageRunPricePopup>}
       <div className='bookToolbar'>
         <div className='bookToolbarPrimary'>
           <Button

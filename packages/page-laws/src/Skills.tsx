@@ -27,9 +27,9 @@ import { OPENROUTER_CONCURRENCY, openRouterRequestGate } from './openRouterConcu
 import OpenRouterModelSelector from './OpenRouterModelSelector.js';
 import { formatOpenRouterSpend, reportOpenRouterCost, type OpenRouterCostReporter } from './openRouterCost.js';
 import { AiPriceEstimate } from './PriceEstimate.js';
+import StageRunPricePopup from './StageRunPricePopup.js';
 import { stripMarkdownImageReferences } from './bookImageRefs.js';
 import { sortAbilitiesForDisplay, sortExercisesForDisplay } from './learningOrder.js';
-import { batchItemsByChapter } from './chapterBatching.js';
 import { getSharedChapterSelection, resolveSharedChapterIndex, storeSharedChapterSelection, subscribeSharedChapterSelection } from './chapterSelection.js';
 
 const TikzDisplay = React.lazy(() => import('./Edit/TikzDisplay.js'));
@@ -2869,39 +2869,25 @@ function Skills ({ book, externalRefreshToken = 0, onAction, onBookChange, onCon
       </Modal>
     )}
     {aiAction && (
-      <Modal
+      <StageRunPricePopup
         header='Confirm AI processing'
         onClose={closeConfirmation}
-        size='small'
+        onRun={confirm}
       >
-        <Modal.Content>
-          <AiPriceEstimate estimate={estimate} />
-          {aiAction === 'exercises' && <Toggle
-            isDisabled={!exercisesMissingAbilities.length}
-            label='Only for Exercises, missing an Ability'
-            onChange={setGenerateOnlyMissingAbilities}
-            value={generateOnlyMissingAbilities}
-          />}
-          <OpenRouterModelSelector
-            className='modelSelect'
-            isDisabled={isBusy}
-            onChange={setSelectedModel}
-            value={selectedModel}
-          />
-          <Button.Group>
-            <Button
-              icon='times'
-              label='Cancel'
-              onClick={closeConfirmation}
-            />
-            <Button
-              icon='check'
-              label='Continue'
-              onClick={confirm}
-            />
-          </Button.Group>
-        </Modal.Content>
-      </Modal>
+        <AiPriceEstimate estimate={estimate} />
+        {aiAction === 'exercises' && <Toggle
+          isDisabled={!exercisesMissingAbilities.length}
+          label='Only for Exercises, missing an Ability'
+          onChange={setGenerateOnlyMissingAbilities}
+          value={generateOnlyMissingAbilities}
+        />}
+        <OpenRouterModelSelector
+          className='modelSelect'
+          isDisabled={isBusy}
+          onChange={setSelectedModel}
+          value={selectedModel}
+        />
+      </StageRunPricePopup>
     )}
     {isBusy && (
       <div className='processingOverlay'>

@@ -14,7 +14,6 @@ import React, { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useSta
 
 import { Button, Dropdown, Input, Modal, styled } from '@polkadot/react-components';
 
-import { parseStoredAbility } from './abilities.js';
 import { estimateAiInput } from './aiEstimate.js';
 import { bookAgeLabel, getBookAgeSamplePageNumbers, MAX_BOOK_LEARNER_AGE, MIN_BOOK_LEARNER_AGE, normalizeBookAge, parseDetectedBookAge } from './bookAge.js';
 import { BOOK_LANGUAGE_OPTIONS, bookLanguageLabel, getMiddleBookPageNumbers, normalizeLanguageCode, parseDetectedBookLanguage } from './bookLanguage.js';
@@ -40,6 +39,7 @@ import Skills, { type PipelineAction } from './Skills.js';
 import SkillsCourse from './SkillsCourse.js';
 import { extractPdfOutlineChapterBoundaries, loadPdfJs } from './pdf.js';
 import { AiPriceEstimate } from './PriceEstimate.js';
+import StageRunPricePopup from './StageRunPricePopup.js';
 import { useTranslation } from './translate.js';
 
 export { OPENAI_MODELS } from './constants.js';
@@ -5692,118 +5692,62 @@ function BookReader({ ageTabRequest, assignAllStandardsRequest, book, deduplicat
           </Button.Group>
         </Modal.Content>
       </Modal>}
-      {isLanguageDetectionConfirmationOpen && <Modal
+      {isLanguageDetectionConfirmationOpen && <StageRunPricePopup
         header='Detect book language'
         onClose={closeLanguageDetectionConfirmation}
-        size='small'
+        onRun={confirmLanguageDetection}
       >
-        <Modal.Content>
-          <p>Detect the primary language? You can change the result manually afterward.</p>
-          <AiPriceEstimate estimate={languageDetectionEstimate} />
-          <OpenRouterModelSelector
-            className='modelSelect'
-            onChange={setSelectedLanguageModel}
-            value={selectedLanguageModel}
-          />
-          <Button.Group>
-            <Button
-              icon='times'
-              label='Cancel'
-              onClick={closeLanguageDetectionConfirmation}
-            />
-            <Button
-              icon='play'
-              label='Detect'
-              onClick={confirmLanguageDetection}
-            />
-          </Button.Group>
-        </Modal.Content>
-      </Modal>}
-      {isSubjectDetectionConfirmationOpen && <Modal
+        <p>Detect the primary language? You can change the result manually afterward.</p>
+        <AiPriceEstimate estimate={languageDetectionEstimate} />
+        <OpenRouterModelSelector
+          className='modelSelect'
+          onChange={setSelectedLanguageModel}
+          value={selectedLanguageModel}
+        />
+      </StageRunPricePopup>}
+      {isSubjectDetectionConfirmationOpen && <StageRunPricePopup
         header='Detect book subject'
         onClose={closeSubjectDetectionConfirmation}
-        size='small'
+        onRun={confirmSubjectDetection}
       >
-        <Modal.Content>
-          <p>{automaticBookSubjectForLanguage(book.language)
-            ? 'This book is not in English, so its subject will be set to na automatically. You can change the stored subject manually afterward.'
-            : 'Detect the primary subject? You can change the result manually afterward.'}</p>
-          <AiPriceEstimate estimate={subjectDetectionEstimate} />
-          {!automaticBookSubjectForLanguage(book.language) && <OpenRouterModelSelector
-            className='modelSelect'
-            onChange={setSelectedSubjectModel}
-            value={selectedSubjectModel}
-          />}
-          <Button.Group>
-            <Button
-              icon='times'
-              label='Cancel'
-              onClick={closeSubjectDetectionConfirmation}
-            />
-            <Button
-              icon='play'
-              label='Detect'
-              onClick={confirmSubjectDetection}
-            />
-          </Button.Group>
-        </Modal.Content>
-      </Modal>}
-      {isAgeDetectionConfirmationOpen && <Modal
+        <p>{automaticBookSubjectForLanguage(book.language)
+          ? 'This book is not in English, so its subject will be set to na automatically. You can change the stored subject manually afterward.'
+          : 'Detect the primary subject? You can change the result manually afterward.'}</p>
+        <AiPriceEstimate estimate={subjectDetectionEstimate} />
+        {!automaticBookSubjectForLanguage(book.language) && <OpenRouterModelSelector
+          className='modelSelect'
+          onChange={setSelectedSubjectModel}
+          value={selectedSubjectModel}
+        />}
+      </StageRunPricePopup>}
+      {isAgeDetectionConfirmationOpen && <StageRunPricePopup
         header='Detect learner age'
         onClose={closeAgeDetectionConfirmation}
-        size='small'
+        onRun={confirmAgeDetection}
       >
-        <Modal.Content>
-          <p>Detect one typical learner age? The result can be changed manually afterward.</p>
-          <AiPriceEstimate estimate={ageDetectionEstimate} />
-          <OpenRouterModelSelector
-            className='modelSelect'
-            onChange={setSelectedAgeModel}
-            value={selectedAgeModel}
-          />
-          <Button.Group>
-            <Button
-              icon='times'
-              label='Cancel'
-              onClick={closeAgeDetectionConfirmation}
-            />
-            <Button
-              icon='play'
-              label='Detect'
-              onClick={confirmAgeDetection}
-            />
-          </Button.Group>
-        </Modal.Content>
-      </Modal>}
-      {isPageGenerationConfirmationOpen && <Modal
+        <p>Detect one typical learner age? The result can be changed manually afterward.</p>
+        <AiPriceEstimate estimate={ageDetectionEstimate} />
+        <OpenRouterModelSelector
+          className='modelSelect'
+          onChange={setSelectedAgeModel}
+          value={selectedAgeModel}
+        />
+      </StageRunPricePopup>}
+      {isPageGenerationConfirmationOpen && <StageRunPricePopup
         header='Generate concepts'
         onClose={closePageGenerationConfirmation}
-        size='small'
+        onRun={confirmPageGeneration}
       >
-        <Modal.Content>
-          <AiPriceEstimate estimate={chapterGenerationEstimate} />
-          <p>This sends the whole chapter to the AI in one request, deduplicates concepts across its pages, and saves each concept on the page where it was first introduced. Exercises in the book are ignored; generated exercises run in the next pipeline step.</p>
-          <OpenRouterModelSelector
-            className='modelSelect'
-            isDisabled={processingPage !== undefined || isGeneratingAllConcepts || isIdentifyingChapters || isRecognizingAll}
-            onChange={setSelectedModel}
-            requiredInputModalities={['image']}
-            value={selectedModel}
-          />
-          <Button.Group>
-            <Button
-              icon='times'
-              label='Cancel'
-              onClick={closePageGenerationConfirmation}
-            />
-            <Button
-              icon='play'
-              label='Generate'
-              onClick={confirmPageGeneration}
-            />
-          </Button.Group>
-        </Modal.Content>
-      </Modal>}
+        <AiPriceEstimate estimate={chapterGenerationEstimate} />
+        <p>This sends the whole chapter to the AI in one request, deduplicates concepts across its pages, and saves each concept on the page where it was first introduced. Exercises in the book are ignored; generated exercises run in the next pipeline step.</p>
+        <OpenRouterModelSelector
+          className='modelSelect'
+          isDisabled={processingPage !== undefined || isGeneratingAllConcepts || isIdentifyingChapters || isRecognizingAll}
+          onChange={setSelectedModel}
+          requiredInputModalities={['image']}
+          value={selectedModel}
+        />
+      </StageRunPricePopup>}
       {(pendingProcessingAction || processingPage !== undefined || isDetectingBookLanguage || isDetectingBookSubject || isDetectingBookAge || isRecognizingAll || isIdentifyingChapters || isGeneratingAllConcepts || isFixingConcepts || isDeduplicatingConcepts || isSortingConcepts || isAssigningStandards || isGeneratingAllExercises) && <div className='processingOverlay'>
         <RoundProgress
           total={isDetectingBookLanguage || isDetectingBookSubject || isDetectingBookAge || processingPage !== undefined || isDeduplicatingConcepts || pendingProcessingAction === 'deduplicateConcepts' ? 1 : isFixingConcepts || pendingProcessingAction === 'fixConcepts' ? Math.max(1, fixConceptsTargetChapterCount || conceptChapters.length) : isGeneratingAllConcepts || pendingProcessingAction === 'concepts' || isSortingConcepts || pendingProcessingAction === 'sortConcepts' || isAssigningStandards || pendingProcessingAction === 'standards' ? Math.max(1, conceptChapters.length) : Math.max(1, totalPages)}
