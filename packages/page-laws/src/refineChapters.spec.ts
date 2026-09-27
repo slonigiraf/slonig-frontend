@@ -18,7 +18,9 @@ describe('refine chapters', (): void => {
     assert.match(prompt, /ALREADY in their intended pedagogical\/ZPD order/);
     assert.match(prompt, /NEVER reorder concepts/);
     assert.match(prompt, /contiguous slice/);
-    assert.match(prompt, /about 7-10 concepts each/);
+    assert.match(prompt, /aim for about 8-12 concepts per output chapter/);
+    assert.match(prompt, /chapter sizes are as even as practical/);
+    assert.match(prompt, /Avoid results where one chapter is much smaller or larger/);
     assert.match(prompt, /specific theme/);
     assert.match(prompt, /sourcePage is informational only/);
     assert.match(prompt, /exactly one original chapter/);

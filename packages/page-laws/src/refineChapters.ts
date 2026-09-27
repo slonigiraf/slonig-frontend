@@ -5,8 +5,8 @@ import type { Book, BookConcept, BookProcessingStageKey, BookStageSpendKey, Book
 
 export const REFINE_CHAPTERS_STAGE: BookProcessingStageKey = 'refineChapters';
 export const REFINE_CHAPTERS_SPEND_STAGE: BookStageSpendKey = 'refineChapters';
-export const MIN_REFINED_CHAPTER_CONCEPTS = 7;
-export const MAX_REFINED_CHAPTER_CONCEPTS = 10;
+export const MIN_REFINED_CHAPTER_CONCEPTS = 8;
+export const MAX_REFINED_CHAPTER_CONCEPTS = 12;
 export const MAX_REFINED_CHAPTERS_PER_SOURCE = 3;
 
 export interface RefinedChapterGroup {
@@ -100,12 +100,13 @@ The concepts below are ALREADY in their intended pedagogical/ZPD order. Your onl
 
 Rules, in priority order:
 1. NEVER reorder concepts. Every output chapter must contain a contiguous slice of the input sequence, and the output chapters must cover the sequence from first concept to last concept in exactly the same order.
-2. Split only when the current chapter contains meaningfully distinct themes that become clearer as separate learning chapters. Do not split merely to hit a target count.
-3. When splitting is useful, prefer 2 or 3 output chapters with about ${MIN_REFINED_CHAPTER_CONCEPTS}-${MAX_REFINED_CHAPTER_CONCEPTS} concepts each. A slightly smaller or larger group is acceptable when it preserves a coherent theme or a natural boundary.
-4. Prefer a single unsplit chapter when there are too few concepts for useful clustering, when the material is one coherent theme, or when a split would create weak fragments.
-5. Each output title must name the specific theme covered by its concepts. Keep titles concise, distinct, and suitable as learner-facing chapter titles.
-6. Do not add, remove, merge, split, rename, or rewrite concepts themselves.
-7. Because the application persists real chapters using source-page anchors, do not propose more output chapters than the available source pages. The maximum here is ${Math.max(1, Math.min(MAX_REFINED_CHAPTERS_PER_SOURCE, pageCount))}.
+2. Split only when the current chapter contains meaningfully distinct themes that become clearer as separate learning chapters. Do not create a weak or artificial thematic split merely to hit a target count.
+3. When splitting is useful, aim for about ${MIN_REFINED_CHAPTER_CONCEPTS}-${MAX_REFINED_CHAPTER_CONCEPTS} concepts per output chapter. Among similarly coherent thematic boundaries, strongly prefer the grouping whose chapter sizes are as even as practical. Avoid results where one chapter is much smaller or larger than the others when a nearby natural boundary would make the sizes more similar.
+4. Choose 2 or 3 output chapters according to the total concept count and available natural boundaries, favoring a chapter count that keeps most groups in the ${MIN_REFINED_CHAPTER_CONCEPTS}-${MAX_REFINED_CHAPTER_CONCEPTS} range. For example, 18 concepts should usually become two similarly sized chapters rather than one very small and one very large chapter; 24 concepts may become two chapters of about 12 or three chapters of about 8 depending on the stronger thematic boundaries.
+5. Prefer a single unsplit chapter when there are too few concepts for useful clustering, when the material is one coherent theme, or when every possible split would create weak fragments.
+6. Each output title must name the specific theme covered by its concepts. Keep titles concise, distinct, and suitable as learner-facing chapter titles.
+7. Do not add, remove, merge, split, rename, or rewrite concepts themselves.
+8. Because the application persists real chapters using source-page anchors, do not propose more output chapters than the available source pages. The maximum here is ${Math.max(1, Math.min(MAX_REFINED_CHAPTERS_PER_SOURCE, pageCount))}.
 
 Existing sorted concepts (conceptIndex is zero-based; sourcePage is informational only and MUST NOT be used to reorder the sequence):
 ${JSON.stringify(concepts.map(({ bookPage, description, title }, conceptIndex) => ({ conceptIndex, sourcePage: bookPage[1] || null, title, description })))}
