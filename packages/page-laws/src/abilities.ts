@@ -367,10 +367,10 @@ export function parseAbilityRepairResult (content: string, originals: Array<Gene
         }))
       };
 
-    if (abilityHasLearnerFacingNumberOutsideKatex(ability)) {
-      throw new Error('Corrected Ability contains a learner-facing number outside <kx>...</kx>.');
-    }
-
+    // Be tolerant of plain learner-facing numbers in a corrected payload. The
+    // checkpoint below still requires Abilities that originally contain plain
+    // numbers to receive a repair review, but a partially corrected model
+    // response should not make the entire Fix abilities run fail.
     if (original !== null && abilitySignature(ability) === abilitySignature(original)) {
       throw new Error('OpenRouter identified an Ability error but did not change the Ability.');
     }

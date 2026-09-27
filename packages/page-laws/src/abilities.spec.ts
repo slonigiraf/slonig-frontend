@@ -109,6 +109,25 @@ describe('generated abilities', (): void => {
     assert.equal(review.ability?.q[0].h, 'Convert <kx>2</kx> km to m.');
   });
 
+  it('accepts a corrected Ability that still contains a learner-facing number outside KaTeX', (): void => {
+    const original = createSkill();
+    const corrected = { ...original, q: original.q.map((exercise) => ({ ...exercise })) };
+
+    corrected.q[0].h = 'Convert 2 kilometers to meters.';
+
+    const [review] = parseAbilityRepairResult(JSON.stringify({
+      duplicatePairs: [],
+      reviews: [{
+        ability: corrected,
+        errors: ['The first task wording needed correction.'],
+        hasErrors: true,
+        index: 0
+      }]
+    }), [original], ['ability-1']).reviews;
+
+    assert.equal(review.ability?.q[0].h, 'Convert 2 kilometers to meters.');
+  });
+
   it('parses chapter duplicate Ability pairs and rejects unsafe deletion pairs', (): void => {
     const original = createSkill();
     const result = parseAbilityRepairResult(JSON.stringify({
