@@ -74,6 +74,25 @@ describe('exercise repair', (): void => {
     assert.equal(review.exercise?.description, 'Calculate <kx>3 + 4</kx>.');
   });
 
+  it('accepts a corrected Exercise with a learner-facing number outside KaTeX', (): void => {
+    const original = createExercise(1);
+    const [review] = parseExerciseRepairResult(JSON.stringify({
+      duplicatePairs: [],
+      reviews: [{
+        errors: ['The wording was unclear.'],
+        exercise: {
+          description: 'Calculate <kx>1 + 1</kx> in 2 steps.',
+          solution: '<kx>1 + 1 = 2</kx>.',
+          title: original.title
+        },
+        hasErrors: true,
+        index: 0
+      }]
+    }), [original], [1]).reviews;
+
+    assert.equal(review.exercise?.description, 'Calculate <kx>1 + 1</kx> in 2 steps.');
+  });
+
   it('repairs question and solution visual descriptions without storing Exercise image bytes', (): void => {
     const original = {
       ...createExercise(1),

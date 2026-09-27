@@ -179,10 +179,10 @@ export function parseExerciseRepairResult (content: string, originals: Exercise[
 
     const exercise = parseCorrectedExercise(value.exercise, original);
 
-    if (exerciseHasLearnerFacingNumberOutsideKatex(exercise)) {
-      throw new Error('Corrected Exercise contains a learner-facing number outside <kx>...</kx>.');
-    }
-
+    // Be tolerant of plain learner-facing numbers in a corrected payload. The
+    // checkpoint below still requires Exercises that originally contain plain
+    // numbers to receive a repair review, but a partially corrected model
+    // response should not make the entire Fix exercises run fail.
     if (exerciseSignature(exercise) === exerciseSignature(original)) {
       throw new Error('OpenRouter identified an Exercise error but did not change the Exercise.');
     }
