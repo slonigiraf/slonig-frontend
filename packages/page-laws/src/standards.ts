@@ -23,11 +23,6 @@ export interface StandardsCandidate {
   description: string;
 }
 
-export interface StandardsFixInput extends CurriculumStandard {
-  context: string;
-  description: string;
-}
-
 export interface StandardsCatalog {
   framework: StandardsFramework;
   label: string;
@@ -50,7 +45,6 @@ interface StandardsSource {
 }
 
 export const STANDARDS_MATCH_RUNS = 3;
-export const STANDARDS_FIX_RUNS = 3;
 
 const STANDARDS_MATCH_CANDIDATE_LIMIT = 80;
 const STANDARDS_MATCH_PER_CONCEPT_LIMIT = 12;
@@ -423,103 +417,6 @@ Return only valid JSON in exactly this shape:
 Chapter: ${chapterTitle}
 Concepts: ${JSON.stringify(concepts.map(({ description, title }) => ({ description, title })))}
 Candidate standards (${catalog.framework}) from ${catalog.path}: ${JSON.stringify(candidates)}`;
-}
-
-export function standardsFixInputs (standards: CurriculumStandard[], catalogs: StandardsCatalog[]): StandardsFixInput[] {
-  const candidates = new Map<string, StandardsCandidate>();
-
-  catalogs.forEach(({ framework, standards: catalogStandards }) => {
-    catalogStandards.forEach((standard) => candidates.set(`${framework}:${standard.code}`, standard));
-  });
-
-  return standards.map(({ code, framework }) => {
-    const candidate = candidates.get(`${framework}:${code}`);
-
-    return {
-      code,
-      context: candidate?.context ?? '',
-      description: candidate?.description ?? '',
-      framework
-    };
-  });
-}
-
-export function standardsFixPrompt (chapterTitle: string, concepts: StandardsConceptInput[], standards: StandardsFixInput[]): string {
-  return `Review every standard currently assigned to this chapter and independently decide whether the chapter concepts directly support keeping it.
-
-IMPORTANT:
-- Use the supplied Concepts JSON as the only evidence for what this chapter introduces or teaches.
-- Use the supplied Standards JSON as the complete set of standards you must review. Return exactly one decision for every supplied standard.
-- Review each standard independently. Do not remove a directly supported standard because another standard is more specific, overlaps it, belongs to another framework, or appears to be a better match.
-- Set keep=false when a standard is broad, vague, generic, practice/process-oriented, or only loosely related and the concepts do not directly introduce the specific knowledge or skill it names.
-- Remove a standard when the chapter merely assumes it as prerequisite knowledge, mentions it incidentally, or could be described by it only through a broad interpretation.
-- Match required actions, not just vocabulary. For example, defining a variable or identifying a coefficient does not by itself teach evaluating expressions, solving equations, or generating equivalent expressions.
-- Set keep=true only when at least one supplied concept title or description directly shows that the chapter introduces or teaches the standard's central content or skill.
-- This is a deletion-only review. Never add, invent, rewrite, substitute, broaden, narrow, or change a framework or code. It is valid for every decision to have keep=false.
-
-Return only valid JSON in exactly this shape:
-{"decisions":[{"framework":"ccss","code":"CCSS.6.RP.A.2","keep":true}]}
-
-Chapter: ${chapterTitle}
-Concepts JSON: ${JSON.stringify(concepts.map(({ description, title }) => ({ description, title })))}
-Standards JSON: ${JSON.stringify(standards)}`;
-}
-
-export function parseStandardsFixResult (content: string, standards: StandardsFixInput[]): CurriculumStandard[] {
-  const parsed = parseJsonResponse(content);
-
-  if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
-    throw new Error('OpenRouter returned invalid fixed standards data.');
-  }
-
-  const values = (parsed as Record<string, unknown>).decisions;
-
-  if (!Array.isArray(values)) {
-    throw new Error('OpenRouter returned invalid fixed standards data.');
-  }
-
-  const allowed = new Map<string, CurriculumStandard>(standards.map(({ code, framework }) => [`${framework}:${code}`, { code, framework }]));
-  const seen = new Set<string>();
-  const result: CurriculumStandard[] = [];
-
-  values.forEach((value) => {
-    if (!value || typeof value !== 'object' || Array.isArray(value)) {
-      throw new Error('OpenRouter returned an invalid fixed standard.');
-    }
-
-    const { code: rawCode, framework, keep } = value as Partial<CurriculumStandard> & { keep?: unknown };
-    const validFramework = STANDARD_FRAMEWORKS.find(({ key }) => key === framework)?.key;
-
-    if (typeof rawCode !== 'string' || !validFramework || typeof keep !== 'boolean') {
-      throw new Error('OpenRouter returned an invalid fixed standard.');
-    }
-
-    const code = canonicalStandardCode(validFramework, rawCode);
-    const key = `${validFramework}:${code}`;
-    const standard = allowed.get(key);
-
-    if (!standard) {
-      throw new Error(`OpenRouter returned ${code || 'an empty code'}, which was not present in the assigned standards.`);
-    }
-
-    if (seen.has(key)) {
-      throw new Error(`OpenRouter returned more than one decision for ${code}.`);
-    }
-
-    seen.add(key);
-
-    if (keep) {
-      result.push(standard);
-    }
-  });
-
-  if (seen.size !== allowed.size) {
-    const missing = [...allowed.keys()].find((key) => !seen.has(key));
-
-    throw new Error(`OpenRouter did not return a decision for ${missing?.split(':').slice(1).join(':') ?? 'an assigned standard'}.`);
-  }
-
-  return result;
 }
 
 export function mergeStandardsMatches (assignments: CurriculumStandard[][], minimumVotes = 1): CurriculumStandard[] {

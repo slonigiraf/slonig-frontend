@@ -20,7 +20,7 @@ import { conceptChaptersFromPages } from './conceptRecognition.js';
 import { fixChapterConceptsPrompt } from './fixConcepts.js';
 import { clearFixConceptsChapterStatuses, failedFixConceptChapterKeys, fixConceptsChapterKey } from './fixConceptsProgress.js';
 import { formatOpenRouterSpend } from './openRouterCost.js';
-import { loadStandardsCatalogsForBookSubject, loadStoredBookStandards, STANDARDS_FIX_RUNS, STANDARDS_MATCH_RUNS, standardsChapterKey, standardsConceptInputs, standardsFixInputs, standardsFixPrompt, standardsMatchingPrompt } from './standards.js';
+import { loadStandardsCatalogsForBookSubject, STANDARDS_MATCH_RUNS, standardsConceptInputs, standardsMatchingPrompt } from './standards.js';
 import { AiPriceEstimate, UnitPriceEstimate } from './PriceEstimate.js';
 import { loadPdfJs } from './pdf.js';
 import { useTranslation } from './translate.js';
@@ -43,8 +43,7 @@ const PRICE_STAGES: Array<{ detail?: string; key: BookStageSpendKey; label: stri
   { key: 'fixAbilities', label: 'Fix abilities' },
   { key: 'images', label: 'Images' },
   { key: 'fixImages', label: 'Fix images' },
-  { key: 'standards', label: 'Standards' },
-  { key: 'fixStandards', label: 'Fix standards' }
+  { key: 'standards', label: 'Standards' }
 ];
 
 function getSessionBookId (): number | undefined {
@@ -101,7 +100,6 @@ function Upload (): React.ReactElement {
   const [error, setError] = useState('');
   const [isBusy, setIsBusy] = useState(false);
   const [assignAllStandardsRequest, setAssignAllStandardsRequest] = useState(0);
-  const [fixAllStandardsRequest, setFixAllStandardsRequest] = useState(0);
   const [fixAllConceptsRequest, setFixAllConceptsRequest] = useState(0);
   const [generateAllConceptsRequest, setGenerateAllConceptsRequest] = useState(0);
   const [languageTabRequest, setLanguageTabRequest] = useState(0);
@@ -121,18 +119,16 @@ function Upload (): React.ReactElement {
   const [isFixConceptsConfirmationOpen, setIsFixConceptsConfirmationOpen] = useState(false);
   const [isGenerateExercisesConfirmationOpen, setIsGenerateExercisesConfirmationOpen] = useState(false);
   const [isStandardsConfirmationOpen, setIsStandardsConfirmationOpen] = useState(false);
-  const [isFixStandardsConfirmationOpen, setIsFixStandardsConfirmationOpen] = useState(false);
   const [isRecognizeConfirmationOpen, setIsRecognizeConfirmationOpen] = useState(false);
   const [isPriceOpen, setIsPriceOpen] = useState(false);
   const [priceBook, setPriceBook] = useState<Book>();
-  const [pendingProcessingAction, setPendingProcessingAction] = useState<'chapters' | 'concepts' | 'fixConcepts' | 'recognize' | 'standards' | 'fixStandards' | 'exercises'>();
+  const [pendingProcessingAction, setPendingProcessingAction] = useState<'chapters' | 'concepts' | 'fixConcepts' | 'recognize' | 'standards' | 'exercises'>();
   const [generateAllExercisesRequest, setGenerateAllExercisesRequest] = useState(0);
   const [generateExercisesEstimate, setGenerateExercisesEstimate] = useState<AiInputEstimate>();
   const [generateOnlyMissingExercises, setGenerateOnlyMissingExercises] = useState(false);
   const [hasConceptsMissingExercise, setHasConceptsMissingExercise] = useState(false);
   const [recognizePageCount, setRecognizePageCount] = useState<number>();
   const [standardsEstimate, setStandardsEstimate] = useState<AiInputEstimate | string>();
-  const [fixStandardsEstimate, setFixStandardsEstimate] = useState<AiInputEstimate | string>();
   const [recognizeAllRequest, setRecognizeAllRequest] = useState(0);
   const [readerFile, setReaderFile] = useState<File>();
   const [selectedId, setSelectedId] = useState<number | undefined>(getSessionBookId);
@@ -721,83 +717,6 @@ function Upload (): React.ReactElement {
     });
   }, [selectedBook, t]);
 
-  const onFixStandards = useCallback((): void => {
-    if (!selectedBook) {
-      return;
-    }
-
-    if (!isBookProcessingStageComplete(selectedBook, 'standards')) {
-      setError(t('Run Standards before Fix standards.'));
-      return;
-    }
-
-    setFixStandardsEstimate(undefined);
-    setIsFixStandardsConfirmationOpen(true);
-  }, [selectedBook, t]);
-
-  useEffect(() => {
-    if (!isFixStandardsConfirmationOpen || !selectedBook) {
-      return;
-    }
-
-    getBookPages(selectedBook.id).then(async (pages) => {
-      const requests: string[] = [];
-      const catalogs = await loadStandardsCatalogsForBookSubject(selectedBook.subject);
-      const stored = loadStoredBookStandards(selectedBook.id);
-
-      for (const chapter of conceptChaptersFromPages(pages)) {
-        const concepts = standardsConceptInputs((await Promise.all(chapter.pageNumbers.map((pageNumber) => getBookConceptsForBookPage(selectedBook.id, pageNumber)))).flat());
-        const chapterKey = standardsChapterKey(chapter.chapterId, chapter.title, chapter.pageNumbers);
-        const assignment = stored[chapterKey];
-
-        if (!assignment) {
-          continue;
-        }
-
-        const standards = standardsFixInputs(assignment.standards, catalogs);
-
-        if (standards.length) {
-          const prompt = standardsFixPrompt(chapter.title, concepts, standards);
-
-          for (let run = 0; run < STANDARDS_FIX_RUNS; run++) {
-            requests.push(prompt);
-          }
-        }
-      }
-
-      setFixStandardsEstimate(requests.length
-        ? estimateAiInput(generateAllConceptsModel, requests, 600)
-        : t('No assigned chapter standards require review.'));
-    }).catch(() => setError(t('Unable to estimate Fix standards cost.')));
-  }, [generateAllConceptsModel, isFixStandardsConfirmationOpen, selectedBook, t]);
-
-  const closeFixStandardsConfirmation = useCallback((): void => {
-    setIsFixStandardsConfirmationOpen(false);
-    setPendingProcessingAction(undefined);
-  }, []);
-
-  const confirmFixStandards = useCallback((): void => {
-    setIsFixStandardsConfirmationOpen(false);
-
-    if (!selectedBook) {
-      setPendingProcessingAction(undefined);
-      return;
-    }
-
-    setPendingProcessingAction('fixStandards');
-
-    resetBookProcessingStagesFrom(selectedBook.id, 'fixStandards').then((updatedBook) => {
-      if (updatedBook) {
-        setBooks((current) => current.map((book) => book.id === updatedBook.id ? updatedBook : book));
-      }
-
-      setFixAllStandardsRequest((request) => request + 1);
-    }).catch(() => {
-      setPendingProcessingAction(undefined);
-      setError(t('Unable to reset the book processing stage.'));
-    });
-  }, [selectedBook, t]);
-
   const onGenerateExercises = useCallback((): void => {
     if (!selectedBook) {
       return;
@@ -1126,35 +1045,6 @@ function Upload (): React.ReactElement {
           </Button.Group>
         </Modal.Content>
       </Modal>}
-      {isFixStandardsConfirmationOpen && <Modal
-        header={t('Fix standards')}
-        onClose={closeFixStandardsConfirmation}
-        size='small'
-      >
-        <Modal.Content>
-          <p>{t('Review each chapter’s assigned standards against its concepts and remove standards that are too vague or are not actually introduced in the chapter. This pass can only remove existing standards; it cannot add or rewrite codes.')}</p>
-          <AiPriceEstimate estimate={fixStandardsEstimate} />
-          <OpenRouterModelSelector
-            className='batchModelSelect'
-            modelLabel={t('Model')}
-            onChange={setGenerateAllConceptsModel}
-            providerLabel={t('Provider')}
-            value={generateAllConceptsModel}
-          />
-          <Button.Group>
-            <Button
-              icon='times'
-              label={t('Cancel')}
-              onClick={closeFixStandardsConfirmation}
-            />
-            <Button
-              icon='play'
-              label={t('Fix')}
-              onClick={confirmFixStandards}
-            />
-          </Button.Group>
-        </Modal.Content>
-      </Modal>}
       {isGenerateExercisesConfirmationOpen && <Modal
         header={t('Generate exercises')}
         onClose={closeGenerateExercisesConfirmation}
@@ -1235,7 +1125,6 @@ function Upload (): React.ReactElement {
           <BookReader
             assignAllStandardsRequest={assignAllStandardsRequest}
             book={selectedBook}
-            fixAllStandardsRequest={fixAllStandardsRequest}
             fixAllConceptsRequest={fixAllConceptsRequest}
             fixOnlyFailedConcepts={fixOnlyFailedConcepts}
             key={selectedBook.id}
@@ -1317,13 +1206,6 @@ function Upload (): React.ReactElement {
                 isDone: isBookProcessingStageComplete(selectedBook, 'standards'),
                 isDisabled: !readerFile || isBusy || !isBookProcessingStageComplete(selectedBook, 'fixImages') || !selectedBook.language || !selectedBook.subject,
                 onClick: onAssignStandards
-              },
-              {
-                key: 'fixStandards',
-                label: t('Fix standards'),
-                isDone: isBookProcessingStageComplete(selectedBook, 'fixStandards'),
-                isDisabled: !readerFile || isBusy || !isBookProcessingStageComplete(selectedBook, 'standards') || !selectedBook.language || !selectedBook.subject,
-                onClick: onFixStandards
               }
             ]}
             recognizeAllRequest={recognizeAllRequest}
