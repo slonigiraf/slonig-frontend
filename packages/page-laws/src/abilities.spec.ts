@@ -607,6 +607,10 @@ describe('generated abilities', (): void => {
     assert.match(FIX_ABILITIES_PROMPT, /earliest supplied index/i);
     assert.match(FIX_ABILITIES_PROMPT, /Ability titles \(h\) must be unique within the chapter/i);
     assert.match(FIX_ABILITIES_PROMPT, /case-insensitively after trimming whitespace/i);
+    assert.match(FIX_ABILITIES_PROMPT, /title on every Ability in that same-title group as an error/i);
+    assert.match(FIX_ABILITIES_PROMPT, /rewrite all of those titles, including the earliest one/i);
+    assert.match(FIX_ABILITIES_PROMPT, /more specific titles that clearly distinguish the Abilities/i);
+    assert.match(FIX_ABILITIES_PROMPT, /Do not keep the shared generic title on one Ability and rename only the later records/i);
     assert.match(FIX_ABILITIES_PROMPT, /omit correct Abilities/i);
     assert.match(FIX_ABILITIES_PROMPT, /Task 1/);
     assert.match(FIX_ABILITIES_PROMPT, /Task 2/);
