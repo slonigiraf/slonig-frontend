@@ -31,6 +31,7 @@ import { BOOK_AGE_DETECTION_PROMPT, BOOK_CHAPTER_EXTRACTION_REQUEST_PROMPT, BOOK
 import { stripMarkdownImageReferences } from './bookImageRefs.js';
 import { chapterAssignmentsFromBoundaries, chapterEvidenceWindows, chapterReconciliationPrompt, chapterWindowPrompt, deriveStructuralChapterCandidates, extractMathpixHeadingsFromLines, pageChapterEvidence, parseChapterBoundaries, stabilizeChapterBoundaries, type ChapterBoundaryProposal } from './chapterSegmentation.js';
 import { getSharedChapterSelection, resolveSharedChapterIndex, storeSharedChapterSelection, subscribeSharedChapterSelection, type SharedChapterSelection } from './chapterSelection.js';
+import { conceptChapterMoveInsertionIndex } from './conceptChapterMove.js';
 import { conceptChaptersFromPages, parseGeneratedChapterConcepts, type ConceptChapterNavigationItem, type GeneratedChapterConcepts } from './conceptRecognition.js';
 import { conceptDeduplicationInput, deduplicateConceptsPrompt, parseDeduplicateConceptPairs, type DeduplicateConceptInput, type DeduplicateConceptPair } from './deduplicateConcepts.js';
 import { missingGeneratedExerciseConceptIndexes } from './exercises.js';
@@ -104,7 +105,8 @@ function analysisPageNumbers (pages: BookPage[]): number[] {
   return pages.flatMap(({ excludedFromAnalysis, pageNumber }) => excludedFromAnalysis ? [] : [pageNumber]);
 }
 
-function ConceptItem ({ concept, conceptNumber, firstPage, onDelete, onGoToPage, onReorderPointerCancel, onReorderPointerDown, onReorderPointerMove, onReorderPointerUp, onSave }: { concept: BookConcept; conceptNumber: number; firstPage?: number; onDelete: (concept: BookConcept) => Promise<void>; onGoToPage: (pageNumber: number) => void; onReorderPointerCancel?: (event: React.PointerEvent<HTMLLIElement>) => void; onReorderPointerDown?: (event: React.PointerEvent<HTMLLIElement>) => void; onReorderPointerMove?: (event: React.PointerEvent<HTMLLIElement>) => void; onReorderPointerUp?: (event: React.PointerEvent<HTMLLIElement>) => void; onSave: (concept: BookConcept, title: string, description: string) => Promise<void> }): React.ReactElement {
+function ConceptItem ({ chapterIndex: initialChapterIndex, chapters, concept, conceptNumber, firstPage, onDelete, onGoToPage, onReorderPointerCancel, onReorderPointerDown, onReorderPointerMove, onReorderPointerUp, onSave }: { chapterIndex: number; chapters: ConceptChapterNavigationItem[]; concept: BookConcept; conceptNumber: number; firstPage?: number; onDelete: (concept: BookConcept) => Promise<void>; onGoToPage: (pageNumber: number) => void; onReorderPointerCancel?: (event: React.PointerEvent<HTMLLIElement>) => void; onReorderPointerDown?: (event: React.PointerEvent<HTMLLIElement>) => void; onReorderPointerMove?: (event: React.PointerEvent<HTMLLIElement>) => void; onReorderPointerUp?: (event: React.PointerEvent<HTMLLIElement>) => void; onSave: (concept: BookConcept, title: string, description: string, chapterIndex: number) => Promise<void> }): React.ReactElement {
+  const [chapterIndex, setChapterIndex] = useState(initialChapterIndex);
   const [description, setDescription] = useState(concept.description);
   const [isBusy, setIsBusy] = useState(false);
   const [isDeleteConfirmationOpen, setIsDeleteConfirmationOpen] = useState(false);
@@ -113,20 +115,22 @@ function ConceptItem ({ concept, conceptNumber, firstPage, onDelete, onGoToPage,
 
   useEffect(() => {
     if (!isEditing) {
+      setChapterIndex(initialChapterIndex);
       setTitle(concept.title);
       setDescription(concept.description);
     }
-  }, [concept.description, concept.title, isEditing]);
+  }, [concept.description, concept.title, initialChapterIndex, isEditing]);
 
   const cancel = useCallback((): void => {
     if (isBusy) {
       return;
     }
 
+    setChapterIndex(initialChapterIndex);
     setTitle(concept.title);
     setDescription(concept.description);
     setIsEditing(false);
-  }, [concept.description, concept.title, isBusy]);
+  }, [concept.description, concept.title, initialChapterIndex, isBusy]);
   const remove = useCallback((): void => setIsDeleteConfirmationOpen(true), []);
   const confirmRemove = useCallback((): void => {
     setIsBusy(true);
@@ -143,11 +147,11 @@ function ConceptItem ({ concept, conceptNumber, firstPage, onDelete, onGoToPage,
     }
 
     setIsBusy(true);
-    onSave(concept, nextTitle, description.trim())
+    onSave(concept, nextTitle, description.trim(), chapterIndex)
       .then(() => setIsEditing(false))
       .catch(console.error)
       .finally(() => setIsBusy(false));
-  }, [concept, description, onSave, title]);
+  }, [chapterIndex, concept, description, onSave, title]);
 
   const canReorder = concept.id !== undefined && !isBusy && !isEditing;
 
@@ -211,6 +215,18 @@ function ConceptItem ({ concept, conceptNumber, firstPage, onDelete, onGoToPage,
               value={description}
             />
           </label>
+          <Dropdown
+            isDisabled={isBusy}
+            isFull
+            label='Chapter'
+            onChange={setChapterIndex}
+            options={chapters.map(({ chapterId, title }, index) => ({
+              key: chapterId ?? index,
+              text: title || `Chapter ${index + 1}`,
+              value: index
+            }))}
+            value={chapterIndex}
+          />
           <Button.Group>
             <Button
               icon='times'
@@ -220,7 +236,7 @@ function ConceptItem ({ concept, conceptNumber, firstPage, onDelete, onGoToPage,
             />
             <Button
               icon='save'
-              isDisabled={isBusy || !title.trim() || (title.trim() === concept.title && description.trim() === concept.description)}
+              isDisabled={isBusy || !title.trim() || (title.trim() === concept.title && description.trim() === concept.description && chapterIndex === initialChapterIndex)}
               label={isBusy ? 'Saving…' : 'Save'}
               onClick={save}
             />
@@ -4995,32 +5011,67 @@ function BookReader({ ageTabRequest, assignAllStandardsRequest, book, deduplicat
     }))
   ], [concepts]);
 
-  const saveConcept = useCallback(async (concept: BookConcept, title: string, description: string): Promise<void> => {
+  const saveConcept = useCallback(async (concept: BookConcept, title: string, description: string, targetChapterIndex: number): Promise<void> => {
     if (concept.id === undefined) {
       setError('Unable to edit a concept without an id.');
 
       return;
     }
 
+    const sourceChapterIndex = conceptChapters.findIndex((chapter) => conceptBelongsToChapter(concept, chapter));
+    const resolvedSourceChapterIndex = sourceChapterIndex >= 0 ? sourceChapterIndex : conceptChapterIndex;
+    const sourceChapter = conceptChapters[resolvedSourceChapterIndex];
+    const targetChapter = conceptChapters[targetChapterIndex];
+
+    if (!sourceChapter || !targetChapter) {
+      setError('Unable to resolve the selected concept chapter.');
+
+      return;
+    }
+
+    const isMovingChapter = resolvedSourceChapterIndex !== targetChapterIndex;
+
+    if (isMovingChapter && targetChapter.chapterId === undefined) {
+      setError('Unable to move the concept to a chapter without an id.');
+
+      return;
+    }
+
     try {
       await updateBookConcept(concept.id, { description, title });
-      await invalidateDeduplicateConceptsStage();
-      const updated = { ...concept, description, title };
-      const oldKey = conceptReferenceKey(concept);
-      const firstPage = conceptFirstPageByKey.get(oldKey);
 
-      setConcepts((current) => current.map((item) => item.id === concept.id ? updated : item));
-      setConceptFirstPageByKey((current) => {
-        const next = new Map(current);
+      if (isMovingChapter) {
+        const inventory = await getBookConceptInventory(book.id, pages.keys());
+        const targetConcepts = conceptsForNavigationChapter(inventory, targetChapter).filter(({ id }) => id !== concept.id);
+        // Moving forward puts the concept first in the new chapter; moving
+        // backward puts it last. Keep bookPage unchanged as source provenance.
+        const insertionIndex = conceptChapterMoveInsertionIndex(resolvedSourceChapterIndex, targetChapterIndex, targetConcepts.length);
+        const preliminaryDisplayOrder = conceptInsertionDisplayOrder(targetConcepts, insertionIndex);
 
-        next.delete(oldKey);
+        await assignBookConceptsToChapters([{
+          chapterId: targetChapter.chapterId as number,
+          displayOrder: preliminaryDisplayOrder,
+          id: concept.id
+        }]);
 
-        if (firstPage !== undefined) {
-          next.set(conceptReferenceKey(updated), firstPage);
+        const targetIds = targetConcepts.flatMap(({ id }) => id === undefined ? [] : [id]);
+
+        if (targetIds.length === targetConcepts.length) {
+          targetIds.splice(insertionIndex, 0, concept.id);
+          await reorderBookConcepts(targetIds, targetChapter.chapterId);
         }
 
-        return next;
-      });
+        const sourceConcepts = conceptsForNavigationChapter(inventory, sourceChapter).filter(({ id }) => id !== concept.id);
+        const sourceIds = sourceConcepts.flatMap(({ id }) => id === undefined ? [] : [id]);
+
+        if (sourceIds.length === sourceConcepts.length && sourceIds.length) {
+          await reorderBookConcepts(sourceIds, sourceChapter.chapterId);
+        }
+      }
+
+      await invalidateDeduplicateConceptsStage();
+      await reloadCurrentChapterConcepts();
+      await refreshConceptCounts();
       setSkillsRefreshToken((value) => value + 1);
       setError('');
     } catch (caught) {
@@ -5029,7 +5080,7 @@ function BookReader({ ageTabRequest, assignAllStandardsRequest, book, deduplicat
       setError(message);
       throw caught;
     }
-  }, [conceptFirstPageByKey, invalidateDeduplicateConceptsStage]);
+  }, [book.id, conceptChapterIndex, conceptChapters, invalidateDeduplicateConceptsStage, pages, refreshConceptCounts, reloadCurrentChapterConcepts]);
   const deleteConcept = useCallback(async (concept: BookConcept): Promise<void> => {
     if (concept.id === undefined) {
       return;
@@ -5494,6 +5545,8 @@ function BookReader({ ageTabRequest, assignAllStandardsRequest, book, deduplicat
               const displayPage = conceptDisplayPage(concept);
 
               return <ConceptItem
+                chapterIndex={conceptChapterIndex}
+                chapters={conceptChapters}
                 concept={concept}
                 conceptNumber={index + 1}
                 firstPage={displayPage}
