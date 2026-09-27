@@ -20,7 +20,7 @@ import { getTikzRenderConcurrency } from './Edit/tikzConcurrency.js';
 import { parseAbilityRepairResult, parseStoredAbility, withAbilityVisualSource } from './abilities.js';
 import { parseExerciseRepairResult } from './exercises.js';
 import { estimateAiInput } from './aiEstimate.js';
-import { ABILITY_WORKFLOW_SYSTEM_PROMPT, FIX_ABILITIES_REQUEST_PROMPT, FIX_EXERCISES_REQUEST_PROMPT, JSON_VALIDATION_PROMPT, LEARNER_AGE_PROMPT, MATH_DISPLAY_REQUIREMENTS_PROMPT, OPENAI_MODELS, REPAIR_SYSTEM_PROMPT, SKILLS_GENERATION_SYSTEM_PROMPT, SOURCES_TO_SKILLS_REQUEST_PROMPT } from './constants.js';
+import { ABILITY_WORKFLOW_SYSTEM_PROMPT, DEFAULT_PROCESSING_MODEL, FIX_ABILITIES_REQUEST_PROMPT, FIX_EXERCISES_REQUEST_PROMPT, JSON_VALIDATION_PROMPT, LEARNER_AGE_PROMPT, MATH_DISPLAY_REQUIREMENTS_PROMPT, REPAIR_SYSTEM_PROMPT, SKILLS_GENERATION_SYSTEM_PROMPT, SOURCES_TO_SKILLS_REQUEST_PROMPT } from './constants.js';
 import { abilityBlueprintRequestPrompt, materializeExerciseAbility, planExerciseAbility, transportCompactAbilitySourceExercise } from './abilityWorkflow.js';
 import { mapConcurrent } from './concurrency.js';
 import { OPENROUTER_CONCURRENCY, openRouterRequestGate } from './openRouterConcurrency.js';
@@ -1404,7 +1404,7 @@ function Skills ({ book, externalRefreshToken = 0, onAction, onBookChange, onCon
   const [progressLabel, setProgressLabel] = useState('');
   const [progressTotal, setProgressTotal] = useState(1);
   const [refreshToken, setRefreshToken] = useState(0);
-  const [selectedModel, setSelectedModel] = useState(OPENAI_MODELS[0].value);
+  const [selectedModel, setSelectedModel] = useState(DEFAULT_PROCESSING_MODEL);
   const [effectiveCompletedStages, setEffectiveCompletedStages] = useState<BookProcessingStageKey[]>(() => getBookCompletedStages(book));
   const abilitiesOutputRef = useRef<HTMLDivElement>(null);
   const refresh = useCallback((): void => setRefreshToken((value) => value + 1), []);

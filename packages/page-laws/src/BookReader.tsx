@@ -26,7 +26,7 @@ import { chapterLevelMissingConcept, fixChapterConceptsPrompt, parseMissingChapt
 import { clearFixConceptsChapterStatuses, fixConceptsChapterKey, loadFixConceptsChapterStatuses, storeFixConceptsChapterStatuses, type FixConceptsChapterStatuses } from './fixConceptsProgress.js';
 import { parseSortedChapterConceptIndexes, sortChapterConceptsPrompt } from './sortConcepts.js';
 import { formatOpenRouterSpend, reportOpenRouterCost, type OpenRouterCostReporter } from './openRouterCost.js';
-import { BOOK_AGE_DETECTION_PROMPT, BOOK_CHAPTER_EXTRACTION_REQUEST_PROMPT, BOOK_LANGUAGE_DETECTION_PROMPT, BOOK_SUBJECT_DETECTION_PROMPT, MATHPIX_PDF_PAGE_PRICE_USD, OPENAI_MODELS } from './constants.js';
+import { BOOK_AGE_DETECTION_PROMPT, BOOK_CHAPTER_EXTRACTION_REQUEST_PROMPT, BOOK_LANGUAGE_DETECTION_PROMPT, BOOK_SUBJECT_DETECTION_PROMPT, DEFAULT_PROCESSING_MODEL, DEFAULT_STANDARDS_MODEL, MATHPIX_PDF_PAGE_PRICE_USD, OPENAI_MODELS } from './constants.js';
 import { stripMarkdownImageReferences } from './bookImageRefs.js';
 import { chapterAssignmentsFromBoundaries, chapterEvidenceWindows, chapterReconciliationPrompt, chapterWindowPrompt, deriveStructuralChapterCandidates, extractMathpixHeadingsFromLines, pageChapterEvidence, parseChapterBoundaries, stabilizeChapterBoundaries, type ChapterBoundaryProposal } from './chapterSegmentation.js';
 import { getSharedChapterSelection, resolveSharedChapterIndex, storeSharedChapterSelection, subscribeSharedChapterSelection, type SharedChapterSelection } from './chapterSelection.js';
@@ -1381,6 +1381,7 @@ interface Props {
   generateAllExercisesRequest: number;
   generateOnlyMissingExercises: boolean;
   recognizeAllRequest: number;
+  standardsModel: string;
 }
 
 type ReaderPane = 'age' | 'chapters' | 'conceptExercises' | 'conceptsSkills' | 'language' | 'subject' | 'pdf' | 'preExercisesExercises' | 'skillsCourse' | 'standards' | 'text' | 'textConcepts';
@@ -1508,7 +1509,7 @@ function getSessionReaderPane(bookId: number): ReaderPane {
   }
 }
 
-function BookReader({ ageTabRequest, assignAllStandardsRequest, book, deduplicateAllConceptsRequest, file, fixAllConceptsRequest, fixOnlyFailedConcepts, sortAllConceptsRequest, generateAllConceptsModel, generateAllConceptsRequest, generateAllExercisesRequest, generateOnlyMissingConcepts, generateOnlyMissingExercises, identifyChaptersRequest, isPriceDisabled = false, languageTabRequest, subjectTabRequest, onBookChange, onPrice, onProcessingComplete, pendingProcessingAction, processingToolbar, processingToolbarAfterFixImages, recognizeAllRequest }: Props): React.ReactElement {
+function BookReader({ ageTabRequest, assignAllStandardsRequest, book, deduplicateAllConceptsRequest, file, fixAllConceptsRequest, fixOnlyFailedConcepts, sortAllConceptsRequest, generateAllConceptsModel, generateAllConceptsRequest, generateAllExercisesRequest, generateOnlyMissingConcepts, generateOnlyMissingExercises, identifyChaptersRequest, isPriceDisabled = false, languageTabRequest, subjectTabRequest, onBookChange, onPrice, onProcessingComplete, pendingProcessingAction, processingToolbar, processingToolbarAfterFixImages, recognizeAllRequest, standardsModel }: Props): React.ReactElement {
   const { t } = useTranslation();
   const [activePane, setActivePane] = useState<ReaderPane>(() => {
     const storedPane = getSessionReaderPane(book.id);
@@ -1600,10 +1601,10 @@ function BookReader({ ageTabRequest, assignAllStandardsRequest, book, deduplicat
   const [pages, setPages] = useState<Map<number, BookPage>>(new Map());
   const [pdf, setPdf] = useState<PDFDocumentProxy>();
   const [renderedPageHeight, setRenderedPageHeight] = useState<number>();
-  const [selectedModel, setSelectedModel] = useState(OPENAI_MODELS[0].value);
-  const [selectedLanguageModel, setSelectedLanguageModel] = useState(OPENAI_MODELS[0].value);
-  const [selectedSubjectModel, setSelectedSubjectModel] = useState(OPENAI_MODELS[0].value);
-  const [selectedAgeModel, setSelectedAgeModel] = useState(OPENAI_MODELS[0].value);
+  const [selectedModel, setSelectedModel] = useState(DEFAULT_PROCESSING_MODEL);
+  const [selectedLanguageModel, setSelectedLanguageModel] = useState(DEFAULT_PROCESSING_MODEL);
+  const [selectedSubjectModel, setSelectedSubjectModel] = useState(DEFAULT_PROCESSING_MODEL);
+  const [selectedAgeModel, setSelectedAgeModel] = useState(DEFAULT_PROCESSING_MODEL);
   const [ageInput, setAgeInput] = useState(book.age === undefined ? '' : String(book.age));
   const [skillsRefreshToken, setSkillsRefreshToken] = useState(0);
   const [totalPages, setTotalPages] = useState(0);
@@ -4229,7 +4230,7 @@ function BookReader({ ageTabRequest, assignAllStandardsRequest, book, deduplicat
     });
   }, [isGeneratingAllConcepts, isIdentifyingChapters, isRecognizingAll, isGeneratingAllExercises, onProcessingComplete, processingPage, recognizeAllPages, recognizeAllRequest, totalPages]);
 
-  const assignStandards = useCallback(async (force = false, model = selectedModel): Promise<void> => {
+  const assignStandards = useCallback(async (force = false, model = DEFAULT_STANDARDS_MODEL): Promise<void> => {
     if (!conceptChapters.length || isAssigningStandards) {
       return;
     }
@@ -4307,7 +4308,7 @@ function BookReader({ ageTabRequest, assignAllStandardsRequest, book, deduplicat
     } finally {
       setIsAssigningStandards(false);
     }
-  }, [addStandardsCost, completeStage, book, book.id, book.subject, conceptChapters, isAssigningStandards, revealPane, selectedModel, standardsByChapter]);
+  }, [addStandardsCost, completeStage, book, book.id, book.subject, conceptChapters, isAssigningStandards, revealPane, standardsByChapter]);
 
   useEffect((): void => {
     if (
@@ -4324,10 +4325,10 @@ function BookReader({ ageTabRequest, assignAllStandardsRequest, book, deduplicat
     }
 
     handledAssignAllStandardsRequestRef.current = assignAllStandardsRequest;
-    assignStandards(true, generateAllConceptsModel)
+    assignStandards(true, standardsModel)
       .catch((assignmentError) => setError(assignmentError instanceof Error ? assignmentError.message : 'Unable to assign chapter standards.'))
       .finally(onProcessingComplete);
-  }, [assignAllStandardsRequest, assignStandards, conceptChapters.length, generateAllConceptsModel, isAssigningStandards, isGeneratingAllConcepts, isGeneratingAllExercises, isIdentifyingChapters, isRecognizingAll, onProcessingComplete, processingPage]);
+  }, [assignAllStandardsRequest, assignStandards, conceptChapters.length, isAssigningStandards, isGeneratingAllConcepts, isGeneratingAllExercises, isIdentifyingChapters, isRecognizingAll, onProcessingComplete, processingPage, standardsModel]);
 
   useEffect(() => {
     if (!isMaximized) {

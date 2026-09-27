@@ -4,6 +4,8 @@
 export const QR_CODE_SIZE = 300;
 export const sessionPrefix = 'knowledge';
 export const MATHPIX_PDF_PAGE_PRICE_USD = 0.005;
+export const DEFAULT_PROCESSING_MODEL = 'openai/gpt-6-luna';
+export const DEFAULT_STANDARDS_MODEL = 'openai/gpt-5-nano';
 
 
 export const MATH_DISPLAY_REQUIREMENTS_PROMPT = String.raw`Math display requirements:
@@ -17,7 +19,9 @@ export const OPENAI_MODELS = [
   { text: 'GPT-4.1: $2/$8', value: 'openai/gpt-4.1' },
   { text: 'GPT-5 mini: $0.25/$2', value: 'openai/gpt-5-mini' },
   { text: 'GPT-5: $1.25/$10', value: 'openai/gpt-5' },
-  { text: 'GPT-5.4: $2.50/$15', value: 'openai/gpt-5.4' }
+  { text: 'GPT-5.4: $2.50/$15', value: 'openai/gpt-5.4' },
+  { text: 'GPT-5 Nano: $0.05/$0.40', value: 'openai/gpt-5-nano' },
+  { text: 'GPT-6 Luna: $0.10/$0.50', value: 'openai/gpt-6-luna' }
 ];
 
 export const BOOK_CHAPTER_EXTRACTION_PROMPT = `Read the complete supplied chapter as one unit and extract only the distinct concepts that are intentionally introduced or explained as new anywhere in this chapter. Chapter assignment is already known; do not identify, infer, or return a different chapter or section.

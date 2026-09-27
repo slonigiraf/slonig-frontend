@@ -12,7 +12,7 @@ import { Button, Dropdown, Modal, Toggle, styled } from '@polkadot/react-compone
 import type { AiInputEstimate } from './aiEstimate.js';
 
 import { estimateAiInput, estimateAiRequests } from './aiEstimate.js';
-import { MATHPIX_PDF_PAGE_PRICE_USD, OPENAI_MODELS } from './constants.js';
+import { DEFAULT_PROCESSING_MODEL, DEFAULT_STANDARDS_MODEL, MATHPIX_PDF_PAGE_PRICE_USD } from './constants.js';
 import OpenRouterModelSelector from './OpenRouterModelSelector.js';
 import { bookLanguageLabel } from './bookLanguage.js';
 import { exerciseGenerationRequestEstimate } from './bookProcessing.js';
@@ -138,7 +138,8 @@ function Upload (): React.ReactElement {
   const [identifyChaptersRequest, setIdentifyChaptersRequest] = useState(0);
   const [identifyChaptersEstimate, setIdentifyChaptersEstimate] = useState<AiInputEstimate>();
   const [isIdentifyChaptersConfirmationOpen, setIsIdentifyChaptersConfirmationOpen] = useState(false);
-  const [generateAllConceptsModel, setGenerateAllConceptsModel] = useState(OPENAI_MODELS[0].value);
+  const [generateAllConceptsModel, setGenerateAllConceptsModel] = useState(DEFAULT_PROCESSING_MODEL);
+  const [standardsModel, setStandardsModel] = useState(DEFAULT_STANDARDS_MODEL);
   const [generateConceptsEstimate, setGenerateConceptsEstimate] = useState<AiInputEstimate | string>();
   const [generateOnlyMissingConcepts, setGenerateOnlyMissingConcepts] = useState(false);
   const [hasChaptersMissingConcepts, setHasChaptersMissingConcepts] = useState(false);
@@ -891,10 +892,10 @@ function Upload (): React.ReactElement {
       }
 
       setStandardsEstimate(requests.length
-        ? estimateAiInput(generateAllConceptsModel, requests, 600)
+        ? estimateAiInput(standardsModel, requests, 600)
         : t(catalogs.length ? 'No extracted chapter concepts are available for standards matching.' : 'No standards catalogs are available for this book subject.'));
     }).catch(() => setError(t('Unable to estimate standards assignment cost.')));
-  }, [generateAllConceptsModel, isStandardsConfirmationOpen, selectedBook, t]);
+  }, [isStandardsConfirmationOpen, selectedBook, standardsModel, t]);
 
   const closeStandardsConfirmation = useCallback((): void => {
     setIsStandardsConfirmationOpen(false);
@@ -1213,9 +1214,9 @@ function Upload (): React.ReactElement {
         <OpenRouterModelSelector
           className='batchModelSelect'
           modelLabel={t('Model')}
-          onChange={setGenerateAllConceptsModel}
+          onChange={setStandardsModel}
           providerLabel={t('Provider')}
-          value={generateAllConceptsModel}
+          value={standardsModel}
         />
       </StageRunPricePopup>}
       {isGenerateExercisesConfirmationOpen && <StageRunPricePopup
@@ -1292,6 +1293,7 @@ function Upload (): React.ReactElement {
             key={selectedBook.id}
             file={readerFile}
             generateAllConceptsModel={generateAllConceptsModel}
+            standardsModel={standardsModel}
             languageTabRequest={languageTabRequest}
             subjectTabRequest={subjectTabRequest}
             ageTabRequest={ageTabRequest}

@@ -30,6 +30,11 @@ describe('AI input estimates', (): void => {
     });
   });
 
+  it('has fallback pricing for the processing and Standards default models', (): void => {
+    expect(estimateAiInput('openai/gpt-6-luna', ['1234'], 1_000).totalPriceUsd).toEqual(0.0005001);
+    expect(estimateAiInput('openai/gpt-5-nano', ['1234'], 1_000).totalPriceUsd).toEqual(0.00040005);
+  });
+
   it('shows per-request and total estimates', (): void => {
     expect(formatAiInputEstimate({ inputPriceUsd: 0.01, inputTokens: 200, outputPriceUsd: 0.02, outputTokens: 400, requests: 2, totalPriceUsd: 0.03 }).includes('$0.0150 per request and $0.0300 total')).toEqual(true);
   });
