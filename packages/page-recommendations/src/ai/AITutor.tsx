@@ -317,6 +317,8 @@ export function AITutor({ modelSelector, moduleId, moduleCid, persistedOpenRoute
     variation: 'regular',
   }) : undefined, [skill]);
   const [algorithmStage, setAlgorithmStage] = useState<AlgorithmStage>();
+  const submitInFlightRef = useRef(false);
+  const stageTextRequestRef = useRef(0);
 
   useEffect(() => {
     if (storedOpenRouterKey === null) return;
@@ -400,7 +402,7 @@ export function AITutor({ modelSelector, moduleId, moduleCid, persistedOpenRoute
     saveToSessionStorage(AI_TUTOR_SESSION, algorithmStageSessionKey(lessonId, lessonStep), algorithmStage.getType());
   }, [algorithmStage, lessonId, lessonStep]);
 
-  const generateStageText = useCallback(async (stage: AlgorithmStage): Promise<void> => {
+  const generateStageText = useCallback(async (stage: AlgorithmStage, requestId: number): Promise<void> => {
     if (!skill || !stageNeedsGeneratedText(stage)) return;
 
     const saved = loadFromSessionStorage(
@@ -408,7 +410,7 @@ export function AITutor({ modelSelector, moduleId, moduleCid, persistedOpenRoute
       generatedStageTextSessionKey(lessonId, lessonStep, stage.getType()),
     );
     if (saved) {
-      setCurrentAiText(saved);
+      if (stageTextRequestRef.current === requestId) setCurrentAiText(saved);
       return;
     }
 
@@ -433,6 +435,8 @@ export function AITutor({ modelSelector, moduleId, moduleCid, persistedOpenRoute
       const text = generated.message.trim();
       if (!text) throw new Error('The AI tutor returned no stage text.');
 
+      if (stageTextRequestRef.current !== requestId) return;
+
       setCurrentAiText(text);
       saveToSessionStorage(
         AI_TUTOR_SESSION,
@@ -441,6 +445,7 @@ export function AITutor({ modelSelector, moduleId, moduleCid, persistedOpenRoute
       );
       localStorage.setItem(MODEL_STORAGE, model.trim() || DEFAULT_MODEL);
     } catch (e) {
+      if (stageTextRequestRef.current !== requestId) return;
       if (e instanceof Error && (e.message.includes('OpenRouter request failed (401)') || e.message.includes('OpenRouter request failed (403)'))) {
         setKeyInput(openRouterKey || '');
         setKeyDialogOpen(true);
@@ -449,15 +454,16 @@ export function AITutor({ modelSelector, moduleId, moduleCid, persistedOpenRoute
         setError(e instanceof Error ? e.message : 'The AI tutor could not prepare this programmed stage.');
       }
     } finally {
-      setLoading(false);
+      if (stageTextRequestRef.current === requestId) setLoading(false);
     }
   }, [algorithm, lessonId, lessonStep, model, openRouterKey, skill, studentExercise]);
 
   useEffect(() => {
     if (!skill || !algorithmStage) return;
 
+    const requestId = ++stageTextRequestRef.current;
     if (stageNeedsGeneratedText(algorithmStage)) {
-      void generateStageText(algorithmStage);
+      void generateStageText(algorithmStage, requestId);
     } else {
       // This is the normal path: TutoringAlgorithm already contains the words
       // a human tutor should say, so render them instantly with no AI call.
@@ -616,19 +622,25 @@ export function AITutor({ modelSelector, moduleId, moduleCid, persistedOpenRoute
     const updated = await saveAiDecision(lesson, lessonStep, action);
     setRepeatCount((count) => count + 1);
     if (countedCorrect) setOkCount((count) => count + 1);
+    // Clear the previous skill's stage in the same render as the step change so
+    // the persistence effect cannot briefly save that stage under the new skill.
+    setAlgorithmStage(undefined);
     setLessonStep(updated.learnStep);
     setCurrentAiText('');
     resetComposer();
   }, [lessonStep, moduleCid, moduleId, resetComposer, skills, studentId]);
 
   const submitAnswer = useCallback(async (): Promise<void> => {
-    if (!skill || !algorithmStage || recording) return;
+    // React state updates are asynchronous, so `loading` alone cannot prevent two
+    // rapid Enter/click events from starting concurrent decisions for one stage.
+    if (!skill || !algorithmStage || recording || submitInFlightRef.current) return;
     if (!answer.trim() && attachments.length === 0 && !audioBlob) return;
     if (!openRouterKey) {
       setKeyDialogOpen(true);
       return;
     }
 
+    submitInFlightRef.current = true;
     setLoading(true);
     setError('');
     try {
@@ -705,6 +717,7 @@ export function AITutor({ modelSelector, moduleId, moduleCid, persistedOpenRoute
         setError(e instanceof Error ? e.message : 'The AI tutor could not classify the student response.');
       }
     } finally {
+      submitInFlightRef.current = false;
       setLoading(false);
     }
   }, [algorithmStage, answer, attachments, audioBlob, currentAiText, finishSkill, lessonId, lessonStep, model, openRouterKey, recording, resetComposer, skill, studentExercise]);
@@ -719,8 +732,20 @@ export function AITutor({ modelSelector, moduleId, moduleCid, persistedOpenRoute
     resizeAnswerInput(answerInputRef.current);
   }, [answer, resizeAnswerInput]);
 
+  useEffect(() => {
+    if (!skill || loading || recording || keyDialogOpen) return;
+
+    // Programmed stages can render immediately and generated stages render after
+    // an async request. In both cases, return keyboard focus to the composer once
+    // the tutor has presented the next message.
+    const frame = window.requestAnimationFrame(() => {
+      answerInputRef.current?.focus({ preventScroll: true });
+    });
+    return () => window.cancelAnimationFrame(frame);
+  }, [algorithmStage, currentAiText, keyDialogOpen, loading, recording, skill]);
+
   const skipSkill = useCallback(async (): Promise<void> => {
-    if (!skill || loading || generatingImage || recording) return;
+    if (!skill || loading || generatingImage || recording || submitInFlightRef.current) return;
     setLoading(true);
     setError('');
     try {
@@ -756,7 +781,7 @@ export function AITutor({ modelSelector, moduleId, moduleCid, persistedOpenRoute
               {currentAiText && <MessageContainer>
                 <Bubble><KatexSpan content={currentAiText} /></Bubble>
               </MessageContainer>}
-              {loading && <Spinner label='AI Tutor is thinking' />}
+              {loading && <ThinkingIndicator><Spinner label='AI Tutor is thinking' /></ThinkingIndicator>}
             </Conversation>
             <ComposerDock>
               <Composer>
@@ -1039,8 +1064,17 @@ const Conversation = styled(ChatContainer)`
   flex: 1 1 auto;
   overflow-y: auto;
   overflow-x: hidden;
+  position: relative;
   padding: 12px 0 12px;
   box-sizing: border-box;
+`;
+const ThinkingIndicator = styled.div`
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  pointer-events: none;
 `;
 const MessageContainer = styled.div`
   display: flex;
