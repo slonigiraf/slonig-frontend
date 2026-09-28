@@ -1419,6 +1419,7 @@ function Skills ({ autoRunAll = false, autoRunStartKey, book, externalRefreshTok
   const [exerciseFixReview, setExerciseFixReview] = useState<ExerciseFixReviewResult | null>(null);
   const [imageFixReview, setImageFixReview] = useState<ImageFixReviewResult | null>(null);
   const [generateOnlyMissingAbilities, setGenerateOnlyMissingAbilities] = useState(false);
+  const [generateOnlyMissingImages, setGenerateOnlyMissingImages] = useState(false);
   const [notice, setNotice] = useState('');
   const [isBusy, setIsBusy] = useState(false);
   const [openRouterSpent, setOpenRouterSpent] = useState(0);
@@ -1582,6 +1583,18 @@ function Skills ({ autoRunAll = false, autoRunStartKey, book, externalRefreshTok
       return visualPrompt && imageId !== undefined ? [{ exerciseIndex, field, imageId, record, visualPrompt }] : [];
     }))
     : []), [allAbilities]);
+  const missingImageGenerationTargets = useMemo(() => imageGenerationTargets.filter(({ exerciseIndex, field, record }) => {
+    const value = record.ability?.q[exerciseIndex]?.[field] ?? '';
+
+    return !isTikzCode(value);
+  }), [imageGenerationTargets]);
+  const abilitiesMissingImages = useMemo(() => new Set(missingImageGenerationTargets.map(({ record }) => record.id)), [missingImageGenerationTargets]);
+  const imageGenerationTargetsForRun = generateOnlyMissingImages ? missingImageGenerationTargets : imageGenerationTargets;
+  useEffect(() => {
+    if (!abilitiesMissingImages.size && generateOnlyMissingImages) {
+      setGenerateOnlyMissingImages(false);
+    }
+  }, [abilitiesMissingImages, generateOnlyMissingImages]);
   const imageFixTargets = useMemo<ImageFixTarget[]>(() => allAbilities.flatMap((record) => record.ability
     ? record.ability.q.flatMap((exercise, exerciseIndex) => (['p', 'i'] as const).flatMap((field) => {
       const value = exercise[field];
@@ -1649,7 +1662,7 @@ function Skills ({ autoRunAll = false, autoRunStartKey, book, externalRefreshTok
     }
 
     if (aiAction === 'images') {
-      return imageGenerationTargets.flatMap(({ exerciseIndex, field, record, visualPrompt }) => record.ability
+      return imageGenerationTargetsForRun.flatMap(({ exerciseIndex, field, record, visualPrompt }) => record.ability
         ? [tikzRequestPrompt(language, record.ability, exerciseIndex, field, visualPrompt, book.age)]
         : []);
     }
@@ -1661,7 +1674,7 @@ function Skills ({ autoRunAll = false, autoRunStartKey, book, externalRefreshTok
     }
 
     return [];
-  }, [abilityModuleIds, aiAction, book.age, book.id, chapterContent, generateOnlyMissingAbilities, imageFixTargets, imageGenerationTargets, language, skillSources]);
+  }, [abilityModuleIds, aiAction, book.age, book.id, chapterContent, generateOnlyMissingAbilities, imageFixTargets, imageGenerationTargetsForRun, language, skillSources]);
   const maxChapterAbilityCount = Math.max(1, ...chapterContent.map(({ abilities }) => abilities.length));
   const maxChapterExerciseCount = Math.max(1, ...chapterContent.map(({ exercises }) => exercises.length));
   const generationOutputTokens = aiAction === 'exercises' ? 3_200 : aiAction === 'fixExercises' ? maxChapterExerciseCount * 550 : aiAction === 'fix' ? maxChapterAbilityCount * 700 : aiAction === 'images' ? 2_400 : aiAction === 'fixImages' ? 2_600 : aiAction === 'skills' ? BATCH_SIZE * 180 : 300;
@@ -2364,22 +2377,28 @@ function Skills ({ autoRunAll = false, autoRunStartKey, book, externalRefreshTok
   }, []);
 
   const openImages = useCallback((): void => {
+    setGenerateOnlyMissingImages(false);
     setAiAction('images');
   }, []);
   const completeImagesStage = useCallback(async (): Promise<void> => {
-    const signal = beginProgress('Converting visual prompts to TikZ', imageGenerationTargets.length);
+    const targets = imageGenerationTargetsForRun;
+    const signal = beginProgress('Converting visual prompts to TikZ', targets.length);
+    let completed = 0;
 
     try {
-      if (!imageGenerationTargets.length) {
+      if (generateOnlyMissingImages && !targets.length) {
+        throw new Error('No Abilities are missing Images.');
+      }
+
+      if (!targets.length) {
         await completeStage(IMAGES_STAGE, true);
         setNotice('Images complete. There were no visual prompts requiring TikZ conversion or regeneration.');
         return;
       }
 
       const client = await createClient();
-      let completed = 0;
 
-      await mapConcurrent(imageGenerationTargets, OPENROUTER_CONCURRENCY, async ({ exerciseIndex, field, imageId, record, visualPrompt }) => {
+      await mapConcurrent(targets, OPENROUTER_CONCURRENCY, async ({ exerciseIndex, field, imageId, record, visualPrompt }) => {
         if (!record.ability) {
           return;
         }
@@ -2407,17 +2426,23 @@ function Skills ({ autoRunAll = false, autoRunStartKey, book, externalRefreshTok
       });
 
       await completeStage(IMAGES_STAGE, true);
-      setNotice(`Images complete: converted ${imageGenerationTargets.length} visual prompt${imageGenerationTargets.length === 1 ? '' : 's'} to TikZ.`);
+      setNotice(`Images complete: converted ${targets.length} visual prompt${targets.length === 1 ? '' : 's'} to TikZ${generateOnlyMissingImages ? ` for ${abilitiesMissingImages.size} ${abilitiesMissingImages.size === 1 ? 'Ability' : 'Abilities'} with missing Images` : ''}.`);
       refreshContent();
       onAction?.('preExercisesExercises');
     } catch (caught) {
+      if (completed > 0) {
+        // Successful requests are persisted one-by-one. Reload them after a
+        // partial failure/abort so the missing-images rerun only retries gaps.
+        refreshContent();
+      }
+
       if (!signal.aborted) {
         setError(caught instanceof Error ? caught.message : 'Unable to convert Ability visuals to TikZ.');
       }
     } finally {
       setIsBusy(false);
     }
-  }, [addImagesCost, beginProgress, book.age, createClient, imageGenerationTargets, language, onAction, refreshContent, effectiveModel, completeStage]);
+  }, [abilitiesMissingImages.size, addImagesCost, beginProgress, book.age, completeStage, createClient, effectiveModel, generateOnlyMissingImages, imageGenerationTargetsForRun, language, onAction, refreshContent]);
   const fixImages = useCallback(async (): Promise<void> => {
     const signal = beginProgress('Reviewing TikZ visuals', imageFixTargets.length);
 
@@ -2657,6 +2682,7 @@ function Skills ({ autoRunAll = false, autoRunStartKey, book, externalRefreshTok
   const closeConfirmation = useCallback((): void => {
     setAiAction(undefined);
     setGenerateOnlyMissingAbilities(false);
+    setGenerateOnlyMissingImages(false);
   }, []);
 
   const pipelineActions = useMemo<PipelineAction[]>(() => [
@@ -3102,6 +3128,12 @@ function Skills ({ autoRunAll = false, autoRunStartKey, book, externalRefreshTok
           label='Only for Exercises, missing an Ability'
           onChange={setGenerateOnlyMissingAbilities}
           value={generateOnlyMissingAbilities}
+        />}
+        {aiAction === 'images' && <Toggle
+          isDisabled={!abilitiesMissingImages.size}
+          label='Only for Abilities missing Images'
+          onChange={setGenerateOnlyMissingImages}
+          value={generateOnlyMissingImages}
         />}
         <OpenRouterModelSelector
           className='modelSelect'
