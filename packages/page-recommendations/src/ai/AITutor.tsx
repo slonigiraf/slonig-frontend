@@ -881,7 +881,7 @@ export function AITutor({ modelSelector, moduleId, moduleCid, persistedOpenRoute
               <ComposerMeta>
                 <ComposerHint>Enter to send · Shift+Enter for a new line</ComposerHint>
               </ComposerMeta>
-              <Stats>Marked for repeat: {repeatCount} · Correct: {okCount} · Remaining: {Math.max(skills.length - lessonStep, 0)}</Stats>
+              <Stats>To repeat: {repeatCount} · Correct: {okCount}</Stats>
             </ComposerDock>
           </>}
         </Pane>
@@ -1020,7 +1020,7 @@ const Composer = styled.div`
   flex-direction: column;
   box-sizing: border-box;
   border: 1px solid rgb(0 0 0 / 11%);
-  border-radius: 34px;
+  border-radius: 14px;
   background: #fff;
   box-shadow: 0 1px 2px rgb(0 0 0 / 5%), 0 7px 22px rgb(0 0 0 / 6%);
   transition: border-color 120ms ease, box-shadow 120ms ease;
@@ -1029,6 +1029,11 @@ const Composer = styled.div`
   &:focus-within {
     border-color: rgb(0 0 0 / 15%);
     box-shadow: 0 1px 2px rgb(0 0 0 / 6%), 0 9px 28px rgb(0 0 0 / 7%);
+  }
+
+  /* Match the horizontal inset used by the AI message bubble on phones. */
+  @media (max-width: 520px) {
+    width: calc(100% - 20px);
   }
 `;
 const ComposerTextarea = styled.textarea`
@@ -1354,27 +1359,28 @@ const StopGlyph = styled.span`
   background: currentColor;
 `;
 const SkipAction = styled.button`
-  height: 36px;
+  height: 38px;
   flex: 0 0 auto;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  gap: 7px;
-  padding: 0 9px;
+  padding: 0 11px;
   border: 0;
-  border-radius: 18px;
+  border-radius: 19px;
   background: transparent;
-  color: rgb(0 0 0 / 58%);
+  color: rgb(0 0 0 / 48%);
   font: inherit;
-  font-size: 14px;
+  font-size: 16px;
   line-height: 1;
   cursor: pointer;
   white-space: nowrap;
+  user-select: none;
 
   &:hover:not(:disabled) {
-    background: rgb(0 0 0 / 5%);
-    color: rgb(0 0 0 / 72%);
+    background: rgb(0 0 0 / 4%);
+    color: rgb(0 0 0 / 70%);
   }
+  &:focus-visible { outline: 2px solid rgb(59 130 246 / 55%); outline-offset: 2px; }
 
   &:disabled {
     cursor: default;
@@ -1398,13 +1404,13 @@ const SendButton = styled.button`
   justify-content: center;
   border: 0;
   border-radius: 50%;
-  background: #3b82f6;
+  background: #F39200;
   color: #fff;
   font-size: 25px;
   line-height: 1;
   cursor: pointer;
 
-  &:hover:not(:disabled) { background: #2563eb; }
+  &:hover:not(:disabled) { background: #d98200; }
   &:disabled { cursor: default; background: rgb(0 0 0 / 12%); color: rgb(0 0 0 / 32%); }
 `;
 const ComposerMeta = styled.div`
