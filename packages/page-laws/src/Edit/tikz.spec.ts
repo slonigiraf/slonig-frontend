@@ -9,6 +9,7 @@ import { embedTikzSourceInSvg, extractTikzSourceFromSvg } from './tikz.js';
 
 const SOURCE = `\\begin{tikzpicture}
   \\node {π ≤ 4 & x < y};
+  \\node {человек без признака};
   \\draw (0,0) -- (1,1);
 \\end{tikzpicture}`;
 
@@ -17,6 +18,7 @@ describe('TikZ SVG persistence', (): void => {
     const svg = embedTikzSourceInSvg('<svg xmlns="http://www.w3.org/2000/svg"><path d="M0 0L1 1"/></svg>', SOURCE);
 
     assert.match(svg, /<metadata id="slonig-tikz-source-v1"/);
+    assert.match(svg, /data-renderer="tikz-editor@0\.5\.2-texlyre\.1"/);
     assert.equal(extractTikzSourceFromSvg(svg), SOURCE);
   });
 

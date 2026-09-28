@@ -19,7 +19,7 @@ const isGeneratedAbilityVisual = (value: string): boolean => {
 
 type AbilityExerciseWithPrompts = Exercise & { iError?: boolean; iPrompt?: string; pError?: boolean; pPrompt?: string };
 
-const ExerciseVisual: React.FC<{ alt: string; hasCompileError?: boolean; isAbilityInfo: boolean; label: string; onCompileStateChange?: (hasError: boolean) => Promise<void> | void; onSave?: (value: string) => Promise<void>; prompt?: string; value: string }> = ({ alt, hasCompileError = false, isAbilityInfo, label, onCompileStateChange, onSave, prompt, value }) => {
+const ExerciseVisual: React.FC<{ alt: string; hasCompileError?: boolean; isAbilityInfo: boolean; label: string; onCompileStateChange?: (hasError: boolean, renderedValue: string) => Promise<void> | void; onSave?: (value: string) => Promise<void>; prompt?: string; value: string }> = ({ alt, hasCompileError = false, isAbilityInfo, label, onCompileStateChange, onSave, prompt, value }) => {
     if (!value.trim()) {
         const promptOnly = isAbilityInfo ? prompt?.trim() ?? '' : '';
 
@@ -91,7 +91,7 @@ const ExerciseList: React.FC<ExerciseListProps> = ({ exercises, areShownInitiall
                 <div className="exercise-display">
                     <div className="exercise-header">
                         <span><KatexSpan content={exercise.h} /></span>
-                        {(exercise.p || (location === 'ability_info' && (exercise as AbilityExerciseWithPrompts).pPrompt)) && <ExerciseDetails><ExerciseVisual alt='Question' hasCompileError={(exercise as AbilityExerciseWithPrompts).pError === true} isAbilityInfo={location === 'ability_info'} label='Question visual prompt' onCompileStateChange={onAbilityVisualErrorChange ? (hasError) => onAbilityVisualErrorChange(0, 'p', hasError, exercise.p) : undefined} onSave={onAbilityVisualSave ? (value) => onAbilityVisualSave(0, 'p', value) : undefined} prompt={(exercise as AbilityExerciseWithPrompts).pPrompt} value={exercise.p} /></ExerciseDetails>}
+                        {(exercise.p || (location === 'ability_info' && (exercise as AbilityExerciseWithPrompts).pPrompt)) && <ExerciseDetails><ExerciseVisual alt='Question' hasCompileError={(exercise as AbilityExerciseWithPrompts).pError === true} isAbilityInfo={location === 'ability_info'} label='Question visual prompt' onCompileStateChange={onAbilityVisualErrorChange ? (hasError, renderedValue) => onAbilityVisualErrorChange(0, 'p', hasError, renderedValue) : undefined} onSave={onAbilityVisualSave ? (value) => onAbilityVisualSave(0, 'p', value) : undefined} prompt={(exercise as AbilityExerciseWithPrompts).pPrompt} value={exercise.p} /></ExerciseDetails>}
                     </div>
                 </div>
             </div>
@@ -107,7 +107,7 @@ const ExerciseList: React.FC<ExerciseListProps> = ({ exercises, areShownInitiall
                         <div className="exercise-display">
                             <div className="exercise-header">
                                 <span><KatexSpan content={` ${index + 1}. ` + exercise.h} /></span>
-                                {(exercise.p || (location === 'ability_info' && (exercise as AbilityExerciseWithPrompts).pPrompt)) && <ExerciseDetails><ExerciseVisual alt='Question' hasCompileError={(exercise as AbilityExerciseWithPrompts).pError === true} isAbilityInfo={location === 'ability_info'} label='Question visual prompt' onCompileStateChange={onAbilityVisualErrorChange ? (hasError) => onAbilityVisualErrorChange(index, 'p', hasError, exercise.p) : undefined} onSave={onAbilityVisualSave ? (value) => onAbilityVisualSave(index, 'p', value) : undefined} prompt={(exercise as AbilityExerciseWithPrompts).pPrompt} value={exercise.p} /></ExerciseDetails>}
+                                {(exercise.p || (location === 'ability_info' && (exercise as AbilityExerciseWithPrompts).pPrompt)) && <ExerciseDetails><ExerciseVisual alt='Question' hasCompileError={(exercise as AbilityExerciseWithPrompts).pError === true} isAbilityInfo={location === 'ability_info'} label='Question visual prompt' onCompileStateChange={onAbilityVisualErrorChange ? (hasError, renderedValue) => onAbilityVisualErrorChange(index, 'p', hasError, renderedValue) : undefined} onSave={onAbilityVisualSave ? (value) => onAbilityVisualSave(index, 'p', value) : undefined} prompt={(exercise as AbilityExerciseWithPrompts).pPrompt} value={exercise.p} /></ExerciseDetails>}
                             </div>
 
                             {location !== 'example_exercises' && <Answer>
@@ -121,7 +121,7 @@ const ExerciseList: React.FC<ExerciseListProps> = ({ exercises, areShownInitiall
                                 {areAnswersShown && (
                                     <>
                                         <KatexSpan content={exercise.a} />
-                                        {(exercise.i || (location === 'ability_info' && (exercise as AbilityExerciseWithPrompts).iPrompt)) && <ExerciseVisual alt='Solution' hasCompileError={(exercise as AbilityExerciseWithPrompts).iError === true} isAbilityInfo={location === 'ability_info'} label='Answer visual prompt' onCompileStateChange={onAbilityVisualErrorChange ? (hasError) => onAbilityVisualErrorChange(index, 'i', hasError, exercise.i) : undefined} onSave={onAbilityVisualSave ? (value) => onAbilityVisualSave(index, 'i', value) : undefined} prompt={(exercise as AbilityExerciseWithPrompts).iPrompt} value={exercise.i} />}
+                                        {(exercise.i || (location === 'ability_info' && (exercise as AbilityExerciseWithPrompts).iPrompt)) && <ExerciseVisual alt='Solution' hasCompileError={(exercise as AbilityExerciseWithPrompts).iError === true} isAbilityInfo={location === 'ability_info'} label='Answer visual prompt' onCompileStateChange={onAbilityVisualErrorChange ? (hasError, renderedValue) => onAbilityVisualErrorChange(index, 'i', hasError, renderedValue) : undefined} onSave={onAbilityVisualSave ? (value) => onAbilityVisualSave(index, 'i', value) : undefined} prompt={(exercise as AbilityExerciseWithPrompts).iPrompt} value={exercise.i} />}
                                     </>
                                 )}
                             </Answer>}

@@ -16,7 +16,6 @@ import ExerciseList from './Edit/ExerciseList.js';
 import type { TikzPreRenderResult } from './Edit/TikzDisplay.js';
 import { isTikzCode } from './Edit/tikz.js';
 import { nextStoredTikzValidity, shouldSkipStoredTikzCompile } from './Edit/tikzValidation.js';
-import { getTikzRenderConcurrency } from './Edit/tikzConcurrency.js';
 import { parseAbilityRepairResult, parseStoredAbility, withAbilityVisualSource } from './abilities.js';
 import { parseExerciseRepairResult } from './exercises.js';
 import { estimateAiInput } from './aiEstimate.js';
@@ -43,7 +42,7 @@ async function preRenderTikzLazy (value: string): Promise<TikzPreRenderResult> {
 function skippedInvalidTikzPreRender (): TikzPreRenderResult {
   return {
     compiled: false,
-    diagnostics: ['Skipped TikZJax pre-render because this unchanged Image is already marked valid:false. Edit the TikZ data to retry.'],
+    diagnostics: ['Skipped TikZ Editor pre-render because this unchanged Image is already marked valid:false. Edit the TikZ data to retry.'],
     renderedSvg: '',
     texInput: ''
   };
@@ -57,7 +56,7 @@ async function preRenderStoredTikz (imageId: number, value: string): Promise<Tik
   }
 
   // Image.valid belongs to the exact data currently stored in the row. A failed
-  // source must not be sent through TikZJax again until a write changes Image.data;
+  // source must not be sent through the TikZ Editor renderer again until a write changes Image.data;
   // every data-changing path below clears `valid`, making the new source eligible.
   if (shouldSkipStoredTikzCompile(image.data, image.valid, value)) {
     return skippedInvalidTikzPreRender();
@@ -88,7 +87,7 @@ const MAX_REQUEST_ATTEMPTS = 4;
 const RETRY_BASE_DELAY_MS = 1_000;
 const AI_REQUEST_TIMEOUT_MS = 60_000;
 const ABILITY_GENERATION_CONCURRENCY = 5;
-const TIKZ_RENDER_CONCURRENCY = getTikzRenderConcurrency();
+const TIKZ_RENDER_CONCURRENCY = 1;
 const delay = (milliseconds: number): Promise<void> => new Promise((resolve) => setTimeout(resolve, milliseconds));
 
 function getErrorStatus (error: unknown): number | undefined {
@@ -278,7 +277,7 @@ interface FixedImageReview {
 
 interface ImageFixReviewResult {
   checked: number;
-  compileFailures: number;
+  renderFailures: number;
   items: FixedImageReview[];
 }
 
@@ -461,7 +460,7 @@ function tikzRequestPrompt (language: string, ability: GeneratedAbility, exercis
 Rules:
 ${MATH_DISPLAY_REQUIREMENTS_PROMPT}
 - Return ONLY one \\begin{tikzpicture}...\\end{tikzpicture} block. No markdown fences, prose, documentclass, packages, or external files.
-- Use only standard TikZ constructs and common built-in libraries where possible. Keep the drawing browser-renderable with TikZJax.
+- Use only standard TikZ constructs and common built-in libraries where possible. Keep the drawing browser-renderable by TikZ Editor using standard supported TikZ constructs.
 - Preserve the exact mathematical/semantic information in the visual description. Do not add hints or facts that would reveal an answer in a question visual.
 - Keep labels concise and in the book language (${language}).
 - Prefer a clean educational diagram with sensible coordinates and readable labels.
@@ -520,7 +519,7 @@ ${MATH_DISPLAY_REQUIREMENTS_PROMPT}
 During review or repair, slash-form mathematical fractions are errors and must be corrected. During review or repair, any number line that violates any of these requirements is an error and must be corrected.
 
 You MUST inspect all of these classes of failure:
-- TikZ/TeX compile or TikZJax render failure. A successful compile is mandatory.
+- TikZ Editor parse or SVG render failure. A successful render is mandatory.
 - Semantic mismatch with the original visual prompt, concrete question, or correct answer.
 - Wrong values, labels, geometry, axes, markings, regions, arrows, ordering, or missing required objects.
 - For a question visual, accidental answer leakage or solved-state markings that the learner should infer.
@@ -528,7 +527,7 @@ You MUST inspect all of these classes of failure:
 - Visual mess: overlapping text, labels printed on top of unrelated labels/objects, clipped text, illegible density, lines/arrows passing through labels, badly placed annotations, ambiguous association between labels and objects, or excessive unused/competing content.
 - Poor composition that makes the intended educational relationship hard to read.
 
-Use the pre-render evidence below. The SVG is the actual browser rendering when compilation succeeded. If compilation failed, use the diagnostics/TeX input to repair the source. Preserve correct content and change only what is needed.
+Use the pre-render evidence below. The SVG is the actual browser rendering when compilation succeeded. If rendering failed, use the diagnostics/source input to repair the source. Preserve correct content and change only what is needed.
 
 ${LEARNER_AGE_PROMPT(learnerAge)}
 
@@ -553,7 +552,7 @@ ${JSON.stringify(compactPreRenderForPrompt(preRender))}`;
 function tikzCompileRepairPrompt (language: string, target: ImageFixTarget, review: TikzAiReview, failedPreRender: TikzPreRenderResult, learnerAge?: number): string {
   const exercise = target.ability.q[target.exerciseIndex];
 
-  return `The proposed TikZ correction still failed the application's real TikZJax pre-render. Repair the TikZ so it compiles in TikZJax AND still satisfies the original visual specification. Keep all valid semantic/layout corrections already made.
+  return `The proposed TikZ correction still failed the application's real TikZ Editor pre-render. Repair the TikZ so it renders in TikZ Editor AND still satisfies the original visual specification. Keep all valid semantic/layout corrections already made.
 
 ${MATH_DISPLAY_REQUIREMENTS_PROMPT}
 
@@ -579,7 +578,7 @@ Failed pre-render: ${JSON.stringify(compactPreRenderForPrompt(failedPreRender))}
 function tikzDetectedProblemsRepairPrompt (language: string, target: ImageFixTarget, review: TikzAiReview, preRender: TikzPreRenderResult, learnerAge?: number): string {
   const exercise = target.ability.q[target.exerciseIndex];
 
-  return `You identified real problems in this TikZ visual but returned the original TikZ unchanged. Apply the required corrections now. The corrected TikZ must compile in TikZJax, match the original visual prompt and concrete exercise, and resolve every listed layout/semantic problem.
+  return `You identified real problems in this TikZ visual but returned the original TikZ unchanged. Apply the required corrections now. The corrected TikZ must render in TikZ Editor, match the original visual prompt and concrete exercise, and resolve every listed layout/semantic problem.
 
 ${MATH_DISPLAY_REQUIREMENTS_PROMPT}
 
@@ -2328,7 +2327,7 @@ function Skills ({ book, externalRefreshToken = 0, onAction, onBookChange, onCon
 
     try {
       if (!imageFixTargets.length) {
-        setImageFixReview({ checked: 0, compileFailures: 0, items: [] });
+        setImageFixReview({ checked: 0, renderFailures: 0, items: [] });
         setNotice('Fix images review ready. There are no TikZ visuals to check. No TikZ source changes have been made.');
         return;
       }
@@ -2336,7 +2335,7 @@ function Skills ({ book, externalRefreshToken = 0, onAction, onBookChange, onCon
       const client = await createClient();
       let completed = 0;
 
-      const reviewResults = await mapConcurrent(imageFixTargets, TIKZ_RENDER_CONCURRENCY, async (target): Promise<{ compileFailure: boolean; item?: FixedImageReview }> => {
+      const reviewResults = await mapConcurrent(imageFixTargets, TIKZ_RENDER_CONCURRENCY, async (target): Promise<{ renderFailure: boolean; item?: FixedImageReview }> => {
         const originalPreRender = await preRenderStoredTikz(target.imageId, target.originalTikz);
 
         const review = await requestValidatedJson(
@@ -2355,7 +2354,7 @@ function Skills ({ book, externalRefreshToken = 0, onAction, onBookChange, onCon
         // a diagram error-free when the real browser renderer rejected it.
         if (!originalPreRender.compiled && !effectiveReview.hasErrors) {
           effectiveReview = {
-            errors: ['TikZJax pre-render failed; the TikZ must be repaired before this visual can be accepted.'],
+            errors: ['TikZ Editor pre-render failed; the TikZ must be repaired before this visual can be accepted.'],
             hasErrors: true,
             tikz: effectiveReview.tikz
           };
@@ -2383,14 +2382,14 @@ function Skills ({ book, externalRefreshToken = 0, onAction, onBookChange, onCon
           : originalPreRender;
 
         // Re-feed real renderer diagnostics to the model until the proposed
-        // correction compiles. This is the second guard after semantic/layout QA.
+        // correction renders. This is the second guard after semantic/layout QA.
         for (let repairAttempt = 0; effectiveReview.hasErrors && !fixedPreRender.compiled && repairAttempt < 2; repairAttempt++) {
           const previousErrors = effectiveReview.errors;
           const rejectedTikz = effectiveReview.tikz;
           const repaired = await requestValidatedJson(
             client,
             selectedModel,
-            'You repair rejected TikZ using real TikZJax pre-render diagnostics. Return only the requested JSON object.',
+            'You repair rejected TikZ using real TikZ Editor pre-render diagnostics. Return only the requested JSON object.',
             tikzCompileRepairPrompt(language, target, effectiveReview, fixedPreRender, book.age),
             parseTikzAiReview,
             true,
@@ -2400,12 +2399,12 @@ function Skills ({ book, externalRefreshToken = 0, onAction, onBookChange, onCon
 
           effectiveReview = repaired.hasErrors
             ? repaired
-            : { errors: previousErrors.length ? previousErrors : ['TikZJax pre-render failure was repaired.'], hasErrors: true, tikz: repaired.tikz };
+            : { errors: previousErrors.length ? previousErrors : ['TikZ Editor pre-render failure was repaired.'], hasErrors: true, tikz: repaired.tikz };
 
           if (effectiveReview.tikz === rejectedTikz) {
             fixedPreRender = {
               ...fixedPreRender,
-              diagnostics: Array.from(new Set([...fixedPreRender.diagnostics, 'Skipped repeated TikZJax compile because the rejected TikZ data did not change.']))
+              diagnostics: Array.from(new Set([...fixedPreRender.diagnostics, 'Skipped repeated TikZ Editor render because the rejected TikZ data did not change.']))
             };
           } else {
             fixedPreRender = await preRenderTikzLazy(effectiveReview.tikz);
@@ -2415,7 +2414,7 @@ function Skills ({ book, externalRefreshToken = 0, onAction, onBookChange, onCon
         if (effectiveReview.hasErrors && !fixedPreRender.compiled) {
           const details = fixedPreRender.diagnostics.slice(-6).join(' | ');
 
-          throw new Error(`Unable to produce compiling TikZ for ${target.ability.h}, exercise ${target.exerciseIndex + 1} ${target.field === 'p' ? 'question' : 'solution'} visual.${details ? ` ${details}` : ''}`);
+          throw new Error(`Unable to produce renderable TikZ for ${target.ability.h}, exercise ${target.exerciseIndex + 1} ${target.field === 'p' ? 'question' : 'solution'} visual.${details ? ` ${details}` : ''}`);
         }
 
         const changed = effectiveReview.tikz.trim() !== target.originalTikz.trim();
@@ -2424,7 +2423,7 @@ function Skills ({ book, externalRefreshToken = 0, onAction, onBookChange, onCon
         setProgress(completed);
 
         return {
-          compileFailure: !originalPreRender.compiled,
+          renderFailure: !originalPreRender.compiled,
           ...(effectiveReview.hasErrors && changed
             ? {
               item: {
@@ -2443,13 +2442,13 @@ function Skills ({ book, externalRefreshToken = 0, onAction, onBookChange, onCon
             : {})
         };
       });
-      const compileFailures = reviewResults.filter(({ compileFailure }) => compileFailure).length;
+      const renderFailures = reviewResults.filter(({ renderFailure }) => renderFailure).length;
       const items = reviewResults.flatMap(({ item }) => item ? [item] : []);
 
-      setImageFixReview({ checked: imageFixTargets.length, compileFailures, items });
+      setImageFixReview({ checked: imageFixTargets.length, renderFailures, items });
       const unchanged = Math.max(0, imageFixTargets.length - items.length);
 
-      setNotice(`Fix images review ready: ${items.length} TikZ correction${items.length === 1 ? '' : 's'}, ${compileFailures} original compile failure${compileFailures === 1 ? '' : 's'}, ${unchanged} unchanged. No TikZ source changes have been applied.`);
+      setNotice(`Fix images review ready: ${items.length} TikZ correction${items.length === 1 ? '' : 's'}, ${renderFailures} original render failure${renderFailures === 1 ? '' : 's'}, ${unchanged} unchanged. No TikZ source changes have been applied.`);
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : 'Unable to review and fix TikZ visuals.');
     } finally {
@@ -2459,7 +2458,7 @@ function Skills ({ book, externalRefreshToken = 0, onAction, onBookChange, onCon
 
   const closeImageFixReview = useCallback((): void => {
     setImageFixReview(null);
-    setNotice('Proposed TikZ source changes were discarded. Compile-failure validation flags are kept so unchanged invalid TikZ is not compiled again.');
+    setNotice('Proposed TikZ source changes were discarded. Render-failure validation flags are kept so unchanged invalid TikZ is not rendered again.');
   }, []);
 
   const applyImageFixReview = useCallback(async (): Promise<void> => {
@@ -2803,7 +2802,7 @@ function Skills ({ book, externalRefreshToken = 0, onAction, onBookChange, onCon
           <FixResultsReviewContent>
             <div className='fixResultsReviewIntro'>
               <p><strong>No TikZ source changes have been saved yet.</strong></p>
-              <p>Checked {imageFixReview.checked} TikZ visual{imageFixReview.checked === 1 ? '' : 's'}. The pre-render found {imageFixReview.compileFailures} original compile failure{imageFixReview.compileFailures === 1 ? '' : 's'}, and AI proposed {imageFixReview.items.length} correction{imageFixReview.items.length === 1 ? '' : 's'}. Compile failures are saved as validation metadata.</p>
+              <p>Checked {imageFixReview.checked} TikZ visual{imageFixReview.checked === 1 ? '' : 's'}. The pre-render found {imageFixReview.renderFailures} original render failure{imageFixReview.renderFailures === 1 ? '' : 's'}, and AI proposed {imageFixReview.items.length} correction{imageFixReview.items.length === 1 ? '' : 's'}. Render failures are saved as validation metadata.</p>
             </div>
             {imageFixReview.items.length > 0 && <div className='fixResultsReviewComparison'>
               {imageFixReview.items.map(({ errors, exerciseIndex, field, fixedPreRender, fixedTikz, originalPreRender, originalTikz, prompt, record }, index) => {
@@ -2824,7 +2823,7 @@ function Skills ({ book, externalRefreshToken = 0, onAction, onBookChange, onCon
                         <div className='fixResultsReviewHeading'>
                           <strong>{role} visual</strong>
                         </div>
-                        <p><small>Pre-render: {originalPreRender.compiled ? 'compiled successfully' : 'FAILED to compile/render'}</small></p>
+                        <p><small>Pre-render: {originalPreRender.compiled ? 'rendered successfully' : 'FAILED to render'}</small></p>
                         {!originalPreRender.compiled && originalPreRender.diagnostics.length > 0 && <pre className='tikzDiagnostics'>{originalPreRender.diagnostics.slice(-8).join('\n')}</pre>}
                         <pre className='tikzCodeDiff'>{originalTikz}</pre>
                         {originalPreRender.compiled && <React.Suspense fallback={<small>Loading TikZ renderer…</small>}><TikzDisplay alt={`Original ${role} visual`} value={originalTikz} /></React.Suspense>}
@@ -2839,7 +2838,7 @@ function Skills ({ book, externalRefreshToken = 0, onAction, onBookChange, onCon
                             <span className='fixResultsReviewProposed'>Proposed</span>
                           </span>
                         </div>
-                        <p><small>Pre-render: {fixedPreRender.compiled ? 'compiled successfully' : 'FAILED'}</small></p>
+                        <p><small>Pre-render: {fixedPreRender.compiled ? 'rendered successfully' : 'FAILED'}</small></p>
                         {!fixedPreRender.compiled && fixedPreRender.diagnostics.length > 0 && <pre className='tikzDiagnostics'>{fixedPreRender.diagnostics.slice(-8).join('\n')}</pre>}
                         <pre className='tikzCodeDiff'>{fixedTikz}</pre>
                         <React.Suspense fallback={<small>Loading TikZ renderer…</small>}><TikzDisplay alt={`Corrected ${role} visual`} value={fixedTikz} /></React.Suspense>

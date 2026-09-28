@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 const TIKZ_METADATA_ID = 'slonig-tikz-source-v1';
-const TIKZ_METADATA_RENDERER = 'tikzjax@1.6.0';
+const TIKZ_METADATA_RENDERER = 'tikz-editor@0.5.2-texlyre.1';
 
 export const DEFAULT_TIKZ_SOURCE = '';
 

@@ -21,8 +21,8 @@ describe('TikZ persisted validation', (): void => {
     assert.equal(shouldSkipStoredTikzCompile('same', true, 'same'), false);
   });
 
-  it('makes invalid sticky for the exact same source', (): void => {
-    assert.equal(nextStoredTikzValidity('same', false, 'same', false), undefined);
+  it('allows an explicit successful retry to clear invalid for the same source', (): void => {
+    assert.equal(nextStoredTikzValidity('same', false, 'same', false), true);
     assert.equal(nextStoredTikzValidity('same', false, 'same', true), undefined);
   });
 

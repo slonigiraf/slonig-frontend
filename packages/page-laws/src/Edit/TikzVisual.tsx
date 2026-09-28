@@ -5,13 +5,14 @@ import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { Button, styled } from '@polkadot/react-components';
 import TikzDisplay from './TikzDisplay.js';
+import { TIKZ_EDITOR_ORIGIN, TIKZ_EDITOR_URL, cacheTikzEditorSvg, parseTikzEditorMessage } from './tikzEditorBridge.js';
 
 interface Props {
   alt: string;
   editorTitle?: string;
   hasCompileError?: boolean;
   isEditorShownInitially?: boolean;
-  onCompileStateChange?: (hasError: boolean) => Promise<void> | void;
+  onCompileStateChange?: (hasError: boolean, renderedValue: string) => Promise<void> | void;
   onEditorClose?: () => void;
   onSave?: (value: string) => Promise<void>;
   prompt?: string;
@@ -19,29 +20,13 @@ interface Props {
   value: string;
 }
 
-const TIKZ_EDITOR_URL = 'https://texlyre.github.io/tikz-editor-embed-mirror/tikz-editor/index.html';
-const TIKZ_EDITOR_ORIGIN = 'https://texlyre.github.io';
-
-interface TikzEditorMessage {
-  event?: 'autosave' | 'change' | 'export' | 'init' | 'loaded' | 'save';
-  source?: string;
+interface PendingEditorSave {
+  reject: (reason: Error) => void;
+  resolve: (value: { source: string; svg: string }) => void;
+  timer: ReturnType<typeof setTimeout>;
 }
 
-function parseEditorMessage (value: unknown): TikzEditorMessage | undefined {
-  if (typeof value === 'string') {
-    try {
-      return JSON.parse(value) as TikzEditorMessage;
-    } catch {
-      return undefined;
-    }
-  }
-
-  if (value && typeof value === 'object') {
-    return value as TikzEditorMessage;
-  }
-
-  return undefined;
-}
+const EDITOR_SAVE_TIMEOUT_MS = 10_000;
 
 export default function TikzVisual ({ alt, editorTitle, hasCompileError = false, isEditorShownInitially = false, onCompileStateChange, onEditorClose, onSave, prompt, showPreview = true, value }: Props): React.ReactElement {
   const [draft, setDraft] = useState(value);
@@ -51,13 +36,38 @@ export default function TikzVisual ({ alt, editorTitle, hasCompileError = false,
   const [isVisualEditorShown, setIsVisualEditorShown] = useState(isEditorShownInitially);
   const [message, setMessage] = useState('');
   const [recompileToken, setRecompileToken] = useState(0);
+  const [retrySource, setRetrySource] = useState<string | undefined>(undefined);
   const editorRef = useRef<HTMLIFrameElement>(null);
   const draftRef = useRef(draft);
   const editStartValueRef = useRef(draft);
+  const retrySourceRef = useRef<string | undefined>(undefined);
+  const pendingEditorSaveRef = useRef<PendingEditorSave | undefined>(undefined);
 
   useEffect(() => {
     draftRef.current = draft;
   }, [draft]);
+
+  // Keep local preview state aligned with DB-driven prop refreshes, except while
+  // the visual editor is open or an explicit Save/Exit retry is still settling.
+  useEffect(() => {
+    if (isVisualEditorShown || retrySourceRef.current) {
+      return;
+    }
+
+    draftRef.current = value;
+    setDraft(value);
+    setRendered(value);
+  }, [isVisualEditorShown, value]);
+
+  // A successful retry can persist slightly before/after the parent Ability is
+  // re-hydrated. Keep ignoring the stale `hasCompileError` prop until the parent
+  // reflects that this exact source is no longer failed.
+  useEffect(() => {
+    if (retrySource && retrySource === value && !hasCompileError) {
+      retrySourceRef.current = undefined;
+      setRetrySource(undefined);
+    }
+  }, [hasCompileError, retrySource, value]);
 
   useEffect(() => {
     if (!isVisualEditorShown) {
@@ -93,17 +103,56 @@ export default function TikzVisual ({ alt, editorTitle, hasCompileError = false,
     editorRef.current?.contentWindow?.postMessage(JSON.stringify(payload), TIKZ_EDITOR_ORIGIN);
   }, []);
 
+  const requestEditorSave = useCallback((): Promise<{ source: string; svg: string }> => {
+    if (!editorRef.current?.contentWindow) {
+      return Promise.reject(new Error('TikZ Editor is not ready.'));
+    }
+
+    const previous = pendingEditorSaveRef.current;
+
+    if (previous) {
+      clearTimeout(previous.timer);
+      previous.reject(new Error('TikZ Editor save was superseded by another save request.'));
+      pendingEditorSaveRef.current = undefined;
+    }
+
+    return new Promise((resolve, reject) => {
+      const timer = setTimeout(() => {
+        if (pendingEditorSaveRef.current?.timer === timer) {
+          pendingEditorSaveRef.current = undefined;
+          reject(new Error('TikZ Editor save timed out.'));
+        }
+      }, EDITOR_SAVE_TIMEOUT_MS);
+
+      pendingEditorSaveRef.current = { reject, resolve, timer };
+      sendToEditor({ action: 'save' });
+    });
+  }, [sendToEditor]);
+
   const saveAndExit = useCallback(async (): Promise<void> => {
     if (!onSave) {
       return;
     }
 
-    const nextValue = draftRef.current.trim();
-
     setIsSaving(true);
     setMessage('');
 
     try {
+      // Ask the already-visible editor to save first. Its documented save
+      // response contains both the authoritative source and the SVG currently
+      // shown by the editor. Cache that exact SVG before any parent refresh so
+      // closing the editor never requires an immediate hidden re-render.
+      const saved = await requestEditorSave();
+      const nextValue = saved.source.trim();
+
+      if (!nextValue) {
+        throw new Error('TikZ Editor returned empty source.');
+      }
+
+      cacheTikzEditorSvg(nextValue, saved.svg);
+      retrySourceRef.current = nextValue;
+      setRetrySource(nextValue);
+
       await onSave(nextValue);
       draftRef.current = nextValue;
       setDraft(nextValue);
@@ -115,11 +164,14 @@ export default function TikzVisual ({ alt, editorTitle, hasCompileError = false,
       setMessage('Saved.');
       onEditorClose?.();
     } catch (error) {
+      retrySourceRef.current = undefined;
+      setRetrySource(undefined);
       setMessage(error instanceof Error ? error.message : 'Unable to save TikZ.');
     } finally {
       setIsSaving(false);
     }
-  }, [onEditorClose, onSave, sendToEditor]);
+  }, [onEditorClose, onSave, requestEditorSave, sendToEditor]);
+
 
   useEffect(() => {
     if (!isVisualEditorShown) {
@@ -131,7 +183,7 @@ export default function TikzVisual ({ alt, editorTitle, hasCompileError = false,
         return;
       }
 
-      const data = parseEditorMessage(event.data);
+      const data = parseTikzEditorMessage(event.data);
 
       if (!data?.event) {
         return;
@@ -147,14 +199,52 @@ export default function TikzVisual ({ alt, editorTitle, hasCompileError = false,
         setDraft(data.source);
         setRendered(data.source);
         setMessage('');
+
+        if (data.event === 'autosave' && typeof data.svg === 'string' && data.svg.trim()) {
+          try {
+            cacheTikzEditorSvg(data.source, data.svg);
+          } catch {
+            // Keep editing even if an intermediate SVG is malformed. A formal
+            // Save and exit request below will surface a useful error instead.
+          }
+        }
+
         return;
       }
 
-      if (data.event === 'save' && typeof data.source === 'string') {
-        draftRef.current = data.source;
-        setDraft(data.source);
-        setRendered(data.source);
-        setMessage('');
+      if (data.event === 'save') {
+        const source = typeof data.source === 'string' ? data.source : data.xml;
+        const pending = pendingEditorSaveRef.current;
+
+        if (typeof source !== 'string' || typeof data.svg !== 'string' || !data.svg.trim()) {
+          if (pending) {
+            clearTimeout(pending.timer);
+            pendingEditorSaveRef.current = undefined;
+            pending.reject(new Error('TikZ Editor did not return SVG with the save response.'));
+          }
+          return;
+        }
+
+        try {
+          const svg = cacheTikzEditorSvg(source, data.svg);
+
+          draftRef.current = source;
+          setDraft(source);
+          setRendered(source);
+          setMessage('');
+
+          if (pending) {
+            clearTimeout(pending.timer);
+            pendingEditorSaveRef.current = undefined;
+            pending.resolve({ source, svg });
+          }
+        } catch (error) {
+          if (pending) {
+            clearTimeout(pending.timer);
+            pendingEditorSaveRef.current = undefined;
+            pending.reject(error instanceof Error ? error : new Error(String(error)));
+          }
+        }
       }
     };
 
@@ -162,6 +252,30 @@ export default function TikzVisual ({ alt, editorTitle, hasCompileError = false,
 
     return () => window.removeEventListener('message', onMessage);
   }, [isVisualEditorShown, sendToEditor]);
+
+  useEffect(() => () => {
+    const pending = pendingEditorSaveRef.current;
+
+    if (pending) {
+      clearTimeout(pending.timer);
+      pendingEditorSaveRef.current = undefined;
+      pending.reject(new Error('TikZ Editor was closed before save completed.'));
+    }
+  }, []);
+
+  const handleCompileStateChange = useCallback(async (hasError: boolean, renderedValue: string): Promise<void> => {
+    try {
+      await onCompileStateChange?.(hasError, renderedValue);
+    } finally {
+      // On failure, stop suppressing the persisted error immediately. On
+      // success, wait for the parent refresh effect above to observe that the
+      // persisted error flag has actually cleared.
+      if (hasError && retrySourceRef.current === renderedValue) {
+        retrySourceRef.current = undefined;
+        setRetrySource(undefined);
+      }
+    }
+  }, [onCompileStateChange]);
 
   const toggleDetails = useCallback((): void => {
     setIsDetailsShown((shown) => !shown);
@@ -185,8 +299,8 @@ export default function TikzVisual ({ alt, editorTitle, hasCompileError = false,
   return <TikzEditor>
     {showPreview && <TikzDisplay
       alt={`${alt} TikZ preview`}
-      hasCompileError={hasCompileError && rendered === value}
-      onCompileStateChange={rendered === value ? onCompileStateChange : undefined}
+      hasCompileError={hasCompileError && rendered === value && retrySource !== rendered}
+      onCompileStateChange={handleCompileStateChange}
       recompileToken={recompileToken}
       value={rendered}
     />}
