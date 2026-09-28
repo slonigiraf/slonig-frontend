@@ -14,7 +14,21 @@ export interface TutorTurn {
   feedback?: string;
 }
 
+export interface OpenRouterAttachment {
+  name: string;
+  mimeType: string;
+  dataUrl: string;
+  kind: 'image' | 'file';
+}
+
+export interface GeneratedImage {
+  dataUrl: string;
+  mimeType: string;
+}
+
 const DEFAULT_MODEL = 'openai/gpt-6-luna';
+const DEFAULT_TRANSCRIPTION_MODEL = 'openai/gpt-4o-mini-transcribe';
+const DEFAULT_IMAGE_MODEL = 'openai/gpt-image-2';
 
 function extractJson(text: string): TutorTurn {
   const candidate = text.match(/\{[\s\S]*\}/)?.[0];
@@ -35,45 +49,141 @@ function extractJson(text: string): TutorTurn {
   };
 }
 
+async function responseError(response: Response): Promise<Error> {
+  const errorBody = await response.text();
+  let detail = errorBody;
+
+  try {
+    const parsed = JSON.parse(errorBody) as { error?: { message?: string } | string };
+    detail = typeof parsed.error === 'string' ? parsed.error : parsed.error?.message || errorBody;
+  } catch {
+    // Keep the plain response text when the gateway did not return JSON.
+  }
+
+  return new Error(`OpenRouter request failed (${response.status})${detail ? `: ${detail}` : '.'}`);
+}
+
+function headers(settings: OpenRouterSettings): Record<string, string> {
+  return {
+    Authorization: `Bearer ${settings.apiKey}`,
+    'Content-Type': 'application/json',
+    ...(settings.siteUrl ? { 'HTTP-Referer': settings.siteUrl } : {}),
+    ...(settings.siteName ? { 'X-OpenRouter-Title': settings.siteName } : {}),
+  };
+}
+
 export async function askOpenRouter(
   settings: OpenRouterSettings,
   prompt: string,
   signal?: AbortSignal,
+  attachments: OpenRouterAttachment[] = [],
 ): Promise<TutorTurn> {
+  const content = attachments.length === 0
+    ? prompt
+    : [
+      { type: 'text', text: prompt },
+      ...attachments.map((attachment) => attachment.kind === 'image'
+        ? {
+          type: 'image_url',
+          image_url: { url: attachment.dataUrl },
+        }
+        : {
+          type: 'file',
+          file: {
+            filename: attachment.name,
+            file_data: attachment.dataUrl,
+          },
+        }),
+    ];
+
   const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
     method: 'POST',
     signal,
-    headers: {
-      Authorization: `Bearer ${settings.apiKey}`,
-      'Content-Type': 'application/json',
-      ...(settings.siteUrl ? { 'HTTP-Referer': settings.siteUrl } : {}),
-      ...(settings.siteName ? { 'X-OpenRouter-Title': settings.siteName } : {}),
-    },
+    headers: headers(settings),
     body: JSON.stringify({
       model: settings.model || DEFAULT_MODEL,
       temperature: 0.2,
       response_format: { type: 'json_object' },
-      messages: [{ role: 'user', content: prompt }],
+      messages: [{ role: 'user', content }],
     }),
   });
 
-  if (!response.ok) {
-    const errorBody = await response.text();
-    let detail = errorBody;
-
-    try {
-      const parsed = JSON.parse(errorBody) as { error?: { message?: string } | string };
-      detail = typeof parsed.error === 'string' ? parsed.error : parsed.error?.message || errorBody;
-    } catch {
-      // Keep the plain response text when the gateway did not return JSON.
-    }
-
-    throw new Error(`OpenRouter request failed (${response.status})${detail ? `: ${detail}` : '.'}`);
-  }
+  if (!response.ok) throw await responseError(response);
   const payload = await response.json() as { choices?: Array<{ message?: { content?: string } }> };
-  const content = payload.choices?.[0]?.message?.content;
-  if (!content) throw new Error('OpenRouter returned an empty response.');
-  return extractJson(content);
+  const contentText = payload.choices?.[0]?.message?.content;
+  if (!contentText) throw new Error('OpenRouter returned an empty response.');
+  return extractJson(contentText);
 }
 
-export { DEFAULT_MODEL };
+function audioFormatFromMime(mimeType: string): string {
+  const mime = mimeType.toLowerCase();
+  if (mime.includes('wav')) return 'wav';
+  if (mime.includes('mpeg') || mime.includes('mp3')) return 'mp3';
+  if (mime.includes('mp4') || mime.includes('m4a')) return 'mp4';
+  if (mime.includes('ogg')) return 'ogg';
+  if (mime.includes('flac')) return 'flac';
+  return 'webm';
+}
+
+async function blobToBase64(blob: Blob): Promise<string> {
+  const bytes = new Uint8Array(await blob.arrayBuffer());
+  let binary = '';
+  const chunkSize = 0x8000;
+  for (let offset = 0; offset < bytes.length; offset += chunkSize) {
+    binary += String.fromCharCode(...bytes.subarray(offset, Math.min(offset + chunkSize, bytes.length)));
+  }
+  return btoa(binary);
+}
+
+export async function transcribeOpenRouter(
+  settings: OpenRouterSettings,
+  audio: Blob,
+  signal?: AbortSignal,
+): Promise<string> {
+  const response = await fetch('https://openrouter.ai/api/v1/audio/transcriptions', {
+    method: 'POST',
+    signal,
+    headers: headers(settings),
+    body: JSON.stringify({
+      model: DEFAULT_TRANSCRIPTION_MODEL,
+      input_audio: {
+        data: await blobToBase64(audio),
+        format: audioFormatFromMime(audio.type),
+      },
+    }),
+  });
+
+  if (!response.ok) throw await responseError(response);
+  const payload = await response.json() as { text?: string };
+  if (!payload.text?.trim()) throw new Error('OpenRouter returned an empty audio transcription.');
+  return payload.text.trim();
+}
+
+export async function generateOpenRouterImage(
+  settings: OpenRouterSettings,
+  prompt: string,
+  signal?: AbortSignal,
+): Promise<GeneratedImage> {
+  const response = await fetch('https://openrouter.ai/api/v1/images', {
+    method: 'POST',
+    signal,
+    headers: headers(settings),
+    body: JSON.stringify({
+      model: DEFAULT_IMAGE_MODEL,
+      prompt,
+      aspect_ratio: '1:1',
+    }),
+  });
+
+  if (!response.ok) throw await responseError(response);
+  const payload = await response.json() as { data?: Array<{ b64_json?: string; media_type?: string }> };
+  const image = payload.data?.[0];
+  if (!image?.b64_json) throw new Error('OpenRouter returned no generated image.');
+  const mimeType = image.media_type || 'image/png';
+  return {
+    mimeType,
+    dataUrl: `data:${mimeType};base64,${image.b64_json}`,
+  };
+}
+
+export { DEFAULT_MODEL, DEFAULT_IMAGE_MODEL, DEFAULT_TRANSCRIPTION_MODEL };
