@@ -641,6 +641,17 @@ function Upload (): React.ReactElement {
     setIsGenerateConceptsConfirmationOpen(true);
   }, [selectedBook, t]);
 
+  const onRetryMissingConcepts = useCallback((): void => {
+    if (!selectedBook) {
+      return;
+    }
+
+    setGenerateConceptsEstimate(undefined);
+    setGenerateOnlyMissingConcepts(true);
+    setHasChaptersMissingConcepts(true);
+    setIsGenerateConceptsConfirmationOpen(true);
+  }, [selectedBook]);
+
   useEffect(() => {
     if (!isGenerateConceptsConfirmationOpen || !selectedBook) {
       return;
@@ -770,7 +781,7 @@ function Upload (): React.ReactElement {
 
     setPendingProcessingAction('concepts');
 
-    resetBookProcessingStagesFrom(selectedBook.id, 'concepts').then((updatedBook) => {
+    resetBookProcessingStagesFrom(selectedBook.id, generateOnlyMissingConcepts ? 'fixConcepts' : 'concepts').then((updatedBook) => {
       clearFixConceptsChapterStatuses(selectedBook.id);
       if (updatedBook) {
         setBooks((current) => current.map((book) => book.id === updatedBook.id ? updatedBook : book));
@@ -781,7 +792,7 @@ function Upload (): React.ReactElement {
       setPendingProcessingAction(undefined);
       setError(t('Unable to reset the book processing stage.'));
     });
-  }, [selectedBook, t]);
+  }, [generateOnlyMissingConcepts, selectedBook, t]);
 
   const onFixConcepts = useCallback((): void => {
     if (!selectedBook) {
@@ -1120,6 +1131,17 @@ function Upload (): React.ReactElement {
     setHasConceptsMissingExercise(false);
     setIsGenerateExercisesConfirmationOpen(true);
   }, [selectedBook, t]);
+
+  const onRetryMissingExercises = useCallback((): void => {
+    if (!selectedBook) {
+      return;
+    }
+
+    setGenerateExercisesEstimate(undefined);
+    setGenerateOnlyMissingExercises(true);
+    setHasConceptsMissingExercise(true);
+    setIsGenerateExercisesConfirmationOpen(true);
+  }, [selectedBook]);
 
   useEffect(() => {
     if (!isGenerateExercisesConfirmationOpen || !selectedBook) {
@@ -1622,7 +1644,8 @@ function Upload (): React.ReactElement {
                 label: t('Concepts'),
                 isDone: isBookProcessingStageComplete(selectedBook, 'concepts'),
                 isDisabled: !readerFile || isBusy || !isBookProcessingStageComplete(selectedBook, 'chapters') || !selectedBook.language || !selectedBook.subject,
-                onClick: onGenerateConcepts
+                onClick: onGenerateConcepts,
+                onRetryMissing: onRetryMissingConcepts
               },
               {
                 key: 'fixConcepts',
@@ -1657,7 +1680,8 @@ function Upload (): React.ReactElement {
                 label: t('Exercises'),
                 isDone: isBookProcessingStageComplete(selectedBook, 'exercises'),
                 isDisabled: !readerFile || isBusy || !isRefineChaptersComplete(selectedBook) || !selectedBook.language || !selectedBook.subject,
-                onClick: onGenerateExercises
+                onClick: onGenerateExercises,
+                onRetryMissing: onRetryMissingExercises
               }
             ]}
             processingToolbarAfterFixImages={[

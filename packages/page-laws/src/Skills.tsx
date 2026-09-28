@@ -191,7 +191,9 @@ export interface PipelineAction {
   label: string;
   isDone: boolean;
   isDisabled: boolean;
+  isResultComplete?: boolean;
   onClick: () => void;
+  onRetryMissing?: () => void;
 }
 
 export interface AutoRunProgress {
@@ -204,6 +206,7 @@ interface Props {
   autoRunAll?: boolean;
   autoRunStartKey?: string;
   book: Book;
+  externalAutoRunBusy?: boolean;
   onBookChange: (book: Book) => void;
   onAction?: (view: SkillsView | 'conceptExercises') => void;
   onContentChange?: () => void;
@@ -1406,7 +1409,7 @@ function getSessionChapter (bookId: number, view: SkillsView): number {
   }
 }
 
-function Skills ({ autoRunAll = false, autoRunStartKey, book, externalRefreshToken = 0, onAction, onAutoRunAbortReady, onAutoRunComplete, onAutoRunProcessingChange, onAutoRunProgressChange, onAbortAutoRun, onBookChange, onContentChange, onEntityCountsChange, onPipelineSelectionChange, pipelineOnly = false, pipelineControls, pipelinePrefix, pipelineSuffix, showPipeline = true, view }: Props): React.ReactElement {
+function Skills ({ autoRunAll = false, autoRunStartKey, book, externalAutoRunBusy = false, externalRefreshToken = 0, onAction, onAutoRunAbortReady, onAutoRunComplete, onAutoRunProcessingChange, onAutoRunProgressChange, onAbortAutoRun, onBookChange, onContentChange, onEntityCountsChange, onPipelineSelectionChange, pipelineOnly = false, pipelineControls, pipelinePrefix, pipelineSuffix, showPipeline = true, view }: Props): React.ReactElement {
   const language = book.language ?? '';
   const hasBookLanguage = Boolean(language);
   const hasBookSubject = Boolean(book.subject);
@@ -1435,6 +1438,9 @@ function Skills ({ autoRunAll = false, autoRunStartKey, book, externalRefreshTok
   const autoRunInitializedRef = useRef(false);
   const autoRunTriggeredKeyRef = useRef('');
   const autoRunCompleteNotifiedRef = useRef(false);
+  const autoRunRunStartedRef = useRef(false);
+  const autoRunRetryCountsRef = useRef<Map<string, number>>(new Map());
+  const autoRunFinishedStageKeysRef = useRef<Set<string>>(new Set());
   const processingAbortControllerRef = useRef<AbortController | null>(null);
   const abilitiesOutputRef = useRef<HTMLDivElement>(null);
   const refresh = useCallback((): void => setRefreshToken((value) => value + 1), []);
@@ -1477,7 +1483,11 @@ function Skills ({ autoRunAll = false, autoRunStartKey, book, externalRefreshTok
     let active = true;
 
     const load = async (): Promise<void> => {
-      const [chapters, pages] = await Promise.all([getBookChapters(book.id), getBookPages(book.id)]);
+      const [chapters, pages, pageLessConcepts] = await Promise.all([
+        getBookChapters(book.id),
+        getBookPages(book.id),
+        getBookConceptsForBookPage(book.id, 0)
+      ]);
       const pageRows = await Promise.all(pages.map(async (page: BookPage) => {
         const [concepts, exercises] = await Promise.all([
           getBookConceptsForBookPage(book.id, page.pageNumber),
@@ -1488,9 +1498,12 @@ function Skills ({ autoRunAll = false, autoRunStartKey, book, externalRefreshTok
       }));
       const result = await Promise.all(chapters.map(async (chapter): Promise<ChapterContent> => {
         const skills = chapter.id === undefined ? [] : await getSkillsForChapter(chapter.id);
-        const chapterConcepts = pageRows.flatMap(({ concepts, page }) => concepts.filter((concept) => concept.chapterId !== undefined
-          ? concept.chapterId === chapter.id
-          : page.chapter === chapter.title));
+        const chapterConcepts = [
+          ...pageRows.flatMap(({ concepts, page }) => concepts.filter((concept) => concept.chapterId !== undefined
+            ? concept.chapterId === chapter.id
+            : page.chapter === chapter.title)),
+          ...pageLessConcepts.filter(({ chapterId }) => chapterId !== undefined && chapterId === chapter.id)
+        ];
         const chapterConceptIds = new Set(chapterConcepts.flatMap(({ id }) => id === undefined ? [] : [id]));
         const exercises = sortExercisesForDisplay(pageRows.flatMap(({ exercises, page }) => exercises.filter(({ conceptId }) => conceptId !== undefined
           ? chapterConceptIds.has(conceptId)
@@ -1538,11 +1551,14 @@ function Skills ({ autoRunAll = false, autoRunStartKey, book, externalRefreshTok
   }), [book.id, chapters]);
 
   const current = chapterContent[chapterIndex];
+  const allConcepts = useMemo(() => chapterContent.flatMap(({ concepts }) => concepts), [chapterContent]);
   const allSkills = useMemo(() => chapterContent.flatMap(({ skills }) => skills), [chapterContent]);
   const allExercises = useMemo(() => chapterContent.flatMap(({ exercises }) => exercises), [chapterContent]);
   const allBookExercises = useMemo(() => allExercises.filter(({ source }) => source !== 'generated'), [allExercises]);
   const allAbilities = useMemo(() => chapterContent.flatMap(({ abilities }) => abilities), [chapterContent]);
   const abilityModuleIds = useMemo(() => new Set(allAbilities.map(({ moduleId }) => moduleId)), [allAbilities]);
+  const exerciseConceptIds = useMemo(() => new Set(allExercises.flatMap(({ conceptId }) => conceptId === undefined ? [] : [conceptId])), [allExercises]);
+  const conceptsMissingExercises = useMemo(() => allConcepts.filter(({ id }) => id === undefined || !exerciseConceptIds.has(id)), [allConcepts, exerciseConceptIds]);
   const exercisesMissingAbilities = useMemo(() => allExercises.filter(({ id }) => id === undefined || !abilityModuleIds.has(exerciseAbilityModuleId(book.id, id))), [abilityModuleIds, allExercises, book.id]);
   const missingAbilityIndexesByChapter = useMemo(() => chapterContent.map(({ exercises }) => exercises.flatMap(({ id }, exerciseIndex) => id === undefined || !abilityModuleIds.has(exerciseAbilityModuleId(book.id, id)) ? [exerciseIndex] : [])), [abilityModuleIds, book.id, chapterContent]);
   const missingAbilityCountsByChapter = useMemo(() => missingAbilityIndexesByChapter.map((indexes) => indexes.length), [missingAbilityIndexesByChapter]);
@@ -2365,6 +2381,10 @@ function Skills ({ autoRunAll = false, autoRunStartKey, book, externalRefreshTok
     setGenerateOnlyMissingAbilities(false);
     setAiAction('exercises');
   }, []);
+  const retryMissingAbilities = useCallback((): void => {
+    setGenerateOnlyMissingAbilities(true);
+    setAiAction('exercises');
+  }, []);
   const openExerciseFix = useCallback((): void => {
     // Opening the confirmation must be a purely local state change. Switching
     // the parent pane here can remount/re-render the surrounding reader before
@@ -2378,6 +2398,10 @@ function Skills ({ autoRunAll = false, autoRunStartKey, book, externalRefreshTok
 
   const openImages = useCallback((): void => {
     setGenerateOnlyMissingImages(false);
+    setAiAction('images');
+  }, []);
+  const retryMissingImages = useCallback((): void => {
+    setGenerateOnlyMissingImages(true);
     setAiAction('images');
   }, []);
   const completeImagesStage = useCallback(async (): Promise<void> => {
@@ -2686,7 +2710,11 @@ function Skills ({ autoRunAll = false, autoRunStartKey, book, externalRefreshTok
   }, []);
 
   const pipelineActions = useMemo<PipelineAction[]>(() => [
-    ...(pipelinePrefix ?? []),
+    ...(pipelinePrefix ?? []).map((action) => action.key === 'concepts'
+      ? { ...action, isResultComplete: chapterContent.length > 0 && chapterContent.every(({ concepts }) => concepts.length > 0) }
+      : action.key === 'exercises'
+        ? { ...action, isResultComplete: conceptsMissingExercises.length === 0 }
+        : action),
     {
       key: 'fixExercises',
       label: 'Fix exercises',
@@ -2699,7 +2727,9 @@ function Skills ({ autoRunAll = false, autoRunStartKey, book, externalRefreshTok
       label: 'Abilities',
       isDone: stageDone(ABILITIES_STAGE),
       isDisabled: isBusy || !hasBookLanguage || !hasBookSubject || !stageDone(FIX_EXERCISES_STAGE) || !allExercises.length,
-      onClick: openExerciseGeneration
+      isResultComplete: exercisesMissingAbilities.length === 0,
+      onClick: openExerciseGeneration,
+      onRetryMissing: retryMissingAbilities
     },
     {
       key: 'fixAbilities',
@@ -2713,7 +2743,9 @@ function Skills ({ autoRunAll = false, autoRunStartKey, book, externalRefreshTok
       label: 'Images',
       isDone: stageDone(IMAGES_STAGE),
       isDisabled: isBusy || !hasBookLanguage || !hasBookSubject || !stageDone(FIX_ABILITIES_STAGE) || !hasAbilities,
-      onClick: openImages
+      isResultComplete: missingImageGenerationTargets.length === 0,
+      onClick: openImages,
+      onRetryMissing: retryMissingImages
     },
     {
       key: 'fixImages',
@@ -2723,7 +2755,7 @@ function Skills ({ autoRunAll = false, autoRunStartKey, book, externalRefreshTok
       onClick: openImageFix
     },
     ...(pipelineSuffix ?? [])
-  ], [allExercises.length, hasAbilities, hasBookLanguage, hasBookSubject, isBusy, openAbilityFix, openExerciseFix, openExerciseGeneration, openImageFix, openImages, pipelinePrefix, pipelineSuffix, stageDone]);
+  ], [allExercises.length, chapterContent, conceptsMissingExercises.length, exercisesMissingAbilities.length, hasAbilities, hasBookLanguage, hasBookSubject, isBusy, missingImageGenerationTargets.length, openAbilityFix, openExerciseFix, openExerciseGeneration, openImageFix, openImages, pipelinePrefix, pipelineSuffix, retryMissingAbilities, retryMissingImages, stageDone]);
   const visiblePipelineActions = useMemo(() => {
     const firstIncompleteIndex = pipelineActions.findIndex(({ isDone }) => !isDone);
 
@@ -2782,6 +2814,9 @@ function Skills ({ autoRunAll = false, autoRunStartKey, book, externalRefreshTok
       autoRunInitializedRef.current = false;
       autoRunTriggeredKeyRef.current = '';
       autoRunCompleteNotifiedRef.current = false;
+      autoRunRunStartedRef.current = false;
+      autoRunRetryCountsRef.current = new Map();
+      autoRunFinishedStageKeysRef.current = new Set();
       setAutoRunStageKeys([]);
       return;
     }
@@ -2790,6 +2825,9 @@ function Skills ({ autoRunAll = false, autoRunStartKey, book, externalRefreshTok
       autoRunInitializedRef.current = true;
       autoRunTriggeredKeyRef.current = '';
       autoRunCompleteNotifiedRef.current = false;
+      autoRunRunStartedRef.current = false;
+      autoRunRetryCountsRef.current = new Map();
+      autoRunFinishedStageKeysRef.current = new Set();
       const requestedStartIndex = autoRunStartKey
         ? pipelineActions.findIndex(({ key }) => key === autoRunStartKey)
         : -1;
@@ -2803,7 +2841,7 @@ function Skills ({ autoRunAll = false, autoRunStartKey, book, externalRefreshTok
   }, [autoRunAll, autoRunStartKey, pipelineActions]);
 
   useEffect((): void => {
-    if (!autoRunAll || !autoRunInitializedRef.current || !isContentSnapshotCurrent || isBusy || aiAction || fixReview || exerciseFixReview || imageFixReview) {
+    if (!autoRunAll || !autoRunInitializedRef.current || !isContentSnapshotCurrent || aiAction || fixReview || exerciseFixReview || imageFixReview) {
       return;
     }
 
@@ -2811,25 +2849,120 @@ function Skills ({ autoRunAll = false, autoRunStartKey, book, externalRefreshTok
       return;
     }
 
-    const nextAction = pipelineActions.find(({ isDone, key }) => autoRunStageKeys.includes(key) && !isDone);
+    const runIsBusy = isBusy || externalAutoRunBusy;
 
-    if (!nextAction) {
-      if (!autoRunCompleteNotifiedRef.current) {
-        autoRunCompleteNotifiedRef.current = true;
-        onAutoRunComplete?.();
+    if (autoRunTriggeredKeyRef.current && runIsBusy) {
+      autoRunRunStartedRef.current = true;
+      return;
+    }
+
+    // Fast Forward is sequential even when a stage persists a coarse "done"
+    // flag after partial success. Once a run settles, inspect its finer-grained
+    // completeness signal. Retry only the missing subset at most twice, then
+    // allow the pipeline to advance instead of repeatedly regenerating content
+    // that was already stored successfully.
+    for (let scan = 0; scan <= autoRunStageKeys.length; scan++) {
+      const nextKey = autoRunStageKeys.find((key) => !autoRunFinishedStageKeysRef.current.has(key));
+
+      if (!nextKey) {
+        if (!autoRunCompleteNotifiedRef.current) {
+          autoRunCompleteNotifiedRef.current = true;
+          onAutoRunComplete?.();
+        }
+        return;
       }
-      return;
+
+      const nextAction = pipelineActions.find(({ key }) => key === nextKey);
+
+      if (!nextAction) {
+        autoRunFinishedStageKeysRef.current.add(nextKey);
+        continue;
+      }
+
+      const isTriggeredStage = autoRunTriggeredKeyRef.current === nextKey;
+
+      if (!isTriggeredStage) {
+        if (nextAction.isDone) {
+          if (nextAction.onRetryMissing) {
+            if (nextAction.isResultComplete === undefined) {
+              return;
+            }
+
+            if (!nextAction.isResultComplete) {
+              const retryCount = autoRunRetryCountsRef.current.get(nextKey) ?? 0;
+
+              if (retryCount < 2) {
+                autoRunRetryCountsRef.current.set(nextKey, retryCount + 1);
+                autoRunTriggeredKeyRef.current = nextKey;
+                autoRunRunStartedRef.current = false;
+                nextAction.onRetryMissing();
+                return;
+              }
+            }
+          }
+
+          autoRunFinishedStageKeysRef.current.add(nextKey);
+          continue;
+        }
+
+        if (nextAction.isDisabled) {
+          return;
+        }
+
+        autoRunTriggeredKeyRef.current = nextKey;
+        autoRunRunStartedRef.current = false;
+        nextAction.onClick();
+        return;
+      }
+
+      // Do not interpret the confirmation/request hand-off as a completed run.
+      // We must observe the processing state become active at least once first.
+      if (!autoRunRunStartedRef.current) {
+        return;
+      }
+
+      if (nextAction.onRetryMissing) {
+        if (nextAction.isResultComplete === undefined) {
+          return;
+        }
+
+        if (!nextAction.isResultComplete) {
+          const retryCount = autoRunRetryCountsRef.current.get(nextKey) ?? 0;
+
+          if (retryCount < 2) {
+            autoRunRetryCountsRef.current.set(nextKey, retryCount + 1);
+            autoRunRunStartedRef.current = false;
+            nextAction.onRetryMissing();
+            return;
+          }
+
+          if (!nextAction.isDone) {
+            // Two targeted recovery runs are the ceiling for Fast Forward.
+            // Persist the coarse stage marker after that ceiling so a stubborn
+            // missing item does not permanently block every downstream stage.
+            void completeStage(nextKey as BookProcessingStageKey);
+            return;
+          }
+        }
+      } else if (!nextAction.isDone) {
+        return;
+      }
+
+      autoRunFinishedStageKeysRef.current.add(nextKey);
+      autoRunTriggeredKeyRef.current = '';
+      autoRunRunStartedRef.current = false;
+    }
+  }, [aiAction, autoRunAll, autoRunStageKeys, completeStage, exerciseFixReview, externalAutoRunBusy, fixReview, imageFixReview, isBusy, isContentSnapshotCurrent, onAutoRunComplete, pipelineActions]);
+
+  const autoRunCompletedCount = autoRunStageKeys.reduce((count, key) => {
+    if (autoRunFinishedStageKeysRef.current.has(key)) {
+      return count + 1;
     }
 
-    if (nextAction.isDisabled || autoRunTriggeredKeyRef.current === nextAction.key) {
-      return;
-    }
+    const action = pipelineActions.find(({ key: actionKey }) => actionKey === key);
 
-    autoRunTriggeredKeyRef.current = nextAction.key;
-    nextAction.onClick();
-  }, [aiAction, autoRunAll, autoRunStageKeys, exerciseFixReview, fixReview, imageFixReview, isBusy, isContentSnapshotCurrent, onAutoRunComplete, pipelineActions]);
-
-  const autoRunCompletedCount = autoRunStageKeys.reduce((count, key) => count + (pipelineActions.find((action) => action.key === key)?.isDone ? 1 : 0), 0);
+    return count + (action?.isDone && (!action.onRetryMissing || action.isResultComplete !== false) ? 1 : 0);
+  }, 0);
   const autoRunProgress = autoRunStageKeys.length ? Math.round(autoRunCompletedCount * 100 / autoRunStageKeys.length) : 100;
 
   useEffect((): void => {

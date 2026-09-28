@@ -2221,7 +2221,7 @@ function BookReader({ ageTabRequest, assignAllStandardsRequest, autoRunAll = fal
   }, [book.id, currentConceptChapter, pages]);
 
   useEffect(() => {
-    if (activePane !== 'conceptExercises') {
+    if (!autoRunAll && activePane !== 'conceptExercises') {
       return;
     }
 
@@ -2301,7 +2301,7 @@ function BookReader({ ageTabRequest, assignAllStandardsRequest, autoRunAll = fal
     return () => {
       active = false;
     };
-  }, [activePane, book.id, exerciseChapters, pages, skillsRefreshToken]);
+  }, [activePane, autoRunAll, book.id, exerciseChapters, pages, skillsRefreshToken]);
 
   useEffect(() => {
     if (!pdf || !canvasRef.current || !pageAreaRef.current) {
@@ -2805,6 +2805,7 @@ function BookReader({ ageTabRequest, assignAllStandardsRequest, autoRunAll = fal
 
       setPages(new Map(storedPagesAfterGeneration.map((storedPage) => [storedPage.pageNumber, storedPage])));
       await Promise.all([refreshEntityCounts(), refreshConceptCounts()]);
+      setSkillsRefreshToken((value) => value + 1);
 
       // Keep successful chapter results and let the pipeline continue even if
       // individual chapters failed. Chapters with no stored concepts remain
@@ -6156,6 +6157,7 @@ function BookReader({ ageTabRequest, assignAllStandardsRequest, autoRunAll = fal
         autoRunAll={autoRunAll}
         autoRunStartKey={autoRunStartKey}
         book={book}
+        externalAutoRunBusy={hasReaderProcessing}
         externalRefreshToken={skillsRefreshToken}
         onAction={revealPane}
         onAutoRunAbortReady={onAutoRunAbortReady}
