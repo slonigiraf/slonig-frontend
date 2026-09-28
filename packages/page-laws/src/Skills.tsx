@@ -1429,6 +1429,7 @@ function Skills ({ autoRunAll = false, autoRunStartKey, book, externalRefreshTok
   const [selectedModel, setSelectedModel] = useState(DEFAULT_PROCESSING_MODEL);
   const effectiveModel = autoRunAll ? DEFAULT_PROCESSING_MODEL : selectedModel;
   const [effectiveCompletedStages, setEffectiveCompletedStages] = useState<BookProcessingStageKey[]>(() => getBookCompletedStages(book));
+  const [loadedContentSnapshotKey, setLoadedContentSnapshotKey] = useState('');
   const [autoRunStageKeys, setAutoRunStageKeys] = useState<string[]>([]);
   const autoRunInitializedRef = useRef(false);
   const autoRunTriggeredKeyRef = useRef('');
@@ -1436,6 +1437,12 @@ function Skills ({ autoRunAll = false, autoRunStartKey, book, externalRefreshTok
   const processingAbortControllerRef = useRef<AbortController | null>(null);
   const abilitiesOutputRef = useRef<HTMLDivElement>(null);
   const refresh = useCallback((): void => setRefreshToken((value) => value + 1), []);
+  // Fast Forward must not start a content-dependent stage from the previous DB
+  // snapshot. Several preceding stages replace rows (and therefore ids) before
+  // asking Skills to reload. Track exactly which local/external refresh revision
+  // chapterContent represents so the auto-run hand-off can wait for that reload.
+  const contentSnapshotKey = `${book.id}:${externalRefreshToken}:${refreshToken}`;
+  const isContentSnapshotCurrent = loadedContentSnapshotKey === contentSnapshotKey;
   const refreshContent = useCallback((): void => {
     refresh();
     onContentChange?.();
@@ -1509,6 +1516,10 @@ function Skills ({ autoRunAll = false, autoRunStartKey, book, externalRefreshTok
         setChapterIndex((current) => sharedSelection
           ? resolveSharedChapterIndex(sharedSelection, result.map(({ chapter }) => chapter))
           : Math.min(current, Math.max(0, result.length - 1)));
+        // Set this in the same committed update as chapterContent. A subsequent
+        // refresh changes contentSnapshotKey synchronously, making the snapshot
+        // stale again until the matching async DB read has finished.
+        setLoadedContentSnapshotKey(contentSnapshotKey);
       }
     };
 
@@ -1517,7 +1528,7 @@ function Skills ({ autoRunAll = false, autoRunStartKey, book, externalRefreshTok
     return () => {
       active = false;
     };
-  }, [book.id, externalRefreshToken, refreshToken]);
+  }, [book.id, contentSnapshotKey, externalRefreshToken, refreshToken]);
 
   const chapters = useMemo(() => chapterContent.map(({ chapter }) => chapter), [chapterContent]);
 
@@ -2766,7 +2777,7 @@ function Skills ({ autoRunAll = false, autoRunStartKey, book, externalRefreshTok
   }, [autoRunAll, autoRunStartKey, pipelineActions]);
 
   useEffect((): void => {
-    if (!autoRunAll || !autoRunInitializedRef.current || isBusy || aiAction || fixReview || exerciseFixReview || imageFixReview) {
+    if (!autoRunAll || !autoRunInitializedRef.current || !isContentSnapshotCurrent || isBusy || aiAction || fixReview || exerciseFixReview || imageFixReview) {
       return;
     }
 
@@ -2790,7 +2801,7 @@ function Skills ({ autoRunAll = false, autoRunStartKey, book, externalRefreshTok
 
     autoRunTriggeredKeyRef.current = nextAction.key;
     nextAction.onClick();
-  }, [aiAction, autoRunAll, autoRunStageKeys, exerciseFixReview, fixReview, imageFixReview, isBusy, onAutoRunComplete, pipelineActions]);
+  }, [aiAction, autoRunAll, autoRunStageKeys, exerciseFixReview, fixReview, imageFixReview, isBusy, isContentSnapshotCurrent, onAutoRunComplete, pipelineActions]);
 
   const autoRunCompletedCount = autoRunStageKeys.reduce((count, key) => count + (pipelineActions.find((action) => action.key === key)?.isDone ? 1 : 0), 0);
   const autoRunProgress = autoRunStageKeys.length ? Math.round(autoRunCompletedCount * 100 / autoRunStageKeys.length) : 100;
