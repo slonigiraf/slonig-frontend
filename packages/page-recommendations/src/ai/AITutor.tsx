@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Button, Input, LinearProgress, Modal, Spinner, styled } from '@polkadot/react-components';
-import { FullscreenActivity, getIPFSDataFromContentID, KatexSpan, loadFromSessionStorage, parseJson, saveToSessionStorage, useIpfsContext, useSettingValue } from '@slonigiraf/slonig-components';
+import { Bubble, ChatContainer, FullFindow, getIPFSDataFromContentID, KatexSpan, loadFromSessionStorage, parseJson, saveToSessionStorage, useIpfsContext, useSettingValue, VerticalCenterItemsContainer } from '@slonigiraf/slonig-components';
 import { getSetting, SettingKey, storeSetting } from '@slonigiraf/db';
 import type { ModelSelectorRenderer } from './modelSelector.js';
 import { AlgorithmStage, StageType } from '../Teach/AlgorithmStage.js';
@@ -716,164 +716,175 @@ export function AITutor({ modelSelector, moduleId, moduleCid, persistedOpenRoute
     && Boolean(answer.trim() || attachments.length > 0 || audioBlob);
 
   return (
-    <FullscreenActivity
-      captionElement={
-        <HeaderProgress>
+    <FullFindow>
+      <TutorContainer>
+        <Progress>
+          <Spacer />
           <LinearProgress total={Math.max(skills.length, 1)} value={Math.min(lessonStep, skills.length)} />
-        </HeaderProgress>
-      }
-      onClose={onClose}
-    >
-      <Pane>
-        {isOpenRouterKeyLoaded && !openRouterKey && <KeySettings><Button label='Set OpenRouter key' onClick={() => setKeyDialogOpen(true)} /></KeySettings>}
-        {error && <ErrorText>{error}</ErrorText>}
-        {!skill && !error && <Spinner label='Loading skills' />}
-        {skill && <>
-          <SkillTitle>{skill.title}</SkillTitle>
-          <Conversation>
-            {currentAiText && <AiMessage><KatexSpan content={currentAiText} /></AiMessage>}
-            {loading && <Spinner label='AI Tutor is thinking' />}
-          </Conversation>
-          <Composer>
-            <ComposerTextarea
-              ref={answerInputRef}
-              aria-label='Student answer'
-              rows={1}
-              value={answer}
-              onChange={(e) => {
-                setAnswer(e.target.value);
-                resizeAnswerInput(e.currentTarget);
-              }}
-              onKeyDown={(e) => {
-                if (e.key !== 'Enter' || e.shiftKey || e.nativeEvent.isComposing) return;
-                e.preventDefault();
-                if (canSubmit) void submitAnswer();
-              }}
-              placeholder='Ask AI Tutor'
-              disabled={loading}
-            />
-            {(attachments.length > 0 || audioBlob || recording) && <AttachmentTray>
-              {attachments.map((attachment) => <AttachmentChip key={attachment.id}>
-                {attachment.kind === 'image'
-                  ? <AttachmentImage src={attachment.dataUrl} alt='' />
-                  : <AttachmentFileIcon aria-hidden='true'>▤</AttachmentFileIcon>}
-                <AttachmentLabel title={attachment.name}>{attachment.name}</AttachmentLabel>
-                <RemoveAttachmentButton
-                  type='button'
-                  aria-label={`Remove ${attachment.name}`}
-                  onClick={() => removeAttachment(attachment.id)}
-                >×</RemoveAttachmentButton>
-              </AttachmentChip>)}
-              {recording && <AudioChip className='recording'>
-                <RecordingDot aria-hidden='true' />
-                <AttachmentLabel>Recording {formatRecordingTime(recordingSeconds)}</AttachmentLabel>
-                <AudioStopButton type='button' onClick={stopRecording}>Stop</AudioStopButton>
-              </AudioChip>}
-              {audioBlob && !recording && <AudioChip>
-                <MicMini aria-hidden='true'>●</MicMini>
-                <AttachmentLabel>Voice message · {formatRecordingTime(recordingSeconds)}</AttachmentLabel>
-                <RemoveAttachmentButton type='button' aria-label='Remove voice message' onClick={() => {
-                  setAudioBlob(undefined);
-                  setRecordingSeconds(0);
-                }}>×</RemoveAttachmentButton>
-              </AudioChip>}
-            </AttachmentTray>}
-            <ComposerFooter>
-              <ComposerTools>
-                <AddControl ref={addControlRef}>
-                  <AddControlSummary aria-label='Add to reply' title='Add to reply'>+</AddControlSummary>
-                  <AddMenu>
-                    <AddMenuButton type='button' onClick={() => {
-                      if (addControlRef.current) addControlRef.current.open = false;
-                      fileInputRef.current?.click();
-                    }}>
-                      <MenuGlyph aria-hidden='true'>⌁</MenuGlyph>
-                      <span>Add photos &amp; files</span>
-                    </AddMenuButton>
-                    <AddMenuButton type='button' onClick={() => {
-                      if (addControlRef.current) addControlRef.current.open = false;
-                      cameraInputRef.current?.click();
-                    }}>
-                      <MenuGlyph aria-hidden='true'>▣</MenuGlyph>
-                      <span>Take a photo</span>
-                    </AddMenuButton>
-                    <AddMenuButton type='button' disabled={generatingImage || loading} onClick={() => void createImageFromDraft()}>
-                      <MenuGlyph aria-hidden='true'>✦</MenuGlyph>
-                      <span>{generatingImage ? 'Creating image…' : 'Create image'}</span>
-                    </AddMenuButton>
-                  </AddMenu>
-                </AddControl>
-                <HiddenFileInput
-                  ref={fileInputRef}
-                  type='file'
-                  multiple
+          <CloseButton onClick={onClose} icon='close' />
+          <Spacer />
+        </Progress>
+        <Pane>
+          {isOpenRouterKeyLoaded && !openRouterKey && <KeySettings><Button label='Set OpenRouter key' onClick={() => setKeyDialogOpen(true)} /></KeySettings>}
+          {error && <ErrorText>{error}</ErrorText>}
+          {!skill && !error && <Spinner label='Loading skills' />}
+          {skill && <>
+            <SkillTitle>{skill.title}</SkillTitle>
+            <Conversation>
+              {currentAiText && <MessageContainer>
+                <Bubble><KatexSpan content={currentAiText} /></Bubble>
+              </MessageContainer>}
+              {loading && <Spinner label='AI Tutor is thinking' />}
+            </Conversation>
+            <ComposerDock>
+              <Composer>
+                <ComposerTextarea
+                  ref={answerInputRef}
+                  aria-label='Student answer'
+                  rows={1}
+                  value={answer}
                   onChange={(e) => {
-                    const files = Array.from(e.currentTarget.files || []);
-                    e.currentTarget.value = '';
-                    void addFiles(files);
+                    setAnswer(e.target.value);
+                    resizeAnswerInput(e.currentTarget);
                   }}
-                />
-                <HiddenFileInput
-                  ref={cameraInputRef}
-                  type='file'
-                  accept='image/*'
-                  capture='environment'
-                  onChange={(e) => {
-                    const files = Array.from(e.currentTarget.files || []);
-                    e.currentTarget.value = '';
-                    void addFiles(files);
+                  onKeyDown={(e) => {
+                    if (e.key !== 'Enter' || e.shiftKey || e.nativeEvent.isComposing) return;
+                    e.preventDefault();
+                    if (canSubmit) void submitAnswer();
                   }}
+                  placeholder='Type your answer'
+                  disabled={loading}
                 />
-              </ComposerTools>
-              <ComposerActions>
-                <ModelControl>
-                  <ModelControlSummary aria-label={`AI model: ${modelDisplayName(model)}`}>
-                    <ModelName>{modelDisplayName(model)}</ModelName>
-                    <Chevron aria-hidden='true' />
-                  </ModelControlSummary>
-                  <ModelControlMenu>
-                    {modelSelector
-                      ? modelSelector(model, setModel)
-                      : <label>
-                        <span>AI tutor model</span>
-                        <input aria-label='OpenRouter model' placeholder={DEFAULT_MODEL} value={model} onChange={(e) => setModel(e.target.value)} />
-                      </label>}
-                  </ModelControlMenu>
-                </ModelControl>
-                <AudioButton
-                  type='button'
-                  className={recording ? 'recording' : ''}
-                  aria-label={recording ? 'Stop recording' : 'Record voice answer'}
-                  title={recording ? 'Stop recording' : 'Record voice answer'}
-                  disabled={loading || generatingImage}
-                  onClick={() => recording ? stopRecording() : void startRecording()}
-                >
-                  {recording
-                    ? <StopGlyph aria-hidden='true' />
-                    : <svg aria-hidden='true' viewBox='0 0 24 24'>
-                      <path d='M12 15.5a3.5 3.5 0 0 0 3.5-3.5V6a3.5 3.5 0 1 0-7 0v6a3.5 3.5 0 0 0 3.5 3.5Z' />
-                      <path d='M5.5 11.5v.5a6.5 6.5 0 0 0 13 0v-.5M12 18.5V22M9 22h6' />
-                    </svg>}
-                </AudioButton>
-                <SendButton
-                  type='button'
-                  aria-label='Send answer'
-                  title='Send answer (Enter)'
-                  disabled={!canSubmit}
-                  onClick={() => void submitAnswer()}
-                >
-                  ↑
-                </SendButton>
-              </ComposerActions>
-            </ComposerFooter>
-          </Composer>
-          <ComposerMeta>
-            <SkipButton type='button' disabled={loading || generatingImage || recording} onClick={() => void skipSkill()}>Skip skill</SkipButton>
-            <ComposerHint>Enter to send · Shift+Enter for a new line</ComposerHint>
-          </ComposerMeta>
-        </>}
-        <Stats>Marked for repeat: {repeatCount} · Correct: {okCount} · Remaining: {Math.max(skills.length - lessonStep, 0)}</Stats>
-      </Pane>
+                {(attachments.length > 0 || audioBlob || recording) && <AttachmentTray>
+                  {attachments.map((attachment) => <AttachmentChip key={attachment.id}>
+                    {attachment.kind === 'image'
+                      ? <AttachmentImage src={attachment.dataUrl} alt='' />
+                      : <AttachmentFileIcon aria-hidden='true'>▤</AttachmentFileIcon>}
+                    <AttachmentLabel title={attachment.name}>{attachment.name}</AttachmentLabel>
+                    <RemoveAttachmentButton
+                      type='button'
+                      aria-label={`Remove ${attachment.name}`}
+                      onClick={() => removeAttachment(attachment.id)}
+                    >×</RemoveAttachmentButton>
+                  </AttachmentChip>)}
+                  {recording && <AudioChip className='recording'>
+                    <RecordingDot aria-hidden='true' />
+                    <AttachmentLabel>Recording {formatRecordingTime(recordingSeconds)}</AttachmentLabel>
+                    <AudioStopButton type='button' onClick={stopRecording}>Stop</AudioStopButton>
+                  </AudioChip>}
+                  {audioBlob && !recording && <AudioChip>
+                    <MicMini aria-hidden='true'>●</MicMini>
+                    <AttachmentLabel>Voice message · {formatRecordingTime(recordingSeconds)}</AttachmentLabel>
+                    <RemoveAttachmentButton type='button' aria-label='Remove voice message' onClick={() => {
+                      setAudioBlob(undefined);
+                      setRecordingSeconds(0);
+                    }}>×</RemoveAttachmentButton>
+                  </AudioChip>}
+                </AttachmentTray>}
+                <ComposerFooter>
+                  <ComposerTools>
+                    <AddControl ref={addControlRef}>
+                      <AddControlSummary aria-label='Add to reply' title='Add to reply'>+</AddControlSummary>
+                      <AddMenu>
+                        <AddMenuButton type='button' onClick={() => {
+                          if (addControlRef.current) addControlRef.current.open = false;
+                          fileInputRef.current?.click();
+                        }}>
+                          <MenuGlyph aria-hidden='true'>⌁</MenuGlyph>
+                          <span>Add photos &amp; files</span>
+                        </AddMenuButton>
+                        <AddMenuButton type='button' onClick={() => {
+                          if (addControlRef.current) addControlRef.current.open = false;
+                          cameraInputRef.current?.click();
+                        }}>
+                          <MenuGlyph aria-hidden='true'>▣</MenuGlyph>
+                          <span>Take a photo</span>
+                        </AddMenuButton>
+                        <AddMenuButton type='button' disabled={generatingImage || loading} onClick={() => void createImageFromDraft()}>
+                          <MenuGlyph aria-hidden='true'>✦</MenuGlyph>
+                          <span>{generatingImage ? 'Creating image…' : 'Create image'}</span>
+                        </AddMenuButton>
+                      </AddMenu>
+                    </AddControl>
+                    <HiddenFileInput
+                      ref={fileInputRef}
+                      type='file'
+                      multiple
+                      onChange={(e) => {
+                        const files = Array.from(e.currentTarget.files || []);
+                        e.currentTarget.value = '';
+                        void addFiles(files);
+                      }}
+                    />
+                    <HiddenFileInput
+                      ref={cameraInputRef}
+                      type='file'
+                      accept='image/*'
+                      capture='environment'
+                      onChange={(e) => {
+                        const files = Array.from(e.currentTarget.files || []);
+                        e.currentTarget.value = '';
+                        void addFiles(files);
+                      }}
+                    />
+                  </ComposerTools>
+                  <ComposerActions>
+                    <ModelControl>
+                      <ModelControlSummary aria-label={`AI model: ${modelDisplayName(model)}`}>
+                        <ModelName>{modelDisplayName(model)}</ModelName>
+                        <Chevron aria-hidden='true' />
+                      </ModelControlSummary>
+                      <ModelControlMenu>
+                        {modelSelector
+                          ? modelSelector(model, setModel)
+                          : <label>
+                            <span>AI tutor model</span>
+                            <input aria-label='OpenRouter model' placeholder={DEFAULT_MODEL} value={model} onChange={(e) => setModel(e.target.value)} />
+                          </label>}
+                      </ModelControlMenu>
+                    </ModelControl>
+                    <AudioButton
+                      type='button'
+                      className={recording ? 'recording' : ''}
+                      aria-label={recording ? 'Stop recording' : 'Record voice answer'}
+                      title={recording ? 'Stop recording' : 'Record voice answer'}
+                      disabled={loading || generatingImage}
+                      onClick={() => recording ? stopRecording() : void startRecording()}
+                    >
+                      {recording
+                        ? <StopGlyph aria-hidden='true' />
+                        : <svg aria-hidden='true' viewBox='0 0 24 24'>
+                          <path d='M12 15.5a3.5 3.5 0 0 0 3.5-3.5V6a3.5 3.5 0 1 0-7 0v6a3.5 3.5 0 0 0 3.5 3.5Z' />
+                          <path d='M5.5 11.5v.5a6.5 6.5 0 0 0 13 0v-.5M12 18.5V22M9 22h6' />
+                        </svg>}
+                    </AudioButton>
+                    <SendButton
+                      type='button'
+                      aria-label='Send answer'
+                      title='Send answer (Enter)'
+                      disabled={!canSubmit}
+                      onClick={() => void submitAnswer()}
+                    >
+                      ↑
+                    </SendButton>
+                  </ComposerActions>
+                </ComposerFooter>
+              </Composer>
+              <ComposerMeta>
+                <SkipAction
+                  className='noHighlight'
+                  icon='square'
+                  isDisabled={loading || generatingImage || recording}
+                  label='Skip skill'
+                  onClick={() => void skipSkill()}
+                />
+                <ComposerHint>Enter to send · Shift+Enter for a new line</ComposerHint>
+              </ComposerMeta>
+              <Stats>Marked for repeat: {repeatCount} · Correct: {okCount} · Remaining: {Math.max(skills.length - lessonStep, 0)}</Stats>
+            </ComposerDock>
+          </>}
+        </Pane>
+      </TutorContainer>
       {keyDialogOpen && <Modal
         header='OpenRouter API key'
         onClose={() => setKeyDialogOpen(false)}
@@ -902,7 +913,7 @@ export function AITutor({ modelSelector, moduleId, moduleCid, persistedOpenRoute
           />
         </Modal.Content>
       </Modal>}
-    </FullscreenActivity>
+    </FullFindow>
   );
 }
 
@@ -931,13 +942,22 @@ export function AITutorButton(props: Omit<Props, 'onClose' | 'persistedOpenRoute
   </>;
 }
 
-const Pane = styled.div`width: 100%; padding: 0 20px 24px;`;
-const HeaderProgress = styled.div`
+const TutorContainer = styled(VerticalCenterItemsContainer)`
+  width: min(1100px, calc(100vw - 32px));
+  max-width: 1100px;
+  min-height: 100dvh;
+  margin: 0 auto;
+  box-sizing: border-box;
+  align-items: stretch;
+  justify-content: flex-start;
+`;
+const Progress = styled.div`
+  margin-top: 20px;
   width: 100%;
-  min-width: 0;
-  flex: 1 1 auto;
   display: flex;
+  flex-direction: row;
   align-items: center;
+  position: relative;
 
   .ui--Progress {
     width: 100%;
@@ -945,16 +965,60 @@ const HeaderProgress = styled.div`
     min-width: 0;
     margin: 0;
   }
+
+  /* FullscreenActivity made this caption inherit a bold header weight. Keep
+     the progress text identical to Teach/index.tsx instead. */
+  .ui--Progress, .ui--Progress * {
+    font-weight: 400 !important;
+  }
+`;
+const Spacer = styled.div`width: 20px; flex: 0 0 20px;`;
+const CloseButton = styled(Button)`
+  position: relative;
+  right: 0;
+  margin-left: 10px;
+`;
+const Pane = styled.div`
+  width: 100%;
+  min-height: calc(100dvh - 82px);
+  padding: 0 20px 18px;
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
 `;
 const KeySettings = styled.div`display: flex; justify-content: flex-end; margin-bottom: 12px;`;
 const ErrorText = styled.div`color: #b00020; margin: 8px 0;`;
 const SkillTitle = styled.h2`margin: 8px 0 14px;`;
-const Conversation = styled.div`min-height: 220px; display: flex; flex-direction: column; gap: 12px;`;
-const AiMessage = styled.div`align-self: flex-start; max-width: 92%; padding: 12px 15px; border-radius: 14px; background: #f4f4f4; white-space: pre-wrap; .katex { white-space: pre-wrap; }`;
+const Conversation = styled(ChatContainer)`
+  width: 100%;
+  min-height: 0;
+  flex: 1 1 auto;
+  overflow-y: auto;
+  overflow-x: hidden;
+  padding-bottom: 12px;
+  box-sizing: border-box;
+`;
+const MessageContainer = styled.div`
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  margin: 0 auto;
+  padding: 0 10px;
+  box-sizing: border-box;
+  white-space: pre-wrap;
+
+  .katex { white-space: pre-wrap; }
+`;
+const ComposerDock = styled.div`
+  width: 100%;
+  margin-top: auto;
+  padding-top: 10px;
+  flex: 0 0 auto;
+`;
 const Composer = styled.div`
-  width: min(100%, 1100px);
+  width: 100%;
   min-height: 104px;
-  margin: 8px auto 0;
+  margin: 0 auto;
   padding: 15px 14px 10px 18px;
   display: flex;
   flex-direction: column;
@@ -1293,18 +1357,8 @@ const StopGlyph = styled.span`
   border-radius: 3px;
   background: currentColor;
 `;
-const SkipButton = styled.button`
-  border: 0;
-  background: transparent;
-  padding: 7px 8px;
-  color: rgb(0 0 0 / 55%);
-  font: inherit;
-  font-size: 13px;
-  cursor: pointer;
-  white-space: nowrap;
-
-  &:hover:not(:disabled) { color: rgb(0 0 0 / 85%); }
-  &:disabled { cursor: default; opacity: .45; }
+const SkipAction = styled(Button)`
+  margin: 0;
 `;
 const SendButton = styled.button`
   width: 40px;
@@ -1325,7 +1379,7 @@ const SendButton = styled.button`
   &:disabled { cursor: default; background: rgb(0 0 0 / 12%); color: rgb(0 0 0 / 32%); }
 `;
 const ComposerMeta = styled.div`
-  width: min(100%, 1100px);
+  width: 100%;
   margin: 5px auto 0;
   display: flex;
   align-items: center;
@@ -1340,6 +1394,10 @@ const ComposerHint = styled.div`
 
   @media (max-width: 520px) { display: none; }
 `;
-const Stats = styled.div`margin-top: 18px; color: rgb(0 0 0 / 55%); text-align: center;`;
+const Stats = styled.div`
+  margin-top: 10px;
+  color: rgb(0 0 0 / 55%);
+  text-align: center;
+`;
 
 export default React.memo(AITutorButton);
