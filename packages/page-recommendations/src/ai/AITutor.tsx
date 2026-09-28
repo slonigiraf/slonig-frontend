@@ -729,7 +729,6 @@ export function AITutor({ modelSelector, moduleId, moduleCid, persistedOpenRoute
           {error && <ErrorText>{error}</ErrorText>}
           {!skill && !error && <Spinner label='Loading skills' />}
           {skill && <>
-            <SkillTitle>{skill.title}</SkillTitle>
             <Conversation>
               {currentAiText && <MessageContainer>
                 <Bubble><KatexSpan content={currentAiText} /></Bubble>
@@ -873,9 +872,9 @@ export function AITutor({ modelSelector, moduleId, moduleCid, persistedOpenRoute
               <ComposerMeta>
                 <SkipAction
                   className='noHighlight'
-                  icon='square'
+                  icon='fast-forward'
                   isDisabled={loading || generatingImage || recording}
-                  label='Skip skill'
+                  label='Skip'
                   onClick={() => void skipSkill()}
                 />
                 <ComposerHint>Enter to send · Shift+Enter for a new line</ComposerHint>
@@ -943,12 +942,8 @@ export function AITutorButton(props: Omit<Props, 'onClose' | 'persistedOpenRoute
 }
 
 const TutorContainer = styled(VerticalCenterItemsContainer)`
-  width: min(1100px, calc(100vw - 32px));
-  max-width: 1100px;
   min-height: 100dvh;
-  margin: 0 auto;
   box-sizing: border-box;
-  align-items: stretch;
   justify-content: flex-start;
 `;
 const Progress = styled.div`
@@ -981,21 +976,20 @@ const CloseButton = styled(Button)`
 const Pane = styled.div`
   width: 100%;
   min-height: calc(100dvh - 82px);
-  padding: 0 20px 18px;
+  padding: 0 0 18px;
   box-sizing: border-box;
   display: flex;
   flex-direction: column;
 `;
 const KeySettings = styled.div`display: flex; justify-content: flex-end; margin-bottom: 12px;`;
 const ErrorText = styled.div`color: #b00020; margin: 8px 0;`;
-const SkillTitle = styled.h2`margin: 8px 0 14px;`;
 const Conversation = styled(ChatContainer)`
   width: 100%;
   min-height: 0;
   flex: 1 1 auto;
   overflow-y: auto;
   overflow-x: hidden;
-  padding-bottom: 12px;
+  padding: 12px 0 12px;
   box-sizing: border-box;
 `;
 const MessageContainer = styled.div`
