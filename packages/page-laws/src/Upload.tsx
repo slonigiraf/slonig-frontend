@@ -1,7 +1,7 @@
 // Copyright 2021-2026 @polkadot/app-laws authors & contributors
 // SPDX-License-Identifier: Apache-2.0
 
-import type { Book, BookPage, BookStageSpendKey } from '@slonigiraf/db';
+import type { Book, BookPage, BookProcessingStageKey, BookStageSpendKey } from '@slonigiraf/db';
 import type { PDFDocumentProxy } from 'pdfjs-dist';
 
 import { createBook, deleteBook, getBook, getBookByContentHash, getBookConceptsForBookPage, getBookPages, getBooks, getExercisesForBookPage, isBookProcessingStageComplete, putBook, resetBookProcessingStagesFrom } from '@slonigiraf/db';
@@ -162,6 +162,10 @@ function Upload (): React.ReactElement {
   const [isRecognizeConfirmationOpen, setIsRecognizeConfirmationOpen] = useState(false);
   const [isPriceOpen, setIsPriceOpen] = useState(false);
   const [priceBook, setPriceBook] = useState<Book>();
+  const [isFastForwardConfirmationOpen, setIsFastForwardConfirmationOpen] = useState(false);
+  const [isFastForwardRunning, setIsFastForwardRunning] = useState(false);
+  const [fastForwardStartKey, setFastForwardStartKey] = useState<string>();
+  const [fastForwardEstimate, setFastForwardEstimate] = useState<{ aiUsd: number; pageCount: number; recognitionUsd: number; remainingStages: number; totalUsd: number }>();
   const [pendingProcessingAction, setPendingProcessingAction] = useState<'chapters' | 'concepts' | 'fixConcepts' | 'deduplicateConcepts' | 'sortConcepts' | 'refineChapters' | 'recognize' | 'standards' | 'exercises'>();
   const [generateAllExercisesRequest, setGenerateAllExercisesRequest] = useState(0);
   const [generateExercisesEstimate, setGenerateExercisesEstimate] = useState<AiInputEstimate>();
@@ -263,6 +267,108 @@ function Upload (): React.ReactElement {
     setIsPriceOpen(false);
     setPriceBook(undefined);
   }, []);
+
+  const onFastForward = useCallback((startKey: string): void => {
+    if (!selectedBook || !readerFile || isFastForwardRunning) {
+      return;
+    }
+
+    const requestedStartIndex = PRICE_STAGES.findIndex(({ key }) => key === startKey);
+
+    if (requestedStartIndex < 0) {
+      return;
+    }
+
+    setFastForwardStartKey(startKey);
+    setFastForwardEstimate(undefined);
+    setIsFastForwardConfirmationOpen(true);
+
+    let document: PDFDocumentProxy | undefined;
+
+    const calculate = async (): Promise<void> => {
+      const { getDocument } = await loadPdfJs();
+      const task = getDocument({ data: new Uint8Array(await readerFile.arrayBuffer()) });
+
+      document = await task.promise;
+
+      const remaining = PRICE_STAGES.slice(requestedStartIndex);
+      const pageCount = document.numPages;
+      const recognitionUsd = remaining.some(({ key }) => key === 'recognize') ? pageCount * MATHPIX_PDF_PAGE_PRICE_USD : 0;
+      const remainingAiStages = remaining.filter(({ key }) => key !== 'recognize');
+      const recordedStageCosts = PRICE_STAGES.flatMap(({ key }) => {
+        const value = selectedBook.stageSpend?.[key] ?? 0;
+
+        return value > 0 ? [value] : [];
+      }).sort((a, b) => a - b);
+      const typicalRecordedCost = recordedStageCosts.length
+        ? recordedStageCosts[Math.floor(recordedStageCosts.length / 2)]
+        : 0;
+      const syntheticInputLength = Math.min(120_000, Math.max(4_000, pageCount * 900));
+      const standardStages = remainingAiStages.filter(({ key }) => key === 'standards');
+      const regularStages = remainingAiStages.filter(({ key }) => key !== 'standards');
+      const regularFallback = regularStages.length
+        ? estimateAiInput(DEFAULT_PROCESSING_MODEL, regularStages.map(() => 'x'.repeat(syntheticInputLength)), 1_200).totalPriceUsd / regularStages.length
+        : 0;
+      const standardsFallback = standardStages.length
+        ? estimateAiInput(DEFAULT_STANDARDS_MODEL, standardStages.map(() => 'x'.repeat(syntheticInputLength)), 1_200).totalPriceUsd / standardStages.length
+        : 0;
+      const aiUsd = remainingAiStages.reduce((total, { key }) => {
+        const recorded = selectedBook.stageSpend?.[key] ?? 0;
+        const fallback = key === 'standards' ? standardsFallback : regularFallback;
+
+        return total + (recorded > 0 ? recorded : typicalRecordedCost > 0 ? typicalRecordedCost : fallback);
+      }, 0);
+
+      setFastForwardEstimate({
+        aiUsd,
+        pageCount,
+        recognitionUsd,
+        remainingStages: remaining.length,
+        totalUsd: recognitionUsd + aiUsd
+      });
+    };
+
+    calculate()
+      .catch(() => setError(t('Unable to estimate the fast-forward processing cost.')))
+      .finally(() => document?.destroy().catch(console.error));
+  }, [isFastForwardRunning, readerFile, selectedBook, t]);
+
+  const closeFastForwardConfirmation = useCallback((): void => {
+    setIsFastForwardConfirmationOpen(false);
+    setFastForwardStartKey(undefined);
+  }, []);
+
+  const confirmFastForward = useCallback(async (): Promise<void> => {
+    if (!selectedBook || !fastForwardStartKey || !fastForwardEstimate || fastForwardEstimate.remainingStages === 0) {
+      return;
+    }
+
+    try {
+      const resetBook = await resetBookProcessingStagesFrom(selectedBook.id, fastForwardStartKey as BookProcessingStageKey);
+
+      if (resetBook) {
+        setBooks((current) => current.map((book) => book.id === resetBook.id ? resetBook : book));
+      }
+
+      setGenerateAllConceptsModel(DEFAULT_PROCESSING_MODEL);
+      setStandardsModel(DEFAULT_STANDARDS_MODEL);
+      setIsFastForwardConfirmationOpen(false);
+      setIsFastForwardRunning(true);
+    } catch {
+      setError(t('Unable to prepare the selected stage for fast-forward processing.'));
+    }
+  }, [fastForwardEstimate, fastForwardStartKey, selectedBook, t]);
+
+  const abortFastForward = useCallback((): void => {
+    setIsFastForwardRunning(false);
+  }, []);
+
+  const onFastForwardComplete = useCallback((): void => {
+    setIsFastForwardRunning(false);
+    setFastForwardStartKey(undefined);
+    setPendingProcessingAction(undefined);
+    getBooks().then(setBooks).catch(() => setError(t('Unable to refresh book processing stages.')));
+  }, [t]);
 
   const onUpload = useCallback(async (contents: Uint8Array, name: string): Promise<void> => {
     setError('');
@@ -1095,6 +1201,32 @@ function Upload (): React.ReactElement {
     });
   }, [generateOnlyMissingExercises, selectedBook, t]);
 
+  useEffect((): void => {
+    if (!isFastForwardRunning) {
+      return;
+    }
+
+    if (isRecognizeConfirmationOpen) {
+      confirmRecognize();
+    } else if (isIdentifyChaptersConfirmationOpen) {
+      confirmIdentifyChapters();
+    } else if (isGenerateConceptsConfirmationOpen) {
+      confirmGenerateConcepts();
+    } else if (isFixConceptsConfirmationOpen) {
+      confirmFixConcepts();
+    } else if (isDeduplicateConceptsConfirmationOpen) {
+      confirmDeduplicateConcepts();
+    } else if (isSortConceptsConfirmationOpen) {
+      confirmSortConcepts();
+    } else if (isRefineChaptersConfirmationOpen) {
+      confirmRefineChapters();
+    } else if (isGenerateExercisesConfirmationOpen) {
+      confirmGenerateExercises();
+    } else if (isStandardsConfirmationOpen) {
+      confirmAssignStandards();
+    }
+  }, [confirmAssignStandards, confirmDeduplicateConcepts, confirmFixConcepts, confirmGenerateConcepts, confirmGenerateExercises, confirmIdentifyChapters, confirmRecognize, confirmRefineChapters, confirmSortConcepts, isDeduplicateConceptsConfirmationOpen, isFastForwardRunning, isFixConceptsConfirmationOpen, isGenerateConceptsConfirmationOpen, isGenerateExercisesConfirmationOpen, isIdentifyChaptersConfirmationOpen, isRecognizeConfirmationOpen, isRefineChaptersConfirmationOpen, isSortConceptsConfirmationOpen, isStandardsConfirmationOpen]);
+
   const onDelete = useCallback(async (): Promise<void> => {
     if (!selectedBook) {
       return;
@@ -1135,6 +1267,52 @@ function Upload (): React.ReactElement {
 
   return (
     <StyledSection>
+      {isFastForwardConfirmationOpen && <StageRunPricePopup
+        header={t('Run remaining stages')}
+        isRunDisabled={!fastForwardEstimate || fastForwardEstimate.remainingStages === 0}
+        onClose={closeFastForwardConfirmation}
+        onRun={confirmFastForward}
+        runLabel={t('Run')}
+      >
+        <PriceContent>
+          <p className='priceIntro'>{t('Run every remaining processing stage automatically, one by one. Publishing to blockchain is not included.')}</p>
+          {!fastForwardEstimate
+            ? <div className='fastForwardEstimateStatus'>{t('Calculating price estimate…')}</div>
+            : <>
+              <div className='fastForwardEstimateHeading'>
+                <strong>{t('Estimated processing cost')}</strong>
+                <span className='fastForwardStageBadge'>{fastForwardEstimate.remainingStages} {t(fastForwardEstimate.remainingStages === 1 ? 'stage' : 'stages')}</span>
+              </div>
+              <div className='priceTableFrame'>
+                <table className='priceTable fastForwardPriceTable'>
+                  <tbody>
+                    <tr className={fastForwardEstimate.recognitionUsd === 0 ? 'isZero' : undefined}>
+                      <th scope='row'>
+                        {t('Mathpix recognition')}
+                        <small className='priceSource'>{fastForwardEstimate.pageCount.toLocaleString()} {t(fastForwardEstimate.pageCount === 1 ? 'page' : 'pages')}</small>
+                      </th>
+                      <td>{formatOpenRouterSpend(fastForwardEstimate.recognitionUsd)}</td>
+                    </tr>
+                    <tr className={fastForwardEstimate.aiUsd === 0 ? 'isZero' : undefined}>
+                      <th scope='row'>
+                        {t('AI / processing')}
+                        <small className='priceSource'>{t('Remaining automated processing')}</small>
+                      </th>
+                      <td>{formatOpenRouterSpend(fastForwardEstimate.aiUsd)}</td>
+                    </tr>
+                  </tbody>
+                  <tfoot>
+                    <tr>
+                      <th scope='row'>{t('Estimated total')}</th>
+                      <td>≈ {formatOpenRouterSpend(fastForwardEstimate.totalUsd)}</td>
+                    </tr>
+                  </tfoot>
+                </table>
+              </div>
+              <p className='fastForwardEstimateFootnote'>{t('Based on the current book size, default models for each stage, and recorded stage costs when available. Later stages may cost more or less as earlier stages create content.')}</p>
+            </>}
+        </PriceContent>
+      </StageRunPricePopup>}
       {isPriceOpen && <PriceModal
         header={t('Price')}
         onClose={closePrice}
@@ -1166,7 +1344,7 @@ function Upload (): React.ReactElement {
           </PriceContent>
         </Modal.Content>
       </PriceModal>}
-      {isRecognizeConfirmationOpen && <StageRunPricePopup
+      {isRecognizeConfirmationOpen && !isFastForwardRunning && <StageRunPricePopup
         header={t('Recognize pages')}
         onClose={closeRecognizeConfirmation}
         onRun={confirmRecognize}
@@ -1181,7 +1359,7 @@ function Upload (): React.ReactElement {
           unitPriceUsd={MATHPIX_PDF_PAGE_PRICE_USD}
         />
       </StageRunPricePopup>}
-      {isIdentifyChaptersConfirmationOpen && <StageRunPricePopup
+      {isIdentifyChaptersConfirmationOpen && !isFastForwardRunning && <StageRunPricePopup
         header={t('Identify chapters')}
         onClose={closeIdentifyChaptersConfirmation}
         onRun={confirmIdentifyChapters}
@@ -1202,7 +1380,7 @@ function Upload (): React.ReactElement {
           value={generateAllConceptsModel}
         />
       </StageRunPricePopup>}
-      {isGenerateConceptsConfirmationOpen && <StageRunPricePopup
+      {isGenerateConceptsConfirmationOpen && !isFastForwardRunning && <StageRunPricePopup
         header={t('Generate concepts')}
         onClose={closeGenerateConceptsConfirmation}
         onRun={confirmGenerateConcepts}
@@ -1225,7 +1403,7 @@ function Upload (): React.ReactElement {
           value={generateAllConceptsModel}
         />
       </StageRunPricePopup>}
-      {isFixConceptsConfirmationOpen && <StageRunPricePopup
+      {isFixConceptsConfirmationOpen && !isFastForwardRunning && <StageRunPricePopup
         header={t('Fix concepts')}
         onClose={closeFixConceptsConfirmation}
         onRun={confirmFixConcepts}
@@ -1247,7 +1425,7 @@ function Upload (): React.ReactElement {
           value={generateAllConceptsModel}
         />
       </StageRunPricePopup>}
-      {isDeduplicateConceptsConfirmationOpen && <StageRunPricePopup
+      {isDeduplicateConceptsConfirmationOpen && !isFastForwardRunning && <StageRunPricePopup
         header={t('Deduplicate concepts')}
         onClose={closeDeduplicateConceptsConfirmation}
         onRun={confirmDeduplicateConcepts}
@@ -1263,7 +1441,7 @@ function Upload (): React.ReactElement {
           value={generateAllConceptsModel}
         />
       </StageRunPricePopup>}
-      {isSortConceptsConfirmationOpen && <StageRunPricePopup
+      {isSortConceptsConfirmationOpen && !isFastForwardRunning && <StageRunPricePopup
         header={t('Sort concepts')}
         onClose={closeSortConceptsConfirmation}
         onRun={confirmSortConcepts}
@@ -1279,7 +1457,7 @@ function Upload (): React.ReactElement {
           value={generateAllConceptsModel}
         />
       </StageRunPricePopup>}
-      {isRefineChaptersConfirmationOpen && <StageRunPricePopup
+      {isRefineChaptersConfirmationOpen && !isFastForwardRunning && <StageRunPricePopup
         header={t('Refine chapters')}
         onClose={closeRefineChaptersConfirmation}
         onRun={confirmRefineChapters}
@@ -1295,7 +1473,7 @@ function Upload (): React.ReactElement {
           value={generateAllConceptsModel}
         />
       </StageRunPricePopup>}
-      {isStandardsConfirmationOpen && <StageRunPricePopup
+      {isStandardsConfirmationOpen && !isFastForwardRunning && <StageRunPricePopup
         header={t('Standards')}
         onClose={closeStandardsConfirmation}
         onRun={confirmAssignStandards}
@@ -1311,7 +1489,7 @@ function Upload (): React.ReactElement {
           value={standardsModel}
         />
       </StageRunPricePopup>}
-      {isGenerateExercisesConfirmationOpen && <StageRunPricePopup
+      {isGenerateExercisesConfirmationOpen && !isFastForwardRunning && <StageRunPricePopup
         header={t('Generate exercises')}
         onClose={closeGenerateExercisesConfirmation}
         onRun={confirmGenerateExercises}
@@ -1338,13 +1516,13 @@ function Upload (): React.ReactElement {
           <Button
             className='uploadButton'
             icon='upload'
-            isDisabled={isBusy}
+            isDisabled={isBusy || isFastForwardRunning}
             label={t('Upload')}
             onClick={onChooseFile}
           />
           <Dropdown
             className='bookSelect'
-            isDisabled={!books.length || isBusy}
+            isDisabled={!books.length || isBusy || isFastForwardRunning}
             isFull
             label={t('Uploaded books')}
             onChange={setSelectedId}
@@ -1355,7 +1533,7 @@ function Upload (): React.ReactElement {
           <Button
             className='deleteButton'
             icon='trash'
-            isDisabled={!selectedBook || isBusy}
+            isDisabled={!selectedBook || isBusy || isFastForwardRunning}
             onClick={onDelete}
           />
         </div>
@@ -1377,6 +1555,8 @@ function Upload (): React.ReactElement {
         <React.Suspense fallback={<p>{t('Loading PDF reader…')}</p>}>
           <BookReader
             assignAllStandardsRequest={assignAllStandardsRequest}
+            autoRunAll={isFastForwardRunning}
+            autoRunStartKey={fastForwardStartKey}
             book={selectedBook}
             deduplicateAllConceptsRequest={deduplicateAllConceptsRequest}
             fixAllConceptsRequest={fixAllConceptsRequest}
@@ -1393,8 +1573,11 @@ function Upload (): React.ReactElement {
             generateAllConceptsRequest={generateAllConceptsRequest}
             generateOnlyMissingConcepts={generateOnlyMissingConcepts}
             identifyChaptersRequest={identifyChaptersRequest}
-            isPriceDisabled={!selectedBook || isBusy}
+            isPriceDisabled={!selectedBook || isBusy || isFastForwardRunning}
+            onAbortFastForward={abortFastForward}
+            onAutoRunComplete={onFastForwardComplete}
             onBookChange={onBookChange}
+            onFastForward={onFastForward}
             onPrice={onPrice}
             onProcessingComplete={onProcessingComplete}
             pendingProcessingAction={pendingProcessingAction}
@@ -1571,6 +1754,48 @@ const PriceContent = styled.div`
     font-weight: 700;
     padding-bottom: 0.78rem;
     padding-top: 0.78rem;
+  }
+
+  .fastForwardEstimateStatus {
+    background: rgba(127, 127, 127, 0.07);
+    border: 1px solid rgba(127, 127, 127, 0.2);
+    border-radius: 0.65rem;
+    line-height: 1.45;
+    padding: 0.8rem 0.9rem;
+  }
+
+  .fastForwardEstimateHeading {
+    align-items: center;
+    display: flex;
+    gap: 0.75rem;
+    justify-content: space-between;
+    margin: 0 0 0.55rem;
+  }
+
+  .fastForwardEstimateHeading > strong {
+    font-size: 0.94rem;
+  }
+
+  .fastForwardStageBadge {
+    background: rgba(127, 127, 127, 0.12);
+    border: 1px solid rgba(127, 127, 127, 0.18);
+    border-radius: 999px;
+    font-size: 0.76rem;
+    font-variant-numeric: tabular-nums;
+    padding: 0.2rem 0.5rem;
+    white-space: nowrap;
+  }
+
+  .fastForwardPriceTable tfoot td {
+    font-size: 1.08rem;
+    font-weight: 700;
+  }
+
+  .fastForwardEstimateFootnote {
+    font-size: 0.73rem;
+    line-height: 1.4;
+    margin: 0.55rem 0 0;
+    opacity: 0.58;
   }
 
   @media only screen and (max-width: 480px) {

@@ -8,12 +8,13 @@ import { Button, Modal } from '@polkadot/react-components';
 interface StageRunPricePopupProps {
   children: React.ReactNode;
   header: string;
+  isRunDisabled?: boolean;
   onClose: () => void;
   onRun: () => void;
   runLabel?: string;
 }
 
-export default function StageRunPricePopup ({ children, header, onClose, onRun, runLabel = 'Run' }: StageRunPricePopupProps): React.ReactElement {
+export default function StageRunPricePopup ({ children, header, isRunDisabled = false, onClose, onRun, runLabel = 'Run' }: StageRunPricePopupProps): React.ReactElement {
   return <Modal
     header={header}
     onClose={onClose}
@@ -24,6 +25,7 @@ export default function StageRunPricePopup ({ children, header, onClose, onRun, 
       <Button.Group>
         <Button
           icon='play'
+          isDisabled={isRunDisabled}
           label={runLabel}
           onClick={onRun}
         />

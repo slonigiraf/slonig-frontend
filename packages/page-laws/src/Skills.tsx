@@ -185,7 +185,15 @@ export interface PipelineAction {
   onClick: () => void;
 }
 
+export interface AutoRunProgress {
+  completed: number;
+  percent: number;
+  total: number;
+}
+
 interface Props {
+  autoRunAll?: boolean;
+  autoRunStartKey?: string;
   book: Book;
   onBookChange: (book: Book) => void;
   onAction?: (view: SkillsView | 'conceptExercises') => void;
@@ -196,6 +204,10 @@ interface Props {
   pipelineControls?: React.ReactNode;
   pipelinePrefix?: PipelineAction[];
   pipelineSuffix?: PipelineAction[];
+  onAutoRunComplete?: () => void;
+  onAutoRunProgressChange?: (progress?: AutoRunProgress) => void;
+  onAbortAutoRun?: () => void;
+  onPipelineSelectionChange?: (key: string) => void;
   showPipeline?: boolean;
   view: SkillsView;
 }
@@ -1383,7 +1395,7 @@ function getSessionChapter (bookId: number, view: SkillsView): number {
   }
 }
 
-function Skills ({ book, externalRefreshToken = 0, onAction, onBookChange, onContentChange, onEntityCountsChange, pipelineOnly = false, pipelineControls, pipelinePrefix, pipelineSuffix, showPipeline = true, view }: Props): React.ReactElement {
+function Skills ({ autoRunAll = false, autoRunStartKey, book, externalRefreshToken = 0, onAction, onAutoRunComplete, onAutoRunProgressChange, onAbortAutoRun, onBookChange, onContentChange, onEntityCountsChange, onPipelineSelectionChange, pipelineOnly = false, pipelineControls, pipelinePrefix, pipelineSuffix, showPipeline = true, view }: Props): React.ReactElement {
   const language = book.language ?? '';
   const hasBookLanguage = Boolean(language);
   const hasBookSubject = Boolean(book.subject);
@@ -1404,7 +1416,12 @@ function Skills ({ book, externalRefreshToken = 0, onAction, onBookChange, onCon
   const [progressTotal, setProgressTotal] = useState(1);
   const [refreshToken, setRefreshToken] = useState(0);
   const [selectedModel, setSelectedModel] = useState(DEFAULT_PROCESSING_MODEL);
+  const effectiveModel = autoRunAll ? DEFAULT_PROCESSING_MODEL : selectedModel;
   const [effectiveCompletedStages, setEffectiveCompletedStages] = useState<BookProcessingStageKey[]>(() => getBookCompletedStages(book));
+  const [autoRunStageKeys, setAutoRunStageKeys] = useState<string[]>([]);
+  const autoRunInitializedRef = useRef(false);
+  const autoRunTriggeredKeyRef = useRef('');
+  const autoRunCompleteNotifiedRef = useRef(false);
   const abilitiesOutputRef = useRef<HTMLDivElement>(null);
   const refresh = useCallback((): void => setRefreshToken((value) => value + 1), []);
   const refreshContent = useCallback((): void => {
@@ -1631,7 +1648,7 @@ function Skills ({ book, externalRefreshToken = 0, onAction, onBookChange, onCon
     ? requestInputs.flatMap((input) => [input, input])
     : requestInputs, [aiAction, requestInputs]);
   const outputTokens = generationOutputTokens;
-  const estimate = estimateAiInput(selectedModel, validationInputs, outputTokens);
+  const estimate = estimateAiInput(effectiveModel, validationInputs, outputTokens);
 
   const deleteExerciseWithAbilities = useCallback(async (exerciseId: number): Promise<void> => {
     await deleteAbilities(exerciseAbilityModuleId(book.id, exerciseId));
@@ -1709,7 +1726,7 @@ function Skills ({ book, externalRefreshToken = 0, onAction, onBookChange, onCon
       const results = await mapConcurrent(batches, OPENROUTER_CONCURRENCY, async (batch) => {
         const systemPrompt = SKILLS_GENERATION_SYSTEM_PROMPT(language);
         const userPrompt = SOURCES_TO_SKILLS_REQUEST_PROMPT(language, batch);
-        const generated = await requestValidatedJson(client, selectedModel, systemPrompt, userPrompt, (content) => parseGeneratedSkills(content, batch.length), true, addOpenRouterCost);
+        const generated = await requestValidatedJson(client, effectiveModel, systemPrompt, userPrompt, (content) => parseGeneratedSkills(content, batch.length), true, addOpenRouterCost);
 
         completed += batch.length;
         setProgress(Math.min(skillSources.length, completed));
@@ -1742,7 +1759,7 @@ function Skills ({ book, externalRefreshToken = 0, onAction, onBookChange, onCon
     } finally {
       setIsBusy(false);
     }
-  }, [addOpenRouterCost, allSkills, beginProgress, book.id, chapters, createClient, language, refresh, selectedModel, skillSources]);
+  }, [addOpenRouterCost, allSkills, beginProgress, book.id, chapters, createClient, language, refresh, effectiveModel, skillSources]);
 
   const generateExercises = useCallback(async (): Promise<void> => {
     const targetExercises = generateOnlyMissingAbilities ? exercisesMissingAbilities : allExercises;
@@ -1785,7 +1802,7 @@ function Skills ({ book, externalRefreshToken = 0, onAction, onBookChange, onCon
           .map((exercise) => ({ chapterTitle: chapter.title, exercise })));
         const plannedSources = await mapConcurrent(sourcesNeedingPlan, ABILITY_GENERATION_CONCURRENCY, async ({ chapterTitle, exercise }): Promise<{ blueprints: AbilityBlueprint[]; exercise: Exercise }> => {
           const systemPrompt = ABILITY_WORKFLOW_SYSTEM_PROMPT(language, chapterTitle, book.age);
-          const runJson: AbilityWorkflowJsonRunner = (prompt, parse, options) => requestValidatedJson(client, selectedModel, systemPrompt, prompt, parse, true, addAbilitiesCost, options?.maxOutputTokens, options?.repairContext, options?.validationCycles ?? 1);
+          const runJson: AbilityWorkflowJsonRunner = (prompt, parse, options) => requestValidatedJson(client, effectiveModel, systemPrompt, prompt, parse, true, addAbilitiesCost, options?.maxOutputTokens, options?.repairContext, options?.validationCycles ?? 1);
 
           try {
             const blueprints = await planExerciseAbility(language, chapterTitle, exercise, runJson);
@@ -1813,7 +1830,7 @@ function Skills ({ book, externalRefreshToken = 0, onAction, onBookChange, onCon
           const exerciseId = exercise.id as number;
           const blueprints = blueprintsByExerciseIdCache.get(exerciseId) ?? [];
           const systemPrompt = ABILITY_WORKFLOW_SYSTEM_PROMPT(language, chapterTitle, book.age);
-          const runJson: AbilityWorkflowJsonRunner = (prompt, parse, options) => requestValidatedJson(client, selectedModel, systemPrompt, prompt, parse, true, addAbilitiesCost, options?.maxOutputTokens, options?.repairContext, options?.validationCycles ?? 1);
+          const runJson: AbilityWorkflowJsonRunner = (prompt, parse, options) => requestValidatedJson(client, effectiveModel, systemPrompt, prompt, parse, true, addAbilitiesCost, options?.maxOutputTokens, options?.repairContext, options?.validationCycles ?? 1);
 
           try {
             const conversions = await materializeExerciseAbility(language, chapterTitle, exercise, blueprints, runJson);
@@ -1888,7 +1905,7 @@ function Skills ({ book, externalRefreshToken = 0, onAction, onBookChange, onCon
     } finally {
       setIsBusy(false);
     }
-  }, [addAbilitiesCost, allAbilities.length, allExercises, beginProgress, book.age, book.id, chapterContent, createClient, exercisesMissingAbilities, generateOnlyMissingAbilities, language, onAction, onContentChange, refresh, selectedModel, completeStage, stageDone]);
+  }, [addAbilitiesCost, allAbilities.length, allExercises, beginProgress, book.age, book.id, chapterContent, createClient, exercisesMissingAbilities, generateOnlyMissingAbilities, language, onAction, onContentChange, refresh, effectiveModel, completeStage, stageDone]);
 
   const fixExercises = useCallback(async (): Promise<void> => {
     beginProgress('Fixing Exercise errors', allExercises.length);
@@ -1916,7 +1933,7 @@ function Skills ({ book, externalRefreshToken = 0, onAction, onBookChange, onCon
         const userPrompt = FIX_EXERCISES_REQUEST_PROMPT(exerciseRepairInput(language, batch, chapterTitle, book.age));
         const result = await requestValidatedJson(
           client,
-          selectedModel,
+          effectiveModel,
           systemPrompt,
           userPrompt,
           (content) => parseExerciseRepairResult(content, batch, originalIds),
@@ -1974,7 +1991,7 @@ function Skills ({ book, externalRefreshToken = 0, onAction, onBookChange, onCon
     } finally {
       setIsBusy(false);
     }
-  }, [addFixExercisesCost, allExercises, beginProgress, book.age, chapterContent, createClient, language, selectedModel]);
+  }, [addFixExercisesCost, allExercises, beginProgress, book.age, chapterContent, createClient, language, effectiveModel]);
 
   const fixAbilities = useCallback(async (): Promise<void> => {
     beginProgress('Fixing Ability errors', allAbilities.length);
@@ -1995,7 +2012,7 @@ function Skills ({ book, externalRefreshToken = 0, onAction, onBookChange, onCon
         const userPrompt = FIX_ABILITIES_REQUEST_PROMPT(abilityRepairInput(language, batch, chapterTitle, book.age));
         const result = await requestValidatedJson(
           client,
-          selectedModel,
+          effectiveModel,
           systemPrompt,
           userPrompt,
           (content) => parseAbilityRepairResult(content, batch.map(({ ability }) => ability), batch.map(({ id }) => id)),
@@ -2072,7 +2089,7 @@ function Skills ({ book, externalRefreshToken = 0, onAction, onBookChange, onCon
     } finally {
       setIsBusy(false);
     }
-  }, [addFixAbilitiesCost, allAbilities.length, beginProgress, book.age, chapterContent, conceptsById, createClient, exerciseTitlesByModuleId, exercisesByModuleId, language, selectedModel]);
+  }, [addFixAbilitiesCost, allAbilities.length, beginProgress, book.age, chapterContent, conceptsById, createClient, exerciseTitlesByModuleId, exercisesByModuleId, language, effectiveModel]);
 
   const closeFixReview = useCallback((): void => {
     setFixReview(null);
@@ -2293,7 +2310,7 @@ function Skills ({ book, externalRefreshToken = 0, onAction, onBookChange, onCon
 
         const content = await requestChatContent(
           client,
-          selectedModel,
+          effectiveModel,
           'You convert precise educational visual specifications into valid, compact TikZ code. Follow the requested output contract exactly.',
           tikzRequestPrompt(language, record.ability, exerciseIndex, field, visualPrompt, book.age),
           false,
@@ -2321,7 +2338,7 @@ function Skills ({ book, externalRefreshToken = 0, onAction, onBookChange, onCon
     } finally {
       setIsBusy(false);
     }
-  }, [addImagesCost, beginProgress, book.age, createClient, imageGenerationTargets, language, onAction, refreshContent, selectedModel, completeStage]);
+  }, [addImagesCost, beginProgress, book.age, createClient, imageGenerationTargets, language, onAction, refreshContent, effectiveModel, completeStage]);
   const fixImages = useCallback(async (): Promise<void> => {
     beginProgress('Reviewing TikZ visuals', imageFixTargets.length);
 
@@ -2340,7 +2357,7 @@ function Skills ({ book, externalRefreshToken = 0, onAction, onBookChange, onCon
 
         const review = await requestValidatedJson(
           client,
-          selectedModel,
+          effectiveModel,
           'You are a strict educational diagram QA reviewer and TikZ repair expert. Return only the requested JSON object.',
           tikzFixReviewPrompt(language, target, originalPreRender, book.age),
           parseTikzAiReview,
@@ -2363,7 +2380,7 @@ function Skills ({ book, externalRefreshToken = 0, onAction, onBookChange, onCon
         if (effectiveReview.hasErrors && effectiveReview.tikz.trim() === target.originalTikz.trim()) {
           effectiveReview = await requestValidatedJson(
             client,
-            selectedModel,
+            effectiveModel,
             'You must apply the TikZ corrections you identified. Return only the requested JSON object.',
             tikzDetectedProblemsRepairPrompt(language, target, effectiveReview, originalPreRender, book.age),
             parseTikzAiReview,
@@ -2388,7 +2405,7 @@ function Skills ({ book, externalRefreshToken = 0, onAction, onBookChange, onCon
           const rejectedTikz = effectiveReview.tikz;
           const repaired = await requestValidatedJson(
             client,
-            selectedModel,
+            effectiveModel,
             'You repair rejected TikZ using real TikZ Editor pre-render diagnostics. Return only the requested JSON object.',
             tikzCompileRepairPrompt(language, target, effectiveReview, fixedPreRender, book.age),
             parseTikzAiReview,
@@ -2454,7 +2471,7 @@ function Skills ({ book, externalRefreshToken = 0, onAction, onBookChange, onCon
     } finally {
       setIsBusy(false);
     }
-  }, [addFixImagesCost, beginProgress, book.age, createClient, imageFixTargets, language, selectedModel]);
+  }, [addFixImagesCost, beginProgress, book.age, createClient, imageFixTargets, language, effectiveModel]);
 
   const closeImageFixReview = useCallback((): void => {
     setImageFixReview(null);
@@ -2527,6 +2544,26 @@ function Skills ({ book, externalRefreshToken = 0, onAction, onBookChange, onCon
       fixImages().catch(console.error);
     }
   }, [aiAction, completeImagesStage, fixAbilities, fixExercises, fixImages, generateExercises, generateSkills]);
+
+  useEffect((): void => {
+    if (autoRunAll && aiAction && !isBusy) {
+      confirm();
+    }
+  }, [aiAction, autoRunAll, confirm, isBusy]);
+
+  useEffect((): void => {
+    if (!autoRunAll || isBusy) {
+      return;
+    }
+
+    if (exerciseFixReview) {
+      void applyExerciseFixReview();
+    } else if (fixReview) {
+      void applyAbilityFixReview();
+    } else if (imageFixReview) {
+      void applyImageFixReview();
+    }
+  }, [applyAbilityFixReview, applyExerciseFixReview, applyImageFixReview, autoRunAll, exerciseFixReview, fixReview, imageFixReview, isBusy]);
   const closeConfirmation = useCallback((): void => {
     setAiAction(undefined);
     setGenerateOnlyMissingAbilities(false);
@@ -2620,6 +2657,78 @@ function Skills ({ book, externalRefreshToken = 0, onAction, onBookChange, onCon
 
   const selectedPipelineAction = visiblePipelineActions.find(({ key }) => key === selectedPipelineKey);
 
+  useEffect((): void => {
+    onPipelineSelectionChange?.(selectedPipelineKey);
+  }, [onPipelineSelectionChange, selectedPipelineKey]);
+
+  useEffect((): void => {
+    if (!autoRunAll) {
+      autoRunInitializedRef.current = false;
+      autoRunTriggeredKeyRef.current = '';
+      autoRunCompleteNotifiedRef.current = false;
+      setAutoRunStageKeys([]);
+      return;
+    }
+
+    if (!autoRunInitializedRef.current) {
+      autoRunInitializedRef.current = true;
+      autoRunTriggeredKeyRef.current = '';
+      autoRunCompleteNotifiedRef.current = false;
+      const requestedStartIndex = autoRunStartKey
+        ? pipelineActions.findIndex(({ key }) => key === autoRunStartKey)
+        : -1;
+      const fallbackStartIndex = pipelineActions.findIndex(({ isDone }) => !isDone);
+      const startIndex = requestedStartIndex >= 0 ? requestedStartIndex : fallbackStartIndex;
+
+      setAutoRunStageKeys(startIndex >= 0
+        ? pipelineActions.slice(startIndex).map(({ key }) => key)
+        : []);
+    }
+  }, [autoRunAll, autoRunStartKey, pipelineActions]);
+
+  useEffect((): void => {
+    if (!autoRunAll || !autoRunInitializedRef.current || isBusy || aiAction || fixReview || exerciseFixReview || imageFixReview) {
+      return;
+    }
+
+    if (!autoRunStageKeys.length && pipelineActions.some(({ isDone }) => !isDone)) {
+      return;
+    }
+
+    const nextAction = pipelineActions.find(({ isDone, key }) => autoRunStageKeys.includes(key) && !isDone);
+
+    if (!nextAction) {
+      if (!autoRunCompleteNotifiedRef.current) {
+        autoRunCompleteNotifiedRef.current = true;
+        onAutoRunComplete?.();
+      }
+      return;
+    }
+
+    if (nextAction.isDisabled || autoRunTriggeredKeyRef.current === nextAction.key) {
+      return;
+    }
+
+    autoRunTriggeredKeyRef.current = nextAction.key;
+    nextAction.onClick();
+  }, [aiAction, autoRunAll, autoRunStageKeys, exerciseFixReview, fixReview, imageFixReview, isBusy, onAutoRunComplete, pipelineActions]);
+
+  const autoRunCompletedCount = autoRunStageKeys.reduce((count, key) => count + (pipelineActions.find((action) => action.key === key)?.isDone ? 1 : 0), 0);
+  const autoRunProgress = autoRunStageKeys.length ? Math.round(autoRunCompletedCount * 100 / autoRunStageKeys.length) : 100;
+
+  useEffect((): void => {
+    if (!autoRunAll) {
+      onAutoRunProgressChange?.(undefined);
+      return;
+    }
+
+    onAutoRunProgressChange?.({
+      completed: autoRunCompletedCount,
+      percent: autoRunProgress,
+      total: autoRunStageKeys.length
+    });
+  }, [autoRunAll, autoRunCompletedCount, autoRunProgress, autoRunStageKeys.length, onAutoRunProgressChange]);
+
   const runSelectedPipelineAction = useCallback((): void => {
     if (!selectedPipelineAction || selectedPipelineAction.isDisabled) {
       return;
@@ -2629,7 +2738,7 @@ function Skills ({ book, externalRefreshToken = 0, onAction, onBookChange, onCon
   }, [selectedPipelineAction]);
 
   return <StyledSkills className={pipelineOnly ? 'pipelineOnly' : undefined}>
-    {exerciseFixReview && (
+    {exerciseFixReview && !autoRunAll && (
       <Modal
         header='Fix exercises results'
         onClose={closeExerciseFixReview}
@@ -2707,7 +2816,7 @@ function Skills ({ book, externalRefreshToken = 0, onAction, onBookChange, onCon
         </Modal.Content>
       </Modal>
     )}
-    {fixReview && (
+    {fixReview && !autoRunAll && (
       <Modal
         header='Fix abilities results'
         onClose={closeFixReview}
@@ -2792,7 +2901,7 @@ function Skills ({ book, externalRefreshToken = 0, onAction, onBookChange, onCon
         </Modal.Content>
       </Modal>
     )}
-    {imageFixReview && (
+    {imageFixReview && !autoRunAll && (
       <Modal
         header='Fix images results'
         onClose={closeImageFixReview}
@@ -2872,7 +2981,7 @@ function Skills ({ book, externalRefreshToken = 0, onAction, onBookChange, onCon
         </Modal.Content>
       </Modal>
     )}
-    {aiAction && (
+    {aiAction && !autoRunAll && (
       <StageRunPricePopup
         header='Confirm AI processing'
         onClose={closeConfirmation}
@@ -2895,13 +3004,38 @@ function Skills ({ book, externalRefreshToken = 0, onAction, onBookChange, onCon
     )}
     {isBusy && (
       <div className='processingOverlay'>
-        <RoundProgress
-          total={progressTotal}
-          value={progress}
-        />
-        <strong>{progressLabel}</strong>
-        <span>{progress} / {progressTotal}</span>
-        <span className='openRouterSpend'>Spent this stage: {formatOpenRouterSpend(openRouterSpent)}</span>
+        <div className='processingPopup'>
+          {autoRunAll && onAbortAutoRun && <button
+            aria-label='Abort fast forward'
+            className='processingPopupClose'
+            onClick={onAbortAutoRun}
+            title='Abort fast forward'
+            type='button'
+          >×</button>}
+          <RoundProgress
+            total={progressTotal}
+            value={progress}
+          />
+          <strong>{progressLabel}</strong>
+          <span>{progress} / {progressTotal}</span>
+          <span className='openRouterSpend'>Spent this stage: {formatOpenRouterSpend(openRouterSpent)}</span>
+          {autoRunAll && <div className='fastForwardOverallProgress' role='status'>
+            <div className='fastForwardOverallProgressMeta'>
+              <strong>Overall progress</strong>
+              <span>{autoRunCompletedCount} / {autoRunStageKeys.length}</span>
+            </div>
+            <div
+              aria-label='Overall processing progress'
+              aria-valuemax={100}
+              aria-valuemin={0}
+              aria-valuenow={autoRunProgress}
+              className='fastForwardOverallProgressTrack'
+              role='progressbar'
+            >
+              <span style={{ width: `${autoRunProgress}%` }} />
+            </div>
+          </div>}
+        </div>
       </div>
     )}
     {showPipeline && <div className='pipeline'>
@@ -2909,7 +3043,7 @@ function Skills ({ book, externalRefreshToken = 0, onAction, onBookChange, onCon
         <button
           aria-label='Run selected stage'
           className='pipelineRunButton'
-          disabled={!selectedPipelineAction || selectedPipelineAction.isDisabled}
+          disabled={autoRunAll || !selectedPipelineAction || selectedPipelineAction.isDisabled}
           onClick={runSelectedPipelineAction}
           type='button'
         >
@@ -2917,7 +3051,7 @@ function Skills ({ book, externalRefreshToken = 0, onAction, onBookChange, onCon
         </button>
         <Dropdown
           className='pipelineStageDropdown'
-          isDisabled={isBusy || !visiblePipelineActions.length}
+          isDisabled={autoRunAll || isBusy || !visiblePipelineActions.length}
           isFull
           withLabel={false}
           onChange={setSelectedPipelineKey}
@@ -3308,14 +3442,19 @@ const StyledSkills = styled.div`
     min-height: var(--pipeline-control-height);
   }
 
+  .pipelineFastForwardButton,
   .pipelinePriceButton,
   .pipelineZoomButton {
     flex: 0 0 auto;
     min-width: 0;
   }
 
-  .pipelinePriceButton {
+  .pipelineFastForwardButton {
     margin-left: 0.75rem !important;
+  }
+
+  .pipelinePriceButton {
+    margin-left: 0 !important;
     margin-right: 0.25rem !important;
   }
   .modelSelect { min-width: 11rem; }
@@ -3362,7 +3501,16 @@ const StyledSkills = styled.div`
   .contentCard p { margin: 0.35rem 0; }
   .contentCard .solution { border-left: 0.2rem solid var(--border-table); margin: 0.5rem 0; padding-left: 0.75rem; }
   .exerciseImage { border: 1px solid var(--border-table); border-radius: 0.35rem; display: block; max-height: 18rem; max-width: min(100%, 32rem); object-fit: contain; }
-  .processingOverlay { align-items: center; background: color-mix(in srgb, var(--bg-page) 92%, transparent); display: flex; flex-direction: column; gap: 0.75rem; inset: 0; justify-content: center; position: fixed; z-index: 1000; }
+  .processingOverlay { align-items: center; background: color-mix(in srgb, var(--bg-page) 92%, transparent); display: flex; inset: 0; justify-content: center; padding: 1.25rem; position: fixed; z-index: 1000; }
+  .processingPopup { align-items: center; background: var(--bg-page); border: 1px solid var(--border-table); border-radius: 0.8rem; box-shadow: 0 1rem 3rem rgba(0, 0, 0, 0.16); box-sizing: border-box; display: flex; flex-direction: column; gap: 0.75rem; max-width: 28rem; padding: 1.5rem 1.6rem 1.4rem; position: relative; width: min(100%, 28rem); }
+  .processingPopupClose { align-items: center; background: transparent; border: 0; border-radius: 999px; color: inherit; cursor: pointer; display: flex; font-size: 1.7rem; height: 2rem; justify-content: center; line-height: 1; opacity: 0.65; padding: 0; position: absolute; right: 0.65rem; top: 0.55rem; width: 2rem; }
+  .processingPopupClose:hover, .processingPopupClose:focus-visible { background: rgba(127, 127, 127, 0.1); opacity: 1; outline: none; }
+  .fastForwardOverallProgress { border-top: 1px solid var(--border-table); margin-top: 0.25rem; padding-top: 0.95rem; width: 100%; }
+  .fastForwardOverallProgressMeta { align-items: center; display: flex; font-size: 0.82rem; justify-content: space-between; margin-bottom: 0.45rem; }
+  .fastForwardOverallProgressMeta > strong { font-weight: 600; }
+  .fastForwardOverallProgressMeta > span { font-variant-numeric: tabular-nums; opacity: 0.72; }
+  .fastForwardOverallProgressTrack { background: var(--bg-input); border: 1px solid var(--border-table); border-radius: 999px; box-sizing: border-box; height: 0.78rem; overflow: hidden; width: 100%; }
+  .fastForwardOverallProgressTrack > span { background: var(--color-primary, #2f6feb); border-radius: inherit; display: block; height: 100%; min-width: 0; transition: width 180ms ease; }
   .openRouterSpend { font-variant-numeric: tabular-nums; opacity: 0.85; }
   .errorMessage { color: #9f3a38; }
   .noticeMessage { color: var(--color-label); }
