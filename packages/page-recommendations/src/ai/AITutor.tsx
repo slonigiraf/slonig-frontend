@@ -828,6 +828,15 @@ export function AITutor({ modelSelector, moduleId, moduleCid, persistedOpenRoute
                     />
                   </ComposerTools>
                   <ComposerActions>
+                    <SkipAction
+                      type='button'
+                      aria-label='Skip skill'
+                      title='Skip skill'
+                      disabled={loading || generatingImage || recording}
+                      onClick={() => void skipSkill()}
+                    >
+                      <span>Skip</span>
+                    </SkipAction>
                     <ModelControl>
                       <ModelControlSummary aria-label={`AI model: ${modelDisplayName(model)}`}>
                         <ModelName>{modelDisplayName(model)}</ModelName>
@@ -870,13 +879,6 @@ export function AITutor({ modelSelector, moduleId, moduleCid, persistedOpenRoute
                 </ComposerFooter>
               </Composer>
               <ComposerMeta>
-                <SkipAction
-                  className='noHighlight'
-                  icon='fast-forward'
-                  isDisabled={loading || generatingImage || recording}
-                  label='Skip'
-                  onClick={() => void skipSkill()}
-                />
                 <ComposerHint>Enter to send · Shift+Enter for a new line</ComposerHint>
               </ComposerMeta>
               <Stats>Marked for repeat: {repeatCount} · Correct: {okCount} · Remaining: {Math.max(skills.length - lessonStep, 0)}</Stats>
@@ -1351,8 +1353,41 @@ const StopGlyph = styled.span`
   border-radius: 3px;
   background: currentColor;
 `;
-const SkipAction = styled(Button)`
-  margin: 0;
+const SkipAction = styled.button`
+  height: 36px;
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  padding: 0 9px;
+  border: 0;
+  border-radius: 18px;
+  background: transparent;
+  color: rgb(0 0 0 / 58%);
+  font: inherit;
+  font-size: 14px;
+  line-height: 1;
+  cursor: pointer;
+  white-space: nowrap;
+
+  &:hover:not(:disabled) {
+    background: rgb(0 0 0 / 5%);
+    color: rgb(0 0 0 / 72%);
+  }
+
+  &:disabled {
+    cursor: default;
+    opacity: .4;
+  }
+`;
+const SkipSquare = styled.span`
+  width: 14px;
+  height: 14px;
+  flex: 0 0 14px;
+  box-sizing: border-box;
+  border: 3px solid #f79200;
+  border-radius: 3px;
 `;
 const SendButton = styled.button`
   width: 40px;
@@ -1377,7 +1412,7 @@ const ComposerMeta = styled.div`
   margin: 5px auto 0;
   display: flex;
   align-items: center;
-  justify-content: space-between;
+  justify-content: flex-end;
   gap: 10px;
 `;
 const ComposerHint = styled.div`
