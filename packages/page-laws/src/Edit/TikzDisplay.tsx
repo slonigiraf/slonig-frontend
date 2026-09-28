@@ -11,6 +11,7 @@ interface Props {
   alt: string;
   hasCompileError?: boolean;
   onCompileStateChange?: (hasError: boolean) => Promise<void> | void;
+  recompileToken?: number;
   value: string;
 }
 
@@ -265,8 +266,9 @@ export async function renderTikzToSvg (value: string): Promise<string> {
   return embedTikzSourceInSvg(outlinedSvg, value);
 }
 
-export default function TikzDisplay ({ alt, hasCompileError = false, onCompileStateChange, value }: Props): React.ReactElement {
+export default function TikzDisplay ({ alt, hasCompileError = false, onCompileStateChange, recompileToken = 0, value }: Props): React.ReactElement {
   const hostRef = useRef<HTMLDivElement>(null);
+  const lastRecompileTokenRef = useRef(recompileToken);
   const onCompileStateChangeRef = useRef(onCompileStateChange);
   const [error, setError] = useState('');
 
@@ -280,6 +282,9 @@ export default function TikzDisplay ({ alt, hasCompileError = false, onCompileSt
     let compileTimer: ReturnType<typeof setTimeout> | undefined;
     let releaseRenderSlot: (() => void) | undefined;
     const host = hostRef.current;
+    const forceCompile = recompileToken !== lastRecompileTokenRef.current;
+
+    lastRecompileTokenRef.current = recompileToken;
 
     if (!host) {
       return;
@@ -288,7 +293,7 @@ export default function TikzDisplay ({ alt, hasCompileError = false, onCompileSt
     host.replaceChildren();
     setError('');
 
-    if (hasCompileError) {
+    if (hasCompileError && !forceCompile) {
       setError('TikZ compilation previously failed for this code. Edit the TikZ code to retry.');
 
       return;
@@ -399,7 +404,7 @@ export default function TikzDisplay ({ alt, hasCompileError = false, onCompileSt
       observer.disconnect();
       host.replaceChildren();
     };
-  }, [alt, hasCompileError, value]);
+  }, [alt, hasCompileError, recompileToken, value]);
 
   return <>
     <TikzHost

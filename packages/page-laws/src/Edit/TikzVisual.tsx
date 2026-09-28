@@ -50,6 +50,7 @@ export default function TikzVisual ({ alt, editorTitle, hasCompileError = false,
   const [isSaving, setIsSaving] = useState(false);
   const [isVisualEditorShown, setIsVisualEditorShown] = useState(isEditorShownInitially);
   const [message, setMessage] = useState('');
+  const [recompileToken, setRecompileToken] = useState(0);
   const editorRef = useRef<HTMLIFrameElement>(null);
   const draftRef = useRef(draft);
   const editStartValueRef = useRef(draft);
@@ -107,6 +108,7 @@ export default function TikzVisual ({ alt, editorTitle, hasCompileError = false,
       draftRef.current = nextValue;
       setDraft(nextValue);
       setRendered(nextValue);
+      setRecompileToken((token) => token + 1);
       editStartValueRef.current = nextValue;
       sendToEditor({ action: 'status', modified: false });
       setIsVisualEditorShown(false);
@@ -185,6 +187,7 @@ export default function TikzVisual ({ alt, editorTitle, hasCompileError = false,
       alt={`${alt} TikZ preview`}
       hasCompileError={hasCompileError && rendered === value}
       onCompileStateChange={rendered === value ? onCompileStateChange : undefined}
+      recompileToken={recompileToken}
       value={rendered}
     />}
     {showPreview && <Button.Group>
