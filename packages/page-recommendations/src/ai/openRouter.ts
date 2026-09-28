@@ -116,12 +116,15 @@ export async function askOpenRouter(
 }
 
 function audioFormatFromMime(mimeType: string): string {
-  const mime = mimeType.toLowerCase();
+  const mime = mimeType.toLowerCase().split(';', 1)[0].trim();
   if (mime.includes('wav')) return 'wav';
   if (mime.includes('mpeg') || mime.includes('mp3')) return 'mp3';
-  if (mime.includes('mp4') || mime.includes('m4a')) return 'mp4';
+  // MediaRecorder reports `audio/mp4` on Safari/iOS, while OpenRouter's
+  // transcription API expects the matching audio container token as `m4a`.
+  if (mime.includes('mp4') || mime.includes('m4a')) return 'm4a';
   if (mime.includes('ogg')) return 'ogg';
   if (mime.includes('flac')) return 'flac';
+  if (mime.includes('aac')) return 'aac';
   return 'webm';
 }
 

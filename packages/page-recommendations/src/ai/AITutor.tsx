@@ -54,6 +54,22 @@ function fileToDataUrl(file: File): Promise<string> {
   });
 }
 
+function inferredFileMimeType(file: File): string {
+  if (file.type) return file.type;
+
+  const extension = file.name.split('.').pop()?.toLowerCase();
+  switch (extension) {
+    case 'jpg':
+    case 'jpeg': return 'image/jpeg';
+    case 'png': return 'image/png';
+    case 'gif': return 'image/gif';
+    case 'webp': return 'image/webp';
+    case 'heic': return 'image/heic';
+    case 'heif': return 'image/heif';
+    default: return 'application/octet-stream';
+  }
+}
+
 function formatRecordingTime(seconds: number): string {
   const minutes = Math.floor(seconds / 60);
   const remaining = seconds % 60;
@@ -89,6 +105,10 @@ function studentExerciseSessionKey(lessonId: string, lessonStep: number): string
 
 function generatedStageTextSessionKey(lessonId: string, lessonStep: number, type: StageType): string {
   return `${lessonId}:learnStep:${lessonStep}:generated:${type}`;
+}
+
+function tutorOpenSessionKey(moduleId: string, studentId: string): string {
+  return `${moduleId}:${studentId}:open`;
 }
 
 function findStageByType(stage: AlgorithmStage | undefined, type: string | null | undefined): AlgorithmStage | undefined {
@@ -470,13 +490,16 @@ export function AITutor({ modelSelector, moduleId, moduleCid, persistedOpenRoute
     }
 
     try {
-      const next = await Promise.all(selected.map(async (file): Promise<ComposerAttachment> => ({
-        id: attachmentId(),
-        name: file.name,
-        mimeType: file.type || 'application/octet-stream',
-        dataUrl: await fileToDataUrl(file),
-        kind: file.type.startsWith('image/') ? 'image' : 'file',
-      })));
+      const next = await Promise.all(selected.map(async (file): Promise<ComposerAttachment> => {
+        const mimeType = inferredFileMimeType(file);
+        return {
+          id: attachmentId(),
+          name: file.name,
+          mimeType,
+          dataUrl: await fileToDataUrl(file),
+          kind: mimeType.startsWith('image/') ? 'image' : 'file',
+        };
+      }));
       setAttachments((current) => [...current, ...next].slice(0, MAX_ATTACHMENTS));
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Unable to attach that file.');
@@ -919,27 +942,52 @@ export function AITutor({ modelSelector, moduleId, moduleCid, persistedOpenRoute
 }
 
 export function AITutorButton(props: Omit<Props, 'onClose' | 'persistedOpenRouterKey'>): React.ReactElement {
-  const [open, setOpen] = useState(false);
+  const openSessionKey = tutorOpenSessionKey(props.moduleId, props.studentId);
+  const [open, setOpen] = useState(() => loadFromSessionStorage(AI_TUTOR_SESSION, openSessionKey) === 'true');
   const [opening, setOpening] = useState(false);
   const [persistedOpenRouterKey, setPersistedOpenRouterKey] = useState<string | null>();
+
+  useEffect(() => {
+    if (!open || persistedOpenRouterKey !== undefined) return;
+    let cancelled = false;
+
+    (async () => {
+      setOpening(true);
+      try {
+        const key = await getSetting(SettingKey.OPENROUTER_TOKEN) || null;
+        if (!cancelled) setPersistedOpenRouterKey(key);
+      } catch {
+        if (!cancelled) setPersistedOpenRouterKey(null);
+      } finally {
+        if (!cancelled) setOpening(false);
+      }
+    })();
+
+    return () => { cancelled = true; };
+  }, [open, persistedOpenRouterKey]);
 
   const openTutor = useCallback(async (): Promise<void> => {
     setOpening(true);
 
     try {
       setPersistedOpenRouterKey(await getSetting(SettingKey.OPENROUTER_TOKEN) || null);
-      setOpen(true);
     } catch {
       setPersistedOpenRouterKey(null);
-      setOpen(true);
     } finally {
+      saveToSessionStorage(AI_TUTOR_SESSION, openSessionKey, 'true');
+      setOpen(true);
       setOpening(false);
     }
-  }, []);
+  }, [openSessionKey]);
+
+  const closeTutor = useCallback((): void => {
+    saveToSessionStorage(AI_TUTOR_SESSION, openSessionKey, 'false');
+    setOpen(false);
+  }, [openSessionKey]);
 
   return <>
     <Button icon='robot' isDisabled={opening} label='AI Tutor' onClick={openTutor} />
-    {open && persistedOpenRouterKey !== undefined && <AITutor {...props} onClose={() => setOpen(false)} persistedOpenRouterKey={persistedOpenRouterKey} />}
+    {open && persistedOpenRouterKey !== undefined && <AITutor {...props} onClose={closeTutor} persistedOpenRouterKey={persistedOpenRouterKey} />}
   </>;
 }
 
