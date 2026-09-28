@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { Button, Input, LinearProgress, Modal, Spinner, styled } from '@polkadot/react-components';
-import { FullscreenActivity, getIPFSDataFromContentID, parseJson, useIpfsContext, useSettingValue } from '@slonigiraf/slonig-components';
+import { FullscreenActivity, getIPFSDataFromContentID, KatexSpan, loadFromSessionStorage, parseJson, saveToSessionStorage, useIpfsContext, useSettingValue } from '@slonigiraf/slonig-components';
 import { getSetting, SettingKey, storeSetting } from '@slonigiraf/db';
 import type { ModelSelectorRenderer } from './modelSelector.js';
 import { AlgorithmStage, StageType } from '../Teach/AlgorithmStage.js';
@@ -25,12 +25,32 @@ interface Props {
   persistedOpenRouterKey?: string | null;
 }
 
-interface ChatLine {
-  role: 'ai' | 'student';
-  text: string;
+const MODEL_STORAGE = 'slonig:ai-tutor:model';
+const AI_TUTOR_SESSION = 'ai-tutor';
+
+function learningStepSessionKey(lessonId: string): string {
+  return `${lessonId}:learnStep`;
 }
 
-const MODEL_STORAGE = 'slonig:ai-tutor:model';
+function algorithmStageSessionKey(lessonId: string, lessonStep: number): string {
+  return `${lessonId}:learnStep:${lessonStep}:algorithmStage`;
+}
+
+function findStageByType(stage: AlgorithmStage | undefined, type: string | null | undefined): AlgorithmStage | undefined {
+  if (!stage || !type) return undefined;
+
+  const queue = [stage];
+  const visited = new Set<AlgorithmStage>();
+  while (queue.length > 0) {
+    const current = queue.shift();
+    if (!current || visited.has(current)) continue;
+    visited.add(current);
+    if (current.getType() === type) return current;
+    queue.push(...current.getNext());
+  }
+
+  return undefined;
+}
 
 function skillFromJson(id: string, cid: string, json: Record<string, unknown>): AiSkill {
   const questions = Array.isArray(json.q) ? json.q : [];
@@ -57,7 +77,7 @@ function makeAlgorithmSkill(skill: AiSkill): TutorSkill {
   };
 }
 
-function promptFor(skill: AiSkill, stage: AlgorithmStage, history: ChatLine[], answer?: string): string {
+function promptFor(skill: AiSkill, stage: AlgorithmStage, answer?: string): string {
   const messages = stage.getMessages().map((message) => [message.title, message.text, message.exercise].filter(Boolean).join(' ')).join('\n');
   const choices = stage.getNext().map((next, index) => `${index}: ${next.getType()} — ${next.getActionHint() || next.getName()}`).join('\n');
 
@@ -73,7 +93,6 @@ function promptFor(skill: AiSkill, stage: AlgorithmStage, history: ChatLine[], a
     `Allowed next stages:\n${choices || '-1: remain on this stage'}`,
     `Skill: ${skill.title}\n${skill.description || ''}`,
     `Examples: ${skill.questions.map((q) => `${q.question} => ${q.answer}`).join(' | ') || 'none'}`,
-    `Conversation: ${history.map((line) => `${line.role}: ${line.text}`).join('\n') || 'none'}`,
     answer === undefined ? 'Start the next exercise for the student.' : `Student answer: ${answer}`,
   ].join('\n\n');
 }
@@ -104,7 +123,8 @@ export function AITutor({ modelSelector, moduleId, moduleCid, persistedOpenRoute
   const { ipfs, isIpfsReady } = useIpfsContext();
   const [skills, setSkills] = useState<AiSkill[]>([]);
   const [lessonStep, setLessonStep] = useState(0);
-  const [history, setHistory] = useState<ChatLine[]>([]);
+  const [isLessonLoaded, setIsLessonLoaded] = useState(false);
+  const [currentAiText, setCurrentAiText] = useState('');
   const [answer, setAnswer] = useState('');
   const [turn, setTurn] = useState<TutorTurn>();
   const [loading, setLoading] = useState(false);
@@ -144,10 +164,12 @@ export function AITutor({ modelSelector, moduleId, moduleCid, persistedOpenRoute
   }, [openRouterKey, storedOpenRouterKey]);
 
   useEffect(() => {
-    setAlgorithmStage(algorithm?.getBegin());
-    setHistory([]);
+    const begin = algorithm?.getBegin();
+    const storedStageType = loadFromSessionStorage(AI_TUTOR_SESSION, algorithmStageSessionKey(lessonId, lessonStep));
+    setAlgorithmStage(findStageByType(begin, storedStageType) || begin);
+    setCurrentAiText('');
     setTurn(undefined);
-  }, [algorithm]);
+  }, [algorithm, lessonId, lessonStep]);
 
   useEffect(() => {
     if (!isIpfsReady || !ipfs) return;
@@ -161,7 +183,11 @@ export function AITutor({ modelSelector, moduleId, moduleCid, persistedOpenRoute
         const existing = await getLesson(lessonId);
         if (!cancelled) {
           setSkills(loaded);
-          setLessonStep(existing?.learnStep || 0);
+          const storedStep = Number(loadFromSessionStorage(AI_TUTOR_SESSION, learningStepSessionKey(lessonId)));
+          const persistedStep = existing?.learnStep || 0;
+          const sessionStep = Number.isInteger(storedStep) && storedStep >= 0 ? storedStep : 0;
+          setLessonStep(Math.min(Math.max(sessionStep, persistedStep), loaded.length));
+          setIsLessonLoaded(true);
         }
       } catch (e) {
         if (!cancelled) setError(e instanceof Error ? e.message : 'Unable to load the module skills.');
@@ -169,6 +195,16 @@ export function AITutor({ modelSelector, moduleId, moduleCid, persistedOpenRoute
     })();
     return () => { cancelled = true; };
   }, [ipfs, isIpfsReady, skillRefs, lessonId]);
+
+  useEffect(() => {
+    if (!isLessonLoaded) return;
+    saveToSessionStorage(AI_TUTOR_SESSION, learningStepSessionKey(lessonId), String(lessonStep));
+  }, [isLessonLoaded, lessonId, lessonStep]);
+
+  useEffect(() => {
+    if (!algorithmStage) return;
+    saveToSessionStorage(AI_TUTOR_SESSION, algorithmStageSessionKey(lessonId, lessonStep), algorithmStage.getType());
+  }, [algorithmStage, lessonId, lessonStep]);
 
   const ask = useCallback(async (studentAnswer?: string) => {
     if (!openRouterKey) {
@@ -179,18 +215,13 @@ export function AITutor({ modelSelector, moduleId, moduleCid, persistedOpenRoute
     setLoading(true);
     setError('');
     try {
-      const next = await askOpenRouter({ apiKey: openRouterKey, model: model.trim() || DEFAULT_MODEL }, promptFor(skill, algorithmStage, history, studentAnswer));
+      const next = await askOpenRouter({ apiKey: openRouterKey, model: model.trim() || DEFAULT_MODEL }, promptFor(skill, algorithmStage, studentAnswer));
       const candidate = typeof next.nextStage === 'number' && next.nextStage >= 0
         ? algorithmStage.getNext()[next.nextStage]
         : undefined;
       const chosenCandidate = studentAnswer === undefined ? undefined : candidate;
       const stageToDisplay = chosenCandidate || algorithmStage;
-      const nextHistory = [
-        ...history,
-        ...(studentAnswer === undefined ? [] : [{ role: 'student' as const, text: studentAnswer }]),
-        { role: 'ai' as const, text: learnerFacingText(stageToDisplay, next) },
-      ];
-      setHistory(nextHistory);
+      setCurrentAiText(learnerFacingText(stageToDisplay, next));
       setTurn(next);
       setAnswer('');
       localStorage.setItem(MODEL_STORAGE, model.trim() || DEFAULT_MODEL);
@@ -204,7 +235,7 @@ export function AITutor({ modelSelector, moduleId, moduleCid, persistedOpenRoute
         setRepeatCount((count) => count + 1);
         if (next.decision === 'mastered') setOkCount((count) => count + 1);
         setLessonStep(updated.learnStep);
-        setHistory([]);
+        setCurrentAiText('');
         setTurn(undefined);
       } else if (chosenCandidate) {
         setAlgorithmStage(chosenCandidate);
@@ -220,7 +251,7 @@ export function AITutor({ modelSelector, moduleId, moduleCid, persistedOpenRoute
     } finally {
       setLoading(false);
     }
-  }, [algorithmStage, history, lessonStep, model, moduleCid, moduleId, openRouterKey, skill, skills, studentId]);
+  }, [algorithmStage, lessonStep, model, moduleCid, moduleId, openRouterKey, skill, skills, studentId]);
 
   useEffect(() => {
     if (skill && algorithmStage && !turn && openRouterKey) void ask();
@@ -245,7 +276,7 @@ export function AITutor({ modelSelector, moduleId, moduleCid, persistedOpenRoute
         {skill && <>
           <SkillTitle>{skill.title}</SkillTitle>
           <Conversation>
-            {history.map((line, index) => <Message key={`${index}-${line.text}`} $student={line.role === 'student'}><b>{line.role === 'student' ? 'You' : 'AI Tutor'}</b><div>{line.text}</div></Message>)}
+            {currentAiText && <AiMessage><KatexSpan content={currentAiText} /></AiMessage>}
             {loading && <Spinner label='AI Tutor is thinking' />}
           </Conversation>
           <AnswerRow>
@@ -319,7 +350,7 @@ const Settings = styled.div`display: flex; gap: 8px; flex-wrap: wrap; margin-bot
 const ErrorText = styled.div`color: #b00020; margin: 8px 0;`;
 const SkillTitle = styled.h2`margin: 8px 0 14px;`;
 const Conversation = styled.div`min-height: 220px; display: flex; flex-direction: column; gap: 12px;`;
-const Message = styled.div<{ $student: boolean }>`align-self: ${({ $student }) => $student ? 'flex-end' : 'flex-start'}; max-width: 92%; padding: 12px 15px; border-radius: 14px; background: ${({ $student }) => $student ? '#e8f1ff' : '#f4f4f4'}; white-space: pre-wrap;`;
+const AiMessage = styled.div`align-self: flex-start; max-width: 92%; padding: 12px 15px; border-radius: 14px; background: #f4f4f4; white-space: pre-wrap; .katex { white-space: pre-wrap; }`;
 const AnswerRow = styled.div`display: flex; gap: 8px; align-items: flex-end; flex-wrap: wrap; textarea { flex: 1 1 100%; min-height: 72px; resize: vertical; padding: 10px; }`;
 const Stats = styled.div`margin-top: 18px; color: rgb(0 0 0 / 55%); text-align: center;`;
 
