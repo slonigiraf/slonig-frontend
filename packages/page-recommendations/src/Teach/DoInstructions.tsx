@@ -11,6 +11,7 @@ import { ChatContainer, Bubble, useIpfsContext, useLog, OKBox, stringToNumber, u
 import { getLetterTemplate, getSetting, Lesson, LetterTemplate, putLetterTemplate, Reexamination, SettingKey, storeSetting, TutorAction, updateReexamination } from '@slonigiraf/db';
 import { getIPFSDataFromContentID, parseJson, useInfo } from '@slonigiraf/slonig-components';
 import { TutoringAlgorithm, TutoringAlgorithmType } from './TutoringAlgorithm.js';
+import { ExamplesModal } from './ExampleExercisesButton.js';
 import ChatSimulation from './ChatSimulation.js';
 import { ErrorType } from '@polkadot/react-params';
 import { EXAMPLE_SKILL_KNOWLEDGE_CID, MAX_COUNT_WITHOUT_CORRECT_FAKE_IN_RAW, MIN_USING_HINT_MS, ONE_SUBJECT_PERIOD_MS } from '@slonigiraf/utils';
@@ -80,6 +81,7 @@ function DoInstructions({ className = '', entity, eventCategory, lessonStat, any
   const [previousTeachingStagesDuration, setPreviousTeachingStagesDuration] = useState(0);
   const [didCorrectFakeSolution, setDidCorrectFakeSolution] = useState(false);
   const [didCorrectExercise, setDidCorrectExercise] = useState(false);
+  const [areExamplesOpen, toggleExamplesOpen] = useToggle(false);
 
   const showOkBoxInfo = useCallback((info: string) => {
     setOkboxInfo(info);
@@ -569,6 +571,16 @@ function DoInstructions({ className = '', entity, eventCategory, lessonStat, any
                                 label={t('Should be repeated tomorrow')}
                                 onClick={() => preserveFromNoobs(repeatTomorrow, async () => { }, 'instant_mark_repeat')}
                               />
+                              <Menu.Divider />
+                              <Menu.Item
+                                icon='book'
+                                key='showExamples'
+                                label={t('Show examples')}
+                                onClick={() => preserveFromNoobs(async () => {
+                                  logEvent('TUTORING', 'CLICK_INSTANT_EXAMPLES');
+                                  toggleExamplesOpen();
+                                }, async () => { }, 'instant_show_examples')}
+                              />
                             </>
                           )}
                         </Menu>
@@ -608,6 +620,12 @@ function DoInstructions({ className = '', entity, eventCategory, lessonStat, any
               )}
           </InstructionsButtonsContainer>
           {isOkBoxOpen && <OKBox info={okBoxInfo} onClose={toggleIsOkBoxOpen} />}
+          {areExamplesOpen && <ExamplesModal
+            skill={skill}
+            location='example_solutions'
+            areAnswersShownInitially
+            onClose={toggleExamplesOpen}
+          />}
         </InstructionsContainer>
       ) : (
         <div>Error: Reload the page</div>

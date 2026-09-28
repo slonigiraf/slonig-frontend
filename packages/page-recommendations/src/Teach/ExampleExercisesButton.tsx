@@ -9,6 +9,35 @@ import { HintBubble, Skill, useBooleanSettingValue, useLog } from '@slonigiraf/s
 import { ExerciseList, ExerciseListLocation } from '@slonigiraf/app-laws';
 import { setSettingToTrue, SettingKey } from '@slonigiraf/db';
 
+interface ExamplesModalProps {
+  skill: Skill;
+  location: ExerciseListLocation;
+  areAnswersShownInitially?: boolean;
+  onClose: () => void;
+}
+
+export function ExamplesModal({ skill, location, areAnswersShownInitially = false, onClose }: ExamplesModalProps): React.ReactElement {
+  const { t } = useTranslation();
+
+  return (
+    <Modal
+      header={t('Hide it from your student!')}
+      onClose={onClose}
+      size='small'
+    >
+      <Modal.Content>
+        <ExerciseList exercises={skill.q} location={location} areShownInitially={areAnswersShownInitially} />
+        {(location === 'example_exercises' || location === 'example_solutions') && <FlagContainer>
+          <Flag color='green' label={t('Hide it from your student!')} />
+        </FlagContainer>}
+        {location === 'example_exercises' && <FlagContainer>
+          <Flag color='green' label={t('You’ll see the answers next')} />
+        </FlagContainer>}
+      </Modal.Content>
+    </Modal>
+  );
+}
+
 interface Props {
   className?: string;
   skill: Skill;
@@ -48,23 +77,7 @@ function ExampleExercisesButton({ className = '', skill, location }: Props): Rea
           />
         </ButtonWrap>
 
-        {areDetailsOpen && (
-          <Modal
-            header={t('Hide it from your student!')}
-            onClose={toggleDetailsOpen}
-            size="small"
-          >
-            <Modal.Content>
-              <ExerciseList exercises={skill.q} location={location} />
-              {(location === 'example_exercises' || location === 'example_solutions') && <FlagContainer>
-                <Flag color={'green'} label={t('Hide it from your student!')} />
-              </FlagContainer>}
-              {location === 'example_exercises' && <FlagContainer>
-                <Flag color={'green'} label={t('You’ll see the answers next')} />
-              </FlagContainer>}
-            </Modal.Content>
-          </Modal>
-        )}
+        {areDetailsOpen && <ExamplesModal skill={skill} location={location} onClose={toggleDetailsOpen} />}
       </StyledDiv>
     </>
   );

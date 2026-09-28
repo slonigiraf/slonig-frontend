@@ -85,6 +85,7 @@ Here is a list of user actions tracked by Slonig:
 | ✅ | TUTORING | CLICK_RESTART_LESSON | N/A | N/A |
 | ✅ | TUTORING | GET_STUDENT_REQUEST | N/A | N/A |
 | ✅ | TUTORING | CLICK_EXAMPLES | N/A | N/A |
+| ✅ | TUTORING | CLICK_INSTANT_EXAMPLES | N/A | N/A |
 | ✅ | TUTORING | EXIT_TUTORING_CONFIRMED | N/A | N/A |
 | ✅ | TUTORING | REEXAMINE_SKILL_TIME | reexamine_skill_time_sec | sec |
 | ✅ | TUTORING | TOO_SHORT_REEXAMINE | too_short_reexamine_time_sec | sec |
