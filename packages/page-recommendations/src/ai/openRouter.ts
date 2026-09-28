@@ -5,14 +5,15 @@ export interface OpenRouterSettings {
   siteName?: string;
 }
 
-export interface TutorTurn {
+export interface TutorMessageResponse {
   message: string;
-  nextStage?: number;
-  exercise?: string;
-  answer?: string;
-  decision: 'continue' | 'mastered' | 'repeat' | 'skip';
-  feedback?: string;
 }
+
+export interface TutorDecisionResponse {
+  nextStage: number;
+}
+
+export type TutorTurn = TutorMessageResponse | TutorDecisionResponse;
 
 export interface OpenRouterAttachment {
   name: string;
@@ -30,23 +31,32 @@ const DEFAULT_MODEL = 'openai/gpt-6-luna';
 const DEFAULT_TRANSCRIPTION_MODEL = 'openai/gpt-4o-mini-transcribe';
 const DEFAULT_IMAGE_MODEL = 'openai/gpt-image-2';
 
-function extractJson(text: string): TutorTurn {
+function extractJson(text: string, responseKind: 'message'): TutorMessageResponse;
+function extractJson(text: string, responseKind: 'nextStage'): TutorDecisionResponse;
+function extractJson(text: string, responseKind: 'message' | 'nextStage'): TutorTurn {
   const candidate = text.match(/\{[\s\S]*\}/)?.[0];
   if (!candidate) throw new Error('The tutor returned no JSON response.');
 
-  const parsed = JSON.parse(candidate) as Partial<TutorTurn>;
-  if (typeof parsed.message !== 'string') throw new Error('The tutor response has no message.');
+  const parsed = JSON.parse(candidate) as Record<string, unknown>;
+  const keys = Object.keys(parsed);
 
-  return {
-    message: parsed.message,
-    nextStage: typeof parsed.nextStage === 'number' ? parsed.nextStage : undefined,
-    exercise: typeof parsed.exercise === 'string' ? parsed.exercise : undefined,
-    answer: typeof parsed.answer === 'string' ? parsed.answer : undefined,
-    feedback: typeof parsed.feedback === 'string' ? parsed.feedback : undefined,
-    decision: parsed.decision === 'skip' || parsed.decision === 'mastered' || parsed.decision === 'repeat'
-      ? parsed.decision
-      : 'continue',
-  };
+  if (responseKind === 'nextStage') {
+    if (keys.length !== 1 || keys[0] !== 'nextStage') {
+      throw new Error('The tutor decision response must contain only nextStage.');
+    }
+    if (typeof parsed.nextStage !== 'number' || !Number.isInteger(parsed.nextStage)) {
+      throw new Error('The tutor decision response has no integer nextStage index.');
+    }
+    return { nextStage: parsed.nextStage };
+  }
+
+  if (keys.length !== 1 || keys[0] !== 'message') {
+    throw new Error('The tutor stage-text response must contain only message.');
+  }
+  if (typeof parsed.message !== 'string') {
+    throw new Error('The tutor stage-text response has no message.');
+  }
+  return { message: parsed.message };
 }
 
 async function responseError(response: Response): Promise<Error> {
@@ -72,11 +82,25 @@ function headers(settings: OpenRouterSettings): Record<string, string> {
   };
 }
 
+export function askOpenRouter(
+  settings: OpenRouterSettings,
+  prompt: string,
+  signal?: AbortSignal,
+  attachments?: OpenRouterAttachment[],
+): Promise<TutorMessageResponse>;
+export function askOpenRouter(
+  settings: OpenRouterSettings,
+  prompt: string,
+  signal: AbortSignal | undefined,
+  attachments: OpenRouterAttachment[],
+  responseKind: 'nextStage',
+): Promise<TutorDecisionResponse>;
 export async function askOpenRouter(
   settings: OpenRouterSettings,
   prompt: string,
   signal?: AbortSignal,
   attachments: OpenRouterAttachment[] = [],
+  responseKind: 'message' | 'nextStage' = 'message',
 ): Promise<TutorTurn> {
   const content = attachments.length === 0
     ? prompt
@@ -112,7 +136,10 @@ export async function askOpenRouter(
   const payload = await response.json() as { choices?: Array<{ message?: { content?: string } }> };
   const contentText = payload.choices?.[0]?.message?.content;
   if (!contentText) throw new Error('OpenRouter returned an empty response.');
-  return extractJson(contentText);
+
+  return responseKind === 'nextStage'
+    ? extractJson(contentText, 'nextStage')
+    : extractJson(contentText, 'message');
 }
 
 function audioFormatFromMime(mimeType: string): string {
