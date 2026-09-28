@@ -25,6 +25,7 @@ import { mapConcurrent } from './concurrency.js';
 import { OPENROUTER_CONCURRENCY, openRouterRequestGate } from './openRouterConcurrency.js';
 import OpenRouterModelSelector from './OpenRouterModelSelector.js';
 import { reportOpenRouterCost, type OpenRouterCostReporter } from './openRouterCost.js';
+import { useBookStageTimer } from './bookStageTime.js';
 import { AiPriceEstimate } from './PriceEstimate.js';
 import ProcessingPopup, { type ProcessingStatus } from './ProcessingPopup.js';
 import StageRunPricePopup from './StageRunPricePopup.js';
@@ -1429,6 +1430,7 @@ function Skills ({ autoRunAll = false, autoRunStartKey, book, externalAutoRunBus
   const [progress, setProgress] = useState(0);
   const [progressLabel, setProgressLabel] = useState('');
   const [progressTotal, setProgressTotal] = useState(1);
+  const [processingStage, setProcessingStage] = useState<BookStageSpendKey>();
   const [refreshToken, setRefreshToken] = useState(0);
   const [selectedModel, setSelectedModel] = useState(DEFAULT_PROCESSING_MODEL);
   const effectiveModel = autoRunAll ? DEFAULT_PROCESSING_MODEL : selectedModel;
@@ -1443,6 +1445,7 @@ function Skills ({ autoRunAll = false, autoRunStartKey, book, externalAutoRunBus
   const autoRunFinishedStageKeysRef = useRef<Set<string>>(new Set());
   const processingAbortControllerRef = useRef<AbortController | null>(null);
   const abilitiesOutputRef = useRef<HTMLDivElement>(null);
+  useBookStageTimer(book.id, processingStage);
   const refresh = useCallback((): void => setRefreshToken((value) => value + 1), []);
   // Fast Forward must not start a content-dependent stage from the previous DB
   // snapshot. Several preceding stages replace rows (and therefore ids) before
@@ -1763,19 +1766,27 @@ function Skills ({ autoRunAll = false, autoRunStartKey, book, externalAutoRunBus
     await deleteBookConcept(conceptId);
   }, [allExercises, deleteExerciseWithAbilities]);
 
-  const beginProgress = useCallback((label: string, total: number): AbortSignal => {
+  const beginProgress = useCallback((label: string, total: number, stage?: BookStageSpendKey): AbortSignal => {
     processingAbortControllerRef.current?.abort();
     const controller = new AbortController();
 
     processingAbortControllerRef.current = controller;
+    setProcessingStage(stage);
     setAiAction(undefined); setError(''); setFixReview(null); setExerciseFixReview(null); setImageFixReview(null); setNotice(''); setIsBusy(true); setOpenRouterSpent(0); setProgress(0); setProgressLabel(label); setProgressTotal(Math.max(1, total));
 
     return controller.signal;
   }, []);
 
+  const endProgress = useCallback((): void => {
+    processingAbortControllerRef.current = null;
+    setProcessingStage(undefined);
+    setIsBusy(false);
+  }, []);
+
   const abortProcessing = useCallback((): void => {
     processingAbortControllerRef.current?.abort();
     processingAbortControllerRef.current = null;
+    setProcessingStage(undefined);
     setIsBusy(false);
     setAiAction(undefined);
     setNotice('Processing aborted.');
@@ -1840,14 +1851,14 @@ function Skills ({ autoRunAll = false, autoRunStartKey, book, externalAutoRunBus
         setError(caught instanceof Error ? caught.message : 'Unable to generate Skills.');
       }
     } finally {
-      setIsBusy(false);
+      endProgress();
     }
-  }, [addOpenRouterCost, allSkills, beginProgress, book.id, chapters, createClient, language, refresh, effectiveModel, skillSources]);
+  }, [addOpenRouterCost, allSkills, beginProgress, book.id, endProgress, chapters, createClient, language, refresh, effectiveModel, skillSources]);
 
   const generateExercises = useCallback(async (): Promise<void> => {
     const targetExercises = generateOnlyMissingAbilities ? exercisesMissingAbilities : allExercises;
 
-    const signal = beginProgress('Generating Abilities', targetExercises.length);
+    const signal = beginProgress('Generating Abilities', targetExercises.length, 'abilities');
 
     try {
       if (!allExercises.length) {
@@ -1996,12 +2007,12 @@ function Skills ({ autoRunAll = false, autoRunStartKey, book, externalAutoRunBus
         setError(caught instanceof Error ? caught.message : 'Unable to generate Abilities.');
       }
     } finally {
-      setIsBusy(false);
+      endProgress();
     }
-  }, [addAbilitiesCost, allAbilities.length, allExercises, beginProgress, book.age, book.id, chapterContent, createClient, exercisesMissingAbilities, generateOnlyMissingAbilities, language, onAction, onContentChange, refresh, effectiveModel, completeStage, stageDone]);
+  }, [addAbilitiesCost, allAbilities.length, allExercises, beginProgress, book.age, endProgress, book.id, chapterContent, createClient, exercisesMissingAbilities, generateOnlyMissingAbilities, language, onAction, onContentChange, refresh, effectiveModel, completeStage, stageDone]);
 
   const fixExercises = useCallback(async (): Promise<void> => {
-    const signal = beginProgress('Fixing Exercise errors', allExercises.length);
+    const signal = beginProgress('Fixing Exercise errors', allExercises.length, 'fixExercises');
 
     try {
       if (!allExercises.length) {
@@ -2088,12 +2099,12 @@ function Skills ({ autoRunAll = false, autoRunStartKey, book, externalAutoRunBus
         setError(caught instanceof Error ? caught.message : 'Unable to fix Exercise errors.');
       }
     } finally {
-      setIsBusy(false);
+      endProgress();
     }
-  }, [addFixExercisesCost, allExercises, beginProgress, book.age, chapterContent, createClient, language, effectiveModel]);
+  }, [addFixExercisesCost, allExercises, beginProgress, book.age, endProgress, chapterContent, createClient, language, effectiveModel]);
 
   const fixAbilities = useCallback(async (): Promise<void> => {
-    const signal = beginProgress('Fixing Ability errors', allAbilities.length);
+    const signal = beginProgress('Fixing Ability errors', allAbilities.length, 'fixAbilities');
 
     try {
       const client = await createClient();
@@ -2192,9 +2203,9 @@ function Skills ({ autoRunAll = false, autoRunStartKey, book, externalAutoRunBus
         setError(caught instanceof Error ? caught.message : 'Unable to fix Ability errors.');
       }
     } finally {
-      setIsBusy(false);
+      endProgress();
     }
-  }, [addFixAbilitiesCost, allAbilities.length, beginProgress, book.age, chapterContent, conceptsById, createClient, exerciseTitlesByModuleId, exercisesByModuleId, language, effectiveModel]);
+  }, [addFixAbilitiesCost, allAbilities.length, beginProgress, book.age, endProgress, chapterContent, conceptsById, createClient, exerciseTitlesByModuleId, exercisesByModuleId, language, effectiveModel]);
 
   const closeFixReview = useCallback((): void => {
     setFixReview(null);
@@ -2406,7 +2417,7 @@ function Skills ({ autoRunAll = false, autoRunStartKey, book, externalAutoRunBus
   }, []);
   const completeImagesStage = useCallback(async (): Promise<void> => {
     const targets = imageGenerationTargetsForRun;
-    const signal = beginProgress('Converting visual prompts to TikZ', targets.length);
+    const signal = beginProgress('Converting visual prompts to TikZ', targets.length, 'images');
     let completed = 0;
 
     try {
@@ -2464,11 +2475,11 @@ function Skills ({ autoRunAll = false, autoRunStartKey, book, externalAutoRunBus
         setError(caught instanceof Error ? caught.message : 'Unable to convert Ability visuals to TikZ.');
       }
     } finally {
-      setIsBusy(false);
+      endProgress();
     }
-  }, [abilitiesMissingImages.size, addImagesCost, beginProgress, book.age, completeStage, createClient, effectiveModel, generateOnlyMissingImages, imageGenerationTargetsForRun, language, onAction, refreshContent]);
+  }, [abilitiesMissingImages.size, addImagesCost, beginProgress, book.age, endProgress, completeStage, createClient, effectiveModel, generateOnlyMissingImages, imageGenerationTargetsForRun, language, onAction, refreshContent]);
   const fixImages = useCallback(async (): Promise<void> => {
-    const signal = beginProgress('Reviewing TikZ visuals', imageFixTargets.length);
+    const signal = beginProgress('Reviewing TikZ visuals', imageFixTargets.length, 'fixImages');
 
     try {
       if (!imageFixTargets.length) {
@@ -2608,9 +2619,9 @@ function Skills ({ autoRunAll = false, autoRunStartKey, book, externalAutoRunBus
         setError(caught instanceof Error ? caught.message : 'Unable to review and fix TikZ visuals.');
       }
     } finally {
-      setIsBusy(false);
+      endProgress();
     }
-  }, [addFixImagesCost, beginProgress, book.age, createClient, imageFixTargets, language, effectiveModel]);
+  }, [addFixImagesCost, beginProgress, book.age, endProgress, createClient, imageFixTargets, language, effectiveModel]);
 
   const closeImageFixReview = useCallback((): void => {
     setImageFixReview(null);

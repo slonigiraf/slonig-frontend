@@ -606,7 +606,7 @@ Make the wording economical. A task should normally be one direct imperative sen
 
 Do not encode visual facts in text when questionVisual is required. If solutionVisual is new or modify-question, the textual answer may state a concise result, but do not replace the required visual output with a verbose verbal description.
 
-Use <kx>...</kx> for mathematical notation and valid JSON escaping. i="", t=3, and every q has h, a, p="", i="".
+Use <kx>...</kx> for mathematical notation and valid JSON escaping. Digits embedded in alphanumeric identifiers or names are plain text, not mathematical numeric literals: keep identifiers such as TP53, BRCA1, H1N1, p53, and IL-6 unwrapped, including their digits. i="", t=3, and every q has h, a, p="", i="".
 
 Return only JSON:
 {"abilities":[{"exerciseId":123,"skillIndex":0,"ability":{"i":"","t":3,"h":"Convert kilometers to meters","q":[{"h":"Convert <kx>3</kx> km to m.","a":"<kx>3000</kx> m","p":"","i":""},{"h":"Convert <kx>7</kx> km to m.","a":"<kx>7000</kx> m","p":"","i":""}]}}]}

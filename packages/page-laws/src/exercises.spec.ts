@@ -46,16 +46,18 @@ describe('exercise repair', (): void => {
     assert.equal(result.reviews[0].exercise?.solution, '<kx>1 + 2 = 3</kx>.');
   });
 
-  it('requires Fix Exercises to repair learner-facing numbers outside KaTeX', (): void => {
+  it('does not regex-enforce learner-facing number markup after AI review', (): void => {
     const original = {
       ...createExercise(1),
       description: 'Calculate 3 + 4.'
     };
 
-    assert.throws(() => parseExerciseRepairResult(JSON.stringify({
+    const untouched = parseExerciseRepairResult(JSON.stringify({
       duplicatePairs: [],
       reviews: []
-    }), [original], [1]), /wrap learner-facing numbers in <kx>/i);
+    }), [original], [1]);
+
+    assert.deepEqual(untouched.reviews, []);
 
     const [review] = parseExerciseRepairResult(JSON.stringify({
       duplicatePairs: [],
@@ -72,6 +74,38 @@ describe('exercise repair', (): void => {
     }), [original], [1]).reviews;
 
     assert.equal(review.exercise?.description, 'Calculate <kx>3 + 4</kx>.');
+  });
+
+  it('does not require KaTeX for digits embedded in gene or other alphanumeric identifiers', (): void => {
+    const original = {
+      ...createExercise(1),
+      description: 'Compare TP53 with BRCA1 and H1N1.',
+      solution: 'BRCA1 is the requested identifier.',
+      title: 'Recognize TP53 and BRCA1'
+    };
+
+    const result = parseExerciseRepairResult(JSON.stringify({
+      duplicatePairs: [],
+      reviews: []
+    }), [original], [1]);
+
+    assert.deepEqual(result.reviews, []);
+  });
+
+  it('preserves identifier and math markup instead of applying regex cleanup', (): void => {
+    const original = {
+      ...createExercise(1),
+      description: 'Compare TP<kx>53</kx> with BRCA<kx>1</kx> and evaluate <kx>x-6</kx>.',
+      solution: 'The relevant identifier is H<kx>1</kx>N<kx>1</kx>.',
+      title: 'Recognize <kx>TP53</kx>'
+    };
+
+    const result = parseExerciseRepairResult(JSON.stringify({
+      duplicatePairs: [],
+      reviews: []
+    }), [original], [1]);
+
+    assert.deepEqual(result.reviews, []);
   });
 
   it('accepts a corrected Exercise with a learner-facing number outside KaTeX', (): void => {
@@ -246,6 +280,9 @@ describe('exercise repair', (): void => {
     assert.match(FIX_EXERCISES_PROMPT, /Every learner-facing numeric literal in title, description, and solution/i);
     assert.match(FIX_EXERCISES_PROMPT, /enclosed in <kx>\.\.\.<\/kx>/i);
     assert.match(FIX_EXERCISES_PROMPT, /learner-facing number outside <kx>\.\.\.<\/kx> as an error/i);
+    assert.match(FIX_EXERCISES_PROMPT, /Digits embedded in alphanumeric identifiers or names are not numeric literals/i);
+    assert.match(FIX_EXERCISES_PROMPT, /TP53, BRCA1, H1N1, p53, and IL-6/i);
+    assert.match(FIX_EXERCISES_PROMPT, /never wrap an embedded digit or the whole identifier/i);
     assert.match(FIX_EXERCISES_PROMPT, /Do not apply this number-markup rule to imageDescription or solutionImageDescription/i);
     assert.match(FIX_EXERCISES_PROMPT, /imageDescription/i);
     assert.match(FIX_EXERCISES_PROMPT, /only visual-description fields/i);
@@ -300,6 +337,8 @@ describe('exercise repair', (): void => {
     assert.match(prompt, /Every learner-facing numeric literal in title, description, and solution/i);
     assert.match(prompt, /enclosed in <kx>\.\.\.<\/kx>/i);
     assert.match(prompt, /standalone counts and numbers next to units/i);
+    assert.match(prompt, /Digits embedded in alphanumeric identifiers or names are not numeric literals/i);
+    assert.match(prompt, /TP53, BRCA1, H1N1, p53, and IL-6/i);
     assert.match(prompt, /Do not leave learner-facing numbers as plain text/i);
     assert.match(prompt, /Do not apply this number-markup rule to imageDescription or solutionImageDescription/i);
   });

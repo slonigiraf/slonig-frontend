@@ -113,14 +113,6 @@ function isNonEmptyString (value: unknown): value is string {
   return typeof value === 'string' && value.trim().length > 0;
 }
 
-function hasLearnerFacingNumberOutsideKatex (value: string): boolean {
-  return /[0-9]/.test(value.replace(/<kx>[\s\S]*?<\/kx>/gi, ''));
-}
-
-function abilityHasLearnerFacingNumberOutsideKatex (ability: GeneratedAbility): boolean {
-  return [ability.h, ...ability.q.flatMap(({ a, h }) => [h, a])].some(hasLearnerFacingNumberOutsideKatex);
-}
-
 function parseResponse (content: string): unknown {
   const json = content.trim().replace(/^```(?:json)?\s*|\s*```$/gi, '').trim();
 
@@ -351,7 +343,7 @@ export function parseAbilityRepairResult (content: string, originals: Array<Gene
     }
 
     const parsedAbility = parseGeneratedAbilityValue(value.ability);
-    const ability = original === null
+    const mergedAbility = original === null
       ? parsedAbility
       : {
         ...parsedAbility,
@@ -366,16 +358,14 @@ export function parseAbilityRepairResult (content: string, originals: Array<Gene
           ...(original.q[exerciseIndex].pPrompt !== undefined ? { pPrompt: original.q[exerciseIndex].pPrompt } : {})
         }))
       };
-
-    // Be tolerant of plain learner-facing numbers in a corrected payload. The
-    // checkpoint below still requires Abilities that originally contain plain
-    // numbers to receive a repair review, but a partially corrected model
-    // response should not make the entire Fix abilities run fail.
-    if (original !== null && abilitySignature(ability) === abilitySignature(original)) {
+    // Preserve the model's learner-facing text exactly as returned. Number/KaTeX
+    // semantics are handled by the AI review instructions rather than by regex
+    // rewriting, which cannot reliably distinguish identifiers from algebra.
+    if (original !== null && abilitySignature(mergedAbility) === abilitySignature(original)) {
       throw new Error('OpenRouter identified an Ability error but did not change the Ability.');
     }
 
-    reviews.push({ ability, errors, hasErrors: true, index });
+    reviews.push({ ability: mergedAbility, errors, hasErrors: true, index });
   });
 
   const reviewedIndexes = new Set(reviews.filter(({ ability, hasErrors }) => hasErrors && ability).map(({ index }) => index));
@@ -389,18 +379,6 @@ export function parseAbilityRepairResult (content: string, originals: Array<Gene
 
   if (missingRequiredPlaceholderRepairs.length) {
     throw new Error(`Fix abilities must replace placeholder task titles "Task 1"/"Task 2" for Ability index${missingRequiredPlaceholderRepairs.length === 1 ? '' : 'es'} ${missingRequiredPlaceholderRepairs.join(', ')}.`);
-  }
-
-  const missingRequiredNumberMarkupRepairs = originals.flatMap((original, index) => {
-    if (!original || !abilityHasLearnerFacingNumberOutsideKatex(original) || deletedDuplicateIds.has(originalIds[index]) || reviewedIndexes.has(index)) {
-      return [];
-    }
-
-    return [index];
-  });
-
-  if (missingRequiredNumberMarkupRepairs.length) {
-    throw new Error(`Fix abilities must wrap learner-facing numbers in <kx>...</kx> for Ability index${missingRequiredNumberMarkupRepairs.length === 1 ? '' : 'es'} ${missingRequiredNumberMarkupRepairs.join(', ')}.`);
   }
 
   // Missing indexes are intentional: the repair API may return only Abilities

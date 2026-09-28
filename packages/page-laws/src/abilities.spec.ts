@@ -82,18 +82,23 @@ describe('generated abilities', (): void => {
     assert.deepEqual(reviews[1].ability, fixed);
   });
 
-  it('requires Fix Abilities to repair learner-facing numbers outside KaTeX', (): void => {
+  it('does not rewrite learner-facing number markup automatically', (): void => {
     const original = createSkill();
 
+    original.h = 'Convert 2 distances';
     original.q[0].h = 'Convert 2 km to m.';
+    original.q[0].pPrompt = 'Draw 2 road signs.';
 
-    assert.throws(() => parseAbilityRepairResult(JSON.stringify({
+    const untouched = parseAbilityRepairResult(JSON.stringify({
       duplicatePairs: [],
       reviews: []
-    }), [original], ['ability-1']), /wrap learner-facing numbers in <kx>/i);
+    }), [original], ['ability-1']);
+
+    assert.deepEqual(untouched.reviews, []);
 
     const fixed = { ...original, q: original.q.map((exercise) => ({ ...exercise })) };
 
+    fixed.h = 'Convert <kx>2</kx> distances';
     fixed.q[0].h = 'Convert <kx>2</kx> km to m.';
 
     const [review] = parseAbilityRepairResult(JSON.stringify({
@@ -107,9 +112,67 @@ describe('generated abilities', (): void => {
     }), [original], ['ability-1']).reviews;
 
     assert.equal(review.ability?.q[0].h, 'Convert <kx>2</kx> km to m.');
+    assert.equal(review.ability?.q[0].pPrompt, 'Draw 2 road signs.');
   });
 
-  it('accepts a corrected Ability that still contains a learner-facing number outside KaTeX', (): void => {
+  it('does not treat digits embedded in gene or other alphanumeric identifiers as standalone numbers', (): void => {
+    const original = createSkill();
+
+    original.h = 'Compare TP53 and BRCA1';
+    original.q[0].h = 'Identify H1N1 from the description.';
+    original.q[0].a = 'H1N1';
+    original.q[1].h = 'Compare BRCA1 with TP53.';
+    original.q[1].a = 'BRCA1';
+
+    const result = parseAbilityRepairResult(JSON.stringify({
+      duplicatePairs: [],
+      reviews: []
+    }), [original], ['ability-1']);
+
+    assert.deepEqual(result.reviews, []);
+  });
+
+  it('preserves identifier and math markup instead of applying regex cleanup', (): void => {
+    const generated = createSkill();
+
+    generated.h = 'Compare <kx>TP53</kx> and BRCA<kx>1</kx>';
+    generated.q[0].h = 'Evaluate <kx>x-6</kx> and identify H<kx>1</kx>N<kx>1</kx>.';
+    generated.q[0].a = '<kx>x-6</kx>';
+
+    const [parsedGenerated] = parseGeneratedAbilities(JSON.stringify([generated]), 1);
+
+    assert.equal(parsedGenerated.h, generated.h);
+    assert.equal(parsedGenerated.q[0].h, generated.q[0].h);
+    assert.equal(parsedGenerated.q[0].a, generated.q[0].a);
+
+    const original = createSkill();
+
+    original.h = 'Compare TP<kx>53</kx> with BRCA<kx>1</kx>';
+
+    const result = parseAbilityRepairResult(JSON.stringify({
+      duplicatePairs: [],
+      reviews: []
+    }), [original], ['ability-1']);
+
+    assert.deepEqual(result.reviews, []);
+  });
+
+  it('does not auto-wrap standalone numbers with regex', (): void => {
+    const original = createSkill();
+
+    original.h = 'Compare TP53 in 2 samples';
+    original.q[0].h = 'Find BRCA1 in 3 samples.';
+    original.q[0].a = 'BRCA1 appears in 3 samples.';
+
+    const result = parseAbilityRepairResult(JSON.stringify({
+      duplicatePairs: [],
+      reviews: []
+    }), [original], ['ability-1']);
+
+    assert.deepEqual(result.reviews, []);
+  });
+
+  it('preserves learner-facing text in a corrected Ability payload', (): void => {
     const original = createSkill();
     const corrected = { ...original, q: original.q.map((exercise) => ({ ...exercise })) };
 
@@ -591,6 +654,9 @@ describe('generated abilities', (): void => {
     assert.match(FIX_ABILITIES_PROMPT, /Every learner-facing numeric literal in Ability h, q\[\]\.h, and q\[\]\.a/i);
     assert.match(FIX_ABILITIES_PROMPT, /enclosed in <kx>\.\.\.<\/kx>/i);
     assert.match(FIX_ABILITIES_PROMPT, /learner-facing number outside <kx>\.\.\.<\/kx> as an error/i);
+    assert.match(FIX_ABILITIES_PROMPT, /Digits embedded in alphanumeric identifiers or names are not numeric literals/i);
+    assert.match(FIX_ABILITIES_PROMPT, /TP53, BRCA1, H1N1, p53, and IL-6/i);
+    assert.match(FIX_ABILITIES_PROMPT, /never wrap an embedded digit or the whole identifier/i);
     assert.match(FIX_ABILITIES_PROMPT, /Do not apply this number-markup rule to semantic visual-description fields/i);
     assert.match(FIX_ABILITIES_PROMPT, /question image present/i);
     assert.match(FIX_ABILITIES_PROMPT, /preserve the image dependency/i);

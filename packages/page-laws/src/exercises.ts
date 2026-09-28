@@ -3,7 +3,6 @@
 
 import type { BookConcept, Exercise } from '@slonigiraf/db';
 
-
 export interface ExerciseRepairReview {
   errors: string[];
   exercise?: Exercise;
@@ -36,14 +35,6 @@ function isRecord (value: unknown): value is Record<string, unknown> {
 
 function isNonEmptyString (value: unknown): value is string {
   return typeof value === 'string' && value.trim().length > 0;
-}
-
-function hasLearnerFacingNumberOutsideKatex (value: string): boolean {
-  return /[0-9]/.test(value.replace(/<kx>[\s\S]*?<\/kx>/gi, ''));
-}
-
-function exerciseHasLearnerFacingNumberOutsideKatex (exercise: Pick<Exercise, 'description' | 'solution' | 'title'>): boolean {
-  return [exercise.title, exercise.description, exercise.solution ?? ''].some(hasLearnerFacingNumberOutsideKatex);
 }
 
 function parseResponse (content: string): unknown {
@@ -179,10 +170,8 @@ export function parseExerciseRepairResult (content: string, originals: Exercise[
 
     const exercise = parseCorrectedExercise(value.exercise, original);
 
-    // Be tolerant of plain learner-facing numbers in a corrected payload. The
-    // checkpoint below still requires Exercises that originally contain plain
-    // numbers to receive a repair review, but a partially corrected model
-    // response should not make the entire Fix exercises run fail.
+    // Preserve the model's corrected learner-facing text as returned. KaTeX
+    // semantics are governed by the review prompt rather than local regex rewrites.
     if (exerciseSignature(exercise) === exerciseSignature(original)) {
       throw new Error('OpenRouter identified an Exercise error but did not change the Exercise.');
     }
@@ -190,18 +179,8 @@ export function parseExerciseRepairResult (content: string, originals: Exercise[
     reviews.push({ errors, exercise, hasErrors: true, index });
   });
 
-  const repairedIndexes = new Set(reviews.flatMap(({ exercise, hasErrors, index }) => hasErrors && exercise ? [index] : []));
-  const missingRequiredNumberMarkupRepairs = originals.flatMap((original, index) => {
-    if (!exerciseHasLearnerFacingNumberOutsideKatex(original) || deletedDuplicateIds.has(originalIds[index]) || repairedIndexes.has(index)) {
-      return [];
-    }
-
-    return [index];
-  });
-
-  if (missingRequiredNumberMarkupRepairs.length) {
-    throw new Error(`Fix exercises must wrap learner-facing numbers in <kx>...</kx> for Exercise index${missingRequiredNumberMarkupRepairs.length === 1 ? '' : 'es'} ${missingRequiredNumberMarkupRepairs.join(', ')}.`);
-  }
+  // Do not apply regex-based number/identifier cleanup here. The review prompt
+  // carries the semantic rule, and returned text is preserved verbatim.
 
   return { duplicatePairs, reviews: reviews.sort((a, b) => a.index - b.index) };
 }

@@ -23,6 +23,7 @@ import { conceptsForSortChapter, sortChapterConceptsPrompt } from './sortConcept
 import { conceptBelongsToChapter, conceptsForRefinementChapter, isRefineChaptersComplete, REFINE_CHAPTERS_SPEND_STAGE, refineChapterPrompt, sortConceptsByDisplayOrder, withRefineChaptersIncomplete } from './refineChapters.js';
 import { clearFixConceptsChapterStatuses, failedFixConceptChapterKeys, fixConceptsChapterKey } from './fixConceptsProgress.js';
 import { formatOpenRouterSpend } from './openRouterCost.js';
+import { clearBookStageTimes, formatBookStageTime, loadBookStageTimes, type BookStageTimes } from './bookStageTime.js';
 import { loadStandardsCatalogsForBookSubject, STANDARDS_MATCH_RUNS, standardsConceptInputs, standardsMatchingPrompt } from './standards.js';
 import { AiPriceEstimate, UnitPriceEstimate } from './PriceEstimate.js';
 import { loadPdfJs } from './pdf.js';
@@ -162,6 +163,7 @@ function Upload (): React.ReactElement {
   const [isRecognizeConfirmationOpen, setIsRecognizeConfirmationOpen] = useState(false);
   const [isPriceOpen, setIsPriceOpen] = useState(false);
   const [priceBook, setPriceBook] = useState<Book>();
+  const [priceStageTimes, setPriceStageTimes] = useState<BookStageTimes>({});
   const [isFastForwardConfirmationOpen, setIsFastForwardConfirmationOpen] = useState(false);
   const [isFastForwardRunning, setIsFastForwardRunning] = useState(false);
   const [fastForwardStartKey, setFastForwardStartKey] = useState<string>();
@@ -225,6 +227,10 @@ function Upload (): React.ReactElement {
     () => PRICE_STAGES.reduce((total, { key }) => total + (priceBook?.stageSpend?.[key] ?? 0), 0),
     [priceBook]
   );
+  const totalStageTime = useMemo(
+    () => PRICE_STAGES.reduce((total, { key }) => total + (priceStageTimes[key] ?? 0), 0),
+    [priceStageTimes]
+  );
   useEffect(() => {
     let active = true;
     const opfsName = selectedBookOpfsName;
@@ -253,6 +259,7 @@ function Upload (): React.ReactElement {
     }
 
     setPriceBook(selectedBook);
+    setPriceStageTimes(loadBookStageTimes(selectedBook.id));
     setIsPriceOpen(true);
     getBook(selectedBook.id)
       .then((storedBook) => {
@@ -266,6 +273,7 @@ function Upload (): React.ReactElement {
   const closePrice = useCallback((): void => {
     setIsPriceOpen(false);
     setPriceBook(undefined);
+    setPriceStageTimes({});
   }, []);
 
   const onFastForward = useCallback((startKey: string): void => {
@@ -1261,6 +1269,7 @@ function Upload (): React.ReactElement {
       await removePdf(selectedBook.opfsName);
       await deleteBook(selectedBook.id);
       clearFixConceptsChapterStatuses(selectedBook.id);
+      clearBookStageTimes(selectedBook.id);
 
       const remaining = books.filter(({ id }) => id !== selectedBook.id);
 
@@ -1336,22 +1345,36 @@ function Upload (): React.ReactElement {
         </PriceContent>
       </StageRunPricePopup>}
       {isPriceOpen && <PriceModal
-        header={t('Price')}
+        header={t('Price overview')}
         onClose={closePrice}
         size='small'
       >
         <Modal.Content>
           <PriceContent>
-            <p className='priceIntro'>{t('Cumulative spending for this book, including reruns.')}</p>
+            <p className='priceIntro'>{t('Cumulative spending and processing time for this book, including reruns.')}</p>
             <div className='priceTableFrame'>
               <table className='priceTable'>
+                <colgroup>
+                  <col className='priceStageColumn' />
+                  <col className='priceValueColumn' />
+                  <col className='priceTimeColumn' />
+                </colgroup>
+                <thead>
+                  <tr>
+                    <th scope='col'>{t('Stage')}</th>
+                    <th scope='col'>{t('Price')}</th>
+                    <th scope='col'>{t('Time')}</th>
+                  </tr>
+                </thead>
                 <tbody>
                   {PRICE_STAGES.map(({ detail, key, label }) => {
                     const value = priceBook?.stageSpend?.[key] ?? 0;
+                    const elapsedMs = priceStageTimes[key] ?? 0;
 
-                    return <tr className={value === 0 ? 'isZero' : undefined} key={key}>
+                    return <tr className={value === 0 && elapsedMs === 0 ? 'isZero' : undefined} key={key}>
                       <th scope='row'>{t(label)}{detail && <small className='priceSource'>{detail}</small>}</th>
                       <td>{formatOpenRouterSpend(value)}</td>
+                      <td>{formatBookStageTime(elapsedMs)}</td>
                     </tr>;
                   })}
                 </tbody>
@@ -1359,6 +1382,7 @@ function Upload (): React.ReactElement {
                   <tr>
                     <th scope='row'>{t('Total')}</th>
                     <td>{formatOpenRouterSpend(totalSpend)}</td>
+                    <td>{formatBookStageTime(totalStageTime)}</td>
                   </tr>
                 </tfoot>
               </table>
@@ -1706,7 +1730,7 @@ function Upload (): React.ReactElement {
 
 const PriceModal = styled(Modal)`
   .ui--Modal__body {
-    max-width: 34rem;
+    max-width: 40rem;
     width: calc(100vw - 2rem);
   }
 `;
@@ -1739,9 +1763,32 @@ const PriceContent = styled.div`
     vertical-align: middle;
   }
 
+  .priceStageColumn {
+    width: 52%;
+  }
+
+  .priceValueColumn,
+  .priceTimeColumn {
+    width: 24%;
+  }
+
   .priceTable th {
     font-weight: 550;
     text-align: left;
+  }
+
+  .priceTable thead th {
+    background: rgba(127, 127, 127, 0.06);
+    font-size: 0.8rem;
+    font-weight: 650;
+    letter-spacing: 0.02em;
+  }
+
+  .priceTable thead th:not(:first-child) {
+    text-align: right;
+  }
+
+  .fastForwardPriceTable th {
     width: 62%;
   }
 

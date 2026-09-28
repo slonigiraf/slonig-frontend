@@ -27,6 +27,7 @@ import { clearFixConceptsChapterStatuses, fixConceptsChapterKey, loadFixConcepts
 import { assertDisjointSortChapterConcepts, conceptsForSortChapter, parseSortedChapterConceptIndexes, sortChapterConceptsPrompt } from './sortConcepts.js';
 import { conceptBelongsToChapter, conceptsForRefinementChapter, hasPersistedRefinedConceptMembership, parseRefinedChapterGroups, REFINE_CHAPTERS_SPEND_STAGE, refinedChapterSplitPages, refineChapterPrompt, type RefinedConceptPersistenceExpectation, withRefineChaptersComplete } from './refineChapters.js';
 import { formatOpenRouterSpend, reportOpenRouterCost, type OpenRouterCostReporter } from './openRouterCost.js';
+import { useBookStageTimer } from './bookStageTime.js';
 import { BOOK_AGE_DETECTION_PROMPT, BOOK_CHAPTER_EXTRACTION_REQUEST_PROMPT, BOOK_LANGUAGE_DETECTION_PROMPT, BOOK_SUBJECT_DETECTION_PROMPT, DEFAULT_PROCESSING_MODEL, DEFAULT_STANDARDS_MODEL, MATHPIX_PDF_PAGE_PRICE_USD, OPENAI_MODELS } from './constants.js';
 import { stripMarkdownImageReferences } from './bookImageRefs.js';
 import { chapterAssignmentsFromBoundaries, chapterEvidenceWindows, chapterReconciliationPrompt, chapterWindowPrompt, deriveStructuralChapterCandidates, extractMathpixHeadingsFromLines, pageChapterEvidence, parseChapterBoundaries, stabilizeChapterBoundaries, type ChapterBoundaryProposal } from './chapterSegmentation.js';
@@ -1648,6 +1649,7 @@ function BookReader({ ageTabRequest, assignAllStandardsRequest, autoRunAll = fal
       : 'Identifying chapters from page text';
   const [isDetectingBookLanguage, setIsDetectingBookLanguage] = useState(false);
   const [isLanguageDetectionConfirmationOpen, setIsLanguageDetectionConfirmationOpen] = useState(false);
+  const [confirmedProcessingStage, setConfirmedProcessingStage] = useState<BookStageSpendKey>();
   const [isDetectingBookSubject, setIsDetectingBookSubject] = useState(false);
   const [isDetectingBookAge, setIsDetectingBookAge] = useState(false);
   const [isSubjectDetectionConfirmationOpen, setIsSubjectDetectionConfirmationOpen] = useState(false);
@@ -2656,7 +2658,10 @@ function BookReader({ ageTabRequest, assignAllStandardsRequest, autoRunAll = fal
   const closePageGenerationConfirmation = useCallback((): void => setIsPageGenerationConfirmationOpen(false), []);
   const confirmPageGeneration = useCallback((): void => {
     setIsPageGenerationConfirmationOpen(false);
-    generateConcepts().catch(console.error);
+    setConfirmedProcessingStage('concepts');
+    generateConcepts()
+      .catch(console.error)
+      .finally(() => setConfirmedProcessingStage((current) => current === 'concepts' ? undefined : current));
   }, [generateConcepts]);
 
   const generateAllConcepts = useCallback(async (): Promise<void> => {
@@ -3808,7 +3813,10 @@ function BookReader({ ageTabRequest, assignAllStandardsRequest, autoRunAll = fal
 
   const confirmLanguageDetection = useCallback((): void => {
     setIsLanguageDetectionConfirmationOpen(false);
-    redetectBookLanguage().catch(console.error);
+    setConfirmedProcessingStage('language');
+    redetectBookLanguage()
+      .catch(console.error)
+      .finally(() => setConfirmedProcessingStage((current) => current === 'language' ? undefined : current));
   }, [redetectBookLanguage]);
 
   const detectAndStoreBookSubject = useCallback(async (recognizedPages: Map<number, BookPage>, force = false): Promise<void> => {
@@ -3976,7 +3984,10 @@ function BookReader({ ageTabRequest, assignAllStandardsRequest, autoRunAll = fal
 
   const confirmSubjectDetection = useCallback((): void => {
     setIsSubjectDetectionConfirmationOpen(false);
-    redetectBookSubject().catch(console.error);
+    setConfirmedProcessingStage('subject');
+    redetectBookSubject()
+      .catch(console.error)
+      .finally(() => setConfirmedProcessingStage((current) => current === 'subject' ? undefined : current));
   }, [redetectBookSubject]);
 
   const detectAndStoreBookAge = useCallback(async (recognizedPages: Map<number, BookPage>, force = false): Promise<void> => {
@@ -4119,7 +4130,10 @@ function BookReader({ ageTabRequest, assignAllStandardsRequest, autoRunAll = fal
 
   const confirmAgeDetection = useCallback((): void => {
     setIsAgeDetectionConfirmationOpen(false);
-    redetectBookAge().catch(console.error);
+    setConfirmedProcessingStage('age');
+    redetectBookAge()
+      .catch(console.error)
+      .finally(() => setConfirmedProcessingStage((current) => current === 'age' ? undefined : current));
   }, [redetectBookAge]);
 
   useEffect((): void => {
@@ -5851,6 +5865,37 @@ function BookReader({ ageTabRequest, assignAllStandardsRequest, autoRunAll = fal
                             ? 'Generating exercises'
                             : 'Extracting concepts by chapter';
 
+  const readerProcessingStage: BookStageSpendKey | undefined = confirmedProcessingStage
+    ?? (isGeneratingChapterConcepts
+      ? 'concepts'
+      : isDetectingBookLanguage
+        ? 'language'
+        : isDetectingBookSubject
+          ? 'subject'
+          : isDetectingBookAge
+            ? 'age'
+            : isRecognizingAll
+              ? 'recognize'
+              : isIdentifyingChapters
+                ? 'chapters'
+                : isGeneratingAllConcepts
+                  ? 'concepts'
+                  : isFixingConcepts
+                    ? 'fixConcepts'
+                    : isDeduplicatingConcepts
+                      ? 'deduplicateConcepts'
+                      : isSortingConcepts
+                        ? 'sortConcepts'
+                        : isRefiningChapters
+                          ? REFINE_CHAPTERS_SPEND_STAGE
+                          : isAssigningStandards
+                            ? 'standards'
+                            : isGeneratingAllExercises
+                              ? 'exercises'
+                              : pendingProcessingAction ?? (processingPage !== undefined ? 'recognize' : undefined));
+
+  useBookStageTimer(book.id, readerProcessingStage);
+
   const hasReaderProcessing = Boolean(
     pendingProcessingAction ||
     processingPage !== undefined ||
@@ -5919,6 +5964,7 @@ function BookReader({ ageTabRequest, assignAllStandardsRequest, autoRunAll = fal
     setIsRefiningChapters(false);
     setIsAssigningStandards(false);
     setIsGeneratingAllExercises(false);
+    setConfirmedProcessingStage(undefined);
     setAutoRunProcessing(undefined);
     setLastReaderProcessing(undefined);
 
@@ -6180,9 +6226,9 @@ function BookReader({ ageTabRequest, assignAllStandardsRequest, autoRunAll = fal
           />
           <Button
             className='pipelinePriceButton'
-            icon='dollar-sign'
+            icon='chart-simple'
             isDisabled={isPriceDisabled}
-            label={t('Price')}
+            label={t('Statistics')}
             onClick={onPrice}
           />
           <Button
