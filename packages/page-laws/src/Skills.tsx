@@ -87,7 +87,7 @@ const MAX_REQUEST_ATTEMPTS = 4;
 const RETRY_BASE_DELAY_MS = 1_000;
 const AI_REQUEST_TIMEOUT_MS = 60_000;
 const ABILITY_GENERATION_CONCURRENCY = 5;
-const TIKZ_RENDER_CONCURRENCY = 1;
+const TIKZ_RENDER_CONCURRENCY = 4;
 const delay = (milliseconds: number): Promise<void> => new Promise((resolve) => setTimeout(resolve, milliseconds));
 
 function getErrorStatus (error: unknown): number | undefined {
