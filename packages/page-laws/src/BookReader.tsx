@@ -5,7 +5,7 @@ import type { Book, BookChapter, BookConcept, BookPage, BookProcessingStageKey, 
 import type { PDFDocumentLoadingTask, PDFDocumentProxy, RenderTask } from 'pdfjs-dist';
 
 import { addBookStageSpend, assignBookConceptsToChapters, assignBookPageChapter, completeBookProcessingStage, createBookConcept, deleteAbilities, deleteBookChapters, deleteBookConcept, deleteExercise, getAbilities, getBookChapters, getBookConceptsForBookPage, getBookPages, getExercisesForBookPage, getSetting, incrementBookFixConceptsAttempts, isBookProcessingStageComplete, mergeBookChapterWithPrevious, putBook, putBookPage, reorderBookConcepts, replaceAbilities, replaceBookChapterAssignments, replaceExercisesForBookPage, replaceParsedBookPageContent, resetBookProcessingStagesFrom, SettingKey, splitBookChapterAtPage, storeSetting, updateBookChapterTitle, updateBookConcept, withBookProcessingStagesResetFrom, withCompletedBookProcessingStage } from '@slonigiraf/db';
-import { Confirmation, KatexSpan, RoundProgress, SelectableList } from '@slonigiraf/slonig-components';
+import { Confirmation, KatexSpan, SelectableList } from '@slonigiraf/slonig-components';
 import { strFromU8, unzipSync } from 'fflate';
 import MathpixLoader from 'mathpix-markdown-it/lib/components/mathpix-loader/index.js';
 import MathpixMarkdown from 'mathpix-markdown-it/lib/components/mathpix-markdown/index.js';
@@ -41,6 +41,7 @@ import Skills, { type AutoRunProgress, type PipelineAction } from './Skills.js';
 import SkillsCourse from './SkillsCourse.js';
 import { extractPdfOutlineChapterBoundaries, loadPdfJs } from './pdf.js';
 import { AiPriceEstimate } from './PriceEstimate.js';
+import ProcessingPopup, { type ProcessingStatus } from './ProcessingPopup.js';
 import StageRunPricePopup from './StageRunPricePopup.js';
 import { useTranslation } from './translate.js';
 
@@ -1676,6 +1677,9 @@ function BookReader({ ageTabRequest, assignAllStandardsRequest, autoRunAll = fal
   const [selectedSubjectModel, setSelectedSubjectModel] = useState(DEFAULT_PROCESSING_MODEL);
   const [selectedAgeModel, setSelectedAgeModel] = useState(DEFAULT_PROCESSING_MODEL);
   const [autoRunProgress, setAutoRunProgress] = useState<AutoRunProgress>();
+  const [autoRunProcessing, setAutoRunProcessing] = useState<ProcessingStatus>();
+  const [lastReaderProcessing, setLastReaderProcessing] = useState<ProcessingStatus>();
+  const skillsAutoRunAbortRef = useRef<(() => void) | null>(null);
   const [selectedPipelineKey, setSelectedPipelineKey] = useState('');
   const [ageInput, setAgeInput] = useState(book.age === undefined ? '' : String(book.age));
   const [skillsRefreshToken, setSkillsRefreshToken] = useState(0);
@@ -5794,6 +5798,138 @@ function BookReader({ ageTabRequest, assignAllStandardsRequest, autoRunAll = fal
     {concept.description && <p><KatexSpan content={concept.description} /></p>}
   </div>;
 
+  const processingTotal = isDetectingBookLanguage || isDetectingBookSubject || isDetectingBookAge || processingPage !== undefined || isDeduplicatingConcepts || pendingProcessingAction === 'deduplicateConcepts'
+    ? 1
+    : isFixingConcepts || pendingProcessingAction === 'fixConcepts'
+      ? Math.max(1, fixConceptsTargetChapterCount || conceptChapters.length)
+      : isGeneratingAllConcepts || pendingProcessingAction === 'concepts' || isSortingConcepts || pendingProcessingAction === 'sortConcepts' || isRefiningChapters || pendingProcessingAction === 'refineChapters' || isAssigningStandards || pendingProcessingAction === 'standards'
+        ? Math.max(1, conceptChapters.length)
+        : Math.max(1, totalPages);
+  const processingValue = isDetectingBookLanguage || isDetectingBookSubject || isDetectingBookAge || processingPage !== undefined || isDeduplicatingConcepts || pendingProcessingAction === 'deduplicateConcepts'
+    ? 0
+    : isRecognizingAll || pendingProcessingAction === 'recognize'
+      ? recognizedPageCount
+      : isIdentifyingChapters || pendingProcessingAction === 'chapters'
+        ? identifiedChapterPageCount
+        : isFixingConcepts || pendingProcessingAction === 'fixConcepts'
+          ? fixedConceptsChapterCount
+          : isSortingConcepts || pendingProcessingAction === 'sortConcepts'
+            ? sortedConceptsChapterCount
+            : isRefiningChapters || pendingProcessingAction === 'refineChapters'
+              ? refinedChaptersChapterCount
+              : isAssigningStandards || pendingProcessingAction === 'standards'
+                ? standardsAssignedChapterCount
+                : isGeneratingAllExercises || pendingProcessingAction === 'exercises'
+                  ? generatedExercisesPageCount
+                  : generatedConceptsChapterCount;
+  const processingLabel = isGeneratingChapterConcepts
+    ? `Processing chapter ${currentConceptChapter?.title || ''}`
+    : processingPage !== undefined
+      ? `Processing page ${processingPage}`
+      : isDetectingBookLanguage
+        ? 'Detecting book language'
+        : isDetectingBookSubject
+          ? 'Detecting book subject'
+          : isDetectingBookAge
+            ? 'Detecting learner age'
+            : isRecognizingAll || pendingProcessingAction === 'recognize'
+              ? 'Recognizing pages'
+              : isIdentifyingChapters || pendingProcessingAction === 'chapters'
+                ? chapterIdentificationLabel
+                : isFixingConcepts || pendingProcessingAction === 'fixConcepts'
+                  ? 'Finding missing chapter concepts'
+                  : isDeduplicatingConcepts || pendingProcessingAction === 'deduplicateConcepts'
+                    ? 'Finding duplicate concepts across the book'
+                    : isSortingConcepts || pendingProcessingAction === 'sortConcepts'
+                      ? 'Sorting concepts by ZPD'
+                      : isRefiningChapters || pendingProcessingAction === 'refineChapters'
+                        ? 'Clustering concepts into thematic chapters'
+                        : isAssigningStandards || pendingProcessingAction === 'standards'
+                          ? 'Matching standards to chapter concepts'
+                          : isGeneratingAllExercises || pendingProcessingAction === 'exercises'
+                            ? 'Generating exercises'
+                            : 'Extracting concepts by chapter';
+
+  const hasReaderProcessing = Boolean(
+    pendingProcessingAction ||
+    processingPage !== undefined ||
+    isDetectingBookLanguage ||
+    isDetectingBookSubject ||
+    isDetectingBookAge ||
+    isRecognizingAll ||
+    isIdentifyingChapters ||
+    isGeneratingAllConcepts ||
+    isFixingConcepts ||
+    isDeduplicatingConcepts ||
+    isSortingConcepts ||
+    isRefiningChapters ||
+    isAssigningStandards ||
+    isGeneratingAllExercises
+  );
+  const readerProcessing: ProcessingStatus | undefined = hasReaderProcessing
+    ? {
+      label: processingLabel,
+      progressTotal: processingTotal,
+      progressValue: processingValue,
+      spent: openRouterSpent
+    }
+    : undefined;
+  useEffect((): void => {
+    if (!autoRunAll) {
+      setLastReaderProcessing(undefined);
+      return;
+    }
+
+    if (hasReaderProcessing) {
+      setLastReaderProcessing({
+        label: processingLabel,
+        progressTotal: processingTotal,
+        progressValue: processingValue,
+        spent: openRouterSpent
+      });
+    }
+  }, [autoRunAll, hasReaderProcessing, openRouterSpent, processingLabel, processingTotal, processingValue]);
+
+  const processingPopupStatus = autoRunAll
+    ? readerProcessing ?? autoRunProcessing ?? lastReaderProcessing ?? {
+      label: 'Preparing next stage…',
+      progressTotal: 1,
+      progressValue: 0,
+      spent: 0
+    }
+    : readerProcessing;
+
+  const onAutoRunAbortReady = useCallback((abort?: () => void): void => {
+    skillsAutoRunAbortRef.current = abort ?? null;
+  }, []);
+
+  const abortProcessing = (): void => {
+    setProcessingPage(undefined);
+    setIsDetectingBookLanguage(false);
+    setIsDetectingBookSubject(false);
+    setIsDetectingBookAge(false);
+    setIsRecognizingAll(false);
+    setIsIdentifyingChapters(false);
+    setIsGeneratingAllConcepts(false);
+    setIsGeneratingChapterConcepts(false);
+    setIsFixingConcepts(false);
+    setIsDeduplicatingConcepts(false);
+    setIsSortingConcepts(false);
+    setIsRefiningChapters(false);
+    setIsAssigningStandards(false);
+    setIsGeneratingAllExercises(false);
+    setAutoRunProcessing(undefined);
+    setLastReaderProcessing(undefined);
+
+    if (autoRunAll && skillsAutoRunAbortRef.current) {
+      skillsAutoRunAbortRef.current();
+    } else {
+      onAbortFastForward();
+    }
+
+    onProcessingComplete();
+  };
+
   return (
     <StyledReader className={`bookReader${isMaximized ? ' isMaximized' : ''}`}>
       {deduplicateConceptsReview && !autoRunAll && <Modal
@@ -6008,48 +6144,24 @@ function BookReader({ ageTabRequest, assignAllStandardsRequest, autoRunAll = fal
           value={selectedModel}
         />
       </StageRunPricePopup>}
-      {(pendingProcessingAction || processingPage !== undefined || isDetectingBookLanguage || isDetectingBookSubject || isDetectingBookAge || isRecognizingAll || isIdentifyingChapters || isGeneratingAllConcepts || isFixingConcepts || isDeduplicatingConcepts || isSortingConcepts || isRefiningChapters || isAssigningStandards || isGeneratingAllExercises) && <div className='processingOverlay'>
-        <div className='processingPopup'>
-          {autoRunAll && <button
-            aria-label='Abort fast forward'
-            className='processingPopupClose'
-            onClick={onAbortFastForward}
-            title='Abort fast forward'
-            type='button'
-          >×</button>}
-          <RoundProgress
-            total={isDetectingBookLanguage || isDetectingBookSubject || isDetectingBookAge || processingPage !== undefined || isDeduplicatingConcepts || pendingProcessingAction === 'deduplicateConcepts' ? 1 : isFixingConcepts || pendingProcessingAction === 'fixConcepts' ? Math.max(1, fixConceptsTargetChapterCount || conceptChapters.length) : isGeneratingAllConcepts || pendingProcessingAction === 'concepts' || isSortingConcepts || pendingProcessingAction === 'sortConcepts' || isRefiningChapters || pendingProcessingAction === 'refineChapters' || isAssigningStandards || pendingProcessingAction === 'standards' ? Math.max(1, conceptChapters.length) : Math.max(1, totalPages)}
-            value={isDetectingBookLanguage || isDetectingBookSubject || isDetectingBookAge || processingPage !== undefined || isDeduplicatingConcepts || pendingProcessingAction === 'deduplicateConcepts' ? 0 : isRecognizingAll || pendingProcessingAction === 'recognize' ? recognizedPageCount : isIdentifyingChapters || pendingProcessingAction === 'chapters' ? identifiedChapterPageCount : isFixingConcepts || pendingProcessingAction === 'fixConcepts' ? fixedConceptsChapterCount : isSortingConcepts || pendingProcessingAction === 'sortConcepts' ? sortedConceptsChapterCount : isRefiningChapters || pendingProcessingAction === 'refineChapters' ? refinedChaptersChapterCount : isAssigningStandards || pendingProcessingAction === 'standards' ? standardsAssignedChapterCount : isGeneratingAllExercises || pendingProcessingAction === 'exercises' ? generatedExercisesPageCount : generatedConceptsChapterCount}
-          />
-          <strong>{isGeneratingChapterConcepts ? `Processing chapter ${currentConceptChapter?.title || ''}` : processingPage !== undefined ? `Processing page ${processingPage}` : isDetectingBookLanguage ? 'Detecting book language' : isDetectingBookSubject ? 'Detecting book subject' : isDetectingBookAge ? 'Detecting learner age' : isRecognizingAll || pendingProcessingAction === 'recognize' ? 'Recognizing pages' : isIdentifyingChapters || pendingProcessingAction === 'chapters' ? chapterIdentificationLabel : isFixingConcepts || pendingProcessingAction === 'fixConcepts' ? 'Finding missing chapter concepts' : isDeduplicatingConcepts || pendingProcessingAction === 'deduplicateConcepts' ? 'Finding duplicate concepts across the book' : isSortingConcepts || pendingProcessingAction === 'sortConcepts' ? 'Sorting concepts by ZPD' : isRefiningChapters || pendingProcessingAction === 'refineChapters' ? 'Clustering concepts into thematic chapters' : isAssigningStandards || pendingProcessingAction === 'standards' ? 'Matching standards to chapter concepts' : isGeneratingAllExercises || pendingProcessingAction === 'exercises' ? 'Generating exercises' : 'Extracting concepts by chapter'}</strong>
-          {processingPage === undefined && !isDetectingBookLanguage && !isDetectingBookSubject && !isDetectingBookAge && <span>{isDeduplicatingConcepts || pendingProcessingAction === 'deduplicateConcepts' ? 0 : isRecognizingAll || pendingProcessingAction === 'recognize' ? recognizedPageCount : isIdentifyingChapters || pendingProcessingAction === 'chapters' ? identifiedChapterPageCount : isFixingConcepts || pendingProcessingAction === 'fixConcepts' ? fixedConceptsChapterCount : isSortingConcepts || pendingProcessingAction === 'sortConcepts' ? sortedConceptsChapterCount : isRefiningChapters || pendingProcessingAction === 'refineChapters' ? refinedChaptersChapterCount : isAssigningStandards || pendingProcessingAction === 'standards' ? standardsAssignedChapterCount : isGeneratingAllExercises || pendingProcessingAction === 'exercises' ? generatedExercisesPageCount : generatedConceptsChapterCount} / {isDeduplicatingConcepts || pendingProcessingAction === 'deduplicateConcepts' ? 1 : isFixingConcepts || pendingProcessingAction === 'fixConcepts' ? (fixConceptsTargetChapterCount || conceptChapters.length) : isGeneratingAllConcepts || pendingProcessingAction === 'concepts' || isSortingConcepts || pendingProcessingAction === 'sortConcepts' ? conceptChapters.length : isRefiningChapters || pendingProcessingAction === 'refineChapters' || isAssigningStandards || pendingProcessingAction === 'standards' ? conceptChapters.length : totalPages}</span>}
-          <span className='openRouterSpend'>Spent this stage: {formatOpenRouterSpend(openRouterSpent)}</span>
-          {autoRunAll && autoRunProgress && <div className='fastForwardOverallProgress' role='status'>
-            <div className='fastForwardOverallProgressMeta'>
-              <strong>Overall progress</strong>
-              <span>{autoRunProgress.completed} / {autoRunProgress.total}</span>
-            </div>
-            <div
-              aria-label='Overall processing progress'
-              aria-valuemax={100}
-              aria-valuemin={0}
-              aria-valuenow={autoRunProgress.percent}
-              className='fastForwardOverallProgressTrack'
-              role='progressbar'
-            >
-              <span style={{ width: `${autoRunProgress.percent}%` }} />
-            </div>
-          </div>}
-        </div>
-      </div>}
+      {processingPopupStatus && <ProcessingPopup
+        label={processingPopupStatus.label}
+        onAbort={abortProcessing}
+        overallProgress={autoRunAll && autoRunProgress ? autoRunProgress : undefined}
+        progressTotal={processingPopupStatus.progressTotal}
+        progressValue={processingPopupStatus.progressValue}
+        spent={processingPopupStatus.spent}
+      />}
       <Skills
         autoRunAll={autoRunAll}
         autoRunStartKey={autoRunStartKey}
         book={book}
         externalRefreshToken={skillsRefreshToken}
         onAction={revealPane}
+        onAutoRunAbortReady={onAutoRunAbortReady}
         onAbortAutoRun={onAbortFastForward}
         onAutoRunComplete={onAutoRunComplete}
+        onAutoRunProcessingChange={setAutoRunProcessing}
         onAutoRunProgressChange={setAutoRunProgress}
         onBookChange={onBookChange}
         onContentChange={onSkillsContentChange}
@@ -6484,17 +6596,6 @@ const StyledReader = styled.div`
   .chapterNumber { flex: 0 0 auto; font-variant-numeric: tabular-nums; text-align: right; width: 1.75rem; }
   .chapterList .chapterLink { background: none; border: 0; color: var(--color-link, #2f6feb); cursor: pointer; padding: 0; text-align: left; }
 
-  .processingOverlay { align-items: center; background: color-mix(in srgb, var(--bg-page) 92%, transparent); display: flex; inset: 0; justify-content: center; padding: 1.25rem; position: fixed; z-index: 1000; }
-  .processingPopup { align-items: center; background: var(--bg-page); border: 1px solid var(--border-table); border-radius: 0.8rem; box-shadow: 0 1rem 3rem rgba(0, 0, 0, 0.16); box-sizing: border-box; display: flex; flex-direction: column; gap: 0.75rem; max-width: 28rem; padding: 1.5rem 1.6rem 1.4rem; position: relative; width: min(100%, 28rem); }
-  .processingPopupClose { align-items: center; background: transparent; border: 0; border-radius: 999px; color: inherit; cursor: pointer; display: flex; font-size: 1.7rem; height: 2rem; justify-content: center; line-height: 1; opacity: 0.65; padding: 0; position: absolute; right: 0.65rem; top: 0.55rem; width: 2rem; }
-  .processingPopupClose:hover, .processingPopupClose:focus-visible { background: rgba(127, 127, 127, 0.1); opacity: 1; outline: none; }
-  .fastForwardOverallProgress { border-top: 1px solid var(--border-table); margin-top: 0.25rem; padding-top: 0.95rem; width: 100%; }
-  .fastForwardOverallProgressMeta { align-items: center; display: flex; font-size: 0.82rem; justify-content: space-between; margin-bottom: 0.45rem; }
-  .fastForwardOverallProgressMeta > strong { font-weight: 600; }
-  .fastForwardOverallProgressMeta > span { font-variant-numeric: tabular-nums; opacity: 0.72; }
-  .fastForwardOverallProgressTrack { background: var(--bg-input); border: 1px solid var(--border-table); border-radius: 999px; box-sizing: border-box; height: 0.78rem; overflow: hidden; width: 100%; }
-  .fastForwardOverallProgressTrack > span { background: var(--color-primary, #2f6feb); border-radius: inherit; display: block; height: 100%; min-width: 0; transition: width 180ms ease; }
-  .openRouterSpend { font-variant-numeric: tabular-nums; opacity: 0.85; }
 
   .pageNavigation label {
     align-items: center;

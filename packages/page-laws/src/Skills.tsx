@@ -6,7 +6,7 @@ import type { GeneratedAbility } from './abilities.js';
 import type { AbilityBlueprint, AbilityWorkflowJsonRunner, ExerciseAbilityConversion } from './abilityWorkflow.js';
 
 import { addBookStageSpend, completeBookProcessingStage, deleteAbilities, deleteAbility, deleteBookConcept, deleteExercise, deleteSkill, getAbilities, getBookChapters, getBookCompletedStages, getBookConceptsForBookPage, getBookPages, getExercisesForBookPage, getSetting, getSkillsForChapter, getImage, hydrateAbilityContent, putImage, replaceAbilities, replaceExercisesForBookPage, replaceSkillsForChapter, resetBookProcessingStagesFrom, SettingKey, storeAbility, updateBookChapterTitle } from '@slonigiraf/db';
-import { KatexSpan, RoundProgress } from '@slonigiraf/slonig-components';
+import { KatexSpan } from '@slonigiraf/slonig-components';
 import OpenAI from 'openai';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
@@ -24,8 +24,9 @@ import { abilityBlueprintRequestPrompt, materializeExerciseAbility, planExercise
 import { mapConcurrent } from './concurrency.js';
 import { OPENROUTER_CONCURRENCY, openRouterRequestGate } from './openRouterConcurrency.js';
 import OpenRouterModelSelector from './OpenRouterModelSelector.js';
-import { formatOpenRouterSpend, reportOpenRouterCost, type OpenRouterCostReporter } from './openRouterCost.js';
+import { reportOpenRouterCost, type OpenRouterCostReporter } from './openRouterCost.js';
 import { AiPriceEstimate } from './PriceEstimate.js';
+import ProcessingPopup, { type ProcessingStatus } from './ProcessingPopup.js';
 import StageRunPricePopup from './StageRunPricePopup.js';
 import { stripMarkdownImageReferences } from './bookImageRefs.js';
 import { sortAbilitiesForDisplay, sortExercisesForDisplay } from './learningOrder.js';
@@ -141,17 +142,21 @@ function isRetryableRequestError (error: unknown): boolean {
   return status === 429 || (status !== undefined && status >= 500 && status <= 599);
 }
 
-async function requestChatContent (client: OpenAI, model: string, systemPrompt: string, userPrompt: string, jsonObject: boolean, onCost?: OpenRouterCostReporter, maxOutputTokens?: number): Promise<string> {
+async function requestChatContent (client: OpenAI, model: string, systemPrompt: string, userPrompt: string, jsonObject: boolean, onCost?: OpenRouterCostReporter, maxOutputTokens?: number, signal?: AbortSignal): Promise<string> {
   let lastError: unknown;
 
   for (let attempt = 0; attempt < MAX_REQUEST_ATTEMPTS; attempt++) {
+    if (signal?.aborted) {
+      throw new DOMException('Processing aborted.', 'AbortError');
+    }
+
     try {
       const makeRequest = () => client.chat.completions.create({
         messages: [{ content: systemPrompt, role: 'system' as const }, { content: userPrompt, role: 'user' as const }],
         model,
         ...(maxOutputTokens ? { max_completion_tokens: maxOutputTokens } : {}),
         ...(jsonObject ? { response_format: { type: 'json_object' as const } } : {})
-      }, { timeout: AI_REQUEST_TIMEOUT_MS });
+      }, { signal, timeout: AI_REQUEST_TIMEOUT_MS });
       const response = await openRouterRequestGate.run(makeRequest);
 
       reportOpenRouterCost(response, onCost);
@@ -169,6 +174,10 @@ async function requestChatContent (client: OpenAI, model: string, systemPrompt: 
 
       openRouterRequestGate.pause(backoff);
       await delay(backoff);
+
+      if (signal?.aborted) {
+        throw new DOMException('Processing aborted.', 'AbortError');
+      }
     }
   }
 
@@ -206,6 +215,8 @@ interface Props {
   pipelineSuffix?: PipelineAction[];
   onAutoRunComplete?: () => void;
   onAutoRunProgressChange?: (progress?: AutoRunProgress) => void;
+  onAutoRunProcessingChange?: (status?: ProcessingStatus) => void;
+  onAutoRunAbortReady?: (abort?: () => void) => void;
   onAbortAutoRun?: () => void;
   onPipelineSelectionChange?: (key: string) => void;
   showPipeline?: boolean;
@@ -626,11 +637,11 @@ REJECTED CANDIDATE:
 ${candidate}`;
 }
 
-async function requestValidatedJson<T> (client: OpenAI, model: string, systemPrompt: string, userPrompt: string, parse: (content: string) => T, jsonObject = true, onCost?: OpenRouterCostReporter, maxOutputTokens?: number, repairContext?: string, validationCycles = 2): Promise<T> {
+async function requestValidatedJson<T> (client: OpenAI, model: string, systemPrompt: string, userPrompt: string, parse: (content: string) => T, jsonObject = true, onCost?: OpenRouterCostReporter, maxOutputTokens?: number, repairContext?: string, validationCycles = 2, signal?: AbortSignal): Promise<T> {
   let lastError: unknown;
 
   for (let attempt = 0; attempt < validationCycles; attempt++) {
-    const candidate = await requestChatContent(client, model, systemPrompt, userPrompt, jsonObject, onCost, maxOutputTokens);
+    const candidate = await requestChatContent(client, model, systemPrompt, userPrompt, jsonObject, onCost, maxOutputTokens, signal);
 
     try {
       // The parser is the fast local validation gate. In the normal case this
@@ -646,7 +657,7 @@ async function requestValidatedJson<T> (client: OpenAI, model: string, systemPro
       : JSON_VALIDATION_PROMPT(userPrompt, candidate, validationError);
 
     try {
-      const repaired = await requestChatContent(client, model, systemPrompt, validationPrompt, jsonObject, onCost, maxOutputTokens);
+      const repaired = await requestChatContent(client, model, systemPrompt, validationPrompt, jsonObject, onCost, maxOutputTokens, signal);
 
       return parse(repaired);
     } catch (error) {
@@ -1395,7 +1406,7 @@ function getSessionChapter (bookId: number, view: SkillsView): number {
   }
 }
 
-function Skills ({ autoRunAll = false, autoRunStartKey, book, externalRefreshToken = 0, onAction, onAutoRunComplete, onAutoRunProgressChange, onAbortAutoRun, onBookChange, onContentChange, onEntityCountsChange, onPipelineSelectionChange, pipelineOnly = false, pipelineControls, pipelinePrefix, pipelineSuffix, showPipeline = true, view }: Props): React.ReactElement {
+function Skills ({ autoRunAll = false, autoRunStartKey, book, externalRefreshToken = 0, onAction, onAutoRunAbortReady, onAutoRunComplete, onAutoRunProcessingChange, onAutoRunProgressChange, onAbortAutoRun, onBookChange, onContentChange, onEntityCountsChange, onPipelineSelectionChange, pipelineOnly = false, pipelineControls, pipelinePrefix, pipelineSuffix, showPipeline = true, view }: Props): React.ReactElement {
   const language = book.language ?? '';
   const hasBookLanguage = Boolean(language);
   const hasBookSubject = Boolean(book.subject);
@@ -1422,6 +1433,7 @@ function Skills ({ autoRunAll = false, autoRunStartKey, book, externalRefreshTok
   const autoRunInitializedRef = useRef(false);
   const autoRunTriggeredKeyRef = useRef('');
   const autoRunCompleteNotifiedRef = useRef(false);
+  const processingAbortControllerRef = useRef<AbortController | null>(null);
   const abilitiesOutputRef = useRef<HTMLDivElement>(null);
   const refresh = useCallback((): void => setRefreshToken((value) => value + 1), []);
   const refreshContent = useCallback((): void => {
@@ -1711,12 +1723,41 @@ function Skills ({ autoRunAll = false, autoRunStartKey, book, externalRefreshTok
     await deleteBookConcept(conceptId);
   }, [allExercises, deleteExerciseWithAbilities]);
 
-  const beginProgress = useCallback((label: string, total: number): void => {
+  const beginProgress = useCallback((label: string, total: number): AbortSignal => {
+    processingAbortControllerRef.current?.abort();
+    const controller = new AbortController();
+
+    processingAbortControllerRef.current = controller;
     setAiAction(undefined); setError(''); setFixReview(null); setExerciseFixReview(null); setImageFixReview(null); setNotice(''); setIsBusy(true); setOpenRouterSpent(0); setProgress(0); setProgressLabel(label); setProgressTotal(Math.max(1, total));
+
+    return controller.signal;
   }, []);
 
+  const abortProcessing = useCallback((): void => {
+    processingAbortControllerRef.current?.abort();
+    processingAbortControllerRef.current = null;
+    setIsBusy(false);
+    setAiAction(undefined);
+    setNotice('Processing aborted.');
+
+    if (autoRunAll) {
+      onAbortAutoRun?.();
+    }
+  }, [autoRunAll, onAbortAutoRun]);
+
+  useEffect(() => {
+    if (!autoRunAll) {
+      onAutoRunAbortReady?.(undefined);
+      return;
+    }
+
+    onAutoRunAbortReady?.(abortProcessing);
+
+    return () => onAutoRunAbortReady?.(undefined);
+  }, [abortProcessing, autoRunAll, onAutoRunAbortReady]);
+
   const generateSkills = useCallback(async (): Promise<void> => {
-    beginProgress('Generating Skills', skillSources.length);
+    const signal = beginProgress('Generating Skills', skillSources.length);
 
     try {
       const client = await createClient();
@@ -1726,7 +1767,7 @@ function Skills ({ autoRunAll = false, autoRunStartKey, book, externalRefreshTok
       const results = await mapConcurrent(batches, OPENROUTER_CONCURRENCY, async (batch) => {
         const systemPrompt = SKILLS_GENERATION_SYSTEM_PROMPT(language);
         const userPrompt = SOURCES_TO_SKILLS_REQUEST_PROMPT(language, batch);
-        const generated = await requestValidatedJson(client, effectiveModel, systemPrompt, userPrompt, (content) => parseGeneratedSkills(content, batch.length), true, addOpenRouterCost);
+        const generated = await requestValidatedJson(client, effectiveModel, systemPrompt, userPrompt, (content) => parseGeneratedSkills(content, batch.length), true, addOpenRouterCost, undefined, undefined, 2, signal);
 
         completed += batch.length;
         setProgress(Math.min(skillSources.length, completed));
@@ -1755,7 +1796,9 @@ function Skills ({ autoRunAll = false, autoRunStartKey, book, externalRefreshTok
       await Promise.all(chapters.flatMap(({ id }) => id === undefined ? [] : [replaceSkillsForChapter(id, generatedByChapter.get(id) ?? [])]));
       refresh();
     } catch (caught) {
-      setError(caught instanceof Error ? caught.message : 'Unable to generate Skills.');
+      if (!signal.aborted) {
+        setError(caught instanceof Error ? caught.message : 'Unable to generate Skills.');
+      }
     } finally {
       setIsBusy(false);
     }
@@ -1764,7 +1807,7 @@ function Skills ({ autoRunAll = false, autoRunStartKey, book, externalRefreshTok
   const generateExercises = useCallback(async (): Promise<void> => {
     const targetExercises = generateOnlyMissingAbilities ? exercisesMissingAbilities : allExercises;
 
-    beginProgress('Generating Abilities', targetExercises.length);
+    const signal = beginProgress('Generating Abilities', targetExercises.length);
 
     try {
       if (!allExercises.length) {
@@ -1802,7 +1845,7 @@ function Skills ({ autoRunAll = false, autoRunStartKey, book, externalRefreshTok
           .map((exercise) => ({ chapterTitle: chapter.title, exercise })));
         const plannedSources = await mapConcurrent(sourcesNeedingPlan, ABILITY_GENERATION_CONCURRENCY, async ({ chapterTitle, exercise }): Promise<{ blueprints: AbilityBlueprint[]; exercise: Exercise }> => {
           const systemPrompt = ABILITY_WORKFLOW_SYSTEM_PROMPT(language, chapterTitle, book.age);
-          const runJson: AbilityWorkflowJsonRunner = (prompt, parse, options) => requestValidatedJson(client, effectiveModel, systemPrompt, prompt, parse, true, addAbilitiesCost, options?.maxOutputTokens, options?.repairContext, options?.validationCycles ?? 1);
+          const runJson: AbilityWorkflowJsonRunner = (prompt, parse, options) => requestValidatedJson(client, effectiveModel, systemPrompt, prompt, parse, true, addAbilitiesCost, options?.maxOutputTokens, options?.repairContext, options?.validationCycles ?? 1, signal);
 
           try {
             const blueprints = await planExerciseAbility(language, chapterTitle, exercise, runJson);
@@ -1811,6 +1854,10 @@ function Skills ({ autoRunAll = false, autoRunStartKey, book, externalRefreshTok
 
             return { blueprints, exercise };
           } catch (caught) {
+            if (signal.aborted) {
+              throw caught;
+            }
+
             lastAttemptError = caught instanceof Error ? caught.message : 'Unknown OpenRouter planning error.';
 
             return { blueprints: [], exercise };
@@ -1830,7 +1877,7 @@ function Skills ({ autoRunAll = false, autoRunStartKey, book, externalRefreshTok
           const exerciseId = exercise.id as number;
           const blueprints = blueprintsByExerciseIdCache.get(exerciseId) ?? [];
           const systemPrompt = ABILITY_WORKFLOW_SYSTEM_PROMPT(language, chapterTitle, book.age);
-          const runJson: AbilityWorkflowJsonRunner = (prompt, parse, options) => requestValidatedJson(client, effectiveModel, systemPrompt, prompt, parse, true, addAbilitiesCost, options?.maxOutputTokens, options?.repairContext, options?.validationCycles ?? 1);
+          const runJson: AbilityWorkflowJsonRunner = (prompt, parse, options) => requestValidatedJson(client, effectiveModel, systemPrompt, prompt, parse, true, addAbilitiesCost, options?.maxOutputTokens, options?.repairContext, options?.validationCycles ?? 1, signal);
 
           try {
             const conversions = await materializeExerciseAbility(language, chapterTitle, exercise, blueprints, runJson);
@@ -1839,6 +1886,10 @@ function Skills ({ autoRunAll = false, autoRunStartKey, book, externalRefreshTok
 
             return { conversions, exercise };
           } catch (caught) {
+            if (signal.aborted) {
+              throw caught;
+            }
+
             lastAttemptError = caught instanceof Error ? caught.message : 'Unknown OpenRouter materialization error.';
 
             return { conversions: [], exercise };
@@ -1901,14 +1952,16 @@ function Skills ({ autoRunAll = false, autoRunStartKey, book, externalRefreshTok
         setError(`No Abilities were generated after ${maxAttempts} attempts.${suffix}`);
       }
     } catch (caught) {
-      setError(caught instanceof Error ? caught.message : 'Unable to generate Abilities.');
+      if (!signal.aborted) {
+        setError(caught instanceof Error ? caught.message : 'Unable to generate Abilities.');
+      }
     } finally {
       setIsBusy(false);
     }
   }, [addAbilitiesCost, allAbilities.length, allExercises, beginProgress, book.age, book.id, chapterContent, createClient, exercisesMissingAbilities, generateOnlyMissingAbilities, language, onAction, onContentChange, refresh, effectiveModel, completeStage, stageDone]);
 
   const fixExercises = useCallback(async (): Promise<void> => {
-    beginProgress('Fixing Exercise errors', allExercises.length);
+    const signal = beginProgress('Fixing Exercise errors', allExercises.length);
 
     try {
       if (!allExercises.length) {
@@ -1938,7 +1991,11 @@ function Skills ({ autoRunAll = false, autoRunStartKey, book, externalRefreshTok
           userPrompt,
           (content) => parseExerciseRepairResult(content, batch, originalIds),
           true,
-          addFixExercisesCost
+          addFixExercisesCost,
+          undefined,
+          undefined,
+          2,
+          signal
         );
         const batchDuplicateIds = new Set(result.duplicatePairs.map(({ deletedExerciseId }) => deletedExerciseId));
 
@@ -1987,14 +2044,16 @@ function Skills ({ autoRunAll = false, autoRunStartKey, book, externalRefreshTok
       setExerciseFixReview(review);
       setNotice(`Review ready: ${replacements.size} Exercise fix${replacements.size === 1 ? '' : 'es'}, ${duplicateIds.size} duplicate deletion${duplicateIds.size === 1 ? '' : 's'}, ${unchanged} unchanged. No database changes have been made.`);
     } catch (caught) {
-      setError(caught instanceof Error ? caught.message : 'Unable to fix Exercise errors.');
+      if (!signal.aborted) {
+        setError(caught instanceof Error ? caught.message : 'Unable to fix Exercise errors.');
+      }
     } finally {
       setIsBusy(false);
     }
   }, [addFixExercisesCost, allExercises, beginProgress, book.age, chapterContent, createClient, language, effectiveModel]);
 
   const fixAbilities = useCallback(async (): Promise<void> => {
-    beginProgress('Fixing Ability errors', allAbilities.length);
+    const signal = beginProgress('Fixing Ability errors', allAbilities.length);
 
     try {
       const client = await createClient();
@@ -2017,7 +2076,11 @@ function Skills ({ autoRunAll = false, autoRunStartKey, book, externalRefreshTok
           userPrompt,
           (content) => parseAbilityRepairResult(content, batch.map(({ ability }) => ability), batch.map(({ id }) => id)),
           true,
-          addFixAbilitiesCost
+          addFixAbilitiesCost,
+          undefined,
+          undefined,
+          2,
+          signal
         );
         const batchDuplicateIds = new Set(result.duplicatePairs.map(({ deletedAbilityId }) => deletedAbilityId));
 
@@ -2085,7 +2148,9 @@ function Skills ({ autoRunAll = false, autoRunStartKey, book, externalRefreshTok
       // explicit action in the results popup.
       setNotice(`Review ready: ${replacements.size} Ability fix${replacements.size === 1 ? '' : 'es'}, ${duplicateIds.size} duplicate deletion${duplicateIds.size === 1 ? '' : 's'}, ${unchanged} unchanged. No database changes have been made.`);
     } catch (caught) {
-      setError(caught instanceof Error ? caught.message : 'Unable to fix Ability errors.');
+      if (!signal.aborted) {
+        setError(caught instanceof Error ? caught.message : 'Unable to fix Ability errors.');
+      }
     } finally {
       setIsBusy(false);
     }
@@ -2291,7 +2356,7 @@ function Skills ({ autoRunAll = false, autoRunStartKey, book, externalRefreshTok
     setAiAction('images');
   }, []);
   const completeImagesStage = useCallback(async (): Promise<void> => {
-    beginProgress('Converting visual prompts to TikZ', imageGenerationTargets.length);
+    const signal = beginProgress('Converting visual prompts to TikZ', imageGenerationTargets.length);
 
     try {
       if (!imageGenerationTargets.length) {
@@ -2315,7 +2380,8 @@ function Skills ({ autoRunAll = false, autoRunStartKey, book, externalRefreshTok
           tikzRequestPrompt(language, record.ability, exerciseIndex, field, visualPrompt, book.age),
           false,
           addImagesCost,
-          2_400
+          2_400,
+          signal
         );
         const tikz = cleanTikzResponse(content);
         const image = await getImage(imageId);
@@ -2334,13 +2400,15 @@ function Skills ({ autoRunAll = false, autoRunStartKey, book, externalRefreshTok
       refreshContent();
       onAction?.('preExercisesExercises');
     } catch (caught) {
-      setError(caught instanceof Error ? caught.message : 'Unable to convert Ability visuals to TikZ.');
+      if (!signal.aborted) {
+        setError(caught instanceof Error ? caught.message : 'Unable to convert Ability visuals to TikZ.');
+      }
     } finally {
       setIsBusy(false);
     }
   }, [addImagesCost, beginProgress, book.age, createClient, imageGenerationTargets, language, onAction, refreshContent, effectiveModel, completeStage]);
   const fixImages = useCallback(async (): Promise<void> => {
-    beginProgress('Reviewing TikZ visuals', imageFixTargets.length);
+    const signal = beginProgress('Reviewing TikZ visuals', imageFixTargets.length);
 
     try {
       if (!imageFixTargets.length) {
@@ -2363,7 +2431,10 @@ function Skills ({ autoRunAll = false, autoRunStartKey, book, externalRefreshTok
           parseTikzAiReview,
           true,
           addFixImagesCost,
-          2_600
+          2_600,
+          undefined,
+          2,
+          signal
         );
         let effectiveReview: TikzAiReview = review;
 
@@ -2386,7 +2457,10 @@ function Skills ({ autoRunAll = false, autoRunStartKey, book, externalRefreshTok
             parseTikzAiReview,
             true,
             addFixImagesCost,
-            2_600
+            2_600,
+            undefined,
+            2,
+            signal
           );
 
           if (!effectiveReview.hasErrors || effectiveReview.tikz.trim() === target.originalTikz.trim()) {
@@ -2411,7 +2485,10 @@ function Skills ({ autoRunAll = false, autoRunStartKey, book, externalRefreshTok
             parseTikzAiReview,
             true,
             addFixImagesCost,
-            2_600
+            2_600,
+            undefined,
+            2,
+            signal
           );
 
           effectiveReview = repaired.hasErrors
@@ -2467,7 +2544,9 @@ function Skills ({ autoRunAll = false, autoRunStartKey, book, externalRefreshTok
 
       setNotice(`Fix images review ready: ${items.length} TikZ correction${items.length === 1 ? '' : 's'}, ${renderFailures} original render failure${renderFailures === 1 ? '' : 's'}, ${unchanged} unchanged. No TikZ source changes have been applied.`);
     } catch (caught) {
-      setError(caught instanceof Error ? caught.message : 'Unable to review and fix TikZ visuals.');
+      if (!signal.aborted) {
+        setError(caught instanceof Error ? caught.message : 'Unable to review and fix TikZ visuals.');
+      }
     } finally {
       setIsBusy(false);
     }
@@ -2728,6 +2807,25 @@ function Skills ({ autoRunAll = false, autoRunStartKey, book, externalRefreshTok
       total: autoRunStageKeys.length
     });
   }, [autoRunAll, autoRunCompletedCount, autoRunProgress, autoRunStageKeys.length, onAutoRunProgressChange]);
+
+  useEffect((): void => {
+    if (!autoRunAll) {
+      onAutoRunProcessingChange?.(undefined);
+      return;
+    }
+
+    // Keep the last active stage status in the parent while Fast Forward moves
+    // between stages. Clearing it during the short idle hand-off would make the
+    // processing modal disappear and re-open, which causes a visible blink.
+    if (isBusy) {
+      onAutoRunProcessingChange?.({
+        label: progressLabel,
+        progressTotal,
+        progressValue: progress,
+        spent: openRouterSpent
+      });
+    }
+  }, [autoRunAll, isBusy, onAutoRunProcessingChange, openRouterSpent, progress, progressLabel, progressTotal]);
 
   const runSelectedPipelineAction = useCallback((): void => {
     if (!selectedPipelineAction || selectedPipelineAction.isDisabled) {
@@ -3002,41 +3100,15 @@ function Skills ({ autoRunAll = false, autoRunStartKey, book, externalRefreshTok
         />
       </StageRunPricePopup>
     )}
-    {isBusy && (
-      <div className='processingOverlay'>
-        <div className='processingPopup'>
-          {autoRunAll && onAbortAutoRun && <button
-            aria-label='Abort fast forward'
-            className='processingPopupClose'
-            onClick={onAbortAutoRun}
-            title='Abort fast forward'
-            type='button'
-          >×</button>}
-          <RoundProgress
-            total={progressTotal}
-            value={progress}
-          />
-          <strong>{progressLabel}</strong>
-          <span>{progress} / {progressTotal}</span>
-          <span className='openRouterSpend'>Spent this stage: {formatOpenRouterSpend(openRouterSpent)}</span>
-          {autoRunAll && <div className='fastForwardOverallProgress' role='status'>
-            <div className='fastForwardOverallProgressMeta'>
-              <strong>Overall progress</strong>
-              <span>{autoRunCompletedCount} / {autoRunStageKeys.length}</span>
-            </div>
-            <div
-              aria-label='Overall processing progress'
-              aria-valuemax={100}
-              aria-valuemin={0}
-              aria-valuenow={autoRunProgress}
-              className='fastForwardOverallProgressTrack'
-              role='progressbar'
-            >
-              <span style={{ width: `${autoRunProgress}%` }} />
-            </div>
-          </div>}
-        </div>
-      </div>
+    {isBusy && !autoRunAll && (
+      <ProcessingPopup
+        label={progressLabel}
+        onAbort={abortProcessing}
+        overallProgress={autoRunAll ? { completed: autoRunCompletedCount, total: autoRunStageKeys.length } : undefined}
+        progressTotal={progressTotal}
+        progressValue={progress}
+        spent={openRouterSpent}
+      />
     )}
     {showPipeline && <div className='pipeline'>
       <div className='pipelineRunGroup'>
@@ -3501,17 +3573,6 @@ const StyledSkills = styled.div`
   .contentCard p { margin: 0.35rem 0; }
   .contentCard .solution { border-left: 0.2rem solid var(--border-table); margin: 0.5rem 0; padding-left: 0.75rem; }
   .exerciseImage { border: 1px solid var(--border-table); border-radius: 0.35rem; display: block; max-height: 18rem; max-width: min(100%, 32rem); object-fit: contain; }
-  .processingOverlay { align-items: center; background: color-mix(in srgb, var(--bg-page) 92%, transparent); display: flex; inset: 0; justify-content: center; padding: 1.25rem; position: fixed; z-index: 1000; }
-  .processingPopup { align-items: center; background: var(--bg-page); border: 1px solid var(--border-table); border-radius: 0.8rem; box-shadow: 0 1rem 3rem rgba(0, 0, 0, 0.16); box-sizing: border-box; display: flex; flex-direction: column; gap: 0.75rem; max-width: 28rem; padding: 1.5rem 1.6rem 1.4rem; position: relative; width: min(100%, 28rem); }
-  .processingPopupClose { align-items: center; background: transparent; border: 0; border-radius: 999px; color: inherit; cursor: pointer; display: flex; font-size: 1.7rem; height: 2rem; justify-content: center; line-height: 1; opacity: 0.65; padding: 0; position: absolute; right: 0.65rem; top: 0.55rem; width: 2rem; }
-  .processingPopupClose:hover, .processingPopupClose:focus-visible { background: rgba(127, 127, 127, 0.1); opacity: 1; outline: none; }
-  .fastForwardOverallProgress { border-top: 1px solid var(--border-table); margin-top: 0.25rem; padding-top: 0.95rem; width: 100%; }
-  .fastForwardOverallProgressMeta { align-items: center; display: flex; font-size: 0.82rem; justify-content: space-between; margin-bottom: 0.45rem; }
-  .fastForwardOverallProgressMeta > strong { font-weight: 600; }
-  .fastForwardOverallProgressMeta > span { font-variant-numeric: tabular-nums; opacity: 0.72; }
-  .fastForwardOverallProgressTrack { background: var(--bg-input); border: 1px solid var(--border-table); border-radius: 999px; box-sizing: border-box; height: 0.78rem; overflow: hidden; width: 100%; }
-  .fastForwardOverallProgressTrack > span { background: var(--color-primary, #2f6feb); border-radius: inherit; display: block; height: 100%; min-width: 0; transition: width 180ms ease; }
-  .openRouterSpend { font-variant-numeric: tabular-nums; opacity: 0.85; }
   .errorMessage { color: #9f3a38; }
   .noticeMessage { color: var(--color-label); }
   .visualPrompt { border-left: 3px solid var(--border-table); padding-left: 0.65rem; }
