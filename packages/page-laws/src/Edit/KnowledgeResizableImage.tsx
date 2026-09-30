@@ -108,6 +108,7 @@ export default function KnowledgeResizableImage ({ alt = 'Image', cid }: Props):
 }
 
 const NormalImage = styled.img`
+  cursor: zoom-in;
   padding-top: 5px;
   width: 150px;
 `;

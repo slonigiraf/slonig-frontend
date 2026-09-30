@@ -114,6 +114,7 @@ const ResizableImage: React.FC<Props> = ({ cid, alt, className, src: sourceSrc, 
 };
 
 const NormalImage = styled.img`
+  cursor: zoom-in;
   padding-top: 5px;
   width: 150px;
 `;
