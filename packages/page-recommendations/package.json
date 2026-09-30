@@ -34,10 +34,12 @@
     "file-saver": "^2.0.5",
     "ipfs-core": "^0.14.2",
     "ipfs-core-types": "^0.10.1",
-    "qrcode.react": "^2.0.0"
+    "qrcode.react": "^2.0.0",
+    "react-syntax-highlighter": "^16.1.1"
   },
   "devDependencies": {
-    "@polkadot/test-support": "0.132.2-38-x"
+    "@polkadot/test-support": "0.132.2-38-x",
+    "@types/react-syntax-highlighter": "^15.5.13"
   },
   "peerDependencies": {
     "react": "*",
