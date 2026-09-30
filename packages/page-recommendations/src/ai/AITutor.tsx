@@ -972,7 +972,7 @@ export function AITutor({ modelSelector, moduleId, moduleCid, persistedOpenRoute
                 {!loading && (attachments.length > 0 || audioBlob || recording) && <AttachmentTray>
                   {attachments.map((attachment) => <AttachmentChip key={attachment.id}>
                     {attachment.kind === 'image'
-                      ? <AttachmentImage src={attachment.dataUrl} alt='' />
+                      ? <AttachmentImage src={attachment.dataUrl} alt={`Preview of ${attachment.name}`} title={attachment.name} />
                       : <AttachmentFileIcon aria-hidden='true'>▤</AttachmentFileIcon>}
                     <AttachmentLabel title={attachment.name}>{attachment.name}</AttachmentLabel>
                     <RemoveAttachmentButton
@@ -1299,12 +1299,14 @@ const SentMedia = styled.div`
   justify-content: flex-end;
   gap: 8px;
 `;
-const SentImage = styled.img`
+const SentImage = styled(ResizableImage)`
   width: 84px;
   height: 84px;
   object-fit: cover;
   border-radius: 8px;
   border: 1px solid rgb(0 0 0 / 9%);
+  cursor: zoom-in;
+  padding-top: 0;
 `;
 const SentFile = styled.div`
   max-width: min(280px, 100%);
@@ -1392,13 +1394,15 @@ const AttachmentChip = styled.div`
   border-radius: 14px;
   background: rgb(0 0 0 / 3%);
 `;
-const AttachmentImage = styled.img`
+const AttachmentImage = styled(ResizableImage)`
   width: 38px;
   height: 38px;
   flex: 0 0 38px;
   object-fit: cover;
   border-radius: 10px;
   background: rgb(0 0 0 / 5%);
+  cursor: zoom-in;
+  padding-top: 0;
 `;
 const AttachmentFileIcon = styled.span`
   width: 38px;
