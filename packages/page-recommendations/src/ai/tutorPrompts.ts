@@ -306,13 +306,21 @@ export function decisionPrompt(
   }
 }
 
+const CODE_FENCE = '```';
+
 const GENERATED_MESSAGE_KATEX_REQUIREMENTS = String.raw`KaTeX formatting requirements for the returned message:
 - The message is rendered directly with KatexSpan. Surround every mathematical formula or expression with <kx>...</kx>. Do not use \(...\), \[...\], $...$, or $$...$$ delimiters.
 - Every learner-facing numeric literal that is mathematical content must also be inside <kx>...</kx>, including standalone numbers used in an explanation.
 - Write fractions with LaTeX fraction notation \frac{a}{b}, never slash notation such as a/b when expressing a mathematical fraction.
 - Because message is a JSON string, escape every LaTeX backslash so the JSON returned by the server is valid. For example, the JSON source must contain <kx>\\frac{1}{3}</kx> so the parsed message contains <kx>\frac{1}{3}</kx>.
 - Example of valid returned JSON: {"message":"The reciprocal of <kx>3</kx> is <kx>\\frac{1}{3}</kx>, because <kx>1 \\div 3 = \\frac{1}{3}</kx>. Now repeat the correct solution from memory."}
-- Keep ordinary prose outside <kx> tags. Do not put whole sentences inside <kx> tags.`;
+- Keep ordinary prose outside <kx> tags. Do not put whole sentences inside <kx> tags.
+
+Code formatting requirements for the returned message:
+- If the fake or correct solution contains programming/source code, put every code snippet in a fenced Markdown code block, even when the snippet is short.
+- The opening fence MUST include the actual language identifier immediately after the three backticks, for example ${CODE_FENCE}python, ${CODE_FENCE}javascript, ${CODE_FENCE}typescript, ${CODE_FENCE}java, ${CODE_FENCE}cpp, ${CODE_FENCE}sql, or ${CODE_FENCE}bash.
+- Never return source code as plain prose, inline backticks, or an unlabeled ${CODE_FENCE} fence.
+- Choose the language that matches the exercise/code. If it truly cannot be determined, use ${CODE_FENCE}text rather than an unlabeled fence.`;
 
 function generatedStageContext(skill: AiSkill, stage: AlgorithmStage, studentExercise: string): string[] {
   const examples = skill.questions.map((q) => `${q.question}${q.questionImageCid ? ' [question image present]' : ''} => ${q.answer}${q.answerImageCid ? ' [answer image present]' : ''}`).join('\n');
@@ -329,17 +337,72 @@ function generatedStageContext(skill: AiSkill, stage: AlgorithmStage, studentExe
     `Skill: ${skill.title}\nStored DB examples for reference:\n${examples || 'none'}`,
     GENERATED_MESSAGE_KATEX_REQUIREMENTS,
     'Return only one JSON object with exactly one key: message.',
-    'Put the complete words the tutor should say in message. Do not return nextStage or any other keys; this request generates the current stage text and does not choose a next stage.',
+    'Put only the requested stage content in message. Do not return nextStage or any other keys; this request generates the current stage text and does not choose a next stage.',
   ];
+}
+
+function inferCodeFenceLanguage(code: string): string {
+  const value = code.trim();
+
+  if (/^<\?php\b/i.test(value)) return 'php';
+  if (/^\s*(?:SELECT|INSERT|UPDATE|DELETE|CREATE|ALTER|DROP|WITH)\b/im.test(value)) return 'sql';
+  if (/^\s*package\s+\w+/m.test(value) || /\bfmt\.(?:Print|Printf|Println)\s*\(/.test(value)) return 'go';
+  if (/\bfn\s+main\s*\(/.test(value) || /\bprintln!\s*\(/.test(value) || /\blet\s+mut\b/.test(value)) return 'rust';
+  if (/\busing\s+System\s*;/.test(value) || /\bConsole\.(?:Write|WriteLine)\s*\(/.test(value)) return 'csharp';
+  if (/#include\s*<[^>]+>/.test(value) && (/\bstd::/.test(value) || /\bcout\s*<</.test(value))) return 'cpp';
+  if (/#include\s*<[^>]+>/.test(value) || /\bprintf\s*\(/.test(value) || /\bint\s+main\s*\(/.test(value)) return 'c';
+  if (/\bpublic\s+(?:static\s+)?(?:class|void|int|String)\b/.test(value) || /\bSystem\.out\.print(?:ln)?\s*\(/.test(value)) return 'java';
+  if (/\b(?:interface|type)\s+[A-Za-z_$][\w$]*/.test(value) || /:\s*(?:string|number|boolean|unknown|never|void)\b/.test(value)) return 'typescript';
+  if (/\b(?:const|let|var|function)\s+[A-Za-z_$][\w$]*/.test(value) || /=>/.test(value) || /\bconsole\.log\s*\(/.test(value) || /\buseEffect\s*\(/.test(value)) return 'javascript';
+  if (/\bdef\s+[A-Za-z_]\w*\s*\(/.test(value) || /\bprint\s*\(/.test(value) || /^\s*(?:from\s+\S+\s+import|import\s+\S+)/m.test(value)) return 'python';
+  if (/^#!\/usr\/bin\/env\s+(?:ba)?sh/m.test(value) || /^#!\/bin\/(?:ba)?sh/m.test(value) || /^\s*(?:echo|export|cd|curl|wget|git|npm|yarn)\s+/m.test(value)) return 'bash';
+  if (/^\s*<[A-Za-z][^>]*>[\s\S]*<\//.test(value) || /<!doctype\s+html/i.test(value)) return 'html';
+
+  if (/^[\[{]/.test(value)) {
+    try {
+      JSON.parse(value);
+      return 'json';
+    } catch {
+      // Keep checking other formats before falling back to text.
+    }
+  }
+
+  return 'text';
+}
+
+function ensureCodeFenceLanguages(value: string): string {
+  return value.replace(/```[ \t]*\n([\s\S]*?)```/g, (_match, code: string) => {
+    const language = inferCodeFenceLanguage(code);
+    return `\`\`\`${language}\n${code}\`\`\``;
+  });
 }
 
 function provideFakeSolutionPrompt(skill: AiSkill, stage: AlgorithmStage, studentExercise: string): string {
   return [
     'You are taking the role of the HUMAN TUTOR executing the provide_fake_solution stage of a Slonig TutoringAlgorithm.',
-    'Give the student an intentionally WRONG answer/solution to exactly the student-created exercise below, then ask the student to correct it.',
+    'Give an intentionally WRONG answer/solution to exactly the student-created exercise below.',
+    'Return only the wrong solution itself in message. Do not add an introduction or ask the student to correct it; the UI adds the required wording around the solution.',
     'The wrong answer must actually be wrong but plausible. Do not create a different exercise. Do not explain why the answer is wrong. Do not add generic tutoring feedback.',
     ...generatedStageContext(skill, stage, studentExercise),
   ].join('\n\n');
+}
+
+export function formatGeneratedStageMessage(stage: AlgorithmStage, message: string): string {
+  const trimmed = ensureCodeFenceLanguages(message.trim());
+  if (stage.getType() !== StageType.provide_fake_solution) return trimmed;
+
+  const fakeSolution = trimmed
+    .replace(/^I think the solution is:\s*/i, '')
+    .replace(/\s*\.?\s*Please,\s*correct mistakes\.?\s*$/i, '')
+    .replace(/[.!?]+\s*$/, '')
+    .trim();
+
+  if (/```\s*$/.test(fakeSolution)) {
+    const separator = fakeSolution.startsWith('```') ? '\n' : ' ';
+    return `I think the solution is:${separator}${fakeSolution}\nPlease, correct mistakes.`;
+  }
+
+  return `I think the solution is: ${fakeSolution}. Please, correct mistakes.`;
 }
 
 function correctFakeSolutionPrompt(skill: AiSkill, stage: AlgorithmStage, studentExercise: string): string {

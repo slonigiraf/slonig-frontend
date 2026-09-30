@@ -5,7 +5,7 @@ import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 
 import { StageType, type AlgorithmStage } from '../Teach/AlgorithmStage.js';
-import { decisionPrompt } from './tutorPrompts.js';
+import { decisionPrompt, formatGeneratedStageMessage, generatedStagePrompt } from './tutorPrompts.js';
 import type { AiSkill } from './lessonStore.js';
 
 function nextStage(type: StageType, name: string): AlgorithmStage {
@@ -96,4 +96,83 @@ describe('AI Tutor similar-exercise decisions', (): void => {
     assert.match(prompt, /PREVIOUSLY_SHOWN_REPEAT_EXERCISE/);
     assert.match(prompt, /do not count merely repeating the exercise from the previous stage/i);
   });
+});
+
+describe('AI Tutor generated fake solution wording', (): void => {
+  it('wraps a generated fake solution with the required wording', (): void => {
+    const stage = nextStage(StageType.provide_fake_solution, 'Fake solution');
+
+    assert.equal(
+      formatGeneratedStageMessage(stage, '2 + 2 = 5.'),
+      'I think the solution is: 2 + 2 = 5. Please, correct mistakes.',
+    );
+  });
+
+  it('does not duplicate the wrapper if the model adds it anyway', (): void => {
+    const stage = nextStage(StageType.provide_fake_solution, 'Fake solution');
+
+    assert.equal(
+      formatGeneratedStageMessage(stage, 'I think the solution is: 2 + 2 = 5. Please, correct mistakes.'),
+      'I think the solution is: 2 + 2 = 5. Please, correct mistakes.',
+    );
+  });
+
+  it('tells the model to return only the fake-solution body', (): void => {
+    const stage = nextStage(StageType.provide_fake_solution, 'Fake solution');
+    const prompt = generatedStagePrompt(skill, stage, studentExercise);
+
+    assert.match(prompt, /Return only the wrong solution itself in message/i);
+    assert.match(prompt, /UI adds the required wording around the solution/i);
+  });
+  it('requires language-tagged fenced code in both fake and correct solution prompts', (): void => {
+    const fakeStage = nextStage(StageType.provide_fake_solution, 'Fake solution');
+    const correctStage = nextStage(StageType.correct_fake_solution, 'Correct solution');
+
+    for (const prompt of [
+      generatedStagePrompt(skill, fakeStage, studentExercise),
+      generatedStagePrompt(skill, correctStage, studentExercise),
+    ]) {
+      assert.match(prompt, /every code snippet in a fenced Markdown code block/i);
+      assert.match(prompt, /opening fence MUST include the actual language identifier/i);
+      assert.match(prompt, /Never return source code as plain prose, inline backticks, or an unlabeled/i);
+    }
+  });
+
+  it('adds a detected language to an unlabeled fake-solution code fence', (): void => {
+    const stage = nextStage(StageType.provide_fake_solution, 'Fake solution');
+    const generated = '```\nconst total = items.length + 1;\n```';
+
+    assert.equal(
+      formatGeneratedStageMessage(stage, generated),
+      'I think the solution is:\n```javascript\nconst total = items.length + 1;\n```\nPlease, correct mistakes.',
+    );
+  });
+
+  it('does not render a standalone period after a language-tagged code fence', (): void => {
+    const stage = nextStage(StageType.provide_fake_solution, 'Fake solution');
+    const generated = '```javascript\nfunction Report() {\n  return null;\n}\n```';
+
+    assert.equal(
+      formatGeneratedStageMessage(stage, generated),
+      'I think the solution is:\n```javascript\nfunction Report() {\n  return null;\n}\n```\nPlease, correct mistakes.',
+    );
+  });
+
+  it('adds a detected language to an unlabeled correct-solution code fence', (): void => {
+    const stage = nextStage(StageType.correct_fake_solution, 'Correct solution');
+    const generated = 'Use this:\n```\ndef greet(name):\n    print(name)\n```\nNow repeat the correct solution from memory.';
+
+    assert.equal(
+      formatGeneratedStageMessage(stage, generated),
+      'Use this:\n```python\ndef greet(name):\n    print(name)\n```\nNow repeat the correct solution from memory.',
+    );
+  });
+
+  it('preserves an existing language tag on generated code fences', (): void => {
+    const stage = nextStage(StageType.correct_fake_solution, 'Correct solution');
+    const generated = '```typescript\nconst answer: number = 42;\n```';
+
+    assert.equal(formatGeneratedStageMessage(stage, generated), generated);
+  });
+
 });

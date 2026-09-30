@@ -11,7 +11,7 @@ import { createAiLesson, AiSkill, aiLessonId, resetAiLesson, saveAiDecision } fr
 import { askOpenRouter, DEFAULT_MODEL, transcribeOpenRouter } from './openRouter.js';
 import type { OpenRouterAttachment } from './openRouter.js';
 import { getLesson } from '@slonigiraf/db';
-import { decisionPrompt, generatedStagePrompt } from './tutorPrompts.js';
+import { decisionPrompt, formatGeneratedStageMessage, generatedStagePrompt } from './tutorPrompts.js';
 
 export interface AiTutorSkillRef {
   id: string;
@@ -641,8 +641,9 @@ export function AITutor({ modelSelector, moduleId, moduleCid, persistedOpenRoute
         undefined,
         studentExerciseMedia,
       );
-      const text = generated.message.trim();
-      if (!text) throw new Error('The AI tutor returned no stage text.');
+      const generatedMessage = generated.message.trim();
+      if (!generatedMessage) throw new Error('The AI tutor returned no stage text.');
+      const text = formatGeneratedStageMessage(stage, generatedMessage);
 
       if (stageTextRequestRef.current !== requestId) return;
 
