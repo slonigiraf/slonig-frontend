@@ -1,6 +1,4 @@
-import type { Table, Transaction } from 'dexie';
-
-import Dexie from 'dexie';
+import { Dexie, type Table, type Transaction } from 'dexie';
 import { Agreement } from './Agreement.js';
 import { CanceledInsurance } from './CanceledInsurance.js';
 import { CanceledLetter } from './CanceledLetter.js';
@@ -35,7 +33,31 @@ type LegacyExerciseTemplate = Omit<ExerciseTemplate, 'skillId'> & { bookSkillId:
 type LegacyExerciseWithImages = Exercise & { image?: string; images?: string[] };
 type LegacyExerciseWithAbilityMode = Exercise & { abilityMode?: string };
 
-class SlonigDB extends Dexie {
+// Upgrade callbacks run inside one IndexedDB transaction. Keep each read/write
+// group deliberately small so a large production database does not create a
+// correspondingly large array of records or pending requests in memory.
+const MIGRATION_BATCH_SIZE = 50;
+
+async function forEachMigrationBatch<T> (table: Table<T>, callback: (rows: T[]) => Promise<void>): Promise<void> {
+  let offset = 0;
+
+  while (true) {
+    const rows = await table.orderBy(':id').offset(offset).limit(MIGRATION_BATCH_SIZE).toArray();
+
+    if (!rows.length) {
+      return;
+    }
+
+    await callback(rows);
+    offset += rows.length;
+
+    if (rows.length < MIGRATION_BATCH_SIZE) {
+      return;
+    }
+  }
+}
+
+export class SlonigDB extends Dexie {
   agreements!: Table<Agreement>;
   canceledInsurances!: Table<CanceledInsurance>;
   canceledLetters!: Table<CanceledLetter>;
@@ -64,8 +86,8 @@ class SlonigDB extends Dexie {
   exerciseTemplates!: Table<ExerciseTemplate, number>;
   aiTutorStudentMessages!: Table<AiTutorStudentMessage, string>;
 
-  constructor() {
-    super('slonig');
+  constructor(name = 'slonig') {
+    super(name);
     this.version(65).stores({
       agreements: '&id',
       canceledInsurances: '&workerSign',
@@ -225,21 +247,22 @@ class SlonigDB extends Dexie {
       exerciseTemplates: '++id,skillId',
       skills: '++id,chapterId,rank,[chapterId+rank]'
     }).upgrade(async (transaction: Transaction) => {
-      const [legacyAbilities, legacyExercises, legacySkills, legacyTemplates] = await Promise.all([
-        transaction.table<Ability>('skillTemplates').toArray(),
-        transaction.table<Exercise>('bookExercises').toArray(),
-        transaction.table<LegacyBookSkill>('bookSkills').toArray(),
-        transaction.table<LegacyExerciseTemplate>('exerciseTemplates').toArray()
-      ]);
-      const skills = legacySkills.map(({ bookExerciseIds, ...skill }) => ({ ...skill, exerciseIds: bookExerciseIds ?? [] }));
-      const templates = legacyTemplates.map(({ bookSkillId, ...template }) => ({ ...template, skillId: bookSkillId }));
+      await forEachMigrationBatch(transaction.table<Ability>('skillTemplates'), async (rows) => {
+        await transaction.table<Ability>('abilities').bulkPut(rows);
+      });
+      await forEachMigrationBatch(transaction.table<Exercise>('bookExercises'), async (rows) => {
+        await transaction.table<Exercise>('exercises').bulkPut(rows);
+      });
+      await forEachMigrationBatch(transaction.table<LegacyBookSkill>('bookSkills'), async (rows) => {
+        const skills = rows.map(({ bookExerciseIds, ...skill }) => ({ ...skill, exerciseIds: bookExerciseIds ?? [] }));
 
-      await Promise.all([
-        legacyAbilities.length ? transaction.table<Ability>('abilities').bulkPut(legacyAbilities) : Promise.resolve(),
-        legacyExercises.length ? transaction.table<Exercise>('exercises').bulkPut(legacyExercises) : Promise.resolve(),
-        skills.length ? transaction.table<Skill>('skills').bulkPut(skills) : Promise.resolve(),
-        templates.length ? transaction.table<ExerciseTemplate>('exerciseTemplates').bulkPut(templates) : Promise.resolve()
-      ]);
+        await transaction.table<Skill>('skills').bulkPut(skills);
+      });
+      await forEachMigrationBatch(transaction.table<LegacyExerciseTemplate>('exerciseTemplates'), async (rows) => {
+        const templates = rows.map(({ bookSkillId, ...template }) => ({ ...template, skillId: bookSkillId }));
+
+        await transaction.table<ExerciseTemplate>('exerciseTemplates').bulkPut(templates);
+      });
     });
     this.version(82).stores({
       bookExercises: null,
@@ -331,65 +354,66 @@ class SlonigDB extends Dexie {
     }).upgrade(async (transaction: Transaction) => {
       const abilities = transaction.table<Ability>('abilities');
       const images = transaction.table<Image, number>('images');
-      const rows = await abilities.toArray();
       const isTikz = (value: string): boolean => /\\begin\s*\{tikzpicture\}/.test(value);
 
-      for (const row of rows) {
-        let parsed: unknown;
+      await forEachMigrationBatch(abilities, async (rows) => {
+        for (const row of rows) {
+          let parsed: unknown;
 
-        try {
-          parsed = JSON.parse(row.content.trim().replace(/^```(?:json)?\s*|\s*```$/gi, '').trim());
-        } catch {
-          continue;
-        }
-
-        const root = Array.isArray(parsed) ? parsed[0] : parsed;
-
-        if (!root || typeof root !== 'object' || !Array.isArray((root as { q?: unknown }).q)) {
-          continue;
-        }
-
-        for (const exercise of (root as { q: unknown[] }).q) {
-          if (!exercise || typeof exercise !== 'object') {
+          try {
+            parsed = JSON.parse(row.content.trim().replace(/^```(?:json)?\s*|\s*```$/gi, '').trim());
+          } catch {
             continue;
           }
 
-          const value = exercise as Record<string, unknown>;
+          const root = Array.isArray(parsed) ? parsed[0] : parsed;
 
-          for (const field of ['p', 'i'] as const) {
-            const visual = value[field];
-            const errorField = field === 'p' ? 'pError' : 'iError';
-            const promptField = field === 'p' ? 'pPrompt' : 'iPrompt';
-            const storedPrompt = typeof value[promptField] === 'string' ? (value[promptField] as string).trim() : '';
-            const valid = typeof value[errorField] === 'boolean' ? !(value[errorField] as boolean) : undefined;
-            let image: Omit<Image, 'id'> | undefined;
-
-            if (typeof visual === 'string' && visual.trim()) {
-              const tikz = isTikz(visual);
-
-              image = {
-                data: tikz ? visual : null,
-                prompt: storedPrompt || (tikz ? '' : visual),
-                type: tikz ? 'tikz' : 'prompt',
-                valid
-              };
-            } else if (storedPrompt) {
-              image = { data: null, prompt: storedPrompt, type: 'prompt', valid };
-            }
-
-            if (image) {
-              value[field] = await images.add(image as Image);
-            } else if (typeof visual !== 'number') {
-              value[field] = null;
-            }
-
-            delete value[errorField];
-            delete value[promptField];
+          if (!root || typeof root !== 'object' || !Array.isArray((root as { q?: unknown }).q)) {
+            continue;
           }
-        }
 
-        await abilities.update(row.id, { content: JSON.stringify(parsed) });
-      }
+          for (const exercise of (root as { q: unknown[] }).q) {
+            if (!exercise || typeof exercise !== 'object') {
+              continue;
+            }
+
+            const value = exercise as Record<string, unknown>;
+
+            for (const field of ['p', 'i'] as const) {
+              const visual = value[field];
+              const errorField = field === 'p' ? 'pError' : 'iError';
+              const promptField = field === 'p' ? 'pPrompt' : 'iPrompt';
+              const storedPrompt = typeof value[promptField] === 'string' ? (value[promptField] as string).trim() : '';
+              const valid = typeof value[errorField] === 'boolean' ? !(value[errorField] as boolean) : undefined;
+              let image: Omit<Image, 'id'> | undefined;
+
+              if (typeof visual === 'string' && visual.trim()) {
+                const tikz = isTikz(visual);
+
+                image = {
+                  data: tikz ? visual : null,
+                  prompt: storedPrompt || (tikz ? '' : visual),
+                  type: tikz ? 'tikz' : 'prompt',
+                  valid
+                };
+              } else if (storedPrompt) {
+                image = { data: null, prompt: storedPrompt, type: 'prompt', valid };
+              }
+
+              if (image) {
+                value[field] = await images.add(image as Image);
+              } else if (typeof visual !== 'number') {
+                value[field] = null;
+              }
+
+              delete value[errorField];
+              delete value[promptField];
+            }
+          }
+
+          await abilities.update(row.id, { content: JSON.stringify(parsed) });
+        }
+      });
     });
 
     // Compatibility migration for databases that briefly used Image.svg and
@@ -397,22 +421,24 @@ class SlonigDB extends Dexie {
     this.version(90).stores({}).upgrade(async (transaction: Transaction) => {
       type LegacyImage = Partial<Image> & { id: number; svg?: string | null };
       const images = transaction.table<LegacyImage, number>('images');
-      const rows = await images.toArray();
 
-      await Promise.all(rows.map(async (image) => {
-        const type = image.type === 'tikz' ? 'tikz' as const : 'prompt' as const;
-        const legacyData = image.data ?? image.svg ?? null;
-        const prompt = image.prompt ?? (type === 'prompt' ? legacyData ?? '' : '');
-        const migrated: Image = {
-          data: type === 'prompt' && legacyData === prompt ? null : legacyData,
-          id: image.id,
-          prompt,
-          type,
-          valid: image.valid
-        };
+      await forEachMigrationBatch(images, async (rows) => {
+        const migrated = rows.map((image): Image => {
+          const type = image.type === 'tikz' ? 'tikz' as const : 'prompt' as const;
+          const legacyData = image.data ?? image.svg ?? null;
+          const prompt = image.prompt ?? (type === 'prompt' ? legacyData ?? '' : '');
 
-        await images.put(migrated);
-      }));
+          return {
+            data: type === 'prompt' && legacyData === prompt ? null : legacyData,
+            id: image.id,
+            prompt,
+            type,
+            valid: image.valid
+          };
+        });
+
+        await images.bulkPut(migrated);
+      });
     });
 
     // Prompt-only images created by the first normalized Image implementation
@@ -420,11 +446,12 @@ class SlonigDB extends Dexie {
     // Image.prompt; Image.data stays null until visual generation succeeds.
     this.version(91).stores({}).upgrade(async (transaction: Transaction) => {
       const images = transaction.table<Image, number>('images');
-      const rows = await images.toArray();
 
-      await Promise.all(rows.flatMap((image) => image.type === 'prompt' && image.data === image.prompt
-        ? [images.update(image.id, { data: null })]
-        : []));
+      await forEachMigrationBatch(images, async (rows) => {
+        await Promise.all(rows.flatMap((image) => image.type === 'prompt' && image.data === image.prompt
+          ? [images.update(image.id, { data: null })]
+          : []));
+      });
     });
 
     // Persist the ZPD-derived order through the complete learning entity chain.
@@ -439,10 +466,9 @@ class SlonigDB extends Dexie {
       const exercisesTable = transaction.table<Exercise, number>('exercises');
       const abilitiesTable = transaction.table<Ability, string>('abilities');
       const pagesTable = transaction.table<BookPage, [number, number]>('bookPages');
-      const [concepts, exercises, abilities, pages] = await Promise.all([
+      const [concepts, exercises, pages] = await Promise.all([
         conceptsTable.toArray(),
         exercisesTable.toArray(),
-        abilitiesTable.toArray(),
         pagesTable.toArray()
       ]);
       const finiteOrder = (value: number | undefined): number | undefined => typeof value === 'number' && Number.isFinite(value) ? value : undefined;
@@ -453,6 +479,14 @@ class SlonigDB extends Dexie {
         ...pages.flatMap(({ chapterId }) => chapterId === undefined ? [] : [chapterId])
       ]);
       const abilitiesByExerciseId = new Map<number, Ability[]>();
+
+      // A version-64 production database has no book-learning rows. Avoid
+      // reading every migrated legacy ability when there is nothing to order.
+      if (!chapterIds.size) {
+        return;
+      }
+
+      const abilities = await abilitiesTable.toArray();
 
       for (const ability of abilities) {
         const match = /^book-(\d+)-exercise-(\d+)$/.exec(ability.moduleId);
