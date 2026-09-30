@@ -24,6 +24,7 @@ interface Props {
   skills: AiTutorSkillRef[];
   studentId: string;
   onClose: () => void;
+  onProgressChange?: () => void;
   modelSelector?: ModelSelectorRenderer;
   persistedOpenRouterKey?: string | null;
   startMode?: 'continue' | 'restart';
@@ -1266,7 +1267,8 @@ export function AITutorButton(props: Omit<Props, 'onClose' | 'persistedOpenRoute
   const closeTutor = useCallback((): void => {
     saveToSessionStorage(AI_TUTOR_SESSION, openSessionKey, 'false');
     setOpen(false);
-  }, [openSessionKey]);
+    props.onProgressChange?.();
+  }, [openSessionKey, props.onProgressChange]);
 
   return <>
     <Button icon='robot' isDisabled={opening} label='AI Tutor' onClick={() => setStartDialogOpen(true)} />

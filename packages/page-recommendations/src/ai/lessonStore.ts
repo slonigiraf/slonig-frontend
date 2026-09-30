@@ -7,6 +7,7 @@ import {
   getLetterTemplate,
   putLesson,
   putLetterTemplate,
+  putRepetition,
 } from '@slonigiraf/db';
 
 export interface AiSkillQuestion {
@@ -114,6 +115,18 @@ export async function saveAiDecision(
   const now = Date.now();
   if (template) {
     await putLetterTemplate({ ...template, valid: false, toRepeat: true, lastExamined: now });
+
+    // AI Tutor has no remote lesson-result exchange, so persist the repetition
+    // locally at the moment the skill is finished. View skills reads this table
+    // to decide whether to show the to-repeat badge. A skipped skill should not
+    // create a repetition record.
+    if (action === 'mark_for_repeat_crude') {
+      await putRepetition({
+        lastExamined: now,
+        workerId: lesson.student,
+        knowledgeId: template.knowledgeId,
+      });
+    }
   }
 
   const updated: Lesson = {
