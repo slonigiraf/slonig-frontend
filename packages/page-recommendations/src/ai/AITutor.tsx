@@ -62,6 +62,37 @@ function isTikzCode(value: string): boolean {
   return /\\begin\s*\{tikzpicture\}/.test(trimmed) && /\\end\s*\{tikzpicture\}/.test(trimmed);
 }
 
+function TikzPreview({ sent = false, value }: { sent?: boolean; value: string }): React.ReactElement {
+  const [preview, setPreview] = useState<{ source: string; src?: string; error?: string }>();
+
+  useEffect(() => {
+    let cancelled = false;
+
+    // Load the compiler only when a drawing is attached. Standalone SVGs also
+    // include outlined fonts, so labels survive rendering in the image viewer.
+    void import('../../../page-laws/src/Edit/TikzDisplay.js')
+      .then(({ renderTikzToSvg }) => renderTikzToSvg(value))
+      .then((svg) => {
+        if (!cancelled) setPreview({ source: value, src: `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg)}` });
+      })
+      .catch(() => {
+        if (!cancelled) setPreview({ source: value, error: 'Unable to preview TikZ drawing.' });
+      });
+
+    return () => { cancelled = true; };
+  }, [value]);
+
+  // Never show an older drawing while its replacement is compiling.
+  const current = preview?.source === value ? preview : undefined;
+  const Image = sent ? SentImage : AttachmentImage;
+
+  if (current?.error) return <span role='status' title={current.error}>TikZ preview unavailable</span>;
+
+  return current?.src
+    ? <Image alt='TikZ drawing' src={current.src} title='TikZ drawing — click to enlarge' style={{ background: 'white', objectFit: 'contain' }} />
+    : <span role='status' aria-label='Rendering TikZ drawing'><Spinner noLabel /></span>;
+}
+
 function fileToDataUrl(file: File): Promise<string> {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
@@ -964,7 +995,7 @@ export function AITutor({ modelSelector, moduleId, moduleCid, persistedOpenRoute
                       ? <SentImage key={attachment.id} src={attachment.dataUrl} alt={attachment.name} title={attachment.name} />
                       : <SentFile key={attachment.id}>▤ {attachment.name}</SentFile>)}
                     {lastStudentMessage.hasAudio && <SentFile>● Voice message · {formatRecordingTime(lastStudentMessage.audioSeconds)}</SentFile>}
-                    {lastStudentMessage.tikz && <SentFile title={lastStudentMessage.tikz}>✎ TikZ drawing</SentFile>}
+                    {lastStudentMessage.tikz && <TikzPreview sent value={lastStudentMessage.tikz} />}
                   </SentMedia>}
                 </StudentBubble>
               </StudentMessage>}
@@ -1032,7 +1063,7 @@ export function AITutor({ modelSelector, moduleId, moduleCid, persistedOpenRoute
                     }}>×</RemoveAttachmentButton>
                   </AudioChip>}
                   {tikz && <AttachmentChip>
-                    <AttachmentFileIcon aria-hidden='true'>✎</AttachmentFileIcon>
+                    <TikzPreview value={tikz} />
                     <AttachmentLabel title={tikz}>TikZ drawing</AttachmentLabel>
                     <RemoveAttachmentButton type='button' aria-label='Remove TikZ drawing' onClick={() => setTikz('')}>×</RemoveAttachmentButton>
                   </AttachmentChip>}
