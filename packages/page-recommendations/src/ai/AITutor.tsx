@@ -63,6 +63,30 @@ function isTikzCode(value: string): boolean {
   return /\\begin\s*\{tikzpicture\}/.test(trimmed) && /\\end\s*\{tikzpicture\}/.test(trimmed);
 }
 
+function isSvgAttachment(attachment: Pick<ComposerAttachment, 'mimeType' | 'dataUrl'>): boolean {
+  return attachment.mimeType.toLowerCase().startsWith('image/svg+xml')
+    || attachment.dataUrl.toLowerCase().startsWith('data:image/svg+xml');
+}
+
+function textFromDataUrl(dataUrl: string, name: string): string {
+  const separator = dataUrl.indexOf(',');
+  if (separator < 0) throw new Error(`Unable to read SVG source from ${name}.`);
+
+  const metadata = dataUrl.slice(0, separator);
+  const payload = dataUrl.slice(separator + 1);
+  try {
+    if (/;base64(?:;|$)/i.test(metadata)) {
+      const binary = atob(payload);
+      const bytes = new Uint8Array(binary.length);
+      for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+      return new TextDecoder().decode(bytes);
+    }
+    return decodeURIComponent(payload);
+  } catch {
+    throw new Error(`Unable to decode SVG source from ${name}.`);
+  }
+}
+
 function TikzPreview({ sent = false, value }: { sent?: boolean; value: string }): React.ReactElement {
   const [preview, setPreview] = useState<{ source: string; src?: string; error?: string }>();
 
@@ -864,14 +888,18 @@ export function AITutor({ modelSelector, moduleId, moduleCid, persistedOpenRoute
         ? await transcribeOpenRouter({ apiKey: openRouterKey }, audioBlob)
         : '';
       const typedAnswer = answer.trim();
-      const attachmentSummary = attachments.length > 0
-        ? `Attached student files: ${attachments.map((attachment) => attachment.name).join(', ')}.`
+      const svgAttachments = attachments.filter(isSvgAttachment);
+      const mediaAttachments = attachments.filter((attachment) => !isSvgAttachment(attachment));
+      const attachmentSummary = mediaAttachments.length > 0
+        ? `Attached student files: ${mediaAttachments.map((attachment) => attachment.name).join(', ')}.`
         : '';
+      const svgSummaries = svgAttachments.map((attachment) =>
+        `Student SVG drawing (${attachment.name}):\n${textFromDataUrl(attachment.dataUrl, attachment.name)}`);
       const tikzSummary = tikz ? `Student TikZ drawing:\n${tikz}` : '';
-      const studentAnswer = [typedAnswer, audioTranscript, attachmentSummary, tikzSummary]
+      const studentAnswer = [typedAnswer, audioTranscript, attachmentSummary, ...svgSummaries, tikzSummary]
         .filter(Boolean)
         .join('\n\n');
-      const studentMedia: OpenRouterAttachment[] = attachments.map(({ name, mimeType, dataUrl, kind }) => ({
+      const studentMedia: OpenRouterAttachment[] = mediaAttachments.map(({ name, mimeType, dataUrl, kind }) => ({
         name: `Current student response: ${name}`,
         mimeType,
         dataUrl,
@@ -891,7 +919,7 @@ export function AITutor({ modelSelector, moduleId, moduleCid, persistedOpenRoute
           studentAnswer,
           currentAiText,
           studentExercise,
-          studentMedia.filter((attachment) => attachment.kind === 'image').length + (tikz ? 1 : 0),
+          studentMedia.filter((attachment) => attachment.kind === 'image').length + svgAttachments.length + (tikz ? 1 : 0),
         ),
         undefined,
         media,

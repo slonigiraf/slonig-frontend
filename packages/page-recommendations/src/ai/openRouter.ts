@@ -59,13 +59,55 @@ function extractJson(text: string, responseKind: 'message' | 'nextStage'): Tutor
   return { message: parsed.message };
 }
 
+interface OpenRouterErrorMetadata {
+  provider_name?: string;
+  raw?: unknown;
+}
+
+interface OpenRouterErrorPayload {
+  error?: {
+    message?: string;
+    metadata?: OpenRouterErrorMetadata;
+  } | string;
+}
+
+function upstreamErrorDetail(raw: unknown): string {
+  if (typeof raw !== 'string') return '';
+  const trimmed = raw.trim();
+  if (!trimmed) return '';
+
+  try {
+    const parsed = JSON.parse(trimmed) as {
+      error?: { message?: unknown } | string;
+      message?: unknown;
+    };
+    if (typeof parsed.error === 'string') return parsed.error;
+    if (typeof parsed.error?.message === 'string') return parsed.error.message;
+    if (typeof parsed.message === 'string') return parsed.message;
+  } catch {
+    // The provider can return plain text instead of JSON.
+  }
+
+  return trimmed;
+}
+
 async function responseError(response: Response): Promise<Error> {
   const errorBody = await response.text();
   let detail = errorBody;
 
   try {
-    const parsed = JSON.parse(errorBody) as { error?: { message?: string } | string };
-    detail = typeof parsed.error === 'string' ? parsed.error : parsed.error?.message || errorBody;
+    const parsed = JSON.parse(errorBody) as OpenRouterErrorPayload;
+    if (typeof parsed.error === 'string') {
+      detail = parsed.error;
+    } else if (parsed.error) {
+      const message = parsed.error.message || '';
+      const provider = parsed.error.metadata?.provider_name;
+      const upstream = upstreamErrorDetail(parsed.error.metadata?.raw);
+      const providerPrefix = provider ? `${provider}: ` : '';
+      detail = upstream
+        ? `${message || 'Provider returned error'} (${providerPrefix}${upstream})`
+        : message || errorBody;
+    }
   } catch {
     // Keep the plain response text when the gateway did not return JSON.
   }
@@ -80,6 +122,30 @@ function headers(settings: OpenRouterSettings): Record<string, string> {
     ...(settings.siteUrl ? { 'HTTP-Referer': settings.siteUrl } : {}),
     ...(settings.siteName ? { 'X-OpenRouter-Title': settings.siteName } : {}),
   };
+}
+
+function isSvgAttachment(attachment: OpenRouterAttachment): boolean {
+  return attachment.mimeType.toLowerCase().startsWith('image/svg+xml')
+    || attachment.dataUrl.toLowerCase().startsWith('data:image/svg+xml');
+}
+
+function textFromDataUrl(dataUrl: string, name: string): string {
+  const separator = dataUrl.indexOf(',');
+  if (separator < 0) throw new Error(`Unable to read SVG source from ${name}.`);
+
+  const metadata = dataUrl.slice(0, separator);
+  const payload = dataUrl.slice(separator + 1);
+  try {
+    if (/;base64(?:;|$)/i.test(metadata)) {
+      const binary = atob(payload);
+      const bytes = new Uint8Array(binary.length);
+      for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+      return new TextDecoder().decode(bytes);
+    }
+    return decodeURIComponent(payload);
+  } catch {
+    throw new Error(`Unable to decode SVG source from ${name}.`);
+  }
 }
 
 export function askOpenRouter(
@@ -106,7 +172,14 @@ export async function askOpenRouter(
   if (attachments.length > 0) {
     const parts: Array<Record<string, unknown>> = [{ type: 'text', text: prompt }];
     attachments.forEach((attachment) => {
-      if (attachment.kind === 'image') {
+      if (isSvgAttachment(attachment)) {
+        // Vision providers such as Azure do not accept SVG image payloads. Keep
+        // the original vector source intact and let the model inspect it as text.
+        parts.push({
+          type: 'text',
+          text: `Attached SVG source: ${attachment.name}\n${textFromDataUrl(attachment.dataUrl, attachment.name)}`,
+        });
+      } else if (attachment.kind === 'image') {
         parts.push(
           { type: 'text', text: `Attached image: ${attachment.name}` },
           { type: 'image_url', image_url: { url: attachment.dataUrl } },
@@ -133,8 +206,10 @@ export async function askOpenRouter(
     headers: headers(settings),
     body: JSON.stringify({
       model: settings.model || DEFAULT_MODEL,
-      temperature: 0.2,
-      response_format: { type: 'json_object' },
+      // The AI Tutor already requires a single JSON object in every prompt and
+      // validates the parsed shape below. Avoid provider-specific sampling and
+      // response-format parameters here: the model picker can select providers
+      // whose multimodal endpoints do not accept those optional parameters.
       messages: [{ role: 'user', content }],
     }),
   });
