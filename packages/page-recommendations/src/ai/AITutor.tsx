@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Button, Input, LinearProgress, Modal, Spinner, styled } from '@polkadot/react-components';
-import { Bubble, Confirmation, FullFindow, getIPFSDataFromContentID, KatexSpan, loadFromSessionStorage, parseJson, ResizableImage, saveToSessionStorage, useIpfsContext, useSettingValue, VerticalCenterItemsContainer } from '@slonigiraf/slonig-components';
+import { Bubble, Confirmation, FullFindow, getIPFSDataFromContentID, KatexSpan, loadFromSessionStorage, parseJson, ResizableImage, saveToSessionStorage, TikzEditor, useIpfsContext, useSettingValue, VerticalCenterItemsContainer } from '@slonigiraf/slonig-components';
 import { clearAiTutorStudentMessages, deleteAiTutorStudentMessage, getAiTutorStudentMessage, getSetting, putAiTutorStudentMessage, SettingKey, storeSetting } from '@slonigiraf/db';
 import type { AiTutorStudentMessage } from '@slonigiraf/db';
 import type { ModelSelectorRenderer } from './modelSelector.js';
@@ -8,7 +8,7 @@ import { AlgorithmStage, StageType } from '../Teach/AlgorithmStage.js';
 import { TutoringAlgorithm } from '../Teach/TutoringAlgorithm.js';
 import type { Skill as TutorSkill } from '@slonigiraf/slonig-components';
 import { createAiLesson, AiSkill, aiLessonId, resetAiLesson, saveAiDecision } from './lessonStore.js';
-import { askOpenRouter, DEFAULT_MODEL, generateOpenRouterImage, transcribeOpenRouter } from './openRouter.js';
+import { askOpenRouter, DEFAULT_MODEL, transcribeOpenRouter } from './openRouter.js';
 import type { OpenRouterAttachment } from './openRouter.js';
 import { getLesson } from '@slonigiraf/db';
 import { decisionPrompt, generatedStagePrompt } from './tutorPrompts.js';
@@ -47,12 +47,19 @@ interface SubmittedStudentMessage {
   attachments: ComposerAttachment[];
   hasAudio: boolean;
   audioSeconds: number;
+  tikz?: string;
 }
 
 type StoredStudentMessage = AiTutorStudentMessage<SubmittedStudentMessage, OpenRouterAttachment>;
 
 function attachmentId(): string {
   return `${Date.now()}-${Math.random().toString(36).slice(2)}`;
+}
+
+function isTikzCode(value: string): boolean {
+  const trimmed = value.trim();
+
+  return /\\begin\s*\{tikzpicture\}/.test(trimmed) && /\\end\s*\{tikzpicture\}/.test(trimmed);
 }
 
 function fileToDataUrl(file: File): Promise<string> {
@@ -324,7 +331,8 @@ export function AITutor({ modelSelector, moduleId, moduleCid, persistedOpenRoute
   const [audioBlob, setAudioBlob] = useState<Blob>();
   const [recording, setRecording] = useState(false);
   const [recordingSeconds, setRecordingSeconds] = useState(0);
-  const [generatingImage, setGeneratingImage] = useState(false);
+  const [tikz, setTikz] = useState('');
+  const [tikzEditorOpen, setTikzEditorOpen] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [tutorValidationMessage, setTutorValidationMessage] = useState('');
@@ -438,6 +446,7 @@ export function AITutor({ modelSelector, moduleId, moduleCid, persistedOpenRoute
         setAttachments([]);
         setAudioBlob(undefined);
         setRecordingSeconds(0);
+        setTikz('');
       }
     })();
 
@@ -525,7 +534,9 @@ export function AITutor({ modelSelector, moduleId, moduleCid, persistedOpenRoute
 
     const sourceQuestionRequiresImage = Boolean(skill.questions[0]?.questionImageCid);
     const studentExerciseReferencesMedia = studentExercise.includes('Attached student files:');
-    if ((sourceQuestionRequiresImage || studentExerciseReferencesMedia) && studentExerciseMedia.length === 0) {
+    const studentExerciseHasTikz = isTikzCode(studentExercise);
+    if ((studentExerciseReferencesMedia && studentExerciseMedia.length === 0)
+      || (sourceQuestionRequiresImage && studentExerciseMedia.length === 0 && !studentExerciseHasTikz)) {
       setError('The student-created exercise media is no longer available. Please create the similar exercise again so the AI tutor can inspect it.');
       setAlgorithmStage(algorithm?.getBegin());
       return;
@@ -589,6 +600,7 @@ export function AITutor({ modelSelector, moduleId, moduleCid, persistedOpenRoute
     setAttachments([]);
     setAudioBlob(undefined);
     setRecordingSeconds(0);
+    setTikz('');
   }, []);
 
   const addFiles = useCallback(async (files: File[]): Promise<void> => {
@@ -653,7 +665,7 @@ export function AITutor({ modelSelector, moduleId, moduleCid, persistedOpenRoute
   }, []);
 
   const startRecording = useCallback(async (): Promise<void> => {
-    if (loading || generatingImage) return;
+    if (loading) return;
     if (!navigator.mediaDevices?.getUserMedia || typeof MediaRecorder === 'undefined') {
       setError('Audio recording is not supported by this browser.');
       return;
@@ -692,43 +704,7 @@ export function AITutor({ modelSelector, moduleId, moduleCid, persistedOpenRoute
       mediaStreamRef.current = undefined;
       setError(e instanceof Error ? e.message : 'Unable to access the microphone.');
     }
-  }, [generatingImage, loading]);
-
-  const createImageFromDraft = useCallback(async (): Promise<void> => {
-    if (loading || generatingImage) return;
-    if (addControlRef.current) addControlRef.current.open = false;
-    const prompt = answer.trim();
-    if (!prompt) {
-      setError('Type a description in the reply field first, then choose Create image.');
-      answerInputRef.current?.focus();
-      return;
-    }
-    if (!openRouterKey) {
-      setKeyDialogOpen(true);
-      return;
-    }
-    if (attachments.length >= MAX_ATTACHMENTS) {
-      setError(`You can attach up to ${MAX_ATTACHMENTS} files at a time.`);
-      return;
-    }
-
-    setGeneratingImage(true);
-    setError('');
-    try {
-      const generated = await generateOpenRouterImage({ apiKey: openRouterKey }, prompt);
-      setAttachments((current) => [...current, {
-        id: attachmentId(),
-        name: `generated-image-${Date.now()}.png`,
-        mimeType: generated.mimeType,
-        dataUrl: generated.dataUrl,
-        kind: 'image',
-      }].slice(0, MAX_ATTACHMENTS));
-    } catch (e) {
-      setError(e instanceof Error ? e.message : 'Unable to create the image.');
-    } finally {
-      setGeneratingImage(false);
-    }
-  }, [answer, attachments.length, generatingImage, loading, openRouterKey]);
+  }, [loading]);
 
   const finishSkill = useCallback(async (action: 'skip' | 'mark_for_repeat_crude', countedCorrect: boolean): Promise<void> => {
     const lesson = await createAiLesson(moduleId, moduleCid, studentId, skills);
@@ -754,7 +730,7 @@ export function AITutor({ modelSelector, moduleId, moduleCid, persistedOpenRoute
     // React state updates are asynchronous, so `loading` alone cannot prevent two
     // rapid Enter/click events from starting concurrent decisions for one stage.
     if (!skill || !algorithmStage || recording || submitInFlightRef.current) return;
-    if (!answer.trim() && attachments.length === 0 && !audioBlob) return;
+    if (!answer.trim() && attachments.length === 0 && !audioBlob && !tikz) return;
 
     if (stageUsesStudentExerciseMedia(algorithmStage)
       && studentExercise.includes('Attached student files:')
@@ -772,18 +748,19 @@ export function AITutor({ modelSelector, moduleId, moduleCid, persistedOpenRoute
       attachments: attachments.map((attachment) => ({ ...attachment })),
       hasAudio: Boolean(audioBlob),
       audioSeconds: recordingSeconds,
+      tikz: tikz || undefined,
     };
 
-    // Image-based create-similar and "Repeat after me" stages require the
-    // student to submit an image too. Reject text-only, voice-only, and
+    // Visual create-similar and "Repeat after me" stages require the student
+    // to submit either an image or a TikZ drawing. Reject text-only, voice-only, and
     // non-image-file-only attempts locally so they do not consume either a
     // transcription request or a tutor decision request. Keep the draft intact
     // so the student can attach an image and submit again.
     const referenceRequiresStudentImage = stageRequiresStudentImageWhenReferenceHasImage(algorithmStage)
       && stageImageCids(algorithmStage).length > 0;
-    const studentHasImage = attachments.some((attachment) => attachment.kind === 'image');
-    if (referenceRequiresStudentImage && !studentHasImage) {
-      setTutorValidationMessage('You forgot to attach an image.');
+    const studentHasVisual = attachments.some((attachment) => attachment.kind === 'image') || isTikzCode(tikz);
+    if (referenceRequiresStudentImage && !studentHasVisual) {
+      setTutorValidationMessage('You forgot to attach an image or add a drawing.');
       return;
     }
 
@@ -809,7 +786,8 @@ export function AITutor({ modelSelector, moduleId, moduleCid, persistedOpenRoute
       const attachmentSummary = attachments.length > 0
         ? `Attached student files: ${attachments.map((attachment) => attachment.name).join(', ')}.`
         : '';
-      const studentAnswer = [typedAnswer, audioTranscript, attachmentSummary]
+      const tikzSummary = tikz ? `Student TikZ drawing:\n${tikz}` : '';
+      const studentAnswer = [typedAnswer, audioTranscript, attachmentSummary, tikzSummary]
         .filter(Boolean)
         .join('\n\n');
       const studentMedia: OpenRouterAttachment[] = attachments.map(({ name, mimeType, dataUrl, kind }) => ({
@@ -832,7 +810,7 @@ export function AITutor({ modelSelector, moduleId, moduleCid, persistedOpenRoute
           studentAnswer,
           currentAiText,
           studentExercise,
-          studentMedia.filter((attachment) => attachment.kind === 'image').length,
+          studentMedia.filter((attachment) => attachment.kind === 'image').length + (tikz ? 1 : 0),
         ),
         undefined,
         media,
@@ -916,7 +894,7 @@ export function AITutor({ modelSelector, moduleId, moduleCid, persistedOpenRoute
       submitInFlightRef.current = false;
       setLoading(false);
     }
-  }, [algorithm, algorithmStage, answer, attachments, audioBlob, currentAiText, finishSkill, lastStudentMessage, lessonId, lessonStep, loadStageImageAttachments, model, openRouterKey, recording, recordingSeconds, resetComposer, skill, studentExercise, studentExerciseMedia]);
+  }, [algorithm, algorithmStage, answer, attachments, audioBlob, currentAiText, finishSkill, lastStudentMessage, lessonId, lessonStep, loadStageImageAttachments, model, openRouterKey, recording, recordingSeconds, resetComposer, skill, studentExercise, studentExerciseMedia, tikz]);
 
   const resizeAnswerInput = useCallback((element: HTMLTextAreaElement | null): void => {
     if (!element) return;
@@ -945,7 +923,7 @@ export function AITutor({ modelSelector, moduleId, moduleCid, persistedOpenRoute
   }, [algorithmStage, currentAiText, keyDialogOpen, loading, recording, skill]);
 
   const skipSkill = useCallback(async (): Promise<void> => {
-    if (!skill || loading || generatingImage || recording || submitInFlightRef.current) return;
+    if (!skill || loading || recording || submitInFlightRef.current) return;
     setLoading(true);
     setError('');
     try {
@@ -956,12 +934,11 @@ export function AITutor({ modelSelector, moduleId, moduleCid, persistedOpenRoute
     } finally {
       setLoading(false);
     }
-  }, [finishSkill, generatingImage, loading, recording, skill]);
+  }, [finishSkill, loading, recording, skill]);
 
   const canSubmit = !loading
-    && !generatingImage
     && !recording
-    && Boolean(answer.trim() || attachments.length > 0 || audioBlob);
+    && Boolean(answer.trim() || attachments.length > 0 || audioBlob || tikz);
 
   return (
     <FullFindow>
@@ -982,11 +959,12 @@ export function AITutor({ modelSelector, moduleId, moduleCid, persistedOpenRoute
                 <StudentBubble>
                   <MessageRole>You</MessageRole>
                   {lastStudentMessage.text && <MessageBody><KatexSpan content={lastStudentMessage.text} /></MessageBody>}
-                  {(lastStudentMessage.attachments.length > 0 || lastStudentMessage.hasAudio) && <SentMedia>
+                  {(lastStudentMessage.attachments.length > 0 || lastStudentMessage.hasAudio || lastStudentMessage.tikz) && <SentMedia>
                     {lastStudentMessage.attachments.map((attachment) => attachment.kind === 'image'
                       ? <SentImage key={attachment.id} src={attachment.dataUrl} alt={attachment.name} title={attachment.name} />
                       : <SentFile key={attachment.id}>▤ {attachment.name}</SentFile>)}
                     {lastStudentMessage.hasAudio && <SentFile>● Voice message · {formatRecordingTime(lastStudentMessage.audioSeconds)}</SentFile>}
+                    {lastStudentMessage.tikz && <SentFile title={lastStudentMessage.tikz}>✎ TikZ drawing</SentFile>}
                   </SentMedia>}
                 </StudentBubble>
               </StudentMessage>}
@@ -1028,7 +1006,7 @@ export function AITutor({ modelSelector, moduleId, moduleCid, persistedOpenRoute
                   placeholder='Type your answer'
                   disabled={loading}
                 />
-                {!loading && (attachments.length > 0 || audioBlob || recording) && <AttachmentTray>
+                {!loading && (attachments.length > 0 || audioBlob || recording || tikz) && <AttachmentTray>
                   {attachments.map((attachment) => <AttachmentChip key={attachment.id}>
                     {attachment.kind === 'image'
                       ? <AttachmentImage src={attachment.dataUrl} alt={`Preview of ${attachment.name}`} title={attachment.name} />
@@ -1053,6 +1031,11 @@ export function AITutor({ modelSelector, moduleId, moduleCid, persistedOpenRoute
                       setRecordingSeconds(0);
                     }}>×</RemoveAttachmentButton>
                   </AudioChip>}
+                  {tikz && <AttachmentChip>
+                    <AttachmentFileIcon aria-hidden='true'>✎</AttachmentFileIcon>
+                    <AttachmentLabel title={tikz}>TikZ drawing</AttachmentLabel>
+                    <RemoveAttachmentButton type='button' aria-label='Remove TikZ drawing' onClick={() => setTikz('')}>×</RemoveAttachmentButton>
+                  </AttachmentChip>}
                 </AttachmentTray>}
                 <ComposerFooter>
                   <ComposerTools>
@@ -1073,9 +1056,12 @@ export function AITutor({ modelSelector, moduleId, moduleCid, persistedOpenRoute
                           <MenuGlyph aria-hidden='true'>▣</MenuGlyph>
                           <span>Take a photo</span>
                         </AddMenuButton>
-                        <AddMenuButton type='button' disabled={generatingImage || loading} onClick={() => void createImageFromDraft()}>
-                          <MenuGlyph aria-hidden='true'>✦</MenuGlyph>
-                          <span>{generatingImage ? 'Creating image…' : 'Create image'}</span>
+                        <AddMenuButton type='button' disabled={loading} onClick={() => {
+                          if (addControlRef.current) addControlRef.current.open = false;
+                          setTikzEditorOpen(true);
+                        }}>
+                          <MenuGlyph aria-hidden='true'>✎</MenuGlyph>
+                          <span>Draw image</span>
                         </AddMenuButton>
                       </AddMenu>
                     </AddControl>
@@ -1106,7 +1092,7 @@ export function AITutor({ modelSelector, moduleId, moduleCid, persistedOpenRoute
                       type='button'
                       aria-label='Skip skill'
                       title='Skip skill'
-                      disabled={loading || generatingImage || recording}
+                      disabled={loading || recording}
                       onClick={() => void skipSkill()}
                     >
                       <span>Skip</span>
@@ -1130,7 +1116,7 @@ export function AITutor({ modelSelector, moduleId, moduleCid, persistedOpenRoute
                       className={recording ? 'recording' : ''}
                       aria-label={recording ? 'Stop recording' : 'Record voice answer'}
                       title={recording ? 'Stop recording' : 'Record voice answer'}
-                      disabled={loading || generatingImage}
+                      disabled={loading}
                       onClick={() => recording ? stopRecording() : void startRecording()}
                     >
                       {recording
@@ -1187,6 +1173,18 @@ export function AITutor({ modelSelector, moduleId, moduleCid, persistedOpenRoute
           />
         </Modal.Content>
       </Modal>}
+      {tikzEditorOpen && <TikzEditor
+        ariaLabel='Student drawing TikZ editor'
+        onCancel={() => setTikzEditorOpen(false)}
+        onSave={(source) => {
+          if (!isTikzCode(source)) throw new Error('The drawing must contain one complete tikzpicture environment.');
+          setTikz(source);
+          setTutorValidationMessage('');
+        }}
+        onSaved={() => setTikzEditorOpen(false)}
+        title='Draw image'
+        value={tikz}
+      />}
     </FullFindow>
   );
 }

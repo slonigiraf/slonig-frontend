@@ -30,7 +30,7 @@ interface DecisionPromptContext {
   studentAnswer: string;
   tutorTextShown: string;
   studentExercise: string;
-  studentImageCount: number;
+  studentVisualCount: number;
 }
 
 function nextStageIndex(stage: AlgorithmStage, types: StageType | StageType[]): number {
@@ -48,7 +48,7 @@ function nextStageJson(stage: AlgorithmStage, types: StageType | StageType[]): s
   return `{"nextStage": ${nextStageIndex(stage, types)}}`;
 }
 
-function decisionContext({ skill, stage, studentAnswer, tutorTextShown, studentExercise, studentImageCount }: DecisionPromptContext): string[] {
+function decisionContext({ skill, stage, studentAnswer, tutorTextShown, studentExercise, studentVisualCount }: DecisionPromptContext): string[] {
   const messages = stage.getMessages()
     .map((message) => [message.title, message.text, message.exercise].filter(Boolean).join(' '))
     .join('\n');
@@ -72,7 +72,7 @@ function decisionContext({ skill, stage, studentAnswer, tutorTextShown, studentE
     `Tutor decision question: ${stage.getActionHint() || 'Choose the next programmed step based on what the student just did.'}`,
     `Programmed stage instructions:\n${messages || '(none)'}`,
     `Tutor/stored image attachments for this stage: ${tutorStageImageCount}. When nonzero, they are supplied as attachments named \"Tutor stage image ...\".`,
-    `Images attached by the student in the current response: ${studentImageCount}. These are supplied as attachments named \"Current student response: ...\".`,
+    `Visuals supplied by the student in the current response: ${studentVisualCount}. Raster images are attachments named \"Current student response: ...\"; TikZ drawings are included as source code in the student response.`,
     `Tutor text currently shown to the student:\n${tutorTextShown || '(none)'}`,
     `Next stages by index:\n${choices || '(none)'}`,
     `Skill: ${skill.title}\n${skill.description || ''}`,
@@ -91,7 +91,7 @@ function beginCreateSimilarExerciseDecisionPrompt(context: DecisionPromptContext
     'You are taking the role of the HUMAN TUTOR in the begin_ask_to_create_similar_exercise stage of a Slonig TutoringAlgorithm.',
     'This request is only to decide whether the student created a genuinely new exercise that practices the same skill as the shown example.',
     'A copied, repeated, lightly paraphrased, or merely answered version of the example is NOT a newly created similar exercise.',
-    "If the shown example has an image, the student must also create or submit at least one image that is genuinely part of their new exercise. A text-only response does NOT count in that case. Do not count the tutor's original image as student-created, and do not accept an unrelated image or an unchanged copy of the original image as satisfying this requirement.",
+    "If the shown example has an image, the student must also create or submit at least one visual that is genuinely part of their new exercise. A raster image or a valid TikZ drawing counts; a text-only response does NOT. Do not count the tutor's original image as student-created, and do not accept an unrelated visual or an unchanged copy of the original as satisfying this requirement.",
     `If the student created a genuinely new similar exercise, return ${created}.`,
     `Otherwise, return ${notCreated}. Do not select the Skip stage merely because the exercise is poor or incorrect.`,
     'Do NOT tutor in your own words. Do NOT give feedback, encouragement, hints, explanations, or replacement dialogue.',
@@ -107,7 +107,7 @@ function createSimilarExerciseDecisionPrompt(context: DecisionPromptContext): st
     'You are taking the role of the HUMAN TUTOR in the ask_to_create_similar_exercise stage of a Slonig TutoringAlgorithm.',
     'This request is only to decide whether the student created a genuinely new exercise that practices the same skill as the shown example.',
     'A copied, repeated, lightly paraphrased, or merely answered version of the example is NOT a newly created similar exercise.',
-    "If the shown example has an image, the student must also create or submit at least one image that is genuinely part of their new exercise. A text-only response does NOT count in that case. Do not count the tutor's original image as student-created, and do not accept an unrelated image or an unchanged copy of the original image as satisfying this requirement.",
+    "If the shown example has an image, the student must also create or submit at least one visual that is genuinely part of their new exercise. A raster image or a valid TikZ drawing counts; a text-only response does NOT. Do not count the tutor's original image as student-created, and do not accept an unrelated visual or an unchanged copy of the original as satisfying this requirement.",
     `If the student created a genuinely new similar exercise, return ${created}.`,
     `Otherwise, return ${notCreated}.`,
     'Do NOT tutor in your own words. Do NOT give feedback, encouragement, hints, explanations, or replacement dialogue.',
@@ -123,7 +123,7 @@ function cycleCreateSimilarExerciseDecisionPrompt(context: DecisionPromptContext
     'You are taking the role of the HUMAN TUTOR in the cycle_ask_to_create_similar_exercise stage of a Slonig TutoringAlgorithm.',
     'The student has just completed a repetition cycle. This request is only to decide whether they now created a genuinely new exercise that practices the same skill as the shown example.',
     'A copied, repeated, lightly paraphrased, or merely answered version of the example is NOT a newly created similar exercise.',
-    "If the shown example has an image, the student must also create or submit at least one image that is genuinely part of their new exercise. A text-only response does NOT count in that case. Do not count the tutor's original image as student-created, and do not accept an unrelated image or an unchanged copy of the original image as satisfying this requirement.",
+    "If the shown example has an image, the student must also create or submit at least one visual that is genuinely part of their new exercise. A raster image or a valid TikZ drawing counts; a text-only response does NOT. Do not count the tutor's original image as student-created, and do not accept an unrelated visual or an unchanged copy of the original as satisfying this requirement.",
     `If the student created a genuinely new similar exercise, return ${created}.`,
     `Otherwise, return ${notCreated}.`,
     'Do NOT tutor in your own words. Do NOT give feedback, encouragement, hints, explanations, or replacement dialogue.',
@@ -246,9 +246,9 @@ export function decisionPrompt(
   studentAnswer: string,
   tutorTextShown: string,
   studentExercise: string,
-  studentImageCount: number,
+  studentVisualCount: number,
 ): string {
-  const context = { skill, stage, studentAnswer, tutorTextShown, studentExercise, studentImageCount };
+  const context = { skill, stage, studentAnswer, tutorTextShown, studentExercise, studentVisualCount };
 
   switch (stage.getType()) {
     case StageType.begin_ask_to_create_similar_exercise:
@@ -297,7 +297,7 @@ function generatedStageContext(skill: AiSkill, stage: AlgorithmStage, studentExe
     `Current stage: ${stage.getType()}`,
     `Programmed stage instructions:\n${stageInstructions}`,
     `Student-created exercise:\n${studentExercise}`,
-    'Any attachments named \"Student-created exercise ...\" are part of that exact exercise. Inspect them when solving or generating the requested solution.',
+    'Any attachments named \"Student-created exercise ...\" and any TikZ drawing source embedded in the exercise are part of that exact exercise. Inspect them when solving or generating the requested solution.',
     `Skill: ${skill.title}\nStored DB examples for reference:\n${examples || 'none'}`,
     GENERATED_MESSAGE_KATEX_REQUIREMENTS,
     'Return only one JSON object with exactly one key: message.',
