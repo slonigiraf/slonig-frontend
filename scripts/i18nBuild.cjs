@@ -129,7 +129,7 @@ function chunk(arr, size) {
  * @returns {Promise<Record<string,string>>}
  */
 async function translateBatch(client, lang, keys) {
-  const lines = keys.map((k, i) => `${i + 1}. ${k}`).join("\n");
+  const sourceStrings = keys.map((text, id) => ({ id, text }));
 
   const instructions = [
     `You are a professional software localizer.`,
@@ -137,7 +137,8 @@ async function translateBatch(client, lang, keys) {
     `Rules:`,
     `- Always use the informal second-person singular form (T-form, e.g. “ты”, “tu”, “tú”, “du”) in the target language whenever there is a choice between formal and informal address.`,
     `- Do NOT use any formal or polite forms (V-form, e.g. “вы”, “vous”, “Sie”).`,
-    `- Return ONLY a valid JSON object mapping the ORIGINAL STRING to its translation.`,
+    `- Return one translation for every supplied numeric id.`,
+    `- Copy each id exactly and translate only its text.`,
     `- Preserve placeholders exactly: {{var}}, {var}, %s, %d, <0>...</0>, HTML tags, markdown, emojis.`,
     `- Do not add extra commentary.`,
     `- In the case of the Serbian language, use the Latin script.`,
@@ -149,8 +150,8 @@ async function translateBatch(client, lang, keys) {
     {
       role: "user",
       content:
-        `Translate the following UI strings (each line is one string):\n\n${lines}\n\n` +
-        `Return JSON like {"Hello":"Bonjour", ...} using the original strings as keys.`,
+        `Translate every UI string in this JSON array:\n\n${JSON.stringify(sourceStrings)}\n\n` +
+        `Return an object containing a "translations" array of objects with "id" and "translation" fields.`,
     },
   ];
 
@@ -160,20 +161,68 @@ async function translateBatch(client, lang, keys) {
       const resp = await client.chat.completions.create({
         model: OPENAI_MODEL,
         messages,
+        response_format: {
+          type: "json_schema",
+          json_schema: {
+            name: "ui_translations",
+            strict: true,
+            schema: {
+              type: "object",
+              properties: {
+                translations: {
+                  type: "array",
+                  items: {
+                    type: "object",
+                    properties: {
+                      id: { type: "integer" },
+                      translation: { type: "string" },
+                    },
+                    required: ["id", "translation"],
+                    additionalProperties: false,
+                  },
+                },
+              },
+              required: ["translations"],
+              additionalProperties: false,
+            },
+          },
+        },
       });
 
-      const text = resp.choices?.[0]?.message?.content?.trim() || "";
-      const jsonStart = text.indexOf("{");
-      const jsonEnd = text.lastIndexOf("}");
-      if (jsonStart === -1 || jsonEnd === -1) throw new Error("No JSON object found in model output.");
+      const choice = resp.choices?.[0];
+      if (!choice) throw new Error("Model returned no completion choice.");
+      if (choice.finish_reason !== "stop") {
+        throw new Error(`Model stopped with finish_reason=${choice.finish_reason}.`);
+      }
+      if (choice.message.refusal) throw new Error(`Model refused the translation request: ${choice.message.refusal}`);
 
-      const parsed = JSON.parse(text.slice(jsonStart, jsonEnd + 1));
+      const text = choice.message.content?.trim() || "";
+      const parsed = JSON.parse(text);
+      if (!Array.isArray(parsed.translations)) throw new Error("Model response has no translations array.");
+
+      /** @type {Map<number,string>} */
+      const translationsById = new Map();
+      for (const item of parsed.translations) {
+        if (!Number.isInteger(item.id) || item.id < 0 || item.id >= keys.length) {
+          throw new Error(`Model returned an invalid translation id: ${String(item.id)}.`);
+        }
+        if (translationsById.has(item.id)) throw new Error(`Model returned duplicate translation id ${item.id}.`);
+        if (typeof item.translation !== "string" || item.translation.trim().length === 0) {
+          throw new Error(`Model returned an empty translation for id ${item.id}.`);
+        }
+        translationsById.set(item.id, item.translation);
+      }
+
+      if (translationsById.size !== keys.length) {
+        const missingIds = keys.map((_, id) => id).filter((id) => !translationsById.has(id));
+        throw new Error(`Model omitted translation ids: ${missingIds.join(", ")}.`);
+      }
 
       /** @type {Record<string,string>} */
       const out = {};
-      for (const k of keys) {
-        const v = parsed[k];
-        if (typeof v === "string" && v.length) out[k] = v;
+      for (let id = 0; id < keys.length; id++) {
+        // The completeness check above guarantees this value exists.
+        out[keys[id]] = /** @type {string} */ (translationsById.get(id));
       }
       return out;
     } catch (e) {
@@ -282,21 +331,10 @@ async function main() {
     console.log(`📝 ${lang}: translating ${toTranslate.length} keys (batch=${OPENAI_BATCH})`);
 
     for (const batchKeys of chunk(toTranslate, OPENAI_BATCH)) {
-      /** @type {Record<string,string>} */
-      let translated = {};
-      try {
-        translated = await translateBatch(client, lang, batchKeys);
-      } catch (e) {
-        // @ts-ignore
-        console.error(`❌ ${lang}: batch translation failed (${batchKeys.length} keys): ${e.message}`);
-        // Still ensure missing keys exist (empty fallback)
-        for (const k of batchKeys) if (!(k in cleaned)) cleaned[k] = "";
-        continue;
-      }
+      const translated = await translateBatch(client, lang, batchKeys);
 
       for (const k of batchKeys) {
-        if (translated[k]) cleaned[k] = translated[k];
-        else if (!(k in cleaned)) cleaned[k] = "";
+        cleaned[k] = translated[k];
       }
 
       // write incrementally
