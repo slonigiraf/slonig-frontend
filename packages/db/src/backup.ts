@@ -11,6 +11,11 @@ const BOOK_PARSING_TABLES = new Set([
   'exerciseTemplates'
 ]);
 
+const CACHE_TABLES = new Set([
+  'cidCache',
+  'aiTutorStudentMessages'
+]);
+
 export function shouldExportDatabaseRow (tableName: string, value?: unknown, includeEverything = false): boolean {
   if (includeEverything) {
     return true;
@@ -21,5 +26,5 @@ export function shouldExportDatabaseRow (tableName: string, value?: unknown, inc
     : undefined;
   const isBookParsingAbility = typeof moduleId === 'string' && /^book-\d+-exercise-\d+$/.test(moduleId);
 
-  return tableName !== 'cidCache' && !BOOK_PARSING_TABLES.has(tableName) && !isBookParsingAbility;
+  return !CACHE_TABLES.has(tableName) && !BOOK_PARSING_TABLES.has(tableName) && !isBookParsingAbility;
 }

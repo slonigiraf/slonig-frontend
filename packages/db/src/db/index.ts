@@ -28,6 +28,7 @@ import type { BookChapter } from './BookChapter.js';
 import type { Exercise } from './Exercise.js';
 import type { Skill } from './Skill.js';
 import type { ExerciseTemplate } from './ExerciseTemplate.js';
+import type { AiTutorStudentMessage } from './AiTutorStudentMessage.js';
 
 type LegacyBookSkill = Omit<Skill, 'exerciseIds'> & { bookExerciseIds?: number[] };
 type LegacyExerciseTemplate = Omit<ExerciseTemplate, 'skillId'> & { bookSkillId: number };
@@ -61,6 +62,7 @@ class SlonigDB extends Dexie {
   exercises!: Table<Exercise, number>;
   skills!: Table<Skill, number>;
   exerciseTemplates!: Table<ExerciseTemplate, number>;
+  aiTutorStudentMessages!: Table<AiTutorStudentMessage, string>;
 
   constructor() {
     super('slonig');
@@ -529,6 +531,10 @@ class SlonigDB extends Dexie {
           }
         }
       }
+    });
+
+    this.version(93).stores({
+      aiTutorStudentMessages: '&key,lessonId'
     });
 
   }

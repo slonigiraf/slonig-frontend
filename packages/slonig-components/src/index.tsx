@@ -49,6 +49,7 @@ export { default as NotClosableFullscreen } from './NotClosableFullscreen.js';
 export { useSettingValue, useBooleanSettingValue, useNumberSettingValue, stringToNumber } from './useSettingValue.js';
 export { default as ClassInstruction } from './ClassInstruction.js';
 export { default as LessonResultInfo } from './LessonResultInfo.js'
+export { default as TikzEditor } from './TikzEditor.js';
 
 export const EXISTENTIAL_BATCH_SENDER_BALANCE = new BN('10000000000000'); // 10 Slon = 10000000000000
 export const EXISTENTIAL_REFEREE_BALANCE = new BN('1000000000000000'); // 1k Slon = 1000000000000000

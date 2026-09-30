@@ -3,16 +3,22 @@ import { Spinner, styled } from '@polkadot/react-components';
 import { useToggle } from '@polkadot/react-hooks';
 import { Modal } from '@polkadot/react-components';
 import { useTranslation } from './translate.js';
-import { FullWidthContainer, useIpfsContext } from './index.js';
+import { useIpfsContext } from './index.js';
 import { getIPFSBytesFromContentID } from '@slonigiraf/slonig-components';
 import { fileTypeFromBuffer } from 'file-type';
 
-interface Props {
-  cid: string;
+interface BaseProps {
   alt?: string;
+  className?: string;
+  title?: string;
 }
 
-const ResizableImage: React.FC<Props> = ({ cid, alt }) => {
+type Props = BaseProps & (
+  { cid: string; src?: never } |
+  { cid?: never; src: string }
+);
+
+const ResizableImage: React.FC<Props> = ({ cid, alt, className, src: sourceSrc, title }) => {
   const { t } = useTranslation();
   const { ipfs, isIpfsReady } = useIpfsContext();
   const [isBig, toggleSize] = useToggle();
@@ -23,6 +29,8 @@ const ResizableImage: React.FC<Props> = ({ cid, alt }) => {
   // Fetch image from IPFS using the CID and utility function
   useEffect(() => {
     const fetchImage = async () => {
+      if (!cid) return;
+
       try {
         const bytes = await getIPFSBytesFromContentID(ipfs, cid);
 
@@ -48,10 +56,12 @@ const ResizableImage: React.FC<Props> = ({ cid, alt }) => {
       }
     };
 
-    if (isIpfsReady) {
+    if (!sourceSrc && cid && isIpfsReady) {
       fetchImage();
     }
-  }, [cid, ipfs, isIpfsReady]);
+  }, [cid, ipfs, isIpfsReady, sourceSrc]);
+
+  const imageSrc = sourceSrc || src;
 
   const handleToggleSize = () => {
     if (isBig) {
@@ -84,17 +94,17 @@ const ResizableImage: React.FC<Props> = ({ cid, alt }) => {
     lastPinchDistance.current = 0;
   };
 
-  return (src ?
+  return (imageSrc ?
     <>
-      <NormalImage src={src} alt={alt ? alt : t('Image')} onClick={toggleSize} />
+      <NormalImage className={className} src={imageSrc} alt={alt ? alt : t('Image')} onClick={toggleSize} title={title} />
       {isBig && (
-        <Modal header=" " onClose={handleToggleSize} size="large">
+        <ImageModal header=" " onClose={handleToggleSize} size="large">
           <Modal.Content>
-            <FullWidthContainer onTouchStart={handleTouchStart} onTouchMove={handleTouchMove}>
-              <BigImage src={src} alt={alt ? alt : t('Image')} style={{ transform: `scale(${scale})` }} />
-            </FullWidthContainer>
+            <Viewport onTouchStart={handleTouchStart} onTouchMove={handleTouchMove}>
+              <BigImage src={imageSrc} alt={alt ? alt : t('Image')} style={{ transform: `scale(${scale})` }} />
+            </Viewport>
           </Modal.Content>
-        </Modal>
+        </ImageModal>
       )}
     </> :
     <NormalImageAlt>
@@ -104,6 +114,7 @@ const ResizableImage: React.FC<Props> = ({ cid, alt }) => {
 };
 
 const NormalImage = styled.img`
+  cursor: zoom-in;
   padding-top: 5px;
   width: 150px;
 `;
@@ -112,10 +123,34 @@ const NormalImageAlt = styled.div`
   width: 150px;
 `;
 
-const BigImage = styled.img`
-  padding-top: 5px;
+const ImageModal = styled(Modal)`
+  .ui--Modal__body {
+    box-sizing: border-box;
+    max-height: calc(100dvh - 16px);
+    max-width: calc(100vw - 16px);
+    overflow: auto;
+  }
+`;
+
+const Viewport = styled.div`
+  align-items: center;
+  display: flex;
+  justify-content: center;
+  min-height: 0;
+  overflow: auto;
   width: 100%;
-  transform-origin: center;
+`;
+
+const BigImage = styled.img`
+  display: block;
+  height: auto;
+  margin: 0 auto;
+  max-height: calc(100dvh - 9rem);
+  max-width: 100%;
+  object-fit: contain;
+  padding-top: 5px;
+  transform-origin: center center;
+  width: 100%;
 `;
 
 export default React.memo(ResizableImage);

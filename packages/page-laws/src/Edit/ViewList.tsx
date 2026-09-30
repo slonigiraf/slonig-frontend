@@ -16,6 +16,8 @@ import styled from 'styled-components';
 import { sleptBetween, takeWithinTime } from '../util.js';
 import { EXAMPLE_COURSE_KNOWLEDGE_ID, EXAMPLE_MODULE_KNOWLEDGE_CID, EXAMPLE_MODULE_KNOWLEDGE_ID, LESSON_LENGTH_SEC } from '@slonigiraf/utils';
 import LearningRouter from './LearningRouter.js';
+import { AITutorButton } from '@slonigiraf/app-recommendations';
+import OpenRouterModelSelector from '../OpenRouterModelSelector.js';
 
 type JsonType = { [key: string]: any } | null;
 
@@ -62,6 +64,7 @@ function ViewList({ className = '', id, cidString, isClassInstructionShown, setI
   const [isLaunchLearnConfirmOpen, setIsLaunchLearnConfirmOpen] = useState(false);
   const [isLaunchExamConfirmOpen, setIsLaunchExamConfirmOpen] = useState(false);
   const [wereStatisticsLoaded, setWereStatisticsLoaded] = useState(false);
+  const [aiTutorProgressRevision, setAiTutorProgressRevision] = useState(0);
   const [isPutDeviceAsideVisible, togglePutDeviceAsideVisible] = useToggle();
 
   async function fetchLaw(key: string) {
@@ -123,7 +126,7 @@ function ViewList({ className = '', id, cidString, isClassInstructionShown, setI
       }
     };
     fetchCIDs();
-  }, [list, studentIdentity, setIsThereAnythingToLearn, setIsThereAnythingToReexamine, setWereStatisticsLoaded]);
+  }, [aiTutorProgressRevision, list, studentIdentity, setIsThereAnythingToLearn, setIsThereAnythingToReexamine, setWereStatisticsLoaded]);
 
   useEffect(() => {
     let cancelled = false;
@@ -397,6 +400,22 @@ function ViewList({ className = '', id, cidString, isClassInstructionShown, setI
                 icon='graduation-cap'
                 label={t('Exam')}
                 onClick={() => examClicked()}
+              />}
+            {isLoggedIn && list.t === LawType.MODULE && !isAPairWork && itemsWithCID.length > 0 &&
+              <AITutorButton
+                moduleId={id}
+                moduleCid={cidString}
+                skills={itemsWithCID.map(({ id: skillId, cid }) => ({ id: skillId, cid }))}
+                studentId={studentIdentity}
+                onProgressChange={() => setAiTutorProgressRevision((revision) => revision + 1)}
+                modelSelector={(value, onChange) => (
+                  <OpenRouterModelSelector
+                    modelLabel='AI Tutor model'
+                    onChange={onChange}
+                    providerLabel='AI Tutor provider'
+                    value={value}
+                  />
+                )}
               />}
           </ButtonsRow>
           {isLaunchLearnConfirmOpen && (

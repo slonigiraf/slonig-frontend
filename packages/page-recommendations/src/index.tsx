@@ -12,6 +12,8 @@ import useCounter from './useCounter.js';
 import Learn from './Learn/index.js';
 import Teach from './Teach/index.js';
 import Assess from './Assess/index.js';
+export { AITutor, AITutorButton } from './ai/index.js';
+export type { AiTutorSkillRef } from './ai/index.js';
 export { useCounter };
 
 const HIDDEN_ACC = ['vanity'];
