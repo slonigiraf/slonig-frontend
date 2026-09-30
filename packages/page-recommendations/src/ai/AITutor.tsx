@@ -1,12 +1,12 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Button, Input, LinearProgress, Modal, Spinner, styled } from '@polkadot/react-components';
-import { Bubble, ChatContainer, FullFindow, getIPFSDataFromContentID, KatexSpan, loadFromSessionStorage, parseJson, saveToSessionStorage, useIpfsContext, useSettingValue, VerticalCenterItemsContainer } from '@slonigiraf/slonig-components';
+import { Bubble, ChatContainer, Confirmation, FullFindow, getIPFSDataFromContentID, KatexSpan, loadFromSessionStorage, parseJson, saveToSessionStorage, useIpfsContext, useSettingValue, VerticalCenterItemsContainer } from '@slonigiraf/slonig-components';
 import { getSetting, SettingKey, storeSetting } from '@slonigiraf/db';
 import type { ModelSelectorRenderer } from './modelSelector.js';
 import { AlgorithmStage, StageType } from '../Teach/AlgorithmStage.js';
 import { TutoringAlgorithm } from '../Teach/TutoringAlgorithm.js';
 import type { Skill as TutorSkill } from '@slonigiraf/slonig-components';
-import { createAiLesson, AiSkill, aiLessonId, saveAiDecision } from './lessonStore.js';
+import { createAiLesson, AiSkill, aiLessonId, resetAiLesson, saveAiDecision } from './lessonStore.js';
 import { askOpenRouter, DEFAULT_MODEL, generateOpenRouterImage, transcribeOpenRouter } from './openRouter.js';
 import type { OpenRouterAttachment } from './openRouter.js';
 import { getLesson } from '@slonigiraf/db';
@@ -25,6 +25,7 @@ interface Props {
   onClose: () => void;
   modelSelector?: ModelSelectorRenderer;
   persistedOpenRouterKey?: string | null;
+  startMode?: 'continue' | 'restart';
 }
 
 const MODEL_STORAGE = 'slonig:ai-tutor:model';
@@ -176,7 +177,7 @@ function stageText(stage: AlgorithmStage): string {
 }
 
 
-export function AITutor({ modelSelector, moduleId, moduleCid, persistedOpenRouterKey, skills: skillRefs, studentId, onClose }: Props): React.ReactElement {
+export function AITutor({ modelSelector, moduleId, moduleCid, persistedOpenRouterKey, skills: skillRefs, startMode = 'continue', studentId, onClose }: Props): React.ReactElement {
   const { ipfs, isIpfsReady } = useIpfsContext();
   const [skills, setSkills] = useState<AiSkill[]>([]);
   const [lessonStep, setLessonStep] = useState(0);
@@ -224,6 +225,7 @@ export function AITutor({ modelSelector, moduleId, moduleCid, persistedOpenRoute
   const [algorithmStage, setAlgorithmStage] = useState<AlgorithmStage>();
   const submitInFlightRef = useRef(false);
   const stageTextRequestRef = useRef(0);
+  const restartHandledRef = useRef(false);
 
   useEffect(() => {
     if (storedOpenRouterKey === null) return;
@@ -279,12 +281,27 @@ export function AITutor({ modelSelector, moduleId, moduleCid, persistedOpenRoute
           return skillFromJson(ref.id, ref.cid, parseJson(content) as Record<string, unknown>);
         }));
         const existing = await getLesson(lessonId);
+        if (startMode === 'restart' && !restartHandledRef.current) {
+          await resetAiLesson(moduleId, moduleCid, studentId, loaded);
+          saveToSessionStorage(AI_TUTOR_SESSION, learningStepSessionKey(lessonId), '0');
+          loaded.forEach((_skill, step) => {
+            saveToSessionStorage(AI_TUTOR_SESSION, algorithmStageSessionKey(lessonId, step), '');
+            saveToSessionStorage(AI_TUTOR_SESSION, studentExerciseSessionKey(lessonId, step), '');
+            saveToSessionStorage(AI_TUTOR_SESSION, generatedStageTextSessionKey(lessonId, step, StageType.provide_fake_solution), '');
+            saveToSessionStorage(AI_TUTOR_SESSION, generatedStageTextSessionKey(lessonId, step, StageType.correct_fake_solution), '');
+          });
+          restartHandledRef.current = true;
+        }
         if (!cancelled) {
           setSkills(loaded);
-          const storedStep = Number(loadFromSessionStorage(AI_TUTOR_SESSION, learningStepSessionKey(lessonId)));
-          const persistedStep = existing?.learnStep || 0;
-          const sessionStep = Number.isInteger(storedStep) && storedStep >= 0 ? storedStep : 0;
-          setLessonStep(Math.min(Math.max(sessionStep, persistedStep), loaded.length));
+          if (startMode === 'restart') {
+            setLessonStep(0);
+          } else {
+            const storedStep = Number(loadFromSessionStorage(AI_TUTOR_SESSION, learningStepSessionKey(lessonId)));
+            const persistedStep = existing?.learnStep || 0;
+            const sessionStep = Number.isInteger(storedStep) && storedStep >= 0 ? storedStep : 0;
+            setLessonStep(Math.min(Math.max(sessionStep, persistedStep), loaded.length));
+          }
           setIsLessonLoaded(true);
         }
       } catch (e) {
@@ -295,7 +312,7 @@ export function AITutor({ modelSelector, moduleId, moduleCid, persistedOpenRoute
   // Depend on the refs' content rather than the array identity. Some callers
   // recreate `skillRefs` on render; re-fetching in that case rebuilt the
   // algorithm and could reset transient UI state while the student was typing.
-  }, [ipfs, isIpfsReady, skillRefsKey, lessonId]);
+  }, [ipfs, isIpfsReady, skillRefsKey, lessonId, moduleCid, moduleId, startMode, studentId]);
 
   useEffect(() => {
     if (!isLessonLoaded) return;
@@ -871,10 +888,12 @@ export function AITutor({ modelSelector, moduleId, moduleCid, persistedOpenRoute
   );
 }
 
-export function AITutorButton(props: Omit<Props, 'onClose' | 'persistedOpenRouterKey'>): React.ReactElement {
+export function AITutorButton(props: Omit<Props, 'onClose' | 'persistedOpenRouterKey' | 'startMode'>): React.ReactElement {
   const openSessionKey = tutorOpenSessionKey(props.moduleId, props.studentId);
   const [open, setOpen] = useState(() => loadFromSessionStorage(AI_TUTOR_SESSION, openSessionKey) === 'true');
   const [opening, setOpening] = useState(false);
+  const [startDialogOpen, setStartDialogOpen] = useState(false);
+  const [startMode, setStartMode] = useState<'continue' | 'restart'>('continue');
   const [persistedOpenRouterKey, setPersistedOpenRouterKey] = useState<string | null>();
 
   useEffect(() => {
@@ -896,7 +915,8 @@ export function AITutorButton(props: Omit<Props, 'onClose' | 'persistedOpenRoute
     return () => { cancelled = true; };
   }, [open, persistedOpenRouterKey]);
 
-  const openTutor = useCallback(async (): Promise<void> => {
+  const openTutor = useCallback(async (mode: 'continue' | 'restart'): Promise<void> => {
+    setStartDialogOpen(false);
     setOpening(true);
 
     try {
@@ -904,6 +924,7 @@ export function AITutorButton(props: Omit<Props, 'onClose' | 'persistedOpenRoute
     } catch {
       setPersistedOpenRouterKey(null);
     } finally {
+      setStartMode(mode);
       saveToSessionStorage(AI_TUTOR_SESSION, openSessionKey, 'true');
       setOpen(true);
       setOpening(false);
@@ -916,8 +937,15 @@ export function AITutorButton(props: Omit<Props, 'onClose' | 'persistedOpenRoute
   }, [openSessionKey]);
 
   return <>
-    <Button icon='robot' isDisabled={opening} label='AI Tutor' onClick={openTutor} />
-    {open && persistedOpenRouterKey !== undefined && <AITutor {...props} onClose={closeTutor} persistedOpenRouterKey={persistedOpenRouterKey} />}
+    <Button icon='robot' isDisabled={opening} label='AI Tutor' onClick={() => setStartDialogOpen(true)} />
+    {startDialogOpen && <Confirmation
+      agreeText='Continue'
+      disagreeText='Restart'
+      onClose={() => void openTutor('restart')}
+      onConfirm={() => void openTutor('continue')}
+      question='Continue the previous lesson?'
+    />}
+    {open && persistedOpenRouterKey !== undefined && <AITutor {...props} onClose={closeTutor} persistedOpenRouterKey={persistedOpenRouterKey} startMode={startMode} />}
   </>;
 }
 

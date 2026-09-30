@@ -67,6 +67,37 @@ export async function createAiLesson(moduleId: string, cid: string, student: str
   return lesson;
 }
 
+export async function resetAiLesson(moduleId: string, cid: string, student: string, skills: AiSkill[]): Promise<void> {
+  const id = aiLessonId(moduleId, student);
+  const existing = await getLesson(id);
+  if (!existing) return;
+
+  const now = Date.now();
+  await putLesson({
+    ...existing,
+    cid,
+    toLearnCount: skills.length,
+    learnStep: 0,
+    lastAction: undefined,
+  });
+
+  await Promise.all(skills.map(async (skill, stage) => {
+    const template = await getLetterTemplate(id, stage);
+    if (!template) return;
+
+    await putLetterTemplate({
+      ...template,
+      valid: false,
+      mature: false,
+      toRepeat: false,
+      penalizedTime: undefined,
+      lastExamined: now,
+      knowledgeId: skill.id,
+      cid: skill.cid,
+    });
+  }));
+}
+
 export async function saveAiDecision(
   lesson: Lesson,
   stage: number,
