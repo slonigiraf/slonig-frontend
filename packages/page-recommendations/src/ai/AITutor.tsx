@@ -336,6 +336,18 @@ function stageImageCids(stage: AlgorithmStage | undefined): string[] {
     .filter((cid): cid is string => typeof cid === 'string' && Boolean(cid.trim()))));
 }
 
+function skillExerciseImageCids(skill: AiSkill | undefined): string[] {
+  if (!skill) return [];
+  return Array.from(new Set(skill.questions
+    .map((question) => question.questionImageCid)
+    .filter((cid): cid is string => typeof cid === 'string' && Boolean(cid.trim()))));
+}
+
+function imageDataUrlPayload(dataUrl: string): string {
+  const separator = dataUrl.indexOf(',');
+  return separator >= 0 ? dataUrl.slice(separator + 1) : dataUrl;
+}
+
 function stageUsesStudentExerciseMedia(stage: AlgorithmStage): boolean {
   return stage.getType() === StageType.provide_fake_solution
     || stage.getType() === StageType.correct_fake_solution;
@@ -352,6 +364,7 @@ export function AITutor({ modelSelector, moduleId, moduleCid, persistedOpenRoute
   const [studentExerciseMedia, setStudentExerciseMedia] = useState<OpenRouterAttachment[]>([]);
   const [lastStudentMessage, setLastStudentMessage] = useState<SubmittedStudentMessage>();
   const [answer, setAnswer] = useState('');
+  const [shouldBlurTutorReply, setShouldBlurTutorReply] = useState(false);
   const answerInputRef = useRef<HTMLTextAreaElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const cameraInputRef = useRef<HTMLInputElement>(null);
@@ -397,6 +410,7 @@ export function AITutor({ modelSelector, moduleId, moduleCid, persistedOpenRoute
   const questionImageCacheRef = useRef(new Map<string, OpenRouterAttachment>());
   const restartHandledRef = useRef(false);
   const currentStageImageCids = useMemo(() => stageImageCids(algorithmStage), [algorithmStage]);
+  const currentSkillExerciseImageCids = useMemo(() => skillExerciseImageCids(skill), [skill]);
 
   const loadStageImageAttachments = useCallback(async (stage: AlgorithmStage): Promise<OpenRouterAttachment[]> => {
     const cids = stageImageCids(stage);
@@ -411,6 +425,20 @@ export function AITutor({ modelSelector, moduleId, moduleCid, persistedOpenRoute
       return { ...cached, name: `Tutor stage image ${index + 1}` };
     }));
   }, [ipfs]);
+
+  const loadSkillExerciseImageAttachments = useCallback(async (): Promise<OpenRouterAttachment[]> => {
+    if (currentSkillExerciseImageCids.length === 0) return [];
+    if (!ipfs) throw new Error('The skill exercise images are not available yet.');
+
+    return Promise.all(currentSkillExerciseImageCids.map(async (cid, index) => {
+      let cached = questionImageCacheRef.current.get(cid);
+      if (!cached) {
+        cached = await ipfsImageToAttachment(ipfs, cid, `Skill exercise image ${index + 1}`);
+        questionImageCacheRef.current.set(cid, cached);
+      }
+      return { ...cached, name: `Skill exercise image ${index + 1}` };
+    }));
+  }, [currentSkillExerciseImageCids, ipfs]);
 
   useEffect(() => {
     if (storedOpenRouterKey === null) return;
@@ -475,6 +503,7 @@ export function AITutor({ modelSelector, moduleId, moduleCid, persistedOpenRoute
       if (answerScopeRef.current !== answerScope) {
         answerScopeRef.current = answerScope;
         setAnswer('');
+        setShouldBlurTutorReply(false);
         setAttachments([]);
         setAudioBlob(undefined);
         setRecordingSeconds(0);
@@ -629,6 +658,7 @@ export function AITutor({ modelSelector, moduleId, moduleCid, persistedOpenRoute
 
   const resetComposer = useCallback((): void => {
     setAnswer('');
+    setShouldBlurTutorReply(false);
     setAttachments([]);
     setAudioBlob(undefined);
     setRecordingSeconds(0);
@@ -663,11 +693,26 @@ export function AITutor({ modelSelector, moduleId, moduleCid, persistedOpenRoute
           kind: mimeType.startsWith('image/') ? 'image' : 'file',
         };
       }));
-      setAttachments((current) => [...current, ...next].slice(0, MAX_ATTACHMENTS));
+
+      const imageAttachments = next.filter((attachment) => attachment.kind === 'image');
+      const exerciseImages = imageAttachments.length > 0
+        ? await loadSkillExerciseImageAttachments()
+        : [];
+      const exerciseImagePayloads = new Set(exerciseImages.map(({ dataUrl }) => imageDataUrlPayload(dataUrl)));
+      const duplicateImages = imageAttachments.filter(({ dataUrl }) => exerciseImagePayloads.has(imageDataUrlPayload(dataUrl)));
+      const duplicateIds = new Set(duplicateImages.map(({ id }) => id));
+      const allowed = next.filter(({ id }) => !duplicateIds.has(id));
+
+      if (allowed.length > 0) {
+        setAttachments((current) => [...current, ...allowed].slice(0, MAX_ATTACHMENTS));
+      }
+      if (duplicateImages.length > 0) {
+        setTutorValidationMessage('You attached some of mine images, you need to create your own');
+      }
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Unable to attach that file.');
     }
-  }, [attachments.length]);
+  }, [attachments.length, loadSkillExerciseImageAttachments]);
 
   const removeAttachment = useCallback((id: string): void => {
     setAttachments((current) => current.filter((attachment) => attachment.id !== id));
@@ -774,6 +819,10 @@ export function AITutor({ modelSelector, moduleId, moduleCid, persistedOpenRoute
       setError('The student-created exercise media is no longer available. Please create the similar exercise again so the AI tutor can inspect it.');
       return;
     }
+
+    // Keep the current tutor instruction blurred while the answer is being
+    // validated/classified. Only a successful tutor result resets the composer
+    // (and therefore removes the blur); validation/API errors leave it blurred.
 
     const submittedMessage: SubmittedStudentMessage = {
       text: answer.trim(),
@@ -971,6 +1020,7 @@ export function AITutor({ modelSelector, moduleId, moduleCid, persistedOpenRoute
   const canSubmit = !loading
     && !recording
     && Boolean(answer.trim() || attachments.length > 0 || audioBlob || tikz);
+  const isTypingReply = shouldBlurTutorReply;
 
   return (
     <FullFindow>
@@ -1001,7 +1051,7 @@ export function AITutor({ modelSelector, moduleId, moduleCid, persistedOpenRoute
                 </StudentBubble>
               </StudentMessage>}
               {!loading && (currentAiText || currentStageImageCids.length > 0) && <TutorMessage>
-                <TutorBubble>
+                <TutorBubble className={isTypingReply ? 'is-replying' : ''}>
                   <MessageRole>AI Tutor</MessageRole>
                   {currentAiText && <MessageBody><KatexSpan content={currentAiText} /></MessageBody>}
                   {currentStageImageCids.map((cid, index) => <QuestionImage key={`${cid}-${index}`}>
@@ -1028,6 +1078,7 @@ export function AITutor({ modelSelector, moduleId, moduleCid, persistedOpenRoute
                   value={loading ? '' : answer}
                   onChange={(e) => {
                     setAnswer(e.target.value);
+                    setShouldBlurTutorReply(e.target.value.length > 0);
                     resizeAnswerInput(e.currentTarget);
                   }}
                   onKeyDown={(e) => {
@@ -1362,6 +1413,11 @@ const MessageBubble = styled(Bubble)`
 `;
 const TutorBubble = styled(MessageBubble)`
   text-align: left;
+  transition: filter 140ms ease;
+
+  &.is-replying {
+    filter: blur(5px);
+  }
 `;
 const StudentBubble = styled(MessageBubble)`
   text-align: left;
