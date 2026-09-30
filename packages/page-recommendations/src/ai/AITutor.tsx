@@ -269,6 +269,12 @@ function isCreateSimilarExerciseStage(stage: AlgorithmStage): boolean {
     || stage.getType() === StageType.cycle_ask_to_create_similar_exercise;
 }
 
+function stageRequiresStudentImageWhenReferenceHasImage(stage: AlgorithmStage): boolean {
+  return isCreateSimilarExerciseStage(stage)
+    || stage.getType() === StageType.ask_to_repeat_example_solution
+    || stage.getType() === StageType.ask_to_repeat_similar_exercise;
+}
+
 function stageText(stage: AlgorithmStage): string {
   return stage.getMessages()
     .filter((message) => message.title?.includes('🗣'))
@@ -318,6 +324,7 @@ export function AITutor({ modelSelector, moduleId, moduleCid, persistedOpenRoute
   const [generatingImage, setGeneratingImage] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [tutorValidationMessage, setTutorValidationMessage] = useState('');
   const storedOpenRouterKey = useSettingValue(SettingKey.OPENROUTER_TOKEN);
   const [openRouterKey, setOpenRouterKey] = useState<string | undefined>(() => persistedOpenRouterKey || undefined);
   const [isOpenRouterKeyLoaded, setIsOpenRouterKeyLoaded] = useState(() => persistedOpenRouterKey !== undefined);
@@ -720,18 +727,34 @@ export function AITutor({ modelSelector, moduleId, moduleCid, persistedOpenRoute
       return;
     }
 
-    if (!openRouterKey) {
-      setKeyDialogOpen(true);
-      return;
-    }
-
-    const previousStudentMessage = lastStudentMessage;
     const submittedMessage: SubmittedStudentMessage = {
       text: answer.trim(),
       attachments: attachments.map((attachment) => ({ ...attachment })),
       hasAudio: Boolean(audioBlob),
       audioSeconds: recordingSeconds,
     };
+
+    // Image-based create-similar and "Repeat after me" stages require the
+    // student to submit an image too. Reject text-only, voice-only, and
+    // non-image-file-only attempts locally so they do not consume either a
+    // transcription request or a tutor decision request. Keep the draft intact
+    // so the student can attach an image and submit again.
+    const referenceRequiresStudentImage = stageRequiresStudentImageWhenReferenceHasImage(algorithmStage)
+      && stageImageCids(algorithmStage).length > 0;
+    const studentHasImage = attachments.some((attachment) => attachment.kind === 'image');
+    if (referenceRequiresStudentImage && !studentHasImage) {
+      setTutorValidationMessage('You forgot to attach an image.');
+      return;
+    }
+
+    setTutorValidationMessage('');
+
+    if (!openRouterKey) {
+      setKeyDialogOpen(true);
+      return;
+    }
+
+    const previousStudentMessage = lastStudentMessage;
     let composerCommitted = false;
 
     submitInFlightRef.current = true;
@@ -847,6 +870,10 @@ export function AITutor({ modelSelector, moduleId, moduleCid, persistedOpenRoute
   }, [answer, loading, resizeAnswerInput]);
 
   useEffect(() => {
+    setTutorValidationMessage('');
+  }, [algorithmStage]);
+
+  useEffect(() => {
     if (!skill || loading || recording || keyDialogOpen) return;
 
     // Programmed stages can render immediately and generated stages render after
@@ -911,6 +938,12 @@ export function AITutor({ modelSelector, moduleId, moduleCid, persistedOpenRoute
                   {currentStageImageCids.map((cid, index) => <QuestionImage key={`${cid}-${index}`}>
                     <ResizableImage cid={cid} />
                   </QuestionImage>)}
+                </TutorBubble>
+              </TutorMessage>}
+              {!loading && tutorValidationMessage && <TutorMessage>
+                <TutorBubble>
+                  <MessageRole>AI Tutor</MessageRole>
+                  <MessageBody><KatexSpan content={tutorValidationMessage} /></MessageBody>
                 </TutorBubble>
               </TutorMessage>}
               {loading && <TutorMessage>
