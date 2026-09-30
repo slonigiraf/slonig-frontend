@@ -1,7 +1,8 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Button, Input, LinearProgress, Modal, Spinner, styled } from '@polkadot/react-components';
 import { Bubble, Confirmation, FullFindow, getIPFSDataFromContentID, KatexSpan, loadFromSessionStorage, parseJson, ResizableImage, saveToSessionStorage, useIpfsContext, useSettingValue, VerticalCenterItemsContainer } from '@slonigiraf/slonig-components';
-import { getSetting, SettingKey, storeSetting } from '@slonigiraf/db';
+import { clearAiTutorStudentMessages, deleteAiTutorStudentMessage, getAiTutorStudentMessage, getSetting, putAiTutorStudentMessage, SettingKey, storeSetting } from '@slonigiraf/db';
+import type { AiTutorStudentMessage } from '@slonigiraf/db';
 import type { ModelSelectorRenderer } from './modelSelector.js';
 import { AlgorithmStage, StageType } from '../Teach/AlgorithmStage.js';
 import { TutoringAlgorithm } from '../Teach/TutoringAlgorithm.js';
@@ -47,6 +48,8 @@ interface SubmittedStudentMessage {
   hasAudio: boolean;
   audioSeconds: number;
 }
+
+type StoredStudentMessage = AiTutorStudentMessage<SubmittedStudentMessage, OpenRouterAttachment>;
 
 function attachmentId(): string {
   return `${Date.now()}-${Math.random().toString(36).slice(2)}`;
@@ -385,34 +388,61 @@ export function AITutor({ modelSelector, moduleId, moduleCid, persistedOpenRoute
       setAlgorithmStage(undefined);
       setCurrentAiText('');
       setStudentExercise('');
+      setStudentExerciseMedia([]);
+      setLastStudentMessage(undefined);
       return;
     }
 
     const savedExercise = loadFromSessionStorage(AI_TUTOR_SESSION, studentExerciseSessionKey(lessonId, lessonStep)) || '';
     const storedStageType = loadFromSessionStorage(AI_TUTOR_SESSION, algorithmStageSessionKey(lessonId, lessonStep));
     const restoredStage = findStageByType(begin, storedStageType) || begin;
+    let cancelled = false;
 
-    // Dynamic stages require the student's own exercise. Old sessions created
-    // before this context was persisted cannot safely resume there, so restart
-    // this skill instead of hallucinating an exercise.
-    const safeStage = stageNeedsGeneratedText(restoredStage) && !savedExercise ? begin : restoredStage;
-    setStudentExercise(savedExercise);
-    setAlgorithmStage(safeStage);
-    setCurrentAiText('');
+    (async () => {
+      let persistedState: StoredStudentMessage | undefined;
+      if (startMode === 'continue') {
+        try {
+          persistedState = await getAiTutorStudentMessage<SubmittedStudentMessage, OpenRouterAttachment>(lessonId, lessonStep);
+        } catch {
+          // Persistence is a best-effort enhancement. A browser that disables
+          // IndexedDB should still be able to use the tutor normally.
+        }
+      }
+      if (cancelled) return;
 
-    // Rebuilding the same logical skill can happen when parents recreate props
-    // or contexts update. Do not erase text the student is currently typing in
-    // that case; only clear the draft when we actually move to another skill.
-    if (answerScopeRef.current !== answerScope) {
-      answerScopeRef.current = answerScope;
-      setAnswer('');
-      setAttachments([]);
-      setAudioBlob(undefined);
-      setRecordingSeconds(0);
-      setStudentExerciseMedia([]);
-      setLastStudentMessage(undefined);
-    }
-  }, [algorithm, answerScope, lessonId, lessonStep]);
+      const persistedMessage = persistedState?.message;
+      const restoredStudentExerciseMedia = savedExercise
+        ? (persistedState?.studentExerciseMedia || []).map((attachment) => ({ ...attachment }))
+        : [];
+
+      // Dynamic stages require the student's own exercise and, if that exercise
+      // referenced attachments, the exact submitted media. When both were
+      // persisted, Continue can safely reconstruct the context after a reload.
+      const savedExerciseNeedsMedia = savedExercise.includes('Attached student files:');
+      const missingRequiredContext = stageNeedsGeneratedText(restoredStage)
+        && (!savedExercise || (savedExerciseNeedsMedia && restoredStudentExerciseMedia.length === 0));
+      const safeStage = missingRequiredContext ? begin : restoredStage;
+
+      setStudentExercise(savedExercise);
+      setStudentExerciseMedia(restoredStudentExerciseMedia);
+      setLastStudentMessage(persistedMessage);
+      setAlgorithmStage(safeStage);
+      setCurrentAiText('');
+
+      // Rebuilding the same logical skill can happen when parents recreate props
+      // or contexts update. Do not erase text the student is currently typing in
+      // that case; only clear the draft when we actually move to another skill.
+      if (answerScopeRef.current !== answerScope) {
+        answerScopeRef.current = answerScope;
+        setAnswer('');
+        setAttachments([]);
+        setAudioBlob(undefined);
+        setRecordingSeconds(0);
+      }
+    })();
+
+    return () => { cancelled = true; };
+  }, [algorithm, answerScope, lessonId, lessonStep, startMode]);
 
   useEffect(() => {
     if (!isIpfsReady || !ipfs) return;
@@ -427,6 +457,11 @@ export function AITutor({ modelSelector, moduleId, moduleCid, persistedOpenRoute
         const existing = await getLesson(lessonId);
         if (startMode === 'restart' && !restartHandledRef.current) {
           await resetAiLesson(moduleId, moduleCid, studentId, loaded);
+          try {
+            await clearAiTutorStudentMessages(lessonId);
+          } catch {
+            // Do not block Restart if persistent browser storage is unavailable.
+          }
           saveToSessionStorage(AI_TUTOR_SESSION, learningStepSessionKey(lessonId), '0');
           loaded.forEach((_skill, step) => {
             saveToSessionStorage(AI_TUTOR_SESSION, algorithmStageSessionKey(lessonId, step), '');
@@ -698,6 +733,11 @@ export function AITutor({ modelSelector, moduleId, moduleCid, persistedOpenRoute
   const finishSkill = useCallback(async (action: 'skip' | 'mark_for_repeat_crude', countedCorrect: boolean): Promise<void> => {
     const lesson = await createAiLesson(moduleId, moduleCid, studentId, skills);
     const updated = await saveAiDecision(lesson, lessonStep, action);
+    try {
+      await deleteAiTutorStudentMessage(lessonId, lessonStep);
+    } catch {
+      // Lesson progress is authoritative; persistence cleanup must not block it.
+    }
     setRepeatCount((count) => count + 1);
     if (countedCorrect) setOkCount((count) => count + 1);
     // Clear the previous skill's stage in the same render as the step change so
@@ -708,7 +748,7 @@ export function AITutor({ modelSelector, moduleId, moduleCid, persistedOpenRoute
     setStudentExerciseMedia([]);
     setLastStudentMessage(undefined);
     resetComposer();
-  }, [lessonStep, moduleCid, moduleId, resetComposer, skills, studentId]);
+  }, [lessonId, lessonStep, moduleCid, moduleId, resetComposer, skills, studentId]);
 
   const submitAnswer = useCallback(async (): Promise<void> => {
     // React state updates are asynchronous, so `loading` alone cannot prevent two
@@ -808,6 +848,28 @@ export function AITutor({ modelSelector, moduleId, moduleCid, persistedOpenRoute
       }
 
       localStorage.setItem(MODEL_STORAGE, model.trim() || DEFAULT_MODEL);
+
+      const finishesSkill = candidate.getType() === StageType.skip
+        || candidate.getType() === StageType.next_skill
+        || candidate.getType() === StageType.repeat_tomorrow;
+      const capturedStudentExerciseMedia = isCreateSimilarExerciseStage(algorithmStage)
+        && candidate.getType() === StageType.provide_fake_solution
+        ? studentMedia.map((attachment, index) => ({
+          ...attachment,
+          name: `Student-created exercise ${attachment.kind} ${index + 1}: ${attachment.name.replace(/^Current student response: /, '')}`,
+        }))
+        : studentExerciseMedia;
+      if (!finishesSkill) {
+        try {
+          // Await the durable write before changing stages. Otherwise the stage
+          // restoration effect could race ahead after a close/reopen or reload.
+          await putAiTutorStudentMessage(lessonId, lessonStep, submittedMessage, capturedStudentExerciseMedia);
+        } catch {
+          // Keep tutoring functional in private/restricted browser modes where
+          // IndexedDB may be unavailable or out of quota.
+        }
+      }
+
       resetComposer();
       composerCommitted = true;
 
@@ -815,10 +877,7 @@ export function AITutor({ modelSelector, moduleId, moduleCid, persistedOpenRoute
         // This exact student-created exercise is the subject of the next two
         // dynamic stages. Persist it so refreshes do not make the tutor invent a replacement.
         setStudentExercise(studentAnswer);
-        setStudentExerciseMedia(studentMedia.map((attachment, index) => ({
-          ...attachment,
-          name: `Student-created exercise ${attachment.kind} ${index + 1}: ${attachment.name.replace(/^Current student response: /, '')}`,
-        })));
+        setStudentExerciseMedia(capturedStudentExerciseMedia);
         saveToSessionStorage(AI_TUTOR_SESSION, studentExerciseSessionKey(lessonId, lessonStep), studentAnswer);
         saveToSessionStorage(AI_TUTOR_SESSION, generatedStageTextSessionKey(lessonId, lessonStep, StageType.provide_fake_solution), '');
         saveToSessionStorage(AI_TUTOR_SESSION, generatedStageTextSessionKey(lessonId, lessonStep, StageType.correct_fake_solution), '');

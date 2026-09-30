@@ -36,10 +36,11 @@ import type { Skill } from './db/Skill.js';
 import type { ExerciseTemplate } from './db/ExerciseTemplate.js';
 import type { Ability, AbilityExercise, AbilityValue } from './db/Ability.js';
 import type { Image } from './db/Image.js';
+import type { AiTutorStudentMessage } from './db/AiTutorStudentMessage.js';
 import { shouldExportDatabaseRow } from './backup.js';
 
 export { BOOK_PROCESSING_STAGES, getBookCompletedStages, isBookProcessingStageComplete, withBookProcessingStagesResetFrom, withCompletedBookProcessingStage } from './db/Book.js';
-export type { LearnRequest, TutorAction, CanceledInsurance, Reexamination, LetterTemplate, CanceledLetter, Reimbursement, Letter, Insurance, Lesson, Pseudonym, Setting, Signer, UsageRight, Agreement, Ability, AbilityExercise, AbilityValue, Image, Book, BookProcessingStageKey, BookStageSpend, BookStageSpendKey, BookSubject, BookPage, MathpixHeading, BookChapter, BookConcept, Exercise, Skill, ExerciseTemplate };
+export type { LearnRequest, TutorAction, CanceledInsurance, Reexamination, LetterTemplate, CanceledLetter, Reimbursement, Letter, Insurance, Lesson, Pseudonym, Setting, Signer, UsageRight, Agreement, Ability, AbilityExercise, AbilityValue, Image, Book, BookProcessingStageKey, BookStageSpend, BookStageSpendKey, BookSubject, BookPage, MathpixHeading, BookChapter, BookConcept, Exercise, Skill, ExerciseTemplate, AiTutorStudentMessage };
 export type { ImageType } from './db/Image.js';
 
 const EXERCISE_ABILITY_MODULE = /^book-(\d+)-exercise-(\d+)$/;
@@ -2573,6 +2574,30 @@ export function insuranceToUsageRight(insurance: Insurance): UsageRight {
         letterId: insurance.letterId,
     };
     return usageRight;
+}
+
+// AI tutor resume state
+
+export async function getAiTutorStudentMessage<TMessage, TMedia>(lessonId: string, lessonStep: number): Promise<AiTutorStudentMessage<TMessage, TMedia> | undefined> {
+    return await db.aiTutorStudentMessages.get(`${lessonId}:${lessonStep}`) as AiTutorStudentMessage<TMessage, TMedia> | undefined;
+}
+
+export async function putAiTutorStudentMessage<TMessage, TMedia>(lessonId: string, lessonStep: number, message: TMessage, studentExerciseMedia: TMedia[]): Promise<void> {
+    await db.aiTutorStudentMessages.put({
+        key: `${lessonId}:${lessonStep}`,
+        lessonId,
+        lessonStep,
+        message,
+        studentExerciseMedia
+    });
+}
+
+export async function deleteAiTutorStudentMessage(lessonId: string, lessonStep: number): Promise<void> {
+    await db.aiTutorStudentMessages.delete(`${lessonId}:${lessonStep}`);
+}
+
+export async function clearAiTutorStudentMessages(lessonId: string): Promise<void> {
+    await db.aiTutorStudentMessages.where('lessonId').equals(lessonId).delete();
 }
 
 // Export DB
