@@ -31,6 +31,46 @@ const OPENAI_MODEL = process.env.OPENAI_MODEL || "gpt-5.2";
 const OPENAI_BATCH = Math.max(1, Number(process.env.OPENAI_BATCH || 50));
 const OPENAI_FILL_EMPTY = process.env.OPENAI_FILL_EMPTY === "1";
 
+const APP_LOCALIZATION_CONTEXT = [
+  `# Product context`,
+  `Slonig is an open-source web platform for face-to-face peer tutoring in classrooms. It helps teachers organize students into pairs, provides learning materials and guided tutoring steps, and lets students teach and assess one another. Students normally use the interface while speaking to each other in person.`,
+  ``,
+  `# Roles`,
+  `- tutor: a student who is currently teaching another student. A tutor is a peer, not the classroom teacher.`,
+  `- student: the peer who is currently learning from the tutor; this role may also be called the tutee internally.`,
+  `- teacher: the professional classroom educator who organizes or supervises the activity. Never translate "teacher" as if it meant the peer tutor.`,
+  `- partner or classmate: another student paired with the user. Students may exchange tutor and student roles between lessons.`,
+  `- parent or employer: an outside supporter who may inspect or assess a student's achievements.`,
+  `- AI tutor: software that performs the tutor role. Preserve the "AI" distinction.`,
+  ``,
+  `# Domain terminology`,
+  `- skill: a specific competency that can be learned, practiced, checked, and remembered.`,
+  `- module or course: an organized group of skills. Do not replace these terms with "lesson" or "subject".`,
+  `- lesson: one tutoring session between a tutor and a student.`,
+  `- exercise: a task used to teach, practice, or check a skill.`,
+  `- badge: a record that a student demonstrated a skill. A tutor can issue it, and it may later be reexamined or revoked.`,
+  `- reexamination: a later check that the student still remembers a skill.`,
+  `- stake, warranty, insurance, reward, and penalty are distinct mechanisms in the app's learning economy; do not interchange them.`,
+  `- Slonig is the product name and Slon is its token name. Never translate or transliterate either name.`,
+  ``,
+  `# Terminology consistency`,
+  `Treat all strings as parts of one interface. Use one stable target-language equivalent for each recurring English domain term. Do not alternate synonyms merely for stylistic variety. Preserve the distinctions above, and reuse any existing terminology supplied with the request. Grammatical inflection is allowed when required by the target language, but changing to a synonym is not.`,
+].join("\n");
+
+const TERMINOLOGY_SOURCE_KEYS = [
+  "student",
+  "Teacher",
+  "Skill",
+  "Module",
+  "Course",
+  "Exercise",
+  "Badges",
+  "Learn",
+  "Teach",
+  "Slon",
+  "Slonig",
+];
+
 /**
  * Recursively collect all JS/TS/JSX/TSX file paths.
  * @param {string} dir
@@ -126,14 +166,16 @@ function chunk(arr, size) {
  * @param {import("openai").default} client
  * @param {string} lang
  * @param {string[]} keys
+ * @param {Record<string,string>} terminology
  * @returns {Promise<Record<string,string>>}
  */
-async function translateBatch(client, lang, keys) {
+async function translateBatch(client, lang, keys, terminology) {
   const sourceStrings = keys.map((text, id) => ({ id, text }));
 
   const instructions = [
     `You are a professional software localizer.`,
     `Translate UI strings into language: "${lang}".`,
+    APP_LOCALIZATION_CONTEXT,
     `Rules:`,
     `- Always use the informal second-person singular form (T-form, e.g. “ты”, “tu”, “tú”, “du”) in the target language whenever there is a choice between formal and informal address.`,
     `- Do NOT use any formal or polite forms (V-form, e.g. “вы”, “vous”, “Sie”).`,
@@ -150,6 +192,8 @@ async function translateBatch(client, lang, keys) {
     {
       role: "user",
       content:
+        `Existing terminology for this locale (source string -> approved translation):\n` +
+        `${JSON.stringify(terminology)}\n\n` +
         `Translate every UI string in this JSON array:\n\n${JSON.stringify(sourceStrings)}\n\n` +
         `Return an object containing a "translations" array of objects with "id" and "translation" fields.`,
     },
@@ -301,6 +345,12 @@ async function main() {
 
     const existing = readJsonObject(targetPath);
 
+    const terminology = TERMINOLOGY_SOURCE_KEYS.reduce((acc, source) => {
+      const translation = existing[source];
+      if (typeof translation === "string" && translation.trim()) acc[source] = translation;
+      return acc;
+    }, /** @type {Record<string,string>} */ ({}));
+
     // 1) remove keys not in en
     /** @type {Record<string,string>} */
     const cleaned = {};
@@ -331,7 +381,7 @@ async function main() {
     console.log(`📝 ${lang}: translating ${toTranslate.length} keys (batch=${OPENAI_BATCH})`);
 
     for (const batchKeys of chunk(toTranslate, OPENAI_BATCH)) {
-      const translated = await translateBatch(client, lang, batchKeys);
+      const translated = await translateBatch(client, lang, batchKeys, terminology);
 
       for (const k of batchKeys) {
         cleaned[k] = translated[k];
