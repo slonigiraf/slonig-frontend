@@ -9,12 +9,19 @@ import {
   putLetterTemplate,
 } from '@slonigiraf/db';
 
+export interface AiSkillQuestion {
+  question: string;
+  answer: string;
+  questionImageCid?: string;
+  answerImageCid?: string;
+}
+
 export interface AiSkill {
   id: string;
   cid: string;
   title: string;
   description?: string;
-  questions: Array<{ question: string; answer: string }>;
+  questions: AiSkillQuestion[];
 }
 
 export function aiLessonId(moduleId: string, student: string): string {

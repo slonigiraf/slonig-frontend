@@ -102,23 +102,30 @@ export async function askOpenRouter(
   attachments: OpenRouterAttachment[] = [],
   responseKind: 'message' | 'nextStage' = 'message',
 ): Promise<TutorTurn> {
-  const content = attachments.length === 0
-    ? prompt
-    : [
-      { type: 'text', text: prompt },
-      ...attachments.map((attachment) => attachment.kind === 'image'
-        ? {
-          type: 'image_url',
-          image_url: { url: attachment.dataUrl },
-        }
-        : {
-          type: 'file',
-          file: {
-            filename: attachment.name,
-            file_data: attachment.dataUrl,
+  let content: string | Array<Record<string, unknown>> = prompt;
+  if (attachments.length > 0) {
+    const parts: Array<Record<string, unknown>> = [{ type: 'text', text: prompt }];
+    attachments.forEach((attachment) => {
+      if (attachment.kind === 'image') {
+        parts.push(
+          { type: 'text', text: `Attached image: ${attachment.name}` },
+          { type: 'image_url', image_url: { url: attachment.dataUrl } },
+        );
+      } else {
+        parts.push(
+          { type: 'text', text: `Attached file: ${attachment.name}` },
+          {
+            type: 'file',
+            file: {
+              filename: attachment.name,
+              file_data: attachment.dataUrl,
+            },
           },
-        }),
-    ];
+        );
+      }
+    });
+    content = parts;
+  }
 
   const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
     method: 'POST',

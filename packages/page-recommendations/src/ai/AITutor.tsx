@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Button, Input, LinearProgress, Modal, Spinner, styled } from '@polkadot/react-components';
-import { Bubble, ChatContainer, Confirmation, FullFindow, getIPFSDataFromContentID, KatexSpan, loadFromSessionStorage, parseJson, saveToSessionStorage, useIpfsContext, useSettingValue, VerticalCenterItemsContainer } from '@slonigiraf/slonig-components';
+import { Bubble, Confirmation, FullFindow, getIPFSDataFromContentID, KatexSpan, loadFromSessionStorage, parseJson, ResizableImage, saveToSessionStorage, useIpfsContext, useSettingValue, VerticalCenterItemsContainer } from '@slonigiraf/slonig-components';
 import { getSetting, SettingKey, storeSetting } from '@slonigiraf/db';
 import type { ModelSelectorRenderer } from './modelSelector.js';
 import { AlgorithmStage, StageType } from '../Teach/AlgorithmStage.js';
@@ -41,6 +41,13 @@ interface ComposerAttachment {
   kind: 'image' | 'file';
 }
 
+interface SubmittedStudentMessage {
+  text: string;
+  attachments: ComposerAttachment[];
+  hasAudio: boolean;
+  audioSeconds: number;
+}
+
 function attachmentId(): string {
   return `${Date.now()}-${Math.random().toString(36).slice(2)}`;
 }
@@ -70,6 +77,94 @@ function inferredFileMimeType(file: File): string {
     case 'heif': return 'image/heif';
     default: return 'application/octet-stream';
   }
+}
+
+function blobToDataUrl(blob: Blob): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => typeof reader.result === 'string'
+      ? resolve(reader.result)
+      : reject(new Error('Unable to encode the question image.'));
+    reader.onerror = () => reject(reader.error || new Error('Unable to encode the question image.'));
+    reader.readAsDataURL(blob);
+  });
+}
+
+function inferredImageMimeType(bytes: Uint8Array): string {
+  if (bytes.length >= 8
+    && bytes[0] === 0x89 && bytes[1] === 0x50 && bytes[2] === 0x4e && bytes[3] === 0x47
+    && bytes[4] === 0x0d && bytes[5] === 0x0a && bytes[6] === 0x1a && bytes[7] === 0x0a) return 'image/png';
+  if (bytes.length >= 3 && bytes[0] === 0xff && bytes[1] === 0xd8 && bytes[2] === 0xff) return 'image/jpeg';
+  if (bytes.length >= 6) {
+    const header = String.fromCharCode(...bytes.slice(0, 6));
+    if (header === 'GIF87a' || header === 'GIF89a') return 'image/gif';
+  }
+  if (bytes.length >= 12) {
+    const riff = String.fromCharCode(...bytes.slice(0, 4));
+    const webp = String.fromCharCode(...bytes.slice(8, 12));
+    if (riff === 'RIFF' && webp === 'WEBP') return 'image/webp';
+  }
+  if (bytes.length >= 2 && bytes[0] === 0x42 && bytes[1] === 0x4d) return 'image/bmp';
+
+  const start = new TextDecoder().decode(bytes.slice(0, Math.min(bytes.length, 512))).trimStart().toLowerCase();
+  if (start.startsWith('<svg') || (start.startsWith('<?xml') && start.includes('<svg'))) return 'image/svg+xml';
+
+  return 'application/octet-stream';
+}
+
+function isAsyncByteIterable(value: unknown): value is AsyncIterable<Uint8Array> {
+  return Boolean(value) && typeof (value as { [Symbol.asyncIterator]?: unknown })[Symbol.asyncIterator] === 'function';
+}
+
+function isByteIterable(value: unknown): value is Iterable<Uint8Array> {
+  return Boolean(value) && typeof (value as { [Symbol.iterator]?: unknown })[Symbol.iterator] === 'function';
+}
+
+async function readIpfsBytes(ipfs: unknown, cid: string): Promise<Uint8Array> {
+  const cat = (ipfs as { cat?: (value: string) => unknown })?.cat;
+  if (typeof cat !== 'function') throw new Error('The IPFS client cannot read the question image.');
+
+  const result = await Promise.resolve(cat.call(ipfs, cid));
+  if (result instanceof Uint8Array) return result;
+  if (result instanceof ArrayBuffer) return new Uint8Array(result);
+
+  const chunks: Uint8Array[] = [];
+  let total = 0;
+  if (isAsyncByteIterable(result)) {
+    for await (const chunk of result) {
+      chunks.push(chunk);
+      total += chunk.byteLength;
+      if (total > MAX_ATTACHMENT_BYTES) throw new Error('The question image is too large to send to the AI tutor.');
+    }
+  } else if (isByteIterable(result)) {
+    for (const chunk of result) {
+      chunks.push(chunk);
+      total += chunk.byteLength;
+      if (total > MAX_ATTACHMENT_BYTES) throw new Error('The question image is too large to send to the AI tutor.');
+    }
+  } else {
+    throw new Error('The IPFS client returned an unsupported question image format.');
+  }
+
+  const bytes = new Uint8Array(total);
+  let offset = 0;
+  for (const chunk of chunks) {
+    bytes.set(chunk, offset);
+    offset += chunk.byteLength;
+  }
+  return bytes;
+}
+
+async function ipfsImageToAttachment(ipfs: unknown, cid: string, name: string): Promise<OpenRouterAttachment> {
+  const bytes = await readIpfsBytes(ipfs, cid);
+  const mimeType = inferredImageMimeType(bytes);
+  if (!mimeType.startsWith('image/')) throw new Error('The stored question image has an unsupported format.');
+  return {
+    name,
+    mimeType,
+    dataUrl: await blobToDataUrl(new Blob([bytes], { type: mimeType })),
+    kind: 'image',
+  };
 }
 
 function formatRecordingTime(seconds: number): string {
@@ -140,7 +235,12 @@ function skillFromJson(id: string, cid: string, json: Record<string, unknown>): 
       if (!q || typeof q !== 'object') return [];
       const item = q as Record<string, unknown>;
       return typeof item.h === 'string' && typeof item.a === 'string'
-        ? [{ question: item.h, answer: item.a }]
+        ? [{
+          question: item.h,
+          answer: item.a,
+          questionImageCid: typeof item.p === 'string' && item.p.trim() ? item.p : undefined,
+          answerImageCid: typeof item.i === 'string' && item.i.trim() ? item.i : undefined,
+        }]
         : [];
     }),
   };
@@ -150,7 +250,12 @@ function makeAlgorithmSkill(skill: AiSkill): TutorSkill {
   return {
     i: skill.id,
     h: skill.title,
-    q: skill.questions.map((question) => ({ h: question.question, a: question.answer, p: '', i: '' })),
+    q: skill.questions.map((question) => ({
+      h: question.question,
+      a: question.answer,
+      p: question.questionImageCid || '',
+      i: question.answerImageCid || '',
+    })),
   };
 }
 
@@ -176,6 +281,18 @@ function stageText(stage: AlgorithmStage): string {
     .join('\n\n');
 }
 
+function stageImageCids(stage: AlgorithmStage | undefined): string[] {
+  if (!stage) return [];
+  return Array.from(new Set(stage.getMessages()
+    .map((message) => message.image)
+    .filter((cid): cid is string => typeof cid === 'string' && Boolean(cid.trim()))));
+}
+
+function stageUsesStudentExerciseMedia(stage: AlgorithmStage): boolean {
+  return stage.getType() === StageType.provide_fake_solution
+    || stage.getType() === StageType.correct_fake_solution;
+}
+
 
 export function AITutor({ modelSelector, moduleId, moduleCid, persistedOpenRouterKey, skills: skillRefs, startMode = 'continue', studentId, onClose }: Props): React.ReactElement {
   const { ipfs, isIpfsReady } = useIpfsContext();
@@ -184,6 +301,8 @@ export function AITutor({ modelSelector, moduleId, moduleCid, persistedOpenRoute
   const [isLessonLoaded, setIsLessonLoaded] = useState(false);
   const [currentAiText, setCurrentAiText] = useState('');
   const [studentExercise, setStudentExercise] = useState('');
+  const [studentExerciseMedia, setStudentExerciseMedia] = useState<OpenRouterAttachment[]>([]);
+  const [lastStudentMessage, setLastStudentMessage] = useState<SubmittedStudentMessage>();
   const [answer, setAnswer] = useState('');
   const answerInputRef = useRef<HTMLTextAreaElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -225,7 +344,23 @@ export function AITutor({ modelSelector, moduleId, moduleCid, persistedOpenRoute
   const [algorithmStage, setAlgorithmStage] = useState<AlgorithmStage>();
   const submitInFlightRef = useRef(false);
   const stageTextRequestRef = useRef(0);
+  const questionImageCacheRef = useRef(new Map<string, OpenRouterAttachment>());
   const restartHandledRef = useRef(false);
+  const currentStageImageCids = useMemo(() => stageImageCids(algorithmStage), [algorithmStage]);
+
+  const loadStageImageAttachments = useCallback(async (stage: AlgorithmStage): Promise<OpenRouterAttachment[]> => {
+    const cids = stageImageCids(stage);
+    if (cids.length === 0) return [];
+    if (!ipfs) throw new Error('The question image is not available yet.');
+    return Promise.all(cids.map(async (cid, index) => {
+      let cached = questionImageCacheRef.current.get(cid);
+      if (!cached) {
+        cached = await ipfsImageToAttachment(ipfs, cid, `Tutor stage image ${index + 1}`);
+        questionImageCacheRef.current.set(cid, cached);
+      }
+      return { ...cached, name: `Tutor stage image ${index + 1}` };
+    }));
+  }, [ipfs]);
 
   useEffect(() => {
     if (storedOpenRouterKey === null) return;
@@ -267,6 +402,8 @@ export function AITutor({ modelSelector, moduleId, moduleCid, persistedOpenRoute
       setAttachments([]);
       setAudioBlob(undefined);
       setRecordingSeconds(0);
+      setStudentExerciseMedia([]);
+      setLastStudentMessage(undefined);
     }
   }, [algorithm, answerScope, lessonId, lessonStep]);
 
@@ -290,6 +427,8 @@ export function AITutor({ modelSelector, moduleId, moduleCid, persistedOpenRoute
             saveToSessionStorage(AI_TUTOR_SESSION, generatedStageTextSessionKey(lessonId, step, StageType.provide_fake_solution), '');
             saveToSessionStorage(AI_TUTOR_SESSION, generatedStageTextSessionKey(lessonId, step, StageType.correct_fake_solution), '');
           });
+          setStudentExerciseMedia([]);
+          setLastStudentMessage(undefined);
           restartHandledRef.current = true;
         }
         if (!cancelled) {
@@ -342,6 +481,14 @@ export function AITutor({ modelSelector, moduleId, moduleCid, persistedOpenRoute
       return;
     }
 
+    const sourceQuestionRequiresImage = Boolean(skill.questions[0]?.questionImageCid);
+    const studentExerciseReferencesMedia = studentExercise.includes('Attached student files:');
+    if ((sourceQuestionRequiresImage || studentExerciseReferencesMedia) && studentExerciseMedia.length === 0) {
+      setError('The student-created exercise media is no longer available. Please create the similar exercise again so the AI tutor can inspect it.');
+      setAlgorithmStage(algorithm?.getBegin());
+      return;
+    }
+
     if (!openRouterKey) {
       setKeyDialogOpen(true);
       return;
@@ -353,6 +500,8 @@ export function AITutor({ modelSelector, moduleId, moduleCid, persistedOpenRoute
       const generated = await askOpenRouter(
         { apiKey: openRouterKey, model: model.trim() || DEFAULT_MODEL },
         generatedStagePrompt(skill, stage, studentExercise),
+        undefined,
+        studentExerciseMedia,
       );
       const text = generated.message.trim();
       if (!text) throw new Error('The AI tutor returned no stage text.');
@@ -378,7 +527,7 @@ export function AITutor({ modelSelector, moduleId, moduleCid, persistedOpenRoute
     } finally {
       if (stageTextRequestRef.current === requestId) setLoading(false);
     }
-  }, [algorithm, lessonId, lessonStep, model, openRouterKey, skill, studentExercise]);
+  }, [algorithm, lessonId, lessonStep, model, openRouterKey, skill, studentExercise, studentExerciseMedia]);
 
   useEffect(() => {
     if (!skill || !algorithmStage) return;
@@ -549,6 +698,8 @@ export function AITutor({ modelSelector, moduleId, moduleCid, persistedOpenRoute
     setAlgorithmStage(undefined);
     setLessonStep(updated.learnStep);
     setCurrentAiText('');
+    setStudentExerciseMedia([]);
+    setLastStudentMessage(undefined);
     resetComposer();
   }, [lessonStep, moduleCid, moduleId, resetComposer, skills, studentId]);
 
@@ -557,12 +708,34 @@ export function AITutor({ modelSelector, moduleId, moduleCid, persistedOpenRoute
     // rapid Enter/click events from starting concurrent decisions for one stage.
     if (!skill || !algorithmStage || recording || submitInFlightRef.current) return;
     if (!answer.trim() && attachments.length === 0 && !audioBlob) return;
+
+    if (stageUsesStudentExerciseMedia(algorithmStage)
+      && studentExercise.includes('Attached student files:')
+      && studentExerciseMedia.length === 0) {
+      setStudentExercise('');
+      saveToSessionStorage(AI_TUTOR_SESSION, studentExerciseSessionKey(lessonId, lessonStep), '');
+      setCurrentAiText('');
+      setAlgorithmStage(algorithm?.getBegin());
+      setError('The student-created exercise media is no longer available. Please create the similar exercise again so the AI tutor can inspect it.');
+      return;
+    }
+
     if (!openRouterKey) {
       setKeyDialogOpen(true);
       return;
     }
 
+    const previousStudentMessage = lastStudentMessage;
+    const submittedMessage: SubmittedStudentMessage = {
+      text: answer.trim(),
+      attachments: attachments.map((attachment) => ({ ...attachment })),
+      hasAudio: Boolean(audioBlob),
+      audioSeconds: recordingSeconds,
+    };
+    let composerCommitted = false;
+
     submitInFlightRef.current = true;
+    setLastStudentMessage(submittedMessage);
     setLoading(true);
     setError('');
     try {
@@ -576,16 +749,28 @@ export function AITutor({ modelSelector, moduleId, moduleCid, persistedOpenRoute
       const studentAnswer = [typedAnswer, audioTranscript, attachmentSummary]
         .filter(Boolean)
         .join('\n\n');
-      const media: OpenRouterAttachment[] = attachments.map(({ name, mimeType, dataUrl, kind }) => ({
-        name,
+      const studentMedia: OpenRouterAttachment[] = attachments.map(({ name, mimeType, dataUrl, kind }) => ({
+        name: `Current student response: ${name}`,
         mimeType,
         dataUrl,
         kind,
       }));
+      const tutorStageMedia = await loadStageImageAttachments(algorithmStage);
+      const exerciseMedia = stageUsesStudentExerciseMedia(algorithmStage)
+        ? studentExerciseMedia
+        : [];
+      const media = [...tutorStageMedia, ...exerciseMedia, ...studentMedia];
 
       const result = await askOpenRouter(
         { apiKey: openRouterKey, model: model.trim() || DEFAULT_MODEL },
-        decisionPrompt(skill, algorithmStage, studentAnswer, currentAiText, studentExercise),
+        decisionPrompt(
+          skill,
+          algorithmStage,
+          studentAnswer,
+          currentAiText,
+          studentExercise,
+          studentMedia.filter((attachment) => attachment.kind === 'image').length,
+        ),
         undefined,
         media,
         'nextStage',
@@ -601,11 +786,16 @@ export function AITutor({ modelSelector, moduleId, moduleCid, persistedOpenRoute
 
       localStorage.setItem(MODEL_STORAGE, model.trim() || DEFAULT_MODEL);
       resetComposer();
+      composerCommitted = true;
 
       if (isCreateSimilarExerciseStage(algorithmStage) && candidate.getType() === StageType.provide_fake_solution) {
         // This exact student-created exercise is the subject of the next two
         // dynamic stages. Persist it so refreshes do not make the tutor invent a replacement.
         setStudentExercise(studentAnswer);
+        setStudentExerciseMedia(studentMedia.map((attachment, index) => ({
+          ...attachment,
+          name: `Student-created exercise ${attachment.kind} ${index + 1}: ${attachment.name.replace(/^Current student response: /, '')}`,
+        })));
         saveToSessionStorage(AI_TUTOR_SESSION, studentExerciseSessionKey(lessonId, lessonStep), studentAnswer);
         saveToSessionStorage(AI_TUTOR_SESSION, generatedStageTextSessionKey(lessonId, lessonStep, StageType.provide_fake_solution), '');
         saveToSessionStorage(AI_TUTOR_SESSION, generatedStageTextSessionKey(lessonId, lessonStep, StageType.correct_fake_solution), '');
@@ -632,6 +822,7 @@ export function AITutor({ modelSelector, moduleId, moduleCid, persistedOpenRoute
       setCurrentAiText('');
       setAlgorithmStage(candidate);
     } catch (e) {
+      if (!composerCommitted) setLastStudentMessage(previousStudentMessage);
       if (e instanceof Error && (e.message.includes('OpenRouter request failed (401)') || e.message.includes('OpenRouter request failed (403)'))) {
         setKeyInput(openRouterKey || '');
         setKeyDialogOpen(true);
@@ -643,7 +834,7 @@ export function AITutor({ modelSelector, moduleId, moduleCid, persistedOpenRoute
       submitInFlightRef.current = false;
       setLoading(false);
     }
-  }, [algorithmStage, answer, attachments, audioBlob, currentAiText, finishSkill, lessonId, lessonStep, model, openRouterKey, recording, resetComposer, skill, studentExercise]);
+  }, [algorithm, algorithmStage, answer, attachments, audioBlob, currentAiText, finishSkill, lastStudentMessage, lessonId, lessonStep, loadStageImageAttachments, model, openRouterKey, recording, recordingSeconds, resetComposer, skill, studentExercise, studentExerciseMedia]);
 
   const resizeAnswerInput = useCallback((element: HTMLTextAreaElement | null): void => {
     if (!element) return;
@@ -653,7 +844,7 @@ export function AITutor({ modelSelector, moduleId, moduleCid, persistedOpenRoute
 
   useEffect(() => {
     resizeAnswerInput(answerInputRef.current);
-  }, [answer, resizeAnswerInput]);
+  }, [answer, loading, resizeAnswerInput]);
 
   useEffect(() => {
     if (!skill || loading || recording || keyDialogOpen) return;
@@ -701,18 +892,38 @@ export function AITutor({ modelSelector, moduleId, moduleCid, persistedOpenRoute
           {!skill && !error && <Spinner label='Loading skills' />}
           {skill && <>
             <Conversation>
-              {currentAiText && <MessageContainer>
-                <Bubble><KatexSpan content={currentAiText} /></Bubble>
-              </MessageContainer>}
-              {loading && <ThinkingIndicator><Spinner label='AI Tutor is thinking' /></ThinkingIndicator>}
+              {lastStudentMessage && <StudentMessage>
+                <StudentBubble>
+                  <MessageRole>You</MessageRole>
+                  {lastStudentMessage.text && <MessageBody><KatexSpan content={lastStudentMessage.text} /></MessageBody>}
+                  {(lastStudentMessage.attachments.length > 0 || lastStudentMessage.hasAudio) && <SentMedia>
+                    {lastStudentMessage.attachments.map((attachment) => attachment.kind === 'image'
+                      ? <SentImage key={attachment.id} src={attachment.dataUrl} alt={attachment.name} title={attachment.name} />
+                      : <SentFile key={attachment.id}>▤ {attachment.name}</SentFile>)}
+                    {lastStudentMessage.hasAudio && <SentFile>● Voice message · {formatRecordingTime(lastStudentMessage.audioSeconds)}</SentFile>}
+                  </SentMedia>}
+                </StudentBubble>
+              </StudentMessage>}
+              {!loading && (currentAiText || currentStageImageCids.length > 0) && <TutorMessage>
+                <TutorBubble>
+                  <MessageRole>AI Tutor</MessageRole>
+                  {currentAiText && <MessageBody><KatexSpan content={currentAiText} /></MessageBody>}
+                  {currentStageImageCids.map((cid, index) => <QuestionImage key={`${cid}-${index}`}>
+                    <ResizableImage cid={cid} />
+                  </QuestionImage>)}
+                </TutorBubble>
+              </TutorMessage>}
+              {loading && <TutorMessage>
+                <ThinkingIndicator><Spinner noLabel /></ThinkingIndicator>
+              </TutorMessage>}
             </Conversation>
             <ComposerDock>
-              <Composer>
+              <Composer className={loading ? 'is-disabled' : ''} aria-disabled={loading}>
                 <ComposerTextarea
                   ref={answerInputRef}
                   aria-label='Student answer'
                   rows={1}
-                  value={answer}
+                  value={loading ? '' : answer}
                   onChange={(e) => {
                     setAnswer(e.target.value);
                     resizeAnswerInput(e.currentTarget);
@@ -725,7 +936,7 @@ export function AITutor({ modelSelector, moduleId, moduleCid, persistedOpenRoute
                   placeholder='Type your answer'
                   disabled={loading}
                 />
-                {(attachments.length > 0 || audioBlob || recording) && <AttachmentTray>
+                {!loading && (attachments.length > 0 || audioBlob || recording) && <AttachmentTray>
                   {attachments.map((attachment) => <AttachmentChip key={attachment.id}>
                     {attachment.kind === 'image'
                       ? <AttachmentImage src={attachment.dataUrl} alt='' />
@@ -991,34 +1202,87 @@ const Pane = styled.div`
 `;
 const KeySettings = styled.div`display: flex; justify-content: flex-end; margin-bottom: 12px;`;
 const ErrorText = styled.div`color: #b00020; margin: 8px 0;`;
-const Conversation = styled(ChatContainer)`
+const Conversation = styled.div`
   width: 100%;
   min-height: 0;
   flex: 1 1 auto;
   overflow-y: auto;
   overflow-x: hidden;
-  position: relative;
-  padding: 12px 0 12px;
+  padding: 18px 14px 12px;
   box-sizing: border-box;
-`;
-const ThinkingIndicator = styled.div`
-  position: absolute;
-  inset: 0;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  pointer-events: none;
-`;
-const MessageContainer = styled.div`
   display: flex;
   flex-direction: column;
+  justify-content: flex-end;
+  gap: 22px;
+`;
+const MessageBase = styled.div`
   width: 100%;
-  margin: 0 auto;
-  padding: 0 10px;
+  display: flex;
   box-sizing: border-box;
   white-space: pre-wrap;
 
   .katex { white-space: pre-wrap; }
+`;
+const TutorMessage = styled(MessageBase)`
+  justify-content: flex-start;
+`;
+const StudentMessage = styled(MessageBase)`
+  justify-content: flex-end;
+`;
+const MessageBubble = styled(Bubble)`
+  width: fit-content;
+  min-width: 0;
+  max-width: min(78%, 720px);
+  margin: 0;
+  box-sizing: border-box;
+  overflow-wrap: anywhere;
+`;
+const TutorBubble = styled(MessageBubble)`
+  text-align: left;
+`;
+const StudentBubble = styled(MessageBubble)`
+  text-align: left;
+`;
+const MessageRole = styled.div`
+  color: rgb(0 0 0 / 46%);
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 1.2;
+`;
+const MessageBody = styled.div`
+  color: rgb(0 0 0 / 88%);
+  font-size: 17px;
+  line-height: 1.55;
+`;
+const ThinkingIndicator = styled.div`
+  min-height: 34px;
+  display: flex;
+  align-items: center;
+`;
+const SentMedia = styled.div`
+  max-width: 100%;
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 8px;
+`;
+const SentImage = styled.img`
+  width: 84px;
+  height: 84px;
+  object-fit: cover;
+  border-radius: 8px;
+  border: 1px solid rgb(0 0 0 / 9%);
+`;
+const SentFile = styled.div`
+  max-width: min(280px, 100%);
+  padding: 6px 0;
+  color: rgb(0 0 0 / 58%);
+  font-size: 13px;
+  line-height: 1.35;
+  overflow-wrap: anywhere;
+`;
+const QuestionImage = styled.div`
+  margin-top: 12px;
 `;
 const ComposerDock = styled.div`
   width: 100%;
@@ -1040,6 +1304,11 @@ const Composer = styled.div`
   box-shadow: 0 1px 2px rgb(0 0 0 / 5%), 0 7px 22px rgb(0 0 0 / 6%);
   transition: border-color 120ms ease, box-shadow 120ms ease;
   overflow: visible;
+
+  &.is-disabled {
+    pointer-events: none;
+    opacity: .65;
+  }
 
   &:focus-within {
     border-color: rgb(0 0 0 / 15%);
