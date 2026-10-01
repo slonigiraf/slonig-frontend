@@ -504,6 +504,105 @@ export async function materializeAtomicAbilityExercise (
 export const planExerciseAbility = planAtomicAbilityExercise;
 export const materializeExerciseAbility = materializeAtomicAbilityExercise;
 
+export function parseGeneratedAtomicAbility (content: string, exercise: Exercise): AtomicAbilityConversion[] {
+  if (exercise.id === undefined) {
+    throw new Error('Every source Exercise must have one unique id before Ability generation.');
+  }
+
+  const parsed = parseJson(content);
+  const values = isRecord(parsed) ? parsed.abilities : undefined;
+
+  if (!Array.isArray(values) || values.length !== 1) {
+    throw new Error('OpenRouter must return exactly one generated Ability for the source Exercise.');
+  }
+
+  const value = values[0];
+
+  if (!isRecord(value) || value.exerciseId !== exercise.id || value.skillIndex !== 0) {
+    throw new Error('The generated Ability must identify its source Exercise and use skillIndex 0.');
+  }
+
+  const [ability] = parseGeneratedAbilities(JSON.stringify([value.ability]), 1);
+  const imagePrompts = parseImagePromptPair(value.imagePrompts);
+  const hasQuestionVisual = Boolean(exercise.imageDescription?.trim());
+  const hasSolutionVisual = Boolean(exercise.solutionImageDescription?.trim());
+  const hasAnyReturnedVisual = imagePrompts.some(({ changesImage, i, p }) => changesImage || i || p);
+
+  if (!hasQuestionVisual && !hasSolutionVisual && hasAnyReturnedVisual) {
+    throw new Error('A text-only Ability must not create visual prompts.');
+  }
+
+  const normalizedPrompts = imagePrompts.map((prompt): AbilityExerciseImagePrompts => {
+    if (hasQuestionVisual && !prompt.p) {
+      throw new Error('A source Exercise with a required question visual must keep a question visual for every Ability exercise.');
+    }
+
+    if (hasSolutionVisual && !prompt.i) {
+      throw new Error('A source Exercise with a required solution visual must keep a solution visual for every Ability exercise.');
+    }
+
+    if (hasSolutionVisual && prompt.changesImage && (!hasQuestionVisual || !prompt.p || !prompt.i)) {
+      throw new Error('A modified solution visual requires both the source question visual and solution visual.');
+    }
+
+    return {
+      changesImage: hasSolutionVisual ? prompt.changesImage : false,
+      i: hasSolutionVisual ? prompt.i : '',
+      p: hasQuestionVisual ? prompt.p : ''
+    };
+  }) as [AbilityExerciseImagePrompts, AbilityExerciseImagePrompts];
+
+  if (hasSolutionVisual) {
+    const changeModes = new Set(normalizedPrompts.map(({ changesImage }) => changesImage));
+
+    if (changeModes.size !== 1) {
+      throw new Error('Both Ability exercises must use the same solution visual mode.');
+    }
+  }
+
+  if (hasQuestionVisual) {
+    const [firstQuestion, secondQuestion] = ability.q;
+    const sameQuestionText = normalized(firstQuestion.h) === normalized(secondQuestion.h);
+
+    if (sameQuestionText && normalized(normalizedPrompts[0].p) === normalized(normalizedPrompts[1].p)) {
+      throw new Error('The two Ability exercises must use different concrete input parameters in their text or question visuals.');
+    }
+  }
+
+  return [{
+    ability,
+    exerciseId: exercise.id,
+    ...(hasQuestionVisual || hasSolutionVisual ? { imagePrompts: normalizedPrompts } : {}),
+    skillIndex: 0
+  }];
+}
+
+export async function generateAtomicAbilityExercise (
+  language: string,
+  chapterTitle: string,
+  exercise: Exercise,
+  runJson: AbilityWorkflowJsonRunner
+): Promise<AtomicAbilityConversion[]> {
+  if (exercise.id === undefined) {
+    throw new Error('Every source Exercise must have one unique id before Ability generation.');
+  }
+
+  const exerciseId = exercise.id;
+  const source = transportCompactAbilitySourceExercise(exercise);
+
+  return runJson(
+    abilityGenerationRequestPrompt(language, chapterTitle, source),
+    (content) => parseGeneratedAtomicAbility(content, exercise),
+    {
+      maxOutputTokens: 3_200,
+      repairContext: `Return exactly one abilities[] entry for exerciseId=${exerciseId} with skillIndex=0, one final ability, and exactly two imagePrompts. Do not return a blueprint or internal plan. Source question visual present=${Boolean(exercise.imageDescription?.trim())}; source solution visual present=${Boolean(exercise.solutionImageDescription?.trim())}.`,
+      validationCycles: 1
+    }
+  );
+}
+
+export const generateExerciseAbility = generateAtomicAbilityExercise;
+
 export async function runAtomicAbilityWorkflow (
   language: string,
   chapterTitle: string,
@@ -516,14 +615,13 @@ export async function runAtomicAbilityWorkflow (
     throw new Error('Every source Exercise must have one unique id before Ability generation.');
   }
 
-  // Compatibility composition for callers that still want a one-function
-  // workflow. The live UI calls the two stages separately and caches their
-  // outputs so a materialization retry never regenerates the blueprint.
+  // Each source Exercise is deliberately source-bounded. The model plans the
+  // complete Exercise-level skill internally, but returns only the final
+  // Ability and visual specifications so output stays small.
   const results: AtomicAbilityConversion[] = [];
 
   for (const exercise of exercises) {
-    const blueprints = await planAtomicAbilityExercise(language, chapterTitle, exercise, runJson);
-    const conversions = await materializeAtomicAbilityExercise(language, chapterTitle, exercise, blueprints, runJson);
+    const conversions = await generateAtomicAbilityExercise(language, chapterTitle, exercise, runJson);
 
     results.push(...conversions);
   }
@@ -532,6 +630,25 @@ export async function runAtomicAbilityWorkflow (
 }
 
 export const runExerciseAbilityWorkflow = runAtomicAbilityWorkflow;
+
+export function abilityGenerationRequestPrompt (language: string, chapterTitle: string, source: unknown): string {
+  return `Generate exactly one final learner Ability from this one source Exercise in a single pass. Before writing the answer, silently determine the complete reusable Exercise-level skill: its input, inseparable operation or operation sequence, expected output, stable method/rule, direction, reasoning depth, difficulty, and visual requirements. Use that internal plan to keep both practice instances aligned, but DO NOT output the plan or a blueprint. Do not split a coherent multi-step Exercise into smaller skills.
+
+Chapter: ${chapterTitle}
+Language: ${language}
+
+FINAL ABILITY
+Create exactly one Ability with exactly two concrete practice instances. The Ability must represent the complete source Exercise rather than one convenient sub-step. Both questions must preserve the same complete input type, operation or operation sequence, output type, method, direction, reasoning depth, and difficulty. Vary only concrete task data and independently recalculate each answer. Keep titles normally <=12 words, tasks <=32 words, and answers <=38 words. Do not use hints, tutorial prose, answer choices, book references, or placeholder task text such as "Task 1" or "Task 2". Use <kx>...</kx> for mathematical notation. ability.i="", ability.t=3, and q[].p/q[].i must remain empty because images are materialized later.
+
+IMAGE PROMPTS
+Return exactly two imagePrompts, one per final question. The SOURCE EXERCISE fields questionVisual and solutionVisual are authoritative evidence boundaries. If source.questionVisual is empty, p must be ""; if it is nonempty, p must be a complete standalone specification of the task-essential starting visual for that concrete question without leaking the answer. If source.solutionVisual is empty, i must be "" and changesImage=false. If source.solutionVisual is nonempty, i must specify the complete correct solution visual. Set changesImage=true only when that solution is the correctly modified version of the same supplied question visual; in that case p and i must describe the same visual before and after the requested change and preserve every unchanged object/layout. Otherwise changesImage=false. Never invent decorative or optional visuals and never drop a required source visual.
+
+Return only this JSON shape with exactly one abilities[] entry and NO blueprint field:
+{"abilities":[{"exerciseId":123,"skillIndex":0,"ability":{"i":"","t":3,"h":"Convert kilometers to meters","q":[{"h":"Convert <kx>3</kx> km to m.","a":"<kx>3000</kx> m","p":"","i":""},{"h":"Convert <kx>7</kx> km to m.","a":"<kx>7000</kx> m","p":"","i":""}]},"imagePrompts":[{"changesImage":false,"p":"","i":""},{"changesImage":false,"p":"","i":""}]}]}
+
+SOURCE EXERCISE:
+${JSON.stringify(source)}`;
+}
 
 export function abilityBlueprintRequestPrompt (language: string, chapterTitle: string, exercises: unknown[]): string {
   return `Plan exactly one reusable Ability for the supplied source Exercise. Planning only; do not write learner questions.

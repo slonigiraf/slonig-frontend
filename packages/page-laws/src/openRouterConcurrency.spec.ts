@@ -9,8 +9,8 @@ import { createRequestGate, OPENROUTER_CONCURRENCY } from './openRouterConcurren
 const delay = (milliseconds: number): Promise<void> => new Promise((resolve) => setTimeout(resolve, milliseconds));
 
 describe('OpenRouter request gate', (): void => {
-  it('uses one four-request concurrency limit', (): void => {
-    assert.equal(OPENROUTER_CONCURRENCY, 10);
+  it('uses one app-wide twenty-request concurrency limit', (): void => {
+    assert.equal(OPENROUTER_CONCURRENCY, 20);
   });
 
   it('does not allow more than the configured number of requests to run at once', async (): Promise<void> => {

@@ -7,7 +7,7 @@ import { strict as assert } from 'node:assert';
 
 import type { Exercise } from '@slonigiraf/db';
 
-import { assembleExerciseAbilityConversions, parseAbilityBlueprints, parseBlueprintAbilities, parseBlueprintVisualPlans, runExerciseAbilityWorkflow, validateAbilityBlueprintEvidence } from './abilityWorkflow.js';
+import { assembleExerciseAbilityConversions, parseAbilityBlueprints, parseBlueprintAbilities, parseBlueprintVisualPlans, parseGeneratedAtomicAbility, runExerciseAbilityWorkflow, validateAbilityBlueprintEvidence } from './abilityWorkflow.js';
 
 describe('one-Ability-per-Exercise workflow', (): void => {
   it('requires exactly one Ability blueprint for each source Exercise', (): void => {
@@ -201,7 +201,71 @@ describe('one-Ability-per-Exercise workflow', (): void => {
     assert.throws(() => validateAbilityBlueprintEvidence(blueprints, [source]), /invented a question visual/i);
   });
 
-  it('uses two bounded semantic requests per source Exercise without decomposing it', async (): Promise<void> => {
+  it('enforces source visual evidence without requiring a returned blueprint', (): void => {
+    const source = {
+      description: 'Read the supplied graph value.',
+      id: 111,
+      imageDescription: 'A graph with one marked value.',
+      solution: 'Read the marked value.',
+      title: 'Read graph'
+    } as Exercise;
+    const result = parseGeneratedAtomicAbility(JSON.stringify({
+      abilities: [{
+        exerciseId: 111,
+        skillIndex: 0,
+        ability: {
+          h: 'Read a graph value',
+          i: '',
+          q: [
+            { a: '<kx>3</kx>', h: 'Read the value shown.', i: '', p: '' },
+            { a: '<kx>7</kx>', h: 'Read the value shown.', i: '', p: '' }
+          ],
+          t: 3
+        },
+        imagePrompts: [
+          { changesImage: false, i: 'Unneeded highlighted answer.', p: 'Graph with the mark at 3.' },
+          { changesImage: true, i: 'Another unneeded answer visual.', p: 'Graph with the mark at 7.' }
+        ]
+      }]
+    }), source);
+
+    assert.equal(result.length, 1);
+    assert.deepEqual(result[0].imagePrompts, [
+      { changesImage: false, i: '', p: 'Graph with the mark at 3.' },
+      { changesImage: false, i: '', p: 'Graph with the mark at 7.' }
+    ]);
+  });
+
+  it('rejects invented visuals for a text-only source without a blueprint', (): void => {
+    const source = {
+      description: 'Convert 25 centimeters to meters.',
+      id: 112,
+      solution: '0.25 m',
+      title: 'Convert units'
+    } as Exercise;
+
+    assert.throws(() => parseGeneratedAtomicAbility(JSON.stringify({
+      abilities: [{
+        exerciseId: 112,
+        skillIndex: 0,
+        ability: {
+          h: 'Convert centimeters to meters',
+          i: '',
+          q: [
+            { a: '<kx>0.25</kx> m', h: 'Convert <kx>25</kx> cm to m.', i: '', p: '' },
+            { a: '<kx>0.8</kx> m', h: 'Convert <kx>80</kx> cm to m.', i: '', p: '' }
+          ],
+          t: 3
+        },
+        imagePrompts: [
+          { changesImage: false, i: '', p: 'Decorative ruler.' },
+          { changesImage: false, i: '', p: '' }
+        ]
+      }]
+    }), source), /text-only Ability must not create visual prompts/i);
+  });
+
+  it('uses one bounded semantic request per source Exercise without decomposing it', async (): Promise<void> => {
     const source = {
       description: 'Read a plotted point, then calculate the horizontal distance to x = 5.',
       id: 12,
@@ -209,15 +273,7 @@ describe('one-Ability-per-Exercise workflow', (): void => {
       solution: 'Read the x-coordinate, then subtract it from 5.',
       title: 'Coordinate task'
     } as Exercise;
-    const plan = JSON.stringify({
-      plans: [{
-        exerciseId: 12,
-        skills: [
-          { input: 'a coordinate plane with one plotted point and a target x-value', method: 'read the x-coordinate and subtract it from the target x-value', operation: 'read a plotted x-coordinate and calculate horizontal distance', output: 'a horizontal distance', questionVisual: 'required', solutionVisual: 'none', title: 'Read a point and calculate horizontal distance' }
-        ]
-      }]
-    });
-    const materialized = JSON.stringify({
+    const generated = JSON.stringify({
       abilities: [
         {
           exerciseId: 12,
@@ -230,28 +286,27 @@ describe('one-Ability-per-Exercise workflow', (): void => {
         }
       ]
     });
-    const outputs = [plan, materialized];
     const prompts: string[] = [];
     const options: Array<{ maxOutputTokens?: number; repairContext?: string; validationCycles?: number } | undefined> = [];
     let index = 0;
     const result = await runExerciseAbilityWorkflow('en', 'Coordinates', [source], async (prompt, parse, runOptions) => {
       prompts.push(prompt);
       options.push(runOptions);
+      index++;
 
-      return parse(outputs[index++]);
+      return parse(generated);
     });
 
-    assert.equal(index, 2);
+    assert.equal(index, 1);
     assert.equal(result.length, 1);
     assert.equal(result[0].imagePrompts?.[0].p.includes('(2,1)'), true);
-    assert.match(prompts[0], /exactly one reusable Ability/i);
-    assert.match(prompts[1], /one-per-Exercise plan/i);
-    assert.equal(prompts[1].includes('then calculate the horizontal distance'), true);
+    assert.match(prompts[0], /single pass/i);
+    assert.match(prompts[0], /silently determine/i);
+    assert.equal(prompts[0].includes('\"blueprint\":'), false);
+    assert.equal(prompts[0].includes('then calculate the horizontal distance'), true);
     assert.equal(prompts.some((prompt) => /Draft plan:|Candidates:|Draft visual plans:/i.test(prompt)), false);
     assert.equal(options[0]?.validationCycles, 1);
-    assert.equal(options[1]?.validationCycles, 1);
-    assert.equal(options[0]?.maxOutputTokens, 1_800);
-    assert.equal(options[1]?.maxOutputTokens, 4_500);
+    assert.equal(options[0]?.maxOutputTokens, 3_200);
   });
 
   it('keeps multi-source workflow requests source-bounded', async (): Promise<void> => {
@@ -266,24 +321,17 @@ describe('one-Ability-per-Exercise workflow', (): void => {
 
     const result = await runExerciseAbilityWorkflow('en', 'Units', sources, async (prompt, parse) => {
       prompts.push(prompt);
-      const id = call < 2 ? 21 : 22;
-      const isPlan = call % 2 === 0;
+      const id = sources[call].id as number;
 
       call++;
-
-      if (isPlan) {
-        return parse(JSON.stringify({ plans: [{ exerciseId: id, skills: [{ input: 'centimeters', method: 'divide by 100', operation: 'convert centimeters to meters', output: 'meters', questionVisual: 'none', solutionVisual: 'none', title: 'Convert centimeters to meters' }] }] }));
-      }
 
       return parse(JSON.stringify({ abilities: [{ exerciseId: id, skillIndex: 0, ability: { h: 'Convert centimeters to meters', i: '', q: [{ a: '<kx>0.25</kx> m', h: 'Convert <kx>25</kx> cm to m.', i: '', p: '' }, { a: '<kx>0.8</kx> m', h: 'Convert <kx>80</kx> cm to m.', i: '', p: '' }], t: 3 }, imagePrompts: [{ changesImage: false, i: '', p: '' }, { changesImage: false, i: '', p: '' }] }] }));
     });
 
     assert.equal(result.length, 2);
-    assert.equal(prompts.length, 4);
+    assert.equal(prompts.length, 2);
     assert.equal(prompts[0].includes('"id":22'), false);
-    assert.equal(prompts[1].includes('"id":22'), false);
-    assert.equal(prompts[2].includes('"id":21'), false);
-    assert.equal(prompts[3].includes('"id":21'), false);
+    assert.equal(prompts[1].includes('"id":21'), false);
   });
 
 });

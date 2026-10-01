@@ -3,7 +3,7 @@
 
 import type { Book, BookChapter, BookConcept, BookPage, BookProcessingStageKey, BookStageSpendKey, Exercise, Skill } from '@slonigiraf/db';
 import type { GeneratedAbility } from './abilities.js';
-import type { AbilityBlueprint, AbilityWorkflowJsonRunner, ExerciseAbilityConversion } from './abilityWorkflow.js';
+import type { AbilityWorkflowJsonRunner, ExerciseAbilityConversion } from './abilityWorkflow.js';
 
 import { addBookStageSpend, completeBookProcessingStage, deleteAbilities, deleteAbility, deleteBookConcept, deleteExercise, deleteSkill, getAbilities, getBookChapters, getBookCompletedStages, getBookConceptsForBookPage, getBookPages, getExercisesForBookPage, getSetting, getSkillsForChapter, getImage, hydrateAbilityContent, putImage, replaceAbilities, replaceExercisesForBookPage, replaceSkillsForChapter, resetBookProcessingStagesFrom, SettingKey, storeAbility, updateBookChapterTitle } from '@slonigiraf/db';
 import { KatexSpan } from '@slonigiraf/slonig-components';
@@ -20,7 +20,7 @@ import { parseAbilityRepairResult, parseStoredAbility, withAbilityVisualSource }
 import { parseExerciseRepairResult } from './exercises.js';
 import { estimateAiInput } from './aiEstimate.js';
 import { ABILITY_WORKFLOW_SYSTEM_PROMPT, DEFAULT_PROCESSING_MODEL, FIX_ABILITIES_REQUEST_PROMPT, FIX_EXERCISES_REQUEST_PROMPT, JSON_VALIDATION_PROMPT, LEARNER_AGE_PROMPT, MATH_DISPLAY_REQUIREMENTS_PROMPT, REPAIR_SYSTEM_PROMPT, SKILLS_GENERATION_SYSTEM_PROMPT, SOURCES_TO_SKILLS_REQUEST_PROMPT } from './constants.js';
-import { abilityBlueprintRequestPrompt, materializeExerciseAbility, planExerciseAbility, transportCompactAbilitySourceExercise } from './abilityWorkflow.js';
+import { abilityGenerationRequestPrompt, generateExerciseAbility, transportCompactAbilitySourceExercise } from './abilityWorkflow.js';
 import { mapConcurrent } from './concurrency.js';
 import { OPENROUTER_CONCURRENCY, openRouterRequestGate } from './openRouterConcurrency.js';
 import OpenRouterModelSelector from './OpenRouterModelSelector.js';
@@ -88,7 +88,6 @@ const FIX_IMAGES_STAGE: BookProcessingStageKey = 'fixImages';
 const MAX_REQUEST_ATTEMPTS = 4;
 const RETRY_BASE_DELAY_MS = 1_000;
 const AI_REQUEST_TIMEOUT_MS = 60_000;
-const ABILITY_GENERATION_CONCURRENCY = 5;
 const TIKZ_RENDER_CONCURRENCY = 4;
 const delay = (milliseconds: number): Promise<void> => new Promise((resolve) => setTimeout(resolve, milliseconds));
 
@@ -1665,11 +1664,12 @@ function Skills ({ autoRunAll = false, autoRunStartKey, book, externalAutoRunBus
     }
 
     if (aiAction === 'exercises') {
-      // Ability generation is source-bounded: each semantic request contains
-      // exactly one Exercise instead of a chapter/batch plus accumulated drafts.
+      // Ability generation is source-bounded and single-pass: each semantic
+      // request contains exactly one Exercise and returns only its final Ability
+      // plus any required visual specifications.
       return chapterContent.flatMap(({ chapter, exercises }) => exercises
         .filter(({ id }) => !generateOnlyMissingAbilities || id === undefined || !abilityModuleIds.has(exerciseAbilityModuleId(book.id, id)))
-        .map((exercise) => `${LEARNER_AGE_PROMPT(book.age)}\n${abilityBlueprintRequestPrompt(language, chapter.title, [transportCompactAbilitySourceExercise(exercise)])}`));
+        .map((exercise) => `${LEARNER_AGE_PROMPT(book.age)}\n${abilityGenerationRequestPrompt(language, chapter.title, transportCompactAbilitySourceExercise(exercise))}`));
     }
 
     if (aiAction === 'fixExercises') {
@@ -1697,11 +1697,7 @@ function Skills ({ autoRunAll = false, autoRunStartKey, book, externalAutoRunBus
   const maxChapterAbilityCount = Math.max(1, ...chapterContent.map(({ abilities }) => abilities.length));
   const maxChapterExerciseCount = Math.max(1, ...chapterContent.map(({ exercises }) => exercises.length));
   const generationOutputTokens = aiAction === 'exercises' ? 3_200 : aiAction === 'fixExercises' ? maxChapterExerciseCount * 550 : aiAction === 'fix' ? maxChapterAbilityCount * 700 : aiAction === 'images' ? 2_400 : aiAction === 'fixImages' ? 2_600 : aiAction === 'skills' ? BATCH_SIZE * 180 : 300;
-  const validationInputs = useMemo(() => aiAction === 'exercises'
-    // The live workflow now has two bounded semantic calls per source:
-    // one-per-Exercise planning, then final materialization (including visual specs).
-    ? requestInputs.flatMap((input) => [input, input])
-    : requestInputs, [aiAction, requestInputs]);
+  const validationInputs = requestInputs;
   const outputTokens = generationOutputTokens;
   const estimate = estimateAiInput(effectiveModel, validationInputs, outputTokens);
 
@@ -1880,58 +1876,22 @@ function Skills ({ autoRunAll = false, autoRunStartKey, book, externalAutoRunBus
       // single locally validated Ability is ready, including any required visual
       // descriptions, or its existing DB records are untouched.
       const generatedByExerciseId = new Map<number, GeneratedAbility[]>();
-      // Once the semantic workflow has produced a locally valid conversion,
-      // keep it across retries without generating image bytes at this stage.
+      // Keep locally valid one-pass conversions across retries without
+      // generating image bytes at this stage.
       const conversionsByExerciseIdCache = new Map<number, ExerciseAbilityConversion[]>();
-      // Planning is a separate cached semantic stage. If final Ability JSON is
-      // rejected or a request times out, retry materialization from this plan
-      // instead of asking the model to decompose the source Exercise again.
-      const blueprintsByExerciseIdCache = new Map<number, AbilityBlueprint[]>();
       const maxAttempts = 3;
       let lastAttemptError = '';
 
       for (let attempt = 1; attempt <= maxAttempts && pending.size; attempt++) {
-        const sourcesNeedingPlan = chapterContent.flatMap(({ chapter, exercises: chapterExercises }) => chapterExercises
-          .filter(({ id }) => id !== undefined && pending.has(id) && !blueprintsByExerciseIdCache.has(id))
+        const sourcesNeedingGeneration = chapterContent.flatMap(({ chapter, exercises: chapterExercises }) => chapterExercises
+          .filter(({ id }) => id !== undefined && pending.has(id) && !conversionsByExerciseIdCache.has(id))
           .map((exercise) => ({ chapterTitle: chapter.title, exercise })));
-        const plannedSources = await mapConcurrent(sourcesNeedingPlan, ABILITY_GENERATION_CONCURRENCY, async ({ chapterTitle, exercise }): Promise<{ blueprints: AbilityBlueprint[]; exercise: Exercise }> => {
+        const generatedSources = await Promise.all(sourcesNeedingGeneration.map(async ({ chapterTitle, exercise }): Promise<{ conversions: ExerciseAbilityConversion[]; exercise: Exercise }> => {
           const systemPrompt = ABILITY_WORKFLOW_SYSTEM_PROMPT(language, chapterTitle, book.age);
           const runJson: AbilityWorkflowJsonRunner = (prompt, parse, options) => requestValidatedJson(client, effectiveModel, systemPrompt, prompt, parse, true, addAbilitiesCost, options?.maxOutputTokens, options?.repairContext, options?.validationCycles ?? 1, signal);
 
           try {
-            const blueprints = await planExerciseAbility(language, chapterTitle, exercise, runJson);
-
-            lastAttemptError = '';
-
-            return { blueprints, exercise };
-          } catch (caught) {
-            if (signal.aborted) {
-              throw caught;
-            }
-
-            lastAttemptError = caught instanceof Error ? caught.message : 'Unknown OpenRouter planning error.';
-
-            return { blueprints: [], exercise };
-          }
-        });
-
-        for (const { blueprints, exercise } of plannedSources) {
-          if (blueprints.length && exercise.id !== undefined) {
-            blueprintsByExerciseIdCache.set(exercise.id, blueprints);
-          }
-        }
-
-        const sourcesNeedingMaterialization = chapterContent.flatMap(({ chapter, exercises: chapterExercises }) => chapterExercises
-          .filter(({ id }) => id !== undefined && pending.has(id) && blueprintsByExerciseIdCache.has(id) && !conversionsByExerciseIdCache.has(id))
-          .map((exercise) => ({ chapterTitle: chapter.title, exercise })));
-        const materializedSources = await mapConcurrent(sourcesNeedingMaterialization, ABILITY_GENERATION_CONCURRENCY, async ({ chapterTitle, exercise }): Promise<{ conversions: ExerciseAbilityConversion[]; exercise: Exercise }> => {
-          const exerciseId = exercise.id as number;
-          const blueprints = blueprintsByExerciseIdCache.get(exerciseId) ?? [];
-          const systemPrompt = ABILITY_WORKFLOW_SYSTEM_PROMPT(language, chapterTitle, book.age);
-          const runJson: AbilityWorkflowJsonRunner = (prompt, parse, options) => requestValidatedJson(client, effectiveModel, systemPrompt, prompt, parse, true, addAbilitiesCost, options?.maxOutputTokens, options?.repairContext, options?.validationCycles ?? 1, signal);
-
-          try {
-            const conversions = await materializeExerciseAbility(language, chapterTitle, exercise, blueprints, runJson);
+            const conversions = await generateExerciseAbility(language, chapterTitle, exercise, runJson);
 
             lastAttemptError = '';
 
@@ -1941,13 +1901,13 @@ function Skills ({ autoRunAll = false, autoRunStartKey, book, externalAutoRunBus
               throw caught;
             }
 
-            lastAttemptError = caught instanceof Error ? caught.message : 'Unknown OpenRouter materialization error.';
+            lastAttemptError = caught instanceof Error ? caught.message : 'Unknown OpenRouter Ability generation error.';
 
             return { conversions: [], exercise };
           }
-        });
+        }));
 
-        for (const { conversions, exercise } of materializedSources) {
+        for (const { conversions, exercise } of generatedSources) {
           if (conversions.length && exercise.id !== undefined) {
             conversionsByExerciseIdCache.set(exercise.id, conversions.sort((a, b) => a.skillIndex - b.skillIndex));
           }
