@@ -15,6 +15,7 @@ import React, { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useSta
 import { Button, Dropdown, Input, Modal, styled } from '@polkadot/react-components';
 
 import { estimateAiInput } from './aiEstimate.js';
+import { addBookExternalCall, type BookExternalCallProvider } from './bookExternalCalls.js';
 import { bookAgeLabel, getBookAgeSamplePageNumbers, MAX_BOOK_LEARNER_AGE, MIN_BOOK_LEARNER_AGE, normalizeBookAge, parseDetectedBookAge } from './bookAge.js';
 import { BOOK_LANGUAGE_OPTIONS, bookLanguageLabel, getMiddleBookPageNumbers, normalizeLanguageCode, parseDetectedBookLanguage } from './bookLanguage.js';
 import { BOOK_SUBJECT_OPTIONS, automaticBookSubjectForLanguage, bookSubjectLabel, normalizeBookSubject, parseDetectedBookSubject } from './bookSubject.js';
@@ -1316,7 +1317,7 @@ async function requestChapterBoundaries(client: OpenAI, model: string, prompt: s
   return parseChapterBoundaries(content, totalPages);
 }
 
-async function recognizePageWithMathpix(apiKey: string, file: File, pageNumber: number): Promise<Pick<BookPage, 'mathpixHeadings' | 'pageMMD' | 'pageMMDZip'>> {
+async function recognizePageWithMathpix(apiKey: string, file: File, pageNumber: number, onExternalCall?: (provider: Exclude<BookExternalCallProvider, 'openrouter'>) => void): Promise<Pick<BookPage, 'mathpixHeadings' | 'pageMMD' | 'pageMMDZip'>> {
   const headers = { app_key: apiKey };
   const body = new FormData();
   const pagePdf = await createSinglePagePdf(file, pageNumber);
@@ -1327,6 +1328,7 @@ async function recognizePageWithMathpix(apiKey: string, file: File, pageNumber: 
     conversion_formats: { 'mmd.zip': true }
   }));
 
+  onExternalCall?.('pdfv3');
   const response = await fetch('https://api.mathpix.com/v3/pdf', {
     body,
     headers,
@@ -1339,6 +1341,7 @@ async function recognizePageWithMathpix(apiKey: string, file: File, pageNumber: 
   }
 
   for (let attempt = 0; attempt < 120; attempt++) {
+    onExternalCall?.('pdfv3');
     const statusResponse = await fetch(`https://api.mathpix.com/v3/pdf/${result.pdf_id}`, { headers });
     const statusResult = await statusResponse.json() as {
       conversion_status?: Record<string, { error?: string; status?: string }>;
@@ -1358,6 +1361,8 @@ async function recognizePageWithMathpix(apiKey: string, file: File, pageNumber: 
     const zipConversionFinished = !zipStatus || zipStatus.status === 'completed' || zipStatus.status === 'error';
 
     if (statusResult.status === 'completed' && zipConversionFinished) {
+      onExternalCall?.('mmd');
+      onExternalCall?.('pdfv3');
       const [mmdResponse, linesResponse] = await Promise.all([
         fetch(`https://api.mathpix.com/v3/pdf/${result.pdf_id}.mmd`, { headers }),
         fetch(`https://api.mathpix.com/v3/pdf/${result.pdf_id}.lines.json`, { headers })
@@ -1382,6 +1387,7 @@ async function recognizePageWithMathpix(apiKey: string, file: File, pageNumber: 
       // consider the page recognized. Mathpix can fail this optional conversion
       // for genuinely blank pages even though the normal MMD result is valid.
       if (zipStatus?.status === 'completed') {
+        onExternalCall?.('mmd');
         const zipResponse = await fetch(`https://api.mathpix.com/v3/pdf/${result.pdf_id}.mmd.zip`, { headers });
 
         if (zipResponse.ok) {
@@ -1733,18 +1739,25 @@ function BookReader({ ageTabRequest, assignAllStandardsRequest, autoRunAll = fal
     setOpenRouterSpent((current) => current + costUsd);
     void addBookStageSpend(book.id, stage, costUsd).catch(console.error);
   }, [book.id]);
+  const addOpenRouterStageCost = useCallback((stage: BookStageSpendKey, costUsd: number): void => {
+    addBookExternalCall(book.id, stage, 'openrouter');
+    addStageCost(stage, costUsd);
+  }, [addStageCost, book.id]);
+  const addRecognizeExternalCall = useCallback((provider: Exclude<BookExternalCallProvider, 'openrouter'>): void => {
+    addBookExternalCall(book.id, 'recognize', provider);
+  }, [book.id]);
   const addRecognizeCost = useCallback((costUsd: number): void => addStageCost('recognize', costUsd), [addStageCost]);
-  const addLanguageCost = useCallback((costUsd: number): void => addStageCost('language', costUsd), [addStageCost]);
-  const addSubjectCost = useCallback((costUsd: number): void => addStageCost('subject', costUsd), [addStageCost]);
-  const addAgeCost = useCallback((costUsd: number): void => addStageCost('age', costUsd), [addStageCost]);
-  const addChaptersCost = useCallback((costUsd: number): void => addStageCost('chapters', costUsd), [addStageCost]);
-  const addConceptsCost = useCallback((costUsd: number): void => addStageCost('concepts', costUsd), [addStageCost]);
-  const addFixConceptsCost = useCallback((costUsd: number): void => addStageCost('fixConcepts', costUsd), [addStageCost]);
-  const addDeduplicateConceptsCost = useCallback((costUsd: number): void => addStageCost('deduplicateConcepts', costUsd), [addStageCost]);
-  const addSortConceptsCost = useCallback((costUsd: number): void => addStageCost('sortConcepts', costUsd), [addStageCost]);
-  const addRefineChaptersCost = useCallback((costUsd: number): void => addStageCost(REFINE_CHAPTERS_SPEND_STAGE, costUsd), [addStageCost]);
-  const addExercisesCost = useCallback((costUsd: number): void => addStageCost('exercises', costUsd), [addStageCost]);
-  const addStandardsCost = useCallback((costUsd: number): void => addStageCost('standards', costUsd), [addStageCost]);
+  const addLanguageCost = useCallback((costUsd: number): void => addOpenRouterStageCost('language', costUsd), [addOpenRouterStageCost]);
+  const addSubjectCost = useCallback((costUsd: number): void => addOpenRouterStageCost('subject', costUsd), [addOpenRouterStageCost]);
+  const addAgeCost = useCallback((costUsd: number): void => addOpenRouterStageCost('age', costUsd), [addOpenRouterStageCost]);
+  const addChaptersCost = useCallback((costUsd: number): void => addOpenRouterStageCost('chapters', costUsd), [addOpenRouterStageCost]);
+  const addConceptsCost = useCallback((costUsd: number): void => addOpenRouterStageCost('concepts', costUsd), [addOpenRouterStageCost]);
+  const addFixConceptsCost = useCallback((costUsd: number): void => addOpenRouterStageCost('fixConcepts', costUsd), [addOpenRouterStageCost]);
+  const addDeduplicateConceptsCost = useCallback((costUsd: number): void => addOpenRouterStageCost('deduplicateConcepts', costUsd), [addOpenRouterStageCost]);
+  const addSortConceptsCost = useCallback((costUsd: number): void => addOpenRouterStageCost('sortConcepts', costUsd), [addOpenRouterStageCost]);
+  const addRefineChaptersCost = useCallback((costUsd: number): void => addOpenRouterStageCost(REFINE_CHAPTERS_SPEND_STAGE, costUsd), [addOpenRouterStageCost]);
+  const addExercisesCost = useCallback((costUsd: number): void => addOpenRouterStageCost('exercises', costUsd), [addOpenRouterStageCost]);
+  const addStandardsCost = useCallback((costUsd: number): void => addOpenRouterStageCost('standards', costUsd), [addOpenRouterStageCost]);
   const conceptChapters = useMemo<ConceptChapterNavigationItem[]>(() => conceptChaptersFromPages(Array.from(pages.values())), [pages]);
   const loadDeduplicateConceptInventory = useCallback(async (): Promise<{ conceptsById: Map<number, BookConcept>; inputs: DeduplicateConceptInput[] }> => {
     const chapterById = new Map(conceptChapters.flatMap((chapter) => chapter.chapterId === undefined ? [] : [[chapter.chapterId, chapter] as const]));
@@ -4174,7 +4187,7 @@ function BookReader({ ageTabRequest, assignAllStandardsRequest, autoRunAll = fal
         return;
       }
 
-      const { mathpixHeadings, pageMMD, pageMMDZip } = await recognizePageWithMathpix(apiKey, file, pageNumber);
+      const { mathpixHeadings, pageMMD, pageMMDZip } = await recognizePageWithMathpix(apiKey, file, pageNumber, addRecognizeExternalCall);
 
       addRecognizeCost(MATHPIX_PDF_PAGE_PRICE_USD);
 
@@ -4203,7 +4216,7 @@ function BookReader({ ageTabRequest, assignAllStandardsRequest, autoRunAll = fal
     } finally {
       setProcessingPage(undefined);
     }
-  }, [addRecognizeCost, completeStage, book.id, file, isGeneratingAllConcepts, isIdentifyingChapters, isRecognizingAll, pageNumber, pages, processingPage, totalPages]);
+  }, [addRecognizeCost, addRecognizeExternalCall, completeStage, book.id, file, isGeneratingAllConcepts, isIdentifyingChapters, isRecognizingAll, pageNumber, pages, processingPage, totalPages]);
 
   const recognizeAllPages = useCallback(async (): Promise<void> => {
     if (!totalPages || processingPage !== undefined || isGeneratingAllConcepts || isRecognizingAll || isIdentifyingChapters) {
@@ -4238,7 +4251,7 @@ function BookReader({ ageTabRequest, assignAllStandardsRequest, autoRunAll = fal
         }
 
         recognitionTasks.push((async () => {
-          const { mathpixHeadings, pageMMD, pageMMDZip } = await recognizePageWithMathpix(apiKey, file, currentPageNumber);
+          const { mathpixHeadings, pageMMD, pageMMDZip } = await recognizePageWithMathpix(apiKey, file, currentPageNumber, addRecognizeExternalCall);
 
           addRecognizeCost(MATHPIX_PDF_PAGE_PRICE_USD);
 
@@ -4281,7 +4294,7 @@ function BookReader({ ageTabRequest, assignAllStandardsRequest, autoRunAll = fal
         setActivePane('text');
       }
     }
-  }, [addRecognizeCost, completeStage, book.id, file, isGeneratingAllConcepts, isIdentifyingChapters, isRecognizingAll, onProcessingComplete, pages, processingPage, totalPages]);
+  }, [addRecognizeCost, addRecognizeExternalCall, completeStage, book.id, file, isGeneratingAllConcepts, isIdentifyingChapters, isRecognizingAll, onProcessingComplete, pages, processingPage, totalPages]);
 
   const saveMathpixApiKey = useCallback(async (): Promise<void> => {
     const apiKey = mathpixApiKey.trim();

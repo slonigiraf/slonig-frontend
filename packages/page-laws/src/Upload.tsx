@@ -24,6 +24,7 @@ import { conceptBelongsToChapter, conceptsForRefinementChapter, isRefineChapters
 import { clearFixConceptsChapterStatuses, failedFixConceptChapterKeys, fixConceptsChapterKey } from './fixConceptsProgress.js';
 import { formatOpenRouterSpend } from './openRouterCost.js';
 import { clearBookStageTimes, formatBookStageTime, loadBookStageTimes, type BookStageTimes } from './bookStageTime.js';
+import { bookExternalCallTotal, clearBookExternalCalls, loadBookExternalCalls, type BookExternalCalls } from './bookExternalCalls.js';
 import { loadStandardsCatalogsForBookSubject, STANDARDS_MATCH_RUNS, standardsConceptInputs, standardsMatchingPrompt } from './standards.js';
 import { AiPriceEstimate, UnitPriceEstimate } from './PriceEstimate.js';
 import { loadPdfJs } from './pdf.js';
@@ -164,6 +165,7 @@ function Upload (): React.ReactElement {
   const [isPriceOpen, setIsPriceOpen] = useState(false);
   const [priceBook, setPriceBook] = useState<Book>();
   const [priceStageTimes, setPriceStageTimes] = useState<BookStageTimes>({});
+  const [priceExternalCalls, setPriceExternalCalls] = useState<BookExternalCalls>({});
   const [isFastForwardConfirmationOpen, setIsFastForwardConfirmationOpen] = useState(false);
   const [isFastForwardRunning, setIsFastForwardRunning] = useState(false);
   const [fastForwardStartKey, setFastForwardStartKey] = useState<string>();
@@ -231,6 +233,10 @@ function Upload (): React.ReactElement {
     () => PRICE_STAGES.reduce((total, { key }) => total + (priceStageTimes[key] ?? 0), 0),
     [priceStageTimes]
   );
+  const totalExternalCalls = useMemo(
+    () => PRICE_STAGES.reduce((total, { key }) => total + bookExternalCallTotal(priceExternalCalls[key]), 0),
+    [priceExternalCalls]
+  );
   useEffect(() => {
     let active = true;
     const opfsName = selectedBookOpfsName;
@@ -260,6 +266,7 @@ function Upload (): React.ReactElement {
 
     setPriceBook(selectedBook);
     setPriceStageTimes(loadBookStageTimes(selectedBook.id));
+    setPriceExternalCalls(loadBookExternalCalls(selectedBook.id));
     setIsPriceOpen(true);
     getBook(selectedBook.id)
       .then((storedBook) => {
@@ -274,6 +281,7 @@ function Upload (): React.ReactElement {
     setIsPriceOpen(false);
     setPriceBook(undefined);
     setPriceStageTimes({});
+    setPriceExternalCalls({});
   }, []);
 
   const onFastForward = useCallback((startKey: string): void => {
@@ -1270,6 +1278,7 @@ function Upload (): React.ReactElement {
       await deleteBook(selectedBook.id);
       clearFixConceptsChapterStatuses(selectedBook.id);
       clearBookStageTimes(selectedBook.id);
+      clearBookExternalCalls(selectedBook.id);
 
       const remaining = books.filter(({ id }) => id !== selectedBook.id);
 
@@ -1345,23 +1354,24 @@ function Upload (): React.ReactElement {
         </PriceContent>
       </StageRunPricePopup>}
       {isPriceOpen && <PriceModal
-        header={t('Price overview')}
+        header={t('Statistics')}
         onClose={closePrice}
         size='small'
       >
         <Modal.Content>
           <PriceContent>
-            <p className='priceIntro'>{t('Cumulative spending and processing time for this book, including reruns.')}</p>
             <div className='priceTableFrame'>
               <table className='priceTable'>
                 <colgroup>
                   <col className='priceStageColumn' />
+                  <col className='priceCallsColumn' />
                   <col className='priceValueColumn' />
                   <col className='priceTimeColumn' />
                 </colgroup>
                 <thead>
                   <tr>
                     <th scope='col'>{t('Stage')}</th>
+                    <th scope='col'>{t('External calls')}</th>
                     <th scope='col'>{t('Price')}</th>
                     <th scope='col'>{t('Time')}</th>
                   </tr>
@@ -1370,9 +1380,11 @@ function Upload (): React.ReactElement {
                   {PRICE_STAGES.map(({ detail, key, label }) => {
                     const value = priceBook?.stageSpend?.[key] ?? 0;
                     const elapsedMs = priceStageTimes[key] ?? 0;
+                    const externalCalls = priceExternalCalls[key];
 
-                    return <tr className={value === 0 && elapsedMs === 0 ? 'isZero' : undefined} key={key}>
+                    return <tr className={value === 0 && elapsedMs === 0 && bookExternalCallTotal(externalCalls) === 0 ? 'isZero' : undefined} key={key}>
                       <th scope='row'>{t(label)}{detail && <small className='priceSource'>{detail}</small>}</th>
+                      <td className='priceCallsCell'>{bookExternalCallTotal(externalCalls).toLocaleString()}</td>
                       <td>{formatOpenRouterSpend(value)}</td>
                       <td>{formatBookStageTime(elapsedMs)}</td>
                     </tr>;
@@ -1381,6 +1393,7 @@ function Upload (): React.ReactElement {
                 <tfoot>
                   <tr>
                     <th scope='row'>{t('Total')}</th>
+                    <td className='priceCallsCell'>{totalExternalCalls.toLocaleString()}</td>
                     <td>{formatOpenRouterSpend(totalSpend)}</td>
                     <td>{formatBookStageTime(totalStageTime)}</td>
                   </tr>
@@ -1730,7 +1743,7 @@ function Upload (): React.ReactElement {
 
 const PriceModal = styled(Modal)`
   .ui--Modal__body {
-    max-width: 40rem;
+    max-width: 58rem;
     width: calc(100vw - 2rem);
   }
 `;
@@ -1764,12 +1777,16 @@ const PriceContent = styled.div`
   }
 
   .priceStageColumn {
-    width: 52%;
+    width: 38%;
+  }
+
+  .priceCallsColumn {
+    width: 20%;
   }
 
   .priceValueColumn,
   .priceTimeColumn {
-    width: 24%;
+    width: 21%;
   }
 
   .priceTable th {
@@ -1788,6 +1805,7 @@ const PriceContent = styled.div`
     text-align: right;
   }
 
+
   .fastForwardPriceTable th {
     width: 62%;
   }
@@ -1799,6 +1817,7 @@ const PriceContent = styled.div`
     text-align: right;
     white-space: nowrap;
   }
+
 
   .priceTable tbody tr:last-child th,
   .priceTable tbody tr:last-child td {

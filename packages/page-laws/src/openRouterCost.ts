@@ -26,11 +26,9 @@ export function reportOpenRouterCost (response: unknown, reporter?: OpenRouterCo
     return;
   }
 
-  const cost = openRouterResponseCost(response);
-
-  if (cost > 0) {
-    reporter(cost);
-  }
+  // Report successful responses even when the provider omits cost data so
+  // stage statistics can still count the external OpenRouter call.
+  reporter(openRouterResponseCost(response));
 }
 
 export function formatOpenRouterSpend (costUsd: number): string {

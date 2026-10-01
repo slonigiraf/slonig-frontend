@@ -18,6 +18,7 @@ import { isTikzCode } from './Edit/tikz.js';
 import { nextStoredTikzValidity, shouldSkipStoredTikzCompile } from './Edit/tikzValidation.js';
 import { parseAbilityRepairResult, parseStoredAbility, withAbilityVisualSource } from './abilities.js';
 import { parseExerciseRepairResult } from './exercises.js';
+import { addBookExternalCall } from './bookExternalCalls.js';
 import { estimateAiInput } from './aiEstimate.js';
 import { ABILITY_WORKFLOW_SYSTEM_PROMPT, DEFAULT_PROCESSING_MODEL, FIX_ABILITIES_REQUEST_PROMPT, FIX_EXERCISES_REQUEST_PROMPT, JSON_VALIDATION_PROMPT, LEARNER_AGE_PROMPT, MATH_DISPLAY_REQUIREMENTS_PROMPT, REPAIR_SYSTEM_PROMPT, SKILLS_GENERATION_SYSTEM_PROMPT, SOURCES_TO_SKILLS_REQUEST_PROMPT } from './constants.js';
 import { abilityGenerationRequestPrompt, generateExerciseAbility, transportCompactAbilitySourceExercise } from './abilityWorkflow.js';
@@ -1458,6 +1459,7 @@ function Skills ({ autoRunAll = false, autoRunStartKey, book, externalAutoRunBus
   }, [onContentChange, refresh]);
   const addOpenRouterCost = useCallback((costUsd: number): void => setOpenRouterSpent((current) => current + costUsd), []);
   const addStageCost = useCallback((stage: BookStageSpendKey, costUsd: number): void => {
+    addBookExternalCall(book.id, stage, 'openrouter');
     setOpenRouterSpent((current) => current + costUsd);
     void addBookStageSpend(book.id, stage, costUsd).catch(console.error);
   }, [book.id]);
