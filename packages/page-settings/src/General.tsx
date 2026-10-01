@@ -27,6 +27,7 @@ function General({ className = '' }: Props): React.ReactElement<Props> {
   const currentVersion = useSettingValue(SettingKey.APP_VERSION);
   const { currentPair } = useLoginContext();
   const [openRouterToken, setOpenRouterToken] = useState('');
+  const [mathpixAppId, setMathpixAppId] = useState('');
   const [mathpixApiKey, setMathpixApiKey] = useState('');
   const [isDeveloper, setDeveloper] = useState<boolean>(false);
   const [includeEverythingInBackup, setIncludeEverythingInBackup] = useState(false);
@@ -82,11 +83,16 @@ function General({ className = '' }: Props): React.ReactElement<Props> {
   }, []);
 
   useEffect((): void => {
-    const loadMathpixApiKey = async () => {
-      const key = await getSetting(SettingKey.MATHPIX_API_KEY);
+    const loadMathpixCredentials = async () => {
+      const [appId, key] = await Promise.all([
+        getSetting(SettingKey.MATHPIX_APP_ID),
+        getSetting(SettingKey.MATHPIX_API_KEY)
+      ]);
+
+      appId && setMathpixAppId(appId);
       key && setMathpixApiKey(key);
     }
-    loadMathpixApiKey();
+    loadMathpixCredentials();
   }, []);
 
   const _handleChange = useCallback(
@@ -107,6 +113,15 @@ function General({ className = '' }: Props): React.ReactElement<Props> {
       setChanged(true);
     },
     [setOpenRouterToken]
+  );
+
+  const saveMathpixAppId = useCallback(
+    async (value: string) => {
+      setMathpixAppId(value);
+      await storeSetting(SettingKey.MATHPIX_APP_ID, value)
+      setChanged(true);
+    },
+    [setMathpixAppId]
   );
 
   const saveMathpixApiKey = useCallback(
@@ -183,6 +198,15 @@ function General({ className = '' }: Props): React.ReactElement<Props> {
           label={t('OpenRouter Token')}
           onChange={saveOpenRouterToken}
           value={openRouterToken}
+        />
+      </div>}
+
+      {isDeveloper && <div className='ui--row'>
+        <Input
+          className='full'
+          label={t('Mathpix App ID')}
+          onChange={saveMathpixAppId}
+          value={mathpixAppId}
         />
       </div>}
 
