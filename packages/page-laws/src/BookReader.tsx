@@ -31,7 +31,6 @@ import { formatOpenRouterSpend, reportOpenRouterCost, type OpenRouterCostReporte
 import { useBookStageTimer } from './bookStageTime.js';
 import { BOOK_AGE_DETECTION_PROMPT, BOOK_CHAPTER_EXTRACTION_REQUEST_PROMPT, BOOK_LANGUAGE_DETECTION_PROMPT, BOOK_SUBJECT_DETECTION_PROMPT, DEFAULT_PROCESSING_MODEL, DEFAULT_STANDARDS_MODEL, MATHPIX_PDF_PAGE_PRICE_USD, OPENAI_MODELS } from './constants.js';
 import { stripMarkdownImageReferences } from './bookImageRefs.js';
-import { recognizePdfWithMathpix } from './mathpixPdf.js';
 import { chapterAssignmentsFromBoundaries, chapterEvidenceWindows, chapterReconciliationPrompt, chapterWindowPrompt, deriveStructuralChapterCandidates, extractMathpixHeadingsFromLines, pageChapterEvidence, parseChapterBoundaries, stabilizeChapterBoundaries, type ChapterBoundaryProposal } from './chapterSegmentation.js';
 import { getSharedChapterSelection, resolveSharedChapterIndex, storeSharedChapterSelection, subscribeSharedChapterSelection, type SharedChapterSelection } from './chapterSelection.js';
 import { conceptChapterMoveInsertionIndex } from './conceptChapterMove.js';
@@ -879,6 +878,8 @@ async function generateChapterContentWithEmptyConceptRetry(client: OpenAI, model
   }
 }
 
+const MATHPIX_PAGE_CONCURRENCY = 50;
+
 const pageSessionKey = (bookId: number): string => `knowledge-upload-book-${bookId}-page`;
 
 function getSessionPage(bookId: number): number {
@@ -1298,6 +1299,117 @@ async function requestChapterBoundaries(client: OpenAI, model: string, prompt: s
   return parseChapterBoundaries(content, totalPages);
 }
 
+async function createSinglePagePdf (file: File, pageNumber: number): Promise<Blob> {
+  const { PDFDocument } = await import('pdf-lib');
+  const sourcePdf = await PDFDocument.load(await file.arrayBuffer());
+  const pagePdf = await PDFDocument.create();
+  const [page] = await pagePdf.copyPages(sourcePdf, [pageNumber - 1]);
+
+  pagePdf.addPage(page);
+
+  const bytes = await pagePdf.save();
+  const buffer = new ArrayBuffer(bytes.byteLength);
+
+  new Uint8Array(buffer).set(bytes);
+
+  return new Blob([buffer], { type: 'application/pdf' });
+}
+
+async function recognizePageWithMathpix (appId: string | undefined, apiKey: string, file: File, pageNumber: number, onExternalCall?: (provider: Exclude<BookExternalCallProvider, 'openrouter'>) => void): Promise<Pick<BookPage, 'mathpixHeadings' | 'pageMMD' | 'pageMMDZip'>> {
+  const headers: Record<string, string> = { app_key: apiKey };
+
+  if (appId?.trim()) {
+    headers.app_id = appId.trim();
+  }
+
+  const body = new FormData();
+  const pagePdf = await createSinglePagePdf(file, pageNumber);
+  const fileName = `${file.name.replace(/\.pdf$/i, '')}-page-${pageNumber}.pdf`;
+
+  body.append('file', pagePdf, fileName);
+  body.append('options_json', JSON.stringify({
+    conversion_formats: { 'mmd.zip': true }
+  }));
+
+  onExternalCall?.('pdfv3');
+  const response = await fetch('https://api.mathpix.com/v3/pdf', {
+    body,
+    headers,
+    method: 'POST'
+  });
+  const result = await response.json() as { error?: string; pdf_id?: string };
+
+  if (!response.ok || !result.pdf_id) {
+    throw new Error(result.error || 'Mathpix could not start PDF recognition.');
+  }
+
+  for (let attempt = 0; attempt < 120; attempt++) {
+    onExternalCall?.('pdfv3');
+    const statusResponse = await fetch(`https://api.mathpix.com/v3/pdf/${result.pdf_id}`, { headers });
+    const statusResult = await statusResponse.json() as {
+      conversion_status?: Record<string, { error?: string; status?: string }>;
+      error?: string;
+      status?: string;
+    };
+    const zipStatus = statusResult.conversion_status?.['mmd.zip'];
+
+    if (!statusResponse.ok) {
+      throw new Error(statusResult.error || 'Unable to check Mathpix PDF recognition.');
+    }
+
+    if (statusResult.status === 'error') {
+      throw new Error(statusResult.error || 'Mathpix could not recognize the PDF page.');
+    }
+
+    const zipConversionFinished = !zipStatus || zipStatus.status === 'completed' || zipStatus.status === 'error';
+
+    if (statusResult.status === 'completed' && zipConversionFinished) {
+      onExternalCall?.('mmd');
+      onExternalCall?.('pdfv3');
+      const [mmdResponse, linesResponse] = await Promise.all([
+        fetch(`https://api.mathpix.com/v3/pdf/${result.pdf_id}.mmd`, { headers }),
+        fetch(`https://api.mathpix.com/v3/pdf/${result.pdf_id}.lines.json`, { headers })
+      ]);
+
+      if (!mmdResponse.ok) {
+        throw new Error('Unable to download the MMD text from Mathpix.');
+      }
+
+      let mathpixHeadings: MathpixHeading[] = [];
+      let pageMMDZip: Blob | undefined;
+
+      if (linesResponse.ok) {
+        try {
+          mathpixHeadings = extractMathpixHeadingsFromLines(await linesResponse.json());
+        } catch {
+          // The normal MMD result is still usable when optional line metadata fails.
+        }
+      }
+
+      // The ZIP contains embedded page images, but blank pages can have valid
+      // MMD even when Mathpix reports that this optional conversion failed.
+      if (zipStatus?.status === 'completed') {
+        onExternalCall?.('mmd');
+        const zipResponse = await fetch(`https://api.mathpix.com/v3/pdf/${result.pdf_id}.mmd.zip`, { headers });
+
+        if (zipResponse.ok) {
+          pageMMDZip = await zipResponse.blob();
+        }
+      }
+
+      return {
+        mathpixHeadings,
+        pageMMD: (await mmdResponse.text()).trim(),
+        pageMMDZip
+      };
+    }
+
+    await delay(1000);
+  }
+
+  throw new Error('Mathpix timed out while recognizing the PDF page.');
+}
+
 interface Props {
   ageTabRequest: number;
   assignAllStandardsRequest: number;
@@ -1333,6 +1445,7 @@ interface Props {
 }
 
 type ReaderPane = 'age' | 'chapters' | 'conceptExercises' | 'conceptsSkills' | 'language' | 'subject' | 'pdf' | 'preExercisesExercises' | 'skillsCourse' | 'standards' | 'text' | 'textConcepts';
+type RecognitionTarget = 'all' | 'page';
 interface ReaderEntityCounts {
   abilities: number;
   bookExercises: number;
@@ -1561,6 +1674,7 @@ function BookReader({ ageTabRequest, assignAllStandardsRequest, autoRunAll = fal
   const [hasRecognitionBeenAttempted, setHasRecognitionBeenAttempted] = useState(() => getSessionRecognitionAttempted(book.id));
   const [revealedPanes, setRevealedPanes] = useState<Set<ReaderPane>>(new Set());
   const [generatedExercisesPageCount, setGeneratedExercisesPageCount] = useState(0);
+  const [recognitionTarget, setRecognitionTarget] = useState<RecognitionTarget>('page');
   const [processingPage, setProcessingPage] = useState<number>();
   const [pageInput, setPageInput] = useState('1');
   const [pageNumber, setPageNumber] = useState(1);
@@ -4054,6 +4168,61 @@ function BookReader({ ageTabRequest, assignAllStandardsRequest, autoRunAll = fal
     }
   }, [autoRunAll, confirmAgeDetection, confirmLanguageDetection, confirmSubjectDetection, isAgeDetectionConfirmationOpen, isLanguageDetectionConfirmationOpen, isSubjectDetectionConfirmationOpen]);
 
+  const recognizePage = useCallback(async (): Promise<void> => {
+    if (processingPage !== undefined || isGeneratingAllConcepts || isRecognizingAll || isIdentifyingChapters) {
+      return;
+    }
+
+    setError('');
+    setOpenRouterSpent(0);
+    setProcessingPage(pageNumber);
+
+    try {
+      const [appId, apiKey] = await Promise.all([
+        getSetting(SettingKey.MATHPIX_APP_ID),
+        getSetting(SettingKey.MATHPIX_API_KEY)
+      ]);
+
+      if (!apiKey) {
+        setMathpixApiKey('');
+        setRecognitionTarget('page');
+        setIsMathpixKeyPromptOpen(true);
+
+        return;
+      }
+
+      const { mathpixHeadings, pageMMD, pageMMDZip } = await recognizePageWithMathpix(appId, apiKey, file, pageNumber, addRecognizeExternalCall);
+
+      addRecognizeCost(MATHPIX_PDF_PAGE_PRICE_USD);
+
+      const recognizedPage: BookPage = {
+        ...pages.get(pageNumber),
+        bookId: book.id,
+        chapter: pages.get(pageNumber)?.chapter ?? '',
+        conceptsProcessed: pages.get(pageNumber)?.conceptsProcessed ?? false,
+        mathpixHeadings,
+        pageMMD,
+        pageMMDZip,
+        pageNumber
+      };
+
+      await putBookPage(recognizedPage);
+      const updatedPages = new Map(pages).set(pageNumber, recognizedPage);
+
+      setPages(updatedPages);
+
+      if (totalPages && Array.from({ length: totalPages }, (_, index) => updatedPages.get(index + 1)).every((page) => page?.pageMMD !== undefined)) {
+        await completeStage('recognize');
+      }
+
+      setActivePane('text');
+    } catch (recognitionError) {
+      setError(recognitionError instanceof Error ? recognitionError.message : 'Unable to recognize this page.');
+    } finally {
+      setProcessingPage(undefined);
+    }
+  }, [addRecognizeCost, addRecognizeExternalCall, completeStage, book.id, file, isGeneratingAllConcepts, isIdentifyingChapters, isRecognizingAll, pageNumber, pages, processingPage, totalPages]);
+
   const recognizeAllPages = useCallback(async (): Promise<void> => {
     if (!totalPages || processingPage !== undefined || isGeneratingAllConcepts || isRecognizingAll || isIdentifyingChapters) {
       return;
@@ -4074,6 +4243,7 @@ function BookReader({ ageTabRequest, assignAllStandardsRequest, autoRunAll = fal
     // working instead of forcing users through a new App ID migration prompt.
     if (!apiKey) {
       setMathpixApiKey('');
+      setRecognitionTarget('all');
       setIsMathpixKeyPromptOpen(true);
       setIsRecognizingAll(false);
       onProcessingComplete();
@@ -4084,44 +4254,42 @@ function BookReader({ ageTabRequest, assignAllStandardsRequest, autoRunAll = fal
     let recognitionCompleted = false;
 
     try {
-      const recognition = await recognizePdfWithMathpix(appId, apiKey, file, totalPages, (completedPages) => {
-        setRecognizedPageCount((current) => Math.max(current, Math.min(totalPages, completedPages)));
-      }, addRecognizeExternalCall);
+      const pageNumbers = Array.from({ length: totalPages }, (_, index) => index + 1);
+      const results = await mapConcurrent(pageNumbers, MATHPIX_PAGE_CONCURRENCY, async (currentPageNumber) => {
+        try {
+          const { mathpixHeadings, pageMMD, pageMMDZip } = await recognizePageWithMathpix(appId, apiKey, file, currentPageNumber, addRecognizeExternalCall);
 
-      if (recognition.pages.length !== totalPages) {
-        throw new Error(`Mathpix returned ${recognition.pages.length} pages for a ${totalPages}-page PDF.`);
+          addRecognizeCost(MATHPIX_PDF_PAGE_PRICE_USD);
+
+          const storedPage = pages.get(currentPageNumber);
+          const recognizedPage: BookPage = {
+            ...storedPage,
+            bookId: book.id,
+            chapter: storedPage?.chapter ?? '',
+            conceptsProcessed: storedPage?.conceptsProcessed ?? false,
+            mathpixHeadings,
+            pageMMD,
+            pageMMDZip,
+            pageNumber: currentPageNumber
+          };
+
+          await putBookPage(recognizedPage);
+          setPages((current) => new Map(current).set(currentPageNumber, recognizedPage));
+          setRecognizedPageCount((count) => count + 1);
+
+          return true;
+        } catch {
+          return false;
+        }
+      });
+      const failedPages = results.filter((succeeded) => !succeeded).length;
+
+      if (failedPages) {
+        setError(`${failedPages} of ${totalPages} pages could not be recognized.`);
+      } else {
+        await completeStage('recognize');
+        recognitionCompleted = true;
       }
-
-      const recognizedPages = new Map(pages);
-
-      for (let index = 0; index < recognition.pages.length; index++) {
-        const currentPageNumber = index + 1;
-        const storedPage = pages.get(currentPageNumber);
-        const linesPage = recognition.lines.pages?.find(({ page }) => page === currentPageNumber);
-        const mathpixHeadings = linesPage
-          ? extractMathpixHeadingsFromLines({ pages: [linesPage] })
-          : [];
-        const { pageMMD, pageMMDZip } = recognition.pages[index];
-        const recognizedPage: BookPage = {
-          ...storedPage,
-          bookId: book.id,
-          chapter: storedPage?.chapter ?? '',
-          conceptsProcessed: storedPage?.conceptsProcessed ?? false,
-          mathpixHeadings,
-          pageMMD,
-          pageMMDZip,
-          pageNumber: currentPageNumber
-        };
-
-        await putBookPage(recognizedPage);
-        recognizedPages.set(currentPageNumber, recognizedPage);
-      }
-
-      setPages(recognizedPages);
-      setRecognizedPageCount(totalPages);
-      addRecognizeCost(MATHPIX_PDF_PAGE_PRICE_USD * totalPages);
-      await completeStage('recognize');
-      recognitionCompleted = true;
     } catch (recognitionError) {
       setError(recognitionError instanceof Error ? recognitionError.message : 'Unable to recognize all pages.');
     } finally {
@@ -4144,8 +4312,8 @@ function BookReader({ ageTabRequest, assignAllStandardsRequest, autoRunAll = fal
     await storeSetting(SettingKey.MATHPIX_API_KEY, apiKey);
     setIsMathpixKeyPromptOpen(false);
     setMathpixApiKey('');
-    await recognizeAllPages();
-  }, [mathpixApiKey, recognizeAllPages]);
+    await (recognitionTarget === 'all' ? recognizeAllPages() : recognizePage());
+  }, [mathpixApiKey, recognitionTarget, recognizeAllPages, recognizePage]);
 
   const submitMathpixApiKey = useCallback((): void => {
     saveMathpixApiKey().catch((saveError) => {
@@ -5099,14 +5267,20 @@ function BookReader({ ageTabRequest, assignAllStandardsRequest, autoRunAll = fal
     { length: totalPages },
     (_, index) => index + 1
   ).filter((candidatePageNumber) => pages.get(candidatePageNumber)?.pageMMD === undefined), [pages, totalPages]);
+  const isCurrentPageUnrecognized = unrecognizedPageNumbers.includes(pageNumber);
   const showUnrecognizedPages = hasRecognitionBeenAttempted && unrecognizedPageNumbers.length > 0;
+  const rerecognizePage = useCallback((): void => {
+    recognizePage().catch(console.error);
+  }, [recognizePage]);
 
   const recognizedTextPane = (): React.ReactNode => (
     <div className='tabPanel'>
       <div className='detailsHeader'>
         <span>{isRecognizingAll
           ? `Recognizing all pages… ${recognizedPageCount}/${totalPages}`
-          : 'Recognized text'}</span>
+          : processingPage === pageNumber
+            ? 'Recognizing page…'
+            : 'Recognized text'}</span>
       </div>
       {pages.get(pageNumber)?.pageMMD !== undefined
         ? <div className='recognizedOutput'>
@@ -5116,7 +5290,17 @@ function BookReader({ ageTabRequest, assignAllStandardsRequest, autoRunAll = fal
             </MathpixLoader>
             : <p className='emptyOutput'>No recognizable text was found on this page.</p>}
         </div>
-        : <p className='emptyOutput'>This page has not been recognized yet.</p>}
+        : <>
+          <p className='emptyOutput'>This page has not been recognized yet.</p>
+          {activePane === 'text' && hasRecognitionBeenAttempted && isCurrentPageUnrecognized && <div className='rerecognizePage'>
+            <Button
+              icon='rotate-left'
+              isDisabled={processingPage !== undefined || isRecognizingAll || isGeneratingAllConcepts || isIdentifyingChapters}
+              label={processingPage === pageNumber ? 'Recognizing…' : 'Rerecognize'}
+              onClick={rerecognizePage}
+            />
+          </div>}
+        </>}
     </div>
   );
 
@@ -5945,7 +6129,7 @@ function BookReader({ ageTabRequest, assignAllStandardsRequest, autoRunAll = fal
         size='small'
       >
         <Modal.Content>
-          <p>Enter your Mathpix API key to recognize the full PDF and create per-page MMD ZIPs.</p>
+          <p>Enter your Mathpix API key to recognize {recognitionTarget === 'all' ? 'all pages' : 'this page'} and create MMD ZIPs.</p>
           <p>
             Get your API key from <a
               href='https://console.mathpix.com/'
@@ -5967,7 +6151,7 @@ function BookReader({ ageTabRequest, assignAllStandardsRequest, autoRunAll = fal
             <Button
               icon='check'
               isDisabled={!mathpixApiKey.trim()}
-              label='Save API key'
+              label='Save key'
               onClick={submitMathpixApiKey}
             />
           </Button.Group>
@@ -6509,6 +6693,12 @@ const StyledReader = styled.div`
     justify-self: start;
     max-width: 14rem;
     padding: 0.55rem;
+  }
+
+  .rerecognizePage {
+    display: flex;
+    justify-content: flex-start;
+    padding-top: 0.75rem;
   }
 
   .pageScroller {
